@@ -17,6 +17,7 @@ except ImportError:  # pragma: no cover
     OpenAI = None
 
 from app.core.conversation_copy import SEARCH_EMPTY, SEARCH_INTRO_MANY
+from app.core.intent import FORCE_SEARCH_PHRASES
 from app.core.dedupe import cosine_similarity
 from app.db.models import Event
 
@@ -42,6 +43,25 @@ ACTIVITY_TYPES = {
     "outdoors": ["hike", "park", "trail", "camping", "outdoor"],
 }
 
+NARROW_DOWN_CLOSING = (
+    "\n\nWant me to narrow it down? Just tell me what you're in the mood for 👍"
+)
+
+_BROAD_LISTING_PHRASES = FORCE_SEARCH_PHRASES + (
+    "what do you have",
+    "what's happening",
+    "whats happening",
+    "anything happening",
+    "all the events",
+)
+
+
+def is_broad_listing_query(message: str) -> bool:
+    """True when the user is asking for a full listing, not a filtered search — skip date/activity prompts."""
+    lowered = message.lower()
+    return any(phrase in lowered for phrase in _BROAD_LISTING_PHRASES)
+
+
 GROUP_EMOJI = {
     "Martial Arts": "🥋",
     "Sports": "⚽",
@@ -64,9 +84,12 @@ def extract_search_context(message: str) -> dict[str, Any]:
 def generate_query_embedding(text: str) -> list[float]:
     api_key = os.getenv("OPENAI_API_KEY")
     if api_key and OpenAI is not None:
-        client = OpenAI(api_key=api_key)
-        response = client.embeddings.create(model=SEARCH_QUERY_EMBEDDING_MODEL, input=text.strip() or " ")
-        return list(response.data[0].embedding)
+        try:
+            client = OpenAI(api_key=api_key)
+            response = client.embeddings.create(model=SEARCH_QUERY_EMBEDDING_MODEL, input=text.strip() or " ")
+            return list(response.data[0].embedding)
+        except Exception:
+            return _deterministic_embedding_1536(text)
     return _deterministic_embedding_1536(text)
 
 
@@ -195,17 +218,20 @@ def _group_heading(category: str) -> str:
     return f"{emoji} {category}"
 
 
-def format_results(events: list[Event]) -> str:
+def format_results(events: list[Event], *, append_narrow_hint: bool = False) -> str:
     if not events:
         return SEARCH_EMPTY
 
     if len(events) == 1:
         e = events[0]
         url_bit = f"\n{e.event_url}" if getattr(e, "event_url", None) else ""
-        return (
+        body = (
             f"Found one that might work: {e.title} — {e.date.isoformat()} at "
             f"{e.start_time.isoformat()} ({e.location_name}){url_bit}"
         )
+        if append_narrow_hint:
+            body += NARROW_DOWN_CLOSING
+        return body
 
     grouped: dict[str, list[Event]] = defaultdict(list)
     for event in events:
@@ -221,10 +247,15 @@ def format_results(events: list[Event]) -> str:
                 f"  • {event.title} — {event.date.isoformat()} at {event.start_time.isoformat()} "
                 f"({event.location_name}){url_bit}"
             )
-    return "\n".join(lines)
+    body = "\n".join(lines)
+    if append_narrow_hint:
+        body += NARROW_DOWN_CLOSING
+    return body
 
 
-def missing_search_fields(context: dict[str, Any]) -> str | None:
+def missing_search_fields(context: dict[str, Any], message: str = "") -> str | None:
+    if is_broad_listing_query(message):
+        return None
     if context.get("date_context") is None:
         return "When works for you — this weekend, or a specific day?"
     if context.get("activity_type") is None:

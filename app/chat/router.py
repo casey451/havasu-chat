@@ -47,6 +47,7 @@ from app.core.intent import (
 from app.core.search import (
     extract_search_context,
     format_results,
+    is_broad_listing_query,
     merge_search_context,
     missing_search_fields,
     search_events,
@@ -440,7 +441,7 @@ def _start_search_flow(message: str, session: dict, db: Session) -> ChatResponse
     merged_context = merge_search_context(current_context, extracted_context)
     session["search_context"] = merged_context
 
-    question = missing_search_fields(merged_context)
+    question = missing_search_fields(merged_context, message)
     if question:
         session["awaiting_search_clarification"] = True
         session["pending_search_question"] = question
@@ -456,7 +457,7 @@ def _start_search_flow(message: str, session: dict, db: Session) -> ChatResponse
         query_message=message,
     )
     return ChatResponse(
-        response=format_results(events),
+        response=format_results(events, append_narrow_hint=is_broad_listing_query(message)),
         intent="SEARCH_EVENTS",
         data={"count": len(events), "search_context": merged_context},
     )
@@ -467,7 +468,7 @@ def _continue_search_with_clarification(message: str, session: dict, db: Session
     merged_context = merge_search_context(session["search_context"], updated)
     session["search_context"] = merged_context
 
-    question = missing_search_fields(merged_context)
+    question = missing_search_fields(merged_context, message)
     if question:
         session["awaiting_search_clarification"] = True
         session["pending_search_question"] = question
@@ -483,7 +484,7 @@ def _continue_search_with_clarification(message: str, session: dict, db: Session
         query_message=message,
     )
     return ChatResponse(
-        response=format_results(events),
+        response=format_results(events, append_narrow_hint=is_broad_listing_query(message)),
         intent="SEARCH_EVENTS",
         data={"count": len(events), "search_context": merged_context},
     )

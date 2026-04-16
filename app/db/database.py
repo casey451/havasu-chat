@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 load_dotenv()
@@ -51,11 +51,16 @@ def init_db() -> None:
     cfg.set_main_option("sqlalchemy.url", get_database_url())
 
     insp = inspect(engine)
-    if insp.has_table("alembic_version"):
-        command.upgrade(cfg, "head")
-        return
-    if insp.has_table("events"):
-        # Pre-Alembic SQLite with full schema from metadata.create_all — align version table only.
+    has_av = insp.has_table("alembic_version")
+    has_events = insp.has_table("events")
+    if has_av:
+        with engine.connect() as conn:
+            n = conn.execute(text("SELECT COUNT(*) FROM alembic_version")).scalar()
+        if n:
+            command.upgrade(cfg, "head")
+            return
+        # Empty alembic_version table: treat like missing so we don't re-run initial CREATE on existing events.
+    if has_events:
         command.stamp(cfg, "head")
         return
     command.upgrade(cfg, "head")

@@ -82,13 +82,17 @@ def _extract_with_openai(message: str) -> dict | None:
     if not api_key or OpenAI is None:
         return None
 
-    client = OpenAI(api_key=api_key)
-    response = client.responses.create(
-        model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
-        input=EXTRACTION_PROMPT.format(message=message),
-    )
+    try:
+        client = OpenAI(api_key=api_key)
+        response = client.responses.create(
+            model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
+            input=EXTRACTION_PROMPT.format(message=message),
+        )
 
-    raw_text = response.output_text.strip()
+        raw_text = response.output_text.strip()
+    except Exception:
+        return None
+
     try:
         parsed = json.loads(raw_text)
     except json.JSONDecodeError:
@@ -198,9 +202,12 @@ def _title_case(value: str) -> str:
 def generate_embedding(text: str) -> list[float]:
     api_key = os.getenv("OPENAI_API_KEY")
     if api_key and OpenAI is not None:
-        client = OpenAI(api_key=api_key)
-        response = client.embeddings.create(model="text-embedding-3-small", input=text)
-        return list(response.data[0].embedding)
+        try:
+            client = OpenAI(api_key=api_key)
+            response = client.embeddings.create(model="text-embedding-3-small", input=text)
+            return list(response.data[0].embedding)
+        except Exception:
+            return _deterministic_embedding(text)
     return _deterministic_embedding(text)
 
 

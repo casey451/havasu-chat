@@ -208,11 +208,12 @@ def _build_seed_rows(today: date) -> list[dict]:
     ]
 
 
-def run_seed() -> tuple[int, int]:
+def run_seed(skip_init: bool = False) -> tuple[int, int]:
     """
     Insert missing seed events. Returns (inserted_count, skipped_count).
     """
-    init_db()
+    if not skip_init:
+        init_db()
     today = date.today()
     rows = _build_seed_rows(today)
 
@@ -273,6 +274,17 @@ def run_seed() -> tuple[int, int]:
         db.commit()
 
     return inserted, skipped
+
+
+def run_seed_if_empty() -> None:
+    """If there are no events (e.g. fresh production DB), run the full seed once.
+
+    Intended to be called from app startup on Railway (`RAILWAY_ENVIRONMENT` set in main.py).
+    """
+    with SessionLocal() as db:
+        if db.query(Event).count() > 0:
+            return
+    run_seed(skip_init=True)
 
 
 def main() -> None:

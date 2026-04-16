@@ -2,6 +2,28 @@ from __future__ import annotations
 
 
 ADD_EVENT_KEYWORDS = ["add", "there is", "i'm hosting", "im hosting", "event", "camp", "workshop", "clinic"]
+
+# Must win over ADD_EVENT_KEYWORDS (e.g. "event" in "show me all events").
+FORCE_SEARCH_PHRASES = (
+    "show me all events",
+    "what events do you have",
+    "show me everything",
+    "what's in the system",
+    "whats in the system",
+    "what is in the system",
+    "in your system",
+    "all events next week",
+    "show me events",
+    "what events are",
+    "what events is",
+    "list all events",
+    "all upcoming events",
+    "everything going on",
+    "what's going on",
+    "whats going on",
+    "what is going on",
+)
+
 SEARCH_KEYWORDS = ["what", "anything", "looking for", "going on", "something", "find", "this weekend", "next week"]
 CONFIRMATION_PHRASES = ["yes", "yep", "correct", "looks good", "that's right", "thats right"]
 REJECTION_PHRASES = ["no", "nope", "not quite", "incorrect", "wrong"]
@@ -39,6 +61,8 @@ GREETING_TOKENS = frozenset(
 
 def detect_intent(message: str) -> str:
     msg = message.lower()
+    if any(phrase in msg for phrase in FORCE_SEARCH_PHRASES):
+        return "SEARCH_EVENTS"
     if any(keyword in msg for keyword in ADD_EVENT_KEYWORDS):
         return "ADD_EVENT"
     if any(keyword in msg for keyword in SEARCH_KEYWORDS):
