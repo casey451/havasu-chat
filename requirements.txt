@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+python-multipart
+sqlalchemy
+alembic
+psycopg2-binary
+pydantic
+python-dotenv
+openai
+slowapi
+itsdangerous

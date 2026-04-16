@@ -1,0 +1,8 @@
+- Work one phase at a time. Never jump ahead.
+- Do not rewrite or restructure existing code unless explicitly instructed.
+- Do not add features that are not in the current phase.
+- After completing each task, confirm it works before moving to the next.
+- Keep all AI calls minimal and purposeful — not on every message.
+- All session state must be stored in memory (dict keyed by session_id) for now.
+- Do not introduce scraping, user auth, or a frontend UI until instructed.
+- Lake Havasu roadmap: complete one phase at a time (A → F); do not skip ahead; test end-to-end before the next phase.
