@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 
 ADD_EVENT_KEYWORDS = ["add", "there is", "i'm hosting", "im hosting", "event", "camp", "workshop", "clinic"]
 
@@ -22,6 +23,44 @@ FORCE_SEARCH_PHRASES = (
     "what's going on",
     "whats going on",
     "what is going on",
+)
+
+# Single-token messages that are clearly a search for an activity type.
+SINGLE_WORD_ACTIVITIES = frozenset(
+    {
+        "golf",
+        "tennis",
+        "yoga",
+        "pickleball",
+        "basketball",
+        "bjj",
+        "pilates",
+        "hiking",
+        "running",
+        "swimming",
+        "crossfit",
+        "zumba",
+        "barre",
+        "cycling",
+    }
+)
+
+# If the message looks like "I'm posting an event", do not treat "?" as search-only.
+ADD_EVENT_CREATION_MARKERS = (
+    "i'm hosting",
+    "im hosting",
+    "we're hosting",
+    "were hosting",
+    "i am hosting",
+    "add an event",
+    "add event",
+    "post an event",
+    "submit an event",
+    "registering",
+    "tickets at",
+    "ticket link",
+    "eventbrite",
+    "rsvp at",
 )
 
 SEARCH_KEYWORDS = ["what", "anything", "looking for", "going on", "something", "find", "this weekend", "next week"]
@@ -59,15 +98,53 @@ GREETING_TOKENS = frozenset(
 )
 
 
+def _is_clearly_add_event(msg: str) -> bool:
+    m = msg.lower()
+    if any(marker in m for marker in ADD_EVENT_CREATION_MARKERS):
+        return True
+    if "http://" in m or "https://" in m:
+        return True
+    return False
+
+
+def _word_boundary(lowered: str, word: str) -> bool:
+    return bool(re.search(rf"(^|[^a-z0-9]){re.escape(word)}([^a-z0-9]|$)", lowered))
+
+
+def is_cancel_or_restart(message: str) -> bool:
+    msg = message.lower().strip()
+    if any(phrase in msg for phrase in CANCEL_PHRASES):
+        return True
+    if _word_boundary(msg, "reset"):
+        return True
+    if _word_boundary(msg, "cancel"):
+        return True
+    return False
+
+
 def detect_intent(message: str) -> str:
-    msg = message.lower()
+    msg = message.lower().strip()
+    stripped_q = msg.rstrip("?").strip()
+
     if any(phrase in msg for phrase in FORCE_SEARCH_PHRASES):
         return "SEARCH_EVENTS"
+
+    words = stripped_q.split()
+    if len(words) == 1 and words[0] in SINGLE_WORD_ACTIVITIES:
+        return "SEARCH_EVENTS"
+
+    if msg.endswith("?") and not _is_clearly_add_event(msg):
+        return "SEARCH_EVENTS"
+
     if any(keyword in msg for keyword in ADD_EVENT_KEYWORDS):
         return "ADD_EVENT"
     if any(keyword in msg for keyword in SEARCH_KEYWORDS):
         return "SEARCH_EVENTS"
-    return "UNCLEAR"
+
+    # Bias toward SEARCH when still ambiguous (keep UNCLEAR for very short noise).
+    if len(stripped_q) <= 2 and not stripped_q.isalnum():
+        return "UNCLEAR"
+    return "SEARCH_EVENTS"
 
 
 def is_confirmation(message: str) -> bool:
@@ -78,11 +155,6 @@ def is_confirmation(message: str) -> bool:
 def is_rejection(message: str) -> bool:
     msg = message.lower().strip()
     return any(phrase in msg for phrase in REJECTION_PHRASES)
-
-
-def is_cancel_or_restart(message: str) -> bool:
-    msg = message.lower().strip()
-    return any(phrase in msg for phrase in CANCEL_PHRASES)
 
 
 SKIP_OPTIONAL_CONTACT_PHRASES = (

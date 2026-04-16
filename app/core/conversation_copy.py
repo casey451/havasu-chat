@@ -40,7 +40,7 @@ def preview_event_line(title: str, date_s: str, time_s: str, loc: str) -> str:
     )
 
 # Search
-SEARCH_EMPTY = "Nothing on the list yet — want to add one? Just tell me the details."
+SEARCH_EMPTY = "Nothing yet! You can add one by telling me the details."
 
 SEARCH_INTRO_MANY = "Here's what I found:"
 
@@ -48,4 +48,8 @@ SEARCH_INTRO_MANY = "Here's what I found:"
 MISSING_FIELD_GLITCH = "Whoops — I lost track for a second. Mind starting that event again from the top?"
 
 # Generic soft recovery (exceptions)
-CHAT_SOFT_FAIL = "Hmm, something got tangled on my end — mind saying that again?"
+CHAT_SOFT_FAIL = "Something went wrong on my end, try again?"
+
+STALE_SESSION_REPLY = (
+    "It's been a few minutes, so I cleared where we left off. What would you like to do next?"
+)

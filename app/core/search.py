@@ -4,7 +4,7 @@ import math
 import os
 import re
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, time as time_type, timedelta
 from typing import Any
 
 from dotenv import load_dotenv
@@ -16,7 +16,7 @@ try:
 except ImportError:  # pragma: no cover
     OpenAI = None
 
-from app.core.conversation_copy import SEARCH_EMPTY, SEARCH_INTRO_MANY
+from app.core.conversation_copy import SEARCH_INTRO_MANY
 from app.core.intent import FORCE_SEARCH_PHRASES
 from app.core.dedupe import cosine_similarity
 from app.db.models import Event
@@ -46,6 +46,10 @@ ACTIVITY_TYPES = {
 NARROW_DOWN_CLOSING = (
     "\n\nWant me to narrow it down? Just tell me what you're in the mood for 👍"
 )
+
+SEARCH_ZERO = "Nothing yet! You can add one by telling me the details."
+
+SEARCH_FEW_INTRO = "Here are your matches:"
 
 _BROAD_LISTING_PHRASES = FORCE_SEARCH_PHRASES + (
     "what do you have",
@@ -209,6 +213,48 @@ def _event_matches_keyword_terms(event: Event, text_terms: list[str]) -> bool:
     return all(term in blob for term in text_terms)
 
 
+def _format_short_date(d: date) -> str:
+    wk = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+    mo = ("", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+    return f"{wk[d.weekday()]} {mo[d.month]} {d.day}"
+
+
+def _format_time_ampm(t: time_type) -> str:
+    h24 = t.hour
+    ampm = "AM" if h24 < 12 else "PM"
+    h12 = h24 % 12
+    if h12 == 0:
+        h12 = 12
+    return f"{h12}:{t.minute:02d} {ampm}"
+
+
+def _truncate_desc(text: str, limit: int = 100) -> str:
+    cleaned = (text or "").replace("\n", " ").strip()
+    if len(cleaned) <= limit:
+        return cleaned
+    return cleaned[: limit - 1].rstrip() + "…"
+
+
+def _event_detail_block(event: Event) -> str:
+    desc = _truncate_desc(event.description or "")
+    lines = [
+        f"Title: {event.title}",
+        f"When: {_format_short_date(event.date)} at {_format_time_ampm(event.start_time)}",
+        f"Where: {event.location_name}",
+        f"About: {desc}",
+    ]
+    url = (getattr(event, "event_url", None) or "").strip()
+    if url:
+        lines.append(f"Link: {url}")
+    cn = (event.contact_name or "").strip() if event.contact_name else ""
+    cp = (event.contact_phone or "").strip() if event.contact_phone else ""
+    if cn:
+        lines.append(f"Contact: {cn}")
+    if cp:
+        lines.append(f"Phone: {cp}")
+    return "\n".join(lines)
+
+
 def _group_heading(category: str) -> str:
     emoji = GROUP_EMOJI.get(category, "📌")
     if category == "Arts":
@@ -218,37 +264,38 @@ def _group_heading(category: str) -> str:
     return f"{emoji} {category}"
 
 
-def format_results(events: list[Event], *, append_narrow_hint: bool = False) -> str:
+def format_results(events: list[Event], *, append_narrow_hint: bool | None = None) -> str:
+    """Format search hits: 0 / 1 / 2–3 / 4+ layouts per Phase 8."""
     if not events:
-        return SEARCH_EMPTY
+        return SEARCH_ZERO
 
     if len(events) == 1:
         e = events[0]
-        url_bit = f"\n{e.event_url}" if getattr(e, "event_url", None) else ""
-        body = (
-            f"Found one that might work: {e.title} — {e.date.isoformat()} at "
-            f"{e.start_time.isoformat()} ({e.location_name}){url_bit}"
-        )
-        if append_narrow_hint:
-            body += NARROW_DOWN_CLOSING
-        return body
+        block = _event_detail_block(e)
+        return f"Found one that might work:\n\n{block}"
+
+    if len(events) <= 3:
+        parts = [SEARCH_FEW_INTRO, ""]
+        for i, e in enumerate(events, start=1):
+            parts.append(f"{i}.")
+            parts.append(_event_detail_block(e))
+            parts.append("")
+        return "\n".join(parts).rstrip()
 
     grouped: dict[str, list[Event]] = defaultdict(list)
     for event in events:
         grouped[_classify_event_type(event)].append(event)
 
-    lines = [SEARCH_INTRO_MANY]
+    lines = [SEARCH_INTRO_MANY, ""]
     for group_name in sorted(grouped.keys(), key=lambda g: (g != "General", g)):
         group_events = grouped[group_name]
         lines.append(_group_heading(group_name))
         for event in group_events:
-            url_bit = f" — {event.event_url}" if getattr(event, "event_url", None) else ""
-            lines.append(
-                f"  • {event.title} — {event.date.isoformat()} at {event.start_time.isoformat()} "
-                f"({event.location_name}){url_bit}"
-            )
-    body = "\n".join(lines)
-    if append_narrow_hint:
+            lines.append(_event_detail_block(event))
+            lines.append("")
+    body = "\n".join(lines).rstrip()
+    use_narrow = append_narrow_hint if append_narrow_hint is not None else len(events) >= 4
+    if use_narrow:
         body += NARROW_DOWN_CLOSING
     return body
 

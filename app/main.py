@@ -5,6 +5,8 @@ import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
+
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
@@ -95,8 +97,12 @@ async def request_validation_handler(_: Request, exc: RequestValidationError) ->
 
 
 @app.get("/health")
-def health_check() -> dict[str, str]:
-    return {"status": "ok"}
+def health_check(db: Session = Depends(get_db)) -> dict[str, Any]:
+    try:
+        count = db.query(Event).count()
+        return {"status": "ok", "db_connected": True, "event_count": count}
+    except Exception:
+        return {"status": "ok", "db_connected": False, "event_count": 0}
 
 
 @app.post("/events", response_model=EventRead)

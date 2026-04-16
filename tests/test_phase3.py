@@ -77,7 +77,7 @@ class Phase3SearchTests(unittest.TestCase):
             json={"session_id": "phase3-empty", "message": "anything this weekend sports"},
         )
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Nothing on the list", response.json()["response"])
+        self.assertIn("Nothing yet", response.json()["response"])
 
     def test_missing_date_asks_date_first_then_activity(self) -> None:
         first = self.__class__.client.post(

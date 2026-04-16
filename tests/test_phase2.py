@@ -54,14 +54,14 @@ class Phase2ChatTests(unittest.TestCase):
             events = db.query(Event).all()
             self.assertTrue(any(e.title.startswith("Basketball Camp") for e in events))
 
-    def test_unclear_message_returns_clarifying_question(self) -> None:
+    def test_gibberish_biases_to_search_then_asks_date(self) -> None:
         response = self.__class__.client.post(
             "/chat",
             json={"session_id": "phase2-unclear", "message": "quantum flux capacitor settings"},
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["intent"], "UNCLEAR")
-        self.assertIn("not sure what you mean", response.json()["response"].lower())
+        self.assertEqual(response.json()["intent"], "SEARCH_EVENTS")
+        self.assertIn("when works for you", response.json()["response"].lower())
 
     def test_no_response_asks_what_to_fix(self) -> None:
         self.__class__.client.post(

@@ -54,3 +54,14 @@ class Event(Base):
             created_by=payload.created_by,
             admin_review_by=payload.admin_review_by,
         )
+
+
+class ChatLog(Base):
+    __tablename__ = "chat_logs"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    session_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    intent: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), nullable=False)

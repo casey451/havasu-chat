@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -19,6 +20,7 @@ from app.core.conversation_copy import (
     MERGE_UPDATED,
     MISSING_FIELD_GLITCH,
     REJECTION_FIX,
+    STALE_SESSION_REPLY,
     UNCLEAR_REPLY,
     preview_event_line,
 )
@@ -47,12 +49,17 @@ from app.core.intent import (
 from app.core.search import (
     extract_search_context,
     format_results,
-    is_broad_listing_query,
     merge_search_context,
     missing_search_fields,
     search_events,
 )
-from app.core.session import clear_session_state, get_session
+from app.core.session import (
+    arm_session_blocking,
+    blocking_session_expired,
+    clear_session_state,
+    get_session,
+)
+from app.db.chat_logging import log_chat_turn
 from app.db.database import get_db
 from app.db.models import Event
 from app.schemas.chat import ChatRequest, ChatResponse
@@ -76,20 +83,34 @@ def _session_idle_for_greeting(session: dict) -> bool:
 @router.post("/chat", response_model=ChatResponse)
 @limiter.limit("30/minute")
 def chat(request: Request, payload: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
+    message = payload.message.strip()
     try:
-        return _chat_inner(payload, db)
+        log_chat_turn(db, payload.session_id, message, "user", None)
+        resp = _chat_inner(payload, message, db)
+        arm_session_blocking(get_session(payload.session_id))
+        log_chat_turn(db, payload.session_id, resp.response, "assistant", resp.intent)
+        return resp
     except Exception:
+        logging.exception("chat handler failure")
+        try:
+            db.rollback()
+        except Exception:
+            pass
         return ChatResponse(response=CHAT_SOFT_FAIL, intent="UNCLEAR", data={})
 
 
-def _chat_inner(payload: ChatRequest, db: Session) -> ChatResponse:
-    message = payload.message.strip()
-
+def _chat_inner(payload: ChatRequest, message: str, db: Session) -> ChatResponse:
     if is_cancel_or_restart(message):
         clear_session_state(payload.session_id)
         return ChatResponse(response=CANCEL_REPLY, intent="UNCLEAR", data={})
 
     session = get_session(payload.session_id)
+    if blocking_session_expired(session):
+        clear_session_state(payload.session_id)
+        return ChatResponse(response=STALE_SESSION_REPLY, intent="UNCLEAR", data={})
+
+    if session.pop("awaiting_narrow_followup_search", False):
+        return _narrow_followup_search(message, session, db)
 
     if session.get("awaiting_optional_contact"):
         return _handle_optional_contact_reply(session, message, db)
@@ -435,6 +456,38 @@ def _merge_into_existing_event(existing_event: Event, candidate_event: dict, mes
     return existing_event
 
 
+def _narrow_followup_search(message: str, session: dict, db: Session) -> ChatResponse:
+    """After a 4+ hit list with the narrow-down prompt, treat the next message as search refinement."""
+    extracted = extract_search_context(message)
+    current = session.get("search_context", {"date_context": None, "activity_type": None, "keywords": []})
+    merged = merge_search_context(current, extracted)
+    session["search_context"] = merged
+    session["current_intent"] = "SEARCH_EVENTS"
+
+    question = missing_search_fields(merged, message)
+    if question:
+        session["awaiting_search_clarification"] = True
+        session["pending_search_question"] = question
+        return ChatResponse(response=question, intent="SEARCH_EVENTS", data={"search_context": merged})
+
+    session["awaiting_search_clarification"] = False
+    session["pending_search_question"] = None
+    events = search_events(
+        db=db,
+        date_context=merged.get("date_context"),
+        activity_type=merged.get("activity_type"),
+        keywords=merged.get("keywords", []),
+        query_message=message,
+    )
+    body = format_results(events)
+    session["awaiting_narrow_followup_search"] = len(events) >= 4
+    return ChatResponse(
+        response=body,
+        intent="SEARCH_EVENTS",
+        data={"count": len(events), "search_context": merged},
+    )
+
+
 def _start_search_flow(message: str, session: dict, db: Session) -> ChatResponse:
     extracted_context = extract_search_context(message)
     current_context = session.get("search_context", {"date_context": None, "activity_type": None, "keywords": []})
@@ -456,8 +509,10 @@ def _start_search_flow(message: str, session: dict, db: Session) -> ChatResponse
         keywords=merged_context.get("keywords", []),
         query_message=message,
     )
+    body = format_results(events)
+    session["awaiting_narrow_followup_search"] = len(events) >= 4
     return ChatResponse(
-        response=format_results(events, append_narrow_hint=is_broad_listing_query(message)),
+        response=body,
         intent="SEARCH_EVENTS",
         data={"count": len(events), "search_context": merged_context},
     )
@@ -483,8 +538,10 @@ def _continue_search_with_clarification(message: str, session: dict, db: Session
         keywords=merged_context.get("keywords", []),
         query_message=message,
     )
+    body = format_results(events)
+    session["awaiting_narrow_followup_search"] = len(events) >= 4
     return ChatResponse(
-        response=format_results(events, append_narrow_hint=is_broad_listing_query(message)),
+        response=body,
         intent="SEARCH_EVENTS",
         data={"count": len(events), "search_context": merged_context},
     )
