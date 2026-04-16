@@ -60,15 +60,16 @@ class Phase3SearchTests(unittest.TestCase):
             json={"session_id": "phase3-weekend", "message": "something for my 10 year old this weekend"},
         )
         self.assertEqual(first.status_code, 200)
-        self.assertEqual(first.json()["response"], "What kind of thing — sports, arts, something else?")
-        self.assertTrue(get_session("phase3-weekend")["awaiting_search_clarification"])
+        self.assertIn("Basketball Clinic", first.json()["response"])
+        self.assertIn("Sports", first.json()["response"])
+        self.assertEqual(get_session("phase3-weekend").get("flow", {}).get("awaiting"), "narrow_followup")
 
         second = self.__class__.client.post(
             "/chat",
             json={"session_id": "phase3-weekend", "message": "sports"},
         )
         self.assertEqual(second.status_code, 200)
-        self.assertIn("⚽ Sports", second.json()["response"])
+        self.assertIn("Sports", second.json()["response"])
         self.assertIn("Basketball Clinic", second.json()["response"])
 
     def test_empty_search_returns_required_empty_message(self) -> None:
@@ -85,14 +86,19 @@ class Phase3SearchTests(unittest.TestCase):
             json={"session_id": "phase3-date-first", "message": "anything for kids"},
         )
         self.assertEqual(first.status_code, 200)
-        self.assertEqual(first.json()["response"], "When works for you — this weekend, or a specific day?")
+        self.assertEqual(first.json()["intent"], "SEARCH_EVENTS")
+        self.assertIn("nothing yet", first.json()["response"].lower())
 
         second = self.__class__.client.post(
             "/chat",
             json={"session_id": "phase3-date-first", "message": "this weekend"},
         )
         self.assertEqual(second.status_code, 200)
-        self.assertEqual(second.json()["response"], "What kind of thing — sports, arts, something else?")
+        self.assertEqual(second.json()["intent"], "SEARCH_EVENTS")
+        self.assertTrue(
+            "nothing yet" in second.json()["response"].lower()
+            or "nothing on for that time" in second.json()["response"].lower()
+        )
 
 
 def _next_weekday(today: date, weekday: int) -> date:

@@ -182,8 +182,8 @@ class Phase5EmbeddingSearchTests(unittest.TestCase):
         single = format_results([e1])
         self.assertIn("Found one that might work", single)
         self.assertIn("Karate Kids", single)
-        self.assertIn("Title:", single)
-        self.assertNotIn("🥋", single)
+        self.assertIn("📅", single)
+        self.assertIn("Dojo", single)
 
         text = format_results([e1, e2])
         self.assertIn("Here are your matches:", text)

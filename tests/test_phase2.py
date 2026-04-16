@@ -61,7 +61,11 @@ class Phase2ChatTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["intent"], "SEARCH_EVENTS")
-        self.assertIn("when works for you", response.json()["response"].lower())
+        body = response.json()["response"].lower()
+        self.assertTrue(
+            "nothing yet" in body or "tighten" in body or "when are you thinking" in body,
+            msg=body,
+        )
 
     def test_no_response_asks_what_to_fix(self) -> None:
         self.__class__.client.post(

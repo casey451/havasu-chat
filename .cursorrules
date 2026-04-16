@@ -6,3 +6,11 @@
 - All session state must be stored in memory (dict keyed by session_id) for now.
 - Do not introduce scraping, user auth, or a frontend UI until instructed.
 - Lake Havasu roadmap: complete one phase at a time (A → F); do not skip ahead; test end-to-end before the next phase.
+
+## Phase 8.5 — search & intent (authoritative)
+
+1. **Best-effort search first** — run with current slots; clarify only for truly open-ended prompts (`decide_search_strategy` + `CLARIFY_DATE`).
+2. **Slots, not keyword soup** — `session["search"]`: `slots` (date_range, activity_family, audience, location_hint), `recent_utterances` (max 3, embedding only), `listing_mode`, `last_result_set`.
+3. **Intent every turn** — `detect_intent(message, session)`; hard/soft cancel handled in the router before add-event awaits.
+4. **Listing mode** — `LISTING_INTENT` phrases in `intent.py`; widens strategy; slots persist unless overwritten by new extractions.
+5. **Recovery** — `clear_session_state` = hard reset; `clear_current_flow` = soft cancel (keeps search slots); stale timeout clears awaits only (`soft_clear_awaits`).
