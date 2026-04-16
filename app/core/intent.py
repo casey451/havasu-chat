@@ -140,6 +140,8 @@ def detect_intent(message: str) -> str:
         return "ADD_EVENT"
     if any(keyword in msg for keyword in SEARCH_KEYWORDS):
         return "SEARCH_EVENTS"
+    if _is_clearly_add_event(msg):
+        return "ADD_EVENT"
 
     # Bias toward SEARCH when still ambiguous (keep UNCLEAR for very short noise).
     if len(stripped_q) <= 2 and not stripped_q.isalnum():
