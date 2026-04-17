@@ -345,3 +345,25 @@ def admin_reseed(request: Request, db: Session = Depends(get_db)) -> dict[str, i
     db.commit()
     inserted, skipped = run_seed(skip_init=True)
     return {"deleted": deleted, "inserted": inserted, "skipped": skipped}
+
+
+@router.post("/reembed-all")
+def admin_reembed_all(request: Request, db: Session = Depends(get_db)) -> dict[str, int]:
+    """One-time ops: regenerate embeddings for every event using the real OpenAI model."""
+    redir = _guard(request)
+    if redir:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    from app.core.extraction import _embedding_input, generate_embedding
+
+    updated = 0
+    for event in db.query(Event).all():
+        partial = {
+            "title": event.title or "",
+            "location_name": event.location_name or "",
+            "description": event.description or "",
+            "event_url": event.event_url or "",
+        }
+        event.embedding = generate_embedding(_embedding_input(partial))
+        updated += 1
+    db.commit()
+    return {"updated": updated}
