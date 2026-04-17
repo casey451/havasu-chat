@@ -27,7 +27,7 @@ Havasu Chat is a conversational events assistant for Lake Havasu City, Arizona. 
 | Web framework | FastAPI (Python) |
 | Database | SQLite locally; PostgreSQL on Railway via `DATABASE_URL` |
 | ORM + migrations | SQLAlchemy + Alembic |
-| AI — embeddings | OpenAI `text-embedding-ada-002` (query) / `text-embedding-3-small` (events) |
+| AI — embeddings | OpenAI `text-embedding-3-small` (queries in `search.py`, events in `extraction.py`) |
 | AI — extraction | OpenAI `gpt-4.1-mini` via `client.responses.create` |
 | Auth | `itsdangerous` signed cookies for the admin panel |
 | Rate limiting | `slowapi` |
@@ -85,7 +85,6 @@ Push any commit to `main` on GitHub → Railway detects it via webhook → Nixpa
 - **No pagination** — search returns up to 25 events. No page 2.
 - **No shareability** — no way to share a specific event or search result as a link.
 - **No onboarding for returning users** — the welcome chips only show on first visit (session-based, not account-based).
-- **Embedding model mismatch** — events are embedded with `text-embedding-3-small` (in `extraction.py`), but queries are embedded with `text-embedding-ada-002` (in `search.py`). These are different vector spaces. Cosine similarity across spaces is imprecise. This hasn't broken anything catastrophically but is a latent quality issue.
 - **OpenAI query embedding fallback** — if the OpenAI API call for query embedding fails, `embedding_from_openai` is False. The threshold filter is then based only on the literal-match bonus (score > 0.45 cutoff for specific-noun queries). General queries get no threshold filtering in fallback mode.
 
 ### Test count and status
@@ -383,7 +382,7 @@ def admin_retag_all(request: Request, db: Session = Depends(get_db)) -> dict[str
 
 | Variable | Required | Where set | Purpose |
 |---|---|---|---|
-| `OPENAI_API_KEY` | Yes (for AI features) | Railway → Variables | OpenAI API key. Used for event extraction (GPT-4.1-mini), embeddings (text-embedding-3-small / ada-002). Without it, app uses fake deterministic embeddings and skips AI extraction. |
+| `OPENAI_API_KEY` | Yes (for AI features) | Railway → Variables | OpenAI API key. Used for event extraction (GPT-4.1-mini), embeddings (`text-embedding-3-small` for queries and events). Without it, app uses fake deterministic embeddings and skips AI extraction. |
 | `ADMIN_PASSWORD` | Yes | Railway → Variables | Admin panel password. No fallback — if unset, defaults to `"changeme"` (see `app/admin/auth.py`). Change it in Railway after every session where it was visible in chat. |
 | `DATABASE_URL` | Yes on Railway | Railway → Variables | PostgreSQL connection string. Auto-provided by Railway when you add a Postgres plugin. Locally, SQLite is used instead. |
 | `RAILWAY_ENVIRONMENT` | Auto-set by Railway | Railway | When present, triggers auto-seed on startup. Do not set locally. |

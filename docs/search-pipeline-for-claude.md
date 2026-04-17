@@ -41,7 +41,7 @@ from app.db.models import Event
 
 ensure_dotenv_loaded()
 
-SEARCH_QUERY_EMBEDDING_MODEL = "text-embedding-ada-002"
+SEARCH_QUERY_EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_RELEVANCE_THRESHOLD = 0.35
 KEYWORD_RELEVANCE_THRESHOLD = 0.35
 
