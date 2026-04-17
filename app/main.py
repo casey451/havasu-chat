@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# Force redeploy 2026-04-16
+
 from app.bootstrap_env import ensure_dotenv_loaded
 
 ensure_dotenv_loaded()
