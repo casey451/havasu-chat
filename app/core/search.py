@@ -35,23 +35,31 @@ from app.db.models import Event
 ensure_dotenv_loaded()
 
 
+_SPECIFIC_PHRASES = (
+    "boat race",
+    "regatta",
+    "poker run",
+    "live music",
+    "concert",
+    "band",
+    "farmers market",
+    "food truck",
+    "car show",
+    "parade",
+    "fireworks",
+)
+
+
 def _query_has_specific_noun(message: str) -> bool:
     """Detect if the user named a specific thing we should honestly report on."""
     lowered = message.lower()
-    specific_phrases = (
-        "boat race",
-        "regatta",
-        "poker run",
-        "live music",
-        "concert",
-        "band",
-        "farmers market",
-        "food truck",
-        "car show",
-        "parade",
-        "fireworks",
-    )
-    return any(p in lowered for p in specific_phrases)
+    return any(p in lowered for p in _SPECIFIC_PHRASES)
+
+
+def _matching_specific_phrases(text: str) -> list[str]:
+    """Return which specific phrases from _SPECIFIC_PHRASES appear in text."""
+    lowered = text.lower()
+    return [p for p in _SPECIFIC_PHRASES if p in lowered]
 
 
 SEARCH_QUERY_EMBEDDING_MODEL = "text-embedding-ada-002"
@@ -397,10 +405,13 @@ def search_events(
     strict_relevance: bool = True,
     audience_hint: str | None = None,
 ) -> SearchOutcome:
-    """Semantic + keyword search. When strict_relevance is True, apply 0.35 cutoffs."""
+    """Semantic + keyword search. When strict_relevance is True, apply relevance cutoffs."""
     query_text = query_message.strip() or " ".join(keywords) or activity_type or "events"
     query_embedding, embedding_from_openai = generate_query_embedding_with_source(query_text)
     dim = len(query_embedding)
+
+    is_specific_query = _query_has_specific_noun(query_text)
+    effective_threshold = 0.55 if is_specific_query else EMBEDDING_RELEVANCE_THRESHOLD
 
     base_q = _base_future_events_query(db, date_context)
     pre_activity: list[Event] = base_q.all()
@@ -430,12 +441,25 @@ def search_events(
         else:
             without_emb.append(event)
 
+    if is_specific_query and with_emb:
+        from app.core.slots import expand_query_synonyms as _expand_synonyms
+        bonus_terms = _matching_specific_phrases(query_text) + _expand_synonyms(query_text)
+        with_emb = [
+            (
+                e,
+                s + 0.5
+                if any(t in f"{e.title or ''} {e.description or ''}".lower() for t in bonus_terms)
+                else s,
+            )
+            for e, s in with_emb
+        ]
+
     if strict_relevance and embedding_from_openai and with_emb:
         best = max(s for _, s in with_emb)
-        if best < EMBEDDING_RELEVANCE_THRESHOLD:
+        if best < effective_threshold:
             with_emb = []
         else:
-            with_emb = [(e, s) for e, s in with_emb if s >= EMBEDDING_RELEVANCE_THRESHOLD]
+            with_emb = [(e, s) for e, s in with_emb if s >= effective_threshold]
 
     with_emb.sort(key=lambda x: (-x[1], x[0].date, x[0].start_time))
     emb_scores: dict[str, float] = {e.id: s for e, s in with_emb}
@@ -481,7 +505,7 @@ def search_events(
             for e in candidates
             if e.embedding and len(e.embedding) == dim
         ]
-        if had_emb_scores and max(had_emb_scores) < EMBEDDING_RELEVANCE_THRESHOLD:
+        if had_emb_scores and max(had_emb_scores) < effective_threshold:
             suppressed = True
         elif not had_emb_scores and without_emb:
             best_kw = max(
