@@ -48,6 +48,7 @@ FAMILY_ALIASES: dict[str, list[str]] = {
         "cycling",
         "running",
         "hiking",
+        "gymnastics",
     ],
     "arts": [
         "art",
@@ -139,12 +140,19 @@ def extract_date_range(text: str) -> DateRange | None:
     return None
 
 
+def _term_matches_in_text(lowered: str, term: str) -> bool:
+    """Avoid false positives (e.g. 'gym' matching inside 'gymnastics')."""
+    if len(term) <= 4:
+        return bool(re.search(rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])", lowered))
+    return term in lowered
+
+
 def extract_activity_family(text: str) -> str | None:
     lowered = text.lower()
     order = ["martial_arts", "sports", "arts", "education", "outdoors"]
     for key in order:
         for term in FAMILY_ALIASES.get(key, []):
-            if term in lowered:
+            if _term_matches_in_text(lowered, term):
                 return key
     return None
 
@@ -230,3 +238,120 @@ def slots_filled(slots: dict[str, Any]) -> dict[str, bool]:
         "audience": slots.get("audience") is not None,
         "location": bool((slots.get("location_hint") or "").strip()),
     }
+
+
+def _is_weekend_date_range(dr: dict[str, date] | None) -> bool:
+    if not dr:
+        return False
+    span = (dr["end"] - dr["start"]).days
+    return span == 1
+
+
+def extract_search_label(message: str, slots: dict[str, Any]) -> str:
+    """Human-readable label for what the user searched for (relevance UX)."""
+    lowered = message.lower().strip()
+    dr = slots.get("date_range")
+
+    if "gymnastics" in lowered:
+        if "class" in lowered or "classes" in lowered:
+            return "gymnastics classes"
+        if any(x in lowered for x in ("kid", "child", "daughter", "son", "toddler")):
+            return "gymnastics classes for kids"
+        return "gymnastics"
+
+    if "golf" in lowered and "lesson" in lowered:
+        return "golf lessons"
+
+    if "yoga" in lowered and ("this weekend" in lowered or "weekend" in lowered or _is_weekend_date_range(dr)):
+        return "yoga events coming up"
+
+    if "activities" in lowered and ("kid" in lowered or "child" in lowered) and _is_weekend_date_range(dr):
+        return "kids activities this weekend"
+
+    af = slots.get("activity_family")
+    if dr and af == "sports" and _is_weekend_date_range(dr):
+        return "weekend sports events"
+
+    if af == "sports" and not dr:
+        return "sports events"
+    if af == "arts" and not dr:
+        return "arts events"
+    if af == "education" and not dr:
+        return "learning events"
+    if af == "outdoors" and not dr:
+        return "outdoor events"
+    if af == "martial_arts" and not dr:
+        return "martial arts events"
+
+    if dr and not af:
+        if _is_weekend_date_range(dr):
+            return "weekend events"
+        return "events for that time"
+
+    # Prefer a distinctive token from the message (longer non-stop words)
+    stop = {
+        "the",
+        "a",
+        "an",
+        "for",
+        "and",
+        "with",
+        "any",
+        "some",
+        "what",
+        "when",
+        "where",
+        "this",
+        "next",
+        "week",
+        "weekend",
+        "kids",
+        "child",
+        "children",
+        "looking",
+        "find",
+        "show",
+        "tell",
+        "about",
+        "please",
+        "something",
+        "things",
+        "going",
+        "are",
+        "there",
+        "near",
+        "today",
+        "tomorrow",
+    }
+    words = [w for w in re.findall(r"[a-z]{3,}", lowered) if w not in stop]
+    if words:
+        focus = max(words, key=len)
+        if len(focus) >= 4:
+            return focus.replace("_", " ")
+
+    return "events matching that"
+
+
+def extract_broaden_category(slots: dict[str, Any]) -> str | None:
+    """Short noun phrase for the broaden line; None if no helpful filter context."""
+    aud = slots.get("audience")
+    dr = slots.get("date_range")
+    af = slots.get("activity_family")
+
+    if aud == "kids":
+        return "kids activities"
+    if dr:
+        if _is_weekend_date_range(dr):
+            return "weekend events"
+        return "events around those dates"
+    if af == "sports":
+        return "sports"
+    if af == "arts":
+        return "arts & music"
+    if af == "education":
+        return "classes"
+    if af == "outdoors":
+        return "outdoor activities"
+    if af == "martial_arts":
+        return "martial arts"
+    return None

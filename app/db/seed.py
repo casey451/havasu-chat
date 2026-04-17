@@ -1,3 +1,4 @@
+# TODO: Replace placeholder URLs and phone numbers with real venue data before launch
 """
 Seed the database with sample Lake Havasu City community events.
 Idempotent: each event is tagged with __seed__:lhc_XXX; re-running skips existing seeds.
@@ -6,6 +7,7 @@ from __future__ import annotations
 
 import sys
 from datetime import date, time, timedelta
+from urllib.parse import quote
 
 from dotenv import load_dotenv
 
@@ -18,6 +20,11 @@ from app.schemas.event import EventCreate
 load_dotenv()
 
 SEED_TAG_PREFIX = "__seed__:lhc_"
+
+
+def _fb_search(query: str) -> str:
+    q = quote(f"{query} Lake Havasu City")
+    return f"https://www.facebook.com/search/top?q={q}"
 
 
 def _seed_tag(index: int) -> str:
@@ -47,9 +54,9 @@ def _build_seed_rows(today: date) -> list[dict]:
             "location": "Rotary Community Park, Lake Havasu City",
             "description": "Intro soccer skills for ages 5–8 with local volunteer coaches. Cleats optional; bring water and sunscreen.",
             "tags": ["kids", "sports", "soccer"],
-            "event_url": "https://example.com/lhc-seed-01-soccer",
+            "event_url": _fb_search("Rotary Community Park youth soccer Lake Havasu"),
             "contact_name": "Alex Rivera",
-            "contact_phone": "928-855-1001",
+            "contact_phone": "928-555-0100",
         },
         {
             "title": "Morning Pickleball Open Play",
@@ -58,9 +65,9 @@ def _build_seed_rows(today: date) -> list[dict]:
             "location": "Kenyon Field Courts, Lake Havasu City",
             "description": "All skill levels welcome for doubles round-robin. Paddles available to borrow while supplies last.",
             "tags": ["fitness", "pickleball", "adults"],
-            "event_url": "https://example.com/lhc-seed-02-pickleball",
+            "event_url": _fb_search("Kenyon Field pickleball Lake Havasu"),
             "contact_name": "Jordan Lee",
-            "contact_phone": "928-855-1002",
+            "contact_phone": "928-555-0101",
         },
         {
             "title": "London Bridge Beach Farmers Market",
@@ -69,9 +76,9 @@ def _build_seed_rows(today: date) -> list[dict]:
             "location": "London Bridge Beach, Lake Havasu City",
             "description": "Local produce, baked goods, and handmade crafts along the waterfront every Saturday morning.",
             "tags": ["community", "family", "outdoors"],
-            "event_url": "https://example.com/lhc-seed-03-market",
+            "event_url": _fb_search("London Bridge Beach farmers market Lake Havasu"),
             "contact_name": "Farmers Market Booth",
-            "contact_phone": "928-855-1003",
+            "contact_phone": "928-555-0102",
         },
         {
             "title": "Sunrise Yoga by the Channel",
@@ -80,9 +87,9 @@ def _build_seed_rows(today: date) -> list[dict]:
             "location": "Channel Walk, Lake Havasu City",
             "description": "Gentle flow yoga as the sun comes up over the water. Bring a mat or towel; donations appreciated.",
             "tags": ["fitness", "yoga", "wellness"],
-            "event_url": "https://example.com/lhc-seed-04-yoga",
+            "event_url": _fb_search("Channel Walk yoga Lake Havasu"),
             "contact_name": "Sam Chen",
-            "contact_phone": "928-855-1004",
+            "contact_phone": "928-555-0103",
         },
         {
             "title": "Havasu Youth Basketball Skills Night",
@@ -91,9 +98,9 @@ def _build_seed_rows(today: date) -> list[dict]:
             "location": "Lake Havasu Aquatic Center Gym, Lake Havasu City",
             "description": "Dribbling, shooting, and scrimmages for middle school players with certified trainers.",
             "tags": ["kids", "sports", "basketball"],
-            "event_url": "https://example.com/lhc-seed-05-basketball",
+            "event_url": _fb_search("Lake Havasu Aquatic Center basketball Lake Havasu"),
             "contact_name": "Coach Morgan",
-            "contact_phone": "928-855-1005",
+            "contact_phone": "928-555-0104",
         },
         {
             "title": "Community Theater Open Auditions",
@@ -102,9 +109,9 @@ def _build_seed_rows(today: date) -> list[dict]:
             "location": "Performing Arts Center, Lake Havasu City",
             "description": "Spring musical auditions for teens and adults. Prepare a one-minute song; callbacks posted online.",
             "tags": ["arts", "theater", "community"],
-            "event_url": "https://example.com/lhc-seed-06-theater",
+            "event_url": _fb_search("Lake Havasu Performing Arts Center auditions"),
             "contact_name": "Riley Brooks",
-            "contact_phone": "928-855-1006",
+            "contact_phone": "928-555-0105",
         },
         {
             "title": "Tadpole Swim Lessons (Level 1)",
@@ -113,9 +120,9 @@ def _build_seed_rows(today: date) -> list[dict]:
             "location": "Lake Havasu Aquatic Center, Lake Havasu City",
             "description": "Small-group beginner swim lessons for ages 4–6 with certified instructors in the shallow pool.",
             "tags": ["kids", "swim", "aquatic"],
-            "event_url": "https://example.com/lhc-seed-07-swim",
+            "event_url": _fb_search("Lake Havasu Aquatic Center swim lessons"),
             "contact_name": "Aquatic Desk",
-            "contact_phone": "928-855-1007",
+            "contact_phone": "928-555-0106",
         },
         {
             "title": "Sara Park Trail Group Hike",
@@ -124,9 +131,9 @@ def _build_seed_rows(today: date) -> list[dict]:
             "location": "Sara Park Trailhead, Lake Havasu City",
             "description": "Moderate desert hike with ranger tips on local plants and wildlife. Bring 2 liters of water and a hat.",
             "tags": ["outdoors", "hiking", "family"],
-            "event_url": "https://example.com/lhc-seed-08-hike",
+            "event_url": _fb_search("Sara Park hiking Lake Havasu"),
             "contact_name": "Trail Host",
-            "contact_phone": "928-855-1008",
+            "contact_phone": "928-555-0107",
         },
         {
             "title": "Preschool Story & Craft Hour",
@@ -135,9 +142,9 @@ def _build_seed_rows(today: date) -> list[dict]:
             "location": "Lake Havasu City Library",
             "description": "Stories, songs, and a simple craft for ages 2–5 with caregivers. Free; no registration required.",
             "tags": ["kids", "education", "library"],
-            "event_url": "https://example.com/lhc-seed-09-library",
+            "event_url": _fb_search("Lake Havasu City Library story time"),
             "contact_name": "Youth Librarian",
-            "contact_phone": "928-855-1009",
+            "contact_phone": "928-555-0108",
         },
         {
             "title": "Silver Sneakers Strength Class",
@@ -146,9 +153,9 @@ def _build_seed_rows(today: date) -> list[dict]:
             "location": "Havasu Community Center, Lake Havasu City",
             "description": "Low-impact strength and balance for active adults 65+. Chair modifications available for every exercise.",
             "tags": ["fitness", "seniors", "community"],
-            "event_url": "https://example.com/lhc-seed-10-silver",
+            "event_url": _fb_search("Havasu Community Center Silver Sneakers Lake Havasu"),
             "contact_name": "Community Center Front Desk",
-            "contact_phone": "928-855-1010",
+            "contact_phone": "928-555-0109",
         },
         {
             "title": "Watercolor Desert Landscapes Workshop",
@@ -157,9 +164,9 @@ def _build_seed_rows(today: date) -> list[dict]:
             "location": "Arts & Culture Hub, Lake Havasu City",
             "description": "Two-hour painting class inspired by local desert vistas; materials included for the first twelve sign-ups.",
             "tags": ["arts", "workshop", "adults"],
-            "event_url": "https://example.com/lhc-seed-11-watercolor",
+            "event_url": _fb_search("Lake Havasu Arts Culture Hub workshop"),
             "contact_name": "Studio Lead",
-            "contact_phone": "928-855-1011",
+            "contact_phone": "928-555-0110",
         },
         {
             "title": "Bridge City 5K & Fun Walk",
@@ -168,9 +175,9 @@ def _build_seed_rows(today: date) -> list[dict]:
             "location": "London Bridge Resort Area, Lake Havasu City",
             "description": "Chip-timed 5K plus untimed family walk benefiting local schools. Strollers welcome on the walk route.",
             "tags": ["community", "running", "charity"],
-            "event_url": "https://example.com/lhc-seed-12-5k",
+            "event_url": _fb_search("London Bridge Resort 5K Lake Havasu"),
             "contact_name": "Race Director",
-            "contact_phone": "928-855-1012",
+            "contact_phone": "928-555-0111",
         },
         {
             "title": "Youth Karate Belt Review",
@@ -179,9 +186,9 @@ def _build_seed_rows(today: date) -> list[dict]:
             "location": "Desert Sun Karate Dojo, Lake Havasu City",
             "description": "Color-belt testing and demonstration for youth students; friends and family invited to watch.",
             "tags": ["kids", "martial arts", "karate"],
-            "event_url": "https://example.com/lhc-seed-13-karate",
+            "event_url": _fb_search("Desert Sun Karate Dojo Lake Havasu"),
             "contact_name": "Sensei Kim",
-            "contact_phone": "928-855-1013",
+            "contact_phone": "928-555-0112",
         },
         {
             "title": "Acoustic Sunset at the Channel",
@@ -190,9 +197,9 @@ def _build_seed_rows(today: date) -> list[dict]:
             "location": "Channel Waterfront Stage, Lake Havasu City",
             "description": "Local singer-songwriters and light bites from food trucks; lawn seating—bring a blanket or low chair.",
             "tags": ["music", "community", "outdoors"],
-            "event_url": "https://example.com/lhc-seed-14-sunset",
+            "event_url": _fb_search("Channel Waterfront music Lake Havasu"),
             "contact_name": "Waterfront Events",
-            "contact_phone": "928-855-1014",
+            "contact_phone": "928-555-0113",
         },
         {
             "title": "STEM Robotics Saturday Lab",
@@ -201,9 +208,9 @@ def _build_seed_rows(today: date) -> list[dict]:
             "location": "Mohave Community College — Lake Havasu Campus",
             "description": "Hands-on LEGO robotics challenges for ages 10–14; mentors from the high school robotics club assist teams.",
             "tags": ["education", "stem", "teens"],
-            "event_url": "https://example.com/lhc-seed-15-stem",
+            "event_url": "https://www.mohave.edu/campuses/lake-havasu-city/",
             "contact_name": "MCC Outreach",
-            "contact_phone": "928-855-1015",
+            "contact_phone": "928-555-0114",
         },
     ]
 

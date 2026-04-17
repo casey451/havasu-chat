@@ -72,7 +72,7 @@ class Phase5EmbeddingSearchTests(unittest.TestCase):
                 activity_type=None,
                 keywords=[],
                 query_message="soccer",
-            )
+            ).events
 
         titles = [e.title for e in results]
         self.assertIn("Upcoming Game", titles)
@@ -134,7 +134,7 @@ class Phase5EmbeddingSearchTests(unittest.TestCase):
                 activity_type=None,
                 keywords=[],
                 query_message="kids soccer league",
-            )
+            ).events
 
         self.assertGreaterEqual(len(results), 2)
         self.assertEqual(results[0].title, "Soccer League")

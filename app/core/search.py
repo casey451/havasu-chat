@@ -4,6 +4,7 @@ import math
 import os
 import re
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import date, time as time_type, timedelta
 from typing import Any, Literal
 
@@ -20,17 +21,22 @@ from app.core.conversation_copy import (
     LISTING_NUDGE_ACTIVITY_SET,
     LISTING_NUDGE_DATE_SET,
     LISTING_NUDGE_NONE,
+    NO_MATCH_BROADEN,
+    NO_MATCH_HONEST,
     NOTHING_FOR_ACTIVITY,
     NOTHING_IN_RANGE,
     SEARCH_INTRO_MANY,
 )
 from app.core.dedupe import cosine_similarity
 from app.core.intent import open_ended_search_message
+from app.core.slots import extract_broaden_category, extract_search_label
 from app.db.models import Event
 
 load_dotenv()
 
 SEARCH_QUERY_EMBEDDING_MODEL = "text-embedding-ada-002"
+EMBEDDING_RELEVANCE_THRESHOLD = 0.35
+KEYWORD_RELEVANCE_THRESHOLD = 0.35
 
 DAY_NAMES = {
     "monday": 0,
@@ -59,6 +65,7 @@ ACTIVITY_TYPES = {
         "pilates",
         "crossfit",
         "running",
+        "gymnastics",
     ],
     "arts": ["art", "music", "dance", "theater", "craft", "paint"],
     "education": ["class", "workshop", "stem", "science", "coding", "math", "reading"],
@@ -114,6 +121,94 @@ _MONTH_LONG = (
     "December",
 )
 
+# If the user names a sport/activity, do not let audience heuristics match unrelated events.
+_QUERY_ACTIVITY_TOKENS = frozenset(
+    {
+        "soccer",
+        "basketball",
+        "football",
+        "tennis",
+        "golf",
+        "pickleball",
+        "volleyball",
+        "baseball",
+        "lacrosse",
+        "hockey",
+        "rugby",
+        "swimming",
+        "gymnastics",
+        "wrestling",
+        "fencing",
+        "rowing",
+        "cycling",
+        "running",
+        "marathon",
+        "yoga",
+        "pilates",
+        "karate",
+        "judo",
+        "opera",
+        "ballet",
+        "theater",
+        "theatre",
+    }
+)
+
+_KEYWORD_STOP = frozenset(
+    {
+        "the",
+        "for",
+        "and",
+        "with",
+        "any",
+        "some",
+        "what",
+        "when",
+        "where",
+        "this",
+        "next",
+        "that",
+        "from",
+        "have",
+        "are",
+        "you",
+        "your",
+        "can",
+        "how",
+        "about",
+        "into",
+        "near",
+        "there",
+        "looking",
+        "find",
+        "show",
+        "tell",
+        "please",
+        "something",
+        "things",
+        "going",
+        "week",
+        "weekend",
+        "today",
+        "tomorrow",
+        "kids",
+        "child",
+        "children",
+        "year",
+        "old",
+        "girl",
+        "boy",
+    }
+)
+
+
+@dataclass(frozen=True)
+class SearchOutcome:
+    events: list[Event]
+    suppressed_low_relevance: bool = False
+    slot_filter_exhausted: bool = False
+    honest_no_match: bool = False
+
 
 def decide_search_strategy(
     slots: dict[str, Any],
@@ -149,16 +244,21 @@ def decide_search_strategy(
     return "RUN_WITH_NUDGE"
 
 
-def generate_query_embedding(text: str) -> list[float]:
+def generate_query_embedding_with_source(text: str) -> tuple[list[float], bool]:
+    """Returns (vector, True) when OpenAI returned the embedding; else deterministic path (False)."""
     api_key = os.getenv("OPENAI_API_KEY")
     if api_key and OpenAI is not None:
         try:
             client = OpenAI(api_key=api_key)
             response = client.embeddings.create(model=SEARCH_QUERY_EMBEDDING_MODEL, input=text.strip() or " ")
-            return list(response.data[0].embedding)
+            return list(response.data[0].embedding), True
         except Exception:
-            return _deterministic_embedding_1536(text)
-    return _deterministic_embedding_1536(text)
+            pass
+    return _deterministic_embedding_1536(text), False
+
+
+def generate_query_embedding(text: str) -> list[float]:
+    return generate_query_embedding_with_source(text)[0]
 
 
 def _deterministic_embedding_1536(text: str) -> list[float]:
@@ -203,25 +303,101 @@ def search_events_keyword_only(
     return query.order_by(Event.date.asc(), Event.start_time.asc()).all()
 
 
+def _query_tokens(text: str) -> list[str]:
+    return [
+        t
+        for t in re.findall(r"[a-z0-9]+", text.lower())
+        if len(t) > 2 and t not in _KEYWORD_STOP
+    ]
+
+
+def _keyword_score_and_fields(
+    query_text: str,
+    event: Event,
+    *,
+    audience_hint: str | None = None,
+) -> tuple[float, int]:
+    tokens = _query_tokens(query_text)
+    title = (event.title or "").lower()
+    desc = (event.description or "").lower()
+    tags = " ".join(str(t).lower() for t in (event.tags or []))
+    fields = (title, desc, tags)
+    blob_all = f"{title} {desc} {tags}"
+    activity_terms = [t for t in tokens if t in _QUERY_ACTIVITY_TOKENS]
+    if activity_terms and not any(t in blob_all for t in activity_terms):
+        return (0.0, 0)
+    fields_hit = 0
+    matched = 0
+    if tokens:
+        for blob in fields:
+            if any(tok in blob for tok in tokens):
+                fields_hit += 1
+        matched = sum(1 for tok in tokens if any(tok in f for f in fields))
+        score = matched / len(tokens)
+    else:
+        score = 0.0
+
+    if audience_hint == "kids" and any(
+        k in blob_all for k in ("kid", "child", "youth", "teen", "family", "tween", "student")
+    ):
+        fields_hit = max(fields_hit, 1)
+        score = max(score, KEYWORD_RELEVANCE_THRESHOLD)
+    elif audience_hint == "adults" and ("adult" in blob_all or "21+" in blob_all):
+        fields_hit = max(fields_hit, 1)
+        score = max(score, KEYWORD_RELEVANCE_THRESHOLD)
+    elif audience_hint == "family" and "family" in blob_all:
+        fields_hit = max(fields_hit, 1)
+        score = max(score, KEYWORD_RELEVANCE_THRESHOLD)
+
+    return (score, fields_hit)
+
+
+def _keyword_passes_threshold(
+    query_text: str,
+    event: Event,
+    strict: bool,
+    *,
+    audience_hint: str | None = None,
+) -> tuple[float, bool]:
+    score, fields_hit = _keyword_score_and_fields(query_text, event, audience_hint=audience_hint)
+    if fields_hit < 1:
+        return (score, False)
+    if strict and score < KEYWORD_RELEVANCE_THRESHOLD:
+        return (score, False)
+    return (score, True)
+
+
 def search_events(
     db: Session,
     date_context: dict[str, date] | None,
     activity_type: str | None,
     keywords: list[str],
     query_message: str = "",
-) -> list[Event]:
-    """Semantic + keyword search; query_message should be the latest user phrase only (Phase 8.5)."""
+    *,
+    strict_relevance: bool = True,
+    audience_hint: str | None = None,
+) -> SearchOutcome:
+    """Semantic + keyword search. When strict_relevance is True, apply 0.35 cutoffs."""
     query_text = query_message.strip() or " ".join(keywords) or activity_type or "events"
-    query_embedding = generate_query_embedding(query_text)
+    query_embedding, embedding_from_openai = generate_query_embedding_with_source(query_text)
     dim = len(query_embedding)
 
     base_q = _base_future_events_query(db, date_context)
-    candidates: list[Event] = base_q.all()
+    pre_activity: list[Event] = base_q.all()
+    candidates = list(pre_activity)
 
     if activity_type:
         terms = ACTIVITY_TYPES.get(activity_type, [])
         if terms:
             candidates = [e for e in candidates if any(t in f"{e.title} {e.description}".lower() for t in terms)]
+
+    if activity_type and not candidates and pre_activity:
+        return SearchOutcome(
+            [],
+            suppressed_low_relevance=False,
+            slot_filter_exhausted=True,
+            honest_no_match=False,
+        )
 
     with_emb: list[tuple[Event, float]] = []
     without_emb: list[Event] = []
@@ -234,24 +410,76 @@ def search_events(
         else:
             without_emb.append(event)
 
-    with_emb.sort(key=lambda x: x[1], reverse=True)
-    ordered_embedded = [e for e, _ in with_emb]
+    if strict_relevance and embedding_from_openai and with_emb:
+        best = max(s for _, s in with_emb)
+        if best < EMBEDDING_RELEVANCE_THRESHOLD:
+            with_emb = []
+        else:
+            with_emb = [(e, s) for e, s in with_emb if s >= EMBEDDING_RELEVANCE_THRESHOLD]
 
-    if not without_emb:
-        return ordered_embedded
+    with_emb.sort(key=lambda x: (-x[1], x[0].date, x[0].start_time))
+    emb_scores: dict[str, float] = {e.id: s for e, s in with_emb}
+    embedded_events = [e for e, _ in with_emb]
 
-    # Keywords only — activity_type is already applied as a semantic bucket filter above.
     text_terms = _unique_terms(list(keywords))
-    keyword_hits = [e for e in without_emb if _event_matches_keyword_terms(e, text_terms)]
-    keyword_hits.sort(key=lambda ev: (ev.date, ev.start_time))
+    keyword_rows: list[tuple[Event, float]] = []
+    if strict_relevance:
+        for e in without_emb:
+            if text_terms and not _event_matches_keyword_terms(e, text_terms):
+                continue
+            score, ok = _keyword_passes_threshold(query_text, e, True, audience_hint=audience_hint)
+            if not ok:
+                continue
+            keyword_rows.append((e, score))
+    else:
+        for e in without_emb:
+            keyword_rows.append((e, 0.0))
 
-    seen = {e.id for e in ordered_embedded}
-    for e in keyword_hits:
+    keyword_rows.sort(key=lambda x: (-x[1], x[0].date, x[0].start_time))
+
+    merged: list[tuple[Event, float]] = []
+    seen: set[str] = set()
+    for e in embedded_events:
+        merged.append((e, emb_scores[e.id]))
+        seen.add(e.id)
+    for e, s in keyword_rows:
         if e.id not in seen:
-            ordered_embedded.append(e)
+            merged.append((e, s))
             seen.add(e.id)
 
-    return ordered_embedded
+    merged.sort(key=lambda x: (-x[1], x[0].date, x[0].start_time))
+    out_events = [e for e, _ in merged]
+
+    suppressed = False
+    if strict_relevance and embedding_from_openai and not out_events and candidates:
+        had_emb_scores = [
+            cosine_similarity(query_embedding, e.embedding)
+            for e in candidates
+            if e.embedding and len(e.embedding) == dim
+        ]
+        if had_emb_scores and max(had_emb_scores) < EMBEDDING_RELEVANCE_THRESHOLD:
+            suppressed = True
+        elif not had_emb_scores and without_emb:
+            best_kw = max(
+                (_keyword_score_and_fields(query_text, e, audience_hint=audience_hint)[0] for e in without_emb),
+                default=0.0,
+            )
+            if best_kw < KEYWORD_RELEVANCE_THRESHOLD:
+                suppressed = True
+
+    honest_no_match = (
+        strict_relevance
+        and not out_events
+        and bool(candidates)
+        and any(t in _QUERY_ACTIVITY_TOKENS for t in _query_tokens(query_text))
+    )
+
+    return SearchOutcome(
+        out_events,
+        suppressed_low_relevance=suppressed,
+        slot_filter_exhausted=False,
+        honest_no_match=honest_no_match,
+    )
 
 
 def _unique_terms(terms: list[str]) -> list[str]:
@@ -341,14 +569,31 @@ def _empty_message_for_slots(slots: dict[str, Any], strategy: SearchStrategy) ->
     return SEARCH_ZERO
 
 
+def _honest_no_match_body(message: str, slots: dict[str, Any]) -> str:
+    label = extract_search_label(message, slots)
+    body = NO_MATCH_HONEST.format(label=label)
+    cat = extract_broaden_category(slots)
+    if cat:
+        body += "\n\n" + NO_MATCH_BROADEN.format(category=cat)
+    return body
+
+
 def format_search_results(
     events: list[Event],
     strategy: SearchStrategy,
     slots: dict[str, Any],
     *,
     append_narrow_hint: bool | None = None,
+    message: str = "",
+    outcome: SearchOutcome | None = None,
 ) -> str:
     if not events:
+        if outcome and (
+            outcome.suppressed_low_relevance
+            or outcome.slot_filter_exhausted
+            or outcome.honest_no_match
+        ):
+            return _honest_no_match_body(message, slots)
         return _empty_message_for_slots(slots, strategy)
 
     nudge_line = ""
@@ -413,6 +658,7 @@ def format_results(events: list[Event], *, append_narrow_hint: bool | None = Non
         "RUN_FILTERED",
         {},
         append_narrow_hint=append_narrow_hint,
+        outcome=None,
     )
 
 
