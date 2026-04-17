@@ -63,37 +63,41 @@ Push any commit to `main` on GitHub → Railway detects it via webhook → Nixpa
 
 ### Features complete and working
 - **Conversational search** — users type natural-language queries; the app extracts date range, activity family, audience, and location hints from the message, then runs a combined semantic + keyword search.
-- **Intent detection** — correctly routes GREETING, SEARCH_EVENTS, LISTING_INTENT, ADD_EVENT, REFINEMENT, SOFT_CANCEL, HARD_RESET, UNCLEAR, SERVICE_REQUEST, DEAL_SEARCH, OUT_OF_SCOPE.
-- **Slot extraction** — date ranges (today, tonight, tomorrow, this weekend, next Friday, etc.), activity families, audience (kids/family/adults), location hints.
-- **Synonym expansion** — ~39 phrase→synonym groups in `QUERY_SYNONYMS` (expanded from ~11 in Session J, sourced from knowledge-base Section 5). "boat race" expands to include "regatta," "poker run," etc.; "live music" expands to concert/band/dj/etc. Appended to the embedding query so the vector pulls related events without tightening keyword filters.
+- **Intent detection** — correctly routes GREETING, SEARCH_EVENTS, LISTING_INTENT, ADD_EVENT, REFINEMENT, SOFT_CANCEL, HARD_RESET, UNCLEAR, SERVICE_REQUEST, DEAL_SEARCH, OUT_OF_SCOPE (including category `commercial_services` for rentals/venue-shopping phrasing).
+- **Slot extraction** — date ranges (today, tonight, tomorrow, this weekend, next Friday, next week, etc.), activity families, audience (kids/family/adults), location hints.
+- **Synonym expansion** — `QUERY_SYNONYMS` in `slots.py`: e.g. "boat race" expands for embeddings; calendar hooks include `fireworks` → July 4 / Independence Day phrases.
 - **Semantic search** — OpenAI embeddings for events; cosine similarity scored; fallback to deterministic embedding if API unavailable.
-- **Specific-noun query handling** — `_SPECIFIC_PHRASES` covers ~76 phrases across water sports, parks, family/kids, dining, festivals, wellness (expanded from ~11 in Session J, sourced from knowledge-base Section 4). Matching queries use a raised threshold (0.55) and a literal-match bonus (+0.5) to prevent irrelevant events from appearing.
+- **Strict literal matching (short queries)** — two-word and other short noun-focused queries require literal/synonym alignment and word-boundary matching so generic events do not flood results; multi-word synonym phrases (e.g. "poker run" for "boat race") satisfy literals when raw tokens differ (boats/racing vs boat/race).
+- **Specific-noun query handling** — queries naming a specific thing use a raised embedding threshold and literal/synonym bonuses; honest no-match when nothing qualifies.
 - **Honest no-match** — when no events match a specific noun query, the app says so honestly instead of showing loosely related events.
-- **Venue recognition (no-match redirect)** — `app/core/venues.py` holds `VENUE_ALIASES` (30 canonical venues from knowledge-base Section 6) and `detect_venue()`. When a query names a known venue and search returns zero results, the chat router replies with `VENUE_REDIRECT_TEMPLATE` instead of a generic no-match ("Altitude Trampoline Park is a permanent spot in Havasu — I track events there when they come up…").
-- **Out-of-scope intent** — `detect_out_of_scope_category()` classifies queries into weather / lodging / transportation / dining categories, checked early in `detect_intent()`. An event-signal guard (event, events, festival, parade, fireworks, tournament, concert, gala, fundraiser) suppresses the classification so queries like "hotel grand opening event tonight" still reach search. Four verbatim templates live in `conversation_copy.py` keyed by category.
-- **Knowledge base** — `docs/havasu-knowledge-base.md` is the canonical source for query patterns, specific phrases (Section 4), synonyms (Section 5), venue aliases (Section 6), and response copy (Section 7). Expand the lists by editing the knowledge base first, then porting entries to the code.
+- **Commercial / out-of-scope routing** — rentals, venue shopping, and similar service queries can return templated OUT_OF_SCOPE replies instead of dumping generic events.
 - **Event submission via chat** — multi-turn flow collecting title, date, time, location, description, URL, contact. OpenAI extracts structure from free text. Duplicate detection via embedding cosine similarity.
+- **Event permalinks & sharing** — `GET /events/{id}` renders a single event with Open Graph meta tags for link previews; share button with clipboard copy and fallback for older browsers.
+- **Session state hardening** — stale `date_range` cleared for broad follow-ups; message-level date handling and week-after advancement (Session N).
+- **Defensive UI self-heal** — welcome chips re-checked after a short delay if the first render missed them (Session O).
 - **Admin panel** — password-protected dashboard at `/admin`. Tabs: Pending review / Live events. Approve/reject/delete actions. Session cookie with `itsdangerous` signing.
 - **Event status flow** — submitted events go to `pending_review` with a 48-hour review deadline. Expired pending events are auto-deleted by an hourly background task.
 - **Re-embed endpoint** — `POST /admin/reembed-all` regenerates OpenAI embeddings for all events. Protected by admin cookie.
 - **Re-seed endpoint** — `POST /admin/reseed` wipes seed rows and re-inserts. Protected by admin cookie.
-- **AI tags on submission** — new submitted events now get AI-generated tags in `extract_event()` via `generate_event_tags()`, using the same `client.responses.create` pattern as extraction.
+- **AI tags on submission** — new submitted events get AI-generated tags in `extract_event()` via `generate_event_tags()`, using the same `client.responses.create` pattern as extraction.
 - **Retag endpoint** — `POST /admin/retag-all` backfills/regenerates tags for all events. Protected by admin cookie.
 - **Diagnostic logging** — `app/core/search_log.py` writes per-query logs (intent, slots, DB params, candidate scores) to `search_debug.log`. Stdout diagnostic prints also appear in Railway logs.
 - **Rate limiting** — 10 requests/minute on `/events`, applied via slowapi.
 - **Welcome UI** — first-time users see a welcome message and three example chips (weekend events, kids activities, add an event). Chips disappear after first send.
-- **25 real seed events** — real Lake Havasu City events (concerts, boat races, markets, parks, fitness, etc.) with real OpenAI embeddings generated via the re-embed endpoint.
+- **120-query regression battery** — documented expectations in `docs/query-test-battery.md`; production runner `scripts/run_query_battery.py` (see Section 9).
+- **27 real seed events** — Lake Havasu–style events (concerts, boat races, markets, parks, fitness, named recurring hooks, etc.) with real OpenAI embeddings via the re-embed endpoint.
 
 ### Known bugs and limitations
 - **`search_debug.log` is local only** — the log file written by `search_log.py` lives inside the Railway container's filesystem. You cannot read it from the local machine. Use stdout prints (already added to `search_events`) to view scores in Railway's deployment logs instead.
-- **Seed event dates are fixed** — seed data has hardcoded dates (May–July 2026, updated in Session B). When those dates pass, most events will fall out of search results (future-only filter). The seed needs to be updated periodically.
+- **Seed event dates are fixed** — seed data uses hardcoded dates (roughly May–July 2026). When those dates pass, most events will fall out of search results (future-only filter). Plan periodic refresh (see roadmap).
+- **Thin category coverage** — with ~27 seeded events, some categories are sparse; scaling the catalog is a roadmap item.
 - **No pagination** — search returns up to 25 events. No page 2.
-- **No shareability** — no way to share a specific event or search result as a link.
-- **No onboarding for returning users** — the welcome chips only show on first visit (session-based, not account-based).
-- **OpenAI query embedding fallback** — if the OpenAI API call for query embedding fails, `embedding_from_openai` is False. The threshold filter is then based only on the literal-match bonus (score > 0.45 cutoff for specific-noun queries). General queries get no threshold filtering in fallback mode.
+- **Venue-vs-events precedence (intentional)** — queries that name a venue that also has seeded *events* may return those calendar events rather than a venue-only redirect. The 120-query battery rows 22, 44, 46, and 49 reflect this product choice; do not treat them as accidental bugs without an explicit decision to change precedence.
+- **No onboarding for returning users** — the welcome chips only show on first visit (session-based, not account-based). Roadmap: Session I (localStorage).
+- **OpenAI query embedding fallback** — if the OpenAI API call for query embedding fails, `embedding_from_openai` is False. The threshold filter is then based more heavily on literal/synonym bonuses. General queries get weaker embedding gating in fallback mode.
 
 ### Test count and status
-**60 tests, all passing.** Test files:
+**86 tests, all passing.** Test files:
 - `tests/test_phase1.py` — basic event CRUD
 - `tests/test_phase2.py` — slot extraction
 - `tests/test_phase3.py` — intent detection
@@ -101,8 +105,9 @@ Push any commit to `main` on GitHub → Railway detects it via webhook → Nixpa
 - `tests/test_phase5.py` — event quality / validation
 - `tests/test_phase6.py` — search basics
 - `tests/test_phase8.py` — admin panel (login, approve, reject, delete)
-- `tests/test_phase8_5.py` — rate limiting, session, onboarding, out-of-scope intent
-- `tests/test_search_relevance.py` — semantic search ranking tests
+- `tests/test_phase8_5.py` — rate limiting, session, onboarding, date carryover
+- `tests/test_search_relevance.py` — semantic search, literal match, honest no-match
+- `tests/test_permalinks.py` — permalink route and OG behavior
 
 Run with: `py -3 -m pytest --tb=short -q`
 
@@ -114,7 +119,8 @@ Run with: `py -3 -m pytest --tb=short -q`
 havasu-chat/
 ├── app/
 │   ├── main.py                  ★ FastAPI app entry point. Lifespan (DB init, seed, cleanup loop).
-│   │                              Mounts chat and admin routers. /health, /events endpoints.
+│   │                              Mounts chat and admin routers. /health, /events, GET /events/{id}
+│   │                              (permalink + OG meta for previews).
 │   ├── bootstrap_env.py           Loads .env without overriding Railway env vars.
 │   ├── admin/
 │   │   ├── auth.py                Admin password check + itsdangerous cookie signing.
@@ -125,31 +131,26 @@ havasu-chat/
 │   │                              search execution → response formatting. _chat_inner() and
 │   │                              _run_search_core() are the key functions.
 │   ├── core/
-│   │   ├── conversation_copy.py   All user-facing strings (greeting, no-match, listing nudges,
-│   │   │                          VENUE_REDIRECT_TEMPLATE, OUT_OF_SCOPE_* templates).
+│   │   ├── conversation_copy.py   All user-facing strings (greeting, no-match, listing nudges).
 │   │   ├── dedupe.py              Duplicate event detection via cosine similarity.
 │   │   ├── event_quality.py       Validation helpers for event submission flow.
 │   │   ├── extraction.py          OpenAI event extraction from free text + embedding generation.
 │   │   │                          Uses gpt-4.1-mini for extraction/tags, text-embedding-3-small for embeddings.
-│   │   ├── intent.py            ★ detect_intent() — classifies messages into intent labels,
-│   │   │                          including OUT_OF_SCOPE with four category triggers and
-│   │   │                          event-signal guard. See detect_out_of_scope_category().
+│   │   ├── intent.py              detect_intent() — classifies user message into intent labels.
 │   │   ├── rate_limit.py          slowapi limiter config.
 │   │   ├── search.py            ★ Core search logic. search_events(), scoring, threshold,
 │   │   │                          literal-match bonus, honest_no_match, ACTIVITY_TYPES map.
-│   │   │                          _SPECIFIC_PHRASES (~76 phrases). MOST IMPORTANT FILE for
-│   │   │                          search quality work.
+│   │   │                          MOST IMPORTANT FILE for search quality work.
 │   │   ├── search_log.py          Diagnostic logging — writes to search_debug.log + stdout.
 │   │   ├── session.py             In-memory session state management for multi-turn chat.
 │   │   ├── slots.py             ★ Slot extraction: date ranges, activity families, audience,
-│   │   │                          location hints. QUERY_SYNONYMS (~39 groups) and expand_query_synonyms().
-│   │   └── venues.py              VENUE_ALIASES (30 venues) and detect_venue() for the
-│   │                              no-match venue-redirect path.
+│   │   │                          location hints. Also QUERY_SYNONYMS and expand_query_synonyms().
+│   │   └── venues.py              Venue redirect helpers and venue copy for no-match flows.
 │   ├── db/
 │   │   ├── chat_logging.py        Logs each chat turn to the chat_logs table.
 │   │   ├── database.py            SQLAlchemy engine, Base, SessionLocal, get_db, init_db.
 │   │   ├── models.py              Event and ChatLog ORM models.
-│   │   └── seed.py                25 real Lake Havasu City events. Idempotent (skips existing seeds).
+│   │   └── seed.py                27 real Lake Havasu City events. Idempotent (skips existing seeds).
 │   ├── schemas/
 │   │   ├── chat.py                ChatRequest / ChatResponse Pydantic schemas.
 │   │   └── event.py               EventCreate / EventRead Pydantic schemas with validators.
@@ -162,36 +163,34 @@ havasu-chat/
 │       ├── 54d37d2c4d32_initial_events_table.py    Initial schema.
 │       └── b2f8c1a9d0e1_add_chat_logs_table.py     Adds chat_logs table.
 │
-├── tests/                         60 tests across 9 files (see Section 2).
+├── tests/                         86 tests across 10 files (see Section 2).
 ├── scripts/
 │   ├── diagnose_search.py         Fires 25 test queries at the live app, saves output to
 │   │                              diagnose_output.txt. Run with: py -3 scripts/diagnose_search.py
-│   └── verify_queries.py          Quick 6-query spot-check against the live app.
+│   ├── verify_queries.py          Quick 6-query spot-check against the live app.
+│   ├── run_query_battery.py       120-query production battery (HTTP). Writes JSON summary to stdout;
+│   │                              save as scripts/battery_results.json for regression compares.
+│   └── battery_results.json       (generated) Last battery output; not always committed.
 ├── docs/
-│   ├── havasu-knowledge-base.md   Canonical query patterns, specific phrases, synonyms,
-│   │                              venue aliases, and response copy. Source-of-truth for
-│   │                              lists that land in search.py / slots.py / venues.py.
-│   └── project-handoff.md         This file.
+│   ├── project-handoff.md         This file.
+│   └── query-test-battery.md      120-query expected labels + notes; keep in sync with runner.
 ├── Procfile                       Railway start command.
 ├── nixpacks.toml                  Railway build config (pip install + uvicorn start).
-├── requirements.txt               Dependencies (pinned to installed versions via pip freeze; Session C).
+├── requirements.txt               Dependencies (no pinned versions).
 ├── alembic.ini                    Alembic config.
 └── .env                           Local secrets (not committed). See Section 8.
 ```
 
 **Most important files for search quality work (in priority order):**
-1. `docs/havasu-knowledge-base.md` — canonical lists; edit here first, then port to code
-2. `app/core/search.py` — all scoring, thresholds, bonuses, filtering; `_SPECIFIC_PHRASES`
-3. `app/chat/router.py` — synonym expansion wiring, query_message enrichment, venue-redirect + OUT_OF_SCOPE branches
-4. `app/core/slots.py` — `QUERY_SYNONYMS` dictionary, slot extraction
-5. `app/core/intent.py` — intent classification incl. `detect_out_of_scope_category()`
-6. `app/core/venues.py` — `VENUE_ALIASES` + `detect_venue()` for the no-match redirect path
-7. `app/db/seed.py` — event content quality directly affects search results
-8. `app/core/extraction.py` — embedding generation for new/updated events
+1. `app/core/search.py` — all scoring, thresholds, bonuses, filtering
+2. `app/chat/router.py` — synonym expansion wiring, query_message enrichment
+3. `app/core/slots.py` — QUERY_SYNONYMS dictionary, slot extraction
+4. `app/db/seed.py` — event content quality directly affects search results
+5. `app/core/extraction.py` — embedding generation for new/updated events
 
 ---
 
-## 4. Completed Work This Session
+## 4. Completed Work (historical steps + Sessions H–T)
 
 ### Step 1 — Diagnostic logging (`cf700e2`)
 **What:** Added `app/core/search_log.py` with `log_query()`, `log_db_params()`, `log_candidates()`. Wired into `app/chat/router.py` (`_run_search_core`) and `app/core/search.py` (`search_events`).
@@ -250,61 +249,78 @@ kids activities             → COUNT 7   → Fun Activities section
 things to do this weekend   → COUNT 0   → Honest no-match (current data window)
 ```
 
-### Session J — Expand specific phrases and synonyms from knowledge base (`1c1a079`)
-**What:** Added `docs/havasu-knowledge-base.md` as the canonical reference for query patterns. Expanded `_SPECIFIC_PHRASES` in `app/core/search.py` from ~11 entries to ~76, organized by category (water sports, land activities, sightseeing, family/kids, dining, festivals, wellness). Expanded `QUERY_SYNONYMS` in `app/core/slots.py` from ~11 to ~39 phrase→synonym groups.
-**Why:** Previous phrase and synonym lists covered only a handful of query types. Real users name specific venues, activities, and event types the app had no awareness of. Knowledge-base-sourced lists give broad coverage of the domain.
-**Files changed:** `docs/havasu-knowledge-base.md` (new), `app/core/search.py`, `app/core/slots.py`.
+### Session H — Event shareability (`d2b2107`)
+**What:** Public permalink `GET /events/{id}` for a single event; Open Graph `<meta>` tags for rich link previews; clipboard share button on event cards with non-clipboard fallback for older browsers.
+**Why:** Users can share one event as a stable URL; previews look correct in iMessage, Slack, and social apps.
+**Files changed:** `app/main.py`, `app/static/index.html`, `tests/test_permalinks.py`.
 
-### Session K — Venue recognition and no-match redirect (`d30b7f3`)
-**What:** Added `app/core/venues.py` with `VENUE_ALIASES` (30 canonical Lake Havasu venues sourced from knowledge-base Section 6) and `detect_venue()` using longest-alias substring match. Added `VENUE_REDIRECT_TEMPLATE` to `conversation_copy.py`. Wired into `_run_search_core` in `app/chat/router.py`: when a query names a known venue and search returns zero events, the body is overwritten with the venue-redirect template.
-**Why:** Queries like "trampoline park" or "havasu lanes" previously triggered a generic honest-no-match. The new behavior acknowledges that the venue exists and promises to surface events there when they come up, which keeps the user engaged.
-**Files changed:** `app/core/venues.py` (new), `app/core/conversation_copy.py`, `app/chat/router.py`.
+### Session N — Session state / date carryover (`2c0e924`)
+**What:** Fixed stale `date_range` persisting across unrelated follow-up queries; message-level date phrase detection; clearing stale dates for broad queries; +7 day advancement for “week after” style follow-ups.
+**Why:** A narrowed date from an earlier turn was incorrectly filtering later broad questions (“anything fun?”).
+**Files changed:** `app/chat/router.py`, `tests/test_phase8_5.py`.
 
-### Session L — OUT_OF_SCOPE intent for weather / lodging / transportation / dining (`766030a`)
-**What:** Added `OUT_OF_SCOPE` intent label, four category trigger tuples, and `detect_out_of_scope_category()` in `app/core/intent.py`. Included an event-signal guard (event, events, festival, parade, fireworks, tournament, concert, gala, fundraiser) that suppresses the classification so queries like "hotel grand opening event tonight" still reach search. Added four verbatim response templates to `app/core/conversation_copy.py` (`OUT_OF_SCOPE_WEATHER`, `OUT_OF_SCOPE_LODGING`, `OUT_OF_SCOPE_TRANSPORTATION`, `OUT_OF_SCOPE_DINING`) plus an `OUT_OF_SCOPE_REPLIES` lookup. Wired an early branch in `_chat_inner` that returns the category template and skips the search pipeline entirely. Added three new pytest cases.
-**Why:** Out-of-scope queries (weather, hotels, directions, restaurant recommendations) previously ran through the full search pipeline — wasting an OpenAI embedding call and returning nonsense. Classifying them up front gives a clean redirect and saves API cost.
-**Files changed:** `app/core/intent.py`, `app/core/conversation_copy.py`, `app/chat/router.py`, `tests/test_phase8_5.py`.
+### Session O — Welcome chip self-heal (`e98ef94`)
+**What:** After 150ms, a deferred check re-renders welcome suggestion chips if the first paint missed them.
+**Why:** Race conditions in the static frontend occasionally left first-time users without chips.
+**Files changed:** `app/static/index.html`.
 
-### Note on Sessions J–L vs. the old "Step 3 AI Tagging" plan
-Section 6 below used to describe AI tagging as the next task. That work shipped in Session D (`82c4f0a`) and is now complete. Sessions J, K, and L are the real post-D work: knowledge-base-driven search quality (J), venue recognition (K), and out-of-scope intent (L). The section is retained for historical context.
+### Session P — Week/month date phrases (pending)
+**Status:** Not committed as of Session U. `extract_date_range` already handles phrases such as `next week` in isolation; dedicated `this week`, `this month`, and `next month` ranges (as described for Session P) are not fully implemented under that session banner—treat as **planned** work.
+**Planned what:** Extend `extract_date_range` to parse `this week`, `next week`, `this month`, `next month` consistently for calendar-style questions.
+**Planned files:** `app/core/slots.py`, `tests/test_phase2.py`.
+**Roadmap:** See Section 5.
+
+### Session Q — Short-query literals + OUT_OF_SCOPE expansion (`a2a2e99`)
+**What:** Require literal match for short noun-focused queries; wire synonym terms into scoring; expand OUT_OF_SCOPE triggers for weather, lodging, transportation, dining (alongside existing intent work).
+**Why:** Reduce irrelevant event lists for specific phrasing and route non-event questions out of search.
+**Files changed:** `app/core/search.py`, `app/core/intent.py`, `tests/test_search_relevance.py`, `tests/test_phase3.py`.
+**Battery:** ~70.0% → ~80.8% pass rate on the 120-query production battery.
+
+### Session R — Partial literal wiring (`0594731`, superseded)
+**What:** Synonym scoring and word-boundary matching improvements landed only on one branch inside `search.py`.
+**Why:** Incomplete—fallback path did not get the same behavior.
+**Files changed:** `app/core/search.py`.
+**Note:** Post-deploy battery was flat vs Session Q because the fix did not cover the fallback branch.
+
+### Session S — Literal-survival on both branches (`9fd1027`)
+**What:** Completed Session R by applying literal-survival to **both** embedding and fallback branches; require all tokens for multi-word short queries (with honest no-match when literals fail).
+**Why:** Consistent relevance whether or not OpenAI query embeddings succeed.
+**Files changed:** `app/core/search.py`, `tests/test_search_relevance.py`.
+**Battery:** ~80.8% → ~89.2%.
+
+### Session T — Final bug sweep (`27d9d67`, `ddce8a4`)
+**What:** Named recurring events and discovery (e.g. sunset market, First Friday date handling, fireworks ↔ July 4 hooks in `QUERY_SYNONYMS`); `flags_query` vs embedding text to stop multi-word synonym expansion from breaking Session S short-query rules; `commercial_services` OUT_OF_SCOPE category and copy; explicit ADD_EVENT phrasing; seed additions aligned with tests. Second commit fixed a regression where stricter literals rejected “boat race” when copy used “boats”/“boating”/“racing” by allowing **multi-word synonym phrases** (e.g. “poker run”) to satisfy literal match for multi-word synonym keys.
+**Why:** Close quality gaps on production battery without abandoning venue precedence or loosening relevance to arbitrary fuzzy matches.
+**Files changed:** `app/core/search.py`, `app/core/intent.py`, `app/core/conversation_copy.py`, `app/chat/router.py`, `app/core/slots.py`, `app/db/seed.py`, `tests/test_search_relevance.py`, `tests/test_phase6.py`, `tests/test_phase8_5.py`, `docs/query-test-battery.md`, `scripts/run_query_battery.py`.
+**Battery:** ~89.2% → ~96.67%.
+
+### Query Test Battery (permanent quality gate)
+- **Spec:** `docs/query-test-battery.md` — expected classification per query (EVENTS, NO_MATCH, OUT_OF_SCOPE variants, etc.).
+- **Runner:** `scripts/run_query_battery.py` — hits production `POST /chat`; save stdout JSON to `scripts/battery_results.json` for before/after compares.
+- **When to run:** After any change to search, intent, slots, venues, or seed content that affects user-facing matching (see Section 9).
 
 ---
 
 ## 5. Remaining Roadmap
 
-### Step 3 — AI-generated tags on event submission (completed)
-**Status:** Done in Session D (`82c4f0a`) and deployed.
-**What shipped:** `generate_event_tags()` added to `app/core/extraction.py`, called inside `extract_event()`, and `POST /admin/retag-all` added in `app/admin/router.py`.
-**Production backfill:** `POST /admin/retag-all` returned `{"updated":25}`.
-**Notes:** This intentionally overwrites prior hand-written tags for consistency across all events.
+### Session G — Admin UX polish
+**What:** Richer admin review UI: show tags, embedding status on event cards, optional preview links.
+**Files:** Primarily `app/admin/router.py`.
 
-### Step 4 — Content: update seed event dates (completed)
-**Status:** Done in Session B (`41d1c71`) and deployed.
-**What shipped:** All 25 seed event dates updated to a May–July 2026 rolling window in `app/db/seed.py`.
-**Notes:** After any future date window expires, re-run this same targeted edit on `app/db/seed.py` and trigger a reseed via `POST /admin/reseed`.
+### Session I — Returning-user onboarding
+**What:** Persist light state (e.g. localStorage) so repeat visitors get a softer prompt instead of a blank composer.
+**Files:** `app/static/index.html`.
 
-### Step 5 — Admin review UX improvements
-**What:** The admin panel is functional but plain. Potential improvements: show event tags and embedding status, add a "preview as user" link, show search score for each event.
-**Why:** Makes moderation faster and helps Casey understand why events do/don't rank.
-**Files it will touch:** `app/admin/router.py` (HTML generation).
-**Who should do it:** **Cursor LLM** — contained within one file's HTML generation functions.
+### Session P — Week/month date parsing (if not done earlier)
+**What:** Finish `extract_date_range` coverage for `this week`, `this month`, `next month` (and align with `next week` behavior).
+**Files:** `app/core/slots.py`, `tests/test_phase2.py`.
 
-### Step 6 — Shareability
-**What:** Allow linking to a specific event or a search result. Minimal implementation: `/events/{id}` page that renders a single event card. Could share as `https://web-production-bbe17.up.railway.app/events/abc123`.
-**Why:** Users who find a great event want to send it to friends. Without this, the app is a dead end.
-**Files it will touch:** `app/main.py` (new GET route), `app/static/index.html` (share button), possibly `app/admin/router.py` (event link in admin card).
-**Who should do it:** **Cursor LLM** for the route + HTML. Straightforward.
+### Seed data scale-up
+**What:** Grow the catalog from ~27 toward **100–1000** events so thin categories fill in; re-embed after bulk imports.
+**Files:** `app/db/seed.py`, ops via `/admin/reembed-all`.
 
-### Step 7 — Onboarding for returning users
-**What:** Currently the welcome chips only show on the first message of a fresh browser session. Returning users see a blank input with no guidance. Options: persist a "last visited" flag in localStorage; show a softer prompt like "Welcome back — what are you looking for?"
-**Why:** Returning users drop off because there's no prompt to engage.
-**Files it will touch:** `app/static/index.html` only.
-**Who should do it:** **Cursor LLM** — frontend-only change.
-
-### Step 8 — Re-run full diagnostic and tune
-**What:** After Step 4 updates, run `py -3 scripts/diagnose_search.py` against the live app. Review the full 25-query output and identify remaining ranking problems.
-**Why:** Changes compound. New tags, updated embeddings, and date changes may improve or regress results. Verify before declaring search quality done.
-**Who should do it:** Run the script locally, paste the output into Cursor or Claude for interpretation.
+### Periodic seed date refresh
+**What:** Current seed dates are anchored around **mid-2026**; after they roll past, future-only search will empty out. Re-date and reseed on a cadence (or automate a rolling window).
 
 ---
 
@@ -395,9 +411,9 @@ def admin_retag_all(request: Request, db: Session = Depends(get_db)) -> dict[str
 ```
 
 ### Test and production impact
-- **Tests:** `py -3 -m pytest --tb=short -q` passed (57/57).
+- **Tests:** `py -3 -m pytest --tb=short -q` — see Section 2 for current count (Session U: 86).
 - **No migration needed:** `tags` column already exists as `JSON`.
-- **Production backfill:** Completed; `/admin/retag-all` returned `{"updated":25}`.
+- **Production backfill:** Completed; `/admin/retag-all` updated all live rows at time of run (count matches DB size).
 
 ### Commit
 `82c4f0a` — `"Session D: AI-generated tags on event submission"`
@@ -417,11 +433,11 @@ def admin_retag_all(request: Request, db: Session = Depends(get_db)) -> dict[str
 **Specific nouns get a higher bar.** Queries naming a concrete thing (boat race, concert, parade, etc.) use a 0.55 threshold instead of 0.35, and require a literal keyword match to rank high. This prevents loosely-related events (fitness classes, markets) from flooding results for specific searches.
 
 **No scope creep until these arcs are done:**
-1. Search quality (Steps 2a, 2b, 3, plus Sessions A, J, K, L done)
-2. Content freshness (seed event dates done in Session B; needs periodic refresh)
-3. Admin review UX
-4. Shareability
-5. Returning-user onboarding
+1. Search quality (literal matching, synonyms, battery ≥ ~95% on production runs)
+2. Content freshness (seed dates + catalog scale)
+3. Admin review UX (Session G)
+4. Shareability (Session H — done)
+5. Returning-user onboarding (Session I)
 
 ---
 
@@ -460,7 +476,7 @@ Every working session should target exactly one feature or fix. Write out the pl
 ```bash
 py -3 -m pytest --tb=short -q
 ```
-All 57 must pass. If a test fails, fix it before committing. Never push a failing test.
+All tests must pass (Session U: **86**). If a test fails, fix it before committing. Never push a failing test.
 
 ### Always push to main
 Railway auto-deploys from `main`. Push directly — no PRs needed for this solo project.
@@ -490,7 +506,16 @@ If seed event descriptions are changed, or a new batch of events is added, re-em
 Same pattern as re-embed:
 1. Log into `/admin`.
 2. `POST /admin/retag-all`.
-3. Should return `{"updated": 25}`.
+3. Response `updated` count equals the number of events in the database at that time.
+
+### Running the Query Battery
+After any change to **search**, **intent**, **slots**, **venues**, or **seed** content that could affect user-facing answers, run the 120-query production battery:
+
+```bash
+py -3 scripts/run_query_battery.py
+```
+
+Save the JSON output to `scripts/battery_results.json` (overwrite the previous file) and compare pass rate and per-query deltas to the last run. **Any drop below ~95% pass rate should be investigated** before merging the next session of work, unless the change intentionally updates expectations in `docs/query-test-battery.md` and the runner together.
 
 ### Cursor LLM vs Claude Code split
 | Task type | Use |
