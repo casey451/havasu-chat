@@ -1,13 +1,12 @@
-# TODO: Replace placeholder URLs and phone numbers with real venue data before launch
+# TODO: Verify recurring-event dates and placeholder phones against venues before major launch
 """
-Seed the database with sample Lake Havasu City community events.
+Seed the database with real Lake Havasu City community events.
 Idempotent: each event is tagged with __seed__:lhc_XXX; re-running skips existing seeds.
 """
 from __future__ import annotations
 
 import sys
-from datetime import date, time, timedelta
-from urllib.parse import quote
+from datetime import date, time
 
 from app.bootstrap_env import ensure_dotenv_loaded
 from app.core.extraction import _embedding_input
@@ -20,10 +19,435 @@ ensure_dotenv_loaded()
 
 SEED_TAG_PREFIX = "__seed__:lhc_"
 
+# LAKE HAVASU CITY — REAL SEED DATA (next ~30 days + listed anchor dates)
+# Sourced from: golakehavasu.com, lhcaz.gov, riverscenemagazine.com,
+# downtownlakehavasu.com, allevents.in, desertstormlhc.com, heathotel.com,
+# thekawslhc.com, lakehavasufarmersmarket.com
+#
+# Reference date for copy: April 16, 2026
+# Date range intent: April 16 – May 16, 2026 (some entries extend slightly per source list)
+REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
+    {
+        "title": "Desert Storm Poker Run & Shootout",
+        "date": "2026-04-22",
+        "start_time": "14:00",
+        "end_time": "20:00",
+        "location_name": "Bridgewater Channel, Lake Havasu City",
+        "description": (
+            "The largest performance boating event in the Western US. A world-class collection "
+            "of the most prestigious performance boats from across the nation. Free to watch "
+            "from the shoreline. Runs April 22–25 with daily events."
+        ),
+        "tags": ["outdoor", "boats", "racing", "spectator", "free", "family", "signature"],
+        "event_url": "https://www.desertstormlhc.com",
+        "contact_name": "Desert Storm",
+        "contact_phone": "928-453-3444",
+    },
+    {
+        "title": "Country Divas at Havasu Landing Casino",
+        "date": "2026-04-18",
+        "start_time": "19:00",
+        "end_time": "22:00",
+        "location_name": "Havasu Landing Casino, Lake Havasu City",
+        "description": (
+            "Country Divas live concert at Havasu Landing Casino. A night of country music "
+            "tribute performances. Tickets available through the casino. Must be 21+."
+        ),
+        "tags": ["music", "adults", "concert", "country", "evening"],
+        "event_url": "https://www.allevents.in/lake-havasu-city",
+        "contact_name": "Havasu Landing Casino",
+        "contact_phone": "928-855-0777",
+    },
+    {
+        "title": "Sky Lantern Festival by Lights Over America",
+        "date": "2026-04-18",
+        "start_time": "18:00",
+        "end_time": "22:00",
+        "location_name": "Lake Havasu, AZ",
+        "description": (
+            "A magical evening where thousands of biodegradable sky lanterns light up the night "
+            "sky over Lake Havasu. Family-friendly festival with food, music, and lantern launch. "
+            "Tickets required."
+        ),
+        "tags": ["family", "evening", "festival", "outdoor", "lights", "kids"],
+        "event_url": "https://www.lightsoveramerica.com",
+        "contact_name": "Lights Over America",
+        "contact_phone": "928-555-0110",
+    },
+    {
+        "title": "Desert Island Tiki Night",
+        "date": "2026-04-18",
+        "start_time": "17:00",
+        "end_time": "22:00",
+        "location_name": "Heat Hotel, 1420 McCulloch Blvd N",
+        "description": (
+            "Tropical tiki-themed evening at Heat Hotel with signature cocktails, island vibes, "
+            "and live music. Dress code encouraged. 21 and over."
+        ),
+        "tags": ["adults", "nightlife", "cocktails", "music", "evening"],
+        "event_url": "https://www.heathotel.com",
+        "contact_name": "Heat Hotel",
+        "contact_phone": "928-854-2833",
+    },
+    {
+        "title": "Motor Madness Cruise-In",
+        "date": "2026-04-19",
+        "start_time": "13:00",
+        "end_time": "17:00",
+        "location_name": "Lighthouse Lounge, Lake Havasu City",
+        "description": (
+            "Classic car cruise-in event at Lighthouse Lounge. Come show your ride or just enjoy "
+            "looking at the beautiful cars and bikes on display. Food and drinks available."
+        ),
+        "tags": ["cars", "outdoor", "community", "weekend", "family"],
+        "event_url": "https://www.allevents.in/lake-havasu-city",
+        "contact_name": "Lighthouse Lounge",
+        "contact_phone": "928-555-0111",
+    },
+    {
+        "title": "Crosscutt Live at The Office Cocktail Lounge",
+        "date": "2026-04-24",
+        "start_time": "20:00",
+        "end_time": "23:00",
+        "location_name": "The Office Cocktail Lounge & Grill, Lake Havasu City",
+        "description": (
+            "Live music with Crosscutt at The Office Cocktail Lounge. Rock and classic covers. "
+            "Full bar and grill menu available. 21+."
+        ),
+        "tags": ["music", "adults", "nightlife", "live music", "rock", "evening"],
+        "event_url": "https://www.allevents.in/lake-havasu-city",
+        "contact_name": "The Office Cocktail Lounge",
+        "contact_phone": "928-855-6263",
+    },
+    {
+        "title": "Legends Tattoo Show 2026",
+        "date": "2026-05-20",
+        "start_time": "10:00",
+        "end_time": "18:00",
+        "location_name": "London Bridge, Lake Havasu City",
+        "description": (
+            "Hosted by Lakeside Tattoo Art Collective. Tattoo artists from across the region, "
+            "live tattooing, vendors, art, and community. Three-day event at the London Bridge."
+        ),
+        "tags": ["art", "adults", "tattoo", "festival", "culture"],
+        "event_url": "https://www.allevents.in/lake-havasu-city",
+        "contact_name": "Lakeside Tattoo Art Collective",
+        "contact_phone": "928-555-0112",
+    },
+    {
+        "title": "Lake Havasu Farmers Market",
+        "date": "2026-04-25",
+        "start_time": "08:00",
+        "end_time": "12:00",
+        "location_name": "The KAWS, 2144 McCulloch Blvd N",
+        "description": (
+            "Every 2nd and 4th Saturday — fresh produce, cheese, bread, eggs, baked goods, "
+            "fresh fish, soaps, honey, teas, plants, microgreens, coffee, candles, art, "
+            "crafts, jewelry, pottery and more. Downtown community favorite."
+        ),
+        "tags": ["market", "food", "family", "community", "weekend", "outdoor", "shopping"],
+        "event_url": "https://www.lakehavasufarmersmarket.com",
+        "contact_name": "The KAWS",
+        "contact_phone": "928-555-0113",
+    },
+    {
+        "title": "First Friday Downtown Lake Havasu",
+        "date": "2026-05-01",
+        "start_time": "18:00",
+        "end_time": "21:00",
+        "location_name": "Downtown Lake Havasu, Main Street",
+        "description": (
+            "First Friday of every month — art scene event in downtown Havasu. Galleries open, "
+            "local artists, live music, food trucks, and community vibes. Family friendly and free."
+        ),
+        "tags": ["art", "music", "family", "free", "community", "evening", "downtown"],
+        "event_url": "https://downtownlakehavasu.com/events/",
+        "contact_name": "Downtown Lake Havasu",
+        "contact_phone": "928-555-0114",
+    },
+    {
+        "title": "Open Swim — Aquatic Center",
+        "date": "2026-04-18",
+        "start_time": "12:00",
+        "end_time": "16:00",
+        "location_name": "Lake Havasu City Aquatic Center, 100 Park Ave",
+        "description": (
+            "Every Saturday year-round. Indoor wave pool, waterslide, kiddie lagoon, splash pad, "
+            "and hot tubs. $6 adults, $3 seniors/kids, under 3 free. Additional days in June and July."
+        ),
+        "tags": ["kids", "family", "swimming", "water", "indoor", "weekend"],
+        "event_url": "https://www.lhcaz.gov/parks-recreation/aquatic-center",
+        "contact_name": "Aquatic Center",
+        "contact_phone": "928-453-8686",
+    },
+    {
+        "title": "Swim Lessons for Kids — Aquatic Center",
+        "date": "2026-04-20",
+        "start_time": "09:00",
+        "end_time": "10:00",
+        "location_name": "Lake Havasu City Aquatic Center, 100 Park Ave",
+        "description": (
+            "Swim lessons for children ages 6 months and up. Certified instructors, classes "
+            "tailored to skill level. Sessions run Monday through Thursday over two-week blocks. "
+            "Call to register."
+        ),
+        "tags": ["kids", "swimming", "lessons", "toddler", "youth", "weekdays"],
+        "event_url": "https://www.lhcaz.gov/parks-recreation/open-swim-schedule",
+        "contact_name": "Aquatic Center",
+        "contact_phone": "928-453-8686",
+    },
+    {
+        "title": "Aqua Aerobics — Aquatic Center",
+        "date": "2026-04-17",
+        "start_time": "08:00",
+        "end_time": "09:00",
+        "location_name": "Lake Havasu City Aquatic Center, 100 Park Ave",
+        "description": (
+            "Shallow and deep water fitness class — full body workout, all levels. "
+            "Improves aerobic fitness and builds endurance. Drop-in $5. "
+            "Other classes include Ai-Chi, water walking, and aqua Zumba."
+        ),
+        "tags": ["fitness", "adults", "water", "exercise", "seniors", "weekdays"],
+        "event_url": "https://www.lhcaz.gov/parks-recreation/open-swim-schedule",
+        "contact_name": "Aquatic Center",
+        "contact_phone": "928-453-8686",
+    },
+    {
+        "title": "Havasu Stingrays Swim Team Tryouts",
+        "date": "2026-04-26",
+        "start_time": "09:00",
+        "end_time": "11:00",
+        "location_name": "Lake Havasu City Aquatic Center, 100 Park Ave",
+        "description": (
+            "Tryouts for the Havasu Stingrays competitive swim team. Open to youth swimmers. "
+            "Contact the Aquatic Center ahead of time to register."
+        ),
+        "tags": ["kids", "youth", "sports", "swimming", "competitive"],
+        "event_url": "https://www.golakehavasu.com/events",
+        "contact_name": "Havasu Stingrays",
+        "contact_phone": "928-453-8686",
+    },
+    {
+        "title": "CrossFit Classes — Havasu CrossFit",
+        "date": "2026-04-17",
+        "start_time": "06:00",
+        "end_time": "07:00",
+        "location_name": "Havasu CrossFit, 1050 Lake Havasu Ave N #C",
+        "description": (
+            "Coach-led CrossFit classes for all fitness levels. Experienced certified trainers. "
+            "Multiple class times daily. Registration required. Check website for weekly schedule. "
+            "Daily, weekly, monthly rates available."
+        ),
+        "tags": ["fitness", "adults", "crossfit", "gym", "strength", "classes"],
+        "event_url": "https://havasucrossfit.com",
+        "contact_name": "Havasu CrossFit",
+        "contact_phone": "928-680-9348",
+    },
+    {
+        "title": "Yoga & Pilates — Ben Hicks Yoga",
+        "date": "2026-04-17",
+        "start_time": "08:00",
+        "end_time": "09:00",
+        "location_name": "Ben Hicks Yoga, 2000 McCulloch Blvd N #A",
+        "description": (
+            "Daily studio and online yoga classes for all levels. Also offers Pilates reformer "
+            "private, duet, and trio sessions. A popular local studio in the heart of Havasu."
+        ),
+        "tags": ["fitness", "yoga", "pilates", "adults", "wellness", "classes"],
+        "event_url": "https://benhicksyoga.com",
+        "contact_name": "Ben Hicks Yoga",
+        "contact_phone": "928-680-6392",
+    },
+    {
+        "title": "Group Fitness Classes — FitLab 928",
+        "date": "2026-04-17",
+        "start_time": "05:00",
+        "end_time": "06:00",
+        "location_name": "FitLab 928, 537 Lake Havasu Ave N #101",
+        "description": (
+            "Community-based functional fitness gym with coach-led group classes. "
+            "Mon–Fri 5am–5:45pm, Sat 8am. No contracts — daily, weekly, monthly rates. "
+            "Personal training also offered."
+        ),
+        "tags": ["fitness", "adults", "gym", "group", "functional", "classes"],
+        "event_url": "https://fitlab928.com",
+        "contact_name": "FitLab 928",
+        "contact_phone": "928-900-7989",
+    },
+    {
+        "title": "Pilates & Spa Treatments — Bella Faccia",
+        "date": "2026-04-17",
+        "start_time": "09:00",
+        "end_time": "18:00",
+        "location_name": "Bella Faccia Skincare, Lake Havasu City",
+        "description": (
+            "Yoga classes, private/duet/trio Pilates reformer classes, plus massage and "
+            "other spa treatments. By appointment only."
+        ),
+        "tags": ["fitness", "adults", "wellness", "pilates", "yoga", "spa"],
+        "event_url": "https://bellafacciaskincare.com",
+        "contact_name": "Bella Faccia",
+        "contact_phone": "928-555-0115",
+    },
+    {
+        "title": "Junior Ranger Program — Lake Havasu State Park",
+        "date": "2026-04-18",
+        "start_time": "09:00",
+        "end_time": "12:00",
+        "location_name": "Lake Havasu State Park, Windsor Beach, 171 London Bridge Rd",
+        "description": (
+            "Kids ages 6–12 can become a Junior Ranger! Complete activity booklets, learn about "
+            "the Colorado River, and earn a Junior Ranger badge. Free with park entry. "
+            "Available year-round at the Visitor Center."
+        ),
+        "tags": ["kids", "outdoor", "nature", "free", "family", "state park", "educational"],
+        "event_url": "https://azstateparks.com/lake-havasu/explore/for-kids",
+        "contact_name": "Lake Havasu State Park",
+        "contact_phone": "928-855-2784",
+    },
+    {
+        "title": "Kayaking & Paddleboard Rentals",
+        "date": "2026-04-17",
+        "start_time": "08:00",
+        "end_time": "17:00",
+        "location_name": "Lake Havasu Shoreline",
+        "description": (
+            "Kayak, paddleboard, and watercraft rentals on beautiful Lake Havasu. "
+            "Great for families, beginners, and experienced paddlers. Guided tours also available. "
+            "Open daily weather permitting."
+        ),
+        "tags": ["outdoor", "kayaking", "water", "family", "rental", "paddleboard", "daily"],
+        "event_url": "https://www.golakehavasu.com/things-to-do/water-sports/",
+        "contact_name": "Southwest Kayaks",
+        "contact_phone": "928-855-6459",
+    },
+    {
+        "title": "Crack in the Mountain Hiking Trail",
+        "date": "2026-04-19",
+        "start_time": "07:00",
+        "end_time": "12:00",
+        "location_name": "SARA Park Trailhead, 7260 Sara Pkwy",
+        "description": (
+            "Popular local hiking trail — moderate difficulty with incredible slot canyon views. "
+            "Approximately 5 miles round trip to the shoreline and back. Best done early morning "
+            "or late afternoon. Bring water, sturdy shoes, and sun protection."
+        ),
+        "tags": ["outdoor", "hiking", "free", "family", "adults", "nature"],
+        "event_url": "https://www.lhcaz.gov/parks-recreation",
+        "contact_name": "SARA Park",
+        "contact_phone": "928-453-8686",
+    },
+    {
+        "title": "Pickleball Open Play — LHCPBA",
+        "date": "2026-04-18",
+        "start_time": "07:00",
+        "end_time": "10:00",
+        "location_name": "Lake Havasu City Pickleball Courts",
+        "description": (
+            "The Lake Havasu City Pickleball Association hosts regular open play sessions for "
+            "all skill levels. One of the fastest-growing sports in Havasu. "
+            "Check their Facebook page for current schedule."
+        ),
+        "tags": ["sports", "adults", "pickleball", "outdoor", "community", "social"],
+        "event_url": "https://www.facebook.com/search/top?q=lake+havasu+pickleball+association",
+        "contact_name": "LHCPBA",
+        "contact_phone": "928-555-0103",
+    },
+    {
+        "title": "Havasu 95 Speedway Race Night",
+        "date": "2026-04-25",
+        "start_time": "18:00",
+        "end_time": "22:00",
+        "location_name": "Havasu 95 Speedway, 7260 Sara Pkwy",
+        "description": (
+            "Dirt track racing at Havasu 95 Speedway. Exciting local motorsports action. "
+            "Concessions, family seating, and exciting races all night. Check schedule for "
+            "race classes and ticket pricing."
+        ),
+        "tags": ["sports", "racing", "family", "outdoor", "evening", "spectator"],
+        "event_url": "https://www.havasu95speedway.com",
+        "contact_name": "Havasu 95 Speedway",
+        "contact_phone": "928-855-2257",
+    },
+    {
+        "title": "Mohave County Library Story Time",
+        "date": "2026-04-22",
+        "start_time": "10:30",
+        "end_time": "11:15",
+        "location_name": "Mohave County Library, 1770 McCulloch Blvd N",
+        "description": (
+            "Free weekly story time for toddlers and preschoolers. Stories, songs, and simple "
+            "crafts. A favorite for local parents. Check library calendar for current weekly "
+            "schedule and age groups."
+        ),
+        "tags": ["kids", "toddler", "free", "library", "family", "educational", "weekdays"],
+        "event_url": "https://www.mohavecountylibrary.us",
+        "contact_name": "Mohave County Library",
+        "contact_phone": "928-453-0718",
+    },
+    {
+        "title": "Hollywood Knights Dinner & Silent Auction",
+        "date": "2026-04-26",
+        "start_time": "17:00",
+        "end_time": "21:00",
+        "location_name": "Aquatic Center, 100 Park Ave",
+        "description": (
+            "Community fundraiser dinner with a silent auction. Hollywood Knights benefit event. "
+            "Tickets required. Check Go Lake Havasu events for details."
+        ),
+        "tags": ["community", "charity", "adults", "evening", "dinner", "fundraiser"],
+        "event_url": "https://www.golakehavasu.com/events",
+        "contact_name": "Hollywood Knights",
+        "contact_phone": "928-555-0116",
+    },
+    {
+        "title": "Iron Wolf Golf & Country Club Open Play",
+        "date": "2026-04-19",
+        "start_time": "07:00",
+        "end_time": "18:00",
+        "location_name": "Iron Wolf Golf & Country Club, Lake Havasu City",
+        "description": (
+            "Beautiful 18-hole golf course open to the public. Pavilion, pro shop, and "
+            "restaurant on site. Tee times recommended. Also hosts regular tribute band "
+            "nights and special events."
+        ),
+        "tags": ["sports", "golf", "adults", "outdoor", "recreation"],
+        "event_url": "https://www.ironwolfgolf.com",
+        "contact_name": "Iron Wolf Golf Club",
+        "contact_phone": "928-681-5900",
+    },
+]
 
-def _fb_search(query: str) -> str:
-    q = quote(f"{query} Lake Havasu City")
-    return f"https://www.facebook.com/search/top?q={q}"
+SEED_EVENT_COUNT = len(REAL_SEED_EVENTS)
+
+
+def _parse_hhmm(s: str) -> time:
+    parts = s.strip().split(":")
+    h = int(parts[0])
+    m = int(parts[1]) if len(parts) > 1 else 0
+    sec = int(parts[2]) if len(parts) > 2 else 0
+    return time(h, m, sec)
+
+
+def _normalized_seed_rows() -> list[dict]:
+    rows: list[dict] = []
+    for raw in REAL_SEED_EVENTS:
+        end_raw = raw.get("end_time")
+        rows.append(
+            {
+                "title": str(raw["title"]),
+                "date": date.fromisoformat(str(raw["date"])),
+                "start_time": _parse_hhmm(str(raw["start_time"])),
+                "end_time": _parse_hhmm(str(end_raw)) if end_raw else None,
+                "location_name": str(raw["location_name"]),
+                "description": str(raw["description"]),
+                "tags": list(raw["tags"]),
+                "event_url": str(raw["event_url"]),
+                "contact_name": str(raw["contact_name"]),
+                "contact_phone": str(raw["contact_phone"]),
+            }
+        )
+    return rows
 
 
 def _seed_tag(index: int) -> str:
@@ -43,185 +467,13 @@ def _existing_seed_indices(db) -> set[int]:
     return found
 
 
-def _build_seed_rows(today: date) -> list[dict]:
-    """15 rows: title, days_ahead, start_t, location, description, extra_tags."""
-    return [
-        {
-            "title": "Little Kickers Youth Soccer Clinic",
-            "days": 3,
-            "t": time(9, 0),
-            "location": "Rotary Community Park, Lake Havasu City",
-            "description": "Intro soccer skills for ages 5–8 with local volunteer coaches. Cleats optional; bring water and sunscreen.",
-            "tags": ["kids", "sports", "soccer"],
-            "event_url": _fb_search("Rotary Community Park youth soccer Lake Havasu"),
-            "contact_name": "Alex Rivera",
-            "contact_phone": "928-555-0100",
-        },
-        {
-            "title": "Morning Pickleball Open Play",
-            "days": 4,
-            "t": time(7, 30),
-            "location": "Kenyon Field Courts, Lake Havasu City",
-            "description": "All skill levels welcome for doubles round-robin. Paddles available to borrow while supplies last.",
-            "tags": ["fitness", "pickleball", "adults"],
-            "event_url": _fb_search("Kenyon Field pickleball Lake Havasu"),
-            "contact_name": "Jordan Lee",
-            "contact_phone": "928-555-0101",
-        },
-        {
-            "title": "London Bridge Beach Farmers Market",
-            "days": 5,
-            "t": time(8, 0),
-            "location": "London Bridge Beach, Lake Havasu City",
-            "description": "Local produce, baked goods, and handmade crafts along the waterfront every Saturday morning.",
-            "tags": ["community", "family", "outdoors"],
-            "event_url": _fb_search("London Bridge Beach farmers market Lake Havasu"),
-            "contact_name": "Farmers Market Booth",
-            "contact_phone": "928-555-0102",
-        },
-        {
-            "title": "Sunrise Yoga by the Channel",
-            "days": 6,
-            "t": time(6, 30),
-            "location": "Channel Walk, Lake Havasu City",
-            "description": "Gentle flow yoga as the sun comes up over the water. Bring a mat or towel; donations appreciated.",
-            "tags": ["fitness", "yoga", "wellness"],
-            "event_url": _fb_search("Channel Walk yoga Lake Havasu"),
-            "contact_name": "Sam Chen",
-            "contact_phone": "928-555-0103",
-        },
-        {
-            "title": "Havasu Youth Basketball Skills Night",
-            "days": 8,
-            "t": time(18, 0),
-            "location": "Lake Havasu Aquatic Center Gym, Lake Havasu City",
-            "description": "Dribbling, shooting, and scrimmages for middle school players with certified trainers.",
-            "tags": ["kids", "sports", "basketball"],
-            "event_url": _fb_search("Lake Havasu Aquatic Center basketball Lake Havasu"),
-            "contact_name": "Coach Morgan",
-            "contact_phone": "928-555-0104",
-        },
-        {
-            "title": "Community Theater Open Auditions",
-            "days": 9,
-            "t": time(19, 0),
-            "location": "Performing Arts Center, Lake Havasu City",
-            "description": "Spring musical auditions for teens and adults. Prepare a one-minute song; callbacks posted online.",
-            "tags": ["arts", "theater", "community"],
-            "event_url": _fb_search("Lake Havasu Performing Arts Center auditions"),
-            "contact_name": "Riley Brooks",
-            "contact_phone": "928-555-0105",
-        },
-        {
-            "title": "Tadpole Swim Lessons (Level 1)",
-            "days": 10,
-            "t": time(10, 0),
-            "location": "Lake Havasu Aquatic Center, Lake Havasu City",
-            "description": "Small-group beginner swim lessons for ages 4–6 with certified instructors in the shallow pool.",
-            "tags": ["kids", "swim", "aquatic"],
-            "event_url": _fb_search("Lake Havasu Aquatic Center swim lessons"),
-            "contact_name": "Aquatic Desk",
-            "contact_phone": "928-555-0106",
-        },
-        {
-            "title": "Sara Park Trail Group Hike",
-            "days": 12,
-            "t": time(7, 0),
-            "location": "Sara Park Trailhead, Lake Havasu City",
-            "description": "Moderate desert hike with ranger tips on local plants and wildlife. Bring 2 liters of water and a hat.",
-            "tags": ["outdoors", "hiking", "family"],
-            "event_url": _fb_search("Sara Park hiking Lake Havasu"),
-            "contact_name": "Trail Host",
-            "contact_phone": "928-555-0107",
-        },
-        {
-            "title": "Preschool Story & Craft Hour",
-            "days": 14,
-            "t": time(10, 30),
-            "location": "Lake Havasu City Library",
-            "description": "Stories, songs, and a simple craft for ages 2–5 with caregivers. Free; no registration required.",
-            "tags": ["kids", "education", "library"],
-            "event_url": _fb_search("Lake Havasu City Library story time"),
-            "contact_name": "Youth Librarian",
-            "contact_phone": "928-555-0108",
-        },
-        {
-            "title": "Silver Sneakers Strength Class",
-            "days": 15,
-            "t": time(11, 0),
-            "location": "Havasu Community Center, Lake Havasu City",
-            "description": "Low-impact strength and balance for active adults 65+. Chair modifications available for every exercise.",
-            "tags": ["fitness", "seniors", "community"],
-            "event_url": _fb_search("Havasu Community Center Silver Sneakers Lake Havasu"),
-            "contact_name": "Community Center Front Desk",
-            "contact_phone": "928-555-0109",
-        },
-        {
-            "title": "Watercolor Desert Landscapes Workshop",
-            "days": 18,
-            "t": time(17, 30),
-            "location": "Arts & Culture Hub, Lake Havasu City",
-            "description": "Two-hour painting class inspired by local desert vistas; materials included for the first twelve sign-ups.",
-            "tags": ["arts", "workshop", "adults"],
-            "event_url": _fb_search("Lake Havasu Arts Culture Hub workshop"),
-            "contact_name": "Studio Lead",
-            "contact_phone": "928-555-0110",
-        },
-        {
-            "title": "Bridge City 5K & Fun Walk",
-            "days": 20,
-            "t": time(7, 15),
-            "location": "London Bridge Resort Area, Lake Havasu City",
-            "description": "Chip-timed 5K plus untimed family walk benefiting local schools. Strollers welcome on the walk route.",
-            "tags": ["community", "running", "charity"],
-            "event_url": _fb_search("London Bridge Resort 5K Lake Havasu"),
-            "contact_name": "Race Director",
-            "contact_phone": "928-555-0111",
-        },
-        {
-            "title": "Youth Karate Belt Review",
-            "days": 22,
-            "t": time(16, 30),
-            "location": "Desert Sun Karate Dojo, Lake Havasu City",
-            "description": "Color-belt testing and demonstration for youth students; friends and family invited to watch.",
-            "tags": ["kids", "martial arts", "karate"],
-            "event_url": _fb_search("Desert Sun Karate Dojo Lake Havasu"),
-            "contact_name": "Sensei Kim",
-            "contact_phone": "928-555-0112",
-        },
-        {
-            "title": "Acoustic Sunset at the Channel",
-            "days": 25,
-            "t": time(18, 30),
-            "location": "Channel Waterfront Stage, Lake Havasu City",
-            "description": "Local singer-songwriters and light bites from food trucks; lawn seating—bring a blanket or low chair.",
-            "tags": ["music", "community", "outdoors"],
-            "event_url": _fb_search("Channel Waterfront music Lake Havasu"),
-            "contact_name": "Waterfront Events",
-            "contact_phone": "928-555-0113",
-        },
-        {
-            "title": "STEM Robotics Saturday Lab",
-            "days": 27,
-            "t": time(13, 0),
-            "location": "Mohave Community College — Lake Havasu Campus",
-            "description": "Hands-on LEGO robotics challenges for ages 10–14; mentors from the high school robotics club assist teams.",
-            "tags": ["education", "stem", "teens"],
-            "event_url": "https://www.mohave.edu/campuses/lake-havasu-city/",
-            "contact_name": "MCC Outreach",
-            "contact_phone": "928-555-0114",
-        },
-    ]
-
-
 def run_seed(skip_init: bool = False) -> tuple[int, int]:
     """
     Insert missing seed events. Returns (inserted_count, skipped_count).
     """
     if not skip_init:
         init_db()
-    today = date.today()
-    rows = _build_seed_rows(today)
+    rows = _normalized_seed_rows()
 
     inserted = 0
     skipped = 0
@@ -233,17 +485,14 @@ def run_seed(skip_init: bool = False) -> tuple[int, int]:
                 skipped += 1
                 continue
 
-            event_date = today + timedelta(days=min(row["days"], 30))
-            if event_date < today:
-                event_date = today + timedelta(days=1)
-
+            event_date = row["date"]
             tags = row["tags"] + [_seed_tag(i)]
             payload_dict = {
                 "title": row["title"],
                 "date": event_date,
-                "start_time": row["t"],
-                "end_time": None,
-                "location_name": row["location"],
+                "start_time": row["start_time"],
+                "end_time": row["end_time"],
+                "location_name": row["location_name"],
                 "description": row["description"],
                 "event_url": row["event_url"],
                 "contact_name": row["contact_name"],
@@ -260,9 +509,9 @@ def run_seed(skip_init: bool = False) -> tuple[int, int]:
             payload = EventCreate(
                 title=row["title"],
                 date=event_date,
-                start_time=row["t"],
-                end_time=None,
-                location_name=row["location"],
+                start_time=row["start_time"],
+                end_time=row["end_time"],
+                location_name=row["location_name"],
                 description=row["description"],
                 event_url=row["event_url"],
                 contact_name=row["contact_name"],
@@ -305,7 +554,7 @@ def main() -> None:
         total_live = db.query(Event).filter(Event.status == "live").count()
         print(f"Events with seed tags in DB: {total_seed}")
         print(f"Total live events: {total_live}")
-    if total_seed < 15:
+    if total_seed < SEED_EVENT_COUNT:
         sys.exit(1)
     sys.exit(0)
 
