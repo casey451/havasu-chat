@@ -104,7 +104,7 @@ def extract_date_range(text: str) -> DateRange | None:
     lowered = text.lower()
     today = date.today()
 
-    if "today" in lowered:
+    if "today" in lowered or "tonight" in lowered:
         return {"start": today, "end": today}
     if "tomorrow" in lowered:
         t = today + timedelta(days=1)
@@ -355,3 +355,27 @@ def extract_broaden_category(slots: dict[str, Any]) -> str | None:
     if af == "martial_arts":
         return "martial arts"
     return None
+
+
+QUERY_SYNONYMS: dict[str, list[str]] = {
+    "boat race": ["regatta", "boat racing", "poker run"],
+    "boat races": ["regatta", "boat racing", "poker run"],
+    "live music": ["concert", "band", "acoustic", "dj", "open mic"],
+    "music": ["concert", "band", "acoustic", "dj"],
+    "food": ["dining", "restaurant", "tasting", "food truck"],
+    "drinks": ["happy hour", "cocktail", "bar", "brewery", "wine"],
+    "shopping": ["market", "boutique", "vendor", "craft fair"],
+    "fitness": ["workout", "gym", "class", "training"],
+    "kids activities": ["family", "youth", "children"],
+    "things to do": ["event", "activity", "happening"],
+}
+
+
+def expand_query_synonyms(message: str) -> list[str]:
+    """Return extra keywords to search for based on common synonyms."""
+    lowered = message.lower()
+    extras: list[str] = []
+    for phrase, synonyms in QUERY_SYNONYMS.items():
+        if phrase in lowered:
+            extras.extend(synonyms)
+    return extras

@@ -34,6 +34,26 @@ from app.db.models import Event
 
 ensure_dotenv_loaded()
 
+
+def _query_has_specific_noun(message: str) -> bool:
+    """Detect if the user named a specific thing we should honestly report on."""
+    lowered = message.lower()
+    specific_phrases = (
+        "boat race",
+        "regatta",
+        "poker run",
+        "live music",
+        "concert",
+        "band",
+        "farmers market",
+        "food truck",
+        "car show",
+        "parade",
+        "fireworks",
+    )
+    return any(p in lowered for p in specific_phrases)
+
+
 SEARCH_QUERY_EMBEDDING_MODEL = "text-embedding-ada-002"
 EMBEDDING_RELEVANCE_THRESHOLD = 0.35
 KEYWORD_RELEVANCE_THRESHOLD = 0.35
@@ -475,7 +495,10 @@ def search_events(
         strict_relevance
         and not out_events
         and bool(candidates)
-        and any(t in _QUERY_ACTIVITY_TOKENS for t in _query_tokens(query_text))
+        and (
+            any(t in _QUERY_ACTIVITY_TOKENS for t in _query_tokens(query_text))
+            or _query_has_specific_noun(query_text)
+        )
     )
 
     return SearchOutcome(
