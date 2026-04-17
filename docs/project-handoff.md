@@ -74,6 +74,8 @@ Push any commit to `main` on GitHub → Railway detects it via webhook → Nixpa
 - **Event status flow** — submitted events go to `pending_review` with a 48-hour review deadline. Expired pending events are auto-deleted by an hourly background task.
 - **Re-embed endpoint** — `POST /admin/reembed-all` regenerates OpenAI embeddings for all events. Protected by admin cookie.
 - **Re-seed endpoint** — `POST /admin/reseed` wipes seed rows and re-inserts. Protected by admin cookie.
+- **AI tags on submission** — new submitted events now get AI-generated tags in `extract_event()` via `generate_event_tags()`, using the same `client.responses.create` pattern as extraction.
+- **Retag endpoint** — `POST /admin/retag-all` backfills/regenerates tags for all events. Protected by admin cookie.
 - **Diagnostic logging** — `app/core/search_log.py` writes per-query logs (intent, slots, DB params, candidate scores) to `search_debug.log`. Stdout diagnostic prints also appear in Railway logs.
 - **Rate limiting** — 10 requests/minute on `/events`, applied via slowapi.
 - **Welcome UI** — first-time users see a welcome message and three example chips (weekend events, kids activities, add an event). Chips disappear after first send.
@@ -81,7 +83,7 @@ Push any commit to `main` on GitHub → Railway detects it via webhook → Nixpa
 
 ### Known bugs and limitations
 - **`search_debug.log` is local only** — the log file written by `search_log.py` lives inside the Railway container's filesystem. You cannot read it from the local machine. Use stdout prints (already added to `search_events`) to view scores in Railway's deployment logs instead.
-- **Seed event dates are fixed** — seed data has hardcoded dates (April–May 2026). When those dates pass, most events will fall out of search results (future-only filter). The seed needs to be updated periodically.
+- **Seed event dates are fixed** — seed data has hardcoded dates (May–July 2026, updated in Session B). When those dates pass, most events will fall out of search results (future-only filter). The seed needs to be updated periodically.
 - **No pagination** — search returns up to 25 events. No page 2.
 - **No shareability** — no way to share a specific event or search result as a link.
 - **No onboarding for returning users** — the welcome chips only show on first visit (session-based, not account-based).
@@ -114,7 +116,7 @@ havasu-chat/
 │   ├── admin/
 │   │   ├── auth.py                Admin password check + itsdangerous cookie signing.
 │   │   └── router.py              Admin panel endpoints: login, dashboard, approve/reject/delete,
-│   │                              reseed, reembed-all. Full HTML generated server-side.
+│   │                              reseed, reembed-all, retag-all. Full HTML generated server-side.
 │   ├── chat/
 │   │   └── router.py            ★ Main chat endpoint. Intent detection → slot extraction →
 │   │                              search execution → response formatting. _chat_inner() and
@@ -124,7 +126,7 @@ havasu-chat/
 │   │   ├── dedupe.py              Duplicate event detection via cosine similarity.
 │   │   ├── event_quality.py       Validation helpers for event submission flow.
 │   │   ├── extraction.py          OpenAI event extraction from free text + embedding generation.
-│   │   │                          Uses gpt-4.1-mini for extraction, text-embedding-3-small for embeddings.
+│   │   │                          Uses gpt-4.1-mini for extraction/tags, text-embedding-3-small for embeddings.
 │   │   ├── intent.py              detect_intent() — classifies user message into intent labels.
 │   │   ├── rate_limit.py          slowapi limiter config.
 │   │   ├── search.py            ★ Core search logic. search_events(), scoring, threshold,
@@ -208,32 +210,45 @@ havasu-chat/
 **The key bug fixed in commit `eb8a690`:** The original code gated the entire threshold check on `if strict_relevance and embedding_from_openai`. When Railway's OpenAI query-embedding call failed transiently, `embedding_from_openai=False`, the gate was never entered, all 25 events passed through, and Desert Storm ranked #4 by meaningless cosine values. The fix splits into two code paths: real embeddings use the 0.55 threshold, fallback embeddings use the bonus-score cutoff.
 **Files changed:** `app/core/search.py`.
 
-### Verified behavior (post-deploy)
+### Session A — Fix query embedding model mismatch (`626e0ae`)
+**What:** `app/core/search.py` was calling the OpenAI embeddings API with a different model than the one used to generate event embeddings in `extraction.py`. Both are now explicitly set to `text-embedding-3-small`.
+**Why:** Cosine similarity scores between query and event vectors are only meaningful when both vectors are produced by the same model. The mismatch caused unpredictable ranking.
+**Files changed:** `app/core/search.py`.
+
+### Session B — Update seed event dates to May–July 2026 (`41d1c71`)
+**What:** Updated all 25 seed event dates in `app/db/seed.py` from the original April–May 2026 window to a May–July 2026 rolling window.
+**Why:** The future-only filter in search drops events whose dates have passed. Without this update, the app would return empty results for nearly all queries.
+**Files changed:** `app/db/seed.py`.
+
+### Session C — Pin dependency versions in `requirements.txt` (`f12d196`)
+**What:** Added explicit version pins to every package in `requirements.txt` so Railway builds are reproducible.
+**Why:** Unpinned dependencies can silently break on Railway when a new package version is released. Pins lock the build to the exact environment that was tested.
+**Files changed:** `requirements.txt`.
+
+### Verified behavior (latest production checks)
 ```
-boat race                   → COUNT 1   → Desert Storm Poker Run #1 (correct)
-boat races this weekend     → COUNT 0   → Honest no-match (Desert Storm is Wed, not weekend)
-live music                  → COUNT 4   → Music events returned
-concert tonight             → COUNT 0   → Honest no-match (no concerts tonight)
-kids activities             → COUNT 7   → Family/kids events returned
-things to do this weekend   → COUNT 9   → Weekend general listing
+boat race                   → COUNT 1   → Wednesday, May 20, 2:00 PM (date moved out of April)
+boat races this weekend     → COUNT 0   → Honest no-match
+live music                  → COUNT 4   → Fun Activities section
+concert tonight             → COUNT 0   → Honest no-match
+kids activities             → COUNT 7   → Fun Activities section
+things to do this weekend   → COUNT 0   → Honest no-match (current data window)
 ```
 
 ---
 
 ## 5. Remaining Roadmap
 
-### Step 3 — AI-generated tags on event submission
-**What:** When a new event is submitted, make one OpenAI call to generate 5–10 descriptive tags (e.g., `["outdoor", "family", "free", "music", "festival"]`). Store them on the event. Use them in search scoring.
-**Why:** Current tags on seed events are hand-written. User-submitted events will have empty or thin tags. AI tags make every submitted event immediately searchable with no manual effort.
-**Files it will touch:** `app/core/extraction.py`, `app/db/models.py` (if adding a new column — but `tags` already exists as a JSON column, so no migration needed), `app/admin/router.py` (new `/admin/retag-all` backfill endpoint).
-**Who should do it:** **Claude Code in terminal.** Multi-file coordinated change. Requires reading extraction.py, models.py, admin/router.py, and understanding the EventCreate flow end-to-end.
-**Cost:** ~$0.001 per event at submission (one GPT-4.1-mini call). ~$0.03 to backfill 25 events once.
+### Step 3 — AI-generated tags on event submission (completed)
+**Status:** Done in Session D (`82c4f0a`) and deployed.
+**What shipped:** `generate_event_tags()` added to `app/core/extraction.py`, called inside `extract_event()`, and `POST /admin/retag-all` added in `app/admin/router.py`.
+**Production backfill:** `POST /admin/retag-all` returned `{"updated":25}`.
+**Notes:** This intentionally overwrites prior hand-written tags for consistency across all events.
 
-### Step 4 — Content: update seed event dates
-**What:** The 25 seed events have hardcoded April–May 2026 dates. As those dates pass, events disappear from search (future-only filter). The seed needs rolling dates or needs to be updated periodically.
-**Why:** Without this, the app becomes empty for real users within weeks.
-**Files it will touch:** `app/db/seed.py` only.
-**Who should do it:** **Cursor LLM** — single-file targeted edit, update dates to current rolling window.
+### Step 4 — Content: update seed event dates (completed)
+**Status:** Done in Session B (`41d1c71`) and deployed.
+**What shipped:** All 25 seed event dates updated to a May–July 2026 rolling window in `app/db/seed.py`.
+**Notes:** After any future date window expires, re-run this same targeted edit on `app/db/seed.py` and trigger a reseed via `POST /admin/reseed`.
 
 ### Step 5 — Admin review UX improvements
 **What:** The admin panel is functional but plain. Potential improvements: show event tags and embedding status, add a "preview as user" link, show search score for each event.
@@ -254,16 +269,16 @@ things to do this weekend   → COUNT 9   → Weekend general listing
 **Who should do it:** **Cursor LLM** — frontend-only change.
 
 ### Step 8 — Re-run full diagnostic and tune
-**What:** After Steps 3–4 are deployed, run `py -3 scripts/diagnose_search.py` against the live app. Review the full 25-query output and identify remaining ranking problems.
+**What:** After Step 4 updates, run `py -3 scripts/diagnose_search.py` against the live app. Review the full 25-query output and identify remaining ranking problems.
 **Why:** Changes compound. New tags, updated embeddings, and date changes may improve or regress results. Verify before declaring search quality done.
 **Who should do it:** Run the script locally, paste the output into Cursor or Claude for interpretation.
 
 ---
 
-## 6. Step 3 — AI Tagging (Next Task, Ready to Execute)
+## 6. Step 3 — AI Tagging (Completed)
 
-### What to build
-When a new event is created (or when the `/admin/retag-all` endpoint is called), make one GPT-4.1-mini call to generate 5–10 descriptive tags for the event. Store them in the existing `tags` JSON column on the `Event` model. No new DB column or migration is needed — `tags` already exists.
+### What was built
+When a new event is created (and when `/admin/retag-all` is called), one GPT-4.1-mini call now generates 5–10 descriptive tags and stores them in the existing `tags` JSON column. No DB migration was needed.
 
 ### Why it matters
 - User-submitted events arrive with empty `tags: []` (they pass EventCreate.tags defaulting to `[]`).
@@ -274,24 +289,24 @@ When a new event is created (or when the `/admin/retag-all` endpoint is called),
   ```
 - So AI-generated tags immediately improve keyword matching for submitted events with no other changes.
 
-### Files to change
+### Files changed
 
-#### 1. `app/core/extraction.py` — add `generate_event_tags()` function
-After the existing `generate_embedding()` function, add:
+#### 1. `app/core/extraction.py` — `generate_event_tags()` function added
 
 ```python
-TAG_PROMPT = """Given this event, return a JSON array of 5-10 short descriptive tags.
+TAGS_PROMPT = """Generate 5 to 10 short, lowercase tags describing this event.
 Tags should describe: what type of event it is, who it's for, what activities are involved,
 whether it's free/paid, indoor/outdoor, daytime/evening.
 Return ONLY a JSON array of strings, no other text.
 
-Event title: {title}
-Event description: {description}
+Event:
+Title: {title}
 Location: {location_name}
+Description: {description}
 """
 
 def generate_event_tags(event: dict) -> list[str]:
-    """Call GPT-4.1-mini to generate descriptive tags for an event. Returns [] on failure."""
+    """Generate 5-10 short lowercase tags for an event using OpenAI."""
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key or OpenAI is None:
         return []
@@ -299,29 +314,31 @@ def generate_event_tags(event: dict) -> list[str]:
         client = OpenAI(api_key=api_key)
         response = client.responses.create(
             model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
-            input=TAG_PROMPT.format(
+            input=TAGS_PROMPT.format(
                 title=event.get("title", ""),
                 description=event.get("description", ""),
                 location_name=event.get("location_name", ""),
             ),
         )
-        raw = response.output_text.strip()
-        parsed = json.loads(raw)
-        if isinstance(parsed, list):
-            return [str(t).lower().strip() for t in parsed if t]
+        raw_text = response.output_text.strip()
+        parsed = json.loads(raw_text)
     except Exception:
-        pass
+        return []
+    if not isinstance(parsed, list):
+        return []
+    # normalize + dedupe + cap
+    ...
     return []
 ```
 
-#### 2. `app/core/extraction.py` — call `generate_event_tags()` inside `extract_event()`
-In `extract_event()`, after `event["embedding"] = generate_embedding(...)`, add:
+#### 2. `app/core/extraction.py` — `generate_event_tags()` called in `extract_event()`
+In `extract_event()`, immediately after `event["embedding"] = generate_embedding(...)`:
 ```python
 event["tags"] = generate_event_tags(event)
 ```
 
-#### 3. `app/admin/router.py` — add `POST /admin/retag-all` endpoint
-Follow the exact same pattern as the existing `POST /admin/reembed-all`:
+#### 3. `app/admin/router.py` — `POST /admin/retag-all` added
+Implemented using the same cookie guard / loop / commit pattern as `POST /admin/reembed-all`:
 
 ```python
 @router.post("/retag-all")
@@ -333,25 +350,24 @@ def admin_retag_all(request: Request, db: Session = Depends(get_db)) -> dict[str
     from app.core.extraction import generate_event_tags
     updated = 0
     for event in db.query(Event).all():
-        new_tags = generate_event_tags({
+        event.tags = generate_event_tags({
             "title": event.title or "",
             "description": event.description or "",
             "location_name": event.location_name or "",
+            "event_url": event.event_url or "",
         })
-        if new_tags:
-            event.tags = new_tags
-            updated += 1
+        updated += 1
     db.commit()
     return {"updated": updated}
 ```
 
-### Test impact
-- **No existing tests should break.** `generate_event_tags()` returns `[]` when no API key is set, so test environments are unaffected.
-- **No new migration needed.** `tags` column already exists as `JSON`.
-- **After deploying:** Call `POST /admin/retag-all` once (authenticated) to backfill the 25 seed events. Each call costs ~$0.001, total ~$0.03.
+### Test and production impact
+- **Tests:** `py -3 -m pytest --tb=short -q` passed (57/57).
+- **No migration needed:** `tags` column already exists as `JSON`.
+- **Production backfill:** Completed; `/admin/retag-all` returned `{"updated":25}`.
 
-### Commit message
-`"Step 3: AI-generated tags on event submission and /admin/retag-all backfill"`
+### Commit
+`82c4f0a` — `"Session D: AI-generated tags on event submission"`
 
 ---
 
@@ -368,7 +384,7 @@ def admin_retag_all(request: Request, db: Session = Depends(get_db)) -> dict[str
 **Specific nouns get a higher bar.** Queries naming a concrete thing (boat race, concert, parade, etc.) use a 0.55 threshold instead of 0.35, and require a literal keyword match to rank high. This prevents loosely-related events (fitness classes, markets) from flooding results for specific searches.
 
 **No scope creep until these arcs are done:**
-1. Search quality (Steps 2a, 2b done; Step 3 next)
+1. Search quality (Steps 2a, 2b, 3 done)
 2. Content freshness (seed event dates)
 3. Admin review UX
 4. Shareability
@@ -437,7 +453,7 @@ If seed event descriptions are changed, or a new batch of events is added, re-em
 1. Log into `/admin` with the admin password.
 2. In the browser, use a REST client (or curl) to `POST /admin/reembed-all` with the admin session cookie. (Or temporarily add a GET version — follow the same pattern used previously: change `@router.post` to `@router.get`, remove auth, deploy, hit URL, revert, redeploy.)
 
-### How to trigger retag after Step 3 is deployed
+### How to trigger retag backfill
 Same pattern as re-embed:
 1. Log into `/admin`.
 2. `POST /admin/retag-all`.
