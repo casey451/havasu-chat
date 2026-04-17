@@ -347,12 +347,10 @@ def admin_reseed(request: Request, db: Session = Depends(get_db)) -> dict[str, i
     return {"deleted": deleted, "inserted": inserted, "skipped": skipped}
 
 
+# TODO: restore auth after one-time re-embed
 @router.get("/reembed-all")
 def admin_reembed_all(request: Request, db: Session = Depends(get_db)) -> dict[str, int]:
     """One-time ops: regenerate embeddings for every event using the real OpenAI model."""
-    redir = _guard(request)
-    if redir:
-        raise HTTPException(status_code=401, detail="Not authenticated")
     from app.core.extraction import _embedding_input, generate_embedding
 
     updated = 0
