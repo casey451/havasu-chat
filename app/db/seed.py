@@ -29,7 +29,7 @@ SEED_TAG_PREFIX = "__seed__:lhc_"
 REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     {
         "title": "Desert Storm Poker Run & Shootout",
-        "date": "2026-04-22",
+        "date": "2026-05-20",
         "start_time": "14:00",
         "end_time": "20:00",
         "location_name": "Bridgewater Channel, Lake Havasu City",
@@ -45,7 +45,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Country Divas at Havasu Landing Casino",
-        "date": "2026-04-18",
+        "date": "2026-05-02",
         "start_time": "19:00",
         "end_time": "22:00",
         "location_name": "Havasu Landing Casino, Lake Havasu City",
@@ -60,7 +60,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Sky Lantern Festival by Lights Over America",
-        "date": "2026-04-18",
+        "date": "2026-05-30",
         "start_time": "18:00",
         "end_time": "22:00",
         "location_name": "Lake Havasu, AZ",
@@ -76,7 +76,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Desert Island Tiki Night",
-        "date": "2026-04-18",
+        "date": "2026-05-16",
         "start_time": "17:00",
         "end_time": "22:00",
         "location_name": "Heat Hotel, 1420 McCulloch Blvd N",
@@ -91,7 +91,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Motor Madness Cruise-In",
-        "date": "2026-04-19",
+        "date": "2026-06-07",
         "start_time": "13:00",
         "end_time": "17:00",
         "location_name": "Lighthouse Lounge, Lake Havasu City",
@@ -106,7 +106,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Crosscutt Live at The Office Cocktail Lounge",
-        "date": "2026-04-24",
+        "date": "2026-06-19",
         "start_time": "20:00",
         "end_time": "23:00",
         "location_name": "The Office Cocktail Lounge & Grill, Lake Havasu City",
@@ -121,7 +121,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Legends Tattoo Show 2026",
-        "date": "2026-05-20",
+        "date": "2026-07-15",
         "start_time": "10:00",
         "end_time": "18:00",
         "location_name": "London Bridge, Lake Havasu City",
@@ -136,7 +136,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Lake Havasu Farmers Market",
-        "date": "2026-04-25",
+        "date": "2026-06-13",
         "start_time": "08:00",
         "end_time": "12:00",
         "location_name": "The KAWS, 2144 McCulloch Blvd N",
@@ -152,7 +152,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "First Friday Downtown Lake Havasu",
-        "date": "2026-05-01",
+        "date": "2026-06-05",
         "start_time": "18:00",
         "end_time": "21:00",
         "location_name": "Downtown Lake Havasu, Main Street",
@@ -167,7 +167,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Open Swim — Aquatic Center",
-        "date": "2026-04-18",
+        "date": "2026-06-06",
         "start_time": "12:00",
         "end_time": "16:00",
         "location_name": "Lake Havasu City Aquatic Center, 100 Park Ave",
@@ -182,7 +182,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Swim Lessons for Kids — Aquatic Center",
-        "date": "2026-04-20",
+        "date": "2026-05-11",
         "start_time": "09:00",
         "end_time": "10:00",
         "location_name": "Lake Havasu City Aquatic Center, 100 Park Ave",
@@ -198,7 +198,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Aqua Aerobics — Aquatic Center",
-        "date": "2026-04-17",
+        "date": "2026-05-08",
         "start_time": "08:00",
         "end_time": "09:00",
         "location_name": "Lake Havasu City Aquatic Center, 100 Park Ave",
@@ -214,7 +214,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Havasu Stingrays Swim Team Tryouts",
-        "date": "2026-04-26",
+        "date": "2026-06-21",
         "start_time": "09:00",
         "end_time": "11:00",
         "location_name": "Lake Havasu City Aquatic Center, 100 Park Ave",
@@ -229,7 +229,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "CrossFit Classes — Havasu CrossFit",
-        "date": "2026-04-17",
+        "date": "2026-05-29",
         "start_time": "06:00",
         "end_time": "07:00",
         "location_name": "Havasu CrossFit, 1050 Lake Havasu Ave N #C",
@@ -245,7 +245,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Yoga & Pilates — Ben Hicks Yoga",
-        "date": "2026-04-17",
+        "date": "2026-05-22",
         "start_time": "08:00",
         "end_time": "09:00",
         "location_name": "Ben Hicks Yoga, 2000 McCulloch Blvd N #A",
@@ -260,7 +260,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Group Fitness Classes — FitLab 928",
-        "date": "2026-04-17",
+        "date": "2026-06-12",
         "start_time": "05:00",
         "end_time": "06:00",
         "location_name": "FitLab 928, 537 Lake Havasu Ave N #101",
@@ -276,7 +276,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Pilates & Spa Treatments — Bella Faccia",
-        "date": "2026-04-17",
+        "date": "2026-07-10",
         "start_time": "09:00",
         "end_time": "18:00",
         "location_name": "Bella Faccia Skincare, Lake Havasu City",
@@ -291,7 +291,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Junior Ranger Program — Lake Havasu State Park",
-        "date": "2026-04-18",
+        "date": "2026-07-11",
         "start_time": "09:00",
         "end_time": "12:00",
         "location_name": "Lake Havasu State Park, Windsor Beach, 171 London Bridge Rd",
@@ -307,7 +307,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Kayaking & Paddleboard Rentals",
-        "date": "2026-04-17",
+        "date": "2026-07-04",
         "start_time": "08:00",
         "end_time": "17:00",
         "location_name": "Lake Havasu Shoreline",
@@ -323,7 +323,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Crack in the Mountain Hiking Trail",
-        "date": "2026-04-19",
+        "date": "2026-07-05",
         "start_time": "07:00",
         "end_time": "12:00",
         "location_name": "SARA Park Trailhead, 7260 Sara Pkwy",
@@ -339,7 +339,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Pickleball Open Play — LHCPBA",
-        "date": "2026-04-18",
+        "date": "2026-07-18",
         "start_time": "07:00",
         "end_time": "10:00",
         "location_name": "Lake Havasu City Pickleball Courts",
@@ -355,7 +355,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Havasu 95 Speedway Race Night",
-        "date": "2026-04-25",
+        "date": "2026-07-25",
         "start_time": "18:00",
         "end_time": "22:00",
         "location_name": "Havasu 95 Speedway, 7260 Sara Pkwy",
@@ -371,7 +371,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Mohave County Library Story Time",
-        "date": "2026-04-22",
+        "date": "2026-05-13",
         "start_time": "10:30",
         "end_time": "11:15",
         "location_name": "Mohave County Library, 1770 McCulloch Blvd N",
@@ -387,7 +387,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Hollywood Knights Dinner & Silent Auction",
-        "date": "2026-04-26",
+        "date": "2026-06-14",
         "start_time": "17:00",
         "end_time": "21:00",
         "location_name": "Aquatic Center, 100 Park Ave",
@@ -402,7 +402,7 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
     },
     {
         "title": "Iron Wolf Golf & Country Club Open Play",
-        "date": "2026-04-19",
+        "date": "2026-07-12",
         "start_time": "07:00",
         "end_time": "18:00",
         "location_name": "Iron Wolf Golf & Country Club, Lake Havasu City",
