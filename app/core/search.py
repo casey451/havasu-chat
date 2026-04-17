@@ -36,17 +36,31 @@ ensure_dotenv_loaded()
 
 
 _SPECIFIC_PHRASES = (
-    "boat race",
-    "regatta",
-    "poker run",
-    "live music",
-    "concert",
-    "band",
-    "farmers market",
-    "food truck",
-    "car show",
-    "parade",
-    "fireworks",
+    # Water sports & races
+    "boat race", "boat racing", "regatta", "poker run", "speedboat race",
+    "desert storm", "jet ski", "jetski", "waverunner", "kayak", "paddleboard",
+    "sup", "canoe", "jet boat", "boat tour", "sunset cruise", "fishing tournament",
+    # Beaches & parks
+    "london bridge beach", "rotary park", "lake havasu state park",
+    "cattail cove", "sara park",
+    # Land activities
+    "hiking", "mountain bike", "mtb", "atv", "utv", "off-road", "dune",
+    "golf tournament", "tee time", "balloon ride", "balloon festival",
+    # Sightseeing
+    "london bridge", "lighthouse", "english village", "museum",
+    # Family / kids venues
+    "trampoline", "trampoline park", "altitude", "bowling", "havasu lanes",
+    "cosmic bowling", "arcade", "mini golf", "scooter's", "aquatic center",
+    "swimming pool", "playground", "sunshine indoor play",
+    # Dining & drinks
+    "happy hour", "brewery", "distillery", "copper still", "hava bite",
+    "taproom", "food truck", "farmers market", "sunset market",
+    # Entertainment
+    "concert", "live music", "band", "dj", "dance", "karaoke",
+    "festival", "parade", "fireworks", "car show", "motorcycle",
+    "bike night", "rockabilly",
+    # Wellness
+    "yoga", "pilates", "fitness class", "spa",
 )
 
 

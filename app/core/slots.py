@@ -358,15 +358,51 @@ def extract_broaden_category(slots: dict[str, Any]) -> str | None:
 
 
 QUERY_SYNONYMS: dict[str, list[str]] = {
-    "boat race": ["regatta", "boat racing", "poker run"],
-    "boat races": ["regatta", "boat racing", "poker run"],
+    # Water
+    "boat race": ["regatta", "poker run", "boat racing", "speedboat race", "desert storm"],
+    "boat races": ["regatta", "poker run", "boat racing", "speedboat race", "desert storm"],
+    "jet ski": ["waverunner", "wave runner", "pwc", "personal watercraft", "seadoo"],
+    "kayak": ["canoe", "paddle", "paddling"],
+    "paddleboard": ["sup", "stand up paddle", "paddleboarding"],
+    "boat tour": ["cruise", "lake tour", "sightseeing boat", "jet boat tour"],
+    "fishing": ["angling", "bass fishing", "fishing tournament", "fishing derby"],
+    # Land
+    "hiking": ["hike", "trail", "trek", "trail walking"],
+    "off-road": ["atv", "utv", "4x4", "side by side", "jeep tour", "dune"],
+    "mountain bike": ["mtb", "bike trail", "cycling"],
+    "golf": ["tee off", "golf course", "links", "tee time"],
+    "balloon": ["hot air balloon", "balloon ride", "balloon festival"],
+    # Family / kids
+    "trampoline": ["trampoline park", "jumping", "altitude"],
+    "bowling": ["bowl", "havasu lanes", "cosmic bowling"],
+    "arcade": ["video games", "fun center", "scooter's"],
+    "mini golf": ["putt putt", "miniature golf"],
+    "kids": ["children", "family", "family-friendly", "toddler"],
+    "kids activities": ["family", "youth", "children", "family-friendly"],
+    "aquatic center": ["pool", "swimming pool", "public pool"],
+    # Dining & drinks
     "live music": ["concert", "band", "acoustic", "dj", "open mic"],
     "music": ["concert", "band", "acoustic", "dj"],
     "food": ["dining", "restaurant", "tasting", "food truck"],
     "drinks": ["happy hour", "cocktail", "bar", "brewery", "wine"],
+    "restaurant": ["dining", "eat", "food", "dinner"],
+    "bar": ["pub", "lounge", "tavern", "drinks"],
+    "happy hour": ["drinks special", "discount drinks"],
+    "brewery": ["beer", "ale", "craft beer", "taproom"],
+    "farmers market": ["market", "sunset market", "local market"],
+    "food truck": ["food cart", "street food"],
+    # Entertainment
+    "concert": ["live music", "band", "show", "performance", "dj"],
+    "festival": ["fest", "celebration"],
+    "parade": ["procession", "march", "boat parade"],
+    "fireworks": ["firework show", "pyrotechnics"],
+    "car show": ["auto show", "classic car", "car meet"],
+    "motorcycle": ["bike", "motorbike", "bike night"],
     "shopping": ["market", "boutique", "vendor", "craft fair"],
-    "fitness": ["workout", "gym", "class", "training"],
-    "kids activities": ["family", "youth", "children"],
+    # Wellness
+    "yoga": ["stretching", "mindfulness class"],
+    "fitness": ["workout", "exercise", "gym class", "pilates"],
+    # General
     "things to do": ["event", "activity", "happening"],
 }
 
