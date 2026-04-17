@@ -15,7 +15,93 @@ SERVICE_REQUEST = "SERVICE_REQUEST"
 DEAL_SEARCH = "DEAL_SEARCH"
 REFINEMENT = "REFINEMENT"
 SEARCH_EVENTS = "SEARCH_EVENTS"
+OUT_OF_SCOPE = "OUT_OF_SCOPE"
 UNCLEAR = "UNCLEAR"
+
+# Out-of-scope category triggers. Each category is a tuple of lowercase
+# substrings; a query matches the category if any substring appears.
+_OUT_OF_SCOPE_TRIGGERS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "weather",
+        (
+            "weather",
+            "forecast",
+            "temperature",
+            "how hot",
+            "how cold",
+            "is it hot",
+            "is it cold",
+            "what to wear",
+            "humidity",
+            "rainfall",
+        ),
+    ),
+    (
+        "lodging",
+        (
+            "hotel",
+            "motel",
+            "airbnb",
+            "where to stay",
+            "where should i stay",
+            "place to stay",
+            "places to stay",
+            "where can i stay",
+            "accommodation",
+            "accommodations",
+            "lodging",
+        ),
+    ),
+    (
+        "transportation",
+        (
+            "directions",
+            "how to get to",
+            "how to get there",
+            "how do i get there",
+            "how far",
+            "uber",
+            "lyft",
+            "taxi",
+            "parking",
+            "nearest airport",
+            "closest airport",
+            "drive to",
+        ),
+    ),
+    (
+        "dining",
+        (
+            "restaurant",
+            "where to eat",
+            "best place to eat",
+            "best places to eat",
+            "dinner spot",
+            "breakfast spot",
+            "lunch spot",
+            "brunch spot",
+            "dining recommendation",
+            "food recommendation",
+            "good food in",
+            "yelp",
+        ),
+    ),
+)
+
+# Strong event-signal tokens. When any of these appear in a query we
+# yield on OUT_OF_SCOPE classification so events-about-a-venue queries
+# (e.g. "hotel grand opening event tonight") still reach search.
+_EVENT_INDICATOR_WORDS: tuple[str, ...] = (
+    "event",
+    "events",
+    "festival",
+    "parade",
+    "fireworks",
+    "tournament",
+    "concert",
+    "gala",
+    "fundraiser",
+)
 
 _HARD_RESET_PHRASES = (
     "start over",
@@ -271,6 +357,24 @@ def _refinement_looks_like_filter(message: str) -> bool:
     return False
 
 
+def detect_out_of_scope_category(message: str) -> str | None:
+    """Return the out-of-scope category name for ``message`` or ``None``.
+
+    Returns one of ``"weather"``, ``"lodging"``, ``"transportation"``,
+    ``"dining"`` when a category trigger matches and no event-signal
+    token is present. The event-signal guard prevents false positives
+    like "hotel grand opening event tonight" from being treated as
+    lodging lookups.
+    """
+    m = message.lower()
+    if any(word in m for word in _EVENT_INDICATOR_WORDS):
+        return None
+    for category, triggers in _OUT_OF_SCOPE_TRIGGERS:
+        if any(t in m for t in triggers):
+            return category
+    return None
+
+
 def open_ended_search_message(message: str) -> bool:
     m = message.lower().strip()
     return m in (
@@ -293,6 +397,9 @@ def detect_intent(message: str, session: dict[str, Any] | None = None) -> str:
         return HARD_RESET
     if is_soft_cancel(msg):
         return SOFT_CANCEL
+
+    if detect_out_of_scope_category(msg) is not None:
+        return OUT_OF_SCOPE
 
     flow = session.get("flow") or {}
     awaiting = flow.get("awaiting")

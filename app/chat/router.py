@@ -23,6 +23,8 @@ from app.core.conversation_copy import (
     MERGE_KEPT,
     MERGE_UPDATED,
     MISSING_FIELD_GLITCH,
+    OUT_OF_SCOPE_REPLIES,
+    OUT_OF_SCOPE_WEATHER,
     REJECTION_FIX,
     SERVICE_STUB_REPLY,
     SOFT_CANCEL_REPLY,
@@ -52,12 +54,14 @@ from app.core.intent import (
     GREETING,
     HARD_RESET,
     LISTING_INTENT,
+    OUT_OF_SCOPE,
     REFINEMENT,
     SEARCH_EVENTS,
     SERVICE_REQUEST,
     SOFT_CANCEL,
     UNCLEAR,
     detect_intent,
+    detect_out_of_scope_category,
     escape_to_search,
     is_confirmation,
     is_greeting,
@@ -416,6 +420,15 @@ def _chat_inner(payload: ChatRequest, message: str, db: Session) -> ChatResponse
 
     intent = detect_intent(message, session)
     _search_slots_at_intent = get_search(session)["slots"]
+
+    if intent == OUT_OF_SCOPE:
+        category = detect_out_of_scope_category(message)
+        reply = OUT_OF_SCOPE_REPLIES.get(category or "", OUT_OF_SCOPE_WEATHER)
+        return ChatResponse(
+            response=reply,
+            intent=OUT_OF_SCOPE,
+            data={"category": category},
+        )
 
     if intent == GREETING:
         flow = get_flow(session)

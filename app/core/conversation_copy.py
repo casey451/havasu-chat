@@ -98,3 +98,31 @@ VENUE_REDIRECT_TEMPLATE = (
     "{venue} is a permanent spot in Havasu — I track events there when they come up, "
     "but nothing is scheduled right now. Want to see what else is happening?"
 )
+
+OUT_OF_SCOPE_WEATHER = (
+    "I track events in Havasu, not weather. For the forecast, try weather.com "
+    "or your phone's weather app."
+)
+
+OUT_OF_SCOPE_LODGING = (
+    "I track events, not places to stay. For lodging in Havasu, "
+    "check VisitArizona or Airbnb."
+)
+
+OUT_OF_SCOPE_TRANSPORTATION = (
+    "I track events, not transportation. Event details include a location "
+    "you can tap to map."
+)
+
+OUT_OF_SCOPE_DINING = (
+    "I track events and dated happenings, not restaurant listings. "
+    "For dining recommendations, check Yelp or Tripadvisor. "
+    "If you're looking for a food festival or restaurant week, let me know."
+)
+
+OUT_OF_SCOPE_REPLIES: dict[str, str] = {
+    "weather": OUT_OF_SCOPE_WEATHER,
+    "lodging": OUT_OF_SCOPE_LODGING,
+    "transportation": OUT_OF_SCOPE_TRANSPORTATION,
+    "dining": OUT_OF_SCOPE_DINING,
+}

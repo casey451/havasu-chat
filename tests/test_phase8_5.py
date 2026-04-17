@@ -13,6 +13,7 @@ from app.core.intent import (
     GREETING,
     HARD_RESET,
     LISTING_INTENT,
+    OUT_OF_SCOPE,
     REFINEMENT,
     SEARCH_EVENTS,
     SERVICE_REQUEST,
@@ -75,6 +76,18 @@ class Phase85IntentTests(unittest.TestCase):
     def test_stubs(self) -> None:
         self.assertEqual(detect_intent("who does plumbing around here", {}), SERVICE_REQUEST)
         self.assertEqual(detect_intent("any happy hour deals", {}), DEAL_SEARCH)
+
+    def test_out_of_scope_weather(self) -> None:
+        self.assertEqual(detect_intent("what's the weather this weekend", {}), OUT_OF_SCOPE)
+
+    def test_out_of_scope_lodging(self) -> None:
+        self.assertEqual(detect_intent("where should I stay in Havasu", {}), OUT_OF_SCOPE)
+
+    def test_event_indicator_overrides_out_of_scope(self) -> None:
+        self.assertEqual(
+            detect_intent("hotel grand opening event tonight", {}),
+            SEARCH_EVENTS,
+        )
 
 
 class Phase85SlotTests(unittest.TestCase):
