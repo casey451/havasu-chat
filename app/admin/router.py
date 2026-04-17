@@ -347,7 +347,7 @@ def admin_reseed(request: Request, db: Session = Depends(get_db)) -> dict[str, i
     return {"deleted": deleted, "inserted": inserted, "skipped": skipped}
 
 
-@router.post("/reembed-all")
+@router.get("/reembed-all")
 def admin_reembed_all(request: Request, db: Session = Depends(get_db)) -> dict[str, int]:
     """One-time ops: regenerate embeddings for every event using the real OpenAI model."""
     redir = _guard(request)
