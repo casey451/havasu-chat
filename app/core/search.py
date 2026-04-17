@@ -543,11 +543,15 @@ def search_events(
     # +0.5 literal-match bonus (score > 0.45) so junk near-zero cosines are suppressed.
     if strict_relevance and with_emb:
         if embedding_from_openai:
-            best = max(s for _, s in with_emb)
+            literal_with_emb = [(e, s) for e, s in with_emb if e.id in literal_matched_ids]
+            non_literal_with_emb = [(e, s) for e, s in with_emb if e.id not in literal_matched_ids]
+            best = max(s for _, s in non_literal_with_emb) if non_literal_with_emb else float("-inf")
             if best < effective_threshold:
-                with_emb = []
+                with_emb = literal_with_emb if require_literal_match else []
             else:
-                with_emb = [(e, s) for e, s in with_emb if s >= effective_threshold]
+                with_emb = [(e, s) for e, s in non_literal_with_emb if s >= effective_threshold]
+                if require_literal_match:
+                    with_emb.extend(literal_with_emb)
         elif is_specific_query:
             with_emb = [(e, s) for e, s in with_emb if s > 0.45]
 
@@ -666,7 +670,8 @@ def _literal_match_terms(query_text: str) -> set[str]:
 
     for key, syns in QUERY_SYNONYMS.items():
         group = [key, *syns]
-        if any(term in lowered for term in group):
+        group_matches = any(_contains_term_boundary(lowered, term) for term in group)
+        if group_matches:
             for term in group:
                 clean = term.lower().strip()
                 if clean and clean not in _GENERIC_SHORT_QUERY_TERMS:
@@ -678,7 +683,18 @@ def _event_matches_any_literal_term(event: Event, terms: set[str]) -> bool:
     if not terms:
         return False
     blob = f"{event.title or ''} {event.description or ''} {' '.join(str(t) for t in (event.tags or []))}".lower()
-    return any(term in blob for term in terms)
+    return any(_contains_term_boundary(blob, term) for term in terms)
+
+
+def _contains_term_boundary(text: str, term: str) -> bool:
+    clean = term.strip().lower()
+    if not clean:
+        return False
+    if " " in clean:
+        pattern = rf"(?<!\w){re.escape(clean)}(?!\w)"
+    else:
+        pattern = rf"\b{re.escape(clean)}\b"
+    return re.search(pattern, text) is not None
 
 
 def _format_long_date(d: date) -> str:

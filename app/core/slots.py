@@ -395,7 +395,7 @@ QUERY_SYNONYMS: dict[str, list[str]] = {
     "concert": ["live music", "band", "show", "performance", "dj"],
     "festival": ["fest", "celebration"],
     "parade": ["procession", "march", "boat parade"],
-    "fireworks": ["firework show", "pyrotechnics"],
+    "fireworks": ["firework show", "pyrotechnics", "july 4", "4th of july", "independence day"],
     "car show": ["auto show", "classic car", "car meet"],
     "motorcycle": ["bike", "motorbike", "bike night"],
     "shopping": ["market", "boutique", "vendor", "craft fair"],

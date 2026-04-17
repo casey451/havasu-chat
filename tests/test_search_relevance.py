@@ -97,6 +97,72 @@ class SearchRelevanceTests(unittest.TestCase):
         self.assertGreaterEqual(r.json()["data"]["count"], 1)
         self.assertIn("Desert Storm Poker Run", r.json()["response"])
 
+    def test_sunset_market_matches_market_event(self) -> None:
+        future_day = date.today() + timedelta(days=24)
+        with SessionLocal() as db:
+            db.add(
+                Event.from_create(
+                    EventCreate(
+                        title="Havasu Sunset Market",
+                        date=future_day,
+                        start_time="18:00:00",
+                        end_time=None,
+                        location_name="Downtown Lake Havasu",
+                        description="Sunset market with local vendors, food booths, and live music.",
+                        event_url="https://example.com/sunset-market",
+                        contact_name=None,
+                        contact_phone="928-555-0111",
+                        tags=["market", "shopping", "community"],
+                        embedding=None,
+                        status="live",
+                        created_by="user",
+                        admin_review_by=None,
+                    )
+                )
+            )
+            db.commit()
+
+        r = self.__class__.client.post(
+            "/chat",
+            json={"session_id": "rel-gym", "message": "sunset market"},
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertGreaterEqual(r.json()["data"]["count"], 1)
+        self.assertIn("Havasu Sunset Market", r.json()["response"])
+
+    def test_word_boundary_prevents_night_matching_tonight(self) -> None:
+        future_day = date.today() + timedelta(days=22)
+        with SessionLocal() as db:
+            db.add(
+                Event.from_create(
+                    EventCreate(
+                        title="Tiki Party Tonight",
+                        date=future_day,
+                        start_time="20:00:00",
+                        end_time=None,
+                        location_name="Heat Hotel",
+                        description="Special party tonight with drinks and island music.",
+                        event_url="https://example.com/tiki-party",
+                        contact_name=None,
+                        contact_phone="928-555-0112",
+                        tags=["nightlife", "adults"],
+                        embedding=None,
+                        status="live",
+                        created_by="user",
+                        admin_review_by=None,
+                    )
+                )
+            )
+            db.commit()
+
+        r = self.__class__.client.post(
+            "/chat",
+            json={"session_id": "rel-gym", "message": "trivia night"},
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["data"]["count"], 0)
+        self.assertIn("No trivia", r.json()["response"])
+
     def test_gymnastics_for_kids_no_soccer_honest_copy(self) -> None:
         sat = _sat()
         with SessionLocal() as db:
