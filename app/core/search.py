@@ -292,6 +292,25 @@ _GENERIC_SHORT_QUERY_TERMS = frozenset(
     }
 )
 
+_MULTIWORD_STRICT_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "any",
+        "some",
+        "of",
+        "in",
+        "at",
+        "on",
+        "for",
+        "this",
+        "that",
+        "these",
+        "those",
+    }
+)
+
 
 @dataclass(frozen=True)
 class SearchOutcome:
@@ -499,7 +518,7 @@ def search_events(
     pre_literal_candidates = list(candidates)
     literal_matched_ids: set[str] = set()
     if require_literal_match:
-        candidates = [e for e in candidates if _event_matches_any_literal_term(e, literal_terms)]
+        candidates = [e for e in candidates if _event_matches_literal_query(e, literal_terms, query_text)]
         literal_matched_ids = {e.id for e in candidates}
 
     with_emb: list[tuple[Event, float]] = []
@@ -542,18 +561,24 @@ def search_events(
     # still apply filtering when the query is specific — keep only events that received the
     # +0.5 literal-match bonus (score > 0.45) so junk near-zero cosines are suppressed.
     if strict_relevance and with_emb:
+        literal_id_set = literal_matched_ids if require_literal_match else set()
         if embedding_from_openai:
-            literal_with_emb = [(e, s) for e, s in with_emb if e.id in literal_matched_ids]
-            non_literal_with_emb = [(e, s) for e, s in with_emb if e.id not in literal_matched_ids]
+            non_literal_with_emb = [(e, s) for e, s in with_emb if e.id not in literal_id_set]
             best = max(s for _, s in non_literal_with_emb) if non_literal_with_emb else float("-inf")
             if best < effective_threshold:
-                with_emb = literal_with_emb if require_literal_match else []
+                with_emb = [(e, s) for e, s in with_emb if e.id in literal_id_set]
             else:
-                with_emb = [(e, s) for e, s in non_literal_with_emb if s >= effective_threshold]
-                if require_literal_match:
-                    with_emb.extend(literal_with_emb)
+                with_emb = [
+                    (e, s)
+                    for e, s in with_emb
+                    if s >= effective_threshold or e.id in literal_id_set
+                ]
         elif is_specific_query:
-            with_emb = [(e, s) for e, s in with_emb if s > 0.45]
+            with_emb = [
+                (e, s)
+                for e, s in with_emb
+                if s > 0.45 or e.id in literal_id_set
+            ]
 
     with_emb.sort(key=lambda x: (-x[1], x[0].date, x[0].start_time))
     emb_scores: dict[str, float] = {e.id: s for e, s in with_emb}
@@ -679,10 +704,20 @@ def _literal_match_terms(query_text: str) -> set[str]:
     return terms
 
 
-def _event_matches_any_literal_term(event: Event, terms: set[str]) -> bool:
+def _query_required_tokens(query_text: str) -> list[str]:
+    tokens = re.findall(r"[a-z0-9]+", query_text.lower())
+    return [t for t in tokens if t not in _MULTIWORD_STRICT_STOPWORDS]
+
+
+def _event_matches_literal_query(event: Event, terms: set[str], query_text: str) -> bool:
     if not terms:
         return False
     blob = f"{event.title or ''} {event.description or ''} {' '.join(str(t) for t in (event.tags or []))}".lower()
+    required = _query_required_tokens(query_text)
+    if len(required) >= 2:
+        if _contains_term_boundary(blob, query_text.lower().strip()):
+            return True
+        return all(_contains_term_boundary(blob, token) for token in required)
     return any(_contains_term_boundary(blob, term) for term in terms)
 
 

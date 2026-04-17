@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unittest
 from datetime import date, time as time_type, timedelta
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -162,6 +163,106 @@ class SearchRelevanceTests(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["data"]["count"], 0)
         self.assertIn("No trivia", r.json()["response"])
+
+    def test_regatta_survives_fallback_branch(self) -> None:
+        future_day = date.today() + timedelta(days=26)
+        with SessionLocal() as db:
+            db.add(
+                Event.from_create(
+                    EventCreate(
+                        title="Desert Storm Poker Run",
+                        date=future_day,
+                        start_time="14:00:00",
+                        end_time=None,
+                        location_name="Bridgewater Channel",
+                        description="Performance boating poker run and speedboat showcase.",
+                        event_url="https://example.com/desert-storm",
+                        contact_name=None,
+                        contact_phone="928-555-0113",
+                        tags=["boating", "poker run"],
+                        embedding=[0.0] * 1535 + [1.0],
+                        status="live",
+                        created_by="user",
+                        admin_review_by=None,
+                    )
+                )
+            )
+            db.commit()
+
+        with patch("app.core.search.generate_query_embedding_with_source", return_value=([1.0] + [0.0] * 1535, False)):
+            r = self.__class__.client.post(
+                "/chat",
+                json={"session_id": "rel-gym", "message": "regatta"},
+            )
+        self.assertEqual(r.status_code, 200)
+        self.assertGreaterEqual(r.json()["data"]["count"], 1)
+        self.assertIn("Desert Storm Poker Run", r.json()["response"])
+
+    def test_trivia_night_requires_both_tokens(self) -> None:
+        future_day = date.today() + timedelta(days=23)
+        with SessionLocal() as db:
+            db.add(
+                Event.from_create(
+                    EventCreate(
+                        title="Tiki Night at Heat",
+                        date=future_day,
+                        start_time="20:00:00",
+                        end_time=None,
+                        location_name="Heat Hotel",
+                        description="Island party night with music.",
+                        event_url="https://example.com/tiki-night",
+                        contact_name=None,
+                        contact_phone="928-555-0114",
+                        tags=["nightlife"],
+                        embedding=None,
+                        status="live",
+                        created_by="user",
+                        admin_review_by=None,
+                    )
+                )
+            )
+            db.commit()
+
+        r = self.__class__.client.post(
+            "/chat",
+            json={"session_id": "rel-gym", "message": "trivia night"},
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["data"]["count"], 0)
+        self.assertIn("No trivia", r.json()["response"])
+
+    def test_multi_word_query_all_tokens_required(self) -> None:
+        future_day = date.today() + timedelta(days=27)
+        with SessionLocal() as db:
+            db.add(
+                Event.from_create(
+                    EventCreate(
+                        title="Craft Brewery Social",
+                        date=future_day,
+                        start_time="18:00:00",
+                        end_time=None,
+                        location_name="Downtown",
+                        description="Brewery tasting with local brewers.",
+                        event_url="https://example.com/brewery-social",
+                        contact_name=None,
+                        contact_phone="928-555-0115",
+                        tags=["brewery", "tasting"],
+                        embedding=None,
+                        status="live",
+                        created_by="user",
+                        admin_review_by=None,
+                    )
+                )
+            )
+            db.commit()
+
+        r = self.__class__.client.post(
+            "/chat",
+            json={"session_id": "rel-gym", "message": "brewery tour"},
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["data"]["count"], 0)
+        self.assertIn("No brewery", r.json()["response"])
 
     def test_gymnastics_for_kids_no_soccer_honest_copy(self) -> None:
         sat = _sat()
