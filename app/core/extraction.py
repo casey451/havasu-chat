@@ -7,15 +7,14 @@ import re
 from collections import Counter
 from datetime import date, datetime, timedelta, time
 
-from dotenv import load_dotenv
-
 try:
     from openai import OpenAI
 except ImportError:  # pragma: no cover
     OpenAI = None
 
+from app.bootstrap_env import ensure_dotenv_loaded
 
-load_dotenv()
+ensure_dotenv_loaded()
 
 
 EXTRACTION_PROMPT = """Extract event details from the following text.

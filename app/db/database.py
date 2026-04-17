@@ -3,11 +3,12 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-load_dotenv()
+from app.bootstrap_env import ensure_dotenv_loaded
+
+ensure_dotenv_loaded()
 
 DB_PATH = Path(__file__).resolve().parents[2] / "events.db"
 _DEFAULT_SQLITE_URL = f"sqlite:///{DB_PATH.as_posix()}"

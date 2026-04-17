@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import os
 
-from dotenv import load_dotenv
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
-load_dotenv()
+from app.bootstrap_env import ensure_dotenv_loaded
+
+ensure_dotenv_loaded()
 
 COOKIE_NAME = "admin_session"
 MAX_AGE_SECONDS = 86400  # 24 hours

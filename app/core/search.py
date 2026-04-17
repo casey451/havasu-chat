@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from datetime import date, time as time_type, timedelta
 from typing import Any, Literal
 
-from dotenv import load_dotenv
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
@@ -27,12 +26,13 @@ from app.core.conversation_copy import (
     NOTHING_IN_RANGE,
     SEARCH_INTRO_MANY,
 )
+from app.bootstrap_env import ensure_dotenv_loaded
 from app.core.dedupe import cosine_similarity
 from app.core.intent import open_ended_search_message
 from app.core.slots import extract_broaden_category, extract_search_label
 from app.db.models import Event
 
-load_dotenv()
+ensure_dotenv_loaded()
 
 SEARCH_QUERY_EMBEDDING_MODEL = "text-embedding-ada-002"
 EMBEDDING_RELEVANCE_THRESHOLD = 0.35

@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+from app.bootstrap_env import ensure_dotenv_loaded
+
+ensure_dotenv_loaded()
+
 import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -21,6 +26,8 @@ from app.db.database import SessionLocal, get_db, init_db
 from app.db.seed import run_seed_if_empty
 from app.db.models import Event
 from app.schemas.event import EventCreate, EventRead
+
+logger = logging.getLogger(__name__)
 
 
 def run_expired_review_cleanup() -> int:
@@ -50,6 +57,7 @@ async def _hourly_cleanup_loop() -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    logger.info("ADMIN_PASSWORD loaded: %s", bool(os.getenv("ADMIN_PASSWORD")))
     init_db()
     # Auto-seed empty DB on Railway only (local/tests use manual seed or fixtures).
     if os.getenv("RAILWAY_ENVIRONMENT"):

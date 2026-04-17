@@ -9,15 +9,14 @@ import sys
 from datetime import date, time, timedelta
 from urllib.parse import quote
 
-from dotenv import load_dotenv
-
+from app.bootstrap_env import ensure_dotenv_loaded
 from app.core.extraction import _embedding_input
 from app.core.search import generate_query_embedding
 from app.db.database import SessionLocal, init_db
 from app.db.models import Event
 from app.schemas.event import EventCreate
 
-load_dotenv()
+ensure_dotenv_loaded()
 
 SEED_TAG_PREFIX = "__seed__:lhc_"
 
