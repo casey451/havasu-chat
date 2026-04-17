@@ -302,6 +302,11 @@
       }
 
       showWelcome();
+      window.setTimeout(function () {
+        if (!log.querySelector(".chips-wrap")) {
+          showWelcome();
+        }
+      }, 150);
 
       form.addEventListener("submit", function (e) {
         e.preventDefault();
