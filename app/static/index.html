@@ -148,6 +148,21 @@
     .chip:active {
       background: #e9ecef;
     }
+    .event-share-btn {
+      margin-top: 12px;
+      align-self: flex-start;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: #495057;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .event-share-btn:active {
+      background: #e9ecef;
+    }
   </style>
 </head>
 <body>
@@ -191,6 +206,64 @@
       function setLoading(on) {
         sendBtn.disabled = on;
         input.disabled = on;
+      }
+
+      function copyToClipboard(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          return navigator.clipboard.writeText(text);
+        }
+        return new Promise(function (resolve, reject) {
+          var textarea = document.createElement("textarea");
+          textarea.value = text;
+          textarea.setAttribute("readonly", "");
+          textarea.style.position = "absolute";
+          textarea.style.left = "-9999px";
+          document.body.appendChild(textarea);
+          textarea.select();
+          textarea.setSelectionRange(0, textarea.value.length);
+          try {
+            var ok = document.execCommand("copy");
+            document.body.removeChild(textarea);
+            if (ok) resolve();
+            else reject(new Error("copy failed"));
+          } catch (err) {
+            document.body.removeChild(textarea);
+            reject(err);
+          }
+        });
+      }
+
+      function setTemporaryButtonText(btn, text) {
+        var original = btn.getAttribute("data-default-label") || "Share";
+        btn.textContent = text;
+        window.setTimeout(function () {
+          btn.textContent = original;
+        }, 2000);
+      }
+
+      function attachShareButtons() {
+        var cards = log.querySelectorAll(".event-card[data-event-id]");
+        cards.forEach(function (card) {
+          if (card.querySelector(".event-share-btn")) return;
+          var eventId = card.getAttribute("data-event-id");
+          if (!eventId) return;
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "event-share-btn";
+          btn.textContent = "Share";
+          btn.setAttribute("data-default-label", "Share");
+          btn.addEventListener("click", function () {
+            var permalink = window.location.origin + "/events/" + eventId;
+            copyToClipboard(permalink)
+              .then(function () {
+                setTemporaryButtonText(btn, "Link copied");
+              })
+              .catch(function () {
+                setTemporaryButtonText(btn, "Copy failed");
+              });
+          });
+          card.appendChild(btn);
+        });
       }
 
       function removeWelcomeChips() {
@@ -251,6 +324,7 @@
           })
           .then(function (data) {
             pending.textContent = data.response || "(no response)";
+            attachShareButtons();
             scrollToBottom();
           })
           .catch(function () {
@@ -265,6 +339,7 @@
       });
 
       input.focus();
+      attachShareButtons();
     })();
   </script>
 </body>
