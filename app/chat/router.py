@@ -176,6 +176,10 @@ def _run_search_core(session: dict, db: Session, message: str, strategy: str) ->
 
     activity = slots.get("activity_family")
     keywords = _slot_keywords(slots)
+    from app.core.slots import expand_query_synonyms
+    synonyms = expand_query_synonyms(message)
+    if synonyms:
+        query_message = f"{query_message} {' '.join(synonyms)}"
 
     strict_rel = strategy != "RUN_BROAD"
     search_log.log_query(message, "SEARCH_EVENTS", slots, strategy)
