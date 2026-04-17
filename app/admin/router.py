@@ -367,3 +367,25 @@ def admin_reembed_all(request: Request, db: Session = Depends(get_db)) -> dict[s
         updated += 1
     db.commit()
     return {"updated": updated}
+
+
+@router.post("/retag-all")
+def admin_retag_all(request: Request, db: Session = Depends(get_db)) -> dict[str, int]:
+    """One-time ops: regenerate tags for every event using the AI tag model."""
+    redir = _guard(request)
+    if redir:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    from app.core.extraction import generate_event_tags
+
+    updated = 0
+    for event in db.query(Event).all():
+        partial = {
+            "title": event.title or "",
+            "location_name": event.location_name or "",
+            "description": event.description or "",
+            "event_url": event.event_url or "",
+        }
+        event.tags = generate_event_tags(partial)
+        updated += 1
+    db.commit()
+    return {"updated": updated}

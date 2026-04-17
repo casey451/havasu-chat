@@ -29,6 +29,27 @@ Text:
 {message}
 """
 
+
+TAGS_PROMPT = """Generate 5 to 10 short, lowercase tags describing this event.
+
+Tags should cover, when applicable:
+- Event type (e.g. concert, race, market, festival, class, tournament)
+- Audience (e.g. kids, family, adults, seniors, 21plus)
+- Activities (e.g. music, dance, food, art, sports, fitness, educational)
+- Free or paid
+- Indoor or outdoor
+- Daytime or evening
+
+Return ONLY a JSON array of lowercase strings. No markdown, no commentary, no extra text.
+
+Example: ["concert", "live music", "family", "outdoor", "evening", "free"]
+
+Event:
+Title: {title}
+Location: {location_name}
+Description: {description}
+"""
+
 TIME_PATTERN = re.compile(r"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b", re.IGNORECASE)
 DATE_WORDS = {
     "monday": 0,
@@ -73,7 +94,56 @@ def extract_event(message: str) -> dict:
             elif key == "contact_phone":
                 event[key] = s
     event["embedding"] = generate_embedding(_embedding_input(event))
+    event["tags"] = generate_event_tags(event)
     return event
+
+
+def generate_event_tags(event: dict) -> list[str]:
+    """Generate 5-10 short lowercase tags for an event using OpenAI.
+
+    Returns an empty list when OPENAI_API_KEY is missing, the OpenAI client is
+    unavailable, the API call raises, or the response does not parse as a JSON
+    array of strings. Callers are expected to treat an empty list as "untagged".
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key or OpenAI is None:
+        return []
+
+    try:
+        client = OpenAI(api_key=api_key)
+        response = client.responses.create(
+            model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
+            input=TAGS_PROMPT.format(
+                title=str(event.get("title", "")).strip(),
+                location_name=str(event.get("location_name", "")).strip(),
+                description=str(event.get("description", "")).strip(),
+            ),
+        )
+        raw_text = response.output_text.strip()
+    except Exception:
+        return []
+
+    try:
+        parsed = json.loads(raw_text)
+    except json.JSONDecodeError:
+        return []
+
+    if not isinstance(parsed, list):
+        return []
+
+    tags: list[str] = []
+    seen: set[str] = set()
+    for item in parsed:
+        if not isinstance(item, str):
+            continue
+        tag = item.strip().lower()
+        if not tag or tag in seen:
+            continue
+        seen.add(tag)
+        tags.append(tag)
+        if len(tags) >= 10:
+            break
+    return tags
 
 
 def _extract_with_openai(message: str) -> dict | None:
