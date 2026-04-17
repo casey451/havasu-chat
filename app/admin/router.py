@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import html
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
-from sqlalchemy import asc, desc
+from sqlalchemy import Date, and_, asc, cast, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.admin.auth import (
@@ -18,8 +18,8 @@ from app.admin.auth import (
     sign_admin_cookie,
     verify_admin_cookie,
 )
-from app.db.database import get_db
-from app.db.models import Event
+from app.db.database import DATABASE_URL, get_db
+from app.db.models import ChatLog, Event
 from app.db.seed import run_seed
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -29,6 +29,263 @@ def _guard(request: Request) -> RedirectResponse | None:
     if verify_admin_cookie(request.cookies.get(COOKIE_NAME)):
         return None
     return RedirectResponse(url="/admin/login", status_code=302)
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _analytics_cutoff(days: int) -> datetime:
+    return _utc_now() - timedelta(days=days)
+
+
+def _zero_result_assistant_condition(message_col):
+    """Heuristic: assistant reply text suggests no events (chat_logs has no structured count)."""
+    mlow = func.lower(message_col)
+    zeroish = or_(
+        mlow.like("%in the system yet%"),
+        mlow.like("%nothing on for that time%"),
+        mlow.like("%nothing yet!%"),
+        mlow.like("%events on right now%"),
+        mlow.like("%permanent spot in havasu%"),
+        mlow.like("%nothing is scheduled right now%"),
+        mlow.like("%want me to broaden the search%"),
+        mlow.like("%want me to show you other%"),
+    )
+    has_event_listing = or_(
+        mlow.like("%here's what i found:%"),
+        mlow.like("%found one that might work:%"),
+    )
+    return and_(zeroish, ~has_event_listing)
+
+
+def _query_top_user_messages(db: Session, *, days: int, limit: int) -> list[tuple[str, int]]:
+    cutoff = _analytics_cutoff(days)
+    qkey = func.lower(func.trim(ChatLog.message)).label("qkey")
+    cnt = func.count().label("cnt")
+    stmt = (
+        select(qkey, cnt)
+        .where(ChatLog.role == "user")
+        .where(ChatLog.created_at >= cutoff)
+        .where(func.length(func.trim(ChatLog.message)) >= 2)
+        .group_by(qkey)
+        .order_by(desc(cnt), qkey)
+        .limit(limit)
+    )
+    rows = db.execute(stmt).all()
+    out: list[tuple[str, int]] = []
+    for qkey_v, cnt in rows:
+        if not qkey_v or not str(qkey_v).strip():
+            continue
+        out.append((str(qkey_v).strip(), int(cnt)))
+    return out
+
+
+def _query_zero_result_user_messages(db: Session, *, days: int, limit: int) -> list[tuple[str, int]]:
+    """Pairs prior user message with assistant reply using LAG (same session, ordered by time)."""
+    cutoff = _analytics_cutoff(days)
+    lag_role = (
+        func.lag(ChatLog.role).over(partition_by=ChatLog.session_id, order_by=ChatLog.created_at).label("prev_role")
+    )
+    lag_msg = (
+        func.lag(ChatLog.message)
+        .over(partition_by=ChatLog.session_id, order_by=ChatLog.created_at)
+        .label("prev_msg")
+    )
+    # LAG must see full session history so the row before each assistant reply is correct.
+    subq = (
+        select(
+            ChatLog.role,
+            ChatLog.message,
+            ChatLog.intent,
+            ChatLog.created_at,
+            lag_role,
+            lag_msg,
+        ).subquery("clw")
+    )
+    prev_msg = subq.c.prev_msg
+    qkey = func.lower(func.trim(prev_msg)).label("qk")
+    cnt = func.count().label("cnt")
+    stmt = (
+        select(qkey, cnt)
+        .where(subq.c.role == "assistant")
+        .where(subq.c.created_at >= cutoff)
+        .where(subq.c.prev_role == "user")
+        .where(prev_msg.isnot(None))
+        .where(func.length(func.trim(prev_msg)) >= 2)
+        .where(subq.c.intent.in_(("SEARCH_EVENTS", "REFINEMENT", "LISTING_INTENT")))
+        .where(_zero_result_assistant_condition(subq.c.message))
+        .group_by(qkey)
+        .order_by(desc(cnt), qkey)
+        .limit(limit)
+    )
+    rows = db.execute(stmt).all()
+    out: list[tuple[str, int]] = []
+    for qkey_v, cnt in rows:
+        if not qkey_v or not str(qkey_v).strip():
+            continue
+        out.append((str(qkey_v).strip(), int(cnt)))
+    return out
+
+
+def _chatlog_day_column():
+    """SQLite stores datetimes in a shape where cast-as-Date can confuse processors; use strftime on SQLite."""
+    if DATABASE_URL.strip().lower().startswith("sqlite"):
+        return func.strftime("%Y-%m-%d", ChatLog.created_at).label("day")
+    return cast(ChatLog.created_at, Date).label("day")
+
+
+def _query_daily_active_sessions(db: Session, *, days: int) -> list[tuple[date | str, int]]:
+    cutoff = _analytics_cutoff(days)
+    day_col = _chatlog_day_column()
+    inner = (
+        select(day_col, ChatLog.session_id)
+        .where(ChatLog.created_at >= cutoff)
+        .group_by(day_col, ChatLog.session_id)
+        .subquery("das")
+    )
+    stmt = (
+        select(inner.c.day, func.count().label("n"))
+        .select_from(inner)
+        .group_by(inner.c.day)
+        .order_by(inner.c.day)
+    )
+    rows = db.execute(stmt).all()
+    out: list[tuple[date | str, int]] = []
+    for d, n in rows:
+        if d is None:
+            continue
+        if isinstance(d, datetime):
+            out.append((d.date(), int(n)))
+        elif isinstance(d, date) and not isinstance(d, datetime):
+            out.append((d, int(n)))
+        else:
+            out.append((str(d), int(n)))
+    return out
+
+
+def _query_event_funnel_30d(db: Session) -> dict[str, int]:
+    cutoff = _analytics_cutoff(30)
+    stmt = select(Event.status, func.count().label("n")).where(Event.created_at >= cutoff).group_by(Event.status)
+    rows = db.execute(stmt).all()
+    by_status = {str(status or ""): int(n) for status, n in rows}
+    return {
+        "total": sum(by_status.values()),
+        "pending_review": by_status.get("pending_review", 0),
+        "live": by_status.get("live", 0),
+        "deleted": by_status.get("deleted", 0),
+    }
+
+
+def _bar_chars(count: int, max_count: int, width: int = 32) -> str:
+    if max_count <= 0 or count <= 0:
+        return ""
+    filled = max(1, int(round(width * count / max_count)))
+    return "█" * min(filled, width)
+
+
+def _table_rows_html(rows: list[tuple[str, ...]], headers: tuple[str, ...]) -> str:
+    th = "".join(f"<th>{html.escape(h)}</th>" for h in headers)
+    if not rows:
+        return f"<thead><tr>{th}</tr></thead><tbody><tr><td colspan=\"{len(headers)}\">No data yet</td></tr></tbody>"
+    body = ""
+    for tup in rows:
+        body += "<tr>" + "".join(f"<td>{html.escape(str(c))}</td>" for c in tup) + "</tr>"
+    return f"<thead><tr>{th}</tr></thead><tbody>{body}</tbody>"
+
+
+def _analytics_page_html(db: Session) -> str:
+    top_q = _query_top_user_messages(db, days=7, limit=20)
+    top_z = _query_zero_result_user_messages(db, days=7, limit=20)
+    daily = _query_daily_active_sessions(db, days=30)
+    funnel = _query_event_funnel_30d(db)
+
+    top_rows = [(q, str(c)) for q, c in top_q]
+    zero_rows = [(q, str(c)) for q, c in top_z]
+
+    max_sess = max((n for _, n in daily), default=0)
+    daily_rows: list[tuple[str, str, str]] = []
+    for d, n in daily:
+        day_s = d.isoformat() if hasattr(d, "isoformat") else str(d)
+        daily_rows.append((day_s, str(n), _bar_chars(n, max_sess)))
+
+    total_ev = funnel["total"]
+    approved = funnel["live"]
+    pending = funnel["pending_review"]
+    rejected = funnel["deleted"]
+    decided = approved + rejected
+    rate_s = f"{100.0 * approved / decided:.1f}%" if decided > 0 else "—"
+
+    funnel_rows = [
+        ("Total events created (30d)", str(total_ev)),
+        ("Live (approved)", str(approved)),
+        ("Pending review", str(pending)),
+        ("Rejected / removed (deleted)", str(rejected)),
+        ("Approval rate (live / (live + deleted))", rate_s),
+    ]
+
+    finding = (
+        "<p class=\"note\"><strong>Note on zero-result queries:</strong> <code>chat_logs</code> stores "
+        "<code>session_id</code>, <code>message</code>, <code>role</code>, <code>intent</code>, and "
+        "<code>created_at</code> only — there is no stored event count. This section pairs each assistant "
+        "reply with the immediately preceding user message in the same session (SQL <code>LAG</code>) and "
+        "filters assistant text with substring heuristics for honest no-match / empty-window copy. "
+        "It excludes replies that look like a populated results list "
+        "(<code>Here's what I found:</code>, <code>Found one that might work</code>). "
+        "Some edge cases (e.g. unusual wording) may be misclassified.</p>"
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Admin — Analytics</title>
+  <style>
+    * {{ box-sizing: border-box; }}
+    body {{ font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #fff; color: #212529;
+      line-height: 1.45; padding-bottom: 48px; }}
+    .wrap {{ max-width: 900px; margin: 0 auto; }}
+    h1 {{ font-size: 1.35rem; margin: 0 0 8px; }}
+    h2 {{ font-size: 1.05rem; margin: 28px 0 10px; color: #343a40; }}
+    .sub {{ color: #6c757d; font-size: 0.9rem; margin-bottom: 16px; }}
+    table {{ width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-bottom: 8px; }}
+    th, td {{ border: 1px solid #dee2e6; padding: 8px 10px; text-align: left; vertical-align: top; }}
+    th {{ background: #f8f9fa; font-weight: 600; }}
+    tbody tr:nth-child(even) {{ background: #fcfcfc; }}
+    .nav {{ margin-bottom: 20px; }}
+    .nav a {{ color: #0d6efd; font-weight: 600; text-decoration: none; }}
+    .nav a:hover {{ text-decoration: underline; }}
+    .note {{ font-size: 0.82rem; color: #6c757d; margin-top: 32px; line-height: 1.5; }}
+    code {{ font-size: 0.85em; background: #f1f3f5; padding: 1px 4px; border-radius: 4px; }}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav class="nav"><a href="/admin?tab=pending&amp;sort=newest">Back to events</a></nav>
+    <h1>Analytics</h1>
+    <p class="sub">Last 7 days for queries · last 30 days for sessions and event funnel. Aggregates run in SQL.</p>
+
+    <h2>Top user queries (7 days)</h2>
+    <p class="sub">Grouped by lowercased, trimmed message (≥2 characters).</p>
+    <table>{_table_rows_html([(a, b) for a, b in top_rows], ("Query", "Count"))}</table>
+
+    <h2>Zero-result queries (7 days)</h2>
+    <p class="sub">User message before an assistant reply that looks like no matching events (heuristic; see note below).</p>
+    <table>{_table_rows_html([(a, b) for a, b in zero_rows], ("Query", "Count"))}</table>
+
+    <h2>Daily active sessions (30 days)</h2>
+    <p class="sub">Distinct <code>session_id</code> per calendar day.</p>
+    <table>{_table_rows_html(daily_rows, ("Date", "Sessions", "Trend"))}</table>
+
+    <h2>Event funnel (30 days)</h2>
+    <p class="sub">Rows in <code>events</code> created in the last 30 days by status.</p>
+    <table>{_table_rows_html(funnel_rows, ("Metric", "Value"))}</table>
+
+    {finding}
+  </div>
+</body>
+</html>"""
 
 
 def _fmt_dt(value: datetime | None) -> str:
@@ -264,6 +521,7 @@ def _dashboard_html_simple(pending: list[Event], live: list[Event], tab: str, so
   <nav class="tabs">
     <a class="{('active' if tab != 'live' else '')}" href="{pending_href}">Pending review</a>
     <a class="{('active' if tab == 'live' else '')}" href="{live_href}">Live events</a>
+    <a href="/admin/analytics">Analytics</a>
   </nav>
   <div class="panel">
     {sort_bar}
@@ -394,6 +652,14 @@ def admin_dashboard(
         live = live_q.order_by(asc(Event.date), asc(Event.start_time)).all()
 
     return HTMLResponse(_dashboard_html_simple(pending, live, tab, sort_eff))
+
+
+@router.get("/analytics", response_class=HTMLResponse, response_model=None)
+def admin_analytics(request: Request, db: Session = Depends(get_db)) -> HTMLResponse | RedirectResponse:
+    redir = _guard(request)
+    if redir:
+        return redir
+    return HTMLResponse(_analytics_page_html(db))
 
 
 def _apply_status(event_id: str, db: Session, status: str) -> None:

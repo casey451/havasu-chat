@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import time
 import unittest
-from datetime import date, time as time_type
+from datetime import UTC, date, datetime, timedelta, time as time_type
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -154,3 +154,75 @@ class Phase8StabilizationTests(unittest.TestCase):
         r = c.get("/admin?tab=live&sort=newest")
         self.assertEqual(r.status_code, 200)
         self.assertIn("Fallback embedding", r.text)
+
+    def test_analytics_requires_admin_auth(self) -> None:
+        self.__class__.client.cookies.clear()
+        r = self.__class__.client.get("/admin/analytics", follow_redirects=False)
+        self.assertIn(r.status_code, (302, 303))
+        self.assertIn("login", (r.headers.get("location") or "").lower())
+
+    def test_analytics_renders_with_empty_data(self) -> None:
+        os.environ["ADMIN_PASSWORD"] = "changeme"
+        c = self.__class__.client
+        self.assertEqual(c.post("/admin/login", data={"password": "changeme"}, follow_redirects=False).status_code, 303)
+        r = c.get("/admin/analytics")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("No data yet", r.text)
+        self.assertIn("Analytics", r.text)
+
+    def test_analytics_renders_with_seeded_data(self) -> None:
+        os.environ["ADMIN_PASSWORD"] = "changeme"
+        now = datetime.now(UTC)
+        sid = "phase8-analytics-seed"
+        user_msg = "unique analytics query xyz"
+        assistant_msg = (
+            "No zydeco in the system yet. If you hear of one, add it here and help others find it — just tell me the details 👋"
+        )
+        with SessionLocal() as db:
+            db.add(
+                ChatLog(
+                    session_id=sid,
+                    message=user_msg,
+                    role="user",
+                    intent=None,
+                    created_at=now,
+                )
+            )
+            db.add(
+                ChatLog(
+                    session_id=sid,
+                    message=assistant_msg,
+                    role="assistant",
+                    intent="SEARCH_EVENTS",
+                    created_at=now + timedelta(seconds=2),
+                )
+            )
+            db.add(
+                Event.from_create(
+                    EventCreate(
+                        title="Analytics Funnel Event",
+                        date=date(2026, 7, 1),
+                        start_time=time_type(12, 0, 0),
+                        end_time=None,
+                        location_name="Test Venue Row",
+                        description="Seeded only for admin analytics funnel row in the last thirty days.",
+                        event_url="https://example.com/analytics-funnel",
+                        contact_name=None,
+                        contact_phone=None,
+                        tags=[],
+                        embedding=None,
+                        status="live",
+                        created_by="user",
+                        admin_review_by=None,
+                    )
+                )
+            )
+            db.commit()
+
+        c = self.__class__.client
+        self.assertEqual(c.post("/admin/login", data={"password": "changeme"}, follow_redirects=False).status_code, 303)
+        r = c.get("/admin/analytics")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn(user_msg.lower(), r.text.lower())
+        self.assertIn("unique analytics query xyz", r.text)
+        self.assertRegex(r.text, r"Live \(approved\)</td>\s*<td>1</td>")
