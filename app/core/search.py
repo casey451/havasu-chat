@@ -455,12 +455,30 @@ def search_events(
             for e, s in with_emb
         ]
 
-    if strict_relevance and embedding_from_openai and with_emb:
-        best = max(s for _, s in with_emb)
-        if best < effective_threshold:
-            with_emb = []
-        else:
-            with_emb = [(e, s) for e, s in with_emb if s >= effective_threshold]
+    import sys as _sys
+    _sys.stdout.flush()
+    print(
+        f"[search_diag] query={query_text!r} is_specific={is_specific_query} "
+        f"from_openai={embedding_from_openai} threshold={effective_threshold:.2f} "
+        f"candidates={len(with_emb)}",
+        flush=True,
+    )
+    for _ev, _sc in sorted(with_emb, key=lambda x: -x[1])[:5]:
+        print(f"  [{_sc:.4f}] {_ev.title!r}", flush=True)
+
+    # Apply threshold filter.
+    # For real OpenAI embeddings use the computed threshold; for fallback (fake) embeddings
+    # still apply filtering when the query is specific — keep only events that received the
+    # +0.5 literal-match bonus (score > 0.45) so junk near-zero cosines are suppressed.
+    if strict_relevance and with_emb:
+        if embedding_from_openai:
+            best = max(s for _, s in with_emb)
+            if best < effective_threshold:
+                with_emb = []
+            else:
+                with_emb = [(e, s) for e, s in with_emb if s >= effective_threshold]
+        elif is_specific_query:
+            with_emb = [(e, s) for e, s in with_emb if s > 0.45]
 
     with_emb.sort(key=lambda x: (-x[1], x[0].date, x[0].start_time))
     emb_scores: dict[str, float] = {e.id: s for e, s in with_emb}
