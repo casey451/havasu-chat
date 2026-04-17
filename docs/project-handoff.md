@@ -76,7 +76,7 @@ Push any commit to `main` on GitHub → Railway detects it via webhook → Nixpa
 - **Session state hardening** — stale `date_range` cleared for broad follow-ups; message-level date handling and week-after advancement (Session N).
 - **Defensive UI self-heal** — welcome chips re-checked after a short delay if the first render missed them (Session O).
 - **Admin panel** — password-protected dashboard at `/admin`. Tabs: Pending review / Live events. Approve/reject/delete actions. Session cookie with `itsdangerous` signing.
-- **Event status flow** — submitted events go to `pending_review` with a 48-hour review deadline. Expired pending events are auto-deleted by an hourly background task.
+- **Event status flow** — submitted events go to `pending_review` with a **72-hour** review deadline (`admin_review_by` in code). Expired pending events are auto-deleted by an hourly background task.
 - **Re-embed endpoint** — `POST /admin/reembed-all` regenerates OpenAI embeddings for all events. Protected by admin cookie.
 - **Re-seed endpoint** — `POST /admin/reseed` wipes seed rows and re-inserts. Protected by admin cookie.
 - **AI tags on submission** — new submitted events get AI-generated tags in `extract_event()` via `generate_event_tags()`, using the same `client.responses.create` pattern as extraction.
@@ -85,19 +85,19 @@ Push any commit to `main` on GitHub → Railway detects it via webhook → Nixpa
 - **Rate limiting** — 10 requests/minute on `/events`, applied via slowapi.
 - **Welcome UI** — first-time users see a welcome message and three example chips (weekend events, kids activities, add an event). Chips disappear after first send.
 - **120-query regression battery** — documented expectations in `docs/query-test-battery.md`; production runner `scripts/run_query_battery.py` (see Section 9).
-- **27 real seed events** — Lake Havasu–style events (concerts, boat races, markets, parks, fitness, named recurring hooks, etc.) with real OpenAI embeddings via the re-embed endpoint.
+- **29 real seed events** — Lake Havasu–style events (concerts, boat races, markets, parks, fitness, named recurring hooks, etc.) with ISO dates **May through July 2026** and real OpenAI embeddings via the re-embed endpoint.
 
 ### Known bugs and limitations
 - **`search_debug.log` is local only** — the log file written by `search_log.py` lives inside the Railway container's filesystem. You cannot read it from the local machine. Use stdout prints (already added to `search_events`) to view scores in Railway's deployment logs instead.
 - **Seed event dates are fixed** — seed data uses hardcoded dates (roughly May–July 2026). When those dates pass, most events will fall out of search results (future-only filter). Plan periodic refresh (see roadmap).
-- **Thin category coverage** — with ~27 seeded events, some categories are sparse; scaling the catalog is a roadmap item.
+- **Thin category coverage** — with ~29 seeded events, some categories are sparse; scaling the catalog is a roadmap item.
 - **No pagination** — search returns up to 25 events. No page 2.
 - **Venue-vs-events precedence (intentional)** — queries that name a venue that also has seeded *events* may return those calendar events rather than a venue-only redirect. The 120-query battery rows 22, 44, 46, and 49 reflect this product choice; do not treat them as accidental bugs without an explicit decision to change precedence.
 - **No onboarding for returning users** — the welcome chips only show on first visit (session-based, not account-based). Roadmap: Session I (localStorage).
 - **OpenAI query embedding fallback** — if the OpenAI API call for query embedding fails, `embedding_from_openai` is False. The threshold filter is then based more heavily on literal/synonym bonuses. General queries get weaker embedding gating in fallback mode.
 
 ### Test count and status
-**86 tests, all passing.** Test files:
+**91 tests, all passing.** Test files:
 - `tests/test_phase1.py` — basic event CRUD
 - `tests/test_phase2.py` — slot extraction
 - `tests/test_phase3.py` — intent detection
@@ -150,7 +150,7 @@ havasu-chat/
 │   │   ├── chat_logging.py        Logs each chat turn to the chat_logs table.
 │   │   ├── database.py            SQLAlchemy engine, Base, SessionLocal, get_db, init_db.
 │   │   ├── models.py              Event and ChatLog ORM models.
-│   │   └── seed.py                27 real Lake Havasu City events. Idempotent (skips existing seeds).
+│   │   └── seed.py                29 real Lake Havasu City events (May–July 2026). Idempotent (skips existing seeds).
 │   ├── schemas/
 │   │   ├── chat.py                ChatRequest / ChatResponse Pydantic schemas.
 │   │   └── event.py               EventCreate / EventRead Pydantic schemas with validators.
@@ -163,20 +163,21 @@ havasu-chat/
 │       ├── 54d37d2c4d32_initial_events_table.py    Initial schema.
 │       └── b2f8c1a9d0e1_add_chat_logs_table.py     Adds chat_logs table.
 │
-├── tests/                         86 tests across 10 files (see Section 2).
+├── tests/                         91 tests across 10 files (see Section 2).
 ├── scripts/
 │   ├── diagnose_search.py         Fires 25 test queries at the live app, saves output to
 │   │                              diagnose_output.txt. Run with: py -3 scripts/diagnose_search.py
 │   ├── verify_queries.py          Quick 6-query spot-check against the live app.
 │   ├── run_query_battery.py       120-query production battery (HTTP). Writes JSON summary to stdout;
 │   │                              save as scripts/battery_results.json for regression compares.
-│   └── battery_results.json       (generated) Last battery output; not always committed.
+│   ├── battery_results.json       Canonical baseline capture (Session T: **96.67%** pass rate); see scripts/README.md.
+│   └── battery_session_t_final.json Historical Session T capture (kept for diff archaeology).
 ├── docs/
 │   ├── project-handoff.md         This file.
 │   └── query-test-battery.md      120-query expected labels + notes; keep in sync with runner.
 ├── Procfile                       Railway start command.
 ├── nixpacks.toml                  Railway build config (pip install + uvicorn start).
-├── requirements.txt               Dependencies (no pinned versions).
+├── requirements.txt               Dependencies (pinned versions; see Session C).
 ├── alembic.ini                    Alembic config.
 └── .env                           Local secrets (not committed). See Section 8.
 ```
@@ -249,6 +250,12 @@ kids activities             → COUNT 7   → Fun Activities section
 things to do this weekend   → COUNT 0   → Honest no-match (current data window)
 ```
 
+### Session G — Admin UX polish (`0aa9554`)
+**What:** Admin dashboard cards show AI tag pills, embedding status (real vs deterministic heuristic), preview links for **live** events, and list sorting controls. Analytics page at `/admin/analytics` (counts, top queries, zero-result pairs, funnel).
+**Why:** Casey can triage pending events and sanity-check vectors/tags without leaving the panel.
+**Files changed:** Primarily `app/admin/router.py`; tests in `tests/test_phase8.py`.
+**Reference:** `docs/session-g-summary-for-claude.md`.
+
 ### Session H — Event shareability (`d2b2107`)
 **What:** Public permalink `GET /events/{id}` for a single event; Open Graph `<meta>` tags for rich link previews; clipboard share button on event cards with non-clipboard fallback for older browsers.
 **Why:** Users can share one event as a stable URL; previews look correct in iMessage, Slack, and social apps.
@@ -303,10 +310,6 @@ things to do this weekend   → COUNT 0   → Honest no-match (current data wind
 
 ## 5. Remaining Roadmap
 
-### Session G — Admin UX polish
-**What:** Richer admin review UI: show tags, embedding status on event cards, optional preview links.
-**Files:** Primarily `app/admin/router.py`.
-
 ### Session I — Returning-user onboarding
 **What:** Persist light state (e.g. localStorage) so repeat visitors get a softer prompt instead of a blank composer.
 **Files:** `app/static/index.html`.
@@ -316,7 +319,7 @@ things to do this weekend   → COUNT 0   → Honest no-match (current data wind
 **Files:** `app/core/slots.py`, `tests/test_phase2.py`.
 
 ### Seed data scale-up
-**What:** Grow the catalog from ~27 toward **100–1000** events so thin categories fill in; re-embed after bulk imports.
+**What:** Grow the catalog from ~29 toward **100–1000** events so thin categories fill in; re-embed after bulk imports.
 **Files:** `app/db/seed.py`, ops via `/admin/reembed-all`.
 
 ### Periodic seed date refresh
@@ -411,7 +414,7 @@ def admin_retag_all(request: Request, db: Session = Depends(get_db)) -> dict[str
 ```
 
 ### Test and production impact
-- **Tests:** `py -3 -m pytest --tb=short -q` — see Section 2 for current count (Session U: 86).
+- **Tests:** `py -3 -m pytest --tb=short -q` — see Section 2 for current count (**91** as of Session AD).
 - **No migration needed:** `tags` column already exists as `JSON`.
 - **Production backfill:** Completed; `/admin/retag-all` updated all live rows at time of run (count matches DB size).
 
@@ -435,7 +438,7 @@ def admin_retag_all(request: Request, db: Session = Depends(get_db)) -> dict[str
 **No scope creep until these arcs are done:**
 1. Search quality (literal matching, synonyms, battery ≥ ~95% on production runs)
 2. Content freshness (seed dates + catalog scale)
-3. Admin review UX (Session G)
+3. Admin review UX (Session G — **done**)
 4. Shareability (Session H — done)
 5. Returning-user onboarding (Session I)
 
@@ -476,7 +479,7 @@ Every working session should target exactly one feature or fix. Write out the pl
 ```bash
 py -3 -m pytest --tb=short -q
 ```
-All tests must pass (Session U: **86**). If a test fails, fix it before committing. Never push a failing test.
+All tests must pass (Session AD: **91**). If a test fails, fix it before committing. Never push a failing test.
 
 ### Always push to main
 Railway auto-deploys from `main`. Push directly — no PRs needed for this solo project.

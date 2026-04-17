@@ -95,7 +95,7 @@ class Phase6Tests(unittest.TestCase):
         payload = payload.model_copy(
             update={
                 "status": "pending_review",
-                "admin_review_by": datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=48),
+                "admin_review_by": datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=72),
             }
         )
         with SessionLocal() as db:
@@ -118,7 +118,7 @@ class Phase6Tests(unittest.TestCase):
         payload = payload.model_copy(
             update={
                 "status": "pending_review",
-                "admin_review_by": datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=48),
+                "admin_review_by": datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=72),
             }
         )
         with SessionLocal() as db:

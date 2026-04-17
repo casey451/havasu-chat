@@ -1,0 +1,2085 @@
+﻿{
+  "total": 120,
+  "results": [
+    {
+      "num": 90,
+      "section": "Section 7 / Seq A",
+      "query": "this weekend",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.24,
+      "note": "Seq A step 1",
+      "response_snippet": "Nothing on for that time. Want to peek at what's coming up later?",
+      "status": 200
+    },
+    {
+      "num": 91,
+      "section": "Section 7 / Seq A",
+      "query": "any boat events",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 27,
+      "category": null,
+      "elapsed": 0.19,
+      "note": "Seq A step 2 \u2014 date_range must clear",
+      "response_snippet": "Here's what I found:\n\n\ud83d\udccc General\n\ud83d\udcc5 Sunday, June 14 \u00b7 5:00 PM\n\ud83d\udccd Aquatic Center, 100 Park Ave\nHollywood Knights Dinner & Silent Auction\n\nCommunity fundraiser dinner with a silent auction. Hollywood Knigh",
+      "status": 200
+    },
+    {
+      "num": 92,
+      "section": "Section 7 / Seq A",
+      "query": "what about next week",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.16,
+      "note": "Seq A step 3",
+      "response_snippet": "Nothing on for that time. Want to peek at what's coming up later?",
+      "status": 200
+    },
+    {
+      "num": 93,
+      "section": "Section 7 / Seq B",
+      "query": "whats happening this weekend",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "LISTING_INTENT",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.15,
+      "note": "Seq B step 1",
+      "response_snippet": "Nothing on for that time. Want to peek at what's coming up later?",
+      "status": 200
+    },
+    {
+      "num": 94,
+      "section": "Section 7 / Seq B",
+      "query": "concerts in july",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 2,
+      "category": null,
+      "elapsed": 0.22,
+      "note": "Seq B step 2 \u2014 date_range must be July",
+      "response_snippet": "Here are your matches:\n\n1.\n\ud83d\udcc5 Wednesday, July 15 \u00b7 10:00 AM\n\ud83d\udccd London Bridge, Lake Havasu City\nLegends Tattoo Show 2026\n\nHosted by Lakeside Tattoo Art Collective. Tattoo artists from across the region, ",
+      "status": 200
+    },
+    {
+      "num": 95,
+      "section": "Section 7 / Seq C",
+      "query": "this weekend",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.17,
+      "note": "Seq C step 1",
+      "response_snippet": "Nothing on for that time. Want to peek at what's coming up later?",
+      "status": 200
+    },
+    {
+      "num": 96,
+      "section": "Section 7 / Seq C",
+      "query": "the week after that",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.17,
+      "note": "Seq C step 2",
+      "response_snippet": "Nothing on for that time. Want to peek at what's coming up later?",
+      "status": 200
+    },
+    {
+      "num": 97,
+      "section": "Section 7 / Seq C",
+      "query": "how about the week after",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 1,
+      "category": null,
+      "elapsed": 0.16,
+      "note": "Seq C step 3",
+      "response_snippet": "Found one that might work:\n\n\ud83d\udcc5 Saturday, May 2 \u00b7 7:00 PM\n\ud83d\udccd Havasu Landing Casino, Lake Havasu City\nCountry Divas at Havasu Landing Casino\n\nCountry Divas live concert at Havasu Landing Casino. A night o",
+      "status": 200
+    },
+    {
+      "num": 1,
+      "section": "Section 1",
+      "query": "boat race",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 1,
+      "category": null,
+      "elapsed": 0.51,
+      "note": "Section 1",
+      "response_snippet": "Found one that might work:\n\n\ud83d\udcc5 Wednesday, May 20 \u00b7 2:00 PM\n\ud83d\udccd Bridgewater Channel, Lake Havasu City\nDesert Storm Poker Run & Shootout\n\nThe largest performance boating event in the Western US. A world-cl",
+      "status": 200
+    },
+    {
+      "num": 2,
+      "section": "Section 1",
+      "query": "poker run",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 1,
+      "category": null,
+      "elapsed": 0.22,
+      "note": "Section 1",
+      "response_snippet": "Found one that might work:\n\n\ud83d\udcc5 Wednesday, May 20 \u00b7 2:00 PM\n\ud83d\udccd Bridgewater Channel, Lake Havasu City\nDesert Storm Poker Run & Shootout\n\nThe largest performance boating event in the Western US. A world-cl",
+      "status": 200
+    },
+    {
+      "num": 3,
+      "section": "Section 1",
+      "query": "regatta",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 1,
+      "category": null,
+      "elapsed": 0.18,
+      "note": "Section 1",
+      "response_snippet": "Found one that might work:\n\n\ud83d\udcc5 Wednesday, May 20 \u00b7 2:00 PM\n\ud83d\udccd Bridgewater Channel, Lake Havasu City\nDesert Storm Poker Run & Shootout\n\nThe largest performance boating event in the Western US. A world-cl",
+      "status": 200
+    },
+    {
+      "num": 4,
+      "section": "Section 1",
+      "query": "live music",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 5,
+      "category": null,
+      "elapsed": 0.19,
+      "note": "Section 1",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Saturday, June 20 \u00b7 5:00 PM\n\ud83d\udccd London Bridge Beach walkway, Lake Havasu City\nHavasu Sunset Market\n\nEvening sunset market along the channel \u2014 local makers, stree",
+      "status": 200
+    },
+    {
+      "num": 5,
+      "section": "Section 1",
+      "query": "concert",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 8,
+      "category": null,
+      "elapsed": 0.16,
+      "note": "Section 1",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Saturday, May 2 \u00b7 7:00 PM\n\ud83d\udccd Havasu Landing Casino, Lake Havasu City\nCountry Divas at Havasu Landing Casino\n\nCountry Divas live concert at Havasu Landing Casino",
+      "status": 200
+    },
+    {
+      "num": 6,
+      "section": "Section 1",
+      "query": "band",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 6,
+      "category": null,
+      "elapsed": 0.21,
+      "note": "Section 1",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Friday, June 19 \u00b7 8:00 PM\n\ud83d\udccd The Office Cocktail Lounge & Grill, Lake Havasu City\nCrosscutt Live at The Office Cocktail Lounge\n\nLive music with Crosscutt at The",
+      "status": 200
+    },
+    {
+      "num": 7,
+      "section": "Section 1",
+      "query": "kids activities",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 9,
+      "category": null,
+      "elapsed": 0.17,
+      "note": "Section 1",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Saturday, June 20 \u00b7 5:00 PM\n\ud83d\udccd London Bridge Beach walkway, Lake Havasu City\nHavasu Sunset Market\n\nEvening sunset market along the channel \u2014 local makers, stree",
+      "status": 200
+    },
+    {
+      "num": 8,
+      "section": "Section 1",
+      "query": "family fun",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 5,
+      "category": null,
+      "elapsed": 0.23,
+      "note": "Section 1",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Saturday, June 20 \u00b7 5:00 PM\n\ud83d\udccd London Bridge Beach walkway, Lake Havasu City\nHavasu Sunset Market\n\nEvening sunset market along the channel \u2014 local makers, stree",
+      "status": 200
+    },
+    {
+      "num": 9,
+      "section": "Section 1",
+      "query": "things to do",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 27,
+      "category": null,
+      "elapsed": 0.16,
+      "note": "Section 1",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Saturday, July 4 \u00b7 8:00 AM\n\ud83d\udccd Lake Havasu Shoreline\nKayaking & Paddleboard Rentals\n\nKayak, paddleboard, and watercraft rentals on beautiful Lake Havasu. Great f",
+      "status": 200
+    },
+    {
+      "num": 10,
+      "section": "Section 1",
+      "query": "whats happening",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "LISTING_INTENT",
+      "count": 27,
+      "category": null,
+      "elapsed": 0.2,
+      "note": "Section 1",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Saturday, July 4 \u00b7 8:00 AM\n\ud83d\udccd Lake Havasu Shoreline\nKayaking & Paddleboard Rentals\n\nKayak, paddleboard, and watercraft rentals on beautiful Lake Havasu. Great f",
+      "status": 200
+    },
+    {
+      "num": 11,
+      "section": "Section 1",
+      "query": "things to do next month",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 9,
+      "category": null,
+      "elapsed": 0.16,
+      "note": "Section 1",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Saturday, May 2 \u00b7 7:00 PM\n\ud83d\udccd Havasu Landing Casino, Lake Havasu City\nCountry Divas at Havasu Landing Casino\n\nCountry Divas live concert at Havasu Landing Casino",
+      "status": 200
+    },
+    {
+      "num": 12,
+      "section": "Section 1",
+      "query": "events in may",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 9,
+      "category": null,
+      "elapsed": 0.14,
+      "note": "Section 1",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Wednesday, May 13 \u00b7 10:30 AM\n\ud83d\udccd Mohave County Library, 1770 McCulloch Blvd N\nMohave County Library Story Time\n\nFree weekly story time for toddlers and preschool",
+      "status": 200
+    },
+    {
+      "num": 13,
+      "section": "Section 1",
+      "query": "events in june",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 9,
+      "category": null,
+      "elapsed": 0.19,
+      "note": "Section 1",
+      "response_snippet": "Here's what I found:\n\n\ud83d\udccc General\n\ud83d\udcc5 Sunday, June 14 \u00b7 5:00 PM\n\ud83d\udccd Aquatic Center, 100 Park Ave\nHollywood Knights Dinner & Silent Auction\n\nCommunity fundraiser dinner with a silent auction. Hollywood Knigh",
+      "status": 200
+    },
+    {
+      "num": 14,
+      "section": "Section 1",
+      "query": "events in july",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 9,
+      "category": null,
+      "elapsed": 0.18,
+      "note": "Section 1",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Wednesday, July 15 \u00b7 10:00 AM\n\ud83d\udccd London Bridge, Lake Havasu City\nLegends Tattoo Show 2026\n\nHosted by Lakeside Tattoo Art Collective. Tattoo artists from across ",
+      "status": 200
+    },
+    {
+      "num": 15,
+      "section": "Section 1",
+      "query": "farmers market",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 2,
+      "category": null,
+      "elapsed": 0.19,
+      "note": "Section 1",
+      "response_snippet": "Here are your matches:\n\n1.\n\ud83d\udcc5 Saturday, June 20 \u00b7 5:00 PM\n\ud83d\udccd London Bridge Beach walkway, Lake Havasu City\nHavasu Sunset Market\n\nEvening sunset market along the channel \u2014 local makers, street food, and ",
+      "status": 200
+    },
+    {
+      "num": 16,
+      "section": "Section 1",
+      "query": "sunset market",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 1,
+      "category": null,
+      "elapsed": 0.15,
+      "note": "Section 1",
+      "response_snippet": "Found one that might work:\n\n\ud83d\udcc5 Saturday, June 20 \u00b7 5:00 PM\n\ud83d\udccd London Bridge Beach walkway, Lake Havasu City\nHavasu Sunset Market\n\nEvening sunset market along the channel \u2014 local makers, street food, and",
+      "status": 200
+    },
+    {
+      "num": 17,
+      "section": "Section 1",
+      "query": "first friday",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 1,
+      "category": null,
+      "elapsed": 0.17,
+      "note": "Section 1",
+      "response_snippet": "Found one that might work:\n\n\ud83d\udcc5 Friday, June 5 \u00b7 6:00 PM\n\ud83d\udccd Downtown Lake Havasu, Main Street\nFirst Friday Downtown Lake Havasu\n\nFirst Friday of every month \u2014 art scene event in downtown Havasu. Gallerie",
+      "status": 200
+    },
+    {
+      "num": 18,
+      "section": "Section 1",
+      "query": "fireworks",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 1,
+      "category": null,
+      "elapsed": 0.17,
+      "note": "Section 1",
+      "response_snippet": "Found one that might work:\n\n\ud83d\udcc5 Saturday, July 4 \u00b7 9:00 PM\n\ud83d\udccd London Bridge / Bridgewater Channel, Lake Havasu City\nJuly 4th Fireworks & Celebration\n\nIndependence Day fireworks over the lake with viewing",
+      "status": 200
+    },
+    {
+      "num": 19,
+      "section": "Section 1",
+      "query": "4th of july",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 9,
+      "category": null,
+      "elapsed": 0.14,
+      "note": "Section 1",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Wednesday, July 15 \u00b7 10:00 AM\n\ud83d\udccd London Bridge, Lake Havasu City\nLegends Tattoo Show 2026\n\nHosted by Lakeside Tattoo Art Collective. Tattoo artists from across ",
+      "status": 200
+    },
+    {
+      "num": 20,
+      "section": "Section 1",
+      "query": "country music",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 1,
+      "category": null,
+      "elapsed": 0.17,
+      "note": "Section 1",
+      "response_snippet": "Found one that might work:\n\n\ud83d\udcc5 Saturday, May 2 \u00b7 7:00 PM\n\ud83d\udccd Havasu Landing Casino, Lake Havasu City\nCountry Divas at Havasu Landing Casino\n\nCountry Divas live concert at Havasu Landing Casino. A night o",
+      "status": 200
+    },
+    {
+      "num": 21,
+      "section": "Section 2",
+      "query": "trampoline",
+      "expected": [
+        "NO_MATCH",
+        "VENUE_REDIRECT"
+      ],
+      "actual": "VENUE_REDIRECT",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.16,
+      "note": "Section 2",
+      "response_snippet": "Altitude Trampoline Park is a permanent spot in Havasu \u2014 I track events there when they come up, but nothing is scheduled right now. Want to see what else is happening?",
+      "status": 200
+    },
+    {
+      "num": 22,
+      "section": "Section 2",
+      "query": "trampoline tonight",
+      "expected": [
+        "NO_MATCH"
+      ],
+      "actual": "VENUE_REDIRECT",
+      "match": false,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.18,
+      "note": "Section 2",
+      "response_snippet": "Altitude Trampoline Park is a permanent spot in Havasu \u2014 I track events there when they come up, but nothing is scheduled right now. Want to see what else is happening?",
+      "status": 200
+    },
+    {
+      "num": 23,
+      "section": "Section 2",
+      "query": "bowling",
+      "expected": [
+        "NO_MATCH",
+        "VENUE_REDIRECT"
+      ],
+      "actual": "VENUE_REDIRECT",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.18,
+      "note": "Section 2",
+      "response_snippet": "Havasu Lanes is a permanent spot in Havasu \u2014 I track events there when they come up, but nothing is scheduled right now. Want to see what else is happening?",
+      "status": 200
+    },
+    {
+      "num": 24,
+      "section": "Section 2",
+      "query": "bowling this week",
+      "expected": [
+        "NO_MATCH",
+        "VENUE_REDIRECT"
+      ],
+      "actual": "VENUE_REDIRECT",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.24,
+      "note": "Section 2",
+      "response_snippet": "Havasu Lanes is a permanent spot in Havasu \u2014 I track events there when they come up, but nothing is scheduled right now. Want to see what else is happening?",
+      "status": 200
+    },
+    {
+      "num": 25,
+      "section": "Section 2",
+      "query": "rodeo",
+      "expected": [
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.18,
+      "note": "Section 2",
+      "response_snippet": "No rodeo in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b",
+      "status": 200
+    },
+    {
+      "num": 26,
+      "section": "Section 2",
+      "query": "comedy show",
+      "expected": [
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.17,
+      "note": "Section 2",
+      "response_snippet": "No comedy in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b",
+      "status": 200
+    },
+    {
+      "num": 27,
+      "section": "Section 2",
+      "query": "karaoke",
+      "expected": [
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.16,
+      "note": "Section 2",
+      "response_snippet": "No karaoke in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b",
+      "status": 200
+    },
+    {
+      "num": 28,
+      "section": "Section 2",
+      "query": "trivia night",
+      "expected": [
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.18,
+      "note": "Section 2",
+      "response_snippet": "No trivia in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b",
+      "status": 200
+    },
+    {
+      "num": 29,
+      "section": "Section 2",
+      "query": "wine tasting",
+      "expected": [
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.19,
+      "note": "Section 2",
+      "response_snippet": "No tasting in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b",
+      "status": 200
+    },
+    {
+      "num": 30,
+      "section": "Section 2",
+      "query": "brewery tour",
+      "expected": [
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.21,
+      "note": "Section 2",
+      "response_snippet": "No brewery in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b",
+      "status": 200
+    },
+    {
+      "num": 31,
+      "section": "Section 2",
+      "query": "paint night",
+      "expected": [
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.2,
+      "note": "Section 2",
+      "response_snippet": "No arts events in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b\n\nWant me to show you other arts & music instead?",
+      "status": 200
+    },
+    {
+      "num": 32,
+      "section": "Section 2",
+      "query": "book club",
+      "expected": [
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.18,
+      "note": "Section 2",
+      "response_snippet": "No book in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b",
+      "status": 200
+    },
+    {
+      "num": 33,
+      "section": "Section 2",
+      "query": "tennis tournament",
+      "expected": [
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.2,
+      "note": "Section 2",
+      "response_snippet": "No sports events in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b\n\nWant me to show you other sports instead?",
+      "status": 200
+    },
+    {
+      "num": 34,
+      "section": "Section 2",
+      "query": "pickleball",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 1,
+      "category": null,
+      "elapsed": 0.25,
+      "note": "Section 2",
+      "response_snippet": "Found one that might work:\n\n\ud83d\udcc5 Saturday, July 18 \u00b7 7:00 AM\n\ud83d\udccd Lake Havasu City Pickleball Courts\nPickleball Open Play \u2014 LHCPBA\n\nThe Lake Havasu City Pickleball Association hosts regular open play sessio",
+      "status": 200
+    },
+    {
+      "num": 35,
+      "section": "Section 2",
+      "query": "5k run",
+      "expected": [
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.18,
+      "note": "Section 2",
+      "response_snippet": "No events matching that in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b",
+      "status": 200
+    },
+    {
+      "num": 36,
+      "section": "Section 2",
+      "query": "marathon",
+      "expected": [
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.18,
+      "note": "Section 2",
+      "response_snippet": "No marathon in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b",
+      "status": 200
+    },
+    {
+      "num": 37,
+      "section": "Section 2",
+      "query": "bingo",
+      "expected": [
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.15,
+      "note": "Section 2",
+      "response_snippet": "No bingo in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b",
+      "status": 200
+    },
+    {
+      "num": 38,
+      "section": "Section 2",
+      "query": "poetry reading",
+      "expected": [
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.15,
+      "note": "Section 2",
+      "response_snippet": "No learning events in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b\n\nWant me to show you other classes instead?",
+      "status": 200
+    },
+    {
+      "num": 39,
+      "section": "Section 2",
+      "query": "film screening",
+      "expected": [
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.16,
+      "note": "Section 2",
+      "response_snippet": "No screening in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b",
+      "status": 200
+    },
+    {
+      "num": 40,
+      "section": "Section 2",
+      "query": "dog show",
+      "expected": [
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.14,
+      "note": "Section 2",
+      "response_snippet": "No events matching that in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b",
+      "status": 200
+    },
+    {
+      "num": 41,
+      "section": "Section 3",
+      "query": "altitude trampoline park",
+      "expected": [
+        "VENUE_REDIRECT"
+      ],
+      "actual": "VENUE_REDIRECT",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.14,
+      "note": "Section 3",
+      "response_snippet": "Altitude Trampoline Park is a permanent spot in Havasu \u2014 I track events there when they come up, but nothing is scheduled right now. Want to see what else is happening?",
+      "status": 200
+    },
+    {
+      "num": 42,
+      "section": "Section 3",
+      "query": "havasu lanes",
+      "expected": [
+        "VENUE_REDIRECT"
+      ],
+      "actual": "VENUE_REDIRECT",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.17,
+      "note": "Section 3",
+      "response_snippet": "Havasu Lanes is a permanent spot in Havasu \u2014 I track events there when they come up, but nothing is scheduled right now. Want to see what else is happening?",
+      "status": 200
+    },
+    {
+      "num": 43,
+      "section": "Section 3",
+      "query": "sara park",
+      "expected": [
+        "VENUE_REDIRECT"
+      ],
+      "actual": "VENUE_REDIRECT",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.17,
+      "note": "Section 3",
+      "response_snippet": "SARA Park is a permanent spot in Havasu \u2014 I track events there when they come up, but nothing is scheduled right now. Want to see what else is happening?",
+      "status": 200
+    },
+    {
+      "num": 44,
+      "section": "Section 3",
+      "query": "london bridge",
+      "expected": [
+        "VENUE_REDIRECT"
+      ],
+      "actual": "EVENTS",
+      "match": false,
+      "intent": "SEARCH_EVENTS",
+      "count": 2,
+      "category": null,
+      "elapsed": 0.18,
+      "note": "Section 3",
+      "response_snippet": "Here are your matches:\n\n1.\n\ud83d\udcc5 Saturday, July 4 \u00b7 9:00 PM\n\ud83d\udccd London Bridge / Bridgewater Channel, Lake Havasu City\nJuly 4th Fireworks & Celebration\n\nIndependence Day fireworks over the lake with viewing ",
+      "status": 200
+    },
+    {
+      "num": 45,
+      "section": "Section 3",
+      "query": "rotary park",
+      "expected": [
+        "VENUE_REDIRECT"
+      ],
+      "actual": "VENUE_REDIRECT",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.17,
+      "note": "Section 3",
+      "response_snippet": "Rotary Park is a permanent spot in Havasu \u2014 I track events there when they come up, but nothing is scheduled right now. Want to see what else is happening?",
+      "status": 200
+    },
+    {
+      "num": 46,
+      "section": "Section 3",
+      "query": "lake havasu state park",
+      "expected": [
+        "VENUE_REDIRECT"
+      ],
+      "actual": "EVENTS",
+      "match": false,
+      "intent": "SEARCH_EVENTS",
+      "count": 1,
+      "category": null,
+      "elapsed": 0.16,
+      "note": "Section 3",
+      "response_snippet": "Found one that might work:\n\n\ud83d\udcc5 Saturday, July 11 \u00b7 9:00 AM\n\ud83d\udccd Lake Havasu State Park, Windsor Beach, 171 London Bridge Rd\nJunior Ranger Program \u2014 Lake Havasu State Park\n\nKids ages 6\u201312 can become a Juni",
+      "status": 200
+    },
+    {
+      "num": 47,
+      "section": "Section 3",
+      "query": "cattail cove",
+      "expected": [
+        "VENUE_REDIRECT"
+      ],
+      "actual": "VENUE_REDIRECT",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.18,
+      "note": "Section 3",
+      "response_snippet": "Cattail Cove State Park is a permanent spot in Havasu \u2014 I track events there when they come up, but nothing is scheduled right now. Want to see what else is happening?",
+      "status": 200
+    },
+    {
+      "num": 48,
+      "section": "Section 3",
+      "query": "english village",
+      "expected": [
+        "VENUE_REDIRECT"
+      ],
+      "actual": "VENUE_REDIRECT",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.18,
+      "note": "Section 3",
+      "response_snippet": "English Village is a permanent spot in Havasu \u2014 I track events there when they come up, but nothing is scheduled right now. Want to see what else is happening?",
+      "status": 200
+    },
+    {
+      "num": 49,
+      "section": "Section 3",
+      "query": "aquatic center",
+      "expected": [
+        "VENUE_REDIRECT"
+      ],
+      "actual": "EVENTS",
+      "match": false,
+      "intent": "SEARCH_EVENTS",
+      "count": 4,
+      "category": null,
+      "elapsed": 0.17,
+      "note": "Section 3",
+      "response_snippet": "Here's what I found:\n\n\ud83d\udcda Learning & Classes\n\ud83d\udcc5 Friday, May 8 \u00b7 8:00 AM\n\ud83d\udccd Lake Havasu City Aquatic Center, 100 Park Ave\nAqua Aerobics \u2014 Aquatic Center\n\nShallow and deep water fitness class \u2014 full body wo",
+      "status": 200
+    },
+    {
+      "num": 50,
+      "section": "Section 3",
+      "query": "scooter's",
+      "expected": [
+        "VENUE_REDIRECT"
+      ],
+      "actual": "VENUE_REDIRECT",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.19,
+      "note": "Section 3",
+      "response_snippet": "Scooter's Family Fun Center is a permanent spot in Havasu \u2014 I track events there when they come up, but nothing is scheduled right now. Want to see what else is happening?",
+      "status": 200
+    },
+    {
+      "num": 51,
+      "section": "Section 3",
+      "query": "bridgewater links",
+      "expected": [
+        "VENUE_REDIRECT"
+      ],
+      "actual": "VENUE_REDIRECT",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.18,
+      "note": "Section 3",
+      "response_snippet": "Bridgewater Links Golf Course is a permanent spot in Havasu \u2014 I track events there when they come up, but nothing is scheduled right now. Want to see what else is happening?",
+      "status": 200
+    },
+    {
+      "num": 52,
+      "section": "Section 3",
+      "query": "copper still distillery",
+      "expected": [
+        "VENUE_REDIRECT"
+      ],
+      "actual": "VENUE_REDIRECT",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.19,
+      "note": "Section 3",
+      "response_snippet": "Copper Still Distillery is a permanent spot in Havasu \u2014 I track events there when they come up, but nothing is scheduled right now. Want to see what else is happening?",
+      "status": 200
+    },
+    {
+      "num": 53,
+      "section": "Section 4",
+      "query": "whats the weather",
+      "expected": [
+        "OUT_OF_SCOPE(weather)"
+      ],
+      "actual": "OUT_OF_SCOPE(weather)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "weather",
+      "elapsed": 0.14,
+      "note": "Section 4",
+      "response_snippet": "I track events in Havasu, not weather. For the forecast, try weather.com or your phone's weather app.",
+      "status": 200
+    },
+    {
+      "num": 54,
+      "section": "Section 4",
+      "query": "weather this weekend",
+      "expected": [
+        "OUT_OF_SCOPE(weather)"
+      ],
+      "actual": "OUT_OF_SCOPE(weather)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "weather",
+      "elapsed": 0.17,
+      "note": "Section 4",
+      "response_snippet": "I track events in Havasu, not weather. For the forecast, try weather.com or your phone's weather app.",
+      "status": 200
+    },
+    {
+      "num": 55,
+      "section": "Section 4",
+      "query": "is it going to rain",
+      "expected": [
+        "OUT_OF_SCOPE(weather)"
+      ],
+      "actual": "OUT_OF_SCOPE(weather)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "weather",
+      "elapsed": 0.19,
+      "note": "Section 4",
+      "response_snippet": "I track events in Havasu, not weather. For the forecast, try weather.com or your phone's weather app.",
+      "status": 200
+    },
+    {
+      "num": 56,
+      "section": "Section 4",
+      "query": "how hot is it",
+      "expected": [
+        "OUT_OF_SCOPE(weather)"
+      ],
+      "actual": "OUT_OF_SCOPE(weather)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "weather",
+      "elapsed": 0.15,
+      "note": "Section 4",
+      "response_snippet": "I track events in Havasu, not weather. For the forecast, try weather.com or your phone's weather app.",
+      "status": 200
+    },
+    {
+      "num": 57,
+      "section": "Section 4",
+      "query": "temperature today",
+      "expected": [
+        "OUT_OF_SCOPE(weather)"
+      ],
+      "actual": "OUT_OF_SCOPE(weather)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "weather",
+      "elapsed": 0.13,
+      "note": "Section 4",
+      "response_snippet": "I track events in Havasu, not weather. For the forecast, try weather.com or your phone's weather app.",
+      "status": 200
+    },
+    {
+      "num": 58,
+      "section": "Section 4",
+      "query": "forecast",
+      "expected": [
+        "OUT_OF_SCOPE(weather)"
+      ],
+      "actual": "OUT_OF_SCOPE(weather)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "weather",
+      "elapsed": 0.16,
+      "note": "Section 4",
+      "response_snippet": "I track events in Havasu, not weather. For the forecast, try weather.com or your phone's weather app.",
+      "status": 200
+    },
+    {
+      "num": 59,
+      "section": "Section 4",
+      "query": "where should i stay",
+      "expected": [
+        "OUT_OF_SCOPE(lodging)"
+      ],
+      "actual": "OUT_OF_SCOPE(lodging)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "lodging",
+      "elapsed": 0.15,
+      "note": "Section 4",
+      "response_snippet": "I track events, not places to stay. For lodging in Havasu, check VisitArizona or Airbnb.",
+      "status": 200
+    },
+    {
+      "num": 60,
+      "section": "Section 4",
+      "query": "hotels in havasu",
+      "expected": [
+        "OUT_OF_SCOPE(lodging)"
+      ],
+      "actual": "OUT_OF_SCOPE(lodging)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "lodging",
+      "elapsed": 0.17,
+      "note": "Section 4",
+      "response_snippet": "I track events, not places to stay. For lodging in Havasu, check VisitArizona or Airbnb.",
+      "status": 200
+    },
+    {
+      "num": 61,
+      "section": "Section 4",
+      "query": "best motel",
+      "expected": [
+        "OUT_OF_SCOPE(lodging)"
+      ],
+      "actual": "OUT_OF_SCOPE(lodging)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "lodging",
+      "elapsed": 0.18,
+      "note": "Section 4",
+      "response_snippet": "I track events, not places to stay. For lodging in Havasu, check VisitArizona or Airbnb.",
+      "status": 200
+    },
+    {
+      "num": 62,
+      "section": "Section 4",
+      "query": "airbnb near me",
+      "expected": [
+        "OUT_OF_SCOPE(lodging)"
+      ],
+      "actual": "OUT_OF_SCOPE(lodging)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "lodging",
+      "elapsed": 0.15,
+      "note": "Section 4",
+      "response_snippet": "I track events, not places to stay. For lodging in Havasu, check VisitArizona or Airbnb.",
+      "status": 200
+    },
+    {
+      "num": 63,
+      "section": "Section 4",
+      "query": "place to sleep",
+      "expected": [
+        "OUT_OF_SCOPE(lodging)"
+      ],
+      "actual": "OUT_OF_SCOPE(lodging)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "lodging",
+      "elapsed": 0.12,
+      "note": "Section 4",
+      "response_snippet": "I track events, not places to stay. For lodging in Havasu, check VisitArizona or Airbnb.",
+      "status": 200
+    },
+    {
+      "num": 64,
+      "section": "Section 4",
+      "query": "where do i park",
+      "expected": [
+        "OUT_OF_SCOPE(transportation)"
+      ],
+      "actual": "OUT_OF_SCOPE(transportation)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "transportation",
+      "elapsed": 0.13,
+      "note": "Section 4",
+      "response_snippet": "I track events, not transportation. Event details include a location you can tap to map.",
+      "status": 200
+    },
+    {
+      "num": 65,
+      "section": "Section 4",
+      "query": "parking downtown",
+      "expected": [
+        "OUT_OF_SCOPE(transportation)"
+      ],
+      "actual": "OUT_OF_SCOPE(transportation)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "transportation",
+      "elapsed": 0.14,
+      "note": "Section 4",
+      "response_snippet": "I track events, not transportation. Event details include a location you can tap to map.",
+      "status": 200
+    },
+    {
+      "num": 66,
+      "section": "Section 4",
+      "query": "directions to london bridge",
+      "expected": [
+        "OUT_OF_SCOPE(transportation)"
+      ],
+      "actual": "OUT_OF_SCOPE(transportation)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "transportation",
+      "elapsed": 0.13,
+      "note": "Section 4",
+      "response_snippet": "I track events, not transportation. Event details include a location you can tap to map.",
+      "status": 200
+    },
+    {
+      "num": 67,
+      "section": "Section 4",
+      "query": "how far is phoenix",
+      "expected": [
+        "OUT_OF_SCOPE(transportation)"
+      ],
+      "actual": "OUT_OF_SCOPE(transportation)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "transportation",
+      "elapsed": 0.15,
+      "note": "Section 4",
+      "response_snippet": "I track events, not transportation. Event details include a location you can tap to map.",
+      "status": 200
+    },
+    {
+      "num": 68,
+      "section": "Section 4",
+      "query": "is there uber here",
+      "expected": [
+        "OUT_OF_SCOPE(transportation)"
+      ],
+      "actual": "OUT_OF_SCOPE(transportation)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "transportation",
+      "elapsed": 0.15,
+      "note": "Section 4",
+      "response_snippet": "I track events, not transportation. Event details include a location you can tap to map.",
+      "status": 200
+    },
+    {
+      "num": 69,
+      "section": "Section 4",
+      "query": "rent a car",
+      "expected": [
+        "OUT_OF_SCOPE(transportation)"
+      ],
+      "actual": "OUT_OF_SCOPE(transportation)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "transportation",
+      "elapsed": 0.13,
+      "note": "Section 4",
+      "response_snippet": "I track events, not transportation. Event details include a location you can tap to map.",
+      "status": 200
+    },
+    {
+      "num": 70,
+      "section": "Section 4",
+      "query": "best restaurants",
+      "expected": [
+        "OUT_OF_SCOPE(dining)"
+      ],
+      "actual": "OUT_OF_SCOPE(dining)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "dining",
+      "elapsed": 0.14,
+      "note": "Section 4",
+      "response_snippet": "I track events and dated happenings, not restaurant listings. For dining recommendations, check Yelp or Tripadvisor. If you're looking for a food festival or restaurant week, let me know.",
+      "status": 200
+    },
+    {
+      "num": 71,
+      "section": "Section 4",
+      "query": "top restaurants in havasu",
+      "expected": [
+        "OUT_OF_SCOPE(dining)"
+      ],
+      "actual": "OUT_OF_SCOPE(dining)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "dining",
+      "elapsed": 0.16,
+      "note": "Section 4",
+      "response_snippet": "I track events and dated happenings, not restaurant listings. For dining recommendations, check Yelp or Tripadvisor. If you're looking for a food festival or restaurant week, let me know.",
+      "status": 200
+    },
+    {
+      "num": 72,
+      "section": "Section 4",
+      "query": "where to eat",
+      "expected": [
+        "OUT_OF_SCOPE(dining)"
+      ],
+      "actual": "OUT_OF_SCOPE(dining)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "dining",
+      "elapsed": 0.16,
+      "note": "Section 4",
+      "response_snippet": "I track events and dated happenings, not restaurant listings. For dining recommendations, check Yelp or Tripadvisor. If you're looking for a food festival or restaurant week, let me know.",
+      "status": 200
+    },
+    {
+      "num": 73,
+      "section": "Section 4",
+      "query": "best breakfast",
+      "expected": [
+        "OUT_OF_SCOPE(dining)"
+      ],
+      "actual": "OUT_OF_SCOPE(dining)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "dining",
+      "elapsed": 0.18,
+      "note": "Section 4",
+      "response_snippet": "I track events and dated happenings, not restaurant listings. For dining recommendations, check Yelp or Tripadvisor. If you're looking for a food festival or restaurant week, let me know.",
+      "status": 200
+    },
+    {
+      "num": 74,
+      "section": "Section 5",
+      "query": "hotel grand opening event",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 27,
+      "category": null,
+      "elapsed": 0.2,
+      "note": "Section 5",
+      "response_snippet": "Here's what I found:\n\n\ud83d\udccc General\n\ud83d\udcc5 Sunday, June 14 \u00b7 5:00 PM\n\ud83d\udccd Aquatic Center, 100 Park Ave\nHollywood Knights Dinner & Silent Auction\n\nCommunity fundraiser dinner with a silent auction. Hollywood Knigh",
+      "status": 200
+    },
+    {
+      "num": 75,
+      "section": "Section 5",
+      "query": "restaurant week",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.21,
+      "note": "Section 5",
+      "response_snippet": "No restaurant in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b",
+      "status": 200
+    },
+    {
+      "num": 76,
+      "section": "Section 5",
+      "query": "food festival",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 1,
+      "category": null,
+      "elapsed": 0.19,
+      "note": "Section 5",
+      "response_snippet": "Found one that might work:\n\n\ud83d\udcc5 Saturday, May 30 \u00b7 6:00 PM\n\ud83d\udccd Lake Havasu, AZ\nSky Lantern Festival by Lights Over America\n\nA magical evening where thousands of biodegradable sky lanterns light up the nig",
+      "status": 200
+    },
+    {
+      "num": 77,
+      "section": "Section 5",
+      "query": "car show",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 1,
+      "category": null,
+      "elapsed": 0.18,
+      "note": "Section 5",
+      "response_snippet": "Found one that might work:\n\n\ud83d\udcc5 Sunday, June 7 \u00b7 1:00 PM\n\ud83d\udccd Lighthouse Lounge, Lake Havasu City\nMotor Madness Cruise-In\n\nClassic car cruise-in event at Lighthouse Lounge. Come show your ride or just enjo",
+      "status": 200
+    },
+    {
+      "num": 78,
+      "section": "Section 5",
+      "query": "weather station tour",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 27,
+      "category": null,
+      "elapsed": 0.24,
+      "note": "Section 5",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Saturday, July 4 \u00b7 8:00 AM\n\ud83d\udccd Lake Havasu Shoreline\nKayaking & Paddleboard Rentals\n\nKayak, paddleboard, and watercraft rentals on beautiful Lake Havasu. Great f",
+      "status": 200
+    },
+    {
+      "num": 79,
+      "section": "Section 6",
+      "query": "events today",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.25,
+      "note": "Section 6",
+      "response_snippet": "Nothing on for that time. Want to peek at what's coming up later?",
+      "status": 200
+    },
+    {
+      "num": 80,
+      "section": "Section 6",
+      "query": "events tonight",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.22,
+      "note": "Section 6",
+      "response_snippet": "Nothing on for that time. Want to peek at what's coming up later?",
+      "status": 200
+    },
+    {
+      "num": 81,
+      "section": "Section 6",
+      "query": "events tomorrow",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.19,
+      "note": "Section 6",
+      "response_snippet": "Nothing on for that time. Want to peek at what's coming up later?",
+      "status": 200
+    },
+    {
+      "num": 82,
+      "section": "Section 6",
+      "query": "this week",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 27,
+      "category": null,
+      "elapsed": 0.18,
+      "note": "Section 6",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Wednesday, July 15 \u00b7 10:00 AM\n\ud83d\udccd London Bridge, Lake Havasu City\nLegends Tattoo Show 2026\n\nHosted by Lakeside Tattoo Art Collective. Tattoo artists from across ",
+      "status": 200
+    },
+    {
+      "num": 83,
+      "section": "Section 6",
+      "query": "this weekend",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.17,
+      "note": "Section 6",
+      "response_snippet": "Nothing on for that time. Want to peek at what's coming up later?",
+      "status": 200
+    },
+    {
+      "num": 84,
+      "section": "Section 6",
+      "query": "next weekend",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.18,
+      "note": "Section 6",
+      "response_snippet": "Nothing on for that time. Want to peek at what's coming up later?",
+      "status": 200
+    },
+    {
+      "num": 85,
+      "section": "Section 6",
+      "query": "this month",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.2,
+      "note": "Section 6",
+      "response_snippet": "Nothing on for that time. Want to peek at what's coming up later?",
+      "status": 200
+    },
+    {
+      "num": 86,
+      "section": "Section 6",
+      "query": "next month",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 9,
+      "category": null,
+      "elapsed": 0.18,
+      "note": "Section 6",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Saturday, May 2 \u00b7 7:00 PM\n\ud83d\udccd Havasu Landing Casino, Lake Havasu City\nCountry Divas at Havasu Landing Casino\n\nCountry Divas live concert at Havasu Landing Casino",
+      "status": 200
+    },
+    {
+      "num": 87,
+      "section": "Section 6",
+      "query": "in may",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.19,
+      "note": "Section 6",
+      "response_snippet": "No events for that time in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b\n\nWant me to show you other events around those dates instead?",
+      "status": 200
+    },
+    {
+      "num": 88,
+      "section": "Section 6",
+      "query": "memorial day",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.21,
+      "note": "Section 6",
+      "response_snippet": "No memorial in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b",
+      "status": 200
+    },
+    {
+      "num": 89,
+      "section": "Section 6",
+      "query": "july 4",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 1,
+      "category": null,
+      "elapsed": 0.16,
+      "note": "Section 6",
+      "response_snippet": "Found one that might work:\n\n\ud83d\udcc5 Saturday, July 4 \u00b7 9:00 PM\n\ud83d\udccd London Bridge / Bridgewater Channel, Lake Havasu City\nJuly 4th Fireworks & Celebration\n\nIndependence Day fireworks over the lake with viewing",
+      "status": 200
+    },
+    {
+      "num": 98,
+      "section": "Section 8",
+      "query": "",
+      "expected": [
+        "*"
+      ],
+      "actual": "ERROR(422)",
+      "match": true,
+      "intent": null,
+      "count": null,
+      "category": null,
+      "elapsed": 0.15,
+      "note": "Section 8 \u2014 empty string",
+      "response_snippet": "",
+      "status": 422
+    },
+    {
+      "num": 99,
+      "section": "Section 8",
+      "query": "a",
+      "expected": [
+        "*"
+      ],
+      "actual": "UNCLEAR",
+      "match": true,
+      "intent": "UNCLEAR",
+      "count": null,
+      "category": null,
+      "elapsed": 0.17,
+      "note": "Section 8 \u2014 single char",
+      "response_snippet": "Hmm, not sure what you mean \u2014 are you looking for something to do, or adding an event?",
+      "status": 200
+    },
+    {
+      "num": 100,
+      "section": "Section 8",
+      "query": "!@#$%^",
+      "expected": [
+        "*"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 27,
+      "category": null,
+      "elapsed": 0.24,
+      "note": "Section 8 \u2014 symbols",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Saturday, May 2 \u00b7 7:00 PM\n\ud83d\udccd Havasu Landing Casino, Lake Havasu City\nCountry Divas at Havasu Landing Casino\n\nCountry Divas live concert at Havasu Landing Casino",
+      "status": 200
+    },
+    {
+      "num": 101,
+      "section": "Section 8",
+      "query": "bowling alley near me",
+      "expected": [
+        "NO_MATCH",
+        "VENUE_REDIRECT"
+      ],
+      "actual": "VENUE_REDIRECT",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.21,
+      "note": "Section 8",
+      "response_snippet": "Havasu Lanes is a permanent spot in Havasu \u2014 I track events there when they come up, but nothing is scheduled right now. Want to see what else is happening?",
+      "status": 200
+    },
+    {
+      "num": 102,
+      "section": "Section 8",
+      "query": "cheap boat rental",
+      "expected": [
+        "NO_MATCH",
+        "OUT_OF_SCOPE*"
+      ],
+      "actual": "OUT_OF_SCOPE(commercial_services)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "commercial_services",
+      "elapsed": 0.21,
+      "note": "Section 8",
+      "response_snippet": "I track events, not rentals or services. For rentals and venues, try Yelp, Google, or VisitArizona.",
+      "status": 200
+    },
+    {
+      "num": 103,
+      "section": "Section 8",
+      "query": "is there parking at the festival",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH",
+        "OUT_OF_SCOPE(transportation)"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 2,
+      "category": null,
+      "elapsed": 0.22,
+      "note": "Section 8 \u2014 ambiguous",
+      "response_snippet": "Here are your matches:\n\n1.\n\ud83d\udcc5 Saturday, May 30 \u00b7 6:00 PM\n\ud83d\udccd Lake Havasu, AZ\nSky Lantern Festival by Lights Over America\n\nA magical evening where thousands of biodegradable sky lanterns light up the nigh",
+      "status": 200
+    },
+    {
+      "num": 104,
+      "section": "Section 8",
+      "query": "kids birthday party venue",
+      "expected": [
+        "NO_MATCH",
+        "OUT_OF_SCOPE*",
+        "VENUE_REDIRECT"
+      ],
+      "actual": "OUT_OF_SCOPE(commercial_services)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "commercial_services",
+      "elapsed": 0.17,
+      "note": "Section 8",
+      "response_snippet": "I track events, not rentals or services. For rentals and venues, try Yelp, Google, or VisitArizona.",
+      "status": 200
+    },
+    {
+      "num": 105,
+      "section": "Section 8",
+      "query": "date night ideas",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 27,
+      "category": null,
+      "elapsed": 0.27,
+      "note": "Section 8",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Saturday, May 16 \u00b7 5:00 PM\n\ud83d\udccd Heat Hotel, 1420 McCulloch Blvd N\nDesert Island Tiki Night\n\nTropical tiki-themed evening at Heat Hotel with signature cocktails, i",
+      "status": 200
+    },
+    {
+      "num": 106,
+      "section": "Section 8",
+      "query": "romantic things to do",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 27,
+      "category": null,
+      "elapsed": 0.2,
+      "note": "Section 8",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Saturday, July 4 \u00b7 8:00 AM\n\ud83d\udccd Lake Havasu Shoreline\nKayaking & Paddleboard Rentals\n\nKayak, paddleboard, and watercraft rentals on beautiful Lake Havasu. Great f",
+      "status": 200
+    },
+    {
+      "num": 107,
+      "section": "Section 8",
+      "query": "senior activities",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 27,
+      "category": null,
+      "elapsed": 0.23,
+      "note": "Section 8",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Saturday, June 20 \u00b7 5:00 PM\n\ud83d\udccd London Bridge Beach walkway, Lake Havasu City\nHavasu Sunset Market\n\nEvening sunset market along the channel \u2014 local makers, stree",
+      "status": 200
+    },
+    {
+      "num": 108,
+      "section": "Section 8",
+      "query": "dog friendly events",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 27,
+      "category": null,
+      "elapsed": 0.2,
+      "note": "Section 8",
+      "response_snippet": "Here's what I found:\n\n\ud83d\udccc General\n\ud83d\udcc5 Sunday, June 14 \u00b7 5:00 PM\n\ud83d\udccd Aquatic Center, 100 Park Ave\nHollywood Knights Dinner & Silent Auction\n\nCommunity fundraiser dinner with a silent auction. Hollywood Knigh",
+      "status": 200
+    },
+    {
+      "num": 109,
+      "section": "Section 8",
+      "query": "free events",
+      "expected": [
+        "EVENTS"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 27,
+      "category": null,
+      "elapsed": 0.21,
+      "note": "Section 8",
+      "response_snippet": "Here's what I found:\n\n\ud83d\udccc General\n\ud83d\udcc5 Sunday, June 14 \u00b7 5:00 PM\n\ud83d\udccd Aquatic Center, 100 Park Ave\nHollywood Knights Dinner & Silent Auction\n\nCommunity fundraiser dinner with a silent auction. Hollywood Knigh",
+      "status": 200
+    },
+    {
+      "num": 110,
+      "section": "Section 8",
+      "query": "indoor activities when its hot",
+      "expected": [
+        "EVENTS",
+        "NO_MATCH"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 27,
+      "category": null,
+      "elapsed": 0.18,
+      "note": "Section 8",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Friday, June 19 \u00b7 8:00 PM\n\ud83d\udccd The Office Cocktail Lounge & Grill, Lake Havasu City\nCrosscutt Live at The Office Cocktail Lounge\n\nLive music with Crosscutt at The",
+      "status": 200
+    },
+    {
+      "num": 111,
+      "section": "Section 9",
+      "query": "add an event",
+      "expected": [
+        "ADD_EVENT"
+      ],
+      "actual": "ADD_EVENT",
+      "match": true,
+      "intent": "ADD_EVENT",
+      "count": null,
+      "category": null,
+      "elapsed": 0.16,
+      "note": "Section 9",
+      "response_snippet": "Give me a quick blurb \u2014 ~20 characters or more so folks know what they're getting.",
+      "status": 200
+    },
+    {
+      "num": 112,
+      "section": "Section 9",
+      "query": "help",
+      "expected": [
+        "*",
+        "GREETING",
+        "UNCLEAR"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.21,
+      "note": "Section 9 \u2014 meta",
+      "response_snippet": "No help in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b",
+      "status": 200
+    },
+    {
+      "num": 113,
+      "section": "Section 9",
+      "query": "what can you do",
+      "expected": [
+        "*",
+        "GREETING",
+        "UNCLEAR"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 27,
+      "category": null,
+      "elapsed": 0.22,
+      "note": "Section 9 \u2014 meta",
+      "response_snippet": "Here's what I found:\n\n\ud83d\udccc General\n\ud83d\udcc5 Sunday, June 14 \u00b7 5:00 PM\n\ud83d\udccd Aquatic Center, 100 Park Ave\nHollywood Knights Dinner & Silent Auction\n\nCommunity fundraiser dinner with a silent auction. Hollywood Knigh",
+      "status": 200
+    },
+    {
+      "num": 114,
+      "section": "Section 9",
+      "query": "hi",
+      "expected": [
+        "GREETING"
+      ],
+      "actual": "GREETING",
+      "match": true,
+      "intent": "GREETING",
+      "count": null,
+      "category": null,
+      "elapsed": 0.16,
+      "note": "Section 9",
+      "response_snippet": "Hey! I can help you find what's going on around town, or add an event if you're hosting \u2014 what sounds good?",
+      "status": 200
+    },
+    {
+      "num": 115,
+      "section": "Section 9",
+      "query": "thanks",
+      "expected": [
+        "*"
+      ],
+      "actual": "NO_MATCH",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 0,
+      "category": null,
+      "elapsed": 0.16,
+      "note": "Section 9 \u2014 graceful",
+      "response_snippet": "No thanks in the system yet. If you hear of one, add it here and help others find it \u2014 just tell me the details \ud83d\udc4b",
+      "status": 200
+    },
+    {
+      "num": 116,
+      "section": "Section 9",
+      "query": "i love this app",
+      "expected": [
+        "*"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 27,
+      "category": null,
+      "elapsed": 0.2,
+      "note": "Section 9 \u2014 graceful",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Friday, June 19 \u00b7 8:00 PM\n\ud83d\udccd The Office Cocktail Lounge & Grill, Lake Havasu City\nCrosscutt Live at The Office Cocktail Lounge\n\nLive music with Crosscutt at The",
+      "status": 200
+    },
+    {
+      "num": 117,
+      "section": "Section 9",
+      "query": "this is broken",
+      "expected": [
+        "*"
+      ],
+      "actual": "SERVICE_REQUEST",
+      "match": true,
+      "intent": "SERVICE_REQUEST",
+      "count": null,
+      "category": null,
+      "elapsed": 0.13,
+      "note": "Section 9 \u2014 graceful",
+      "response_snippet": "I focus on what's happening around town \u2014 events, classes, and activities. Want me to find something for a day you're free?",
+      "status": 200
+    },
+    {
+      "num": 118,
+      "section": "Section 9",
+      "query": "tell me a joke",
+      "expected": [
+        "*",
+        "OUT_OF_SCOPE*"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 27,
+      "category": null,
+      "elapsed": 0.19,
+      "note": "Section 9 \u2014 decline",
+      "response_snippet": "Here's what I found:\n\n\ud83d\udccc General\n\ud83d\udcc5 Sunday, June 14 \u00b7 5:00 PM\n\ud83d\udccd Aquatic Center, 100 Park Ave\nHollywood Knights Dinner & Silent Auction\n\nCommunity fundraiser dinner with a silent auction. Hollywood Knigh",
+      "status": 200
+    },
+    {
+      "num": 119,
+      "section": "Section 9",
+      "query": "book me a table",
+      "expected": [
+        "NO_MATCH",
+        "OUT_OF_SCOPE*"
+      ],
+      "actual": "OUT_OF_SCOPE(commercial_services)",
+      "match": true,
+      "intent": "OUT_OF_SCOPE",
+      "count": null,
+      "category": "commercial_services",
+      "elapsed": 0.15,
+      "note": "Section 9",
+      "response_snippet": "I track events, not rentals or services. For rentals and venues, try Yelp, Google, or VisitArizona.",
+      "status": 200
+    },
+    {
+      "num": 120,
+      "section": "Section 9",
+      "query": "buy tickets to the concert",
+      "expected": [
+        "EVENTS",
+        "OUT_OF_SCOPE*"
+      ],
+      "actual": "EVENTS",
+      "match": true,
+      "intent": "SEARCH_EVENTS",
+      "count": 8,
+      "category": null,
+      "elapsed": 0.2,
+      "note": "Section 9",
+      "response_snippet": "Here's what I found:\n\n\ud83c\udfaa Fun Activities\n\ud83d\udcc5 Friday, June 19 \u00b7 8:00 PM\n\ud83d\udccd The Office Cocktail Lounge & Grill, Lake Havasu City\nCrosscutt Live at The Office Cocktail Lounge\n\nLive music with Crosscutt at The",
+      "status": 200
+    }
+  ]
+}
