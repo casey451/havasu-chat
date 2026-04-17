@@ -104,6 +104,10 @@ def extract_date_range(text: str) -> DateRange | None:
     lowered = text.lower()
     today = date.today()
 
+    # "First Friday" is a recurring event name, not "next Friday" as a day filter.
+    if "first friday" in lowered:
+        return None
+
     if "today" in lowered or "tonight" in lowered:
         return {"start": today, "end": today}
     if "tomorrow" in lowered:

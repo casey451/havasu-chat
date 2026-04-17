@@ -21,6 +21,7 @@ from app.core.intent import (
     SERVICE_REQUEST,
     SOFT_CANCEL,
     detect_intent,
+    detect_out_of_scope_category,
     is_hard_reset,
     is_soft_cancel,
 )
@@ -91,6 +92,20 @@ class Phase85IntentTests(unittest.TestCase):
             SEARCH_EVENTS,
         )
 
+    def test_add_an_event_phrase_is_add_intent(self) -> None:
+        self.assertEqual(detect_intent("add an event", {}), ADD_EVENT)
+
+    def test_commercial_services_cheap_rental(self) -> None:
+        self.assertEqual(detect_intent("cheap boat rental", {}), OUT_OF_SCOPE)
+        self.assertEqual(detect_out_of_scope_category("cheap boat rental"), "commercial_services")
+
+    def test_commercial_services_book_table(self) -> None:
+        self.assertEqual(detect_intent("book me a table", {}), OUT_OF_SCOPE)
+        self.assertEqual(detect_out_of_scope_category("book me a table"), "commercial_services")
+
+    def test_rental_event_phrase_not_commercial(self) -> None:
+        self.assertIsNone(detect_out_of_scope_category("boat rental event on Saturday"))
+
 
 class Phase85SlotTests(unittest.TestCase):
     def test_weekend_then_next_week_overwrites_date(self) -> None:
@@ -107,6 +122,9 @@ class Phase85SlotTests(unittest.TestCase):
 
     def test_soccer_maps_sports(self) -> None:
         self.assertEqual(extract_activity_family("soccer clinic"), "sports")
+
+    def test_first_friday_does_not_set_next_friday_date_range(self) -> None:
+        self.assertIsNone(extract_date_range("first friday"))
 
 
 class Phase85StrategyTests(unittest.TestCase):
@@ -148,6 +166,8 @@ class Phase85RecoveryTests(unittest.TestCase):
             "p85-escape",
             "p85-clarify",
             "p85-e2e",
+            "p85-t-rental",
+            "p85-t-add",
         ):
             clear_session_state(sid)
 
@@ -201,6 +221,24 @@ class Phase85RecoveryTests(unittest.TestCase):
         self.assertEqual(r1.json()["response"], CLARIFY_DATE)
         r2 = c.post("/chat", json={"session_id": "p85-clarify", "message": "this weekend"})
         self.assertEqual(r2.json()["intent"], "SEARCH_EVENTS")
+
+    def test_cheap_boat_rental_commercial_services_reply(self) -> None:
+        r = self.__class__.client.post(
+            "/chat",
+            json={"session_id": "p85-t-rental", "message": "cheap boat rental"},
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["intent"], OUT_OF_SCOPE)
+        self.assertEqual(r.json()["data"].get("category"), "commercial_services")
+        self.assertIn("rentals or services", r.json()["response"].lower())
+
+    def test_add_an_event_chat_routes_to_add_intent(self) -> None:
+        r = self.__class__.client.post(
+            "/chat",
+            json={"session_id": "p85-t-add", "message": "add an event"},
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["intent"], ADD_EVENT)
 
 
 class Phase85FormatTests(unittest.TestCase):

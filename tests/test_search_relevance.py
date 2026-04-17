@@ -264,6 +264,72 @@ class SearchRelevanceTests(unittest.TestCase):
         self.assertEqual(r.json()["data"]["count"], 0)
         self.assertIn("No brewery", r.json()["response"])
 
+    def test_first_friday_named_event_not_filtered_by_weekday_slot(self) -> None:
+        future_day = date.today() + timedelta(days=35)
+        with SessionLocal() as db:
+            db.add(
+                Event.from_create(
+                    EventCreate(
+                        title="First Friday Downtown Lake Havasu",
+                        date=future_day,
+                        start_time="18:00:00",
+                        end_time=None,
+                        location_name="Downtown Lake Havasu",
+                        description="First Friday of every month — art, food trucks, and music.",
+                        event_url="https://example.com/first-friday",
+                        contact_name=None,
+                        contact_phone="928-555-0200",
+                        tags=["art", "downtown", "first friday"],
+                        embedding=None,
+                        status="live",
+                        created_by="user",
+                        admin_review_by=None,
+                    )
+                )
+            )
+            db.commit()
+
+        r = self.__class__.client.post(
+            "/chat",
+            json={"session_id": "rel-gym", "message": "first friday"},
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertGreaterEqual(r.json()["data"]["count"], 1)
+        self.assertIn("First Friday", r.json()["response"])
+
+    def test_fireworks_synonym_matches_july4_in_tags(self) -> None:
+        future_day = date.today() + timedelta(days=50)
+        with SessionLocal() as db:
+            db.add(
+                Event.from_create(
+                    EventCreate(
+                        title="July 4th Celebration",
+                        date=future_day,
+                        start_time="21:00:00",
+                        end_time=None,
+                        location_name="London Bridge",
+                        description="Independence Day fireworks over the lake.",
+                        event_url="https://example.com/july4",
+                        contact_name=None,
+                        contact_phone="928-555-0201",
+                        tags=["july 4", "holiday"],
+                        embedding=None,
+                        status="live",
+                        created_by="user",
+                        admin_review_by=None,
+                    )
+                )
+            )
+            db.commit()
+
+        r = self.__class__.client.post(
+            "/chat",
+            json={"session_id": "rel-gym", "message": "fireworks"},
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertGreaterEqual(r.json()["data"]["count"], 1)
+        self.assertIn("July 4th", r.json()["response"])
+
     def test_gymnastics_for_kids_no_soccer_honest_copy(self) -> None:
         sat = _sat()
         with SessionLocal() as db:

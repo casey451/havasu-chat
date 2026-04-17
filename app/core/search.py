@@ -486,16 +486,22 @@ def search_events(
     *,
     strict_relevance: bool = True,
     audience_hint: str | None = None,
+    flags_query: str | None = None,
 ) -> SearchOutcome:
-    """Semantic + keyword search. When strict_relevance is True, apply relevance cutoffs."""
-    query_text = query_message.strip() or " ".join(keywords) or activity_type or "events"
-    query_embedding, embedding_from_openai = generate_query_embedding_with_source(query_text)
+    """Semantic + keyword search. When strict_relevance is True, apply relevance cutoffs.
+
+    ``query_message`` may include synonym expansion for embeddings; ``flags_query`` should be the
+    user's raw words (no expansion) so short-query and literal rules stay aligned with what they typed.
+    """
+    embedding_source = query_message.strip() or " ".join(keywords) or activity_type or "events"
+    flags_text = (flags_query or query_message).strip() or embedding_source
+    query_embedding, embedding_from_openai = generate_query_embedding_with_source(embedding_source)
     dim = len(query_embedding)
 
-    is_specific_query = _query_has_specific_noun(query_text)
+    is_specific_query = _query_has_specific_noun(flags_text)
     effective_threshold = SPECIFIC_QUERY_EMBEDDING_THRESHOLD if is_specific_query else EMBEDDING_RELEVANCE_THRESHOLD
-    short_noun_focused = _is_short_noun_focused_query(query_text)
-    literal_terms = _literal_match_terms(query_text) if short_noun_focused else set()
+    short_noun_focused = _is_short_noun_focused_query(flags_text)
+    literal_terms = _literal_match_terms(flags_text) if short_noun_focused else set()
     require_literal_match = short_noun_focused and bool(literal_terms)
 
     base_q = _base_future_events_query(db, date_context)
@@ -518,7 +524,7 @@ def search_events(
     pre_literal_candidates = list(candidates)
     literal_matched_ids: set[str] = set()
     if require_literal_match:
-        candidates = [e for e in candidates if _event_matches_literal_query(e, literal_terms, query_text)]
+        candidates = [e for e in candidates if _event_matches_literal_query(e, literal_terms, flags_text)]
         literal_matched_ids = {e.id for e in candidates}
 
     with_emb: list[tuple[Event, float]] = []
@@ -534,7 +540,7 @@ def search_events(
 
     if is_specific_query and with_emb:
         from app.core.slots import expand_query_synonyms as _expand_synonyms
-        bonus_terms = _matching_specific_phrases(query_text) + _expand_synonyms(query_text)
+        bonus_terms = _matching_specific_phrases(flags_text) + _expand_synonyms(flags_text)
         with_emb = [
             (
                 e,
@@ -548,7 +554,7 @@ def search_events(
     import sys as _sys
     _sys.stdout.flush()
     print(
-        f"[search_diag] query={query_text!r} is_specific={is_specific_query} "
+        f"[search_diag] query={flags_text!r} is_specific={is_specific_query} "
         f"from_openai={embedding_from_openai} threshold={effective_threshold:.2f} "
         f"candidates={len(with_emb)}",
         flush=True,
@@ -593,7 +599,7 @@ def search_events(
             if require_literal_match and e.id in literal_matched_ids:
                 keyword_rows.append((e, KEYWORD_RELEVANCE_THRESHOLD))
                 continue
-            score, ok = _keyword_passes_threshold(query_text, e, True, audience_hint=audience_hint)
+            score, ok = _keyword_passes_threshold(flags_text, e, True, audience_hint=audience_hint)
             if not ok:
                 continue
             keyword_rows.append((e, score))
@@ -618,7 +624,7 @@ def search_events(
 
     from app.core import search_log as _sl
 
-    _sl.log_candidates(query_text, merged)
+    _sl.log_candidates(flags_text, merged)
 
     suppressed = False
     if strict_relevance and embedding_from_openai and not out_events and candidates:
@@ -631,7 +637,7 @@ def search_events(
             suppressed = True
         elif not had_emb_scores and without_emb:
             best_kw = max(
-                (_keyword_score_and_fields(query_text, e, audience_hint=audience_hint)[0] for e in without_emb),
+                (_keyword_score_and_fields(flags_text, e, audience_hint=audience_hint)[0] for e in without_emb),
                 default=0.0,
             )
             if best_kw < KEYWORD_RELEVANCE_THRESHOLD:
@@ -642,8 +648,8 @@ def search_events(
         and not out_events
         and bool(pre_literal_candidates if require_literal_match else candidates)
         and (
-            any(t in _QUERY_ACTIVITY_TOKENS for t in _query_tokens(query_text))
-            or _query_has_specific_noun(query_text)
+            any(t in _QUERY_ACTIVITY_TOKENS for t in _query_tokens(flags_text))
+            or _query_has_specific_noun(flags_text)
             or require_literal_match
         )
     )

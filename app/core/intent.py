@@ -127,6 +127,51 @@ _NIGHT_ACTIVITY_WORDS: tuple[str, ...] = (
     "open mic",
 )
 
+# Phrases that look like an event query, not a generic rental/service lookup.
+_COMMERCIAL_EVENT_RESCUE_PHRASES: tuple[str, ...] = (
+    "rental event",
+    "booking event",
+    "open house",
+    "ribbon cutting",
+    "tour event",
+    "grand opening",
+)
+
+
+def _explicit_add_event_route(msg: str) -> bool:
+    """Standalone phrases that should open the add-event flow without a date in the message."""
+    m = msg.lower().strip()
+    needles = (
+        "add an event",
+        "add event",
+        "submit an event",
+        "post an event",
+        "i want to add",
+        "i'd like to add",
+        "id like to add",
+        "i have an event",
+    )
+    return any(n in m for n in needles)
+
+
+def _commercial_services_query(m: str) -> bool:
+    """Rentals, bookings, and venue shopping — not the event calendar."""
+    if any(p in m for p in _COMMERCIAL_EVENT_RESCUE_PHRASES):
+        return False
+    if re.search(r"\b(cheap|affordable)\b", m):
+        return True
+    if re.search(r"\b(rentals?)\b", m):
+        return True
+    if re.search(r"\bhire\b", m):
+        return True
+    if "book a " in m or "book me" in m or "book my " in m:
+        return True
+    if "venue for" in m:
+        return True
+    if "birthday party" in m or "wedding venue" in m or "party venue" in m:
+        return True
+    return False
+
 _HARD_RESET_PHRASES = (
     "start over",
     "start from scratch",
@@ -385,17 +430,19 @@ def detect_out_of_scope_category(message: str) -> str | None:
     """Return the out-of-scope category name for ``message`` or ``None``.
 
     Returns one of ``"weather"``, ``"lodging"``, ``"transportation"``,
-    ``"dining"`` when a category trigger matches and no event-signal
-    token is present. The event-signal guard prevents false positives
-    like "hotel grand opening event tonight" from being treated as
+    ``"dining"``, or ``"commercial_services"`` when a category trigger matches
+    and no event-signal token is present. The event-signal guard prevents false
+    positives like "hotel grand opening event tonight" from being treated as
     lodging lookups.
     """
     m = message.lower()
     if "restaurant week" in m:
         return None
-    if any(word in m for word in _EVENT_INDICATOR_WORDS):
-        return None
     if "night" in m and any(f"{word} night" in m for word in _NIGHT_ACTIVITY_WORDS):
+        return None
+    if _commercial_services_query(m):
+        return "commercial_services"
+    if any(word in m for word in _EVENT_INDICATOR_WORDS):
         return None
     for category, triggers in _OUT_OF_SCOPE_TRIGGERS:
         if any(t in m for t in triggers):
@@ -425,6 +472,9 @@ def detect_intent(message: str, session: dict[str, Any] | None = None) -> str:
         return HARD_RESET
     if is_soft_cancel(msg):
         return SOFT_CANCEL
+
+    if _explicit_add_event_route(msg):
+        return ADD_EVENT
 
     if detect_out_of_scope_category(msg) is not None:
         return OUT_OF_SCOPE

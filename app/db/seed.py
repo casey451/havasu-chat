@@ -151,6 +151,21 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
         "contact_phone": "928-555-0113",
     },
     {
+        "title": "Havasu Sunset Market",
+        "date": "2026-06-20",
+        "start_time": "17:00",
+        "end_time": "21:00",
+        "location_name": "London Bridge Beach walkway, Lake Havasu City",
+        "description": (
+            "Evening sunset market along the channel — local makers, street food, and live acoustic "
+            "music as the sun goes down. Free entry; family friendly."
+        ),
+        "tags": ["market", "sunset", "shopping", "family", "evening", "outdoor"],
+        "event_url": "https://www.golakehavasu.com/events",
+        "contact_name": "Havasu Sunset Market",
+        "contact_phone": "928-555-0116",
+    },
+    {
         "title": "First Friday Downtown Lake Havasu",
         "date": "2026-06-05",
         "start_time": "18:00",
@@ -164,6 +179,21 @@ REAL_SEED_EVENTS: list[dict[str, str | list[str]]] = [
         "event_url": "https://downtownlakehavasu.com/events/",
         "contact_name": "Downtown Lake Havasu",
         "contact_phone": "928-555-0114",
+    },
+    {
+        "title": "July 4th Fireworks & Celebration",
+        "date": "2026-07-04",
+        "start_time": "21:00",
+        "end_time": "22:30",
+        "location_name": "London Bridge / Bridgewater Channel, Lake Havasu City",
+        "description": (
+            "Independence Day fireworks over the lake with viewing along the channel and London Bridge. "
+            "Arrive early for parking; family-friendly."
+        ),
+        "tags": ["fireworks", "july 4", "4th of july", "family", "holiday", "evening"],
+        "event_url": "https://www.golakehavasu.com/events",
+        "contact_name": "City of Lake Havasu City",
+        "contact_phone": "928-855-2115",
     },
     {
         "title": "Open Swim — Aquatic Center",

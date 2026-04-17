@@ -120,9 +120,14 @@ OUT_OF_SCOPE_DINING = (
     "If you're looking for a food festival or restaurant week, let me know."
 )
 
+OUT_OF_SCOPE_COMMERCIAL = (
+    "I track events, not rentals or services. For rentals and venues, try Yelp, Google, or VisitArizona."
+)
+
 OUT_OF_SCOPE_REPLIES: dict[str, str] = {
     "weather": OUT_OF_SCOPE_WEATHER,
     "lodging": OUT_OF_SCOPE_LODGING,
     "transportation": OUT_OF_SCOPE_TRANSPORTATION,
     "dining": OUT_OF_SCOPE_DINING,
+    "commercial_services": OUT_OF_SCOPE_COMMERCIAL,
 }

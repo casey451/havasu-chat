@@ -282,7 +282,8 @@ def _run_search_core(session: dict, db: Session, message: str, strategy: str) ->
     search = get_search(session)
     slots = search["slots"]
     utter = search.get("recent_utterances") or []
-    query_message = utter[-1] if utter else message
+    flags_query = utter[-1] if utter else message
+    query_message = flags_query
 
     date_ctx = slots.get("date_range")
     if isinstance(date_ctx, dict):
@@ -306,6 +307,7 @@ def _run_search_core(session: dict, db: Session, message: str, strategy: str) ->
         query_message=query_message,
         strict_relevance=strict_rel,
         audience_hint=slots.get("audience"),
+        flags_query=flags_query,
     )
     events = apply_audience_location_filters(
         outcome.events,

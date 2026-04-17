@@ -194,23 +194,23 @@ class Phase6Tests(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         body = r.json()
         self.assertEqual(body["deleted"], 0)
-        self.assertEqual(body["inserted"], 25)
+        self.assertEqual(body["inserted"], 27)
         self.assertEqual(body["skipped"], 0)
 
         with SessionLocal() as db:
             self.assertIsNotNone(db.get(Event, user_id))
             n_seed = db.query(Event).filter(Event.created_by == "seed").count()
-            self.assertEqual(n_seed, 25)
+            self.assertEqual(n_seed, 27)
 
         r2 = c.post("/admin/reseed")
         self.assertEqual(r2.status_code, 200)
-        self.assertEqual(r2.json()["deleted"], 25)
-        self.assertEqual(r2.json()["inserted"], 25)
+        self.assertEqual(r2.json()["deleted"], 27)
+        self.assertEqual(r2.json()["inserted"], 27)
         self.assertEqual(r2.json()["skipped"], 0)
 
         with SessionLocal() as db:
             self.assertIsNotNone(db.get(Event, user_id))
-            self.assertEqual(db.query(Event).filter(Event.created_by == "seed").count(), 25)
+            self.assertEqual(db.query(Event).filter(Event.created_by == "seed").count(), 27)
 
 
 if __name__ == "__main__":
