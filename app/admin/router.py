@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.admin.auth import (
     COOKIE_NAME,
     MAX_AGE_SECONDS,
+    admin_password_debug_info,
     admin_password_ok,
     sign_admin_cookie,
     verify_admin_cookie,
@@ -206,6 +207,12 @@ def _card_html(ev: Event, mode: Literal["pending", "live"]) -> str:
     </article>"""
 
 
+@router.get("/debug-pw")
+def admin_debug_pw() -> dict[str, bool | int]:
+    """Temporary: confirm ADMIN_PASSWORD is visible to the process (no secret leaked)."""
+    return admin_password_debug_info()
+
+
 @router.get("/login", response_class=HTMLResponse)
 def admin_login_page() -> HTMLResponse:
     return HTMLResponse(_login_html(error=False))
@@ -216,7 +223,7 @@ def admin_login_submit(
     request: Request,
     password: str = Form(...),
 ) -> RedirectResponse | HTMLResponse:
-    if not admin_password_ok(password.strip()):
+    if not admin_password_ok(password):
         return HTMLResponse(_login_html(error=True), status_code=401)
     resp = RedirectResponse(url="/admin?tab=pending", status_code=303)
     resp.set_cookie(

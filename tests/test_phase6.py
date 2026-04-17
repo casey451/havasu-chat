@@ -168,6 +168,12 @@ class Phase6Tests(unittest.TestCase):
             ev = db.query(Event).filter(Event.status == "pending_review").one()
             self.assertIsNotNone(ev.admin_review_by)
 
+    def test_admin_debug_pw_reports_stripped_length(self) -> None:
+        os.environ["ADMIN_PASSWORD"] = "  xy\n"
+        r = self.__class__.client.get("/admin/debug-pw")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json(), {"pw_set": True, "pw_length": 2})
+
     def test_admin_reseed_requires_auth(self) -> None:
         c = self.__class__.client
         c.cookies.clear()

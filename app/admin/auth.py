@@ -10,10 +10,20 @@ load_dotenv()
 COOKIE_NAME = "admin_session"
 MAX_AGE_SECONDS = 86400  # 24 hours
 
+_LOCAL_DEFAULT = "changeme"
+
+
+def _admin_password_from_env() -> str:
+    """Read ADMIN_PASSWORD at call time (not import time) for correct Railway/runtime values."""
+    raw = os.getenv("ADMIN_PASSWORD")
+    if raw is None:
+        return _LOCAL_DEFAULT
+    stripped = raw.strip()
+    return stripped if stripped else _LOCAL_DEFAULT
+
 
 def _serializer() -> URLSafeTimedSerializer:
-    secret = os.getenv("ADMIN_PASSWORD", "changeme")
-    return URLSafeTimedSerializer(secret, salt="havasu-admin-session")
+    return URLSafeTimedSerializer(_admin_password_from_env(), salt="havasu-admin-session")
 
 
 def sign_admin_cookie() -> str:
@@ -31,4 +41,15 @@ def verify_admin_cookie(value: str | None) -> bool:
 
 
 def admin_password_ok(password: str) -> bool:
-    return password == os.getenv("ADMIN_PASSWORD", "changeme")
+    return password.strip() == _admin_password_from_env()
+
+
+def admin_password_debug_info() -> dict[str, bool | int]:
+    """Non-secret probe for ops (e.g. Railway env visibility)."""
+    raw = os.getenv("ADMIN_PASSWORD")
+    if raw is None:
+        return {"pw_set": False, "pw_length": 0}
+    stripped = raw.strip()
+    if not stripped:
+        return {"pw_set": False, "pw_length": 0}
+    return {"pw_set": True, "pw_length": len(stripped)}
