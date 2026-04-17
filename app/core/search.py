@@ -65,6 +65,7 @@ def _matching_specific_phrases(text: str) -> list[str]:
 SEARCH_QUERY_EMBEDDING_MODEL = "text-embedding-ada-002"
 EMBEDDING_RELEVANCE_THRESHOLD = 0.35
 KEYWORD_RELEVANCE_THRESHOLD = 0.35
+SPECIFIC_QUERY_EMBEDDING_THRESHOLD = 0.55  # raised bar for specific-noun queries
 
 DAY_NAMES = {
     "monday": 0,
@@ -411,7 +412,7 @@ def search_events(
     dim = len(query_embedding)
 
     is_specific_query = _query_has_specific_noun(query_text)
-    effective_threshold = 0.55 if is_specific_query else EMBEDDING_RELEVANCE_THRESHOLD
+    effective_threshold = SPECIFIC_QUERY_EMBEDDING_THRESHOLD if is_specific_query else EMBEDDING_RELEVANCE_THRESHOLD
 
     base_q = _base_future_events_query(db, date_context)
     pre_activity: list[Event] = base_q.all()
