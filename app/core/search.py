@@ -62,7 +62,7 @@ def _matching_specific_phrases(text: str) -> list[str]:
     return [p for p in _SPECIFIC_PHRASES if p in lowered]
 
 
-SEARCH_QUERY_EMBEDDING_MODEL = "text-embedding-ada-002"
+SEARCH_QUERY_EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_RELEVANCE_THRESHOLD = 0.35
 KEYWORD_RELEVANCE_THRESHOLD = 0.35
 SPECIFIC_QUERY_EMBEDDING_THRESHOLD = 0.55  # raised bar for specific-noun queries
