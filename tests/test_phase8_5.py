@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import time
 import unittest
+from calendar import monthrange
+from datetime import date, timedelta
 from fastapi.testclient import TestClient
 
 from app.core.conversation_copy import CLARIFY_DATE, HARD_RESET_REPLY, SOFT_CANCEL_REPLY
@@ -262,6 +264,83 @@ class Phase85E2EScenario(unittest.TestCase):
         self.assertEqual(r2.json()["intent"], LISTING_INTENT)
         r3 = c.post("/chat", json={"session_id": "p85-e2e", "message": "sports"})
         self.assertIn("Soccer", r3.json()["response"])
+
+
+class Phase85SessionDateCarryoverTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.client_context = TestClient(app)
+        cls.client = cls.client_context.__enter__()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.client_context.__exit__(None, None, None)
+
+    def setUp(self) -> None:
+        clear_session_state("p85-date-carry")
+        with SessionLocal() as db:
+            db.query(Event).delete()
+            db.add(
+                Event.from_create(
+                    EventCreate(
+                        title="Harbor Boat Mixer",
+                        date=date.today() + timedelta(days=30),
+                        start_time="18:00:00",
+                        end_time=None,
+                        location_name="Bridgewater Channel",
+                        description="A social boating meetup with local captains and sunset channel run.",
+                        event_url="https://example.com/boat-mixer",
+                        contact_name="Harbor Team",
+                        contact_phone="928-555-0100",
+                        tags=["boats"],
+                        embedding=None,
+                        status="live",
+                        created_by="user",
+                        admin_review_by=None,
+                    )
+                )
+            )
+            db.commit()
+
+    def test_broad_query_clears_stale_date_range(self) -> None:
+        sid = "p85-date-carry"
+        c = self.__class__.client
+        c.post("/chat", json={"session_id": sid, "message": "whats happening this weekend"})
+        second = c.post("/chat", json={"session_id": sid, "message": "any boat events"})
+        body = second.json()
+        self.assertEqual(body["intent"], SEARCH_EVENTS)
+        self.assertGreater(body["data"]["count"], 0)
+
+    def test_week_after_advances_date_range(self) -> None:
+        sid = "p85-date-carry"
+        c = self.__class__.client
+        first = c.post("/chat", json={"session_id": sid, "message": "whats happening this weekend"}).json()
+        second = c.post("/chat", json={"session_id": sid, "message": "week after that"}).json()
+        dr1 = first["data"]["search"]["slots"]["date_range"]
+        dr2 = second["data"]["search"]["slots"]["date_range"]
+        self.assertIsNotNone(dr1)
+        self.assertIsNotNone(dr2)
+        start_1 = date.fromisoformat(dr1["start"])
+        end_1 = date.fromisoformat(dr1["end"])
+        start_2 = date.fromisoformat(dr2["start"])
+        end_2 = date.fromisoformat(dr2["end"])
+        self.assertEqual((start_2 - start_1).days, 7)
+        self.assertEqual((end_2 - end_1).days, 7)
+
+    def test_date_phrase_overrides_session_state(self) -> None:
+        sid = "p85-date-carry"
+        c = self.__class__.client
+        c.post("/chat", json={"session_id": sid, "message": "whats happening this weekend"})
+        second = c.post("/chat", json={"session_id": sid, "message": "concerts next month"}).json()
+        dr = second["data"]["search"]["slots"]["date_range"]
+        self.assertIsNotNone(dr)
+        today = date.today()
+        year = today.year + (1 if today.month == 12 else 0)
+        month = 1 if today.month == 12 else today.month + 1
+        expected_start = date(year, month, 1)
+        expected_end = date(year, month, monthrange(year, month)[1])
+        self.assertEqual(date.fromisoformat(dr["start"]), expected_start)
+        self.assertEqual(date.fromisoformat(dr["end"]), expected_end)
 
 
 if __name__ == "__main__":

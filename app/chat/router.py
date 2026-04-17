@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import datetime, timedelta, timezone
+from calendar import monthrange
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
@@ -107,6 +108,100 @@ from app.db.models import Event
 from app.schemas.chat import ChatRequest, ChatResponse
 
 router = APIRouter()
+_MONTH_NAMES = (
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
+)
+_DAY_WORDS = (
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+)
+_DATE_PHRASES = (
+    "today",
+    "tonight",
+    "tomorrow",
+    "this week",
+    "this weekend",
+    "next week",
+    "next weekend",
+    "this month",
+    "next month",
+    "week after",
+    "week after that",
+    "weekend after",
+    "the following week",
+)
+_WEEK_ADVANCE_PHRASES = (
+    "week after",
+    "week after that",
+    "the following week",
+    "next week",
+)
+
+
+def _month_start_end(year: int, month: int) -> dict[str, date]:
+    last = monthrange(year, month)[1]
+    return {"start": date(year, month, 1), "end": date(year, month, last)}
+
+
+def _extract_router_date_range(message: str) -> dict[str, date] | None:
+    dr = extract_date_range(message)
+    if dr is not None:
+        return dr
+
+    lowered = message.lower()
+    today = date.today()
+
+    if "next month" in lowered:
+        y = today.year + (1 if today.month == 12 else 0)
+        m = 1 if today.month == 12 else today.month + 1
+        return _month_start_end(y, m)
+    if "this month" in lowered:
+        return _month_start_end(today.year, today.month)
+
+    for idx, month_name in enumerate(_MONTH_NAMES, start=1):
+        if month_name in lowered:
+            year = today.year
+            if idx < today.month:
+                year += 1
+            return _month_start_end(year, idx)
+    return None
+
+
+def _message_has_date_phrase(message: str, dr: dict[str, date] | None) -> bool:
+    if dr is not None:
+        return True
+    lowered = message.lower()
+    if any(phrase in lowered for phrase in _DATE_PHRASES):
+        return True
+    if any(day in lowered for day in _DAY_WORDS):
+        return True
+    if any(month in lowered for month in _MONTH_NAMES):
+        return True
+    return False
+
+
+def _advance_range_one_week(existing: dict) -> dict[str, date] | None:
+    start = existing.get("start")
+    end = existing.get("end")
+    if not isinstance(start, date) or not isinstance(end, date):
+        return None
+    return {"start": start + timedelta(days=7), "end": end + timedelta(days=7)}
 
 
 def _wants_last_result_expansion(message: str) -> bool:
@@ -144,7 +239,18 @@ def _apply_slots_from_message(session: dict, message: str, *, listing_intent: bo
     slots = search["slots"]
     lm = search.get("listing_mode", False)
 
-    dr = extract_date_range(message)
+    lowered = message.lower()
+    existing_dr = slots.get("date_range")
+    prior_dr = existing_dr if isinstance(existing_dr, dict) else search.get("last_date_range")
+    dr: dict[str, date] | None
+    if any(phrase in lowered for phrase in _WEEK_ADVANCE_PHRASES) and isinstance(prior_dr, dict):
+        dr = _advance_range_one_week(prior_dr)
+    else:
+        dr = _extract_router_date_range(message)
+        if existing_dr and not _message_has_date_phrase(message, dr):
+            # Clear stale date context when user pivots to a broad query.
+            slots["date_range"] = None
+
     af = extract_activity_family(message)
     aud = extract_audience(message)
     loc = extract_location_hint(message)
@@ -153,6 +259,8 @@ def _apply_slots_from_message(session: dict, message: str, *, listing_intent: bo
     slots["activity_family"] = merge_activity_family(slots.get("activity_family"), af)
     slots["audience"] = merge_audience(slots.get("audience"), aud)
     slots["location_hint"] = merge_location_hint(slots.get("location_hint"), loc)
+    if slots.get("date_range"):
+        search["last_date_range"] = slots["date_range"]
 
     if listing_intent:
         search["listing_mode"] = True
