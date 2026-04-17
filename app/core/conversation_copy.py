@@ -93,3 +93,8 @@ NO_MATCH_HONEST = (
 )
 
 NO_MATCH_BROADEN = "Want me to show you other {category} instead?"
+
+VENUE_REDIRECT_TEMPLATE = (
+    "{venue} is a permanent spot in Havasu — I track events there when they come up, "
+    "but nothing is scheduled right now. Want to see what else is happening?"
+)

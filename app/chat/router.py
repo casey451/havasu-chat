@@ -28,8 +28,10 @@ from app.core.conversation_copy import (
     SOFT_CANCEL_REPLY,
     STALE_SESSION_REPLY,
     UNCLEAR_REPLY,
+    VENUE_REDIRECT_TEMPLATE,
     preview_event_line,
 )
+from app.core.venues import detect_venue
 from app.core.dedupe import find_duplicate
 from app.core.event_quality import (
     CONTACT_OPTIONAL_PROMPT,
@@ -222,6 +224,10 @@ def _run_search_core(session: dict, db: Session, message: str, strategy: str) ->
         message=message,
         outcome=outcome_used,
     )
+    if not events:
+        venue = detect_venue(message)
+        if venue:
+            body = VENUE_REDIRECT_TEMPLATE.format(venue=venue)
     search["last_result_set"] = {
         "ids": [e.id for e in events],
         "query_signature": query_message[:200],
