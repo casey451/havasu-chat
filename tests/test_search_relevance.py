@@ -98,6 +98,40 @@ class SearchRelevanceTests(unittest.TestCase):
         self.assertGreaterEqual(r.json()["data"]["count"], 1)
         self.assertIn("Desert Storm Poker Run", r.json()["response"])
 
+    def test_boat_race_literal_match_uses_multiword_synonym_phrase(self) -> None:
+        """Two-token literal rule must not require bare 'boat'+'race' when the event uses 'poker run'."""
+        future_day = date.today() + timedelta(days=21)
+        with SessionLocal() as db:
+            db.add(
+                Event.from_create(
+                    EventCreate(
+                        title="Desert Storm Poker Run & Shootout",
+                        date=future_day,
+                        start_time="14:00:00",
+                        end_time=None,
+                        location_name="Bridgewater Channel",
+                        description=(
+                            "The largest performance boating event. Prestigious performance boats "
+                            "from across the nation. Free to watch from the shoreline."
+                        ),
+                        event_url="https://example.com/desert-storm",
+                        contact_name=None,
+                        contact_phone="928-555-0110",
+                        tags=["outdoor", "boats", "racing"],
+                        embedding=None,
+                        status="live",
+                        created_by="user",
+                        admin_review_by=None,
+                    )
+                )
+            )
+            db.commit()
+
+        r = self.__class__.client.post("/chat", json={"session_id": "rel-gym", "message": "boat race"})
+        self.assertEqual(r.status_code, 200)
+        self.assertGreaterEqual(r.json()["data"]["count"], 1)
+        self.assertIn("Desert Storm Poker Run", r.json()["response"])
+
     def test_sunset_market_matches_market_event(self) -> None:
         future_day = date.today() + timedelta(days=24)
         with SessionLocal() as db:

@@ -720,10 +720,28 @@ def _event_matches_literal_query(event: Event, terms: set[str], query_text: str)
         return False
     blob = f"{event.title or ''} {event.description or ''} {' '.join(str(t) for t in (event.tags or []))}".lower()
     required = _query_required_tokens(query_text)
+    ql = query_text.lower().strip()
     if len(required) >= 2:
-        if _contains_term_boundary(blob, query_text.lower().strip()):
+        if _contains_term_boundary(blob, ql):
             return True
-        return all(_contains_term_boundary(blob, token) for token in required)
+        if all(_contains_term_boundary(blob, token) for token in required):
+            return True
+        # Multi-word QUERY_SYNONYMS keys (e.g. "boat race"): the event may use synonym
+        # phrases ("poker run") or stems ("boats", "racing") instead of raw tokens "boat"+"race".
+        # Only apply for keys that appear in the query so single-word keys like "brewery" cannot
+        # widen "brewery tour" via unrelated multi-word synonyms.
+        from app.core.slots import QUERY_SYNONYMS as _QS
+
+        for key, syns in _QS.items():
+            if " " not in key.strip():
+                continue
+            if not _contains_term_boundary(ql, key):
+                continue
+            for phrase in (key, *syns):
+                p = phrase.strip().lower()
+                if " " in p and _contains_term_boundary(blob, p):
+                    return True
+        return False
     return any(_contains_term_boundary(blob, term) for term in terms)
 
 
