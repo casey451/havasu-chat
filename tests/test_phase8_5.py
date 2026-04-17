@@ -44,6 +44,9 @@ class Phase85IntentTests(unittest.TestCase):
     def test_hosting_without_date_is_search(self) -> None:
         self.assertEqual(detect_intent("I'm hosting a workshop?", {}), SEARCH_EVENTS)
 
+    def test_can_i_add_event_is_add_intent(self) -> None:
+        self.assertEqual(detect_intent("Can I add an event?", {}), ADD_EVENT)
+
     def test_listing_intent(self) -> None:
         self.assertEqual(detect_intent("show me all", {}), LISTING_INTENT)
         self.assertEqual(detect_intent("what events are this weekend?", {}), LISTING_INTENT)

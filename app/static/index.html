@@ -124,13 +124,37 @@
       opacity: 0.55;
       cursor: not-allowed;
     }
+    .chips-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 0 16px 12px;
+      max-width: 100%;
+    }
+    .chip {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: #212529;
+      font-size: 0.88rem;
+      line-height: 1.3;
+      padding: 10px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      text-align: left;
+      min-height: 44px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .chip:active {
+      background: #e9ecef;
+    }
   </style>
 </head>
 <body>
   <div class="app">
     <header>
       <h1>Havasu Chat</h1>
-      <p>Find local activities or add an event — just type naturally.</p>
+      <p>Lake Havasu activities & events — search, browse, or share something new.</p>
     </header>
     <div id="log" role="log" aria-live="polite"></div>
     <form class="composer" id="form">
@@ -169,10 +193,48 @@
         input.disabled = on;
       }
 
+      function removeWelcomeChips() {
+        var w = log.querySelector(".chips-wrap");
+        if (w) w.remove();
+      }
+
+      var EXAMPLE_PROMPTS = [
+        "What's on this weekend?",
+        "Kids activities or swim lessons",
+        "I'd like to add an event",
+      ];
+
+      function showWelcome() {
+        addRow(
+          "bot",
+          "Welcome. Ask what’s happening in town, search by interest, or say you want to add an event — I’ll walk you through it."
+        );
+        var wrap = document.createElement("div");
+        wrap.className = "chips-wrap";
+        wrap.setAttribute("role", "group");
+        wrap.setAttribute("aria-label", "Example prompts");
+        EXAMPLE_PROMPTS.forEach(function (label) {
+          var chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = "chip";
+          chip.textContent = label;
+          chip.addEventListener("click", function () {
+            input.value = label;
+            if (form.requestSubmit) form.requestSubmit();
+            else form.dispatchEvent(new Event("submit", { cancelable: true }));
+          });
+          wrap.appendChild(chip);
+        });
+        log.appendChild(wrap);
+      }
+
+      showWelcome();
+
       form.addEventListener("submit", function (e) {
         e.preventDefault();
         var text = input.value.trim();
         if (!text) return;
+        removeWelcomeChips();
         input.value = "";
         addRow("user", text);
         var pending = addRow("bot", "…", "loading");

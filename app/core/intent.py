@@ -216,6 +216,28 @@ def _add_creation_language(msg: str) -> bool:
     return False
 
 
+def _add_meta_intent_question(msg: str) -> bool:
+    """How-to / permission questions about posting an event — ADD_EVENT without a date yet."""
+    m = msg.lower().strip().rstrip("?!.")
+    phrases = (
+        "can i add an event",
+        "can we add an event",
+        "could i add an event",
+        "how do i add an event",
+        "how to add an event",
+        "how can i add an event",
+        "where do i add an event",
+        "where can i add an event",
+        "i want to add an event",
+        "i'd like to add an event",
+        "id like to add an event",
+        "can i post an event",
+        "how do i post an event",
+        "could we add an event",
+    )
+    return any(p in m for p in phrases)
+
+
 def _active_non_search_flow(session: dict[str, Any]) -> bool:
     return bool(
         session.get("partial_event")
@@ -285,6 +307,9 @@ def detect_intent(message: str, session: dict[str, Any] | None = None) -> str:
         return SERVICE_REQUEST
     if any(s in lowered for s in _DEAL_MARKERS):
         return DEAL_SEARCH
+
+    if _add_meta_intent_question(msg):
+        return ADD_EVENT
 
     if awaiting == "narrow_followup" and _refinement_looks_like_filter(msg):
         return REFINEMENT

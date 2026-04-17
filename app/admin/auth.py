@@ -12,8 +12,6 @@ COOKIE_NAME = "admin_session"
 MAX_AGE_SECONDS = 86400  # 24 hours
 
 _LOCAL_DEFAULT = "changeme"
-# TEMP: remove after Railway ADMIN_PASSWORD is confirmed readable in-process
-_FALLBACK_ADMIN_PASSWORD = "havasu2026"
 
 
 def _admin_password_from_env() -> str:
@@ -44,10 +42,7 @@ def verify_admin_cookie(value: str | None) -> bool:
 
 
 def admin_password_ok(password: str) -> bool:
-    p = password.strip()
-    if p == _FALLBACK_ADMIN_PASSWORD:
-        return True
-    return p == _admin_password_from_env()
+    return password.strip() == _admin_password_from_env()
 
 
 def admin_password_debug_info() -> dict[str, bool | int]:
