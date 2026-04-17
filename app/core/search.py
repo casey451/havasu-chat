@@ -450,6 +450,10 @@ def search_events(
     merged.sort(key=lambda x: (-x[1], x[0].date, x[0].start_time))
     out_events = [e for e, _ in merged]
 
+    from app.core import search_log as _sl
+
+    _sl.log_candidates(query_text, merged)
+
     suppressed = False
     if strict_relevance and embedding_from_openai and not out_events and candidates:
         had_emb_scores = [

@@ -94,6 +94,7 @@ from app.core.slots import (
     merge_location_hint,
     push_recent_utterance,
 )
+from app.core import search_log
 from app.db.chat_logging import log_chat_turn
 from app.db.database import get_db
 from app.db.models import Event
@@ -177,6 +178,8 @@ def _run_search_core(session: dict, db: Session, message: str, strategy: str) ->
     keywords = _slot_keywords(slots)
 
     strict_rel = strategy != "RUN_BROAD"
+    search_log.log_query(message, "SEARCH_EVENTS", slots, strategy)
+    search_log.log_db_params(date_ctx, activity, keywords, slots.get("audience"), query_message)
     outcome = search_events(
         db=db,
         date_context=date_ctx,
@@ -402,6 +405,7 @@ def _chat_inner(payload: ChatRequest, message: str, db: Session) -> ChatResponse
         )
 
     intent = detect_intent(message, session)
+    _search_slots_at_intent = get_search(session)["slots"]
 
     if intent == GREETING:
         flow = get_flow(session)
