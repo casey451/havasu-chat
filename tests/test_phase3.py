@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from fastapi.testclient import TestClient
 
 from app.core.session import clear_session_state, get_session
+from app.core.intent import OUT_OF_SCOPE, SEARCH_EVENTS, detect_intent, detect_out_of_scope_category
 from app.db.database import SessionLocal
 from app.db.models import Event
 from app.main import app
@@ -99,6 +100,16 @@ class Phase3SearchTests(unittest.TestCase):
             "nothing yet" in second.json()["response"].lower()
             or "nothing on for that time" in second.json()["response"].lower()
         )
+
+    def test_rain_triggers_out_of_scope(self) -> None:
+        self.assertEqual(detect_intent("is it going to rain", {}), OUT_OF_SCOPE)
+        self.assertEqual(detect_out_of_scope_category("is it going to rain"), "weather")
+
+    def test_restaurant_week_not_dining_redirect(self) -> None:
+        self.assertEqual(detect_intent("restaurant week", {}), SEARCH_EVENTS)
+
+    def test_weather_station_tour_not_weather_redirect(self) -> None:
+        self.assertEqual(detect_intent("weather station tour", {}), SEARCH_EVENTS)
 
 
 def _next_weekday(today: date, weekday: int) -> date:

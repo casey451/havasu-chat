@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import date, time as time_type
+from datetime import date, time as time_type, timedelta
 
 from fastapi.testclient import TestClient
 
@@ -37,6 +37,65 @@ class SearchRelevanceTests(unittest.TestCase):
         with SessionLocal() as db:
             db.query(Event).delete()
             db.commit()
+
+    def test_short_noun_query_requires_literal_match(self) -> None:
+        future_day = date.today() + timedelta(days=20)
+        with SessionLocal() as db:
+            db.add(
+                Event.from_create(
+                    EventCreate(
+                        title="Country Divas Concert",
+                        date=future_day,
+                        start_time="19:00:00",
+                        end_time=None,
+                        location_name="Havasu Landing Casino",
+                        description="Live country concert with dinner and drinks.",
+                        event_url="https://example.com/country-divas",
+                        contact_name=None,
+                        contact_phone="928-555-0109",
+                        tags=["music", "concert"],
+                        embedding=None,
+                        status="live",
+                        created_by="user",
+                        admin_review_by=None,
+                    )
+                )
+            )
+            db.commit()
+
+        r = self.__class__.client.post("/chat", json={"session_id": "rel-gym", "message": "rodeo"})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["data"]["count"], 0)
+
+    def test_synonym_counts_as_literal_match(self) -> None:
+        future_day = date.today() + timedelta(days=21)
+        with SessionLocal() as db:
+            db.add(
+                Event.from_create(
+                    EventCreate(
+                        title="Desert Storm Poker Run",
+                        date=future_day,
+                        start_time="14:00:00",
+                        end_time=None,
+                        location_name="Bridgewater Channel",
+                        description="Performance boating poker run and speedboat showcase.",
+                        event_url="https://example.com/desert-storm",
+                        contact_name=None,
+                        contact_phone="928-555-0110",
+                        tags=["boating", "poker run"],
+                        embedding=None,
+                        status="live",
+                        created_by="user",
+                        admin_review_by=None,
+                    )
+                )
+            )
+            db.commit()
+
+        r = self.__class__.client.post("/chat", json={"session_id": "rel-gym", "message": "regatta"})
+        self.assertEqual(r.status_code, 200)
+        self.assertGreaterEqual(r.json()["data"]["count"], 1)
+        self.assertIn("Desert Storm Poker Run", r.json()["response"])
 
     def test_gymnastics_for_kids_no_soccer_honest_copy(self) -> None:
         sat = _sat()

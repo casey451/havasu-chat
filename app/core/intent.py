@@ -34,6 +34,10 @@ _OUT_OF_SCOPE_TRIGGERS: tuple[tuple[str, tuple[str, ...]], ...] = (
             "what to wear",
             "humidity",
             "rainfall",
+                "rain",
+                "raining",
+                "is it going to rain",
+                "going to rain",
         ),
     ),
     (
@@ -50,6 +54,9 @@ _OUT_OF_SCOPE_TRIGGERS: tuple[tuple[str, tuple[str, ...]], ...] = (
             "accommodation",
             "accommodations",
             "lodging",
+                "place to sleep",
+                "where to sleep",
+                "somewhere to stay",
         ),
     ),
     (
@@ -64,6 +71,10 @@ _OUT_OF_SCOPE_TRIGGERS: tuple[tuple[str, tuple[str, ...]], ...] = (
             "lyft",
             "taxi",
             "parking",
+                "where do i park",
+                "place to park",
+                "rent a car",
+                "car rental",
             "nearest airport",
             "closest airport",
             "drive to",
@@ -84,6 +95,7 @@ _OUT_OF_SCOPE_TRIGGERS: tuple[tuple[str, tuple[str, ...]], ...] = (
             "food recommendation",
             "good food in",
             "yelp",
+                "breakfast",
         ),
     ),
 )
@@ -101,6 +113,18 @@ _EVENT_INDICATOR_WORDS: tuple[str, ...] = (
     "concert",
     "gala",
     "fundraiser",
+    "tour",
+)
+
+_NIGHT_ACTIVITY_WORDS: tuple[str, ...] = (
+    "bike",
+    "trivia",
+    "karaoke",
+    "comedy",
+    "music",
+    "movie",
+    "paint",
+    "open mic",
 )
 
 _HARD_RESET_PHRASES = (
@@ -367,7 +391,11 @@ def detect_out_of_scope_category(message: str) -> str | None:
     lodging lookups.
     """
     m = message.lower()
+    if "restaurant week" in m:
+        return None
     if any(word in m for word in _EVENT_INDICATOR_WORDS):
+        return None
+    if "night" in m and any(f"{word} night" in m for word in _NIGHT_ACTIVITY_WORDS):
         return None
     for category, triggers in _OUT_OF_SCOPE_TRIGGERS:
         if any(t in m for t in triggers):

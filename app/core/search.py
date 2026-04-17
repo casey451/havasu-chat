@@ -244,6 +244,54 @@ _KEYWORD_STOP = frozenset(
     }
 )
 
+_LISTING_PHRASES_SHORT = (
+    "events",
+    "things to do",
+    "happening",
+    "whats on",
+    "what's on",
+    "whats going on",
+    "what's going on",
+    "fun",
+    "activities",
+)
+
+_GENERIC_SHORT_QUERY_TERMS = frozenset(
+    {
+        "any",
+        "this",
+        "that",
+        "these",
+        "those",
+        "week",
+        "month",
+        "today",
+        "tonight",
+        "tomorrow",
+        "next",
+        "in",
+        "on",
+        "for",
+        "show",
+        "event",
+        "events",
+        "things",
+        "happening",
+        "fun",
+        "activities",
+        "to",
+        "do",
+        "sports",
+        "arts",
+        "education",
+        "outdoors",
+        "classes",
+        "learning",
+        "kids",
+        "family",
+    }
+)
+
 
 @dataclass(frozen=True)
 class SearchOutcome:
@@ -427,6 +475,9 @@ def search_events(
 
     is_specific_query = _query_has_specific_noun(query_text)
     effective_threshold = SPECIFIC_QUERY_EMBEDDING_THRESHOLD if is_specific_query else EMBEDDING_RELEVANCE_THRESHOLD
+    short_noun_focused = _is_short_noun_focused_query(query_text)
+    literal_terms = _literal_match_terms(query_text) if short_noun_focused else set()
+    require_literal_match = short_noun_focused and bool(literal_terms)
 
     base_q = _base_future_events_query(db, date_context)
     pre_activity: list[Event] = base_q.all()
@@ -444,6 +495,12 @@ def search_events(
             slot_filter_exhausted=True,
             honest_no_match=False,
         )
+
+    pre_literal_candidates = list(candidates)
+    literal_matched_ids: set[str] = set()
+    if require_literal_match:
+        candidates = [e for e in candidates if _event_matches_any_literal_term(e, literal_terms)]
+        literal_matched_ids = {e.id for e in candidates}
 
     with_emb: list[tuple[Event, float]] = []
     without_emb: list[Event] = []
@@ -504,6 +561,9 @@ def search_events(
         for e in without_emb:
             if text_terms and not _event_matches_keyword_terms(e, text_terms):
                 continue
+            if require_literal_match and e.id in literal_matched_ids:
+                keyword_rows.append((e, KEYWORD_RELEVANCE_THRESHOLD))
+                continue
             score, ok = _keyword_passes_threshold(query_text, e, True, audience_hint=audience_hint)
             if not ok:
                 continue
@@ -551,10 +611,11 @@ def search_events(
     honest_no_match = (
         strict_relevance
         and not out_events
-        and bool(candidates)
+        and bool(pre_literal_candidates if require_literal_match else candidates)
         and (
             any(t in _QUERY_ACTIVITY_TOKENS for t in _query_tokens(query_text))
             or _query_has_specific_noun(query_text)
+            or require_literal_match
         )
     )
 
@@ -582,6 +643,42 @@ def _event_matches_keyword_terms(event: Event, text_terms: list[str]) -> bool:
         return True
     blob = f"{event.title} {event.description} {event.location_name}".lower()
     return all(term in blob for term in text_terms)
+
+
+def _is_short_noun_focused_query(query_text: str) -> bool:
+    lowered = query_text.lower().strip()
+    if any(phrase in lowered for phrase in _LISTING_PHRASES_SHORT):
+        return False
+    words = re.findall(r"[a-z0-9']+", lowered)
+    return 1 <= len(words) <= 2
+
+
+def _literal_match_terms(query_text: str) -> set[str]:
+    from app.core.slots import QUERY_SYNONYMS
+
+    lowered = query_text.lower()
+    terms: set[str] = set()
+    terms.update(_matching_specific_phrases(lowered))
+
+    for token in re.findall(r"[a-z0-9]+", lowered):
+        if token not in _GENERIC_SHORT_QUERY_TERMS:
+            terms.add(token)
+
+    for key, syns in QUERY_SYNONYMS.items():
+        group = [key, *syns]
+        if any(term in lowered for term in group):
+            for term in group:
+                clean = term.lower().strip()
+                if clean and clean not in _GENERIC_SHORT_QUERY_TERMS:
+                    terms.add(clean)
+    return terms
+
+
+def _event_matches_any_literal_term(event: Event, terms: set[str]) -> bool:
+    if not terms:
+        return False
+    blob = f"{event.title or ''} {event.description or ''} {' '.join(str(t) for t in (event.tags or []))}".lower()
+    return any(term in blob for term in terms)
 
 
 def _format_long_date(d: date) -> str:
