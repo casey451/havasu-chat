@@ -7,7 +7,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
-from sqlalchemy import asc
+from sqlalchemy import asc, desc
 from sqlalchemy.orm import Session
 
 from app.admin.auth import (
@@ -67,6 +67,87 @@ def _escape(s: str | None) -> str:
     return html.escape(s, quote=True)
 
 
+def _embedding_matches_deterministic_1536(ev: Event) -> bool:
+    """True when stored vector equals search.py's deterministic 1536 path for this event's fields."""
+    emb = ev.embedding
+    if not emb or not isinstance(emb, list) or len(emb) != 1536:
+        return False
+    from app.core.extraction import _embedding_input
+    from app.core.search import _deterministic_embedding_1536
+
+    text = _embedding_input(
+        {
+            "title": ev.title or "",
+            "location_name": ev.location_name or "",
+            "description": ev.description or "",
+            "event_url": ev.event_url or "",
+        }
+    )
+    synthetic = _deterministic_embedding_1536(text)
+    if len(synthetic) != len(emb):
+        return False
+    return all(abs(float(a) - float(b)) < 1e-4 for a, b in zip(synthetic, emb))
+
+
+def _embedding_badge_html(ev: Event) -> str:
+    """Badge for semantic search readiness: OpenAI 1536 vs deterministic fallbacks."""
+    emb = ev.embedding
+    if not emb or not isinstance(emb, list) or len(emb) == 0:
+        return '<span class="embed-badge embed-none">No embedding</span>'
+    if len(emb) == 32:
+        # extraction._deterministic_embedding dimensions
+        return '<span class="embed-badge embed-fallback">Fallback embedding</span>'
+    if len(emb) == 1536:
+        if _embedding_matches_deterministic_1536(ev):
+            return '<span class="embed-badge embed-fallback">Fallback embedding</span>'
+        return '<span class="embed-badge embed-ok">AI-indexed</span>'
+    return f'<span class="embed-badge embed-warn">Embedding ({len(emb)} dims)</span>'
+
+
+def _tags_pills_html(ev: Event) -> str:
+    """Tag pills matching /events/{{id}} permalink styling; empty if no tags."""
+    raw = ev.tags or []
+    labels = [str(t).strip() for t in raw if str(t).strip()]
+    if not labels:
+        return ""
+    nodes = "".join(f'<span class="tag">{_escape(t)}</span>' for t in labels)
+    return f'<div class="tag-wrap">{nodes}</div>'
+
+
+def _card_metadata_row(ev: Event, mode: Literal["pending", "live"]) -> str:
+    parts: list[str] = []
+    parts.append(f"Submitted {_fmt_dt(ev.created_at)}")
+    if mode == "pending" and ev.admin_review_by:
+        cd = _countdown(ev.admin_review_by)
+        parts.append(f"Review by {_fmt_dt(ev.admin_review_by)} · {_escape(cd)}")
+    cn = (ev.contact_name or "").strip()
+    cp = (ev.contact_phone or "").strip()
+    if cn and cp:
+        parts.append(f"Contact: {_escape(cn)} · {_escape(cp)}")
+    elif cn:
+        parts.append(f"Contact: {_escape(cn)}")
+    elif cp:
+        parts.append(f"Contact: {_escape(cp)}")
+    inner = " · ".join(parts)
+    return f'<p class="card-meta-muted">{inner}</p>'
+
+
+def _sort_controls_html(tab: str, current_sort: str) -> str:
+    """Links to reorder the active tab's list."""
+    opts = [
+        ("newest", "Newest first"),
+        ("oldest", "Oldest first"),
+        ("event_date", "Event date ↑"),
+    ]
+    links: list[str] = []
+    for key, label in opts:
+        active = " sort-opt-active" if key == current_sort else ""
+        href = f"/admin?tab={tab}&sort={key}"
+        links.append(f'<a class="sort-opt{active}" href="{href}">{html.escape(label)}</a>')
+    joined = " · ".join(links)
+    return f'<div class="sort-bar"><span class="sort-label">Sort:</span> {joined}</div>'
+
+
 def _login_html(error: bool = False) -> str:
     err = (
         '<p class="err">That password does not match. Try again.</p>'
@@ -109,13 +190,17 @@ def _login_html(error: bool = False) -> str:
 </html>"""
 
 
-def _dashboard_html_simple(pending: list[Event], live: list[Event], tab: str) -> str:
+def _dashboard_html_simple(pending: list[Event], live: list[Event], tab: str, sort: str) -> str:
     if tab == "live":
         body_inner = "\n".join(_card_html(e, "live") for e in live) or '<p class="empty">No live events.</p>'
         title = "Live events"
     else:
         body_inner = "\n".join(_card_html(e, "pending") for e in pending) or '<p class="empty">No events pending review.</p>'
         title = "Pending review"
+
+    sort_bar = _sort_controls_html(tab, sort)
+    pending_href = "/admin?tab=pending&sort=newest"
+    live_href = "/admin?tab=live&sort=event_date"
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -137,13 +222,32 @@ def _dashboard_html_simple(pending: list[Event], live: list[Event], tab: str) ->
       min-height: 48px; display: flex; align-items: center; justify-content: center;
     }}
     .tabs a.active {{ border-color: #0d6efd; background: #e7f1ff; color: #0a58ca; }}
+    .sort-bar {{ max-width: 720px; margin: 0 auto 14px; font-size: 0.88rem; color: #495057; }}
+    .sort-label {{ font-weight: 600; color: #868e96; margin-right: 6px; }}
+    .sort-opt {{ color: #0d6efd; text-decoration: none; }}
+    .sort-opt:hover {{ text-decoration: underline; }}
+    .sort-opt-active {{ font-weight: 700; color: #0a58ca; text-decoration: underline; }}
     .panel {{ max-width: 720px; margin: 0 auto; }}
     .card {{ border: 1px solid #e9ecef; border-radius: 12px; padding: 16px; margin-bottom: 14px; background: #fafafa; }}
     .card h3 {{ margin: 0 0 8px; font-size: 1.1rem; }}
+    .card-top {{ display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }}
+    .card-top .tag-wrap {{ flex: 1 1 auto; min-width: 0; }}
+    .card-badges {{ flex: 0 0 auto; text-align: right; font-size: 0.82rem; }}
+    .tag-wrap {{ display: flex; flex-wrap: wrap; gap: 8px; }}
+    .tag {{
+      display: inline-flex; align-items: center; padding: 4px 10px; border: 1px solid #dee2e6;
+      background: #fff; border-radius: 999px; font-size: 0.85rem; color: #495057;
+    }}
+    .embed-badge {{ display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 600; }}
+    .embed-ok {{ background: #d1e7dd; color: #0f5132; }}
+    .embed-fallback {{ background: #fff3cd; color: #664d03; }}
+    .embed-none {{ background: #e2e3e5; color: #41464b; }}
+    .embed-warn {{ background: #f8d7da; color: #842029; }}
+    .card-meta-muted {{ margin: 0 0 10px; font-size: 0.82rem; color: #868e96; line-height: 1.4; word-break: break-word; }}
     .meta {{ margin: 6px 0; font-size: 0.92rem; color: #495057; word-break: break-word; }}
     .label {{ color: #868e96; font-weight: 600; margin-right: 6px; }}
     .desc {{ white-space: pre-wrap; margin: 10px 0; }}
-    .actions {{ margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; }}
+    .actions {{ margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }}
     .btn {{ min-height: 48px; min-width: 120px; padding: 12px 18px; font-size: 1rem; font-weight: 600;
       border: none; border-radius: 10px; cursor: pointer; }}
     .btn.ok {{ background: #198754; color: #fff; }}
@@ -158,10 +262,11 @@ def _dashboard_html_simple(pending: list[Event], live: list[Event], tab: str) ->
     <p class="sub">{title}</p>
   </header>
   <nav class="tabs">
-    <a class="{('active' if tab != 'live' else '')}" href="/admin?tab=pending">Pending review</a>
-    <a class="{('active' if tab == 'live' else '')}" href="/admin?tab=live">Live events</a>
+    <a class="{('active' if tab != 'live' else '')}" href="{pending_href}">Pending review</a>
+    <a class="{('active' if tab == 'live' else '')}" href="{live_href}">Live events</a>
   </nav>
   <div class="panel">
+    {sort_bar}
     {body_inner}
   </div>
 </body>
@@ -183,26 +288,38 @@ def _card_html(ev: Event, mode: Literal["pending", "live"]) -> str:
       <form method="post" action="/admin/event/{_escape(ev.id)}/reject" style="display:inline">
         <button type="submit" class="btn bad">Reject</button>
       </form>"""
-        cd = _countdown(ev.admin_review_by)
-        cd_row = f'<p class="meta"><span class="label">Deadline</span> {_fmt_dt(ev.admin_review_by)} · <strong>{_escape(cd)}</strong></p>'
     else:
         actions = f"""
       <form method="post" action="/admin/event/{_escape(ev.id)}/delete" style="display:inline"
             onsubmit="return confirm('Delete this event?');">
         <button type="submit" class="btn bad">Delete</button>
       </form>"""
-        cd_row = ""
+
+    tags_block = _tags_pills_html(ev)
+    badge_html = _embedding_badge_html(ev)
+    preview = ""
+    if mode == "live":
+        preview = (
+            f'<a href="/events/{_escape(ev.id)}" target="_blank" rel="noopener">Preview as user</a>'
+        )
+    badges_cell = f'<div class="card-badges">{badge_html}'
+    if preview:
+        badges_cell += f'<div style="margin-top:6px">{preview}</div>'
+    badges_cell += "</div>"
+
+    top_row = f'<div class="card-top">{tags_block}{badges_cell}</div>' if tags_block else f'<div class="card-top"><div></div>{badges_cell}</div>'
+
+    meta_row = _card_metadata_row(ev, mode)
 
     return f"""
     <article class="card">
       <h3>{_escape(ev.title)}</h3>
-      {cd_row}
+      {top_row}
+      {meta_row}
       <p class="meta"><span class="label">When</span> {_escape(ev.date.isoformat())} · {_escape(ev.start_time.isoformat())}</p>
       <p class="meta"><span class="label">Where</span> {_escape(ev.location_name)}</p>
       <p class="desc">{_escape(ev.description)}</p>
       <p class="meta"><span class="label">Link</span> {link}</p>
-      <p class="meta"><span class="label">Contact</span> {_escape(ev.contact_name)} · {_escape(ev.contact_phone)}</p>
-      <p class="meta"><span class="label">Submitted</span> {_fmt_dt(ev.created_at)}</p>
       <div class="actions">{actions}</div>
     </article>"""
 
@@ -237,11 +354,19 @@ def admin_login_submit(
     return resp
 
 
+def _effective_sort(tab: str, sort: str | None) -> str:
+    allowed = frozenset({"newest", "oldest", "event_date"})
+    if sort in allowed:
+        return sort
+    return "newest" if tab == "pending" else "event_date"
+
+
 @router.get("", response_class=HTMLResponse, response_model=None)
 @router.get("/", response_class=HTMLResponse, response_model=None)
 def admin_dashboard(
     request: Request,
     tab: str = "pending",
+    sort: str | None = None,
     db: Session = Depends(get_db),
 ) -> HTMLResponse | RedirectResponse:
     redir = _guard(request)
@@ -250,15 +375,25 @@ def admin_dashboard(
     if tab not in ("pending", "live"):
         tab = "pending"
 
-    pending = (
-        db.query(Event)
-        .filter(Event.status == "pending_review")
-        .order_by(asc(Event.admin_review_by))
-        .all()
-    )
-    live = db.query(Event).filter(Event.status == "live").order_by(asc(Event.date), asc(Event.start_time)).all()
+    sort_eff = _effective_sort(tab, sort)
 
-    return HTMLResponse(_dashboard_html_simple(pending, live, tab))
+    pending_q = db.query(Event).filter(Event.status == "pending_review")
+    if sort_eff == "newest":
+        pending = pending_q.order_by(desc(Event.created_at)).all()
+    elif sort_eff == "oldest":
+        pending = pending_q.order_by(asc(Event.created_at)).all()
+    else:
+        pending = pending_q.order_by(asc(Event.date), asc(Event.start_time)).all()
+
+    live_q = db.query(Event).filter(Event.status == "live")
+    if sort_eff == "newest":
+        live = live_q.order_by(desc(Event.created_at)).all()
+    elif sort_eff == "oldest":
+        live = live_q.order_by(asc(Event.created_at)).all()
+    else:
+        live = live_q.order_by(asc(Event.date), asc(Event.start_time)).all()
+
+    return HTMLResponse(_dashboard_html_simple(pending, live, tab, sort_eff))
 
 
 def _apply_status(event_id: str, db: Session, status: str) -> None:
