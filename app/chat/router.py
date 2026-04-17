@@ -65,6 +65,7 @@ from app.core.intent import (
     is_soft_cancel,
 )
 from app.core.search import (
+    SearchOutcome,
     apply_audience_location_filters,
     decide_search_strategy,
     format_search_results,
@@ -175,14 +176,29 @@ def _run_search_core(session: dict, db: Session, message: str, strategy: str) ->
     activity = slots.get("activity_family")
     keywords = _slot_keywords(slots)
 
-    events = search_events(
+    strict_rel = strategy != "RUN_BROAD"
+    outcome = search_events(
         db=db,
         date_context=date_ctx,
         activity_type=activity,
         keywords=keywords,
         query_message=query_message,
+        strict_relevance=strict_rel,
+        audience_hint=slots.get("audience"),
     )
-    events = apply_audience_location_filters(events, slots.get("audience"), slots.get("location_hint"))
+    events = apply_audience_location_filters(
+        outcome.events,
+        slots.get("audience"),
+        slots.get("location_hint"),
+    )
+    outcome_used: SearchOutcome = outcome
+    if outcome.events and not events and strict_rel:
+        outcome_used = SearchOutcome(
+            [],
+            suppressed_low_relevance=True,
+            slot_filter_exhausted=False,
+            honest_no_match=False,
+        )
 
     if _wants_last_result_expansion(message):
         ids = search.get("last_result_set", {}).get("ids") or []
@@ -192,7 +208,13 @@ def _run_search_core(session: dict, db: Session, message: str, strategy: str) ->
             if ordered:
                 events = ordered
 
-    body = format_search_results(events, strategy, slots)
+    body = format_search_results(
+        events,
+        strategy,
+        slots,
+        message=message,
+        outcome=outcome_used,
+    )
     search["last_result_set"] = {
         "ids": [e.id for e in events],
         "query_signature": query_message[:200],

@@ -86,3 +86,10 @@ DEAL_STUB_REPLY = (
     "I don't have local deals in here yet — but I can help you find something fun going on. "
     "What day works for you?"
 )
+
+# Search relevance — honest no-match (must match product copy exactly)
+NO_MATCH_HONEST = (
+    "No {label} in the system yet. If you hear of one, add it here and help others find it — just tell me the details 👋"
+)
+
+NO_MATCH_BROADEN = "Want me to show you other {category} instead?"
