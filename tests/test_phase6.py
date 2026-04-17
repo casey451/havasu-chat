@@ -168,6 +168,44 @@ class Phase6Tests(unittest.TestCase):
             ev = db.query(Event).filter(Event.status == "pending_review").one()
             self.assertIsNotNone(ev.admin_review_by)
 
+    def test_admin_reseed_requires_auth(self) -> None:
+        c = self.__class__.client
+        c.cookies.clear()
+        r = c.post("/admin/reseed")
+        self.assertEqual(r.status_code, 401)
+
+    def test_admin_reseed_deletes_only_seed_rows_and_reinserts(self) -> None:
+        user_ev = Event.from_create(_make_valid_create())
+        user_ev.created_by = "user"
+        with SessionLocal() as db:
+            db.add(user_ev)
+            db.commit()
+            user_id = user_ev.id
+
+        c = self.__class__.client
+        _login_admin(c)
+        r = c.post("/admin/reseed")
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertEqual(body["deleted"], 0)
+        self.assertEqual(body["inserted"], 15)
+        self.assertEqual(body["skipped"], 0)
+
+        with SessionLocal() as db:
+            self.assertIsNotNone(db.get(Event, user_id))
+            n_seed = db.query(Event).filter(Event.created_by == "seed").count()
+            self.assertEqual(n_seed, 15)
+
+        r2 = c.post("/admin/reseed")
+        self.assertEqual(r2.status_code, 200)
+        self.assertEqual(r2.json()["deleted"], 15)
+        self.assertEqual(r2.json()["inserted"], 15)
+        self.assertEqual(r2.json()["skipped"], 0)
+
+        with SessionLocal() as db:
+            self.assertIsNotNone(db.get(Event, user_id))
+            self.assertEqual(db.query(Event).filter(Event.created_by == "seed").count(), 15)
+
 
 if __name__ == "__main__":
     unittest.main()
