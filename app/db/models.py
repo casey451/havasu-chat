@@ -3,11 +3,70 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, time
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Date, DateTime, Integer, JSON, String, Text, Time
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, JSON, String, Text, Time
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 from app.schemas.event import EventCreate
+
+
+class Provider(Base):
+    __tablename__ = "providers"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    provider_name: Mapped[str] = mapped_column(String, nullable=False)
+    category: Mapped[str] = mapped_column(String, nullable=False)
+    address: Mapped[str | None] = mapped_column(String, nullable=True)
+    phone: Mapped[str | None] = mapped_column(String, nullable=True)
+    email: Mapped[str | None] = mapped_column(String, nullable=True)
+    website: Mapped[str | None] = mapped_column(String, nullable=True)
+    facebook: Mapped[str | None] = mapped_column(String, nullable=True)
+    hours: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tier: Mapped[str] = mapped_column(String, nullable=False, default="free")
+    sponsored_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    featured_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    draft: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    pending_review: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    admin_review_by: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    source: Mapped[str] = mapped_column(String, nullable=False, default="seed")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    programs: Mapped[list["Program"]] = relationship(back_populates="provider")
+    events: Mapped[list["Event"]] = relationship(back_populates="provider")
+
+
+class FieldHistory(Base):
+    __tablename__ = "field_history"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    entity_type: Mapped[str] = mapped_column(String, nullable=False)
+    entity_id: Mapped[str] = mapped_column(String, nullable=False)
+    field_name: Mapped[str] = mapped_column(String, nullable=False)
+    old_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    new_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(String, nullable=False)
+    submitted_by_session: Mapped[str | None] = mapped_column(String, nullable=True)
+    submitted_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    state: Mapped[str] = mapped_column(String, nullable=False)
+    confirmations: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    disputes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    resolution_deadline: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    resolved_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    resolution_source: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class Event(Base):
@@ -33,6 +92,11 @@ class Event(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
     created_by: Mapped[str] = mapped_column(String, default="user", nullable=False)
     admin_review_by: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    provider_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("providers.id"), nullable=True
+    )
+
+    provider: Mapped["Provider | None"] = relationship(back_populates="events")
 
     @classmethod
     def from_create(cls, payload: EventCreate) -> "Event":
@@ -109,3 +173,14 @@ class Program(Base):
         onupdate=lambda: datetime.now(UTC),
         nullable=False,
     )
+    provider_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("providers.id"), nullable=True
+    )
+    show_pricing_cta: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    cost_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    schedule_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    draft: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    pending_review: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    admin_review_by: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    provider: Mapped["Provider | None"] = relationship(back_populates="programs")
