@@ -277,6 +277,24 @@
         "I'd like to add an event",
       ];
 
+      var VISITED_KEY = "havasuchat_has_visited";
+
+      function hasVisitedBefore() {
+        try {
+          return window.localStorage.getItem(VISITED_KEY) === "true";
+        } catch (err) {
+          return false;
+        }
+      }
+
+      function markVisited() {
+        try {
+          window.localStorage.setItem(VISITED_KEY, "true");
+        } catch (err) {
+          /* localStorage unavailable — treat as first-time each load */
+        }
+      }
+
       function showWelcome() {
         addRow(
           "bot",
@@ -301,10 +319,45 @@
         log.appendChild(wrap);
       }
 
-      showWelcome();
+      function showWelcomeReturning() {
+        addRow("bot", "Welcome back — what's happening in Havasu?");
+        var wrap = document.createElement("div");
+        wrap.className = "chips-wrap";
+        wrap.setAttribute("role", "group");
+        wrap.setAttribute("aria-label", "Example prompts");
+        var items = [
+          { label: "This weekend", message: "whats happening this weekend" },
+          { label: "Add an event", message: "add an event" },
+        ];
+        items.forEach(function (item) {
+          var chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = "chip";
+          chip.textContent = item.label;
+          chip.addEventListener("click", function () {
+            input.value = item.message;
+            if (form.requestSubmit) form.requestSubmit();
+            else form.dispatchEvent(new Event("submit", { cancelable: true }));
+          });
+          wrap.appendChild(chip);
+        });
+        log.appendChild(wrap);
+      }
+
+      var isReturningVisitor = hasVisitedBefore();
+      if (isReturningVisitor) {
+        showWelcomeReturning();
+      } else {
+        showWelcome();
+        markVisited();
+      }
       window.setTimeout(function () {
         if (!log.querySelector(".chips-wrap")) {
-          showWelcome();
+          if (isReturningVisitor) {
+            showWelcomeReturning();
+          } else {
+            showWelcome();
+          }
         }
       }, 150);
 
