@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from calendar import monthrange
 from datetime import date, timedelta
 from typing import Any, TypedDict
 
@@ -119,11 +120,26 @@ def extract_date_range(text: str) -> DateRange | None:
         sunday = saturday + timedelta(days=1)
         return {"start": saturday, "end": sunday}
 
+    # "this week" check must come after "this weekend" (substring).
+    if "this week" in lowered:
+        sunday = _next_weekday(today, 6, allow_today=True)
+        return {"start": today, "end": sunday}
+
     if "next week" in lowered:
         monday = _next_weekday(today, 0, allow_today=False)
         if monday <= today:
             monday += timedelta(days=7)
         return {"start": monday, "end": monday + timedelta(days=6)}
+
+    if "next month" in lowered:
+        year = today.year + (1 if today.month == 12 else 0)
+        month = 1 if today.month == 12 else today.month + 1
+        last_day = monthrange(year, month)[1]
+        return {"start": date(year, month, 1), "end": date(year, month, last_day)}
+
+    if "this month" in lowered:
+        last_day = monthrange(today.year, today.month)[1]
+        return {"start": today, "end": date(today.year, today.month, last_day)}
 
     for day_name, weekday in DAY_NAMES.items():
         if day_name in lowered:

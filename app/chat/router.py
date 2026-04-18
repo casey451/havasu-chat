@@ -160,6 +160,12 @@ def _month_start_end(year: int, month: int) -> dict[str, date]:
 
 
 def _extract_router_date_range(message: str) -> dict[str, date] | None:
+    # As of Session P, slots.extract_date_range is the canonical source for
+    # "this week", "next week", "this month", and "next month". The explicit
+    # "this month" / "next month" branches below are now dead code — slots
+    # matches them first and returns before this function falls through.
+    # Month-name handling (January, February, ...) still lives here; a
+    # future session can migrate it to slots and delete the duplication.
     dr = extract_date_range(message)
     if dr is not None:
         return dr
