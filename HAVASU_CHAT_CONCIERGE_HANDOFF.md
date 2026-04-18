@@ -1036,6 +1036,7 @@ Pytest uses **`tests/conftest.py`**: `pytest_configure` assigns **`DATABASE_URL`
 - **Cold start on contributions.** App is only great when it has contributors. First-month contribution goals are owner's to set and cultivate.
 - **Sabotage and spam.** Moderation queue is the backstop. Rate limits are the first line. High-stakes fields never auto-update.
 - **Power-contributor dependency.** 5–15 people will drive most corrections. Losing any of them affects quality. Owner's community management matters here.
+- **Seed data document drift.** `HAVASU_CHAT_MASTER.md` and `docs/HAVASU_CHAT_SEED_INSTRUCTIONS.md` are not fully in sync. As of Phase 1.5 there are ~7 title mismatches and 1 program that exists in seed-instructions but not master. Phase 8 seed-data verification includes reconciling these two documents to a single source of truth. Until then, `populate_program_concierge_fields` will report these as no-matches (~6% of programs); this is expected and tracked.
 
 ---
 
