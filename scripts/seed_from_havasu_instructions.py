@@ -291,6 +291,10 @@ def _program_from_item(item: dict, provider_meta: dict) -> Program | None:
     draft = _is_draft(item)
     source = "scraped" if (nv or draft or contact_px) else "admin"
     verified = source == "admin"
+    # Scraped rows (unverified / needs_verification / contact_for_pricing / draft)
+    # land inactive by default. Admin flips is_active=True via the admin UI
+    # after a quick sanity check. Clean admin rows go live immediately.
+    active_default = (not draft) and (source == "admin")
 
     emb_text = f"{title}\n{provider_name}\n{desc}\n{cat}"
     embedding = generate_query_embedding(emb_text)
@@ -313,7 +317,7 @@ def _program_from_item(item: dict, provider_meta: dict) -> Program | None:
         contact_url=contact_url,
         source=source,
         verified=verified,
-        is_active=not draft,
+        is_active=active_default,
         tags=tags,
         embedding=embedding,
     )
