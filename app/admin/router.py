@@ -806,6 +806,31 @@ def admin_reembed_all(request: Request, db: Session = Depends(get_db)) -> dict[s
     return {"updated": updated}
 
 
+@router.post("/programs-reseed")
+def admin_programs_reseed(
+    request: Request, dry_run: bool = False
+) -> dict[str, int | bool | str]:
+    """Import programs/events from docs/HAVASU_CHAT_SEED_INSTRUCTIONS.md.
+
+    Idempotent: dedupes by title+provider (programs) and title+date (events).
+    Safe to re-run. Accepts ?dry_run=true to return counts without writing.
+    """
+    redir = _guard(request)
+    if redir:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    from pathlib import Path as _Path
+    from scripts.seed_from_havasu_instructions import run_import
+
+    root = _Path(__file__).resolve().parents[2]
+    md_path = root / "docs" / "HAVASU_CHAT_SEED_INSTRUCTIONS.md"
+    if not md_path.is_file():
+        raise HTTPException(status_code=500, detail=f"Seed file missing: {md_path}")
+    stats = run_import(md_path, dry_run=dry_run)
+    stats["dry_run"] = dry_run
+    stats["source_file"] = str(md_path.relative_to(root))
+    return stats
+
+
 @router.post("/retag-all")
 def admin_retag_all(request: Request, db: Session = Depends(get_db)) -> dict[str, int]:
     """One-time ops: regenerate tags for every event using the AI tag model."""

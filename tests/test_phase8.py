@@ -565,3 +565,40 @@ class AdminModerationQueueTests(unittest.TestCase):
         r = self.__class__.client.get("/admin?tab=queue")
         self.assertEqual(r.status_code, 200)
         self.assertIn("You're caught up", r.text)
+
+    def test_programs_reseed_requires_auth(self) -> None:
+        """Unauthenticated reseed call must not run the import."""
+        # Prior tests may have set an admin cookie on the shared TestClient;
+        # clear it so this call is genuinely unauthenticated.
+        self.__class__.client.cookies.clear()
+        r = self.__class__.client.post(
+            "/admin/programs-reseed?dry_run=true", follow_redirects=False
+        )
+        # _guard returns a redirect for unauthenticated; the endpoint converts
+        # that into a 401.
+        self.assertIn(r.status_code, (401, 302, 303))
+
+    def test_programs_reseed_dry_run_returns_stats(self) -> None:
+        """Authenticated dry run returns the expected stats keys without writing."""
+        with SessionLocal() as db:
+            before = db.query(Program).count()
+        self._login()
+        r = self.__class__.client.post("/admin/programs-reseed?dry_run=true")
+        self.assertEqual(r.status_code, 200, msg=r.text[:300])
+        body = r.json()
+        for key in (
+            "programs_built",
+            "events_built",
+            "programs_inserted",
+            "programs_skipped_idempotent",
+            "events_inserted",
+            "events_skipped_idempotent",
+            "dry_run",
+            "source_file",
+        ):
+            self.assertIn(key, body)
+        self.assertTrue(body["dry_run"])
+        # Dry run must not insert anything.
+        with SessionLocal() as db:
+            after = db.query(Program).count()
+        self.assertEqual(before, after)
