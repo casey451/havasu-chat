@@ -1008,6 +1008,10 @@ Total API cost at launch scale: **~$10/month**. If Tier 3 creeps to 40%, ~$16/mo
 
 Do not ship a phase with failing tests. Do not commit with failing tests.
 
+### Test isolation
+
+Pytest uses **`tests/conftest.py`**: `pytest_configure` assigns **`DATABASE_URL`** to a **fresh temp SQLite file** for the whole session, and a session-scoped autouse fixture runs **`init_db()`** once so the schema matches migrations. The repo-root **`events.db`** used for local development is **not** the test database; tests must not assume or write to it. For rare local debugging only, **`HAVASU_USE_DEV_DB_FOR_TESTS=1`** skips that override and uses the developer DB instead — **never** set this in CI or production.
+
 ---
 
 ## 11. Deployment and Environment

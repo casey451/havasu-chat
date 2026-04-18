@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import unittest
-from pathlib import Path
-
 from fastapi.testclient import TestClient
 
-from app.db.database import DB_PATH, SessionLocal
+from app.db.database import SessionLocal
 from app.db.models import Event
 from app.main import app
 
@@ -13,12 +11,6 @@ from app.main import app
 class Phase1ApiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        if Path(DB_PATH).exists():
-            try:
-                Path(DB_PATH).unlink()
-            except PermissionError:
-                # e.g. uvicorn or another tool has events.db open — use existing file
-                pass
         cls.client_context = TestClient(app)
         cls.client = cls.client_context.__enter__()
 
