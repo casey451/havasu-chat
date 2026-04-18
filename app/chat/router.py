@@ -61,6 +61,7 @@ from app.core.intent import (
     SERVICE_REQUEST,
     SOFT_CANCEL,
     UNCLEAR,
+    _query_looks_like_program,
     detect_intent,
     detect_out_of_scope_category,
     escape_to_search,
@@ -70,6 +71,11 @@ from app.core.intent import (
     is_rejection,
     is_skip_optional_contact,
     is_soft_cancel,
+)
+from app.core.program_search import (
+    _extract_age_from_query,
+    format_program_results,
+    search_programs,
 )
 from app.core.search import (
     SearchOutcome,
@@ -284,12 +290,49 @@ def _slot_keywords(slots: dict) -> list[str]:
     return [w for w in re.split(r"\s+", loc.lower()) if len(w) > 2]
 
 
+def _should_try_programs(session: dict, message: str) -> bool:
+    """Route to program search when the query is ongoing/how-to-start in flavor.
+
+    Rules from Session Z-2:
+      * Date signal (this weekend, tomorrow, specific date) or listing mode → events only
+      * Explicit program keyword (lessons, classes, learn, ...) → try programs
+      * Activity + audience with no date (e.g. "kids golf") → try programs
+      * Otherwise → events only
+    """
+    search = get_search(session)
+    if search.get("listing_mode"):
+        return False
+    slots = search["slots"]
+    if slots.get("date_range") is not None:
+        return False
+    if _query_looks_like_program(message):
+        return True
+    if slots.get("activity_family"):
+        # Audience slot misses patterns like "6 year olds" (plural);
+        # treat a raw numeric age extraction as an audience signal too.
+        if slots.get("audience") or _extract_age_from_query(message) is not None:
+            return True
+    return False
+
+
 def _run_search_core(session: dict, db: Session, message: str, strategy: str) -> tuple[list[Event], str]:
     search = get_search(session)
     slots = search["slots"]
     utter = search.get("recent_utterances") or []
     flags_query = utter[-1] if utter else message
     query_message = flags_query
+
+    if _should_try_programs(session, message):
+        programs = search_programs(db, message, slots)
+        if programs:
+            body = format_program_results(programs)
+            search["last_result_set"] = {
+                "ids": [],
+                "query_signature": message[:200],
+                "program_ids": [p.id for p in programs],
+            }
+            return [], body
+        # Programs searched, none matched — fall through to event search.
 
     date_ctx = slots.get("date_range")
     if isinstance(date_ctx, dict):

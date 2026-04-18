@@ -471,3 +471,51 @@ This doc should be updated when:
 - A user query returns wrong results in production (root-cause it into the right section)
 
 Keep the `_SPECIFIC_PHRASES` tuple and `QUERY_SYNONYMS` dict in the code as the single source of truth for matching behavior. This document explains *why* those lists are what they are.
+
+---
+
+## 10. Programs & Classes (Session Z-2)
+Dated events and ongoing programs are separate query flows. A program row is a recurring activity — weekly golf lessons, monthly swim team — with a schedule of days of the week and start/end times, plus optional age range, cost, and provider metadata. Events remain the one-off, date-specific things (a concert, a parade, a single clinic).
+
+**Trigger keywords** (`_query_looks_like_program` in `app/core/intent.py`):
+- Explicit: `lessons`, `lesson`, `classes`, `class` (as a standalone word), `learn`, `instruction`, `teach`, `teaching`, `training`, `tutor`, `tutoring`, `coaching`
+- Question patterns: `where can my kid learn`, `who teaches`, `where do they do`, `sign my kid up for`
+- Activity + ongoing phrasing: `weekly <activity>`, `gymnastics class(es)`, `swim team`, `swim lessons`, `dance class`, `music lessons`, `art class`, `karate class`, `golf lessons`, `tennis lessons`
+
+**Routing heuristic** (`_should_try_programs` in `app/chat/router.py`):
+1. Listing mode (`show me everything`) or any date signal → events only.
+2. Explicit program keyword in message → try programs, fall back to events if empty.
+3. Activity family + audience (or extractable numeric age) without a date signal → try programs, fall back to events if empty.
+4. Otherwise → events only.
+
+Program search never shadows event search. Every path that tries programs falls back to event search when the program query returns empty, so production stays honest until programs are seeded in Z-4.
+
+**Response format** (`app/core/program_search.py::_program_card`):
+```
+🗓 Every Monday, Wednesday & Friday • 4:30 PM – 6:00 PM
+Havasu Swim Team
+Ages 7–14 • $85/month
+📍 Havasu Aquatic Center
+🏫 Havasu Swim Club
+
+Program description here.
+
+📞 928-555-0101 • coach@havasu.example
+```
+Compared to an event card, there is no single date. The schedule line leads with `Every <days>` and the time range uses an en-dash. Age range and cost appear together on one meta line; `Free` or `$15/class` are valid cost values.
+
+**Example queries**:
+| Query | Routes to | Reason |
+| --- | --- | --- |
+| `golf lessons for kids` | programs | explicit keyword (`lessons`) |
+| `gymnastics class` | programs | explicit keyword (`gymnastics class`) |
+| `where can my kid learn piano` | programs | question pattern |
+| `kids golf` | programs | activity + audience, no date |
+| `gymnastics for 6 year olds` | programs | activity + extractable age |
+| `kids golf tomorrow` | events | date signal |
+| `swim team this weekend` | events | date signal overrides program keyword `swim team` |
+| `what's on this weekend` | events | listing intent |
+| `concert` | events | no program signal, no activity+audience pair |
+
+**Age filtering** (`app/core/program_search.py::_extract_age_from_query`):
+Matches `N year old`, `N year olds`, `N yr`, `N yrs`, and `for [my|a] N`. Programs whose `age_min`/`age_max` bracket fails the age are dropped before scoring. If neither bound is set, the program is eligible at any age.

@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from app.core.session import clear_session_state
 from app.core.slots import extract_date_range
 from app.db.database import SessionLocal
-from app.db.models import Event
+from app.db.models import Event, Program
 from app.main import app
 from app.schemas.event import EventCreate
 
@@ -544,3 +544,188 @@ class SearchRelevanceTests(unittest.TestCase):
         body = r.json()["response"]
         self.assertIn("Here's what I found", body)
         self.assertTrue("Outdoors" in body or "Fun Activities" in body or "General" in body)
+
+
+def _insert_program(**overrides) -> Program:
+    defaults = {
+        "title": "Junior Golf Lessons",
+        "description": "Weekly small-group instruction for kids learning golf.",
+        "activity_category": "golf",
+        "age_min": 6,
+        "age_max": 12,
+        "schedule_days": ["saturday"],
+        "schedule_start_time": "09:00",
+        "schedule_end_time": "10:30",
+        "location_name": "Havasu Golf Academy",
+        "provider_name": "Havasu Golf Academy",
+        "is_active": True,
+        "source": "admin",
+        "tags": [],
+    }
+    defaults.update(overrides)
+    program = Program(**defaults)
+    with SessionLocal() as db:
+        db.add(program)
+        db.commit()
+        db.refresh(program)
+    return program
+
+
+def _insert_event(
+    *,
+    title: str,
+    day: date,
+    tags: list[str] | None = None,
+    description: str = "Community event at a local venue with music and activities.",
+    location_name: str = "Rotary Park",
+) -> None:
+    with SessionLocal() as db:
+        db.add(
+            Event.from_create(
+                EventCreate(
+                    title=title,
+                    date=day,
+                    start_time=time_type(18, 0, 0),
+                    end_time=None,
+                    location_name=location_name,
+                    description=description,
+                    event_url="https://example.com/event",
+                    contact_name=None,
+                    contact_phone=None,
+                    tags=tags or [],
+                    embedding=None,
+                    status="live",
+                    created_by="user",
+                    admin_review_by=None,
+                )
+            )
+        )
+        db.commit()
+
+
+class ProgramRoutingTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.client_context = TestClient(app)
+        cls.client = cls.client_context.__enter__()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.client_context.__exit__(None, None, None)
+
+    def setUp(self) -> None:
+        for sid in (
+            "prog-route",
+            "prog-events-date",
+            "prog-age",
+            "prog-mixed-no-date",
+            "prog-mixed-with-date",
+        ):
+            clear_session_state(sid)
+        with SessionLocal() as db:
+            db.query(Program).delete()
+            db.query(Event).delete()
+            db.commit()
+
+    def test_program_query_routes_to_programs(self) -> None:
+        _insert_program(title="Junior Golf Lessons")
+        r = self.__class__.client.post(
+            "/chat",
+            json={"session_id": "prog-route", "message": "golf lessons for kids"},
+        )
+        self.assertEqual(r.status_code, 200)
+        body = r.json()["response"]
+        self.assertIn("ongoing programs", body)
+        self.assertIn("Junior Golf Lessons", body)
+
+    def test_event_query_still_returns_events(self) -> None:
+        saturday = _sat()
+        _insert_event(
+            title="Weekend Kids Fair",
+            day=saturday,
+            tags=["kids", "family"],
+            description="A family-friendly afternoon for kids and parents on the weekend.",
+        )
+        _insert_program(
+            title="Saturday Golf Clinic",
+            schedule_days=["saturday"],
+        )
+        r = self.__class__.client.post(
+            "/chat",
+            json={"session_id": "prog-events-date", "message": "things to do this weekend"},
+        )
+        self.assertEqual(r.status_code, 200)
+        body = r.json()["response"]
+        # The date signal must keep us in the event pipeline: no program card
+        # text in the response and the Saturday Golf Clinic program title is absent.
+        self.assertNotIn("ongoing programs", body)
+        self.assertNotIn("Saturday Golf Clinic", body)
+        self.assertEqual(r.json()["intent"], "SEARCH_EVENTS")
+
+    def test_age_filter_on_program_query(self) -> None:
+        _insert_program(
+            title="Toddler Tumbling",
+            description="Introductory gymnastics-style play for very young children.",
+            activity_category="gymnastics",
+            age_min=3,
+            age_max=5,
+        )
+        _insert_program(
+            title="Youth Gymnastics",
+            description="Gymnastics training for grade-school kids with weekly classes.",
+            activity_category="gymnastics",
+            age_min=6,
+            age_max=10,
+        )
+        r = self.__class__.client.post(
+            "/chat",
+            json={"session_id": "prog-age", "message": "gymnastics for 6 year olds"},
+        )
+        self.assertEqual(r.status_code, 200)
+        body = r.json()["response"]
+        self.assertIn("ongoing programs", body)
+        self.assertIn("Youth Gymnastics", body)
+        self.assertNotIn("Toddler Tumbling", body)
+
+    def test_mixed_query_prefers_programs_when_no_date(self) -> None:
+        _insert_program(
+            title="Kids Golf Academy",
+            description="Long-running weekly golf instruction for kids of all skill levels.",
+            activity_category="golf",
+        )
+        _insert_event(
+            title="One-Day Kids Golf Tournament",
+            day=date.today() + timedelta(days=30),
+            tags=["kids", "golf"],
+            description="A single-day golf tournament open to kids in the Havasu area.",
+        )
+        r = self.__class__.client.post(
+            "/chat",
+            json={"session_id": "prog-mixed-no-date", "message": "kids golf"},
+        )
+        self.assertEqual(r.status_code, 200)
+        body = r.json()["response"]
+        self.assertIn("ongoing programs", body)
+        self.assertIn("Kids Golf Academy", body)
+
+    def test_mixed_query_prefers_events_with_date(self) -> None:
+        _insert_program(
+            title="Kids Golf Academy",
+            description="Long-running weekly golf instruction for kids of all skill levels.",
+            activity_category="golf",
+        )
+        tomorrow = date.today() + timedelta(days=1)
+        _insert_event(
+            title="Kids Golf Tomorrow Tournament",
+            day=tomorrow,
+            tags=["kids", "golf"],
+            description="A kid-focused golf tournament happening tomorrow at the course.",
+        )
+        r = self.__class__.client.post(
+            "/chat",
+            json={"session_id": "prog-mixed-with-date", "message": "kids golf tomorrow"},
+        )
+        self.assertEqual(r.status_code, 200)
+        body = r.json()["response"]
+        self.assertNotIn("ongoing programs", body)
+        self.assertGreaterEqual(r.json()["data"]["count"], 1)

@@ -131,3 +131,10 @@ OUT_OF_SCOPE_REPLIES: dict[str, str] = {
     "dining": OUT_OF_SCOPE_DINING,
     "commercial_services": OUT_OF_SCOPE_COMMERCIAL,
 }
+
+# Programs / ongoing classes (Session Z-2)
+PROGRAMS_INTRO = "Here's what I found for ongoing programs:"
+
+PROGRAMS_NONE = (
+    "No programs for that right now. If you know of one, add it and help others find it."
+)

@@ -450,6 +450,72 @@ def detect_out_of_scope_category(message: str) -> str | None:
     return None
 
 
+_PROGRAM_KEYWORDS: tuple[str, ...] = (
+    "lessons",
+    "lesson",
+    "classes",
+    "class ",
+    " class",
+    "learn",
+    "instruction",
+    "teach",
+    "teaching",
+    "training",
+    "tutor",
+    "tutoring",
+    "coaching",
+    "coach ",
+)
+
+_PROGRAM_QUESTION_PATTERNS: tuple[str, ...] = (
+    "where can my kid learn",
+    "where can my kids learn",
+    "where can i learn",
+    "who teaches",
+    "where do they do",
+    "sign my kid up for",
+    "sign my kids up for",
+    "sign up my kid for",
+)
+
+_PROGRAM_ACTIVITY_PHRASES: tuple[str, ...] = (
+    "weekly ",
+    "gymnastics class",
+    "gymnastics classes",
+    "swim team",
+    "swim lessons",
+    "swim class",
+    "dance class",
+    "dance classes",
+    "music lessons",
+    "art class",
+    "art classes",
+    "karate class",
+    "karate classes",
+    "golf lessons",
+    "tennis lessons",
+)
+
+
+def _query_looks_like_program(message: str) -> bool:
+    """Heuristic signals that the user is asking about a recurring program/class."""
+    m = message.lower()
+    stripped = m.strip()
+    # Exclude obvious add-event phrasing like "add an event" or "classes i'm running"
+    if _explicit_add_event_route(stripped):
+        return False
+    for kw in _PROGRAM_KEYWORDS:
+        if kw in m:
+            return True
+    for pattern in _PROGRAM_QUESTION_PATTERNS:
+        if pattern in m:
+            return True
+    for phrase in _PROGRAM_ACTIVITY_PHRASES:
+        if phrase in m:
+            return True
+    return False
+
+
 def open_ended_search_message(message: str) -> bool:
     m = message.lower().strip()
     return m in (
