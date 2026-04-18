@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -81,7 +82,50 @@ _KEY_LINE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$")
 
 
 def _norm_provider_name(name: str) -> str:
-    return " ".join(name.strip().lower().split())
+    """Normalize a provider display name for comparison (dedupe + program backfill).
+
+    Two layers:
+
+    1. **Portable Unicode folding** — NFKC, collapse whitespace, lowercase, map en/em
+       dash and minus variants to ASCII hyphen, map curly quotes and apostrophes to
+       straight ASCII quotes, strip soft hyphen, replace NBSP with space. Safe for
+       any locale; keeps matching stable when master vs. instructions differ only by
+       typography.
+
+    2. **Non-portable Lake Havasu §9 suffix folds** — end-anchored tails used because
+       HAVASU_CHAT_SEED_INSTRUCTIONS.md program rows often use a shorter provider_name
+       than the canonical business header in Section 9 (e.g. trailing (ACPA), - Sonics,
+       - Lake Havasu City). Remove these once seed-data
+       naming is canonicalized during **Phase 8** seed-data verification (owner phone
+       review); then delete the suffix regexes here so normalization stays generic.
+
+    Phase 1.3 uses this for Provider upsert keys; Phase 1.4 backfill imports the same
+    function so exact-match keys always agree with the seed.
+    """
+    s = unicodedata.normalize("NFKC", (name or "").strip())
+    for ch in ("\u2013", "\u2014", "\u2012", "\u2015", "\u2212"):
+        s = s.replace(ch, "-")
+    for old, new in (
+        ("\u2018", "'"),
+        ("\u2019", "'"),
+        ("\u201a", "'"),
+        ("\u201b", "'"),
+        ("\u2032", "'"),
+        ("\u201c", '"'),
+        ("\u201d", '"'),
+        ("\u201e", '"'),
+        ("\u2033", '"'),
+    ):
+        s = s.replace(old, new)
+    s = s.replace("\u00a0", " ").replace("\u00ad", "")
+    s = " ".join(s.lower().split())
+    # Canonical provider headers in §9 sometimes add a subtitle or (ACPA); program rows
+    # often use the shorter operating name. Fold only end-anchored tails so exact match
+    # aligns without broad fuzzy matching.
+    s = re.sub(r"\s*\(acpa\)\s*$", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"\s+-\s+sonics\s*$", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"\s+-\s+lake havasu city\s*$", "", s, flags=re.IGNORECASE)
+    return " ".join(s.split())
 
 
 def _coerce_optional_str(val: str | None) -> str | None:

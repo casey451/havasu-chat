@@ -7,7 +7,7 @@ from pathlib import Path
 
 from app.db.database import SessionLocal, init_db
 from app.db.models import Event, Program, Provider
-from app.db.seed_providers import DEFAULT_MASTER_PATH, seed_providers
+from app.db.seed_providers import DEFAULT_MASTER_PATH, _norm_provider_name, seed_providers
 
 MASTER_PATH = Path(__file__).resolve().parents[1] / "HAVASU_CHAT_MASTER.md"
 
@@ -110,3 +110,26 @@ class SeedProvidersTests(unittest.TestCase):
 
     def test_default_path_constant_points_at_repo_master(self) -> None:
         self.assertTrue(DEFAULT_MASTER_PATH.is_file())
+
+    def test_norm_provider_name_matches_program_and_canonical_variants(self) -> None:
+        """Punctuation + end-anchored suffix fold: same key as short program provider_name."""
+        self.assertEqual(
+            _norm_provider_name("Altitude Trampoline Park — Lake Havasu City"),
+            _norm_provider_name("Altitude Trampoline Park"),
+        )
+        self.assertEqual(
+            _norm_provider_name("Universal Gymnastics and All Star Cheer — Sonics"),
+            _norm_provider_name("Universal Gymnastics and All Star Cheer"),
+        )
+        self.assertEqual(
+            _norm_provider_name("Arizona Coast Performing Arts (ACPA)"),
+            _norm_provider_name("Arizona Coast Performing Arts"),
+        )
+        self.assertEqual(
+            _norm_provider_name("Iron  Wolf  Golf"),
+            _norm_provider_name("iron wolf golf"),
+        )
+        self.assertEqual(
+            _norm_provider_name("O'Brien"),  # curly apostrophe U+2019
+            _norm_provider_name("O\u2019Brien"),
+        )
