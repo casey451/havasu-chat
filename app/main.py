@@ -34,6 +34,31 @@ from app.schemas.event import EventCreate, EventRead
 logger = logging.getLogger(__name__)
 
 
+def _init_sentry() -> None:
+    """Initialize Sentry if SENTRY_DSN is set. Never raise — monitoring is best-effort."""
+    dsn = (os.getenv("SENTRY_DSN") or "").strip()
+    if not dsn:
+        return
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.starlette import StarletteIntegration
+
+        environment = "production" if os.getenv("RAILWAY_ENVIRONMENT") else "development"
+        sentry_sdk.init(
+            dsn=dsn,
+            environment=environment,
+            traces_sample_rate=0.1,
+            integrations=[FastApiIntegration(), StarletteIntegration()],
+        )
+        logger.info("Sentry initialized (environment=%s)", environment)
+    except Exception as exc:  # pragma: no cover — best-effort init
+        logger.warning("Sentry initialization failed: %s", exc)
+
+
+_init_sentry()
+
+
 def run_expired_review_cleanup() -> int:
     """Mark expired pending_review events as deleted. Returns number of rows updated."""
     now = datetime.now(timezone.utc).replace(tzinfo=None)

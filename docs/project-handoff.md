@@ -455,6 +455,7 @@ def admin_retag_all(request: Request, db: Session = Depends(get_db)) -> dict[str
 | `DATABASE_URL` | Yes on Railway | Railway → Variables | PostgreSQL connection string. Auto-provided by Railway when you add a Postgres plugin. Locally, SQLite is used instead. |
 | `RAILWAY_ENVIRONMENT` | Auto-set by Railway | Railway | When present, triggers auto-seed on startup. Do not set locally. |
 | `OPENAI_MODEL` | Optional | Railway → Variables | Overrides the GPT model used for extraction. Defaults to `"gpt-4.1-mini"`. |
+| `SENTRY_DSN` | No (app runs fine without it) | Railway → Variables | Error monitoring. When set, unhandled exceptions are reported to Sentry via the FastAPI integration; performance tracing sampled at 10%. Unset → Sentry is skipped silently at startup. |
 
 ### Local `.env` file
 At repo root. Not committed to git (in `.gitignore`). Format:
