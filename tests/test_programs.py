@@ -150,5 +150,106 @@ class ProgramApiTests(unittest.TestCase):
         self.assertEqual(r.status_code, 422)
 
 
+class ProgramSubmitFlowTests(unittest.TestCase):
+    """Public parent-submission flow (Session AA-2)."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.client_context = TestClient(app)
+        cls.client = cls.client_context.__enter__()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.client_context.__exit__(None, None, None)
+
+    def setUp(self) -> None:
+        with SessionLocal() as db:
+            db.query(Program).delete()
+            db.commit()
+
+    def _minimal_submit_form(self, **overrides) -> dict:
+        base = {
+            "title": "Parent Submitted Basketball Clinic",
+            "description": "Weekly community basketball clinic suggested by a local parent.",
+            "activity_category": "basketball",
+            "age_min": "",
+            "age_max": "",
+            "schedule_days": ["saturday"],
+            "schedule_start_time": "10:00",
+            "schedule_end_time": "11:30",
+            "location_name": "Rotary Park",
+            "location_address": "",
+            "cost": "Free",
+            "provider_name": "Volunteer parent group",
+            "contact_phone": "",
+            "contact_email": "",
+            "contact_url": "",
+        }
+        base.update(overrides)
+        return base
+
+    def test_submit_program_form_renders(self) -> None:
+        r = self.__class__.client.get("/programs/submit")
+        self.assertEqual(r.status_code, 200)
+        body = r.text
+        self.assertIn("Submit a program", body)
+        self.assertIn('name="title"', body)
+        self.assertIn('name="schedule_days"', body)
+
+    def test_submit_program_creates_parent_source_inactive(self) -> None:
+        r = self.__class__.client.post(
+            "/programs/submit", data=self._minimal_submit_form()
+        )
+        self.assertEqual(r.status_code, 200, msg=r.text[:300])
+        self.assertIn("We got it", r.text)
+        with SessionLocal() as db:
+            rows = db.query(Program).filter(
+                Program.title == "Parent Submitted Basketball Clinic"
+            ).all()
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual(row.source, "parent")
+        self.assertFalse(row.is_active)
+        self.assertFalse(row.verified)
+
+    def test_submit_program_ignores_self_declared_source(self) -> None:
+        """Even if a submitter passes source=admin, the server forces source=parent."""
+        data = self._minimal_submit_form(title="Attempted Self-Declared Admin")
+        # Form field for source doesn't exist in the template — but if someone
+        # crafts a request with one, the server should ignore it.
+        data["source"] = "admin"  # type: ignore[assignment]
+        data["is_active"] = "1"  # type: ignore[assignment]
+        r = self.__class__.client.post("/programs/submit", data=data)
+        self.assertEqual(r.status_code, 200, msg=r.text[:300])
+        with SessionLocal() as db:
+            row = db.query(Program).filter(
+                Program.title == "Attempted Self-Declared Admin"
+            ).one()
+        self.assertEqual(row.source, "parent")
+        self.assertFalse(row.is_active)
+        self.assertFalse(row.verified)
+
+    def test_submit_program_invalid_input_rerenders_with_error(self) -> None:
+        r = self.__class__.client.post(
+            "/programs/submit",
+            data=self._minimal_submit_form(title="xx"),  # too short
+        )
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("Title must be at least 3 characters", r.text)
+        # Form should be re-rendered with submitted values preserved.
+        self.assertIn('value="xx"', r.text)
+
+    def test_submitted_program_absent_from_public_list(self) -> None:
+        """A parent submission should not appear in GET /programs until admin activates it."""
+        self.__class__.client.post(
+            "/programs/submit",
+            data=self._minimal_submit_form(title="Hidden Until Approved"),
+        )
+        r = self.__class__.client.get("/programs")
+        self.assertEqual(r.status_code, 200)
+        titles = {item["title"] for item in r.json()}
+        self.assertNotIn("Hidden Until Approved", titles)
+
+
 if __name__ == "__main__":
     unittest.main()
