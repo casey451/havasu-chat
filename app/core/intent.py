@@ -17,6 +17,29 @@ REFINEMENT = "REFINEMENT"
 SEARCH_EVENTS = "SEARCH_EVENTS"
 OUT_OF_SCOPE = "OUT_OF_SCOPE"
 UNCLEAR = "UNCLEAR"
+CALENDAR_VIEW = "CALENDAR_VIEW"
+
+
+_CALENDAR_OPEN_PHRASES: tuple[str, ...] = (
+    "show me the calendar",
+    "show calendar",
+    "open the calendar",
+    "open calendar",
+    "calendar view",
+    "what's this month look like",
+    "whats this month look like",
+    "what does this month look like",
+    "show me this month",
+    "show the calendar",
+    "pull up the calendar",
+)
+
+
+def is_calendar_open_phrase(message: str) -> bool:
+    m = message.lower().strip().rstrip("?!. ")
+    if not m:
+        return False
+    return any(p in m for p in _CALENDAR_OPEN_PHRASES)
 
 # Out-of-scope category triggers. Each category is a tuple of lowercase
 # substrings; a query matches the category if any substring appears.
@@ -541,6 +564,9 @@ def detect_intent(message: str, session: dict[str, Any] | None = None) -> str:
 
     if _explicit_add_event_route(msg):
         return ADD_EVENT
+
+    if is_calendar_open_phrase(msg):
+        return CALENDAR_VIEW
 
     if detect_out_of_scope_category(msg) is not None:
         return OUT_OF_SCOPE

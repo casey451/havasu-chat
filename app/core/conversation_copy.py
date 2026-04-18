@@ -138,3 +138,8 @@ PROGRAMS_INTRO = "Here's what I found for ongoing programs:"
 PROGRAMS_NONE = (
     "No programs for that right now. If you know of one, add it and help others find it."
 )
+
+# Calendar view (Session AC-2)
+CALENDAR_OPEN_REPLY = (
+    "Opening the calendar for you. Tap a highlighted day to see what's on."
+)

@@ -294,6 +294,15 @@
       padding: 10px 12px;
       margin-bottom: 10px;
       background: #fff;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .cal-event:hover {
+      background: #f8f9fa;
+    }
+    .cal-event:focus {
+      outline: 2px solid #0d6efd;
+      outline-offset: 2px;
     }
     .cal-event .title { font-weight: 600; }
     .cal-event .when { color: #495057; font-size: 0.88rem; margin-top: 2px; }
@@ -545,6 +554,9 @@
             pending.textContent = data.response || "(no response)";
             attachShareButtons();
             scrollToBottom();
+            if (data && data.data && data.data.open_calendar && window.havasuChatCalendar) {
+              window.havasuChatCalendar.open();
+            }
           })
           .catch(function () {
             pending.classList.remove("loading");
@@ -683,12 +695,13 @@
         if (events.length === 0) {
           html += '<div class="cal-empty-day">Nothing on the calendar for that day.</div>';
         } else {
-          events.forEach(function (ev) {
+          events.forEach(function (ev, idx) {
             var when = fmtTime(ev.start_time);
             if (ev.end_time) when += " – " + fmtTime(ev.end_time);
             var titleTxt = (ev.title || "").replace(/</g, "&lt;");
             var locTxt = (ev.location_name || "").replace(/</g, "&lt;");
-            html += '<div class="cal-event">' +
+            html += '<div class="cal-event" data-event-idx="' + idx +
+              '" role="button" tabindex="0" title="Tap to open in chat">' +
               '<div class="title">' + titleTxt + "</div>" +
               '<div class="when">' + when + "</div>" +
               '<div class="where">' + locTxt + "</div>" +
@@ -696,6 +709,56 @@
           });
         }
         detailEl.innerHTML = html;
+      }
+
+      // Build a chat bubble text blob for an event. Mirrors the backend's
+      // _event_card format roughly so it reads natural when injected.
+      function eventToChatText(ev) {
+        var parts = (ev.date || "").split("-");
+        var y = parseInt(parts[0], 10);
+        var m = parseInt(parts[1], 10) - 1;
+        var d = parseInt(parts[2], 10);
+        var when = "";
+        if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+          when = MONTH_LABELS[m] + " " + d + ", " + y;
+        }
+        var time = fmtTime(ev.start_time);
+        if (ev.end_time) time += " – " + fmtTime(ev.end_time);
+        var lines = [];
+        if (when) lines.push("📅 " + when + (time ? " · " + time : ""));
+        if (ev.location_name) lines.push("📍 " + ev.location_name);
+        lines.push(ev.title || "");
+        if (ev.description) {
+          lines.push("");
+          lines.push(String(ev.description).replace(/\r?\n/g, " "));
+        }
+        if (ev.event_url) lines.push("🔗 " + ev.event_url);
+        return lines.join("\n");
+      }
+
+      function pushEventToChat(ev) {
+        var log = document.getElementById("log");
+        if (!log) return;
+        var row = document.createElement("div");
+        row.className = "row bot";
+        var bubble = document.createElement("div");
+        bubble.className = "bubble";
+        bubble.textContent = eventToChatText(ev);
+        row.appendChild(bubble);
+        log.appendChild(row);
+        log.scrollTop = log.scrollHeight;
+      }
+
+      function handleEventTap(target) {
+        var card = target.closest && target.closest(".cal-event");
+        if (!card) return;
+        var idx = parseInt(card.getAttribute("data-event-idx") || "-1", 10);
+        if (idx < 0) return;
+        var events = (state.eventsByDate && state.eventsByDate[state.selectedKey]) || [];
+        var ev = events[idx];
+        if (!ev) return;
+        closeCalendar();
+        pushEventToChat(ev);
       }
 
       function render() {
@@ -722,6 +785,15 @@
 
       btn.addEventListener("click", openCalendar);
       closeBtn.addEventListener("click", closeCalendar);
+      detailEl.addEventListener("click", function (e) {
+        handleEventTap(e.target);
+      });
+      detailEl.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") {
+          var card = e.target && e.target.closest && e.target.closest(".cal-event");
+          if (card) { e.preventDefault(); handleEventTap(e.target); }
+        }
+      });
       overlay.addEventListener("click", function (e) {
         if (e.target === overlay) closeCalendar();
       });

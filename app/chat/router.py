@@ -12,6 +12,7 @@ from app.core.rate_limit import limiter
 
 from app.core.conversation_copy import (
     ADDED_LIVE,
+    CALENDAR_OPEN_REPLY,
     CHAT_SOFT_FAIL,
     CLARIFY_DATE,
     DEAL_STUB_REPLY,
@@ -51,6 +52,7 @@ from app.core.event_quality import (
 from app.core.extraction import _embedding_input, _extract_phone, extract_event, generate_embedding
 from app.core.intent import (
     ADD_EVENT,
+    CALENDAR_VIEW,
     DEAL_SEARCH,
     GREETING,
     HARD_RESET,
@@ -587,6 +589,13 @@ def _chat_inner(payload: ChatRequest, message: str, db: Session) -> ChatResponse
             response=reply,
             intent=OUT_OF_SCOPE,
             data={"category": category},
+        )
+
+    if intent == CALENDAR_VIEW:
+        return ChatResponse(
+            response=CALENDAR_OPEN_REPLY,
+            intent=CALENDAR_VIEW,
+            data={"open_calendar": True},
         )
 
     if intent == GREETING:
