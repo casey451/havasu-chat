@@ -19,8 +19,9 @@ from app.admin.auth import (
     verify_admin_cookie,
 )
 from app.db.database import DATABASE_URL, get_db
-from app.db.models import ChatLog, Event
+from app.db.models import ChatLog, Event, Program
 from app.db.seed import run_seed
+from app.schemas.program import ProgramCreate
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -519,8 +520,9 @@ def _dashboard_html_simple(pending: list[Event], live: list[Event], tab: str, so
     <p class="sub">{title}</p>
   </header>
   <nav class="tabs">
-    <a class="{('active' if tab != 'live' else '')}" href="{pending_href}">Pending review</a>
+    <a class="{('active' if tab == 'pending' else '')}" href="{pending_href}">Pending review</a>
     <a class="{('active' if tab == 'live' else '')}" href="{live_href}">Live events</a>
+    <a class="{('active' if tab == 'programs' else '')}" href="/admin?tab=programs">Programs</a>
     <a href="/admin/analytics">Analytics</a>
   </nav>
   <div class="panel">
@@ -630,8 +632,16 @@ def admin_dashboard(
     redir = _guard(request)
     if redir:
         return redir
-    if tab not in ("pending", "live"):
+    if tab not in ("pending", "live", "programs"):
         tab = "pending"
+
+    if tab == "programs":
+        programs = (
+            db.query(Program)
+            .order_by(desc(Program.is_active), desc(Program.updated_at))
+            .all()
+        )
+        return HTMLResponse(_programs_tab_html(programs))
 
     sort_eff = _effective_sort(tab, sort)
 
@@ -790,3 +800,672 @@ def admin_retag_all(request: Request, db: Session = Depends(get_db)) -> dict[str
         updated += 1
     db.commit()
     return {"updated": updated}
+
+
+# ---------------------------------------------------------------------------
+# Programs admin (Session Z-3)
+# ---------------------------------------------------------------------------
+
+_PROGRAM_DAYS = (
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+)
+
+_PROGRAM_SOURCES = ("admin", "provider", "parent", "scraped")
+
+
+def _program_status_badge(p: Program) -> str:
+    if p.is_active:
+        return '<span class="pill pill-ok">Active</span>'
+    return '<span class="pill pill-muted">Inactive</span>'
+
+
+def _program_source_badge(source: str | None) -> str:
+    src = (source or "admin").lower()
+    label = src.capitalize()
+    cls = {
+        "provider": "pill-info",
+        "parent": "pill-parent",
+        "admin": "pill-ok",
+        "scraped": "pill-muted",
+    }.get(src, "pill-muted")
+    return f'<span class="pill {cls}">{html.escape(label)}</span>'
+
+
+def _program_tag_pills(p: Program) -> str:
+    tags = [str(t) for t in (p.tags or []) if str(t).strip()]
+    if not tags:
+        return ""
+    parts = "".join(f'<span class="tag">{html.escape(t)}</span>' for t in tags)
+    return f'<div class="tag-wrap">{parts}</div>'
+
+
+def _format_schedule_days_admin(days: list[str]) -> str:
+    if not days:
+        return "schedule TBD"
+    ordered = sorted(
+        {str(d).lower() for d in days if isinstance(d, str)},
+        key=lambda d: _PROGRAM_DAYS.index(d) if d in _PROGRAM_DAYS else 99,
+    )
+    labels = [d.capitalize() for d in ordered]
+    if len(labels) == 1:
+        return labels[0]
+    if len(labels) == 2:
+        return f"{labels[0]} & {labels[1]}"
+    return ", ".join(labels[:-1]) + f" & {labels[-1]}"
+
+
+def _format_program_age(p: Program) -> str:
+    if p.age_min is None and p.age_max is None:
+        return "All ages"
+    if p.age_min is not None and p.age_max is not None:
+        return f"Ages {p.age_min}–{p.age_max}"
+    if p.age_min is not None:
+        return f"Ages {p.age_min}+"
+    return f"Up to age {p.age_max}"
+
+
+def _program_card_admin_html(p: Program) -> str:
+    schedule_line = (
+        f"Every {_format_schedule_days_admin(list(p.schedule_days or []))}"
+        f" • {html.escape(p.schedule_start_time or '')}–{html.escape(p.schedule_end_time or '')}"
+    )
+    age_line = _format_program_age(p)
+    cost_line = (p.cost or "").strip() or "—"
+    location_line = p.location_name or "—"
+    if p.location_address:
+        location_line += f" · {p.location_address}"
+
+    if p.is_active:
+        toggle = f"""
+      <form method="post" action="/admin/programs/{_escape(p.id)}/deactivate" style="display:inline">
+        <button type="submit" class="btn bad">Deactivate</button>
+      </form>"""
+    else:
+        toggle = f"""
+      <form method="post" action="/admin/programs/{_escape(p.id)}/activate" style="display:inline">
+        <button type="submit" class="btn ok">Activate</button>
+      </form>"""
+
+    edit_btn = (
+        f'<a class="btn-link" href="/admin/programs/{_escape(p.id)}/edit">Edit</a>'
+    )
+
+    tag_pills = _program_tag_pills(p)
+    desc = (p.description or "").strip()
+
+    top_badges = (
+        f'<div class="card-badges">{_program_status_badge(p)} '
+        f'{_program_source_badge(p.source)}</div>'
+    )
+    top_row = f'<div class="card-top">{tag_pills or "<div></div>"}{top_badges}</div>'
+
+    return f"""
+    <article class="card">
+      <h3>{_escape(p.title)}</h3>
+      {top_row}
+      <p class="meta"><span class="label">Category</span> {_escape(p.activity_category or "")}</p>
+      <p class="meta"><span class="label">Provider</span> {_escape(p.provider_name or "")}</p>
+      <p class="meta"><span class="label">Schedule</span> {schedule_line}</p>
+      <p class="meta"><span class="label">Age</span> {_escape(age_line)}</p>
+      <p class="meta"><span class="label">Cost</span> {_escape(cost_line)}</p>
+      <p class="meta"><span class="label">Where</span> {_escape(location_line)}</p>
+      <p class="desc">{_escape(desc)}</p>
+      <div class="actions">
+        {edit_btn}
+        {toggle}
+      </div>
+    </article>"""
+
+
+def _programs_tab_shell(inner: str, title: str = "Programs") -> str:
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Admin — {html.escape(title)}</title>
+  <style>
+    * {{ box-sizing: border-box; }}
+    body {{ font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #fff; color: #212529;
+      line-height: 1.45; padding-bottom: 48px; }}
+    header {{ max-width: 720px; margin: 0 auto 16px; }}
+    h1 {{ font-size: 1.35rem; margin: 0 0 4px; }}
+    h2 {{ font-size: 1.1rem; margin: 0 0 10px; }}
+    .sub {{ color: #6c757d; font-size: 0.9rem; }}
+    .tabs {{ display: flex; gap: 8px; max-width: 720px; margin: 0 auto 16px; flex-wrap: wrap; }}
+    .tabs a {{
+      flex: 1; min-width: 140px; text-align: center; padding: 14px 16px; border-radius: 10px;
+      text-decoration: none; font-weight: 600; border: 2px solid #dee2e6; color: #495057; background: #f8f9fa;
+      min-height: 48px; display: flex; align-items: center; justify-content: center;
+    }}
+    .tabs a.active {{ border-color: #0d6efd; background: #e7f1ff; color: #0a58ca; }}
+    .panel {{ max-width: 720px; margin: 0 auto; }}
+    .toolbar {{ max-width: 720px; margin: 0 auto 16px; display: flex; gap: 10px; flex-wrap: wrap; }}
+    .card {{ border: 1px solid #e9ecef; border-radius: 12px; padding: 16px; margin-bottom: 14px; background: #fafafa; }}
+    .card h3 {{ margin: 0 0 8px; font-size: 1.1rem; }}
+    .card-top {{ display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }}
+    .card-badges {{ flex: 0 0 auto; text-align: right; font-size: 0.82rem; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }}
+    .tag-wrap {{ display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 auto; min-width: 0; }}
+    .tag {{ display: inline-flex; align-items: center; padding: 4px 10px; border: 1px solid #dee2e6;
+      background: #fff; border-radius: 999px; font-size: 0.85rem; color: #495057; }}
+    .pill {{ display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; }}
+    .pill-ok {{ background: #d1e7dd; color: #0f5132; }}
+    .pill-info {{ background: #cfe2ff; color: #084298; }}
+    .pill-parent {{ background: #fff3cd; color: #664d03; }}
+    .pill-muted {{ background: #e2e3e5; color: #41464b; }}
+    .meta {{ margin: 6px 0; font-size: 0.92rem; color: #495057; word-break: break-word; }}
+    .label {{ color: #868e96; font-weight: 600; margin-right: 6px; }}
+    .desc {{ white-space: pre-wrap; margin: 10px 0; }}
+    .actions {{ margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }}
+    .btn {{ min-height: 48px; min-width: 120px; padding: 12px 18px; font-size: 1rem; font-weight: 600;
+      border: none; border-radius: 10px; cursor: pointer; }}
+    .btn.ok {{ background: #198754; color: #fff; }}
+    .btn.bad {{ background: #dc3545; color: #fff; }}
+    .btn-primary {{ background: #0d6efd; color: #fff; text-decoration: none; display: inline-flex;
+      align-items: center; justify-content: center; min-height: 48px; min-width: 140px; padding: 12px 18px;
+      font-size: 1rem; font-weight: 600; border-radius: 10px; }}
+    .btn-link {{ color: #0d6efd; text-decoration: none; font-weight: 600; padding: 12px 18px;
+      min-height: 48px; display: inline-flex; align-items: center; border: 1px solid #dee2e6;
+      border-radius: 10px; background: #fff; }}
+    .btn-link:hover {{ text-decoration: underline; }}
+    .empty {{ color: #6c757d; padding: 24px; text-align: center; }}
+    a {{ color: #0d6efd; }}
+    form.program-form {{ max-width: 720px; margin: 0 auto; }}
+    form.program-form label {{ display: block; font-weight: 600; margin: 14px 0 6px; color: #343a40; }}
+    form.program-form input[type=text], form.program-form input[type=number],
+    form.program-form input[type=email], form.program-form input[type=url],
+    form.program-form textarea, form.program-form select {{
+      width: 100%; padding: 12px 14px; font-size: 1rem; border: 1px solid #ced4da; border-radius: 10px;
+      min-height: 44px; font-family: inherit;
+    }}
+    form.program-form textarea {{ min-height: 110px; resize: vertical; }}
+    form.program-form .row {{ display: flex; gap: 12px; flex-wrap: wrap; }}
+    form.program-form .row > div {{ flex: 1 1 160px; }}
+    form.program-form .days {{ display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }}
+    form.program-form .days label {{ display: inline-flex; align-items: center; gap: 6px; margin: 0;
+      font-weight: 500; padding: 8px 12px; border: 1px solid #dee2e6; border-radius: 999px;
+      background: #f8f9fa; min-height: 40px; }}
+    form.program-form .err {{ color: #b02a37; font-weight: 500; margin: 12px 0; }}
+    .form-actions {{ margin: 20px 0; display: flex; gap: 10px; flex-wrap: wrap; }}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Programs</h1>
+    <p class="sub">{html.escape(title)}</p>
+  </header>
+  <nav class="tabs">
+    <a href="/admin?tab=pending">Pending review</a>
+    <a href="/admin?tab=live">Live events</a>
+    <a class="active" href="/admin?tab=programs">Programs</a>
+    <a href="/admin/analytics">Analytics</a>
+  </nav>
+  <div class="panel">
+    {inner}
+  </div>
+</body>
+</html>"""
+
+
+def _programs_tab_html(programs: list[Program]) -> str:
+    toolbar = (
+        '<div class="toolbar">'
+        '<a class="btn-primary" href="/admin/programs/new">+ Create program</a>'
+        "</div>"
+    )
+    if not programs:
+        cards_html = '<p class="empty">No programs yet — create the first one.</p>'
+    else:
+        cards_html = "\n".join(_program_card_admin_html(p) for p in programs)
+    return _programs_tab_shell(toolbar + cards_html, title="All programs")
+
+
+def _program_form_html(
+    *,
+    action: str,
+    submit_label: str,
+    program: Program | None = None,
+    error: str | None = None,
+    values: dict | None = None,
+) -> str:
+    v = dict(values or {})
+    if program is not None and not values:
+        v = {
+            "title": program.title or "",
+            "description": program.description or "",
+            "activity_category": program.activity_category or "",
+            "age_min": "" if program.age_min is None else str(program.age_min),
+            "age_max": "" if program.age_max is None else str(program.age_max),
+            "schedule_days": list(program.schedule_days or []),
+            "schedule_start_time": program.schedule_start_time or "",
+            "schedule_end_time": program.schedule_end_time or "",
+            "location_name": program.location_name or "",
+            "location_address": program.location_address or "",
+            "cost": program.cost or "",
+            "provider_name": program.provider_name or "",
+            "contact_phone": program.contact_phone or "",
+            "contact_email": program.contact_email or "",
+            "contact_url": program.contact_url or "",
+            "source": program.source or "admin",
+            "is_active": program.is_active,
+            "tags": ", ".join(str(t) for t in (program.tags or [])),
+        }
+    else:
+        v.setdefault("title", "")
+        v.setdefault("description", "")
+        v.setdefault("activity_category", "")
+        v.setdefault("age_min", "")
+        v.setdefault("age_max", "")
+        v.setdefault("schedule_days", [])
+        v.setdefault("schedule_start_time", "")
+        v.setdefault("schedule_end_time", "")
+        v.setdefault("location_name", "")
+        v.setdefault("location_address", "")
+        v.setdefault("cost", "")
+        v.setdefault("provider_name", "")
+        v.setdefault("contact_phone", "")
+        v.setdefault("contact_email", "")
+        v.setdefault("contact_url", "")
+        v.setdefault("source", "admin")
+        v.setdefault("is_active", True)
+        v.setdefault("tags", "")
+
+    def inp(name: str, *, kind: str = "text", placeholder: str = "") -> str:
+        return (
+            f'<input type="{kind}" id="{name}" name="{name}" '
+            f'value="{_escape(str(v.get(name, "")))}" '
+            f'placeholder="{_escape(placeholder)}" />'
+        )
+
+    selected_days: set[str] = {
+        str(d).lower() for d in v.get("schedule_days", []) if isinstance(d, str)
+    }
+    day_boxes = "".join(
+        f'<label><input type="checkbox" name="schedule_days" value="{d}"'
+        f'{" checked" if d in selected_days else ""}/> {d.capitalize()}</label>'
+        for d in _PROGRAM_DAYS
+    )
+
+    source_options = "".join(
+        f'<option value="{s}"{" selected" if v.get("source") == s else ""}>{s.capitalize()}</option>'
+        for s in _PROGRAM_SOURCES
+    )
+
+    is_active_checked = " checked" if v.get("is_active") else ""
+    err_html = f'<p class="err">{_escape(error)}</p>' if error else ""
+
+    inner = f"""
+    <form class="program-form" method="post" action="{action}">
+      {err_html}
+      <label for="title">Title</label>
+      {inp("title", placeholder="e.g. Junior Golf Lessons")}
+
+      <label for="description">Description</label>
+      <textarea id="description" name="description"
+        placeholder="What it is, who it's for (at least 20 characters)">{_escape(v.get("description", ""))}</textarea>
+
+      <label for="activity_category">Activity category</label>
+      {inp("activity_category", placeholder="golf, swim, dance, ...")}
+
+      <div class="row">
+        <div>
+          <label for="age_min">Age min</label>
+          {inp("age_min", kind="number", placeholder="6")}
+        </div>
+        <div>
+          <label for="age_max">Age max</label>
+          {inp("age_max", kind="number", placeholder="12")}
+        </div>
+      </div>
+
+      <label>Days</label>
+      <div class="days">{day_boxes}</div>
+
+      <div class="row">
+        <div>
+          <label for="schedule_start_time">Start (HH:MM)</label>
+          {inp("schedule_start_time", placeholder="09:00")}
+        </div>
+        <div>
+          <label for="schedule_end_time">End (HH:MM)</label>
+          {inp("schedule_end_time", placeholder="10:30")}
+        </div>
+      </div>
+
+      <label for="location_name">Location name</label>
+      {inp("location_name", placeholder="Havasu Golf Academy")}
+
+      <label for="location_address">Location address</label>
+      {inp("location_address", placeholder="Optional street address")}
+
+      <label for="cost">Cost</label>
+      {inp("cost", placeholder="$15/class or Free")}
+
+      <label for="provider_name">Provider name</label>
+      {inp("provider_name", placeholder="Organization running it")}
+
+      <div class="row">
+        <div>
+          <label for="contact_phone">Contact phone</label>
+          {inp("contact_phone", placeholder="928-555-0101")}
+        </div>
+        <div>
+          <label for="contact_email">Contact email</label>
+          {inp("contact_email", kind="email", placeholder="coach@example.com")}
+        </div>
+      </div>
+
+      <label for="contact_url">Contact URL</label>
+      {inp("contact_url", kind="url", placeholder="https://example.com")}
+
+      <label for="tags">Tags (comma-separated)</label>
+      {inp("tags", placeholder="kids, competitive, beginner")}
+
+      <label for="source">Source</label>
+      <select id="source" name="source">{source_options}</select>
+
+      <label style="display:flex;align-items:center;gap:10px;margin-top:16px;">
+        <input type="checkbox" name="is_active" value="1"{is_active_checked}/>
+        Active (shows in search)
+      </label>
+
+      <div class="form-actions">
+        <button type="submit" class="btn ok">{html.escape(submit_label)}</button>
+        <a class="btn-link" href="/admin?tab=programs">Cancel</a>
+      </div>
+    </form>"""
+    return _programs_tab_shell(inner, title=submit_label)
+
+
+def _parse_program_form(
+    *,
+    title: str,
+    description: str,
+    activity_category: str,
+    age_min: str | None,
+    age_max: str | None,
+    schedule_days: list[str],
+    schedule_start_time: str,
+    schedule_end_time: str,
+    location_name: str,
+    location_address: str | None,
+    cost: str | None,
+    provider_name: str,
+    contact_phone: str | None,
+    contact_email: str | None,
+    contact_url: str | None,
+    source: str,
+    is_active: str | None,
+    tags: str | None,
+) -> dict:
+    def _nonempty(s: str | None) -> str | None:
+        if s is None:
+            return None
+        s = s.strip()
+        return s or None
+
+    def _maybe_int(s: str | None) -> int | None:
+        if s is None:
+            return None
+        s = s.strip()
+        if not s:
+            return None
+        return int(s)
+
+    tag_list: list[str] = []
+    if tags:
+        tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+
+    return {
+        "title": title,
+        "description": description,
+        "activity_category": activity_category,
+        "age_min": _maybe_int(age_min),
+        "age_max": _maybe_int(age_max),
+        "schedule_days": list(schedule_days or []),
+        "schedule_start_time": schedule_start_time,
+        "schedule_end_time": schedule_end_time,
+        "location_name": location_name,
+        "location_address": _nonempty(location_address),
+        "cost": _nonempty(cost),
+        "provider_name": provider_name,
+        "contact_phone": _nonempty(contact_phone),
+        "contact_email": _nonempty(contact_email),
+        "contact_url": _nonempty(contact_url),
+        "source": source or "admin",
+        "is_active": bool(is_active),
+        "tags": tag_list,
+    }
+
+
+@router.get("/programs/new", response_class=HTMLResponse, response_model=None)
+def admin_program_new(request: Request) -> HTMLResponse | RedirectResponse:
+    redir = _guard(request)
+    if redir:
+        return redir
+    return HTMLResponse(
+        _program_form_html(action="/admin/programs", submit_label="Create program")
+    )
+
+
+@router.post("/programs", response_model=None)
+def admin_program_create(
+    request: Request,
+    title: str = Form(""),
+    description: str = Form(""),
+    activity_category: str = Form(""),
+    age_min: str = Form(""),
+    age_max: str = Form(""),
+    schedule_days: list[str] = Form(default_factory=list),
+    schedule_start_time: str = Form(""),
+    schedule_end_time: str = Form(""),
+    location_name: str = Form(""),
+    location_address: str = Form(""),
+    cost: str = Form(""),
+    provider_name: str = Form(""),
+    contact_phone: str = Form(""),
+    contact_email: str = Form(""),
+    contact_url: str = Form(""),
+    source: str = Form("admin"),
+    is_active: str | None = Form(None),
+    tags: str = Form(""),
+    db: Session = Depends(get_db),
+) -> RedirectResponse | HTMLResponse:
+    redir = _guard(request)
+    if redir:
+        return redir
+    raw = _parse_program_form(
+        title=title,
+        description=description,
+        activity_category=activity_category,
+        age_min=age_min,
+        age_max=age_max,
+        schedule_days=schedule_days,
+        schedule_start_time=schedule_start_time,
+        schedule_end_time=schedule_end_time,
+        location_name=location_name,
+        location_address=location_address,
+        cost=cost,
+        provider_name=provider_name,
+        contact_phone=contact_phone,
+        contact_email=contact_email,
+        contact_url=contact_url,
+        source=source,
+        is_active=is_active,
+        tags=tags,
+    )
+    try:
+        payload = ProgramCreate(**raw)
+    except Exception as exc:
+        return HTMLResponse(
+            _program_form_html(
+                action="/admin/programs",
+                submit_label="Create program",
+                values=raw,
+                error=str(exc),
+            ),
+            status_code=400,
+        )
+    program = Program(
+        title=payload.title,
+        description=payload.description,
+        activity_category=payload.activity_category,
+        age_min=payload.age_min,
+        age_max=payload.age_max,
+        schedule_days=list(payload.schedule_days),
+        schedule_start_time=payload.schedule_start_time,
+        schedule_end_time=payload.schedule_end_time,
+        location_name=payload.location_name,
+        location_address=payload.location_address,
+        cost=payload.cost,
+        provider_name=payload.provider_name,
+        contact_phone=payload.contact_phone,
+        contact_email=payload.contact_email,
+        contact_url=payload.contact_url,
+        source=payload.source,
+        is_active=payload.is_active,
+        tags=list(payload.tags),
+        embedding=None,
+    )
+    db.add(program)
+    db.commit()
+    return RedirectResponse(url="/admin?tab=programs", status_code=303)
+
+
+@router.get("/programs/{program_id}/edit", response_class=HTMLResponse, response_model=None)
+def admin_program_edit(
+    request: Request, program_id: str, db: Session = Depends(get_db)
+) -> HTMLResponse | RedirectResponse:
+    redir = _guard(request)
+    if redir:
+        return redir
+    program = db.get(Program, program_id)
+    if program is None:
+        raise HTTPException(status_code=404, detail="Program not found")
+    return HTMLResponse(
+        _program_form_html(
+            action=f"/admin/programs/{program.id}/update",
+            submit_label="Save changes",
+            program=program,
+        )
+    )
+
+
+@router.post("/programs/{program_id}/update", response_model=None)
+def admin_program_update(
+    request: Request,
+    program_id: str,
+    title: str = Form(""),
+    description: str = Form(""),
+    activity_category: str = Form(""),
+    age_min: str = Form(""),
+    age_max: str = Form(""),
+    schedule_days: list[str] = Form(default_factory=list),
+    schedule_start_time: str = Form(""),
+    schedule_end_time: str = Form(""),
+    location_name: str = Form(""),
+    location_address: str = Form(""),
+    cost: str = Form(""),
+    provider_name: str = Form(""),
+    contact_phone: str = Form(""),
+    contact_email: str = Form(""),
+    contact_url: str = Form(""),
+    source: str = Form("admin"),
+    is_active: str | None = Form(None),
+    tags: str = Form(""),
+    db: Session = Depends(get_db),
+) -> RedirectResponse | HTMLResponse:
+    redir = _guard(request)
+    if redir:
+        return redir
+    program = db.get(Program, program_id)
+    if program is None:
+        raise HTTPException(status_code=404, detail="Program not found")
+    raw = _parse_program_form(
+        title=title,
+        description=description,
+        activity_category=activity_category,
+        age_min=age_min,
+        age_max=age_max,
+        schedule_days=schedule_days,
+        schedule_start_time=schedule_start_time,
+        schedule_end_time=schedule_end_time,
+        location_name=location_name,
+        location_address=location_address,
+        cost=cost,
+        provider_name=provider_name,
+        contact_phone=contact_phone,
+        contact_email=contact_email,
+        contact_url=contact_url,
+        source=source,
+        is_active=is_active,
+        tags=tags,
+    )
+    try:
+        payload = ProgramCreate(**raw)
+    except Exception as exc:
+        return HTMLResponse(
+            _program_form_html(
+                action=f"/admin/programs/{program.id}/update",
+                submit_label="Save changes",
+                values=raw,
+                error=str(exc),
+            ),
+            status_code=400,
+        )
+    program.title = payload.title
+    program.description = payload.description
+    program.activity_category = payload.activity_category
+    program.age_min = payload.age_min
+    program.age_max = payload.age_max
+    program.schedule_days = list(payload.schedule_days)
+    program.schedule_start_time = payload.schedule_start_time
+    program.schedule_end_time = payload.schedule_end_time
+    program.location_name = payload.location_name
+    program.location_address = payload.location_address
+    program.cost = payload.cost
+    program.provider_name = payload.provider_name
+    program.contact_phone = payload.contact_phone
+    program.contact_email = payload.contact_email
+    program.contact_url = payload.contact_url
+    program.source = payload.source
+    program.is_active = payload.is_active
+    program.tags = list(payload.tags)
+    db.commit()
+    return RedirectResponse(url="/admin?tab=programs", status_code=303)
+
+
+@router.post("/programs/{program_id}/deactivate", response_model=None)
+def admin_program_deactivate(
+    request: Request, program_id: str, db: Session = Depends(get_db)
+) -> RedirectResponse:
+    redir = _guard(request)
+    if redir:
+        return redir
+    program = db.get(Program, program_id)
+    if program is None:
+        raise HTTPException(status_code=404, detail="Program not found")
+    program.is_active = False
+    db.commit()
+    return RedirectResponse(url="/admin?tab=programs", status_code=303)
+
+
+@router.post("/programs/{program_id}/activate", response_model=None)
+def admin_program_activate(
+    request: Request, program_id: str, db: Session = Depends(get_db)
+) -> RedirectResponse:
+    redir = _guard(request)
+    if redir:
+        return redir
+    program = db.get(Program, program_id)
+    if program is None:
+        raise HTTPException(status_code=404, detail="Program not found")
+    program.is_active = True
+    db.commit()
+    return RedirectResponse(url="/admin?tab=programs", status_code=303)

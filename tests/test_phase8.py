@@ -16,7 +16,7 @@ from app.core.session import (
     get_session,
 )
 from app.db.database import SessionLocal
-from app.db.models import ChatLog, Event
+from app.db.models import ChatLog, Event, Program
 from app.main import app
 from app.schemas.event import EventCreate
 
@@ -233,3 +233,150 @@ class Phase8StabilizationTests(unittest.TestCase):
         self.assertIn(user_msg.lower(), r.text.lower())
         self.assertIn("unique analytics query xyz", r.text)
         self.assertRegex(r.text, r"Live \(approved\)</td>\s*<td>1</td>")
+
+
+class AdminProgramsTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.client_context = TestClient(app)
+        cls.client = cls.client_context.__enter__()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.client_context.__exit__(None, None, None)
+
+    def setUp(self) -> None:
+        os.environ["ADMIN_PASSWORD"] = "changeme"
+        with SessionLocal() as db:
+            db.query(Program).delete()
+            db.commit()
+
+    def _login(self) -> None:
+        r = self.__class__.client.post(
+            "/admin/login",
+            data={"password": "changeme"},
+            follow_redirects=False,
+        )
+        self.assertEqual(r.status_code, 303)
+
+    def _insert_program(self, **overrides) -> Program:
+        defaults = {
+            "title": "Admin UI Golf Lessons",
+            "description": "Weekly small-group golf instruction for admin UI coverage.",
+            "activity_category": "golf",
+            "age_min": 6,
+            "age_max": 12,
+            "schedule_days": ["saturday"],
+            "schedule_start_time": "09:00",
+            "schedule_end_time": "10:30",
+            "location_name": "Havasu Golf Academy",
+            "provider_name": "Havasu Golf Academy",
+            "is_active": True,
+            "source": "admin",
+            "tags": ["kids"],
+        }
+        defaults.update(overrides)
+        program = Program(**defaults)
+        with SessionLocal() as db:
+            db.add(program)
+            db.commit()
+            db.refresh(program)
+        return program
+
+    def test_admin_programs_tab_shows_programs(self) -> None:
+        p = self._insert_program(title="Visibility Check Program")
+        self._login()
+        r = self.__class__.client.get("/admin?tab=programs")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("Visibility Check Program", r.text)
+        self.assertIn("Every Saturday", r.text)
+        self.assertIn("Active", r.text)
+        self.assertIn(f"/admin/programs/{p.id}/edit", r.text)
+
+    def test_admin_create_program(self) -> None:
+        self._login()
+        r = self.__class__.client.post(
+            "/admin/programs",
+            data={
+                "title": "Created Via Admin Form",
+                "description": "Program created through the admin UI during the Z-3 test run.",
+                "activity_category": "swim",
+                "age_min": "5",
+                "age_max": "10",
+                "schedule_days": ["monday", "wednesday"],
+                "schedule_start_time": "16:00",
+                "schedule_end_time": "17:00",
+                "location_name": "Havasu Aquatic Center",
+                "location_address": "",
+                "cost": "Free",
+                "provider_name": "City Parks & Rec",
+                "contact_phone": "",
+                "contact_email": "",
+                "contact_url": "",
+                "source": "admin",
+                "is_active": "1",
+                "tags": "swim, kids",
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(r.status_code, 303, msg=r.text[:300])
+        with SessionLocal() as db:
+            rows = db.query(Program).filter(Program.title == "Created Via Admin Form").all()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].schedule_days, ["monday", "wednesday"])
+        self.assertEqual(rows[0].cost, "Free")
+        self.assertEqual(sorted(rows[0].tags), ["kids", "swim"])
+        self.assertTrue(rows[0].is_active)
+
+    def test_admin_edit_program(self) -> None:
+        p = self._insert_program(title="Edit Me Golf", cost="$20")
+        self._login()
+        r = self.__class__.client.post(
+            f"/admin/programs/{p.id}/update",
+            data={
+                "title": "Edited Golf Program",
+                "description": p.description,
+                "activity_category": p.activity_category,
+                "age_min": str(p.age_min or ""),
+                "age_max": str(p.age_max or ""),
+                "schedule_days": list(p.schedule_days or []),
+                "schedule_start_time": p.schedule_start_time,
+                "schedule_end_time": p.schedule_end_time,
+                "location_name": p.location_name,
+                "location_address": p.location_address or "",
+                "cost": "$25/class",
+                "provider_name": p.provider_name,
+                "contact_phone": p.contact_phone or "",
+                "contact_email": p.contact_email or "",
+                "contact_url": p.contact_url or "",
+                "source": p.source,
+                "is_active": "1",
+                "tags": ", ".join(p.tags or []),
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(r.status_code, 303, msg=r.text[:300])
+        with SessionLocal() as db:
+            refreshed = db.get(Program, p.id)
+        assert refreshed is not None
+        self.assertEqual(refreshed.title, "Edited Golf Program")
+        self.assertEqual(refreshed.cost, "$25/class")
+
+    def test_admin_deactivate_program(self) -> None:
+        p = self._insert_program(title="Soon Deactivated")
+        self._login()
+        r = self.__class__.client.post(
+            f"/admin/programs/{p.id}/deactivate",
+            follow_redirects=False,
+        )
+        self.assertEqual(r.status_code, 303)
+        with SessionLocal() as db:
+            refreshed = db.get(Program, p.id)
+        assert refreshed is not None
+        self.assertFalse(refreshed.is_active)
+
+        # Deactivated programs should not appear in /programs list endpoint.
+        list_r = self.__class__.client.get("/programs")
+        self.assertEqual(list_r.status_code, 200)
+        titles = {item["title"] for item in list_r.json()}
+        self.assertNotIn("Soon Deactivated", titles)
