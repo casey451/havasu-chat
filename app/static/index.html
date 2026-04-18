@@ -166,6 +166,148 @@
     .event-share-btn:active {
       background: #e9ecef;
     }
+    /* Calendar button in header */
+    header {
+      position: relative;
+    }
+    .calendar-btn {
+      position: absolute;
+      top: calc(8px + env(safe-area-inset-top));
+      right: 12px;
+      width: 44px;
+      height: 44px;
+      border-radius: 22px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 1.15rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .calendar-btn:active {
+      background: #e9ecef;
+    }
+    /* Calendar overlay */
+    .calendar-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: none;
+      align-items: stretch;
+      justify-content: center;
+      z-index: 999;
+      padding: 0;
+    }
+    .calendar-overlay.open {
+      display: flex;
+    }
+    .calendar-shell {
+      width: 100%;
+      max-width: 600px;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .calendar-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .calendar-head h2 {
+      flex: 1;
+      margin: 0;
+      font-size: 1.05rem;
+      text-align: center;
+    }
+    .calendar-nav, .calendar-close {
+      width: 44px;
+      height: 44px;
+      border-radius: 22px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 1.1rem;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .calendar-weekdays {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      padding: 8px 10px;
+      color: #6c757d;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      padding: 0 10px 10px;
+    }
+    .cal-cell {
+      min-height: 48px;
+      padding: 6px 4px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: #fafafa;
+      font-size: 0.95rem;
+      text-align: center;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      position: relative;
+    }
+    .cal-cell.empty { background: transparent; cursor: default; }
+    .cal-cell.today { border-color: #0d6efd; font-weight: 700; }
+    .cal-cell.has-events { background: #e7f1ff; color: #084298; font-weight: 600; }
+    .cal-cell.has-events::after {
+      content: "";
+      position: absolute;
+      bottom: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #0d6efd;
+    }
+    .cal-cell.selected { border-color: #198754; background: #d1e7dd; }
+    .calendar-day-detail {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      overflow-y: auto;
+      flex: 1 1 auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .calendar-day-detail h3 {
+      margin: 0 0 10px;
+      font-size: 1rem;
+    }
+    .cal-event {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      background: #fff;
+    }
+    .cal-event .title { font-weight: 600; }
+    .cal-event .when { color: #495057; font-size: 0.88rem; margin-top: 2px; }
+    .cal-event .where { color: #6c757d; font-size: 0.85rem; margin-top: 2px; }
+    .cal-empty-day {
+      color: #6c757d;
+      font-size: 0.92rem;
+      padding: 8px 4px;
+    }
+    .cal-loading {
+      color: #6c757d;
+      font-style: italic;
+      padding: 8px 4px;
+    }
   </style>
 </head>
 <body>
@@ -173,12 +315,28 @@
     <header>
       <h1>Havasu Chat</h1>
       <p>Lake Havasu activities & events — search, browse, or share something new.</p>
+      <button id="calendar-btn" class="calendar-btn" type="button" aria-label="Open calendar">📅</button>
     </header>
     <div id="log" role="log" aria-live="polite"></div>
     <form class="composer" id="form">
       <input id="msg" type="text" autocomplete="off" placeholder="Message…" enterkeyhint="send" />
       <button type="submit" id="send">Send</button>
     </form>
+  </div>
+  <div id="calendar-overlay" class="calendar-overlay" role="dialog" aria-modal="true" aria-label="Events calendar">
+    <div class="calendar-shell">
+      <div class="calendar-head">
+        <button id="cal-prev" class="calendar-nav" type="button" aria-label="Previous month">‹</button>
+        <h2 id="cal-title">—</h2>
+        <button id="cal-next" class="calendar-nav" type="button" aria-label="Next month">›</button>
+        <button id="cal-close" class="calendar-close" type="button" aria-label="Close calendar">✕</button>
+      </div>
+      <div class="calendar-weekdays">
+        <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+      </div>
+      <div id="cal-grid" class="calendar-grid"></div>
+      <div id="cal-day-detail" class="calendar-day-detail"></div>
+    </div>
   </div>
   <script>
     (function () {
@@ -401,6 +559,202 @@
 
       input.focus();
       attachShareButtons();
+    })();
+
+    // Calendar overlay (Session AC-1). Self-contained; does not share state
+    // with the chat IIFE above. Reads /events once and caches in memory.
+    (function () {
+      var overlay = document.getElementById("calendar-overlay");
+      var btn = document.getElementById("calendar-btn");
+      var titleEl = document.getElementById("cal-title");
+      var gridEl = document.getElementById("cal-grid");
+      var detailEl = document.getElementById("cal-day-detail");
+      var prevBtn = document.getElementById("cal-prev");
+      var nextBtn = document.getElementById("cal-next");
+      var closeBtn = document.getElementById("cal-close");
+      if (!overlay || !btn) return;
+
+      var state = {
+        year: new Date().getFullYear(),
+        month: new Date().getMonth(),
+        selectedKey: null,
+        eventsByDate: null,
+        loading: false,
+      };
+
+      var MONTH_LABELS = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+      ];
+
+      function pad(n) { return n < 10 ? "0" + n : String(n); }
+      function dateKey(y, m, d) { return y + "-" + pad(m + 1) + "-" + pad(d); }
+
+      function isToday(y, m, d) {
+        var t = new Date();
+        return t.getFullYear() === y && t.getMonth() === m && t.getDate() === d;
+      }
+
+      function fmtTime(isoTime) {
+        if (!isoTime) return "";
+        var parts = isoTime.split(":");
+        var h = parseInt(parts[0], 10);
+        var m = parts[1] || "00";
+        var ampm = h < 12 ? "AM" : "PM";
+        var h12 = h % 12;
+        if (h12 === 0) h12 = 12;
+        return h12 + ":" + m + " " + ampm;
+      }
+
+      function loadEvents() {
+        if (state.eventsByDate !== null || state.loading) return;
+        state.loading = true;
+        detailEl.innerHTML = '<div class="cal-loading">Loading events…</div>';
+        fetch("/events", { headers: { "Accept": "application/json" } })
+          .then(function (r) { return r.ok ? r.json() : []; })
+          .then(function (events) {
+            var map = {};
+            (events || []).forEach(function (ev) {
+              if (!ev || ev.status !== "live") return;
+              var key = ev.date;
+              if (!key) return;
+              (map[key] = map[key] || []).push(ev);
+            });
+            Object.keys(map).forEach(function (k) {
+              map[k].sort(function (a, b) {
+                return (a.start_time || "").localeCompare(b.start_time || "");
+              });
+            });
+            state.eventsByDate = map;
+            state.loading = false;
+            render();
+          })
+          .catch(function () {
+            state.eventsByDate = {};
+            state.loading = false;
+            render();
+          });
+      }
+
+      function renderGrid() {
+        titleEl.textContent = MONTH_LABELS[state.month] + " " + state.year;
+        gridEl.innerHTML = "";
+        var first = new Date(state.year, state.month, 1);
+        var leading = first.getDay();
+        var daysInMonth = new Date(state.year, state.month + 1, 0).getDate();
+        for (var i = 0; i < leading; i++) {
+          var blank = document.createElement("div");
+          blank.className = "cal-cell empty";
+          gridEl.appendChild(blank);
+        }
+        for (var d = 1; d <= daysInMonth; d++) {
+          var cell = document.createElement("button");
+          cell.type = "button";
+          cell.className = "cal-cell";
+          cell.textContent = d;
+          var key = dateKey(state.year, state.month, d);
+          cell.setAttribute("data-key", key);
+          if (isToday(state.year, state.month, d)) cell.classList.add("today");
+          if (state.eventsByDate && state.eventsByDate[key]) cell.classList.add("has-events");
+          if (state.selectedKey === key) cell.classList.add("selected");
+          cell.addEventListener("click", (function (k) {
+            return function () { selectDay(k); };
+          })(key));
+          gridEl.appendChild(cell);
+        }
+      }
+
+      function renderDetail() {
+        if (state.loading) {
+          detailEl.innerHTML = '<div class="cal-loading">Loading events…</div>';
+          return;
+        }
+        if (!state.selectedKey) {
+          detailEl.innerHTML = '<div class="cal-empty-day">Tap a highlighted day to see what\'s on.</div>';
+          return;
+        }
+        var events = (state.eventsByDate && state.eventsByDate[state.selectedKey]) || [];
+        var parts = state.selectedKey.split("-");
+        var y = parseInt(parts[0], 10);
+        var m = parseInt(parts[1], 10) - 1;
+        var d = parseInt(parts[2], 10);
+        var label = MONTH_LABELS[m] + " " + d + ", " + y;
+        var html = "<h3>" + label + "</h3>";
+        if (events.length === 0) {
+          html += '<div class="cal-empty-day">Nothing on the calendar for that day.</div>';
+        } else {
+          events.forEach(function (ev) {
+            var when = fmtTime(ev.start_time);
+            if (ev.end_time) when += " – " + fmtTime(ev.end_time);
+            var titleTxt = (ev.title || "").replace(/</g, "&lt;");
+            var locTxt = (ev.location_name || "").replace(/</g, "&lt;");
+            html += '<div class="cal-event">' +
+              '<div class="title">' + titleTxt + "</div>" +
+              '<div class="when">' + when + "</div>" +
+              '<div class="where">' + locTxt + "</div>" +
+              "</div>";
+          });
+        }
+        detailEl.innerHTML = html;
+      }
+
+      function render() {
+        renderGrid();
+        renderDetail();
+      }
+
+      function selectDay(key) {
+        state.selectedKey = key;
+        render();
+      }
+
+      function openCalendar() {
+        overlay.classList.add("open");
+        document.body.style.overflow = "hidden";
+        loadEvents();
+        render();
+      }
+
+      function closeCalendar() {
+        overlay.classList.remove("open");
+        document.body.style.overflow = "";
+      }
+
+      btn.addEventListener("click", openCalendar);
+      closeBtn.addEventListener("click", closeCalendar);
+      overlay.addEventListener("click", function (e) {
+        if (e.target === overlay) closeCalendar();
+      });
+      prevBtn.addEventListener("click", function () {
+        state.month -= 1;
+        if (state.month < 0) { state.month = 11; state.year -= 1; }
+        render();
+      });
+      nextBtn.addEventListener("click", function () {
+        state.month += 1;
+        if (state.month > 11) { state.month = 0; state.year += 1; }
+        render();
+      });
+      document.addEventListener("keydown", function (e) {
+        if (!overlay.classList.contains("open")) return;
+        if (e.key === "Escape") { e.preventDefault(); closeCalendar(); }
+      });
+
+      // Expose a hook so AC-2 (chat integration) can open from the chat flow.
+      window.havasuChatCalendar = {
+        open: openCalendar,
+        close: closeCalendar,
+        selectDay: function (key) {
+          state.selectedKey = key;
+          // Jump to that month if needed.
+          var parts = (key || "").split("-");
+          if (parts.length === 3) {
+            state.year = parseInt(parts[0], 10);
+            state.month = parseInt(parts[1], 10) - 1;
+          }
+          openCalendar();
+        },
+      };
     })();
   </script>
 </body>
