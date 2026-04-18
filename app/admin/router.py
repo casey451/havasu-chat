@@ -525,7 +525,8 @@ def _dashboard_html_simple(pending: list[Event], live: list[Event], tab: str, so
     <p class="sub">{title}</p>
   </header>
   <nav class="tabs">
-    <a class="{('active' if tab == 'pending' else '')}" href="{pending_href}">Pending review</a>
+    <a class="{('active' if tab == 'queue' else '')}" href="/admin?tab=queue">Queue</a>
+    <a class="{('active' if tab == 'pending' else '')}" href="{pending_href}">Pending events</a>
     <a class="{('active' if tab == 'live' else '')}" href="{live_href}">Live events</a>
     <a class="{('active' if tab == 'programs' else '')}" href="/admin?tab=programs">Programs</a>
     <a href="/admin/analytics">Analytics</a>
@@ -640,7 +641,7 @@ def admin_dashboard(
     redir = _guard(request)
     if redir:
         return redir
-    if tab not in ("pending", "live", "programs"):
+    if tab not in ("pending", "live", "programs", "queue"):
         tab = "pending"
 
     if tab == "programs":
@@ -650,6 +651,23 @@ def admin_dashboard(
             .all()
         )
         return HTMLResponse(_programs_tab_html(programs))
+
+    if tab == "queue":
+        pending_events = (
+            db.query(Event)
+            .filter(Event.status == "pending_review")
+            .order_by(asc(Event.created_at))
+            .all()
+        )
+        pending_programs = (
+            db.query(Program)
+            .filter(Program.source == "parent", Program.is_active.is_(False))
+            .order_by(asc(Program.created_at))
+            .all()
+        )
+        return HTMLResponse(
+            _queue_tab_html(db, pending_events, pending_programs)
+        )
 
     sort_eff = _effective_sort(tab, sort)
 
@@ -1018,7 +1036,8 @@ def _programs_tab_shell(inner: str, title: str = "Programs") -> str:
     <p class="sub">{html.escape(title)}</p>
   </header>
   <nav class="tabs">
-    <a href="/admin?tab=pending">Pending review</a>
+    <a href="/admin?tab=queue">Queue</a>
+    <a href="/admin?tab=pending">Pending events</a>
     <a href="/admin?tab=live">Live events</a>
     <a class="active" href="/admin?tab=programs">Programs</a>
     <a href="/admin/analytics">Analytics</a>
@@ -1499,3 +1518,283 @@ def admin_program_activate(
     program.is_active = True
     db.commit()
     return RedirectResponse(url="/admin?tab=programs", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Unified moderation queue (Session AB)
+# ---------------------------------------------------------------------------
+
+_SUSPICIOUS_URL_PATTERNS: tuple[str, ...] = (
+    "bit.ly",
+    "tinyurl.com",
+    "goo.gl",
+    "ow.ly",
+    ".zip",
+    ".onion",
+    "xn--",
+)
+
+
+def _is_all_caps_title(title: str | None) -> bool:
+    if not title:
+        return False
+    letters = [c for c in title if c.isalpha()]
+    if len(letters) < 4:
+        return False
+    upper = sum(1 for c in letters if c.isupper())
+    return (upper / len(letters)) >= 0.85
+
+
+def _has_suspicious_url(url: str | None) -> bool:
+    if not url:
+        return False
+    lowered = url.lower()
+    return any(p in lowered for p in _SUSPICIOUS_URL_PATTERNS)
+
+
+def _very_short_description(desc: str | None) -> bool:
+    return len((desc or "").strip()) < 30
+
+
+def _event_is_duplicate(ev: Event, db: Session) -> bool:
+    norm = (ev.normalized_title or (ev.title or "").lower()).strip()
+    if not norm:
+        return False
+    existing = (
+        db.query(Event)
+        .filter(Event.id != ev.id)
+        .filter(func.lower(Event.title) == norm)
+        .filter(Event.status != "deleted")
+        .count()
+    )
+    return existing > 0
+
+
+def _program_is_duplicate(p: Program, db: Session) -> bool:
+    norm = (p.title or "").strip().lower()
+    if not norm:
+        return False
+    existing = (
+        db.query(Program)
+        .filter(Program.id != p.id)
+        .filter(func.lower(Program.title) == norm)
+        .count()
+    )
+    return existing > 0
+
+
+def _red_flags_for_event(ev: Event, db: Session) -> list[str]:
+    flags: list[str] = []
+    if _event_is_duplicate(ev, db):
+        flags.append("Duplicate title")
+    if _is_all_caps_title(ev.title):
+        flags.append("All caps")
+    if _has_suspicious_url(ev.event_url):
+        flags.append("Suspicious URL")
+    if _very_short_description(ev.description):
+        flags.append("Short description")
+    return flags
+
+
+def _red_flags_for_program(p: Program, db: Session) -> list[str]:
+    flags: list[str] = []
+    if _program_is_duplicate(p, db):
+        flags.append("Duplicate title")
+    if _is_all_caps_title(p.title):
+        flags.append("All caps")
+    if _has_suspicious_url(p.contact_url):
+        flags.append("Suspicious URL")
+    if _very_short_description(p.description):
+        flags.append("Short description")
+    return flags
+
+
+def _red_flag_pills_html(flags: list[str]) -> str:
+    if not flags:
+        return '<span class="pill pill-ok">Clean</span>'
+    return " ".join(
+        f'<span class="pill pill-warn" title="{html.escape(f)}">⚠ {html.escape(f)}</span>'
+        for f in flags
+    )
+
+
+def _queue_event_item_html(ev: Event, db: Session) -> str:
+    url = (ev.event_url or "").strip()
+    link = (
+        f'<a href="{_escape(url)}" target="_blank" rel="noopener">{_escape(url)}</a>'
+        if url
+        else "—"
+    )
+    flags = _red_flags_for_event(ev, db)
+    flag_html = _red_flag_pills_html(flags)
+    when = f"{_escape(ev.date.isoformat())} · {_escape(ev.start_time.isoformat())}"
+    desc = _escape(ev.description)
+    return f"""
+    <article class="queue-card" data-approve-url="/admin/event/{_escape(ev.id)}/approve" data-deny-url="/admin/event/{_escape(ev.id)}/reject">
+      <div class="queue-card-head">
+        <span class="pill pill-info">Event · pending</span>
+        {flag_html}
+      </div>
+      <h3>{_escape(ev.title)}</h3>
+      <p class="meta"><span class="label">When</span> {when}</p>
+      <p class="meta"><span class="label">Where</span> {_escape(ev.location_name)}</p>
+      <p class="desc">{desc}</p>
+      <p class="meta"><span class="label">Link</span> {link}</p>
+      <div class="actions">
+        <form method="post" action="/admin/event/{_escape(ev.id)}/approve" style="display:inline">
+          <button type="submit" class="btn ok">Approve (A)</button>
+        </form>
+        <form method="post" action="/admin/event/{_escape(ev.id)}/reject" style="display:inline">
+          <button type="submit" class="btn bad">Reject (D)</button>
+        </form>
+      </div>
+    </article>"""
+
+
+def _queue_program_item_html(p: Program, db: Session) -> str:
+    flags = _red_flags_for_program(p, db)
+    flag_html = _red_flag_pills_html(flags)
+    days = _format_schedule_days_admin(list(p.schedule_days or []))
+    schedule = (
+        f"Every {days} • {_escape(p.schedule_start_time or '')}–{_escape(p.schedule_end_time or '')}"
+    )
+    link_bits = [
+        _escape(x) for x in (p.contact_url, p.contact_email, p.contact_phone) if x
+    ]
+    contact_line = " · ".join(link_bits) if link_bits else "—"
+    return f"""
+    <article class="queue-card" data-approve-url="/admin/programs/{_escape(p.id)}/activate" data-deny-url="/admin/programs/{_escape(p.id)}/deactivate">
+      <div class="queue-card-head">
+        <span class="pill pill-info">Program · parent submission</span>
+        {flag_html}
+      </div>
+      <h3>{_escape(p.title)}</h3>
+      <p class="meta"><span class="label">Category</span> {_escape(p.activity_category or "")}</p>
+      <p class="meta"><span class="label">Provider</span> {_escape(p.provider_name or "")}</p>
+      <p class="meta"><span class="label">Schedule</span> {schedule}</p>
+      <p class="meta"><span class="label">Where</span> {_escape(p.location_name or "")}</p>
+      <p class="desc">{_escape(p.description or "")}</p>
+      <p class="meta"><span class="label">Contact</span> {contact_line}</p>
+      <div class="actions">
+        <form method="post" action="/admin/programs/{_escape(p.id)}/activate" style="display:inline">
+          <button type="submit" class="btn ok">Approve (A)</button>
+        </form>
+        <form method="post" action="/admin/programs/{_escape(p.id)}/deactivate" style="display:inline">
+          <button type="submit" class="btn bad">Reject (D)</button>
+        </form>
+        <a class="btn-link" href="/admin/programs/{_escape(p.id)}/edit">Edit (E)</a>
+      </div>
+    </article>"""
+
+
+def _queue_tab_html(
+    db: Session, events: list[Event], programs: list[Program]
+) -> str:
+    total = len(events) + len(programs)
+    if total == 0:
+        body_inner = '<p class="empty">Nothing waiting for review. You\'re caught up.</p>'
+    else:
+        event_cards = "\n".join(_queue_event_item_html(ev, db) for ev in events)
+        program_cards = "\n".join(
+            _queue_program_item_html(p, db) for p in programs
+        )
+        sections: list[str] = []
+        if events:
+            sections.append(
+                f'<h2 class="queue-section-title">Events ({len(events)})</h2>{event_cards}'
+            )
+        if programs:
+            sections.append(
+                f'<h2 class="queue-section-title">Programs ({len(programs)})</h2>{program_cards}'
+            )
+        body_inner = "\n".join(sections)
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Admin — Moderation queue</title>
+  <style>
+    * {{ box-sizing: border-box; }}
+    body {{ font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #fff; color: #212529;
+      line-height: 1.45; padding-bottom: 48px; }}
+    header {{ max-width: 720px; margin: 0 auto 16px; }}
+    h1 {{ font-size: 1.35rem; margin: 0 0 4px; }}
+    .sub {{ color: #6c757d; font-size: 0.9rem; }}
+    .tabs {{ display: flex; gap: 8px; max-width: 720px; margin: 0 auto 16px; flex-wrap: wrap; }}
+    .tabs a {{
+      flex: 1; min-width: 130px; text-align: center; padding: 14px 16px; border-radius: 10px;
+      text-decoration: none; font-weight: 600; border: 2px solid #dee2e6; color: #495057; background: #f8f9fa;
+      min-height: 48px; display: flex; align-items: center; justify-content: center;
+    }}
+    .tabs a.active {{ border-color: #0d6efd; background: #e7f1ff; color: #0a58ca; }}
+    .panel {{ max-width: 720px; margin: 0 auto; }}
+    .queue-section-title {{ font-size: 1.05rem; margin: 22px 0 10px; color: #495057; }}
+    .queue-card {{ border: 1px solid #e9ecef; border-radius: 12px; padding: 16px; margin-bottom: 14px;
+      background: #fafafa; }}
+    .queue-card h3 {{ margin: 6px 0 10px; font-size: 1.1rem; }}
+    .queue-card-head {{ display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }}
+    .pill {{ display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; }}
+    .pill-ok {{ background: #d1e7dd; color: #0f5132; }}
+    .pill-info {{ background: #cfe2ff; color: #084298; }}
+    .pill-warn {{ background: #fff3cd; color: #664d03; }}
+    .pill-muted {{ background: #e2e3e5; color: #41464b; }}
+    .meta {{ margin: 6px 0; font-size: 0.92rem; color: #495057; word-break: break-word; }}
+    .label {{ color: #868e96; font-weight: 600; margin-right: 6px; }}
+    .desc {{ white-space: pre-wrap; margin: 10px 0; }}
+    .actions {{ margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }}
+    .btn {{ min-height: 48px; min-width: 120px; padding: 12px 18px; font-size: 1rem; font-weight: 600;
+      border: none; border-radius: 10px; cursor: pointer; }}
+    .btn.ok {{ background: #198754; color: #fff; }}
+    .btn.bad {{ background: #dc3545; color: #fff; }}
+    .btn-link {{ color: #0d6efd; text-decoration: none; font-weight: 600; padding: 12px 18px;
+      min-height: 48px; display: inline-flex; align-items: center; border: 1px solid #dee2e6;
+      border-radius: 10px; background: #fff; }}
+    .empty {{ color: #6c757d; padding: 24px; text-align: center; }}
+    .shortcut-hint {{ color: #868e96; font-size: 0.82rem; margin: 6px 0 14px;
+      max-width: 720px; margin-left: auto; margin-right: auto; }}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Moderation queue</h1>
+    <p class="sub">Pending events and parent-submitted programs. Approve, reject, or edit.</p>
+  </header>
+  <nav class="tabs">
+    <a class="active" href="/admin?tab=queue">Queue</a>
+    <a href="/admin?tab=pending">Pending events</a>
+    <a href="/admin?tab=live">Live events</a>
+    <a href="/admin?tab=programs">Programs</a>
+    <a href="/admin/analytics">Analytics</a>
+  </nav>
+  <p class="shortcut-hint">Desktop shortcuts: <b>A</b> approve the first card, <b>D</b> reject it.</p>
+  <div class="panel">
+    {body_inner}
+  </div>
+  <script>
+    // Keyboard shortcuts for desktop moderation. Ignored when a form field is focused.
+    (function () {{
+      function firstCard() {{ return document.querySelector('.queue-card'); }}
+      function submitUrl(url) {{
+        if (!url) return;
+        var form = document.createElement('form');
+        form.method = 'post';
+        form.action = url;
+        document.body.appendChild(form);
+        form.submit();
+      }}
+      document.addEventListener('keydown', function (e) {{
+        var tag = (e.target && e.target.tagName || '').toUpperCase();
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        var card = firstCard();
+        if (!card) return;
+        var k = (e.key || '').toLowerCase();
+        if (k === 'a') {{ e.preventDefault(); submitUrl(card.getAttribute('data-approve-url')); }}
+        else if (k === 'd') {{ e.preventDefault(); submitUrl(card.getAttribute('data-deny-url')); }}
+      }});
+    }})();
+  </script>
+</body>
+</html>"""

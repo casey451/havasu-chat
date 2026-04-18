@@ -380,3 +380,188 @@ class AdminProgramsTests(unittest.TestCase):
         self.assertEqual(list_r.status_code, 200)
         titles = {item["title"] for item in list_r.json()}
         self.assertNotIn("Soon Deactivated", titles)
+
+
+class AdminModerationQueueTests(unittest.TestCase):
+    """Unified moderation queue (Session AB)."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.client_context = TestClient(app)
+        cls.client = cls.client_context.__enter__()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.client_context.__exit__(None, None, None)
+
+    def setUp(self) -> None:
+        os.environ["ADMIN_PASSWORD"] = "changeme"
+        with SessionLocal() as db:
+            db.query(Event).delete()
+            db.query(Program).delete()
+            db.commit()
+
+    def _login(self) -> None:
+        r = self.__class__.client.post(
+            "/admin/login",
+            data={"password": "changeme"},
+            follow_redirects=False,
+        )
+        self.assertEqual(r.status_code, 303)
+
+    def _insert_pending_event(self, title: str, **overrides) -> Event:
+        base = {
+            "title": title,
+            "date": date(2026, 8, 1),
+            "start_time": time_type(18, 0, 0),
+            "end_time": None,
+            "location_name": "Rotary Park",
+            "description": "A community event happening in Lake Havasu for all ages to enjoy.",
+            "event_url": "https://example.com/event",
+            "contact_name": None,
+            "contact_phone": None,
+            "tags": [],
+            "embedding": None,
+            "status": "pending_review",
+            "created_by": "user",
+            "admin_review_by": None,
+        }
+        base.update(overrides)
+        ev = Event.from_create(EventCreate(**base))
+        ev.status = "pending_review"
+        with SessionLocal() as db:
+            db.add(ev)
+            db.commit()
+            db.refresh(ev)
+        return ev
+
+    def _insert_parent_program(self, title: str, **overrides) -> Program:
+        defaults = {
+            "title": title,
+            "description": "Weekly class submitted by a parent, pending admin approval.",
+            "activity_category": "swim",
+            "schedule_days": ["saturday"],
+            "schedule_start_time": "09:00",
+            "schedule_end_time": "10:00",
+            "location_name": "Havasu Aquatic Center",
+            "provider_name": "Local parent",
+            "source": "parent",
+            "is_active": False,
+            "verified": False,
+            "tags": [],
+        }
+        defaults.update(overrides)
+        p = Program(**defaults)
+        with SessionLocal() as db:
+            db.add(p)
+            db.commit()
+            db.refresh(p)
+        return p
+
+    def test_queue_renders_pending_events_and_parent_programs(self) -> None:
+        self._insert_pending_event("Queue Visible Event")
+        self._insert_parent_program("Queue Visible Program")
+        # A non-parent inactive program should NOT appear in the queue.
+        self._insert_parent_program(
+            "Admin Inactive Program",
+            source="admin",
+        )
+
+        self._login()
+        r = self.__class__.client.get("/admin?tab=queue")
+        self.assertEqual(r.status_code, 200)
+        body = r.text
+        self.assertIn("Queue Visible Event", body)
+        self.assertIn("Queue Visible Program", body)
+        self.assertNotIn("Admin Inactive Program", body)
+        self.assertIn("Moderation queue", body)
+
+    def test_queue_flags_duplicates_and_all_caps_and_short_desc(self) -> None:
+        # Seed a live event that shares a title with a pending submission.
+        live = EventCreate(
+            title="Concert Night",
+            date=date(2026, 8, 2),
+            start_time=time_type(19, 0, 0),
+            end_time=None,
+            location_name="Some Venue",
+            description="A live concert night at a permanent venue in town.",
+            event_url="https://example.com/live",
+            contact_name=None,
+            contact_phone=None,
+            tags=[],
+            embedding=None,
+            status="live",
+            created_by="user",
+            admin_review_by=None,
+        )
+        with SessionLocal() as db:
+            db.add(Event.from_create(live))
+            db.commit()
+
+        # Pending with same title, all-caps, short desc, and suspicious URL.
+        # Built via the ORM directly because EventCreate enforces a 20-char
+        # description minimum — the queue's "Short description" flag exists
+        # precisely to catch rows that slip past (or predate) that rule.
+        with SessionLocal() as db:
+            pending = Event(
+                title="CONCERT NIGHT",
+                normalized_title="concert night",
+                date=date(2026, 8, 10),
+                start_time=time_type(19, 0, 0),
+                end_time=None,
+                location_name="Some Venue",
+                location_normalized="some venue",
+                description="Too short.",
+                event_url="https://bit.ly/mystery",
+                contact_name=None,
+                contact_phone=None,
+                tags=[],
+                embedding=None,
+                status="pending_review",
+                source="admin",
+                verified=False,
+                created_by="user",
+            )
+            db.add(pending)
+            db.commit()
+
+        self._login()
+        r = self.__class__.client.get("/admin?tab=queue")
+        self.assertEqual(r.status_code, 200)
+        body = r.text
+        self.assertIn("Duplicate title", body)
+        self.assertIn("All caps", body)
+        self.assertIn("Suspicious URL", body)
+        self.assertIn("Short description", body)
+
+    def test_queue_approve_event_flow(self) -> None:
+        ev = self._insert_pending_event("Approvable Event")
+        self._login()
+        r = self.__class__.client.post(
+            f"/admin/event/{ev.id}/approve",
+            follow_redirects=False,
+        )
+        self.assertEqual(r.status_code, 303)
+        with SessionLocal() as db:
+            refreshed = db.get(Event, ev.id)
+        assert refreshed is not None
+        self.assertEqual(refreshed.status, "live")
+
+    def test_queue_approve_parent_program_flow(self) -> None:
+        p = self._insert_parent_program("Approvable Parent Program")
+        self._login()
+        r = self.__class__.client.post(
+            f"/admin/programs/{p.id}/activate",
+            follow_redirects=False,
+        )
+        self.assertEqual(r.status_code, 303)
+        with SessionLocal() as db:
+            refreshed = db.get(Program, p.id)
+        assert refreshed is not None
+        self.assertTrue(refreshed.is_active)
+
+    def test_queue_empty_state(self) -> None:
+        self._login()
+        r = self.__class__.client.get("/admin?tab=queue")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("You're caught up", r.text)
