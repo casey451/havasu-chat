@@ -79,6 +79,13 @@ class Phase8StabilizationTests(unittest.TestCase):
         self.assertTrue(body.get("db_connected"))
         self.assertIsInstance(body.get("event_count"), int)
 
+    def test_health_responds_within_2_seconds(self) -> None:
+        start = time.monotonic()
+        r = self.__class__.client.get("/health")
+        elapsed = time.monotonic() - start
+        self.assertEqual(r.status_code, 200)
+        self.assertLess(elapsed, 2.0, f"/health took {elapsed:.3f}s (must be < 2s)")
+
     def test_chat_logs_written_for_turn(self) -> None:
         self.__class__.client.post(
             "/chat",

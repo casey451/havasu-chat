@@ -280,7 +280,7 @@ def health_check(db: Session = Depends(get_db)) -> dict[str, Any]:
 
 
 @app.post("/events", response_model=EventRead)
-@limiter.limit("10/minute")
+@limiter.limit("5/minute")
 def create_event(request: Request, payload: EventCreate, db: Session = Depends(get_db)) -> Event:
     event = Event.from_create(payload)
     db.add(event)
