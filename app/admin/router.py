@@ -501,6 +501,11 @@ def _dashboard_html_simple(pending: list[Event], live: list[Event], tab: str, so
     .embed-fallback {{ background: #fff3cd; color: #664d03; }}
     .embed-none {{ background: #e2e3e5; color: #41464b; }}
     .embed-warn {{ background: #f8d7da; color: #842029; }}
+    .pill {{ display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; }}
+    .pill-ok {{ background: #d1e7dd; color: #0f5132; }}
+    .pill-info {{ background: #cfe2ff; color: #084298; }}
+    .pill-warn {{ background: #fff3cd; color: #664d03; }}
+    .pill-muted {{ background: #e2e3e5; color: #41464b; }}
     .card-meta-muted {{ margin: 0 0 10px; font-size: 0.82rem; color: #868e96; line-height: 1.4; word-break: break-word; }}
     .meta {{ margin: 6px 0; font-size: 0.92rem; color: #495057; word-break: break-word; }}
     .label {{ color: #868e96; font-weight: 600; margin-right: 6px; }}
@@ -557,12 +562,15 @@ def _card_html(ev: Event, mode: Literal["pending", "live"]) -> str:
 
     tags_block = _tags_pills_html(ev)
     badge_html = _embedding_badge_html(ev)
+    source_badge = _source_verified_badge(
+        getattr(ev, "source", None), bool(getattr(ev, "verified", False))
+    )
     preview = ""
     if mode == "live":
         preview = (
             f'<a href="/events/{_escape(ev.id)}" target="_blank" rel="noopener">Preview as user</a>'
         )
-    badges_cell = f'<div class="card-badges">{badge_html}'
+    badges_cell = f'<div class="card-badges">{source_badge} {badge_html}'
     if preview:
         badges_cell += f'<div style="margin-top:6px">{preview}</div>'
     badges_cell += "</div>"
@@ -825,16 +833,25 @@ def _program_status_badge(p: Program) -> str:
     return '<span class="pill pill-muted">Inactive</span>'
 
 
-def _program_source_badge(source: str | None) -> str:
+def _source_verified_badge(source: str | None, verified: bool) -> str:
+    """Two-tier source badge (Session AA-1).
+
+    Green "Verified" for admin or claimed provider, yellow "Provider
+    (unclaimed)" for provider-sourced but not yet verified, blue "Parent"
+    for community submissions, gray "Scraped" for scraped rows.
+    """
     src = (source or "admin").lower()
-    label = src.capitalize()
-    cls = {
-        "provider": "pill-info",
-        "parent": "pill-parent",
-        "admin": "pill-ok",
-        "scraped": "pill-muted",
-    }.get(src, "pill-muted")
-    return f'<span class="pill {cls}">{html.escape(label)}</span>'
+    if src == "admin":
+        return '<span class="pill pill-ok">Verified</span>'
+    if src == "provider":
+        if verified:
+            return '<span class="pill pill-ok">Verified provider</span>'
+        return '<span class="pill pill-warn">Provider (unclaimed)</span>'
+    if src == "parent":
+        return '<span class="pill pill-info">Parent</span>'
+    if src == "scraped":
+        return '<span class="pill pill-muted">Scraped</span>'
+    return f'<span class="pill pill-muted">{html.escape(src.capitalize())}</span>'
 
 
 def _program_tag_pills(p: Program) -> str:
@@ -901,7 +918,7 @@ def _program_card_admin_html(p: Program) -> str:
 
     top_badges = (
         f'<div class="card-badges">{_program_status_badge(p)} '
-        f'{_program_source_badge(p.source)}</div>'
+        f'{_source_verified_badge(p.source, bool(p.verified))}</div>'
     )
     top_row = f'<div class="card-top">{tag_pills or "<div></div>"}{top_badges}</div>'
 
@@ -957,7 +974,7 @@ def _programs_tab_shell(inner: str, title: str = "Programs") -> str:
     .pill {{ display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 600; }}
     .pill-ok {{ background: #d1e7dd; color: #0f5132; }}
     .pill-info {{ background: #cfe2ff; color: #084298; }}
-    .pill-parent {{ background: #fff3cd; color: #664d03; }}
+    .pill-warn {{ background: #fff3cd; color: #664d03; }}
     .pill-muted {{ background: #e2e3e5; color: #41464b; }}
     .meta {{ margin: 6px 0; font-size: 0.92rem; color: #495057; word-break: break-word; }}
     .label {{ color: #868e96; font-weight: 600; margin-right: 6px; }}
@@ -1329,6 +1346,7 @@ def admin_program_create(
         contact_email=payload.contact_email,
         contact_url=payload.contact_url,
         source=payload.source,
+        verified=(payload.source == "admin"),
         is_active=payload.is_active,
         tags=list(payload.tags),
         embedding=None,
@@ -1434,7 +1452,19 @@ def admin_program_update(
     program.contact_phone = payload.contact_phone
     program.contact_email = payload.contact_email
     program.contact_url = payload.contact_url
-    program.source = payload.source
+    # If admin changed the source to 'admin', auto-verify; if they changed away
+    # from admin, only reset verified when it was previously True by auto-verify.
+    new_source = payload.source
+    if program.source != new_source:
+        if new_source == "admin":
+            program.verified = True
+        elif program.source == "admin" and not program.verified:
+            # no change needed
+            pass
+        elif program.source == "admin":
+            # moving away from admin: clear verified so future claim flow can set it
+            program.verified = False
+    program.source = new_source
     program.is_active = payload.is_active
     program.tags = list(payload.tags)
     db.commit()

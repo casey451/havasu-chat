@@ -12,6 +12,9 @@ router = APIRouter()
 
 
 def _program_from_create(payload: ProgramCreate) -> Program:
+    # Admin-submitted entries are auto-verified; provider/parent stay unverified
+    # until AA-3's claim flow promotes them.
+    verified = payload.source == "admin"
     return Program(
         title=payload.title,
         description=payload.description,
@@ -29,6 +32,7 @@ def _program_from_create(payload: ProgramCreate) -> Program:
         contact_email=payload.contact_email,
         contact_url=payload.contact_url,
         source=payload.source,
+        verified=verified,
         is_active=payload.is_active,
         tags=list(payload.tags),
         embedding=payload.embedding,

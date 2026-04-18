@@ -28,6 +28,8 @@ class Event(Base):
     tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     embedding: Mapped[list[float] | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String, default="live", nullable=False)
+    source: Mapped[str] = mapped_column(String, default="admin", nullable=False)
+    verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
     created_by: Mapped[str] = mapped_column(String, default="user", nullable=False)
     admin_review_by: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -36,6 +38,11 @@ class Event(Base):
     def from_create(cls, payload: EventCreate) -> "Event":
         title = payload.title.strip()
         location_name = payload.location_name.strip()
+        source = (getattr(payload, "source", None) or "admin").strip() or "admin"
+        verified_in = getattr(payload, "verified", None)
+        # Admin-submitted entries are auto-verified; other sources stay unverified
+        # until AA-3's claim flow (or admin edit).
+        verified = bool(verified_in) if verified_in is not None else source == "admin"
         return cls(
             title=title,
             normalized_title=title.lower().strip(),
@@ -51,6 +58,8 @@ class Event(Base):
             tags=payload.tags,
             embedding=payload.embedding,
             status=payload.status,
+            source=source,
+            verified=verified,
             created_by=payload.created_by,
             admin_review_by=payload.admin_review_by,
         )
@@ -87,6 +96,7 @@ class Program(Base):
     contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     contact_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     source: Mapped[str] = mapped_column(String, default="admin", nullable=False)
+    verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     embedding: Mapped[list[float] | None] = mapped_column(JSON, nullable=True)
