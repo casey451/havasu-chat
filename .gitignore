@@ -1,4 +1,5 @@
 .env
+.claude/
 search_debug.log
 *.db
 __pycache__/

@@ -1,7 +1,8 @@
 # Havasu Chat — Project Handoff Document
 
-> **Purpose:** Single source of truth for starting a fresh Cursor or Claude Code session.
-> Do not summarize or skip sections. Every detail here was chosen deliberately.
+> **Track B / concierge spec:** Repo-root **`HAVASU_CHAT_MASTER.md`** (3-tier program Q&A, seed YAML) and **`HAVASU_CHAT_CONCIERGE_HANDOFF.md`** (build plan, Phase 1+). This file stays focused on the **shipping events-search app** (Track A).
+
+> **Purpose:** Single source of truth for starting a fresh Cursor or Claude Code session **for Track A**. Do not summarize or skip sections. Every detail here was chosen deliberately.
 
 ---
 
@@ -97,7 +98,11 @@ Push any commit to `main` on GitHub → Railway detects it via webhook → Nixpa
 - **OpenAI query embedding fallback** — if the OpenAI API call for query embedding fails, `embedding_from_openai` is False. The threshold filter is then based more heavily on literal/synonym bonuses. General queries get weaker embedding gating in fallback mode.
 
 ### Test count and status
-**91 tests, all passing.** Test files:
+**Full suite:** `python -m pytest tests -q` — **~172 tests** collected (includes newer `app/chat` tests: normalizer, entity matcher, tier1 templates). A legacy Phase 3 search test may occasionally fail (`test_weekend_search_asks_activity_then_returns_grouped_results`); fix before treating CI as green.
+
+**Historical note (Session AD era):** This section previously listed **91 tests, all passing.** The repo has since gained programs, permalinks, AA-1, and tier-build tests.
+
+**Core handoff-era test files:**
 - `tests/test_phase1.py` — basic event CRUD
 - `tests/test_phase2.py` — slot extraction
 - `tests/test_phase3.py` — intent detection
@@ -127,9 +132,12 @@ havasu-chat/
 │   │   └── router.py              Admin panel endpoints: login, dashboard, approve/reject/delete,
 │   │                              reseed, reembed-all, retag-all. Full HTML generated server-side.
 │   ├── chat/
-│   │   └── router.py            ★ Main chat endpoint. Intent detection → slot extraction →
-│   │                              search execution → response formatting. _chat_inner() and
-│   │                              _run_search_core() are the key functions.
+│   │   ├── router.py            ★ Main chat endpoint (Track A). Intent detection → slot extraction →
+│   │   │                          search execution → response formatting. _chat_inner() and
+│   │   │                          _run_search_core() are the key functions.
+│   │   ├── normalizer.py        Track B: query normalization for tiered program Q&A (HAVASU_CHAT_MASTER).
+│   │   ├── entity_matcher.py    Track B: fuzzy provider match (`rapidfuzz`).
+│   │   └── tier1_templates.py Track B: Tier 1 regex patterns + `render()` (not wired to POST /chat yet).
 │   ├── core/
 │   │   ├── conversation_copy.py   All user-facing strings (greeting, no-match, listing nudges).
 │   │   ├── dedupe.py              Duplicate event detection via cosine similarity.
@@ -171,10 +179,12 @@ havasu-chat/
 │   ├── run_query_battery.py       120-query production battery (HTTP). Writes JSON summary to stdout;
 │   │                              save as scripts/battery_results.json for regression compares.
 │   ├── battery_results.json       Canonical baseline capture (Session T: **96.67%** pass rate); see scripts/README.md.
-│   └── battery_session_t_final.json Historical Session T capture (kept for diff archaeology).
+│   └── (optional) Save ad-hoc battery JSON/log captures locally; do not commit generated session artifacts.
 ├── docs/
-│   ├── project-handoff.md         This file.
+│   ├── project-handoff.md         This file (Track A deep-dive).
+│   ├── HAVASU_CHAT_SEED_INSTRUCTIONS.md  Program/event seed source for `seed_from_havasu_instructions.py`.
 │   └── query-test-battery.md      120-query expected labels + notes; keep in sync with runner.
+├── HAVASU_CHAT_MASTER.md          (repo root) Full 3-tier spec + seed YAML (Track B + concierge).
 ├── Procfile                       Railway start command.
 ├── nixpacks.toml                  Railway build config (pip install + uvicorn start).
 ├── requirements.txt               Dependencies (pinned versions; see Session C).

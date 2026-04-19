@@ -504,7 +504,7 @@ Phases execute in order. Each phase ends with a specific, verifiable exit criter
 **1.7 Field history baseline.**
 - For every provider, program, and event: write `field_history` rows for every tracked field with `source = 'seed'`, `state = 'established'`, `submitted_at = now`, `new_value = current field value`.
 - This is the baseline for future corrections in Phase 5. Without it, the first user correction has no "established" row to compare against.
-- Tracked fields per entity type are defined in a constants module (create `app/core/field_tracking.py`): providers track phone/email/address/hours/website; programs track cost/schedule_start_time/schedule_end_time/schedule_note/age_min/age_max/contact_phone; events track date/time/location/cost.
+- Tracked fields per entity type are defined in `app/core/field_tracking.py`: providers track phone/email/address/hours/website; programs track cost/schedule_start_time/schedule_end_time/schedule_note/age_min/age_max/contact_phone; events track **`date`**, **`start_time`**, **`end_time`**, **`location_name`** (the Event ORM has no single `time` column and no `cost` column — baselines use the actual column names; see `field_tracking.py` docstring).
 - Idempotent: re-running does not create duplicate rows for the same (entity_type, entity_id, field_name, state='established') combination.
 
 **Exit criterion:**
