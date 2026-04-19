@@ -1,0 +1,116 @@
+# Format: query | expected_intent | expected_entity_or_category
+# From HAVASU_CHAT_MASTER.md section 6
+
+# 6.1 DATE_LOOKUP
+when is desert storm poker run | DATE_LOOKUP | Desert Storm Poker Run
+whens desert storm this year | DATE_LOOKUP | Desert Storm Poker Run
+desert storm dates? | DATE_LOOKUP | Desert Storm Poker Run
+when does little league season start | OPEN_ENDED | Schedule/season info
+when is next bmx race | DATE_LOOKUP | Lake Havasu BMX
+ballet havasu recital date | DATE_LOOKUP | Ballet Havasu
+when does sonics season start | OPEN_ENDED | Schedule/season info
+havasu lions season start date | OPEN_ENDED | Schedule/season info
+when are swim lessons starting | OPEN_ENDED | Schedule/season info
+flips for fun schedule start date | OPEN_ENDED | Schedule/season info
+
+# 6.2 TIME_LOOKUP
+what time does desert storm start | TIME_LOOKUP | Desert Storm Poker Run
+what time is the bmx race tonight | TIME_LOOKUP | Lake Havasu BMX
+altitude hours today what time open | TIME_LOOKUP | Altitude Trampoline Park
+what time is gymnastics class at sonics | OPEN_ENDED | Class schedule info
+when does jiu jitsu class start tonight | TIME_LOOKUP | Tap Room Jiu Jitsu
+havasu lanes closing time | TIME_LOOKUP | Havasu Lanes
+what time is dance class ballet havasu | OPEN_ENDED | Class schedule info
+aquatic center open time | TIME_LOOKUP | Havasu Aquatic Center
+what time are mma classes bridge city | OPEN_ENDED | Class schedule info
+tkd class time black belt academy | OPEN_ENDED | Class schedule info
+
+# 6.3 LOCATION_LOOKUP
+where is altitude trampoline park | LOCATION_LOOKUP | Altitude Trampoline Park
+where is the bowling alley | LOCATION_LOOKUP | Havasu Lanes
+where is that gymnastics place on kiowa | LOCATION_LOOKUP | Sonics
+where is bmx track | LOCATION_LOOKUP | Lake Havasu BMX
+where is ballet havasu located | LOCATION_LOOKUP | Ballet Havasu
+havasu aquatic center address | LOCATION_LOOKUP | Havasu Aquatic Center
+where is tap room bjj | LOCATION_LOOKUP | Tap Room Jiu Jitsu
+iron wolf golf location | LOCATION_LOOKUP | Iron Wolf Golf
+where is flips for fun | LOCATION_LOOKUP | Flips for Fun Gymnastics
+where are swim lessons aqua beginnings | LOCATION_LOOKUP | Aqua Beginnings
+
+# 6.4 COST_LOOKUP
+how much is altitude trampoline park | COST_LOOKUP | Altitude Trampoline Park
+trampoline price havasu | COST_LOOKUP | Altitude Trampoline Park
+how much does bmx cost | COST_LOOKUP | Lake Havasu BMX
+swim lessons price aqua beginnings | COST_LOOKUP | Aqua Beginnings
+bowling cost per game havasu lanes | COST_LOOKUP | Havasu Lanes
+sonics gymnastics cost | COST_LOOKUP | Sonics
+how much is ballet classes havasu | COST_LOOKUP | Ballet Havasu
+tkd classes cost black belt academy | COST_LOOKUP | Black Belt Academy
+mma classes price bridge city | COST_LOOKUP | Bridge City Combat
+golf membership iron wolf cost | COST_LOOKUP | Iron Wolf Golf
+
+# 6.5 PHONE_LOOKUP
+phone number altitude havasu | PHONE_LOOKUP | Altitude Trampoline Park
+havasu lanes phone | PHONE_LOOKUP | Havasu Lanes
+call the bmx track number | PHONE_LOOKUP | Lake Havasu BMX
+whats the phone for sonics | PHONE_LOOKUP | Sonics
+aqua beginnings contact number | PHONE_LOOKUP | Aqua Beginnings
+ballet havasu phone number | PHONE_LOOKUP | Ballet Havasu
+tap room bjj phone | PHONE_LOOKUP | Tap Room Jiu Jitsu
+flips for fun number | PHONE_LOOKUP | Flips for Fun Gymnastics
+black belt academy phone number | PHONE_LOOKUP | Black Belt Academy
+iron wolf golf phone | PHONE_LOOKUP | Iron Wolf Golf
+
+# 6.6 HOURS_LOOKUP
+what are altitude hours | HOURS_LOOKUP | Altitude Trampoline Park
+havasu lanes hours today | HOURS_LOOKUP | Havasu Lanes
+bmx track hours | HOURS_LOOKUP | Lake Havasu BMX
+sonics open hours | HOURS_LOOKUP | Sonics
+aquatic center hours | HOURS_LOOKUP | Havasu Aquatic Center
+ballet havasu hours | HOURS_LOOKUP | Ballet Havasu
+flips for fun open times | HOURS_LOOKUP | Flips for Fun Gymnastics
+tap room jiu jitsu hours | HOURS_LOOKUP | Tap Room Jiu Jitsu
+bridge city mma hours | HOURS_LOOKUP | Bridge City Combat
+iron wolf golf hours | HOURS_LOOKUP | Iron Wolf Golf
+
+# 6.7 WEBSITE_LOOKUP
+altitude trampoline website | WEBSITE_LOOKUP | Altitude Trampoline Park
+havasu lanes website | WEBSITE_LOOKUP | Havasu Lanes
+bmx havasu website | WEBSITE_LOOKUP | Lake Havasu BMX
+sonics gymnastics website | WEBSITE_LOOKUP | Sonics
+aqua beginnings website | WEBSITE_LOOKUP | Aqua Beginnings
+ballet havasu site | WEBSITE_LOOKUP | Ballet Havasu
+flips for fun website | WEBSITE_LOOKUP | Flips for Fun Gymnastics
+tap room bjj site | WEBSITE_LOOKUP | Tap Room Jiu Jitsu
+black belt academy website | WEBSITE_LOOKUP | Black Belt Academy
+iron wolf golf website | WEBSITE_LOOKUP | Iron Wolf Golf
+
+# 6.8 AGE_LOOKUP
+what age is bmx for | AGE_LOOKUP | Lake Havasu BMX
+age for sonics gymnastics | AGE_LOOKUP | Sonics
+ballet havasu age requirements | AGE_LOOKUP | Ballet Havasu
+swim lessons ages aqua beginnings | AGE_LOOKUP | Aqua Beginnings
+what ages little league | AGE_LOOKUP | Lake Havasu Little League
+havasu lions age groups | AGE_LOOKUP | Havasu Lions FC
+tkd age black belt academy | AGE_LOOKUP | Black Belt Academy
+mma classes age bridge city | AGE_LOOKUP | Bridge City Combat
+gymnastics for toddlers havasu | AGE_LOOKUP | Gymnastics options
+youngest age for dance havasu | AGE_LOOKUP | Dance options
+
+# 6.9 LIST_BY_CATEGORY
+what soccer leagues are in havasu | LIST_BY_CATEGORY | Soccer programs
+kids gymnastics places havasu | LIST_BY_CATEGORY | Gymnastics
+martial arts for kids havasu | LIST_BY_CATEGORY | Martial arts
+swim lessons options havasu | LIST_BY_CATEGORY | Swim
+bowling places havasu | LIST_BY_CATEGORY | Bowling
+golf courses havasu | LIST_BY_CATEGORY | Golf
+dance classes for kids havasu | LIST_BY_CATEGORY | Dance
+trampoline parks near me havasu | LIST_BY_CATEGORY | Trampoline
+youth sports havasu | LIST_BY_CATEGORY | Youth sports
+mma gyms havasu | LIST_BY_CATEGORY | MMA
+
+# 6.10 OPEN_NOW / NEXT_OCCURRENCE
+is altitude open right now | HOURS_LOOKUP | open_now
+is havasu lanes open | HOURS_LOOKUP | open_now
+when's the next bmx race | NEXT_OCCURRENCE | BMX
+next bmx | NEXT_OCCURRENCE | BMX
