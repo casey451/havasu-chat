@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.chat.intent_classifier import IntentResult
 from app.chat.unified_router import ChatResponse, route
 from app.db.database import SessionLocal
-from app.db.models import ChatLog, Program
+from app.db.models import ChatLog, Program, Provider
 from app.schemas.program import ProgramCreate
 
 
@@ -65,13 +65,14 @@ def db() -> Session:
 
 
 def test_ask_placeholder_metadata(db: Session) -> None:
-    r = route("What time does altitude open?", "sess-ask", db)
+    r = route("What is fun to do this weekend?", "sess-ask", db)
     assert isinstance(r, ChatResponse)
     assert r.mode == "ask"
-    assert r.sub_intent == "TIME_LOOKUP"
+    assert r.sub_intent == "OPEN_ENDED"
     assert r.tier_used == "placeholder"
     assert "Ask mode:" in r.response
-    assert "TIME_LOOKUP" in r.response
+    assert "OPEN_ENDED" in r.response
+    assert "Phase 3.2" in r.response
     assert 0 < r.latency_ms < 500
     row = _latest_unified_log(db)
     assert row is not None
@@ -145,6 +146,24 @@ def test_classify_raises_still_logs_and_graceful(db: Session) -> None:
     if before:
         assert row.id != before.id
     assert row.message == r.response
+
+
+def test_ask_tier1_when_provider_row_present(db: Session) -> None:
+    p = Provider(
+        provider_name="Altitude Trampoline Park — Lake Havasu City",
+        category="recreation",
+        hours="10:00 AM – 8:00 PM daily",
+        phone="928-555-0199",
+        source="seed",
+    )
+    db.add(p)
+    db.commit()
+    r = route("What time does altitude open?", "sess-t1-hours", db)
+    assert r.mode == "ask"
+    assert r.sub_intent == "TIME_LOOKUP"
+    assert r.tier_used == "1"
+    assert "Ask mode:" not in r.response
+    assert "10:00" in r.response or "8:00" in r.response
 
 
 def test_entity_enrichment_when_classifier_has_no_entity(db: Session) -> None:

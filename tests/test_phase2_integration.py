@@ -294,8 +294,10 @@ def test_voice_trailing_question_guard() -> None:
 
 
 def test_placeholder_tier_for_non_chat_modes() -> None:
+    # Ask: use open-ended text so Tier 1 is not used (shared session DB may contain
+    # seeded providers from other tests, which would make a TIME_LOOKUP hit Tier 1).
     checks = [
-        ("What time does altitude open?", "p2-tier-ask"),
+        ("What is fun to do this weekend?", "p2-tier-ask"),
         ("I want to add a concert Friday.", "p2-tier-co"),
         ("That is wrong — phone changed.", "p2-tier-cr"),
     ]

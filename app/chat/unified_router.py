@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from app.chat.entity_matcher import match_entity, refresh_entity_matcher
 from app.chat.intent_classifier import IntentResult, classify
 from app.chat.normalizer import normalize
+from app.chat.tier1_handler import try_tier1
 from app.db.chat_logging import log_unified_route
 
 _GRACEFUL = "Something went sideways on my end — try that again in a sec."
@@ -55,10 +56,16 @@ def _greeting_variant(session_id: str | None) -> str:
     return _GREETINGS[idx]
 
 
-def _handle_ask(query: str, intent_result: IntentResult, db: Session) -> str:
+def _handle_ask(query: str, intent_result: IntentResult, db: Session) -> tuple[str, str]:
+    tier1 = try_tier1(query, intent_result, db)
+    if tier1 is not None:
+        return tier1, "1"
     ent = intent_result.entity or "none"
     sub = intent_result.sub_intent or "none"
-    return f"Ask mode: intent={sub}, entity={ent}. Retrieval will be implemented in Phase 3."
+    return (
+        f"Ask mode: intent={sub}, entity={ent}. Tier 3 retrieval will be implemented in Phase 3.2.",
+        "placeholder",
+    )
 
 
 def _handle_contribute(
@@ -183,8 +190,7 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
     tier_used = "placeholder"
     try:
         if intent_result.mode == "ask":
-            tier_used = "placeholder"
-            text = _handle_ask(q_raw, intent_result, db)
+            text, tier_used = _handle_ask(q_raw, intent_result, db)
         elif intent_result.mode == "contribute":
             tier_used = "placeholder"
             text = _handle_contribute(q_raw, intent_result, db, session_id)
@@ -195,8 +201,7 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
             tier_used = "chat"
             text = _handle_chat(q_raw, intent_result, db, session_id)
         else:
-            tier_used = "placeholder"
-            text = _handle_ask(q_raw, intent_result, db)
+            text, tier_used = _handle_ask(q_raw, intent_result, db)
     except Exception:
         logging.exception("unified_router: mode handler failed")
         return _finish(

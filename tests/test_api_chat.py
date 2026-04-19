@@ -31,11 +31,12 @@ def test_post_api_chat_session_id_nullable() -> None:
 
 def test_post_api_chat_omitted_session_id() -> None:
     with TestClient(app) as client:
-        r = client.post("/api/chat", json={"query": "What time does altitude open?"})
+        r = client.post("/api/chat", json={"query": "What is fun to do this weekend?"})
     assert r.status_code == 200
     data = r.json()
     assert data["mode"] == "ask"
     assert "Ask mode:" in data["response"]
+    assert data["tier_used"] == "placeholder"
 
 
 def test_post_api_chat_validation_empty_query() -> None:
