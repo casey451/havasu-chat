@@ -138,6 +138,16 @@ class ChatLog(Base):
     role: Mapped[str] = mapped_column(String(16), nullable=False)
     intent: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
+    # Unified router / concierge analytics (Phase 2.2+); nullable for legacy Track A rows.
+    query_text_hashed: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    normalized_query: Mapped[str | None] = mapped_column(Text, nullable=True)
+    mode: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    sub_intent: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    entity_matched: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    tier_used: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    llm_tokens_used: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    feedback_signal: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class Program(Base):
