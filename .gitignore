@@ -5,3 +5,6 @@ search_debug.log
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Local-only session notes (not durable project artifacts)
+docs/phase2-assistant-log.md
