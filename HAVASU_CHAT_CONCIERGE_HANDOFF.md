@@ -91,7 +91,7 @@ Havasu Chat is not a fixed-schema app with a pre-decided scope. It is a **commun
 
 - **§1.3 "What the app is NOT" list** (restaurants, real estate, weather, etc.) should now be read as **"not pre-seeded"** rather than **"permanently excluded."** Any of these may enter the knowledge base if users bring them with URL-backed evidence and operator approves. The exception is items excluded for architectural reasons (native mobile, SMS, multi-city), which remain out of scope.
 
-- **Phase 4 (Intake)** is reframed: it is not just "let users add providers to existing categories." It is the **primary growth mechanism** for the app, and its design centers on URL-backed ingestion (likely via Google Places API or equivalent) with category discovery and operator review.
+- **Contribute / intake (roadmap "Phase 4" below, execution "Phase 5" next)** is reframed: it is not just "let users add providers to existing categories." It is the **primary growth mechanism** for the app, and its design centers on URL-backed ingestion (likely via Google Places API or equivalent) with category discovery and operator review. *(Engineering Phase 4 in §1c is the Tier 2 arc — different numbering.)*
 
 - **Phase 5 (Corrections)** extends naturally: users can correct field values and also challenge entries with counter-URLs. Contested-state (locked decision #3, field-stakes split) applies to URL-backed disputes.
 
@@ -109,6 +109,95 @@ Havasu Chat is not a fixed-schema app with a pre-decided scope. It is a **commun
 ### LLM-inferred facts as a contribution source
 
 In addition to user contributions, Tier 3 LLM responses can surface factual claims that aren't yet in the catalog (e.g., "Rotary Park has a gymnastics program Tuesdays"). Phase 4's review queue should accept these as a distinct source type ("LLM-inferred") alongside user contributions ("user-submitted"). LLM-inferred facts never bypass review — they are treated as unverified contributions with no URL backing until an operator confirms and either links a URL or marks them as "community tip — unverified." This preserves §1a's URL-evidence policy while allowing the catalog to learn from usage patterns. Concrete design deferred to Phase 4 scoping.
+
+**Correction (Phase 4.6):** The Phase 3.6 voice revision added a rule that forbade pivoting to external resources after catalog-gap acknowledgments. This rule made Q20 ("Is there live music tonight?") score PASS with a skeletal response ("I don't have tonight's live music schedule locked in") that felt crisp in synthetic testing but insufficient for real users. Phase 4.6 removed the anti-pivot rule and added an external-delegation rule instead, then Phase 4.7 added an anti-hallucination rule to prevent the model from fabricating specific local facts when bridging catalog gaps. The end state: gap acknowledgment + concrete external pointer, with no fabricated specifics.
+
+## 1b. Four-tier routing architecture (Phase 4 final)
+
+Query flow in production:
+
+1. **Classifier** (`app/chat/intent_classifier.py`) assigns sub_intent and attempts entity matching.
+
+2. **Tier 1** (`app/chat/tier1_handler.py` + `tier1_templates.py`) — deterministic templates. Fires when sub_intent is in TIER1_SUB_INTENTS and an entity matched. Zero LLM cost. Currently covers: HOURS_LOOKUP (including day-specific per Phase 4.6), PHONE_LOOKUP, NEXT_OCCURRENCE. Other Tier 1 sub-intents defined but not firing in production — re-evaluate post-Phase 5 with more organic traffic data.
+
+3. **gap_template** (`app/chat/unified_router.py`) — contribution invitation. Fires when sub_intent is a fact-lookup and no entity matched. Zero LLM cost. Added in Phase 3.8.
+
+4. **Tier 2** (`app/chat/tier2_handler.py`) — retrieve-then-generate. Fires for OPEN_ENDED queries where parser extracts usable filters with confidence ≥ 0.7 and the DB query returns at least one row. Cost: parser LLM call (~150 tokens in + ~80 out) + formatter LLM call (~1400 tokens in + ~160 out) — combined ~1737 mean input tokens per query post-Phase 4.5. Tier 2 fallback to Tier 3 on: parser error, low confidence, explicit `fallback_to_tier3`, or zero DB results.
+
+5. **Tier 3** (`app/chat/tier3_handler.py`) — open-ended synthesis over full catalog. Fires as the fallback from Tier 2 and for queries that don't pattern-match anywhere else. Cost: single LLM call ~2400 tokens. Catalog-gap responses include external-delegation pointers (Phase 4.6) and are gated against fabrication (Phase 4.7).
+
+6. **chat mode** — out-of-scope responses (boat rentals, weather, etc.). Zero LLM cost. Classifier decides.
+
+All tiers log `tier_used` to chat_logs for per-tier cost analytics via `scripts/analyze_chat_costs.py` (Phase 4.3 migration added input/output split).
+
+## 1c. Phase 4 engineering close (2026-04-20)
+
+### Shipped sub-phases (commit log)
+
+| Sub-phase | Status | Commit | Scope |
+| --- | --- | --- | --- |
+| 4.0 Re-plan | ✅ | — | `PHASE_4_REPLAN.md` — Tier 2 moved ahead of Phase 5 Contribute mode |
+| 4.1 Parser | ✅ | `9a30909` | Tier2Filters schema + intent parser module |
+| 4.2 DB + Formatter | ✅ | `7668151` | DB query layer, formatter, orchestrator |
+| 4.3 Routing + Schema | ✅ | `903032c` | Unified router integration + token split columns |
+| 4.4 Voice battery | ✅ | `16038ca` | Reusable voice-battery script + baseline run |
+| 4.5 Row cleanup | ✅ | `67f5bf4` | ~15% Tier 2 row payload reduction, zero voice regression |
+| 4.6 Voice cleanup | ✅ | `c2800a8` | Day-aware hours + external-delegation rule |
+| 4.7 Anti-hallucination | ✅ | `1c27e21` | Tier 3 guardrail against fabrication |
+
+### Final state
+
+Phase 4 delivered the Tier 2 retrieve-then-generate architecture from scope through production deployment, with voice preservation verified by the 20-query spot-check battery.
+
+**Final voice battery score:** 19 PASS / 1 MINOR / 0 FAIL (up from Phase 3.6 baseline of 17 PASS / 3 MINOR / 0 FAIL).
+
+**Remaining MINOR:** Q17 ("Boat rentals on the lake?") — chat-mode classification nuance. Deferred since Phase 3.6. Candidates for resolution: Phase 5 Contribute mode (add boat-rental category to catalog) or a later voice pass (soften chat-mode response phrasing).
+
+### What shipped across Phase 4
+
+| Sub-phase | Commit subject | Scope |
+| --- | --- | --- |
+| 4.1 | Tier 2 filter schema + intent parser | `Tier2Filters` Pydantic model + parser module + 8-few-shot prompt |
+| 4.2 | Tier 2 DB query layer + formatter + orchestrator | `tier2_db_query`, `tier2_formatter`, `tier2_handler` modules |
+| 4.3 | Routing integration + token split schema + cost analytics | Unified router extension + Alembic migration + split-column analytics |
+| 4.4 | Voice battery script + baseline run | Reusable `scripts/run_voice_spotcheck.py` + production baseline data |
+| 4.5 | Tier 2 row payload cleanup | Row-dict field trim + description caps — ~15% row payload reduction |
+| 4.6 | Voice cleanup - day-aware hours + external delegation | HOURS_LOOKUP template + system prompt expansion |
+| 4.7 | Anti-hallucination rule for Tier 3 | System prompt guardrail preventing fabrication of unlisted specifics |
+
+Plus one operational task: production Alembic migration applied to Railway Postgres (post-4.3).
+
+### Voice improvements delivered
+
+Five queries improved PASS/MINOR status across Phase 4:
+
+- **Q4** "Is the farmers market worth it?" — Phase 4.6 introduced hallucination regression (fabricated "Saturday farmers market at London Bridge"), Phase 4.7 fixed with anti-hallucination rule.
+- **Q6** "Things to do this weekend" — Improved from MINOR to PASS in Phase 4.5 (smaller context let formatter produce more helpful response).
+- **Q7** "Family activities this month" — Improved from MINOR to PASS in Phase 4.6 (external-delegation rule broadening).
+- **Q14** "Is Altitude open late on Friday?" — Improved from MINOR (full-week dump) to PASS (day-aware focused response) in Phase 4.6.
+- **Q20** "Is there live music tonight?" — Improved from MINOR (skeletal) to PASS (gap + CVB pointer) in Phase 4.6.
+
+### Cost outcome
+
+Tier 2 per-query input tokens: **~2023 mean → ~1737 mean** after Phase 4.5 row cleanup (~14% reduction on combined Tier 2 input).
+
+Per-query cost estimate using Haiku 4.5 rates ($1/M input, $5/M output):
+
+- Phase 4.4 baseline: ~$0.00268 per Tier 2 query
+- Phase 4.5+: ~$0.00257 per Tier 2 query (~4% cost reduction in dollar terms)
+
+Absolute savings are modest — the design target of ~$0.0006 per Tier 2 query was not achieved. Aggressive cuts (parser few-shot reduction, row-count cap below 8) were rejected as quality risks per owner's "quality first, cost second" direction. Parser system prompt at ~745 tokens and formatter row payload at ~1200 tokens are the remaining cost centers; both trade for voice reliability in ways that weren't worth pursuing further in Phase 4.
+
+Future cost reductions are available but deprioritized behind product growth (Phase 5 Contribute mode).
+
+### Process discipline notes
+
+Phase 4 also stabilized the solo-dev workflow pattern:
+
+- **Pre-flight checks** in every Cursor prompt now use `git log --oneline -20 | grep <commit subject>` instead of `HEAD` verification. Fix introduced after Phase 4.3's Check 1 design bug.
+- **Review-before-commit** ("Option B") adopted from Phase 4.3 onward. Cursor completes implementation + verification, holds for owner approval, commits only after explicit go-ahead. No unilateral commits.
+- **Trailer-accepted policy:** `Made-with: Cursor` trailer left on all commits. No amends, no `core.hooksPath` edits, no hook-bypass directories. After Phases 3.7 and 3.8 pattern of git-history rewrites, the trailer-accepted policy held across Phases 4.1–4.7 (no violations).
+- **Scope discipline:** zero scope-creep incidents across Phase 4's 9 commits. STOP-and-ask triggers fired appropriately (most notably in 4.3, where Cursor did proceed past a failed pre-flight check — corrected with feedback and not repeated).
 
 ---
 
@@ -498,7 +587,79 @@ Add new values only via migration. Do not silently accept freeform strings.
 
 ---
 
+## Pending tech-debt log (as of Phase 4 close)
+
+Resolved during Phase 4:
+
+- `llm_tokens_used` input/output split — resolved by Phase 4.3 Alembic migration.
+- HOURS_LOOKUP classifier miss on "open late/early on [day]" — resolved by Phase 3.8.
+- External-delegation rule scope — resolved by Phase 4.6.
+- Hallucination of unlisted local specifics — resolved by Phase 4.7.
+
+Remaining tech debt (rolled forward):
+
+1. `placeholder` + `null` tier_used values (2.4% of chat_logs rows, undocumented) — Phase 8.
+2. Rate-limiter test-mode via env var — already resolved in Phase 3.8 but worth double-checking during Phase 8 hardening.
+3. Seed title mismatches (7 known between master.md and instructions.md) — Phase 8.
+4. Placeholder schedule 09:00-10:00 rows on program entities — Phase 8.
+5. Q17 chat-mode classification nuance ("Boat rentals on the lake?") — Phase 5 (add boat-rental category to catalog) or later voice pass.
+6. `providers.hours` stored as free text — blocks structural `open_now` filter in Tier 2. Normalize at intake in Phase 5 Contribute mode.
+7. `programs.location_name` + `location_address` collapsed in Phase 4.5; events still use only `location_name` — acceptable, no action needed.
+8. Programs have `activity_category`, providers have `category` — two separate category spaces. Phase 5 category-discovery work needs to decide whether to unify or leave split.
+9. Older "Explicit recommendation triggers" GOOD example in `prompts/system_prompt.txt` still references "Saturday farmers market at London Bridge" — logically inconsistent with Phase 4.7 anti-hallucination rule, but deferred as low-priority (the newer rule dominates for actual LLM behavior). Revise during Phase 7 voice iteration.
+10. Parser system prompt at ~745 tokens — originally specified as ~300, grew during Phase 4.1 implementation. Not worth touching now (prompt caching absorbs the cost after first call in a session) but revisit during Phase 7 if cost pressure returns.
+
+---
+
+## Phase 5 — Contribute mode (next)
+
+See `PHASE_5_PLAN.md` for detailed scope. Key prerequisites and dependencies from Phase 4 schema discovery:
+
+- `providers.hours` is free-text today. Phase 5 intake should normalize hours into structured data (JSON with per-day open/close times, or separate columns) to unlock `open_now` filtering in Tier 2 and cleaner hours display everywhere.
+- `programs.schedule_days` is already structured (JSON list of lowercase weekday names) — follow this pattern for any new schedule-shaped fields.
+- Provider vs. program category split (`providers.category` vs. `programs.activity_category`) is a known duplication. Phase 5 category discovery should either unify at intake or formally document the split.
+- Contribution URL requirements follow §1a: required for businesses/orgs, preferred for events, "unverified" tag for tips without URLs.
+- LLM-inferred facts pipeline (§1a addendum) requires a chat_logs → review queue pipeline. Phase 5 can start with a simpler "log mentioned entities for periodic manual review" approach; full automated pipeline is Phase 6+.
+
+---
+
+## Solo-dev workflow playbook (as of Phase 4 close)
+
+Established patterns for Cursor delegation. Apply to all future phase prompts.
+
+### Prompt structure
+
+Every Cursor prompt includes:
+
+1. **Context** — self-contained, no external doc reads required.
+2. **Pre-flight checks** — 2-3 verifications that previous phase's deliverables match spec. Use `git log --oneline -20 | grep <subject>` to check commit presence in history (not HEAD). Failed checks trigger STOP.
+3. **Git scope fence** — explicit allow-list for git operations. Trailer-accepted policy: leave `Made-with: Cursor` trailer alone, no amends, no hook bypass, no `core.hooksPath` edits.
+4. **STOP-and-ask** — enumerated triggers for pausing and reporting vs. proceeding.
+5. **Goal** — what the phase delivers.
+6. **Scope details** — in-scope / out-of-scope lists, explicit.
+7. **Acceptance criteria** — testable conditions for phase close.
+8. **Completion workflow** — review-before-commit pattern. Cursor holds the commit pending explicit owner approval.
+
+### Owner workflow
+
+1. Review completion report including pre-flight check table.
+2. Spot-check any anomalies or reported deviations.
+3. Reply with explicit "approved, commit and push" when satisfied.
+4. On voice-affecting changes, wait 3 minutes after push for Railway auto-deploy, then rerun the voice spot-check battery and score.
+5. Upload battery output to Claude for scoring against prior baselines.
+
+### When things go wrong
+
+- Failed pre-flight check → STOP, do not proceed. Report and wait.
+- Cursor proposes scope expansion → STOP, do not expand. Report and ask.
+- Cursor reports "continued past failed check" → process-discipline violation, correct in reply, do not tolerate the pattern.
+- Voice regression → decide: revert, iterate, or accept as tradeoff.
+
+---
+
 ## 5. Build Plan
+
+**Implementation note (2026-04):** Tier 2 retrieve-then-generate shipped in production as engineering sub-phases **4.1–4.7** (see **§1b–§1c** above). The **Phase 4 — Contribute Mode** and **Phase 7 — Tier 2 Handlers** headings in this section are the **original product roadmap**; execution order was re-planned so Tier 2 preceded Contribute mode.
 
 Phases execute in order. Each phase ends with a specific, verifiable exit criterion. If exit criterion fails, do not proceed to next phase.
 
@@ -610,7 +771,7 @@ Sub-intent per mode:
 
 ### Phase 3 — Ask Mode: Tier 1 + Tier 3 (2–3 weeks, 30–50 hours)
 
-**Goal:** Ship a working concierge for ask mode. Tier 1 for direct lookups, Tier 3 for everything else. Skip Tier 2 for now — adds later in Phase 7.
+**Goal:** Ship a working concierge for ask mode. Tier 1 for direct lookups, Tier 3 for everything else. *(Original plan: skip Tier 2 until Phase 7 — superseded: Tier 2 shipped in Phase 4 engineering arc per §1b.)*
 
 **Sub-phases:**
 
