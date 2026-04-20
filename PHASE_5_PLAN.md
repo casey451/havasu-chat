@@ -80,7 +80,7 @@ New SQLAlchemy model and Alembic migration in Phase 5.1.
 class Contribution(Base):
     __tablename__ = "contributions"
 
-    id: int = Column(Integer, primary_key=True)  # or String UUID — pick one style in 5.1
+    id: int = Column(Integer, primary_key=True)
     submitted_at: datetime = Column(DateTime, server_default=func.now())
 
     # Submitter identity
@@ -294,7 +294,7 @@ Phase 5 approach is conservative: **log mentioned entities, don't auto-queue the
 ### Implementation
 
 1. A post-processing step on Tier 3 responses scans output for patterns that look like entity mentions ("at [Name]", "the [Name] [category]", etc.).
-2. Matches are logged to a new table `llm_mentioned_entities` with fields: chat_log_id, mentioned_name, context_snippet, detected_at.
+2. Matches are logged to a new table `llm_mentioned_entities` with fields: `chat_log_id` (FK to `chat_logs.id`, string UUID), `mentioned_name`, `context_snippet`, `detected_at`.
 3. Operator periodically reviews the log via a new admin page `/admin/mentioned-entities`.
 4. Operator promotes interesting entries to `contributions` (with source=llm_inferred) for full review + research.
 
@@ -457,15 +457,13 @@ This is lightweight tooling — not a full taxonomy management system. It suppor
 
 ---
 
-## 14. Tech debt
-
-### Resolved by Phase 5 close
+## 14. Tech debt resolved by Phase 5 close
 
 - Free-text `providers.hours` → structured (for new GP-backed providers at least; migration of seed data deferred).
 - `open_now` filter becomes operational in Tier 2 (for GP-backed providers).
 - Provider vs. program category split decision (unify / document / migrate).
 
-### Not resolved by Phase 5 close (rolls forward)
+## Tech debt NOT resolved by Phase 5 close (rolls forward)
 
 - Seed-data placeholder schedule rows (Phase 8).
 - Seed title mismatches (Phase 8).
