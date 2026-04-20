@@ -66,6 +66,48 @@ The following are **not in scope for launch** but the data model and hooks must 
 
 ---
 
+## 1a. Architectural Vision — Community-Grown Knowledge Base
+
+Havasu Chat is not a fixed-schema app with a pre-decided scope. It is a **community-grown local knowledge base** where the shape of the database emerges from what residents and visitors actually ask about and contribute.
+
+### Four principles
+
+1. **Seed is a starter kit, not the final shape.** The 25 providers, 98 programs, and 43 events loaded at launch are enough to make the app useful on day one. They are not the intended end state. The database grows from use.
+
+2. **Growth is URL-backed user contributions.** When a user recommends a place, event, or service the app doesn't know about, the app asks for a URL — Google Business page, official website, venue page, or equivalent. That URL is the trust anchor: it's what distinguishes community knowledge from unverified claims. Structured data (name, address, phone, hours, category) is ingested from the URL rather than entered by hand.
+
+3. **Categories emerge from use.** The operator does not pre-decide what Havasu Chat is "about." Categories are created when contributions accumulate demand for them. Restaurants, kayak rentals, live music, fishing guides — any of these may become categories if the community brings them with URL-backed evidence. The data model adapts to real demand rather than operator guesswork.
+
+4. **Operator stays in the review loop early; automation grows with trust.** New contributions and new categories pass through operator review until patterns are established. Over time, high-confidence contribution paths (e.g. Google Business page → structured import → auto-admit) can be automated. Lower-confidence paths stay in review indefinitely.
+
+### URL-evidence policy
+
+- **Businesses and organizations:** URL required (Google Business, official website, or equivalent authoritative source).
+- **Events:** URL preferred (venue page, ticket link, official announcement). Accepted without URL if contributor provides date, time, and location.
+- **Tips, favorite spots, local knowledge without a natural URL:** accepted but flagged as "community tip — unverified" in provenance. Displayed differently from URL-backed entries so users can weigh them appropriately.
+- All contributions pass through operator review until automation is trusted for that contribution type.
+
+### What this changes about the rest of this handoff
+
+- **§6 "Out of Scope" list** (restaurants, real estate, weather, etc.) should now be read as **"not pre-seeded"** rather than **"permanently excluded."** Any of these may enter the knowledge base if users bring them with URL-backed evidence and operator approves. The exception is items excluded for architectural reasons (native mobile, SMS, multi-city), which remain out of scope.
+
+- **Phase 4 (Intake)** is reframed: it is not just "let users add providers to existing categories." It is the **primary growth mechanism** for the app, and its design centers on URL-backed ingestion (likely via Google Places API or equivalent) with category discovery and operator review.
+
+- **Phase 5 (Corrections)** extends naturally: users can correct field values and also challenge entries with counter-URLs. Contested-state (locked decision #3, field-stakes split) applies to URL-backed disputes.
+
+- **Phase 7 (Tier 2 vector FAQ)** becomes more valuable as the knowledge base grows, since it can surface semantically similar community contributions.
+
+- **Voice decision #1** (community-credit provenance in foreground) is the operating philosophy of the whole app under this vision, not just a tone preference. "This is what your neighbors say, with receipts" is the value proposition. The URL is the receipt.
+
+### What this does NOT change
+
+- Phase 3.2 and 3.2.1 as currently shipped are correct and stay.
+- The seven locked decisions stay.
+- Phase 3.3 (end-to-end ask-mode tests) proceeds as planned.
+- This vision informs Phase 4+ design; it is not a Phase 3 change.
+
+---
+
 ## 2. The Seven Locked Decisions
 
 These shape every template, prompt, and rule downstream. Do not deviate.
