@@ -26,7 +26,7 @@ class RenderSuccessTests(unittest.TestCase):
             {"date": "April 20–27"},
             variant=0,
         )
-        self.assertEqual(out, "Desert Storm Poker Run is April 20–27.")
+        self.assertEqual(out, "The next Desert Storm Poker Run is April 20–27.")
 
     def test_time_lookup(self) -> None:
         out = render(

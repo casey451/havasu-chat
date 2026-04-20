@@ -44,7 +44,6 @@ INTENT_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 TEMPLATES: dict[str, list[str]] = {
     # DATE_LOOKUP is also used for NEXT_OCCURRENCE in tier1_handler — ISO dates are spoken (no YYYY-MM-DD).
     "DATE_LOOKUP": [
-        "{program} is {date}.",
         "The next {program} is {date}.",
         "{program}'s on {date}.",
     ],
