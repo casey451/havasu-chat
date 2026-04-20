@@ -161,7 +161,8 @@ def test_location_sara_park(db: Session) -> None:
     db.commit()
     rows = tier2_query(Tier2Filters(parser_confidence=0.9, location="Sara Park"))
     assert len(rows) >= 1
-    assert any("Sara" in (r.get("location_name") or "") for r in rows)
+    loc_blob = lambda r: (r.get("location_name") or "") + (r.get("location") or "")
+    assert any("Sara" in loc_blob(r) for r in rows)
 
 
 def test_day_of_week_saturday_event(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:

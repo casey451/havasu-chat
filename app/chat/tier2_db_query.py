@@ -150,16 +150,26 @@ def _truncate(s: str | None, max_len: int) -> str:
     return t[: max_len - 3] + "..."
 
 
+def _program_location_display(location_name: str | None, location_address: str | None) -> str | None:
+    """Single compact location string for program row payloads (Phase 4.5)."""
+    n = (location_name or "").strip()
+    a = (location_address or "").strip()
+    if not n and not a:
+        return None
+    if n and a and n != a:
+        return f"{n} ({a})"
+    return n or a or None
+
+
 def _event_dict(e: Event) -> dict[str, Any]:
     return {
         "type": "event",
-        "id": e.id,
         "name": e.title,
         "date": e.date.isoformat(),
         "start_time": e.start_time.strftime("%H:%M") if e.start_time else None,
         "end_time": e.end_time.strftime("%H:%M") if e.end_time else None,
         "location_name": e.location_name,
-        "description": _truncate(e.description, 180),
+        "description": _truncate(e.description, 120),
         "tags": list(e.tags or [])[:8],
     }
 
@@ -168,33 +178,33 @@ def _program_dict(p: Program) -> dict[str, Any]:
     ages = None
     if p.age_min is not None or p.age_max is not None:
         ages = f"{p.age_min if p.age_min is not None else '?'}-{p.age_max if p.age_max is not None else '?'}"
-    return {
+    loc = _program_location_display(p.location_name, p.location_address)
+    out: dict[str, Any] = {
         "type": "program",
-        "id": p.id,
         "name": p.title,
         "provider_name": p.provider_name,
         "activity_category": p.activity_category,
         "age_range": ages,
         "schedule_days": list(p.schedule_days or [])[:7],
         "schedule_hours": f"{p.schedule_start_time}-{p.schedule_end_time}",
-        "location_name": p.location_name,
-        "location_address": p.location_address,
         "cost": p.cost,
-        "description": _truncate(p.description, 160),
+        "description": _truncate(p.description, 120),
         "tags": list(p.tags or [])[:8],
     }
+    if loc:
+        out["location"] = loc
+    return out
 
 
 def _provider_dict(p: Provider) -> dict[str, Any]:
     return {
         "type": "provider",
-        "id": p.id,
         "name": p.provider_name,
         "category": p.category,
         "address": p.address,
         "phone": p.phone,
         "hours": _truncate(p.hours, 120),
-        "description": _truncate(p.description, 160),
+        "description": _truncate(p.description, 120),
     }
 
 
@@ -237,17 +247,29 @@ def _category_match_provider(p: Provider, cat: str) -> bool:
     return False
 
 
+def _row_dedupe_key(row: dict[str, Any]) -> tuple[Any, ...]:
+    """Stable identity for merged rows after ``id`` was dropped from payloads (Phase 4.5)."""
+    t = str(row.get("type"))
+    if t == "event":
+        return (t, row.get("name"), row.get("date"), row.get("start_time"))
+    if t == "program":
+        return (t, row.get("name"), row.get("provider_name"), row.get("schedule_hours"), row.get("location"))
+    if t == "provider":
+        return (t, row.get("name"), row.get("address"), row.get("phone"))
+    return (t, repr(row))
+
+
 def _merge_simple(
     events: list[dict[str, Any]],
     programs: list[dict[str, Any]],
     providers: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Events first, then programs, then providers; dedupe by (type, id)."""
-    seen: set[tuple[str, str]] = set()
+    """Events first, then programs, then providers; dedupe without row ``id`` fields."""
+    seen: set[tuple[Any, ...]] = set()
     out: list[dict[str, Any]] = []
     for bucket in (events, programs, providers):
         for row in bucket:
-            key = (str(row.get("type")), str(row.get("id")))
+            key = _row_dedupe_key(row)
             if key in seen:
                 continue
             seen.add(key)
