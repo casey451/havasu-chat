@@ -33,24 +33,35 @@ def _extract_text_from_message(msg: object) -> str:
     return " ".join(parts).strip()
 
 
-def format(query: str, rows: List[Dict[str, Any]]) -> Optional[str]:
-    """Render DB rows into a response. Returns None on any SDK or parsing error."""
+def _usage_in_out(msg: object) -> tuple[int | None, int | None]:
+    usage = getattr(msg, "usage", None)
+    if usage is None:
+        return None, None
+    inp = int(getattr(usage, "input_tokens", 0) or 0)
+    out = int(getattr(usage, "output_tokens", 0) or 0)
+    cr = int(getattr(usage, "cache_read_input_tokens", 0) or 0)
+    cc = int(getattr(usage, "cache_creation_input_tokens", 0) or 0)
+    return inp + cr + cc, out
+
+
+def format(query: str, rows: List[Dict[str, Any]]) -> tuple[Optional[str], int | None, int | None]:
+    """Render DB rows into a response. Returns (text, input_tokens, output_tokens)."""
     api_key = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
     if not api_key:
         logging.info("tier2_formatter: ANTHROPIC_API_KEY unset")
-        return None
+        return None, None, None
 
     try:
         import anthropic
     except ImportError:
         logging.exception("tier2_formatter: anthropic package not installed")
-        return None
+        return None, None, None
 
     try:
         system_prompt = _load_formatter_system_prompt()
     except OSError:
         logging.exception("tier2_formatter: failed to read formatter system prompt")
-        return None
+        return None, None, None
 
     system_blocks = [
         {
@@ -78,19 +89,17 @@ def format(query: str, rows: List[Dict[str, Any]]) -> Optional[str]:
         )
     except Exception:
         logging.exception("tier2_formatter: Anthropic messages.create failed")
-        return None
+        return None, None, None
 
     try:
         text = _extract_text_from_message(msg)
+        in_tok, out_tok = _usage_in_out(msg)
         if not text:
             logging.warning("tier2_formatter: empty model response")
-            return None
-        usage = getattr(msg, "usage", None)
-        if usage is not None:
-            inp = int(getattr(usage, "input_tokens", 0) or 0)
-            out = int(getattr(usage, "output_tokens", 0) or 0)
-            logging.info("tier2_formatter: tokens in=%s out=%s", inp, out)
-        return text
+            return None, in_tok, out_tok
+        if in_tok is not None:
+            logging.info("tier2_formatter: tokens in=%s out=%s", in_tok, out_tok)
+        return text, in_tok, out_tok
     except Exception:
         logging.exception("tier2_formatter: unexpected error in format")
-        return None
+        return None, None, None

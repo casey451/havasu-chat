@@ -27,8 +27,9 @@ def test_simple_query_returns_nonempty() -> None:
     fake.messages.create.return_value = _msg("Here is the fair at the park on that date.")
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
         with patch.object(anthropic, "Anthropic", return_value=fake):
-            out = tf.format("what is on", rows)
+            out, tin, tout = tf.format("what is on", rows)
     assert out
+    assert tin == 120 and tout == 40
     assert "fair" in out.lower()
 
 
@@ -54,7 +55,7 @@ def test_empty_rows_still_calls_api() -> None:
     fake.messages.create.return_value = _msg("No catalog rows were supplied.")
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
         with patch.object(anthropic, "Anthropic", return_value=fake):
-            out = tf.format("anything", [])
+            out, _, _ = tf.format("anything", [])
     assert out
     user = fake.messages.create.call_args.kwargs["messages"][0]["content"]
     assert "[]" in user or "Catalog rows" in user
@@ -65,7 +66,8 @@ def test_sdk_error_returns_none() -> None:
     fake.messages.create.side_effect = RuntimeError("boom")
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
         with patch.object(anthropic, "Anthropic", return_value=fake):
-            assert tf.format("q", [{"type": "event", "id": "1", "name": "E"}]) is None
+            text, tin, tout = tf.format("q", [{"type": "event", "id": "1", "name": "E"}])
+    assert text is None and tin is None and tout is None
 
 
 def test_empty_model_text_returns_none() -> None:
@@ -73,7 +75,8 @@ def test_empty_model_text_returns_none() -> None:
     fake.messages.create.return_value = _msg("   ")
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
         with patch.object(anthropic, "Anthropic", return_value=fake):
-            assert tf.format("q", [{"type": "event", "id": "1", "name": "E"}]) is None
+            text, tin, tout = tf.format("q", [{"type": "event", "id": "1", "name": "E"}])
+    assert text is None and tin == 120 and tout == 40
 
 
 def test_invocation_kwargs() -> None:

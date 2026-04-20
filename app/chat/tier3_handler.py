@@ -37,11 +37,17 @@ def _sum_usage(usage: object) -> int:
     """Sum billable input + output + cache-related tokens from Anthropic usage object."""
     if usage is None:
         return 0
+    inp_side, out_side = _split_usage(usage)
+    return inp_side + out_side
+
+
+def _split_usage(usage: object) -> tuple[int, int]:
+    """Return (input-side billable tokens, output tokens). Cache reads/creates count as input."""
     inp = int(getattr(usage, "input_tokens", 0) or 0)
     out = int(getattr(usage, "output_tokens", 0) or 0)
     cr = int(getattr(usage, "cache_read_input_tokens", 0) or 0)
     cc = int(getattr(usage, "cache_creation_input_tokens", 0) or 0)
-    return inp + out + cr + cc
+    return inp + cr + cc, out
 
 
 def _extract_text_from_message(msg: object) -> str:
@@ -56,18 +62,20 @@ def _extract_text_from_message(msg: object) -> str:
     return " ".join(parts).strip()
 
 
-def answer_with_tier3(query: str, intent_result: IntentResult, db: Session) -> tuple[str, int | None]:
-    """Return (assistant_text, total_tokens_or_None). Never raises to callers."""
+def answer_with_tier3(
+    query: str, intent_result: IntentResult, db: Session
+) -> tuple[str, int | None, int | None, int | None]:
+    """Return (assistant_text, total_tokens, llm_input_tokens, llm_output_tokens). Never raises."""
     api_key = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
     if not api_key:
         logging.info("tier3: ANTHROPIC_API_KEY unset; graceful fallback")
-        return FALLBACK_MESSAGE, None
+        return FALLBACK_MESSAGE, None, None, None
 
     try:
         import anthropic
     except ImportError:
         logging.exception("tier3: anthropic package not installed")
-        return FALLBACK_MESSAGE, None
+        return FALLBACK_MESSAGE, None, None, None
 
     system_prompt = _load_system_prompt()
     system_blocks = [
@@ -99,13 +107,15 @@ def answer_with_tier3(query: str, intent_result: IntentResult, db: Session) -> t
         )
     except Exception:
         logging.exception("tier3: Anthropic messages.create failed")
-        return FALLBACK_MESSAGE, None
+        return FALLBACK_MESSAGE, None, None, None
 
     text = _extract_text_from_message(msg)
     if not text:
-        return FALLBACK_MESSAGE, None
+        return FALLBACK_MESSAGE, None, None, None
 
     usage = getattr(msg, "usage", None)
     if usage is None:
-        return text, None
-    return text, _sum_usage(usage)
+        return text, None, None, None
+    inp_side, out_side = _split_usage(usage)
+    total = inp_side + out_side
+    return text, total, inp_side, out_side

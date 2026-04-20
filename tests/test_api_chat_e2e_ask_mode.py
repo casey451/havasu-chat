@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -100,11 +101,18 @@ def test_post_api_chat_tier3_open_ended_path_uses_mock(monkeypatch: pytest.Monke
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
     monkeypatch.setitem(sys.modules, "anthropic", fake_anthropic_module)
 
-    with TestClient(app) as client:
-        r = client.post(
-            "/api/chat",
-            json={"query": "What are some fun things to do around town this weekend?", "session_id": "e2e-tier3"},
-        )
+    with patch(
+        "app.chat.unified_router.try_tier2_with_usage",
+        return_value=(None, None, None, None),
+    ):
+        with TestClient(app) as client:
+            r = client.post(
+                "/api/chat",
+                json={
+                    "query": "What are some fun things to do around town this weekend?",
+                    "session_id": "e2e-tier3",
+                },
+            )
 
     assert r.status_code == 200
     body = r.json()

@@ -298,9 +298,16 @@ def test_placeholder_tier_for_non_chat_modes() -> None:
     # Ask: use open-ended text so Tier 1 is not used (shared session DB may contain
     # seeded providers from other tests, which would make a TIME_LOOKUP hit Tier 1).
     ask_q, ask_sid = ("What is fun to do this weekend?", "p2-tier-ask")
-    with patch("app.chat.unified_router.answer_with_tier3", return_value=("tier3 stub body", 77)):
-        with TestClient(app) as client:
-            r = client.post("/api/chat", json={"query": ask_q, "session_id": ask_sid})
+    with patch(
+        "app.chat.unified_router.try_tier2_with_usage",
+        return_value=(None, None, None, None),
+    ):
+        with patch(
+            "app.chat.unified_router.answer_with_tier3",
+            return_value=("tier3 stub body", 77, 50, 27),
+        ):
+            with TestClient(app) as client:
+                r = client.post("/api/chat", json={"query": ask_q, "session_id": ask_sid})
         assert r.status_code == 200
         body = r.json()
         assert body["tier_used"] == "3"

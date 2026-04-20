@@ -60,24 +60,39 @@ def _coerce_llm_text_to_json_object(raw: str) -> Optional[dict[str, Any]]:
     return obj
 
 
-def parse(query: str) -> Optional[Tier2Filters]:
-    """Parse a user query into Tier2Filters. Returns None on any failure."""
+def _usage_in_out(msg: object) -> tuple[int | None, int | None]:
+    usage = getattr(msg, "usage", None)
+    if usage is None:
+        return None, None
+    inp = int(getattr(usage, "input_tokens", 0) or 0)
+    out = int(getattr(usage, "output_tokens", 0) or 0)
+    cr = int(getattr(usage, "cache_read_input_tokens", 0) or 0)
+    cc = int(getattr(usage, "cache_creation_input_tokens", 0) or 0)
+    return inp + cr + cc, out
+
+
+def parse(query: str) -> tuple[Optional[Tier2Filters], int | None, int | None]:
+    """Parse a user query into Tier2Filters; returns (filters, input_tokens, output_tokens).
+
+    On failure returns (None, None, None). Token counts are from the Anthropic usage object
+    when the API call succeeds, even if JSON validation fails afterward.
+    """
     api_key = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
     if not api_key:
         logging.info("tier2_parser: ANTHROPIC_API_KEY unset")
-        return None
+        return None, None, None
 
     try:
         import anthropic
     except ImportError:
         logging.exception("tier2_parser: anthropic package not installed")
-        return None
+        return None, None, None
 
     try:
         system_prompt = _load_parser_system_prompt()
     except OSError:
         logging.exception("tier2_parser: failed to read parser system prompt")
-        return None
+        return None, None, None
 
     system_blocks = [
         {
@@ -100,18 +115,20 @@ def parse(query: str) -> Optional[Tier2Filters]:
         )
     except Exception:
         logging.exception("tier2_parser: Anthropic messages.create failed")
-        return None
+        return None, None, None
+
+    in_tok, out_tok = _usage_in_out(msg)
 
     try:
         text = _extract_text_from_message(msg)
         data = _coerce_llm_text_to_json_object(text)
         if data is None:
             logging.warning("tier2_parser: LLM output is not valid JSON")
-            return None
-        return Tier2Filters.model_validate(data)
+            return None, in_tok, out_tok
+        return Tier2Filters.model_validate(data), in_tok, out_tok
     except ValidationError:
         logging.warning("tier2_parser: JSON does not validate against Tier2Filters")
-        return None
+        return None, in_tok, out_tok
     except Exception:
         logging.exception("tier2_parser: unexpected error in parse")
-        return None
+        return None, in_tok, out_tok

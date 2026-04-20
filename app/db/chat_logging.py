@@ -20,6 +20,8 @@ def log_unified_route(
     latency_ms: int,
     response_text: str,
     llm_tokens_used: int | None = None,
+    llm_input_tokens: int | None = None,
+    llm_output_tokens: int | None = None,
     feedback_signal: str | None = None,
 ) -> None:
     """Persist one unified-router turn (assistant message + analytics). Never raises."""
@@ -38,6 +40,8 @@ def log_unified_route(
             tier_used=tier_used[:32] if tier_used else None,
             latency_ms=latency_ms,
             llm_tokens_used=llm_tokens_used,
+            llm_input_tokens=llm_input_tokens,
+            llm_output_tokens=llm_output_tokens,
             feedback_signal=feedback_signal[:32] if feedback_signal else None,
         )
         db.add(row)

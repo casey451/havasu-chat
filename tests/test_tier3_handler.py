@@ -62,9 +62,10 @@ def test_success_returns_text_and_token_count(db: Session) -> None:
     fake_client.messages.create.return_value = _msg("Concise answer here.", usage=usage)
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
         with patch.object(anthropic, "Anthropic", return_value=fake_client):
-            text, tokens = answer_with_tier3("What is fun?", _intent(), db)
+            text, tokens, tin, tout = answer_with_tier3("What is fun?", _intent(), db)
     assert text == "Concise answer here."
     assert tokens == 20
+    assert tin == 15 and tout == 5
     fake_client.messages.create.assert_called_once()
 
 
@@ -80,9 +81,9 @@ def test_missing_api_key_graceful(db: Session) -> None:
     )
     db.commit()
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": ""}):
-        text, tokens = answer_with_tier3("q", _intent(), db)
+        text, tokens, tin, tout = answer_with_tier3("q", _intent(), db)
     assert text == FALLBACK_MESSAGE
-    assert tokens is None
+    assert tokens is None and tin is None and tout is None
 
 
 def test_api_exception_graceful(db: Session) -> None:
@@ -100,9 +101,9 @@ def test_api_exception_graceful(db: Session) -> None:
     fake_client.messages.create.side_effect = RuntimeError("network")
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
         with patch.object(anthropic, "Anthropic", return_value=fake_client):
-            text, tokens = answer_with_tier3("q", _intent(), db)
+            text, tokens, tin, tout = answer_with_tier3("q", _intent(), db)
     assert text == FALLBACK_MESSAGE
-    assert tokens is None
+    assert tokens is None and tin is None and tout is None
 
 
 def test_empty_assistant_text_graceful(db: Session) -> None:
@@ -126,9 +127,9 @@ def test_empty_assistant_text_graceful(db: Session) -> None:
     fake_client.messages.create.return_value = _msg("   ", usage=usage)
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
         with patch.object(anthropic, "Anthropic", return_value=fake_client):
-            text, tokens = answer_with_tier3("q", _intent(), db)
+            text, tokens, tin, tout = answer_with_tier3("q", _intent(), db)
     assert text == FALLBACK_MESSAGE
-    assert tokens is None
+    assert tokens is None and tin is None and tout is None
 
 
 def test_usage_sums_input_output_and_cache_fields(db: Session) -> None:
@@ -152,8 +153,9 @@ def test_usage_sums_input_output_and_cache_fields(db: Session) -> None:
     fake_client.messages.create.return_value = _msg("ok", usage=usage)
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
         with patch.object(anthropic, "Anthropic", return_value=fake_client):
-            _text, tokens = answer_with_tier3("q", _intent(), db)
+            _text, tokens, tin, tout = answer_with_tier3("q", _intent(), db)
     assert tokens == 390
+    assert tin == 350 and tout == 40
 
 
 def test_system_prompt_passed_with_ephemeral_cache_control(db: Session) -> None:

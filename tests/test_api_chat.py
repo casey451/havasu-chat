@@ -40,9 +40,16 @@ def test_post_api_chat_session_id_nullable() -> None:
 
 
 def test_post_api_chat_omitted_session_id() -> None:
-    with patch("app.chat.unified_router.answer_with_tier3", return_value=("API tier3 stub.", 42)):
-        with TestClient(app) as client:
-            r = client.post("/api/chat", json={"query": "What is fun to do this weekend?"})
+    with patch(
+        "app.chat.unified_router.try_tier2_with_usage",
+        return_value=(None, None, None, None),
+    ):
+        with patch(
+            "app.chat.unified_router.answer_with_tier3",
+            return_value=("API tier3 stub.", 42, 25, 17),
+        ):
+            with TestClient(app) as client:
+                r = client.post("/api/chat", json={"query": "What is fun to do this weekend?"})
     assert r.status_code == 200
     data = r.json()
     assert data["mode"] == "ask"

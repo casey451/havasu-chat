@@ -19,6 +19,7 @@ from app.chat.entity_matcher import match_entity, refresh_entity_matcher
 from app.chat.intent_classifier import IntentResult, classify
 from app.chat.normalizer import normalize
 from app.chat.tier1_handler import try_tier1
+from app.chat.tier2_handler import try_tier2_with_usage
 from app.chat.tier3_handler import answer_with_tier3
 from app.db.chat_logging import log_unified_route
 
@@ -65,6 +66,8 @@ class ChatResponse:
     tier_used: str  # '1' | '2' | '3' | 'gap_template' | 'intake' | 'correction' | 'chat' | 'placeholder'
     latency_ms: int
     llm_tokens_used: int | None = None
+    llm_input_tokens: int | None = None
+    llm_output_tokens: int | None = None
 
 
 def _stable_session_bucket(session_id: str | None) -> str:
@@ -79,12 +82,17 @@ def _greeting_variant(session_id: str | None) -> str:
     return _GREETINGS[idx]
 
 
-def _handle_ask(query: str, intent_result: IntentResult, db: Session) -> tuple[str, str, int | None]:
+def _handle_ask(
+    query: str, intent_result: IntentResult, db: Session
+) -> tuple[str, str, int | None, int | None, int | None]:
     tier1 = try_tier1(query, intent_result, db)
     if tier1 is not None:
-        return tier1, "1", None
-    tier3_response, tokens_used = answer_with_tier3(query, intent_result, db)
-    return tier3_response, "3", tokens_used
+        return tier1, "1", None, None, None
+    t2_text, t2_total, t2_in, t2_out = try_tier2_with_usage(query)
+    if t2_text is not None:
+        return t2_text, "2", t2_total, t2_in, t2_out
+    text, total, tin, tout = answer_with_tier3(query, intent_result, db)
+    return text, "3", total, tin, tout
 
 
 def _handle_contribute(
@@ -160,6 +168,8 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
         entity: str | None,
         tier_used: str,
         llm_tokens_used: int | None = None,
+        llm_input_tokens: int | None = None,
+        llm_output_tokens: int | None = None,
     ) -> ChatResponse:
         ms = _ms()
         try:
@@ -175,6 +185,8 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
                 latency_ms=ms,
                 response_text=response,
                 llm_tokens_used=llm_tokens_used,
+                llm_input_tokens=llm_input_tokens,
+                llm_output_tokens=llm_output_tokens,
                 feedback_signal=None,
             )
         except Exception:
@@ -187,6 +199,8 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
             tier_used=tier_used,
             latency_ms=ms,
             llm_tokens_used=llm_tokens_used,
+            llm_input_tokens=llm_input_tokens,
+            llm_output_tokens=llm_output_tokens,
         )
 
     nq_safe = ""
@@ -222,9 +236,13 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
 
     tier_used = "placeholder"
     llm_tokens_used: int | None = None
+    llm_input_tokens: int | None = None
+    llm_output_tokens: int | None = None
     try:
         if intent_result.mode == "ask":
-            text, tier_used, llm_tokens_used = _handle_ask(q_raw, intent_result, db)
+            text, tier_used, llm_tokens_used, llm_input_tokens, llm_output_tokens = _handle_ask(
+                q_raw, intent_result, db
+            )
         elif intent_result.mode == "contribute":
             tier_used = "placeholder"
             text = _handle_contribute(q_raw, intent_result, db, session_id)
@@ -235,7 +253,9 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
             tier_used = "chat"
             text = _handle_chat(q_raw, intent_result, db, session_id)
         else:
-            text, tier_used, llm_tokens_used = _handle_ask(q_raw, intent_result, db)
+            text, tier_used, llm_tokens_used, llm_input_tokens, llm_output_tokens = _handle_ask(
+                q_raw, intent_result, db
+            )
     except Exception:
         logging.exception("unified_router: mode handler failed")
         return _finish(
@@ -245,6 +265,8 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
             intent_result.entity,
             tier_used,
             llm_tokens_used=None,
+            llm_input_tokens=None,
+            llm_output_tokens=None,
         )
 
     return _finish(
@@ -254,4 +276,6 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
         intent_result.entity,
         tier_used,
         llm_tokens_used,
+        llm_input_tokens,
+        llm_output_tokens,
     )

@@ -28,7 +28,7 @@ from app.db.database import SessionLocal
 from app.db.models import ChatLog
 
 WINDOW_DAYS = 30
-# Claude Haiku 4.5 (approximate list pricing; input/output split not stored in chat_logs)
+# Claude Haiku 4.5 list pricing (USD per million tokens) — approximate; adjust if Anthropic changes rates.
 INPUT_USD_PER_MILLION = 1.0
 OUTPUT_USD_PER_MILLION = 5.0
 
@@ -42,6 +42,14 @@ def _tier3_token_stats(db_rows: list[int]) -> tuple[int, float, float, int, int,
     mean = s / n
     med = float(median(db_rows))
     return s, mean, med, min(db_rows), max(db_rows), n
+
+
+def _mean(xs: list[int]) -> float:
+    return sum(xs) / len(xs) if xs else 0.0
+
+
+def _estimated_cost_usd(inp: int, out: int) -> float:
+    return inp * INPUT_USD_PER_MILLION / 1_000_000 + out * OUTPUT_USD_PER_MILLION / 1_000_000
 
 
 def main() -> None:
@@ -94,9 +102,8 @@ def main() -> None:
     print(f"  NULL (no LLM billable row): {null_tokens}")
     print(f"  non-NULL: {non_null_tokens}")
     print(
-        "  Note: Tier 1 paths typically have NULL tokens; Tier 3 stores a combined "
-        "token total (input + output + cache-related) per tier3_handler - "
-        "input vs output split is not captured in chat_logs."
+        "  Note: Tier 1 / gap_template rows typically have NULL tokens. Tier 2/3 store "
+        "``llm_tokens_used`` as input+output (and split columns when migrated)."
     )
     print()
 
@@ -112,10 +119,50 @@ def main() -> None:
         worst_all_output = t_sum * OUTPUT_USD_PER_MILLION / 1_000_000
         worst_all_input = t_sum * INPUT_USD_PER_MILLION / 1_000_000
         mid_5050 = t_sum * (0.5 * INPUT_USD_PER_MILLION + 0.5 * OUTPUT_USD_PER_MILLION) / 1_000_000
-        print("  Estimated USD (Haiku 4.5 list rates; combined token field):")
+        print("  Estimated USD (Haiku 4.5 list rates; combined token field only):")
         print(f"    Worst-case if all tokens billed as output: ${worst_all_output:.4f}")
         print(f"    Worst-case if all tokens billed as input:   ${worst_all_input:.4f}")
         print(f"    50/50 input-output split (illustrative):      ${mid_5050:.4f}")
+    print()
+
+    # --- Per-tier split (Phase 4.3): rows with NULL llm_input_tokens are pre-migration or
+    # non-LLM paths; we exclude them from input/output means and cost sums, but count them.
+    print("--- Per-tier input/output split + estimated cost (Haiku 4.5 rates) ---")
+    print(
+        "  Rows missing llm_input_tokens/llm_output_tokens are excluded from mean/cost sums "
+        "(typically pre-migration data or tiers with no LLM call). ``n_with_split`` counts "
+        "rows used for averages; ``n_tier`` is all rows for that tier_used in the window."
+    )
+    tier_keys = sorted(tier_counts.keys(), key=lambda k: (-tier_counts[k], k))
+    for tier in tier_keys:
+        tier_rows = [r for r in rows if (r.tier_used or "(null)") == tier]
+        n_tier = len(tier_rows)
+        split_rows = [
+            r
+            for r in tier_rows
+            if r.llm_input_tokens is not None and r.llm_output_tokens is not None
+        ]
+        n_split = len(split_rows)
+        pre = n_tier - n_split
+        if n_split:
+            ins = [r.llm_input_tokens for r in split_rows if r.llm_input_tokens is not None]
+            outs = [r.llm_output_tokens for r in split_rows if r.llm_output_tokens is not None]
+            mean_in = _mean(ins)
+            mean_out = _mean(outs)
+            cost_sum = sum(
+                _estimated_cost_usd(int(r.llm_input_tokens or 0), int(r.llm_output_tokens or 0))
+                for r in split_rows
+            )
+        else:
+            mean_in = mean_out = 0.0
+            cost_sum = 0.0
+        print(f"  tier_used={tier!r}  rows={n_tier}  with_split={n_split}  pre_split_or_null={pre}")
+        if n_split:
+            print(f"    mean llm_input_tokens:  {mean_in:.2f}")
+            print(f"    mean llm_output_tokens: {mean_out:.2f}")
+            print(f"    estimated cost (sum):     ${cost_sum:.4f}")
+        else:
+            print("    (no split-token rows for this tier in window)")
     print()
 
     print("--- Mode distribution ---")

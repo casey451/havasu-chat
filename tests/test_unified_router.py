@@ -66,8 +66,15 @@ def db() -> Session:
 
 
 def test_ask_tier3_when_tier1_misses(db: Session) -> None:
-    with patch("app.chat.unified_router.answer_with_tier3", return_value=("Tier3 stub answer.", 99)):
-        r = route("What is fun to do this weekend?", "sess-ask", db)
+    with patch(
+        "app.chat.unified_router.try_tier2_with_usage",
+        return_value=(None, None, None, None),
+    ):
+        with patch(
+            "app.chat.unified_router.answer_with_tier3",
+            return_value=("Tier3 stub answer.", 99, 60, 39),
+        ):
+            r = route("What is fun to do this weekend?", "sess-ask", db)
     assert isinstance(r, ChatResponse)
     assert r.mode == "ask"
     assert r.sub_intent == "OPEN_ENDED"
@@ -81,11 +88,20 @@ def test_ask_tier3_when_tier1_misses(db: Session) -> None:
     assert row.latency_ms is not None and row.latency_ms > 0
     assert row.tier_used == "3"
     assert row.llm_tokens_used == 99
+    assert row.llm_input_tokens == 60
+    assert row.llm_output_tokens == 39
 
 
 def test_ask_tier3_no_tokens_when_handler_returns_none(db: Session) -> None:
-    with patch("app.chat.unified_router.answer_with_tier3", return_value=(FALLBACK_MESSAGE, None)):
-        r = route("What is fun to do this weekend?", "sess-ask-fb", db)
+    with patch(
+        "app.chat.unified_router.try_tier2_with_usage",
+        return_value=(None, None, None, None),
+    ):
+        with patch(
+            "app.chat.unified_router.answer_with_tier3",
+            return_value=(FALLBACK_MESSAGE, None, None, None),
+        ):
+            r = route("What is fun to do this weekend?", "sess-ask-fb", db)
     assert r.tier_used == "3"
     assert r.llm_tokens_used is None
     row = _latest_unified_log(db)

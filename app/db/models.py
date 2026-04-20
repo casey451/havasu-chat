@@ -147,6 +147,8 @@ class ChatLog(Base):
     tier_used: Mapped[str | None] = mapped_column(String(32), nullable=True)
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     llm_tokens_used: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    llm_input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    llm_output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     feedback_signal: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 

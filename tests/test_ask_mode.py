@@ -370,11 +370,15 @@ def test_tier1_fixtures(
 
 @pytest.mark.parametrize("query,expected_sub", TIER3_FIXTURES)
 def test_tier3_fixtures(query: str, expected_sub: str | None) -> None:
-    with TestClient(app) as client:
-        r = client.post(
-            "/api/chat",
-            json={"query": query, "session_id": "phase34-tier3"},
-        )
+    with patch(
+        "app.chat.unified_router.try_tier2_with_usage",
+        return_value=(None, None, None, None),
+    ):
+        with TestClient(app) as client:
+            r = client.post(
+                "/api/chat",
+                json={"query": query, "session_id": "phase34-tier3"},
+            )
     assert r.status_code == 200
     body = r.json()
     assert body["mode"] == "ask"
