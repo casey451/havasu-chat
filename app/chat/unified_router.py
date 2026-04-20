@@ -38,8 +38,7 @@ _OUT_OF_SCOPE_REPLY = (
 
 
 _GAP_TAIL = (
-    "Havasu Chat grows from what locals contribute — share the name and a link "
-    "(Google Business page or official site) and I'll add it."
+    "Add it at /contribute or share the name and a link (Google Business page or official site) — either works."
 )
 
 

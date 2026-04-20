@@ -75,7 +75,7 @@ def test_catalog_gap_skips_tier3(query: str, expected_sub: str, db: Session) -> 
     assert r.tier_used == "gap_template"
     assert r.llm_tokens_used is None
     assert "catalog" in r.response.lower()
-    assert "locals contribute" in r.response.lower() or "contribute" in r.response.lower()
+    assert "/contribute" in r.response
 
 
 def test_post_api_chat_gap_template_contract() -> None:
@@ -89,5 +89,6 @@ def test_post_api_chat_gap_template_contract() -> None:
     assert r.status_code == 200
     body = r.json()
     assert body["tier_used"] == "gap_template"
+    assert "/contribute" in (body.get("response") or "")
     assert body["llm_tokens_used"] is None
     assert body["sub_intent"] == "LOCATION_LOOKUP"

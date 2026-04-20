@@ -14,6 +14,43 @@ from app.schemas.contribution import ContributionCreate
 _VALID_STATUSES = frozenset({"pending", "approved", "rejected", "needs_info"})
 
 
+def normalize_submission_url(url: str | None) -> str | None:
+    """Normalize URL for duplicate detection (strip, lowercase, drop trailing slash)."""
+    if url is None:
+        return None
+    s = str(url).strip()
+    if not s:
+        return None
+    return s.lower().rstrip("/")
+
+
+def has_pending_or_approved_duplicate_url(db: Session, normalized_url: str | None) -> bool:
+    """True if another contribution already has this URL while pending or approved."""
+    if not normalized_url:
+        return False
+    stmt = select(Contribution.submission_url).where(
+        Contribution.status.in_(("pending", "approved")),
+        Contribution.submission_url.isnot(None),
+    )
+    for u in db.execute(stmt).scalars().all():
+        if normalize_submission_url(u) == normalized_url:
+            return True
+    return False
+
+
+def count_submissions_since_by_ip_hash(db: Session, ip_hash: str, since: datetime) -> int:
+    """Count contributions from this IP hash with submitted_at >= since (naive UTC)."""
+    n = db.scalar(
+        select(func.count())
+        .select_from(Contribution)
+        .where(
+            Contribution.submitter_ip_hash == ip_hash,
+            Contribution.submitted_at >= since,
+        )
+    )
+    return int(n or 0)
+
+
 def create_contribution(
     db: Session,
     data: ContributionCreate,
