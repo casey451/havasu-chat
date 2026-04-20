@@ -25,6 +25,7 @@ from __future__ import annotations
 import random
 import re
 from collections.abc import Mapping
+from datetime import date
 from typing import Any
 
 
@@ -41,10 +42,11 @@ INTENT_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 
 
 TEMPLATES: dict[str, list[str]] = {
+    # DATE_LOOKUP is also used for NEXT_OCCURRENCE in tier1_handler — ISO dates are spoken (no YYYY-MM-DD).
     "DATE_LOOKUP": [
         "{program} is {date}.",
-        "It's {date}.",
-        "Date: {date}.",
+        "The next {program} is {date}.",
+        "{program}'s on {date}.",
     ],
     "TIME_LOOKUP": [
         "{program} starts at {time}.",
@@ -101,6 +103,19 @@ _REQUIRED_SLOTS: dict[str, tuple[str, ...]] = {
 }
 
 CONTACT_FOR_PRICING = "CONTACT_FOR_PRICING"
+
+_ISO_DATE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
+
+
+def _naturalize_iso_date_slot(value: str) -> str:
+    """Turn YYYY-MM-DD into spoken dates; leave ranges and prose unchanged."""
+    v = (value or "").strip()
+    m = _ISO_DATE.match(v)
+    if not m:
+        return value
+    y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    dt = date(y, mo, d)
+    return f"{dt.strftime('%A')}, {dt.strftime('%B')} {dt.day}, {dt.year}"
 
 
 def _get(obj: Any, key: str) -> Any:
@@ -169,6 +184,9 @@ def render(
     for required in _REQUIRED_SLOTS[intent]:
         if not slots.get(required):
             return None
+
+    if intent == "DATE_LOOKUP" and slots.get("date") is not None:
+        slots["date"] = _naturalize_iso_date_slot(str(slots["date"]))
 
     try:
         return _pick(TEMPLATES[intent], variant).format(**slots)
