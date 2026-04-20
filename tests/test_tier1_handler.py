@@ -104,6 +104,23 @@ def test_hours_lookup(db: Session) -> None:
     assert "9:00" in out or "Mon" in out
 
 
+def test_hours_lookup_day_focus_with_pipe_hours(db: Session) -> None:
+    p = _provider(
+        provider_name="DayPipeCo",
+        hours="Sun 11am–7pm | Fri 11am–8pm | Sat 9am–9pm",
+    )
+    db.add(p)
+    db.commit()
+    nq = "is daypipeco open late on friday"
+    ir = _intent(sub="HOURS_LOOKUP", entity=p.provider_name, nq=nq)
+    out = try_tier1("Is DayPipeCo open late on friday?", ir, db)
+    assert out is not None
+    low = out.lower()
+    assert "friday" in low
+    assert "11am" in low
+    assert "|" not in out
+
+
 def test_time_lookup_uses_hours_when_set(db: Session) -> None:
     p = _provider(provider_name="TimeCo", hours="Daily 10:00 AM – 6:00 PM")
     db.add(p)

@@ -61,6 +61,42 @@ class RenderSuccessTests(unittest.TestCase):
         )
         self.assertEqual(out, "Hours: Mon–Sat 10a–9p.")
 
+    def test_hours_lookup_weekday_with_pipe_hours_focuses_day(self) -> None:
+        hours = "Sun 11am–7pm | Fri 11am–8pm | Sat 9am–9pm"
+        out = render(
+            "HOURS_LOOKUP",
+            _Entity(provider_name="Altitude Trampoline Park — Lake Havasu City", hours=hours),
+            {"normalized_query": "is altitude open late on friday"},
+            variant=0,
+        )
+        self.assertIsNotNone(out)
+        low = out.lower()
+        self.assertIn("friday", low)
+        self.assertIn("11am", low)
+        self.assertNotIn("|", out)
+
+    def test_hours_lookup_weekday_non_pipe_hours_keeps_full_dump(self) -> None:
+        out = render(
+            "HOURS_LOOKUP",
+            _Entity(provider_name="Co", hours="Mon–Sun 9:00 AM – 8:00 PM"),
+            {"normalized_query": "what are co hours on tuesday"},
+            variant=1,
+        )
+        self.assertIsNotNone(out)
+        self.assertIn("Mon", out)
+
+    def test_hours_lookup_closed_day_segment(self) -> None:
+        out = render(
+            "HOURS_LOOKUP",
+            _Entity(provider_name="Iron Wolf", hours="Mon 9a–9p | Tue CLOSED | Wed 9a–9p"),
+            {"normalized_query": "is iron wolf open on tuesday"},
+            variant=0,
+        )
+        self.assertIsNotNone(out)
+        low = out.lower()
+        self.assertIn("closed", low)
+        self.assertIn("tuesday", low)
+
     def test_website_lookup(self) -> None:
         out = render(
             "WEBSITE_LOOKUP",

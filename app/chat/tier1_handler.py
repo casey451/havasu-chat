@@ -232,7 +232,12 @@ def try_tier1(query: str, intent_result: IntentResult, db: Session) -> str | Non
         hours = (provider.hours or "").strip()
         if not hours:
             return None
-        out = render("HOURS_LOOKUP", provider, {"hours": hours}, variant=variant)
+        out = render(
+            "HOURS_LOOKUP",
+            provider,
+            {"hours": hours, "normalized_query": nq},
+            variant=variant,
+        )
         if out is None:
             return None
         return _append_voice(out, provider)
@@ -240,7 +245,12 @@ def try_tier1(query: str, intent_result: IntentResult, db: Session) -> str | Non
     if sub == "TIME_LOOKUP":
         hours = (provider.hours or "").strip()
         if hours:
-            out = render("HOURS_LOOKUP", provider, {"hours": hours}, variant=variant)
+            out = render(
+                "HOURS_LOOKUP",
+                provider,
+                {"hours": hours, "normalized_query": nq},
+                variant=variant,
+            )
             if out is None:
                 return None
             return _append_voice(out, provider)
