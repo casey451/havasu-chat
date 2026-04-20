@@ -106,6 +106,10 @@ Havasu Chat is not a fixed-schema app with a pre-decided scope. It is a **commun
 - Phase 3.3 (end-to-end ask-mode tests) proceeds as planned.
 - This vision informs Phase 4+ design; it is not a Phase 3 change.
 
+### LLM-inferred facts as a contribution source
+
+In addition to user contributions, Tier 3 LLM responses can surface factual claims that aren't yet in the catalog (e.g., "Rotary Park has a gymnastics program Tuesdays"). Phase 4's review queue should accept these as a distinct source type ("LLM-inferred") alongside user contributions ("user-submitted"). LLM-inferred facts never bypass review — they are treated as unverified contributions with no URL backing until an operator confirms and either links a URL or marks them as "community tip — unverified." This preserves §1a's URL-evidence policy while allowing the catalog to learn from usage patterns. Concrete design deferred to Phase 4 scoping.
+
 ---
 
 ## 2. The Seven Locked Decisions
