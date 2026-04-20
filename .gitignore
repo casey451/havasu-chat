@@ -8,3 +8,6 @@ __pycache__/
 
 # Local-only session notes (not durable project artifacts)
 docs/phase2-assistant-log.md
+
+# Script-generated local extracts (do not commit)
+scripts/output/
