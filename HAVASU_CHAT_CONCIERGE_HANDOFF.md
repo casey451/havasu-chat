@@ -4,7 +4,7 @@
 
 **Owner:** Casey
 **Location scope:** Lake Havasu City, AZ — single city, no multi-city framework
-**Live app (Track A):** `https://web-production-bbe17.up.railway.app`
+**Live app (Track A):** `https://havasu-chat-production.up.railway.app`
 **Repository:** `https://github.com/casey451/havasu-chat` (main branch, Railway auto-deploys)
 
 ---
@@ -223,7 +223,7 @@ Every response logs `tier_used`, `intent`, `entity`, `latency_ms`, `mode` to the
 Single-intent, single-entity queries with direct data lookup.
 
 **Sub-intents:**
-- `DATE_LOOKUP`, `TIME_LOOKUP`, `LOCATION_LOOKUP`, `COST_LOOKUP`, `PHONE_LOOKUP`, `HOURS_LOOKUP`, `WEBSITE_LOOKUP`, `AGE_LOOKUP`
+- `DATE_LOOKUP`, `TIME_LOOKUP`, `LOCATION_LOOKUP`, `COST_LOOKUP`, `PHONE_LOOKUP`, `HOURS_LOOKUP`, `WEBSITE_LOOKUP`, `AGE_LOOKUP`, `NEXT_OCCURRENCE`, `OPEN_NOW`
 
 **Tier 1 succeeds only when all are true:**
 1. Regex intent classifier returns one intent with confidence.
