@@ -89,7 +89,7 @@ Havasu Chat is not a fixed-schema app with a pre-decided scope. It is a **commun
 
 ### What this changes about the rest of this handoff
 
-- **§6 "Out of Scope" list** (restaurants, real estate, weather, etc.) should now be read as **"not pre-seeded"** rather than **"permanently excluded."** Any of these may enter the knowledge base if users bring them with URL-backed evidence and operator approves. The exception is items excluded for architectural reasons (native mobile, SMS, multi-city), which remain out of scope.
+- **§1.3 "What the app is NOT" list** (restaurants, real estate, weather, etc.) should now be read as **"not pre-seeded"** rather than **"permanently excluded."** Any of these may enter the knowledge base if users bring them with URL-backed evidence and operator approves. The exception is items excluded for architectural reasons (native mobile, SMS, multi-city), which remain out of scope.
 
 - **Phase 4 (Intake)** is reframed: it is not just "let users add providers to existing categories." It is the **primary growth mechanism** for the app, and its design centers on URL-backed ingestion (likely via Google Places API or equivalent) with category discovery and operator review.
 
