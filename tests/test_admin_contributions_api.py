@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import os
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app.db.database import SessionLocal
 from app.main import app
 
 
@@ -165,3 +167,49 @@ def test_patch_rejected_requires_reason(client: TestClient) -> None:
     )
     assert ok.status_code == 200
     assert ok.json()["rejection_reason"] == "spam"
+
+
+def test_post_create_schedules_background_enrichment(client: TestClient) -> None:
+    client.cookies.clear()
+    _login(client)
+    with patch("app.api.routes.admin_contributions.enrich_contribution") as m:
+        r = client.post(
+            "/admin/contributions",
+            json={
+                "entity_type": "tip",
+                "submission_name": "bg task marker",
+                "source": "operator_backfill",
+            },
+        )
+    assert r.status_code == 201
+    cid = r.json()["id"]
+    assert m.call_count == 1
+    args = m.call_args[0]
+    assert args[0] == cid
+    assert args[1] is SessionLocal
+
+
+def test_manual_enrich_triggers_task(client: TestClient) -> None:
+    client.cookies.clear()
+    _login(client)
+    r = client.post(
+        "/admin/contributions",
+        json={
+            "entity_type": "tip",
+            "submission_name": "enrich endpoint row",
+            "source": "operator_backfill",
+        },
+    )
+    cid = r.json()["id"]
+    with patch("app.api.routes.admin_contributions.enrich_contribution") as m:
+        r2 = client.post(f"/admin/contributions/{cid}/enrich")
+    assert r2.status_code == 202
+    assert r2.json() == {"contribution_id": cid, "enrichment": "scheduled"}
+    assert m.call_count == 1
+
+
+def test_manual_enrich_missing_returns_404(client: TestClient) -> None:
+    client.cookies.clear()
+    _login(client)
+    r = client.post("/admin/contributions/999999999/enrich")
+    assert r.status_code == 404
