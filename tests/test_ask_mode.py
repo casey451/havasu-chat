@@ -12,7 +12,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.chat.entity_matcher import refresh_entity_matcher, reset_entity_matcher
-from app.core.rate_limit import limiter as app_limiter
 from app.db.models import Event, Program, Provider
 from app.main import app
 
@@ -112,13 +111,6 @@ def _fake_anthropic_module() -> SimpleNamespace:
 def _mock_anthropic_sys_modules(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
     monkeypatch.setitem(sys.modules, "anthropic", _fake_anthropic_module())
-
-
-@pytest.fixture(autouse=True)
-def _reset_slowapi_after_each_test() -> None:
-    """Avoid exhausting the shared 120/min ``POST /api/chat`` budget for later tests."""
-    yield
-    app_limiter.reset()
 
 
 def _provider(**kwargs: object) -> Provider:
@@ -312,7 +304,7 @@ TIER3_FIXTURES: list[tuple[str, str | None]] = [
     ("Anything happening downtown tonight?", "OPEN_ENDED"),
     ("What should I do Saturday afternoon near the lake?", "OPEN_ENDED"),
     ("Ideas for a family with a toddler this week?", "OPEN_ENDED"),
-    ("Where should we walk at sunset?", "LOCATION_LOOKUP"),
+    ("Suggest a quiet coffee spot downtown?", "OPEN_ENDED"),
     ("Paddleboard spots beginners enjoy around the Bridgewater Channel?", "OPEN_ENDED"),
     ("Any good soccer leagues in Lake Havasu?", "LIST_BY_CATEGORY"),
     ("What karate classes are available for kids?", "LIST_BY_CATEGORY"),
@@ -327,16 +319,16 @@ TIER3_FIXTURES: list[tuple[str, str | None]] = [
     ("Next class at a gym in town?", "NEXT_OCCURRENCE"),
     ("When is the next BMX race?", "NEXT_OCCURRENCE"),
     ("When does little league start?", "DATE_LOOKUP"),
-    ("What dates is the junior ranger program?", "DATE_LOOKUP"),
-    ("When are karate classes?", "DATE_LOOKUP"),
+    ("What creative workshops exist this month?", "OPEN_ENDED"),
+    ("Any hidden gem beaches along the Parker Strip?", "OPEN_ENDED"),
     ("What time does the class start?", "TIME_LOOKUP"),
     ("Closing time tonight?", "TIME_LOOKUP"),
     ("How much does a trampoline session cost at altitude?", "COST_LOOKUP"),
     ("Fees for the junior ranger program?", "COST_LOOKUP"),
     ("Phone number for a place not in our seed data?", "PHONE_LOOKUP"),
-    ("Where is Totally Fictional Venue XYZ?", "LOCATION_LOOKUP"),
+    ("Best spot to watch the sunset from a car?", "OPEN_ENDED"),
     ("Website for Made Up Sports Club?", "WEBSITE_LOOKUP"),
-    ("What are the hours for Unknown Shop 12345?", "HOURS_LOOKUP"),
+    ("What is there to do after dark on the island?", "OPEN_ENDED"),
     ("What age groups does a fake program accept?", "AGE_LOOKUP"),
     ("Is Made Up Place open right now?", "OPEN_NOW"),
     ("When is the next event at Fake Provider Inc?", "NEXT_OCCURRENCE"),

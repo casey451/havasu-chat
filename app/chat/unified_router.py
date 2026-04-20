@@ -36,13 +36,33 @@ _OUT_OF_SCOPE_REPLY = (
 )
 
 
+_GAP_TAIL = (
+    "Havasu Chat grows from what locals contribute — share the name and a link "
+    "(Google Business page or official site) and I'll add it."
+)
+
+
+def _catalog_gap_response(intent_result: IntentResult) -> str | None:
+    """Tier 1-shaped fact lookup with no catalog entity — template only, no Tier 3."""
+    sub = intent_result.sub_intent
+    if sub not in ("DATE_LOOKUP", "LOCATION_LOOKUP", "HOURS_LOOKUP"):
+        return None
+    if (intent_result.entity or "").strip():
+        return None
+    if sub == "HOURS_LOOKUP":
+        return f"I don't have those business hours in the catalog yet. {_GAP_TAIL}"
+    if sub == "LOCATION_LOOKUP":
+        return f"I don't have that place in the catalog yet. {_GAP_TAIL}"
+    return f"I don't have that event or program in the catalog yet. {_GAP_TAIL}"
+
+
 @dataclass
 class ChatResponse:
     response: str
     mode: str
     sub_intent: str | None
     entity: str | None
-    tier_used: str  # '1' | '2' | '3' | 'intake' | 'correction' | 'chat' | 'placeholder'
+    tier_used: str  # '1' | '2' | '3' | 'gap_template' | 'intake' | 'correction' | 'chat' | 'placeholder'
     latency_ms: int
     llm_tokens_used: int | None = None
 
@@ -187,6 +207,18 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
     except Exception:
         logging.exception("unified_router: entity enrichment failed")
         # Continue with un-enriched classification
+
+    if intent_result.mode == "ask":
+        gap_text = _catalog_gap_response(intent_result)
+        if gap_text is not None:
+            return _finish(
+                gap_text,
+                "ask",
+                intent_result.sub_intent,
+                intent_result.entity,
+                "gap_template",
+                None,
+            )
 
     tier_used = "placeholder"
     llm_tokens_used: int | None = None

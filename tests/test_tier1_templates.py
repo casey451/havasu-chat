@@ -176,6 +176,16 @@ class IntentPatternTests(unittest.TestCase):
     def test_hours_lookup(self) -> None:
         self.assertEqual(self._first_match("what are altitude hours"), "HOURS_LOOKUP")
 
+    def test_hours_open_late_and_early_phrases(self) -> None:
+        self.assertEqual(self._first_match("is altitude open late on friday"), "HOURS_LOOKUP")
+        self.assertEqual(self._first_match("is sonics open early on monday"), "HOURS_LOOKUP")
+
+    def test_close_time_stays_time_lookup_when_what_time_present(self) -> None:
+        self.assertEqual(
+            self._first_match("what time does altitude close on friday"),
+            "TIME_LOOKUP",
+        )
+
     def test_open_now_hours(self) -> None:
         self.assertEqual(self._first_match("is altitude open right now"), "HOURS_LOOKUP")
 

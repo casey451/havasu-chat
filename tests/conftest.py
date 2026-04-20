@@ -28,6 +28,9 @@ def pytest_configure(config: pytest.Config) -> None:
     and mutates the developer database.
     """
     global _TEST_SQLITE_FILE  # noqa: PLW0603 — module state for teardown
+    # Before any test module imports ``app`` (and builds the slowapi limiter), disable
+    # rate limits unless the runner explicitly left ``RATE_LIMIT_DISABLED`` unset.
+    os.environ.setdefault("RATE_LIMIT_DISABLED", "1")
     if os.environ.get("HAVASU_USE_DEV_DB_FOR_TESTS") == "1":
         return
     fd, path = tempfile.mkstemp(suffix=".sqlite", prefix="havasu_pytest_")

@@ -38,12 +38,15 @@ _CLASSIFY_FIXTURES: list[tuple[str, str, str]] = [
     ("Contact number for black belt academy?", "ask", "PHONE_LOOKUP"),
     ("I need the phone for ballet havasu.", "ask", "PHONE_LOOKUP"),
     ("What number should I call for flips for fun?", "ask", "PHONE_LOOKUP"),
-    # --- ask: HOURS_LOOKUP (5) — avoid open-now phrases ---
+    # --- ask: HOURS_LOOKUP (8) — avoid open-now phrases ---
     ("What are the hours for iron wolf golf?", "ask", "HOURS_LOOKUP"),
     ("Hours for bridge city combat?", "ask", "HOURS_LOOKUP"),
     ("When does havasu lanes close — hours?", "ask", "HOURS_LOOKUP"),
     ("Business hours for aqua beginnings?", "ask", "HOURS_LOOKUP"),
     ("What hours is the tap room open?", "ask", "HOURS_LOOKUP"),
+    ("Is altitude open late on friday?", "ask", "HOURS_LOOKUP"),
+    ("Is sonics open early on monday?", "ask", "HOURS_LOOKUP"),
+    ("What time does altitude close on friday?", "ask", "TIME_LOOKUP"),
     # --- ask: WEBSITE_LOOKUP (5) ---
     ("Website for lake havasu little league?", "ask", "WEBSITE_LOOKUP"),
     ("What is the URL for lions fc?", "ask", "WEBSITE_LOOKUP"),
