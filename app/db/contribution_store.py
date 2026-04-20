@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Sequence
 
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import Contribution
@@ -65,6 +65,24 @@ def list_contributions(
         stmt = stmt.where(Contribution.source == source)
     stmt = stmt.offset(offset).limit(limit)
     return db.execute(stmt).scalars().all()
+
+
+def count_contributions(
+    db: Session,
+    status: str | None = None,
+    entity_type: str | None = None,
+    source: str | None = None,
+) -> int:
+    """Count rows matching the same filters as ``list_contributions``."""
+    stmt = select(func.count()).select_from(Contribution)
+    if status is not None:
+        stmt = stmt.where(Contribution.status == status)
+    if entity_type is not None:
+        stmt = stmt.where(Contribution.entity_type == entity_type)
+    if source is not None:
+        stmt = stmt.where(Contribution.source == source)
+    n = db.execute(stmt).scalar_one()
+    return int(n)
 
 
 def update_contribution_status(

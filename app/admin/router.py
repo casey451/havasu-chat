@@ -23,6 +23,8 @@ from app.db.models import ChatLog, Event, Program
 from app.db.seed import run_seed
 from app.schemas.program import ProgramCreate
 
+from app.admin.contributions_html import register_contribution_html_routes
+
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
@@ -1823,3 +1825,6 @@ def _queue_tab_html(
   </script>
 </body>
 </html>"""
+
+
+register_contribution_html_routes(router)

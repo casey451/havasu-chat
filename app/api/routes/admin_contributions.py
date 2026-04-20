@@ -23,7 +23,7 @@ from app.schemas.contribution import (
     ContributionStatusUpdate,
 )
 
-router = APIRouter(prefix="/admin", tags=["admin-contributions"])
+router = APIRouter(prefix="/admin/api", tags=["admin-contributions"])
 
 
 def require_admin(request: Request) -> None:

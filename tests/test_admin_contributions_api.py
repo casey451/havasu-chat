@@ -26,7 +26,7 @@ def _login(client: TestClient) -> None:
 def test_post_contributions_requires_auth(client: TestClient) -> None:
     client.cookies.clear()
     r = client.post(
-        "/admin/contributions",
+        "/admin/api/contributions",
         json={
             "entity_type": "tip",
             "submission_name": "x",
@@ -40,7 +40,7 @@ def test_post_contributions_with_auth(client: TestClient) -> None:
     client.cookies.clear()
     _login(client)
     r = client.post(
-        "/admin/contributions",
+        "/admin/api/contributions",
         json={
             "entity_type": "tip",
             "submission_name": "API auth row",
@@ -57,7 +57,7 @@ def test_post_invalid_entity_type(client: TestClient) -> None:
     client.cookies.clear()
     _login(client)
     r = client.post(
-        "/admin/contributions",
+        "/admin/api/contributions",
         json={
             "entity_type": "not_valid",
             "submission_name": "x",
@@ -71,7 +71,7 @@ def test_post_provider_without_url(client: TestClient) -> None:
     client.cookies.clear()
     _login(client)
     r = client.post(
-        "/admin/contributions",
+        "/admin/api/contributions",
         json={
             "entity_type": "provider",
             "submission_name": "No URL",
@@ -85,7 +85,7 @@ def test_get_list_and_filters(client: TestClient) -> None:
     client.cookies.clear()
     _login(client)
     r = client.post(
-        "/admin/contributions",
+        "/admin/api/contributions",
         json={
             "entity_type": "tip",
             "submission_name": "filter list marker",
@@ -94,11 +94,11 @@ def test_get_list_and_filters(client: TestClient) -> None:
     )
     assert r.status_code == 201
     cid = r.json()["id"]
-    lst = client.get("/admin/contributions?limit=100")
+    lst = client.get("/admin/api/contributions?limit=100")
     assert lst.status_code == 200
     ids = {row["id"] for row in lst.json()}
     assert cid in ids
-    by_status = client.get("/admin/contributions?status=pending&limit=200")
+    by_status = client.get("/admin/api/contributions?status=pending&limit=200")
     assert by_status.status_code == 200
     assert cid in {row["id"] for row in by_status.json()}
 
@@ -107,7 +107,7 @@ def test_get_by_id_and_404(client: TestClient) -> None:
     client.cookies.clear()
     _login(client)
     r = client.post(
-        "/admin/contributions",
+        "/admin/api/contributions",
         json={
             "entity_type": "tip",
             "submission_name": "single fetch",
@@ -115,10 +115,10 @@ def test_get_by_id_and_404(client: TestClient) -> None:
         },
     )
     cid = r.json()["id"]
-    g = client.get(f"/admin/contributions/{cid}")
+    g = client.get(f"/admin/api/contributions/{cid}")
     assert g.status_code == 200
     assert g.json()["id"] == cid
-    miss = client.get("/admin/contributions/999999999")
+    miss = client.get("/admin/api/contributions/999999999")
     assert miss.status_code == 404
 
 
@@ -126,7 +126,7 @@ def test_patch_status(client: TestClient) -> None:
     client.cookies.clear()
     _login(client)
     r = client.post(
-        "/admin/contributions",
+        "/admin/api/contributions",
         json={
             "entity_type": "tip",
             "submission_name": "patch target",
@@ -135,7 +135,7 @@ def test_patch_status(client: TestClient) -> None:
     )
     cid = r.json()["id"]
     p = client.patch(
-        f"/admin/contributions/{cid}/status",
+        f"/admin/api/contributions/{cid}/status",
         json={"status": "approved", "review_notes": "lgtm"},
     )
     assert p.status_code == 200
@@ -148,7 +148,7 @@ def test_patch_rejected_requires_reason(client: TestClient) -> None:
     client.cookies.clear()
     _login(client)
     r = client.post(
-        "/admin/contributions",
+        "/admin/api/contributions",
         json={
             "entity_type": "tip",
             "submission_name": "reject probe",
@@ -157,12 +157,12 @@ def test_patch_rejected_requires_reason(client: TestClient) -> None:
     )
     cid = r.json()["id"]
     bad = client.patch(
-        f"/admin/contributions/{cid}/status",
+        f"/admin/api/contributions/{cid}/status",
         json={"status": "rejected"},
     )
     assert bad.status_code == 422
     ok = client.patch(
-        f"/admin/contributions/{cid}/status",
+        f"/admin/api/contributions/{cid}/status",
         json={"status": "rejected", "rejection_reason": "spam"},
     )
     assert ok.status_code == 200
@@ -174,7 +174,7 @@ def test_post_create_schedules_background_enrichment(client: TestClient) -> None
     _login(client)
     with patch("app.api.routes.admin_contributions.enrich_contribution") as m:
         r = client.post(
-            "/admin/contributions",
+            "/admin/api/contributions",
             json={
                 "entity_type": "tip",
                 "submission_name": "bg task marker",
@@ -193,7 +193,7 @@ def test_manual_enrich_triggers_task(client: TestClient) -> None:
     client.cookies.clear()
     _login(client)
     r = client.post(
-        "/admin/contributions",
+        "/admin/api/contributions",
         json={
             "entity_type": "tip",
             "submission_name": "enrich endpoint row",
@@ -202,7 +202,7 @@ def test_manual_enrich_triggers_task(client: TestClient) -> None:
     )
     cid = r.json()["id"]
     with patch("app.api.routes.admin_contributions.enrich_contribution") as m:
-        r2 = client.post(f"/admin/contributions/{cid}/enrich")
+        r2 = client.post(f"/admin/api/contributions/{cid}/enrich")
     assert r2.status_code == 202
     assert r2.json() == {"contribution_id": cid, "enrichment": "scheduled"}
     assert m.call_count == 1
@@ -211,5 +211,5 @@ def test_manual_enrich_triggers_task(client: TestClient) -> None:
 def test_manual_enrich_missing_returns_404(client: TestClient) -> None:
     client.cookies.clear()
     _login(client)
-    r = client.post("/admin/contributions/999999999/enrich")
+    r = client.post("/admin/api/contributions/999999999/enrich")
     assert r.status_code == 404
