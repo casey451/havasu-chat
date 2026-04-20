@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, time
+from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, JSON, String, Text, Time
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, JSON, String, Text, Time, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -196,3 +197,59 @@ class Program(Base):
     admin_review_by: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     provider: Mapped["Provider | None"] = relationship(back_populates="programs")
+
+
+class Contribution(Base):
+    """Community contribution queue (Phase 5.1)."""
+
+    __tablename__ = "contributions"
+    __table_args__ = (
+        Index("ix_contributions_status", "status"),
+        Index("ix_contributions_source", "source"),
+        Index("ix_contributions_submitted_at", "submitted_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    submitted_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+
+    submitter_email: Mapped[str | None] = mapped_column(String, nullable=True)
+    submitter_ip_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    entity_type: Mapped[str] = mapped_column(String, nullable=False)
+    submission_name: Mapped[str] = mapped_column(String, nullable=False)
+    submission_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    submission_category_hint: Mapped[str | None] = mapped_column(String, nullable=True)
+    submission_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    event_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    event_time_start: Mapped[time | None] = mapped_column(Time, nullable=True)
+    event_time_end: Mapped[time | None] = mapped_column(Time, nullable=True)
+
+    url_title: Mapped[str | None] = mapped_column(String, nullable=True)
+    url_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    url_fetch_status: Mapped[str | None] = mapped_column(String, nullable=True)
+    url_fetched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    google_place_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    google_enriched_data: Mapped[Any | None] = mapped_column(JSON, nullable=True)
+
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    review_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    rejection_reason: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    created_provider_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("providers.id"), nullable=True
+    )
+    created_program_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("programs.id"), nullable=True
+    )
+    created_event_id: Mapped[str | None] = mapped_column(String, ForeignKey("events.id"), nullable=True)
+
+    source: Mapped[str] = mapped_column(String, nullable=False, default="user_submission")
+    llm_source_chat_log_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("chat_logs.id"), nullable=True
+    )
+    unverified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

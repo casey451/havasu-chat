@@ -22,6 +22,7 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 
 from app.admin.router import router as admin_router
+from app.api.routes.admin_contributions import router as admin_contributions_router
 from app.api.routes.chat import router as concierge_chat_router
 from app.chat.router import router as chat_router
 from app.programs.router import router as programs_router
@@ -118,6 +119,7 @@ async def rate_limit_handler(_: Request, __: RateLimitExceeded) -> JSONResponse:
 app.include_router(chat_router)
 app.include_router(concierge_chat_router)
 app.include_router(admin_router)
+app.include_router(admin_contributions_router)
 app.include_router(programs_router)
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
