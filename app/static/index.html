@@ -541,10 +541,10 @@
         var pending = addRow("bot", "…", "loading");
 
         setLoading(true);
-        fetch("/chat", {
+        fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_id: sessionId, message: text }),
+          body: JSON.stringify({ session_id: sessionId, query: text }),
         })
           .then(function (res) {
             if (!res.ok) throw new Error("Request failed");
