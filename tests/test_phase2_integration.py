@@ -85,6 +85,7 @@ def _assert_body_matches_log(body: dict, row: ChatLog, *, raw_query: str) -> Non
     assert body["entity"] == row.entity_matched
     assert body["tier_used"] == row.tier_used
     assert body["latency_ms"] == row.latency_ms
+    assert body.get("llm_tokens_used") == row.llm_tokens_used
     assert row.normalized_query == normalize(raw_query)
 
 
@@ -296,8 +297,16 @@ def test_voice_trailing_question_guard() -> None:
 def test_placeholder_tier_for_non_chat_modes() -> None:
     # Ask: use open-ended text so Tier 1 is not used (shared session DB may contain
     # seeded providers from other tests, which would make a TIME_LOOKUP hit Tier 1).
+    ask_q, ask_sid = ("What is fun to do this weekend?", "p2-tier-ask")
+    with patch("app.chat.unified_router.answer_with_tier3", return_value=("tier3 stub body", 77)):
+        with TestClient(app) as client:
+            r = client.post("/api/chat", json={"query": ask_q, "session_id": ask_sid})
+        assert r.status_code == 200
+        body = r.json()
+        assert body["tier_used"] == "3"
+        assert body["llm_tokens_used"] == 77
+        assert body["response"] == "tier3 stub body"
     checks = [
-        ("What is fun to do this weekend?", "p2-tier-ask"),
         ("I want to add a concert Friday.", "p2-tier-co"),
         ("That is wrong — phone changed.", "p2-tier-cr"),
     ]

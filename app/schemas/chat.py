@@ -36,3 +36,4 @@ class ConciergeChatResponse(BaseModel):
     entity: str | None = None
     tier_used: str
     latency_ms: int
+    llm_tokens_used: int | None = None

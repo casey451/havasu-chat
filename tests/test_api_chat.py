@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -12,7 +14,15 @@ def test_post_api_chat_returns_concierge_shape() -> None:
         r = client.post("/api/chat", json={"query": "Hi", "session_id": "api-test-1"})
     assert r.status_code == 200
     body = r.json()
-    assert set(body.keys()) == {"response", "mode", "sub_intent", "entity", "tier_used", "latency_ms"}
+    assert set(body.keys()) == {
+        "response",
+        "mode",
+        "sub_intent",
+        "entity",
+        "tier_used",
+        "latency_ms",
+        "llm_tokens_used",
+    }
     assert body["mode"] == "chat"
     assert body["sub_intent"] == "GREETING"
     assert body["tier_used"] == "chat"
@@ -30,13 +40,15 @@ def test_post_api_chat_session_id_nullable() -> None:
 
 
 def test_post_api_chat_omitted_session_id() -> None:
-    with TestClient(app) as client:
-        r = client.post("/api/chat", json={"query": "What is fun to do this weekend?"})
+    with patch("app.chat.unified_router.answer_with_tier3", return_value=("API tier3 stub.", 42)):
+        with TestClient(app) as client:
+            r = client.post("/api/chat", json={"query": "What is fun to do this weekend?"})
     assert r.status_code == 200
     data = r.json()
     assert data["mode"] == "ask"
-    assert "Ask mode:" in data["response"]
-    assert data["tier_used"] == "placeholder"
+    assert data["response"] == "API tier3 stub."
+    assert data["tier_used"] == "3"
+    assert data["llm_tokens_used"] == 42
 
 
 def test_post_api_chat_validation_empty_query() -> None:

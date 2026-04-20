@@ -1,7 +1,8 @@
 """Unified concierge router (Phase 2.2 — handoff §3.2, §5 Phase 2.2).
 
 Orchestrates normalize → classify → entity enrichment → mode handler → log.
-Ask / contribute / correct use placeholder copy; chat uses real short responses (§8).
+Ask uses Tier 1 when applicable, else Tier 3 (Anthropic); contribute / correct use placeholder copy;
+chat uses real short responses (§8).
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from app.chat.entity_matcher import match_entity, refresh_entity_matcher
 from app.chat.intent_classifier import IntentResult, classify
 from app.chat.normalizer import normalize
 from app.chat.tier1_handler import try_tier1
+from app.chat.tier3_handler import answer_with_tier3
 from app.db.chat_logging import log_unified_route
 
 _GRACEFUL = "Something went sideways on my end — try that again in a sec."
@@ -34,7 +36,7 @@ _OUT_OF_SCOPE_REPLY = (
 )
 
 
-@dataclass(frozen=True)
+@dataclass
 class ChatResponse:
     response: str
     mode: str
@@ -42,6 +44,7 @@ class ChatResponse:
     entity: str | None
     tier_used: str  # '1' | '2' | '3' | 'intake' | 'correction' | 'chat' | 'placeholder'
     latency_ms: int
+    llm_tokens_used: int | None = None
 
 
 def _stable_session_bucket(session_id: str | None) -> str:
@@ -56,16 +59,12 @@ def _greeting_variant(session_id: str | None) -> str:
     return _GREETINGS[idx]
 
 
-def _handle_ask(query: str, intent_result: IntentResult, db: Session) -> tuple[str, str]:
+def _handle_ask(query: str, intent_result: IntentResult, db: Session) -> tuple[str, str, int | None]:
     tier1 = try_tier1(query, intent_result, db)
     if tier1 is not None:
-        return tier1, "1"
-    ent = intent_result.entity or "none"
-    sub = intent_result.sub_intent or "none"
-    return (
-        f"Ask mode: intent={sub}, entity={ent}. Tier 3 retrieval will be implemented in Phase 3.2.",
-        "placeholder",
-    )
+        return tier1, "1", None
+    tier3_response, tokens_used = answer_with_tier3(query, intent_result, db)
+    return tier3_response, "3", tokens_used
 
 
 def _handle_contribute(
@@ -140,6 +139,7 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
         sub: str | None,
         entity: str | None,
         tier_used: str,
+        llm_tokens_used: int | None = None,
     ) -> ChatResponse:
         ms = _ms()
         try:
@@ -154,7 +154,7 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
                 tier_used=tier_used,
                 latency_ms=ms,
                 response_text=response,
-                llm_tokens_used=None,
+                llm_tokens_used=llm_tokens_used,
                 feedback_signal=None,
             )
         except Exception:
@@ -166,6 +166,7 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
             entity=entity,
             tier_used=tier_used,
             latency_ms=ms,
+            llm_tokens_used=llm_tokens_used,
         )
 
     nq_safe = ""
@@ -188,9 +189,10 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
         # Continue with un-enriched classification
 
     tier_used = "placeholder"
+    llm_tokens_used: int | None = None
     try:
         if intent_result.mode == "ask":
-            text, tier_used = _handle_ask(q_raw, intent_result, db)
+            text, tier_used, llm_tokens_used = _handle_ask(q_raw, intent_result, db)
         elif intent_result.mode == "contribute":
             tier_used = "placeholder"
             text = _handle_contribute(q_raw, intent_result, db, session_id)
@@ -201,7 +203,7 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
             tier_used = "chat"
             text = _handle_chat(q_raw, intent_result, db, session_id)
         else:
-            text, tier_used = _handle_ask(q_raw, intent_result, db)
+            text, tier_used, llm_tokens_used = _handle_ask(q_raw, intent_result, db)
     except Exception:
         logging.exception("unified_router: mode handler failed")
         return _finish(
@@ -210,6 +212,7 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
             intent_result.sub_intent,
             intent_result.entity,
             tier_used,
+            llm_tokens_used=None,
         )
 
     return _finish(
@@ -218,4 +221,5 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
         intent_result.sub_intent,
         intent_result.entity,
         tier_used,
+        llm_tokens_used,
     )

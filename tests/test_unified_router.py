@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.chat.intent_classifier import IntentResult
+from app.chat.tier3_handler import FALLBACK_MESSAGE
 from app.chat.unified_router import ChatResponse, route
 from app.db.database import SessionLocal
 from app.db.models import ChatLog, Program, Provider
@@ -64,20 +65,32 @@ def db() -> Session:
         s.close()
 
 
-def test_ask_placeholder_metadata(db: Session) -> None:
-    r = route("What is fun to do this weekend?", "sess-ask", db)
+def test_ask_tier3_when_tier1_misses(db: Session) -> None:
+    with patch("app.chat.unified_router.answer_with_tier3", return_value=("Tier3 stub answer.", 99)):
+        r = route("What is fun to do this weekend?", "sess-ask", db)
     assert isinstance(r, ChatResponse)
     assert r.mode == "ask"
     assert r.sub_intent == "OPEN_ENDED"
-    assert r.tier_used == "placeholder"
-    assert "Ask mode:" in r.response
-    assert "OPEN_ENDED" in r.response
-    assert "Phase 3.2" in r.response
+    assert r.tier_used == "3"
+    assert r.response == "Tier3 stub answer."
+    assert r.llm_tokens_used == 99
     assert 0 < r.latency_ms < 500
     row = _latest_unified_log(db)
     assert row is not None
     assert row.mode == "ask"
     assert row.latency_ms is not None and row.latency_ms > 0
+    assert row.tier_used == "3"
+    assert row.llm_tokens_used == 99
+
+
+def test_ask_tier3_no_tokens_when_handler_returns_none(db: Session) -> None:
+    with patch("app.chat.unified_router.answer_with_tier3", return_value=(FALLBACK_MESSAGE, None)):
+        r = route("What is fun to do this weekend?", "sess-ask-fb", db)
+    assert r.tier_used == "3"
+    assert r.llm_tokens_used is None
+    row = _latest_unified_log(db)
+    assert row is not None
+    assert row.llm_tokens_used is None
 
 
 def test_contribute_placeholder_contains_sub_intent(db: Session) -> None:

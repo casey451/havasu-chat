@@ -42,4 +42,5 @@ def post_concierge_chat(
         entity=result.entity,
         tier_used=result.tier_used,
         latency_ms=result.latency_ms,
+        llm_tokens_used=result.llm_tokens_used,
     )
