@@ -67,6 +67,7 @@ class ChatResponse:
     llm_tokens_used: int | None = None
     llm_input_tokens: int | None = None
     llm_output_tokens: int | None = None
+    chat_log_id: str | None = None
 
 
 def _stable_session_bucket(session_id: str | None) -> str:
@@ -171,8 +172,9 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
         llm_output_tokens: int | None = None,
     ) -> ChatResponse:
         ms = _ms()
+        chat_log_id: str | None = None
         try:
-            log_unified_route(
+            chat_log_id = log_unified_route(
                 db,
                 session_id=sid,
                 query_text_hashed=q_hash,
@@ -200,6 +202,7 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
             llm_tokens_used=llm_tokens_used,
             llm_input_tokens=llm_input_tokens,
             llm_output_tokens=llm_output_tokens,
+            chat_log_id=chat_log_id,
         )
 
     nq_safe = ""

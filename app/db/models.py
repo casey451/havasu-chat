@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime, time
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, JSON, String, Text, Time, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, JSON, String, Text, Time, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -253,3 +253,28 @@ class Contribution(Base):
         String, ForeignKey("chat_logs.id"), nullable=True
     )
     unverified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+
+class LlmMentionedEntity(Base):
+    """Tier 3 local-entity mentions for operator review (Phase 5.5)."""
+
+    __tablename__ = "llm_mentioned_entities"
+    __table_args__ = (
+        UniqueConstraint("chat_log_id", "mentioned_name", name="uq_llm_mention_chat_name"),
+        Index("ix_llm_mentions_detected_at", "detected_at"),
+        Index("ix_llm_mentions_status", "status"),
+        Index("ix_llm_mentions_chat_log_id", "chat_log_id"),
+        Index("ix_llm_mentions_mentioned_name", "mentioned_name"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chat_log_id: Mapped[str] = mapped_column(String, ForeignKey("chat_logs.id"), nullable=False)
+    mentioned_name: Mapped[str] = mapped_column(String(300), nullable=False)
+    context_snippet: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    detected_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    status: Mapped[str] = mapped_column(String, nullable=False, default="unreviewed")
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    dismissal_reason: Mapped[str | None] = mapped_column(String, nullable=True)
+    promoted_to_contribution_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("contributions.id"), nullable=True
+    )

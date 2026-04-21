@@ -22,6 +22,7 @@ def test_post_api_chat_returns_concierge_shape() -> None:
         "tier_used",
         "latency_ms",
         "llm_tokens_used",
+        "chat_log_id",
     }
     assert body["mode"] == "chat"
     assert body["sub_intent"] == "GREETING"

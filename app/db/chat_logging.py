@@ -23,8 +23,11 @@ def log_unified_route(
     llm_input_tokens: int | None = None,
     llm_output_tokens: int | None = None,
     feedback_signal: str | None = None,
-) -> None:
-    """Persist one unified-router turn (assistant message + analytics). Never raises."""
+) -> str | None:
+    """Persist one unified-router turn (assistant message + analytics). Never raises.
+
+    Returns the new ``chat_logs.id`` (UUID string) on success, or ``None`` on failure.
+    """
     try:
         legacy_intent = (sub_intent or mode or "")[:64] or None
         row = ChatLog(
@@ -46,12 +49,14 @@ def log_unified_route(
         )
         db.add(row)
         db.commit()
+        return str(row.id)
     except Exception:
         try:
             db.rollback()
         except Exception:
             pass
         logging.exception("unified route chat_logs insert failed")
+        return None
 
 
 def log_chat_turn(db: Session, session_id: str, text: str, role: str, intent: str | None) -> None:

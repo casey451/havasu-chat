@@ -86,6 +86,8 @@ def _assert_body_matches_log(body: dict, row: ChatLog, *, raw_query: str) -> Non
     assert body["tier_used"] == row.tier_used
     assert body["latency_ms"] == row.latency_ms
     assert body.get("llm_tokens_used") == row.llm_tokens_used
+    if body.get("chat_log_id") is not None:
+        assert body["chat_log_id"] == str(row.id)
     assert row.normalized_query == normalize(raw_query)
 
 

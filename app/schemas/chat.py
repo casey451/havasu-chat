@@ -37,3 +37,4 @@ class ConciergeChatResponse(BaseModel):
     tier_used: str
     latency_ms: int
     llm_tokens_used: int | None = None
+    chat_log_id: str | None = None

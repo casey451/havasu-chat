@@ -161,6 +161,7 @@ def test_post_api_chat_response_contract_fields_and_types(db: Session) -> None:
         "tier_used",
         "latency_ms",
         "llm_tokens_used",
+        "chat_log_id",
     }
     assert isinstance(body["response"], str)
     assert isinstance(body["mode"], str)

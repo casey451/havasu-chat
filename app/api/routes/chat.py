@@ -14,12 +14,13 @@ implementation differs, flag it (anti-drift for numeric specs).
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.chat import unified_router as unified
+from app.contrib.mention_scanner import scan_and_save_mentions
 from app.core.rate_limit import limiter
-from app.db.database import get_db
+from app.db.database import SessionLocal, get_db
 from app.schemas.chat import ConciergeChatRequest, ConciergeChatResponse
 
 router = APIRouter(tags=["concierge"])
@@ -30,11 +31,19 @@ router = APIRouter(tags=["concierge"])
 @limiter.limit("120/minute")
 def post_concierge_chat(
     request: Request,
+    background_tasks: BackgroundTasks,
     payload: ConciergeChatRequest,
     db: Session = Depends(get_db),
 ) -> ConciergeChatResponse:
     """Run ``normalize → classify → …`` via :func:`unified_router.route`."""
     result = unified.route(payload.query, payload.session_id, db)
+    if result.tier_used == "3" and result.chat_log_id:
+        background_tasks.add_task(
+            scan_and_save_mentions,
+            result.chat_log_id,
+            result.response,
+            SessionLocal,
+        )
     return ConciergeChatResponse(
         response=result.response,
         mode=result.mode,
@@ -43,4 +52,5 @@ def post_concierge_chat(
         tier_used=result.tier_used,
         latency_ms=result.latency_ms,
         llm_tokens_used=result.llm_tokens_used,
+        chat_log_id=result.chat_log_id,
     )
