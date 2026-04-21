@@ -19,6 +19,10 @@
 6. If you discover a decision that is not locked in this doc, stop and ask. Do not invent.
 7. Do not self-initiate phases. Messaging such as "ready for Phase X" (or similar) is only a **handshake** — it means the owner is ready to send the next phase prompt. It is **not** a signal to start building. Wait for an **explicit phase or sub-phase prompt** that cites the specific sections of this document before executing changes or writing implementation code.
 
+### Role split (Cursor + owner)
+
+Claude drafts Cursor prompts; Cursor executes; Casey reports outcomes. **Review-before-commit:** Cursor completes implementation and verification, then **holds commits pending explicit owner approval** — no unilateral commits (policy stabilized post–Phase 4.3 through Phase 5).
+
 ---
 
 ## 1. Product Definition
@@ -91,7 +95,7 @@ Havasu Chat is not a fixed-schema app with a pre-decided scope. It is a **commun
 
 - **§1.3 "What the app is NOT" list** (restaurants, real estate, weather, etc.) should now be read as **"not pre-seeded"** rather than **"permanently excluded."** Any of these may enter the knowledge base if users bring them with URL-backed evidence and operator approves. The exception is items excluded for architectural reasons (native mobile, SMS, multi-city), which remain out of scope.
 
-- **Contribute / intake (roadmap "Phase 4" below, execution "Phase 5" next)** is reframed: it is not just "let users add providers to existing categories." It is the **primary growth mechanism** for the app, and its design centers on URL-backed ingestion (likely via Google Places API or equivalent) with category discovery and operator review. *(Engineering Phase 4 in §1c is the Tier 2 arc — different numbering.)*
+- **Contribute / intake (roadmap "Phase 4" below, execution "Phase 5" in build plan)** is reframed: it is not just "let users add providers to existing categories." It is the **primary growth mechanism** for the app, and its design centers on URL-backed ingestion (Google Places API New, URL fetcher) with category discovery and operator review. *(Engineering Tier 2 arc is summarized in **§1b**; shipped phase table in **§1d**; live contribute stack in **§1c** — different numbering from the original roadmap headings in §5.)*
 
 - **Phase 5 (Corrections)** extends naturally: users can correct field values and also challenge entries with counter-URLs. Contested-state (locked decision #3, field-stakes split) applies to URL-backed disputes.
 
@@ -106,98 +110,171 @@ Havasu Chat is not a fixed-schema app with a pre-decided scope. It is a **commun
 - Phase 3.3 (end-to-end ask-mode tests) proceeds as planned.
 - This vision informs Phase 4+ design; it is not a Phase 3 change.
 
-### LLM-inferred facts as a contribution source
+### LLM-inferred facts (Tier 3 → review pipeline)
 
-In addition to user contributions, Tier 3 LLM responses can surface factual claims that aren't yet in the catalog (e.g., "Rotary Park has a gymnastics program Tuesdays"). Phase 4's review queue should accept these as a distinct source type ("LLM-inferred") alongside user contributions ("user-submitted"). LLM-inferred facts never bypass review — they are treated as unverified contributions with no URL backing until an operator confirms and either links a URL or marks them as "community tip — unverified." This preserves §1a's URL-evidence policy while allowing the catalog to learn from usage patterns. Concrete design deferred to Phase 4 scoping.
+**Phase 3.6 context.** §1a's original addendum said Tier 3 responses naming catalog-gap entities could feed the review queue. Early implementation (Phase 3.6) added a rule forbidding external-resource pivots after catalog-gap acknowledgments. This made Q20 ("Is there live music tonight?") score PASS with a skeletal response that felt crisp in synthetic testing but insufficient for real users.
 
-**Correction (Phase 4.6):** The Phase 3.6 voice revision added a rule that forbade pivoting to external resources after catalog-gap acknowledgments. This rule made Q20 ("Is there live music tonight?") score PASS with a skeletal response ("I don't have tonight's live music schedule locked in") that felt crisp in synthetic testing but insufficient for real users. Phase 4.6 removed the anti-pivot rule and added an external-delegation rule instead, then Phase 4.7 added an anti-hallucination rule to prevent the model from fabricating specific local facts when bridging catalog gaps. The end state: gap acknowledgment + concrete external pointer, with no fabricated specifics.
+**Phase 4.6 reversal.** Removed the anti-pivot rule. Added an external-delegation rule allowing Tier 3 to mention CVB, search, venue sites when appropriate.
 
-## 1b. Four-tier routing architecture (Phase 4 final)
+**Phase 4.7 guardrail.** Added an anti-hallucination rule preventing Tier 3 from fabricating specific local facts when bridging catalog gaps. End state: gap acknowledgment + concrete external pointer, no fabricated specifics.
 
-Query flow in production:
+**Phase 5.5 implementation.** A post-processing scanner (`app/contrib/mention_scanner.py`) runs as a BackgroundTask after every Tier 3 response. Pattern-matches title-case phrases (2–5 words, 6+ chars), filters against a stop-phrase frozenset (locations, calendar words, common external references), strips URLs before scanning, dedupes within response. Matches are logged to `llm_mentioned_entities` table. Operator reviews at `/admin/mentioned-entities` and manually promotes interesting entries to `contributions` (with source=llm_inferred). No auto-promotion — the anti-hallucination rule from 4.7 makes auto-promotion a re-opening of that failure mode.
 
-1. **Classifier** (`app/chat/intent_classifier.py`) assigns sub_intent and attempts entity matching.
+## 1b. Four-tier routing architecture
 
-2. **Tier 1** (`app/chat/tier1_handler.py` + `tier1_templates.py`) — deterministic templates. Fires when sub_intent is in TIER1_SUB_INTENTS and an entity matched. Zero LLM cost. Currently covers: HOURS_LOOKUP (including day-specific per Phase 4.6), PHONE_LOOKUP, NEXT_OCCURRENCE. Other Tier 1 sub-intents defined but not firing in production — re-evaluate post-Phase 5 with more organic traffic data.
+Production query flow as of Phase 5 close:
 
-3. **gap_template** (`app/chat/unified_router.py`) — contribution invitation. Fires when sub_intent is a fact-lookup and no entity matched. Zero LLM cost. Added in Phase 3.8.
+**1. Classifier** (`app/chat/intent_classifier.py`). Assigns sub_intent and attempts entity matching. Uses gpt-4.1-mini (legacy pick from Phase 2).
 
-4. **Tier 2** (`app/chat/tier2_handler.py`) — retrieve-then-generate. Fires for OPEN_ENDED queries where parser extracts usable filters with confidence ≥ 0.7 and the DB query returns at least one row. Cost: parser LLM call (~150 tokens in + ~80 out) + formatter LLM call (~1400 tokens in + ~160 out) — combined ~1737 mean input tokens per query post-Phase 4.5. Tier 2 fallback to Tier 3 on: parser error, low confidence, explicit `fallback_to_tier3`, or zero DB results.
+**2. Tier 1** (`app/chat/tier1_handler.py` + `tier1_templates.py`) — deterministic templates. Fires when sub_intent is in TIER1_SUB_INTENTS and an entity matched. Zero LLM cost. Currently covers HOURS_LOOKUP (including day-specific per Phase 4.6), PHONE_LOOKUP, NEXT_OCCURRENCE. Other Tier 1 sub-intents defined but not firing in production — re-evaluate with organic traffic data.
 
-5. **Tier 3** (`app/chat/tier3_handler.py`) — open-ended synthesis over full catalog. Fires as the fallback from Tier 2 and for queries that don't pattern-match anywhere else. Cost: single LLM call ~2400 tokens. Catalog-gap responses include external-delegation pointers (Phase 4.6) and are gated against fabrication (Phase 4.7).
+**3. gap_template** (`app/chat/unified_router.py`) — catalog-gap acknowledgment. Fires when sub_intent is a fact-lookup and no entity matched. Zero LLM cost. Added Phase 3.8, updated in Phase 5.4 to direct users to `/contribute`.
 
-6. **chat mode** — out-of-scope responses (boat rentals, weather, etc.). Zero LLM cost. Classifier decides.
+**4. Tier 2** (`app/chat/tier2_handler.py`) — retrieve-then-generate. Fires for OPEN_ENDED queries where parser extracts usable filters with confidence ≥ 0.7 and the DB query returns at least one row. Cost: parser LLM call (~150 tokens in / ~80 out) + formatter LLM call (~1400 tokens in / ~160 out). Combined mean ~1737 input tokens per Tier 2 query post-Phase 4.5. Tier 2 falls back to Tier 3 on: parser error, low confidence, explicit `fallback_to_tier3`, or zero DB results. Now includes `open_now` filter (Phase 5.6) for GP-backed providers with structured hours.
 
-All tiers log `tier_used` to chat_logs for per-tier cost analytics via `scripts/analyze_chat_costs.py` (Phase 4.3 migration added input/output split).
+**5. Tier 3** (`app/chat/tier3_handler.py`) — open-ended synthesis over full catalog. Fires as Tier 2's fallback and for queries that don't pattern-match elsewhere. Cost: single LLM call ~2400 tokens. Catalog-gap responses include external-delegation pointers (Phase 4.6) and are gated against fabrication of unlisted specifics (Phase 4.7).
 
-## 1c. Phase 4 engineering close (2026-04-20)
+**6. chat mode** — out-of-scope acknowledgment (boat rentals, weather, etc.). Zero LLM cost. Classifier decides.
 
-### Shipped sub-phases (commit log)
+All tiers log `tier_used` to `chat_logs`. Per-tier cost analytics via `scripts/analyze_chat_costs.py` (Phase 4.3 migration added input/output split). Tier 3 responses are scanned post-response by the mention scanner (Phase 5.5) for potential contribution candidates.
 
-| Sub-phase | Status | Commit | Scope |
+## 1c. Community-grown catalog implementation
+
+The §1a architectural vision is implemented in production. This section documents the shape.
+
+**Contribution lifecycle.** Three sources feed a unified `contributions` table (Phase 5.1):
+
+- **User submissions** via `/contribute` form (Phase 5.4). Anonymous, IP-hash rate-limited at 1/hour.
+- **LLM-inferred mentions** surfaced by the mention scanner (Phase 5.5). Operator promotes manually; never auto-queued.
+- **Operator backfill** via admin JSON API or admin UI.
+
+All sources flow through the same queue with identical status states (`pending` / `approved` / `rejected` / `needs_info`).
+
+**Enrichment pipeline** (Phase 5.2). On contribution insert, two background tasks fire:
+
+- **URL fetcher** — GET the submitted URL with 10s timeout, follow redirects (max 3 hops, SSRF-protected against private IP ranges), parse HTML for `<title>` and meta description with OpenGraph fallback. 5 MB body cap. Accepts only `text/html` or `application/xhtml+xml`. Failures are non-blocking.
+- **Google Places (New)** — for `entity_type == "provider"` only. Text Search with location bias "Lake Havasu City, AZ". Fuzzy-match on displayName via Levenshtein to distinguish `success` from `low_confidence`. Returns structured `regular_opening_hours`, `formatted_address`, `phone`, `website_uri`, `place_id`, `types`, `location`, `business_status`. Field mask keeps request on the Pro + Contact Data SKU tier (~$17/1000 requests).
+
+Enrichment failures don't block the contribution — operator sees the failure status during review. Manual reprocess endpoint available at `POST /admin/contributions/{id}/enrich`.
+
+**Operator review** (Phase 5.3). Admin HTML pages at `/admin/contributions` show list view with filters, detail view with submission + enrichment side by side, and approve/reject/needs_info/edit action flows. Approval runs through the approval service (`app/contrib/approval_service.py`) which creates the appropriate catalog row (provider / program / event) in a single transaction with rollback on failure. Tip approval is deferred — tips can be submitted and rejected/needs_info'd but not approved (no catalog destination defined yet).
+
+**Category handling.** Provider and program categories remain separate columns by design (see Phase 5.6 category split decision, `docs/phase_5_6_category_split_decision.md`). Category discovery dashboard at `/admin/categories` shows provider / program category frequencies plus pending contribution category hints. No taxonomy management tools beyond autocomplete during approval.
+
+**Hours.** Provider hours stored in two forms for every new approval with GP data: `hours` (free text, backward compatible with Tier 1 HOURS_LOOKUP) and `hours_structured` (JSON, used by Tier 2's `open_now` filter). Existing seed providers have NULL `hours_structured`. Structured-hours editor during approval is deferred to Phase 7+.
+
+**Rate limiting.** Two mechanisms coexist: `slowapi` (`app/core/rate_limit.py`) for `/api/chat` (120/min), and DB-backed per-IP-hash counting on `/contribute` (1/hour). Both honor `RATE_LIMIT_DISABLED` env var. Unified rate limiter is a future refactor candidate.
+
+## 1d. Phase status and close state (through 5.6)
+
+| Phase | Status | Commit | Notes |
 | --- | --- | --- | --- |
-| 4.0 Re-plan | ✅ | — | `PHASE_4_REPLAN.md` — Tier 2 moved ahead of Phase 5 Contribute mode |
-| 4.1 Parser | ✅ | `9a30909` | Tier2Filters schema + intent parser module |
-| 4.2 DB + Formatter | ✅ | `7668151` | DB query layer, formatter, orchestrator |
-| 4.3 Routing + Schema | ✅ | `903032c` | Unified router integration + token split columns |
-| 4.4 Voice battery | ✅ | `16038ca` | Reusable voice-battery script + baseline run |
-| 4.5 Row cleanup | ✅ | `67f5bf4` | ~15% Tier 2 row payload reduction, zero voice regression |
+| 1 | ✅ | — | Project setup, FastAPI, SQLAlchemy, seed data |
+| 2.x | ✅ | — | Chat API, classifier, Tier 3, ChatLog, rate limiter |
+| 3.1–3.5 | ✅ | — | Tier 1 templates, routing, gap handling |
+| 3.6 | ✅ | — | Voice revision (Option B community-credit, anti-delegation — later reversed) |
+| 3.7 | ✅ | — | Organic traffic diagnostic, 50% gap finding |
+| 3.8 | ✅ | `c9d9fac` | HOURS_LOOKUP variants + gap_template + rate-limit test mode |
+| 4.0 Re-plan | ✅ | — | Tier 2 moved ahead of Contribute mode |
+| 4.1 Parser | ✅ | `9a30909` | Tier2Filters schema + intent parser |
+| 4.2 DB+Formatter | ✅ | — | tier2_db_query, tier2_formatter, tier2_handler |
+| 4.3 Routing+Schema | ✅ | `903032c` | Router integration + token split columns |
+| 4.4 Voice battery | ✅ | `16038ca` | Reusable voice-battery script + baseline |
+| 4.5 Row cleanup | ✅ | `67f5bf4` | ~15% Tier 2 row payload reduction |
 | 4.6 Voice cleanup | ✅ | `c2800a8` | Day-aware hours + external-delegation rule |
-| 4.7 Anti-hallucination | ✅ | `1c27e21` | Tier 3 guardrail against fabrication |
+| 4.7 Anti-hallucination | ✅ | `1c27e21` | Tier 3 fabrication guardrail |
+| 5.1 Contribution model | ✅ | `200f545` | `contributions` table + admin JSON API |
+| 5.2 URL + Places | ✅ | `f5c4463` | `url_fetcher`, `places_client`, `enrichment`, BackgroundTasks |
+| 5.3 Operator review UI | ✅ | `7fa2630` | HTML admin at `/admin/contributions`, approval creates catalog rows |
+| 5.4 User form | ✅ | `5c58f52` | Public `/contribute` form, gap_template + system prompt updates |
+| 5.5 Mention scanner | ✅ | `ce11e75` | `llm_mentioned_entities` + admin at `/admin/mentioned-entities` |
+| 5.6 Categories + hours | ✅ | `b2f3fa9` | `/admin/categories`, `providers.hours_structured`, Tier 2 open_now filter |
 
-### Final state
+### Phase 4 + Phase 5 close summary
 
-Phase 4 delivered the Tier 2 retrieve-then-generate architecture from scope through production deployment, with voice preservation verified by the 20-query spot-check battery.
+**Phase 4 close.**
 
-**Final voice battery score:** 19 PASS / 1 MINOR / 0 FAIL (up from Phase 3.6 baseline of 17 PASS / 3 MINOR / 0 FAIL).
+- Final voice battery: 19 PASS / 1 MINOR / 0 FAIL (up from Phase 3.6 baseline 17/3/0).
+- Remaining MINOR: Q17 "Boat rentals on the lake?" chat-mode classification nuance. Deferred since 3.6.
+- Tier 2 retrieve-then-generate live in production, ~30–50% of organic traffic on structured retrieval.
+- Tier 2 input tokens ~2023 → ~1737 after 4.5 row cleanup (~14% reduction). Per-query cost ~$0.00268 → ~$0.00257 (~4%). Design target of ~$0.0006 per query not achieved; aggressive cuts rejected per owner direction (quality first, cost second).
+- Tech debt resolved: token split, external delegation, anti-hallucination.
 
-**Remaining MINOR:** Q17 ("Boat rentals on the lake?") — chat-mode classification nuance. Deferred since Phase 3.6. Candidates for resolution: Phase 5 Contribute mode (add boat-rental category to catalog) or a later voice pass (soften chat-mode response phrasing).
+**Phase 5 close.**
 
-### What shipped across Phase 4
+- All six sub-phases shipped (5.1–5.6).
+- 139 new tests added across Phase 5. Total suite: 669 passing.
+- Track A regression: 116/120 preserved through every sub-phase.
+- Voice battery at Phase 5.4 re-run: 19/1/0 unchanged.
+- Community-grown catalog live end-to-end: `/contribute` form → enrichment → operator review at `/admin/contributions` → approval creates catalog row → Tier 2 queryable.
+- Two additional feedback channels: LLM-inferred mention scanner (Phase 5.5) and category discovery dashboard (Phase 5.6).
+- `open_now` filter in Tier 2 operational for GP-backed providers.
+- Tech debt resolved: free-text hours, `open_now` skeleton, provider/program category ambiguity, JSON/HTML admin collision.
 
-| Sub-phase | Commit subject | Scope |
+### Voice battery history
+
+20-query battery, Q1–Q20 from `scripts/run_voice_spotcheck.py`. Scoring: PASS / MINOR / FAIL.
+
+| Run | Score | Notes |
 | --- | --- | --- |
-| 4.1 | Tier 2 filter schema + intent parser | `Tier2Filters` Pydantic model + parser module + 8-few-shot prompt |
-| 4.2 | Tier 2 DB query layer + formatter + orchestrator | `tier2_db_query`, `tier2_formatter`, `tier2_handler` modules |
-| 4.3 | Routing integration + token split schema + cost analytics | Unified router extension + Alembic migration + split-column analytics |
-| 4.4 | Voice battery script + baseline run | Reusable `scripts/run_voice_spotcheck.py` + production baseline data |
-| 4.5 | Tier 2 row payload cleanup | Row-dict field trim + description caps — ~15% row payload reduction |
-| 4.6 | Voice cleanup - day-aware hours + external delegation | HOURS_LOOKUP template + system prompt expansion |
-| 4.7 | Anti-hallucination rule for Tier 3 | System prompt guardrail preventing fabrication of unlisted specifics |
+| Phase 3.6 baseline | 17/3/0 | Post voice revision |
+| Phase 4.4 | 15/5/0 | Initial Tier 2 deploy regressed some queries |
+| Phase 4.5 | 16/4/0 | Q6 upgraded via row cleanup |
+| Phase 4.6 | 18/1/1 | Q7, Q14, Q20 improved; Q4 hallucination regression from anti-pivot rule removal |
+| Phase 4.7 | 19/1/0 | Q4 fixed via anti-hallucination rule |
+| Phase 5.4 | 19/1/0 | Stable across Phase 5 |
 
-Plus one operational task: production Alembic migration applied to Railway Postgres (post-4.3).
+Persistent MINOR: Q17 "Boat rentals on the lake?" chat-mode classification. Not affected by Phase 4 or 5 work.
 
-### Voice improvements delivered
+### Cost state summary
 
-Five queries improved PASS/MINOR status across Phase 4:
+**Model rates (Haiku 4.5 at Phase 5 close):** $1/M input tokens, $5/M output tokens.
 
-- **Q4** "Is the farmers market worth it?" — Phase 4.6 introduced hallucination regression (fabricated "Saturday farmers market at London Bridge"), Phase 4.7 fixed with anti-hallucination rule.
-- **Q6** "Things to do this weekend" — Improved from MINOR to PASS in Phase 4.5 (smaller context let formatter produce more helpful response).
-- **Q7** "Family activities this month" — Improved from MINOR to PASS in Phase 4.6 (external-delegation rule broadening).
-- **Q14** "Is Altitude open late on Friday?" — Improved from MINOR (full-week dump) to PASS (day-aware focused response) in Phase 4.6.
-- **Q20** "Is there live music tonight?" — Improved from MINOR (skeletal) to PASS (gap + CVB pointer) in Phase 4.6.
+**Per-tier cost (mean):**
 
-### Cost outcome
+- Tier 1: zero LLM cost (deterministic).
+- gap_template: zero LLM cost (deterministic).
+- Tier 2: ~1737 input tokens + ~240 output tokens ≈ $0.00257 per query.
+- Tier 3: ~2400 input tokens + ~100 output tokens ≈ $0.00290 per query.
+- chat mode: zero LLM cost.
 
-Tier 2 per-query input tokens: **~2023 mean → ~1737 mean** after Phase 4.5 row cleanup (~14% reduction on combined Tier 2 input).
+**Deferred cost reductions (Phase 7 candidates):**
 
-Per-query cost estimate using Haiku 4.5 rates ($1/M input, $5/M output):
+- Parser few-shot reduction (~200 token cut possible, voice risk).
+- Formatter row payload further trimming (minor gains).
+- Tier 3 context trimming (risk to catalog coverage).
 
-- Phase 4.4 baseline: ~$0.00268 per Tier 2 query
-- Phase 4.5+: ~$0.00257 per Tier 2 query (~4% cost reduction in dollar terms)
+Owner direction: quality first, cost second. Do not revisit unless cost becomes a real operational issue.
 
-Absolute savings are modest — the design target of ~$0.0006 per Tier 2 query was not achieved. Aggressive cuts (parser few-shot reduction, row-count cap below 8) were rejected as quality risks per owner's "quality first, cost second" direction. Parser system prompt at ~745 tokens and formatter row payload at ~1200 tokens are the remaining cost centers; both trade for voice reliability in ways that weren't worth pursuing further in Phase 4.
+### Deferred decisions log
 
-Future cost reductions are available but deprioritized behind product growth (Phase 5 Contribute mode).
+Open product and technical decisions that Phase 5's shipping has surfaced or clarified but not settled:
 
-### Process discipline notes
+1. **Email infrastructure** (Phase 6 candidate). Contribution receipts, approval confirmations, needs-info replies. Provider choice (SES / Mailgun / Postmark). Deliverability, unsubscribe, rate limits.
 
-Phase 4 also stabilized the solo-dev workflow pattern:
+2. **CSRF tokens on public forms** (future security pass). Currently not protected. Low-risk for contribute form because moderator review gates publishing. Admin actions deserve CSRF at some point.
 
-- **Pre-flight checks** in every Cursor prompt now use `git log --oneline -20 | grep <commit subject>` instead of `HEAD` verification. Fix introduced after Phase 4.3's Check 1 design bug.
-- **Review-before-commit** ("Option B") adopted from Phase 4.3 onward. Cursor completes implementation + verification, holds for owner approval, commits only after explicit go-ahead. No unilateral commits.
-- **Trailer-accepted policy:** `Made-with: Cursor` trailer left on all commits. No amends, no `core.hooksPath` edits, no hook-bypass directories. After Phases 3.7 and 3.8 pattern of git-history rewrites, the trailer-accepted policy held across Phases 4.1–4.7 (no violations).
-- **Scope discipline:** zero scope-creep incidents across Phase 4's 9 commits. STOP-and-ask triggers fired appropriately (most notably in 4.3, where Cursor did proceed past a failed pre-flight check — corrected with feedback and not repeated).
+3. **Multi-operator workflows.** When contribution volume warrants multiple reviewers. No trigger yet.
+
+4. **reCAPTCHA / bot protection** on `/contribute`. Adding iff spam becomes real.
+
+5. **Structured-hours editor in approval form UI.** Currently GP data flows through unchanged; operator edits free-text only. Phase 7+ UX polish.
+
+6. **Tip approval destination.** Tips can be submitted + rejected but not approved. Options: new `tips` table, tag on existing provider table, deferred indefinitely.
+
+7. **Backfill `hours_structured` for existing seed providers.** Would unlock `open_now` filter for all providers, not just new GP-backed ones. Migration task, probably simple but not scoped.
+
+8. **Bulk ops on contributions.** Batch approvals, multi-select, bulk category-assign. Only relevant at higher volume.
+
+9. **Public launch criteria.** No trigger. Likely after Phase 6 email + Phase 7 polish.
+
+10. **Revenue model.** Deferred. Sponsored listings / freemium / ad-supported / hobby. No monthly cost ceiling set.
+
+11. **Scale thresholds** (Postgres pooling, batch LLM API, CDN). Deferred until usage warrants.
+
+12. **Provider/program category unification.** Phase 5.6 documented as intentional split. Reconsider if pattern changes.
+
+13. **Mention scanner stop-phrase list tuning.** Grows organically with operator review. No automated surfacing of "frequently dismissed phrases" tool yet.
 
 ---
 
@@ -251,11 +328,11 @@ High-stakes (pending admin review):
 
 Phases are broken into sub-phases that end in committable, testable states. Sessions are typically 3–6 hours of focused work. The doc includes enough session-boundary context that work can resume after a gap without rereading everything.
 
-### 2.5 Intake slot-parsing model: Option A — keep `gpt-4.1-mini`
+### 2.5 LLM split: classifier + Tier 2 + Tier 3
 
-Structured extraction (parsing a messy submission into schema slots) uses `gpt-4.1-mini` via OpenAI. Track A's `app/core/extraction.py` already does this for events. Extend it to programs and businesses. Do NOT rewrite to Claude.
+**Intent classifier** (`app/chat/intent_classifier.py`): `gpt-4.1-mini` via OpenAI (legacy Phase 2 choice). Structured slot extraction for events (`app/core/extraction.py`) also uses `gpt-4.1-mini`. Do NOT rewrite the classifier to Claude without an explicit owner decision.
 
-Claude Haiku is used **only for Tier 3 natural-language recommendations**. Clean separation by job type.
+**Tier 2 parser and formatter** and **Tier 3 synthesis**: Claude Haiku (`claude-haiku-4-5-20251001`) via Anthropic (`ANTHROPIC_API_KEY`). Tier 2 is retrieve-then-generate (parser + formatter), not deterministic handlers.
 
 ### 2.6 Frontend scope: Option A — extend the existing single-file HTML
 
@@ -272,6 +349,18 @@ The following are **owner tasks**. Do NOT attempt them in code. Do NOT simulate 
 - Terms of service and takedown policy drafting (Claude Code may produce a first draft if asked, but owner owns the final text and legal review)
 - Approving admin submissions (ongoing operational work)
 - Cultivating power contributors (community management, not code)
+
+### 2.8 Administration, intake, and contribute stack (Phase 5 close)
+
+Locked for shipped production:
+
+- **Admin auth** reuses `ADMIN_PASSWORD` with `itsdangerous` cookie sessions.
+- **Public contribution form** (`/contribute`) is anonymous with IP-hash rate limiting only (1/hour).
+- **Google Places (New)** API used over legacy Places API (`GOOGLE_PLACES_API_KEY`).
+- **Background enrichment** via FastAPI `BackgroundTasks`, not Celery/RQ.
+- **Inline HTML in Python** for admin pages (no Jinja2 introduced).
+- **Contribution `id`** is integer autoincrement (not string UUID like `providers` / `programs` / `events` / `chat_logs`). Foreign keys to those tables use string UUIDs.
+- **Provider vs. program categories** remain separate columns by design (`docs/phase_5_6_category_split_decision.md`).
 
 ---
 
@@ -587,79 +676,87 @@ Add new values only via migration. Do not silently accept freeform strings.
 
 ---
 
-## Pending tech-debt log (as of Phase 4 close)
+## Pending tech-debt log (as of Phase 5 close)
 
-Resolved during Phase 4:
+**Resolved during Phase 4:**
 
-- `llm_tokens_used` input/output split — resolved by Phase 4.3 Alembic migration.
-- HOURS_LOOKUP classifier miss on "open late/early on [day]" — resolved by Phase 3.8.
-- External-delegation rule scope — resolved by Phase 4.6.
-- Hallucination of unlisted local specifics — resolved by Phase 4.7.
+- `llm_tokens_used` input/output split — Phase 4.3 migration.
+- HOURS_LOOKUP classifier miss on "open late/early on [day]" — Phase 3.8.
+- External-delegation rule scope — Phase 4.6.
+- Hallucination of unlisted specifics — Phase 4.7.
 
-Remaining tech debt (rolled forward):
+**Resolved during Phase 5:**
 
-1. `placeholder` + `null` tier_used values (2.4% of chat_logs rows, undocumented) — Phase 8.
-2. Rate-limiter test-mode via env var — already resolved in Phase 3.8 but worth double-checking during Phase 8 hardening.
-3. Seed title mismatches (7 known between master.md and instructions.md) — Phase 8.
-4. Placeholder schedule 09:00-10:00 rows on program entities — Phase 8.
-5. Q17 chat-mode classification nuance ("Boat rentals on the lake?") — Phase 5 (add boat-rental category to catalog) or later voice pass.
-6. `providers.hours` stored as free text — blocks structural `open_now` filter in Tier 2. Normalize at intake in Phase 5 Contribute mode.
-7. `programs.location_name` + `location_address` collapsed in Phase 4.5; events still use only `location_name` — acceptable, no action needed.
-8. Programs have `activity_category`, providers have `category` — two separate category spaces. Phase 5 category-discovery work needs to decide whether to unify or leave split.
-9. Older "Explicit recommendation triggers" GOOD example in `prompts/system_prompt.txt` still references "Saturday farmers market at London Bridge" — logically inconsistent with Phase 4.7 anti-hallucination rule, but deferred as low-priority (the newer rule dominates for actual LLM behavior). Revise during Phase 7 voice iteration.
-10. Parser system prompt at ~745 tokens — originally specified as ~300, grew during Phase 4.1 implementation. Not worth touching now (prompt caching absorbs the cost after first call in a session) but revisit during Phase 7 if cost pressure returns.
+- Free-text `providers.hours` blocking `open_now` filter — Phase 5.6 added parallel `hours_structured` column; new approvals with GP data populate it.
+- `open_now` filter skeleton in Tier2Filters unused since Phase 4.1 — Phase 5.6 wired parser few-shots, DB query filter, and helper module.
+- LLM-inferred facts pipeline undocumented — Phase 5.5 implemented conservative log-only approach.
+- Provider vs. program category split as ambiguous tech debt — Phase 5.6 formalized as intentional design choice (documented in `docs/phase_5_6_category_split_decision.md`).
+- JSON admin vs HTML admin path collision — Phase 5.3 refactored JSON under `/admin/api` namespace.
+- Contribution PK type vs. other table PKs — Phase 5.1 documented `contributions.id` as integer autoincrement while `providers`/`programs`/`events`/`chat_logs` use string UUIDs. FKs to those tables use strings.
+
+**Remaining (rolled forward from Phase 5 close):**
+
+1. `placeholder` + `null` `tier_used` values in `chat_logs` (2.4% of rows, undocumented) — Phase 8.
+2. Seed title mismatches (7 known between `master.md` and `instructions.md`) — Phase 8.
+3. Placeholder schedule 09:00-10:00 rows on programs — Phase 8.
+4. Q17 chat-mode classification nuance ("Boat rentals on the lake?") — deferred since 3.6.
+5. Older "Explicit recommendation triggers" GOOD example in `prompts/system_prompt.txt` still references London Bridge farmers market (inconsistent with Phase 4.7 anti-hallucination rule but the newer rule dominates actual behavior) — Phase 7 voice iteration.
+6. Parser system prompt at ~795 tokens (grew from 745 in Phase 5.6 via open_now few-shots; Phase 4 target was ~300) — Phase 7 if cost pressure returns.
+7. Tip approval destination not defined (tips currently non-approvable) — Phase 5.6 or later decision.
+8. CSRF tokens on public `/contribute` form — future security pass.
+9. Spam protection beyond IP-hash rate limit on `/contribute` — future security pass.
+10. Structured-hours editor in approval UI (drift possible between free-text and structured) — Phase 7+ UX polish.
+11. Backfill `hours_structured` for existing seed providers — future migration task.
+12. Two rate-limiting mechanisms coexist (slowapi for chat, DB-backed for contribute) — unify in future refactor.
+13. Inline HTML admin pages (no Jinja2) — acceptable at current scale; Phase 7+ may migrate to templates.
 
 ---
 
-## Phase 5 — Contribute mode (next)
+## Phase 5 — Contribute mode (shipped)
 
-See `PHASE_5_PLAN.md` for detailed scope. Key prerequisites and dependencies from Phase 4 schema discovery:
+**Status:** Closed through 5.6 (see **§1c**, **§1d**, and `PHASE_5_PLAN.md` for historical scope). Production paths: public **`/contribute`**, admin **`/admin/contributions`**, mentions **`/admin/mentioned-entities`**, categories **`/admin/categories`**, JSON under **`/admin/api/`**.
 
-- `providers.hours` is free-text today. Phase 5 intake should normalize hours into structured data (JSON with per-day open/close times, or separate columns) to unlock `open_now` filtering in Tier 2 and cleaner hours display everywhere.
-- `programs.schedule_days` is already structured (JSON list of lowercase weekday names) — follow this pattern for any new schedule-shaped fields.
-- Provider vs. program category split (`providers.category` vs. `programs.activity_category`) is a known duplication. Phase 5 category discovery should either unify at intake or formally document the split.
-- Contribution URL requirements follow §1a: required for businesses/orgs, preferred for events, "unverified" tag for tips without URLs.
-- LLM-inferred facts pipeline (§1a addendum) requires a chat_logs → review queue pipeline. Phase 5 can start with a simpler "log mentioned entities for periodic manual review" approach; full automated pipeline is Phase 6+.
+**Still deferred vs. original roadmap:** chat-based contribute/correct intake state machines in §3 remain partially aspirational; the shipped path is the web form + operator queue. Email receipts, CSRF, and bulk ops are in **§1d Deferred decisions**.
 
 ---
 
-## Solo-dev workflow playbook (as of Phase 4 close)
+## Solo-dev workflow playbook (Phases 4–5)
 
-Established patterns for Cursor delegation. Apply to all future phase prompts.
+Established patterns from Phases 4 and 5. Apply to all future sub-phase prompts.
 
 ### Prompt structure
 
 Every Cursor prompt includes:
 
 1. **Context** — self-contained, no external doc reads required.
-2. **Pre-flight checks** — 2-3 verifications that previous phase's deliverables match spec. Use `git log --oneline -20 | grep <subject>` to check commit presence in history (not HEAD). Failed checks trigger STOP.
-3. **Git scope fence** — explicit allow-list for git operations. Trailer-accepted policy: leave `Made-with: Cursor` trailer alone, no amends, no hook bypass, no `core.hooksPath` edits.
-4. **STOP-and-ask** — enumerated triggers for pausing and reporting vs. proceeding.
+2. **Pre-flight checks** — 2–4 verifications using `git log --oneline -20 | grep <subject>` (not HEAD comparisons — Phase 4.3's Check 1 design bug is fixed). Hard gate. Failed checks trigger STOP.
+3. **Git scope fence** — trailer-accepted policy: leave `Made-with: Cursor` trailer alone, no amends, no hook bypass, no `core.hooksPath` edits, no `--no-verify`.
+4. **STOP-and-ask triggers** — enumerated. For owner-gated decisions, use "STOP-and-ask — do not continue until owner replies" phrasing explicitly. Looser "STOP and report" has been interpreted as "proceed after documenting" (Phase 5.6 Check 2 finding).
 5. **Goal** — what the phase delivers.
 6. **Scope details** — in-scope / out-of-scope lists, explicit.
-7. **Acceptance criteria** — testable conditions for phase close.
-8. **Completion workflow** — review-before-commit pattern. Cursor holds the commit pending explicit owner approval.
+7. **Acceptance criteria** — testable conditions.
+8. **Completion workflow** — review-before-commit. Cursor holds the commit pending explicit owner approval.
 
 ### Owner workflow
 
 1. Review completion report including pre-flight check table.
 2. Spot-check any anomalies or reported deviations.
 3. Reply with explicit "approved, commit and push" when satisfied.
-4. On voice-affecting changes, wait 3 minutes after push for Railway auto-deploy, then rerun the voice spot-check battery and score.
-5. Upload battery output to Claude for scoring against prior baselines.
+4. For voice-affecting changes, wait 3 minutes after push for Railway auto-deploy, rerun voice spot-check battery, upload result for scoring.
 
 ### When things go wrong
 
 - Failed pre-flight check → STOP, do not proceed. Report and wait.
 - Cursor proposes scope expansion → STOP, do not expand. Report and ask.
 - Cursor reports "continued past failed check" → process-discipline violation, correct in reply, do not tolerate the pattern.
-- Voice regression → decide: revert, iterate, or accept as tradeoff.
+- Cursor deviates from spec but documents clearly → adjudicate case by case. Phase 5.2 (rate limiter design change) and Phase 5.6 (Check 2 STOP interpretation) were both accepted; future deviations aren't automatic approvals.
+- Voice regression on battery → decide: revert, iterate, or accept as tradeoff.
 
 ---
 
 ## 5. Build Plan
 
-**Implementation note (2026-04):** Tier 2 retrieve-then-generate shipped in production as engineering sub-phases **4.1–4.7** (see **§1b–§1c** above). The **Phase 4 — Contribute Mode** and **Phase 7 — Tier 2 Handlers** headings in this section are the **original product roadmap**; execution order was re-planned so Tier 2 preceded Contribute mode.
+**Implementation note (2026-04):** Tier 2 retrieve-then-generate shipped in production as engineering sub-phases **4.1–4.7** (see **§1b**); Contribute mode shipped as **5.1–5.6** (see **§1c–§1d**). The **Phase 4 — Contribute Mode** and **Phase 7 — Tier 2 Handlers** headings in this section are the **original product roadmap**; execution order was re-planned so Tier 2 preceded Contribute mode.
 
 Phases execute in order. Each phase ends with a specific, verifiable exit criterion. If exit criterion fails, do not proceed to next phase.
 
@@ -717,7 +814,7 @@ Phases execute in order. Each phase ends with a specific, verifiable exit criter
 **Exit criterion:**
 - `alembic upgrade head` on a fresh SQLite DB succeeds.
 - `alembic upgrade head` on a SQLite DB pre-populated with existing Track A data (events + existing programs rows) succeeds with zero data loss.
-- All existing Track A tests still pass (172+ — whatever the current count is).
+- All existing Track A tests still pass (669+ as of Phase 5 close — run `pytest` for current count).
 - Running provider seed + program re-seed + event backfill + field_history baseline produces: 25 providers (or 24 live + 1 draft), existing programs now have provider_id populated where possible, existing events now have provider_id populated where possible, field_history has baseline rows for every tracked field on every seeded entity.
 - `app/main.py`, `app/admin/router.py`, `app/programs/router.py`, `app/core/program_search.py`, `app/chat/entity_matcher.py` all still work unchanged (verified by existing tests passing).
 - Deploy to Railway (owner action) runs migration cleanly. Existing live app continues to function.
@@ -1102,7 +1199,7 @@ havasu-chat/
 - `app/chat/normalizer.py`
 - `app/chat/entity_matcher.py` (extend entity scope; keep the rapidfuzz pattern)
 - Alembic migration infrastructure
-- Test infrastructure (pytest, 172 existing tests must pass)
+- Test infrastructure (pytest; full suite 669+ as of Phase 5 close)
 - `scripts/run_query_battery.py` (quality gate)
 - Deployment pipeline (Railway, Nixpacks, Procfile)
 
@@ -1195,6 +1292,8 @@ On a high-stakes correction:
 
 ## 9. Cost Targets (as designed)
 
+**As-built mean per-tier costs (Phase 5 close):** see **§1d — Cost state summary** (Tier 2/Tier 3 Haiku token means supersede the rough figures below).
+
 At 1,000 queries/day:
 - Tier 1 + Tier 2: $0
 - Tier 3 (20%): 200 queries × ~800 input + 100 output tokens × Haiku pricing = ~$0.26/day, **~$8/month**
@@ -1225,13 +1324,21 @@ Pytest uses **`tests/conftest.py`**: `pytest_configure` assigns **`DATABASE_URL`
 
 - Push to `main` → Railway auto-deploys
 - Deploy takes 2–5 minutes
-- Env vars on Railway:
-  - `OPENAI_API_KEY` (existing, Track A)
-  - `ANTHROPIC_API_KEY` (add in Phase 3 — **owner task**, flag it)
-  - `ADMIN_PASSWORD` (existing)
-  - `DATABASE_URL` (existing, Railway-managed)
-  - `RAILWAY_ENVIRONMENT` (existing)
-- Local dev uses `.env` + SQLite. `python -m venv .venv` + `pip install -r requirements.txt` + `uvicorn app.main:app --reload --port 8000`.
+- **Railway CLI (Windows):** from repo root, use the project venv interpreter so dependencies match production images, for example:
+  - `railway run .\.venv\Scripts\python.exe -m alembic upgrade head` — production migrations
+  - `railway run .\.venv\Scripts\python.exe -m alembic current` — verify migration head
+  - `railway variables` — list env vars
+  - `railway variables --set "KEY=value"` — set env var
+- **Env vars on Railway (Phase 5 close):**
+  - `ADMIN_PASSWORD`
+  - `OPENAI_API_KEY` (intake classifier — gpt-4.1-mini legacy)
+  - `SECRET_KEY`
+  - `SENTRY_DSN`
+  - `DATABASE_URL` (Railway-managed)
+  - `ANTHROPIC_API_KEY` (Tier 2 parser, Tier 2 formatter, Tier 3)
+  - `GOOGLE_PLACES_API_KEY` (Places API New enabled; API restrictions set; no IP restriction; billing cap alert recommended)
+  - `RATE_LIMIT_DISABLED` (test mode; honored by both slowapi and DB-backed rate limits)
+- **Local dev:** `.env` + SQLite. `python -m venv .venv` then `.\.venv\Scripts\pip.exe install -r requirements.txt` and `.\.venv\Scripts\uvicorn.exe app.main:app --reload --port 8000` (on macOS/Linux use `venv/bin/...` instead).
 - Before any phase-completion push to main: run full test suite locally.
 
 ---
@@ -1251,7 +1358,7 @@ Pytest uses **`tests/conftest.py`**: `pytest_configure` assigns **`DATABASE_URL`
 
 - [ ] All sub-phase deliverables shipped
 - [ ] Exit criterion met and verified
-- [ ] Existing tests still pass (172+ growing)
+- [ ] Existing tests still pass (669+ as of Phase 5 close; run `pytest` for current count)
 - [ ] New tests added and passing
 - [ ] Deploys cleanly to Railway
 - [ ] No dead code / commented-out blocks
@@ -1272,9 +1379,145 @@ Pytest uses **`tests/conftest.py`**: `pytest_configure` assigns **`DATABASE_URL`
 
 ---
 
+## 15. Implementation appendix (post–Phase 5 production)
+
+Short reference for production architecture after Phase 5 close. Details drift as code evolves — prefer the repo for exact behavior.
+
+### File paths (critical)
+
+**Documentation (repo root):**
+
+- `HAVASU_CHAT_CONCIERGE_HANDOFF.md` — this doc.
+- `docs/phase_5_6_category_split_decision.md` — provider/program split rationale.
+
+**Chat pipeline:**
+
+- `app/chat/unified_router.py` — routing orchestrator + gap_template strings.
+- `app/chat/intent_classifier.py` — sub_intent + entity matching (gpt-4.1-mini).
+- `app/chat/tier1_handler.py`, `tier1_templates.py` — deterministic templates.
+- `app/chat/tier2_schema.py` — Tier2Filters Pydantic (includes `open_now` field).
+- `app/chat/tier2_parser.py` — LLM parser call.
+- `app/chat/tier2_db_query.py` — DB query + `open_now` post-filter.
+- `app/chat/tier2_formatter.py` — LLM formatter call.
+- `app/chat/tier2_handler.py` — Tier 2 orchestrator.
+- `app/chat/tier3_handler.py` — Tier 3 synthesis + anti-hallucination.
+- `app/chat/context_builder.py` — Tier 3 context assembly.
+
+**Contribute pipeline (Phase 5):**
+
+- `app/contrib/url_fetcher.py` — HTML fetch + metadata extraction + SSRF protection.
+- `app/contrib/places_client.py` — Google Places (New) Text Search client.
+- `app/contrib/enrichment.py` — background enrichment orchestrator.
+- `app/contrib/approval_service.py` — single-transaction approval → catalog row.
+- `app/contrib/mention_scanner.py` — Tier 3 response scanner + stop phrases.
+- `app/contrib/hours_helper.py` — Places hours → structured + is_open_at.
+
+**Admin (HTML):**
+
+- `app/admin/auth.py` — cookie session with `itsdangerous`.
+- `app/admin/router.py` — HTML route registration.
+- `app/admin/contributions_html.py` — review UI for contributions.
+- `app/admin/mentions_html.py` — review UI for LLM mentions.
+- `app/admin/categories_html.py` — category discovery dashboard.
+
+**Admin (JSON):**
+
+- `app/api/routes/admin_contributions.py` — JSON API at `/admin/api/contributions`.
+- `app/api/routes/admin_mentions.py` — JSON API at `/admin/api/mentioned-entities`.
+
+**Public:**
+
+- `app/api/routes/chat.py` — `/api/chat` POST.
+- `app/api/routes/contribute.py` — `/contribute` GET/POST.
+- `app/static/index.html` — chat frontend.
+
+**Data layer:**
+
+- `app/db/models.py` — all SQLAlchemy models (ChatLog, Provider, Program, Event, Contribution, LlmMentionedEntity).
+- `app/db/database.py` — Base + session.
+- `app/db/chat_logging.py` — chat_log writes.
+- `app/db/contribution_store.py` — contribution CRUD + duplicate URL detection + IP-hash rate count.
+- `app/db/llm_mention_store.py` — mention CRUD.
+
+**Schemas:**
+
+- `app/schemas/chat.py`
+- `app/schemas/contribution.py` — includes approval field schemas (provider/program/event).
+- `app/schemas/llm_mention.py`
+
+**Prompts:**
+
+- `prompts/system_prompt.txt` — Tier 3 voice, external delegation, anti-hallucination, `/contribute` mention.
+- `prompts/tier2_parser.txt` — 10+ few-shot examples (includes open_now).
+- `prompts/tier2_formatter.txt` — response formatting for Tier 2.
+
+**Scripts:**
+
+- `scripts/run_query_battery.py` — Track A (120 queries).
+- `scripts/run_voice_spotcheck.py` — 20-query voice battery.
+- `scripts/analyze_chat_costs.py` — cost analytics with input/output split.
+- `scripts/smoke_phase52_contributions.py` — production smoke test for Phase 5.2.
+
+**Alembic migrations (production-applied):**
+
+- `7a8b9c0d1e2f_add_llm_input_output_token_columns.py` — Phase 4.3.
+- `b5c6d7e8f901_add_contributions_table.py` — Phase 5.1.
+- `c6d7e8f9a012_add_llm_mentioned_entities.py` — Phase 5.5.
+- `d7e8f9a0b123_add_providers_hours_structured.py` — Phase 5.6.
+
+**Core:**
+
+- `app/core/rate_limit.py` — slowapi Limiter + `RATE_LIMIT_DISABLED` helper.
+- `app/main.py` — router registration.
+
+### Data flow: user contribution
+
+1. User GETs `/contribute`.
+2. User POSTs form to `/contribute`.
+3. Route handler (`app/api/routes/contribute.py`):
+   a. DB-backed IP-hash rate check (1/hour).
+   b. Pydantic validation via `ContributionCreate`.
+   c. Duplicate URL check against pending/approved contributions.
+   d. Minimum content check (URL or notes required).
+   e. `create_contribution()` inserts row.
+   f. `BackgroundTasks.add_task(enrich_contribution, ...)`.
+   g. Redirect to `/contribute?submitted=1`.
+4. Background: `enrich_contribution` runs URL fetch (if URL present) and Places lookup (if provider) in sequence. Updates contribution row with results. Handles all failures gracefully.
+5. Contribution appears in `/admin/contributions` queue with enrichment status.
+6. Operator reviews, clicks Approve (or Reject / Needs Info / Edit).
+7. Approval service (`app/contrib/approval_service.py`) runs in single transaction:
+   a. Creates Provider/Program/Event row with mapped fields including `hours_structured` from Places.
+   b. Sets `created_*_id` on contribution, status=approved, reviewed_at=now.
+   c. Commits.
+8. New catalog row is queryable by Tier 2 immediately.
+
+### Data flow: LLM-inferred mention
+
+1. User POSTs to `/api/chat`, query routes to Tier 3.
+2. Tier 3 generates response, chat_log row written, response returned.
+3. If `tier_used == "3"`, `/api/chat` route schedules `scan_and_save_mentions` via `BackgroundTasks`.
+4. Background: `mention_scanner.scan_tier3_response` extracts title-case candidates, filters stop phrases, dedupes.
+5. Each candidate inserted into `llm_mentioned_entities` (unique constraint on chat_log_id + mentioned_name prevents duplicates).
+6. Operator reviews at `/admin/mentioned-entities`.
+7. If interesting: clicks Promote, fills in entity_type + URL + category, system creates Contribution with source="llm_inferred" and llm_source_chat_log_id set.
+8. Promoted mention now flows through standard contribution enrichment + review pipeline.
+
+### Data flow: Tier 2 with open_now
+
+1. User query "what's open right now" POSTs to `/api/chat`.
+2. Classifier routes to OPEN_ENDED intent.
+3. Tier 2 parser LLM call extracts filters including `open_now=True`.
+4. Tier 2 DB query fetches candidate providers per other filters.
+5. Post-fetch: query code calls `is_open_at(p.hours_structured, now_lake_havasu)` for each provider, filters to those open.
+6. Providers with NULL `hours_structured` are excluded.
+7. Tier 2 formatter generates response from filtered rows.
+8. Response returned to user.
+
+---
+
 ## END OF HANDOFF
 
 This document is the source of truth for the Havasu Chat concierge build. If anything in another document contradicts this one, this one wins unless the owner explicitly says otherwise.
 
-**Last updated:** Compiled from owner decisions on seven locked questions.
+**Last updated:** 2026-04-20 — Phase 4 + Phase 5 close consolidation (Tier 2 + contribute stack shipped).
 **Total scope:** 8 phases, ~3–5 months at ~20 hours/week, ship-ready concierge with community-authored data model and deferred monetization primitives in place.
