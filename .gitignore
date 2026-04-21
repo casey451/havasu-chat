@@ -9,5 +9,8 @@ __pycache__/
 # Local-only session notes (not durable project artifacts)
 docs/phase2-assistant-log.md
 
+# Windows shortcut dropped in docs by mistake
+docs/*Shortcut*.lnk
+
 # Script-generated local extracts (do not commit)
 scripts/output/
