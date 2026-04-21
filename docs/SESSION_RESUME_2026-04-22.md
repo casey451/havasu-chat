@@ -21,7 +21,7 @@
 
 ## 2. Current state (top of session)
 
-- **Last commit on main:** `cf867b8` docs: session resume doc for 2026-04-22
+- **Last commit on main:** `ae843c6` docs: session resume tip-of-main + Phase 6.1 commit tail
 - **Tests:** 681 passing
 - **Working tree:** clean, main in sync with origin/main
 - **Production:** healthy
@@ -29,6 +29,7 @@
 **Phase 6.1 — recent `main` history** (newest first; omits transient revert/duplicate commits around the clean 6.1.3 artifact land):
 
 ```text
+ae843c6 docs: session resume tip-of-main + Phase 6.1 commit tail
 cf867b8 docs: session resume doc for 2026-04-22
 4c5d4b3 docs: log Phase 6.1 deferred items
 10b251b Phase 6.1.4: voice fixes for HOURS, Tier 3 §8.2, Tier 2 explicit-rec
