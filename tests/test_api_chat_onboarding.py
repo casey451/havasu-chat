@@ -59,7 +59,12 @@ def test_clear_session_state_includes_onboarding_hints() -> None:
     sid = "fresh-onb-" + uuid.uuid4().hex[:8]
     clear_session_state(sid)
     hints = get_session(sid)["onboarding_hints"]
-    assert hints == {"visitor_status": None, "has_kids": None}
+    assert hints == {
+        "visitor_status": None,
+        "has_kids": None,
+        "age": None,
+        "location": None,
+    }
 
 
 def test_tier3_receives_onboarding_hints_from_session() -> None:
@@ -76,16 +81,22 @@ def test_tier3_receives_onboarding_hints_from_session() -> None:
         ).status_code == 200
         with patch("app.chat.unified_router.answer_with_tier3") as m:
             m.return_value = ("stub", 1, 1, 0)
-            with patch(
-                "app.chat.unified_router.try_tier2_with_usage",
-                return_value=(None, None, None, None),
-            ):
-                with patch("app.chat.unified_router.try_tier1", return_value=None):
-                    cr = client.post(
-                        "/api/chat",
-                        json={"session_id": sid, "query": "What is fun this weekend?"},
-                    )
+            with patch("app.chat.unified_router.extract_hints", return_value=None):
+                with patch(
+                    "app.chat.unified_router.try_tier2_with_usage",
+                    return_value=(None, None, None, None),
+                ):
+                    with patch("app.chat.unified_router.try_tier1", return_value=None):
+                        cr = client.post(
+                            "/api/chat",
+                            json={"session_id": sid, "query": "What is fun this weekend?"},
+                        )
     assert cr.status_code == 200
     m.assert_called_once()
     hints = m.call_args.kwargs.get("onboarding_hints")
-    assert hints == {"visitor_status": "visiting", "has_kids": True}
+    assert hints == {
+        "visitor_status": "visiting",
+        "has_kids": True,
+        "age": None,
+        "location": None,
+    }

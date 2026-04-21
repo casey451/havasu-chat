@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.chat.context_builder import build_context_for_tier3
 from app.chat.intent_classifier import IntentResult
+from app.core.timezone import format_now_lake_havasu
 
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 FALLBACK_MESSAGE = "Something went sideways on my end — try that again in a sec."
@@ -51,26 +52,37 @@ def _split_usage(usage: object) -> tuple[int, int]:
     return inp + cr + cc, out
 
 
-def compact_onboarding_user_context_line(
-    onboarding_hints: Mapping[str, Any] | None,
-) -> str | None:
-    """One-line bias signal for Tier 3 user payload (not catalog facts)."""
+def user_context_line_for_tier3(onboarding_hints: Mapping[str, Any] | None) -> str | None:
+    """Comma-separated bias phrases for Tier 3 (not catalog facts). Omits line if nothing set."""
     if not onboarding_hints:
         return None
     parts: list[str] = []
     vs = onboarding_hints.get("visitor_status")
     if vs == "visiting":
-        parts.append("visitor (not a local)")
+        parts.append("visiting")
     elif vs == "local":
-        parts.append("local resident")
+        parts.append("local")
     hk = onboarding_hints.get("has_kids")
     if hk is True:
-        parts.append("kids with them")
+        parts.append("with kids")
     elif hk is False:
-        parts.append("no kids with them")
+        parts.append("no kids")
+    age = onboarding_hints.get("age")
+    if age is not None and age != "":
+        parts.append(f"age {age}")
+    loc = onboarding_hints.get("location")
+    if isinstance(loc, str) and loc.strip():
+        parts.append(loc.strip())
     if not parts:
         return None
-    return "User context: " + "; ".join(parts) + "."
+    return "User context: " + ", ".join(parts) + "."
+
+
+def compact_onboarding_user_context_line(
+    onboarding_hints: Mapping[str, Any] | None,
+) -> str | None:
+    """Backward-compatible alias for tests / callers using the Phase 6.3 name."""
+    return user_context_line_for_tier3(onboarding_hints)
 
 
 def _extract_text_from_message(msg: object) -> str:
@@ -91,6 +103,7 @@ def answer_with_tier3(
     db: Session,
     *,
     onboarding_hints: Mapping[str, Any] | None = None,
+    now_line: str | None = None,
 ) -> tuple[str, int | None, int | None, int | None]:
     """Return (assistant_text, total_tokens, llm_input_tokens, llm_output_tokens). Never raises."""
     api_key = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
@@ -118,20 +131,16 @@ def answer_with_tier3(
         f"Classifier: mode={intent_result.mode}, sub_intent={intent_result.sub_intent or 'none'}, "
         f"entity={intent_result.entity or 'none'}"
     )
-    bias_line = compact_onboarding_user_context_line(onboarding_hints)
+    nl = (now_line or "").strip() or f"Now: {format_now_lake_havasu()}"
+    if not nl.lower().startswith("now:"):
+        nl = f"Now: {nl}"
+    bias_line = user_context_line_for_tier3(onboarding_hints)
+    mid_parts: list[str] = [classifier_block]
     if bias_line:
-        user_text = (
-            f"User query:\n{query.strip()}\n\n"
-            f"{classifier_block}\n\n"
-            f"{bias_line}\n\n"
-            f"{context}"
-        )
-    else:
-        user_text = (
-            f"User query:\n{query.strip()}\n\n"
-            f"{classifier_block}\n\n"
-            f"{context}"
-        )
+        mid_parts.append(bias_line)
+    mid_parts.append(nl)
+    mid = "\n\n".join(mid_parts)
+    user_text = f"User query:\n{query.strip()}\n\n{mid}\n\n{context}"
 
     model = (os.getenv("ANTHROPIC_MODEL") or "").strip() or DEFAULT_MODEL
 

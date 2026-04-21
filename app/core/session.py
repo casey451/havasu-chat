@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import logging
 import time
 from datetime import datetime, timezone
 from typing import Any
 
 BLOCKING_SESSION_TTL_SEC = 300.0
+IDLE_SESSION_RESET_SEC = 30 * 60
 
 sessions: dict[str, dict[str, Any]] = {}
 
@@ -29,8 +31,13 @@ def _default_flow() -> dict[str, Any]:
 
 
 def _default_onboarding_hints() -> dict[str, Any]:
-    """Phase 6.3 — quick-tap onboarding; values updated via ``POST /api/chat/onboarding``."""
-    return {"visitor_status": None, "has_kids": None}
+    """Onboarding + Phase 6.4 hint memory (quick taps + LLM extraction)."""
+    return {
+        "visitor_status": None,
+        "has_kids": None,
+        "age": None,
+        "location": None,
+    }
 
 
 def any_awaiting_user_reply(session: dict[str, Any]) -> bool:
@@ -136,6 +143,9 @@ def clear_session_state(session_id: str) -> None:
         "contact_optional_answered": False,
         "blocking_mono": None,
         "onboarding_hints": _default_onboarding_hints(),
+        "prior_entity": None,
+        "last_activity_at": None,
+        "turn_number": 0,
     }
 
 
@@ -151,7 +161,72 @@ def get_session(session_id: str) -> dict[str, Any]:
     session.setdefault("awaiting_optional_contact", False)
     session.setdefault("contact_optional_answered", False)
     session.setdefault("onboarding_hints", _default_onboarding_hints())
+    session.setdefault("prior_entity", None)
+    session.setdefault("last_activity_at", None)
+    session.setdefault("turn_number", 0)
+    hints = session["onboarding_hints"]
+    if isinstance(hints, dict):
+        hints.setdefault("age", None)
+        hints.setdefault("location", None)
     return session
+
+
+def touch_session(session_id: str) -> None:
+    """Update activity time; if idle >30 min, reset onboarding hints and prior_entity only."""
+    session = get_session(session_id)
+    now = datetime.now(timezone.utc)
+    last = session.get("last_activity_at")
+    if isinstance(last, datetime):
+        last_aware = last if last.tzinfo else last.replace(tzinfo=timezone.utc)
+        elapsed = (now - last_aware).total_seconds()
+        if elapsed > IDLE_SESSION_RESET_SEC:
+            session["onboarding_hints"] = _default_onboarding_hints()
+            session["prior_entity"] = None
+    session["last_activity_at"] = now
+
+
+def update_hints_from_extraction(session_id: str, extracted: Any) -> None:
+    """Merge LLM hints into ``onboarding_hints`` (latest wins per field). ``extracted`` may be None."""
+    if extracted is None:
+        return
+    age = getattr(extracted, "age", None)
+    loc = getattr(extracted, "location", None)
+    if age is None and loc is None:
+        return
+    session = get_session(session_id)
+    hints = session["onboarding_hints"]
+    if not isinstance(hints, dict):
+        hints = _default_onboarding_hints()
+        session["onboarding_hints"] = hints
+    if age is not None:
+        hints["age"] = age
+    if loc is not None and str(loc).strip():
+        hints["location"] = str(loc).strip()
+
+
+def record_entity(session_id: str, entity_name: str, turn_number: int, db: Any) -> None:
+    """Store last resolved catalog entity for pronoun follow-ups (one deep)."""
+    from sqlalchemy import select
+
+    from app.db.models import Provider
+
+    name = (entity_name or "").strip()
+    if not name:
+        return
+    session = get_session(session_id)
+    pid: str = name
+    try:
+        row = db.scalars(select(Provider).where(Provider.provider_name == name).limit(1)).first()
+        if row is not None:
+            pid = str(row.id)
+    except Exception:
+        logging.exception("record_entity: provider lookup failed")
+    session["prior_entity"] = {
+        "id": pid,
+        "name": name,
+        "type": "provider",
+        "turn_number": int(turn_number),
+    }
 
 
 def push_search_snapshot(session: dict[str, Any]) -> None:

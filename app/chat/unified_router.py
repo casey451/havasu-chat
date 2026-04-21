@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 import time
 from dataclasses import dataclass, replace
 from uuid import uuid4
@@ -16,13 +17,25 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from app.chat.entity_matcher import match_entity, refresh_entity_matcher
+from app.chat.hint_extractor import extract_hints
 from app.chat.intent_classifier import IntentResult, classify
 from app.chat.normalizer import normalize
 from app.chat.tier1_handler import try_tier1
 from app.chat.tier2_handler import try_tier2_with_usage
 from app.chat.tier3_handler import answer_with_tier3
-from app.core.session import get_session
+from app.core.session import (
+    get_session,
+    record_entity,
+    touch_session,
+    update_hints_from_extraction,
+)
+from app.core.timezone import format_now_lake_havasu
 from app.db.chat_logging import log_unified_route
+
+_PRONOUN_REFERENT = re.compile(
+    r"\b(it|that|there|they|them|the place|that place)\b",
+    re.IGNORECASE,
+)
 
 _GRACEFUL = "Something went sideways on my end — try that again in a sec."
 
@@ -89,6 +102,7 @@ def _handle_ask(
     db: Session,
     *,
     onboarding_hints: dict | None = None,
+    now_line: str | None = None,
 ) -> tuple[str, str, int | None, int | None, int | None]:
     tier1 = try_tier1(query, intent_result, db)
     if tier1 is not None:
@@ -97,7 +111,7 @@ def _handle_ask(
     if t2_text is not None:
         return t2_text, "2", t2_total, t2_in, t2_out
     text, total, tin, tout = answer_with_tier3(
-        query, intent_result, db, onboarding_hints=onboarding_hints
+        query, intent_result, db, onboarding_hints=onboarding_hints, now_line=now_line
     )
     return text, "3", total, tin, tout
 
@@ -148,15 +162,48 @@ def _handle_chat(
     return _OUT_OF_SCOPE_REPLY
 
 
-def _enrich_entity_from_db(query: str, intent_result: IntentResult, db: Session) -> IntentResult:
+def _prior_entity_fresh(session: dict, current_turn: int) -> dict | None:
+    pe = session.get("prior_entity")
+    if not isinstance(pe, dict):
+        return None
+    t0 = pe.get("turn_number")
+    if t0 is None:
+        return None
+    if current_turn - int(t0) <= 3:
+        return pe
+    return None
+
+
+def _pronoun_referent_query(raw: str) -> bool:
+    return bool(raw and _PRONOUN_REFERENT.search(raw))
+
+
+def _enrich_entity_from_db(
+    query: str,
+    intent_result: IntentResult,
+    db: Session,
+    *,
+    session: dict | None,
+    current_turn: int | None,
+) -> IntentResult:
     if intent_result.entity is not None:
         return intent_result
     refresh_entity_matcher(db)
     hit = match_entity(query, db)
-    if not hit:
-        return intent_result
-    name, _score = hit
-    return replace(intent_result, entity=name)
+    if hit:
+        name, _score = hit
+        return replace(intent_result, entity=name)
+    if (
+        session is not None
+        and current_turn is not None
+        and _pronoun_referent_query(query)
+    ):
+        pe = _prior_entity_fresh(session, current_turn)
+        if pe and isinstance(pe.get("name"), str):
+            nm = pe["name"].strip()
+            if nm:
+                return replace(intent_result, entity=nm)
+    return intent_result
 
 
 def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
@@ -219,6 +266,18 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
         logging.exception("unified_router: normalize failed")
         return _finish(_GRACEFUL, "ask", None, None, "placeholder")
 
+    raw_sid = (session_id or "").strip()
+    session_obj: dict | None = None
+    current_turn: int | None = None
+    if raw_sid:
+        try:
+            touch_session(raw_sid)
+            session_obj = get_session(raw_sid)
+            session_obj["turn_number"] = int(session_obj.get("turn_number", 0)) + 1
+            current_turn = int(session_obj["turn_number"])
+        except Exception:
+            logging.exception("unified_router: session touch/increment failed")
+
     try:
         intent_result = classify(nq_safe)
     except Exception:
@@ -226,13 +285,31 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
         return _finish(_GRACEFUL, "ask", None, None, "placeholder")
 
     try:
-        intent_result = _enrich_entity_from_db(q_raw, intent_result, db)
+        extracted = extract_hints(q_raw)
+        if raw_sid:
+            update_hints_from_extraction(raw_sid, extracted)
+    except Exception:
+        logging.exception("unified_router: hint extraction failed")
+
+    try:
+        intent_result = _enrich_entity_from_db(
+            q_raw,
+            intent_result,
+            db,
+            session=session_obj,
+            current_turn=current_turn,
+        )
     except Exception:
         logging.exception("unified_router: entity enrichment failed")
         # Continue with un-enriched classification
 
+    if raw_sid and current_turn is not None and (intent_result.entity or "").strip():
+        try:
+            record_entity(raw_sid, intent_result.entity or "", current_turn, db)
+        except Exception:
+            logging.exception("unified_router: record_entity failed")
+
     onboarding_hints: dict | None = None
-    raw_sid = (session_id or "").strip()
     if raw_sid:
         try:
             raw_hints = get_session(raw_sid).get("onboarding_hints")
@@ -240,6 +317,8 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
                 onboarding_hints = raw_hints
         except Exception:
             logging.exception("unified_router: onboarding_hints read failed")
+
+    now_line = f"Now: {format_now_lake_havasu()}"
 
     if intent_result.mode == "ask":
         gap_text = _catalog_gap_response(intent_result)
@@ -260,7 +339,7 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
     try:
         if intent_result.mode == "ask":
             text, tier_used, llm_tokens_used, llm_input_tokens, llm_output_tokens = _handle_ask(
-                q_raw, intent_result, db, onboarding_hints=onboarding_hints
+                q_raw, intent_result, db, onboarding_hints=onboarding_hints, now_line=now_line
             )
         elif intent_result.mode == "contribute":
             tier_used = "placeholder"
@@ -273,7 +352,7 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
             text = _handle_chat(q_raw, intent_result, db, session_id)
         else:
             text, tier_used, llm_tokens_used, llm_input_tokens, llm_output_tokens = _handle_ask(
-                q_raw, intent_result, db, onboarding_hints=onboarding_hints
+                q_raw, intent_result, db, onboarding_hints=onboarding_hints, now_line=now_line
             )
     except Exception:
         logging.exception("unified_router: mode handler failed")

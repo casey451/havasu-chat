@@ -170,7 +170,7 @@ def test_compact_onboarding_user_context_line() -> None:
     )
     assert line is not None
     assert line.startswith("User context:")
-    assert "visitor" in line.lower()
+    assert "visiting" in line.lower()
     assert "kids" in line.lower()
 
 
@@ -200,10 +200,12 @@ def test_user_message_includes_onboarding_bias_before_catalog(db: Session) -> No
     kwargs = fake_client.messages.create.call_args.kwargs
     user_content = kwargs["messages"][0]["content"]
     assert "User context:" in user_content
+    assert "Now:" in user_content
     assert "Classifier:" in user_content
     cat_idx = user_content.index("Context —")
     bias_idx = user_content.index("User context:")
-    assert bias_idx < cat_idx
+    now_idx = user_content.index("Now:")
+    assert bias_idx < now_idx < cat_idx
 
 
 def test_system_prompt_passed_with_ephemeral_cache_control(db: Session) -> None:
@@ -227,7 +229,7 @@ def test_system_prompt_passed_with_ephemeral_cache_control(db: Session) -> None:
     fake_client.messages.create.return_value = _msg("reply", usage=usage)
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
         with patch.object(anthropic, "Anthropic", return_value=fake_client):
-            answer_with_tier3("user text here", _intent(), db)
+            answer_with_tier3("user text here", _intent(), db, now_line="Now: Monday, January 1, 2030, 12:00 PM")
     kwargs = fake_client.messages.create.call_args.kwargs
     system = kwargs["system"]
     assert isinstance(system, list)
