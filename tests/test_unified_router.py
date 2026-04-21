@@ -66,15 +66,16 @@ def db() -> Session:
 
 
 def test_ask_tier3_when_tier1_misses(db: Session) -> None:
-    with patch(
-        "app.chat.unified_router.try_tier2_with_usage",
-        return_value=(None, None, None, None),
-    ):
+    with patch("app.chat.unified_router.extract_hints", return_value=None):
         with patch(
-            "app.chat.unified_router.answer_with_tier3",
-            return_value=("Tier3 stub answer.", 99, 60, 39),
+            "app.chat.unified_router.try_tier2_with_usage",
+            return_value=(None, None, None, None),
         ):
-            r = route("What is fun to do this weekend?", "sess-ask", db)
+            with patch(
+                "app.chat.unified_router.answer_with_tier3",
+                return_value=("Tier3 stub answer.", 99, 60, 39),
+            ):
+                r = route("What is fun to do this weekend?", "sess-ask", db)
     assert isinstance(r, ChatResponse)
     assert r.mode == "ask"
     assert r.sub_intent == "OPEN_ENDED"

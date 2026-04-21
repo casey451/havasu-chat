@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from datetime import date, timedelta
+from unittest.mock import patch
 
 from app.core.search import format_results, generate_query_embedding, search_events
 from app.db.database import SessionLocal
@@ -79,62 +80,71 @@ class Phase5EmbeddingSearchTests(unittest.TestCase):
         self.assertNotIn("Old Game", titles)
 
     def test_embedding_ranking_orders_by_relevance(self) -> None:
-        today = date.today()
-        future = today + timedelta(days=5)
-        emb_soccer = generate_query_embedding("youth soccer league fun")
-        emb_opera = generate_query_embedding("classical opera symphony evening")
+        def _deterministic_embedding_source(text: str) -> tuple[list[float], bool]:
+            from app.core.search import _deterministic_embedding_1536
 
-        with SessionLocal() as db:
-            db.add(
-                Event.from_create(
-                    EventCreate(
-                        title="Soccer League",
-                        date=future,
-                        start_time="10:00:00",
-                        end_time=None,
-                        location_name="Park",
-                        description="Youth soccer league games.",
-                        event_url="https://example.com/soccer-league",
-                        contact_name=None,
-                        contact_phone=None,
-                        tags=[],
-                        embedding=emb_soccer,
-                        status="live",
-                        created_by="user",
-                        admin_review_by=None,
+            return (_deterministic_embedding_1536(text), False)
+
+        with patch(
+            "app.core.search.generate_query_embedding_with_source",
+            side_effect=_deterministic_embedding_source,
+        ):
+            today = date.today()
+            future = today + timedelta(days=5)
+            emb_soccer = generate_query_embedding("youth soccer league fun")
+            emb_opera = generate_query_embedding("classical opera symphony evening")
+
+            with SessionLocal() as db:
+                db.add(
+                    Event.from_create(
+                        EventCreate(
+                            title="Soccer League",
+                            date=future,
+                            start_time="10:00:00",
+                            end_time=None,
+                            location_name="Park",
+                            description="Youth soccer league games.",
+                            event_url="https://example.com/soccer-league",
+                            contact_name=None,
+                            contact_phone=None,
+                            tags=[],
+                            embedding=emb_soccer,
+                            status="live",
+                            created_by="user",
+                            admin_review_by=None,
+                        )
                     )
                 )
-            )
-            db.add(
-                Event.from_create(
-                    EventCreate(
-                        title="Opera Night",
-                        date=future,
-                        start_time="19:00:00",
-                        end_time=None,
-                        location_name="Hall",
-                        description="Classical opera performance.",
-                        event_url="https://example.com/opera",
-                        contact_name=None,
-                        contact_phone=None,
-                        tags=[],
-                        embedding=emb_opera,
-                        status="live",
-                        created_by="user",
-                        admin_review_by=None,
+                db.add(
+                    Event.from_create(
+                        EventCreate(
+                            title="Opera Night",
+                            date=future,
+                            start_time="19:00:00",
+                            end_time=None,
+                            location_name="Hall",
+                            description="Classical opera performance.",
+                            event_url="https://example.com/opera",
+                            contact_name=None,
+                            contact_phone=None,
+                            tags=[],
+                            embedding=emb_opera,
+                            status="live",
+                            created_by="user",
+                            admin_review_by=None,
+                        )
                     )
                 )
-            )
-            db.commit()
+                db.commit()
 
-        with SessionLocal() as db:
-            results = search_events(
-                db=db,
-                date_context=None,
-                activity_type=None,
-                keywords=[],
-                query_message="kids soccer league",
-            ).events
+            with SessionLocal() as db:
+                results = search_events(
+                    db=db,
+                    date_context=None,
+                    activity_type=None,
+                    keywords=[],
+                    query_message="kids soccer league",
+                ).events
 
         self.assertGreaterEqual(len(results), 2)
         self.assertEqual(results[0].title, "Soccer League")
