@@ -21,6 +21,7 @@ from app.chat.normalizer import normalize
 from app.chat.tier1_handler import try_tier1
 from app.chat.tier2_handler import try_tier2_with_usage
 from app.chat.tier3_handler import answer_with_tier3
+from app.core.session import get_session
 from app.db.chat_logging import log_unified_route
 
 _GRACEFUL = "Something went sideways on my end — try that again in a sec."
@@ -83,7 +84,11 @@ def _greeting_variant(session_id: str | None) -> str:
 
 
 def _handle_ask(
-    query: str, intent_result: IntentResult, db: Session
+    query: str,
+    intent_result: IntentResult,
+    db: Session,
+    *,
+    onboarding_hints: dict | None = None,
 ) -> tuple[str, str, int | None, int | None, int | None]:
     tier1 = try_tier1(query, intent_result, db)
     if tier1 is not None:
@@ -91,7 +96,9 @@ def _handle_ask(
     t2_text, t2_total, t2_in, t2_out = try_tier2_with_usage(query)
     if t2_text is not None:
         return t2_text, "2", t2_total, t2_in, t2_out
-    text, total, tin, tout = answer_with_tier3(query, intent_result, db)
+    text, total, tin, tout = answer_with_tier3(
+        query, intent_result, db, onboarding_hints=onboarding_hints
+    )
     return text, "3", total, tin, tout
 
 
@@ -224,6 +231,16 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
         logging.exception("unified_router: entity enrichment failed")
         # Continue with un-enriched classification
 
+    onboarding_hints: dict | None = None
+    raw_sid = (session_id or "").strip()
+    if raw_sid:
+        try:
+            raw_hints = get_session(raw_sid).get("onboarding_hints")
+            if isinstance(raw_hints, dict):
+                onboarding_hints = raw_hints
+        except Exception:
+            logging.exception("unified_router: onboarding_hints read failed")
+
     if intent_result.mode == "ask":
         gap_text = _catalog_gap_response(intent_result)
         if gap_text is not None:
@@ -243,7 +260,7 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
     try:
         if intent_result.mode == "ask":
             text, tier_used, llm_tokens_used, llm_input_tokens, llm_output_tokens = _handle_ask(
-                q_raw, intent_result, db
+                q_raw, intent_result, db, onboarding_hints=onboarding_hints
             )
         elif intent_result.mode == "contribute":
             tier_used = "placeholder"
@@ -256,7 +273,7 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
             text = _handle_chat(q_raw, intent_result, db, session_id)
         else:
             text, tier_used, llm_tokens_used, llm_input_tokens, llm_output_tokens = _handle_ask(
-                q_raw, intent_result, db
+                q_raw, intent_result, db, onboarding_hints=onboarding_hints
             )
     except Exception:
         logging.exception("unified_router: mode handler failed")

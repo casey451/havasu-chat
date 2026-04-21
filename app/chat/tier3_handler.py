@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from typing import Any, Mapping
 
 from sqlalchemy.orm import Session
 
@@ -50,6 +51,28 @@ def _split_usage(usage: object) -> tuple[int, int]:
     return inp + cr + cc, out
 
 
+def compact_onboarding_user_context_line(
+    onboarding_hints: Mapping[str, Any] | None,
+) -> str | None:
+    """One-line bias signal for Tier 3 user payload (not catalog facts)."""
+    if not onboarding_hints:
+        return None
+    parts: list[str] = []
+    vs = onboarding_hints.get("visitor_status")
+    if vs == "visiting":
+        parts.append("visitor (not a local)")
+    elif vs == "local":
+        parts.append("local resident")
+    hk = onboarding_hints.get("has_kids")
+    if hk is True:
+        parts.append("kids with them")
+    elif hk is False:
+        parts.append("no kids with them")
+    if not parts:
+        return None
+    return "User context: " + "; ".join(parts) + "."
+
+
 def _extract_text_from_message(msg: object) -> str:
     parts: list[str] = []
     content = getattr(msg, "content", None) or []
@@ -63,7 +86,11 @@ def _extract_text_from_message(msg: object) -> str:
 
 
 def answer_with_tier3(
-    query: str, intent_result: IntentResult, db: Session
+    query: str,
+    intent_result: IntentResult,
+    db: Session,
+    *,
+    onboarding_hints: Mapping[str, Any] | None = None,
 ) -> tuple[str, int | None, int | None, int | None]:
     """Return (assistant_text, total_tokens, llm_input_tokens, llm_output_tokens). Never raises."""
     api_key = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
@@ -87,12 +114,24 @@ def answer_with_tier3(
     ]
 
     context = build_context_for_tier3(query, intent_result, db)
-    user_text = (
-        f"User query:\n{query.strip()}\n\n"
+    classifier_block = (
         f"Classifier: mode={intent_result.mode}, sub_intent={intent_result.sub_intent or 'none'}, "
-        f"entity={intent_result.entity or 'none'}\n\n"
-        f"{context}"
+        f"entity={intent_result.entity or 'none'}"
     )
+    bias_line = compact_onboarding_user_context_line(onboarding_hints)
+    if bias_line:
+        user_text = (
+            f"User query:\n{query.strip()}\n\n"
+            f"{classifier_block}\n\n"
+            f"{bias_line}\n\n"
+            f"{context}"
+        )
+    else:
+        user_text = (
+            f"User query:\n{query.strip()}\n\n"
+            f"{classifier_block}\n\n"
+            f"{context}"
+        )
 
     model = (os.getenv("ANTHROPIC_MODEL") or "").strip() or DEFAULT_MODEL
 

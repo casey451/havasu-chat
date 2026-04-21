@@ -11,7 +11,11 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.chat.intent_classifier import IntentResult
-from app.chat.tier3_handler import FALLBACK_MESSAGE, answer_with_tier3
+from app.chat.tier3_handler import (
+    FALLBACK_MESSAGE,
+    answer_with_tier3,
+    compact_onboarding_user_context_line,
+)
 from app.db.database import SessionLocal
 from app.db.models import Provider
 
@@ -156,6 +160,50 @@ def test_usage_sums_input_output_and_cache_fields(db: Session) -> None:
             _text, tokens, tin, tout = answer_with_tier3("q", _intent(), db)
     assert tokens == 390
     assert tin == 350 and tout == 40
+
+
+def test_compact_onboarding_user_context_line() -> None:
+    assert compact_onboarding_user_context_line(None) is None
+    assert compact_onboarding_user_context_line({}) is None
+    line = compact_onboarding_user_context_line(
+        {"visitor_status": "visiting", "has_kids": True}
+    )
+    assert line is not None
+    assert line.startswith("User context:")
+    assert "visitor" in line.lower()
+    assert "kids" in line.lower()
+
+
+def test_user_message_includes_onboarding_bias_before_catalog(db: Session) -> None:
+    db.add(
+        Provider(
+            provider_name="Bias Prov",
+            category="misc",
+            verified=True,
+            draft=False,
+            is_active=True,
+        )
+    )
+    db.commit()
+    usage = SimpleNamespace(
+        input_tokens=1,
+        output_tokens=1,
+        cache_read_input_tokens=0,
+        cache_creation_input_tokens=0,
+    )
+    fake_client = MagicMock()
+    fake_client.messages.create.return_value = _msg("ok", usage=usage)
+    hints = {"visitor_status": "local", "has_kids": False}
+    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
+        with patch.object(anthropic, "Anthropic", return_value=fake_client):
+            answer_with_tier3("q", _intent(), db, onboarding_hints=hints)
+    kwargs = fake_client.messages.create.call_args.kwargs
+    user_content = kwargs["messages"][0]["content"]
+    assert "User context:" in user_content
+    assert "Classifier:" in user_content
+    cat_idx = user_content.index("Context —")
+    bias_idx = user_content.index("User context:")
+    assert bias_idx < cat_idx
 
 
 def test_system_prompt_passed_with_ephemeral_cache_control(db: Session) -> None:

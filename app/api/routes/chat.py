@@ -23,9 +23,17 @@ from sqlalchemy.orm import Session
 from app.chat import unified_router as unified
 from app.contrib.mention_scanner import scan_and_save_mentions
 from app.core.rate_limit import limiter
+from app.core.session import get_session
 from app.db.database import SessionLocal, get_db
 from app.db.models import ChatLog
-from app.schemas.chat import ChatFeedbackRequest, ChatFeedbackResponse, ConciergeChatRequest, ConciergeChatResponse
+from app.schemas.chat import (
+    ChatFeedbackRequest,
+    ChatFeedbackResponse,
+    ChatOnboardingRequest,
+    ChatOnboardingResponse,
+    ConciergeChatRequest,
+    ConciergeChatResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +67,32 @@ def post_concierge_chat(
         latency_ms=result.latency_ms,
         llm_tokens_used=result.llm_tokens_used,
         chat_log_id=result.chat_log_id,
+    )
+
+
+@router.post("/api/chat/onboarding", response_model=ChatOnboardingResponse)
+@limiter.limit("120/minute")
+def post_chat_onboarding(
+    request: Request,
+    payload: ChatOnboardingRequest,
+) -> ChatOnboardingResponse:
+    """Store Phase 6.3 onboarding hints on the in-memory session (quick taps)."""
+    session = get_session(payload.session_id.strip())
+    hints = session["onboarding_hints"]
+    if payload.visitor_status is not None:
+        hints["visitor_status"] = payload.visitor_status
+    if payload.has_kids is not None:
+        hints["has_kids"] = payload.has_kids
+    logger.info(
+        "chat_onboarding_hints_updated",
+        extra={
+            "visitor_status": hints.get("visitor_status"),
+            "has_kids": hints.get("has_kids"),
+        },
+    )
+    return ChatOnboardingResponse(
+        visitor_status=hints.get("visitor_status"),
+        has_kids=hints.get("has_kids"),
     )
 
 

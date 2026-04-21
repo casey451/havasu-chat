@@ -28,6 +28,11 @@ def _default_flow() -> dict[str, Any]:
     return {"current": None, "awaiting": None, "awaiting_since": None}
 
 
+def _default_onboarding_hints() -> dict[str, Any]:
+    """Phase 6.3 — quick-tap onboarding; values updated via ``POST /api/chat/onboarding``."""
+    return {"visitor_status": None, "has_kids": None}
+
+
 def any_awaiting_user_reply(session: dict[str, Any]) -> bool:
     flow = session.get("flow") or {}
     if flow.get("awaiting"):
@@ -130,6 +135,7 @@ def clear_session_state(session_id: str) -> None:
         "awaiting_optional_contact": False,
         "contact_optional_answered": False,
         "blocking_mono": None,
+        "onboarding_hints": _default_onboarding_hints(),
     }
 
 
@@ -144,6 +150,7 @@ def get_session(session_id: str) -> dict[str, Any]:
     session.setdefault("awaiting_review_offer", False)
     session.setdefault("awaiting_optional_contact", False)
     session.setdefault("contact_optional_answered", False)
+    session.setdefault("onboarding_hints", _default_onboarding_hints())
     return session
 
 

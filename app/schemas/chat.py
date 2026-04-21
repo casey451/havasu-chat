@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ChatRequest(BaseModel):
@@ -51,3 +51,23 @@ class ChatFeedbackResponse(BaseModel):
     ok: Literal[True]
     chat_log_id: str
     signal: str
+
+
+class ChatOnboardingRequest(BaseModel):
+    """POST ``/api/chat/onboarding`` — Phase 6.3 quick-tap hints (session memory only)."""
+
+    session_id: str = Field(min_length=1)
+    visitor_status: Literal["local", "visiting"] | None = None
+    has_kids: bool | None = None
+
+    @model_validator(mode="after")
+    def at_least_one_field(self) -> ChatOnboardingRequest:
+        if self.visitor_status is None and self.has_kids is None:
+            raise ValueError("Provide visitor_status and/or has_kids")
+        return self
+
+
+class ChatOnboardingResponse(BaseModel):
+    ok: Literal[True] = True
+    visitor_status: Literal["local", "visiting"] | None = None
+    has_kids: bool | None = None

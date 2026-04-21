@@ -616,9 +616,10 @@
         });
       }
 
-      function removeWelcomeChips() {
-        var w = log.querySelector(".chips-wrap");
-        if (w) w.remove();
+      function removeAllChipsWraps() {
+        log.querySelectorAll(".chips-wrap").forEach(function (w) {
+          w.remove();
+        });
       }
 
       var EXAMPLE_PROMPTS = [
@@ -627,29 +628,7 @@
         "I'd like to add an event",
       ];
 
-      var VISITED_KEY = "havasuchat_has_visited";
-
-      function hasVisitedBefore() {
-        try {
-          return window.localStorage.getItem(VISITED_KEY) === "true";
-        } catch (err) {
-          return false;
-        }
-      }
-
-      function markVisited() {
-        try {
-          window.localStorage.setItem(VISITED_KEY, "true");
-        } catch (err) {
-          /* localStorage unavailable — treat as first-time each load */
-        }
-      }
-
-      function showWelcome() {
-        addRow(
-          "bot",
-          "Welcome. Ask what’s happening in town, search by interest, or say you want to add an event — I’ll walk you through it."
-        );
+      function showExamplePromptChips() {
         var wrap = document.createElement("div");
         wrap.className = "chips-wrap";
         wrap.setAttribute("role", "group");
@@ -667,55 +646,118 @@
           wrap.appendChild(chip);
         });
         log.appendChild(wrap);
+        scrollToBottom();
       }
 
-      function showWelcomeReturning() {
-        addRow("bot", "Welcome back — what's happening in Havasu?");
+      function postOnboarding(body, onSuccess, onFailure) {
+        fetch("/api/chat/onboarding", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(Object.assign({ session_id: sessionId }, body)),
+        })
+          .then(function (res) {
+            return res.text().then(function (t) {
+              var parsed = {};
+              try {
+                parsed = t ? JSON.parse(t) : {};
+              } catch (ignore) {
+                parsed = {};
+              }
+              return { ok: res.ok, body: parsed };
+            });
+          })
+          .then(function (r) {
+            if (r.ok && r.body && r.body.ok === true) onSuccess(r.body);
+            else onFailure(r);
+          })
+          .catch(function () {
+            onFailure(null);
+          });
+      }
+
+      function showKidsChips() {
         var wrap = document.createElement("div");
         wrap.className = "chips-wrap";
         wrap.setAttribute("role", "group");
-        wrap.setAttribute("aria-label", "Example prompts");
-        var items = [
-          { label: "This weekend", message: "whats happening this weekend" },
-          { label: "Add an event", message: "add an event" },
-        ];
-        items.forEach(function (item) {
+        wrap.setAttribute("aria-label", "Kids with you");
+        [["Yes", true], ["No", false]].forEach(function (pair) {
           var chip = document.createElement("button");
           chip.type = "button";
           chip.className = "chip";
-          chip.textContent = item.label;
+          chip.textContent = pair[0];
           chip.addEventListener("click", function () {
-            input.value = item.message;
-            if (form.requestSubmit) form.requestSubmit();
-            else form.dispatchEvent(new Event("submit", { cancelable: true }));
+            chip.disabled = true;
+            Array.prototype.forEach.call(wrap.querySelectorAll(".chip"), function (c) {
+              c.disabled = true;
+            });
+            postOnboarding(
+              { has_kids: pair[1] },
+              function () {
+                wrap.remove();
+                showExamplePromptChips();
+              },
+              function () {
+                chip.disabled = false;
+                Array.prototype.forEach.call(wrap.querySelectorAll(".chip"), function (c) {
+                  c.disabled = false;
+                });
+              }
+            );
           });
           wrap.appendChild(chip);
         });
         log.appendChild(wrap);
+        scrollToBottom();
       }
 
-      var isReturningVisitor = hasVisitedBefore();
-      if (isReturningVisitor) {
-        showWelcomeReturning();
-      } else {
-        showWelcome();
-        markVisited();
+      function showVisitorStatusChips() {
+        var wrap = document.createElement("div");
+        wrap.className = "chips-wrap";
+        wrap.setAttribute("role", "group");
+        wrap.setAttribute("aria-label", "Visiting or local");
+        [["Visiting", "visiting"], ["Local", "local"]].forEach(function (pair) {
+          var chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = "chip";
+          chip.textContent = pair[0];
+          chip.addEventListener("click", function () {
+            chip.disabled = true;
+            Array.prototype.forEach.call(wrap.querySelectorAll(".chip"), function (c) {
+              c.disabled = true;
+            });
+            postOnboarding(
+              { visitor_status: pair[1] },
+              function () {
+                wrap.remove();
+                addRow("bot", "Kids with you?");
+                showKidsChips();
+              },
+              function () {
+                chip.disabled = false;
+                Array.prototype.forEach.call(wrap.querySelectorAll(".chip"), function (c) {
+                  c.disabled = false;
+                });
+              }
+            );
+          });
+          wrap.appendChild(chip);
+        });
+        log.appendChild(wrap);
+        scrollToBottom();
       }
-      window.setTimeout(function () {
-        if (!log.querySelector(".chips-wrap")) {
-          if (isReturningVisitor) {
-            showWelcomeReturning();
-          } else {
-            showWelcome();
-          }
-        }
-      }, 150);
+
+      function showOnboardingFirstTurn() {
+        addRow("bot", "Hey — welcome to Havasu. You visiting, or local?");
+        showVisitorStatusChips();
+      }
+
+      showOnboardingFirstTurn();
 
       form.addEventListener("submit", function (e) {
         e.preventDefault();
         var text = input.value.trim();
         if (!text) return;
-        removeWelcomeChips();
+        removeAllChipsWraps();
         input.value = "";
         addRow("user", text);
         var pendingOut = addRow("bot", "…", "loading");
