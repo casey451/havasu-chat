@@ -21,23 +21,24 @@
 
 ## 2. Current state (top of session)
 
-- **Last commit on main:** `d2feb28` docs: session resume last-commit + log block sync
-- **Tests:** 681 passing
+- **Last commit on `main` (through Phase 6.4.1 prompt doc):** `34ad30d` — adds `docs/phase-6-4-1-cursor-prompt.md` (6.4.1 ready to execute). **Phase 6.4 delivery:** `4c5c7cb` (session memory) + `ce64b92` (known gap → 6.4.1). **Phase 6.3:** `f6d423f`.
+- **Tests:** 713 collected (`.\.venv\Scripts\python.exe -m pytest --collect-only -q`, 2026-04-22)
 - **Working tree:** clean, main in sync with origin/main
 - **Production:** healthy
 
-**Phase 6.1 — recent `main` history** (newest first; omits transient revert/duplicate commits around the clean 6.1.3 artifact land):
+**Recent `main` history** (newest first; omits transient revert/duplicate commits around the clean 6.1.3 artifact land):
 
 ```text
+34ad30d docs: add Phase 6.4.1 implementation prompt (recommended-entity capture)
+ce64b92 docs: document Phase 6.4 known gap (recommended-entity capture → 6.4.1)
+4c5c7cb Phase 6.4: session memory (hints, prior-entity, date injection)
+f6d423f Phase 6.3: onboarding first-turn (visitor status + kids quick-tap)
+e2af301 docs: session resume record tip d2feb28
 d2feb28 docs: session resume last-commit + log block sync
 ae843c6 docs: session resume tip-of-main + Phase 6.1 commit tail
 cf867b8 docs: session resume doc for 2026-04-22
 4c5d4b3 docs: log Phase 6.1 deferred items
 10b251b Phase 6.1.4: voice fixes for HOURS, Tier 3 §8.2, Tier 2 explicit-rec
-c899bfb Phase 6.1.3: voice audit execution + report
-b5f6be1 docs: archive Phase 6.1.1–6.1.2 process artifacts
-a7be089 Phase 6.1.2: voice audit runner + dry-run proof
-b1eb5b4 Phase 6.1.1: establish voice_audit.txt prompt file
 ```
 
 ### Phase status
@@ -54,11 +55,13 @@ b1eb5b4 Phase 6.1.1: establish voice_audit.txt prompt file
   - 6.1.2 scripts/run_voice_audit.py runner built with 55-sample fixture
   - 6.1.3 paid audit executed: 51 PASS / 1 MINOR / 3 FAIL / 0 ERROR (~$0.17 spend)
   - 6.1.4 voice fixes shipped: t1-HOURS-03 cleared; t3-01 + t3-24 deferred at root; t3-25 rejected as auditor over-score
+- **Phase 6.3 — Onboarding first-turn** ✅ (`f6d423f`: visitor status + kids quick-tap)
+- **Phase 6.4 — Session memory** ✅ (`4c5c7cb` + `ce64b92`: hints, prior-entity recall, date injection; known gap documented for recommended-entity `prior_entity` capture)
+  - **6.4.1 planned:** Cursor prompt saved at `docs/phase-6-4-1-cursor-prompt.md` (also landed on `main` as `34ad30d`); ready to execute (pre-flight → implementation). Closes the Tier 2/3 single-entity recommendation capture gap.
 
 **Remaining in Phase 6:**
-- 6.3 Onboarding first-turn (visiting/local + kids quick-tap)
-- 6.4 Session memory (age/location hints, prior entity recall, 30-min idle)
-- 6.5 Local-voice content (OWNER TASK: 20–30 editorial blurbs)
+- **6.4.1** — Recommended-entity capture for `prior_entity` (small follow-up; prompt ready)
+- **6.5** — Local-voice content (OWNER TASK: 20–30 editorial blurbs)
 
 **Post-Phase 6:**
 - Phase 8 Pre-launch hardening: seed verification, load testing, admin runbook, ToS, privacy review
@@ -106,8 +109,7 @@ See `docs/known-issues.md` for current live issues. Newly logged 2026-04-21:
 
 ## 8. Suggested opening moves
 
-- "Plan Phase 6.3 onboarding" — UX work, moderate scope, self-contained.
-- "Plan Phase 6.4 session memory" — more involved; could combine with context_builder date-injection fix (resolves t3-01 known-issue).
+- "Run Phase 6.4.1 from docs/phase-6-4-1-cursor-prompt.md" — pre-flight read-only, then `proceed` → small router + entity_matcher follow-up.
 - "Discuss 6.5 local-voice content" — owner writing task, no code.
 - "Discuss soft launch / monetization strategy" — no build.
 - "Continue wherever makes sense" — Claude will recommend.
