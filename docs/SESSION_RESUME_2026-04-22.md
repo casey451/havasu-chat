@@ -21,7 +21,7 @@
 
 ## 2. Current state (top of session)
 
-- **Last commit on main:** `ae843c6` docs: session resume tip-of-main + Phase 6.1 commit tail
+- **Last commit on main:** `d2feb28` docs: session resume last-commit + log block sync
 - **Tests:** 681 passing
 - **Working tree:** clean, main in sync with origin/main
 - **Production:** healthy
@@ -29,6 +29,7 @@
 **Phase 6.1 — recent `main` history** (newest first; omits transient revert/duplicate commits around the clean 6.1.3 artifact land):
 
 ```text
+d2feb28 docs: session resume last-commit + log block sync
 ae843c6 docs: session resume tip-of-main + Phase 6.1 commit tail
 cf867b8 docs: session resume doc for 2026-04-22
 4c5d4b3 docs: log Phase 6.1 deferred items
