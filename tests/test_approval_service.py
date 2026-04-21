@@ -297,6 +297,69 @@ def test_entity_type_mismatch_raises(db: Session) -> None:
         )
 
 
+def test_approve_provider_sets_hours_structured_from_places(db: Session) -> None:
+    c = _provider_contribution(db)
+    c.google_enriched_data = {
+        "lookup_status": "success",
+        "regular_opening_hours": {
+            "periods": [
+                {"open": {"day": 2, "hour": 10, "minute": 0}, "close": {"day": 2, "hour": 16, "minute": 0}},
+            ]
+        },
+    }
+    db.add(c)
+    db.commit()
+    cid = c.id
+    p = approve_contribution_as_provider(
+        db,
+        cid,
+        ProviderApprovalFields(
+            name="Structured Hours Gym",
+            description="Enough text here for provider desc field optional.",
+            website="https://shg.example",
+        ),
+        "gym",
+    )
+    assert p.hours_structured is not None
+    assert p.hours_structured.get("tuesday")
+
+
+def test_approve_provider_without_places_leaves_hours_structured_none(db: Session) -> None:
+    c = _provider_contribution(db)
+    c.google_enriched_data = None
+    db.add(c)
+    db.commit()
+    p = approve_contribution_as_provider(
+        db,
+        c.id,
+        ProviderApprovalFields(
+            name="No Places Gym",
+            description="Enough text here for provider desc field optional.",
+            website="https://np.example",
+        ),
+        "gym",
+    )
+    assert p.hours_structured is None
+
+
+def test_approve_provider_malformed_places_hours_structured_none(db: Session) -> None:
+    c = _provider_contribution(db)
+    c.google_enriched_data = {"lookup_status": "success", "regular_opening_hours": {"periods": "bad"}}
+    db.add(c)
+    db.commit()
+    p = approve_contribution_as_provider(
+        db,
+        c.id,
+        ProviderApprovalFields(
+            name="Bad Places Gym",
+            description="Enough text here for provider desc field optional.",
+            website="https://bp.example",
+        ),
+        "gym",
+    )
+    assert p.hours_structured is None
+
+
 def test_enrichment_suggests_verified_helper(db: Session) -> None:
     c = _provider_contribution(db)
     c.url_fetch_status = None

@@ -23,6 +23,7 @@ class Provider(Base):
     website: Mapped[str | None] = mapped_column(String, nullable=True)
     facebook: Mapped[str | None] = mapped_column(String, nullable=True)
     hours: Mapped[str | None] = mapped_column(Text, nullable=True)
+    hours_structured: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=None)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     tier: Mapped[str] = mapped_column(String, nullable=False, default="free")
     sponsored_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, time
+from datetime import date, datetime, time
 
 import pytest
 from sqlalchemy.orm import Session
 
+from app.chat import tier2_db_query
 from app.chat.tier2_db_query import query as tier2_query
 from app.chat.tier2_schema import Tier2Filters
-from app.chat import tier2_db_query
+from app.contrib.hours_helper import LAKE_HAVASU_TZ
 from app.db.models import Event, Program, Provider
 
 
@@ -256,15 +257,18 @@ def test_result_cap_eight(db: Session) -> None:
     assert len(rows) == 8
 
 
-def test_open_now_returns_empty_and_warning(db: Session, caplog: pytest.LogCaptureFixture) -> None:
-    import logging
-
-    caplog.set_level(logging.WARNING)
-    rows = tier2_query(
-        Tier2Filters(parser_confidence=0.9, open_now=True),
+def test_open_now_excludes_providers_without_structured_hours(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        tier2_db_query,
+        "_now_lake_havasu",
+        lambda: datetime(2026, 6, 15, 12, 0, 0, tzinfo=LAKE_HAVASU_TZ),
     )
-    assert rows == []
-    assert any("open_now" in r.message for r in caplog.records)
+    suf = _suffix()
+    p = _prov(db, name=f"ONX {suf}", category="onxcat")
+    p.hours_structured = None
+    db.commit()
+    rows = tier2_query(Tier2Filters(parser_confidence=0.9, entity_name=f"ONX {suf}", open_now=True))
+    assert not any(r["type"] == "provider" for r in rows)
 
 
 def test_row_shape_type_and_name(db: Session) -> None:

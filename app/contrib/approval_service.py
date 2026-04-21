@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
+from app.contrib.hours_helper import places_hours_to_structured
 from app.db.models import Contribution, Event, Program, Provider
 from app.schemas.contribution import EventApprovalFields, ProgramApprovalFields, ProviderApprovalFields
 from app.schemas.event import EventCreate
@@ -55,12 +56,21 @@ def approve_contribution_as_provider(
     verified = enrichment_suggests_verified(c)
     src = "user" if c.source == "user_submission" else "admin"
     website = (edited_fields.website or "").strip() or None
+    hours_structured: dict | None = None
+    ged = c.google_enriched_data
+    if isinstance(ged, dict):
+        roh = ged.get("regular_opening_hours")
+        if isinstance(roh, dict):
+            conv = places_hours_to_structured(roh)
+            if conv:
+                hours_structured = conv
     prov = Provider(
         provider_name=edited_fields.name.strip(),
         category=cat,
         address=(edited_fields.address or "").strip() or None,
         phone=(edited_fields.phone or "").strip() or None,
         hours=(edited_fields.hours or "").strip() or None,
+        hours_structured=hours_structured,
         description=(edited_fields.description or "").strip() or None,
         website=website,
         draft=False,

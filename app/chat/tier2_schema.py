@@ -30,11 +30,18 @@ class Tier2Filters(BaseModel):
     day_of_week: Optional[List[str]] = None  # ["saturday"], ["saturday","sunday"] for "weekend"
     time_window: Optional[str] = None  # one of: today, tomorrow, this_week, ...
 
-    open_now: Optional[bool] = None
+    open_now: bool = False
 
     # Routing signal
     parser_confidence: float = Field(..., ge=0.0, le=1.0)
     fallback_to_tier3: bool = False
+
+    @field_validator("open_now", mode="before")
+    @classmethod
+    def _open_now_coerce(cls, v: object) -> bool:
+        if v is None:
+            return False
+        return bool(v)
 
     @field_validator("time_window")
     @classmethod

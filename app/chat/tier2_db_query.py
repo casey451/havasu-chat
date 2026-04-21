@@ -6,22 +6,28 @@ When no query-shaping dimensions are set (entity, category, ages, location,
 days, time window, or open-now), the function returns a small mixed sample of
 live catalog rows so downstream formatting still has material to work with.
 
-``open_now=True`` cannot be evaluated reliably from static ``hours`` text and
-schedule strings; the function logs a warning and returns an empty list so the
-orchestrator can fall back to Tier 3.
+When ``open_now=True``, provider rows are filtered in Python using
+``providers.hours_structured`` and :func:`app.contrib.hours_helper.is_open_at`.
+Providers without structured hours are omitted. Events and programs are still
+returned using the same SQL filters with ``open_now`` stripped for the query
+builder (open/closed for events/programs is out of scope for Phase 5.6).
+
+# open_now filtering happens in Python after SQL fetch because hours are JSON.
+# At current scale (<100 providers) this is negligible. Consider a SQL-side
+# derivation (e.g., computed column or materialized view) if scale grows.
 """
 
 from __future__ import annotations
 
 import calendar
-import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.chat.tier2_schema import Tier2Filters
+from app.contrib.hours_helper import LAKE_HAVASU_TZ, is_open_at
 from app.db.database import SessionLocal
 from app.db.models import Event, Program, Provider
 
@@ -208,6 +214,11 @@ def _provider_dict(p: Provider) -> dict[str, Any]:
     }
 
 
+def _now_lake_havasu() -> datetime:
+    """Current instant in Lake Havasu local time (America/Phoenix; override in tests)."""
+    return datetime.now(LAKE_HAVASU_TZ)
+
+
 def _text_needle(s: str | None) -> str | None:
     if not s or not str(s).strip():
         return None
@@ -361,7 +372,7 @@ def _query_programs(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
     return [_program_dict(p) for p in rows[:MAX_ROWS]]
 
 
-def _query_providers(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
+def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
     if _only_time_window(filters):
         return []
 
@@ -399,7 +410,11 @@ def _query_providers(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]
     if filters.day_of_week:
         return []
 
-    return [_provider_dict(p) for p in rows[:MAX_ROWS]]
+    return rows
+
+
+def _query_providers(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
+    return [_provider_dict(p) for p in _query_providers_orm(db, filters)[:MAX_ROWS]]
 
 
 def _sample_mixed(db: Session, cap: int) -> list[dict[str, Any]]:
@@ -437,17 +452,24 @@ def _sample_mixed(db: Session, cap: int) -> list[dict[str, Any]]:
 
 def query(filters: Tier2Filters) -> list[dict[str, Any]]:
     """Return up to eight catalog rows matching ``filters``."""
-    if filters.open_now is True:
-        logging.warning(
-            "tier2_db_query: open_now is not supported against static schedule data; returning no rows"
-        )
-        return []
-
     with SessionLocal() as db:
         if not _has_query_dimensions(filters):
             return _sample_mixed(db, MAX_ROWS)
 
-        events = _query_events(db, filters)
-        programs = _query_programs(db, filters)
-        providers = _query_providers(db, filters)
+        f_sql = filters.model_copy(update={"open_now": False})
+        events = _query_events(db, f_sql)
+        programs = _query_programs(db, f_sql)
+        prov_orm = _query_providers_orm(db, f_sql)
+
+        if filters.open_now is True:
+            now_local = _now_lake_havasu()
+            prov_orm = [
+                p
+                for p in prov_orm
+                if isinstance(p.hours_structured, dict)
+                and p.hours_structured
+                and is_open_at(p.hours_structured, now_local)
+            ]
+
+        providers = [_provider_dict(p) for p in prov_orm[:MAX_ROWS]]
         return _merge_simple(events, programs, providers)[:MAX_ROWS]

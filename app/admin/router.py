@@ -24,6 +24,7 @@ from app.db.seed import run_seed
 from app.schemas.program import ProgramCreate
 
 from app.admin.contributions_html import register_contribution_html_routes
+from app.admin.categories_html import register_categories_html_routes
 from app.admin.mentions_html import register_mentions_html_routes
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -1830,3 +1831,4 @@ def _queue_tab_html(
 
 register_contribution_html_routes(router)
 register_mentions_html_routes(router)
+register_categories_html_routes(router)

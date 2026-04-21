@@ -43,5 +43,11 @@ Output: {"time_window": "tomorrow", "parser_confidence": 0.85, "fallback_to_tier
 Query: your favorite event coming up
 Output: {"time_window": "upcoming", "parser_confidence": 0.8, "fallback_to_tier3": false}
 
+Query: Where can I grab dinner right now?
+Output: {"category": "restaurant", "open_now": true, "parser_confidence": 0.82, "fallback_to_tier3": false}
+
+Query: Anywhere open for a workout this late?
+Output: {"category": "gym", "open_now": true, "parser_confidence": 0.8, "fallback_to_tier3": false}
+
 Query: tell me something cool about this town
 Output: {"parser_confidence": 0.15, "fallback_to_tier3": true}
