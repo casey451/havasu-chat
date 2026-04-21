@@ -21,10 +21,22 @@
 
 ## 2. Current state (top of session)
 
-- **Last commit on main:** `4c5d4b3` docs: log Phase 6.1 deferred items (context_builder dates, Tier 2 explicit-rec routing)
+- **Last commit on main:** `cf867b8` docs: session resume doc for 2026-04-22
 - **Tests:** 681 passing
 - **Working tree:** clean, main in sync with origin/main
 - **Production:** healthy
+
+**Phase 6.1 — recent `main` history** (newest first; omits transient revert/duplicate commits around the clean 6.1.3 artifact land):
+
+```text
+cf867b8 docs: session resume doc for 2026-04-22
+4c5d4b3 docs: log Phase 6.1 deferred items
+10b251b Phase 6.1.4: voice fixes for HOURS, Tier 3 §8.2, Tier 2 explicit-rec
+c899bfb Phase 6.1.3: voice audit execution + report
+b5f6be1 docs: archive Phase 6.1.1–6.1.2 process artifacts
+a7be089 Phase 6.1.2: voice audit runner + dry-run proof
+b1eb5b4 Phase 6.1.1: establish voice_audit.txt prompt file
+```
 
 ### Phase status
 
