@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -38,3 +38,16 @@ class ConciergeChatResponse(BaseModel):
     latency_ms: int
     llm_tokens_used: int | None = None
     chat_log_id: str | None = None
+
+
+class ChatFeedbackRequest(BaseModel):
+    """POST ``/api/chat/feedback`` — Phase 6.2.1 (public, keyed by ``chat_logs.id``)."""
+
+    chat_log_id: str = Field(min_length=1)
+    signal: Literal["positive", "negative"]
+
+
+class ChatFeedbackResponse(BaseModel):
+    ok: Literal[True]
+    chat_log_id: str
+    signal: str

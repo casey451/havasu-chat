@@ -14,14 +14,20 @@ implementation differs, flag it (anti-drift for numeric specs).
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.chat import unified_router as unified
 from app.contrib.mention_scanner import scan_and_save_mentions
 from app.core.rate_limit import limiter
 from app.db.database import SessionLocal, get_db
-from app.schemas.chat import ConciergeChatRequest, ConciergeChatResponse
+from app.db.models import ChatLog
+from app.schemas.chat import ChatFeedbackRequest, ChatFeedbackResponse, ConciergeChatRequest, ConciergeChatResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["concierge"])
 
@@ -54,3 +60,26 @@ def post_concierge_chat(
         llm_tokens_used=result.llm_tokens_used,
         chat_log_id=result.chat_log_id,
     )
+
+
+@router.post("/api/chat/feedback", response_model=ChatFeedbackResponse)
+def post_chat_feedback(
+    payload: ChatFeedbackRequest,
+    db: Session = Depends(get_db),
+) -> ChatFeedbackResponse | JSONResponse:
+    """Set ``chat_logs.feedback_signal`` for a prior concierge turn (Phase 6.2.1)."""
+    row = db.get(ChatLog, payload.chat_log_id)
+    if row is None:
+        return JSONResponse(status_code=404, content={"error": "chat_log_id not found"})
+    previous = row.feedback_signal
+    row.feedback_signal = payload.signal
+    db.commit()
+    logger.info(
+        "chat_feedback_signal_set",
+        extra={
+            "chat_log_id": str(row.id),
+            "previous_feedback_signal": previous,
+            "new_feedback_signal": payload.signal,
+        },
+    )
+    return ChatFeedbackResponse(ok=True, chat_log_id=str(row.id), signal=payload.signal)
