@@ -64,7 +64,58 @@
       width: 100%;
     }
     .row.user { justify-content: flex-end; }
-    .row.bot { justify-content: flex-start; }
+    .row.bot {
+      justify-content: flex-start;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .msg-feedback {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 6px;
+      max-width: 100%;
+    }
+    .msg-feedback-btns {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .thumb-btn {
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+      font-size: 1.25rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .thumb-btn:active {
+      background: #e9ecef;
+    }
+    .thumb-btn.thumb-selected {
+      background: var(--user-bg);
+      color: var(--user-fg);
+      border-color: var(--user-bg);
+      pointer-events: none;
+    }
+    .thumb-btn.thumb-dim {
+      opacity: 0.48;
+      cursor: pointer;
+    }
+    .msg-feedback-err {
+      display: none;
+      font-size: 0.78rem;
+      color: #842029;
+      max-width: 220px;
+      line-height: 1.35;
+    }
     .bubble {
       max-width: 85%;
       padding: 10px 14px;
@@ -382,7 +433,124 @@
         row.appendChild(bubble);
         log.appendChild(row);
         scrollToBottom();
-        return bubble;
+        return { row: row, bubble: bubble };
+      }
+
+      function attachFeedbackThumbs(row, chatLogId) {
+        if (!chatLogId || row.querySelector(".msg-feedback")) return;
+        var wrap = document.createElement("div");
+        wrap.className = "msg-feedback";
+        var btnRow = document.createElement("div");
+        btnRow.className = "msg-feedback-btns";
+        var errEl = document.createElement("span");
+        errEl.className = "msg-feedback-err";
+        errEl.setAttribute("aria-live", "polite");
+
+        var up = document.createElement("button");
+        up.type = "button";
+        up.className = "thumb-btn";
+        up.setAttribute("aria-label", "Thumbs up");
+        up.textContent = "👍";
+
+        var down = document.createElement("button");
+        down.type = "button";
+        down.className = "thumb-btn";
+        down.setAttribute("aria-label", "Thumbs down");
+        down.textContent = "👎";
+
+        var inflight = false;
+        var lockedSignal = null;
+
+        function clearError() {
+          errEl.textContent = "";
+          errEl.style.display = "none";
+        }
+
+        function showError(msg) {
+          errEl.textContent = msg;
+          errEl.style.display = "block";
+        }
+
+        function setLockedUI(signal) {
+          lockedSignal = signal;
+          up.classList.remove("thumb-selected", "thumb-dim");
+          down.classList.remove("thumb-selected", "thumb-dim");
+          if (signal === "positive") {
+            up.classList.add("thumb-selected");
+            down.classList.add("thumb-dim");
+          } else {
+            down.classList.add("thumb-selected");
+            up.classList.add("thumb-dim");
+          }
+        }
+
+        function unlockUI() {
+          lockedSignal = null;
+          up.classList.remove("thumb-selected", "thumb-dim");
+          down.classList.remove("thumb-selected", "thumb-dim");
+        }
+
+        function postSignal(signal) {
+          if (inflight) return;
+          clearError();
+          inflight = true;
+          up.disabled = true;
+          down.disabled = true;
+          fetch("/api/chat/feedback", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ chat_log_id: chatLogId, signal: signal }),
+          })
+            .then(function (res) {
+              return res.text().then(function (t) {
+                var body = {};
+                try {
+                  body = t ? JSON.parse(t) : {};
+                } catch (ignore) {
+                  body = {};
+                }
+                return { ok: res.ok, status: res.status, body: body };
+              });
+            })
+            .then(function (result) {
+              inflight = false;
+              up.disabled = false;
+              down.disabled = false;
+              if (result.ok && result.body && result.body.ok === true) {
+                setLockedUI(signal);
+                return;
+              }
+              unlockUI();
+              var msg = "Couldn't save that — try again";
+              if (result.body && result.body.error) msg = String(result.body.error);
+              else if (result.body && result.body.message) msg = String(result.body.message);
+              showError(msg);
+            })
+            .catch(function () {
+              inflight = false;
+              up.disabled = false;
+              down.disabled = false;
+              unlockUI();
+              showError("Couldn't save that — try again");
+            });
+        }
+
+        up.addEventListener("click", function () {
+          if (inflight) return;
+          if (lockedSignal === "positive") return;
+          postSignal("positive");
+        });
+        down.addEventListener("click", function () {
+          if (inflight) return;
+          if (lockedSignal === "negative") return;
+          postSignal("negative");
+        });
+
+        btnRow.appendChild(up);
+        btnRow.appendChild(down);
+        wrap.appendChild(btnRow);
+        wrap.appendChild(errEl);
+        row.appendChild(wrap);
       }
 
       function setLoading(on) {
@@ -550,7 +718,9 @@
         removeWelcomeChips();
         input.value = "";
         addRow("user", text);
-        var pending = addRow("bot", "…", "loading");
+        var pendingOut = addRow("bot", "…", "loading");
+        var pendingBubble = pendingOut.bubble;
+        var pendingRow = pendingOut.row;
 
         setLoading(true);
         fetch("/api/chat", {
@@ -563,7 +733,21 @@
             return res.json();
           })
           .then(function (data) {
-            pending.textContent = data.response || "(no response)";
+            pendingBubble.classList.remove("loading");
+            pendingBubble.textContent = data.response || "(no response)";
+            if (data.chat_log_id != null && data.chat_log_id !== "") {
+              pendingRow.setAttribute("data-chat-log-id", String(data.chat_log_id));
+            } else {
+              pendingRow.removeAttribute("data-chat-log-id");
+            }
+            if (data.tier_used != null && data.tier_used !== "") {
+              pendingRow.setAttribute("data-tier-used", String(data.tier_used));
+            } else {
+              pendingRow.removeAttribute("data-tier-used");
+            }
+            if (data.tier_used === "3" && data.chat_log_id) {
+              attachFeedbackThumbs(pendingRow, String(data.chat_log_id));
+            }
             attachShareButtons();
             scrollToBottom();
             if (data && data.data && data.data.open_calendar && window.havasuChatCalendar) {
@@ -571,8 +755,8 @@
             }
           })
           .catch(function () {
-            pending.classList.remove("loading");
-            pending.textContent = "Hmm, that didn’t go through — check your connection and try again.";
+            pendingBubble.classList.remove("loading");
+            pendingBubble.textContent = "Hmm, that didn’t go through — check your connection and try again.";
             scrollToBottom();
           })
           .finally(function () {
