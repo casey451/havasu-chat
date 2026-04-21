@@ -97,6 +97,34 @@ class RenderSuccessTests(unittest.TestCase):
         self.assertIn("closed", low)
         self.assertIn("tuesday", low)
 
+    def test_hours_day_long_display_name_uses_is_open_not_possessive(self) -> None:
+        """Multi-word / long short names avoid \"Club's open\" (Phase 6.1.4)."""
+        out = render(
+            "HOURS_LOOKUP",
+            _Entity(
+                provider_name="Iron Wolf Golf & Country Club",
+                hours="Mon 9am–9pm | Tue 9am–9pm",
+            ),
+            {"normalized_query": "is iron wolf open on monday"},
+            variant=0,
+        )
+        self.assertIsNotNone(out)
+        low = out.lower()
+        self.assertIn("is open", low)
+        self.assertIn("monday", low)
+        self.assertNotRegex(low, r"country club's open")
+
+    def test_hours_day_short_display_name_allows_possessive_open(self) -> None:
+        out = render(
+            "HOURS_LOOKUP",
+            _Entity(provider_name="Iron Wolf", hours="Mon 9a–9p | Tue 9a–9p"),
+            {"normalized_query": "is iron wolf open on monday"},
+            variant=0,
+        )
+        self.assertIsNotNone(out)
+        low = out.lower()
+        self.assertRegex(low, r"iron wolf's open|iron wolf runs")
+
     def test_website_lookup(self) -> None:
         out = render(
             "WEBSITE_LOOKUP",

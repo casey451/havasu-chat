@@ -99,8 +99,17 @@ TEMPLATES: dict[str, list[str]] = {
         "{short_name}'s open {hours} on {day_label}.",
         "{short_name} runs {hours} on {day_label}.",
     ],
+    # Long / multi-word display names: avoid possessive-"s" on the name ("… Club's open" reads stiff).
+    "HOURS_LOOKUP_DAY_LONG": [
+        "{short_name} is open {hours} on {day_label}.",
+        "{short_name} runs {hours} on {day_label}.",
+    ],
     "HOURS_LOOKUP_DAY_CLOSED": [
         "{short_name}'s closed on {day_label}.",
+        "{short_name} is closed {day_label}.",
+    ],
+    "HOURS_LOOKUP_DAY_CLOSED_LONG": [
+        "{short_name} is closed on {day_label}.",
         "{short_name} is closed {day_label}.",
     ],
     "HOURS_LOOKUP_CLOSED_TODAY": [
@@ -222,6 +231,15 @@ def _short_provider_display_name(raw: str) -> str:
     return tok[0] if tok else base
 
 
+def _hours_short_name_allows_possessive(short: str) -> bool:
+    """Possessive open/closed lines (\"{name}'s open\") only for short, punchy names."""
+    s = (short or "").strip()
+    if not s:
+        return False
+    words = len(s.split())
+    return words <= 2 and len(s) <= 18
+
+
 def _pick(variants: list[str], variant: int | None) -> str:
     if variant is not None:
         return variants[variant % len(variants)]
@@ -277,13 +295,20 @@ def render(
                 is_closed, window = focus
                 short = _short_provider_display_name(str(slots.get("name") or ""))
                 day_label = _WEEKDAY_NAMES[day_idx].title()
+                possessive_ok = _hours_short_name_allows_possessive(short)
                 try:
                     if is_closed:
-                        return _pick(TEMPLATES["HOURS_LOOKUP_DAY_CLOSED"], variant).format(
+                        closed_key = (
+                            "HOURS_LOOKUP_DAY_CLOSED"
+                            if possessive_ok
+                            else "HOURS_LOOKUP_DAY_CLOSED_LONG"
+                        )
+                        return _pick(TEMPLATES[closed_key], variant).format(
                             short_name=short,
                             day_label=day_label,
                         )
-                    return _pick(TEMPLATES["HOURS_LOOKUP_DAY"], variant).format(
+                    day_key = "HOURS_LOOKUP_DAY" if possessive_ok else "HOURS_LOOKUP_DAY_LONG"
+                    return _pick(TEMPLATES[day_key], variant).format(
                         short_name=short,
                         hours=window,
                         day_label=day_label,
