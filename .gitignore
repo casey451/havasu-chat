@@ -14,3 +14,7 @@ docs/*Shortcut*.lnk
 
 # Script-generated local extracts (do not commit)
 scripts/output/
+
+diag.json
+tmp/
+scratch/
