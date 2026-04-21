@@ -1,6 +1,6 @@
 # Phase 6.4 — Session memory (implementation report)
 
-**Branch / state:** implementation complete locally; **no commit** in this step (await owner `approved, commit and push` if desired).
+**Branch / state:** Phase 6.4 **shipped** on `main`. This report documents what shipped plus the **known gap** below (recommended-entity capture → 6.4.1).
 
 ## What shipped
 
@@ -72,9 +72,17 @@ With `OPENAI_API_KEY` set; expect occasional LLM variance (owner guidance: ≥4/
 - `tests/test_tier3_handler.py`
 - `docs/phase-6-4-session-memory-report.md` (this file)
 
+## Known gap — Tier 3 recommended-entity capture
+
+**Observed behavior:** Pronoun / “it” resolution against `prior_entity` works when the **user** names a business or place in their query (intent path populates `IntentResult.entity`, then `record_entity` runs). It does **not** reliably work when turn 1 is an **open-ended** question and the **concierge** recommends a venue from Tier 3 context alone — e.g. production smoke: after a Tier 3 answer recommending Altitude, “What time does it open?” did not bind to that recommendation.
+
+**Root cause:** `record_entity` is only invoked when `IntentResult.entity` (or equivalent resolved entity from the user utterance) is populated. Tier 3 synthesis can name a venue from catalog context **without** going through that intent extraction path, so `prior_entity` can remain **unset** for that turn even though the response discussed a specific place.
+
+**Staging:** **Phase 6.4.1** — separate design (how to capture primary recommended entity from Tier 3 output or router without breaking §8 / cost) plus implementation prompt. **Not** a blocker for Phase 6.4 closure; user-named prior-entity remains the supported case until 6.4.1 ships.
+
 ## Suggested commit message (when approved)
 
-`Phase 6.4: session memory (hints, prior-entity, date injection)`
+`Phase 6.4: session memory (hints, prior-entity, date injection)` — **landed** on `main` (post-6.4 doc updates use their own commit messages).
 
 ---
 

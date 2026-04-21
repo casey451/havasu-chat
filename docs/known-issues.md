@@ -2,6 +2,16 @@ Known issues tracker: one-line log for bugs deferred in favor of higher-priority
 
 ## Open (deferred)
 
+### 2026-04-21 — Tier 3 recommended-entity not captured for `prior_entity` (Phase 6.4)
+
+**Observed:** After an open-ended Tier 3 answer that **recommends** a catalog venue (e.g. Altitude), a follow-up like “What time does it open?” may **not** resolve to that venue. Explicit naming (“What time does Altitude open?”) works and can hit Tier 1 with hours.
+
+**Expected:** Concierge-recommended primary venue should be eligible for pronoun / short-follow-up resolution within the same session window, same as user-named entities.
+
+**Root cause:** `record_entity` depends on `IntentResult.entity` (or user-utterance resolution). Tier 3 recommendations do not populate that path, so `prior_entity` can stay `None`.
+
+**Priority:** Deferred to **Phase 6.4.1** (design + implementation). Not catastrophic; does not reopen Phase 6.4 closure. See `docs/phase-6-4-session-memory-report.md` § “Known gap — Tier 3 recommended-entity capture”.
+
 ### 2026-04-21 — Mountain-bike retrieval miss
 
 **Query:** "My son wants to ride mountain bikes. Any classes available?"
