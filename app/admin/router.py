@@ -26,6 +26,7 @@ from app.schemas.program import ProgramCreate
 from app.admin.contributions_html import register_contribution_html_routes
 from app.admin.categories_html import register_categories_html_routes
 from app.admin.mentions_html import register_mentions_html_routes
+from app.admin.feedback_html import register_feedback_html_routes
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -534,6 +535,7 @@ def _dashboard_html_simple(pending: list[Event], live: list[Event], tab: str, so
     <a class="{('active' if tab == 'live' else '')}" href="{live_href}">Live events</a>
     <a class="{('active' if tab == 'programs' else '')}" href="/admin?tab=programs">Programs</a>
     <a href="/admin/analytics">Analytics</a>
+    <a href="/admin/feedback">Feedback</a>
   </nav>
   <div class="panel">
     {sort_bar}
@@ -1070,6 +1072,7 @@ def _programs_tab_shell(inner: str, title: str = "Programs") -> str:
     <a href="/admin?tab=live">Live events</a>
     <a class="active" href="/admin?tab=programs">Programs</a>
     <a href="/admin/analytics">Analytics</a>
+    <a href="/admin/feedback">Feedback</a>
   </nav>
   <div class="panel">
     {inner}
@@ -1796,6 +1799,7 @@ def _queue_tab_html(
     <a href="/admin?tab=live">Live events</a>
     <a href="/admin?tab=programs">Programs</a>
     <a href="/admin/analytics">Analytics</a>
+    <a href="/admin/feedback">Feedback</a>
   </nav>
   <p class="shortcut-hint">Desktop shortcuts: <b>A</b> approve the first card, <b>D</b> reject it.</p>
   <div class="panel">
@@ -1832,3 +1836,4 @@ def _queue_tab_html(
 register_contribution_html_routes(router)
 register_mentions_html_routes(router)
 register_categories_html_routes(router)
+register_feedback_html_routes(router)
