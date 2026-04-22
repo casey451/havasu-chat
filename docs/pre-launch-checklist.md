@@ -31,6 +31,29 @@ from soft-launch to public launch.
       `chat_logs` and related tables.
       (Added Phase 8.7)
 
+- [ ] **Lawyer review of Terms of Service.** Before public
+      launch, have a lawyer review `docs/tos.md` for
+      enforceability, liability limits, IP clauses, and
+      jurisdiction-specific language. Draft uses placeholder
+      for governing law; lawyer fills. (Added Phase 8.5)
+
+- [ ] **Lawyer review of privacy page.** Even though the 8.7
+      draft was solid, have a lawyer review `docs/privacy.md`
+      alongside the ToS. Pair review is standard practice for
+      public launch. (Added Phase 8.5)
+
+- [ ] **Replace governing-law placeholder in ToS §9.** After
+      lawyer review, fill in the jurisdiction and venue for
+      `docs/tos.md` section 9, and remove the HTML TODO
+      comment. (Added Phase 8.5)
+
+- [ ] **Consistency check: ToS and privacy alignment.** After
+      any lawyer changes, confirm `docs/tos.md` and
+      `docs/privacy.md` agree on contact email, data
+      descriptions, and subprocessor list. Mismatches between
+      the two pages are a common launch-day issue. (Added Phase
+      8.5)
+
 ## Completed
 
 (items move here when resolved, with resolution note)

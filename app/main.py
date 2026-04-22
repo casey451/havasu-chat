@@ -39,7 +39,9 @@ from app.schemas.event import EventCreate, EventRead
 
 logger = logging.getLogger(__name__)
 
-_PRIVACY_MD_PATH = Path(__file__).resolve().parents[1] / "docs" / "privacy.md"
+_DOCS_DIR = Path(__file__).resolve().parents[1] / "docs"
+_PRIVACY_MD_PATH = _DOCS_DIR / "privacy.md"
+_TOS_MD_PATH = _DOCS_DIR / "tos.md"
 _SENSITIVE_EVENT_KEYS = frozenset({"query", "message", "normalized_query"})
 
 
@@ -106,10 +108,17 @@ def _privacy_inline_formats(text: str) -> str:
         safe = html.escape(u, quote=True)
         return f'<a href="{safe}" rel="noopener noreferrer">{html.escape(u)}</a>'
 
-    return re.sub(r"(https?://[^\s<>]+)", _link, s)
+    s = re.sub(r"(https?://[^\s<>]+)", _link, s)
+
+    def _path_link(m: re.Match[str]) -> str:
+        label, path = m.group(1), m.group(2)
+        p = html.escape(path, quote=True)
+        return f'<a href="{p}">{html.escape(label)}</a>'
+
+    return re.sub(r"\[([^\]]+)\]\((/[^)]+)\)", _path_link, s)
 
 
-def _render_privacy_markdown_to_html(md: str) -> str:
+def _render_doc_markdown_to_html(md: str) -> str:
     out: list[str] = []
     lines = md.splitlines()
     i = 0
@@ -122,6 +131,13 @@ def _render_privacy_markdown_to_html(md: str) -> str:
                 out.append("</ul>")
                 in_ul = False
             out.append(stripped)
+            i += 1
+            continue
+        if stripped.startswith("# ") and not stripped.startswith("## "):
+            if in_ul:
+                out.append("</ul>")
+                in_ul = False
+            out.append(f"<h1>{html.escape(stripped[2:].strip())}</h1>")
             i += 1
             continue
         if stripped.startswith("## "):
@@ -167,15 +183,15 @@ def _render_privacy_markdown_to_html(md: str) -> str:
     return "\n".join(out)
 
 
-def _load_privacy_html() -> str:
-    md = _PRIVACY_MD_PATH.read_text(encoding="utf-8")
-    body = _render_privacy_markdown_to_html(md)
+def _load_static_doc_page_html(*, path: Path, head_title: str) -> str:
+    md = path.read_text(encoding="utf-8")
+    body = _render_doc_markdown_to_html(md)
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Privacy — Havasu Chat</title>
+  <title>{html.escape(head_title)}</title>
   <style>
     :root {{
       --bg: #ffffff;
@@ -190,6 +206,11 @@ def _load_privacy_html() -> str:
     a.back {{ display: inline-block; margin-bottom: 16px; font-weight: 600; color: var(--link);
       text-decoration: none; }}
     a.back:hover {{ text-decoration: underline; }}
+    article.privacy-doc h1 {{
+      margin: 0 0 8px;
+      font-size: 1.35rem;
+      letter-spacing: -0.02em;
+    }}
     article.privacy-doc h2 {{
       margin: 28px 0 12px;
       font-size: 1.15rem;
@@ -212,6 +233,16 @@ def _load_privacy_html() -> str:
 </body>
 </html>
 """
+
+
+def _load_privacy_html() -> str:
+    return _load_static_doc_page_html(
+        path=_PRIVACY_MD_PATH, head_title="Privacy — Havasu Chat"
+    )
+
+
+def _load_terms_html() -> str:
+    return _load_static_doc_page_html(path=_TOS_MD_PATH, head_title="Terms — Havasu Chat")
 
 
 def _init_sentry() -> None:
@@ -478,6 +509,11 @@ def serve_chat_ui() -> FileResponse:
 @app.get("/privacy", response_class=HTMLResponse)
 def privacy_page() -> HTMLResponse:
     return HTMLResponse(content=_load_privacy_html(), status_code=200)
+
+
+@app.get("/terms", response_class=HTMLResponse)
+def terms_page() -> HTMLResponse:
+    return HTMLResponse(content=_load_terms_html(), status_code=200)
 
 
 @app.exception_handler(RequestValidationError)

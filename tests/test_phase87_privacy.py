@@ -159,12 +159,24 @@ def test_privacy_route_200_and_markers() -> None:
     assert "<!-- TODO: replace caseylsolomon@gmail.com" in body
 
 
+def test_terms_route_200_and_markers() -> None:
+    with TestClient(app) as client:
+        r = client.get("/terms")
+    assert r.status_code == 200
+    body = r.text
+    assert "Terms of Service for Havasu Chat" in body
+    assert "1. Acceptance" in body
+    assert "<!-- TODO: for public US launch, evaluate DMCA 512 agent" in body
+
+
 def test_index_includes_privacy_footer_link() -> None:
     with TestClient(app) as client:
         r = client.get("/")
     assert r.status_code == 200
     assert 'href="/privacy"' in r.text
+    assert 'href="/terms"' in r.text
     assert "Privacy" in r.text
+    assert "Terms" in r.text
 
 
 def test_hint_extractor_validation_failure_logs_no_raw_json(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:

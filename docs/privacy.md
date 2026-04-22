@@ -45,11 +45,13 @@ use it to build profiles of individual users or to target ads.
 To answer your questions, we send some of your data to these
 providers:
 
-- **Anthropic** — we send your message to their Claude model
-  (Haiku) for generating concierge responses.
-- **OpenAI** — we send your message to their GPT-4.1 mini model
-  for extracting hints that help us remember context within a
-  session.
+- **Anthropic** — we send your message to Claude Haiku for
+  filtering, analyzing, and generating responses across the
+  chat pipeline.
+- **OpenAI** — we send your message to OpenAI models (GPT-4.1 mini
+  and text-embedding-3-small) for extracting hints to maintain
+  session context, generating tags, and computing semantic
+  search embeddings.
 - **Google Places** — when someone contributes a business, we
   query Google Places for hours, address, and other details.
 
@@ -76,7 +78,8 @@ becomes a concern you'd like to raise sooner, contact us (below).
 
 - You can use Havasu Chat without providing an email address or
   any personal information.
-- Your session resets when you close the chat — no persistent
+- Your session gets a fresh random identifier each time you
+  load or reload the app — no persistent
   account ties you to past conversations from our side.
 - The feedback button at the bottom of each response lets us
   know when something's wrong; it's the fastest way to reach
