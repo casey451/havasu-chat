@@ -5,7 +5,11 @@ from __future__ import annotations
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
+from app.db.chat_logging import TRACK_A_TIER_USED
+from app.db.database import SessionLocal
+from app.db.models import ChatLog
 from app.main import app
 
 
@@ -74,3 +78,20 @@ def test_track_a_post_chat_unchanged() -> None:
     assert "response" in body
     assert "intent" in body
     assert "data" in body
+
+
+def test_track_a_chat_logs_tier_used_sentinel() -> None:
+    """Track A ``log_chat_turn`` rows carry ``tier_used='track_a'`` for analytics clarity."""
+    sid = "track-a-tier-sentinel"
+    with TestClient(app) as client:
+        r = client.post("/chat", json={"session_id": sid, "message": "Hello Track A"})
+    assert r.status_code == 200
+    with SessionLocal() as db:
+        rows = db.scalars(
+            select(ChatLog)
+            .where(ChatLog.session_id == sid)
+            .order_by(ChatLog.created_at.asc())
+        ).all()
+    assert len(rows) >= 2
+    for row in rows:
+        assert row.tier_used == TRACK_A_TIER_USED

@@ -90,7 +90,7 @@ class ChatResponse:
     mode: str
     sub_intent: str | None
     entity: str | None
-    tier_used: str  # '1' | '2' | '3' | 'gap_template' | 'intake' | 'correction' | 'chat' | 'placeholder'
+    tier_used: str  # '1' | '2' | '3' | 'gap_template' | 'intake' | 'correction' | 'chat' | 'placeholder' | 'track_a' (DB only; unified path never emits track_a)
     latency_ms: int
     llm_tokens_used: int | None = None
     llm_input_tokens: int | None = None

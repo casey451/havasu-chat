@@ -6,6 +6,9 @@ from sqlalchemy.orm import Session
 
 from app.db.models import ChatLog
 
+# Legacy ``POST /chat`` (Track A) rows — same table as unified analytics but not a numbered tier.
+TRACK_A_TIER_USED = "track_a"
+
 
 def log_unified_route(
     db: Session,
@@ -67,6 +70,7 @@ def log_chat_turn(db: Session, session_id: str, text: str, role: str, intent: st
             message=(text or "")[:48000],
             role=role if role in ("user", "assistant") else "user",
             intent=intent[:64] if intent else None,
+            tier_used=TRACK_A_TIER_USED,
         )
         db.add(row)
         db.commit()

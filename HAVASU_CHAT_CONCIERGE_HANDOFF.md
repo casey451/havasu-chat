@@ -500,24 +500,29 @@ Users must not be able to tell which tier answered.
 
 ### 3.10 Analytics schema
 
-Every response logs to `chat_logs`:
+Every response logs to `chat_logs` (see ORM `ChatLog` in `app/db/models.py` — column names below match the implementation).
 
 ```
 id (uuid)
-timestamp
-session_id
-user_hash (device/session-based, not auth)
-query_text_hashed
-normalized_query
-mode (ask / contribute / correct / chat)
+created_at
+session_id (device/session bucket; not a separate user_hash column)
+role (user | assistant)
+message (utterance text for that row — user message or assistant reply)
+intent (legacy short label on some rows)
+query_text_hashed (unified-router turns only; null on Track A legacy rows)
+normalized_query (unified-router turns only; null on Track A legacy rows)
+mode (ask / contribute / correct / chat — unified-router turns only)
 sub_intent (nullable)
 entity_matched (nullable)
-tier_used (1 / 2 / 3 / intake / correction / chat)
+tier_used (1 / 2 / 3 / gap_template / chat / placeholder / intake / correction / track_a)
 latency_ms
-response_text
-llm_tokens_used (nullable, Tier 3 only)
+llm_tokens_used (nullable; legacy aggregate — Tier 3 paths also populate llm_input_tokens / llm_output_tokens)
+llm_input_tokens (nullable)
+llm_output_tokens (nullable)
 feedback_signal (nullable: positive / negative / null — set via thumbs UI)
 ```
+
+**`track_a`:** Rows written by legacy **`POST /chat`** (`app/chat/router.py` → `log_chat_turn`) use `tier_used='track_a'` so they are not confused with unified **`POST /api/chat`** rows that left `tier_used` null before this sentinel existed. Historical pre-sentinel rows may still show `tier_used` null.
 
 ### 3.11 Failure handling
 
