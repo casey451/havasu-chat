@@ -20,7 +20,10 @@ from app.chat.local_voice_matcher import find_matching_blurbs
 from app.core.timezone import format_now_lake_havasu, now_lake_havasu
 
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
-FALLBACK_MESSAGE = "Something went sideways on my end — try that again in a sec."
+FALLBACK_MESSAGE = (
+    "Something went sideways on my end — try that again in a sec, "
+    "or call the business directly if you're in a hurry."
+)
 _MAX_OUTPUT_TOKENS = 150
 _TEMPERATURE = 0.3
 

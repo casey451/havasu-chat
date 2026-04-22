@@ -6,6 +6,7 @@ from datetime import date
 
 from fastapi.testclient import TestClient
 
+from app.core.event_quality import FIELD_PROMPTS
 from app.core.session import clear_session_state, get_session
 from app.core.slots import extract_date_range
 from app.db.database import SessionLocal
@@ -30,6 +31,7 @@ class Phase2ChatTests(unittest.TestCase):
         clear_session_state("phase2-add")
         clear_session_state("phase2-unclear")
         clear_session_state("phase2-no")
+        clear_session_state("phase2-track-a-retry")
 
     def test_add_event_flow_end_to_end(self) -> None:
         first = self.__class__.client.post(
@@ -88,6 +90,31 @@ class Phase2ChatTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("what should we change", response.json()["response"].lower())
         self.assertFalse(get_session("phase2-no")["awaiting_confirmation"])
+
+    def test_track_a_missing_field_retry_graceful(self) -> None:
+        """Track A /chat: invalid event_url reply → retry copy (§3.11-adjacent legacy intake)."""
+        sid = "phase2-track-a-retry"
+        first = self.__class__.client.post(
+            "/chat",
+            json={
+                "session_id": sid,
+                "message": (
+                    "I want to add chess night sunday 2pm at Sara Park "
+                    "description is definitely more than twenty chars long here"
+                ),
+            },
+        )
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(first.json()["intent"], "ADD_EVENT")
+        self.assertIn(FIELD_PROMPTS["event_url"], first.json()["response"])
+
+        second = self.__class__.client.post(
+            "/chat",
+            json={"session_id": sid, "message": "still not a valid url string"},
+        )
+        self.assertEqual(second.status_code, 200)
+        self.assertIn("Hmm, that didn't quite work", second.json()["response"])
+        self.assertIn(FIELD_PROMPTS["event_url"], second.json()["response"])
 
 
 class ExtractDateRangeTests(unittest.TestCase):

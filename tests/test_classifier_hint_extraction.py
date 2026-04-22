@@ -65,6 +65,20 @@ def test_route_extractor_none_leaves_session(db: Session) -> None:
     assert get_session("hint-c")["onboarding_hints"]["age"] == 9
 
 
+def test_extract_hints_openai_failure_still_returns_ask_response(db: Session) -> None:
+    clear_session_state("hint-openai-boom")
+    with patch("app.chat.unified_router.extract_hints", side_effect=RuntimeError("openai down")):
+        with patch("app.chat.unified_router.try_tier1", return_value=None):
+            with patch(
+                "app.chat.unified_router.try_tier2_with_usage",
+                return_value=("stable tier2", 3, 2, 1),
+            ):
+                r = route("What is open right now?", "hint-openai-boom", db)
+    assert r.mode == "ask"
+    assert r.tier_used == "2"
+    assert r.response == "stable tier2"
+
+
 def test_route_extractor_empty_hints_noop(db: Session) -> None:
     clear_session_state("hint-d")
     with patch("app.chat.unified_router.extract_hints", return_value=ExtractedHints(age=None, location=None)):

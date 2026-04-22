@@ -237,3 +237,17 @@ def test_system_prompt_passed_with_ephemeral_cache_control(db: Session) -> None:
     assert "cache_control" in system[0]
     assert system[0]["cache_control"] == {"type": "ephemeral"}
     assert len(system[0]["text"]) > 0
+
+
+def test_fallback_message_matches_handoff_spec() -> None:
+    expected = (
+        "Something went sideways on my end — try that again in a sec, "
+        "or call the business directly if you're in a hurry."
+    )
+    assert FALLBACK_MESSAGE == expected
+
+
+def test_fallback_message_matches_unified_router_alias() -> None:
+    from app.chat import unified_router as ur
+
+    assert FALLBACK_MESSAGE == ur._GRACEFUL

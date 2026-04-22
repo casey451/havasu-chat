@@ -6,9 +6,11 @@ Additive only — no production or sibling test file edits.
 
 from __future__ import annotations
 
-from unittest.mock import patch
+import os
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
+import anthropic
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -16,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.chat.entity_matcher import refresh_entity_matcher, reset_entity_matcher
 from app.chat.normalizer import normalize
+from app.chat.tier3_handler import FALLBACK_MESSAGE
 from app.chat.unified_router import _GREETINGS
 from app.db.database import SessionLocal
 from app.db.models import ChatLog, Program
@@ -233,6 +236,7 @@ def test_classify_raises_second_call_graceful_e2e() -> None:
     assert row_fail.message == r2.json()["response"]
     assert row_fail.mode == "ask"
     assert row_fail.sub_intent is None
+    assert row_fail.tier_used == "placeholder"
 
 
 @pytest.mark.parametrize(
@@ -328,3 +332,41 @@ def test_placeholder_tier_for_non_chat_modes() -> None:
         r = client.post("/api/chat", json={"query": "Hi", "session_id": "p2-tier-chat"})
     assert r.status_code == 200
     assert r.json()["tier_used"] == "chat"
+
+
+def test_api_chat_tier3_graceful_when_anthropic_fails() -> None:
+    """§3.11: Tier 3 Anthropic transport failure → HTTP 200 + full handoff graceful string."""
+    sid = "p83-t3-anth-boom"
+    fake = MagicMock()
+    fake.messages.create.side_effect = RuntimeError("anthropic transport boom")
+    with TestClient(app) as client:
+        with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
+            with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
+                with patch.object(anthropic, "Anthropic", return_value=fake):
+                    r = client.post(
+                        "/api/chat",
+                        json={"query": "What is fun to do this weekend?", "session_id": sid},
+                    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["tier_used"] == "3"
+    assert body["response"] == FALLBACK_MESSAGE
+
+
+def test_api_chat_graceful_when_build_context_raises() -> None:
+    """§3.11: context build failure before Anthropic call → graceful + placeholder tier."""
+    sid = "p83-ctx-boom"
+    with TestClient(app) as client:
+        with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
+            with patch(
+                "app.chat.tier3_handler.build_context_for_tier3",
+                side_effect=RuntimeError("context build boom"),
+            ):
+                r = client.post(
+                    "/api/chat",
+                    json={"query": "What is fun to do this weekend?", "session_id": sid},
+                )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["tier_used"] == "placeholder"
+    assert body["response"] == FALLBACK_MESSAGE

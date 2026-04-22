@@ -26,7 +26,7 @@ from app.chat.intent_classifier import IntentResult, classify
 from app.chat.normalizer import normalize
 from app.chat.tier1_handler import try_tier1
 from app.chat.tier2_handler import try_tier2_with_usage
-from app.chat.tier3_handler import answer_with_tier3
+from app.chat.tier3_handler import FALLBACK_MESSAGE as _GRACEFUL, answer_with_tier3
 from app.core.session import (
     get_session,
     record_entity,
@@ -50,8 +50,6 @@ _EXPLICIT_REC_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\byour favorite\b", re.IGNORECASE),
     re.compile(r"\bwhat would you do\b", re.IGNORECASE),
 )
-
-_GRACEFUL = "Something went sideways on my end — try that again in a sec."
 
 _GREETINGS: tuple[str, ...] = (
     "Heya.",

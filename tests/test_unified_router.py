@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy import select
@@ -169,7 +169,7 @@ def test_classify_raises_still_logs_and_graceful(db: Session) -> None:
     before = db.scalars(select(ChatLog).order_by(ChatLog.created_at.desc()).limit(1)).first()
     with patch("app.chat.unified_router.classify", side_effect=RuntimeError("boom")):
         r = route("anything", "sess-err", db)
-    assert r.response == "Something went sideways on my end — try that again in a sec."
+    assert r.response == FALLBACK_MESSAGE
     assert r.mode == "ask"
     row = _latest_unified_log(db)
     assert row is not None
@@ -279,3 +279,36 @@ def test_non_trigger_tier3_fallback_still_works(db: Session) -> None:
                 r = route("What's at the skate park?", "sess-non-trigger-t3", db)
     assert r.tier_used == "3"
     assert r.response == "Tier3 fallback"
+
+
+def test_explicit_rec_still_skips_tier2_when_parser_would_fail(db: Session) -> None:
+    t2 = MagicMock(side_effect=AssertionError("Tier 2 must not run on explicit-rec path"))
+    with patch("app.chat.unified_router.try_tier1", return_value=None):
+        with patch("app.chat.unified_router.try_tier2_with_usage", t2):
+            with patch(
+                "app.chat.unified_router.answer_with_tier3",
+                return_value=("Tier3 explicit only", 10, 6, 4),
+            ):
+                r = route("What should I do tonight?", "sess-explicit-skip-t2", db)
+    assert r.tier_used == "3"
+    assert r.response == "Tier3 explicit only"
+    t2.assert_not_called()
+
+
+def test_normalize_failure_returns_graceful(db: Session) -> None:
+    with patch("app.chat.unified_router.normalize", side_effect=ValueError("normalize boom")):
+        r = route("anything at all", "sess-norm-boom", db)
+    assert r.response == FALLBACK_MESSAGE
+    assert r.tier_used == "placeholder"
+
+
+def test_record_entity_failure_still_returns_answer(db: Session) -> None:
+    with patch("app.chat.unified_router.record_entity", side_effect=RuntimeError("record_entity boom")):
+        with patch("app.chat.unified_router.try_tier1", return_value=None):
+            with patch(
+                "app.chat.unified_router.try_tier2_with_usage",
+                return_value=("Tier2 survives record_entity fail", 8, 4, 4),
+            ):
+                r = route("Events tomorrow", "sess-rec-ent-boom", db)
+    assert r.tier_used == "2"
+    assert r.response == "Tier2 survives record_entity fail"
