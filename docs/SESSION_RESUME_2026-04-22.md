@@ -21,52 +21,50 @@
 
 ## 2. Current state (top of session)
 
-- **Last commit on `main` (through Phase 6.4.1 prompt doc):** `34ad30d` — adds `docs/phase-6-4-1-cursor-prompt.md` (6.4.1 ready to execute). **Phase 6.4 delivery:** `4c5c7cb` (session memory) + `ce64b92` (known gap → 6.4.1). **Phase 6.3:** `f6d423f`.
-- **Tests:** 713 collected (`.\.venv\Scripts\python.exe -m pytest --collect-only -q`, 2026-04-22)
-- **Working tree:** clean, main in sync with origin/main
+- **Last commit on `main`:** `35194af` — Phase 6.5-lite: local voice plumbing (empty `LOCAL_VOICE`, matcher, Tier 3 injection, tests, reports). **`Phase 6 is fully shipped`**, including 6.5-lite plumbing per the deferral plan in `docs/PHASE_6_5_LOCAL_VOICE_HANDOFF.md` (correct-and-grow; editorial blurbs post-launch).
+- **Tests:** **742** passed (`.\.venv\Scripts\python.exe -m pytest -q`, 2026-04-22)
+- **Working tree:** clean; `main` in sync with `origin/main`
 - **Production:** healthy
 
-**Recent `main` history** (newest first; omits transient revert/duplicate commits around the clean 6.1.3 artifact land):
+**Recent `main` history** (newest first; anchor commits for Phase 6 close):
 
 ```text
+35194af Phase 6.5-lite: local voice plumbing (empty, ready to grow)
+a9dca4d docs: Phase 6.5 deferral plan and correct-and-grow workflow
+3b6315e Phase 6.4.1: recommended-entity capture for prior_entity
+9f8abb0 test: fix environment-dependent assertions in embedding and router latency tests
+68c65cf docs: refresh session resume doc for 6.3/6.4 close + 6.4.1 planned
 34ad30d docs: add Phase 6.4.1 implementation prompt (recommended-entity capture)
 ce64b92 docs: document Phase 6.4 known gap (recommended-entity capture → 6.4.1)
 4c5c7cb Phase 6.4: session memory (hints, prior-entity, date injection)
 f6d423f Phase 6.3: onboarding first-turn (visitor status + kids quick-tap)
-e2af301 docs: session resume record tip d2feb28
-d2feb28 docs: session resume last-commit + log block sync
-ae843c6 docs: session resume tip-of-main + Phase 6.1 commit tail
 cf867b8 docs: session resume doc for 2026-04-22
-4c5d4b3 docs: log Phase 6.1 deferred items
-10b251b Phase 6.1.4: voice fixes for HOURS, Tier 3 §8.2, Tier 2 explicit-rec
 ```
 
 ### Phase status
 
-**Shipped:**
+**Shipped (Phases 1–5):**
 - Phase 1 — Data model, seed data ✅
 - Phase 2 — Chat API, classifier, Tier 3, ChatLog, rate limiter ✅
 - Phase 3.1–3.8 — Tier 1 templates, routing, gap handling ✅
 - Phase 4.1–4.7 — Tier 2 retrieval-then-generate ✅
 - Phase 5.1–5.6 — Contribute mode ✅
-- Phase 6.2 — Feedback loop end-to-end ✅
-- **Phase 6.1 — Voice audit (NEW: closed 2026-04-21)** ✅
-  - 6.1.1 prompts/voice_audit.txt established
-  - 6.1.2 scripts/run_voice_audit.py runner built with 55-sample fixture
-  - 6.1.3 paid audit executed: 51 PASS / 1 MINOR / 3 FAIL / 0 ERROR (~$0.17 spend)
-  - 6.1.4 voice fixes shipped: t1-HOURS-03 cleared; t3-01 + t3-24 deferred at root; t3-25 rejected as auditor over-score
-- **Phase 6.3 — Onboarding first-turn** ✅ (`f6d423f`: visitor status + kids quick-tap)
-- **Phase 6.4 — Session memory** ✅ (`4c5c7cb` + `ce64b92`: hints, prior-entity recall, date injection; known gap documented for recommended-entity `prior_entity` capture)
-  - **6.4.1 planned:** Cursor prompt saved at `docs/phase-6-4-1-cursor-prompt.md` (also landed on `main` as `34ad30d`); ready to execute (pre-flight → implementation). Closes the Tier 2/3 single-entity recommendation capture gap.
 
-**Remaining in Phase 6:**
-- **6.4.1** — Recommended-entity capture for `prior_entity` (small follow-up; prompt ready)
-- **6.5** — Local-voice content (OWNER TASK: 20–30 editorial blurbs)
+**Phase 6 — closed (all sub-phases shipped):**
+- **6.1** ✅ — Voice audit (6.1.1–6.1.4): `prompts/voice_audit.txt`, `scripts/run_voice_audit.py`, paid audit (~51 PASS / 1 MINOR / 3 FAIL / 0 ERROR), voice fixes `10b251b` lineage; t3-01 / t3-24 deferred at root per prior notes.
+- **6.2** ✅ — Feedback loop end-to-end.
+- **6.3** ✅ — Onboarding first-turn (visitor status + kids quick-tap), shipped this session — **`f6d423f`**.
+- **6.4** ✅ — Session memory (hints, prior-entity, date injection), shipped this session — **`4c5c7cb`** + **`ce64b92`** (gap documented → 6.4.1).
+- **6.4.1** ✅ — Recommended-entity capture for `prior_entity`, shipped this session — **`3b6315e`** (prompt doc **`34ad30d`**).
+- **6.5** ✅ — Local-voice **plumbing** live: empty `LOCAL_VOICE`, matcher, Tier 3 `user_text` injection, system prompt note; correct-and-grow workflow per **`docs/PHASE_6_5_LOCAL_VOICE_HANDOFF.md`** — **`a9dca4d`** (plan) + **`35194af`** (implementation). Editorial blurbs are owner/operator content, not a scheduled dev phase.
+
+**Phase 6 closed.**
 
 **Post-Phase 6:**
-- Phase 8 Pre-launch hardening: seed verification, load testing, admin runbook, ToS, privacy review
-- Deferred: correction flow (reads field_history baseline)
-- Deferred: cost optimization pass (after 2–4 weeks real traffic)
+
+- **Phase 8 — pre-launch hardening is next** (see **§5 Phase 8** in `HAVASU_CHAT_CONCIERGE_HANDOFF.md`): seed verification, load testing, admin runbook, ToS, privacy review.
+- **Phase 6.5 content** continues to accumulate **organically post-launch** (not a scheduled phase); the repo wiring is done.
+- **Deferred (unchanged from prior session resume):** correction flow (reads `field_history` baseline); cost optimization pass (after 2–4 weeks real traffic). Other deferred decisions and follow-ups — unchanged from **§6** below.
 
 ## 3. Process conventions (reinforced across sessions)
 
@@ -107,9 +105,11 @@ See `docs/known-issues.md` for current live issues. Newly logged 2026-04-21:
 - **docs/phase-*-report.md** — per-sub-phase delivery reports.
 - **scripts/run_voice_audit.py** — reusable voice audit runner (uses prompts/voice_audit.txt).
 
-## 8. Suggested opening moves
+## 8. Suggested opening moves (Phase 8 kickoff)
 
-- "Run Phase 6.4.1 from docs/phase-6-4-1-cursor-prompt.md" — pre-flight read-only, then `proceed` → small router + entity_matcher follow-up.
-- "Discuss 6.5 local-voice content" — owner writing task, no code.
-- "Discuss soft launch / monetization strategy" — no build.
-- "Continue wherever makes sense" — Claude will recommend.
+Phase 6 is closed; orient the next session around **Phase 8 pre-launch hardening** or housekeeping:
+
+- **Plan a Phase 8 design conversation** — walk `HAVASU_CHAT_CONCIERGE_HANDOFF.md` §5 Phase 8 (seed verification, load testing, admin runbook, ToS, privacy review) and sequence work vs. soft launch.
+- **Discuss soft launch strategy** — timing, surface area, and what “good enough” means before wider promotion (no code required).
+- **Housekeeping** — archive or dedupe process artifacts (`docs/phase-*`, one-off prompts) so the repo stays navigable before Phase 8 execution work ramps up.
+- **Continue wherever makes sense** — Claude will recommend from the above.
