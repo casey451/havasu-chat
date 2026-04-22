@@ -21,3 +21,7 @@ scratch/
 
 # Chat-exported Cursor prompt copies (canonical versions are tracked separately)
 docs/phase-*-cursor-prompt-chat-export.md
+
+# Cursor handback and pre-flight-stop reports (scratch, not permanent)
+docs/phase-*-handback-*.md
+docs/phase-*-preflight-stop-*.md
