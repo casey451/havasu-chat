@@ -5,7 +5,19 @@ broader public. Updated across Phase 8 sub-phases as launch
 blockers surface. Owner works through this list before flipping
 from soft-launch to public launch.
 
+## Companion docs
+
+- **Operational runbook** — `docs/runbook.md` (production operations, admin UI, copy-paste SQL, emergency triage, env vars). The checklist below is **gate** work before wider public release; the runbook is the **day-in/day-out** reference (Phase 8.4).
+
 ## Open
+
+- [ ] **Configure Sentry alert rules.** Before public launch, set
+      up alerts in the Sentry UI for: error rate spikes on
+      exception events, regression detection on resolved issues, and
+      a recurring review of **Tier 3** graceful fallback rate
+      (manual SQL for now; see `docs/runbook.md` **§4** “Useful
+      queries — copy-paste SQL”). This is Sentry dashboard work,
+      not application code. (Added Phase 8.4)
 
 - [ ] **Replace privacy page contact email.** `docs/privacy.md`
       currently lists `caseylsolomon@gmail.com` as the contact
