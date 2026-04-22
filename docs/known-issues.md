@@ -15,25 +15,51 @@ Known issues tracker: one-line log for bugs deferred in favor of higher-priority
 - `app/chat/context_builder.py` does not inject today's date or resolved ranges for phrases like "this weekend", "tonight", or "tomorrow" into Tier 3 context.
 - Phase 6.1.4 mitigated the §8.2 voice symptom in `prompts/system_prompt.txt` (one-move rule); the underlying hedge still needs date-aware context from `context_builder`.
 
-**Priority:** Not blocking. Investigate during Phase 6.3 or later. Suggested scope: add date-aware context injection in `context_builder`; verify `t3-01` clears on re-audit.
+**Priority:** Not blocking. Post–Phase 8.0 / deferred to post-launch hardening. Suggested scope: add date-aware context injection in `context_builder`; verify `t3-01` clears on re-audit.
+
+### Handoff documentation — §3.9 vs §8.7 trailing-question contradiction (deferred)
+
+**Issue:** `HAVASU_CHAT_CONCIERGE_HANDOFF.md` reads as if **§3.9 / §8.2** forbid trailing follow-up questions outside intake/correction, while **§8.7**’s normative out-of-scope example ends with *“Want me to point you to anything else?”* The codebase already treats **OUT_OF_SCOPE** as a **carve-out** (e.g. `OUT_OF_SCOPE_87` fixture and `test_voice_trailing_question_guard` in `tests/test_phase2_integration.py`).
+
+**Status:** **Deferred** — reconcile handoff prose in a **dedicated handoff-doc pass** (post–Phase 8.0 track), not as part of the 8.0 bug-fix code line. See `docs/phase-8-0-4-read-first-report.md` / `docs/phase-8-0-4-read-first-handback-2026-04-22.md` for read-first context.
+
+**Priority:** Documentation consistency only. Does not block launch behavior (product matches locked tests + §8.7 template).
+
+### Frontend — main chat `fetch` treats 422 like transport failure
+
+**Observed:** `app/static/index.html` concierge path uses `if (!res.ok) throw new Error("Request failed")` then a **catch** bubble: *“Hmm, that didn’t go through — check your connection and try again.”* **422** validation responses never surface the server’s JSON **`message`** (even after **8.0.6** improved that message for `/api/chat`).
+
+**Expected (future):** Branch on **`res.status === 422`**, parse JSON, show **`message`** (or a dedicated validation line). Optional pairing with further server copy tuning.
+
+**Priority:** Post-launch UX polish — **not** blocking; **8.0.6** intentionally scoped to server-side copy + admin nav only.
+
+## Documented (metrics / carry-over)
+
+### Production `chat_logs` — legacy NULL `tier_used` (~2% class) + `placeholder`
+
+**What this is:** A **small historical share** of rows (handoff ~**2.4%** `placeholder` + `null`; Phase 8.0.5 prod sampling ~**2.1%** combined) where `tier_used` is **SQL NULL** (primarily **Track A `POST /chat` / `log_chat_turn`** writes that predate unified-router analytics columns) or the explicit unified sentinel **`placeholder`**. **Not a runtime defect** in current `/api/chat` logging.
+
+**What shipped:** **Phase 8.0.5** — **`dc4ac14`** — adds a **non-NULL sentinel** for new Track A assistant rows so the **NULL share does not grow** from current code paths; **historical NULL rows are not backfilled** (by design).
+
+**Operational note:** Tier-mix / cost scripts should continue to **filter or bucket** NULL/`placeholder` explicitly (see `docs/phase-8-0-5-read-first-report.md`).
 
 ## Resolved
 
 ### 2026-04-21 — Tier 2 handling of explicit-recommendation queries (Phase 6.1 voice audit)
 
-**Status:** RESOLVED by **Phase 8.0.2** (router-level explicit-rec bypass to Tier 3; Tier 2 formatter explicit-rec block removed).
+**Status:** RESOLVED by **Phase 8.0.2** (commit `2c64fe9`) — router-level explicit-rec bypass to Tier 3; Tier 2 formatter explicit-rec block removed.
 
 **What changed:** §8.4 trigger phrases skip Tier 2 and use Tier 3 with `prompts/system_prompt.txt` Option 3 rules.
 
 ### 2026-04-21 — Mountain-bike retrieval miss
 
-**Status:** RESOLVED by **Phase 8.0.3** (entity matcher aliases for `Lake Havasu Mountain Bike Club`).
+**Status:** RESOLVED by **Phase 8.0.3** (commit `18c2bb8`) — entity matcher aliases for `Lake Havasu Mountain Bike Club`.
 
 **What changed:** Generic mountain-bike phrasing (`mountain bikes`, `mountain biking`, `mtb`, trails language, etc.) now fuzzy-matches the catalog provider above the enrichment threshold so Tier 3 context includes club programs instead of falling through to CVB-only answers.
 
 ### 2026-04-21 — Tier 3 recommended-entity not captured for `prior_entity` (Phase 6.4)
 
-**Status:** RESOLVED by **Phase 6.4.1** (implementation on `main` pending owner commit — see `docs/phase-6-4-1-recommended-entity-capture-report.md`).
+**Status:** RESOLVED by **Phase 6.4.1** (commit `3b6315e`) — see `docs/phase-6-4-1-recommended-entity-capture-report.md`.
 
 **What changed:** After Tier 2 or Tier 3 returns assistant text, the unified router scans that text for catalog **provider** names (same fuzzy threshold as `match_entity`). When **exactly one** provider matches above threshold, `record_entity` runs so `prior_entity` is set for pronoun follow-ups. User-named capture still runs first on the same turn; recommended capture runs last and **overwrites** when it fires (per locked precedence).
 
@@ -42,3 +68,37 @@ Known issues tracker: one-line log for bugs deferred in favor of higher-priority
 **Status:** RESOLVED.
 
 **Resolved:** 2026-04-21 — owner confirmed Tier 3 feedback thumbs render correctly on production responses.
+
+**Resolved in repo:** `f409286` (originally logged `4944b5b`).
+
+### Handoff §3.10 — `ChatLog` field naming drift vs code (`message`, `created_at`)
+
+**Status:** RESOLVED by **Phase 8.0.5** — commit **`dc4ac14`** — reconciled handoff **§3.10** prose to match the **implemented** SQLAlchemy model (`message`, `created_at`, etc.).
+
+**Note:** Pure documentation alignment; **no** schema migration.
+
+### `POST /api/chat` validation — misleading 422 `message` body (event-centric copy)
+
+**Status:** RESOLVED by **Phase 8.0.6** — commit **`4f3f45b`** — chat validation errors now return **chat-appropriate** copy (see `app/core/event_quality.py` / `app/main.py` validation handler; details in `docs/phase-8-0-6-read-first-report.md` §1).
+
+**Scope note:** Fixes **server JSON** for API/curl clients; the **browser** main chat UI may still show generic connection copy for 422 (tracked under **Open (deferred)** — *Frontend — main chat `fetch` treats 422 like transport failure*).
+
+### Admin HTML — navigation consistency across Phase 5 modules
+
+**Status:** RESOLVED by **Phase 8.0.6** — commit **`4f3f45b`** — shared nav include / consistent links across admin templates (see phase-8-0-6 delivery / diff).
+
+### Prompt hygiene — London Bridge farmers market example in `system_prompt.txt` §8.4
+
+**Status:** RESOLVED by **Phase 8.0.4** — commit **`a4beb5a`** — replaced the non-catalog-faithful GOOD example (Saturday farmers market at London Bridge) with a generic Option-3 pattern example that avoids specific entities, prices, or dates.
+
+**Note:** Prompt hygiene only; no runtime behavior change. See `docs/phase-8-0-4-read-first-report.md`.
+
+### Resolved by adjudication (intentional behavior)
+
+#### Q17 voice battery — “Boat rentals on the lake?” (Phase 3.6 onward MINOR)
+
+**Status:** RESOLVED by **owner adjudication** (Phase 8.0.4 read-first / close-out). Correct behavior is **chat / out-of-scope** handling with the **§8.7** template (including the trailing *“Want me to point you to anything else?”* where applicable), **not** a catalog retrieval bug.
+
+**Evidence / locking:** `app/chat/unified_router.py` **`_OUT_OF_SCOPE_REPLY`**; integration tests **`OUT_OF_SCOPE_87`** + `test_voice_trailing_question_guard` in `tests/test_phase2_integration.py`.
+
+**Note:** Optional cross-link: `docs/phase-8-0-4-read-first-report.md` §1 (Q17 / OUT_OF_SCOPE). Handoff narrative bullets that still label Q17 as an open MINOR should be cleaned in the **handoff-doc pass** tracked above — **out of scope** for 8.0.7-implement if that pass is fenced separately.
