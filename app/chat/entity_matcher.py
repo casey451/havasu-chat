@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.chat.normalizer import normalize
-from app.db.models import Program
+from app.db.models import Program, Provider
 
 # Keys MUST match ``provider_name`` strings produced by
 # ``docs/HAVASU_CHAT_SEED_INSTRUCTIONS.md`` / ``scripts/seed_from_havasu_instructions.py``.
@@ -83,6 +83,15 @@ class _EntityRow:
     needles: frozenset[str]
 
 
+@dataclass(frozen=True)
+class EntityMatch:
+    """One catalog provider mentioned in free text (Phase 6.4.1)."""
+
+    name: str
+    type: str
+    id: str
+
+
 _rows: list[_EntityRow] | None = None
 
 
@@ -119,6 +128,50 @@ def _best_score(norm_query: str, needles: frozenset[str]) -> float:
     for needle in needles:
         best = max(best, float(fuzz.token_set_ratio(norm_query, needle)))
     return best
+
+
+def _provider_id_for_name(db: Session, provider_name: str) -> str:
+    """Resolve ``Provider.id`` when present; else fall back to name (same as ``record_entity``)."""
+    name = (provider_name or "").strip()
+    if not name:
+        return ""
+    try:
+        row = db.scalars(select(Provider).where(Provider.provider_name == name).limit(1)).first()
+        if row is not None:
+            return str(row.id)
+    except Exception:
+        pass
+    return name
+
+
+def extract_catalog_entities_from_text(text: str, db: Session) -> list[EntityMatch]:
+    """Return all catalog **providers** mentioned in *text* with fuzzy score strictly above 75.
+
+    Uses the same in-memory index as :func:`match_entity`. Each hit is deduplicated by canonical
+    name (one entry per provider). ``type`` is always ``"provider"`` for Phase 6.4.1.
+    """
+    global _rows
+    if _rows is None:
+        refresh_entity_matcher(db)
+    assert _rows is not None
+
+    norm = normalize(text)
+    if not norm:
+        return []
+
+    best_by_canon: dict[str, float] = {}
+    for row in _rows:
+        s = _best_score(norm, row.needles)
+        if s > 75.0:
+            prev = best_by_canon.get(row.canonical)
+            if prev is None or s > prev:
+                best_by_canon[row.canonical] = s
+
+    out: list[EntityMatch] = []
+    for name in sorted(best_by_canon.keys()):
+        pid = _provider_id_for_name(db, name)
+        out.append(EntityMatch(name=name, type="provider", id=pid))
+    return out
 
 
 def match_entity(query: str, db: Session) -> tuple[str, float] | None:

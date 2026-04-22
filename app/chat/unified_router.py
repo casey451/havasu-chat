@@ -16,7 +16,11 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from app.chat.entity_matcher import match_entity, refresh_entity_matcher
+from app.chat.entity_matcher import (
+    extract_catalog_entities_from_text,
+    match_entity,
+    refresh_entity_matcher,
+)
 from app.chat.hint_extractor import extract_hints
 from app.chat.intent_classifier import IntentResult, classify
 from app.chat.normalizer import normalize
@@ -366,6 +370,14 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
             llm_input_tokens=None,
             llm_output_tokens=None,
         )
+
+    if raw_sid and current_turn is not None and tier_used in ("2", "3"):
+        try:
+            mentioned = extract_catalog_entities_from_text(text, db)
+            if len(mentioned) == 1:
+                record_entity(raw_sid, mentioned[0].name, current_turn, db)
+        except Exception:
+            logging.exception("unified_router: recommended-entity capture failed")
 
     return _finish(
         text,

@@ -2,16 +2,6 @@ Known issues tracker: one-line log for bugs deferred in favor of higher-priority
 
 ## Open (deferred)
 
-### 2026-04-21 — Tier 3 recommended-entity not captured for `prior_entity` (Phase 6.4)
-
-**Observed:** After an open-ended Tier 3 answer that **recommends** a catalog venue (e.g. Altitude), a follow-up like “What time does it open?” may **not** resolve to that venue. Explicit naming (“What time does Altitude open?”) works and can hit Tier 1 with hours.
-
-**Expected:** Concierge-recommended primary venue should be eligible for pronoun / short-follow-up resolution within the same session window, same as user-named entities.
-
-**Root cause:** `record_entity` depends on `IntentResult.entity` (or user-utterance resolution). Tier 3 recommendations do not populate that path, so `prior_entity` can stay `None`.
-
-**Priority:** Deferred to **Phase 6.4.1** (design + implementation). Not catastrophic; does not reopen Phase 6.4 closure. See `docs/phase-6-4-session-memory-report.md` § “Known gap — Tier 3 recommended-entity capture”.
-
 ### 2026-04-21 — Mountain-bike retrieval miss
 
 **Query:** "My son wants to ride mountain bikes. Any classes available?"
@@ -59,6 +49,12 @@ Known issues tracker: one-line log for bugs deferred in favor of higher-priority
 **Priority:** Not blocking. Investigate when Phase 7 cost optimization or a Tier 2 revisit happens. Suggested scope: explicit-rec trigger regex match in `unified_router.route` before Tier 2 attempt; on match, skip to Tier 3.
 
 ## Resolved
+
+### 2026-04-21 — Tier 3 recommended-entity not captured for `prior_entity` (Phase 6.4)
+
+**Status:** RESOLVED by **Phase 6.4.1** (implementation on `main` pending owner commit — see `docs/phase-6-4-1-recommended-entity-capture-report.md`).
+
+**What changed:** After Tier 2 or Tier 3 returns assistant text, the unified router scans that text for catalog **provider** names (same fuzzy threshold as `match_entity`). When **exactly one** provider matches above threshold, `record_entity` runs so `prior_entity` is set for pronoun follow-ups. User-named capture still runs first on the same turn; recommended capture runs last and **overwrites** when it fires (per locked precedence).
 
 ### Tier 3 feedback thumbs not rendering (Phase 6.2.2)
 

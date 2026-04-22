@@ -6,6 +6,7 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from app.chat.entity_matcher import (
+    extract_catalog_entities_from_text,
     match_entity,
     match_entity_with_rows,
     refresh_entity_matcher,
@@ -109,3 +110,75 @@ class EntityMatcherDbTests(unittest.TestCase):
             hit = match_entity("bmx track hours", db)
         self.assertIsNotNone(hit)
         self.assertEqual(hit[0], canon)
+
+
+class ExtractCatalogEntitiesFromTextTests(unittest.TestCase):
+    def setUp(self) -> None:
+        reset_entity_matcher()
+        self._ids: list[str] = []
+
+    def tearDown(self) -> None:
+        with SessionLocal() as db:
+            for pid in self._ids:
+                row = db.get(Program, pid)
+                if row is not None:
+                    db.delete(row)
+            db.commit()
+        reset_entity_matcher()
+
+    def test_extract_one_provider_mentioned(self) -> None:
+        canon = "Lake Havasu City BMX"
+        with SessionLocal() as db:
+            self._ids.append(_insert_program(db, canon))
+            refresh_entity_matcher(db)
+            hits = extract_catalog_entities_from_text(
+                "Kids love the bmx track in Lake Havasu City on weekends.",
+                db,
+            )
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0].name, canon)
+        self.assertEqual(hits[0].type, "provider")
+
+    def test_extract_two_providers(self) -> None:
+        a, b = "Lake Havasu City BMX", "Havasu Lanes"
+        with SessionLocal() as db:
+            self._ids.append(_insert_program(db, a))
+            self._ids.append(_insert_program(db, b))
+            refresh_entity_matcher(db)
+            hits = extract_catalog_entities_from_text(
+                "Check out Lake Havasu City BMX then bowl at Havasu Lanes.",
+                db,
+            )
+        names = {h.name for h in hits}
+        self.assertEqual(names, {a, b})
+        for h in hits:
+            self.assertEqual(h.type, "provider")
+
+    def test_extract_empty_text(self) -> None:
+        with SessionLocal() as db:
+            refresh_entity_matcher(db)
+            self.assertEqual(extract_catalog_entities_from_text("", db), [])
+            self.assertEqual(extract_catalog_entities_from_text("   ", db), [])
+
+    def test_extract_no_catalog_mentions(self) -> None:
+        canon = "Lake Havasu City BMX"
+        with SessionLocal() as db:
+            self._ids.append(_insert_program(db, canon))
+            refresh_entity_matcher(db)
+            hits = extract_catalog_entities_from_text(
+                "Quantum tutoring in Seattle has no local overlap here.",
+                db,
+            )
+        self.assertEqual(hits, [])
+
+    def test_extract_duplicate_canonical_once(self) -> None:
+        canon = "Lake Havasu City BMX"
+        with SessionLocal() as db:
+            self._ids.append(_insert_program(db, canon))
+            refresh_entity_matcher(db)
+            hits = extract_catalog_entities_from_text(
+                "Lake Havasu City BMX is fun. Visit Lake Havasu City BMX twice.",
+                db,
+            )
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0].name, canon)
