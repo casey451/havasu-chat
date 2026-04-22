@@ -93,7 +93,10 @@ def extract_hints(query: str) -> ExtractedHints | None:
     try:
         env = _HintEnvelope.model_validate(data)
     except Exception:
-        logging.info("hint_extractor: envelope validation failed: %r", raw[:200])
+        logging.info(
+            "hint_extractor: envelope validation failed (raw length=%d)",
+            len(raw or ""),
+        )
         return None
 
     if env.extracted_hints is None:

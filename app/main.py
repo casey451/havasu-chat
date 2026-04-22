@@ -10,10 +10,12 @@ import asyncio
 import html
 import logging
 import os
+import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -37,6 +39,180 @@ from app.schemas.event import EventCreate, EventRead
 
 logger = logging.getLogger(__name__)
 
+_PRIVACY_MD_PATH = Path(__file__).resolve().parents[1] / "docs" / "privacy.md"
+_SENSITIVE_EVENT_KEYS = frozenset({"query", "message", "normalized_query"})
+
+
+def _is_chat_post_request_url(url: str | None) -> bool:
+    if not url:
+        return False
+    try:
+        path = urlparse(url).path.rstrip("/") or "/"
+    except Exception:
+        path = url
+    return path.endswith("/api/chat") or path.endswith("/chat")
+
+
+def _scrub_mapping_keys_inplace(d: dict[str, Any]) -> None:
+    for k in list(d.keys()):
+        if str(k).lower() in _SENSITIVE_EVENT_KEYS:
+            d[k] = "<scrubbed>"
+
+
+def scrub_sentry_event(event: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any] | None:
+    """Strip chat bodies from Sentry events before upload."""
+    req = event.get("request")
+    if isinstance(req, dict) and _is_chat_post_request_url(str(req.get("url") or "")):
+        req["data"] = "<scrubbed>"
+        if "json" in req:
+            req["json"] = "<scrubbed>"
+    for bag in ("extra", "contexts"):
+        bagv = event.get(bag)
+        if isinstance(bagv, dict):
+            _scrub_mapping_keys_inplace(bagv)
+    crumbs = event.get("breadcrumbs")
+    if isinstance(crumbs, dict):
+        values = crumbs.get("values")
+        if isinstance(values, list):
+            for c in values:
+                if isinstance(c, dict):
+                    scrub_sentry_breadcrumb(c, hint)
+    return event
+
+
+def scrub_sentry_breadcrumb(crumb: dict[str, Any], hint: dict[str, Any]) -> dict[str, Any] | None:
+    """Remove bodies from HTTP-related breadcrumbs that may echo POST payloads."""
+    data = crumb.get("data")
+    if isinstance(data, dict):
+        for k in ("body", "data", "json", "state"):
+            if k in data:
+                data[k] = "<scrubbed>"
+    return crumb
+
+
+def _privacy_inline_formats(text: str) -> str:
+    parts = re.split(r"(\*\*.+?\*\*)", text)
+    chunks: list[str] = []
+    for p in parts:
+        if len(p) >= 4 and p.startswith("**") and p.endswith("**"):
+            inner = html.escape(p[2:-2])
+            chunks.append(f"<strong>{inner}</strong>")
+        else:
+            chunks.append(html.escape(p))
+    s = "".join(chunks)
+
+    def _link(m: re.Match[str]) -> str:
+        u = m.group(1)
+        safe = html.escape(u, quote=True)
+        return f'<a href="{safe}" rel="noopener noreferrer">{html.escape(u)}</a>'
+
+    return re.sub(r"(https?://[^\s<>]+)", _link, s)
+
+
+def _render_privacy_markdown_to_html(md: str) -> str:
+    out: list[str] = []
+    lines = md.splitlines()
+    i = 0
+    in_ul = False
+    while i < len(lines):
+        raw = lines[i]
+        stripped = raw.strip()
+        if stripped.startswith("<!--") and "-->" in stripped:
+            if in_ul:
+                out.append("</ul>")
+                in_ul = False
+            out.append(stripped)
+            i += 1
+            continue
+        if stripped.startswith("## "):
+            if in_ul:
+                out.append("</ul>")
+                in_ul = False
+            out.append(f"<h2>{html.escape(stripped[3:].strip())}</h2>")
+            i += 1
+            continue
+        if stripped.startswith("- "):
+            if not in_ul:
+                out.append("<ul>")
+                in_ul = True
+            item = stripped[2:].lstrip()
+            out.append(f"<li>{_privacy_inline_formats(item)}</li>")
+            i += 1
+            continue
+        if not stripped:
+            if in_ul:
+                out.append("</ul>")
+                in_ul = False
+            i += 1
+            continue
+        if in_ul:
+            out.append("</ul>")
+            in_ul = False
+        para_parts: list[str] = [stripped]
+        i += 1
+        while i < len(lines):
+            nxt = lines[i].strip()
+            if not nxt:
+                i += 1
+                break
+            if lines[i].lstrip().startswith("- ") or lines[i].lstrip().startswith("##"):
+                break
+            if lines[i].strip().startswith("<!--"):
+                break
+            para_parts.append(nxt)
+            i += 1
+        out.append(f"<p>{_privacy_inline_formats(' '.join(para_parts))}</p>")
+    if in_ul:
+        out.append("</ul>")
+    return "\n".join(out)
+
+
+def _load_privacy_html() -> str:
+    md = _PRIVACY_MD_PATH.read_text(encoding="utf-8")
+    body = _render_privacy_markdown_to_html(md)
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Privacy — Havasu Chat</title>
+  <style>
+    :root {{
+      --bg: #ffffff;
+      --border: #dee2e6;
+      --text: #212529;
+      --muted: #6c757d;
+      --link: #0d6efd;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }}
+    body {{ margin: 0; background: var(--bg); color: var(--text); line-height: 1.55; }}
+    .wrap {{ max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }}
+    a.back {{ display: inline-block; margin-bottom: 16px; font-weight: 600; color: var(--link);
+      text-decoration: none; }}
+    a.back:hover {{ text-decoration: underline; }}
+    article.privacy-doc h2 {{
+      margin: 28px 0 12px;
+      font-size: 1.15rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+    }}
+    article.privacy-doc p {{ margin: 0 0 12px; color: var(--text); }}
+    article.privacy-doc ul {{ margin: 0 0 12px; padding-left: 1.25rem; }}
+    article.privacy-doc li {{ margin-bottom: 8px; }}
+    article.privacy-doc a {{ color: var(--link); }}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <a class="back" href="/">← Havasu Chat</a>
+    <article class="privacy-doc">
+{body}
+    </article>
+  </main>
+</body>
+</html>
+"""
+
 
 def _init_sentry() -> None:
     """Initialize Sentry if SENTRY_DSN is set. Never raise — monitoring is best-effort."""
@@ -54,6 +230,8 @@ def _init_sentry() -> None:
             environment=environment,
             traces_sample_rate=0.1,
             integrations=[FastApiIntegration(), StarletteIntegration()],
+            before_send=scrub_sentry_event,
+            before_breadcrumb=scrub_sentry_breadcrumb,
         )
         logger.info("Sentry initialized (environment=%s)", environment)
     except Exception as exc:  # pragma: no cover — best-effort init
@@ -295,6 +473,11 @@ def _render_permalink_page(event: Event, permalink_url: str) -> str:
 @app.get("/")
 def serve_chat_ui() -> FileResponse:
     return FileResponse(_STATIC_DIR / "index.html")
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy_page() -> HTMLResponse:
+    return HTMLResponse(content=_load_privacy_html(), status_code=200)
 
 
 @app.exception_handler(RequestValidationError)

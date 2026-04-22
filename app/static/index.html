@@ -150,6 +150,22 @@
       font-weight: 600;
       text-decoration: none;
     }
+    .site-footer {
+      text-align: center;
+      font-size: 0.78rem;
+      padding: 0 16px calc(10px + env(safe-area-inset-bottom));
+      color: #6c757d;
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .site-footer a {
+      color: #0d6efd;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .site-footer a:hover {
+      text-decoration: underline;
+    }
     .composer {
       display: flex;
       gap: 8px;
@@ -394,6 +410,9 @@
       <button type="submit" id="send">Send</button>
     </form>
     <p class="catalog-link"><a href="/contribute">Add to catalog →</a></p>
+    <footer class="site-footer">
+      <a href="/privacy">Privacy</a>
+    </footer>
   </div>
   <div id="calendar-overlay" class="calendar-overlay" role="dialog" aria-modal="true" aria-label="Events calendar">
     <div class="calendar-shell">

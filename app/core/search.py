@@ -29,6 +29,7 @@ from app.core.conversation_copy import (
 from app.bootstrap_env import ensure_dotenv_loaded
 from app.core.dedupe import cosine_similarity
 from app.core.intent import open_ended_search_message
+from app.core.search_log import is_search_diag_verbose
 from app.core.slots import extract_broaden_category, extract_search_label
 from app.db.models import Event
 
@@ -138,6 +139,31 @@ GROUP_EMOJI = {
     "Outdoors": "🥾",
     "General": "📌",
 }
+
+
+def emit_search_diag_embedding_block(
+    flags_text: str,
+    *,
+    is_specific_query: bool,
+    embedding_from_openai: bool,
+    effective_threshold: float,
+    with_emb: list[tuple[Any, float]],
+) -> None:
+    """Stdout diagnostics for embedding search; no-op unless ``SEARCH_DIAG_VERBOSE`` is set."""
+    if not is_search_diag_verbose():
+        return
+    import sys as _sys
+
+    _sys.stdout.flush()
+    print(
+        f"[search_diag] query={flags_text!r} is_specific={is_specific_query} "
+        f"from_openai={embedding_from_openai} threshold={effective_threshold:.2f} "
+        f"candidates={len(with_emb)}",
+        flush=True,
+    )
+    for _ev, _sc in sorted(with_emb, key=lambda x: -x[1])[:5]:
+        print(f"  [{_sc:.4f}] {_ev.title!r}", flush=True)
+
 
 _WEEKDAY_LONG = (
     "Monday",
@@ -551,16 +577,13 @@ def search_events(
             for e, s in with_emb
         ]
 
-    import sys as _sys
-    _sys.stdout.flush()
-    print(
-        f"[search_diag] query={flags_text!r} is_specific={is_specific_query} "
-        f"from_openai={embedding_from_openai} threshold={effective_threshold:.2f} "
-        f"candidates={len(with_emb)}",
-        flush=True,
+    emit_search_diag_embedding_block(
+        flags_text,
+        is_specific_query=is_specific_query,
+        embedding_from_openai=embedding_from_openai,
+        effective_threshold=effective_threshold,
+        with_emb=with_emb,
     )
-    for _ev, _sc in sorted(with_emb, key=lambda x: -x[1])[:5]:
-        print(f"  [{_sc:.4f}] {_ev.title!r}", flush=True)
 
     # Apply threshold filter.
     # For real OpenAI embeddings use the computed threshold; for fallback (fake) embeddings
