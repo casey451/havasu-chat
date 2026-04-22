@@ -1044,6 +1044,8 @@ Context builder reads session state and injects into LLM context. Scope: within-
 
 **6.5 Local-voice content. OWNER TASK.** Flag this in the phase completion note. Owner writes 20–30 pieces of editorial knowledge (favorite sunset spot, which market is better, when the BMX race is actually worth it, etc.). Content structure: each piece is a tagged blurb with keywords for retrieval. Stored in `app/data/local_voice.py` as a list of dicts with `keywords`, `text`, `category`. Context builder matches on keywords and injects relevant blurbs into Tier 3 context.
 
+**Note (2026-04-22):** Phase 6.5 sequencing changed post-6.4.1. The 20-30 blurb upfront approach was deferred in favor of a correct-and-grow workflow. See `docs/PHASE_6_5_LOCAL_VOICE_HANDOFF.md` for the current plan, data structure, and plumbing options.
+
 **Exit criterion:**
 - Voice audit completed, all flagged items addressed or explicitly accepted by owner.
 - Feedback thumbs live on Tier 3 responses, data flowing to `chat_logs`.
