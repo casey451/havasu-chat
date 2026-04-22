@@ -38,6 +38,15 @@ CANONICAL_EXTRAS: dict[str, list[str]] = {
         "bmx track",
         "sara park bmx",
     ],
+    "Lake Havasu Mountain Bike Club": [
+        "mountain bike",
+        "mountain bikes",
+        "mountain biking",
+        "mtb",
+        "bike trail",
+        "dirt trail",
+        "trail riding",
+    ],
     "Universal Gymnastics and All Star Cheer — Sonics": [
         "sonics",
         "universal gymnastics",

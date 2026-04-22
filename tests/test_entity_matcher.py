@@ -75,6 +75,19 @@ class EntityMatcherRowsTests(unittest.TestCase):
         self.assertIsNotNone(m)
         self.assertEqual(m[0], canon)
 
+    def test_mountain_bike_club_aliases(self) -> None:
+        canon = "Lake Havasu Mountain Bike Club"
+        for q in (
+            "My son wants to ride mountain bikes. Any classes available?",
+            "mountain biking trails in Havasu",
+            "where can I mountain bike",
+        ):
+            with self.subTest(q=q):
+                m = match_entity_with_rows(q, [canon])
+                self.assertIsNotNone(m, msg=q)
+                self.assertEqual(m[0], canon)
+                self.assertGreater(m[1], 75.0)
+
     def test_below_threshold(self) -> None:
         m = match_entity_with_rows("quantum physics tutoring seattle", ["Lake Havasu City BMX"])
         self.assertIsNone(m)
@@ -110,6 +123,19 @@ class EntityMatcherDbTests(unittest.TestCase):
             hit = match_entity("bmx track hours", db)
         self.assertIsNotNone(hit)
         self.assertEqual(hit[0], canon)
+
+    def test_match_mountain_bike_generic_query(self) -> None:
+        canon = "Lake Havasu Mountain Bike Club"
+        with SessionLocal() as db:
+            self._ids.append(_insert_program(db, canon))
+            refresh_entity_matcher(db)
+            hit = match_entity(
+                "My son wants to ride mountain bikes. Any classes available?",
+                db,
+            )
+        self.assertIsNotNone(hit)
+        self.assertEqual(hit[0], canon)
+        self.assertGreater(hit[1], 75.0)
 
 
 class ExtractCatalogEntitiesFromTextTests(unittest.TestCase):
