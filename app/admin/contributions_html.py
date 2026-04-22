@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.admin.auth import COOKIE_NAME, verify_admin_cookie
+from app.admin.nav_html import admin_phase5_nav_html
 from app.contrib.approval_service import (
     approve_contribution_as_event,
     approve_contribution_as_program,
@@ -151,7 +152,7 @@ def _merged_category_suggestions(db: Session) -> list[str]:
     return sorted(s)
 
 
-def _nav_shell(title: str, inner: str, *, extra_nav: str = "") -> str:
+def _nav_shell(title: str, inner: str) -> str:
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -208,11 +209,7 @@ def _nav_shell(title: str, inner: str, *, extra_nav: str = "") -> str:
 </head>
 <body>
   <div class="wrap">
-    <nav class="nav">
-      <a href="/admin?tab=queue">Admin home</a>
-      <a href="/admin/contributions">Contributions</a>
-      {extra_nav}
-    </nav>
+{admin_phase5_nav_html()}
     {inner}
   </div>
 </body>

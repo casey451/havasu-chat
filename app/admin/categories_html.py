@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.admin.auth import COOKIE_NAME, verify_admin_cookie
+from app.admin.nav_html import admin_phase5_nav_html
 from app.db.database import get_db
 from app.db.models import Contribution, Program, Provider
 
@@ -50,12 +51,7 @@ def _nav_shell(title: str, inner: str) -> str:
 </head>
 <body>
   <div class="wrap">
-    <nav class="nav">
-      <a href="/admin?tab=queue">Admin home</a>
-      <a href="/admin/contributions">Contributions</a>
-      <a href="/admin/mentioned-entities">Mentioned entities</a>
-      <a href="/admin/categories">Categories</a>
-    </nav>
+{admin_phase5_nav_html()}
     {inner}
   </div>
 </body>

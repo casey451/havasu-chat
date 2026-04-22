@@ -7,6 +7,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from app.core.event_quality import CHAT_CONCIERGE_QUERY_VALIDATION_MESSAGE
 from app.db.chat_logging import TRACK_A_TIER_USED
 from app.db.database import SessionLocal
 from app.db.models import ChatLog
@@ -67,6 +68,14 @@ def test_post_api_chat_validation_empty_query() -> None:
     with TestClient(app) as client:
         r = client.post("/api/chat", json={"query": ""})
     assert r.status_code == 422
+    assert r.json() == {"message": CHAT_CONCIERGE_QUERY_VALIDATION_MESSAGE}
+
+
+def test_post_api_chat_validation_missing_query_field() -> None:
+    with TestClient(app) as client:
+        r = client.post("/api/chat", json={"session_id": "x"})
+    assert r.status_code == 422
+    assert r.json() == {"message": CHAT_CONCIERGE_QUERY_VALIDATION_MESSAGE}
 
 
 def test_track_a_post_chat_unchanged() -> None:
