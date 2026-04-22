@@ -222,3 +222,60 @@ def test_mode_handler_raises_graceful(db: Session) -> None:
     row = _latest_unified_log(db)
     assert row is not None
     assert row.mode == "ask"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "What should I do Saturday?",
+        "Pick one thing for Saturday night",
+        "What's the best thing to do this weekend?",
+        "Is the farmers market worth it?",
+        "What would you do this weekend?",
+        "Your favorite event coming up?",
+        "Which is best for kids?",
+    ],
+)
+def test_explicit_rec_bypasses_tier2_to_tier3(db: Session, query: str) -> None:
+    with patch("app.chat.unified_router.try_tier1", return_value=None):
+        with patch(
+            "app.chat.unified_router.try_tier2_with_usage",
+            return_value=("Tier2 candidate", 33, 22, 11),
+        ):
+            with patch(
+                "app.chat.unified_router.answer_with_tier3",
+                return_value=("Tier3 explicit-rec", 99, 60, 39),
+            ):
+                r = route(query, "sess-explicit-rec", db)
+    assert r.tier_used == "3"
+    assert r.response == "Tier3 explicit-rec"
+
+
+def test_non_trigger_keeps_tier2_path(db: Session) -> None:
+    with patch("app.chat.unified_router.try_tier1", return_value=None):
+        with patch(
+            "app.chat.unified_router.try_tier2_with_usage",
+            return_value=("Tier2 normal", 20, 12, 8),
+        ):
+            with patch(
+                "app.chat.unified_router.answer_with_tier3",
+                return_value=("Tier3 fallback", 88, 44, 44),
+            ):
+                r = route("Events tomorrow", "sess-non-trigger-t2", db)
+    assert r.tier_used == "2"
+    assert r.response == "Tier2 normal"
+
+
+def test_non_trigger_tier3_fallback_still_works(db: Session) -> None:
+    with patch("app.chat.unified_router.try_tier1", return_value=None):
+        with patch(
+            "app.chat.unified_router.try_tier2_with_usage",
+            return_value=(None, None, None, None),
+        ):
+            with patch(
+                "app.chat.unified_router.answer_with_tier3",
+                return_value=("Tier3 fallback", 77, 40, 37),
+            ):
+                r = route("What's at the skate park?", "sess-non-trigger-t3", db)
+    assert r.tier_used == "3"
+    assert r.response == "Tier3 fallback"

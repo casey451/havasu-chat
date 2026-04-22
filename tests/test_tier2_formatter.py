@@ -33,11 +33,11 @@ def test_simple_query_returns_nonempty() -> None:
     assert "fair" in out.lower()
 
 
-def test_explicit_rec_query_includes_option3_cues_in_system_prompt() -> None:
+def test_explicit_rec_instructions_removed_from_tier2_formatter() -> None:
     prompt = Path(__file__).resolve().parents[1] / "prompts" / "tier2_formatter.txt"
     body = prompt.read_text(encoding="utf-8").lower()
-    assert "pick one" in body
-    assert "your favorite" in body or "favorite" in body
+    for cue in ("pick one", "which is best", "worth it", "your favorite", "what would you do"):
+        assert cue not in body
 
 
 def test_explicit_rec_user_message_contains_query_text() -> None:

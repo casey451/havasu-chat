@@ -41,6 +41,16 @@ _PRONOUN_REFERENT = re.compile(
     re.IGNORECASE,
 )
 
+_EXPLICIT_REC_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bwhat should i do\b", re.IGNORECASE),
+    re.compile(r"\bpick one\b", re.IGNORECASE),
+    re.compile(r"\bwhich is best\b", re.IGNORECASE),
+    re.compile(r"\bbest\b", re.IGNORECASE),
+    re.compile(r"\bworth it\b", re.IGNORECASE),
+    re.compile(r"\byour favorite\b", re.IGNORECASE),
+    re.compile(r"\bwhat would you do\b", re.IGNORECASE),
+)
+
 _GRACEFUL = "Something went sideways on my end — try that again in a sec."
 
 _GREETINGS: tuple[str, ...] = (
@@ -100,6 +110,13 @@ def _greeting_variant(session_id: str | None) -> str:
     return _GREETINGS[idx]
 
 
+def _is_explicit_rec(query: str) -> bool:
+    """Detect §8.4 explicit recommendation triggers with word boundaries."""
+    if not query:
+        return False
+    return any(p.search(query) for p in _EXPLICIT_REC_PATTERNS)
+
+
 def _handle_ask(
     query: str,
     intent_result: IntentResult,
@@ -111,6 +128,11 @@ def _handle_ask(
     tier1 = try_tier1(query, intent_result, db)
     if tier1 is not None:
         return tier1, "1", None, None, None
+    if _is_explicit_rec(query):
+        text, total, tin, tout = answer_with_tier3(
+            query, intent_result, db, onboarding_hints=onboarding_hints, now_line=now_line
+        )
+        return text, "3", total, tin, tout
     t2_text, t2_total, t2_in, t2_out = try_tier2_with_usage(query)
     if t2_text is not None:
         return t2_text, "2", t2_total, t2_in, t2_out
