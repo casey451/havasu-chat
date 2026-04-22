@@ -16,7 +16,8 @@ from sqlalchemy.orm import Session
 
 from app.chat.context_builder import build_context_for_tier3
 from app.chat.intent_classifier import IntentResult
-from app.core.timezone import format_now_lake_havasu
+from app.chat.local_voice_matcher import find_matching_blurbs
+from app.core.timezone import format_now_lake_havasu, now_lake_havasu
 
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 FALLBACK_MESSAGE = "Something went sideways on my end — try that again in a sec."
@@ -140,6 +141,20 @@ def answer_with_tier3(
         mid_parts.append(bias_line)
     mid_parts.append(nl)
     mid = "\n\n".join(mid_parts)
+    blurbs = find_matching_blurbs(
+        query.strip(),
+        onboarding_hints,
+        now_lake_havasu().date(),
+        max_results=3,
+    )
+    if blurbs:
+        voice_lines: list[str] = []
+        for b in blurbs:
+            t = b.get("text")
+            if isinstance(t, str) and t.strip():
+                voice_lines.append(f"- {t.strip()}")
+        if voice_lines:
+            mid = f"{mid}\n\nLocal voice:\n" + "\n".join(voice_lines)
     user_text = f"User query:\n{query.strip()}\n\n{mid}\n\n{context}"
 
     model = (os.getenv("ANTHROPIC_MODEL") or "").strip() or DEFAULT_MODEL

@@ -1,4 +1,4 @@
-"""Phase 6.4 — Tier 3 user_text includes User context and Now lines."""
+"""Phase 6.5-lite — Local voice block injected into Tier 3 user_text."""
 
 from __future__ import annotations
 
@@ -41,10 +41,10 @@ def _msg(text: str, *, usage: object | None) -> SimpleNamespace:
     return SimpleNamespace(content=[block], usage=usage)
 
 
-def test_tier3_user_text_full_hints_and_fixed_now(db: Session) -> None:
+def test_tier3_injects_local_voice_between_now_and_context(db: Session) -> None:
     db.add(
         Provider(
-            provider_name="Ctx T3",
+            provider_name="Voice T3",
             category="misc",
             verified=True,
             draft=False,
@@ -60,31 +60,35 @@ def test_tier3_user_text_full_hints_and_fixed_now(db: Session) -> None:
     )
     fake_client = MagicMock()
     fake_client.messages.create.return_value = _msg("ok", usage=usage)
-    hints = {
-        "visitor_status": "visiting",
-        "has_kids": True,
-        "age": 8,
-        "location": "near the channel",
-    }
     now = "Now: Tuesday, April 21, 2026, 3:00 PM"
+    sample = [
+        {
+            "id": "inj",
+            "keywords": ["paddleboard"],
+            "category": "outdoors",
+            "text": "Mornings are glassy on the channel — great for photos.",
+        }
+    ]
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
         with patch.object(anthropic, "Anthropic", return_value=fake_client):
-            answer_with_tier3("q", _intent(), db, onboarding_hints=hints, now_line=now)
+            with patch("app.data.local_voice.LOCAL_VOICE", sample):
+                answer_with_tier3(
+                    "paddleboard rentals",
+                    _intent(),
+                    db,
+                    onboarding_hints={},
+                    now_line=now,
+                )
     content = fake_client.messages.create.call_args.kwargs["messages"][0]["content"]
-    assert "User context:" in content
-    assert "visiting" in content
-    assert "with kids" in content
-    assert "age 8" in content
-    assert "near the channel" in content
-    assert now in content
-    assert "Local voice:" not in content
-    assert content.index("User context:") < content.index("Now:") < content.index("Context —")
+    assert "Local voice:" in content
+    assert "- Mornings are glassy on the channel — great for photos." in content
+    assert content.index("Now:") < content.index("Local voice:") < content.index("Context —")
 
 
-def test_tier3_user_text_omits_user_context_when_empty_but_keeps_now(db: Session) -> None:
+def test_tier3_omits_empty_local_voice_payload(db: Session) -> None:
     db.add(
         Provider(
-            provider_name="Ctx T3b",
+            provider_name="Voice T3b",
             category="misc",
             verified=True,
             draft=False,
@@ -103,9 +107,8 @@ def test_tier3_user_text_omits_user_context_when_empty_but_keeps_now(db: Session
     now = "Now: Monday, January 1, 2030, 12:00 PM"
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
         with patch.object(anthropic, "Anthropic", return_value=fake_client):
-            answer_with_tier3("q", _intent(), db, onboarding_hints={}, now_line=now)
+            with patch("app.data.local_voice.LOCAL_VOICE", []):
+                answer_with_tier3("no keyword match", _intent(), db, onboarding_hints={}, now_line=now)
     content = fake_client.messages.create.call_args.kwargs["messages"][0]["content"]
-    assert "User context:" not in content
     assert "Local voice:" not in content
     assert now in content
-    assert "Context —" in content
