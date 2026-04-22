@@ -1,6 +1,6 @@
 # Havasu Chat — Operational runbook
 
-**Last updated:** 2026-04-22 (Phase 8.4)
+**Last updated:** 2026-04-22 (Phase 8.4 runbook; Phase 8.2 performance subsection)
 
 This document is for the **operator** running Havasu Chat in production: daily checks, emergency triage, and enough context for a future hire to get oriented. It does not replace the architecture spec — use [`HAVASU_CHAT_CONCIERGE_HANDOFF.md`](../HAVASU_CHAT_CONCIERGE_HANDOFF.md) (repo root) for locked design and deep detail.
 
@@ -12,7 +12,7 @@ This document is for the **operator** running Havasu Chat in production: daily c
 
 1. [Quick reference (read in an emergency)](#1-quick-reference-read-in-an-emergency)
 2. [Routine operations](#2-routine-operations)
-3. [Detailed context](#3-detailed-context)
+3. [Detailed context](#3-detailed-context) — includes [§3.10](#310-known-performance-characteristics)
 4. [Useful queries (copy-paste SQL)](#4-useful-queries-copy-paste-sql)
 5. [Companion docs and contacts](#5-companion-docs-and-contacts)
 
@@ -322,6 +322,22 @@ Run from repo root; use `.\.venv\Scripts\python.exe` on Windows. Set **`DATABASE
 - **`scripts/analyze_chat_costs.py`** is designed to print **aggregates** without full query text.
 - **`SEARCH_DIAG_VERBOSE`** — see [§2.5](#25-toggling-diagnostics); keep **off** in default prod.
 - **Background maintenance:** `main.py` runs an **hourly** loop that marks **expired** `pending_review` **events** (where `admin_review_by` is in the past) as **`deleted`**. If you rely on long review windows, check that `admin_review_by` is set as you expect when events enter the queue; otherwise rows can **disappear** from “pending” on the hour boundary.
+
+### 3.10 Known performance characteristics
+
+At the current scale and configuration, several behaviors are **deliberate trade-offs**, not bugs. This section records what to expect and what may need work as traffic grows.
+
+**Single uvicorn worker.** The `Procfile` runs **one** process (`uvicorn` with no `--workers` flag). **Blocking** `POST /api/chat` handlers (Tier 3 can take **1–5+** seconds) run in the thread pool; under **concurrent** load, requests **queue** behind each other. For **soft-launch** single-digit concurrency this is acceptable. **Multi-worker** deployment is **not** enabled: session state lives in a **process-local** Python dict (`app/core/session.py`), so a second worker could serve **message 2** on a different process than **message 1** and **break** session memory. A **shared** store (e.g. Redis) or **sticky** routing is a **post-launch** prerequisite for multiple workers.
+
+**Default database connection pool.** SQLAlchemy uses the default **QueuePool** for Postgres: typically **`pool_size=5`**, **`max_overflow=10`**, up to **~15** checked-out connections, with **`pool_pre_ping=True`** in `app/db/database.py` to drop dead connections. **One** app process fits **Railway** starter Postgres **max_connections** budgets. **Sum** pool sizes if you add **replicas** or other services against the same DB.
+
+**In-memory session dict growth.** `sessions` has **no** TTL or max size; **new** `session_id` values add entries. **Railway** deploys and **restarts** clear the dict. If a process ran for **weeks** without restart, memory would grow with **distinct** session IDs (including abandoned clients). **Mitigation today:** deploy/restart cadence. **Post-launch:** optional eviction if this becomes measurable.
+
+**Tier 3 context builder query pattern.** `build_context_for_tier3` loads providers, then issues **programs** and **events** queries **per provider** (N+1 style, capped at **~10** providers). At current catalog size this is **fast**; at much larger scale it can dominate **Tier 3** latency. **Post-launch:** batch or measure before changing.
+
+**LLM client timeouts (Phase 8.2).** Anthropic and OpenAI Python clients are constructed with a **45-second** read timeout (`app/core/llm_http.py`). Hung upstream calls **fail** into existing **§3.11** graceful paths instead of holding a worker for the SDK’s **default** (often much longer).
+
+**Concurrent smoke script.** `scripts/smoke_concurrent_chat.py` runs a **local** **8-thread** × **~3 minute** smoke (mixed Tier 1/2/3-style queries) against `POST /api/chat`. Use after performance-related changes; see the script **docstring**. It is **not** a 50-user stress test.
 
 ---
 

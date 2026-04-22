@@ -8,5 +8,6 @@
 
 ## Other utilities
 
+- **`smoke_concurrent_chat.py`** — Phase 8.2 **local** concurrent smoke for `POST /api/chat` (8 threads × ~3 min default). Start `uvicorn` first; not a production or 50-user stress test. See module docstring.
 - **`verify_queries.py`** — Short live spot-check against production.
 - **`diagnose_search.py`** — Batch queries against the live app; may write `diagnose_output.txt` in this directory.

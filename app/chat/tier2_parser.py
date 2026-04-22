@@ -11,6 +11,7 @@ from typing import Any, Optional
 from pydantic import ValidationError
 
 from app.chat.tier2_schema import Tier2Filters
+from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
 
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 _MAX_OUTPUT_TOKENS = 300
@@ -105,7 +106,7 @@ def parse(query: str) -> tuple[Optional[Tier2Filters], int | None, int | None]:
     model = (os.getenv("ANTHROPIC_MODEL") or "").strip() or DEFAULT_MODEL
 
     try:
-        client = anthropic.Anthropic(api_key=api_key)
+        client = anthropic.Anthropic(api_key=api_key, timeout=LLM_CLIENT_READ_TIMEOUT_SEC)
         msg = client.messages.create(
             model=model,
             max_tokens=_MAX_OUTPUT_TOKENS,

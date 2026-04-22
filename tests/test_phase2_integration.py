@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import anthropic
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -332,6 +333,25 @@ def test_placeholder_tier_for_non_chat_modes() -> None:
         r = client.post("/api/chat", json={"query": "Hi", "session_id": "p2-tier-chat"})
     assert r.status_code == 200
     assert r.json()["tier_used"] == "chat"
+
+
+def test_tier3_timeout_triggers_graceful_fallback() -> None:
+    """Phase 8.2: Anthropic API read timeout (httpx) → HTTP 200 + §3.11 fallback + tier 3."""
+    sid = "p82-t3-httpx-read-timeout"
+    fake = MagicMock()
+    fake.messages.create.side_effect = httpx.ReadTimeout("read timeout", request=None)
+    with TestClient(app) as client:
+        with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
+            with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
+                with patch.object(anthropic, "Anthropic", return_value=fake):
+                    r = client.post(
+                        "/api/chat",
+                        json={"query": "What is fun to do this weekend?", "session_id": sid},
+                    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["tier_used"] == "3"
+    assert body["response"] == FALLBACK_MESSAGE
 
 
 def test_api_chat_tier3_graceful_when_anthropic_fails() -> None:

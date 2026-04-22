@@ -13,6 +13,7 @@ except ImportError:  # pragma: no cover
     OpenAI = None
 
 from app.bootstrap_env import ensure_dotenv_loaded
+from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
 
 ensure_dotenv_loaded()
 
@@ -110,7 +111,7 @@ def generate_event_tags(event: dict) -> list[str]:
         return []
 
     try:
-        client = OpenAI(api_key=api_key)
+        client = OpenAI(api_key=api_key, timeout=LLM_CLIENT_READ_TIMEOUT_SEC)
         response = client.responses.create(
             model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
             input=TAGS_PROMPT.format(
@@ -152,7 +153,7 @@ def _extract_with_openai(message: str) -> dict | None:
         return None
 
     try:
-        client = OpenAI(api_key=api_key)
+        client = OpenAI(api_key=api_key, timeout=LLM_CLIENT_READ_TIMEOUT_SEC)
         response = client.responses.create(
             model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
             input=EXTRACTION_PROMPT.format(message=message),
@@ -272,7 +273,7 @@ def generate_embedding(text: str) -> list[float]:
     api_key = os.getenv("OPENAI_API_KEY")
     if api_key and OpenAI is not None:
         try:
-            client = OpenAI(api_key=api_key)
+            client = OpenAI(api_key=api_key, timeout=LLM_CLIENT_READ_TIMEOUT_SEC)
             response = client.embeddings.create(model="text-embedding-3-small", input=text)
             return list(response.data[0].embedding)
         except Exception:

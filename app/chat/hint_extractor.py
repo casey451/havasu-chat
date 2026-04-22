@@ -14,6 +14,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
+
 try:
     from openai import OpenAI
 except ImportError:  # pragma: no cover
@@ -54,7 +56,7 @@ def extract_hints(query: str) -> ExtractedHints | None:
     user = f"User message:\n{q}"
 
     try:
-        client = OpenAI(api_key=api_key)
+        client = OpenAI(api_key=api_key, timeout=LLM_CLIENT_READ_TIMEOUT_SEC)
         completion = client.chat.completions.create(
             model=model,
             messages=[

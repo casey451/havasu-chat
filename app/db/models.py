@@ -139,7 +139,9 @@ class ChatLog(Base):
     message: Mapped[str] = mapped_column(Text, nullable=False)
     role: Mapped[str] = mapped_column(String(16), nullable=False)
     intent: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False, index=True
+    )
     # Unified router / concierge analytics (Phase 2.2+); nullable for legacy Track A rows.
     query_text_hashed: Mapped[str | None] = mapped_column(String(128), nullable=True)
     normalized_query: Mapped[str | None] = mapped_column(Text, nullable=True)

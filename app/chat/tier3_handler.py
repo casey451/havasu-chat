@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from app.chat.context_builder import build_context_for_tier3
 from app.chat.intent_classifier import IntentResult
 from app.chat.local_voice_matcher import find_matching_blurbs
+from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
 from app.core.timezone import format_now_lake_havasu, now_lake_havasu
 
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
@@ -163,7 +164,7 @@ def answer_with_tier3(
     model = (os.getenv("ANTHROPIC_MODEL") or "").strip() or DEFAULT_MODEL
 
     try:
-        client = anthropic.Anthropic(api_key=api_key)
+        client = anthropic.Anthropic(api_key=api_key, timeout=LLM_CLIENT_READ_TIMEOUT_SEC)
         msg = client.messages.create(
             model=model,
             max_tokens=_MAX_OUTPUT_TOKENS,

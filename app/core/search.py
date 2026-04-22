@@ -29,6 +29,7 @@ from app.core.conversation_copy import (
 from app.bootstrap_env import ensure_dotenv_loaded
 from app.core.dedupe import cosine_similarity
 from app.core.intent import open_ended_search_message
+from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
 from app.core.search_log import is_search_diag_verbose
 from app.core.slots import extract_broaden_category, extract_search_label
 from app.db.models import Event
@@ -385,7 +386,7 @@ def generate_query_embedding_with_source(text: str) -> tuple[list[float], bool]:
     api_key = os.getenv("OPENAI_API_KEY")
     if api_key and OpenAI is not None:
         try:
-            client = OpenAI(api_key=api_key)
+            client = OpenAI(api_key=api_key, timeout=LLM_CLIENT_READ_TIMEOUT_SEC)
             response = client.embeddings.create(model=SEARCH_QUERY_EMBEDDING_MODEL, input=text.strip() or " ")
             return list(response.data[0].embedding), True
         except Exception:
