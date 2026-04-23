@@ -189,7 +189,7 @@ Enrichment failures don't block the contribution — operator sees the failure s
 | 5.4 User form | ✅ | `5c58f52` | Public `/contribute` form, gap_template + system prompt updates |
 | 5.5 Mention scanner | ✅ | `ce11e75` | `llm_mentioned_entities` + admin at `/admin/mentioned-entities` |
 | 5.6 Categories + hours | ✅ | `b2f3fa9` | `/admin/categories`, `providers.hours_structured`, Tier 2 open_now filter |
-| 8.8.1a | ✅ | `0f38ebc` | Handoff rewrite: Hava rename + §2.1 firsthand voice + §8.3 replacement + persona brief commit |
+| 8.8.1a | ✅ | `3d4680b` | Handoff rewrite: Hava rename + §2.1 firsthand voice + §8.3 replacement + persona brief commit |
 
 ### Phase 4 + Phase 5 close summary
 
