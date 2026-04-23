@@ -1135,7 +1135,7 @@ Context builder reads session state and injects into LLM context. Scope: within-
 
 **8.8.2a — Pytest alignment** — **Closed** (`404826e`). Test expectations updated for 8.8.1b voice strings (correction, small talk, trailing-`?` guard).
 
-**8.8.2b — Voice battery v1 (design + execute)** — **In flight.** Design (persona-brief §9.5 acceptance threshold + `prompts/voice_audit.txt` alignment) is committed in the same change set as this handoff line; `scripts/run_voice_audit.py --execute --confirm` and results artifact still pending. Zero disallowed community-credit phrasing per known-issues resolution criteria remains the content bar.
+**8.8.2b — Voice battery v1 (design + execute + baseline)** — **Closed** — System prompt remediate at `50cf425` on top of `f982941` design; final tracked run **54 PASS / 0 MINOR / 1 FAIL-waived / 0 ERROR** (55 samples) in `scripts/voice_audit_results_2026-04-23.json`. Two waivers on file: `scripts/voice_audit_waivers_2026-04-23.md` (t3-02 Tier 1 template scope; t3-24 retrieval + catalog composition). Zero disallowed community-credit phrasing; §9.5 binary threshold met with recorded waivers.
 
 **Exit criterion (8.8 track):** Handoff and brief authoritative; code matches brief after 8.8.1b+8.8.2; owner sign-off on voice.
 

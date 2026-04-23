@@ -1,0 +1,1359 @@
+{
+  "meta": {
+    "date": "2026-04-23",
+    "git_sha": "50cf4257462946fe6f1a4b5c31aeb2abcf90b7a6",
+    "audit_model": "claude-haiku-4-5-20251001",
+    "tier3_queries": 25,
+    "tier1_auditable": 24,
+    "tier1_not_auditable": [
+      {
+        "sample_id": "t1-WEBSITE-bridge-city-combat",
+        "sub_intent": "WEBSITE_LOOKUP",
+        "log": "branch_present_not_auditable — branch present, not auditable with current seed — possible dead code or data gap.",
+        "detail": "matrix target 'Bridge City Combat': empty website (seed-dependent)"
+      }
+    ],
+    "reference_samples": 6,
+    "estimated_usd_upper_bound_pre_run": 0.3415,
+    "tier3_generation_usage_tokens": {
+      "input_sum": 78677,
+      "output_sum": 1753
+    },
+    "future_live_events_null_provider_count": 0
+  },
+  "summary": {
+    "total_audited": 55,
+    "PASS": 54,
+    "MINOR": 0,
+    "FAIL": 1,
+    "ERROR": 0
+  },
+  "samples": [
+    {
+      "sample_id": "t1-HOURS-01",
+      "tier": "tier1",
+      "intent_or_mode": "HOURS_LOOKUP",
+      "user_query": "What are Footlite School of Dance hours on Monday?",
+      "assistant_text": "Footlite School of Dance is open Mon–Thu 3–7pm during dance year.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "provider=Footlite School of Dance"
+    },
+    {
+      "sample_id": "t1-HOURS-02",
+      "tier": "tier1",
+      "intent_or_mode": "HOURS_LOOKUP",
+      "user_query": "What are Altitude Trampoline Park — Lake Havasu City hours on Monday?",
+      "assistant_text": "Altitude Trampoline Park is open 11am–7pm on Monday.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "provider=Altitude Trampoline Park — Lake Havasu City"
+    },
+    {
+      "sample_id": "t1-HOURS-03",
+      "tier": "tier1",
+      "intent_or_mode": "HOURS_LOOKUP",
+      "user_query": "What are Iron Wolf Golf & Country Club hours on Monday?",
+      "assistant_text": "Iron Wolf Golf & Country Club is open 9am–9pm on Monday.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "provider=Iron Wolf Golf & Country Club"
+    },
+    {
+      "sample_id": "t1-TIME-hours",
+      "tier": "tier1",
+      "intent_or_mode": "TIME_LOOKUP",
+      "user_query": "What time does Altitude Trampoline Park — Lake Havasu City open on Tuesday?",
+      "assistant_text": "Altitude Trampoline Park is open 10am–7pm on Tuesday.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "render path: HOURS_LOOKUP via TIME_LOOKUP; matrix prefers Altitude, actual provider='Altitude Trampoline Park — Lake Havasu City'"
+    },
+    {
+      "sample_id": "t1-TIME-program",
+      "tier": "tier1",
+      "intent_or_mode": "TIME_LOOKUP",
+      "user_query": "What time is Mountain Bike Practice — Sara Park (Sunday) at Lake Havasu Mountain Bike Club — schedule window",
+      "assistant_text": "Mountain Bike Practice — Sara Park (Sunday) starts at 09:00–10:30.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "render path: TIME_LOOKUP program window (provider without hours + schedule_start_time — may differ from proposal's Altitude example when Altitude has hours and always hits the hours branch)"
+    },
+    {
+      "sample_id": "t1-PHONE-01",
+      "tier": "tier1",
+      "intent_or_mode": "PHONE_LOOKUP",
+      "user_query": "What is the phone number for Footlite School of Dance?",
+      "assistant_text": "Footlite School of Dance: (928) 854-4328.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "provider=Footlite School of Dance"
+    },
+    {
+      "sample_id": "t1-PHONE-02",
+      "tier": "tier1",
+      "intent_or_mode": "PHONE_LOOKUP",
+      "user_query": "What is the phone number for Bridge City Combat?",
+      "assistant_text": "Bridge City Combat: (928) 716-3009.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "provider=Bridge City Combat"
+    },
+    {
+      "sample_id": "t1-PHONE-03",
+      "tier": "tier1",
+      "intent_or_mode": "PHONE_LOOKUP",
+      "user_query": "What is the phone number for Flips for Fun Gymnastics?",
+      "assistant_text": "Flips for Fun Gymnastics: (928) 566-8862.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "provider=Flips for Fun Gymnastics"
+    },
+    {
+      "sample_id": "t1-LOCATION-iron-wolf",
+      "tier": "tier1",
+      "intent_or_mode": "LOCATION_LOOKUP",
+      "user_query": "Where is Iron Wolf Golf & Country Club located?",
+      "assistant_text": "Iron Wolf Golf & Country Club is at 3275 N. Latrobe Dr, Lake Havasu City, AZ 86404.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "matrix entity=Iron Wolf Golf & Country Club"
+    },
+    {
+      "sample_id": "t1-LOCATION-altitude",
+      "tier": "tier1",
+      "intent_or_mode": "LOCATION_LOOKUP",
+      "user_query": "Where is Altitude Trampoline Park — Lake Havasu City located?",
+      "assistant_text": "Altitude Trampoline Park — Lake Havasu City is at 5601 Highway 95 N, Unit 404-D, Lake Havasu City, AZ 86404.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "matrix entity=Altitude Trampoline Park — Lake Havasu City"
+    },
+    {
+      "sample_id": "t1-WEBSITE-altitude",
+      "tier": "tier1",
+      "intent_or_mode": "WEBSITE_LOOKUP",
+      "user_query": "What is the website for Altitude Trampoline Park — Lake Havasu City?",
+      "assistant_text": "Altitude Trampoline Park — Lake Havasu City: altitudetrampolinepark.com/locations/arizona/lake-havasu-city/5601-highway-95-n/",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "matrix entity=Altitude Trampoline Park — Lake Havasu City"
+    },
+    {
+      "sample_id": "t1-COST-01",
+      "tier": "tier1",
+      "intent_or_mode": "COST_LOOKUP",
+      "user_query": "How much is Open Jump at Altitude?",
+      "assistant_text": "Open Jump — 90 Minutes is $19.00.",
+      "tags": [
+        "tier1_matrix"
+      ]
+    },
+    {
+      "sample_id": "t1-COST-02",
+      "tier": "tier1",
+      "intent_or_mode": "COST_LOOKUP",
+      "user_query": "How much is the Junior Golf Clinic at Iron Wolf?",
+      "assistant_text": "Junior Golf Clinic — Session 1 is $250.00.",
+      "tags": [
+        "tier1_matrix"
+      ]
+    },
+    {
+      "sample_id": "t1-AGE-iron-wolf-golf-country-club",
+      "tier": "tier1",
+      "intent_or_mode": "AGE_LOOKUP",
+      "user_query": "What ages is Junior Golf Clinic — Session 1 at Iron Wolf Golf & Country Club?",
+      "assistant_text": "Junior Golf Clinic — Session 1 is for ages 7–17.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "provider=Iron Wolf Golf & Country Club"
+    },
+    {
+      "sample_id": "t1-AGE-lake-havasu-city-aquatic-center",
+      "tier": "tier1",
+      "intent_or_mode": "AGE_LOOKUP",
+      "user_query": "What ages is Aqua Aerobics / Water Fitness at Lake Havasu City Aquatic Center?",
+      "assistant_text": "Aqua Aerobics / Water Fitness is for ages 18+.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "provider=Lake Havasu City Aquatic Center"
+    },
+    {
+      "sample_id": "t1-AGE-lake-havasu-city-bmx",
+      "tier": "tier1",
+      "intent_or_mode": "AGE_LOOKUP",
+      "user_query": "What ages is BMX Racing — Race Night at Lake Havasu City BMX?",
+      "assistant_text": "BMX Racing — Race Night is for ages 5+.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "provider=Lake Havasu City BMX"
+    },
+    {
+      "sample_id": "t1-DATE",
+      "tier": "tier1",
+      "intent_or_mode": "DATE_LOOKUP",
+      "user_query": "When is the next event for Lake Havasu City BMX?",
+      "assistant_text": "The next Local BMX Race is Thursday, April 23, 2026.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "provider=Lake Havasu City BMX slug=lake-havasu-city-bmx"
+    },
+    {
+      "sample_id": "t1-NEXT",
+      "tier": "tier1",
+      "intent_or_mode": "NEXT_OCCURRENCE",
+      "user_query": "When is the next event for Lake Havasu City BMX?",
+      "assistant_text": "The next Local BMX Race is Thursday, April 23, 2026.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "provider=Lake Havasu City BMX slug=lake-havasu-city-bmx"
+    },
+    {
+      "sample_id": "t1-DATE-p2",
+      "tier": "tier1",
+      "intent_or_mode": "DATE_LOOKUP",
+      "user_query": "When is the next event for Universal Gymnastics and All Star Cheer — Sonics?",
+      "assistant_text": "The next Sonics All Star Cheer 2026–2027 Season — Team Placements is Sunday, May 17, 2026.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "provider=Universal Gymnastics and All Star Cheer — Sonics slug=universal-gymnastics-and-all-star-cheer-sonics"
+    },
+    {
+      "sample_id": "t1-NEXT-p2",
+      "tier": "tier1",
+      "intent_or_mode": "NEXT_OCCURRENCE",
+      "user_query": "When is the next event for Universal Gymnastics and All Star Cheer — Sonics?",
+      "assistant_text": "The next Sonics All Star Cheer 2026–2027 Season — Team Placements is Sunday, May 17, 2026.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "provider=Universal Gymnastics and All Star Cheer — Sonics slug=universal-gymnastics-and-all-star-cheer-sonics"
+    },
+    {
+      "sample_id": "t1-OPEN_NOW-altitude-trampoline-park-lake-havasu-city",
+      "tier": "tier1",
+      "intent_or_mode": "OPEN_NOW",
+      "user_query": "Is Altitude Trampoline Park — Lake Havasu City open right now?",
+      "assistant_text": "They're open right now — hours say they're in window for today.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "provider=Altitude Trampoline Park — Lake Havasu City"
+    },
+    {
+      "sample_id": "t1-OPEN_NOW-havasu-lanes",
+      "tier": "tier1",
+      "intent_or_mode": "OPEN_NOW",
+      "user_query": "Is Havasu Lanes open right now?",
+      "assistant_text": "They're open right now — hours say they're in window for today.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "provider=Havasu Lanes"
+    },
+    {
+      "sample_id": "t1-OPEN_NOW-havasu-shao-lin-kempo",
+      "tier": "tier1",
+      "intent_or_mode": "OPEN_NOW",
+      "user_query": "Is Havasu Shao-Lin Kempo open right now?",
+      "assistant_text": "They're open right now — hours say they're in window for today.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "provider=Havasu Shao-Lin Kempo"
+    },
+    {
+      "sample_id": "t1-OPEN_NOW-iron-wolf-golf-country-club",
+      "tier": "tier1",
+      "intent_or_mode": "OPEN_NOW",
+      "user_query": "Is Iron Wolf Golf & Country Club open right now?",
+      "assistant_text": "They're open right now — hours say they're in window for today.",
+      "tags": [
+        "tier1_matrix"
+      ],
+      "matrix_note": "provider=Iron Wolf Golf & Country Club"
+    },
+    {
+      "sample_id": "t3-01",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OPEN_ENDED",
+      "user_query": "What's happening this weekend?",
+      "assistant_text": "I don't have this weekend's events locked in — the catalog shows dance showcases and recitals coming up in May and June, but nothing for this Saturday or Sunday.",
+      "tags": [
+        "happy_path"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "OPEN_ENDED",
+        "entity": null,
+        "tier_used": "3",
+        "latency_ms": 4762,
+        "llm_tokens_used": 4424,
+        "llm_input_tokens": 4385,
+        "llm_output_tokens": 39
+      }
+    },
+    {
+      "sample_id": "t3-02",
+      "tier": "tier3",
+      "intent_or_mode": "ask/TIME_LOOKUP",
+      "user_query": "What time does the BMX track open Saturday?",
+      "assistant_text": "Lake Havasu City BMX is open Tue 5–6:30pm (practice) | Wed 5–6:15pm (training) | Thu 6–7pm + 7pm racing.",
+      "tags": [
+        "happy_path"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "TIME_LOOKUP",
+        "entity": "Lake Havasu City BMX",
+        "tier_used": "1",
+        "latency_ms": 1185,
+        "llm_tokens_used": null,
+        "llm_input_tokens": null,
+        "llm_output_tokens": null
+      }
+    },
+    {
+      "sample_id": "t3-03",
+      "tier": "tier3",
+      "intent_or_mode": "ask/DATE_LOOKUP",
+      "user_query": "When is the farmers market on Thursday?",
+      "assistant_text": "I don't have that event or program in the catalog yet. Add it at /contribute or share the name and a link (Google Business page or official site) — either works.",
+      "tags": [
+        "happy_path"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "DATE_LOOKUP",
+        "entity": null,
+        "tier_used": "gap_template",
+        "latency_ms": 1234,
+        "llm_tokens_used": null,
+        "llm_input_tokens": null,
+        "llm_output_tokens": null
+      }
+    },
+    {
+      "sample_id": "t3-04",
+      "tier": "tier3",
+      "intent_or_mode": "ask/HOURS_LOOKUP",
+      "user_query": "Is Altitude open late on Friday?",
+      "assistant_text": "Altitude Trampoline Park is open 11am–8pm on Friday.",
+      "tags": [
+        "happy_path"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "HOURS_LOOKUP",
+        "entity": "Altitude Trampoline Park — Lake Havasu City",
+        "tier_used": "1",
+        "latency_ms": 1006,
+        "llm_tokens_used": null,
+        "llm_input_tokens": null,
+        "llm_output_tokens": null
+      }
+    },
+    {
+      "sample_id": "t3-05",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OPEN_ENDED",
+      "user_query": "Kids gymnastics programs near me",
+      "assistant_text": "Flips for Fun Gymnastics is the gymnastics spot in Havasu — they're at 955 Kiowa Ave and open 3pm–8pm Monday through Friday. Call (928) 566-8862 or check fffhavasu.com for their class schedule and age groups.",
+      "tags": [
+        "happy_path"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "OPEN_ENDED",
+        "entity": null,
+        "tier_used": "3",
+        "latency_ms": 4331,
+        "llm_tokens_used": 4455,
+        "llm_input_tokens": 4385,
+        "llm_output_tokens": 70
+      }
+    },
+    {
+      "sample_id": "t3-06",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OPEN_ENDED",
+      "user_query": "Tell me about Bridge City Combat",
+      "assistant_text": "Bridge City Combat is a martial arts gym on McCulloch Boulevard run by Christian Beyers. They're open until 9pm, though the full weekly schedule isn't confirmed yet. You'll need to call (928) 716-3009 or stop by in person to book — they don't take reservations online. You can follow them on Instagram at instagram.com/bridgecitycombat for updates.",
+      "tags": [
+        "happy_path"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "OPEN_ENDED",
+        "entity": "Bridge City Combat (also: Bridge City Combat & Barry Sullins Jiu-Jitsu)",
+        "tier_used": "2",
+        "latency_ms": 4601,
+        "llm_tokens_used": 1778,
+        "llm_input_tokens": 1647,
+        "llm_output_tokens": 131
+      }
+    },
+    {
+      "sample_id": "t3-07",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OPEN_ENDED",
+      "user_query": "Events at Sara Park",
+      "assistant_text": "Sara Park runs BMX and mountain bike programs year-round.\n\nBMX happens most nights. Tuesday and Wednesday are practice and coaching ($5 each, 5pm start). Thursday is the sanctioned race night ($10, registration 6–7pm, racing 7pm; Oct–Jun schedule). One-off races also run on select dates like April 23, 28, and 30 (all $10, 6–7pm).\n\nMountain biking is free. Sunday morning dirt practice starts at 9am (more technical terrain). Monday evening practice runs 4:30–6pm through May. Both are Lake Havasu Mountain Bike Club sessions.\n\nAll programs welcome kids age 4–5 and up. Location is 7260 Sara Park Lane.",
+      "tags": [
+        "happy_path"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "OPEN_ENDED",
+        "entity": "Lake Havasu City BMX",
+        "tier_used": "2",
+        "latency_ms": 6889,
+        "llm_tokens_used": 2755,
+        "llm_input_tokens": 2549,
+        "llm_output_tokens": 206
+      }
+    },
+    {
+      "sample_id": "t3-08",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OPEN_ENDED",
+      "user_query": "BMX race times",
+      "assistant_text": "BMX racing runs Thursday nights at SARA Park BMX Track — registration 6–7pm, racing starts at 7pm. It's $10 to race. The season runs October through June.\n\nIf you want to ride outside of race night, there's open practice Tuesday 5–6:30pm ($5) and coached training Wednesday 5–6:15pm ($5). Both are all skill levels.\n\nTrack's at 7260 Sara Park Lane. Call (928) 208-5388 for specifics on upcoming races or to register.",
+      "tags": [
+        "happy_path"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "OPEN_ENDED",
+        "entity": "Lake Havasu City BMX",
+        "tier_used": "2",
+        "latency_ms": 5993,
+        "llm_tokens_used": 2525,
+        "llm_input_tokens": 2365,
+        "llm_output_tokens": 160
+      }
+    },
+    {
+      "sample_id": "t3-09",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OPEN_ENDED",
+      "user_query": "Swimming lessons for beginners",
+      "assistant_text": "I've got Aqua Beginnings in the catalog — they run private heated outdoor pool lessons and you can book through their site at aquabeginnings.com. That's your beginner swim option here in Havasu.",
+      "tags": [
+        "happy_path"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "OPEN_ENDED",
+        "entity": null,
+        "tier_used": "3",
+        "latency_ms": 4594,
+        "llm_tokens_used": 4443,
+        "llm_input_tokens": 4391,
+        "llm_output_tokens": 52
+      }
+    },
+    {
+      "sample_id": "t3-10",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OPEN_ENDED",
+      "user_query": "Dance classes for a 7-year-old",
+      "assistant_text": "The rows here are recitals and showcases — end-of-year performances, not class enrollment. You're looking at ACPA Annual Dance Showcase (May 15–17, 2026) and Footlite School of Dance's recital (May 30 & June 1, 2026), both of which feature multiple styles like ballet, jazz, and tap that'd suit a 7-year-old.\n\nTo find actual classes for that age, you'll need to contact ACPA or Footlite directly — the catalog doesn't have their class schedules or registration info. A quick search for \"dance classes Lake Havasu\" or a call to the schools through the recital venues should get you started.",
+      "tags": [
+        "happy_path"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "OPEN_ENDED",
+        "entity": null,
+        "tier_used": "2",
+        "latency_ms": 5344,
+        "llm_tokens_used": 2416,
+        "llm_input_tokens": 2204,
+        "llm_output_tokens": 212
+      }
+    },
+    {
+      "sample_id": "t3-11",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OPEN_ENDED",
+      "user_query": "My son wants to ride mountain bikes. Any classes available?",
+      "assistant_text": "The Lake Havasu Mountain Bike Club runs free practice sessions at Sara Park — your son's age fits perfectly. Sunday mornings 9–10:30am is the main slot, or Monday evenings 4:30–6pm if that works better. Call (619) 823-5088 to confirm he can drop in this weekend.",
+      "tags": [
+        "gap"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "OPEN_ENDED",
+        "entity": "Lake Havasu Mountain Bike Club",
+        "tier_used": "3",
+        "latency_ms": 4926,
+        "llm_tokens_used": 5330,
+        "llm_input_tokens": 5253,
+        "llm_output_tokens": 77
+      }
+    },
+    {
+      "sample_id": "t3-12",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OPEN_ENDED",
+      "user_query": "Is there a curling club in Havasu?",
+      "assistant_text": "I'm not aware of a curling club in Havasu. If there is one, let me know — I'll pass it along.",
+      "tags": [
+        "gap"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "OPEN_ENDED",
+        "entity": "Lake Havasu Mountain Bike Club",
+        "tier_used": "3",
+        "latency_ms": 4757,
+        "llm_tokens_used": 5284,
+        "llm_input_tokens": 5252,
+        "llm_output_tokens": 32
+      }
+    },
+    {
+      "sample_id": "t3-13",
+      "tier": "tier3",
+      "intent_or_mode": "ask/DATE_LOOKUP",
+      "user_query": "When is the hot air balloon festival?",
+      "assistant_text": "I don't have that event or program in the catalog yet. Add it at /contribute or share the name and a link (Google Business page or official site) — either works.",
+      "tags": [
+        "gap"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "DATE_LOOKUP",
+        "entity": null,
+        "tier_used": "gap_template",
+        "latency_ms": 2618,
+        "llm_tokens_used": null,
+        "llm_input_tokens": null,
+        "llm_output_tokens": null
+      }
+    },
+    {
+      "sample_id": "t3-14",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OPEN_ENDED",
+      "user_query": "Who teaches violin to adults?",
+      "assistant_text": "I'm not aware of a violin instructor in the catalog. If there's one in Havasu, let me know the name and a link — I'll add it.",
+      "tags": [
+        "gap"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "OPEN_ENDED",
+        "entity": null,
+        "tier_used": "3",
+        "latency_ms": 5140,
+        "llm_tokens_used": 4434,
+        "llm_input_tokens": 4396,
+        "llm_output_tokens": 38
+      }
+    },
+    {
+      "sample_id": "t3-15",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OPEN_ENDED",
+      "user_query": "Underground techno tonight?",
+      "assistant_text": "I'm not aware of underground techno nights in Havasu — that's not in the catalog. If there's a venue running that, let me know and I'll pass it along.",
+      "tags": [
+        "gap"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "OPEN_ENDED",
+        "entity": null,
+        "tier_used": "3",
+        "latency_ms": 3951,
+        "llm_tokens_used": 4437,
+        "llm_input_tokens": 4395,
+        "llm_output_tokens": 42
+      }
+    },
+    {
+      "sample_id": "t3-16",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OPEN_ENDED",
+      "user_query": "Sonics or Flips for fun for a shy 5-year-old?",
+      "assistant_text": "Flips for Fun is the better fit for a shy 5-year-old — they open at 3pm weekdays and the smaller class sizes tend to feel less overwhelming than Sonics' bigger team environment. Sonics runs cheer and competitive gymnastics, which skews older and louder; Flips focuses on recreational gymnastics fundamentals in a calmer setup. Call Flips at (928) 566-8862 to ask about their intro classes and what they offer for that age.",
+      "tags": [
+        "multi_entity",
+        "disambiguation"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "OPEN_ENDED",
+        "entity": "Flips for Fun Gymnastics",
+        "tier_used": "3",
+        "latency_ms": 5581,
+        "llm_tokens_used": 5220,
+        "llm_input_tokens": 5108,
+        "llm_output_tokens": 112
+      }
+    },
+    {
+      "sample_id": "t3-17",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OPEN_ENDED",
+      "user_query": "Bridge City Combat vs Footlite School of Dance for Saturday morning kids classes?",
+      "assistant_text": "I don't have Saturday morning class schedules for either Bridge City Combat or Footlite School of Dance in the catalog. Bridge City Combat's full weekly hours aren't confirmed, and Footlite's listed hours are Mon–Thu 3–7pm during dance year — neither shows a Saturday kids class slot.\n\nCall Bridge City Combat at (928) 716-3009 or Footlite at (928) 854-4328 to ask what they offer Saturday mornings for a 5-year-old.",
+      "tags": [
+        "multi_entity",
+        "disambiguation"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "OPEN_ENDED",
+        "entity": "Bridge City Combat (also: Bridge City Combat & Barry Sullins Jiu-Jitsu)",
+        "tier_used": "3",
+        "latency_ms": 5572,
+        "llm_tokens_used": 5389,
+        "llm_input_tokens": 5273,
+        "llm_output_tokens": 116
+      }
+    },
+    {
+      "sample_id": "t3-18",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OPEN_ENDED",
+      "user_query": "Which martial arts gym has Saturday morning kids classes?",
+      "assistant_text": "I don't have Saturday morning kids classes listed for the martial arts gyms in the catalog — Arevalo Academy and Bridge City Combat are both here, but their class schedules aren't filled in yet. Call Arevalo Academy at (928) 855-0505 or Bridge City Combat at (928) 716-3009 to ask about Saturday morning kids programs.",
+      "tags": [
+        "multi_entity",
+        "disambiguation"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "OPEN_ENDED",
+        "entity": null,
+        "tier_used": "3",
+        "latency_ms": 15998,
+        "llm_tokens_used": 4484,
+        "llm_input_tokens": 4400,
+        "llm_output_tokens": 84
+      }
+    },
+    {
+      "sample_id": "t3-19",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OPEN_ENDED",
+      "user_query": "Best place for toddler tumbling",
+      "assistant_text": "Flips for Fun Gymnastics is your best bet for toddler tumbling — they're set up for that age group and open weekday afternoons starting at 3pm. Call (928) 566-8862 to ask about their toddler classes and get on the schedule.",
+      "tags": [
+        "multi_entity",
+        "explicit_rec_query"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "OPEN_ENDED",
+        "entity": null,
+        "tier_used": "3",
+        "latency_ms": 2917,
+        "llm_tokens_used": 4464,
+        "llm_input_tokens": 4398,
+        "llm_output_tokens": 66
+      }
+    },
+    {
+      "sample_id": "t3-20",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OPEN_ENDED",
+      "user_query": "Compare Footlite and Ballet Havasu for preschool dance",
+      "assistant_text": "I don't have Footlite in the catalog — if there's a dance studio by that name in Havasu, let me know the website or Google Business page and I'll add it.\n\nFor Ballet Havasu, I've got the address and phone (2735 Maricopa Ave, 928-412-8208, ballethavasu.org), but I don't have their preschool class schedule or age breakdowns in the system yet. Call them directly to ask about what they offer for age 5 — that's the fastest way to compare.",
+      "tags": [
+        "multi_entity",
+        "disambiguation"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "OPEN_ENDED",
+        "entity": "Ballet Havasu",
+        "tier_used": "3",
+        "latency_ms": 6135,
+        "llm_tokens_used": 5208,
+        "llm_input_tokens": 5082,
+        "llm_output_tokens": 126
+      }
+    },
+    {
+      "sample_id": "t3-21",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OPEN_ENDED",
+      "user_query": "What's the best sushi in town?",
+      "assistant_text": "I'm not aware of sushi restaurants in the catalog right now. If there's one you've found or heard about, let me know the name and a link — I'll add it. You can also check https://www.golakehavasu.com/ or search \"sushi Lake Havasu\" to see what's open.",
+      "tags": [
+        "out_of_scope"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "OPEN_ENDED",
+        "entity": null,
+        "tier_used": "3",
+        "latency_ms": 3808,
+        "llm_tokens_used": 4472,
+        "llm_input_tokens": 4399,
+        "llm_output_tokens": 73
+      }
+    },
+    {
+      "sample_id": "t3-22",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OUT_OF_SCOPE",
+      "user_query": "Are home prices going down in Havasu?",
+      "assistant_text": "That's outside what I cover right now — I stick to things-to-do, local businesses, and events. Want me to point you to anything else?",
+      "tags": [
+        "out_of_scope"
+      ],
+      "route_meta": {
+        "mode": "chat",
+        "sub_intent": "OUT_OF_SCOPE",
+        "entity": null,
+        "tier_used": "chat",
+        "latency_ms": 1062,
+        "llm_tokens_used": null,
+        "llm_input_tokens": null,
+        "llm_output_tokens": null
+      }
+    },
+    {
+      "sample_id": "t3-23",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OUT_OF_SCOPE",
+      "user_query": "Weather this weekend?",
+      "assistant_text": "That's outside what I cover right now — I stick to things-to-do, local businesses, and events. Want me to point you to anything else?",
+      "tags": [
+        "out_of_scope"
+      ],
+      "route_meta": {
+        "mode": "chat",
+        "sub_intent": "OUT_OF_SCOPE",
+        "entity": null,
+        "tier_used": "chat",
+        "latency_ms": 1046,
+        "llm_tokens_used": null,
+        "llm_input_tokens": null,
+        "llm_output_tokens": null
+      }
+    },
+    {
+      "sample_id": "t3-24",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OPEN_ENDED",
+      "user_query": "What should I do Saturday?",
+      "assistant_text": "Altitude's the pick for Saturday — it opens at 9am and runs until 9pm, so you've got the whole day to burn energy on the trampolines. A 90-minute open jump is $19, or go unlimited with a 120-minute session for $24.",
+      "tags": [
+        "explicit_rec_query"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "OPEN_ENDED",
+        "entity": null,
+        "tier_used": "3",
+        "latency_ms": 3273,
+        "llm_tokens_used": 4461,
+        "llm_input_tokens": 4396,
+        "llm_output_tokens": 65
+      }
+    },
+    {
+      "sample_id": "t3-25",
+      "tier": "tier3",
+      "intent_or_mode": "ask/OPEN_ENDED",
+      "user_query": "Pick one thing to do with kids this weekend",
+      "assistant_text": "Altitude's your pick for this weekend — 90-minute open jump is $19, and Saturday they're open 9am–9pm so you've got the whole day to burn energy. It's built for kids that age.",
+      "tags": [
+        "explicit_rec_query"
+      ],
+      "route_meta": {
+        "mode": "ask",
+        "sub_intent": "OPEN_ENDED",
+        "entity": null,
+        "tier_used": "3",
+        "latency_ms": 3522,
+        "llm_tokens_used": 4451,
+        "llm_input_tokens": 4399,
+        "llm_output_tokens": 52
+      }
+    },
+    {
+      "sample_id": "ref-8.5-low",
+      "tier": "reference",
+      "intent_or_mode": "§8.5 low-stakes contested-state",
+      "user_query": "(contested hours — no live user query)",
+      "assistant_text": "Opens at 7 — someone recently reported it moved from 6. Let me know if that's wrong.",
+      "tags": [
+        "contested_state"
+      ]
+    },
+    {
+      "sample_id": "ref-8.5-high",
+      "tier": "reference",
+      "intent_or_mode": "§8.5 high-stakes contested-state",
+      "user_query": "(contested phone — no live user query)",
+      "assistant_text": "My info says the phone is (928) 555-0100. Someone recently reported a different number — I'll get it confirmed before updating.",
+      "tags": [
+        "contested_state"
+      ]
+    },
+    {
+      "sample_id": "ref-8.8-intake",
+      "tier": "reference",
+      "intent_or_mode": "§8.8 intake",
+      "user_query": "there's a car show at the channel saturday",
+      "assistant_text": "nice — got a time, and who's running it?",
+      "tags": [
+        "intake"
+      ]
+    },
+    {
+      "sample_id": "ref-8.8-commit",
+      "tier": "reference",
+      "intent_or_mode": "§8.8 commit",
+      "user_query": "Casey I just submitted a car show event",
+      "assistant_text": "got it, added to the pile. Casey reviews new events before they go live — usually within a day or two.",
+      "tags": [
+        "intake"
+      ]
+    },
+    {
+      "sample_id": "ref-8.9-correction-low",
+      "tier": "reference",
+      "intent_or_mode": "§8.9 correction low-stakes",
+      "user_query": "(user corrected a small catalog fact)",
+      "assistant_text": "got it, noted — I'll flag it and watch for more confirmations.",
+      "tags": [
+        "correction"
+      ]
+    },
+    {
+      "sample_id": "ref-8.9-high",
+      "tier": "reference",
+      "intent_or_mode": "§8.9 correction high-stakes",
+      "user_query": "Altitude's phone isn't (928) 555-0100 anymore — it's a different number now",
+      "assistant_text": "got it — that one needs to go through review before I update it. Thanks for the heads up.",
+      "tags": [
+        "correction"
+      ]
+    }
+  ],
+  "verdicts": [
+    {
+      "sample_id": "t1-HOURS-01",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual hours answer with no blocklist violations or voice-mode errors.",
+      "suggested_rewrite": null,
+      "notes": "Tier 1 matrix lookup; straightforward factual response complies with §8.2 (no follow-up questions, no filler). No persona §8.1 blocklist hits.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-HOURS-01\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual hours answer with no blocklist violations or voice-mode errors.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Tier 1 matrix lookup; straightforward factual response complies with §8.2 (no follow-up questions, no filler). No persona §8.1 blocklist hits.\"\n}\n```"
+    },
+    {
+      "sample_id": "t1-HOURS-02",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual hours answer with no filler or blocklist violations.",
+      "suggested_rewrite": null,
+      "notes": null,
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-HOURS-02\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual hours answer with no filler or blocklist violations.\",\n  \"suggested_rewrite\": null,\n  \"notes\": null\n}\n```"
+    },
+    {
+      "sample_id": "t1-HOURS-03",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual hours answer with no blocklist violations or voice-mode errors.",
+      "suggested_rewrite": null,
+      "notes": "Tier 1 matrix lookup; straightforward firsthand statement matching §8.3 pattern.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-HOURS-03\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual hours answer with no blocklist violations or voice-mode errors.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Tier 1 matrix lookup; straightforward firsthand statement matching §8.3 pattern.\"\n}\n```"
+    },
+    {
+      "sample_id": "t1-TIME-hours",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual answer to hours query; no blocklist violations, correct voice mode for tier1 TIME_LOOKUP.",
+      "suggested_rewrite": null,
+      "notes": "Clean delivery of specific hours without filler, hedging, or customer-service register.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-TIME-hours\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual answer to hours query; no blocklist violations, correct voice mode for tier1 TIME_LOOKUP.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Clean delivery of specific hours without filler, hedging, or customer-service register.\"\n}\n```"
+    },
+    {
+      "sample_id": "t1-TIME-program",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Factual, direct time answer with no filler or blocklist violations; matches §8.2 (hard rules) and §8.3 (firsthand voice at landscape level).",
+      "suggested_rewrite": null,
+      "notes": "Tier 1 matrix lookup; no persona color needed; answer is clean and compliant.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-TIME-program\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Factual, direct time answer with no filler or blocklist violations; matches §8.2 (hard rules) and §8.3 (firsthand voice at landscape level).\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Tier 1 matrix lookup; no persona color needed; answer is clean and compliant.\"\n}\n```"
+    },
+    {
+      "sample_id": "t1-PHONE-01",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual phone lookup with no filler or blocklist violations.",
+      "suggested_rewrite": null,
+      "notes": null,
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-PHONE-01\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual phone lookup with no filler or blocklist violations.\",\n  \"suggested_rewrite\": null,\n  \"notes\": null\n}\n```"
+    },
+    {
+      "sample_id": "t1-PHONE-02",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual phone lookup with no filler or blocklist violations.",
+      "suggested_rewrite": null,
+      "notes": null,
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-PHONE-02\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual phone lookup with no filler or blocklist violations.\",\n  \"suggested_rewrite\": null,\n  \"notes\": null\n}\n```"
+    },
+    {
+      "sample_id": "t1-PHONE-03",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct phone lookup answer; complies with §8.2 (no follow-up, no filler, no blocklist hits).",
+      "suggested_rewrite": null,
+      "notes": "Tier 1 matrix lookup; clean firsthand voice per §8.3.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-PHONE-03\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct phone lookup answer; complies with §8.2 (no follow-up, no filler, no blocklist hits).\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Tier 1 matrix lookup; clean firsthand voice per §8.3.\"\n}\n```"
+    },
+    {
+      "sample_id": "t1-LOCATION-iron-wolf",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual location answer with no filler, blocklist violations, or voice-mode errors.",
+      "suggested_rewrite": null,
+      "notes": "Tier 1 matrix lookup; clean firsthand delivery of address. No persona-brief §6.7 framing issue (single-entity lookup does not require landscape color). Complies with §8.1 Identity and §8.2 hard rules.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-LOCATION-iron-wolf\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual location answer with no filler, blocklist violations, or voice-mode errors.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Tier 1 matrix lookup; clean firsthand delivery of address. No persona-brief §6.7 framing issue (single-entity lookup does not require landscape color). Complies with §8.1 Identity and §8.2 hard rules.\"\n}\n```"
+    },
+    {
+      "sample_id": "t1-LOCATION-altitude",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual location answer with no filler, blocklist violations, or voice-mode errors.",
+      "suggested_rewrite": null,
+      "notes": "Tier 1 matrix lookup; clean address delivery. No §8.2 violations, no blocklist hits, no §6.7 framing issues.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-LOCATION-altitude\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual location answer with no filler, blocklist violations, or voice-mode errors.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Tier 1 matrix lookup; clean address delivery. No §8.2 violations, no blocklist hits, no §6.7 framing issues.\"\n}\n```"
+    },
+    {
+      "sample_id": "t1-WEBSITE-altitude",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual website lookup with no filler or blocklist violations.",
+      "suggested_rewrite": null,
+      "notes": null,
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-WEBSITE-altitude\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual website lookup with no filler or blocklist violations.\",\n  \"suggested_rewrite\": null,\n  \"notes\": null\n}\n```"
+    },
+    {
+      "sample_id": "t1-COST-01",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual cost answer with no filler or blocklist violations.",
+      "suggested_rewrite": null,
+      "notes": null,
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-COST-01\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual cost answer with no filler or blocklist violations.\",\n  \"suggested_rewrite\": null,\n  \"notes\": null\n}\n```"
+    },
+    {
+      "sample_id": "t1-COST-02",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct cost answer with no filler, blocklist-clean, matches §8.2 (hard rules) for tier1 matrix lookup.",
+      "suggested_rewrite": null,
+      "notes": null,
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-COST-02\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct cost answer with no filler, blocklist-clean, matches §8.2 (hard rules) for tier1 matrix lookup.\",\n  \"suggested_rewrite\": null,\n  \"notes\": null\n}\n```"
+    },
+    {
+      "sample_id": "t1-AGE-iron-wolf-golf-country-club",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual age answer with no filler or blocklist violations.",
+      "suggested_rewrite": null,
+      "notes": null,
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-AGE-iron-wolf-golf-country-club\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual age answer with no filler or blocklist violations.\",\n  \"suggested_rewrite\": null,\n  \"notes\": null\n}\n```"
+    },
+    {
+      "sample_id": "t1-AGE-lake-havasu-city-aquatic-center",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual age answer with no filler or blocklist violations.",
+      "suggested_rewrite": null,
+      "notes": null,
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-AGE-lake-havasu-city-aquatic-center\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual age answer with no filler or blocklist violations.\",\n  \"suggested_rewrite\": null,\n  \"notes\": null\n}\n```"
+    },
+    {
+      "sample_id": "t1-AGE-lake-havasu-city-bmx",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual age answer with no filler or blocklist violations.",
+      "suggested_rewrite": null,
+      "notes": null,
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-AGE-lake-havasu-city-bmx\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual age answer with no filler or blocklist violations.\",\n  \"suggested_rewrite\": null,\n  \"notes\": null\n}\n```"
+    },
+    {
+      "sample_id": "t1-DATE",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual date answer with no filler, blocklist violations, or voice-mode errors.",
+      "suggested_rewrite": null,
+      "notes": "Tier 1 matrix lookup; clean firsthand voice (landscape-level framing implicit in 'Local BMX Race'); no §6.7 framing gap because single-provider answer is bare-facts appropriate.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-DATE\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual date answer with no filler, blocklist violations, or voice-mode errors.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Tier 1 matrix lookup; clean firsthand voice (landscape-level framing implicit in 'Local BMX Race'); no §6.7 framing gap because single-provider answer is bare-facts appropriate.\"\n}\n```"
+    },
+    {
+      "sample_id": "t1-NEXT",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual answer to next-occurrence query; no blocklist hits, correct voice mode.",
+      "suggested_rewrite": null,
+      "notes": "Tier 1 matrix answer. Complies with §8.2 (no follow-up questions), §8.3 (firsthand voice at landscape level appropriate here), no persona §8.1 blocklist violations.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-NEXT\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual answer to next-occurrence query; no blocklist hits, correct voice mode.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Tier 1 matrix answer. Complies with §8.2 (no follow-up questions), §8.3 (firsthand voice at landscape level appropriate here), no persona §8.1 blocklist violations.\"\n}\n```"
+    },
+    {
+      "sample_id": "t1-DATE-p2",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual date answer with no filler, blocklist violations, or framing errors.",
+      "suggested_rewrite": null,
+      "notes": "Tier 1 matrix lookup; clean firsthand voice (event name + date). No per-provider color needed; catalog row supports the specificity.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-DATE-p2\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual date answer with no filler, blocklist violations, or framing errors.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Tier 1 matrix lookup; clean firsthand voice (event name + date). No per-provider color needed; catalog row supports the specificity.\"\n}\n```"
+    },
+    {
+      "sample_id": "t1-NEXT-p2",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Tier 1 NEXT_OCCURRENCE query answered directly with event name, date, and day; no blocklist violations, no framing gap, complies with §8.2 (direct answer, no follow-up).",
+      "suggested_rewrite": null,
+      "notes": "Clean factual delivery matching §8.3 firsthand voice at landscape level; provider slug confirmed in matrix_note.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-NEXT-p2\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Tier 1 NEXT_OCCURRENCE query answered directly with event name, date, and day; no blocklist violations, no framing gap, complies with §8.2 (direct answer, no follow-up).\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Clean factual delivery matching §8.3 firsthand voice at landscape level; provider slug confirmed in matrix_note.\"\n}\n```"
+    },
+    {
+      "sample_id": "t1-OPEN_NOW-altitude-trampoline-park-lake-havasu-city",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual answer to open-now query; complies with §8.2 (hard rules) and avoids blocklist.",
+      "suggested_rewrite": null,
+      "notes": "Tier 1 matrix response; clean firsthand voice, no filler, no follow-up questions. 'They're open right now' is direct; 'hours say they're in window for today' is factual and grounded in catalog data.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-OPEN_NOW-altitude-trampoline-park-lake-havasu-city\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual answer to open-now query; complies with §8.2 (hard rules) and avoids blocklist.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Tier 1 matrix response; clean firsthand voice, no filler, no follow-up questions. 'They're open right now' is direct; 'hours say they're in window for today' is factual and grounded in catalog data.\"\n}\n```"
+    },
+    {
+      "sample_id": "t1-OPEN_NOW-havasu-lanes",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, firsthand affirmation with minimal framing; complies with §8.2 (hard rules) and avoids blocklist.",
+      "suggested_rewrite": null,
+      "notes": "Tier 1 OPEN_NOW mode: factual, conversational, no filler or customer-service register. 'They're open right now' is direct; 'hours say they're in window' is natural and grounded. No blocklist hits.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-OPEN_NOW-havasu-lanes\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, firsthand affirmation with minimal framing; complies with §8.2 (hard rules) and avoids blocklist.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Tier 1 OPEN_NOW mode: factual, conversational, no filler or customer-service register. 'They're open right now' is direct; 'hours say they're in window' is natural and grounded. No blocklist hits.\"\n}\n```"
+    },
+    {
+      "sample_id": "t1-OPEN_NOW-havasu-shao-lin-kempo",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual answer to open-now query; complies with §8.2 (no follow-up, no filler).",
+      "suggested_rewrite": null,
+      "notes": "Tier 1 OPEN_NOW mode executed cleanly. Contraction use natural. No blocklist hits. Matches §8.1 Identity (firsthand, direct).",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-OPEN_NOW-havasu-shao-lin-kempo\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual answer to open-now query; complies with §8.2 (no follow-up, no filler).\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Tier 1 OPEN_NOW mode executed cleanly. Contraction use natural. No blocklist hits. Matches §8.1 Identity (firsthand, direct).\"\n}\n```"
+    },
+    {
+      "sample_id": "t1-OPEN_NOW-iron-wolf-golf-country-club",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual answer to open-now query; matches §8.2 (hard rules) and avoids blocklist.",
+      "suggested_rewrite": null,
+      "notes": "Tier 1 OPEN_NOW mode: concise, present-tense confirmation without filler or follow-up questions. No persona-brief §8.1 blocklist hits.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t1-OPEN_NOW-iron-wolf-golf-country-club\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual answer to open-now query; matches §8.2 (hard rules) and avoids blocklist.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Tier 1 OPEN_NOW mode: concise, present-tense confirmation without filler or follow-up questions. No persona-brief §8.1 blocklist hits.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-01",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Honest gap acknowledgment + catalog-grounded pivot; no blocklist hits, correct not-in-catalog voice (§8.6).",
+      "suggested_rewrite": null,
+      "notes": "Tier 3 open-ended ask handled cleanly: admits data limit, pivots to what *is* in catalog without filler or follow-up questions. Matches §8.6 (not-in-catalog voice) and avoids §8.1 blocklist.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-01\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Honest gap acknowledgment + catalog-grounded pivot; no blocklist hits, correct not-in-catalog voice (§8.6).\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Tier 3 open-ended ask handled cleanly: admits data limit, pivots to what *is* in catalog without filler or follow-up questions. Matches §8.6 (not-in-catalog voice) and avoids §8.1 blocklist.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-02",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual time lookup with no filler or blocklist violations; matches §8.2 ask-mode brevity.",
+      "suggested_rewrite": null,
+      "notes": "User asked for Saturday; response lists Tue–Thu only. This is a factual gap (Saturday not covered), not a voice violation. If Saturday hours are unknown, a correction-mode or not-in-catalog response would be needed; as written, the response is voice-compliant but incomplete on content.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-02\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual time lookup with no filler or blocklist violations; matches §8.2 ask-mode brevity.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"User asked for Saturday; response lists Tue–Thu only. This is a factual gap (Saturday not covered), not a voice violation. If Saturday hours are unknown, a correction-mode or not-in-catalog response would be needed; as written, the response is voice-compliant but incomplete on content.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-03",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Correct not-in-catalog voice (§8.6): acknowledges gap, offers contribution path without filler or follow-up questions.",
+      "suggested_rewrite": null,
+      "notes": "Clean, direct, actionable. No blocklist hits. Matches §8.6 pattern for Tier 3 ask-mode when item absent.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-03\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Correct not-in-catalog voice (§8.6): acknowledges gap, offers contribution path without filler or follow-up questions.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Clean, direct, actionable. No blocklist hits. Matches §8.6 pattern for Tier 3 ask-mode when item absent.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-04",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Direct, factual answer to hours query; no blocklist violations, correct voice mode for happy-path lookup.",
+      "suggested_rewrite": null,
+      "notes": null,
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-04\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Direct, factual answer to hours query; no blocklist violations, correct voice mode for happy-path lookup.\",\n  \"suggested_rewrite\": null,\n  \"notes\": null\n}\n```"
+    },
+    {
+      "sample_id": "t3-05",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Firsthand, direct, no filler; delivers provider name, address, hours, contact, and next step cleanly.",
+      "suggested_rewrite": null,
+      "notes": "Tier 3 happy path; voice matches §8.3 (firsthand, operator-grounded color 'the gymnastics spot'); no blocklist hits; specifics anchored to catalog row.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-05\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Firsthand, direct, no filler; delivers provider name, address, hours, contact, and next step cleanly.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Tier 3 happy path; voice matches §8.3 (firsthand, operator-grounded color 'the gymnastics spot'); no blocklist hits; specifics anchored to catalog row.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-06",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Factual, direct Tier 3 response with operator detail and contact path; no blocklist hits, correct voice mode for open-ended ask.",
+      "suggested_rewrite": null,
+      "notes": "Firsthand color (Christian Beyers, Instagram follow) is catalog-supported and minimal; contact instruction is clear and actionable without filler.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-06\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Factual, direct Tier 3 response with operator detail and contact path; no blocklist hits, correct voice mode for open-ended ask.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Firsthand color (Christian Beyers, Instagram follow) is catalog-supported and minimal; contact instruction is clear and actionable without filler.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-07",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Firsthand, specific, operator-grounded; no blocklist hits; correct Tier 3 open-ended voice.",
+      "suggested_rewrite": null,
+      "notes": "Strong landscape-level framing ('runs BMX and mountain bike programs year-round') followed by clean specifics (days, times, costs, age range, location). No filler, no customer-service register, no manufactured color. Matches §8.3 firsthand voice and §6.7 framing-before-specifics pattern.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-07\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Firsthand, specific, operator-grounded; no blocklist hits; correct Tier 3 open-ended voice.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Strong landscape-level framing ('runs BMX and mountain bike programs year-round') followed by clean specifics (days, times, costs, age range, location). No filler, no customer-service register, no manufactured color. Matches §8.3 firsthand voice and §6.7 framing-before-specifics pattern.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-08",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Factual, direct, no blocklist hits, appropriate specificity for tier3 open-ended ask on local activity.",
+      "suggested_rewrite": null,
+      "notes": "Clean landscape-level answer with times, cost, contact, and skill-level note. No persona violations.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-08\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Factual, direct, no blocklist hits, appropriate specificity for tier3 open-ended ask on local activity.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Clean landscape-level answer with times, cost, contact, and skill-level note. No persona violations.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-09",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Complies with §8.3 firsthand voice pattern; direct provider match, no blocklist hits, appropriate confidence and closure for happy-path ask mode.",
+      "suggested_rewrite": null,
+      "notes": "Clean factual delivery with light community grounding ('here in Havasu'). No filler, no follow-up questions, no manufactured color. Tier 3 single-provider answer handled correctly.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-09\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Complies with §8.3 firsthand voice pattern; direct provider match, no blocklist hits, appropriate confidence and closure for happy-path ask mode.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Clean factual delivery with light community grounding ('here in Havasu'). No filler, no follow-up questions, no manufactured color. Tier 3 single-provider answer handled correctly.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-10",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Correctly identifies catalog limitation (recitals, not classes), names specific events with dates, directs user to direct contact—clean not-in-catalog voice per §8.6.",
+      "suggested_rewrite": null,
+      "notes": "§8.6 (not-in-catalog) applied well: acknowledges what *is* in catalog, explains why it doesn't match intent, and gives practical next steps without filler or false confidence.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-10\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Correctly identifies catalog limitation (recitals, not classes), names specific events with dates, directs user to direct contact—clean not-in-catalog voice per §8.6.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"§8.6 (not-in-catalog) applied well: acknowledges what *is* in catalog, explains why it doesn't match intent, and gives practical next steps without filler or false confidence.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-11",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Firsthand, direct recommendation with specific times, contact, and next step; no blocklist hits or framing gaps.",
+      "suggested_rewrite": null,
+      "notes": "Tier 3 open-ended ask answered in §8.4 Option 3 (explicit recommendation) with operator-grounded detail (Sara Park, times, phone). Tag 'gap' suggests this filled a catalog hole; voice handles it cleanly without manufactured color or filler.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-11\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Firsthand, direct recommendation with specific times, contact, and next step; no blocklist hits or framing gaps.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Tier 3 open-ended ask answered in §8.4 Option 3 (explicit recommendation) with operator-grounded detail (Sara Park, times, phone). Tag 'gap' suggests this filled a catalog hole; voice handles it cleanly without manufactured color or filler.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-12",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Honest gap acknowledgment with community-credit invitation; no blocklist hits, correct not-in-catalog pattern.",
+      "suggested_rewrite": null,
+      "notes": "Matches §8.6 (not-in-catalog voice): direct 'not aware', no filler, invites user correction. Clean.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-12\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Honest gap acknowledgment with community-credit invitation; no blocklist hits, correct not-in-catalog pattern.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Matches §8.6 (not-in-catalog voice): direct 'not aware', no filler, invites user correction. Clean.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-13",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Correct not-in-catalog voice (§8.6): honest gap statement + actionable contribution path, no filler or follow-up questions.",
+      "suggested_rewrite": null,
+      "notes": "Matches §8.6 pattern cleanly. No blocklist hits. Tone is direct and operator-grounded without manufactured color.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-13\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Correct not-in-catalog voice (§8.6): honest gap statement + actionable contribution path, no filler or follow-up questions.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Matches §8.6 pattern cleanly. No blocklist hits. Tone is direct and operator-grounded without manufactured color.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-14",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Honest not-in-catalog acknowledgment with direct intake instruction; no blocklist hits, correct voice mode.",
+      "suggested_rewrite": null,
+      "notes": "Matches §8.6 (not-in-catalog voice): direct, no filler, invites community input. No 'I'd be happy' or customer-service register.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-14\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Honest not-in-catalog acknowledgment with direct intake instruction; no blocklist hits, correct voice mode.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Matches §8.6 (not-in-catalog voice): direct, no filler, invites community input. No 'I'd be happy' or customer-service register.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-15",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Correct not-in-catalog voice (§8.6): honest gap acknowledgment, no filler, clean handoff to user input.",
+      "suggested_rewrite": null,
+      "notes": "Matches §8.6 pattern — direct 'not in catalog' statement, avoids speculation or apology filler, invites user correction/submission. No blocklist hits.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-15\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Correct not-in-catalog voice (§8.6): honest gap acknowledgment, no filler, clean handoff to user input.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Matches §8.6 pattern — direct 'not in catalog' statement, avoids speculation or apology filler, invites user correction/submission. No blocklist hits.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-16",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Firsthand reasoning grounded in catalog data; clear disambiguation without blocklist hits or wrong voice mode.",
+      "suggested_rewrite": null,
+      "notes": "Tier 3 open-ended ask with multi-entity disambiguation. Assistant uses §8.3 firsthand voice ('tend to feel less overwhelming,' 'skews older and louder') anchored to real catalog differences (class size, program type, age range). No blocklist violations. Recommendation (Option 2, §8.4) is proportionate and direct. Contact info provided. Complies with §6.7 framing-vs-specifics split.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-16\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Firsthand reasoning grounded in catalog data; clear disambiguation without blocklist hits or wrong voice mode.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Tier 3 open-ended ask with multi-entity disambiguation. Assistant uses §8.3 firsthand voice ('tend to feel less overwhelming,' 'skews older and louder') anchored to real catalog differences (class size, program type, age range). No blocklist violations. Recommendation (Option 2, §8.4) is proportionate and direct. Contact info provided. Complies with §6.7 framing-vs-specifics split.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-17",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Correctly applies not-in-catalog voice (§8.6) for both entities, provides direct contact info, and avoids speculation.",
+      "suggested_rewrite": null,
+      "notes": "Clean not-in-catalog pattern: acknowledges absence from catalog, states what is known (hours that don't match the query), and directs to phone contact without filler or follow-up questions. No blocklist violations.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-17\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Correctly applies not-in-catalog voice (§8.6) for both entities, provides direct contact info, and avoids speculation.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Clean not-in-catalog pattern: acknowledges absence from catalog, states what is known (hours that don't match the query), and directs to phone contact without filler or follow-up questions. No blocklist violations.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-18",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Honest not-in-catalog acknowledgment with direct contact info; no blocklist hits, correct voice mode for missing data.",
+      "suggested_rewrite": null,
+      "notes": "Correctly applies §8.6 (not-in-catalog voice): names the entities, explains the gap plainly, provides phone numbers for direct follow-up. No filler, no 'I'd be happy,' no vague hedging. Tier 3 multi-entity ask handled cleanly.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-18\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Honest not-in-catalog acknowledgment with direct contact info; no blocklist hits, correct voice mode for missing data.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Correctly applies §8.6 (not-in-catalog voice): names the entities, explains the gap plainly, provides phone numbers for direct follow-up. No filler, no 'I'd be happy,' no vague hedging. Tier 3 multi-entity ask handled cleanly.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-19",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Complies with §8.4 Option 3 (explicit recommendation); firsthand confidence grounded in catalog detail (age fit, hours, contact); no blocklist hits or framing gaps.",
+      "suggested_rewrite": null,
+      "notes": "Strong directness ('your best bet'), operator-grounded reasoning ('set up for that age group'), actionable next step (phone + what to ask). Tier 3 multi-entity tagged but response correctly narrows to single strong rec per §8.4 Option 3.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-19\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Complies with §8.4 Option 3 (explicit recommendation); firsthand confidence grounded in catalog detail (age fit, hours, contact); no blocklist hits or framing gaps.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Strong directness ('your best bet'), operator-grounded reasoning ('set up for that age group'), actionable next step (phone + what to ask). Tier 3 multi-entity tagged but response correctly narrows to single strong rec per §8.4 Option 3.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-20",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Correctly applies not-in-catalog (Footlite) and contested-state (Ballet Havasu preschool details missing) voices; no blocklist hits; direct call-to-action is appropriate.",
+      "suggested_rewrite": null,
+      "notes": "§8.6 (not-in-catalog) handles Footlite cleanly with invitation to submit. §8.5 (contested-state) for Ballet Havasu: acknowledges what's in system, names the gap (preschool schedule), and directs user to primary source. No filler, no 'I'd be happy,' no vague options. Tier 3 open-ended context supports this split-entity handling.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-20\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Correctly applies not-in-catalog (Footlite) and contested-state (Ballet Havasu preschool details missing) voices; no blocklist hits; direct call-to-action is appropriate.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"§8.6 (not-in-catalog) handles Footlite cleanly with invitation to submit. §8.5 (contested-state) for Ballet Havasu: acknowledges what's in system, names the gap (preschool schedule), and directs user to primary source. No filler, no 'I'd be happy,' no vague options. Tier 3 open-ended context supports this split-entity handling.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-21",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Correctly applies out-of-scope voice (§8.7): acknowledges gap, invites user input, offers external resource, no filler or wrong mode.",
+      "suggested_rewrite": null,
+      "notes": "Clean handoff §8.7 pattern. No blocklist hits, no forced casual, no 'I'd be happy' or vague slots. Tone is direct and actionable.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-21\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Correctly applies out-of-scope voice (§8.7): acknowledges gap, invites user input, offers external resource, no filler or wrong mode.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Clean handoff §8.7 pattern. No blocklist hits, no forced casual, no 'I'd be happy' or vague slots. Tone is direct and actionable.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-22",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Correct out-of-scope voice (§8.7): clear boundary, no filler, clean redirect.",
+      "suggested_rewrite": null,
+      "notes": "Matches §8.7 pattern — states scope limit plainly, offers redirect without apology or hedging.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-22\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Correct out-of-scope voice (§8.7): clear boundary, no filler, clean redirect.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Matches §8.7 pattern — states scope limit plainly, offers redirect without apology or hedging.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-23",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Correct out-of-scope voice (§8.7): clear boundary, no filler, clean redirect.",
+      "suggested_rewrite": null,
+      "notes": "Matches §8.7 pattern — states scope limit plainly, offers redirect without apology or hedging.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-23\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Correct out-of-scope voice (§8.7): clear boundary, no filler, clean redirect.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Matches §8.7 pattern — states scope limit plainly, offers redirect without apology or hedging.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-24",
+      "verdict": "FAIL",
+      "voice_rules_cited": [
+        "§8.4 Option 3"
+      ],
+      "summary": "Explicit recommendation query requires §8.4 Option 3 (landscape framing + curated provider detail); sample gives single-provider specifics without landscape context or competing alternatives.",
+      "suggested_rewrite": "For Saturday energy, Lake Havasu has a few solid picks. Altitude's the standout — it opens at 9am, runs until 9pm, so you've got the whole day. A 90-minute open jump is $19, or go unlimited with a 120-minute session for $24. If you want outdoor water time instead, the beach and marina are free and open dawn to dusk.",
+      "notes": "Tag explicit_rec_query + tier3 + ask/OPEN_ENDED triggers §8.4 Option 3: landscape-level framing (\"Lake Havasu has a few solid picks\") + curated provider detail + at least one competing alternative. Current sample jumps straight to single provider without landscape setup or alternatives, violating the locked voice spec for this context.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-24\",\n  \"verdict\": \"FAIL\",\n  \"voice_rules_cited\": [\"§8.4 Option 3\"],\n  \"summary\": \"Explicit recommendation query requires §8.4 Option 3 (landscape framing + curated provider detail); sample gives single-provider specifics without landscape context or competing alternatives.\",\n  \"suggested_rewrite\": \"For Saturday energy, Lake Havasu has a few solid picks. Altitude's the standout — it opens at 9am, runs until 9pm, so you've got the whole day. A 90-minute open jump is $19, or go unlimited with a 120-minute session for $24. If you want outdoor water time instead, the beach and marina are free and open dawn to dusk.\",\n  \"notes\": \"Tag explicit_rec_query + tier3 + ask/OPEN_ENDED triggers §8.4 Option 3: landscape-level framing (\\\"Lake Havasu has a few solid picks\\\") + curated provider detail + at least one competing alternative. Current sample jumps straight to single provider without landscape setup or alternatives, violating the locked voice spec for this context.\"\n}\n```"
+    },
+    {
+      "sample_id": "t3-25",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Firsthand, direct recommendation with specifics (price, hours, kid-fit) in §8.4 Option 3 voice; no blocklist hits or framing gaps.",
+      "suggested_rewrite": null,
+      "notes": "Clean operator-grounded color ('burn energy') tied to the venue's actual offer; explicit_rec_query tag correctly triggers Option 3 (single strong pick, not menu). Tier 3 depth appropriate.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"t3-25\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Firsthand, direct recommendation with specifics (price, hours, kid-fit) in §8.4 Option 3 voice; no blocklist hits or framing gaps.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Clean operator-grounded color ('burn energy') tied to the venue's actual offer; explicit_rec_query tag correctly triggers Option 3 (single strong pick, not menu). Tier 3 depth appropriate.\"\n}\n```"
+    },
+    {
+      "sample_id": "ref-8.5-low",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Correct §8.5 contested-state voice: acknowledges uncertainty, invites correction, avoids false confidence.",
+      "suggested_rewrite": null,
+      "notes": "Exemplary low-stakes contested pattern. Factual lead ('Opens at 7'), transparent source signal ('someone recently reported'), explicit correction gate ('Let me know if that's wrong'). No blocklist hits, no filler, no false authority.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"ref-8.5-low\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Correct §8.5 contested-state voice: acknowledges uncertainty, invites correction, avoids false confidence.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Exemplary low-stakes contested pattern. Factual lead ('Opens at 7'), transparent source signal ('someone recently reported'), explicit correction gate ('Let me know if that's wrong'). No blocklist hits, no filler, no false authority.\"\n}\n```"
+    },
+    {
+      "sample_id": "ref-8.5-high",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Correctly applies §8.5 contested-state voice: acknowledges conflict, names the known fact, commits to resolution without false certainty.",
+      "suggested_rewrite": null,
+      "notes": "Exemplary §8.5 pattern — 'My info says X. Someone reported Y — I'll get it confirmed.' Avoids hedging, avoids false authority, signals active stewardship.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"ref-8.5-high\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Correctly applies §8.5 contested-state voice: acknowledges conflict, names the known fact, commits to resolution without false certainty.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Exemplary §8.5 pattern — 'My info says X. Someone reported Y — I'll get it confirmed.' Avoids hedging, avoids false authority, signals active stewardship.\"\n}\n```"
+    },
+    {
+      "sample_id": "ref-8.8-intake",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Intake voice correct: minimal acknowledgment, two direct follow-up questions, no filler or blocklist hits.",
+      "suggested_rewrite": null,
+      "notes": "§8.8 intake pattern executed cleanly—'nice' + two specifics (time, organizer) without 'Certainly' or customer-service register.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"ref-8.8-intake\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Intake voice correct: minimal acknowledgment, two direct follow-up questions, no filler or blocklist hits.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"§8.8 intake pattern executed cleanly—'nice' + two specifics (time, organizer) without 'Certainly' or customer-service register.\"\n}\n```"
+    },
+    {
+      "sample_id": "ref-8.8-commit",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Intake confirmation follows §8.8 commit pattern: brief acknowledgment, named operator handoff, realistic timeline.",
+      "suggested_rewrite": null,
+      "notes": "Casual register ('got it, added to the pile') matches §8.8 intake voice; operator name (Casey) and clear next-step timeline satisfy §8.8 requirements without filler or follow-up questions.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"ref-8.8-commit\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Intake confirmation follows §8.8 commit pattern: brief acknowledgment, named operator handoff, realistic timeline.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Casual register ('got it, added to the pile') matches §8.8 intake voice; operator name (Casey) and clear next-step timeline satisfy §8.8 requirements without filler or follow-up questions.\"\n}\n```"
+    },
+    {
+      "sample_id": "ref-8.9-correction-low",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Correction voice is terse, acknowledges without over-apologizing, and commits to action—matches §8.9 low-stakes pattern.",
+      "suggested_rewrite": null,
+      "notes": "Informal contraction ('I'll'), no filler, no false certainty. Appropriate for correction mode.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"ref-8.9-correction-low\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Correction voice is terse, acknowledges without over-apologizing, and commits to action—matches §8.9 low-stakes pattern.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Informal contraction ('I'll'), no filler, no false certainty. Appropriate for correction mode.\"\n}\n```"
+    },
+    {
+      "sample_id": "ref-8.9-high",
+      "verdict": "PASS",
+      "voice_rules_cited": [],
+      "summary": "Correction mode §8.9 executed cleanly: acknowledgment, escalation path, gratitude—no follow-up questions, no filler.",
+      "suggested_rewrite": null,
+      "notes": "Tight, direct, and properly defers high-stakes correction to review process without over-explaining or asking the user to do more work.",
+      "_raw_auditor_response": "```json\n{\n  \"sample_id\": \"ref-8.9-high\",\n  \"verdict\": \"PASS\",\n  \"voice_rules_cited\": [],\n  \"summary\": \"Correction mode §8.9 executed cleanly: acknowledgment, escalation path, gratitude—no follow-up questions, no filler.\",\n  \"suggested_rewrite\": null,\n  \"notes\": \"Tight, direct, and properly defers high-stakes correction to review process without over-explaining or asking the user to do more work.\"\n}\n```"
+    }
+  ]
+}
