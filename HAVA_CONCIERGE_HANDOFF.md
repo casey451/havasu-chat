@@ -165,7 +165,7 @@ Enrichment failures don't block the contribution — operator sees the failure s
 
 **Rate limiting.** Two mechanisms coexist: `slowapi` (`app/core/rate_limit.py`) for `/api/chat` (120/min), and DB-backed per-IP-hash counting on `/contribute` (1/hour). Both honor `RATE_LIMIT_DISABLED` env var. Unified rate limiter is a future refactor candidate.
 
-## 1d. Phase status and close state (through 5.6)
+## 1d. Phase status and close state (through 8.8.1a)
 
 | Phase | Status | Commit | Notes |
 | --- | --- | --- | --- |
@@ -189,7 +189,11 @@ Enrichment failures don't block the contribution — operator sees the failure s
 | 5.4 User form | ✅ | `5c58f52` | Public `/contribute` form, gap_template + system prompt updates |
 | 5.5 Mention scanner | ✅ | `ce11e75` | `llm_mentioned_entities` + admin at `/admin/mentioned-entities` |
 | 5.6 Categories + hours | ✅ | `b2f3fa9` | `/admin/categories`, `providers.hours_structured`, Tier 2 open_now filter |
-| 8.8.1a | ✅ | `3d4680b` | Handoff rewrite: Hava rename + §2.1 firsthand voice + §8.3 replacement + persona brief commit |
+| 6 | ✅ | `7a12022` | Voice audit track (6.1.x), feedback 6.2.x, onboarding 6.3, session memory 6.4 / 6.4.1, 6.5-lite plumbing; Phase 6 close doc — Phase 8 next |
+| 7 | ⏸️ | — | Roadmap **§5 Phase 7** (deterministic `tier2_handlers.py` sheet) not executed; Tier 2 retrieve-then-generate shipped under Phase 4.x (`tier2_handler` + parser/formatter). Revisit if cost/latency warrant handler extraction. |
+| 8 | ✅ | `0d01d40` | Pre-launch hardening (8.0.x bug track, 8.2 load, 8.3 error-path tests, 8.4 `docs/runbook.md`, 8.5 ToS, 8.5/8.7 privacy, 8.6 full regression) |
+| 8.8.0 | ✅ | `3d4680b` | Persona design output: `docs/persona-brief.md` (owner + Claude 8.8.0) — committed in same package as 8.8.1a doc pass |
+| 8.8.1a | ✅ | `3d4680b` | Handoff rewrite: Hava rename + §2.1 firsthand voice + §8.3 replacement + `docs/persona-brief.md` in tree |
 
 ### Phase 4 + Phase 5 close summary
 
@@ -224,12 +228,16 @@ Enrichment failures don't block the contribution — operator sees the failure s
 | Phase 4.6 | 18/1/1 | Q7, Q14, Q20 improved; Q4 hallucination regression from anti-pivot rule removal |
 | Phase 4.7 | 19/1/0 | Q4 fixed via anti-hallucination rule |
 | Phase 5.4 | 19/1/0 | Stable across Phase 5 |
+| Phase 6.1.3 (55-sample `run_voice_audit`) | 51/1/3/0 | `c899bfb` — `docs/phase-6-1-3-voice-audit-report.md` — 55 samples, not the 20-query `run_voice_spotcheck` matrix |
+| Phase 8.6 (55-sample `run_voice_audit`, baseline @ `8de25ce`) | 51/1/3/0 | `docs/phase-8-6-implement-report.md` — `meta.git_sha` `8de25ce` (pre–8.8 persona); same aggregate distribution as 2026-04-21 baseline; canonical `scripts/voice_audit_results_2026-04-22-phase86.json` |
 
 Persistent MINOR: Q17 "Boat rentals on the lake?" chat-mode classification. Not affected by Phase 4 or 5 work.
 
 ### Cost state summary
 
 **Model rates (Haiku 4.5 at Phase 5 close):** $1/M input tokens, $5/M output tokens.
+
+**Staleness note (Phase 8.X doc pass):** Per-tier token **means** below were last benchmarked for documentation at **Phase 5.6** (see §1b narrative). Phases 6–8 did not publish a replacement per-tier mean table in-repo. Re-run `scripts/analyze_chat_costs.py` (or equivalent) against current production mix before treating these numbers as current operational truth.
 
 **Per-tier cost (mean):**
 
@@ -267,7 +275,7 @@ Open product and technical decisions that Phase 5's shipping has surfaced or cla
 
 8. **Bulk ops on contributions.** Batch approvals, multi-select, bulk category-assign. Only relevant at higher volume.
 
-9. **Public launch criteria.** No trigger. Likely after Phase 6 email + Phase 7 polish.
+9. **Public launch criteria.** No single numeric threshold. Pre-launch gate work lives in `docs/pre-launch-checklist.md` (Phase 8+). Roadmap Phase 6 is closed; **email infrastructure (item 1)** and **§5 Phase 7** remain open — launch timing still owner decision.
 
 10. **Revenue model.** Deferred. Sponsored listings / freemium / ad-supported / hobby. No monthly cost ceiling set.
 
@@ -1058,17 +1066,21 @@ Context builder reads session state and injects into LLM context. Scope: within-
 **Note (2026-04-22):** Phase 6.5 sequencing changed post-6.4.1. The 20-30 blurb upfront approach was deferred in favor of a correct-and-grow workflow. See `docs/PHASE_6_5_LOCAL_VOICE_HANDOFF.md` for the current plan, data structure, and plumbing options.
 
 **Exit criterion:**
-- Voice audit completed, all flagged items addressed or explicitly accepted by owner.
+- Voice audit completed (Phase 6.1.3 55-sample run; follow-on 6.1.4 fixes), all flagged items addressed or explicitly accepted by owner.
 - Feedback thumbs live on Tier 3 responses, data flowing to `chat_logs`.
 - Onboarding works for first-time visitors.
-- Session memory improves context on multi-turn conversations (tested manually).
-- Owner has drafted initial local_voice content (or flagged that they will do so before launch).
+- Session memory improves context on multi-turn conversations (tested manually); recommended-entity capture for `prior_entity` shipped in 6.4.1.
+- **6.5 local-voice content:** 20–30 blurb approach deferred post-6.4.1 in favor of **correct-and-grow** (`docs/PHASE_6_5_LOCAL_VOICE_HANDOFF.md`); 6.5-lite plumbing exists (`app/data/local_voice.py` + matcher) for future growth.
+
+**As shipped:** Sub-phases 6.1–6.4.1, 6.2.2, 6.2.3, 6.5-lite as recorded in `7a12022` Phase 6 close.
 
 ---
 
 ### Phase 7 — Tier 2 Handlers (1–2 weeks, 15–25 hours)
 
-**Goal:** Pull common patterns out of Tier 3 into deterministic handlers. Reduces LLM cost and latency.
+**Goal (roadmap):** Pull common patterns out of Tier 3 into deterministic handlers. Reduces LLM cost and latency.
+
+**As of Phase 8.X:** This roadmap phase has **not** been executed as a named release. Tier 2 **retrieve-then-generate** (parser + DB + formatter) is live from Phase 4.x (`tier2_handler.py` and related modules). The **deterministic** `tier2_handlers.py` sheet (no LLM) described in sub-phases 7.1–7.2 is **not** built — revisit if product needs lower-cost paths for high-volume query shapes.
 
 **Sub-phases:**
 
@@ -1089,30 +1101,51 @@ Context builder reads session state and injects into LLM context. Scope: within-
 
 ### Phase 8 — Pre-Launch Hardening (1–2 weeks, 15–30 hours)
 
-**Goal:** Ship-ready.
+**Goal:** Ship-ready (soft-launch / dogfooding); broader public still gated by `docs/pre-launch-checklist.md`.
 
-**Sub-phases:**
+**As shipped (roadmap 8.1–8.7 = execution 8.0.x–8.7 + 8.2 + 8.4–8.6, not 1:1 with original sub-numbering):**
 
-**8.1 Seed data verification. OWNER TASK.** Owner calls the 25 businesses to confirm hours, prices, addresses. Updates via admin panel or direct DB edits. Flag any unverifiable businesses as `draft = true`. Do not attempt this in code.
+**8.0.x Bug-fix / reconciliation track** — read-first triage, router + analytics fixes, known-issues reconciliation, explicit-rec routing (8.0.2), retrieval tuning (8.0.3), prompt hygiene (8.0.4), analytics (8.0.5), small UX (8.0.6/8.0.7). Closes with stable test suite and doc alignment.
 
-**8.2 Load testing.** Script or tool of choice. Target: `/chat` endpoint handles 50 concurrent requests at <3s p95 latency. If not, investigate.
+**8.2 Load testing** — `scripts/smoke_concurrent_chat.py` and related; production-scoped performance notes in `docs/runbook.md` §3.10.
 
-**8.3 Error path testing.** Kill OpenAI API (mock), kill Anthropic API (mock), slow DB, entity matcher returns empty, intent classifier ambiguous. Every path returns something graceful per section 3.11.
+**8.3 Error-path testing** — automated coverage for §3.11 failure paths (Phase 8.3 deliverable).
 
-**8.4 Admin runbook.** Draft `docs/admin_runbook.md` covering: what to do when submissions spike, contested fields pile up, spam patterns emerge, API outages happen. Claude Code can draft; owner reviews.
+**8.4 Operational runbook** — `docs/runbook.md` (not `admin_runbook.md`) — production ops, SQL, Sentry, env vars.
 
-**8.5 Terms of service and takedown policy. OWNER TASK.** Owner drafts (Claude Code may produce a first draft if asked) and links in the app footer. Owner owns final text and should run past a lawyer if they are serious about this going public.
+**8.5 + 8.7 Terms of service and privacy** — `docs/tos.md`, `docs/privacy.md` in tree; app footer links; items remain on pre-launch checklist for lawyer review and contact-email swap.
 
-**8.6 Regression pass.** Full test suite runs clean. 120-query battery + new test suites all pass. Deploy to Railway staging (or main if no staging exists), spot-check live.
+**8.6 Full regression** — `pytest` green; 55-sample `run_voice_audit` + smoke/docs per `docs/phase-8-6-implement-report.md` (see §1d voice history). **8.1 seed verification** remains an **owner task** — not closed in code.
 
-**8.7 Privacy review.** Confirm what's logged, for how long, under what key. Document in `docs/privacy.md`. Query text is hashed in `chat_logs` — do not log PII plaintext.
+**Exit criterion (as treated at `0d01d40` close):**
+- Full automated regression pass and documented spot-checks complete; **GO** for dogfooding with open pre-launch items.
+- `docs/runbook.md` exists and is linked from project docs.
+- ToS and privacy pages exist; lawyer review and launch gates tracked in pre-launch checklist.
+- **8.1** seed-calling verification still outstanding unless owner has completed out-of-band.
 
-**Exit criterion:**
-- Owner would be comfortable if 500 people used it tomorrow.
-- All tests green.
-- Admin runbook exists.
-- ToS linked in app.
-- Seed data verified.
+---
+
+### Phase 8.8 — Persona, handoff, and code voice alignment (8.8.0 through 8.8.2)
+
+**8.8.0 — Persona design (owner + Claude, no repo work).** Closed. Output is the agreed character, tagline, and voice constraints — captured in `docs/persona-brief.md` (landed in repo in **8.8.1a** as `3d4680b`).
+
+**8.8.1a — Handoff documentation** — **Closed** (`3d4680b`). `HAVA_CONCIERGE_HANDOFF.md` rename, "Havasu Chat" → "Hava" prose, §2.1 / §8.3 rewrites, brief in tree. Follow-up doc-only commits may adjust §1d hashes (e.g. `adfa04c`) and completion report (`eb7b76f`) — see git log; substantive scope remains `3d4680b`.
+
+**8.8.1b — Code implementation (system prompt, templates, known-issues cross-ref)** — **In flight / pending.** Per `docs/persona-brief.md` §10.2. Propagates firsthand-voice and persona rules into prompts and correction templates. Out of scope: Phase 8.9 retrieval work.
+
+**8.8.2 — Voice regression verification** — **Pending.** Re-run voice battery with updated acceptance (persona-brief §9.5) after 8.8.1b lands; zero disallowed community-credit phrasing per known-issues resolution criteria.
+
+**Exit criterion (8.8 track):** Handoff and brief authoritative; code matches brief after 8.8.1b+8.8.2; owner sign-off on voice.
+
+---
+
+### Phase 8.9 — Event ranking (recurring vs one-time) [pre-launch addendum]
+
+**Scope (from `docs/persona-brief.md` §9.6):** Classify events as one-time vs recurring; prefer one-time in time-scoped queries; when no one-time events apply, use evergreen / recommendation fallback per brief voice examples. **Not** in scope for 8.8.1b. Touches retrieval / ranking; coordinate with any dedicated ranking work in `app/core/search.py` / event-quality modules.
+
+**Checklist status:** `docs/persona-brief.md` §9.6 references a pre-launch checklist line item; **as of 2026-04-22** the open-block of `docs/pre-launch-checklist.md` does not yet list 8.9 — treat persona brief as the scope spec until the checklist is amended.
+
+**Exit criterion:** Time-scoped queries return sensible ordering; no silent suppression of one-time events when data exists; documented in handoff or brief.
 
 ---
 
@@ -1121,28 +1154,42 @@ Context builder reads session state and injects into LLM context. Scope: within-
 ```
 havasu-chat/
 ├── app/
-│   ├── main.py                         (extend: mount new chat endpoint)
-│   ├── bootstrap_env.py                (existing, no change)
+│   ├── main.py
+│   ├── bootstrap_env.py
 │   ├── admin/
-│   │   ├── auth.py                     (existing, no change)
-│   │   └── router.py                   (extend: providers/programs/contested tabs)
+│   │   ├── auth.py
+│   │   ├── router.py
+│   │   ├── contributions_html.py
+│   │   ├── mentions_html.py
+│   │   └── categories_html.py
 │   ├── chat/
 │   │   ├── __init__.py
-│   │   ├── normalizer.py               (existing, no change — Phase 1 of original plan, done)
-│   │   ├── entity_matcher.py           (extend: add provider+program match, not just event) [Phase 2]
-│   │   ├── intent_classifier.py        NEW — Phase 2
-│   │   ├── unified_router.py           NEW — Phase 2
-│   │   ├── tier1_templates.py          (existing partial, complete in Phase 3)
-│   │   ├── tier3_llm.py                NEW — Phase 3
-│   │   ├── context_builder.py          NEW — Phase 3
-│   │   ├── intake.py                   NEW — Phase 4
-│   │   ├── correction.py               NEW — Phase 5
-│   │   ├── tier2_handlers.py           NEW — Phase 7
-│   │   ├── router.py                   (Track A legacy — keep, do not delete; extract retrieval helpers)
-│   │   └── voice_rules.py              NEW — Phase 3, shared constants for templates
+│   │   ├── normalizer.py
+│   │   ├── entity_matcher.py
+│   │   ├── intent_classifier.py
+│   │   ├── unified_router.py
+│   │   ├── tier1_handler.py
+│   │   ├── tier1_templates.py
+│   │   ├── tier2_schema.py
+│   │   ├── tier2_parser.py
+│   │   ├── tier2_db_query.py
+│   │   ├── tier2_formatter.py
+│   │   ├── tier2_handler.py            (Tier 2 retrieve-then-generate — not roadmap §5 Phase 7 deterministic sheet)
+│   │   ├── tier3_handler.py
+│   │   ├── context_builder.py
+│   │   ├── hint_extractor.py
+│   │   ├── local_voice_matcher.py
+│   │   ├── intake.py
+│   │   ├── correction.py
+│   │   ├── router.py                   (Track A legacy — keep)
+│   │   └── voice_rules.py
+│   ├── contrib/                        (Phase 5: url_fetcher, places_client, enrichment, approval_service, mention_scanner, hours_helper, …)
 │   ├── api/
 │   │   └── routes/
-│   │       └── chat.py                 NEW — Phase 2, endpoint for POST /chat
+│   │       ├── chat.py                 (/api/chat, feedback)
+│   │       ├── contribute.py
+│   │       ├── admin_contributions.py
+│   │       └── admin_mentions.py
 │   ├── core/
 │   │   ├── conversation_copy.py        (existing — extend with new templates as needed)
 │   │   ├── dedupe.py                   (existing — extend in Phase 4)
@@ -1156,13 +1203,15 @@ havasu-chat/
 │   │   ├── slots.py                    (existing, no change)
 │   │   └── venues.py                   (existing, no change)
 │   ├── data/
-│   │   └── local_voice.py              NEW — Phase 6, owner-authored content blurbs
+│   │   └── local_voice.py              (6.5-lite; grows with correct-and-grow workflow)
 │   ├── db/
-│   │   ├── chat_logging.py             (existing — extend schema in Phase 2 and 6)
-│   │   ├── database.py                 (existing, no change)
-│   │   ├── models.py                   (extend: Provider, Program, FieldHistory in Phase 1)
-│   │   ├── seed.py                     (existing — keep)
-│   │   └── seed_providers.py           NEW — Phase 1
+│   │   ├── chat_logging.py
+│   │   ├── database.py
+│   │   ├── models.py
+│   │   ├── seed.py
+│   │   ├── seed_providers.py
+│   │   ├── contribution_store.py
+│   │   └── llm_mention_store.py
 │   ├── schemas/
 │   │   ├── chat.py                     (extend for new ChatResponse fields in Phase 2)
 │   │   ├── event.py                    (existing, no change)
@@ -1180,24 +1229,21 @@ havasu-chat/
 │   ├── system_prompt.txt               NEW — Phase 3
 │   └── voice_audit.txt                 NEW — Phase 6
 ├── tests/
-│   ├── <existing Track A tests>        (keep, must pass throughout)
-│   ├── test_intent_classifier.py       NEW — Phase 2
-│   ├── test_unified_router.py          NEW — Phase 2
-│   ├── test_ask_mode.py                NEW — Phase 3
-│   ├── test_intake.py                  NEW — Phase 4
-│   ├── test_correction.py              NEW — Phase 5
-│   └── test_tier2_handlers.py          NEW — Phase 7
+│   ├── conftest.py                     (test DB isolation)
+│   ├── test_*.py                       (pytest suite — 794+ as of Phase 8.6; see CI / local run)
+│   └── fixtures/
 ├── docs/
-│   ├── <existing docs>                 (keep)
-│   ├── admin_runbook.md                NEW — Phase 8
-│   ├── privacy.md                      NEW — Phase 8
-│   └── persona-brief.md                (Phase 8.8.0 — persona/identity reference)
+│   ├── runbook.md                      (Phase 8.4 — operational; not admin_runbook.md)
+│   ├── privacy.md, tos.md, known-issues.md, pre-launch-checklist.md
+│   ├── persona-brief.md                (Phase 8.8.0+ — voice/persona reference)
+│   └── START_HERE.md                   (Phase 8.X — onboarding map)
 ├── scripts/
-│   ├── <existing scripts>              (keep)
-│   └── battery_results.json            (update as regression battery evolves)
+│   ├── run_query_battery.py, run_voice_spotcheck.py, run_voice_audit.py, smoke_concurrent_chat.py
+│   ├── analyze_chat_costs.py, verify_queries.py, …
+│   └── battery_results.json, voice_audit_results_*.json (regression artifacts as generated)
 ├── HAVA_CONCIERGE_HANDOFF.md          (this file — source of truth)
-├── requirements.txt                    (add anthropic in Phase 3)
-└── .env                                (add ANTHROPIC_API_KEY — owner task)
+├── requirements.txt
+└── .env
 ```
 
 ---
@@ -1383,7 +1429,7 @@ Pytest uses **`tests/conftest.py`**: `pytest_configure` assigns **`DATABASE_URL`
 
 - [ ] All sub-phase deliverables shipped
 - [ ] Exit criterion met and verified
-- [ ] Existing tests still pass (669+ as of Phase 5 close; run `pytest` for current count)
+- [ ] Existing tests still pass (794+ as of Phase 8.6; run `pytest` for current count)
 - [ ] New tests added and passing
 - [ ] Deploys cleanly to Railway
 - [ ] No dead code / commented-out blocks
@@ -1544,5 +1590,5 @@ Short reference for production architecture after Phase 5 close. Details drift a
 
 This document is the source of truth for the Hava concierge build. If anything in another document contradicts this one, this one wins unless the owner explicitly says otherwise.
 
-**Last updated:** 2026-04-20 — Phase 4 + Phase 5 close consolidation (Tier 2 + contribute stack shipped).
-**Total scope:** 8 phases, ~3–5 months at ~20 hours/week, ship-ready concierge with community-authored data model and deferred monetization primitives in place.
+**Last updated:** 2026-04-22 — Phase 8.X documentation refresh (§1d Phases 6/7/8/8.8 rows, voice history, §5 Phase 8/8.8/8.9, §6 file map, `docs/START_HERE.md`).
+**Total scope:** Phases 1–5.6 (core stack), 6 (voice/onboarding/memory), 8 (pre-launch hardening through 8.6), 8.8.x (persona + handoff + upcoming code voice), 8.9 (pre-launch event ranking) — ship-ready concierge with community-authored data model; public launch gated by checklist.
