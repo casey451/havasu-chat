@@ -53,6 +53,14 @@ available hours.
 
 ## Documented (metrics / carry-over)
 
+### Phase 8.9 — `scripts/backfill_event_recurrence.py` not run in automation
+
+**Sub-phase / operational:** Phase 8.9 adds `events.is_recurring` and ranking in `app/core/search.py`, but the **interactive** backfill `scripts/backfill_event_recurrence.py` (heuristic classification for existing rows) is **not** run inside Cursor/CI. **Dev and production** need a manual run after deployment/migration when seed data or legacy rows need `is_recurring` aligned to text. Until the script has been run against an environment, ordering that depends on the column may not reflect heuristics for pre-existing events.
+
+**What to do:** After `alembic upgrade` (or equivalent) applies `f3a1b2c3d4e5_add_events_is_recurring`, run `python scripts/backfill_event_recurrence.py` (e.g. `railway run …`) in each environment, review the printed list, and confirm with `y` to commit.
+
+**Priority:** Part of full Phase 8.9 deploy checklist for that environment, not a code defect.
+
 ### Production `chat_logs` — legacy NULL `tier_used` (~2% class) + `placeholder`
 
 **What this is:** A **small historical share** of rows (handoff ~**2.4%** `placeholder` + `null`; Phase 8.0.5 prod sampling ~**2.1%** combined) where `tier_used` is **SQL NULL** (primarily **Track A `POST /chat` / `log_chat_turn`** writes that predate unified-router analytics columns) or the explicit unified sentinel **`placeholder`**. **Not a runtime defect** in current `/api/chat` logging.

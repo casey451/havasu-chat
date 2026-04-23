@@ -345,6 +345,7 @@ class SearchOutcome:
     suppressed_low_relevance: bool = False
     slot_filter_exhausted: bool = False
     honest_no_match: bool = False
+    all_recurring: bool = False
 
 
 def decide_search_strategy(
@@ -420,6 +421,19 @@ def _base_future_events_query(db: Session, date_context: dict[str, date] | None)
     return query
 
 
+def _time_scoped_date(date_context: dict[str, date] | None) -> bool:
+    return date_context is not None
+
+
+def _apply_time_scoped_merged_sort(merged: list[tuple[Event, float]], time_scoped: bool) -> None:
+    if time_scoped:
+        merged.sort(
+            key=lambda x: (x[0].is_recurring, -x[1], x[0].date, x[0].start_time),
+        )
+    else:
+        merged.sort(key=lambda x: (-x[1], x[0].date, x[0].start_time))
+
+
 def search_events_keyword_only(
     db: Session,
     date_context: dict[str, date] | None,
@@ -437,7 +451,15 @@ def search_events_keyword_only(
                 func.lower(Event.location_name).like(like_term),
             )
         )
-    return query.order_by(Event.date.asc(), Event.start_time.asc()).all()
+    if _time_scoped_date(date_context):
+        query = query.order_by(
+            Event.is_recurring.asc(),
+            Event.date.asc(),
+            Event.start_time.asc(),
+        )
+    else:
+        query = query.order_by(Event.date.asc(), Event.start_time.asc())
+    return query.all()
 
 
 def _query_tokens(text: str) -> list[str]:
@@ -546,6 +568,7 @@ def search_events(
             suppressed_low_relevance=False,
             slot_filter_exhausted=True,
             honest_no_match=False,
+            all_recurring=False,
         )
 
     pre_literal_candidates = list(candidates)
@@ -643,7 +666,8 @@ def search_events(
             merged.append((e, s))
             seen.add(e.id)
 
-    merged.sort(key=lambda x: (-x[1], x[0].date, x[0].start_time))
+    time_scoped = _time_scoped_date(date_context)
+    _apply_time_scoped_merged_sort(merged, time_scoped)
     out_events = [e for e, _ in merged]
 
     from app.core import search_log as _sl
@@ -678,11 +702,18 @@ def search_events(
         )
     )
 
+    all_recurring = (
+        time_scoped
+        and bool(out_events)
+        and all(getattr(e, "is_recurring", False) for e in out_events)
+    )
+
     return SearchOutcome(
         out_events,
         suppressed_low_relevance=suppressed,
         slot_filter_exhausted=False,
         honest_no_match=honest_no_match,
+        all_recurring=all_recurring,
     )
 
 

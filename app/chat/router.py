@@ -372,6 +372,7 @@ def _run_search_core(session: dict, db: Session, message: str, strategy: str) ->
             suppressed_low_relevance=True,
             slot_filter_exhausted=False,
             honest_no_match=False,
+            all_recurring=False,
         )
 
     if _wants_last_result_expansion(message):

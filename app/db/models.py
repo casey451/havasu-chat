@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime, time
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, JSON, String, Text, Time, UniqueConstraint, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, JSON, String, Text, Time, UniqueConstraint, false, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -97,6 +97,9 @@ class Event(Base):
     provider_id: Mapped[str | None] = mapped_column(
         String, ForeignKey("providers.id"), nullable=True
     )
+    is_recurring: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
     provider: Mapped["Provider | None"] = relationship(back_populates="events")
 
@@ -128,6 +131,7 @@ class Event(Base):
             verified=verified,
             created_by=payload.created_by,
             admin_review_by=payload.admin_review_by,
+            is_recurring=bool(getattr(payload, "is_recurring", False)),
         )
 
 

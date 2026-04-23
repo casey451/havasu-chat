@@ -29,6 +29,7 @@ class EventBase(BaseModel):
     contact_name: str | None = None
     contact_phone: str | None = None
     tags: list[str] = Field(default_factory=list)
+    is_recurring: bool = False
     embedding: list[float] | None = None
     status: str = "live"
     created_by: str = "user"
