@@ -236,6 +236,16 @@ During the voice transition, some Tier 3 responses may still carry old community
 
 The 8.8.2 voice re-run uses the baseline from 8.6 but with revised acceptance criteria. Responses that previously passed for using community-credit language now fail. Responses that previously failed for firsthand-voice phrasing may now pass. The battery stays the same; the scoring standard shifts.
 
+### Acceptance threshold for voice battery v1 (Phase 8.8.2b)
+
+Binary-strict gate applied to audit results from `scripts/run_voice_audit.py --execute --confirm` against current prompts:
+
+- **FAIL count must be 0** for 8.8.2b to pass. Every FAIL is either remediated via prompt tuning or waived with a written rationale recorded alongside the audit results artifact.
+- **MINOR count has no hard cap.** Each MINOR finding is reviewed individually. Systemic MINORs (same rule cited across multiple samples) get remediated; one-off MINORs may be accepted with a one-line note in the results commit.
+- **ERROR count must be 0.** ERROR indicates a runner or API bug, not a voice finding, and blocks closure regardless of FAIL/MINOR state.
+
+This threshold applies to v1 (curated 25-provider catalog). Phase 8.12 (voice regression v2 against expanded catalog) will revise these criteria per §4 of the pre-launch scope revision doc.
+
 ### 9.6 Phase 8.9 (newly added, pre-launch)
 
 Event ranking: classify events as one-time vs. recurring, prefer one-time in time-scoped queries, fall back to evergreen recommendations when no one-time events exist. This is out of scope for the persona brief but was raised during 8.8.0 and added to `docs/pre-launch-checklist.md` as an additional pre-launch blocker. Voice example for the fallback case is captured in §6.1 of this brief.

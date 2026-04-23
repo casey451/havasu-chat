@@ -1131,9 +1131,11 @@ Context builder reads session state and injects into LLM context. Scope: within-
 
 **8.8.1a — Handoff documentation** — **Closed** (`3d4680b`). `HAVA_CONCIERGE_HANDOFF.md` rename, "Havasu Chat" → "Hava" prose, §2.1 / §8.3 rewrites, brief in tree. Follow-up doc-only commits may adjust §1d hashes (e.g. `adfa04c`) and completion report (`eb7b76f`) — see git log; substantive scope remains `3d4680b`.
 
-**8.8.1b — Code implementation (system prompt, templates, known-issues cross-ref)** — **In flight / pending.** Per `docs/persona-brief.md` §10.2. Propagates firsthand-voice and persona rules into prompts and correction templates. Out of scope: Phase 8.9 retrieval work.
+**8.8.1b — Code implementation (system prompt, templates, known-issues cross-ref)** — **Closed** (`2db768e`). Per `docs/persona-brief.md` §10.2: firsthand-voice prompts, Tier 1/2/3 surfaces, unified_router small-talk/correction, carryover reference fixes. Out of scope was Phase 8.9 retrieval work.
 
-**8.8.2 — Voice regression verification** — **Pending.** Re-run voice battery with updated acceptance (persona-brief §9.5) after 8.8.1b lands; zero disallowed community-credit phrasing per known-issues resolution criteria.
+**8.8.2a — Pytest alignment** — **Closed** (`404826e`). Test expectations updated for 8.8.1b voice strings (correction, small talk, trailing-`?` guard).
+
+**8.8.2b — Voice battery v1 (design + execute)** — **In flight.** Design (persona-brief §9.5 acceptance threshold + `prompts/voice_audit.txt` alignment) is committed in the same change set as this handoff line; `scripts/run_voice_audit.py --execute --confirm` and results artifact still pending. Zero disallowed community-credit phrasing per known-issues resolution criteria remains the content bar.
 
 **Exit criterion (8.8 track):** Handoff and brief authoritative; code matches brief after 8.8.1b+8.8.2; owner sign-off on voice.
 
