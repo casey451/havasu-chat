@@ -21,7 +21,13 @@ from app.schemas.contribution import ContributionCreate
 SITEMAP_INDEX_URL = "https://riverscenemagazine.com/wp-sitemap.xml"
 EVENTS_SITEMAP_PREFIX = "wp-sitemap-posts-events-"
 USER_AGENT = "Hava/0.1 (+https://github.com/casey451/havasu-chat)"
-REQUEST_TIMEOUT = 10.0
+
+# Sitemaps are small XML; event pages can be slow (WordPress + assets).
+SITEMAP_HTTP_TIMEOUT = httpx.Timeout(45.0, connect=20.0)
+EVENT_PAGE_HTTP_TIMEOUT = httpx.Timeout(120.0, connect=25.0)
+
+# Default ``httpx.Client`` ceiling for :func:`run_pull` (matches event pages).
+REQUEST_TIMEOUT = EVENT_PAGE_HTTP_TIMEOUT
 
 
 @dataclass
@@ -50,26 +56,38 @@ def _sleep_polite() -> None:
     time.sleep(1.0)
 
 
-def _http_get_text(url: str, client: httpx.Client) -> str:
-    """GET ``url`` as text. One retry on timeout or 5xx; then a polite pause."""
+def _http_get_text(
+    url: str,
+    client: httpx.Client,
+    *,
+    timeout: httpx.Timeout | float,
+) -> str:
+    """
+    GET ``url`` as text.
+
+    Retries on connect/read timeout (up to 3 attempts) and once more on 5xx;
+    then a polite pause after a successful response.
+    """
 
     def once() -> httpx.Response:
-        return client.get(url)
+        return client.get(url, timeout=timeout)
 
-    try:
-        r = once()
-        r.raise_for_status()
-    except (httpx.TimeoutException, httpx.ReadTimeout, httpx.ConnectTimeout):
-        time.sleep(0.5)
-        r = once()
-        r.raise_for_status()
-    except httpx.HTTPStatusError as e:
-        if e.response is not None and e.response.status_code >= 500:
-            time.sleep(0.5)
+    r: httpx.Response | None = None
+    for attempt in range(3):
+        try:
             r = once()
             r.raise_for_status()
-        else:
+            break
+        except (httpx.TimeoutException, httpx.ReadTimeout, httpx.ConnectTimeout):
+            if attempt >= 2:
+                raise
+            time.sleep(0.5 + 0.5 * attempt)
+        except httpx.HTTPStatusError as e:
+            if e.response is not None and e.response.status_code >= 500 and attempt < 2:
+                time.sleep(0.5)
+                continue
             raise
+    assert r is not None
     text = r.text
     _sleep_polite()
     return text
@@ -212,13 +230,13 @@ def fetch_sitemap_urls(*, client: httpx.Client | None = None) -> list[str]:
     """
     if client is None:
         with httpx.Client(
-            timeout=REQUEST_TIMEOUT,
+            timeout=SITEMAP_HTTP_TIMEOUT,
             headers=_headers(),
             follow_redirects=True,
         ) as c:
             return fetch_sitemap_urls(client=c)
 
-    xml_index = _http_get_text(SITEMAP_INDEX_URL, client)
+    xml_index = _http_get_text(SITEMAP_INDEX_URL, client, timeout=SITEMAP_HTTP_TIMEOUT)
     root = ET.fromstring(xml_index)
     ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
     sub_locs: list[str] = []
@@ -233,7 +251,7 @@ def fetch_sitemap_urls(*, client: httpx.Client | None = None) -> list[str]:
         if sub in seen_sub:
             continue
         seen_sub.add(sub)
-        xml_page = _http_get_text(sub, client)
+        xml_page = _http_get_text(sub, client, timeout=SITEMAP_HTTP_TIMEOUT)
         subroot = ET.fromstring(xml_page)
         for url_el in subroot.findall("sm:url", ns):
             loc = url_el.find("sm:loc", ns)
@@ -251,14 +269,14 @@ def fetch_and_parse_event(
     """Fetch one event page and parse it. Returns ``None`` if unparseable or start date is in the past."""
     if client is None:
         with httpx.Client(
-            timeout=REQUEST_TIMEOUT,
+            timeout=EVENT_PAGE_HTTP_TIMEOUT,
             headers=_headers(),
             follow_redirects=True,
         ) as c:
             return fetch_and_parse_event(url, client=c, today=today)
 
     as_of = today if today is not None else date.today()
-    html = _http_get_text(url, client)
+    html = _http_get_text(url, client, timeout=EVENT_PAGE_HTTP_TIMEOUT)
     soup = BeautifulSoup(html, "html.parser")
     table = _find_event_details_table(soup)
     if table is None:
