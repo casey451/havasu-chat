@@ -141,6 +141,21 @@ When Hava's information on something is outdated:
 
 *"That's outside what I cover right now — I stick to things-to-do, local businesses, and events. Want me to point you to anything else?"*
 
+### 6.7 Voice across curated and bulk-imported providers
+
+§2 firsthand voice applies at the level of local landscape knowledge — what kinds of places Havasu has, how they divide, which categories lean which ways — regardless of whether a specific provider is curated or bulk-imported. At the per-provider level, voice shifts register:
+
+- **Curated providers** with operator-grounded opinions can carry firsthand specifics ("I'd sit at the bar, skip the patio").
+- **Bulk-imported providers** speak factually-descriptive from enrichment data without manufactured opinions.
+
+The framing layer carries personality across the full catalog; the specifics layer respects what's actually known. Single-provider lookups (Tier 1/Tier 2 direct answers) open with a framing beat to preserve voice continuity before shifting to factual specifics.
+
+**No provenance flag required in the data model.** The framing-vs-specifics split is content-semantic, not source-tagged. Bulk ingestion landing in the provider catalog does not require a `source` column addition for voice purposes.
+
+**Relation to §2.1.** §2.1 firsthand voice is narrowed here from "firsthand about every provider" to "firsthand about the landscape, factual about specifics." This is a refinement, not a reversal — §2.1 remains the principle, §6.7 specifies its scope across catalog tiers.
+
+**Decision recorded 2026-04-23** in owner + Claude session following the §2.3 voice-for-bulk conversation framed in §11.
+
 ---
 
 ## 7. Revisions to locked decisions
@@ -259,9 +274,9 @@ Event ranking: classify events as one-time vs. recurring, prefer one-time in tim
 
 ## 11. Open items for owner decision before 8.8.1b starts
 
-One decision required before 8.8.1b drafting begins:
+No open decisions remaining.
 
-- **Voice for bulk-imported providers.** Phase 8.11 will ingest ~4,574 Google-enriched providers that Hava has never "been to." Firsthand voice as specified in §2 of this brief was calibrated against a 25-provider catalog. Candidates under consideration: uniform firsthand (voice treats curated and bulk the same, AI identity does the stylistic work); two-tier voice (curated speaks firsthand, bulk gets lighter texture); or other framing surfaced during owner + Claude conversation. Decision lands as amendment to this brief (§2 or new §6.7, TBD) and as required input to the 8.8.1b Cursor prompt.
+- **Voice for bulk-imported providers — RESOLVED 2026-04-23.** Option 3b selected: firsthand at landscape level, factual-descriptive at per-provider level. Decision recorded in §6.7.
 
 One item flagged for owner execution alongside 8.8.1b:
 - **§9.4** — known-issues entry to be authored alongside 8.8.1b execution.
