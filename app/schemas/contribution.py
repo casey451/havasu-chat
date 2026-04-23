@@ -8,7 +8,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl, field_validator, model_validator
 
 EntityType = Literal["provider", "program", "event", "tip"]
-ContributionSource = Literal["user_submission", "llm_inferred", "operator_backfill"]
+ContributionSource = Literal["user_submission", "llm_inferred", "operator_backfill", "river_scene_import"]
 ContributionStatus = Literal["pending", "approved", "rejected", "needs_info"]
 RejectionReason = Literal["duplicate", "out_of_area", "spam", "incomplete", "unverifiable", "other"]
 

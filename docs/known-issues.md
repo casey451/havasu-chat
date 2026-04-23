@@ -43,6 +43,15 @@ before       = 2026-04-23 16:09:51
 
 **Priority:** Low. Does not affect production code path. Flaky under full-suite only. **Workaround:** isolated re-run of the failing test or file.
 
+### Phase 8.10 — River Scene pull is a manual operation
+
+**Status:** Open
+**Filed:** Phase 8.10 (2026-04-23)
+
+**Summary:** `scripts/river_scene_pull.py` must be run manually (e.g. weekly) to refresh pending events from RiverScene Magazine via the WordPress sitemap plus per-event HTML parsing into the contribution review queue. No scheduled job (Railway cron or in-app scheduler) is configured. Revisit post-launch once update cadence and operator review burden are known.
+
+**Priority:** Low. Pre-launch catalog freshness is manageable manually.
+
 ### 2026-04-21 — Tier 3 date hedging on open-ended temporal queries (Phase 6.1 voice audit)
 
 **Query:** "What's happening this weekend?" (sample `t3-01` in `scripts/voice_audit_results_2026-04-21-phase614-verify.json`)

@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from app.contrib.hours_helper import places_hours_to_structured
+from app.core.event_recurrence import event_text_blob, is_recurring_heuristic
 from app.db.models import Contribution, Event, Program, Provider
 from app.schemas.contribution import EventApprovalFields, ProgramApprovalFields, ProviderApprovalFields
 from app.schemas.event import EventCreate
@@ -181,6 +182,13 @@ def approve_contribution_as_event(
     c = _load_pending_contribution(db, contribution_id, "event")
     verified = enrichment_suggests_verified(c)
     created_by = "user" if c.source == "user_submission" else "admin"
+    blob = event_text_blob(
+        edited_fields.title.strip(),
+        edited_fields.description.strip(),
+        list(tags or []),
+    )
+    is_rec = is_recurring_heuristic(blob)
+    event_source: str | None = "river_scene_import" if c.source == "river_scene_import" else None
     ec = EventCreate(
         title=edited_fields.title.strip(),
         date=edited_fields.date,
@@ -192,6 +200,8 @@ def approve_contribution_as_event(
         contact_name=None,
         contact_phone=None,
         tags=list(tags or []),
+        is_recurring=is_rec,
+        source=event_source,
         status="live",
         created_by=created_by,
     )
