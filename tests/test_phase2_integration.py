@@ -33,7 +33,11 @@ OUT_OF_SCOPE_87 = (
 )
 
 # §3.9: no trailing ``?`` except known question-shaped copy (OOS §8.7; SMALL_TALK "how are you").
-_SUBINTENT_TRAILING_QUESTION_OK: frozenset[str] = frozenset({"OUT_OF_SCOPE"})
+# Trailing "?" is allowed for handoff §8.7 out-of-scope; persona §3.9 + §5.2
+# correction carve-out; not for general SMALL_TALK (§5.1 is declarative).
+_SUBINTENT_TRAILING_QUESTION_OK: frozenset[str] = frozenset(
+    {"OUT_OF_SCOPE", "CORRECTION"}
+)
 
 
 def _latest_log_for_session(db: Session, session_id: str) -> ChatLog | None:
@@ -263,7 +267,11 @@ def test_oos_end_to_end_verbatim_redirect(query: str, label: str) -> None:
 
 
 def test_voice_trailing_question_guard() -> None:
-    """§3.9 smoke: no ``?`` at end unless OOS §8.7 or SMALL_TALK ``how are you``."""
+    """§3.9 / §5.1 / §5.2 / §8.7 — no trailing ``?`` except whitelisted sub_intents.
+
+    Out-of-scope (§8.7) and correction (§3.9 + §5.2) may end with ``?``; other modes
+    should not. §5.1 small talk is declarative (no trailing ``?`` for ``how are you``).
+    """
     cases: list[tuple[str, str, str]] = [
         ("What time does altitude open?", "p2-v-1", "ask"),
         ("Where is the BMX track?", "p2-v-2", "ask"),
@@ -293,12 +301,11 @@ def test_voice_trailing_question_guard() -> None:
             body = r.json()
             resp = body["response"]
             sub = body["sub_intent"]
-            nq = normalize(query)
             if not resp.rstrip().endswith("?"):
                 continue
-            assert sub in _SUBINTENT_TRAILING_QUESTION_OK or (
-                sub == "SMALL_TALK" and "how are you" in nq
-            ), f"unexpected trailing '?': query={query!r} sub={sub!r} resp={resp!r}"
+            assert sub in _SUBINTENT_TRAILING_QUESTION_OK, (
+                f"unexpected trailing '?': query={query!r} sub={sub!r} resp={resp!r}"
+            )
 
 
 def test_placeholder_tier_for_non_chat_modes() -> None:

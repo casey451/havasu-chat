@@ -119,11 +119,12 @@ def test_contribute_placeholder_contains_sub_intent(db: Session) -> None:
     assert "NEW_EVENT" in r.response
 
 
-def test_correct_placeholder(db: Session) -> None:
+def test_correct_acknowledgment(db: Session) -> None:
+    """Persona brief §5.2 — correction flow invitation until full pipeline ships."""
     r = route("That is wrong — the phone changed.", "sess-cr", db)
     assert r.mode == "correct"
     assert r.sub_intent == "CORRECTION"
-    assert "Correct mode:" in r.response
+    assert r.response == "Huh, didn't know — want to update it?"
 
 
 def test_chat_greeting_one_of_variants(db: Session) -> None:
@@ -161,8 +162,12 @@ def test_chat_small_talk_thanks(db: Session) -> None:
 
 
 def test_chat_small_talk_how_are_you(db: Session) -> None:
+    """Persona brief §5.1 — one-beat acknowledgment, no follow-up question."""
     r = route("How are you?", "sess-ha", db)
-    assert r.response == "doing alright. what can I find for you?"
+    assert r.mode == "chat"
+    assert r.sub_intent == "SMALL_TALK"
+    assert r.response == "Pretty good, thanks."
+    assert not r.response.rstrip().endswith("?")
 
 
 def test_classify_raises_still_logs_and_graceful(db: Session) -> None:
