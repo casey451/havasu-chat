@@ -1143,7 +1143,7 @@ Context builder reads session state and injects into LLM context. Scope: within-
 
 **Scope (from `docs/persona-brief.md` §9.6):** Classify events as one-time vs recurring; prefer one-time in time-scoped queries; when no one-time events apply, use evergreen / recommendation fallback per brief voice examples. **Not** in scope for 8.8.1b. Touches retrieval / ranking; coordinate with any dedicated ranking work in `app/core/search.py` / event-quality modules.
 
-**Checklist status:** `docs/persona-brief.md` §9.6 references a pre-launch checklist line item; **as of 2026-04-22** the open-block of `docs/pre-launch-checklist.md` does not yet list 8.9 — treat persona brief as the scope spec until the checklist is amended.
+**Checklist status:** `docs/persona-brief.md` §9.6 references a pre-launch checklist line item; `docs/pre-launch-checklist.md` now includes Phase 8.9 event ranking in the open checklist items.
 
 **Exit criterion:** Time-scoped queries return sensible ordering; no silent suppression of one-time events when data exists; documented in handoff or brief.
 
