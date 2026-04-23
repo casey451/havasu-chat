@@ -1,5 +1,7 @@
 # Orientation — new Claude session for Hava pre-launch work
 
+> **New Cursor session?** Read `docs/CURSOR_ORIENTATION.md` instead. It's shorter and tailored to Cursor's role. This file is for new Claude chat sessions.
+
 ## Project
 
 - **Repo:** https://github.com/casey451/havasu-chat (local at
