@@ -1,6 +1,6 @@
 # Pre-launch scope revision — 2026-04-22
 
-**Status:** PROVISIONAL. Decisions captured end-of-session 2026-04-22. Revisit and confirm in next session before treating as locked. If confirmed as-is, this document becomes the authoritative record of the re-sequencing. If revised, the next-session version supersedes.
+**Status:** LOCKED 2026-04-23. Decisions confirmed by owner at start of 2026-04-23 session. No revisions from provisional state. This document is the authoritative record of the pre-launch re-sequencing.
 
 **Author:** Owner (Casey), drafted with Claude 2026-04-22 session.
 

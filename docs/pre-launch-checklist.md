@@ -54,6 +54,24 @@ from soft-launch to public launch.
       the two pages are a common launch-day issue. (Added Phase
       8.5)
 
+- [ ] **Phase 8.9 event ranking complete** (recurring vs. one-time classification, retrieval preference, evergreen fallback)
+
+- [ ] **River Scene event pull operational,** events ingested, operator-reviewed
+
+- [ ] **`havasu-enrichment` Day 1 setup complete** (Google Cloud project, Anthropic key, enrichment repo, venv, Drive folder, budget alerts configured)
+
+- [ ] **Batch 1 executed** (25-provider validation set), quality report reviewed
+
+- [ ] **Batches 2–N executed** (remaining ~4,549 providers)
+
+- [ ] **Operator review queue drained** to acceptable threshold (threshold defined during 8.11.3 scoping)
+
+- [ ] **All ~4,574 providers ingested** into chat app Postgres catalog
+
+- [ ] **Voice regression v2 passes** against expanded catalog with revised acceptance criteria
+
+- [ ] **Tier 3 retrieval verified** against new narrative surface area
+
 ## Completed
 
 (items move here when resolved, with resolution note)

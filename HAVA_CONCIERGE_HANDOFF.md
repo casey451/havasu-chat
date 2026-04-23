@@ -1149,6 +1149,68 @@ Context builder reads session state and injects into LLM context. Scope: within-
 
 ---
 
+### Phase 8.10 — River Scene Event Pull (pre-launch, ~1 week, 10–15 hours)
+
+**Goal:** Ingest events from River Scene local event calendar into the events catalog. Single source, structured ingestion, operator review pass, dedup against existing seed events.
+
+**Sub-phases:**
+
+**8.10.1 Scraper + parser.** Fetch logic for River Scene event pages, parse into structured event records (title, date, time, location, description, source URL). Respect robots.txt and reasonable rate limits.
+
+**8.10.2 Dedup against seed.** Compare ingested events against existing 43 seeded events. Fuzzy match on title + date. Flag duplicates for operator review rather than auto-dropping.
+
+**8.10.3 Operator review queue.** Ingested events land in existing `/admin/contributions` review queue with `source='river_scene_import'`. Operator approves, rejects, or edits before events go live.
+
+**Exit criterion:** River Scene events visible in `/admin/contributions`, approved events queryable via chat, no test regressions, no voice battery regressions.
+
+### Phase 8.11 — Google Bulk Import (pre-launch, ~3–6 weeks, 40–80 hours)
+
+**Goal:** Enrich all ~4,574 Lake Havasu businesses via the `havasu-enrichment` pipeline and ingest into the chat app's provider catalog. Full scope commitment per scope revision doc — no stage gate.
+
+**Sub-phases:**
+
+**8.11.0 Day 1 setup (owner tasks).** Google Cloud project creation + Places API enablement + billing + budget alerts; Anthropic key; `havasu-enrichment` repo initialization; venv + dependencies; Google Drive folder for layered output; API key smoke tests. Reference: enrichment framework v3.
+
+**8.11.1 Batch 1 execution.** Run enrichment pipeline on 25-provider validation set. Review batch quality report (match confidence distribution, category mapping sanity, narrative sample review). If framework bugs surface, fix in enrichment repo before proceeding.
+
+**8.11.2 Batches 2–N execution.** Run enrichment pipeline on remaining ~4,549 providers in batches per framework checkpoint strategy. Monitor quality reports between batches; address anomalies before proceeding.
+
+**8.11.3 Operator review drain.** Providers with match confidence below auto-admit threshold queue for operator review. Review cadence TBD during this sub-phase scoping. Define "drained enough to launch" threshold.
+
+**8.11.4 Ingestion into chat app Postgres.** Enrichment pipeline writes to chat app's production Postgres. Schema additions (if any) go through standard Alembic migration path. Coordinate with any Tier 2/Tier 3 retrieval logic that may need awareness of bulk-import source.
+
+**Exit criterion:** All ~4,574 providers in Postgres with enrichment data, operator review queue drained to defined threshold, no test regressions, preliminary Tier 3 queries against expanded catalog returning reasonable results.
+
+### Phase 8.12 — Voice Regression v2 (pre-launch, ~1 week, 10–20 hours)
+
+**Goal:** Re-run voice regression battery against expanded catalog (curated + bulk). Revised acceptance criteria account for bulk-imported narrative surface area. Verifies that Hava's firsthand voice (per §2.1 and persona brief) holds across the full catalog.
+
+**Sub-phases:**
+
+**8.12.1 Acceptance criteria update.** Based on §2.3 voice-for-bulk decision (made during 8.8.1b input phase), define updated pass/fail criteria for voice battery.
+
+**8.12.2 Battery re-run.** Execute existing voice battery + any new prompts added to cover bulk-imported content scenarios.
+
+**8.12.3 Remediation.** Any failures addressed via system prompt tuning or template revision. No catalog-data changes (those are Phase 8.11 scope).
+
+**Exit criterion:** Voice battery passes at acceptable threshold against full catalog. Remediation plan in place for any deferred failures.
+
+### Phase 8.13 — Tier 3 Retrieval Tuning (pre-launch, ~1–2 weeks, 15–30 hours)
+
+**Goal:** Tune Tier 3 retrieval and synthesis for the expanded catalog. Current Tier 3 was calibrated against 25 providers; 4,574 providers changes retrieval recall/precision tradeoffs.
+
+**Sub-phases:**
+
+**8.13.1 Retrieval audit.** Run a battery of representative queries against the expanded catalog. Identify where retrieval pulls irrelevant providers, where it misses relevant ones.
+
+**8.13.2 Tuning.** Adjust retrieval parameters (similarity thresholds, top-k, filter logic) based on audit findings. Coordinate with any embedding/narrative work from enrichment pipeline.
+
+**8.13.3 Synthesis verification.** Verify Tier 3 synthesis quality hasn't degraded with expanded context. Re-run representative queries from 8.13.1.
+
+**Exit criterion:** Tier 3 quality on representative queries matches or exceeds pre-expansion baseline. No new failure modes introduced by scale.
+
+---
+
 ## 6. File Structure (target end state)
 
 ```

@@ -257,9 +257,11 @@ Event ranking: classify events as one-time vs. recurring, prefer one-time in tim
 
 ---
 
-## 11. Open items for owner decision before 8.8.1a starts
+## 11. Open items for owner decision before 8.8.1b starts
 
-None. All design decisions for 8.8.0 are locked in this brief.
+One decision required before 8.8.1b drafting begins:
+
+- **Voice for bulk-imported providers.** Phase 8.11 will ingest ~4,574 Google-enriched providers that Hava has never "been to." Firsthand voice as specified in §2 of this brief was calibrated against a 25-provider catalog. Candidates under consideration: uniform firsthand (voice treats curated and bulk the same, AI identity does the stylistic work); two-tier voice (curated speaks firsthand, bulk gets lighter texture); or other framing surfaced during owner + Claude conversation. Decision lands as amendment to this brief (§2 or new §6.7, TBD) and as required input to the 8.8.1b Cursor prompt.
 
 One item flagged for owner execution alongside 8.8.1b:
 - **§9.4** — known-issues entry to be authored alongside 8.8.1b execution.
