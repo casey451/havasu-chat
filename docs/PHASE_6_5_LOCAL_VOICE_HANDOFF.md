@@ -10,7 +10,7 @@
 
 ## 1. What Phase 6.5 originally was
 
-Per `HAVASU_CHAT_CONCIERGE_HANDOFF.md` §5 Phase 6.5 and §2.7:
+Per `HAVA_CONCIERGE_HANDOFF.md` §5 Phase 6.5 and §2.7:
 
 > "OWNER TASK. Owner writes 20–30 pieces of editorial knowledge (favorite sunset spot, which market is better, when the BMX race is actually worth it, etc.). Content structure: each piece is a tagged blurb with keywords for retrieval. Stored in `app/data/local_voice.py` as a list of dicts with `keywords`, `text`, `category`. Context builder matches on keywords and injects relevant blurbs into Tier 3 context."
 
@@ -195,7 +195,7 @@ If you're Claude in a future chat session reading this doc:
 
 ## 10. Handoff doc update
 
-The main `HAVASU_CHAT_CONCIERGE_HANDOFF.md` §5 Phase 6.5 section should be updated to reference this doc. Suggested text to append to the §5 Phase 6.5 block:
+The main `HAVA_CONCIERGE_HANDOFF.md` §5 Phase 6.5 section should be updated to reference this doc. Suggested text to append to the §5 Phase 6.5 block:
 
 > **Note (2026-04-22):** Phase 6.5 sequencing changed post-6.4.1. The 20-30 blurb upfront approach was deferred in favor of a correct-and-grow workflow. See `docs/PHASE_6_5_LOCAL_VOICE_HANDOFF.md` for the current plan, data structure, and plumbing options.
 

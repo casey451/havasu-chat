@@ -4,7 +4,7 @@
 
 Phase 3-close delivered two items in **one commit**, pushed to **`main`**:
 
-1. **§1a addendum** in `HAVASU_CHAT_CONCIERGE_HANDOFF.md` — new subsection *LLM-inferred facts as a contribution source* immediately after *What this does NOT change* and before the `---` that precedes §2.
+1. **§1a addendum** in `HAVA_CONCIERGE_HANDOFF.md` — new subsection *LLM-inferred facts as a contribution source* immediately after *What this does NOT change* and before the `---` that precedes §2.
 2. **Read-only cost analytics script** — `scripts/analyze_chat_costs.py` (stdout only, no DB writes, no query text).
 
 ---
@@ -15,7 +15,7 @@ Phase 3-close delivered two items in **one commit**, pushed to **`main`**:
 - **Message (exact):** `Phase 3-close: §1a addendum (LLM-inferred facts) + cost analytics script`
 - **Remote:** pushed to `origin/main`
 - **Files changed in commit only:**
-  - `HAVASU_CHAT_CONCIERGE_HANDOFF.md`
+  - `HAVA_CONCIERGE_HANDOFF.md`
   - `scripts/analyze_chat_costs.py`
 
 ---

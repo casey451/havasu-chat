@@ -44,7 +44,7 @@ Delta: **+7** tests (`tests/test_api_chat_onboarding.py`, plus `compact_onboardi
 
 - **Command:** `.\.venv\Scripts\python.exe scripts/run_voice_spotcheck.py`
 - **Result:** Smoke test **OK**; battery **20/20** HTTP successes; report written to `scripts/output/voice_spotcheck_2026-04-21T19-41.md` (output under `scripts/output/` is typically gitignored).
-- **Target:** **19 / 1 / 0** or better (PASS / MINOR / FAIL over the 20-query battery per `HAVASU_CHAT_CONCIERGE_HANDOFF.md`).
+- **Target:** **19 / 1 / 0** or better (PASS / MINOR / FAIL over the 20-query battery per `HAVA_CONCIERGE_HANDOFF.md`).
 
 **Manual score (same rubric as prior closes):** **19 / 1 / 0**
 

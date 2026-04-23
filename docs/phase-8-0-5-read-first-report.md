@@ -143,7 +143,7 @@ Already covered in §1:
 
 ## 4. `response_text` vs `message` — grep / handoff / code
 
-### 4.1 Handoff `HAVASU_CHAT_CONCIERGE_HANDOFF.md`
+### 4.1 Handoff `HAVA_CONCIERGE_HANDOFF.md`
 
 - **§3.10 Analytics schema** lists: `timestamp`, `user_hash`, **`response_text`**, etc. (`lines ~503–519` in current file).
 - **`response_text`:** Appears in **§3.10** as the logged body column name.

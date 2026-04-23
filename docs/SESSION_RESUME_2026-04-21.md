@@ -1,6 +1,6 @@
 # Havasu Chat — Session Resume (2026-04-21)
 
-**Purpose:** Start-of-new-chat handoff. Read this file first, then HAVASU_CHAT_CONCIERGE_HANDOFF.md for full architectural spec.
+**Purpose:** Start-of-new-chat handoff. Read this file first, then HAVA_CONCIERGE_HANDOFF.md for full architectural spec.
 
 ## 0. Role split
 
@@ -76,7 +76,7 @@ See `docs/known-issues.md` for current live issues. Tier 3 thumbs render bug was
 
 ## 7. Where to find authoritative specs
 
-- **HAVASU_CHAT_CONCIERGE_HANDOFF.md** (repo root) — full architectural spec, voice decisions, phase scopes, risks. Source of truth for anything this resume doc doesn't cover.
+- **HAVA_CONCIERGE_HANDOFF.md** (repo root) — full architectural spec, voice decisions, phase scopes, risks. Source of truth for anything this resume doc doesn't cover.
 - **docs/known-issues.md** — live bug tracker.
 - **docs/phase-*-report.md** — per-sub-phase delivery reports.
 

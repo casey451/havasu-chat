@@ -17,7 +17,7 @@
 **Docs / filenames**
 
 - No `docs/tos.md`, `docs/terms.md`, or `docs/legal.md` in the repo.
-- `HAVASU_CHAT_CONCIERGE_HANDOFF.md` references future **Terms of service** and **takedown policy** as owner/legal tasks (not drafted in-repo).
+- `HAVA_CONCIERGE_HANDOFF.md` references future **Terms of service** and **takedown policy** as owner/legal tasks (not drafted in-repo).
 
 **Grep-style survey**
 

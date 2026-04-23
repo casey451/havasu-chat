@@ -10,7 +10,7 @@ Saved from the implementation chat.
 
 ---
 
-## `HAVASU_CHAT_CONCIERGE_HANDOFF.md` §5 Phase 6.5
+## `HAVA_CONCIERGE_HANDOFF.md` §5 Phase 6.5
 
 - **Note appended** at the end of the Phase 6.5 paragraph block (before **Exit criterion:**), using owner wording with **`20-30`** (ASCII hyphen) and **correct-and-grow**.
 
@@ -19,7 +19,7 @@ Saved from the implementation chat.
 ## Git
 
 - **Commit:** `a9dca4d` — `docs: Phase 6.5 deferral plan and correct-and-grow workflow`
-- **Files:** `docs/PHASE_6_5_LOCAL_VOICE_HANDOFF.md` (new), `HAVASU_CHAT_CONCIERGE_HANDOFF.md` (updated)
+- **Files:** `docs/PHASE_6_5_LOCAL_VOICE_HANDOFF.md` (new), `HAVA_CONCIERGE_HANDOFF.md` (updated)
 - **Pushed:** `main` → `origin/main` (`3b6315e..a9dca4d`)
 
 **Done.** If you later replace `PHASE_6_5_LOCAL_VOICE_HANDOFF.md` with a revised owner paste, ship that as a follow-up commit.

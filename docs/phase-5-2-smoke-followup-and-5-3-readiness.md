@@ -63,7 +63,7 @@ railway run .\.venv\Scripts\python.exe scripts/smoke_phase52_contributions.py
 
 1. **Phase 5.1** — Committed and migration applied to production (**confirmed**).
 2. **Phase 5.2** — Committed and deployed (**confirmed** via smoke).
-3. **Handoff doc amendments** — Referenced source: `PHASE_4_CLOSE_AND_HANDOFF_AMENDMENTS.md` (or equivalent consolidation). **Not verified in this repo** (that filename is not present in-tree; related updates may already live in `HAVASU_CHAT_CONCIERGE_HANDOFF.md` from the Phase 4 close commit). **Hygiene / owner call** — do or defer a consolidation pass; not a hard blocker for starting 5.3 design.
+3. **Handoff doc amendments** — Referenced source: `PHASE_4_CLOSE_AND_HANDOFF_AMENDMENTS.md` (or equivalent consolidation). **Not verified in this repo** (that filename is not present in-tree; related updates may already live in `HAVA_CONCIERGE_HANDOFF.md` from the Phase 4 close commit). **Hygiene / owner call** — do or defer a consolidation pass; not a hard blocker for starting 5.3 design.
 4. **`GOOGLE_PLACES_API_KEY` in Railway** — **Confirmed** by working enrichment.
 
 ---

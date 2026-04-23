@@ -1,8 +1,8 @@
 # Handoff doc consolidation — Phase 4 + Phase 5 close (2026-04-20)
 
-**Purpose:** Record what was applied to `HAVASU_CHAT_CONCIERGE_HANDOFF.md` and the resulting commit, for audit trail and future phases.
+**Purpose:** Record what was applied to `HAVA_CONCIERGE_HANDOFF.md` and the resulting commit, for audit trail and future phases.
 
-**Target file:** `HAVASU_CHAT_CONCIERGE_HANDOFF.md`
+**Target file:** `HAVA_CONCIERGE_HANDOFF.md`
 
 **Commit:** `9707f7c` — `Handoff doc consolidation: Phase 4 + Phase 5 close state`
 
@@ -33,7 +33,7 @@
 
 ## Verification (post-merge)
 
-1. Read `HAVASU_CHAT_CONCIERGE_HANDOFF.md` end to end.
+1. Read `HAVA_CONCIERGE_HANDOFF.md` end to end.
 2. Phase status table covers **1 → 5.6**.
 3. Tech-debt log lists resolved (through 5.6) and remaining items.
 4. §1a, §1b, §1c (and §1d) read consistently with no contradictions.

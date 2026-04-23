@@ -13,7 +13,7 @@
 
 ## Rationale
 
-1. **Authoritative spec:** Audits must score against **`HAVASU_CHAT_CONCIERGE_HANDOFF.md` §8 (Voice Specification, locked)** — not master §7 alone. Master §7 predates locked §8 in places (e.g. 1–2 sentences vs 1–3; blanket “no follow-up questions” vs intake/correction in §8.8–§8.9).
+1. **Authoritative spec:** Audits must score against **`HAVA_CONCIERGE_HANDOFF.md` §8 (Voice Specification, locked)** — not master §7 alone. Master §7 predates locked §8 in places (e.g. 1–2 sentences vs 1–3; blanket “no follow-up questions” vs intake/correction in §8.8–§8.9).
 
 2. **Structured output for 6.1.2:** The new prompt requires **PASS / MINOR / FAIL**, **§8 subsection citations** for MINOR/FAIL, **empty `voice_rules_cited` for PASS**, **`suggested_rewrite` null if PASS**, and **JSON-only** responses for downstream aggregation — replacing master’s human-oriented PASS / NEEDS FIX / CUT layout.
 

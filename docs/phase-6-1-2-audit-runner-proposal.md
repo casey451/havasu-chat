@@ -2,7 +2,7 @@
 
 **Status:** Owner redlines applied (reference set = 6; `ref-8.5-low-b` removed). Implementation: `scripts/run_voice_audit.py` + delivery report `docs/phase-6-1-2-audit-runner-report.md` (6.1.2). Full paid audit execution remains 6.1.3 unless explicitly approved.
 
-**References:** `prompts/voice_audit.txt` (locked), `HAVASU_CHAT_CONCIERGE_HANDOFF.md` §8, `scripts/run_voice_spotcheck.py`, `app/chat/unified_router.py` (`route`), `app/chat/tier1_handler.py` + `tier1_templates.render`, `app/chat/tier3_handler.answer_with_tier3`.
+**References:** `prompts/voice_audit.txt` (locked), `HAVA_CONCIERGE_HANDOFF.md` §8, `scripts/run_voice_spotcheck.py`, `app/chat/unified_router.py` (`route`), `app/chat/tier1_handler.py` + `tier1_templates.render`, `app/chat/tier3_handler.answer_with_tier3`.
 
 ---
 

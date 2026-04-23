@@ -21,7 +21,7 @@
 
 ## 1) §3.11 error-path inventory in code
 
-Handoff **`HAVASU_CHAT_CONCIERGE_HANDOFF.md` §3.11** (lines ~527–533) lists five behaviors. Below: **implementation locus**, **actual behavior**, and **note vs verbatim §3.11 text**.
+Handoff **`HAVA_CONCIERGE_HANDOFF.md` §3.11** (lines ~527–533) lists five behaviors. Below: **implementation locus**, **actual behavior**, and **note vs verbatim §3.11 text**.
 
 ### 1.1 Tier 1 fails → fall through to Tier 2 silently
 

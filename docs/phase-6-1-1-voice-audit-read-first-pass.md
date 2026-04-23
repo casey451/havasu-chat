@@ -1,7 +1,7 @@
 # Phase 6.1.1 — Voice audit prompt file (read-first pass)
 
 **Date:** 2026-04-21  
-**Purpose:** Capture pre-flight checks, path decision, source excerpts, and proposed `prompts/voice_audit.txt` draft for owner review. Authoritative voice rules remain **`HAVASU_CHAT_CONCIERGE_HANDOFF.md` §8 (locked)**.
+**Purpose:** Capture pre-flight checks, path decision, source excerpts, and proposed `prompts/voice_audit.txt` draft for owner review. Authoritative voice rules remain **`HAVA_CONCIERGE_HANDOFF.md` §8 (locked)**.
 
 ---
 
@@ -38,7 +38,7 @@ No `prompts/voice_audit.txt` write, no delivery commit, until owner sends explic
 
 ## Handoff §8 (reference) — Voice Specification (locked)
 
-Source: `HAVASU_CHAT_CONCIERGE_HANDOFF.md` (lines ~1217–1290).
+Source: `HAVA_CONCIERGE_HANDOFF.md` (lines ~1217–1290).
 
 ## 8. Voice Specification (locked)
 
@@ -205,7 +205,7 @@ TEMPLATES TO AUDIT:
 
 ## Proposed `prompts/voice_audit.txt` (draft — pending owner `proceed`)
 
-Canonical rules: **`HAVASU_CHAT_CONCIERGE_HANDOFF.md` §8 (Voice Specification, locked)** — §8.1 Identity, §8.2 Hard rules, §8.3 Community-credit, §8.4 Recommendation (Option 2 default / Option 3 explicit rec), §8.5 Contested-state, §8.6 Not-in-catalog, §8.7 Out-of-scope, §8.8 Intake, §8.9 Correction. If a sample is labeled intake or correction, **§8.2’s “no follow-up questions” does not apply** the same way as generic ask-mode; apply **§8.8** or **§8.9** instead.
+Canonical rules: **`HAVA_CONCIERGE_HANDOFF.md` §8 (Voice Specification, locked)** — §8.1 Identity, §8.2 Hard rules, §8.3 Community-credit, §8.4 Recommendation (Option 2 default / Option 3 explicit rec), §8.5 Contested-state, §8.6 Not-in-catalog, §8.7 Out-of-scope, §8.8 Intake, §8.9 Correction. If a sample is labeled intake or correction, **§8.2’s “no follow-up questions” does not apply** the same way as generic ask-mode; apply **§8.8** or **§8.9** instead.
 
 You are auditing **Havasu Chat** assistant text for Lake Havasu City. You will receive **one JSON object per invocation** (built by the audit runner in 6.1.2) with at least: `sample_id`, `tier` (`"tier1"` | `"tier3"`), `intent_or_mode` (string), `user_query` (string), `assistant_text` (string). Optional: `tags` (e.g. `intake`, `correction`, `out_of_scope`, `not_in_catalog`, `contested_state`, `explicit_rec_query`).
 

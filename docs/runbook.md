@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-04-22 (Phase 8.4 runbook; Phase 8.2 performance subsection)
 
-This document is for the **operator** running Havasu Chat in production: daily checks, emergency triage, and enough context for a future hire to get oriented. It does not replace the architecture spec — use [`HAVASU_CHAT_CONCIERGE_HANDOFF.md`](../HAVASU_CHAT_CONCIERGE_HANDOFF.md) (repo root) for locked design and deep detail.
+This document is for the **operator** running Havasu Chat in production: daily checks, emergency triage, and enough context for a future hire to get oriented. It does not replace the architecture spec — use [`HAVA_CONCIERGE_HANDOFF.md`](../HAVA_CONCIERGE_HANDOFF.md) (repo root) for locked design and deep detail.
 
 **Local tooling (Windows):** the repo is developed with a project venv — `.\.venv\Scripts\python.exe` (plain `python` on Windows can hit the Store stub). The **test** command is `.\.venv\Scripts\python.exe -m pytest -q`. `curl.exe` with JSON bodies should use `--data-binary "@file.json"` in PowerShell (per project conventions).
 
@@ -160,7 +160,7 @@ All of these require an **admin session cookie** (use browser after `POST /admin
 - **Community growth:** contribute flow, enrichment (URL fetch + **Google Places** for providers), operator **approval** into `providers` / `programs` / `events`. Mention scanner (Tier 3) → **`llm_mentioned_entities`** review queue.
 - **Legacy `POST /chat` (Track A)** remains for older scripts; logs with **`tier_used = 'track_a'`** to separate from unified analytics. Live site uses `/api/chat` (see `app/static/index.html`).
 
-Full routing, voice, and locked decisions: [`HAVASU_CHAT_CONCIERGE_HANDOFF.md`](../HAVASU_CHAT_CONCIERGE_HANDOFF.md) **§1b–1d**.
+Full routing, voice, and locked decisions: [`HAVA_CONCIERGE_HANDOFF.md`](../HAVA_CONCIERGE_HANDOFF.md) **§1b–1d**.
 
 ### 3.2 Admin UI guide
 
@@ -658,7 +658,7 @@ WHERE created_at >= (now() AT TIME ZONE 'UTC') - interval '24 hours';
 
 ### 5.1 Companion docs
 
-- **[`HAVASU_CHAT_CONCIERGE_HANDOFF.md`](../HAVASU_CHAT_CONCIERGE_HANDOFF.md)** — **Architecture spec** (tiers, voice, locked decisions, data model). Reach for this when changing behavior, onboarding an engineer, or reconciling “why is it built this way?”
+- **[`HAVA_CONCIERGE_HANDOFF.md`](../HAVA_CONCIERGE_HANDOFF.md)** — **Architecture spec** (tiers, voice, locked decisions, data model). Reach for this when changing behavior, onboarding an engineer, or reconciling “why is it built this way?”
 - **[`docs/privacy.md`](privacy.md)** — **Data handling, retention, external scrubbing** — when touching logs, diagnostics, or user data questions
 - **[`docs/pre-launch-checklist.md`](pre-launch-checklist.md)** — **Launch-gate and pre-public tasks** (Sentry alert rules, inbox, retention review, etc.)
 

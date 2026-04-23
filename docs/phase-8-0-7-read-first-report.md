@@ -83,7 +83,7 @@ Each evaluated for fit in `known-issues.md` **purpose** (“one-line log for bug
 ```markdown
 ### Handoff documentation — §3.9 vs §8.7 trailing-question contradiction (deferred)
 
-**Issue:** `HAVASU_CHAT_CONCIERGE_HANDOFF.md` reads as if **§3.9 / §8.2** forbid trailing follow-up questions outside intake/correction, while **§8.7**’s normative out-of-scope example ends with *“Want me to point you to anything else?”* The codebase already treats **OUT_OF_SCOPE** as a **carve-out** (e.g. `OUT_OF_SCOPE_87` fixture and `test_voice_trailing_question_guard` in `tests/test_phase2_integration.py`).
+**Issue:** `HAVA_CONCIERGE_HANDOFF.md` reads as if **§3.9 / §8.2** forbid trailing follow-up questions outside intake/correction, while **§8.7**’s normative out-of-scope example ends with *“Want me to point you to anything else?”* The codebase already treats **OUT_OF_SCOPE** as a **carve-out** (e.g. `OUT_OF_SCOPE_87` fixture and `test_voice_trailing_question_guard` in `tests/test_phase2_integration.py`).
 
 **Status:** **Deferred** — reconcile handoff prose in a **dedicated handoff-doc pass** (post–Phase 8.0 track), not as part of the 8.0 bug-fix code line. See `docs/phase-8-0-4-read-first-report.md` / `docs/phase-8-0-4-read-first-handback-2026-04-22.md` for read-first context.
 
@@ -92,7 +92,7 @@ Each evaluated for fit in `known-issues.md` **purpose** (“one-line log for bug
 
 **A2 — Q17 “Boat rentals on the lake?” (voice battery MINOR → owner adjudication: not a bug)**
 
-- **Tracked today in known-issues?** **No.** It lives in **`HAVASU_CHAT_CONCIERGE_HANDOFF.md`** (e.g. §1d “Remaining MINOR: Q17…”, §5 tech-debt style bullets), not in `known-issues.md`.
+- **Tracked today in known-issues?** **No.** It lives in **`HAVA_CONCIERGE_HANDOFF.md`** (e.g. §1d “Remaining MINOR: Q17…”, §5 tech-debt style bullets), not in `known-issues.md`.
 - **Belongs in known-issues?** **Yes** — centralizes “voice battery MINOR closed by decision” so the tracker matches shipped intent.
 - **Section:** **Resolved** — suggest heading **“Resolved by adjudication (intentional behavior)”** as an `###` **inside** `## Resolved` (see §5 — **minor structure**, not a rewrite).
 
@@ -282,7 +282,7 @@ Everything else stays under **Open** or **Resolved**. Inside **`## Resolved`**, 
 
 ### 6.7 Out of scope (reaffirmed)
 
-- **No** `HAVASU_CHAT_CONCIERGE_HANDOFF.md` edits in 8.0.7-implement **unless** owner expands the fence (contradiction remains **tracked** in known-issues until a handoff pass).
+- **No** `HAVA_CONCIERGE_HANDOFF.md` edits in 8.0.7-implement **unless** owner expands the fence (contradiction remains **tracked** in known-issues until a handoff pass).
 - **No** code, tests, prompts, `scripts/`, `alembic/`.
 
 ---

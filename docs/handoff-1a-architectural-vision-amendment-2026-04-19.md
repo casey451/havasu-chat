@@ -2,7 +2,7 @@
 
 ## What changed
 
-- **File:** `HAVASU_CHAT_CONCIERGE_HANDOFF.md` (repo root), **only** this file.
+- **File:** `HAVA_CONCIERGE_HANDOFF.md` (repo root), **only** this file.
 - **Content:** New section **§1a. Architectural Vision — Community-Grown Knowledge Base** inserted **between §1 and §2**, verbatim per owner spec.
 - **Scope:** Documentation only — no code, no tests.
 
@@ -30,7 +30,7 @@
 
 | Check | Result |
 |--------|--------|
-| `git status` | Only `HAVASU_CHAT_CONCIERGE_HANDOFF.md` modified. |
+| `git status` | Only `HAVA_CONCIERGE_HANDOFF.md` modified. |
 | Diff | **42 insertions, 0 deletions** (pure insert block). |
 
 ---

@@ -19,7 +19,7 @@ Known issues tracker: one-line log for bugs deferred in favor of higher-priority
 
 ### Handoff documentation — §3.9 vs §8.7 trailing-question contradiction (deferred)
 
-**Issue:** `HAVASU_CHAT_CONCIERGE_HANDOFF.md` reads as if **§3.9 / §8.2** forbid trailing follow-up questions outside intake/correction, while **§8.7**’s normative out-of-scope example ends with *“Want me to point you to anything else?”* The codebase already treats **OUT_OF_SCOPE** as a **carve-out** (e.g. `OUT_OF_SCOPE_87` fixture and `test_voice_trailing_question_guard` in `tests/test_phase2_integration.py`).
+**Issue:** `HAVA_CONCIERGE_HANDOFF.md` reads as if **§3.9 / §8.2** forbid trailing follow-up questions outside intake/correction, while **§8.7**’s normative out-of-scope example ends with *“Want me to point you to anything else?”* The codebase already treats **OUT_OF_SCOPE** as a **carve-out** (e.g. `OUT_OF_SCOPE_87` fixture and `test_voice_trailing_question_guard` in `tests/test_phase2_integration.py`).
 
 **Status:** **Deferred** — reconcile handoff prose in a **dedicated handoff-doc pass** (post–Phase 8.0 track), not as part of the 8.0 bug-fix code line. See `docs/phase-8-0-4-read-first-report.md` / `docs/phase-8-0-4-read-first-handback-2026-04-22.md` for read-first context.
 

@@ -1,6 +1,6 @@
 # Havasu Chat — Project Handoff Document
 
-> **Track B / concierge spec:** Repo-root **`HAVASU_CHAT_MASTER.md`** (3-tier program Q&A, seed YAML) and **`HAVASU_CHAT_CONCIERGE_HANDOFF.md`** (build plan, Phase 1+). This file stays focused on the **shipping events-search app** (Track A).
+> **Track B / concierge spec:** Repo-root **`HAVASU_CHAT_MASTER.md`** (3-tier program Q&A, seed YAML) and **`HAVA_CONCIERGE_HANDOFF.md`** (build plan, Phase 1+). This file stays focused on the **shipping events-search app** (Track A).
 
 > **Purpose:** Single source of truth for starting a fresh Cursor or Claude Code session **for Track A**. Do not summarize or skip sections. Every detail here was chosen deliberately.
 

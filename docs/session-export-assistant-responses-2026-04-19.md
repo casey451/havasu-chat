@@ -69,7 +69,7 @@ Consolidated summary of work and findings from this Cursor session, for sharing 
 
 ## 7. Handoff — §1a Architectural Vision + cross-reference fix
 
-- **`94b3d6e`:** Inserted **§1a** between **§1 Product Definition** and **§2 Seven Locked Decisions** in `HAVASU_CHAT_CONCIERGE_HANDOFF.md` (verbatim owner content + closing `---` before §2).
+- **`94b3d6e`:** Inserted **§1a** between **§1 Product Definition** and **§2 Seven Locked Decisions** in `HAVA_CONCIERGE_HANDOFF.md` (verbatim owner content + closing `---` before §2).
 - **Issue:** New text said **§6** for out-of-scope list; in file, out-of-scope bullets are **§1.3**; §6 is File Structure.
 - **`3c05928`:** One-line fix: **`§6 "Out of Scope" list`** → **`§1.3 "What the app is NOT" list`** in that bullet only.
 

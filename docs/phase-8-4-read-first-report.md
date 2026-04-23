@@ -228,7 +228,7 @@ Handoff **§3.11** and **Phase 8.3** tests define graceful behavior. Below: how 
 
 ## 4. Proposed `docs/runbook.md` outline (8.4-implement)
 
-**Expected size:** **Medium** (~500–1200 lines) if we use **links** to `HAVASU_CHAT_CONCIERGE_HANDOFF.md` for architecture deep dives, `docs/privacy.md` for retention, and keep SQL/appendix blocks tight. **>1500 lines** only if we inline full handoff subsections (should **not** — flag as scope creep).
+**Expected size:** **Medium** (~500–1200 lines) if we use **links** to `HAVA_CONCIERGE_HANDOFF.md` for architecture deep dives, `docs/privacy.md` for retention, and keep SQL/appendix blocks tight. **>1500 lines** only if we inline full handoff subsections (should **not** — flag as scope creep).
 
 ### 4.1 Document header & TOC (1–2 screens)
 
@@ -305,7 +305,7 @@ Handoff **§3.11** and **Phase 8.3** tests define graceful behavior. Below: how 
 - **File to create:** `docs/runbook.md` (single; Option A).
 - **Files to update (optional, small):**  
   - `docs/pre-launch-checklist.md` — one bullet under **Open** *or* short note in header: “Operational runbook: `docs/runbook.md` (Phase 8.4).” **Owner choice** — not required for acceptance if we want checklist edits in a **separate** commit per repo discipline.  
-  - `HAVASU_CHAT_CONCIERGE_HANDOFF.md` — **no** update required if runbook links *to* it (avoid churn in locked spec doc unless owner wants a one-line “see also”).
+  - `HAVA_CONCIERGE_HANDOFF.md` — **no** update required if runbook links *to* it (avoid churn in locked spec doc unless owner wants a one-line “see also”).
 - **Sections to write (approximate length):**
   - **TOC** — 20–40 lines
   - **Quick reference** — 80–150 lines (bullets + one SQL appendix pointer)

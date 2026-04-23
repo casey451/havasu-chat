@@ -44,7 +44,7 @@ Did not diff git history on the runner; `project-handoff.md` already documents t
 
 ## Task 2 — Doc amendments (completed)
 
-### `bbe17` replacements in `HAVASU_CHAT_CONCIERGE_HANDOFF.md`
+### `bbe17` replacements in `HAVA_CONCIERGE_HANDOFF.md`
 
 **1** replacement:
 

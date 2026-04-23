@@ -1,8 +1,8 @@
 # Havasu Chat — Phase 6 pre-scoping (read-only verification)
 
-**Purpose:** Authoritative answers from `HAVASU_CHAT_CONCIERGE_HANDOFF.md` at commit **`9707f7c`**, plus current repo/git checks. No code or handoff edits were performed when producing this file.
+**Purpose:** Authoritative answers from `HAVA_CONCIERGE_HANDOFF.md` at commit **`9707f7c`**, plus current repo/git checks. No code or handoff edits were performed when producing this file.
 
-**Source:** `9707f7c:HAVASU_CHAT_CONCIERGE_HANDOFF.md` matches the working-tree handoff (`git diff 9707f7c HEAD -- HAVASU_CHAT_CONCIERGE_HANDOFF.md` empty at time of capture).
+**Source:** `9707f7c:HAVA_CONCIERGE_HANDOFF.md` matches the working-tree handoff (`git diff 9707f7c HEAD -- HAVA_CONCIERGE_HANDOFF.md` empty at time of capture).
 
 ---
 

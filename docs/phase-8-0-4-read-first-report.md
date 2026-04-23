@@ -71,7 +71,7 @@ That's outside what I cover right now — I stick to things-to-do, local busines
 
 ## 2. §3.9 vs §8.7 / §8.2 — handoff text (verbatim excerpts)
 
-**Source file:** `HAVASU_CHAT_CONCIERGE_HANDOFF.md` (repo root).
+**Source file:** `HAVA_CONCIERGE_HANDOFF.md` (repo root).
 
 ### §3.9 Voice consistency (lines 487–497)
 
@@ -121,7 +121,7 @@ For restaurants, real estate, weather, etc.:
 
 ### Handoff tech-debt note (context only)
 
-`HAVASU_CHAT_CONCIERGE_HANDOFF.md` **§1d / line ~703** (deferred log) already flags London Bridge farmers market in `system_prompt.txt` vs Phase 4.7 — separate from §3.9/§8.7 tension but shows owners were aware of prompt inconsistency class.
+`HAVA_CONCIERGE_HANDOFF.md` **§1d / line ~703** (deferred log) already flags London Bridge farmers market in `system_prompt.txt` vs Phase 4.7 — separate from §3.9/§8.7 tension but shows owners were aware of prompt inconsistency class.
 
 ---
 
@@ -222,7 +222,7 @@ Scan of **named concrete local / catalog-style** content in examples (BAD and GO
 |--------|----------|
 | **Where** | **`app/chat/unified_router.py`** — `_OUT_OF_SCOPE_REPLY` only (single template). |
 | **Minimal diff** | Remove the second sentence **or** replace with a **period-ending** scope reminder (e.g. same clause one sentence) — **exact copy** must be decided in implement to satisfy §3.9 if §3.9 “wins.” |
-| **§3.9 vs §8.7** | **Handoff conflict is real** (§8.7 quoted string vs §3.9/§8.2 bullets). **Code + tests already encode a de facto exception** for OUT_OF_SCOPE trailing `?` in `test_phase2_integration.py`. Implement should **not** silently “fix” voice without an **owner call** on whether **§8.7 template** or **§3.9** is authoritative for chat OOS. If §3.9 wins: update **`HAVASU_CHAT_CONCIERGE_HANDOFF.md` §8.7** in a **docs** commit (track separately if you keep docs out of code commits) or note in 8.0.4-implement scope. |
+| **§3.9 vs §8.7** | **Handoff conflict is real** (§8.7 quoted string vs §3.9/§8.2 bullets). **Code + tests already encode a de facto exception** for OUT_OF_SCOPE trailing `?` in `test_phase2_integration.py`. Implement should **not** silently “fix” voice without an **owner call** on whether **§8.7 template** or **§3.9** is authoritative for chat OOS. If §3.9 wins: update **`HAVA_CONCIERGE_HANDOFF.md` §8.7** in a **docs** commit (track separately if you keep docs out of code commits) or note in 8.0.4-implement scope. |
 | **Tests** | **Must** update `tests/test_phase2_integration.py`: `OUT_OF_SCOPE_87`, `test_oos_end_to_end_verbatim_redirect`, and likely **`test_voice_trailing_question_guard`** / `_SUBINTENT_TRAILING_QUESTION_OK` if OOS no longer ends with `?`. Re-grep for `Want me to point` after edit. |
 
 **STOP-style flag (scope):** Still **one template + one test file** core; **not** multi-file scatter **unless** owner also updates handoff §8.7 (then two workstreams: code + doc).

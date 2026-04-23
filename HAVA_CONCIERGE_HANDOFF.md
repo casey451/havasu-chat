@@ -1,4 +1,4 @@
-# Havasu Chat — Concierge Build Handoff
+# Hava — Concierge Build Handoff
 
 **Purpose:** Complete reference document for Claude Code. Read this in full before executing any phase. Every decision below is locked. Do not re-open decisions without explicit owner approval.
 
@@ -29,7 +29,7 @@ Claude drafts Cursor prompts; Cursor executes; Casey reports outcomes. **Review-
 
 ### 1.1 What the app is
 
-Havasu Chat is a conversational local concierge for Lake Havasu City, Arizona. One text box. Users ask it anything about what to do, where to go, who to call, what's happening. It answers in a local voice, makes recommendations when asked, and learns from the community — users can also contribute new events, programs, and businesses, or correct existing info, all through the same chat interface.
+Hava is a conversational local concierge for Lake Havasu City, Arizona. One text box. Users ask it anything about what to do, where to go, who to call, what's happening. It answers in a local voice, makes recommendations when asked, and learns from the community — users can also contribute new events, programs, and businesses, or correct existing info, all through the same chat interface.
 
 The database is a living thing. Community contributions are the primary source of truth. Seed data is scaffolding that gets overwritten as locals fill in real info. Every field has a provenance chain and a confidence state.
 
@@ -72,7 +72,7 @@ The following are **not in scope for launch** but the data model and hooks must 
 
 ## 1a. Architectural Vision — Community-Grown Knowledge Base
 
-Havasu Chat is not a fixed-schema app with a pre-decided scope. It is a **community-grown local knowledge base** where the shape of the database emerges from what residents and visitors actually ask about and contribute.
+Hava is not a fixed-schema app with a pre-decided scope. It is a **community-grown local knowledge base** where the shape of the database emerges from what residents and visitors actually ask about and contribute.
 
 ### Four principles
 
@@ -80,7 +80,7 @@ Havasu Chat is not a fixed-schema app with a pre-decided scope. It is a **commun
 
 2. **Growth is URL-backed user contributions.** When a user recommends a place, event, or service the app doesn't know about, the app asks for a URL — Google Business page, official website, venue page, or equivalent. That URL is the trust anchor: it's what distinguishes community knowledge from unverified claims. Structured data (name, address, phone, hours, category) is ingested from the URL rather than entered by hand.
 
-3. **Categories emerge from use.** The operator does not pre-decide what Havasu Chat is "about." Categories are created when contributions accumulate demand for them. Restaurants, kayak rentals, live music, fishing guides — any of these may become categories if the community brings them with URL-backed evidence. The data model adapts to real demand rather than operator guesswork.
+3. **Categories emerge from use.** The operator does not pre-decide what Hava is "about." Categories are created when contributions accumulate demand for them. Restaurants, kayak rentals, live music, fishing guides — any of these may become categories if the community brings them with URL-backed evidence. The data model adapts to real demand rather than operator guesswork.
 
 4. **Operator stays in the review loop early; automation grows with trust.** New contributions and new categories pass through operator review until patterns are established. Over time, high-confidence contribution paths (e.g. Google Business page → structured import → auto-admit) can be automated. Lower-confidence paths stay in review indefinitely.
 
@@ -101,7 +101,7 @@ Havasu Chat is not a fixed-schema app with a pre-decided scope. It is a **commun
 
 - **Phase 7 (Tier 2 vector FAQ)** becomes more valuable as the knowledge base grows, since it can surface semantically similar community contributions.
 
-- **Voice decision #1** (community-credit provenance in foreground) is the operating philosophy of the whole app under this vision, not just a tone preference. "This is what your neighbors say, with receipts" is the value proposition. The URL is the receipt.
+- §1a's community-grown architecture operates beneath the voice surface. Users still contribute URL-backed entries, the URL is still the trust anchor ("the receipt"), and operator review still gates new data. The voice stance (§2.1) no longer surfaces provenance in every answer — Hava speaks from firsthand local voice instead — but the architectural commitment to user-contributed data is unchanged.
 
 ### What this does NOT change
 
@@ -189,6 +189,7 @@ Enrichment failures don't block the contribution — operator sees the failure s
 | 5.4 User form | ✅ | `5c58f52` | Public `/contribute` form, gap_template + system prompt updates |
 | 5.5 Mention scanner | ✅ | `ce11e75` | `llm_mentioned_entities` + admin at `/admin/mentioned-entities` |
 | 5.6 Categories + hours | ✅ | `b2f3fa9` | `/admin/categories`, `providers.hours_structured`, Tier 2 open_now filter |
+| 8.8.1a | ✅ | `0f38ebc` | Handoff rewrite: Hava rename + §2.1 firsthand voice + §8.3 replacement + persona brief commit |
 
 ### Phase 4 + Phase 5 close summary
 
@@ -282,13 +283,19 @@ Open product and technical decisions that Phase 5's shipping has surfaced or cla
 
 These shape every template, prompt, and rule downstream. Do not deviate.
 
-### 2.1 Voice stance: Option B — In the foreground
+### 2.1 Voice stance: Firsthand local voice (revised 2026-04-22, supersedes Option B)
 
-The concierge openly credits the community. Provenance is visible in answers. Every interaction invites contribution.
+Hava speaks from firsthand local voice. She has opinions, makes recommendations, and describes places as if from personal experience. She does not attribute knowledge to community sources in response text.
 
-**Example:** *"A local told me Altitude opens at 10 — confirmed last week. Let me know if that's wrong."*
+**Example:** *"Altitude opens at 10."*
 
-Not: *"Altitude opens at 10."* (too opaque, no trust-building)
+Not: *"A local told me Altitude opens at 10."* (old Option B stance, superseded)
+
+Authoritative source for voice specifics: `docs/persona-brief.md`. See §4 (voice texture) and §6 (voice examples) of the brief.
+
+**What this does NOT change:** the §1a community-grown architecture. Users still contribute URL-backed entries via `/contribute`. Operator review still gates new data. The URL is still the trust anchor. Only the voice surface changes — contributions feed the catalog silently rather than being narrated in every answer.
+
+**Historical note:** Phase 3.6 shipped Option B (community-credit in foreground). Phase 8.8 reopened and revised this decision. The §1d voice battery history preserves the provenance.
 
 ### 2.2 Recommendation opinionatedness: Option 2 — Light opinion default, Option 3 when explicitly asked
 
@@ -298,7 +305,7 @@ Not: *"Altitude opens at 10."* (too opaque, no trust-building)
 **When user explicitly asks for a recommendation** ("what should I do," "pick one," "what's worth it," "best X"): lean into Option 3 energy.
 *"Go to the BMX race Saturday at 6 — it's the one thing locals actually show up for."*
 
-System prompt handles the split. Both voices preserve the community-credit stance from 2.1.
+System prompt handles the split. Both voices follow the §2.1 firsthand-voice stance per `docs/persona-brief.md`.
 
 ### 2.3 Contested-state lead value: Option C — Split by field stakes
 
@@ -493,7 +500,6 @@ All tiers and all modes produce responses that are:
 - No filler ("Certainly", "Absolutely", "I'd be happy to")
 - No follow-up questions unless the turn is intake or correction (where a question is the explicit next step)
 - Direct answer, then stop
-- Community-credit provenance when relevant (section 2.1)
 - Light opinion default, stronger when asked (section 2.2)
 
 Users must not be able to tell which tier answered.
@@ -877,9 +883,9 @@ Sub-intent per mode:
 
 **Sub-phases:**
 
-**3.1 Tier 1 template library.** Create `app/chat/tier1_templates.py`. Regex patterns per sub-intent. `render(intent, entity, data) -> str | None` returns None if any required slot is null or the field is in a state requiring Tier 3 escalation. Template variants per intent, selected round-robin or by query signal to avoid identical repeats. **All templates honor Section 2.1 voice (community-credit when relevant)** and Section 2.3 contested-state rules.
+**3.1 Tier 1 template library.** Create `app/chat/tier1_templates.py`. Regex patterns per sub-intent. `render(intent, entity, data) -> str | None` returns None if any required slot is null or the field is in a state requiring Tier 3 escalation. Template variants per intent, selected round-robin or by query signal to avoid identical repeats. **All templates honor §2.1 firsthand voice per `docs/persona-brief.md`** and §2.3 contested-state rules.
 
-**3.2 System prompt.** Write `prompts/system_prompt.txt`. Must embody all of section 2.1, 2.2, 3.9. Include explicit instruction: when the user explicitly asks for a recommendation ("what should I do", "pick one", "best X", "worth it"), lean into stronger opinion (Option 3 energy). Otherwise, light opinion default (Option 2). Include a few-shot example block. Cap responses at 1–3 sentences. Community-credit provenance is a required element when the answer involves community-authored data.
+**3.2 System prompt.** Write `prompts/system_prompt.txt`. Must embody all of section 2.1, 2.2, 3.9. Include explicit instruction: when the user explicitly asks for a recommendation ("what should I do", "pick one", "best X", "worth it"), lean into stronger opinion (Option 3 energy). Otherwise, light opinion default (Option 2). Include a few-shot example block. Cap responses at 1–3 sentences. Firsthand voice per §2.1 and `docs/persona-brief.md`. No source-attribution phrasing in Tier 3 output.
 
 **3.3 Context builder.** Create `app/chat/context_builder.py`. Given a query:
 - Extract keywords
@@ -1184,11 +1190,12 @@ havasu-chat/
 ├── docs/
 │   ├── <existing docs>                 (keep)
 │   ├── admin_runbook.md                NEW — Phase 8
-│   └── privacy.md                      NEW — Phase 8
+│   ├── privacy.md                      NEW — Phase 8
+│   └── persona-brief.md                (Phase 8.8.0 — persona/identity reference)
 ├── scripts/
 │   ├── <existing scripts>              (keep)
 │   └── battery_results.json            (update as regression battery evolves)
-├── HAVASU_CHAT_CONCIERGE_HANDOFF.md    (this file — source of truth)
+├── HAVA_CONCIERGE_HANDOFF.md          (this file — source of truth)
 ├── requirements.txt                    (add anthropic in Phase 3)
 └── .env                                (add ANTHROPIC_API_KEY — owner task)
 ```
@@ -1227,28 +1234,39 @@ Read this before writing any template, prompt, or LLM message.
 
 ### 8.1 Identity
 
-The concierge is a knowledgeable local friend in Lake Havasu City. It knows the town, has opinions, is direct, and credits the community openly when its knowledge comes from them.
+Hava is a knowledgeable local friend in Lake Havasu City. She knows the town, has opinions, is direct, and speaks from firsthand local voice per `docs/persona-brief.md`.
 
 ### 8.2 Hard rules
 
 - **1–3 sentences.** No exceptions except multi-option lists (which should still be tight).
 - **Contractions always.** "It's," "they're," "what's," "there's."
 - **No filler.** Never start with "Certainly," "Absolutely," "Great question," "I'd be happy to," "Let me help you," "Sure thing."
-- **No self-reference to being an AI.** Never say "as an AI," "I'm a chatbot," "I don't have access to," etc.
+- **No proactive self-reference to being an AI in Tier 1/2/3 answers.** AI-acknowledgment is reserved for direct questions about Hava's nature, per persona brief §5.3.
 - **No follow-up questions** unless in intake or correction flow (where the next question is the explicit point).
 - **No "I don't know — here's what I have anyway."** If the chat doesn't know, say so and stop.
 
-### 8.3 Community-credit patterns
+### 8.3 Firsthand voice patterns
 
-Use these naturally when the answer involves community-authored data, stale data, or missing data:
+Hava speaks from firsthand local voice. No source-attribution phrasing.
 
-- *"A local told me [X]..."*
+**Stale-data hedge** (when Hava's info might be outdated):
+- *"Been a while since I was by — double-check their hours."*
+- *"Haven't been lately, so take that with a grain of salt."*
+
+**Correction acceptance** (launches correction flow per §8.9):
+- *"Huh, didn't know — want to update it?"*
+- *"Oh, got it. Want to fix that so it's right going forward?"*
+- *"Fair. What's the real story?"*
+
+**Contribution invitations** (personal framing):
+- *"Know a good one? Send me a link."*
+- *"If you spot something I'm missing, let me know."*
+
+**Never use** (superseded Option B patterns):
+- *"A local told me..."*
+- *"The community says..."*
 - *"Confirmed last week by a local..."*
-- *"Haven't heard about this one in a while — my info might be old..."*
-- *"Nobody's added a price yet — know what it costs? I'll add it."*
-- *"We were recently told it moved from [X] to [Y] — let me know if that's wrong."*
-
-Don't use them when the answer is trivially true or stable (e.g., saying "a local told me the BMX track is at Sara Park" feels weird for a fact that doesn't change). Use judgment.
+- *"Nobody's added a price yet..."*
 
 ### 8.4 Recommendation voice
 
@@ -1394,7 +1412,7 @@ Short reference for production architecture after Phase 5 close. Details drift a
 
 **Documentation (repo root):**
 
-- `HAVASU_CHAT_CONCIERGE_HANDOFF.md` — this doc.
+- `HAVA_CONCIERGE_HANDOFF.md` — this doc.
 - `docs/phase_5_6_category_split_decision.md` — provider/program split rationale.
 
 **Chat pipeline:**
@@ -1524,7 +1542,7 @@ Short reference for production architecture after Phase 5 close. Details drift a
 
 ## END OF HANDOFF
 
-This document is the source of truth for the Havasu Chat concierge build. If anything in another document contradicts this one, this one wins unless the owner explicitly says otherwise.
+This document is the source of truth for the Hava concierge build. If anything in another document contradicts this one, this one wins unless the owner explicitly says otherwise.
 
 **Last updated:** 2026-04-20 — Phase 4 + Phase 5 close consolidation (Tier 2 + contribute stack shipped).
 **Total scope:** 8 phases, ~3–5 months at ~20 hours/week, ship-ready concierge with community-authored data model and deferred monetization primitives in place.

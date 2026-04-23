@@ -1,6 +1,6 @@
 # Havasu Chat — Session Resume (2026-04-22)
 
-**Purpose:** Start-of-new-chat handoff. Read this file first, then HAVASU_CHAT_CONCIERGE_HANDOFF.md for full architectural spec.
+**Purpose:** Start-of-new-chat handoff. Read this file first, then HAVA_CONCIERGE_HANDOFF.md for full architectural spec.
 
 ## 0. Role split
 
@@ -62,7 +62,7 @@ cf867b8 docs: session resume doc for 2026-04-22
 
 **Post-Phase 6:**
 
-- **Phase 8 — pre-launch hardening is next** (see **§5 Phase 8** in `HAVASU_CHAT_CONCIERGE_HANDOFF.md`): seed verification, load testing, admin runbook, ToS, privacy review.
+- **Phase 8 — pre-launch hardening is next** (see **§5 Phase 8** in `HAVA_CONCIERGE_HANDOFF.md`): seed verification, load testing, admin runbook, ToS, privacy review.
 - **Phase 6.5 content** continues to accumulate **organically post-launch** (not a scheduled phase); the repo wiring is done.
 - **Deferred (unchanged from prior session resume):** correction flow (reads `field_history` baseline); cost optimization pass (after 2–4 weeks real traffic). Other deferred decisions and follow-ups — unchanged from **§6** below.
 
@@ -100,7 +100,7 @@ See `docs/known-issues.md` for current live issues. Newly logged 2026-04-21:
 
 ## 7. Where to find authoritative specs
 
-- **HAVASU_CHAT_CONCIERGE_HANDOFF.md** (repo root) — full architectural spec, voice decisions, phase scopes, risks. Source of truth.
+- **HAVA_CONCIERGE_HANDOFF.md** (repo root) — full architectural spec, voice decisions, phase scopes, risks. Source of truth.
 - **docs/known-issues.md** — live bug tracker.
 - **docs/phase-*-report.md** — per-sub-phase delivery reports.
 - **scripts/run_voice_audit.py** — reusable voice audit runner (uses prompts/voice_audit.txt).
@@ -109,7 +109,7 @@ See `docs/known-issues.md` for current live issues. Newly logged 2026-04-21:
 
 Phase 6 is closed; orient the next session around **Phase 8 pre-launch hardening** or housekeeping:
 
-- **Plan a Phase 8 design conversation** — walk `HAVASU_CHAT_CONCIERGE_HANDOFF.md` §5 Phase 8 (seed verification, load testing, admin runbook, ToS, privacy review) and sequence work vs. soft launch.
+- **Plan a Phase 8 design conversation** — walk `HAVA_CONCIERGE_HANDOFF.md` §5 Phase 8 (seed verification, load testing, admin runbook, ToS, privacy review) and sequence work vs. soft launch.
 - **Discuss soft launch strategy** — timing, surface area, and what “good enough” means before wider promotion (no code required).
 - **Housekeeping** — archive or dedupe process artifacts (`docs/phase-*`, one-off prompts) so the repo stays navigable before Phase 8 execution work ramps up.
 - **Continue wherever makes sense** — Claude will recommend from the above.
