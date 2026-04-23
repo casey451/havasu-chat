@@ -833,7 +833,7 @@ Phases execute in order. Each phase ends with a specific, verifiable exit criter
 **Exit criterion:**
 - `alembic upgrade head` on a fresh SQLite DB succeeds.
 - `alembic upgrade head` on a SQLite DB pre-populated with existing Track A data (events + existing programs rows) succeeds with zero data loss.
-- All existing Track A tests still pass (669+ as of Phase 5 close — run `pytest` for current count).
+- All existing Track A tests still pass (669+ at Phase 1 close; see §13 for current count).
 - Running provider seed + program re-seed + event backfill + field_history baseline produces: 25 providers (or 24 live + 1 draft), existing programs now have provider_id populated where possible, existing events now have provider_id populated where possible, field_history has baseline rows for every tracked field on every seeded entity.
 - `app/main.py`, `app/admin/router.py`, `app/programs/router.py`, `app/core/program_search.py`, `app/chat/entity_matcher.py` all still work unchanged (verified by existing tests passing).
 - Deploy to Railway (owner action) runs migration cleanly. Existing live app continues to function.
@@ -1321,7 +1321,7 @@ havasu-chat/
 - `app/chat/normalizer.py`
 - `app/chat/entity_matcher.py` (extend entity scope; keep the rapidfuzz pattern)
 - Alembic migration infrastructure
-- Test infrastructure (pytest; full suite 669+ as of Phase 5 close)
+- Test infrastructure (pytest; full suite 794+ as of Phase 8.8.1b — run `pytest` for current count)
 - `scripts/run_query_battery.py` (quality gate)
 - Deployment pipeline (Railway, Nixpacks, Procfile)
 

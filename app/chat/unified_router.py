@@ -156,7 +156,7 @@ def _handle_correct(
     db: Session,
     session_id: str | None,
 ) -> str:
-    return "Correct mode: received. Correction flow will be implemented in Phase 5."
+    return "Huh, didn't know — want to update it?"
 
 
 def _handle_chat(
@@ -178,7 +178,7 @@ def _handle_chat(
         if any(t in nq for t in ("thanks", "thank you", "thx", "appreciate it", "much appreciated")):
             return "anytime."
         if "how are you" in nq:
-            return "doing alright. what can I find for you?"
+            return "Pretty good, thanks."
         if any(t in nq for t in ("bye", "goodbye", "good night", "goodnight")):
             return "see you."
         return "alright."

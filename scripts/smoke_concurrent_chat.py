@@ -4,7 +4,7 @@ This script is **not** a 50-user stress test and **not** production load testing
 It sends a modest number of mixed-intent requests from several threads to a
 **local** dev server to catch gross regressions (5xx, timeouts) and to record
 **p50/p95** end-to-end latency. Use before soft launch or after performance-related
-changes. See :doc:`HAVASU_CHAT_CONCIERGE_HANDOFF.md` Phase 8.2 scope; synthetic
+changes. See :doc:`HAVA_CONCIERGE_HANDOFF.md` Phase 8.2 scope; synthetic
 massive concurrency is out of scope until real traffic exists.
 
 **What it tests:** 8 (default) client threads, each reusing a unique
