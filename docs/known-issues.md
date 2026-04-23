@@ -20,6 +20,29 @@ not present in provider hours, acknowledge the gap before listing
 available hours.
 **Waiver reference:** `scripts/voice_audit_waivers_2026-04-23.md`
 
+### Flaky timing on `test_contribution_submitted_at_populated`
+
+**Status:** Open
+**Filed:** Phase 8.9 follow-up (2026-04-23)
+**Observed at:** Phase 8.9 full-suite run, 2026-04-23, commit `f55146e`
+
+**Finding:** `tests/test_contribution_model.py::test_contribution_submitted_at_populated` intermittently fails during long full-suite runs (~7:53 wall time in the observed case). Assertion `row.submitted_at.replace(microsecond=0) >= before` fails with `submitted_at` one second earlier than the captured `before` timestamp. Example from observed failure:
+
+```
+submitted_at = 2026-04-23 16:09:50
+before       = 2026-04-23 16:09:51
+```
+
+**Isolated run:** Passes clean. Targeted re-run of `tests/test_contribution_model.py tests/test_phase8_9_event_ranking.py` produced 14/14 passed in 1.46s.
+
+**Root cause hypothesis:** Clock/timestamp source drift — Python `datetime.now(UTC).replace(tzinfo=None)` captured in-process for `before`, vs SQLite row timestamp assigned via `server_default` / `CURRENT_TIMESTAMP` on commit. The two sources can diverge by a full second under load, especially at second boundaries during long-running test suites. Not reproducible in isolation because the timing window is narrow.
+
+**Not a Phase 8.9 regression:** `tests/test_contribution_model.py` was not touched by Phase 8.9. The `Contribution` model's `submitted_at` behavior predates this phase.
+
+**Resolution (future sub-phase, not scoped here):** Option 1 — widen assertion tolerance (e.g. allow `submitted_at >= before - timedelta(seconds=2)`). Option 2 — capture `before` using the same source as the row's `server_default` (e.g. query `SELECT CURRENT_TIMESTAMP` from the same SQLite session) so both sides share one clock. Option 2 is more correct; Option 1 is cheaper.
+
+**Priority:** Low. Does not affect production code path. Flaky under full-suite only. **Workaround:** isolated re-run of the failing test or file.
+
 ### 2026-04-21 — Tier 3 date hedging on open-ended temporal queries (Phase 6.1 voice audit)
 
 **Query:** "What's happening this weekend?" (sample `t3-01` in `scripts/voice_audit_results_2026-04-21-phase614-verify.json`)
