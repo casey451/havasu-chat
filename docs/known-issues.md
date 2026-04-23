@@ -2,6 +2,24 @@ Known issues tracker: one-line log for bugs deferred in favor of higher-priority
 
 ## Open (deferred)
 
+### Tier 1 day-specific hour gap (t3-02)
+
+**Status:** Open
+**Filed:** Phase 8.8.2b (voice audit 2026-04-23)
+**Sample:** t3-02 — "What time does the BMX track open Saturday?"
+**Finding:** Tier 1 HOURS_LOOKUP renders all available hours without
+acknowledging a day-specific gap. User asked for Saturday; response
+lists Tue/Wed/Thu hours with no mention that Saturday data is absent.
+**Root cause:** `tier1_templates.py` — template renders whatever hours
+exist in the catalog without day-specific gap detection.
+**Impact:** User receives incomplete answer with no signal that
+Saturday information is unavailable.
+**Resolution:** Add day-specific gap detection to Tier 1 hour
+rendering path in `tier1_templates.py`. When user specifies a day
+not present in provider hours, acknowledge the gap before listing
+available hours.
+**Waiver reference:** `scripts/voice_audit_waivers_2026-04-23.md`
+
 ### 2026-04-21 — Tier 3 date hedging on open-ended temporal queries (Phase 6.1 voice audit)
 
 **Query:** "What's happening this weekend?" (sample `t3-01` in `scripts/voice_audit_results_2026-04-21-phase614-verify.json`)
