@@ -33,8 +33,12 @@ def main() -> int:
         print("error: --batch-size must be at least 1", file=sys.stderr)
         return 2
 
-    with SessionLocal() as db:
-        c = run_embed(db, batch_size=args.batch_size, dry_run=bool(args.dry_run))
+    try:
+        with SessionLocal() as db:
+            c = run_embed(db, batch_size=args.batch_size, dry_run=bool(args.dry_run))
+    except RuntimeError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
 
     print("Google bulk embed complete")
     print(f"  batch_size:                      {args.batch_size}")

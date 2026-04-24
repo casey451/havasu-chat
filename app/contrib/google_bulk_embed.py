@@ -85,13 +85,18 @@ def build_embedding_text(
     return text
 
 
-def _client() -> OpenAI:
+def _openai_client_for_embed() -> OpenAI:
+    """Build the OpenAI client for embedding. Raises ``RuntimeError`` with a clear message on misconfiguration."""
     if OpenAI is None:
-        raise RuntimeError("openai package is not installed")
-    api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY is not set")
-    return OpenAI(api_key=api_key, timeout=LLM_CLIENT_READ_TIMEOUT_SEC)
+        raise RuntimeError(
+            "The openai package is not installed; install project dependencies to backfill embeddings."
+        )
+    key = (os.getenv("OPENAI_API_KEY") or "").strip()
+    if not key:
+        raise RuntimeError(
+            "OPENAI_API_KEY is not set. Set it in the environment, or use --dry-run to preview without calling OpenAI."
+        )
+    return OpenAI(api_key=key, timeout=LLM_CLIENT_READ_TIMEOUT_SEC)
 
 
 def _embed_batch_for_texts_api(client: OpenAI, texts: list[str]) -> list[list[float]]:
@@ -147,11 +152,11 @@ def run_embed(
     out = EmbedCounters()
     client: OpenAI | None = None
     if not dry_run:
-        if OpenAI is not None and (os.getenv("OPENAI_API_KEY") or "").strip():
-            try:
-                client = _client()
-            except Exception as e:
-                logger.error("google_bulk_embed: cannot build OpenAI client: %s: %s", type(e).__name__, e)
+        try:
+            client = _openai_client_for_embed()
+        except RuntimeError as e:
+            logger.error("google_bulk_embed: %s", e)
+            raise
 
     def process_batch(providers: list[Provider], *, is_dry: bool) -> None:
         pairs: list[tuple[Provider, str]] = []
@@ -179,9 +184,7 @@ def run_embed(
             return
         if is_dry:
             return
-        if client is None:
-            out.errors += len(pairs)
-            return
+        assert client is not None  # set at start of run_embed when not dry_run
 
         ttexts = [t for _, t in pairs]
         pids = [p.id for p, _ in pairs]

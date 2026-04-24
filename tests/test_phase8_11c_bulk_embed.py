@@ -32,6 +32,12 @@ def _no_batch_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.contrib.google_bulk_embed.time.sleep", lambda *_: None)
 
 
+@pytest.fixture(autouse=True)
+def _openai_key_for_embed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Non-dry run_embed() requires a key at startup; most tests only mock the API call."""
+    monkeypatch.setenv("OPENAI_API_KEY", "test-embed-key-synthetic")
+
+
 def _vec(d: int = 1536) -> list[float]:
     return [0.01] * d
 
@@ -64,6 +70,13 @@ def test_build_embedding_text_empty_strings() -> None:
 def test_build_embedding_text_strips_whitespace() -> None:
     t = build_embedding_text("  Name  ", "  Cat  ", "  desc  ")
     assert t == "Name | Cat | desc"
+
+
+def test_run_embed_raises_without_openai_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    with SessionLocal() as db:
+        with pytest.raises(RuntimeError, match="OPENAI_API_KEY is not set"):
+            run_embed(db, dry_run=False)
 
 
 def test_build_embedding_text_truncates_long_text() -> None:
