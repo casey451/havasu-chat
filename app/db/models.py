@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime, time
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, JSON, String, Text, Time, UniqueConstraint, false, func
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text, Time, UniqueConstraint, false, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -43,6 +43,14 @@ class Provider(Base):
         onupdate=lambda: datetime.now(UTC),
         nullable=False,
     )
+
+    google_place_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lng: Mapped[float | None] = mapped_column(Float, nullable=True)
+    embedding: Mapped[list[float] | None] = mapped_column(JSON, nullable=True)
+    match_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    enrichment_version: Mapped[str | None] = mapped_column(String, nullable=True)
+    raw_enrichment_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     programs: Mapped[list["Program"]] = relationship(back_populates="provider")
     events: Mapped[list["Event"]] = relationship(back_populates="provider")
