@@ -103,6 +103,19 @@ before       = 2026-04-23 16:09:51
 
 **Priority:** Documentation consistency only.
 
+### Dev/prod dialect gap (SQLite vs Postgres) — second occurrence
+
+**Status:** Open
+**Filed:** Phase 8.11c-fix2 (2026-04-24)
+
+**Summary:** Migration `d1e2f3a4b567` shipped with Postgres-incompatible syntax (`json = jsonb` comparison) that ran fine on dev SQLite and **failed at prod deploy**. Fixed in `alembic/versions/d1e2f3a4b567_normalize_json_null_embeddings_to_sql_null.py` by changing the Postgres branch to `embedding::text = 'null'`. This is the **second** such occurrence (first was Phase 8.10 migration ordering issue).
+
+**Pattern worth addressing:** Run migrations against a **local Postgres** container as part of the dev loop, or add a **CI job** that runs `alembic upgrade head` on Postgres.
+
+**Resolution (not scoped to a phase yet):** Container-based Postgres dev environment or a GitHub Action — logged as a **launch-readiness** consideration.
+
+**Priority:** Medium until a repeatable Postgres migration check exists.
+
 ### 2026-04-21 — Tier 3 date hedging on open-ended temporal queries (Phase 6.1 voice audit)
 
 **Query:** "What's happening this weekend?" (sample `t3-01` in `scripts/voice_audit_results_2026-04-21-phase614-verify.json`)

@@ -26,11 +26,13 @@ def upgrade() -> None:
     bind = op.get_bind()
     dname = bind.dialect.name
     if dname == "postgresql":
+        # Postgres: `embedding` is type json, not jsonb — comparing json to jsonb is invalid.
+        # Cast to text and match the literal JSON null text form (same semantics as SQLite branch).
         for table in ("providers", "events"):
             op.execute(
                 text(
                     f"UPDATE {table} SET embedding = NULL "
-                    f"WHERE embedding = CAST('null' AS jsonb)"
+                    f"WHERE embedding::text = 'null'"
                 )
             )
     else:
