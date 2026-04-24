@@ -230,6 +230,9 @@ def test_run_embed_name_only_fallback_counter(mock_api: Any, caplog: pytest.LogC
             )
         )
         db.commit()
+    # Full-suite imports can set `app` to ERROR; child loggers then never emit WARNING.
+    caplog.set_level(logging.WARNING, logger="root")
+    caplog.set_level(logging.WARNING, logger="app")
     with caplog.at_level(logging.WARNING, logger="app.contrib.google_bulk_embed"):
         with SessionLocal() as db:
             c = run_embed(db, batch_size=5, dry_run=False)
