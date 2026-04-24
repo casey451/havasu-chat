@@ -7,8 +7,12 @@ from unittest.mock import patch
 import httpx
 import pytest
 
+import app.contrib.river_scene as river_scene
 from app.contrib.river_scene import (
+    EVENT_PAGE_HTTP_TIMEOUT,
+    SITEMAP_HTTP_TIMEOUT,
     RiverSceneEvent,
+    _http_get_text,
     fetch_and_parse_event,
     fetch_sitemap_urls,
     normalize_to_contribution,
@@ -35,6 +39,115 @@ def _wipe_river_scene_tables() -> None:
 def _no_polite_sleep() -> None:
     with patch("app.contrib.river_scene._sleep_polite"):
         yield
+
+
+class TestRiverSceneHttpGetTextRetriesAndTimeouts:
+    """Phase 8.10.1 — ``_http_get_text`` retry/timeout behavior (commit ``3972eec``)."""
+
+    @pytest.fixture(autouse=True)
+    def _no_backoff_sleep(self) -> None:
+        # Retry loop uses ``time.sleep``; keep tests fast (polite sleep still mocked globally).
+        with patch("app.contrib.river_scene.time.sleep"):
+            yield
+
+    def test_http_get_text_retries_on_timeout_then_succeeds(self) -> None:
+        state = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            state["n"] += 1
+            if state["n"] == 1:
+                raise httpx.ReadTimeout("test timeout", request=request)
+            return httpx.Response(200, text="ok")
+
+        url = "https://riverscenemagazine.com/events/retry-once/"
+        to = httpx.Timeout(1.0)
+        with httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True) as client:
+            out = _http_get_text(url, client, timeout=to)
+        assert out == "ok"
+        assert state["n"] == 2
+
+    def test_http_get_text_retries_three_times_then_raises(self) -> None:
+        state = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            state["n"] += 1
+            raise httpx.ReadTimeout("always", request=request)
+
+        url = "https://riverscenemagazine.com/events/timeout-thrice/"
+        to = httpx.Timeout(1.0)
+        with httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True) as client:
+            with pytest.raises(httpx.ReadTimeout):
+                _http_get_text(url, client, timeout=to)
+        assert state["n"] == 3
+
+    def test_http_get_text_retries_on_5xx_then_succeeds(self) -> None:
+        state = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            state["n"] += 1
+            if state["n"] == 1:
+                return httpx.Response(503, text="busy")
+            return httpx.Response(200, text="recovered")
+
+        url = "https://riverscenemagazine.com/events/five-oh-three/"
+        to = httpx.Timeout(1.0)
+        with httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True) as client:
+            out = _http_get_text(url, client, timeout=to)
+        assert out == "recovered"
+        assert state["n"] == 2
+
+    def test_http_get_text_does_not_retry_on_4xx(self) -> None:
+        state = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            state["n"] += 1
+            return httpx.Response(404, text="missing")
+
+        url = "https://riverscenemagazine.com/events/not-found/"
+        to = httpx.Timeout(1.0)
+        with httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True) as client:
+            with pytest.raises(httpx.HTTPStatusError) as ei:
+                _http_get_text(url, client, timeout=to)
+        assert ei.value.response.status_code == 404
+        assert state["n"] == 1
+
+    def test_http_get_text_mixed_5xx_and_timeout(self) -> None:
+        state = {"n": 0}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            state["n"] += 1
+            if state["n"] == 1:
+                return httpx.Response(500, text="err")
+            if state["n"] == 2:
+                raise httpx.ReadTimeout("after 500", request=request)
+            return httpx.Response(200, text="ok")
+
+        url = "https://riverscenemagazine.com/events/mixed/"
+        to = httpx.Timeout(1.0)
+        with httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True) as client:
+            out = _http_get_text(url, client, timeout=to)
+        assert out == "ok"
+        assert state["n"] == 3
+
+    def test_fetch_sitemap_urls_uses_sitemap_timeout(self) -> None:
+        with patch.object(river_scene, "_http_get_text", wraps=river_scene._http_get_text) as spy:
+            with _client_for_sitemap_test() as client:
+                fetch_sitemap_urls(client=client)
+        assert spy.call_count >= 1
+        for call in spy.call_args_list:
+            assert call.kwargs.get("timeout") == SITEMAP_HTTP_TIMEOUT
+
+    def test_fetch_and_parse_event_uses_event_timeout(self) -> None:
+        html = """<!DOCTYPE html><html><head><title>RiverScene Magazine | Timeout Probe</title></head>
+<body><div class="entry-content"><p>Body.</p>
+<table><tr><td>Start Date</td><td>June 15, 2026</td></tr></table></div></body></html>"""
+        u = "https://riverscenemagazine.com/events/timeout-probe/"
+        with patch.object(river_scene, "_http_get_text", wraps=river_scene._http_get_text) as spy:
+            with _html_client(html, u) as client:
+                rse = fetch_and_parse_event(u, client=client, today=date(2026, 6, 1))
+        assert rse is not None
+        assert spy.call_count == 1
+        assert spy.call_args.kwargs.get("timeout") == EVENT_PAGE_HTTP_TIMEOUT
 
 
 def _client_for_sitemap_test() -> httpx.Client:
