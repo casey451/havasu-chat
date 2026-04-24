@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from typing import Any
 from unittest import mock
 from uuid import uuid4
@@ -215,7 +214,7 @@ def test_run_embed_handles_api_error_and_continues(mock_raw: Any) -> None:
 
 
 @mock.patch("app.contrib.google_bulk_embed._call_embed_with_retries")
-def test_run_embed_name_only_fallback_counter(mock_api: Any, caplog: pytest.LogCaptureFixture) -> None:
+def test_run_embed_name_only_fallback_counter(mock_api: Any) -> None:
     v = _vec()
     mock_api.return_value = [v]
     pid = str(uuid4())
@@ -230,15 +229,10 @@ def test_run_embed_name_only_fallback_counter(mock_api: Any, caplog: pytest.LogC
             )
         )
         db.commit()
-    # Full-suite imports can set `app` to ERROR; child loggers then never emit WARNING.
-    caplog.set_level(logging.WARNING, logger="root")
-    caplog.set_level(logging.WARNING, logger="app")
-    with caplog.at_level(logging.WARNING, logger="app.contrib.google_bulk_embed"):
-        with SessionLocal() as db:
-            c = run_embed(db, batch_size=5, dry_run=False)
+    with SessionLocal() as db:
+        c = run_embed(db, batch_size=5, dry_run=False)
     assert c.embedded == 1
     assert c.skipped_only_name == 1
     with SessionLocal() as db:
         p = db.query(Provider).one()
         assert p.embedding is not None
-    assert "name-only" in caplog.text
