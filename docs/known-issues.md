@@ -61,6 +61,15 @@ before       = 2026-04-23 16:09:51
 
 **Priority:** Informational (operational note, not a bug)
 
+### Phase 8.11c — Google bulk embeddings require manual run after ingest
+
+**Status:** Open
+**Filed:** Phase 8.11c (2026-04-23)
+
+**Summary:** `scripts/google_bulk_embed.py` must be run after `scripts/google_bulk_ingest.py` to populate `Provider.embedding` for bulk-imported rows. Ingest leaves `embedding` NULL by design (separation of concerns). Embedding is idempotent: re-runs only touch rows where `embedding` IS NULL. API cost: approximately 4,574 × `text-embedding-3-small` rate. Time: estimate 5–15 minutes wall time depending on OpenAI rate limits.
+
+**Priority:** informational
+
 ### 2026-04-21 — Tier 3 date hedging on open-ended temporal queries (Phase 6.1 voice audit)
 
 **Query:** "What's happening this weekend?" (sample `t3-01` in `scripts/voice_audit_results_2026-04-21-phase614-verify.json`)
