@@ -70,6 +70,39 @@ before       = 2026-04-23 16:09:51
 
 **Priority:** informational
 
+### Phase 8.11 — `hours_structured` / `raw_enrichment_json` non-dict values stored as-is
+
+**Status:** Open
+**Filed:** Phase 8.11-schema-contract-doc (2026-04-24)
+
+**Summary:** The ingest’s `_apply_row_to_provider` in `app/contrib/google_bulk_ingest.py` stores **non-dict, non-null** values as-is in JSON columns for `hours_structured` and `raw_enrichment_json`. The v1 spec in `docs/enrichment-jsonl-contract.md` requires **object or null** only. The spec is authoritative going forward; **code drift** is tolerated at v1 because the external emitter is expected to produce conformant data.
+
+**Resolution (deferred):** Tighten ingest to **coerce** non-dict to null or **raise** into the row error path — approximately five lines in `app/contrib/google_bulk_ingest.py`. Defer until mis-emitted data shows up in practice.
+
+**Priority:** Low. Contract doc + emitter discipline expected to keep rows valid.
+
+### Phase 8.11 — `_find_by_normalized_name` is O(n) per row
+
+**Status:** Open
+**Filed:** Phase 8.11-schema-contract-doc (2026-04-24)
+
+**Summary:** Name-based matching loads **all** `Provider` rows for **each** JSONL line. For a full enrichment run of ~4,574 businesses, that implies on the order of **~4,574 × 4,574** name comparisons in the worst case — not a **correctness** issue, but potentially meaningful **wall-clock** time on the first full ingest.
+
+**Resolution (deferred):** At run start, build a **single** map of normalized name → `Provider` (or id) and look up in O(1). Defer until a real enrichment run provides a baseline time.
+
+**Priority:** Low until measured.
+
+### Handoff documentation — §5 Phase 8.11.4 vs JSONL + ingest path
+
+**Status:** Open (cosmetic)
+**Filed:** Phase 8.11-schema-contract-doc (2026-04-24)
+
+**Issue:** `HAVA_CONCIERGE_HANDOFF.md` **§5** Phase **8.11.4** describes enrichment as writing to the chat app’s **production Postgres** directly. The **operational** path is: enrichment pipeline **emits JSONL** → `scripts/google_bulk_ingest.py` (wrapping `app/contrib/google_bulk_ingest.py`) loads into Postgres. **Not** a runtime bug — documentation wording drift only.
+
+**Resolution (deferred):** One-paragraph reword in a future **docs pass**; not part of the schema-contract-doc phase. See `docs/enrichment-jsonl-contract.md` for the actual handoff interface.
+
+**Priority:** Documentation consistency only.
+
 ### 2026-04-21 — Tier 3 date hedging on open-ended temporal queries (Phase 6.1 voice audit)
 
 **Query:** "What's happening this weekend?" (sample `t3-01` in `scripts/voice_audit_results_2026-04-21-phase614-verify.json`)
