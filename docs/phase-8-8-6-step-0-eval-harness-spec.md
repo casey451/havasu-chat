@@ -1,6 +1,6 @@
 # Phase 8.8.6 step 0 — Confabulation Eval Harness Spec
 
-Status: HALT 0 closed (2026-04-25). HALT 1 amendment applied (2026-04-25) — see §10.
+Status: HALT 0 closed (2026-04-25). HALT 1 amendment applied (2026-04-25). HALT 2 amendment applied (2026-04-25) — see §10.
 Date: 2026-04-25
 Scope: Spec only (no implementation changes in this phase)
 Predecessor: 8.8.5 reverted (`d1fef0f`, `c3562c9` revert `f8afb81`, `297086d`)
@@ -148,16 +148,19 @@ Evidence-set capture is implemented as a **harness-only monkeypatch** on `app.ch
 - `app/eval/confabulation_invoker.py`, before calling `unified.route(...)`, calls `install()` which replaces `tier2_formatter.format` with a wrapper that:
   1. sets the ContextVar to `(query, [dict(r) for r in rows])` (defensive copy);
   2. calls the original `format(query, rows)`;
-  3. resets the ContextVar in `finally` regardless of return value or exception.
+  3. resets the ContextVar in `finally` regardless of return value or exception;
+  4. **returns the original function's return value unchanged.**
 - After the route call returns, the invoker reads the ContextVar to construct the evidence_set, then calls `restore()` which puts the original `format` back.
+
+**Wrapper signature requirement (corrected at HALT 2):** `tier2_formatter.format` has the signature `(query: str, rows: list[dict]) -> tuple[Optional[str], int | None, int | None]`. The 3-tuple is `(text, input_tokens, output_tokens)`. The wrapper must preserve this signature exactly — same call shape, same return shape. The wrapper does not interpret or modify the return value; it forwards whatever `format` returns. Original spec text named `str | None` as the return type; that was wrong. See §10 amendment changelog.
 
 Constraints baked into this mechanism (cross-reference §8 #9):
 
 - **No production code touched.** All hook code lives in `app/eval/`. The do-not-modify list in §4.2 is fully respected.
-- **No signature change** to `tier2_formatter.format`. The wrapper has the same `(query, rows) -> str | None` shape.
+- **No signature change** to `tier2_formatter.format`. The wrapper has the same `(query, rows) -> tuple[Optional[str], int | None, int | None]` shape (corrected at HALT 2).
 - **No `ChatResponse` change.** Evidence is harness-side only.
 - **Zero production overhead** when harness is not running. The patch is not installed unless `app/eval/confabulation_invoker.py` calls `install()`.
-- **`try`/`finally`** ensures evidence does not stick to a later request, even if `format` raises.
+- **`try`/`finally`** ensures evidence does not stick to a later request, even if `format` raises. Note that `format` itself catches most internal exceptions and returns `(None, None, None)` rather than raising — the wrapper's `finally` covers the residual case where an exception escapes anyway.
 - **ContextVar** is the right choice for today's synchronous call stack. If `tier2_handler` is ever moved to a thread pool or async scheduler, the wrapper must be revisited — documented as a known assumption in the runbook, not a TODO.
 
 The architecture finding that drove this decision: `unified_router.py` is *not* the formatter call site. The actual call site is `app/chat/tier2_handler.py`, which calls `tier2_db_query.query()` then `tier2_formatter.format(query, rows)`. The router only sees the string output and token tallies. By the time control returns to the router, rows are gone (they were locals in `tier2_handler`). HALT 1 surfaced this; the resolution is the harness-only monkeypatch above. See §10 amendment changelog and §8 #9 for the resolved approach.
@@ -221,9 +224,9 @@ A baseline result directory will be committed (one per quarter or per significan
 
 Three HALTs. None should bend on second testing.
 
-- **HALT 1 — pre-implementation lexicon, template, and hook review.** Status: **closed 2026-04-25.** Owner reviewed and approved: (a) per-row probe template list (§3.2), (b) safe_framing_vocabulary stoplist scope (§3.5.1, with v1-unigrams-only constraint), (c) Layer 2 wordlist (§3.5.2), (d) Layer 3 quantity-noun list and canonicalizer rules (§3.5.3). Lexicon governance follows 8.8.5 §3.1.3 model: conceptual classes locked, literal lists implementation-owned and may evolve post-deploy with owner review. **HALT 1 also surfaced the formatter call-site location finding that drove this spec's amendment** — `unified_router.py` does not see rows; the actual call site is `tier2_handler.py`. The resolved approach is a harness-only monkeypatch in `app/eval/`, not any production touch. See §3.5.1a, §8 #9, and §10. Final lexicons land in a `relay/halt1-closure-final-lexicons.md` artifact for implementation reference, not as a doc commit.
+- **HALT 1 — pre-implementation lexicon, template, and hook review.** Status: **closed 2026-04-25.** Owner reviewed and approved: (a) per-row probe template list (§3.2), (b) safe_framing_vocabulary stoplist scope (§3.5.1, with v1-unigrams-only constraint), (c) Layer 2 wordlist (§3.5.2), (d) Layer 3 quantity-noun list and canonicalizer rules (§3.5.3). Lexicon governance follows 8.8.5 §3.1.3 model: conceptual classes locked, literal lists implementation-owned and may evolve post-deploy with owner review. **HALT 1 also surfaced the formatter call-site location finding that drove this spec's first amendment** — `unified_router.py` does not see rows; the actual call site is `tier2_handler.py`. The resolved approach is a harness-only monkeypatch in `app/eval/`, not any production touch. See §3.5.1a, §8 #9, and §10. Final lexicons land in a `relay/halt1-closure-final-lexicons.md` artifact for implementation reference, not as a doc commit.
 
-- **HALT 2 — dry-run on 5-provider subset.** Before full-catalog sweep, run the harness against a hand-picked 5-provider subset that includes both regression anchors (Aqua Beginnings, Grace Arts Live) and at least three rows that should produce zero hits (a rich, well-described provider; a sparse provider that gets handled correctly today). Owner reviews report shape and detector calibration.
+- **HALT 2 — dry-run on 5-provider subset.** Before full-catalog sweep, run the harness against a hand-picked 5-provider subset that includes both regression anchors (Aqua Beginnings, Grace Arts Live) and at least three rows that should produce zero hits (a rich, well-described provider; a sparse provider that gets handled correctly today). Owner reviews report shape and detector calibration. **HALT 2's pre-implementation read pass also surfaced a `tier2_formatter.format` return-type mismatch in §3.5.1a, driving the second amendment to this spec — see §10.**
 
 - **HALT 3 — first full-sweep report.** Owner reviews the full-catalog baseline before harness is declared 8.8.6-ready. Confirms the detector signal is signal, not noise. May trigger lexicon adjustments under HALT 1's governance rule.
 
@@ -236,14 +239,14 @@ Three HALTs. None should bend on second testing.
 1. `scripts/confabulation_eval.py` — CLI runner. Flags: `--mode={inprocess,http}`, `--runs N`, `--flags={off,on,both}`, `--rows={providers,programs,both}`, `--output-dir`, `--limit` (for HALT 2 subset), `--include` / `--exclude` (row filters).
 2. `app/eval/__init__.py`
 3. `app/eval/confabulation_query_gen.py` — `generate_probes(session) -> list[Probe]`. Returns one Probe per (row, template). Probe carries query text, row reference, template id.
-4. `app/eval/confabulation_evidence.py` — `tier2_evidence` ContextVar; `install()` and `restore()` helpers for the monkeypatch on `tier2_formatter.format`.
+4. `app/eval/confabulation_evidence.py` — `tier2_evidence` ContextVar; `install()` and `restore()` helpers for the monkeypatch on `tier2_formatter.format`. Wrapper preserves the actual signature `(query: str, rows: list[dict]) -> tuple[Optional[str], int | None, int | None]` per §3.5.1a.
 5. `app/eval/confabulation_invoker.py` — `invoke(probe, flag_state) -> InvocationResult`. Two implementations behind a strategy interface: `InProcessInvoker` (calls `install()` before `unified.route`, reads ContextVar after, calls `restore()`) and `HttpInvoker` (no monkeypatch; degraded detection). Returns `InvocationResult(response_text, evidence_set, tier_used, latency_ms, raw_log)`.
 6. `app/eval/confabulation_detector.py` — `detect(invocation_result) -> list[DetectorHit]`. Hits carry layer, token, sentence_index, row_ids_in_scope. Includes the Layer 3 canonicalizer per §3.5.3.
 7. `app/eval/confabulation_report.py` — `write_jsonl`, `write_summary_md`, `write_per_row_csv`.
 8. `tests/test_confabulation_query_gen.py`
 9. `tests/test_confabulation_detector.py` — fixture cases for §1.1 anchors plus negative fixtures (clean responses) plus Layer 3 normalization fixtures.
 10. `tests/test_confabulation_invoker.py` — in-process invoker integration test against a 1-provider stub catalog.
-11. `tests/test_confabulation_evidence.py` — verify install/restore correctness, ContextVar reset on exception, no leakage between requests.
+11. `tests/test_confabulation_evidence.py` — verify install/restore correctness, ContextVar reset on exception, no leakage between requests, and that the wrapper preserves the 3-tuple return value unchanged for both success and failure paths.
 12. `docs/confabulation-eval-runbook.md` — operator guide. Covers: how to invoke, how to read each artifact, how to interpret hits, how to expand lexicons under HALT 1 governance, the threading/async caveat from §3.5.1a, the HTTP-mode degraded-Layer-2 caveat from §3.5.2, the v1 inequality-semantics limitation from §3.5.3.
 
 ### 4.2 Files explicitly NOT to modify
@@ -284,7 +287,8 @@ scripts/confabulation_eval_results/*
 8. `test_confabulation_evidence_install_restore`: `install()` replaces `tier2_formatter.format`; `restore()` puts it back; double-install or double-restore are safe (idempotent or clearly errored, document chosen behavior).
 9. `test_confabulation_evidence_exception_safety`: when the wrapped `format` raises, the ContextVar is reset and subsequent requests do not see leaked evidence.
 10. `test_confabulation_evidence_no_install_no_overhead`: when `install()` has not been called, `tier2_formatter.format` is the original function — assert by identity.
-11. `test_confabulation_report`: JSONL / MD / CSV emission produces parseable artifacts.
+11. `test_confabulation_evidence_return_passthrough`: the wrapper returns the original function's 3-tuple unchanged for both success path (`(text, in_tok, out_tok)`) and the early-return failure paths (`(None, None, None)` and `(None, in_tok, out_tok)` for empty-response). Verifies §3.5.1a return-value forwarding contract.
+12. `test_confabulation_report`: JSONL / MD / CSV emission produces parseable artifacts.
 
 ### 5.2 Integration tests
 
@@ -319,9 +323,10 @@ This phase does NOT define a confabulation-rate threshold for shipping a formatt
 
 5. **Cost creep at bulk-import scale.** Curated catalog is ~24 providers + ~28 programs. v1 sweep is (24+28) × 3 templates × 3 runs × 2 flag states = 936 invocations. Mostly Tier 1/Tier 2 (free) for direct lookups. Estimated <$5 in API cost worst case. Bulk-catalog scale (~4,574 providers post-8.11) requires sampling strategy — out of v1 scope, documented for v2.
 
-6. **Evidence-set capture via monkeypatch.** Resolved at HALT 1 via the harness-only patch in §3.5.1a / §8 #9. The patch:
+6. **Evidence-set capture via monkeypatch.** Resolved at HALT 1 via the harness-only patch in §3.5.1a / §8 #9, with the wrapper signature corrected at HALT 2 to `tuple[Optional[str], int | None, int | None]`. The patch:
    - replaces `tier2_formatter.format` only when `install()` is called from `app/eval/confabulation_invoker.py`;
    - uses a `ContextVar` set inside a `try`/`finally` wrapper so evidence does not leak across requests if `format` raises;
+   - returns the original function's return value unchanged (3-tuple, signature-faithful);
    - has zero overhead when not installed (production paths unaffected);
    - assumes today's synchronous call stack — if Tier 2 is ever moved to a thread pool or async scheduler, the wrapper must be revisited (documented in runbook, not a TODO).
 
@@ -331,12 +336,14 @@ This phase does NOT define a confabulation-rate threshold for shipping a formatt
 
 9. **Evidence dict shape drift.** If `_provider_dict` / `_program_dict` / `_event_dict` change in production over time, the harness's evidence-set construction must follow. Mitigation: evidence extraction reads from the dicts the patched `format` actually receives, not from a separate schema definition. Drift is automatic. Tests assert against current dict shape and will fail if it drifts.
 
+10. **`format` signature drift.** If `tier2_formatter.format` gains new parameters or changes its return shape in production over time, the wrapper signature in §3.5.1a is no longer faithful. Mitigation: §5.1 test 11 (`test_confabulation_evidence_return_passthrough`) asserts that the wrapper preserves the current 3-tuple return shape; signature drift will cause that test to fail and surface the issue before integration.
+
 ### 6.2 Mitigations summary
 
 - Layered detection (Layer 1 primary, generalizes; Layers 2/3 secondary, regression coverage).
 - Layer 3 canonicalization required, not optional, with owner-reviewed rules.
 - HALT 1 owner-reviewed lexicons, templates, canonicalizer rules, and resolved hook approach (§8 #9).
-- HALT 2 dry-run sanity check.
+- HALT 2 dry-run sanity check, plus pre-implementation read-pass discipline that surfaces spec-vs-code drift early.
 - HALT 3 full-sweep review before declaring harness ready for 8.8.6 step 1+.
 - N-runs default 3.
 - In-process default for full detector fidelity; HTTP opt-in for staging.
@@ -389,9 +396,9 @@ Known-issues entries this phase touches (listed for context, not all closed by i
 
 ---
 
-## 8) Resolved decisions (owner-approved at HALT 0, with HALT 1 corrections)
+## 8) Resolved decisions (owner-approved at HALT 0, with HALT 1 and HALT 2 corrections)
 
-All nine open decisions resolved 2026-04-25. Item #9 corrected by HALT 1 finding (see §10).
+All nine open decisions resolved 2026-04-25. Item #9 corrected by HALT 1 finding; wrapper signature in §3.5.1a corrected by HALT 2 finding (see §10).
 
 1. **Phase number:** 8.8.6 step 0. Eval harness is foundation, fix is step 1+.
 2. **v1 detector layer set:** Layer 1 (per-row scoped extrapolation diff, primary) + Layer 2 (wordlist, secondary) + Layer 3 (number/quantity invention with canonicalization, secondary). Layer 4 (entity invention) and Layer 5 (LLM judge) deferred to v2.
@@ -401,16 +408,16 @@ All nine open decisions resolved 2026-04-25. Item #9 corrected by HALT 1 finding
 6. **Pass/fail gate placement:** NOT in this phase. Threshold defined in 8.8.6 step 1+ informed by the baseline this phase produces. Gate placement is the most disciplined decision in §8 — defining a threshold before measuring would repeat the 8.8.5 mistake.
 7. **Disposition of `docs/phase-8-8-5-halt5-followup-baseline-verification-and-staging.md`:** kept and committed with a status-update header noting the 8.8.5 rollback. Methodology in §1 of that doc is reusable for any future baseline-verification work.
 8. **Probe template lock:** templates in §3.2 confirmed as-is at HALT 1. All six approved without change.
-9. **Evidence-set capture (corrected at HALT 1):** implemented as a **harness-only monkeypatch** on `app.chat.tier2_formatter.format`, lived entirely in `app/eval/confabulation_evidence.py` and `app/eval/confabulation_invoker.py`. **No production code is modified on disk.** The original spec text named `unified_router.py` as a candidate hook site; HALT 1 found that the router never receives rows — the actual call site is `app/chat/tier2_handler.py`, which is on §4.2's do-not-modify list. The monkeypatch approach satisfies §8 #9's original constraints (logged side-effect only, no signature change, no behavior change, no-op when harness isn't running) more cleanly than any production hook would, and is the resolved approach. Mechanics are in §3.5.1a; risk in §6.1.6; tests in §5.1.8–10.
+9. **Evidence-set capture (corrected at HALT 1, signature corrected at HALT 2):** implemented as a **harness-only monkeypatch** on `app.chat.tier2_formatter.format`, lived entirely in `app/eval/confabulation_evidence.py` and `app/eval/confabulation_invoker.py`. **No production code is modified on disk.** The original spec text named `unified_router.py` as a candidate hook site; HALT 1 found that the router never receives rows — the actual call site is `app/chat/tier2_handler.py`, which is on §4.2's do-not-modify list. The monkeypatch approach satisfies §8 #9's original constraints (logged side-effect only, no signature change, no behavior change, no-op when harness isn't running) more cleanly than any production hook would, and is the resolved approach. **Wrapper signature corrected at HALT 2:** `format` returns `tuple[Optional[str], int | None, int | None]` (the 3-tuple `(text, input_tokens, output_tokens)`), not `str | None` as originally written. The wrapper preserves this signature exactly. Mechanics are in §3.5.1a; risk in §6.1.6 and §6.1.10; tests in §5.1.8–11.
 
 ---
 
 ## 9) Code-reading references
 
-Authoritative context for HALT 1 implementation reading. Order reflects priority for the harness-only monkeypatch approach.
+Authoritative context for HALT 1 / HALT 2 implementation reading. Order reflects priority for the harness-only monkeypatch approach.
 
 - `app/chat/tier2_handler.py` — **the actual formatter call site.** Contains `try_tier2_with_usage` and `try_tier2_with_filters_with_usage`, both of which call `tier2_db_query.query()` then `tier2_formatter.format(query, rows)`. This is where the monkeypatch in §3.5.1a takes effect.
-- `app/chat/tier2_formatter.py` — `format(query, rows)` signature. The function the harness wraps. Signature must be preserved by the wrapper.
+- `app/chat/tier2_formatter.py` — `format(query, rows) -> tuple[Optional[str], int | None, int | None]` signature. The function the harness wraps. **Signature must be preserved by the wrapper exactly** — same call shape, same 3-tuple return shape, return value forwarded unchanged.
 - `app/chat/tier2_db_query.py` — `_provider_dict`, `_program_dict`, `_event_dict`, query/merge flow. **Source of evidence dict shape** — harness evidence extraction must follow these dicts exactly per §3.5.1.
 - `app/chat/unified_router.py` — entry point for in-process invoker (`unified.route(...)`). Does NOT see rows — the invoker calls `route` after installing the monkeypatch and reads the ContextVar populated by the wrapper. Includes `ChatResponse` shape; harness must record `tier_used` for reporting.
 - `app/chat/tier3_handler.py` — Tier 3 path; harness must record tier classification (via `ChatResponse.tier_used`, not by reading this module directly).
@@ -424,6 +431,28 @@ Authoritative context for HALT 1 implementation reading. Order reflects priority
 ---
 
 ## 10) Amendment changelog
+
+### 2026-04-25 — HALT 2 amendment (§3.5.1a wrapper signature correction)
+
+**What was wrong:** §3.5.1a's wrapper-signature description said `tier2_formatter.format` has the signature `(query, rows) -> str | None`. This was wrong.
+
+**What HALT 2 found:** Cursor's pre-implementation read pass of `app/chat/tier2_formatter.py` showed the actual signature is `def format(query: str, rows: List[Dict[str, Any]]) -> tuple[Optional[str], int | None, int | None]`. The 3-tuple is `(text, input_tokens, output_tokens)`. Verified at HALT A signature-verification check; six return statements all conform to the 3-tuple shape, including early-return failure paths returning `(None, None, None)` and `(None, in_tok, out_tok)` for empty-model-response.
+
+**What's now resolved:** §3.5.1a wrapper-signature description corrected to the actual 3-tuple. The wrapper's contract is now: preserve the call shape `(query, rows)` exactly; preserve the return shape `tuple[Optional[str], int | None, int | None]` exactly; return the original function's value unchanged (do not interpret, do not modify). §4.1 file 4 description, §4.1 file 11 description, §6.1.6, and §9 are all updated to reflect the corrected signature. New test §5.1.11 (`test_confabulation_evidence_return_passthrough`) added to assert the wrapper's return-value forwarding contract for both success and failure paths. New risk §6.1.10 (signature drift) added to flag that the test will catch future drift in `format`'s signature.
+
+**Sections updated by this amendment:**
+- §3.5.1a — wrapper signature line corrected; explicit "returns the original function's return value unchanged" added; note about `format`'s internal exception handling clarified.
+- §3.7 HALT 2 — note that HALT 2's read pass surfaced the signature mismatch and drove this amendment.
+- §4.1 file 4 — wrapper signature explicit in description.
+- §4.1 file 11 — test description expanded to include 3-tuple return-value assertion.
+- §5.1 — new test 11 added (`test_confabulation_evidence_return_passthrough`); existing test 11 (report) renumbered to 12.
+- §6.1.6 — risk text updated to mention the 3-tuple return shape and the wrapper's signature-faithful forwarding.
+- §6.1.10 — new risk: signature drift; mitigated by §5.1.11 test.
+- §6.2 — mitigations summary updated to mention pre-implementation read-pass discipline as one of the safety nets.
+- §8 #9 — note added that the wrapper signature was corrected at HALT 2.
+- §9 — `tier2_formatter.py` line in code-reading references shows the corrected signature; "signature must be preserved by the wrapper exactly" emphasis added.
+
+**HALT 2's pre-implementation read pass was the right phase to catch this** — same pattern as HALT 1's call-site finding. Read-pass discipline before code work surfaces spec-vs-code drift cheaply. Catching it in HALT A cost a small amendment. Catching it during implementation would have cost wasted work on an unworkable wrapper signature plus a likely runtime crash on the first test.
 
 ### 2026-04-25 — HALT 1 amendment (§8 #9 formatter call-site correction)
 
