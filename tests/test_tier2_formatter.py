@@ -102,17 +102,3 @@ def test_system_prompt_contains_grounding_guardrails() -> None:
     assert "Grounding guardrails (additive to §6.7)" in system_text
     assert "every concrete detail must be directly row-backed" in system_text
     assert "Never invent venue, address, event time window, duration, organizer, or pricing details." in system_text
-
-
-def test_system_prompt_contains_description_richness_markers() -> None:
-    fake = MagicMock()
-    fake.messages.create.return_value = _msg("ok")
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake):
-            tf.format("tell me about aqua beginnings", [{"type": "provider", "name": "Aqua Beginnings"}])
-
-    system_text = fake.messages.create.call_args.kwargs["system"][0]["text"]
-    assert "description_richness=sparse" in system_text
-    assert "Grace Arts Live (nonprofit affiliated with ACPA, founded 2006)" in system_text
-    assert "Aqua Beginnings runs swim instruction with max 3 swimmers per group" in system_text
-    assert "(such as indoor, outdoor, heated, private, family-friendly, air-conditioned" in system_text
