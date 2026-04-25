@@ -43,6 +43,18 @@ before       = 2026-04-23 16:09:51
 
 **Priority:** Low. Does not affect production code path. Flaky under full-suite only. **Workaround:** isolated re-run of the failing test or file.
 
+### Phase 3 legacy test failure persists post-8.8.5 (`test_weekend_search_asks_activity_then_returns_grouped_results`)
+
+**Status:** Open (pre-existing; non-blocking for 8.8.5)
+**Filed:** Phase 8.8.4 follow-up (documented) and re-verified in Phase 8.8.5 Step 5 (2026-04-25)
+
+**Summary:** `tests/test_phase3.py::Phase3SearchTests::test_weekend_search_asks_activity_then_returns_grouped_results` fails with:
+`'Basketball Clinic' not found in "Nothing on for that time. Want to peek at what's coming up later?"`.
+
+**Verification:** Reproduced on baseline commit `fedf0a8` under both `USE_LLM_ROUTER=false` and `USE_LLM_ROUTER=true`, then reproduced again on current 8.8.5 worktree. This confirms the failure is pre-existing and not introduced by 8.8.5 Step 3/4 changes.
+
+**Priority:** Low for Phase 8.8.5 scope. Non-blocking for 8.8.5 commit staging.
+
 ### Phase 8.10 — River Scene pull is a manual operation
 
 **Status:** Open
