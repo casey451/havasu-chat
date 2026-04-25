@@ -7,7 +7,7 @@ events. Entity-matched provider (if any) is listed first with full detail.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Sequence
 
 from sqlalchemy import select
@@ -18,7 +18,9 @@ from app.db.models import Event, Program, Provider
 
 MAX_PROVIDERS = 10
 MAX_CONTEXT_WORDS = 1500
+RESERVED_UNLINKED_WORDS = 300
 _HOURS_MAX_LEN = 200
+_UNLINKED_EVENTS_LIMIT = 10
 
 
 def _truncate_hours(h: str | None) -> str:
@@ -85,6 +87,36 @@ def _events_future_for(db: Session, provider_id: str, today: date) -> Sequence[E
     ).all()
 
 
+def _unlinked_future_events(
+    db: Session, today: date, exclude_ids: set[str], limit: int = _UNLINKED_EVENTS_LIMIT
+) -> list[Event]:
+    """Future standalone events (no provider) for the general-calendar block."""
+    end = today + timedelta(days=365)
+    rows = list(
+        db.scalars(
+            select(Event)
+            .where(
+                Event.status == "live",
+                Event.date >= today,
+                Event.date <= end,
+                Event.provider_id.is_(None),
+            )
+            .order_by(Event.date.asc(), Event.start_time.asc())
+            .limit(limit)
+        ).all()
+    )
+    return [e for e in rows if e.id not in exclude_ids]
+
+
+def _format_unlinked_event_line(ev: Event) -> str:
+    u = (ev.event_url or "").strip()
+    url = u if u else "—"
+    return (
+        f"  Upcoming event: {ev.title} on {ev.date.isoformat()} at "
+        f"{ev.start_time.strftime('%H:%M')} — {ev.location_name} — {url}"
+    )
+
+
 def build_context_for_tier3(query: str, intent_result: IntentResult, db: Session) -> str:
     """Return a plain-text context block for the Tier 3 system prompt (never empty)."""
     today = date.today()
@@ -97,6 +129,7 @@ def build_context_for_tier3(query: str, intent_result: IntentResult, db: Session
 
     parts: list[str] = []
     parts.append("Context — Lake Havasu catalog snapshot (programs and events may be partial):")
+    linked_event_ids: set[str] = set()
     for p in providers:
         lines: list[str] = []
         lines.append(f"Provider: {p.provider_name}")
@@ -130,12 +163,28 @@ def build_context_for_tier3(query: str, intent_result: IntentResult, db: Session
                 seg += f" | note: {sn}"
             lines.append(seg)
         for ev in _events_future_for(db, p.id, today):
+            linked_event_ids.add(ev.id)
             lines.append(
                 f"  Upcoming event: {ev.title} on {ev.date.isoformat()} "
                 f"at {ev.start_time.strftime('%H:%M')} — {ev.location_name}"
             )
         parts.append("\n".join(lines))
 
+    unlinked = _unlinked_future_events(db, today, linked_event_ids)
+    unlinked_text: str | None
+    if unlinked:
+        gcal_lines = [
+            "General calendar (upcoming, not attached to a listed business above):",
+            *(_format_unlinked_event_line(ev) for ev in unlinked),
+        ]
+        unlinked_text = "\n".join(gcal_lines)
+    else:
+        unlinked_text = None
+
     body = "\n\n".join(parts)
-    body = _trim_to_word_budget(body, MAX_CONTEXT_WORDS)
+    if unlinked_text is not None:
+        provider_max = max(1, MAX_CONTEXT_WORDS - RESERVED_UNLINKED_WORDS)
+        body = _trim_to_word_budget(body, provider_max) + "\n\n" + unlinked_text
+    else:
+        body = _trim_to_word_budget(body, MAX_CONTEXT_WORDS)
     return body

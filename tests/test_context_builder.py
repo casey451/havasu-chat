@@ -11,7 +11,11 @@ from sqlalchemy import delete
 from sqlalchemy.exc import ResourceClosedError
 from sqlalchemy.orm import Session
 
-from app.chat.context_builder import MAX_CONTEXT_WORDS, build_context_for_tier3
+from app.chat.context_builder import (
+    MAX_CONTEXT_WORDS,
+    _unlinked_future_events,
+    build_context_for_tier3,
+)
 from app.chat.intent_classifier import IntentResult
 from app.db.database import SessionLocal
 from app.db.models import Event, Program, Provider
@@ -299,3 +303,190 @@ def test_when_no_active_includes_verified_fallback_slice(isolated_catalog: Sessi
     db.flush()
     ctx = build_context_for_tier3("open ended", _intent(entity=None), db)
     assert ctx.count("Provider:") == 10
+
+
+def _unlinked_event_row(
+    *,
+    title: str,
+    d: date,
+    event_url: str = "",
+) -> Event:
+    return Event(
+        title=title,
+        normalized_title=title.lower(),
+        date=d,
+        start_time=time(10, 0),
+        location_name="Lake",
+        location_normalized="lake",
+        description="Twenty chars minimum evnt.",
+        provider_id=None,
+        status="live",
+        event_url=event_url,
+    )
+
+
+def test_unlinked_event_appears_under_general_calendar_header(isolated_catalog: Session) -> None:
+    db = isolated_catalog
+    p = Provider(
+        provider_name="Linked Co",
+        category="fun",
+        verified=True,
+        draft=False,
+        is_active=True,
+    )
+    db.add(p)
+    db.flush()
+    today = date.today()
+    u = _unlinked_event_row(title="Standalone Fair", d=today + timedelta(days=7), event_url="https://e.example/x")
+    db.add(u)
+    db.flush()
+    ctx = build_context_for_tier3("events", _intent(), db)
+    assert "General calendar (upcoming, not attached to a listed business above):" in ctx
+    assert "Standalone Fair" in ctx
+    assert "https://e.example/x" in ctx
+    assert f"on {u.date.isoformat()} at 10:00" in ctx
+
+
+def test_unlinked_dedup_defensive_exclude_ids(isolated_catalog: Session) -> None:
+    """Unlinked events whose id is in ``exclude_ids`` are dropped (defensive)."""
+    db = isolated_catalog
+    p = Provider(
+        provider_name="Only for catalog",
+        category="fun",
+        verified=True,
+        draft=False,
+        is_active=True,
+    )
+    db.add(p)
+    db.flush()
+    u = _unlinked_event_row(title="Would hide if excluded", d=date.today() + timedelta(days=1))
+    db.add(u)
+    db.flush()
+    out = _unlinked_future_events(db, date.today(), {u.id})
+    assert out == []
+
+
+def test_unlinked_cap_respects_ten_earliest_by_date(isolated_catalog: Session) -> None:
+    db = isolated_catalog
+    p = Provider(
+        provider_name="Host",
+        category="fun",
+        verified=True,
+        draft=False,
+        is_active=True,
+    )
+    db.add(p)
+    db.flush()
+    day0 = date.today()
+    for i in range(15):
+        db.add(
+            _unlinked_event_row(
+                title=f"CapEvt{i:02d}",
+                d=day0 + timedelta(days=i),
+            )
+        )
+    db.flush()
+    ctx = build_context_for_tier3("q", _intent(), db)
+    for i in range(10):
+        assert f"CapEvt{i:02d}" in ctx
+    for i in range(10, 15):
+        assert f"CapEvt{i:02d}" not in ctx
+
+
+def test_empty_unlinked_omits_general_calendar_section(isolated_catalog: Session) -> None:
+    """Locked: zero unlinked future events → no General calendar header or block."""
+    db = isolated_catalog
+    p = Provider(
+        provider_name="No unlinked",
+        category="fun",
+        verified=True,
+        draft=False,
+        is_active=True,
+    )
+    db.add(p)
+    db.flush()
+    ctx = build_context_for_tier3("q", _intent(), db)
+    assert "General calendar" not in ctx
+    assert "not attached to a listed business" not in ctx
+
+
+def test_word_budget_reserved_tail_keeps_unlinked_visible(isolated_catalog: Session) -> None:
+    p = Provider(
+        provider_name="Verbose Host",
+        category="fun",
+        verified=True,
+        draft=False,
+        is_active=True,
+    )
+    isolated_catalog.add(p)
+    isolated_catalog.flush()
+    # Bloat the provider block via title (schedule_note is truncated to 120 chars in context).
+    huge_title = "filler " * 2500
+    isolated_catalog.add(
+        Program(
+            title=huge_title,
+            description="Twenty chars minimum xx.",
+            activity_category="sports",
+            schedule_start_time="09:00",
+            schedule_end_time="10:00",
+            location_name="Here",
+            provider_name=p.provider_name,
+            provider_id=p.id,
+            is_active=True,
+        )
+    )
+    today = date.today()
+    u = _unlinked_event_row(title="XYZZY_STANDALONE_RESERVE_42", d=today + timedelta(days=2))
+    isolated_catalog.add(u)
+    isolated_catalog.flush()
+    ctx = build_context_for_tier3("q", _intent(), isolated_catalog)
+    assert "XYZZY_STANDALONE_RESERVE_42" in ctx
+    assert "General calendar" in ctx
+    # Provider blob was truncated, but the block after reserved tail is intact
+    pos_gcal = ctx.index("General calendar")
+    assert "XYZZY_STANDALONE_RESERVE_42" in ctx[pos_gcal:]
+
+
+def test_unlinked_excluded_past_365_day_upper_bound(isolated_catalog: Session) -> None:
+    db = isolated_catalog
+    p = Provider(
+        provider_name="Host",
+        category="fun",
+        verified=True,
+        draft=False,
+        is_active=True,
+    )
+    db.add(p)
+    db.flush()
+    t0 = date.today()
+    far = _unlinked_event_row(title="Too Far Out 400d", d=t0 + timedelta(days=400))
+    near = _unlinked_event_row(title="Within 300d OK", d=t0 + timedelta(days=300))
+    db.add_all([far, near])
+    db.flush()
+    ctx = build_context_for_tier3("q", _intent(), db)
+    assert "Within 300d OK" in ctx
+    assert "Too Far Out 400d" not in ctx
+
+
+def test_unlinked_ordering_date_ascending(isolated_catalog: Session) -> None:
+    db = isolated_catalog
+    p = Provider(
+        provider_name="Host",
+        category="fun",
+        verified=True,
+        draft=False,
+        is_active=True,
+    )
+    db.add(p)
+    db.flush()
+    t0 = date.today()
+    a = _unlinked_event_row(title="Second date", d=t0 + timedelta(days=20))
+    b = _unlinked_event_row(title="First date", d=t0 + timedelta(days=2))
+    c = _unlinked_event_row(title="Third date", d=t0 + timedelta(days=200))
+    db.add_all([a, b, c])
+    db.flush()
+    ctx = build_context_for_tier3("q", _intent(), db)
+    i_first = ctx.index("First date")
+    i_second = ctx.index("Second date")
+    i_third = ctx.index("Third date")
+    assert i_first < i_second < i_third
