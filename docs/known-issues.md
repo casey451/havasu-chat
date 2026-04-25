@@ -116,6 +116,61 @@ before       = 2026-04-23 16:09:51
 
 **Priority:** Medium until a repeatable Postgres migration check exists.
 
+### Tier 3 — `provider_id` gating hides standalone events from Hava context
+
+**Status:** Open
+**Filed:** Phase B validation (2026-04-24)
+
+**Summary:** The user-facing `POST /api/chat` Tier 3 block in `app/chat/context_builder.py` (`_events_future_for`, lines 75–85; call site 132–136) loads only events where `Event.provider_id == provider_id` for each catalog provider. **Standalone** events with `provider_id IS NULL` — including typical **seed** rows and **river_scene_import** rows after approval — **never** appear in that “Upcoming event” context, regardless of `status=live` or embedding.
+
+**Observed:** Query like “when is the 4th of july show in havasu” with an approved live event present still fails to surface the event in Hava’s answer; investigation attributes this to context shape, not the event row missing from the DB.
+
+**Resolution (pick one or combine):** (a) Link events to a `Provider` at approval (or post-approve). (b) Extend Tier 3 with a bounded “unlinked future events” calendar block. (c) Route event-shaped questions to Tier 2 when appropriate.
+
+**Priority:** High for pre-launch event discoverability in ask mode.
+
+### Embeddings — not generated in `approve_contribution_as_event`
+
+**Status:** Open
+**Filed:** Phase B validation (2026-04-24)
+
+**Summary:** `approve_contribution_as_event` in `app/contrib/approval_service.py` (~192–211) does **not** call an embedding API for the new `Event` row. Operators must run **`POST /admin/reembed-all`** (admin cookie auth) to backfill vectors. This matches the “batch re-embed” design, but is **undocumented in operator flow** and easy to skip. If Tier 3 standalone-event context is fixed, missing embeddings become the next practical gap for semantic paths that use `search_events` / re-embed quality.
+
+**Priority:** Medium — operational + docs; pair with runbook / checklist.
+
+### Embeddings — 32-dim fallback (extraction) vs 1536-dim query (search)
+
+**Status:** Open
+**Filed:** Phase B validation (2026-04-24)
+
+**Summary:** `app/core/extraction.py` `generate_embedding` falls back to `_deterministic_embedding` at **32** dimensions when the OpenAI embeddings call fails or the key is unset. Query paths use `app/core/search.py` `generate_query_embedding` → **1536**-dim (or `_deterministic_embedding_1536`). `search_events` only uses the cosine branch when `len(event.embedding) == len(query_embedding)`; **32-dim** event rows **silently** fall through to **keyword-only** behavior. **Seed** uses the 1536-dim fallback path, so seed data is aligned; **re-embed** uses `extraction.generate_embedding`, so a re-embed run under API failure can **break semantic retrieval** for those rows.
+
+**Resolution (deferred):** Unify on a **1536**-dim deterministic fallback in `extraction` (or route re-embed through the same helper as `search`).
+
+**Priority:** Medium — correctness when OpenAI is down or misconfigured.
+
+### Phase 8.10 — River Scene pull drops in-progress multi-day events
+
+**Status:** Open
+**Filed:** Phase B validation (2026-04-24)
+
+**Summary:** `app/contrib/river_scene_pull.py` `run_pull` treats “past or unparseable” rows as skip before insert (evidence: events with **start** before `today` may still be **ongoing** for multi-day festivals). Example class: Desert Storm–style **April 22–25** window can be missed on a **April 25** import when the **start** date is already in the past. **Compounding factor:** the `Event` model has no **`end_date`**, so multi-day items cannot be stored as a range — they would at best become a single-day row even if imported.
+
+**Resolution (deferred):** Date-range semantics in pull logic (e.g. keep if `today` within `[start, end]` when parseable) and/or schema + product decision on `end_date` / multi-day representation.
+
+**Priority:** Medium for flagship multi-day events (balloon festival, London Bridge Days, IJSBA, etc.).
+
+### Pre-launch — “Approach X” auto-admit is unspecified
+
+**Status:** Open
+**Filed:** Phase B validation (2026-04-24)
+
+**Summary:** Roadmap copy describes “Approach X” (mostly **auto-admit** via ingestion), but there is **no** written spec for: which **source** values auto-promote, **gating** (URL fetch OK, future-dated, dedup, provider required?), **failure** handling, or **target** `Event.status` (`live` vs `pending_review`). Today, promotion to `events` is **manual** only: `/admin/contributions` → Approve → `approve_contribution_as_event`.
+
+**Resolution (deferred):** Author a **spec** before implementing auto-admit: sources, conditions, idempotency, and operator escape hatches.
+
+**Priority:** High before any automation work; documentation / product.
+
 ### 2026-04-21 — Tier 3 date hedging on open-ended temporal queries (Phase 6.1 voice audit)
 
 **Query:** "What's happening this weekend?" (sample `t3-01` in `scripts/voice_audit_results_2026-04-21-phase614-verify.json`)
