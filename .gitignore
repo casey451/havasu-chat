@@ -1,4 +1,7 @@
+# Local env files (secrets); .env.example template may be tracked
 .env
+.env.*
+!.env.example
 .claude/
 search_debug.log
 *.db

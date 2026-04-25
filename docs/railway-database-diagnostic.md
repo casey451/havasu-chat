@@ -14,8 +14,8 @@ From `railway variables` (linked **Havasu chat** service):
 
 | Name | Value (redacted) |
 |------|------------------|
-| `ADMIN_PASSWORD` | First 20 chars: `HavasuAdmin2026` — remainder redacted (short value; treat as sensitive). |
-| `OPENAI_API_KEY` | First 20 chars: `sk-proj-8Y-mr-zPcp9J` — remainder redacted. |
+| `ADMIN_PASSWORD` | `<redacted — see Railway dashboard>` |
+| `OPENAI_API_KEY` | `<redacted — see Railway dashboard>` |
 | `RAILWAY_ENVIRONMENT` | `production` |
 | `RAILWAY_ENVIRONMENT_ID` | `272f465f-806d-4f0a-9c30-2b97dec352cb` |
 | `RAILWAY_ENVIRONMENT_NAME` | `production` |
@@ -24,8 +24,8 @@ From `railway variables` (linked **Havasu chat** service):
 | `RAILWAY_PROJECT_NAME` | `Havasu chat` |
 | `RAILWAY_SERVICE_ID` | `43cd280e-5dbd-48a6-9d33-fd5f7b7e60a4` |
 | `RAILWAY_SERVICE_NAME` | ` Havasu chat` (leading space in CLI output) |
-| `SECRET_KEY` | First 20 chars: `makeupsomerandomchar` — remainder redacted |
-| `SENTRY_DSN` | First 20 chars: `https://60387b4dc626c` — remainder redacted |
+| `SECRET_KEY` | `<redacted — see Railway dashboard>` |
+| `SENTRY_DSN` | `<redacted — see Railway dashboard>` |
 
 **Not present** in this list: `DATABASE_URL`, `DATABASE_PUBLIC_URL`, or any `PG*` / `POSTGRES_*` variables.
 
