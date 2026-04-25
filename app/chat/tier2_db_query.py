@@ -32,6 +32,9 @@ from app.db.database import SessionLocal
 from app.db.models import Event, Program, Provider
 
 MAX_ROWS = 8
+# Broad calendar windows: fetch more before recurring collapse + time bucketing (Phase 8.8.4).
+BROAD_EVENT_SQL_LIMIT = 500
+NARROW_EVENT_SQL_LIMIT = 80
 
 _WEEKDAY_NAMES = (
     "monday",
@@ -43,6 +46,21 @@ _WEEKDAY_NAMES = (
     "sunday",
 )
 
+_MONTH_TO_INT = {
+    "january": 1,
+    "february": 2,
+    "march": 3,
+    "april": 4,
+    "may": 5,
+    "june": 6,
+    "july": 7,
+    "august": 8,
+    "september": 9,
+    "october": 10,
+    "november": 11,
+    "december": 12,
+}
+
 
 def _today() -> date:
     """Calendar \"today\" for catalog date filters (monkeypatch in tests)."""
@@ -53,9 +71,79 @@ def _weekday_name(d: date) -> str:
     return _WEEKDAY_NAMES[d.weekday()]
 
 
+def _next_weekday(start_date: date, weekday: int, allow_today: bool) -> date:
+    """Next occurrence of ``weekday`` (0=Mon) — mirrors ``app.core.slots._next_weekday``."""
+    days_ahead = (weekday - start_date.weekday()) % 7
+    if days_ahead == 0 and not allow_today:
+        days_ahead = 7
+    return start_date + timedelta(days=days_ahead)
+
+
+def _month_name_range(name: str, ref: date) -> tuple[date, date]:
+    """Full calendar month: same year if month >= ref.month, else next year (spec §5)."""
+    m = _MONTH_TO_INT[name]
+    y = ref.year
+    if m < ref.month:
+        y += 1
+    last = calendar.monthrange(y, m)[1]
+    return date(y, m, 1), date(y, m, last)
+
+
+def _season_range(season: str, ref: date) -> tuple[date, date]:
+    """spring/summer/fall: calendar window; winter = Dec 1 .. end of Feb (next year)."""
+    s = season.lower()
+    y = ref.year
+    if s == "spring":
+        start, end = date(y, 3, 1), date(y, 5, 31)
+        if ref > end:
+            y += 1
+            start, end = date(y, 3, 1), date(y, 5, 31)
+        return start, end
+    if s == "summer":
+        start, end = date(y, 6, 1), date(y, 8, 31)
+        if ref > end:
+            y += 1
+            start, end = date(y, 6, 1), date(y, 8, 31)
+        return start, end
+    if s == "fall":
+        start, end = date(y, 9, 1), date(y, 11, 30)
+        if ref > end:
+            y += 1
+            start, end = date(y, 9, 1), date(y, 11, 30)
+        return start, end
+    if s == "winter":
+        m = ref.month
+        if m == 12:
+            y_end = y + 1
+            feb_last = calendar.monthrange(y_end, 2)[1]
+            return date(y, 12, 1), date(y_end, 2, feb_last)
+        if m <= 2:
+            y0 = y - 1
+            y1 = y
+            feb_last = calendar.monthrange(y1, 2)[1]
+            return date(y0, 12, 1), date(y1, 2, feb_last)
+        y_end = y + 1
+        feb_last = calendar.monthrange(y_end, 2)[1]
+        return date(y, 12, 1), date(y_end, 2, feb_last)
+    raise ValueError("invalid season")
+
+
+def _has_temporal_filter(filters: Tier2Filters) -> bool:
+    return any(
+        (
+            filters.time_window is not None,
+            filters.month_name is not None,
+            filters.season is not None,
+            filters.date_exact is not None,
+            filters.date_start is not None,
+            filters.date_end is not None,
+        )
+    )
+
+
 def _only_time_window(filters: Tier2Filters) -> bool:
-    """True when ``time_window`` is the only structured dimension (events-only)."""
-    if filters.time_window is None:
+    """True when only temporal + optional open_now — events-only for programs/providers."""
+    if not _has_temporal_filter(filters):
         return False
     return not any(
         (
@@ -81,6 +169,11 @@ def _has_query_dimensions(filters: Tier2Filters) -> bool:
             bool(filters.location and filters.location.strip()),
             bool(filters.day_of_week),
             filters.time_window is not None,
+            filters.month_name is not None,
+            filters.season is not None,
+            filters.date_exact is not None,
+            filters.date_start is not None,
+            filters.date_end is not None,
         )
     )
 
@@ -144,7 +237,33 @@ def _resolve_time_window(
         return start, end
     if tw == "upcoming":
         return ref, None
+    if tw == "next_week":
+        monday = _next_weekday(ref, 0, allow_today=False)
+        if monday <= ref:
+            monday += timedelta(days=7)
+        return monday, monday + timedelta(days=6)
+    if tw == "next_month":
+        y = ref.year + (1 if ref.month == 12 else 0)
+        m = 1 if ref.month == 12 else ref.month + 1
+        last = calendar.monthrange(y, m)[1]
+        return date(y, m, 1), date(y, m, last)
     return ref, None
+
+
+def _resolve_effective_event_window(
+    filters: Tier2Filters, ref: date
+) -> tuple[date | None, date | None]:
+    """Inclusive event date window. ``(ref, None)`` means from ``ref`` forward (unbounded)."""
+    if filters.date_start is not None or filters.date_end is not None:
+        return filters.date_start, filters.date_end
+    if filters.date_exact is not None:
+        d = filters.date_exact
+        return d, d
+    if filters.month_name is not None:
+        return _month_name_range(filters.month_name, ref)
+    if filters.season is not None:
+        return _season_range(filters.season, ref)
+    return _resolve_time_window(filters.time_window, ref)
 
 
 def _truncate(s: str | None, max_len: int) -> str:
@@ -290,10 +409,107 @@ def _merge_simple(
     return out
 
 
+def _filter_window_span_inclusive(
+    win_start: date | None, win_end: date | None, ref: date
+) -> int:
+    """Inclusive day span of the *filter* window. Unbounded upper = broad (large)."""
+    if win_start is not None and win_end is not None:
+        return max(0, (win_end - win_start).days) + 1
+    if win_start is not None and win_end is None:
+        return 10_000
+    if win_start is None and win_end is not None:
+        return max(0, (win_end - ref).days) + 1
+    return 10_000
+
+
+def _recurring_series_key(e: Event) -> object:
+    """Recurring events collapse with ``is_recurring``; series id is title + start time. One-off rows stay distinct."""
+    if e.is_recurring:
+        return ("R", e.normalized_title, e.start_time)
+    return ("1", e.id)
+
+
+def _dedupe_recurring_preserving_chrono(events: list[Event]) -> list[Event]:
+    """Keep the earliest event per series key; input must be time-ordered."""
+    seen: set[object] = set()
+    out: list[Event] = []
+    for e in events:
+        k = _recurring_series_key(e)
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(e)
+    return out
+
+
+def _upper_bound_for_clustering(
+    win_end: date | None, events: list[Event], lower: date
+) -> date | None:
+    if win_end is not None:
+        return win_end
+    if not events:
+        return None
+    mx = max(x.date for x in events)
+    if mx < lower:
+        return lower
+    return mx
+
+
+def _is_still_clustered_early(
+    events: list[Event], lower: date, upper: date
+) -> bool:
+    if len(events) < 4:
+        return False
+    w = max(0, (upper - lower).days) + 1
+    if w < 2:
+        return False
+    mid = events[min(7, len(events) - 1)]
+    return (mid.date - lower).days < (w * 0.3)
+
+
+def _time_bucket_first_hits(
+    evs: list[Event], lower: date, upper: date, k: int
+) -> list[Event]:
+    """Partition ``[lower, upper]`` into k day-subranges; one earliest event per subrange, then chrono backfill to k."""
+    if not evs or upper < lower or k < 1:
+        return []
+    n_days = max(1, (upper - lower).days + 1)
+    used: set[str] = set()
+    out: list[Event] = []
+    for i in range(k):
+        i0 = (i * n_days) // k
+        i1 = (i + 1) * n_days // k - 1
+        a = lower + timedelta(days=int(i0))
+        b = min(lower + timedelta(days=int(i1)), upper)
+        if a < lower:
+            a = lower
+        if a > b:
+            continue
+        for e in evs:
+            if e.id in used:
+                continue
+            if a <= e.date <= b:
+                out.append(e)
+                used.add(e.id)
+                break
+    for e in evs:
+        if len(out) >= k:
+            break
+        if e.id in used:
+            continue
+        out.append(e)
+        used.add(e.id)
+    return out
+
+
 def _query_events(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
     today = _today()
-    win_start, win_end = _resolve_time_window(filters.time_window, today)
-    lower = win_start if win_start is not None else today
+    win_start, win_end = _resolve_effective_event_window(filters, today)
+    lower = max(win_start, today) if win_start is not None else today
+    if win_end is not None and win_end < lower:
+        return []
+    span = _filter_window_span_inclusive(win_start, win_end, today)
+    limit = NARROW_EVENT_SQL_LIMIT if span <= 30 else BROAD_EVENT_SQL_LIMIT
     q = select(Event).where(Event.status == "live", Event.date >= lower)
     if win_end is not None:
         q = q.where(Event.date <= win_end)
@@ -314,7 +530,9 @@ def _query_events(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
             )
 
     rows = list(
-        db.scalars(q.order_by(Event.date.asc(), Event.start_time.asc()).limit(80)).all()
+        db.scalars(
+            q.order_by(Event.date.asc(), Event.start_time.asc()).limit(limit)
+        ).all()
     )
 
     if filters.category and filters.category.strip():
@@ -324,7 +542,19 @@ def _query_events(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
         allowed = {d.lower() for d in filters.day_of_week}
         rows = [e for e in rows if _weekday_name(e.date) in allowed]
 
-    return [_event_dict(e) for e in rows[:MAX_ROWS]]
+    if span <= 30:
+        return [_event_dict(e) for e in rows[:MAX_ROWS]]
+
+    # Broad window: collapse ``is_recurring`` series (see :func:`_recurring_series_key`), then bucketing if still skewed.
+    rows = _dedupe_recurring_preserving_chrono(rows)
+    upper = _upper_bound_for_clustering(win_end, rows, lower)
+    if upper is None or upper < lower:
+        return []
+    if _is_still_clustered_early(rows, lower, upper) and len(rows) > MAX_ROWS:
+        rows = _time_bucket_first_hits(rows, lower, upper, MAX_ROWS)[:MAX_ROWS]
+    else:
+        rows = rows[:MAX_ROWS]
+    return [_event_dict(e) for e in rows]
 
 
 def _query_programs(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:

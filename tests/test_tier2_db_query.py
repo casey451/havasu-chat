@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
 import pytest
 from sqlalchemy.orm import Session
@@ -78,13 +78,15 @@ def _evt(
     location_name: str = "Downtown",
     tags: list[str] | None = None,
     provider: Provider | None = None,
+    is_recurring: bool = False,
+    start: time = time(10, 0),
 ) -> Event:
     loc_norm = location_name.lower().strip()
     e = Event(
         title=title,
         normalized_title=title.lower(),
         date=on_date,
-        start_time=time(10, 0),
+        start_time=start,
         end_time=None,
         location_name=location_name,
         location_normalized=loc_norm,
@@ -95,6 +97,7 @@ def _evt(
         source="tier2-test",
         verified=True,
         provider_id=provider.id if provider else None,
+        is_recurring=is_recurring,
     )
     db.add(e)
     db.flush()
@@ -280,3 +283,104 @@ def test_row_shape_type_and_name(db: Session) -> None:
     r = rows[0]
     assert r["type"] in ("provider", "program", "event")
     assert "name" in r and r["name"]
+
+
+def test_broad_window_dedupes_recurring_series_to_one(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    """>30d: weekly ``is_recurring`` BMX (same title + start) collapses to a single event row (earliest)."""
+    monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 5, 15))
+    suf = _suffix()
+    mark = f"bmxrs{suf}"
+    pv = _prov(db, name=f"Rseries {suf}")
+    t0 = time(18, 30)
+    d0 = date(2026, 6, 2)  # Tuesday
+    for i in range(12):
+        d = d0 + timedelta(days=7 * i)
+        _evt(
+            db,
+            title=f"USA {mark} wk",
+            on_date=d,
+            provider=pv,
+            is_recurring=True,
+            start=t0,
+        )
+    db.commit()
+    rows = tier2_query(
+        Tier2Filters(
+            parser_confidence=0.9,
+            date_start=date(2026, 6, 1),
+            date_end=date(2026, 8, 31),
+            category=mark,
+        )
+    )
+    evs = [r for r in rows if r["type"] == "event" and mark in r["name"]]
+    assert len(evs) == 1
+
+
+def test_narrow_window_keeps_earliest_rows_without_recurring_collapse(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """≤30d: same recurring series can appear in more than one slot (legacy first-N behavior)."""
+    monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 5, 20))
+    suf = _suffix()
+    mark = f"dnrow{suf}"
+    pv = _prov(db, name=f"NarrowR {suf}")
+    t0 = time(9, 0)
+    for i in range(8):
+        _evt(
+            db,
+            title=f"Daily{mark} row",
+            on_date=date(2026, 6, 1) + timedelta(days=i),
+            provider=pv,
+            is_recurring=True,
+            start=t0,
+        )
+    db.commit()
+    rows = tier2_query(
+        Tier2Filters(
+            parser_confidence=0.9,
+            date_start=date(2026, 6, 1),
+            date_end=date(2026, 6, 14),
+            category=mark,
+        )
+    )
+    evs = [r for r in rows if r["type"] == "event" and mark in r["name"]]
+    assert len(evs) == 8
+
+
+def test_broad_window_bucketing_includes_late_dates_if_early_clustered(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """>30d + many early + few late: secondary bucketing should not take only the earliest week."""
+    monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 4, 1))
+    suf = _suffix()
+    mark = f"bbktm{suf}"
+    pv = _prov(db, name=f"BucketF {suf}")
+    n = 0
+    for d in range(3):
+        for _h in range(4):
+            _evt(
+                db,
+                title=f"{mark} e{n} earlyrow",
+                on_date=date(2026, 6, 1) + timedelta(days=d),
+                provider=pv,
+            )
+            n += 1
+    for j in range(4):
+        _evt(
+            db,
+            title=f"{mark} l{j} latecol",
+            on_date=date(2026, 7, 25) + timedelta(days=j),
+            provider=pv,
+        )
+    db.commit()
+    rows = tier2_query(
+        Tier2Filters(
+            parser_confidence=0.9,
+            date_start=date(2026, 6, 1),
+            date_end=date(2026, 8, 31),
+            category=mark,
+        )
+    )
+    evs = [r for r in rows if r["type"] == "event" and mark in r["name"]]
+    by_date = {r["date"] for r in evs}
+    assert any(d.startswith("2026-07") for d in by_date), by_date
