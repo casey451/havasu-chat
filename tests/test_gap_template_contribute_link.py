@@ -21,24 +21,30 @@ def db() -> Session:
 
 
 def test_date_lookup_gap_includes_contribute(db: Session) -> None:
-    with patch("app.chat.unified_router.answer_with_tier3") as m3:
-        r = route("When is the zzznonexistentevent999abc?", "sess-gap-date", db)
+    with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)) as t2:
+        with patch("app.chat.unified_router.answer_with_tier3") as m3:
+            r = route("When is the zzznonexistentevent999abc?", "sess-gap-date", db)
+    t2.assert_called_once()
     m3.assert_not_called()
     assert r.sub_intent == "DATE_LOOKUP"
     assert "/contribute" in r.response
 
 
 def test_location_lookup_gap_includes_contribute(db: Session) -> None:
-    with patch("app.chat.unified_router.answer_with_tier3") as m3:
-        r = route("Where is Totally Fictional Venue XYZ?", "sess-gap-loc", db)
+    with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)) as t2:
+        with patch("app.chat.unified_router.answer_with_tier3") as m3:
+            r = route("Where is Totally Fictional Venue XYZ?", "sess-gap-loc", db)
+    t2.assert_called_once()
     m3.assert_not_called()
     assert r.sub_intent == "LOCATION_LOOKUP"
     assert "/contribute" in r.response
 
 
 def test_hours_lookup_gap_includes_contribute(db: Session) -> None:
-    with patch("app.chat.unified_router.answer_with_tier3") as m3:
-        r = route("What are the hours for zzznonexistent999xyz?", "sess-gap-hrs", db)
+    with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)) as t2:
+        with patch("app.chat.unified_router.answer_with_tier3") as m3:
+            r = route("What are the hours for zzznonexistent999xyz?", "sess-gap-hrs", db)
+    t2.assert_called_once()
     m3.assert_not_called()
     assert r.sub_intent == "HOURS_LOOKUP"
     assert "/contribute" in r.response

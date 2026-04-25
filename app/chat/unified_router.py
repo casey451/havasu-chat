@@ -122,7 +122,8 @@ def _handle_ask(
     *,
     onboarding_hints: dict | None = None,
     now_line: str | None = None,
-) -> tuple[str, str, int | None, int | None, int | None]:
+    allow_tier3_fallback: bool = True,
+) -> tuple[str | None, str, int | None, int | None, int | None]:
     tier1 = try_tier1(query, intent_result, db)
     if tier1 is not None:
         return tier1, "1", None, None, None
@@ -134,6 +135,8 @@ def _handle_ask(
     t2_text, t2_total, t2_in, t2_out = try_tier2_with_usage(query)
     if t2_text is not None:
         return t2_text, "2", t2_total, t2_in, t2_out
+    if not allow_tier3_fallback:
+        return None, "placeholder", None, None, None
     text, total, tin, tout = answer_with_tier3(
         query, intent_result, db, onboarding_hints=onboarding_hints, now_line=now_line
     )
@@ -344,27 +347,39 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
 
     now_line = f"Now: {format_now_lake_havasu()}"
 
-    if intent_result.mode == "ask":
-        gap_text = _catalog_gap_response(intent_result)
-        if gap_text is not None:
-            return _finish(
-                gap_text,
-                "ask",
-                intent_result.sub_intent,
-                intent_result.entity,
-                "gap_template",
-                None,
-            )
-
     tier_used = "placeholder"
     llm_tokens_used: int | None = None
     llm_input_tokens: int | None = None
     llm_output_tokens: int | None = None
     try:
         if intent_result.mode == "ask":
-            text, tier_used, llm_tokens_used, llm_input_tokens, llm_output_tokens = _handle_ask(
-                q_raw, intent_result, db, onboarding_hints=onboarding_hints, now_line=now_line
-            )
+            gap_text = _catalog_gap_response(intent_result)
+            if gap_text is not None:
+                text, tier_used, llm_tokens_used, llm_input_tokens, llm_output_tokens = _handle_ask(
+                    q_raw,
+                    intent_result,
+                    db,
+                    onboarding_hints=onboarding_hints,
+                    now_line=now_line,
+                    allow_tier3_fallback=False,
+                )
+                if text is None:
+                    return _finish(
+                        gap_text,
+                        "ask",
+                        intent_result.sub_intent,
+                        intent_result.entity,
+                        "gap_template",
+                        None,
+                    )
+            else:
+                text, tier_used, llm_tokens_used, llm_input_tokens, llm_output_tokens = _handle_ask(
+                    q_raw,
+                    intent_result,
+                    db,
+                    onboarding_hints=onboarding_hints,
+                    now_line=now_line,
+                )
         elif intent_result.mode == "contribute":
             tier_used = "placeholder"
             text = _handle_contribute(q_raw, intent_result, db, session_id)

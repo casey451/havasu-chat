@@ -175,11 +175,11 @@ def test_tier2_formatter_anthropic_error_falls_through_route(db: Session) -> Non
     assert r.response == "Tier-3 after formatter fail"
 
 
-def test_gap_template_unchanged_skips_tier_handlers(db: Session) -> None:
-    with patch("app.chat.unified_router.try_tier2_with_usage") as t2:
+def test_gap_template_runs_after_tier2_no_rows(db: Session) -> None:
+    with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)) as t2:
         with patch("app.chat.unified_router.answer_with_tier3") as t3:
             r = route("Where is Totally Fictional Venue XYZ?", "sess-t2-gap", db)
-    t2.assert_not_called()
+    t2.assert_called_once()
     t3.assert_not_called()
     assert r.tier_used == "gap_template"
     assert r.llm_tokens_used is None

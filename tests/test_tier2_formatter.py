@@ -89,3 +89,16 @@ def test_invocation_kwargs() -> None:
     assert kw["max_tokens"] == 400
     assert kw["temperature"] == 0.3
     assert kw["system"][0]["cache_control"] == {"type": "ephemeral"}
+
+
+def test_system_prompt_contains_grounding_guardrails() -> None:
+    fake = MagicMock()
+    fake.messages.create.return_value = _msg("ok")
+    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
+        with patch.object(anthropic, "Anthropic", return_value=fake):
+            tf.format("events tomorrow", [{"type": "event", "id": "1", "name": "E"}])
+
+    system_text = fake.messages.create.call_args.kwargs["system"][0]["text"]
+    assert "Grounding guardrails (additive to §6.7)" in system_text
+    assert "every concrete detail must be directly row-backed" in system_text
+    assert "Never invent venue, address, event time window, duration, organizer, or pricing details." in system_text

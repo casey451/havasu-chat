@@ -67,8 +67,10 @@ def test_open_late_hits_tier1_when_provider_hours_in_db(db: Session) -> None:
     ],
 )
 def test_catalog_gap_skips_tier3(query: str, expected_sub: str, db: Session) -> None:
-    with patch("app.chat.unified_router.answer_with_tier3") as m3:
-        r = route(query, f"sess-gap-{expected_sub}", db)
+    with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)) as t2:
+        with patch("app.chat.unified_router.answer_with_tier3") as m3:
+            r = route(query, f"sess-gap-{expected_sub}", db)
+    t2.assert_called_once()
     m3.assert_not_called()
     assert r.mode == "ask"
     assert r.sub_intent == expected_sub
@@ -79,12 +81,14 @@ def test_catalog_gap_skips_tier3(query: str, expected_sub: str, db: Session) -> 
 
 
 def test_post_api_chat_gap_template_contract() -> None:
-    with patch("app.chat.unified_router.answer_with_tier3") as m3:
-        with TestClient(app) as client:
-            r = client.post(
-                "/api/chat",
-                json={"query": "Where is Totally Fictional Venue XYZ?", "session_id": "p38-gap-http"},
-            )
+    with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)) as t2:
+        with patch("app.chat.unified_router.answer_with_tier3") as m3:
+            with TestClient(app) as client:
+                r = client.post(
+                    "/api/chat",
+                    json={"query": "Where is Totally Fictional Venue XYZ?", "session_id": "p38-gap-http"},
+                )
+    t2.assert_called_once()
     m3.assert_not_called()
     assert r.status_code == 200
     body = r.json()
