@@ -115,7 +115,8 @@ Rationale: `featured_description` is treated as the authoritative descriptive fi
 
 1. **Aqua Beginnings**  
    `"Max 3 swimmers per group. Free initial assessment. Coach Rick (Swim America® certified)."`  
-   -> **sparse** (short and limited factual breadth in this policy).
+   -> **rich** under approved lexicon because it carries multiple concrete fact concepts (capacity, free assessment, named credential context).  
+   Scope note: this does not weaken the confabulation concern; it means rich-row grounding must also be tightened so the formatter cannot add non-row facility/atmosphere claims.
 
 2. **Grace Arts Live**  
    `"Nonprofit. Affiliated with ACPA. established: 2006."`  
@@ -150,12 +151,19 @@ For rows tagged `description_richness=sparse`:
 
 ### 3.2.2 Required prompt examples
 
-Add explicit bad/good pair:
+Add explicit bad/good pairs:
 - **Bad input row:** `"Nonprofit. Affiliated with ACPA. established: 2006."`
 - **Bad output:** `"indoor option, air-conditioned, family-friendly youth theatre production"`
 - **Good output:** `"Grace Arts Live (nonprofit affiliated with ACPA, founded 2006)"`
 
+- **Bad input row:** `"Max 3 swimmers per group. Free initial assessment. Coach Rick (Swim America® certified)."`
+- **Bad output:** `"private heated outdoor pool sessions, though you'd need to book directly through their site"`
+- **Good output:** `"Aqua Beginnings runs swim instruction with max 3 swimmers per group, free initial assessment with Coach Rick (Swim America certified)"`
+
 This must appear literally in prompt text.
+
+Additional rich-row guardrail to include in prompt:
+- Even when `description_richness=rich`, do not add facility/atmosphere attributes (for example indoor/outdoor, heated, private, family-friendly, air-conditioned) unless those exact attributes appear in row text.
 
 ## 3.3 Pre-implementation catalog survey HALT (new required step)
 
@@ -180,6 +188,18 @@ Calibration guardrail:
 Process lock:
 - This survey is a HALT checkpoint before classifier code is locked.
 - Owner review/approval of survey distribution is required before finalizing classifier implementation.
+
+### 3.3.1 Calibration override (HALT 2.6)
+
+The 20-70% sparse guardrail was set assuming a more enriched catalog. With current pre-enrichment Provider data, 70-80% sparse is honest calibration, not miscalibration:
+
+- Many current Provider rows have pre-enrichment metadata fragments rather than full descriptions (Altitude policy fragment, Bless This Nest owner credit, etc.).
+- The classifier correctly identifies these as sparse so the formatter does not extrapolate from thin content.
+- Spot-check examples confirm: genuinely thin rows classify sparse, rows with concrete content classify rich.
+
+Override accepted at HALT 2.6: Provider sparse = 79.17%. Program sparse = 39.29% (within original guardrail).
+
+Re-verification trigger: Phase 8.11 (Google bulk import + featured_description population) shifts rows from sparse to rich automatically. After Phase 8.11 deploys, re-run the catalog survey and verify the original 20-70% guardrail applies normally. If sparse rate is still >70% post-enrichment, re-evaluate threshold/lexicon.
 
 ---
 

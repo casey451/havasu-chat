@@ -20,6 +20,7 @@ builder (open/closed for events/programs is out of scope for Phase 5.6).
 from __future__ import annotations
 
 import calendar
+import re
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -59,6 +60,125 @@ _MONTH_TO_INT = {
     "october": 10,
     "november": 11,
     "december": 12,
+}
+
+_WORD_RE = re.compile(r"[a-z0-9]+(?:[-'][a-z0-9]+)?", re.IGNORECASE)
+_RICH_WORD_THRESHOLD = 18
+_RICH_FACT_THRESHOLD = 4
+_RICHNESS_FACT_CONCEPT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
+    # Class 1: facility / amenity nouns
+    "pool": (re.compile(r"\bpool\b", re.IGNORECASE),),
+    "olympic_pool": (re.compile(r"\bolympic\s+pool\b", re.IGNORECASE),),
+    "wave_pool": (re.compile(r"\bwave\s+pool\b", re.IGNORECASE),),
+    "splash_pad": (re.compile(r"\bsplash\s+pad\b", re.IGNORECASE),),
+    "water_slide": (re.compile(r"\bwater\s+slide\b", re.IGNORECASE),),
+    "slide": (re.compile(r"\bslide\b", re.IGNORECASE),),
+    "hot_tub": (
+        re.compile(r"\bhot\s+tub\b", re.IGNORECASE),
+        re.compile(r"\bhot\s+tubs\b", re.IGNORECASE),
+    ),
+    "gym": (
+        re.compile(r"\bgym\b", re.IGNORECASE),
+        re.compile(r"\bfitness\s+center\b", re.IGNORECASE),
+    ),
+    "studio": (re.compile(r"\bstudio\b", re.IGNORECASE),),
+    "court": (re.compile(r"\bcourt\b", re.IGNORECASE),),
+    "theater": (
+        re.compile(r"\btheater\b", re.IGNORECASE),
+        re.compile(r"\btheatre\b", re.IGNORECASE),
+    ),
+    "kitchen": (re.compile(r"\bkitchen\b", re.IGNORECASE),),
+    "playground": (re.compile(r"\bplayground\b", re.IGNORECASE),),
+    "track": (re.compile(r"\btrack\b", re.IGNORECASE),),
+    "field": (re.compile(r"\bfield\b", re.IGNORECASE),),
+    "classroom": (re.compile(r"\bclassroom\b", re.IGNORECASE),),
+    "marina": (re.compile(r"\bmarina\b", re.IGNORECASE),),
+    "dock": (re.compile(r"\bdock\b", re.IGNORECASE),),
+    "boat_ramp": (re.compile(r"\bboat\s+ramp\b", re.IGNORECASE),),
+    "beach": (re.compile(r"\bbeach\b", re.IGNORECASE),),
+    "boat": (re.compile(r"\bboat\b", re.IGNORECASE),),
+    "kayak": (re.compile(r"\bkayak\b", re.IGNORECASE),),
+    "paddleboard": (re.compile(r"\bpaddleboard\b", re.IGNORECASE),),
+    "trail": (re.compile(r"\btrail\b", re.IGNORECASE),),
+    "park": (re.compile(r"\bpark\b", re.IGNORECASE),),
+    "picnic_area": (re.compile(r"\bpicnic\s+area\b", re.IGNORECASE),),
+    "restroom": (re.compile(r"\brestroom\b", re.IGNORECASE),),
+    "showers": (re.compile(r"\bshowers\b", re.IGNORECASE),),
+    # Class 2: operational detail markers
+    "max_number": (re.compile(r"\bmax(?:imum)?\s+\d+\b", re.IGNORECASE),),
+    "capacity_number": (
+        re.compile(
+            r"\b\d+\s*(?:swimmer|swimmers|people|participants|students|kids|adults)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    "one_on_one": (re.compile(r"\b(one[- ]on[- ]one|1:1|small[- ]group)\b", re.IGNORECASE),),
+    "duration": (re.compile(r"\b\d+\s*(?:min|mins|minute|minutes|hour|hours)\b", re.IGNORECASE),),
+    "year_round": (re.compile(r"\byear[- ]round\b", re.IGNORECASE),),
+    "schedule_freq": (re.compile(r"\b(monthly schedule|weekly schedule|daily)\b", re.IGNORECASE),),
+    "price": (re.compile(r"\$\s*\d+(?:\.\d{2})?", re.IGNORECASE),),
+    "free": (re.compile(r"\bfree\b", re.IGNORECASE),),
+    "assessment": (re.compile(r"\bassessment\b", re.IGNORECASE),),
+    # Class 3: credential / program markers
+    "certified": (re.compile(r"\bcertified\b", re.IGNORECASE),),
+    "accredited": (re.compile(r"\baccredited\b", re.IGNORECASE),),
+    "licensed": (re.compile(r"\blicensed\b", re.IGNORECASE),),
+    "swim_america": (re.compile(r"\bswim\s+america\b", re.IGNORECASE),),
+    "usa_swimming": (re.compile(r"\busa\s+swimming\b", re.IGNORECASE),),
+    "cpr": (re.compile(r"\bcpr\b", re.IGNORECASE),),
+    "lifeguard": (re.compile(r"\blifeguard\b", re.IGNORECASE),),
+    "ai_chi": (re.compile(r"\bai-chi\b", re.IGNORECASE),),
+    "arthritis_exercise": (re.compile(r"\barthritis\s+exercise\b", re.IGNORECASE),),
+    "cardio_challenge": (re.compile(r"\bcardio\s+challenge\b", re.IGNORECASE),),
+    "aqua_aerobics": (re.compile(r"\baqua\s+aerobics\b", re.IGNORECASE),),
+    "aqua_motion": (re.compile(r"\baqua\s+motion\b", re.IGNORECASE),),
+    # Class 4: access / physical attributes
+    "indoor": (re.compile(r"\bindoor\b", re.IGNORECASE),),
+    "outdoor": (re.compile(r"\boutdoor\b", re.IGNORECASE),),
+    "climate_control": (
+        re.compile(r"\bair-conditioned\b", re.IGNORECASE),
+        re.compile(r"\bair\s+conditioned\b", re.IGNORECASE),
+        re.compile(r"\bclimate-controlled\b", re.IGNORECASE),
+    ),
+    "heated": (re.compile(r"\bheated\b", re.IGNORECASE),),
+    "accessible": (
+        re.compile(r"\bwheelchair\s+accessible\b", re.IGNORECASE),
+        re.compile(r"\baccessible\b", re.IGNORECASE),
+    ),
+    "covered": (re.compile(r"\bcovered\b", re.IGNORECASE),),
+    "shaded": (re.compile(r"\bshaded\b", re.IGNORECASE),),
+    "private": (re.compile(r"\bprivate\b", re.IGNORECASE),),
+    # Class 5: business duration / longevity markers
+    "years_in_operation": (re.compile(r"\b\d+\s*(?:years|yrs)\b", re.IGNORECASE),),
+    "since_year": (re.compile(r"\bsince\s+\d{4}\b", re.IGNORECASE),),
+    "established_year": (re.compile(r"\bestablished\s+\d{4}\b", re.IGNORECASE),),
+    "founded_year": (re.compile(r"\bfounded\s+\d{4}\b", re.IGNORECASE),),
+    # Class 6: organization type markers
+    "nonprofit": (re.compile(r"\bnon[- ]?profit\b", re.IGNORECASE),),
+    "org_501c3": (
+        re.compile(r"\b501\(c\)\(?3\)?\b", re.IGNORECASE),
+        re.compile(r"\b501c3\b", re.IGNORECASE),
+    ),
+    "female_owned": (re.compile(r"\bfemale[- ]owned\b", re.IGNORECASE),),
+    "family_owned": (re.compile(r"\bfamily[- ]owned\b", re.IGNORECASE),),
+    "veteran_owned": (re.compile(r"\bveteran[- ]owned\b", re.IGNORECASE),),
+    "cooperative": (re.compile(r"\bcooperative\b", re.IGNORECASE),),
+    "founder": (re.compile(r"\bfounder\b", re.IGNORECASE),),
+    # Class 7: audience / enrollment markers
+    "all_levels": (re.compile(r"\ball\s+(?:levels|ages|skill levels|abilities)\b", re.IGNORECASE),),
+    "age_range": (re.compile(r"\bages?\s+\d+(?:\s*[-–]\s*\d+)?\b", re.IGNORECASE),),
+    "broad_age_span": (
+        re.compile(
+            r"\b\d+\s+(?:months?|years?)\s+(?:to|through|-)\s+(?:adult|teen|senior|\d+)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    "open_enrollment": (re.compile(r"\bopen\s+enrollment\b", re.IGNORECASE),),
+    "esa_accepted": (re.compile(r"\b(?:esa|empowerment scholarship)\s+accepted\b", re.IGNORECASE),),
+    "membership_policy": (re.compile(r"\bmembership\s+(?:required|optional|fees?)\b", re.IGNORECASE),),
+    "no_fees_membership": (re.compile(r"\bno\s+(?:fees|membership)\b", re.IGNORECASE),),
+    "first_free": (re.compile(r"\bfirst\s+(?:class|session|lesson)\s+free\b", re.IGNORECASE),),
+    "loaner_gear": (re.compile(r"\bloaner\s+(?:bikes?|equipment|gear)\b", re.IGNORECASE),),
 }
 
 
@@ -275,6 +395,28 @@ def _truncate(s: str | None, max_len: int) -> str:
     return t[: max_len - 3] + "..."
 
 
+def _classify_description_richness(text: str | None) -> str:
+    if text is None or not str(text).strip():
+        return "sparse"
+    normalized = str(text).strip().lower()
+    word_count = len(_WORD_RE.findall(normalized))
+    fact_concepts: set[str] = set()
+    for concept, pats in _RICHNESS_FACT_CONCEPT_PATTERNS.items():
+        if any(p.search(normalized) for p in pats):
+            fact_concepts.add(concept)
+    if word_count >= _RICH_WORD_THRESHOLD or len(fact_concepts) >= _RICH_FACT_THRESHOLD:
+        return "rich"
+    return "sparse"
+
+
+def _classify_provider_richness(
+    description: str | None, featured_description: str | None
+) -> str:
+    if featured_description is not None and str(featured_description).strip():
+        return "rich"
+    return _classify_description_richness(description)
+
+
 def _program_location_display(location_name: str | None, location_address: str | None) -> str | None:
     """Single compact location string for program row payloads (Phase 4.5)."""
     n = (location_name or "").strip()
@@ -314,6 +456,7 @@ def _program_dict(p: Program) -> dict[str, Any]:
         "schedule_hours": f"{p.schedule_start_time}-{p.schedule_end_time}",
         "cost": p.cost,
         "description": _truncate(p.description, 120),
+        "description_richness": _classify_description_richness(p.description),
         "tags": list(p.tags or [])[:8],
     }
     if loc:
@@ -322,6 +465,7 @@ def _program_dict(p: Program) -> dict[str, Any]:
 
 
 def _provider_dict(p: Provider) -> dict[str, Any]:
+    desc = p.featured_description if (p.featured_description and p.featured_description.strip()) else p.description
     return {
         "type": "provider",
         "name": p.provider_name,
@@ -329,7 +473,10 @@ def _provider_dict(p: Provider) -> dict[str, Any]:
         "address": p.address,
         "phone": p.phone,
         "hours": _truncate(p.hours, 120),
-        "description": _truncate(p.description, 120),
+        "description": _truncate(desc, 120),
+        "description_richness": _classify_provider_richness(
+            p.description, p.featured_description
+        ),
     }
 
 
