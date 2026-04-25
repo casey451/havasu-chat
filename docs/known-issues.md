@@ -129,6 +129,8 @@ before       = 2026-04-23 16:09:51
 
 **Priority:** High for pre-launch event discoverability in ask mode.
 
+**Investigation:** `docs/tier3-event-visibility-investigation.md`
+
 ### Embeddings — not generated in `approve_contribution_as_event`
 
 **Status:** Open
