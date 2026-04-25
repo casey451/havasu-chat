@@ -22,6 +22,11 @@ def db() -> Session:
         s.close()
 
 
+@pytest.fixture(autouse=True)
+def _disable_llm_router(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("USE_LLM_ROUTER", "false")
+
+
 def test_route_updates_age_from_mocked_extractor(db: Session) -> None:
     clear_session_state("hint-a")
     with patch(

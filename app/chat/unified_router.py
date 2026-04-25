@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import re
 import time
 from dataclasses import dataclass, replace
@@ -23,9 +24,13 @@ from app.chat.entity_matcher import (
 )
 from app.chat.hint_extractor import extract_hints
 from app.chat.intent_classifier import IntentResult, classify
+from app.chat import llm_router
 from app.chat.normalizer import normalize
 from app.chat.tier1_handler import try_tier1
-from app.chat.tier2_handler import try_tier2_with_usage
+from app.chat.tier2_handler import (
+    try_tier2_with_filters_with_usage,
+    try_tier2_with_usage,
+)
 from app.chat.tier3_handler import FALLBACK_MESSAGE as _GRACEFUL, answer_with_tier3
 from app.core.session import (
     get_session,
@@ -115,6 +120,11 @@ def _is_explicit_rec(query: str) -> bool:
     return any(p.search(query) for p in _EXPLICIT_REC_PATTERNS)
 
 
+def _use_llm_router() -> bool:
+    v = (os.environ.get("USE_LLM_ROUTER") or "").strip().lower()
+    return v in ("1", "true", "yes", "on")
+
+
 def _handle_ask(
     query: str,
     intent_result: IntentResult,
@@ -123,10 +133,51 @@ def _handle_ask(
     onboarding_hints: dict | None = None,
     now_line: str | None = None,
     allow_tier3_fallback: bool = True,
+    router_meta: dict | None = None,
 ) -> tuple[str | None, str, int | None, int | None, int | None]:
     tier1 = try_tier1(query, intent_result, db)
     if tier1 is not None:
         return tier1, "1", None, None, None
+    if _use_llm_router():
+        context: dict[str, object] = {}
+        if onboarding_hints:
+            context["onboarding_hints"] = onboarding_hints
+        if now_line:
+            context["now_line"] = now_line
+        if (intent_result.entity or "").strip():
+            context["prior_entity"] = intent_result.entity
+        decision = llm_router.route(query, intent_result.normalized_query, context or None)
+        if decision is None:
+            text, total, tin, tout = answer_with_tier3(
+                query, intent_result, db, onboarding_hints=onboarding_hints, now_line=now_line
+            )
+            return text, "3", total, tin, tout
+        if router_meta is not None:
+            router_meta["mode"] = decision.mode
+            router_meta["sub_intent"] = decision.sub_intent
+            router_meta["entity"] = decision.entity
+        routed_intent = replace(
+            intent_result,
+            mode=decision.mode,
+            sub_intent=decision.sub_intent,
+            entity=decision.entity,
+        )
+        if decision.tier_recommendation == "2" and decision.tier2_filters is not None:
+            t2_text, t2_total, t2_in, t2_out = try_tier2_with_filters_with_usage(
+                query, decision.tier2_filters
+            )
+            if t2_text is not None:
+                return t2_text, "2", t2_total, t2_in, t2_out
+            if not allow_tier3_fallback:
+                return None, "placeholder", None, None, None
+            text, total, tin, tout = answer_with_tier3(
+                query, routed_intent, db, onboarding_hints=onboarding_hints, now_line=now_line
+            )
+            return text, "3", total, tin, tout
+        text, total, tin, tout = answer_with_tier3(
+            query, routed_intent, db, onboarding_hints=onboarding_hints, now_line=now_line
+        )
+        return text, "3", total, tin, tout
     if _is_explicit_rec(query):
         text, total, tin, tout = answer_with_tier3(
             query, intent_result, db, onboarding_hints=onboarding_hints, now_line=now_line
@@ -351,9 +402,13 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
     llm_tokens_used: int | None = None
     llm_input_tokens: int | None = None
     llm_output_tokens: int | None = None
+    response_mode = intent_result.mode
+    response_sub_intent = intent_result.sub_intent
+    response_entity = intent_result.entity
     try:
         if intent_result.mode == "ask":
             gap_text = _catalog_gap_response(intent_result)
+            router_meta: dict[str, str | None] = {}
             if gap_text is not None:
                 text, tier_used, llm_tokens_used, llm_input_tokens, llm_output_tokens = _handle_ask(
                     q_raw,
@@ -362,6 +417,7 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
                     onboarding_hints=onboarding_hints,
                     now_line=now_line,
                     allow_tier3_fallback=False,
+                    router_meta=router_meta,
                 )
                 if text is None:
                     return _finish(
@@ -379,7 +435,12 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
                     db,
                     onboarding_hints=onboarding_hints,
                     now_line=now_line,
+                    router_meta=router_meta,
                 )
+            if router_meta:
+                response_mode = (router_meta.get("mode") or response_mode)  # type: ignore[assignment]
+                response_sub_intent = (router_meta.get("sub_intent") or response_sub_intent)  # type: ignore[assignment]
+                response_entity = (router_meta.get("entity") or response_entity)  # type: ignore[assignment]
         elif intent_result.mode == "contribute":
             tier_used = "placeholder"
             text = _handle_contribute(q_raw, intent_result, db, session_id)
@@ -416,9 +477,9 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
 
     return _finish(
         text,
-        intent_result.mode,
-        intent_result.sub_intent,
-        intent_result.entity,
+        response_mode,
+        response_sub_intent,
+        response_entity,
         tier_used,
         llm_tokens_used,
         llm_input_tokens,

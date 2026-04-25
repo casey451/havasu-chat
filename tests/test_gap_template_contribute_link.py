@@ -20,6 +20,11 @@ def db() -> Session:
         s.close()
 
 
+@pytest.fixture(autouse=True)
+def _disable_llm_router(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("USE_LLM_ROUTER", "false")
+
+
 def test_date_lookup_gap_includes_contribute(db: Session) -> None:
     with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)) as t2:
         with patch("app.chat.unified_router.answer_with_tier3") as m3:

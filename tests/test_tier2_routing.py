@@ -25,6 +25,11 @@ def db() -> Session:
         s.close()
 
 
+@pytest.fixture(autouse=True)
+def _disable_llm_router(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("USE_LLM_ROUTER", "false")
+
+
 def _latest_log(db: Session) -> ChatLog | None:
     return db.scalars(select(ChatLog).order_by(ChatLog.created_at.desc()).limit(1)).first()
 

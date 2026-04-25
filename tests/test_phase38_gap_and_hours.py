@@ -23,6 +23,11 @@ def db() -> Session:
         s.close()
 
 
+@pytest.fixture(autouse=True)
+def _disable_llm_router(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("USE_LLM_ROUTER", "false")
+
+
 @pytest.mark.parametrize(
     "query,expected_sub",
     [

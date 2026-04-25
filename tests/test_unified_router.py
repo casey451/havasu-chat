@@ -65,6 +65,11 @@ def db() -> Session:
         s.close()
 
 
+@pytest.fixture(autouse=True)
+def _disable_llm_router(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("USE_LLM_ROUTER", "false")
+
+
 def test_ask_tier3_when_tier1_misses(db: Session) -> None:
     with patch("app.chat.unified_router.extract_hints", return_value=None):
         with patch(
