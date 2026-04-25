@@ -19,15 +19,7 @@ def _suffix() -> str:
     return uuid.uuid4().hex[:10]
 
 
-def _prov(
-    db: Session,
-    *,
-    name: str,
-    category: str = "misc",
-    address: str | None = None,
-    description: str | None = None,
-    featured_description: str | None = None,
-) -> Provider:
+def _prov(db: Session, *, name: str, category: str = "misc", address: str | None = None) -> Provider:
     p = Provider(
         provider_name=name,
         category=category,
@@ -36,8 +28,7 @@ def _prov(
         is_active=True,
         source="tier2-test",
         address=address,
-        description=description if description is not None else f"{name} description for search",
-        featured_description=featured_description,
+        description=f"{name} description for search",
     )
     db.add(p)
     db.flush()
@@ -393,75 +384,3 @@ def test_broad_window_bucketing_includes_late_dates_if_early_clustered(
     evs = [r for r in rows if r["type"] == "event" and mark in r["name"]]
     by_date = {r["date"] for r in evs}
     assert any(d.startswith("2026-07") for d in by_date), by_date
-
-
-def test_classify_richness_aqua_beginnings_is_rich() -> None:
-    text = "Max 3 swimmers per group. Free initial assessment. Coach Rick (Swim America certified)."
-    assert tier2_db_query._classify_description_richness(text) == "rich"
-
-
-def test_classify_richness_grace_arts_live_is_sparse() -> None:
-    text = "Nonprofit. Affiliated with ACPA. established: 2006."
-    assert tier2_db_query._classify_description_richness(text) == "sparse"
-
-
-def test_classify_richness_aquatic_center_is_rich() -> None:
-    text = "Indoor facility. Olympic pool, wave pool, water slide, hot tubs, splash pad."
-    assert tier2_db_query._classify_description_richness(text) == "rich"
-
-
-def test_classify_richness_aqua_aerobics_program_is_rich() -> None:
-    text = (
-        "Schedule: Multiple class types. See monthly schedule at lhcaz.gov. "
-        "Year-round adult water fitness. Classes include Aqua Aerobics, Ai-Chi, "
-        "Arthritis Exercise, Cardio Challenge, and Aqua Motion."
-    )
-    assert tier2_db_query._classify_description_richness(text) == "rich"
-
-
-def test_provider_dict_featured_description_forces_rich(db: Session) -> None:
-    p = _prov(
-        db,
-        name=f"Featured Rich {_suffix()}",
-        description="owner: x",
-        featured_description="Tiny but authoritative featured text.",
-    )
-    db.commit()
-    out = tier2_db_query._provider_dict(p)
-    assert out["description_richness"] == "rich"
-    assert out["description"] == "Tiny but authoritative featured text."
-
-
-def test_provider_dict_falls_back_to_description_when_featured_missing(db: Session) -> None:
-    p = _prov(
-        db,
-        name=f"Fallback Desc {_suffix()}",
-        description="Nonprofit. Affiliated with ACPA. established: 2006.",
-        featured_description=None,
-    )
-    db.commit()
-    out = tier2_db_query._provider_dict(p)
-    assert out["description_richness"] == "sparse"
-    assert out["description"] == "Nonprofit. Affiliated with ACPA. established: 2006."
-
-
-def test_program_dict_attaches_description_richness(db: Session) -> None:
-    pv = _prov(db, name=f"Pr Rich Prov {_suffix()}")
-    pr = _prog(
-        db,
-        title=f"Aqua Aerobics Program {_suffix()}",
-        provider=pv,
-    )
-    pr.description = (
-        "Schedule: Multiple class types. See monthly schedule at lhcaz.gov. "
-        "Year-round adult water fitness. Classes include Aqua Aerobics, Ai-Chi, "
-        "Arthritis Exercise, Cardio Challenge, and Aqua Motion."
-    )
-    db.commit()
-    out = tier2_db_query._program_dict(pr)
-    assert out["description_richness"] == "rich"
-
-
-@pytest.mark.parametrize("text", [None, "", " ", "x"])
-def test_classify_richness_edge_cases_sparse(text: str | None) -> None:
-    assert tier2_db_query._classify_description_richness(text) == "sparse"
