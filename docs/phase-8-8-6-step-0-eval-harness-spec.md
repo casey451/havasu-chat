@@ -1,6 +1,6 @@
 # Phase 8.8.6 step 0 — Confabulation Eval Harness Spec
 
-Status: HALT 0 closed (2026-04-25). Amendments applied 2026-04-25 (HALT 1 finding), 2026-04-25 (HALT 2 finding), 2026-04-25 (HALT 2 dry-run finding). See §10.
+Status: HALT 0 closed (2026-04-25). Amendments applied 2026-04-25 (HALT 1 finding), 2026-04-25 (HALT 2 finding), 2026-04-25 (HALT 2 dry-run finding), 2026-04-25 (HALT 2 v4 diagnostic finding). See §10.
 Date: 2026-04-25
 Scope: Spec only (no implementation changes in this phase)
 Predecessor: 8.8.5 reverted (`d1fef0f`, `c3562c9` revert `f8afb81`, `297086d`)
@@ -22,17 +22,19 @@ This phase addresses (2) before attempting (1) again. We build a systematic conf
 
 ### 1.1 Verbatim failure cases the harness must catch (regression anchors)
 
-These are the canonical fixtures the v1 detector must flag at high confidence in unit tests and in full-sweep output:
+These are the canonical fixtures the v1 detector must flag at high confidence in unit tests. Note: real-world confabulation behavior on these rows has shifted between the 8.8.5 baseline and HALT 2 dry-run iterations — see anchor-status notes inline.
 
 1) **Aqua Beginnings** — Provider row.
    - Row description: `"Max 3 swimmers per group. Free initial assessment. Coach Rick (Swim America® certified)."`
-   - Confabulated response excerpt: `"private heated outdoor pool sessions, though you'd need to book directly through their site."`
+   - Confabulated response excerpt (8.8.5 baseline): `"private heated outdoor pool sessions, though you'd need to book directly through their site."`
    - Invented content: `private`, `heated`, `outdoor`, `book directly through their site`.
+   - **Anchor status (HALT 2 v4 dry-run):** Tier 2 responses no longer reproduce the anchor confabulation deterministically because the row's address field contains `"Private heated outdoor pool (address at booking)"` — the model now correctly echoes that prose rather than inventing it, and Layer 2's evidence-scoping correctly suppresses the wordlist hits. Tier 3 responses (router-on) still produce the original anchor confabulation including invented domain (`aquabeginnings.com`); these contribute to the rate via Tier 3 Layer 2 partial inclusion (§3.5). The catalog data quality issue (descriptive prose in the address field) is logged as a 8.8.6 step 1+ input — see §7.
 
 2) **Grace Arts Live** — Provider row.
    - Row description: `"Nonprofit. Affiliated with ACPA. established: 2006."`
-   - Confabulated response excerpt: `"indoor option, air-conditioned, family-friendly, youth theatre production."`
+   - Confabulated response excerpt (8.8.5 baseline): `"indoor option, air-conditioned, family-friendly, youth theatre production."`
    - Invented content: `indoor`, `air-conditioned`, `family-friendly`. Note: `youth theatre` may be derivable from related Event rows — detector must scope evidence to all rows the formatter saw on that turn, not just the primary Provider row (see §3.5.1).
+   - **Anchor status (HALT 2 v4 dry-run):** The 8.8.5 anchor confabulation no longer reproduces in current model output. All 18 v4 responses (both flag states, all three templates) produced clean prose: `"Grace Arts Live is a nonprofit theatre on McCulloch Boulevard that's been running since 2006. They're affiliated with ACPA. The catalog row doesn't include current hours or a phone number..."` — explicitly hedging absent fields rather than inventing amenity claims. Layer 2 produces zero hits across all 18 runs. The model has gotten cleaner since 8.8.5; whatever combination of formatter prompt evolution, retrieval changes, or Tier 2 filter shifts is responsible, the regression no longer regresses. The fixture remains in §1.1 as **negative regression anchor** — it documents a confabulation pattern the harness must still catch *if it returns*. Unit tests against the synthetic fixture (row + confabulated response) verify Layer 2 still flags `air-conditioned`, `family-friendly`. The anchor status note records that real catalog output diverged from synthetic fixture behavior between 8.8.5 and HALT 2.
 
 3) **London Bridge Beach** — not in catalog as Provider during 8.8.5 validation.
    - Confabulated response excerpt: `"shade from the bridge structure."`
@@ -49,7 +51,7 @@ These are the canonical fixtures the v1 detector must flag at high confidence in
 3. Aggregate over N runs per (query, flag-state) to absorb Tier 3 stochasticity.
 4. Emit human-readable per-row, per-extrapolation-word, and per-run reports.
 5. Be the validation instrument for 8.8.6 step 1+ and every later formatter / prompt phase. Reusable, repeatable, version-controlled.
-6. Detect the regression-anchor cases in §1.1 deterministically across at least one of Layer 2, Layer 3, or Layer 1 advisory output.
+6. Detect the regression-anchor cases in §1.1 deterministically across at least one of Layer 2, Layer 3, or Layer 1 advisory output, in either Tier 2 or Tier 3 paths where applicable.
 
 ### 2.2 Non-goals (locked)
 
@@ -119,15 +121,23 @@ Templates locked at HALT 1. `<n>` substitution uses the row's display name verba
 
 ### 3.5 Detection layers (v1)
 
-Three layers with distinct roles. **Layer 2 and Layer 3 are gating** (contribute to the headline confabulation rate). **Layer 1 is advisory** (runs and is reported, but does not contribute to the rate). Each layer emits hits with row context, layer label, and matched span. The detector is content-only — it does not score voice, length, formality, or any other axis.
+Three layers with distinct roles and tier handling. **Layer 2 is gating across Tier 2 AND Tier 3.** **Layer 3 is gating in Tier 2 only.** **Layer 1 is advisory in Tier 2 only.** Tier 1 is excluded from rate calculation entirely (no formatter call, no measurable confabulation).
+
+**Tier handling rationale:**
+
+- Tier 2 has full evidence_set (rows passed to formatter). All three layers operate normally.
+- Tier 3 has no evidence_set in v1 (formatter not called; rows not passed). **Layer 2 still works** because it's a wordlist match — the question "did the response use confabulation vocabulary like `private heated outdoor`" is answerable without evidence-set scoping. Layer 3 doesn't work in Tier 3 because the canonical-number diff requires evidence to subtract from. Layer 1 doesn't work in Tier 3 for the same reason.
+- The Tier 3 Layer 2 partial-inclusion was added at HALT 2 v4 diagnostic finding (see §10) after diagnostic showed Tier 3 was hiding 6 of 18 real Aqua Beginnings anchor confabulations from the rate.
+
+Each layer emits hits with row context, layer label, and matched span. The detector is content-only — it does not score voice, length, formality, or any other axis.
 
 The role split was not the original design. HALT 2 dry-run iterations (G, G1, G2) demonstrated that Layer 1's per-row scoped diff produces a long-tail of conversational-scaffolding false positives that no reasonable safe_framing list can absorb without bleeding into real confabulation territory. Each round of safe_framing expansion silenced the top 10 offenders only to surface the next 10. Layer 1 retains real value as a *candidate-token surface* for human review during 8.8.6 step 1+ — it produces the "novel words the response used that aren't in the row" signal. But it cannot serve as a primary measurement metric in v1 without poisoning the baseline. Layer 2 + Layer 3 produce clean enough signal to gate on; Layer 1 reports for review. See §10 amendment changelog (2026-04-25 HALT 2 dry-run amendment) for the lineage.
 
-#### 3.5.1 Layer 1 — Per-row scoped extrapolation diff (ADVISORY)
+#### 3.5.1 Layer 1 — Per-row scoped extrapolation diff (ADVISORY, Tier 2 only)
 
-The point of this layer: surface candidate tokens that appear in the response but not in the evidence set. **In v1 this is advisory output for human review, not a gating metric.** The diff produces a list of "things the response said that the row didn't mention," which is useful for spotting novel confabulation classes and reviewing 8.8.6 step 1+ candidate fixes — but the list is too noisy to drive a confabulation rate threshold by itself.
+The point of this layer: surface candidate tokens that appear in the response but not in the evidence set. **In v1 this is advisory output for human review, not a gating metric. Tier 2 only — Tier 3 has no evidence_set so the diff doesn't apply.**
 
-For each turn:
+For each Tier 2 turn:
 
 1. Capture the `evidence_set` = union of all content tokens from every row the formatter received on that turn. Evidence dict shape **must** match `tier2_db_query._provider_dict` / `_program_dict` / `_event_dict` exactly — do not inflate the dicts with ORM fields the formatter never saw (notably do not add `featured_description` or `website` to provider evidence unless the underlying `_provider_dict` already includes them). The evidence set must reflect what the model actually had, not what was theoretically available.
 
@@ -168,9 +178,9 @@ Constraints baked into this mechanism (cross-reference §8 #9):
 
 The architecture finding that drove this design: `unified_router.py` is *not* the formatter call site. The actual call site is `app/chat/tier2_handler.py`, which calls `tier2_db_query.query()` then `tier2_formatter.format(query, rows)`. The router only sees the string output and token tallies. By the time control returns to the router, rows are gone (they were locals in `tier2_handler`). HALT 1 surfaced this; the resolution is the harness-only monkeypatch above. See §10 amendment changelog and §8 #9 for the resolved approach.
 
-#### 3.5.2 Layer 2 — Curated extrapolation wordlist (GATING)
+#### 3.5.2 Layer 2 — Curated extrapolation wordlist (GATING, Tier 2 + Tier 3)
 
-Layer 2 is a primary signal contributing to the confabulation rate. It catches today's known confabulation vocabulary deterministically.
+Layer 2 is a primary signal contributing to the confabulation rate **across both Tier 2 and Tier 3 paths.**
 
 A literal wordlist of known confabulation vocabulary, scoped to category-extrapolation patterns:
 
@@ -178,15 +188,19 @@ A literal wordlist of known confabulation vocabulary, scoped to category-extrapo
 - Audience-fit invention: `family-friendly, kid-friendly, kid-appropriate, romantic, upscale, casual, cozy, intimate, quiet, lively`
 - Procedural invention: `book directly, reservation required, walk-ins welcome, no reservations, enrollment, RSVP`
 
-For each hit, we flag any wordlist member appearing in the response but not in the evidence set. Owner-reviewed and locked at HALT 1; allowed to grow during operation as new patterns surface, similar to the implementation-lexicon governance from 8.8.5 §3.1.3.
+**Tier 2 behavior:** flag any wordlist member appearing in the response but not in the evidence set. Evidence-scoping suppresses true-positive-but-grounded matches.
 
-**HTTP mode caveat:** Layer 2 in HTTP mode runs without an evidence set (the monkeypatch isn't available across process boundaries). It can still flag wordlist-member appearances in responses, but it cannot tell whether the row actually contained the word. Words like `pool, deck, patio, studio` are legitimate row content for some providers; in HTTP mode Layer 2 will flag them unconditionally, producing high false-positive rates. HTTP mode hits are a degraded signal, not a comparable one. Document in the runbook.
+**Tier 3 behavior:** flag any wordlist member appearing in the response. No evidence-scoping (no evidence_set available). This is a degraded mode but still meaningful — confabulation vocabulary in a response that wasn't generated from rows is still confabulation. The lack of evidence-scoping means some legitimate uses of these words could be flagged (if Tier 3 happened to draw on context that contained them), but in practice the wordlist members are specific enough to category-extrapolation patterns that false positives are rare. Document in runbook as a known limitation; revisit if false positives become a problem.
 
-#### 3.5.3 Layer 3 — Number / quantity invention (GATING)
+Owner-reviewed and locked at HALT 1; allowed to grow during operation as new patterns surface, similar to the implementation-lexicon governance from 8.8.5 §3.1.3.
 
-Layer 3 is a primary signal contributing to the confabulation rate. It catches invented numerical content (prices, hours, durations, capacities, phone numbers).
+**HTTP mode caveat:** Layer 2 in HTTP mode runs without an evidence set across all tiers (the monkeypatch isn't available across process boundaries). It can still flag wordlist-member appearances in responses, but it cannot tell whether the row actually contained the word in Tier 2. Words like `pool, deck, patio, studio` are legitimate row content for some providers; in HTTP mode Layer 2 will flag them unconditionally for Tier 2, producing high false-positive rates. HTTP mode hits are a degraded signal, not a comparable one. Document in the runbook.
 
-For each turn:
+#### 3.5.3 Layer 3 — Number / quantity invention (GATING, Tier 2 only)
+
+Layer 3 is a primary signal contributing to the confabulation rate **in Tier 2 only.** Layer 3 does not run on Tier 3 responses because the canonical-number diff requires an evidence set to subtract from.
+
+For each Tier 2 turn:
 
 1. Extract digit sequences and quantity nouns (`several, multiple, dozen, dozens, handful, few, many, most, a couple, couple, numerous, various, some, couple of, a few, majority, minority`) from both the response and the evidence set. (`bunch, tons, loads` deferred to v1.1 unless pilot shows they're needed.)
 
@@ -194,7 +208,7 @@ For each turn:
 
    - **Currency:** strip currency symbols. Map `free`, `no charge`, `no cost`, `$0`, `$0.00` all to canonical `price:0` (or implementation-equivalent free-cost token). Use the prefixed form (not bare `0`) to avoid collision with non-price `0` tokens elsewhere. Apply to both sides. **Decimal handling:** `$5`, `$5.00` both → `usd:5` (zero cents collapse to integer dollars). `$5.50` → `usd:5.50` (nonzero cents preserved). Canonical form symmetric on both sides.
 
-   - **Time:** normalize 24h forms and AM/PM-disambiguated 12h forms to canonical `HH:MM`. **For ambiguous 12h-without-AM/PM, do NOT guess** — keep as a tagged unresolved token and exclude from Layer 3 diff. False negatives strongly preferred to false positives here.
+   - **Time:** normalize 24h forms and AM/PM-disambiguated 12h forms to a single canonical form. **All time tokens canonicalize to the same prefix family regardless of input format** (corrected at HALT 2 v4): `09:00` (24h-from-schedule) and `9:00 AM` (12h-from-response) both canonicalize to the same canonical token (e.g. `t:09:00` or implementation-equivalent). This is symmetric: if evidence has `09:00-10:00` (a range, 24h schedule format), it canonicalizes to two endpoint tokens that match `9:00 AM` / `10:00 AM` from the response side. Without this symmetry, schedule-format-vs-response-format mismatches produce false positives at high rate (Open Jump on HALT 2 v4 hit `ta:10:00am` 13/18 because of this). **For ambiguous 12h-without-AM/PM, do NOT guess** — keep as a tagged unresolved token and exclude from Layer 3 diff. False negatives strongly preferred to false positives here. Range syntax `HH:MM-HH:MM` extracted as two endpoint tokens.
 
    - **Duration:** canonical scale is **minutes**. `1 hr` / `1 hour` → `60min`. `90-minute`, `90 min`, `90 minutes` → `90min`. Apply consistently.
 
@@ -219,18 +233,18 @@ Catches invented hours, capacities, prices, phone numbers, recurrence counts. Ch
 
 Each run emits three artifacts under `scripts/confabulation_eval_results/<utc-timestamp>/`:
 
-1. **`runs.jsonl`** — one record per (query, flag_state, run_index): query text, query template, row IDs probed, flag state, run index, response text, evidence set, detector hits per layer (split into `layer_2_hits`, `layer_3_hits`, `layer_1_advisory_tokens`), response latency, tier classification of the response, `excluded_from_summary` flag with `excluded_reason` for Tier 1 / Tier 3 rows.
+1. **`runs.jsonl`** — one record per (query, flag_state, run_index): query text, query template, row IDs probed, flag state, run index, response text, evidence set, detector hits per layer (split into `layer_2_hits`, `layer_3_hits`, `layer_1_advisory_tokens`), response latency, tier classification of the response, `excluded_from_summary` flag with `excluded_reason` for Tier 1 rows. **Tier 3 rows are NOT excluded from summary if they have Layer 2 hits** (per §3.5.2 partial inclusion); they are excluded from Layer 3 calculation regardless.
 
 2. **`summary.md`** — human-readable summary with these sections in order:
-   - **Inclusion policy.** Total runs, included in rate (Tier 2 only), excluded from rate (Tier 1, Tier 3 separately). v1 measures Tier 2 only.
-   - **Per-flag confabulation rate.** Computed from Layer 2 + Layer 3 hits only (Layer 1 advisory tokens do not contribute). One row per flag state.
-   - **Top offending rows.** Rows with highest Layer 2 + Layer 3 hit rates. Sample response excerpts.
-   - **Top confabulated tokens (Layer 2 + Layer 3).** Frequency-ranked. Real confabulation vocabulary and invented numerical content.
+   - **Inclusion policy.** Total runs, included in rate (Tier 2 always, Tier 3 with Layer 2 considered), excluded from rate (Tier 1 always, Tier 3 with no Layer 2 hits separately reported). v1 measures Tier 2 + Tier 3 Layer 2 only.
+   - **Per-flag confabulation rate.** Computed from Layer 2 + Layer 3 hits in Tier 2, plus Layer 2 hits in Tier 3. Layer 1 advisory tokens do not contribute. One row per flag state.
+   - **Top offending rows.** Rows with highest gating-hit rates. Sample response excerpts.
+   - **Top confabulated tokens (Layer 2 + Layer 3).** Frequency-ranked. Real confabulation vocabulary and invented numerical content. Tier 3 Layer 2 contributions called out.
    - **Layer 1 candidate tokens (advisory).** Frequency-ranked separately. Marked clearly as not contributing to the rate. For human review during 8.8.6 step 1+ — these are tokens the response used that the row didn't, which may include real novel confabulation classes alongside conversational scaffolding.
-   - **Tier breakdown.** Tier 1 / Tier 2 / Tier 3 invocation counts.
-   - **Regression-anchor sanity check.** Aqua Beginnings and Grace Arts Live hit rates on Layer 2 + Layer 3 (which is what the rate is computed from).
+   - **Tier breakdown.** Tier 1 / Tier 2 / Tier 3 invocation counts plus per-tier gating-hit counts.
+   - **Regression-anchor sanity check.** Aqua Beginnings and Grace Arts Live hit rates on Layer 2 + Layer 3 (which is what the rate is computed from). Note: Grace Arts Live's 8.8.5 anchor no longer reproduces in current model output (HALT 2 v4 finding); see §1.1 anchor-status note.
 
-3. **`per_row.csv`** — row × confabulation-token matrix for spreadsheet review on mobile. Columns: row_id, row_name, total_runs, included_runs (Tier 2 only), gating_runs_with_hit (Layer 2 + Layer 3), advisory_token_count (Layer 1), top_3_gating_tokens.
+3. **`per_row.csv`** — row × confabulation-token matrix for spreadsheet review on mobile. Columns: row_id, row_name, total_runs, included_runs (Tier 2 + Tier 3 with Layer 2), gating_runs_with_hit, advisory_token_count (Layer 1, Tier 2 only), top_3_gating_tokens.
 
 A baseline result directory will be committed (one per quarter or per significant phase) so progress is comparable across runs. Day-to-day result directories are gitignored.
 
@@ -240,9 +254,9 @@ Three HALTs. None should bend on second testing.
 
 - **HALT 1 — pre-implementation lexicon, template, and hook review.** Status: **closed 2026-04-25.** Owner reviewed and approved: (a) per-row probe template list (§3.2), (b) safe_framing_vocabulary stoplist scope (§3.5.1, with v1-unigrams-only constraint), (c) Layer 2 wordlist (§3.5.2), (d) Layer 3 quantity-noun list and canonicalizer rules (§3.5.3). Lexicon governance follows 8.8.5 §3.1.3 model: conceptual classes locked, literal lists implementation-owned and may evolve post-deploy with owner review. **HALT 1 also surfaced the formatter call-site location finding that drove this spec's first amendment** — `unified_router.py` does not see rows; the actual call site is `tier2_handler.py`. The resolved approach is a harness-only monkeypatch in `app/eval/`, not any production touch. See §3.5.1a, §8 #9, and §10. Final lexicons land in a `relay/halt1-closure-final-lexicons.md` artifact for implementation reference, not as a doc commit.
 
-- **HALT 2 — dry-run on 5-provider subset.** Status: **closed 2026-04-25** after iterative G, G1, G2 calibration rounds. Run the harness against a hand-picked 5-provider subset (Aqua Beginnings, Grace Arts Live, Lake Havasu City Aquatic Center, Flips for Fun Gymnastics, Open Jump – 90 Minutes) including both regression anchors and rich/sparse/program coverage. Owner reviewed report shape and detector calibration across three iterations. **HALT 2's findings drove three spec amendments:** the format() signature correction (HALT 2-A), the confirmation that Layer 1's per-row scoped diff cannot serve as a primary v1 metric (HALT 2 dry-run G2-C), and a series of detector defect fixes (Tier 3 exclusion, phone POS-asymmetry, currency canonicalization, em-dash tokenization, contraction handling, lemmatizer normalization, dash-normalization in CLI filters). Final v3 dry-run produced clean signal differentiation when the rate is computed from Layer 2 + Layer 3 only.
+- **HALT 2 — dry-run on 5-provider subset.** Status: **closed 2026-04-25** after iterative G, G1, G2, G3 calibration rounds. Run the harness against a hand-picked 5-provider subset (Aqua Beginnings, Grace Arts Live, Lake Havasu City Aquatic Center, Flips for Fun Gymnastics, Open Jump – 90 Minutes) including both regression anchors and rich/sparse/program coverage. Owner reviewed report shape and detector calibration across four iterations. **HALT 2's findings drove four spec amendments:** the format() signature correction (HALT 2-A), the Layer 1 advisory redefinition (HALT 2 dry-run G2-C), a series of detector defect fixes (Tier 3 exclusion, phone POS-asymmetry, currency canonicalization, em-dash tokenization, contraction handling, lemmatizer normalization, dash-normalization in CLI filters), and the time canonicalizer tightening + Tier 3 Layer 2 partial inclusion + regression-anchor status updates (HALT 2 v4 diagnostic — this amendment). Final v5 dry-run produced clean signal differentiation when the rate is computed from Layer 2 (Tier 2 + Tier 3) + Layer 3 (Tier 2).
 
-- **HALT 3 — first full-sweep report.** Owner reviews the full-catalog baseline before harness is declared 8.8.6-ready. Confirms the Layer 2 + Layer 3 signal is signal, not noise, and reviews the Layer 1 advisory output as input to 8.8.6 step 1+ planning. May trigger lexicon adjustments under HALT 1's governance rule.
+- **HALT 3 — first full-sweep report.** Owner reviews the full-catalog baseline before harness is declared 8.8.6-ready. Confirms the gating signal is signal, not noise, and reviews the Layer 1 advisory output as input to 8.8.6 step 1+ planning. May trigger lexicon adjustments under HALT 1's governance rule.
 
 ---
 
@@ -250,20 +264,20 @@ Three HALTs. None should bend on second testing.
 
 ### 4.1 Files to create
 
-1. `scripts/confabulation_eval.py` — CLI runner. Flags: `--mode={inprocess,http}`, `--runs N`, `--flags={off,on,both}`, `--rows={providers,programs,both}`, `--output-dir`, `--limit` (for HALT 2 subset), `--include` / `--exclude` (row filters with dash normalization). Excludes Tier 1 and Tier 3 from rate calculation via `excluded_from_summary`.
+1. `scripts/confabulation_eval.py` — CLI runner. Flags: `--mode={inprocess,http}`, `--runs N`, `--flags={off,on,both}`, `--rows={providers,programs,both}`, `--output-dir`, `--limit` (for HALT 2 subset), `--include` / `--exclude` (row filters with dash normalization). Excludes Tier 1 from rate calculation always; Tier 3 included if Layer 2 hits present, excluded otherwise.
 2. `app/eval/__init__.py`
 3. `app/eval/confabulation_query_gen.py` — `generate_probes(session) -> list[Probe]`. Returns one Probe per (row, template). `normalize_row_name_for_include()` helper that maps en-dash and em-dash to ASCII hyphen plus lowercases, used for include/exclude filter comparison.
 4. `app/eval/confabulation_evidence.py` — `tier2_evidence` ContextVar plus `_last_captured` buffer; `install()`, `restore()`, `consume_last_evidence()` helpers. Wrapper preserves the actual `format` signature `(query: str, rows: list[dict]) -> tuple[Optional[str], int | None, int | None]` per §3.5.1a. Buffer cleared in three places to prevent leakage.
 5. `app/eval/confabulation_invoker.py` — `invoke(probe, flag_state) -> InvocationResult`. Two implementations behind a strategy interface: `InProcessInvoker` (calls `install()` before `unified.route`, reads `_last_captured` after, calls `restore()`) and `HttpInvoker` (no monkeypatch; degraded detection). Returns `InvocationResult(response_text, evidence_set, tier_used, latency_ms, raw_log)`.
-6. `app/eval/confabulation_detector.py` — `detect(invocation_result) -> list[DetectorHit]`. Hits carry layer (`"1"`, `"2"`, `"3"` or `"1_advisory"` for Layer 1), token, sentence_index, row_ids_in_scope. Layer 1 hits emitted as advisory only. Includes the Layer 3 canonicalizer per §3.5.3, the phone-number stripping logic per §3.5.1, and the safe_framing list expanded across HALT 1 closure + HALT 2 dry-run iterations.
-7. `app/eval/confabulation_report.py` — `write_jsonl`, `write_summary_md`, `write_per_row_csv`. Summary computes rate from Layer 2 + Layer 3 only; reports Layer 1 candidate tokens in a separate advisory section.
+6. `app/eval/confabulation_detector.py` — `detect(invocation_result) -> list[DetectorHit]`. Hits carry layer (`"1_advisory"` for Layer 1, `"2"`, `"3"`), token, sentence_index, row_ids_in_scope. Layer 1 hits emitted as advisory only; Tier 2 only. Layer 2 emitted for Tier 2 + Tier 3. Layer 3 emitted for Tier 2 only. Includes the Layer 3 canonicalizer per §3.5.3 with symmetric time normalization across schedule (24h range) and response (12h AM/PM) formats. Phone-number stripping per §3.5.1, safe_framing list expanded across HALT 1 closure + HALT 2 dry-run iterations.
+7. `app/eval/confabulation_report.py` — `write_jsonl`, `write_summary_md`, `write_per_row_csv`. Summary computes rate from Layer 2 (Tier 2 + Tier 3) + Layer 3 (Tier 2); reports Layer 1 candidate tokens in a separate advisory section. Tier 3 inclusion gated on Layer 2 hit presence.
 8. `tests/test_confabulation_query_gen.py` — includes `normalize_row_name_for_include` equivalence test with non-ASCII dash.
-9. `tests/test_confabulation_detector.py` — fixture cases for §1.1 anchors plus negative fixtures (clean responses) plus Layer 3 normalization fixtures (currency decimal, time, duration, phone) plus Layer 1 advisory-vs-gating split assertion.
+9. `tests/test_confabulation_detector.py` — fixture cases for §1.1 anchors plus negative fixtures (clean responses) plus Layer 3 normalization fixtures (currency decimal, time symmetric across schedule/response formats, duration, phone) plus Layer 1 advisory-vs-gating split assertion plus Tier 3 Layer 2 inclusion fixture.
 10. `tests/test_confabulation_invoker.py` — in-process invoker integration test against a 1-provider stub catalog plus the no-stale-evidence-between-calls test.
 11. `tests/test_confabulation_evidence.py` — install/restore correctness, ContextVar reset on exception, no leakage between requests, return-passthrough verifying the 3-tuple.
-12. `tests/test_confabulation_report.py` — Tier 1 + Tier 3 excluded from rate; Layer 1 reported separately from Layer 2 + Layer 3.
+12. `tests/test_confabulation_report.py` — Tier 1 always excluded; Tier 3 included if Layer 2 hits present; Tier 3 with no hits separately counted; Layer 1 reported separately from Layer 2 + Layer 3.
 13. `tests/test_confabulation_eval_script.py` — script-level test for `--include` / `--exclude` with non-ASCII dash row names.
-14. `docs/confabulation-eval-runbook.md` — operator guide. Covers: how to invoke, how to read each artifact (including the gating-vs-advisory split), how to interpret hits, how to expand lexicons under HALT 1 governance, the threading/async caveat from §3.5.1a, the HTTP-mode degraded-Layer-2 caveat from §3.5.2, the v1 inequality-semantics limitation from §3.5.3, the Tier 1 + Tier 3 exclusion policy, the dash-normalization behavior, and an explicit note that Layer 1 advisory output is candidate-token surface for human review during 8.8.6 step 1+, not a rate metric.
+14. `docs/confabulation-eval-runbook.md` — operator guide. Covers: how to invoke, how to read each artifact (including the gating-vs-advisory split and Tier 3 partial inclusion), how to interpret hits, how to expand lexicons under HALT 1 governance, the threading/async caveat from §3.5.1a, the HTTP-mode degraded-Layer-2 caveat from §3.5.2, the v1 inequality-semantics limitation from §3.5.3, the Tier 1 always-exclusion + Tier 3 partial-inclusion policy, the dash-normalization behavior, the time canonicalizer schedule-vs-response-format symmetry, the Tier 3 Layer 2 false-positive-without-evidence-scoping caveat, and an explicit note that Layer 1 advisory output is candidate-token surface for human review during 8.8.6 step 1+, not a rate metric.
 
 ### 4.2 Files explicitly NOT to modify
 
@@ -306,21 +320,25 @@ NLTK requires WordNet and tagger corpora downloaded on first run — handled by 
 1. `test_confabulation_query_gen`: given a stub catalog of 2 providers + 1 program, generate_probes returns 9 probes with expected templates and row references.
 2. `test_confabulation_query_gen_normalize_row_name`: en-dash and em-dash row names match ASCII-hyphen include strings after normalization.
 3. `test_confabulation_detector_layer1_advisory`: Layer 1 hits are marked as advisory in the output structure; do not contribute to the rate calculation when consumed by report.
-4. `test_confabulation_detector_layer2_anchors`: against the Aqua Beginnings fixture, Layer 2 flags `heated`, `outdoor`, `private`. Against Grace Arts Live, Layer 2 flags `air-conditioned`, `family-friendly`. (These are the regression anchors; Layer 2 is the gating signal that catches them in v1.)
-5. `test_confabulation_detector_layer2_evidence_scoping`: wordlist members in a response without row support are flagged; same words present in row description are NOT flagged.
-6. `test_confabulation_detector_layer3_invented`: invented hours / prices / capacities / phone numbers flagged; row-supported numbers not flagged.
-7. `test_confabulation_detector_layer3_currency_decimal`: `$5` and `$5.00` canonicalize to the same token; `$5.99` flagged when row says `$5`.
-8. `test_confabulation_detector_layer3_phone_symmetry`: phone numbers in row content do not produce Layer 3 hits when echoed in response; invented phone numbers do.
-9. `test_confabulation_detector_em_dash_split`: em-dash and en-dash split tokens correctly; `small—max` does not become a single token.
-10. `test_confabulation_detector_contraction_filter`: `'re`, `n't`, etc. do not appear as content tokens.
-11. `test_confabulation_detector_outdoor_normalization`: `outdoor` and `outdoors` collapse to a common form.
-12. `test_confabulation_evidence_install_restore`: `install()` replaces `tier2_formatter.format`; `restore()` puts it back; idempotent.
-13. `test_confabulation_evidence_exception_safety`: when wrapped `format` raises, ContextVar and buffer reset; subsequent requests don't see leaked evidence.
-14. `test_confabulation_evidence_no_install_no_overhead`: when `install()` has not been called, `tier2_formatter.format` is the original — assert by identity.
-15. `test_confabulation_evidence_return_passthrough`: wrapper returns the original 3-tuple unchanged for success and failure paths.
-16. `test_confabulation_invoker_no_stale_evidence_between_calls`: Tier 2 invocation followed by Tier 1/3 invocation doesn't carry stale evidence.
-17. `test_confabulation_report_excludes_tier1_and_tier3`: Tier 1 and Tier 3 runs included in jsonl with `excluded_from_summary: true`; not counted in summary rate.
-18. `test_confabulation_report_layer1_advisory_split`: Layer 1 hits reported in advisory section; Layer 2 + Layer 3 in gating section; rate computed from gating only.
+4. `test_confabulation_detector_layer2_anchors`: against the Aqua Beginnings synthetic fixture, Layer 2 flags `heated`, `outdoor`, `private`. Against Grace Arts Live synthetic fixture, Layer 2 flags `air-conditioned`, `family-friendly`. Note: real-world reproduction of these anchors has shifted (see §1.1 anchor-status notes); unit tests use synthetic fixtures to verify detector behavior independent of model output drift.
+5. `test_confabulation_detector_layer2_evidence_scoping`: wordlist members in a Tier 2 response without row support are flagged; same words present in row description are NOT flagged.
+6. `test_confabulation_detector_layer2_tier3_no_evidence_scoping`: in a Tier 3 InvocationResult (empty evidence_set), wordlist members in the response ARE flagged unconditionally — no evidence-scoping. This is the partial-inclusion behavior from §3.5.2.
+7. `test_confabulation_detector_layer3_tier3_excluded`: in a Tier 3 InvocationResult, Layer 3 produces zero hits regardless of response content. Layer 3 requires evidence for the diff.
+8. `test_confabulation_detector_layer3_invented`: invented hours / prices / capacities / phone numbers flagged in Tier 2; row-supported numbers not flagged.
+9. `test_confabulation_detector_layer3_currency_decimal`: `$5` and `$5.00` canonicalize to the same token; `$5.99` flagged when row says `$5`.
+10. `test_confabulation_detector_layer3_time_symmetric`: `09:00-10:00` (24h schedule range, evidence) canonicalizes to endpoints that match `9:00 AM` and `10:00 AM` (12h response). No false-positive hit when the response time is semantically the same as the schedule range. Negative side: response time `11:00 AM` IS flagged when schedule is `09:00-10:00`.
+11. `test_confabulation_detector_layer3_phone_symmetry`: phone numbers in row content do not produce Layer 3 hits when echoed in response; invented phone numbers do.
+12. `test_confabulation_detector_em_dash_split`: em-dash and en-dash split tokens correctly; `small—max` does not become a single token.
+13. `test_confabulation_detector_contraction_filter`: `'re`, `n't`, etc. do not appear as content tokens.
+14. `test_confabulation_detector_outdoor_normalization`: `outdoor` and `outdoors` collapse to a common form.
+15. `test_confabulation_evidence_install_restore`: `install()` replaces `tier2_formatter.format`; `restore()` puts it back; idempotent.
+16. `test_confabulation_evidence_exception_safety`: when wrapped `format` raises, ContextVar and buffer reset; subsequent requests don't see leaked evidence.
+17. `test_confabulation_evidence_no_install_no_overhead`: when `install()` has not been called, `tier2_formatter.format` is the original — assert by identity.
+18. `test_confabulation_evidence_return_passthrough`: wrapper returns the original 3-tuple unchanged for success and failure paths.
+19. `test_confabulation_invoker_no_stale_evidence_between_calls`: Tier 2 invocation followed by Tier 1/3 invocation doesn't carry stale evidence.
+20. `test_confabulation_report_excludes_tier1`: Tier 1 runs included in jsonl with `excluded_from_summary: true`; not counted in summary rate.
+21. `test_confabulation_report_includes_tier3_with_layer2`: Tier 3 runs WITH Layer 2 hits included in summary rate; Tier 3 runs WITHOUT hits reported separately.
+22. `test_confabulation_report_layer1_advisory_split`: Layer 1 hits reported in advisory section; Layer 2 + Layer 3 in gating section; rate computed from gating only.
 
 ### 5.2 Integration tests
 
@@ -331,9 +349,9 @@ NLTK requires WordNet and tagger corpora downloaded on first run — handled by 
 The harness ships when:
 
 1. Full unit + integration suite passes.
-2. HALT 2 dry-run on the 5-provider subset produces a clean report. (Closed 2026-04-25 after G, G1, G2 iterations.)
-3. HALT 3 full-sweep report flags both §1.1 regression anchors at >0 Layer 2 + Layer 3 hit rate per (query, flag-state).
-4. Full-sweep report produces meaningful signal differentiation: rich-and-well-described rows show substantially lower Layer 2 + Layer 3 rates than confabulation-prone rows. "Meaningful" is owner-judged at HALT 3.
+2. HALT 2 dry-run on the 5-provider subset produces a clean report. (Closed 2026-04-25 after G, G1, G2, G3 iterations.)
+3. HALT 3 full-sweep report flags both §1.1 regression anchors at >0 gating rate per (query, flag-state) where the model output actually contains the anchor confabulation. Anchor-status notes in §1.1 record divergence between fixture-based confabulation and live-model confabulation.
+4. Full-sweep report produces meaningful signal differentiation: rich-and-well-described rows show substantially lower gating rates than confabulation-prone rows. "Meaningful" is owner-judged at HALT 3.
 5. Layer 1 advisory output is reported but does not influence the rate-based pass/fail decision. The advisory output is reviewed during 8.8.6 step 1+ planning.
 
 ### 5.4 Not a gate this phase
@@ -354,9 +372,9 @@ The threshold will be set against the Layer 2 + Layer 3 rate, not against Layer 
 
 3. **Detector entrenches today's failure modes.** Layer 2's wordlist captures known patterns. Mitigation: HALT 1 governance allows wordlist growth as Layer 1 advisory surfaces new patterns.
 
-4. **In-process mode masks HTTP-layer behavior.** Mitigated by HTTP mode being available for staging validation. Layer 1 advisory and Layer 2 evidence-scoping are degraded in HTTP mode (§3.5.2 caveat). Document in runbook.
+4. **In-process mode masks HTTP-layer behavior.** Mitigated by HTTP mode being available for staging validation. Layer 1 advisory and Layer 2 evidence-scoping (in Tier 2) are degraded in HTTP mode (§3.5.2 caveat). Document in runbook.
 
-5. **Tier 3 stochasticity makes per-run findings unstable.** Mitigated by N-runs aggregation. Per-(query, flag-state) rate is the unit of analysis, not per-run pass/fail. Tier 3 invocations are excluded from rate calculation in v1 because they have no evidence_set.
+5. **Tier 3 stochasticity makes per-run findings unstable.** Mitigated by N-runs aggregation. Per-(query, flag-state) rate is the unit of analysis, not per-run pass/fail.
 
 6. **Cost creep at bulk-import scale.** Curated catalog is ~24 providers + ~28 programs. v1 sweep is roughly (24+28) × 3 templates × 3 runs × 2 flag states = 936 invocations. Mostly Tier 1/Tier 2 (free) for direct lookups. Estimated <$5 in API cost worst case. Bulk-catalog scale (~4,574 providers post-8.11) requires sampling strategy — out of v1 scope, documented for v2.
 
@@ -369,22 +387,27 @@ The threshold will be set against the Layer 2 + Layer 3 rate, not against Layer 
 
 8. **Layered detector adds maintenance burden.** Three layers, three lexicons (Layer 2 wordlist, Layer 3 quantity nouns + canonicalizer, Layer 1 safe_framing). Layer 1 advisory designation reduces the maintenance pressure on safe_framing — false positives on Layer 1 are tolerable because they're advisory, not gating. Mitigated by clear lexicon governance (HALT 1) and by Layer 2 + Layer 3 carrying the gating load.
 
-9. **Layer 3 normalization rules mis-canonicalize an edge case.** Required mitigation: §5.1 tests cover the canonical pairs. Owner reviewed canonicalizer rules at HALT 1 and HALT 2 G2; specific decisions captured in §3.5.3 (no guessing on ambiguous 12h, `usd:N` form for currency, minutes as canonical duration scale, `ph:` prefix for phone numbers, etc.).
+9. **Layer 3 normalization rules mis-canonicalize an edge case.** Required mitigation: §5.1 tests cover the canonical pairs including time symmetry across schedule and response formats. Owner reviewed canonicalizer rules at HALT 1, HALT 2 G2, and HALT 2 v4; specific decisions captured in §3.5.3 (no guessing on ambiguous 12h, `usd:N` form for currency, minutes as canonical duration scale, `ph:` prefix for phone numbers, symmetric time canonicalization across 24h schedule range and 12h response AM/PM).
 
 10. **Evidence dict shape drift.** If `_provider_dict` / `_program_dict` / `_event_dict` change in production over time, the harness's evidence-set construction must follow. Mitigation: evidence extraction reads from the dicts the patched `format` actually receives, not from a separate schema definition. Drift is automatic. Tests assert against current dict shape and will fail if it drifts.
 
-11. **`format` signature drift.** If `tier2_formatter.format` gains new parameters or changes its return shape in production over time, the wrapper signature in §3.5.1a is no longer faithful. Mitigation: §5.1 test 15 asserts the wrapper preserves the current 3-tuple return shape; signature drift will cause that test to fail.
+11. **`format` signature drift.** If `tier2_formatter.format` gains new parameters or changes its return shape in production over time, the wrapper signature in §3.5.1a is no longer faithful. Mitigation: §5.1 test 18 asserts the wrapper preserves the current 3-tuple return shape; signature drift will cause that test to fail.
+
+12. **Tier 3 Layer 2 false positives without evidence-scoping.** Layer 2 in Tier 3 runs unscoped — any wordlist member in a Tier 3 response is flagged regardless of whether the (unavailable) row data backed it. In practice the wordlist is specific enough to category-extrapolation patterns that false positives are rare, but theoretically a Tier 3 response that legitimately uses a wordlist term (because the model drew on context that justified it) would be flagged. Mitigation: documented in runbook as a known v1 limitation. v2 Layer 5 (LLM judge) is the path to scoped Tier 3 evaluation.
+
+13. **Regression-anchor model-output drift.** The §1.1 anchors (Aqua Beginnings, Grace Arts Live) describe 8.8.5-baseline confabulation patterns. HALT 2 v4 found that real-world model output has shifted: Grace Arts Live no longer reproduces the anchor confabulation; Aqua Beginnings reproduces it only on Tier 3 paths (not Tier 2). This means the harness's regression-anchor sanity check measures "does the harness still flag the anchor pattern via the synthetic fixture" rather than "does the model still confabulate the anchor pattern in real output." Both are valuable but distinct. Mitigation: §1.1 anchor-status notes record this divergence; unit tests use synthetic fixtures for detector behavior; HALT 3 full-sweep observations for live-model behavior.
 
 ### 6.2 Mitigations summary
 
-- Layered detection with explicit role split (Layer 1 advisory, Layer 2 + Layer 3 gating).
-- Layer 3 canonicalization required, not optional, with owner-reviewed rules.
+- Layered detection with explicit role split (Layer 1 advisory, Layer 2 gating Tier 2 + Tier 3, Layer 3 gating Tier 2).
+- Layer 3 canonicalization required, not optional, with owner-reviewed rules including time symmetry across schedule and response formats.
 - HALT 1 owner-reviewed lexicons, templates, canonicalizer rules, and resolved hook approach.
-- HALT 2 iterative dry-run calibration with G, G1, G2 rounds; final close on Layer 2 + Layer 3 signal differentiation.
+- HALT 2 iterative dry-run calibration with G, G1, G2, G3 rounds; final close on Layer 2 + Layer 3 signal differentiation.
 - HALT 3 full-sweep review before declaring harness ready for 8.8.6 step 1+.
 - N-runs default 3.
 - In-process default for full detector fidelity; HTTP opt-in for staging.
 - Evidence capture via harness-only monkeypatch in `app/eval/` — zero production touch.
+- Regression-anchor status notes record divergence between synthetic-fixture behavior and live-model behavior.
 
 ### 6.3 Rollback
 
@@ -427,26 +450,27 @@ Known-issues entries this phase touches (listed for context, not all closed by i
 
 1. Tier 2 formatter rich-row confabulation — measurement instrument exists post-this-phase; fix lands in 8.8.6 step 1+.
 2. Tier 2 formatter sparse-row confabulation — 8.8.5's sparse rule worked in validation; the harness will detect any regression when 8.8.6 step 1+ ports the rule forward.
-3. Tier 3 confabulation observations from 8.8.4 validation — Tier 3 excluded from v1 rate; v2 Layer 5 LLM-judge is the path forward.
+3. Tier 3 confabulation observations from 8.8.4 validation — partially measurable via Tier 3 Layer 2 partial inclusion in v1; full Tier 3 measurement via v2 Layer 5 LLM-judge.
 4. London Bridge Beach class of entity-invention — flagged for v2 detector layer.
 5. Aquatic Center selection misses for "kids on a hot day" — separate retrieval concern; harness does not measure retrieval correctness.
-6. Catalog data quality: descriptive prose in address fields — surfaced by HALT 2 dry-run on Aqua Beginnings; address says `"Private heated outdoor pool (address at booking)"` which the model faithfully echoes. Input to 8.8.6 step 1+: formatter should not treat address-field prose as facility description.
+6. Catalog data quality: descriptive prose in address fields — surfaced by HALT 2 dry-run on Aqua Beginnings; address says `"Private heated outdoor pool (address at booking)"` which the model faithfully echoes. Input to 8.8.6 step 1+: formatter should not treat address-field prose as facility description. The pattern likely affects other catalog rows; a catalog audit may be warranted as part of 8.8.6 step 1+ scoping.
+7. Tier 3 confabulation pattern on Aqua Beginnings — HALT 2 v4 found that flag-on Tier 3 responses produce the original 8.8.5 anchor confabulation deterministically (`"private heated outdoor pool — book directly through their site at aquabeginnings.com"`) including invented `aquabeginnings.com` domain. Layer 2 catches this via Tier 3 partial inclusion; the underlying behavior — Tier 3 producing facility-claim confabulation — is a separate phenomenon worth investigation in 8.8.6 step 1+.
 
 ---
 
-## 8) Resolved decisions (owner-approved at HALT 0, with HALT 1, HALT 2, and HALT 2 dry-run corrections)
+## 8) Resolved decisions (owner-approved at HALT 0, with HALT 1, HALT 2, HALT 2 dry-run, and HALT 2 v4 corrections)
 
-All nine open decisions resolved 2026-04-25. Item #2 refined by HALT 2 dry-run finding (Layer 1 advisory). Item #9 corrected by HALT 1 finding; wrapper signature in §3.5.1a corrected by HALT 2-A finding; Layer 1 role corrected by HALT 2 dry-run G2-C finding. See §10.
+All nine open decisions resolved 2026-04-25. Item #2 refined by HALT 2 dry-run finding (Layer 1 advisory) and HALT 2 v4 finding (Tier 3 Layer 2 partial inclusion). Item #9 corrected by HALT 1 finding; wrapper signature in §3.5.1a corrected by HALT 2-A finding; Layer 1 role corrected by HALT 2 dry-run G2-C finding; Tier 3 partial inclusion + time canonicalizer + anchor status added by HALT 2 v4 finding. See §10.
 
 1. **Phase number:** 8.8.6 step 0. Eval harness is foundation, fix is step 1+.
-2. **v1 detector layer set (refined at HALT 2 G2-C):** Layer 1 (per-row scoped extrapolation diff, **advisory**) + Layer 2 (wordlist, **gating**) + Layer 3 (number/quantity invention with canonicalization, **gating**). Layer 4 (entity invention) and Layer 5 (LLM judge) deferred to v2. The advisory/gating split was added after HALT 2 dry-run iterations demonstrated Layer 1's structural noise floor; rate is computed from Layer 2 + Layer 3 only.
+2. **v1 detector layer set (refined at HALT 2 G2-C and HALT 2 v4):** Layer 1 (per-row scoped extrapolation diff, **advisory, Tier 2 only**) + Layer 2 (wordlist, **gating Tier 2 + Tier 3**) + Layer 3 (number/quantity invention with canonicalization, **gating Tier 2 only**). Layer 4 (entity invention) and Layer 5 (LLM judge) deferred to v2. The advisory/gating split was added at HALT 2 G2-C; the Tier 3 partial inclusion was added at HALT 2 v4.
 3. **v1 catalog scope:** curated Provider + Program rows (current live catalog ≈ 24 providers + 28 programs). Bulk-catalog sweep (Phase 8.11 scale) deferred. Sampling strategy is a separate v2 phase once bulk ingest is closer.
 4. **Run mode default:** in-process (required for evidence-set introspection). HTTP opt-in for staging validation.
 5. **N runs default:** N=3. Configurable via `--runs`.
-6. **Pass/fail gate placement:** NOT in this phase. Threshold defined in 8.8.6 step 1+ informed by the baseline this phase produces. Gate placement is the most disciplined decision in §8 — defining a threshold before measuring would repeat the 8.8.5 mistake. Threshold will be set against Layer 2 + Layer 3 rate; Layer 1 advisory does not gate.
-7. **Disposition of `docs/phase-8-8-5-halt5-followup-baseline-verification-and-staging.md`:** kept and committed with a status-update header noting the 8.8.5 rollback. Methodology in §1 of that doc is reusable for any future baseline-verification work.
+6. **Pass/fail gate placement:** NOT in this phase. Threshold defined in 8.8.6 step 1+ informed by the baseline this phase produces. Threshold will be set against gating rate (Layer 2 + Layer 3); Layer 1 advisory does not gate.
+7. **Disposition of `docs/phase-8-8-5-halt5-followup-baseline-verification-and-staging.md`:** kept and committed with a status-update header noting the 8.8.5 rollback.
 8. **Probe template lock:** templates in §3.2 confirmed as-is at HALT 1. All six approved without change.
-9. **Evidence-set capture (corrected at HALT 1, signature corrected at HALT 2-A, buffer mechanism documented at HALT 2 dry-run):** implemented as a **harness-only monkeypatch** on `app.chat.tier2_formatter.format`, lived entirely in `app/eval/confabulation_evidence.py` and `app/eval/confabulation_invoker.py`. **No production code is modified on disk.** The original spec text named `unified_router.py` as a candidate hook site; HALT 1 found that the router never receives rows — the actual call site is `app/chat/tier2_handler.py`, which is on §4.2's do-not-modify list. The monkeypatch approach satisfies §8 #9's original constraints (logged side-effect only, no signature change, no behavior change, no-op when harness isn't running) more cleanly than any production hook would, and is the resolved approach. **Wrapper signature corrected at HALT 2-A:** `format` returns `tuple[Optional[str], int | None, int | None]`. **Buffer mechanism clarified:** ContextVar plus `_last_captured` module-local buffer; the buffer bridges the `finally`-reset-vs-invoker-read sequencing. Mechanics in §3.5.1a; risk in §6.1.7; tests in §5.1.12–16.
+9. **Evidence-set capture:** harness-only monkeypatch on `app.chat.tier2_formatter.format`; lives in `app/eval/`; signature `(query: str, rows: list[dict]) -> tuple[Optional[str], int | None, int | None]`; ContextVar + `_last_captured` buffer combination per §3.5.1a.
 
 ---
 
@@ -458,7 +482,7 @@ Authoritative context for HALT 1 / HALT 2 implementation reading. Order reflects
 - `app/chat/tier2_formatter.py` — `format(query, rows) -> tuple[Optional[str], int | None, int | None]` signature. The function the harness wraps. **Signature must be preserved by the wrapper exactly** — same call shape, same 3-tuple return shape, return value forwarded unchanged.
 - `app/chat/tier2_db_query.py` — `_provider_dict`, `_program_dict`, `_event_dict`, query/merge flow. **Source of evidence dict shape** — harness evidence extraction must follow these dicts exactly per §3.5.1.
 - `app/chat/unified_router.py` — entry point for in-process invoker (`unified.route(...)`). Does NOT see rows — the invoker calls `route` after installing the monkeypatch and reads the `_last_captured` buffer populated by the wrapper. Includes `ChatResponse` shape; harness must record `tier_used` for reporting.
-- `app/chat/tier3_handler.py` — Tier 3 path; harness must record tier classification (via `ChatResponse.tier_used`, not by reading this module directly). Tier 3 invocations are excluded from confabulation rate calculation in v1.
+- `app/chat/tier3_handler.py` — Tier 3 path; harness must record tier classification (via `ChatResponse.tier_used`, not by reading this module directly). Tier 3 invocations partially included in v1 rate via Layer 2 hits; Layer 1 and Layer 3 require evidence_set which Tier 3 doesn't produce.
 - `app/db/models.py` — `Provider`, `Program`, `Event` ORM shape. Informational only — evidence extraction reads from `_*_dict` outputs, not from ORM directly.
 - `app/api/routes/chat.py` — `/api/chat` endpoint contract for HTTP mode. Implements `POST /api/chat` (not `app/main.py`, which only mounts the router).
 - `prompts/tier2_formatter.txt` — current formatter prompt (informational; harness does not change it).
@@ -470,6 +494,52 @@ Authoritative context for HALT 1 / HALT 2 implementation reading. Order reflects
 
 ## 10) Amendment changelog
 
+### 2026-04-25 — HALT 2 v4 diagnostic amendment (time canonicalizer, Tier 3 Layer 2 partial inclusion, anchor-status updates)
+
+**What HALT 2 v4 dry-run + diagnostic found:**
+
+Three findings drove this amendment:
+
+1. **Open Jump time canonicalizer gap.** 13 of 18 Open Jump runs hit `ta:10:00am` on Layer 3 because the canonicalizer didn't symmetrically normalize 24-hour schedule range strings (`09:00-10:00`) and 12-hour AM/PM response strings (`9:00 AM`). Same pattern as the `$5` vs `$5.00` decimal gap fixed in HALT G2 — different formats of the same fact treated as different canonical tokens. Correctly diagnosed as canonicalizer gap, not real time confabulation.
+
+2. **Tier 3 over-broad exclusion.** 6 of 18 Tier 3 invocations in v4 produced textbook §1.1 anchor confabulation on Aqua Beginnings (`"private heated outdoor pool — book directly through their site at aquabeginnings.com"`), all flagged by Layer 2 wordlist matches. The spec excluded Tier 3 from the rate entirely, hiding this real signal. Layer 2 doesn't need evidence-scoping to be meaningful — wordlist confabulation in any tier is still confabulation. The exclusion was over-broad.
+
+3. **Grace Arts Live anchor no longer reproduces in current model output.** All 18 Grace responses across the v4 dry-run (both flag states, all three templates, all Tier 2) produced clean prose with explicit hedging on absent fields. Layer 2 zero hits across all 18. The 8.8.5 anchor (`indoor air-conditioned family-friendly`) doesn't appear. The model has improved since 8.8.5 by some combination of formatter prompt evolution, retrieval shifts, or other factors.
+
+**What's now resolved:**
+
+1. **Time canonicalizer tightening (§3.5.3).** All time tokens canonicalize to a single canonical prefix family regardless of input format. `09:00-10:00` (24h schedule range) and `9:00 AM` / `10:00 AM` (12h AM/PM response) canonicalize to matching tokens. New test §5.1.10 (`test_confabulation_detector_layer3_time_symmetric`) asserts no false-positive when response time semantically matches schedule range.
+
+2. **Tier 3 Layer 2 partial inclusion (§3.5, §3.5.2, §3.6).** Layer 2 hits in Tier 3 contribute to the gating rate. Layer 1 (Tier 2 only) and Layer 3 (Tier 2 only) remain Tier-2-exclusive because they require evidence_set for the diff. Tier 3 Layer 2 runs without evidence-scoping (degraded mode), documented in runbook as a known limitation. New test §5.1.6 (`test_confabulation_detector_layer2_tier3_no_evidence_scoping`) covers the unscoped Tier 3 behavior; new test §5.1.7 (`test_confabulation_detector_layer3_tier3_excluded`) covers Layer 3's continued Tier 3 exclusion.
+
+3. **Anchor status notes (§1.1).** Both Aqua Beginnings and Grace Arts Live anchor entries gain anchor-status sub-bullets recording how real-world output differs from the 8.8.5 baseline. Aqua Beginnings reproduces on Tier 3 only; Grace Arts Live no longer reproduces in current output. The fixtures remain in §1.1 as detector behavior anchors (synthetic input → expected detector output) but no longer claim to describe current live-model behavior. New risk §6.1.13 documents this divergence.
+
+**Sections updated by this amendment:**
+- Status header — fourth amendment date noted.
+- §1.1 — anchor entries 1 and 2 gain anchor-status sub-bullets.
+- §2.1 goal 6 — phrasing tightened to acknowledge Tier 2/Tier 3 split.
+- §3.5 — opening rewritten to introduce Tier 2/Tier 3 split per layer; rationale paragraph added.
+- §3.5.1 — title gains "(ADVISORY, Tier 2 only)"; opening clarifies Tier 2-only restriction.
+- §3.5.2 — title gains "(GATING, Tier 2 + Tier 3)"; new section on Tier 3 partial-inclusion behavior; HTTP mode caveat updated.
+- §3.5.3 — title gains "(GATING, Tier 2 only)"; opening clarifies Tier 2-only restriction; time normalization rule rewritten with explicit schedule-range-vs-response-AM/PM symmetry requirement.
+- §3.6 — runs.jsonl description updated; summary inclusion-policy section description updated; per_row.csv included_runs description updated; regression-anchor sanity check note added re: Grace Arts Live divergence.
+- §3.7 HALT 2 — closed status confirmed; G3 round added to iteration list; v4 finding called out.
+- §4.1 file 1 (CLI runner) — Tier 1/Tier 3 inclusion logic updated.
+- §4.1 file 6 (detector) — Layer behavior per tier updated; symmetric time canonicalization noted.
+- §4.1 file 7 (report) — Tier 3 inclusion gating noted.
+- §4.1 file 9 (detector tests) — Tier 3 Layer 2 inclusion fixture noted.
+- §4.1 file 12 (report tests) — Tier 3 partial-inclusion test noted.
+- §4.1 file 14 (runbook) — time canonicalizer symmetry, Tier 3 partial inclusion, Tier 3 Layer 2 false-positive caveat all added to runbook scope.
+- §5.1 — tests reorganized: tests 6 and 7 added (Tier 3 Layer 2 inclusion / Layer 3 exclusion); test 10 added (time symmetric canonicalization); existing tests renumbered.
+- §5.3 — gate criterion 3 phrasing softened to acknowledge anchor-status divergence; gate criterion 5 retained.
+- §6.1 — risk 12 added (Tier 3 Layer 2 false positives without evidence-scoping); risk 13 added (regression-anchor model-output drift).
+- §6.2 — mitigations summary updated.
+- §7 — known-issues entry 6 expanded; new entry 7 added (Tier 3 Aqua Beginnings confabulation pattern).
+- §8 #2 — refined to reflect Tier 3 Layer 2 partial inclusion.
+- §10 — new amendment entry on top.
+
+**HALT 2 v4 was the right phase to catch this.** Three rounds of dry-run iteration plus one diagnostic round surfaced findings that no amount of pre-implementation review could have caught — they emerged from running the harness against real catalog and real model output. v4's diagnostic in particular found the Tier 3 hiding effect, which would have silently undercounted real confabulation if HALT 2 had closed at v3. Catching it at HALT 2 cost a spec amendment + canonicalizer + report-logic work. Catching it at HALT 3 would have meant rebuilding the baseline.
+
 ### 2026-04-25 — HALT 2 dry-run amendment (Layer 1 redefined as advisory)
 
 **What HALT 2 dry-run iterations found:** Across three calibration rounds (G, G1, G2), Layer 1's per-row scoped diff produced a long-tail of conversational-scaffolding false positives. Each round's safe_framing expansion silenced the top 10 offenders only to surface the next 10. Top tokens after the v3 final rerun included `cost, enrollment, row, dodgeball, daily, facility, theater, day, small-group, heated, 90-minute, week, search, handle, program, outdoor, session, catalog, lesson, track` — a mix of regression-anchor confabulation (`heated, outdoor, enrollment`) and conversational scaffolding the safe_framing list could not absorb without bleeding into real confabulation territory.
@@ -477,32 +547,6 @@ Authoritative context for HALT 1 / HALT 2 implementation reading. Order reflects
 **Why this is a structural finding, not a calibration gap:** The model's vocabulary for constructing sentences is much larger than any safe_framing list can be without absorbing real confabulation territory. The pattern of "fix the top 10, see the next 10 emerge" is structural — Layer 1's premise (response tokens minus evidence tokens = candidate confabulation) is correct, but the floor of conversational scaffolding tokens is high enough that Layer 1 cannot serve as a primary metric. Layer 2 (wordlist) and Layer 3 (canonicalized numbers) produce clean signal and capture the regression anchors.
 
 **What's now resolved:** Layer 1 is redefined as **advisory** in v1. It runs and is reported, but does not contribute to the headline confabulation rate. The rate is computed from Layer 2 + Layer 3 hits only. Layer 1's output is reported in `summary.md` under a separate "Layer 1 candidate tokens (advisory)" section and serves as a candidate-token surface for human review during 8.8.6 step 1+. Real value preserved (the regression-anchor `private heated outdoor` still appears in Layer 1 advisory alongside being flagged by Layer 2); structural noise no longer gates the confabulation rate.
-
-**Sections updated by this amendment:**
-- Status header — third amendment date noted.
-- §2.1 goal 1 + 6 — rate metric clarified as Layer 2 + Layer 3; regression-anchor detection requires "at least one of Layer 2, Layer 3, or Layer 1 advisory."
-- §2.2 — non-goal added: Layer 1 not a gating signal in v1.
-- §3.3 — Layer 1 advisory unavailable in HTTP mode noted.
-- §3.5 — opening paragraph rewritten to introduce the gating-vs-advisory split with rationale lineage.
-- §3.5.1 — Layer 1 marked ADVISORY; description of role; phone-number-stripping mention added (defense for §3.5.1's response/evidence symmetry).
-- §3.5.2 — Layer 2 marked GATING; `enrollment, RSVP` added to procedural wordlist.
-- §3.5.3 — Layer 3 marked GATING; phone-number `ph:` rule added to canonicalizer; price-range $-required guard added; currency decimal handling clarified.
-- §3.5.4 — note added that Layer 5 (LLM judge) is the most likely v2 path to gating Layer 1's advisory output.
-- §3.6 — reporting changed: `runs.jsonl` splits hits into `layer_2_hits`, `layer_3_hits`, `layer_1_advisory_tokens`. `summary.md` adds explicit Layer 1 advisory section clearly labeled. `per_row.csv` columns updated to reflect gating vs advisory split.
-- §3.7 HALT 2 — marked closed; iterations G, G1, G2 documented; amendments lineage noted.
-- §4.1 file 6 description — Layer 1 hits emitted as advisory only.
-- §4.1 file 7 description — summary computes rate from gating hits only.
-- §4.1 file 14 (runbook) — explicit note about Layer 1 advisory designation.
-- §5.1 — tests reorganized: test 3 now `test_confabulation_detector_layer1_advisory` asserting Layer 1 is advisory; test 4 covers Layer 2 anchors (the gating workhorse); tests 7-11 expanded for HALT 2 detector defect fixes.
-- §5.3 validation gate — gate criteria 3 and 4 reference Layer 2 + Layer 3 specifically; gate criterion 5 added for Layer 1 advisory reporting.
-- §5.4 — clarified that the 8.8.6 step 1+ threshold will be set against Layer 2 + Layer 3, not Layer 1 advisory.
-- §6.1 — risk 1 rewritten: Layer 1 advisory false-negative class. Risk 2 updated: Layer 1 advisory noise is acknowledged structural floor. Risk 8 updated: maintenance burden lower because Layer 1 is advisory.
-- §6.2 — mitigations summary updated to mention the gating-vs-advisory role split.
-- §7 — known-issues entry 6 added: catalog data quality (Aqua Beginnings address-field prose surfaced by HALT 2 dry-run).
-- §8 #2 — refined to reflect the advisory/gating split.
-- §8 #9 — buffer mechanism mention clarified.
-
-**HALT 2 was the right phase to catch this.** A 5-row dry-run with three iterative calibration rounds surfaced the structural noise floor before HALT 3 full-sweep poisoned a 156-invocation baseline with Layer 1 noise. Catching it at HALT 2 cost a spec amendment plus iterative detector fixes. Catching it at HALT 3 would have meant rebuilding the baseline.
 
 ### 2026-04-25 — HALT 2 amendment (§3.5.1a wrapper signature correction)
 
