@@ -28,6 +28,9 @@ itsdangerous==2.2.0
 jiter==0.14.0
 limits==5.8.0
 Mako==1.3.11
+# Eval harness only (app/eval/) — used for confabulation detection lemmatization.
+# Not used by any production code path. See docs/phase-8-8-6-step-0-eval-harness-spec.md.
+nltk==3.9.2
 MarkupSafe==3.0.3
 openai==2.31.0
 packaging==26.1
