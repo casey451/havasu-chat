@@ -10,9 +10,32 @@ Schema (all keys optional except parser_confidence, which is required on every r
 
 - location (string or null): A named place or area in the city (parks, neighborhoods, "downtown", etc.).
 
-- day_of_week (array of strings or null): Lowercase English weekday names from "monday" through "sunday". For "weekend", use ["saturday", "sunday"].
+- day_of_week (array of strings or null): Lowercase English weekday names from "monday" through "sunday". For "weekend", use ["saturday", "sunday"]. When the user gives a full specific calendar day (e.g. "May 8, 2026" or "Friday, May 8, 2026"), do not use day_of_week: use date_exact (see "Temporal plan" and priority below) so a single unambiguous day is expressed.
 
-- time_window (string or null): Exactly one of: "today", "tomorrow", "this_week", "this_weekend", "this_month", "upcoming". Use "this_weekend" for the next Saturday–Sunday pair. Use "upcoming" for general future events when no fixed end window fits.
+- Temporal plan (STRICT, load-bearing for validation): The API allows at most one of the following *temporal* plans per response. Setting more than one of these at the same time is invalid and will fail validation:
+  (A) time_window, OR
+  (B) month_name, OR
+  (C) season, OR
+  (D) date_exact, OR
+  (E) date_start together with date_end (an inclusive range).
+  Use null / omit the others so exactly one of A–E is active. (day_of_week is not one of A–E; you may use it with a time_window plan, but if you have a full calendar day use date_exact per priority below and omit day_of_week.)
+
+- Priority when several ideas could apply (highest to lowest; pick the winner and set only that plan, others null/omitted):
+  1) A specific named calendar day → use date_exact only.
+  2) An explicit date range ("between X and Y", "from … to …") with two bounds → use date_start and date_end; both must be ISO strings for the start and end days.
+  3) A whole month without a day ("in July", "in August 2026") — use month_name, not a broad time_window.
+  4) A season ("summer", "this winter" as a season) — use season, not a broad time_window, unless the user really means a sliding window like "this week".
+  5) Sliding or relative window (today, tomorrow, this week, this weekend, this month, upcoming, next week, next month) — use time_window.
+
+- date_exact (string or null): One ISO-8601 calendar date, YYYY-MM-DD (e.g. "2026-05-08") for a specific day the user names. Set time_window, month_name, and season to null. Few-shots use explicit years.
+
+- date_start / date_end (string or null): Inclusive range; two ISO-8601 dates, YYYY-MM-DD. If you use a range, set both date_start and date_end, and set time_window, month_name, season, and date_exact to null.
+
+- month_name (string or null): Full English month name, lowercase: january, february, …, december. For "what’s in July" (whole month, no specific day). Set time_window, season, and date fields null.
+
+- season (string or null): One of: spring, summer, fall, winter. Set time_window, month_name, and date fields null.
+
+- time_window (string or null): Exactly one of: "today", "tomorrow", "this_week", "this_weekend", "this_month", "upcoming", "next_week", "next_month". Use "this_weekend" for the next Saturday–Sunday pair. Use "upcoming" for general future events when no fixed end window fits. If you are using time_window, set month_name, season, date_exact, and date_start/date_end to null.
 
 - open_now (boolean or null): True when the user clearly wants currently open options.
 
@@ -48,6 +71,30 @@ Output: {"category": "restaurant", "open_now": true, "parser_confidence": 0.82, 
 
 Query: Anywhere open for a workout this late?
 Output: {"category": "gym", "open_now": true, "parser_confidence": 0.8, "fallback_to_tier3": false}
+
+Query: what events are on may 8 2026
+Output: {"date_exact": "2026-05-08", "parser_confidence": 0.88, "fallback_to_tier3": false}
+
+Query: What events are on May 8, 2026
+Output: {"date_exact": "2026-05-08", "parser_confidence": 0.88, "fallback_to_tier3": false}
+
+Query: show me things between june 1 2026 and june 7 2026
+Output: {"date_start": "2026-06-01", "date_end": "2026-06-07", "parser_confidence": 0.9, "fallback_to_tier3": false}
+
+Query: any event in july 2026
+Output: {"month_name": "july", "parser_confidence": 0.8, "fallback_to_tier3": false}
+
+Query: summer music events
+Output: {"category": "music", "season": "summer", "parser_confidence": 0.8, "fallback_to_tier3": false}
+
+Query: anything fun on friday
+Output: {"day_of_week": ["friday"], "time_window": "upcoming", "parser_confidence": 0.8, "fallback_to_tier3": false}
+
+Query: events on Friday, May 8, 2026
+Output: {"date_exact": "2026-05-08", "parser_confidence": 0.9, "fallback_to_tier3": false}
+
+Query: is there anything the week of monday may 4 2026
+Output: {"time_window": "next_week", "parser_confidence": 0.8, "fallback_to_tier3": false}
 
 Query: tell me something cool about this town
 Output: {"parser_confidence": 0.15, "fallback_to_tier3": true}
