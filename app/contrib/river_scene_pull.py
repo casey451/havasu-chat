@@ -22,9 +22,11 @@ from app.contrib.river_scene import (
     fetch_sitemap_urls,
     normalize_to_contribution,
 )
+from app.contrib.approval_service import approve_contribution_as_event
 from app.db import contribution_store as cs
 from app.db.database import SessionLocal
 from app.db.models import Event
+from app.schemas.contribution import EventApprovalFields
 
 
 def _norm_title(s: str) -> str:
@@ -73,9 +75,11 @@ def run_pull(
     skipped_past_or_unparseable = 0
     flagged_seed_overlap = 0
     fetched_urls = 0
+    auto_approved = 0
+    auto_approval_failed = 0
 
     def body(client: httpx.Client) -> int:
-        nonlocal errors, imported, skipped_duplicate, skipped_past_or_unparseable, flagged_seed_overlap, fetched_urls
+        nonlocal errors, imported, skipped_duplicate, skipped_past_or_unparseable, flagged_seed_overlap, fetched_urls, auto_approved, auto_approval_failed
         try:
             urls = fetch_sitemap_urls(client=client)
         except Exception as e:
@@ -124,8 +128,30 @@ def run_pull(
                     if dry_run:
                         imported += 1
                         continue
-                    cs.create_contribution(db, payload)
+                    created = cs.create_contribution(db, payload)
                     imported += 1
+                    if payload.source == "river_scene_import":
+                        try:
+                            approve_fields = EventApprovalFields(
+                                title=payload.submission_name,
+                                description=(payload.submission_notes or ""),
+                                date=payload.event_date,
+                                start_time=payload.event_time_start,
+                                end_time=payload.event_time_end,
+                                location_name=rse.venue_name or "Lake Havasu",
+                                event_url=url_str,
+                            )
+                            ev = approve_contribution_as_event(db, created.id, approve_fields, list(rse.category_slugs or []))
+                            auto_approved += 1
+                            print(
+                                f"info: auto-approved river scene contribution {created.id} -> event {ev.id}"
+                            )
+                        except Exception as e:
+                            auto_approval_failed += 1
+                            print(
+                                f"warning: auto-approval failed for contribution {created.id}: {e}",
+                                file=sys.stderr,
+                            )
             except Exception as e:
                 print(f"error: event {url}: {e}", file=sys.stderr)
                 errors += 1
@@ -134,6 +160,8 @@ def run_pull(
         print(f"  start_date (CLI, informational): {start_date.isoformat()}")
         print(f"  fetched_urls:                  {fetched_urls}")
         print(f"  imported:                      {imported}")
+        print(f"  auto_approved:                 {auto_approved}")
+        print(f"  auto_approval_failed:          {auto_approval_failed}")
         print(f"  skipped_duplicate:             {skipped_duplicate}")
         print(f"  skipped_past_or_unparseable:   {skipped_past_or_unparseable}")
         print(f"  flagged_seed_overlap:          {flagged_seed_overlap}")

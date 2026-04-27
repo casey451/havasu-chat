@@ -459,6 +459,119 @@ def test_pull_past_event_skipped(capsys: pytest.CaptureFixture[str]) -> None:
     )
 
 
+def test_river_scene_pull_auto_approves_contribution() -> None:
+    html = """<!DOCTYPE html><html><head><title>RiverScene Magazine | Auto Approve Ev</title></head>
+<body><div class="entry-content"><p>This event has enough detail for approval payload.</p>
+<table><tr><td>Start Date</td><td>September 2, 2026</td></tr>
+<tr><td>Time</td><td>9:00 am</td></tr>
+<tr><td>Venue</td><td>Rotary Park</td></tr></table></div></body></html>"""
+    ev_url = "https://riverscenemagazine.com/events/auto-approve/"
+    index = (FIXTURES / "river_scene_sitemap_index.xml").read_text(encoding="utf-8")
+    sub = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>{ev_url}</loc><lastmod>2026-04-20</lastmod></url>
+</urlset>"""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        u = str(request.url)
+        if u.endswith("/wp-sitemap.xml"):
+            return httpx.Response(200, text=index)
+        if "wp-sitemap-posts-events" in u:
+            return httpx.Response(200, text=sub)
+        if u.rstrip("/") == ev_url.rstrip("/"):
+            return httpx.Response(200, text=html)
+        return httpx.Response(404)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler), timeout=5.0, follow_redirects=True)
+    with client:
+        rc = run_pull(date(2026, 8, 1), dry_run=False, http_client=client)
+    assert rc == 0
+
+    with SessionLocal() as db:
+        row = db.query(Contribution).order_by(Contribution.id.desc()).first()
+        assert row is not None
+        assert row.source == "river_scene_import"
+        assert row.status == "approved"
+        assert row.created_event_id is not None
+        ev = db.get(Event, row.created_event_id)
+        assert ev is not None
+        assert ev.source == "river_scene_import"
+
+
+def test_river_scene_pull_does_not_auto_approve_user_submission() -> None:
+    rse = RiverSceneEvent(
+        title="User Source Should Stay Pending",
+        url="https://riverscenemagazine.com/events/no-auto/",
+        start_date=date(2026, 9, 10),
+        end_date=date(2026, 9, 10),
+        start_time=time(9, 0),
+        end_time=time(11, 0),
+        description_html="<p>Sufficiently long description content for pending contribution path.</p>",
+        venue_name="Community Center",
+        venue_address=None,
+        organizer=None,
+        category_slugs=["community"],
+    )
+    payload = normalize_to_contribution(rse).model_copy(update={"source": "user_submission"})
+    with patch("app.contrib.river_scene_pull.fetch_sitemap_urls", return_value=["https://riverscenemagazine.com/events/no-auto/"]):
+        with patch("app.contrib.river_scene_pull.fetch_and_parse_event", return_value=rse):
+            with patch("app.contrib.river_scene_pull.normalize_to_contribution", return_value=payload):
+                with httpx.Client(
+                    transport=httpx.MockTransport(lambda _r: httpx.Response(200)),
+                    timeout=5.0,
+                    follow_redirects=True,
+                ) as client:
+                    rc = run_pull(date(2026, 8, 1), dry_run=False, http_client=client)
+    assert rc == 0
+    with SessionLocal() as db:
+        row = db.query(Contribution).order_by(Contribution.id.desc()).first()
+        assert row is not None
+        assert row.source == "user_submission"
+        assert row.status == "pending"
+        assert row.created_event_id is None
+        assert db.query(Event).count() == 0
+
+
+def test_river_scene_pull_auto_approval_failure_leaves_contribution_pending(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    html = """<!DOCTYPE html><html><head><title>RiverScene Magazine | Auto Approve Fail</title></head>
+<body><div class="entry-content"><p>This event will fail auto approval and stay pending.</p>
+<table><tr><td>Start Date</td><td>October 1, 2026</td></tr>
+<tr><td>Time</td><td>10:00 am</td></tr>
+<tr><td>Venue</td><td>Nautical Beachfront</td></tr></table></div></body></html>"""
+    ev_url = "https://riverscenemagazine.com/events/auto-approve-fail/"
+    index = (FIXTURES / "river_scene_sitemap_index.xml").read_text(encoding="utf-8")
+    sub = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>{ev_url}</loc><lastmod>2026-04-20</lastmod></url>
+</urlset>"""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        u = str(request.url)
+        if u.endswith("/wp-sitemap.xml"):
+            return httpx.Response(200, text=index)
+        if "wp-sitemap-posts-events" in u:
+            return httpx.Response(200, text=sub)
+        if u.rstrip("/") == ev_url.rstrip("/"):
+            return httpx.Response(200, text=html)
+        return httpx.Response(404)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler), timeout=5.0, follow_redirects=True)
+    with patch("app.contrib.river_scene_pull.approve_contribution_as_event", side_effect=RuntimeError("boom")):
+        with client:
+            rc = run_pull(date(2026, 8, 1), dry_run=False, http_client=client)
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert any(ln.strip().startswith("auto_approval_failed:") and ln.split()[-1] == "1" for ln in out.splitlines())
+    with SessionLocal() as db:
+        row = db.query(Contribution).order_by(Contribution.id.desc()).first()
+        assert row is not None
+        assert row.status == "pending"
+        assert row.created_event_id is None
+        assert db.query(Event).count() == 0
+
+
 def test_contribution_source_literal_accepts_river_scene_import() -> None:
     c = ContributionCreate(
         entity_type="event",
