@@ -10,7 +10,7 @@ import re
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.chat.intent_classifier import IntentResult
@@ -112,7 +112,7 @@ def _next_event(db: Session, provider: Provider) -> Event | None:
         .where(
             Event.provider_id == provider.id,
             Event.status == "live",
-            Event.date >= today,
+            func.coalesce(Event.end_date, Event.date) >= today,
         )
         .order_by(Event.date.asc(), Event.start_time.asc())
         .limit(1)

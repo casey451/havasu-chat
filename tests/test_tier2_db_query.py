@@ -75,6 +75,7 @@ def _evt(
     *,
     title: str,
     on_date: date,
+    end_date: date | None = None,
     location_name: str = "Downtown",
     tags: list[str] | None = None,
     provider: Provider | None = None,
@@ -86,6 +87,7 @@ def _evt(
         title=title,
         normalized_title=title.lower(),
         date=on_date,
+        end_date=end_date,
         start_time=start,
         end_time=None,
         location_name=location_name,
@@ -384,3 +386,31 @@ def test_broad_window_bucketing_includes_late_dates_if_early_clustered(
     evs = [r for r in rows if r["type"] == "event" and mark in r["name"]]
     by_date = {r["date"] for r in evs}
     assert any(d.startswith("2026-07") for d in by_date), by_date
+
+
+def test_multi_day_event_surfaces_on_middle_day_date_exact(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Won Bass–style: start May 7, end May 9 → ``date_exact=May 8`` still returns the event."""
+    monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 5, 1))
+    suf = _suffix()
+    mark = f"wonbassmd{suf}"
+    pv = _prov(db, name=f"MultiEvOrg {suf}")
+    _evt(
+        db,
+        title=f"{mark} Havasu Open",
+        on_date=date(2026, 5, 7),
+        end_date=date(2026, 5, 9),
+        provider=pv,
+    )
+    db.commit()
+    rows = tier2_query(
+        Tier2Filters(
+            parser_confidence=0.9,
+            entity_name=mark,
+            date_exact=date(2026, 5, 8),
+        )
+    )
+    assert any(
+        r["type"] == "event" and mark in r["name"] and r.get("end_date") == "2026-05-09" for r in rows
+    ), rows

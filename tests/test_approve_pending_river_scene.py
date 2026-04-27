@@ -177,3 +177,39 @@ def test_backfill_continues_on_individual_failure(approve_pending_mod) -> None:
         assert by_id[sid[2]].status == "approved"
         assert by_id[fail_id].status == "pending"
         assert db.query(Event).count() == 2
+
+
+def test_backfill_passes_contribution_event_end_date_to_event(approve_pending_mod) -> None:
+    mod = approve_pending_mod
+    u = uuid.uuid4().hex[:8]
+    long_notes = (
+        f"Date: May 7–9, 2026\n\nTournament blurb {u} with enough text here for validation.\n\n"
+        f"Venue: Test Pier\n"
+    )
+    with SessionLocal() as db:
+        create_contribution(
+            db,
+            ContributionCreate(
+                entity_type="event",
+                submission_name=f"EndDate Row {u}",
+                submission_url=f"https://riverscenemagazine.com/events/ed-{u}/",
+                submission_notes=long_notes,
+                event_date=date(2026, 5, 7),
+                event_end_date=date(2026, 5, 9),
+                event_time_start=time(8, 0),
+                event_time_end=time(17, 0),
+                source="river_scene_import",
+            ),
+        )
+    mod.run_backfill()
+    with SessionLocal() as db:
+        c = (
+            db.query(Contribution)
+            .filter(Contribution.submission_name == f"EndDate Row {u}")
+            .one()
+        )
+        assert c.status == "approved" and c.created_event_id
+        ev = db.get(Event, c.created_event_id)
+        assert ev is not None
+        assert ev.end_date == date(2026, 5, 9)
+        assert ev.date == date(2026, 5, 7)

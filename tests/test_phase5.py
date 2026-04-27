@@ -79,6 +79,85 @@ class Phase5EmbeddingSearchTests(unittest.TestCase):
         self.assertIn("Upcoming Game", titles)
         self.assertNotIn("Old Game", titles)
 
+    def test_date_context_includes_event_when_multi_day_spans_single_day_window(self) -> None:
+        """Overlap: event May 5–10 is included when the filter window is only May 8."""
+        token = "uniquemdspan123"
+        emb = generate_query_embedding(f"{token} river")
+        with SessionLocal() as db:
+            db.add(
+                Event.from_create(
+                    EventCreate(
+                        title=f"SpanTest {token}",
+                        date=date(2026, 5, 5),
+                        end_date=date(2026, 5, 10),
+                        start_time="10:00:00",
+                        end_time=None,
+                        location_name="Waterfront",
+                        description=f"Multi-day event {token} for search overlap.",
+                        event_url="https://example.com/span-test",
+                        contact_name=None,
+                        contact_phone=None,
+                        tags=[],
+                        embedding=emb,
+                        status="live",
+                        created_by="user",
+                        admin_review_by=None,
+                    )
+                )
+            )
+            db.commit()
+
+        with SessionLocal() as db:
+            results = search_events(
+                db=db,
+                date_context={"start": date(2026, 5, 8), "end": date(2026, 5, 8)},
+                activity_type=None,
+                keywords=[],
+                query_message=token,
+            ).events
+
+        self.assertTrue(any(token in (e.title + (e.description or "")) for e in results))
+
+    def test_ongoing_multi_day_surfaces_without_date_context(self) -> None:
+        """Started yesterday but ends tomorrow: still in the unscoped future candidate set."""
+        t = date.today()
+        token = "ongoingmdtoken"
+        emb = generate_query_embedding(token)
+        with SessionLocal() as db:
+            db.add(
+                Event.from_create(
+                    EventCreate(
+                        title="Multi Still On",
+                        date=t - timedelta(days=1),
+                        end_date=t + timedelta(days=1),
+                        start_time="10:00:00",
+                        end_time=None,
+                        location_name="Lake",
+                        description=f"Event {token} still running.",
+                        event_url="https://example.com/ongoing-md",
+                        contact_name=None,
+                        contact_phone=None,
+                        tags=[],
+                        embedding=emb,
+                        status="live",
+                        created_by="user",
+                        admin_review_by=None,
+                    )
+                )
+            )
+            db.commit()
+
+        with SessionLocal() as db:
+            results = search_events(
+                db=db,
+                date_context=None,
+                activity_type=None,
+                keywords=[],
+                query_message=token,
+            ).events
+
+        self.assertTrue(any(e.title == "Multi Still On" for e in results))
+
     def test_embedding_ranking_orders_by_relevance(self) -> None:
         def _deterministic_embedding_source(text: str) -> tuple[list[float], bool]:
             from app.core.search import _deterministic_embedding_1536

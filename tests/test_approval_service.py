@@ -149,6 +149,57 @@ def test_approve_event(db: Session) -> None:
     assert c2 is not None
     assert c2.status == "approved"
     assert c2.created_event_id == ev.id
+    assert ev.end_date is None
+
+
+def test_approve_event_sets_end_date_from_fields(db: Session) -> None:
+    c = _event_contribution(db)
+    from datetime import date, time
+
+    evf = EventApprovalFields(
+        title="Three Day Festival",
+        description="Community event description text.",
+        date=date(2026, 7, 4),
+        end_date=date(2026, 7, 6),
+        start_time=time(10, 0),
+        end_time=time(12, 0),
+        location_name="London Bridge Beach",
+        event_url="https://example.com/festival",
+    )
+    ev = approve_contribution_as_event(db, c.id, evf, ["festival"])
+    assert ev.date == date(2026, 7, 4)
+    assert ev.end_date == date(2026, 7, 6)
+
+
+def test_approve_event_falls_back_to_contribution_event_end_date(db: Session) -> None:
+    u = uuid.uuid4().hex[:8]
+    from datetime import date, time
+
+    c = create_contribution(
+        db,
+        ContributionCreate(
+            entity_type="event",
+            submission_name=f"Pending Multi {u}",
+            submission_notes="B" * 22,
+            submission_url=f"https://example.com/em-{u}",
+            event_date=date(2026, 6, 7),
+            event_end_date=date(2026, 6, 9),
+            event_time_start=time(8, 0),
+            event_time_end=None,
+            source="operator_backfill",
+        ),
+    )
+    evf = EventApprovalFields(
+        title=f"Approved Multi {u}",
+        description="Community event description text.",
+        date=date(2026, 6, 7),
+        start_time=time(8, 0),
+        end_time=None,
+        location_name="London Bridge Beach",
+        event_url=f"https://example.com/em-{u}",
+    )
+    ev = approve_contribution_as_event(db, c.id, evf, ["multi"])
+    assert ev.end_date == date(2026, 6, 9)
 
 
 def test_approve_non_pending_raises(db: Session) -> None:

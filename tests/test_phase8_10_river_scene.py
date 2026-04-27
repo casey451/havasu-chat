@@ -247,6 +247,7 @@ def test_normalize_single_day() -> None:
     cc = normalize_to_contribution(rse)
     notes = cc.submission_notes or ""
     assert "Date: June 15, 2026" in notes
+    assert cc.event_end_date is None
     first_date_line = [ln for ln in notes.splitlines() if ln.startswith("Date:")][0]
     assert "–" not in first_date_line
 
@@ -268,6 +269,8 @@ def test_normalize_multi_day() -> None:
     cc = normalize_to_contribution(rse)
     notes = cc.submission_notes or ""
     assert f"Date: June 10\u201312, 2026" in notes
+    assert cc.event_date == date(2026, 6, 10)
+    assert cc.event_end_date == date(2026, 6, 12)
 
 
 def test_normalize_strips_html() -> None:
@@ -496,6 +499,48 @@ def test_river_scene_pull_auto_approves_contribution() -> None:
         ev = db.get(Event, row.created_event_id)
         assert ev is not None
         assert ev.source == "river_scene_import"
+        assert ev.end_date is None
+
+
+def test_river_scene_pull_auto_approval_sets_end_date_for_multi_day() -> None:
+    html = """<!DOCTYPE html><html><head><title>RiverScene Magazine | May Fest Multi</title></head>
+<body><div class="entry-content"><p>Three days of tournament action.</p>
+<table><tr><td>Start Date</td><td>May 7, 2026</td></tr>
+<tr><td>End Date</td><td>May 9, 2026</td></tr>
+<tr><td>Time</td><td>9:00 am</td></tr>
+<tr><td>Venue</td><td>Site Six</td></tr></table></div></body></html>"""
+    ev_url = "https://riverscenemagazine.com/events/md-auto-may/"
+    index = (FIXTURES / "river_scene_sitemap_index.xml").read_text(encoding="utf-8")
+    sub = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>{ev_url}</loc><lastmod>2026-04-20</lastmod></url>
+</urlset>"""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        u = str(request.url)
+        if u.endswith("/wp-sitemap.xml"):
+            return httpx.Response(200, text=index)
+        if "wp-sitemap-posts-events" in u:
+            return httpx.Response(200, text=sub)
+        if u.rstrip("/") == ev_url.rstrip("/"):
+            return httpx.Response(200, text=html)
+        return httpx.Response(404)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler), timeout=5.0, follow_redirects=True)
+    with client:
+        rc = run_pull(date(2026, 4, 1), dry_run=False, http_client=client)
+    assert rc == 0
+
+    with SessionLocal() as db:
+        row = db.query(Contribution).order_by(Contribution.id.desc()).first()
+        assert row is not None
+        assert row.event_end_date == date(2026, 5, 9)
+        assert row.status == "approved"
+        assert row.created_event_id is not None
+        ev = db.get(Event, row.created_event_id)
+        assert ev is not None
+        assert ev.date == date(2026, 5, 7)
+        assert ev.end_date == date(2026, 5, 9)
 
 
 def test_river_scene_pull_does_not_auto_approve_user_submission() -> None:

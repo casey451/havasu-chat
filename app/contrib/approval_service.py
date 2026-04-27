@@ -189,9 +189,11 @@ def approve_contribution_as_event(
     )
     is_rec = is_recurring_heuristic(blob)
     event_source: str | None = "river_scene_import" if c.source == "river_scene_import" else None
+    end_date = edited_fields.end_date if edited_fields.end_date is not None else c.event_end_date
     ec = EventCreate(
         title=edited_fields.title.strip(),
         date=edited_fields.date,
+        end_date=end_date,
         start_time=edited_fields.start_time,
         end_time=edited_fields.end_time,
         location_name=edited_fields.location_name.strip(),

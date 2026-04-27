@@ -65,6 +65,7 @@ def create_contribution(
         submission_category_hint=data.submission_category_hint,
         submission_notes=data.submission_notes,
         event_date=data.event_date,
+        event_end_date=data.event_end_date,
         event_time_start=data.event_time_start,
         event_time_end=data.event_time_end,
         submitter_email=str(data.submitter_email) if data.submitter_email is not None else None,

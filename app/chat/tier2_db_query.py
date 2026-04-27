@@ -23,7 +23,7 @@ import calendar
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.chat.tier2_schema import Tier2Filters
@@ -69,6 +69,17 @@ def _today() -> date:
 
 def _weekday_name(d: date) -> str:
     return _WEEKDAY_NAMES[d.weekday()]
+
+
+def _event_covers_any_weekday(e: Event, allowed: set[str]) -> bool:
+    """True if any calendar day in [e.date, coalesce(e.end_date, e.date)] is in ``allowed``."""
+    end = e.end_date if e.end_date is not None else e.date
+    d = e.date
+    while d <= end:
+        if _weekday_name(d) in allowed:
+            return True
+        d += timedelta(days=1)
+    return False
 
 
 def _next_weekday(start_date: date, weekday: int, allow_today: bool) -> date:
@@ -287,7 +298,7 @@ def _program_location_display(location_name: str | None, location_address: str |
 
 
 def _event_dict(e: Event) -> dict[str, Any]:
-    return {
+    out: dict[str, Any] = {
         "type": "event",
         "name": e.title,
         "date": e.date.isoformat(),
@@ -297,6 +308,9 @@ def _event_dict(e: Event) -> dict[str, Any]:
         "description": _truncate(e.description, 120),
         "tags": list(e.tags or [])[:8],
     }
+    if e.end_date is not None:
+        out["end_date"] = e.end_date.isoformat()
+    return out
 
 
 def _program_dict(p: Program) -> dict[str, Any]:
@@ -449,7 +463,7 @@ def _upper_bound_for_clustering(
         return win_end
     if not events:
         return None
-    mx = max(x.date for x in events)
+    mx = max((x.end_date if x.end_date is not None else x.date) for x in events)
     if mx < lower:
         return lower
     return mx
@@ -510,7 +524,10 @@ def _query_events(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
         return []
     span = _filter_window_span_inclusive(win_start, win_end, today)
     limit = NARROW_EVENT_SQL_LIMIT if span <= 30 else BROAD_EVENT_SQL_LIMIT
-    q = select(Event).where(Event.status == "live", Event.date >= lower)
+    q = select(Event).where(
+        Event.status == "live",
+        func.coalesce(Event.end_date, Event.date) >= lower,
+    )
     if win_end is not None:
         q = q.where(Event.date <= win_end)
 
@@ -540,7 +557,7 @@ def _query_events(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
 
     if filters.day_of_week:
         allowed = {d.lower() for d in filters.day_of_week}
-        rows = [e for e in rows if _weekday_name(e.date) in allowed]
+        rows = [e for e in rows if _event_covers_any_weekday(e, allowed)]
 
     if span <= 30:
         return [_event_dict(e) for e in rows[:MAX_ROWS]]
@@ -653,7 +670,10 @@ def _sample_mixed(db: Session, cap: int) -> list[dict[str, Any]]:
     events = list(
         db.scalars(
             select(Event)
-            .where(Event.status == "live", Event.date >= today)
+            .where(
+                Event.status == "live",
+                func.coalesce(Event.end_date, Event.date) >= today,
+            )
             .order_by(Event.date.asc(), Event.start_time.asc())
             .limit(cap)
         ).all()

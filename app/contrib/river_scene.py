@@ -338,7 +338,7 @@ def normalize_to_contribution(rse: RiverSceneEvent) -> ContributionCreate:
     """
     Map a :class:`RiverSceneEvent` to :class:`ContributionCreate` for the review queue.
 
-    The ``event_date`` / ``event_time_start`` / ``event_time_end`` fields mirror the source;
+    The ``event_date`` / ``event_end_date`` / ``event_time_start`` / ``event_time_end`` fields mirror the source;
     the multi-day range is also spelled out in ``submission_notes`` for operators.
     """
     plain = _strip_html_to_text(rse.description_html)
@@ -374,12 +374,18 @@ def normalize_to_contribution(rse: RiverSceneEvent) -> ContributionCreate:
     if rse.end_date == rse.start_date and rse.end_time == rse.start_time:
         et_end = None
 
+    if rse.end_date is None or rse.end_date <= rse.start_date:
+        event_end_date: date | None = None
+    else:
+        event_end_date = rse.end_date
+
     return ContributionCreate(
         entity_type="event",
         submission_name=rse.title[:200],
         submission_url=su,  # type: ignore[arg-type]
         submission_notes=notes,
         event_date=rse.start_date,
+        event_end_date=event_end_date,
         event_time_start=rse.start_time,
         event_time_end=et_end,
         source="river_scene_import",

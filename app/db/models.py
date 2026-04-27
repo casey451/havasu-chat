@@ -86,6 +86,7 @@ class Event(Base):
     title: Mapped[str] = mapped_column(String, nullable=False)
     normalized_title: Mapped[str] = mapped_column(String, nullable=False)
     date: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     start_time: Mapped[time] = mapped_column(Time, nullable=False)
     end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     location_name: Mapped[str] = mapped_column(String, nullable=False)
@@ -124,6 +125,7 @@ class Event(Base):
             title=title,
             normalized_title=title.lower().strip(),
             date=payload.date,
+            end_date=payload.end_date,
             start_time=payload.start_time,
             end_time=payload.end_time,
             location_name=location_name,
@@ -239,6 +241,7 @@ class Contribution(Base):
     submission_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     event_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    event_end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     event_time_start: Mapped[time | None] = mapped_column(Time, nullable=True)
     event_time_end: Mapped[time | None] = mapped_column(Time, nullable=True)
 

@@ -20,6 +20,7 @@ class ContributionCreate(BaseModel):
     submission_category_hint: str | None = Field(default=None, max_length=200)
     submission_notes: str | None = None
     event_date: date | None = None
+    event_end_date: date | None = None
     event_time_start: time | None = None
     event_time_end: time | None = None
     submitter_email: EmailStr | None = None
@@ -90,6 +91,7 @@ class EventApprovalFields(BaseModel):
     title: str = Field(min_length=3)
     description: str = Field(min_length=20)
     date: date
+    end_date: date | None = None
     start_time: time
     end_time: time | None = None
     location_name: str = Field(min_length=3)
@@ -109,6 +111,7 @@ class ContributionResponse(BaseModel):
     submission_category_hint: str | None
     submission_notes: str | None
     event_date: date | None
+    event_end_date: date | None
     event_time_start: time | None
     event_time_end: time | None
     url_title: str | None

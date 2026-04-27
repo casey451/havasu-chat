@@ -67,6 +67,7 @@ def _fields_from_contribution(c: Contribution) -> tuple[EventApprovalFields, lis
         title=c.submission_name,
         description=notes,
         date=c.event_date,
+        end_date=c.event_end_date,
         start_time=c.event_time_start,
         end_time=c.event_time_end,
         location_name=loc,

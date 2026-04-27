@@ -415,9 +415,15 @@ def _deterministic_embedding_1536(text: str) -> list[float]:
 
 def _base_future_events_query(db: Session, date_context: dict[str, date] | None) -> Any:
     today = date.today()
-    query = db.query(Event).filter(Event.date >= today)
     if date_context:
-        query = query.filter(and_(Event.date >= date_context["start"], Event.date <= date_context["end"]))
+        query = db.query(Event).filter(
+            and_(
+                Event.date <= date_context["end"],
+                func.coalesce(Event.end_date, Event.date) >= date_context["start"],
+            )
+        )
+    else:
+        query = db.query(Event).filter(func.coalesce(Event.end_date, Event.date) >= today)
     return query
 
 
@@ -833,7 +839,14 @@ def _truncate_desc(text: str, limit: int = 120) -> str:
 
 def _event_card(event: Event) -> str:
     desc = _truncate_desc(event.description or "")
-    when = f"{_format_long_date(event.date)} · {_format_time_ampm(event.start_time)}"
+    end_d = getattr(event, "end_date", None)
+    if end_d is not None and end_d > event.date:
+        when = (
+            f"{_format_long_date(event.date)} – {_format_long_date(end_d)} · "
+            f"{_format_time_ampm(event.start_time)}"
+        )
+    else:
+        when = f"{_format_long_date(event.date)} · {_format_time_ampm(event.start_time)}"
     lines = [
         f"📅 {when}",
         f"📍 {event.location_name}",

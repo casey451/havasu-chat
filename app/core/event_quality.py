@@ -133,6 +133,7 @@ def try_build_event_create(data: dict[str, Any], **overrides: Any) -> EventCreat
         {
             "title": merged["title"],
             "date": merged["date"],
+            "end_date": merged.get("end_date"),
             "start_time": merged["start_time"],
             "end_time": merged.get("end_time"),
             "location_name": merged["location_name"],
@@ -170,9 +171,12 @@ def build_pending_review_create(data: dict[str, Any], admin_review_by: datetime)
     st = merged.get("start_time")
     if not isinstance(st, time):
         st = time(12, 0, 0)
+    end_d = merged.get("end_date")
+    end_date: date | None = end_d if isinstance(end_d, date) else None
     return EventCreate(
         title=title,
         date=d,
+        end_date=end_date,
         start_time=st,
         end_time=None,
         location_name=loc,

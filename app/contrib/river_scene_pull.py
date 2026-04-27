@@ -136,6 +136,7 @@ def run_pull(
                                 title=payload.submission_name,
                                 description=(payload.submission_notes or ""),
                                 date=payload.event_date,
+                                end_date=payload.event_end_date,
                                 start_time=payload.event_time_start,
                                 end_time=payload.event_time_end,
                                 location_name=rse.venue_name or "Lake Havasu",

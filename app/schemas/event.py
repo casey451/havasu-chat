@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from datetime import date, datetime, time
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 def normalize_event_url(value: str) -> str:
@@ -21,6 +21,7 @@ def normalize_event_url(value: str) -> str:
 class EventBase(BaseModel):
     title: str
     date: date
+    end_date: date | None = None
     start_time: time
     end_time: time | None = None
     location_name: str
@@ -35,6 +36,12 @@ class EventBase(BaseModel):
     status: str = "live"
     created_by: str = "user"
     admin_review_by: datetime | None = None
+
+    @model_validator(mode="after")
+    def end_date_on_or_after_start(self) -> EventBase:
+        if self.end_date is not None and self.end_date < self.date:
+            raise ValueError("end_date must be on or after date")
+        return self
 
     @field_validator("title", "location_name", "description", "event_url", mode="before")
     @classmethod
