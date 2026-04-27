@@ -83,6 +83,44 @@ def test_summary_excludes_tier3_from_gating_rate(tmp_path: Path) -> None:
     assert "`outdoor`: 1" in text  # gating top tokens
 
 
+def test_confabulation_report_excludes_tier_chat(tmp_path: Path) -> None:
+    out = tmp_path / "summary.md"
+    runs = [
+        {
+            "row_id": "r_chat",
+            "row_name": "Chat Row",
+            "flag_state": "off",
+            "tier_used": "chat",
+            "gating_hit_count": 0,
+            "advisory_hit_count": 0,
+            "hit_count": 0,
+            "gating_tokens": [],
+            "layer_1_advisory_tokens": [],
+            "layer_2_hits": [],
+            "excluded_from_summary": True,
+            "excluded_reason": "tier_chat_no_formatter",
+        },
+        {
+            "row_id": "r2",
+            "row_name": "Row Two",
+            "flag_state": "off",
+            "tier_used": "2",
+            "gating_hit_count": 1,
+            "advisory_hit_count": 0,
+            "hit_count": 1,
+            "gating_tokens": ["private"],
+            "layer_1_advisory_tokens": [],
+            "layer_2_hits": [{"token": "private", "layer": "2", "row_ids_in_scope": ()}],
+            "excluded_from_summary": False,
+        },
+    ]
+    write_summary_md(out, runs)
+    text = out.read_text(encoding="utf-8")
+    assert "Included in gating-confabulation-rate summary: 1" in text
+    assert "Excluded from gating confabulation-rate summary: 1" in text
+    assert "`off`: 1/1 (100.0%) with ≥1 gating hit" in text
+
+
 def test_tier3_with_layer2_included_in_summary(tmp_path: Path) -> None:
     out = tmp_path / "summary.md"
     runs = [

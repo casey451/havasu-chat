@@ -117,6 +117,9 @@ def _enrich_for_reports(records: list[dict], name_map: dict[str, str]) -> list[d
         if tier == "1":
             excluded = True
             excluded_reason = "tier_1_no_formatter"
+        elif tier == "chat":
+            excluded = True
+            excluded_reason = "tier_chat_no_formatter"
         elif tier == "3" and not l2:
             excluded = True
             excluded_reason = "tier_3_no_layer2_hits"

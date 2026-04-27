@@ -502,9 +502,9 @@ Authoritative context for HALT 1 / HALT 2 implementation reading. Order reflects
 
 **Spec sections affected:** §3.5.2 (inclusion policy), §3.6 (exclusion table). Add `tier_used == "chat"` row alongside Tier 1 entry, with `excluded_reason` value `tier_chat_no_formatter`.
 
-**Implementation status:** Deferred to step 1+ planning kickoff. HALT 4 baseline reflects pre-amendment-6 inclusion (rates of 15.1% / 27.0%); canonical post-amendment-6 rates are 15.4% / 28.0%. Step 1+ baselines generated after implementation will be self-consistent.
+**Implementation status:** Deferred at HALT 4 close; implemented as the first task of step 1+. HALT 4 baseline reflects pre-amendment-6 inclusion (rates of 15.1% / 27.0%); canonical post-amendment-6 rates are 15.4% / 28.0%. Step 1+ baselines generated after implementation will be self-consistent.
 
-**Implementation location:** `confabulation_detector.py` or `confabulation_report.py` — wherever `excluded_from_summary` is set per run. Logic addition: `if tier_used == "chat": excluded_from_summary = true; excluded_reason = "tier_chat_no_formatter"`.
+**Implementation location:** `scripts/confabulation_eval.py::_enrich_for_reports` — the per-run enrichment path that sets `excluded_from_summary` / `excluded_reason` (sibling to the existing Tier 1 exclusion branch). Spec previously hedged between `app/eval/confabulation_detector.py` and `app/eval/confabulation_report.py`; read-pass during implementation confirmed neither is the actual site. Logic addition: `elif tier == "chat": excluded_from_summary = true; excluded_reason = "tier_chat_no_formatter"`.
 
 ### 2026-04-25 — HALT 2 v4 diagnostic amendment (time canonicalizer, Tier 3 Layer 2 partial inclusion, anchor-status updates)
 
