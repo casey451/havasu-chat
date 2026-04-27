@@ -1,6 +1,6 @@
 # Phase 8.8.6 step 0 — Confabulation Eval Harness Spec
 
-Status: HALT 0 closed (2026-04-25). Amendments applied 2026-04-25 (HALT 1 finding), 2026-04-25 (HALT 2 finding), 2026-04-25 (HALT 2 dry-run finding), 2026-04-25 (HALT 2 v4 diagnostic finding). See §10.
+Status: HALT 0 closed (2026-04-25). Amendments applied 2026-04-25 (HALT 1 finding), 2026-04-25 (HALT 2 finding), 2026-04-25 (HALT 2 dry-run finding), 2026-04-25 (HALT 2 v4 diagnostic finding), 2026-04-26 (HALT 4 — "chat" tier exclusion). See §10.
 Date: 2026-04-25
 Scope: Spec only (no implementation changes in this phase)
 Predecessor: 8.8.5 reverted (`d1fef0f`, `c3562c9` revert `f8afb81`, `297086d`)
@@ -121,7 +121,7 @@ Templates locked at HALT 1. `<n>` substitution uses the row's display name verba
 
 ### 3.5 Detection layers (v1)
 
-Three layers with distinct roles and tier handling. **Layer 2 is gating across Tier 2 AND Tier 3.** **Layer 3 is gating in Tier 2 only.** **Layer 1 is advisory in Tier 2 only.** Tier 1 is excluded from rate calculation entirely (no formatter call, no measurable confabulation).
+Three layers with distinct roles and tier handling. **Layer 2 is gating across Tier 2 AND Tier 3.** **Layer 3 is gating in Tier 2 only.** **Layer 1 is advisory in Tier 2 only.** Tier 1 and Tier `chat` (OUT_OF_SCOPE refusals — no formatter call, empty evidence) are excluded from rate calculation entirely (no measurable confabulation). **Implementation note (amendment 6, §10):** post–step 1+ implementation, `excluded_from_summary` is set for `tier_used == "chat"` with `excluded_reason: tier_chat_no_formatter`; the HALT 3 full-catalog baseline on disk was generated before that change.
 
 **Tier handling rationale:**
 
@@ -233,15 +233,15 @@ Catches invented hours, capacities, prices, phone numbers, recurrence counts. Ch
 
 Each run emits three artifacts under `scripts/confabulation_eval_results/<utc-timestamp>/`:
 
-1. **`runs.jsonl`** — one record per (query, flag_state, run_index): query text, query template, row IDs probed, flag state, run index, response text, evidence set, detector hits per layer (split into `layer_2_hits`, `layer_3_hits`, `layer_1_advisory_tokens`), response latency, tier classification of the response, `excluded_from_summary` flag with `excluded_reason` for Tier 1 rows. **Tier 3 rows are NOT excluded from summary if they have Layer 2 hits** (per §3.5.2 partial inclusion); they are excluded from Layer 3 calculation regardless.
+1. **`runs.jsonl`** — one record per (query, flag_state, run_index): query text, query template, row IDs probed, flag state, run index, response text, evidence set, detector hits per layer (split into `layer_2_hits`, `layer_3_hits`, `layer_1_advisory_tokens`), response latency, tier classification of the response, `excluded_from_summary` flag with `excluded_reason` for Tier 1 rows (`tier_1_no_formatter`) and, after amendment 6 implementation, Tier `chat` rows (`tier_chat_no_formatter`). **Tier 3 rows are NOT excluded from summary if they have Layer 2 hits** (per §3.5.2 partial inclusion); they are excluded from Layer 3 calculation regardless.
 
 2. **`summary.md`** — human-readable summary with these sections in order:
-   - **Inclusion policy.** Total runs, included in rate (Tier 2 always, Tier 3 with Layer 2 considered), excluded from rate (Tier 1 always, Tier 3 with no Layer 2 hits separately reported). v1 measures Tier 2 + Tier 3 Layer 2 only.
+   - **Inclusion policy.** Total runs, included in rate (Tier 2 always, Tier 3 with Layer 2 considered), excluded from rate (Tier 1 always, Tier `chat` after amendment 6, Tier 3 with no Layer 2 hits separately reported). v1 measures Tier 2 + Tier 3 Layer 2 only. Pre–amendment-6 baselines may count Tier `chat` in the included total; see §10 amendment 6.
    - **Per-flag confabulation rate.** Computed from Layer 2 + Layer 3 hits in Tier 2, plus Layer 2 hits in Tier 3. Layer 1 advisory tokens do not contribute. One row per flag state.
    - **Top offending rows.** Rows with highest gating-hit rates. Sample response excerpts.
    - **Top confabulated tokens (Layer 2 + Layer 3).** Frequency-ranked. Real confabulation vocabulary and invented numerical content. Tier 3 Layer 2 contributions called out.
    - **Layer 1 candidate tokens (advisory).** Frequency-ranked separately. Marked clearly as not contributing to the rate. For human review during 8.8.6 step 1+ — these are tokens the response used that the row didn't, which may include real novel confabulation classes alongside conversational scaffolding.
-   - **Tier breakdown.** Tier 1 / Tier 2 / Tier 3 invocation counts plus per-tier gating-hit counts.
+   - **Tier breakdown.** Tier 1 / Tier 2 / Tier 3 / Tier `chat` invocation counts plus per-tier gating-hit counts.
    - **Regression-anchor sanity check.** Aqua Beginnings and Grace Arts Live hit rates on Layer 2 + Layer 3 (which is what the rate is computed from). Note: Grace Arts Live's 8.8.5 anchor no longer reproduces in current model output (HALT 2 v4 finding); see §1.1 anchor-status note.
 
 3. **`per_row.csv`** — row × confabulation-token matrix for spreadsheet review on mobile. Columns: row_id, row_name, total_runs, included_runs (Tier 2 + Tier 3 with Layer 2), gating_runs_with_hit, advisory_token_count (Layer 1, Tier 2 only), top_3_gating_tokens.
@@ -494,6 +494,18 @@ Authoritative context for HALT 1 / HALT 2 implementation reading. Order reflects
 
 ## 10) Amendment changelog
 
+### Amendment 6 (HALT 4) — "chat" tier exclusion from gating denominator
+
+**Trigger:** HALT 3 full-catalog baseline surfaced 18 runs with `tier_used == "chat"` (the OUT_OF_SCOPE refusal path). These runs have no formatter call and empty `evidence_row_dicts`, but were defaulting to `excluded_from_summary: false`, inflating the gating denominator with deterministic 0-hit contributions.
+
+**Change:** Tier `chat` (OUT_OF_SCOPE refusals) is excluded from the gating denominator under the same rationale as Tier 1. The "chat" tier represents queries the router classified as out-of-scope; these produce a templated refusal with no formatter call and empty evidence, so no measurable confabulation can occur.
+
+**Spec sections affected:** §3.5.2 (inclusion policy), §3.6 (exclusion table). Add `tier_used == "chat"` row alongside Tier 1 entry, with `excluded_reason` value `tier_chat_no_formatter`.
+
+**Implementation status:** Deferred to step 1+ planning kickoff. HALT 4 baseline reflects pre-amendment-6 inclusion (rates of 15.1% / 27.0%); canonical post-amendment-6 rates are 15.4% / 28.0%. Step 1+ baselines generated after implementation will be self-consistent.
+
+**Implementation location:** `confabulation_detector.py` or `confabulation_report.py` — wherever `excluded_from_summary` is set per run. Logic addition: `if tier_used == "chat": excluded_from_summary = true; excluded_reason = "tier_chat_no_formatter"`.
+
 ### 2026-04-25 — HALT 2 v4 diagnostic amendment (time canonicalizer, Tier 3 Layer 2 partial inclusion, anchor-status updates)
 
 **What HALT 2 v4 dry-run + diagnostic found:**
@@ -539,6 +551,8 @@ Three findings drove this amendment:
 - §10 — new amendment entry on top.
 
 **HALT 2 v4 was the right phase to catch this.** Three rounds of dry-run iteration plus one diagnostic round surfaced findings that no amount of pre-implementation review could have caught — they emerged from running the harness against real catalog and real model output. v4's diagnostic in particular found the Tier 3 hiding effect, which would have silently undercounted real confabulation if HALT 2 had closed at v3. Catching it at HALT 2 cost a spec amendment + canonicalizer + report-logic work. Catching it at HALT 3 would have meant rebuilding the baseline.
+
+**HALT 4 addendum (2026-04-26):** At HALT 3 full-catalog baseline, both §1.1 anchor vectors have closed. Aqua Beginnings Tier 2 output is clean (0/12 included runs with gating hits), and the LLM router on-flag does not route Aqua probes to Tier 3 (0 invocations). Live anchor reproduction is no longer baseline behavior. Synthetic fixture test in `tests/test_confabulation_detector.py` is the regression protection going forward. If §1.1 anchor pattern manifests in live output during step 1+ work or future baselines, this is a regression to investigate. Same logic applied to Grace Arts Live in original amendment 5 now applies to Aqua Beginnings.
 
 ### 2026-04-25 — HALT 2 dry-run amendment (Layer 1 redefined as advisory)
 

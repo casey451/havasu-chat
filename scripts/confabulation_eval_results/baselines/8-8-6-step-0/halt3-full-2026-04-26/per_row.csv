@@ -1,0 +1,53 @@
+row_id,row_name,total_runs,included_runs,gating_runs_with_hit,advisory_token_count,top_3_gating_tokens
+cec7644d-3fd4-4233-8c6e-69a3cce34af6,Adult Gi Jiu-Jitsu,18,12,0,59,
+fac74582-ec6e-4212-8da4-38743a0bf5a1,Adult NoGi Jiu-Jitsu,18,12,2,99,18+
+7ab2fd82-e1ed-41a9-b69f-4f18b5c2def1,Altitude Trampoline Park — Lake Havasu City,18,7,5,70,"drop-in, qt:most, indoor"
+9f57dc7e-48f6-4949-86dc-24ac55960c2d,Aqua Aerobics / Water Fitness,18,15,10,46,"18+, private, heated"
+6e4a9918-7b40-4f4d-b6d5-128ee5e07988,Aqua Beginnings,18,12,0,37,
+b0900e1e-8441-474f-aa6a-7b83ed143fe8,Arevalo Academy,18,10,7,64,"studio, call ahead"
+69ac46d9-e557-4357-9c8d-4744e4906a44,Arizona Coast Performing Arts (ACPA),18,18,13,84,"studio, enrollment"
+cfe36f3f-9ba7-4a4a-8a06-4137d5125044,Ballet Havasu,18,9,4,32,"studio, enrollment"
+f2344523-0711-4b99-8d20-11869fb66ed8,Bless This Nest LHC,18,12,1,80,call ahead
+6dc5f12a-3292-412b-aacc-f24436c71d2c,BMX Practice — Tuesday,18,12,0,50,
+80ece44a-9e1a-4f3a-9042-8d3ed9931e31,BMX Racing — Race Night,18,12,0,79,
+ee2adff5-322a-4fb3-8591-537cbd77fdbd,BMX Training — Wednesday,18,18,0,0,
+01e8ce2f-fc88-42e9-ac6d-66f86297a2e4,Bridge City Combat,18,15,0,91,
+dcfa87ab-18ce-4782-8f05-e112e867c234,Flips for Fun Gymnastics,18,9,9,45,enrollment
+b4efd7fd-b6a8-4471-9a4c-00356c2c882d,Footlite School of Dance,18,11,9,35,enrollment
+e95dae67-cfea-4f8d-82bf-3e12ffaa3647,Grace Arts Live,18,18,0,66,
+48953746-2b50-47af-9b58-7f52a2df3d23,Havasu Lanes,18,9,0,33,
+ea54f27b-7333-4173-a84f-60374de41124,Havasu Lions FC,18,6,0,35,
+ee82c243-3d26-4483-a2ba-e1572d296503,Havasu Shao-Lin Kempo,18,11,1,111,studio
+690cd37c-f7b1-4b5e-8f3e-940f19740502,Havasu Stingrays Masters Team,18,6,0,64,
+5ceaac2a-50e8-4747-ac27-5d4b47b839c6,Havasu Stingrays Swim Team,18,7,1,44,enrollment
+c89baccb-b054-4297-9db1-f883dd0eeb01,Iron Wolf Golf & Country Club,18,6,0,43,
+974941a0-0393-407a-8025-cf47ee8962c4,Junior Golf Clinic — Session 1,18,18,0,99,
+271c7fb4-d773-4121-960d-9e3804bc4eae,Junior Golf Clinic — Session 2,18,18,0,97,
+4e38bef8-1deb-40ad-a243-9de491985690,Lake Havasu Black Belt Academy,18,12,2,148,enrollment
+47b5dd11-6d6b-49c4-88ce-82dc4e5ad86b,Lake Havasu City Aquatic Center,18,8,3,29,"outdoor, drop-in, casual"
+b844bcee-26ad-4e96-98ad-cbf7ce6f14c4,Lake Havasu City BMX,18,8,1,35,all ages
+20d02372-4496-4048-86e7-4837543f0f70,Lake Havasu City Parks & Recreation,18,6,0,42,
+d44cb2cc-e2f0-4ad9-9f25-032231c557fb,Lake Havasu Little League,18,8,0,49,
+a30c2e60-311c-4c1b-9e7a-7eb0ab5d91d0,Lake Havasu Mountain Bike Club,18,9,0,98,
+66d7f0bc-bc71-4179-9f39-2b734967c22f,Lap Swim,18,17,2,52,pool
+05caa2e3-24bf-4337-bede-4ff60baba0d7,Littles Gi Jiu-Jitsu (Ages 3–6),18,18,8,104,"t:16:45, studio"
+d2d5b702-84a8-4768-a1df-cf98015df019,Littles NoGi Jiu-Jitsu (Ages 3–6),18,18,10,164,"t:16:45, studio"
+0eef6522-3acf-436a-9603-bbb4d6977a82,MMA,18,12,10,51,18+
+3cf5cf2e-782c-4dc8-917a-f110882f1ba2,Monthly Membership — Standard,18,14,2,106,drop-in
+77a1cfe6-241d-4f70-9c5a-309819293258,Monthly Membership — Unlimited,18,15,0,144,
+2c61f512-a7ce-477c-958e-0f17a84fb02c,Mountain Bike Practice — Rotary Park (Wednesday),18,12,3,104,"beginner-friendly, casual"
+a8113c7e-dfba-4807-ab63-dcbce3916905,Mountain Bike Practice — Sara Park (Monday),18,12,0,64,
+fec7772c-58d7-47ee-b0e3-1b7a975fe0d4,Mountain Bike Practice — Sara Park (Sunday),18,7,0,44,
+0255ab36-383b-4fe4-898f-5ba5a471bdb8,Open Bowling,18,15,2,99,"c:free, sign up"
+3d62f2aa-a4c8-4b43-9fde-ca66bd21e1e7,Open Jump — 120 Minutes,18,15,0,85,
+13e3db98-f27c-4ebe-bbb5-f862d4ca13f6,Open Jump — 90 Minutes,18,18,0,94,
+784afc6b-abe9-484a-be4e-7f331ef45d2d,Open Mat (All Welcome),18,16,0,40,
+a5756cb3-a9c0-42c5-8b33-2afd1021ef08,Open Swim,18,17,5,62,"pool, drop-in"
+24f8c545-005d-4a98-9762-04ed9e5a3673,Rock & Bowl (Cosmic Bowling),18,18,6,65,"call ahead, qt:some, bar"
+30a4ec1f-0b68-4f97-b536-a00ada5ff3a4,Strider/Balance Bike Track (Patrick Tinnell Balance Bike Track),18,18,2,170,perfect for
+3caa56ff-2035-4036-b75f-a30f7c761a0a,The Tap Room Jiu Jitsu,18,9,4,73,"all ages, 18+"
+369e3848-a084-4ee8-b099-235861ed58fc,Universal Gymnastics and All Star Cheer — Sonics,18,9,1,67,enrollment
+18edaa49-b860-4726-84e0-78d852da19c0,Women's Only NoGi,18,14,2,46,studio
+649a3caf-8ea1-4840-a745-941c6a0f1c22,Youth Gi Jiu-Jitsu (All Levels),18,15,3,119,studio
+f6dd630a-efc5-4eb1-91c0-eaa32e9d58bd,Youth NoGi Jiu-Jitsu (All Levels),18,15,0,146,
+2f4d536a-c065-42ba-a051-3624d175fa6e,Youth Wrestling (Ages 6+),18,12,1,71,enrollment
