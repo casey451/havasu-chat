@@ -79,6 +79,68 @@ class Phase5EmbeddingSearchTests(unittest.TestCase):
         self.assertIn("Upcoming Game", titles)
         self.assertNotIn("Old Game", titles)
 
+    def test_explicit_past_date_context_is_honored(self) -> None:
+        today = date.today()
+        in_window = today - timedelta(days=2)
+        out_of_window = today + timedelta(days=5)
+        emb = generate_query_embedding("farmers market")
+
+        with SessionLocal() as db:
+            db.add(
+                Event.from_create(
+                    EventCreate(
+                        title="Weekend Farmers Market",
+                        date=in_window,
+                        start_time="08:00:00",
+                        end_time=None,
+                        location_name="Downtown",
+                        description="Fresh produce and vendors.",
+                        event_url="https://example.com/market",
+                        contact_name=None,
+                        contact_phone=None,
+                        tags=[],
+                        embedding=emb,
+                        status="live",
+                        created_by="user",
+                        admin_review_by=None,
+                    )
+                )
+            )
+            db.add(
+                Event.from_create(
+                    EventCreate(
+                        title="Future Concert",
+                        date=out_of_window,
+                        start_time="20:00:00",
+                        end_time=None,
+                        location_name="Amphitheater",
+                        description="Live music event with local performers.",
+                        event_url="https://example.com/concert",
+                        contact_name=None,
+                        contact_phone=None,
+                        tags=[],
+                        embedding=emb,
+                        status="live",
+                        created_by="user",
+                        admin_review_by=None,
+                    )
+                )
+            )
+            db.commit()
+
+        with SessionLocal() as db:
+            results = search_events(
+                db=db,
+                date_context={"start": in_window, "end": in_window},
+                activity_type=None,
+                keywords=[],
+                query_message="farmers market",
+            ).events
+
+        titles = [e.title for e in results]
+        self.assertIn("Weekend Farmers Market", titles)
+        self.assertNotIn("Future Concert", titles)
+
     def test_date_context_includes_event_when_multi_day_spans_single_day_window(self) -> None:
         """Overlap: event May 5–10 is included when the filter window is only May 8."""
         token = "uniquemdspan123"

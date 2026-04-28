@@ -519,7 +519,17 @@ def _time_bucket_first_hits(
 def _query_events(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
     today = _today()
     win_start, win_end = _resolve_effective_event_window(filters, today)
-    lower = max(win_start, today) if win_start is not None else today
+    has_explicit_date_bounds = (
+        filters.date_start is not None
+        or filters.date_end is not None
+        or filters.date_exact is not None
+    )
+    if has_explicit_date_bounds and win_start is not None:
+        lower = win_start
+    elif win_start is not None:
+        lower = max(win_start, today)
+    else:
+        lower = today
     if win_end is not None and win_end < lower:
         return []
     span = _filter_window_span_inclusive(win_start, win_end, today)

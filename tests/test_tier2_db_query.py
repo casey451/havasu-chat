@@ -388,6 +388,33 @@ def test_broad_window_bucketing_includes_late_dates_if_early_clustered(
     assert any(d.startswith("2026-07") for d in by_date), by_date
 
 
+def test_explicit_past_date_exact_not_clamped_to_today(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 4, 27))
+    suf = _suffix()
+    pv = _prov(db, name=f"PastWin {suf}")
+    _evt(
+        db,
+        title=f"Weekend Pull {suf}",
+        on_date=date(2026, 4, 26),
+        provider=pv,
+    )
+    _evt(
+        db,
+        title=f"Future Pull {suf}",
+        on_date=date(2026, 5, 2),
+        provider=pv,
+    )
+    db.commit()
+    rows = tier2_query(
+        Tier2Filters(parser_confidence=0.9, date_exact=date(2026, 4, 26))
+    )
+    names = [r["name"] for r in rows if r["type"] == "event"]
+    assert any(f"Weekend Pull {suf}" == n for n in names)
+    assert all(f"Future Pull {suf}" != n for n in names)
+
+
 def test_multi_day_event_surfaces_on_middle_day_date_exact(
     db: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
