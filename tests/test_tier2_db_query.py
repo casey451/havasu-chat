@@ -441,3 +441,176 @@ def test_multi_day_event_surfaces_on_middle_day_date_exact(
     assert any(
         r["type"] == "event" and mark in r["name"] and r.get("end_date") == "2026-05-09" for r in rows
     ), rows
+
+
+def test_date_exact_orders_starts_on_day_before_overlap_only(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 5, 1))
+    suf = _suffix()
+    mark = f"dexmix{suf}"
+    pv = _prov(db, name=f"DateExactMix {suf}")
+    starts_early = f"{mark} starts early"
+    starts_late = f"{mark} starts late"
+    overlap_only = f"{mark} overlap only"
+    _evt(db, title=starts_early, on_date=date(2026, 5, 8), provider=pv, start=time(9, 0))
+    _evt(db, title=starts_late, on_date=date(2026, 5, 8), provider=pv, start=time(15, 0))
+    _evt(
+        db,
+        title=overlap_only,
+        on_date=date(2026, 5, 7),
+        end_date=date(2026, 5, 9),
+        provider=pv,
+        start=time(8, 0),
+    )
+    db.commit()
+    rows = tier2_query(
+        Tier2Filters(
+            parser_confidence=0.9,
+            entity_name=mark,
+            date_exact=date(2026, 5, 8),
+        )
+    )
+    names = [r["name"] for r in rows if r["type"] == "event" and mark in r["name"]]
+    assert names == [starts_early, starts_late, overlap_only]
+
+
+def test_date_exact_only_starts_on_day_keeps_chronological_order(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 5, 1))
+    suf = _suffix()
+    mark = f"dexstart{suf}"
+    pv = _prov(db, name=f"DateExactStarts {suf}")
+    start_0800 = f"{mark} start 0800"
+    start_1200 = f"{mark} start 1200"
+    start_1800 = f"{mark} start 1800"
+    off_target = f"{mark} off target day"
+    _evt(db, title=start_0800, on_date=date(2026, 5, 8), provider=pv, start=time(8, 0))
+    _evt(db, title=start_1200, on_date=date(2026, 5, 8), provider=pv, start=time(12, 0))
+    _evt(db, title=start_1800, on_date=date(2026, 5, 8), provider=pv, start=time(18, 0))
+    _evt(db, title=off_target, on_date=date(2026, 5, 7), provider=pv, start=time(11, 0))
+    db.commit()
+    rows = tier2_query(
+        Tier2Filters(
+            parser_confidence=0.9,
+            entity_name=mark,
+            date_exact=date(2026, 5, 8),
+        )
+    )
+    names = [r["name"] for r in rows if r["type"] == "event" and mark in r["name"]]
+    assert names == [start_0800, start_1200, start_1800]
+    assert off_target not in names
+
+
+def test_date_exact_only_overlap_rows_keep_date_then_time_order(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 5, 1))
+    suf = _suffix()
+    mark = f"dexoverlap{suf}"
+    pv = _prov(db, name=f"DateExactOverlap {suf}")
+    overlap_two_days_back = f"{mark} two days back"
+    overlap_prev_day_early = f"{mark} prev day early"
+    overlap_prev_day_late = f"{mark} prev day late"
+    _evt(
+        db,
+        title=overlap_prev_day_early,
+        on_date=date(2026, 5, 7),
+        end_date=date(2026, 5, 8),
+        provider=pv,
+        start=time(9, 0),
+    )
+    _evt(
+        db,
+        title=overlap_prev_day_late,
+        on_date=date(2026, 5, 7),
+        end_date=date(2026, 5, 9),
+        provider=pv,
+        start=time(17, 0),
+    )
+    _evt(
+        db,
+        title=overlap_two_days_back,
+        on_date=date(2026, 5, 6),
+        end_date=date(2026, 5, 8),
+        provider=pv,
+        start=time(10, 0),
+    )
+    db.commit()
+    rows = tier2_query(
+        Tier2Filters(
+            parser_confidence=0.9,
+            entity_name=mark,
+            date_exact=date(2026, 5, 8),
+        )
+    )
+    names = [r["name"] for r in rows if r["type"] == "event" and mark in r["name"]]
+    assert names == [overlap_two_days_back, overlap_prev_day_early, overlap_prev_day_late]
+
+
+def test_date_range_mixed_class_keeps_existing_chronological_order(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 5, 1))
+    suf = _suffix()
+    mark = f"dexrange{suf}"
+    pv = _prov(db, name=f"DateRangeMix {suf}")
+    overlap = f"{mark} overlap"
+    starts_0507 = f"{mark} starts 0507"
+    starts_0508 = f"{mark} starts 0508"
+    starts_0509 = f"{mark} starts 0509"
+    _evt(
+        db,
+        title=overlap,
+        on_date=date(2026, 5, 6),
+        end_date=date(2026, 5, 9),
+        provider=pv,
+        start=time(8, 0),
+    )
+    _evt(db, title=starts_0507, on_date=date(2026, 5, 7), provider=pv, start=time(9, 0))
+    _evt(db, title=starts_0508, on_date=date(2026, 5, 8), provider=pv, start=time(10, 0))
+    _evt(db, title=starts_0509, on_date=date(2026, 5, 9), provider=pv, start=time(11, 0))
+    db.commit()
+    rows = tier2_query(
+        Tier2Filters(
+            parser_confidence=0.9,
+            entity_name=mark,
+            date_start=date(2026, 5, 7),
+            date_end=date(2026, 5, 9),
+        )
+    )
+    names = [r["name"] for r in rows if r["type"] == "event" and mark in r["name"]]
+    assert names == [overlap, starts_0507, starts_0508, starts_0509]
+
+
+def test_month_name_query_keeps_existing_chronological_order_with_overlap(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 4, 20))
+    suf = _suffix()
+    mark = f"dexmonth{suf}"
+    pv = _prov(db, name=f"MonthMix {suf}")
+    month_overlap_from_april = f"{mark} overlap april"
+    month_may_first = f"{mark} may first"
+    month_may_second = f"{mark} may second"
+    _evt(
+        db,
+        title=month_overlap_from_april,
+        on_date=date(2026, 4, 30),
+        end_date=date(2026, 5, 2),
+        provider=pv,
+        start=time(8, 0),
+    )
+    _evt(db, title=month_may_first, on_date=date(2026, 5, 1), provider=pv, start=time(9, 0))
+    _evt(db, title=month_may_second, on_date=date(2026, 5, 2), provider=pv, start=time(10, 0))
+    db.commit()
+    rows = tier2_query(
+        Tier2Filters(
+            parser_confidence=0.9,
+            entity_name=mark,
+            month_name="may",
+        )
+    )
+    names = [r["name"] for r in rows if r["type"] == "event" and mark in r["name"]]
+    assert names == [month_overlap_from_april, month_may_first, month_may_second]

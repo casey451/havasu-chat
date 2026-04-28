@@ -23,7 +23,7 @@ import calendar
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.chat.tier2_schema import Tier2Filters
@@ -556,11 +556,12 @@ def _query_events(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
                 )
             )
 
-    rows = list(
-        db.scalars(
-            q.order_by(Event.date.asc(), Event.start_time.asc()).limit(limit)
-        ).all()
-    )
+    if filters.date_exact is not None:
+        starts_today_first = case((Event.date == filters.date_exact, 0), else_=1).asc()
+        ordered_q = q.order_by(starts_today_first, Event.date.asc(), Event.start_time.asc())
+    else:
+        ordered_q = q.order_by(Event.date.asc(), Event.start_time.asc())
+    rows = list(db.scalars(ordered_q.limit(limit)).all())
 
     if filters.category and filters.category.strip():
         rows = [e for e in rows if _category_match_event(e, filters.category or "")]
