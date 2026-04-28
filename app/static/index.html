@@ -447,6 +447,45 @@
         log.scrollTop = log.scrollHeight;
       }
 
+      function renderWithLinks(text) {
+        var fragment = document.createDocumentFragment();
+        var s = text == null ? "" : String(text);
+        var re = /\[([^\]]*)\]\(([^)]*)\)/g;
+        var lastIndex = 0;
+        var match;
+        while ((match = re.exec(s)) !== null) {
+          if (match.index > lastIndex) {
+            fragment.appendChild(document.createTextNode(s.slice(lastIndex, match.index)));
+          }
+          var label = match[1];
+          var rawUrl = match[2].trim();
+          var valid = /^https?:\/\//i.test(rawUrl);
+          if (valid) {
+            var a = document.createElement("a");
+            a.href = rawUrl;
+            a.textContent = label;
+            a.target = "_blank";
+            a.rel = "noopener noreferrer";
+            fragment.appendChild(a);
+          } else {
+            fragment.appendChild(document.createTextNode(match[0]));
+          }
+          lastIndex = re.lastIndex;
+        }
+        if (lastIndex < s.length) {
+          fragment.appendChild(document.createTextNode(s.slice(lastIndex)));
+        }
+        return fragment;
+      }
+
+      function setBubbleContentFromAssistant(bubble, text) {
+        while (bubble.firstChild) {
+          bubble.removeChild(bubble.firstChild);
+        }
+        var payload = text ? String(text) : "(no response)";
+        bubble.appendChild(renderWithLinks(payload));
+      }
+
       function addRow(role, text, extraClass) {
         var row = document.createElement("div");
         row.className = "row " + (role === "user" ? "user" : "bot");
@@ -799,7 +838,7 @@
           })
           .then(function (data) {
             pendingBubble.classList.remove("loading");
-            pendingBubble.textContent = data.response || "(no response)";
+            setBubbleContentFromAssistant(pendingBubble, data.response);
             if (data.chat_log_id != null && data.chat_log_id !== "") {
               pendingRow.setAttribute("data-chat-log-id", String(data.chat_log_id));
             } else {
