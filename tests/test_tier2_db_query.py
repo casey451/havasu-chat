@@ -81,6 +81,7 @@ def _evt(
     provider: Provider | None = None,
     is_recurring: bool = False,
     start: time = time(10, 0),
+    event_url: str = "https://example.com/e",
 ) -> Event:
     loc_norm = location_name.lower().strip()
     e = Event(
@@ -93,7 +94,7 @@ def _evt(
         location_name=location_name,
         location_normalized=loc_norm,
         description=f"{title} event description",
-        event_url="https://example.com/e",
+        event_url=event_url,
         tags=list(tags or []),
         status="live",
         source="tier2-test",
@@ -614,3 +615,42 @@ def test_month_name_query_keeps_existing_chronological_order_with_overlap(
     )
     names = [r["name"] for r in rows if r["type"] == "event" and mark in r["name"]]
     assert names == [month_overlap_from_april, month_may_first, month_may_second]
+
+
+def test_event_row_includes_event_url(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 1, 1))
+    suf = _suffix()
+    mark = f"evurlpop{suf}"
+    expected_url = f"https://example.com/e-pop-{suf}"
+    pv = _prov(db, name=f"EvUrlOrg {suf}")
+    _evt(
+        db,
+        title=f"{mark} probe title",
+        on_date=date(2026, 6, 15),
+        provider=pv,
+        event_url=expected_url,
+    )
+    db.commit()
+    rows = tier2_query(Tier2Filters(parser_confidence=0.9, entity_name=mark))
+    matching = [r for r in rows if r["type"] == "event" and mark in r["name"]]
+    assert len(matching) == 1
+    assert matching[0]["event_url"] == expected_url
+
+
+def test_event_row_includes_empty_event_url(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 1, 1))
+    suf = _suffix()
+    mark = f"evurlempty{suf}"
+    pv = _prov(db, name=f"EvEmptyOrg {suf}")
+    _evt(
+        db,
+        title=f"{mark} probe title",
+        on_date=date(2026, 6, 16),
+        provider=pv,
+        event_url="",
+    )
+    db.commit()
+    rows = tier2_query(Tier2Filters(parser_confidence=0.9, entity_name=mark))
+    matching = [r for r in rows if r["type"] == "event" and mark in r["name"]]
+    assert len(matching) == 1
+    assert matching[0]["event_url"] == ""

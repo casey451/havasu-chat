@@ -306,6 +306,7 @@ def _event_dict(e: Event) -> dict[str, Any]:
         "end_time": e.end_time.strftime("%H:%M") if e.end_time else None,
         "location_name": e.location_name,
         "description": _truncate(e.description, 120),
+        "event_url": e.event_url,
         "tags": list(e.tags or [])[:8],
     }
     if e.end_date is not None:
