@@ -77,6 +77,8 @@ Each working session typically follows this shape:
 4. **Verification** — Production verification per the criteria above.
 5. **Close-out** — STATE.md and BACKLOG.md updated to reflect what shipped.
 
+**STATE.md update discipline.** STATE.md tracks substantive ships (feature commits, fix commits, major refactors), not its own self-updates. The STATE.md update commit at the end of each session is metadata; it does not appear in STATE.md's "Recent commits" or "Deployed commit" fields. This avoids infinite-recursion ("the STATE.md update needs a STATE.md update"). The "Deployed commit" field tracks the most recent substantive ship; the actual git tip may be one commit ahead (the STATE.md self-update). After a multi-commit ship sequence, repo tip and "Deployed commit" align to the substantive ship commit, not the trailing metadata commit.
+
 ## Evolving the agreement
 
 This document is updated when the working agreement actually changes — not during normal sessions. Changes require explicit Casey approval and are committed as their own change. Examples of past changes: granting Cursor `git push` permission, granting Cursor read-only production access, adopting BOM-free commit verification.
