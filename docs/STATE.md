@@ -6,7 +6,7 @@ This document is updated at the end of each session that ships work. It is the c
 
 ## Production
 
-- **Deployed commit:** `d279165` — Tier2 formatter: deterministic Python rendering for event listings
+- **Deployed commit:** `98b8545` — Add canonical project state docs (PROJECT, STATE, WORKING_AGREEMENT, BACKLOG)
 - **Production URL:** https://havasu-chat-production.up.railway.app
 - **Health:** `/health` returns 200, db_connected, event_count 114
 
@@ -18,6 +18,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+98b8545  Add canonical project state docs (PROJECT, STATE, WORKING_AGREEMENT, BACKLOG)
 d279165  Tier2 formatter: deterministic Python rendering for event listings
 cdc4ac7  Chat UI: render markdown link syntax in assistant bubbles
 7d89a03  Tier2 query: include event_url in event row payload
@@ -30,6 +31,8 @@ d763775  Multi-day events: schema, retrieval, parser fields, and backfill
 ```
 
 ## Recently shipped (last work cycle)
+
+- **Canonical session docs** (`98b8545`) — `PROJECT.md`, `STATE.md`, `WORKING_AGREEMENT.md`, and `BACKLOG.md` under `docs/`; session-start pointer at top of `STATE.md`. No application code changes.
 
 - **Past-date retrieval fix** (`6934d1d`) — `_query_events` no longer clamps explicit past date bounds to today. Production verification deferred until catalog has past-dated events.
 - **Tier 2 ranking improvement** (`1c262ad`, SQL ordering portion only) — events whose start_date matches the query date rank above overlap-only events for `date_exact` queries. The prompt-rule portion of this commit was deployed but had no observable effect on the LLM and was superseded by `d279165`.
@@ -45,7 +48,7 @@ See `docs/BACKLOG.md` for the canonical list. Items not yet addressed:
 
 ## Working tree
 
-Clean except for the canonical-docs introduction work. No stale modifications, no in-flight changes outside that.
+Tracked files clean. Untracked paths under `docs/` and elsewhere remain per ongoing housekeeping (not part of this commit series unless staged intentionally).
 
 ## How to update this document
 
