@@ -55,7 +55,7 @@ dcc5454  test: remove test_phase4 (H1 commit 1 — legacy /chat duplicate tests)
 
 See `docs/BACKLOG.md` for the canonical list. Items not yet addressed:
 
-- **H1 follow-ups** — Backlog **7**–**11** (post-H1 cleanup and infra carryovers).
+- **Open backlog** — **`docs/BACKLOG.md`** (**OPEN** numbers **2**, **3**, **5**, **7**–**15** — not all H1-specific; see file for titles).
 - Programs and providers: scope-limited out of the deterministic renderer. Whether they have the same dropping/count-fabrication bug as events did is unverified.
 - Phase 8.8.6 eval harness: automated LLM-behavior testing wiring is incomplete. Several deferred-verification notes in `BACKLOG.md` would close once this lands.
 
