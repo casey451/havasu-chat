@@ -176,6 +176,30 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 
 ---
 
+## Backlog 16 - migrate `scripts/run_voice_audit.py` to consolidated LLM helpers (**DEFERRED**)
+
+**Issue:** After H2 Session 2 ships `app/core/llm_messages.py`, `scripts/run_voice_audit.py` will be the only remaining caller in the repo that reproduces the Anthropic-call boilerplate (`anthropic.Anthropic(...)` + `client.messages.create(...)` + token-usage extraction). Identified during the H2 Session 1 verification pass; documented in `docs/maintainability/h2_consolidation_decision.md` §4.
+
+**Precondition:** H2 Session 2 ships and pushes `app/core/llm_messages.py` to `origin/main`.
+
+**Desired fix:** Migrate the script's three Anthropic call sites (~lines 855, 868, 1081) to use `call_anthropic_messages` and the `Usage` dataclass. Out of `app/chat/` scope and on no production critical path; low-risk one-commit follow-on.
+
+**Severity:** LOW.
+
+---
+
+## Backlog 17 - extract OpenAI client into `app/core/llm_chat.py` (**DEFERRED**)
+
+**Issue:** `app/chat/hint_extractor.py` is the only OpenAI caller in the repo today. The H2 maintainability finding flagged it as a partial duplication candidate; the H2 Session 1 design (`docs/maintainability/h2_consolidation_decision.md` §3) deferred consolidation because the helper-extraction pattern only pays off when there are multiple drifting callers. One caller is just abstraction debt.
+
+**Precondition:** A second OpenAI caller appears in the codebase.
+
+**Desired fix:** Mirror the `app/core/llm_messages.py` pattern from H2 with a parallel `app/core/llm_chat.py` (OpenAI's API noun) covering API-key check, client construction, response/usage extraction. Migrate both callers in the same ship.
+
+**Severity:** LOW. No drift problem until a second caller exists.
+
+---
+
 ## Ship log - Session 2 follow-up, Tier 2 deterministic event rendering (**`d279165`**)
 
 **What shipped:** Deterministic Python rendering for all-event Tier 2 catalog responses; `tier2_formatter.format()` dispatches empty rows → fixed empty message, all-event rows → renderer `(text, 0, 0)`, mixed/non-event rows → unchanged Anthropic path. Programs and providers remain LLM-formatted (scope-limited to events where dropping/count bugs were observed).

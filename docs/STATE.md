@@ -6,7 +6,7 @@ This document is updated at the end of each session that ships work. It is the c
 
 ## Production
 
-- **Deployed commit:** `49b7f3b` — Add maintainability/ docs: pilot findings and H1 decision (post-ship filing).
+- **Deployed commit:** `f6c0daa` — docs(maintainability): file H2 Session 1 design artifacts.
 - **Production URL:** https://havasu-chat-production.up.railway.app
 - **Health:** `/health` returns 200, db_connected, event_count 114
 
@@ -18,6 +18,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+f6c0daa  docs(maintainability): file H2 Session 1 design artifacts
 49b7f3b  Add maintainability/ docs: pilot findings and H1 decision (post-ship filing)
 23a39a5  feat(schemas): remove legacy ChatRequest/ChatResponse (H1 commit 7)
 f3da1df  feat(db): remove log_chat_turn + TRACK_A_TIER_USED (H1 commit 6)
@@ -27,10 +28,11 @@ ef1e6a6  test: remove remaining /chat tests + invert Sentry scrub assertion (H1 
 cbe087e  feat(main): unwire legacy /chat router (H1 commit 3)
 f76d5e2  test: remove /chat tests from mixed files (H1 commit 2)
 dcc5454  test: remove test_phase4 (H1 commit 1 — legacy /chat duplicate tests)
-61387e4  docs: file H1 deletion-ship plan
 ```
 
 ## Recently shipped (last work cycle)
+
+- **H2 Session 1 — design artifacts filed** (`f6c0daa`) — `docs/maintainability/h2_consolidation_decision.md` and `docs/maintainability/h2_session2_handoff.md` committed. The decision document is the canonical design for H2 (LLM-call infrastructure consolidation): duplication map across `tier2_parser`, `tier2_formatter._format_via_llm`, `llm_router`, and `tier3_handler`; bundled `AnthropicResult` / `Usage` helper API targeted at a new `app/core/llm_messages.py`; mock-seam constraints derived from a Cursor verification pass over the test surface (preserve `import anthropic` package shape, preserve `messages.create` kwargs); five-commit migration plan with pytest gates after each commit and post-deploy monitoring on `chat_logs.tier_used` 2/3 latency and tokens; explicit deferral of `hint_extractor.py` (OpenAI; one caller, no actual duplication) and `scripts/run_voice_audit.py` (out of `app/chat/` scope). The slim handoff document is the kickoff artifact for the Session 2 chat. No application code changes; pytest baseline 942/8 unchanged; production verification was `/health` 200 with stable `event_count`. Opens Backlog **16** and **17** (both DEFERRED on Session 2's helper module shipping).
 
 - **Maintainability artifacts filed to repo** (`49b7f3b`) — `docs/maintainability/findings_app_chat.md` and `docs/maintainability/h1_router_decision.md` committed. The pilot review identifies app/chat/ maintainability findings (3 HIGH, 8 MEDIUM, 7 LOW with severity and disposition); the H1 decision doc records the investigation that confirmed zero `track_a` production traffic over 30 days and recommended the deletion executed on 2026-04-29 (`61387e4..23a39a5`). Both files were external artifacts from prior Claude sessions; filing them under version control makes them recoverable to future sessions without re-upload. No application code changes; production verification was `/health` 200 with stable `event_count`.
 
@@ -55,13 +57,13 @@ dcc5454  test: remove test_phase4 (H1 commit 1 — legacy /chat duplicate tests)
 
 See `docs/BACKLOG.md` for the canonical list. Items not yet addressed:
 
-- **Open backlog** — **`docs/BACKLOG.md`** (**OPEN** numbers **2**, **3**, **5**, **7**–**15** — not all H1-specific; see file for titles).
+- **Open backlog** — **`docs/BACKLOG.md`** (**OPEN** numbers **2**, **3**, **5**, **7**–**15**; **DEFERRED** numbers **16** and **17**, both blocked on H2 Session 2 shipping `app/core/llm_messages.py` — see file for titles and preconditions).
 - Programs and providers: scope-limited out of the deterministic renderer. Whether they have the same dropping/count-fabrication bug as events did is unverified.
 - Phase 8.8.6 eval harness: automated LLM-behavior testing wiring is incomplete. Several deferred-verification notes in `BACKLOG.md` would close once this lands.
 
 ## Working tree
 
-Tracked files clean after the H1 close-out (STATE/BACKLOG). Optional untracked Markdown under `docs/` (e.g. local design drafts) may still appear—stage intentionally if they should join `main`.
+Tracked files clean after the most recent close-out (STATE/BACKLOG). Optional untracked Markdown under `docs/` (e.g. local design drafts) may still appear—stage intentionally if they should join `main`.
 
 ## How to update this document
 
