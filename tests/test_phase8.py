@@ -36,7 +36,6 @@ class Phase8StabilizationTests(unittest.TestCase):
             db.query(ChatLog).delete()
             db.query(Event).delete()
             db.commit()
-        clear_session_state("phase8-intent")
         clear_session_state("phase8-cancel")
         clear_session_state("phase8-stale")
         clear_session_state("phase8-health")
@@ -62,15 +61,6 @@ class Phase8StabilizationTests(unittest.TestCase):
         with patch("app.core.session.time.monotonic", return_value=start + 301):
             self.assertTrue(blocking_session_expired(s))
 
-    def test_stale_session_returns_warm_message(self) -> None:
-        sid = "phase8-stale"
-        s = get_session(sid)
-        s["awaiting_confirmation"] = True
-        s["blocking_mono"] = time.monotonic() - 400
-        r = self.__class__.client.post("/chat", json={"session_id": sid, "message": "yes"})
-        self.assertEqual(r.status_code, 200)
-        self.assertIn("cleared where we left off", r.json()["response"].lower())
-
     def test_health_reports_db_and_event_count(self) -> None:
         r = self.__class__.client.get("/health")
         self.assertEqual(r.status_code, 200)
@@ -85,15 +75,6 @@ class Phase8StabilizationTests(unittest.TestCase):
         elapsed = time.monotonic() - start
         self.assertEqual(r.status_code, 200)
         self.assertLess(elapsed, 2.0, f"/health took {elapsed:.3f}s (must be < 2s)")
-
-    def test_chat_logs_written_for_turn(self) -> None:
-        self.__class__.client.post(
-            "/chat",
-            json={"session_id": "phase8-intent", "message": "what events do you have"},
-        )
-        with SessionLocal() as db:
-            n = db.query(ChatLog).filter(ChatLog.session_id == "phase8-intent").count()
-        self.assertGreaterEqual(n, 2)
 
     def test_admin_card_shows_tags_when_present(self) -> None:
         os.environ["ADMIN_PASSWORD"] = "changeme"

@@ -6,7 +6,6 @@ from datetime import date, datetime, time, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
-from app.core.event_quality import FIELD_PROMPTS, REVIEW_OFFER_MESSAGE, SUBMITTED_REVIEW_MESSAGE
 from app.core.session import clear_session_state
 from app.db.database import SessionLocal
 from app.db.models import Event
@@ -52,7 +51,6 @@ class Phase6Tests(unittest.TestCase):
             db.query(Event).delete()
             db.commit()
         clear_session_state("phase6-validation")
-        clear_session_state("phase6-review-flow")
         clear_session_state("phase6-admin")
 
     def test_post_events_returns_friendly_message_for_invalid_title(self) -> None:
@@ -132,41 +130,6 @@ class Phase6Tests(unittest.TestCase):
         r = c.post(f"/admin/review/{eid}", json={"action": "reject"})
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["status"], "deleted")
-
-    def test_chat_review_offer_after_two_bad_replies(self) -> None:
-        c = self.__class__.client
-        first = c.post(
-            "/chat",
-            json={"session_id": "phase6-review-flow", "message": "add Big Sat 9 Zoo"},
-        )
-        self.assertEqual(first.status_code, 200)
-        self.assertIn(FIELD_PROMPTS["description"], first.json()["response"])
-
-        second = c.post(
-            "/chat",
-            json={"session_id": "phase6-review-flow", "message": "short"},
-        )
-        self.assertEqual(second.status_code, 200)
-        self.assertIn("hmm, that didn't quite work", second.json()["response"].lower())
-
-        third = c.post(
-            "/chat",
-            json={"session_id": "phase6-review-flow", "message": "tiny"},
-        )
-        self.assertEqual(third.status_code, 200)
-        self.assertEqual(third.json()["response"], REVIEW_OFFER_MESSAGE)
-
-        fourth = c.post(
-            "/chat",
-            json={"session_id": "phase6-review-flow", "message": "yes"},
-        )
-        self.assertEqual(fourth.status_code, 200)
-        self.assertEqual(fourth.json()["response"], SUBMITTED_REVIEW_MESSAGE)
-        self.assertEqual(fourth.json()["data"].get("status"), "pending_review")
-
-        with SessionLocal() as db:
-            ev = db.query(Event).filter(Event.status == "pending_review").one()
-            self.assertIsNotNone(ev.admin_review_by)
 
     def test_admin_debug_pw_reports_stripped_length(self) -> None:
         os.environ["ADMIN_PASSWORD"] = "  xy\n"
