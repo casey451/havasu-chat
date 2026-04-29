@@ -134,6 +134,48 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 
 ---
 
+## Backlog 12 - `scripts/run_query_battery.py` retarget to `/api/chat` (**OPEN**)
+
+**Issue:** **`scripts/run_query_battery.py`** still POSTs to **`/chat`** with **`{session_id, message}`** payload. After the H1 deletion ship (**2026-04-29**, **`61387e4..23a39a5`**), **`POST /chat`** returns **404** — the script is broken until retargeted.
+
+**Desired fix:** Update the script to POST to **`/api/chat`** with the concierge payload shape (`{query, session_id}`). Verify against the current concierge response shape (`response`, `mode`, `sub_intent`, `entity`, `tier_used`, `latency_ms`, `llm_tokens_used`, `chat_log_id`). Update the battery's expected-response parsing accordingly.
+
+**Adjacent:** **`docs/runbook.md`** §3.5 and **`scripts/README.md`** currently document the script as broken; once retargeted, both should be updated to describe the script as functional against **`/api/chat`**.
+
+**Discovered during:** Phase 2 of the documentation reconciliation pass (commit **`26590b3`**).
+
+---
+
+## Backlog 13 - `STATE.md` "Working tree" wording is H1-anchored (**OPEN**)
+
+**Issue:** **`docs/STATE.md`** **Working tree** section still references "after the H1 close-out" specifically. Subsequent ships (artifact filing, reconciliation pass) don't update that anchor, so the wording will drift further from accuracy with each ship.
+
+**Desired fix:** Reword to a ship-agnostic phrase (e.g. "after the most recent close-out") or have **`POST_SHIP_CHECKLIST.md`** explicitly require updating this line per ship.
+
+**Severity:** LOW. Cosmetic; future sessions read past it.
+
+---
+
+## Backlog 14 - `pytest --collect-only` discipline not canonicalized (**OPEN**)
+
+**Issue:** During the H1 deletion ship, **`python -m pytest --collect-only -q`** was used as a pre-push runtime backstop to catch references to deleted symbols that static grep can miss (parametrize args, `skipif` conditions, decorator-time evaluation). Neither **`docs/POST_SHIP_CHECKLIST.md`** nor **`docs/WORKING_AGREEMENT.md`** documents this practice.
+
+**Decision needed:** Should **`--collect-only`** be canonical pre-push discipline for all ships, or only for deletion ships, or only when triggered case-by-case? The H1 ship's value-add was clear (deletion ship with cross-cutting references). Less clear for additive ships.
+
+**Desired fix:** Either add a one-line bullet to **`POST_SHIP_CHECKLIST`** under verification steps, with a clause defining when it applies, or close this item with a deliberate "not canonicalized — judgment per ship" decision.
+
+---
+
+## Backlog 15 - Stale wording in `docs/query-test-battery.md` ~286 (**OPEN**)
+
+**Issue:** **`docs/query-test-battery.md`** near line ~286 references **`app/core/venues.py`** as a hypothetical "problem area." After H1, **`venues.py`** no longer exists — the wording could be misread as a current open question about a still-extant module.
+
+**Desired fix:** Tighten wording so **`venues.py`** is unambiguously historical, or remove the reference. Document is otherwise still relevant; doesn't need a full historical banner.
+
+**Severity:** LOW.
+
+---
+
 ## Ship log - Session 2 follow-up, Tier 2 deterministic event rendering (**`d279165`**)
 
 **What shipped:** Deterministic Python rendering for all-event Tier 2 catalog responses; `tier2_formatter.format()` dispatches empty rows → fixed empty message, all-event rows → renderer `(text, 0, 0)`, mixed/non-event rows → unchanged Anthropic path. Programs and providers remain LLM-formatted (scope-limited to events where dropping/count bugs were observed).
@@ -152,4 +194,4 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 
 **Tests / verification:** 942 passing post-ship vs 987 pre-ship (**45** legacy `/chat` tests removed); **8** seed/backfill failures unchanged (baseline).
 
-**Follow-ups:** Backlog **7**–**11** (`event_quality` orphan trim, `unified_router` comment, Tier 1 hit rate, `HAVASU_CHAT_MASTER.md` fixture, slowapi warnings).
+**Follow-ups:** Backlog **7**–**15** (through slowapi warnings; later items include **`run_query_battery`** retarget, STATE wording, **`--collect-only`** discipline, **`query-test-battery`** wording — see current **`BACKLOG.md`**).
