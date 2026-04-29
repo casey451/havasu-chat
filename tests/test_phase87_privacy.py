@@ -26,15 +26,23 @@ def test_scrub_sentry_event_scrubs_api_chat_request_body() -> None:
     assert "SECRET_QUERY" not in json.dumps(out)
 
 
-def test_scrub_sentry_event_scrubs_chat_path() -> None:
+def test_scrub_sentry_event_does_not_scrub_legacy_chat_path() -> None:
+    """Legacy ``POST /chat`` is unwired (H1); scrubbing applies only to ``/api/chat``.
+
+    Synthetic Sentry payloads may still reference ``…/chat`` URLs from historical
+    clients or breadcrumbs — those bodies are intentionally left intact so scrub
+    scope matches the live routed endpoints only.
+    """
+    body = '{"message":"M1","session_id":"s"}'
     event: dict = {
         "request": {
             "url": "http://localhost:8000/chat",
-            "data": '{"message":"M1","session_id":"s"}',
+            "data": body,
         }
     }
     out = scrub_sentry_event(event, {})
-    assert out["request"]["data"] == "<scrubbed>"
+    assert out is not None
+    assert out["request"]["data"] == body
 
 
 def test_scrub_sentry_event_scrubs_sensitive_extra_keys() -> None:
