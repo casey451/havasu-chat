@@ -30,6 +30,10 @@ need them to execute a well-specified phase.
 
 ## Process conventions
 
+- Component architecture notes live under `docs/components/<name>.md`.
+  When your change affects behavior or public contracts of such a module,
+  update its doc in the **same commit** as the code — see
+  `docs/WORKING_AGREEMENT.md` (Component doc currency).
 - Python isn't runnable in most Cursor environments (Windows Store stub
   only). Flag pytest runs for Casey to execute locally; do not block on
   them yourself.
@@ -42,6 +46,19 @@ need them to execute a well-specified phase.
 
 ## Authoritative docs (read ONLY when a phase prompt directs you to)
 
+**Canonical state and discipline:**
+- `docs/STATE.md` — current production state, deployed commit, recently
+  shipped work, queued work
+- `docs/WORKING_AGREEMENT.md` — collaboration discipline (commit rules,
+  halt-and-report gates, BOM-free verification, component doc currency,
+  STATE.md update discipline)
+- `docs/BACKLOG.md` — open and recently-closed work items
+- `docs/PROJECT.md` — architecture overview, stack, key files
+- `docs/components/` — per-component reference docs (purpose, public
+  surface, internal structure, conventions, known limitations)
+- `docs/POST_SHIP_CHECKLIST.md` — what to update after every ship
+
+**Hava-specific:**
 - `HAVA_CONCIERGE_HANDOFF.md` — architectural spec, phase history,
   voice rules
 - `docs/persona-brief.md` — persona and voice reference
@@ -49,7 +66,7 @@ need them to execute a well-specified phase.
 - `docs/known-issues.md` — open issues, deferred work
 - `docs/pre-launch-checklist.md` — living tracker
 
-## Current phase position (as of 2026-04-23)
+## Current phase position
 
 Check the latest commit on `main` and the `HAVA_CONCIERGE_HANDOFF.md`
 §5 phase list to determine what's landed and what's next. Do not
