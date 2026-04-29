@@ -29,10 +29,9 @@ docs/phase-*-cursor-prompt-chat-export.md
 docs/phase-*-handback-*.md
 docs/phase-*-preflight-stop-*.md
 
-# Chat-relay artifacts (HALT transcripts, status reports, etc.)
-# See relay/README.md for context. Must un-ignore `relay/` before a file inside it can be tracked.
-relay/**
-!relay/
+# Relay session artifacts (HALT transcripts, status reports, etc.)
+# Only relay/README.md is intended to stay tracked; see that file for context.
+relay/
 !relay/README.md
 scripts/confabulation_eval_results/*
 !scripts/confabulation_eval_results/baselines/

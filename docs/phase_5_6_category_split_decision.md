@@ -1,5 +1,0 @@
-# Phase 5.6 — Provider vs. program category split (handoff note)
-
-**Provider vs. program category split (Phase 5.6 decision):** `providers.category` and `programs.activity_category` remain separate columns by design. Providers and programs are different entity shapes — providers are businesses with categories like "restaurant", "gym", "trampoline park"; programs are activities with categories like "jiu jitsu", "bmx", "swim lessons". A unified taxonomy would force-fit both spaces into one. The admin category dashboard at `/admin/categories` shows both separately for operator visibility. If unification becomes desirable in a later phase, the migration is well-scoped (single column rename/merge + query layer updates).
-
-**Known limitation (structured hours):** The Phase 5.3 approval form still has a single free-text `hours` field. Phase 5.6 populates `hours_structured` from Google Places `regular_opening_hours` when enrichment has that data; it does **not** parse operator edits to the free-text hours box. Structured hours can therefore differ from edited free-text until a future structured-hours editor exists (Phase 7+).
