@@ -1,3 +1,5 @@
+> **Historical document.** Written before the H1 deletion ship (2026-04-29, `61387e4..23a39a5`). References to `app/chat/router.py`, `POST /chat` (Track A), `log_chat_turn`, `TRACK_A_TIER_USED`, `app/core/venues.py`, and the legacy `ChatRequest` / `ChatResponse` schemas describe code that no longer exists. Preserved as-is for historical context; see `docs/STATE.md` and `docs/maintainability/h1_router_decision.md` for the post-ship state.
+
 Known issues tracker: one-line log for bugs deferred in favor of higher-priority work.
 
 ## Open (deferred)

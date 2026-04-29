@@ -2,7 +2,7 @@
 
 ## 120-query production battery
 
-- **`run_query_battery.py`** — POSTs each query to production `POST /chat`, classifies the reply, prints JSON `{ "total", "results" }` to stdout.
+- **`run_query_battery.py`** — POSTs each query to production **`POST /chat`** (legacy URL path in code). **Post-H1 (2026-04-29):** that route was removed; requests **404** until this script is retargeted to **`POST /api/chat`** with the concierge request shape. Classifies the reply and prints JSON `{ "total", "results" }` to stdout when the endpoint succeeds.
 - **`battery_results.json`** — **Canonical baseline** for regression compares. As of Session AD (April 2026), this file matches the Session T final capture (**116 / 120** matches ≈ **96.67%** pass rate). After search/intent/slots/venues/seed/copy changes, re-run the battery and overwrite this file only when you intend to move the baseline.
 - **`battery_session_t_final.json`** — Frozen historical capture from Session T (kept for archaeology and diffs). Other `battery_results_session_*.json` files in this folder are ad-hoc or session-specific snapshots; treat them as read-only history unless you are deliberately archiving a new run.
 

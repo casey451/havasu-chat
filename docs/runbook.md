@@ -158,7 +158,7 @@ All of these require an **admin session cookie** (use browser after `POST /admin
 
 - **User-facing** chat UIs use **`POST /api/chat`** (unified router): classifier → **Tier 1** templates (deterministic) → **Tier 2** retrieve-then-generate (OpenAI/Anthropic stack per path) → **Tier 3** Haiku synthesis, plus **gap_template** and **chat** modes.
 - **Community growth:** contribute flow, enrichment (URL fetch + **Google Places** for providers), operator **approval** into `providers` / `programs` / `events`. Mention scanner (Tier 3) → **`llm_mentioned_entities`** review queue.
-- **Legacy `POST /chat` (Track A)** remains for older scripts; logs with **`tier_used = 'track_a'`** to separate from unified analytics. Live site uses `/api/chat` (see `app/static/index.html`).
+- **Legacy `POST /chat` (Track A)** was **removed** on **2026-04-29** (H1 deletion ship, `61387e4..23a39a5`). The only live chat endpoint is **`POST /api/chat`** (unified concierge). Historical **`chat_logs`** rows may still show **`tier_used = 'track_a'`** from before that date; **no current code path emits `track_a`**.
 
 Full routing, voice, and locked decisions: [`HAVA_CONCIERGE_HANDOFF.md`](../HAVA_CONCIERGE_HANDOFF.md) **§1b–1d**.
 
@@ -238,7 +238,7 @@ Columns (see handoff **§3.10**; names match `app/db/models.py` `ChatLog`):
 - **`session_id`**, **`role`** (`user` / `assistant`), **`message`**, **`intent`**, **`created_at`**
 - **Unified path:** `query_text_hashed`, `normalized_query`, `mode` (`ask` / `contribute` / `correct` / `chat` …), `sub_intent`, `entity_matched`, **`tier_used`**, `latency_ms`, `llm_tokens_used` (legacy total), `llm_input_tokens`, `llm_output_tokens`, **`feedback_signal`**
 
-**`tier_used` (common values):** `1`, `2`, `3`, `gap_template`, `chat`, `placeholder`, `intake`, `correction`, `track_a`, or **NULL** on old rows. **`track_a`:** written only for legacy **`POST /chat`**. **NULL `tier_used`:** small fraction of **historical** pre-sentinel rows (handoff: ~legacy reconciliation — treat as “unknown / old pipeline” in analytics, not as a bug by itself).
+**`tier_used` (common values):** `1`, `2`, `3`, `gap_template`, `chat`, `placeholder`, `intake`, `correction`, `track_a`, or **NULL** on old rows. **`track_a`:** appears **only on historical rows** written **before** **`POST /chat`** was removed (**2026-04-29**, H1); **no emitter today**. **NULL `tier_used`:** small fraction of **historical** pre-sentinel rows (handoff: ~legacy reconciliation — treat as “unknown / old pipeline” in analytics, not as a bug by itself).
 
 **`feedback_signal`:** strings **`positive`** / **`negative`** (thumbs) set via **`POST /api/chat/feedback`** for a **prior assistant turn**; see [`admin/feedback_html.py`](../app/admin/feedback_html.py) for how aggregates are computed.
 
@@ -253,7 +253,7 @@ Columns (see handoff **§3.10**; names match `app/db/models.py` `ChatLog`):
 | `chat` | Out-of-scope / chat-style handling (classifier) |
 | `placeholder` | Contribute/correct/short-circuit rows **or** some **error** paths that return fallback **before** a Tier 3 call — **do not** treat as “all errors” by itself |
 | `intake` / `correction` | Contribute or correction flow (if present in your window) |
-| `track_a` | Legacy **only** if the row came from **`POST /chat`** (Track A) |
+| `track_a` | **Historical only** — rows tagged when legacy **`POST /chat`** (Track A) still existed (**before 2026-04-29**); **not written by current code** |
 | `NULL` | **Legacy** pre-sentinel rows or rare gaps — do not conflate with “unified” rows |
 
 **PII & retention:** Plaintext messages exist in your DB for operations and analytics; external logging is scrubbed per [`docs/privacy.md`](privacy.md). Do not copy production `message` into untrusted systems.
@@ -281,7 +281,7 @@ Run from repo root; use `.\.venv\Scripts\python.exe` on Windows. Set **`DATABASE
 | Script | Purpose | Example | Notes |
 | --- | --- | --- | --- |
 | `scripts/analyze_chat_costs.py` | Tier/mode/cost rollups, **30d** window | `.\.venv\Scripts\python.exe scripts\analyze_chat_costs.py` | **stdout only**; no full query text in output |
-| `scripts/run_query_battery.py` | Regression battery vs **live** `POST /chat` | See `scripts/README.md` | **Production traffic**; costs/limits |
+| `scripts/run_query_battery.py` | Regression battery (HTTP client still POSTs to **`/chat`**) | See `scripts/README.md` | **Post-H1:** **`/chat`** returns **404** until the script is updated to **`POST /api/chat`** with the concierge payload — **do not** assume results until then; **Production traffic** / costs if fixed |
 | `scripts/verify_queries.py` | Short live spot check | venv `python` | |
 | `scripts/diagnose_search.py` | Batch search; may write `diagnose_output.txt` | venv | |
 | `scripts/run_voice_audit.py` / `run_voice_spotcheck.py` | Voice QA | venv | Paid/structured; see `prompts/` |

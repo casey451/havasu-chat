@@ -1,5 +1,7 @@
 # Havasu Chat — Project Handoff Document
 
+> **Historical document.** Written before the H1 deletion ship (2026-04-29, `61387e4..23a39a5`). References to `app/chat/router.py`, `POST /chat` (Track A), `log_chat_turn`, `TRACK_A_TIER_USED`, `app/core/venues.py`, and the legacy `ChatRequest` / `ChatResponse` schemas describe code that no longer exists. Preserved as-is for historical context; see `docs/STATE.md` and `docs/maintainability/h1_router_decision.md` for the post-ship state.
+
 > **Track B / concierge spec:** Repo-root **`HAVASU_CHAT_MASTER.md`** (3-tier program Q&A, seed YAML) and **`HAVA_CONCIERGE_HANDOFF.md`** (build plan, Phase 1+). This file stays focused on the **shipping events-search app** (Track A).
 
 > **Purpose:** Single source of truth for starting a fresh Cursor or Claude Code session **for Track A**. Do not summarize or skip sections. Every detail here was chosen deliberately.

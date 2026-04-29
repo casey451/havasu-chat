@@ -1,5 +1,7 @@
 # Read-only investigation — why newly approved events may not surface in Hava chat
 
+> **Historical document.** Written before the H1 deletion ship (2026-04-29, `61387e4..23a39a5`). References to `app/chat/router.py`, `POST /chat` (Track A), `log_chat_turn`, `TRACK_A_TIER_USED`, `app/core/venues.py`, and the legacy `ChatRequest` / `ChatResponse` schemas describe code that no longer exists. Preserved as-is for historical context; see `docs/STATE.md` and `docs/maintainability/h1_router_decision.md` for the post-ship state.
+
 **Date:** 2026-04-24  
 **Scope:** Code review only (no DB access).  
 **Context:** Five `river_scene_import` events approved via `/admin/contributions/{id}/approve`; re-embed run; user chat still does not surface them like seed-adjacent behavior. This document traces **retrieval** paths for `POST /api/chat` (unified router) vs legacy search.

@@ -49,7 +49,7 @@ There is no public class hierarchy or factory — `route()` is called directly w
 | `"placeholder"` | this component | Either `contribute` / `correct` mode (Phase 4 stubs) or any graceful-fallback path after an exception |
 | `"intake"` | reserved | Listed in dataclass docstring; not emitted today. Reserved for the Phase 4 contribute intake flow. |
 | `"correction"` | reserved | Listed in dataclass docstring; not emitted today. Reserved for the Phase 4 correct flow. |
-| `"track_a"` | other path | Defined in `app/db/chat_logging.TRACK_A_TIER_USED`. Tags rows from the legacy `POST /chat` endpoint. The unified router never emits this — but the value appears in `chat_logs` analytics. |
+| `"track_a"` | other path | Historical sentinel in **`chat_logs.tier_used`** only — rows written **before** legacy **`POST /chat`** was removed (**2026-04-29**, H1). **No Python symbol or emitter remains** (the old `TRACK_A_TIER_USED` constant was deleted). The unified router never emits this — the value appears only as legacy analytics data. |
 
 **Mode and sub-intent values.** `mode` is one of `ask` | `contribute` | `correct` | `chat`. Sub-intents differ by mode and are owned by `intent_classifier` (and, when on, the LLM router prompt). The full set the LLM router accepts is enumerated in `llm_router._SUB_INTENTS`; the heuristic classifier emits a subset. Document and keep these definitions in `intent_classifier` — the router treats them as opaque strings.
 
