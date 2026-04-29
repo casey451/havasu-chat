@@ -6,7 +6,7 @@ This document is updated at the end of each session that ships work. It is the c
 
 ## Production
 
-- **Deployed commit:** `ea3f606` — Refresh session onboarding docs to point at canonical state
+- **Deployed commit:** `e0e995f` — Add CLAUDE_SESSION_BRIEFING: external session-launch artifact
 - **Production URL:** https://havasu-chat-production.up.railway.app
 - **Health:** `/health` returns 200, db_connected, event_count 114
 
@@ -18,6 +18,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+e0e995f  Add CLAUDE_SESSION_BRIEFING: external session-launch artifact
 ea3f606  Refresh session onboarding docs to point at canonical state
 155cbac  Add POST_SHIP_CHECKLIST: closing-discipline runbook for ships
 f7d58f2  Add unified_router component reference and PROJECT pointer
@@ -27,10 +28,11 @@ caab6f5  docs cleanup: remove archival session and phase artifacts
 d279165  Tier2 formatter: deterministic Python rendering for event listings
 cdc4ac7  Chat UI: render markdown link syntax in assistant bubbles
 7d89a03  Tier2 query: include event_url in event row payload
-1c262ad  Tier2 formatter: completeness, count fidelity, date_exact ordering
 ```
 
 ## Recently shipped (last work cycle)
+
+- **Session-launch briefing artifact** (`e0e995f`) — `docs/CLAUDE_SESSION_BRIEFING.md` introduced as a version-controlled copy of the external session-launch briefing. Primary use is external paste at the start of fresh Claude sessions; in-repo copy is durable storage. The briefing carries project identity, role split, voice constraints, process discipline, and embedded doc-update rhythm inline; points at canonical state docs for everything that drifts. Stable orientation doc — not in the per-ship update set.
 
 - **Session onboarding refresh + post-ship discipline** (`ea3f606` + `155cbac`) — `docs/POST_SHIP_CHECKLIST.md` introduced as the canonical post-ship runbook (what to update, what does not need updating, edge cases). `docs/START_HERE.md` trimmed to point at canonical state docs rather than carrying ship state inline (removes per-ship drift). `docs/CURSOR_ORIENTATION.md` refreshed in parallel with the same authoritative-docs structure. No application code changes; production verification was `/health` 200 with stable `event_count`.
 
