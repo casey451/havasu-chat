@@ -104,6 +104,8 @@ Ship log entries at the bottom record what shipped per session. New ones are app
 
 **Desired fix:** Update the comment to state that `track_a` appears only in historical DB rows, not in current emitters.
 
+Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 (same comment, same module, same fix).
+
 ---
 
 ## Backlog 9 - Tier 1 hit rate (**OPEN**)

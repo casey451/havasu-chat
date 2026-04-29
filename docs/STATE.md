@@ -6,7 +6,7 @@ This document is updated at the end of each session that ships work. It is the c
 
 ## Production
 
-- **Deployed commit:** `23a39a5` — H1 deletion ship tip (legacy `POST /chat` removed; unified `POST /api/chat` unchanged). Range: `61387e4..23a39a5` (9 commits: 1 plan doc + 7 ship + commit 3.5 amend for orphan imports).
+- **Deployed commit:** `49b7f3b` — Add maintainability/ docs: pilot findings and H1 decision (post-ship filing).
 - **Production URL:** https://havasu-chat-production.up.railway.app
 - **Health:** `/health` returns 200, db_connected, event_count 114
 
@@ -18,6 +18,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+49b7f3b  Add maintainability/ docs: pilot findings and H1 decision (post-ship filing)
 23a39a5  feat(schemas): remove legacy ChatRequest/ChatResponse (H1 commit 7)
 f3da1df  feat(db): remove log_chat_turn + TRACK_A_TIER_USED (H1 commit 6)
 6e528ed  feat(core): delete venues module (H1 commit 5 — orphan after /chat removal)
@@ -27,10 +28,11 @@ cbe087e  feat(main): unwire legacy /chat router (H1 commit 3)
 f76d5e2  test: remove /chat tests from mixed files (H1 commit 2)
 dcc5454  test: remove test_phase4 (H1 commit 1 — legacy /chat duplicate tests)
 61387e4  docs: file H1 deletion-ship plan
-9aa5904  STATE.md: record session-launch-briefing ship
 ```
 
 ## Recently shipped (last work cycle)
+
+- **Maintainability artifacts filed to repo** (`49b7f3b`) — `docs/maintainability/findings_app_chat.md` and `docs/maintainability/h1_router_decision.md` committed. The pilot review identifies app/chat/ maintainability findings (3 HIGH, 8 MEDIUM, 7 LOW with severity and disposition); the H1 decision doc records the investigation that confirmed zero `track_a` production traffic over 30 days and recommended the deletion executed on 2026-04-29 (`61387e4..23a39a5`). Both files were external artifacts from prior Claude sessions; filing them under version control makes them recoverable to future sessions without re-upload. No application code changes; production verification was `/health` 200 with stable `event_count`.
 
 - **H1 — Delete legacy `/chat` router** (`61387e4`..`23a39a5`) — Removed the Track A `POST /chat` stack: `app/chat/router.py` deleted; `app/main.py` unwired (`concierge_chat_router` only). Deleted orphan modules **`app/core/venues.py`**; deleted **`tests/test_phase4.py`** and **`tests/test_search_relevance.py`**. Trimmed **`app/db/chat_logging.py`** (`log_chat_turn`, `TRACK_A_TIER_USED`). Trimmed **`app/schemas/chat.py`** (legacy `ChatRequest` / `ChatResponse`); concierge schemas unchanged. Mixed test files no longer exercise legacy `/chat` (`test_api_chat`, `test_calendar_intent`, `test_phase2`, `test_phase3`, `test_phase6`, `test_phase8`, `test_phase8_5`, `test_phase87_privacy` — Sentry scrub assertion inverted so legacy `/chat` URLs are not scrubbed). **Production verification:** `GET /health` 200; `POST /chat` 404; `POST /api/chat` 200 with concierge response shape. **Deploy:** `6c416456-d1aa-4945-922a-cd6d7466c133`. **Suite:** 942 passing post-ship vs 987 pre-ship (**45 tests removed**, all legacy `/chat` integration coverage); **8** seed/backfill failures unchanged (not caused by H1). Follow-ups: **`docs/BACKLOG.md`** Backlog **7**–**11**.
 
