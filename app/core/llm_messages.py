@@ -97,8 +97,18 @@ def call_anthropic_messages(
     temperature: float,
     model: str | None = None,
 ) -> AnthropicResult | None:
-    """Returns None on any failure: missing key, anthropic package unavailable,
-    exception during create, empty/no-text response."""
+    """Returns None when no response object exists:
+
+    - Missing or empty ``ANTHROPIC_API_KEY``
+    - ``anthropic`` package unavailable (import failed)
+    - Any exception raised during ``messages.create``
+    - Missing or falsy response object returned after ``create`` (defensive)
+
+    On a successful API call, always returns :class:`AnthropicResult`, including when
+    extracted text is empty: ``AnthropicResult(text="", usage=<from SDK>, raw=<msg>)``.
+    Callers that distinguish "empty response with billed tokens" from "no response"
+    should branch on ``result is None`` first, then on ``result.text``.
+    """
     api_key = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
     if not api_key:
         return None
@@ -127,9 +137,10 @@ def call_anthropic_messages(
     except Exception:
         return None
 
-    text = _extract_text_from_message(msg)
-    if not text:
+    if not msg:
         return None
+
+    text = _extract_text_from_message(msg)
     return AnthropicResult(
         text=text,
         usage=Usage.from_sdk_usage(getattr(msg, "usage", None)),

@@ -310,23 +310,61 @@ def test_call_anthropic_messages_create_raises(
         )
 
 
-def test_call_anthropic_messages_empty_text_response(
+def test_call_anthropic_messages_empty_text_returns_result_with_usage(
     monkeypatch: pytest.MonkeyPatch,
     anthropic_available: None,
 ) -> None:
     monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    fake_msg = _msg(
+        "",
+        SimpleNamespace(
+            input_tokens=10,
+            output_tokens=5,
+            cache_read_input_tokens=0,
+            cache_creation_input_tokens=0,
+        ),
+    )
     fake_client = MagicMock()
-    fake_client.messages.create.return_value = _msg("")
+    fake_client.messages.create.return_value = fake_msg
     with patch.object(llm_messages.anthropic, "Anthropic", return_value=fake_client):
-        assert (
-            call_anthropic_messages(
-                system_prompt="s",
-                user_text="u",
-                max_tokens=1,
-                temperature=0.0,
-            )
-            is None
+        out = call_anthropic_messages(
+            system_prompt="s",
+            user_text="u",
+            max_tokens=1,
+            temperature=0.0,
         )
+    assert out is not None
+    assert out.text == ""
+    assert out.usage == Usage(10, 5, 0, 0)
+    assert out.raw is fake_msg
+
+
+def test_call_anthropic_messages_empty_text_with_populated_usage(
+    monkeypatch: pytest.MonkeyPatch,
+    anthropic_available: None,
+) -> None:
+    """Empty extracted text but all four usage fields non-zero — §8 drift guard for this path."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    usage = SimpleNamespace(
+        input_tokens=11,
+        output_tokens=22,
+        cache_read_input_tokens=33,
+        cache_creation_input_tokens=44,
+    )
+    fake_msg = SimpleNamespace(content=[], usage=usage)
+    fake_client = MagicMock()
+    fake_client.messages.create.return_value = fake_msg
+    with patch.object(llm_messages.anthropic, "Anthropic", return_value=fake_client):
+        out = call_anthropic_messages(
+            system_prompt="s",
+            user_text="u",
+            max_tokens=1,
+            temperature=0.0,
+        )
+    assert out is not None
+    assert out.text == ""
+    assert out.usage == Usage(11, 22, 33, 44)
+    assert out.raw is fake_msg
 
 
 def test_call_anthropic_messages_model_explicit_wins_over_env(
