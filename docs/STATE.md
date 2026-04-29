@@ -6,7 +6,7 @@ This document is updated at the end of each session that ships work. It is the c
 
 ## Production
 
-- **Deployed commit:** `caab6f5` — docs cleanup: remove archival session and phase artifacts
+- **Deployed commit:** `f7d58f2` — Add unified_router component reference and PROJECT pointer
 - **Production URL:** https://havasu-chat-production.up.railway.app
 - **Health:** `/health` returns 200, db_connected, event_count 114
 
@@ -18,6 +18,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+f7d58f2  Add unified_router component reference and PROJECT pointer
+9848a51  Add component doc currency discipline to working agreement
 caab6f5  docs cleanup: remove archival session and phase artifacts
 98b8545  Add canonical project state docs (PROJECT, STATE, WORKING_AGREEMENT, BACKLOG)
 d279165  Tier2 formatter: deterministic Python rendering for event listings
@@ -26,11 +28,11 @@ cdc4ac7  Chat UI: render markdown link syntax in assistant bubbles
 1c262ad  Tier2 formatter: completeness, count fidelity, date_exact ordering
 6934d1d  Past-date retrieval: honor explicit date bounds without clamping to today
 d763775  Multi-day events: schema, retrieval, parser fields, and backfill
-63a4535  Parser: document date_exact, ranges, month, season in tier2 prompt
-8203a7f  Fix 2: Backfill pending RiverScene contributions
 ```
 
 ## Recently shipped (last work cycle)
+
+- **Component reference docs introduced** (`f7d58f2` + `9848a51`) — `docs/components/` directory established as the per-component navigation layer for AI sessions; first entry is `unified_router.md` describing the `POST /api/chat` orchestrator (pipeline phases, public surface, tier_used taxonomy, conventions, known limitations). Companion working-agreement update (`9848a51`) codifies "component doc currency" — when code in component X changes, `docs/components/X.md` updates in the same commit, with explicit no-update reasoning required when no change is needed. No application code changes; production verification was `/health` 200 with stable `event_count`.
 
 - **Docs tree cleanup** (`caab6f5`) — Removed 278 Markdown paths from the working tree (153 tracked deletions in commit; 125 were untracked/ignored filesystem-only). Scope: session and phase reports, relay artifacts, generated outputs, historical handoffs. `.gitignore` now uses `relay/` + `!relay/README.md` (replaces the prior three-line relay pattern). Rationale: ongoing maintenance is AI-assisted; files not instinctively opened for normal product work are not kept in-tree—git history retains removed content. No application code changes.
 
