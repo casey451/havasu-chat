@@ -28,7 +28,6 @@ from app.api.routes.admin_contributions import router as admin_contributions_rou
 from app.api.routes.admin_mentions import router as admin_mentions_router
 from app.api.routes.chat import router as concierge_chat_router
 from app.api.routes.contribute import router as contribute_router
-from app.chat.router import router as chat_router
 from app.programs.router import router as programs_router
 from app.core.event_quality import friendly_errors
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
@@ -52,7 +51,7 @@ def _is_chat_post_request_url(url: str | None) -> bool:
         path = urlparse(url).path.rstrip("/") or "/"
     except Exception:
         path = url
-    return path.endswith("/api/chat") or path.endswith("/chat")
+    return path.endswith("/api/chat")
 
 
 def _scrub_mapping_keys_inplace(d: dict[str, Any]) -> None:
@@ -327,7 +326,6 @@ async def rate_limit_handler(_: Request, __: RateLimitExceeded) -> JSONResponse:
     )
 
 
-app.include_router(chat_router)
 app.include_router(concierge_chat_router)
 app.include_router(contribute_router)
 app.include_router(admin_router)
