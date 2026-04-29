@@ -30,6 +30,11 @@ need them to execute a well-specified phase.
 
 ## Process conventions
 
+- Component architecture notes live under `docs/components/<name>.md`.
+  When your change affects behavior or public contracts of such a module,
+  update its doc in the **same commit** as the code — see
+  `docs/WORKING_AGREEMENT.md` (Component documentation).
+
 - Python isn't runnable in most Cursor environments (Windows Store stub
   only). Flag pytest runs for Casey to execute locally; do not block on
   them yourself.

@@ -37,6 +37,9 @@ before going live.
   2026-04-23) is an authoritative addition.
 - `docs/START_HERE.md` — onboarding entry point. Read first
   for fastest orientation.
+- `docs/components/` — per-component reference docs (purpose,
+  public surface, internal structure, conventions, known
+  limitations). Start here when working on a specific subsystem.
 - `docs/pre-launch-scope-revision-2026-04-22.md` — **LOCKED**
   decision record revising pre-launch scope. Reverses prior
   post-launch sequencing of bulk catalog expansion. Launch

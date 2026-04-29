@@ -6,6 +6,7 @@
 - All session state must be stored in memory (dict keyed by session_id) for now.
 - Do not introduce scraping, user auth, or a frontend UI until instructed.
 - Lake Havasu roadmap: complete one phase at a time (A → F); do not skip ahead; test end-to-end before the next phase.
+- Component docs live under `docs/components/<name>.md`; update them in the same commit as code changes when behavior or contracts change — see `docs/WORKING_AGREEMENT.md` (Component documentation).
 
 ## Phase 8.5 — search & intent (authoritative)
 

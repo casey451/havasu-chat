@@ -50,6 +50,16 @@ This document defines how Casey, Claude, and Cursor collaborate on havasu-chat. 
 
 **Use `python -m pytest -q`** as the test command. Bare `pytest` does not resolve in this PowerShell environment.
 
+## Component documentation
+
+Long-lived architectural descriptions for major modules live under `docs/components/<name>.md` (for example `docs/components/unified_router.md` for `app/chat/unified_router.py`).
+
+**Currency.** When a session modifies code in component X, the design pass decides whether `docs/components/X.md` needs updating. If yes, the doc update is part of the implementation gate (or its own commit if substantial). If no, the design pass states the reasoning explicitly — for example: no doc update — internal refactor with no behavior change; no doc update — change is below the documented level of detail. The commit message body notes either the doc update or the explicit no-update reasoning.
+
+**Same commit as code.** Component docs are updated in the same commit as the code change, not as a follow-up. Docs and code drift the moment they are separated; co-committed, they stay aligned.
+
+**New components.** When new components are added, a new `docs/components/<name>.md` is created in the same commit as the component's introduction.
+
 ## Output formatting
 
 **Render diffs in fenced code blocks** (triple backticks). Markdown rendering outside code blocks strips diff markers (`+`/`-` prefixes) silently. This was a recurring issue and the fix is unconditional code-block usage.
@@ -72,7 +82,7 @@ This document defines how Casey, Claude, and Cursor collaborate on havasu-chat. 
 Each working session typically follows this shape:
 
 1. **Briefing** — Casey opens with project state and the session's target. For continuity, this is now grounded in the canonical docs (`STATE.md`, `WORKING_AGREEMENT.md`, `BACKLOG.md`) rather than reconstructed in chat.
-2. **Design pass** — Claude reviews scope, identifies design questions, drafts a Cursor bootstrap with gated steps.
+2. **Design pass** — Claude reviews scope, identifies design questions, drafts a Cursor bootstrap with gated steps, and decides whether `docs/components/<name>.md` must change for any touched component (see Component documentation).
 3. **Implementation** — Cursor executes step-by-step, halting between steps. Claude reviews each step's output, recommends approval or fixes.
 4. **Verification** — Production verification per the criteria above.
 5. **Close-out** — STATE.md and BACKLOG.md updated to reflect what shipped.

@@ -1,4 +1,4 @@
-> **Fresh Claude or Cursor session?** Read this file first, then `docs/WORKING_AGREEMENT.md`, then `docs/BACKLOG.md`. Architecture context lives in `docs/PROJECT.md` if you need it.
+> **Fresh Claude or Cursor session?** Read this file first, then `docs/WORKING_AGREEMENT.md`, then `docs/BACKLOG.md`. Architecture context lives in `docs/PROJECT.md` if you need it. For a specific subsystem, see `docs/components/` (per-component reference: purpose, public surface, structure, conventions, limitations).
 
 # Current state
 

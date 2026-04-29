@@ -72,5 +72,6 @@ Production deploys via Railway; pushes to `main` trigger a deploy. `/health` end
 ## Where to find more
 
 - `docs/STATE.md` — current production state, deployed commit, recently shipped work, queued work
+- `docs/components/` — per-component reference docs (purpose, public surface, internal structure, conventions, known limitations); start here for subsystem work
 - `docs/WORKING_AGREEMENT.md` — session discipline for Claude/Cursor/Casey collaboration
 - `docs/BACKLOG.md` — open and recently-closed backlog items with attribution to commits
