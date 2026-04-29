@@ -1,4 +1,4 @@
-"""Tests for ``app.chat.tier2_formatter`` — Anthropic client is always mocked."""
+"""Tests for ``app.chat.tier2_formatter`` — Anthropic mocked for LLM-only paths."""
 
 from __future__ import annotations
 
@@ -10,27 +10,54 @@ from unittest.mock import MagicMock, patch
 import anthropic
 import pytest
 
+from app.chat import tier2_catalog_render
 from app.chat import tier2_formatter as tf
 
 
 def _msg(text: str) -> SimpleNamespace:
     block = SimpleNamespace(type="text", text=text)
-    usage = SimpleNamespace(input_tokens=120, output_tokens=40, cache_read_input_tokens=0, cache_creation_input_tokens=0)
+    usage = SimpleNamespace(
+        input_tokens=120,
+        output_tokens=40,
+        cache_read_input_tokens=0,
+        cache_creation_input_tokens=0,
+    )
     return SimpleNamespace(content=[block], usage=usage)
+
+
+def _program_row(name: str = "Altitude") -> dict:
+    return {
+        "type": "program",
+        "id": "x",
+        "name": name,
+        "provider_name": "Prov",
+        "activity_category": "Fun",
+        "age_range": None,
+        "schedule_days": ["Sat"],
+        "schedule_hours": "09:00-11:00",
+        "cost": None,
+        "description": "",
+        "tags": [],
+    }
 
 
 def test_simple_query_returns_nonempty() -> None:
     rows = [
-        {"type": "event", "id": "1", "name": "Fair", "date": "2030-01-01", "location_name": "Park"},
+        {
+            "type": "event",
+            "name": "Fair",
+            "date": "2030-01-01",
+            "start_time": "10:00",
+            "end_time": "12:00",
+            "location_name": "Park",
+            "description": "",
+            "event_url": "",
+            "tags": [],
+        }
     ]
-    fake = MagicMock()
-    fake.messages.create.return_value = _msg("Here is the fair at the park on that date.")
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake):
-            out, tin, tout = tf.format("what is on", rows)
-    assert out
-    assert tin == 120 and tout == 40
-    assert "fair" in out.lower()
+    out, tin, tout = tf.format("what is on", rows)
+    assert out == "Fair on January 1, 2030 from 10:00 AM to 12:00 PM at Park."
+    assert tin == 0 and tout == 0
 
 
 def test_explicit_rec_instructions_removed_from_tier2_formatter() -> None:
@@ -45,20 +72,19 @@ def test_explicit_rec_user_message_contains_query_text() -> None:
     fake.messages.create.return_value = _msg("Pick Altitude.")
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
         with patch.object(anthropic, "Anthropic", return_value=fake):
-            tf.format("pick one thing to do Saturday", [{"type": "program", "id": "x", "name": "Altitude"}])
+            tf.format("pick one thing to do Saturday", [_program_row()])
     user = fake.messages.create.call_args.kwargs["messages"][0]["content"]
     assert "pick one thing to do Saturday" in user
 
 
-def test_empty_rows_still_calls_api() -> None:
+def test_format_empty_rows_returns_deterministic_no_matching_catalog_rows() -> None:
     fake = MagicMock()
-    fake.messages.create.return_value = _msg("No catalog rows were supplied.")
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
         with patch.object(anthropic, "Anthropic", return_value=fake):
-            out, _, _ = tf.format("anything", [])
-    assert out
-    user = fake.messages.create.call_args.kwargs["messages"][0]["content"]
-    assert "[]" in user or "Catalog rows" in user
+            out, tin, tout = tf.format("anything", [])
+    assert out == "No matching catalog rows."
+    assert tin == 0 and tout == 0
+    fake.messages.create.assert_not_called()
 
 
 def test_sdk_error_returns_none() -> None:
@@ -66,7 +92,7 @@ def test_sdk_error_returns_none() -> None:
     fake.messages.create.side_effect = RuntimeError("boom")
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
         with patch.object(anthropic, "Anthropic", return_value=fake):
-            text, tin, tout = tf.format("q", [{"type": "event", "id": "1", "name": "E"}])
+            text, tin, tout = tf.format("q", [_program_row("E")])
     assert text is None and tin is None and tout is None
 
 
@@ -75,7 +101,7 @@ def test_empty_model_text_returns_none() -> None:
     fake.messages.create.return_value = _msg("   ")
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
         with patch.object(anthropic, "Anthropic", return_value=fake):
-            text, tin, tout = tf.format("q", [{"type": "event", "id": "1", "name": "E"}])
+            text, tin, tout = tf.format("q", [_program_row()])
     assert text is None and tin == 120 and tout == 40
 
 
@@ -84,7 +110,7 @@ def test_invocation_kwargs() -> None:
     fake.messages.create.return_value = _msg("ok")
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
         with patch.object(anthropic, "Anthropic", return_value=fake):
-            tf.format("events tomorrow", [{"type": "event", "id": "1", "name": "E"}])
+            tf.format("events tomorrow", [_program_row()])
     kw = fake.messages.create.call_args.kwargs
     assert kw["max_tokens"] == 400
     assert kw["temperature"] == 0.3
@@ -96,9 +122,106 @@ def test_system_prompt_contains_grounding_guardrails() -> None:
     fake.messages.create.return_value = _msg("ok")
     with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
         with patch.object(anthropic, "Anthropic", return_value=fake):
-            tf.format("events tomorrow", [{"type": "event", "id": "1", "name": "E"}])
+            tf.format("events tomorrow", [_program_row()])
 
     system_text = fake.messages.create.call_args.kwargs["system"][0]["text"]
     assert "Grounding guardrails (additive to §6.7)" in system_text
     assert "every concrete detail must be directly row-backed" in system_text
-    assert "Never invent venue, address, event time window, duration, organizer, or pricing details." in system_text
+    assert (
+        "Never invent venue, address, event time window, duration, organizer, or pricing details."
+        in system_text
+    )
+
+
+def test_format_all_event_rows_returns_deterministic_tuple() -> None:
+    rows = [
+        {
+            "type": "event",
+            "name": "A",
+            "date": "2030-01-01",
+            "start_time": "09:00",
+            "end_time": "10:00",
+            "location_name": "L",
+            "description": "",
+            "event_url": "",
+            "tags": [],
+        },
+        {
+            "type": "event",
+            "name": "B",
+            "date": "2030-01-02",
+            "start_time": "11:00",
+            "end_time": "12:00",
+            "location_name": "M",
+            "description": "",
+            "event_url": "",
+            "tags": [],
+        },
+    ]
+    fake = MagicMock()
+    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
+        with patch.object(anthropic, "Anthropic", return_value=fake):
+            text, tin, tout = tf.format("q", rows)
+    assert text is not None
+    assert tin == 0 and tout == 0
+    fake.messages.create.assert_not_called()
+
+
+def test_format_mixed_event_and_program_calls_llm() -> None:
+    rows = [
+        {
+            "type": "event",
+            "name": "E",
+            "date": "2030-01-01",
+            "start_time": "09:00",
+            "end_time": "10:00",
+            "location_name": "L",
+            "description": "",
+            "event_url": "",
+            "tags": [],
+        },
+        _program_row(),
+    ]
+    fake = MagicMock()
+    fake.messages.create.return_value = _msg("mixed ok")
+    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
+        with patch.object(anthropic, "Anthropic", return_value=fake):
+            text, tin, tout = tf.format("q", rows)
+    assert text == "mixed ok"
+    assert tin == 120 and tout == 40
+    fake.messages.create.assert_called_once()
+
+
+def test_format_all_program_rows_calls_llm() -> None:
+    fake = MagicMock()
+    fake.messages.create.return_value = _msg("programs ok")
+    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
+        with patch.object(anthropic, "Anthropic", return_value=fake):
+            text, tin, tout = tf.format("q", [_program_row(), _program_row("Other")])
+    assert text == "programs ok"
+    fake.messages.create.assert_called_once()
+
+
+def test_format_render_exception_returns_none(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    def boom(_q: str, _rows: list) -> str:
+        raise RuntimeError("render boom")
+
+    monkeypatch.setattr(tier2_catalog_render, "render_tier2_events", boom)
+    rows = [
+        {
+            "type": "event",
+            "name": "X",
+            "date": "2030-01-01",
+            "start_time": "09:00",
+            "end_time": "10:00",
+            "location_name": "L",
+            "description": "",
+            "event_url": "",
+            "tags": [],
+        }
+    ]
+    text, tin, tout = tf.format("q", rows)
+    assert text is None and tin is None and tout is None
+    assert any("deterministic render failed" in r.message for r in caplog.records)

@@ -8,11 +8,14 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from app.chat import tier2_catalog_render
 from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
 
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 _MAX_OUTPUT_TOKENS = 400
 _TEMPERATURE = 0.3
+
+EMPTY_CATALOG_MESSAGE = "No matching catalog rows."
 
 
 def _load_formatter_system_prompt() -> str:
@@ -46,8 +49,8 @@ def _usage_in_out(msg: object) -> tuple[int | None, int | None]:
     return inp + cr + cc, out
 
 
-def format(query: str, rows: List[Dict[str, Any]]) -> tuple[Optional[str], int | None, int | None]:
-    """Render DB rows into a response. Returns (text, input_tokens, output_tokens)."""
+def _format_via_llm(query: str, rows: List[Dict[str, Any]]) -> tuple[Optional[str], int | None, int | None]:
+    """Anthropic-backed formatting for mixed or non-event catalog rows."""
     api_key = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
     if not api_key:
         logging.info("tier2_formatter: ANTHROPIC_API_KEY unset")
@@ -105,3 +108,25 @@ def format(query: str, rows: List[Dict[str, Any]]) -> tuple[Optional[str], int |
     except Exception:
         logging.exception("tier2_formatter: unexpected error in format")
         return None, None, None
+
+
+def format(query: str, rows: List[Dict[str, Any]]) -> tuple[Optional[str], int | None, int | None]:
+    """Render DB rows into a response. Returns (text, input_tokens, output_tokens).
+
+    Empty ``rows`` and all-``event`` rows use deterministic paths (0 formatter tokens).
+    """
+    if not rows:
+        return EMPTY_CATALOG_MESSAGE, 0, 0
+
+    if all(r.get("type") == "event" for r in rows):
+        try:
+            text = tier2_catalog_render.render_tier2_events(query, rows)
+            if not (text or "").strip():
+                logging.warning("tier2_formatter: deterministic render returned empty")
+                return None, None, None
+            return text.strip(), 0, 0
+        except Exception:
+            logging.exception("tier2_formatter: deterministic render failed")
+            return None, None, None
+
+    return _format_via_llm(query, rows)
