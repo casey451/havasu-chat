@@ -6,31 +6,33 @@ This document is updated at the end of each session that ships work. It is the c
 
 ## Production
 
-- **Deployed commit:** `e0e995f` — Add CLAUDE_SESSION_BRIEFING: external session-launch artifact
+- **Deployed commit:** `23a39a5` — H1 deletion ship tip (legacy `POST /chat` removed; unified `POST /api/chat` unchanged). Range: `61387e4..23a39a5` (9 commits: 1 plan doc + 7 ship + commit 3.5 amend for orphan imports).
 - **Production URL:** https://havasu-chat-production.up.railway.app
 - **Health:** `/health` returns 200, db_connected, event_count 114
 
 ## Tests
 
-- **Pytest baseline:** 997 passing
+- **Pytest baseline:** 942 passing (8 failures: seed/backfill tests requiring `HAVASU_CHAT_MASTER.md` locally — pre-existing, unchanged by H1)
 - **Test command:** `python -m pytest -q`
 
 ## Recent commits (newest first)
 
 ```
-e0e995f  Add CLAUDE_SESSION_BRIEFING: external session-launch artifact
-ea3f606  Refresh session onboarding docs to point at canonical state
-155cbac  Add POST_SHIP_CHECKLIST: closing-discipline runbook for ships
-f7d58f2  Add unified_router component reference and PROJECT pointer
-9848a51  Add component doc currency discipline to working agreement
-caab6f5  docs cleanup: remove archival session and phase artifacts
-98b8545  Add canonical project state docs (PROJECT, STATE, WORKING_AGREEMENT, BACKLOG)
-d279165  Tier2 formatter: deterministic Python rendering for event listings
-cdc4ac7  Chat UI: render markdown link syntax in assistant bubbles
-7d89a03  Tier2 query: include event_url in event row payload
+23a39a5  feat(schemas): remove legacy ChatRequest/ChatResponse (H1 commit 7)
+f3da1df  feat(db): remove log_chat_turn + TRACK_A_TIER_USED (H1 commit 6)
+6e528ed  feat(core): delete venues module (H1 commit 5 — orphan after /chat removal)
+f70be20  feat(chat): delete legacy /chat router (H1 commit 4)
+ef1e6a6  test: remove remaining /chat tests + invert Sentry scrub assertion (H1 commit 3.5)
+cbe087e  feat(main): unwire legacy /chat router (H1 commit 3)
+f76d5e2  test: remove /chat tests from mixed files (H1 commit 2)
+dcc5454  test: remove test_phase4 (H1 commit 1 — legacy /chat duplicate tests)
+61387e4  docs: file H1 deletion-ship plan
+9aa5904  STATE.md: record session-launch-briefing ship
 ```
 
 ## Recently shipped (last work cycle)
+
+- **H1 — Delete legacy `/chat` router** (`61387e4`..`23a39a5`) — Removed the Track A `POST /chat` stack: `app/chat/router.py` deleted; `app/main.py` unwired (`concierge_chat_router` only). Deleted orphan modules **`app/core/venues.py`**; deleted **`tests/test_phase4.py`** and **`tests/test_search_relevance.py`**. Trimmed **`app/db/chat_logging.py`** (`log_chat_turn`, `TRACK_A_TIER_USED`). Trimmed **`app/schemas/chat.py`** (legacy `ChatRequest` / `ChatResponse`); concierge schemas unchanged. Mixed test files no longer exercise legacy `/chat` (`test_api_chat`, `test_calendar_intent`, `test_phase2`, `test_phase3`, `test_phase6`, `test_phase8`, `test_phase8_5`, `test_phase87_privacy` — Sentry scrub assertion inverted so legacy `/chat` URLs are not scrubbed). **Production verification:** `GET /health` 200; `POST /chat` 404; `POST /api/chat` 200 with concierge response shape. **Deploy:** `6c416456-d1aa-4945-922a-cd6d7466c133`. **Suite:** 942 passing post-ship vs 987 pre-ship (**45 tests removed**, all legacy `/chat` integration coverage); **8** seed/backfill failures unchanged (not caused by H1). Follow-ups: **`docs/BACKLOG.md`** Backlog **7**–**11**.
 
 - **Session-launch briefing artifact** (`e0e995f`) — `docs/CLAUDE_SESSION_BRIEFING.md` introduced as a version-controlled copy of the external session-launch briefing. Primary use is external paste at the start of fresh Claude sessions; in-repo copy is durable storage. The briefing carries project identity, role split, voice constraints, process discipline, and embedded doc-update rhythm inline; points at canonical state docs for everything that drifts. Stable orientation doc — not in the per-ship update set.
 
@@ -51,12 +53,13 @@ cdc4ac7  Chat UI: render markdown link syntax in assistant bubbles
 
 See `docs/BACKLOG.md` for the canonical list. Items not yet addressed:
 
+- **H1 follow-ups** — Backlog **7**–**11** (post-H1 cleanup and infra carryovers).
 - Programs and providers: scope-limited out of the deterministic renderer. Whether they have the same dropping/count-fabrication bug as events did is unverified.
 - Phase 8.8.6 eval harness: automated LLM-behavior testing wiring is incomplete. Several deferred-verification notes in `BACKLOG.md` would close once this lands.
 
 ## Working tree
 
-Tracked files clean after the cleanup ship. Optional untracked Markdown under `docs/` (e.g. local design drafts) may still appear—stage intentionally if they should join `main`.
+Tracked files clean after the H1 close-out (STATE/BACKLOG). Optional untracked Markdown under `docs/` (e.g. local design drafts) may still appear—stage intentionally if they should join `main`.
 
 ## How to update this document
 

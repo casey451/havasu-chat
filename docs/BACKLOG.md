@@ -88,6 +88,50 @@ Ship log entries at the bottom record what shipped per session. New ones are app
 
 ---
 
+## Backlog 7 - `event_quality.py` orphan symbols after legacy `/chat` removal (**OPEN**)
+
+**Context:** After **H1** (`61387e4`..`23a39a5`), `app/core/event_quality.py` is imported from `app/main.py` (`friendly_errors` on `RequestValidationError`) and indirectly via the unified router stack. Many symbols existed primarily for the deleted legacy router path.
+
+**Symbols to verify and likely trim (per-symbol usage audit):** `apply_user_reply_to_field`, `build_pending_review_create`, `first_invalid_field`, `has_any_contact`, `normalize_partial_event`, `try_build_event_create`, `CONTACT_OPTIONAL_PROMPT`, `REVIEW_OFFER_MESSAGE`, `SUBMITTED_REVIEW_MESSAGE`.
+
+**Scope:** Small follow-up ship — delete dead exports / consolidate after grep confirms no references.
+
+---
+
+## Backlog 8 - `unified_router.py` `tier_used` comment (**OPEN**)
+
+**Issue:** Near line ~96, the `tier_used` enumeration includes `'track_a'` (documented as DB-only; unified path never emits `track_a`). After H1, **no code path emits `track_a`** anywhere — it exists only on historical `chat_logs` rows.
+
+**Desired fix:** Update the comment to state that `track_a` appears only in historical DB rows, not in current emitters.
+
+---
+
+## Backlog 9 - Tier 1 hit rate (**OPEN**)
+
+**Observation:** ~33/486 ≈ **7%** Tier 1 hits pre-H1 — lower than expected for templated provider lookups.
+
+**Next step:** After bulk import (**Phase 8.11**), re-measure; if it stays low, investigate (signal worth pulling on).
+
+---
+
+## Backlog 10 - `HAVASU_CHAT_MASTER.md` test fixture (**OPEN**)
+
+**Issue:** Eight seed/backfill tests fail in environments missing **`HAVASU_CHAT_MASTER.md`** at the repo root.
+
+**Options:** Bundle a minimal fixture, mark tests skip-when-absent, or document dev-env setup explicitly.
+
+**Note:** Pre-existing; unrelated to H1, but visible on every local `pytest` run without the file.
+
+---
+
+## Backlog 11 - slowapi deprecation warnings on Python 3.14 (**OPEN**)
+
+**Issue:** Six identical **`DeprecationWarning`** lines from `slowapi/extension.py:717` (`asyncio.iscoroutinefunction` vs `inspect.iscoroutinefunction`).
+
+**Scope:** Library-side / upstream. Track until **`slowapi`** releases a fix or a version pin is warranted.
+
+---
+
 ## Ship log - Session 2 follow-up, Tier 2 deterministic event rendering (**`d279165`**)
 
 **What shipped:** Deterministic Python rendering for all-event Tier 2 catalog responses; `tier2_formatter.format()` dispatches empty rows → fixed empty message, all-event rows → renderer `(text, 0, 0)`, mixed/non-event rows → unchanged Anthropic path. Programs and providers remain LLM-formatted (scope-limited to events where dropping/count bugs were observed).
@@ -97,3 +141,13 @@ Ship log entries at the bottom record what shipped per session. New ones are app
 **Links / backlog:** Event markdown links from catalog data; Backlog **6** closed; Backlog **4** documentation closed as above. Layer 3 formatter-link prompt obviated for events.
 
 **Tests / verification:** +22 tests, suite total 997; pre-commit pytest and post-deploy May 2/8/9 sampling with catalog fingerprint and `tier_used` response checks per session runbook.
+
+---
+
+## Ship log - H1 deletion ship — legacy `/chat` router (**`61387e4`..`23a39a5`**)
+
+**What shipped:** Deleted legacy **`POST /chat`** router and dependents; **`POST /api/chat`** (unified concierge) unchanged. Removed **`app/chat/router.py`**, **`app/core/venues.py`**, **`tests/test_phase4.py`**, **`tests/test_search_relevance.py`**; trimmed **`app/main.py`**, **`app/db/chat_logging.py`**, **`app/schemas/chat.py`**, and mixed tests per plan. **Production:** `/health` 200 (`db_connected`, `event_count` 114); `/chat` → 404; `/api/chat` → 200 concierge shape. **Deploy** `6c416456-d1aa-4945-922a-cd6d7466c133`.
+
+**Tests / verification:** 942 passing post-ship vs 987 pre-ship (**45** legacy `/chat` tests removed); **8** seed/backfill failures unchanged (baseline).
+
+**Follow-ups:** Backlog **7**–**11** (`event_quality` orphan trim, `unified_router` comment, Tier 1 hit rate, `HAVASU_CHAT_MASTER.md` fixture, slowapi warnings).
