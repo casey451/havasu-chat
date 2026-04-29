@@ -50,6 +50,14 @@ This document defines how Casey, Claude, and Cursor collaborate on havasu-chat. 
 
 **Use `python -m pytest -q`** as the test command. Bare `pytest` does not resolve in this PowerShell environment.
 
+## Component doc currency
+
+When a session modifies code in component X, Claude's design pass identifies whether `docs/components/X.md` needs updating. If yes, the doc update is part of the implementation gate (or its own commit if substantial). If no, the design pass states the reasoning explicitly: "no doc update — internal refactor with no behavior change," "no doc update — change is below the documented level of detail," etc. Commit message body notes either the doc update or the explicit no-update reasoning.
+
+Component docs are updated in the same commit as the code change, not as a follow-up. Docs and code drift the moment they're separated; co-committed they stay aligned.
+
+When new components are added, a new `docs/components/<name>.md` is created in the same commit as the component's introduction.
+
 ## Output formatting
 
 **Render diffs in fenced code blocks** (triple backticks). Markdown rendering outside code blocks strips diff markers (`+`/`-` prefixes) silently. This was a recurring issue and the fix is unconditional code-block usage.
