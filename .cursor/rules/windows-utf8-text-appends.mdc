@@ -1,0 +1,33 @@
+---
+description: >-
+  On Windows/PowerShell, never append to tracked text via >> or default Out-File;
+  use UTF-8-safe methods and verify bytes/diff afterward.
+alwaysApply: true
+---
+
+# UTF-8 text-file appends on Windows
+
+When appending or extending **tracked text files** (`.gitignore`, `.env.example`, `requirements.txt`, `README.md`, `.py`, `.md`, `.yml`, `.yaml`, `.json`, `.toml`, or similar), do **not**:
+
+- use **`>>` redirection** — PowerShell 5 writes **UTF-16 LE**, which corrupts a UTF-8 file when appended.
+- use **`Out-File`** without an explicit encoding — defaults are unsafe for mixing with UTF-8 sources.
+
+**Why it matters:** UTF-16 bytes on a line in `.gitignore` are parsed by Git as bytes; the pattern can degrade to a bare `*` (next byte after `*` is `\0`), which ignores almost the whole tree and shows **`Binary files differ`** in diffs.
+
+## Safe alternatives
+
+1. **`Add-Content -Path <file> -Value <text> -Encoding utf8`** — fine on PowerShell 7+. On PS5, `utf8` may write a **BOM** (usually OK for source; avoid for `.gitignore` if you care about a BOM-free file).
+
+2. **.NET append, UTF-8 without BOM** (use for `.gitignore` and whenever BOM must be avoided):
+
+   ```powershell
+   $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+   [System.IO.File]::AppendAllText((Join-Path $pwd "<file>"), "<text>`r`n", $utf8NoBom)
+   ```
+
+3. **Heredoc / temp-file pattern** — same idea as the repo’s commit-message ceremony: write with an API or encoding you control, then replace/append atomically.
+
+## After writing
+
+- **`Format-Hex <file> | Select-Object -Last 3`** — last bytes should be normal ASCII/UTF-8 line endings; **no `00` byte interleaving** (UTF-16 signature).
+- **`git diff <file>`** — must be a **text** diff, not **`Binary files differ`**.
