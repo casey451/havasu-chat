@@ -16,6 +16,7 @@ One place to find Markdown for **fix 2**, **prod dry-run**, and related decision
 
 - **`5ec85da`** — code: backfill script `--dry-run`, counters, `_print_diff` / partition / sanity checks; tests in `tests/test_backfill_river_scene_urls.py`.
 - **`40d664c`** — docs: runbook + quick reference committed *before* prod dry-run so the repo matches execution intent.
+- **`ddf7b65`** — docs: fix 2 narrative (`river_scene_backfill_fix2.md`), this index, sentinel-id retention note on runbook + quick reference.
 
 ## Code
 
