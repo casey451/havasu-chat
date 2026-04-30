@@ -148,6 +148,8 @@ WHERE source = 'river_scene_import'
   AND event_url NOT LIKE '%riverscene%';
 ```
 
+**Keep a durable copy of those `id` values** (scratch file, shell transcript, ticket note) before you run `--apply`. Post-apply verification should use the **same sentinel cohort**; re-deriving mid-verification is easy to get wrong.
+
 PowerShell example (repeat per id, or build one alternation pattern):
 
 ```powershell
