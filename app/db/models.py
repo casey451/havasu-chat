@@ -93,6 +93,7 @@ class Event(Base):
     location_normalized: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     event_url: Mapped[str] = mapped_column(String(2048), nullable=False, default="")
+    source_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     contact_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     contact_phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
     tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
@@ -132,6 +133,7 @@ class Event(Base):
             location_normalized=location_name.lower().strip(),
             description=payload.description.strip(),
             event_url=payload.event_url.strip(),
+            source_url=getattr(payload, "source_url", None),
             contact_name=payload.contact_name,
             contact_phone=payload.contact_phone,
             tags=payload.tags,
@@ -237,6 +239,7 @@ class Contribution(Base):
     entity_type: Mapped[str] = mapped_column(String, nullable=False)
     submission_name: Mapped[str] = mapped_column(String, nullable=False)
     submission_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    source_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     submission_category_hint: Mapped[str | None] = mapped_column(String, nullable=True)
     submission_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 

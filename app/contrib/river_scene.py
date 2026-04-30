@@ -16,6 +16,7 @@ import httpx
 from bs4 import BeautifulSoup, NavigableString, Tag
 from dateutil import parser as dateutil_parser
 
+from app.db.contribution_store import normalize_submission_url
 from app.schemas.contribution import ContributionCreate
 
 SITEMAP_INDEX_URL = "https://riverscenemagazine.com/wp-sitemap.xml"
@@ -334,6 +335,26 @@ def fetch_and_parse_event(
     )
 
 
+def _article_url_with_scheme(url: str) -> str:
+    u = (url or "").strip()
+    if not u:
+        return u
+    return u if u.startswith(("http://", "https://")) else f"https://{u.lstrip('/')}"
+
+
+def _submission_public_url(rse: RiverSceneEvent) -> str:
+    """URL shown as event link: prefer ``Website`` from the detail table, else the article URL."""
+    labels = rse.raw.get("labels") or {}
+    website = labels.get("Website") if isinstance(labels, dict) else None
+    if website and isinstance(website, str):
+        candidate = website.strip()
+        if candidate:
+            if not candidate.startswith(("http://", "https://")):
+                candidate = f"https://{candidate.lstrip('/')}"
+            return candidate
+    return _article_url_with_scheme(rse.url)
+
+
 def normalize_to_contribution(rse: RiverSceneEvent) -> ContributionCreate:
     """
     Map a :class:`RiverSceneEvent` to :class:`ContributionCreate` for the review queue.
@@ -342,8 +363,8 @@ def normalize_to_contribution(rse: RiverSceneEvent) -> ContributionCreate:
     the multi-day range is also spelled out in ``submission_notes`` for operators.
     """
     plain = _strip_html_to_text(rse.description_html)
-    if not plain:
-        plain = f"Imported from River Scene. Event URL: {rse.url}"
+    # If source page has no body prose, leave description empty rather
+    # than fabricating operator-facing scaffolding into a user-facing field.
 
     date_line = _format_date_heading(rse.start_date, rse.end_date)
     time_line = f"Time: {rse.start_time.strftime('%H:%M')} – {rse.end_time.strftime('%H:%M')}"
@@ -369,7 +390,8 @@ def normalize_to_contribution(rse: RiverSceneEvent) -> ContributionCreate:
     if len(notes) < 20:
         notes = notes + "\n" + f"Event page: {rse.url}"
 
-    su = rse.url if rse.url.startswith("http") else f"https://{rse.url.lstrip('/')}"
+    su = _submission_public_url(rse)
+    article_key = normalize_submission_url(_article_url_with_scheme(rse.url))
     et_end: time_type | None = rse.end_time
     if rse.end_date == rse.start_date and rse.end_time == rse.start_time:
         et_end = None
@@ -383,6 +405,7 @@ def normalize_to_contribution(rse: RiverSceneEvent) -> ContributionCreate:
         entity_type="event",
         submission_name=rse.title[:200],
         submission_url=su,  # type: ignore[arg-type]
+        source_url=article_key,
         submission_notes=notes,
         event_date=rse.start_date,
         event_end_date=event_end_date,

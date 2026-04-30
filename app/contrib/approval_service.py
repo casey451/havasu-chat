@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.contrib.hours_helper import places_hours_to_structured
 from app.core.event_recurrence import event_text_blob, is_recurring_heuristic
+from app.db.contribution_store import normalize_submission_url
 from app.db.models import Contribution, Event, Program, Provider
 from app.schemas.contribution import EventApprovalFields, ProgramApprovalFields, ProviderApprovalFields
 from app.schemas.event import EventCreate
@@ -189,6 +190,9 @@ def approve_contribution_as_event(
     )
     is_rec = is_recurring_heuristic(blob)
     event_source: str | None = "river_scene_import" if c.source == "river_scene_import" else None
+    event_source_url = (
+        normalize_submission_url(c.source_url) if c.source_url else None
+    )
     end_date = edited_fields.end_date if edited_fields.end_date is not None else c.event_end_date
     ec = EventCreate(
         title=edited_fields.title.strip(),
@@ -199,6 +203,7 @@ def approve_contribution_as_event(
         location_name=edited_fields.location_name.strip(),
         description=edited_fields.description.strip(),
         event_url=edited_fields.event_url.strip(),
+        source_url=event_source_url,
         contact_name=None,
         contact_phone=None,
         tags=list(tags or []),

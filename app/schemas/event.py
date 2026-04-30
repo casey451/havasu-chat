@@ -27,6 +27,7 @@ class EventBase(BaseModel):
     location_name: str
     description: str
     event_url: str
+    source_url: str | None = None
     contact_name: str | None = None
     contact_phone: str | None = None
     tags: list[str] = Field(default_factory=list)

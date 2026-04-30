@@ -62,6 +62,7 @@ def create_contribution(
         entity_type=data.entity_type,
         submission_name=data.submission_name.strip(),
         submission_url=url_str,
+        source_url=data.source_url,
         submission_category_hint=data.submission_category_hint,
         submission_notes=data.submission_notes,
         event_date=data.event_date,

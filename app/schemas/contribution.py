@@ -17,6 +17,7 @@ class ContributionCreate(BaseModel):
     entity_type: EntityType
     submission_name: str = Field(min_length=1, max_length=200)
     submission_url: HttpUrl | None = None
+    source_url: str | None = None
     submission_category_hint: str | None = Field(default=None, max_length=200)
     submission_notes: str | None = None
     event_date: date | None = None
@@ -96,6 +97,7 @@ class EventApprovalFields(BaseModel):
     end_time: time | None = None
     location_name: str = Field(min_length=3)
     event_url: str = Field(min_length=1)
+    source_url: str | None = None
 
 
 class ContributionResponse(BaseModel):
@@ -108,6 +110,7 @@ class ContributionResponse(BaseModel):
     entity_type: str
     submission_name: str
     submission_url: str | None
+    source_url: str | None = None
     submission_category_hint: str | None
     submission_notes: str | None
     event_date: date | None

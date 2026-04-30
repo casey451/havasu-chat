@@ -12,6 +12,7 @@ import sys
 from datetime import date
 
 import httpx
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.contrib.river_scene import (
@@ -25,7 +26,7 @@ from app.contrib.river_scene import (
 from app.contrib.approval_service import approve_contribution_as_event
 from app.db import contribution_store as cs
 from app.db.database import SessionLocal
-from app.db.models import Event
+from app.db.models import Contribution, Event
 from app.schemas.contribution import EventApprovalFields
 
 
@@ -47,16 +48,51 @@ def _find_seed_overlap(db: Session, rse: RiverSceneEvent) -> Event | None:
     return None
 
 
-def _event_url_taken(db: Session, url: str) -> bool:
-    n = cs.normalize_submission_url(url)
-    if not n:
+def _duplicate_rs_article_import(db: Session, article_url: str) -> bool:
+    """Return True if this River Scene article URL was already imported.
+
+    Primary: normalized ``source_url`` on contributions or events.
+
+    Legacy fallback: pre-Commit-1 rows may have ``NULL`` ``source_url`` while
+    ``submission_url`` / ``event_url`` still holds the article URL. After
+    backfill (Commit 3 apply), ``event_url`` becomes the organizer URL and this
+    branch stops matching those rows.
+    """
+    normalized = cs.normalize_submission_url(article_url)
+    if not normalized:
         return False
-    for ev in db.query(Event).all():
-        if not ev.event_url:
-            continue
-        if cs.normalize_submission_url(ev.event_url) == n:
-            return True
-    return False
+
+    contrib_hit = db.scalar(
+        select(Contribution.id).where(Contribution.source_url == normalized).limit(1)
+    )
+    if contrib_hit is not None:
+        return True
+    event_hit = db.scalar(select(Event.id).where(Event.source_url == normalized).limit(1))
+    if event_hit is not None:
+        return True
+
+    # Legacy: pending/approved-style rows in queue with NULL source_url
+    contrib_legacy = db.scalar(
+        select(Contribution.id)
+        .where(
+            Contribution.source_url.is_(None),
+            Contribution.submission_url.isnot(None),
+            func.lower(func.rtrim(Contribution.submission_url, "/")) == normalized,
+        )
+        .limit(1)
+    )
+    if contrib_legacy is not None:
+        return True
+
+    legacy_event_hit = db.scalar(
+        select(Event.id)
+        .where(
+            Event.source_url.is_(None),
+            func.lower(func.rtrim(Event.event_url, "/")) == normalized,
+        )
+        .limit(1)
+    )
+    return legacy_event_hit is not None
 
 
 def run_pull(
@@ -93,11 +129,7 @@ def run_pull(
             if not url:
                 continue
             with SessionLocal() as db:
-                norm_url = cs.normalize_submission_url(url)
-                if norm_url and cs.has_pending_or_approved_duplicate_url(db, norm_url):
-                    skipped_duplicate += 1
-                    continue
-                if _event_url_taken(db, url):
+                if _duplicate_rs_article_import(db, url):
                     skipped_duplicate += 1
                     continue
 
@@ -141,6 +173,7 @@ def run_pull(
                                 end_time=payload.event_time_end,
                                 location_name=rse.venue_name or "Lake Havasu",
                                 event_url=url_str,
+                                source_url=payload.source_url,
                             )
                             ev = approve_contribution_as_event(db, created.id, approve_fields, list(rse.category_slugs or []))
                             auto_approved += 1

@@ -17,8 +17,8 @@ from app.contrib.river_scene import (
     fetch_sitemap_urls,
     normalize_to_contribution,
 )
-from app.contrib.river_scene_pull import run_pull
-from app.db.contribution_store import create_contribution
+from app.contrib.river_scene_pull import _duplicate_rs_article_import, run_pull
+from app.db.contribution_store import create_contribution, normalize_submission_url
 from app.db.database import SessionLocal
 from app.db.models import Contribution, Event
 from app.schemas.contribution import ContributionCreate
@@ -292,6 +292,82 @@ def test_normalize_strips_html() -> None:
     assert "strong" not in (cc.submission_notes or "").lower()
 
 
+def test_normalize_prefers_website_for_submission_url() -> None:
+    rse = RiverSceneEvent(
+        title="T",
+        url="https://riverscenemagazine.com/events/x/",
+        start_date=date(2026, 6, 15),
+        end_date=date(2026, 6, 15),
+        start_time=time(9, 0),
+        end_time=time(9, 0),
+        description_html="<p>Hello</p>",
+        venue_name=None,
+        venue_address=None,
+        organizer=None,
+        category_slugs=[],
+        raw={"labels": {"Website": "https://impact928.com/"}},
+    )
+    payload = normalize_to_contribution(rse)
+    assert str(payload.submission_url) == "https://impact928.com/"
+
+
+def test_normalize_falls_back_to_article_url_without_website() -> None:
+    rse = RiverSceneEvent(
+        title="T",
+        url="https://riverscenemagazine.com/events/x/",
+        start_date=date(2026, 6, 15),
+        end_date=date(2026, 6, 15),
+        start_time=time(9, 0),
+        end_time=time(9, 0),
+        description_html="<p>Hello</p>",
+        venue_name=None,
+        venue_address=None,
+        organizer=None,
+        category_slugs=[],
+        raw={"labels": {}},
+    )
+    payload = normalize_to_contribution(rse)
+    assert "riverscenemagazine.com" in str(payload.submission_url)
+
+
+def test_normalize_populates_source_url_with_normalized_article_url() -> None:
+    rse = RiverSceneEvent(
+        title="T",
+        url="https://riverscenemagazine.com/events/X/",
+        start_date=date(2026, 6, 15),
+        end_date=date(2026, 6, 15),
+        start_time=time(9, 0),
+        end_time=time(9, 0),
+        description_html="<p>Hello</p>",
+        venue_name=None,
+        venue_address=None,
+        organizer=None,
+        category_slugs=[],
+        raw={"labels": {"Website": "https://impact928.com/"}},
+    )
+    payload = normalize_to_contribution(rse)
+    assert payload.source_url == "https://riverscenemagazine.com/events/x"
+
+
+def test_normalize_empty_body_no_imported_scaffold() -> None:
+    rse = RiverSceneEvent(
+        title="T",
+        url="https://riverscenemagazine.com/events/x/",
+        start_date=date(2026, 6, 15),
+        end_date=date(2026, 6, 15),
+        start_time=time(9, 0),
+        end_time=time(9, 0),
+        description_html="",
+        venue_name="Rotary Park",
+        venue_address=None,
+        organizer=None,
+        category_slugs=[],
+        raw={"labels": {}},
+    )
+    payload = normalize_to_contribution(rse)
+    assert "Imported from River Scene" not in (payload.submission_notes or "")
+
+
 def test_pull_skips_known_url_without_fetch(capsys: pytest.CaptureFixture[str]) -> None:
     url = "https://riverscenemagazine.com/events/dup-test/"
     with SessionLocal() as db:
@@ -301,6 +377,7 @@ def test_pull_skips_known_url_without_fetch(capsys: pytest.CaptureFixture[str]) 
                 entity_type="event",
                 submission_name="Already queued",
                 submission_url=url,
+                source_url=normalize_submission_url(url),
                 submission_notes="Z" * 22,
                 source="river_scene_import",
             ),
@@ -335,6 +412,33 @@ def test_pull_skips_known_url_without_fetch(capsys: pytest.CaptureFixture[str]) 
     assert any(
         ln.strip().startswith("skipped_duplicate:") and ln.split()[-1] == "1" for ln in out.splitlines()
     )
+
+
+def test_duplicate_check_handles_legacy_null_source_url() -> None:
+    """Pre-Commit-1 catalog rows may have NULL source_url but the article URL in event_url."""
+    article = "https://riverscenemagazine.com/events/legacy-dedupe-only/"
+    with SessionLocal() as db:
+        db.add(
+            Event.from_create(
+                EventCreate(
+                    title="Legacy Dedupe Row",
+                    date=date(2026, 10, 15),
+                    start_time=time(10, 0),
+                    end_time=None,
+                    location_name="Some Venue Here",
+                    description="A long enough description for validation rules here.",
+                    event_url=article,
+                    source="river_scene_import",
+                    source_url=None,
+                    status="live",
+                    created_by="admin",
+                )
+            )
+        )
+        db.commit()
+
+    with SessionLocal() as db:
+        assert _duplicate_rs_article_import(db, article) is True
 
 
 def test_pull_seed_overlap_flag() -> None:
@@ -500,6 +604,8 @@ def test_river_scene_pull_auto_approves_contribution() -> None:
         assert ev is not None
         assert ev.source == "river_scene_import"
         assert ev.end_date is None
+        assert row.source_url == normalize_submission_url(ev_url)
+        assert ev.source_url == normalize_submission_url(ev_url)
 
 
 def test_river_scene_pull_auto_approval_sets_end_date_for_multi_day() -> None:
