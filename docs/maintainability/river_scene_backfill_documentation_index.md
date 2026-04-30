@@ -20,6 +20,7 @@ One place to find Markdown for **fix 2**, **prod dry-run**, and related decision
 - **`ddf7b65`** — docs: fix 2 narrative (`river_scene_backfill_fix2.md`), this index, sentinel-id retention note on runbook + quick reference.
 - **`98aae25`** — docs: index lists `ddf7b65`.
 - **`6f13e9e`** — docs: sentinel file + post-apply SQL caveat on runbook + quick ref.
+- **`78f2721`** — docs: seven-step gate posture on quick ref; track `river_scene_sentinel_id_retention.md`; index links.
 
 ## Code
 
