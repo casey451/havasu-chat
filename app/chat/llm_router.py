@@ -6,16 +6,18 @@ import json
 import logging
 import os
 import time
-from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
-import anthropic
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.chat.tier2_schema import Tier2Filters
-from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
+from app.core.llm_messages import (
+    DEFAULT_MODEL,
+    call_anthropic_messages,
+    coerce_llm_text_to_json_object,
+    load_prompt,
+)
 
-_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 _MAX_TOKENS = 500
 _TEMPERATURE = 0.0
 
@@ -45,51 +47,8 @@ _SUB_INTENTS = frozenset(
 
 
 def _load_router_system_prompt() -> str:
-    root = Path(__file__).resolve().parents[2]
-    path = root / "prompts" / "llm_router.txt"
-    if path.is_file():
-        return path.read_text(encoding="utf-8").strip()
-    raise FileNotFoundError(f"llm router prompt missing: {path}")
-
-
-def _extract_text_from_message(msg: object) -> str:
-    parts: list[str] = []
-    for block in getattr(msg, "content", None) or []:
-        if getattr(block, "type", None) == "text":
-            t = getattr(block, "text", "") or ""
-            if t:
-                parts.append(t)
-    return " ".join(parts).strip()
-
-
-def _coerce_llm_text_to_json_object(raw: str) -> Optional[dict[str, Any]]:
-    s = raw.strip()
-    if not s:
-        return None
-    if s.startswith("```"):
-        first = s.find("\n")
-        if first == -1:
-            return None
-        inner = s[first + 1 :]
-        fence = inner.rfind("```")
-        if fence != -1:
-            inner = inner[:fence]
-        s = inner.strip()
-    try:
-        obj = json.loads(s)
-    except json.JSONDecodeError:
-        return None
-    return obj if isinstance(obj, dict) else None
-
-
-def _usage_in_out(msg: object) -> tuple[int | None, int | None]:
-    u = getattr(msg, "usage", None)
-    if u is None:
-        return None, None
-    inp = int(getattr(u, "input_tokens", 0) or 0) + int(getattr(u, "cache_read_input_tokens", 0) or 0) + int(
-        getattr(u, "cache_creation_input_tokens", 0) or 0
-    )
-    return inp, int(getattr(u, "output_tokens", 0) or 0)
+    """Delegate to :func:`load_prompt` — kept for ``tests/test_llm_router.py`` imports."""
+    return load_prompt("llm_router")
 
 
 class RouterDecision(BaseModel):
@@ -175,24 +134,28 @@ def route(
 
     user_text = f"raw_query:\n{rq}\n\nnormalized_query:\n{uq}\n{extra}\n"
 
-    model = (os.getenv("ANTHROPIC_MODEL") or "").strip() or _DEFAULT_MODEL
+    model = (os.getenv("ANTHROPIC_MODEL") or "").strip() or DEFAULT_MODEL
     t0 = time.perf_counter()
-    try:
-        client = anthropic.Anthropic(api_key=api_key, timeout=LLM_CLIENT_READ_TIMEOUT_SEC)
-        msg = client.messages.create(
-            model=model,
-            max_tokens=_MAX_TOKENS,
-            temperature=_TEMPERATURE,
-            system=[{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}],
-            messages=[{"role": "user", "content": user_text}],
-        )
-    except Exception:
-        logging.exception("llm_router: Anthropic messages.create failed")
-        return None
+    result = call_anthropic_messages(
+        system_prompt=system_prompt,
+        user_text=user_text,
+        max_tokens=_MAX_TOKENS,
+        temperature=_TEMPERATURE,
+        model=None,
+    )
     ms = (time.perf_counter() - t0) * 1000.0
-    in_t, out_t = _usage_in_out(msg)
-    text = _extract_text_from_message(msg)
-    data = _coerce_llm_text_to_json_object(text)
+
+    if result is None:
+        logging.error("llm_router: Anthropic messages.create failed")
+        return None
+
+    if getattr(result.raw, "usage", None) is None:
+        in_t, out_t = None, None
+    else:
+        in_t = result.usage.billable_input
+        out_t = result.usage.output_tokens
+
+    data = coerce_llm_text_to_json_object(result.text)
     if not data:
         logging.warning("llm_router: response is not valid JSON object; latency_ms=%.1f", ms)
         return None
