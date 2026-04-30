@@ -30,6 +30,21 @@ EVENT_PAGE_HTTP_TIMEOUT = httpx.Timeout(120.0, connect=25.0)
 # Default ``httpx.Client`` ceiling for :func:`run_pull` (matches event pages).
 REQUEST_TIMEOUT = EVENT_PAGE_HTTP_TIMEOUT
 
+# Labels consumed by ``fetch_and_parse_event`` / ``normalize_to_contribution`` pass-2 rescue.
+# Keep aligned with ``labels.get(...)`` reads — add entries only when a consumer exists.
+RIVER_SCENE_DETAIL_LABELS: frozenset[str] = frozenset(
+    {
+        "End Date",
+        "Event Category",
+        "Facebook",
+        "Organizer",
+        "Start Date",
+        "Time",
+        "Venue",
+        "Website",
+    }
+)
+
 
 @dataclass
 class RiverSceneEvent:
@@ -177,7 +192,26 @@ def _find_event_details_table(soup: BeautifulSoup) -> Tag | None:
     return None
 
 
+def _detail_link_or_plain(label: str, value_cell: Tag) -> str:
+    """Prefer ``<a href>`` for Website and Facebook cells; else visible text."""
+    if label in ("Website", "Facebook"):
+        a = value_cell.find("a", href=True)
+        link = (a.get("href") or "").strip() if a else ""
+        return link or value_cell.get_text(" ", strip=True)
+    return value_cell.get_text(" ", strip=True)
+
+
+def _normalize_scheme_optional_https(candidate: str) -> str:
+    s = candidate.strip()
+    if not s:
+        return s
+    if not s.startswith(("http://", "https://")):
+        return f"https://{s.lstrip('/')}"
+    return s
+
+
 def _table_label_map(table: Tag) -> dict[str, str]:
+    """Extract Info/Details label pairs; pass 2 rescues orphan ``<td>`` pairs (no ``<tr>`` wrap)."""
     out: dict[str, str] = {}
     for tr in table.find_all("tr"):
         tds = tr.find_all("td")
@@ -185,12 +219,21 @@ def _table_label_map(table: Tag) -> dict[str, str]:
             continue
         label = tds[0].get_text(strip=True)
         value_cell = tds[1]
-        if label == "Website":
-            a = value_cell.find("a", href=True)
-            link = (a.get("href") or "").strip() if a else ""
-            out[label] = link or value_cell.get_text(" ", strip=True)
+        if label in ("Website", "Facebook"):
+            out[label] = _detail_link_or_plain(label, value_cell)
         else:
             out[label] = value_cell.get_text(" ", strip=True)
+
+    tds_all = table.find_all("td")
+    for i in range(len(tds_all) - 1):
+        lab = tds_all[i].get_text(strip=True)
+        if lab not in RIVER_SCENE_DETAIL_LABELS or lab in out:
+            continue
+        value_cell = tds_all[i + 1]
+        if lab in ("Website", "Facebook"):
+            out[lab] = _detail_link_or_plain(lab, value_cell)
+        else:
+            out[lab] = value_cell.get_text(" ", strip=True)
     return out
 
 
@@ -343,15 +386,16 @@ def _article_url_with_scheme(url: str) -> str:
 
 
 def _submission_public_url(rse: RiverSceneEvent) -> str:
-    """URL shown as event link: prefer ``Website`` from the detail table, else the article URL."""
+    """Public click-through URL: Website, then Facebook, then the River Scene article URL."""
     labels = rse.raw.get("labels") or {}
-    website = labels.get("Website") if isinstance(labels, dict) else None
-    if website and isinstance(website, str):
-        candidate = website.strip()
-        if candidate:
-            if not candidate.startswith(("http://", "https://")):
-                candidate = f"https://{candidate.lstrip('/')}"
-            return candidate
+    if not isinstance(labels, dict):
+        return _article_url_with_scheme(rse.url)
+    for key in ("Website", "Facebook"):
+        val = labels.get(key)
+        if val and isinstance(val, str):
+            cand = val.strip()
+            if cand:
+                return _normalize_scheme_optional_https(cand)
     return _article_url_with_scheme(rse.url)
 
 
