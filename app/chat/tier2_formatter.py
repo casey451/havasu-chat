@@ -17,7 +17,7 @@ _TEMPERATURE = 0.3
 EMPTY_CATALOG_MESSAGE = "No matching catalog rows."
 
 _LEGACY_FALLBACK_RE = re.compile(
-    r"^Imported from River Scene\. Event URL:\s*\S+\s*",
+    r"\bImported from River Scene\. Event URL:\s*\S+\s*",
     re.IGNORECASE,
 )
 

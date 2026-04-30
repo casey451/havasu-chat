@@ -227,12 +227,28 @@ def test_format_render_exception_returns_none(
     assert any("deterministic render failed" in r.message for r in caplog.records)
 
 
-def test_strip_legacy_fallback_removes_imported_prefix() -> None:
+def test_strip_legacy_fallback_removes_imported_prefix_after_date_time_header() -> None:
+    """Catalog descriptions store Date:/Time: lines before the legacy RS scaffolding."""
     raw = (
+        "Date: 2026-05-15\nTime: 09:00\n\n"
         "Imported from River Scene. Event URL: https://riverscenemagazine.com/events/x/ "
-        "Real content."
+        "Real text."
     )
-    assert tf._strip_legacy_fallback(raw) == "Real content."
+    out = tf._strip_legacy_fallback(raw)
+    assert out.startswith("Date: 2026-05-15")
+    assert "Time: 09:00" in out
+    assert "Imported from River Scene" not in out
+    assert "Real text." in out
+
+
+def test_legacy_fallback_regex_matches_at_nonzero_offset() -> None:
+    raw = (
+        "Header line\n\nImported from River Scene. Event URL: https://riverscenemagazine.com/events/z/ "
+        "Tail content."
+    )
+    m = tf._LEGACY_FALLBACK_RE.search(raw)
+    assert m is not None and m.start() > 0
+    assert tf._strip_legacy_fallback(raw) == "Header line\n\nTail content."
 
 
 def test_strip_legacy_fallback_passes_clean_description() -> None:
@@ -256,6 +272,7 @@ def test_format_strips_legacy_fallback_in_event_rows() -> None:
             "end_time": "12:00",
             "location_name": "Test Venue",
             "description": (
+                "Date: 2026-05-15\nTime: 10:00\n\n"
                 "Imported from River Scene. Event URL: https://riverscenemagazine.com/events/x/ "
                 "Real text."
             ),
