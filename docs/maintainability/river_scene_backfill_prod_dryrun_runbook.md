@@ -148,7 +148,7 @@ WHERE source = 'river_scene_import'
   AND event_url NOT LIKE '%riverscene%';
 ```
 
-**Keep a durable copy of those `id` values** (scratch file, shell transcript, ticket note) before you run `--apply`. Post-apply verification should use the **same sentinel cohort**; re-deriving mid-verification is easy to get wrong.
+**Keep a durable copy of those `id` values** before you run `--apply` — e.g. `sentinel_ids.txt` (one UUID per line), a scratch Markdown file, or a ticket comment. **Do not rely on shell history alone** (it gets pruned). Post-apply verification must use the **same frozen cohort**: after `--apply`, re-running the SQL above may return a **different row count** on purpose (URLs moved off article), so re-deriving “the seven” from that query mid-verification is easy to get wrong.
 
 PowerShell example (repeat per id, or build one alternation pattern):
 

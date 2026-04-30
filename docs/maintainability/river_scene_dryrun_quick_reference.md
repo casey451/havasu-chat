@@ -73,6 +73,6 @@ WHERE source = 'river_scene_import'
   AND event_url NOT LIKE '%riverscene%';
 ```
 
-That returns **7** rows (at last verification). Save the `id` values in something durable (file, notes, history); reuse the **same ids** for post-`--apply` verification. None of those ids should appear in `backfill_dryrun_postfix.log`.
+That returns **7** rows (at last verification). Save the `id` values in a **file** (e.g. `sentinel_ids.txt`, one per line) or scratch doc — **not** shell history alone (pruned). Reuse that **frozen list** after `--apply`; re-running this query post-apply can return a different count by design, so do not try to re-derive the cohort from a fresh `SELECT`. None of those ids should appear in `backfill_dryrun_postfix.log`.
 
 Optionally still sample **3–5** would-change blocks from the log to sanity-check proposed URLs.
