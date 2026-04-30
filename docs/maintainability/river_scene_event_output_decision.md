@@ -107,3 +107,127 @@ A **legacy-fallback dedupe path** remains for rows where **`source_url`** is **N
 **Production outcomes:** Organizer URLs in **`event_url`** where the listing provides them; cleaned descriptions without the legacy scaffolding string; **`source_url`** populated for dedupe and stable article identity; render-time guard covers any row that briefly missed backfill. Backfill **`--apply`** against production Postgres completed cleanly: all **71** rows updated, **0** errors. Idempotent re-runs would produce zero diffs.
 
 **Gates (documentation-only commit):** No production code changes; **`pytest`** baseline unchanged from pre-doc-pass repo state.
+
+## Verification addendum (post-fix-2 apply)
+
+Bridges to §Status above: the original `--apply` reported "all 71 rows
+updated" but post-hoc verification (this addendum) showed 64 of 71 still
+pointed at River Scene article URLs because the parser missed organizer
+URLs in orphan-`<td>` listings. Two follow-up commits (`0051f17` parser
+fix, `5ec85da` backfill script hardening) and a second `--apply` have
+since landed; this addendum captures verification of that second apply.
+
+### Dry-run summary (post-fix)
+
+```
+River Scene URL backfill (rescrape) complete
+  total:                         71
+  would_change:                  59
+  no_change:                     12
+  no_organizer_url_available:    5
+  applied:                       0
+  skipped_fetch:                 0
+  no_article_url:                0
+```
+
+### Apply summary
+
+```
+River Scene URL backfill (rescrape) complete
+  total:                         71
+  would_change:                  59
+  no_change:                     12
+  no_organizer_url_available:    5
+  applied:                       59
+  skipped_fetch:                 0
+  no_article_url:                0
+```
+
+`applied == would_change == 59` per the sanity assertion in fix 2. All
+non-applied counters identical between dry-run and apply, confirming
+parser determinism across runs.
+
+### Sentinel cohort regression check
+
+Before the backfill, 7 events had organizer URLs in `event_url` (i.e.
+`event_url NOT LIKE '%riverscene%'`). Their UUIDs were captured as
+`sentinel_ids.txt` before the dry-run. After both runs, none of those
+UUIDs appeared in the per-row diff output, confirming the parser fix
+did not regress previously-correct rows.
+
+### Verification SQL (post-apply)
+
+```sql
+SELECT
+  COUNT(*) AS total,
+  COUNT(*) FILTER (WHERE source_url IS NOT NULL) AS has_source_url,
+  COUNT(*) FILTER (WHERE event_url LIKE '%riverscene%') AS still_has_riverscene_event_url,
+  COUNT(*) FILTER (WHERE source_url != lower(source_url) OR source_url LIKE '%/') AS denormalized_source_url
+FROM events
+WHERE source = 'river_scene_import';
+```
+
+Result: `(71, 71, 6, 0)`.
+
+- `total = 71` — unchanged cohort.
+- `has_source_url = 71` — every row has a normalized `source_url`.
+- `still_has_riverscene_event_url = 6` — events whose `event_url` still
+  points at the River Scene article URL because the listing genuinely
+  has no Website or Facebook row in its Event Details panel.
+- `denormalized_source_url = 0` — every `source_url` is correctly
+  lowercased and trailing-slash-stripped per the dedupe contract.
+
+The 6 events on article URLs:
+
+- `london-bridge-days-parade` → `/events/london-bridge-days-parade-6/`
+- `4th-of-july-fireworks-in-lake-havasu-city` → `/events/4th-of-july-fireworks-in-lake-havasu-city/`
+- `havadopts-annual-bunco-fundraiser` → `/events/havadopts-annual-bunco-fundraiser/`
+- `fair` (Anderson Toyota Balloon Festival) → `/events/fair/`
+- `a-soiree-of-ballet` → `/events/a-soiree-of-ballet/`
+- `run-to-the-sun-4` → `/events/run-to-the-sun-4/`
+
+Spot-checked `a-soiree-of-ballet`: Event Details panel shows Start Date,
+End Date, Time, Organizer, Event Category, Venue. No Website or Facebook
+row. Article URL fallback is correct.
+
+### Counter discrepancy: 5 vs 6
+
+The apply summary reports `no_organizer_url_available = 5`. The
+verification SQL shows 6 events still pointing at article URLs.
+Off-by-one between the in-script counter and ground-truth DB state.
+
+The counter and the SQL predicate measure different things by
+construction:
+
+- `no_organizer_url_available` counts rows where the parser's *proposed*
+  `event_url` (this run) equals the article URL fallback.
+- `still_has_riverscene_event_url` counts rows whose *current DB*
+  `event_url` matches `%riverscene%`.
+
+These can diverge when a row's pre-apply DB state differed from its
+post-apply state in a way that crosses the article-URL boundary.
+
+Hypothesis (not verified): one of the 6 had a non-article `event_url` in
+DB before this apply (e.g. left over from the earlier partial run or
+operator edit) that the parser now writes back to the article URL. That
+row would land in `would_change` rather than `no_organizer_url_available`.
+
+Root cause not investigated. Counter logic could be tightened to count
+"rows whose post-state `event_url` equals the article URL" instead of
+"rows whose proposed `event_url` equals the article URL," which would
+align with verification SQL. Tracked as deferred cleanup; not blocking.
+
+### Stream closure
+
+See §Status and §Commit plan above for the original stream. Post-ship
+follow-up adds:
+
+- Parser fix 1 (`0051f17`) — orphan-`<td>` recovery, Facebook fallback
+  in `_submission_public_url`.
+- Backfill fix 2 (`5ec85da`) — `--dry-run`, expanded counters,
+  unconditional `source_url` in diff, partition + sanity assertions.
+- Production verification: 65 of 71 events on organizer URLs; 6 on
+  article URLs (verified as genuine no-organizer cases for at least
+  one of the 6); 0 dedupe-key violations.
+
+Refs: `0051f17`, `5ec85da`, `sentinel_ids.txt` (gitignored, local).
