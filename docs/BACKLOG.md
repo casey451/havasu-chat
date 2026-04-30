@@ -68,11 +68,13 @@ Ship log entries at the bottom record what shipped per session. New ones are app
 
 ## Backlog 5 - clickable source URLs in chat output (**OPEN**)
 
-**Issue:** Chat output does not consistently surface `event_url` links for events.
+**Issue:** Chat output does not consistently surface `event_url` links for events across sources and Tier 2 paths (deterministic all-event renderer vs LLM path, mixed rows, etc.).
 
-**Effect:** Users cannot click through to RiverScene/source pages for full details.
+**Effect:** Users may lack clickable links where catalog data has a URL but the active Tier 2 formatting path omits or mishandles link emission.
 
-**Desired fix:** Ensure formatter includes clickable event links where available in Tier 2 responses.
+**River Scene scope (RESOLVED):** Wrong link targets, operator scaffolding in descriptions, and dedupe tied to the article URL without a separate stable identity were addressed by the **`source_url`** migration, ingestion/dedupe/render/backfill stack — see **`docs/maintainability/river_scene_event_output_decision.md`** (shipped **2026-04-30**, commits **`83e4995`..`6bec1ec`**).
+
+**Desired fix:** Ensure formatter/renderer includes clickable event links wherever `event_url` is available in Tier 2 responses, including mixed and LLM-formatter paths beyond the deterministic all-event catalog renderer.
 
 ---
 
