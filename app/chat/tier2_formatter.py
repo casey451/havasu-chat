@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from typing import Any, Dict, List, Optional
 
 from app.chat import tier2_catalog_render
@@ -14,6 +15,22 @@ _MAX_OUTPUT_TOKENS = 400
 _TEMPERATURE = 0.3
 
 EMPTY_CATALOG_MESSAGE = "No matching catalog rows."
+
+_LEGACY_FALLBACK_RE = re.compile(
+    r"^Imported from River Scene\. Event URL:\s*\S+\s*",
+    re.IGNORECASE,
+)
+
+
+def _strip_legacy_fallback(description: str | None) -> str:
+    """Strip legacy River Scene import scaffolding from ``Event.description``.
+
+    Pre-commit-1 ingestion wrote this prefix when HTML body prose was empty.
+    After backfill apply, rows should not match; kept as a safety net.
+    """
+    if not description:
+        return description or ""
+    return _LEGACY_FALLBACK_RE.sub("", description, count=1).strip()
 
 
 def _format_via_llm(query: str, rows: List[Dict[str, Any]]) -> tuple[Optional[str], int | None, int | None]:
@@ -63,6 +80,13 @@ def format(query: str, rows: List[Dict[str, Any]]) -> tuple[Optional[str], int |
 
     Empty ``rows`` and all-``event`` rows use deterministic paths (0 formatter tokens).
     """
+    rows = [
+        {**r, "description": _strip_legacy_fallback(r.get("description"))}
+        if "description" in r
+        else r
+        for r in rows
+    ]
+
     if not rows:
         return EMPTY_CATALOG_MESSAGE, 0, 0
 

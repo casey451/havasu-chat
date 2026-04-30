@@ -225,3 +225,46 @@ def test_format_render_exception_returns_none(
     text, tin, tout = tf.format("q", rows)
     assert text is None and tin is None and tout is None
     assert any("deterministic render failed" in r.message for r in caplog.records)
+
+
+def test_strip_legacy_fallback_removes_imported_prefix() -> None:
+    raw = (
+        "Imported from River Scene. Event URL: https://riverscenemagazine.com/events/x/ "
+        "Real content."
+    )
+    assert tf._strip_legacy_fallback(raw) == "Real content."
+
+
+def test_strip_legacy_fallback_passes_clean_description() -> None:
+    raw = "A normal event description with details about the event."
+    assert tf._strip_legacy_fallback(raw) == raw
+
+
+def test_strip_legacy_fallback_handles_none_and_empty() -> None:
+    assert tf._strip_legacy_fallback(None) == ""
+    assert tf._strip_legacy_fallback("") == ""
+
+
+def test_format_strips_legacy_fallback_in_event_rows() -> None:
+    """All-events deterministic branch must not surface pre-commit-1 scaffolding."""
+    rows = [
+        {
+            "type": "event",
+            "name": "Test Event",
+            "date": "2026-05-15",
+            "start_time": "10:00",
+            "end_time": "12:00",
+            "location_name": "Test Venue",
+            "description": (
+                "Imported from River Scene. Event URL: https://riverscenemagazine.com/events/x/ "
+                "Real text."
+            ),
+            "event_url": "https://impact928.com/",
+            "tags": [],
+        }
+    ]
+    out, tin, tout = tf.format("any query", rows)
+    assert out is not None
+    assert tin == 0 and tout == 0
+    assert "Imported from River Scene" not in out
+    assert "Real text." in out
