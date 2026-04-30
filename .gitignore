@@ -35,3 +35,4 @@ relay/
 !relay/README.md
 scripts/confabulation_eval_results/*
 !scripts/confabulation_eval_results/baselines/
+*.log
