@@ -1,6 +1,16 @@
 # River Scene prod dry-run — quick reference
 
-Full detail: [`river_scene_backfill_prod_dryrun_runbook.md`](river_scene_backfill_prod_dryrun_runbook.md).
+Full detail: [`river_scene_backfill_prod_dryrun_runbook.md`](river_scene_backfill_prod_dryrun_runbook.md). Standalone sentinel note: [`river_scene_sentinel_id_retention.md`](river_scene_sentinel_id_retention.md).
+
+## Gate posture (run order)
+
+1. **`git status`** — push if `main` is ahead of `origin/main`.
+2. **Prod connection string** — set in the shell (same as prior prod runs).
+3. **Sentinel ids** — run the SQL under *Before `--apply`*; save the **7** event `id`s to **`sentinel_ids.txt`** (one UUID per line). See [sentinel id retention](river_scene_sentinel_id_retention.md).
+4. **Dry-run** — capture stdout/stderr separately (**Capture** below).
+5. **Crash scan** — `Select-String` on both logs for `Traceback|RuntimeError|AssertionError` → **zero** matches.
+6. **Sentinel grep** — for each line in `sentinel_ids.txt`, grep the main log → **zero** matches per id.
+7. **Report** — paste the **summary block** and any **non-empty stderr** lines.
 
 ## Capture (stdout / stderr split, both `.log` → gitignored)
 
