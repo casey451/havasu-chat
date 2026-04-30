@@ -1,3 +1,7 @@
+> **Status:** pre-H2 read-only investigation; embedded code excerpts predate the LLM-call helper consolidation.
+> **H2 stack:** `b47ada6..f7b28df`
+> **Current truth:** `app/core/llm_messages.py` and `docs/maintainability/h2_consolidation_decision.md`
+
 # READ-ONLY CODE SPELUNK — Tier 2, gap_template, and explicit-rec patterns
 
 No code changes. No DB queries. No commits. No pushes.

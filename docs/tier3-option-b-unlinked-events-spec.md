@@ -61,7 +61,7 @@ There is **no** query for `provider_id IS NULL` events in this file today.
 
 ## 3. Tier 3 “templates”
 
-- **System** prompt: `prompts/system_prompt.txt` (loaded in `tier3_handler._load_system_prompt`). Describes **Context block** behavior; no per-field JSON. Optional labels like `Now:`, `User context:`, `Local voice:` are documented; a **General calendar** (or **Standalone events**) header is consistent.
+- **System** prompt: `prompts/system_prompt.txt` (loaded via `_load_tier3_system_prompt()` in `tier3_handler`, which calls `app.core.llm_messages.load_prompt("system_prompt")` with graceful `OSError` fallback). Describes **Context block** behavior; no per-field JSON. Optional labels like `Now:`, `User context:`, `Local voice:` are documented; a **General calendar** (or **Standalone events**) header is consistent.
 - **No** separate file formats individual event rows; formatting is only in `context_builder.py`.
 
 **Provider-tied line format today:**  

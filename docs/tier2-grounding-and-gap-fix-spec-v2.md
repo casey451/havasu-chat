@@ -206,7 +206,7 @@ In current branch snapshot, this range is empty (no commits on top of `88556bb` 
 ## 7.1 Unit tests
 
 1. **Fix 1 prompt regression test (deterministic)**
-   - Add test that mocks `client.messages.create` in `app/chat/tier2_formatter.py` path and inspects loaded system prompt text.
+   - Add test that monkeypatches `app.core.llm_messages.anthropic.Anthropic` (the helper-bound seam used across the suite post-H2; see `docs/maintainability/h2_consolidation_decision.md` §5) and inspects loaded system prompt text.
    - Assert new grounding rule strings are present.
    - Purpose: catches prompt regression in source text (not model behavior).
 

@@ -11,6 +11,10 @@ DO NOT treat this file as the design itself — it is intentionally thin.
 The canonical design lives in h2_consolidation_decision.md.
 -->
 
+> **Status:** completed; this kickoff doc is preserved as a record of how Session 2 was bootstrapped.
+> **H2 stack:** `b47ada6..f7b28df`
+> **Current truth:** `docs/maintainability/h2_ship_complete_handoff.md`
+
 # H2 — LLM-call infrastructure consolidation: Session 2 ship handoff
 
 **You are Session 2.** Session 1 completed a read-only design pass and filed the canonical decision document. Your job is to implement the five-commit migration (helpers first, then four callers) with pytest gates after each commit.

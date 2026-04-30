@@ -12,7 +12,7 @@ h2_session2_handoff.md for that.
 
 # H2 Investigation: LLM-call infrastructure consolidation — Decision Recommendation
 
-**Status:** Read-only investigation complete + verified via Cursor fact-finding pass. Design recommendation below; awaits owner approval before any helper module or migration ship.
+**Status:** Shipped as a seven-commit stack — see **§ Status — completed** at end of this document for hashes, gates, and deferred backlog.
 
 **Bundle reviewed:** `h2_investigation_bundle.txt` (36,689 bytes, 992 lines, 6 sections).
 
@@ -56,7 +56,7 @@ The fifth file the review flagged, `hint_extractor.py` (110 lines), uses OpenAI;
 **Stays at the call site (not consolidable):**
 
 - `max_tokens`, `temperature`, model strings — caller-specific
-- Return shapes: `Tier2Filters | None`, `(text, in, out)`, `RouterDecision | None`, `(text, total, in, out)` — caller-specific
+- Return shapes: tier2_parser `(Optional[Tier2Filters], int | None, int | None)` (i.e. `(filters | None, in | None, out | None)`); tier2_formatter `(text, in, out)`; llm_router `RouterDecision | None`; tier3 `(text, total, in, out)` — caller-specific
 - `llm_router`'s latency timing + structured log line — caller-specific
 - `tier2_formatter`'s deterministic-events bypass — never calls the LLM for all-event rows
 
@@ -74,7 +74,9 @@ The mock seam picture is the single most important refactor-safety input. Two pa
 - `tests/test_tier3_handler.py`, `test_tier3_local_voice_injection.py`, `test_tier3_user_text_context.py`
 - `tests/test_tier2_routing.py`, `test_phase2_integration.py`
 
-**No tests patch module-scoped imports** (e.g., `app.chat.tier2_parser.anthropic`). **No tests patch the private helpers** (`_extract_text_from_message`, `_coerce_llm_text_to_json_object`, `_usage_in_out`, `_split_usage`).
+**Survey gap (resolved in commit 4.5, `b79d000`):** `tests/test_ask_mode.py` and `tests/test_api_chat_e2e_ask_mode.py` were outside this original enumeration. They used `sys.modules["anthropic"]` substitution, which worked with legacy tier3's lazy `import anthropic` but not with the helper's import-time binding to `anthropic`. Commit 4.5 aligned both files with the standard seam via `monkeypatch.setattr("app.core.llm_messages.anthropic", ...)`.
+
+**No tests patch module-scoped imports** (e.g., `app.chat.tier2_parser.anthropic`). **No tests patch the private helpers** (`_extract_text_from_message`, `_coerce_llm_text_to_json_object`, `_usage_in_out`, `_split_usage`). **Import exception:** `tests/test_llm_router.py` imports `_load_router_system_prompt` directly (for prompt-text assertions), which is why a thin delegate remains in `app/chat/llm_router.py` post-migration until that test switches to `load_prompt`.
 
 **Implication**: the helper module is mock-safe iff it preserves the exact `anthropic.Anthropic(api_key=..., timeout=...)` and `client.messages.create(model=, max_tokens=, temperature=, system=, messages=)` call shapes. The helper must `import anthropic` (not `from anthropic import Anthropic`) so package-level `patch.object(anthropic, "Anthropic", ...)` continues to take effect. Do not pass **additional** keyword arguments to `messages.create` unless the change is deliberate and tests are updated accordingly. Private helpers move freely.
 
@@ -254,14 +256,14 @@ Fix-forward strategy: per-commit revert. Each migration commit is small enough t
 
 ### 9. Effect on the maintainability findings
 
-H2's disposition was "fix now"; this design implements it. After Session 2 ships:
+H2's disposition was "fix now"; this design implements it. After H2 shipped:
 
 - The H2 finding is closed.
-- `scripts/run_voice_audit.py` becomes a noted residual copy of the boilerplate (visible, not closed by H2).
+- `scripts/run_voice_audit.py` remains a noted residual copy of the boilerplate (visible, not migrated by H2).
 - `app/chat/hint_extractor.py` remains on its own helper-less path (not closed by H2; opened as a backlog item).
 - H3 (hardcoded entity list) is independent and unaffected.
 
-The H1 ship's recommended priority order (H1 → H2 → H3) holds. H1 done; H2 next via Session 2; H3 follows.
+The original maintainability priority order (H1 → H2 → H3) still describes sequencing intent. H1 (router investigation) and H2 (LLM infra) are complete; H3 follows.
 
 ---
 
@@ -287,3 +289,34 @@ Use this section when starting Session 2 (or paste **`h2_session2_handoff.md`** 
 ---
 
 **End of decision document (Session 1 filing).**
+
+---
+
+## Status — completed
+
+H2 shipped as a seven-commit stack:
+
+| Hash | Commit |
+|------|--------|
+| `b47ada6` | Commit 1: introduce `app/core/llm_messages.py` + tests |
+| `e489c48` | Commit 1.5: preserve usage on empty-text responses |
+| `2152c5a` | Commit 2: migrate `tier2_formatter._format_via_llm` |
+| `cf59fbb` | Commit 3: migrate `tier2_parser.parse` |
+| `a4bf866` | Commit 4: migrate `llm_router.route` |
+| `b79d000` | Commit 4.5: align integration tests with helper-bound seam |
+| `f7b28df` | Commit 5: migrate `tier3_handler.answer_with_tier3` |
+
+The two “.5” commits were not in the original five-commit plan; rationale is in their commit messages.
+
+**Gate:** 970 tests passed / 8 failed from commit 1.5 onward (seed/master fixtures). Commit 1 alone gated at 969 passed / 8 failed before commit 1.5 added one test.
+
+**Backlog deferred** (unchanged from §3–4 and migration notes):
+
+- `scripts/run_voice_audit.py` — sixth Anthropic caller; out of chat scope; opportunistic migration.
+- `app/chat/hint_extractor.py` — OpenAI caller; deferred per §3.
+- `tests/test_llm_router.py` refactor + `_load_router_system_prompt` delegate removal — small follow-on.
+- Optional helper widening (`AnthropicResult`-level resolved model for logs) — defer until a second caller needs it.
+
+### Documentation audit (post-ship)
+
+A read-only sweep on **2026-04-29** inventoried stale references to pre-merge helpers and code excerpts across `docs/`. Outcomes are captured in this documentation commit: canonical corrections live in this file (§Findings above and this section); investigation/spelunk markdown files carry top-of-file **Status** banners pointing here instead of rewriting historical excerpts; two product specs receive one-line call-shape updates (`tier3-option-b-unlinked-events-spec.md`, `tier2-grounding-and-gap-fix-spec-v2.md`); `h1_router_decision.md` notes H2 completion. Per-commit session halt reports were removed from the tree — their substance is in **git log**.

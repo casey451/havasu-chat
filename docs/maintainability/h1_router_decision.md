@@ -201,12 +201,12 @@ The H1 finding from the maintainability review (`maintainability_findings_app_ch
 
 This investigation **does not change** the disposition recommendation for H1 (resolve before broader feature work). It does change the urgency signal: the legacy router isn't being actively maintained against the modern path's standards, which means voice-rule changes, security fixes, and so on are going to drift from one path to the other if the parallel state continues.
 
-The H2 finding (LLM-call infrastructure duplicated across four files) remains independent of the H1 outcome. The four files duplicating LLM-call boilerplate are all on the modern path — refactoring them doesn't depend on what happens to `/chat`.
+The H2 finding (LLM-call infrastructure duplicated across four files) was independent of the H1 outcome. The four files that duplicated LLM-call boilerplate were all on the modern path — that refactor did not depend on what happens to `/chat`. **Completed:** H2 shipped; see `docs/maintainability/h2_consolidation_decision.md` and stack `b47ada6..f7b28df`.
 
 The H3 finding (hardcoded entity list won't survive bulk import) is also independent.
 
-So the original three-priority order from the maintainability review still holds:
+So the original three-priority order from the maintainability review still describes sequencing:
 
 1. H1 (this investigation; deletion or deprecation ship next)
-2. H2 (LLM infra refactor)
+2. H2 (LLM infra refactor) — **completed**; stack `b47ada6..f7b28df`
 3. H3 (entity matching scale)

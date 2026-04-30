@@ -1,3 +1,7 @@
+> **Status:** pre-H2 maintainability findings; the LLM-call duplication inventory below was the input to the H2 decision doc and was resolved by the H2 ship.
+> **H2 stack:** `b47ada6..f7b28df`
+> **Current truth:** `docs/maintainability/h2_consolidation_decision.md`
+
 # Maintainability findings — `app/chat/` pilot review
 
 **Scope:** All 19 Python files in `app/chat/` as of bundle generated 2026-04-29T14:01:57Z.
