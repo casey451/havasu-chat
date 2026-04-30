@@ -2,13 +2,19 @@
 Backfill ``event_url``, ``description``, and ``source_url`` on River Scene–imported
 events using current ingestion logic (re-fetch article HTML).
 
-  python scripts/backfill_river_scene_urls.py              # dry-run (default)
+  python scripts/backfill_river_scene_urls.py              # preview (default)
+  python scripts/backfill_river_scene_urls.py --dry-run    # explicit preview
   python scripts/backfill_river_scene_urls.py --apply      # persist updates
   python scripts/backfill_river_scene_urls.py --cleanup-only           # strip legacy prefix only
+  python scripts/backfill_river_scene_urls.py --cleanup-only --dry-run
   python scripts/backfill_river_scene_urls.py --cleanup-only --apply
 
-Dry-run prints field diffs; apply commits per updated row. Rate-limited (0.5s)
+Preview prints field diffs; ``--apply`` commits per updated row. Rate-limited (0.5s)
 between HTTP fetches in scrape mode.
+
+Counter partition (rescrape): ``total == no_article_url + skipped_fetch + would_change + no_change``.
+``no_organizer_url_available`` counts rows whose parsed public URL equals the article URL only
+(orthogonal to ``would_change`` / ``no_change``).
 """
 
 from __future__ import annotations
@@ -31,6 +37,7 @@ from app.chat.tier2_formatter import _strip_legacy_fallback
 from app.contrib.river_scene import (
     EVENT_PAGE_HTTP_TIMEOUT,
     USER_AGENT,
+    _article_url_with_scheme,
     fetch_and_parse_event,
     normalize_to_contribution,
 )
@@ -90,6 +97,13 @@ def _payload_targets(payload) -> tuple[str, str, str]:
     return event_url, desc, src_key
 
 
+def _proposed_event_url_is_article_fallback_only(rse, event_url: str) -> bool:
+    """True when normalized proposed ``event_url`` is only the article URL (no Website/Facebook distinct URL)."""
+    art = normalize_submission_url(_article_url_with_scheme(rse.url)) or ""
+    pub = normalize_submission_url(event_url) or ""
+    return pub == art
+
+
 def _event_needs_update(ev: Event, event_url: str, description: str, src_key: str) -> bool:
     cur_src, cur_ev_u = _norm_pair(ev.source_url, ev.event_url)
     new_src, new_ev_u = _norm_pair(src_key if src_key else None, event_url if event_url else None)
@@ -103,8 +117,6 @@ def _event_needs_update(ev: Event, event_url: str, description: str, src_key: st
 
 
 def _print_diff(ev_id: str, ev: Event, event_url: str, description: str, src_key: str) -> None:
-    cur_src, cur_ev_u = _norm_pair(ev.source_url, ev.event_url)
-    new_src, new_ev_u = _norm_pair(src_key if src_key else None, event_url if event_url else None)
     print(f"--- event {ev_id}")
     if (ev.event_url or "").strip() != event_url:
         print(f"  event_url:     {ev.event_url!r}")
@@ -113,16 +125,16 @@ def _print_diff(ev_id: str, ev: Event, event_url: str, description: str, src_key
         print(f"  description:   (len {len(ev.description)}) -> (len {len(description)})")
         print(f"            was: {ev.description[:200]!r}...")
         print(f"            now: {description[:200]!r}...")
-    if cur_src != new_src:
-        print(f"  source_url:    {ev.source_url!r}")
-        print(f"            ->   {src_key!r}")
+    print(f"  source_url:    {ev.source_url!r}")
+    print(f"            ->   {src_key!r}")
 
 
-def run_rescrape(*, apply: bool) -> tuple[int, int, int, int, int]:
+def run_rescrape(*, apply: bool) -> tuple[int, int, int, int, int, int, int]:
     """
-    Returns ``(total, would_change, applied, skipped_fetch, no_article_url)``.
+    Returns ``(total, would_change, no_change, no_organizer_url_available, applied,
+    skipped_fetch, no_article_url)``.
     """
-    total = would_change = applied = skipped_fetch = no_url = 0
+    total = would_change = no_change = no_org = applied = skipped_fetch = no_url = 0
     client = httpx.Client(
         timeout=EVENT_PAGE_HTTP_TIMEOUT,
         headers={"User-Agent": USER_AGENT},
@@ -168,7 +180,11 @@ def run_rescrape(*, apply: bool) -> tuple[int, int, int, int, int]:
                 payload = normalize_to_contribution(rse)
                 event_url, description, src_key = _payload_targets(payload)
 
+                if _proposed_event_url_is_article_fallback_only(rse, event_url):
+                    no_org += 1
+
                 if not _event_needs_update(ev, event_url, description, src_key):
+                    no_change += 1
                     if i < n - 1:
                         time.sleep(0.5)
                     continue
@@ -205,12 +221,22 @@ def run_rescrape(*, apply: bool) -> tuple[int, int, int, int, int]:
         client.close()
 
     print("River Scene URL backfill (rescrape) complete")
-    print(f"  total:           {total}")
-    print(f"  would_change:    {would_change}")
-    print(f"  applied:         {applied}")
-    print(f"  skipped_fetch:   {skipped_fetch}")
-    print(f"  no_article_url:  {no_url}")
-    return total, would_change, applied, skipped_fetch, no_url
+    print(f"  total:                         {total}")
+    print(f"  would_change:                  {would_change}")
+    print(f"  no_change:                     {no_change}")
+    print(f"  no_organizer_url_available:    {no_org}")
+    print(f"  applied:                       {applied}")
+    print(f"  skipped_fetch:                 {skipped_fetch}")
+    print(f"  no_article_url:                {no_url}")
+    if apply:
+        assert applied == would_change, f"applied ({applied}) != would_change ({would_change})"
+    else:
+        assert applied == 0, f"dry-run must not persist rows (applied={applied})"
+    if total != no_url + skipped_fetch + would_change + no_change:
+        raise RuntimeError(
+            "counter partition broken: total != no_article_url + skipped_fetch + would_change + no_change"
+        )
+    return total, would_change, no_change, no_org, applied, skipped_fetch, no_url
 
 
 def run_cleanup_only(*, apply: bool) -> tuple[int, int, int]:
@@ -226,6 +252,8 @@ def run_cleanup_only(*, apply: bool) -> tuple[int, int, int]:
             print(f"--- event {ev.id} description cleanup")
             print(f"  was: {ev.description[:240]!r}...")
             print(f"  now: {new_desc[:240]!r}...")
+            print(f"  source_url:    {ev.source_url!r}")
+            print(f"            ->   {ev.source_url!r}")
             if apply:
                 ev.description = new_desc
                 db.add(ev)
@@ -237,15 +265,25 @@ def run_cleanup_only(*, apply: bool) -> tuple[int, int, int]:
     print(f"  total:        {total}")
     print(f"  would_change: {would_change}")
     print(f"  applied:      {applied}")
+    if apply:
+        assert applied == would_change, f"applied ({applied}) != would_change ({would_change})"
+    else:
+        assert applied == 0, f"cleanup preview must not persist rows (applied={applied})"
     return total, would_change, applied
 
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument(
+    mode = p.add_mutually_exclusive_group(required=False)
+    mode.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview changes without writing (same as omitting mode flags).",
+    )
+    mode.add_argument(
         "--apply",
         action="store_true",
-        help="Write changes (default is dry-run).",
+        help="Persist updates to the database.",
     )
     p.add_argument(
         "--cleanup-only",
