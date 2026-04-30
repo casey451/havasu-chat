@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-import sys
 from datetime import UTC, date, datetime, time as time_of_day
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -110,7 +109,7 @@ def _fake_anthropic_module() -> SimpleNamespace:
 @pytest.fixture(autouse=True)
 def _mock_anthropic_sys_modules(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-    monkeypatch.setitem(sys.modules, "anthropic", _fake_anthropic_module())
+    monkeypatch.setattr("app.core.llm_messages.anthropic", _fake_anthropic_module())
 
 
 def _provider(**kwargs: object) -> Provider:

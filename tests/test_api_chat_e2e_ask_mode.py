@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sys
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -99,7 +98,7 @@ def test_post_api_chat_tier3_open_ended_path_uses_mock(monkeypatch: pytest.Monke
     fake_anthropic_module = SimpleNamespace(Anthropic=lambda **_kwargs: fake_client)
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-    monkeypatch.setitem(sys.modules, "anthropic", fake_anthropic_module)
+    monkeypatch.setattr("app.core.llm_messages.anthropic", fake_anthropic_module)
 
     with patch(
         "app.chat.unified_router.try_tier2_with_usage",
