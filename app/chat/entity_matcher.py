@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 from app.chat.normalizer import normalize
 from app.db.models import Program, Provider
 
-# Keys MUST match ``provider_name`` strings produced by
-# ``docs/HAVASU_CHAT_SEED_INSTRUCTIONS.md`` / ``scripts/seed_from_havasu_instructions.py``.
+# Keys MUST match ``Program.provider_name`` / ``Provider.provider_name`` strings in the live catalog
+# (contributions, River Scene imports, and operator edits).
 CANONICAL_EXTRAS: dict[str, list[str]] = {
     "Iron Wolf Golf & Country Club": [
         "iron wolf",

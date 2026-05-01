@@ -17,7 +17,7 @@ def _norm_provider_name(name: str) -> str:
        typography.
 
     2. **Non-portable Lake Havasu section 9 suffix folds** — end-anchored tails used because
-       HAVASU_CHAT_SEED_INSTRUCTIONS.md program rows often use a shorter provider_name
+       some legacy program-import rows used a shorter provider_name
        than the canonical business header in Section 9 (e.g. trailing (ACPA), - Sonics,
        - Lake Havasu City). Remove these once seed-data
        naming is canonicalized during **Phase 8** seed-data verification (owner phone

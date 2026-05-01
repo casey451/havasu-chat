@@ -128,7 +128,6 @@ All of these require an **admin session cookie** (use browser after `POST /admin
 | --- | --- | --- |
 | `/admin/reembed-all` | Recomputes **embeddings** for every **event** (OpenAI) | **$$** + time; every row |
 | `/admin/retag-all` | Regenerates **tags** for every event (OpenAI) | **$$** + time |
-| `/admin/programs-reseed` | Imports from `docs/HAVASU_CHAT_SEED_INSTRUCTIONS.md` (supports `?dry_run=true`) | **Writes**; idempotent design but review output |
 
 **Do not** run destructive endpoints against production without a **backup** and a clear **reason**.
 
@@ -212,7 +211,7 @@ Full routing, voice, and locked decisions: [`HAVA_CONCIERGE_HANDOFF.md`](../HAVA
 
 #### Bulk / maintenance `POST` (see [§2.4](#24-running-backfills-and-bulk-admin-actions))
 
-- `/admin/reembed-all`, `/admin/programs-reseed`, `/admin/retag-all`
+- `/admin/reembed-all`, `/admin/retag-all`
 
 #### Debug (non-secret)
 
@@ -284,7 +283,6 @@ Run from repo root; use `.\.venv\Scripts\python.exe` on Windows. Set **`DATABASE
 | `scripts/verify_queries.py` | Short live spot check | venv `python` | |
 | `scripts/diagnose_search.py` | Batch search; may write `diagnose_output.txt` | venv | |
 | `scripts/run_voice_audit.py` / `run_voice_spotcheck.py` | Voice QA | venv | Paid/structured; see `prompts/` |
-| `scripts/seed_from_havasu_instructions.py` | Seeding | also invoked by `POST /admin/programs-reseed` | |
 | `scripts/extract_tier3_queries.py` | Ad hoc Tier-3–style query extraction | venv | dev / tuning |
 | `scripts/measure_hint_extractor_tokens.py` | Token use for session **hint** extraction | venv | dev |
 | `scripts/run_manual_phase64_verify.py` | Session-memory spot verification | venv | post-change QA |

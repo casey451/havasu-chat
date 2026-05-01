@@ -146,7 +146,7 @@ Platform-injected `DATABASE_URL` is never overwritten by `.env`. The repo `.env`
   - `app/db/database.py` — primary resolver.
   - `alembic/env.py` — uses `get_database_url()` from `database.py`.
   - `tests/conftest.py` — sets `DATABASE_URL` to temp SQLite for tests.
-  - `scripts/backfill_event_recurrence.py` (and other `scripts/*.py` with DB access) — docstrings note `railway run` and `DATABASE_URL` where applicable.
+  - Various `scripts/*.py` that touch the DB — see per-file docstrings for `railway run` and `DATABASE_URL` where applicable.
   - `app/admin/router.py` — imports `DATABASE_URL`; branches on `startswith("sqlite")` for admin behavior, not for building Postgres URLs.
 
 No code path constructs Postgres from `PGHOST` / `POSTGRES_*` alone.
