@@ -1,7 +1,7 @@
 """
 Backfill events.is_recurring from title/description/tags heuristics (Phase 8.9).
 
-Uses DATABASE_URL like other scripts (e.g. scripts/activate_scraped_programs.py).
+Uses DATABASE_URL like other operational scripts (see docs/runbook.md).
 Does not auto-commit: prints a report, then prompts Commit changes? [y/N].
 
 Usage (local or Railway with injected DATABASE_URL):
