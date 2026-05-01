@@ -7,7 +7,8 @@ from pathlib import Path
 
 from app.db.database import SessionLocal, init_db
 from app.db.models import Event, Program, Provider
-from app.db.seed_providers import DEFAULT_MASTER_PATH, _norm_provider_name, seed_providers
+from app.core.provider_name import _norm_provider_name
+from app.db.seed_providers import DEFAULT_MASTER_PATH, seed_providers
 
 MASTER_PATH = Path(__file__).resolve().parents[1] / "HAVASU_CHAT_MASTER.md"
 

@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 from rapidfuzz import fuzz
 from sqlalchemy.orm import Session
 
-from app.db.seed_providers import _norm_provider_name
+from app.core.provider_name import _norm_provider_name
 
 FUZZY_THRESHOLD = 90
 

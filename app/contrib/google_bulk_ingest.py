@@ -18,7 +18,7 @@ embeddings (Phase 8.11c).
 2. **First occurrence wins** for duplicate ``google_place_id`` within the same file;
    later lines with the same id are skipped (``skipped_duplicate_in_file``).
 3. Match existing row by ``google_place_id``; if found, update (see below).
-4. Else match by **normalized name** (same algorithm as ``seed_providers._norm_provider_name``);
+4. Else match by **normalized name** (same algorithm as ``app.core.provider_name._norm_provider_name``);
    if found, update and set ``google_place_id`` from the row.
 5. Else insert a new ``Provider`` with ``source="google_bulk_import"``.
 
@@ -49,7 +49,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models import Provider
-from app.db.seed_providers import _norm_provider_name
+from app.core.provider_name import _norm_provider_name
 
 _SOURCE = "google_bulk_import"
 

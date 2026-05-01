@@ -23,7 +23,8 @@ from typing import Any
 import yaml
 from sqlalchemy.orm import Session
 
-from app.db.seed_providers import DEFAULT_MASTER_PATH, _norm_provider_name
+from app.core.provider_name import _norm_provider_name
+from app.db.seed_providers import DEFAULT_MASTER_PATH
 
 _YAML_FENCE = re.compile(r"```yaml\s*\n(.*?)```", re.DOTALL | re.IGNORECASE)
 _BUSINESS_SPLIT = re.compile(r"\n## BUSINESS\s+\d+\s+—\s+", re.IGNORECASE)

@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.chat.entity_matcher import CANONICAL_EXTRAS, match_entity_with_rows
 from app.chat.normalizer import normalize
-from app.db.seed_providers import _norm_provider_name
+from app.core.provider_name import _norm_provider_name
 
 # Step 1 / 2: structured fields (contact_name, source when not allowlisted)
 CONTACT_SOURCE_THRESHOLD = 90.0

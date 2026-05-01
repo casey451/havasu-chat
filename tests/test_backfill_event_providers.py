@@ -13,7 +13,7 @@ from app.db.backfill_event_providers import (
 )
 from app.db.database import SessionLocal, init_db
 from app.db.models import Event, Provider
-from app.db.seed_providers import _norm_provider_name
+from app.core.provider_name import _norm_provider_name
 
 _PREFIX = "TEST_BFE_"
 
