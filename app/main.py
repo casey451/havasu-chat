@@ -32,7 +32,6 @@ from app.programs.router import router as programs_router
 from app.core.event_quality import friendly_errors
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.db.database import SessionLocal, get_db, init_db
-from app.db.seed import run_seed_if_empty
 from app.db.models import Event
 from app.schemas.event import EventCreate, EventRead
 
@@ -300,9 +299,6 @@ async def _hourly_cleanup_loop() -> None:
 async def lifespan(_: FastAPI):
     logger.info("ADMIN_PASSWORD loaded: %s", bool(os.getenv("ADMIN_PASSWORD")))
     init_db()
-    # Auto-seed empty DB on Railway only (local/tests use manual seed or fixtures).
-    if os.getenv("RAILWAY_ENVIRONMENT"):
-        await asyncio.to_thread(run_seed_if_empty)
     task = asyncio.create_task(_hourly_cleanup_loop())
     try:
         yield

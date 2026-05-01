@@ -20,7 +20,6 @@ from app.admin.auth import (
 )
 from app.db.database import DATABASE_URL, get_db
 from app.db.models import ChatLog, Event, Program
-from app.db.seed import run_seed
 from app.schemas.program import ProgramCreate
 
 from app.admin.contributions_html import register_contribution_html_routes
@@ -776,18 +775,6 @@ def admin_review_json(
     db.commit()
     db.refresh(event)
     return {"id": event.id, "status": event.status}
-
-
-@router.post("/reseed")
-def admin_reseed(request: Request, db: Session = Depends(get_db)) -> dict[str, int]:
-    """One-time ops: remove seed rows and re-insert with fresh embeddings (admin cookie)."""
-    redir = _guard(request)
-    if redir:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    deleted = db.query(Event).filter(Event.created_by == "seed").delete(synchronize_session=False)
-    db.commit()
-    inserted, skipped = run_seed(skip_init=True)
-    return {"deleted": deleted, "inserted": inserted, "skipped": skipped}
 
 
 @router.post("/reembed-all")

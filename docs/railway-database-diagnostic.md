@@ -157,7 +157,7 @@ No code path constructs Postgres from `PGHOST` / `POSTGRES_*` alone.
 
 **`database.py`:** No `RAILWAY_ENVIRONMENT` or Railway-specific DB logic.
 
-**`main.py`:** `RAILWAY_ENVIRONMENT` is used for Sentry environment naming and for `run_seed_if_empty` on startup — **not** for database URL selection.
+**`main.py`:** `RAILWAY_ENVIRONMENT` is used for Sentry environment naming. Lifespan **initializes the DB** and starts the **hourly** pending-review cleanup task — **not** for database URL selection. There is no automatic `REAL_SEED` event import on deploy; catalog growth uses **contributions** and **River Scene** (see `docs/STATE.md`).
 
 ```python
 # app/main.py (excerpt) — Sentry
@@ -172,8 +172,7 @@ sentry_sdk.init(dsn=dsn, environment=environment, ...)
 async def lifespan(_: FastAPI):
     logger.info("ADMIN_PASSWORD loaded: %s", bool(os.getenv("ADMIN_PASSWORD")))
     init_db()
-    if os.getenv("RAILWAY_ENVIRONMENT"):
-        await asyncio.to_thread(run_seed_if_empty)
+    task = asyncio.create_task(_hourly_cleanup_loop())
 ```
 
 ---

@@ -129,7 +129,6 @@ All of these require an **admin session cookie** (use browser after `POST /admin
 | `/admin/reembed-all` | Recomputes **embeddings** for every **event** (OpenAI) | **$$** + time; every row |
 | `/admin/retag-all` | Regenerates **tags** for every event (OpenAI) | **$$** + time |
 | `/admin/programs-reseed` | Imports from `docs/HAVASU_CHAT_SEED_INSTRUCTIONS.md` (supports `?dry_run=true`) | **Writes**; idempotent design but review output |
-| `/admin/reseed` | **Destructive:** deletes **seed-origin** events and re-runs seed | **Data loss** for those rows; backup first |
 
 **Do not** run destructive endpoints against production without a **backup** and a clear **reason**.
 
@@ -213,7 +212,7 @@ Full routing, voice, and locked decisions: [`HAVA_CONCIERGE_HANDOFF.md`](../HAVA
 
 #### Bulk / maintenance `POST` (see [§2.4](#24-running-backfills-and-bulk-admin-actions))
 
-- `/admin/reseed`, `/admin/reembed-all`, `/admin/programs-reseed`, `/admin/retag-all`
+- `/admin/reembed-all`, `/admin/programs-reseed`, `/admin/retag-all`
 
 #### Debug (non-secret)
 
