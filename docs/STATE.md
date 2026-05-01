@@ -12,7 +12,7 @@ This document is updated at the end of each session that ships work. It is the c
 
 ## Tests
 
-- **Pytest baseline:** 942 passing (8 failures: seed/backfill tests requiring `HAVASU_CHAT_MASTER.md` locally — pre-existing, unchanged by H1)
+- **Pytest baseline:** full suite green (`python -m pytest -q`). Legacy master-file seed/import tests were removed with the 2026 River-Scene-only ingestion cleanup (commits on `main` after `f6c0daa`; see git log).
 - **Test command:** `python -m pytest -q`
 
 ## Recent commits (newest first)

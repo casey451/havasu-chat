@@ -268,7 +268,7 @@ Columns (see handoff **§3.10**; names match `app/db/models.py` `ChatLog`):
 | `SENTRY_DSN` | If unset, Sentry **off** | No crash aggregation | Set in prod; alerts configured in Sentry **UI** (see checklist) |
 | `SEARCH_DIAG_VERBOSE` | Off | When **on**: `search_debug.log` + `search_diag` **DEBUG** | Short incidents only; see [§2.5](#25-toggling-diagnostics) |
 | `RATE_LIMIT_DISABLED` | Off | If **on**, **all** slowapi limits disabled (tests or emergency) | **Never** default in prod |
-| `RAILWAY_ENVIRONMENT` | Unset locally | If set, production-flavored init (e.g. auto-seed if empty) | **Platform** — not hand-edited |
+| `RAILWAY_ENVIRONMENT` | Unset locally | If set, **Sentry** uses the **production** environment label (`app/main.py`) | **Platform** — not hand-edited |
 
 `app/bootstrap_env.py` loads **`.env`** with **`override=False`** (platform env wins over file).
 

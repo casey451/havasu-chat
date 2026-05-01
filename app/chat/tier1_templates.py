@@ -1,4 +1,4 @@
-"""Tier 1 regex + template responses (see HAVASU_CHAT_MASTER.md §3.3, §7, §8).
+"""Tier 1 regex + template responses (normative copy in ``HAVA_CONCIERGE_HANDOFF.md`` Tier 1 / voice sections).
 
 Exports:
 

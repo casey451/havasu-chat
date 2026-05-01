@@ -114,17 +114,15 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 
 **Observation:** ~33/486 ≈ **7%** Tier 1 hits pre-H1 — lower than expected for templated provider lookups.
 
-**Next step:** After bulk import (**Phase 8.11**), re-measure; if it stays low, investigate (signal worth pulling on).
+**Next step:** After the live catalog stabilizes (River Scene + contributions), re-measure; if it stays low, investigate (signal worth pulling on).
 
 ---
 
-## Backlog 10 - `HAVASU_CHAT_MASTER.md` test fixture (**OPEN**)
+## Backlog 10 - `HAVASU_CHAT_MASTER.md` test fixture (**CLOSED**)
 
-**Issue:** Eight seed/backfill tests fail in environments missing **`HAVASU_CHAT_MASTER.md`** at the repo root.
+**Was:** Eight seed/backfill tests failed without **`HAVASU_CHAT_MASTER.md`** at repo root.
 
-**Options:** Bundle a minimal fixture, mark tests skip-when-absent, or document dev-env setup explicitly.
-
-**Note:** Pre-existing; unrelated to H1, but visible on every local `pytest` run without the file.
+**Resolution:** Non-River-Scene seed/import lanes (master-backed provider seed, REAL_SEED, instructions import, Google bulk ingest, etc.) were removed in the **2026 cleanup stream**; those tests and fixtures are gone. Full `pytest` no longer depends on the master file.
 
 ---
 
