@@ -287,7 +287,6 @@ Run from repo root; use `.\.venv\Scripts\python.exe` on Windows. Set **`DATABASE
 | `scripts/run_voice_audit.py` / `run_voice_spotcheck.py` | Voice QA | venv | Paid/structured; see `prompts/` |
 | `scripts/seed_from_havasu_instructions.py` | Seeding | also invoked by `POST /admin/programs-reseed` | |
 | `scripts/activate_scraped_programs.py` | One-off data ops | use rarely | can **mutate** DB |
-| `scripts/build_complete_handoff.py` | Doc build | not prod ops | |
 | `scripts/extract_tier3_queries.py` | Ad hoc Tier-3–style query extraction | venv | dev / tuning |
 | `scripts/measure_hint_extractor_tokens.py` | Token use for session **hint** extraction | venv | dev |
 | `scripts/run_manual_phase64_verify.py` | Session-memory spot verification | venv | post-change QA |
