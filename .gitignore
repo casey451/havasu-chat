@@ -37,3 +37,6 @@ scripts/confabulation_eval_results/*
 !scripts/confabulation_eval_results/baselines/
 *.log
 sentinel_ids*.txt
+
+# pg_dump output; do not commit production backups
+*.sql
