@@ -10,6 +10,8 @@
 
 **Headline:** The code is in better shape than typical for a small-team project at this stage, but has accumulated specific structural debts that will compound badly as the codebase grows. The most consequential issue is duplicated LLM-call infrastructure across four files; the second-most is two parallel chat systems running side-by-side with unclear deprecation status. Most other findings are localized cleanups.
 
+**Post-pilot reality (2026-05):** Legacy **`POST /chat`** / **`app/chat/router.py`** were removed in the H1 deletion ship (`docs/maintainability/h1_router_decision.md`, commits `61387e4..23a39a5`). Finding **H1** below describes the **pre-removal** snapshot only.
+
 ---
 
 ## Severity legend
@@ -31,9 +33,9 @@
 
 ### H1. Two parallel chat systems running in production
 
-**Files:** `app/chat/router.py` (905 lines, registers `POST /chat`), `app/chat/unified_router.py` (~440 lines, registers `POST /api/chat` via `app/api/routes/chat.py`).
+**Files (historical — `router.py` deleted with H1):** At review time, `app/chat/router.py` (~905 lines, `POST /chat`) and `app/chat/unified_router.py` (~440 lines, `POST /api/chat` via `app/api/routes/chat.py`).
 
-**Problem:** Both endpoints are live and route real traffic. They use different architectures (state-machine intent dispatch vs. tiered routing), different session storage patterns, different response schemas (`ChatResponse` vs. `ConciergeChatResponse`), and different logging tags (`tier_used="track_a"` vs. numeric tiers).
+**Problem (at snapshot):** Both endpoints were live and routed real traffic. They use different architectures (state-machine intent dispatch vs. tiered routing), different session storage patterns, different response schemas (`ChatResponse` vs. `ConciergeChatResponse`), and different logging tags (`tier_used="track_a"` vs. numeric tiers).
 
 **Why it matters for AI-maintainability:**
 
@@ -51,7 +53,9 @@
 
 Specifically: a follow-up read-only session that answers (a) which frontend paths hit `/chat` vs `/api/chat` today, (b) whether `/chat` is used at all in the live frontend, (c) what would break if `/chat` were removed, (d) what the migration plan should be. After that investigation, decide between deletion, deprecation with redirect, or formal documentation of both paths. Do not start feature work that touches chat routing until this is resolved.
 
-This is the single most consequential finding in this review.
+**Resolved (H1 ship, 2026-04-29):** Legacy **`POST /chat`** removed; follow **`docs/maintainability/h1_router_decision.md`**. The bullets above remain as the pilot’s rationale archive.
+
+This was the single most consequential finding in this review at snapshot time.
 
 ---
 
