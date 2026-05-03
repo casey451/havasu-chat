@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs: sync canonical orientation with repo reality** (2026-05-03); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): open #18 — repo hygiene & documentation hierarchy** (2026-05-03); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+67740de docs(BACKLOG): open #18 — repo hygiene & documentation hierarchy
+ed76435 docs: add PM organization brief and Cursor new-chat playbook
 364cd5f docs(findings_app_chat): mark H1 parallel-router finding historical
 665ff4c docs(STATE): fix recent-commit SHA and stable main pointer
 656d54b docs: sync canonical orientation with repo reality
@@ -29,13 +31,11 @@ e83ccf0 docs: chat behavior followup plan
 81fe20c chore: add cleanup_non_river_scene.py — purge non-RS data from DB
 80f8383 docs: align project-handoff.md with River-Scene-only ingestion
 6af8430 docs: align ops copy with River-Scene-only ingestion (pytest + env vars)
-d84b9c1 chore: remove Havasu instructions seed lane and related backfills
-da8734f chore: remove REAL_SEED lane, admin /reseed, and Railway auto-seed startup
-0674467 chore: remove Google bulk ingest/embed and event-provider backfill lane
-ac5f92a chore: remove provider seed module, master concierge populate, and tests
 ```
 
 ## Recently shipped (high signal)
+
+- **`ed76435`..`67740de`** — **PM organization program kickoff (Slice 1 + Backlog #18 open)** — Added `docs/maintainability/project_manager_organization_brief.md` (zero-context PM onboarding, phases A–D, anti-patterns, success criteria) and `docs/CURSOR_NEW_CHAT_PLAN.md` (Mode A/B playbook, doc read order, paste templates, ship close-out). Indexed in `docs/maintainability/project_index.md`; `docs/CURSOR_ORIENTATION.md` now points to the playbook. Backlog #18 opened to track phased execution; the ~79-file CRLF↔LF working-tree drift surfaced during this session is queued as a Phase B sub-bullet, not bundled into this ship.
 
 - **`364cd5f`** — **`docs/maintainability/findings_app_chat.md`:** H1 “two parallel chat systems” marked historical (`router.py` / **`POST /chat`** removed per H1 ship).
 
@@ -53,7 +53,7 @@ ac5f92a chore: remove provider seed module, master concierge populate, and tests
 
 See **`docs/BACKLOG.md`**. Snapshot:
 
-- **OPEN** — **2**, **3**, **5**, **7**–**9**, **11**, **12**, **14**, **16** (see `docs/BACKLOG.md` for titles).
+- **OPEN** — **2**, **3**, **5**, **7**–**9**, **11**, **12**, **14**, **16**, **18** (see `docs/BACKLOG.md` for titles).
 - **RESOLVED** this documentation pass — **13** (`STATE.md` drift), **15** (`query-test-battery.md` `venues.py` line).
 - **DEFERRED** — **17** (OpenAI helper extraction until a second caller exists).
 - **Confabulation / eval** — operator harness: `docs/confabulation-eval-runbook.md`, code under `app/eval/`. Broader “phase 8.8.6” spec markdown was pruned; recover from git history if needed.
