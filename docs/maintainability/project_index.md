@@ -54,7 +54,7 @@ prior session's unified-router trace; this doc stays one level up.
 
 **`relay/`** — Ephemeral working directory for HALT transcripts, sanity-check outputs, and similar files produced during owner ↔ assistant relay sessions. Root **`.gitignore`** ignores everything under **`relay/`** except **`relay/README.md`** (which explains the convention); other files there are local-only and not part of git history. **`docs/STATE.md`** records that ignore pattern as part of a docs-tree cleanup. Not a git submodule (no `.gitmodules` at repo root).
 
-**`alembic.ini`**, **`pytest.ini`**, **`.cursorrules`**, **`.cursor/rules/`** — Tooling and editor/agent configuration (not application runtime code).
+**`alembic.ini`**, **`pytest.ini`**, **`.gitattributes`**, **`.cursorrules`**, **`.cursor/rules/`** — Tooling and editor/agent configuration (not application runtime code).
 
 ## 3. Key flows
 
@@ -77,6 +77,7 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `HAVA_CONCIERGE_HANDOFF.md` (repo root) | Architecture spine: tiers, data model summary, pointers to persona + maintainability decisions. | Current |
 | `docs/START_HERE.md` | Bootstrap for new Claude sessions: stack, branch, where to read next. | Current |
 | `docs/CURSOR_ORIENTATION.md` | Shorter Cursor-focused orientation. | Current |
+| `docs/CURSOR_NEW_CHAT_PLAN.md` | Mode A vs B playbook for new Cursor sessions: full doc read order, paste templates, ship close-out. | Current |
 | `docs/CLAUDE_SESSION_BRIEFING.md` | Session briefing / context for assistants. | Current |
 | `docs/PROJECT.md` | Project overview. | Current |
 | `docs/STATE.md` | Declared repo/product state snapshot. | Current |
