@@ -201,13 +201,19 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 **Phases (each ships independently, gated):**
 
 - [ ] **A — Single source of truth.** STATE/BACKLOG stay aligned with git and production after every ship. Resolve any doc-vs-code drift discovered in a session as its own small commit.
-- [ ] **B — Filesystem contract.** Repo root, `scripts/` (committed tools vs generated outputs), `docs/` (canonical vs archive). Includes a one-shot `.gitattributes` + `git add --renormalize .` cleanup of the current ~79-file CRLF↔LF working-tree drift surfaced 2026-05-03 (must be its own ship — no behavior changes bundled).
+- [ ] **B — Filesystem contract.**
+  - [x] **EOL normalization** (Slice 2, `23b2054`): `.gitattributes` policy (`text=auto eol=lf` default; explicit binary markers for `.png`, `.gz`, plus future-proof set). HEAD was already LF; primary effect is fixing Windows-side CRLF drift on checkout. Verified pre/post pytest baseline matched exactly.
+  - [ ] Repo root convention: reserve for project spine; document where operational clutter lives.
+  - [ ] `scripts/`: separate committed tools from generated outputs; document in `scripts/README.md` what produces what.
+  - [ ] `docs/`: session transcripts and non-canonical dumps to `docs/archive/` (or equivalent) with a one-line rule in orientation.
 - [ ] **C — Documentation depth where code is complex.** Grow `docs/components/` for the tier2 stack, contrib/River Scene, and admin. Fill `project_index.md` §5 gaps (Railway service/env matrix, HTTP API sketch, CI query-battery story) one small ship at a time.
 - [ ] **D — Engineering gates.** CI lint + tests on PR. Single formatting tool, scoped to avoid whole-repo cosmetic churn in feature PRs.
 
 **Anti-patterns (per brief §6):** mega-refactors that mix tree reorg with behavior change; parallel specs (one topic, one canonical doc); silent commits that change contracts without component-doc / BACKLOG / STATE updates; assuming pytest ran in every environment.
 
 **Success (per brief §8):** new features land with a clear subsystem home, updated/new component docs when contracts change, and BACKLOG/STATE reflecting reality. Onboarding follows one reading path, not chat-log archaeology.
+
+**Pre-Slice 2 finding (2026-05-03) — working-tree truncation:** During Slice 2's survey, `docs/BACKLOG.md` and `docs/STATE.md` were found truncated mid-content in the working tree (BACKLOG ended at "Layer 3 ", missing 28 lines including 3 ship log entries; STATE ended at "under `relay/` ", missing 13 lines including the "How to update this document" section). Both files terminated without trailing newline. HEAD versions were intact — corruption was unstaged-only. Restored via `git checkout HEAD -- docs/BACKLOG.md docs/STATE.md` as Slice 2 pre-step. Cause unknown; possible candidates: aftermath of stale `.git/index.lock` from 2026-05-02 22:11, an editor crash, or a sync/backup tool writing partial. Forensic file-stat snapshot pre-restore: `BACKLOG.md` Length 17862, LastWriteTime 5/3/2026 3:20:20 PM; `STATE.md` Length 6461, LastWriteTime 5/3/2026 3:21:46 PM (PowerShell `Get-Item`, Cursor agent host). **No tripwire in place beyond awareness — if this pattern recurs, escalate to investigation.**
 
 **First-week actions (per brief §7):**
 1. Read STATE / WORKING_AGREEMENT / BACKLOG / project_index. (Done by PM 2026-05-03.)
