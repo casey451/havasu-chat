@@ -59,14 +59,15 @@ need them to execute a well-specified phase.
 - `docs/POST_SHIP_CHECKLIST.md` — what to update after every ship
 
 **Hava-specific:**
-- `HAVA_CONCIERGE_HANDOFF.md` — architectural spec, phase history,
-  voice rules
+- `HAVA_CONCIERGE_HANDOFF.md` (repo root) — architecture + tier
+  routing; voice rules in `docs/persona-brief.md`; what's next in
+  `BACKLOG.md` / `STATE.md`
 - `docs/persona-brief.md` — persona and voice reference
 - `docs/known-issues.md` — open issues, deferred work
 - `docs/pre-launch-checklist.md` — living tracker
 
 ## Current phase position
 
-Check the latest commit on `main` and the `HAVA_CONCIERGE_HANDOFF.md`
-§5 phase list to determine what's landed and what's next. Do not
-assume — phases advance frequently.
+Check the latest commit on `main`, `docs/STATE.md`, and
+`docs/BACKLOG.md` to determine what's landed and what's next. Do not
+assume — priorities advance frequently.

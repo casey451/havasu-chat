@@ -1,4 +1,4 @@
-> **Fresh Claude or Cursor session?** Read this file first, then `docs/WORKING_AGREEMENT.md`, then `docs/BACKLOG.md`. Architecture context lives in `docs/PROJECT.md` if you need it.
+> **Fresh Claude or Cursor session?** Read this file first, then `docs/WORKING_AGREEMENT.md`, then `docs/BACKLOG.md`. Architecture context: `docs/PROJECT.md`, `HAVA_CONCIERGE_HANDOFF.md` (repo root), `docs/maintainability/project_index.md`.
 
 # Current state
 
@@ -6,72 +6,65 @@ This document is updated at the end of each session that ships work. It is the c
 
 ## Production
 
-- **Deployed commit:** `f6c0daa` — docs(maintainability): file H2 Session 1 design artifacts.
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Health:** `/health` returns 200, db_connected, event_count 114
+- **Repo `main` @ this STATE update:** `f2818b8` — docs: sync canonical orientation with repo reality. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
+- **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
 ## Tests
 
-- **Pytest baseline:** full suite green (`python -m pytest -q`). Legacy master-file seed/import tests were removed with the 2026 River-Scene-only ingestion cleanup (commits on `main` after `f6c0daa`; see git log).
 - **Test command:** `python -m pytest -q`
+- **Note:** Legacy seed / master-file tests were removed with the River Scene–only ingestion cleanup. Expectations and failure modes changed vs older baselines; run the suite after major pulls.
 
 ## Recent commits (newest first)
 
 ```
-f6c0daa  docs(maintainability): file H2 Session 1 design artifacts
-49b7f3b  Add maintainability/ docs: pilot findings and H1 decision (post-ship filing)
-23a39a5  feat(schemas): remove legacy ChatRequest/ChatResponse (H1 commit 7)
-f3da1df  feat(db): remove log_chat_turn + TRACK_A_TIER_USED (H1 commit 6)
-6e528ed  feat(core): delete venues module (H1 commit 5 — orphan after /chat removal)
-f70be20  feat(chat): delete legacy /chat router (H1 commit 4)
-ef1e6a6  test: remove remaining /chat tests + invert Sentry scrub assertion (H1 commit 3.5)
-cbe087e  feat(main): unwire legacy /chat router (H1 commit 3)
-f76d5e2  test: remove /chat tests from mixed files (H1 commit 2)
-dcc5454  test: remove test_phase4 (H1 commit 1 — legacy /chat duplicate tests)
+f2818b8 docs: sync canonical orientation with repo reality
+905ce17 docs: prune low-utility historical markdown
+5a55347 docs: project index for external-session navigation
+e83ccf0 docs: chat behavior followup plan
+7cba51e docs: add non_river_scene_cleanup maintainability retrospective
+81fe20c chore: add cleanup_non_river_scene.py — purge non-RS data from DB
+80f8383 docs: align project-handoff.md with River-Scene-only ingestion
+6af8430 docs: align ops copy with River-Scene-only ingestion (pytest + env vars)
+d84b9c1 chore: remove Havasu instructions seed lane and related backfills
+da8734f chore: remove REAL_SEED lane, admin /reseed, and Railway auto-seed startup
+0674467 chore: remove Google bulk ingest/embed and event-provider backfill lane
+ac5f92a chore: remove provider seed module, master concierge populate, and tests
 ```
 
-## Recently shipped (last work cycle)
+## Recently shipped (high signal)
 
-- **H2 Session 1 — design artifacts filed** (`f6c0daa`) — `docs/maintainability/h2_consolidation_decision.md` and the Session 2 kickoff handoff `docs/maintainability/h2_session2_handoff.md` (since removed from tree; see git history) committed. The decision document is the canonical design for H2 (LLM-call infrastructure consolidation): duplication map across `tier2_parser`, `tier2_formatter._format_via_llm`, `llm_router`, and `tier3_handler`; bundled `AnthropicResult` / `Usage` helper API targeted at a new `app/core/llm_messages.py`; mock-seam constraints derived from a Cursor verification pass over the test surface (preserve `import anthropic` package shape, preserve `messages.create` kwargs); five-commit migration plan with pytest gates after each commit and post-deploy monitoring on `chat_logs.tier_used` 2/3 latency and tokens; explicit deferral of `hint_extractor.py` (OpenAI; one caller, no actual duplication) and `scripts/run_voice_audit.py` (out of `app/chat/` scope). The slim handoff document is the kickoff artifact for the Session 2 chat. No application code changes; pytest baseline 942/8 unchanged; production verification was `/health` 200 with stable `event_count`. Opens Backlog **16** and **17** (both DEFERRED on Session 2's helper module shipping).
+- **Canonical doc sync (`f2818b8`)** — Added **`HAVA_CONCIERGE_HANDOFF.md`** content at repo root; rewrote **`docs/STATE.md`** for RS-only posture and current backlog snapshot; fixed **`docs/PROJECT.md`** Tier 1 + catalog lines; refreshed **`START_HERE`**, **`CURSOR_ORIENTATION`**, **`CLAUDE_SESSION_BRIEFING`**, **`persona-brief`** (status + historical sections), **`BACKLOG`** (13/15 resolved, 16 OPEN), **`query-test-battery`**, **`known-issues`**, **`project_index`**, **`findings_app_chat`**, **`havasu-development-plan`** header; small comment updates in **`tier1_templates`**, **`smoke_concurrent_chat`**.
 
-- **Maintainability artifacts filed to repo** (`49b7f3b`) — `docs/maintainability/findings_app_chat.md` and `docs/maintainability/h1_router_decision.md` committed. The pilot review identifies app/chat/ maintainability findings (3 HIGH, 8 MEDIUM, 7 LOW with severity and disposition); the H1 decision doc records the investigation that confirmed zero `track_a` production traffic over 30 days and recommended the deletion executed on 2026-04-29 (`61387e4..23a39a5`). Both files were external artifacts from prior Claude sessions; filing them under version control makes them recoverable to future sessions without re-upload. No application code changes; production verification was `/health` 200 with stable `event_count`.
+- **Doc hygiene + navigation (`905ce17`..`e83ccf0`)** — Added `docs/maintainability/project_index.md` (repo map, flows, doc index), `docs/maintainability/chat_behavior_followup_plan.md` (deferred chat eval + routing notes), and pruned slice-complete tier/Railway/handoff markdown (substance retained in **git history**). Updated cross-references in orientation docs, `known-issues`, `requirements.txt` comment, RS backfill index/runbook, `h2_consolidation_decision.md`, etc.
 
-- **H1 — Delete legacy `/chat` router** (`61387e4`..`23a39a5`) — Removed the Track A `POST /chat` stack: `app/chat/router.py` deleted; `app/main.py` unwired (`concierge_chat_router` only). Deleted orphan modules **`app/core/venues.py`**; deleted **`tests/test_phase4.py`** and **`tests/test_search_relevance.py`**. Trimmed **`app/db/chat_logging.py`** (`log_chat_turn`, `TRACK_A_TIER_USED`). Trimmed **`app/schemas/chat.py`** (legacy `ChatRequest` / `ChatResponse`); concierge schemas unchanged. Mixed test files no longer exercise legacy `/chat` (`test_api_chat`, `test_calendar_intent`, `test_phase2`, `test_phase3`, `test_phase6`, `test_phase8`, `test_phase8_5`, `test_phase87_privacy` — Sentry scrub assertion inverted so legacy `/chat` URLs are not scrubbed). **Production verification:** `GET /health` 200; `POST /chat` 404; `POST /api/chat` 200 with concierge response shape. **Deploy:** `6c416456-d1aa-4945-922a-cd6d7466c133`. **Suite:** 942 passing post-ship vs 987 pre-ship (**45 tests removed**, all legacy `/chat` integration coverage); **8** seed/backfill failures unchanged (not caused by H1). Follow-ups: **`docs/BACKLOG.md`** Backlog **7**–**11**.
+- **Non–River-Scene catalog cleanup (`81fe20c` + doc `7cba51e`)** — Script-driven removal of non–River-Scene catalog rows and lanes; production apply per retrospective. Chat and admin paths remain; first-party growth is **River Scene** + **approved contributions**.
 
-- **Session-launch briefing artifact** (`e0e995f`) — `docs/CLAUDE_SESSION_BRIEFING.md` introduced as a version-controlled copy of the external session-launch briefing. Primary use is external paste at the start of fresh Claude sessions; in-repo copy is durable storage. The briefing carries project identity, role split, voice constraints, process discipline, and embedded doc-update rhythm inline; points at canonical state docs for everything that drifts. Stable orientation doc — not in the per-ship update set.
+- **H2 LLM infrastructure (`h2_consolidation_decision.md` § Status — completed)** — `app/core/llm_messages.py` and migrated Anthropic callers in Tier 2 parser/formatter, `llm_router`, Tier 3. Session-2 kickoff markdown files were later **removed from the tree**; design + commit stack remain in the decision doc and git log.
 
-- **Session onboarding refresh + post-ship discipline** (`ea3f606` + `155cbac`) — `docs/POST_SHIP_CHECKLIST.md` introduced as the canonical post-ship runbook (what to update, what does not need updating, edge cases). `docs/START_HERE.md` trimmed to point at canonical state docs rather than carrying ship state inline (removes per-ship drift). `docs/CURSOR_ORIENTATION.md` refreshed in parallel with the same authoritative-docs structure. No application code changes; production verification was `/health` 200 with stable `event_count`.
-
-- **Component reference docs introduced** (`f7d58f2` + `9848a51`) — `docs/components/` directory established as the per-component navigation layer for AI sessions; first entry is `unified_router.md` describing the `POST /api/chat` orchestrator (pipeline phases, public surface, tier_used taxonomy, conventions, known limitations). Companion working-agreement update (`9848a51`) codifies "component doc currency" — when code in component X changes, `docs/components/X.md` updates in the same commit, with explicit no-update reasoning required when no change is needed. No application code changes; production verification was `/health` 200 with stable `event_count`.
-
-- **Docs tree cleanup** (`caab6f5`) — Removed 278 Markdown paths from the working tree (153 tracked deletions in commit; 125 were untracked/ignored filesystem-only). Scope: session and phase reports, relay artifacts, generated outputs, historical handoffs. `.gitignore` now uses `relay/` + `!relay/README.md` (replaces the prior three-line relay pattern). Rationale: ongoing maintenance is AI-assisted; files not instinctively opened for normal product work are not kept in-tree—git history retains removed content. No application code changes.
-
-- **Canonical session docs** (`98b8545`) — `PROJECT.md`, `STATE.md`, `WORKING_AGREEMENT.md`, and `BACKLOG.md` under `docs/`; session-start pointer at top of `STATE.md`. No application code changes.
-
-- **Past-date retrieval fix** (`6934d1d`) — `_query_events` no longer clamps explicit past date bounds to today. Production verification deferred until catalog has past-dated events.
-- **Tier 2 ranking improvement** (`1c262ad`, SQL ordering portion only) — events whose start_date matches the query date rank above overlap-only events for `date_exact` queries. The prompt-rule portion of this commit was deployed but had no observable effect on the LLM and was superseded by `d279165`.
-- **Clickable URLs** (`7d89a03` + `cdc4ac7` + emergent in `d279165`) — `event_url` flows through the row payload, frontend renders markdown link syntax as clickable anchors, deterministic renderer emits `[title](url)` for events with non-empty URLs.
-- **Formatter completeness fix** (`d279165`) — Tier 2 event responses now render via deterministic Python instead of LLM. Row count, order, and verbatim titles structurally guaranteed. Programs and providers still use the LLM path with the existing prompt.
+- **H1 legacy `/chat` removal (`61387e4`..`23a39a5`)** — Sole chat entry is **`POST /api/chat`**. Historical detail in `docs/maintainability/h1_router_decision.md` and git log.
 
 ## Queued / open work
 
-See `docs/BACKLOG.md` for the canonical list. Items not yet addressed:
+See **`docs/BACKLOG.md`**. Snapshot:
 
-- **Open backlog** — **`docs/BACKLOG.md`** (**OPEN** numbers **2**, **3**, **5**, **7**–**15**; **DEFERRED** numbers **16** and **17**, both blocked on H2 Session 2 shipping `app/core/llm_messages.py` — see file for titles and preconditions).
-- Programs and providers: scope-limited out of the deterministic renderer. Whether they have the same dropping/count-fabrication bug as events did is unverified.
-- Phase 8.8.6 eval harness: automated LLM-behavior testing wiring is incomplete. Several deferred-verification notes in `BACKLOG.md` would close once this lands.
+- **OPEN** — **2**, **3**, **5**, **7**–**9**, **11**, **12**, **14**, **16** (see `docs/BACKLOG.md` for titles).
+- **RESOLVED** this documentation pass — **13** (`STATE.md` drift), **15** (`query-test-battery.md` `venues.py` line).
+- **DEFERRED** — **17** (OpenAI helper extraction until a second caller exists).
+- **Confabulation / eval** — operator harness: `docs/confabulation-eval-runbook.md`, code under `app/eval/`. Broader “phase 8.8.6” spec markdown was pruned; recover from git history if needed.
 
 ## Working tree
 
-Tracked files clean after the most recent close-out (STATE/BACKLOG). Optional untracked Markdown under `docs/` (e.g. local design drafts) may still appear—stage intentionally if they should join `main`.
+Tracked files should be clean at close-out. Optional untracked artifacts under `relay/` (gitignored) are expected per `relay/README.md`.
 
 ## How to update this document
 
 At the end of each session that ships work, update:
 
-- **Deployed commit** — new top commit hash and subject
-- **Recent commits** — prepend the new commit(s); keep the list at roughly 10 entries
-- **Recently shipped** — describe what changed in user-facing or architectural terms; reference the commit hash
-- **Queued / open work** — adjust based on what's now closed vs. still pending
+- **Repo / deploy pointers** — commit hash, production verification notes, catalog counts if materially changed
+- **Recent commits** — prepend; keep ~10–12 lines
+- **Recently shipped** — what changed for users or architecture
+- **Queued** — align with `BACKLOG.md`
 
-Do not update this file mid-session. Update it as part of close-out, after verification has confirmed ship.
+Do not update mid-session; update as part of verified close-out.

@@ -146,13 +146,11 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 
 ---
 
-## Backlog 13 - `STATE.md` "Working tree" wording is H1-anchored (**OPEN**)
+## Backlog 13 - `STATE.md` "Working tree" wording is H1-anchored (**RESOLVED**)
 
-**Issue:** **`docs/STATE.md`** **Working tree** section still references "after the H1 close-out" specifically. Subsequent ships (artifact filing, reconciliation pass) don't update that anchor, so the wording will drift further from accuracy with each ship.
+**Original issue:** **`docs/STATE.md`** **Working tree** section referenced H1-era close-out language and drifted.
 
-**Desired fix:** Reword to a ship-agnostic phrase (e.g. "after the most recent close-out") or have **`POST_SHIP_CHECKLIST.md`** explicitly require updating this line per ship.
-
-**Severity:** LOW. Cosmetic; future sessions read past it.
+**Resolution:** **`docs/STATE.md`** rewritten **2026-05-03** with ship-agnostic working-tree guidance and broader STATE refresh.
 
 ---
 
@@ -166,23 +164,19 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 
 ---
 
-## Backlog 15 - Stale wording in `docs/query-test-battery.md` ~286 (**OPEN**)
+## Backlog 15 - Stale wording in `docs/query-test-battery.md` ~286 (**RESOLVED**)
 
-**Issue:** **`docs/query-test-battery.md`** near line ~286 references **`app/core/venues.py`** as a hypothetical "problem area." After H1, **`venues.py`** no longer exists — the wording could be misread as a current open question about a still-extant module.
+**Original issue:** **`docs/query-test-battery.md`** near line ~286 referenced **`app/core/venues.py`** as a hypothetical "problem area." After H1, **`venues.py`** no longer existed — the wording could be misread as a current module.
 
-**Desired fix:** Tighten wording so **`venues.py`** is unambiguously historical, or remove the reference. Document is otherwise still relevant; doesn't need a full historical banner.
-
-**Severity:** LOW.
+**Resolution:** Wording updated **2026-05-03** to mark `venues.py` as historical / removed in H1.
 
 ---
 
-## Backlog 16 - migrate `scripts/run_voice_audit.py` to consolidated LLM helpers (**DEFERRED**)
+## Backlog 16 - migrate `scripts/run_voice_audit.py` to consolidated LLM helpers (**OPEN**)
 
-**Issue:** After H2 Session 2 ships `app/core/llm_messages.py`, `scripts/run_voice_audit.py` will be the only remaining caller in the repo that reproduces the Anthropic-call boilerplate (`anthropic.Anthropic(...)` + `client.messages.create(...)` + token-usage extraction). Identified during the H2 Session 1 verification pass; documented in `docs/maintainability/h2_consolidation_decision.md` §4.
+**Issue:** `scripts/run_voice_audit.py` still reproduces Anthropic-call boilerplate (`anthropic.Anthropic(...)` + `client.messages.create(...)` + token-usage extraction) instead of the shared helpers. H2 shipped **`app/core/llm_messages.py`** (`docs/maintainability/h2_consolidation_decision.md` § Status — completed); this item is now a straightforward follow-on.
 
-**Precondition:** H2 Session 2 ships and pushes `app/core/llm_messages.py` to `origin/main`.
-
-**Desired fix:** Migrate the script's three Anthropic call sites (~lines 855, 868, 1081) to use `call_anthropic_messages` and the `Usage` dataclass. Out of `app/chat/` scope and on no production critical path; low-risk one-commit follow-on.
+**Desired fix:** Migrate the script's Anthropic call sites to use `call_anthropic_messages` and the `Usage` dataclass. Out of `app/chat/` scope and not on the production request path; low-risk one-commit change (line numbers drift — locate call sites by search).
 
 **Severity:** LOW.
 
@@ -219,3 +213,17 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 **Tests / verification:** 942 passing post-ship vs 987 pre-ship (**45** legacy `/chat` tests removed); **8** seed/backfill failures unchanged (baseline).
 
 **Follow-ups:** Backlog **7**–**15** (through slowapi warnings; later items include **`run_query_battery`** retarget, STATE wording, **`--collect-only`** discipline, **`query-test-battery`** wording — see current **`BACKLOG.md`**).
+
+---
+
+## Ship log - RS-only catalog cleanup + retrospective (**`5e75bf5`..`7cba51e`**)
+
+**What shipped:** Removed non–River-Scene ingestion and seed lanes from code; `scripts/cleanup_non_river_scene.py` and production DB apply removed non-RS catalog rows. Retrospective: `docs/maintainability/non_river_scene_cleanup.md`.
+
+**Follow-ups:** Provider ingestion and chat eval deferred per `docs/maintainability/chat_behavior_followup_plan.md`.
+
+---
+
+## Ship log - Documentation refresh (**`e83ccf0`..`905ce17`**)
+
+**What shipped:** Chat followup plan, `docs/maintainability/project_index.md`, repo-root `HAVA_CONCIERGE_HANDOFF.md` (architecture spine), pruned historical tier/Railway/handoff markdown (recoverable from git). **`docs/STATE.md`**, **`docs/PROJECT.md`**, **`docs/persona-brief.md`**, **`docs/BACKLOG.md`** (Backlog **16** → OPEN; **13**, **15** → RESOLVED), `docs/query-test-battery.md`, `docs/known-issues.md`, and cross-references updated for consistency.

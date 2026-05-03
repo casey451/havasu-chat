@@ -283,7 +283,7 @@ Same format.
 Same format.
 
 ### Recommendations
-Based on the bug patterns, which code area needs the next fix — search.py, slots.py, intent.py, venues.py, or conversation_copy.py? Do NOT propose code fixes, just identify the problem area.
+Based on the bug patterns, which code area needs the next fix — `search.py`, `slots.py`, `intent.py`, `conversation_copy.py`, or (historically) `venues.py` **removed in H1**? Do NOT propose code fixes, just identify the problem area.
 
 ---
 

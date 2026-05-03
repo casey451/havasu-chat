@@ -12,7 +12,7 @@ Chat-first interface backed by a tiered routing system. The frontend is a single
 
 User queries route through one of three tiers based on what they're asking:
 
-**Tier 1** — Templates. Hardcoded responses for common patterns (greetings, basic FAQs). Fast, deterministic, no LLM.
+**Tier 1** — Deterministic **catalog lookups** when the router has a resolved **provider entity** and a Tier-1-shaped sub-intent (hours, phone, address, website, cost, age, next event/date, open-now, time window). Reads `Provider` / `Program` / `Event` rows via SQLAlchemy and renders through `tier1_templates` — **no LLM** on the happy path. Greetings and small talk for `mode=chat` are short template strings in `unified_router`, not Tier 1.
 
 **Tier 2** — Structured retrieval. The user's query is parsed into structured filters (dates, categories, entity names), the catalog is queried via SQLAlchemy, and matching rows are rendered into a response. As of `d279165`, Tier 2 event listings are rendered deterministically in Python; mixed-type or non-event responses still use an LLM formatter.
 
@@ -26,7 +26,7 @@ Three primary entity types:
 - **Programs** — Ongoing activities (classes, leagues, recurring events). Have provider, category, schedule, age range, cost.
 - **Providers** — Businesses, organizations, venues. Have category, address, phone, hours.
 
-Catalog data is community-driven via contributions, corrections, and mentions. Some events are imported from RiverScene Magazine's calendar (source: `river_scene_import`); others are admin-entered.
+Catalog data grows via **approved contributions** and **River Scene** import (`river_scene_import`). After the 2026 non–River-Scene cleanup, production-first-party rows are RS-sourced events (and matching contributions) unless/until new ingestion lanes land; see `docs/maintainability/non_river_scene_cleanup.md` and `docs/STATE.md`.
 
 ### Chat pipeline
 
@@ -71,6 +71,7 @@ Production deploys via Railway; pushes to `main` trigger a deploy. `/health` end
 
 ## Where to find more
 
+- `HAVA_CONCIERGE_HANDOFF.md` (repo root) — tier routing, data-shape summary, pointers to locked decisions
 - `docs/STATE.md` — current production state, deployed commit, recently shipped work, queued work
 - `docs/components/` — per-component reference docs (purpose, public surface, internal structure, conventions, known limitations). Start here when working on a specific subsystem.
 - `docs/WORKING_AGREEMENT.md` — session discipline for Claude/Cursor/Casey collaboration

@@ -242,7 +242,7 @@ For now: document the limitation in the entity_matcher docstring so future Claud
 
 ### L2. Stale references in module docstrings
 
-**Files:** `tier1_templates.py` references "HAVASU_CHAT_MASTER.md" (almost certainly renamed to `HAVA_CONCIERGE_HANDOFF.md`). `entity_matcher.py` references "docs/HAVASU_CHAT_SEED_INSTRUCTIONS.md".
+**Files:** `tier1_templates.py` docstring cites `HAVA_CONCIERGE_HANDOFF.md` (repo root). `entity_matcher.py` may still reference removed seed-instruction paths — verify against current tree when touching that module.
 
 **Disposition: Fix when touched.** Or do a focused docstring-currency pass. Not blocking.
 

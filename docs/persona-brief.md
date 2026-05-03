@@ -1,7 +1,7 @@
 # Persona Brief — Hava
 
-**Phase:** 8.8.0 output, pre-implementation
-**Status:** Draft, awaiting owner review. Once owner-approved, becomes the reference document Cursor executes against in 8.8.1a (handoff docs) and 8.8.1b (code) and verifies against in 8.8.2 (voice regression).
+**Phase:** 8.8.x voice and persona (shipped in prompts + templates)
+**Status:** **Authoritative** for Hava persona, delivery, and language blocklist. Architecture and tier routing: **`HAVA_CONCIERGE_HANDOFF.md`** (repo root).
 **Supersedes:** §2.1 of `HAVA_CONCIERGE_HANDOFF.md` (community-credit stance reopened; see §Revisions to locked decisions below).
 **Related:** `HAVA_CONCIERGE_HANDOFF.md` §3 (voice spec — still locked), §8.7 (out-of-scope template — still locked).
 
@@ -224,9 +224,9 @@ Tier 3 system prompts currently carry community-credit language from the origina
 
 Correction flow intro templates currently assume community-interface framing. Replace with firsthand-voice acceptances per §5.2.
 
-### 9.3 Handoff document — full rewrite (Phase 8.8.1a)
+### 9.3 Handoff document — superseded split (2026-05)
 
-`HAVA_CONCIERGE_HANDOFF.md` (formerly `HAVA_CONCIERGE_HANDOFF.md`) needs the following updates in Phase 8.8.1a: file rename, full prose rename of "Havasu Chat" → "Hava", §2.1 rewrite from Option B to firsthand voice, §8.3 replacement ("Community-credit patterns" → "Firsthand voice patterns"), §1a decoupling of architecture from voice, §8.1 identity revision, §8.2 hard rule on AI self-reference loosened, cross-reference updates to this brief in §2.2, §3.9, §5 Phase 3.1/3.2, and §6. Owner originally flagged this as owner-task; owner subsequently directed Cursor to execute in 8.8.1a with diff review before commit.
+The monolithic handoff rewrite tracked in early 8.8 planning is **superseded**: **`HAVA_CONCIERGE_HANDOFF.md`** at repo root is the **architecture spine** (tiers, data model, pointers); this **`persona-brief`** holds normative **voice and persona** prose. Prompts under `prompts/` align with this brief; update both when voice rules change.
 
 ### 9.4 Known-issues entry (8.8.1b timeframe)
 
@@ -244,7 +244,7 @@ Binary-strict gate applied to audit results from `scripts/run_voice_audit.py --e
 - **MINOR count has no hard cap.** Each MINOR finding is reviewed individually. Systemic MINORs (same rule cited across multiple samples) get remediated; one-off MINORs may be accepted with a one-line note in the results commit.
 - **ERROR count must be 0.** ERROR indicates a runner or API bug, not a voice finding, and blocks closure regardless of FAIL/MINOR state.
 
-This threshold applies to v1 (curated 25-provider catalog). Phase 8.12 (voice regression v2 against expanded catalog) will revise these criteria per §4 of the pre-launch scope revision doc.
+This threshold applies to v1 (curated 25-provider catalog). Phase 8.12 (voice regression v2 against expanded catalog) may revise criteria; the old pre-launch scope revision markdown was removed from the tree — see **git history** if needed.
 
 ### 9.6 Phase 8.9 (newly added, pre-launch)
 
@@ -252,44 +252,19 @@ Event ranking: classify events as one-time vs. recurring, prefer one-time in tim
 
 ---
 
-## 10. Handoff for Phase 8.8.1 (split into 8.8.1a and 8.8.1b)
+## 10. Phase 8.8.1 handoff checklist (historical — completed)
 
-### 10.1 Phase 8.8.1a — Handoff documentation (docs only, no code)
-
-1. Commit this brief as `docs/persona-brief.md`.
-2. Rename `HAVA_CONCIERGE_HANDOFF.md` → `HAVA_CONCIERGE_HANDOFF.md` via `git mv`.
-3. Full rename of "Havasu Chat" → "Hava" in doc prose. Preserve historical references in §1d phase history table and any repo-path references.
-4. Execute §2.1 rewrite per §9.3 of this brief.
-5. Replace §8.3 "Community-credit patterns" with "Firsthand voice patterns" (stale-data hedge, correction acceptance, contribution invitations).
-6. Revise §1a line 104, §2.2, §3.9 bullet, §5 Phase 3.1/3.2 references, §8.1 identity, §8.2 hard rule.
-7. Add `docs/persona-brief.md` to §6 file structure.
-8. Update cross-references to the old filename in `docs/runbook.md`, `docs/known-issues.md`, and any other `docs/*.md`.
-9. Report full diff before committing. Hold commit for owner push approval.
-
-**Out of scope for 8.8.1a:** any code files. §2.3 and §8.5 contested-state phrasings stay as-is. §1d historical record stays as-is.
-
-### 10.2 Phase 8.8.1b — Code implementation (after 8.8.1a closes)
-
-1. Read `docs/persona-brief.md` and the revised `HAVA_CONCIERGE_HANDOFF.md` §2.1 / §8.3 in full.
-2. Update the Tier 3 system prompt to reflect all §4–§6 patterns.
-3. Update Phase 5 correction flow templates per §5.2.
-4. Update Tier 1 greeting/small-talk templates to match §5.1 (no-question-back pattern).
-5. Add the hard language blocklist (§8.1) to the system prompt verbatim.
-6. Incorporate the response patterns (§8.2) as scaffolding guidance.
-7. Do NOT modify §3 of the handoff, §8.7 of the handoff, or any §3.9 carve-out logic.
-
-**Out of scope for 8.8.1b:** Phase 8.9 event ranking. Retrieval logic changes. Data model changes. Any voice change that goes beyond what this brief explicitly specifies.
+The 8.8.1a / 8.8.1b split described in earlier revisions **completed**: `docs/persona-brief.md` is committed, prompts and templates were updated toward firsthand voice, and **`HAVA_CONCIERGE_HANDOFF.md`** now exists at repo root as the architecture companion. Use **§9** and **git log** for the original execution intent; do not treat §10 as blocking work.
 
 ---
 
-## 11. Open items for owner decision before 8.8.1b starts
+## 11. Open items (persona scope)
 
-No open decisions remaining.
+No blocking owner decisions.
 
 - **Voice for bulk-imported providers — RESOLVED 2026-04-23.** Option 3b selected: firsthand at landscape level, factual-descriptive at per-provider level. Decision recorded in §6.7.
 
-One item flagged for owner execution alongside 8.8.1b:
-- **§9.4** — known-issues entry to be authored alongside 8.8.1b execution.
+- **§9.4** — voice-transition tracking lives in `docs/known-issues.md` and audit tooling as the product evolved; no separate “pre 8.8.1b” gate remains.
 
 ---
 
@@ -298,3 +273,5 @@ One item flagged for owner execution alongside 8.8.1b:
 **2026-04-22, v1 (draft):** Initial draft from 8.8.0 design conversation. Captures fused naming, Hava as full character with vague backstory, she/her pronouns, "AI local of Lake Havasu" tagline, place-name-fluency voice, playful humor, light small talk, firsthand-voice corrections, reactive AI-acknowledgment. Revises §2.1 of handoff from community-credit (Option B) to firsthand voice. Adds Phase 8.9 pre-launch for event ranking.
 
 **2026-04-22, v2:** Updated filename references from `HAVA_CONCIERGE_HANDOFF.md` to `HAVA_CONCIERGE_HANDOFF.md` (owner directed full product rename). Split §10 handoff into 8.8.1a (documentation) and 8.8.1b (code). §9.3 reclassified from owner task to Cursor execution in 8.8.1a per owner direction.
+
+**2026-05-03:** Status set to authoritative; §9.3/§10 aligned with repo-root `HAVA_CONCIERGE_HANDOFF.md` + doc prune; §11 closed pre-8.8.1b gates.

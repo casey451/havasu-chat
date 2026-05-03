@@ -1,4 +1,4 @@
-"""Tier 1 regex + template responses (normative copy in ``HAVA_CONCIERGE_HANDOFF.md`` Tier 1 / voice sections).
+"""Tier 1 regex + template responses (intent patterns; voice in ``docs/persona-brief.md``, tiers in ``HAVA_CONCIERGE_HANDOFF.md`` §3).
 
 Exports:
 

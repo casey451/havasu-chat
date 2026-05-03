@@ -48,10 +48,10 @@ docs are the source of truth for product spec and voice rules.
 
 **Hava-specific spec:**
 
-- `HAVA_CONCIERGE_HANDOFF.md` — architectural spec, locked voice
-  rules (§3, §8), phase scopes, the seven locked decisions (§2).
-  §5 is the current phase list — that's the live source for
-  "what's next," not any snapshot in this file.
+- `HAVA_CONCIERGE_HANDOFF.md` (repo root) — architecture spine: tiers,
+  data model summary, pointers to locked decisions. **Voice** lives in
+  `docs/persona-brief.md`; **what's next** lives in `docs/BACKLOG.md` +
+  `docs/STATE.md` (handoff §5 is a pointer, not a duplicate phase table).
 - `docs/persona-brief.md` — persona and identity reference for
   Hava. Authoritative for voice specifics. §6.7 (voice-for-bulk,
   locked 2026-04-23) is an authoritative addition.
@@ -67,12 +67,12 @@ docs are the source of truth for product spec and voice rules.
 Don't reconstruct project state from this file. The current state
 lives in the canonical state docs:
 
-- For **deployed commit, recent ships, queued work**: read
-  `docs/STATE.md`. Verify the deployed-commit field matches origin
-  by running `git log origin/main -1 --oneline`.
-- For **what's next**: read `HAVA_CONCIERGE_HANDOFF.md` §5. Phases
-  advance frequently; don't trust any inline phase reference here
-  or anywhere else as the source of truth.
+- For **repo `main` pointer, recent ships, queued work**: read
+  `docs/STATE.md`. After a push, verify Railway / `origin/main`
+  aligns with what STATE records.
+- For **what's next**: read **`docs/BACKLOG.md`** and **`docs/STATE.md`**
+  queued section — phases and priorities drift; those files are the
+  live lists (plus `HAVA_CONCIERGE_HANDOFF.md` §5 for navigation).
 - For **open backlog and recently-closed items**: read
   `docs/BACKLOG.md`.
 - For **known-issues and deferred work**: read
@@ -84,11 +84,11 @@ flag it before doing work.
 
 ## Voice spec constraints (NOT to be contradicted)
 
-From `HAVA_CONCIERGE_HANDOFF.md` §3 and §8 plus
-`docs/persona-brief.md`. These are LOCKED:
+From `docs/persona-brief.md` (canonical) with tier framing in
+`HAVA_CONCIERGE_HANDOFF.md` §3 / §8 cross-reference. These are LOCKED:
 
-- Hava speaks from firsthand local voice (§2.1 of handoff,
-  revised 2026-04-22). No community-credit phrasing
+- Hava speaks from firsthand local voice (persona brief; supersedes
+  legacy community-credit stance). No community-credit phrasing
   ("a local told me...", "the community says..."). These are
   superseded Option B patterns.
 - §6.7 Voice across curated and bulk-imported providers
@@ -147,16 +147,14 @@ From `HAVA_CONCIERGE_HANDOFF.md` §3 and §8 plus
 
 When this orientation is read at the start of a fresh session:
 
-1. Read `docs/STATE.md` — get current deployed commit, recent ships,
-   queued work.
-2. Verify `git log origin/main -1 --oneline` matches STATE.md's
-   deployed-commit field (or is one ahead, if the trailing
-   commit is a STATE.md self-update).
+1. Read `docs/STATE.md` — repo pointer, recent ships, queued work.
+2. Verify `git log origin/main -1 --oneline` matches what STATE
+   describes after pushes (allow one-commit drift for STATE-only
+   metadata commits).
 3. Read `docs/WORKING_AGREEMENT.md` and `docs/BACKLOG.md` for
    discipline and open items.
-4. For the specific phase you're picking up, read
-   `HAVA_CONCIERGE_HANDOFF.md` §5 to find the current phase entry,
-   then any phase-specific pointer docs from there.
+4. Skim `HAVA_CONCIERGE_HANDOFF.md` §2–§5 for doc pointers; use
+   `BACKLOG.md` for the actionable item you are picking up.
 5. Acknowledge orientation back to owner before drafting anything.
 
 If any of the canonical state docs disagree with each other or with

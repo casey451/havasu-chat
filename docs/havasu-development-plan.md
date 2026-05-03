@@ -2,7 +2,7 @@
 
 **Audience:** Claude Code, executing sessions against the Havasu Chat codebase.
 **Author:** Senior reviewer, working with Casey (solo dev).
-**Last updated:** April 17, 2026.
+**Last updated:** May 3, 2026 (read paths refreshed; narrative may lag `docs/STATE.md`).
 **Status:** Active working document. Update after each session completes.
 
 ---

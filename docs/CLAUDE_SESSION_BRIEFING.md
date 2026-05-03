@@ -4,7 +4,7 @@ You are Claude, picking up work on Hava. This briefing orients you. After readin
 
 ## What Hava is
 
-Conversational AI concierge for Lake Havasu City, Arizona. One chat box routes every question through tiered handlers — quick template lookups for direct facts, structured retrieval for filtered queries, and an LLM synthesis layer for open-ended recommendations — all speaking in one consistent firsthand local voice. The catalog grows from community contributions: users submit businesses and events with a Google Business URL, which auto-enriches and lands in an operator review queue before going live.
+Conversational AI concierge for Lake Havasu City, Arizona. One chat box routes every question through tiered handlers — deterministic catalog lookups where applicable, structured retrieval for filtered queries, and an LLM synthesis layer for open-ended asks — all speaking in one consistent firsthand local voice. Catalog growth is **River Scene import** plus **approved contributions** (see `docs/STATE.md` / `docs/maintainability/non_river_scene_cleanup.md`); contribution intake still supports URL-backed submissions for operator review.
 
 - **Repo:** `https://github.com/casey451/havasu-chat` (local at `c:\Users\casey\projects\havasu-chat`)
 - **Stack:** Python 3.11+, FastAPI, SQLAlchemy, Postgres (Railway prod) / SQLite (dev)
@@ -24,8 +24,8 @@ When Casey says "whatever you think is best," that usually means a real decision
 
 ## First moves at session start
 
-1. Read `docs/STATE.md` — get current deployed commit, recent ships, queued work.
-2. Verify `git log origin/main -1 --oneline` matches STATE.md's `Deployed commit` field, or is one ahead (the trailing STATE.md self-update commit is metadata and won't appear in STATE.md itself).
+1. Read `docs/STATE.md` — repo `main` pointer, recent ships, queued work, production URL, catalog notes.
+2. After a push, verify `git log origin/main -1 --oneline` matches what Railway deployed and that `STATE.md`'s **Repo `main` @ this STATE update** line was refreshed at last close-out (or note the one-commit drift for a trailing STATE-only commit).
 3. Read `docs/WORKING_AGREEMENT.md` — collaboration discipline, commit rules, halt-and-report gates.
 4. Read `docs/BACKLOG.md` — open and recently-closed items.
 5. For component-level work, read `docs/components/<component>.md`.
@@ -36,7 +36,7 @@ If any of these docs disagree with each other or with `git log`, that's a findin
 
 ## Voice spec constraints (LOCKED — do not contradict)
 
-From `HAVA_CONCIERGE_HANDOFF.md` §3 and §8 plus `docs/persona-brief.md`:
+From `docs/persona-brief.md` (canonical voice) plus tier context in `HAVA_CONCIERGE_HANDOFF.md` §3 / §8 mapping:
 
 - Hava speaks in **firsthand local voice**. No community-credit phrasing ("a local told me...", "the community says..."). These are superseded patterns.
 - §6.7 voice across curated and bulk-imported providers: firsthand voice at landscape level; factual-descriptive at per-provider level for bulk-imported providers; framing beat precedes specifics on single-provider lookups; no provenance flag in data model.
@@ -67,12 +67,12 @@ From `HAVA_CONCIERGE_HANDOFF.md` §3 and §8 plus `docs/persona-brief.md`:
 Every ship that goes through halt-and-report has a closing rhythm. When you draft Cursor bootstraps, embed these update steps as part of the ship — don't leave them as follow-ups.
 
 **STATE.md update — always.** A separate trailing commit after the substantive ship and `/health` verification. Update:
-- `## Production` → `Deployed commit:` to the substantive ship's tip SHA (not the metadata commit's SHA).
-- `## Recent commits` — prepend new entries, trim to roughly 10.
+- `## Production` → **Repo `main` @ this STATE update** (and any production verification bullets).
+- `## Recent commits` — prepend new entries, trim to roughly 10–12.
 - `## Recently shipped` — describe what changed, reference commit hashes.
-- `## Queued / open work` — adjust if items moved.
+- `## Queued / open work` — align with `BACKLOG.md`.
 - Subject convention: `STATE.md: record <short ship description>`.
-- This commit does NOT appear in STATE.md's own "Recent commits" or "Deployed commit" — it's metadata.
+- A pure metadata STATE edit may be the tip briefly before the next substantive ship updates the pointer again.
 
 **BACKLOG.md update — when applicable.** If the ship closes, opens, or defers a backlog item, update with status change and resolution paragraph referencing the commit. Append Ship log entries at the bottom; don't edit existing entries. Subject convention: `BACKLOG.md: <verb> <item description>`.
 
@@ -82,7 +82,7 @@ Every ship that goes through halt-and-report has a closing rhythm. When you draf
 
 **`/health` check — always.** After Railway deploys: `curl https://havasu-chat-production.up.railway.app/health`. Note any drift in `event_count`. Halt if not 200 / `db_connected: true`.
 
-**What does NOT need updating per ship:** PROJECT.md (architecture-stable), WORKING_AGREEMENT.md (changes are their own ship), START_HERE.md (state-free, points at canonical docs), CURSOR_ORIENTATION.md (process-stable), this briefing (orientation-stable).
+**What does NOT need updating per ship:** `docs/PROJECT.md` (unless architecture changes), `docs/WORKING_AGREEMENT.md` (changes are their own ship), `docs/START_HERE.md` / `docs/CURSOR_ORIENTATION.md` (stable pointers), this briefing (orientation-stable unless process changes).
 
 Full closing-discipline runbook: `docs/POST_SHIP_CHECKLIST.md`.
 
@@ -96,7 +96,7 @@ By use case:
 - **Architecture overview, stack, key files:** `docs/PROJECT.md`
 - **Component-level work (router, handlers, parser, etc.):** `docs/components/<name>.md`
 - **Closing discipline for every ship:** `docs/POST_SHIP_CHECKLIST.md`
-- **Phase sequence, what's next:** `HAVA_CONCIERGE_HANDOFF.md` §5 (live source — phases advance frequently)
+- **Phase sequence, what's next:** `docs/BACKLOG.md` + `docs/STATE.md` (live lists); `HAVA_CONCIERGE_HANDOFF.md` §5 points there instead of duplicating phases
 - **Voice spec details, persona:** `docs/persona-brief.md`
 - **Operational guide:** `docs/runbook.md`
 - **Open issues, deferred work:** `docs/known-issues.md`

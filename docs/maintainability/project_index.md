@@ -74,6 +74,7 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 
 | Path | One-line | Status |
 |------|----------|--------|
+| `HAVA_CONCIERGE_HANDOFF.md` (repo root) | Architecture spine: tiers, data model summary, pointers to persona + maintainability decisions. | Current |
 | `docs/START_HERE.md` | Bootstrap for new Claude sessions: stack, branch, where to read next. | Current |
 | `docs/CURSOR_ORIENTATION.md` | Shorter Cursor-focused orientation. | Current |
 | `docs/CLAUDE_SESSION_BRIEFING.md` | Session briefing / context for assistants. | Current |
