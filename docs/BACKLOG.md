@@ -100,13 +100,15 @@ Ship log entries at the bottom record what shipped per session. New ones are app
 
 ---
 
-## Backlog 8 - `unified_router.py` `tier_used` comment (**OPEN**)
+## Backlog 8 - `unified_router.py` `tier_used` comment (**RESOLVED**)
 
 **Issue:** Near line ~96, the `tier_used` enumeration includes `'track_a'` (documented as DB-only; unified path never emits `track_a`). After H1, **no code path emits `track_a`** anywhere — it exists only on historical `chat_logs` rows.
 
 **Desired fix:** Update the comment to state that `track_a` appears only in historical DB rows, not in current emitters.
 
 Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 (same comment, same module, same fix).
+
+**Resolution shipped:** Updated comment at `app/chat/unified_router.py:96` to: `'track_a' (historical chat_logs rows only; no current emitter)`, replacing the ambiguous "DB only" wording. Component doc `docs/components/unified_router.md` line 52 already captures precise track_a semantics (historical sentinel in `chat_logs.tier_used` only, no Python emitter remains, appears only as legacy analytics data); no component doc update required per WORKING_AGREEMENT §54-58. The L7 cross-reference (`findings_app_chat.md`) is about the broader Literal-vs-comment design question (disposition: "accept and document"); unaffected by this wording fix.
 
 ---
 
@@ -214,6 +216,8 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 **Success (per brief §8):** new features land with a clear subsystem home, updated/new component docs when contracts change, and BACKLOG/STATE reflecting reality. Onboarding follows one reading path, not chat-log archaeology.
 
 **Pre-Slice 2 finding (2026-05-03) — working-tree truncation:** During Slice 2's survey, `docs/BACKLOG.md` and `docs/STATE.md` were found truncated mid-content in the working tree (BACKLOG ended at "Layer 3 ", missing 28 lines including 3 ship log entries; STATE ended at "under `relay/` ", missing 13 lines including the "How to update this document" section). Both files terminated without trailing newline. HEAD versions were intact — corruption was unstaged-only. Restored via `git checkout HEAD -- docs/BACKLOG.md docs/STATE.md` as Slice 2 pre-step. Cause unknown; possible candidates: aftermath of stale `.git/index.lock` from 2026-05-02 22:11, an editor crash, or a sync/backup tool writing partial. Forensic file-stat snapshot pre-restore: `BACKLOG.md` Length 17862, LastWriteTime 5/3/2026 3:20:20 PM; `STATE.md` Length 6461, LastWriteTime 5/3/2026 3:21:46 PM (PowerShell `Get-Item`, Cursor agent host). **No tripwire in place beyond awareness — if this pattern recurs, escalate to investigation.**
+
+**Follow-up (2026-05-03 evening, Slice 3):** Subsequent investigation found the bash sandbox view of Casey's filesystem produces spurious artifacts in at least two modes — appending NUL bytes to file ends (flagged on `app/main.py` and ~80 other files during Slice 2 setup) and truncating files mid-content (flagged on `docs/STATE.md` during Phase A survey). All such artifacts have been verified clean on Casey's actual filesystem via PowerShell, both via `git status` and direct byte inspection (`[IO.File]::ReadAllBytes`). The original truncation incident logged above was diagnosed only from the bash sandbox view and was never independently verified via PowerShell at the time; it may have been a sandbox artifact rather than real corruption. **Treat this entry as historical context, not as evidence of recurring filesystem corruption.** Future PM surveys must cross-verify any bash-side anomaly via PowerShell before logging it as an incident.
 
 **First-week actions (per brief §7):**
 1. Read STATE / WORKING_AGREEMENT / BACKLOG / project_index. (Done by PM 2026-05-03.)
