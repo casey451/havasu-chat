@@ -3,6 +3,8 @@
 This file is the entry point for new Cursor sessions working on Hava.
 Casey (owner) drives. Cursor executes in the repo.
 
+**Mode A vs B, full doc read order, git reconciliation, session paste templates, ship closeout:** see `docs/CURSOR_NEW_CHAT_PLAN.md`.
+
 ## Repo
 
 - Path: `c:\Users\casey\projects\havasu-chat`

@@ -110,6 +110,7 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `docs/maintainability/river_scene_backfill_prod_dryrun_runbook.md` | Prod dry-run runbook for RS backfill. | Current |
 | `docs/maintainability/river_scene_dryrun_quick_reference.md` | Short RS dry-run reference. | Current |
 | `docs/maintainability/river_scene_sentinel_id_retention.md` | Sentinel ID retention decision. | Current |
+| `docs/maintainability/project_manager_organization_brief.md` | PM onboarding: zero-context summary, org/scaling plan (phases A–D), anti-patterns. | Current |
 
 Older phase and tier work — Tier 2 / Tier 3 grounding specs and inline reports, voice-audit samples, Railway migration and database diagnostics, dated production smoke-test and verification writeups, the legacy router deletion ship, pre-launch scope revisions, H2 slim handoff files, and similar slice-complete writeups — **were** filed as individual Markdown files under `docs/` and `docs/maintainability/`. Many of those files have since been **removed from the working tree** to reduce navigation noise; **git history** retains their content. When a specific filename or topic is needed, search `git log` / `git log --all -- full/path` or browse `docs/` for what remains.
 
