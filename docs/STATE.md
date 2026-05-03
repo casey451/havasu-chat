@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): open #18 — repo hygiene & documentation hierarchy** (2026-05-03); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): tick #18 Phase B; log truncation incident** · short SHA **`dc917f4`** (2026-05-03); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+dc917f4 docs(BACKLOG): tick #18 Phase B; log truncation incident
+23b2054 chore: add .gitattributes and normalize line endings to LF
 67740de docs(BACKLOG): open #18 — repo hygiene & documentation hierarchy
 ed76435 docs: add PM organization brief and Cursor new-chat playbook
 364cd5f docs(findings_app_chat): mark H1 parallel-router finding historical
@@ -29,11 +31,11 @@ ed76435 docs: add PM organization brief and Cursor new-chat playbook
 e83ccf0 docs: chat behavior followup plan
 7cba51e docs: add non_river_scene_cleanup maintainability retrospective
 81fe20c chore: add cleanup_non_river_scene.py — purge non-RS data from DB
-80f8383 docs: align project-handoff.md with River-Scene-only ingestion
-6af8430 docs: align ops copy with River-Scene-only ingestion (pytest + env vars)
 ```
 
 ## Recently shipped (high signal)
+
+- **#18 Phase B — EOL normalization (`23b2054`..`dc917f4`)** — Added repo `.gitattributes` (`text=auto eol=lf` default + binary markers). HEAD was already LF; ship primarily fixes Windows-side CRLF drift on checkout via working-tree refresh. Pre/post `pytest -q` matched exactly (verification of behavior-neutrality). Truncation incident on `docs/BACKLOG.md` and `docs/STATE.md` discovered in pre-step survey; HEAD-restore performed before any normalization touched the index; forensic `stat` data and finding logged under Backlog #18.
 
 - **`ed76435`..`67740de`** — **PM organization program kickoff (Slice 1 + Backlog #18 open)** — Added `docs/maintainability/project_manager_organization_brief.md` (zero-context PM onboarding, phases A–D, anti-patterns, success criteria) and `docs/CURSOR_NEW_CHAT_PLAN.md` (Mode A/B playbook, doc read order, paste templates, ship close-out). Indexed in `docs/maintainability/project_index.md`; `docs/CURSOR_ORIENTATION.md` now points to the playbook. Backlog #18 opened to track phased execution; the ~79-file CRLF↔LF working-tree drift surfaced during this session is queued as a Phase B sub-bullet, not bundled into this ship.
 
