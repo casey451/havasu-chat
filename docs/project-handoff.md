@@ -2,7 +2,9 @@
 
 > **Historical document.** Written before the H1 deletion ship (2026-04-29, `61387e4..23a39a5`). References to `app/chat/router.py`, `POST /chat` (Track A), `log_chat_turn`, `TRACK_A_TIER_USED`, `app/core/venues.py`, and the legacy `ChatRequest` / `ChatResponse` schemas describe code that no longer exists. Preserved as-is for historical context; see `docs/STATE.md` and `docs/maintainability/h1_router_decision.md` for the post-ship state.
 
-> **Track B / concierge spec:** Repo-root **`HAVASU_CHAT_MASTER.md`** (3-tier program Q&A, seed YAML) and **`HAVA_CONCIERGE_HANDOFF.md`** (build plan, Phase 1+). This file stays focused on the **shipping events-search app** (Track A).
+> **2026 ingestion cleanup (post-`5e75bf5`..`d84b9c1` on `main`):** The repo no longer ships **`app/db/seed.py`** (REAL_SEED), **`HAVASU_CHAT_MASTER.md`**, master-backed provider seed, **`seed_from_havasu_instructions.py`**, Google bulk ingest/embed, or admin **`POST /admin/reseed`** / **`POST /admin/programs-reseed`**. Catalog growth is **River Scene** plus **approved contributions** (see `docs/STATE.md`, `docs/runbook.md`). Bullets and tree paths below still describe the **pre-cleanup** product unless you mentally apply that delta.
+
+> **Track B / concierge spec (archival):** Track B once used repo-root **`HAVASU_CHAT_MASTER.md`** and related seed docs; those paths are **not** part of the current ingestion surface. Design history may still live in **`HAVA_CONCIERGE_HANDOFF.md`** and maintainability notes. This file stays focused on the **shipping events-search app** (Track A) as it existed when written.
 
 > **Purpose:** Single source of truth for starting a fresh Cursor or Claude Code session **for Track A**. Do not summarize or skip sections. Every detail here was chosen deliberately.
 
@@ -52,13 +54,13 @@ pip install -r requirements.txt
 OPENAI_API_KEY=sk-...
 ADMIN_PASSWORD=yourpassword
 
-# 4. Run (auto-seeds DB on first run if RAILWAY_ENVIRONMENT is set;
-#    locally you may need to trigger seed manually or run tests first)
+# 4. Run (DB is empty until you load data via contributions admin flow,
+#    River Scene scripts, or your own SQL — there is no automatic REAL_SEED import)
 uvicorn app.main:app --reload --port 8000
 ```
 
 ### How it deploys
-Push any commit to `main` on GitHub → Railway detects it via webhook → Nixpacks builds the container → `uvicorn app.main:app --host 0.0.0.0 --port $PORT` starts. Deploy takes 2–5 minutes. The DB is auto-seeded on first boot when `RAILWAY_ENVIRONMENT` is set.
+Push any commit to `main` on GitHub → Railway detects it via webhook → Nixpacks builds the container → `uvicorn app.main:app --host 0.0.0.0 --port $PORT` starts. Deploy takes 2–5 minutes. The production database is **not** auto-filled from an in-repo seed module on boot; operators use River Scene and contribution workflows (see `docs/STATE.md`).
 
 ---
 
@@ -81,19 +83,18 @@ Push any commit to `main` on GitHub → Railway detects it via webhook → Nixpa
 - **Admin panel** — password-protected dashboard at `/admin`. Tabs: Pending review / Live events. Approve/reject/delete actions. Session cookie with `itsdangerous` signing.
 - **Event status flow** — submitted events go to `pending_review` with a **72-hour** review deadline (`admin_review_by` in code). Expired pending events are auto-deleted by an hourly background task.
 - **Re-embed endpoint** — `POST /admin/reembed-all` regenerates OpenAI embeddings for all events. Protected by admin cookie.
-- **Re-seed endpoint** — `POST /admin/reseed` wipes seed rows and re-inserts. Protected by admin cookie.
 - **AI tags on submission** — new submitted events get AI-generated tags in `extract_event()` via `generate_event_tags()`, using the same `client.responses.create` pattern as extraction.
 - **Retag endpoint** — `POST /admin/retag-all` backfills/regenerates tags for all events. Protected by admin cookie.
 - **Diagnostic logging** — `app/core/search_log.py` writes per-query logs (intent, slots, DB params, candidate scores) to `search_debug.log`. Stdout diagnostic prints also appear in Railway logs.
 - **Rate limiting** — 10 requests/minute on `/events`, applied via slowapi.
 - **Welcome UI** — first-time users see a welcome message and three example chips (weekend events, kids activities, add an event). Chips disappear after first send.
 - **120-query regression battery** — documented expectations in `docs/query-test-battery.md`; production runner `scripts/run_query_battery.py` (see Section 9).
-- **29 real seed events** — Lake Havasu–style events (concerts, boat races, markets, parks, fitness, named recurring hooks, etc.) with ISO dates **May through July 2026** and real OpenAI embeddings via the re-embed endpoint.
+- **Catalog content (post-cleanup)** — events enter via **River Scene** ingestion and **user contributions** approved in admin; density and date mix follow those sources rather than a fixed in-repo seed list.
 
 ### Known bugs and limitations
 - **`search_debug.log` is local only** — the log file written by `search_log.py` lives inside the Railway container's filesystem. You cannot read it from the local machine. Use stdout prints (already added to `search_events`) to view scores in Railway's deployment logs instead.
-- **Seed event dates are fixed** — seed data uses hardcoded dates (roughly May–July 2026). When those dates pass, most events will fall out of search results (future-only filter). Plan periodic refresh (see roadmap).
-- **Thin category coverage** — with ~29 seeded events, some categories are sparse; scaling the catalog is a roadmap item.
+- **Future-only search vs. stale rows** — when event dates pass, they drop out of default future search; operators refresh via River Scene pulls and new contributions (see roadmap).
+- **Thin category coverage** — depends on what River Scene and submissions cover; scaling the catalog is a roadmap item.
 - **No pagination** — search returns up to 25 events. No page 2.
 - **Venue-vs-events precedence (intentional)** — queries that name a venue that also has seeded *events* may return those calendar events rather than a venue-only redirect. The 120-query battery rows 22, 44, 46, and 49 reflect this product choice; do not treat them as accidental bugs without an explicit decision to change precedence.
 - **No onboarding for returning users** — the welcome chips only show on first visit (session-based, not account-based). Roadmap: Session I (localStorage).
@@ -160,7 +161,7 @@ havasu-chat/
 │   │   ├── chat_logging.py        Logs each chat turn to the chat_logs table.
 │   │   ├── database.py            SQLAlchemy engine, Base, SessionLocal, get_db, init_db.
 │   │   ├── models.py              Event and ChatLog ORM models.
-│   │   └── seed.py                29 real Lake Havasu City events (May–July 2026). Idempotent (skips existing seeds).
+│   │   └── (historical) `seed.py` — removed 2026; use River Scene + contributions for catalog data.
 │   ├── schemas/
 │   │   ├── chat.py                ChatRequest / ChatResponse Pydantic schemas.
 │   │   └── event.py               EventCreate / EventRead Pydantic schemas with validators.
@@ -184,9 +185,8 @@ havasu-chat/
 │   └── (optional) Save ad-hoc battery JSON/log captures locally; do not commit generated session artifacts.
 ├── docs/
 │   ├── project-handoff.md         This file (Track A deep-dive).
-│   ├── HAVASU_CHAT_SEED_INSTRUCTIONS.md  Program/event seed source for `seed_from_havasu_instructions.py`.
 │   └── query-test-battery.md      120-query expected labels + notes; keep in sync with runner.
-├── HAVASU_CHAT_MASTER.md          (repo root) Full 3-tier spec + seed YAML (Track B + concierge).
+├── (removed from tree) Historical Track B / seed artifacts: `HAVASU_CHAT_MASTER.md`, `HAVASU_CHAT_SEED_INSTRUCTIONS.md`, instruction-seed scripts — see git history pre-2026 cleanup.
 ├── Procfile                       Railway start command.
 ├── nixpacks.toml                  Railway build config (pip install + uvicorn start).
 ├── requirements.txt               Dependencies (pinned versions; see Session C).
@@ -198,8 +198,8 @@ havasu-chat/
 1. `app/core/search.py` — all scoring, thresholds, bonuses, filtering
 2. `app/chat/router.py` — synonym expansion wiring, query_message enrichment
 3. `app/core/slots.py` — QUERY_SYNONYMS dictionary, slot extraction
-4. `app/db/seed.py` — event content quality directly affects search results
-5. `app/core/extraction.py` — embedding generation for new/updated events
+4. `app/core/extraction.py` — embedding generation for new/updated events
+5. `app/contrib/river_scene.py` / contribution approval paths — where catalog rows originate post-cleanup
 
 ---
 
@@ -330,12 +330,12 @@ things to do this weekend   → COUNT 0   → Honest no-match (current data wind
 **What:** Finish `extract_date_range` coverage for `this week`, `this month`, `next month` (and align with `next week` behavior).
 **Files:** `app/core/slots.py`, `tests/test_phase2.py`.
 
-### Seed data scale-up
-**What:** Grow the catalog from ~29 toward **100–1000** events so thin categories fill in; re-embed after bulk imports.
-**Files:** `app/db/seed.py`, ops via `/admin/reembed-all`.
+### Catalog scale-up
+**What:** Grow the catalog toward **100–1000** events so thin categories fill in; use River Scene pulls and contribution intake; re-embed after large imports via `/admin/reembed-all` when needed.
+**Files:** `app/contrib/river_scene*.py`, `scripts/river_scene_pull.py`, admin contribution review, `app/core/extraction.py`.
 
-### Periodic seed date refresh
-**What:** Current seed dates are anchored around **mid-2026**; after they roll past, future-only search will empty out. Re-date and reseed on a cadence (or automate a rolling window).
+### Ongoing date coverage
+**What:** Future-only search drops past-dated rows; keep the pipeline fed with upcoming River Scene events and approved submissions so results stay fresh (no in-repo REAL_SEED refresh loop).
 
 ---
 
