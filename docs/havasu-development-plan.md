@@ -12,7 +12,7 @@
 Before executing any session, read:
 
 1. This document in full.
-2. `docs/project-handoff.md` — system of record for state and history.
+2. `docs/STATE.md` and `docs/maintainability/project_index.md` — current state snapshot and repo navigation (historical `docs/project-handoff.md` removed from tree; see git history).
 3. `docs/havasu-knowledge-base.md` — product/query taxonomy.
 4. `docs/query-test-battery.md` — 120-query regression contract.
 5. `havasu-state-snapshot.md` on the user's desktop — most recent external audit.

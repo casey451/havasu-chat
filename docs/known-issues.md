@@ -20,7 +20,7 @@ Saturday information is unavailable.
 rendering path in `tier1_templates.py`. When user specifies a day
 not present in provider hours, acknowledge the gap before listing
 available hours.
-**Waiver reference:** `scripts/voice_audit_waivers_2026-04-23.md`
+**Waiver reference:** Waivers were originally logged in `scripts/voice_audit_waivers_2026-04-23.md` (file removed from tree; recover from git history if needed).
 
 ### Flaky timing on `test_contribution_submitted_at_populated`
 
@@ -80,7 +80,7 @@ before       = 2026-04-23 16:09:51
 
 **Priority:** High for pre-launch event discoverability in ask mode.
 
-**Investigation:** `docs/tier3-event-visibility-investigation.md`
+**Investigation:** Previously documented in `docs/tier3-event-visibility-investigation.md` (file removed from tree; recover from git history if needed).
 
 ### Embeddings — not generated in `approve_contribution_as_event`
 

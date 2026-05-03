@@ -55,9 +55,6 @@ docs are the source of truth for product spec and voice rules.
 - `docs/persona-brief.md` — persona and identity reference for
   Hava. Authoritative for voice specifics. §6.7 (voice-for-bulk,
   locked 2026-04-23) is an authoritative addition.
-- `docs/pre-launch-scope-revision-2026-04-22.md` — **LOCKED**
-  decision record revising pre-launch scope to include bulk
-  catalog expansion before launch.
 - `docs/runbook.md` — operational guide.
 - `docs/privacy.md` + `docs/tos.md` — user-facing legal pages.
 - `docs/pre-launch-checklist.md` — living tracker of pre-launch

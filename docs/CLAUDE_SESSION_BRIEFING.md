@@ -98,7 +98,6 @@ By use case:
 - **Closing discipline for every ship:** `docs/POST_SHIP_CHECKLIST.md`
 - **Phase sequence, what's next:** `HAVA_CONCIERGE_HANDOFF.md` §5 (live source — phases advance frequently)
 - **Voice spec details, persona:** `docs/persona-brief.md`
-- **Pre-launch scope:** `docs/pre-launch-scope-revision-2026-04-22.md`
 - **Operational guide:** `docs/runbook.md`
 - **Open issues, deferred work:** `docs/known-issues.md`
 - **Pre-launch tracker:** `docs/pre-launch-checklist.md`

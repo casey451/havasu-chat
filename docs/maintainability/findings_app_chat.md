@@ -292,7 +292,7 @@ The field-level comment lists 9 string values but isn't a typed enum. Future Cla
 
 **The `__init__.py` is intentionally minimal.** Single docstring line, no re-exports. That's good — keeps imports explicit.
 
-**Voice rules are not visibly enforced in code.** The voice-audit waivers file (`scripts/voice_audit_waivers_2026-04-23.md`, mentioned in START_HERE history) implies external/test-time enforcement. No in-code voice validation. That's a design choice, not a finding — but worth flagging if the eval harness (Phase 8.8.6) is intended to enforce this systematically.
+**Voice rules are not visibly enforced in code.** Voice-audit waivers were originally logged in `scripts/voice_audit_waivers_2026-04-23.md` (removed from tree; recover from git history), which implies external/test-time enforcement. No in-code voice validation. That's a design choice, not a finding — but worth flagging if the eval harness (Phase 8.8.6) is intended to enforce this systematically.
 
 **Deterministic vs. LLM rendering split is well-shaped.** The `tier2_formatter.format` dispatch (empty → fixed string, all-event → deterministic, mixed → LLM) is a clean pattern. New row types should follow the same shape. Worth highlighting in a future component doc.
 

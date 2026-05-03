@@ -62,7 +62,6 @@ need them to execute a well-specified phase.
 - `HAVA_CONCIERGE_HANDOFF.md` — architectural spec, phase history,
   voice rules
 - `docs/persona-brief.md` — persona and voice reference
-- `docs/pre-launch-scope-revision-2026-04-22.md` — locked sequence
 - `docs/known-issues.md` — open issues, deferred work
 - `docs/pre-launch-checklist.md` — living tracker
 

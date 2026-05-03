@@ -104,16 +104,13 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `docs/maintainability/river_scene_event_output_decision.md` | River Scene parser/output retrospective. | Current |
 | `docs/maintainability/h1_router_decision.md` | H1 router deletion / unified path decision. | Current |
 | `docs/maintainability/h2_consolidation_decision.md` | H2 LLM consolidation decision. | Current |
-| `docs/maintainability/h2_session2_handoff.md` | H2 session 2 handoff. | Historical handoff |
-| `docs/maintainability/h2_ship_complete_handoff.md` | H2 ship-complete handoff. | Historical handoff |
 | `docs/maintainability/findings_app_chat.md` | Findings note for `app/chat`. | Current |
 | `docs/maintainability/river_scene_backfill_documentation_index.md` | Index of River Scene backfill docs. | Current |
 | `docs/maintainability/river_scene_backfill_prod_dryrun_runbook.md` | Prod dry-run runbook for RS backfill. | Current |
 | `docs/maintainability/river_scene_dryrun_quick_reference.md` | Short RS dry-run reference. | Current |
-| `docs/maintainability/river_scene_backfill_fix2.md` | RS backfill fix note. | Historical slice |
 | `docs/maintainability/river_scene_sentinel_id_retention.md` | Sentinel ID retention decision. | Current |
 
-Older phase and tier work — Tier 2 / Tier 3 grounding specs and inline reports, voice-audit samples, Railway migration and database diagnostics, dated production smoke-test and verification writeups, the legacy router deletion ship, pre-launch scope revisions, and similar slice-complete writeups — lives as **individual Markdown files** directly under `docs/` (and occasionally under `docs/maintainability/`). Those files are **retained for traceability**, not as the primary navigation surface for day-to-day product work. When a specific filename or topic is needed, browse or search `docs/` directly.
+Older phase and tier work — Tier 2 / Tier 3 grounding specs and inline reports, voice-audit samples, Railway migration and database diagnostics, dated production smoke-test and verification writeups, the legacy router deletion ship, pre-launch scope revisions, H2 slim handoff files, and similar slice-complete writeups — **were** filed as individual Markdown files under `docs/` and `docs/maintainability/`. Many of those files have since been **removed from the working tree** to reduce navigation noise; **git history** retains their content. When a specific filename or topic is needed, search `git log` / `git log --all -- full/path` or browse `docs/` for what remains.
 
 ## 5. What is not yet documented
 

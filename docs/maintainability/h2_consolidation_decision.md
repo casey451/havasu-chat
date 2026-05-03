@@ -6,8 +6,8 @@ gates, monitoring. Filed alongside h1_router_decision.md.
 AUDIENCE: Future Claude sessions and humans reading the repo. Read in full
 before any H2 implementation work.
 
-DO NOT paste this file into a new chat as a kickoff document — use
-h2_session2_handoff.md for that.
+Session 2 shipped; slim handoff files once in this folder are removed
+from the tree. Use this decision document and git history for H2 context.
 -->
 
 # H2 Investigation: LLM-call infrastructure consolidation — Decision Recommendation
@@ -267,24 +267,20 @@ The original maintainability priority order (H1 → H2 → H3) still describes s
 
 ---
 
-## Proposed Session 2
+## Proposed Session 2 (historical)
 
-Session 2 runs in a **fresh chat** bootstrapped from **`docs/maintainability/h2_session2_handoff.md`** (paste the body of that file below its HTML header comment). That handoff is intentionally thin; this decision document remains canonical.
-
-Session 2's first commit is "introduce helpers, no callers" (commit 1 above); each subsequent commit migrates one caller. Halt-and-report between every commit, BOM-free messages via temp file, full pytest gate per commit.
+Session 2 completed as the seven-commit stack in **§ Status — completed** below. Kickoff handoff files (`h2_session2_handoff.md`, `h2_ship_complete_handoff.md`) were removed from the tree; substance remains in this document and in **git log** for those commits.
 
 ---
 
-## Session 2 kickoff (operational checklist)
+## Session 2 kickoff (historical checklist)
 
-Use this section when starting Session 2 (or paste **`h2_session2_handoff.md`** into a new chat instead of this full document — see HTML header at top).
+The following was the operational checklist for Session 2; it is preserved as a record of how H2 executed.
 
 1. **Read first:** `docs/maintainability/h2_consolidation_decision.md` (this file) — mandatory full read; especially §Findings (mock surface) and §Decisions §1, §5, §6.
-2. **Canonical kickoff paste:** `docs/maintainability/h2_session2_handoff.md` — body only, below its HTML comment.
-3. **First commit scope:** Add `app/core/llm_messages.py` + `tests/test_llm_messages.py` only; **zero** changes to `tier2_parser`, `tier2_formatter`, `llm_router`, `tier3_handler`.
-4. **Gates after every commit:** `pytest --collect-only -q` (no errors); `pytest -q` → **942 passed / 8 failed** baseline.
-5. **Working agreement:** halt-and-report between commits unless Casey directs otherwise; BOM-free commit messages; push only when authorized.
-6. **Residuals (do not block Session 2):** `hint_extractor` OpenAI path; `scripts/run_voice_audit.py` — see §3–4.
+2. **First commit scope:** Add `app/core/llm_messages.py` + `tests/test_llm_messages.py` only; **zero** changes to `tier2_parser`, `tier2_formatter`, `llm_router`, `tier3_handler`.
+3. **Gates after every commit:** `pytest --collect-only -q` (no errors); full pytest gate per commit.
+4. **Residuals (did not block Session 2):** `hint_extractor` OpenAI path; `scripts/run_voice_audit.py` — see §3–4.
 
 ---
 
@@ -319,4 +315,4 @@ The two “.5” commits were not in the original five-commit plan; rationale is
 
 ### Documentation audit (post-ship)
 
-A read-only sweep on **2026-04-29** inventoried stale references to pre-merge helpers and code excerpts across `docs/`. Outcomes are captured in this documentation commit: canonical corrections live in this file (§Findings above and this section); investigation/spelunk markdown files carry top-of-file **Status** banners pointing here instead of rewriting historical excerpts; two product specs receive one-line call-shape updates (`tier3-option-b-unlinked-events-spec.md`, `tier2-grounding-and-gap-fix-spec-v2.md`); `h1_router_decision.md` notes H2 completion. Per-commit session halt reports were removed from the tree — their substance is in **git log**.
+A read-only sweep on **2026-04-29** inventoried stale references to pre-merge helpers and code excerpts across `docs/`. Outcomes are captured in this documentation commit: canonical corrections live in this file (§Findings above and this section); investigation/spelunk markdown files carried top-of-file **Status** banners pointing here; product specs `tier3-option-b-unlinked-events-spec.md` and `tier2-grounding-and-gap-fix-spec-v2.md` received one-line call-shape updates before later doc pruning; `h1_router_decision.md` notes H2 completion. Per-commit session halt reports and many slice-complete tier/railway markdowns were subsequently removed from the tree — their substance is in **git log**.

@@ -9,8 +9,6 @@ After `git fetch origin`:
 - Expect `main` aligned with `origin/main` at `5ec85da` (no local-only fix 2).
 - If `main` is **ahead** of `origin/main`, push before the prod run.
 
-Untracked doc (optional to commit): `docs/maintainability/river_scene_backfill_fix2.md`.
-
 ## State of the stream (reference)
 
 | Commit     | Note |
