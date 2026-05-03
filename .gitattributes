@@ -1,0 +1,22 @@
+# Line endings: text files normalize to LF in repo; checkouts get LF on all platforms.
+# Added 2026-05-03 to address recurring CRLF↔LF working-tree drift on Windows.
+# See Backlog #18 Phase B.
+
+* text=auto eol=lf
+
+# Binary types — exclude from text/eol handling
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.tar binary
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
+*.xlsx binary
+*.docx binary
+*.pptx binary
