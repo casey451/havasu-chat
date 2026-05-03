@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): tick #18 Phase B; log truncation incident** · short SHA **`dc917f4`** (2026-05-03); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG, unified_router): resolve #8, note sandbox artifact in #18** · short SHA **`2627693`** (2026-05-03); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+2627693 docs(BACKLOG, unified_router): resolve #8, note sandbox artifact in #18
+857c7fc docs(project_index): add CURSOR_NEW_CHAT_PLAN row and .gitattributes mention
 dc917f4 docs(BACKLOG): tick #18 Phase B; log truncation incident
 23b2054 chore: add .gitattributes and normalize line endings to LF
 67740de docs(BACKLOG): open #18 — repo hygiene & documentation hierarchy
@@ -29,11 +31,11 @@ ed76435 docs: add PM organization brief and Cursor new-chat playbook
 905ce17 docs: prune low-utility historical markdown
 5a55347 docs: project index for external-session navigation
 e83ccf0 docs: chat behavior followup plan
-7cba51e docs: add non_river_scene_cleanup maintainability retrospective
-81fe20c chore: add cleanup_non_river_scene.py — purge non-RS data from DB
 ```
 
 ## Recently shipped (high signal)
+
+- **`857c7fc`..`2627693`** — **Phase A drift sweep (Slice 3)** — `docs/maintainability/project_index.md` picks up the missing `CURSOR_NEW_CHAT_PLAN.md` row and a `.gitattributes` mention in the root tooling files line. Backlog #8 resolved by tightening the `tier_used` comment in `app/chat/unified_router.py:96` to match the precise wording already documented in `docs/components/unified_router.md`'s taxonomy table. Backlog #18 truncation paragraph annotated with a sandbox-unreliability follow-up: bash mount produces NUL-append and mid-content-truncation artifacts that don't reflect Casey's real filesystem; the original incident was never independently verified via PowerShell and may have been spurious.
 
 - **#18 Phase B — EOL normalization (`23b2054`..`dc917f4`)** — Added repo `.gitattributes` (`text=auto eol=lf` default + binary markers). HEAD was already LF; ship primarily fixes Windows-side CRLF drift on checkout via working-tree refresh. Pre/post `pytest -q` matched exactly (verification of behavior-neutrality). Truncation incident on `docs/BACKLOG.md` and `docs/STATE.md` discovered in pre-step survey; HEAD-restore performed before any normalization touched the index; forensic `stat` data and finding logged under Backlog #18.
 
@@ -55,8 +57,8 @@ e83ccf0 docs: chat behavior followup plan
 
 See **`docs/BACKLOG.md`**. Snapshot:
 
-- **OPEN** — **2**, **3**, **5**, **7**–**9**, **11**, **12**, **14**, **16**, **18** (see `docs/BACKLOG.md` for titles).
-- **RESOLVED** this documentation pass — **13** (`STATE.md` drift), **15** (`query-test-battery.md` `venues.py` line).
+- **OPEN** — **2**, **3**, **5**, **7**, **9**, **11**, **12**, **14**, **16**, **18** (see `docs/BACKLOG.md` for titles).
+- **Recently resolved** — **8** (Slice 3, `2627693`); historical: **13**, **15** (`656d54b`).
 - **DEFERRED** — **17** (OpenAI helper extraction until a second caller exists).
 - **Confabulation / eval** — operator harness: `docs/confabulation-eval-runbook.md`, code under `app/eval/`. Broader “phase 8.8.6” spec markdown was pruned; recover from git history if needed.
 
