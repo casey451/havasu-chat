@@ -194,6 +194,29 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 
 ---
 
+## Backlog 18 - Repo hygiene & documentation hierarchy (PM phases A–D) (**OPEN**)
+
+**Context:** PM brief at `docs/maintainability/project_manager_organization_brief.md` defines a phased program to keep the repo organized as features accumulate. This epic tracks execution as small, separately approved ships — not a stealth mega-refactor.
+
+**Phases (each ships independently, gated):**
+
+- [ ] **A — Single source of truth.** STATE/BACKLOG stay aligned with git and production after every ship. Resolve any doc-vs-code drift discovered in a session as its own small commit.
+- [ ] **B — Filesystem contract.** Repo root, `scripts/` (committed tools vs generated outputs), `docs/` (canonical vs archive). Includes a one-shot `.gitattributes` + `git add --renormalize .` cleanup of the current ~79-file CRLF↔LF working-tree drift surfaced 2026-05-03 (must be its own ship — no behavior changes bundled).
+- [ ] **C — Documentation depth where code is complex.** Grow `docs/components/` for the tier2 stack, contrib/River Scene, and admin. Fill `project_index.md` §5 gaps (Railway service/env matrix, HTTP API sketch, CI query-battery story) one small ship at a time.
+- [ ] **D — Engineering gates.** CI lint + tests on PR. Single formatting tool, scoped to avoid whole-repo cosmetic churn in feature PRs.
+
+**Anti-patterns (per brief §6):** mega-refactors that mix tree reorg with behavior change; parallel specs (one topic, one canonical doc); silent commits that change contracts without component-doc / BACKLOG / STATE updates; assuming pytest ran in every environment.
+
+**Success (per brief §8):** new features land with a clear subsystem home, updated/new component docs when contracts change, and BACKLOG/STATE reflecting reality. Onboarding follows one reading path, not chat-log archaeology.
+
+**First-week actions (per brief §7):**
+1. Read STATE / WORKING_AGREEMENT / BACKLOG / project_index. (Done by PM 2026-05-03.)
+2. Open this epic. (This entry.)
+3. Land Phase A drift fixes first, then Phase B in separate approved commits.
+4. Stand up a lightweight recurring review (monthly or per milestone): root listing, `scripts/` tracked files, STATE vs Railway, OPEN backlog count vs narrative.
+
+---
+
 ## Ship log - Session 2 follow-up, Tier 2 deterministic event rendering (**`d279165`**)
 
 **What shipped:** Deterministic Python rendering for all-event Tier 2 catalog responses; `tier2_formatter.format()` dispatches empty rows → fixed empty message, all-event rows → renderer `(text, 0, 0)`, mixed/non-event rows → unchanged Anthropic path. Programs and providers remain LLM-formatted (scope-limited to events where dropping/count bugs were observed).
