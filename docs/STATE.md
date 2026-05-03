@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+364cd5f docs(findings_app_chat): mark H1 parallel-router finding historical
+665ff4c docs(STATE): fix recent-commit SHA and stable main pointer
 656d54b docs: sync canonical orientation with repo reality
 905ce17 docs: prune low-utility historical markdown
 5a55347 docs: project index for external-session navigation
@@ -34,6 +36,8 @@ ac5f92a chore: remove provider seed module, master concierge populate, and tests
 ```
 
 ## Recently shipped (high signal)
+
+- **`364cd5f`** — **`docs/maintainability/findings_app_chat.md`:** H1 “two parallel chat systems” marked historical (`router.py` / **`POST /chat`** removed per H1 ship).
 
 - **Canonical doc sync (`656d54b`)** — Added **`HAVA_CONCIERGE_HANDOFF.md`** content at repo root; rewrote **`docs/STATE.md`** for RS-only posture and current backlog snapshot; fixed **`docs/PROJECT.md`** Tier 1 + catalog lines; refreshed **`START_HERE`**, **`CURSOR_ORIENTATION`**, **`CLAUDE_SESSION_BRIEFING`**, **`persona-brief`** (status + historical sections), **`BACKLOG`** (13/15 resolved, 16 OPEN), **`query-test-battery`**, **`known-issues`**, **`project_index`**, **`findings_app_chat`**, **`havasu-development-plan`** header; small comment updates in **`tier1_templates`**, **`smoke_concurrent_chat`**.
 
