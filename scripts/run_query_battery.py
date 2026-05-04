@@ -1,6 +1,14 @@
 """Runs the 120-query battery against production. Produces JSON output.
 
-Diagnostic only — do not import from app. Hits HTTP endpoint directly.
+Diagnostic only — do not import from app. Hits POST /api/chat directly.
+
+Retargeted in Slice 16 (Backlog #12 close): now POSTs to /api/chat with
+the concierge payload shape ({query, session_id}) and parses the new
+ConciergeChatResponse fields (mode, sub_intent, entity, tier_used,
+latency_ms, llm_tokens_used, chat_log_id) as raw passthrough — no
+expected/actual matching against pre-H1 intent labels. Restoring
+expected-label categorization for the new tier-based router output is
+queued as Backlog #25.
 """
 from __future__ import annotations
 
@@ -9,13 +17,13 @@ import time
 import uuid
 from urllib import request, error
 
-BASE = "https://web-production-bbe17.up.railway.app"
+BASE = "https://havasu-chat-production.up.railway.app"
 
 
-def chat(session_id: str, message: str, timeout: float = 15.0) -> dict:
-    payload = json.dumps({"session_id": session_id, "message": message}).encode("utf-8")
+def chat(session_id: str, query: str, timeout: float = 15.0) -> dict:
+    payload = json.dumps({"query": query, "session_id": session_id}).encode("utf-8")
     req = request.Request(
-        f"{BASE}/chat",
+        f"{BASE}/api/chat",
         data=payload,
         headers={"Content-Type": "application/json"},
         method="POST",
@@ -35,28 +43,22 @@ def chat(session_id: str, message: str, timeout: float = 15.0) -> dict:
 
 
 def classify(resp: dict) -> str:
-    """Classify chat response body into category string."""
+    """Categorize chat response by tier_used (raw passthrough; no expected/actual matching).
+
+    Old intent-based categorization removed in Slice 16 (#12 retarget). Battery now
+    records what the new tier-based router did, not whether it matched pre-H1 expected
+    labels. Restoring expected-label categorization for new ConciergeChatResponse shape
+    is queued as Backlog #25.
+    """
     if not resp.get("ok"):
         return f"ERROR({resp.get('status')})"
     body = resp["body"]
-    intent = body.get("intent")
-    data = body.get("data") or {}
-    text = (body.get("response") or "").lower()
-
-    if intent == "OUT_OF_SCOPE":
-        cat = data.get("category")
-        return f"OUT_OF_SCOPE({cat})" if cat else "OUT_OF_SCOPE"
-    if intent in ("GREETING", "ADD_EVENT", "SERVICE_REQUEST", "DEAL_SEARCH",
-                  "HARD_RESET", "SOFT_CANCEL", "UNCLEAR"):
-        return intent
-    if intent in ("SEARCH_EVENTS", "LISTING_INTENT", "REFINEMENT"):
-        count = data.get("count")
-        if isinstance(count, int) and count >= 1:
-            return "EVENTS"
-        if "permanent spot in havasu" in text:
-            return "VENUE_REDIRECT"
-        return "NO_MATCH"
-    return f"OTHER({intent})"
+    tier_used = body.get("tier_used")
+    if tier_used in ("1", "2", "3"):
+        return f"TIER{tier_used}"
+    if tier_used:
+        return tier_used.upper()  # 'chat', 'gap_template', 'placeholder', etc.
+    return "UNKNOWN"
 
 
 def fresh_sid() -> str:
@@ -216,18 +218,6 @@ SEQUENCES = [
 ]
 
 
-def matches(actual: str, accept: set[str]) -> bool:
-    if "*" in accept:
-        return True
-    if actual in accept:
-        return True
-    # Wildcard suffix matches like OUT_OF_SCOPE* or OUT_OF_SCOPE(weather)*
-    for a in accept:
-        if a.endswith("*") and actual.startswith(a[:-1]):
-            return True
-    return False
-
-
 def run_all() -> dict:
     results = []
     total = 0
@@ -244,13 +234,15 @@ def run_all() -> dict:
                 "num": num,
                 "section": f"Section 7 / Seq {label}",
                 "query": query,
-                "expected": sorted(expected),
                 "actual": actual,
-                "match": matches(actual, expected),
-                "intent": body.get("intent"),
-                "count": (body.get("data") or {}).get("count"),
-                "category": (body.get("data") or {}).get("category"),
-                "elapsed": round(resp.get("elapsed", 0), 2),
+                "mode": body.get("mode"),
+                "sub_intent": body.get("sub_intent"),
+                "entity": body.get("entity"),
+                "tier_used": body.get("tier_used"),
+                "latency_ms": body.get("latency_ms"),
+                "llm_tokens_used": body.get("llm_tokens_used"),
+                "chat_log_id": body.get("chat_log_id"),
+                "elapsed_seconds": round(resp.get("elapsed", 0), 2),
                 "note": note,
                 "response_snippet": (body.get("response") or "")[:200],
                 "status": resp.get("status"),
@@ -269,13 +261,15 @@ def run_all() -> dict:
             "num": num,
             "section": note.split(" — ")[0] if " — " in note else note,
             "query": query,
-            "expected": sorted(expected),
             "actual": actual,
-            "match": matches(actual, expected),
-            "intent": body.get("intent"),
-            "count": (body.get("data") or {}).get("count"),
-            "category": (body.get("data") or {}).get("category"),
-            "elapsed": round(resp.get("elapsed", 0), 2),
+            "mode": body.get("mode"),
+            "sub_intent": body.get("sub_intent"),
+            "entity": body.get("entity"),
+            "tier_used": body.get("tier_used"),
+            "latency_ms": body.get("latency_ms"),
+            "llm_tokens_used": body.get("llm_tokens_used"),
+            "chat_log_id": body.get("chat_log_id"),
+            "elapsed_seconds": round(resp.get("elapsed", 0), 2),
             "note": note,
             "response_snippet": (body.get("response") or "")[:200],
             "status": resp.get("status"),
