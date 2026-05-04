@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): tick #18 Phase B root sub-bullet (Phase B complete)** · short SHA **`a4d8449`** (2026-05-03); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): restructure #18 Phase C into sub-bullets; tick Railway** · short SHA **`06b62c7`** (2026-05-03); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+06b62c7 docs(BACKLOG): restructure #18 Phase C into sub-bullets; tick Railway
+765ee61 docs(maintainability): add railway_layout.md (Phase C kickoff)
 a4d8449 docs(BACKLOG): tick #18 Phase B root sub-bullet (Phase B complete)
 ea4fcfb docs(README): rewrite for current Hava; add root convention
 0fad8ee docs(BACKLOG): tick #18 Phase B docs/ sub-bullet
@@ -29,11 +31,11 @@ f8da738 docs: prune phase-6-1 transcripts; formalize docs/ archive convention
 857c7fc docs(project_index): add CURSOR_NEW_CHAT_PLAN row and .gitattributes mention
 dc917f4 docs(BACKLOG): tick #18 Phase B; log truncation incident
 23b2054 chore: add .gitattributes and normalize line endings to LF
-67740de docs(BACKLOG): open #18 — repo hygiene & documentation hierarchy
-ed76435 docs: add PM organization brief and Cursor new-chat playbook
 ```
 
 ## Recently shipped (high signal)
+
+- **`765ee61`..`06b62c7`** — **Phase C kickoff: Railway service layout doc (Slice 7)** — New `docs/maintainability/railway_layout.md` consolidates Hava's Railway deployment surface (process types, build, DB URL resolution, env var matrix, .env semantics, health checks, deploy flow, explicit non-coverage list). Indexed in project_index Maintainability table; §5 gap bullet for Railway service layout removed. Backlog #18 Phase C restructured into sub-bullets (1 ongoing component-docs growth + 5 §5 gaps); Railway sub-bullet ticked. 4 §5 gaps remain (HTTP API sketch, CI query-battery story, provider ingestion lane, end-to-end provider/program creation).
 
 - **`ea4fcfb`..`a4d8449`** — **Phase B `repo root` convention (Slice 6) — Phase B complete** — Repo root reserved for project spine (top-level packages, build/deploy config, tooling config, architecture spine doc); operational clutter (local SQLite DBs, script logs, env overrides, bytecode) gitignored at root or under packages; live-session captures go to `relay/`. Convention documented in `README.md` along with a current-Hava rewrite (replacing the stale 16-line Phase 1 stub that referenced removed `POST /events` endpoints) and a navigation table pointing at STATE/BACKLOG/WORKING_AGREEMENT/HAVA_CONCIERGE_HANDOFF/project_index/persona-brief/CURSOR docs. Misfiled `admin-dashboard-pending.png` (~30KB, no references) removed; recoverable via git log. `project_index.md` §5 gap bullet ("README does not mention relay/") removed since closed by this rewrite. **Backlog #18 Phase B is now complete (4/4 sub-bullets ticked: EOL, scripts, docs, root). Remaining #18 work: Phases A (ongoing), C, D.**
 
