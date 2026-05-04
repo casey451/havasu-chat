@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): close #19 (tool default-path migration)** · short SHA **`ddb8569`** (2026-05-04); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): close #20 (legacy tracked-output disposition)** · short SHA **`894dc28`** (2026-05-04); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+894dc28 docs(BACKLOG): close #20 (legacy tracked-output disposition)
+15f7248 chore(scripts): remove 5 legacy tracked outputs (Backlog #20)
 ddb8569 docs(BACKLOG): close #19 (tool default-path migration)
 d429fe7 chore(scripts): migrate tool default output paths to scripts/output/
 61f73b4 docs(BACKLOG): tick #18 Phase C end-to-end creation sub-bullet
@@ -29,12 +31,11 @@ f179e84 docs(BACKLOG): tick #18 Phase C HTTP API sub-bullet
 765ee61 docs(maintainability): add railway_layout.md (Phase C kickoff)
 a4d8449 docs(BACKLOG): tick #18 Phase B root sub-bullet (Phase B complete)
 ea4fcfb docs(README): rewrite for current Hava; add root convention
-0fad8ee docs(BACKLOG): tick #18 Phase B docs/ sub-bullet
-f8da738 docs: prune phase-6-1 transcripts; formalize docs/ archive convention
 ```
 
 ## Recently shipped (high signal)
 
+- **`15f7248`..`894dc28`** — **#20 close: legacy tracked-output disposition (Slice 11)** — Removed 5 legacy tracked outputs from `scripts/` (`battery_results.json` 68KB + 4 dated `voice_audit_results_2026-04-*.json` totaling ~340KB; ~410KB freed). All recoverable via `git log -- <path>`. `scripts/README.md` legacy paragraph removed in same commit. Three other narrative/historical references in `havasu-development-plan.md`, `runbook.md`, `known-issues.md` left as-is per project_index convention. Pytest count unchanged pre/post. Phase B follow-up family fully closed (#19 in Slice 10, #20 here).
 - **`d429fe7`..`ddb8569`** — **#19 close: tool default-path migration (Slice 10)** — `scripts/run_voice_audit.py:1097` and `scripts/diagnose_search.py:19` updated to write under `scripts/output/` (the gitignored convention established in Slice 4's `scripts/README.md` rewrite). `parent.mkdir(parents=True, exist_ok=True)` added before each `write_text` to handle fresh-clone directory absence; matches the pattern already used by the other scripts/output writers. Three other CLI tools surveyed (`extract_tier3_queries.py`, `run_voice_spotcheck.py`, `confabulation_eval.py`) already used a correct convention; no edits needed. Pytest count unchanged pre/post (behavior-neutral). Bonus finding noted in #19 resolution: `diagnose_search.py:18 BASE_URL` is stale and would fail if the script were run as-is.
 - **`c1cd8b0`..`61f73b4`** — **Phase C: End-to-end creation doc (Slice 9)** — New `docs/maintainability/end_to_end_creation.md` (~140 lines) documents the four paths that produce catalog rows: public submission via `/contribute` → admin review → `approval_service.approve_contribution_as_*`; River Scene auto-import (CLI script → contribution-shaped row → same admin review); Tier 3 mention scan via `mention_scanner.scan_and_save_mentions` → `LlmMentionedEntity` queue → admin promotion creates Provider; admin direct create (Programs only via `/admin/programs/new`). Plus Contribution status state machine (pending/approved/rejected/needs_info), per-entity-type fields touched at creation, and explicit non-coverage list. Indexed in project_index Maintainability table; §5 gap bullet for "no end-to-end provider/program creation doc" removed. Backlog #18 Phase C now 3/6 ticked (Railway + HTTP API + end-to-end).
 - **`5f14f36`..`f179e84`** — **Phase C: HTTP API sketch (Slice 8)** — New `docs/maintainability/http_api.md` (~140 lines) consolidates all 58 routes: mount layout (7 routers/prefixes), public routes by group (chat, UI/legal, health, events, contribute, programs), admin HTML routes (`/admin/*`, cookie-gated via `verify_admin`), admin JSON API routes (`/admin/api/*`, `Depends(require_admin)`), auth posture summary, rate limits (5 slowapi + 1 custom contribute limiter), schema pointers to `app/schemas/`. Indexed in project_index Maintainability table; §5 gap bullet for "no API reference doc" removed. Backlog #18 Phase C now 2/6 ticked (Railway + HTTP API). Doc notes but doesn't gate on two observations: `POST /events` is a public rate-limited endpoint (Phase 1 leftover?) and `/admin/debug-pw` is an unauthenticated admin debug helper (verify production posture); both queued for future review.
@@ -69,8 +70,8 @@ f8da738 docs: prune phase-6-1 transcripts; formalize docs/ archive convention
 
 See **`docs/BACKLOG.md`**. Snapshot:
 
-- **OPEN** — **2**, **3**, **5**, **7**, **9**, **11**, **12**, **14**, **16**, **18**, **20** (see `docs/BACKLOG.md` for titles).
-- **Recently resolved** — **8** (Slice 3, `2627693`); **19** (Slice 10, `d429fe7`); historical: **13**, **15** (`656d54b`).
+- **OPEN** — **2**, **3**, **5**, **7**, **9**, **11**, **12**, **14**, **16**, **18** (see `docs/BACKLOG.md` for titles).
+- **Recently resolved** — **8** (Slice 3, `2627693`); **19** (Slice 10, `d429fe7`); **20** (Slice 11, `15f7248`); historical: **13**, **15** (`656d54b`).
 - **DEFERRED** — **17** (OpenAI helper extraction until a second caller exists).
 - **Confabulation / eval** — operator harness: `docs/confabulation-eval-runbook.md`, code under `app/eval/`. Broader “phase 8.8.6” spec markdown was pruned; recover from git history if needed.
 
