@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): tick #18 Phase B docs/ sub-bullet** · short SHA **`0fad8ee`** (2026-05-03); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): tick #18 Phase B root sub-bullet (Phase B complete)** · short SHA **`a4d8449`** (2026-05-03); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+a4d8449 docs(BACKLOG): tick #18 Phase B root sub-bullet (Phase B complete)
+ea4fcfb docs(README): rewrite for current Hava; add root convention
 0fad8ee docs(BACKLOG): tick #18 Phase B docs/ sub-bullet
 f8da738 docs: prune phase-6-1 transcripts; formalize docs/ archive convention
 97b642d docs(BACKLOG): tick #18 Phase B scripts sub-bullet; open #19, #20
@@ -29,11 +31,11 @@ dc917f4 docs(BACKLOG): tick #18 Phase B; log truncation incident
 23b2054 chore: add .gitattributes and normalize line endings to LF
 67740de docs(BACKLOG): open #18 — repo hygiene & documentation hierarchy
 ed76435 docs: add PM organization brief and Cursor new-chat playbook
-364cd5f docs(findings_app_chat): mark H1 parallel-router finding historical
-665ff4c docs(STATE): fix recent-commit SHA and stable main pointer
 ```
 
 ## Recently shipped (high signal)
+
+- **`ea4fcfb`..`a4d8449`** — **Phase B `repo root` convention (Slice 6) — Phase B complete** — Repo root reserved for project spine (top-level packages, build/deploy config, tooling config, architecture spine doc); operational clutter (local SQLite DBs, script logs, env overrides, bytecode) gitignored at root or under packages; live-session captures go to `relay/`. Convention documented in `README.md` along with a current-Hava rewrite (replacing the stale 16-line Phase 1 stub that referenced removed `POST /events` endpoints) and a navigation table pointing at STATE/BACKLOG/WORKING_AGREEMENT/HAVA_CONCIERGE_HANDOFF/project_index/persona-brief/CURSOR docs. Misfiled `admin-dashboard-pending.png` (~30KB, no references) removed; recoverable via git log. `project_index.md` §5 gap bullet ("README does not mention relay/") removed since closed by this rewrite. **Backlog #18 Phase B is now complete (4/4 sub-bullets ticked: EOL, scripts, docs, root). Remaining #18 work: Phases A (ongoing), C, D.**
 
 - **`f8da738`..`0fad8ee`** — **Phase B `docs/` archive convention (Slice 5)** — Two misfiled session transcripts (`docs/phase-6-1-2-dry-run-transcript-2026-04-21.txt`, `docs/phase-6-1-3-execution-transcript-2026-04-21.txt`, ~13KB total) removed from the tree (recoverable via git log). Convention formalized in `docs/CURSOR_ORIENTATION.md` (Process conventions bullet) and `docs/maintainability/project_index.md` (post-doc-list paragraph): session transcripts and slice-complete writeups go to git history; live-session captures go to `relay/` (gitignored). Backlog #18 Phase B `docs/` sub-bullet ticked; remaining Phase B work is the root-convention sub-bullet.
 
