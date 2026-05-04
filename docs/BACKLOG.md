@@ -338,7 +338,7 @@ If (b), (c), or (d), small follow-up slice to implement.
 
 ---
 
-## Backlog 23 - `scripts/diagnose_search.py` cleanup: stale BASE_URL + stale docstring (**OPEN**)
+## Backlog 23 - `scripts/diagnose_search.py` cleanup: stale BASE_URL + stale docstring (**RESOLVED**)
 
 **Issue:** Two stale references in `scripts/diagnose_search.py` surfaced during Slice 10's tool default-path migration but deferred:
 
@@ -356,6 +356,13 @@ Could be expanded to also wire the BASE_URL through an env var (`HAVASU_DIAGNOSE
 **Severity:** LOW. Diagnostic tool, not production code path.
 
 **Cross-reference:** Surfaced in Backlog #19 closure (Slice 10, `d429fe7`) bonus findings.
+
+**Resolution shipped:** `c94afb6` — Both edits applied:
+
+- Line 4 docstring updated to reference `scripts/output/diagnose_output.txt`.
+- Line 18 `BASE_URL` updated to `https://havasu-chat-production.up.railway.app` (matches `docs/STATE.md` production URL).
+
+Minimum-viable fix; did not wire `BASE_URL` through an env var (e.g., `HAVASU_DIAGNOSE_BASE`) to prevent future drift. If drift recurs, that's a separate small follow-up. Pytest count unchanged pre/post (behavior-neutral; no test loads these constants).
 
 ---
 
