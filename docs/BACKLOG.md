@@ -180,13 +180,19 @@ Adjacent doc updates from the OLD entry are still valid: `docs/runbook.md` §3.5
 
 ---
 
-## Backlog 16 - migrate `scripts/run_voice_audit.py` to consolidated LLM helpers (**OPEN**)
+## Backlog 16 - migrate `scripts/run_voice_audit.py` to consolidated LLM helpers (**RESOLVED**)
 
 **Issue:** `scripts/run_voice_audit.py` still reproduces Anthropic-call boilerplate (`anthropic.Anthropic(...)` + `client.messages.create(...)` + token-usage extraction) instead of the shared helpers. H2 shipped **`app/core/llm_messages.py`** (`docs/maintainability/h2_consolidation_decision.md` § Status — completed); this item is now a straightforward follow-on.
 
 **Desired fix:** Migrate the script's Anthropic call sites to use `call_anthropic_messages` and the `Usage` dataclass. Out of `app/chat/` scope and not on the production request path; low-risk one-commit change (line numbers drift — locate call sites by search).
 
 **Severity:** LOW.
+
+**Resolution shipped:** `ab8df88` — Migrated both `messages.create()` call sites in `_run_voice_audits()` to use `call_anthropic_messages()` from `app/core/llm_messages.py` (the H2 consolidation point). Removed inline `import anthropic` + client construction from `main()`. Updated `_run_voice_audits` signature to drop the `client` parameter (helper constructs its own client internally). Kept the `api_key = os.getenv()` pre-flight check for early-error UX before cost estimation. Pytest count unchanged at 949 (script not in test coverage); `py_compile` confirmed syntactic correctness.
+
+**Production runtime verification deferred** — the voice audit script makes 100+ Anthropic calls per run (~$2-5 in API costs), so smoke testing isn't cost-effective. The next legitimate audit run will exercise the migrated path; runtime regressions would surface as `ERROR` verdicts in the output JSON.
+
+This makes scripts/run_voice_audit.py the second Anthropic caller fully on the H2 helper (after the in-app callers migrated in the original H2 ship). Backlog #17 (OpenAI helper extraction) remains DEFERRED — `app/chat/hint_extractor.py` is still the sole OpenAI caller; pattern only pays off with a second drifting caller.
 
 ---
 
