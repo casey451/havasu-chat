@@ -112,11 +112,17 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 
 ---
 
-## Backlog 9 - Tier 1 hit rate (**OPEN**)
+## Backlog 9 - Tier 1 hit rate (**DEFERRED**)
 
 **Observation:** ~33/486 ≈ **7%** Tier 1 hits pre-H1 — lower than expected for templated provider lookups.
 
 **Next step:** After the live catalog stabilizes (River Scene + contributions), re-measure; if it stays low, investigate (signal worth pulling on).
+
+**Status changed:** OPEN → DEFERRED (Slice 20). The original "Next step" said "After the live catalog stabilizes (River Scene + contributions), re-measure." Per current STATE.md catalog posture, **the precondition isn't time-based — it's data-based**: `providers` table is empty after the 2026 RS-only cleanup; Tier 1 templated provider lookups have nothing to hit, so hit rate would currently measure near 0% regardless of query mix. Re-measurement is meaningless until providers actually populate.
+
+**Precondition for re-opening:** Provider rows exist in production catalog. Routes to provider population include (a) approved contributions with `entity_type='provider'`, (b) future provider ingestion lane (filed as Phase C §5 sub-bullet under Backlog #18; forward-looking spec not yet shipped), (c) Tier 3 mention promotions creating Provider rows (operational since Slice 8's `end_to_end_creation.md` Path 3). Once providers are populated and a representative query mix has run for a measurement window (e.g., a week of chat traffic), re-measure Tier 1 hit rate against `chat_logs` and re-evaluate.
+
+No code change required. Tracking until precondition is met.
 
 ---
 
