@@ -211,7 +211,7 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 - [ ] **C — Documentation depth where code is complex.**
   - [ ] **Component docs growth** (ongoing). Tier2 stack, contrib/River Scene, admin.
   - [x] **§5 gap: Railway service/env matrix** (Slice 7, `765ee61`): `docs/maintainability/railway_layout.md` consolidates process types, env var matrix, DB URL resolution, health checks, deploy flow.
-  - [ ] **§5 gap: HTTP API sketch** (single doc listing every route + method + schema).
+  - [x] **§5 gap: HTTP API sketch** (Slice 8, `5f14f36`): `docs/maintainability/http_api.md` consolidates all 58 routes — mount layout, public routes by group, admin HTML routes (cookie-gated `verify_admin`), admin JSON API routes (`Depends(require_admin)`), auth posture summary, rate limits (slowapi + custom contribute limiter), schema pointers.
   - [ ] **§5 gap: CI query-battery story** (how-to-run-in-CI doc; depends on Backlog #12 retarget first).
   - [ ] **§5 gap: Provider ingestion lane (forward-looking spec).**
   - [ ] **§5 gap: End-to-end provider/program creation from empty tables.**
