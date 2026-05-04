@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): defer #11 (slowapi deprecation; pending upstream fix)** · short SHA **`6ca0639`** (2026-05-04); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): defer #9 (Tier 1 hit rate; pending provider population)** · short SHA **`35577cd`** (2026-05-04); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+35577cd docs(BACKLOG): defer #9 (Tier 1 hit rate; pending provider population)
 6ca0639 docs(BACKLOG): defer #11 (slowapi deprecation; pending upstream fix)
 dbb16f8 docs(BACKLOG): close #14 (--collect-only discipline; not canonical)
 7a56f7c docs(BACKLOG): close #16 (run_voice_audit migrated to llm_messages helper)
@@ -30,11 +31,11 @@ b1a0add chore(events): cookie-gate POST /events with require_admin (Backlog #21)
 babe738 docs(BACKLOG): close #22 via option (c) — /admin/debug-pw removed
 72728e2 chore(admin): remove /debug-pw endpoint + debug-info helper (Backlog #22)
 954dd38 docs(BACKLOG): close #23 (diagnose_search.py cleanup)
-c94afb6 chore(scripts): fix diagnose_search.py BASE_URL + docstring (Backlog #23)
 ```
 
 ## Recently shipped (high signal)
 
+- **`35577cd`** — **#9 deferred: Tier 1 hit rate pending provider population (Slice 20)** — Decision-only slice: changed Backlog #9 status from OPEN to DEFERRED. Refined the precondition from time-based ("catalog stabilizes") to data-based: `providers` table is empty in current RS-only catalog posture; Tier 1 templated provider lookups have nothing to hit so re-measurement is meaningless until providers populate (via approved contributions, future ingestion lane, or Tier 3 mention promotions). Mirrors #11/#17 deferral pattern. OPEN list drops to 7; DEFERRED line gains 9.
 - **`6ca0639`** — **#11 deferred: slowapi Python 3.14 deprecation pending upstream fix (Slice 19)** — Decision-only slice: changed Backlog #11 status from OPEN to DEFERRED. The original Scope line already said "Track until slowapi releases a fix" — DEFERRED formalizes this per BACKLOG.md conventions. Precondition for re-opening documented: either slowapi ships a Python 3.14-compatible version using `inspect.iscoroutinefunction()`, or a version pin becomes warranted. Until then the 5 warnings per pytest run are benign. Mirrors #17's deferral pattern. OPEN list drops to 8; DEFERRED line gains 11.
 - **`dbb16f8`** — **#14 close: --collect-only discipline (decision: not canonical) (Slice 18)** — Decision-only slice grounded in 17 slices of post-H1 evidence: every ship used `pytest -q` alone for verification, including 4 deletion ships (Slices 5, 11, 14, 17), and none had hidden collection-time issues that `--collect-only` would have caught earlier. The H1-era cross-cutting parametrize/skipif references to legacy modules don't exist post-H1. Resolution paragraph documents a heuristic for future case-by-case use. No `POST_SHIP_CHECKLIST` or `WORKING_AGREEMENT` update needed.
 - **`ab8df88`..`7a56f7c`** — **#16 close: run_voice_audit.py migrated to llm_messages helper (Slice 17)** — Migrated both `messages.create()` call sites in `_run_voice_audits()` to use `call_anthropic_messages()` from `app/core/llm_messages.py` (the H2 consolidation helper). 6 surgical edits in one file: import add + signature change + 2 call site rewrites + inline-import removal + caller update. Pytest count unchanged at 949. Production runtime verification deferred (script is expensive to run as smoke). With this, `run_voice_audit.py` is the second fully-migrated Anthropic caller; #17 (OpenAI helper extraction) stays DEFERRED until a second OpenAI caller appears.
@@ -78,9 +79,9 @@ c94afb6 chore(scripts): fix diagnose_search.py BASE_URL + docstring (Backlog #23
 
 See **`docs/BACKLOG.md`**. Snapshot:
 
-- **OPEN** — **2**, **3**, **5**, **7**, **9**, **18**, **24**, **25** (see `docs/BACKLOG.md` for titles).
+- **OPEN** — **2**, **3**, **5**, **7**, **18**, **24**, **25** (see `docs/BACKLOG.md` for titles).
 - **Recently resolved** — **8** (Slice 3, `2627693`); **19** (Slice 10, `d429fe7`); **20** (Slice 11, `15f7248`); **23** (Slice 13, `c94afb6`); **22** (Slice 14, `72728e2`); **21** (Slice 15, `b1a0add`); **12** (Slice 16, `fd313bb`); **16** (Slice 17, `ab8df88`); **14** (Slice 18, `dbb16f8`); historical: **13**, **15** (`656d54b`).
-- **DEFERRED** — **11** (slowapi Python 3.14 deprecation; pending upstream fix or version pin), **17** (OpenAI helper extraction until a second caller exists).
+- **DEFERRED** — **9** (Tier 1 hit rate; pending provider population), **11** (slowapi Python 3.14 deprecation; pending upstream fix or version pin), **17** (OpenAI helper extraction until a second caller exists).
 - **Confabulation / eval** — operator harness: `docs/confabulation-eval-runbook.md`, code under `app/eval/`. Broader “phase 8.8.6” spec markdown was pruned; recover from git history if needed.
 
 ## Working tree
