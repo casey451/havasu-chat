@@ -484,7 +484,7 @@ Phase B follow-up family fully closed: #19 (Slice 10), #20 (Slice 11), #24 (this
 
 ---
 
-## Backlog 25 - Rebuild `SINGLE_SHOT` expected labels for new ConciergeChatResponse shape (**OPEN**)
+## Backlog 25 - Rebuild `SINGLE_SHOT` expected labels for new ConciergeChatResponse shape (**RESOLVED**)
 
 **Issue:** Slice 16 (Backlog #12 close) retargeted `scripts/run_query_battery.py` to `/api/chat` via raw-passthrough scope: endpoint, payload, response parsing, and record fields all updated. But the 115 hardcoded `SINGLE_SHOT` tuples retain their pre-H1 `expected` labels (e.g., `{"EVENTS"}`, `{"OUT_OF_SCOPE"}`) which assume the OLD intent-based categorization. The current `classify()` function ignores those labels and just produces tier-based passthrough strings (`TIER1`, `TIER2`, `TIER3`, `CHAT`, etc.) — no expected/actual matching, no regression-detection.
 
@@ -502,6 +502,8 @@ Once expected labels exist, restore `match` field in record output and write a s
 **Severity:** LOW. The retarget already addresses the abuse-vector-shaped problem (script was 404'ing); regression-detection is hygiene improvement.
 
 **Cross-reference:** Surfaced in Backlog #12 closure (Slice 16). Adjacent: Phase C CI query-battery sub-bullet under #18 (now unblocked but still requires this work + actual CI infra).
+
+**Resolution shipped:** `b34fea1` — Battery refactored to use captured production baseline as expected labels. `matches()` helper restored. `expected` and `match` fields restored in record output. `matched`/`mismatched` summary fields added to `run_all()` return value. Verify run produced 119 matched / 1 mismatched (#45 "rotary park": baseline TIER2 → verify TIER3, expected LLM non-determinism on a borderline date-phrase parse). Phase C CI query-battery sub-bullet under #18 now has functional regression detection; CI infrastructure still queued under Phase D.
 
 ---
 
