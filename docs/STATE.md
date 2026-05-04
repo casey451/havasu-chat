@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): tick #18 Phase C HTTP API sub-bullet** · short SHA **`f179e84`** (2026-05-03); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): tick #18 Phase C end-to-end creation sub-bullet** · short SHA **`61f73b4`** (2026-05-03); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+61f73b4 docs(BACKLOG): tick #18 Phase C end-to-end creation sub-bullet
+c1cd8b0 docs(maintainability): add end_to_end_creation.md (Phase C)
 f179e84 docs(BACKLOG): tick #18 Phase C HTTP API sub-bullet
 5f14f36 docs(maintainability): add http_api.md (Phase C HTTP API sketch)
 06b62c7 docs(BACKLOG): restructure #18 Phase C into sub-bullets; tick Railway
@@ -29,12 +31,11 @@ ea4fcfb docs(README): rewrite for current Hava; add root convention
 f8da738 docs: prune phase-6-1 transcripts; formalize docs/ archive convention
 97b642d docs(BACKLOG): tick #18 Phase B scripts sub-bullet; open #19, #20
 28cd5c6 docs(scripts): document tools, fixtures, outputs, baselines convention
-2627693 docs(BACKLOG, unified_router): resolve #8, note sandbox artifact in #18
-857c7fc docs(project_index): add CURSOR_NEW_CHAT_PLAN row and .gitattributes mention
 ```
 
 ## Recently shipped (high signal)
 
+- **`c1cd8b0`..`61f73b4`** — **Phase C: End-to-end creation doc (Slice 9)** — New `docs/maintainability/end_to_end_creation.md` (~140 lines) documents the four paths that produce catalog rows: public submission via `/contribute` → admin review → `approval_service.approve_contribution_as_*`; River Scene auto-import (CLI script → contribution-shaped row → same admin review); Tier 3 mention scan via `mention_scanner.scan_and_save_mentions` → `LlmMentionedEntity` queue → admin promotion creates Provider; admin direct create (Programs only via `/admin/programs/new`). Plus Contribution status state machine (pending/approved/rejected/needs_info), per-entity-type fields touched at creation, and explicit non-coverage list. Indexed in project_index Maintainability table; §5 gap bullet for "no end-to-end provider/program creation doc" removed. Backlog #18 Phase C now 3/6 ticked (Railway + HTTP API + end-to-end).
 - **`5f14f36`..`f179e84`** — **Phase C: HTTP API sketch (Slice 8)** — New `docs/maintainability/http_api.md` (~140 lines) consolidates all 58 routes: mount layout (7 routers/prefixes), public routes by group (chat, UI/legal, health, events, contribute, programs), admin HTML routes (`/admin/*`, cookie-gated via `verify_admin`), admin JSON API routes (`/admin/api/*`, `Depends(require_admin)`), auth posture summary, rate limits (5 slowapi + 1 custom contribute limiter), schema pointers to `app/schemas/`. Indexed in project_index Maintainability table; §5 gap bullet for "no API reference doc" removed. Backlog #18 Phase C now 2/6 ticked (Railway + HTTP API). Doc notes but doesn't gate on two observations: `POST /events` is a public rate-limited endpoint (Phase 1 leftover?) and `/admin/debug-pw` is an unauthenticated admin debug helper (verify production posture); both queued for future review.
 
 - **`765ee61`..`06b62c7`** — **Phase C kickoff: Railway service layout doc (Slice 7)** — New `docs/maintainability/railway_layout.md` consolidates Hava's Railway deployment surface (process types, build, DB URL resolution, env var matrix, .env semantics, health checks, deploy flow, explicit non-coverage list). Indexed in project_index Maintainability table; §5 gap bullet for Railway service layout removed. Backlog #18 Phase C restructured into sub-bullets (1 ongoing component-docs growth + 5 §5 gaps); Railway sub-bullet ticked. 4 §5 gaps remain (HTTP API sketch, CI query-battery story, provider ingestion lane, end-to-end provider/program creation).
