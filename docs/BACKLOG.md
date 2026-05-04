@@ -162,13 +162,28 @@ Adjacent doc updates from the OLD entry are still valid: `docs/runbook.md` §3.5
 
 ---
 
-## Backlog 14 - `pytest --collect-only` discipline not canonicalized (**OPEN**)
+## Backlog 14 - `pytest --collect-only` discipline not canonicalized (**RESOLVED**)
 
 **Issue:** During the H1 deletion ship, **`python -m pytest --collect-only -q`** was used as a pre-push runtime backstop to catch references to deleted symbols that static grep can miss (parametrize args, `skipif` conditions, decorator-time evaluation). Neither **`docs/POST_SHIP_CHECKLIST.md`** nor **`docs/WORKING_AGREEMENT.md`** documents this practice.
 
 **Decision needed:** Should **`--collect-only`** be canonical pre-push discipline for all ships, or only for deletion ships, or only when triggered case-by-case? The H1 ship's value-add was clear (deletion ship with cross-cutting references). Less clear for additive ships.
 
 **Desired fix:** Either add a one-line bullet to **`POST_SHIP_CHECKLIST`** under verification steps, with a clause defining when it applies, or close this item with a deliberate "not canonicalized — judgment per ship" decision.
+
+**Resolution shipped:** Decision: **judgment per ship; not canonical pre-push discipline.**
+
+Grounded in 17 slices of post-H1 ship experience (today's session, 2026-05-04). Every slice used `python -m pytest -q` alone for pre/post verification; all 17 verified cleanly. This includes 4 deletion-flavored ships:
+
+- Slice 5 — removed 2 misfiled transcript .txt files
+- Slice 11 — removed 5 tracked output JSONs (~410KB) + README paragraph
+- Slice 14 — removed `/admin/debug-pw` endpoint + helper + test + 2 doc references (5-file removal)
+- Slice 17 — removed inline Anthropic boilerplate (helper migration)
+
+None had hidden import-time or collection-time issues that `--collect-only` would have caught earlier than `pytest -q`. The H1 ship that originally motivated this concern had cross-cutting parametrize-arg + skipif-decorator references to legacy modules — that complexity was itself removed in H1, and post-H1 code doesn't have similar pattern.
+
+**Heuristic for future use:** reach for `python -m pytest --collect-only -q` ONLY when removing or renaming symbols that are referenced by `@pytest.mark.parametrize` argument values, `@pytest.mark.skipif` condition expressions, decorator-time eval'd attributes, or other test-collection-time string references. For ordinary code change / removal / addition ships, `pytest -q` exercises every test path that `--collect-only` would have flagged anyway — collection happens as part of execution.
+
+No `POST_SHIP_CHECKLIST.md` or `WORKING_AGREEMENT.md` update required; the canonical workflow stays as-is.
 
 ---
 
