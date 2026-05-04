@@ -256,7 +256,7 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 
 ---
 
-## Backlog 20 - Disposition for tracked dated `voice_audit_results_*.json` files (**OPEN**)
+## Backlog 20 - Disposition for tracked dated `voice_audit_results_*.json` files (**RESOLVED**)
 
 **Issue:** Five legacy tracked outputs in `scripts/` were written directly there before the `scripts/output/` convention existed (~410KB total):
 
@@ -275,6 +275,23 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 **Severity:** LOW. ~410KB of tracked data not actively referenced. Mostly housekeeping.
 
 **Cross-reference:** Backlog #18 Phase B `scripts/` sub-ship (Slice 4 — `28cd5c6`); Backlog #19 (tool migration); Backlog #12 (`run_query_battery.py` broken; resolves whether `battery_results.json` matters).
+
+**Resolution shipped:** `15f7248` — All 5 legacy tracked outputs removed via `git rm`:
+
+- `scripts/battery_results.json` (~68KB) — documented as "canonical baseline" but `run_query_battery.py` is broken (Backlog #12), so the baseline is stale. When #12 ships, it'll produce a fresh baseline; until then, recoverable via `git log -- scripts/battery_results.json`.
+- `scripts/voice_audit_results_2026-04-21.json`, `scripts/voice_audit_results_2026-04-21-phase614-verify.json`, `scripts/voice_audit_results_2026-04-22-phase86.json`, `scripts/voice_audit_results_2026-04-23.json` (~340KB total) — dated snapshots, not active reference data per the README's own definition. Future runs of `run_voice_audit.py` write under `scripts/output/` per Slice 10 (#19 closure).
+
+`scripts/README.md` legacy paragraph (the one that explicitly said "queued in Backlog #20") removed in the same commit.
+
+**Three other doc references to these files were deliberately LEFT in place** as historical context per the project_index convention (`docs/maintainability/project_index.md` post-doc-list paragraph from Slice 5: removed-from-tree files recoverable via `git log --all -- <path>`):
+
+- `docs/havasu-development-plan.md:78` — narrative reference to the historical 96.67% pass rate.
+- `docs/runbook.md:291` — operational note giving `battery_results.json` as an example of "baselines in scripts/ are not auto-applied."
+- `docs/known-issues.md:129` — references a specific sample (`t3-01`) in one of the dated voice_audit JSONs.
+
+All three are narrative/historical, not operational. Pytest count unchanged pre/post (no code touched).
+
+This closes the Phase B follow-up family entirely (#19 closed in Slice 10; #20 closed here).
 
 ---
 
