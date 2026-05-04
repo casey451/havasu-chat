@@ -295,6 +295,70 @@ This closes the Phase B follow-up family entirely (#19 closed in Slice 10; #20 c
 
 ---
 
+---
+
+## Backlog 21 - `POST /events` posture review (**OPEN**)
+
+**Issue:** `POST /events` is a public-facing rate-limited (5/min) endpoint at the top level (`app/main.py:create_event`). Surfaced as an observation in `docs/maintainability/http_api.md` (Slice 8) with note "verify intent." It's unclear whether this is intentional (public event creation accepted with rate limiting) or a Phase 1 leftover before the contribution-flow path was designed.
+
+**Effect:** Public clients can POST events directly without going through the Contribution → admin review approval flow that all other catalog row creation goes through (per `docs/maintainability/end_to_end_creation.md`).
+
+**Desired action:** Casey-level decision on whether the endpoint should:
+- (a) Stay public (intentional bypass for some use case)
+- (b) Move behind admin auth (`Depends(require_admin)`)
+- (c) Be removed entirely (Phase 1 leftover)
+
+If (b) or (c), small follow-up slice to implement.
+
+**Severity:** LOW. The rate limit (5/min) plus catalog `status='live'` default means abuse risk is bounded but real.
+
+**Cross-reference:** Surfaced in `docs/maintainability/http_api.md` (Slice 8, `5f14f36`).
+
+---
+
+## Backlog 22 - `/admin/debug-pw` posture review (**OPEN**)
+
+**Issue:** `GET /admin/debug-pw` is an admin-routed endpoint (`app/admin/router.py:admin_debug_pw`) that is NOT cookie-gated by `verify_admin`. Surfaced as an observation in `docs/maintainability/http_api.md` (Slice 8) with note "verify production posture."
+
+**Effect:** Anyone who can reach the production URL can hit `/admin/debug-pw` without authentication. The endpoint's purpose is unclear from the name alone — possibly a debug helper that shouldn't be exposed in production.
+
+**Desired action:** Casey-level review:
+- Read what the handler actually does (`app/admin/router.py:admin_debug_pw`).
+- Decide whether the endpoint should:
+  - (a) Stay accessible (intentional sandbox / known-safe)
+  - (b) Be cookie-gated like the rest of `/admin/*`
+  - (c) Be removed entirely from production
+  - (d) Stay in dev but be guarded against production via env-var check
+
+If (b), (c), or (d), small follow-up slice to implement.
+
+**Severity:** LOW-MEDIUM. Severity depends on what the handler exposes.
+
+**Cross-reference:** Surfaced in `docs/maintainability/http_api.md` (Slice 8, `5f14f36`).
+
+---
+
+## Backlog 23 - `scripts/diagnose_search.py` cleanup: stale BASE_URL + stale docstring (**OPEN**)
+
+**Issue:** Two stale references in `scripts/diagnose_search.py` surfaced during Slice 10's tool default-path migration but deferred:
+
+- **Line 18 BASE_URL drift:** `BASE_URL = "https://web-production-bbe17.up.railway.app"` does NOT match production (`havasu-chat-production.up.railway.app` per `docs/STATE.md`). The script targets a stale Railway URL and would fail with connection errors if run as-is.
+- **Line 4 docstring drift:** Docstring still references the old output path (`scripts/diagnose_output.txt`); the functional path was migrated to `scripts/output/diagnose_output.txt` in Slice 10 (`d429fe7`).
+
+**Effect:** Anyone trying to use `diagnose_search.py` would hit either a connection failure (BASE_URL) or be confused by the docstring's mismatch with the actual output path.
+
+**Desired fix:** One small commit:
+- Update line 18 `BASE_URL` to the current production URL.
+- Update line 4 docstring to reference `scripts/output/diagnose_output.txt`.
+
+Could be expanded to also wire the BASE_URL through an env var (`HAVASU_DIAGNOSE_BASE` or similar) so it doesn't drift again, but the minimum viable fix is just the two-line update.
+
+**Severity:** LOW. Diagnostic tool, not production code path.
+
+**Cross-reference:** Surfaced in Backlog #19 closure (Slice 10, `d429fe7`) bonus findings.
+
+---
+
 ## Ship log - Session 2 follow-up, Tier 2 deterministic event rendering (**`d279165`**)
 
 **What shipped:** Deterministic Python rendering for all-event Tier 2 catalog responses; `tier2_formatter.format()` dispatches empty rows → fixed empty message, all-event rows → renderer `(text, 0, 0)`, mixed/non-event rows → unchanged Anthropic path. Programs and providers remain LLM-formatted (scope-limited to events where dropping/count bugs were observed).
