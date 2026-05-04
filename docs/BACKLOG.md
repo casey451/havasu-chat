@@ -233,7 +233,7 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 
 ---
 
-## Backlog 19 - Migrate tool default output paths to `scripts/output/` (**OPEN**)
+## Backlog 19 - Migrate tool default output paths to `scripts/output/` (**RESOLVED**)
 
 **Issue:** Several CLI tools write outputs directly to `scripts/` rather than the `scripts/output/` convention established in `scripts/README.md` (Slice 4):
 
@@ -248,6 +248,11 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 **Severity:** LOW. No functional impact; purely organizational hygiene.
 
 **Cross-reference:** Backlog #18 Phase B `scripts/` sub-ship (Slice 4 — `28cd5c6`).
+
+**Resolution shipped:** `d429fe7` — `scripts/run_voice_audit.py:1097` and `scripts/diagnose_search.py:19` migrated to write under `scripts/output/`; `parent.mkdir(parents=True, exist_ok=True)` added before each `write_text` call to handle fresh-clone directory absence (matches the pattern already used by `extract_tier3_queries.py:60` and `run_voice_spotcheck.py:206`). The other tools surveyed (`extract_tier3_queries.py`, `run_voice_spotcheck.py`, `confabulation_eval.py`) already used a correct convention. Pytest count unchanged pre/post (behavior-neutral; no script is in test coverage). **Bonus findings noted but not addressed:**
+
+- `diagnose_search.py:18` has `BASE_URL = "https://web-production-bbe17.up.railway.app"`, which does NOT match production (`havasu-chat-production.up.railway.app` per `docs/STATE.md`). The script would fail if run as-is.
+- `diagnose_search.py:4` docstring still references the old output path (`scripts/diagnose_output.txt`); the functional definition at line 19 was migrated to `scripts/output/`. One-line docstring fix possible in a future small commit if anyone wants doc-vs-code consistency.
 
 ---
 
