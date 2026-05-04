@@ -297,7 +297,7 @@ This closes the Phase B follow-up family entirely (#19 closed in Slice 10; #20 c
 
 ---
 
-## Backlog 21 - `POST /events` posture review (**OPEN**)
+## Backlog 21 - `POST /events` posture review (**RESOLVED**)
 
 **Issue:** `POST /events` is a public-facing rate-limited (5/min) endpoint at the top level (`app/main.py:create_event`). Surfaced as an observation in `docs/maintainability/http_api.md` (Slice 8) with note "verify intent." It's unclear whether this is intentional (public event creation accepted with rate limiting) or a Phase 1 leftover before the contribution-flow path was designed.
 
@@ -313,6 +313,20 @@ If (b) or (c), small follow-up slice to implement.
 **Severity:** LOW. The rate limit (5/min) plus catalog `status='live'` default means abuse risk is bounded but real.
 
 **Cross-reference:** Surfaced in `docs/maintainability/http_api.md` (Slice 8, `5f14f36`).
+
+**Resolution shipped:** `b1a0add` — Disposition (d) chosen: cookie-gate now, queue full removal as Backlog #24. Files touched (6):
+
+- `app/main.py`: import + local `require_admin` + `Depends(require_admin)` on `create_event`.
+- `tests/test_phase1.py`, `tests/test_permalinks.py`: local `_login_admin` helper + login call before POST /events.
+- `tests/test_phase6.py`: login call (helper already exists).
+- `docs/maintainability/http_api.md`: row updated with Admin-gated note; auth posture summary drops +1 public write (17 → 16).
+- `docs/maintainability/end_to_end_creation.md`: Path 4 events note reflects cookie-gating.
+
+Rationale: investigation found `POST /events` allowed any unauthenticated client to create immediately-live, "verified", admin-attributed catalog rows (the Pydantic schema lets the caller set `status` / `source` / `verified` directly). Rate limit (5/min) provided only DOS protection, not abuse protection. Disposition (d) addresses the abuse vector immediately while deferring the bigger refactor (test fixtures using HTTP endpoint instead of SQLAlchemy direct) to **Backlog #24**.
+
+DRY tradeoffs accepted in this slice: `require_admin` now exists in 3 modules; `_login_admin` now exists in 3 test files. Consolidation is separate work.
+
+Pytest count unchanged pre/post (949).
 
 ---
 
@@ -375,6 +389,30 @@ Could be expanded to also wire the BASE_URL through an env var (`HAVASU_DIAGNOSE
 - Line 18 `BASE_URL` updated to `https://havasu-chat-production.up.railway.app` (matches `docs/STATE.md` production URL).
 
 Minimum-viable fix; did not wire `BASE_URL` through an env var (e.g., `HAVASU_DIAGNOSE_BASE`) to prevent future drift. If drift recurs, that's a separate small follow-up. Pytest count unchanged pre/post (behavior-neutral; no test loads these constants).
+
+---
+
+## Backlog 24 - Remove `POST /events` entirely + refactor tests to SQLAlchemy fixtures (**OPEN**)
+
+**Issue:** Slice 15 (Backlog #21 close via option (d)) cookie-gated `POST /events` to address the abuse vector but did not remove the endpoint. The endpoint now requires admin auth, making it functionally a redundant admin direct-create path. It is preserved primarily because three test files use it for fixture creation:
+
+- `tests/test_phase1.py:test_create_event` (the actual test of the endpoint)
+- `tests/test_permalinks.py:_create_event` helper (used by 2+ test methods to seed events)
+- `tests/test_phase6.py:test_post_events_returns_friendly_message_for_invalid_title` (tests 422 validation behavior)
+
+After Slice 15 these all login first, but the underlying pattern (tests POSTing through HTTP for fixture creation) is fragile and shouldn't depend on a production endpoint that may be removed.
+
+**Desired fix:**
+
+- Refactor the 3 test sites to create Event rows via SQLAlchemy directly (`db.add(Event.from_create(payload)); db.commit()`) instead of going through the HTTP endpoint. Test-fixture creation should not depend on production endpoints.
+- Remove `POST /events` handler from `app/main.py` (and the `require_admin` local copy if no other endpoint in main.py uses it).
+- Remove `EventRead` import from `app/main.py` (verify no other caller).
+- Update `docs/maintainability/http_api.md` to remove `POST /events` entirely from the events section.
+- Update `docs/maintainability/end_to_end_creation.md` Path 4 to note `POST /events` is gone (admin event creation has no direct-create UI; events come via Path 1, Path 2, or Path 3).
+
+**Severity:** LOW. The cookie-gate from Slice 15 closes the abuse vector; this follow-up is hygiene cleanup.
+
+**Cross-reference:** Surfaced in Backlog #21 closure (Slice 15).
 
 ---
 
