@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): close #24 (POST /events removed; tests refactored)** · short SHA **`0a63e77`** (2026-05-04); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): close #25 (battery expected labels rebuilt)** · short SHA **`ead421a`** (2026-05-04); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+ead421a docs(BACKLOG): close #25 (battery expected labels rebuilt)
+b34fea1 chore(scripts): rebuild battery expected labels from production baseline (Backlog #25)
 0a63e77 docs(BACKLOG): close #24 (POST /events removed; tests refactored)
 ee6bf75 chore(events): remove POST /events + refactor test fixtures to SQLAlchemy direct (Backlog #24)
 44b8229 docs(BACKLOG): close #7 (event_quality orphan symbols removed)
@@ -29,11 +31,11 @@ dbb16f8 docs(BACKLOG): close #14 (--collect-only discipline; not canonical)
 7a56f7c docs(BACKLOG): close #16 (run_voice_audit migrated to llm_messages helper)
 ab8df88 chore(scripts): migrate run_voice_audit.py to call_anthropic_messages helper (Backlog #16)
 509f254 docs(BACKLOG): close #12 (run_query_battery retarget); file #25 (rebuild expected labels)
-fd313bb chore(scripts): retarget run_query_battery.py to /api/chat (Backlog #12)
-cd7e986 docs(BACKLOG): close #21 via option (d); file #24 (POST /events removal follow-up)
 ```
 
 ## Recently shipped (high signal)
+
+- **`b34fea1`..`ead421a`** — **#25 close: battery expected labels rebuilt from production baseline (Slice 23)** — Restored expected/actual matching to `scripts/run_query_battery.py` using captured production `tier_used` values. Approach: ran the battery once against production (~119 queries with valid `tier_used`; 1 returns 422 for the empty string) and used those captured values as the expected labels in SINGLE_SHOT and SEQUENCES tuples. Edits: restored `matches()` helper (removed in Slice 16), updated all 120 tuples with new tier-based labels (TIER2/TIER3/CHAT/GAP_TEMPLATE/PLACEHOLDER/ERROR(422)), restored `expected` and `match` fields in record output, added `matched`/`mismatched` summary fields to `run_all()` return value. Verify run: 119/120 matched, 1 mismatch (#45 "rotary park" — TIER2 baseline → TIER3 verify, expected LLM non-determinism on a borderline date-phrase parse). Pytest unchanged at 947 (script not in test coverage). Phase C CI query-battery sub-bullet under #18 now has functional regression detection; CI infra still queued under Phase D. **OPEN backlog drops to 4 items (2, 3, 5, 18).**
 
 - **`ee6bf75`..`0a63e77`** — **#24 close: POST /events removed; tests refactored to SQLAlchemy fixtures (Slice 22)** — 6-file refactor: `app/main.py` removed handler + `require_admin` local + auth import + `EventRead` import; 3 test files refactored (2 to use SQLAlchemy direct seeding via `Event.from_create(EventCreate(...))`; 2 obsolete tests removed); 2 doc files updated. **Pytest baseline shifted from 949 → 947** (2 removed tests). Phase B follow-up family fully closed (#19 Slice 10, #20 Slice 11, #24 here). #25 still OPEN as Phase C follow-up. OPEN backlog drops to 5 items.
 - **`9020b2d`..`44b8229`** — **#7 close: event_quality orphan symbols removed (Slice 21)** — Pruned `app/core/event_quality.py` from 265 lines to ~32 lines by removing 14 symbols (9 from the original #7 list + 5 cascading helpers including `friendly_validation_error` zero-callers wrapper) and 4 unused imports. Preserves the live `friendly_errors` RequestValidationError handler path used by `app/main.py:518`. Pytest count unchanged at 949 (zero tests exercised the deleted code). Historical doc reference in `search-pipeline-for-claude.md` left as-is per the historical-snapshot convention.
@@ -81,8 +83,8 @@ cd7e986 docs(BACKLOG): close #21 via option (d); file #24 (POST /events removal 
 
 See **`docs/BACKLOG.md`**. Snapshot:
 
-- **OPEN** — **2**, **3**, **5**, **18**, **25** (see `docs/BACKLOG.md` for titles).
-- **Recently resolved** — **8** (Slice 3, `2627693`); **19** (Slice 10, `d429fe7`); **20** (Slice 11, `15f7248`); **23** (Slice 13, `c94afb6`); **22** (Slice 14, `72728e2`); **21** (Slice 15, `b1a0add`); **12** (Slice 16, `fd313bb`); **16** (Slice 17, `ab8df88`); **14** (Slice 18, `dbb16f8`); **7** (Slice 21, `9020b2d`); **24** (Slice 22, `ee6bf75`); historical: **13**, **15** (`656d54b`).
+- **OPEN** — **2**, **3**, **5**, **18** (see `docs/BACKLOG.md` for titles).
+- **Recently resolved** — **8** (Slice 3, `2627693`); **19** (Slice 10, `d429fe7`); **20** (Slice 11, `15f7248`); **23** (Slice 13, `c94afb6`); **22** (Slice 14, `72728e2`); **21** (Slice 15, `b1a0add`); **12** (Slice 16, `fd313bb`); **16** (Slice 17, `ab8df88`); **14** (Slice 18, `dbb16f8`); **7** (Slice 21, `9020b2d`); **24** (Slice 22, `ee6bf75`); **25** (Slice 23, `b34fea1`); historical: **13**, **15** (`656d54b`).
 - **DEFERRED** — **9** (Tier 1 hit rate; pending provider population), **11** (slowapi Python 3.14 deprecation; pending upstream fix or version pin), **17** (OpenAI helper extraction until a second caller exists).
 - **Confabulation / eval** — operator harness: `docs/confabulation-eval-runbook.md`, code under `app/eval/`. Broader “phase 8.8.6” spec markdown was pruned; recover from git history if needed.
 
