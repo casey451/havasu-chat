@@ -208,7 +208,13 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
   - [x] **Repo root convention** (Slice 6, `ea4fcfb`): root reserved for project spine (top-level packages, build/deploy config, tooling config, architecture spine doc); operational clutter (local DBs, script logs, env overrides, bytecode) gitignored; live-session captures go to `relay/`. Convention documented in `README.md` along with a current-Hava rewrite (replacing the stale Phase 1 16-line stub) and a "Where to look" navigation table. Misfiled `admin-dashboard-pending.png` (~30KB, no references) `git rm`'d; recoverable via git log.
   - [x] **`scripts/` convention** (Slice 4, `28cd5c6`): `scripts/README.md` rewritten with directory convention table (`scripts/*.py` tools, `fixtures/` test fixtures, `confabulation_eval_results/baselines/` tracked baselines, `output/` ephemeral outputs) and alphabetical inventory of all 16 tracked CLI tools. Tool default-path migration queued under Backlog #19; legacy tracked-output disposition queued under Backlog #20.
   - [x] **`docs/` archive convention** (Slice 5, `f8da738`): session transcripts and slice-complete writeups removed from working tree once value is captured in canonical docs or git history; live-session captures go to `relay/` (gitignored). Documented in `docs/CURSOR_ORIENTATION.md` (Process conventions bullet) and `docs/maintainability/project_index.md` (post-doc-list paragraph). Two misfiled `phase-6-1-*` transcripts removed; recoverable via git log.
-- [ ] **C — Documentation depth where code is complex.** Grow `docs/components/` for the tier2 stack, contrib/River Scene, and admin. Fill `project_index.md` §5 gaps (Railway service/env matrix, HTTP API sketch, CI query-battery story) one small ship at a time.
+- [ ] **C — Documentation depth where code is complex.**
+  - [ ] **Component docs growth** (ongoing). Tier2 stack, contrib/River Scene, admin.
+  - [x] **§5 gap: Railway service/env matrix** (Slice 7, `765ee61`): `docs/maintainability/railway_layout.md` consolidates process types, env var matrix, DB URL resolution, health checks, deploy flow.
+  - [ ] **§5 gap: HTTP API sketch** (single doc listing every route + method + schema).
+  - [ ] **§5 gap: CI query-battery story** (how-to-run-in-CI doc; depends on Backlog #12 retarget first).
+  - [ ] **§5 gap: Provider ingestion lane (forward-looking spec).**
+  - [ ] **§5 gap: End-to-end provider/program creation from empty tables.**
 - [ ] **D — Engineering gates.** CI lint + tests on PR. Single formatting tool, scoped to avoid whole-repo cosmetic churn in feature PRs.
 
 **Anti-patterns (per brief §6):** mega-refactors that mix tree reorg with behavior change; parallel specs (one topic, one canonical doc); silent commits that change contracts without component-doc / BACKLOG / STATE updates; assuming pytest ran in every environment.
