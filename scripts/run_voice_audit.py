@@ -1094,7 +1094,7 @@ def main() -> int:
 
     verdicts = _run_voice_audits(audit_inputs, client)
 
-    out_path = _ROOT / "scripts" / f"voice_audit_results_{_today()}.json"
+    out_path = _ROOT / "scripts" / "output" / f"voice_audit_results_{_today()}.json"
     doc = {
         "meta": {
             "date": _today(),
@@ -1121,6 +1121,7 @@ def main() -> int:
         "samples": audit_inputs,
         "verdicts": verdicts,
     }
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"Wrote {out_path}")
     return 0

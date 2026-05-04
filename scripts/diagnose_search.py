@@ -16,7 +16,7 @@ from pathlib import Path
 from uuid import uuid4
 
 BASE_URL = "https://web-production-bbe17.up.railway.app"
-OUTPUT_FILE = Path(__file__).parent / "diagnose_output.txt"
+OUTPUT_FILE = Path(__file__).parent / "output" / "diagnose_output.txt"
 LOG_FILE = Path(__file__).parent.parent / "search_debug.log"
 
 TEST_QUERIES = [
@@ -182,6 +182,7 @@ def run() -> None:
     out(f"Output saved to: {OUTPUT_FILE}")
     out("=" * 70)
 
+    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
