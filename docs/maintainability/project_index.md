@@ -122,4 +122,3 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 - There is **no `docs/` file** that is **only** an **API reference** listing every route, method, and schema (behavior is spread across `app/api/`, `app/main.py`, and narrative docs).
 - **Automated chat regression / versioned query battery** beyond confabulation tooling is **not described as a shipped subsystem** in its own “how to run in CI” doc (the followup plan notes the gap).
 - **End-to-end data flow for non–River-Scene provider/program creation** from empty tables is **not** centrally documented now that cleanup removed prior seed paths (code paths remain; narrative is split across retrospectives and code).
-- The **repository root `README.md`** does not mention **`relay/`**; only **`relay/README.md`** and **`docs/STATE.md`** describe that directory’s role for contributors who read neither.
