@@ -128,11 +128,17 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 
 ---
 
-## Backlog 11 - slowapi deprecation warnings on Python 3.14 (**OPEN**)
+## Backlog 11 - slowapi deprecation warnings on Python 3.14 (**DEFERRED**)
 
 **Issue:** Six identical **`DeprecationWarning`** lines from `slowapi/extension.py:717` (`asyncio.iscoroutinefunction` vs `inspect.iscoroutinefunction`).
 
 **Scope:** Library-side / upstream. Track until **`slowapi`** releases a fix or a version pin is warranted.
+
+**Status changed:** OPEN → DEFERRED (Slice 19). The original Scope line already said "Track until slowapi releases a fix or a version pin is warranted." Formalizing as DEFERRED matches the canonical convention: explicitly out of scope until a precondition is met.
+
+**Precondition for re-opening:** Either (a) slowapi releases a version that uses `inspect.iscoroutinefunction()` instead of `asyncio.iscoroutinefunction()` (eliminating the warning at upstream level), or (b) a version pin to a future Python release that drops `asyncio.iscoroutinefunction()` becomes warranted (forcing us to either update or pin slowapi). Until then, the 5 warnings per pytest run are benign — they don't fail tests, don't affect production behavior, and don't surface to users.
+
+No code change required.
 
 ---
 
