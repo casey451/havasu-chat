@@ -316,7 +316,7 @@ If (b) or (c), small follow-up slice to implement.
 
 ---
 
-## Backlog 22 - `/admin/debug-pw` posture review (**OPEN**)
+## Backlog 22 - `/admin/debug-pw` posture review (**RESOLVED**)
 
 **Issue:** `GET /admin/debug-pw` is an admin-routed endpoint (`app/admin/router.py:admin_debug_pw`) that is NOT cookie-gated by `verify_admin`. Surfaced as an observation in `docs/maintainability/http_api.md` (Slice 8) with note "verify production posture."
 
@@ -335,6 +335,18 @@ If (b), (c), or (d), small follow-up slice to implement.
 **Severity:** LOW-MEDIUM. Severity depends on what the handler exposes.
 
 **Cross-reference:** Surfaced in `docs/maintainability/http_api.md` (Slice 8, `5f14f36`).
+
+**Resolution shipped:** `72728e2` — Disposition (c) chosen: endpoint removed entirely. Files touched (5):
+
+- `app/admin/router.py`: import + handler removed (the `@router.get("/debug-pw")` block).
+- `app/admin/auth.py`: `admin_password_debug_info` helper removed (was only used by this one endpoint).
+- `tests/test_phase6.py`: `test_admin_debug_pw_reports_stripped_length` test removed (no longer applicable).
+- `docs/maintainability/http_api.md`: `/admin/debug-pw` row removed from admin auth+dashboard table.
+- `docs/runbook.md`: "Debug (non-secret)" subsection removed (single-bullet section that became empty).
+
+Rationale: the endpoint's docstring marked it "Temporary"; it lived past its purpose. The info it leaked (boolean `pw_set` + integer `pw_length`) is minor but unnecessary. Option (b) cookie-gate would defeat the endpoint's own purpose (an authenticated admin already knows the password is set). Option (d) env-var-guard adds maintenance for an endpoint nobody uses. Removing eliminates the leak with zero functional cost; if Railway env-var visibility ever needs debugging again, Railway logs/shell are the right tools.
+
+Pytest dropped from 950 to 949 (the one removed test).
 
 ---
 
