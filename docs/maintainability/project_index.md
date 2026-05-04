@@ -113,12 +113,12 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `docs/maintainability/river_scene_sentinel_id_retention.md` | Sentinel ID retention decision. | Current |
 | `docs/maintainability/project_manager_organization_brief.md` | PM onboarding: zero-context summary, org/scaling plan (phases A–D), anti-patterns. | Current |
 | `docs/maintainability/railway_layout.md` | Railway service layout: process types, env var matrix, DB URL resolution, deploy flow. | Current |
+| `docs/maintainability/http_api.md` | HTTP API sketch: mount layout, public/admin routes by group, auth posture, rate limits. | Current |
 
 **Convention.** Session transcripts, ad-hoc captures, and slice-complete writeups are removed from the working tree once their value is captured in canonical docs (`BACKLOG`, `STATE`, decision retrospectives) or git history. Live-session captures (HALT transcripts, sanity-check outputs) belong in **`relay/`** (gitignored) per **`relay/README.md`**, not `docs/`. Older phase and tier work — Tier 2 / Tier 3 grounding specs and inline reports, voice-audit samples, Railway migration and database diagnostics, dated production smoke-test and verification writeups, the legacy router deletion ship, pre-launch scope revisions, H2 slim handoff files, and similar — followed this pattern: filed as individual Markdown files in `docs/` or `docs/maintainability/`, then removed from the working tree once they were no longer actively-maintained reference material. **git history** retains their content; search `git log` / `git log --all -- <path>` to recover.
 
 ## 5. What is not yet documented
 
 - There is **no dedicated design doc** for a **future provider ingestion lane** (the followup plan lists options; the cleanup retrospective explains removed lanes — no forward-looking provider pipeline spec in-tree as a standalone file).
-- There is **no `docs/` file** that is **only** an **API reference** listing every route, method, and schema (behavior is spread across `app/api/`, `app/main.py`, and narrative docs).
 - **Automated chat regression / versioned query battery** beyond confabulation tooling is **not described as a shipped subsystem** in its own “how to run in CI” doc (the followup plan notes the gap).
 - **End-to-end data flow for non–River-Scene provider/program creation** from empty tables is **not** centrally documented now that cleanup removed prior seed paths (code paths remain; narrative is split across retrospectives and code).
