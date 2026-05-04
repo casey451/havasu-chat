@@ -90,13 +90,27 @@ Ship log entries at the bottom record what shipped per session. New ones are app
 
 ---
 
-## Backlog 7 - `event_quality.py` orphan symbols after legacy `/chat` removal (**OPEN**)
+## Backlog 7 - `event_quality.py` orphan symbols after legacy `/chat` removal (**RESOLVED**)
 
 **Context:** After **H1** (`61387e4`..`23a39a5`), `app/core/event_quality.py` is imported from `app/main.py` (`friendly_errors` on `RequestValidationError`) and indirectly via the unified router stack. Many symbols existed primarily for the deleted legacy router path.
 
 **Symbols to verify and likely trim (per-symbol usage audit):** `apply_user_reply_to_field`, `build_pending_review_create`, `first_invalid_field`, `has_any_contact`, `normalize_partial_event`, `try_build_event_create`, `CONTACT_OPTIONAL_PROMPT`, `REVIEW_OFFER_MESSAGE`, `SUBMITTED_REVIEW_MESSAGE`.
 
 **Scope:** Small follow-up ship — delete dead exports / consolidate after grep confirms no references.
+
+**Resolution shipped:** `9020b2d` — Pruned `app/core/event_quality.py` from 265 lines to ~32 lines by removing 14 symbols + 4 unused imports.
+
+The 9 symbols listed in this entry (all confirmed zero live Python references): `CONTACT_OPTIONAL_PROMPT`, `REVIEW_OFFER_MESSAGE`, `SUBMITTED_REVIEW_MESSAGE`, `normalize_partial_event`, `first_invalid_field`, `try_build_event_create`, `build_pending_review_create`, `apply_user_reply_to_field`, `has_any_contact`.
+
+Plus 5 cascading helpers/constants only used by the above: `FIELD_ORDER`, `FIELD_PROMPTS`, `is_loose_event_url`, `_parse_time_string`, `friendly_validation_error` (2-line wrapper around `friendly_errors` with zero callers).
+
+Plus 4 unused imports: `re`, `datetime` symbols, `pydantic.ValidationError`, `app.schemas.event` symbols.
+
+**Kept (live RequestValidationError handler path):** `CHAT_CONCIERGE_QUERY_VALIDATION_MESSAGE`, `_errors_touch_concierge_query_field`, `friendly_errors`. `friendly_errors` is imported by `app/main.py:33` and called at line 518 for `RequestValidationError` handling.
+
+Pytest count unchanged at 949 — deleted code had zero callers and zero test coverage. `tests/test_api_chat.py` only references the kept `CHAT_CONCIERGE_QUERY_VALIDATION_MESSAGE` constant.
+
+`docs/search-pipeline-for-claude.md` contains a frozen import block listing the deleted symbols (lines 1492-1503) inside a "Full copies of four modules for handoff" section. The doc has an explicit "Historical document" banner; references in historical pastes are not live code references and don't need updating per the project_index convention from Slice 5.
 
 ---
 
