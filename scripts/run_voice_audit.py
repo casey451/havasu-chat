@@ -54,6 +54,7 @@ from app.chat.tier1_handler import (  # noqa: E402
     try_tier1,
 )
 from app.chat.unified_router import route  # noqa: E402
+from app.core.llm_messages import call_anthropic_messages  # noqa: E402
 from app.db.database import SessionLocal  # noqa: E402
 from app.db.models import Event, Program, Provider  # noqa: E402
 
@@ -845,42 +846,31 @@ def _parse_audit_json(text: str) -> dict[str, Any] | None:
     return None
 
 
-def _run_voice_audits(samples: Iterable[dict[str, Any]], client: Any) -> list[dict[str, Any]]:
+def _run_voice_audits(samples: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     system = _load_voice_audit_system()
     results: list[dict[str, Any]] = []
     for sample in samples:
         sid = sample["sample_id"]
         user_payload = {k: v for k, v in sample.items() if k != "route_meta"}
         body = json.dumps(user_payload, ensure_ascii=False)
-        msg = client.messages.create(
-            model=_AUDIT_MODEL,
+        result = call_anthropic_messages(
+            system_prompt=system,
+            user_text=body,
             max_tokens=_AUDIT_MAX_TOKENS,
             temperature=_AUDIT_TEMPERATURE,
-            system=system,
-            messages=[{"role": "user", "content": body}],
+            model=_AUDIT_MODEL,
         )
-        raw = ""
-        for block in getattr(msg, "content", None) or []:
-            if getattr(block, "type", None) == "text":
-                raw += getattr(block, "text", "") or ""
+        raw = result.text if result else ""
         parsed = _parse_audit_json(raw)
         if parsed is None:
-            msg2 = client.messages.create(
-                model=_AUDIT_MODEL,
+            result2 = call_anthropic_messages(
+                system_prompt=system,
+                user_text=body + "\n\nYour previous reply was not valid JSON. Reply with one JSON object only.",
                 max_tokens=_AUDIT_MAX_TOKENS,
                 temperature=_AUDIT_TEMPERATURE,
-                system=system,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": body + "\n\nYour previous reply was not valid JSON. Reply with one JSON object only.",
-                    }
-                ],
+                model=_AUDIT_MODEL,
             )
-            raw2 = ""
-            for block in getattr(msg2, "content", None) or []:
-                if getattr(block, "type", None) == "text":
-                    raw2 += getattr(block, "text", "") or ""
+            raw2 = result2.text if result2 else ""
             parsed = _parse_audit_json(raw2)
             raw = raw + "\n--- retry ---\n" + raw2
         if parsed is None:
@@ -1072,14 +1062,6 @@ def main() -> int:
             print("Aborted.")
             return 5
 
-    try:
-        import anthropic
-    except ImportError:
-        print("anthropic package not installed.", file=sys.stderr)
-        return 6
-
-    client = anthropic.Anthropic(api_key=api_key)
-
     with SessionLocal() as db:
         tier1_ok, tier1_skip = discover_tier1_matrix(db)
         tier3_payloads = build_tier3_payloads(db)
@@ -1092,7 +1074,7 @@ def main() -> int:
         (p.get("route_meta") or {}).get("llm_output_tokens") or 0 for p in tier3_payloads
     )
 
-    verdicts = _run_voice_audits(audit_inputs, client)
+    verdicts = _run_voice_audits(audit_inputs)
 
     out_path = _ROOT / "scripts" / "output" / f"voice_audit_results_{_today()}.json"
     doc = {
