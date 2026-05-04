@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): close #23 (diagnose_search.py cleanup)** · short SHA **`954dd38`** (2026-05-04); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): close #22 via option (c) — /admin/debug-pw removed** · short SHA **`babe738`** (2026-05-04); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+babe738 docs(BACKLOG): close #22 via option (c) — /admin/debug-pw removed
+72728e2 chore(admin): remove /debug-pw endpoint + debug-info helper (Backlog #22)
 954dd38 docs(BACKLOG): close #23 (diagnose_search.py cleanup)
 c94afb6 chore(scripts): fix diagnose_search.py BASE_URL + docstring (Backlog #23)
 5412695 docs(BACKLOG): open #21-#23 (bonus findings from Slices 8, 10)
@@ -29,12 +31,11 @@ d429fe7 chore(scripts): migrate tool default output paths to scripts/output/
 61f73b4 docs(BACKLOG): tick #18 Phase C end-to-end creation sub-bullet
 c1cd8b0 docs(maintainability): add end_to_end_creation.md (Phase C)
 f179e84 docs(BACKLOG): tick #18 Phase C HTTP API sub-bullet
-5f14f36 docs(maintainability): add http_api.md (Phase C HTTP API sketch)
-06b62c7 docs(BACKLOG): restructure #18 Phase C into sub-bullets; tick Railway
 ```
 
 ## Recently shipped (high signal)
 
+- **`72728e2`..`babe738`** — **#22 close: /admin/debug-pw removed via option (c) (Slice 14)** — Removed the unauthenticated `/admin/debug-pw` endpoint and its supporting helper entirely (5-file scope: `app/admin/router.py` import + handler, `app/admin/auth.py` helper, `tests/test_phase6.py` one test, `docs/maintainability/http_api.md` table row, `docs/runbook.md` "Debug (non-secret)" subsection). Endpoint was explicitly "Temporary" per its own docstring; lived past its purpose. Disposition (c) chosen over alternatives (cookie-gate defeats its own purpose; env-var-guard adds maintenance for an unused endpoint). Pytest count dropped from 950 to 949 (one removed test). Bonus findings family from Slices 8 and 10 now 2/3 closed (#21 still OPEN as posture-review question for `POST /events`).
 - **`c94afb6`..`954dd38`** — **#23 close: diagnose_search.py cleanup (Slice 13)** — Two surgical edits to `scripts/diagnose_search.py`: line 4 docstring updated to reference `scripts/output/diagnose_output.txt` (matches the actual functional path migrated in Slice 10); line 18 `BASE_URL` updated to `https://havasu-chat-production.up.railway.app` (the old URL `web-production-bbe17` was stale and would have caused connection errors). Minimum-viable fix; env-var wiring deferred. Pytest count unchanged pre/post. Bonus findings family from Slices 8 and 10 now 1/3 closed (#21, #22 still OPEN as posture-review questions).
 - **`5412695`** — **Bonus findings filed (Slice 12)** — Three observations from earlier slices filed as trackable Backlog items rather than buried in doc/commit narrative: **#21** (`POST /events` posture review, surfaced in Slice 8 http_api.md), **#22** (`/admin/debug-pw` posture review, surfaced in Slice 8), **#23** (`diagnose_search.py` cleanup — stale `BASE_URL` and docstring, surfaced in Slice 10 #19 closure). All three are LOW severity. Pure backlog bookkeeping; no code or doc change beyond BACKLOG.md additions.
 - **`15f7248`..`894dc28`** — **#20 close: legacy tracked-output disposition (Slice 11)** — Removed 5 legacy tracked outputs from `scripts/` (`battery_results.json` 68KB + 4 dated `voice_audit_results_2026-04-*.json` totaling ~340KB; ~410KB freed). All recoverable via `git log -- <path>`. `scripts/README.md` legacy paragraph removed in same commit. Three other narrative/historical references in `havasu-development-plan.md`, `runbook.md`, `known-issues.md` left as-is per project_index convention. Pytest count unchanged pre/post. Phase B follow-up family fully closed (#19 in Slice 10, #20 here).
@@ -72,8 +73,8 @@ f179e84 docs(BACKLOG): tick #18 Phase C HTTP API sub-bullet
 
 See **`docs/BACKLOG.md`**. Snapshot:
 
-- **OPEN** — **2**, **3**, **5**, **7**, **9**, **11**, **12**, **14**, **16**, **18**, **21**, **22** (see `docs/BACKLOG.md` for titles).
-- **Recently resolved** — **8** (Slice 3, `2627693`); **19** (Slice 10, `d429fe7`); **20** (Slice 11, `15f7248`); **23** (Slice 13, `c94afb6`); historical: **13**, **15** (`656d54b`).
+- **OPEN** — **2**, **3**, **5**, **7**, **9**, **11**, **12**, **14**, **16**, **18**, **21** (see `docs/BACKLOG.md` for titles).
+- **Recently resolved** — **8** (Slice 3, `2627693`); **19** (Slice 10, `d429fe7`); **20** (Slice 11, `15f7248`); **23** (Slice 13, `c94afb6`); **22** (Slice 14, `72728e2`); historical: **13**, **15** (`656d54b`).
 - **DEFERRED** — **17** (OpenAI helper extraction until a second caller exists).
 - **Confabulation / eval** — operator harness: `docs/confabulation-eval-runbook.md`, code under `app/eval/`. Broader “phase 8.8.6” spec markdown was pruned; recover from git history if needed.
 
