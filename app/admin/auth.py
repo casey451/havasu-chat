@@ -43,14 +43,3 @@ def verify_admin_cookie(value: str | None) -> bool:
 
 def admin_password_ok(password: str) -> bool:
     return password.strip() == _admin_password_from_env()
-
-
-def admin_password_debug_info() -> dict[str, bool | int]:
-    """Non-secret probe for ops (e.g. Railway env visibility)."""
-    raw = os.getenv("ADMIN_PASSWORD")
-    if raw is None:
-        return {"pw_set": False, "pw_length": 0}
-    stripped = raw.strip()
-    if not stripped:
-        return {"pw_set": False, "pw_length": 0}
-    return {"pw_set": True, "pw_length": len(stripped)}

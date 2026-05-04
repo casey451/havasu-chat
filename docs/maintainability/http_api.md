@@ -83,7 +83,6 @@ Cookie set by `POST /admin/login` if password matches `ADMIN_PASSWORD` env var. 
 |---|---|---|---|
 | GET | `/admin/login` | — | HTML form. NOT gated. |
 | POST | `/admin/login` | — | Sets cookie if password matches. NOT gated. |
-| GET | `/admin/debug-pw` | — | Debug helper (verify production posture). |
 | GET | `/admin/` | gated | Dashboard. |
 | GET | `/admin/analytics` | gated | Analytics view. |
 
@@ -159,7 +158,7 @@ Cookie set by `POST /admin/login` if password matches `ADMIN_PASSWORD` env var. 
 ## Auth posture summary
 
 - **Public** (no auth): chat (3), contribute (2), programs (5), events read + 1 public write (3), UI/static/legal (3), health (1) — **17 routes**.
-- **Admin HTML** (cookie via `verify_admin`): all under `/admin/*` except `/admin/login` (GET+POST) and `/admin/debug-pw` — **~30 routes**.
+- **Admin HTML** (cookie via `verify_admin`): all under `/admin/*` except `/admin/login` (GET+POST) — **~30 routes**.
 - **Admin JSON API** (cookie via `Depends(require_admin)`): all under `/admin/api/*` — **9 routes**.
 
 Cookie auth: see `app/admin/auth.py`. Login at `POST /admin/login` validates against `ADMIN_PASSWORD` env var (per `docs/maintainability/railway_layout.md`).
@@ -199,7 +198,7 @@ Pydantic v2; validation errors return 422 with FastAPI's standard envelope (some
 - **WebSocket / streaming endpoints.** None currently.
 - **OpenAPI / Swagger UI.** FastAPI's built-in `/docs` may or may not be mounted in production; verify before relying.
 - **Background tasks per route** (e.g., chat's mention scanning, the enrich endpoint's background work). Per-handler detail lives in source.
-- **Whether `POST /events` and `/admin/debug-pw` should exist as currently configured.** Doc describes the surface; whether the surface is correct is out of scope.
+- **Whether `POST /events` should exist as currently configured.** Doc describes the surface; whether the surface is correct is out of scope.
 
 ## Related docs
 

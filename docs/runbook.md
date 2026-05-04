@@ -213,10 +213,6 @@ Full routing, voice, and locked decisions: [`HAVA_CONCIERGE_HANDOFF.md`](../HAVA
 
 - `/admin/reembed-all`, `/admin/retag-all`
 
-#### Debug (non-secret)
-
-- **`GET /admin/debug-pw`** — returns whether **`ADMIN_PASSWORD`** is visible to the process (booleans only; no secret in response).
-
 #### JSON: `/admin/api` (cookie same as HTML)
 
 | Method | Path | Summary |
