@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG, unified_router): resolve #8, note sandbox artifact in #18** · short SHA **`2627693`** (2026-05-03); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): tick #18 Phase B scripts sub-bullet; open #19, #20** · short SHA **`97b642d`** (2026-05-03); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+97b642d docs(BACKLOG): tick #18 Phase B scripts sub-bullet; open #19, #20
+28cd5c6 docs(scripts): document tools, fixtures, outputs, baselines convention
 2627693 docs(BACKLOG, unified_router): resolve #8, note sandbox artifact in #18
 857c7fc docs(project_index): add CURSOR_NEW_CHAT_PLAN row and .gitattributes mention
 dc917f4 docs(BACKLOG): tick #18 Phase B; log truncation incident
@@ -29,11 +31,11 @@ ed76435 docs: add PM organization brief and Cursor new-chat playbook
 665ff4c docs(STATE): fix recent-commit SHA and stable main pointer
 656d54b docs: sync canonical orientation with repo reality
 905ce17 docs: prune low-utility historical markdown
-5a55347 docs: project index for external-session navigation
-e83ccf0 docs: chat behavior followup plan
 ```
 
 ## Recently shipped (high signal)
+
+- **`28cd5c6`..`97b642d`** — **Phase B `scripts/` convention (Slice 4)** — `scripts/README.md` rewritten from 13 to ~50 lines: directory convention table (committed tools, fixtures, baselines, output, gitignored ephemeral results) plus alphabetical inventory of all 16 tracked CLI tools with one-line purpose, output-path notes, and references to known-issue Backlog items where applicable. Backlog #18 Phase B `scripts/` sub-bullet ticked; tool default-path migration filed as Backlog #19, and the disposition of 5 legacy tracked outputs in `scripts/` (~410KB) filed as Backlog #20. No code change; no file moves in this slice.
 
 - **`857c7fc`..`2627693`** — **Phase A drift sweep (Slice 3)** — `docs/maintainability/project_index.md` picks up the missing `CURSOR_NEW_CHAT_PLAN.md` row and a `.gitattributes` mention in the root tooling files line. Backlog #8 resolved by tightening the `tier_used` comment in `app/chat/unified_router.py:96` to match the precise wording already documented in `docs/components/unified_router.md`'s taxonomy table. Backlog #18 truncation paragraph annotated with a sandbox-unreliability follow-up: bash mount produces NUL-append and mid-content-truncation artifacts that don't reflect Casey's real filesystem; the original incident was never independently verified via PowerShell and may have been spurious.
 
@@ -57,7 +59,7 @@ e83ccf0 docs: chat behavior followup plan
 
 See **`docs/BACKLOG.md`**. Snapshot:
 
-- **OPEN** — **2**, **3**, **5**, **7**, **9**, **11**, **12**, **14**, **16**, **18** (see `docs/BACKLOG.md` for titles).
+- **OPEN** — **2**, **3**, **5**, **7**, **9**, **11**, **12**, **14**, **16**, **18**–**20** (see `docs/BACKLOG.md` for titles).
 - **Recently resolved** — **8** (Slice 3, `2627693`); historical: **13**, **15** (`656d54b`).
 - **DEFERRED** — **17** (OpenAI helper extraction until a second caller exists).
 - **Confabulation / eval** — operator harness: `docs/confabulation-eval-runbook.md`, code under `app/eval/`. Broader “phase 8.8.6” spec markdown was pruned; recover from git history if needed.
