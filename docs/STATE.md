@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): defer #9 (Tier 1 hit rate; pending provider population)** · short SHA **`35577cd`** (2026-05-04); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): close #7 (event_quality orphan symbols removed)** · short SHA **`44b8229`** (2026-05-04); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+44b8229 docs(BACKLOG): close #7 (event_quality orphan symbols removed)
+9020b2d chore(event_quality): remove orphan symbols from event_quality.py (Backlog #7)
 35577cd docs(BACKLOG): defer #9 (Tier 1 hit rate; pending provider population)
 6ca0639 docs(BACKLOG): defer #11 (slowapi deprecation; pending upstream fix)
 dbb16f8 docs(BACKLOG): close #14 (--collect-only discipline; not canonical)
@@ -29,12 +31,11 @@ fd313bb chore(scripts): retarget run_query_battery.py to /api/chat (Backlog #12)
 cd7e986 docs(BACKLOG): close #21 via option (d); file #24 (POST /events removal follow-up)
 b1a0add chore(events): cookie-gate POST /events with require_admin (Backlog #21)
 babe738 docs(BACKLOG): close #22 via option (c) — /admin/debug-pw removed
-72728e2 chore(admin): remove /debug-pw endpoint + debug-info helper (Backlog #22)
-954dd38 docs(BACKLOG): close #23 (diagnose_search.py cleanup)
 ```
 
 ## Recently shipped (high signal)
 
+- **`9020b2d`..`44b8229`** — **#7 close: event_quality orphan symbols removed (Slice 21)** — Pruned `app/core/event_quality.py` from 265 lines to ~32 lines by removing 14 symbols (9 from the original #7 list + 5 cascading helpers including `friendly_validation_error` zero-callers wrapper) and 4 unused imports. Preserves the live `friendly_errors` RequestValidationError handler path used by `app/main.py:518`. Pytest count unchanged at 949 (zero tests exercised the deleted code). Historical doc reference in `search-pipeline-for-claude.md` left as-is per the historical-snapshot convention.
 - **`35577cd`** — **#9 deferred: Tier 1 hit rate pending provider population (Slice 20)** — Decision-only slice: changed Backlog #9 status from OPEN to DEFERRED. Refined the precondition from time-based ("catalog stabilizes") to data-based: `providers` table is empty in current RS-only catalog posture; Tier 1 templated provider lookups have nothing to hit so re-measurement is meaningless until providers populate (via approved contributions, future ingestion lane, or Tier 3 mention promotions). Mirrors #11/#17 deferral pattern. OPEN list drops to 7; DEFERRED line gains 9.
 - **`6ca0639`** — **#11 deferred: slowapi Python 3.14 deprecation pending upstream fix (Slice 19)** — Decision-only slice: changed Backlog #11 status from OPEN to DEFERRED. The original Scope line already said "Track until slowapi releases a fix" — DEFERRED formalizes this per BACKLOG.md conventions. Precondition for re-opening documented: either slowapi ships a Python 3.14-compatible version using `inspect.iscoroutinefunction()`, or a version pin becomes warranted. Until then the 5 warnings per pytest run are benign. Mirrors #17's deferral pattern. OPEN list drops to 8; DEFERRED line gains 11.
 - **`dbb16f8`** — **#14 close: --collect-only discipline (decision: not canonical) (Slice 18)** — Decision-only slice grounded in 17 slices of post-H1 evidence: every ship used `pytest -q` alone for verification, including 4 deletion ships (Slices 5, 11, 14, 17), and none had hidden collection-time issues that `--collect-only` would have caught earlier. The H1-era cross-cutting parametrize/skipif references to legacy modules don't exist post-H1. Resolution paragraph documents a heuristic for future case-by-case use. No `POST_SHIP_CHECKLIST` or `WORKING_AGREEMENT` update needed.
@@ -79,8 +80,8 @@ babe738 docs(BACKLOG): close #22 via option (c) — /admin/debug-pw removed
 
 See **`docs/BACKLOG.md`**. Snapshot:
 
-- **OPEN** — **2**, **3**, **5**, **7**, **18**, **24**, **25** (see `docs/BACKLOG.md` for titles).
-- **Recently resolved** — **8** (Slice 3, `2627693`); **19** (Slice 10, `d429fe7`); **20** (Slice 11, `15f7248`); **23** (Slice 13, `c94afb6`); **22** (Slice 14, `72728e2`); **21** (Slice 15, `b1a0add`); **12** (Slice 16, `fd313bb`); **16** (Slice 17, `ab8df88`); **14** (Slice 18, `dbb16f8`); historical: **13**, **15** (`656d54b`).
+- **OPEN** — **2**, **3**, **5**, **18**, **24**, **25** (see `docs/BACKLOG.md` for titles).
+- **Recently resolved** — **8** (Slice 3, `2627693`); **19** (Slice 10, `d429fe7`); **20** (Slice 11, `15f7248`); **23** (Slice 13, `c94afb6`); **22** (Slice 14, `72728e2`); **21** (Slice 15, `b1a0add`); **12** (Slice 16, `fd313bb`); **16** (Slice 17, `ab8df88`); **14** (Slice 18, `dbb16f8`); **7** (Slice 21, `9020b2d`); historical: **13**, **15** (`656d54b`).
 - **DEFERRED** — **9** (Tier 1 hit rate; pending provider population), **11** (slowapi Python 3.14 deprecation; pending upstream fix or version pin), **17** (OpenAI helper extraction until a second caller exists).
 - **Confabulation / eval** — operator harness: `docs/confabulation-eval-runbook.md`, code under `app/eval/`. Broader “phase 8.8.6” spec markdown was pruned; recover from git history if needed.
 
