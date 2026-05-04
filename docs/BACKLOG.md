@@ -445,7 +445,7 @@ Minimum-viable fix; did not wire `BASE_URL` through an env var (e.g., `HAVASU_DI
 
 ---
 
-## Backlog 24 - Remove `POST /events` entirely + refactor tests to SQLAlchemy fixtures (**OPEN**)
+## Backlog 24 - Remove `POST /events` entirely + refactor tests to SQLAlchemy fixtures (**RESOLVED**)
 
 **Issue:** Slice 15 (Backlog #21 close via option (d)) cookie-gated `POST /events` to address the abuse vector but did not remove the endpoint. The endpoint now requires admin auth, making it functionally a redundant admin direct-create path. It is preserved primarily because three test files use it for fixture creation:
 
@@ -466,6 +466,21 @@ After Slice 15 these all login first, but the underlying pattern (tests POSTing 
 **Severity:** LOW. The cookie-gate from Slice 15 closes the abuse vector; this follow-up is hygiene cleanup.
 
 **Cross-reference:** Surfaced in Backlog #21 closure (Slice 15).
+
+**Resolution shipped:** `ee6bf75` — Removed POST /events handler from `app/main.py` and refactored the 3 test fixture sites to use SQLAlchemy direct seeding (`Event.from_create(EventCreate(...))` + `db.add() + db.commit()`).
+
+Files touched (6):
+
+- `app/main.py`: removed handler + `require_admin` local copy (added in Slice 15) + `EventRead` import + the `from app.admin.auth import COOKIE_NAME, verify_admin_cookie` import (added in Slice 15).
+- `tests/test_phase1.py`: full rewrite — removed `_login_admin` helper, removed `test_create_event`, refactored `test_list_events` to SQLAlchemy direct.
+- `tests/test_permalinks.py`: full rewrite — removed `_login_admin` helper, refactored `_create_event` helper to SQLAlchemy direct.
+- `tests/test_phase6.py`: removed `test_post_events_returns_friendly_message_for_invalid_title` (handler tested via /api/chat in test_api_chat.py).
+- `docs/maintainability/http_api.md`: removed POST /events row from events table.
+- `docs/maintainability/end_to_end_creation.md`: updated Path 4 events note (no admin-direct-create UI; events come via Path 1, Path 2, or Path 3 only).
+
+**Pytest baseline shifted from 949 → 947** (2 tests removed). Future slices verifying pytest should expect 947 as the new baseline.
+
+Phase B follow-up family fully closed: #19 (Slice 10), #20 (Slice 11), #24 (this slice). #25 (rebuild battery expected labels) remains OPEN as a Phase C follow-up, not a Phase B one.
 
 ---
 
