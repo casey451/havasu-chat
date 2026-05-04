@@ -13,8 +13,6 @@ Operational CLI tools, test fixtures, and run-output conventions for `havasu-cha
 | `scripts/output/` | Gitignored | Generic dump zone for ad-hoc tool outputs. New CLIs should write here by default. |
 | `scripts/__pycache__/` | Gitignored | Python bytecode. |
 
-`scripts/battery_results.json` and the four `scripts/voice_audit_results_2026-04-*.json` files are **legacy tracked outputs** — written directly into `scripts/` before the `scripts/output/` convention existed. Disposition decision (move to `scripts/baselines/<tool>/`, move to `scripts/output/` and `git rm`, or `git rm` outright) queued in Backlog #20.
-
 ## Tracked CLI tools (alphabetical)
 
 - **`analyze_chat_costs.py`** — Token-cost analysis from `chat_logs` data.
