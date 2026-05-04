@@ -214,7 +214,7 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
   - [x] **§5 gap: HTTP API sketch** (Slice 8, `5f14f36`): `docs/maintainability/http_api.md` consolidates all 58 routes — mount layout, public routes by group, admin HTML routes (cookie-gated `verify_admin`), admin JSON API routes (`Depends(require_admin)`), auth posture summary, rate limits (slowapi + custom contribute limiter), schema pointers.
   - [ ] **§5 gap: CI query-battery story** (how-to-run-in-CI doc; depends on Backlog #12 retarget first).
   - [ ] **§5 gap: Provider ingestion lane (forward-looking spec).**
-  - [ ] **§5 gap: End-to-end provider/program creation from empty tables.**
+  - [x] **§5 gap: End-to-end provider/program creation** (Slice 9, `c1cd8b0`): `docs/maintainability/end_to_end_creation.md` documents the four paths producing catalog rows (public submission, River Scene auto-import, Tier 3 mention scan promotion, admin direct create), Contribution status state machine, and per-entity-type fields touched at creation.
 - [ ] **D — Engineering gates.** CI lint + tests on PR. Single formatting tool, scoped to avoid whole-repo cosmetic churn in feature PRs.
 
 **Anti-patterns (per brief §6):** mega-refactors that mix tree reorg with behavior change; parallel specs (one topic, one canonical doc); silent commits that change contracts without component-doc / BACKLOG / STATE updates; assuming pytest ran in every environment.
