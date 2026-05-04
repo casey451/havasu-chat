@@ -206,7 +206,7 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 - [ ] **B — Filesystem contract.**
   - [x] **EOL normalization** (Slice 2, `23b2054`): `.gitattributes` policy (`text=auto eol=lf` default; explicit binary markers for `.png`, `.gz`, plus future-proof set). HEAD was already LF; primary effect is fixing Windows-side CRLF drift on checkout. Verified pre/post pytest baseline matched exactly.
   - [ ] Repo root convention: reserve for project spine; document where operational clutter lives.
-  - [ ] `scripts/`: separate committed tools from generated outputs; document in `scripts/README.md` what produces what.
+  - [x] **`scripts/` convention** (Slice 4, `28cd5c6`): `scripts/README.md` rewritten with directory convention table (`scripts/*.py` tools, `fixtures/` test fixtures, `confabulation_eval_results/baselines/` tracked baselines, `output/` ephemeral outputs) and alphabetical inventory of all 16 tracked CLI tools. Tool default-path migration queued under Backlog #19; legacy tracked-output disposition queued under Backlog #20.
   - [ ] `docs/`: session transcripts and non-canonical dumps to `docs/archive/` (or equivalent) with a one-line rule in orientation.
 - [ ] **C — Documentation depth where code is complex.** Grow `docs/components/` for the tier2 stack, contrib/River Scene, and admin. Fill `project_index.md` §5 gaps (Railway service/env matrix, HTTP API sketch, CI query-battery story) one small ship at a time.
 - [ ] **D — Engineering gates.** CI lint + tests on PR. Single formatting tool, scoped to avoid whole-repo cosmetic churn in feature PRs.
@@ -224,6 +224,46 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 2. Open this epic. (This entry.)
 3. Land Phase A drift fixes first, then Phase B in separate approved commits.
 4. Stand up a lightweight recurring review (monthly or per milestone): root listing, `scripts/` tracked files, STATE vs Railway, OPEN backlog count vs narrative.
+
+---
+
+## Backlog 19 - Migrate tool default output paths to `scripts/output/` (**OPEN**)
+
+**Issue:** Several CLI tools write outputs directly to `scripts/` rather than the `scripts/output/` convention established in `scripts/README.md` (Slice 4):
+
+- `scripts/run_voice_audit.py` line 1097: `out_path = _ROOT / "scripts" / f"voice_audit_results_{_today()}.json"`
+- `scripts/diagnose_search.py`: writes `diagnose_output.txt` to `scripts/` per README
+- Possibly others (audit at fix time via `grep -rn "scripts/" scripts/*.py` and similar).
+
+**Effect:** Newly-generated outputs land in tracked-by-default territory; easy to accidentally commit. The `scripts/output/` directory and its `.gitignore` entry exist but no tool uses them.
+
+**Desired fix:** Update each tool's default `out_path` to `scripts/output/`. Keep `--output-dir` overrides where they exist. Add a small follow-up confirming gitignore catches new outputs.
+
+**Severity:** LOW. No functional impact; purely organizational hygiene.
+
+**Cross-reference:** Backlog #18 Phase B `scripts/` sub-ship (Slice 4 — `28cd5c6`).
+
+---
+
+## Backlog 20 - Disposition for tracked dated `voice_audit_results_*.json` files (**OPEN**)
+
+**Issue:** Five legacy tracked outputs in `scripts/` were written directly there before the `scripts/output/` convention existed (~410KB total):
+
+- `scripts/voice_audit_results_2026-04-21.json` (~85KB)
+- `scripts/voice_audit_results_2026-04-21-phase614-verify.json` (~82KB)
+- `scripts/voice_audit_results_2026-04-22-phase86.json` (~84KB)
+- `scripts/voice_audit_results_2026-04-23.json` (~83KB)
+- `scripts/battery_results.json` (~68KB; documented in legacy README as "canonical baseline" but `run_query_battery.py` itself is broken per Backlog #12, so the baseline is stale anyway)
+
+**Decision needed:** For each file (or group), pick one:
+
+- **(a) Move to `scripts/baselines/<tool>/`** — if it's a canonical regression-compare reference. Requires creating `scripts/baselines/` subtree (first time).
+- **(b) Move to `scripts/output/` + `git rm` from index** — if it's an ephemeral snapshot we want on disk locally but not in git.
+- **(c) `git rm`** — if it's no longer current and recoverable from git history if needed.
+
+**Severity:** LOW. ~410KB of tracked data not actively referenced. Mostly housekeeping.
+
+**Cross-reference:** Backlog #18 Phase B `scripts/` sub-ship (Slice 4 — `28cd5c6`); Backlog #19 (tool migration); Backlog #12 (`run_query_battery.py` broken; resolves whether `battery_results.json` matters).
 
 ---
 
