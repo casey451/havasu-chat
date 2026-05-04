@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): tick #18 Phase B scripts sub-bullet; open #19, #20** · short SHA **`97b642d`** (2026-05-03); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): tick #18 Phase B docs/ sub-bullet** · short SHA **`0fad8ee`** (2026-05-03); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+0fad8ee docs(BACKLOG): tick #18 Phase B docs/ sub-bullet
+f8da738 docs: prune phase-6-1 transcripts; formalize docs/ archive convention
 97b642d docs(BACKLOG): tick #18 Phase B scripts sub-bullet; open #19, #20
 28cd5c6 docs(scripts): document tools, fixtures, outputs, baselines convention
 2627693 docs(BACKLOG, unified_router): resolve #8, note sandbox artifact in #18
@@ -29,11 +31,11 @@ dc917f4 docs(BACKLOG): tick #18 Phase B; log truncation incident
 ed76435 docs: add PM organization brief and Cursor new-chat playbook
 364cd5f docs(findings_app_chat): mark H1 parallel-router finding historical
 665ff4c docs(STATE): fix recent-commit SHA and stable main pointer
-656d54b docs: sync canonical orientation with repo reality
-905ce17 docs: prune low-utility historical markdown
 ```
 
 ## Recently shipped (high signal)
+
+- **`f8da738`..`0fad8ee`** — **Phase B `docs/` archive convention (Slice 5)** — Two misfiled session transcripts (`docs/phase-6-1-2-dry-run-transcript-2026-04-21.txt`, `docs/phase-6-1-3-execution-transcript-2026-04-21.txt`, ~13KB total) removed from the tree (recoverable via git log). Convention formalized in `docs/CURSOR_ORIENTATION.md` (Process conventions bullet) and `docs/maintainability/project_index.md` (post-doc-list paragraph): session transcripts and slice-complete writeups go to git history; live-session captures go to `relay/` (gitignored). Backlog #18 Phase B `docs/` sub-bullet ticked; remaining Phase B work is the root-convention sub-bullet.
 
 - **`28cd5c6`..`97b642d`** — **Phase B `scripts/` convention (Slice 4)** — `scripts/README.md` rewritten from 13 to ~50 lines: directory convention table (committed tools, fixtures, baselines, output, gitignored ephemeral results) plus alphabetical inventory of all 16 tracked CLI tools with one-line purpose, output-path notes, and references to known-issue Backlog items where applicable. Backlog #18 Phase B `scripts/` sub-bullet ticked; tool default-path migration filed as Backlog #19, and the disposition of 5 legacy tracked outputs in `scripts/` (~410KB) filed as Backlog #20. No code change; no file moves in this slice.
 
