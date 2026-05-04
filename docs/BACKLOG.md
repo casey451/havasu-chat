@@ -136,7 +136,7 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 
 ---
 
-## Backlog 12 - `scripts/run_query_battery.py` retarget to `/api/chat` (**OPEN**)
+## Backlog 12 - `scripts/run_query_battery.py` retarget to `/api/chat` (**RESOLVED**)
 
 **Issue:** **`scripts/run_query_battery.py`** still POSTs to **`/chat`** with **`{session_id, message}`** payload. After the H1 deletion ship (**2026-04-29**, **`61387e4..23a39a5`**), **`POST /chat`** returns **404** — the script is broken until retargeted.
 
@@ -145,6 +145,12 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 **Adjacent:** **`docs/runbook.md`** §3.5 and **`scripts/README.md`** currently document the script as broken; once retargeted, both should be updated to describe the script as functional against **`/api/chat`**.
 
 **Discovered during:** Phase 2 of the documentation reconciliation pass (commit **`26590b3`**).
+
+**Resolution shipped:** **`fd313bb`** — Retargeted via raw-passthrough scope (Slice 16). Endpoint and payload updated to `/api/chat` with `{query, session_id}` shape; response classifier rewritten to capture new ConciergeChatResponse fields (`mode`, `sub_intent`, `entity`, `tier_used`, `latency_ms`, `llm_tokens_used`, `chat_log_id`) verbatim. Old intent-based expected/actual matching dropped — the new tier-based router output doesn't 1:1 map to pre-H1 intent labels, so the 115 SINGLE_SHOT tuples retain their `expected` field but it's unused. Single-query production smoke test confirmed runtime behavior (1 chat_log row created). Pytest count unchanged at 949 (script not in test coverage).
+
+Restoring expected-label categorization for the new tier-based shape — so the battery can detect regressions automatically — is queued as **Backlog #25**.
+
+Adjacent doc updates from the OLD entry are still valid: `docs/runbook.md` §3.5 and `scripts/README.md` reference this script. The README's "BROKEN" note becomes stale; updating it is a nice follow-up but not strictly required for the script to work. Phase C `CI query-battery story` sub-bullet under #18 was BLOCKED on this; now unblocked (still requires #25 + actual CI infra to fully address).
 
 ---
 
@@ -413,6 +419,27 @@ After Slice 15 these all login first, but the underlying pattern (tests POSTing 
 **Severity:** LOW. The cookie-gate from Slice 15 closes the abuse vector; this follow-up is hygiene cleanup.
 
 **Cross-reference:** Surfaced in Backlog #21 closure (Slice 15).
+
+---
+
+## Backlog 25 - Rebuild `SINGLE_SHOT` expected labels for new ConciergeChatResponse shape (**OPEN**)
+
+**Issue:** Slice 16 (Backlog #12 close) retargeted `scripts/run_query_battery.py` to `/api/chat` via raw-passthrough scope: endpoint, payload, response parsing, and record fields all updated. But the 115 hardcoded `SINGLE_SHOT` tuples retain their pre-H1 `expected` labels (e.g., `{"EVENTS"}`, `{"OUT_OF_SCOPE"}`) which assume the OLD intent-based categorization. The current `classify()` function ignores those labels and just produces tier-based passthrough strings (`TIER1`, `TIER2`, `TIER3`, `CHAT`, etc.) — no expected/actual matching, no regression-detection.
+
+**Effect:** The battery now runs and produces useful diagnostic output, but it can't automatically flag regressions. Anyone reviewing the battery JSON has to eyeball each query's tier+mode+sub_intent+response and decide whether it looks right.
+
+**Desired fix:** Audit the 115 SINGLE_SHOT tuples (and the SEQUENCES tuples) and assign new expected labels using the ConciergeChatResponse fields. Possibilities:
+
+- Express expectations as expected `tier_used` (e.g., "boat race" → expect TIER2; "thanks" → expect CHAT/GREETING).
+- Express expectations as expected `mode` + `sub_intent` (e.g., "boat race" → mode=ask, sub_intent=EVENT_LOOKUP or similar).
+- Combine: tier as primary expectation, mode/sub_intent as secondary.
+- Or: expected `response_snippet` substring matches for queries with deterministic answers.
+
+Once expected labels exist, restore `match` field in record output and write a summary block (e.g., "115/120 matched, 5 mismatched: query #N expected TIER2 got TIER3 ...").
+
+**Severity:** LOW. The retarget already addresses the abuse-vector-shaped problem (script was 404'ing); regression-detection is hygiene improvement.
+
+**Cross-reference:** Surfaced in Backlog #12 closure (Slice 16). Adjacent: Phase C CI query-battery sub-bullet under #18 (now unblocked but still requires this work + actual CI infra).
 
 ---
 
