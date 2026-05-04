@@ -52,7 +52,7 @@ route module source.
 
 | Method | Path | Rate limit | Notes |
 |---|---|---|---|
-| POST | `/events` | 5/min | req `EventCreate` → resp `EventOut`. Publicly accepts event creates (rate-limited; verify intent). |
+| POST | `/events` | 5/min | req `EventCreate` → resp `EventRead`. **Admin-gated** via `Depends(require_admin)` (cookie auth) since Slice 15 (Backlog #21). Note: this endpoint is preserved primarily as a test fixture; full removal queued under Backlog #24. |
 | GET | `/events` | (none) | List events. |
 | GET | `/events/{event_id}` | (none) | Event permalink (HTML). |
 
@@ -157,7 +157,7 @@ Cookie set by `POST /admin/login` if password matches `ADMIN_PASSWORD` env var. 
 
 ## Auth posture summary
 
-- **Public** (no auth): chat (3), contribute (2), programs (5), events read + 1 public write (3), UI/static/legal (3), health (1) — **17 routes**.
+- **Public** (no auth): chat (3), contribute (2), programs (5), events read (2), UI/static/legal (3), health (1) — **16 routes**.
 - **Admin HTML** (cookie via `verify_admin`): all under `/admin/*` except `/admin/login` (GET+POST) — **~30 routes**.
 - **Admin JSON API** (cookie via `Depends(require_admin)`): all under `/admin/api/*` — **9 routes**.
 

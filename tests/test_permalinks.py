@@ -8,6 +8,12 @@ from app.db.models import Event
 from app.main import app
 
 
+def _login_admin(client) -> None:
+    """Log into admin (cookie-gates POST /events post-Backlog-#21)."""
+    r = client.post("/admin/login", data={"password": "changeme"}, follow_redirects=False)
+    assert r.status_code == 303
+
+
 class PermalinkRouteTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -24,6 +30,7 @@ class PermalinkRouteTests(unittest.TestCase):
             db.commit()
 
     def _create_event(self, *, title: str, status: str = "live") -> str:
+        _login_admin(self.__class__.client)
         response = self.__class__.client.post(
             "/events",
             json={

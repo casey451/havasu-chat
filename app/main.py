@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 
+from app.admin.auth import COOKIE_NAME, verify_admin_cookie
 from app.admin.router import router as admin_router
 from app.api.routes.admin_contributions import router as admin_contributions_router
 from app.api.routes.admin_mentions import router as admin_mentions_router
@@ -527,9 +528,20 @@ def health_check(db: Session = Depends(get_db)) -> dict[str, Any]:
         return {"status": "ok", "db_connected": False, "event_count": 0}
 
 
+def require_admin(request: Request) -> None:
+    """Cookie-gate for direct event creation (mirrors admin_contributions/admin_mentions pattern)."""
+    if not verify_admin_cookie(request.cookies.get(COOKIE_NAME)):
+        raise HTTPException(status_code=401, detail="Admin authentication required")
+
+
 @app.post("/events", response_model=EventRead)
 @limiter.limit("5/minute")
-def create_event(request: Request, payload: EventCreate, db: Session = Depends(get_db)) -> Event:
+def create_event(
+    request: Request,
+    payload: EventCreate,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin),
+) -> Event:
     event = Event.from_create(payload)
     db.add(event)
     db.commit()

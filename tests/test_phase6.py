@@ -54,6 +54,7 @@ class Phase6Tests(unittest.TestCase):
         clear_session_state("phase6-admin")
 
     def test_post_events_returns_friendly_message_for_invalid_title(self) -> None:
+        _login_admin(self.__class__.client)
         r = self.__class__.client.post(
             "/events",
             json={
