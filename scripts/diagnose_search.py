@@ -1,7 +1,7 @@
 """
 Diagnostic script: fire ~25 realistic queries at the live Havasu Chat app,
 summarise results, flag anomalies, and cross-reference search_debug.log.
-Output saved to scripts/diagnose_output.txt.
+Output saved to scripts/output/diagnose_output.txt.
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from collections import Counter
 from pathlib import Path
 from uuid import uuid4
 
-BASE_URL = "https://web-production-bbe17.up.railway.app"
+BASE_URL = "https://havasu-chat-production.up.railway.app"
 OUTPUT_FILE = Path(__file__).parent / "output" / "diagnose_output.txt"
 LOG_FILE = Path(__file__).parent.parent / "search_debug.log"
 
