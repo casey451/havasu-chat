@@ -48,11 +48,10 @@ route module source.
 |---|---|---|
 | GET | `/health` | JSON `{status, db_connected, event_count}`. See `docs/maintainability/railway_layout.md`. |
 
-### Events (public read + 1 public write)
+### Events (public read)
 
 | Method | Path | Rate limit | Notes |
 |---|---|---|---|
-| POST | `/events` | 5/min | req `EventCreate` → resp `EventRead`. **Admin-gated** via `Depends(require_admin)` (cookie auth) since Slice 15 (Backlog #21). Note: this endpoint is preserved primarily as a test fixture; full removal queued under Backlog #24. |
 | GET | `/events` | (none) | List events. |
 | GET | `/events/{event_id}` | (none) | Event permalink (HTML). |
 
@@ -171,7 +170,6 @@ slowapi `@limiter.limit` decorators (see `app/core/rate_limit.py`):
 |---|---|
 | POST `/api/chat` | 120/min |
 | POST `/api/chat/onboarding` | 120/min |
-| POST `/events` | 5/min |
 | POST `/programs` | 5/min |
 | POST `/programs/submit` | 3/min |
 

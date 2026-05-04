@@ -53,24 +53,6 @@ class Phase6Tests(unittest.TestCase):
         clear_session_state("phase6-validation")
         clear_session_state("phase6-admin")
 
-    def test_post_events_returns_friendly_message_for_invalid_title(self) -> None:
-        _login_admin(self.__class__.client)
-        r = self.__class__.client.post(
-            "/events",
-            json={
-                "title": "ab",
-                "date": "2026-04-20",
-                "start_time": "09:00:00",
-                "location_name": "Aquatic Center",
-                "description": "This description is long enough to pass validation.",
-                "event_url": "https://example.com/valid",
-            },
-        )
-        self.assertEqual(r.status_code, 422)
-        body = r.json()
-        self.assertIn("message", body)
-        self.assertIn("3 characters", body["message"])
-
     def test_expired_pending_review_marked_deleted(self) -> None:
         past = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
         payload = _make_valid_create()

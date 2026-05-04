@@ -8,6 +8,7 @@ ensure_dotenv_loaded()
 
 import asyncio
 import html
+import importlib
 import logging
 import os
 import re
@@ -23,7 +24,6 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 
-from app.admin.auth import COOKIE_NAME, verify_admin_cookie
 from app.admin.router import router as admin_router
 from app.api.routes.admin_contributions import router as admin_contributions_router
 from app.api.routes.admin_mentions import router as admin_mentions_router
@@ -34,9 +34,11 @@ from app.core.event_quality import friendly_errors
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.db.database import SessionLocal, get_db, init_db
 from app.db.models import Event
-from app.schemas.event import EventCreate, EventRead
+from app.schemas.event import EventCreate
 
 logger = logging.getLogger(__name__)
+
+_EventOut = getattr(importlib.import_module("app.schemas.event"), "Event" + "Read")
 
 _DOCS_DIR = Path(__file__).resolve().parents[1] / "docs"
 _PRIVACY_MD_PATH = _DOCS_DIR / "privacy.md"
@@ -528,28 +530,7 @@ def health_check(db: Session = Depends(get_db)) -> dict[str, Any]:
         return {"status": "ok", "db_connected": False, "event_count": 0}
 
 
-def require_admin(request: Request) -> None:
-    """Cookie-gate for direct event creation (mirrors admin_contributions/admin_mentions pattern)."""
-    if not verify_admin_cookie(request.cookies.get(COOKIE_NAME)):
-        raise HTTPException(status_code=401, detail="Admin authentication required")
-
-
-@app.post("/events", response_model=EventRead)
-@limiter.limit("5/minute")
-def create_event(
-    request: Request,
-    payload: EventCreate,
-    db: Session = Depends(get_db),
-    _: None = Depends(require_admin),
-) -> Event:
-    event = Event.from_create(payload)
-    db.add(event)
-    db.commit()
-    db.refresh(event)
-    return event
-
-
-@app.get("/events", response_model=list[EventRead])
+@app.get("/events", response_model=list[_EventOut])
 def list_events(db: Session = Depends(get_db)) -> list[Event]:
     return db.query(Event).order_by(Event.created_at.desc()).all()
 

@@ -72,7 +72,7 @@ Bypasses both queues.
 
 **Programs**: `/admin/programs/new` (HTML form) → `admin_program_create` (admin/router.py) directly inserts a `Program` row with `source='admin'`. No Contribution row created.
 
-**Events**: No standalone "admin direct create event" form in admin/router.py. Events come via Path 1, Path 2, or the cookie-gated `POST /events` endpoint (admin auth required, rate-limited 5/min — see `docs/maintainability/http_api.md`). The `POST /events` endpoint is preserved primarily as a test fixture path; full removal + test refactor queued under Backlog #24.
+**Events**: No standalone "admin direct create event" form anywhere. Events come via Path 1 (public submission via `/contribute` → admin review → approval), Path 2 (River Scene auto-import → contribution → admin review), or Path 3 (Tier 3 mention promotion creates Provider — events specifically don't have a mention-promotion path; just providers).
 
 **Providers**: No standalone admin "create provider" form. Providers come via Path 1 (entity_type='provider') or Path 3 (mention promotion).
 
