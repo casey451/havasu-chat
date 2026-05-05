@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): Tier 3 doc batch shipped (Slice 46, app/chat/ coverage 14/17)** · short SHA **`d8c01e8`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** Deployed commit **`812aaab`** (Slice 47 substantive: ruff ruleset extended to F+I+W; 34 I001 findings auto-fixed across 31 files); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,9 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+0fddd5e docs(BACKLOG): #18 Phase D I001 ticked; E402 queued for Slice 49 (Slice 47)
+812aaab chore(ruff): enable I001 (isort) with --fix (Slice 47, Phase D follow-up)
+b607026 docs(STATE): close-out for Slice 46 (Tier 3 doc batch; queue complete)
 d8c01e8 docs(BACKLOG): Tier 3 doc batch shipped (Slice 46, app/chat/ coverage 14/17)
 e63b03e docs(components): add tier1_templates + tier2_schema + normalizer (Slice 46 Tier 3 batch)
 5183bb1 docs(BACKLOG): #18 provider lane Phase 1 shipped; #9 partial unblock note (Slice 45)
@@ -28,12 +31,11 @@ e63b03e docs(components): add tier1_templates + tier2_schema + normalizer (Slice
 b3eb8ee docs(BACKLOG): event_quality.md shipped (Slice 43, Phase C component-docs)
 ae40445 docs(components): add event_quality.md (Phase C component docs growth)
 b48b76f docs(BACKLOG): mention_scanner.md shipped (Slice 42, contrib trio complete)
-4ec2787 docs(components): add mention_scanner.md (Phase C component docs growth)
-5411869 docs(BACKLOG): close #27 (OPEN_NOW timezone fix shipped) (Slice 41)
-7dd714c chore(tier1_handler): use Lake Havasu local time for OPEN_NOW + _next_event (Backlog #27)
 ```
 
 ## Recently shipped (high signal)
+
+- **`812aaab`..`0fddd5e`** — **Phase D follow-up: ruff I001 (isort) ruleset extension (Slice 47)** — Auto-fix-only ruleset extension, no judgment calls. Slice 39 (Path 1) had narrowed the ruff `select` to `["F", "W"]` to land CI green without churning on cosmetic findings; this slice extends to `["F", "I", "W"]` and applies the deterministic `ruff --fix` output across the tree (31 files touched, +94/-36, pure import-block reordering — verified by spot-check of `app/main.py` and `app/db/database.py`). Step 0 found 34 I001 findings (down from Slice 39's 39, well within the ±10 tolerance — accounted for by intervening doc-and-code slices that landed clean imports). CI will now fail on any future PR that touches imports without sorting. **Pytest unchanged at 964** (959 non-integration + 5 integration deselected). **E402 (49 findings) deferred to Slice 49** — some findings are intentional `ensure_dotenv_loaded()` bootstrap-ordering imports that require `# noqa: E402` annotation rather than mechanical reorder, so per-file triage is needed.
 
 - **`e63b03e`..`d8c01e8`** — **Phase C component-docs growth: tier1_templates + tier2_schema + normalizer (Slice 46 Tier 3 batch)** — Three small component docs in one slice covering audit Tier 3 priority modules that were referenced-but-not-defined in earlier higher-priority docs. (1) `docs/components/tier1_templates.md` (~75 lines) covers the regex `INTENT_PATTERNS` + per-intent `TEMPLATES` engine and the `render()` function, with the persona-brief voice constraints and the `None`-for-missing-slot fall-through convention. (2) `docs/components/tier2_schema.md` (~70 lines) covers the `Tier2Filters` Pydantic schema, the one-temporal-plan-at-a-time structural validator, and the prompt-schema coupling discipline (`prompts/tier2_parser.txt` and the schema must move together). (3) `docs/components/normalizer.md` (~65 lines) covers the four-step pre-classification text normalizer (lowercase + edge-strip → contraction expansion → whitespace collapse → preserve internal hyphens/apostrophes), pure and idempotent. Indexed in `project_index.md`. Pytest unchanged at 964. **`app/chat/` coverage 11/17 → 14/17**, plus 9 docs outside `app/chat/` — closes the audit's referenced-but-not-defined cross-refs.
 
