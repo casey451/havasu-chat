@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **doc: BACKLOG #2 status (Slice 30a telemetry shipped)** · short SHA **`3f17c75`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **doc: BACKLOG #18 Phase D options-spec reference** · short SHA **`006ef64`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+006ef64 doc: BACKLOG #18 Phase D options-spec reference
+732570a doc: engineering_gates_options.md (Phase D options spec)
 3f17c75 doc: BACKLOG #2 status (Slice 30a telemetry shipped)
 38ce682 Tier2 DB query: log time-bucket fire/no-fire for #2 telemetry
 b2f469f doc: BACKLOG #18 Phase C provider lane sub-bullet ticked
@@ -29,11 +31,11 @@ d10f3d4 doc: BACKLOG #18 Phase C CI battery sub-bullet ticked
 8d063ff Replace importlib EventRead workaround with direct import in main.py
 7668423 docs(BACKLOG): close #3 (year inference) and tick #18 component-docs (tier2_handler)
 7c339e0 docs(components): add tier2_handler.md (Phase C component docs growth)
-85cedd0 chore(tier2_parser): inject today's date for year inference (Backlog #3)
-ead421a docs(BACKLOG): close #25 (battery expected labels rebuilt)
 ```
 
 ## Recently shipped (high signal)
+
+- **`732570a`..`006ef64`** — **Phase D: Engineering gates options doc (Slice 31)** — New `docs/maintainability/engineering_gates_options.md` (~152 lines): forward-looking option space mirroring the Slice 29 provider-ingestion-lane pattern. Five decision axes (CI host, linter, formatter, scope, test gate strictness) with provisional defaults (GitHub Actions / ruff / ruff format / new-code-only / any-failure-blocks); two integration patterns (PR-gate-only vs PR+main); a four-slice forward-looking sequence (Slice 40-43) sketching what an actual Phase D ship would look like. Phase D bullet under Backlog #18 stays unticked — this is a prep doc, not a close. Pytest unchanged at 947 (doc-only).
 
 - **`38ce682`..`3f17c75`** — **#2 telemetry-add: time-bucket fire/no-fire logging (Slice 30a)** — Backlog #2 (broad-window event sampling: chronological vs bucketed) is a Product/UX decision that shouldn't be made without data on how often the bucketing branch actually fires. This slice adds `logging.info()` on both branches in `app/chat/tier2_db_query.py:582-585`: `"tier2_db_query: time-bucket fired (window_days=%s, total_matches=%s)"` when the trigger fires, `"tier2_db_query: time-bucket NOT fired (...)"` when there are more than `MAX_ROWS` matches but the trigger doesn't fire. Both lines share the grep tag `tier2_db_query: time-bucket`. Required `import logging` added (alphabetical with stdlib group). Pytest unchanged at 947 (logging is non-functional from a test perspective; no tests assert on log strings — confirmed via grep). #2 stays OPEN as a status update; Slice 30b (~2026-05-12, after 7 days of production logs) will analyze fires-vs-no-fires distribution and pick the A/B/C/D resolution per `relay/decision_2_time_bucket_sampling.md`.
 
