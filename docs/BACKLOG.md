@@ -567,6 +567,18 @@ Files touched (1):
 
 ---
 
+## Backlog 28 - Repo-root tidy: relocate local SQLite + drop stray verify DB (**RESOLVED**)
+
+**Issue:** Two dev-only files lived at the repo root: `events.db` (3.5 MB local SQLite, gitignored) and `zzz_fresh_verify.db` (86 KB stray verification artifact, gitignored). Neither was deployed (Railway uses `DATABASE_URL`/Postgres; the SQLite path is a local-dev fallback). They cluttered the project root and risked accidental editor-glob inclusion.
+
+**Severity:** LOW. Local-dev hygiene only; production unaffected.
+
+**Cross-reference:** Filed under Backlog #18 Phase A (Single source of truth — repo root reserved for project spine per Slice 6's `README.md` rewrite).
+
+**Resolution shipped:** `decf6c5` (Slice 48) — Moved the SQLite default in `app/db/database.py` from the repo root to `./data/events.db`; the directory is auto-created at import time so fresh checkouts work without a manual mkdir. Added `data/` to `.gitignore` to make the convention explicit. The local files were moved (`events.db` → `data/events.db`) and the stray was deleted; neither file was git-tracked so the diff only contains the two-line code edit and the gitignore line. Production unaffected because Railway always sets `DATABASE_URL`. Verification: `init_db` round-trip on the new path returned the same event count (88) as before the move; `python -m pytest -q -m "not integration"` passed 959/959. Filed and resolved in the same slice (matches the #26/#27 hygiene-ship pattern).
+
+---
+
 ## Ship log - Session 2 follow-up, Tier 2 deterministic event rendering (**`d279165`**)
 
 **What shipped:** Deterministic Python rendering for all-event Tier 2 catalog responses; `tier2_formatter.format()` dispatches empty rows → fixed empty message, all-event rows → renderer `(text, 0, 0)`, mixed/non-event rows → unchanged Anthropic path. Programs and providers remain LLM-formatted (scope-limited to events where dropping/count bugs were observed).
