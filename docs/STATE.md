@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): close #25 (battery expected labels rebuilt)** · short SHA **`ead421a`** (2026-05-04); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): close #3 (year inference) and tick #18 component-docs (tier2_handler)** · short SHA **`7668423`** (2026-05-04); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,9 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+7668423 docs(BACKLOG): close #3 (year inference) and tick #18 component-docs (tier2_handler)
+7c339e0 docs(components): add tier2_handler.md (Phase C component docs growth)
+85cedd0 chore(tier2_parser): inject today's date for year inference (Backlog #3)
 ead421a docs(BACKLOG): close #25 (battery expected labels rebuilt)
 b34fea1 chore(scripts): rebuild battery expected labels from production baseline (Backlog #25)
 0a63e77 docs(BACKLOG): close #24 (POST /events removed; tests refactored)
@@ -28,12 +31,13 @@ ee6bf75 chore(events): remove POST /events + refactor test fixtures to SQLAlchem
 35577cd docs(BACKLOG): defer #9 (Tier 1 hit rate; pending provider population)
 6ca0639 docs(BACKLOG): defer #11 (slowapi deprecation; pending upstream fix)
 dbb16f8 docs(BACKLOG): close #14 (--collect-only discipline; not canonical)
-7a56f7c docs(BACKLOG): close #16 (run_voice_audit migrated to llm_messages helper)
-ab8df88 chore(scripts): migrate run_voice_audit.py to call_anthropic_messages helper (Backlog #16)
-509f254 docs(BACKLOG): close #12 (run_query_battery retarget); file #25 (rebuild expected labels)
 ```
 
 ## Recently shipped (high signal)
+
+- **`7c339e0`** — **Phase C component docs growth: tier2_handler.md (Slice 25)** — New `docs/components/tier2_handler.md` (~103 lines) following the structure of `docs/components/unified_router.md`. Documents the three exported callables (`try_tier2_with_usage`, `try_tier2_with_filters_with_usage`, `answer_with_tier2`), the `TIER2_CONFIDENCE_THRESHOLD = 0.7` constant, the seven-step parser → DB → formatter chain (with verbatim INFO log strings on each fallback gate), conventions (binary fallback shape, no exception wrapping at this level, `or 0` token coercion), current deployment posture, known limitations, and direct/indirect dependencies plus callsites. Function signatures and docstrings quoted verbatim from source; test-file references verified before inclusion. Pytest unchanged at 947. Backlog #18 Phase C component-docs sub-bullet ticked with tier2_handler entry; bullet stays open as ongoing growth.
+
+- **`85cedd0`..`7668423`** — **#3 close: year inference for undated calendar queries (Slice 24)** — `app/chat/tier2_parser.py:parse()` now prepends a date-context paragraph to its loaded system prompt on every call: `"Today's date is YYYY-MM-DD (Lake Havasu City, Arizona; MST/UTC-7, no DST). Use this to resolve year for ambiguous calendar queries..."`. `today_iso` is computed via `now_lake_havasu().strftime("%Y-%m-%d")` from `app.core.timezone` (the same helper `tier3_handler` and `unified_router` already use, so no new dependency). Implemented as a runtime prepend rather than editing the static `prompts/tier2_parser.txt` so the date never goes stale on disk. Pytest unchanged at 947. Production smoke post-merge: query `"events on May 8"` returned `tier_used=2` with events from May 7–9, **2026** and May 8–10, **2026** — year correctly inferred from today's `2026-05-04`. **OPEN backlog drops to 3 items (2, 5, 18).**
 
 - **`b34fea1`..`ead421a`** — **#25 close: battery expected labels rebuilt from production baseline (Slice 23)** — Restored expected/actual matching to `scripts/run_query_battery.py` using captured production `tier_used` values. Approach: ran the battery once against production (~119 queries with valid `tier_used`; 1 returns 422 for the empty string) and used those captured values as the expected labels in SINGLE_SHOT and SEQUENCES tuples. Edits: restored `matches()` helper (removed in Slice 16), updated all 120 tuples with new tier-based labels (TIER2/TIER3/CHAT/GAP_TEMPLATE/PLACEHOLDER/ERROR(422)), restored `expected` and `match` fields in record output, added `matched`/`mismatched` summary fields to `run_all()` return value. Verify run: 119/120 matched, 1 mismatch (#45 "rotary park" — TIER2 baseline → TIER3 verify, expected LLM non-determinism on a borderline date-phrase parse). Pytest unchanged at 947 (script not in test coverage). Phase C CI query-battery sub-bullet under #18 now has functional regression detection; CI infra still queued under Phase D. **OPEN backlog drops to 4 items (2, 3, 5, 18).**
 
@@ -83,8 +87,8 @@ ab8df88 chore(scripts): migrate run_voice_audit.py to call_anthropic_messages he
 
 See **`docs/BACKLOG.md`**. Snapshot:
 
-- **OPEN** — **2**, **3**, **5**, **18** (see `docs/BACKLOG.md` for titles).
-- **Recently resolved** — **8** (Slice 3, `2627693`); **19** (Slice 10, `d429fe7`); **20** (Slice 11, `15f7248`); **23** (Slice 13, `c94afb6`); **22** (Slice 14, `72728e2`); **21** (Slice 15, `b1a0add`); **12** (Slice 16, `fd313bb`); **16** (Slice 17, `ab8df88`); **14** (Slice 18, `dbb16f8`); **7** (Slice 21, `9020b2d`); **24** (Slice 22, `ee6bf75`); **25** (Slice 23, `b34fea1`); historical: **13**, **15** (`656d54b`).
+- **OPEN** — **2**, **5**, **18** (see `docs/BACKLOG.md` for titles).
+- **Recently resolved** — **8** (Slice 3, `2627693`); **19** (Slice 10, `d429fe7`); **20** (Slice 11, `15f7248`); **23** (Slice 13, `c94afb6`); **22** (Slice 14, `72728e2`); **21** (Slice 15, `b1a0add`); **12** (Slice 16, `fd313bb`); **16** (Slice 17, `ab8df88`); **14** (Slice 18, `dbb16f8`); **7** (Slice 21, `9020b2d`); **24** (Slice 22, `ee6bf75`); **25** (Slice 23, `b34fea1`); **3** (Slice 24, `85cedd0`); historical: **13**, **15** (`656d54b`).
 - **DEFERRED** — **9** (Tier 1 hit rate; pending provider population), **11** (slowapi Python 3.14 deprecation; pending upstream fix or version pin), **17** (OpenAI helper extraction until a second caller exists).
 - **Confabulation / eval** — operator harness: `docs/confabulation-eval-runbook.md`, code under `app/eval/`. Broader “phase 8.8.6” spec markdown was pruned; recover from git history if needed.
 
