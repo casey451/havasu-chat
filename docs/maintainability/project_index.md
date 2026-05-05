@@ -110,6 +110,7 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `docs/components/admin_auth.md` | Component note for admin cookie-gate auth (`app/admin/auth.py`) — security-sensitive; documents threat model. | Current |
 | `docs/components/admin_router.md` | Component note for the admin router (`app/admin/router.py`) — overview, route inventory, conventions; pairs with admin_auth.md. | Current |
 | `docs/components/mention_scanner.md` | Component note for Tier 3 mention scanner (Path 3 catalog-creation feedback loop; title-case entity extraction with stop-list filtering). | Current |
+| `docs/components/event_quality.md` | Component note for the FastAPI request-validation pretty-printer (`friendly_errors` for ConciergeChatRequest); post-Slice-21 minimal surface. | Current |
 
 ### Maintainability and retrospectives (current)
 
