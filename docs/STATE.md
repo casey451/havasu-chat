@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **doc: BACKLOG #18 Phase C provider lane sub-bullet ticked** · short SHA **`b2f469f`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **doc: BACKLOG #2 status (Slice 30a telemetry shipped)** · short SHA **`3f17c75`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+3f17c75 doc: BACKLOG #2 status (Slice 30a telemetry shipped)
+38ce682 Tier2 DB query: log time-bucket fire/no-fire for #2 telemetry
 b2f469f doc: BACKLOG #18 Phase C provider lane sub-bullet ticked
 5fbd658 doc: provider_ingestion_lane_options.md (Phase C §5 gap)
 d10f3d4 doc: BACKLOG #18 Phase C CI battery sub-bullet ticked
@@ -29,11 +31,11 @@ d10f3d4 doc: BACKLOG #18 Phase C CI battery sub-bullet ticked
 7c339e0 docs(components): add tier2_handler.md (Phase C component docs growth)
 85cedd0 chore(tier2_parser): inject today's date for year inference (Backlog #3)
 ead421a docs(BACKLOG): close #25 (battery expected labels rebuilt)
-b34fea1 chore(scripts): rebuild battery expected labels from production baseline (Backlog #25)
-0a63e77 docs(BACKLOG): close #24 (POST /events removed; tests refactored)
 ```
 
 ## Recently shipped (high signal)
+
+- **`38ce682`..`3f17c75`** — **#2 telemetry-add: time-bucket fire/no-fire logging (Slice 30a)** — Backlog #2 (broad-window event sampling: chronological vs bucketed) is a Product/UX decision that shouldn't be made without data on how often the bucketing branch actually fires. This slice adds `logging.info()` on both branches in `app/chat/tier2_db_query.py:582-585`: `"tier2_db_query: time-bucket fired (window_days=%s, total_matches=%s)"` when the trigger fires, `"tier2_db_query: time-bucket NOT fired (...)"` when there are more than `MAX_ROWS` matches but the trigger doesn't fire. Both lines share the grep tag `tier2_db_query: time-bucket`. Required `import logging` added (alphabetical with stdlib group). Pytest unchanged at 947 (logging is non-functional from a test perspective; no tests assert on log strings — confirmed via grep). #2 stays OPEN as a status update; Slice 30b (~2026-05-12, after 7 days of production logs) will analyze fires-vs-no-fires distribution and pick the A/B/C/D resolution per `relay/decision_2_time_bucket_sampling.md`.
 
 - **`5fbd658`..`b2f469f`** — **Phase C: Provider ingestion lane options doc (Slice 29)** — New `docs/maintainability/provider_ingestion_lane_options.md` (~143 lines): forward-looking option space for re-introducing provider ingestion on top of the post-2026-04-30 RS-only catalog. Five candidate sources (manual admin entry, public submission, web scraping, third-party API, bulk CSV/sheet) with coverage/effort/reliability profiles and removed-precedent notes; three architectural patterns (mirror RS, divergent provider pipeline, generalized ingestion framework) with effort estimates; four open product questions (cross-referenced to `chat_behavior_followup_plan.md` §7); provisional first-build recommendation (Pattern A + Source 1) explicitly flagged as not a commitment. Closes the Phase C "§5 gap: Provider ingestion lane (forward-looking spec)" sub-bullet under Backlog #18; **Phase C now 5/6 ticked.** Pytest unchanged at 947 (doc-only).
 
