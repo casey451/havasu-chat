@@ -39,10 +39,16 @@ jobs:
           python -m pip install -r requirements.txt
       - name: Run pytest
         env:
-          # Test suite mocks API keys; use a placeholder so any
-          # accidental real-call attempt fails fast rather than billing.
+          # Test suite mocks API keys for unit tests; use a placeholder so
+          # any accidental real-call attempt fails fast rather than billing.
           ANTHROPIC_API_KEY: test-placeholder-key
           OPENAI_API_KEY: test-placeholder-key
           # SQLite-backed local DB for tests.
           DATABASE_URL: sqlite:///./test.db
-        run: python -m pytest -q
+        # `-m "not integration"` excludes the OpenAI hint-extractor
+        # integration tests in tests/test_classifier_hint_extraction_integration.py
+        # — they hit the real API by design (per their docstring:
+        # "Optional real OpenAI hint extraction (run: pytest -m integration)").
+        # CI runs the unit suite only; integration tests are opt-in for
+        # local runs against a real key.
+        run: python -m pytest -q -m "not integration"
