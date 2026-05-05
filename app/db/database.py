@@ -10,7 +10,9 @@ from app.bootstrap_env import ensure_dotenv_loaded
 
 ensure_dotenv_loaded()
 
-DB_PATH = Path(__file__).resolve().parents[2] / "events.db"
+_DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+_DATA_DIR.mkdir(exist_ok=True)
+DB_PATH = _DATA_DIR / "events.db"
 _DEFAULT_SQLITE_URL = f"sqlite:///{DB_PATH.as_posix()}"
 
 

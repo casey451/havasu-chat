@@ -5,6 +5,9 @@
 .claude/
 search_debug.log
 *.db
+
+# Local-dev data directory (SQLite DBs, scratch fixtures)
+data/
 __pycache__/
 *.pyc
 .pytest_cache/
