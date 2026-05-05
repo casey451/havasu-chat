@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **doc: BACKLOG #18 Phase D options-spec reference** · short SHA **`006ef64`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **doc: BACKLOG #5 close** · short SHA **`b3ccf21`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+b3ccf21 doc: BACKLOG #5 close
+486dc11 Tier2 LLM formatter: emit clickable event_url links (hybrid)
 006ef64 doc: BACKLOG #18 Phase D options-spec reference
 732570a doc: engineering_gates_options.md (Phase D options spec)
 3f17c75 doc: BACKLOG #2 status (Slice 30a telemetry shipped)
@@ -29,11 +31,11 @@ d10f3d4 doc: BACKLOG #18 Phase C CI battery sub-bullet ticked
 3598621 doc: ci_query_battery.md (Phase C §5 gap closed)
 71f897c doc: BACKLOG #26 close
 8d063ff Replace importlib EventRead workaround with direct import in main.py
-7668423 docs(BACKLOG): close #3 (year inference) and tick #18 component-docs (tier2_handler)
-7c339e0 docs(components): add tier2_handler.md (Phase C component docs growth)
 ```
 
 ## Recently shipped (high signal)
+
+- **`486dc11`..`b3ccf21`** — **#5 close: clickable event_url links in Tier 2 LLM-formatter path (Slice 27)** — Backlog #5's deterministic-renderer scope was already correct (`tier2_catalog_render.py` emits `[name](url)` inline); the LLM-formatter path for mixed/non-event rows was missing links because the system prompt forbade markdown. **Hybrid fix:** (a) prompt EXCEPTION in `prompts/tier2_formatter.txt` permitting `[name](event_url)` markdown for rows with non-empty `event_url`, plus (b) `_inject_event_url_links` deterministic post-processor in `app/chat/tier2_formatter.py` as a safety net — runs after `_format_via_llm` returns and injects any missing links via word-boundary regex with an inside-existing-markdown-link guard, falling back to end-of-text append when the row's name doesn't appear inline. Eight new unit tests cover injection paths and edge cases (empty url, non-event rows, double-link prevention, multi-event, word boundaries, inside-existing-markdown-link guard). **Pytest baseline shifts 947 → 955** (+8). Bundled per the audit amendment: new `docs/components/tier2_formatter.md` component doc and a row in `docs/maintainability/project_index.md`. **OPEN backlog drops to 2 (#2, #18).** Multi-sample production verification required after deploy per WORKING_AGREEMENT.md (LLM-mediated user-visible behavior).
 
 - **`732570a`..`006ef64`** — **Phase D: Engineering gates options doc (Slice 31)** — New `docs/maintainability/engineering_gates_options.md` (~152 lines): forward-looking option space mirroring the Slice 29 provider-ingestion-lane pattern. Five decision axes (CI host, linter, formatter, scope, test gate strictness) with provisional defaults (GitHub Actions / ruff / ruff format / new-code-only / any-failure-blocks); two integration patterns (PR-gate-only vs PR+main); a four-slice forward-looking sequence (Slice 40-43) sketching what an actual Phase D ship would look like. Phase D bullet under Backlog #18 stays unticked — this is a prep doc, not a close. Pytest unchanged at 947 (doc-only).
 
@@ -97,8 +99,8 @@ d10f3d4 doc: BACKLOG #18 Phase C CI battery sub-bullet ticked
 
 See **`docs/BACKLOG.md`**. Snapshot:
 
-- **OPEN** — **2**, **5**, **18** (see `docs/BACKLOG.md` for titles).
-- **Recently resolved** — **8** (Slice 3, `2627693`); **19** (Slice 10, `d429fe7`); **20** (Slice 11, `15f7248`); **23** (Slice 13, `c94afb6`); **22** (Slice 14, `72728e2`); **21** (Slice 15, `b1a0add`); **12** (Slice 16, `fd313bb`); **16** (Slice 17, `ab8df88`); **14** (Slice 18, `dbb16f8`); **7** (Slice 21, `9020b2d`); **24** (Slice 22, `ee6bf75`); **25** (Slice 23, `b34fea1`); **3** (Slice 24, `85cedd0`); **26** (Slice 26, `8d063ff`); historical: **13**, **15** (`656d54b`).
+- **OPEN** — **2**, **18** (see `docs/BACKLOG.md` for titles).
+- **Recently resolved** — **8** (Slice 3, `2627693`); **19** (Slice 10, `d429fe7`); **20** (Slice 11, `15f7248`); **23** (Slice 13, `c94afb6`); **22** (Slice 14, `72728e2`); **21** (Slice 15, `b1a0add`); **12** (Slice 16, `fd313bb`); **16** (Slice 17, `ab8df88`); **14** (Slice 18, `dbb16f8`); **7** (Slice 21, `9020b2d`); **24** (Slice 22, `ee6bf75`); **25** (Slice 23, `b34fea1`); **3** (Slice 24, `85cedd0`); **26** (Slice 26, `8d063ff`); **5** (Slice 27, `486dc11`); historical: **13**, **15** (`656d54b`).
 - **DEFERRED** — **9** (Tier 1 hit rate; pending provider population), **11** (slowapi Python 3.14 deprecation; pending upstream fix or version pin), **17** (OpenAI helper extraction until a second caller exists).
 - **Confabulation / eval** — operator harness: `docs/confabulation-eval-runbook.md`, code under `app/eval/`. Broader “phase 8.8.6” spec markdown was pruned; recover from git history if needed.
 
