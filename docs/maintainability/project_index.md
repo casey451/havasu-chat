@@ -106,6 +106,7 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `docs/components/river_scene.md` | Component note for the River Scene ingestion lane (sole live catalog source post-2026-04-30 cleanup); fetch/parse + orchestration, dedupe, auto-approval flow. | Current |
 | `docs/components/tier1_handler.md` | Component note for the Tier 1 deterministic-template handler (zero-LLM-token direct DB lookups). | Current |
 | `docs/components/approval_service.md` | Component note for the contribution → catalog-row materialization service (sole catalog-write path: Provider/Program/Event approval). | Current |
+| `docs/components/llm_messages.md` | Component note for the H2 Anthropic-Messages-API consolidation helper (sole Anthropic call site; mock-seam invariants documented). | Current |
 
 ### Maintainability and retrospectives (current)
 
