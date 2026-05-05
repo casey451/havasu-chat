@@ -8,7 +8,6 @@ ensure_dotenv_loaded()
 
 import asyncio
 import html
-import importlib
 import logging
 import os
 import re
@@ -34,11 +33,9 @@ from app.core.event_quality import friendly_errors
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.db.database import SessionLocal, get_db, init_db
 from app.db.models import Event
-from app.schemas.event import EventCreate
+from app.schemas.event import EventCreate, EventRead
 
 logger = logging.getLogger(__name__)
-
-_EventOut = getattr(importlib.import_module("app.schemas.event"), "Event" + "Read")
 
 _DOCS_DIR = Path(__file__).resolve().parents[1] / "docs"
 _PRIVACY_MD_PATH = _DOCS_DIR / "privacy.md"
@@ -530,7 +527,7 @@ def health_check(db: Session = Depends(get_db)) -> dict[str, Any]:
         return {"status": "ok", "db_connected": False, "event_count": 0}
 
 
-@app.get("/events", response_model=list[_EventOut])
+@app.get("/events", response_model=list[EventRead])
 def list_events(db: Session = Depends(get_db)) -> list[Event]:
     return db.query(Event).order_by(Event.created_at.desc()).all()
 
