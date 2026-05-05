@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): tier 2 component-doc batch shipped (Slice 32)** · short SHA **`1d4aa31`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): river_scene.md shipped (Slice 36, Phase C component-docs)** · short SHA **`f54591d`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+f54591d docs(BACKLOG): river_scene.md shipped (Slice 36, Phase C component-docs)
+d86c7f6 docs(components): add river_scene.md (Phase C component docs growth)
 1d4aa31 docs(BACKLOG): tier 2 component-doc batch shipped (Slice 32)
 da68612 docs(components): add intent_classifier, hint_extractor, llm_router (Slice 32 batch)
 11708d0 docs(BACKLOG): tier2_parser.md shipped (Slice 34, Phase C component-docs)
@@ -29,11 +31,11 @@ b3ccf21 doc: BACKLOG #5 close
 486dc11 Tier2 LLM formatter: emit clickable event_url links (hybrid)
 006ef64 doc: BACKLOG #18 Phase D options-spec reference
 732570a doc: engineering_gates_options.md (Phase D options spec)
-3f17c75 doc: BACKLOG #2 status (Slice 30a telemetry shipped)
-38ce682 Tier2 DB query: log time-bucket fire/no-fire for #2 telemetry
 ```
 
 ## Recently shipped (high signal)
+
+- **`d86c7f6`..`f54591d`** — **Phase C component-docs growth: river_scene.md (Slice 36)** — New `docs/components/river_scene.md` (~149 lines) covering the **sole live ingestion lane** (`app/contrib/river_scene.py` parser/fetcher + `app/contrib/river_scene_pull.py` orchestration). Documents the public surface (`RiverSceneEvent` dataclass; `fetch_sitemap_urls`, `fetch_and_parse_event`, `normalize_to_contribution`; `run_pull` with its 8 per-run counters), the sitemap-traversal and event-detail-parse flows, the orchestrator chain (dedupe-before-fetch → parse → seed-overlap check → contribution insert → optional auto-approval), conventions (polite HTTP, retries-then-raise, None-for-skip, dedupe-by-URL, print-driven), known limitations (WordPress structural drift, URL-only dedupe, past-event cutoff at `today`, no incremental sitemap, auto-approval inverts default), and direct/indirect dependencies. Indexed in `docs/maintainability/project_index.md`. Pytest unchanged at 956. Adjacent-subsystem (`app/contrib/`) coverage now non-empty.
 
 - **`da68612`..`1d4aa31`** — **Phase C component-docs batch: intent_classifier + hint_extractor + llm_router (Slice 32)** — Three docs in one slice per `relay/component_doc_audit.md` Tier 2 batch recommendation. (1) `docs/components/intent_classifier.md` covers `classify()` (frozen `IntentResult` dataclass), the four-step heuristic flow (mode → sub-intent → entity → confidence merge), the sub-intent label space shared with `llm_router`. (2) `docs/components/hint_extractor.md` covers `extract_hints()`, the optional OpenAI gpt-4.1-mini caller (sole OpenAI caller in the codebase; Backlog #17 reference), six-step flow, soft 300/100 token budget. (3) `docs/components/llm_router.md` covers the optional `route()` Anthropic structured router (`USE_LLM_ROUTER` env, OFF in prod), `RouterDecision` schema with the cross-field `tier_recommendation == "2" requires tier2_filters` validator, seven-step flow. Three rows added to `docs/maintainability/project_index.md` Repo doc index. Pytest unchanged at 956 (doc-only). Component-docs coverage advances from 4/17 → 7/17 `app/chat/` modules.
 
