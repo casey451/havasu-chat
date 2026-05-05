@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): #18 provider lane Phase 1 shipped; #9 partial unblock note (Slice 45)** · short SHA **`5183bb1`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): Tier 3 doc batch shipped (Slice 46, app/chat/ coverage 14/17)** · short SHA **`d8c01e8`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+d8c01e8 docs(BACKLOG): Tier 3 doc batch shipped (Slice 46, app/chat/ coverage 14/17)
+e63b03e docs(components): add tier1_templates + tier2_schema + normalizer (Slice 46 Tier 3 batch)
 5183bb1 docs(BACKLOG): #18 provider lane Phase 1 shipped; #9 partial unblock note (Slice 45)
 424499a chore(admin): add direct-create provider UI (Slice 45 provider lane Phase 1)
 024e46f docs(BACKLOG): rate_limit + dedupe core batch shipped (Slice 44)
@@ -29,11 +31,11 @@ b48b76f docs(BACKLOG): mention_scanner.md shipped (Slice 42, contrib trio comple
 4ec2787 docs(components): add mention_scanner.md (Phase C component docs growth)
 5411869 docs(BACKLOG): close #27 (OPEN_NOW timezone fix shipped) (Slice 41)
 7dd714c chore(tier1_handler): use Lake Havasu local time for OPEN_NOW + _next_event (Backlog #27)
-2de8b15 docs(BACKLOG): admin docs batch shipped (Slice 40, Phase C component-docs)
-2d1c6e1 docs(components): add admin_auth.md and admin_router.md (Slice 40)
 ```
 
 ## Recently shipped (high signal)
+
+- **`e63b03e`..`d8c01e8`** — **Phase C component-docs growth: tier1_templates + tier2_schema + normalizer (Slice 46 Tier 3 batch)** — Three small component docs in one slice covering audit Tier 3 priority modules that were referenced-but-not-defined in earlier higher-priority docs. (1) `docs/components/tier1_templates.md` (~75 lines) covers the regex `INTENT_PATTERNS` + per-intent `TEMPLATES` engine and the `render()` function, with the persona-brief voice constraints and the `None`-for-missing-slot fall-through convention. (2) `docs/components/tier2_schema.md` (~70 lines) covers the `Tier2Filters` Pydantic schema, the one-temporal-plan-at-a-time structural validator, and the prompt-schema coupling discipline (`prompts/tier2_parser.txt` and the schema must move together). (3) `docs/components/normalizer.md` (~65 lines) covers the four-step pre-classification text normalizer (lowercase + edge-strip → contraction expansion → whitespace collapse → preserve internal hyphens/apostrophes), pure and idempotent. Indexed in `project_index.md`. Pytest unchanged at 964. **`app/chat/` coverage 11/17 → 14/17**, plus 9 docs outside `app/chat/` — closes the audit's referenced-but-not-defined cross-refs.
 
 - **`424499a`..`5183bb1`** — **Provider lane Phase 1: admin direct-create UI (Slice 45)** — First admin write surface added since Slice 22 (which removed `POST /events`). Implements **Source #1** from the Slice 29 options doc (manual admin entry, lowest-effort lane). Two new routes in `app/admin/router.py` mirroring the existing `/admin/programs/new` pattern: `GET /admin/providers/new` renders the form (cookie-gated via `_guard`); `POST /admin/providers` validates required fields (provider_name + category), creates a `Provider` row directly with `source="admin"`, `verified=True` (operator IS the verifier), `is_active=True`, `draft=False`, `pending_review=False`, atomic `db.add + commit` with rollback on exception, and redirects to `/admin` on success or returns the form with a 400 + friendly error on validation failure. New `_provider_form_html` and `_parse_provider_form` helpers use the existing `_programs_tab_shell` wrapper, `_escape` helper, and `inp()` style for visual consistency. Dashboard toolbar gains a **"+ Create provider"** button next to "+ Create program". Six new tests in `tests/test_admin_provider_create.py` cover both routes' cookie-gates, the form-renders-when-authenticated path, the happy-path POST + DB write, and the missing-name / missing-category 400 paths. **Threat model verified** against `docs/components/admin_auth.md`: cookie-gate present on both routes, all user input HTML-escaped, no CSRF (single-admin model, matches existing program-create pattern), no rate-limit (cookie auth is the gate), DB write atomicity preserved. **Pytest 958 → 964** (+6). Ruff clean. **Backlog #9 (Tier 1 hit rate, DEFERRED) precondition partially unblocked** — operators can now seed providers without waiting for an automated lane; full re-opening still requires actual provider rows + representative query mix + measurement window. Phase C provider-ingestion-lane sub-bullet under #18 advances to its first implementation step.
 
