@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): mention_scanner.md shipped (Slice 42, contrib trio complete)** · short SHA **`b48b76f`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): event_quality.md shipped (Slice 43, Phase C component-docs)** · short SHA **`b3eb8ee`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+b3eb8ee docs(BACKLOG): event_quality.md shipped (Slice 43, Phase C component-docs)
+ae40445 docs(components): add event_quality.md (Phase C component docs growth)
 b48b76f docs(BACKLOG): mention_scanner.md shipped (Slice 42, contrib trio complete)
 4ec2787 docs(components): add mention_scanner.md (Phase C component docs growth)
 5411869 docs(BACKLOG): close #27 (OPEN_NOW timezone fix shipped) (Slice 41)
@@ -29,11 +31,11 @@ b48b76f docs(BACKLOG): mention_scanner.md shipped (Slice 42, contrib trio comple
 2f59d4f chore(ci): exclude -m integration in pytest job (Slice 39 step 3 fix)
 0428267 chore(ci): add GitHub Actions workflow for ruff + pytest (Slice 39 step 3)
 114c612 chore(lint): address ruff F,W findings ahead of CI gate (Slice 39 step 2)
-519fd37 chore(ci): add ruff config + dev-requirements (Slice 39 Phase D step 1)
-1540d67 docs(BACKLOG): llm_messages.md shipped (Slice 38, Phase C component-docs)
 ```
 
 ## Recently shipped (high signal)
+
+- **`ae40445`..`b3eb8ee`** — **Phase C component-docs growth: event_quality.md (Slice 43)** — New `docs/components/event_quality.md` (~75 lines) covering `app/core/event_quality.py` — the post-Slice-21 minimal request-validation pretty-printer (sole live caller is `app/main.py:518`'s `RequestValidationError` handler). Documents the three exported names (`CHAT_CONCIERGE_QUERY_VALIDATION_MESSAGE` constant, `friendly_errors` function, `_errors_touch_concierge_query_field` helper), the four-step linear scan with early returns (concierge-query branch → inner-`ValueError` branch → `"Value error, "`-prefix branch → fallback), the loc-shape duality (accepts both `('query',)` and `('body', 'query')`), conventions (hard-coded canonical message, generic fallback, no logging, exported underscore-prefixed helper), and known limitations. Captures the Slice 21 pruning history (265 → 38 lines) so future readers don't re-derive whether to prune further. Pytest unchanged at 958. Indexed in `project_index.md`.
 
 - **`4ec2787`..`b48b76f`** — **Phase C component-docs growth: mention_scanner.md (Slice 42)** — New `docs/components/mention_scanner.md` (~117 lines) covering `app/contrib/mention_scanner.py` — the Path 3 catalog-creation feedback loop (Tier 3 mentions → admin review → approved Provider rows). Documents the public surface (`MentionCandidate` dataclass; pure `scan_tier3_response` function; best-effort `scan_and_save_mentions` background task; `STOP_PHRASES` frozenset), the five-step scan logic (URL strip → title-case regex → per-phrase filter w/ length-6 minimum + stop-list + within-response dedupe → context snippet → candidate build), conventions (best-effort persistence — never raises across boundary; pure-vs-side-effect split for testability; capped 300-char `mentioned_name` matching DB constraint), and known limitations (permissive heuristic; no semantic filtering; within-response dedupe only). With this doc the **contrib trio is complete** — `river_scene` (Slice 36) + `approval_service` (Slice 37) + `mention_scanner` (this slice) cover Paths 1–3 of `end_to_end_creation.md`. Indexed in `project_index.md`. Pytest unchanged at 958.
 
