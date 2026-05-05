@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): rate_limit + dedupe core batch shipped (Slice 44)** · short SHA **`024e46f`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): #18 provider lane Phase 1 shipped; #9 partial unblock note (Slice 45)** · short SHA **`5183bb1`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+5183bb1 docs(BACKLOG): #18 provider lane Phase 1 shipped; #9 partial unblock note (Slice 45)
+424499a chore(admin): add direct-create provider UI (Slice 45 provider lane Phase 1)
 024e46f docs(BACKLOG): rate_limit + dedupe core batch shipped (Slice 44)
 3d1d874 docs(components): add rate_limit.md and dedupe.md (Slice 44 core batch)
 b3eb8ee docs(BACKLOG): event_quality.md shipped (Slice 43, Phase C component-docs)
@@ -29,11 +31,11 @@ b48b76f docs(BACKLOG): mention_scanner.md shipped (Slice 42, contrib trio comple
 7dd714c chore(tier1_handler): use Lake Havasu local time for OPEN_NOW + _next_event (Backlog #27)
 2de8b15 docs(BACKLOG): admin docs batch shipped (Slice 40, Phase C component-docs)
 2d1c6e1 docs(components): add admin_auth.md and admin_router.md (Slice 40)
-0be0489 docs(BACKLOG): tick Phase D — CI lint + tests + format-on-touch (Slice 39)
-2f59d4f chore(ci): exclude -m integration in pytest job (Slice 39 step 3 fix)
 ```
 
 ## Recently shipped (high signal)
+
+- **`424499a`..`5183bb1`** — **Provider lane Phase 1: admin direct-create UI (Slice 45)** — First admin write surface added since Slice 22 (which removed `POST /events`). Implements **Source #1** from the Slice 29 options doc (manual admin entry, lowest-effort lane). Two new routes in `app/admin/router.py` mirroring the existing `/admin/programs/new` pattern: `GET /admin/providers/new` renders the form (cookie-gated via `_guard`); `POST /admin/providers` validates required fields (provider_name + category), creates a `Provider` row directly with `source="admin"`, `verified=True` (operator IS the verifier), `is_active=True`, `draft=False`, `pending_review=False`, atomic `db.add + commit` with rollback on exception, and redirects to `/admin` on success or returns the form with a 400 + friendly error on validation failure. New `_provider_form_html` and `_parse_provider_form` helpers use the existing `_programs_tab_shell` wrapper, `_escape` helper, and `inp()` style for visual consistency. Dashboard toolbar gains a **"+ Create provider"** button next to "+ Create program". Six new tests in `tests/test_admin_provider_create.py` cover both routes' cookie-gates, the form-renders-when-authenticated path, the happy-path POST + DB write, and the missing-name / missing-category 400 paths. **Threat model verified** against `docs/components/admin_auth.md`: cookie-gate present on both routes, all user input HTML-escaped, no CSRF (single-admin model, matches existing program-create pattern), no rate-limit (cookie auth is the gate), DB write atomicity preserved. **Pytest 958 → 964** (+6). Ruff clean. **Backlog #9 (Tier 1 hit rate, DEFERRED) precondition partially unblocked** — operators can now seed providers without waiting for an automated lane; full re-opening still requires actual provider rows + representative query mix + measurement window. Phase C provider-ingestion-lane sub-bullet under #18 advances to its first implementation step.
 
 - **`3d1d874`..`024e46f`** — **Phase C component-docs growth: rate_limit.md + dedupe.md (Slice 44 core batch)** — Two `app/core/` component docs in one slice. (1) `docs/components/rate_limit.md` (~22-line module → ~75-line doc) covers the shared slowapi `Limiter` (per-IP keying via `get_remote_address`, env-toggleable for tests via `RATE_LIMIT_DISABLED`), enumerates callers (`app/main.py`, `programs/router.py`, `contribute.py`, `chat.py`), and documents known limitations (in-memory backend, multi-worker scaling, `X-Forwarded-For` trust assumption). (2) `docs/components/dedupe.md` (~74-line module → ~80-line doc) covers the embedding+date+location three-gate event duplicate detection: 0.85 cosine threshold (empirically chosen), ±1 day date window, location text similarity, full-table-scan O(n) characteristic, and a clear AND-gate convention (loosening any single signal would cascade false positives). Pytest unchanged at 958. **Indexed in `project_index.md`** — adjacent-and-core component-doc coverage now totals **9 docs outside `app/chat/`** (river_scene, approval_service, mention_scanner, llm_messages, event_quality, admin_auth, admin_router, rate_limit, dedupe).
 
