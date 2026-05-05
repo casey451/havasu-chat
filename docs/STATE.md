@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): close #27 (OPEN_NOW timezone fix shipped) (Slice 41)** · short SHA **`5411869`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): mention_scanner.md shipped (Slice 42, contrib trio complete)** · short SHA **`b48b76f`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+b48b76f docs(BACKLOG): mention_scanner.md shipped (Slice 42, contrib trio complete)
+4ec2787 docs(components): add mention_scanner.md (Phase C component docs growth)
 5411869 docs(BACKLOG): close #27 (OPEN_NOW timezone fix shipped) (Slice 41)
 7dd714c chore(tier1_handler): use Lake Havasu local time for OPEN_NOW + _next_event (Backlog #27)
 2de8b15 docs(BACKLOG): admin docs batch shipped (Slice 40, Phase C component-docs)
@@ -29,11 +31,11 @@ This document is updated at the end of each session that ships work. It is the c
 114c612 chore(lint): address ruff F,W findings ahead of CI gate (Slice 39 step 2)
 519fd37 chore(ci): add ruff config + dev-requirements (Slice 39 Phase D step 1)
 1540d67 docs(BACKLOG): llm_messages.md shipped (Slice 38, Phase C component-docs)
-dbfd029 docs(components): add llm_messages.md (Phase C component docs growth)
-0003842 docs(BACKLOG): approval_service.md shipped (Slice 37, Phase C component-docs)
 ```
 
 ## Recently shipped (high signal)
+
+- **`4ec2787`..`b48b76f`** — **Phase C component-docs growth: mention_scanner.md (Slice 42)** — New `docs/components/mention_scanner.md` (~117 lines) covering `app/contrib/mention_scanner.py` — the Path 3 catalog-creation feedback loop (Tier 3 mentions → admin review → approved Provider rows). Documents the public surface (`MentionCandidate` dataclass; pure `scan_tier3_response` function; best-effort `scan_and_save_mentions` background task; `STOP_PHRASES` frozenset), the five-step scan logic (URL strip → title-case regex → per-phrase filter w/ length-6 minimum + stop-list + within-response dedupe → context snippet → candidate build), conventions (best-effort persistence — never raises across boundary; pure-vs-side-effect split for testability; capped 300-char `mentioned_name` matching DB constraint), and known limitations (permissive heuristic; no semantic filtering; within-response dedupe only). With this doc the **contrib trio is complete** — `river_scene` (Slice 36) + `approval_service` (Slice 37) + `mention_scanner` (this slice) cover Paths 1–3 of `end_to_end_creation.md`. Indexed in `project_index.md`. Pytest unchanged at 958.
 
 - **`7dd714c`..`5411869`** — **#27 close: Tier 1 OPEN_NOW timezone fix (Slice 41)** — Replaced `_utcnow()` (UTC wall clock) with `now_lake_havasu()` (Lake Havasu local wall clock) in `app/chat/tier1_handler.py` at the two call sites: `_next_event`'s `today` computation and `OPEN_NOW`'s `now` value passed to `_open_now_from_hours`. `now_lake_havasu` was already used by `tier3_handler` / `unified_router` / `tier2_parser` for the same temporal-grounding purpose; no new dependency. Removed the `_utcnow()` helper and the `from datetime import UTC` (no other callers in the file). Two new wiring tests added (`test_open_now_uses_lake_havasu_local_time`, `test_next_event_uses_lake_havasu_today`); 3 existing OPEN_NOW tests in `test_tier1_handler.py` and 4 OPEN_NOW parametrize cases in `test_ask_mode.py` migrated from patching `_utcnow` with tz-aware UTC datetimes to patching `now_lake_havasu` with `ZoneInfo("America/Phoenix")` datetimes. **Pytest 956 → 958** (+2). Ruff clean. **OPEN backlog drops to 2 (#2, #18).**
 
