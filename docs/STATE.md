@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): close #3 (year inference) and tick #18 component-docs (tier2_handler)** · short SHA **`7668423`** (2026-05-04); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **doc: BACKLOG #26 close** · short SHA **`71f897c`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+71f897c doc: BACKLOG #26 close
+8d063ff Replace importlib EventRead workaround with direct import in main.py
 7668423 docs(BACKLOG): close #3 (year inference) and tick #18 component-docs (tier2_handler)
 7c339e0 docs(components): add tier2_handler.md (Phase C component docs growth)
 85cedd0 chore(tier2_parser): inject today's date for year inference (Backlog #3)
@@ -29,11 +31,11 @@ ee6bf75 chore(events): remove POST /events + refactor test fixtures to SQLAlchem
 44b8229 docs(BACKLOG): close #7 (event_quality orphan symbols removed)
 9020b2d chore(event_quality): remove orphan symbols from event_quality.py (Backlog #7)
 35577cd docs(BACKLOG): defer #9 (Tier 1 hit rate; pending provider population)
-6ca0639 docs(BACKLOG): defer #11 (slowapi deprecation; pending upstream fix)
-dbb16f8 docs(BACKLOG): close #14 (--collect-only discipline; not canonical)
 ```
 
 ## Recently shipped (high signal)
+
+- **`8d063ff`..`71f897c`** — **#26 close: importlib EventRead workaround replaced with direct import (Slice 26)** — Slice 22 (#24 close) included an over-strict directive to remove the `EventRead` import from `app/main.py`; the GET `/events` route at line 533 still used `EventRead` as `response_model`, so the Slice 22 executor preserved correctness via `importlib.import_module(...)` + `getattr(..., "Event" + "Read")` to pass a literal grep gate. This slice restores a normal direct import. Edits in `app/main.py`: removed `import importlib` (line 11), added `EventRead` to the `app.schemas.event` import (line 37), removed the `_EventOut = getattr(...)` workaround (former line 41) plus one redundant blank line, updated the GET `/events` `response_model` to `list[EventRead]` (former line 533). Net -3 lines (4 edits, 3 deletions). Pytest unchanged at 947 (import-shape only; no test-surface change). #26 was filed and closed in this slice (was not on the prior OPEN list); OPEN backlog count unchanged at 3 (#2, #5, #18).
 
 - **`7c339e0`** — **Phase C component docs growth: tier2_handler.md (Slice 25)** — New `docs/components/tier2_handler.md` (~103 lines) following the structure of `docs/components/unified_router.md`. Documents the three exported callables (`try_tier2_with_usage`, `try_tier2_with_filters_with_usage`, `answer_with_tier2`), the `TIER2_CONFIDENCE_THRESHOLD = 0.7` constant, the seven-step parser → DB → formatter chain (with verbatim INFO log strings on each fallback gate), conventions (binary fallback shape, no exception wrapping at this level, `or 0` token coercion), current deployment posture, known limitations, and direct/indirect dependencies plus callsites. Function signatures and docstrings quoted verbatim from source; test-file references verified before inclusion. Pytest unchanged at 947. Backlog #18 Phase C component-docs sub-bullet ticked with tier2_handler entry; bullet stays open as ongoing growth.
 
@@ -88,7 +90,7 @@ dbb16f8 docs(BACKLOG): close #14 (--collect-only discipline; not canonical)
 See **`docs/BACKLOG.md`**. Snapshot:
 
 - **OPEN** — **2**, **5**, **18** (see `docs/BACKLOG.md` for titles).
-- **Recently resolved** — **8** (Slice 3, `2627693`); **19** (Slice 10, `d429fe7`); **20** (Slice 11, `15f7248`); **23** (Slice 13, `c94afb6`); **22** (Slice 14, `72728e2`); **21** (Slice 15, `b1a0add`); **12** (Slice 16, `fd313bb`); **16** (Slice 17, `ab8df88`); **14** (Slice 18, `dbb16f8`); **7** (Slice 21, `9020b2d`); **24** (Slice 22, `ee6bf75`); **25** (Slice 23, `b34fea1`); **3** (Slice 24, `85cedd0`); historical: **13**, **15** (`656d54b`).
+- **Recently resolved** — **8** (Slice 3, `2627693`); **19** (Slice 10, `d429fe7`); **20** (Slice 11, `15f7248`); **23** (Slice 13, `c94afb6`); **22** (Slice 14, `72728e2`); **21** (Slice 15, `b1a0add`); **12** (Slice 16, `fd313bb`); **16** (Slice 17, `ab8df88`); **14** (Slice 18, `dbb16f8`); **7** (Slice 21, `9020b2d`); **24** (Slice 22, `ee6bf75`); **25** (Slice 23, `b34fea1`); **3** (Slice 24, `85cedd0`); **26** (Slice 26, `8d063ff`); historical: **13**, **15** (`656d54b`).
 - **DEFERRED** — **9** (Tier 1 hit rate; pending provider population), **11** (slowapi Python 3.14 deprecation; pending upstream fix or version pin), **17** (OpenAI helper extraction until a second caller exists).
 - **Confabulation / eval** — operator harness: `docs/confabulation-eval-runbook.md`, code under `app/eval/`. Broader “phase 8.8.6” spec markdown was pruned; recover from git history if needed.
 
