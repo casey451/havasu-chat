@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): approval_service.md shipped (Slice 37, Phase C component-docs)** · short SHA **`0003842`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): llm_messages.md shipped (Slice 38, Phase C component-docs)** · short SHA **`1540d67`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+1540d67 docs(BACKLOG): llm_messages.md shipped (Slice 38, Phase C component-docs)
+dbfd029 docs(components): add llm_messages.md (Phase C component docs growth)
 0003842 docs(BACKLOG): approval_service.md shipped (Slice 37, Phase C component-docs)
 c919b9c docs(components): add approval_service.md (Phase C component docs growth)
 a7c366a docs(BACKLOG): file #27 (Tier 1 OPEN_NOW tz bug) + tier1_handler.md ticked
@@ -29,11 +31,11 @@ d86c7f6 docs(components): add river_scene.md (Phase C component docs growth)
 da68612 docs(components): add intent_classifier, hint_extractor, llm_router (Slice 32 batch)
 11708d0 docs(BACKLOG): tier2_parser.md shipped (Slice 34, Phase C component-docs)
 fbe8ae6 docs(components): add tier2_parser.md + index catch-up + wiring test (Slice 34)
-ae5b9b6 doc: BACKLOG #18 Component-docs-growth Slice 33 note
-66636a6 doc: tier3_handler.md component doc
 ```
 
 ## Recently shipped (high signal)
+
+- **`dbfd029`..`1540d67`** — **Phase C component-docs growth: llm_messages.md (Slice 38)** — New `docs/components/llm_messages.md` (~120 lines) covering `app/core/llm_messages.py`, the H2 consolidation point and sole Anthropic Messages API caller. Documents the public surface (`call_anthropic_messages` entry, the frozen `Usage` dataclass with `billable_input` property and `from_sdk_usage` classmethod, `AnthropicResult`, `coerce_llm_text_to_json_object`, `load_prompt`, `DEFAULT_MODEL` constant), the six-step internal flow (API key → package check → model resolve → system block construction with ephemeral cache_control → `messages.create` call → result extraction), and — critically — the **three mock-seam invariants** the test suite depends on (package-level `import anthropic`; fixed `Anthropic(api_key=..., timeout=...)` constructor signature; fixed `messages.create` kwargs `model/max_tokens/temperature/system/messages`). Conventions, configuration, and known limitations (no streaming/batching/tool-use; rigid construction signature; broad exception catch; hardcoded ephemeral cache_control). Closes the cross-reference loop with `tier2_parser.md`/`tier3_handler.md`/`llm_router.md`. Pytest unchanged at 956. Component-docs coverage adds first row in `app/core/`.
 
 - **`c919b9c`..`0003842`** — **Phase C component-docs growth: approval_service.md (Slice 37)** — New `docs/components/approval_service.md` (~109 lines) covering `app/contrib/approval_service.py` — the **sole catalog-write path** post-cleanup. Documents the five public functions (the three `approve_contribution_as_*` for Provider/Program/Event materialization, `enrichment_suggests_verified` helper, and the `parse_*` form helpers), the six-step shared shape (load+validate the contribution → derive `verified`/`source` fields → build the catalog row → insert+flush → update contribution status → commit+refresh with rollback-on-exception), conventions (`db.commit()` in-function for transactional atomicity; naive UTC for TIMESTAMP WITHOUT TIME ZONE columns; `source` field reflects upstream provenance not human review; `strip-and-None` for optional strings), and known limitations (no upsert, no batch, hours-structuring provider-only, `verified` is a one-shot gate, `reviewed_by` plumbing incomplete, auto-approval bypasses admin review). Together with `river_scene.md` (Slice 36) covers the full ingestion-to-catalog-row pipeline. Pytest unchanged at 956. Component-docs coverage adds first row in `app/contrib/` (catalog-write path).
 
