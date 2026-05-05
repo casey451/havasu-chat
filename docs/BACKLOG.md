@@ -278,7 +278,7 @@ This makes scripts/run_voice_audit.py the second Anthropic caller fully on the H
   - [x] **`scripts/` convention** (Slice 4, `28cd5c6`): `scripts/README.md` rewritten with directory convention table (`scripts/*.py` tools, `fixtures/` test fixtures, `confabulation_eval_results/baselines/` tracked baselines, `output/` ephemeral outputs) and alphabetical inventory of all 16 tracked CLI tools. Tool default-path migration queued under Backlog #19; legacy tracked-output disposition queued under Backlog #20.
   - [x] **`docs/` archive convention** (Slice 5, `f8da738`): session transcripts and slice-complete writeups removed from working tree once value is captured in canonical docs or git history; live-session captures go to `relay/` (gitignored). Documented in `docs/CURSOR_ORIENTATION.md` (Process conventions bullet) and `docs/maintainability/project_index.md` (post-doc-list paragraph). Two misfiled `phase-6-1-*` transcripts removed; recoverable via git log.
 - [ ] **C — Documentation depth where code is complex.**
-  - [ ] **Component docs growth** (ongoing). Tier2 stack, contrib/River Scene, admin. **Added so far:** `unified_router.md`; `tier2_handler.md` (Slice 25, `7c339e0`); `tier2_formatter.md` (Slice 27, `486dc11`); `tier3_handler.md` (Slice 33, `66636a6`); `tier2_parser.md` (Slice 34, `fbe8ae6`); `intent_classifier.md` + `hint_extractor.md` + `llm_router.md` (Slice 32, `da68612`); `river_scene.md` (Slice 36, `d86c7f6`). Audit + remaining priorities tracked in `relay/component_doc_audit.md`.
+  - [ ] **Component docs growth** (ongoing). Tier2 stack, contrib/River Scene, admin. **Added so far:** `unified_router.md`; `tier2_handler.md` (Slice 25, `7c339e0`); `tier2_formatter.md` (Slice 27, `486dc11`); `tier3_handler.md` (Slice 33, `66636a6`); `tier2_parser.md` (Slice 34, `fbe8ae6`); `intent_classifier.md` + `hint_extractor.md` + `llm_router.md` (Slice 32, `da68612`); `river_scene.md` (Slice 36, `d86c7f6`); `tier1_handler.md` (Slice 35, `6910a24`). Audit + remaining priorities tracked in `relay/component_doc_audit.md`.
   - [x] **§5 gap: Railway service/env matrix** (Slice 7, `765ee61`): `docs/maintainability/railway_layout.md` consolidates process types, env var matrix, DB URL resolution, health checks, deploy flow.
   - [x] **§5 gap: HTTP API sketch** (Slice 8, `5f14f36`): `docs/maintainability/http_api.md` consolidates all 58 routes — mount layout, public routes by group, admin HTML routes (cookie-gated `verify_admin`), admin JSON API routes (`Depends(require_admin)`), auth posture summary, rate limits (slowapi + custom contribute limiter), schema pointers.
   - [x] **§5 gap: CI query-battery story** (Slice 28, `3598621`): `docs/maintainability/ci_query_battery.md` covers manual invocation, success criteria, label-update discipline, and future CI integration patterns. Prereqs #12 (Slice 16, RESOLVED) and #25 (Slice 23, RESOLVED) both met.
@@ -544,6 +544,22 @@ Files touched (1):
 - `app/main.py`: removed `import importlib` (line 11), added `EventRead` to schemas.event import (line 37), removed `_EventOut` workaround line (former line 41), updated GET /events `response_model` to `list[EventRead]` (former line 533).
 
 **Pytest baseline unchanged at 947** (import-shape only; no test surface change).
+
+---
+
+## Backlog 27 - Tier 1 OPEN_NOW timezone bug (UTC vs Lake Havasu local) (**OPEN**)
+
+**Issue:** `app/chat/tier1_handler.py:_utcnow()` returns tz-aware UTC; `_open_now_from_hours` strips tz to compare against operator-entered local-time hours strings (e.g., `"9am-5pm"`). Implicit assumption: provider hours are in Lake Havasu local time. Comparing UTC-now against local-hours-of-day produces results that are off by 7 hours (MST/UTC-7).
+
+**Effect:** Operator-visible wrong answers for OPEN_NOW queries outside a narrow midday window. At MST midnight, the comparison runs against 5pm UTC — open-status answer reflects the wrong wall-clock time.
+
+**Blast radius:** Small. Only fires when the query routes Tier 1 with sub-intent `OPEN_NOW` AND the provider has parseable hours. The post-cleanup catalog is RS-only (providers table empty) so the bug currently has zero exposure in production. If/when provider data lands (per Slice 29's options doc / Slice 45 phase 1), this becomes user-visible.
+
+**Desired fix:** Replace `_utcnow()` with `now_lake_havasu()` from `app.core.timezone` (the same helper used by `tier3_handler` and `unified_router`). Compare local-time-now against local-time-hours; both sides are in MST, no offset arithmetic needed. ~5-line change.
+
+**Severity:** MEDIUM (correctness; small blast radius until providers populate).
+
+**Cross-reference:** Surfaced in Slice 35 component-doc audit (`docs/components/tier1_handler.md` "Known limitations and design notes"). Adjacent: provider-lane work under Slice 45 will increase exposure.
 
 ---
 
