@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **doc: BACKLOG #18 Phase C CI battery sub-bullet ticked** · short SHA **`d10f3d4`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **doc: BACKLOG #18 Phase C provider lane sub-bullet ticked** · short SHA **`b2f469f`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+b2f469f doc: BACKLOG #18 Phase C provider lane sub-bullet ticked
+5fbd658 doc: provider_ingestion_lane_options.md (Phase C §5 gap)
 d10f3d4 doc: BACKLOG #18 Phase C CI battery sub-bullet ticked
 3598621 doc: ci_query_battery.md (Phase C §5 gap closed)
 71f897c doc: BACKLOG #26 close
@@ -29,11 +31,11 @@ d10f3d4 doc: BACKLOG #18 Phase C CI battery sub-bullet ticked
 ead421a docs(BACKLOG): close #25 (battery expected labels rebuilt)
 b34fea1 chore(scripts): rebuild battery expected labels from production baseline (Backlog #25)
 0a63e77 docs(BACKLOG): close #24 (POST /events removed; tests refactored)
-ee6bf75 chore(events): remove POST /events + refactor test fixtures to SQLAlchemy direct (Backlog #24)
-44b8229 docs(BACKLOG): close #7 (event_quality orphan symbols removed)
 ```
 
 ## Recently shipped (high signal)
+
+- **`5fbd658`..`b2f469f`** — **Phase C: Provider ingestion lane options doc (Slice 29)** — New `docs/maintainability/provider_ingestion_lane_options.md` (~143 lines): forward-looking option space for re-introducing provider ingestion on top of the post-2026-04-30 RS-only catalog. Five candidate sources (manual admin entry, public submission, web scraping, third-party API, bulk CSV/sheet) with coverage/effort/reliability profiles and removed-precedent notes; three architectural patterns (mirror RS, divergent provider pipeline, generalized ingestion framework) with effort estimates; four open product questions (cross-referenced to `chat_behavior_followup_plan.md` §7); provisional first-build recommendation (Pattern A + Source 1) explicitly flagged as not a commitment. Closes the Phase C "§5 gap: Provider ingestion lane (forward-looking spec)" sub-bullet under Backlog #18; **Phase C now 5/6 ticked.** Pytest unchanged at 947 (doc-only).
 
 - **`3598621`..`d10f3d4`** — **Phase C: CI query-battery story doc (Slice 28)** — New `docs/maintainability/ci_query_battery.md` (~155 lines) covering manual battery invocation (`python scripts/run_query_battery.py`), expected JSON output shape with the `total`/`matched`/`mismatched` summary fields, success criteria (clean run = 120 matched; flake budget 1/120 on borderline date phrases per Slice 23 verification), where labels live (`SINGLE_SHOT` tuples in `scripts/run_query_battery.py`), label-update discipline (update labels in the same commit as the routing change), and three plausible CI integration patterns (GitHub Actions on push-to-main, Railway scheduled task, pre-deploy verification hook) without committing to one — current state is manual runs only. Closes the Phase C "§5 gap: CI query-battery story" sub-bullet under Backlog #18; Phase C now 4/6 ticked. Prereqs #12 (Slice 16) and #25 (Slice 23) both RESOLVED. Pytest unchanged at 947 (doc-only ship).
 
