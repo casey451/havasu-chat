@@ -595,6 +595,30 @@ Files touched (1):
 
 ---
 
+## Backlog 30 - Schema time-type harmonization: decision (**RESOLVED**); campaign Slices 53–56 (**OPEN**)
+
+**Issue:** `Event.start_time` / `Event.end_time` are `sqlalchemy.Time`; `Program.schedule_start_time` / `Program.schedule_end_time` are `sqlalchemy.String(5)` (HH:MM). Same logical type, two SQL types. The string columns sort lexically (relying on zero-pad), can't compose with `datetime.time` arithmetic without parsing, and the type checker can't catch a `"25:00"` typo. A grep at `d188517` finds 134 occurrences across 29 files.
+
+**Severity:** LOW (decision-doc only). The eventual implementation campaign is what carries production risk; this entry tracks the decision and queues the campaign.
+
+**Cross-reference:** Filed under Backlog #18 Phase A (Single source of truth — schema time-of-day fields should converge to a single SQL type). Surfaced in the 2026-05-05 structural review.
+
+**Resolution shipped (decision):** Slice 52 — `docs/maintainability/schema_time_harmonization_decision.md` documents the inconsistency, surveys options A (big-bang migration), B (phased migration with dual-write), C (application-layer compatibility via Python `@property`), D (do nothing); recommends Option B; sketches the four-slice implementation campaign in §5. **Casey's §7 decision (2026-05-05): Option B.** Indexed in `docs/maintainability/project_index.md`.
+
+**Implementation queued (Slices 53–56, OPEN):**
+- **Slice 53:** Add `start_time_typed` / `end_time_typed` columns alongside the existing strings; dual-write from every writer. Alembic migration (additive, nullable). ~10 files.
+- **Slice 54:** Migrate `app/chat/` + `app/core/` readers from string columns to typed columns. ~12 files; substantial test updates.
+- **Slice 55:** Migrate `app/admin/` readers + form handling. ~6 files; admin-template updates.
+- **Slice 56:** Drop `schedule_start_time` / `schedule_end_time`; remove dual-write; rename typed columns to canonical names. Alembic migration.
+
+Per-slice bootstraps drafted just before each slice executes (i.e., Slice 53's bootstrap is written before Slice 53 starts; Slice 56's bootstrap is not pre-written until 53 has shipped).
+
+**Verification posture for the campaign** (per `docs/WORKING_AGREEMENT.md`'s deterministic-behavior verification rule, captured in §8 of the decision doc): every campaign slice must hash-equality verify reads from the affected tier and run the full test suite (`python -m pytest -q -m "not integration"`); Slice 56 (cleanup) must additionally show a production catalog fingerprint before and after to rule out drift.
+
+**Decision filed and resolved in the same slice** (matches the #26/#27/#28/#29 hygiene-ship pattern). Implementation campaign queued separately.
+
+---
+
 ## Ship log - Session 2 follow-up, Tier 2 deterministic event rendering (**`d279165`**)
 
 **What shipped:** Deterministic Python rendering for all-event Tier 2 catalog responses; `tier2_formatter.format()` dispatches empty rows → fixed empty message, all-event rows → renderer `(text, 0, 0)`, mixed/non-event rows → unchanged Anthropic path. Programs and providers remain LLM-formatted (scope-limited to events where dropping/count bugs were observed).
