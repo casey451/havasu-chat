@@ -20,6 +20,7 @@ builder (open/closed for events/programs is out of scope for Phase 5.6).
 from __future__ import annotations
 
 import calendar
+import logging
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -580,8 +581,19 @@ def _query_events(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
     if upper is None or upper < lower:
         return []
     if _is_still_clustered_early(rows, lower, upper) and len(rows) > MAX_ROWS:
+        logging.info(
+            "tier2_db_query: time-bucket fired (window_days=%s, total_matches=%s)",
+            (upper - lower).days + 1,
+            len(rows),
+        )
         rows = _time_bucket_first_hits(rows, lower, upper, MAX_ROWS)[:MAX_ROWS]
     else:
+        if len(rows) > MAX_ROWS:
+            logging.info(
+                "tier2_db_query: time-bucket NOT fired (window_days=%s, total_matches=%s)",
+                (upper - lower).days + 1,
+                len(rows),
+            )
         rows = rows[:MAX_ROWS]
     return [_event_dict(e) for e in rows]
 
