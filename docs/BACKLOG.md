@@ -547,7 +547,7 @@ Files touched (1):
 
 ---
 
-## Backlog 27 - Tier 1 OPEN_NOW timezone bug (UTC vs Lake Havasu local) (**OPEN**)
+## Backlog 27 - Tier 1 OPEN_NOW timezone bug (UTC vs Lake Havasu local) (**RESOLVED**)
 
 **Issue:** `app/chat/tier1_handler.py:_utcnow()` returns tz-aware UTC; `_open_now_from_hours` strips tz to compare against operator-entered local-time hours strings (e.g., `"9am-5pm"`). Implicit assumption: provider hours are in Lake Havasu local time. Comparing UTC-now against local-hours-of-day produces results that are off by 7 hours (MST/UTC-7).
 
@@ -560,6 +560,8 @@ Files touched (1):
 **Severity:** MEDIUM (correctness; small blast radius until providers populate).
 
 **Cross-reference:** Surfaced in Slice 35 component-doc audit (`docs/components/tier1_handler.md` "Known limitations and design notes"). Adjacent: provider-lane work under Slice 45 will increase exposure.
+
+**Resolution shipped:** `7dd714c` (Slice 41) — Replaced `_utcnow()` (UTC wall clock) with `now_lake_havasu()` (Lake Havasu local wall clock) at the two call sites: `_next_event`'s `today` computation and `OPEN_NOW`'s `now` value passed to `_open_now_from_hours`. `now_lake_havasu` was already in use by `tier3_handler` / `unified_router` / `tier2_parser` for the same temporal-grounding purpose; no new dependency. Removed `_utcnow()` helper and `from datetime import UTC` (no other callers in the file). Two wiring tests added (`test_open_now_uses_lake_havasu_local_time`, `test_next_event_uses_lake_havasu_today`); 3 existing OPEN_NOW tests in `test_tier1_handler.py` and 4 OPEN_NOW parametrize cases in `test_ask_mode.py` migrated from patching `_utcnow` with tz-aware UTC datetimes to patching `now_lake_havasu` with `ZoneInfo("America/Phoenix")` datetimes. Pytest 956 → 958. Ruff clean.
 
 ---
 
