@@ -44,6 +44,8 @@ Ship log entries at the bottom record what shipped per session. New ones are app
 
 **Reference:** `app/chat/tier2_db_query.py` (`_is_still_clustered_early`, `_time_bucket_first_hits`).
 
+**Status update (Slice 30a, `38ce682`):** Telemetry added at `app/chat/tier2_db_query.py:582-585`. Both branches now emit `tier2_db_query: time-bucket fired/NOT fired (window_days, total_matches)` log lines. Decision (A/B/C/D per `relay/decision_2_time_bucket_sampling.md`) target: Slice 30b after 7 days of production data analysis.
+
 ---
 
 ## Backlog 3 - year inference for undated calendar queries (**RESOLVED**)
