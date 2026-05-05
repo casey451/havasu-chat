@@ -154,6 +154,8 @@ Cross-reference: matches `docs/maintainability/findings_app_chat.md` finding L7 
 
 No code change required. Tracking until precondition is met.
 
+**Status update (Slice 45, `424499a`):** Provider-population precondition partially unblocked. Slice 45 ships the admin direct-create UI (`/admin/providers/new` + `POST /admin/providers`); operators can now seed providers without waiting for an automated lane. Re-opening of #9 still requires (a) actual provider rows existing in production catalog and (b) a representative query mix running for a measurement window. Continue to track DEFERRED until those conditions are met.
+
 ---
 
 ## Backlog 10 - `HAVASU_CHAT_MASTER.md` test fixture (**CLOSED**)
@@ -282,7 +284,7 @@ This makes scripts/run_voice_audit.py the second Anthropic caller fully on the H
   - [x] **§5 gap: Railway service/env matrix** (Slice 7, `765ee61`): `docs/maintainability/railway_layout.md` consolidates process types, env var matrix, DB URL resolution, health checks, deploy flow.
   - [x] **§5 gap: HTTP API sketch** (Slice 8, `5f14f36`): `docs/maintainability/http_api.md` consolidates all 58 routes — mount layout, public routes by group, admin HTML routes (cookie-gated `verify_admin`), admin JSON API routes (`Depends(require_admin)`), auth posture summary, rate limits (slowapi + custom contribute limiter), schema pointers.
   - [x] **§5 gap: CI query-battery story** (Slice 28, `3598621`): `docs/maintainability/ci_query_battery.md` covers manual invocation, success criteria, label-update discipline, and future CI integration patterns. Prereqs #12 (Slice 16, RESOLVED) and #25 (Slice 23, RESOLVED) both met.
-  - [x] **§5 gap: Provider ingestion lane (forward-looking spec)** (Slice 29, `5fbd658`): `docs/maintainability/provider_ingestion_lane_options.md` covers five candidate sources, three architectural patterns, open product questions, and a provisional first-build recommendation (Pattern A mirror-RS + Source 1 manual admin entry). Speculative; not a commitment.
+  - [x] **§5 gap: Provider ingestion lane (forward-looking spec)** (Slice 29, `5fbd658`): `docs/maintainability/provider_ingestion_lane_options.md` covers five candidate sources, three architectural patterns, open product questions, and a provisional first-build recommendation (Pattern A mirror-RS + Source 1 manual admin entry). **Phase 1 implementation shipped Slice 45, `424499a`** — admin direct-create UI for providers (Source #1 from the options doc); future phases (additional sources, automated scraping) remain available paths.
   - [x] **§5 gap: End-to-end provider/program creation** (Slice 9, `c1cd8b0`): `docs/maintainability/end_to_end_creation.md` documents the four paths producing catalog rows (public submission, River Scene auto-import, Tier 3 mention scan promotion, admin direct create), Contribution status state machine, and per-entity-type fields touched at creation.
 - [x] **D — Engineering gates.** CI lint + tests on PR (Slice 39, `0428267..2f59d4f`) — GitHub Actions workflow at `.github/workflows/ci.yml` running `python -m ruff check` (F,W ruleset, narrowed per Casey's Path 1 decision after Step 0 found 1468 cosmetic E501 findings) and `python -m pytest -q -m "not integration"` under placeholder API keys + sqlite. Single formatting tool: ruff format (config in `pyproject.toml`) — enforced as "format-on-touch" rather than whole-repo enforcement (per Slice 31 options doc default). **Follow-up queued:** I001 auto-fix + E402 triage slice (re-enable E and I rules incrementally). Both Phase D bullets ticked.
 
