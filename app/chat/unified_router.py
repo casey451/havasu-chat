@@ -17,6 +17,7 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
+from app.chat import llm_router
 from app.chat.entity_matcher import (
     extract_catalog_entities_from_text,
     match_entity,
@@ -24,14 +25,14 @@ from app.chat.entity_matcher import (
 )
 from app.chat.hint_extractor import extract_hints
 from app.chat.intent_classifier import IntentResult, classify
-from app.chat import llm_router
 from app.chat.normalizer import normalize
 from app.chat.tier1_handler import try_tier1
 from app.chat.tier2_handler import (
     try_tier2_with_filters_with_usage,
     try_tier2_with_usage,
 )
-from app.chat.tier3_handler import FALLBACK_MESSAGE as _GRACEFUL, answer_with_tier3
+from app.chat.tier3_handler import FALLBACK_MESSAGE as _GRACEFUL
+from app.chat.tier3_handler import answer_with_tier3
 from app.core.session import (
     get_session,
     record_entity,

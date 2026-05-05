@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from app.eval.confabulation_detector import (
-    InvocationResult,
     LAYER2,
+    InvocationResult,
     detect,
 )
 

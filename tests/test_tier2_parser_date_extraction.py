@@ -14,6 +14,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import anthropic
+
 from app.chat.tier2_parser import parse
 from app.chat.tier2_schema import Tier2Filters
 

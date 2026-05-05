@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import re
-from datetime import date, datetime, time as time_of_day
+from datetime import date, datetime
+from datetime import time as time_of_day
 from types import SimpleNamespace
 from unittest.mock import patch
 from zoneinfo import ZoneInfo

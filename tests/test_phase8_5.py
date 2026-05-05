@@ -20,7 +20,12 @@ from app.core.intent import (
 )
 from app.core.search import decide_search_strategy, format_search_results
 from app.core.session import get_session, set_flow_awaiting
-from app.core.slots import extract_activity_family, extract_audience, extract_date_range, merge_date_range
+from app.core.slots import (
+    extract_activity_family,
+    extract_audience,
+    extract_date_range,
+    merge_date_range,
+)
 
 
 class Phase85IntentTests(unittest.TestCase):

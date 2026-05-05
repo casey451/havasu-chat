@@ -10,12 +10,10 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-# Slice 39 (Path 1) ships the narrowed F,W ruleset — catches real bugs
-# (unused imports, undefined names, undefined behavior, basic deprecations)
-# without bikeshedding line-length. A future slice can re-enable E and I
-# rules with auto-fix + per-file-ignores after the I001 + E402 triage
-# work lands.
-select = ["F", "W"]
+# Slice 39 (Path 1) shipped F,W. Slice 47 adds I (isort) — auto-fix-only,
+# no judgment calls; CI fails on any future PR that touches imports
+# without sorting. E rules deferred until Slice 49 closes E402 triage.
+select = ["F", "I", "W"]
 
 [tool.ruff.format]
 # Reserved for future per-touch formatting; not enabled in CI.

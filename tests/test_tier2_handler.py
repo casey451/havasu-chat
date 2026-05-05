@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from app.chat.tier2_handler import TIER2_CONFIDENCE_THRESHOLD, answer_with_tier2, try_tier2_with_usage
+from app.chat.tier2_handler import (
+    TIER2_CONFIDENCE_THRESHOLD,
+    answer_with_tier2,
+    try_tier2_with_usage,
+)
 from app.chat.tier2_schema import Tier2Filters
 
 

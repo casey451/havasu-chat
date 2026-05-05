@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 # Force redeploy 2026-04-16
-
 from app.bootstrap_env import ensure_dotenv_loaded
 
 ensure_dotenv_loaded()
@@ -28,11 +27,11 @@ from app.api.routes.admin_contributions import router as admin_contributions_rou
 from app.api.routes.admin_mentions import router as admin_mentions_router
 from app.api.routes.chat import router as concierge_chat_router
 from app.api.routes.contribute import router as contribute_router
-from app.programs.router import router as programs_router
 from app.core.event_quality import friendly_errors
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.db.database import SessionLocal, get_db, init_db
 from app.db.models import Event
+from app.programs.router import router as programs_router
 from app.schemas.event import EventRead
 
 logger = logging.getLogger(__name__)

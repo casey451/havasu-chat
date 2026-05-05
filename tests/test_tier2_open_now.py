@@ -9,9 +9,9 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.chat import tier2_db_query
-from app.contrib.hours_helper import LAKE_HAVASU_TZ
 from app.chat.tier2_handler import try_tier2_with_usage
 from app.chat.tier2_schema import Tier2Filters
+from app.contrib.hours_helper import LAKE_HAVASU_TZ
 from app.db.database import SessionLocal
 from app.db.models import Provider
 

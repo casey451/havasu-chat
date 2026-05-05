@@ -3,7 +3,8 @@ from __future__ import annotations
 import os
 import time
 import unittest
-from datetime import UTC, date, datetime, timedelta, time as time_type
+from datetime import UTC, date, datetime, timedelta
+from datetime import time as time_type
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient

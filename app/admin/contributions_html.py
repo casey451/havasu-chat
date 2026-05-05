@@ -22,7 +22,12 @@ from app.contrib.approval_service import (
     parse_comma_tags,
     parse_schedule_days_field,
 )
-from app.db.contribution_store import count_contributions, get_contribution, list_contributions, update_contribution_status
+from app.db.contribution_store import (
+    count_contributions,
+    get_contribution,
+    list_contributions,
+    update_contribution_status,
+)
 from app.db.database import get_db
 from app.db.models import Contribution, Program, Provider
 from app.schemas.contribution import (

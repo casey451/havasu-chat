@@ -21,7 +21,6 @@ from typing import Any, Dict, List, Optional, cast
 
 from app.chat import tier2_formatter
 
-
 tier2_evidence: contextvars.ContextVar[
     tuple[str, list[dict[str, Any]]] | None
 ] = contextvars.ContextVar("tier2_evidence", default=None)

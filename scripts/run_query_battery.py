@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 import time
 import uuid
-from urllib import request, error
+from urllib import error, request
 
 BASE = "https://havasu-chat-production.up.railway.app"
 

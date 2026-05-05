@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 # POST /api/chat (ConciergeChatRequest) — distinct from Tier 3 runtime graceful errors (handoff §3.11).
 CHAT_CONCIERGE_QUERY_VALIDATION_MESSAGE = (
     "That request didn't parse — the 'query' field is required and can't be empty."

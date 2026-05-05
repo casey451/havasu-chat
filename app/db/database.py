@@ -44,8 +44,9 @@ def init_db() -> None:
     """Bring the database schema to head via Alembic (or stamp legacy SQLite created with create_all)."""
     from pathlib import Path
 
-    from alembic import command
     from alembic.config import Config
+
+    from alembic import command
 
     root = Path(__file__).resolve().parents[2]
     cfg = Config(str(root / "alembic.ini"))

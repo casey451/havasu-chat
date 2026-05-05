@@ -10,7 +10,9 @@ from unittest.mock import patch
 
 import pytest
 
-from app.contrib.approval_service import approve_contribution_as_event as real_approve_contribution_as_event
+from app.contrib.approval_service import (
+    approve_contribution_as_event as real_approve_contribution_as_event,
+)
 from app.db.contribution_store import create_contribution
 from app.db.database import SessionLocal
 from app.db.models import Contribution, Event

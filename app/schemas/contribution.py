@@ -5,7 +5,15 @@ from __future__ import annotations
 from datetime import date, datetime, time
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, HttpUrl, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    HttpUrl,
+    field_validator,
+    model_validator,
+)
 
 EntityType = Literal["provider", "program", "event", "tip"]
 ContributionSource = Literal["user_submission", "llm_inferred", "operator_backfill", "river_scene_import"]

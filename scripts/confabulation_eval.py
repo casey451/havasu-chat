@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
-import sys
 from typing import Iterable
 
 from sqlalchemy import select

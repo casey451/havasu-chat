@@ -4,16 +4,17 @@ import sys
 from logging.config import fileConfig
 from pathlib import Path
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
+
+from alembic import context
 
 # Project root (parent of alembic/)
 _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from app.db.database import Base, get_database_url  # noqa: E402
 import app.db.models  # noqa: F401, E402
+from app.db.database import Base, get_database_url  # noqa: E402
 
 config = context.config
 

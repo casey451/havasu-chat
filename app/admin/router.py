@@ -17,14 +17,13 @@ from app.admin.auth import (
     sign_admin_cookie,
     verify_admin_cookie,
 )
+from app.admin.categories_html import register_categories_html_routes
+from app.admin.contributions_html import register_contribution_html_routes
+from app.admin.feedback_html import register_feedback_html_routes
+from app.admin.mentions_html import register_mentions_html_routes
 from app.db.database import DATABASE_URL, get_db
 from app.db.models import ChatLog, Event, Program, Provider
 from app.schemas.program import ProgramCreate
-
-from app.admin.contributions_html import register_contribution_html_routes
-from app.admin.categories_html import register_categories_html_routes
-from app.admin.mentions_html import register_mentions_html_routes
-from app.admin.feedback_html import register_feedback_html_routes
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 

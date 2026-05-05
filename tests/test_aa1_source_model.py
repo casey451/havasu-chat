@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import os
 import unittest
-from datetime import date, time as time_type
+from datetime import date
+from datetime import time as time_type
 
 from fastapi.testclient import TestClient
 

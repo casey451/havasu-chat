@@ -15,6 +15,7 @@ import httpx
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.contrib.approval_service import approve_contribution_as_event
 from app.contrib.river_scene import (
     REQUEST_TIMEOUT,
     USER_AGENT,
@@ -23,7 +24,6 @@ from app.contrib.river_scene import (
     fetch_sitemap_urls,
     normalize_to_contribution,
 )
-from app.contrib.approval_service import approve_contribution_as_event
 from app.db import contribution_store as cs
 from app.db.database import SessionLocal
 from app.db.models import Contribution, Event

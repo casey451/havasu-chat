@@ -12,6 +12,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+
 from app.contrib.river_scene import RiverSceneEvent, normalize_to_contribution
 from app.db.database import SessionLocal
 from app.db.models import Contribution, Event

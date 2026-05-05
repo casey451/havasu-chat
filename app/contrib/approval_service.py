@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+
 from sqlalchemy.orm import Session
 
 from app.contrib.hours_helper import places_hours_to_structured
 from app.core.event_recurrence import event_text_blob, is_recurring_heuristic
 from app.db.contribution_store import normalize_submission_url
 from app.db.models import Contribution, Event, Program, Provider
-from app.schemas.contribution import EventApprovalFields, ProgramApprovalFields, ProviderApprovalFields
+from app.schemas.contribution import (
+    EventApprovalFields,
+    ProgramApprovalFields,
+    ProviderApprovalFields,
+)
 from app.schemas.event import EventCreate
 from app.schemas.program import ProgramCreate
 

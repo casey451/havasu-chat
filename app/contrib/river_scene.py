@@ -10,8 +10,10 @@ import re
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-from datetime import date, datetime, time as time_type
+from datetime import date, datetime
+from datetime import time as time_type
 from typing import Any
+
 import httpx
 from bs4 import BeautifulSoup, NavigableString, Tag
 from dateutil import parser as dateutil_parser

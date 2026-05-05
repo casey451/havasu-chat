@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, time
 from unittest.mock import patch
+
 import pytest
 from sqlalchemy.orm import Session
 
