@@ -285,3 +285,84 @@ def test_format_strips_legacy_fallback_in_event_rows() -> None:
     assert tin == 0 and tout == 0
     assert "Imported from River Scene" not in out
     assert "Real text." in out
+
+
+# Slice 27 / Backlog #5 — _inject_event_url_links post-processor coverage.
+
+from app.chat.tier2_formatter import _inject_event_url_links
+
+
+def test_inject_links_appends_when_link_absent():
+    rows = [
+        {"type": "event", "name": "Boat Race", "event_url": "https://example.com/boat-race"},
+    ]
+    text = "Boat Race is on Saturday."
+    out = _inject_event_url_links(text, rows)
+    assert "[Boat Race](https://example.com/boat-race)" in out
+
+
+def test_inject_links_skips_when_link_present():
+    rows = [
+        {"type": "event", "name": "Boat Race", "event_url": "https://example.com/boat-race"},
+    ]
+    text = "Boat Race [Boat Race](https://example.com/boat-race) is on Saturday."
+    out = _inject_event_url_links(text, rows)
+    assert out.count("[Boat Race](https://example.com/boat-race)") == 1
+
+
+def test_inject_links_appends_at_end_when_name_absent():
+    rows = [
+        {"type": "event", "name": "Boat Race", "event_url": "https://example.com/boat-race"},
+    ]
+    text = "There's a regatta this weekend."
+    out = _inject_event_url_links(text, rows)
+    assert out.endswith("[Boat Race](https://example.com/boat-race)")
+
+
+def test_inject_links_skips_non_event_rows():
+    rows = [
+        {"type": "provider", "name": "Some Provider", "event_url": "https://example.com/p"},
+    ]
+    text = "Some Provider is a venue."
+    out = _inject_event_url_links(text, rows)
+    assert "[Some Provider]" not in out
+
+
+def test_inject_links_skips_empty_event_url():
+    rows = [
+        {"type": "event", "name": "Boat Race", "event_url": ""},
+        {"type": "event", "name": "Concert", "event_url": None},
+    ]
+    text = "Boat Race and Concert."
+    out = _inject_event_url_links(text, rows)
+    assert "[" not in out
+
+
+def test_inject_links_handles_multiple_events():
+    rows = [
+        {"type": "event", "name": "Boat Race", "event_url": "https://example.com/a"},
+        {"type": "event", "name": "Concert", "event_url": "https://example.com/b"},
+    ]
+    text = "Boat Race is Saturday. Concert is Sunday."
+    out = _inject_event_url_links(text, rows)
+    assert "[Boat Race](https://example.com/a)" in out
+    assert "[Concert](https://example.com/b)" in out
+
+
+def test_inject_links_word_boundary_avoids_substring():
+    rows = [
+        {"type": "event", "name": "Race", "event_url": "https://example.com/r"},
+    ]
+    text = "Many races happen here."
+    out = _inject_event_url_links(text, rows)
+    assert out.endswith("[Race](https://example.com/r)")
+
+
+def test_inject_links_skips_inside_existing_markdown_link():
+    rows = [
+        {"type": "event", "name": "Concert", "event_url": "https://example.com/c"},
+    ]
+    text = "[Big Concert](https://other.com) is on Saturday."
+    out = _inject_event_url_links(text, rows)
+    assert out.endswith("[Concert](https://example.com/c)")
+    assert "[Big Concert](https://other.com)" in out

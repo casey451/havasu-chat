@@ -33,6 +33,57 @@ def _strip_legacy_fallback(description: str | None) -> str:
     return _LEGACY_FALLBACK_RE.sub("", description, count=1).strip()
 
 
+def _inject_event_url_links(text: str, rows: List[Dict[str, Any]]) -> str:
+    """Ensure every event row with a non-empty event_url is rendered as a clickable link.
+
+    For each row with type='event' and a non-empty event_url:
+    - If the markdown link [name](url) is already in text, skip (prevents double-linking).
+    - Else, search for the row's name in text using word-boundary matching.
+      Skip matches that fall inside an existing markdown link's label section
+      (e.g. don't inject inside [Some Concert](other-url)).
+    - On the first qualifying match, append [name](url) immediately after.
+    - If no qualifying match is found, append [name](url) at the end on its own
+      line as a fallback (orphan link rather than missing link).
+
+    Deterministic safety net for the LLM-formatter path. The prompt instructs
+    link emission; this function closes compliance gaps.
+
+    Known v1 limitations:
+    - Multi-word name overlap (event "Boat Race" + event "Annual Boat Race"
+      both mentioned in the same response) may inject after the wrong
+      occurrence. Word-boundary regex doesn't fully prevent this. Acceptable
+      for v1; refine to longest-name-first processing if observed in prod.
+    - Case-sensitive matching. If the LLM lowercases the name, we fall back
+      to end-append (orphan link). Acceptable for v1.
+    """
+    out = text
+    for row in rows:
+        if row.get("type") != "event":
+            continue
+        url = str(row.get("event_url") or "").strip()
+        name = str(row.get("name") or "").strip()
+        if not url or not name:
+            continue
+        link = f"[{name}]({url})"
+        if link in out:
+            continue
+        pattern = r"\b" + re.escape(name) + r"\b"
+        injected = False
+        for m in re.finditer(pattern, out):
+            before = out[: m.start()]
+            last_open = before.rfind("[")
+            last_close = before.rfind("]")
+            if last_open > last_close:
+                continue
+            insert_at = m.end()
+            out = out[:insert_at] + f" {link}" + out[insert_at:]
+            injected = True
+            break
+        if not injected:
+            out = out.rstrip() + f"\n\n{link}"
+    return out
+
+
 def _format_via_llm(query: str, rows: List[Dict[str, Any]]) -> tuple[Optional[str], int | None, int | None]:
     """Anthropic-backed formatting for mixed or non-event catalog rows."""
     api_key = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
@@ -101,4 +152,7 @@ def format(query: str, rows: List[Dict[str, Any]]) -> tuple[Optional[str], int |
             logging.exception("tier2_formatter: deterministic render failed")
             return None, None, None
 
-    return _format_via_llm(query, rows)
+    text, in_tok, out_tok = _format_via_llm(query, rows)
+    if text is not None:
+        text = _inject_event_url_links(text, rows)
+    return text, in_tok, out_tok

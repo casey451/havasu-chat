@@ -96,6 +96,7 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `docs/confabulation-eval-runbook.md` | How to run confabulation eval (invoker, probes, reports). | Current |
 | `docs/known-issues.md` | Deferred bugs and findings; banner notes much is pre–H1 historical. | Mixed — still used for open items |
 | `docs/components/unified_router.md` | Component note for unified router. | Current |
+| `docs/components/tier2_formatter.md` | Component note for the Tier 2 formatter (deterministic events path + LLM mixed path with post-processor link injection). | Current |
 
 ### Maintainability and retrospectives (current)
 
