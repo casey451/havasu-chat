@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): file #27 (Tier 1 OPEN_NOW tz bug) + tier1_handler.md ticked** · short SHA **`a7c366a`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): approval_service.md shipped (Slice 37, Phase C component-docs)** · short SHA **`0003842`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+0003842 docs(BACKLOG): approval_service.md shipped (Slice 37, Phase C component-docs)
+c919b9c docs(components): add approval_service.md (Phase C component docs growth)
 a7c366a docs(BACKLOG): file #27 (Tier 1 OPEN_NOW tz bug) + tier1_handler.md ticked
 6910a24 docs(components): add tier1_handler.md (Phase C component docs growth)
 f54591d docs(BACKLOG): river_scene.md shipped (Slice 36, Phase C component-docs)
@@ -29,11 +31,11 @@ da68612 docs(components): add intent_classifier, hint_extractor, llm_router (Sli
 fbe8ae6 docs(components): add tier2_parser.md + index catch-up + wiring test (Slice 34)
 ae5b9b6 doc: BACKLOG #18 Component-docs-growth Slice 33 note
 66636a6 doc: tier3_handler.md component doc
-b3ccf21 doc: BACKLOG #5 close
-486dc11 Tier2 LLM formatter: emit clickable event_url links (hybrid)
 ```
 
 ## Recently shipped (high signal)
+
+- **`c919b9c`..`0003842`** — **Phase C component-docs growth: approval_service.md (Slice 37)** — New `docs/components/approval_service.md` (~109 lines) covering `app/contrib/approval_service.py` — the **sole catalog-write path** post-cleanup. Documents the five public functions (the three `approve_contribution_as_*` for Provider/Program/Event materialization, `enrichment_suggests_verified` helper, and the `parse_*` form helpers), the six-step shared shape (load+validate the contribution → derive `verified`/`source` fields → build the catalog row → insert+flush → update contribution status → commit+refresh with rollback-on-exception), conventions (`db.commit()` in-function for transactional atomicity; naive UTC for TIMESTAMP WITHOUT TIME ZONE columns; `source` field reflects upstream provenance not human review; `strip-and-None` for optional strings), and known limitations (no upsert, no batch, hours-structuring provider-only, `verified` is a one-shot gate, `reviewed_by` plumbing incomplete, auto-approval bypasses admin review). Together with `river_scene.md` (Slice 36) covers the full ingestion-to-catalog-row pipeline. Pytest unchanged at 956. Component-docs coverage adds first row in `app/contrib/` (catalog-write path).
 
 - **`6910a24`..`a7c366a`** — **Phase C component-docs growth: tier1_handler.md + filed #27 (OPEN_NOW tz bug) (Slice 35)** — New `docs/components/tier1_handler.md` (~110 lines) covering `try_tier1()` (zero-LLM-token deterministic-template handler), the four-step guard-and-dispatch flow (entity gate → sub-intent gate → provider lookup → ten-branch dispatch table), conventions (`None` not exception, `_append_voice` for the `(confirmed)` suffix, strip-and-empty-as-falsy, programs filtered `is_active=True`), and known limitations. Closes the audit's Tier 2 priority list (last of the Tier 2 batch). Surfaced **Backlog #27 OPEN** during the audit: `_utcnow()` returns tz-aware UTC but `_open_now_from_hours` compares against operator-entered Lake Havasu local-time hours strings — off by 7 hours (MST/UTC-7). Blast radius small while providers table is empty (RS-only catalog); becomes user-visible when provider data lands. Indexed in `project_index.md`. Pytest unchanged at 956. **OPEN backlog grows to 3 (#2, #18, #27).** Component-docs coverage 7/17 → 8/17 `app/chat/` modules.
 
