@@ -18,7 +18,7 @@ from app.admin.auth import (
     verify_admin_cookie,
 )
 from app.db.database import DATABASE_URL, get_db
-from app.db.models import ChatLog, Event, Program
+from app.db.models import ChatLog, Event, Program, Provider
 from app.schemas.program import ProgramCreate
 
 from app.admin.contributions_html import register_contribution_html_routes
@@ -1040,6 +1040,7 @@ def _programs_tab_html(programs: list[Program]) -> str:
     toolbar = (
         '<div class="toolbar">'
         '<a class="btn-primary" href="/admin/programs/new">+ Create program</a>'
+        '<a class="btn-primary" href="/admin/providers/new">+ Create provider</a>'
         "</div>"
     )
     if not programs:
@@ -1360,6 +1361,202 @@ def admin_program_create(
     db.add(program)
     db.commit()
     return RedirectResponse(url="/admin?tab=programs", status_code=303)
+
+
+# Slice 45 / Backlog #18 provider lane Phase 1: admin direct-create provider UI.
+# Mirrors the /admin/programs/new pattern above. Cookie-gated via _guard().
+# Threat model per docs/components/admin_auth.md: cookie gate is the only
+# auth; no CSRF (single-admin); HTML-escape all user input; admin-direct
+# sets verified=True because the operator is the verifier (matches the
+# verified=(source=="admin") logic for programs above).
+
+
+def _provider_form_html(
+    *,
+    action: str,
+    submit_label: str,
+    provider: Provider | None = None,
+    error: str | None = None,
+    values: dict | None = None,
+) -> str:
+    v = dict(values or {})
+    if provider is not None and not values:
+        v = {
+            "provider_name": provider.provider_name or "",
+            "category": provider.category or "",
+            "address": provider.address or "",
+            "phone": provider.phone or "",
+            "hours": provider.hours or "",
+            "description": provider.description or "",
+            "website": provider.website or "",
+        }
+    else:
+        v.setdefault("provider_name", "")
+        v.setdefault("category", "")
+        v.setdefault("address", "")
+        v.setdefault("phone", "")
+        v.setdefault("hours", "")
+        v.setdefault("description", "")
+        v.setdefault("website", "")
+
+    def inp(name: str, *, kind: str = "text", placeholder: str = "") -> str:
+        return (
+            f'<input type="{kind}" id="{name}" name="{name}" '
+            f'value="{_escape(str(v.get(name, "")))}" '
+            f'placeholder="{_escape(placeholder)}" />'
+        )
+
+    err_html = f'<p class="err">{_escape(error)}</p>' if error else ""
+
+    inner = f"""
+    <form class="program-form" method="post" action="{action}">
+      {err_html}
+      <label for="provider_name">Name</label>
+      {inp("provider_name", placeholder="e.g. Altitude Trampoline Park")}
+
+      <label for="category">Category</label>
+      {inp("category", placeholder="e.g. recreation, fitness, dining")}
+
+      <label for="address">Address</label>
+      {inp("address", placeholder="Optional street address")}
+
+      <label for="phone">Phone</label>
+      {inp("phone", placeholder="928-555-0101")}
+
+      <label for="hours">Hours</label>
+      {inp("hours", placeholder="e.g. Mon-Fri 9am-5pm")}
+
+      <label for="website">Website</label>
+      {inp("website", kind="url", placeholder="https://example.com")}
+
+      <label for="description">Description</label>
+      <textarea id="description" name="description"
+        placeholder="What it is, who it's for">{_escape(v.get("description", ""))}</textarea>
+
+      <div class="form-actions">
+        <button type="submit" class="btn ok">{html.escape(submit_label)}</button>
+        <a class="btn-link" href="/admin?tab=programs">Cancel</a>
+      </div>
+    </form>"""
+    return _programs_tab_shell(inner, title=submit_label)
+
+
+def _parse_provider_form(
+    *,
+    provider_name: str,
+    category: str,
+    address: str,
+    phone: str,
+    hours: str,
+    description: str,
+    website: str,
+) -> dict[str, str | None]:
+    """Trim whitespace and normalize empty strings to None for optional fields."""
+
+    def _strip_or_none(s: str) -> str | None:
+        s = (s or "").strip()
+        return s if s else None
+
+    return {
+        "provider_name": (provider_name or "").strip(),
+        "category": (category or "").strip(),
+        "address": _strip_or_none(address),
+        "phone": _strip_or_none(phone),
+        "hours": _strip_or_none(hours),
+        "description": _strip_or_none(description),
+        "website": _strip_or_none(website),
+    }
+
+
+@router.get("/providers/new", response_class=HTMLResponse, response_model=None)
+def admin_provider_new(request: Request) -> HTMLResponse | RedirectResponse:
+    redir = _guard(request)
+    if redir:
+        return redir
+    return HTMLResponse(
+        _provider_form_html(action="/admin/providers", submit_label="Create provider")
+    )
+
+
+@router.post("/providers", response_model=None)
+def admin_provider_create(
+    request: Request,
+    provider_name: str = Form(""),
+    category: str = Form(""),
+    address: str = Form(""),
+    phone: str = Form(""),
+    hours: str = Form(""),
+    description: str = Form(""),
+    website: str = Form(""),
+    db: Session = Depends(get_db),
+) -> RedirectResponse | HTMLResponse:
+    redir = _guard(request)
+    if redir:
+        return redir
+
+    raw = _parse_provider_form(
+        provider_name=provider_name,
+        category=category,
+        address=address,
+        phone=phone,
+        hours=hours,
+        description=description,
+        website=website,
+    )
+
+    if not raw["provider_name"]:
+        return HTMLResponse(
+            _provider_form_html(
+                action="/admin/providers",
+                submit_label="Create provider",
+                values=raw,
+                error="Name is required.",
+            ),
+            status_code=400,
+        )
+
+    if not raw["category"]:
+        return HTMLResponse(
+            _provider_form_html(
+                action="/admin/providers",
+                submit_label="Create provider",
+                values=raw,
+                error="Category is required.",
+            ),
+            status_code=400,
+        )
+
+    provider = Provider(
+        provider_name=raw["provider_name"],
+        category=raw["category"],
+        address=raw["address"],
+        phone=raw["phone"],
+        hours=raw["hours"],
+        description=raw["description"],
+        website=raw["website"],
+        draft=False,
+        is_active=True,
+        verified=True,  # admin direct-create: operator is the verifier
+        pending_review=False,
+        source="admin",
+    )
+
+    try:
+        db.add(provider)
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        return HTMLResponse(
+            _provider_form_html(
+                action="/admin/providers",
+                submit_label="Create provider",
+                values=raw,
+                error=f"Could not save provider: {exc}",
+            ),
+            status_code=400,
+        )
+
+    return RedirectResponse(url="/admin", status_code=303)
 
 
 @router.get("/programs/{program_id}/edit", response_class=HTMLResponse, response_model=None)
