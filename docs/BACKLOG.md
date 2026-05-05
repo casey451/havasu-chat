@@ -579,6 +579,22 @@ Files touched (1):
 
 ---
 
+## Backlog 29 - Templating extraction: privacy/terms/permalink/not_found HTML to Jinja2 (**RESOLVED**)
+
+**Issue:** `app/main.py` was 540 lines and roughly half was inline HTML in f-strings spread across `_render_doc_markdown_to_html`, `_load_static_doc_page_html`, `_load_privacy_html`, `_load_terms_html`, `_render_not_found_page`, and `_render_permalink_page`. Four user-facing pages (privacy, terms, event permalink, event-not-found) lived as multi-hundred-line f-strings with double-braced CSS, hand-rolled `html.escape()` calls, and CSS duplicated across renderers. Editing the layout chrome required Python edits; no separation between presentation and code.
+
+**Severity:** LOW. Behavior-preserving refactor; production unaffected.
+
+**Cross-reference:** Filed under Backlog #18 Phase A (Single source of truth — `app/main.py` should stay a focused FastAPI bootstrap). Surfaced in the 2026-05-05 structural review as the "tighten `app/main.py`" item.
+
+**Resolution shipped:** `35cd6ac` (Slice 51) — Added `Jinja2==3.1.4` to `requirements.txt`; added `app/templates/` with three standalone templates (`privacy_doc.html` shared by `/privacy` and `/terms`, `event_permalink.html`, `event_not_found.html`); replaced the four inline-HTML helpers in `app/main.py` with three template-driven response builders (`_render_static_doc`, `_render_not_found_response`, `_render_permalink_response`). Custom markdown→HTML parser (`_render_doc_markdown_to_html`) stays in code — handles the constrained subset that `docs/privacy.md` / `docs/tos.md` use; a full markdown library would balloon the dep tree unnecessarily. **`app/main.py` shrinks from 540 to 401 lines** (-26%). Behavior-preserving: per-page rendering output is byte-equivalent modulo whitespace — TestClient baseline-vs-after diff across all four pages shows whitespace-only diffs (Jinja2's default `keep_trailing_newline=False` strips the trailing newline after `</html>`; otherwise byte-identical for the test event). **Pytest 959 → 960** (+1 templating-wiring smoke test in `tests/test_phase87_privacy.py`). Ruff clean.
+
+**Implementation note vs the bootstrap (`relay/slice_51_jinja2_extraction.md`):** the bootstrap proposed a shared `_base.html` with `style_extra` blocks across all three pages, but the existing inline HTML had distinct per-page CSS (different `:root` vars, different `.wrap` padding, generic vs page-scoped `a`-rules). Implementing the bootstrap literally would have produced multiple non-whitespace CSS diffs in Step 5, failing the rendering-equivalence carve-out. Switched to three standalone templates (no `_base.html`), each a literal port of its source HTML. The shared boilerplate that would have lived in `_base.html` is just five lines (DOCTYPE, html, head, two meta tags) and was not worth the template-block complexity given the per-page CSS divergence.
+
+**Filed and resolved in the same slice** (matches the #26/#27/#28 hygiene-ship pattern).
+
+---
+
 ## Ship log - Session 2 follow-up, Tier 2 deterministic event rendering (**`d279165`**)
 
 **What shipped:** Deterministic Python rendering for all-event Tier 2 catalog responses; `tier2_formatter.format()` dispatches empty rows → fixed empty message, all-event rows → renderer `(text, 0, 0)`, mixed/non-event rows → unchanged Anthropic path. Programs and providers remain LLM-formatted (scope-limited to events where dropping/count bugs were observed).
