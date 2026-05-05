@@ -12,6 +12,7 @@ import pytest
 
 from app.chat import tier2_catalog_render
 from app.chat import tier2_formatter as tf
+from app.chat.tier2_formatter import _inject_event_url_links
 
 
 def _msg(text: str) -> SimpleNamespace:
@@ -288,8 +289,6 @@ def test_format_strips_legacy_fallback_in_event_rows() -> None:
 
 
 # Slice 27 / Backlog #5 — _inject_event_url_links post-processor coverage.
-
-from app.chat.tier2_formatter import _inject_event_url_links
 
 
 def test_inject_links_appends_when_link_absent():

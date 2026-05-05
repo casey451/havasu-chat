@@ -10,10 +10,28 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-# Slice 39 (Path 1) shipped F,W. Slice 47 adds I (isort) — auto-fix-only,
-# no judgment calls; CI fails on any future PR that touches imports
-# without sorting. E rules deferred until Slice 49 closes E402 triage.
-select = ["F", "I", "W"]
+# Slice 39 (Path 1) shipped F,W. Slice 47 added I (isort).
+# Slice 49 adds E402 (module-import-not-at-top-of-file) after triage.
+# Bucket A bootstrap-ordering files are exempt via per-file-ignores below
+# (env-load or sys.path-insert must run before subsequent imports).
+# Bucket C accidental late imports were moved to the top in the same slice.
+# Other E rules (E501 line-length in particular) remain off; the
+# project's line-length budget was never set and re-enabling E501
+# would surface ~1352 cosmetic findings.
+select = ["F", "I", "W", "E402"]
+
+[tool.ruff.lint.per-file-ignores]
+# Slice 49: intentional bootstrap-ordering. Imports below the gate must
+# stay in place because the gate (ensure_dotenv_loaded() or sys.path.insert)
+# must run before the imports execute. Per-file-ignore over per-line noqa
+# because the per-line form would push imports past line-length=100 and
+# trigger I001 multi-line wrapping (cosmetic churn for no benefit).
+"app/main.py" = ["E402"]                                          # ensure_dotenv_loaded() must run first
+"scripts/analyze_chat_costs.py" = ["E402"]                        # sys.path.insert for python scripts/... invocation
+"scripts/confabulation_eval.py" = ["E402"]                        # sys.path.insert for python scripts/... invocation
+"scripts/extract_tier3_queries.py" = ["E402"]                     # sys.path.insert for python scripts/... invocation
+"scripts/smoke_concurrent_chat.py" = ["E402"]                     # sys.path.insert for python scripts/... invocation
+"tests/test_classifier_hint_extraction_integration.py" = ["E402"] # sys.path.insert + ensure_dotenv_loaded() must run first
 
 [tool.ruff.format]
 # Reserved for future per-touch formatting; not enabled in CI.

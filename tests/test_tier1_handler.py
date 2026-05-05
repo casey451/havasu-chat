@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time
+from datetime import datetime as _dt
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy.orm import Session
 
+from app.chat import tier1_handler as _t1
 from app.chat.intent_classifier import IntentResult
 from app.chat.tier1_handler import try_tier1
 from app.db.models import Event, Program, Provider
@@ -326,11 +329,6 @@ def test_simple_lookup_length(db: Session) -> None:
 
 
 # Slice 41 / Backlog #27 — OPEN_NOW + _next_event use Lake Havasu local time, not UTC.
-
-from datetime import datetime as _dt
-from zoneinfo import ZoneInfo
-
-from app.chat import tier1_handler as _t1
 
 
 def test_open_now_uses_lake_havasu_local_time() -> None:

@@ -18,6 +18,9 @@ from dataclasses import dataclass
 from typing import Literal
 
 from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.db.models import Program, Provider
 
 
 def normalize_row_name_for_include(name: str) -> str:
@@ -28,9 +31,7 @@ def normalize_row_name_for_include(name: str) -> str:
     """
     s = (name or "").strip().lower()
     return s.replace("\u2014", "-").replace("\u2013", "-")
-from sqlalchemy.orm import Session
 
-from app.db.models import Program, Provider
 
 RowType = Literal["provider", "program"]
 
