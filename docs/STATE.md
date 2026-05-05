@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **doc: BACKLOG #26 close** · short SHA **`71f897c`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **doc: BACKLOG #18 Phase C CI battery sub-bullet ticked** · short SHA **`d10f3d4`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+d10f3d4 doc: BACKLOG #18 Phase C CI battery sub-bullet ticked
+3598621 doc: ci_query_battery.md (Phase C §5 gap closed)
 71f897c doc: BACKLOG #26 close
 8d063ff Replace importlib EventRead workaround with direct import in main.py
 7668423 docs(BACKLOG): close #3 (year inference) and tick #18 component-docs (tier2_handler)
@@ -29,11 +31,11 @@ b34fea1 chore(scripts): rebuild battery expected labels from production baseline
 0a63e77 docs(BACKLOG): close #24 (POST /events removed; tests refactored)
 ee6bf75 chore(events): remove POST /events + refactor test fixtures to SQLAlchemy direct (Backlog #24)
 44b8229 docs(BACKLOG): close #7 (event_quality orphan symbols removed)
-9020b2d chore(event_quality): remove orphan symbols from event_quality.py (Backlog #7)
-35577cd docs(BACKLOG): defer #9 (Tier 1 hit rate; pending provider population)
 ```
 
 ## Recently shipped (high signal)
+
+- **`3598621`..`d10f3d4`** — **Phase C: CI query-battery story doc (Slice 28)** — New `docs/maintainability/ci_query_battery.md` (~155 lines) covering manual battery invocation (`python scripts/run_query_battery.py`), expected JSON output shape with the `total`/`matched`/`mismatched` summary fields, success criteria (clean run = 120 matched; flake budget 1/120 on borderline date phrases per Slice 23 verification), where labels live (`SINGLE_SHOT` tuples in `scripts/run_query_battery.py`), label-update discipline (update labels in the same commit as the routing change), and three plausible CI integration patterns (GitHub Actions on push-to-main, Railway scheduled task, pre-deploy verification hook) without committing to one — current state is manual runs only. Closes the Phase C "§5 gap: CI query-battery story" sub-bullet under Backlog #18; Phase C now 4/6 ticked. Prereqs #12 (Slice 16) and #25 (Slice 23) both RESOLVED. Pytest unchanged at 947 (doc-only ship).
 
 - **`8d063ff`..`71f897c`** — **#26 close: importlib EventRead workaround replaced with direct import (Slice 26)** — Slice 22 (#24 close) included an over-strict directive to remove the `EventRead` import from `app/main.py`; the GET `/events` route at line 533 still used `EventRead` as `response_model`, so the Slice 22 executor preserved correctness via `importlib.import_module(...)` + `getattr(..., "Event" + "Read")` to pass a literal grep gate. This slice restores a normal direct import. Edits in `app/main.py`: removed `import importlib` (line 11), added `EventRead` to the `app.schemas.event` import (line 37), removed the `_EventOut = getattr(...)` workaround (former line 41) plus one redundant blank line, updated the GET `/events` `response_model` to `list[EventRead]` (former line 533). Net -3 lines (4 edits, 3 deletions). Pytest unchanged at 947 (import-shape only; no test-surface change). #26 was filed and closed in this slice (was not on the prior OPEN list); OPEN backlog count unchanged at 3 (#2, #5, #18).
 
