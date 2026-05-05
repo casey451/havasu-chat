@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): river_scene.md shipped (Slice 36, Phase C component-docs)** · short SHA **`f54591d`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): file #27 (Tier 1 OPEN_NOW tz bug) + tier1_handler.md ticked** · short SHA **`a7c366a`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+a7c366a docs(BACKLOG): file #27 (Tier 1 OPEN_NOW tz bug) + tier1_handler.md ticked
+6910a24 docs(components): add tier1_handler.md (Phase C component docs growth)
 f54591d docs(BACKLOG): river_scene.md shipped (Slice 36, Phase C component-docs)
 d86c7f6 docs(components): add river_scene.md (Phase C component docs growth)
 1d4aa31 docs(BACKLOG): tier 2 component-doc batch shipped (Slice 32)
@@ -29,11 +31,11 @@ ae5b9b6 doc: BACKLOG #18 Component-docs-growth Slice 33 note
 66636a6 doc: tier3_handler.md component doc
 b3ccf21 doc: BACKLOG #5 close
 486dc11 Tier2 LLM formatter: emit clickable event_url links (hybrid)
-006ef64 doc: BACKLOG #18 Phase D options-spec reference
-732570a doc: engineering_gates_options.md (Phase D options spec)
 ```
 
 ## Recently shipped (high signal)
+
+- **`6910a24`..`a7c366a`** — **Phase C component-docs growth: tier1_handler.md + filed #27 (OPEN_NOW tz bug) (Slice 35)** — New `docs/components/tier1_handler.md` (~110 lines) covering `try_tier1()` (zero-LLM-token deterministic-template handler), the four-step guard-and-dispatch flow (entity gate → sub-intent gate → provider lookup → ten-branch dispatch table), conventions (`None` not exception, `_append_voice` for the `(confirmed)` suffix, strip-and-empty-as-falsy, programs filtered `is_active=True`), and known limitations. Closes the audit's Tier 2 priority list (last of the Tier 2 batch). Surfaced **Backlog #27 OPEN** during the audit: `_utcnow()` returns tz-aware UTC but `_open_now_from_hours` compares against operator-entered Lake Havasu local-time hours strings — off by 7 hours (MST/UTC-7). Blast radius small while providers table is empty (RS-only catalog); becomes user-visible when provider data lands. Indexed in `project_index.md`. Pytest unchanged at 956. **OPEN backlog grows to 3 (#2, #18, #27).** Component-docs coverage 7/17 → 8/17 `app/chat/` modules.
 
 - **`d86c7f6`..`f54591d`** — **Phase C component-docs growth: river_scene.md (Slice 36)** — New `docs/components/river_scene.md` (~149 lines) covering the **sole live ingestion lane** (`app/contrib/river_scene.py` parser/fetcher + `app/contrib/river_scene_pull.py` orchestration). Documents the public surface (`RiverSceneEvent` dataclass; `fetch_sitemap_urls`, `fetch_and_parse_event`, `normalize_to_contribution`; `run_pull` with its 8 per-run counters), the sitemap-traversal and event-detail-parse flows, the orchestrator chain (dedupe-before-fetch → parse → seed-overlap check → contribution insert → optional auto-approval), conventions (polite HTTP, retries-then-raise, None-for-skip, dedupe-by-URL, print-driven), known limitations (WordPress structural drift, URL-only dedupe, past-event cutoff at `today`, no incremental sitemap, auto-approval inverts default), and direct/indirect dependencies. Indexed in `docs/maintainability/project_index.md`. Pytest unchanged at 956. Adjacent-subsystem (`app/contrib/`) coverage now non-empty.
 
@@ -107,7 +109,7 @@ b3ccf21 doc: BACKLOG #5 close
 
 See **`docs/BACKLOG.md`**. Snapshot:
 
-- **OPEN** — **2**, **18** (see `docs/BACKLOG.md` for titles).
+- **OPEN** — **2**, **18**, **27** (see `docs/BACKLOG.md` for titles).
 - **Recently resolved** — **8** (Slice 3, `2627693`); **19** (Slice 10, `d429fe7`); **20** (Slice 11, `15f7248`); **23** (Slice 13, `c94afb6`); **22** (Slice 14, `72728e2`); **21** (Slice 15, `b1a0add`); **12** (Slice 16, `fd313bb`); **16** (Slice 17, `ab8df88`); **14** (Slice 18, `dbb16f8`); **7** (Slice 21, `9020b2d`); **24** (Slice 22, `ee6bf75`); **25** (Slice 23, `b34fea1`); **3** (Slice 24, `85cedd0`); **26** (Slice 26, `8d063ff`); **5** (Slice 27, `486dc11`); historical: **13**, **15** (`656d54b`).
 - **DEFERRED** — **9** (Tier 1 hit rate; pending provider population), **11** (slowapi Python 3.14 deprecation; pending upstream fix or version pin), **17** (OpenAI helper extraction until a second caller exists).
 - **Confabulation / eval** — operator harness: `docs/confabulation-eval-runbook.md`, code under `app/eval/`. Broader “phase 8.8.6” spec markdown was pruned; recover from git history if needed.
