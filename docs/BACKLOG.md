@@ -70,7 +70,7 @@ Ship log entries at the bottom record what shipped per session. New ones are app
 
 ---
 
-## Backlog 5 - clickable source URLs in chat output (**OPEN**)
+## Backlog 5 - clickable source URLs in chat output (**RESOLVED**)
 
 **Issue:** Chat output does not consistently surface `event_url` links for events across sources and Tier 2 paths (deterministic all-event renderer vs LLM path, mixed rows, etc.).
 
@@ -79,6 +79,18 @@ Ship log entries at the bottom record what shipped per session. New ones are app
 **River Scene scope (RESOLVED):** Wrong link targets, operator scaffolding in descriptions, and dedupe tied to the article URL without a separate stable identity were addressed by the **`source_url`** migration, ingestion/dedupe/render/backfill stack — see **`docs/maintainability/river_scene_event_output_decision.md`** (shipped **2026-04-30**, commits **`83e4995`..`6bec1ec`**).
 
 **Desired fix:** Ensure formatter/renderer includes clickable event links wherever `event_url` is available in Tier 2 responses, including mixed and LLM-formatter paths beyond the deterministic all-event catalog renderer.
+
+**Resolution shipped:** `486dc11` — hybrid fix for the LLM-formatter path. Deterministic path was already correct (`tier2_catalog_render.py:148-150`). Slice 27 added (a) prompt EXCEPTION permitting `[name](event_url)` markdown in `prompts/tier2_formatter.txt`, and (b) `_inject_event_url_links` deterministic post-processor in `app/chat/tier2_formatter.py` as safety net. Eight new unit tests cover injection paths and edge cases (empty url, non-event rows, double-link prevention, multi-event, word boundaries, inside-existing-markdown-link guard).
+
+Files touched (5):
+
+- `prompts/tier2_formatter.txt`: added EXCEPTION clause to the no-markdown rule.
+- `app/chat/tier2_formatter.py`: new `_inject_event_url_links` function; wired into `format()` after `_format_via_llm` returns. Uses word-boundary regex matching with inside-markdown-link guard to avoid double-linking inside existing `[label](url)` constructs.
+- `tests/test_tier2_formatter.py`: eight new unit tests.
+- `docs/components/tier2_formatter.md`: new component doc bundled per the audit amendment.
+- `docs/maintainability/project_index.md`: row added for the new component doc.
+
+**Pytest baseline shifted from 947 → 955** (+8 unit tests).
 
 ---
 
