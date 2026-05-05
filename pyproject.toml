@@ -1,0 +1,23 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+extend-exclude = [
+    "scripts/output/",
+    "scripts/fixtures/",
+    "scripts/confabulation_eval_results/",
+    "relay/",
+    "alembic/versions/",
+]
+
+[tool.ruff.lint]
+# Slice 39 (Path 1) ships the narrowed F,W ruleset — catches real bugs
+# (unused imports, undefined names, undefined behavior, basic deprecations)
+# without bikeshedding line-length. A future slice can re-enable E and I
+# rules with auto-fix + per-file-ignores after the I001 + E402 triage
+# work lands.
+select = ["F", "W"]
+
+[tool.ruff.format]
+# Reserved for future per-touch formatting; not enabled in CI.
+quote-style = "double"
+indent-style = "space"

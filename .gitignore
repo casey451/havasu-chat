@@ -40,3 +40,6 @@ sentinel_ids*.txt
 
 # pg_dump output; do not commit production backups
 *.sql
+
+# Ruff (Slice 39 Phase D)
+.ruff_cache/
