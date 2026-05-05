@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): llm_messages.md shipped (Slice 38, Phase C component-docs)** · short SHA **`1540d67`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): tick Phase D — CI lint + tests + format-on-touch (Slice 39)** · short SHA **`0be0489`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,11 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+0be0489 docs(BACKLOG): tick Phase D — CI lint + tests + format-on-touch (Slice 39)
+2f59d4f chore(ci): exclude -m integration in pytest job (Slice 39 step 3 fix)
+0428267 chore(ci): add GitHub Actions workflow for ruff + pytest (Slice 39 step 3)
+114c612 chore(lint): address ruff F,W findings ahead of CI gate (Slice 39 step 2)
+519fd37 chore(ci): add ruff config + dev-requirements (Slice 39 Phase D step 1)
 1540d67 docs(BACKLOG): llm_messages.md shipped (Slice 38, Phase C component-docs)
 dbfd029 docs(components): add llm_messages.md (Phase C component docs growth)
 0003842 docs(BACKLOG): approval_service.md shipped (Slice 37, Phase C component-docs)
@@ -26,14 +31,11 @@ c919b9c docs(components): add approval_service.md (Phase C component docs growth
 a7c366a docs(BACKLOG): file #27 (Tier 1 OPEN_NOW tz bug) + tier1_handler.md ticked
 6910a24 docs(components): add tier1_handler.md (Phase C component docs growth)
 f54591d docs(BACKLOG): river_scene.md shipped (Slice 36, Phase C component-docs)
-d86c7f6 docs(components): add river_scene.md (Phase C component docs growth)
-1d4aa31 docs(BACKLOG): tier 2 component-doc batch shipped (Slice 32)
-da68612 docs(components): add intent_classifier, hint_extractor, llm_router (Slice 32 batch)
-11708d0 docs(BACKLOG): tier2_parser.md shipped (Slice 34, Phase C component-docs)
-fbe8ae6 docs(components): add tier2_parser.md + index catch-up + wiring test (Slice 34)
 ```
 
 ## Recently shipped (high signal)
+
+- **`519fd37`..`0be0489`** — **Phase D close: CI lint + tests on PR (Slice 39)** — First-time CI infrastructure ship. Five-commit slice: (1) `pyproject.toml` ruff config + `dev-requirements.txt` pinning ruff==0.15.12, narrowed to `select = ["F", "W"]` per Casey's Path 1 decision after Step 0 found 1468 cosmetic E501 findings (auto-fix + E/I triage queued for follow-up); (2) ruff fix-pass: 22 auto-fixed (18 F401 unused-import, 4 F541 f-string-without-placeholder, 1 F811 redefined-while-unused) + 4 manual F841 fixes (3× `_ = _prov(...)` rename in tests; 1 dead `stamp =` removal in `scripts/run_voice_spotcheck.py`); 18 files touched, -9 net lines; (3) `.github/workflows/ci.yml` two-job workflow (Lint runs `ruff check`, Test runs `pytest -q -m "not integration"` under placeholder API keys + sqlite); (3-fix) initial CI run failed on the integration-marked OpenAI hint-extractor tests (they hit the real API by design per their docstring); workflow updated to exclude them via marker; (4) Backlog #18 Phase D tick. **Both jobs verified green on `2f59d4f`** — lint 10s, test 71s, total ~1m20 (well under 5min warning threshold). Pytest local `-m "not integration"` reports 951 passed / 5 deselected; full local 956. With Phase D ticked, **Backlog #18 is now Phase A ongoing + Phase B closed (Slice 6) + Phase C closed at 6/6 + Phase D closed (this slice)**; the Phase C "Component docs growth" sub-bullet stays open as ongoing.
 
 - **`dbfd029`..`1540d67`** — **Phase C component-docs growth: llm_messages.md (Slice 38)** — New `docs/components/llm_messages.md` (~120 lines) covering `app/core/llm_messages.py`, the H2 consolidation point and sole Anthropic Messages API caller. Documents the public surface (`call_anthropic_messages` entry, the frozen `Usage` dataclass with `billable_input` property and `from_sdk_usage` classmethod, `AnthropicResult`, `coerce_llm_text_to_json_object`, `load_prompt`, `DEFAULT_MODEL` constant), the six-step internal flow (API key → package check → model resolve → system block construction with ephemeral cache_control → `messages.create` call → result extraction), and — critically — the **three mock-seam invariants** the test suite depends on (package-level `import anthropic`; fixed `Anthropic(api_key=..., timeout=...)` constructor signature; fixed `messages.create` kwargs `model/max_tokens/temperature/system/messages`). Conventions, configuration, and known limitations (no streaming/batching/tool-use; rigid construction signature; broad exception catch; hardcoded ephemeral cache_control). Closes the cross-reference loop with `tier2_parser.md`/`tier3_handler.md`/`llm_router.md`. Pytest unchanged at 956. Component-docs coverage adds first row in `app/core/`.
 
