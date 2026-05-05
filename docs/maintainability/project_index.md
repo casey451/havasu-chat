@@ -96,7 +96,10 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `docs/confabulation-eval-runbook.md` | How to run confabulation eval (invoker, probes, reports). | Current |
 | `docs/known-issues.md` | Deferred bugs and findings; banner notes much is pre–H1 historical. | Mixed — still used for open items |
 | `docs/components/unified_router.md` | Component note for unified router. | Current |
+| `docs/components/tier2_handler.md` | Component note for Tier 2 handler chain (parser → DB → formatter); see also unified_router.md. | Current |
+| `docs/components/tier2_parser.md` | Component note for Tier 2 parser (Anthropic JSON extraction → Tier2Filters); see also tier2_handler.md, tier2_schema.py. | Current |
 | `docs/components/tier2_formatter.md` | Component note for the Tier 2 formatter (deterministic events path + LLM mixed path with post-processor link injection). | Current |
+| `docs/components/tier3_handler.md` | Component note for Tier 3 LLM synthesis (`answer_with_tier3` + `FALLBACK_MESSAGE`); see also unified_router.md. | Current |
 
 ### Maintainability and retrospectives (current)
 

@@ -230,3 +230,32 @@ def test_invalid_json_returns_none() -> None:
             f, tin, tout = parse("some query")
     assert f is None
     assert tin == 10 and tout == 5
+
+
+def test_parse_prepends_date_context_to_system_prompt() -> None:
+    """Wiring test for Backlog #3 (Slice 24): parse() prepends a 'Today's date is
+    YYYY-MM-DD' preamble to the LLM system prompt so the parser can resolve year
+    for ambiguous calendar queries.
+
+    The preamble is constructed at runtime via app.core.timezone.now_lake_havasu()
+    rather than baked into prompts/tier2_parser.txt, so the date never goes stale
+    on disk. Without this wiring, a refactor could silently drop the prepend.
+    """
+    import re
+
+    payload = {
+        "parser_confidence": 0.5,
+        "fallback_to_tier3": True,
+    }
+    _, _, _, fake_client = _parse_with_mock(json.dumps(payload), "events on May 8")
+
+    assert fake_client.messages.create.called, "parse() should have called the LLM"
+    system_arg = fake_client.messages.create.call_args.kwargs.get("system")
+    assert isinstance(system_arg, list) and system_arg, (
+        "system kwarg should be a non-empty list of content blocks"
+    )
+    system_text = system_arg[0].get("text", "")
+    assert re.match(
+        r"^Today's date is \d{4}-\d{2}-\d{2} \(Lake Havasu City",
+        system_text,
+    ), f"date preamble missing or wrong format; got: {system_text[:80]!r}"
