@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **doc: BACKLOG #18 Component-docs-growth Slice 33 note** · short SHA **`ae5b9b6`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): tier2_parser.md shipped (Slice 34, Phase C component-docs)** · short SHA **`11708d0`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+11708d0 docs(BACKLOG): tier2_parser.md shipped (Slice 34, Phase C component-docs)
+fbe8ae6 docs(components): add tier2_parser.md + index catch-up + wiring test (Slice 34)
 ae5b9b6 doc: BACKLOG #18 Component-docs-growth Slice 33 note
 66636a6 doc: tier3_handler.md component doc
 b3ccf21 doc: BACKLOG #5 close
@@ -29,11 +31,11 @@ b3ccf21 doc: BACKLOG #5 close
 38ce682 Tier2 DB query: log time-bucket fire/no-fire for #2 telemetry
 b2f469f doc: BACKLOG #18 Phase C provider lane sub-bullet ticked
 5fbd658 doc: provider_ingestion_lane_options.md (Phase C §5 gap)
-d10f3d4 doc: BACKLOG #18 Phase C CI battery sub-bullet ticked
-3598621 doc: ci_query_battery.md (Phase C §5 gap closed)
 ```
 
 ## Recently shipped (high signal)
+
+- **`fbe8ae6`..`11708d0`** — **Phase C component-docs growth: tier2_parser.md + project_index catch-up + wiring test (Slice 34)** — Three closely-related changes in one commit. (1) New `docs/components/tier2_parser.md` (~140 lines) covering `parse()` public surface, the nine-step internal chain (API key check → prompt load → runtime date prepend → API call → token capture → JSON coerce → schema validate → return), conventions (None-not-exception, token-on-billable-failure, runtime date prepend), known limitations. (2) `docs/maintainability/project_index.md` gains three rows — catch-up entries for `tier2_handler.md` (Slice 25) and `tier3_handler.md` (Slice 33) plus the new `tier2_parser.md`. (3) `tests/test_tier2_parser.py` gains `test_parse_prepends_date_context_to_system_prompt` (Slice 24's wiring gap). Pytest **955 → 956** (+1 wiring test). No production code change. OPEN backlog unchanged at 2 (#2, #18).
 
 - **`66636a6`..`ae5b9b6`** — **Phase C component-docs growth: tier3_handler.md (Slice 33)** — New `docs/components/tier3_handler.md` (~111 lines) following the structure of `docs/components/unified_router.md` and `tier2_handler.md`. Documents the public surface (`answer_with_tier3` with its 4-tuple return shape; `FALLBACK_MESSAGE`), the five-stage internal pipeline (API key + `anthropic` package guard; `build_context_for_tier3` for catalog grounding; mid-block assembly with classifier line + optional `User context:` bias line + `Now:` line + optional `Local voice:` blurbs from `find_matching_blurbs`; the Anthropic call via `call_anthropic_messages` with `max_tokens=150` and `temperature=0.3`; result handling), the system-prompt loading helper with its intentional inline fallback, the failure-mode table (six rows mapping condition → return value), tunable constants, and cross-references. Tier 1 priority per `relay/component_doc_audit.md` (highest-traffic LLM synthesis path). Backlog #18 Phase C component-docs sub-bullet annotated with this addition; sub-bullet stays open as ongoing growth. Pytest unchanged at 955 (doc-only).
 
