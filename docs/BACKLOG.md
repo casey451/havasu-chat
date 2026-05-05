@@ -509,6 +509,30 @@ Once expected labels exist, restore `match` field in record output and write a s
 
 ---
 
+## Backlog 26 - Replace `importlib` workaround with direct `EventRead` import in `app/main.py` (**RESOLVED**)
+
+**Issue:** Slice 22 (Backlog #24 close) included a directive to remove the `EventRead` import from `app/main.py`. This was over-strict — the GET /events route at line 533 still uses `EventRead` as its `response_model`. Slice 22's executor worked around a literal grep gate with `importlib.import_module(...)` + `getattr(..., "Event" + "Read")` to preserve route correctness without matching the gate. The result was legitimate but ugly; this slice cleans it up.
+
+**Desired fix:**
+
+- Replace the `importlib` workaround at `app/main.py:41` with a normal `EventRead` import alongside `EventCreate` at line 37.
+- Remove the now-unused `import importlib` at line 11.
+- Update the GET /events route at line 533 to reference `EventRead` directly.
+
+**Severity:** LOW. Pure hygiene; no behavior change.
+
+**Cross-reference:** Surfaced in Slice 22 file footprint review (Backlog #24).
+
+**Resolution shipped:** `8d063ff` — restored direct `EventRead` import; net -3 lines in `app/main.py` (4 line edits, 3 line deletions including one collapsed redundant blank line).
+
+Files touched (1):
+
+- `app/main.py`: removed `import importlib` (line 11), added `EventRead` to schemas.event import (line 37), removed `_EventOut` workaround line (former line 41), updated GET /events `response_model` to `list[EventRead]` (former line 533).
+
+**Pytest baseline unchanged at 947** (import-shape only; no test surface change).
+
+---
+
 ## Ship log - Session 2 follow-up, Tier 2 deterministic event rendering (**`d279165`**)
 
 **What shipped:** Deterministic Python rendering for all-event Tier 2 catalog responses; `tier2_formatter.format()` dispatches empty rows → fixed empty message, all-event rows → renderer `(text, 0, 0)`, mixed/non-event rows → unchanged Anthropic path. Programs and providers remain LLM-formatted (scope-limited to events where dropping/count bugs were observed).
