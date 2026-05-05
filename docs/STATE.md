@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): tier2_parser.md shipped (Slice 34, Phase C component-docs)** · short SHA **`11708d0`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): tier 2 component-doc batch shipped (Slice 32)** · short SHA **`1d4aa31`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+1d4aa31 docs(BACKLOG): tier 2 component-doc batch shipped (Slice 32)
+da68612 docs(components): add intent_classifier, hint_extractor, llm_router (Slice 32 batch)
 11708d0 docs(BACKLOG): tier2_parser.md shipped (Slice 34, Phase C component-docs)
 fbe8ae6 docs(components): add tier2_parser.md + index catch-up + wiring test (Slice 34)
 ae5b9b6 doc: BACKLOG #18 Component-docs-growth Slice 33 note
@@ -29,11 +31,11 @@ b3ccf21 doc: BACKLOG #5 close
 732570a doc: engineering_gates_options.md (Phase D options spec)
 3f17c75 doc: BACKLOG #2 status (Slice 30a telemetry shipped)
 38ce682 Tier2 DB query: log time-bucket fire/no-fire for #2 telemetry
-b2f469f doc: BACKLOG #18 Phase C provider lane sub-bullet ticked
-5fbd658 doc: provider_ingestion_lane_options.md (Phase C §5 gap)
 ```
 
 ## Recently shipped (high signal)
+
+- **`da68612`..`1d4aa31`** — **Phase C component-docs batch: intent_classifier + hint_extractor + llm_router (Slice 32)** — Three docs in one slice per `relay/component_doc_audit.md` Tier 2 batch recommendation. (1) `docs/components/intent_classifier.md` covers `classify()` (frozen `IntentResult` dataclass), the four-step heuristic flow (mode → sub-intent → entity → confidence merge), the sub-intent label space shared with `llm_router`. (2) `docs/components/hint_extractor.md` covers `extract_hints()`, the optional OpenAI gpt-4.1-mini caller (sole OpenAI caller in the codebase; Backlog #17 reference), six-step flow, soft 300/100 token budget. (3) `docs/components/llm_router.md` covers the optional `route()` Anthropic structured router (`USE_LLM_ROUTER` env, OFF in prod), `RouterDecision` schema with the cross-field `tier_recommendation == "2" requires tier2_filters` validator, seven-step flow. Three rows added to `docs/maintainability/project_index.md` Repo doc index. Pytest unchanged at 956 (doc-only). Component-docs coverage advances from 4/17 → 7/17 `app/chat/` modules.
 
 - **`fbe8ae6`..`11708d0`** — **Phase C component-docs growth: tier2_parser.md + project_index catch-up + wiring test (Slice 34)** — Three closely-related changes in one commit. (1) New `docs/components/tier2_parser.md` (~140 lines) covering `parse()` public surface, the nine-step internal chain (API key check → prompt load → runtime date prepend → API call → token capture → JSON coerce → schema validate → return), conventions (None-not-exception, token-on-billable-failure, runtime date prepend), known limitations. (2) `docs/maintainability/project_index.md` gains three rows — catch-up entries for `tier2_handler.md` (Slice 25) and `tier3_handler.md` (Slice 33) plus the new `tier2_parser.md`. (3) `tests/test_tier2_parser.py` gains `test_parse_prepends_date_context_to_system_prompt` (Slice 24's wiring gap). Pytest **955 → 956** (+1 wiring test). No production code change. OPEN backlog unchanged at 2 (#2, #18).
 
