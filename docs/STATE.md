@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** Deployed commit **`812aaab`** (Slice 47 substantive: ruff ruleset extended to F+I+W; 34 I001 findings auto-fixed across 31 files); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** Deployed commit **`decf6c5`** (Slice 48 substantive: relocated local SQLite to `./data/events.db`, dropped stray `zzz_fresh_verify.db`); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,9 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+dee30b7 docs(BACKLOG): file + close #28 (repo-root tidy, Slice 48)
+decf6c5 chore(repo): relocate local SQLite to ./data/, drop stray verify DB
+6da1f77 docs(STATE): close-out for Slice 47 (I001 ruleset extension)
 0fddd5e docs(BACKLOG): #18 Phase D I001 ticked; E402 queued for Slice 49 (Slice 47)
 812aaab chore(ruff): enable I001 (isort) with --fix (Slice 47, Phase D follow-up)
 b607026 docs(STATE): close-out for Slice 46 (Tier 3 doc batch; queue complete)
@@ -28,12 +31,11 @@ e63b03e docs(components): add tier1_templates + tier2_schema + normalizer (Slice
 424499a chore(admin): add direct-create provider UI (Slice 45 provider lane Phase 1)
 024e46f docs(BACKLOG): rate_limit + dedupe core batch shipped (Slice 44)
 3d1d874 docs(components): add rate_limit.md and dedupe.md (Slice 44 core batch)
-b3eb8ee docs(BACKLOG): event_quality.md shipped (Slice 43, Phase C component-docs)
-ae40445 docs(components): add event_quality.md (Phase C component docs growth)
-b48b76f docs(BACKLOG): mention_scanner.md shipped (Slice 42, contrib trio complete)
 ```
 
 ## Recently shipped (high signal)
+
+- **`decf6c5`..`dee30b7`** — **Repo-root tidy: relocate local SQLite + drop stray verify DB (Slice 48)** — Two dev-only files lived at the repo root: `events.db` (3.5 MB local SQLite) and `zzz_fresh_verify.db` (86 KB stray). Both were already gitignored and not deployed (Railway uses `DATABASE_URL`/Postgres). Slice moves the SQLite default in `app/db/database.py` from `Path(__file__).resolve().parents[2] / "events.db"` to `./data/events.db` (with `_DATA_DIR.mkdir(exist_ok=True)` at import time so fresh checkouts work without a manual mkdir), adds `data/` to `.gitignore`, and locally moves the file plus deletes the stray. Pure local-dev hygiene; production-equivalent path (Postgres via `DATABASE_URL`) is unaffected. **Filed and resolved Backlog #28 in the same slice** per the #26/#27 hygiene-ship pattern. Verification: `init_db` round-trip on the new path returned the same event count (88) as the pre-move snapshot — confirms the move worked, not that data is intact in any production sense (local dev data only). Pytest 959 passed (non-integration; +5 integration deselected = 964 total). Net diff: 2 files changed, 6 insertions, 1 deletion.
 
 - **`812aaab`..`0fddd5e`** — **Phase D follow-up: ruff I001 (isort) ruleset extension (Slice 47)** — Auto-fix-only ruleset extension, no judgment calls. Slice 39 (Path 1) had narrowed the ruff `select` to `["F", "W"]` to land CI green without churning on cosmetic findings; this slice extends to `["F", "I", "W"]` and applies the deterministic `ruff --fix` output across the tree (31 files touched, +94/-36, pure import-block reordering — verified by spot-check of `app/main.py` and `app/db/database.py`). Step 0 found 34 I001 findings (down from Slice 39's 39, well within the ±10 tolerance — accounted for by intervening doc-and-code slices that landed clean imports). CI will now fail on any future PR that touches imports without sorting. **Pytest unchanged at 964** (959 non-integration + 5 integration deselected). **E402 (49 findings) deferred to Slice 49** — some findings are intentional `ensure_dotenv_loaded()` bootstrap-ordering imports that require `# noqa: E402` annotation rather than mechanical reorder, so per-file triage is needed.
 
