@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): admin docs batch shipped (Slice 40, Phase C component-docs)** · short SHA **`2de8b15`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): close #27 (OPEN_NOW timezone fix shipped) (Slice 41)** · short SHA **`5411869`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+5411869 docs(BACKLOG): close #27 (OPEN_NOW timezone fix shipped) (Slice 41)
+7dd714c chore(tier1_handler): use Lake Havasu local time for OPEN_NOW + _next_event (Backlog #27)
 2de8b15 docs(BACKLOG): admin docs batch shipped (Slice 40, Phase C component-docs)
 2d1c6e1 docs(components): add admin_auth.md and admin_router.md (Slice 40)
 0be0489 docs(BACKLOG): tick Phase D — CI lint + tests + format-on-touch (Slice 39)
@@ -29,11 +31,11 @@ This document is updated at the end of each session that ships work. It is the c
 1540d67 docs(BACKLOG): llm_messages.md shipped (Slice 38, Phase C component-docs)
 dbfd029 docs(components): add llm_messages.md (Phase C component docs growth)
 0003842 docs(BACKLOG): approval_service.md shipped (Slice 37, Phase C component-docs)
-c919b9c docs(components): add approval_service.md (Phase C component docs growth)
-a7c366a docs(BACKLOG): file #27 (Tier 1 OPEN_NOW tz bug) + tier1_handler.md ticked
 ```
 
 ## Recently shipped (high signal)
+
+- **`7dd714c`..`5411869`** — **#27 close: Tier 1 OPEN_NOW timezone fix (Slice 41)** — Replaced `_utcnow()` (UTC wall clock) with `now_lake_havasu()` (Lake Havasu local wall clock) in `app/chat/tier1_handler.py` at the two call sites: `_next_event`'s `today` computation and `OPEN_NOW`'s `now` value passed to `_open_now_from_hours`. `now_lake_havasu` was already used by `tier3_handler` / `unified_router` / `tier2_parser` for the same temporal-grounding purpose; no new dependency. Removed the `_utcnow()` helper and the `from datetime import UTC` (no other callers in the file). Two new wiring tests added (`test_open_now_uses_lake_havasu_local_time`, `test_next_event_uses_lake_havasu_today`); 3 existing OPEN_NOW tests in `test_tier1_handler.py` and 4 OPEN_NOW parametrize cases in `test_ask_mode.py` migrated from patching `_utcnow` with tz-aware UTC datetimes to patching `now_lake_havasu` with `ZoneInfo("America/Phoenix")` datetimes. **Pytest 956 → 958** (+2). Ruff clean. **OPEN backlog drops to 2 (#2, #18).**
 
 - **`2d1c6e1`..`2de8b15`** — **Phase C component-docs growth: admin_auth.md + admin_router.md (Slice 40)** — Two admin-subsystem docs in one slice. (1) `docs/components/admin_auth.md` (~110 lines) covers `app/admin/auth.py` cookie-gate logic — public surface (`COOKIE_NAME`, `MAX_AGE_SECONDS`, `sign_admin_cookie`, `verify_admin_cookie`, `admin_password_ok`), the env-at-call-time pattern (Railway-correctness), `itsdangerous` serializer with hard-coded salt for domain separation, and an explicit **threat model** distinguishing in-scope (cookie tamper / expiry / replay / brute-force) from out-of-scope (revocation / multi-admin / audit-log / constant-time-compare). Security-sensitive — flagged for review against the threat model on future edits. (2) `docs/components/admin_router.md` (~120 lines) covers the much-larger `app/admin/router.py` (~1794 lines) as an overview: route inventory pointing at `http_api.md` for the authoritative list, five-section file structure, conventions (per-route `_guard`, hand-rendered HTML XSS risk, `Form(...)` deps, no Jinja, no CSRF), known limitations (single-file size, live analytics queries with no caching). Two new rows in `project_index.md`. Pytest unchanged at 956. **Adjacent-subsystem coverage now includes `app/admin/`.**
 
@@ -117,8 +119,8 @@ a7c366a docs(BACKLOG): file #27 (Tier 1 OPEN_NOW tz bug) + tier1_handler.md tick
 
 See **`docs/BACKLOG.md`**. Snapshot:
 
-- **OPEN** — **2**, **18**, **27** (see `docs/BACKLOG.md` for titles).
-- **Recently resolved** — **8** (Slice 3, `2627693`); **19** (Slice 10, `d429fe7`); **20** (Slice 11, `15f7248`); **23** (Slice 13, `c94afb6`); **22** (Slice 14, `72728e2`); **21** (Slice 15, `b1a0add`); **12** (Slice 16, `fd313bb`); **16** (Slice 17, `ab8df88`); **14** (Slice 18, `dbb16f8`); **7** (Slice 21, `9020b2d`); **24** (Slice 22, `ee6bf75`); **25** (Slice 23, `b34fea1`); **3** (Slice 24, `85cedd0`); **26** (Slice 26, `8d063ff`); **5** (Slice 27, `486dc11`); historical: **13**, **15** (`656d54b`).
+- **OPEN** — **2**, **18** (see `docs/BACKLOG.md` for titles).
+- **Recently resolved** — **8** (Slice 3, `2627693`); **19** (Slice 10, `d429fe7`); **20** (Slice 11, `15f7248`); **23** (Slice 13, `c94afb6`); **22** (Slice 14, `72728e2`); **21** (Slice 15, `b1a0add`); **12** (Slice 16, `fd313bb`); **16** (Slice 17, `ab8df88`); **14** (Slice 18, `dbb16f8`); **7** (Slice 21, `9020b2d`); **24** (Slice 22, `ee6bf75`); **25** (Slice 23, `b34fea1`); **3** (Slice 24, `85cedd0`); **26** (Slice 26, `8d063ff`); **5** (Slice 27, `486dc11`); **27** (Slice 41, `7dd714c`); historical: **13**, **15** (`656d54b`).
 - **DEFERRED** — **9** (Tier 1 hit rate; pending provider population), **11** (slowapi Python 3.14 deprecation; pending upstream fix or version pin), **17** (OpenAI helper extraction until a second caller exists).
 - **Confabulation / eval** — operator harness: `docs/confabulation-eval-runbook.md`, code under `app/eval/`. Broader “phase 8.8.6” spec markdown was pruned; recover from git history if needed.
 
