@@ -104,6 +104,7 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `docs/components/hint_extractor.md` | Component note for the optional OpenAI age/location hint extractor (sole OpenAI caller in the codebase). | Current |
 | `docs/components/llm_router.md` | Component note for the optional Anthropic structured router (USE_LLM_ROUTER feature flag). | Current |
 | `docs/components/river_scene.md` | Component note for the River Scene ingestion lane (sole live catalog source post-2026-04-30 cleanup); fetch/parse + orchestration, dedupe, auto-approval flow. | Current |
+| `docs/components/tier1_handler.md` | Component note for the Tier 1 deterministic-template handler (zero-LLM-token direct DB lookups). | Current |
 
 ### Maintainability and retrospectives (current)
 
