@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, time
+from datetime import date, datetime, time
 from unittest.mock import patch
 import pytest
 from sqlalchemy.orm import Session
@@ -280,8 +280,11 @@ def test_open_now_in_window(db: Session) -> None:
     p = _provider(provider_name="OpenCo", hours="10:00 AM – 9:00 PM")
     db.add(p)
     db.commit()
-    fixed = datetime(2026, 4, 19, 14, 0, 0, tzinfo=UTC)
-    with patch("app.chat.tier1_handler._utcnow", return_value=fixed):
+    # Slice 41 / Backlog #27: tier1_handler now patches now_lake_havasu;
+    # tzinfo must be Lake Havasu local for the wall-clock comparison.
+    havasu_tz = ZoneInfo("America/Phoenix")
+    fixed = datetime(2026, 4, 19, 14, 0, 0, tzinfo=havasu_tz)
+    with patch("app.chat.tier1_handler.now_lake_havasu", return_value=fixed):
         out = try_tier1("open now", _intent(sub="OPEN_NOW", entity=p.provider_name), db)
     assert out is not None
     assert "open" in out.lower()
@@ -291,8 +294,10 @@ def test_open_now_outside_window(db: Session) -> None:
     p = _provider(provider_name="ClosedCo", hours="10:00 AM – 9:00 PM")
     db.add(p)
     db.commit()
-    fixed = datetime(2026, 4, 19, 22, 30, 0, tzinfo=UTC)
-    with patch("app.chat.tier1_handler._utcnow", return_value=fixed):
+    havasu_tz = ZoneInfo("America/Phoenix")
+    # 22:30 local time (10:30pm) is outside a 10am-9pm window.
+    fixed = datetime(2026, 4, 19, 22, 30, 0, tzinfo=havasu_tz)
+    with patch("app.chat.tier1_handler.now_lake_havasu", return_value=fixed):
         out = try_tier1("open now", _intent(sub="OPEN_NOW", entity=p.provider_name), db)
     assert out is not None
     assert "closed" in out.lower()
@@ -302,7 +307,11 @@ def test_open_now_unparseable(db: Session) -> None:
     p = _provider(provider_name="FuzzyHoursCo", hours="call for seasonal hours")
     db.add(p)
     db.commit()
-    with patch("app.chat.tier1_handler._utcnow", return_value=datetime(2026, 4, 19, 12, 0, 0, tzinfo=UTC)):
+    havasu_tz = ZoneInfo("America/Phoenix")
+    with patch(
+        "app.chat.tier1_handler.now_lake_havasu",
+        return_value=datetime(2026, 4, 19, 12, 0, 0, tzinfo=havasu_tz),
+    ):
         assert try_tier1("open now", _intent(sub="OPEN_NOW", entity=p.provider_name), db) is None
 
 
@@ -313,3 +322,49 @@ def test_simple_lookup_length(db: Session) -> None:
     out = try_tier1("phone", _intent(sub="PHONE_LOOKUP", entity=p.provider_name), db)
     assert out is not None
     assert len(out) < 200
+
+
+# Slice 41 / Backlog #27 — OPEN_NOW + _next_event use Lake Havasu local time, not UTC.
+
+from datetime import datetime as _dt
+from zoneinfo import ZoneInfo
+
+from app.chat import tier1_handler as _t1
+
+
+def test_open_now_uses_lake_havasu_local_time() -> None:
+    """Backlog #27 fix: OPEN_NOW compares against Lake Havasu local hours,
+    not UTC. Frozen time at 10am MST should be inside a 9am-5pm window
+    and outside an 11am-5pm window.
+    """
+    havasu_tz = ZoneInfo("America/Phoenix")
+    fixed_local_10am = _dt(2026, 5, 4, 10, 0, tzinfo=havasu_tz)
+
+    with patch("app.chat.tier1_handler.now_lake_havasu", return_value=fixed_local_10am):
+        is_open = _t1._open_now_from_hours(
+            "9am-5pm", fixed_local_10am.replace(tzinfo=None)
+        )
+        assert is_open is True, "10am should be open during 9am-5pm window"
+
+        is_closed = _t1._open_now_from_hours(
+            "11am-5pm", fixed_local_10am.replace(tzinfo=None)
+        )
+        assert is_closed is False, "10am should be closed before 11am-5pm window"
+
+
+def test_next_event_uses_lake_havasu_today() -> None:
+    """Backlog #27 fix: _next_event uses today's date in Lake Havasu local
+    time, not UTC. Important for ~7am MST queries when UTC has already
+    rolled to the next day. At 11:30pm MST on 2026-05-04, UTC is already
+    at 06:30 on 2026-05-05; the helper must produce 2026-05-04.
+    """
+    havasu_tz = ZoneInfo("America/Phoenix")
+    fixed_local = _dt(2026, 5, 4, 23, 30, tzinfo=havasu_tz)
+
+    with patch("app.chat.tier1_handler.now_lake_havasu", return_value=fixed_local):
+        observed_date = _t1.now_lake_havasu().date()
+        assert observed_date.year == 2026
+        assert observed_date.month == 5
+        assert observed_date.day == 4, (
+            f"Expected today=2026-05-04 (Lake Havasu local), got {observed_date}"
+        )

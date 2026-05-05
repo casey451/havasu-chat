@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, date, datetime, time as time_of_day
+from datetime import date, datetime, time as time_of_day
 from types import SimpleNamespace
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi.testclient import TestClient
@@ -340,7 +341,10 @@ def test_tier1_fixtures(
     expected_sub: str,
     use_open_now_patch: bool,
 ) -> None:
-    fixed_now = datetime(2026, 4, 19, 18, 0, 0, tzinfo=UTC)
+    # Slice 41 / Backlog #27: tier1 OPEN_NOW now reads now_lake_havasu();
+    # tzinfo must be Lake Havasu local for the wall-clock comparison.
+    # 18:00 MST (= 6pm) is inside the 10am-8pm AskAlpha/AskBeta window.
+    fixed_now = datetime(2026, 4, 19, 18, 0, 0, tzinfo=ZoneInfo("America/Phoenix"))
 
     def _post() -> object:
         with TestClient(app) as client:
@@ -350,7 +354,7 @@ def test_tier1_fixtures(
             )
 
     if use_open_now_patch:
-        with patch("app.chat.tier1_handler._utcnow", return_value=fixed_now):
+        with patch("app.chat.tier1_handler.now_lake_havasu", return_value=fixed_now):
             r = _post()
     else:
         r = _post()

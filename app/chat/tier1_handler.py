@@ -7,7 +7,7 @@ or returns ``None`` to fall through to Tier 3.
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import func, select
@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.chat.intent_classifier import IntentResult
 from app.chat.normalizer import normalize
 from app.chat.tier1_templates import CONTACT_FOR_PRICING, render
+from app.core.timezone import now_lake_havasu
 from app.db.models import Event, Program, Provider
 
 _TIER1_SUB_INTENTS: frozenset[str] = frozenset(
@@ -32,10 +33,6 @@ _TIER1_SUB_INTENTS: frozenset[str] = frozenset(
         "OPEN_NOW",
     }
 )
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
 
 
 def _verified_suffix(provider: Provider) -> str:
@@ -106,7 +103,7 @@ def _phone_for_query(db: Session, provider: Provider, normalized_query: str) -> 
 
 
 def _next_event(db: Session, provider: Provider) -> Event | None:
-    today = _utcnow().date()
+    today = now_lake_havasu().date()
     return db.scalars(
         select(Event)
         .where(
@@ -180,7 +177,7 @@ def try_tier1(query: str, intent_result: IntentResult, db: Session) -> str | Non
         h = (provider.hours or "").strip()
         if not h:
             return None
-        now = _utcnow().astimezone(UTC).replace(tzinfo=None)
+        now = now_lake_havasu().replace(tzinfo=None)
         state = _open_now_from_hours(h, now)
         if state is None:
             return None
