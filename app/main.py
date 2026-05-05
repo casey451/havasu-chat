@@ -19,6 +19,7 @@ from urllib.parse import urlparse
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 
@@ -39,6 +40,8 @@ logger = logging.getLogger(__name__)
 _DOCS_DIR = Path(__file__).resolve().parents[1] / "docs"
 _PRIVACY_MD_PATH = _DOCS_DIR / "privacy.md"
 _TOS_MD_PATH = _DOCS_DIR / "tos.md"
+_TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
+templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 _SENSITIVE_EVENT_KEYS = frozenset({"query", "message", "normalized_query"})
 
 
@@ -180,66 +183,14 @@ def _render_doc_markdown_to_html(md: str) -> str:
     return "\n".join(out)
 
 
-def _load_static_doc_page_html(*, path: Path, head_title: str) -> str:
+def _render_static_doc(request: Request, *, path: Path, head_title: str) -> HTMLResponse:
     md = path.read_text(encoding="utf-8")
     body = _render_doc_markdown_to_html(md)
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>{html.escape(head_title)}</title>
-  <style>
-    :root {{
-      --bg: #ffffff;
-      --border: #dee2e6;
-      --text: #212529;
-      --muted: #6c757d;
-      --link: #0d6efd;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    }}
-    body {{ margin: 0; background: var(--bg); color: var(--text); line-height: 1.55; }}
-    .wrap {{ max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }}
-    a.back {{ display: inline-block; margin-bottom: 16px; font-weight: 600; color: var(--link);
-      text-decoration: none; }}
-    a.back:hover {{ text-decoration: underline; }}
-    article.privacy-doc h1 {{
-      margin: 0 0 8px;
-      font-size: 1.35rem;
-      letter-spacing: -0.02em;
-    }}
-    article.privacy-doc h2 {{
-      margin: 28px 0 12px;
-      font-size: 1.15rem;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 6px;
-    }}
-    article.privacy-doc p {{ margin: 0 0 12px; color: var(--text); }}
-    article.privacy-doc ul {{ margin: 0 0 12px; padding-left: 1.25rem; }}
-    article.privacy-doc li {{ margin-bottom: 8px; }}
-    article.privacy-doc a {{ color: var(--link); }}
-  </style>
-</head>
-<body>
-  <main class="wrap">
-    <a class="back" href="/">← Havasu Chat</a>
-    <article class="privacy-doc">
-{body}
-    </article>
-  </main>
-</body>
-</html>
-"""
-
-
-def _load_privacy_html() -> str:
-    return _load_static_doc_page_html(
-        path=_PRIVACY_MD_PATH, head_title="Privacy — Havasu Chat"
+    return templates.TemplateResponse(
+        request=request,
+        name="privacy_doc.html",
+        context={"head_title": head_title, "body": body},
     )
-
-
-def _load_terms_html() -> str:
-    return _load_static_doc_page_html(path=_TOS_MD_PATH, head_title="Terms — Havasu Chat")
 
 
 def _init_sentry() -> None:
@@ -347,151 +298,57 @@ def _truncate_for_og(value: str, limit: int = 160) -> str:
     return clean[:limit]
 
 
-def _render_not_found_page() -> str:
-    return """<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Event not found - Havasu Chat</title>
-  <style>
-    :root {
-      --bg: #ffffff;
-      --border: #dee2e6;
-      --text: #212529;
-      --muted: #6c757d;
-      --link: #0d6efd;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    }
-    body { margin: 0; background: var(--bg); color: var(--text); }
-    .wrap { max-width: 720px; margin: 0 auto; padding: 48px 20px; }
-    .card {
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 20px;
-      background: #fff;
-    }
-    h1 { margin: 0 0 10px; font-size: 1.4rem; }
-    p { margin: 0 0 16px; color: var(--muted); line-height: 1.5; }
-    a { color: var(--link); font-weight: 600; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-  </style>
-</head>
-<body>
-  <main class="wrap">
-    <section class="card">
-      <h1>Event not found</h1>
-      <p>This event is unavailable. It may have been removed, is still under review, or never existed.</p>
-      <a href="/">Back to Havasu Chat</a>
-    </section>
-  </main>
-</body>
-</html>
-"""
+def _render_not_found_response(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request=request,
+        name="event_not_found.html",
+        context={},
+        status_code=404,
+    )
 
 
-def _render_permalink_page(event: Event, permalink_url: str) -> str:
-    escaped_title = html.escape(event.title)
-    escaped_description = html.escape(event.description)
-    escaped_location = html.escape(event.location_name)
-    escaped_datetime = html.escape(_format_event_datetime(event))
-    escaped_back = html.escape("/")
-    escaped_url = html.escape(event.event_url or "")
-    escaped_contact_name = html.escape(event.contact_name or "")
-    escaped_contact_phone = html.escape(event.contact_phone or "")
-    og_description = html.escape(_truncate_for_og(event.description))
-    og_url = html.escape(permalink_url)
-
-    tags_html = ""
-    if event.tags:
-        tag_nodes = "".join(f'<span class="tag">{html.escape(tag)}</span>' for tag in event.tags)
-        tags_html = f'<div class="tags"><h2>Tags</h2><div class="tag-wrap">{tag_nodes}</div></div>'
-
+def _render_permalink_response(
+    request: Request, *, event: Event, permalink_url: str
+) -> HTMLResponse:
     contact_html = ""
     if event.contact_name or event.contact_phone:
-        parts = [p for p in [escaped_contact_name, escaped_contact_phone] if p]
+        parts = [
+            html.escape(p) for p in [event.contact_name, event.contact_phone] if p
+        ]
         contact_html = f"<p><strong>Contact:</strong> {' | '.join(parts)}</p>"
 
     event_link_html = ""
     if event.event_url:
-        event_link_html = f'<p><strong>Event Link:</strong> <a href="{escaped_url}" target="_blank" rel="noopener noreferrer">{escaped_url}</a></p>'
+        escaped_url = html.escape(event.event_url)
+        event_link_html = (
+            f'<p><strong>Event Link:</strong> '
+            f'<a href="{escaped_url}" target="_blank" rel="noopener noreferrer">{escaped_url}</a></p>'
+        )
 
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>{escaped_title} - Havasu Chat</title>
-  <meta property="og:title" content="{escaped_title}" />
-  <meta property="og:description" content="{og_description}" />
-  <meta property="og:url" content="{og_url}" />
-  <style>
-    :root {{
-      --bg: #ffffff;
-      --surface: #f4f6f8;
-      --border: #dee2e6;
-      --text: #212529;
-      --muted: #6c757d;
-      --link: #0d6efd;
-      --radius: 16px;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    }}
-    * {{ box-sizing: border-box; }}
-    body {{ margin: 0; background: var(--bg); color: var(--text); }}
-    .wrap {{ max-width: 720px; margin: 0 auto; padding: 24px 16px 40px; }}
-    .card {{
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: #fff;
-      padding: 20px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-    }}
-    h1 {{ margin: 0 0 10px; font-size: 1.5rem; line-height: 1.3; }}
-    .meta {{ margin: 0 0 14px; color: var(--muted); font-size: 0.95rem; }}
-    p {{ margin: 0 0 12px; line-height: 1.55; }}
-    a {{ color: var(--link); text-decoration: none; }}
-    a:hover {{ text-decoration: underline; }}
-    h2 {{
-      margin: 0 0 8px;
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-      color: var(--muted);
-    }}
-    .tags {{ margin-top: 16px; }}
-    .tag-wrap {{ display: flex; flex-wrap: wrap; gap: 8px; }}
-    .tag {{
-      display: inline-flex;
-      align-items: center;
-      padding: 4px 10px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      border-radius: 999px;
-      font-size: 0.85rem;
-      color: #495057;
-    }}
-    .back-link {{
-      display: inline-block;
-      margin-bottom: 14px;
-      font-weight: 600;
-    }}
-  </style>
-</head>
-<body>
-  <main class="wrap">
-    <a class="back-link" href="{escaped_back}">Back to Havasu Chat</a>
-    <article class="card">
-      <h1>{escaped_title}</h1>
-      <p class="meta">{escaped_datetime} • {escaped_location}</p>
-      <p>{escaped_description}</p>
-      {contact_html}
-      {event_link_html}
-      {tags_html}
-    </article>
-  </main>
-</body>
-</html>
-"""
+    tags_html = ""
+    if event.tags:
+        tag_nodes = "".join(
+            f'<span class="tag">{html.escape(tag)}</span>' for tag in event.tags
+        )
+        tags_html = (
+            f'<div class="tags"><h2>Tags</h2><div class="tag-wrap">{tag_nodes}</div></div>'
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="event_permalink.html",
+        context={
+            "event_title": event.title,
+            "og_description": _truncate_for_og(event.description),
+            "og_url": permalink_url,
+            "formatted_datetime": _format_event_datetime(event),
+            "location_name": event.location_name,
+            "description": event.description,
+            "contact_html": contact_html,
+            "event_link_html": event_link_html,
+            "tags_html": tags_html,
+        },
+    )
 
 
 @app.get("/")
@@ -500,13 +357,17 @@ def serve_chat_ui() -> FileResponse:
 
 
 @app.get("/privacy", response_class=HTMLResponse)
-def privacy_page() -> HTMLResponse:
-    return HTMLResponse(content=_load_privacy_html(), status_code=200)
+def privacy_page(request: Request) -> HTMLResponse:
+    return _render_static_doc(
+        request, path=_PRIVACY_MD_PATH, head_title="Privacy — Havasu Chat"
+    )
 
 
 @app.get("/terms", response_class=HTMLResponse)
-def terms_page() -> HTMLResponse:
-    return HTMLResponse(content=_load_terms_html(), status_code=200)
+def terms_page(request: Request) -> HTMLResponse:
+    return _render_static_doc(
+        request, path=_TOS_MD_PATH, head_title="Terms — Havasu Chat"
+    )
 
 
 @app.exception_handler(RequestValidationError)
@@ -535,5 +396,5 @@ def list_events(db: Session = Depends(get_db)) -> list[Event]:
 def event_permalink(event_id: str, request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     event = db.query(Event).filter(Event.id == event_id).first()
     if event is None or event.status == "pending_review":
-        return HTMLResponse(content=_render_not_found_page(), status_code=404)
-    return HTMLResponse(content=_render_permalink_page(event, str(request.url)), status_code=200)
+        return _render_not_found_response(request)
+    return _render_permalink_response(request, event=event, permalink_url=str(request.url))

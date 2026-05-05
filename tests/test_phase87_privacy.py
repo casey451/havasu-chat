@@ -187,6 +187,19 @@ def test_index_includes_privacy_footer_link() -> None:
     assert "Terms" in r.text
 
 
+def test_jinja2_templates_directory_resolves() -> None:
+    """Smoke: privacy_doc template renders /privacy without exploding (Slice 51 wiring).
+
+    Catches the "templates dir wrong" failure mode early — if Jinja2Templates
+    cannot resolve the configured directory, the call to render any page
+    raises before the response is built.
+    """
+    with TestClient(app) as client:
+        r = client.get("/privacy")
+    assert r.status_code == 200
+    assert '<article class="privacy-doc">' in r.text
+
+
 def test_hint_extractor_validation_failure_logs_no_raw_json(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
 
     from app.chat import hint_extractor as he
