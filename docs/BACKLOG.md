@@ -272,7 +272,7 @@ This makes scripts/run_voice_audit.py the second Anthropic caller fully on the H
   - [x] **§5 gap: CI query-battery story** (Slice 28, `3598621`): `docs/maintainability/ci_query_battery.md` covers manual invocation, success criteria, label-update discipline, and future CI integration patterns. Prereqs #12 (Slice 16, RESOLVED) and #25 (Slice 23, RESOLVED) both met.
   - [x] **§5 gap: Provider ingestion lane (forward-looking spec)** (Slice 29, `5fbd658`): `docs/maintainability/provider_ingestion_lane_options.md` covers five candidate sources, three architectural patterns, open product questions, and a provisional first-build recommendation (Pattern A mirror-RS + Source 1 manual admin entry). Speculative; not a commitment.
   - [x] **§5 gap: End-to-end provider/program creation** (Slice 9, `c1cd8b0`): `docs/maintainability/end_to_end_creation.md` documents the four paths producing catalog rows (public submission, River Scene auto-import, Tier 3 mention scan promotion, admin direct create), Contribution status state machine, and per-entity-type fields touched at creation.
-- [ ] **D — Engineering gates.** CI lint + tests on PR. Single formatting tool, scoped to avoid whole-repo cosmetic churn in feature PRs.
+- [ ] **D — Engineering gates.** CI lint + tests on PR. Single formatting tool, scoped to avoid whole-repo cosmetic churn in feature PRs. Options-space spec at `docs/maintainability/engineering_gates_options.md` (Slice 31, `732570a`) — speculative; not a commitment.
 
 **Anti-patterns (per brief §6):** mega-refactors that mix tree reorg with behavior change; parallel specs (one topic, one canonical doc); silent commits that change contracts without component-doc / BACKLOG / STATE updates; assuming pytest ran in every environment.
 
