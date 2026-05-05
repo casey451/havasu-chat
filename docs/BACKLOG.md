@@ -46,13 +46,15 @@ Ship log entries at the bottom record what shipped per session. New ones are app
 
 ---
 
-## Backlog 3 - year inference for undated calendar queries (**OPEN**)
+## Backlog 3 - year inference for undated calendar queries (**RESOLVED**)
 
 **Issue:** `tier2_parser` does not pass current local date context into the model prompt. Queries like "events on May 8" (no year) rely on model guesswork.
 
 **Desired fix:** Code change in `app/chat/tier2_parser.py` prompt assembly to inject current local date context (user/system note) so undated calendar phrases resolve deterministically to the intended year.
 
 **Out of scope of shipped fix:** Prompt docs/few-shots alone; this needs parser code-path context injection.
+
+**Resolution shipped:** `85cedd0` — `app/chat/tier2_parser.py:parse()` now prepends a date-context paragraph to the loaded `tier2_parser` system prompt on every call: `"Today's date is YYYY-MM-DD (Lake Havasu City, Arizona; MST/UTC-7, no DST). Use this to resolve year for ambiguous calendar queries (e.g. "May 8" without a year means the next May 8 from today's date)."` `today_iso` is computed via `now_lake_havasu().strftime("%Y-%m-%d")` from `app.core.timezone` (the same helper `tier3_handler` and `unified_router` already use). Implemented as a runtime prepend rather than editing the static `prompts/tier2_parser.txt` so the date never goes stale on disk. Pytest count unchanged at 947 (script not in test coverage). Production smoke test post-merge: query `"events on May 8"` returned `tier_used=2` with events from May 7–9, **2026** and May 8–10, **2026** — year correctly inferred to current year from today's `2026-05-04`.
 
 ---
 
@@ -262,7 +264,7 @@ This makes scripts/run_voice_audit.py the second Anthropic caller fully on the H
   - [x] **`scripts/` convention** (Slice 4, `28cd5c6`): `scripts/README.md` rewritten with directory convention table (`scripts/*.py` tools, `fixtures/` test fixtures, `confabulation_eval_results/baselines/` tracked baselines, `output/` ephemeral outputs) and alphabetical inventory of all 16 tracked CLI tools. Tool default-path migration queued under Backlog #19; legacy tracked-output disposition queued under Backlog #20.
   - [x] **`docs/` archive convention** (Slice 5, `f8da738`): session transcripts and slice-complete writeups removed from working tree once value is captured in canonical docs or git history; live-session captures go to `relay/` (gitignored). Documented in `docs/CURSOR_ORIENTATION.md` (Process conventions bullet) and `docs/maintainability/project_index.md` (post-doc-list paragraph). Two misfiled `phase-6-1-*` transcripts removed; recoverable via git log.
 - [ ] **C — Documentation depth where code is complex.**
-  - [ ] **Component docs growth** (ongoing). Tier2 stack, contrib/River Scene, admin.
+  - [ ] **Component docs growth** (ongoing). Tier2 stack, contrib/River Scene, admin. **Added so far:** `unified_router.md`; `tier2_handler.md` (Slice 25, `7c339e0`).
   - [x] **§5 gap: Railway service/env matrix** (Slice 7, `765ee61`): `docs/maintainability/railway_layout.md` consolidates process types, env var matrix, DB URL resolution, health checks, deploy flow.
   - [x] **§5 gap: HTTP API sketch** (Slice 8, `5f14f36`): `docs/maintainability/http_api.md` consolidates all 58 routes — mount layout, public routes by group, admin HTML routes (cookie-gated `verify_admin`), admin JSON API routes (`Depends(require_admin)`), auth posture summary, rate limits (slowapi + custom contribute limiter), schema pointers.
   - [ ] **§5 gap: CI query-battery story** (how-to-run-in-CI doc; depends on Backlog #12 retarget first).
