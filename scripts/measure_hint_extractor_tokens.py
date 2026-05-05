@@ -5,7 +5,6 @@ parameters as ``app.chat.hint_extractor``.
 """
 from __future__ import annotations
 
-import json
 import os
 import sys
 from pathlib import Path

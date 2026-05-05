@@ -73,7 +73,7 @@ def test_backfill_approves_pending_river_scene_contributions(approve_pending_mod
 def test_backfill_skips_non_river_scene_pending(approve_pending_mod) -> None:
     mod = approve_pending_mod
     u = uuid.uuid4().hex[:8]
-    notes = f"Y" * 22 + f"\nVenue: Test Venue Here\n"
+    notes = "Y" * 22 + "\nVenue: Test Venue Here\n"
     with SessionLocal() as db:
         create_contribution(
             db,

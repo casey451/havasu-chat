@@ -90,7 +90,7 @@ def register_categories_html_routes(router: APIRouter) -> None:
 
         def table(rows: list, col: str) -> str:
             if not rows:
-                return f'<p class="empty">No data in this section yet.</p>'
+                return '<p class="empty">No data in this section yet.</p>'
             body = "".join(
                 f"<tr><td>{_esc(str(a))}</td><td>{int(b)}</td></tr>"
                 for a, b in rows

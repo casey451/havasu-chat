@@ -188,7 +188,6 @@ def test_index_includes_privacy_footer_link() -> None:
 
 
 def test_hint_extractor_validation_failure_logs_no_raw_json(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
-    import logging
 
     from app.chat import hint_extractor as he
 

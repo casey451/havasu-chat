@@ -16,7 +16,7 @@ from app.contrib.approval_service import (
 )
 from app.db.contribution_store import create_contribution
 from app.db.database import SessionLocal
-from app.db.models import Contribution, Event, Program, Provider
+from app.db.models import Contribution, Provider
 from app.schemas.contribution import ContributionCreate, EventApprovalFields, ProgramApprovalFields, ProviderApprovalFields
 
 

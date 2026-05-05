@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy.orm import Session
 
 from app.db.contribution_store import (
     create_contribution,

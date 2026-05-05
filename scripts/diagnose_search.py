@@ -6,9 +6,7 @@ Output saved to scripts/output/diagnose_output.txt.
 from __future__ import annotations
 
 import json
-import os
 import sys
-import textwrap
 import urllib.error
 import urllib.request
 from collections import Counter

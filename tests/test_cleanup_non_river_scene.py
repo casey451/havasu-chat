@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
-from contextlib import contextmanager
-from datetime import UTC, date, datetime, time
+from datetime import date, time
 from pathlib import Path
 
 import pytest

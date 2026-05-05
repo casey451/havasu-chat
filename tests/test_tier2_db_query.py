@@ -120,7 +120,7 @@ def db() -> Session:
 
 def test_entity_name_exact_match(db: Session) -> None:
     suf = _suffix()
-    p = _prov(db, name=f"Bridge City Combat {suf}")
+    _ = _prov(db, name=f"Bridge City Combat {suf}")
     db.commit()
     rows = tier2_query(Tier2Filters(parser_confidence=0.9, entity_name=f"Bridge City Combat {suf}"))
     types = {r["type"] for r in rows}
@@ -130,7 +130,7 @@ def test_entity_name_exact_match(db: Session) -> None:
 
 def test_entity_name_partial_case_insensitive(db: Session) -> None:
     suf = _suffix()
-    p = _prov(db, name=f"Altitude Trampoline Park {suf}")
+    _ = _prov(db, name=f"Altitude Trampoline Park {suf}")
     db.commit()
     rows = tier2_query(Tier2Filters(parser_confidence=0.9, entity_name="altitude"))
     assert any("Altitude" in r["name"] and suf in r["name"] for r in rows)
@@ -279,7 +279,7 @@ def test_open_now_excludes_providers_without_structured_hours(db: Session, monke
 
 def test_row_shape_type_and_name(db: Session) -> None:
     suf = _suffix()
-    p = _prov(db, name=f"Shape Test {suf}")
+    _ = _prov(db, name=f"Shape Test {suf}")
     db.commit()
     rows = tier2_query(Tier2Filters(parser_confidence=0.9, entity_name=f"Shape Test {suf}"))
     assert rows

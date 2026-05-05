@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
 

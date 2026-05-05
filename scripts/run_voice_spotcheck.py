@@ -158,7 +158,6 @@ def run_smoke(base: str) -> tuple[bool, str]:
 
 
 def run_battery(base: str, pause_s: float = 1.5) -> tuple[str, list[dict], list[dict] | None, str | None]:
-    stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H-%MZ")
     stamp_fs = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M")
     sid = f"voice-spot-{stamp_fs}-{uuid.uuid4().hex[:10]}"
     results: list[dict] = []

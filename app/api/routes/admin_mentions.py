@@ -14,7 +14,6 @@ from app.contrib.enrichment import enrich_contribution
 from app.db.contribution_store import create_contribution
 from app.db.database import SessionLocal, get_db
 from app.db.llm_mention_store import (
-    count_mentions,
     dismiss_mention,
     get_mention,
     list_mentions,

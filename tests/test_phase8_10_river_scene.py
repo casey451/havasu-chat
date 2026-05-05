@@ -268,7 +268,7 @@ def test_normalize_multi_day() -> None:
     )
     cc = normalize_to_contribution(rse)
     notes = cc.submission_notes or ""
-    assert f"Date: June 10\u201312, 2026" in notes
+    assert "Date: June 10\u201312, 2026" in notes
     assert cc.event_date == date(2026, 6, 10)
     assert cc.event_end_date == date(2026, 6, 12)
 
