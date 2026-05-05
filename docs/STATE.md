@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): event_quality.md shipped (Slice 43, Phase C component-docs)** · short SHA **`b3eb8ee`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): rate_limit + dedupe core batch shipped (Slice 44)** · short SHA **`024e46f`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+024e46f docs(BACKLOG): rate_limit + dedupe core batch shipped (Slice 44)
+3d1d874 docs(components): add rate_limit.md and dedupe.md (Slice 44 core batch)
 b3eb8ee docs(BACKLOG): event_quality.md shipped (Slice 43, Phase C component-docs)
 ae40445 docs(components): add event_quality.md (Phase C component docs growth)
 b48b76f docs(BACKLOG): mention_scanner.md shipped (Slice 42, contrib trio complete)
@@ -29,11 +31,11 @@ b48b76f docs(BACKLOG): mention_scanner.md shipped (Slice 42, contrib trio comple
 2d1c6e1 docs(components): add admin_auth.md and admin_router.md (Slice 40)
 0be0489 docs(BACKLOG): tick Phase D — CI lint + tests + format-on-touch (Slice 39)
 2f59d4f chore(ci): exclude -m integration in pytest job (Slice 39 step 3 fix)
-0428267 chore(ci): add GitHub Actions workflow for ruff + pytest (Slice 39 step 3)
-114c612 chore(lint): address ruff F,W findings ahead of CI gate (Slice 39 step 2)
 ```
 
 ## Recently shipped (high signal)
+
+- **`3d1d874`..`024e46f`** — **Phase C component-docs growth: rate_limit.md + dedupe.md (Slice 44 core batch)** — Two `app/core/` component docs in one slice. (1) `docs/components/rate_limit.md` (~22-line module → ~75-line doc) covers the shared slowapi `Limiter` (per-IP keying via `get_remote_address`, env-toggleable for tests via `RATE_LIMIT_DISABLED`), enumerates callers (`app/main.py`, `programs/router.py`, `contribute.py`, `chat.py`), and documents known limitations (in-memory backend, multi-worker scaling, `X-Forwarded-For` trust assumption). (2) `docs/components/dedupe.md` (~74-line module → ~80-line doc) covers the embedding+date+location three-gate event duplicate detection: 0.85 cosine threshold (empirically chosen), ±1 day date window, location text similarity, full-table-scan O(n) characteristic, and a clear AND-gate convention (loosening any single signal would cascade false positives). Pytest unchanged at 958. **Indexed in `project_index.md`** — adjacent-and-core component-doc coverage now totals **9 docs outside `app/chat/`** (river_scene, approval_service, mention_scanner, llm_messages, event_quality, admin_auth, admin_router, rate_limit, dedupe).
 
 - **`ae40445`..`b3eb8ee`** — **Phase C component-docs growth: event_quality.md (Slice 43)** — New `docs/components/event_quality.md` (~75 lines) covering `app/core/event_quality.py` — the post-Slice-21 minimal request-validation pretty-printer (sole live caller is `app/main.py:518`'s `RequestValidationError` handler). Documents the three exported names (`CHAT_CONCIERGE_QUERY_VALIDATION_MESSAGE` constant, `friendly_errors` function, `_errors_touch_concierge_query_field` helper), the four-step linear scan with early returns (concierge-query branch → inner-`ValueError` branch → `"Value error, "`-prefix branch → fallback), the loc-shape duality (accepts both `('query',)` and `('body', 'query')`), conventions (hard-coded canonical message, generic fallback, no logging, exported underscore-prefixed helper), and known limitations. Captures the Slice 21 pruning history (265 → 38 lines) so future readers don't re-derive whether to prune further. Pytest unchanged at 958. Indexed in `project_index.md`.
 
