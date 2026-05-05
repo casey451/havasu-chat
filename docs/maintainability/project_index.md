@@ -116,6 +116,9 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `docs/components/tier1_templates.md` | Component note for Tier 1 regex+template engine (intent patterns + per-intent response variants). | Current |
 | `docs/components/tier2_schema.md` | Component note for the Tier2Filters Pydantic schema (parser output / DB query input). | Current |
 | `docs/components/normalizer.md` | Component note for the pre-classification text normalizer (lowercase, edge-strip, contraction expand). | Current |
+| `docs/components/entity_matcher.md` | Component note for fuzzy provider-name matching (`token_set_ratio` > 75 against Program.provider_name; CANONICAL_EXTRAS alias map). | Current |
+| `docs/components/local_voice_matcher.md` | Component note for curated-blurb matching (Phase 6.5-lite; whole-word keyword scoring + season/hint filters). | Current |
+| `docs/components/context_builder.md` | Component note for Tier 3 catalog context assembly (provider-first; word-budget capped; entity-matched first). | Current |
 
 ### Maintainability and retrospectives (current)
 
