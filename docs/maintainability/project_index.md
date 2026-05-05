@@ -107,6 +107,8 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `docs/components/tier1_handler.md` | Component note for the Tier 1 deterministic-template handler (zero-LLM-token direct DB lookups). | Current |
 | `docs/components/approval_service.md` | Component note for the contribution → catalog-row materialization service (sole catalog-write path: Provider/Program/Event approval). | Current |
 | `docs/components/llm_messages.md` | Component note for the H2 Anthropic-Messages-API consolidation helper (sole Anthropic call site; mock-seam invariants documented). | Current |
+| `docs/components/admin_auth.md` | Component note for admin cookie-gate auth (`app/admin/auth.py`) — security-sensitive; documents threat model. | Current |
+| `docs/components/admin_router.md` | Component note for the admin router (`app/admin/router.py`) — overview, route inventory, conventions; pairs with admin_auth.md. | Current |
 
 ### Maintainability and retrospectives (current)
 
