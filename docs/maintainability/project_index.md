@@ -113,6 +113,9 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `docs/components/event_quality.md` | Component note for the FastAPI request-validation pretty-printer (`friendly_errors` for ConciergeChatRequest); post-Slice-21 minimal surface. | Current |
 | `docs/components/rate_limit.md` | Component note for the shared slowapi `Limiter` (per-IP request budgets; env-toggleable for tests). | Current |
 | `docs/components/dedupe.md` | Component note for embedding + date + location three-gate event duplicate detection. | Current |
+| `docs/components/tier1_templates.md` | Component note for Tier 1 regex+template engine (intent patterns + per-intent response variants). | Current |
+| `docs/components/tier2_schema.md` | Component note for the Tier2Filters Pydantic schema (parser output / DB query input). | Current |
+| `docs/components/normalizer.md` | Component note for the pre-classification text normalizer (lowercase, edge-strip, contraction expand). | Current |
 
 ### Maintainability and retrospectives (current)
 
