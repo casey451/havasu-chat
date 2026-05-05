@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **doc: BACKLOG #5 close** · short SHA **`b3ccf21`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
+- **Repo `main` @ this STATE update:** tip subject **doc: BACKLOG #18 Component-docs-growth Slice 33 note** · short SHA **`ae5b9b6`** (2026-05-05); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway’s deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit).
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+ae5b9b6 doc: BACKLOG #18 Component-docs-growth Slice 33 note
+66636a6 doc: tier3_handler.md component doc
 b3ccf21 doc: BACKLOG #5 close
 486dc11 Tier2 LLM formatter: emit clickable event_url links (hybrid)
 006ef64 doc: BACKLOG #18 Phase D options-spec reference
@@ -29,11 +31,11 @@ b2f469f doc: BACKLOG #18 Phase C provider lane sub-bullet ticked
 5fbd658 doc: provider_ingestion_lane_options.md (Phase C §5 gap)
 d10f3d4 doc: BACKLOG #18 Phase C CI battery sub-bullet ticked
 3598621 doc: ci_query_battery.md (Phase C §5 gap closed)
-71f897c doc: BACKLOG #26 close
-8d063ff Replace importlib EventRead workaround with direct import in main.py
 ```
 
 ## Recently shipped (high signal)
+
+- **`66636a6`..`ae5b9b6`** — **Phase C component-docs growth: tier3_handler.md (Slice 33)** — New `docs/components/tier3_handler.md` (~111 lines) following the structure of `docs/components/unified_router.md` and `tier2_handler.md`. Documents the public surface (`answer_with_tier3` with its 4-tuple return shape; `FALLBACK_MESSAGE`), the five-stage internal pipeline (API key + `anthropic` package guard; `build_context_for_tier3` for catalog grounding; mid-block assembly with classifier line + optional `User context:` bias line + `Now:` line + optional `Local voice:` blurbs from `find_matching_blurbs`; the Anthropic call via `call_anthropic_messages` with `max_tokens=150` and `temperature=0.3`; result handling), the system-prompt loading helper with its intentional inline fallback, the failure-mode table (six rows mapping condition → return value), tunable constants, and cross-references. Tier 1 priority per `relay/component_doc_audit.md` (highest-traffic LLM synthesis path). Backlog #18 Phase C component-docs sub-bullet annotated with this addition; sub-bullet stays open as ongoing growth. Pytest unchanged at 955 (doc-only).
 
 - **`486dc11`..`b3ccf21`** — **#5 close: clickable event_url links in Tier 2 LLM-formatter path (Slice 27)** — Backlog #5's deterministic-renderer scope was already correct (`tier2_catalog_render.py` emits `[name](url)` inline); the LLM-formatter path for mixed/non-event rows was missing links because the system prompt forbade markdown. **Hybrid fix:** (a) prompt EXCEPTION in `prompts/tier2_formatter.txt` permitting `[name](event_url)` markdown for rows with non-empty `event_url`, plus (b) `_inject_event_url_links` deterministic post-processor in `app/chat/tier2_formatter.py` as a safety net — runs after `_format_via_llm` returns and injects any missing links via word-boundary regex with an inside-existing-markdown-link guard, falling back to end-of-text append when the row's name doesn't appear inline. Eight new unit tests cover injection paths and edge cases (empty url, non-event rows, double-link prevention, multi-event, word boundaries, inside-existing-markdown-link guard). **Pytest baseline shifts 947 → 955** (+8). Bundled per the audit amendment: new `docs/components/tier2_formatter.md` component doc and a row in `docs/maintainability/project_index.md`. **OPEN backlog drops to 2 (#2, #18).** Multi-sample production verification required after deploy per WORKING_AGREEMENT.md (LLM-mediated user-visible behavior).
 
