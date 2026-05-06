@@ -641,12 +641,14 @@ Decision outcome:
 - Rationale explicitly captures deploy-model fit: `index.html` is served as static `FileResponse`, so unlike Slice 51's Jinja2 extraction in `main.py`, this path keeps a fully static runtime with no templating layer.
 - Campaign sketch included as placeholders (to be assigned when campaign begins): JS module split -> CSS extraction -> shell cleanup/doc sync.
 
-**Campaign progression:**
+**Campaign progression (CLOSED 2026-05-06):**
 
 - §7 Option A approved by Casey on 2026-05-06 (`7d57876`).
 - Step 1/3 (JS module split) shipped Slice 61 at `65f71e8` — see Backlog #33.
 - Step 2/3 (CSS extraction) shipped Slice 63 at `17b679e` — see Backlog #34.
-- Step 3/3 (shell cleanup + window-bridge refactor + doc sync) PENDING.
+- Step 3/3 (bridge refactor + IIFE drop, campaign close) shipped Slice 65 at `b4b83f9` — see Backlog #35.
+
+End state: chat UI is a clean three-file vanilla structure (`index.html` 45-line markup shell + `js/chat.js` + `js/calendar.js` ES modules with explicit imports + `styles/index.css`). No more inline anything; no more global-namespace bridge. Decision doc `docs/maintainability/static_html_extraction_decision.md` Status moved to "Implemented" with a §10 Outcome section listing the four shipping SHAs.
 
 **Severity:** LOW (doc-only planning slice; no runtime behavior change).
 
@@ -722,9 +724,40 @@ Decision outcome:
 
 **Severity:** LOW (visual parity only; no behavior change; no Python touched; no JS touched). Smaller blast radius than Slice 61 — extraction is mechanical-verbatim copy and the failure modes are visually-detectable rather than runtime-corruption-shaped.
 
-**Cross-reference:** Step 2/3 of the Backlog #31 campaign. Pre-flight required Slice 61 to have been production-verified (it was, 2026-05-06) because this slice leans on Slice 61's `StaticFiles` mount. Step 3/3 (shell cleanup + `window.havasuChatCalendar` bridge refactor to explicit imports + naming) remains PENDING.
+**Cross-reference:** Step 2/3 of the Backlog #31 campaign. Pre-flight required Slice 61 to have been production-verified (it was, 2026-05-06) because this slice leans on Slice 61's `StaticFiles` mount. Step 3/3 (shell cleanup + `window.havasuChatCalendar` bridge refactor to explicit imports + naming) shipped at Slice 65 (`b4b83f9`) — see Backlog #35.
 
 **Production verification (Casey-driven, post-deploy):** manual UI smoke against the live Railway URL covering chat shell visual fidelity. Watch specifically for `/static/styles/index.css` returning 200 (Railway already passed the parallel test on `/static/js/*.js` at Slice 61, so the same `StaticFiles` mount handling subdirectories should hold for CSS) and a clean browser console. Roll back via `git revert 17b679e` if any visual regression appears; the inline `<style>` block returns intact.
+
+**Production verified 2026-05-06 (Casey):** page renders visually identical, `/static/styles/index.css` returns 200, console clean. Cleared the precondition for Slice 65 (campaign close).
+
+---
+
+## Backlog 35 - Static-html extraction campaign step 3/3 (CLOSE): bridge refactor + IIFE drop (**RESOLVED**)
+
+**Issue:** Third and closing implementation slice of the static-html extraction campaign (parent: Backlog #31, Option A approved 2026-05-06). After Slices 61 (JS) and 63 (CSS), `app/static/js/calendar.js` still wrapped its body in an IIFE (preserved at Slice 61 because of a top-level `if (!overlay || !btn) return;` early-return guard that cannot live at module top level), and the cross-module bridge to `chat.js` flowed through `window.havasuChatCalendar` (a global namespace assignment). Both patterns were transitional gradualism — explicitly flagged for cleanup at the campaign closer in Slice 61's notes.
+
+**Resolution shipped:** `b4b83f9` — bridge refactor + IIFE drop with byte-identical page response and identical functional behavior:
+
+- `app/static/js/calendar.js` (262 → 266 lines, 9137 → 9318 bytes): IIFE wrapper dropped. The guarded body now lives inside `function initCalendar()` which returns the calendar API object `{ open, close, selectDay }` or `null` when the DOM check fails. The module-level export becomes `export const havasuChatCalendar = initCalendar();`. Header comment rewritten to reflect the new shape.
+- `app/static/js/chat.js` (443 → 444 lines, 13424 → 13691 bytes): adds top-level `import { havasuChatCalendar } from "./calendar.js";` and drops the `window.` prefix on both occurrences in the `data.open_calendar` branch. The defensive null-check is preserved because the export can be `null` when the calendar DOM isn't present at module-load time (extreme edge case; the HTML shell always includes the calendar markup, but the check costs nothing and matches the prior contract). Header comment rewritten.
+- `app/static/index.html`: NOT touched. Step 5 byte-equivalence verified hash unchanged (`8d1bc572...da65`, 1981 bytes both pre and post). The two `<script type="module" src=...>` tags from Slice 61 already supported the new export/import contract; no markup change needed.
+- `app/main.py`: NOT touched. `app/static/styles/`: NOT touched.
+
+**Behavior parity verification (load-bearing — runtime-behavior refactor):**
+
+- Local UI smoke (Step 4, Casey-driven): chat send/receive, onboarding chips, Tier-3 thumb feedback, calendar manual open + select + event injection + Escape close, **and the bridge path** (chat response with `data.open_calendar=true` triggering automatic calendar overlay open) — all worked identically pre and post. DevTools console: `window.havasuChatCalendar` returned `undefined` post-refactor, confirming the global is cleanly gone.
+- `GET /` response diff (Step 5): hashes byte-identical (`8d1bc572...da65` both before and after, 1981 bytes); index.html unchanged this slice by design.
+- `/static/js/calendar.js` HTTP 200, 9318 bytes; `/static/js/chat.js` HTTP 200, 13691 bytes (curl probe).
+- `python -m pytest -q -m "not integration"`: **965 passed, 5 deselected** (unchanged from Slice 63 baseline).
+- `python -m ruff check`: All checks passed.
+
+**Severity:** MEDIUM (real user-facing surface, runtime-behavior refactor at the global-namespace boundary; behavior-preserving by construction but the failure modes are runtime-shaped — broken import, wrong export shape — rather than the visual regressions of Slice 63).
+
+**Cross-reference:** Step 3/3 of the Backlog #31 campaign — the campaign closer. Pre-flight required Slice 63 to have been production-verified (it was, 2026-05-06) because this slice's behavior parity rests on a fully-working post-Slice-63 runtime. Decision-doc `docs/maintainability/static_html_extraction_decision.md` Status moved from "Decided" to "Implemented (campaign closed 2026-05-06)" in the same commit as the Backlog tick; new §10 Outcome section lists the four shipping SHAs (matches Campaign #30's close pattern at `a8fcbf5`).
+
+**Backwards-compatibility note:** any external code depending on the `window.havasuChatCalendar` global (devtools snippets, browser extensions, unknown user JS) breaks post-refactor. This is an internal-app surface and acceptable per Casey's call at the campaign decision.
+
+**Production verification (Casey-driven, post-deploy):** manual UI smoke against the live Railway URL covering the same features as local Step 4, with explicit attention to (a) the bridge path (chat response triggering calendar open) and (b) confirming `window.havasuChatCalendar` is `undefined` in the live console. Roll back via `git revert b4b83f9` if any feature regresses; the IIFE + window-bridge pattern returns intact.
 
 ---
 

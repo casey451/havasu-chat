@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-06 (Slice 58).  
 **Author:** Claude design pass + Casey approval.  
-**Status:** Draft -> Decided after Casey's call.
+**Status:** Implemented (campaign closed 2026-05-06; see §10 Outcome).
 
 ## §1 Current shape (as-shipped)
 
@@ -101,3 +101,26 @@ Approved Option A on 2026-05-06. Extraction proceeds via JS-first (Slice 61), th
 - No server API contract changes (`/api/chat`, `/api/chat/onboarding`, `/api/chat/feedback`, `/events`).
 - Visual parity checks across chat send/receive, onboarding chips, tier-3 thumbs feedback, calendar open/select/inject flow.
 - Preserve keyboard + accessibility handlers already present in modal/event cards.
+
+## §10 Outcome
+
+Campaign closed 2026-05-06 in four ships matching the §5 sketch. End state: chat UI is a clean three-file vanilla structure (markup shell + JS modules with explicit imports + standalone stylesheet); no inline anything; no global-namespace bridge.
+
+| # | Slice | Subject | SHA | Backlog |
+|---|---|---|---|---|
+| Precursor | — | docs(decision): record Option A approval (Slice 58 §7) | `7d57876` | (this doc §7) |
+| 1/3 | 61 | refactor(static): extract JS to ES modules | `65f71e8` | #33 |
+| 2/3 | 63 | refactor(static): extract CSS to /static/styles | `17b679e` | #34 |
+| 3/3 (close) | 65 | refactor(static): bridge refactor + IIFE drop | `b4b83f9` | #35 |
+
+**Surprises vs the §5 sketch:**
+
+- **Slice 61 needed an `app.mount("/static", StaticFiles(...))` addition to `app/main.py`** that the sketch didn't predict. Step 0 audit found only `FileResponse(_STATIC_DIR / "index.html")` usage at `/`; the static directory wasn't otherwise exposed. Mount added in the same substantive commit; subsequent slices (63 CSS, 65 module reshape) inherited the mount with no further `app/main.py` changes.
+- **Slice 61 had to preserve calendar.js's IIFE wrapper** (the §5 sketch implied uniform "convert IIFE to module" for both halves). Original line 887 of the inline script had a top-level `if (!overlay || !btn) return;` early-return guard that cannot live at module top level. Slice 61 kept the IIFE; Slice 65 closed the gradualism with `function initCalendar()` returning the API object or null.
+- **Slice 65's bridge refactor needed an `import` in chat.js** rather than just a window-global rename. The sketch said "shell cleanup + bridge refactor" without committing to the import mechanism; the implementation chose ES module `import { havasuChatCalendar } from "./calendar.js"` to capture the dependency explicitly (rather than e.g. a custom event or attribute on `<body>`).
+- **No `shared.js` materialized.** Slice 61's Step 0 audit found zero shared helpers between the chat and calendar IIFEs, so the campaign shipped without that file. The §5 sketch had implicitly anticipated one.
+- **Pytest baseline unchanged at 965 across all four ships.** The campaign touched zero Python and zero tests.
+
+**Backwards compatibility:** any external code depending on `window.havasuChatCalendar` (devtools snippets, browser extensions, unknown user JS) breaks post-Slice-65. Internal-app surface; acceptable per Casey's call at campaign approval.
+
+**Pre-flight discipline across the campaign:** each implementation slice gated on Casey's production-verification of the previous one. Slice 61 cleared 2026-05-06; Slice 63 cleared 2026-05-06; Slice 65 cleared 2026-05-06. The discipline isolated regression-attribution variables — any post-deploy issue in slice N traces to slice N alone, not to the cumulative campaign.
