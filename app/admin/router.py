@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import html
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -890,10 +890,21 @@ def _format_program_age(p: Program) -> str:
     return f"Up to age {p.age_max}"
 
 
+def _hhmm_or_empty(t: time | None) -> str:
+    """Slice 55 (Backlog #30 step 3/4): render a ``time`` as HH:MM, ``""`` on None.
+
+    Caller is responsible for HTML-escaping the result; the value is always plain
+    ASCII digits and a colon (or empty), so escape is a no-op in practice but is
+    preserved to keep the call sites' escape posture explicit.
+    """
+    return t.strftime("%H:%M") if t is not None else ""
+
+
 def _program_card_admin_html(p: Program) -> str:
     schedule_line = (
         f"Every {_format_schedule_days_admin(list(p.schedule_days or []))}"
-        f" • {html.escape(p.schedule_start_time or '')}–{html.escape(p.schedule_end_time or '')}"
+        f" • {html.escape(_hhmm_or_empty(p.schedule_start_time_typed))}"
+        f"–{html.escape(_hhmm_or_empty(p.schedule_end_time_typed))}"
     )
     age_line = _format_program_age(p)
     cost_line = (p.cost or "").strip() or "—"
@@ -1839,7 +1850,8 @@ def _queue_program_item_html(p: Program, db: Session) -> str:
     flag_html = _red_flag_pills_html(flags)
     days = _format_schedule_days_admin(list(p.schedule_days or []))
     schedule = (
-        f"Every {days} • {_escape(p.schedule_start_time or '')}–{_escape(p.schedule_end_time or '')}"
+        f"Every {days} • {_escape(_hhmm_or_empty(p.schedule_start_time_typed))}"
+        f"–{_escape(_hhmm_or_empty(p.schedule_end_time_typed))}"
     )
     link_bits = [
         _escape(x) for x in (p.contact_url, p.contact_email, p.contact_phone) if x
