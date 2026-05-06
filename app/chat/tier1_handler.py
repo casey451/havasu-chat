@@ -254,10 +254,17 @@ def try_tier1(query: str, intent_result: IntentResult, db: Session) -> str | Non
         prog = _primary_program(db, provider, nq)
         if prog is None:
             return None
-        st = (prog.schedule_start_time or "").strip()
-        et = (prog.schedule_end_time or "").strip()
-        if not st:
+        # Slice 54 (Backlog #30 step 2/4): read schedule_*_time_typed (Time) and
+        # strftime to HH:MM. ``st`` is required; ``et`` optional. Pre-migration
+        # used the source string columns with `.strip()` defenses; the typed
+        # columns carry the same data with explicit None semantics, so the
+        # `not st` guard becomes `st_typed is None` and the rest is unchanged.
+        st_typed = prog.schedule_start_time_typed
+        et_typed = prog.schedule_end_time_typed
+        if st_typed is None:
             return None
+        st = st_typed.strftime("%H:%M")
+        et = et_typed.strftime("%H:%M") if et_typed is not None else ""
         window = f"{st}–{et}" if et else st
         out = render(
             "TIME_LOOKUP",

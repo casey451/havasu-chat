@@ -117,9 +117,15 @@ def build_context_for_tier3(query: str, intent_result: IntentResult, db: Session
                 ages = f"{prog.age_min if prog.age_min is not None else '?'}-{prog.age_max if prog.age_max is not None else '?'}"
             else:
                 ages = "n/a"
+            # Slice 54 (Backlog #30 step 2/4): read typed columns + strftime;
+            # per-side None handling preserves pre-migration byte format.
+            sched_st = prog.schedule_start_time_typed
+            sched_et = prog.schedule_end_time_typed
+            sched_st_s = sched_st.strftime("%H:%M") if sched_st is not None else ""
+            sched_et_s = sched_et.strftime("%H:%M") if sched_et is not None else ""
             seg = (
                 f"  Program: {prog.title} | ages {ages} | "
-                f"schedule {prog.schedule_start_time}-{prog.schedule_end_time}"
+                f"schedule {sched_st_s}-{sched_et_s}"
             )
             if prog.cost:
                 seg += f" | cost: {prog.cost}"

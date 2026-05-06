@@ -10,6 +10,7 @@ provider, cost) than event rows.
 from __future__ import annotations
 
 import re
+from datetime import time
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -174,17 +175,19 @@ def _format_days(days: list[str]) -> str:
     return ", ".join(labels[:-1]) + f" & {labels[-1]}"
 
 
-def _format_hhmm(hhmm: str) -> str:
-    try:
-        h, m = (hhmm or "").split(":")
-        hour = int(h)
-        minute = int(m)
-    except ValueError:
-        return hhmm or ""
+def _format_hhmm(t: time | None) -> str:
+    """Format a ``time`` as 12-hour with AM/PM (e.g., 9:00 AM, 12:00 PM, 12:00 AM).
+
+    Tolerant of ``None`` (returns ``""``). Slice 54 (Backlog #30 step 2/4)
+    narrowed the input contract from ``str`` (HH:MM) to ``time | None`` as
+    part of the campaign reader migration; the output format is unchanged.
+    """
+    if t is None:
+        return ""
+    hour = t.hour
+    minute = t.minute
     ampm = "AM" if hour < 12 else "PM"
-    h12 = hour % 12
-    if h12 == 0:
-        h12 = 12
+    h12 = hour % 12 or 12
     return f"{h12}:{minute:02d} {ampm}"
 
 
@@ -206,8 +209,8 @@ def _format_cost(p: Program) -> str | None:
 def _program_card(p: Program) -> str:
     days = _format_days(list(p.schedule_days or []))
     when = (
-        f"Every {days} • {_format_hhmm(p.schedule_start_time)} – "
-        f"{_format_hhmm(p.schedule_end_time)}"
+        f"Every {days} • {_format_hhmm(p.schedule_start_time_typed)} – "
+        f"{_format_hhmm(p.schedule_end_time_typed)}"
     )
     lines = [
         f"🗓 {when}",
