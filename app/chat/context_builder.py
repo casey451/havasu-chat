@@ -117,10 +117,11 @@ def build_context_for_tier3(query: str, intent_result: IntentResult, db: Session
                 ages = f"{prog.age_min if prog.age_min is not None else '?'}-{prog.age_max if prog.age_max is not None else '?'}"
             else:
                 ages = "n/a"
-            # Slice 54 (Backlog #30 step 2/4): read typed columns + strftime;
-            # per-side None handling preserves pre-migration byte format.
-            sched_st = prog.schedule_start_time_typed
-            sched_et = prog.schedule_end_time_typed
+            # Slice 56 (Backlog #30 close): canonical schedule columns are typed
+            # Time; strftime to HH:MM. None-guard kept from Slice 54 as cheap
+            # resilience even though the columns are now nullable=False.
+            sched_st = prog.schedule_start_time
+            sched_et = prog.schedule_end_time
             sched_st_s = sched_st.strftime("%H:%M") if sched_st is not None else ""
             sched_et_s = sched_et.strftime("%H:%M") if sched_et is not None else ""
             seg = (

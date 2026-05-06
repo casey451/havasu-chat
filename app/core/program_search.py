@@ -209,8 +209,8 @@ def _format_cost(p: Program) -> str | None:
 def _program_card(p: Program) -> str:
     days = _format_days(list(p.schedule_days or []))
     when = (
-        f"Every {days} • {_format_hhmm(p.schedule_start_time_typed)} – "
-        f"{_format_hhmm(p.schedule_end_time_typed)}"
+        f"Every {days} • {_format_hhmm(p.schedule_start_time)} – "
+        f"{_format_hhmm(p.schedule_end_time)}"
     )
     lines = [
         f"🗓 {when}",

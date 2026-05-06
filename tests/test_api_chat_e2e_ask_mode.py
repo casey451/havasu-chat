@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import time
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -46,8 +47,8 @@ def _program_for_provider(provider: Provider, **kwargs: object) -> Program:
         "description": "Twenty characters minimum description.",
         "activity_category": "sports",
         "schedule_days": ["Saturday"],
-        "schedule_start_time": "09:00",
-        "schedule_end_time": "10:00",
+        "schedule_start_time": time(9, 0),
+        "schedule_end_time": time(10, 0),
         "location_name": "Lake Havasu City",
         "provider_name": provider.provider_name,
         "provider_id": provider.id,

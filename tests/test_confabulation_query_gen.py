@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import time
 
 from sqlalchemy.orm import Session
 
@@ -41,8 +42,8 @@ def _prog(db: Session, *, title: str, provider: Provider) -> Program:
         description="Twenty character minimum. Program desc.",
         activity_category="arts",
         schedule_days=["saturday"],
-        schedule_start_time="10:00",
-        schedule_end_time="11:00",
+        schedule_start_time=time(10, 0),
+        schedule_end_time=time(11, 0),
         location_name="Lake Havasu City",
         provider_name=provider.provider_name,
         provider_id=provider.id,

@@ -20,7 +20,7 @@ from sqlalchemy import (
     false,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 from app.schemas.event import EventCreate
@@ -197,17 +197,13 @@ class Program(Base):
     age_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
     age_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
     schedule_days: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
-    schedule_start_time: Mapped[str] = mapped_column(String(5), nullable=False)
-    schedule_end_time: Mapped[str] = mapped_column(String(5), nullable=False)
-    # Slice 53 (Backlog #30, schema time-type harmonization): typed shadow columns
-    # populated via the @validates decorator below. Strings remain the source of
-    # truth through Slices 53-55; Slice 56 drops the strings and renames these
-    # typed columns to schedule_start_time / schedule_end_time so reader code
-    # that uses program.schedule_start_time keeps working unchanged (just gets a
-    # time object instead of a str). Nullable during the campaign so existing
-    # rows backfill cleanly without violating constraints.
-    schedule_start_time_typed: Mapped[time | None] = mapped_column(Time, nullable=True)
-    schedule_end_time_typed: Mapped[time | None] = mapped_column(Time, nullable=True)
+    # Slice 56 (Backlog #30 close): canonical schedule columns are typed Time.
+    # The campaign's transient String(5) source columns and `*_typed` shadow
+    # columns are dropped and renamed (respectively) by the Slice 56 migration;
+    # ProgramCreate's @field_validator(mode='before') parses HH:MM strings from
+    # API/form callers into time objects at the schema boundary.
+    schedule_start_time: Mapped[time] = mapped_column(Time, nullable=False)
+    schedule_end_time: Mapped[time] = mapped_column(Time, nullable=False)
     location_name: Mapped[str] = mapped_column(String, nullable=False)
     location_address: Mapped[str | None] = mapped_column(String, nullable=True)
     cost: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -240,39 +236,6 @@ class Program(Base):
     admin_review_by: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     provider: Mapped["Provider | None"] = relationship(back_populates="programs")
-
-    @validates("schedule_start_time", "schedule_end_time")
-    def _sync_typed_time(self, key: str, value: str) -> str:
-        """Dual-write the matching ``*_typed`` column whenever a schedule string is set.
-
-        Slice 53 transient (Backlog #30): the string columns remain the source of
-        truth through Slices 53-55; this validator keeps
-        ``schedule_start_time_typed`` / ``schedule_end_time_typed`` in sync at
-        every ORM writer (constructor kwarg or attribute assignment). Slice 56
-        will drop the strings and rename the typed columns to the canonical
-        names (``schedule_start_time`` / ``schedule_end_time``) so reader code
-        keeps working unchanged. Bypassed only by raw
-        ``db.execute(update(Program)...)`` writers, of which there are currently
-        zero in the codebase.
-
-        Malformed input (rare — the Pydantic validator at
-        ``app/schemas/program.py`` enforces ``HH:MM`` zero-padded strings before
-        the ORM ever sees them) leaves the typed column at ``None`` rather than
-        raising; the malformed string sits as-is and surfaces in the next read.
-        """
-        target_attr = (
-            "schedule_start_time_typed"
-            if key == "schedule_start_time"
-            else "schedule_end_time_typed"
-        )
-        if value is None or value == "":
-            setattr(self, target_attr, None)
-        else:
-            try:
-                setattr(self, target_attr, time.fromisoformat(value))
-            except ValueError:
-                setattr(self, target_attr, None)
-        return value
 
 
 class Contribution(Base):

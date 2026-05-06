@@ -320,12 +320,12 @@ def _program_dict(p: Program) -> dict[str, Any]:
     if p.age_min is not None or p.age_max is not None:
         ages = f"{p.age_min if p.age_min is not None else '?'}-{p.age_max if p.age_max is not None else '?'}"
     loc = _program_location_display(p.location_name, p.location_address)
-    # Slice 54 (Backlog #30 step 2/4): read schedule_*_time_typed (Time) and
-    # strftime to HH:MM. Each side handled independently so a NULL typed bound
-    # renders as "" — matches pre-migration where empty source-string bounds
-    # produced "-end" / "start-" / "-" outputs respectively.
-    sched_st = p.schedule_start_time_typed
-    sched_et = p.schedule_end_time_typed
+    # Slice 56 (Backlog #30 close): canonical schedule columns are typed Time;
+    # strftime to HH:MM. The defensive None-guards survive from Slice 54 — they
+    # cost nothing and protect against future schema drift even though the
+    # post-Slice-56 columns are nullable=False.
+    sched_st = p.schedule_start_time
+    sched_et = p.schedule_end_time
     sched_st_s = sched_st.strftime("%H:%M") if sched_st is not None else ""
     sched_et_s = sched_et.strftime("%H:%M") if sched_et is not None else ""
     out: dict[str, Any] = {

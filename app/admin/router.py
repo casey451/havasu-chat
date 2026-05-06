@@ -903,8 +903,8 @@ def _hhmm_or_empty(t: time | None) -> str:
 def _program_card_admin_html(p: Program) -> str:
     schedule_line = (
         f"Every {_format_schedule_days_admin(list(p.schedule_days or []))}"
-        f" • {html.escape(_hhmm_or_empty(p.schedule_start_time_typed))}"
-        f"–{html.escape(_hhmm_or_empty(p.schedule_end_time_typed))}"
+        f" • {html.escape(_hhmm_or_empty(p.schedule_start_time))}"
+        f"–{html.escape(_hhmm_or_empty(p.schedule_end_time))}"
     )
     age_line = _format_program_age(p)
     cost_line = (p.cost or "").strip() or "—"
@@ -1077,8 +1077,18 @@ def _program_form_html(
             "age_min": "" if program.age_min is None else str(program.age_min),
             "age_max": "" if program.age_max is None else str(program.age_max),
             "schedule_days": list(program.schedule_days or []),
-            "schedule_start_time": program.schedule_start_time or "",
-            "schedule_end_time": program.schedule_end_time or "",
+            # Slice 56 (Backlog #30 close): canonical schedule columns are
+            # typed Time; format for HTML form display.
+            "schedule_start_time": (
+                program.schedule_start_time.strftime("%H:%M")
+                if program.schedule_start_time
+                else ""
+            ),
+            "schedule_end_time": (
+                program.schedule_end_time.strftime("%H:%M")
+                if program.schedule_end_time
+                else ""
+            ),
             "location_name": program.location_name or "",
             "location_address": program.location_address or "",
             "cost": program.cost or "",
@@ -1850,8 +1860,8 @@ def _queue_program_item_html(p: Program, db: Session) -> str:
     flag_html = _red_flag_pills_html(flags)
     days = _format_schedule_days_admin(list(p.schedule_days or []))
     schedule = (
-        f"Every {days} • {_escape(_hhmm_or_empty(p.schedule_start_time_typed))}"
-        f"–{_escape(_hhmm_or_empty(p.schedule_end_time_typed))}"
+        f"Every {days} • {_escape(_hhmm_or_empty(p.schedule_start_time))}"
+        f"–{_escape(_hhmm_or_empty(p.schedule_end_time))}"
     )
     link_bits = [
         _escape(x) for x in (p.contact_url, p.contact_email, p.contact_phone) if x

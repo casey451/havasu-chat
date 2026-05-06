@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, time
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
 _VALID_DAYS = {
     "monday",
@@ -25,8 +25,8 @@ class ProgramBase(BaseModel):
     age_min: int | None = None
     age_max: int | None = None
     schedule_days: list[str] = Field(default_factory=list)
-    schedule_start_time: str
-    schedule_end_time: str
+    schedule_start_time: time
+    schedule_end_time: time
     location_name: str
     location_address: str | None = None
     cost: str | None = None
@@ -88,12 +88,22 @@ class ProgramBase(BaseModel):
             raise ValueError("Location must be at least 3 characters long.")
         return v
 
-    @field_validator("schedule_start_time", "schedule_end_time")
+    @field_validator("schedule_start_time", "schedule_end_time", mode="before")
     @classmethod
-    def validate_hhmm(cls, v: str) -> str:
-        if not isinstance(v, str) or not _HHMM_RE.match(v):
-            raise ValueError("Schedule times must be in HH:MM format (e.g. 09:00).")
-        return v
+    def parse_hhmm(cls, v: object) -> time:
+        """Slice 56 (Backlog #30 close): accept HH:MM strings from API/form
+        callers and convert to ``datetime.time`` for the typed ORM column.
+
+        Direct ``time`` instances pass through unchanged. Replaces the prior
+        ``validate_hhmm`` string-only validator and the campaign's transient
+        ``@validates`` ORM-layer dual-write — string-to-time conversion now
+        happens at the schema boundary, not the model.
+        """
+        if isinstance(v, time):
+            return v
+        if isinstance(v, str) and _HHMM_RE.match(v):
+            return time.fromisoformat(v)
+        raise ValueError("Schedule times must be in HH:MM format (e.g. 09:00).")
 
     @field_validator("schedule_days")
     @classmethod
@@ -158,3 +168,12 @@ class ProgramRead(ProgramBase):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("schedule_start_time", "schedule_end_time")
+    def serialize_hhmm(self, v: time) -> str:
+        """Slice 56 (Backlog #30 close): serialize ``time`` as ``HH:MM`` to
+        preserve the pre-campaign API wire format. Pydantic 2's default
+        ``time`` serializer produces ``HH:MM:SS``; existing API consumers
+        (``tests/test_programs.py:134-135`` and any external client following
+        the same shape) expect zero-second-suffix output."""
+        return v.strftime("%H:%M")
