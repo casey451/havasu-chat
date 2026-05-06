@@ -1,9 +1,9 @@
 # `app/core/intent.py` module disposition — decision
 
-**Date:** 2026-05-06 (Slice 68).  
-**Author:** Doc slice (Cursor); Casey approval pending §7.  
-**Status:** Draft — awaiting Casey's §7 sign-off. Implementation campaign **OPEN** until then.  
-**Companion:** `docs/components/intent.md` (Slice 67b component inventory).
+**Date:** 2026-05-06 (Slice 68 decision; Slice 71 implementation).  
+**Author:** Casey / Cursor.  
+**Status:** Implemented (Slice 71 shipped 2026-05-06).  
+**Companion:** `docs/components/intent.md` (Slice 67b inventory; rewritten Slice 71).
 
 ## §1 Observation
 
@@ -126,3 +126,20 @@ Per-option work ships **only after** Casey signs §7. Slice numbers are placehol
 - **Option C:** Doc/commit review; CI unchanged (965 passed / 5 deselected baseline at Slice 68 ship).
 
 Per `docs/WORKING_AGREEMENT.md`, production verification applies when **user-visible behavior** changes (**A**, **B**, **D**); **C** is documentation-only if truly comment/doc touching.
+
+## §10 Outcome
+
+**Decision implemented at Slice 71.** Substantive deletion at **`a64be98ed68ebdc8aec60985b113a3ac60821173`**; Backlog #36 close and STATE close-out record companion SHAs in **`docs/BACKLOG.md`** / **`docs/STATE.md`**.
+
+**What landed:**
+
+- `app/core/intent.py` trimmed **654 → ~168 lines**. KEEP set: `detect_out_of_scope_category` plus `_commercial_services_query` and category/rescue constants; `open_ended_search_message` retained per §7.
+- `app/core/search.py` trimmed **~1,025 → ~25 lines**. KEEP set: `_deterministic_embedding_1536` only.
+- Test removals: `tests/test_calendar_intent.py` and `tests/test_phase5.py` deleted; `tests/test_phase3.py`, `test_phase8.py`, `test_phase8_5.py` trimmed to drop cascade/search-pipeline coverage; `tests/test_phase8_9_event_ranking.py` reduced to recurrence-only tests; `tests/test_phase87_privacy.py` dropped diagnostics tied to removed `emit_search_diag_embedding_block`. Pytest collection **965 → 921** (−**44** tests), **5 deselected** unchanged.
+- `.cursorrules` Phase **8.5** bullets updated for Tier 1 + unified router (also replaced stale `decide_search_strategy` / `LISTING_INTENT` references).
+- Component docs `docs/components/intent.md` and `search.md` rewritten to post-deletion scope.
+
+**Surprises vs sketch:**
+
+- After deleting the dormant `search.py` pipeline, **`open_ended_search_message` has no remaining `app/` importer**; it stays exported per explicit §7 “what stays” anyway.
+- Pytest fallout extended beyond the four files named in the Slice 71 bootstrap: **`test_phase5.py`** (whole file), **`test_phase8_9_event_ranking.py`** (search/recurrence split — recurrence-only retained), and **`test_phase87_privacy.py`** (removed tests that imported deleted `emit_search_diag_embedding_block`).

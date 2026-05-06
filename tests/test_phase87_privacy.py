@@ -108,54 +108,6 @@ def test_search_log_writes_when_verbose(monkeypatch: pytest.MonkeyPatch) -> None
     assert "SEARCH_EVENTS" in joined
 
 
-def test_emit_search_diag_embedding_block_respects_flag(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("SEARCH_DIAG_VERBOSE", raising=False)
-    printed: list[str] = []
-
-    def _capture(*args: object, **kwargs: object) -> None:
-        printed.extend(str(a) for a in args)
-
-    monkeypatch.setattr("builtins.print", _capture)
-    from app.core.search import emit_search_diag_embedding_block
-
-    class _Ev:
-        title = "E1"
-
-    emit_search_diag_embedding_block(
-        "TOP_SECRET",
-        is_specific_query=False,
-        embedding_from_openai=True,
-        effective_threshold=0.35,
-        with_emb=[(_Ev(), 0.5)],
-    )
-    assert printed == []
-
-
-def test_emit_search_diag_embedding_block_prints_when_verbose(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SEARCH_DIAG_VERBOSE", "true")
-    printed: list[str] = []
-
-    def _capture(*args: object, **kwargs: object) -> None:
-        printed.extend(str(a) for a in args)
-
-    monkeypatch.setattr("builtins.print", _capture)
-    from app.core.search import emit_search_diag_embedding_block
-
-    class _Ev:
-        title = "E1"
-
-    emit_search_diag_embedding_block(
-        "visible",
-        is_specific_query=True,
-        embedding_from_openai=True,
-        effective_threshold=0.55,
-        with_emb=[(_Ev(), 0.9)],
-    )
-    blob = "\n".join(printed)
-    assert "[search_diag]" in blob
-    assert "visible" in blob
-
-
 def test_privacy_route_200_and_markers() -> None:
     with TestClient(app) as client:
         r = client.get("/privacy")

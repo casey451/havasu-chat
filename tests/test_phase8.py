@@ -10,7 +10,6 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.core.extraction import _deterministic_embedding
-from app.core.intent import detect_intent, is_cancel_or_restart
 from app.core.session import (
     blocking_session_expired,
     clear_session_state,
@@ -40,18 +39,6 @@ class Phase8StabilizationTests(unittest.TestCase):
         clear_session_state("phase8-cancel")
         clear_session_state("phase8-stale")
         clear_session_state("phase8-health")
-
-    def test_single_word_activity_is_search(self) -> None:
-        self.assertEqual(detect_intent("golf"), "SEARCH_EVENTS")
-        self.assertEqual(detect_intent("Pickleball?"), "SEARCH_EVENTS")
-
-    def test_question_biases_to_search(self) -> None:
-        self.assertEqual(detect_intent("anything fun Saturday?"), "SEARCH_EVENTS")
-
-    def test_reset_cancels_word_boundary(self) -> None:
-        self.assertTrue(is_cancel_or_restart("please reset"))
-        self.assertTrue(is_cancel_or_restart("reset"))
-        self.assertFalse(is_cancel_or_restart("preset calibration"))
 
     def test_blocking_session_expires(self) -> None:
         sid = "phase8-stale"
