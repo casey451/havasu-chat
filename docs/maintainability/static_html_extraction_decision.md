@@ -94,7 +94,7 @@ Each slice runs parity verification (UI smoke + existing API interactions).
 
 ## §7 Decision
 
-Casey's call recorded here after review.
+Approved Option A on 2026-05-06. Extraction proceeds via JS-first (Slice 61), then CSS, then shell cleanup.
 
 ## §8 Verification posture for eventual extraction slices
 
