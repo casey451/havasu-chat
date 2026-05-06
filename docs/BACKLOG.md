@@ -607,7 +607,7 @@ Files touched (1):
 
 **Implementation queued (Slices 53–56, OPEN):**
 - **Slice 53 (SHIPPED `83d41f7`):** Add `schedule_start_time_typed` / `schedule_end_time_typed` columns alongside the existing strings; dual-write from every writer. Alembic migration (additive, nullable). ~10 files.
-- **Slice 54:** Migrate `app/chat/` + `app/core/` readers from string columns to typed columns. ~12 files; substantial test updates.
+- **Slice 54 (SHIPPED `13883da`):** Migrate `app/chat/` + `app/core/` readers from string columns to typed columns. ~12 files; substantial test updates.
 - **Slice 55:** Migrate `app/admin/` readers + form handling. ~6 files; admin-template updates.
 - **Slice 56:** Drop `schedule_start_time` / `schedule_end_time`; remove dual-write; rename typed columns to canonical names. Alembic migration.
 
