@@ -606,7 +606,7 @@ Files touched (1):
 **Resolution shipped (decision):** Slice 52 — `docs/maintainability/schema_time_harmonization_decision.md` documents the inconsistency, surveys options A (big-bang migration), B (phased migration with dual-write), C (application-layer compatibility via Python `@property`), D (do nothing); recommends Option B; sketches the four-slice implementation campaign in §5. **Casey's §7 decision (2026-05-05): Option B.** Indexed in `docs/maintainability/project_index.md`.
 
 **Implementation queued (Slices 53–56, OPEN):**
-- **Slice 53:** Add `start_time_typed` / `end_time_typed` columns alongside the existing strings; dual-write from every writer. Alembic migration (additive, nullable). ~10 files.
+- **Slice 53 (SHIPPED `83d41f7`):** Add `start_time_typed` / `end_time_typed` columns alongside the existing strings; dual-write from every writer. Alembic migration (additive, nullable). ~10 files.
 - **Slice 54:** Migrate `app/chat/` + `app/core/` readers from string columns to typed columns. ~12 files; substantial test updates.
 - **Slice 55:** Migrate `app/admin/` readers + form handling. ~6 files; admin-template updates.
 - **Slice 56:** Drop `schedule_start_time` / `schedule_end_time`; remove dual-write; rename typed columns to canonical names. Alembic migration.
