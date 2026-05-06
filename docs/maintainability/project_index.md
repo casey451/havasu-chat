@@ -135,6 +135,12 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `docs/components/database.md` | Component note for SQLAlchemy engine, SessionLocal, Base, get_db, init_db Alembic bootstrap. | Current |
 | `docs/components/llm_mention_store.md` | Component note for LLM mention queue persistence (create/list/dismiss/promote; IntegrityError dedupe). | Current |
 | `docs/components/models.md` | Component note for ORM schema source of truth (all mapped tables, relationships, indexes, migration pointers). | Current |
+| `docs/components/programs_router.md` | Component note for `/programs` JSON + `/programs/submit` HTML router (slowapi limits, ProgramCreate wiring). | Current |
+| `docs/components/schema_chat.md` | Component note for concierge/onboarding/feedback Pydantic models (`app/schemas/chat.py`). | Current |
+| `docs/components/schema_contribution.md` | Component note for Contribution intake/approval/API schemas (`app/schemas/contribution.py`). | Current |
+| `docs/components/schema_event.md` | Component note for EventCreate/EventRead and loose URL + phone validators (`app/schemas/event.py`). | Current |
+| `docs/components/schema_llm_mention.md` | Component note for LLM mention admin JSON schemas (`app/schemas/llm_mention.py`). | Current |
+| `docs/components/schema_program.md` | Component note for ProgramCreate/Read, HH:MM parsing/serialization (`app/schemas/program.py`; #30 campaign). | Current |
 | `docs/components/confabulation_query_gen.md` | Component note for eval probe generation from live Provider/Program rows and fixed template sets. | Current |
 | `docs/components/confabulation_invoker.md` | Component note for in-process and HTTP invocation strategies plus normalized invocation result shape. | Current |
 | `docs/components/confabulation_evidence.md` | Component note for harness-only tier2_formatter monkeypatch capture seam. | Current |
