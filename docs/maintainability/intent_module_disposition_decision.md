@@ -109,10 +109,15 @@ Per-option work ships **only after** Casey signs §7. Slice numbers are placehol
 
 ## §7 Decision
 
-(PLACEHOLDER — Casey fills in.)
+**Decision: Option A approved on 2026-05-06 by Casey.**
 
-> Decision: Option ___ approved on YYYY-MM-DD by Casey.  
-> Rationale: …
+**Scope extension:** This disposition applies to both `app/core/intent.py` AND `app/core/search.py`. Slice 70's peer review of `search.md` surfaced that the search-pipeline surface (`search_events`, `format_search_results`, `search_events_keyword_only`, and supporting scoring/filtering helpers) has the same dormancy shape as the `intent.py` cascade — bypassed by the LLM-driven Tier 1/2/3 architecture, kept alive only by tests. Same architectural origin, same disposition.
+
+**Rationale:** The deterministic-template-era surface in `app/core/` has been bypassed by the LLM-driven Tier 1/2/3 chat architecture (`intent_classifier.py`, Tier 2 SQL retrieval in `tier2_db_query.py`, Tier 3 Anthropic Haiku in `tier3_handler.py`). Keeping the dormant code as fallback (Option B) carries ongoing maintenance and architectural-confusion cost without a clear operational trigger; documenting it dormant (Option C) defers the question without resolving it. The clean end state — delete the dormant surface, the test files exercising only-dead helpers, the stale `.cursorrules` reference — fits the project's recent shipping pattern (schema cleanup in #30, static-html extraction in #31).
+
+**What stays:** Live functions `detect_out_of_scope_category` (used by `app/chat/intent_classifier.py`) and `open_ended_search_message` (used by `search.py`). Live function `_deterministic_embedding_1536` (used by `app/admin/router.py`). Plus any helpers these three functions genuinely depend on. Implementation slice's Step 0 audit confirms the keep-set before any deletion.
+
+**Implementation:** Slice 71 drafts the deletion campaign (single slice; pre-flight verifies pytest count delta matches the deleted test count; ruff stays clean; component docs `intent.md` and `search.md` get updated to reflect the post-deletion state).
 
 ## §8 Verification posture
 
