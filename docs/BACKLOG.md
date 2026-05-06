@@ -645,7 +645,7 @@ Decision outcome:
 
 - §7 Option A approved by Casey on 2026-05-06 (`7d57876`).
 - Step 1/3 (JS module split) shipped Slice 61 at `65f71e8` — see Backlog #33.
-- Step 2/3 (CSS extraction) PENDING.
+- Step 2/3 (CSS extraction) shipped Slice 63 at `17b679e` — see Backlog #34.
 - Step 3/3 (shell cleanup + window-bridge refactor + doc sync) PENDING.
 
 **Severity:** LOW (doc-only planning slice; no runtime behavior change).
@@ -697,6 +697,34 @@ Decision outcome:
 **Cross-reference:** Step 1/3 of the Backlog #31 campaign. Decision-doc Option A was approved at §7 on 2026-05-06 in precursor commit `7d57876`. Step 2/3 (CSS extraction to `app/static/styles/`) and Step 3/3 (shell cleanup + `window.havasuChatCalendar` bridge refactor to explicit imports + naming) remain PENDING.
 
 **Production verification (Casey-driven, post-deploy):** manual UI smoke against the live Railway URL covering the same features as local Step 4. Watch specifically for `/static/js/*.js` returning 200 (Railway's StaticFiles serving differs from local in some configs) and a clean browser console. Roll back via `git revert 65f71e8` if any feature regresses; the inline script returns intact.
+
+**Production verified 2026-05-06 (Casey):** both `/static/js/*.js` returned 200 from Railway, console clean, full functional smoke (chips, chat send/receive, calendar open/select/inject/close) end-to-end green. The `StaticFiles` mount works in Railway's container; this empirical pass clears the precondition for Slice 63 (CSS extraction).
+
+---
+
+## Backlog 34 - Static-html extraction campaign step 2/3: CSS to /static/styles (**RESOLVED**)
+
+**Issue:** Step 2 of 3 of the static-html extraction campaign (parent: Backlog #31, Option A approved 2026-05-06). After Slice 61 lifted the JS to `app/static/js/`, `app/static/index.html` still embedded ~395 lines of inline CSS in a `<style>` block. Extraction to a sibling `app/static/styles/index.css` continues the §5 sketch's vanilla-split-assets path; preserves the deploy-as-static-FileResponse model.
+
+**Resolution shipped:** `17b679e` — CSS extraction with byte-equivalent rendered behavior:
+
+- `app/static/styles/index.css` (new, 9767 bytes total): 393 body lines (the inline `<style>` block content, original lines 8–400) copied verbatim — selectors, rules, media queries, no transformation, no minification, no preprocessor — plus a 6-line `/* ... */` traceability header pointing back to the source location.
+- `app/static/index.html`: 439 → 45 lines (-9493 bytes). Inline `<style>...</style>` block (lines 7–401) replaced by a single `<link rel="stylesheet" href="/static/styles/index.css" />` in the same head position between `<title>` and `</head>`. Absolute href so the path holds even if the chat UI is later mounted under a subroute.
+- `app/main.py`: NOT touched. Slice 61's `app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")` already serves `/static/styles/*` via natural subdirectory traversal; curl-probed at Step 1 to confirm 200 + `text/css; charset=utf-8`.
+
+**Behavior parity verification (load-bearing):**
+
+- `GET /` response diff: common prefix 192 bytes (HTML head through the leading `<` of the swap), removed 9548 bytes (the inline `<style>...</style>` block content + closing tag), added 55 bytes (the `<link rel="stylesheet" ...>` tag), common suffix 1734 bytes (everything from the tag-closing `>` onward — `</head>`, `<body>`, the entire body content, the two module script tags, `</body>`, `</html>`). Zero accidental drift; only the style→link delta.
+- `GET /static/styles/index.css`: HTTP 200, 9767 bytes, content-type `text/css; charset=utf-8`.
+- Local UI smoke (Step 4, Casey-driven): chat shell, onboarding chips, message bubbles, calendar grid + day-detail cards, mobile responsive layout all visually identical pre and post; browser console clean; Network tab shows the stylesheet 200 with initiator `index.html`.
+- `python -m pytest -q -m "not integration"`: **965 passed, 5 deselected** (unchanged from Slice 61 baseline).
+- `python -m ruff check`: All checks passed.
+
+**Severity:** LOW (visual parity only; no behavior change; no Python touched; no JS touched). Smaller blast radius than Slice 61 — extraction is mechanical-verbatim copy and the failure modes are visually-detectable rather than runtime-corruption-shaped.
+
+**Cross-reference:** Step 2/3 of the Backlog #31 campaign. Pre-flight required Slice 61 to have been production-verified (it was, 2026-05-06) because this slice leans on Slice 61's `StaticFiles` mount. Step 3/3 (shell cleanup + `window.havasuChatCalendar` bridge refactor to explicit imports + naming) remains PENDING.
+
+**Production verification (Casey-driven, post-deploy):** manual UI smoke against the live Railway URL covering chat shell visual fidelity. Watch specifically for `/static/styles/index.css` returning 200 (Railway already passed the parallel test on `/static/js/*.js` at Slice 61, so the same `StaticFiles` mount handling subdirectories should hold for CSS) and a clean browser console. Roll back via `git revert 17b679e` if any visual regression appears; the inline `<style>` block returns intact.
 
 ---
 
