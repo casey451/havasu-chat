@@ -19,6 +19,7 @@ from urllib.parse import urlparse
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
@@ -280,6 +281,7 @@ app.include_router(admin_mentions_router)
 app.include_router(programs_router)
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
+app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 
 
 def _format_event_datetime(event: Event) -> str:
