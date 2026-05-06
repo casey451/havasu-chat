@@ -19,7 +19,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
-f5ae3d5 docs(STATE): close-out Slice 71 intent + search deletion (Campaign #36 closed)
+a7c637f docs(STATE): close-out Slice 71 intent + search deletion (Campaign #36 closed)
 f8a5126 docs(BACKLOG): close #36 — intent + search dormant surface deleted (Slice 71)
 cbe1779 docs(decision): fix Slice 71 §10 substantive SHA after amend
 c8cc2db refactor(core): delete dormant intent + search surface (Slice 71, #36 close)
