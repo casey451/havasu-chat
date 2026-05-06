@@ -40,7 +40,7 @@ One Alembic migration converts `schedule_start_time` and `schedule_end_time` fro
 
 ### Option B — Phased migration
 
-Add new `start_time_typed` and `end_time_typed` columns alongside the existing strings. Dual-write from every writer. Migrate readers tier by tier (admin → chat → core helpers → tests). Once all readers consume the typed columns, drop the strings in a final cleanup slice.
+Add new `schedule_start_time_typed` and `schedule_end_time_typed` columns alongside the existing strings. Dual-write from every writer. Migrate readers tier by tier (admin → chat → core helpers → tests). Once all readers consume the typed columns, drop the strings in a final cleanup slice.
 
 **Pros.** Each slice ships independently. No moment where readers and writers are out of sync. Production risk is small per slice. Rollback is a single revert.
 
@@ -77,7 +77,7 @@ The phased plan is sketched in §5. Slice 53 starts the implementation only afte
 
 | Slice | Subject                                                  | Footprint                                                                  |
 | ----- | -------------------------------------------------------- | -------------------------------------------------------------------------- |
-| 53    | Add `start_time_typed` / `end_time_typed`; dual-write    | Alembic migration (additive, nullable); update all writers (~10 files)     |
+| 53    | Add `schedule_start_time_typed` / `schedule_end_time_typed`; dual-write | Alembic migration (additive, nullable); update all writers (~10 files)     |
 | 54    | Migrate `app/chat/` + `app/core/` readers to typed cols  | ~12 files; lots of test updates                                            |
 | 55    | Migrate `app/admin/` readers + form handling             | ~6 files; admin-template updates                                           |
 | 56    | Drop `schedule_start_time` / `schedule_end_time`; rename | Alembic migration; remove dual-write; rename typed cols to canonical names |
