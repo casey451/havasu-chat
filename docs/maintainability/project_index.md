@@ -109,6 +109,11 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `docs/components/llm_messages.md` | Component note for the H2 Anthropic-Messages-API consolidation helper (sole Anthropic call site; mock-seam invariants documented). | Current |
 | `docs/components/admin_auth.md` | Component note for admin cookie-gate auth (`app/admin/auth.py`) — security-sensitive; documents threat model. | Current |
 | `docs/components/admin_router.md` | Component note for the admin router (`app/admin/router.py`) — overview, route inventory, conventions; pairs with admin_auth.md. | Current |
+| `docs/components/admin_categories_html.md` | Component note for the admin categories listing renderer. | Current |
+| `docs/components/admin_contributions_html.md` | Component note for the contribution review HTML surface (form, submit/approve/reject paths, ProgramApprovalFields writer). | Current |
+| `docs/components/admin_feedback_html.md` | Component note for the admin feedback page (Tier-3 thumb signal aggregation). | Current |
+| `docs/components/admin_mentions_html.md` | Component note for the Tier-3 LLM-mention review surface. | Current |
+| `docs/components/admin_nav_html.md` | Component note for the shared admin nav fragment. | Current |
 | `docs/components/mention_scanner.md` | Component note for Tier 3 mention scanner (Path 3 catalog-creation feedback loop; title-case entity extraction with stop-list filtering). | Current |
 | `docs/components/event_quality.md` | Component note for the FastAPI request-validation pretty-printer (`friendly_errors` for ConciergeChatRequest); post-Slice-21 minimal surface. | Current |
 | `docs/components/rate_limit.md` | Component note for the shared slowapi `Limiter` (per-IP request budgets; env-toggleable for tests). | Current |
