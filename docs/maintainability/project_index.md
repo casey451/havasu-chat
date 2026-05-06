@@ -119,6 +119,11 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `docs/components/entity_matcher.md` | Component note for fuzzy provider-name matching (`token_set_ratio` > 75 against Program.provider_name; CANONICAL_EXTRAS alias map). | Current |
 | `docs/components/local_voice_matcher.md` | Component note for curated-blurb matching (Phase 6.5-lite; whole-word keyword scoring + season/hint filters). | Current |
 | `docs/components/context_builder.md` | Component note for Tier 3 catalog context assembly (provider-first; word-budget capped; entity-matched first). | Current |
+| `docs/components/confabulation_query_gen.md` | Component note for eval probe generation from live Provider/Program rows and fixed template sets. | Current |
+| `docs/components/confabulation_invoker.md` | Component note for in-process and HTTP invocation strategies plus normalized invocation result shape. | Current |
+| `docs/components/confabulation_evidence.md` | Component note for harness-only tier2_formatter monkeypatch capture seam. | Current |
+| `docs/components/confabulation_detector.md` | Component note for Layer 1 advisory + Layer 2/3 gating confabulation detection logic. | Current |
+| `docs/components/confabulation_report.md` | Component note for JSONL/CSV/Markdown report writers and inclusion-policy summary logic. | Current |
 
 ### Maintainability and retrospectives (current)
 
