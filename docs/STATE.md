@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): tick #18 Phase C eval component-doc batch (Slice 57)** · short SHA **`60c60eb`** (2026-05-06); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway's deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit). Prior substantive production deployment remains Slice 56 (`632215d`) for schema time-type harmonization closeout; this Slice 57 ship is doc-only.
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): file + close #31 (static index extraction decision)** · short SHA **`f36bb8e`** (2026-05-06); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway's deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit). Prior substantive production deployment remains Slice 56 (`632215d`) for schema time-type harmonization closeout; this Slice 58 ship is doc-only.
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+f36bb8e docs(BACKLOG): file + close #31 (static index extraction decision)
+13c5633 docs(decision): static index.html extraction strategy (Slice 58)
 60c60eb docs(BACKLOG): tick #18 Phase C eval component-doc batch (Slice 57)
 133d83e docs(components): add app/eval confabulation harness doc batch (Slice 57)
 a8fcbf5 docs(BACKLOG): close #30 campaign + decision-doc Outcome (Slice 56)
@@ -29,11 +31,11 @@ b3ca35d refactor(admin): consume schedule_*_time_typed (Slice 55)
 13883da refactor(chat,core): consume schedule_*_time_typed (Slice 54)
 d8de5e3 docs(BACKLOG): tick #30 Slice 53 shipped (83d41f7)
 83d41f7 feat(programs): typed time columns + @validates dual-write (Slice 53)
-277ce05 docs(decision): schema time-type harmonization decision (Slice 52)
-1c28846 docs(BACKLOG): file + close #29 (templating extraction, Slice 51)
 ```
 
 ## Recently shipped (high signal)
+
+- **`13c5633`..`f36bb8e`** — **Static index extraction decision filed/closed (Slice 58, Backlog #31)** — Added `docs/maintainability/static_html_extraction_decision.md` as a decision-doc-only slice for `app/static/index.html` extraction planning. Doc characterizes the current monolith from source (1133-line single file, inline CSS + two IIFEs with `window.havasuChatCalendar` bridge and `/api/chat`, `/api/chat/onboarding`, `/api/chat/feedback`, `/events` call surfaces), surveys five options (vanilla split assets, SPA, lightweight reactive, JS-only split, status quo), and recommends **Option A** as the lowest-blast-radius path. Recommendation rationale explicitly preserves the static deploy model (`FileResponse`), distinguishing this from Slice 51's Jinja2 extraction precedent in `main.py`. `project_index.md` gained the maintainability row; Backlog #31 filed and marked RESOLVED in the same slice. Doc-only ship; no runtime behavior changes.
 
 - **`133d83e`..`60c60eb`** — **Phase C component-docs growth: `app/eval/` confabulation harness batch (Slice 57)** — Added five component docs: `docs/components/confabulation_query_gen.md`, `docs/components/confabulation_invoker.md`, `docs/components/confabulation_evidence.md`, `docs/components/confabulation_detector.md`, and `docs/components/confabulation_report.md`. Coverage captures the full harness path (probe generation → invocation modes → Tier 2 evidence capture seam → Layer 1/2/3 detection → JSONL/CSV/summary report writers), includes the `InvocationResult` name-collision adapter note between invoker and detector shapes, and documents direct callers/tests per module. `docs/maintainability/project_index.md` gained five rows in the component index. Follow-up bookkeeping in `docs/BACKLOG.md` ticks Backlog #18 Phase C component-doc growth inventory with Slice 57 commit `133d83e`. Doc-only ship; no runtime code path changes.
 
