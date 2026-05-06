@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** Slice **62** close-out (2026-05-06). Substantive component-doc batch **`4224433`** (six `app/contrib` helper docs + six `project_index.md` rows). Backlog #18 Phase C inventory tick **`eadb35f`**. This revision updates **`docs/STATE.md`** only — doc-only; no `app/` or `tests/` change. **After `git push`,** confirm Railway's deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit). Prior substantive production deployment remains Slice 56 (`632215d`) for schema time-type harmonization closeout.
+- **Repo `main` @ this STATE update:** Slice **61** close-out (2026-05-06). **Substantive ship** at **`65f71e8`** (chat-UI JS lifted from `app/static/index.html` into `app/static/js/chat.js` + `app/static/js/calendar.js`; `StaticFiles` mount added to `app/main.py`); §7 Option A approval precursor at **`7d57876`**; Backlog #33 file/close at **`90ae1a9`**. This revision updates **`docs/STATE.md`** only. **After `git push`,** confirm Railway's deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit). **Prior substantive production deployment was Slice 61 itself** (this slice is the most recent behavior-affecting ship; before it, Slice 56 (`632215d`) for schema time-type harmonization closeout). Slice 60 / 62 (parallel-session app/admin and app/contrib component-doc batches at `99d3ecb` / `4224433`) shipped between Slice 59 and Slice 61 but are doc-only.
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,24 +19,25 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+90ae1a9 docs(BACKLOG): file + close #33 (Slice 61 JS extraction); annotate #31 progression
+65f71e8 refactor(static): extract JS to ES modules (Slice 61, #31 step 1/3)
+c376089 docs(STATE): close-out Slice 62 app/contrib component-doc batch
 eadb35f docs(BACKLOG): tick #18 Phase C contrib batch (Slice 62)
 4224433 docs(components): app/contrib doc gap-fill batch (Slice 62)
+60be2ad docs(BACKLOG,STATE): Slice 60 Phase C inventory + STATE close-out
 99d3ecb docs(components): admin HTML-helper batch (Slice 60, app/admin/ close)
+7d57876 docs(decision): record Option A approval (Slice 58 §7)
+ef626c7 docs(STATE): close-out for Slice 59 CI hardening + gh CLI verify docs
 bab4619 docs(BACKLOG): file + close #32 (CI hardening, Slice 59); tick #18 Phase D
 7f30faf chore(ci): concurrency group + gh CLI verify docs (Slice 59, #18 Phase D)
 635b3a2 docs(STATE): close-out for Slice 58 static extraction decision
 f36bb8e docs(BACKLOG): file + close #31 (static index extraction decision)
 13c5633 docs(decision): static index.html extraction strategy (Slice 58)
-8cc98a5 docs(STATE): close-out for Slice 57 app/eval component-doc batch
-60c60eb docs(BACKLOG): tick #18 Phase C eval component-doc batch (Slice 57)
-133d83e docs(components): add app/eval confabulation harness doc batch (Slice 57)
-a8fcbf5 docs(BACKLOG): close #30 campaign + decision-doc Outcome (Slice 56)
-632215d feat(schema): drop strings, rename typed cols (Slice 56, #30 close)
-f691aa5 docs(BACKLOG): tick #30 Slice 55 shipped (b3ca35d)
-b3ca35d refactor(admin): consume schedule_*_time_typed (Slice 55)
 ```
 
 ## Recently shipped (high signal)
+
+- **`7d57876`..`90ae1a9`** — **Static-html extraction campaign step 1/3: JS to ES modules (Slice 61, Backlog #33; campaign parent #31)** — First implementation slice of the static-html extraction campaign approved at §7 of `docs/maintainability/static_html_extraction_decision.md` (Option A — vanilla split assets — recorded in precursor `7d57876` after Casey's 2026-05-06 approval). Lifts `app/static/index.html`'s ~696 lines of inline chat + calendar IIFEs into `app/static/js/chat.js` (443 lines, 13424 bytes; bare module — IIFE wrapper dropped because ES modules have their own scope) and `app/static/js/calendar.js` (262 lines, 9137 bytes; **IIFE wrapper preserved** because the body has a top-level `if (!overlay || !btn) return;` guard at original line 887 that cannot live at module top level). `index.html` collapses 1133 → 439 lines (-25085 bytes), with the inline `<script>...</script>` block replaced by two `<script type="module" src=...>` tags (calendar listed first to signal expected initialization order — calendar writes `window.havasuChatCalendar`, chat reads it defensively). `app/main.py` gains `from fastapi.staticfiles import StaticFiles` and `app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")` after `_STATIC_DIR` is defined; the mount was not previously configured. **No CSS touched** (the inline `<style>` block stays — CSS extraction is step 2/3). **No `shared.js`** — zero shared helpers between the two IIFEs at Step 0 audit. **Behavior parity verification (load-bearing):** GET `/` response diff shows common prefix 11345 bytes, removed 25224 bytes (the inline script block), added 103 bytes (two module tags), common suffix 26 bytes — zero accidental drift; only the script-block delta. `/static/js/calendar.js` returns HTTP 200 with 9137 bytes; `/static/js/chat.js` returns HTTP 200 with 13424 bytes. **Local UI smoke (Casey-driven, Step 4):** chat send/receive, onboarding chips (Visiting/Local → Yes/No → example prompts), Tier-3 thumb feedback, calendar open + select + event injection + Escape/click-outside close all worked identically pre and post; browser console clean, no JS errors. **Pytest 965 passed, 5 deselected** — unchanged from Slice 59 baseline. **Ruff clean.** The `window.havasuChatCalendar` cross-module bridge is preserved as a window global; refactor to explicit imports is deferred to step 3/3 of the campaign so each step has bounded blast radius. Step 8 production verification is Casey-driven post-deploy: manual UI smoke against Railway's live URL covering the same six checks, watching specifically for `/static/js/*.js` returning 200 and a clean browser console; rollback is `git revert 65f71e8` if any feature regresses.
 
 - **`4224433`** — **Phase C component-docs growth: `app/contrib/` helper batch (Slice 62)** — Six component docs cover enrichment orchestration, Places client + URL fetcher, hours structuring, River Scene pull orchestration, and Date-line parsing. With existing `river_scene`, `approval_service`, and `mention_scanner` notes, **`app/contrib/` component-doc coverage is 9/9.** **`docs/components/` holds ~40 notes.** Backlog inventory tick **`eadb35f`**. Doc-only ship.
 
