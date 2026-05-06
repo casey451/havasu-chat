@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): file + close #31 (static index extraction decision)** · short SHA **`f36bb8e`** (2026-05-06); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway's deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit). Prior substantive production deployment remains Slice 56 (`632215d`) for schema time-type harmonization closeout; this Slice 58 ship is doc-only.
+- **Repo `main` @ this STATE update:** tip subject **docs(BACKLOG): file + close #32 (CI hardening, Slice 59); tick #18 Phase D** · short SHA **`bab4619`** (2026-05-06); authoritative short SHA is the first line under **Recent commits** below. **After `git push`,** confirm Railway's deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit). Prior substantive production deployment remains Slice 56 (`632215d`) for schema time-type harmonization closeout; this Slice 59 ship is CI-config + docs only (no `app/` or `tests/` change). **CI verification (Slice 59 dogfood note):** the new `## CI verification` section recommends `gh run list --branch main --limit 1`; `gh` is not yet installed locally, so this close-out's CI verification will be browser dashboard until `winget install --id GitHub.cli` runs once.
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,21 +19,23 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+bab4619 docs(BACKLOG): file + close #32 (CI hardening, Slice 59); tick #18 Phase D
+7f30faf chore(ci): concurrency group + gh CLI verify docs (Slice 59, #18 Phase D)
+635b3a2 docs(STATE): close-out for Slice 58 static extraction decision
 f36bb8e docs(BACKLOG): file + close #31 (static index extraction decision)
 13c5633 docs(decision): static index.html extraction strategy (Slice 58)
+8cc98a5 docs(STATE): close-out for Slice 57 app/eval component-doc batch
 60c60eb docs(BACKLOG): tick #18 Phase C eval component-doc batch (Slice 57)
 133d83e docs(components): add app/eval confabulation harness doc batch (Slice 57)
 a8fcbf5 docs(BACKLOG): close #30 campaign + decision-doc Outcome (Slice 56)
 632215d feat(schema): drop strings, rename typed cols (Slice 56, #30 close)
 f691aa5 docs(BACKLOG): tick #30 Slice 55 shipped (b3ca35d)
 b3ca35d refactor(admin): consume schedule_*_time_typed (Slice 55)
-9e43edf docs(BACKLOG): tick #30 Slice 54 shipped (13883da)
-13883da refactor(chat,core): consume schedule_*_time_typed (Slice 54)
-d8de5e3 docs(BACKLOG): tick #30 Slice 53 shipped (83d41f7)
-83d41f7 feat(programs): typed time columns + @validates dual-write (Slice 53)
 ```
 
 ## Recently shipped (high signal)
+
+- **`7f30faf`..`bab4619`** — **CI hardening: concurrency group + `gh` CLI verify docs (Slice 59, Backlog #32, #18 Phase D extension)** — Two friction reductions for the CI workflow recurring across recent close-out reports. (a) `.github/workflows/ci.yml` gains a top-level `concurrency` block (sibling of `permissions:` / `jobs:`) keyed on `${{ github.workflow }}-${{ github.ref }}` with `cancel-in-progress: true`. New pushes cancel in-progress prior runs on the same ref; saves CI minutes when a slice ships its substantive → BACKLOG-tick → STATE-close-out sequence in quick succession (only the final run matters for `main`'s green-state). (b) `docs/WORKING_AGREEMENT.md` gains a new `## CI verification` section under the existing `## Verification` block, documenting `gh run list --branch main --limit 1 --json conclusion,headSha,databaseId` as the canonical post-push verification command, with install instructions for Windows (`winget install --id GitHub.cli`), macOS (`brew install gh`), and Linux. Section explicitly forbids declaring a slice shipped without verifying CI status. **Step 0 audit punted on inference** — `gh` is not installed locally so the gh-driven cache-hit audit wasn't runnable; `actions/setup-python@v5` + `cache: 'pip'` is canonical and `requirements.txt` has been stable since Slice 51 (`35cd6ac`), so cache hits should be the default on recent runs; first post-merge CI run is the empirical check. **No production touch; no code change.** Pytest unchanged at 965; ruff clean. Backlog #32 filed and resolved same-slice; #18 Phase D paragraph annotated with the Slice 59 extension reference. **Smoke-verify of the concurrency group is forward-looking** — the next slice's close-out push sequence is the first real test; if older runs show as cancelled in the dashboard, the config is working as intended. **Self-dogfood note:** this slice's own close-out CI verification falls back to the browser dashboard because `gh` isn't yet installed locally; the new docs cover the install for next time.
 
 - **`13c5633`..`f36bb8e`** — **Static index extraction decision filed/closed (Slice 58, Backlog #31)** — Added `docs/maintainability/static_html_extraction_decision.md` as a decision-doc-only slice for `app/static/index.html` extraction planning. Doc characterizes the current monolith from source (1133-line single file, inline CSS + two IIFEs with `window.havasuChatCalendar` bridge and `/api/chat`, `/api/chat/onboarding`, `/api/chat/feedback`, `/events` call surfaces), surveys five options (vanilla split assets, SPA, lightweight reactive, JS-only split, status quo), and recommends **Option A** as the lowest-blast-radius path. Recommendation rationale explicitly preserves the static deploy model (`FileResponse`), distinguishing this from Slice 51's Jinja2 extraction precedent in `main.py`. `project_index.md` gained the maintainability row; Backlog #31 filed and marked RESOLVED in the same slice. Doc-only ship; no runtime behavior changes.
 
