@@ -130,6 +130,11 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `docs/components/entity_matcher.md` | Component note for fuzzy provider-name matching (`token_set_ratio` > 75 against Program.provider_name; CANONICAL_EXTRAS alias map). | Current |
 | `docs/components/local_voice_matcher.md` | Component note for curated-blurb matching (Phase 6.5-lite; whole-word keyword scoring + season/hint filters). | Current |
 | `docs/components/context_builder.md` | Component note for Tier 3 catalog context assembly (provider-first; word-budget capped; entity-matched first). | Current |
+| `docs/components/chat_logging.md` | Component note for unified-router `chat_logs` inserts (`log_unified_route`; non-fatal failures). | Current |
+| `docs/components/contribution_store.md` | Component note for Contribution queue CRUD, URL normalization, and IP rate-limit counting helpers. | Current |
+| `docs/components/database.md` | Component note for SQLAlchemy engine, SessionLocal, Base, get_db, init_db Alembic bootstrap. | Current |
+| `docs/components/llm_mention_store.md` | Component note for LLM mention queue persistence (create/list/dismiss/promote; IntegrityError dedupe). | Current |
+| `docs/components/models.md` | Component note for ORM schema source of truth (all mapped tables, relationships, indexes, migration pointers). | Current |
 | `docs/components/confabulation_query_gen.md` | Component note for eval probe generation from live Provider/Program rows and fixed template sets. | Current |
 | `docs/components/confabulation_invoker.md` | Component note for in-process and HTTP invocation strategies plus normalized invocation result shape. | Current |
 | `docs/components/confabulation_evidence.md` | Component note for harness-only tier2_formatter monkeypatch capture seam. | Current |
