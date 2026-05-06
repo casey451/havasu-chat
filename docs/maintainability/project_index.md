@@ -155,6 +155,10 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `docs/components/confabulation_evidence.md` | Component note for harness-only tier2_formatter monkeypatch capture seam. | Current |
 | `docs/components/confabulation_detector.md` | Component note for Layer 1 advisory + Layer 2/3 gating confabulation detection logic. | Current |
 | `docs/components/confabulation_report.md` | Component note for JSONL/CSV/Markdown report writers and inclusion-policy summary logic. | Current |
+| `docs/components/extraction.md` | Component note for OpenAI-driven event-detail extraction with regex fallback (LLM-or-fallback two-path; embedding + tag generation). | Current |
+| `docs/components/slots.md` | Component note for structured search slot extraction (`date_range`, `activity_family`, `audience`, `location_hint`) + `QUERY_SYNONYMS` expansion. | Current |
+| `docs/components/intent.md` | Component note for deterministic template-layer intent detection (12 labels + `detect_intent` cascade; distinct from `app/chat/intent_classifier.py`). | Current |
+| `docs/components/search.md` | Component note for the core event-search pipeline (semantic + keyword retrieval; slot-driven strategy; specific-noun threshold raise; outcome flags). | Current |
 
 ### Maintainability and retrospectives (current)
 
