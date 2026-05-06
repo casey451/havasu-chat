@@ -79,7 +79,7 @@ The phased plan is sketched in §5. Slice 53 starts the implementation only afte
 | ----- | -------------------------------------------------------- | -------------------------------------------------------------------------- |
 | 53 (SHIPPED `83d41f7`)    | Add `schedule_start_time_typed` / `schedule_end_time_typed`; dual-write | Alembic migration (additive, nullable); update all writers (~10 files)     |
 | 54 (SHIPPED `13883da`)    | Migrate `app/chat/` + `app/core/` readers to typed cols  | ~12 files; lots of test updates                                            |
-| 55    | Migrate `app/admin/` readers + form handling             | ~6 files; admin-template updates                                           |
+| 55 (SHIPPED `b3ca35d`)    | Migrate `app/admin/` readers + form handling             | ~6 files; admin-template updates                                           |
 | 56    | Drop `schedule_start_time` / `schedule_end_time`; rename | Alembic migration; remove dual-write; rename typed cols to canonical names |
 
 Each slice has its own bootstrap doc when it's drafted (i.e., we don't pre-write Slice 56's bootstrap until 53 has shipped — the campaign refines as it executes).
