@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-05 (Slice 52).
 **Author:** Claude design pass + Casey approval.
-**Status:** Draft → Decided after Casey's call.
+**Status:** Implemented (campaign closed 2026-05-06; see §10).
 **Companion:** `docs/maintainability/schema_time_harmonization_campaign.md` (Slice 53–55 plan, written after this decision lands).
 
 ## §1 The inconsistency
@@ -80,7 +80,7 @@ The phased plan is sketched in §5. Slice 53 starts the implementation only afte
 | 53 (SHIPPED `83d41f7`)    | Add `schedule_start_time_typed` / `schedule_end_time_typed`; dual-write | Alembic migration (additive, nullable); update all writers (~10 files)     |
 | 54 (SHIPPED `13883da`)    | Migrate `app/chat/` + `app/core/` readers to typed cols  | ~12 files; lots of test updates                                            |
 | 55 (SHIPPED `b3ca35d`)    | Migrate `app/admin/` readers + form handling             | ~6 files; admin-template updates                                           |
-| 56    | Drop `schedule_start_time` / `schedule_end_time`; rename | Alembic migration; remove dual-write; rename typed cols to canonical names |
+| 56 (SHIPPED `632215d`)    | Drop `schedule_start_time` / `schedule_end_time`; rename | Alembic migration (drop strings + rename typed → canonical via `batch_alter_table`; pre-flight NULL-typed-column abort gate); remove `@validates` dual-write; conversion logic moved to `ProgramCreate.parse_hhmm` (mode='before'); `ProgramRead.serialize_hhmm` field_serializer preserves API wire format |
 
 Each slice has its own bootstrap doc when it's drafted (i.e., we don't pre-write Slice 56's bootstrap until 53 has shipped — the campaign refines as it executes).
 
@@ -107,3 +107,22 @@ Per `docs/WORKING_AGREEMENT.md`'s deterministic-behavior verification rule:
 - Slice 56 (the cleanup) must additionally show a production catalog fingerprint before and after to rule out drift.
 
 The 134-occurrence count in §2 is from `grep -rn "schedule_start_time\|schedule_end_time" --include="*.py"` (or equivalent) on the working tree as of `d188517`. The number may shift slightly by the time Slice 53 starts; re-survey at Slice 53's Step 0.
+
+## §10 Outcome (campaign closed 2026-05-06)
+
+The campaign shipped across four substantive commits over two days:
+
+| Slice | Date | SHA | Summary |
+| ----- | ---- | --- | ------- |
+| 53 | 2026-05-05 | `83d41f7` | Add `schedule_*_time_typed` shadow columns; `@validates` dual-write on `Program`; Python row-iteration backfill (98/98 typed populated locally; same in prod). |
+| 54 | 2026-05-05 | `13883da` | Migrate `app/chat/` + `app/core/` readers to typed columns. 5 reader sites in 4 files (Tier 1 TIME_LOOKUP added beyond the bootstrap's 4-file scope after Step 0 re-survey). Byte-equivalence verified across `_program_dict` (Tier 2), `build_context_for_tier3` (Tier 3 LLM prompt), `_program_card`, and Tier 1 TIME_LOOKUP window. |
+| 55 | 2026-05-05 | `b3ca35d` | Migrate `app/admin/` display readers (`_program_card_admin_html`, `_queue_program_item_html`). 2 sites in 1 file; far smaller than the §5 sketch's "~6 files; admin-template updates" prediction because the campaign architecture handled writers (`@validates`), Form parameters (string), and form chrome (string) transparently. |
+| 56 | 2026-05-06 | `632215d` | Drop string columns + rename typed → canonical (`Time`, NOT NULL). Remove `@validates`; move string→time conversion to `ProgramCreate.parse_hhmm` (mode='before'). `ProgramRead.serialize_hhmm` preserves the `HH:MM` API wire format. Migration uses `batch_alter_table` for cross-dialect (SQLite + Postgres) safety, with a pre-flight NULL-typed-column abort gate. |
+
+**Architectural outcome:** the canonical schedule columns are now typed `Time`. Reader code that uses `program.schedule_start_time` keeps working unchanged — receives a `time` object instead of a `str`, the campaign's stated safety property. Writer code that POSTed `HH:MM` strings keeps working unchanged — the Pydantic schema converts at the boundary. The original inconsistency (`Event.start_time` as `Time` vs `Program.schedule_start_time` as `String(5)` HH:MM) is resolved.
+
+**What surprised the campaign vs the original sketch:**
+- The "~6 files; admin-template updates" prediction for Slice 55 was 3× too large — the campaign architecture meant most admin sites legitimately stayed string-shaped.
+- A 5th reader site (`tier1_handler.py` TIME_LOOKUP) was discovered at Slice 54's Step 0; the original Slice 52 inventory had said Tier 1 didn't read schedule fields. Folded into Slice 54 to keep the campaign contract clean.
+- Slice 53's local migration hit a SQLite `ProgrammingError` on `datetime.time` parameter binding; the fix was `bindparam(type_=sa.Time())` typing on the UPDATE statement. Postgres's `psycopg2` would not have surfaced this, so without local-first verification the Slice 53 migration would have shipped broken on every dev's first `alembic upgrade head`.
+- Slice 56's bootstrap proposed a `time.fromisoformat()` wrap at `app/admin/contributions_html.py:661-662`; the actual code at that location builds `ProgramApprovalFields` (a separate Pydantic schema with `str` fields), so the wrap was skipped and the existing flow correctly handles conversion through `ProgramCreate` downstream.

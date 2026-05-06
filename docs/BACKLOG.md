@@ -595,7 +595,7 @@ Files touched (1):
 
 ---
 
-## Backlog 30 - Schema time-type harmonization: decision (**RESOLVED**); campaign Slices 53–56 (**OPEN**)
+## Backlog 30 - Schema time-type harmonization: campaign **CLOSED** (Slices 52–56 shipped 2026-05-05/06)
 
 **Issue:** `Event.start_time` / `Event.end_time` are `sqlalchemy.Time`; `Program.schedule_start_time` / `Program.schedule_end_time` are `sqlalchemy.String(5)` (HH:MM). Same logical type, two SQL types. The string columns sort lexically (relying on zero-pad), can't compose with `datetime.time` arithmetic without parsing, and the type checker can't catch a `"25:00"` typo. A grep at `d188517` finds 134 occurrences across 29 files.
 
@@ -605,17 +605,24 @@ Files touched (1):
 
 **Resolution shipped (decision):** Slice 52 — `docs/maintainability/schema_time_harmonization_decision.md` documents the inconsistency, surveys options A (big-bang migration), B (phased migration with dual-write), C (application-layer compatibility via Python `@property`), D (do nothing); recommends Option B; sketches the four-slice implementation campaign in §5. **Casey's §7 decision (2026-05-05): Option B.** Indexed in `docs/maintainability/project_index.md`.
 
-**Implementation queued (Slices 53–56, OPEN):**
-- **Slice 53 (SHIPPED `83d41f7`):** Add `schedule_start_time_typed` / `schedule_end_time_typed` columns alongside the existing strings; dual-write from every writer. Alembic migration (additive, nullable). ~10 files.
-- **Slice 54 (SHIPPED `13883da`):** Migrate `app/chat/` + `app/core/` readers from string columns to typed columns. ~12 files; substantial test updates.
-- **Slice 55 (SHIPPED `b3ca35d`):** Migrate `app/admin/` readers + form handling. ~6 files; admin-template updates.
-- **Slice 56:** Drop `schedule_start_time` / `schedule_end_time`; remove dual-write; rename typed columns to canonical names. Alembic migration.
+**Implementation shipped (Slices 53–56):**
+- **Slice 53 (SHIPPED `83d41f7`):** Add `schedule_start_time_typed` / `schedule_end_time_typed` columns alongside the existing strings; dual-write from every writer via `@validates` on the `Program` model. Alembic migration (additive, nullable; Python row-iteration backfill).
+- **Slice 54 (SHIPPED `13883da`):** Migrate `app/chat/` + `app/core/` readers from string columns to typed columns. 5 reader sites in 4 files; byte-equivalence verified across 4 captures.
+- **Slice 55 (SHIPPED `b3ca35d`):** Migrate `app/admin/` display readers to typed columns. 2 sites in 1 file; byte-equivalence verified.
+- **Slice 56 (SHIPPED `632215d`):** Drop `schedule_start_time` / `schedule_end_time` strings; rename `schedule_*_time_typed` → canonical names with `Time` type; remove `@validates` dual-write; conversion logic moved to Pydantic schema (`parse_hhmm` mode='before' on `ProgramCreate`). Alembic migration with cross-dialect `batch_alter_table` and pre-flight NULL-typed-column abort gate. `field_serializer` on `ProgramRead` preserves `HH:MM` API wire format. Byte-equivalence verified across all 4 reader surfaces (program_dict / tier3_context / admin_renders / tier1_time_window) — every hash pre-rename matches post-rename.
 
-Per-slice bootstraps drafted just before each slice executes (i.e., Slice 53's bootstrap is written before Slice 53 starts; Slice 56's bootstrap is not pre-written until 53 has shipped).
+Per-slice bootstraps were drafted just before each slice executed (i.e., Slice 53's bootstrap was written before Slice 53 started; Slice 56's bootstrap was drafted after Slice 55 verified).
 
 **Verification posture for the campaign** (per `docs/WORKING_AGREEMENT.md`'s deterministic-behavior verification rule, captured in §8 of the decision doc): every campaign slice must hash-equality verify reads from the affected tier and run the full test suite (`python -m pytest -q -m "not integration"`); Slice 56 (cleanup) must additionally show a production catalog fingerprint before and after to rule out drift.
 
-**Decision filed and resolved in the same slice** (matches the #26/#27/#28/#29 hygiene-ship pattern). Implementation campaign queued separately.
+**Decision filed and resolved in the same slice** (matches the #26/#27/#28/#29 hygiene-ship pattern). Implementation campaign was queued separately and shipped across Slices 53–56 (2026-05-05 through 2026-05-06).
+
+**Outcome (campaign close, Slice 56 shipped 2026-05-06):**
+- Schema: `Program.schedule_start_time` / `schedule_end_time` are now `Time` columns with the canonical names — matching `Event.start_time` / `Event.end_time`. The original inconsistency motivating the campaign is resolved.
+- Architecture: string-to-time conversion lives at the Pydantic schema boundary (`ProgramCreate.parse_hhmm` mode='before'); the ORM is type-faithful (no `@validates` coercion). Wire format preserved via `ProgramRead.serialize_hhmm` field_serializer (`HH:MM` zero-second-suffix).
+- Reader surface: 8 sites in 6 files migrated through Slices 54–55 (chat tier1/tier2/tier3, admin display ×2, core program_search). All byte-equivalent pre-rename → post-rename.
+- Writer surface: 5 ORM writers covered transparently by the campaign (Slices 53's `@validates` for transient dual-write; Slice 56's Pydantic schema for permanent conversion). Zero raw-SQL writers verified at every Step 0.
+- Production verification posture: `0 / 0 / 0 / N` mismatch counts at each shipping slice; Slice 56 verified per `relay/slice_56_drop_strings_rename_canonical.md` Step 17.
 
 ---
 
