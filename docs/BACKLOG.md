@@ -761,6 +761,18 @@ End state: chat UI is a clean three-file vanilla structure (`index.html` 45-line
 
 ---
 
+## Backlog 36 - `app/core/intent.py` disposition (decision portion **RESOLVED**, implementation campaign **OPEN**)
+
+**Context:** Slice 67b's component-doc work for `app/core/intent.py` surfaced that the file (~654 lines) has only two functions live in production: `detect_out_of_scope_category` (used by `app/chat/intent_classifier.py`) and `open_ended_search_message` (used by `app/core/search.py`). Everything else — the `detect_intent` 15-step cascade, 12 label constants, and helper functions — has no `app/`-side caller. Kept alive only by four test files and a stale `.cursorrules` reference.
+
+**Decision portion:** `docs/maintainability/intent_module_disposition_decision.md` (Slice 68) surveys the surface and lays out four disposition options (A delete, B wire as fallback, C document dormant, D hybrid). Casey's §7 decision drives subsequent slice work. Shipping commit subject on `main`: `docs(decision): app/core/intent.py disposition (Slice 68, #36)`.
+
+**Implementation portion:** OPEN until §7 is signed. Per-option slice bootstraps drafted only after Casey selects an option.
+
+**Cross-reference:** `docs/components/intent.md` (Slice 67b) for the live-vs-dormant function inventory; `docs/maintainability/project_index.md` for the decision-doc index entry.
+
+---
+
 ## Ship log - Session 2 follow-up, Tier 2 deterministic event rendering (**`d279165`**)
 
 **What shipped:** Deterministic Python rendering for all-event Tier 2 catalog responses; `tier2_formatter.format()` dispatches empty rows → fixed empty message, all-event rows → renderer `(text, 0, 0)`, mixed/non-event rows → unchanged Anthropic path. Programs and providers remain LLM-formatted (scope-limited to events where dropping/count bugs were observed).
