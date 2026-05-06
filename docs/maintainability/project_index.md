@@ -159,6 +159,12 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `docs/components/slots.md` | Component note for structured search slot extraction (`date_range`, `activity_family`, `audience`, `location_hint`) + `QUERY_SYNONYMS` expansion. | Current |
 | `docs/components/intent.md` | Component note for deterministic template-layer intent detection (12 labels + `detect_intent` cascade; distinct from `app/chat/intent_classifier.py`). | Current |
 | `docs/components/search.md` | Component note for the core event-search pipeline (semantic + keyword retrieval; slot-driven strategy; specific-noun threshold raise; outcome flags). | Current |
+| `docs/components/admin_contributions_route.md` | Component note for the admin-gated JSON contribution-review API at `app/api/routes/admin_contributions.py` (paired with the HTML surface at `admin_contributions_html.md`). | Current |
+| `docs/components/admin_mentions_route.md` | Component note for the admin-gated JSON LLM-mention review API at `app/api/routes/admin_mentions.py` (paired with the HTML surface at `admin_mentions_html.md`). | Current |
+| `docs/components/bootstrap_env.md` | Component note for the `.env` loader at `app/bootstrap_env.py` (`ensure_dotenv_loaded`; idempotent; doesn't clobber platform-injected env). | Current |
+| `docs/components/chat_route.md` | Component note for the `POST /api/chat` concierge JSON API at `app/api/routes/chat.py` (request/response shape, slowapi rate limit, dispatch to unified router). | Current |
+| `docs/components/contribute_route.md` | Component note for the public contribution intake at `app/api/routes/contribute.py` (HTML form; custom DB-tracked IP-hash limiter; ContributionCreate validation). | Current |
+| `docs/components/main.md` | Component note for the FastAPI app entry point at `app/main.py` (mounts, exception handlers, three template-rendered pages, router includes, /health). | Current |
 
 ### Maintainability and retrospectives (current)
 
