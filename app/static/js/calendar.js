@@ -1,13 +1,14 @@
 // app/static/js/calendar.js
-// Slice 61 (campaign #31 step 1/3): extracted from app/static/index.html
-// (calendar IIFE, lines 878-1130). The IIFE wrapper is preserved because
-// the body has a top-level early-return guard (if (!overlay || !btn) return;)
-// that cannot live at module top level. Sets window.havasuChatCalendar as
-// the cross-module bridge to chat.js; chat.js reads it defensively. Slice 3
-// of the campaign refactors the bridge to explicit imports; this slice
-// preserves the global pattern for behavior parity.
+// Slice 65 (campaign #31 step 3/3, close): IIFE wrapper dropped; the
+// previously-top-level early-return guard now lives inside initCalendar(),
+// which returns the calendar API object (or null when the calendar DOM
+// isn't present). The cross-module bridge is now an explicit ES module
+// export; chat.js imports it instead of reading window.havasuChatCalendar.
+// History: Slice 61 (65f71e8) extracted the calendar IIFE from
+// app/static/index.html into this module while preserving the IIFE wrapper
+// for the early-return; Slice 65 closes that gradualism.
 
-(function () {
+function initCalendar() {
   var overlay = document.getElementById("calendar-overlay");
   var btn = document.getElementById("calendar-btn");
   var titleEl = document.getElementById("cal-title");
@@ -16,7 +17,7 @@
   var prevBtn = document.getElementById("cal-prev");
   var nextBtn = document.getElementById("cal-next");
   var closeBtn = document.getElementById("cal-close");
-  if (!overlay || !btn) return;
+  if (!overlay || !btn) return null;
 
   var state = {
     year: new Date().getFullYear(),
@@ -244,8 +245,9 @@
     if (e.key === "Escape") { e.preventDefault(); closeCalendar(); }
   });
 
-  // Expose a hook so AC-2 (chat integration) can open from the chat flow.
-  window.havasuChatCalendar = {
+  // Calendar API object — chat.js imports this via the module export below
+  // and uses .open() to open the overlay from the chat flow (AC-2 wiring).
+  return {
     open: openCalendar,
     close: closeCalendar,
     selectDay: function (key) {
@@ -259,4 +261,6 @@
       openCalendar();
     },
   };
-})();
+}
+
+export const havasuChatCalendar = initCalendar();

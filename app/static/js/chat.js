@@ -1,9 +1,15 @@
 // app/static/js/chat.js
-// Slice 61 (campaign #31 step 1/3): extracted from app/static/index.html
-// (chat IIFE body, lines 438-873). Module-scoped; the IIFE wrapper is
-// dropped because ES modules already have their own scope and there is
-// no top-level early-return to preserve. Reads window.havasuChatCalendar
-// defensively (the bridge is set by calendar.js).
+// Slice 65 (campaign #31 step 3/3, close): the cross-module calendar
+// bridge is now an explicit import from ./calendar.js (was a defensive
+// read of window.havasuChatCalendar in Slices 61–64). The defensive
+// null-check is preserved because the export can be null when the
+// calendar DOM isn't present at module-load time (extreme edge case;
+// the HTML shell always includes the calendar markup, but the check
+// costs nothing and matches the prior contract).
+// History: Slice 61 (65f71e8) extracted this module from
+// app/static/index.html's chat IIFE body.
+
+import { havasuChatCalendar } from "./calendar.js";
 
 var sessionId = (typeof crypto !== "undefined" && crypto.randomUUID)
   ? crypto.randomUUID()
@@ -424,8 +430,8 @@ form.addEventListener("submit", function (e) {
       }
       attachShareButtons();
       scrollToBottom();
-      if (data && data.data && data.data.open_calendar && window.havasuChatCalendar) {
-        window.havasuChatCalendar.open();
+      if (data && data.data && data.data.open_calendar && havasuChatCalendar) {
+        havasuChatCalendar.open();
       }
     })
     .catch(function () {
