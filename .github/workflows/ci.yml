@@ -9,6 +9,14 @@ on:
 permissions:
   contents: read
 
+# Slice 59 (Backlog #18 Phase D extension): cancel in-progress runs on the
+# same ref when a new push arrives. Saves CI minutes when a slice's close-out
+# sequence (substantive -> BACKLOG tick -> STATE close-out) triggers three
+# runs in quick succession; only the latest matters for main's green-state.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     name: Lint (ruff)

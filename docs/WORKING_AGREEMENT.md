@@ -75,6 +75,28 @@ When new components are added, a new `docs/components/<name>.md` is created in t
 
 **Failure handling**: any verification failure is a halt. Don't paper over by altering criteria post-hoc. Decide between revert and follow-up explicitly.
 
+## CI verification
+
+After a push to `main`, CI verification confirms the push didn't break the build before declaring a slice shipped. This is distinct from production verification (above) — CI is the automated GitHub Actions workflow at `.github/workflows/ci.yml`; production verification is post-deploy operator action against the live Railway service.
+
+**Preferred (`gh` CLI).** Install once locally:
+
+- Windows: `winget install --id GitHub.cli`
+- macOS: `brew install gh`
+- Linux: see https://github.com/cli/cli#installation
+
+Authenticate once: `gh auth login`. Then after every push to `main`:
+
+```powershell
+gh run list --branch main --limit 1 --json conclusion,headSha,databaseId
+```
+
+A clean result looks like `[{"conclusion": "success", "headSha": "...", "databaseId": ...}]`. If `conclusion` is `"failure"` or `null` (still running), surface that explicitly in the close-out report rather than declaring the slice green. For the most recent run's full status: `gh run view --log` opens the run in the terminal.
+
+**Fallback (browser).** If `gh` isn't available, the GitHub Actions dashboard at `https://github.com/<org>/<repo>/actions?query=branch%3Amain` shows recent runs. Capture the conclusion (success/failure) for the substantive ship SHA in the close-out report.
+
+**Not acceptable.** Declaring a slice shipped without verifying CI status. The close-out report's "CI" line must reflect actual CI conclusion, not assumed conclusion.
+
 ## Session structure
 
 Each working session typically follows this shape:
