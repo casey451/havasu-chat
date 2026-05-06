@@ -641,6 +641,13 @@ Decision outcome:
 - Rationale explicitly captures deploy-model fit: `index.html` is served as static `FileResponse`, so unlike Slice 51's Jinja2 extraction in `main.py`, this path keeps a fully static runtime with no templating layer.
 - Campaign sketch included as placeholders (to be assigned when campaign begins): JS module split -> CSS extraction -> shell cleanup/doc sync.
 
+**Campaign progression:**
+
+- §7 Option A approved by Casey on 2026-05-06 (`7d57876`).
+- Step 1/3 (JS module split) shipped Slice 61 at `65f71e8` — see Backlog #33.
+- Step 2/3 (CSS extraction) PENDING.
+- Step 3/3 (shell cleanup + window-bridge refactor + doc sync) PENDING.
+
 **Severity:** LOW (doc-only planning slice; no runtime behavior change).
 
 ---
@@ -661,6 +668,35 @@ Decision outcome:
 **Cross-reference:** Extends Backlog #18 Phase D (CI infrastructure umbrella; original Phase D shipped Slice 39, F+I+W ruleset Slice 47, E402 triage Slice 49). Phase D family was marked "complete" at the close of Slice 49; this slice is a small extension addressing operator-experience friction recurring across close-out reports.
 
 **Pytest baseline unchanged at 965** (no code touched). Ruff clean.
+
+---
+
+## Backlog 33 - Static-html extraction campaign step 1/3: JS to ES modules (**RESOLVED**)
+
+**Issue:** First implementation slice of the static-html extraction campaign (parent: Backlog #31, Option A approved 2026-05-06). `app/static/index.html` co-locates ~696 lines of inline JS in two IIFEs (chat onboarding/feedback flow + calendar overlay flow) with a `window.havasuChatCalendar` cross-IIFE bridge. Extraction to ES modules under `app/static/js/` reduces edit blast radius and prepares the file for the CSS extraction (step 2/3) and shell cleanup (step 3/3) that follow.
+
+**Resolution shipped:** `65f71e8` — JS extraction with byte-equivalent runtime behavior:
+
+- `app/static/js/chat.js` (new, 443 lines, 13424 bytes): chat IIFE body lifted; IIFE wrapper dropped because ES modules have their own scope and the body has no top-level early-return. Reads `window.havasuChatCalendar` defensively (the bridge stays a global until step 3/3).
+- `app/static/js/calendar.js` (new, 262 lines, 9137 bytes): calendar IIFE preserved as-is inside the module file. The IIFE wrapper STAYS because line 887 of the original block has `if (!overlay || !btn) return;` at the IIFE's top level, which cannot live at module top level. Sets `window.havasuChatCalendar` for chat.js.
+- `app/static/index.html`: 1133 -> 439 lines (-25085 bytes). Inline `<script>...</script>` block replaced by two `<script type="module" src=...>` tags (calendar listed first to signal expected initialization order).
+- `app/main.py`: added `from fastapi.staticfiles import StaticFiles` import + `app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")` after the `_STATIC_DIR` definition. The mount was not previously configured (Step 0 audit found only `FileResponse(_STATIC_DIR / "index.html")` usage).
+- No `shared.js`: the two IIFEs have zero shared helpers (chat owns its DOM/feedback/onboarding helpers; calendar owns its date/render/event helpers).
+- No CSS touched (the inline `<style>` block stays; CSS extraction is step 2/3).
+
+**Behavior parity verification (load-bearing):**
+
+- `GET /` response diff: common prefix 11345 bytes, removed 25224 bytes (the inline script block), added 103 bytes (two module tags), common suffix 26 bytes. Zero accidental drift; only the script-block delta.
+- `/static/js/calendar.js` HTTP 200, 9137 bytes; `/static/js/chat.js` HTTP 200, 13424 bytes (curl probe).
+- Local UI smoke (Casey-driven): chat send/receive, onboarding chips (Visiting/Local -> Yes/No -> example prompts), Tier-3 thumb feedback, calendar open + select + event injection + Escape/click-outside close all worked identically pre and post; browser console clean, no JS errors.
+- `python -m pytest -q -m "not integration"`: **965 passed, 5 deselected** (unchanged from Slice 59 baseline).
+- `python -m ruff check`: All checks passed.
+
+**Severity:** MEDIUM-LOW (real user-facing surface — the chat composer — but the change is behavior-preserving by construction; the script-block delta is the only diff).
+
+**Cross-reference:** Step 1/3 of the Backlog #31 campaign. Decision-doc Option A was approved at §7 on 2026-05-06 in precursor commit `7d57876`. Step 2/3 (CSS extraction to `app/static/styles/`) and Step 3/3 (shell cleanup + `window.havasuChatCalendar` bridge refactor to explicit imports + naming) remain PENDING.
+
+**Production verification (Casey-driven, post-deploy):** manual UI smoke against the live Railway URL covering the same features as local Step 4. Watch specifically for `/static/js/*.js` returning 200 (Railway's StaticFiles serving differs from local in some configs) and a clean browser console. Roll back via `git revert 65f71e8` if any feature regresses; the inline script returns intact.
 
 ---
 
