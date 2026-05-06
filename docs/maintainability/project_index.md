@@ -124,6 +124,15 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `docs/components/event_quality.md` | Component note for the FastAPI request-validation pretty-printer (`friendly_errors` for ConciergeChatRequest); post-Slice-21 minimal surface. | Current |
 | `docs/components/rate_limit.md` | Component note for the shared slowapi `Limiter` (per-IP request budgets; env-toggleable for tests). | Current |
 | `docs/components/dedupe.md` | Component note for embedding + date + location three-gate event duplicate detection. | Current |
+| `docs/components/conversation_copy.md` | Component note for user-facing casual-copy string constants (search/program/out-of-scope templates). | Current |
+| `docs/components/event_recurrence.md` | Component note for regex-based event recurrence heuristics (`is_recurring` approval path). | Current |
+| `docs/components/field_tracking.md` | Component note for Provider/Program/Event tracked-field tuples (`field_history` baselines). | Current |
+| `docs/components/llm_http.md` | Component note for shared LLM SDK HTTP read-timeout constant (`LLM_CLIENT_READ_TIMEOUT_SEC`). | Current |
+| `docs/components/program_search.md` | Component note for program search + card formatting (Session Z-2; slots synonym expansion). | Current |
+| `docs/components/provider_name.md` | Component note for provider display-name normalization (Unicode folding + legacy suffix strips). | Current |
+| `docs/components/search_log.md` | Component note for SEARCH_DIAG_VERBOSE-gated search diagnostic file logging. | Current |
+| `docs/components/session.md` | Component note for in-memory session store (TTLs, onboarding hints, multi-worker caveats). | Current |
+| `docs/components/timezone.md` | Component note for Lake Havasu local time helpers (`America/Phoenix`, no DST). | Current |
 | `docs/components/tier1_templates.md` | Component note for Tier 1 regex+template engine (intent patterns + per-intent response variants). | Current |
 | `docs/components/tier2_schema.md` | Component note for the Tier2Filters Pydantic schema (parser output / DB query input). | Current |
 | `docs/components/normalizer.md` | Component note for the pre-classification text normalizer (lowercase, edge-strip, contraction expand). | Current |
