@@ -104,6 +104,12 @@ Paths below are relative to repo root. **Status** is judgment from titles/banner
 | `docs/components/hint_extractor.md` | Component note for the optional OpenAI age/location hint extractor (sole OpenAI caller in the codebase). | Current |
 | `docs/components/llm_router.md` | Component note for the optional Anthropic structured router (USE_LLM_ROUTER feature flag). | Current |
 | `docs/components/river_scene.md` | Component note for the River Scene ingestion lane (sole live catalog source post-2026-04-30 cleanup); fetch/parse + orchestration, dedupe, auto-approval flow. | Current |
+| `docs/components/enrichment.md` | Component note for background contribution enrichment (URL fetch + Places lookup session orchestration). | Current |
+| `docs/components/event_date_line.md` | Component note for River Scene–style Date line parsing (single day vs same-month range). | Current |
+| `docs/components/hours_helper.md` | Component note for Places periods → structured hours + OPEN_NOW `is_open_at` (Lake Havasu tz). | Current |
+| `docs/components/places_client.md` | Component note for Google Places API (New) text search client used in provider enrichment. | Current |
+| `docs/components/river_scene_pull.md` | Component note for River Scene pull orchestration (`run_pull`: sitemap → contributions → auto-approval). | Current |
+| `docs/components/url_fetcher.md` | Component note for SSRF-aware URL metadata fetch (title/description extraction). | Current |
 | `docs/components/tier1_handler.md` | Component note for the Tier 1 deterministic-template handler (zero-LLM-token direct DB lookups). | Current |
 | `docs/components/approval_service.md` | Component note for the contribution → catalog-row materialization service (sole catalog-write path: Provider/Program/Event approval). | Current |
 | `docs/components/llm_messages.md` | Component note for the H2 Anthropic-Messages-API consolidation helper (sole Anthropic call site; mock-seam invariants documented). | Current |
