@@ -761,15 +761,15 @@ End state: chat UI is a clean three-file vanilla structure (`index.html` 45-line
 
 ---
 
-## Backlog 36 - `app/core/intent.py` disposition (decision portion **RESOLVED**, implementation campaign **OPEN**)
+## Backlog 36 - `app/core/intent.py` + `app/core/search.py` dormant surface deletion (**CLOSED 2026-05-06**)
 
-**Context:** Slice 67b's component-doc work for `app/core/intent.py` surfaced that the file (~654 lines) has only two functions live in production: `detect_out_of_scope_category` (used by `app/chat/intent_classifier.py`) and `open_ended_search_message` (used by `app/core/search.py`). Everything else — the `detect_intent` 15-step cascade, 12 label constants, and helper functions — has no `app/`-side caller. Kept alive only by four test files and a stale `.cursorrules` reference.
+**Context:** Slice 67b's component-doc work for `app/core/intent.py` surfaced that the file (~654 lines) had only two functions live in production: `detect_out_of_scope_category` (used by `app/chat/intent_classifier.py`) and `open_ended_search_message` (used by `app/core/search.py`). Slice 70 extended the same dormancy finding to `app/core/search.py`'s legacy retrieval pipeline. §7 of `docs/maintainability/intent_module_disposition_decision.md` approved **Option A** (delete dormant surface). Slice 71 implemented the deletion campaign.
 
-**Decision portion:** `docs/maintainability/intent_module_disposition_decision.md` (Slice 68) surveys the surface and lays out four disposition options (A delete, B wire as fallback, C document dormant, D hybrid). Casey's §7 decision drives subsequent slice work. Shipping commit subject on `main`: `docs(decision): app/core/intent.py disposition (Slice 68, #36)`.
+**Resolution shipped:** substantive refactor at **`c8cc2db`** — deletes `detect_intent` cascade + dormant `search_events` pipeline; trims `intent.py` (~654 → ~168 lines) and `search.py` (~1,025 → ~26 lines); deletes `tests/test_calendar_intent.py` and `tests/test_phase5.py`; trims dependent tests (`test_phase3.py`, `test_phase8.py`, `test_phase8_5.py`, `test_phase8_9_event_ranking.py`, `test_phase87_privacy.py`); updates `.cursorrules` Phase 8.5 bullets; rewrites `docs/components/intent.md` and `search.md`; moves decision doc to **Implemented** + §10 Outcome. **`cbe1779`** corrects §10 substantive SHA bookkeeping after amend.
 
-**Implementation portion:** OPEN until §7 is signed. Per-option slice bootstraps drafted only after Casey selects an option.
+**Verification:** `python -m pytest -q -m "not integration"` — **921 passed**, **5 deselected** (−44 vs Slice 68 baseline; delta matches deleted tests). `python -m ruff check` — clean.
 
-**Cross-reference:** `docs/components/intent.md` (Slice 67b) for the live-vs-dormant function inventory; `docs/maintainability/project_index.md` for the decision-doc index entry.
+**Cross-reference:** `docs/maintainability/intent_module_disposition_decision.md` §10; `docs/STATE.md` ship log for Slice 71.
 
 ---
 
