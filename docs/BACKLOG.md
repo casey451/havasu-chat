@@ -626,6 +626,25 @@ Per-slice bootstraps were drafted just before each slice executed (i.e., Slice 5
 
 ---
 
+## Backlog 31 - Static index extraction decision (`app/static/index.html`) (**RESOLVED**)
+
+**Issue:** `app/static/index.html` is a monolithic static front-end artifact (1133 lines) that co-locates structure, styling, and behavior in one file. It currently embeds a large inline `<style>` block and a large inline `<script>` with two major IIFEs (chat/onboarding/feedback flow and calendar overlay flow), with direct calls to `/api/chat`, `/api/chat/onboarding`, `/api/chat/feedback`, and `/events`. This increases edit blast radius and makes targeted review harder.
+
+**Desired fix:** Write a decision doc before implementation that surveys extraction options and recommends a migration path with bounded risk.
+
+**Resolution shipped:** `13c5633` — Added `docs/maintainability/static_html_extraction_decision.md` and indexed it in `docs/maintainability/project_index.md`.
+
+Decision outcome:
+
+- Surveyed five options: (A) vanilla split static assets, (B) SPA framework rewrite, (C) lightweight reactive layer, (D) JS-only extraction, (E) status quo.
+- Recommended **Option A** (vanilla split assets) as lowest blast radius.
+- Rationale explicitly captures deploy-model fit: `index.html` is served as static `FileResponse`, so unlike Slice 51's Jinja2 extraction in `main.py`, this path keeps a fully static runtime with no templating layer.
+- Campaign sketch included as placeholders (to be assigned when campaign begins): JS module split -> CSS extraction -> shell cleanup/doc sync.
+
+**Severity:** LOW (doc-only planning slice; no runtime behavior change).
+
+---
+
 ## Ship log - Session 2 follow-up, Tier 2 deterministic event rendering (**`d279165`**)
 
 **What shipped:** Deterministic Python rendering for all-event Tier 2 catalog responses; `tier2_formatter.format()` dispatches empty rows → fixed empty message, all-event rows → renderer `(text, 0, 0)`, mixed/non-event rows → unchanged Anthropic path. Programs and providers remain LLM-formatted (scope-limited to events where dropping/count bugs were observed).
