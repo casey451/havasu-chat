@@ -7,7 +7,7 @@ This document is updated at the end of each session that ships work. It is the c
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app
-- **Repo `main` @ this STATE update:** Slice **60** close-out (2026-05-06). Substantive component-doc batch is commit **`99d3ecb`** (five `docs/components/admin_*_html.md` files + `project_index.md` rows). This revision updates **`docs/BACKLOG.md`** (Backlog #18 Phase C inventory) and **`docs/STATE.md`** together — doc-only; no `app/` or `tests/` change. **After `git push`,** confirm Railway's deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit). Prior substantive production deployment remains Slice 56 (`632215d`) for schema time-type harmonization closeout.
+- **Repo `main` @ this STATE update:** Slice **62** close-out (2026-05-06). Substantive component-doc batch **`4224433`** (six `app/contrib` helper docs + six `project_index.md` rows). Backlog #18 Phase C inventory tick **`eadb35f`**. This revision updates **`docs/STATE.md`** only — doc-only; no `app/` or `tests/` change. **After `git push`,** confirm Railway's deployed revision matches `git rev-parse origin/main` (or the Railway dashboard commit). Prior substantive production deployment remains Slice 56 (`632215d`) for schema time-type harmonization closeout.
 - **Health:** `GET /health` is expected to return **200** with `db_connected`. Reconcile any `event_count` (or similar) field against a real Postgres client — counts drift with catalog changes.
 - **Catalog posture (2026 RS-only cleanup, verified at stream close):** live **`events`** and **`contributions`** rows from **River Scene import** only (71 / 71 at cleanup close); **`providers`**, **`programs`**, **`field_history`**, **`llm_mentioned_entities`** were empty then. **Re-verify** before relying on numbers. Source: `docs/maintainability/non_river_scene_cleanup.md`.
 
@@ -19,6 +19,8 @@ This document is updated at the end of each session that ships work. It is the c
 ## Recent commits (newest first)
 
 ```
+eadb35f docs(BACKLOG): tick #18 Phase C contrib batch (Slice 62)
+4224433 docs(components): app/contrib doc gap-fill batch (Slice 62)
 99d3ecb docs(components): admin HTML-helper batch (Slice 60, app/admin/ close)
 bab4619 docs(BACKLOG): file + close #32 (CI hardening, Slice 59); tick #18 Phase D
 7f30faf chore(ci): concurrency group + gh CLI verify docs (Slice 59, #18 Phase D)
@@ -35,6 +37,8 @@ b3ca35d refactor(admin): consume schedule_*_time_typed (Slice 55)
 ```
 
 ## Recently shipped (high signal)
+
+- **`4224433`** — **Phase C component-docs growth: `app/contrib/` helper batch (Slice 62)** — Six component docs cover enrichment orchestration, Places client + URL fetcher, hours structuring, River Scene pull orchestration, and Date-line parsing. With existing `river_scene`, `approval_service`, and `mention_scanner` notes, **`app/contrib/` component-doc coverage is 9/9.** **`docs/components/` holds ~40 notes.** Backlog inventory tick **`eadb35f`**. Doc-only ship.
 
 - **`99d3ecb`** — **Phase C component-docs growth: `app/admin/` HTML-helper batch (Slice 60)** — Five new component docs (`admin_categories_html`, `admin_contributions_html`, `admin_feedback_html`, `admin_mentions_html`, `admin_nav_html`) describe the cookie-gated operator HTML surfaces that pair with Slice 40 `admin_auth` / `admin_router` documentation. `docs/maintainability/project_index.md` gains five index rows; **`docs/BACKLOG.md`** inventory updated in the same Slice 60 bookkeeping push as this STATE refresh (Backlog #18 Phase C). **`docs/components/` now holds 34 component notes.** Doc-only ship; pytest and application code unchanged.
 
