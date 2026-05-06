@@ -1,9 +1,9 @@
-"""Thin deterministic helpers for Tier 1 routing (Slice 71).
+"""Thin deterministic helpers for Tier 1 routing (Slice 71 + 71b).
 
-Post–Backlog #36 Option A, production callers only need
-``detect_out_of_scope_category`` (Tier 1 pre-screen in ``intent_classifier``)
-and ``open_ended_search_message`` (retained per §7 disposition — currently no
-``app/`` importer after the dormant ``search.py`` pipeline was removed).
+Post–Backlog #36 Option A, the only production export is
+``detect_out_of_scope_category`` — Tier 1 pre-screen in ``intent_classifier``
+before the LLM call. Slice 71b removed ``open_ended_search_message`` after the
+``search.py`` pipeline deletion left it without any caller.
 """
 
 from __future__ import annotations
@@ -167,16 +167,3 @@ def detect_out_of_scope_category(message: str) -> str | None:
         if any(t in m for t in triggers):
             return category
     return None
-
-
-def open_ended_search_message(message: str) -> bool:
-    m = message.lower().strip()
-    return m in (
-        "what's good?",
-        "whats good?",
-        "what's good",
-        "whats good",
-        "surprise me",
-        "anything fun?",
-        "anything fun",
-    )

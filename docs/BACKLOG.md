@@ -767,6 +767,8 @@ End state: chat UI is a clean three-file vanilla structure (`index.html` 45-line
 
 **Resolution shipped:** substantive refactor at **`c8cc2db`** — deletes `detect_intent` cascade + dormant `search_events` pipeline; trims `intent.py` (~654 → ~168 lines) and `search.py` (~1,025 → ~26 lines); deletes `tests/test_calendar_intent.py` and `tests/test_phase5.py`; trims dependent tests (`test_phase3.py`, `test_phase8.py`, `test_phase8_5.py`, `test_phase8_9_event_ranking.py`, `test_phase87_privacy.py`); updates `.cursorrules` Phase 8.5 bullets; rewrites `docs/components/intent.md` and `search.md`; moves decision doc to **Implemented** + §10 Outcome. **`cbe1779`** corrects §10 substantive SHA bookkeeping after amend.
 
+**Slice 71b follow-up:** removes orphaned **`open_ended_search_message`** from **`app/core/intent.py`** (no caller after **`search.py`** pipeline deletion); restores full §10 Outcome / shipping-SHA narrative in **`intent_module_disposition_decision.md`**; trims **`intent.md`** again.
+
 **Verification:** `python -m pytest -q -m "not integration"` — **921 passed**, **5 deselected** (−44 vs Slice 68 baseline; delta matches deleted tests). `python -m ruff check` — clean.
 
 **Cross-reference:** `docs/maintainability/intent_module_disposition_decision.md` §10; `docs/STATE.md` ship log for Slice 71.
