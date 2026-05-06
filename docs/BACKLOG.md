@@ -286,7 +286,7 @@ This makes scripts/run_voice_audit.py the second Anthropic caller fully on the H
   - [x] **§5 gap: CI query-battery story** (Slice 28, `3598621`): `docs/maintainability/ci_query_battery.md` covers manual invocation, success criteria, label-update discipline, and future CI integration patterns. Prereqs #12 (Slice 16, RESOLVED) and #25 (Slice 23, RESOLVED) both met.
   - [x] **§5 gap: Provider ingestion lane (forward-looking spec)** (Slice 29, `5fbd658`): `docs/maintainability/provider_ingestion_lane_options.md` covers five candidate sources, three architectural patterns, open product questions, and a provisional first-build recommendation (Pattern A mirror-RS + Source 1 manual admin entry). **Phase 1 implementation shipped Slice 45, `424499a`** — admin direct-create UI for providers (Source #1 from the options doc); future phases (additional sources, automated scraping) remain available paths.
   - [x] **§5 gap: End-to-end provider/program creation** (Slice 9, `c1cd8b0`): `docs/maintainability/end_to_end_creation.md` documents the four paths producing catalog rows (public submission, River Scene auto-import, Tier 3 mention scan promotion, admin direct create), Contribution status state machine, and per-entity-type fields touched at creation.
-- [x] **D — Engineering gates.** CI lint + tests on PR (Slice 39, `0428267..2f59d4f`) — GitHub Actions workflow at `.github/workflows/ci.yml` running `python -m ruff check` (F,W ruleset, narrowed per Casey's Path 1 decision after Step 0 found 1468 cosmetic E501 findings) and `python -m pytest -q -m "not integration"` under placeholder API keys + sqlite. Single formatting tool: ruff format (config in `pyproject.toml`) — enforced as "format-on-touch" rather than whole-repo enforcement (per Slice 31 options doc default). **Follow-up status:** I001 auto-fix shipped Slice 47 (`812aaab`) — ruleset extended to F+I+W; 34 findings auto-fixed (31 files). **E402 triage shipped Slice 49 (`8ac6373`)** — ruleset extended to F+I+W+E402; 52 findings triaged into Bucket A (46 intentional bootstrap-ordering, handled via `[tool.ruff.lint.per-file-ignores]` for 6 files), Bucket B (0 circular/conditional), Bucket C (6 accidental late imports moved to top alphabetized). E501 (line-length) remains intentionally off; re-enabling needs a project-wide line-length budget conversation. **Phase D follow-up family is now complete; both bullets and all queued follow-ups closed.**
+- [x] **D — Engineering gates.** CI lint + tests on PR (Slice 39, `0428267..2f59d4f`) — GitHub Actions workflow at `.github/workflows/ci.yml` running `python -m ruff check` (F,W ruleset, narrowed per Casey's Path 1 decision after Step 0 found 1468 cosmetic E501 findings) and `python -m pytest -q -m "not integration"` under placeholder API keys + sqlite. Single formatting tool: ruff format (config in `pyproject.toml`) — enforced as "format-on-touch" rather than whole-repo enforcement (per Slice 31 options doc default). **Follow-up status:** I001 auto-fix shipped Slice 47 (`812aaab`) — ruleset extended to F+I+W; 34 findings auto-fixed (31 files). **E402 triage shipped Slice 49 (`8ac6373`)** — ruleset extended to F+I+W+E402; 52 findings triaged into Bucket A (46 intentional bootstrap-ordering, handled via `[tool.ruff.lint.per-file-ignores]` for 6 files), Bucket B (0 circular/conditional), Bucket C (6 accidental late imports moved to top alphabetized). E501 (line-length) remains intentionally off; re-enabling needs a project-wide line-length budget conversation. **Phase D follow-up family is now complete; both bullets and all queued follow-ups closed.** **Phase D extension shipped Slice 59 (`7f30faf`)** — concurrency group on `.github/workflows/ci.yml` (cancels superseded in-progress runs on same ref) + `## CI verification` section in `docs/WORKING_AGREEMENT.md` documenting the `gh run list` shortcut. See Backlog #32.
 
 **Anti-patterns (per brief §6):** mega-refactors that mix tree reorg with behavior change; parallel specs (one topic, one canonical doc); silent commits that change contracts without component-doc / BACKLOG / STATE updates; assuming pytest ran in every environment.
 
@@ -642,6 +642,25 @@ Decision outcome:
 - Campaign sketch included as placeholders (to be assigned when campaign begins): JS module split -> CSS extraction -> shell cleanup/doc sync.
 
 **Severity:** LOW (doc-only planning slice; no runtime behavior change).
+
+---
+
+## Backlog 32 - CI hardening: concurrency group + `gh` CLI verify docs (**RESOLVED**)
+
+**Issue:** Two recurring frictions across recent close-out reports. (a) When a slice ships multiple commits in quick sequence (substantive → BACKLOG tick → STATE close-out), CI runs three times against `main` for what is logically one ship; only the final run matters for the green-state. (b) CI verification has been manual-dashboard-only, with most close-outs noting "CI status not auto-fetched — `gh` unavailable in this shell." A `gh run list --branch main --limit 1` invocation is the canonical replacement.
+
+**Resolution shipped:** `7f30faf` — two friction reductions:
+
+- `.github/workflows/ci.yml`: added a top-level `concurrency` block (sibling of `permissions:` / `jobs:`) keyed on `${{ github.workflow }}-${{ github.ref }}` with `cancel-in-progress: true`. New pushes cancel in-progress prior runs on the same ref; saves CI minutes during multi-commit close-out sequences without losing safety (the final commit's run is what matters for `main`'s green-state).
+- `docs/WORKING_AGREEMENT.md`: added a new `## CI verification` section under the existing `## Verification` block. Documents the `gh run list --branch main --limit 1 --json conclusion,headSha,databaseId` command for post-push verification, with install instructions for Windows (`winget install --id GitHub.cli`), macOS (`brew install gh`), and Linux. Explicit "Not acceptable" line: declaring a slice shipped without verifying CI status.
+
+**Step 0 audit outcome — punted on inference.** `gh` is not installed locally (the new docs note covers install), so the gh-driven cache-hit audit wasn't runnable. The `actions/setup-python@v5` + `cache: 'pip'` config is canonical and `requirements.txt` has been stable since Slice 51 (`35cd6ac`), so cache-key inputs haven't shifted and cache hits should be the default on recent runs. First post-merge run on `main` will be the empirical check; if a miss surfaces, follow-up slice fixes the cache key.
+
+**Severity:** LOW (CI configuration + docs only; no production touch, no `app/` or `tests/` changes).
+
+**Cross-reference:** Extends Backlog #18 Phase D (CI infrastructure umbrella; original Phase D shipped Slice 39, F+I+W ruleset Slice 47, E402 triage Slice 49). Phase D family was marked "complete" at the close of Slice 49; this slice is a small extension addressing operator-experience friction recurring across close-out reports.
+
+**Pytest baseline unchanged at 965** (no code touched). Ruff clean.
 
 ---
 
