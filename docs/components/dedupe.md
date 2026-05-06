@@ -6,7 +6,7 @@
 
 Embedding-based duplicate detection for `Event` rows. Used during ingestion to decide whether an inbound event matches an already-stored one. Three signals must all align: cosine similarity ≥ 0.85 on stored embeddings, dates within ±1 day, and locations textually similar. The strict three-signal requirement prevents false positives that any single signal would produce on its own.
 
-Currently called from `app/core/search.py` (and historically from ingestion lanes — most are removed post-cleanup; River Scene's `run_pull` does its own URL-based dedupe before reaching this layer).
+Currently `cosine_similarity` is the only `dedupe` symbol imported by other production code (`app/core/search.py`). `find_duplicate` retains test coverage but has no live runtime caller after the 2026 ingestion-lane cleanup; River Scene's `run_pull` does its own URL-based dedupe before this layer would see the candidate.
 
 ## Public surface
 
@@ -74,7 +74,7 @@ No environment configuration. All thresholds are module-level constants embedded
 
 **Direct callers:**
 
-- `app/core/search.py` — duplicate-check during search-related operations.
+- `app/core/search.py` — imports `cosine_similarity` for embedding scoring only (`find_duplicate` is not used here).
 - `tests/test_phase8_9_event_ranking.py` — dedupe coverage in event ranking tests.
 
 **Direct dependencies:**

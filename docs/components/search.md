@@ -6,7 +6,7 @@
 
 The core event-search pipeline — semantic + keyword retrieval, slot-driven strategy dispatch, conversational nudge formatting. Given the user's free-form message, a slot dict from `app/core/slots.py`, and a SQLAlchemy `Session`, returns a ranked list of `Event` rows along with structured outcome metadata (suppressed-low-relevance, slot-filter-exhausted, honest-no-match, all-recurring) that the chat formatter consumes to choose between an event list and a no-match nudge. Also provides display-side helpers (`format_search_results`, `_event_card`, group headings) and the strategy-decision logic (`decide_search_strategy`).
 
-This module is the single largest in `app/core/` and has the deepest behavioral surface in this slice's batch. The pipeline is multi-stage: query embedding generation (OpenAI or 1536-dim deterministic fallback), candidate gathering via SQLAlchemy date-window queries, optional activity-family filtering, optional literal-match filtering for short noun-focused queries, embedding-based scoring with a +0.5 specific-phrase bonus, threshold filtering with separate logic for OpenAI vs deterministic embeddings, keyword-based scoring for events without embeddings, merge with dedup by id, time-scoped sort with recurring events deprioritized, and three outcome flags computed for the formatter.
+This module is the single largest in `app/core/` and has the deepest behavioral surface in this slice's batch. The pipeline is multi-stage: query embedding generation (OpenAI or 1536-dim deterministic fallback), candidate gathering via SQLAlchemy date-window queries, optional activity-family filtering, optional literal-match filtering for short noun-focused queries, embedding-based scoring with a +0.5 specific-phrase bonus, threshold filtering with separate logic for OpenAI vs deterministic embeddings, keyword-based scoring for events without embeddings, merge with dedup by id, time-scoped sort with recurring events deprioritized, and outcome metadata (four flags on the main completion path; one is early-exit-only — see §Internal structure) for the formatter.
 
 ## Public surface
 
@@ -58,8 +58,8 @@ This module is the single largest in `app/core/` and has the deepest behavioral 
 
 **`search_events` output: `SearchOutcome`.** The `.events` list is ordered (relevance-first when no date context; recurring-deprioritized + chronological when time-scoped). The four flags drive the formatter's no-match-vs-list choice:
 
-- `suppressed_low_relevance` — strict mode found candidates but every embedding/keyword score was below threshold; events list is empty by suppression.
-- `slot_filter_exhausted` — activity-family filter eliminated all candidates from a non-empty pre-filter set.
+- `suppressed_low_relevance` — strict mode found candidates but every embedding/keyword score was below threshold; events list is empty by suppression. Computed only on the OpenAI embedding path; deterministic-embedding fallback can produce empty results without setting this flag.
+- `slot_filter_exhausted` — activity-family filter eliminated all candidates from a non-empty pre-filter set. `True` only on the early-exit activity-filter path; normal pipeline completion always returns `False` for this flag.
 - `honest_no_match` — strict mode + non-empty candidates + the user named a specific activity/noun → events list is empty and the formatter should say so explicitly.
 - `all_recurring` — time-scoped + non-empty events + every event's `is_recurring` is True. Surfaces in the formatter as a hint to the user.
 
@@ -95,20 +95,20 @@ This module is the single largest in `app/core/` and has the deepest behavioral 
    - **Deterministic fallback path:** for specific queries only, drops events with score ≤ 0.45 (the 0.5 bonus floor) unless they're literal-matched. The fallback path's scores are noisy so threshold-by-magnitude is the only meaningful gate.
 10. **Keyword path + merge + sort.** `with_emb` sorts by score descending. `keyword_rows` accumulates from `without_emb`: in strict mode, each event must pass `_event_matches_keyword_terms` (all `keywords` substrings present) AND `_keyword_passes_threshold` (token-overlap score ≥ 0.35 with at least one field hit). Literal-matched events bypass the threshold check (explicit override). The two lists merge with id-dedup (embedding rows win on ties). `_apply_time_scoped_merged_sort` sorts time-scoped results as `(is_recurring, -score, date, start_time)` — pushes recurring events to the bottom — and otherwise as `(-score, date, start_time)`.
 
-After the pipeline, three outcome flags are computed:
+After the pipeline, outcome metadata is assembled. **`slot_filter_exhausted`** is set only on the early-exit path when stage 6's activity filter clears a non-empty candidate set; the main return path always passes `slot_filter_exhausted=False`. On the main completion path, **`suppressed`** (maps to `suppressed_low_relevance`), **`honest_no_match`**, and **`all_recurring`** are derived as follows:
 
 - **`suppressed`** — strict + OpenAI embedding + empty results + non-empty candidates + (best embedding score < threshold OR best keyword score < threshold).
 - **`honest_no_match`** — strict + empty results + non-empty candidates + the user named an activity token / specific noun / required literal match.
 - **`all_recurring`** — time-scoped + non-empty events + all `is_recurring=True`.
 
-**`decide_search_strategy`** is a flat dispatch on the three slot booleans (date / activity / audience / location). When all four are empty AND the message is open-ended ("what's good"), returns `"CLARIFY_DATE"`. Otherwise the only `"RUN_FILTERED"` case is date+activity both present; everything else is either `"RUN_BROAD"` (listing mode) or `"RUN_WITH_NUDGE"` (any partial-slot configuration).
+**`decide_search_strategy`** is a flat dispatch on four slot-derived booleans (`has_date` / `has_act` / `has_aud` / `has_loc`). When all four are empty AND the message is open-ended ("what's good"), returns `"CLARIFY_DATE"`. Otherwise the only `"RUN_FILTERED"` case is date+activity both present; everything else is either `"RUN_BROAD"` (listing mode) or `"RUN_WITH_NUDGE"` (any partial-slot configuration).
 
 **`format_search_results`** is layered on event count:
 
 - Empty + outcome flag set → `_honest_no_match_body(message, slots)` calls `slots.extract_search_label` and `slots.extract_broaden_category` to compose `NO_MATCH_HONEST` + optionally `NO_MATCH_BROADEN`.
 - Empty + no outcome flag → `_empty_message_for_slots` picks between `NOTHING_IN_RANGE`, `NOTHING_FOR_ACTIVITY`, or `SEARCH_ZERO` based on which slots are present.
 - Non-empty + `RUN_WITH_NUDGE` → appends `LISTING_NUDGE_DATE_SET` / `LISTING_NUDGE_ACTIVITY_SET` / `LISTING_NUDGE_NONE` based on which slots are present.
-- Non-empty + 4+ events → groups via `_classify_event_type` + `_group_heading`, sorted with `"General"` last; appends narrow-down closing line by default.
+- Non-empty + 4+ events → groups via `_classify_event_type` + `_group_heading`, sorted with `"General"` first when present (remaining groups alphabetical); appends narrow-down closing line by default.
 
 **`generate_query_embedding_with_source`** has two paths: OpenAI `embeddings.create(model=SEARCH_QUERY_EMBEDDING_MODEL, input=text)` returning a 1536-dim vector, or `_deterministic_embedding_1536(text)` falling back to a 1536-dim hash-bucketed L2-normalized vector. The deterministic path spreads each token across 16 hash positions (offset by `i * 7919`) with weights `1.0 / (i + 1)`, then normalizes. Same-text reproducibility within a process; cross-process variance because Python's `hash()` is randomized.
 
@@ -133,6 +133,8 @@ After the pipeline, three outcome flags are computed:
 **Group heading display order.** `format_search_results` sorts groups with `(category != "General", category)` — so `"General"` always appears first when present. Other categories sort alphabetically.
 
 ## Known limitations and design notes
+
+**Pipeline currently dormant in production.** `search_events`, `format_search_results`, `search_events_keyword_only`, and the supporting scoring/filtering helpers have no live caller in `app/`. The only function imported from this module by other production code is `_deterministic_embedding_1536`, used by `app/admin/router.py` to compute synthetic embeddings for admin contributions. Test coverage runs the full pipeline (see §Related) but no chat or admin runtime path exercises it. The deterministic search pipeline was the canonical retrieval surface before the Tier 2 SQL retrieval and Tier 3 Anthropic-backed surface in `app/chat/` replaced it; disposition (delete / wire as fallback / document dormant) is open under Backlog #36 alongside the parallel `app/core/intent.py` finding.
 
 **Full table scan on every search.** `_base_future_events_query` has a date-window filter but no embedding-side index. With ~hundreds of events the embedding loop is fast; at ten thousand it would become the dominant latency. pgvector or a similar embedded vector index is the upgrade path; not warranted at current scale.
 
@@ -179,7 +181,9 @@ After the pipeline, three outcome flags are computed:
 
 **Direct callers in `tests/`:**
 
-- `tests/test_phase8.py`, `tests/test_phase8_5.py`, `tests/test_phase8_9_event_ranking.py`, `tests/test_phase5.py`, `tests/test_phase87_privacy.py` — exercise the full search pipeline + display formatting.
+- `tests/test_phase8.py` — `detect_intent` / phase-8 routing helpers only (not `search_events` / `format_search_results`).
+- `tests/test_phase8_5.py`, `tests/test_phase8_9_event_ranking.py`, `tests/test_phase5.py` — exercise the search pipeline + display formatting.
+- `tests/test_phase87_privacy.py` — `emit_search_diag_embedding_block` / `search_log` diagnostics only (not the retrieval pipeline).
 
 **Direct dependencies:**
 
