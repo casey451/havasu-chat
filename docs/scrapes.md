@@ -8,7 +8,7 @@ plus the schedule and snapshot pattern they share.
 | Source          | URL                                                        | Shape                                 | Status        |
 |-----------------|------------------------------------------------------------|---------------------------------------|---------------|
 | `webtrac`       | `register.lhcaz.gov/webtrac/web/search.html?module=AR`     | Programs → sections (registered)      | Implemented   |
-| `lhcaz_aquatic` | `lhcaz.gov/parks-recreation/open-swim-schedule`            | Recurring weekly class grid           | Stubbed       |
+| `lhcaz_aquatic` | `lhcaz.gov/parks-recreation/open-swim-schedule`            | Per-day class slots (concrete dates)  | Implemented   |
 
 WebTrac (Vermont Systems 3.1.x) returns server-rendered HTML; sections
 are inline in the document, so a single GET per category yields the full
@@ -31,26 +31,42 @@ Each snapshot is a JSON document `{ source, captured_at, records }`. The
 manifest records the latest successful run per source plus a rolling
 history of the last 100 runs.
 
-Snapshots are immutable. The catalog loader reads the *latest* snapshot
-for a source, diffs against existing rows, and routes adds/updates
-through the contribution queue (see `app/contrib/approval_service.py`).
-That loader is intentionally separate from this scraper layer so DB
-schema changes don't churn the scrapers.
+Snapshots are immutable. The catalog loader (`app/contrib/parks_rec_loader.py`)
+reads the *latest* snapshot for a source, dedupes against rows already in
+`contributions` / `events`, and routes new records through the existing
+approval flow:
+
+* WebTrac single-day section          → Contribution(entity_type="event")    → Event
+* WebTrac multi-day or weekly         → Contribution(entity_type="program")  → Program
+* Aquatic Center class slot           → Contribution(entity_type="event")    → Event
+
+Only publicly bookable rows are loaded into the catalog (WebTrac
+`available_for_signup`, aquatic `is_public`). Pool-closed, private
+practice, and unavailable / full sections remain in the snapshot file
+on disk but never enter the catalog. The chat layer reads the snapshot
+directly when answering direct-ask carve-outs (e.g. "is the basketball
+league full?").
+
+The loader is intentionally separate from the scraper layer so DB
+schema changes don't churn the scrapers and vice versa.
 
 ## Running
 
+Two-step pipeline: scrape, then load.
+
 ```
-# Run every source:
+# Step 1 — refresh snapshots (writes data/scrapes/<source>/<ts>.json):
 python scripts/run_scrapes.py
 
-# Run a subset (e.g. only the WebTrac side):
-python scripts/run_scrapes.py --only webtrac
-
-# JSON summary for piping into a scheduler dashboard:
-python scripts/run_scrapes.py --json
+# Step 2 — load the latest snapshots into the catalog:
+python scripts/parks_rec_load.py            # full live load
+python scripts/parks_rec_load.py --dry-run  # count without writing
 ```
 
-The script exits non-zero if any source failed.
+`run_scrapes.py` and `parks_rec_load.py` both exit non-zero on any
+failure — wire that into your scheduler for paging. Either step is
+idempotent: re-running the loader against an unchanged snapshot
+imports zero rows because every source URL is already in the catalog.
 
 ## Scheduling
 
@@ -94,6 +110,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - run: python scripts/run_scrapes.py
+      - run: python scripts/parks_rec_load.py
       - uses: actions/upload-artifact@v4
         with:
           name: scrapes-${{ github.run_id }}
@@ -103,7 +120,7 @@ jobs:
 ### Local cron (development)
 
 ```
-15 */6 * * * cd /path/to/havasu-chat && /usr/bin/env python scripts/run_scrapes.py >> data/scrapes/cron.log 2>&1
+15 */6 * * * cd /path/to/havasu-chat && /usr/bin/env python scripts/run_scrapes.py && /usr/bin/env python scripts/parks_rec_load.py >> data/scrapes/cron.log 2>&1
 ```
 
 ## Failure modes and observability

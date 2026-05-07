@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import asdict, dataclass, field
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -218,7 +218,7 @@ def parse_schedule_html(html: str, *, today: date | None = None) -> list[Aquatic
                     duration_minutes=duration,
                     all_day=all_day,
                     is_public=(class_type in PUBLIC_CLASS_TYPES),
-                    raw={"_parsed_at": datetime.utcnow().isoformat() + "Z"},
+                    raw={"_parsed_at": datetime.now(timezone.utc).isoformat()},
                 )
             )
     return slots

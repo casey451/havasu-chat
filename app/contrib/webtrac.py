@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import asdict, dataclass, field
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 from typing import Any, Iterable
 
 import httpx
@@ -309,7 +309,7 @@ def parse_search_html(html: str) -> list[Section]:
                     cost_resident=cost_res,
                     cost_nonresident=cost_non,
                     info_url=info_url,
-                    raw={"_parsed_at": datetime.utcnow().isoformat() + "Z"},
+                    raw={"_parsed_at": datetime.now(timezone.utc).isoformat()},
                 )
             )
 
@@ -393,25 +393,28 @@ def fetch_all_sections(
 ) -> list[Section]:
     """Pull and parse every (category, type) slice and return a flat list.
 
-    If neither categories nor types is provided, fetches a single broad
-    slice (module=AR with no filters), which the system returns as the
-    full activity universe. Splitting by category/type is mainly for
-    pagination relief on very large catalogs.
+    Without a category filter, Vermont Systems WebTrac returns its
+    category-picker landing page rather than a results listing. So when
+    no categories are passed, we iterate the three published category
+    codes (ADULT, PET, YOUTH) — that covers the entire activity
+    universe. Sections are deduped by FMID across slices, since a
+    single program could in theory appear under multiple categories.
     """
     own_client = client is None
     c = client or _new_session()
+    seen_fmids: set[int] = set()
     out: list[Section] = []
     try:
-        if not categories and not types:
-            html = fetch_search_html(client=c)
-            out.extend(parse_search_html(html))
-            return out
-        cats = list(categories) if categories else [None]
+        cats = list(categories) if categories else list(CATEGORY_CODES.values())
         tps = list(types) if types else [None]
         for cat in cats:
             for tp in tps:
                 html = fetch_search_html(category=cat, type_=tp, client=c)
-                out.extend(parse_search_html(html))
+                for s in parse_search_html(html):
+                    if s.fmid in seen_fmids:
+                        continue
+                    seen_fmids.add(s.fmid)
+                    out.append(s)
         return out
     finally:
         if own_client:

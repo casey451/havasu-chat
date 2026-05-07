@@ -107,7 +107,7 @@ def main() -> int:
             )
         )
     else:
-        print(f"scrape run {run.started_at} → {run.finished_at}")
+        print(f"scrape run {run.started_at} -> {run.finished_at}")
         for r in run.results:
             status = "OK" if r.ok else "FAIL"
             tail = f" ({r.record_count} records, {r.snapshot_path})" if r.ok else ""
