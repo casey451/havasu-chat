@@ -41,6 +41,32 @@ _WEEKDAY_NAMES: tuple[str, ...] = (
 
 
 INTENT_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
+    # Slice C: REVIEW_COUNT and RATING come first so phrases like "number of reviews"
+    # don't get absorbed by PHONE_LOOKUP's bare-"number" alternative. REVIEW_COUNT must
+    # also precede RATING so "how many reviews" doesn't fall through to general rating
+    # phrasing. Neither pattern overlaps with later intents (TIME / HOURS / LOCATION / DATE).
+    (
+        "REVIEW_COUNT_LOOKUP",
+        re.compile(
+            r"\b("
+            r"how many reviews|number of reviews|review count|reviews count|"
+            r"how many ratings|number of ratings|how many people reviewed"
+            r")\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "RATING_LOOKUP",
+        re.compile(
+            r"\b("
+            r"rating|ratings|star rating|how many stars|stars on google|"
+            r"google rating|how is .{0,30}rated|are they rated|rated highly|"
+            r"any good reviews|how are the reviews|are the reviews good|"
+            r"is .{0,40}any good|are they any good"
+            r")\b",
+            re.IGNORECASE,
+        ),
+    ),
     ("WEBSITE_LOOKUP", re.compile(r"\b(website|site|url|web address)\b")),
     ("PHONE_LOOKUP", re.compile(r"\b(phone number|phone|contact number|call them|number)\b")),
     ("AGE_LOOKUP", re.compile(r"\b(age groups?|age range|age requirements?|ages?|how old|youngest age)\b")),
@@ -124,6 +150,21 @@ TEMPLATES: dict[str, list[str]] = {
         "{program} is for ages {age_range}.",
         "Ages {age_range}.",
     ],
+    # Slice C — Google business retrieval. Voice: 1–2 sentences, no follow-up question.
+    # "rating" is the canonical Google star value; review_count is the volume context.
+    "RATING_LOOKUP": [
+        "{name} has a {rating}-star Google rating ({review_count} reviews).",
+        "Rated {rating} stars on Google across {review_count} reviews.",
+        "{rating} stars ({review_count} reviews).",
+    ],
+    "RATING_LOOKUP_NO_REVIEWS": [
+        "{name} has a {rating}-star Google rating.",
+        "Rated {rating} stars on Google.",
+    ],
+    "REVIEW_COUNT_LOOKUP": [
+        "{name} has {review_count} Google reviews.",
+        "{review_count} reviews on Google.",
+    ],
 }
 
 
@@ -136,6 +177,10 @@ _REQUIRED_SLOTS: dict[str, tuple[str, ...]] = {
     "HOURS_LOOKUP": ("name", "hours"),
     "WEBSITE_LOOKUP": ("name", "website"),
     "AGE_LOOKUP": ("program", "age_range"),
+    # Slice C: rating is the only required slot for RATING_LOOKUP — review_count
+    # is rendered when present (handler picks the *_NO_REVIEWS variant otherwise).
+    "RATING_LOOKUP": ("name", "rating"),
+    "REVIEW_COUNT_LOOKUP": ("name", "review_count"),
 }
 
 CONTACT_FOR_PRICING = "CONTACT_FOR_PRICING"
@@ -276,6 +321,16 @@ def render(
         if not slots.get("name"):
             return None
         return _pick(TEMPLATES["HOURS_LOOKUP_CLOSED_TODAY"], variant).format(**slots)
+
+    if intent == "RATING_LOOKUP":
+        # Slice C: review_count is optional — fall back to the *_NO_REVIEWS variant when
+        # absent so the response stays natural for newly-listed places without reviews.
+        slots = _build_slots(entity, data)
+        if not slots.get("name") or slots.get("rating") in (None, ""):
+            return None
+        rc = slots.get("review_count")
+        if rc in (None, "", 0):
+            return _pick(TEMPLATES["RATING_LOOKUP_NO_REVIEWS"], variant).format(**slots)
 
     slots = _build_slots(entity, data)
     for required in _REQUIRED_SLOTS[intent]:

@@ -75,6 +75,16 @@ _CLASSIFY_FIXTURES: list[tuple[str, str, str]] = [
     ("Is the BMX track open now?", "ask", "OPEN_NOW"),
     ("Is sonics currently open?", "ask", "OPEN_NOW"),
     ("Are you open now at havasu lanes?", "ask", "OPEN_NOW"),
+    # --- ask: RATING_LOOKUP (5) — Slice C / Google business retrieval ---
+    ("What is the rating for mudshark brewing?", "ask", "RATING_LOOKUP"),
+    ("How is the foundry rated?", "ask", "RATING_LOOKUP"),
+    ("Star rating for shugrue's?", "ask", "RATING_LOOKUP"),
+    ("How are the reviews for sloane's?", "ask", "RATING_LOOKUP"),
+    ("How many stars does turtle beach bar have on google?", "ask", "RATING_LOOKUP"),
+    # --- ask: REVIEW_COUNT_LOOKUP (3) — Slice C / Google business retrieval ---
+    ("How many reviews does mudshark have?", "ask", "REVIEW_COUNT_LOOKUP"),
+    ("Number of reviews for the foundry?", "ask", "REVIEW_COUNT_LOOKUP"),
+    ("Review count for shugrue's?", "ask", "REVIEW_COUNT_LOOKUP"),
     # --- ask: OPEN_ENDED (4) ---
     ("What is fun to do with kids this weekend?", "ask", "OPEN_ENDED"),
     ("Tell me about lake havasu activities.", "ask", "OPEN_ENDED"),
