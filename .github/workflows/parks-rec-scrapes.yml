@@ -1,0 +1,40 @@
+name: parks-rec-scrapes
+
+on:
+  schedule:
+    # Every 6 hours, 15 minutes past the hour. Adjust as needed.
+    - cron: "15 */6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  pull-and-load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Scrape (writes timestamped JSON to data/scrapes/)
+        run: python scripts/run_scrapes.py
+
+      - name: Load latest snapshots into the catalog
+        env:
+          # Railway Postgres connection string. Set in repo secrets:
+          # GitHub repo → Settings → Secrets and variables → Actions
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/parks_rec_load.py
+
+      - name: Upload snapshots as a run artifact (audit trail)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrape-snapshots-${{ github.run_id }}
+          path: data/scrapes/
+          retention-days: 14
