@@ -155,6 +155,41 @@ def reset_entity_matcher() -> None:
     _rows = None
 
 
+# Voice-battery 2026-05-07 (regression fix): Tier 1 intent verbs that appear as
+# ≥5-char tokens in queries shouldn't count as "distinctive content" for the
+# substring guard. They're function words for intent classification, not entity
+# content, and including them would block legitimate matches like "number for
+# the tap room" — where "number" is the only ≥5-char query token but doesn't
+# substring-match "tap room jiu jitsu". The guard should focus on the entity
+# portion of the query, not the intent portion.
+_INTENT_VERB_TOKENS: frozenset[str] = frozenset(
+    {
+        "phone",
+        "phones",
+        "number",
+        "numbers",
+        "contact",
+        "contacts",
+        "address",
+        "addresses",
+        "location",
+        "locations",
+        "located",
+        "hours",
+        "hour",
+        "website",
+        "websites",
+        "rating",
+        "ratings",
+        "review",
+        "reviews",
+        "where",
+        "called",
+        "calling",
+    }
+)
+
+
 def _best_score(norm_query: str, needles: frozenset[str]) -> float:
     """Max ``fuzz.token_set_ratio`` across ``needles``, gated by per-needle substring guard.
 
@@ -170,11 +205,20 @@ def _best_score(norm_query: str, needles: frozenset[str]) -> float:
     phone for mudshark brewing" vs needle "double threat barbering co" → 56.25).
     That false-positive scores into the 55–75 near-match band and produces
     wrong-entity gap-template answers. To prevent this, when the query has any
-    ≥5-char tokens, require at least one of them to substring-match the needle
+    ≥5-char *content* tokens (intent verbs from :data:`_INTENT_VERB_TOKENS`
+    excluded), require at least one of them to substring-match the needle
     (``partial_ratio ≥ 80``) before letting ``token_set_ratio`` count for that
-    needle. Short queries with no long tokens are unaffected.
+    needle. When the query has no content tokens at all (only short stopwords
+    or only intent verbs), the guard is skipped and ``token_set_ratio`` runs
+    unconstrained — that's the right behavior because Tier-1-shape queries like
+    "number for the tap room" need to match on token-set overlap with the
+    canonical name, not on a substring of the intent verb.
     """
-    long_query_tokens = [t for t in norm_query.split() if len(t) >= 5]
+    long_query_tokens = [
+        t
+        for t in norm_query.split()
+        if len(t) >= 5 and t.lower() not in _INTENT_VERB_TOKENS
+    ]
     best = 0.0
     for needle in needles:
         if long_query_tokens and len(needle) >= 5:

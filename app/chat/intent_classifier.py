@@ -98,11 +98,16 @@ _OPEN_NOW_DISAMBIG = re.compile(
     # Two anchored constraints keep this from over-matching:
     # - bare "is X open" must START the query (so "what hour is X open" stays HOURS_LOOKUP).
     # - bare "is X open" must END the query (so "is X open late on friday" stays HOURS_LOOKUP).
+    # Voice-battery 2026-05-07: added "can I go to/visit X right now" — the user
+    # is asking about current accessibility, not full-week hours. Requires both
+    # the visit-action verb and "right now"/"now" to avoid promoting future-day
+    # queries ("can I visit X next Tuesday") to OPEN_NOW.
     r"(?:"
     r"\bopen now\b|\bopen right now\b|\bcurrently open\b|\bopen at the moment\b|"
     r"\bare you open(?:\s+now)?\b|\bis it open(?:\s+now)?\b|"
     r"^is\s+\w+(?:\s+\w+){0,4}\s+open\s*$|"
-    r"\bopen today\b|\bopen tonight\b"
+    r"\bopen today\b|\bopen tonight\b|"
+    r"\bcan\s+i\s+(?:go\s+to|visit|stop\s+by|drop\s+by|head\s+(?:to|over))\b.*\b(?:right\s+now|now)\b"
     r")",
     re.IGNORECASE,
 )

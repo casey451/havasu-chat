@@ -429,8 +429,12 @@ def _category_match_provider(p: Provider, cat: str) -> bool:
     c = cat.strip().lower()
     c_singular = _singularize_category(c)
     needles = (c, c_singular) if c_singular != c else (c,)
+    # Voice-battery 2026-05-07: dropped (p.provider_name or "").lower() from
+    # haystacks — see SQL filter comment in _query_providers for full rationale.
+    # Names produced false positives ("vet" matching "Vetter", "bar" matching
+    # "Bare Body and Beauty Bar"); category/description/google_* are the real
+    # signals.
     haystacks: list[str] = [
-        (p.provider_name or "").lower(),
         (p.category or "").lower(),
         (p.description or "").lower() if p.description else "",
         # Slice D: Google taxonomy fields. Provider.category is the high-level domain;
@@ -738,9 +742,17 @@ def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
             norm_categories = func.replace(
                 cast(Provider.google_categories, String), "_", " "
             )
+            # Voice-battery 2026-05-07: dropped Provider.provider_name from the
+            # category-match conditions. Substring match on names produced false
+            # positives — "vet" matched "Brooke Vetter, OD" (an optometrist) and
+            # "bar" matched "Bare Body and Beauty Bar" + "Barnet Dulaney Perkins
+            # Eye Center". Provider name isn't a category column; the actual
+            # category signals are Provider.category, description, and the Google
+            # taxonomy fields. Minor recall loss (e.g. "tacos" in a restaurant
+            # name with a generic category) is acceptable vs. the wrong-category
+            # bugs the battery surfaced.
             conditions = [
                 Provider.category.ilike(cat_like),
-                Provider.provider_name.ilike(cat_like),
                 Provider.description.ilike(cat_like),
                 norm_primary.ilike(cat_like),
                 norm_categories.ilike(cat_like),
@@ -749,7 +761,6 @@ def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
                 conditions.extend(
                     [
                         Provider.category.ilike(cat_singular_like),
-                        Provider.provider_name.ilike(cat_singular_like),
                         Provider.description.ilike(cat_singular_like),
                         norm_primary.ilike(cat_singular_like),
                         norm_categories.ilike(cat_singular_like),
