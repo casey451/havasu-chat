@@ -131,7 +131,9 @@ def test_near_match_typo_returns_did_you_mean(db: Session) -> None:
 
         with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
             with patch("app.chat.unified_router.answer_with_tier3") as m3:
-                r = route("phone for mudsharks brewry", "sess-near-typo", db)
+                # "mdshrkbrwry" scores ~65 (NEAR band) — too far to resolve directly,
+                # close enough to surface a "did you mean" disambiguation.
+                r = route("phone for mdshrkbrwry", "sess-near-typo", db)
         m3.assert_not_called()
         assert r.tier_used == "gap_template"
         assert "closest match" in r.response.lower()

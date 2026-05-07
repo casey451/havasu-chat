@@ -431,6 +431,22 @@ class EntityMatcherTypoToleranceTests(unittest.TestCase):
             hit = match_entity("phone for unknown plumbing service xyz", db)
         self.assertIsNone(hit)
 
+    def test_typo_resolves_directly_when_strongly_distinctive(self) -> None:
+        """Slice F: 'mudsharks brewry' is close enough to one Mudshark variant
+        (Brewery, not Pizza) that the matcher should resolve it directly to Tier 1
+        without surfacing the 'Did you mean X?' disambiguation."""
+        with SessionLocal() as db:
+            self._provider_ids.append(_insert_google_provider(db, provider_name="Mudshark Brewery and Public House"))
+            self._provider_ids.append(_insert_google_provider(db, provider_name="Mudshark Pizza & Pasta"))
+            refresh_entity_matcher(db)
+            hit = match_entity("phone for mudsharks brewry", db)
+        self.assertIsNotNone(hit)
+        assert hit is not None
+        self.assertEqual(hit[0], "Mudshark Brewery and Public House")
+        # Must be above the strict 75 threshold (otherwise it'd hit the near-match
+        # disambiguation path).
+        self.assertGreater(hit[1], 75.0)
+
     def test_short_canonical_does_not_get_inflated_partial_score(self) -> None:
         """Regression: 'mudsharks brewry' must NOT match a 3-char canonical like 'DBR'
         via partial_token_set_ratio's substring fallback."""
@@ -470,8 +486,10 @@ class EntityMatcherNearMatchTests(unittest.TestCase):
         with SessionLocal() as db:
             self._provider_ids.append(_insert_google_provider(db, provider_name=canon))
             refresh_entity_matcher(db)
-            # "mudsharks brewry" — multi-char typo that scores ~62 (NEAR band).
-            hit = find_near_match("phone for mudsharks brewry", db)
+            # "mdshrkbrwry" — heavy typo (vowels dropped); scores ~65 in NEAR band.
+            # "mudsharks brewry" by contrast resolves directly via the typo scorer
+            # (covered in EntityMatcherTypoToleranceTests::test_typo_resolves_directly).
+            hit = find_near_match("phone for mdshrkbrwry", db)
         self.assertIsNotNone(hit)
         assert hit is not None
         self.assertEqual(hit[0], canon)
