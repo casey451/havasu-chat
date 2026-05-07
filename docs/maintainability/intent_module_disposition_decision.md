@@ -1,9 +1,9 @@
 # `app/core/intent.py` module disposition — decision
 
-**Date:** 2026-05-06 (Slice 68 decision; Slice 71 implementation).  
-**Author:** Casey / Cursor.  
-**Status:** Implemented (Slice 71 + 71b shipped 2026-05-06).  
-**Companion:** `docs/components/intent.md` (Slice 67b inventory; rewritten Slice 71).
+**Date:** 2026-05-06 (Slice 68).  
+**Author:** Doc slice (Cursor); Casey approval pending §7.  
+**Status:** Draft — awaiting Casey's §7 sign-off. Implementation campaign **OPEN** until then.  
+**Companion:** `docs/components/intent.md` (Slice 67b component inventory).
 
 ## §1 Observation
 
@@ -105,21 +105,48 @@ Per-option work ships **only after** Casey signs §7. Slice numbers are placehol
 
 - **`intent_legacy.py` split** — Second file without resolving product direction; rejected.
 - **Demote `intent_classifier`; promote `detect_intent`** — Reverses deliberate post-H1 architecture; rejected.
-- **Delete `intent.py` entirely** — Impossible while `detect_out_of_scope_category` remains a production import (Slice 71b removed the last non–Tier-1 helper that could have been construed as a second export).
+- **Delete `intent.py` entirely** — Impossible while `detect_out_of_scope_category` and `open_ended_search_message` remain production imports.
 
 ## §7 Decision
 
 **Decision: Option A approved on 2026-05-06 by Casey.**
 
-**Scope extension:** This disposition applies to both `app/core/intent.py` AND `app/core/search.py`. Slice 70's peer review of `search.md` surfaced that the search-pipeline surface (`search_events`, `format_search_results`, `search_events_keyword_only`, and supporting scoring/filtering helpers) has the same dormancy shape as the `intent.py` cascade — bypassed by the LLM-driven Tier 1/2/3 architecture, kept alive only by tests. Same architectural origin, same disposition.
+**Scope extension:** This disposition applies to both
+`app/core/intent.py` AND `app/core/search.py`. Slice 70's peer review
+of `search.md` surfaced that the search-pipeline surface
+(`search_events`, `format_search_results`, `search_events_keyword_only`,
+and supporting scoring/filtering helpers) has the same dormancy shape
+as the `intent.py` cascade — bypassed by the LLM-driven Tier 1/2/3
+architecture, kept alive only by tests. Same architectural origin,
+same disposition.
 
-**Rationale:** The deterministic-template-era surface in `app/core/` has been bypassed by the LLM-driven Tier 1/2/3 chat architecture (`intent_classifier.py`, Tier 2 SQL retrieval in `tier2_db_query.py`, Tier 3 Anthropic Haiku in `tier3_handler.py`). Keeping the dormant code as fallback (Option B) carries ongoing maintenance and architectural-confusion cost without a clear operational trigger; documenting it dormant (Option C) defers the question without resolving it. The clean end state — delete the dormant surface, the test files exercising only-dead helpers, the stale `.cursorrules` reference — fits the project's recent shipping pattern (schema cleanup in #30, static-html extraction in #31).
+**Rationale:** The deterministic-template-era surface in `app/core/`
+has been bypassed by the LLM-driven Tier 1/2/3 chat architecture
+(`intent_classifier.py`, Tier 2 SQL retrieval in `tier2_db_query.py`,
+Tier 3 Anthropic Haiku in `tier3_handler.py`). Keeping the dormant
+code as fallback (Option B) carries ongoing maintenance and
+architectural-confusion cost without a clear operational trigger;
+documenting it dormant (Option C) defers the question without
+resolving it. The clean end state — delete the dormant surface,
+the test files exercising only-dead helpers, the stale `.cursorrules`
+reference — fits the project's recent shipping pattern (schema
+cleanup in #30, static-html extraction in #31).
 
-**What stays:** Live functions `detect_out_of_scope_category` (used by `app/chat/intent_classifier.py`) and `open_ended_search_message` (used by `search.py`). Live function `_deterministic_embedding_1536` (used by `app/admin/router.py`). Plus any helpers these three functions genuinely depend on. Implementation slice's Step 0 audit confirms the keep-set before any deletion.
+**What stays:** Live functions `detect_out_of_scope_category` (used by
+`app/chat/intent_classifier.py`) and `open_ended_search_message` (used
+by `search.py`). Live function `_deterministic_embedding_1536` (used
+by `app/admin/router.py`). Plus any helpers these three functions
+genuinely depend on. Implementation slice's Step 0 audit confirms
+the keep-set before any deletion.
 
-**Post–Slice 71b:** `open_ended_search_message` was deleted from `intent.py`; only `detect_out_of_scope_category` remains exported from that module (the search pipeline that imported it was removed at Slice 71).
+**Implementation:** Slice 71 drafts the deletion campaign (single
+slice; pre-flight verifies pytest count delta matches the deleted
+test count; ruff stays clean; component docs `intent.md` and
+`search.md` get updated to reflect the post-deletion state).
 
-**Implementation:** Slice 71 drafts the deletion campaign (single slice; pre-flight verifies pytest count delta matches the deleted test count; ruff stays clean; component docs `intent.md` and `search.md` get updated to reflect the post-deletion state).
+
+> Decision: Option ___ approved on YYYY-MM-DD by Casey.  
+> Rationale: …
 
 ## §8 Verification posture
 
@@ -128,28 +155,3 @@ Per-option work ships **only after** Casey signs §7. Slice numbers are placehol
 - **Option C:** Doc/commit review; CI unchanged (965 passed / 5 deselected baseline at Slice 68 ship).
 
 Per `docs/WORKING_AGREEMENT.md`, production verification applies when **user-visible behavior** changes (**A**, **B**, **D**); **C** is documentation-only if truly comment/doc touching.
-
-## §10 Outcome
-
-**Decision implemented across Slice 71 + Slice 71b.**
-
-**Shipping SHAs:**
-
-- Decision file: **`f7ed055`** (Slice 68 — decision doc + Backlog #36 file).
-- §7 sign-off: **`b7f3a6b`** (2026-05-06 — Casey approved Option A).
-- Substantive deletion: **`c8cc2db`** (Slice 71 — `intent.py` and `search.py` trimmed; tests deleted/trimmed; `.cursorrules` updated; component docs rewritten).
-- Bookkeeping: **`cbe1779`**, **`f8a5126`**, **`a7c637f`**, **`11e9897`** (Slice 71 close-out + amend sequence).
-- **Slice 71b** — Deletes `open_ended_search_message`; completes §10 Outcome narrative; trim `intent.md`; extend Backlog #36 resolution paragraph.
-
-**What landed:**
-
-- `app/core/intent.py` trimmed **654 → ~157 lines** (final post–71b). Live keep-set: **`detect_out_of_scope_category`** plus `_commercial_services_query` and category/rescue constants only. **`open_ended_search_message`** removed at 71b after the `search.py` pipeline deletion orphaned it.
-- `app/core/search.py` trimmed **~1,025 → ~26 lines**. Live keep-set: **`_deterministic_embedding_1536`** only (unchanged in 71b).
-- Tests: four files deleted; four files trimmed (including recurrence-only retention in `test_phase8_9_event_ranking.py`). Pytest **965 → 921** after Slice 71 (−44); **unchanged at 921** after Slice 71b (no test covered `open_ended_search_message`).
-- `.cursorrules` Phase **8.5** items updated at Slice 71 (removed stale `decide_search_strategy`, `detect_intent`, `LISTING_INTENT` references).
-- Component docs **`intent.md`** and **`search.md`** rewritten at Slice 71; **`intent.md`** trimmed again at 71b.
-
-**Surprises vs sketch (Slice 71 Step 0):**
-
-- **`open_ended_search_message`** was listed in §7 “what stays” but became orphaned when the **`search.py`** pipeline was deleted; Slice 71b removes it rather than keeping dormant code.
-- Pytest fallout extended beyond the four bootstrap-named files: **`test_phase5.py`** deleted whole; **`test_phase8_9_event_ranking.py`** and **`test_phase87_privacy.py`** trimmed.
