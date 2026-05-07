@@ -1,0 +1,939 @@
+# Voice battery — 200 questions for grading Hava's chat responses.
+# Companion: docs/voice-rubric.md (the rubric this is graded against).
+# Runner: scripts/voice_battery/static_check.py
+#
+# Each question:
+#   id              stable identifier
+#   query           the user-facing prompt as typed in the chat composer
+#   intent_shape    bucket for grouping (factual_phone, listing_business, etc.)
+#   expected_tier   "1" | "2" | "3" | "gap_template" | "chat" | "placeholder"
+#   must_contain    optional list of substrings the response MUST include
+#   must_not_contain optional list of substrings the response MUST NOT include
+#   notes           free-form rationale / what we're testing
+#
+# Provider names mix curated (CANONICAL_EXTRAS / Program providers) and Google places
+# from the LHC pull. When a name might not exist locally, the grader treats it as a
+# gap-response test.
+
+# =========================================================================
+# Tier 1 — FACTUAL_PHONE (10)
+# =========================================================================
+- id: t1_phone_001
+  query: phone number for d1 performance
+  intent_shape: factual_phone
+  expected_tier: "1"
+  must_contain: ["D1 Performance"]
+  must_not_contain: ["I'd be happy", "Certainly"]
+- id: t1_phone_002
+  query: what's the phone for mudshark brewing
+  intent_shape: factual_phone
+  expected_tier: "1"
+- id: t1_phone_003
+  query: contact number for altitude trampoline park
+  intent_shape: factual_phone
+  expected_tier: "1"
+- id: t1_phone_004
+  query: I need to call iron wolf golf
+  intent_shape: factual_phone
+  expected_tier: "1"
+- id: t1_phone_005
+  query: phone for the foundry
+  intent_shape: factual_phone
+  expected_tier: "1"
+- id: t1_phone_006
+  query: how do I reach havasu lanes
+  intent_shape: factual_phone
+  expected_tier: "1"
+  notes: "verb 'reach' isn't in PHONE_LOOKUP regex — likely falls through to OPEN_ENDED. Surfaces a regex gap."
+- id: t1_phone_007
+  query: number for the tap room
+  intent_shape: factual_phone
+  expected_tier: "1"
+- id: t1_phone_008
+  query: phone number for sloane's
+  intent_shape: factual_phone
+  expected_tier: "1"
+- id: t1_phone_009
+  query: call number for shugrue's
+  intent_shape: factual_phone
+  expected_tier: "1"
+- id: t1_phone_010
+  query: contact for turtle beach bar
+  intent_shape: factual_phone
+  expected_tier: "1"
+  notes: "'contact' alone may not match PHONE_LOOKUP regex (`phone number|phone|contact number|call them|number`)."
+
+# =========================================================================
+# Tier 1 — FACTUAL_ADDRESS (10)
+# =========================================================================
+- id: t1_addr_001
+  query: address for d1 performance
+  intent_shape: factual_address
+  expected_tier: "1"
+- id: t1_addr_002
+  query: where is mudshark brewing
+  intent_shape: factual_address
+  expected_tier: "1"
+- id: t1_addr_003
+  query: location of altitude trampoline park
+  intent_shape: factual_address
+  expected_tier: "1"
+- id: t1_addr_004
+  query: where is iron wolf golf located
+  intent_shape: factual_address
+  expected_tier: "1"
+- id: t1_addr_005
+  query: address for the foundry
+  intent_shape: factual_address
+  expected_tier: "1"
+- id: t1_addr_006
+  query: where can I find havasu lanes
+  intent_shape: factual_address
+  expected_tier: "1"
+- id: t1_addr_007
+  query: street address for the tap room
+  intent_shape: factual_address
+  expected_tier: "1"
+- id: t1_addr_008
+  query: where's sloane's at
+  intent_shape: factual_address
+  expected_tier: "1"
+- id: t1_addr_009
+  query: located on what street is shugrue's
+  intent_shape: factual_address
+  expected_tier: "1"
+- id: t1_addr_010
+  query: directions to turtle beach bar
+  intent_shape: factual_address
+  expected_tier: "3"
+  notes: "'directions' triggers OUT_OF_SCOPE per app/core/intent.py. Tests OOS routing."
+
+# =========================================================================
+# Tier 1 — FACTUAL_WEBSITE (8)
+# =========================================================================
+- id: t1_web_001
+  query: website for d1 performance
+  intent_shape: factual_website
+  expected_tier: "1"
+- id: t1_web_002
+  query: url for mudshark brewing
+  intent_shape: factual_website
+  expected_tier: "1"
+- id: t1_web_003
+  query: site for altitude
+  intent_shape: factual_website
+  expected_tier: "1"
+- id: t1_web_004
+  query: web address for iron wolf
+  intent_shape: factual_website
+  expected_tier: "1"
+- id: t1_web_005
+  query: do you have a website for the foundry
+  intent_shape: factual_website
+  expected_tier: "1"
+- id: t1_web_006
+  query: link for havasu lanes
+  intent_shape: factual_website
+  expected_tier: "3"
+  notes: "'link' isn't in WEBSITE_LOOKUP regex (`website|site|url|web address`). Falls through."
+- id: t1_web_007
+  query: website for ballet havasu
+  intent_shape: factual_website
+  expected_tier: "1"
+- id: t1_web_008
+  query: site for flips for fun gymnastics
+  intent_shape: factual_website
+  expected_tier: "1"
+
+# =========================================================================
+# Tier 1 — FACTUAL_HOURS (8)
+# =========================================================================
+- id: t1_hours_001
+  query: what are the hours for d1 performance
+  intent_shape: factual_hours
+  expected_tier: "1"
+- id: t1_hours_002
+  query: hours for mudshark brewing
+  intent_shape: factual_hours
+  expected_tier: "1"
+- id: t1_hours_003
+  query: when is altitude open
+  intent_shape: factual_hours
+  expected_tier: "1"
+  notes: "'when' might match DATE_LOOKUP first. Order risk."
+- id: t1_hours_004
+  query: business hours for iron wolf golf
+  intent_shape: factual_hours
+  expected_tier: "1"
+- id: t1_hours_005
+  query: hours on saturday for the foundry
+  intent_shape: factual_hours
+  expected_tier: "1"
+  notes: "Day-aware variant — tests _hours_focus_for_weekday for Google providers."
+- id: t1_hours_006
+  query: what hours is the tap room
+  intent_shape: factual_hours
+  expected_tier: "1"
+- id: t1_hours_007
+  query: hours of operation for sloane's
+  intent_shape: factual_hours
+  expected_tier: "1"
+- id: t1_hours_008
+  query: when does shugrue's close
+  intent_shape: factual_hours
+  expected_tier: "1"
+
+# =========================================================================
+# Tier 1 — FACTUAL_OPEN_NOW (8)
+# =========================================================================
+- id: t1_open_001
+  query: is d1 performance open right now
+  intent_shape: factual_open_now
+  expected_tier: "1"
+  notes: "Current template wording is sterile ('outside today's posted window'). FLAG."
+- id: t1_open_002
+  query: is mudshark brewing open now
+  intent_shape: factual_open_now
+  expected_tier: "1"
+- id: t1_open_003
+  query: are they open at altitude trampoline
+  intent_shape: factual_open_now
+  expected_tier: "1"
+- id: t1_open_004
+  query: can I go to iron wolf right now
+  intent_shape: factual_open_now
+  expected_tier: "3"
+  notes: "Doesn't match OPEN_NOW or HOURS_LOOKUP regex. Falls through."
+- id: t1_open_005
+  query: is the foundry open at the moment
+  intent_shape: factual_open_now
+  expected_tier: "1"
+- id: t1_open_006
+  query: is havasu lanes currently open
+  intent_shape: factual_open_now
+  expected_tier: "1"
+- id: t1_open_007
+  query: is the tap room open
+  intent_shape: factual_open_now
+  expected_tier: "3"
+  notes: "Bare 'open' without 'now/right now/currently' falls to OPEN_ENDED. Coverage gap."
+- id: t1_open_008
+  query: are you open now at sloane's
+  intent_shape: factual_open_now
+  expected_tier: "1"
+
+# =========================================================================
+# Tier 1 — FACTUAL_RATING (6)
+# =========================================================================
+- id: t1_rating_001
+  query: what is the rating for d1 performance
+  intent_shape: factual_rating
+  expected_tier: "1"
+- id: t1_rating_002
+  query: how is mudshark brewing rated
+  intent_shape: factual_rating
+  expected_tier: "1"
+- id: t1_rating_003
+  query: star rating for the foundry
+  intent_shape: factual_rating
+  expected_tier: "1"
+- id: t1_rating_004
+  query: how are the reviews for sloane's
+  intent_shape: factual_rating
+  expected_tier: "1"
+- id: t1_rating_005
+  query: how many stars does shugrue's have on google
+  intent_shape: factual_rating
+  expected_tier: "1"
+- id: t1_rating_006
+  query: is turtle beach bar any good
+  intent_shape: factual_rating
+  expected_tier: "1"
+
+# =========================================================================
+# Tier 1 — FACTUAL_REVIEW_COUNT (4)
+# =========================================================================
+- id: t1_revc_001
+  query: how many reviews does mudshark have
+  intent_shape: factual_review_count
+  expected_tier: "1"
+- id: t1_revc_002
+  query: number of reviews for the foundry
+  intent_shape: factual_review_count
+  expected_tier: "1"
+- id: t1_revc_003
+  query: review count for d1 performance
+  intent_shape: factual_review_count
+  expected_tier: "1"
+- id: t1_revc_004
+  query: how many people reviewed altitude trampoline
+  intent_shape: factual_review_count
+  expected_tier: "1"
+
+# =========================================================================
+# Tier 1 — FACTUAL_AGE / COST / TIME / DATE (Programs) (8)
+# =========================================================================
+- id: t1_age_001
+  query: what age groups does sonics gymnastics accept
+  intent_shape: factual_age
+  expected_tier: "1"
+- id: t1_age_002
+  query: how old does my kid need to be for little league
+  intent_shape: factual_age
+  expected_tier: "1"
+- id: t1_cost_001
+  query: how much does altitude cost
+  intent_shape: factual_cost
+  expected_tier: "1"
+- id: t1_cost_002
+  query: pricing for ballet havasu
+  intent_shape: factual_cost
+  expected_tier: "1"
+- id: t1_time_001
+  query: what time does bmx start saturday
+  intent_shape: factual_time
+  expected_tier: "1"
+- id: t1_time_002
+  query: opening time for the aquatic center
+  intent_shape: factual_time
+  expected_tier: "1"
+- id: t1_date_001
+  query: when is the next bmx race
+  intent_shape: factual_date
+  expected_tier: "1"
+- id: t1_date_002
+  query: when's the next farmers market
+  intent_shape: factual_date
+  expected_tier: "3"
+  notes: "Farmers market not in catalog (Casey example). Tests gap response."
+
+# =========================================================================
+# Tier 2 — LISTING_BUSINESS (Google providers) (20)
+# =========================================================================
+- id: t2_biz_001
+  query: find me a barber in LHC
+  intent_shape: listing_business
+  expected_tier: "2"
+  must_contain: ["barber"]
+- id: t2_biz_002
+  query: any good coffee shops
+  intent_shape: listing_business
+  expected_tier: "2"
+- id: t2_biz_003
+  query: where can I get a haircut
+  intent_shape: listing_business
+  expected_tier: "2"
+- id: t2_biz_004
+  query: find me a coffee shop near me
+  intent_shape: listing_business
+  expected_tier: "2"
+- id: t2_biz_005
+  query: any good mexican food
+  intent_shape: listing_business
+  expected_tier: "2"
+  notes: "'mexican food' should match. Tests category w/ multiple words + Google taxonomy."
+- id: t2_biz_006
+  query: find a pizza place
+  intent_shape: listing_business
+  expected_tier: "2"
+- id: t2_biz_007
+  query: show me bars
+  intent_shape: listing_business
+  expected_tier: "2"
+- id: t2_biz_008
+  query: any auto shops in town
+  intent_shape: listing_business
+  expected_tier: "2"
+- id: t2_biz_009
+  query: find me a gym
+  intent_shape: listing_business
+  expected_tier: "2"
+- id: t2_biz_010
+  query: where can I find a nail salon
+  intent_shape: listing_business
+  expected_tier: "2"
+- id: t2_biz_011
+  query: list of dentists
+  intent_shape: listing_business
+  expected_tier: "2"
+- id: t2_biz_012
+  query: any good restaurants
+  intent_shape: listing_business
+  expected_tier: "3"
+  notes: "'restaurant' triggers OUT_OF_SCOPE in app/core/intent.py. Surfaces a stale OOS rule that should be relaxed now that we have business catalog."
+- id: t2_biz_013
+  query: best place to eat
+  intent_shape: listing_business
+  expected_tier: "3"
+  notes: "OOS dining trigger. Same flag as t2_biz_012."
+- id: t2_biz_014
+  query: any good bars in lake havasu
+  intent_shape: listing_business
+  expected_tier: "2"
+- id: t2_biz_015
+  query: where's a good plumber
+  intent_shape: listing_business
+  expected_tier: "2"
+- id: t2_biz_016
+  query: find me an electrician
+  intent_shape: listing_business
+  expected_tier: "2"
+- id: t2_biz_017
+  query: show me coffee shops in LHC
+  intent_shape: listing_business
+  expected_tier: "2"
+- id: t2_biz_018
+  query: any vet near me
+  intent_shape: listing_business
+  expected_tier: "2"
+- id: t2_biz_019
+  query: where can I find a chiropractor
+  intent_shape: listing_business
+  expected_tier: "2"
+- id: t2_biz_020
+  query: find a real estate agent
+  intent_shape: listing_business
+  expected_tier: "2"
+
+# =========================================================================
+# Tier 2 — LISTING_EVENTS (10)
+# =========================================================================
+- id: t2_evt_001
+  query: what events are coming up this weekend
+  intent_shape: listing_events
+  expected_tier: "3"
+  notes: "Tier 2 LLM parser path (events). Will spend tokens. Surface in report."
+- id: t2_evt_002
+  query: anything happening tonight
+  intent_shape: listing_events
+  expected_tier: "3"
+- id: t2_evt_003
+  query: events for kids this weekend
+  intent_shape: listing_events
+  expected_tier: "3"
+- id: t2_evt_004
+  query: things to do saturday
+  intent_shape: listing_events
+  expected_tier: "3"
+- id: t2_evt_005
+  query: what's going on next week
+  intent_shape: listing_events
+  expected_tier: "3"
+- id: t2_evt_006
+  query: any concerts coming up
+  intent_shape: listing_events
+  expected_tier: "3"
+- id: t2_evt_007
+  query: events in june
+  intent_shape: listing_events
+  expected_tier: "3"
+- id: t2_evt_008
+  query: any festivals this month
+  intent_shape: listing_events
+  expected_tier: "3"
+- id: t2_evt_009
+  query: family events this weekend
+  intent_shape: listing_events
+  expected_tier: "3"
+- id: t2_evt_010
+  query: free events near me
+  intent_shape: listing_events
+  expected_tier: "3"
+
+# =========================================================================
+# Tier 3 — SYNTHESIS / RECOMMENDATION (30)
+# =========================================================================
+- id: t3_rec_001
+  query: where's a good place for date night
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_002
+  query: what should I do with kids this weekend
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_003
+  query: best place for happy hour
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_004
+  query: what's worth doing this weekend
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_005
+  query: where would you eat tonight
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_006
+  query: what would you recommend for a first time visitor
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_007
+  query: best activity for a hot summer day
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_008
+  query: i need an activity for my 8 year old after school
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_009
+  query: what's the best place to watch the sunset
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_010
+  query: where do locals go for breakfast
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_011
+  query: what's a good morning activity
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_012
+  query: pick something for me to do today
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_013
+  query: compare mudshark and the foundry
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_014
+  query: which is better — bridge city or tap room jiu jitsu
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_015
+  query: what's the difference between altitude and sonics
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_016
+  query: i'm visiting for two days, what should I do
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_017
+  query: tell me about lake havasu
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_018
+  query: what kind of stuff is there to do here
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_019
+  query: any local secrets
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_020
+  query: what's lake havasu known for
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_021
+  query: best things to do on the lake
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_022
+  query: where do you go on a slow tuesday
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_023
+  query: i'm bored, suggest something
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_024
+  query: what would you do with a free afternoon
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_025
+  query: best kid friendly restaurant
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_026
+  query: where should we go for our anniversary dinner
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_027
+  query: any cool spots for a coffee meeting
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_028
+  query: what's a good rainy day activity
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_029
+  query: where to take out of town friends
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+- id: t3_rec_030
+  query: pick a workout class for someone new to fitness
+  intent_shape: synthesis_rec
+  expected_tier: "3"
+
+# =========================================================================
+# Edge cases — GAP / NO DATA (15)
+# =========================================================================
+- id: edge_gap_001
+  query: phone number for fake business that does not exist
+  intent_shape: gap_factual
+  expected_tier: "3"
+  notes: "Should land on _catalog_gap_response — but PHONE_LOOKUP isn't in its allowed list. Currently falls to Tier 3."
+- id: edge_gap_002
+  query: address for nonexistent shop xyz
+  intent_shape: gap_factual
+  expected_tier: "gap_template"
+  notes: "LOCATION_LOOKUP is in gap-template list."
+- id: edge_gap_003
+  query: hours for imaginary cafe
+  intent_shape: gap_factual
+  expected_tier: "gap_template"
+- id: edge_gap_004
+  query: when is the made-up festival
+  intent_shape: gap_factual
+  expected_tier: "gap_template"
+  notes: "DATE_LOOKUP gap path."
+- id: edge_gap_005
+  query: rating for a place not in your catalog
+  intent_shape: gap_factual
+  expected_tier: "3"
+  notes: "RATING_LOOKUP not in gap-template list. FLAG: should be."
+- id: edge_gap_006
+  query: how many reviews for nonexistent biz
+  intent_shape: gap_factual
+  expected_tier: "3"
+  notes: "REVIEW_COUNT_LOOKUP not in gap-template list. FLAG."
+- id: edge_gap_007
+  query: website for some random thing
+  intent_shape: gap_factual
+  expected_tier: "3"
+  notes: "WEBSITE_LOOKUP not in gap-template list. FLAG."
+- id: edge_gap_008
+  query: find me a tea ceremony venue
+  intent_shape: gap_listing
+  expected_tier: "2"
+  notes: "Shortcut hits, no rows match → falls through to Tier 3 LLM."
+- id: edge_gap_009
+  query: find me a unicorn rental
+  intent_shape: gap_listing
+  expected_tier: "2"
+- id: edge_gap_010
+  query: any good escape rooms
+  intent_shape: gap_listing
+  expected_tier: "2"
+- id: edge_gap_011
+  query: phone number for foo bar baz
+  intent_shape: gap_factual
+  expected_tier: "3"
+- id: edge_gap_012
+  query: where is the lake havasu space center
+  intent_shape: gap_factual
+  expected_tier: "gap_template"
+- id: edge_gap_013
+  query: hours for shop that closed last year
+  intent_shape: gap_factual
+  expected_tier: "gap_template"
+- id: edge_gap_014
+  query: any indoor skydiving in lhc
+  intent_shape: gap_listing
+  expected_tier: "2"
+- id: edge_gap_015
+  query: pottery class for adults
+  intent_shape: gap_listing
+  expected_tier: "2"
+
+# =========================================================================
+# Edge cases — AMBIGUOUS ENTITY / MULTIPLE MATCHES (10)
+# =========================================================================
+- id: edge_amb_001
+  query: phone number for the diner
+  intent_shape: ambiguous_entity
+  expected_tier: "3"
+  notes: "Multiple diners may match. Tier 1 picks one — could be wrong. FLAG: ambiguity handling."
+- id: edge_amb_002
+  query: hours for cafe
+  intent_shape: ambiguous_entity
+  expected_tier: "3"
+  notes: "Multiple cafes match. Same flag."
+- id: edge_amb_003
+  query: address for golf
+  intent_shape: ambiguous_entity
+  expected_tier: "3"
+- id: edge_amb_004
+  query: phone for shop
+  intent_shape: ambiguous_entity
+  expected_tier: "3"
+- id: edge_amb_005
+  query: where is the bar
+  intent_shape: ambiguous_entity
+  expected_tier: "3"
+- id: edge_amb_006
+  query: rating for the place
+  intent_shape: ambiguous_entity
+  expected_tier: "3"
+- id: edge_amb_007
+  query: phone for it
+  intent_shape: ambiguous_entity
+  expected_tier: "3"
+  notes: "Pronoun referent — exercises _prior_entity_fresh in unified_router. With no session, no entity."
+- id: edge_amb_008
+  query: when is it open
+  intent_shape: ambiguous_entity
+  expected_tier: "3"
+- id: edge_amb_009
+  query: address for that place
+  intent_shape: ambiguous_entity
+  expected_tier: "3"
+- id: edge_amb_010
+  query: phone number for them
+  intent_shape: ambiguous_entity
+  expected_tier: "3"
+
+# =========================================================================
+# Edge cases — OUT OF SCOPE (per app/core/intent.py) (5)
+# =========================================================================
+- id: edge_oos_001
+  query: what's the weather this weekend
+  intent_shape: oos_weather
+  expected_tier: "chat"
+  must_contain: ["outside what I cover"]
+- id: edge_oos_002
+  query: hotel recommendations near the lake
+  intent_shape: oos_lodging
+  expected_tier: "chat"
+- id: edge_oos_003
+  query: how do I get to the foundry
+  intent_shape: oos_transportation
+  expected_tier: "chat"
+  notes: "'how do I get to' triggers transportation OOS. Test routing."
+- id: edge_oos_004
+  query: where should I buy a house
+  intent_shape: oos_realestate
+  expected_tier: "chat"
+- id: edge_oos_005
+  query: rent a car in havasu
+  intent_shape: oos_transportation
+  expected_tier: "chat"
+
+# =========================================================================
+# Conversational — GREETING / SMALL TALK (10)
+# =========================================================================
+- id: conv_greet_001
+  query: hi
+  intent_shape: greeting
+  expected_tier: "chat"
+- id: conv_greet_002
+  query: hey there
+  intent_shape: greeting
+  expected_tier: "chat"
+- id: conv_greet_003
+  query: hello
+  intent_shape: greeting
+  expected_tier: "chat"
+- id: conv_greet_004
+  query: good morning
+  intent_shape: greeting
+  expected_tier: "chat"
+- id: conv_greet_005
+  query: yo
+  intent_shape: greeting
+  expected_tier: "3"
+  notes: "'yo' isn't in _GREETING_ONLY regex. FLAG: greeting coverage."
+- id: conv_smal_001
+  query: thanks
+  intent_shape: small_talk
+  expected_tier: "chat"
+- id: conv_smal_002
+  query: thank you
+  intent_shape: small_talk
+  expected_tier: "chat"
+- id: conv_smal_003
+  query: appreciate it
+  intent_shape: small_talk
+  expected_tier: "chat"
+- id: conv_smal_004
+  query: how are you
+  intent_shape: small_talk
+  expected_tier: "chat"
+- id: conv_smal_005
+  query: bye
+  intent_shape: small_talk
+  expected_tier: "chat"
+
+# =========================================================================
+# Conversational — CONTRIBUTE (5)
+# =========================================================================
+- id: conv_contrib_001
+  query: just opened a coffee shop on McCulloch — address 400 McCulloch, phone 928-555-0100
+  intent_shape: contribute_business
+  expected_tier: "placeholder"
+- id: conv_contrib_002
+  query: there is a car show at the channel saturday at 6
+  intent_shape: contribute_event
+  expected_tier: "placeholder"
+- id: conv_contrib_003
+  query: adding a new yoga studio on swanson
+  intent_shape: contribute_business
+  expected_tier: "placeholder"
+- id: conv_contrib_004
+  query: i want to add a concert next friday at 8pm
+  intent_shape: contribute_event
+  expected_tier: "placeholder"
+- id: conv_contrib_005
+  query: new program — kids karate tuesdays 4pm
+  intent_shape: contribute_program
+  expected_tier: "placeholder"
+
+# =========================================================================
+# Conversational — CORRECTION (5)
+# =========================================================================
+- id: conv_corr_001
+  query: that's wrong, the phone changed
+  intent_shape: correction
+  expected_tier: "placeholder"
+- id: conv_corr_002
+  query: actually it's on Kiowa now, not McCulloch
+  intent_shape: correction
+  expected_tier: "placeholder"
+- id: conv_corr_003
+  query: the address moved to 50 Acoma Blvd
+  intent_shape: correction
+  expected_tier: "placeholder"
+- id: conv_corr_004
+  query: their hours are now 9 to 5
+  intent_shape: correction
+  expected_tier: "placeholder"
+- id: conv_corr_005
+  query: changed to saturday at 7pm not friday
+  intent_shape: correction
+  expected_tier: "placeholder"
+
+# =========================================================================
+# Edge — NEAR MISS / TYPO / CASING (10)
+# =========================================================================
+- id: edge_nm_001
+  query: PHONE NUMBER FOR D1 PERFORMANCE
+  intent_shape: factual_phone
+  expected_tier: "1"
+- id: edge_nm_002
+  query: phone number for D1 performance!!!
+  intent_shape: factual_phone
+  expected_tier: "1"
+- id: edge_nm_003
+  query: phone number for d-1 performance
+  intent_shape: factual_phone
+  expected_tier: "1"
+- id: edge_nm_004
+  query: hour for d1 performance
+  intent_shape: factual_hours
+  expected_tier: "3"
+  notes: "'hour' singular not in HOURS_LOOKUP regex. FLAG: regex too strict."
+- id: edge_nm_005
+  query: pone number for d1
+  intent_shape: factual_phone
+  expected_tier: "3"
+  notes: "Typo in 'phone'. Tests fuzzy resilience (currently doesn't have)."
+- id: edge_nm_006
+  query: addres for d1 performance
+  intent_shape: factual_address
+  expected_tier: "3"
+  notes: "Typo. FLAG."
+- id: edge_nm_007
+  query: rateing for foundry
+  intent_shape: factual_rating
+  expected_tier: "3"
+  notes: "Typo. FLAG."
+- id: edge_nm_008
+  query: mudshark
+  intent_shape: factual_open_ended
+  expected_tier: "3"
+  notes: "Just an entity name with no question. No Tier 1 intent matches."
+- id: edge_nm_009
+  query: d1
+  intent_shape: factual_open_ended
+  expected_tier: "3"
+- id: edge_nm_010
+  query: ?
+  intent_shape: edge_empty
+  expected_tier: "3"
+
+# =========================================================================
+# Conversational — FOLLOW-UP / MULTI-TURN (5)
+# =========================================================================
+- id: conv_follow_001
+  query: how about their hours
+  intent_shape: followup_pronoun
+  expected_tier: "3"
+  notes: "No prior context in test (single-turn). With session, would resolve via _prior_entity_fresh."
+- id: conv_follow_002
+  query: and the phone
+  intent_shape: followup_pronoun
+  expected_tier: "3"
+- id: conv_follow_003
+  query: any others
+  intent_shape: followup_pronoun
+  expected_tier: "3"
+- id: conv_follow_004
+  query: that's it
+  intent_shape: followup_pronoun
+  expected_tier: "chat"
+  notes: "Ends like small talk."
+- id: conv_follow_005
+  query: tell me more
+  intent_shape: followup_pronoun
+  expected_tier: "3"
+
+# =========================================================================
+# Multi-constraint Tier 3 (10)
+# =========================================================================
+- id: t3_multi_001
+  query: kid friendly restaurant open tonight
+  intent_shape: synthesis_multi
+  expected_tier: "3"
+- id: t3_multi_002
+  query: gym with childcare on saturdays
+  intent_shape: synthesis_multi
+  expected_tier: "3"
+- id: t3_multi_003
+  query: cheap coffee shop with wifi
+  intent_shape: synthesis_multi
+  expected_tier: "3"
+- id: t3_multi_004
+  query: outdoor event tomorrow afternoon for kids under 10
+  intent_shape: synthesis_multi
+  expected_tier: "3"
+- id: t3_multi_005
+  query: late night food open after 10pm
+  intent_shape: synthesis_multi
+  expected_tier: "3"
+- id: t3_multi_006
+  query: free thing to do with toddlers in the morning
+  intent_shape: synthesis_multi
+  expected_tier: "3"
+- id: t3_multi_007
+  query: cheap haircut place open on sundays
+  intent_shape: synthesis_multi
+  expected_tier: "3"
+- id: t3_multi_008
+  query: dinner spot with patio and live music
+  intent_shape: synthesis_multi
+  expected_tier: "3"
+- id: t3_multi_009
+  query: workout class for someone over 60
+  intent_shape: synthesis_multi
+  expected_tier: "3"
+- id: t3_multi_010
+  query: family friendly restaurant under 20 dollars per person
+  intent_shape: synthesis_multi
+  expected_tier: "3"
+
+# =========================================================================
+# Tier 1 — DAY-AWARE HOURS (3)
+# =========================================================================
+- id: t1_dayhrs_001
+  query: hours for d1 performance on monday
+  intent_shape: factual_hours_day
+  expected_tier: "1"
+  notes: "Tests _hours_focus_for_weekday over google_hours.weekdayDescriptions."
+- id: t1_dayhrs_002
+  query: is mudshark open on sundays
+  intent_shape: factual_open_now
+  expected_tier: "3"
+  notes: "Day name + 'open on'. Currently OPEN_NOW disambig matches 'open'. Boundary case."
+- id: t1_dayhrs_003
+  query: hours for the foundry on saturday
+  intent_shape: factual_hours_day
+  expected_tier: "1"
