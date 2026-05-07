@@ -1,8 +1,8 @@
-"""Tier 3 Haiku integration (Phase 3.2 — handoff §3.5 / §5).
+"""Tier 3 LLM synthesis integration (Phase 3.2 — handoff §3.5 / §5).
 
-``answer_with_tier3`` builds catalog context, calls Anthropic Messages API with
-ephemeral prompt caching on the system block, and returns assistant text plus
-total token usage for logging.
+``answer_with_tier3`` builds catalog context, calls OpenAI chat.completions
+(``gpt-4o-mini`` by default; OpenAI handles prompt caching automatically),
+and returns assistant text plus total token usage for logging.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.chat.context_builder import build_context_for_tier3
 from app.chat.intent_classifier import IntentResult
 from app.chat.local_voice_matcher import find_matching_blurbs
-from app.core.llm_messages import anthropic, call_anthropic_messages, load_prompt
+from app.core.llm_messages import call_anthropic_messages, load_prompt
 from app.core.timezone import format_now_lake_havasu, now_lake_havasu
 
 FALLBACK_MESSAGE = (
@@ -86,13 +86,9 @@ def answer_with_tier3(
     now_line: str | None = None,
 ) -> tuple[str, int | None, int | None, int | None]:
     """Return (assistant_text, total_tokens, llm_input_tokens, llm_output_tokens). Never raises."""
-    api_key = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
+    api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
     if not api_key:
-        logging.info("tier3: ANTHROPIC_API_KEY unset; graceful fallback")
-        return FALLBACK_MESSAGE, None, None, None
-
-    if anthropic is None:
-        logging.error("tier3: anthropic package not installed")
+        logging.info("tier3: OPENAI_API_KEY unset; graceful fallback")
         return FALLBACK_MESSAGE, None, None, None
 
     context = build_context_for_tier3(query, intent_result, db)
@@ -133,7 +129,7 @@ def answer_with_tier3(
         model=None,
     )
     if result is None:
-        logging.error("tier3: Anthropic messages.create failed")
+        logging.error("tier3: OpenAI chat.completions.create failed")
         return FALLBACK_MESSAGE, None, None, None
 
     if not result.text:

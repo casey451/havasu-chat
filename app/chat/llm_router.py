@@ -108,13 +108,13 @@ def route(
     context: Optional[dict] = None,
 ) -> Optional[RouterDecision]:
     """
-    One Anthropic call returning a single JSON object, validated to :class:`RouterDecision`.
+    One OpenAI call returning a single JSON object, validated to :class:`RouterDecision`.
 
     On any failure, returns ``None`` (caller falls back to Tier3 for ask mode).
     """
-    api_key = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
+    api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
     if not api_key:
-        logging.info("llm_router: ANTHROPIC_API_KEY unset; skipping router")
+        logging.info("llm_router: OPENAI_API_KEY unset; skipping router")
         return None
 
     try:
@@ -134,7 +134,7 @@ def route(
 
     user_text = f"raw_query:\n{rq}\n\nnormalized_query:\n{uq}\n{extra}\n"
 
-    model = (os.getenv("ANTHROPIC_MODEL") or "").strip() or DEFAULT_MODEL
+    model = (os.getenv("OPENAI_MODEL") or "").strip() or DEFAULT_MODEL
     t0 = time.perf_counter()
     result = call_anthropic_messages(
         system_prompt=system_prompt,
@@ -146,7 +146,7 @@ def route(
     ms = (time.perf_counter() - t0) * 1000.0
 
     if result is None:
-        logging.error("llm_router: Anthropic messages.create failed")
+        logging.error("llm_router: OpenAI chat.completions.create failed")
         return None
 
     if getattr(result.raw, "usage", None) is None:

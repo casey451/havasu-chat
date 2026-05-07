@@ -85,10 +85,10 @@ def _inject_event_url_links(text: str, rows: List[Dict[str, Any]]) -> str:
 
 
 def _format_via_llm(query: str, rows: List[Dict[str, Any]]) -> tuple[Optional[str], int | None, int | None]:
-    """Anthropic-backed formatting for mixed or non-event catalog rows."""
-    api_key = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
+    """OpenAI-backed formatting for mixed or non-event catalog rows."""
+    api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
     if not api_key:
-        logging.info("tier2_formatter: ANTHROPIC_API_KEY unset")
+        logging.info("tier2_formatter: OPENAI_API_KEY unset")
         return None, None, None
 
     try:
@@ -112,7 +112,7 @@ def _format_via_llm(query: str, rows: List[Dict[str, Any]]) -> tuple[Optional[st
         model=None,
     )
     if result is None:
-        logging.error("tier2_formatter: Anthropic messages.create failed")
+        logging.error("tier2_formatter: OpenAI chat.completions.create failed")
         return None, None, None
 
     if not result.text:

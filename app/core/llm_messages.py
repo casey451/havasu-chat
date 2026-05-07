@@ -1,15 +1,19 @@
-"""Anthropic Messages API helpers for H2 consolidation (see ``docs/maintainability/h2_consolidation_decision.md``).
+"""OpenAI Chat Completions helpers for H2 consolidation (see ``docs/maintainability/h2_consolidation_decision.md``).
+
+Provider swap (2026-05-07): every Anthropic call site was migrated to OpenAI ``gpt-4o-mini``
+to cut LLM cost ~7x. The ``Usage`` dataclass keeps its Anthropic-shaped field names for
+backward compatibility with ``chat_logs.llm_tokens_used`` interpretation; ``cache_*`` fields
+are zeroed out (OpenAI's prompt caching is automatic and not surfaced per-call here).
 
 **Mock-seam invariants (§5)** — future edits that regress these break the suite; update tests
 deliberately if you change them intentionally.
 
-- Use package-level ``import anthropic`` (never ``from anthropic import Anthropic``) so
-  ``patch.object(anthropic, "Anthropic", ...)`` and patches on
-  ``app.core.llm_messages.anthropic.Anthropic`` hit the same class.
-- Construct the client only as ``anthropic.Anthropic(api_key=..., timeout=LLM_CLIENT_READ_TIMEOUT_SEC)``
+- Use top-level ``from openai import OpenAI`` (mirrors ``app/chat/hint_extractor.py`` so
+  ``patch.object(...)`` works the same way across both modules).
+- Construct the client only as ``OpenAI(api_key=..., timeout=LLM_CLIENT_READ_TIMEOUT_SEC)``
   with **no** extra keyword arguments. ``timeout`` comes from :mod:`app.core.llm_http`.
-- Call ``client.messages.create`` with **exactly** these kwargs and no others:
-  ``model``, ``max_tokens``, ``temperature``, ``system``, ``messages``.
+- Call ``client.chat.completions.create`` with **exactly** these kwargs and no others:
+  ``model``, ``max_tokens``, ``temperature``, ``messages``.
 """
 
 from __future__ import annotations
@@ -24,11 +28,11 @@ from typing import Any
 from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
 
 try:
-    import anthropic
-except ImportError:
-    anthropic = None  # type: ignore[assignment,misc]
+    from openai import OpenAI
+except ImportError:  # pragma: no cover
+    OpenAI = None  # type: ignore[assignment,misc]
 
-DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+DEFAULT_MODEL = "gpt-4o-mini"
 
 
 @dataclass(frozen=True)
@@ -48,35 +52,34 @@ class Usage:
 
     @classmethod
     def from_sdk_usage(cls, sdk_usage: Any) -> Usage:
-        """Extract from SDK usage object; missing fields default to 0; None → all zeros."""
+        """Extract from OpenAI usage object; missing fields default to 0; None → all zeros.
+
+        OpenAI surfaces ``prompt_tokens`` / ``completion_tokens``. Cached input lives in
+        ``prompt_tokens_details.cached_tokens`` and is a *subset* of ``prompt_tokens``,
+        so we leave ``cache_read_input_tokens`` at 0 to keep ``billable_input`` honest
+        (no double-counting).
+        """
         if sdk_usage is None:
             return cls(0, 0, 0, 0)
         return cls(
-            int(getattr(sdk_usage, "input_tokens", 0) or 0),
-            int(getattr(sdk_usage, "output_tokens", 0) or 0),
-            int(getattr(sdk_usage, "cache_read_input_tokens", 0) or 0),
-            int(getattr(sdk_usage, "cache_creation_input_tokens", 0) or 0),
+            int(getattr(sdk_usage, "prompt_tokens", 0) or 0),
+            int(getattr(sdk_usage, "completion_tokens", 0) or 0),
+            0,
+            0,
         )
 
 
 @dataclass(frozen=True)
 class AnthropicResult:
+    """Kept for backward compatibility with the Anthropic-era helper return type.
+
+    Field semantics are unchanged: ``text`` is the assistant message body, ``usage``
+    is the normalized token counts, ``raw`` is the SDK response object.
+    """
+
     text: str
     usage: Usage
     raw: Any
-
-
-def _extract_text_from_message(msg: Any) -> str:
-    """Concatenate text from all text-type content blocks; ignore non-text blocks; '' if none."""
-    parts: list[str] = []
-    content = getattr(msg, "content", None) or []
-    for block in content:
-        btype = getattr(block, "type", None)
-        if btype == "text":
-            t = getattr(block, "text", "") or ""
-            if t:
-                parts.append(t)
-    return " ".join(parts).strip()
 
 
 def _resolve_model(model: str | None) -> str:
@@ -84,7 +87,7 @@ def _resolve_model(model: str | None) -> str:
         m = str(model).strip()
         if m:
             return m
-    env_m = (os.getenv("ANTHROPIC_MODEL") or "").strip()
+    env_m = (os.getenv("OPENAI_MODEL") or "").strip()
     if env_m:
         return env_m
     return DEFAULT_MODEL
@@ -98,58 +101,59 @@ def call_anthropic_messages(
     temperature: float,
     model: str | None = None,
 ) -> AnthropicResult | None:
-    """Returns None when no response object exists:
+    """OpenAI chat.completions wrapper. Name retained for call-site stability.
 
-    - Missing or empty ``ANTHROPIC_API_KEY``
-    - ``anthropic`` package unavailable (import failed)
-    - Any exception raised during ``messages.create``
+    Returns None when no response object exists:
+
+    - Missing or empty ``OPENAI_API_KEY``
+    - ``openai`` package unavailable (import failed)
+    - Any exception raised during ``chat.completions.create``
     - Missing or falsy response object returned after ``create`` (defensive)
 
     On a successful API call, always returns :class:`AnthropicResult`, including when
-    extracted text is empty: ``AnthropicResult(text="", usage=<from SDK>, raw=<msg>)``.
+    extracted text is empty: ``AnthropicResult(text="", usage=<from SDK>, raw=<resp>)``.
     Callers that distinguish "empty response with billed tokens" from "no response"
     should branch on ``result is None`` first, then on ``result.text``.
     """
-    api_key = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
+    api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
     if not api_key:
         return None
-    if anthropic is None:
+    if OpenAI is None:
         return None
 
     resolved_model = _resolve_model(model)
-    system_blocks = [
-        {
-            "type": "text",
-            "text": system_prompt,
-            "cache_control": {"type": "ephemeral"},
-        }
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_text},
     ]
-    user_message = [{"role": "user", "content": user_text}]
 
     try:
-        client = anthropic.Anthropic(api_key=api_key, timeout=LLM_CLIENT_READ_TIMEOUT_SEC)
-        msg = client.messages.create(
+        client = OpenAI(api_key=api_key, timeout=LLM_CLIENT_READ_TIMEOUT_SEC)
+        resp = client.chat.completions.create(
             model=resolved_model,
             max_tokens=max_tokens,
             temperature=temperature,
-            system=system_blocks,
-            messages=user_message,
+            messages=messages,
         )
     except Exception:
         logging.exception(
-            "call_anthropic_messages: Anthropic SDK call failed (model=%s)",
+            "call_anthropic_messages: OpenAI SDK call failed (model=%s)",
             resolved_model,
         )
         return None
 
-    if not msg:
+    if not resp:
         return None
 
-    text = _extract_text_from_message(msg)
+    choice = resp.choices[0] if getattr(resp, "choices", None) else None
+    text = ""
+    if choice is not None and getattr(choice, "message", None) is not None:
+        text = (choice.message.content or "").strip()
+
     return AnthropicResult(
         text=text,
-        usage=Usage.from_sdk_usage(getattr(msg, "usage", None)),
-        raw=msg,
+        usage=Usage.from_sdk_usage(getattr(resp, "usage", None)),
+        raw=resp,
     )
 
 

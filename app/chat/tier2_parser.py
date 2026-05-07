@@ -23,12 +23,12 @@ _TEMPERATURE = 0.3
 def parse(query: str) -> tuple[Optional[Tier2Filters], int | None, int | None]:
     """Parse a user query into Tier2Filters; returns (filters, input_tokens, output_tokens).
 
-    On failure returns (None, None, None). Token counts are from the Anthropic usage object
+    On failure returns (None, None, None). Token counts are from the OpenAI usage object
     when the API call succeeds, even if JSON validation fails afterward.
     """
-    api_key = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
+    api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
     if not api_key:
-        logging.info("tier2_parser: ANTHROPIC_API_KEY unset")
+        logging.info("tier2_parser: OPENAI_API_KEY unset")
         return None, None, None
 
     try:
@@ -55,7 +55,7 @@ def parse(query: str) -> tuple[Optional[Tier2Filters], int | None, int | None]:
         model=None,
     )
     if result is None:
-        logging.error("tier2_parser: Anthropic messages.create failed")
+        logging.error("tier2_parser: OpenAI chat.completions.create failed")
         return None, None, None
 
     in_tok = result.usage.billable_input
