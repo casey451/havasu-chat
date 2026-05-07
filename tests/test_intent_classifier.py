@@ -150,6 +150,10 @@ _CLASSIFY_FIXTURES: list[tuple[str, str, str]] = [
     ("Isn't at London Bridge Rd anymore — now it's on Jamaica.", "correct", "CORRECTION"),
     ("Changed to Saturday at 7pm, not Friday.", "correct", "CORRECTION"),
     ("Now it's closed on Mondays — update that.", "correct", "CORRECTION"),
+    # Slice F (§3.3 fix): "their hours are now" / bare "hours are now" third-person corrections.
+    ("Their hours are now 9 to 5.", "correct", "CORRECTION"),
+    ("Their phone is now 928-555-1212.", "correct", "CORRECTION"),
+    ("Hours are now 6am to 10pm.", "correct", "CORRECTION"),
     # --- chat: GREETING (5) ---
     ("Hi", "chat", "GREETING"),
     ("Hey there", "chat", "GREETING"),

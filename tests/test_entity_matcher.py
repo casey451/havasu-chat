@@ -381,3 +381,67 @@ class EntityMatcherIntentPaddingStripTests(unittest.TestCase):
             refresh_entity_matcher(db)
             hit = match_entity("phone number for the", db)
         self.assertIsNone(hit)
+
+
+class EntityMatcherAmbiguityTests(unittest.TestCase):
+    """Slice F §3.2: when multiple distinct providers tie above the threshold, the
+    matcher returns None so the router can defer to Tier 3 disambiguation rather than
+    Tier 1 picking arbitrarily.
+    """
+
+    def setUp(self) -> None:
+        reset_entity_matcher()
+        self._provider_ids: list[str] = []
+
+    def tearDown(self) -> None:
+        with SessionLocal() as db:
+            for pid in self._provider_ids:
+                row = db.get(Provider, pid)
+                if row is not None:
+                    db.delete(row)
+            db.commit()
+        reset_entity_matcher()
+
+    def test_strong_tied_match_returns_none_with_ambiguous_flag(self) -> None:
+        """When two providers score equally high (>75 AND within 8 points), the matcher
+        returns None and signals ambiguous=True so the router defers to Tier 3."""
+        from app.chat.entity_matcher import (
+            match_entity_with_ambiguity,
+            query_has_ambiguous_entities,
+        )
+
+        # Two pizza places with identically-shaped names — query "joes pizza" hits
+        # both with the same token-set-ratio score, well above 75.
+        with SessionLocal() as db:
+            self._provider_ids.append(_insert_google_provider(db, provider_name="Joes Pizza Downtown"))
+            self._provider_ids.append(_insert_google_provider(db, provider_name="Joes Pizza Channel"))
+            refresh_entity_matcher(db)
+            hit = match_entity("phone for joes pizza", db)
+            resolution, ambiguous = match_entity_with_ambiguity("phone for joes pizza", db)
+            ambiguous_flag = query_has_ambiguous_entities("phone for joes pizza", db)
+        self.assertIsNone(hit, "tied strong matches must return None from match_entity")
+        self.assertIsNone(resolution)
+        self.assertTrue(ambiguous, "ambiguous flag must be True for tied strong matches")
+        self.assertTrue(ambiguous_flag)
+
+    def test_unambiguous_distinctive_match_still_works(self) -> None:
+        """When one candidate clearly wins, the matcher still returns it (not None)."""
+        from app.chat.entity_matcher import match_entity_with_ambiguity
+
+        with SessionLocal() as db:
+            self._provider_ids.append(
+                _insert_google_provider(db, provider_name="Mudshark Brewing Company")
+            )
+            self._provider_ids.append(
+                _insert_google_provider(db, provider_name="Cool Beans Coffee")
+            )
+            refresh_entity_matcher(db)
+            hit = match_entity("phone for mudshark brewing", db)
+            resolution, ambiguous = match_entity_with_ambiguity(
+                "phone for mudshark brewing", db
+            )
+        self.assertIsNotNone(hit)
+        assert hit is not None
+        self.assertEqual(hit[0], "Mudshark Brewing Company")
+        self.assertIsNotNone(resolution)
+        self.assertFalse(ambiguous)

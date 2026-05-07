@@ -112,13 +112,16 @@ _RECOMMENDATION_SHAPED = re.compile(
 )
 
 
-def _catalog_gap_response(intent_result: IntentResult) -> str | None:
+def _catalog_gap_response(
+    intent_result: IntentResult, db: Session | None = None
+) -> str | None:
     """Tier 1-shaped fact lookup with no catalog entity — template only, no Tier 3.
 
     Slice F3 extends this from the original three intents (DATE/LOCATION/HOURS) to all
-    Tier 1 factual sub_intents with intent-tailored copy. Adds a safeguard that skips
-    the gap path when the query is recommendation-shaped (the "/contribute" reply would
-    be misleading — let Tier 2/3 handle it instead).
+    Tier 1 factual sub_intents with intent-tailored copy. Safeguards skip the gap path
+    when the query is recommendation-shaped, listing-shaped, OR (Slice F §3.2) when
+    the query maps to multiple ambiguous catalog entities — those should defer to
+    Tier 3 for disambiguation, not show "/contribute" copy.
     """
     sub = intent_result.sub_intent
     if sub not in _GAP_TIER1_FACTUAL:
@@ -137,6 +140,17 @@ def _catalog_gap_response(intent_result: IntentResult) -> str | None:
             return None
     except Exception:
         logging.exception("_catalog_gap_response: shortcut probe failed")
+
+    # Slice F §3.2: skip gap when the query has ambiguous catalog entities — Tier 3
+    # should surface candidates rather than the gap-template implying nothing matched.
+    if db is not None:
+        try:
+            from app.chat.entity_matcher import query_has_ambiguous_entities
+
+            if query_has_ambiguous_entities(raw, db):
+                return None
+        except Exception:
+            logging.exception("_catalog_gap_response: ambiguity probe failed")
 
     if sub in ("HOURS_LOOKUP", "OPEN_NOW", "TIME_LOOKUP"):
         return f"I don't have those hours in the catalog yet. {_GAP_TAIL}"
@@ -472,7 +486,7 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
     response_entity = intent_result.entity
     try:
         if intent_result.mode == "ask":
-            gap_text = _catalog_gap_response(intent_result)
+            gap_text = _catalog_gap_response(intent_result, db)
             router_meta: dict[str, str | None] = {}
             if gap_text is not None:
                 text, tier_used, llm_tokens_used, llm_input_tokens, llm_output_tokens = _handle_ask(

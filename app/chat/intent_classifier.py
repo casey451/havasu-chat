@@ -30,6 +30,10 @@ _CORRECT_MARKERS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bused to be\b"),
     re.compile(r"\b(you have the wrong|wrong phone|wrong address|wrong time)\b"),
     re.compile(r"\bthe (phone|address|time|date|location|hours|website)\b.+\bis actually\b"),
+    # Slice F (post-shadow): "their hours/address/phone are now X" — third-person
+    # corrections that don't trip "now it is" / "actually it's".
+    re.compile(r"\btheir\s+\w+\s+(?:is|are)\s+now\b"),
+    re.compile(r"\b(?:hours|address|phone|website|location)\s+(?:is|are)\s+now\b"),
 )
 
 _CONTRIBUTE_MARKERS: tuple[re.Pattern[str], ...] = (

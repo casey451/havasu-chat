@@ -105,6 +105,51 @@ def test_recommendation_query_skips_gap_template(db: Session) -> None:
     assert "catalog" not in r.response.lower()
 
 
+def test_strong_tied_ambiguous_entity_skips_gap_template(db: Session) -> None:
+    """Slice F §3.2: when two providers tie above the strong-match threshold, the
+    router must defer to Tier 3 rather than the gap template."""
+    inserted_ids: list[str] = []
+    try:
+        for name in ("Joes Pizza Downtown", "Joes Pizza Channel"):
+            p = Provider(
+                provider_name=name,
+                category="food_drink",
+                source="google_places",
+                google_place_id=f"test_amb_{name.lower().replace(chr(32), '_')}",
+                is_active=True,
+                draft=False,
+                phone="928-555-0000",
+                address="100 Test St",
+            )
+            db.add(p)
+            db.commit()
+            db.refresh(p)
+            inserted_ids.append(p.id)
+
+        from app.chat.entity_matcher import refresh_entity_matcher
+
+        refresh_entity_matcher(db)
+
+        with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
+            with patch(
+                "app.chat.unified_router.answer_with_tier3",
+                return_value=("Tier 3 disambiguation reply", 50, 25, 25),
+            ) as m3:
+                r = route("phone for joes pizza", "sess-amb-skip", db)
+        m3.assert_called_once()
+        assert r.tier_used == "3"
+        assert "catalog" not in r.response.lower()
+    finally:
+        for pid in inserted_ids:
+            row = db.get(Provider, pid)
+            if row is not None:
+                db.delete(row)
+        db.commit()
+        from app.chat.entity_matcher import reset_entity_matcher
+
+        reset_entity_matcher()
+
+
 def test_listing_shaped_query_skips_gap_template(db: Session) -> None:
     """Slice F3: 'find me a barber' is a Tier 2 listing, not a Tier 1 gap. Even though
     the LOCATION_LOOKUP regex doesn't fire here, defensively confirm any listing-shaped

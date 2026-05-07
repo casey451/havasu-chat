@@ -288,13 +288,25 @@ def extract_catalog_entities_from_text(text: str, db: Session) -> list[EntityMat
     return out
 
 
-def match_entity(query: str, db: Session) -> tuple[str, float] | None:
-    """Return ``(provider_name, score)`` if the best fuzzy match is strictly above 75.
+# Slice F §3.2: ambiguity detection. When the top score and runner-up are within
+# this margin AND both above 75, the matcher returns None — the user's query maps to
+# multiple candidates equally well (e.g. "phone for the diner" with three diners),
+# and Tier 3 should disambiguate using the context block instead of Tier 1 picking
+# arbitrarily.
+_AMBIGUITY_MARGIN = 8.0
 
-    The index covers distinct ``Program.provider_name`` values (denormalized string,
-    historical) plus active non-draft ``Provider`` rows (the unified provider table —
-    both event-host providers and Google Places businesses). Call
-    :func:`refresh_entity_matcher` after bulk program imports or provider loads.
+
+def match_entity_with_ambiguity(
+    query: str, db: Session
+) -> tuple[tuple[str, float] | None, bool]:
+    """Return ``(top_match_or_none, is_ambiguous)``.
+
+    - ``top_match_or_none`` is ``(canonical, score)`` when the top score clears the
+      75 threshold AND the runner-up is at least :data:`_AMBIGUITY_MARGIN` points lower
+      (or below 75). Otherwise ``None``.
+    - ``is_ambiguous`` is ``True`` when the top score clears 75 but the runner-up is
+      within the margin — caller should route to Tier 3 / a disambiguation reply
+      rather than picking arbitrarily.
     """
     global _rows
     if _rows is None:
@@ -303,21 +315,57 @@ def match_entity(query: str, db: Session) -> tuple[str, float] | None:
 
     norm = normalize(query)
     if not norm:
-        return None
+        return None, False
 
-    best_canon: str | None = None
-    best_score = -1.0
+    scored: list[tuple[str, float]] = []
     for row in _rows:
         s = _best_score_padded(norm, row.needles)
-        if s > best_score:
-            best_score = s
-            best_canon = row.canonical
-        elif s == best_score and best_canon is not None and row.canonical < best_canon:
-            best_canon = row.canonical
+        scored.append((row.canonical, s))
+    if not scored:
+        return None, False
+    scored.sort(key=lambda x: (-x[1], x[0]))
 
-    if best_canon is None or best_score <= 75.0:
-        return None
-    return (best_canon, best_score)
+    top_canon, top_score = scored[0]
+    if top_score <= 75.0:
+        return None, False
+
+    if len(scored) >= 2:
+        second_canon, second_score = scored[1]
+        if (
+            second_canon != top_canon
+            and second_score > 75.0
+            and (top_score - second_score) < _AMBIGUITY_MARGIN
+        ):
+            return None, True
+
+    return (top_canon, top_score), False
+
+
+def match_entity(query: str, db: Session) -> tuple[str, float] | None:
+    """Return ``(provider_name, score)`` if the best fuzzy match is strictly above 75
+    AND the runner-up is at least :data:`_AMBIGUITY_MARGIN` points lower.
+
+    The index covers distinct ``Program.provider_name`` values (denormalized string,
+    historical) plus active non-draft ``Provider`` rows (the unified provider table —
+    both event-host providers and Google Places businesses). Call
+    :func:`refresh_entity_matcher` after bulk program imports or provider loads.
+
+    Slice F §3.2 — when multiple candidates are near-tied, returns None so the router
+    can defer to Tier 3 disambiguation. Use :func:`match_entity_with_ambiguity` to
+    distinguish "no match" from "ambiguous" at the call site.
+    """
+    hit, _ambiguous = match_entity_with_ambiguity(query, db)
+    return hit
+
+
+def query_has_ambiguous_entities(query: str, db: Session) -> bool:
+    """``True`` when the entity matcher would return multiple near-tied candidates.
+
+    Called by the router's gap-response path to skip the "/contribute" template for
+    queries that should disambiguate via Tier 3 instead.
+    """
+    _hit, ambiguous = match_entity_with_ambiguity(query, db)
+    return ambiguous
 
 
 def match_entity_with_rows(query: str, canonical_names: Sequence[str]) -> tuple[str, float] | None:
