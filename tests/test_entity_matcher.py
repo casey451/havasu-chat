@@ -311,3 +311,73 @@ class EntityMatcherGoogleProviderTests(unittest.TestCase):
         self.assertIsNotNone(hit)
         assert hit is not None
         self.assertEqual(hit[0], canon)
+
+
+class EntityMatcherIntentPaddingStripTests(unittest.TestCase):
+    """Slice F6: queries with Tier-1 intent padding (e.g. "is mudshark open right now")
+    must still match the canonical entity. Pre-fix these scored ~50–60 token_set_ratio
+    against the canonical name and fell below the 75 threshold; the padded scorer
+    strips the intent prefix/suffix and uses whichever form scores higher.
+    """
+
+    def setUp(self) -> None:
+        reset_entity_matcher()
+        self._provider_ids: list[str] = []
+
+    def tearDown(self) -> None:
+        with SessionLocal() as db:
+            for pid in self._provider_ids:
+                row = db.get(Provider, pid)
+                if row is not None:
+                    db.delete(row)
+            db.commit()
+        reset_entity_matcher()
+
+    def test_open_now_padding_does_not_drop_match(self) -> None:
+        canon = "Mudshark Brewing Company"
+        with SessionLocal() as db:
+            self._provider_ids.append(_insert_google_provider(db, provider_name=canon))
+            refresh_entity_matcher(db)
+            hit = match_entity("is mudshark open right now", db)
+        self.assertIsNotNone(hit, "padded query must still resolve the entity")
+        assert hit is not None
+        self.assertEqual(hit[0], canon)
+
+    def test_phone_number_for_padding(self) -> None:
+        canon = "Sloane's Pizzeria"
+        with SessionLocal() as db:
+            self._provider_ids.append(_insert_google_provider(db, provider_name=canon))
+            refresh_entity_matcher(db)
+            hit = match_entity("phone number for sloane's", db)
+        self.assertIsNotNone(hit)
+        assert hit is not None
+        self.assertEqual(hit[0], canon)
+
+    def test_what_are_the_hours_for_padding(self) -> None:
+        canon = "Iron Wolf Golf & Country Club"
+        with SessionLocal() as db:
+            self._provider_ids.append(_insert_google_provider(db, provider_name=canon))
+            refresh_entity_matcher(db)
+            hit = match_entity("what are the hours for iron wolf", db)
+        self.assertIsNotNone(hit)
+        assert hit is not None
+        self.assertEqual(hit[0], canon)
+
+    def test_where_is_padding(self) -> None:
+        canon = "The Foundry on the Green"
+        with SessionLocal() as db:
+            self._provider_ids.append(_insert_google_provider(db, provider_name=canon))
+            refresh_entity_matcher(db)
+            hit = match_entity("where is the foundry", db)
+        self.assertIsNotNone(hit)
+        assert hit is not None
+        self.assertEqual(hit[0], canon)
+
+    def test_padding_strip_does_not_create_false_positives(self) -> None:
+        """A query that strips down to a generic word ("the") must NOT produce a match."""
+        canon = "Some Random Business"
+        with SessionLocal() as db:
+            self._provider_ids.append(_insert_google_provider(db, provider_name=canon))
+            refresh_entity_matcher(db)
+            hit = match_entity("phone number for the", db)
+        self.assertIsNone(hit)

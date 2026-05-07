@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Sequence
 
@@ -161,6 +162,88 @@ def _best_score(norm_query: str, needles: frozenset[str]) -> float:
     return best
 
 
+# Slice F6: Tier-1-shaped intent prefixes that pad a query with stopwords and drag
+# token_set_ratio below threshold. Stripping them isolates the entity portion. Examples:
+#   "is mudshark open right now"      → "mudshark" (vs "Mudshark Brewing Company" → 90+)
+#   "phone number for the foundry"    → "the foundry"
+#   "what are the hours for sloane's" → "sloane's"
+# Anchored at start; we keep both forms (stripped + original) and use whichever scores
+# higher.
+_QUERY_INTENT_PREFIX = re.compile(
+    r"^(?:"
+    r"is\s+|are\s+|"  # "is X open" / "are X open"
+    r"phone\s+(?:number\s+)?for\s+|"
+    r"contact\s+(?:number\s+|info\s+)?for\s+|"
+    r"contact\s+for\s+|"
+    r"call\s+(?:them\s+at\s+|for\s+)?|"
+    r"how\s+do\s+i\s+reach\s+|"
+    r"reach\s+(?:out\s+to\s+|them\s+at\s+)?|"
+    r"address\s+for\s+|"
+    r"location\s+of\s+|"
+    r"located\s+(?:on\s+\w+\s+\w+\s+)?(?:is\s+|of\s+)?|"
+    r"where\s+(?:is\s+|are\s+|'?s\s+)|"
+    r"where\s+can\s+i\s+find\s+|"
+    r"hours?\s+(?:of\s+operation\s+)?(?:on\s+\w+\s+)?for\s+|"
+    r"hour\s+for\s+|"
+    r"business\s+hours\s+for\s+|"
+    r"what\s+(?:are\s+the\s+)?hours?\s+(?:on\s+\w+\s+)?(?:is\s+|for\s+)?|"
+    r"when\s+does\s+|when\s+is\s+|"
+    r"what\s+time\s+does\s+|"
+    r"opening\s+time\s+for\s+|closing\s+time\s+for\s+|"
+    r"website\s+for\s+|site\s+for\s+|url\s+for\s+|link\s+for\s+|landing\s+page\s+for\s+|"
+    r"do\s+you\s+have\s+(?:a\s+|the\s+)?website\s+for\s+|"
+    r"web\s+address\s+for\s+|"
+    r"rating\s+for\s+|star\s+rating\s+for\s+|google\s+rating\s+for\s+|"
+    r"how\s+is\s+(?:the\s+)?|how\s+are\s+the\s+reviews\s+for\s+|"
+    r"how\s+many\s+stars\s+does\s+|"
+    r"number\s+of\s+reviews\s+for\s+|review\s+count\s+for\s+|"
+    r"how\s+many\s+reviews\s+does\s+|"
+    r"age\s+(?:groups?\s+|range\s+|requirements?\s+)?(?:does\s+)?for\s+|"
+    r"what\s+age\s+groups?\s+does\s+|"
+    r"how\s+old\s+(?:does\s+)?(?:my\s+kid\s+)?(?:need\s+to\s+be\s+)?for\s+|"
+    r"how\s+much\s+(?:does\s+|is\s+)?|pricing\s+for\s+|cost\s+for\s+|fees?\s+for\s+|"
+    r"i\s+need\s+(?:the\s+)?(?:phone|website|address|hours)\s+(?:for\s+)?"
+    r")",
+    re.IGNORECASE,
+)
+
+_QUERY_INTENT_SUFFIX = re.compile(
+    r"\s+(?:open(?:\s+(?:now|right\s+now|today|tonight))?|"
+    r"open\s+at\s+the\s+moment|"
+    r"located|please|thanks?|"
+    r"have|has|"
+    r"on\s+google|"
+    r"rated"
+    r")\s*\??\s*$",
+    re.IGNORECASE,
+)
+
+
+def _strip_intent_padding(norm_query: str) -> str:
+    """Return the entity-likely portion of ``norm_query`` after stripping Tier-1 intent
+    prefixes and trailing factual qualifiers. Returns the original when nothing matched.
+    """
+    s = _QUERY_INTENT_PREFIX.sub("", norm_query, count=1)
+    s = _QUERY_INTENT_SUFFIX.sub("", s, count=1)
+    s = s.strip()
+    return s
+
+
+def _best_score_padded(norm_query: str, needles: frozenset[str]) -> float:
+    """Score the query both padded and stripped; take the higher.
+
+    Slice F6: queries like "is mudshark open right now" score 50–60 against the bare
+    canonical name; stripping the intent padding lifts the score above the 75 threshold
+    for the entity that's actually being asked about.
+    """
+    direct = _best_score(norm_query, needles)
+    stripped = _strip_intent_padding(norm_query)
+    if not stripped or stripped == norm_query:
+        return direct
+    boosted = _best_score(stripped, needles)
+    return max(direct, boosted)
+
+
 def _provider_id_for_name(db: Session, provider_name: str) -> str:
     """Resolve ``Provider.id`` when present; else fall back to name (same as ``record_entity``)."""
     name = (provider_name or "").strip()
@@ -192,7 +275,7 @@ def extract_catalog_entities_from_text(text: str, db: Session) -> list[EntityMat
 
     best_by_canon: dict[str, float] = {}
     for row in _rows:
-        s = _best_score(norm, row.needles)
+        s = _best_score_padded(norm, row.needles)
         if s > 75.0:
             prev = best_by_canon.get(row.canonical)
             if prev is None or s > prev:
@@ -225,7 +308,7 @@ def match_entity(query: str, db: Session) -> tuple[str, float] | None:
     best_canon: str | None = None
     best_score = -1.0
     for row in _rows:
-        s = _best_score(norm, row.needles)
+        s = _best_score_padded(norm, row.needles)
         if s > best_score:
             best_score = s
             best_canon = row.canonical
@@ -249,7 +332,7 @@ def match_entity_with_rows(query: str, canonical_names: Sequence[str]) -> tuple[
         if not c:
             continue
         needles = _needles_for_canonical(c)
-        s = _best_score(norm, needles)
+        s = _best_score_padded(norm, needles)
         if s > best_score:
             best_score = s
             best_canon = c
