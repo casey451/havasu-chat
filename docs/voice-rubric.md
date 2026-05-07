@@ -108,6 +108,15 @@ Follows `prompts/system_prompt.txt`. Key reminders:
 - Anti-hallucination: never name venues, prices, hours, or days not in the Context block.
 - Catalog gaps: state the gap honestly + one concrete pointer (CVB, /contribute, web search phrase). One clause.
 - No follow-up questions in ask mode.
+- **URL on every named venue.** When a recommendation names a specific provider from the catalog, wrap the venue name in a markdown link `[name](url)` using the `url:` field the context builder provides. Order of preference is set by the builder: own website first, Google Maps page as fallback (constructed from `google_place_id`). If Context has no `url:` for that provider, name the venue without a link — don't fabricate one.
+
+Good:
+- `For date night I'd go with [Sloane's Craft Kitchen + Cocktails](https://sloaneshavasu.com) — it's the standout dinner spot in town.`
+- `[Boat House Grill](https://www.google.com/maps/place/?q=place_id:ChIJ...) is the relaxed lakeside pick if you want something more casual.`
+
+Bad:
+- `I'd recommend Sloane's Craft Kitchen + Cocktails.` (no URL; user can't act on it)
+- `Try Sloane's at https://sloaneshavasu.com` (bare URL, not a markdown link)
 
 ### §4.7 Gap responses (Tier 1 shape, no entity matched)
 

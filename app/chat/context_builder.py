@@ -30,6 +30,23 @@ def _truncate_hours(h: str | None) -> str:
     return s[: _HOURS_MAX_LEN - 3] + "..."
 
 
+def _provider_url(p: Provider) -> str | None:
+    """Best URL for a recommendation — own website preferred, Google Maps page as fallback.
+
+    Tier 3 voice rule (2026-05-07): every recommendation must include a URL so
+    users can act on it. Returns None when neither signal is present (admin-direct
+    providers without scraped data, etc.) — caller emits the recommendation
+    without a link rather than fabricating one.
+    """
+    w = (p.website or "").strip()
+    if w:
+        return w
+    pid = (p.google_place_id or "").strip()
+    if pid:
+        return f"https://www.google.com/maps/place/?q=place_id:{pid}"
+    return None
+
+
 def _word_count(text: str) -> int:
     return len(text.split())
 
@@ -107,6 +124,9 @@ def build_context_for_tier3(query: str, intent_result: IntentResult, db: Session
             lines.append(f"  phone: {p.phone}")
         if p.website:
             lines.append(f"  website: {p.website}")
+        url = _provider_url(p)
+        if url:
+            lines.append(f"  url: {url}")
         hrs = _truncate_hours(p.hours)
         if hrs:
             lines.append(f"  hours: {hrs}")
