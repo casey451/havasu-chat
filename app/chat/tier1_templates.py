@@ -186,6 +186,35 @@ TEMPLATES: dict[str, list[str]] = {
 }
 
 
+# Stream B (2026-05-07): zero-token intake templates for contribute / correct modes.
+# Voice per persona-brief §5.2 + handoff §8.8/§8.9 + voice-rubric §4.9. Acknowledge,
+# log, optional URL ask. Contractions ("I'll", "admins'll"). 1–2 sentences.
+# {detail} is an optional " <Venue or When>." sentence-fragment composed by the
+# handler — empty string when no slots extracted, so the template still reads.
+INTAKE_TEMPLATES: dict[str, str] = {
+    "NEW_BUSINESS_WITH_URL": "Got it.{detail} I'll queue it for admin review.",
+    "NEW_BUSINESS_NO_URL": (
+        "Heard.{detail} I'll log it as an unverified tip — admins'll need a URL "
+        "(Google Business page or their site) before it goes live."
+    ),
+    "NEW_EVENT_WITH_URL": "Got it.{detail} Queued for review.",
+    "NEW_EVENT_NO_URL": (
+        "Heard.{detail} I'll log it as an unverified tip — share a URL "
+        "(event page or organizer site) and an admin'll get it published."
+    ),
+    "NEW_PROGRAM_WITH_URL": "Got it.{detail} Queued for review.",
+    "NEW_PROGRAM_NO_URL": (
+        "Heard.{detail} I'll log it as an unverified tip — admins may need a URL "
+        "(schedule page) to make it official."
+    ),
+}
+
+# Correction voice: acknowledge + log, no follow-up question (handoff §8.9 carve-out).
+# Persona §5.2's "want to update it?" form was failing the judge as a casual follow-up;
+# Stream B switches to declarative-only.
+CORRECTION_TEMPLATE: str = "Got it — flagging that for admin review."
+
+
 _REQUIRED_SLOTS: dict[str, tuple[str, ...]] = {
     "DATE_LOOKUP": ("program", "date"),
     "TIME_LOOKUP": ("program", "time"),

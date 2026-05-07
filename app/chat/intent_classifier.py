@@ -118,6 +118,23 @@ _BUSINESS_CONTRIBUTE = re.compile(
     re.IGNORECASE,
 )
 
+# Stream B (2026-05-07) — common business-shape nouns. Without this, "adding a new
+# yoga studio on swanson" falls through to NEW_EVENT (default branch) because the
+# message has no day/time and no _BUSINESS_CONTRIBUTE keyword.
+_BUSINESS_NOUNS = re.compile(
+    r"\b(studio|salon|spa|cafe|coffee shop|restaurant|bar|brewery|pub|gym|"
+    r"market|store|boutique|bakery|grill|kitchen|truck|food truck|barber|barbershop)\b",
+    re.IGNORECASE,
+)
+
+# Stream B — URL/domain marker for sub_intent suffix. Loose match: full URLs and
+# bare domains. False-negative is fine (template falls back to NO_URL).
+_URL_MARKER = re.compile(
+    r"(https?://\S+)"
+    r"|(\b[\w-]+\.(?:com|net|org|gov|io|co|us|biz|info)(?:/\S*)?\b)",
+    re.IGNORECASE,
+)
+
 _PROGRAM_CONTRIBUTE = re.compile(
     r"\b(weekly|ages?\s+\d|age group|class schedule|enrollment|sign up for|"
     r"lessons every|sessions every|program runs)\b",
@@ -198,6 +215,11 @@ def _contribute_sub_intent(raw: str, nq: str) -> tuple[str, float]:
         or re.search(r"^\s*adding karate\b", nq)
     ):
         return "NEW_PROGRAM", 0.84
+    # Stream B: business-shape nouns ("yoga studio", "coffee shop", "taco truck")
+    # win over the weekday/time fallback — those messages typically describe a
+    # venue, not a one-time event, even when they happen to mention a day.
+    if _BUSINESS_NOUNS.search(nq):
+        return "NEW_BUSINESS", 0.8
     if extract_date_range(raw) is not None or re.search(
         r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|weekend|am\b|pm\b|\d{1,2}:\d{2})\b",
         nq,
@@ -208,6 +230,15 @@ def _contribute_sub_intent(raw: str, nq: str) -> tuple[str, float]:
     if _BUSINESS_CONTRIBUTE.search(nq):
         return "NEW_BUSINESS", 0.78
     return "NEW_EVENT", 0.65
+
+
+def contribute_has_url(raw: str) -> bool:
+    """Stream B — URL presence on a contribute message picks WITH_URL vs NO_URL.
+
+    Kept on the classifier (not the handler) so router observability can log
+    the with/without-URL distinction without re-parsing the message.
+    """
+    return bool(raw and _URL_MARKER.search(raw))
 
 
 def _merge_confidence(mode_conf: float, sub_conf: float, entity_score: float | None) -> float:

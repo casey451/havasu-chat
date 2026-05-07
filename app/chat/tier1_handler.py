@@ -15,7 +15,12 @@ from sqlalchemy.orm import Session
 
 from app.chat.intent_classifier import IntentResult
 from app.chat.normalizer import normalize
-from app.chat.tier1_templates import CONTACT_FOR_PRICING, render
+from app.chat.tier1_templates import (
+    CONTACT_FOR_PRICING,
+    CORRECTION_TEMPLATE,
+    INTAKE_TEMPLATES,
+    render,
+)
 from app.contrib.hours_helper import (
     LAKE_HAVASU_TZ,
     is_open_at,
@@ -428,6 +433,133 @@ def _open_now_from_hours(hours: str, now: datetime) -> bool | None:
         close_m += 24 * 60
     cur = now.hour * 60 + now.minute
     return open_m <= cur <= close_m
+
+
+# --- Stream B (2026-05-07) — contribute / correct intake voice -------------------
+#
+# Zero-token Tier 1 templates for contribute and correct modes. Replaces the
+# placeholder strings the router used to return for those modes. Slot extraction
+# is deliberately loose: if a slot's missing, the template falls back to a more
+# generic acknowledgment (per the brief, "voice-correct response for the 80%
+# case", not perfect parsing).
+
+_URL_RE = re.compile(
+    r"(https?://\S+)"
+    r"|(\b[\w-]+\.(?:com|net|org|gov|io|co|us|biz|info)(?:/\S*)?\b)",
+    re.IGNORECASE,
+)
+
+# Capitalized proper-noun-shaped phrase, optionally connected by "El", "&", "and",
+# "of", "the", or apostrophes. Used to pick a venue name out of contribute messages.
+_PROPER_NOUN_PHRASE = re.compile(
+    r"\b([A-Z][\w'’]*(?:\s+(?:[A-Z][\w'’]*|of|the|and|&|El|De|Del|La|Le))*)"
+)
+
+# Day-or-time signal we can echo as "saturday at 6", "next friday at 8pm", etc.
+_WHEN_FRAGMENT = re.compile(
+    r"\b("
+    r"(?:next\s+|this\s+)?(?:mon|tues?|wednes?|thurs?|fri|satur?|sun)(?:day)?s?"
+    r"(?:\s+at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?)?"
+    r"|(?:weekend|tonight|tomorrow)"
+    r"|\d{1,2}(?::\d{2})?\s*(?:am|pm)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _has_url(text: str) -> bool:
+    return bool(text and _URL_RE.search(text))
+
+
+def _extract_venue(text: str) -> str | None:
+    """Best-effort multi-word proper-noun phrase from a contribute message.
+
+    Single-word capitalized tokens are deliberately skipped — they're usually
+    street names ("McCulloch") rather than venue names, and echoing one as a
+    venue reads weird ("Heard. McCulloch. I'll log..."). Returns None freely;
+    the template renders cleanly without a venue slot.
+    """
+    if not text:
+        return None
+    skip_first_word = {
+        "i",
+        "the",
+        "there",
+        "there's",
+        "theres",
+        "adding",
+        "add",
+        "new",
+        "just",
+        "we",
+        "want",
+        "going",
+        "hosting",
+        "post",
+        "submit",
+    }
+    candidates: list[str] = []
+    for m in _PROPER_NOUN_PHRASE.finditer(text):
+        phrase = m.group(1).strip()
+        if not phrase or len(phrase.split()) < 2:
+            continue
+        first = phrase.split()[0].lower().rstrip(",.!?;:")
+        if first in skip_first_word:
+            continue
+        candidates.append(phrase)
+    if not candidates:
+        return None
+    candidates.sort(key=lambda p: (len(p.split()), len(p)), reverse=True)
+    return candidates[0]
+
+
+def _extract_when(text: str) -> str | None:
+    if not text:
+        return None
+    m = _WHEN_FRAGMENT.search(text)
+    if not m:
+        return None
+    return m.group(0).strip().lower()
+
+
+def _capitalize_first(s: str) -> str:
+    return s[0].upper() + s[1:] if s else s
+
+
+def _intake_detail(raw_query: str) -> str:
+    """Compose the optional " <Venue or When>." mid-sentence inserted into templates.
+
+    Empty string when nothing extractable, so templates still read naturally.
+    """
+    venue = _extract_venue(raw_query)
+    when = _extract_when(raw_query)
+    parts = [p for p in (venue, when) if p]
+    if not parts:
+        return ""
+    return f" {_capitalize_first(' '.join(parts))}."
+
+
+def render_contribute_template(intent_result: IntentResult, raw_query: str) -> str | None:
+    """Pick the contribute template variant + fill slots. ``None`` if sub_intent unknown."""
+    sub = intent_result.sub_intent or ""
+    has_url = _has_url(raw_query)
+    if sub.startswith("NEW_BUSINESS"):
+        key = "NEW_BUSINESS_WITH_URL" if has_url else "NEW_BUSINESS_NO_URL"
+    elif sub.startswith("NEW_EVENT"):
+        key = "NEW_EVENT_WITH_URL" if has_url else "NEW_EVENT_NO_URL"
+    elif sub.startswith("NEW_PROGRAM"):
+        key = "NEW_PROGRAM_WITH_URL" if has_url else "NEW_PROGRAM_NO_URL"
+    else:
+        return None
+    template = INTAKE_TEMPLATES.get(key)
+    if not template:
+        return None
+    return template.format(detail=_intake_detail(raw_query))
+
+
+def render_correction_template(intent_result: IntentResult, raw_query: str) -> str:
+    """Single deterministic acknowledgment — no follow-up question (handoff §8.9)."""
+    return CORRECTION_TEMPLATE
 
 
 def try_tier1(query: str, intent_result: IntentResult, db: Session) -> str | None:

@@ -28,6 +28,8 @@ from app.chat.hint_extractor import extract_hints
 from app.chat.intent_classifier import IntentResult, classify
 from app.chat.normalizer import normalize
 from app.chat.tier1_handler import (
+    render_contribute_template,
+    render_correction_template,
     try_tier1,
 )
 from app.chat.tier2_handler import (
@@ -311,6 +313,11 @@ def _handle_contribute(
     db: Session,
     session_id: str | None,
 ) -> str:
+    # Stream B (2026-05-07) — deterministic intake voice. Picks WITH_URL vs
+    # NO_URL variant based on whether the user's message contains a URL/domain.
+    text = render_contribute_template(intent_result, query or "")
+    if text is not None:
+        return text
     sub = intent_result.sub_intent or "none"
     return f"Contribute mode: type={sub}. Intake flow will be implemented in Phase 4."
 
@@ -321,7 +328,10 @@ def _handle_correct(
     db: Session,
     session_id: str | None,
 ) -> str:
-    return "Huh, didn't know — want to update it?"
+    # Stream B (2026-05-07) — declarative acknowledge-and-log; no follow-up
+    # question per handoff §8.9 (the "want to update it?" form was a judge-flagged
+    # casual close).
+    return render_correction_template(intent_result, query or "")
 
 
 def _handle_chat(
@@ -553,10 +563,12 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
                 response_sub_intent = (router_meta.get("sub_intent") or response_sub_intent)  # type: ignore[assignment]
                 response_entity = (router_meta.get("entity") or response_entity)  # type: ignore[assignment]
         elif intent_result.mode == "contribute":
-            tier_used = "placeholder"
+            # Stream B: deterministic Tier 1 intake template — zero LLM tokens.
+            tier_used = "intake"
             text = _handle_contribute(q_raw, intent_result, db, session_id)
         elif intent_result.mode == "correct":
-            tier_used = "placeholder"
+            # Stream B: deterministic Tier 1 correction template — zero LLM tokens.
+            tier_used = "correction"
             text = _handle_correct(q_raw, intent_result, db, session_id)
         elif intent_result.mode == "chat":
             tier_used = "chat"
