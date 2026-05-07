@@ -15,6 +15,7 @@ deliberately if you change them intentionally.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -135,6 +136,10 @@ def call_anthropic_messages(
             messages=user_message,
         )
     except Exception:
+        logging.exception(
+            "call_anthropic_messages: Anthropic SDK call failed (model=%s)",
+            resolved_model,
+        )
         return None
 
     if not msg:
