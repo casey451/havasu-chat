@@ -266,12 +266,38 @@ def _enrich_entity_from_db(
     current_turn: int | None,
 ) -> IntentResult:
     if intent_result.entity is not None:
+        logging.info(
+            "diag_business_retrieval: classify-entity already set entity=%r sub=%s",
+            intent_result.entity,
+            intent_result.sub_intent,
+        )
         return intent_result
     refresh_entity_matcher(db)
+    # Slice A diag: surface the index size + match result so we can see whether the
+    # widened entity matcher is actually loading the Google providers on prod.
+    try:
+        from app.chat import entity_matcher as _em
+
+        index_size = len(_em._rows) if _em._rows is not None else -1
+    except Exception:
+        index_size = -2
     hit = match_entity(query, db)
     if hit:
-        name, _score = hit
+        name, score = hit
+        logging.info(
+            "diag_business_retrieval: entity matched name=%r score=%.1f index_size=%d sub=%s",
+            name,
+            score,
+            index_size,
+            intent_result.sub_intent,
+        )
         return replace(intent_result, entity=name)
+    logging.info(
+        "diag_business_retrieval: entity NOT matched query=%r index_size=%d sub=%s",
+        query[:120],
+        index_size,
+        intent_result.sub_intent,
+    )
     if (
         session is not None
         and current_turn is not None

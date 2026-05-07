@@ -231,10 +231,23 @@ def try_tier1(query: str, intent_result: IntentResult, db: Session) -> str | Non
         return None
     sub = intent_result.sub_intent
     if sub not in _TIER1_SUB_INTENTS:
+        import logging as _logging
+
+        _logging.info(
+            "diag_business_retrieval: try_tier1 skipped sub=%s entity=%r (not in _TIER1_SUB_INTENTS)",
+            sub,
+            intent_result.entity,
+        )
         return None
 
     provider = _get_provider(db, intent_result.entity)
     if provider is None:
+        import logging as _logging
+
+        _logging.info(
+            "diag_business_retrieval: try_tier1 entity=%r resolved to None Provider row",
+            intent_result.entity,
+        )
         return None
 
     nq = intent_result.normalized_query or normalize(query)
