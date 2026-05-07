@@ -161,11 +161,12 @@ def _run() -> int:
     # for entity resolution + Tier 1 SQL lookups.
     from app.db.database import SessionLocal
 
-    use_anthropic = os.getenv("VOICE_BATTERY_ALLOW_LLM") == "1"
-    if not use_anthropic:
+    allow_llm = os.getenv("VOICE_BATTERY_ALLOW_LLM") == "1"
+    if not allow_llm:
         # Suppress the API key so Tier 3 / Tier 2 LLM parser short-circuit to fallback
         # without spending tokens. The router treats unset key as "graceful fallback".
-        os.environ["ANTHROPIC_API_KEY"] = ""
+        # P1.5: provider swapped Anthropic -> OpenAI, so the key to nuke is OPENAI_API_KEY.
+        os.environ["OPENAI_API_KEY"] = ""
 
     started = datetime.utcnow().isoformat() + "Z"
 
@@ -237,7 +238,7 @@ def _run() -> int:
         f"**{len(nonzero_token_factual_listing)}**"
     )
     lines.append("")
-    lines.append("Tier 3 cases were routed but the Anthropic call was suppressed (no key) so")
+    lines.append("Tier 3 cases were routed but the LLM call was suppressed (no key) so")
     lines.append("they show the fallback message; Tier 3 voice quality is graded separately by the")
     lines.append("LLM grader (`scripts/voice_battery/grade.py`, not run here).")
     lines.append("")

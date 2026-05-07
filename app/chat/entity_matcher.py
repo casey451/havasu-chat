@@ -156,16 +156,33 @@ def reset_entity_matcher() -> None:
 
 
 def _best_score(norm_query: str, needles: frozenset[str]) -> float:
-    """Max ``fuzz.token_set_ratio`` across ``needles``.
+    """Max ``fuzz.token_set_ratio`` across ``needles``, gated by per-needle substring guard.
 
     Token-set is the safe baseline: it scores by token-set overlap which won't
     score 100 just because one word ("for", "the", "some") is shared. Typo
     tolerance is layered on in :func:`_best_score_padded` against the
     intent-stripped form of the query only, where stopwords have already been
     removed.
+
+    Voice-battery 2026-05-07: when token sets don't intersect, ``token_set_ratio``
+    falls back to Levenshtein on the joined sorted strings — which can land
+    around 55–65 for two long unrelated strings (empirically: query "what is the
+    phone for mudshark brewing" vs needle "double threat barbering co" → 56.25).
+    That false-positive scores into the 55–75 near-match band and produces
+    wrong-entity gap-template answers. To prevent this, when the query has any
+    ≥5-char tokens, require at least one of them to substring-match the needle
+    (``partial_ratio ≥ 80``) before letting ``token_set_ratio`` count for that
+    needle. Short queries with no long tokens are unaffected.
     """
+    long_query_tokens = [t for t in norm_query.split() if len(t) >= 5]
     best = 0.0
     for needle in needles:
+        if long_query_tokens and len(needle) >= 5:
+            if not any(
+                float(fuzz.partial_ratio(tok, needle)) >= _TYPO_PER_TOKEN_THRESHOLD
+                for tok in long_query_tokens
+            ):
+                continue
         best = max(best, float(fuzz.token_set_ratio(norm_query, needle)))
     return best
 
@@ -180,6 +197,44 @@ def _long_tokens(stripped: str) -> str:
     """
     tokens = [t for t in stripped.split() if len(t) >= 5]
     return " ".join(tokens)
+
+
+# Voice-battery 2026-05-07: WRatio + partial_token_set_ratio inflate scores when
+# the query and needle share only one common token (e.g. "havasu" appears in
+# nearly every Lake Havasu provider name) while the *distinctive* token has no
+# substring match in the needle. Without a guard, "where can I find havasu lanes"
+# matches "Altitude Trampoline Park — Lake Havasu City" via the typo path, since
+# WRatio rewards the shared "havasu" + partial overlap. The graded battery
+# surfaced six wrong-entity Tier 1 answers from this single failure mode.
+_TYPO_PER_TOKEN_THRESHOLD = 80.0
+
+
+def _typo_path_passes_guard(long_only: str, needle: str) -> bool:
+    """``True`` iff every ≥5-char token in ``long_only`` substring-matches ``needle``.
+
+    Uses :func:`fuzz.partial_ratio` (Levenshtein-style best-window ratio) per
+    query token. If any distinctive query token has no substring-like match in
+    the needle, the typo scorers (WRatio, partial_token_set_ratio) are not
+    allowed to fire on this needle — preventing the wrong-entity false positives
+    surfaced by the voice battery.
+
+    Examples (all use the long-tokens-only stripped form of the query):
+    - ``"havasu lanes"`` vs ``"havasu lanes"`` → both tokens → PASS.
+    - ``"havasu lanes"`` vs ``"altitude trampoline park lake havasu city"``:
+      ``"havasu"`` hits 100, ``"lanes"`` hits ~25 → FAIL (was the bug).
+    - ``"mudsharks"`` (typo) vs ``"mudshark brewing company"``: ~89 → PASS
+      (typo tolerance preserved).
+    - ``"mudshark brewing"`` vs ``"double threat barbering co"``:
+      ``"mudshark"`` hits ~30, ``"brewing"`` hits ~57 (b/r/i/n shared with
+      ``barbering``) → FAIL (was the gap-template near-match bug).
+    """
+    tokens = [t for t in long_only.split() if len(t) >= 5]
+    if not tokens:
+        return False
+    for tok in tokens:
+        if float(fuzz.partial_ratio(tok, needle)) < _TYPO_PER_TOKEN_THRESHOLD:
+            return False
+    return True
 
 
 # Slice F6: Tier-1-shaped intent prefixes that pad a query with stopwords and drag
@@ -275,6 +330,11 @@ def _best_score_padded(norm_query: str, needles: frozenset[str]) -> float:
             # both algorithms fall back to substring scanning that finds spurious
             # matches in any longer query string.
             if len(needle) < 5:
+                continue
+            # Voice-battery 2026-05-07: per-token substring guard. Without this,
+            # a single shared common token ("havasu") + WRatio's permissive
+            # composite scoring lets non-matching needles cross the 75 threshold.
+            if not _typo_path_passes_guard(long_only, needle):
                 continue
             # Slice F: max of partial_token_set_ratio + WRatio for typo tolerance.
             # WRatio combines token_sort + partial_ratio + others with internal
