@@ -149,6 +149,24 @@ def _catalog_gap_response(
     # until the matcher's stricter scoring or a deterministic disambiguation reply
     # lands. See `tests/voice_battery/reports/final_report.md` §3.2.
 
+    # Slice F: when the query has a near-miss canonical (typo / partial name that
+    # didn't clear the 75 threshold), surface a "Did you mean X?" disambiguation
+    # before falling to the standard gap copy. Zero-token, deterministic.
+    if db is not None:
+        try:
+            from app.chat.entity_matcher import find_near_match
+
+            near = find_near_match(raw, db)
+            if near is not None:
+                near_name, _score = near
+                return (
+                    f"Closest match in the catalog is {near_name} — "
+                    f"was that the one? If yes, ask again with that name. "
+                    f"If not, /contribute can add what you're looking for."
+                )
+        except Exception:
+            logging.exception("_catalog_gap_response: near-match probe failed")
+
     if sub in ("HOURS_LOOKUP", "OPEN_NOW", "TIME_LOOKUP"):
         return f"I don't have those hours in the catalog yet. {_GAP_TAIL}"
     if sub == "LOCATION_LOOKUP":

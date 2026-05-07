@@ -156,21 +156,30 @@ def reset_entity_matcher() -> None:
 
 
 def _best_score(norm_query: str, needles: frozenset[str]) -> float:
-    """Max fuzzy score across token_set_ratio + partial_token_set_ratio.
+    """Max ``fuzz.token_set_ratio`` across ``needles``.
 
-    Slice F (post-revert): partial_token_set_ratio adds typo tolerance — "mudsharks"
-    scores ~89 against "Mudshark Brewery" where token_set_ratio scores 38. The
-    partial scorer treats single-character variants on a token as near-matches,
-    which mirrors how a human reads a chat input. Both scorers are O(len) per call
-    and adding the second doubles work but stays well under the routing latency
-    budget at ~2,300 providers.
+    Token-set is the safe baseline: it scores by token-set overlap which won't
+    score 100 just because one word ("for", "the", "some") is shared. Typo
+    tolerance is layered on in :func:`_best_score_padded` against the
+    intent-stripped form of the query only, where stopwords have already been
+    removed.
     """
     best = 0.0
     for needle in needles:
-        s1 = float(fuzz.token_set_ratio(norm_query, needle))
-        s2 = float(fuzz.partial_token_set_ratio(norm_query, needle))
-        best = max(best, s1, s2)
+        best = max(best, float(fuzz.token_set_ratio(norm_query, needle)))
     return best
+
+
+def _long_tokens(stripped: str) -> str:
+    """Return only tokens ≥5 chars from ``stripped``, joined by space.
+
+    Used to filter the query down to its distinctive content words before applying
+    :func:`fuzz.partial_token_set_ratio`. Short stopwords ("the", "for", "some")
+    are dropped because the partial scorer rewards any single-token substring
+    match, and a 3-char token would match nearly every catalog name.
+    """
+    tokens = [t for t in stripped.split() if len(t) >= 5]
+    return " ".join(tokens)
 
 
 # Slice F6: Tier-1-shaped intent prefixes that pad a query with stopwords and drag
@@ -241,18 +250,28 @@ def _strip_intent_padding(norm_query: str) -> str:
 
 
 def _best_score_padded(norm_query: str, needles: frozenset[str]) -> float:
-    """Score the query both padded and stripped; take the higher.
+    """Score the query padded, stripped, AND (when safe) with a typo-tolerant scorer.
 
     Slice F6: queries like "is mudshark open right now" score 50–60 against the bare
     canonical name; stripping the intent padding lifts the score above the 75 threshold
     for the entity that's actually being asked about.
+
+    Slice F (post-fix): typo tolerance via :func:`fuzz.partial_token_set_ratio` is
+    applied ONLY on the stripped form AND only when the stripped form is "typo-safe"
+    (1–2 tokens, each ≥5 chars). That guard prevents false-positives where a
+    common word like "for" or "the" survives stripping and matches anything.
     """
     direct = _best_score(norm_query, needles)
     stripped = _strip_intent_padding(norm_query)
     if not stripped or stripped == norm_query:
         return direct
     boosted = _best_score(stripped, needles)
-    return max(direct, boosted)
+    typo = 0.0
+    long_only = _long_tokens(stripped)
+    if long_only:
+        for needle in needles:
+            typo = max(typo, float(fuzz.partial_token_set_ratio(long_only, needle)))
+    return max(direct, boosted, typo)
 
 
 def _provider_id_for_name(db: Session, provider_name: str) -> str:
@@ -367,6 +386,48 @@ def match_entity(query: str, db: Session) -> tuple[str, float] | None:
     """
     hit, _ambiguous = match_entity_with_ambiguity(query, db)
     return hit
+
+
+# Slice F: queries scoring in this band against the catalog look like plausible
+# typos but don't clear the strict 75 threshold for an exact-match Tier 1 reply.
+# The router uses :func:`find_near_match` to offer a "Did you mean X?" disambiguation
+# before falling to the standard gap template.
+_NEAR_MATCH_LOW = 55.0
+_NEAR_MATCH_HIGH = 75.0
+
+
+def find_near_match(query: str, db: Session) -> tuple[str, float] | None:
+    """Return ``(canonical, score)`` when the top fuzzy score is in the near-match
+    band (55–75 inclusive on the low side, exclusive on the high side).
+
+    Returns ``None`` when the top score is above 75 (a real match — caller should
+    use :func:`match_entity` instead) or below 55 (no plausible candidate — caller
+    should show the standard gap copy).
+    """
+    global _rows
+    if _rows is None:
+        refresh_entity_matcher(db)
+    assert _rows is not None
+
+    norm = normalize(query)
+    if not norm:
+        return None
+
+    best_canon: str | None = None
+    best_score = -1.0
+    for row in _rows:
+        s = _best_score_padded(norm, row.needles)
+        if s > best_score:
+            best_score = s
+            best_canon = row.canonical
+        elif s == best_score and best_canon is not None and row.canonical < best_canon:
+            best_canon = row.canonical
+
+    if best_canon is None:
+        return None
+    if not (_NEAR_MATCH_LOW <= best_score < _NEAR_MATCH_HIGH):
+        return None
+    return (best_canon, best_score)
 
 
 def query_has_ambiguous_entities(query: str, db: Session) -> bool:

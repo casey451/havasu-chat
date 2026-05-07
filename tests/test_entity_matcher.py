@@ -432,6 +432,61 @@ class EntityMatcherTypoToleranceTests(unittest.TestCase):
         self.assertIsNone(hit)
 
 
+class EntityMatcherNearMatchTests(unittest.TestCase):
+    """Slice F: 'Did you mean X?' disambiguation for queries scoring in the
+    near-match band (55–75) — too far for an exact-match Tier 1 reply but close
+    enough that the user is likely typing a real catalog name."""
+
+    def setUp(self) -> None:
+        reset_entity_matcher()
+        self._provider_ids: list[str] = []
+
+    def tearDown(self) -> None:
+        with SessionLocal() as db:
+            for pid in self._provider_ids:
+                row = db.get(Provider, pid)
+                if row is not None:
+                    db.delete(row)
+            db.commit()
+        reset_entity_matcher()
+
+    def test_severe_typo_returns_near_match(self) -> None:
+        from app.chat.entity_matcher import find_near_match
+
+        canon = "Mudshark Brewery and Public House"
+        with SessionLocal() as db:
+            self._provider_ids.append(_insert_google_provider(db, provider_name=canon))
+            refresh_entity_matcher(db)
+            # "mudsharks brewry" — multi-char typo that scores ~62 (NEAR band).
+            hit = find_near_match("phone for mudsharks brewry", db)
+        self.assertIsNotNone(hit)
+        assert hit is not None
+        self.assertEqual(hit[0], canon)
+
+    def test_clean_match_does_not_return_near(self) -> None:
+        """When the score is high enough for an exact match, find_near_match must
+        return None so the router uses the Tier 1 path instead of disambiguating."""
+        from app.chat.entity_matcher import find_near_match
+
+        canon = "Mudshark Brewery and Public House"
+        with SessionLocal() as db:
+            self._provider_ids.append(_insert_google_provider(db, provider_name=canon))
+            refresh_entity_matcher(db)
+            hit = find_near_match("is mudshark open right now", db)
+        self.assertIsNone(hit)
+
+    def test_unrelated_query_does_not_return_near(self) -> None:
+        """No near-match for queries that don't resemble any canonical."""
+        from app.chat.entity_matcher import find_near_match
+
+        canon = "Mudshark Brewery and Public House"
+        with SessionLocal() as db:
+            self._provider_ids.append(_insert_google_provider(db, provider_name=canon))
+            refresh_entity_matcher(db)
+            hit = find_near_match("phone for completely unrelated business 123", db)
+        self.assertIsNone(hit)
+
+
 class EntityMatcherAmbiguityTests(unittest.TestCase):
     """Slice F §3.2: when multiple distinct providers tie above the threshold, the
     matcher returns None so the router can defer to Tier 3 disambiguation rather than

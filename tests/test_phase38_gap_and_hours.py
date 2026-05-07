@@ -105,6 +105,48 @@ def test_recommendation_query_skips_gap_template(db: Session) -> None:
     assert "catalog" not in r.response.lower()
 
 
+def test_near_match_typo_returns_did_you_mean(db: Session) -> None:
+    """Slice F: severe-typo queries hit the near-match band (55–75) and surface a
+    'closest match' disambiguation reply instead of the standard gap template."""
+    inserted_ids: list[str] = []
+    try:
+        p = Provider(
+            provider_name="Mudshark Brewery and Public House",
+            category="food_drink",
+            source="google_places",
+            google_place_id="test_near_mudshark",
+            is_active=True,
+            draft=False,
+            phone="928-555-0000",
+            address="100 Test St",
+        )
+        db.add(p)
+        db.commit()
+        db.refresh(p)
+        inserted_ids.append(p.id)
+
+        from app.chat.entity_matcher import refresh_entity_matcher
+
+        refresh_entity_matcher(db)
+
+        with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
+            with patch("app.chat.unified_router.answer_with_tier3") as m3:
+                r = route("phone for mudsharks brewry", "sess-near-typo", db)
+        m3.assert_not_called()
+        assert r.tier_used == "gap_template"
+        assert "closest match" in r.response.lower()
+        assert "Mudshark Brewery and Public House" in r.response
+    finally:
+        for pid in inserted_ids:
+            row = db.get(Provider, pid)
+            if row is not None:
+                db.delete(row)
+        db.commit()
+        from app.chat.entity_matcher import reset_entity_matcher
+
+        reset_entity_matcher()
+
+
 def test_strong_tied_ambiguous_entity_picks_alphabetically(db: Session) -> None:
     """Slice F §3.2 (post-revert): the matcher picks the alphabetically-first
     canonical on a tie and Tier 1 fires with that pick. The picked provider may not
