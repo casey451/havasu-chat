@@ -19,7 +19,6 @@ from app.contrib.lhcaz_aquatic import (
     parse_schedule_html,
 )
 
-
 FIXTURE = Path(__file__).parent / "fixtures" / "lhcaz_aquatic" / "schedule.html"
 
 

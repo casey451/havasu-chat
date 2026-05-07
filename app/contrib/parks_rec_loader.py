@@ -52,7 +52,7 @@ from app.contrib.approval_service import (
 )
 from app.db import contribution_store as cs
 from app.db.database import SessionLocal
-from app.db.models import Contribution, Event, Program
+from app.db.models import Contribution, Event
 from app.schemas.contribution import (
     ContributionCreate,
     EventApprovalFields,

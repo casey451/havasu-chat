@@ -1,7 +1,8 @@
 """Unified concierge router (Phase 2.2 — handoff §3.2, §5 Phase 2.2).
 
 Orchestrates normalize → classify → entity enrichment → mode handler → log.
-Ask uses Tier 1 when applicable, else Tier 3 (Anthropic); contribute / correct use placeholder copy;
+Ask uses Tier 1 when applicable, else Tier 3 (Anthropic); contribute uses zero-token
+intake templates (Stream B 2026-05-07), correct uses zero-token correction template,
 chat uses real short responses (§8).
 """
 
@@ -26,7 +27,11 @@ from app.chat.entity_matcher import (
 from app.chat.hint_extractor import extract_hints
 from app.chat.intent_classifier import IntentResult, classify
 from app.chat.normalizer import normalize
-from app.chat.tier1_handler import try_tier1
+from app.chat.tier1_handler import (
+    render_contribute_template,
+    render_correction_template,
+    try_tier1,
+)
 from app.chat.tier2_handler import (
     try_tier2_with_filters_with_usage,
     try_tier2_with_usage,
@@ -157,9 +162,10 @@ def _catalog_gap_response(
     # "closest match" reply when Tier 1 can't render (e.g. no phone for that row).
     if db is not None:
         try:
+            from dataclasses import replace as _dc_replace
+
             from app.chat.entity_matcher import find_near_match
             from app.chat.tier1_handler import try_tier1
-            from dataclasses import replace as _dc_replace
 
             near = find_near_match(raw, db)
             if near is not None:

@@ -32,7 +32,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.contrib import webtrac  # noqa: E402
 from app.contrib.scrape_runner import PullFn, run_all  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # Source adapters: each returns a list[dict] for the snapshot runner.
 # ---------------------------------------------------------------------------

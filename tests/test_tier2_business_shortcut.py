@@ -15,7 +15,6 @@ from app.chat import tier2_handler
 from app.db.database import SessionLocal
 from app.db.models import Provider
 
-
 # ---------------------------------------------------------------------------
 # try_business_listing_shortcut
 # ---------------------------------------------------------------------------

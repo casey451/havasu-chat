@@ -20,7 +20,6 @@ from app.contrib.webtrac import (
     parse_search_html,
 )
 
-
 FIXTURE = Path(__file__).parent / "fixtures" / "webtrac" / "adult.html"
 
 
