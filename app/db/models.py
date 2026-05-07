@@ -59,13 +59,29 @@ class Provider(Base):
         nullable=False,
     )
 
-    google_place_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    google_place_id: Mapped[str | None] = mapped_column(String, nullable=True)
     lat: Mapped[float | None] = mapped_column(Float, nullable=True)
     lng: Mapped[float | None] = mapped_column(Float, nullable=True)
     embedding: Mapped[list[float] | None] = mapped_column(JSON(none_as_null=True), nullable=True)
     match_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     enrichment_version: Mapped[str | None] = mapped_column(String, nullable=True)
     raw_enrichment_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    # Google Places (New) columns — Phase 5 of the LHC business pull. See
+    # relay/HAVA_GOOGLE_BUSINESSES_HANDOFF_2026-05-06.md §8 and the
+    # e9f0a1b2c3d4 migration. `google_place_id IS NOT NULL` distinguishes
+    # rows sourced from the Places pull from event/program providers. The
+    # plain index on google_place_id is replaced by a partial unique index
+    # in the same migration.
+    google_primary_category: Mapped[str | None] = mapped_column(String, nullable=True)
+    google_categories: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    google_rating: Mapped[float | None] = mapped_column(Float, nullable=True)
+    google_review_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    google_review_snippets: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
+    google_photo_refs: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    google_hours: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    last_google_scraped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    zip: Mapped[str | None] = mapped_column(String, nullable=True)
 
     programs: Mapped[list["Program"]] = relationship(back_populates="provider")
     events: Mapped[list["Event"]] = relationship(back_populates="provider")
