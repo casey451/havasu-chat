@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.chat.intent_classifier import IntentResult
 from app.chat.normalizer import normalize
 from app.chat.tier1_templates import CONTACT_FOR_PRICING, render
+from app.contrib.hours_helper import is_open_at, places_hours_to_structured
 from app.core.timezone import now_lake_havasu
 from app.db.models import Event, Program, Provider
 
@@ -31,6 +32,9 @@ _TIER1_SUB_INTENTS: frozenset[str] = frozenset(
         "DATE_LOOKUP",
         "NEXT_OCCURRENCE",
         "OPEN_NOW",
+        # Slice C — Google business retrieval
+        "RATING_LOOKUP",
+        "REVIEW_COUNT_LOOKUP",
     }
 )
 
@@ -125,6 +129,69 @@ def _clock_to_minutes(hour_12: int, minute: int, ampm: str) -> int:
     return h24 * 60 + minute
 
 
+def _hours_text_from_google(google_hours: dict | None) -> str | None:
+    """Render ``google_hours.weekdayDescriptions`` as pipe-separated weekday rows.
+
+    Google formats descriptions like ``"Monday: 9:00 AM – 5:00 PM"``. The colon after the
+    weekday name confuses ``_first_token_weekday_index`` in tier1_templates (which expects
+    the first token to be a bare weekday name), so we strip that one colon while leaving
+    the rest of the string untouched. Returns ``None`` when descriptions are missing.
+
+    Slice B (Google business retrieval): used as fallback when ``provider.hours`` is empty
+    so HOURS_LOOKUP can still answer for Google-sourced rows.
+    """
+    if not isinstance(google_hours, dict):
+        return None
+    descriptions = google_hours.get("weekdayDescriptions")
+    if not isinstance(descriptions, list) or not descriptions:
+        return None
+    cleaned: list[str] = []
+    for d in descriptions:
+        if not isinstance(d, str) or not d.strip():
+            continue
+        s = d.strip()
+        # Only collapse a single ":" if it falls right after a single alpha word
+        # (the weekday name). Time-of-day colons inside the description ("9:00") stay.
+        head, sep, tail = s.partition(":")
+        if sep and head.strip().isalpha() and (tail.startswith(" ") or tail == ""):
+            cleaned.append(f"{head.strip()} {tail.strip()}".strip())
+        else:
+            cleaned.append(s)
+    if not cleaned:
+        return None
+    return " | ".join(cleaned)
+
+
+def _provider_hours_text(provider: Provider) -> str:
+    """Hours string for templates: ``provider.hours`` first, ``google_hours`` fallback."""
+    h = (provider.hours or "").strip()
+    if h:
+        return h
+    return _hours_text_from_google(provider.google_hours) or ""
+
+
+def _provider_open_now(provider: Provider, now: datetime) -> bool | None:
+    """Return True/False if open-state is determinable for ``provider``; None otherwise.
+
+    Tries ``provider.hours`` via :func:`_open_now_from_hours` first (existing path).
+    Falls back to converting ``provider.google_hours`` (raw Google Places format) into
+    the structured weekday dict via :func:`places_hours_to_structured` and checking with
+    :func:`is_open_at`. The structured path correctly handles split-day windows
+    (e.g. lunch + dinner) which the legacy regex parser cannot.
+    """
+    h = (provider.hours or "").strip()
+    if h:
+        state = _open_now_from_hours(h, now)
+        if state is not None:
+            return state
+    gh = provider.google_hours
+    if isinstance(gh, dict):
+        structured = places_hours_to_structured(gh)
+        if structured:
+            return bool(is_open_at(structured, now))
+    return None
+
+
 def _open_now_from_hours(hours: str, now: datetime) -> bool | None:
     """Return True/False if parseable daily window; None if not parseable."""
     h = (hours or "").strip()
@@ -174,11 +241,9 @@ def try_tier1(query: str, intent_result: IntentResult, db: Session) -> str | Non
     variant = 0
 
     if sub == "OPEN_NOW":
-        h = (provider.hours or "").strip()
-        if not h:
-            return None
-        now = now_lake_havasu().replace(tzinfo=None)
-        state = _open_now_from_hours(h, now)
+        # Slice B: free-text provider.hours first (legacy regex parser); google_hours.periods
+        # via the structured helper as fallback. _provider_open_now isolates the precedence.
+        state = _provider_open_now(provider, now_lake_havasu())
         if state is None:
             return None
         if state:
@@ -226,7 +291,9 @@ def try_tier1(query: str, intent_result: IntentResult, db: Session) -> str | Non
         return _append_voice(out, provider)
 
     if sub == "HOURS_LOOKUP":
-        hours = (provider.hours or "").strip()
+        # Slice B: provider.hours first; fall back to google_hours.weekdayDescriptions for
+        # Google-sourced rows that don't populate the legacy text column.
+        hours = _provider_hours_text(provider)
         if not hours:
             return None
         out = render(
@@ -240,7 +307,10 @@ def try_tier1(query: str, intent_result: IntentResult, db: Session) -> str | Non
         return _append_voice(out, provider)
 
     if sub == "TIME_LOOKUP":
-        hours = (provider.hours or "").strip()
+        # Slice B: same hours fallback as HOURS_LOOKUP for Google providers; if no hours
+        # (event-host providers without posted business hours) fall through to the program
+        # schedule path below.
+        hours = _provider_hours_text(provider)
         if hours:
             out = render(
                 "HOURS_LOOKUP",
@@ -307,6 +377,37 @@ def try_tier1(query: str, intent_result: IntentResult, db: Session) -> str | Non
         else:
             ar = f"up to {hi}"
         out = render("AGE_LOOKUP", prog, {"program": prog.title, "age_range": ar}, variant=variant)
+        if out is None:
+            return None
+        return _append_voice(out, provider)
+
+    if sub == "RATING_LOOKUP":
+        # Slice C: Google rating + review count lives directly on the Provider row
+        # (google_rating, google_review_count). Format rating to 1 decimal so "4.6 stars"
+        # reads naturally and we don't expose float artifacts like 4.5999999.
+        rating = provider.google_rating
+        if rating is None:
+            return None
+        rc_int = provider.google_review_count or 0
+        rating_str = f"{float(rating):.1f}"
+        data: dict[str, Any] = {"rating": rating_str, "review_count": rc_int}
+        out = render("RATING_LOOKUP", provider, data, variant=variant)
+        if out is None:
+            return None
+        return _append_voice(out, provider)
+
+    if sub == "REVIEW_COUNT_LOOKUP":
+        # Slice C: review-count-only intent. Distinct from RATING_LOOKUP — sometimes the
+        # user wants the volume signal alone ("how many reviews does X have").
+        rc = provider.google_review_count
+        if rc is None or rc == 0:
+            return None
+        out = render(
+            "REVIEW_COUNT_LOOKUP",
+            provider,
+            {"review_count": int(rc)},
+            variant=variant,
+        )
         if out is None:
             return None
         return _append_voice(out, provider)

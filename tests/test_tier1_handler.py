@@ -367,3 +367,353 @@ def test_next_event_uses_lake_havasu_today() -> None:
         assert observed_date.day == 4, (
             f"Expected today=2026-05-04 (Lake Havasu local), got {observed_date}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Slice B: Google business retrieval — google_hours JSON fallback
+# ---------------------------------------------------------------------------
+
+
+def _google_hours_periods(*ranges: tuple[int, int, int, int, int, int]) -> dict:
+    """Build a Google Places ``regular_opening_hours`` blob for tests.
+
+    Each range is ``(open_day, open_hour, open_min, close_day, close_hour, close_min)``
+    where day uses Google's convention (0=Sun … 6=Sat).
+    """
+    periods = []
+    for od, oh, om, cd, ch, cm in ranges:
+        periods.append(
+            {
+                "open": {"day": od, "hour": oh, "minute": om},
+                "close": {"day": cd, "hour": ch, "minute": cm},
+            }
+        )
+    return {"periods": periods, "weekdayDescriptions": []}
+
+
+def test_hours_text_from_google_strips_weekday_colon() -> None:
+    """``Monday: 9:00 AM – 5:00 PM`` → ``Monday 9:00 AM – 5:00 PM`` so the existing
+    weekday-aware template parser (which expects a bare weekday as the first token) works."""
+    out = _t1._hours_text_from_google(
+        {
+            "weekdayDescriptions": [
+                "Monday: 9:00 AM – 5:00 PM",
+                "Tuesday: 9:00 AM – 5:00 PM",
+                "Sunday: Closed",
+            ]
+        }
+    )
+    assert out is not None
+    parts = out.split(" | ")
+    assert parts[0] == "Monday 9:00 AM – 5:00 PM"
+    assert parts[1] == "Tuesday 9:00 AM – 5:00 PM"
+    assert parts[2] == "Sunday Closed"
+
+
+def test_hours_text_from_google_returns_none_when_missing() -> None:
+    assert _t1._hours_text_from_google(None) is None
+    assert _t1._hours_text_from_google({}) is None
+    assert _t1._hours_text_from_google({"weekdayDescriptions": []}) is None
+    assert _t1._hours_text_from_google({"weekdayDescriptions": ["", "  "]}) is None
+
+
+def test_provider_hours_text_prefers_legacy_field() -> None:
+    """When both fields are populated, the legacy free-text ``provider.hours``
+    wins (it's operator-curated; google_hours is auto-pulled and may be stale)."""
+    p = _provider(
+        provider_name="Both",
+        hours="9am-5pm Mon-Fri",
+        google_hours={"weekdayDescriptions": ["Monday: 8:00 AM – 6:00 PM"]},
+    )
+    assert _t1._provider_hours_text(p) == "9am-5pm Mon-Fri"
+
+
+def test_provider_hours_text_falls_back_to_google() -> None:
+    p = _provider(
+        provider_name="GoogleOnly",
+        hours=None,
+        google_hours={"weekdayDescriptions": ["Monday: 9:00 AM – 5:00 PM"]},
+    )
+    out = _t1._provider_hours_text(p)
+    assert out == "Monday 9:00 AM – 5:00 PM"
+
+
+def test_hours_lookup_uses_google_hours_when_legacy_empty(db: Session) -> None:
+    p = _provider(
+        provider_name="GoogleHoursCo",
+        source="google_places",
+        google_place_id="test_google_hours_co",
+        hours=None,
+        google_hours={
+            "weekdayDescriptions": [
+                "Monday: 9:00 AM – 5:00 PM",
+                "Tuesday: 9:00 AM – 5:00 PM",
+            ],
+            "periods": [],
+        },
+    )
+    db.add(p)
+    db.commit()
+    out = try_tier1("hours for googlehoursco", _intent(sub="HOURS_LOOKUP", entity=p.provider_name), db)
+    assert out is not None
+    assert "Monday" in out and "9:00 AM" in out
+
+
+def test_open_now_via_google_periods_in_window(db: Session) -> None:
+    """Google providers with ``google_hours.periods`` should compute open-now correctly
+    via the structured-hours path even when ``provider.hours`` is empty."""
+    p = _provider(
+        provider_name="GoogleOpenCo",
+        source="google_places",
+        google_place_id="test_google_open_co",
+        hours=None,
+        # Mon-Fri 9:00-17:00 (Google: 1=Mon, ..., 5=Fri)
+        google_hours=_google_hours_periods(
+            (1, 9, 0, 1, 17, 0),
+            (2, 9, 0, 2, 17, 0),
+            (3, 9, 0, 3, 17, 0),
+            (4, 9, 0, 4, 17, 0),
+            (5, 9, 0, 5, 17, 0),
+        ),
+    )
+    db.add(p)
+    db.commit()
+    havasu_tz = ZoneInfo("America/Phoenix")
+    # Tuesday 2026-05-05 14:00 local — inside the 9-5 window.
+    fixed = datetime(2026, 5, 5, 14, 0, 0, tzinfo=havasu_tz)
+    with patch("app.chat.tier1_handler.now_lake_havasu", return_value=fixed):
+        out = try_tier1("open now", _intent(sub="OPEN_NOW", entity=p.provider_name), db)
+    assert out is not None
+    assert "open" in out.lower()
+
+
+def test_open_now_via_google_periods_outside_window(db: Session) -> None:
+    p = _provider(
+        provider_name="GoogleClosedCo",
+        source="google_places",
+        google_place_id="test_google_closed_co",
+        hours=None,
+        google_hours=_google_hours_periods(
+            (1, 9, 0, 1, 17, 0),
+            (2, 9, 0, 2, 17, 0),
+            (3, 9, 0, 3, 17, 0),
+            (4, 9, 0, 4, 17, 0),
+            (5, 9, 0, 5, 17, 0),
+        ),
+    )
+    db.add(p)
+    db.commit()
+    havasu_tz = ZoneInfo("America/Phoenix")
+    # Tuesday 2026-05-05 22:00 local — well outside the 9-5 window.
+    fixed = datetime(2026, 5, 5, 22, 0, 0, tzinfo=havasu_tz)
+    with patch("app.chat.tier1_handler.now_lake_havasu", return_value=fixed):
+        out = try_tier1("open now", _intent(sub="OPEN_NOW", entity=p.provider_name), db)
+    assert out is not None
+    assert "closed" in out.lower()
+
+
+def test_open_now_via_google_periods_split_day_windows(db: Session) -> None:
+    """A restaurant open lunch 11:00-14:00 then dinner 17:00-22:00 should report
+    open at 12:30, closed at 15:00, open at 19:00. The legacy regex parser only
+    sees one window — the structured path must catch both."""
+    p = _provider(
+        provider_name="LunchAndDinnerCo",
+        source="google_places",
+        google_place_id="test_lunch_dinner_co",
+        hours=None,
+        # Tuesday lunch + dinner segments
+        google_hours=_google_hours_periods(
+            (2, 11, 0, 2, 14, 0),
+            (2, 17, 0, 2, 22, 0),
+        ),
+    )
+    db.add(p)
+    db.commit()
+    havasu_tz = ZoneInfo("America/Phoenix")
+    cases = [
+        (datetime(2026, 5, 5, 12, 30, 0, tzinfo=havasu_tz), "open"),
+        (datetime(2026, 5, 5, 15, 0, 0, tzinfo=havasu_tz), "closed"),
+        (datetime(2026, 5, 5, 19, 0, 0, tzinfo=havasu_tz), "open"),
+    ]
+    for fixed, expected in cases:
+        with patch("app.chat.tier1_handler.now_lake_havasu", return_value=fixed):
+            out = try_tier1(
+                "open now",
+                _intent(sub="OPEN_NOW", entity=p.provider_name),
+                db,
+            )
+        assert out is not None, f"no answer at {fixed}"
+        assert expected in out.lower(), f"expected {expected} at {fixed}, got {out!r}"
+
+
+def test_open_now_returns_none_when_no_hours_anywhere(db: Session) -> None:
+    p = _provider(
+        provider_name="NoHoursAtAllCo",
+        source="google_places",
+        google_place_id="test_no_hours_co",
+        hours=None,
+        google_hours=None,
+    )
+    db.add(p)
+    db.commit()
+    havasu_tz = ZoneInfo("America/Phoenix")
+    fixed = datetime(2026, 5, 5, 14, 0, 0, tzinfo=havasu_tz)
+    with patch("app.chat.tier1_handler.now_lake_havasu", return_value=fixed):
+        out = try_tier1("open now", _intent(sub="OPEN_NOW", entity=p.provider_name), db)
+    assert out is None
+
+
+def test_time_lookup_falls_back_to_google_hours_for_provider_without_programs(db: Session) -> None:
+    """Google providers have no Programs. TIME_LOOKUP should still answer via the
+    google_hours fallback rather than returning None."""
+    p = _provider(
+        provider_name="GoogleTimeCo",
+        source="google_places",
+        google_place_id="test_google_time_co",
+        hours=None,
+        google_hours={
+            "weekdayDescriptions": [
+                "Monday: 8:00 AM – 6:00 PM",
+                "Tuesday: 8:00 AM – 6:00 PM",
+            ]
+        },
+    )
+    db.add(p)
+    db.commit()
+    out = try_tier1(
+        "what time does googletimeco open",
+        _intent(sub="TIME_LOOKUP", entity=p.provider_name),
+        db,
+    )
+    assert out is not None
+    assert "8:00 AM" in out
+
+
+# ---------------------------------------------------------------------------
+# Slice C: RATING_LOOKUP and REVIEW_COUNT_LOOKUP
+# ---------------------------------------------------------------------------
+
+
+def test_rating_lookup_with_review_count(db: Session) -> None:
+    p = _provider(
+        provider_name="MudsharkBrewing",
+        source="google_places",
+        google_place_id="test_mudshark",
+        google_rating=4.6,
+        google_review_count=423,
+    )
+    db.add(p)
+    db.commit()
+    out = try_tier1(
+        "what is the rating for mudshark",
+        _intent(sub="RATING_LOOKUP", entity=p.provider_name),
+        db,
+    )
+    assert out is not None
+    assert "4.6" in out
+    assert "423" in out
+
+
+def test_rating_lookup_formats_one_decimal(db: Session) -> None:
+    """Rating renders to one decimal so 4.5 doesn't surface as 4.5 vs 4.50 vs 4.499999."""
+    p = _provider(
+        provider_name="DecimalCo",
+        source="google_places",
+        google_place_id="test_decimal",
+        google_rating=4.5,
+        google_review_count=12,
+    )
+    db.add(p)
+    db.commit()
+    out = try_tier1(
+        "rating for decimalco",
+        _intent(sub="RATING_LOOKUP", entity=p.provider_name),
+        db,
+    )
+    assert out is not None
+    assert "4.5" in out
+    assert "4.50" not in out
+    assert "4.5-star" in out or "4.5 stars" in out
+
+
+def test_rating_lookup_without_reviews_uses_no_reviews_variant(db: Session) -> None:
+    """Some Google places have a rating but ~0 reviews (low traffic). Switch to the
+    *_NO_REVIEWS variant so the response doesn't read "(0 reviews)"."""
+    p = _provider(
+        provider_name="LowTrafficCo",
+        source="google_places",
+        google_place_id="test_lowtraffic",
+        google_rating=5.0,
+        google_review_count=0,
+    )
+    db.add(p)
+    db.commit()
+    out = try_tier1(
+        "rating for lowtrafficco",
+        _intent(sub="RATING_LOOKUP", entity=p.provider_name),
+        db,
+    )
+    assert out is not None
+    assert "5.0" in out
+    assert "0 reviews" not in out
+    assert "( reviews)" not in out
+
+
+def test_rating_lookup_returns_none_when_no_rating(db: Session) -> None:
+    """~16% of pulled rows lack ratings; handler must fall through to Tier 3 cleanly."""
+    p = _provider(
+        provider_name="UnratedCo",
+        source="google_places",
+        google_place_id="test_unrated",
+        google_rating=None,
+        google_review_count=None,
+    )
+    db.add(p)
+    db.commit()
+    assert (
+        try_tier1(
+            "rating for unratedco",
+            _intent(sub="RATING_LOOKUP", entity=p.provider_name),
+            db,
+        )
+        is None
+    )
+
+
+def test_review_count_lookup(db: Session) -> None:
+    p = _provider(
+        provider_name="PopularCo",
+        source="google_places",
+        google_place_id="test_popular",
+        google_rating=4.2,
+        google_review_count=1547,
+    )
+    db.add(p)
+    db.commit()
+    out = try_tier1(
+        "how many reviews does popularco have",
+        _intent(sub="REVIEW_COUNT_LOOKUP", entity=p.provider_name),
+        db,
+    )
+    assert out is not None
+    assert "1547" in out
+
+
+def test_review_count_lookup_returns_none_when_zero(db: Session) -> None:
+    p = _provider(
+        provider_name="NoReviewsCo",
+        source="google_places",
+        google_place_id="test_noreviews",
+        google_rating=None,
+        google_review_count=0,
+    )
+    db.add(p)
+    db.commit()
+    assert (
+        try_tier1(
+            "how many reviews does noreviewsco have",
+            _intent(sub="REVIEW_COUNT_LOOKUP", entity=p.provider_name),
+            db,
+        )
+        is None
+    )
