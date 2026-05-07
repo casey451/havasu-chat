@@ -402,16 +402,15 @@ class EntityMatcherAmbiguityTests(unittest.TestCase):
             db.commit()
         reset_entity_matcher()
 
-    def test_strong_tied_match_returns_none_with_ambiguous_flag(self) -> None:
-        """When two providers score equally high (>75 AND within 8 points), the matcher
-        returns None and signals ambiguous=True so the router defers to Tier 3."""
+    def test_strong_tied_match_returns_alphabetic_pick_with_ambiguous_flag(self) -> None:
+        """Slice F §3.2 (post-revert): on a tie, the matcher picks the alphabetically
+        first canonical (deterministic) and SETS ``is_ambiguous=True`` so future
+        callers can disambiguate without re-running the match."""
         from app.chat.entity_matcher import (
             match_entity_with_ambiguity,
             query_has_ambiguous_entities,
         )
 
-        # Two pizza places with identically-shaped names — query "joes pizza" hits
-        # both with the same token-set-ratio score, well above 75.
         with SessionLocal() as db:
             self._provider_ids.append(_insert_google_provider(db, provider_name="Joes Pizza Downtown"))
             self._provider_ids.append(_insert_google_provider(db, provider_name="Joes Pizza Channel"))
@@ -419,9 +418,13 @@ class EntityMatcherAmbiguityTests(unittest.TestCase):
             hit = match_entity("phone for joes pizza", db)
             resolution, ambiguous = match_entity_with_ambiguity("phone for joes pizza", db)
             ambiguous_flag = query_has_ambiguous_entities("phone for joes pizza", db)
-        self.assertIsNone(hit, "tied strong matches must return None from match_entity")
-        self.assertIsNone(resolution)
-        self.assertTrue(ambiguous, "ambiguous flag must be True for tied strong matches")
+        # Both names tie at score 100 against the stripped "joes pizza"; alphabetical
+        # tiebreak picks "Joes Pizza Channel" over "Joes Pizza Downtown".
+        self.assertIsNotNone(hit)
+        assert hit is not None
+        self.assertEqual(hit[0], "Joes Pizza Channel")
+        self.assertIsNotNone(resolution)
+        self.assertTrue(ambiguous, "ambiguous flag must still be True on near-ties")
         self.assertTrue(ambiguous_flag)
 
     def test_unambiguous_distinctive_match_still_works(self) -> None:

@@ -141,16 +141,13 @@ def _catalog_gap_response(
     except Exception:
         logging.exception("_catalog_gap_response: shortcut probe failed")
 
-    # Slice F §3.2: skip gap when the query has ambiguous catalog entities — Tier 3
-    # should surface candidates rather than the gap-template implying nothing matched.
-    if db is not None:
-        try:
-            from app.chat.entity_matcher import query_has_ambiguous_entities
-
-            if query_has_ambiguous_entities(raw, db):
-                return None
-        except Exception:
-            logging.exception("_catalog_gap_response: ambiguity probe failed")
+    # NOTE (Slice F §3.2 reverted): the gap-skip-on-ambiguity check was disabled
+    # after a prod regression — with 2,266 providers, the ambiguity probe over-fires
+    # on background score noise, causes gap to skip, and the request falls into the
+    # Tier 2/3 LLM path which still has unresolved API issues on prod. The
+    # entity_matcher's ambiguity flag is still computed; we just don't act on it here
+    # until the matcher's stricter scoring or a deterministic disambiguation reply
+    # lands. See `tests/voice_battery/reports/final_report.md` §3.2.
 
     if sub in ("HOURS_LOOKUP", "OPEN_NOW", "TIME_LOOKUP"):
         return f"I don't have those hours in the catalog yet. {_GAP_TAIL}"

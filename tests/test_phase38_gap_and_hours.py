@@ -105,9 +105,12 @@ def test_recommendation_query_skips_gap_template(db: Session) -> None:
     assert "catalog" not in r.response.lower()
 
 
-def test_strong_tied_ambiguous_entity_skips_gap_template(db: Session) -> None:
-    """Slice F §3.2: when two providers tie above the strong-match threshold, the
-    router must defer to Tier 3 rather than the gap template."""
+def test_strong_tied_ambiguous_entity_picks_alphabetically(db: Session) -> None:
+    """Slice F §3.2 (post-revert): the matcher picks the alphabetically-first
+    canonical on a tie and Tier 1 fires with that pick. The picked provider may not
+    be the one the user intended, but it's deterministic and the alternatives (gap
+    template implying nothing exists, or a graceful fallback when Tier 3 is broken)
+    are worse UX. A real disambiguation reply is a future slice."""
     inserted_ids: list[str] = []
     try:
         for name in ("Joes Pizza Downtown", "Joes Pizza Channel"):
@@ -130,15 +133,11 @@ def test_strong_tied_ambiguous_entity_skips_gap_template(db: Session) -> None:
 
         refresh_entity_matcher(db)
 
-        with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
-            with patch(
-                "app.chat.unified_router.answer_with_tier3",
-                return_value=("Tier 3 disambiguation reply", 50, 25, 25),
-            ) as m3:
-                r = route("phone for joes pizza", "sess-amb-skip", db)
-        m3.assert_called_once()
-        assert r.tier_used == "3"
-        assert "catalog" not in r.response.lower()
+        r = route("phone for joes pizza", "sess-amb-pick", db)
+        assert r.tier_used == "1"
+        # Alphabetic tiebreak: "Joes Pizza Channel" < "Joes Pizza Downtown"
+        assert "Joes Pizza Channel" in r.response
+        assert "928-555-0000" in r.response
     finally:
         for pid in inserted_ids:
             row = db.get(Provider, pid)

@@ -301,12 +301,12 @@ def match_entity_with_ambiguity(
 ) -> tuple[tuple[str, float] | None, bool]:
     """Return ``(top_match_or_none, is_ambiguous)``.
 
-    - ``top_match_or_none`` is ``(canonical, score)`` when the top score clears the
-      75 threshold AND the runner-up is at least :data:`_AMBIGUITY_MARGIN` points lower
-      (or below 75). Otherwise ``None``.
-    - ``is_ambiguous`` is ``True`` when the top score clears 75 but the runner-up is
-      within the margin — caller should route to Tier 3 / a disambiguation reply
-      rather than picking arbitrarily.
+    Slice F §3.2 (post-revert): the matcher always returns the top match if it clears
+    the 75 threshold — even when a runner-up is near-tied. Picking arbitrarily on tie
+    (alphabetical order) is the lesser-evil compared to dropping the match entirely
+    and routing to a (currently-broken-on-prod) Tier 3 disambiguation reply. The
+    ``is_ambiguous`` flag is still computed and returned so a future deterministic
+    disambiguation path can use it without another schema change.
     """
     global _rows
     if _rows is None:
@@ -317,52 +317,53 @@ def match_entity_with_ambiguity(
     if not norm:
         return None, False
 
-    scored: list[tuple[str, float]] = []
+    best_canon: str | None = None
+    best_score = -1.0
+    second_score = -1.0
     for row in _rows:
         s = _best_score_padded(norm, row.needles)
-        scored.append((row.canonical, s))
-    if not scored:
+        if s > best_score:
+            second_score = best_score
+            best_score = s
+            best_canon = row.canonical
+        elif s == best_score and best_canon is not None and row.canonical < best_canon:
+            second_score = s
+            best_canon = row.canonical
+        elif s > second_score:
+            second_score = s
+
+    if best_canon is None or best_score <= 75.0:
         return None, False
-    scored.sort(key=lambda x: (-x[1], x[0]))
 
-    top_canon, top_score = scored[0]
-    if top_score <= 75.0:
-        return None, False
-
-    if len(scored) >= 2:
-        second_canon, second_score = scored[1]
-        if (
-            second_canon != top_canon
-            and second_score > 75.0
-            and (top_score - second_score) < _AMBIGUITY_MARGIN
-        ):
-            return None, True
-
-    return (top_canon, top_score), False
+    is_ambiguous = (
+        second_score > 75.0 and (best_score - second_score) < _AMBIGUITY_MARGIN
+    )
+    return (best_canon, best_score), is_ambiguous
 
 
 def match_entity(query: str, db: Session) -> tuple[str, float] | None:
-    """Return ``(provider_name, score)`` if the best fuzzy match is strictly above 75
-    AND the runner-up is at least :data:`_AMBIGUITY_MARGIN` points lower.
+    """Return ``(provider_name, score)`` if the best fuzzy match is strictly above 75.
 
     The index covers distinct ``Program.provider_name`` values (denormalized string,
     historical) plus active non-draft ``Provider`` rows (the unified provider table —
     both event-host providers and Google Places businesses). Call
     :func:`refresh_entity_matcher` after bulk program imports or provider loads.
 
-    Slice F §3.2 — when multiple candidates are near-tied, returns None so the router
-    can defer to Tier 3 disambiguation. Use :func:`match_entity_with_ambiguity` to
-    distinguish "no match" from "ambiguous" at the call site.
+    Slice F §3.2 (post-revert): on a tie among multiple strong matches, the function
+    returns the alphabetically-first canonical (deterministic). To detect ambiguity,
+    call :func:`match_entity_with_ambiguity` which returns the same match plus an
+    ``is_ambiguous`` flag.
     """
     hit, _ambiguous = match_entity_with_ambiguity(query, db)
     return hit
 
 
 def query_has_ambiguous_entities(query: str, db: Session) -> bool:
-    """``True`` when the entity matcher would return multiple near-tied candidates.
+    """``True`` when the entity matcher's top match has a near-tied runner-up.
 
-    Called by the router's gap-response path to skip the "/contribute" template for
-    queries that should disambiguate via Tier 3 instead.
+    Currently advisory only — no caller acts on the flag (the gap-response path that
+    used to skip on ambiguity was reverted because it over-fired in production with
+    2,266 providers and dropped users into the broken Tier 3 LLM path).
     """
     _hit, ambiguous = match_entity_with_ambiguity(query, db)
     return ambiguous
