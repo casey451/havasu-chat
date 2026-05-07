@@ -40,6 +40,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 from collections import Counter, defaultdict
 from datetime import datetime
@@ -47,6 +48,42 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _load_env_file() -> None:
+    """Load ``.env`` from the repo root into ``os.environ`` for missing keys.
+
+    Voice-battery 2026-05-07: 200/200 ERROR run surfaced silent failures when
+    ``OPENAI_API_KEY`` wasn't set in the shell session. Both the live router
+    (Tier 2 parser/formatter, Tier 3 synthesis) and the judge call need the
+    key — without it everything falls to the graceful-fallback path and the
+    judge has nothing to grade. Load ``.env`` here so the harness works in a
+    fresh PowerShell session without explicit ``$env:OPENAI_API_KEY = ...``.
+
+    Existing environment variables win over ``.env`` so this is non-destructive.
+    """
+    env_path = REPO_ROOT / ".env"
+    if not env_path.is_file():
+        return
+    try:
+        for raw in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+    except OSError:
+        # Best-effort; if .env can't be read, fall through and let downstream
+        # missing-key checks handle it (with logged errors per-call).
+        pass
+
+
+_load_env_file()
 QUESTIONS_PATH = REPO_ROOT / "tests" / "voice_battery" / "questions.yaml"
 RUBRIC_PATH = REPO_ROOT / "prompts" / "voice_audit.txt"
 REPORT_DIR = REPO_ROOT / "tests" / "voice_battery" / "reports"
