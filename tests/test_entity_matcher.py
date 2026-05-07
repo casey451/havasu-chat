@@ -383,6 +383,55 @@ class EntityMatcherIntentPaddingStripTests(unittest.TestCase):
         self.assertIsNone(hit)
 
 
+class EntityMatcherTypoToleranceTests(unittest.TestCase):
+    """Slice F: partial_token_set_ratio added to _best_score so common typos
+    ("mudsharks" → "Mudshark Brewery") still resolve without lowering the threshold."""
+
+    def setUp(self) -> None:
+        reset_entity_matcher()
+        self._provider_ids: list[str] = []
+
+    def tearDown(self) -> None:
+        with SessionLocal() as db:
+            for pid in self._provider_ids:
+                row = db.get(Provider, pid)
+                if row is not None:
+                    db.delete(row)
+            db.commit()
+        reset_entity_matcher()
+
+    def test_extra_trailing_s_resolves(self) -> None:
+        canon = "Mudshark Brewery and Public House"
+        with SessionLocal() as db:
+            self._provider_ids.append(_insert_google_provider(db, provider_name=canon))
+            refresh_entity_matcher(db)
+            hit = match_entity("is mudsharks open right now", db)
+        self.assertIsNotNone(hit, "trailing-s typo should still resolve via partial_token_set_ratio")
+        assert hit is not None
+        self.assertEqual(hit[0], canon)
+
+    def test_single_char_drop_resolves(self) -> None:
+        canon = "The Foundry on the Green"
+        with SessionLocal() as db:
+            self._provider_ids.append(_insert_google_provider(db, provider_name=canon))
+            refresh_entity_matcher(db)
+            hit = match_entity("phone for the foundy", db)  # missing 'r'
+        self.assertIsNotNone(hit, "single-char-drop typo should still resolve")
+        assert hit is not None
+        self.assertEqual(hit[0], canon)
+
+    def test_typo_does_not_create_random_false_positive(self) -> None:
+        """A typo on a query that has no near-match in the catalog must still return None."""
+        canon = "Mudshark Brewery and Public House"
+        with SessionLocal() as db:
+            self._provider_ids.append(_insert_google_provider(db, provider_name=canon))
+            refresh_entity_matcher(db)
+            # Query about a totally different business — partial token matcher must
+            # not dredge up Mudshark just because of letter overlap.
+            hit = match_entity("phone for unknown plumbing service xyz", db)
+        self.assertIsNone(hit)
+
+
 class EntityMatcherAmbiguityTests(unittest.TestCase):
     """Slice F §3.2: when multiple distinct providers tie above the threshold, the
     matcher returns None so the router can defer to Tier 3 disambiguation rather than

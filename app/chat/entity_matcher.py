@@ -156,9 +156,20 @@ def reset_entity_matcher() -> None:
 
 
 def _best_score(norm_query: str, needles: frozenset[str]) -> float:
+    """Max fuzzy score across token_set_ratio + partial_token_set_ratio.
+
+    Slice F (post-revert): partial_token_set_ratio adds typo tolerance — "mudsharks"
+    scores ~89 against "Mudshark Brewery" where token_set_ratio scores 38. The
+    partial scorer treats single-character variants on a token as near-matches,
+    which mirrors how a human reads a chat input. Both scorers are O(len) per call
+    and adding the second doubles work but stays well under the routing latency
+    budget at ~2,300 providers.
+    """
     best = 0.0
     for needle in needles:
-        best = max(best, float(fuzz.token_set_ratio(norm_query, needle)))
+        s1 = float(fuzz.token_set_ratio(norm_query, needle))
+        s2 = float(fuzz.partial_token_set_ratio(norm_query, needle))
+        best = max(best, s1, s2)
     return best
 
 
