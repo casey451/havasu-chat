@@ -77,8 +77,8 @@ DAY_CODE_MAP: dict[str, str] = {
     "Su": "Sunday",
 }
 
-CATEGORY_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
-    ("aquatics", ("kayak", "paddle", "swim", "aqua", "water", "pool")),
+CONTENT_CATEGORY_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
+    ("aquatics", ("kayak", "paddle", "swim", "aqua", "water")),
     ("arts", ("art", "craft", "paint", "glass", "windchime", "pottery", "draw")),
     ("food", ("cook", "baking", "cuisine", "kitchen")),
     ("sports", (
@@ -86,7 +86,14 @@ CATEGORY_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
         "pickleball", "tennis", "football", "lacrosse", "hockey", "league", "tournament",
     )),
     ("fitness", ("yoga", "exercise", "fit ", "fit-", "aerobic", "wellness", "tai chi", "mobility", "strong")),
-    ("kids", ("youth", "kids", "kid ", "kid-", "junior", "teen", "child", "summer camp", "after school", "asp ", "iwannago")),
+]
+
+AUDIENCE_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
+    ("youth", (
+        "youth", "kids", "kid ", "kid-", "junior", "teen", "child",
+        "summer camp", "after school", "asp ", "iwannago",
+    )),
+    ("adult", ("adult",)),
 ]
 
 
@@ -119,12 +126,36 @@ def _slug(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", (s or "").lower()).strip("-") or "untitled"
 
 
-def _categorize(text: str) -> str:
+def _content_category(text: str) -> str:
+    """Return a single content category (arts, sports, etc.). Used as the
+    canonical ``Program.activity_category`` value."""
     low = (text or "").lower()
-    for category, keywords in CATEGORY_KEYWORDS:
+    for category, keywords in CONTENT_CATEGORY_KEYWORDS:
         if any(k in low for k in keywords):
             return category
     return "recreation"
+
+
+def _audience_tags(text: str) -> list[str]:
+    """Return audience tags (e.g. ``adult``, ``youth``) found in ``text``.
+
+    Multiple tags are possible (a "Youth Adult Hybrid Class" would tag
+    both — degenerate but parsed). Empty list when no audience keyword
+    matches; the chat layer can treat that as "general/all ages".
+    """
+    low = (text or "").lower()
+    out: list[str] = []
+    for tag, keywords in AUDIENCE_KEYWORDS:
+        if any(k in low for k in keywords):
+            out.append(tag)
+    return out
+
+
+def _all_tags(text: str) -> list[str]:
+    """Combined content-category + audience tags for the Event/Program
+    ``tags`` field. The first entry is always the content category so
+    callers using ``tags[0]`` as a primary classification still work."""
+    return [_content_category(text), *_audience_tags(text)]
 
 
 def _has_existing_source_url(db: Session, normalized_url: str | None) -> bool:
@@ -242,7 +273,7 @@ def _webtrac_event_payload(record: dict[str, Any]) -> tuple[ContributionCreate, 
         event_url=info_url,
         source_url=normalized,
     )
-    tags = [_categorize(f"{record.get('program_name','')} {title}")]
+    tags = _all_tags(f"{record.get('program_name','')} {title}")
     return payload, approve, tags
 
 
@@ -296,9 +327,9 @@ def _webtrac_program_payload(record: dict[str, Any]) -> tuple[ContributionCreate
         contact_phone=None,
         contact_email=None,
         contact_url=info_url,
-        tags=[_categorize(f"{title} {record.get('section_name','')}")],
+        tags=_all_tags(f"{title} {record.get('section_name','')}"),
     )
-    return payload, approve, _categorize(f"{title} {record.get('section_name','')}")
+    return payload, approve, _content_category(f"{title} {record.get('section_name','')}")
 
 
 def load_webtrac_records(
@@ -417,7 +448,7 @@ def _aquatic_event_payload(
         event_url=AQUATIC_SCHEDULE_URL,
         source_url=synth,
     )
-    tags = [_categorize(f"{title} aquatic")]
+    tags = _all_tags(f"{title} aquatic")
     return payload, approve, tags
 
 
