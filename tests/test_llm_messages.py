@@ -1,4 +1,4 @@
-"""Tests for ``app.core.llm_messages`` — Anthropic client patched via ``app.core.llm_messages.anthropic``."""
+"""Tests for ``app.core.llm_messages`` with the OpenAI client patched in-place."""
 
 from __future__ import annotations
 
@@ -11,57 +11,19 @@ import pytest
 import app.core.llm_messages as llm_messages
 from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
 from app.core.llm_messages import (
+    DEFAULT_MODEL,
     Usage,
-    _extract_text_from_message,
     call_anthropic_messages,
     coerce_llm_text_to_json_object,
     load_prompt,
 )
 
 
-def _msg(text: str, usage: SimpleNamespace | None = None) -> SimpleNamespace:
-    block = SimpleNamespace(type="text", text=text)
-    u = usage or SimpleNamespace(
-        input_tokens=10,
-        output_tokens=5,
-        cache_read_input_tokens=0,
-        cache_creation_input_tokens=0,
-    )
-    return SimpleNamespace(content=[block], usage=u)
-
-
-# --- _extract_text_from_message ---
-
-
-def test_extract_text_empty_content() -> None:
-    msg = SimpleNamespace(content=[])
-    assert _extract_text_from_message(msg) == ""
-
-
-def test_extract_text_single_block() -> None:
-    msg = SimpleNamespace(content=[SimpleNamespace(type="text", text="hello")])
-    assert _extract_text_from_message(msg) == "hello"
-
-
-def test_extract_text_multiple_blocks_joined() -> None:
-    msg = SimpleNamespace(
-        content=[
-            SimpleNamespace(type="text", text="a"),
-            SimpleNamespace(type="text", text="b"),
-        ]
-    )
-    assert _extract_text_from_message(msg) == "a b"
-
-
-def test_extract_text_skips_non_text_blocks() -> None:
-    msg = SimpleNamespace(
-        content=[
-            SimpleNamespace(type="text", text="keep"),
-            SimpleNamespace(type="image", text="ignored"),
-            SimpleNamespace(type="text", text="me"),
-        ]
-    )
-    assert _extract_text_from_message(msg) == "keep me"
+def _resp(text: str, usage: SimpleNamespace | None = None) -> SimpleNamespace:
+    message = SimpleNamespace(content=text)
+    choice = SimpleNamespace(message=message)
+    u = usage or SimpleNamespace(prompt_tokens=10, completion_tokens=5)
+    return SimpleNamespace(choices=[choice], usage=u)
 
 
 # --- Usage.from_sdk_usage ---
@@ -72,71 +34,43 @@ def test_usage_from_sdk_none() -> None:
     assert u == Usage(0, 0, 0, 0)
 
 
-def test_usage_from_sdk_all_fields_nonzero() -> None:
-    sdk = SimpleNamespace(
-        input_tokens=1,
-        output_tokens=2,
-        cache_read_input_tokens=3,
-        cache_creation_input_tokens=4,
-    )
+def test_usage_from_sdk_openai_prompt_and_completion_tokens() -> None:
+    sdk = SimpleNamespace(prompt_tokens=100, completion_tokens=20)
     u = Usage.from_sdk_usage(sdk)
-    assert u.input_tokens == 1
-    assert u.output_tokens == 2
-    assert u.cache_read_input_tokens == 3
-    assert u.cache_creation_input_tokens == 4
-    assert u.billable_input == 1 + 3 + 4
+    assert u.input_tokens == 100
+    assert u.output_tokens == 20
+    assert u.cache_read_input_tokens == 0
+    assert u.cache_creation_input_tokens == 0
+    assert u.billable_input == 100
 
 
-def test_usage_from_sdk_missing_input_tokens_defaults_zero() -> None:
-    sdk = SimpleNamespace(
-        output_tokens=2,
-        cache_read_input_tokens=3,
-        cache_creation_input_tokens=4,
-    )
+def test_usage_from_sdk_missing_prompt_tokens_defaults_zero() -> None:
+    sdk = SimpleNamespace(completion_tokens=2)
     u = Usage.from_sdk_usage(sdk)
     assert u.input_tokens == 0
     assert u.output_tokens == 2
-    assert u.cache_read_input_tokens == 3
-    assert u.cache_creation_input_tokens == 4
+    assert u.cache_read_input_tokens == 0
+    assert u.cache_creation_input_tokens == 0
 
 
-def test_usage_from_sdk_missing_output_tokens_defaults_zero() -> None:
-    sdk = SimpleNamespace(
-        input_tokens=1,
-        cache_read_input_tokens=3,
-        cache_creation_input_tokens=4,
-    )
+def test_usage_from_sdk_missing_completion_tokens_defaults_zero() -> None:
+    sdk = SimpleNamespace(prompt_tokens=1)
     u = Usage.from_sdk_usage(sdk)
     assert u.input_tokens == 1
     assert u.output_tokens == 0
-    assert u.cache_read_input_tokens == 3
-    assert u.cache_creation_input_tokens == 4
-
-
-def test_usage_from_sdk_missing_cache_read_defaults_zero() -> None:
-    sdk = SimpleNamespace(
-        input_tokens=1,
-        output_tokens=2,
-        cache_creation_input_tokens=4,
-    )
-    u = Usage.from_sdk_usage(sdk)
-    assert u.input_tokens == 1
-    assert u.output_tokens == 2
     assert u.cache_read_input_tokens == 0
-    assert u.cache_creation_input_tokens == 4
+    assert u.cache_creation_input_tokens == 0
 
 
-def test_usage_from_sdk_missing_cache_creation_defaults_zero() -> None:
+def test_usage_from_sdk_ignores_openai_cached_token_details() -> None:
     sdk = SimpleNamespace(
-        input_tokens=1,
-        output_tokens=2,
-        cache_read_input_tokens=3,
+        prompt_tokens=10,
+        completion_tokens=5,
+        prompt_tokens_details=SimpleNamespace(cached_tokens=3),
     )
     u = Usage.from_sdk_usage(sdk)
-    assert u.input_tokens == 1
-    assert u.output_tokens == 2
-    assert u.cache_read_input_tokens == 3
-    assert u.cache_creation_input_tokens == 0
+    assert u == Usage(10, 5, 0, 0)
+    assert u.billable_input == 10
 
 
 # --- coerce_llm_text_to_json_object ---
@@ -194,35 +128,21 @@ def test_load_prompt_missing_raises(monkeypatch: pytest.MonkeyPatch, tmp_path: P
 # --- call_anthropic_messages ---
 
 
-@pytest.fixture
-def anthropic_available() -> None:
-    if llm_messages.anthropic is None:
-        pytest.skip("anthropic package not installed")
-
-
-def test_call_anthropic_messages_happy_path(
-    monkeypatch: pytest.MonkeyPatch,
-    anthropic_available: None,
-) -> None:
+def test_call_anthropic_messages_happy_path(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, object] = {}
 
     def fake_create(**kwargs: object) -> SimpleNamespace:
         captured["create_kwargs"] = kwargs
-        return _msg(
+        return _resp(
             "hello",
-            SimpleNamespace(
-                input_tokens=100,
-                output_tokens=20,
-                cache_read_input_tokens=1,
-                cache_creation_input_tokens=2,
-            ),
+            SimpleNamespace(prompt_tokens=100, completion_tokens=20),
         )
 
     fake_client = MagicMock()
-    fake_client.messages.create.side_effect = fake_create
+    fake_client.chat.completions.create.side_effect = fake_create
 
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-    with patch.object(llm_messages.anthropic, "Anthropic", return_value=fake_client) as anth_ctor:
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    with patch.object(llm_messages, "OpenAI", return_value=fake_client) as openai_ctor:
         out = call_anthropic_messages(
             system_prompt="SYS",
             user_text="USER",
@@ -231,27 +151,27 @@ def test_call_anthropic_messages_happy_path(
             model="custom-model",
         )
 
-    anth_ctor.assert_called_once_with(api_key="test-key", timeout=LLM_CLIENT_READ_TIMEOUT_SEC)
+    openai_ctor.assert_called_once_with(api_key="test-key", timeout=LLM_CLIENT_READ_TIMEOUT_SEC)
     assert out is not None
     assert out.text == "hello"
-    assert out.usage == Usage(100, 20, 1, 2)
+    assert out.usage == Usage(100, 20, 0, 0)
     assert out.raw is not None
 
     kw = captured["create_kwargs"]
-    assert set(kw.keys()) == {"model", "max_tokens", "temperature", "system", "messages"}
+    assert set(kw.keys()) == {"model", "max_tokens", "temperature", "messages"}
     assert kw["model"] == "custom-model"
     assert kw["max_tokens"] == 99
     assert kw["temperature"] == 0.5
-    assert kw["system"] == [
-        {"type": "text", "text": "SYS", "cache_control": {"type": "ephemeral"}},
+    assert kw["messages"] == [
+        {"role": "system", "content": "SYS"},
+        {"role": "user", "content": "USER"},
     ]
-    assert kw["messages"] == [{"role": "user", "content": "USER"}]
 
 
-def test_call_anthropic_messages_no_api_key_unset(monkeypatch: pytest.MonkeyPatch, anthropic_available: None) -> None:
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+def test_call_anthropic_messages_no_api_key_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     ctor = MagicMock()
-    with patch.object(llm_messages.anthropic, "Anthropic", ctor):
+    with patch.object(llm_messages, "OpenAI", ctor):
         assert call_anthropic_messages(
             system_prompt="s",
             user_text="u",
@@ -261,10 +181,10 @@ def test_call_anthropic_messages_no_api_key_unset(monkeypatch: pytest.MonkeyPatc
     ctor.assert_not_called()
 
 
-def test_call_anthropic_messages_no_api_key_empty(monkeypatch: pytest.MonkeyPatch, anthropic_available: None) -> None:
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "")
+def test_call_anthropic_messages_no_api_key_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "")
     ctor = MagicMock()
-    with patch.object(llm_messages.anthropic, "Anthropic", ctor):
+    with patch.object(llm_messages, "OpenAI", ctor):
         assert (
             call_anthropic_messages(
                 system_prompt="s",
@@ -277,9 +197,9 @@ def test_call_anthropic_messages_no_api_key_empty(monkeypatch: pytest.MonkeyPatc
     ctor.assert_not_called()
 
 
-def test_call_anthropic_messages_anthropic_none(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
-    monkeypatch.setattr(llm_messages, "anthropic", None)
+def test_call_anthropic_messages_openai_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
+    monkeypatch.setattr(llm_messages, "OpenAI", None)
     assert (
         call_anthropic_messages(
             system_prompt="s",
@@ -291,14 +211,11 @@ def test_call_anthropic_messages_anthropic_none(monkeypatch: pytest.MonkeyPatch)
     )
 
 
-def test_call_anthropic_messages_create_raises(
-    monkeypatch: pytest.MonkeyPatch,
-    anthropic_available: None,
-) -> None:
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+def test_call_anthropic_messages_create_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
     fake_client = MagicMock()
-    fake_client.messages.create.side_effect = RuntimeError("boom")
-    with patch.object(llm_messages.anthropic, "Anthropic", return_value=fake_client):
+    fake_client.chat.completions.create.side_effect = RuntimeError("boom")
+    with patch.object(llm_messages, "OpenAI", return_value=fake_client):
         assert (
             call_anthropic_messages(
                 system_prompt="s",
@@ -312,21 +229,15 @@ def test_call_anthropic_messages_create_raises(
 
 def test_call_anthropic_messages_empty_text_returns_result_with_usage(
     monkeypatch: pytest.MonkeyPatch,
-    anthropic_available: None,
 ) -> None:
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
-    fake_msg = _msg(
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
+    fake_resp = _resp(
         "",
-        SimpleNamespace(
-            input_tokens=10,
-            output_tokens=5,
-            cache_read_input_tokens=0,
-            cache_creation_input_tokens=0,
-        ),
+        SimpleNamespace(prompt_tokens=10, completion_tokens=5),
     )
     fake_client = MagicMock()
-    fake_client.messages.create.return_value = fake_msg
-    with patch.object(llm_messages.anthropic, "Anthropic", return_value=fake_client):
+    fake_client.chat.completions.create.return_value = fake_resp
+    with patch.object(llm_messages, "OpenAI", return_value=fake_client):
         out = call_anthropic_messages(
             system_prompt="s",
             user_text="u",
@@ -336,25 +247,17 @@ def test_call_anthropic_messages_empty_text_returns_result_with_usage(
     assert out is not None
     assert out.text == ""
     assert out.usage == Usage(10, 5, 0, 0)
-    assert out.raw is fake_msg
+    assert out.raw is fake_resp
 
 
-def test_call_anthropic_messages_empty_text_with_populated_usage(
+def test_call_anthropic_messages_missing_choices_returns_empty_text(
     monkeypatch: pytest.MonkeyPatch,
-    anthropic_available: None,
 ) -> None:
-    """Empty extracted text but all four usage fields non-zero — §8 drift guard for this path."""
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
-    usage = SimpleNamespace(
-        input_tokens=11,
-        output_tokens=22,
-        cache_read_input_tokens=33,
-        cache_creation_input_tokens=44,
-    )
-    fake_msg = SimpleNamespace(content=[], usage=usage)
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
+    fake_resp = SimpleNamespace(choices=[], usage=SimpleNamespace(prompt_tokens=11, completion_tokens=22))
     fake_client = MagicMock()
-    fake_client.messages.create.return_value = fake_msg
-    with patch.object(llm_messages.anthropic, "Anthropic", return_value=fake_client):
+    fake_client.chat.completions.create.return_value = fake_resp
+    with patch.object(llm_messages, "OpenAI", return_value=fake_client):
         out = call_anthropic_messages(
             system_prompt="s",
             user_text="u",
@@ -363,25 +266,24 @@ def test_call_anthropic_messages_empty_text_with_populated_usage(
         )
     assert out is not None
     assert out.text == ""
-    assert out.usage == Usage(11, 22, 33, 44)
-    assert out.raw is fake_msg
+    assert out.usage == Usage(11, 22, 0, 0)
+    assert out.raw is fake_resp
 
 
 def test_call_anthropic_messages_model_explicit_wins_over_env(
     monkeypatch: pytest.MonkeyPatch,
-    anthropic_available: None,
 ) -> None:
     captured: dict[str, object] = {}
 
     def fake_create(**kwargs: object) -> SimpleNamespace:
         captured["model"] = kwargs["model"]
-        return _msg("ok")
+        return _resp("ok")
 
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
-    monkeypatch.setenv("ANTHROPIC_MODEL", "from-env")
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
+    monkeypatch.setenv("OPENAI_MODEL", "from-env")
     fake_client = MagicMock()
-    fake_client.messages.create.side_effect = fake_create
-    with patch.object(llm_messages.anthropic, "Anthropic", return_value=fake_client):
+    fake_client.chat.completions.create.side_effect = fake_create
+    with patch.object(llm_messages, "OpenAI", return_value=fake_client):
         call_anthropic_messages(
             system_prompt="s",
             user_text="u",
@@ -394,19 +296,18 @@ def test_call_anthropic_messages_model_explicit_wins_over_env(
 
 def test_call_anthropic_messages_model_from_env_when_arg_none(
     monkeypatch: pytest.MonkeyPatch,
-    anthropic_available: None,
 ) -> None:
     captured: dict[str, object] = {}
 
     def fake_create(**kwargs: object) -> SimpleNamespace:
         captured["model"] = kwargs["model"]
-        return _msg("ok")
+        return _resp("ok")
 
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
-    monkeypatch.setenv("ANTHROPIC_MODEL", "env-model")
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
+    monkeypatch.setenv("OPENAI_MODEL", "env-model")
     fake_client = MagicMock()
-    fake_client.messages.create.side_effect = fake_create
-    with patch.object(llm_messages.anthropic, "Anthropic", return_value=fake_client):
+    fake_client.chat.completions.create.side_effect = fake_create
+    with patch.object(llm_messages, "OpenAI", return_value=fake_client):
         call_anthropic_messages(
             system_prompt="s",
             user_text="u",
@@ -419,19 +320,18 @@ def test_call_anthropic_messages_model_from_env_when_arg_none(
 
 def test_call_anthropic_messages_model_default_when_env_empty(
     monkeypatch: pytest.MonkeyPatch,
-    anthropic_available: None,
 ) -> None:
     captured: dict[str, object] = {}
 
     def fake_create(**kwargs: object) -> SimpleNamespace:
         captured["model"] = kwargs["model"]
-        return _msg("ok")
+        return _resp("ok")
 
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
-    monkeypatch.setenv("ANTHROPIC_MODEL", "")
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
+    monkeypatch.setenv("OPENAI_MODEL", "")
     fake_client = MagicMock()
-    fake_client.messages.create.side_effect = fake_create
-    with patch.object(llm_messages.anthropic, "Anthropic", return_value=fake_client):
+    fake_client.chat.completions.create.side_effect = fake_create
+    with patch.object(llm_messages, "OpenAI", return_value=fake_client):
         call_anthropic_messages(
             system_prompt="s",
             user_text="u",
@@ -439,24 +339,23 @@ def test_call_anthropic_messages_model_default_when_env_empty(
             temperature=0.0,
             model=None,
         )
-    assert captured["model"] == llm_messages.DEFAULT_MODEL
+    assert captured["model"] == DEFAULT_MODEL
 
 
 def test_call_anthropic_messages_model_default_when_env_unset(
     monkeypatch: pytest.MonkeyPatch,
-    anthropic_available: None,
 ) -> None:
     captured: dict[str, object] = {}
 
     def fake_create(**kwargs: object) -> SimpleNamespace:
         captured["model"] = kwargs["model"]
-        return _msg("ok")
+        return _resp("ok")
 
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
-    monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
     fake_client = MagicMock()
-    fake_client.messages.create.side_effect = fake_create
-    with patch.object(llm_messages.anthropic, "Anthropic", return_value=fake_client):
+    fake_client.chat.completions.create.side_effect = fake_create
+    with patch.object(llm_messages, "OpenAI", return_value=fake_client):
         call_anthropic_messages(
             system_prompt="s",
             user_text="u",
@@ -464,4 +363,4 @@ def test_call_anthropic_messages_model_default_when_env_unset(
             temperature=0.0,
             model=None,
         )
-    assert captured["model"] == llm_messages.DEFAULT_MODEL
+    assert captured["model"] == DEFAULT_MODEL
