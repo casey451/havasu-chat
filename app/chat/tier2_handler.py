@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from app.chat import tier2_db_query, tier2_formatter, tier2_parser
+from app.chat import tier2_business_shortcut, tier2_db_query, tier2_formatter, tier2_parser
 from app.chat.tier2_schema import Tier2Filters
 
 # Parser scores below this threshold skip Tier 2 and defer to Tier 3 (tunable in a later phase).
@@ -19,11 +19,28 @@ def try_tier2_with_usage(
 
     On full success, ``llm_tokens_used`` is parser+formatter totals; on fallback ``text`` is
     ``None`` and token fields are ``None``.
+
+    Slice D: business-listing shapes ("find me a barber in LHC") take a zero-token
+    fast path — regex-extracted filters + deterministic listing render. Falls through
+    to the LLM parser path when the shortcut returns None or finds no providers.
     """
     q = (query or "").strip()
     if not q:
         logging.info("tier2_handler: fallback: empty query")
         return None, None, None, None
+
+    shortcut_filters = tier2_business_shortcut.try_business_listing_shortcut(q)
+    if shortcut_filters is not None:
+        rows = tier2_db_query.query(shortcut_filters)
+        text = tier2_business_shortcut.render_business_listing(
+            rows, shortcut_filters.category or ""
+        )
+        if text is not None:
+            logging.info("tier2_handler: business-listing shortcut hit (zero tokens)")
+            return text, 0, 0, 0
+        # Shortcut matched the shape but returned no provider rows — fall through to the
+        # LLM path so the user still gets a useful answer.
+        logging.info("tier2_handler: shortcut shape matched but no provider rows; falling through")
 
     filters, p_in, p_out = tier2_parser.parse(q)
     if filters is None:

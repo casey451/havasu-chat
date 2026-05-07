@@ -24,7 +24,7 @@ import logging
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import String, case, cast, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.chat.tier2_schema import Tier2Filters
@@ -392,12 +392,61 @@ def _category_match_program(p: Program, cat: str) -> bool:
     return False
 
 
+def _singularize_category(cat: str) -> str:
+    """Strip a regular trailing-s plural from the LAST token; leave others alone.
+
+    Slice D fix: queries like "any good coffee shops" arrive as the plural form, but
+    Google tags places as ``coffee_shop`` (singular). Without singularization the
+    matcher misses everything. Conservative: skip short words and common irregular
+    endings ('ss'/'us'/'is') so we don't break "address" or "campus".
+    """
+    parts = cat.strip().split()
+    if not parts:
+        return cat
+    last = parts[-1]
+    if len(last) < 4:
+        return cat
+    if last.endswith("ies"):
+        parts[-1] = last[:-3] + "y"
+        return " ".join(parts)
+    if last.endswith(("ss", "us", "is")):
+        return cat
+    if last.endswith("s"):
+        parts[-1] = last[:-1]
+        return " ".join(parts)
+    return cat
+
+
+def _normalize_for_match(s: str | None) -> str:
+    """Lowercase + replace underscores with spaces so Google's ``coffee_shop`` token
+    matches a user-typed ``coffee shop`` substring check."""
+    if not s:
+        return ""
+    return s.lower().replace("_", " ")
+
+
 def _category_match_provider(p: Provider, cat: str) -> bool:
     c = cat.strip().lower()
-    if c in (p.provider_name or "").lower() or c in (p.category or "").lower():
-        return True
-    if p.description and c in p.description.lower():
-        return True
+    c_singular = _singularize_category(c)
+    needles = (c, c_singular) if c_singular != c else (c,)
+    haystacks: list[str] = [
+        (p.provider_name or "").lower(),
+        (p.category or "").lower(),
+        (p.description or "").lower() if p.description else "",
+        # Slice D: Google taxonomy fields. Provider.category is the high-level domain;
+        # the more specific tags live in google_primary_category and google_categories.
+        # Underscore normalization closes the gap between user phrasing ("coffee shop")
+        # and Google's tag format ("coffee_shop").
+        _normalize_for_match(p.google_primary_category),
+    ]
+    if isinstance(p.google_categories, list):
+        haystacks.extend(_normalize_for_match(t) for t in p.google_categories if isinstance(t, str))
+    for needle in needles:
+        if not needle:
+            continue
+        for hay in haystacks:
+            if hay and needle in hay:
+                return True
     return False
 
 
@@ -671,15 +720,42 @@ def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
     if needle := _text_needle(filters.location):
         q = q.where(Provider.address.ilike(needle))
     if filters.category and filters.category.strip():
-        cat_like = _text_needle(filters.category)
+        cat = filters.category.strip().lower()
+        cat_singular = _singularize_category(cat)
+        cat_like = _text_needle(cat)
+        cat_singular_like = _text_needle(cat_singular) if cat_singular != cat else None
         if cat_like:
-            q = q.where(
-                or_(
-                    Provider.category.ilike(cat_like),
-                    Provider.provider_name.ilike(cat_like),
-                    Provider.description.ilike(cat_like),
-                )
+            # Slice D: include the Google taxonomy fields. Provider.category is the
+            # high-level domain (food_drink, beauty_personal_care, …) — too coarse for
+            # category queries like "barber". google_primary_category holds Google's
+            # own primary type ("barber_shop", "hair_salon"); google_categories holds
+            # the full types array. Stringify + replace("_", " ") so user-typed phrasing
+            # ("coffee shop") matches Google's tag format ("coffee_shop"). Both the
+            # original and singularized forms run so "coffee shops" still finds matches.
+            norm_primary = func.replace(
+                func.coalesce(Provider.google_primary_category, ""), "_", " "
             )
+            norm_categories = func.replace(
+                cast(Provider.google_categories, String), "_", " "
+            )
+            conditions = [
+                Provider.category.ilike(cat_like),
+                Provider.provider_name.ilike(cat_like),
+                Provider.description.ilike(cat_like),
+                norm_primary.ilike(cat_like),
+                norm_categories.ilike(cat_like),
+            ]
+            if cat_singular_like is not None:
+                conditions.extend(
+                    [
+                        Provider.category.ilike(cat_singular_like),
+                        Provider.provider_name.ilike(cat_singular_like),
+                        Provider.description.ilike(cat_singular_like),
+                        norm_primary.ilike(cat_singular_like),
+                        norm_categories.ilike(cat_singular_like),
+                    ]
+                )
+            q = q.where(or_(*conditions))
 
     rows = list(db.scalars(q.order_by(Provider.provider_name.asc()).limit(80)).all())
 
