@@ -16,7 +16,11 @@ from sqlalchemy.orm import Session
 from app.chat.intent_classifier import IntentResult
 from app.chat.normalizer import normalize
 from app.chat.tier1_templates import CONTACT_FOR_PRICING, render
-from app.contrib.hours_helper import is_open_at, places_hours_to_structured
+from app.contrib.hours_helper import (
+    LAKE_HAVASU_TZ,
+    is_open_at,
+    places_hours_to_structured,
+)
 from app.core.timezone import now_lake_havasu
 from app.db.models import Event, Program, Provider
 
@@ -170,6 +174,207 @@ def _provider_hours_text(provider: Provider) -> str:
     return _hours_text_from_google(provider.google_hours) or ""
 
 
+_PYTHON_WEEKDAY_TO_KEY: tuple[str, ...] = (
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+)
+
+
+def _fmt_clock(hm: str) -> str:
+    """``"09:00"`` → ``"9 AM"``; ``"17:30"`` → ``"5:30 PM"``; ``"00:00"`` → ``"12 AM"``."""
+    if not isinstance(hm, str) or len(hm) != 5 or hm[2] != ":":
+        return hm or ""
+    try:
+        h = int(hm[:2])
+        m = int(hm[3:5])
+    except ValueError:
+        return hm
+    suffix = "AM" if h < 12 else "PM"
+    h12 = h % 12 or 12
+    if m == 0:
+        return f"{h12} {suffix}"
+    return f"{h12}:{m:02d} {suffix}"
+
+
+def _structured_for_provider(provider: Provider) -> dict | None:
+    """Pick a non-empty weekday-segments dict for ``provider`` (Slice F1).
+
+    Order: ``hours_structured`` (operator-curated) → ``places_hours_to_structured`` over
+    ``google_hours`` (Google bulk import). Returns None when nothing parseable.
+    """
+    hs = provider.hours_structured
+    if isinstance(hs, dict) and hs:
+        return hs
+    gh = provider.google_hours
+    if isinstance(gh, dict):
+        converted = places_hours_to_structured(gh)
+        if converted:
+            return converted
+    return None
+
+
+def _next_open_after(structured: dict, now_local: datetime) -> tuple[str, str, str] | None:
+    """Return ``(day_label, open_clock, close_clock)`` for the next open segment, or None.
+
+    Looks today (segments with open > now), then forward up to 6 days. ``day_label`` is
+    ``"today"`` for same-day, ``"tomorrow"`` for the next calendar day, otherwise the
+    capitalized weekday name (``"Monday"`` etc.).
+    """
+    cur_hm = f"{now_local.hour:02d}:{now_local.minute:02d}"
+    today_key = _PYTHON_WEEKDAY_TO_KEY[now_local.weekday()]
+    today_segs = structured.get(today_key) or []
+    later_today = [
+        s
+        for s in today_segs
+        if isinstance(s, dict)
+        and isinstance(s.get("open"), str)
+        and len(s.get("open", "")) == 5
+        and s["open"] > cur_hm
+    ]
+    if later_today:
+        seg = min(later_today, key=lambda s: s["open"])
+        return ("today", str(seg["open"]), str(seg.get("close", "")))
+    py_idx = now_local.weekday()
+    for i in range(1, 7):
+        next_idx = (py_idx + i) % 7
+        key = _PYTHON_WEEKDAY_TO_KEY[next_idx]
+        segs = structured.get(key) or []
+        future = [
+            s
+            for s in segs
+            if isinstance(s, dict) and isinstance(s.get("open"), str) and len(s.get("open", "")) == 5
+        ]
+        if future:
+            seg = min(future, key=lambda s: s["open"])
+            label = "tomorrow" if i == 1 else key.capitalize()
+            return (label, str(seg["open"]), str(seg.get("close", "")))
+    return None
+
+
+def _current_segment_close(structured: dict, now_local: datetime) -> str | None:
+    """If we're currently inside a segment today, return its close time (HH:MM); else None."""
+    cur_hm = f"{now_local.hour:02d}:{now_local.minute:02d}"
+    today_key = _PYTHON_WEEKDAY_TO_KEY[now_local.weekday()]
+    for seg in structured.get(today_key) or []:
+        if not isinstance(seg, dict):
+            continue
+        o = seg.get("open")
+        c = seg.get("close")
+        if isinstance(o, str) and isinstance(c, str) and len(o) == 5 and len(c) == 5:
+            if o <= cur_hm <= c:
+                return c
+    return None
+
+
+def _describe_open_state(provider: Provider, now: datetime) -> str | None:
+    """Return a natural-voice open/closed message for ``provider`` at ``now``, or None.
+
+    Slice F1 — replaces the sterile "in window for today" / "outside today's posted
+    window" phrasings. Always includes either the current segment's close time (when
+    open) or the next open boundary (when closed) so the user knows when to come back.
+    """
+    if now.tzinfo is None:
+        local = now.replace(tzinfo=LAKE_HAVASU_TZ)
+    else:
+        local = now.astimezone(LAKE_HAVASU_TZ)
+
+    structured = _structured_for_provider(provider)
+    if structured:
+        close_hm = _current_segment_close(structured, local)
+        if close_hm is not None:
+            return f"Open right now — until {_fmt_clock(close_hm)}."
+        nxt = _next_open_after(structured, local)
+        if nxt is not None:
+            day_label, open_hm, close_hm = nxt
+            window = (
+                f"{_fmt_clock(open_hm)}–{_fmt_clock(close_hm)}"
+                if close_hm
+                else _fmt_clock(open_hm)
+            )
+            if day_label == "today":
+                return f"Closed right now — opens at {_fmt_clock(open_hm)} today."
+            if day_label == "tomorrow":
+                return f"Closed today — open tomorrow {window}."
+            return f"Closed today — open {day_label} {window}."
+        return "Closed right now."
+
+    free_text = (provider.hours or "").strip()
+    if not free_text:
+        return None
+    state = _open_now_from_hours(free_text, local.replace(tzinfo=None))
+    if state is True:
+        # Try to extract close time from the free-text window.
+        close = _free_text_close(free_text)
+        if close:
+            return f"Open right now — until {close}."
+        return "Open right now."
+    if state is False:
+        opn = _free_text_open(free_text)
+        if opn:
+            cur_hm = f"{local.hour:02d}:{local.minute:02d}"
+            opn_hm = _free_text_to_hm(opn)
+            if opn_hm and cur_hm < opn_hm:
+                return f"Closed right now — opens at {opn} today."
+            return f"Closed right now — opens at {opn}."
+        return "Closed right now."
+    return None
+
+
+def _free_text_close(hours: str) -> str | None:
+    """Extract close-time clock string from a single-window free-text hours string."""
+    m = re.search(
+        r"(?P<o1>\d{1,2})(?::(?P<o2>\d{2}))?\s*(?P<oa>am|pm)\s*[-–]\s*"
+        r"(?P<c1>\d{1,2})(?::(?P<c2>\d{2}))?\s*(?P<ca>am|pm)",
+        hours,
+        re.IGNORECASE,
+    )
+    if not m:
+        return None
+    c1 = int(m.group("c1"))
+    c2 = int(m.group("c2") or 0)
+    ca = m.group("ca").upper()
+    if c2 == 0:
+        return f"{c1} {ca}"
+    return f"{c1}:{c2:02d} {ca}"
+
+
+def _free_text_open(hours: str) -> str | None:
+    m = re.search(
+        r"(?P<o1>\d{1,2})(?::(?P<o2>\d{2}))?\s*(?P<oa>am|pm)\s*[-–]\s*"
+        r"(?P<c1>\d{1,2})(?::(?P<c2>\d{2}))?\s*(?P<ca>am|pm)",
+        hours,
+        re.IGNORECASE,
+    )
+    if not m:
+        return None
+    o1 = int(m.group("o1"))
+    o2 = int(m.group("o2") or 0)
+    oa = m.group("oa").upper()
+    if o2 == 0:
+        return f"{o1} {oa}"
+    return f"{o1}:{o2:02d} {oa}"
+
+
+def _free_text_to_hm(clock: str) -> str | None:
+    """``"9 AM"`` → ``"09:00"``; ``"5:30 PM"`` → ``"17:30"``."""
+    m = re.match(r"^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$", clock.strip(), re.IGNORECASE)
+    if not m:
+        return None
+    h = int(m.group(1))
+    mm = int(m.group(2) or 0)
+    ap = m.group(3).upper()
+    if ap == "AM":
+        h24 = 0 if h == 12 else h
+    else:
+        h24 = 12 if h == 12 else h + 12
+    return f"{h24:02d}:{mm:02d}"
+
+
 def _provider_open_now(provider: Provider, now: datetime) -> bool | None:
     """Return True/False if open-state is determinable for ``provider``; None otherwise.
 
@@ -231,38 +436,21 @@ def try_tier1(query: str, intent_result: IntentResult, db: Session) -> str | Non
         return None
     sub = intent_result.sub_intent
     if sub not in _TIER1_SUB_INTENTS:
-        import logging as _logging
-
-        _logging.warning(
-            "diag_business_retrieval: try_tier1 skipped sub=%s entity=%r (not in _TIER1_SUB_INTENTS)",
-            sub,
-            intent_result.entity,
-        )
         return None
 
     provider = _get_provider(db, intent_result.entity)
     if provider is None:
-        import logging as _logging
-
-        _logging.warning(
-            "diag_business_retrieval: try_tier1 entity=%r resolved to None Provider row",
-            intent_result.entity,
-        )
         return None
 
     nq = intent_result.normalized_query or normalize(query)
     variant = 0
 
     if sub == "OPEN_NOW":
-        # Slice B: free-text provider.hours first (legacy regex parser); google_hours.periods
-        # via the structured helper as fallback. _provider_open_now isolates the precedence.
-        state = _provider_open_now(provider, now_lake_havasu())
-        if state is None:
+        # Slice F1: response always includes the relevant clock — current close time when
+        # open, next-open boundary when closed — so the user knows when to come back.
+        msg = _describe_open_state(provider, now_lake_havasu())
+        if msg is None:
             return None
-        if state:
-            msg = "They're open right now — hours say they're in window for today."
-        else:
-            msg = "They're closed right now — outside today's posted window."
         return _append_voice(msg, provider)
 
     if sub in ("DATE_LOOKUP", "NEXT_OCCURRENCE"):

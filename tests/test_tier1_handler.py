@@ -717,3 +717,160 @@ def test_review_count_lookup_returns_none_when_zero(db: Session) -> None:
         )
         is None
     )
+
+
+# ---------------------------------------------------------------------------
+# Slice F1: OPEN_NOW with hours context
+# ---------------------------------------------------------------------------
+
+
+def test_open_now_open_includes_close_time_structured(db: Session) -> None:
+    """Open + structured hours: response must surface today's close time, not the sterile
+    'in window for today' phrasing."""
+    p = _provider(
+        provider_name="OpenF1Co",
+        source="google_places",
+        google_place_id="test_openf1",
+        hours=None,
+        google_hours=_google_hours_periods(
+            (1, 9, 0, 1, 17, 0),
+            (2, 9, 0, 2, 17, 0),
+            (3, 9, 0, 3, 17, 0),
+            (4, 9, 0, 4, 17, 0),
+            (5, 9, 0, 5, 17, 0),
+        ),
+    )
+    db.add(p)
+    db.commit()
+    havasu_tz = ZoneInfo("America/Phoenix")
+    fixed = datetime(2026, 5, 5, 14, 0, 0, tzinfo=havasu_tz)  # Tuesday 2 PM
+    with patch("app.chat.tier1_handler.now_lake_havasu", return_value=fixed):
+        out = try_tier1("open now", _intent(sub="OPEN_NOW", entity=p.provider_name), db)
+    assert out is not None
+    assert "Open right now" in out
+    assert "5 PM" in out
+    assert "in window for today" not in out  # old sterile wording must be gone
+
+
+def test_open_now_closed_includes_next_open_today(db: Session) -> None:
+    """Closed earlier in the day with same-day open later: response says when it opens today."""
+    p = _provider(
+        provider_name="ClosedEarlyF1Co",
+        source="google_places",
+        google_place_id="test_closedearlyf1",
+        hours=None,
+        google_hours=_google_hours_periods(
+            (2, 9, 0, 2, 17, 0),  # Tuesday 9 AM – 5 PM
+        ),
+    )
+    db.add(p)
+    db.commit()
+    havasu_tz = ZoneInfo("America/Phoenix")
+    fixed = datetime(2026, 5, 5, 7, 0, 0, tzinfo=havasu_tz)  # Tuesday 7 AM
+    with patch("app.chat.tier1_handler.now_lake_havasu", return_value=fixed):
+        out = try_tier1("open now", _intent(sub="OPEN_NOW", entity=p.provider_name), db)
+    assert out is not None
+    assert "Closed right now" in out
+    assert "opens at 9 AM" in out
+    assert "today" in out
+
+
+def test_open_now_closed_today_opens_tomorrow(db: Session) -> None:
+    """After today's close, response surfaces tomorrow's window."""
+    p = _provider(
+        provider_name="ClosedTodayF1Co",
+        source="google_places",
+        google_place_id="test_closedtodayf1",
+        hours=None,
+        google_hours=_google_hours_periods(
+            (2, 9, 0, 2, 17, 0),  # Tuesday 9 AM – 5 PM
+            (3, 9, 0, 3, 17, 0),  # Wednesday 9 AM – 5 PM
+        ),
+    )
+    db.add(p)
+    db.commit()
+    havasu_tz = ZoneInfo("America/Phoenix")
+    # Tuesday 22:00 (10 PM) — past Tuesday's close, before Wednesday's open.
+    fixed = datetime(2026, 5, 5, 22, 0, 0, tzinfo=havasu_tz)
+    with patch("app.chat.tier1_handler.now_lake_havasu", return_value=fixed):
+        out = try_tier1("open now", _intent(sub="OPEN_NOW", entity=p.provider_name), db)
+    assert out is not None
+    assert "Closed today" in out
+    assert "tomorrow" in out
+    assert "9 AM" in out
+    assert "5 PM" in out
+
+
+def test_open_now_closed_today_opens_named_weekday(db: Session) -> None:
+    """When closed today and tomorrow with no open segments, response names the next open weekday."""
+    p = _provider(
+        provider_name="WeekdayOnlyF1Co",
+        source="google_places",
+        google_place_id="test_weekdayonlyf1",
+        hours=None,
+        google_hours=_google_hours_periods(
+            (1, 9, 0, 1, 17, 0),  # Monday only
+        ),
+    )
+    db.add(p)
+    db.commit()
+    havasu_tz = ZoneInfo("America/Phoenix")
+    # Saturday 12:00 — closed today, closed tomorrow (Sunday), opens Monday.
+    fixed = datetime(2026, 5, 9, 12, 0, 0, tzinfo=havasu_tz)
+    with patch("app.chat.tier1_handler.now_lake_havasu", return_value=fixed):
+        out = try_tier1("open now", _intent(sub="OPEN_NOW", entity=p.provider_name), db)
+    assert out is not None
+    assert "Closed today" in out
+    assert "Monday" in out
+    assert "9 AM" in out
+
+
+def test_open_now_split_day_during_break_says_next_segment(db: Session) -> None:
+    """Restaurant with lunch + dinner: between segments → 'opens at 5 PM today' (dinner segment)."""
+    p = _provider(
+        provider_name="LunchDinnerF1Co",
+        source="google_places",
+        google_place_id="test_lunchdinnerf1",
+        hours=None,
+        google_hours=_google_hours_periods(
+            (2, 11, 0, 2, 14, 0),  # Tuesday lunch
+            (2, 17, 0, 2, 22, 0),  # Tuesday dinner
+        ),
+    )
+    db.add(p)
+    db.commit()
+    havasu_tz = ZoneInfo("America/Phoenix")
+    fixed = datetime(2026, 5, 5, 15, 30, 0, tzinfo=havasu_tz)  # 3:30 PM — between segments
+    with patch("app.chat.tier1_handler.now_lake_havasu", return_value=fixed):
+        out = try_tier1("open now", _intent(sub="OPEN_NOW", entity=p.provider_name), db)
+    assert out is not None
+    assert "Closed right now" in out
+    assert "opens at 5 PM" in out
+
+
+def test_open_now_legacy_freetext_open_includes_close_time(db: Session) -> None:
+    """Free-text hours path (non-Google providers) also surfaces close time when open."""
+    p = _provider(provider_name="FreeTextOpenCo", hours="10:00 AM – 9:00 PM")
+    db.add(p)
+    db.commit()
+    havasu_tz = ZoneInfo("America/Phoenix")
+    fixed = datetime(2026, 4, 19, 14, 0, 0, tzinfo=havasu_tz)
+    with patch("app.chat.tier1_handler.now_lake_havasu", return_value=fixed):
+        out = try_tier1("open now", _intent(sub="OPEN_NOW", entity=p.provider_name), db)
+    assert out is not None
+    assert "Open right now" in out
+    assert "9 PM" in out
+
+
+def test_open_now_legacy_freetext_closed_includes_open_time(db: Session) -> None:
+    p = _provider(provider_name="FreeTextClosedCo", hours="10:00 AM – 9:00 PM")
+    db.add(p)
+    db.commit()
+    havasu_tz = ZoneInfo("America/Phoenix")
+    # 7 AM — before today's open
+    fixed = datetime(2026, 4, 19, 7, 0, 0, tzinfo=havasu_tz)
+    with patch("app.chat.tier1_handler.now_lake_havasu", return_value=fixed):
+        out = try_tier1("open now", _intent(sub="OPEN_NOW", entity=p.provider_name), db)
+    assert out is not None
+    assert "Closed right now" in out
+    assert "opens at 10 AM" in out

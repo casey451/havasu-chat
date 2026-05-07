@@ -38,6 +38,21 @@ from app.db.models import Provider
         ("list coffee shops in LHC", "coffee shops"),
         ("are there any good barbers", "barbers"),
         ("where's a barber", "barber"),
+        # Slice F5: widened predicates. "good"/"best" tokens are absorbed into the
+        # predicate so the extracted category is the raw category noun (cleaner SQL match).
+        ("what are some coffee shops", "coffee shops"),
+        ("what are the good barbers", "barbers"),
+        ("what are some good barbers in LHC", "barbers"),
+        ("got any taco places", "taco places"),
+        ("got a good plumber", "plumber"),
+        ("recommend a coffee shop", "coffee shop"),
+        ("recommend any good barbers", "barbers"),
+        ("recommend me a haircut place near me", "haircut place"),
+        # Slice F5 fix: "an" article ahead of vowel-starting category must not get
+        # truncated to "n X" by leftmost-match on the bare "a".
+        ("find an electrician", "electrician"),
+        ("find me an electrician in LHC", "electrician"),
+        ("show me an italian restaurant", "italian restaurant"),
     ],
 )
 def test_shortcut_extracts_category(query: str, expected_category: str) -> None:

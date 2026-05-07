@@ -69,6 +69,11 @@ def test_open_late_hits_tier1_when_provider_hours_in_db(db: Session) -> None:
         ("What are the hours for zzznonexistent999xyz?", "HOURS_LOOKUP"),
         ("Where is Totally Fictional Venue XYZ?", "LOCATION_LOOKUP"),
         ("When is the zzznonexistentevent999abc?", "DATE_LOOKUP"),
+        # Slice F3: extended to all Tier 1 factual sub_intents
+        ("phone number for zzznonexistentbiz999", "PHONE_LOOKUP"),
+        ("website for nonexistentplace999xyz", "WEBSITE_LOOKUP"),
+        ("rating for some imaginary biz xyz", "RATING_LOOKUP"),
+        ("how many reviews does zzzfakeplace999 have", "REVIEW_COUNT_LOOKUP"),
     ],
 )
 def test_catalog_gap_skips_tier3(query: str, expected_sub: str, db: Session) -> None:
@@ -83,6 +88,34 @@ def test_catalog_gap_skips_tier3(query: str, expected_sub: str, db: Session) -> 
     assert r.llm_tokens_used is None
     assert "catalog" in r.response.lower()
     assert "/contribute" in r.response
+
+
+def test_recommendation_query_skips_gap_template(db: Session) -> None:
+    """Slice F3: 'where should I eat tonight' looks like LOCATION_LOOKUP but is a
+    recommendation, not a missing-entity lookup. Gap template would mislead — must
+    fall through to Tier 2/Tier 3 instead."""
+    with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
+        with patch(
+            "app.chat.unified_router.answer_with_tier3",
+            return_value=("Tier 3 reply text", 100, 50, 50),
+        ) as m3:
+            r = route("where should I eat tonight?", "sess-rec-skip", db)
+    m3.assert_called_once()
+    assert r.tier_used == "3"
+    assert "catalog" not in r.response.lower()
+
+
+def test_listing_shaped_query_skips_gap_template(db: Session) -> None:
+    """Slice F3: 'find me a barber' is a Tier 2 listing, not a Tier 1 gap. Even though
+    the LOCATION_LOOKUP regex doesn't fire here, defensively confirm any listing-shaped
+    query routes to Tier 2 not the gap path."""
+    with patch(
+        "app.chat.unified_router.try_tier2_with_usage",
+        return_value=("A few barbers in Lake Havasu City:\n• Test Barber", 0, 0, 0),
+    ) as t2:
+        r = route("find me a barber in LHC", "sess-listing-skip", db)
+    t2.assert_called_once()
+    assert r.tier_used == "2"
 
 
 def test_post_api_chat_gap_template_contract() -> None:

@@ -73,18 +73,82 @@ _GAP_TAIL = (
     "Add it at /contribute or share the name and a link (Google Business page or official site) — either works."
 )
 
+# Slice F3: extend the gap-template path to every Tier 1 factual sub_intent so a
+# missing-entity factual lookup gets a structured zero-token reply instead of falling
+# through to the LLM. AGE/COST/DATE keep the program/event-shaped copy below.
+_GAP_TIER1_FACTUAL = frozenset(
+    {
+        "PHONE_LOOKUP",
+        "WEBSITE_LOOKUP",
+        "RATING_LOOKUP",
+        "REVIEW_COUNT_LOOKUP",
+        "TIME_LOOKUP",
+        "OPEN_NOW",
+        "HOURS_LOOKUP",
+        "LOCATION_LOOKUP",
+        "DATE_LOOKUP",
+        "AGE_LOOKUP",
+        "COST_LOOKUP",
+        "NEXT_OCCURRENCE",
+    }
+)
+
+# Queries that LOOK like Tier 1 factual lookups but are actually recommendation /
+# listing shapes — gap response would be misleading ("I don't have that place"). These
+# need to fall through to Tier 2/3.
+_RECOMMENDATION_SHAPED = re.compile(
+    # Slice F bug fix: dropped "what are some|the" — it false-matched factual questions
+    # like "what are the hours for X" (asking for one specific entity's hours, gap-eligible).
+    # The listing shortcut handles legitimate "what are some restaurants" cases.
+    r"^\s*("
+    r"where\s+should\s+i|"
+    r"where\s+can\s+i\s+find|"
+    r"where\s+can\s+i\s+get|"
+    r"what\s+should\s+i|"
+    r"best\s+(?:place|spot|restaurant|cafe|bar)|"
+    r"good\s+(?:place|spot|restaurant|cafe|bar)"
+    r")\b",
+    re.IGNORECASE,
+)
+
 
 def _catalog_gap_response(intent_result: IntentResult) -> str | None:
-    """Tier 1-shaped fact lookup with no catalog entity — template only, no Tier 3."""
+    """Tier 1-shaped fact lookup with no catalog entity — template only, no Tier 3.
+
+    Slice F3 extends this from the original three intents (DATE/LOCATION/HOURS) to all
+    Tier 1 factual sub_intents with intent-tailored copy. Adds a safeguard that skips
+    the gap path when the query is recommendation-shaped (the "/contribute" reply would
+    be misleading — let Tier 2/3 handle it instead).
+    """
     sub = intent_result.sub_intent
-    if sub not in ("DATE_LOOKUP", "LOCATION_LOOKUP", "HOURS_LOOKUP"):
+    if sub not in _GAP_TIER1_FACTUAL:
         return None
     if (intent_result.entity or "").strip():
         return None
-    if sub == "HOURS_LOOKUP":
-        return f"I don't have those business hours in the catalog yet. {_GAP_TAIL}"
+    raw = intent_result.raw_query or ""
+    if _RECOMMENDATION_SHAPED.match(raw):
+        return None
+    # Also defer to Tier 2 listing shortcut — if the query matches that shape, the
+    # Tier 2 path will produce a real listing response (or fall through itself).
+    try:
+        from app.chat.tier2_business_shortcut import try_business_listing_shortcut
+
+        if try_business_listing_shortcut(raw) is not None:
+            return None
+    except Exception:
+        logging.exception("_catalog_gap_response: shortcut probe failed")
+
+    if sub in ("HOURS_LOOKUP", "OPEN_NOW", "TIME_LOOKUP"):
+        return f"I don't have those hours in the catalog yet. {_GAP_TAIL}"
     if sub == "LOCATION_LOOKUP":
         return f"I don't have that place in the catalog yet. {_GAP_TAIL}"
+    if sub == "PHONE_LOOKUP":
+        return f"I don't have that business's phone in the catalog yet. {_GAP_TAIL}"
+    if sub == "WEBSITE_LOOKUP":
+        return f"I don't have a website for that one in the catalog yet. {_GAP_TAIL}"
+    if sub in ("RATING_LOOKUP", "REVIEW_COUNT_LOOKUP"):
+        return f"I don't have Google reviews for that one in the catalog yet. {_GAP_TAIL}"
+    # AGE/COST/DATE/NEXT_OCCURRENCE — program/event-shaped copy.
     return f"I don't have that event or program in the catalog yet. {_GAP_TAIL}"
 
 
@@ -266,38 +330,12 @@ def _enrich_entity_from_db(
     current_turn: int | None,
 ) -> IntentResult:
     if intent_result.entity is not None:
-        logging.warning(
-            "diag_business_retrieval: classify-entity already set entity=%r sub=%s",
-            intent_result.entity,
-            intent_result.sub_intent,
-        )
         return intent_result
     refresh_entity_matcher(db)
-    # Slice A diag: surface the index size + match result so we can see whether the
-    # widened entity matcher is actually loading the Google providers on prod.
-    try:
-        from app.chat import entity_matcher as _em
-
-        index_size = len(_em._rows) if _em._rows is not None else -1
-    except Exception:
-        index_size = -2
     hit = match_entity(query, db)
     if hit:
-        name, score = hit
-        logging.warning(
-            "diag_business_retrieval: entity matched name=%r score=%.1f index_size=%d sub=%s",
-            name,
-            score,
-            index_size,
-            intent_result.sub_intent,
-        )
+        name, _score = hit
         return replace(intent_result, entity=name)
-    logging.warning(
-        "diag_business_retrieval: entity NOT matched query=%r index_size=%d sub=%s",
-        query[:120],
-        index_size,
-        intent_result.sub_intent,
-    )
     if (
         session is not None
         and current_turn is not None

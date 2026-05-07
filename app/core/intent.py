@@ -72,24 +72,12 @@ _OUT_OF_SCOPE_TRIGGERS: tuple[tuple[str, tuple[str, ...]], ...] = (
             "drive to",
         ),
     ),
-    (
-        "dining",
-        (
-            "restaurant",
-            "where to eat",
-            "best place to eat",
-            "best places to eat",
-            "dinner spot",
-            "breakfast spot",
-            "lunch spot",
-            "brunch spot",
-            "dining recommendation",
-            "food recommendation",
-            "good food in",
-            "yelp",
-            "breakfast",
-        ),
-    ),
+    # Slice F2 (post Phase 8.11): the dining bucket is intentionally removed. The
+    # 2,266-row Google Places catalog now includes ~200 LHC restaurants, so phrases
+    # like "restaurant", "where to eat", "best place to eat" route through Tier 2 /
+    # Tier 3 against real catalog data instead of the chat-mode "outside what I cover"
+    # reply. Yelp queries fall to Tier 3 too — the anti-hallucination rules in the
+    # system prompt keep us from inventing details we don't have.
 )
 
 _EVENT_INDICATOR_WORDS: tuple[str, ...] = (

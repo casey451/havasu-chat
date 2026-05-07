@@ -85,6 +85,17 @@ _CLASSIFY_FIXTURES: list[tuple[str, str, str]] = [
     ("How many reviews does mudshark have?", "ask", "REVIEW_COUNT_LOOKUP"),
     ("Number of reviews for the foundry?", "ask", "REVIEW_COUNT_LOOKUP"),
     ("Review count for shugrue's?", "ask", "REVIEW_COUNT_LOOKUP"),
+    # --- ask: Slice F4 regex coverage tweaks (PHONE / WEBSITE / HOURS / OPEN_NOW) ---
+    ("How do I reach havasu lanes?", "ask", "PHONE_LOOKUP"),
+    ("Contact for the foundry?", "ask", "PHONE_LOOKUP"),
+    ("Reach out to ballet havasu", "ask", "PHONE_LOOKUP"),
+    ("Link for sloane's?", "ask", "WEBSITE_LOOKUP"),
+    ("Landing page for shugrue's?", "ask", "WEBSITE_LOOKUP"),
+    ("What hour is altitude open?", "ask", "HOURS_LOOKUP"),
+    ("Hour for shugrue's?", "ask", "HOURS_LOOKUP"),
+    ("Is mudshark open?", "ask", "OPEN_NOW"),
+    ("Is the foundry open today?", "ask", "OPEN_NOW"),
+    ("Is havasu lanes open tonight?", "ask", "OPEN_NOW"),
     # --- ask: OPEN_ENDED (4) ---
     ("What is fun to do with kids this weekend?", "ask", "OPEN_ENDED"),
     ("Tell me about lake havasu activities.", "ask", "OPEN_ENDED"),
@@ -145,12 +156,14 @@ _CLASSIFY_FIXTURES: list[tuple[str, str, str]] = [
     ("Hello", "chat", "GREETING"),
     ("Good morning", "chat", "GREETING"),
     ("What is up", "chat", "GREETING"),
-    # --- chat: OUT_OF_SCOPE (5) ---
+    # --- chat: OUT_OF_SCOPE (4) — Slice F2 dropped the dining bucket; restaurants now
+    # route to Tier 2/Tier 3 against the Google Places catalog. ---
     ("What is the weather this weekend?", "chat", "OUT_OF_SCOPE"),
-    ("Best restaurant for tacos?", "chat", "OUT_OF_SCOPE"),
     ("Where should I buy a house in Havasu?", "chat", "OUT_OF_SCOPE"),
     ("Is it going to rain tomorrow?", "chat", "OUT_OF_SCOPE"),
     ("Hotel recommendations near the lake?", "chat", "OUT_OF_SCOPE"),
+    # --- ask: previously-blocked dining queries now route to ask mode (Slice F2) ---
+    ("Best restaurant for tacos?", "ask", "OPEN_ENDED"),
     # --- chat: SMALL_TALK (5) ---
     ("Thanks", "chat", "SMALL_TALK"),
     ("Thank you!", "chat", "SMALL_TALK"),

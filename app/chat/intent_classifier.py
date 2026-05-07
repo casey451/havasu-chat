@@ -89,7 +89,17 @@ _LIST_BY_CATEGORY = re.compile(
 )
 
 _OPEN_NOW_DISAMBIG = re.compile(
-    r"\b(open now|open right now|currently open|open at the moment|are you open now|is it open now)\b",
+    # Slice F4: widen so bare "is X open" / "open today" / "open tonight" route to
+    # OPEN_NOW (compute current state) rather than HOURS_LOOKUP (full-week dump).
+    # Two anchored constraints keep this from over-matching:
+    # - bare "is X open" must START the query (so "what hour is X open" stays HOURS_LOOKUP).
+    # - bare "is X open" must END the query (so "is X open late on friday" stays HOURS_LOOKUP).
+    r"(?:"
+    r"\bopen now\b|\bopen right now\b|\bcurrently open\b|\bopen at the moment\b|"
+    r"\bare you open(?:\s+now)?\b|\bis it open(?:\s+now)?\b|"
+    r"^is\s+\w+(?:\s+\w+){0,4}\s+open\s*$|"
+    r"\bopen today\b|\bopen tonight\b"
+    r")",
     re.IGNORECASE,
 )
 

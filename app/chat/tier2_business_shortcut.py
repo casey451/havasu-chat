@@ -36,14 +36,25 @@ from app.chat.tier2_schema import Tier2Filters
 # longer phrases first so "where can i find" wins over "where".
 _LISTING_PREFIX = re.compile(
     r"^\s*("
-    r"where\s+can\s+i\s+(?:find|get)\s+(?:a|an|some\s+)?|"
-    r"where(?:'s|\s+is|\s+are)\s+(?:a|an|some\s+)?|"
-    r"find\s+(?:me\s+)?(?:a|an|some\s+)?|"
-    r"show\s+me\s+(?:a|an|some\s+)?|"
-    r"give\s+me\s+(?:a|an|some\s+)?|"
+    # Slice F5: trailing-article fragment is `(?:an\s+|a\s+|some\s+)?` — order matters
+    # (longer "an" first) and each alternative requires a trailing space so "find an X"
+    # doesn't get truncated to "n X" by greedy-leftmost matching the bare "a".
+    r"where\s+can\s+i\s+(?:find|get)\s+(?:an\s+|a\s+|some\s+)?|"
+    # Bug fix (post-Slice-F shadow run): for "where is/are/'s" the article is REQUIRED.
+    # Without the article, "where is mudshark brewing" was wrongly matching as a listing
+    # shape and absorbing the specific-entity question. Now "where's a barber" matches,
+    # "where is mudshark brewing" doesn't (defers to LOCATION_LOOKUP Tier 1).
+    r"where(?:'s|\s+is|\s+are)\s+(?:an\s+|a\s+|some\s+)|"
+    r"find\s+(?:me\s+)?(?:an\s+|a\s+|some\s+)?|"
+    r"show\s+me\s+(?:an\s+|a\s+|some\s+)?|"
+    r"give\s+me\s+(?:an\s+|a\s+|some\s+)?|"
     r"list\s+(?:of\s+)?(?:all\s+)?(?:the\s+)?|"
     r"any\s+(?:good\s+)?|"
-    r"are\s+there\s+(?:any\s+)?(?:good\s+)?"
+    r"are\s+there\s+(?:any\s+)?(?:good\s+)?|"
+    # Slice F5: widen for natural phrasings ("what are some", "got any", "recommend").
+    r"what\s+(?:are\s+)?(?:some\s+|the\s+)?(?:good\s+|best\s+)?|"
+    r"got\s+(?:any\s+|a\s+)?(?:good\s+)?|"
+    r"recommend\s+(?:me\s+)?(?:an\s+|a\s+|any\s+|some\s+)?(?:good\s+)?"
     r")",
     re.IGNORECASE,
 )
@@ -83,6 +94,19 @@ _EVENT_SHAPE_TOKENS: tuple[str, ...] = (
     " leagues",
     " lesson",
     " lessons",
+    # Slice F bug fix: Tier 1 factual keywords inside the extracted category mean the
+    # query is asking for a specific lookup, not a category listing. Without these,
+    # "what are the hours for X" wrongly fires the listing shortcut.
+    " hours",
+    " hour",
+    " phone",
+    " contact info",
+    " website",
+    " address",
+    " rating",
+    " ratings",
+    " review",
+    " reviews",
 )
 
 
