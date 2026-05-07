@@ -136,11 +136,12 @@ def test_near_match_typo_returns_did_you_mean(db: Session) -> None:
                 r = route("phone for mdshrkbrwry", "sess-near-typo", db)
         m3.assert_not_called()
         assert r.tier_used == "gap_template"
-        # New UX: "Looks like you might mean X — <Tier 1 answer>" so the user gets
-        # the disambiguation note PLUS the actual answer in one reply.
-        assert "looks like" in r.response.lower()
+        # UX: Tier 1 answer first (which names the entity + has the phone), then a
+        # soft escape hatch. No yes/no question.
         assert "Mudshark Brewery and Public House" in r.response
         assert "928-555-0000" in r.response
+        assert "/contribute" in r.response
+        assert "different place" in r.response.lower()
     finally:
         for pid in inserted_ids:
             row = db.get(Provider, pid)

@@ -167,7 +167,12 @@ def _catalog_gap_response(
                 boosted_ir = _dc_replace(intent_result, entity=near_name)
                 tier1_resp = try_tier1(raw, boosted_ir, db)
                 if tier1_resp:
-                    return f"Looks like you might mean {near_name} — {tier1_resp}"
+                    # Answer first (Tier 1 response already names the entity), then
+                    # a soft escape hatch — no yes/no question, no doubled name.
+                    return (
+                        f"{tier1_resp} If you meant a different place, "
+                        f"/contribute can add the right listing."
+                    )
                 return (
                     f"Closest match in the catalog is {near_name}. "
                     f"Ask again with that name, or /contribute can add a different listing."
