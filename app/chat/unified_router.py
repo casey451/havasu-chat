@@ -266,7 +266,7 @@ def _enrich_entity_from_db(
     current_turn: int | None,
 ) -> IntentResult:
     if intent_result.entity is not None:
-        logging.info(
+        logging.warning(
             "diag_business_retrieval: classify-entity already set entity=%r sub=%s",
             intent_result.entity,
             intent_result.sub_intent,
@@ -284,7 +284,7 @@ def _enrich_entity_from_db(
     hit = match_entity(query, db)
     if hit:
         name, score = hit
-        logging.info(
+        logging.warning(
             "diag_business_retrieval: entity matched name=%r score=%.1f index_size=%d sub=%s",
             name,
             score,
@@ -292,7 +292,7 @@ def _enrich_entity_from_db(
             intent_result.sub_intent,
         )
         return replace(intent_result, entity=name)
-    logging.info(
+    logging.warning(
         "diag_business_retrieval: entity NOT matched query=%r index_size=%d sub=%s",
         query[:120],
         index_size,

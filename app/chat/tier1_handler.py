@@ -233,7 +233,7 @@ def try_tier1(query: str, intent_result: IntentResult, db: Session) -> str | Non
     if sub not in _TIER1_SUB_INTENTS:
         import logging as _logging
 
-        _logging.info(
+        _logging.warning(
             "diag_business_retrieval: try_tier1 skipped sub=%s entity=%r (not in _TIER1_SUB_INTENTS)",
             sub,
             intent_result.entity,
@@ -244,7 +244,7 @@ def try_tier1(query: str, intent_result: IntentResult, db: Session) -> str | Non
     if provider is None:
         import logging as _logging
 
-        _logging.info(
+        _logging.warning(
             "diag_business_retrieval: try_tier1 entity=%r resolved to None Provider row",
             intent_result.entity,
         )
