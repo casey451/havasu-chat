@@ -13,7 +13,7 @@ from app.chat.entity_matcher import (
     reset_entity_matcher,
 )
 from app.db.database import SessionLocal
-from app.db.models import Program
+from app.db.models import Program, Provider
 from app.schemas.program import ProgramCreate
 
 
@@ -208,3 +208,106 @@ class ExtractCatalogEntitiesFromTextTests(unittest.TestCase):
             )
         self.assertEqual(len(hits), 1)
         self.assertEqual(hits[0].name, canon)
+
+
+def _insert_google_provider(
+    db: Session,
+    *,
+    provider_name: str,
+    is_active: bool = True,
+    draft: bool = False,
+) -> str:
+    """Insert a Google-sourced Provider row for entity matcher tests (Slice A)."""
+    p = Provider(
+        provider_name=provider_name,
+        category="food_drink",
+        source="google_places",
+        google_place_id=f"test_place_{provider_name.lower().replace(' ', '_')}",
+        is_active=is_active,
+        draft=draft,
+    )
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+    return p.id
+
+
+class EntityMatcherGoogleProviderTests(unittest.TestCase):
+    """Slice A: refresh_entity_matcher must index active Provider rows from the
+    unified providers table — including Google Places businesses — not just
+    distinct Program.provider_name values."""
+
+    def setUp(self) -> None:
+        reset_entity_matcher()
+        self._provider_ids: list[str] = []
+        self._program_ids: list[str] = []
+
+    def tearDown(self) -> None:
+        with SessionLocal() as db:
+            for pid in self._provider_ids:
+                row = db.get(Provider, pid)
+                if row is not None:
+                    db.delete(row)
+            for pid in self._program_ids:
+                row = db.get(Program, pid)
+                if row is not None:
+                    db.delete(row)
+            db.commit()
+        reset_entity_matcher()
+
+    def test_google_provider_matches_by_distinctive_name(self) -> None:
+        canon = "Mudshark Brewing Company"
+        with SessionLocal() as db:
+            self._provider_ids.append(_insert_google_provider(db, provider_name=canon))
+            refresh_entity_matcher(db)
+            hit = match_entity("phone number for mudshark brewing", db)
+        self.assertIsNotNone(hit)
+        assert hit is not None
+        self.assertEqual(hit[0], canon)
+        self.assertGreater(hit[1], 75.0)
+
+    def test_inactive_google_provider_excluded(self) -> None:
+        canon = "Closed Down Diner"
+        with SessionLocal() as db:
+            self._provider_ids.append(
+                _insert_google_provider(db, provider_name=canon, is_active=False)
+            )
+            refresh_entity_matcher(db)
+            hit = match_entity("closed down diner hours", db)
+        self.assertIsNone(hit)
+
+    def test_draft_google_provider_excluded(self) -> None:
+        canon = "Half Finished Cafe"
+        with SessionLocal() as db:
+            self._provider_ids.append(
+                _insert_google_provider(db, provider_name=canon, draft=True)
+            )
+            refresh_entity_matcher(db)
+            hit = match_entity("half finished cafe address", db)
+        self.assertIsNone(hit)
+
+    def test_program_and_provider_dedup(self) -> None:
+        """Same provider_name in both Program and Provider tables yields one index entry."""
+        canon = "Lake Havasu City BMX"
+        with SessionLocal() as db:
+            self._program_ids.append(_insert_program(db, canon))
+            self._provider_ids.append(_insert_google_provider(db, provider_name=canon))
+            refresh_entity_matcher(db)
+            hits = extract_catalog_entities_from_text(
+                f"Visit {canon} this weekend.",
+                db,
+            )
+        self.assertEqual(len(hits), 1)
+        assert hits
+        self.assertEqual(hits[0].name, canon)
+
+    def test_canonical_extras_still_apply_for_curated_names(self) -> None:
+        """Curated synonyms in CANONICAL_EXTRAS keep working alongside the wider index."""
+        canon = "Altitude Trampoline Park — Lake Havasu City"
+        with SessionLocal() as db:
+            self._provider_ids.append(_insert_google_provider(db, provider_name=canon))
+            refresh_entity_matcher(db)
+            hit = match_entity("address for altitude", db)
+        self.assertIsNotNone(hit)
+        assert hit is not None
+        self.assertEqual(hit[0], canon)

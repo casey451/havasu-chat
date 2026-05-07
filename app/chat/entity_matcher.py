@@ -119,10 +119,32 @@ def _needles_for_canonical(canonical: str) -> frozenset[str]:
 
 
 def refresh_entity_matcher(db: Session) -> None:
-    """Load distinct ``Program.provider_name`` values and rebuild the in-memory index."""
+    """Rebuild the in-memory index from ``Program.provider_name`` + active ``Provider`` rows.
+
+    Two sources are unioned because the catalog has historical denormalization:
+
+    - ``Program.provider_name`` is a denormalized string column populated by River Scene
+      imports and contributions; some legacy rows may reference a name that has no
+      matching Provider row (kept for backwards compatibility).
+    - ``Provider`` is the unified provider table — both event-host providers and the
+      Google Places business catalog (``google_place_id IS NOT NULL``) live here.
+      Filtered to ``is_active=True`` and ``draft=False`` so half-completed contributions
+      and deactivated rows don't surface in chat retrieval.
+
+    CANONICAL_EXTRAS still applies to the 14 hand-curated program providers; Google
+    business names use only normalized + lowercased forms as needles. Per-row scoring
+    uses ``rapidfuzz.fuzz.token_set_ratio`` with threshold 75 (unchanged).
+    """
     global _rows
-    names = db.scalars(select(Program.provider_name).distinct()).all()
-    canon = sorted({(n or "").strip() for n in names if (n or "").strip()})
+    program_names = db.scalars(select(Program.provider_name).distinct()).all()
+    provider_names = db.scalars(
+        select(Provider.provider_name).where(
+            Provider.is_active.is_(True), Provider.draft.is_(False)
+        )
+    ).all()
+    canon = sorted(
+        {(n or "").strip() for n in (*program_names, *provider_names) if (n or "").strip()}
+    )
     _rows = [_EntityRow(c, _needles_for_canonical(c)) for c in canon]
 
 
@@ -186,8 +208,10 @@ def extract_catalog_entities_from_text(text: str, db: Session) -> list[EntityMat
 def match_entity(query: str, db: Session) -> tuple[str, float] | None:
     """Return ``(provider_name, score)`` if the best fuzzy match is strictly above 75.
 
-    ``provider_name`` is the denormalized provider key on ``Program`` rows (there is no
-    separate Provider table). Call :func:`refresh_entity_matcher` after bulk program imports.
+    The index covers distinct ``Program.provider_name`` values (denormalized string,
+    historical) plus active non-draft ``Provider`` rows (the unified provider table —
+    both event-host providers and Google Places businesses). Call
+    :func:`refresh_entity_matcher` after bulk program imports or provider loads.
     """
     global _rows
     if _rows is None:
