@@ -68,6 +68,31 @@ _LOCALITY_SUFFIX = re.compile(
 
 _TRIM_TAIL = re.compile(r"[?\.!\s]+$")
 
+# Optional one-line landscape beat before the listing header (voice battery / rubric alignment).
+# Keys are matched as substrings of the lowercased category from the shortcut extractor.
+_BUSINESS_FRAMING_BY_CATEGORY_SUBSTR: tuple[tuple[str, str], ...] = (
+    ("barber", "Cuts in Havasu are mostly small independents:"),
+    ("haircut", "Cuts in Havasu are mostly small independents:"),
+    ("salon", "Salons here range from quick cuts to full-day spa-style spots:"),
+    ("coffee", "Coffee in Havasu skews drive-thru and chain-heavy, but a few sit-down spots run:"),
+    ("restaurant", "Dining in Havasu spans casual lakeside to chain favorites:"),
+    ("food", "Dining in Havasu spans casual lakeside to chain favorites:"),
+    ("pizza", "Pizza runs from thin-crust locals to familiar delivery names:"),
+    ("mexican", "Mexican spots here lean fast-casual with a few sit-down standouts:"),
+    ("burger", "Burger stops skew classic American drive-up and counter-service:"),
+    ("vet", "Vets in Havasu are a small handful of well-established practices:"),
+    ("veterinar", "Vets in Havasu are a small handful of well-established practices:"),
+    ("gym", "Gyms range from big-box fitness to smaller specialty studios:"),
+    ("yoga", "Yoga and movement studios are few but dialed-in for locals:"),
+    ("nail", "Nail spots tend to be compact salons with steady walk-in flow:"),
+    ("spa", "Spa and wellness picks are limited — worth booking ahead:"),
+    ("hotel", "Lodging clusters along the channel with a few standout independents:"),
+    ("motel", "Lodging clusters along the channel with a few standout independents:"),
+    ("brew", "Beer skews toward brewpub energy with a strong lake-weekend crowd:"),
+    ("bar ", "Bars split between lakeside hangouts and neighborhood watering holes:"),
+    ("bar", "Bars split between lakeside hangouts and neighborhood watering holes:"),
+)
+
 # Tokens that suggest an event / temporal shape — defer to the LLM parser. The leading
 # space prevents partial-word matches (e.g. "league" inside "Lake League Park").
 _EVENT_SHAPE_TOKENS: tuple[str, ...] = (
@@ -139,6 +164,17 @@ def _pluralize_for_header(category: str) -> str:
     return " ".join(parts)
 
 
+def _landscape_framing_for_category(category: str) -> str | None:
+    """Return a short opening line when `category` matches a known substring."""
+    c = (category or "").lower().strip()
+    if not c:
+        return None
+    for needle, line in _BUSINESS_FRAMING_BY_CATEGORY_SUBSTR:
+        if needle in c:
+            return line
+    return None
+
+
 def try_business_listing_shortcut(query: str) -> Tier2Filters | None:
     """Return a :class:`Tier2Filters` for a listing-shaped query, or ``None``.
 
@@ -200,4 +236,7 @@ def render_business_listing(rows: list[dict[str, Any]], category: str) -> str | 
     if not lines:
         return None
     header = f"A few {cat_label} in Lake Havasu City:"
+    framing = _landscape_framing_for_category(category)
+    if framing:
+        return framing + "\n\n" + header + "\n\n" + "\n".join(lines)
     return header + "\n\n" + "\n".join(lines)

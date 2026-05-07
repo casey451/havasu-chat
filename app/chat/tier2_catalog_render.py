@@ -14,6 +14,24 @@ from typing import Any, Dict, List
 _HEADER_BODY_SEPARATOR = "\n\n"
 
 
+def _event_list_framing_line(query: str) -> str:
+    """One landscape beat before multi-event lists (voice rubric §4.4 alignment)."""
+    q = (query or "").lower()
+    if any(k in q for k in ("kid", "kids", "family", "child", "children")):
+        return "A few solid family-friendly picks on the calendar:"
+    if any(k in q for k in ("weekend", "saturday", "sunday")):
+        return "Weekend highlights around the lake:"
+    if any(k in q for k in ("tonight", "today", "tomorrow")):
+        return "Happening soon — worth a look:"
+    if any(k in q for k in ("music", "concert", "band", "live")):
+        return "Live music and shows on tap:"
+    if "free" in q:
+        return "Free or cheap happenings worth catching:"
+    if any(k in q for k in ("sport", "game", "league")):
+        return "Sports and league nights locals actually show up for:"
+    return "A few solid options around town this window:"
+
+
 def _parse_iso_date(s: str | None) -> date | None:
     if not s or not str(s).strip():
         return None
@@ -165,4 +183,6 @@ def render_tier2_events(_query: str, rows: List[Dict[str, Any]]) -> str:
 
     header = f"{n} events:"
     numbered = [f"{i + 1}. {sentences[i]}" for i in range(n)]
-    return header + _HEADER_BODY_SEPARATOR + "\n".join(numbered)
+    core = header + _HEADER_BODY_SEPARATOR + "\n".join(numbered)
+    framing = _event_list_framing_line(_query)
+    return framing + _HEADER_BODY_SEPARATOR + core
