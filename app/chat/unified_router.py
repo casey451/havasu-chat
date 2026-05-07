@@ -150,19 +150,27 @@ def _catalog_gap_response(
     # lands. See `tests/voice_battery/reports/final_report.md` §3.2.
 
     # Slice F: when the query has a near-miss canonical (typo / partial name that
-    # didn't clear the 75 threshold), surface a "Did you mean X?" disambiguation
-    # before falling to the standard gap copy. Zero-token, deterministic.
+    # didn't clear the 75 threshold), try to answer the user's original question
+    # using the near match as the entity. If Tier 1 can produce an answer for the
+    # near-match provider, return it with a "Looks like you might mean ..." prefix —
+    # the user gets their answer AND knows we disambiguated. Falls back to a plain
+    # "closest match" reply when Tier 1 can't render (e.g. no phone for that row).
     if db is not None:
         try:
             from app.chat.entity_matcher import find_near_match
+            from app.chat.tier1_handler import try_tier1
+            from dataclasses import replace as _dc_replace
 
             near = find_near_match(raw, db)
             if near is not None:
                 near_name, _score = near
+                boosted_ir = _dc_replace(intent_result, entity=near_name)
+                tier1_resp = try_tier1(raw, boosted_ir, db)
+                if tier1_resp:
+                    return f"Looks like you might mean {near_name} — {tier1_resp}"
                 return (
-                    f"Closest match in the catalog is {near_name} — "
-                    f"was that the one? If yes, ask again with that name. "
-                    f"If not, /contribute can add what you're looking for."
+                    f"Closest match in the catalog is {near_name}. "
+                    f"Ask again with that name, or /contribute can add a different listing."
                 )
         except Exception:
             logging.exception("_catalog_gap_response: near-match probe failed")

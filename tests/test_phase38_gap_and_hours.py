@@ -132,12 +132,15 @@ def test_near_match_typo_returns_did_you_mean(db: Session) -> None:
         with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
             with patch("app.chat.unified_router.answer_with_tier3") as m3:
                 # "mdshrkbrwry" scores ~65 (NEAR band) — too far to resolve directly,
-                # close enough to surface a "did you mean" disambiguation.
+                # close enough that we can answer using the near match as the entity.
                 r = route("phone for mdshrkbrwry", "sess-near-typo", db)
         m3.assert_not_called()
         assert r.tier_used == "gap_template"
-        assert "closest match" in r.response.lower()
+        # New UX: "Looks like you might mean X — <Tier 1 answer>" so the user gets
+        # the disambiguation note PLUS the actual answer in one reply.
+        assert "looks like" in r.response.lower()
         assert "Mudshark Brewery and Public House" in r.response
+        assert "928-555-0000" in r.response
     finally:
         for pid in inserted_ids:
             row = db.get(Provider, pid)
