@@ -24,6 +24,10 @@ Format-correct patterns the judge MUST treat as PASS (locked rubric `docs/voice-
 
 4. **`/contribute` pointer:** Gap responses that tell the user to add missing listings at `/contribute` follow rubric §4.7. Treat `/contribute` as the **official** gap pointer — not a disallowed “slash command” in chat. Verdict: **PASS** when used as that pointer.
 
+5. **Option 3 first-person recommendation voice:** When `intent_or_mode` is `synthesis_rec`, `synthesis_multi`, or the user query is an explicit recommendation question ("what's the best X", "where should I X", "what would you do", "what should I do", "i'm visiting for two days, what should I do", "where would you eat", "compare X and Y"), first-person framing is the **required** Option 3 voice per rubric §4.6 and `prompts/system_prompt.txt`. Phrases like `"For date night I'd go with [X](url)..."`, `"I'd recommend [X](url) — it's..."`, `"Here's what I'd do..."`, `"Saturday's a good day to..."`, `"If you want [goal], [X] is the pick"` are CORRECT, not customer-service register. These are firsthand local-voice recommendations grounded in Context. Verdict: **PASS** when the framing pairs with at least one specific row-backed recommendation (with `[name](url)` markdown link when the catalog provides a `url:` field). Do NOT cite "I'd recommend" or "I'd suggest" or first-person framing as a blocklist hit for explicit recommendation queries — the blocklist (`"I'd be happy to help"` etc.) is about customer-service deference, not about confident first-person picks.
+
+6. **Soft trailing offer on Tier 2 listings:** A single short trailing clause on a Tier 2 listing — e.g. `"Want more on any of these?"` or `"Let me know if you want more detail."` — is **allowed** per rubric §4.4 footer. Verdict: **PASS** when present on a Tier 2 listing response. Forbidden only on Tier 1 single-fact answers and Tier 3 synthesis (§4.1, §4.6 — those should end declaratively).
+
 Verdict (exactly one per sample):
 
 - PASS — Complies with §8 for this sample’s context; at most negligible polish.
