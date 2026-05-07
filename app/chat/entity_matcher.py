@@ -270,6 +270,12 @@ def _best_score_padded(norm_query: str, needles: frozenset[str]) -> float:
     long_only = _long_tokens(stripped)
     if long_only:
         for needle in needles:
+            # Skip very short canonicals — partial_token_set_ratio inflates scores
+            # when the target is 2–4 chars (e.g. "DBR", "76", "IHOP") because the
+            # algorithm falls back to substring scanning that finds spurious matches
+            # in any longer query string.
+            if len(needle) < 5:
+                continue
             typo = max(typo, float(fuzz.partial_token_set_ratio(long_only, needle)))
     return max(direct, boosted, typo)
 

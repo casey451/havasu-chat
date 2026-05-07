@@ -431,6 +431,19 @@ class EntityMatcherTypoToleranceTests(unittest.TestCase):
             hit = match_entity("phone for unknown plumbing service xyz", db)
         self.assertIsNone(hit)
 
+    def test_short_canonical_does_not_get_inflated_partial_score(self) -> None:
+        """Regression: 'mudsharks brewry' must NOT match a 3-char canonical like 'DBR'
+        via partial_token_set_ratio's substring fallback."""
+        with SessionLocal() as db:
+            self._provider_ids.append(_insert_google_provider(db, provider_name="DBR"))
+            self._provider_ids.append(_insert_google_provider(db, provider_name="Mudshark Brewery"))
+            refresh_entity_matcher(db)
+            hit = match_entity("phone for mudsharks brewry", db)
+        # Must match Mudshark (the real intent), NOT DBR.
+        self.assertIsNotNone(hit)
+        assert hit is not None
+        self.assertEqual(hit[0], "Mudshark Brewery")
+
 
 class EntityMatcherNearMatchTests(unittest.TestCase):
     """Slice F: 'Did you mean X?' disambiguation for queries scoring in the
