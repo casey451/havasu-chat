@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hava — Lake Havasu City</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f7f5ef;
+    --bg-2: #f1eee5;
+    --paper: #ffffff;
+    --ink: #14140f;
+    --ink-2: #4a4a44;
+    --ink-3: #8b8b82;
+    --ink-4: #b3b3aa;
+    --rule: rgba(20,20,15,0.10);
+    --rule-soft: rgba(20,20,15,0.06);
+    --rule-hair: rgba(20,20,15,0.04);
+    --accent: #0e6e7c;
+    --accent-deep: #064551;
+    --accent-soft: rgba(14,110,124,0.08);
+    --warm: #b8623d;
+    --warm-soft: rgba(184,98,61,0.10);
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --serif: "Fraunces", "Source Serif 4", Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.55;
+    font-feature-settings: "ss01", "cv01", "cv11";
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-deep); }
+  img { display: block; max-width: 100%; }
+
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 24px 36px 80px;
+  }
+
+  /* ─── topbar ─── */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0 56px;
+  }
+  .wordmark {
+    display: flex; align-items: center; gap: 11px;
+    font-weight: 500; font-size: 17px; letter-spacing: -0.012em;
+    color: var(--ink);
+  }
+  .wordmark .mark {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #1797a8 0%, #0e6e7c 55%, #064551 100%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+  }
+  .topbar-meta {
+    font-size: 13px; color: var(--ink-3);
+    letter-spacing: 0.01em;
+    display: flex; align-items: center; gap: 18px;
+  }
+  .topbar-meta .sep { width: 1px; height: 12px; background: var(--rule); }
+  .topbar-meta a { color: var(--ink-2); }
+  .topbar-meta a:hover { color: var(--ink); }
+
+  /* ─── hero ─── */
+  .hero {
+    text-align: center;
+    padding: 28px 0 48px;
+    position: relative;
+  }
+  .eyebrow {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.20em;
+    color: var(--ink-3);
+    font-weight: 500;
+    margin: 0 0 22px;
+  }
+  .eyebrow .pulse {
+    display: inline-block; vertical-align: 1px;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--warm);
+    margin-right: 8px;
+    box-shadow: 0 0 0 0 rgba(184,98,61,0.5);
+    animation: pulse 2.4s ease-out infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(184,98,61,0.45); }
+    70% { box-shadow: 0 0 0 8px rgba(184,98,61,0); }
+    100% { box-shadow: 0 0 0 0 rgba(184,98,61,0); }
+  }
+
+  .hero h1 {
+    font-family: var(--serif);
+    font-size: clamp(60px, 10vw, 124px);
+    line-height: 0.94;
+    letter-spacing: -0.028em;
+    font-weight: 300;
+    margin: 0 0 30px;
+    color: var(--ink);
+    font-variation-settings: "opsz" 144;
+  }
+  .hero h1 em {
+    font-style: italic;
+    font-weight: 300;
+    color: var(--accent-deep);
+    font-variation-settings: "opsz" 144;
+  }
+  .hero .lede {
+    font-size: 17.5px;
+    color: var(--ink-2);
+    margin: 0 auto 38px;
+    max-width: 540px;
+    letter-spacing: -0.005em;
+  }
+
+  .composer {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding: 8px 8px 8px 24px;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.6) inset,
+      0 1px 3px rgba(20,20,15,0.04),
+      0 8px 24px -12px rgba(20,20,15,0.10);
+    max-width: 600px;
+    margin: 0 auto 24px;
+    transition: box-shadow .18s ease, border-color .18s ease;
+  }
+  .composer:focus-within {
+    border-color: var(--accent);
+    box-shadow:
+      0 0 0 4px var(--accent-soft),
+      0 8px 24px -12px rgba(20,20,15,0.10);
+  }
+  .composer .leading {
+    color: var(--ink-3); display: grid; place-items: center;
+    width: 18px; height: 18px;
+    margin-right: 4px;
+  }
+  .composer .leading svg { width: 17px; height: 17px; }
+  .composer input {
+    flex: 1; border: 0; outline: 0; background: transparent;
+    font: inherit; font-size: 16px; color: var(--ink);
+    padding: 12px 0;
+    letter-spacing: -0.005em;
+  }
+  .composer input::placeholder { color: var(--ink-3); }
+  .composer .send {
+    width: 40px; height: 40px;
+    border: 0; border-radius: 999px;
+    background: var(--ink); color: var(--paper);
+    cursor: pointer; display: grid; place-items: center;
+    transition: background .18s ease, transform .12s ease;
+  }
+  .composer .send:hover { background: var(--accent); }
+  .composer .send:active { transform: scale(0.95); }
+  .composer .send svg { width: 16px; height: 16px; }
+
+  .chips {
+    display: flex; flex-wrap: wrap; justify-content: center;
+    gap: 6px; max-width: 640px; margin: 0 auto;
+  }
+  .chip {
+    background: transparent;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding: 7px 13px;
+    font-size: 13px;
+    color: var(--ink-2);
+    cursor: pointer;
+    font-family: inherit;
+    transition: border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .chip:hover { color: var(--ink); border-color: rgba(20,20,15,0.22); background: var(--paper); }
+
+  /* ─── Hava's read ─── */
+  .read {
+    margin: 88px auto 0;
+    max-width: 880px;
+    text-align: center;
+    padding: 56px 24px;
+    position: relative;
+  }
+  .read::before, .read::after {
+    content: ""; display: block; height: 1px;
+    background: var(--rule); width: 80px;
+    margin: 0 auto 24px;
+  }
+  .read::after { margin: 24px auto 0; }
+  .read .label {
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.22em; color: var(--ink-3);
+    font-weight: 500;
+    margin-bottom: 22px;
+  }
+  .read blockquote {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 300;
+    font-size: clamp(26px, 3.4vw, 38px);
+    line-height: 1.32;
+    letter-spacing: -0.012em;
+    color: var(--ink);
+    margin: 0;
+    font-variation-settings: "opsz" 60;
+  }
+  .read blockquote em {
+    font-style: italic; color: var(--accent-deep);
+  }
+  .read blockquote a {
+    color: var(--accent-deep);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+  }
+  .read .byline {
+    margin-top: 22px;
+    font-size: 12px; color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: 0.18em;
+  }
+
+  /* ─── browse rows ─── */
+  .row {
+    margin-top: 88px;
+  }
+  .row-head {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 16px;
+  }
+  .row-head h2 {
+    font-family: var(--serif);
+    margin: 0;
+    font-size: 32px;
+    font-weight: 400;
+    letter-spacing: -0.018em;
+    line-height: 1;
+    color: var(--ink);
+    font-variation-settings: "opsz" 100;
+  }
+  .row-head .sub {
+    font-size: 12px; color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: 0.16em;
+    font-weight: 500;
+  }
+  .row-head .sub-link {
+    font-size: 13px; color: var(--ink-2);
+    letter-spacing: -0.005em;
+  }
+  .row-head .sub-link:hover { color: var(--accent); }
+
+  /* ─── grids ─── */
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  .grid-feature {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 18px;
+    height: 540px;
+  }
+  .grid-feature .card-feature { grid-row: 1 / 3; }
+
+  /* ─── card ─── */
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--rule-hair);
+    border-radius: 18px;
+    overflow: hidden;
+    text-decoration: none;
+    color: var(--ink);
+    display: flex; flex-direction: column;
+    transition: transform .25s cubic-bezier(.2,.7,.2,1), box-shadow .25s ease, border-color .25s ease;
+    box-shadow: 0 1px 2px rgba(20,20,15,0.03);
+    position: relative;
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 32px -16px rgba(20,20,15,0.18), 0 1px 2px rgba(20,20,15,0.04);
+    border-color: var(--rule);
+  }
+  .card .img {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--bg-2) 0%, #e9e3d6 100%);
+  }
+  .card .img::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(20,20,15,0) 50%, rgba(20,20,15,0.18) 100%);
+    pointer-events: none;
+  }
+  .card .img img {
+    width: 100%; height: 100%; object-fit: cover;
+    transition: transform .6s cubic-bezier(.2,.7,.2,1);
+  }
+  .card:hover .img img { transform: scale(1.04); }
+
+  /* Hava's pick badge — sits on the image */
+  .card .havas-pick {
+    position: absolute;
+    top: 14px; left: 14px;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 999px;
+    padding: 5px 10px 5px 8px;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--accent-deep);
+    display: flex; align-items: center; gap: 5px;
+    box-shadow: 0 2px 8px rgba(20,20,15,0.10);
+    z-index: 1;
+  }
+  .card .havas-pick svg { width: 11px; height: 11px; }
+
+  .card .body {
+    padding: 18px 20px 20px;
+    display: flex; flex-direction: column; gap: 6px;
+    flex: 1;
+  }
+  .card .meta {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-3);
+    font-weight: 500;
+  }
+  .card .meta .tag-dot {
+    width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+  }
+  .card .meta .tag-dot.warm { background: var(--warm); }
+  .card .name {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 400;
+    letter-spacing: -0.014em;
+    line-height: 1.15;
+    margin: 4px 0 4px;
+    font-variation-settings: "opsz" 60;
+  }
+  .card .blurb {
+    font-size: 14.5px;
+    color: var(--ink-2);
+    line-height: 1.55;
+    margin: 0;
+    flex: 1;
+  }
+  .card .footer {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--rule-hair);
+    font-size: 12.5px;
+    color: var(--ink-3);
+    display: flex; justify-content: space-between; align-items: center;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 500;
+  }
+  .card .footer .arrow { color: var(--accent); transition: transform .2s ease; }
+  .card:hover .footer .arrow { transform: translateX(3px); }
+
+  .card-feature .img { aspect-ratio: auto; flex: 1; }
+  .card-feature .name { font-size: 36px; }
+  .card-feature .blurb { font-size: 16px; }
+  .card-feature .body { padding: 24px 28px 28px; }
+  .card-tall .img { aspect-ratio: 4 / 3; }
+  .row-tonight .card-side .img { aspect-ratio: 16 / 10; }
+  .row-tonight .card-side .name { font-size: 19px; }
+
+  /* ─────────── SPONSOR slot ─────────── */
+  .sponsor {
+    margin: 96px auto 0;
+    max-width: 880px;
+    text-align: center;
+    padding: 0 24px;
+  }
+  .sponsor-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.28em;
+    color: var(--ink-4);
+    font-weight: 500;
+    margin-bottom: 18px;
+  }
+  .sponsor-card {
+    display: grid;
+    grid-template-columns: 220px 1fr auto;
+    gap: 28px;
+    align-items: center;
+    background: var(--paper);
+    border: 1px solid var(--rule-hair);
+    border-radius: 18px;
+    padding: 22px;
+    text-decoration: none;
+    color: var(--ink);
+    box-shadow: 0 1px 2px rgba(20,20,15,0.03);
+    transition: border-color .2s ease, box-shadow .2s ease;
+    text-align: left;
+    position: relative;
+  }
+  .sponsor-card:hover {
+    border-color: var(--rule);
+    box-shadow: 0 1px 2px rgba(20,20,15,0.03), 0 12px 28px -16px rgba(20,20,15,0.12);
+  }
+  .sponsor-card .sp-img {
+    aspect-ratio: 4 / 3;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--bg-2);
+  }
+  .sponsor-card .sp-img img {
+    width: 100%; height: 100%; object-fit: cover;
+  }
+  .sponsor-card .sp-body { min-width: 0; }
+  .sponsor-card .sp-eyebrow {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--ink-3);
+    font-weight: 500;
+    margin-bottom: 6px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .sponsor-card .sp-name {
+    font-family: var(--serif);
+    font-size: 24px;
+    font-weight: 400;
+    letter-spacing: -0.014em;
+    line-height: 1.2;
+    margin: 0 0 6px;
+    font-variation-settings: "opsz" 60;
+  }
+  .sponsor-card .sp-line {
+    font-size: 14.5px;
+    color: var(--ink-2);
+    line-height: 1.5;
+    margin: 0;
+    max-width: 480px;
+  }
+  .sponsor-card .sp-cta {
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    white-space: nowrap;
+    padding: 10px 16px;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    transition: all .2s ease;
+  }
+  .sponsor-card:hover .sp-cta {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--paper);
+  }
+  .sponsor-tag {
+    position: absolute;
+    top: 14px; right: 18px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--ink-4);
+    font-weight: 500;
+  }
+  .sponsor-foot {
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--ink-4);
+    letter-spacing: 0.04em;
+  }
+  .sponsor-foot a { color: var(--ink-3); text-decoration: underline; text-underline-offset: 2px; }
+  .sponsor-foot a:hover { color: var(--ink-2); }
+
+  /* ─── footer ─── */
+  .pagefoot {
+    margin-top: 96px;
+    padding-top: 36px;
+    border-top: 1px solid var(--rule);
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 32px;
+  }
+  .pagefoot .pf-quote {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 18px;
+    line-height: 1.55;
+    color: var(--ink-2);
+    max-width: 520px;
+    margin: 0;
+    font-variation-settings: "opsz" 60;
+  }
+  .pagefoot .pf-meta {
+    font-size: 12px;
+    color: var(--ink-3);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    text-align: right;
+  }
+  .pagefoot .pf-meta a {
+    display: block;
+    color: var(--ink-2);
+    margin-bottom: 6px;
+  }
+  .pagefoot .pf-meta a:hover { color: var(--ink); }
+
+  /* ─── responsive ─── */
+  @media (max-width: 920px) {
+    .grid-feature {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto auto auto;
+      height: auto;
+    }
+    .grid-feature .card-feature { grid-row: auto; }
+    .card-feature .name { font-size: 28px; }
+    .sponsor-card {
+      grid-template-columns: 1fr;
+      gap: 16px;
+      text-align: center;
+      padding: 18px;
+    }
+    .sponsor-card .sp-img { aspect-ratio: 16 / 9; }
+    .sponsor-card .sp-line { margin: 0 auto; }
+    .sponsor-card .sp-cta { justify-self: center; }
+    .sponsor-tag { position: static; margin-bottom: 4px; display: block; text-align: center; }
+  }
+  @media (max-width: 720px) {
+    .page { padding: 20px 20px 64px; }
+    .topbar { padding-bottom: 28px; }
+    .topbar-meta .dateline { display: none; }
+    .hero { padding: 16px 0 32px; }
+    .read { padding: 40px 16px; margin-top: 56px; }
+    .row { margin-top: 56px; }
+    .row-head h2 { font-size: 24px; }
+    .grid-3 { grid-template-columns: 1fr; gap: 14px; }
+    .pagefoot { flex-direction: column; gap: 24px; }
+    .pagefoot .pf-meta { text-align: left; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="topbar">
+    <div class="wordmark">
+      <span class="mark"></span>
+      <span>Hava</span>
+    </div>
+    <div class="topbar-meta">
+      <span class="dateline">Lake Havasu City · Thursday, May 7</span>
+      <span class="sep"></span>
+      <a href="#">Add to catalog</a>
+    </div>
+  </header>
+
+  <!-- ─── hero ─── -->
+  <section class="hero">
+    <p class="eyebrow"><span class="pulse"></span>Today in Havasu</p>
+    <h1>What's happening<br>in <em>Havasu</em>.</h1>
+    <p class="lede">Ask me anything — restaurants, classes, what's open, what's worth your Saturday. I'm your local.</p>
+
+    <div class="composer">
+      <span class="leading">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5"/><path d="m12 12 3 3"/></svg>
+      </span>
+      <input type="text" placeholder="Ask Hava — date night, classes this week, what's open…">
+      <button class="send" aria-label="Send">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10m-4-4 4 4-4 4"/></svg>
+      </button>
+    </div>
+
+    <div class="chips">
+      <button class="chip">date night</button>
+      <button class="chip">open right now</button>
+      <button class="chip">classes this week</button>
+      <button class="chip">tonight</button>
+      <button class="chip">kid-friendly</button>
+      <button class="chip">on the water</button>
+    </div>
+  </section>
+
+  <!-- ─── Hava's read ─── -->
+  <section class="read">
+    <div class="label">Hava's read on tonight</div>
+    <blockquote>
+      It's a quiet Thursday — but the lake is glass, and <a href="#">Channel Brewing</a> has acoustic on the patio at 8.
+    </blockquote>
+    <div class="byline">— posted 4:12 pm · refreshed every hour</div>
+  </section>
+
+  <!-- ─── Tonight ─── -->
+  <section class="row row-tonight">
+    <div class="row-head">
+      <h2>Tonight</h2>
+      <span class="sub">Thursday · May 7</span>
+    </div>
+
+    <div class="grid-feature">
+
+      <a class="card card-feature" href="#">
+        <div class="havas-pick">
+          <svg viewBox="0 0 12 12" fill="currentColor"><path d="M6 1l1.5 3.5L11 5l-2.5 2.5L9 11 6 9.5 3 11l.5-3.5L1 5l3.5-.5z"/></svg>
+          Hava's pick
+        </div>
+        <div class="img" style="aspect-ratio: auto;">
+          <img loading="lazy" alt="" src="https://images.unsplash.com/photo-1518176258769-f227c798150e?w=1200&q=80&auto=format&fit=crop">
+        </div>
+        <div class="body">
+          <div class="meta"><span class="tag-dot"></span>Live music · 8 pm</div>
+          <h3 class="name">Channel Brewing Co.</h3>
+          <p class="blurb">Patio over the water, full kitchen till 10. Three-piece acoustic kicks off at 8 — the regulars start showing up around 7:30.</p>
+          <div class="footer"><span>Bridgewater Channel</span><span class="arrow">→</span></div>
+        </div>
+      </a>
+
+      <a class="card card-side" href="#">
+        <div class="img">
+          <img loading="lazy" alt="" src="https://images.unsplash.com/photo-1530870110042-98b2cb110834?w=900&q=80&auto=format&fit=crop">
+        </div>
+        <div class="body">
+          <div class="meta"><span class="tag-dot warm"></span>Open swim · until 8</div>
+          <h3 class="name">Aquatic Center</h3>
+          <p class="blurb">Lap lanes and the family pool. Last entry 7:30, $4 adults.</p>
+          <div class="footer"><span>Register</span><span class="arrow">→</span></div>
+        </div>
+      </a>
+
+      <a class="card card-side" href="#">
+        <div class="img">
+          <img loading="lazy" alt="" src="https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=900&q=80&auto=format&fit=crop">
+        </div>
+        <div class="body">
+          <div class="meta"><span class="tag-dot"></span>Drop-in · 6:30</div>
+          <h3 class="name">Yoga at the Library</h3>
+          <p class="blurb">Beginner-friendly, mats provided. $10 cash, no signup.</p>
+          <div class="footer"><span>Library, room 2</span><span class="arrow">→</span></div>
+        </div>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- ═════════════════════════════════════
+       SPONSOR slot — single, native-feeling
+       ═════════════════════════════════════ -->
+  <aside class="sponsor">
+    <div class="sponsor-label">Sponsor</div>
+    <a class="sponsor-card" href="#">
+      <span class="sponsor-tag">Sponsored</span>
+      <div class="sp-img">
+        <img loading="lazy" alt="" src="https://images.unsplash.com/photo-1463694775559-eea25ae0a2bd?w=600&q=80&auto=format&fit=crop">
+      </div>
+      <div class="sp-body">
+        <div class="sp-eyebrow">Local sponsor · on the water</div>
+        <h4 class="sp-name">Havasu Outdoor Co.</h4>
+        <p class="sp-line">Kayaks, SUPs, and tubes — picked up on the channel, returned wherever you finish. Locals get 20% off through May.</p>
+      </div>
+      <span class="sp-cta">Reserve →</span>
+    </a>
+    <p class="sponsor-foot">Hava is supported by local sponsors. <a href="#">Sponsor a slot.</a></p>
+  </aside>
+
+  <!-- ─── This week ─── -->
+  <section class="row">
+    <div class="row-head">
+      <h2>This week</h2>
+      <a href="#" class="sub-link">See all 24 →</a>
+    </div>
+    <div class="grid-3">
+
+      <a class="card card-tall" href="#">
+        <div class="havas-pick">
+          <svg viewBox="0 0 12 12" fill="currentColor"><path d="M6 1l1.5 3.5L11 5l-2.5 2.5L9 11 6 9.5 3 11l.5-3.5L1 5l3.5-.5z"/></svg>
+          Hava's pick
+        </div>
+        <div class="img">
+          <img loading="lazy" alt="" src="https://images.unsplash.com/photo-1530549387789-4c1017266635?w=900&q=80&auto=format&fit=crop">
+        </div>
+        <div class="body">
+          <div class="meta"><span class="tag-dot warm"></span>Saturday · 7 am</div>
+          <h3 class="name">Bridgewater 5K</h3>
+          <p class="blurb">Annual run along the channel. Family wave at 8. Registration closes Friday — last year sold out.</p>
+          <div class="footer"><span>Sign up</span><span class="arrow">→</span></div>
+        </div>
+      </a>
+
+      <a class="card card-tall" href="#">
+        <div class="img">
+          <img loading="lazy" alt="" src="https://images.unsplash.com/photo-1617791160588-241658c0f566?w=900&q=80&auto=format&fit=crop">
+        </div>
+        <div class="body">
+          <div class="meta"><span class="tag-dot"></span>Saturday · 10 am</div>
+          <h3 class="name">Saturday Art Lab</h3>
+          <p class="blurb">Kids 6–12 — watercolor and collage at the Library. Drop in, free with a library card.</p>
+          <div class="footer"><span>Library</span><span class="arrow">→</span></div>
+        </div>
+      </a>
+
+      <a class="card card-tall" href="#">
+        <div class="img">
+          <img loading="lazy" alt="" src="https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=900&q=80&auto=format&fit=crop">
+        </div>
+        <div class="body">
+          <div class="meta"><span class="tag-dot"></span>Sunday · 8 am – 2 pm</div>
+          <h3 class="name">Farmers Market downtown</h3>
+          <p class="blurb">Produce, hot food, crafts. Live music after 10. Closes at 2 sharp.</p>
+          <div class="footer"><span>Main Street</span><span class="arrow">→</span></div>
+        </div>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- ─── New in town ─── -->
+  <section class="row">
+    <div class="row-head">
+      <h2>New in town</h2>
+      <span class="sub">Added in May</span>
+    </div>
+    <div class="grid-3">
+
+      <a class="card card-tall" href="#">
+        <div class="havas-pick">
+          <svg viewBox="0 0 12 12" fill="currentColor"><path d="M6 1l1.5 3.5L11 5l-2.5 2.5L9 11 6 9.5 3 11l.5-3.5L1 5l3.5-.5z"/></svg>
+          Hava's pick
+        </div>
+        <div class="img">
+          <img loading="lazy" alt="" src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=900&q=80&auto=format&fit=crop">
+        </div>
+        <div class="body">
+          <div class="meta"><span class="tag-dot"></span>Restaurant</div>
+          <h3 class="name">Sunset Cantina</h3>
+          <p class="blurb">Coastal Mexican, opened on the bluff in April. Back patio faces the lake — best after 7.</p>
+          <div class="footer"><span>McCulloch Blvd</span><span class="arrow">→</span></div>
+        </div>
+      </a>
+
+      <a class="card card-tall" href="#">
+        <div class="img">
+          <img loading="lazy" alt="" src="https://images.unsplash.com/photo-1554068865-24cecd4e34cd?w=900&q=80&auto=format&fit=crop">
+        </div>
+        <div class="body">
+          <div class="meta"><span class="tag-dot warm"></span>Program · 8 weeks</div>
+          <h3 class="name">Beginner pickleball</h3>
+          <p class="blurb">Tuesday evenings at the Rec Center, starts May 20. Sign-ups close in 9 days.</p>
+          <div class="footer"><span>Register</span><span class="arrow">→</span></div>
+        </div>
+      </a>
+
+      <a class="card card-tall" href="#">
+        <div class="img">
+          <img loading="lazy" alt="" src="https://images.unsplash.com/photo-1565193298357-c5b46b0ff68b?w=900&q=80&auto=format&fit=crop">
+        </div>
+        <div class="body">
+          <div class="meta"><span class="tag-dot"></span>Studio</div>
+          <h3 class="name">Desert Clay Studio</h3>
+          <p class="blurb">Drop-in pottery wheel, Thursday + Saturday. Walk-ins welcome till they fill.</p>
+          <div class="footer"><span>Off Acoma</span><span class="arrow">→</span></div>
+        </div>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- ─── footer ─── -->
+  <footer class="pagefoot">
+    <p class="pf-quote">Hava is your local. Better than search, kinder than scrolling Facebook, always answering in 1–3 sentences.</p>
+    <div class="pf-meta">
+      <a href="#">Add to catalog</a>
+      <a href="#">Sponsor a slot</a>
+      <a href="#">About Hava</a>
+      <span style="color: var(--ink-4);">Lake Havasu City, AZ</span>
+    </div>
+  </footer>
+
+</div>
+
+</body>
+</html>

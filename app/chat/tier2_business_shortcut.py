@@ -54,7 +54,17 @@ _LISTING_PREFIX = re.compile(
     # Slice F5: widen for natural phrasings ("what are some", "got any", "recommend").
     r"what\s+(?:are\s+)?(?:some\s+|the\s+)?(?:good\s+|best\s+)?|"
     r"got\s+(?:any\s+|a\s+)?(?:good\s+)?|"
-    r"recommend\s+(?:me\s+)?(?:an\s+|a\s+|any\s+|some\s+)?(?:good\s+)?"
+    r"recommend\s+(?:me\s+)?(?:an\s+|a\s+|any\s+|some\s+)?(?:good\s+)?|"
+    # Voice-battery 2026-05-08: first-person need/want phrasings for category
+    # listings. "I need a plumber" / "I'm looking for a barber" / "I want a
+    # coffee shop" all currently fall through to Tier 3 with a generic
+    # provider context that doesn't include the requested category. Article
+    # is required so "I need to call iron wolf" still defers to Tier 1
+    # PHONE_LOOKUP.
+    r"i\s+need\s+(?:an\s+|a\s+|some\s+)|"
+    r"i\s+want\s+(?:an\s+|a\s+|some\s+)|"
+    r"i'?m\s+looking\s+for\s+(?:an\s+|a\s+|some\s+)|"
+    r"looking\s+for\s+(?:an\s+|a\s+|some\s+)"
     r")",
     re.IGNORECASE,
 )
