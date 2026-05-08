@@ -815,7 +815,7 @@ End state: chat UI is a clean three-file vanilla structure (`index.html` 45-line
 
 **Known limitations (intentionally deferred):**
 - One content category per record. "Aqua Aerobics" tags as **`aquatics`** not **`fitness`** because the keyword loop hits aquatics first. Multi-tag emission is a future tweak if chat needs cross-category surfacing.
-- No "expire stale aquatic events" pruner. The aquatic page republishes ~25 days at a time, so old slots stay in the catalog forever unless something prunes them; chat-layer date filtering hides them in practice.
+- ~~No "expire stale aquatic events" pruner.~~ **Shipped 2026-05-08** (`6ab0fbc`, `4b79aab`): **`app.contrib.parks_rec_loader.prune_stale_aquatic`** + **`scripts/parks_rec_prune.py`**, hard-deletes Event rows with `source_url` matching the aquatic schedule URL AND `date < today - 7 days` (configurable via `--grace-days`). Wired into the existing **`parks-rec-scrapes`** GitHub Actions workflow as a fourth step after the load. WebTrac registrations and admin/river-scene events are untouched. See **`docs/scrapes.md`** ("Pruning stale aquatic events") and **`docs/runbook.md` §1.7**.
 - Aquatic dedup keys on `(date, title, time)` via the synthetic anchor URL; if the city moves a class to a different time, the new time creates a fresh Event and the old one stays orphaned until pruned.
 
 ---
