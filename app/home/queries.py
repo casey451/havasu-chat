@@ -12,6 +12,7 @@ rows).
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, time, timedelta
 from typing import Any, Iterable
 
@@ -21,7 +22,57 @@ from sqlalchemy.orm import Session
 from app.core.timezone import now_lake_havasu
 from app.db.models import Event, Program, Provider
 
+# ─────────── category labels & queries ───────────
+
+CATEGORY_LABELS: dict[str, str] = {
+    "health_medical":        "Health & medical",
+    "food_drink":            "Food & drink",
+    "home_services":         "Home services",
+    "retail":                "Shops",
+    "lake_recreation":       "On the water",
+    "professional_services": "Professional",
+    "beauty_personal_care":  "Beauty & care",
+    "auto":                  "Auto",
+    "religion_community":    "Community",
+    "fitness_sports":        "Fitness & sport",
+}
+
+CATEGORY_QUERIES: dict[str, str] = {
+    # what the chip submits to /chat — Hava-voiced, not slug-shaped
+    "health_medical":        "find a doctor or clinic",
+    "food_drink":            "where should I eat",
+    "home_services":         "find a home pro",
+    "retail":                "shops in Havasu",
+    "lake_recreation":       "what's on the water today",
+    "professional_services": "find a pro",
+    "beauty_personal_care":  "salons and barbers",
+    "auto":                  "auto repair in Havasu",
+    "religion_community":    "community and worship",
+    "fitness_sports":        "gyms and classes",
+}
+
 # ─────────── helpers ───────────
+
+_URL_RE = re.compile(r"https?://\S+")
+
+
+def _card_blurb(event) -> str:
+    """Extract a clean one-line blurb from event description.
+
+    Strips URLs, ISO dates, and multiple newlines. Takes the first sentence,
+    truncates at 140 chars at word boundary.
+    """
+    if getattr(event, "summary", None):
+        return event.summary
+    raw = (event.description or "").strip()
+    raw = _URL_RE.sub("", raw)
+    raw = re.sub(r"\s+", " ", raw).strip()
+    if not raw:
+        return ""
+    first = raw.split(". ")[0].strip().rstrip(".")
+    if len(first) > 140:
+        first = first[:137].rsplit(" ", 1)[0] + "…"
+    return first
 
 
 def _format_phone(raw: str | None) -> tuple[str, str] | tuple[None, None]:
@@ -124,7 +175,7 @@ def tonight(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
         out.append(
             {
                 "name": ev.title,
-                "blurb": (ev.description or "").strip()[:180],
+                "blurb": _card_blurb(ev),
                 "meta_text": meta,
                 "footer_text": ev.location_name,
                 "image_url": None,  # Event has no image surface yet
@@ -165,7 +216,7 @@ def this_week(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
         out.append(
             {
                 "name": ev.title,
-                "blurb": (ev.description or "").strip()[:180],
+                "blurb": _card_blurb(ev),
                 "meta_text": meta,
                 "footer_text": ev.location_name,
                 "image_url": None,
@@ -214,7 +265,7 @@ def new_on_hava(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
                 ev.created_at,
                 {
                     "name": ev.title,
-                    "blurb": (ev.description or "").strip()[:160],
+                    "blurb": _card_blurb(ev),
                     "meta_text": "Event",
                     "footer_text": ev.location_name,
                     "image_url": None,
@@ -239,7 +290,7 @@ def new_on_hava(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
                 pr.created_at,
                 {
                     "name": pr.title,
-                    "blurb": (pr.description or "").strip()[:160],
+                    "blurb": _card_blurb(pr),
                     "meta_text": "Program",
                     "footer_text": pr.location_name or pr.provider_name,
                     "image_url": None,
@@ -270,7 +321,7 @@ def new_on_hava(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
                 prov.created_at,
                 {
                     "name": prov.provider_name,
-                    "blurb": (prov.description or prov.featured_description or "").strip()[:160],
+                    "blurb": _card_blurb(prov),
                     "meta_text": prov.category or "Local pro",
                     "footer_text": prov.address or "",
                     "image_url": _provider_image_url(prov),
@@ -331,7 +382,7 @@ def spotlights(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
             {
                 "name": prov.provider_name,
                 "category": prov.category or "Local pro",
-                "blurb": (prov.featured_description or prov.description or "").strip()[:180],
+                "blurb": _card_blurb(prov),
                 "image_url": _provider_image_url(prov),
                 "image_alt": prov.provider_name,
                 "phone": display or "",
@@ -371,10 +422,12 @@ def categories(db: Session) -> list[dict[str, Any]]:
         return _fallback_categories()
     out: list[dict[str, Any]] = []
     for category, _n in rows:
+        human_name = CATEGORY_LABELS.get(category, category.replace("_", " ").title())
+        human_query = CATEGORY_QUERIES.get(category, f"find a {human_name.lower()}")
         out.append(
             {
-                "name": category,
-                "query": f"find a {category.lower()}",
+                "name": human_name,
+                "query": human_query,
                 "warm": _category_dot(category) == "warm",
             }
         )

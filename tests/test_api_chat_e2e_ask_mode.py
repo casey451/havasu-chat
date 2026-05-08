@@ -162,6 +162,8 @@ def test_post_api_chat_response_contract_fields_and_types(db: Session) -> None:
 
     assert set(body.keys()) == {
         "response",
+        "voice",
+        "component",
         "mode",
         "sub_intent",
         "entity",
