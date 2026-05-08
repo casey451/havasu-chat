@@ -45,6 +45,7 @@ def serve_home(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     live_categories = queries.categories(db)
 
     base["tonight"] = live_tonight or base["tonight"]
+    base["tonight_section_label"] = queries.today_section_label()
     base["this_week"] = live_this_week or base["this_week"]
     base["this_week_total"] = queries.this_week_total(db) or base["this_week_total"]
     base["new_on_hava"] = live_new or base["new_on_hava"]

@@ -71,10 +71,10 @@
     </div>
   </section>
 
-  {# ─────────── Tonight ─────────── #}
+  {# ─────────── Today / Tonight (label flips at 4 PM Lake Havasu time) ─────────── #}
   <section class="row row-tonight">
     <div class="row-head">
-      <h2>Tonight</h2>
+      <h2>{{ tonight_section_label or "Today" }}</h2>
       <span class="sub">{{ today_label }}</span>
     </div>
     <div class="grid-feature">

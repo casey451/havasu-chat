@@ -153,18 +153,40 @@ def _hours_status(p: Provider, *, now: datetime) -> tuple[str, str]:
 # ─────────── builders ───────────
 
 
-def tonight(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
-    """Today's events. The first slot is the feature card.
+_TONIGHT_HOUR_THRESHOLD = 16  # 4 PM — section label flips Today → Tonight
 
-    Returns up to ``limit`` rows. Featured events sort first; the rest
-    by ``start_time``. The first item gets ``feature: True`` so the
-    template renders the big-card pattern.
+
+def today_section_label() -> str:
+    """Return ``"Today"`` before 4 PM Lake Havasu time, otherwise ``"Tonight"``.
+
+    Paired with :func:`tonight` — the query filter and the section heading
+    use the same threshold so a user reading "Tonight" never sees a 5 AM
+    lap-swim event surface in the row.
     """
-    today = now_lake_havasu().date()
+    return "Tonight" if now_lake_havasu().hour >= _TONIGHT_HOUR_THRESHOLD else "Today"
+
+
+def tonight(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
+    """Today-or-tonight's events, time-of-day aware.
+
+    Before 4 PM Lake Havasu time, returns every event happening today (the
+    section reads "Today" — morning, midday, evening events all welcome).
+    From 4 PM onward, narrows to events starting at or after 16:00 (the
+    section reads "Tonight" — pre-dawn lap-swim must not appear here).
+
+    Returns up to ``limit`` rows. Featured events sort first; the rest by
+    ``start_time``. The first item gets ``feature: True`` so the template
+    renders the big-card pattern.
+    """
+    from datetime import time as _time  # local — avoid bumping module imports
+
+    now = now_lake_havasu()
+    today = now.date()
+    q = db.query(Event).filter(Event.date == today, Event.status == "live")
+    if now.hour >= _TONIGHT_HOUR_THRESHOLD:
+        q = q.filter(Event.start_time >= _time(_TONIGHT_HOUR_THRESHOLD, 0))
     rows: list[Event] = (
-        db.query(Event)
-        .filter(Event.date == today, Event.status == "live")
-        .order_by(Event.featured.desc(), Event.start_time.asc())
+        q.order_by(Event.featured.desc(), Event.start_time.asc())
         .limit(limit)
         .all()
     )
