@@ -87,31 +87,41 @@ def assert_voice_rules(response: str) -> None:
     assert_no_ai_self_reference(response)
 
 
-# --- Anthropic mock (same pattern as ``tests/test_api_chat_e2e_ask_mode.py``) ---
+# --- OpenAI mock (migrated as part of §4.6 from the prior anthropic.Anthropic pattern).
+# ``app.core.llm_messages`` imports ``OpenAI`` at module level after the 2026-05-07
+# provider swap, so we replace the constructor with a factory returning a fake
+# client whose ``chat.completions.create`` yields an OpenAI-shaped response.
 
 _MOCK_TIER3_TEXT = "Lake Havasu has trails, events, and the water. Try Rotary Park or the channel."
 _MOCK_TIER3_TOKENS = 32
 
 
-def _fake_anthropic_module() -> SimpleNamespace:
-    fake_usage = SimpleNamespace(
-        input_tokens=10,
-        output_tokens=10,
-        cache_read_input_tokens=6,
-        cache_creation_input_tokens=6,
-    )
+def _fake_openai_factory() -> "callable":
+    """Return a fake OpenAI constructor used as a monkeypatch target.
+
+    The fake client's ``chat.completions.create`` returns the OpenAI Chat
+    Completions response shape (``choices[0].message.content`` + ``usage``
+    with ``prompt_tokens`` / ``completion_tokens``). Token totals chosen so
+    ``billable_input + output_tokens == _MOCK_TIER3_TOKENS`` (20 + 12 = 32),
+    preserving the legacy expected total.
+    """
+    fake_usage = SimpleNamespace(prompt_tokens=20, completion_tokens=12)
     fake_message = SimpleNamespace(
-        content=[SimpleNamespace(type="text", text=_MOCK_TIER3_TEXT)],
+        choices=[SimpleNamespace(message=SimpleNamespace(content=_MOCK_TIER3_TEXT))],
         usage=fake_usage,
     )
-    fake_client = SimpleNamespace(messages=SimpleNamespace(create=lambda **_kwargs: fake_message))
-    return SimpleNamespace(Anthropic=lambda **_kwargs: fake_client)
+    fake_client = SimpleNamespace(
+        chat=SimpleNamespace(
+            completions=SimpleNamespace(create=lambda **_kwargs: fake_message),
+        )
+    )
+    return lambda **_kwargs: fake_client
 
 
 @pytest.fixture(autouse=True)
-def _mock_anthropic_sys_modules(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-    monkeypatch.setattr("app.core.llm_messages.anthropic", _fake_anthropic_module())
+def _mock_openai_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr("app.core.llm_messages.OpenAI", _fake_openai_factory())
 
 
 def _provider(**kwargs: object) -> Provider:
@@ -374,15 +384,25 @@ def test_tier1_fixtures(
 
 @pytest.mark.parametrize("query,expected_sub", TIER3_FIXTURES)
 def test_tier3_fixtures(query: str, expected_sub: str | None) -> None:
+    # Migrated as part of §4.6: also patch ``_catalog_gap_response`` so the
+    # ask-mode branch in ``unified_router.route`` doesn't preempt Tier 3 with
+    # a gap_template response. The fixtures here are queries about venues/
+    # programs that don't exist in the test seed catalog, which is exactly
+    # what the gap detector now flags. The intent of the test is to verify
+    # the Tier 3 fallback path, so we suppress gap detection.
     with patch(
         "app.chat.unified_router.try_tier2_with_usage",
         return_value=(None, None, None, None),
     ):
-        with TestClient(app) as client:
-            r = client.post(
-                "/api/chat",
-                json={"query": query, "session_id": "phase34-tier3"},
-            )
+        with patch(
+            "app.chat.unified_router._catalog_gap_response",
+            return_value=None,
+        ):
+            with TestClient(app) as client:
+                r = client.post(
+                    "/api/chat",
+                    json={"query": query, "session_id": "phase34-tier3"},
+                )
     assert r.status_code == 200
     body = r.json()
     assert body["mode"] == "ask"

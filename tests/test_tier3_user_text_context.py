@@ -1,4 +1,8 @@
-"""Phase 6.4 — Tier 3 user_text includes User context and Now lines."""
+"""Phase 6.4 — Tier 3 user_text includes User context and Now lines.
+
+Migrated as part of §4.6: patches OpenAI seam (``app.core.llm_messages.OpenAI``)
+and asserts on the user message at ``messages[1]`` (system is ``messages[0]``).
+"""
 
 from __future__ import annotations
 
@@ -6,10 +10,10 @@ import os
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import anthropic
 import pytest
 from sqlalchemy.orm import Session
 
+import app.core.llm_messages as llm_messages
 from app.chat.intent_classifier import IntentResult
 from app.chat.tier3_handler import answer_with_tier3
 from app.db.database import SessionLocal
@@ -36,9 +40,12 @@ def _intent() -> IntentResult:
     )
 
 
-def _msg(text: str, *, usage: object | None) -> SimpleNamespace:
-    block = SimpleNamespace(type="text", text=text)
-    return SimpleNamespace(content=[block], usage=usage)
+def _resp(text: str, *, prompt_tokens: int = 1, completion_tokens: int = 1) -> SimpleNamespace:
+    """OpenAI Chat Completions response shape."""
+    message = SimpleNamespace(content=text)
+    choice = SimpleNamespace(message=message)
+    usage = SimpleNamespace(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
+    return SimpleNamespace(choices=[choice], usage=usage)
 
 
 def test_tier3_user_text_full_hints_and_fixed_now(db: Session) -> None:
@@ -52,14 +59,8 @@ def test_tier3_user_text_full_hints_and_fixed_now(db: Session) -> None:
         )
     )
     db.commit()
-    usage = SimpleNamespace(
-        input_tokens=1,
-        output_tokens=1,
-        cache_read_input_tokens=0,
-        cache_creation_input_tokens=0,
-    )
     fake_client = MagicMock()
-    fake_client.messages.create.return_value = _msg("ok", usage=usage)
+    fake_client.chat.completions.create.return_value = _resp("ok")
     hints = {
         "visitor_status": "visiting",
         "has_kids": True,
@@ -67,10 +68,11 @@ def test_tier3_user_text_full_hints_and_fixed_now(db: Session) -> None:
         "location": "near the channel",
     }
     now = "Now: Tuesday, April 21, 2026, 3:00 PM"
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake_client):
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake_client):
             answer_with_tier3("q", _intent(), db, onboarding_hints=hints, now_line=now)
-    content = fake_client.messages.create.call_args.kwargs["messages"][0]["content"]
+    # OpenAI shape: messages[0]=system, messages[1]=user.
+    content = fake_client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
     assert "User context:" in content
     assert "visiting" in content
     assert "with kids" in content
@@ -92,19 +94,16 @@ def test_tier3_user_text_omits_user_context_when_empty_but_keeps_now(db: Session
         )
     )
     db.commit()
-    usage = SimpleNamespace(
-        input_tokens=1,
-        output_tokens=1,
-        cache_read_input_tokens=0,
-        cache_creation_input_tokens=0,
-    )
     fake_client = MagicMock()
-    fake_client.messages.create.return_value = _msg("ok", usage=usage)
+    fake_client.chat.completions.create.return_value = _resp("ok")
     now = "Now: Monday, January 1, 2030, 12:00 PM"
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake_client):
-            answer_with_tier3("q", _intent(), db, onboarding_hints={}, now_line=now)
-    content = fake_client.messages.create.call_args.kwargs["messages"][0]["content"]
+    # Distinct query from the prior test ("q" → "qb") to avoid the shared
+    # llm_response_cache table seeing a matching key from the same pytest
+    # session and short-circuiting the LLM call we want to inspect here.
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake_client):
+            answer_with_tier3("qb", _intent(), db, onboarding_hints={}, now_line=now)
+    content = fake_client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
     assert "User context:" not in content
     assert "Local voice:" not in content
     assert now in content

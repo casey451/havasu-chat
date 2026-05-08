@@ -1,15 +1,22 @@
-"""Phase 4.3 — unified router Tier 2 attempt before Tier 3 (with chat_logs token split)."""
+"""Phase 4.3 — unified router Tier 2 attempt before Tier 3 (with chat_logs token split).
+
+Migrated as part of §4.6: the two SDK-error tests now patch
+``app.core.llm_messages.OpenAI`` (the canonical mock seam after the OpenAI swap).
+The previous ``anthropic.Anthropic`` patches did not intercept the new code path,
+which masked the formatter test's regression behind a coincidental real-call
+failure on the placeholder API key.
+"""
 
 from __future__ import annotations
 
 import os
 from unittest.mock import MagicMock, patch
 
-import anthropic
 import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+import app.core.llm_messages as llm_messages
 from app.chat.tier2_schema import Tier2Filters
 from app.chat.unified_router import ChatResponse, route
 from app.db.database import SessionLocal
@@ -109,7 +116,10 @@ def test_tier1_unchanged_no_llm_tokens(db: Session) -> None:
 def test_tier1_none_invokes_tier2_then_tier3(db: Session) -> None:
     calls: list[str] = []
 
-    def spy_tier2(q: str) -> tuple[str | None, int | None, int | None, int | None]:
+    def spy_tier2(q: str, **_kwargs: object) -> tuple[str | None, int | None, int | None, int | None]:
+        # Accept **kwargs so the spy stays valid as the unified_router signature
+        # evolves — current call sites pass ``component_meta=...`` and other
+        # threaded context. We only care about counting invocations here.
         calls.append("t2")
         return ("Tier-2 via spy", 9, 5, 4)
 
@@ -140,12 +150,13 @@ def test_tier1_none_tier2_none_silent_tier3(db: Session) -> None:
     assert r.response == "Tier-3 silent fallback."
 
 
-def test_tier2_parser_anthropic_error_falls_through_to_tier3_route(db: Session) -> None:
+def test_tier2_parser_sdk_error_falls_through_to_tier3_route(db: Session) -> None:
+    """Parser-side OpenAI failure must surface as a Tier 3 fallback, not Tier 2."""
     fake = MagicMock()
-    fake.messages.create.side_effect = RuntimeError("parser anthropic boom")
+    fake.chat.completions.create.side_effect = RuntimeError("parser openai boom")
     with patch("app.chat.unified_router.try_tier1", return_value=None):
-        with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-            with patch.object(anthropic, "Anthropic", return_value=fake):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+            with patch.object(llm_messages, "OpenAI", return_value=fake):
                 with patch(
                     "app.chat.unified_router.answer_with_tier3",
                     return_value=("Tier-3 after parser fail", 3, 2, 1),
@@ -155,18 +166,19 @@ def test_tier2_parser_anthropic_error_falls_through_to_tier3_route(db: Session) 
     assert r.response == "Tier-3 after parser fail"
 
 
-def test_tier2_formatter_anthropic_error_falls_through_route(db: Session) -> None:
+def test_tier2_formatter_sdk_error_falls_through_route(db: Session) -> None:
+    """Formatter-side OpenAI failure must surface as a Tier 3 fallback, not Tier 2."""
     f = Tier2Filters(parser_confidence=0.9, category="bakery", fallback_to_tier3=False)
     fake = MagicMock()
-    fake.messages.create.side_effect = RuntimeError("formatter anthropic boom")
+    fake.chat.completions.create.side_effect = RuntimeError("formatter openai boom")
     with patch("app.chat.unified_router.try_tier1", return_value=None):
         with patch("app.chat.tier2_handler.tier2_parser.parse", return_value=(f, 2, 1)):
             with patch(
                 "app.chat.tier2_handler.tier2_db_query.query",
                 return_value=[{"id": "1", "title": "Example"}],
             ):
-                with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-                    with patch.object(anthropic, "Anthropic", return_value=fake):
+                with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+                    with patch.object(llm_messages, "OpenAI", return_value=fake):
                         with patch(
                             "app.chat.unified_router.answer_with_tier3",
                             return_value=("Tier-3 after formatter fail", 5, 3, 2),

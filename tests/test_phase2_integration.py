@@ -10,13 +10,13 @@ import os
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-import anthropic
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+import app.core.llm_messages as llm_messages
 from app.chat.entity_matcher import refresh_entity_matcher, reset_entity_matcher
 from app.chat.normalizer import normalize
 from app.chat.tier3_handler import FALLBACK_MESSAGE
@@ -343,14 +343,17 @@ def test_placeholder_tier_for_non_chat_modes() -> None:
 
 
 def test_tier3_timeout_triggers_graceful_fallback() -> None:
-    """Phase 8.2: Anthropic API read timeout (httpx) → HTTP 200 + §3.11 fallback + tier 3."""
+    """Phase 8.2: OpenAI API read timeout (httpx) → HTTP 200 + §3.11 fallback + tier 3.
+
+    Migrated as part of §4.6: patches the OpenAI mock seam after the provider swap.
+    """
     sid = "p82-t3-httpx-read-timeout"
     fake = MagicMock()
-    fake.messages.create.side_effect = httpx.ReadTimeout("read timeout", request=None)
+    fake.chat.completions.create.side_effect = httpx.ReadTimeout("read timeout", request=None)
     with TestClient(app) as client:
         with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
-            with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-                with patch.object(anthropic, "Anthropic", return_value=fake):
+            with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+                with patch.object(llm_messages, "OpenAI", return_value=fake):
                     r = client.post(
                         "/api/chat",
                         json={"query": "What is fun to do this weekend?", "session_id": sid},
@@ -361,15 +364,18 @@ def test_tier3_timeout_triggers_graceful_fallback() -> None:
     assert body["response"] == FALLBACK_MESSAGE
 
 
-def test_api_chat_tier3_graceful_when_anthropic_fails() -> None:
-    """§3.11: Tier 3 Anthropic transport failure → HTTP 200 + full handoff graceful string."""
-    sid = "p83-t3-anth-boom"
+def test_api_chat_tier3_graceful_when_llm_fails() -> None:
+    """§3.11: Tier 3 OpenAI transport failure → HTTP 200 + full handoff graceful string.
+
+    Migrated as part of §4.6 (was ``test_api_chat_tier3_graceful_when_anthropic_fails``).
+    """
+    sid = "p83-t3-llm-boom"
     fake = MagicMock()
-    fake.messages.create.side_effect = RuntimeError("anthropic transport boom")
+    fake.chat.completions.create.side_effect = RuntimeError("openai transport boom")
     with TestClient(app) as client:
         with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
-            with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-                with patch.object(anthropic, "Anthropic", return_value=fake):
+            with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+                with patch.object(llm_messages, "OpenAI", return_value=fake):
                     r = client.post(
                         "/api/chat",
                         json={"query": "What is fun to do this weekend?", "session_id": sid},

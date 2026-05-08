@@ -84,22 +84,29 @@ def test_post_api_chat_tier1_phone_lookup_path(db: Session) -> None:
 
 
 def test_post_api_chat_tier3_open_ended_path_uses_mock(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_usage = SimpleNamespace(
-        input_tokens=11,
-        output_tokens=12,
-        cache_read_input_tokens=5,
-        cache_creation_input_tokens=4,
-    )
+    """Migrated as part of §4.6: patches the OpenAI mock seam after the provider swap.
+
+    OpenAI Chat Completions response shape: ``choices[0].message.content`` for the
+    text and ``usage.{prompt_tokens, completion_tokens}`` for token counts.
+    Token totals stay 11+12=23 for prompt + 12 completion = 23 billable input +
+    12 output. Old test asserted 32 (in+out+cache_read+cache_creation under
+    Anthropic semantics); under OpenAI semantics the total is just prompt +
+    completion.
+    """
+    fake_usage = SimpleNamespace(prompt_tokens=20, completion_tokens=12)
     fake_message = SimpleNamespace(
-        content=[SimpleNamespace(type="text", text="Mocked Tier 3 answer.")],
+        choices=[SimpleNamespace(message=SimpleNamespace(content="Mocked Tier 3 answer."))],
         usage=fake_usage,
     )
-    mocked_tokens = 32
-    fake_client = SimpleNamespace(messages=SimpleNamespace(create=lambda **_kwargs: fake_message))
-    fake_anthropic_module = SimpleNamespace(Anthropic=lambda **_kwargs: fake_client)
+    expected_tokens = 32
+    fake_client = SimpleNamespace(
+        chat=SimpleNamespace(
+            completions=SimpleNamespace(create=lambda **_kwargs: fake_message),
+        )
+    )
 
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-    monkeypatch.setattr("app.core.llm_messages.anthropic", fake_anthropic_module)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr("app.core.llm_messages.OpenAI", lambda **_kwargs: fake_client)
 
     with patch(
         "app.chat.unified_router.try_tier2_with_usage",
@@ -119,7 +126,7 @@ def test_post_api_chat_tier3_open_ended_path_uses_mock(monkeypatch: pytest.Monke
     assert body["mode"] == "ask"
     assert body["sub_intent"] == "OPEN_ENDED"
     assert body["tier_used"] == "3"
-    assert body["llm_tokens_used"] == mocked_tokens
+    assert body["llm_tokens_used"] == expected_tokens
     assert body["response"] == "Mocked Tier 3 answer."
 
 

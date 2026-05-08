@@ -90,12 +90,24 @@ INTENT_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
             r"open\s+(?:on\s+)?(?:mon|tues?|wednes?|thurs?|fri|satur?|sun)(?:day)?s?\b|"
             # "when is/does X open" — without this, DATE_LOOKUP catches "when" first
             # and the user gets a date answer instead of hours.
-            r"when\s+(?:is|does)\s+\w+(?:\s+\w+){0,4}\s+open\b|"
+            #
+            # Voice battery 2026-05-08: tightened with a positive lookahead so
+            # "open" must be at the predicate position — followed by end of
+            # input, punctuation, or a known temporal cue ("today", "tonight",
+            # "right now", "late", "early"). Prior version greedily caught
+            # event names that contain "Open" as a proper noun (e.g. "Alpha
+            # Open Meet", "Annual Open House"), routing what should have been
+            # DATE_LOOKUP queries to HOURS_LOOKUP.
+            r"when\s+(?:is|does)\s+\w+(?:\s+\w+){0,4}\s+open"
+            r"(?=\s*[?.!]|\s+(?:today|tomorrow|tonight|now|right\s+now|late|early)\b|\s*$)|"
             # "can I go to X" / "can I visit X" — visit-now intent, default to hours
             # path; OPEN_NOW disambig promotes when "right now" is present.
             r"can\s+i\s+(?:go\s+to|visit|stop\s+by|drop\s+by|head\s+(?:to|over))\b|"
             # Bare "is X open ..." (matches with or without trailing day qualifier).
-            r"is\s+\w+(?:\s+\w+){0,5}\s+open\b"
+            # Same predicate-position lookahead as the "when is X open" rule —
+            # "Is the Alpha Open Meet at Y?" must not fire HOURS_LOOKUP.
+            r"is\s+\w+(?:\s+\w+){0,5}\s+open"
+            r"(?=\s*[?.!]|\s+(?:today|tomorrow|tonight|now|right\s+now|late|early)\b|\s*$)"
             r")\b",
             re.IGNORECASE,
         ),

@@ -1,4 +1,11 @@
-"""Tests for ``app.chat.tier2_formatter`` — Anthropic mocked for LLM-only paths."""
+"""Tests for ``app.chat.tier2_formatter`` — OpenAI mocked for LLM-only paths.
+
+Provider swap (2026-05-07): formatter now calls ``call_anthropic_messages`` from
+:mod:`app.core.llm_messages`, which is an OpenAI wrapper. Tests patch
+``app.core.llm_messages.OpenAI`` (the canonical mock seam) — the old
+``patch.object(anthropic, "Anthropic", ...)`` shape did not intercept the new
+code path. Migrated as part of §4.6 (test suite update).
+"""
 
 from __future__ import annotations
 
@@ -7,23 +14,27 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import anthropic
 import pytest
 
+import app.core.llm_messages as llm_messages
 from app.chat import tier2_catalog_render
 from app.chat import tier2_formatter as tf
 from app.chat.tier2_formatter import _inject_event_url_links
 
 
-def _msg(text: str) -> SimpleNamespace:
-    block = SimpleNamespace(type="text", text=text)
+def _resp(text: str, *, prompt_tokens: int = 120, completion_tokens: int = 40) -> SimpleNamespace:
+    """OpenAI Chat Completions response: choices[0].message.content + usage.
+
+    Defaults preserve the legacy 120/40 token numbers so existing assertions
+    (``tin == 120``, ``tout == 40``) carry over unchanged.
+    """
+    message = SimpleNamespace(content=text)
+    choice = SimpleNamespace(message=message)
     usage = SimpleNamespace(
-        input_tokens=120,
-        output_tokens=40,
-        cache_read_input_tokens=0,
-        cache_creation_input_tokens=0,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
     )
-    return SimpleNamespace(content=[block], usage=usage)
+    return SimpleNamespace(choices=[choice], usage=usage)
 
 
 def _program_row(name: str = "Altitude") -> dict:
@@ -70,62 +81,70 @@ def test_explicit_rec_instructions_removed_from_tier2_formatter() -> None:
 
 def test_explicit_rec_user_message_contains_query_text() -> None:
     fake = MagicMock()
-    fake.messages.create.return_value = _msg("Pick Altitude.")
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake):
+    fake.chat.completions.create.return_value = _resp("Pick Altitude.")
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake):
             tf.format("pick one thing to do Saturday", [_program_row()])
-    user = fake.messages.create.call_args.kwargs["messages"][0]["content"]
+    # OpenAI shape: messages[0] is system, messages[1] is user.
+    user = fake.chat.completions.create.call_args.kwargs["messages"][1]["content"]
     assert "pick one thing to do Saturday" in user
 
 
 def test_format_empty_rows_returns_deterministic_no_matching_catalog_rows() -> None:
     fake = MagicMock()
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake):
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake):
             out, tin, tout = tf.format("anything", [])
     assert out == "No matching catalog rows."
     assert tin == 0 and tout == 0
-    fake.messages.create.assert_not_called()
+    fake.chat.completions.create.assert_not_called()
 
 
 def test_sdk_error_returns_none() -> None:
     fake = MagicMock()
-    fake.messages.create.side_effect = RuntimeError("boom")
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake):
+    fake.chat.completions.create.side_effect = RuntimeError("boom")
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake):
             text, tin, tout = tf.format("q", [_program_row("E")])
     assert text is None and tin is None and tout is None
 
 
 def test_empty_model_text_returns_none() -> None:
     fake = MagicMock()
-    fake.messages.create.return_value = _msg("   ")
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake):
+    fake.chat.completions.create.return_value = _resp("   ")
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake):
             text, tin, tout = tf.format("q", [_program_row()])
     assert text is None and tin == 120 and tout == 40
 
 
 def test_invocation_kwargs() -> None:
+    """Replaces the prior Anthropic-only ``cache_control: ephemeral`` assertion.
+    OpenAI prompt caching is automatic and not surfaced per call. We assert the
+    mock-seam invariants from app/core/llm_messages.py instead: exactly four
+    kwargs (``model``, ``max_tokens``, ``temperature``, ``messages``) and the
+    formatter's chosen tuning values."""
     fake = MagicMock()
-    fake.messages.create.return_value = _msg("ok")
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake):
+    fake.chat.completions.create.return_value = _resp("ok")
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake):
             tf.format("events tomorrow", [_program_row()])
-    kw = fake.messages.create.call_args.kwargs
+    kw = fake.chat.completions.create.call_args.kwargs
+    assert set(kw.keys()) == {"model", "max_tokens", "temperature", "messages"}
     assert kw["max_tokens"] == 400
     assert kw["temperature"] == 0.3
-    assert kw["system"][0]["cache_control"] == {"type": "ephemeral"}
+    assert kw["messages"][0]["role"] == "system"
+    assert kw["messages"][1]["role"] == "user"
 
 
 def test_system_prompt_contains_grounding_guardrails() -> None:
     fake = MagicMock()
-    fake.messages.create.return_value = _msg("ok")
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake):
+    fake.chat.completions.create.return_value = _resp("ok")
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake):
             tf.format("events tomorrow", [_program_row()])
-
-    system_text = fake.messages.create.call_args.kwargs["system"][0]["text"]
+    # System prompt is now messages[0].content under OpenAI shape.
+    system_text = fake.chat.completions.create.call_args.kwargs["messages"][0]["content"]
     assert "Grounding guardrails (additive to §6.7)" in system_text
     assert "every concrete detail must be directly row-backed" in system_text
     assert (
@@ -160,12 +179,12 @@ def test_format_all_event_rows_returns_deterministic_tuple() -> None:
         },
     ]
     fake = MagicMock()
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake):
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake):
             text, tin, tout = tf.format("q", rows)
     assert text is not None
     assert tin == 0 and tout == 0
-    fake.messages.create.assert_not_called()
+    fake.chat.completions.create.assert_not_called()
 
 
 def test_format_mixed_event_and_program_calls_llm() -> None:
@@ -184,23 +203,23 @@ def test_format_mixed_event_and_program_calls_llm() -> None:
         _program_row(),
     ]
     fake = MagicMock()
-    fake.messages.create.return_value = _msg("mixed ok")
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake):
+    fake.chat.completions.create.return_value = _resp("mixed ok")
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake):
             text, tin, tout = tf.format("q", rows)
     assert text == "mixed ok"
     assert tin == 120 and tout == 40
-    fake.messages.create.assert_called_once()
+    fake.chat.completions.create.assert_called_once()
 
 
 def test_format_all_program_rows_calls_llm() -> None:
     fake = MagicMock()
-    fake.messages.create.return_value = _msg("programs ok")
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake):
+    fake.chat.completions.create.return_value = _resp("programs ok")
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake):
             text, tin, tout = tf.format("q", [_program_row(), _program_row("Other")])
     assert text == "programs ok"
-    fake.messages.create.assert_called_once()
+    fake.chat.completions.create.assert_called_once()
 
 
 def test_format_render_exception_returns_none(
