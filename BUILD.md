@@ -26,6 +26,8 @@ When something isn't in the catalog, Hava says so plainly and points to ONE conc
 
 If a query naturally returns many items (e.g. "what's happening Friday" returns 8 events), Hava's voice still stays in 1–3 sentences. The data renders as a component below the voice answer. See "Answer rendering contract" below — this is the most important architectural rule.
 
+These voice rules apply to **Hava's chat responses**. Page-level editorial copy — the hero headline, section names, footer prose, sponsor labels — is written in editorial voice and may be a fragment, a statement, or whatever the design wants. The mockup's `What's happening in Havasu.` is a statement, not a question, and that's correct. Don't "fix" page headlines to follow chat-voice rules.
+
 ## Home page structure
 
 Order matters. Each section earns its position.

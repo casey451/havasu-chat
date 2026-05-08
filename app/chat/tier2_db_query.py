@@ -435,12 +435,11 @@ def _category_match_provider(p: Provider, cat: str) -> bool:
     needles = (c, c_singular) if c_singular != c else (c,)
     # Voice-battery 2026-05-07: dropped (p.provider_name or "").lower() from
     # haystacks — see SQL filter comment in _query_providers for full rationale.
-    # Names produced false positives ("vet" matching "Vetter", "bar" matching
-    # "Bare Body and Beauty Bar"); category/description/google_* are the real
-    # signals.
+    # Voice-battery 2026-05-08: dropped (p.description or "").lower() too — narrative
+    # description text matches caused HVAC to surface for "plumber" queries because
+    # it mentioned plumbing as an adjacent service. Stick to taxonomy fields below.
     haystacks: list[str] = [
         (p.category or "").lower(),
-        (p.description or "").lower() if p.description else "",
         # Slice D: Google taxonomy fields. Provider.category is the high-level domain;
         # the more specific tags live in google_primary_category and google_categories.
         # Underscore normalization closes the gap between user phrasing ("coffee shop")
@@ -789,14 +788,19 @@ def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
             # category-match conditions. Substring match on names produced false
             # positives — "vet" matched "Brooke Vetter, OD" (an optometrist) and
             # "bar" matched "Bare Body and Beauty Bar" + "Barnet Dulaney Perkins
-            # Eye Center". Provider name isn't a category column; the actual
-            # category signals are Provider.category, description, and the Google
-            # taxonomy fields. Minor recall loss (e.g. "tacos" in a restaurant
-            # name with a generic category) is acceptable vs. the wrong-category
-            # bugs the battery surfaced.
+            # Eye Center".
+            #
+            # Voice-battery 2026-05-08: dropped Provider.description for the same
+            # reason. "i need a plumber" matched "Air Control Home Services" (HVAC)
+            # because their narrative description mentioned plumbing as an
+            # adjacent service. Description is a free-text field, not a taxonomy
+            # column; substring match catches narrative mentions that aren't the
+            # provider's primary category. Minor recall loss for businesses whose
+            # only category signal is in their description text is acceptable vs.
+            # the wrong-category bugs the battery surfaced. The actual category
+            # signals are now strictly the taxonomy fields below.
             conditions = [
                 Provider.category.ilike(cat_like),
-                Provider.description.ilike(cat_like),
                 norm_primary.ilike(cat_like),
                 norm_categories.ilike(cat_like),
             ]
@@ -804,7 +808,6 @@ def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
                 conditions.extend(
                     [
                         Provider.category.ilike(cat_singular_like),
-                        Provider.description.ilike(cat_singular_like),
                         norm_primary.ilike(cat_singular_like),
                         norm_categories.ilike(cat_singular_like),
                     ]

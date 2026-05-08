@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hava — answer rendering for businesses</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f7f5ef;
+    --bg-2: #f1eee5;
+    --paper: #ffffff;
+    --ink: #14140f;
+    --ink-2: #4a4a44;
+    --ink-3: #8b8b82;
+    --ink-4: #b3b3aa;
+    --rule: rgba(20,20,15,0.10);
+    --rule-soft: rgba(20,20,15,0.06);
+    --rule-hair: rgba(20,20,15,0.04);
+    --accent: #0e6e7c;
+    --accent-deep: #064551;
+    --accent-soft: rgba(14,110,124,0.08);
+    --warm: #b8623d;
+    --warm-soft: rgba(184,98,61,0.10);
+    --open: #5a8a4f;
+    --open-soft: rgba(90,138,79,0.10);
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --serif: "Fraunces", "Source Serif 4", Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.55;
+    font-feature-settings: "ss01", "cv01", "cv11";
+  }
+  a { color: var(--accent); text-decoration: none; }
+  img { display: block; max-width: 100%; }
+
+  .page { max-width: 880px; margin: 0 auto; padding: 20px 16px 100px; }
+
+  /* topbar */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0 24px;
+  }
+  .wordmark { display: flex; align-items: center; gap: 11px; font-weight: 500; font-size: 17px; letter-spacing: -0.012em; }
+  .wordmark .mark {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #1797a8 0%, #0e6e7c 55%, #064551 100%);
+  }
+  .topbar-meta { font-size: 13px; color: var(--ink-3); display: flex; gap: 14px; align-items: center; }
+  .topbar-meta a { color: var(--ink-2); }
+
+  /* intro */
+  .intro {
+    text-align: center;
+    padding: 8px 0 40px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .intro .eyebrow {
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.22em; color: var(--ink-3);
+    font-weight: 500; margin: 0 0 14px;
+  }
+  .intro h1 {
+    font-family: var(--serif);
+    font-size: clamp(32px, 5vw, 48px);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    font-weight: 300;
+    margin: 0 0 14px;
+    font-variation-settings: "opsz" 144;
+  }
+  .intro h1 em { font-style: italic; color: var(--accent-deep); }
+  .intro p { font-size: 15px; color: var(--ink-2); margin: 0; }
+
+  /* demo */
+  .demo {
+    margin-top: 64px;
+    padding-top: 32px;
+    border-top: 1px solid var(--rule);
+  }
+  .demo-label {
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.22em; color: var(--ink-3);
+    font-weight: 500;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+
+  /* chat turns */
+  .turn-user {
+    display: flex; justify-content: flex-end;
+    margin-bottom: 20px;
+  }
+  .turn-user .bubble {
+    background: var(--warm-soft);
+    color: var(--ink);
+    padding: 10px 16px;
+    border-radius: 18px 18px 4px 18px;
+    font-size: 15px;
+    max-width: 80%;
+    border: 1px solid rgba(184,98,61,0.14);
+  }
+  .turn-hava {
+    margin-bottom: 22px;
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .turn-hava .avatar {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #1797a8 0%, #0e6e7c 55%, #064551 100%);
+    flex-shrink: 0;
+    margin-top: 4px;
+  }
+  .turn-hava .said { flex: 1; min-width: 0; }
+  .turn-hava p {
+    font-family: var(--serif);
+    font-size: 19px;
+    line-height: 1.4;
+    color: var(--ink);
+    margin: 0;
+    font-weight: 400;
+    letter-spacing: -0.012em;
+    font-variation-settings: "opsz" 60;
+  }
+  .turn-hava p em { font-style: italic; color: var(--accent-deep); }
+  .turn-hava p a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* business_list component */
+  .biz-list {
+    background: var(--paper);
+    border: 1px solid var(--rule-hair);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(20,20,15,0.03), 0 12px 28px -20px rgba(20,20,15,0.10);
+    margin-top: 8px;
+  }
+  .biz-list-head {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--rule-soft);
+    display: flex; align-items: baseline; justify-content: space-between;
+    background: linear-gradient(180deg, rgba(247,245,239,0.5) 0%, transparent 100%);
+  }
+  .biz-list-head .title {
+    font-family: var(--serif);
+    font-size: 18px; font-weight: 400;
+    letter-spacing: -0.012em;
+    font-variation-settings: "opsz" 60;
+  }
+  .biz-list-head .count {
+    font-size: 11px; color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: 0.16em; font-weight: 500;
+  }
+
+  .biz-row {
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    gap: 12px;
+    padding: 14px 16px;
+    border-top: 1px solid var(--rule-hair);
+    text-decoration: none;
+    color: var(--ink);
+    transition: background .15s ease;
+    position: relative;
+  }
+  .biz-row:first-of-type { border-top: 0; }
+  .biz-row:hover { background: rgba(14,110,124,0.03); }
+  .biz-row.is-spotlight {
+    background: linear-gradient(180deg, rgba(184,98,61,0.04) 0%, transparent 100%);
+  }
+  .biz-row.is-spotlight:hover {
+    background: linear-gradient(180deg, rgba(184,98,61,0.06) 0%, rgba(14,110,124,0.02) 100%);
+  }
+  .biz-row .thumb {
+    width: 64px; height: 64px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--bg-2);
+    flex-shrink: 0;
+  }
+  .biz-row .thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .biz-row .body { min-width: 0; }
+  .biz-row .head-line {
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    margin-bottom: 2px;
+  }
+  .biz-row .name {
+    font-family: var(--serif);
+    font-size: 18px; font-weight: 400;
+    letter-spacing: -0.012em;
+    line-height: 1.2;
+    margin: 0;
+    font-variation-settings: "opsz" 60;
+  }
+  .biz-row .spotlight-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--warm);
+    padding: 2px 8px 2px 6px;
+    border: 1px solid var(--warm-soft);
+    background: rgba(255,255,255,0.6);
+    border-radius: 999px;
+  }
+  .biz-row .spotlight-tag .dot {
+    width: 5px; height: 5px; border-radius: 50%; background: var(--warm);
+  }
+  .biz-row .meta {
+    font-size: 13px; color: var(--ink-3);
+    line-height: 1.4;
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap;
+  }
+  .biz-row .meta .cat { color: var(--ink-2); font-weight: 500; letter-spacing: -0.005em; }
+  .biz-row .meta .sep { color: var(--ink-4); }
+  .biz-row .rating {
+    display: inline-flex; align-items: center; gap: 4px;
+    color: var(--ink-2); font-weight: 500;
+  }
+  .biz-row .rating svg { width: 12px; height: 12px; color: var(--warm); }
+  .biz-row .blurb {
+    font-size: 13.5px;
+    color: var(--ink-2);
+    line-height: 1.5;
+    margin: 6px 0 0;
+  }
+  .biz-row .actions {
+    margin-top: 10px;
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .biz-row .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    font-size: 12.5px;
+    color: var(--ink-2);
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    text-decoration: none;
+  }
+  .biz-row .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--paper);
+  }
+  .biz-row .btn.primary:hover { background: var(--accent-deep); }
+  .biz-row .btn svg { width: 12px; height: 12px; }
+  .biz-row .status {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11.5px; font-weight: 500;
+    letter-spacing: 0.04em;
+    padding: 2px 8px 2px 6px;
+    border-radius: 999px;
+  }
+  .biz-row .status.open { background: var(--open-soft); color: var(--open); }
+  .biz-row .status.closed { background: rgba(20,20,15,0.06); color: var(--ink-3); }
+  .biz-row .status .dot {
+    width: 5px; height: 5px; border-radius: 50%; background: currentColor;
+  }
+  .biz-list-foot {
+    padding: 12px 16px;
+    border-top: 1px solid var(--rule-soft);
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12.5px;
+    color: var(--ink-3);
+    background: linear-gradient(0deg, rgba(247,245,239,0.4) 0%, transparent 100%);
+  }
+  .biz-list-foot .disclosure {
+    font-size: 11px;
+    color: var(--ink-4);
+    letter-spacing: 0.02em;
+  }
+  .biz-list-foot a { color: var(--ink-2); }
+
+  /* single business card */
+  .biz-card {
+    background: var(--paper);
+    border: 1px solid var(--rule-hair);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(20,20,15,0.03), 0 12px 28px -20px rgba(20,20,15,0.10);
+    margin-top: 8px;
+  }
+  .biz-card .img {
+    aspect-ratio: 16 / 9;
+    background: linear-gradient(135deg, var(--bg-2), #e9e3d6);
+    overflow: hidden;
+  }
+  .biz-card .img img { width: 100%; height: 100%; object-fit: cover; }
+  .biz-card .body { padding: 18px 20px 20px; }
+  .biz-card .meta-row {
+    font-size: 12px;
+    color: var(--ink-3);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 500;
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 6px;
+  }
+  .biz-card .meta-row .tag-dot {
+    width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+  }
+  .biz-card h3 {
+    font-family: var(--serif);
+    font-size: 28px;
+    font-weight: 400;
+    letter-spacing: -0.018em;
+    line-height: 1.1;
+    margin: 0 0 8px;
+    font-variation-settings: "opsz" 60;
+  }
+  .biz-card .summary {
+    font-size: 14.5px;
+    color: var(--ink-2);
+    line-height: 1.55;
+    margin: 0 0 14px;
+  }
+  .biz-card .facts {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px 0;
+    border-top: 1px solid var(--rule-hair);
+    border-bottom: 1px solid var(--rule-hair);
+    margin-bottom: 14px;
+  }
+  .biz-card .fact {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 12px;
+    align-items: baseline;
+    font-size: 13.5px;
+  }
+  .biz-card .fact .key {
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 10.5px;
+    color: var(--ink-3);
+    font-weight: 500;
+  }
+  .biz-card .fact .val { color: var(--ink); }
+  .biz-card .fact .val a { color: var(--accent); }
+  .biz-card .actions {
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .biz-card .btn {
+    flex: 1 1 auto;
+    text-align: center;
+    padding: 10px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+    font-size: 13.5px;
+    color: var(--ink);
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    text-decoration: none;
+  }
+  .biz-card .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--paper);
+  }
+  .biz-card .reviews {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--rule-hair);
+  }
+  .biz-card .reviews .label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--ink-3);
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  .biz-card .review {
+    font-size: 13.5px;
+    color: var(--ink-2);
+    line-height: 1.55;
+    font-style: italic;
+    margin: 0;
+  }
+  .biz-card .review-attr {
+    font-size: 11.5px;
+    color: var(--ink-3);
+    margin-top: 4px;
+    font-style: normal;
+  }
+
+  /* sticky composer at bottom */
+  .stuck-composer {
+    position: sticky;
+    bottom: 12px;
+    margin-top: 28px;
+    z-index: 5;
+  }
+  .stuck-composer .composer {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding: 6px 6px 6px 18px;
+    box-shadow: 0 4px 16px -4px rgba(20,20,15,0.12), 0 1px 3px rgba(20,20,15,0.04);
+  }
+  .stuck-composer .composer input {
+    flex: 1; border: 0; outline: 0; background: transparent;
+    font: inherit; font-size: 15px; color: var(--ink); padding: 10px 0;
+  }
+  .stuck-composer .composer input::placeholder { color: var(--ink-3); }
+  .stuck-composer .composer .send {
+    width: 36px; height: 36px; border: 0; border-radius: 999px;
+    background: var(--ink); color: var(--paper);
+    cursor: pointer; display: grid; place-items: center;
+  }
+  .stuck-composer .composer .send svg { width: 14px; height: 14px; }
+
+  .pagefoot {
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    color: var(--ink-3);
+    font-size: 12.5px;
+    display: flex; justify-content: space-between;
+  }
+  .pagefoot a { color: var(--ink-2); }
+
+  /* desktop progressive enhancement */
+  @media (min-width: 720px) {
+    .page { padding: 24px 32px 80px; }
+    .topbar { padding-bottom: 32px; }
+    .intro { padding-bottom: 56px; }
+    .turn-hava p { font-size: 22px; }
+    .demo { margin-top: 80px; padding-top: 40px; }
+    .biz-list-head { padding: 18px 24px; }
+    .biz-row {
+      grid-template-columns: 88px 1fr auto;
+      gap: 18px;
+      padding: 16px 24px;
+      align-items: center;
+    }
+    .biz-row .thumb { width: 88px; height: 88px; }
+    .biz-row .name { font-size: 19px; }
+    .biz-row .actions {
+      margin-top: 0;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+    .biz-list-foot { padding: 14px 24px; }
+    .biz-card .body { padding: 24px 28px 28px; }
+    .biz-card h3 { font-size: 32px; }
+    .biz-card .facts { grid-template-columns: repeat(2, 1fr); gap: 10px 24px; }
+    .stuck-composer { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="topbar">
+    <div class="wordmark"><span class="mark"></span>Hava</div>
+    <div class="topbar-meta">
+      <span>Lake Havasu City · May 7</span>
+      <a href="#">Add to catalog</a>
+    </div>
+  </header>
+
+  <section class="intro">
+    <p class="eyebrow">After you ask Hava about a service</p>
+    <h1>Three I'd <em>send you to</em>.</h1>
+    <p>Same architecture as the events answer — Hava speaks short, the data renders below. Spotlights are paid placement, clearly disclosed.</p>
+  </section>
+
+  <!-- DEMO 1: business_list with spotlight -->
+  <section class="demo">
+    <div class="demo-label">Service search · business_list</div>
+
+    <div class="turn-user"><div class="bubble">Need a plumber for a leaky faucet — who's good?</div></div>
+
+    <div class="turn-hava">
+      <span class="avatar"></span>
+      <div class="said">
+        <p>Three I'd send you to — <em>Aqua Bros</em> for fast turnaround, <a href="#">Bridgewater</a> if you want someone who'll explain it, and McCulloch as the budget option.</p>
+      </div>
+    </div>
+
+    <div class="biz-list">
+      <div class="biz-list-head">
+        <span class="title">Plumbers in Havasu</span>
+        <span class="count">3 of 14</span>
+      </div>
+
+      <a class="biz-row is-spotlight" href="#">
+        <div class="thumb"><img loading="lazy" alt="" src="https://images.unsplash.com/photo-1607400201515-c2c41c07d307?w=400&q=80&auto=format&fit=crop"></div>
+        <div class="body">
+          <div class="head-line">
+            <h4 class="name">Aqua Bros Plumbing</h4>
+            <span class="spotlight-tag"><span class="dot"></span>Spotlight</span>
+          </div>
+          <div class="meta">
+            <span class="cat">Plumbing</span>
+            <span class="sep">·</span>
+            <span class="rating"><svg viewBox="0 0 12 12" fill="currentColor"><path d="M6 1l1.5 3.5L11 5l-2.5 2.5L9 11 6 9.5 3 11l.5-3.5L1 5l3.5-.5z"/></svg>4.9 (64)</span>
+            <span class="sep">·</span>
+            <span class="status open"><span class="dot"></span>Open · until 6</span>
+          </div>
+          <p class="blurb">Family-run, on McCulloch since '04. After-hours line through Saturday — leaky faucets are usually next-day.</p>
+          <div class="actions">
+            <a class="btn primary" href="tel:9285550112">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4c0 5 4 9 9 9l1-3-3-1-1 1c-2-1-3-2-4-4l1-1-1-3z"/></svg>
+              Call (928) 555-0112
+            </a>
+            <a class="btn" href="#">Directions</a>
+          </div>
+        </div>
+      </a>
+
+      <a class="biz-row" href="#">
+        <div class="thumb"><img loading="lazy" alt="" src="https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?w=400&q=80&auto=format&fit=crop"></div>
+        <div class="body">
+          <div class="head-line">
+            <h4 class="name">Bridgewater Plumbing &amp; Drain</h4>
+          </div>
+          <div class="meta">
+            <span class="cat">Plumbing · Drain cleaning</span>
+            <span class="sep">·</span>
+            <span class="rating"><svg viewBox="0 0 12 12" fill="currentColor"><path d="M6 1l1.5 3.5L11 5l-2.5 2.5L9 11 6 9.5 3 11l.5-3.5L1 5l3.5-.5z"/></svg>4.7 (42)</span>
+            <span class="sep">·</span>
+            <span class="status open"><span class="dot"></span>Open · until 5</span>
+          </div>
+          <p class="blurb">Two-person shop, careful work, transparent quotes. Will walk you through what they're doing.</p>
+          <div class="actions">
+            <a class="btn primary" href="tel:9285550144">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4c0 5 4 9 9 9l1-3-3-1-1 1c-2-1-3-2-4-4l1-1-1-3z"/></svg>
+              Call
+            </a>
+            <a class="btn" href="#">Directions</a>
+          </div>
+        </div>
+      </a>
+
+      <a class="biz-row" href="#">
+        <div class="thumb"><img loading="lazy" alt="" src="https://images.unsplash.com/photo-1542013936693-884638332954?w=400&q=80&auto=format&fit=crop"></div>
+        <div class="body">
+          <div class="head-line">
+            <h4 class="name">McCulloch Plumbing Co.</h4>
+          </div>
+          <div class="meta">
+            <span class="cat">Plumbing</span>
+            <span class="sep">·</span>
+            <span class="rating"><svg viewBox="0 0 12 12" fill="currentColor"><path d="M6 1l1.5 3.5L11 5l-2.5 2.5L9 11 6 9.5 3 11l.5-3.5L1 5l3.5-.5z"/></svg>4.5 (28)</span>
+            <span class="sep">·</span>
+            <span class="status closed"><span class="dot"></span>Closed · opens 8 am</span>
+          </div>
+          <p class="blurb">Older shop, no frills, fair pricing. They book a few days out, so call early.</p>
+          <div class="actions">
+            <a class="btn primary" href="tel:9285550178">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4c0 5 4 9 9 9l1-3-3-1-1 1c-2-1-3-2-4-4l1-1-1-3z"/></svg>
+              Call
+            </a>
+            <a class="btn" href="#">Directions</a>
+          </div>
+        </div>
+      </a>
+
+      <div class="biz-list-foot">
+        <span class="disclosure">Spotlight = paid placement. Hava's recommendations aren't pay-to-play.</span>
+        <a href="#">See all 14 →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- DEMO 2: smaller business_list -->
+  <section class="demo">
+    <div class="demo-label">Smaller list — only two matches</div>
+
+    <div class="turn-user"><div class="bubble">Where do I take my dog for grooming?</div></div>
+
+    <div class="turn-hava">
+      <span class="avatar"></span>
+      <div class="said">
+        <p>Two close by — both walk-ins, both small operations.</p>
+      </div>
+    </div>
+
+    <div class="biz-list">
+      <div class="biz-list-head">
+        <span class="title">Pet grooming</span>
+        <span class="count">2 of 2</span>
+      </div>
+      <a class="biz-row" href="#">
+        <div class="thumb"><img loading="lazy" alt="" src="https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=400&q=80&auto=format&fit=crop"></div>
+        <div class="body">
+          <div class="head-line"><h4 class="name">Lakeside Paws</h4></div>
+          <div class="meta">
+            <span class="cat">Pet grooming</span>
+            <span class="sep">·</span>
+            <span class="rating"><svg viewBox="0 0 12 12" fill="currentColor"><path d="M6 1l1.5 3.5L11 5l-2.5 2.5L9 11 6 9.5 3 11l.5-3.5L1 5l3.5-.5z"/></svg>4.8 (51)</span>
+            <span class="sep">·</span>
+            <span class="status open"><span class="dot"></span>Open · until 5</span>
+          </div>
+          <p class="blurb">Walk-ins okay before noon. Two groomers, doodles welcome.</p>
+          <div class="actions">
+            <a class="btn primary" href="tel:9285550161">Call</a>
+            <a class="btn" href="#">Directions</a>
+          </div>
+        </div>
+      </a>
+      <a class="biz-row" href="#">
+        <div class="thumb"><img loading="lazy" alt="" src="https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=400&q=80&auto=format&fit=crop"></div>
+        <div class="body">
+          <div class="head-line"><h4 class="name">Channel Critters</h4></div>
+          <div class="meta">
+            <span class="cat">Pet grooming · daycare</span>
+            <span class="sep">·</span>
+            <span class="rating"><svg viewBox="0 0 12 12" fill="currentColor"><path d="M6 1l1.5 3.5L11 5l-2.5 2.5L9 11 6 9.5 3 11l.5-3.5L1 5l3.5-.5z"/></svg>4.6 (33)</span>
+            <span class="sep">·</span>
+            <span class="status open"><span class="dot"></span>Open · until 6</span>
+          </div>
+          <p class="blurb">Family-run. Daycare too if you need a few hours. Cash or Venmo.</p>
+          <div class="actions">
+            <a class="btn primary" href="tel:9285550182">Call</a>
+            <a class="btn" href="#">Directions</a>
+          </div>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <!-- DEMO 3: single business card -->
+  <section class="demo">
+    <div class="demo-label">Single venue lookup · single_card</div>
+
+    <div class="turn-user"><div class="bubble">Tell me about Aqua Bros Plumbing</div></div>
+
+    <div class="turn-hava">
+      <span class="avatar"></span>
+      <div class="said">
+        <p>They're on McCulloch, open till 6 today, after-hours line through Saturday.</p>
+      </div>
+    </div>
+
+    <article class="biz-card">
+      <div class="img"><img loading="lazy" alt="" src="https://images.unsplash.com/photo-1607400201515-c2c41c07d307?w=900&q=80&auto=format&fit=crop"></div>
+      <div class="body">
+        <div class="meta-row">
+          <span class="tag-dot"></span>
+          Plumbing
+          <span class="status open"><span class="dot"></span>Open · until 6</span>
+        </div>
+        <h3>Aqua Bros Plumbing</h3>
+        <p class="summary">Family-run shop on McCulloch since 2004. Service calls, drain cleaning, water heaters, repipes. Two trucks, real pickup, same-day for emergencies.</p>
+
+        <div class="facts">
+          <div class="fact"><span class="key">Hours</span><span class="val">Mon–Fri 8–6 · Sat 9–2 · Closed Sun</span></div>
+          <div class="fact"><span class="key">Phone</span><span class="val"><a href="tel:9285550112">(928) 555-0112</a></span></div>
+          <div class="fact"><span class="key">Address</span><span class="val">2104 McCulloch Blvd, Lake Havasu City</span></div>
+          <div class="fact"><span class="key">Website</span><span class="val"><a href="#">aquabrosaz.com</a></span></div>
+          <div class="fact"><span class="key">Rating</span><span class="val">4.9 ★ · 64 reviews</span></div>
+          <div class="fact"><span class="key">After hours</span><span class="val">Yes — call the same number</span></div>
+        </div>
+
+        <div class="actions">
+          <a class="btn primary" href="tel:9285550112">Call</a>
+          <a class="btn" href="#">Directions</a>
+          <a class="btn" href="#">Website</a>
+        </div>
+
+        <div class="reviews">
+          <div class="label">Recent review</div>
+          <p class="review">"Came out same afternoon for a slab leak. Walked us through it, fair price, no upsell."</p>
+          <p class="review-attr">— Jamie K. · 3 weeks ago</p>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- sticky composer (mobile) -->
+  <div class="stuck-composer">
+    <div class="composer">
+      <input type="text" placeholder="Ask Hava…">
+      <button class="send" aria-label="Send">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10m-4-4 4 4-4 4"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <footer class="pagefoot">
+    <span>Hava is your local · Lake Havasu City</span>
+    <a href="#">Add to catalog →</a>
+  </footer>
+
+</div>
+</body>
+</html>
