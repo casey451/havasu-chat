@@ -17,6 +17,8 @@ def test_post_api_chat_returns_concierge_shape() -> None:
     body = r.json()
     assert set(body.keys()) == {
         "response",
+        "voice",
+        "component",
         "mode",
         "sub_intent",
         "entity",

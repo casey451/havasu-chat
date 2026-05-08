@@ -119,7 +119,7 @@ def test_contribute_placeholder_contains_sub_intent(db: Session) -> None:
     r = route("I want to add a concert at the park on Friday at 8pm.", "sess-co", db)
     assert r.mode == "contribute"
     assert r.sub_intent == "NEW_EVENT"
-    assert r.tier_used == "placeholder"
+    assert r.tier_used == "intake"  # Updated 2026-05-08 after tier name rename
     assert "Contribute mode:" in r.response
     assert "NEW_EVENT" in r.response
 
@@ -129,7 +129,7 @@ def test_correct_acknowledgment(db: Session) -> None:
     r = route("That is wrong — the phone changed.", "sess-cr", db)
     assert r.mode == "correct"
     assert r.sub_intent == "CORRECTION"
-    assert r.response == "Huh, didn't know — want to update it?"
+    assert r.response == "Got it — flagging that for admin review."  # Updated 2026-05-08 to match tier1_templates.py:227
 
 
 def test_chat_greeting_one_of_variants(db: Session) -> None:
