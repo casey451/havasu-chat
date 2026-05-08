@@ -3,13 +3,122 @@
 from __future__ import annotations
 
 import logging
+import re
+from datetime import date
 from typing import Optional
 
 from app.chat import tier2_business_shortcut, tier2_db_query, tier2_formatter, tier2_parser
 from app.chat.tier2_schema import Tier2Filters
+from app.core.timezone import now_lake_havasu
 
 # Parser scores below this threshold skip Tier 2 and defer to Tier 3 (tunable in a later phase).
 TIER2_CONFIDENCE_THRESHOLD = 0.7
+
+_MONTHS: dict[str, int] = {
+    "january": 1,
+    "jan": 1,
+    "february": 2,
+    "feb": 2,
+    "march": 3,
+    "mar": 3,
+    "april": 4,
+    "apr": 4,
+    "may": 5,
+    "june": 6,
+    "jun": 6,
+    "july": 7,
+    "jul": 7,
+    "august": 8,
+    "aug": 8,
+    "september": 9,
+    "sep": 9,
+    "sept": 9,
+    "october": 10,
+    "oct": 10,
+    "november": 11,
+    "nov": 11,
+    "december": 12,
+    "dec": 12,
+}
+
+_MONTH_DAY_RE = re.compile(
+    r"\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)?\s*"
+    r"(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|"
+    r"jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+    r"\s+(\d{1,2})(?:st|nd|rd|th)?(?:,\s*(20\d{2}))?\b",
+    re.IGNORECASE,
+)
+
+
+def _explicit_month_day(query: str) -> date | None:
+    m = _MONTH_DAY_RE.search(query or "")
+    if not m:
+        return None
+    month = _MONTHS[m.group(1).lower()]
+    day = int(m.group(2))
+    today = now_lake_havasu().date()
+    year = int(m.group(3)) if m.group(3) else today.year
+    try:
+        d = date(year, month, day)
+    except ValueError:
+        return None
+    if m.group(3) is None and d < today:
+        try:
+            d = date(year + 1, month, day)
+        except ValueError:
+            return None
+    return d
+
+
+def _normalize_tier2_filters_from_query(query: str, filters: Tier2Filters) -> Tier2Filters:
+    """Correct common LLM-router date/category drift with deterministic query facts."""
+    q = query or ""
+    low = q.lower()
+    updates: dict[str, object] = {}
+
+    if explicit := _explicit_month_day(q):
+        updates.update(
+            {
+                "date_exact": explicit,
+                "date_start": None,
+                "date_end": None,
+                "time_window": None,
+                "month_name": None,
+                "season": None,
+                "day_of_week": None,
+            }
+        )
+    elif "this weekend" in low:
+        updates.update(
+            {
+                "time_window": "this_weekend",
+                "date_exact": None,
+                "date_start": None,
+                "date_end": None,
+                "month_name": None,
+                "season": None,
+                "day_of_week": None,
+            }
+        )
+    elif "this week" in low:
+        updates.update(
+            {
+                "time_window": "this_week",
+                "date_exact": None,
+                "date_start": None,
+                "date_end": None,
+                "month_name": None,
+                "season": None,
+                "day_of_week": None,
+            }
+        )
+
+    if re.search(r"\bart(?:s| class| classes| workshop| workshops)?\b", low):
+        updates["category"] = "arts"
+
+    if not updates:
+        return filters
+    return filters.model_copy(update=updates)
 
 
 def try_tier2_with_usage(
@@ -53,6 +162,7 @@ def try_tier2_with_usage(
         logging.info("tier2_handler: fallback: low confidence")
         return None, None, None, None
 
+    filters = _normalize_tier2_filters_from_query(q, filters)
     rows = tier2_db_query.query(filters)
     if len(rows) == 0:
         logging.info("tier2_handler: fallback: no matches")
@@ -95,6 +205,7 @@ def try_tier2_with_filters_with_usage(
         logging.info("tier2_handler: fallback: router filters low confidence")
         return None, None, None, None
 
+    filters = _normalize_tier2_filters_from_query(q, filters)
     rows = tier2_db_query.query(filters)
     if len(rows) == 0:
         logging.info("tier2_handler: fallback: no matches")

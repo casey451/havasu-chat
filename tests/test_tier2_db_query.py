@@ -237,6 +237,19 @@ def test_time_window_this_month(db: Session, monkeypatch: pytest.MonkeyPatch) ->
     assert not any("July" in r["name"] and suf in r["name"] for r in rows)
 
 
+def test_time_window_this_week_is_rolling_seven_days(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 5, 7))
+    suf = _suffix()
+    pv = _prov(db, name=f"RollingWeekOrg {suf}")
+    _evt(db, title=f"Six days out {suf}", on_date=date(2026, 5, 13), provider=pv)
+    _evt(db, title=f"Seven days out {suf}", on_date=date(2026, 5, 14), provider=pv)
+    db.commit()
+    rows = tier2_query(Tier2Filters(parser_confidence=0.9, entity_name=suf, time_window="this_week"))
+    names = [r["name"] for r in rows if r["type"] == "event"]
+    assert f"Six days out {suf}" in names
+    assert f"Seven days out {suf}" not in names
+
+
 def test_empty_filters_returns_sample(db: Session) -> None:
     suf = _suffix()
     pv = _prov(db, name=f"Sample Prov {suf}")
@@ -278,6 +291,48 @@ def test_event_category_can_match_tags_only(db: Session, monkeypatch: pytest.Mon
     db.commit()
     rows = tier2_query(Tier2Filters(parser_confidence=0.9, category=tag, time_window="next_week"))
     assert any(r["type"] == "event" and f"Mason Jar Terrarium {suf}" == r["name"] for r in rows)
+
+
+def test_arts_category_does_not_match_martial_arts_program(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 5, 7))
+    suf = _suffix()
+    pv = _prov(db, name=f"MartialArtsOrg {suf}")
+    _prog(
+        db,
+        title=f"Jiu Jitsu {suf}",
+        provider=pv,
+        activity_category="martial_arts",
+    )
+    db.commit()
+    rows = tier2_query(Tier2Filters(parser_confidence=0.9, category="arts", time_window="this_week"))
+    assert not any(r["type"] == "program" and f"Jiu Jitsu {suf}" == r["name"] for r in rows)
+
+
+def test_temporal_category_query_returns_dated_events_only(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 5, 7))
+    suf = _suffix()
+    pv = _prov(db, name=f"TemporalArtsOrg {suf}", category=f"arts-{suf}")
+    _prog(
+        db,
+        title=f"Undated Art Program {suf}",
+        provider=pv,
+        activity_category="arts",
+    )
+    _evt(
+        db,
+        title=f"Dated Art Event {suf}",
+        on_date=date(2026, 5, 13),
+        provider=pv,
+        tags=["arts"],
+    )
+    db.commit()
+    rows = tier2_query(Tier2Filters(parser_confidence=0.9, category="arts", time_window="this_week"))
+    assert any(r["type"] == "event" and f"Dated Art Event {suf}" == r["name"] for r in rows)
+    assert all(r["type"] == "event" for r in rows)
 
 
 def test_this_weekend_window_includes_upcoming_friday(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:

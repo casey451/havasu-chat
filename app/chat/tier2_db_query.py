@@ -228,9 +228,7 @@ def _resolve_time_window(
         t = ref + timedelta(days=1)
         return t, t
     if tw == "this_week":
-        start = ref - timedelta(days=ref.weekday())
-        end = start + timedelta(days=6)
-        return start, end
+        return ref, ref + timedelta(days=6)
     if tw == "this_weekend":
         wd = ref.weekday()
         if wd < 4:
@@ -382,7 +380,13 @@ def _category_match_event(e: Event, cat: str) -> bool:
 
 def _category_match_program(p: Program, cat: str) -> bool:
     c = cat.strip().lower()
-    if c in (p.title or "").lower() or c in (p.activity_category or "").lower():
+    if c in (p.title or "").lower():
+        return True
+    activity_category = (p.activity_category or "").lower()
+    if c in ("art", "arts"):
+        if activity_category in ("art", "arts"):
+            return True
+    elif c in activity_category:
         return True
     if c in (p.description or "").lower():
         return True
@@ -699,7 +703,7 @@ def _query_events(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
 
 
 def _query_programs(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
-    if _only_time_window(filters):
+    if _has_temporal_filter(filters):
         return []
 
     q = select(Program).where(Program.is_active.is_(True), Program.draft.is_(False))
@@ -744,7 +748,7 @@ def _query_programs(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
 
 
 def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
-    if _only_time_window(filters):
+    if _has_temporal_filter(filters):
         return []
 
     fmin, fmax = _age_bounds(filters)
