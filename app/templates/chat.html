@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{% if initial_query %}{{ initial_query }} — Hava{% else %}Chat — Hava{% endif %}</title>
+  <meta name="description" content="Ask Hava about anything in Lake Havasu City — restaurants, classes, what's open, what's worth your Saturday.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles/chat.css">
+</head>
+<body>
+
+<div class="page">
+
+  {# ─────────── topbar ─────────── #}
+  <header class="topbar">
+    <a class="wordmark" href="/home">
+      <span class="mark"></span>
+      <span>Hava</span>
+    </a>
+    <div class="topbar-meta">
+      <a href="/home">Back to Hava</a>
+    </div>
+  </header>
+
+  {# ─────────── empty state ─────────── #}
+  <section id="empty-state" class="empty-state">
+    <p class="eyebrow">Ask me anything</p>
+    <h1>I'm <em>your local</em>.</h1>
+    <p>Plumbers, restaurants, classes this week, what's open at 11. Try one:</p>
+    <div class="chips">
+      <button class="chip" data-q="What's happening tonight?">what's on tonight</button>
+      <button class="chip" data-q="Find me a plumber">find a plumber</button>
+      <button class="chip" data-q="Where's good for date night?">date night</button>
+      <button class="chip" data-q="What's open right now?">open right now</button>
+      <button class="chip" data-q="Junk removal in Havasu">junk removal</button>
+      <button class="chip" data-q="Kid-friendly stuff this weekend">kid-friendly</button>
+    </div>
+  </section>
+
+  {# ─────────── chat thread (populated by chat-new.js) ─────────── #}
+  <main id="thread" class="thread" role="log" aria-live="polite"></main>
+
+</div>
+
+{# ─────────── sticky composer ─────────── #}
+<div class="stuck-composer">
+  <form class="composer" id="composer-form" autocomplete="off">
+    <input
+      id="composer-input"
+      type="text"
+      name="q"
+      placeholder="Ask Hava…"
+      enterkeyhint="send"
+      autofocus
+    >
+    <button id="composer-send" class="send" type="submit" aria-label="Send">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 8h10m-4-4 4 4-4 4"/>
+      </svg>
+    </button>
+  </form>
+</div>
+
+{# Initial query from /chat?q=… is read by chat-new.js from the URL. #}
+<script type="module" src="/static/js/chat-new.js"></script>
+
+</body>
+</html>

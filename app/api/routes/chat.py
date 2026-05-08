@@ -31,6 +31,7 @@ from app.schemas.chat import (
     ChatFeedbackResponse,
     ChatOnboardingRequest,
     ChatOnboardingResponse,
+    ComponentPayload,
     ConciergeChatRequest,
     ConciergeChatResponse,
 )
@@ -58,8 +59,17 @@ def post_concierge_chat(
             result.response,
             SessionLocal,
         )
+    # BUILD.md step 5: emit voice + component alongside legacy `response`.
+    # `voice` defaults to `response` until handlers populate it explicitly;
+    # `component` is "none" for now and lights up in steps 6+ as each query
+    # shape gets its renderer.
     return ConciergeChatResponse(
         response=result.response,
+        voice=result.voice or result.response,
+        component=ComponentPayload(
+            type=result.component_type,
+            data=result.component_data,
+        ),
         mode=result.mode,
         sub_intent=result.sub_intent,
         entity=result.entity,

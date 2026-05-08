@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Hava — Lake Havasu City</title>
+  <meta name="description" content="The AI local of Lake Havasu City. Ask Hava about plumbers, restaurants, classes, what's open, what's worth your Saturday.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles/home.css">
+</head>
+<body>
+
+<div class="page">
+
+  {# ─────────── topbar ─────────── #}
+  <header class="topbar">
+    <a class="wordmark" href="/home">
+      <span class="mark"></span>
+      <span>Hava</span>
+    </a>
+    <div class="topbar-meta">
+      <span class="dateline">Lake Havasu City · {{ today_label }}</span>
+      <span class="sep"></span>
+      <a href="/contribute">Add to catalog</a>
+    </div>
+  </header>
+
+  {# ─────────── hero ─────────── #}
+  <section class="hero">
+    <p class="eyebrow"><span class="pulse"></span>Today in Havasu</p>
+    <h1>Anything in <em>Havasu</em>.</h1>
+    <p class="lede">A plumber, a date spot, what's on tonight, who's open at 11. I'm your local — ask me.</p>
+
+    <form class="composer" action="/chat" method="get" role="search">
+      <span class="leading">
+        <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="8" cy="8" r="5"/><path d="m12 12 3 3"/>
+        </svg>
+      </span>
+      <input type="text" name="q" placeholder="Ask Hava — a plumber, date night, what's on tonight…" autocomplete="off">
+      <button class="send" type="submit" aria-label="Send">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 8h10m-4-4 4 4-4 4"/>
+        </svg>
+      </button>
+    </form>
+
+    <div class="chips" role="list">
+      {% for chip in chips %}
+        <a class="chip" href="/chat?q={{ chip|urlencode }}" role="listitem">{{ chip }}</a>
+      {% endfor %}
+    </div>
+  </section>
+
+  {# ─────────── pros & services strip ─────────── #}
+  <section class="cat-strip">
+    <div class="cat-strip-head">
+      <span class="cat-strip-label">Pros &amp; services</span>
+      <a href="/chat?q=browse+all+categories" class="cat-strip-link">See all categories →</a>
+    </div>
+    <div class="cat-tiles">
+      {% for cat in categories %}
+        <a class="cat-tile{% if cat.warm %} warm{% endif %}" href="/chat?q={{ cat.query|urlencode }}">
+          <span class="ic">
+            <svg viewBox="0 0 12 12" fill="currentColor" aria-hidden="true"><circle cx="6" cy="6" r="5"/></svg>
+          </span>
+          {{ cat.name }}
+        </a>
+      {% endfor %}
+    </div>
+  </section>
+
+  {# ─────────── Hava's read on tonight ─────────── #}
+  <section class="read">
+    <div class="label">Hava's read on tonight</div>
+    <blockquote>{{ hava_read.quote_html|safe }}</blockquote>
+    <div class="byline">— {{ hava_read.byline }}</div>
+  </section>
+
+  {# ─────────── Tonight ─────────── #}
+  <section class="row row-tonight">
+    <div class="row-head">
+      <h2>Tonight</h2>
+      <span class="sub">{{ today_label }}</span>
+    </div>
+    <div class="grid-feature">
+      {% for item in tonight %}
+        <a class="card{% if item.feature %} card-feature{% else %} card-side{% endif %}{% if item.is_business %} card-biz{% endif %}" href="{{ item.url }}">
+          {% if item.is_pick %}
+            <div class="havas-pick">
+              <svg viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
+                <path d="M6 1l1.5 3.5L11 5l-2.5 2.5L9 11 6 9.5 3 11l.5-3.5L1 5l3.5-.5z"/>
+              </svg>
+              Hava's pick
+            </div>
+          {% endif %}
+          <div class="img"{% if item.feature %} style="aspect-ratio: 16/10;"{% endif %}>
+            {% if item.image_url %}
+              <img loading="lazy" alt="{{ item.image_alt or item.name }}" src="{{ item.image_url }}">
+            {% endif %}
+          </div>
+          <div class="body">
+            <div class="meta">
+              <span class="tag-dot{% if item.dot == 'warm' %} warm{% elif item.dot == 'live' %} live{% endif %}"></span>
+              {{ item.meta_text }}
+              {% if item.status %}
+                <span class="status {{ item.status }}"><span class="dot"></span>{{ item.status_text }}</span>
+              {% endif %}
+            </div>
+            <h3 class="name">{{ item.name }}</h3>
+            <p class="blurb">{{ item.blurb }}</p>
+            <div class="footer">
+              {% if item.phone %}
+                <a class="phone" href="tel:{{ item.phone_raw }}">{{ item.phone }}</a>
+              {% else %}
+                <span>{{ item.footer_text }}</span>
+              {% endif %}
+              <span class="arrow">→</span>
+            </div>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  </section>
+
+  {# ─────────── sponsor slot ─────────── #}
+  <aside class="sponsor">
+    <div class="sponsor-label">Sponsor</div>
+    {% if sponsor %}
+      <a class="sponsor-card" href="{{ sponsor.cta_url }}" target="_blank" rel="noopener">
+        <span class="sponsor-tag">Sponsored</span>
+        <div class="sp-img">
+          {% if sponsor.image_url %}<img loading="lazy" alt="{{ sponsor.name }}" src="{{ sponsor.image_url }}">{% endif %}
+        </div>
+        <div class="sp-body">
+          <div class="sp-eyebrow">{{ sponsor.eyebrow }}</div>
+          <h4 class="sp-name">{{ sponsor.name }}</h4>
+          <p class="sp-line">{{ sponsor.line }}</p>
+          <span class="sp-cta">{{ sponsor.cta_label }} →</span>
+        </div>
+      </a>
+      <p class="sponsor-foot">Hava is supported by local sponsors. <a href="/sponsor">Sponsor a slot.</a></p>
+    {% else %}
+      <a class="sponsor-fallback" href="/sponsor">
+        <div class="label">This slot is open</div>
+        <p class="pitch">Reach locals at the moment they're planning their day.</p>
+        <span class="cta">Sponsor a slot →</span>
+      </a>
+    {% endif %}
+  </aside>
+
+  {# ─────────── Local pros (spotlight) ─────────── #}
+  {% if spotlights %}
+  <section class="row row-spotlight">
+    <div class="row-head">
+      <h2>Local pros</h2>
+      <span class="sub">Spotlight · paid placement</span>
+    </div>
+    <div class="grid-3">
+      {% for biz in spotlights %}
+        <a class="card card-biz" href="{{ biz.url }}">
+          <span class="spotlight-badge"><span class="dot"></span>Spotlight</span>
+          <div class="img">
+            {% if biz.image_url %}
+              <img loading="lazy" alt="{{ biz.image_alt or biz.name }}" src="{{ biz.image_url }}">
+            {% endif %}
+          </div>
+          <div class="body">
+            <div class="meta">
+              <span class="tag-dot{% if biz.dot == 'warm' %} warm{% endif %}"></span>
+              {{ biz.category }}
+              <span class="status {{ biz.status }}"><span class="dot"></span>{{ biz.status_text }}</span>
+            </div>
+            <h3 class="name">{{ biz.name }}</h3>
+            <p class="blurb">{{ biz.blurb }}</p>
+            <div class="footer">
+              <a class="phone" href="tel:{{ biz.phone_raw }}">{{ biz.phone }}</a>
+              <span class="arrow">→</span>
+            </div>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {# ─────────── This week ─────────── #}
+  <section class="row">
+    <div class="row-head">
+      <h2>This week</h2>
+      {% if this_week_total %}
+        <a href="/chat?q=what%27s+on+this+week" class="sub-link">See all {{ this_week_total }} →</a>
+      {% endif %}
+    </div>
+    <div class="grid-3">
+      {% for item in this_week %}
+        <a class="card card-tall" href="{{ item.url }}">
+          {% if item.is_pick %}
+            <div class="havas-pick">
+              <svg viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
+                <path d="M6 1l1.5 3.5L11 5l-2.5 2.5L9 11 6 9.5 3 11l.5-3.5L1 5l3.5-.5z"/>
+              </svg>
+              Hava's pick
+            </div>
+          {% endif %}
+          <div class="img">
+            {% if item.image_url %}
+              <img loading="lazy" alt="{{ item.image_alt or item.name }}" src="{{ item.image_url }}">
+            {% endif %}
+          </div>
+          <div class="body">
+            <div class="meta">
+              <span class="tag-dot{% if item.dot == 'warm' %} warm{% elif item.dot == 'live' %} live{% endif %}"></span>
+              {{ item.meta_text }}
+            </div>
+            <h3 class="name">{{ item.name }}</h3>
+            <p class="blurb">{{ item.blurb }}</p>
+            <div class="footer">
+              <span>{{ item.footer_text }}</span>
+              <span class="arrow">→</span>
+            </div>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  </section>
+
+  {# ─────────── New on Hava ─────────── #}
+  <section class="row">
+    <div class="row-head">
+      <h2>New on Hava</h2>
+      <span class="sub">Added in {{ added_month }}</span>
+    </div>
+    <div class="grid-3">
+      {% for item in new_on_hava %}
+        <a class="card card-tall{% if item.is_business %} card-biz{% endif %}" href="{{ item.url }}">
+          {% if item.is_pick %}
+            <div class="havas-pick">
+              <svg viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
+                <path d="M6 1l1.5 3.5L11 5l-2.5 2.5L9 11 6 9.5 3 11l.5-3.5L1 5l3.5-.5z"/>
+              </svg>
+              Hava's pick
+            </div>
+          {% endif %}
+          <div class="img">
+            {% if item.image_url %}
+              <img loading="lazy" alt="{{ item.image_alt or item.name }}" src="{{ item.image_url }}">
+            {% endif %}
+          </div>
+          <div class="body">
+            <div class="meta">
+              <span class="tag-dot{% if item.dot == 'warm' %} warm{% endif %}"></span>
+              {{ item.meta_text }}
+              {% if item.status %}
+                <span class="status {{ item.status }}"><span class="dot"></span>{{ item.status_text }}</span>
+              {% endif %}
+            </div>
+            <h3 class="name">{{ item.name }}</h3>
+            <p class="blurb">{{ item.blurb }}</p>
+            <div class="footer">
+              {% if item.phone %}
+                <a class="phone" href="tel:{{ item.phone_raw }}">{{ item.phone }}</a>
+              {% else %}
+                <span>{{ item.footer_text }}</span>
+              {% endif %}
+              <span class="arrow">→</span>
+            </div>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  </section>
+
+  {# ─────────── footer ─────────── #}
+  <footer class="pagefoot">
+    <p class="pf-quote">Hava is your local. Better than search, kinder than scrolling Facebook, always answering in 1–3 sentences.</p>
+    <div class="pf-meta">
+      <a href="/contribute">Add to catalog</a>
+      <a href="/sponsor">List your business</a>
+      <a href="/sponsor">Sponsor a slot</a>
+      <a href="/about">About Hava</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <span style="color: var(--ink-4);">Lake Havasu City, AZ</span>
+    </div>
+  </footer>
+
+</div>
+
+</body>
+</html>

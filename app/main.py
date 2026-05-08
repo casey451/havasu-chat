@@ -33,6 +33,8 @@ from app.core.event_quality import friendly_errors
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.db.database import SessionLocal, get_db, init_db
 from app.db.models import Event
+from app.home.chat_route import router as new_chat_ui_router
+from app.home.router import router as home_router
 from app.programs.router import router as programs_router
 from app.schemas.event import EventRead
 
@@ -279,6 +281,13 @@ app.include_router(admin_router)
 app.include_router(admin_contributions_router)
 app.include_router(admin_mentions_router)
 app.include_router(programs_router)
+# BUILD.md step 1: new /home page lives alongside the existing static / chat
+# UI during dogfooding. Cuts over to / once we're confident.
+app.include_router(home_router)
+# BUILD.md step 5: new /chat surface that renders chat turns by
+# component.type. Lives alongside the existing static / chat UI
+# during dogfooding.
+app.include_router(new_chat_ui_router)
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
@@ -399,4 +408,4 @@ def event_permalink(event_id: str, request: Request, db: Session = Depends(get_d
     event = db.query(Event).filter(Event.id == event_id).first()
     if event is None or event.status == "pending_review":
         return _render_not_found_response(request)
-    return _render_permalink_response(request, event=event, permalink_url=str(request.url))
+    return _render_permalink_response(request, event=event, permalink_url=str(request.url)) 

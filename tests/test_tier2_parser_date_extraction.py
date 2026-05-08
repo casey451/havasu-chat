@@ -13,30 +13,28 @@ from datetime import date
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import anthropic
-
+import app.core.llm_messages as llm_messages
 from app.chat.tier2_parser import parse
 from app.chat.tier2_schema import Tier2Filters
 
 # Reuses the pattern from test_tier2_parser.py; existing file not modified.
+# Provider swap (2026-05-07): mocks now target the OpenAI client at
+# app.core.llm_messages.OpenAI; response shape is OpenAI's chat.completions.
 
 
 def _msg(text: str) -> SimpleNamespace:
-    block = SimpleNamespace(type="text", text=text)
-    usage = SimpleNamespace(
-        input_tokens=10,
-        output_tokens=5,
-        cache_read_input_tokens=0,
-        cache_creation_input_tokens=0,
-    )
-    return SimpleNamespace(content=[block], usage=usage)
+    """OpenAI chat.completions response shape."""
+    message = SimpleNamespace(content=text)
+    choice = SimpleNamespace(message=message)
+    usage = SimpleNamespace(prompt_tokens=10, completion_tokens=5)
+    return SimpleNamespace(choices=[choice], usage=usage)
 
 
 def _parse_with_mock(llm_text: str, query: str = "dummy") -> object:
     fake_client = MagicMock()
-    fake_client.messages.create.return_value = _msg(llm_text)
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake_client):
+    fake_client.chat.completions.create.return_value = _msg(llm_text)
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake_client):
             f, _tin, _tout = parse(query)
     return f
 

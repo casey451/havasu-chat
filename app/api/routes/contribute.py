@@ -90,45 +90,44 @@ def _render_contribute_page(
     ent = p.get("entity_type", "provider")
     event_css_display = "block" if ent == "event" else "none"
     url_val = _esc(p.get("submission_url", ""))
+    # BUILD.md step 1.5: visual restyle to match /home design system. Form
+    # behavior, field IDs/names, and JS are unchanged from the prior version
+    # — only markup wrapping and CSS were touched.
     return HTMLResponse(
         status_code=status_code,
         content=f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Contribute — Havasu Chat</title>
-  <style>
-    * {{ box-sizing: border-box; }}
-    body {{ font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #fff; color: #212529;
-      line-height: 1.45; padding-bottom: 48px; }}
-    .wrap {{ max-width: 640px; margin: 0 auto; }}
-    h1 {{ font-size: 1.35rem; margin: 0 0 8px; }}
-    .intro {{ color: #495057; font-size: 0.95rem; margin-bottom: 18px; }}
-    .banner {{ padding: 12px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 0.92rem; }}
-    .banner.ok {{ background: #d1e7dd; color: #0f5132; }}
-    .banner.err {{ background: #f8d7da; color: #842029; }}
-    .err-list {{ margin: 0; padding-left: 18px; }}
-    label {{ display: block; font-weight: 600; font-size: 0.88rem; margin: 12px 0 4px; }}
-    input[type=text], input[type=url], input[type=email], input[type=date], input[type=time], textarea, select {{
-      width: 100%; max-width: 100%; padding: 10px 12px; border: 1px solid #ced4da; border-radius: 8px; font-size: 1rem; }}
-    textarea {{ min-height: 120px; }}
-    .row-radio {{ display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 6px; }}
-    .row-radio label {{ font-weight: 500; margin: 0; }}
-    button.submit {{ margin-top: 18px; width: 100%; padding: 14px; font-size: 1.05rem; font-weight: 600;
-      background: #0d6efd; color: #fff; border: none; border-radius: 10px; cursor: pointer; }}
-    .foot {{ margin-top: 22px; font-size: 0.88rem; }}
-    .foot a {{ color: #0d6efd; font-weight: 600; }}
-    #event-fields {{ display: {event_css_display}; }}
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>Add to catalog — Hava</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,400&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/styles/contribute.css"/>
 </head>
 <body>
-  <div class="wrap">
-    <h1>Suggest something for the catalog</h1>
-    <p class="intro">Havasu Chat grows from what locals contribute. Suggest a business, program, event, or tip you think belongs in the catalog. We'll review and add it if it fits.</p>
+  <div class="page">
+    <header class="topbar">
+      <a class="wordmark" href="/home">
+        <span class="mark"></span>
+        <span>Hava</span>
+      </a>
+      <div class="topbar-meta">
+        <a href="/home">Back to Hava</a>
+      </div>
+    </header>
+
+    <section class="head">
+      <p class="eyebrow">Add to catalog</p>
+      <h1>Tell me what <em>belongs</em>.</h1>
+      <p class="lede">Hava grows from what locals share. Suggest a business, program, event, or tip — I'll review and add it if it fits.</p>
+    </section>
+
     {ok_html}
     {err_html}
-    <form method="post" action="/contribute" id="contrib-form">
+
+    <form class="form-card" method="post" action="/contribute" id="contrib-form">
       <label>What are you submitting?</label>
       <div class="row-radio">
         <label><input type="radio" name="entity_type" value="provider" {"checked" if ent=="provider" else ""}/> Business</label>
@@ -136,28 +135,39 @@ def _render_contribute_page(
         <label><input type="radio" name="entity_type" value="event" {"checked" if ent=="event" else ""}/> Event</label>
         <label><input type="radio" name="entity_type" value="tip" {"checked" if ent=="tip" else ""}/> Tip</label>
       </div>
+
       <label for="submission_name">Name</label>
       <input type="text" name="submission_name" id="submission_name" maxlength="200" required value="{_esc(p.get("submission_name", ""))}"/>
+
       <label for="submission_url">Website or listing URL</label>
       <input type="url" name="submission_url" id="submission_url" value="{url_val}" placeholder="https://…" data-url-required-for="provider program"/>
+
       <label for="category_hint">Category hint (optional)</label>
       <input type="text" name="category_hint" id="category_hint" maxlength="200" placeholder="BMX, gymnastics, dance studio, restaurant" value="{_esc(p.get("category_hint", ""))}"/>
+
       <label for="description">Description / notes (optional)</label>
       <textarea name="description" id="description" maxlength="{_MAX_NOTES}" placeholder="What should we know about this?">{_esc(p.get("description", ""))}</textarea>
-      <div id="event-fields">
+
+      <div id="event-fields" style="display: {event_css_display};">
         <label for="event_date">Event date</label>
         <input type="date" name="event_date" id="event_date" value="{_esc(p.get("event_date", ""))}"/>
+
         <label for="event_start_time">Start time</label>
         <input type="time" name="event_start_time" id="event_start_time" value="{_esc(p.get("event_start_time", ""))}"/>
+
         <label for="event_end_time">End time (optional)</label>
         <input type="time" name="event_end_time" id="event_end_time" value="{_esc(p.get("event_end_time", ""))}"/>
       </div>
+
       <label for="submitter_email">Email (optional)</label>
       <input type="email" name="submitter_email" id="submitter_email" placeholder="So we can reach you if we have questions" value="{_esc(p.get("submitter_email", ""))}"/>
+
       <button type="submit" class="submit">Submit for review</button>
     </form>
-    <p class="foot"><a href="/">← Back to chat</a></p>
+
+    <p class="foot"><a href="/home">← Back to Hava</a></p>
   </div>
+
   <script>
 (function () {{
   var form = document.getElementById("contrib-form");

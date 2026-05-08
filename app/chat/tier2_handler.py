@@ -5,9 +5,15 @@ from __future__ import annotations
 import logging
 import re
 from datetime import date
-from typing import Optional
+from typing import Any, Optional
 
-from app.chat import tier2_business_shortcut, tier2_db_query, tier2_formatter, tier2_parser
+from app.chat import (
+    tier2_business_shortcut,
+    tier2_day_agenda,
+    tier2_db_query,
+    tier2_formatter,
+    tier2_parser,
+)
 from app.chat.tier2_schema import Tier2Filters
 from app.core.timezone import now_lake_havasu
 
@@ -123,6 +129,8 @@ def _normalize_tier2_filters_from_query(query: str, filters: Tier2Filters) -> Ti
 
 def try_tier2_with_usage(
     query: str,
+    *,
+    component_meta: Optional[dict[str, Any]] = None,
 ) -> tuple[Optional[str], Optional[int], Optional[int], Optional[int]]:
     """Return (response_text, llm_tokens_used, llm_input_tokens, llm_output_tokens).
 
@@ -132,6 +140,13 @@ def try_tier2_with_usage(
     Slice D: business-listing shapes ("find me a barber in LHC") take a zero-token
     fast path — regex-extracted filters + deterministic listing render. Falls through
     to the LLM parser path when the shortcut returns None or finds no providers.
+
+    BUILD.md task #12: when ``component_meta`` is provided and the query
+    asks "what's on <day>" with multiple events, populates it with
+    ``{"type": "day_agenda", "data": {...}}`` and returns a short voice
+    line as ``response_text``. The structured listing renders front-end
+    side. Without ``component_meta`` (or for non-day-shape queries) the
+    long-prose formatter path runs unchanged.
     """
     q = (query or "").strip()
     if not q:
@@ -168,6 +183,23 @@ def try_tier2_with_usage(
         logging.info("tier2_handler: fallback: no matches")
         return None, None, None, None
 
+    # BUILD.md task #12: day-shape branch. When the query asks "what's
+    # happening on <day>" with multiple events, skip the long-prose
+    # formatter and emit a structured day_agenda component + a short
+    # voice line via component_meta. Existing behavior is unchanged for
+    # all other shapes.
+    if component_meta is not None:
+        agenda = tier2_day_agenda.try_build_day_agenda(q, filters, rows)
+        if agenda is not None:
+            voice, comp_data, v_in, v_out = agenda
+            component_meta["type"] = "day_agenda"
+            component_meta["data"] = comp_data
+            pi, po = (p_in or 0), (p_out or 0)
+            in_sum = pi + (v_in or 0)
+            out_sum = po + (v_out or 0)
+            total = in_sum + out_sum
+            return voice, total, in_sum, out_sum
+
     text, f_in, f_out = tier2_formatter.format(q, rows)
     if text is None:
         logging.info("tier2_handler: fallback: formatter error")
@@ -188,11 +220,17 @@ def answer_with_tier2(query: str) -> Optional[str]:
 
 
 def try_tier2_with_filters_with_usage(
-    query: str, filters: Tier2Filters
+    query: str,
+    filters: Tier2Filters,
+    *,
+    component_meta: Optional[dict[str, Any]] = None,
 ) -> tuple[Optional[str], Optional[int], Optional[int], Optional[int]]:
     """Run Tier 2 using precomputed filters (skip parser).
 
-    Returns the same tuple shape as :func:`try_tier2_with_usage`.
+    Returns the same tuple shape as :func:`try_tier2_with_usage`. Honors
+    the same ``component_meta`` hook (BUILD.md task #12) — when provided
+    and the query is day-shape, emits day_agenda + short voice instead
+    of the long-prose formatter.
     """
     q = (query or "").strip()
     if not q:
@@ -210,6 +248,17 @@ def try_tier2_with_filters_with_usage(
     if len(rows) == 0:
         logging.info("tier2_handler: fallback: no matches")
         return None, None, None, None
+
+    if component_meta is not None:
+        agenda = tier2_day_agenda.try_build_day_agenda(q, filters, rows)
+        if agenda is not None:
+            voice, comp_data, v_in, v_out = agenda
+            component_meta["type"] = "day_agenda"
+            component_meta["data"] = comp_data
+            in_sum = v_in or 0
+            out_sum = v_out or 0
+            total = in_sum + out_sum
+            return voice, total, in_sum, out_sum
 
     text, f_in, f_out = tier2_formatter.format(q, rows)
     if text is None:

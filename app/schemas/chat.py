@@ -1,8 +1,37 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
+
+
+
+ComponentType = Literal[
+    "day_agenda",
+    "week_strip",
+    "card_row",
+    "single_card",
+    "single_business_card",
+    "business_list",
+    "none",
+]
+
+
+class ComponentPayload(BaseModel):
+    """Structured answer-rendering payload (BUILD.md "Answer rendering contract").
+
+    Hava's voice is one part of an answer; the rest renders as a component
+    whose ``type`` tells the front-end which renderer to invoke. Loose
+    schemas for each ``type`` live in BUILD.md; the front-end is the
+    contract for what each renderer expects in ``data``.
+
+    ``type="none"`` means voice-only — the voice text is the whole answer
+    (greetings, no-answer responses, anything that fits in 1–3 sentences
+    without a structured payload).
+    """
+
+    type: ComponentType = "none"
+    data: dict[str, Any] = Field(default_factory=dict)
 
 
 class ConciergeChatRequest(BaseModel):
@@ -13,9 +42,18 @@ class ConciergeChatRequest(BaseModel):
 
 
 class ConciergeChatResponse(BaseModel):
-    """Unified router response (``app.chat.unified_router.route``)."""
+    """Unified router response (``app.chat.unified_router.route``).
 
-    response: str
+    BUILD.md step 5: the answer is split into ``voice`` (1–3 sentences in
+    Hava's voice) and ``component`` (the structured renderer payload).
+    ``response`` is kept as a duplicate of ``voice`` for back-compat with
+    existing API consumers (the static / chat UI, anyone currently reading
+    ``response: str``). New consumers should prefer ``voice`` + ``component``.
+    """
+
+    response: str  # legacy — duplicate of `voice` for back-compat
+    voice: str = ""  # canonical going forward
+    component: ComponentPayload = Field(default_factory=ComponentPayload)
     mode: str
     sub_intent: str | None = None
     entity: str | None = None

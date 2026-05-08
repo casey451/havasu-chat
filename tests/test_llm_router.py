@@ -1,4 +1,10 @@
-"""Tests for ``app.chat.llm_router`` — Anthropic client is always mocked."""
+"""Tests for ``app.chat.llm_router`` — OpenAI client is always mocked.
+
+Provider swap (2026-05-07): ``call_anthropic_messages`` is now an OpenAI
+wrapper (name retained for call-site stability — see :mod:`app.core.llm_messages`).
+These tests patch :mod:`app.core.llm_messages.OpenAI` directly because the
+router calls ``call_anthropic_messages`` from that module.
+"""
 
 from __future__ import annotations
 
@@ -7,21 +13,18 @@ import os
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import anthropic
 import pytest
 
+import app.core.llm_messages as llm_messages
 from app.chat.llm_router import RouterDecision, _load_router_system_prompt, route
 
 
-def _msg(text: str) -> SimpleNamespace:
-    block = SimpleNamespace(type="text", text=text)
-    usage = SimpleNamespace(
-        input_tokens=100,
-        output_tokens=20,
-        cache_read_input_tokens=0,
-        cache_creation_input_tokens=0,
-    )
-    return SimpleNamespace(content=[block], usage=usage)
+def _resp(text: str) -> SimpleNamespace:
+    """OpenAI chat.completions response shape with realistic usage counts."""
+    message = SimpleNamespace(content=text)
+    choice = SimpleNamespace(message=message)
+    usage = SimpleNamespace(prompt_tokens=100, completion_tokens=20)
+    return SimpleNamespace(choices=[choice], usage=usage)
 
 
 def _valid_tier2_json() -> str:
@@ -57,9 +60,9 @@ def _valid_tier3_json() -> str:
 
 def test_schema_accepts_valid_tier2_response() -> None:
     fake = MagicMock()
-    fake.messages.create.return_value = _msg(_valid_tier2_json())
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake):
+    fake.chat.completions.create.return_value = _resp(_valid_tier2_json())
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake):
             d = route("what's on", "what's on")
     assert d is not None
     assert d.tier_recommendation == "2"
@@ -69,9 +72,9 @@ def test_schema_accepts_valid_tier2_response() -> None:
 
 def test_schema_accepts_tier3_with_null_tier2_filters() -> None:
     fake = MagicMock()
-    fake.messages.create.return_value = _msg(_valid_tier3_json())
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake):
+    fake.chat.completions.create.return_value = _resp(_valid_tier3_json())
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake):
             d = route("q", "q")
     assert d is not None
     assert d.tier_recommendation == "3"
@@ -81,9 +84,9 @@ def test_schema_accepts_tier3_with_null_tier2_filters() -> None:
 def test_code_fenced_json_still_parses() -> None:
     body = f"```json\n{_valid_tier2_json()}\n```"
     fake = MagicMock()
-    fake.messages.create.return_value = _msg(body)
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake):
+    fake.chat.completions.create.return_value = _resp(body)
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake):
             d = route("q", "q")
     assert d is not None
     assert d.tier_recommendation == "2"
@@ -91,9 +94,9 @@ def test_code_fenced_json_still_parses() -> None:
 
 def test_malformed_json_returns_none() -> None:
     fake = MagicMock()
-    fake.messages.create.return_value = _msg("not json {")
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake):
+    fake.chat.completions.create.return_value = _resp("not json {")
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake):
             assert route("q", "q") is None
 
 
@@ -108,9 +111,9 @@ def test_invalid_tier_recommendation_returns_none() -> None:
         }
     )
     fake = MagicMock()
-    fake.messages.create.return_value = _msg(bad)
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake):
+    fake.chat.completions.create.return_value = _resp(bad)
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake):
             assert route("q", "q") is None
 
 
@@ -125,23 +128,23 @@ def test_tier2_without_tier2_filters_returns_none() -> None:
         }
     )
     fake = MagicMock()
-    fake.messages.create.return_value = _msg(bad)
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake):
+    fake.chat.completions.create.return_value = _resp(bad)
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake):
             assert route("q", "q") is None
 
 
 def test_api_exception_returns_none() -> None:
     fake = MagicMock()
-    fake.messages.create.side_effect = RuntimeError("api down")
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k"}):
-        with patch.object(anthropic, "Anthropic", return_value=fake):
+    fake.chat.completions.create.side_effect = RuntimeError("api down")
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake):
             assert route("q", "q") is None
 
 
 def test_missing_api_key_returns_none() -> None:
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": ""}, clear=False):
-        with patch.object(anthropic, "Anthropic", lambda **k: MagicMock()):
+    with patch.dict(os.environ, {"OPENAI_API_KEY": ""}, clear=False):
+        with patch.object(llm_messages, "OpenAI", lambda **k: MagicMock()):
             assert route("q", "q") is None
 
 
@@ -153,14 +156,16 @@ def test_load_router_prompt_contains_requirements() -> None:
     assert "claude-haiku" not in text  # model is code-level, not required in prompt body
 
 
-def test_messages_create_uses_haiku_model_and_zero_temp() -> None:
+def test_messages_create_uses_default_model_and_zero_temp() -> None:
+    """Router must call OpenAI with temperature=0 and the default ``gpt-4o-mini``
+    model when ``OPENAI_MODEL`` is unset (post-Anthropic-swap)."""
     fake = MagicMock()
-    fake.messages.create.return_value = _msg(_valid_tier2_json())
-    with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "k", "ANTHROPIC_MODEL": ""}):
-        with patch.object(anthropic, "Anthropic", return_value=fake):
+    fake.chat.completions.create.return_value = _resp(_valid_tier2_json())
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k", "OPENAI_MODEL": ""}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake):
             route("q", "q")
-    kw = fake.messages.create.call_args.kwargs
-    assert "haiku" in str(kw.get("model", ""))
+    kw = fake.chat.completions.create.call_args.kwargs
+    assert "gpt" in str(kw.get("model", "")).lower()
     assert kw.get("temperature") == 0.0
     assert kw.get("max_tokens") == 500
 

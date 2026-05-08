@@ -13,7 +13,7 @@ import logging
 import os
 import re
 import time
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
@@ -212,6 +212,12 @@ class ChatResponse:
     llm_input_tokens: int | None = None
     llm_output_tokens: int | None = None
     chat_log_id: str | None = None
+    # BUILD.md step 5: voice + component split. Defaults preserve existing
+    # behavior — `voice` mirrors `response`, component is "none" (voice-only
+    # rendering). Real component payloads land per query shape in steps 6+.
+    voice: str = ""
+    component_type: str = "none"
+    component_data: dict = field(default_factory=dict)
 
 
 def _stable_session_bucket(session_id: str | None) -> str:
@@ -247,6 +253,7 @@ def _handle_ask(
     now_line: str | None = None,
     allow_tier3_fallback: bool = True,
     router_meta: dict | None = None,
+    component_meta: dict | None = None,
 ) -> tuple[str | None, str, int | None, int | None, int | None]:
     tier1 = try_tier1(query, intent_result, db)
     if tier1 is not None:
@@ -277,7 +284,7 @@ def _handle_ask(
         )
         if decision.tier_recommendation == "2" and decision.tier2_filters is not None:
             t2_text, t2_total, t2_in, t2_out = try_tier2_with_filters_with_usage(
-                query, decision.tier2_filters
+                query, decision.tier2_filters, component_meta=component_meta
             )
             if t2_text is not None:
                 return t2_text, "2", t2_total, t2_in, t2_out
@@ -296,7 +303,7 @@ def _handle_ask(
             query, intent_result, db, onboarding_hints=onboarding_hints, now_line=now_line
         )
         return text, "3", total, tin, tout
-    t2_text, t2_total, t2_in, t2_out = try_tier2_with_usage(query)
+    t2_text, t2_total, t2_in, t2_out = try_tier2_with_usage(query, component_meta=component_meta)
     if t2_text is not None:
         return t2_text, "2", t2_total, t2_in, t2_out
     if not allow_tier3_fallback:
@@ -423,6 +430,9 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
         llm_tokens_used: int | None = None,
         llm_input_tokens: int | None = None,
         llm_output_tokens: int | None = None,
+        voice: str | None = None,
+        component_type: str = "none",
+        component_data: dict | None = None,
     ) -> ChatResponse:
         ms = _ms()
         chat_log_id: str | None = None
@@ -447,6 +457,9 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
             logging.exception("log_unified_route wrapper failure")
         return ChatResponse(
             response=response,
+            voice=voice or response,
+            component_type=component_type,
+            component_data=component_data or {},
             mode=mode,
             sub_intent=sub,
             entity=entity,
@@ -526,6 +539,11 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
     response_mode = intent_result.mode
     response_sub_intent = intent_result.sub_intent
     response_entity = intent_result.entity
+    # BUILD.md task #12: component_meta is allocated here (outside the
+    # try/if-block) so all mode branches and the success-path _finish
+    # call can read it. Day-shape branch in tier2_handler populates it;
+    # other paths leave it empty and the response renders voice-only.
+    component_meta: dict[str, object] = {}
     try:
         if intent_result.mode == "ask":
             gap_text = _catalog_gap_response(intent_result, db)
@@ -539,6 +557,7 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
                     now_line=now_line,
                     allow_tier3_fallback=False,
                     router_meta=router_meta,
+                    component_meta=component_meta,
                 )
                 if text is None:
                     return _finish(
@@ -557,6 +576,7 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
                     onboarding_hints=onboarding_hints,
                     now_line=now_line,
                     router_meta=router_meta,
+                    component_meta=component_meta,
                 )
             if router_meta:
                 response_mode = (router_meta.get("mode") or response_mode)  # type: ignore[assignment]
@@ -575,7 +595,10 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
             text = _handle_chat(q_raw, intent_result, db, session_id)
         else:
             text, tier_used, llm_tokens_used, llm_input_tokens, llm_output_tokens = _handle_ask(
-                q_raw, intent_result, db, onboarding_hints=onboarding_hints, now_line=now_line
+                q_raw, intent_result, db,
+                onboarding_hints=onboarding_hints,
+                now_line=now_line,
+                component_meta=component_meta,
             )
     except Exception:
         logging.exception("unified_router: mode handler failed")
@@ -598,6 +621,14 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
         except Exception:
             logging.exception("unified_router: recommended-entity capture failed")
 
+    # BUILD.md task #12: when the day-shape branch fired, `text` is the
+    # short voice line and `component_meta` carries the structured data.
+    # For all other queries `component_meta` stays empty and the
+    # ChatResponse defaults (voice mirrors response, type="none") apply.
+    _component_type = str(component_meta.get("type") or "none")
+    _component_data = component_meta.get("data") or {}
+    if not isinstance(_component_data, dict):
+        _component_data = {}
     return _finish(
         text,
         response_mode,
@@ -607,4 +638,7 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
         llm_tokens_used,
         llm_input_tokens,
         llm_output_tokens,
+        voice=text,
+        component_type=_component_type,
+        component_data=_component_data,
     )
