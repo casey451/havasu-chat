@@ -119,7 +119,12 @@ def answer_with_tier3(
     # across the week boundary on cache hits
     cache_context["_today"] = now_lake_havasu().date().isoformat()
     cache_key = make_cache_key(query, cache_context)
-    cached_response = cache_lookup(db, cache_key)
+    # §4.3 (cache v2): pass the normalized query so cache_lookup can fall back
+    # to embedding-similarity matching when the exact-key path misses. Cost
+    # of the embedding API call (~$0.00001/query) is dominated by the Tier 3
+    # synthesis it might save (~$0.001/query); ROI is fine even at modest
+    # similarity-hit rates.
+    cached_response = cache_lookup(db, cache_key, normalized_query=query)
     if cached_response:
         logging.info("tier3: cache hit (key=%s)", cache_key[:8])
         # Cache hit returns zero tokens — chat_logs will reflect this. Filter

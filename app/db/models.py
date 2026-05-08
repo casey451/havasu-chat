@@ -83,6 +83,13 @@ class Provider(Base):
     last_google_scraped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     zip: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    # BUILD.md step 2: editorial "Hava's pick" flag. Hand-curated via DB
+    # script; admin UI deferred. Distinct from spotlight placement on
+    # Provider.tier / sponsored_until.
+    featured: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+
     programs: Mapped[list["Program"]] = relationship(back_populates="provider")
     events: Mapped[list["Event"]] = relationship(back_populates="provider")
 
@@ -139,6 +146,12 @@ class Event(Base):
         String, ForeignKey("providers.id"), nullable=True
     )
     is_recurring: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    # BUILD.md step 2: editorial "Hava's pick" flag. Hand-curated via DB
+    # script; admin UI deferred. Distinct from spotlight placement on
+    # Provider.tier / sponsored_until.
+    featured: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
 
@@ -250,6 +263,13 @@ class Program(Base):
     draft: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     pending_review: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     admin_review_by: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # BUILD.md step 2: editorial "Hava's pick" flag. Hand-curated via DB
+    # script; admin UI deferred. Distinct from spotlight placement on
+    # Provider.tier / sponsored_until.
+    featured: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
     provider: Mapped["Provider | None"] = relationship(back_populates="programs")
 
@@ -373,3 +393,44 @@ class LlmResponseCache(Base):
     last_hit_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     hit_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     ttl_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # §4.3 (cache v2): JSON-encoded list[float] of the query embedding produced
+    # by OpenAI text-embedding-3-small at store() time. Nullable because pre-v2
+    # entries (and any rows where the embedding API call failed) won't have
+    # one — those rows still serve exact-match hits and are simply skipped
+    # during the similarity scan. Stored as TEXT for SQLite/Postgres parity;
+    # not indexed (sequential scan is fine while the cache is small).
+    query_embedding: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class Sponsor(Base):
+    """Editorial sponsor slot (BUILD.md step 3 / "Sponsor slot architecture").
+
+    Distinct concept from ``Provider.tier`` / ``sponsored_until`` (which back
+    business spotlights — BUILD.md "Spotlight architecture"). A sponsor is
+    whoever paid for the editorial banner; could be a Provider, could be an
+    out-of-catalog brand. Hence a separate table.
+    """
+
+    __tablename__ = "sponsors"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    eyebrow: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    line: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cta_label: Mapped[str] = mapped_column(String(64), nullable=False, default="Visit")
+    cta_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Higher weight wins when multiple sponsors are simultaneously active.
+    weight: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
