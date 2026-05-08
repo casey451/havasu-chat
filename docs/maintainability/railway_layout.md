@@ -30,6 +30,12 @@ Deploy trigger: pushes to **`main`** on the GitHub repo linked to the Railway pr
 
 - **Web:** one uvicorn process. `Procfile` and `nixpacks.toml` both start **`uvicorn app.main:app --host 0.0.0.0 --port $PORT`**. There is no `release` phase or second process type in the repository; migrations run at **app boot** (see below).
 
+- **No Railway worker / cron service.** Scheduled work runs **outside Railway** via GitHub Actions (see [Scheduled jobs](#scheduled-jobs) below). The Railway side stays single-process.
+
+## Scheduled jobs
+
+- **`parks-rec-scrapes`** — runs every 6h via the workflow at **`.github/workflows/parks-rec-scrapes.yml`**. Pulls Lake Havasu City's WebTrac (`register.lhcaz.gov`) + Aquatic Center weekly schedule (`lhcaz.gov/parks-recreation/open-swim-schedule`), writes timestamped JSON snapshots, then loads new rows into the production catalog through the existing **`Contribution → approve_contribution_as_event/_program`** flow. The job hits production Postgres directly via the GitHub repo secret **`DATABASE_URL`** (must be set to Railway's **`DATABASE_PUBLIC_URL`** — the public TCP proxy URL — since GH Actions runs outside Railway's internal network). Snapshots are ephemeral on the runner; the catalog is the persistent record. 14-day artifact retention on each run gives a debug-only audit trail. **Authoritative reference:** **`docs/scrapes.md`**. **Failure triage:** **`docs/runbook.md` §1.7**.
+
 ## Database
 
 - **Resolution:** `app/db/database.py` — `get_database_url()` reads **`DATABASE_URL`** from the environment. If unset or empty, the app uses a **local SQLite** file at the project root (`events.db` / `sqlite:///...`). On Railway, **`DATABASE_URL`** must be set to the Railway Postgres connection string.

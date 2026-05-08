@@ -787,6 +787,39 @@ End state: chat UI is a clean three-file vanilla structure (`index.html` 45-line
 
 ---
 
+## Ship log - Parks-rec ingestion + Tier 2 surfacing fixes (2026-05-07)
+
+**What shipped:** Two scraper modules and a snapshot-runner orchestrator under **`app/contrib/`** plus a catalog loader that routes records through the existing approval flow; thin CLI scripts under **`scripts/`**; fixtures + parser tests; a GH Actions cron workflow at **`.github/workflows/parks-rec-scrapes.yml`** that runs scrape + load every 6 hours against the production Postgres via the **`DATABASE_URL`** repo secret. Companion chat-layer fixes (Cursor) in **`app/chat/tier2_db_query.py`** and **`app/chat/tier2_handler.py`** so the imported rows actually surface in user queries.
+
+**Sources covered:**
+- **WebTrac** (`register.lhcaz.gov/webtrac/web/search.html?module=AR`) — Vermont Systems WebTrac 3.1.x, server-rendered HTML; sections inline in the document (no lazy-load); fetcher iterates **`ADULT`** / **`PET`** / **`YOUTH`** category codes and dedupes by **`FMID`**.
+- **Aquatic Center weekly schedule** (`lhcaz.gov/parks-recreation/open-swim-schedule`) — Sitefinity-rendered static HTML, day cells classified by **`sch-{ls,ex,os,pc,sr}`** CSS suffix.
+
+**Loader behavior:** WebTrac records with **`available_for_signup=False`** (Unavailable / Full) and aquatic rows with **`is_public=False`** (pool-closed, Stingrays private practice) stay in the snapshot file but never enter the catalog; the chat layer reads the snapshot directly for direct-ask carve-outs. Single-day sections create **`Event`** rows; multi-day or weekly-recurring sections create **`Program`** rows. Each row is tagged with one **content category** (**`arts`**, **`sports`**, **`aquatics`**, **`food`**, **`fitness`**, **`recreation`**) plus zero-or-more **audience tags** (**`adult`** / **`youth`**) derived from program-name keyword match. Dedup is by normalized **`source_url`** (FMID-bearing URL for WebTrac; synthesized **`schedule.html#date|title-slug|HH-MM`** anchor for aquatic), so re-running the loader on an unchanged snapshot writes 0 rows.
+
+**Initial real load (production):** **14 events + 7 programs** (WebTrac) + **107 events** (Aquatic) — verified by row-count delta on `contributions` (+128), `events` (+121), `programs` (+7). Idempotency confirmed by a second loader invocation reporting **`skipped_duplicate=128`** with zero new writes.
+
+**Tier 2 chat-layer fixes that landed alongside (Cursor):**
+- Category SQL prefilter now checks **`Event.tags`** in addition to title/description (was excluding tag-only matches like Adult-tagged WebTrac rows whose title was "Dodgeball May 8" not "Adult Dodgeball").
+- Exact-date listings no longer chronologically truncate to the first 8 rows in a way that hid afternoon/evening WebTrac classes behind morning aquatic rows.
+- **`this_weekend`** window now includes Friday (was Saturday-Sunday only), so a Friday Adult Dodgeball surfaces correctly for "is there dodgeball this weekend?".
+- Deterministic month/day correction prevents the LLM/router from rewriting explicit dates like "Friday May 8" to a different week (was resolving to **`2026-05-15`**).
+- **`art classes`** free-text normalizes to **`category='arts'`** so tag-only matches reach the result set.
+- Temporal queries return dated events only; undated programs/providers no longer push formatting through the LLM in a way that crowds the visible window.
+
+**Why:** Lake Havasu's parks-and-rec data was the largest known catalog gap. The city publishes both a registration system (sign-uppable activities, with availability state) and a static recurring weekly aquatic schedule. Both needed to flow into Hava on a schedule and the chat layer needed to surface them through the same query patterns users already use ("art classes this week", "is there dodgeball this weekend", "what's on Friday May 8").
+
+**Tests / verification:** Parser suite — **`tests/test_webtrac_parser.py`** (9 fixture-based + 5 synthesized state-coverage covering real Vermont Systems **`itemstatus--available / --unavailable / --full`** markup), **`tests/test_lhcaz_aquatic_parser.py`** (10 covering all 5 class-type CSS codes, year-inference roll-forward, `End of Day` / `All day` token handling, and the chat-layer `is_public` filter). Chat-layer regressions added in **`tests/test_tier2_db_query.py`** (29 total) and **`tests/test_tier2_handler.py`** (43 total). Local **`python -m unittest`** green; **`python -m ruff check`** clean on every file in this ship; production smoke against the live Railway URL confirmed Hava surfaces WebTrac events for content, audience, and date queries with proper deep-link **`[name](url)`** to the WebTrac iteminfo or schedule page. GH Actions **`parks-rec-scrapes`** workflow ran green end-to-end (manual trigger, 2m 52s, 1 artifact uploaded; subsequent 6h cron will use the same path).
+
+**Authoritative companion doc:** **`docs/scrapes.md`** — covers the full pipeline, all schedule wirings (Heroku Scheduler / Procfile / GH Actions / local cron), failure modes, and the recipe for adding a new scraper.
+
+**Known limitations (intentionally deferred):**
+- One content category per record. "Aqua Aerobics" tags as **`aquatics`** not **`fitness`** because the keyword loop hits aquatics first. Multi-tag emission is a future tweak if chat needs cross-category surfacing.
+- No "expire stale aquatic events" pruner. The aquatic page republishes ~25 days at a time, so old slots stay in the catalog forever unless something prunes them; chat-layer date filtering hides them in practice.
+- Aquatic dedup keys on `(date, title, time)` via the synthetic anchor URL; if the city moves a class to a different time, the new time creates a fresh Event and the old one stays orphaned until pruned.
+
+---
+
 ## Ship log - H1 deletion ship — legacy `/chat` router (**`61387e4`..`23a39a5`**)
 
 **What shipped:** Deleted legacy **`POST /chat`** router and dependents; **`POST /api/chat`** (unified concierge) unchanged. Removed **`app/chat/router.py`**, **`app/core/venues.py`**, **`tests/test_phase4.py`**, **`tests/test_search_relevance.py`**; trimmed **`app/main.py`**, **`app/db/chat_logging.py`**, **`app/schemas/chat.py`**, and mixed tests per plan. **Production:** `/health` 200 (`db_connected`, `event_count` 114); `/chat` → 404; `/api/chat` → 200 concierge shape. **Deploy** `6c416456-d1aa-4945-922a-cd6d7466c133`.

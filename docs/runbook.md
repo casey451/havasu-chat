@@ -78,7 +78,28 @@ Short, scannable steps. Production base URL: `https://havasu-chat-production.up.
 
 **`RATE_LIMIT_DISABLED`:** when set to a truthy value (`1`, `true`, `yes`, `on`), disables the **global** slowapi limiter for the process (`app/core/rate_limit.py`). **Emergency-only** — do not run permanently in production.
 
-### 1.7 Where to look first
+### 1.7 Scheduled parks-rec scrape job failed
+
+The **`parks-rec-scrapes`** GitHub Actions workflow runs every 6h to refresh WebTrac + Aquatic Center data into the catalog. Authoritative reference: **`docs/scrapes.md`**.
+
+1. **Spot the failure.** GitHub repo → **Actions** tab → **parks-rec-scrapes** → most recent run. Red X = failure. Click in to see which step failed.
+
+2. **By failed step:**
+
+   | Failed step | Most likely cause | Fix |
+   | --- | --- | --- |
+   | **Install dependencies** | New transitive dep mismatch / pip CDN flake | Re-run the workflow ("Re-run all jobs"). If still red, check **`requirements.txt`** for a recent change. |
+   | **Scrape (run_scrapes.py)** | Source-site outage, Vermont Systems WebTrac upgrade changed HTML, new CSRF flow on splash | Open the captured snapshot artifact (run page → Artifacts) and inspect the manifest to see which source failed. If WebTrac: open `register.lhcaz.gov/webtrac/web/splash.html` in a browser and verify it still renders; check **`app/contrib/webtrac.py`** for selector drift. If aquatic: verify `lhcaz.gov/parks-recreation/open-swim-schedule` still uses `.sch-day-wrp` / `.sch-cell` markup (Sitefinity sometimes rev-bumps). One source failing does NOT block the other; the runner is fail-soft. |
+   | **Load latest snapshots into the catalog** | DB connection / migration / schema drift | Most common: **`DATABASE_URL`** repo secret stale (e.g. Railway rotated the public Postgres URL). Re-copy from Railway → Postgres service → Variables → **`DATABASE_PUBLIC_URL`** → paste into GitHub Settings → Secrets and variables → Actions. Less common: a recent `app/db/models.py` change broke loader assumptions — check the traceback against **`app/contrib/parks_rec_loader.py`**. |
+   | **Upload snapshots as a run artifact** | GH Actions artifact upload flake | Re-run the workflow. Artifact upload is non-load-bearing — the catalog write completed before this step. |
+
+3. **Verifying the catalog is current after a fix.** Trigger the workflow manually (Run workflow → main → green) and confirm green. Then ask Hava a temporal query that exercises both sources (`what's happening on <date in current week>`) — expect both aquatic and WebTrac rows to surface.
+
+4. **If you need to retag existing rows** after a loader change (the loader's tag map evolves), use **`scripts/parks_rec_reset_and_reload.py`** locally with a `DATABASE_URL` pointing at production Postgres. Dry-run first (`--dry-run`) to confirm row counts.
+
+5. **Snapshots are ephemeral on the GH Actions runner.** Each run starts with a fresh filesystem; the catalog (Postgres) is the only persistent record. The 14-day artifact retention on the workflow run gives you the most recent snapshot file for diagnosis only.
+
+### 1.8 Where to look first
 
 | Symptom | First place to look |
 | --- | --- |
@@ -88,6 +109,7 @@ Short, scannable steps. Production base URL: `https://havasu-chat-production.up.
 | 429 to users | Railway 429 count; distinguish `/api/chat` vs contribute |
 | Admin login fails | `ADMIN_PASSWORD` env, cookie domain, `/admin/login` 401 |
 | Enrichment all failing | `GOOGLE_PLACES_API_KEY`, Google billing |
+| Parks-rec scrape job red in GH Actions | [§1.7](#17-scheduled-parks-rec-scrape-job-failed) |
 | Stuck “conversation” in browser | [§3.8](#38-session-state) (new session / restart) |
 
 ---
