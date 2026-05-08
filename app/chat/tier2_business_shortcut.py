@@ -78,6 +78,74 @@ _LOCALITY_SUFFIX = re.compile(
 
 _TRIM_TAIL = re.compile(r"[?\.!\s]+$")
 
+# Voice battery 2026-05-08 (§4.1 typo tolerance): small alias map for common
+# misspellings of service-trade categories. Applied token-by-token after
+# locality stripping so "i need a plumer" → category "plumber" before the
+# downstream SQL filter (which does ILIKE against Provider.category /
+# google_primary_category and won't match across edit distance). Conservative —
+# only the obvious misspellings of trades we actually carry. Add entries as
+# new typos surface in chat_logs.
+_CATEGORY_TOKEN_ALIASES: dict[str, str] = {
+    # plumbing
+    "plumer": "plumber",
+    "plummer": "plumber",
+    "plumming": "plumbing",
+    # barbering
+    "barbar": "barber",
+    "barbor": "barber",
+    "barbur": "barber",
+    # electrical
+    "elektrician": "electrician",
+    "electrision": "electrician",
+    "electricion": "electrician",
+    "electrican": "electrician",
+    # mechanic / auto
+    "mecanic": "mechanic",
+    "mechanik": "mechanic",
+    "mechinic": "mechanic",
+    # veterinary
+    "vetrinarian": "veterinarian",
+    "veternarian": "veterinarian",
+    "vetrinary": "veterinary",
+    "veternary": "veterinary",
+    # food / drink
+    "resturant": "restaurant",
+    "restaraunt": "restaurant",
+    "restuarant": "restaurant",
+    "coffe": "coffee",
+    "cofee": "coffee",
+    "coffey": "coffee",
+    # pharmacy / health
+    "pharamcy": "pharmacy",
+    "pharmasy": "pharmacy",
+    "pharmcy": "pharmacy",
+    # trades / misc
+    "carpentar": "carpenter",
+    "carpentor": "carpenter",
+    "landscapper": "landscaper",
+    "gymn": "gym",
+    "salaon": "salon",
+    # NB: "saloon" is intentionally NOT mapped to "salon" — in Lake Havasu the
+    # word reads as a bar/tavern variant, not a misspelling of salon.
+}
+
+
+def _normalize_category_typos(category: str) -> str:
+    """Token-level alias replacement for common service-trade misspellings.
+
+    Lowercases each token before lookup so "Plumer" still normalizes. Returns
+    the joined string in the original token order, preserving any tokens not
+    in the alias map. Pure string-in / string-out — no side effects, safe to
+    run in front of the existing event-shape and word-count guards.
+    """
+    if not category:
+        return category
+    tokens = category.split()
+    if not tokens:
+        return category
+    out = [_CATEGORY_TOKEN_ALIASES.get(t.lower(), t) for t in tokens]
+    return " ".join(out)
+
 # Optional one-line landscape beat before the listing header (voice battery / rubric alignment).
 # Keys are matched as substrings of the lowercased category from the shortcut extractor.
 _BUSINESS_FRAMING_BY_CATEGORY_SUBSTR: tuple[tuple[str, str], ...] = (
@@ -204,6 +272,9 @@ def try_business_listing_shortcut(query: str) -> Tier2Filters | None:
     category = _strip_locality_and_punct(rest)
     if not category:
         return None
+    # Normalize common service-trade typos before downstream guards so "i need a
+    # plumer" extracts as "plumber" and reaches the SQL filter intact.
+    category = _normalize_category_typos(category)
     low_padded = " " + category.lower()
     if any(tok in low_padded for tok in _EVENT_SHAPE_TOKENS):
         return None

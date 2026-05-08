@@ -429,10 +429,72 @@ def _normalize_for_match(s: str | None) -> str:
     return s.lower().replace("_", " ")
 
 
+# Voice battery 2026-05-08 (§4.2 synonym map): equivalence groups for category
+# names that the strict primary-category filter would otherwise miss. Each group
+# is a small set of mutually interchangeable terms — when a user query category
+# matches any term in a group, all other members are also tried as needles
+# against ``Provider.category`` and the normalized ``google_primary_category``.
+#
+# Conservative — only well-evidenced equivalences. The brief flags that
+# "coffee shop" misses providers tagged ``cafe`` (Google's primary type),
+# "barbershop" misses ``barber``, and "corner store" misses ``convenience_store``.
+# Pharmacy/drugstore and mechanic/auto-repair are added on the same logic
+# (Google primary types are ``drugstore`` and ``car_repair`` respectively).
+# Add new groups as recall gaps surface in chat_logs / voice battery FAILs.
+_CATEGORY_SYNONYM_GROUPS: tuple[frozenset[str], ...] = (
+    frozenset({"coffee shop", "coffee shops", "coffee", "cafe", "cafes"}),
+    frozenset({"barber", "barbers", "barbershop", "barbershops", "barber shop", "barber shops"}),
+    frozenset({"corner store", "corner stores", "convenience store", "convenience stores", "convenience"}),
+    frozenset({"pharmacy", "pharmacies", "drugstore", "drugstores", "drug store", "drug stores"}),
+    frozenset({"mechanic", "mechanics", "auto repair", "car repair", "auto shop", "auto shops"}),
+)
+
+
+def _category_synonyms(cat: str) -> tuple[str, ...]:
+    """Return all equivalent category terms for ``cat`` (including ``cat`` itself).
+
+    Lookup is case-insensitive and exact-match (whole string). If ``cat`` is in a
+    synonym group, returns the full group as a deterministic tuple. Otherwise
+    returns ``(cat,)`` so callers can iterate uniformly.
+    """
+    c = (cat or "").strip().lower()
+    if not c:
+        return ()
+    for group in _CATEGORY_SYNONYM_GROUPS:
+        if c in group:
+            return tuple(sorted(group))
+    return (c,)
+
+
+def _category_needle_set(cat: str) -> tuple[str, ...]:
+    """Build the full needle set for a category: synonyms × singularized forms.
+
+    Combines :func:`_category_synonyms` with :func:`_singularize_category` so
+    "coffee shops" expands to {coffee shops, coffee shop, cafe, cafes, cafe, coffee},
+    deduplicated. Empty strings are dropped.
+    """
+    c = (cat or "").strip().lower()
+    if not c:
+        return ()
+    out: set[str] = set()
+    seeds = {c, _singularize_category(c)}
+    for seed in seeds:
+        for syn in _category_synonyms(seed):
+            out.add(syn)
+            sing = _singularize_category(syn)
+            if sing:
+                out.add(sing)
+    out.discard("")
+    return tuple(sorted(out))
+
+
 def _category_match_provider(p: Provider, cat: str) -> bool:
-    c = cat.strip().lower()
-    c_singular = _singularize_category(c)
-    needles = (c, c_singular) if c_singular != c else (c,)
+    # Voice battery 2026-05-08 (§4.2): expand to synonym group + singularized
+    # forms so "coffee shop" also matches providers whose google_primary_category
+    # is "cafe", etc. _category_needle_set is empty-safe.
+    needles = _category_needle_set(cat)
+    if not needles:
+        return False
     # Voice-battery 2026-05-07: dropped (p.provider_name or "").lower() from
     # haystacks — see SQL filter comment in _query_providers for full rationale.
     # Voice-battery 2026-05-08: dropped description AND google_categories. The
@@ -767,10 +829,13 @@ def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
         q = q.where(Provider.address.ilike(needle))
     if filters.category and filters.category.strip():
         cat = filters.category.strip().lower()
-        cat_singular = _singularize_category(cat)
-        cat_like = _text_needle(cat)
-        cat_singular_like = _text_needle(cat_singular) if cat_singular != cat else None
-        if cat_like:
+        # Voice battery 2026-05-08 (§4.2): synonym expansion. _category_needle_set
+        # returns the full equivalence group + singularized variants so the SQL
+        # filter widens to all interchangeable terms (e.g. "coffee shop" also
+        # tries "cafe", "barbershop" also tries "barber"). Replaces the prior
+        # cat / cat_singular pair logic.
+        needle_set = _category_needle_set(cat)
+        if needle_set:
             # Slice D: include the Google taxonomy fields. Provider.category is the
             # high-level domain (food_drink, beauty_personal_care, …) — too coarse for
             # category queries like "barber". google_primary_category holds Google's
@@ -806,18 +871,15 @@ def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
             # businesses surface, multi-trade ones don't unless their primary
             # matches. Recall cost is small in practice (most businesses have
             # primary aligned with the most-specific service they offer).
-            conditions = [
-                Provider.category.ilike(cat_like),
-                norm_primary.ilike(cat_like),
-            ]
-            if cat_singular_like is not None:
-                conditions.extend(
-                    [
-                        Provider.category.ilike(cat_singular_like),
-                        norm_primary.ilike(cat_singular_like),
-                    ]
-                )
-            q = q.where(or_(*conditions))
+            conditions: list[Any] = []
+            for n in needle_set:
+                n_like = _text_needle(n)
+                if n_like is None:
+                    continue
+                conditions.append(Provider.category.ilike(n_like))
+                conditions.append(norm_primary.ilike(n_like))
+            if conditions:
+                q = q.where(or_(*conditions))
 
     rows = list(db.scalars(q.order_by(Provider.provider_name.asc()).limit(80)).all())
 

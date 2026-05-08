@@ -105,6 +105,52 @@ def test_shortcut_strips_locality_suffix() -> None:
         assert filters.category == "barber", f"tail {tail!r} polluted category: {filters.category!r}"
 
 
+@pytest.mark.parametrize(
+    "query,expected_category",
+    [
+        # §4.1 typo tolerance — common service-trade misspellings should
+        # normalize to the canonical category before SQL hits.
+        ("i need a plumer", "plumber"),
+        ("i need a plummer in lhc", "plumber"),
+        ("find me a barbar", "barber"),
+        ("find a barbor near me", "barber"),
+        ("find me an elektrician", "electrician"),
+        ("i'm looking for an electrision", "electrician"),
+        ("i need a mecanic", "mechanic"),
+        ("find a vetrinarian", "veterinarian"),
+        ("any good resturant", "restaurant"),
+        ("show me a coffe shop", "coffee shop"),
+        ("recommend a cofee shop", "coffee shop"),
+        ("find a pharamcy near me", "pharmacy"),
+        ("i need a carpentar", "carpenter"),
+        ("find me a gymn", "gym"),
+    ],
+)
+def test_shortcut_normalizes_common_typos(query: str, expected_category: str) -> None:
+    filters = shortcut.try_business_listing_shortcut(query)
+    assert filters is not None, f"shortcut should match {query!r}"
+    assert filters.category == expected_category.lower(), (
+        f"typo in {query!r} should normalize to {expected_category!r}, "
+        f"got {filters.category!r}"
+    )
+
+
+def test_normalize_category_typos_preserves_unknown_tokens() -> None:
+    """Tokens not in the alias map pass through untouched (lowercased downstream)."""
+    assert shortcut._normalize_category_typos("plumer") == "plumber"
+    assert shortcut._normalize_category_typos("italian restaurant") == "italian restaurant"
+    assert shortcut._normalize_category_typos("italian resturant") == "italian restaurant"
+    # Empty / blank input is a no-op.
+    assert shortcut._normalize_category_typos("") == ""
+    assert shortcut._normalize_category_typos("   ") == "   "
+
+
+def test_saloon_not_remapped_to_salon() -> None:
+    """In Lake Havasu, 'saloon' reads as a bar/tavern variant, not a misspelling
+    of 'salon'. Guard against an over-eager alias regression."""
+    assert shortcut._normalize_category_typos("saloon") == "saloon"
+
+
 def test_shortcut_caps_category_word_count() -> None:
     """Three words is the practical ceiling for category lookups; longer phrasing is
     too likely to be a free-form question that should reach Tier 3 synthesis."""

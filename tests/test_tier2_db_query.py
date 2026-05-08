@@ -748,6 +748,131 @@ def test_event_row_includes_event_url(db: Session, monkeypatch: pytest.MonkeyPat
     assert matching[0]["event_url"] == expected_url
 
 
+# ---------------------------------------------------------------------------
+# §4.2 category synonym map
+# ---------------------------------------------------------------------------
+
+
+def test_category_synonyms_returns_full_group_for_member() -> None:
+    """A term in a synonym group expands to the entire group (sorted)."""
+    out = tier2_db_query._category_synonyms("coffee shop")
+    assert "cafe" in out
+    assert "coffee shop" in out
+    assert "coffee shops" in out
+    # Singularization runs separately — no surprise singulars in this helper.
+    assert out == tuple(sorted(out))
+
+
+def test_category_synonyms_returns_input_when_no_group_matches() -> None:
+    """Terms outside any group still come back as a single-element tuple."""
+    assert tier2_db_query._category_synonyms("plumber") == ("plumber",)
+    assert tier2_db_query._category_synonyms("yoga studio") == ("yoga studio",)
+
+
+def test_category_synonyms_handles_empty() -> None:
+    assert tier2_db_query._category_synonyms("") == ()
+    assert tier2_db_query._category_synonyms("   ") == ()
+
+
+def test_category_needle_set_combines_synonyms_and_singularization() -> None:
+    """'coffee shops' (plural, in-group) expands to all group members + their singulars."""
+    out = set(tier2_db_query._category_needle_set("coffee shops"))
+    # Both the group's plural and singular forms should be present.
+    assert "coffee shop" in out
+    assert "coffee shops" in out
+    assert "cafe" in out
+    assert "cafes" in out
+
+
+def test_category_needle_set_passthrough_for_non_group_term() -> None:
+    """Unknown terms still get singularized."""
+    out = set(tier2_db_query._category_needle_set("plumbers"))
+    assert "plumber" in out
+    assert "plumbers" in out
+
+
+@pytest.mark.parametrize(
+    "user_query_category,provider_primary_type",
+    [
+        # The brief's three explicit examples.
+        ("coffee shop", "cafe"),
+        ("barbershop", "barber_shop"),
+        ("corner store", "convenience_store"),
+        # Pharmacy / drugstore equivalence.
+        ("pharmacy", "drugstore"),
+        ("drugstore", "pharmacy"),
+        # Mechanic / auto-repair equivalence.
+        ("mechanic", "car_repair"),
+        ("auto repair", "car_repair"),
+    ],
+)
+def test_synonym_query_finds_provider_with_equivalent_primary_type(
+    db: Session,
+    user_query_category: str,
+    provider_primary_type: str,
+) -> None:
+    """Synonym expansion lets a category query reach providers tagged with an
+    equivalent Google primary type. Without the map, the strict primary-only
+    filter from the prior push would miss these by design."""
+    suf = _suffix()
+    mark = f"syn{suf}"
+    p = Provider(
+        provider_name=f"{mark} Provider",
+        category="misc",
+        verified=True,
+        draft=False,
+        is_active=True,
+        source="tier2-test",
+        google_primary_category=provider_primary_type,
+        google_categories=[provider_primary_type],
+    )
+    db.add(p)
+    db.commit()
+    rows = tier2_query(
+        Tier2Filters(parser_confidence=0.9, category=user_query_category)
+    )
+    names = [r.get("name", "") for r in rows if r.get("type") == "provider"]
+    assert any(mark in n for n in names), (
+        f"category {user_query_category!r} should reach provider with "
+        f"primary_type {provider_primary_type!r} via synonym map; "
+        f"got providers {names}"
+    )
+
+
+def test_synonym_map_does_not_widen_non_group_categories(db: Session) -> None:
+    """Providers tagged 'cafe' must not show up for a query like 'plumber'.
+    Sanity check that the synonym expansion is bounded to its groups."""
+    suf = _suffix()
+    cafe_mark = f"cafenoise{suf}"
+    plumber_mark = f"realplumber{suf}"
+    cafe = Provider(
+        provider_name=f"{cafe_mark} Cafe",
+        category="food_drink",
+        verified=True,
+        draft=False,
+        is_active=True,
+        source="tier2-test",
+        google_primary_category="cafe",
+    )
+    plumber = Provider(
+        provider_name=f"{plumber_mark} Plumbing",
+        category="home_services",
+        verified=True,
+        draft=False,
+        is_active=True,
+        source="tier2-test",
+        google_primary_category="plumber",
+    )
+    db.add_all([cafe, plumber])
+    db.commit()
+    rows = tier2_query(Tier2Filters(parser_confidence=0.9, category="plumber"))
+    names = [r.get("name", "") for r in rows if r.get("type") == "provider"]
+    assert any(plumber_mark in n for n in names), "plumber query must find the plumber"
+    assert not any(cafe_mark in n for n in names), (
+        "cafe should NOT surface for a plumber query (synonym map must not bleed)"
+    )
+
+
 def test_event_row_includes_empty_event_url(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 1, 1))
     suf = _suffix()
