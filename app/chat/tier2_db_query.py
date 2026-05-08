@@ -435,15 +435,15 @@ def _category_match_provider(p: Provider, cat: str) -> bool:
     needles = (c, c_singular) if c_singular != c else (c,)
     # Voice-battery 2026-05-07: dropped (p.provider_name or "").lower() from
     # haystacks — see SQL filter comment in _query_providers for full rationale.
-    # Voice-battery 2026-05-08: dropped (p.description or "").lower() too — narrative
-    # description text matches caused HVAC to surface for "plumber" queries because
-    # it mentioned plumbing as an adjacent service. Stick to taxonomy fields below.
+    # Voice-battery 2026-05-08: dropped description AND google_categories. The
+    # narrative description matches HVAC for "plumber" because plumbing was
+    # mentioned as an adjacent service; the categories *array* matches multi-
+    # trade companies (Air Control: primary=general_contractor, categories
+    # includes "plumber") for the same reason. Stick to the primary category
+    # only — specialist businesses surface, multi-trade ones don't unless
+    # their primary type itself matches the user's query.
     haystacks: list[str] = [
         (p.category or "").lower(),
-        # Slice D: Google taxonomy fields. Provider.category is the high-level domain;
-        # the more specific tags live in google_primary_category and google_categories.
-        # Underscore normalization closes the gap between user phrasing ("coffee shop")
-        # and Google's tag format ("coffee_shop").
         _normalize_for_match(p.google_primary_category),
     ]
     if isinstance(p.google_categories, list):
@@ -781,9 +781,6 @@ def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
             norm_primary = func.replace(
                 func.coalesce(Provider.google_primary_category, ""), "_", " "
             )
-            norm_categories = func.replace(
-                cast(Provider.google_categories, String), "_", " "
-            )
             # Voice-battery 2026-05-07: dropped Provider.provider_name from the
             # category-match conditions. Substring match on names produced false
             # positives — "vet" matched "Brooke Vetter, OD" (an optometrist) and
@@ -799,17 +796,25 @@ def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
             # only category signal is in their description text is acceptable vs.
             # the wrong-category bugs the battery surfaced. The actual category
             # signals are now strictly the taxonomy fields below.
+            # Voice-battery 2026-05-08 (second pass): also dropped
+            # google_categories from the match conditions. Google labels
+            # multi-trade companies with the full set of services they offer
+            # (Air Control: primary=general_contractor, categories=[plumber,
+            # electrician, general_contractor, ...]) — matching against the
+            # whole array surfaces general contractors for "I need a plumber"
+            # queries. Stick to the *primary* category instead: specialist
+            # businesses surface, multi-trade ones don't unless their primary
+            # matches. Recall cost is small in practice (most businesses have
+            # primary aligned with the most-specific service they offer).
             conditions = [
                 Provider.category.ilike(cat_like),
                 norm_primary.ilike(cat_like),
-                norm_categories.ilike(cat_like),
             ]
             if cat_singular_like is not None:
                 conditions.extend(
                     [
                         Provider.category.ilike(cat_singular_like),
                         norm_primary.ilike(cat_singular_like),
-                        norm_categories.ilike(cat_singular_like),
                     ]
                 )
             q = q.where(or_(*conditions))
