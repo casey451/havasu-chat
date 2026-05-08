@@ -88,8 +88,10 @@ QUESTIONS_PATH = REPO_ROOT / "tests" / "voice_battery" / "questions.yaml"
 RUBRIC_PATH = REPO_ROOT / "prompts" / "voice_audit.txt"
 REPORT_DIR = REPO_ROOT / "tests" / "voice_battery" / "reports"
 
-_JUDGE_MAX_TOKENS = 300
-_JUDGE_TEMPERATURE = 0.0
+_JUDGE_MAX_TOKENS = 700  # bumped from 300: long Tier 2 listings + framing prefix
+_JUDGE_TEMPERATURE = 0.0  # made the judge's suggested_rewrite overrun the cap and
+# return truncated, unparseable JSON (recorded as ERROR rows). 700 fits the longest
+# rewrites observed in the battery without meaningfully changing per-call cost.
 
 
 def _load_questions(path: Path) -> list[dict[str, Any]]:
