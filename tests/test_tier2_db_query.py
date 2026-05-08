@@ -263,6 +263,39 @@ def test_result_cap_eight(db: Session) -> None:
     assert len(rows) == 8
 
 
+def test_event_category_can_match_tags_only(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 5, 7))
+    suf = _suffix()
+    tag = f"arttag{suf}"
+    pv = _prov(db, name=f"TaggedEventOrg {suf}")
+    _evt(
+        db,
+        title=f"Mason Jar Terrarium {suf}",
+        on_date=date(2026, 5, 13),
+        provider=pv,
+        tags=[tag, "adult"],
+    )
+    db.commit()
+    rows = tier2_query(Tier2Filters(parser_confidence=0.9, category=tag, time_window="next_week"))
+    assert any(r["type"] == "event" and f"Mason Jar Terrarium {suf}" == r["name"] for r in rows)
+
+
+def test_this_weekend_window_includes_upcoming_friday(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 5, 7))  # Thursday
+    suf = _suffix()
+    pv = _prov(db, name=f"WeekendFridayOrg {suf}")
+    _evt(
+        db,
+        title=f"Dodgeball Friday {suf}",
+        on_date=date(2026, 5, 8),
+        provider=pv,
+        start=time(18, 30),
+    )
+    db.commit()
+    rows = tier2_query(Tier2Filters(parser_confidence=0.9, entity_name=f"Dodgeball Friday {suf}", time_window="this_weekend"))
+    assert any(r["type"] == "event" and f"Dodgeball Friday {suf}" == r["name"] for r in rows)
+
+
 def test_open_now_excludes_providers_without_structured_hours(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         tier2_db_query,
@@ -502,6 +535,29 @@ def test_date_exact_only_starts_on_day_keeps_chronological_order(
     names = [r["name"] for r in rows if r["type"] == "event" and mark in r["name"]]
     assert names == [start_0800, start_1200, start_1800]
     assert off_target not in names
+
+
+def test_crowded_date_exact_keeps_later_same_day_events(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 5, 1))
+    suf = _suffix()
+    pv = _prov(db, name=f"CrowdedDayOrg {suf}")
+    target = date(2035, 5, 8)
+    for i, hour in enumerate((5, 6, 7, 8, 9, 10, 11, 12, 17, 18)):
+        _evt(
+            db,
+            title=f"{suf} event {i}",
+            on_date=target,
+            provider=pv,
+            start=time(hour, 0),
+        )
+    late_title = f"{suf} event 9"
+    db.commit()
+    rows = tier2_query(Tier2Filters(parser_confidence=0.9, date_exact=target))
+    names = [r["name"] for r in rows if r["type"] == "event"]
+    assert len(rows) == 8
+    assert late_title in names
 
 
 def test_date_exact_only_overlap_rows_keep_date_then_time_order(

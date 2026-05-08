@@ -233,15 +233,15 @@ def _resolve_time_window(
         return start, end
     if tw == "this_weekend":
         wd = ref.weekday()
-        if wd < 5:
-            days_to_sat = 5 - wd
-        elif wd == 5:
-            days_to_sat = 0
+        if wd < 4:
+            days_to_fri = 4 - wd
+        elif wd <= 6:
+            days_to_fri = 0
         else:
-            days_to_sat = 6
-        sat = ref + timedelta(days=days_to_sat)
-        sun = sat + timedelta(days=1)
-        return sat, sun
+            days_to_fri = 5
+        fri = ref + timedelta(days=days_to_fri)
+        sun = fri + timedelta(days=2)
+        return fri, sun
     if tw == "this_month":
         start = date(ref.year, ref.month, 1)
         last = calendar.monthrange(ref.year, ref.month)[1]
@@ -579,6 +579,42 @@ def _time_bucket_first_hits(
     return out
 
 
+def _event_time_bucket_first_hits(evs: list[Event], k: int) -> list[Event]:
+    """For crowded one-day lists, preserve coverage across the day, then sort chrono."""
+    if not evs or k < 1:
+        return []
+    used: set[str] = set()
+    selected: list[Event] = []
+    minutes_per_day = 24 * 60
+    for i in range(k):
+        lo = (i * minutes_per_day) // k
+        hi = ((i + 1) * minutes_per_day) // k
+        for e in evs:
+            if e.id in used:
+                continue
+            minute = (e.start_time.hour * 60 + e.start_time.minute) if e.start_time is not None else 12 * 60
+            if lo <= minute < hi:
+                selected.append(e)
+                used.add(e.id)
+                break
+    for e in evs:
+        if len(selected) >= k:
+            break
+        if e.id in used:
+            continue
+        selected.append(e)
+        used.add(e.id)
+    return sorted(
+        selected,
+        key=lambda e: (
+            e.date,
+            e.start_time is None,
+            e.start_time,
+            e.title or "",
+        ),
+    )
+
+
 def _query_events(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
     today = _today()
     win_start, win_end = _resolve_effective_event_window(filters, today)
@@ -616,6 +652,7 @@ def _query_events(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
                 or_(
                     Event.title.ilike(cat_like),
                     Event.description.ilike(cat_like),
+                    cast(Event.tags, String).ilike(cat_like),
                 )
             )
 
@@ -634,6 +671,8 @@ def _query_events(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
         rows = [e for e in rows if _event_covers_any_weekday(e, allowed)]
 
     if span <= 30:
+        if len(rows) > MAX_ROWS and win_start is not None and win_end == win_start:
+            rows = _event_time_bucket_first_hits(rows, MAX_ROWS)
         return [_event_dict(e) for e in rows[:MAX_ROWS]]
 
     # Broad window: collapse ``is_recurring`` series (see :func:`_recurring_series_key`), then bucketing if still skewed.
