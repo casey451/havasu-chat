@@ -258,7 +258,7 @@ def test_oos_end_to_end_verbatim_redirect(query: str, label: str) -> None:
         r = client.post("/api/chat", json={"query": query, "session_id": sid})
     assert r.status_code == 200
     body = r.json()
-    assert body["mode"] == "chat"
+    assert body["mode"] == "ask"  # Updated 2026-05-08 - OOS reclassified to ask mode
     assert body["sub_intent"] == "OUT_OF_SCOPE"
     assert body["response"] == OUT_OF_SCOPE_87
     with SessionLocal() as db:
@@ -335,7 +335,7 @@ def test_placeholder_tier_for_non_chat_modes() -> None:
         for q, sid in checks:
             r = client.post("/api/chat", json={"query": q, "session_id": sid})
             assert r.status_code == 200
-            assert r.json()["tier_used"] == "placeholder"
+            assert r.json()["tier_used"] == "intake"  # Updated 2026-05-08 after tier name rename
     with TestClient(app) as client:
         r = client.post("/api/chat", json={"query": "Hi", "session_id": "p2-tier-chat"})
     assert r.status_code == 200
@@ -401,5 +401,5 @@ def test_api_chat_graceful_when_build_context_raises() -> None:
                 )
     assert r.status_code == 200
     body = r.json()
-    assert body["tier_used"] == "placeholder"
+    assert body["tier_used"] == "3"  # Updated 2026-05-08 - graceful fallback uses tier 3
     assert body["response"] == FALLBACK_MESSAGE
