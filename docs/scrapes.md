@@ -111,6 +111,7 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python scripts/run_scrapes.py
       - run: python scripts/parks_rec_load.py
+      - run: python scripts/parks_rec_prune.py
       - uses: actions/upload-artifact@v4
         with:
           name: scrapes-${{ github.run_id }}
@@ -120,8 +121,25 @@ jobs:
 ### Local cron (development)
 
 ```
-15 */6 * * * cd /path/to/havasu-chat && /usr/bin/env python scripts/run_scrapes.py && /usr/bin/env python scripts/parks_rec_load.py >> data/scrapes/cron.log 2>&1
+15 */6 * * * cd /path/to/havasu-chat && /usr/bin/env python scripts/run_scrapes.py && /usr/bin/env python scripts/parks_rec_load.py && /usr/bin/env python scripts/parks_rec_prune.py >> data/scrapes/cron.log 2>&1
 ```
+
+### Pruning stale aquatic events
+
+`scripts/parks_rec_prune.py` hard-deletes Event rows whose `source_url`
+points at the aquatic schedule page AND whose `date` is older than
+`today - 7 days` (the grace window; configurable via `--grace-days`).
+
+The aquatic page republishes ~25 days at a time, so old class slots
+otherwise stay in `events` forever. Chat date-filters them away in
+practice, but the row count drifts up; this script is the periodic
+fix. WebTrac registrations carry stable `FMID`s and a different host,
+and are intentionally untouched.
+
+Run order: scrape → load → prune. The load step is idempotent on
+`source_url`, so if the city ever extends the schedule backwards the
+next load re-imports the row a prune would have removed (in practice
+they never extend backwards).
 
 ## Failure modes and observability
 

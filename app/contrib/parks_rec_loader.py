@@ -39,7 +39,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from typing import Any, Iterable
 
 from sqlalchemy import select
@@ -65,6 +65,21 @@ AQUATIC_SOURCE = "lhcaz_aquatic"
 DEFAULT_PROVIDER_WEBTRAC = "Lake Havasu City Parks & Recreation"
 DEFAULT_PROVIDER_AQUATIC = "Lake Havasu City Aquatic Center"
 AQUATIC_SCHEDULE_URL = "https://www.lhcaz.gov/parks-recreation/open-swim-schedule"
+
+# Identifier for aquatic-source Event rows. The aquatic loader synthesizes
+# `{AQUATIC_SCHEDULE_URL}#YYYY-MM-DD|<slug>|HH-MM` per occurrence; live
+# Event rows do NOT carry source="lhcaz_aquatic" because
+# approve_contribution_as_event drops the contribution's source unless
+# it's "river_scene_import". The source_url substring is the canonical
+# identifier — same predicate parks_rec_reset_and_reload.py uses.
+AQUATIC_SOURCE_URL_LIKE = "%lhcaz.gov/parks-recreation/open-swim-schedule%"
+
+# Grace window (days) before today that aquatic events are kept around.
+# Covers timezone slop, late-day chat queries, and recovery if a prune
+# runs early or against the wrong DB. Chat already date-filters past
+# events, so this only affects the row-count drift the pruner exists
+# to fix.
+AQUATIC_PRUNE_GRACE_DAYS = 7
 
 # Day-letter codes from WebTrac → ProgramApprovalFields.schedule_days entries.
 DAY_CODE_MAP: dict[str, str] = {
@@ -518,3 +533,92 @@ def load_latest_snapshots(*, dry_run: bool = False) -> list[LoaderStats]:
             results.append(LoaderStats(source=AQUATIC_SOURCE, errors=["no snapshot found"]))
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Pruner — stale aquatic events
+# ---------------------------------------------------------------------------
+
+@dataclass
+class PruneStats:
+    """Result of a single ``prune_stale_aquatic`` run."""
+
+    source: str
+    cutoff: date
+    matched: int = 0  # rows that satisfied the prune predicate
+    deleted: int = 0  # rows actually removed from the DB (0 if dry_run)
+    dry_run: bool = False
+    errors: list[str] = field(default_factory=list)
+
+
+def prune_stale_aquatic(
+    *,
+    db: Session,
+    today: date | None = None,
+    grace_days: int = AQUATIC_PRUNE_GRACE_DAYS,
+    dry_run: bool = False,
+) -> PruneStats:
+    """Hard-delete aquatic Event rows whose ``date`` is older than the
+    cutoff (``today - grace_days``).
+
+    The aquatic schedule scraper republishes ~25 days at a time. Old
+    occurrences stay in ``events`` forever; chat date-filters them but
+    row count drifts up. This is the periodic fix.
+
+    Scope: ONLY rows whose ``source_url`` matches the aquatic schedule
+    URL substring. WebTrac registrations carry stable ``FMID``s and a
+    different host; they are intentionally untouched.
+
+    Identifier note: live aquatic Events carry ``source='admin'`` (see
+    ``approve_contribution_as_event`` — only ``river_scene_import``
+    survives onto the Event row). ``source_url`` is the canonical
+    aquatic identifier.
+
+    Args:
+        db: Session to operate on.
+        today: Reference date. Defaults to ``date.today()`` (caller's
+            local clock — adequate; cutoff has 7-day grace).
+        grace_days: Keep events whose ``date`` is within this many days
+            before ``today``. Defaults to ``AQUATIC_PRUNE_GRACE_DAYS``.
+        dry_run: When True, count without deleting.
+
+    Returns:
+        ``PruneStats`` with ``matched`` (predicate hits) and ``deleted``
+        (0 for dry runs).
+    """
+    today = today or date.today()
+    cutoff = today - timedelta(days=max(0, int(grace_days)))
+    stats = PruneStats(source=AQUATIC_SOURCE, cutoff=cutoff, dry_run=bool(dry_run))
+
+    try:
+        from app.db.models import Event  # local import — keeps loader importable in tests
+
+        q = db.query(Event).filter(
+            Event.source_url.like(AQUATIC_SOURCE_URL_LIKE),
+            Event.date < cutoff,
+        )
+        stats.matched = q.count()
+        if dry_run or stats.matched == 0:
+            return stats
+
+        deleted = q.delete(synchronize_session=False)
+        db.commit()
+        stats.deleted = int(deleted or 0)
+    except Exception as e:  # noqa: BLE001
+        db.rollback()
+        stats.errors.append(str(e))
+    return stats
+
+
+def prune_latest(
+    *,
+    grace_days: int = AQUATIC_PRUNE_GRACE_DAYS,
+    dry_run: bool = False,
+) -> PruneStats:
+    """Convenience wrapper opening a ``SessionLocal`` for the CLI.
+
+    Mirrors ``load_latest_snapshots`` so the script layer doesn't have
+    to know about session plumbing.
+    """
+    with SessionLocal() as db:
+        return prune_stale_aquatic(db=db, grace_days=grace_days, dry_run=dry_run)
