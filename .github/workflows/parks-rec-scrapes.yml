@@ -31,6 +31,15 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python scripts/parks_rec_load.py
 
+      - name: Prune stale aquatic events
+        # Hard-deletes Event rows whose source_url points at the aquatic
+        # schedule page AND whose date is older than today - 7 days.
+        # Same DATABASE_URL secret as the load step. See
+        # app/contrib/parks_rec_loader.py :: prune_stale_aquatic.
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/parks_rec_prune.py
+
       - name: Upload snapshots as a run artifact (audit trail)
         if: always()
         uses: actions/upload-artifact@v4
