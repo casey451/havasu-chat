@@ -335,3 +335,41 @@ class LlmMentionedEntity(Base):
     promoted_to_contribution_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("contributions.id"), nullable=True
     )
+
+
+class LlmResponseCache(Base):
+    """Tier 3 (and optionally Tier 2 LLM) response cache.
+
+    Stream C, lever Cache (2026-05-08): caches assistant text keyed by
+    ``(normalized_query, context_hash, rubric_version)`` so identical or
+    similar synthesis queries don't re-spend tokens. The rubric_version is a
+    short hash of the prompts files; when any prompt content changes, the
+    version bumps and stale entries are filtered out on lookup. TTL is per
+    entry — null = no expiry; caller chooses based on query shape (event
+    listings short, evergreen recommendations longer).
+
+    Hits bump ``hit_count`` and ``last_hit_at`` for observability. Misses
+    fall through to the live LLM call which writes the response back into
+    the cache. Expired entries are treated as misses and overwritten.
+    """
+
+    __tablename__ = "llm_response_cache"
+    __table_args__ = (
+        Index("ix_llm_response_cache_cache_key", "cache_key", unique=True),
+        Index("ix_llm_response_cache_rubric_version", "rubric_version"),
+        Index("ix_llm_response_cache_ttl_until", "ttl_until"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    cache_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    normalized_query: Mapped[str] = mapped_column(String(500), nullable=False)
+    context_hash: Mapped[str] = mapped_column(String(32), nullable=False)
+    rubric_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    response_text: Mapped[str] = mapped_column(Text, nullable=False)
+    tier_used: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+    last_hit_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    hit_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    ttl_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hava — hero with browse rows</title>
+<style>
+  :root {
+    --bg: #faf9f6;
+    --paper: #ffffff;
+    --ink: #161616;
+    --ink-2: #5a5a5a;
+    --ink-3: #999;
+    --rule: rgba(0,0,0,0.08);
+    --rule-soft: rgba(0,0,0,0.05);
+    --accent: #0d7c8c;
+    --accent-hover: #095e6a;
+    --accent-soft: rgba(13,124,140,0.08);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.6;
+  }
+  a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+  a:hover { color: var(--accent-hover); }
+
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px 32px 100px;
+  }
+
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 64px;
+  }
+  .wordmark {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 500; font-size: 17px; letter-spacing: -0.01em;
+  }
+  .wordmark .dot {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--accent);
+  }
+  .topbar-link {
+    font-size: 14px; color: var(--ink-2); text-decoration: none;
+  }
+  .topbar-link:hover { color: var(--ink); }
+
+  /* ─── hero ─── */
+  .hero {
+    text-align: center;
+    padding: 24px 0 56px;
+  }
+  .hero-eyebrow {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-3);
+    margin: 0 0 18px;
+  }
+  .hero h1 {
+    font-size: 72px;
+    line-height: 1.0;
+    letter-spacing: -0.03em;
+    font-weight: 400;
+    margin: 0 0 22px;
+    color: var(--ink);
+  }
+  .hero h1 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+  .hero p {
+    font-size: 18px;
+    color: var(--ink-2);
+    margin: 0 auto 36px;
+    max-width: 540px;
+  }
+  .composer {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 16px;
+    padding: 16px 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    max-width: 640px;
+    margin: 0 auto 24px;
+  }
+  .composer input {
+    flex: 1; border: 0; outline: 0; background: transparent;
+    font: inherit; font-size: 18px; color: var(--ink);
+  }
+  .composer input::placeholder { color: var(--ink-3); }
+  .composer button {
+    width: 38px; height: 38px;
+    border: 0; border-radius: 10px;
+    background: var(--ink); color: #fff;
+    cursor: pointer; display: grid; place-items: center;
+  }
+  .composer button:hover { background: var(--accent); }
+  .composer button svg { width: 16px; height: 16px; }
+
+  .chips {
+    display: flex; flex-wrap: wrap; justify-content: center;
+    gap: 8px; max-width: 640px; margin: 0 auto;
+  }
+  .chip {
+    background: transparent;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 13.5px;
+    color: var(--ink-2);
+    cursor: pointer;
+  }
+  .chip:hover { color: var(--ink); border-color: rgba(0,0,0,0.18); }
+
+  /* ─── browse rows ─── */
+  .row {
+    margin-top: 64px;
+  }
+  .row-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--rule-soft);
+    padding-bottom: 12px;
+  }
+  .row-head h2 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  .row-head .sub {
+    font-size: 13px; color: var(--ink-3);
+  }
+  .row-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 16px;
+    padding: 22px;
+    text-decoration: none;
+    color: var(--ink);
+    display: flex; flex-direction: column;
+    min-height: 168px;
+    transition: border-color .15s ease, transform .15s ease;
+  }
+  .card:hover {
+    border-color: rgba(0,0,0,0.16);
+    transform: translateY(-1px);
+  }
+  .card .meta {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-3);
+    margin-bottom: 12px;
+  }
+  .card .dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+  }
+  .card .name {
+    font-size: 18px;
+    font-weight: 500;
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+  }
+  .card .blurb {
+    font-size: 15px;
+    color: var(--ink-2);
+    line-height: 1.55;
+    margin: 0;
+    flex: 1;
+  }
+  .card .footer {
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--accent);
+  }
+
+  /* ─── page footer ─── */
+  .pagefoot {
+    margin-top: 80px;
+    padding-top: 32px;
+    border-top: 1px solid var(--rule-soft);
+    display: flex; justify-content: space-between;
+    color: var(--ink-3); font-size: 13px;
+  }
+  .pagefoot a { color: var(--ink-2); text-decoration: none; }
+  .pagefoot a:hover { color: var(--ink); }
+
+  @media (max-width: 800px) {
+    .page { padding: 24px 20px 64px; }
+    .topbar { padding-bottom: 32px; }
+    .hero { padding: 12px 0 32px; }
+    .hero h1 { font-size: 44px; }
+    .row-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="topbar">
+    <div class="wordmark"><span class="dot"></span>Hava</div>
+    <a href="#" class="topbar-link">Add to catalog</a>
+  </header>
+
+  <section class="hero">
+    <p class="hero-eyebrow">Lake Havasu City · Thursday, May 7</p>
+    <h1>What's happening<br>in <em>Havasu</em>.</h1>
+    <p>Ask me anything. Or skim what's on this week.</p>
+
+    <div class="composer">
+      <input type="text" placeholder="Ask Hava — restaurants, classes, events, what's open…">
+      <button aria-label="Send">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10m-4-4 4 4-4 4"/></svg>
+      </button>
+    </div>
+
+    <div class="chips">
+      <button class="chip">date night</button>
+      <button class="chip">open right now</button>
+      <button class="chip">classes this week</button>
+      <button class="chip">things to do tonight</button>
+      <button class="chip">kid-friendly</button>
+    </div>
+  </section>
+
+  <!-- ─── tonight ─── -->
+  <section class="row">
+    <div class="row-head">
+      <h2>Tonight</h2>
+      <span class="sub">Thursday, May 7</span>
+    </div>
+    <div class="row-grid">
+
+      <a class="card" href="#">
+        <div class="meta"><span class="dot"></span>Live music · 8 pm</div>
+        <p class="name">Channel Brewing Co.</p>
+        <p class="blurb">Patio over the water, full menu till 10. Three-piece acoustic set kicks off at 8.</p>
+        <span class="footer">Bridgewater Channel →</span>
+      </a>
+
+      <a class="card" href="#">
+        <div class="meta"><span class="dot"></span>Open swim · until 8</div>
+        <p class="name">Aquatic Center</p>
+        <p class="blurb">Lap lanes and family pool open. Last entry 7:30, $4 adults / $2 kids.</p>
+        <span class="footer">Register →</span>
+      </a>
+
+      <a class="card" href="#">
+        <div class="meta"><span class="dot"></span>Drop-in class · 6:30</div>
+        <p class="name">Adult yoga at the Library</p>
+        <p class="blurb">Beginner-friendly, mats provided. $10 cash at the door, no signup needed.</p>
+        <span class="footer">Library room 2 →</span>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- ─── this week ─── -->
+  <section class="row">
+    <div class="row-head">
+      <h2>This week</h2>
+      <span class="sub">Through Sunday</span>
+    </div>
+    <div class="row-grid">
+
+      <a class="card" href="#">
+        <div class="meta"><span class="dot"></span>Saturday · 7 am</div>
+        <p class="name">Bridgewater 5K</p>
+        <p class="blurb">Annual run along the channel. Family wave at 8. Registration closes Friday night.</p>
+        <span class="footer">Sign up →</span>
+      </a>
+
+      <a class="card" href="#">
+        <div class="meta"><span class="dot"></span>Saturday · 10 am</div>
+        <p class="name">Saturday Art Lab</p>
+        <p class="blurb">Kids 6–12 — watercolor and collage at the Library. Drop in, free with a library card.</p>
+        <span class="footer">Library →</span>
+      </a>
+
+      <a class="card" href="#">
+        <div class="meta"><span class="dot"></span>Sunday · all day</div>
+        <p class="name">Farmers market downtown</p>
+        <p class="blurb">Produce, hot food, crafts. Live music after 10. Closes 2 sharp.</p>
+        <span class="footer">Main street →</span>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- ─── new in town ─── -->
+  <section class="row">
+    <div class="row-head">
+      <h2>New in town</h2>
+      <span class="sub">Added this month</span>
+    </div>
+    <div class="row-grid">
+
+      <a class="card" href="#">
+        <div class="meta"><span class="dot"></span>Restaurant</div>
+        <p class="name">Sunset Cantina</p>
+        <p class="blurb">Coastal Mexican opened on the bluff in April. Back patio faces the lake — best after 7.</p>
+        <span class="footer">McCulloch Blvd →</span>
+      </a>
+
+      <a class="card" href="#">
+        <div class="meta"><span class="dot"></span>Program · 8 weeks</div>
+        <p class="name">Beginner pickleball league</p>
+        <p class="blurb">Tuesday evenings at the Rec Center, starts May 20. Sign-ups close in 9 days.</p>
+        <span class="footer">Register →</span>
+      </a>
+
+      <a class="card" href="#">
+        <div class="meta"><span class="dot"></span>Studio</div>
+        <p class="name">Desert Clay Studio</p>
+        <p class="blurb">Drop-in pottery wheel sessions, Thursday + Saturday. Walk-ins welcome till they fill.</p>
+        <span class="footer">Off Acoma →</span>
+      </a>
+
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    <span>Missing something? <a href="#">Add it to the catalog →</a></span>
+    <span>Hava · Lake Havasu City</span>
+  </footer>
+
+</div>
+
+</body>
+</html>

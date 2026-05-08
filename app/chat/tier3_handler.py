@@ -15,7 +15,9 @@ from sqlalchemy.orm import Session
 
 from app.chat.context_builder import build_context_for_tier3
 from app.chat.intent_classifier import IntentResult
+from app.chat.llm_cache import lookup as cache_lookup, make_cache_key, store as cache_store
 from app.chat.local_voice_matcher import find_matching_blurbs
+from app.chat.tier3_postprocess import strip_soft_suggest
 from app.core.llm_messages import call_anthropic_messages, load_prompt
 from app.core.timezone import format_now_lake_havasu, now_lake_havasu
 
@@ -25,6 +27,18 @@ FALLBACK_MESSAGE = (
 )
 _MAX_OUTPUT_TOKENS = 150
 _TEMPERATURE = 0.3
+
+# Stream C, lever B (2026-05-08): Tier 3 synthesis uses ``gpt-4.1-mini`` for
+# stricter voice discipline. ``gpt-4o-mini`` produces customer-service drift
+# on synthesis queries even with strong system prompts; the bigger model
+# follows instructions more reliably. Tier 2 parser/formatter and
+# ``hint_extractor`` stay on the cheaper default — those are extraction tasks
+# where 4o-mini is fine. Per-call cost goes up ~3x ($0.15 → $0.40 per million
+# input tokens, $0.60 → $1.60 per million output) — at 5K Tier 3 queries/month
+# that's ~$3–5 added baseline, mostly absorbed by the response cache once
+# steady state hit rate climbs. Override via ``TIER3_MODEL`` env var for
+# emergency rollback to 4o-mini without a code change.
+_TIER3_MODEL = (os.getenv("TIER3_MODEL") or "").strip() or "gpt-4.1-mini"
 
 _INLINE_SYSTEM_PROMPT_FALLBACK = (
     "You are a Lake Havasu City concierge. Answer in 1–3 short sentences, "
@@ -91,6 +105,27 @@ def answer_with_tier3(
         logging.info("tier3: OPENAI_API_KEY unset; graceful fallback")
         return FALLBACK_MESSAGE, None, None, None
 
+    # Stream C, lever Cache (2026-05-08): check the LLM response cache before
+    # spending tokens. Cache key = normalized_query + context_hash + rubric
+    # version hash. Hits return zero-token responses; misses fall through to
+    # the LLM call which writes the response back into the cache.
+    cache_context: dict[str, Any] = {}
+    if onboarding_hints:
+        for k in ("visitor_status", "has_kids", "age", "location"):
+            v = onboarding_hints.get(k)
+            if v is not None and v != "":
+                cache_context[k] = v
+    # today's date in catalog timezone — so "this weekend" doesn't bleed
+    # across the week boundary on cache hits
+    cache_context["_today"] = now_lake_havasu().date().isoformat()
+    cache_key = make_cache_key(query, cache_context)
+    cached_response = cache_lookup(db, cache_key)
+    if cached_response:
+        logging.info("tier3: cache hit (key=%s)", cache_key[:8])
+        # Cache hit returns zero tokens — chat_logs will reflect this. Filter
+        # ``llm_input_tokens = 0 AND tier_used = 'tier3'`` to count cache hits.
+        return cached_response, 0, 0, 0
+
     context = build_context_for_tier3(query, intent_result, db)
     classifier_block = (
         f"Classifier: mode={intent_result.mode}, sub_intent={intent_result.sub_intent or 'none'}, "
@@ -126,7 +161,7 @@ def answer_with_tier3(
         user_text=user_text,
         max_tokens=_MAX_OUTPUT_TOKENS,
         temperature=_TEMPERATURE,
-        model=None,
+        model=_TIER3_MODEL,
     )
     if result is None:
         logging.error("tier3: OpenAI chat.completions.create failed")
@@ -135,11 +170,31 @@ def answer_with_tier3(
     if not result.text:
         return FALLBACK_MESSAGE, None, None, None
 
+    # Voice-battery 2026-05-08 (Stream C, lever E): strip soft-suggest
+    # customer-service phrasing the LLM occasionally produces despite the
+    # system prompt's explicit ban. Deterministic, runs once per response,
+    # never raises. See app/chat/tier3_postprocess.py for rule details.
+    cleaned_text = strip_soft_suggest(result.text)
+    if not cleaned_text:
+        cleaned_text = result.text  # defensive: never return empty
+
+    # Stream C, lever Cache: write the response into the cache for future
+    # identical queries. Default 7-day TTL; rubric-version-hashed key auto-
+    # invalidates when prompts change. Failures are swallowed by store().
+    cache_store(
+        db,
+        cache_key,
+        query,
+        cache_context,
+        cleaned_text,
+        tier_used="tier3",
+    )
+
     usage = getattr(result.raw, "usage", None)
     if usage is None:
-        return result.text, None, None, None
+        return cleaned_text, None, None, None
 
     inp_side = result.usage.billable_input
     out_side = result.usage.output_tokens
     total = inp_side + out_side
-    return result.text, total, inp_side, out_side
+    return cleaned_text, total, inp_side, out_side

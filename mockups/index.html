@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hava — UI explorations</title>
+<style>
+  :root {
+    --bg: #faf9f6;
+    --paper: #ffffff;
+    --ink: #161616;
+    --ink-2: #5a5a5a;
+    --ink-3: #999;
+    --rule: rgba(0,0,0,0.08);
+    --rule-soft: rgba(0,0,0,0.05);
+    --accent: #0d7c8c;
+    --accent-hover: #095e6a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.6;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-hover); }
+
+  .page {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 56px 28px 96px;
+  }
+
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 64px;
+  }
+  .wordmark {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 500; font-size: 17px; letter-spacing: -0.01em;
+  }
+  .wordmark .dot {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--accent);
+  }
+  .topbar .meta {
+    font-size: 13px; color: var(--ink-3);
+  }
+
+  h1 {
+    font-size: 44px;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    font-weight: 400;
+    margin: 0 0 18px;
+  }
+  h1 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+  .lede {
+    font-size: 18px;
+    color: var(--ink-2);
+    margin: 0 0 56px;
+    max-width: 620px;
+  }
+
+  .tile {
+    display: block;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 18px;
+    padding: 28px 32px;
+    margin-bottom: 16px;
+    text-decoration: none;
+    color: var(--ink);
+    transition: border-color .15s ease, transform .15s ease;
+  }
+  .tile:hover {
+    border-color: rgba(0,0,0,0.18);
+    transform: translateY(-1px);
+  }
+  .tile-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 16px; margin-bottom: 8px;
+  }
+  .tile-num {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-3);
+  }
+  .tile-arrow {
+    color: var(--accent);
+    font-size: 14px;
+  }
+  .tile h2 {
+    font-size: 24px;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    margin: 0 0 10px;
+    color: var(--ink);
+  }
+  .tile p {
+    font-size: 16px;
+    color: var(--ink-2);
+    margin: 0 0 14px;
+    line-height: 1.6;
+  }
+  .tile .stats {
+    display: flex; flex-wrap: wrap; gap: 20px;
+    font-size: 13px; color: var(--ink-3);
+    border-top: 1px solid var(--rule-soft);
+    padding-top: 14px;
+    margin-top: 6px;
+  }
+  .tile .stats span strong {
+    font-weight: 500;
+    color: var(--ink-2);
+  }
+
+  .note {
+    margin-top: 56px;
+    padding: 22px 24px;
+    background: rgba(13,124,140,0.04);
+    border-radius: 14px;
+    font-size: 14.5px;
+    color: var(--ink-2);
+    line-height: 1.65;
+  }
+  .note strong { color: var(--ink); font-weight: 500; }
+
+  @media (max-width: 600px) {
+    .page { padding: 32px 20px 64px; }
+    .topbar { padding-bottom: 32px; }
+    h1 { font-size: 32px; }
+    .tile { padding: 22px 24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="topbar">
+    <div class="wordmark"><span class="dot"></span>Hava</div>
+    <span class="meta">UI explorations · May 2026</span>
+  </header>
+
+  <h1>Two surfaces, <em>continuous</em>.</h1>
+  <p class="lede">v2 is the front door — what locals see when they land. 04 is what they see after they ask a question — short Hava voice up top, structured component beneath. Same palette and typography across both.</p>
+
+  <a class="tile" href="02-hero-browse-v2.html" style="border-color: rgba(13,124,140,0.22); background: linear-gradient(180deg, #ffffff 0%, rgba(13,124,140,0.02) 100%);">
+    <div class="tile-head">
+      <span class="tile-num" style="color: var(--accent);">Home · v2</span>
+      <span class="tile-arrow">Open →</span>
+    </div>
+    <h2>Hero with browse rows — premium pass.</h2>
+    <p>Editorial typography (Fraunces serif + Inter), real photography on every card, a magazine-style featured layout in the Tonight row, and a "Hava's read on tonight" pullquote that gives the page a personality moment.</p>
+    <div class="stats">
+      <span><strong>Type:</strong> Fraunces + Inter</span>
+      <span><strong>Imagery:</strong> real photos</span>
+      <span><strong>New:</strong> "Hava's read" editorial moment</span>
+    </div>
+  </a>
+
+  <a class="tile" href="04-answer-rendering.html" style="border-color: rgba(13,124,140,0.22); background: linear-gradient(180deg, #ffffff 0%, rgba(13,124,140,0.02) 100%);">
+    <div class="tile-head">
+      <span class="tile-num" style="color: var(--accent);">Answers · 04</span>
+      <span class="tile-arrow">Open →</span>
+    </div>
+    <h2>Answer rendering — interactive components, not lists.</h2>
+    <p>Three patterns for what an answer looks like: a day agenda for "what's on Friday?" (the screenshot case), an interactive week strip for "what's on this week?", and a small card row for "where's good for date night?" Hava speaks short; the data renders as a thing you can scan, save, and tap.</p>
+    <div class="stats">
+      <span><strong>Components:</strong> 3</span>
+      <span><strong>Interactive:</strong> week strip swaps days</span>
+      <span><strong>Voice:</strong> stays in 1–2 sentences</span>
+    </div>
+  </a>
+
+  <div style="margin: 64px 0 24px;">
+    <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.18em; color: var(--ink-3);">For comparison</span>
+  </div>
+
+  <a class="tile" href="02-hero-browse.html">
+    <div class="tile-head">
+      <span class="tile-num">02 · v1</span>
+      <span class="tile-arrow">Open →</span>
+    </div>
+    <h2>Hero with browse rows — original.</h2>
+    <p>The earlier pass — same structure but plainer type, no imagery, system fonts only. Useful as a before/after against v2.</p>
+  </a>
+
+  <a class="tile" href="01-visual-rebuild.html">
+    <div class="tile-head">
+      <span class="tile-num">01</span>
+      <span class="tile-arrow">Open →</span>
+    </div>
+    <h2>Visual rebuild — chat only.</h2>
+    <p>The minimum-viable polish path: chat as today, just beautifully typeset. Kept for the "what if we did less" reference point.</p>
+  </a>
+
+  <a class="tile" href="03-calendar-spine.html">
+    <div class="tile-head">
+      <span class="tile-num">03</span>
+      <span class="tile-arrow">Open →</span>
+    </div>
+    <h2>Calendar spine.</h2>
+    <p>The day-led alternative — tap a day, Hava narrates it. Different shape entirely; kept here in case the v2 work convinces you to revisit.</p>
+  </a>
+
+  <div class="note">
+    <strong>What's new in v2.</strong> Serif/sans pairing for editorial weight. Real photography to make the place feel like a place. A featured-card pattern in Tonight (one big + two side cards) so the page has hierarchy. The "Hava's read on tonight" pullquote — a single Hava-voiced sentence in big italic serif between the hero and the rows. Subtle warm accent (terracotta) alongside the lake teal so it doesn't feel monochrome.
+  </div>
+
+</div>
+
+</body>
+</html>

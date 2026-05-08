@@ -1,0 +1,839 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hava — answer rendering</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f7f5ef;
+    --bg-2: #f1eee5;
+    --paper: #ffffff;
+    --ink: #14140f;
+    --ink-2: #4a4a44;
+    --ink-3: #8b8b82;
+    --ink-4: #b3b3aa;
+    --rule: rgba(20,20,15,0.10);
+    --rule-soft: rgba(20,20,15,0.06);
+    --rule-hair: rgba(20,20,15,0.04);
+    --accent: #0e6e7c;
+    --accent-deep: #064551;
+    --accent-soft: rgba(14,110,124,0.08);
+    --warm: #b8623d;
+    --warm-soft: rgba(184,98,61,0.10);
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --serif: "Fraunces", "Source Serif 4", Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.55;
+    font-feature-settings: "ss01", "cv01", "cv11";
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-deep); }
+
+  .page {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 24px 32px 80px;
+  }
+
+  /* ─── topbar (matches v2) ─── */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0 32px;
+  }
+  .wordmark {
+    display: flex; align-items: center; gap: 11px;
+    font-weight: 500; font-size: 17px; letter-spacing: -0.012em;
+  }
+  .wordmark .mark {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #1797a8 0%, #0e6e7c 55%, #064551 100%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+  }
+  .topbar-meta {
+    font-size: 13px; color: var(--ink-3);
+    display: flex; align-items: center; gap: 18px;
+  }
+  .topbar-meta .sep { width: 1px; height: 12px; background: var(--rule); }
+  .topbar-meta a { color: var(--ink-2); }
+  .topbar-meta a:hover { color: var(--ink); }
+
+  /* ─── intro band (commentary about this mockup) ─── */
+  .intro {
+    text-align: center;
+    padding: 8px 0 56px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .intro .eyebrow {
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.22em; color: var(--ink-3);
+    font-weight: 500; margin: 0 0 18px;
+  }
+  .intro h1 {
+    font-family: var(--serif);
+    font-size: clamp(36px, 5vw, 52px);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    font-weight: 300;
+    margin: 0 0 18px;
+    font-variation-settings: "opsz" 144;
+  }
+  .intro h1 em {
+    font-style: italic; color: var(--accent-deep);
+  }
+  .intro p {
+    font-size: 16px; color: var(--ink-2);
+    margin: 0;
+  }
+
+  /* ─── section divider ─── */
+  .demo {
+    margin-top: 80px;
+    padding-top: 40px;
+    border-top: 1px solid var(--rule);
+  }
+  .demo-label {
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.22em; color: var(--ink-3);
+    font-weight: 500;
+    margin-bottom: 32px;
+    text-align: center;
+  }
+
+  /* ─── chat turns ─── */
+  .turn-user {
+    display: flex; justify-content: flex-end;
+    margin-bottom: 24px;
+  }
+  .turn-user .bubble {
+    background: var(--warm-soft);
+    color: var(--ink);
+    padding: 10px 18px;
+    border-radius: 18px 18px 4px 18px;
+    font-size: 15.5px;
+    max-width: 70%;
+    border: 1px solid rgba(184,98,61,0.14);
+  }
+
+  .turn-hava {
+    margin-bottom: 28px;
+    display: flex; gap: 14px; align-items: flex-start;
+  }
+  .turn-hava .avatar {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #1797a8 0%, #0e6e7c 55%, #064551 100%);
+    flex-shrink: 0;
+    margin-top: 6px;
+  }
+  .turn-hava .said {
+    flex: 1;
+  }
+  .turn-hava p {
+    font-family: var(--serif);
+    font-size: 22px;
+    line-height: 1.4;
+    color: var(--ink);
+    margin: 0;
+    font-weight: 400;
+    letter-spacing: -0.012em;
+    font-variation-settings: "opsz" 60;
+  }
+  .turn-hava p em {
+    font-style: italic; color: var(--accent-deep);
+  }
+  .turn-hava p a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+  }
+
+  /* ─────────── DAY AGENDA component ─────────── */
+  .agenda {
+    background: var(--paper);
+    border: 1px solid var(--rule-hair);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(20,20,15,0.03), 0 12px 28px -20px rgba(20,20,15,0.10);
+    margin-top: 8px;
+  }
+  .agenda-head {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--rule-soft);
+    display: flex; align-items: baseline; justify-content: space-between;
+    background: linear-gradient(180deg, rgba(247,245,239,0.5) 0%, transparent 100%);
+  }
+  .agenda-date {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 400;
+    letter-spacing: -0.012em;
+    font-variation-settings: "opsz" 60;
+  }
+  .agenda-meta {
+    font-size: 12px; color: var(--ink-3);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-weight: 500;
+  }
+  .agenda-section-label {
+    padding: 18px 24px 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--ink-4);
+    font-weight: 500;
+    border-top: 1px dashed var(--rule-hair);
+  }
+  .agenda-section:first-of-type .agenda-section-label { border-top: 0; }
+
+  .agenda-row {
+    display: grid;
+    grid-template-columns: 92px 1fr auto;
+    gap: 18px;
+    align-items: flex-start;
+    padding: 14px 24px;
+    color: var(--ink);
+    border-top: 1px solid var(--rule-hair);
+    transition: background .15s ease;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .agenda-row:first-child { border-top: 0; }
+  .agenda-row:hover {
+    background: rgba(14,110,124,0.03);
+  }
+  .agenda-row .time {
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
+    color: var(--ink-2);
+    line-height: 1.45;
+    padding-top: 2px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+  }
+  .agenda-row .time .ampm {
+    color: var(--ink-3);
+    font-weight: 400;
+    margin-left: 1px;
+  }
+  .agenda-row .time .range {
+    display: block;
+    font-size: 11.5px;
+    color: var(--ink-3);
+    font-weight: 400;
+    margin-top: 2px;
+    letter-spacing: 0.01em;
+  }
+  .agenda-row .content { min-width: 0; }
+  .agenda-row .title {
+    font-family: var(--serif);
+    font-size: 19px;
+    font-weight: 400;
+    letter-spacing: -0.014em;
+    line-height: 1.25;
+    margin: 0 0 4px;
+    font-variation-settings: "opsz" 60;
+  }
+  .agenda-row .meta {
+    font-size: 13.5px;
+    color: var(--ink-3);
+    line-height: 1.45;
+  }
+  .agenda-row .meta .tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-right: 10px;
+  }
+  .agenda-row .meta .tag .dot {
+    width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+  }
+  .agenda-row .meta .tag.warm .dot { background: var(--warm); }
+  .agenda-row .meta .tag.muted .dot { background: var(--ink-4); }
+  .agenda-row .actions {
+    display: flex; align-items: center; gap: 4px;
+    color: var(--ink-3);
+  }
+  .agenda-row .actions .btn {
+    display: grid; place-items: center;
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ink-3);
+    cursor: pointer;
+    transition: all .15s ease;
+    font-family: inherit;
+  }
+  .agenda-row:hover .actions .btn {
+    border-color: var(--rule);
+    color: var(--ink-2);
+  }
+  .agenda-row .actions .btn:hover { background: var(--paper); color: var(--accent); }
+  .agenda-row .actions .btn svg { width: 14px; height: 14px; }
+  .agenda-row .actions .arrow {
+    color: var(--accent);
+    font-size: 14px;
+    margin-left: 4px;
+    transition: transform .2s ease;
+  }
+  .agenda-row:hover .actions .arrow { transform: translateX(3px); }
+
+  .agenda-foot {
+    padding: 14px 24px;
+    border-top: 1px solid var(--rule-soft);
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px;
+    color: var(--ink-3);
+    background: linear-gradient(0deg, rgba(247,245,239,0.4) 0%, transparent 100%);
+  }
+  .agenda-foot .actions { display: flex; gap: 12px; }
+  .agenda-foot .actions a {
+    color: var(--ink-2);
+    font-size: 13px;
+    text-transform: none;
+    letter-spacing: -0.005em;
+  }
+  .agenda-foot .actions a:hover { color: var(--accent); }
+
+  /* ─────────── WEEK STRIP component ─────────── */
+  .weekstrip {
+    background: var(--paper);
+    border: 1px solid var(--rule-hair);
+    border-radius: 18px;
+    box-shadow: 0 1px 2px rgba(20,20,15,0.03), 0 12px 28px -20px rgba(20,20,15,0.10);
+    overflow: hidden;
+    margin-top: 8px;
+  }
+  .weekstrip-head {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--rule-soft);
+    display: flex; align-items: baseline; justify-content: space-between;
+    background: linear-gradient(180deg, rgba(247,245,239,0.5) 0%, transparent 100%);
+  }
+  .weekstrip-head .title {
+    font-family: var(--serif);
+    font-size: 19px;
+    font-weight: 400;
+    letter-spacing: -0.012em;
+  }
+  .weekstrip-head .meta {
+    font-size: 12px; color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: 0.16em; font-weight: 500;
+  }
+  .weekstrip-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    padding: 12px;
+    gap: 4px;
+  }
+  .wsday {
+    border: 0;
+    background: transparent;
+    border-radius: 12px;
+    padding: 14px 4px 12px;
+    cursor: pointer;
+    text-align: center;
+    color: var(--ink);
+    font-family: inherit;
+    transition: background .15s ease;
+  }
+  .wsday:hover { background: rgba(20,20,15,0.03); }
+  .wsday .dow {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-3);
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+  .wsday .num {
+    font-size: 22px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    margin-bottom: 10px;
+  }
+  .wsday .dots {
+    display: flex; justify-content: center; gap: 3px; min-height: 6px;
+  }
+  .wsday .dots span {
+    width: 4px; height: 4px; border-radius: 50%;
+    background: var(--ink-4);
+  }
+  .wsday.is-today .dow { color: var(--warm); }
+  .wsday.is-selected { background: var(--accent-soft); }
+  .wsday.is-selected .dow { color: var(--accent); }
+  .wsday.is-selected .num { color: var(--accent-deep); }
+  .wsday.is-selected .dots span { background: var(--accent); }
+
+  .weekstrip-content {
+    border-top: 1px solid var(--rule-soft);
+    padding: 4px 0 0;
+  }
+  .weekstrip-content .agenda-row {
+    padding: 12px 24px;
+  }
+  .weekstrip-content .agenda-row .title { font-size: 17px; }
+  .weekstrip-content .agenda-row .meta { font-size: 13px; }
+  .weekstrip-foot {
+    padding: 12px 24px 16px;
+    text-align: center;
+    border-top: 1px solid var(--rule-soft);
+    font-size: 13px;
+    color: var(--ink-3);
+  }
+  .weekstrip-foot a { color: var(--ink-2); }
+  .weekstrip-foot a:hover { color: var(--accent); }
+
+  /* ─── card row component (compact horizontal cards) ─── */
+  .cardrow {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-top: 8px;
+  }
+  .mini-card {
+    background: var(--paper);
+    border: 1px solid var(--rule-hair);
+    border-radius: 16px;
+    overflow: hidden;
+    text-decoration: none;
+    color: var(--ink);
+    transition: transform .25s cubic-bezier(.2,.7,.2,1), box-shadow .25s ease, border-color .25s ease;
+    box-shadow: 0 1px 2px rgba(20,20,15,0.03);
+    display: flex; flex-direction: column;
+  }
+  .mini-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px -16px rgba(20,20,15,0.16);
+    border-color: var(--rule);
+  }
+  .mini-card .img {
+    aspect-ratio: 16 / 10;
+    background: linear-gradient(135deg, var(--bg-2), #e9e3d6);
+    overflow: hidden; position: relative;
+  }
+  .mini-card .img img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s ease; }
+  .mini-card:hover .img img { transform: scale(1.04); }
+  .mini-card .body { padding: 16px 18px 18px; }
+  .mini-card .meta {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em;
+    color: var(--ink-3); font-weight: 500;
+    margin-bottom: 8px;
+    display: flex; gap: 6px; align-items: center;
+  }
+  .mini-card .meta .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+  .mini-card .meta .dot.warm { background: var(--warm); }
+  .mini-card .name {
+    font-family: var(--serif);
+    font-size: 19px;
+    font-weight: 400;
+    letter-spacing: -0.014em;
+    line-height: 1.2;
+    margin: 0 0 4px;
+    font-variation-settings: "opsz" 60;
+  }
+  .mini-card .blurb {
+    font-size: 13.5px;
+    color: var(--ink-2);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* ─── pagefoot ─── */
+  .pagefoot {
+    margin-top: 96px;
+    padding-top: 32px;
+    border-top: 1px solid var(--rule);
+    display: flex; justify-content: space-between;
+    color: var(--ink-3);
+    font-size: 13px;
+  }
+  .pagefoot a { color: var(--ink-2); }
+  .pagefoot a:hover { color: var(--ink); }
+
+  /* ─── responsive ─── */
+  @media (max-width: 720px) {
+    .page { padding: 20px 16px 64px; }
+    .agenda-row {
+      grid-template-columns: 70px 1fr;
+      gap: 12px;
+      padding: 14px 18px;
+    }
+    .agenda-row .actions { display: none; }
+    .agenda-row .title { font-size: 17px; }
+    .turn-hava p { font-size: 19px; }
+    .cardrow { grid-template-columns: 1fr; }
+    .agenda-head, .agenda-foot, .weekstrip-head, .weekstrip-foot { padding-left: 18px; padding-right: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="topbar">
+    <div class="wordmark"><span class="mark"></span>Hava</div>
+    <div class="topbar-meta">
+      <span>Lake Havasu City · May 7</span>
+      <span class="sep"></span>
+      <a href="#">Add to catalog</a>
+    </div>
+  </header>
+
+  <section class="intro">
+    <p class="eyebrow">After you ask Hava a question</p>
+    <h1>The answer is the <em>component</em>.</h1>
+    <p>Hava speaks short — one or two sentences in her voice — and the data renders below as a thing you can scan, tap, and act on. Not a wall of text.</p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       DEMO 1 — DAY AGENDA
+       (the screenshot case: "what's happening Friday?")
+       ═══════════════════════════════════════════════ -->
+  <section class="demo">
+    <div class="demo-label">Single day · agenda view</div>
+
+    <div class="turn-user"><div class="bubble">What's happening on Friday May 8?</div></div>
+
+    <div class="turn-hava">
+      <span class="avatar"></span>
+      <div class="said">
+        <p>Friday's <em>busy</em> — eight things, mostly at the Aquatic Center, plus the <a href="#">Pro Watercross weekend</a> kicks off at noon.</p>
+      </div>
+    </div>
+
+    <div class="agenda">
+
+      <div class="agenda-head">
+        <span class="agenda-date">Friday, May 8</span>
+        <span class="agenda-meta">8 events</span>
+      </div>
+
+      <!-- Morning -->
+      <div class="agenda-section">
+        <div class="agenda-section-label">Morning</div>
+
+        <a class="agenda-row" href="#">
+          <div class="time">5:00<span class="ampm"> am</span><span class="range">until 7:45</span></div>
+          <div class="content">
+            <div class="title">Lap Swim</div>
+            <div class="meta"><span class="tag"><span class="dot"></span>Aquatic</span>Lake Havasu City Aquatic Center</div>
+          </div>
+          <div class="actions">
+            <button class="btn" aria-label="Save"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2v12l4-3 4 3V2z"/></svg></button>
+            <span class="arrow">→</span>
+          </div>
+        </a>
+
+        <a class="agenda-row" href="#">
+          <div class="time">8:00<span class="ampm"> am</span><span class="range">until 9:00</span></div>
+          <div class="content">
+            <div class="title">Motion &amp; Mobility</div>
+            <div class="meta"><span class="tag"><span class="dot"></span>Aquatic</span>Lake Havasu City Aquatic Center</div>
+          </div>
+          <div class="actions">
+            <button class="btn" aria-label="Save"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2v12l4-3 4 3V2z"/></svg></button>
+            <span class="arrow">→</span>
+          </div>
+        </a>
+
+        <a class="agenda-row" href="#">
+          <div class="time">8:15<span class="ampm"> am</span><span class="range">until 9:15</span></div>
+          <div class="content">
+            <div class="title">Aqua Aerobics</div>
+            <div class="meta"><span class="tag"><span class="dot"></span>Aquatic</span>Lake Havasu City Aquatic Center</div>
+          </div>
+          <div class="actions">
+            <button class="btn" aria-label="Save"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2v12l4-3 4 3V2z"/></svg></button>
+            <span class="arrow">→</span>
+          </div>
+        </a>
+
+        <a class="agenda-row" href="#">
+          <div class="time">9:15<span class="ampm"> am</span><span class="range">until 10:15</span></div>
+          <div class="content">
+            <div class="title">Arthritis Exercise</div>
+            <div class="meta"><span class="tag"><span class="dot"></span>Aquatic</span>Lake Havasu City Aquatic Center</div>
+          </div>
+          <div class="actions">
+            <button class="btn" aria-label="Save"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2v12l4-3 4 3V2z"/></svg></button>
+            <span class="arrow">→</span>
+          </div>
+        </a>
+
+        <a class="agenda-row" href="#">
+          <div class="time">9:30<span class="ampm"> am</span><span class="range">until 10:30</span></div>
+          <div class="content">
+            <div class="title">Aqua Aerobics</div>
+            <div class="meta"><span class="tag"><span class="dot"></span>Aquatic</span>Lake Havasu City Aquatic Center</div>
+          </div>
+          <div class="actions">
+            <button class="btn" aria-label="Save"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2v12l4-3 4 3V2z"/></svg></button>
+            <span class="arrow">→</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- Afternoon -->
+      <div class="agenda-section">
+        <div class="agenda-section-label">Afternoon</div>
+
+        <a class="agenda-row" href="#">
+          <div class="time">12:00<span class="ampm"> pm</span><span class="range">May 8 – 10</span></div>
+          <div class="content">
+            <div class="title">Pro Watercross — Road to Havasu</div>
+            <div class="meta"><span class="tag warm"><span class="dot"></span>Festival</span>Lake Havasu State Park · 699 London Bridge Rd</div>
+          </div>
+          <div class="actions">
+            <button class="btn" aria-label="Save"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2v12l4-3 4 3V2z"/></svg></button>
+            <span class="arrow">→</span>
+          </div>
+        </a>
+      </div>
+
+      <!-- Evening -->
+      <div class="agenda-section">
+        <div class="agenda-section-label">Evening</div>
+
+        <a class="agenda-row" href="#">
+          <div class="time">5:00<span class="ampm"> pm</span><span class="range">until 6:30</span></div>
+          <div class="content">
+            <div class="title">Youth Dodgeball</div>
+            <div class="meta"><span class="tag"><span class="dot"></span>Sports</span>Parks &amp; Rec · Ages 10+</div>
+          </div>
+          <div class="actions">
+            <button class="btn" aria-label="Save"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2v12l4-3 4 3V2z"/></svg></button>
+            <span class="arrow">→</span>
+          </div>
+        </a>
+
+        <a class="agenda-row" href="#">
+          <div class="time">6:30<span class="ampm"> pm</span><span class="range">until 8:00</span></div>
+          <div class="content">
+            <div class="title">Dodgeball</div>
+            <div class="meta"><span class="tag"><span class="dot"></span>Sports</span>Parks &amp; Rec · Ages 18+ · Free</div>
+          </div>
+          <div class="actions">
+            <button class="btn" aria-label="Save"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2v12l4-3 4 3V2z"/></svg></button>
+            <span class="arrow">→</span>
+          </div>
+        </a>
+      </div>
+
+      <div class="agenda-foot">
+        <span>Showing 8 of 8</span>
+        <div class="actions">
+          <a href="#">Add all to my calendar</a>
+          <a href="#">Share Friday</a>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       DEMO 2 — WEEK STRIP
+       (queries that span multiple days)
+       ═══════════════════════════════════════════════ -->
+  <section class="demo">
+    <div class="demo-label">Multi-day · week strip</div>
+
+    <div class="turn-user"><div class="bubble">What's on this week?</div></div>
+
+    <div class="turn-hava">
+      <span class="avatar"></span>
+      <div class="said">
+        <p>Saturday and Sunday are the <em>busy ones</em> — the 5K, the farmers market, and the Watercross weekend. Tap a day to see it.</p>
+      </div>
+    </div>
+
+    <div class="weekstrip">
+      <div class="weekstrip-head">
+        <span class="title">May 7 – 13</span>
+        <span class="meta">42 events this week</span>
+      </div>
+
+      <div class="weekstrip-days" id="weekdays">
+        <button class="wsday is-today" data-day="thu">
+          <div class="dow">Thu</div><div class="num">7</div>
+          <div class="dots"><span></span><span></span><span></span></div>
+        </button>
+        <button class="wsday" data-day="fri">
+          <div class="dow">Fri</div><div class="num">8</div>
+          <div class="dots"><span></span><span></span><span></span><span></span><span></span></div>
+        </button>
+        <button class="wsday is-selected" data-day="sat">
+          <div class="dow">Sat</div><div class="num">9</div>
+          <div class="dots"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        </button>
+        <button class="wsday" data-day="sun">
+          <div class="dow">Sun</div><div class="num">10</div>
+          <div class="dots"><span></span><span></span><span></span><span></span></div>
+        </button>
+        <button class="wsday" data-day="mon">
+          <div class="dow">Mon</div><div class="num">11</div>
+          <div class="dots"><span></span><span></span></div>
+        </button>
+        <button class="wsday" data-day="tue">
+          <div class="dow">Tue</div><div class="num">12</div>
+          <div class="dots"><span></span><span></span><span></span></div>
+        </button>
+        <button class="wsday" data-day="wed">
+          <div class="dow">Wed</div><div class="num">13</div>
+          <div class="dots"><span></span><span></span><span></span></div>
+        </button>
+      </div>
+
+      <div class="weekstrip-content" id="weekcontent">
+        <!-- populated by JS -->
+      </div>
+
+      <div class="weekstrip-foot">
+        <a href="#">Open the full calendar →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       DEMO 3 — CARD ROW
+       (when the answer is a few places, not a schedule)
+       ═══════════════════════════════════════════════ -->
+  <section class="demo">
+    <div class="demo-label">A few places · card row</div>
+
+    <div class="turn-user"><div class="bubble">Where's good for date night?</div></div>
+
+    <div class="turn-hava">
+      <span class="avatar"></span>
+      <div class="said">
+        <p>Three I'd send you to — <em>quiet first</em>, then warmer.</p>
+      </div>
+    </div>
+
+    <div class="cardrow">
+
+      <a class="mini-card" href="#">
+        <div class="img"><img loading="lazy" alt="" src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=700&q=80&auto=format&fit=crop"></div>
+        <div class="body">
+          <div class="meta"><span class="dot"></span>Restaurant</div>
+          <div class="name">Sunset Cantina</div>
+          <p class="blurb">Lakeside back patio, soft light. Best after 7.</p>
+        </div>
+      </a>
+
+      <a class="mini-card" href="#">
+        <div class="img"><img loading="lazy" alt="" src="https://images.unsplash.com/photo-1518176258769-f227c798150e?w=700&q=80&auto=format&fit=crop"></div>
+        <div class="body">
+          <div class="meta"><span class="dot warm"></span>Brewery · live music</div>
+          <div class="name">Channel Brewing Co.</div>
+          <p class="blurb">Patio over the water. Acoustic Saturdays at 8.</p>
+        </div>
+      </a>
+
+      <a class="mini-card" href="#">
+        <div class="img"><img loading="lazy" alt="" src="https://images.unsplash.com/photo-1559329007-40df8a9345d8?w=700&q=80&auto=format&fit=crop"></div>
+        <div class="body">
+          <div class="meta"><span class="dot"></span>Wine bar</div>
+          <div class="name">The Refuge</div>
+          <p class="blurb">Quiet corner spot, small plates till 11.</p>
+        </div>
+      </a>
+
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    <span>Hava is your local · Lake Havasu City</span>
+    <a href="#">Add to catalog →</a>
+  </footer>
+
+</div>
+
+<script>
+  // ─── week strip interactivity ───
+  const weekData = {
+    thu: [
+      { time: "until 8 pm", range: "Lap swim", title: "Aquatic Center", meta: ["Aquatic","open swim"], cat: "" },
+      { time: "6:30 pm", range: "drop-in · $10", title: "Yoga at the Library", meta: ["Wellness","beginner-friendly"], cat: "" },
+      { time: "8:00 pm", range: "live music", title: "Channel Brewing Co.", meta: ["Music","acoustic trio"], cat: "" }
+    ],
+    fri: [
+      { time: "5:00 am", range: "until 7:45", title: "Lap Swim", meta: ["Aquatic","Aquatic Center"], cat: "" },
+      { time: "12:00 pm", range: "May 8 – 10", title: "Pro Watercross — Road to Havasu", meta: ["Festival","State Park"], cat: "warm" },
+      { time: "6:30 pm", range: "until 8", title: "Adult Dodgeball", meta: ["Sports","Parks & Rec · Free"], cat: "" }
+    ],
+    sat: [
+      { time: "7:00 am", range: "5K · family wave 8", title: "Bridgewater 5K", meta: ["Sports","Rotary Park"], cat: "warm" },
+      { time: "8:00 am", range: "until 2", title: "Farmers Market downtown", meta: ["Market","Main Street"], cat: "" },
+      { time: "10:00 am", range: "drop-in · free", title: "Saturday Art Lab", meta: ["Kids 6–12","Library"], cat: "" },
+      { time: "8:00 pm", range: "live music", title: "Channel Brewing Co.", meta: ["Music","Bridgewater Channel"], cat: "" }
+    ],
+    sun: [
+      { time: "8:00 am", range: "until 2", title: "Farmers Market downtown", meta: ["Market","Main Street"], cat: "" },
+      { time: "9:00 am", range: "brunch · until 1", title: "Sunset Cantina brunch", meta: ["Restaurant","Lakeside patio"], cat: "" },
+      { time: "12:00 pm", range: "May 8 – 10", title: "Pro Watercross final day", meta: ["Festival","State Park"], cat: "warm" }
+    ],
+    mon: [
+      { time: "6:00 pm", range: "all welcome", title: "Library Adult Book Club", meta: ["Reading","Library"], cat: "" },
+      { time: "7:00 pm", range: "until 9", title: "Pickleball drop-in", meta: ["Sports","Rec Center"], cat: "" }
+    ],
+    tue: [
+      { time: "6:30 pm", range: "starts tonight · 8 weeks", title: "Beginner Pickleball League", meta: ["Sports","Rec Center"], cat: "warm" },
+      { time: "7:00 pm", range: "$1 off pints", title: "Mudshark Trivia", meta: ["Bar","downtown"], cat: "" },
+      { time: "until 8 pm", range: "lap lanes", title: "Aquatic Center", meta: ["Aquatic","open swim"], cat: "" }
+    ],
+    wed: [
+      { time: "6:00 pm", range: "$15 drop-in", title: "Open Studio Painting", meta: ["Arts","Library"], cat: "" },
+      { time: "8:00 pm", range: "until 10", title: "Channel Brewing Co.", meta: ["Music","live"], cat: "" },
+      { time: "all evening", range: "$0.75 wings", title: "The Refuge wing night", meta: ["Bar","downtown"], cat: "" }
+    ]
+  };
+
+  const weekContent = document.getElementById('weekcontent');
+  const weekDays = document.getElementById('weekdays');
+
+  function renderDay(key) {
+    const items = weekData[key] || [];
+    weekContent.innerHTML = items.map(it => {
+      const tagClass = it.cat ? "tag " + it.cat : "tag";
+      return `
+        <a class="agenda-row" href="#">
+          <div class="time">${it.time}<span class="range">${it.range}</span></div>
+          <div class="content">
+            <div class="title">${it.title}</div>
+            <div class="meta"><span class="${tagClass}"><span class="dot"></span>${it.meta[0]}</span>${it.meta[1]}</div>
+          </div>
+          <div class="actions"><span class="arrow">→</span></div>
+        </a>
+      `;
+    }).join('');
+  }
+
+  weekDays.addEventListener('click', (e) => {
+    const btn = e.target.closest('.wsday');
+    if (!btn) return;
+    weekDays.querySelectorAll('.wsday').forEach(d => d.classList.remove('is-selected'));
+    btn.classList.add('is-selected');
+    renderDay(btn.dataset.day);
+  });
+
+  // initial render: Saturday is selected
+  renderDay('sat');
+</script>
+
+</body>
+</html>
