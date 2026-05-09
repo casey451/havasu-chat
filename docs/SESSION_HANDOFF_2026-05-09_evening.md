@@ -21,7 +21,7 @@ You're picking up after this evening's session. **Most of the Phase 2 first-week
 
 ## §1 — One-paragraph summary
 
-This session shipped Phase 2 first-week Lanes 1 and 2 to production (Lane 1 substantive `dd484a0` + STATE `db718ac` + Lane 2 `8c5d008`), closed Backlog #47, #48, #49, ran the full 39-query Lane 1 smoke catalog cleanly, re-enabled `FEATURE_FLAG_CONFIDENCE_TIER` and verified the hedge fires correctly under CT-on (Tier 2/3 LOW-confidence rows produce hedge in LLM voice via Lane CT2.B; #48 negation skip suppresses incorrect hedges; #49 raw-cache contract works across flag-flip), filed four new follow-up tickets (#50 single-char query match, #51 accent handling 400, #52 trade-superlative over-conservative matching, #53 HALT 3 undefined on-tree), and conducted a parallel HALT 3 audit that revealed HALT 3 is undefined on-tree (not just unverified) and gates Phase 2.5 / P2.PREM.1 with multi-week work-to-close.
+This session shipped Phase 2 first-week Lanes 1 and 2 to production (Lane 1 substantive `dd484a0` + STATE `db718ac` + Lane 2 `8c5d008`), closed Backlog #47, #48, #49, ran the full 39-query Lane 1 smoke catalog cleanly, re-enabled `FEATURE_FLAG_CONFIDENCE_TIER` and verified the hedge fires correctly under CT-on (Tier 2/3 LOW-confidence rows produce hedge in LLM voice via Lane CT2.B; #48 negation skip suppresses incorrect hedges; #49 raw-cache contract works across flag-flip), filed four new follow-up tickets (#50 single-char query match, #51 accent handling 400, #52 trade-superlative over-conservative matching, #53 HALT 3 undefined on-tree), conducted a parallel HALT 3 audit that revealed HALT 3 is undefined on-tree (not just unverified) and gates Phase 2.5 / P2.PREM.1, and **recovered the HALT 3 definition + close-criteria framework from the off-tree strategy doc into `docs/maintainability/halt3_definition.md`** — critical finding from the recovery is that the three acceptance bands are set during HALT 3 close from baseline measurements, NOT pre-stated in the strategy doc.
 
 ## §2 — What landed this evening
 
@@ -32,6 +32,7 @@ This session shipped Phase 2 first-week Lanes 1 and 2 to production (Lane 1 subs
 | Lane 2 — P2.HOME.1 `DISCLOSURE_WORD` consistency on `/home` | Cursor | `app/home/router.py` (import + context inject), `app/templates/home.html` (subtitle + 3 card badges), `tests/test_home_disclosure_word.py` (new) | 1 net new | `8c5d008` |
 | BACKLOG: 4 new follow-up tickets filed (#50, #51, #52, #53) + Lane 2 ship-log | Cowork primary | `docs/BACKLOG.md` | n/a | included in `8c5d008` |
 | HALT 3 audit | General-purpose agent | (read-only investigation) | n/a | finding filed as #53 |
+| HALT 3 definition recovery | Cowork primary | new `docs/maintainability/halt3_definition.md` (recovered from `ask-hava-detailed-plan.docx` §1.1 + Phase 1 close criteria + Decision #37); BACKLOG #53 status update appended | n/a | follow-up commit |
 
 **Combined:** 1341 tests passing; both feature-flag states correct (`DISCLOSURE_RENDERER=false`, `CONFIDENCE_TIER=true`); production verified across 39-query Lane 1 smoke catalog + 4 adversarial smoke checks + cache-hit/miss across flag-flip + Lane 2 visual verification.
 
@@ -82,9 +83,9 @@ The audit traced HALT 3 references through `confabulation-eval-runbook.md`, `pha
 
 **Implication:** "Audit HALT 3" cannot mean "verify the close criteria are met." The criteria are not on-tree. HALT 3 must first be DEFINED before it can be closed. Multi-week sequence: recover definition → author spec with numeric thresholds → run harness → close-out → unblock P2.PREM.1.
 
-**Highest-leverage unblocking step (~15 min, Casey-driven):** Open `ask-hava-detailed-plan.docx` Decision #37, copy the HALT 3 definition + the three acceptance bands (gating-rate / anchor-regression / catalog-flagging) with their numeric thresholds, paste into a new `docs/maintainability/halt3_definition.md`. That single act unblocks all subsequent HALT 3 work.
+**Status update (2026-05-09 evening — definition recovery completed):** The HALT 3 definition was recovered from the off-tree `ask-hava-detailed-plan.docx` into `docs/maintainability/halt3_definition.md`. **Critical finding from the recovery:** the strategy doc explicitly states the three bands (gating-rate, anchor-regression, catalog-flagging) are *set during HALT 3 close from baseline measurements*, not pre-stated. So "definition recovery" yielded the framework + sequencing constraints + Decision #37's role (renderer Premier-gate), but NO specific numbers — by design. The next gate is the enrichment sprint completion, then ≥1 week production traffic dwell, then the harness baseline run, then the bands get set from baseline output.
 
-**Operational implication for Phase 2 timeline:** Phase 2.5 (Premier inventory open) is genuinely "month 2+" not "week 3." Lanes 2-4 and the enrichment sprint can proceed normally — they don't depend on HALT 3.
+**Operational implication for Phase 2 timeline:** Phase 2.5 (Premier inventory open) is genuinely "month 2+" not "week 3." Lanes 2-4 and the enrichment sprint can proceed normally — they don't depend on HALT 3. The full sequenced work-to-close is in `docs/maintainability/halt3_definition.md` §6.
 
 ## §6 — What Phase 2 should consider first (next session)
 

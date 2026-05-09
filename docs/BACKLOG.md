@@ -2081,7 +2081,9 @@ Or wait for the cache TTL to expire (check `app/chat/llm_cache.py` for the confi
 
 **Priority:** GATES PHASE 2.5 / P2.PREM.1 — Premier inventory open cannot ship until this resolves. Phase 2 first-week lanes (Lanes 2-4) and operator enrichment sprint can proceed in parallel; they don't depend on HALT 3.
 
-**Filed by:** Cowork primary (2026-05-09, post-Lane-1 parallel audit via general-purpose agent).
+**Resolution status update (2026-05-09 evening — definition recovered):** The HALT 3 definition + close-criteria framework + sequenced work-to-close have been recovered from the off-tree strategy doc (`ask-hava-detailed-plan.docx` §1.1 + Phase 1 close-criteria section + Appendix Decision #37) into `docs/maintainability/halt3_definition.md`. **Critical clarification from the recovery:** the strategy doc explicitly states the three bands (gating-rate, anchor-regression, catalog-flagging) are *set during HALT 3 close from baseline measurements*, not pre-stated in the strategy itself. So "definition recovery" doesn't yield specific numeric thresholds — it captures the framework, sequencing constraints (anchor regression requires populated providers table → enrichment sprint dependency), the full Phase 1 close-criteria list including the Tier 1 hit-rate >25% policy clause, and Decision #37's Premier-gating role for the disclosure renderer. The remaining work-to-close is sequenced in `halt3_definition.md` §6: enrichment sprint completion → `FEATURE_FLAG_DISCLOSURE_RENDERER` flip on → ≥1 week production traffic dwell → confabulation harness baseline run → set the three bands from baseline output → run negative-set extension → author close-out artifact → RESOLVED → dispatch P2.PREM.1. The unblocking-step formerly listed as "Casey opens the docx" is now done; the next gate is the enrichment sprint.
+
+**Filed by:** Cowork primary (2026-05-09, post-Lane-1 parallel audit via general-purpose agent; definition recovery completed same evening).
 
 ---
 
