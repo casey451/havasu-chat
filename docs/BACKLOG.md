@@ -2108,3 +2108,26 @@ Or wait for the cache TTL to expire (check `app/chat/llm_cache.py` for the confi
 
 **Filed by:** Cursor (Lane 2 implementation, 2026-05-09 evening).
 
+---
+
+## Backlog 54 - Dangling docstring references to never-existed `relay/halt1-closure-final-lexicons.md` (**OPEN, low priority**)
+
+**Surfaced by:** Recovery investigation by general-purpose agent (2026-05-09 evening, dispatched in parallel with Lanes 3 and 4).
+
+**Finding:** Three docstring/comment sites reference `relay/halt1-closure-final-lexicons.md` as if it were an external lexicon file:
+
+- `app/eval/confabulation_detector.py:1` — module docstring header
+- `app/eval/confabulation_query_gen.py:3` — module docstring
+- `app/eval/confabulation_query_gen.py:38` — comment above `_PROBES_PROVIDER` tuple
+
+**The file never existed on any branch.** Per the recovered Phase 8.8.6 spec §3.7, the artifact was *planned* ("Final lexicons land in a `relay/halt1-closure-final-lexicons.md` artifact for implementation reference, not as a doc commit") but was never written. The actual lexicons (`LAYER2`, `SAFE`, `VGEN`, `QTY`, `_PROBES_PROVIDER`, `_PROBES_PROGRAM`) are inlined in code as Python constants. **The harness does not read this file at runtime** — there's no broken behavior, just stale docstring pointers that mislead future readers (including the morning HALT 3 audit, which flagged this as an "orthogonal concern").
+
+**Recommended fix:** Two options, operator's call:
+
+1. **Strip the references.** Edit the three docstring/comment sites to remove the `relay/halt1-closure-final-lexicons.md` pointer. The lexicons are documented in code; no external doc is needed. Cleanest for hygiene.
+2. **Author the artifact.** Create `relay/halt1-closure-final-lexicons.md` with the inlined constants extracted into markdown form, preserving the docstring pointers as live links. Useful only if the operator wants a separate lexicon-governance doc (per HALT 1 governance: "owner-reviewed, append-only style updates, no silent drift" — referenced from `confabulation-eval-runbook.md`). Otherwise overkill.
+
+**Priority:** LOW — no broken behavior; cosmetic doc-hygiene fix. Could roll into any future `app/eval/` cleanup lane.
+
+**Filed by:** Cowork primary (2026-05-09 evening, post-recovery-investigation).
+
