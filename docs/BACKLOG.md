@@ -1296,7 +1296,7 @@ become redundant and can be removed in a small cleanup ship. Track that as Backl
 
 ---
 
-## Backlog 41a - Remove naive/aware datetime workarounds after SQLite-vs-Postgres tz audit (**OPEN**)
+## Backlog 41a - Remove naive/aware datetime workarounds after SQLite-vs-Postgres tz audit (**RESOLVED 2026-05-08** via Lane #41a TypeDecorator + #41a-followup always-aware switch + #41b verification)
 
 **Context:** Lane S1.1 (Backlog #41) shipped `DateTime(timezone=True)` on `Provider.last_verified_at`, `Event.last_verified_at`, `Sponsor.starts_at`, `Sponsor.ends_at`. Postgres now stores TIMESTAMPTZ and round-trips as aware. **SQLite still returns naive datetimes** even with the column-type declaration — Python's sqlite3 driver historically ignores the timezone bit on read. So the defensive workarounds in `app/chat/confidence_tier.py::classify_confidence`, `app/chat/disclosure_render.py::_temporal_overlap`, `app/chat/tier3_handler.py::_maybe_render_sponsored_block`, and `app/chat/context_builder.py::_hedge_suffix_for` remain load-bearing for dev/test environments running on SQLite.
 
@@ -1407,7 +1407,7 @@ Option 1 is cleaner. Adds one regex + one sub_intent constant + one branch in `s
 
 ---
 
-## Backlog 41a-followup - Switch TZAwareDateTime to always-aware on read (**OPEN**)
+## Backlog 41a-followup - Switch TZAwareDateTime to always-aware on read (**RESOLVED 2026-05-08**)
 
 **Context:** Lane #41a's `TZAwareDateTime.process_result_value` returns naive Phoenix wall-clock (strips tzinfo) for compatibility with `context_builder.py`'s existing `now_lake_havasu().replace(tzinfo=None)` workaround. Pure always-aware semantics would be cleaner — every value loaded from the four temporal columns would be timezone-aware (`tzinfo == LAKE_HAVASU_TZ`).
 
@@ -1783,4 +1783,154 @@ mudsharks brewry     → Mudshark Brewery and Public House (MATCH, >75)   ← di
 **Process improvement note (extends bug fix #1):** the audit rubric improvement for future runbooks should also cover *invocation method* — even a correct API schema can be unreachable if the documented call command fails on the target operator's shell. For PowerShell-targeted runbooks, prefer `Invoke-RestMethod` over `curl.exe` for any command involving JSON request bodies.
 
 **Filed by:** Cowork primary (2026-05-09, post-deploy verification chain).
+
+---
+
+## Backlog 47 - Entity matcher cross-category false positive (location tokens override category mismatch) (**OPEN — production behavior bug**)
+
+**Surfaced by:** §6.2 CT flag flip verification on production, 2026-05-09 ~16:30 UTC.
+
+**Reproduction:**
+
+```
+Query:  "what is the best plumber in lake havasu"
+Result: entity = "Lake Havasu City BMX"  (tier_used: 3)
+```
+
+The matcher selected `Lake Havasu City BMX` for a query about plumbers because both the query and the canonical contain the location tokens `"lake"` and `"havasu"`. The category mismatch (plumbing vs BMX/recreation) was ignored. The #46 fix addressed typo-based bypass via 3-char connector words; this is a different class — exact-match location tokens overriding category context.
+
+**Effect:** Tier 3 routes the query to a wrong-category Provider as the candidate row, the LLM correctly says "no plumbers in catalog" (because the BMX track isn't a plumber), but the resolved entity is the wrong row. When combined with **Backlog #48** (post-processor blind insertion), this produces UX-harmful responses where the hedge fragment appends a phone number for a wrong-category business.
+
+**Mechanism (hypothesized — needs voice-battery verification):** `find_near_match` or `match_entity` likely uses `WRatio` / `partial_token_set_ratio` / `token_set_ratio` against the full needle phrase. With query `"best plumber lake havasu"` (post-normalization) and needle `"Lake Havasu City BMX"`, the token-set overlap on `{lake, havasu}` produces a high score even though the categorical context (plumbing vs BMX) is unrelated.
+
+**Recommended fix (sketch — needs design pass):** Layer a category-context guard on top of the existing matcher. Either:
+
+1. **Category-aware reranking.** When the query has a clear category signal (e.g. "plumber", "doctor", "restaurant"), the matcher should down-rank Provider candidates whose category doesn't match. Requires a category extractor or explicit category-keyword scan.
+2. **Tier 3 row-pruning at retrieval.** Before passing rows to `_fetch_tier3_records`, filter by category match against the query intent. Existing intent classifier already extracts category for Tier 1 lookups; reuse for Tier 3.
+3. **Reject single-shared-token-cluster matches.** If the only matching tokens between query and needle are location words (`lake`, `havasu`, `city`, `arizona`), don't surface that needle as the entity. Requires a "location-only-tokens" allowlist.
+
+Option 2 is most consistent with the existing architecture (intent classifier already does category extraction for Tier 1).
+
+**Verification harness for the fix:** must produce these results post-fix:
+
+```
+"what is the best plumber in lake havasu"  → entity=None or a real plumber (NOT Lake Havasu City BMX)
+"what is the best plumber in lake havasu"  → response should not name BMX or any non-plumber business
+"hours for Lake Havasu City BMX"           → entity=Lake Havasu City BMX (preserves direct lookup)
+"phone for All Seasons Plumbing"           → entity=All Seasons Plumbing (preserves Tier 1 path)
+```
+
+**Precondition:** None — independent of all Phase 2 lanes.
+
+**Priority:** HIGH — UX-harmful in production. Combined with #48, the bug surfaces a wrong-business phone with a "recommend calling to confirm" hedge that users will reasonably trust. Should ship before re-enabling `FEATURE_FLAG_CONFIDENCE_TIER` in production.
+
+**Filed by:** Cowork primary (2026-05-09, post-deploy CT verification).
+
+---
+
+## Backlog 48 - Tier 3 post-processor inserts phone+hedge even when LLM explicitly stated no result (**OPEN — production behavior bug**)
+
+**Surfaced by:** §6.2 CT flag flip verification on production, 2026-05-09 ~16:30 UTC. Co-discovered with Backlog #47.
+
+**Reproduction:**
+
+```
+Query:  "what is the best plumber in lake havasu"
+Voice:  "I don't have any plumbers listed in the Lake Havasu catalog.
+         If you know a good one, share the name and a link at /contribute
+         so it can be added.
+         Their listed number is (928) 732-0099 -- recommend calling to confirm."
+```
+
+The LLM voice correctly says "I don't have any plumbers listed." The post-processor (`_enforce_low_tier_phone`) then unconditionally appended the resolved Provider's phone + hedge, contradicting the LLM's stated answer. The phone `(928) 732-0099` belongs to Lake Havasu City BMX (#47 cross-category false positive), so the user is effectively told to call a BMX track for a plumber.
+
+**Effect:** Even with #47 fixed, this bug stands on its own. Any Tier 3 response where the LLM says "no result" / "I don't have that" / "not in catalog" but a candidate Provider row exists in the matched set will produce a contradictory hedge appendix. This is a UX-hazardous output — the hedge fragment's "Their listed number is X — recommend calling to confirm" reads as a positive recommendation under any framing.
+
+**Mechanism:** `_enforce_low_tier_phone(text, rows)` in `app/chat/tier2_formatter.py` (and the Tier 3 sibling invocation at `app/chat/tier3_handler.py` per Lane CT2.B.1) checks:
+
+1. The LLM omitted both the row's phone AND the canonical `recommend calling to confirm` fragment.
+2. The row's `confidence_hint` is `low`.
+3. The row has a phone.
+
+If all three, append `Their listed number is {phone} -- recommend calling to confirm.` to the response. The check does NOT consider whether the LLM voice contradicted the row (e.g., said "no result"), nor whether the post-processed response will read coherently.
+
+**Recommended fix (sketch — needs design pass):**
+
+1. **Negation-aware skip.** Before appending the hedge, scan the LLM voice for "no result" / "not in catalog" / "I don't have" / "I don't see" / "no plumbers" / "no [category]" patterns. If matched, skip the post-processor entirely. Requires a small pattern list with category-aware substitution.
+2. **Coherence check via second LLM pass.** More expensive but more robust — pass the LLM voice + the proposed hedge appendix through a single `gpt-4o-mini` call asking "would these read coherently together?" If no, skip. Probably overkill for the current scope.
+3. **Tier 3 entity-guard.** If the LLM voice doesn't name the resolved entity by name (heuristic: entity name not in voice), assume the LLM didn't accept the row as the answer. Skip the post-processor.
+
+Option 1 is minimal and operationally cheap. Option 3 is more principled but requires entity-name normalization for the substring check.
+
+**Verification harness for the fix:** must produce these results post-fix:
+
+```
+"what is the best plumber in lake havasu" with no plumbers in catalog
+  → voice: "I don't have any plumbers listed... contribute to add."
+  → NO appended "Their listed number is X..." line
+
+"hours for All Seasons Plumbing" (LLM mentions ASP by name)
+  → voice: includes hours
+  → IF last_verified_at is LOW: appended hedge IS present (this is the desired behavior — LLM acknowledged the entity)
+
+"contact info for All Seasons Plumbing" (LLM mentions ASP by name, possibly omits phone)
+  → IF last_verified_at is LOW and phone is omitted from voice: appended hedge IS present
+  → IF voice already includes the phone: NO double-append (existing test_tier3_phone_enforcement coverage)
+```
+
+**Precondition:** None — independent of #47 and Phase 2 lanes. Can ship in the same lane as #47 since they share verification infrastructure.
+
+**Priority:** HIGH — same severity as #47. Should ship before re-enabling `FEATURE_FLAG_CONFIDENCE_TIER` in production. The combined #47 + #48 bundle is the proper "don't reflip CT until these land" precondition.
+
+**Filed by:** Cowork primary (2026-05-09, post-deploy CT verification).
+
+---
+
+## Backlog 49 - LlmResponseCache stores post-processed CT hedge text — flag rollback doesn't immediately clean production responses (**OPEN — cache pollution behavior**)
+
+**Surfaced by:** §6.2 CT flag rollback verification on production, 2026-05-09 ~16:35 UTC. Co-discovered with #47 + #48.
+
+**Reproduction:**
+
+1. With `FEATURE_FLAG_CONFIDENCE_TIER=true` in production, send a query that triggers the post-processor (`_enforce_low_tier_phone`). Response contains the hedge fragment + phone, and the cache entry stores this post-processed text.
+2. Flip `FEATURE_FLAG_CONFIDENCE_TIER=false`. Redeploy.
+3. Send the SAME query (same normalized cache key). Response is served from cache — still contains the hedge fragment + phone, despite the flag being off. `llm_tokens_used: 0` confirms cache hit.
+
+**Why:** Lane CT2.B.1 (post-LLM phone enforcement on Tier 3 path, shipped 2026-05-08) explicitly stores the post-processed text in the cache so cache hits emit the same hedge fragment. From the CT2.B.1 ship-log: *"Cache stores the post-processed text so a cache hit emits the same hedge fragment."* This was deliberate for consistency under flag-on operation, but it means flag-off operation reads polluted entries until they expire (or are manually purged).
+
+**Effect:** Cannot cleanly roll back the CT flag in production. Polluted cache entries persist for the cache TTL. Worse — if a Provider's confidence tier changes (e.g. enrichment populates `last_verified_at` and a row moves from LOW → HIGH), the cache still serves the LOW-tier hedge text until the cache entry expires. This compounds over time as enrichment data lands.
+
+**Compounding bug:** the same pollution mechanism affects entity-matcher fixes. Cache entries store the resolved entity name (e.g. the wrong-entity match from #47 — `entity: Lake Havasu City BMX` for a plumber query). Even after #47 is fixed in the matcher, cached responses for affected queries continue to surface the wrong entity until the cache clears.
+
+**Recommended fix (sketch — needs design pass):**
+
+1. **Don't cache post-processed text — cache the raw LLM output and re-run post-processors on cache hit.** Most principled. The post-processor (`_enforce_low_tier_phone`) is fast (regex + string concat), so re-running it per cache hit is acceptable. Trade-off: cache hits become non-deterministic if the post-processor logic changes — a code change that affects the post-processor immediately affects cached responses (in a good way: cleanup is automatic on deploy).
+2. **Store CT-flag-state in cache key.** Cache key becomes `(normalized_query, ct_flag_state)`. Flag-on entries and flag-off entries are distinct rows. Bigger cache footprint, but flag flips become clean cutovers.
+3. **Cache invalidation hook on flag flip.** Add an admin endpoint that purges all `LlmResponseCache` rows on demand. Operator runs it after any flag flip. Manual but explicit.
+4. **TTL the cache aggressively (e.g. 5 minutes) when CT flag is on.** Trades cache efficiency for cleanup speed. Probably wrong — defeats the purpose of caching.
+
+Option 1 is most consistent with the architecture and the implicit contract that "production code = current behavior." Option 3 is the cheapest emergency-mitigation.
+
+**Verification harness for the fix:**
+
+```
+1. Set FEATURE_FLAG_CONFIDENCE_TIER=true; query X; confirm hedge appears.
+2. Set FEATURE_FLAG_CONFIDENCE_TIER=false; redeploy; query X again.
+3. Expected: cache hit (llm_tokens_used: 0) but response does NOT contain hedge.
+4. Same with #47 wrong-entity match: fix #47 in matcher; flush no cache; query X; expected: response uses correct entity (or None), not the cached wrong entity.
+```
+
+**Operational mitigation until fix lands:** when flipping CT flag (in either direction), manually purge the production `LlmResponseCache` table via psql:
+
+```sql
+DELETE FROM llm_response_cache;
+```
+
+Or wait for the cache TTL to expire (check `app/chat/llm_cache.py` for the configured TTL).
+
+**Precondition:** None — independent of #47 and #48, but should ship in coordination since all three surfaced from the same CT-flag verification chain.
+
+**Priority:** HIGH — blocks clean re-flipping of `FEATURE_FLAG_CONFIDENCE_TIER` in production. Should ship before re-enabling CT flag, or operationally compensate with manual cache purges as part of every flag flip.
+
+**Filed by:** Cowork primary (2026-05-09, post-deploy CT rollback verification chain).
 
