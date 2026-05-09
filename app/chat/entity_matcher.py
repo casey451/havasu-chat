@@ -91,6 +91,8 @@ class _EntityRow:
 
     canonical: str
     needles: frozenset[str]
+    # Lowercased Provider / Program category hints for Backlog #47 cross-category guard.
+    category_blob: str = ""
 
 
 @dataclass(frozen=True)
@@ -103,6 +105,165 @@ class EntityMatch:
 
 
 _rows: list[_EntityRow] | None = None
+
+# Backlog #47: when the query names a trade (plumber, …) and the candidate row
+# names an incompatible trade (BMX, …), location-token overlap must not win.
+# Skip the guard when the user explicitly names the entity (distinctive tokens).
+_LOCATION_QUERY_STOPWORDS: frozenset[str] = frozenset(
+    {
+        "lake",
+        "havasu",
+        "city",
+        "arizona",
+        "az",
+        "the",
+        "and",
+        "for",
+        "inn",
+        "at",
+        "our",
+        "any",
+        "all",
+        "some",
+        "best",
+        "good",
+        "top",
+        "need",
+        "find",
+        "near",
+        "around",
+    }
+)
+
+_INCOMPATIBLE_TRADE_PAIRS: tuple[frozenset[str], ...] = (
+    frozenset({"plumbing", "bmx"}),
+    frozenset({"plumbing", "trampoline_park"}),
+    frozenset({"electrical", "bmx"}),
+    frozenset({"dental", "bmx"}),
+    frozenset({"medical", "bmx"}),
+)
+
+
+def _trade_cluster_tags(blob: str) -> frozenset[str]:
+    """Map free text to coarse trade tags for cross-category mismatch checks."""
+    b = blob.lower()
+    tags: set[str] = set()
+    if re.search(r"\b(plumber|plumbing|plumbers)\b", b):
+        tags.add("plumbing")
+    if re.search(r"\b(electrician|electrical)\b", b):
+        tags.add("electrical")
+    if re.search(r"\b(dentist|dental|orthodont)\b", b):
+        tags.add("dental")
+    if re.search(r"\b(doctor|physician|clinic|medical)\b", b) and "veterinary" not in b:
+        tags.add("medical")
+    if re.search(r"\b(trampoline|trampoline park)\b", b) or (
+        "altitude" in b and "trampoline" in b
+    ):
+        tags.add("trampoline_park")
+    if re.search(r"\bbmx\b", b) or "bicycle motocross" in b:
+        tags.add("bmx")
+    if re.search(r"\b(restaurant|café|cafe|pizza|coffee shop|brewery|bar)\b", b):
+        tags.add("food_service")
+    return frozenset(tags)
+
+
+def _distinctive_entity_tokens(canonical: str) -> set[str]:
+    return {
+        t
+        for t in re.split(r"\W+", canonical.lower())
+        if len(t) >= 3 and t not in _LOCATION_QUERY_STOPWORDS
+    }
+
+
+def _query_explicitly_names_row(norm_query: str, row: _EntityRow) -> bool:
+    """True when the user likely referred to this business by name (skip #47 guard)."""
+    nq = norm_query.lower()
+    for tok in _distinctive_entity_tokens(row.canonical):
+        if tok in nq:
+            return True
+    for needle in row.needles:
+        if len(needle) >= 8 and needle in nq:
+            return True
+    return False
+
+
+def _row_supports_trade_intent(q_tags: frozenset[str], row_blob: str) -> bool:
+    """True when row text/slug hints align with a trade-shaped query."""
+    b = row_blob.lower()
+    if "plumbing" in q_tags:
+        return bool(
+            re.search(r"\b(plumber|plumbing|plumbers|drain|sewer)\b", b) or "plumb" in b
+        )
+    if "electrical" in q_tags:
+        return bool(
+            re.search(r"\b(electrician|electrical|electric|wiring)\b", b)
+            or "electric" in b
+        )
+    if "dental" in q_tags:
+        return bool(re.search(r"\b(dentist|dental|orthodont)\b", b))
+    if "medical" in q_tags:
+        return bool(re.search(r"\b(doctor|physician|clinic|medical)\b", b))
+    if "food_service" in q_tags:
+        return bool(
+            re.search(
+                r"\b(restaurant|cafe|coffee|pizza|grill|kitchen|brewery|bar|diner)\b", b
+            )
+        )
+    return False
+
+
+def _category_guard_skips_row(norm_query: str, row: _EntityRow) -> bool:
+    """Drop a catalog row from fuzzy contention when trade intent mismatches the row."""
+    if _query_explicitly_names_row(norm_query, row):
+        return False
+    q_tags = _trade_cluster_tags(norm_query)
+    if not q_tags:
+        return False
+    row_blob = f"{row.category_blob} {row.canonical} {' '.join(row.needles)}"
+    r_tags = _trade_cluster_tags(row_blob)
+    if r_tags:
+        if q_tags & r_tags:
+            return False
+        union = q_tags | r_tags
+        for pair in _INCOMPATIBLE_TRADE_PAIRS:
+            if pair <= union:
+                return True
+        return False
+    if _row_supports_trade_intent(q_tags, row_blob):
+        return False
+    return True
+
+
+def _category_blob_for_canonical(db: Session, canonical: str) -> str:
+    """Concatenate Provider + Program category hints for ``canonical``."""
+    parts: list[str] = []
+    prow = db.execute(
+        select(Provider.category, Provider.google_primary_category).where(
+            Provider.provider_name == canonical,
+            Provider.is_active.is_(True),
+            Provider.draft.is_(False),
+        ).limit(1)
+    ).first()
+    if prow is not None:
+        cat, gcat = prow
+        if cat:
+            parts.append(cat.strip().lower())
+        if gcat:
+            parts.append(str(gcat).strip().lower())
+    act_cats = db.scalars(
+        select(Program.activity_category)
+        .where(Program.provider_name == canonical)
+        .distinct()
+    ).all()
+    for ac in act_cats:
+        if ac:
+            parts.append(str(ac).strip().lower())
+    return " ".join(parts)
+
+
+def _synthetic_category_blob(canonical: str, needles: frozenset[str]) -> str:
+    """Category hints when matching against an explicit name list (no DB row)."""
+    return f"{canonical.lower()} {' '.join(needles)}"
 
 
 def _needles_for_canonical(canonical: str) -> frozenset[str]:
@@ -146,7 +307,10 @@ def refresh_entity_matcher(db: Session) -> None:
     canon = sorted(
         {(n or "").strip() for n in (*program_names, *provider_names) if (n or "").strip()}
     )
-    _rows = [_EntityRow(c, _needles_for_canonical(c)) for c in canon]
+    _rows = [
+        _EntityRow(c, _needles_for_canonical(c), _category_blob_for_canonical(db, c))
+        for c in canon
+    ]
 
 
 def reset_entity_matcher() -> None:
@@ -470,6 +634,8 @@ def extract_catalog_entities_from_text(text: str, db: Session) -> list[EntityMat
 
     best_by_canon: dict[str, float] = {}
     for row in _rows:
+        if _category_guard_skips_row(norm, row):
+            continue
         s = _best_score_padded(norm, row.needles)
         if s > 75.0:
             prev = best_by_canon.get(row.canonical)
@@ -516,6 +682,8 @@ def match_entity_with_ambiguity(
     best_score = -1.0
     second_score = -1.0
     for row in _rows:
+        if _category_guard_skips_row(norm, row):
+            continue
         s = _best_score_padded(norm, row.needles)
         if s > best_score:
             second_score = best_score
@@ -581,6 +749,8 @@ def find_near_match(query: str, db: Session) -> tuple[str, float] | None:
     best_canon: str | None = None
     best_score = -1.0
     for row in _rows:
+        if _category_guard_skips_row(norm, row):
+            continue
         s = _best_score_padded(norm, row.needles)
         if s > best_score:
             best_score = s
@@ -618,6 +788,9 @@ def match_entity_with_rows(query: str, canonical_names: Sequence[str]) -> tuple[
         if not c:
             continue
         needles = _needles_for_canonical(c)
+        erow = _EntityRow(c, needles, _synthetic_category_blob(c, needles))
+        if _category_guard_skips_row(norm, erow):
+            continue
         s = _best_score_padded(norm, needles)
         if s > best_score:
             best_score = s

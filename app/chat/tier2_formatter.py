@@ -85,6 +85,21 @@ def _inject_event_url_links(text, rows):
 
 _VERIFICATION_FIELDS = {"last_verified_at", "verification_method"}
 
+# Backlog #48 — skip LOW-tier phone append when the LLM voice already stated no hit.
+_LLM_NEGATION_VOICE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bno results?\b", re.IGNORECASE),
+    re.compile(r"\bnot in (?:the\s+)?catalog\b", re.IGNORECASE),
+    re.compile(r"\bi\s+don'?t\s+have\b", re.IGNORECASE),
+    re.compile(r"\bi\s+don'?t\s+see\b", re.IGNORECASE),
+    re.compile(r"\bno\s+\w+\s+listed\b", re.IGNORECASE),
+)
+
+
+def _llm_voice_denies_catalog_hit(text: str) -> bool:
+    """True when the assistant already told the user nothing matched."""
+    low = (text or "").lower()
+    return any(p.search(low) for p in _LLM_NEGATION_VOICE_PATTERNS)
+
 
 def _annotate_rows_with_confidence_hint(rows):
     """Attach confidence_hint + confidence_hedge per row (Lane CT2.A).
@@ -147,6 +162,8 @@ def _enforce_low_tier_phone(text, rows):
     but happened to omit the phone.
     """
     if not text:
+        return text
+    if _llm_voice_denies_catalog_hit(text):
         return text
     out = text
     for row in rows:

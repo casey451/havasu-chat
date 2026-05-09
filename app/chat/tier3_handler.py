@@ -196,6 +196,9 @@ def answer_with_tier3(
     cached_response = cache_lookup(db, cache_key, normalized_query=query)
     if cached_response:
         logging.info("tier3: cache hit (key=%s)", cache_key[:8])
+        if is_confidence_tier_enabled():
+            rows_hit = rows_for_tier3_classification(intent_result, db)
+            cached_response = _enforce_low_tier_phone(cached_response, rows_hit)
         if sponsored_block is not None:
             cached_response = _inject_sponsored_block(cached_response, sponsored_block)
         return cached_response, 0, 0, 0
@@ -250,6 +253,7 @@ def answer_with_tier3(
     if not cleaned_text:
         cleaned_text = result.text  # defensive: never return empty
 
+    text_for_cache = cleaned_text
     # Lane CT2.B.1 (Backlog #42): post-LLM phone enforcement on the Tier 3
     # path. Mirrors the Tier 2 backstop in ``tier2_formatter.format`` --
     # when a LOW-tier provider has a phone but the LLM omitted both the
@@ -257,6 +261,9 @@ def answer_with_tier3(
     # confirm fragment. Sibling helper returns the row list backing the
     # context block (single shared query, no timing skew). Behind the
     # confidence-tier feature flag -- off in production until rollout.
+    # Backlog #49: cache stores raw LLM output (post strip_soft_suggest only);
+    # ``_enforce_low_tier_phone`` runs on miss and again on cache hit so flag
+    # flips and post-processor edits apply without stale hedge text in Redis/DB.
     if is_confidence_tier_enabled():
         rows = rows_for_tier3_classification(intent_result, db)
         cleaned_text = _enforce_low_tier_phone(cleaned_text, rows)
@@ -266,7 +273,7 @@ def answer_with_tier3(
         cache_key,
         query,
         cache_context,
-        cleaned_text,
+        text_for_cache,
         tier_used="tier3",
     )
 

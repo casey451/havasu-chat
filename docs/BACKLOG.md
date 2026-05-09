@@ -1786,7 +1786,7 @@ mudsharks brewry     → Mudshark Brewery and Public House (MATCH, >75)   ← di
 
 ---
 
-## Backlog 47 - Entity matcher cross-category false positive (location tokens override category mismatch) (**OPEN — production behavior bug**)
+## Backlog 47 - Entity matcher cross-category false positive (location tokens override category mismatch) (**RESOLVED 2026-05-09**)
 
 **Surfaced by:** §6.2 CT flag flip verification on production, 2026-05-09 ~16:30 UTC.
 
@@ -1828,7 +1828,7 @@ Option 2 is most consistent with the existing architecture (intent classifier al
 
 ---
 
-## Backlog 48 - Tier 3 post-processor inserts phone+hedge even when LLM explicitly stated no result (**OPEN — production behavior bug**)
+## Backlog 48 - Tier 3 post-processor inserts phone+hedge even when LLM explicitly stated no result (**RESOLVED 2026-05-09**)
 
 **Surfaced by:** §6.2 CT flag flip verification on production, 2026-05-09 ~16:30 UTC. Co-discovered with Backlog #47.
 
@@ -1886,7 +1886,7 @@ Option 1 is minimal and operationally cheap. Option 3 is more principled but req
 
 ---
 
-## Backlog 49 - LlmResponseCache stores post-processed CT hedge text — flag rollback doesn't immediately clean production responses (**OPEN — cache pollution behavior**)
+## Backlog 49 - LlmResponseCache stores post-processed CT hedge text — flag rollback doesn't immediately clean production responses (**RESOLVED 2026-05-09**)
 
 **Surfaced by:** §6.2 CT flag rollback verification on production, 2026-05-09 ~16:35 UTC. Co-discovered with #47 + #48.
 
@@ -1933,4 +1933,79 @@ Or wait for the cache TTL to expire (check `app/chat/llm_cache.py` for the confi
 **Priority:** HIGH — blocks clean re-flipping of `FEATURE_FLAG_CONFIDENCE_TIER` in production. Should ship before re-enabling CT flag, or operationally compensate with manual cache purges as part of every flag flip.
 
 **Filed by:** Cowork primary (2026-05-09, post-deploy CT rollback verification chain).
+
+---
+
+## Ship log — Backlog #47: entity matcher cross-category guard (BMX/plumber false positive)
+
+**Problem:** `entity_matcher` resolved a "plumber" query to `Lake Havasu City BMX` because both query and row carried the location tokens `lake` and `havasu`. #46 addressed typo-bypass; #47 is a different class — exact-match location tokens overriding category context.
+
+**Change (`app/chat/entity_matcher.py` only):**
+
+- `_EntityRow` carries optional `category_blob` (Provider category / Google primary category / Program activity_category, joined via new `_category_blob_for_canonical`); `refresh_entity_matcher` populates it from the live DB during index rebuild; `match_entity_with_rows` uses `_synthetic_category_blob` for in-memory call paths that have no DB.
+- New helpers: `_trade_cluster_tags(text) -> set[str]` (trade taxonomy), `_row_supports_trade_intent`, `_distinctive_entity_tokens`, `_query_explicitly_names_row`, `_category_guard_skips_row`.
+- Guard fires when (a) query and row carry incompatible trade tags (plumbing vs BMX/trampoline; electrical vs BMX), or (b) the query is trade-shaped but the row has no trade tags AND does not lexically support the trade (blocks location-only fuzzy wins like "Havasu") — UNLESS the user explicitly names the entity (distinctive tokens / long needles preserve Tier 1 path).
+- Guard wired through four call sites: `extract_catalog_entities_from_text`, `match_entity_with_ambiguity`, `find_near_match`, `match_entity_with_rows`.
+- Incidental fix: multi-column provider lookup now uses `db.execute(select(...)).first()` instead of `scalars()` so both columns are returned.
+
+**Architectural deviation from dispatch:** Dispatch recommended Option 2 (Tier 3 retrieval-stage filter reusing intent classifier's category extraction). Cursor instead built the guard at the entity-matcher level with its own trade-cluster taxonomy. Pros: defense-in-depth across all four matcher call sites, no dependency on intent classifier having run first. Cons: introduces a parallel category vocabulary that needs to stay in sync with the intent classifier's. Acceptable for Phase 2 first-week ship; revisit if the two taxonomies drift.
+
+**Verification:**
+
+- New `tests/test_entity_matcher_category_guard.py` (5 tests): `test_best_plumber_query_no_bmx_sibling_cases`, `test_bmx_alias_query_still_matches`, `test_electrician_open_ended_vs_bmx`, `test_explicit_bmx_hours_query_still_matches`, `test_plumber_open_ended_query_does_not_resolve_to_bmx`.
+- Adversarial checks against the live catalog (after `refresh_entity_matcher`): `phone for addrss` → None/None; `sloane number` → None/None; `what is the best plumber in lake havasu` → None (NOT BMX); `hours for All Seasons Plumbing` → ('All Seasons Plumbing', 100.0) (Tier 1 path preserved).
+- Full suite: **1340 passed** (≥ baseline 1327; +13 net new across 3 new test files).
+
+**Phase 2 follow-up worth noting:** The 3rd adversarial check returns `None` for `"what is the best plumber in lake havasu"` — the dispatch acceptance criteria allowed this, but the catalog actually contains real plumbers. Trade-tag guard appears over-conservative for trade superlatives. Small Phase 2 ticket if ideal-case matcher behavior is desired.
+
+**Closes:** Backlog #47 (OPEN → RESOLVED).
+
+**Filed by:** Cursor (2026-05-09).
+
+---
+
+## Ship log — Backlog #48: negation-aware skip in `_enforce_low_tier_phone`
+
+**Problem:** When the LLM voice said "no result" / "I don't have any [category]" for a query, `_enforce_low_tier_phone` still appended the resolved Provider's phone + hedge — producing UX-hazardous output where a "recommend calling to confirm" tail reads as a positive recommendation under any framing.
+
+**Change (`app/chat/tier2_formatter.py` only):**
+
+- Added `_LLM_NEGATION_VOICE_PATTERNS` (regex list) + `_llm_voice_denies_catalog_hit(text) -> bool` — detects "no result", "not in catalog", "I don't have", "I don't see", "no [word] listed" voice.
+- `_enforce_low_tier_phone` returns early when `_llm_voice_denies_catalog_hit` returns true; no phone or hedge appended.
+- Helper is shared by Tier 2 formatter and Tier 3 handler call paths — single fix covers both.
+
+**Verification:**
+
+- New `tests/test_tier3_postprocess_negation_skip.py` (6 tests: 5 parametrized over distinct negation phrasings + 1 sanity check that non-negated voice still appends phone).
+- Full suite: **1340 passed**.
+
+**Closes:** Backlog #48 (OPEN → RESOLVED).
+
+**Filed by:** Cursor (2026-05-09).
+
+---
+
+## Ship log — Backlog #49: Tier 3 caches raw LLM output, post-process at serve time
+
+**Problem:** `LlmResponseCache` stored post-processed text (CT hedge already baked in). When `FEATURE_FLAG_CONFIDENCE_TIER` flipped from on → off, polluted entries continued to surface with the hedge embedded until the 7-day TTL expired.
+
+**Change (`app/chat/tier3_handler.py` + `app/chat/llm_cache.py`):**
+
+- `answer_with_tier3` writes `text_for_cache = post-strip_soft_suggest only` to the cache (template-free LLM cleanup runs once at write).
+- `_enforce_low_tier_phone` runs at serve time on both miss path (post-LLM) and cache hit path (post-lookup), gated on `FEATURE_FLAG_CONFIDENCE_TIER`.
+- Cache hit ordering: lookup → `_enforce_low_tier_phone` → sponsored injection → return. Mirrors miss path; deterministic on current code.
+- `llm_cache.store` docstring updated: "Tier 3 stores raw LLM output for this contract."
+
+**Deviation from dispatch:** Dispatch recommended caching strict raw LLM output; Cursor cached post-`strip_soft_suggest` text instead. `strip_soft_suggest` runs once per write rather than per hit. Acceptable trade-off as long as `strip_soft_suggest` itself stays stable; if it ever changes, cached entries become stale and need a flush.
+
+**Verification:**
+
+- New `tests/test_llm_cache_raw_storage.py` (2 tests): `test_cache_row_stores_raw_llm_without_phone_hedge`, `test_cache_hit_reruns_postprocessor`.
+- Full suite: **1340 passed**.
+
+**Operational note:** Pre-deploy production cache table was confirmed empty (Railway web SQL `DELETE FROM llm_response_cache;` returned 0 rows on 2026-05-09 ~18:00 UTC). Post-deploy purge still recommended to flush any entries written between Cursor's commit and Railway redeploy under the old-format storage contract.
+
+**Closes:** Backlog #49 (OPEN → RESOLVED).
+
+**Filed by:** Cursor (2026-05-09).
 

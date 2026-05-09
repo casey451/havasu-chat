@@ -229,6 +229,12 @@ def lookup(db, cache_key, normalized_query=None):
 
 
 def store(db, cache_key, normalized_query, context, response_text, tier_used, ttl_days=None):
+    """Persist ``response_text`` at insert time.
+
+    Tier 3 callers (see ``tier3_handler.answer_with_tier3``) store **raw** LLM
+    output so deterministic post-processors can run on cache hits without stale
+    hedges after flag flips (Backlog #49).
+    """
     if not response_text or not cache_key:
         return
     nq = (normalized_query or "").strip().lower()
