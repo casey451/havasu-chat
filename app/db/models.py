@@ -88,6 +88,10 @@ class Provider(Base):
     last_verified_at: Mapped[datetime | None] = mapped_column(
         TZAwareDateTime(), nullable=True
     )
+    # CHECK ck_providers_verification_method — legacy: manual, scraper,
+    # owner_confirmed, npi_registry, none; operator enrichment (migration
+    # c9d0e1f2a3b4): phone_call, in_person, web_form_submission,
+    # email_confirmation.
     verification_method: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     # BUILD.md step 2: editorial "Hava's pick" flag. Hand-curated via DB
@@ -226,6 +230,16 @@ class ChatLog(Base):
     llm_output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     feedback_signal: Mapped[str | None] = mapped_column(String(32), nullable=True)
     audience_signal: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+    # Lane P2.OBS.1: deterministic disclosure renderer telemetry. Columns are
+    # nullable; null = renderer didn't run / didn't reach that gate. CHECK on
+    # disclosure_regime is enforced at the DB level (migration e7f8a9b0c1d2).
+    disclosure_regime: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    disclosure_sponsor_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    disclosure_tone_allowlist_passed: Mapped[bool | None] = mapped_column(
+        Boolean, nullable=True
+    )
+    disclosure_eligible: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
 
 class Program(Base):

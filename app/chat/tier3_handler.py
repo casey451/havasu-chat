@@ -125,25 +125,33 @@ def _maybe_render_sponsored_block(
     organic_rows: Optional[list[Mapping[str, Any]]] = None,
     category: Optional[str] = None,
 ) -> Optional[disclosure_render.SponsoredBlock]:
-    """Compute a SponsoredBlock or return None -- never raises."""
+    """Compute a SponsoredBlock or return None -- never raises.
+
+    Lane P2.OBS.1: also records the renderer's RenderDecision into the
+    request context via ``disclosure_render.record_decision`` so the
+    chat-log writer can persist it. When the renderer raises, no
+    decision is recorded -- the contextvar's prior value (set by an
+    earlier ``reset_decision_context`` at request entry) carries
+    through, which means the row's ``disclosure_*`` columns will be
+    NULL. That's the right fail-safe: we don't want to log a partially
+    constructed decision for a turn whose renderer crashed.
+    """
     try:
         regime = disclosure_render.select_placement_regime(intent_result)
-        if regime == disclosure_render.PlacementRegime.SPECIFIC_QUALITY:
-            return None
         now = now_lake_havasu()
-        candidates: list[Sponsor] = (
-            db.query(Sponsor)
-            .filter(
-                Sponsor.status == SponsorStatus.LIVE.value,
-                Sponsor.active.is_(True),
-                or_(Sponsor.starts_at.is_(None), Sponsor.starts_at <= now),
-                or_(Sponsor.ends_at.is_(None), Sponsor.ends_at > now),
+        candidates: list[Sponsor] = []
+        if regime != disclosure_render.PlacementRegime.SPECIFIC_QUALITY:
+            candidates = (
+                db.query(Sponsor)
+                .filter(
+                    Sponsor.status == SponsorStatus.LIVE.value,
+                    Sponsor.active.is_(True),
+                    or_(Sponsor.starts_at.is_(None), Sponsor.starts_at <= now),
+                    or_(Sponsor.ends_at.is_(None), Sponsor.ends_at > now),
+                )
+                .all()
             )
-            .all()
-        )
-        if not candidates:
-            return None
-        return disclosure_render.render_sponsored_block(
+        block, decision = disclosure_render.render_with_decision(
             regime=regime,
             candidate_sponsors=candidates,
             query_context={
@@ -153,6 +161,8 @@ def _maybe_render_sponsored_block(
             },
             db=db,
         )
+        disclosure_render.record_decision(decision)
+        return block
     except Exception as exc:  # noqa: BLE001 -- renderer must never break chat
         logging.warning(
             "tier3: disclosure renderer raised (%s); falling through to LLM-only path",

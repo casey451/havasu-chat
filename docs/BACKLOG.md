@@ -2108,3 +2108,73 @@ Or wait for the cache TTL to expire (check `app/chat/llm_cache.py` for the confi
 
 **Filed by:** Cursor (Lane 2 implementation, 2026-05-09 evening).
 
+---
+
+## Backlog 54 - Dangling docstring references to never-existed `relay/halt1-closure-final-lexicons.md` (**OPEN, low priority**)
+
+**Surfaced by:** Recovery investigation by general-purpose agent (2026-05-09 evening, dispatched in parallel with Lanes 3 and 4).
+
+**Finding:** Three docstring/comment sites reference `relay/halt1-closure-final-lexicons.md` as if it were an external lexicon file:
+
+- `app/eval/confabulation_detector.py:1` — module docstring header
+- `app/eval/confabulation_query_gen.py:3` — module docstring
+- `app/eval/confabulation_query_gen.py:38` — comment above `_PROBES_PROVIDER` tuple
+
+**The file never existed on any branch.** Per the recovered Phase 8.8.6 spec §3.7, the artifact was *planned* ("Final lexicons land in a `relay/halt1-closure-final-lexicons.md` artifact for implementation reference, not as a doc commit") but was never written. The actual lexicons (`LAYER2`, `SAFE`, `VGEN`, `QTY`, `_PROBES_PROVIDER`, `_PROBES_PROGRAM`) are inlined in code as Python constants. **The harness does not read this file at runtime** — there's no broken behavior, just stale docstring pointers that mislead future readers (including the morning HALT 3 audit, which flagged this as an "orthogonal concern").
+
+**Recommended fix:** Two options, operator's call:
+
+1. **Strip the references.** Edit the three docstring/comment sites to remove the `relay/halt1-closure-final-lexicons.md` pointer. The lexicons are documented in code; no external doc is needed. Cleanest for hygiene.
+2. **Author the artifact.** Create `relay/halt1-closure-final-lexicons.md` with the inlined constants extracted into markdown form, preserving the docstring pointers as live links. Useful only if the operator wants a separate lexicon-governance doc (per HALT 1 governance: "owner-reviewed, append-only style updates, no silent drift" — referenced from `confabulation-eval-runbook.md`). Otherwise overkill.
+
+**Priority:** LOW — no broken behavior; cosmetic doc-hygiene fix. Could roll into any future `app/eval/` cleanup lane.
+
+**Filed by:** Cowork primary (2026-05-09 evening, post-recovery-investigation).
+
+---
+
+## Ship log — P2.BL.45: expand `verification_method` CHECK constraint to preserve operator audit fidelity
+
+**Problem:** Operator enrichment vocab (`phone_call`, `in_person`, `web_form_submission`, `email_confirmation`) was being lossy-mapped to the legacy 5-value DB enum (`manual`, `scraper`, `owner_confirmed`, `npi_registry`, `none`) at ingest time via `_VERIFICATION_METHOD_DB_MAP` in `scripts/ingest/ingest_enrichment_csv.py`. Phone vs in-person verification became indistinguishable in the DB — operators couldn't audit which method was used after the fact.
+
+**Change:**
+
+- **New migration `alembic/versions/c9d0e1f2a3b4_expand_verification_method_constraint.py`** (parent `b4c5d6e7f8a9`): drops the existing CHECK and creates one with 9 allowed values (5 legacy + 4 operator vocab). Downgrade restores the legacy 5-value CHECK; **caveat noted in migration: any rows with new vocab values must be remapped before downgrade can succeed**.
+- **`scripts/ingest/ingest_enrichment_csv.py`** — removed `_VERIFICATION_METHOD_DB_MAP` dictionary; `_row_to_payload` now sets `verification_method` from the stripped CSV field directly.
+- **`app/db/models.py`** — added comment above `Provider.verification_method` documenting CHECK + migration id (no schema change; column was already `String(32)`).
+- **`templates/enrichment/README.md`** — replaced "smaller vocabulary + ingest maps..." with "CHECK allows operator values plus legacy; ingest is verbatim."
+- **`tests/test_enrichment_ingestion.py`** — insert assertion now expects `verification_method == "phone_call"` instead of `"manual"`.
+
+**Verification:**
+
+- Alembic round-trip clean: `upgrade head → downgrade -1 → upgrade head` against fresh SQLite (empty DB).
+- Targeted tests: `tests/test_enrichment_ingestion.py` → 16 passed.
+- Full suite: 1341 passed (same as Lane 2 baseline; existing tests modified in place rather than new tests added).
+
+**Cursor's flagged out-of-scope observation (filed as Backlog #55):** `app/chat/confidence_tier.py::_KNOWN_METHODS` only includes the legacy 5 values. After this lane lands, a Provider with `verification_method = "phone_call"` (operator-confirmed via phone) would classify LOW confidence even though the operator literally called and confirmed. Cursor correctly stayed out of `app/chat/*` per dispatch scope; the extension is a clean Phase 2 follow-up.
+
+**Closes:** P2.BL.45 (Phase 2 spec lane — closed via this ship-log).
+
+**Filed by:** Cursor (Lane 3 implementation, 2026-05-09 evening).
+
+**New alembic head:** `c9d0e1f2a3b4` (parent `b4c5d6e7f8a9`). When Lane 4 (P2.OBS.1, in flight from Claude Code) lands with its own migration based on `b4c5d6e7f8a9`, two heads will exist briefly; resolve via `alembic merge heads -m "merge Lane 3 + Lane 4"` at integration time.
+
+---
+
+## Backlog 55 - Extend `confidence_tier._KNOWN_METHODS` to recognize new operator-vocab verification methods (**OPEN, low priority follow-up to P2.BL.45**)
+
+**Surfaced by:** Cursor's Lane 3 report (P2.BL.45 ship, 2026-05-09 evening). The expanded CHECK constraint allows `phone_call`, `in_person`, `web_form_submission`, `email_confirmation` to persist in `Provider.verification_method`, but `app/chat/confidence_tier.py::_KNOWN_METHODS` only includes the legacy 5 values (`manual`, `scraper`, `owner_confirmed`, `npi_registry`, `none`). A Provider with the new operator vocab will classify LOW confidence (unknown method) even when the operator's verification method is high-fidelity (e.g. `in_person` is functionally equivalent to a site visit).
+
+**Recommended fix:** Extend `_KNOWN_METHODS` (or its scoring map) in `app/chat/confidence_tier.py` to include the operator vocab with appropriate confidence-tier mappings:
+
+- `phone_call` → equivalent to `owner_confirmed` (operator called and confirmed; MEDIUM-HIGH).
+- `in_person` → equivalent to `manual` or higher (operator visited the business; HIGH).
+- `web_form_submission` → equivalent to `manual` (operator filled the web form on owner's behalf; MEDIUM).
+- `email_confirmation` → equivalent to `owner_confirmed` (operator emailed and received confirmation; MEDIUM-HIGH).
+
+Add corresponding test cases to `tests/test_confidence_tier.py` covering each new method.
+
+**Priority:** LOW pre-enrichment-sprint (no Provider rows have the new vocab yet, so the under-classification isn't visible in production). Should ship **before the enrichment sprint completes** — when actual operator-vocab rows start landing in the DB, the confidence-tier classifier will under-rank them, which would cause the CT post-process to over-hedge legitimately verified rows.
+
+**Filed by:** Cowork primary (2026-05-09 evening, post-Lane-3 review).
+

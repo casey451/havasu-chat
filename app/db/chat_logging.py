@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
+from app.chat import disclosure_render
 from app.db.models import ChatLog
 
 if TYPE_CHECKING:
@@ -17,6 +18,11 @@ if TYPE_CHECKING:
 # one emission per process — no per-request log spam while we wait for the
 # schema migration.
 _audience_signal_warned_once: bool = False
+
+# Lane P2.OBS.1: same defensive pattern for the four disclosure_* columns
+# added by Alembic revision e7f8a9b0c1d2. Until that lands, the assignment
+# is skipped. One-shot warning keeps log volume sane.
+_disclosure_telemetry_warned_once: bool = False
 
 
 def log_unified_route(
@@ -80,6 +86,39 @@ def log_unified_route(
                         "audience_signal column not yet present on ChatLog; "
                         "skipping persistence. The column is added by Alembic "
                         "revision f7e8d9c0b1a2 (Lane S1, 2026-05-08). Run "
+                        "`alembic upgrade head` against the production DB to "
+                        "enable persistence — no environment variable required."
+                    )
+        # Lane P2.OBS.1: read the disclosure renderer's per-turn decision out
+        # of the request context and persist the four typed columns. Same
+        # defensive pattern as audience_signal — skip silently with a one-shot
+        # warning if the columns aren't on the model yet (pre-migration).
+        # ``consume_decision`` clears the slot on read so a later non-tier-3
+        # turn on the same thread doesn't see stale state.
+        decision = disclosure_render.consume_decision()
+        if decision is not None:
+            if hasattr(row, "disclosure_regime"):
+                try:
+                    row.disclosure_regime = decision.regime.value
+                    row.disclosure_sponsor_id = (
+                        decision.sponsor_id[:64] if decision.sponsor_id else None
+                    )
+                    row.disclosure_tone_allowlist_passed = (
+                        decision.tone_allowlist_passed
+                    )
+                    row.disclosure_eligible = decision.eligible
+                except Exception:
+                    logging.exception(
+                        "disclosure decision assignment failed; persistence skipped"
+                    )
+            else:
+                global _disclosure_telemetry_warned_once
+                if not _disclosure_telemetry_warned_once:
+                    _disclosure_telemetry_warned_once = True
+                    logging.warning(
+                        "disclosure_* columns not yet present on ChatLog; "
+                        "skipping persistence. The columns are added by Alembic "
+                        "revision e7f8a9b0c1d2 (Lane P2.OBS.1, 2026-05-09). Run "
                         "`alembic upgrade head` against the production DB to "
                         "enable persistence — no environment variable required."
                     )
