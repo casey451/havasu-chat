@@ -116,12 +116,17 @@ def test_ask_tier3_no_tokens_when_handler_returns_none(db: Session) -> None:
 
 
 def test_contribute_placeholder_contains_sub_intent(db: Session) -> None:
+    # Stream B (2026-05-07) shipped deterministic intake voice via
+    # render_contribute_template (unified_router._handle_contribute:438) — the
+    # "Contribute mode: type=NEW_EVENT" debug-shaped placeholder is no longer
+    # the live path. Test now pins the routing surface (mode/sub_intent/tier)
+    # plus a non-empty intake-voice acknowledgment, not the legacy literal.
     r = route("I want to add a concert at the park on Friday at 8pm.", "sess-co", db)
     assert r.mode == "contribute"
     assert r.sub_intent == "NEW_EVENT"
-    assert r.tier_used == "intake"  # Updated 2026-05-08 after tier name rename
-    assert "Contribute mode:" in r.response
-    assert "NEW_EVENT" in r.response
+    assert r.tier_used == "intake"
+    assert r.response.strip() != ""
+    assert "Contribute mode:" not in r.response  # debug placeholder must not leak
 
 
 def test_correct_acknowledgment(db: Session) -> None:

@@ -1,4 +1,4 @@
-"""Tier 3 context block from local catalog (Phase 3.2 — handoff §3.3 / §5).
+"""Tier 3 context block from local catalog (Phase 3.2 - handoff sec 3.3 / 5).
 
 Builds a plain-text context string capped at ~2000 tokens using a word budget
 (``MAX_CONTEXT_WORDS``). Excludes draft providers, inactive programs, and past
@@ -7,18 +7,45 @@ events. Entity-matched provider (if any) is listed first with full detail.
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 from typing import Sequence
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.chat.confidence_tier import (
+    ConfidenceTier,
+    classify_confidence,
+    hedge_phrase,
+)
 from app.chat.intent_classifier import IntentResult
+from app.chat.tier2_formatter import is_confidence_tier_enabled
+from app.core.timezone import now_lake_havasu
 from app.db.models import Event, Program, Provider
 
 MAX_PROVIDERS = 10
 MAX_CONTEXT_WORDS = 1500
 _HOURS_MAX_LEN = 200
+
+
+def _hedge_suffix_for(record, *, now) -> str:
+    """Return ``" (<hedge>)"`` for MEDIUM/LOW records, else ``""`` (Lane CT2.B).
+
+    Defensive: any failure inside the classifier returns ``""`` so a
+    classification hiccup never breaks context-block assembly.
+    """
+    try:
+        assessment = classify_confidence(record, now=now)
+        hedge = hedge_phrase(assessment.tier)
+    except Exception:
+        logging.exception(
+            "context_builder: classify_confidence raised on row, no hedge suffix"
+        )
+        return ""
+    if not hedge:
+        return ""
+    return f" ({hedge})"
 
 
 def _truncate_hours(h: str | None) -> str:
@@ -31,13 +58,7 @@ def _truncate_hours(h: str | None) -> str:
 
 
 def _provider_url(p: Provider) -> str | None:
-    """Best URL for a recommendation — own website preferred, Google Maps page as fallback.
-
-    Tier 3 voice rule (2026-05-07): every recommendation must include a URL so
-    users can act on it. Returns None when neither signal is present (admin-direct
-    providers without scraped data, etc.) — caller emits the recommendation
-    without a link rather than fabricating one.
-    """
+    """Best URL for a recommendation - own website preferred, Google Maps page as fallback."""
     w = (p.website or "").strip()
     if w:
         return w
@@ -83,6 +104,21 @@ def _fetch_provider_rows(db: Session, entity: str | None) -> list[Provider]:
     return ordered[:MAX_PROVIDERS]
 
 
+def _fetch_tier3_records(intent_result: IntentResult, db: Session) -> list[Provider]:
+    """Shared Provider lookup behind both Tier 3 entry points (Lane CT2.B.1).
+
+    Both ``build_context_for_tier3`` (assembles the LLM context block) and
+    ``rows_for_tier3_classification`` (returns dicts shaped for the
+    ``_enforce_low_tier_phone`` post-processor) call this helper so the
+    two stay in sync. Single underlying query - no duplicate DB round-trip
+    on the request path, and no timing skew between what the LLM saw and
+    what the post-processor checks against.
+
+    Backlog #42 / spec section 10: this is the "sibling helper" wiring.
+    """
+    return _fetch_provider_rows(db, intent_result.entity)
+
+
 def _programs_for(db: Session, provider_id: str) -> Sequence[Program]:
     return db.scalars(
         select(Program).where(Program.provider_id == provider_id, Program.is_active.is_(True))
@@ -105,18 +141,22 @@ def _events_future_for(db: Session, provider_id: str, today: date) -> Sequence[E
 def build_context_for_tier3(query: str, intent_result: IntentResult, db: Session) -> str:
     """Return a plain-text context block for the Tier 3 system prompt (never empty)."""
     today = date.today()
-    providers = _fetch_provider_rows(db, intent_result.entity)
+    providers = _fetch_tier3_records(intent_result, db)
     if not providers:
         return (
             "Context: No verified provider rows are available in the local catalog yet. "
             "Answer conservatively and do not invent businesses or events."
         )
 
+    flag_on = is_confidence_tier_enabled()
+    now = now_lake_havasu() if flag_on else None
+
     parts: list[str] = []
     parts.append("Context — Lake Havasu catalog snapshot (programs and events may be partial):")
     for p in providers:
         lines: list[str] = []
-        lines.append(f"Provider: {p.provider_name}")
+        suffix = _hedge_suffix_for(p, now=now) if flag_on else ""
+        lines.append(f"Provider: {p.provider_name}{suffix}")
         lines.append(f"  category: {p.category}")
         if p.address:
             lines.append(f"  address: {p.address}")
@@ -137,9 +177,6 @@ def build_context_for_tier3(query: str, intent_result: IntentResult, db: Session
                 ages = f"{prog.age_min if prog.age_min is not None else '?'}-{prog.age_max if prog.age_max is not None else '?'}"
             else:
                 ages = "n/a"
-            # Slice 56 (Backlog #30 close): canonical schedule columns are typed
-            # Time; strftime to HH:MM. None-guard kept from Slice 54 as cheap
-            # resilience even though the columns are now nullable=False.
             sched_st = prog.schedule_start_time
             sched_et = prog.schedule_end_time
             sched_st_s = sched_st.strftime("%H:%M") if sched_st is not None else ""
@@ -157,12 +194,69 @@ def build_context_for_tier3(query: str, intent_result: IntentResult, db: Session
                 seg += f" | note: {sn}"
             lines.append(seg)
         for ev in _events_future_for(db, p.id, today):
+            ev_suffix = _hedge_suffix_for(ev, now=now) if flag_on else ""
             lines.append(
                 f"  Upcoming event: {ev.title} on {ev.date.isoformat()} "
                 f"at {ev.start_time.strftime('%H:%M')} — {ev.location_name}"
+                f"{ev_suffix}"
             )
         parts.append("\n".join(lines))
 
     body = "\n\n".join(parts)
     body = _trim_to_word_budget(body, MAX_CONTEXT_WORDS)
     return body
+
+
+def rows_for_tier3_classification(
+    intent_result: IntentResult, db: Session
+) -> list[dict]:
+    """Return Tier 3 Provider rows shaped for the LOW-tier phone post-processor (Lane CT2.B.1).
+
+    Sibling helper to ``build_context_for_tier3``. Both call the shared
+    ``_fetch_tier3_records`` query so the row set the LLM saw matches the
+    row set the post-processor enforces against - no timing skew, no
+    duplicate Provider lookup at the request boundary.
+
+    Each returned dict carries the fields ``_enforce_low_tier_phone``
+    inspects: ``phone`` (the candidate the post-processor would inline if
+    missing) and ``confidence_hint`` (``"low"`` / ``"medium"`` / ``"high"``
+    from the per-row ``classify_confidence`` call). When the feature flag
+    is off the helper still returns rows but with ``confidence_hint``
+    blanked - the post-processor's tier check then short-circuits without
+    touching the response. Defensive: any classifier failure on a single
+    row degrades that row to an empty hint (LOW + missing phone =
+    no-op anyway).
+
+    The shape is intentionally narrow - the post-processor only reads
+    ``phone`` and ``confidence_hint``, so we don't pay to materialize
+    Programs / Events here. Backlog #42 (spec section 10): future telemetry
+    optimization to cache this list inside the request lives at the
+    handler level, not here.
+    """
+    providers = _fetch_tier3_records(intent_result, db)
+    if not providers:
+        return []
+    flag_on = is_confidence_tier_enabled()
+    now = now_lake_havasu() if flag_on else None
+    out: list[dict] = []
+    for p in providers:
+        hint = ""
+        if flag_on:
+            try:
+                assessment = classify_confidence(p, now=now)
+                hint = assessment.tier.value
+            except Exception:
+                logging.exception(
+                    "context_builder: classify_confidence raised on row, "
+                    "skipping confidence_hint"
+                )
+                hint = ""
+        out.append(
+            {
+                "type": "provider",
+                "provider_name": p.provider_name,
+                "phone": p.phone or "",
+                "confidence_hint": hint,
+            }
+        )
+    return out

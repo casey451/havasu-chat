@@ -321,7 +321,12 @@ def test_render_multiple_events_header_and_numbered_prefixes() -> None:
         },
     ]
     out = render_tier2_events("q", rows)
-    assert out.startswith("2 events:\n\n1. ")
+    # Voice contract from commit 655ffc5 — multi-event lists open with a
+    # query-aware landscape line before the "N events:" header (default
+    # framing fires when the query has no keyword hits, as here with "q").
+    assert out.startswith(
+        "A few solid options around town this window:\n\n2 events:\n\n1. "
+    )
     assert "\n2. " in out
     assert out.index("Alpha") < out.index("Beta")
 

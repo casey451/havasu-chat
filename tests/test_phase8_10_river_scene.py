@@ -609,10 +609,13 @@ def test_river_scene_pull_auto_approves_contribution() -> None:
 
 
 def test_river_scene_pull_auto_approval_sets_end_date_for_multi_day() -> None:
-    html = """<!DOCTYPE html><html><head><title>RiverScene Magazine | May Fest Multi</title></head>
+    # Dates bumped to Dec 2026 (well past 2026-05-08) — the parser at
+    # app/contrib/river_scene.py:336 rejects start_d < date.today(), so the
+    # original May 7-9, 2026 fixture aged out the moment today crossed May 7.
+    html = """<!DOCTYPE html><html><head><title>RiverScene Magazine | Dec Fest Multi</title></head>
 <body><div class="entry-content"><p>Three days of tournament action.</p>
-<table><tr><td>Start Date</td><td>May 7, 2026</td></tr>
-<tr><td>End Date</td><td>May 9, 2026</td></tr>
+<table><tr><td>Start Date</td><td>December 1, 2026</td></tr>
+<tr><td>End Date</td><td>December 3, 2026</td></tr>
 <tr><td>Time</td><td>9:00 am</td></tr>
 <tr><td>Venue</td><td>Site Six</td></tr></table></div></body></html>"""
     ev_url = "https://riverscenemagazine.com/events/md-auto-may/"
@@ -640,13 +643,13 @@ def test_river_scene_pull_auto_approval_sets_end_date_for_multi_day() -> None:
     with SessionLocal() as db:
         row = db.query(Contribution).order_by(Contribution.id.desc()).first()
         assert row is not None
-        assert row.event_end_date == date(2026, 5, 9)
+        assert row.event_end_date == date(2026, 12, 3)
         assert row.status == "approved"
         assert row.created_event_id is not None
         ev = db.get(Event, row.created_event_id)
         assert ev is not None
-        assert ev.date == date(2026, 5, 7)
-        assert ev.end_date == date(2026, 5, 9)
+        assert ev.date == date(2026, 12, 1)
+        assert ev.end_date == date(2026, 12, 3)
 
 
 def test_river_scene_pull_does_not_auto_approve_user_submission() -> None:

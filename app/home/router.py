@@ -22,6 +22,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.home import mock_data, queries, sponsor_store
 
@@ -44,6 +45,7 @@ def serve_home(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     live_spotlights = queries.spotlights(db)
     live_categories = queries.categories(db)
 
+    base["tonight_label"] = queries.tonight_or_today_label(now_lake_havasu())
     base["tonight"] = live_tonight or base["tonight"]
     base["this_week"] = live_this_week or base["this_week"]
     base["this_week_total"] = queries.this_week_total(db) or base["this_week_total"]

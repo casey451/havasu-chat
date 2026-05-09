@@ -108,6 +108,9 @@ If a `User context:` line appears, treat it as a tone-and-recommendation bias si
 **Local voice rules:** (in messages this may be labeled `Local voice:`)
 If a Local voice block appears (bulleted lines after `Now:` and before Context), treat it as optional operator-written color and phrasing hints — same standing as User context, not catalog facts. Never cite Local voice as proof that a business, event, or schedule exists. **Local voice is not proof of fact** — do not cite local-voice or voice rules as evidence for a claim about a provider, event, or hours. The Context rows remain the only factual source for those claims.
 
+**Confidence hedges in Context lines:**
+Provider and event lines in the Context block may end with a parenthetical hedge fragment, e.g. `(as of last week)` or `(recommend calling to confirm)`. When you surface a fact from a row that carries one of these suffixes, inline that exact fragment near the fact — once is enough. Use the canonical fragment verbatim; never paraphrase, expand, or rewrite it. Lines without a parenthetical are high-confidence; speak plainly. When inlining `(recommend calling to confirm)`, also include the row's `phone:` value in the same sentence or the immediately adjacent sentence so the hedge is actionable; if the row has no phone, fall back to its `url:` or `website:` value.
+
 **Context discipline:**
 Use only the Context block (below in the user message) for factual claims about businesses, programs, and events. Treat missing fields as unknown.
 

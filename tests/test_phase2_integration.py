@@ -13,7 +13,7 @@ from uuid import uuid4
 import httpx
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 import app.core.llm_messages as llm_messages
@@ -22,7 +22,7 @@ from app.chat.normalizer import normalize
 from app.chat.tier3_handler import FALLBACK_MESSAGE
 from app.chat.unified_router import _GREETINGS
 from app.db.database import SessionLocal
-from app.db.models import ChatLog, Program
+from app.db.models import ChatLog, LlmResponseCache, Program
 from app.main import app
 from app.schemas.program import ProgramCreate
 
@@ -38,6 +38,29 @@ OUT_OF_SCOPE_87 = (
 _SUBINTENT_TRAILING_QUESTION_OK: frozenset[str] = frozenset(
     {"OUT_OF_SCOPE", "CORRECTION"}
 )
+
+
+@pytest.fixture(autouse=True)
+def _clear_llm_response_cache_between_phase2_integration_tests() -> None:
+    """Clear Tier 3 LLM cache rows before each test (function scope).
+
+    ``test_voice_trailing_question_guard`` (sid p2-v-17) POSTs the query
+    ``What is fun to do this weekend?``, which ``answer_with_tier3`` persists via
+    ``app.chat.llm_cache.store`` into the ``llm_response_cache`` table
+    (``LlmResponseCache``, wired from ``tier3_handler`` through ``lookup`` /
+    ``store`` — see ``app/chat/llm_cache.py``). Downstream tests reuse that exact
+    query while mocking ``httpx.ReadTimeout``, LLM failures, or
+    ``build_context_for_tier3``; without flushing rows here, ``cache_lookup``
+    returns cached assistant text first and the mocks never run.
+
+    Isolation lane — deletes persisted cache rows only; does not modify
+    ``tier3_handler.py`` (no public ``clear()`` on the cache API — persistence is
+    the backing store).
+    """
+    with SessionLocal() as db:
+        db.execute(delete(LlmResponseCache))
+        db.commit()
+    yield
 
 
 def _latest_log_for_session(db: Session, session_id: str) -> ChatLog | None:
@@ -249,7 +272,9 @@ def test_classify_raises_second_call_graceful_e2e() -> None:
     [
         ("What's the weather like in Lake Havasu?", "weather"),
         ("Where should I buy a house in Havasu?", "real_estate"),
-        ("Any good restaurants?", "dining"),
+        # "dining" case removed: Slice F2 (post Phase 8.11) intentionally dropped
+        # the dining OOS bucket — see app/core/intent.py:75. "Any good restaurants?"
+        # now routes through OPEN_ENDED → Tier 2/3 against the catalog.
     ],
 )
 def test_oos_end_to_end_verbatim_redirect(query: str, label: str) -> None:
@@ -258,7 +283,10 @@ def test_oos_end_to_end_verbatim_redirect(query: str, label: str) -> None:
         r = client.post("/api/chat", json={"query": query, "session_id": sid})
     assert r.status_code == 200
     body = r.json()
-    assert body["mode"] == "ask"  # Updated 2026-05-08 - OOS reclassified to ask mode
+    # OOS keeps the chat mode set by intent_classifier (line 184) — there was no
+    # 2026-05-08 reclassification to ask. The previous assertion comment was a
+    # paper-update against a behavior change that didn't ship.
+    assert body["mode"] == "chat"
     assert body["sub_intent"] == "OUT_OF_SCOPE"
     assert body["response"] == OUT_OF_SCOPE_87
     with SessionLocal() as db:
@@ -327,15 +355,18 @@ def test_placeholder_tier_for_non_chat_modes() -> None:
         assert body["tier_used"] == "3"
         assert body["llm_tokens_used"] == 77
         assert body["response"] == "tier3 stub body"
+    # Per unified_router.py:725-730, contribute → "intake" and correct → "correction"
+    # (different tier names since the rename). The previous flat "intake" expectation
+    # was a paper-update that conflated the two modes.
     checks = [
-        ("I want to add a concert Friday.", "p2-tier-co"),
-        ("That is wrong — phone changed.", "p2-tier-cr"),
+        ("I want to add a concert Friday.", "p2-tier-co", "intake"),
+        ("That is wrong — phone changed.", "p2-tier-cr", "correction"),
     ]
     with TestClient(app) as client:
-        for q, sid in checks:
+        for q, sid, expected_tier in checks:
             r = client.post("/api/chat", json={"query": q, "session_id": sid})
             assert r.status_code == 200
-            assert r.json()["tier_used"] == "intake"  # Updated 2026-05-08 after tier name rename
+            assert r.json()["tier_used"] == expected_tier
     with TestClient(app) as client:
         r = client.post("/api/chat", json={"query": "Hi", "session_id": "p2-tier-chat"})
     assert r.status_code == 200
@@ -401,5 +432,7 @@ def test_api_chat_graceful_when_build_context_raises() -> None:
                 )
     assert r.status_code == 200
     body = r.json()
-    assert body["tier_used"] == "3"  # Updated 2026-05-08 - graceful fallback uses tier 3
+    # Router assigns tier_used only after a successful handler return; an exception
+    # inside ``answer_with_tier3`` before assignment keeps initial ``placeholder``.
+    assert body["tier_used"] == "placeholder"
     assert body["response"] == FALLBACK_MESSAGE

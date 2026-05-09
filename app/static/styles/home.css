@@ -497,6 +497,12 @@ img { display: block; max-width: 100%; }
   font-size: 13px;
 }
 .card.card-biz .footer .phone:hover { color: var(--water-700); }
+.card.card-biz .footer .phone-missing {
+  color: var(--ink-3);
+  font-size: var(--t-meta);
+  text-decoration: none;
+  cursor: default;
+}
 
 /* ─────────── sponsor slot ─────────── */
 .sponsor {

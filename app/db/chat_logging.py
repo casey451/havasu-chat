@@ -1,10 +1,22 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
 from app.db.models import ChatLog
+
+if TYPE_CHECKING:
+    from app.chat.audience_signal import AudienceSignal
+
+
+# Lane S3: Cursor (Lane S1) is adding the ``audience_signal`` column to
+# ``chat_logs`` in parallel. Until that lands, ``hasattr(ChatLog, ...)`` is
+# False and the assignment is skipped. Module-level flag keeps the warning to
+# one emission per process — no per-request log spam while we wait for the
+# schema migration.
+_audience_signal_warned_once: bool = False
 
 
 def log_unified_route(
@@ -23,6 +35,7 @@ def log_unified_route(
     llm_input_tokens: int | None = None,
     llm_output_tokens: int | None = None,
     feedback_signal: str | None = None,
+    audience_signal: "AudienceSignal | None" = None,
 ) -> str | None:
     """Persist one unified-router turn (assistant message + analytics). Never raises.
 
@@ -47,6 +60,29 @@ def log_unified_route(
             llm_output_tokens=llm_output_tokens,
             feedback_signal=feedback_signal[:32] if feedback_signal else None,
         )
+        # Lane S3 defensive write: only set audience_signal when the column
+        # exists on ChatLog (Lane S1 / Cursor migration). Until the schema
+        # migration lands, skip silently and log a single one-shot warning so
+        # ops can confirm the persistence-gap is intentional.
+        if audience_signal is not None:
+            if hasattr(row, "audience_signal"):
+                try:
+                    row.audience_signal = audience_signal.audience[:32]
+                except Exception:
+                    logging.exception(
+                        "audience_signal assignment failed; persistence skipped"
+                    )
+            else:
+                global _audience_signal_warned_once
+                if not _audience_signal_warned_once:
+                    _audience_signal_warned_once = True
+                    logging.warning(
+                        "audience_signal column not yet present on ChatLog; "
+                        "skipping persistence. The column is added by Alembic "
+                        "revision f7e8d9c0b1a2 (Lane S1, 2026-05-08). Run "
+                        "`alembic upgrade head` against the production DB to "
+                        "enable persistence — no environment variable required."
+                    )
         db.add(row)
         db.commit()
         return str(row.id)

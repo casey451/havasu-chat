@@ -16,9 +16,13 @@ import time
 from dataclasses import dataclass, field, replace
 from uuid import uuid4
 
+from typing import Any, Mapping
+
+from sqlalchemy import or_ as _sa_or
 from sqlalchemy.orm import Session
 
-from app.chat import llm_router
+from app.chat import disclosure_render, llm_router
+from app.chat.audience_signal import AudienceSignal, classify_audience
 from app.chat.entity_matcher import (
     extract_catalog_entities_from_text,
     match_entity,
@@ -44,7 +48,7 @@ from app.core.session import (
     touch_session,
     update_hints_from_extraction,
 )
-from app.core.timezone import format_now_lake_havasu
+from app.core.timezone import format_now_lake_havasu, now_lake_havasu
 from app.db.chat_logging import log_unified_route
 
 _PRONOUN_REFERENT = re.compile(
@@ -244,6 +248,80 @@ def _use_llm_router() -> bool:
     return v in ("1", "true", "yes", "on")
 
 
+def _organic_context_for_tier3(
+    intent_result: IntentResult, db: Session, *, limit: int = 5
+) -> list[Mapping[str, Any]] | None:
+    """Build organic-row context for the disclosure renderer (Backlog #40 wiring).
+
+    Lane X2 added an ``organic_context`` kwarg on ``answer_with_tier3`` so the
+    renderer's ``EMERGENCY_URGENT`` regime can verify organic alternatives
+    exist before injecting a sponsored block (spec §1.3). Phase 1 callers
+    didn't populate it; this helper is the X2.1 wiring.
+
+    Returns ``None`` (cheap, kwarg becomes a no-op) when:
+    - the disclosure renderer feature flag is off (renderer is never invoked);
+    - the regime resolves to anything other than ``EMERGENCY_URGENT``
+      (renderer doesn't read ``organic_rows`` for ``GENERIC_CATEGORY`` /
+      ``SPECIFIC_QUALITY``);
+    - the normalized query yields no usable keywords;
+    - the Provider lookup raises or returns an empty result set.
+
+    Otherwise returns up to ``limit`` Provider dicts whose ``provider_name``
+    or ``category`` overlaps a ≥4-char keyword from the normalized query.
+    Best-effort: any failure returns ``None``, which suppresses the
+    sponsored block — the safe failure mode for paid placements.
+    """
+    if not disclosure_render.is_renderer_enabled():
+        return None
+    try:
+        regime = disclosure_render.select_placement_regime(intent_result)
+    except Exception:
+        logging.exception("unified_router: regime lookup failed")
+        return None
+    if regime != disclosure_render.PlacementRegime.EMERGENCY_URGENT:
+        return None
+
+    nq = (intent_result.normalized_query or "").lower().strip()
+    if not nq:
+        return None
+    keywords = [w for w in re.split(r"\W+", nq) if len(w) >= 4]
+    if not keywords:
+        return None
+
+    try:
+        from app.db.models import Provider
+
+        clauses: list[Any] = []
+        for w in keywords:
+            clauses.append(Provider.provider_name.ilike(f"%{w}%"))
+            clauses.append(Provider.category.ilike(f"%{w}%"))
+        rows = (
+            db.query(Provider)
+            .filter(
+                Provider.is_active.is_(True),
+                Provider.draft.is_(False),
+                _sa_or(*clauses),
+            )
+            .limit(limit)
+            .all()
+        )
+    except Exception:
+        logging.exception("unified_router: organic-context Provider query failed")
+        return None
+
+    if not rows:
+        return None
+    return [
+        {
+            "type": "provider",
+            "id": p.id,
+            "provider_name": p.provider_name,
+            "category": p.category,
+        }
+        for p in rows
+    ]
+
+
 def _handle_ask(
     query: str,
     intent_result: IntentResult,
@@ -268,8 +346,17 @@ def _handle_ask(
             context["prior_entity"] = intent_result.entity
         decision = llm_router.route(query, intent_result.normalized_query, context or None)
         if decision is None:
+            # Backlog #40: capture organic context for the renderer's
+            # EMERGENCY_URGENT regime; helper returns None when the flag
+            # is off or the regime doesn't need pairing — kwarg is a no-op.
+            organic_ctx = _organic_context_for_tier3(intent_result, db)
             text, total, tin, tout = answer_with_tier3(
-                query, intent_result, db, onboarding_hints=onboarding_hints, now_line=now_line
+                query,
+                intent_result,
+                db,
+                onboarding_hints=onboarding_hints,
+                now_line=now_line,
+                organic_context=organic_ctx,
             )
             return text, "3", total, tin, tout
         if router_meta is not None:
@@ -290,17 +377,35 @@ def _handle_ask(
                 return t2_text, "2", t2_total, t2_in, t2_out
             if not allow_tier3_fallback:
                 return None, "placeholder", None, None, None
+            organic_ctx = _organic_context_for_tier3(routed_intent, db)
             text, total, tin, tout = answer_with_tier3(
-                query, routed_intent, db, onboarding_hints=onboarding_hints, now_line=now_line
+                query,
+                routed_intent,
+                db,
+                onboarding_hints=onboarding_hints,
+                now_line=now_line,
+                organic_context=organic_ctx,
             )
             return text, "3", total, tin, tout
+        organic_ctx = _organic_context_for_tier3(routed_intent, db)
         text, total, tin, tout = answer_with_tier3(
-            query, routed_intent, db, onboarding_hints=onboarding_hints, now_line=now_line
+            query,
+            routed_intent,
+            db,
+            onboarding_hints=onboarding_hints,
+            now_line=now_line,
+            organic_context=organic_ctx,
         )
         return text, "3", total, tin, tout
     if _is_explicit_rec(query):
+        organic_ctx = _organic_context_for_tier3(intent_result, db)
         text, total, tin, tout = answer_with_tier3(
-            query, intent_result, db, onboarding_hints=onboarding_hints, now_line=now_line
+            query,
+            intent_result,
+            db,
+            onboarding_hints=onboarding_hints,
+            now_line=now_line,
+            organic_context=organic_ctx,
         )
         return text, "3", total, tin, tout
     t2_text, t2_total, t2_in, t2_out = try_tier2_with_usage(query, component_meta=component_meta)
@@ -308,8 +413,16 @@ def _handle_ask(
         return t2_text, "2", t2_total, t2_in, t2_out
     if not allow_tier3_fallback:
         return None, "placeholder", None, None, None
+    # Backlog #40: Tier 2 fell through — capture organic candidates for
+    # the renderer before the LLM call.
+    organic_ctx = _organic_context_for_tier3(intent_result, db)
     text, total, tin, tout = answer_with_tier3(
-        query, intent_result, db, onboarding_hints=onboarding_hints, now_line=now_line
+        query,
+        intent_result,
+        db,
+        onboarding_hints=onboarding_hints,
+        now_line=now_line,
+        organic_context=organic_ctx,
     )
     return text, "3", total, tin, tout
 
@@ -412,11 +525,37 @@ def _enrich_entity_from_db(
     return intent_result
 
 
-def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
+def route(
+    query: str,
+    session_id: str | None,
+    db: Session,
+    *,
+    request_headers: dict[str, str] | None = None,
+    client_ip: str | None = None,
+    accept_language: str | None = None,
+) -> ChatResponse:
     t0 = time.perf_counter()
     sid = _stable_session_bucket(session_id)
     q_raw = query or ""
     q_hash = hashlib.sha256(q_raw.encode("utf-8")).hexdigest()
+
+    # Lane S3: audience-signal classification — orthogonal to intent, computed
+    # once per request from cheap features (CDN-provided geo headers, local
+    # time, query-shape keywords). Persisted to chat_logs.audience_signal so
+    # Phase 2 can decide whether to ship a visitor-mode UI. See
+    # ``app/chat/audience_signal.py`` for the composition rule. Failures here
+    # never block the request — we fall back to None and persist nothing.
+    audience: AudienceSignal | None = None
+    try:
+        audience = classify_audience(
+            client_ip=client_ip,
+            accept_language=accept_language,
+            request_time_local=now_lake_havasu(),
+            query_text=q_raw,
+            headers=request_headers,
+        )
+    except Exception:
+        logging.exception("unified_router: audience signal classification failed")
 
     def _ms() -> int:
         return max(1, int((time.perf_counter() - t0) * 1000))
@@ -452,6 +591,7 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
                 llm_input_tokens=llm_input_tokens,
                 llm_output_tokens=llm_output_tokens,
                 feedback_signal=None,
+                audience_signal=audience,
             )
         except Exception:
             logging.exception("log_unified_route wrapper failure")
@@ -579,15 +719,13 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
                     component_meta=component_meta,
                 )
             if router_meta:
-                response_mode = (router_meta.get("mode") or response_mode)  # type: ignore[assignment]
-                response_sub_intent = (router_meta.get("sub_intent") or response_sub_intent)  # type: ignore[assignment]
-                response_entity = (router_meta.get("entity") or response_entity)  # type: ignore[assignment]
+                response_mode = (router_meta.get("mode") or response_mode)
+                response_sub_intent = (router_meta.get("sub_intent") or response_sub_intent)
+                response_entity = (router_meta.get("entity") or response_entity)
         elif intent_result.mode == "contribute":
-            # Stream B: deterministic Tier 1 intake template — zero LLM tokens.
             tier_used = "intake"
             text = _handle_contribute(q_raw, intent_result, db, session_id)
         elif intent_result.mode == "correct":
-            # Stream B: deterministic Tier 1 correction template — zero LLM tokens.
             tier_used = "correction"
             text = _handle_correct(q_raw, intent_result, db, session_id)
         elif intent_result.mode == "chat":
@@ -621,10 +759,6 @@ def route(query: str, session_id: str | None, db: Session) -> ChatResponse:
         except Exception:
             logging.exception("unified_router: recommended-entity capture failed")
 
-    # BUILD.md task #12: when the day-shape branch fired, `text` is the
-    # short voice line and `component_meta` carries the structured data.
-    # For all other queries `component_meta` stays empty and the
-    # ChatResponse defaults (voice mirrors response, type="none") apply.
     _component_type = str(component_meta.get("type") or "none")
     _component_data = component_meta.get("data") or {}
     if not isinstance(_component_data, dict):

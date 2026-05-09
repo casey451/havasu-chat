@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, time
+from enum import Enum
 from typing import Any
 from uuid import uuid4
 
@@ -23,6 +24,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
+from app.db.types import TZAwareDateTime
 from app.schemas.event import EventCreate
 
 
@@ -82,6 +84,11 @@ class Provider(Base):
     google_hours: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     last_google_scraped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     zip: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    last_verified_at: Mapped[datetime | None] = mapped_column(
+        TZAwareDateTime(), nullable=True
+    )
+    verification_method: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     # BUILD.md step 2: editorial "Hava's pick" flag. Hand-curated via DB
     # script; admin UI deferred. Distinct from spotlight placement on
@@ -155,6 +162,10 @@ class Event(Base):
         Boolean, nullable=False, default=False, server_default=false()
     )
 
+    last_verified_at: Mapped[datetime | None] = mapped_column(
+        TZAwareDateTime(), nullable=True
+    )
+
     provider: Mapped["Provider | None"] = relationship(back_populates="events")
 
     @classmethod
@@ -214,6 +225,7 @@ class ChatLog(Base):
     llm_input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     llm_output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     feedback_signal: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    audience_signal: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
 
 class Program(Base):
@@ -402,29 +414,109 @@ class LlmResponseCache(Base):
     query_embedding: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
-class Sponsor(Base):
-    """Editorial sponsor slot (BUILD.md step 3 / "Sponsor slot architecture").
+class AdSlot(str, Enum):
+    """Four-tier ad inventory slots (CRITIQUE_AND_REDESIGN.md §B5.6).
 
-    Distinct concept from ``Provider.tier`` / ``sponsored_until`` (which back
-    business spotlights — BUILD.md "Spotlight architecture"). A sponsor is
-    whoever paid for the editorial banner; could be a Provider, could be an
-    out-of-catalog brand. Hence a separate table.
+    Stored as plain string in the ``sponsors.slot`` column — Postgres ENUM types
+    are avoided here so adding a new tier in code doesn't require an Alembic
+    migration. The ``slot`` column has CHECK validation in app code, not at the
+    DB level.
+    """
+
+    MARQUEE = "marquee"
+    SPOTLIGHT = "spotlight"
+    PROMOTED = "promoted"
+    SUPPORTER = "supporter"
+
+
+class SponsorStatus(str, Enum):
+    """Moderation pipeline state machine (CRITIQUE_AND_REDESIGN.md §B5.6).
+
+    Transitions:
+      draft     → review     (advertiser submits)
+      review    → approved   (admin reviews + approves)
+      review    → draft      (admin rejects with comment)
+      approved  → live       (auto when start_date ≤ today ≤ end_date)
+      live      → paused     (admin emergency takedown)
+      paused    → live       (admin resume)
+      live      → archived   (auto when today > end_date)
+      approved  → archived   (auto if approved but never reached its window)
+    """
+
+    DRAFT = "draft"
+    REVIEW = "review"
+    APPROVED = "approved"
+    LIVE = "live"
+    PAUSED = "paused"
+    ARCHIVED = "archived"
+
+
+class Sponsor(Base):
+    """Sponsor record — backs all four ad inventory tiers.
+
+    Phase 2B (CRITIQUE_AND_REDESIGN.md §B5.6) evolved this from the original
+    single-slot editorial banner into a four-tier model (Marquee / Spotlight /
+    Promoted / Supporter) with a draft → review → approved → live → paused →
+    archived state machine. Existing rows from the pre-Phase-2B era are
+    defaulted to ``slot='marquee'`` and ``status='approved'`` by the migration
+    so they continue to render in the old slot.
+
+    Active-record query: ``slot == X AND status == APPROVED AND active is True
+    AND starts_at <= now AND (ends_at is null OR ends_at > now)``. The legacy
+    ``active`` boolean is retained as an admin kill-switch that bypasses the
+    state machine for emergency takedowns; ``status='paused'`` is the
+    state-machine-tracked equivalent.
     """
 
     __tablename__ = "sponsors"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+
+    # Inventory + lifecycle
+    slot: Mapped[str] = mapped_column(String(32), nullable=False, default=AdSlot.MARQUEE.value)
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default=SponsorStatus.DRAFT.value
+    )
+
+    # Advertiser-supplied copy + assets
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    headline: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    pitch: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attribution_text: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    verified_fields_present: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
     eyebrow: Mapped[str | None] = mapped_column(String(255), nullable=True)
     line: Mapped[str | None] = mapped_column(Text, nullable=True)
     cta_label: Mapped[str] = mapped_column(String(64), nullable=False, default="Visit")
     cta_url: Mapped[str] = mapped_column(String(2048), nullable=False)
     image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
-    starts_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    ends_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Optional reference to a Provider id for in-catalog advertisers; null for
+    # external. No DB-level FK — see migration 2a3b4c5d6e7f docstring for why.
+    # Validation/integrity is enforced in app layer (sponsor_store + admin UI).
+    business_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Booking window
+    starts_at: Mapped[datetime | None] = mapped_column(TZAwareDateTime(), nullable=True)
+    ends_at: Mapped[datetime | None] = mapped_column(TZAwareDateTime(), nullable=True)
+
+    # Admin kill-switch (back-compat — bypass FSM for emergency takedown)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    # Higher weight wins when multiple sponsors are simultaneously active.
+    # Higher weight wins when multiple sponsors are simultaneously active in same slot.
     weight: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # Moderation trail
+    paused_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    paused_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    approved_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # Performance counters
+    impressions: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    clicks: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # Bookkeeping
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC), nullable=False
     )

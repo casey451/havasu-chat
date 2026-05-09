@@ -73,6 +73,7 @@ def build_context(now: datetime | None = None) -> dict[str, Any]:
 
     return {
         "today_label": today_label,
+        "tonight_label": "Tonight" if today.hour >= 16 else "Today",
         "added_month": today.strftime("%B"),
         "chips": [
             "find a plumber",

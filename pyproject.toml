@@ -31,6 +31,7 @@ select = ["F", "I", "W", "E402"]
 "scripts/confabulation_eval.py" = ["E402"]                        # sys.path.insert for python scripts/... invocation
 "scripts/extract_tier3_queries.py" = ["E402"]                     # sys.path.insert for python scripts/... invocation
 "scripts/smoke_concurrent_chat.py" = ["E402"]                     # sys.path.insert for python scripts/... invocation
+"scripts/cleanup/null_placeholder_phones.py" = ["E402"]           # sys.path.insert for python -m scripts.cleanup... invocation
 "tests/test_classifier_hint_extraction_integration.py" = ["E402"] # sys.path.insert + ensure_dotenv_loaded() must run first
 
 [tool.ruff.format]

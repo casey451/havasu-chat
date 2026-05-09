@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime, time, timedelta
-from typing import Any, Iterable
+from typing import Any
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -35,6 +35,23 @@ CATEGORY_LABELS: dict[str, str] = {
     "auto":                  "Auto",
     "religion_community":    "Community",
     "fitness_sports":        "Fitness & sport",
+    # Widened set — common Provider.category values that previously fell
+    # through to a slug-replace fallback. Adding explicit entries removes
+    # title-cased underscores in the surface ("Real estate" not
+    # "Real Estate"; "Contractors" not "General_contractor", etc.).
+    # See docs/maintainability/ui_data_correctness_spec.md §2.2(c).
+    "general_contractor":    "Contractors",
+    "real_estate":           "Real estate",
+    "insurance":             "Insurance",
+    "financial":             "Financial",
+    "legal":                 "Legal",
+    "event_venue":           "Venues",
+    "lodging":               "Lodging",
+    "tourism":               "Tourism",
+    "education":             "Education",
+    "pet":                   "Pets",
+    "boat_repair":           "Boat repair",
+    "boat_rental":           "Boat rental",
 }
 
 CATEGORY_QUERIES: dict[str, str] = {
@@ -53,21 +70,98 @@ CATEGORY_QUERIES: dict[str, str] = {
 
 # ─────────── helpers ───────────
 
-_URL_RE = re.compile(r"https?://\S+")
+# Catches http(s) URLs, schemeless www.* URLs, and bare-domain fragments
+# (lhcaz.gov/parks/foo) so descriptions copy-pasted from CMS exports get
+# fully cleaned even when the protocol prefix was lost upstream.
+_URL_RE = re.compile(
+    r"(?:https?://|www\.)\S+"
+    r"|\b\w+\.(?:com|gov|org|net|edu|io|us|co)(?:/\S*)?",
+    re.IGNORECASE,
+)
+
+# Drops entire labelled-field lines that show up in scraped event blurbs:
+#   "Date: May 9, 2026\nVenue: …\nOrganizer: …\nCategories: …"
+# The labels themselves are surface-hostile — users read them as visible
+# UI scaffolding, not as content. Strip pre-URL so we never leave a bare
+# label on its own line.
+_LABEL_LINE_RE = re.compile(
+    r"^\s*(?:Date|Time|Venue|Address|Location|Organizer|"
+    r"Categor(?:y|ies)|Tags?|Cost|Price|Phone|Website|URL|Link)"
+    r"\s*:\s*.*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+# NANP-reserved placeholder range: (NXX) 555-01XX where NXX is any area code.
+# These numbers are guaranteed-non-routable per FCC, and any of them in
+# production data is a placeholder slip from seed/sample loading.
+_PLACEHOLDER_PHONE_RE = re.compile(r"^\d{3}55501\d{2}$")
+
+
+def _category_label(category: str | None) -> str:
+    """Return the human-readable label for a Provider.category enum value.
+
+    Falls back to a sentence-cased version of the slug when the category
+    isn't in the canonical map (defensive — surface should never read
+    ``general_contractor``). Empty/None returns ``"Local pro"`` so cards
+    never render a blank meta line.
+
+    Single source of truth for any provider/business surface that needs
+    to display a category. The Jinja template must read from a builder-
+    provided field that already contains the human label — never a raw
+    ``Provider.category`` slug.
+
+    See docs/maintainability/ui_data_correctness_spec.md §2.2.
+    """
+    if not category:
+        return "Local pro"
+    if category in CATEGORY_LABELS:
+        return CATEGORY_LABELS[category]
+    # Defensive fallback: replace underscores, sentence-case (not title-case
+    # — "Real estate" reads better than "Real Estate" in surface meta).
+    return category.replace("_", " ").capitalize()
 
 
 def _card_blurb(event) -> str:
-    """Extract a clean one-line blurb from event description.
+    """Extract a clean one-line blurb from an event/program/provider record.
 
-    Strips URLs, ISO dates, and multiple newlines. Takes the first sentence,
-    truncates at 140 chars at word boundary.
+    Sanitization order:
+
+    1. Drop labelled-field lines (``Date:``, ``Venue:``, ``Organizer:``…)
+       so scraped descriptions don't surface their own UI scaffolding.
+    2. Strip URLs and bare-domain fragments — see ``_URL_RE``.
+    3. Collapse whitespace; trim residual short trailing tokens that
+       looked like URL remnants but didn't match the URL regex.
+    4. Take the first sentence, truncate at 140 chars on a word boundary.
+
+    Falls back to a venue+date sentence for Event-shaped records when
+    sanitization produces an empty string — better than leaving a card
+    with a blank body. Provider/Program records return empty as before.
+
+    See docs/maintainability/ui_data_correctness_spec.md §4.2.
     """
     if getattr(event, "summary", None):
         return event.summary
     raw = (event.description or "").strip()
+    raw = _LABEL_LINE_RE.sub("", raw)
     raw = _URL_RE.sub("", raw)
     raw = re.sub(r"\s+", " ", raw).strip()
+    # Trim trailing 1–5 char alpha-only fragments that look like URL tails
+    # the regex didn't catch ("Schedule at op" → "Schedule at"). Conservative:
+    # only fires when preceded by whitespace and after we've already stripped
+    # URLs, so legitimate short final words ("a", "I", "go") are rarely the
+    # whole sentence at this point — they'd be inside a longer string.
+    raw = re.sub(r"\s+[a-zA-Z]{1,5}$", "", raw).strip()
     if not raw:
+        # Event-shaped fallback: venue + date is more useful than empty.
+        loc = getattr(event, "location_name", None)
+        ev_date = getattr(event, "date", None)
+        if loc and ev_date is not None:
+            try:
+                # %-d is POSIX; on Windows / some libcs use lstrip("0").
+                day = ev_date.strftime("%b ") + str(ev_date.day)
+                return f"At {loc} on {day}"
+            except (AttributeError, TypeError):
+                return ""
         return ""
     first = raw.split(". ")[0].strip().rstrip(".")
     if len(first) > 140:
@@ -76,12 +170,20 @@ def _card_blurb(event) -> str:
 
 
 def _format_phone(raw: str | None) -> tuple[str, str] | tuple[None, None]:
-    """Return (display, raw_digits) or (None, None) when unusable."""
+    """Return (display, raw_digits) or (None, None) when unusable.
+
+    Returns (None, None) for NANP-reserved 555-01XX placeholder numbers
+    so they never render as a tappable tel: link. The card's footer
+    falls back to "Phone on profile" or hides the phone row entirely
+    (template responsibility).
+    """
     if not raw:
         return None, None
     digits = "".join(ch for ch in raw if ch.isdigit())
     if len(digits) == 11 and digits.startswith("1"):
         digits = digits[1:]
+    if _PLACEHOLDER_PHONE_RE.match(digits):
+        return None, None
     if len(digits) == 10:
         return f"({digits[0:3]}) {digits[3:6]}-{digits[6:10]}", digits
     return raw, digits or None
@@ -153,21 +255,78 @@ def _hours_status(p: Provider, *, now: datetime) -> tuple[str, str]:
 # ─────────── builders ───────────
 
 
-def tonight(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
-    """Today's events. The first slot is the feature card.
+def tonight_or_today_label(now: datetime) -> str:
+    """Return ``"Tonight"`` after 4 PM local, otherwise ``"Today"``.
 
-    Returns up to ``limit`` rows. Featured events sort first; the rest
-    by ``start_time``. The first item gets ``feature: True`` so the
-    template renders the big-card pattern.
+    The home row's heading switches with the time of day so the surface
+    never reads "Tonight" at 8 AM. See spec §1.2(b).
     """
-    today = now_lake_havasu().date()
-    rows: list[Event] = (
+    return "Tonight" if now.hour >= 16 else "Today"
+
+
+def _tonight_effective_floor(now: datetime) -> time:
+    """Lower-bound on ``Event.start_time`` for the *Tonight/Today* row.
+
+    Always drops past events for today (no 5 AM lap swim at noon). During
+    the evening band (≥ 16:00) clamps the floor to at least 4 PM so the
+    row reads as "evening events." See spec §1.2(a).
+    """
+    floor = now.time()
+    if now.hour >= 16:
+        floor = max(floor, time(16, 0))
+    return floor
+
+
+def tonight(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
+    """Today's events with a time-of-day floor and venue de-dup.
+
+    Drops events whose ``start_time`` is in the past so the row always
+    reads forward. After 4 PM the floor clamps to 16:00 so the row reads
+    as "evening." Soft-deduplicates by ``location_name`` so a single
+    venue can't dominate (3× fetch, then walk one-per-location, backfill
+    from rejects when only one venue has events today). The first
+    surviving item gets ``feature: True``.
+
+    Caller is expected to pull the heading via ``tonight_or_today_label``;
+    this builder keeps its list-of-dicts return shape unchanged so
+    existing callers don't need edits. See spec §1.2.
+    """
+    now = now_lake_havasu()
+    today = now.date()
+    floor = _tonight_effective_floor(now)
+    candidates: list[Event] = (
         db.query(Event)
-        .filter(Event.date == today, Event.status == "live")
+        .filter(
+            Event.date == today,
+            Event.status == "live",
+            or_(
+                Event.start_time.is_(None),
+                Event.start_time >= floor,
+            ),
+        )
         .order_by(Event.featured.desc(), Event.start_time.asc())
-        .limit(limit)
+        .limit(limit * 3)
         .all()
     )
+    seen_locations: set[str] = set()
+    selected: list[Event] = []
+    rejected: list[Event] = []
+    for ev in candidates:
+        loc_key = ev.location_name or ""
+        if loc_key and loc_key in seen_locations:
+            rejected.append(ev)
+            continue
+        if loc_key:
+            seen_locations.add(loc_key)
+        selected.append(ev)
+        if len(selected) >= limit:
+            break
+    if len(selected) < limit:
+        for ev in rejected:
+            selected.append(ev)
+            if len(selected) >= limit:
+                break
+    rows = selected
     out: list[dict[str, Any]] = []
     for i, ev in enumerate(rows):
         when = _format_time(ev.start_time)
@@ -322,7 +481,7 @@ def new_on_hava(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
                 {
                     "name": prov.provider_name,
                     "blurb": _card_blurb(prov),
-                    "meta_text": prov.category or "Local pro",
+                    "meta_text": _category_label(prov.category),
                     "footer_text": prov.address or "",
                     "image_url": _provider_image_url(prov),
                     "image_alt": prov.provider_name,
@@ -381,7 +540,7 @@ def spotlights(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
         out.append(
             {
                 "name": prov.provider_name,
-                "category": prov.category or "Local pro",
+                "category": _category_label(prov.category),
                 "blurb": _card_blurb(prov),
                 "image_url": _provider_image_url(prov),
                 "image_alt": prov.provider_name,
@@ -422,7 +581,7 @@ def categories(db: Session) -> list[dict[str, Any]]:
         return _fallback_categories()
     out: list[dict[str, Any]] = []
     for category, _n in rows:
-        human_name = CATEGORY_LABELS.get(category, category.replace("_", " ").title())
+        human_name = _category_label(category)
         human_query = CATEGORY_QUERIES.get(category, f"find a {human_name.lower()}")
         out.append(
             {

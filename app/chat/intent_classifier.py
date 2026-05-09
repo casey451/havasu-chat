@@ -141,6 +141,19 @@ _PROGRAM_CONTRIBUTE = re.compile(
     re.IGNORECASE,
 )
 
+# Backlog #43 — urgent-phrasing detector. Routes "right now" / "urgent" / "ASAP"
+# / "emergency" / "immediately" / "right away" / "right this [minute]" queries
+# to URGENT_NOW so disclosure_render.select_placement_regime can map them to
+# EMERGENCY_URGENT instead of falling through OPEN_ENDED → SPECIFIC_QUALITY
+# (which suppresses sponsored on what should be a high-stakes query).
+_URGENT_NOW = re.compile(
+    r"\b(?:"
+    r"right\s+now|urgent|asap|emergency|immediately|right\s+away|"
+    r"right\s+this(?:\s+(?:minute|second|instant))?"
+    r")\b",
+    re.IGNORECASE,
+)
+
 
 def _count_correct_hits(nq: str) -> int:
     return sum(1 for p in _CORRECT_MARKERS if p.search(nq))
@@ -202,6 +215,13 @@ def _ask_sub_intent(nq: str) -> tuple[str, float]:
 
     if _OPEN_NOW_DISAMBIG.search(nq):
         return "OPEN_NOW", 0.7
+
+    # After the specific sub_intents but before OPEN_ENDED — so AGE_LOOKUP /
+    # COST_LOOKUP / OPEN_NOW still win when both shapes match, but plain
+    # urgent phrasing ("plumber, water leak right now") promotes from the
+    # safe-default SPECIFIC_QUALITY into the EMERGENCY_URGENT regime.
+    if _URGENT_NOW.search(nq):
+        return "URGENT_NOW", 0.78
 
     return "OPEN_ENDED", 0.68
 

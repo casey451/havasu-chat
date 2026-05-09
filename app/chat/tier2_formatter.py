@@ -6,15 +6,42 @@ import json
 import logging
 import os
 import re
+from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 
 from app.chat import tier2_catalog_render
+from app.chat.confidence_tier import (
+    ConfidenceTier,
+    classify_confidence,
+    hedge_phrase,
+)
 from app.core.llm_messages import call_anthropic_messages, load_prompt
+from app.core.timezone import now_lake_havasu
 
 _MAX_OUTPUT_TOKENS = 400
 _TEMPERATURE = 0.3
 
 EMPTY_CATALOG_MESSAGE = "No matching catalog rows."
+
+# feature flag (Lane CT2.A)
+FEATURE_FLAG_CONFIDENCE_TIER_ENV_VAR = "FEATURE_FLAG_CONFIDENCE_TIER"
+
+
+def is_confidence_tier_enabled() -> bool:
+    """Return True only when FEATURE_FLAG_CONFIDENCE_TIER=true (case-insensitive).
+
+    Mirrors app.chat.disclosure_render.is_renderer_enabled so the
+    integration ships behind a flag with byte-identical default-off
+    behavior. When unset, format() skips classification and the row
+    dicts the LLM sees are unchanged from the pre-CT2 path.
+    """
+    return (
+        os.environ.get(FEATURE_FLAG_CONFIDENCE_TIER_ENV_VAR, "")
+        .strip()
+        .lower()
+        == "true"
+    )
+
 
 _LEGACY_FALLBACK_RE = re.compile(
     r"\bImported from River Scene\. Event URL:\s*\S+\s*",
@@ -22,40 +49,13 @@ _LEGACY_FALLBACK_RE = re.compile(
 )
 
 
-def _strip_legacy_fallback(description: str | None) -> str:
-    """Strip legacy River Scene import scaffolding from ``Event.description``.
-
-    Pre-commit-1 ingestion wrote this prefix when HTML body prose was empty.
-    After backfill apply, rows should not match; kept as a safety net.
-    """
+def _strip_legacy_fallback(description):
     if not description:
         return description or ""
     return _LEGACY_FALLBACK_RE.sub("", description, count=1).strip()
 
 
-def _inject_event_url_links(text: str, rows: List[Dict[str, Any]]) -> str:
-    """Ensure every event row with a non-empty event_url is rendered as a clickable link.
-
-    For each row with type='event' and a non-empty event_url:
-    - If the markdown link [name](url) is already in text, skip (prevents double-linking).
-    - Else, search for the row's name in text using word-boundary matching.
-      Skip matches that fall inside an existing markdown link's label section
-      (e.g. don't inject inside [Some Concert](other-url)).
-    - On the first qualifying match, append [name](url) immediately after.
-    - If no qualifying match is found, append [name](url) at the end on its own
-      line as a fallback (orphan link rather than missing link).
-
-    Deterministic safety net for the LLM-formatter path. The prompt instructs
-    link emission; this function closes compliance gaps.
-
-    Known v1 limitations:
-    - Multi-word name overlap (event "Boat Race" + event "Annual Boat Race"
-      both mentioned in the same response) may inject after the wrong
-      occurrence. Word-boundary regex doesn't fully prevent this. Acceptable
-      for v1; refine to longest-name-first processing if observed in prod.
-    - Case-sensitive matching. If the LLM lowercases the name, we fall back
-      to end-append (orphan link). Acceptable for v1.
-    """
+def _inject_event_url_links(text, rows):
     out = text
     for row in rows:
         if row.get("type") != "event":
@@ -84,8 +84,88 @@ def _inject_event_url_links(text: str, rows: List[Dict[str, Any]]) -> str:
     return out
 
 
-def _format_via_llm(query: str, rows: List[Dict[str, Any]]) -> tuple[Optional[str], int | None, int | None]:
-    """OpenAI-backed formatting for mixed or non-event catalog rows."""
+_VERIFICATION_FIELDS = {"last_verified_at", "verification_method"}
+
+
+def _annotate_rows_with_confidence_hint(rows):
+    """Attach confidence_hint + confidence_hedge per row (Lane CT2.A).
+
+    Classifier is called once per row with an explicit ``now`` so all
+    rows in a single response share the same clock read (no skew across
+    the loop). The classifier reads ``last_verified_at`` and
+    ``verification_method`` defensively via ``getattr``; row dicts that
+    don't carry those keys classify LOW with rationale
+    "no verification record" -- accepted per the spec's section 10
+    decision (legacy rows opt out via Lane S1's schema rollout, not via
+    a sentinel).
+
+    Verification fields are stripped from the row dict that reaches the
+    LLM serializer because (a) they are not row-backed facts the LLM
+    should surface, and (b) ``last_verified_at`` is typically a
+    datetime which would crash ``json.dumps`` downstream. The
+    confidence-tier annotation captures everything the LLM needs.
+    """
+    now = now_lake_havasu()
+    annotated = []
+    for r in rows:
+        record = SimpleNamespace(**r)
+        try:
+            assessment = classify_confidence(record, now=now)
+            tier_value = assessment.tier.value
+            hedge = hedge_phrase(assessment.tier)
+        except Exception:
+            logging.exception(
+                "tier2_formatter: classify_confidence raised on row, defaulting to no hint"
+            )
+            tier_value = ""
+            hedge = ""
+        clean = {k: v for k, v in r.items() if k not in _VERIFICATION_FIELDS}
+        clean["confidence_hint"] = tier_value
+        clean["confidence_hedge"] = hedge
+        annotated.append(clean)
+    return annotated
+
+
+def _enforce_low_tier_phone(text, rows):
+    """Append a phone-number hedge when a LOW row's phone is absent (Lane CT2.A).
+
+    Backstop for the prompt-side ask in prompts/tier2_formatter.txt that
+    instructs the LLM to inline a phone alongside the LOW hedge. Mirrors
+    _inject_event_url_links -- pure post-process, no LLM calls,
+    deterministic for fixed inputs.
+
+    Per row, when:
+    - confidence_hint == "low" (annotated by
+      _annotate_rows_with_confidence_hint), AND
+    - the row carries a non-empty phone, AND
+    - the response text does NOT already contain that phone, AND
+    - the response text does NOT already carry an equivalent hedge
+      ("recommend calling" / "call to confirm")
+
+    append "Their listed number is {phone} -- recommend calling to
+    confirm." on its own line. The "already hedged" check prevents
+    double-hedging when the LLM correctly inlined the canonical fragment
+    but happened to omit the phone.
+    """
+    if not text:
+        return text
+    out = text
+    for row in rows:
+        if (row.get("confidence_hint") or "").lower() != ConfidenceTier.LOW.value:
+            continue
+        phone = str(row.get("phone") or "").strip()
+        if not phone:
+            continue
+        if phone in out:
+            continue
+        lowered = out.lower()
+        if "recommend calling" in lowered or "call to confirm" in lowered:
+            continue
+        out = out.rstrip() + f"\n\nTheir listed number is {phone} -- recommend calling to confirm."
+    return out
+
+
+def _format_via_llm(query, rows):
     api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
     if not api_key:
         logging.info("tier2_formatter: OPENAI_API_KEY unset")
@@ -126,10 +206,10 @@ def _format_via_llm(query: str, rows: List[Dict[str, Any]]) -> tuple[Optional[st
     return result.text, in_tok, out_tok
 
 
-def format(query: str, rows: List[Dict[str, Any]]) -> tuple[Optional[str], int | None, int | None]:
+def format(query, rows):
     """Render DB rows into a response. Returns (text, input_tokens, output_tokens).
 
-    Empty ``rows`` and all-``event`` rows use deterministic paths (0 formatter tokens).
+    Empty rows and all-event rows use deterministic paths (0 formatter tokens).
     """
     rows = [
         {**r, "description": _strip_legacy_fallback(r.get("description"))}
@@ -137,6 +217,10 @@ def format(query: str, rows: List[Dict[str, Any]]) -> tuple[Optional[str], int |
         else r
         for r in rows
     ]
+
+    # Lane CT2.A -- per-row confidence-tier annotation behind feature flag.
+    if is_confidence_tier_enabled():
+        rows = _annotate_rows_with_confidence_hint(rows)
 
     if not rows:
         return EMPTY_CATALOG_MESSAGE, 0, 0
@@ -155,4 +239,6 @@ def format(query: str, rows: List[Dict[str, Any]]) -> tuple[Optional[str], int |
     text, in_tok, out_tok = _format_via_llm(query, rows)
     if text is not None:
         text = _inject_event_url_links(text, rows)
+        if is_confidence_tier_enabled():
+            text = _enforce_low_tier_phone(text, rows)
     return text, in_tok, out_tok

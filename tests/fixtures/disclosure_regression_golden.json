@@ -1,0 +1,24 @@
+{
+  "query": "where can i grab coffee",
+  "expected_regime": "generic_category",
+  "expected_disclosure_word": "Sponsored",
+  "sponsor": {
+    "name": "Brew Haven",
+    "status": "live",
+    "active": true,
+    "weight": 0,
+    "attribution_text": "local coffee roaster",
+    "headline": "Hand-roasted espresso, open 7 AM to 6 PM.",
+    "pitch": "Sourced from regional roasters.",
+    "cta_label": "Visit",
+    "cta_url": "https://brewhaven.example.com"
+  },
+  "organic_rows": [
+    {"provider_name": "Hava Cafe", "category": "coffee"},
+    {"provider_name": "The Daily Grind", "category": "coffee"}
+  ],
+  "expected_attribution_contains": ["Brew Haven", "local coffee roaster"],
+  "expected_body_contains": ["Hand-roasted", "7 AM", "6 PM"],
+  "expected_body_excludes": ["best", "award", "favorite", "amazing", "highly rated"],
+  "expected_cta": "Visit [https://brewhaven.example.com](https://brewhaven.example.com)"
+}

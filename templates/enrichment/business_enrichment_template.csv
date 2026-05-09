@@ -1,0 +1,3 @@
+provider_name,category,address,phone,owner_email,website,hours,hava_voice_description,last_verified_at,verification_method
+# Example row (delete this comment line and the row below before saving):
+# "Havasu Pool Pros","home_services","2200 N McCulloch Blvd, Lake Havasu City, AZ 86403","9285550133","owner@havasupoolpros.example","https://havasupoolpros.example","Mon-Fri 8am-5pm; Sat 9am-1pm","Local pool techs who know hard-water Havasu chemistry cold. They handle weekly service, green-to-clean rescues, and equipment repair across the south end of the lake. Family-run since 2014.","2026-05-08T09:30:00-07:00","phone_call"

@@ -1,0 +1,32 @@
+{# ─────────── Marquee sponsor (Tier 1, CRITIQUE_AND_REDESIGN.md §B5.6) ─────────── #}
+{# Sits below the Today section. When sold, renders the full editorial-shaped
+   card. When unsold, contracts to a single eyebrow + link line so the page
+   never advertises its own failure to sell. #}
+
+{% if marquee %}
+<section class="marquee">
+  <div class="marquee-rail">
+    <span class="marquee-eyebrow">Sponsor · Lake Havasu City <span class="paid">Ad</span></span>
+    <span class="marquee-attrib">{{ marquee.attribution_text }}</span>
+  </div>
+  <a class="marquee-card" href="/sponsor/click?slot=marquee&amp;id={{ marquee.id }}">
+    <div class="photo"
+         {% if marquee.image_url %}style="background-image:url('{{ marquee.image_url }}'); background-size:cover; background-position:center;"{% endif %}></div>
+    <div class="body">
+      <h3 class="head">{{ marquee.headline }}</h3>
+      {% if marquee.pitch %}
+      <p class="pitch">{{ marquee.pitch }}</p>
+      {% endif %}
+      <p class="meta">{{ marquee.name }}</p>
+    </div>
+    <span class="cta">{{ marquee.cta_label }} →</span>
+  </a>
+</section>
+{% else %}
+<section class="marquee marquee-unsold">
+  <div class="marquee-rail">
+    <span class="marquee-eyebrow">Sponsor · Lake Havasu City · <span class="paid">Ad</span></span>
+    <a class="marquee-cta-link" href="/sponsor">Become the marquee sponsor →</a>
+  </div>
+</section>
+{% endif %}

@@ -51,7 +51,14 @@ def post_concierge_chat(
     db: Session = Depends(get_db),
 ) -> ConciergeChatResponse:
     """Run ``normalize → classify → …`` via :func:`unified_router.route`."""
-    result = unified.route(payload.query, payload.session_id, db)
+    result = unified.route(
+        payload.query,
+        payload.session_id,
+        db,
+        request_headers=dict(request.headers),
+        client_ip=str(request.client.host) if request.client else None,
+        accept_language=request.headers.get("accept-language"),
+    )
     if result.tier_used == "3" and result.chat_log_id:
         background_tasks.add_task(
             scan_and_save_mentions,

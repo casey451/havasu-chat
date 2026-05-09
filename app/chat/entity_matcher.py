@@ -190,6 +190,47 @@ _INTENT_VERB_TOKENS: frozenset[str] = frozenset(
 )
 
 
+_SUBSTANTIVE_NEEDLE_TOKEN_MIN_LEN = 5
+
+# Typo substring-guard floors (:func:`_typo_guard_query_token_matches_needle`).
+_TYPO_PER_TOKEN_THRESHOLD = 80.0
+_TYPO_FIVE_CHAR_NEEDLE_TOKEN_THRESHOLD = 89.0
+
+
+def _typo_guard_query_token_matches_needle(tok: str, needle: str) -> bool:
+    """Return True when ``tok`` clears the substring guard against ``needle``.
+
+    Backlog #44: compare each query token to **substantive** needle tokens (not the full
+    phrase), so severe typos like ``mdshrkbrwry`` vs ``mudshark`` score ~85 against
+    ``mudshark`` instead of ~72 against the entire canonical.
+
+    Backlog #46: substantive tokens are ≥5 characters so 3–4-char connectors (``and``,
+    ``the``, ``for``, ``one``, ``jiu``, …) are not scoring targets — ``partial_ratio``
+    against them could reach ~80 for unrelated 6+ char queries.
+
+    Backlog #46 follow-up: for a substantive needle token of **exactly** five characters,
+    require ``partial_ratio ≥ 89``. Coincidental matches like ``addrss`` vs ``dress``
+    (88.89) stay blocked; longer tokens (e.g. ``mudshark`` at 8 chars) still use the
+    80-point floor so ``mdshrkbrwry`` vs ``mudshark`` (85.7) passes.
+
+    When the needle has no ≥5-char tokens, fall back to ``partial_ratio(tok, needle)``
+    vs :data:`_TYPO_PER_TOKEN_THRESHOLD` (short canonicals like ``DBR``).
+    """
+    parts = [p for p in needle.split() if len(p) >= _SUBSTANTIVE_NEEDLE_TOKEN_MIN_LEN]
+    if not parts:
+        return float(fuzz.partial_ratio(tok, needle)) >= _TYPO_PER_TOKEN_THRESHOLD
+    for p in parts:
+        pr = float(fuzz.partial_ratio(tok, p))
+        thresh = (
+            _TYPO_FIVE_CHAR_NEEDLE_TOKEN_THRESHOLD
+            if len(p) == _SUBSTANTIVE_NEEDLE_TOKEN_MIN_LEN
+            else _TYPO_PER_TOKEN_THRESHOLD
+        )
+        if pr >= thresh:
+            return True
+    return False
+
+
 def _best_score(norm_query: str, needles: frozenset[str]) -> float:
     """Max ``fuzz.token_set_ratio`` across ``needles``, gated by per-needle substring guard.
 
@@ -207,12 +248,14 @@ def _best_score(norm_query: str, needles: frozenset[str]) -> float:
     wrong-entity gap-template answers. To prevent this, when the query has any
     ≥5-char *content* tokens (intent verbs from :data:`_INTENT_VERB_TOKENS`
     excluded), require at least one of them to substring-match the needle
-    (``partial_ratio ≥ 80``) before letting ``token_set_ratio`` count for that
-    needle. When the query has no content tokens at all (only short stopwords
-    or only intent verbs), the guard is skipped and ``token_set_ratio`` runs
-    unconstrained — that's the right behavior because Tier-1-shape queries like
-    "number for the tap room" need to match on token-set overlap with the
-    canonical name, not on a substring of the intent verb.
+    (tiered ``partial_ratio`` vs substantive needle tokens — see
+    :func:`_typo_guard_query_token_matches_needle`) before letting
+    ``token_set_ratio`` count for that needle. When the query has no content
+    tokens at all (only short stopwords or only intent verbs), the guard is
+    skipped and ``token_set_ratio`` runs unconstrained — that's the right
+    behavior because Tier-1-shape queries like "number for the tap room" need
+    to match on token-set overlap with the canonical name, not on a substring
+    of the intent verb.
     """
     long_query_tokens = [
         t
@@ -223,7 +266,7 @@ def _best_score(norm_query: str, needles: frozenset[str]) -> float:
     for needle in needles:
         if long_query_tokens and len(needle) >= 5:
             if not any(
-                float(fuzz.partial_ratio(tok, needle)) >= _TYPO_PER_TOKEN_THRESHOLD
+                _typo_guard_query_token_matches_needle(tok, needle)
                 for tok in long_query_tokens
             ):
                 continue
@@ -250,33 +293,38 @@ def _long_tokens(stripped: str) -> str:
 # matches "Altitude Trampoline Park — Lake Havasu City" via the typo path, since
 # WRatio rewards the shared "havasu" + partial overlap. The graded battery
 # surfaced six wrong-entity Tier 1 answers from this single failure mode.
-_TYPO_PER_TOKEN_THRESHOLD = 80.0
-
+# Backlog #46: substantive needle tokens + stricter floor for exactly-5-char tokens.
 
 def _typo_path_passes_guard(long_only: str, needle: str) -> bool:
     """``True`` iff every ≥5-char token in ``long_only`` substring-matches ``needle``.
 
-    Uses :func:`fuzz.partial_ratio` (Levenshtein-style best-window ratio) per
-    query token. If any distinctive query token has no substring-like match in
-    the needle, the typo scorers (WRatio, partial_token_set_ratio) are not
-    allowed to fire on this needle — preventing the wrong-entity false positives
-    surfaced by the voice battery.
+    Uses :func:`_typo_guard_query_token_matches_needle` per query token. If any
+    distinctive query token fails the guard, the typo scorers (WRatio,
+    partial_token_set_ratio) do not fire on this needle.
+
+    Backlog #44: per substantive needle token (not full phrase) so severe typos like
+    ``"mdshrkbrwry"`` clear via ``"mudshark"``.
+
+    Backlog #46: ≥5-char needle tokens only (connector bypass); exactly-five-char
+    tokens need a higher partial_ratio than longer tokens so ``addrss`` vs ``dress``
+    does not clear while ``mdshrkbrwry`` vs ``mudshark`` still does.
 
     Examples (all use the long-tokens-only stripped form of the query):
     - ``"havasu lanes"`` vs ``"havasu lanes"`` → both tokens → PASS.
     - ``"havasu lanes"`` vs ``"altitude trampoline park lake havasu city"``:
-      ``"havasu"`` hits 100, ``"lanes"`` hits ~25 → FAIL (was the bug).
-    - ``"mudsharks"`` (typo) vs ``"mudshark brewing company"``: ~89 → PASS
+      ``"havasu"`` hits 100, ``"lanes"`` max-vs-token hits ~67 → FAIL (was the bug).
+    - ``"mudsharks"`` (typo) vs ``"mudshark brewing company"``: ~94 → PASS
       (typo tolerance preserved).
     - ``"mudshark brewing"`` vs ``"double threat barbering co"``:
-      ``"mudshark"`` hits ~30, ``"brewing"`` hits ~57 (b/r/i/n shared with
-      ``barbering``) → FAIL (was the gap-template near-match bug).
+      ``"mudshark"`` max ~40, ``"brewing"`` max ~77 → FAIL (gap-template guard holds).
+    - ``"mdshrkbrwry"`` vs ``"mudshark brewery and public house"``: max ~86 (against
+      ``"mudshark"``) → PASS (severe-typo near-match no longer regresses).
     """
     tokens = [t for t in long_only.split() if len(t) >= 5]
     if not tokens:
         return False
     for tok in tokens:
-        if float(fuzz.partial_ratio(tok, needle)) < _TYPO_PER_TOKEN_THRESHOLD:
+        if not _typo_guard_query_token_matches_needle(tok, needle):
             return False
     return True
 

@@ -74,7 +74,7 @@
   {# ─────────── Tonight ─────────── #}
   <section class="row row-tonight">
     <div class="row-head">
-      <h2>Tonight</h2>
+      <h2>{{ tonight_label }}</h2>
       <span class="sub">{{ today_label }}</span>
     </div>
     <div class="grid-feature">
@@ -168,7 +168,11 @@
             <h3 class="name">{{ biz.name }}</h3>
             <p class="blurb">{{ biz.blurb }}</p>
             <div class="footer">
-              <a class="phone" href="tel:{{ biz.phone_raw }}">{{ biz.phone }}</a>
+              {% if biz.phone %}
+                <a class="phone" href="tel:{{ biz.phone_raw }}">{{ biz.phone }}</a>
+              {% else %}
+                <span class="phone phone-missing">Phone on profile</span>
+              {% endif %}
               <span class="arrow">→</span>
             </div>
           </div>
