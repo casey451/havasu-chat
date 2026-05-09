@@ -242,14 +242,15 @@ Run this **at all three windows** (morning / midday / evening) — the 16:00 bou
 
 A generic-category query exercises the Tier-2-fallback and Tier 3 paths. With both Phase 1 flags off, the response should be byte-identical to pre-deploy behavior.
 
+> **PowerShell note:** use `Invoke-RestMethod` rather than `curl.exe --data-binary $body`. The latter has a known quoting bug where the JSON `{}` braces inside the variable get parsed as PowerShell scriptblock syntax, mangling the body and producing a 422 `"Some event details are not valid"` response. `Invoke-RestMethod` serializes JSON correctly.
+
 ```powershell
-$body = '{"message":"find a plumber","session_id":"smoke-1"}'
-curl.exe -sS -X POST "https://havasu-chat-production.up.railway.app/api/chat" `
-  -H "Content-Type: application/json" `
-  --data-binary $body
+Invoke-RestMethod -Method Post -Uri "https://havasu-chat-production.up.railway.app/api/chat" `
+  -ContentType "application/json" `
+  -Body '{"query":"find a plumber","session_id":"smoke-1"}'
 ```
 
-**Expect:** HTTP 200, response shape unchanged from pre-deploy. **No `Sponsored:` text in the body** (flag is off). **No `(as of last week)` or `(recommend calling to confirm)` parentheticals** (flag is off). The response should read like Hava's pre-Phase-1 voice.
+**Expect:** A response object with fields `response`, `voice`, `component`, `mode: ask`, `sub_intent: OPEN_ENDED` (or `LIST_BY_CATEGORY` etc.), `tier_used: 2`. **No `Sponsored:` text in the body** (flag is off). **No `(as of last week)` or `(recommend calling to confirm)` parentheticals** (flag is off). The `response` / `voice` should read like Hava's pre-Phase-1 voice. Bullet characters may render garbled in PowerShell's default console (UTF-8 display issue) — the actual API response is correct; redirect to a file with `Out-File -Encoding utf8 smoke.json` if you need to inspect it cleanly.
 
 If any of §4.1–§4.4 fails, jump to §5.
 
@@ -361,10 +362,9 @@ Save → Railway redeploys. Wait for green.
 A live `POST /api/chat` with a query that hits a known stale row exercises the LOW path. Pick a Provider whose `last_verified_at` is `> 30 days old` or `NULL`; pick a query that resolves to that Provider in Tier 2 or Tier 3.
 
 ```powershell
-$body = '{"message":"<query that hits a known-stale row>","session_id":"ct-smoke-1"}'
-curl.exe -sS -X POST "https://havasu-chat-production.up.railway.app/api/chat" `
-  -H "Content-Type: application/json" `
-  --data-binary $body
+Invoke-RestMethod -Method Post -Uri "https://havasu-chat-production.up.railway.app/api/chat" `
+  -ContentType "application/json" `
+  -Body '{"query":"<query that hits a known-stale row>","session_id":"ct-smoke-1"}'
 ```
 
 **Expect (Tier 2 LOW path):** response body contains the literal `recommend calling to confirm` or `Their listed number is <phone> -- recommend calling to confirm.` (the canonical fallback the post-processor emits when the LLM dropped both the phone and the hedge).
@@ -423,10 +423,9 @@ Save → Railway redeploys. Wait for green.
 1. **Generic-category query** — should NOT include the literal `Sponsored` in Phase 1 (regime is reserved for Phase 2 / Lane X3):
 
    ```powershell
-   $body = '{"message":"I need a plumber","session_id":"dr-smoke-1"}'
-   curl.exe -sS -X POST "https://havasu-chat-production.up.railway.app/api/chat" `
-     -H "Content-Type: application/json" `
-     --data-binary $body
+   Invoke-RestMethod -Method Post -Uri "https://havasu-chat-production.up.railway.app/api/chat" `
+     -ContentType "application/json" `
+     -Body '{"query":"I need a plumber","session_id":"dr-smoke-1"}'
    ```
 
    **Expect:** response body does **not** contain `Sponsored`. The query classifies into a Tier-1 lookup or `OPEN_ENDED` sub_intent, neither of which maps to `GENERIC_CATEGORY` in Phase 1. If `Sponsored` appears here, the regime classifier is firing on an unexpected sub_intent — file as a bug, do not roll back.
@@ -434,10 +433,9 @@ Save → Railway redeploys. Wait for green.
 2. **Specific-quality query** — should NOT include the literal:
 
    ```powershell
-   $body = '{"message":"Best plumber for older Toyotas","session_id":"dr-smoke-2"}'
-   curl.exe -sS -X POST "https://havasu-chat-production.up.railway.app/api/chat" `
-     -H "Content-Type: application/json" `
-     --data-binary $body
+   Invoke-RestMethod -Method Post -Uri "https://havasu-chat-production.up.railway.app/api/chat" `
+     -ContentType "application/json" `
+     -Body '{"query":"Best plumber for older Toyotas","session_id":"dr-smoke-2"}'
    ```
 
    **Expect:** response body does **not** contain `Sponsored`. Pure LLM output. If `Sponsored` leaks into a SPECIFIC_QUALITY response, the regime classifier is misfiring — file as a bug, do not roll back unless it persists across more than one query.
@@ -445,10 +443,9 @@ Save → Railway redeploys. Wait for green.
 3. **Emergency-urgent query** — should prepend `Sponsored:` block when organic Provider rows exist:
 
    ```powershell
-   $body = '{"message":"plumber right now","session_id":"dr-smoke-3"}'
-   curl.exe -sS -X POST "https://havasu-chat-production.up.railway.app/api/chat" `
-     -H "Content-Type: application/json" `
-     --data-binary $body
+   Invoke-RestMethod -Method Post -Uri "https://havasu-chat-production.up.railway.app/api/chat" `
+     -ContentType "application/json" `
+     -Body '{"query":"plumber right now","session_id":"dr-smoke-3"}'
    ```
 
    **Expect:** if the Provider catalog has rows whose name or category overlaps `plumber`, the response begins with the sponsored block. If not, the block suppresses and the response is LLM-only — that's by design (the renderer's `_eligible` check requires `bool(organic_rows)` for emergency-urgent per spec §1.3).

@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import re
 
-
 # Each entry: (pattern, replacement). Applied in sequence on the assistant text.
 # Order matters — longer/more-specific phrases first so partial matches don't
 # steal them. Word-boundary anchors keep replacements scoped.

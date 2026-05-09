@@ -9,10 +9,8 @@ import math
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Mapping
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 
 from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
 from app.db.models import LlmResponseCache

@@ -22,7 +22,6 @@ from app.chat.audience_signal import (
     AudienceSignal,
     bucket_geo_from_headers,
     classify_audience,
-    day_of_week_bucket,
     season_bucket,
     time_of_day_bucket,
 )

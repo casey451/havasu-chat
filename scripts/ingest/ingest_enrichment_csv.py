@@ -58,13 +58,13 @@ _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy import func  # noqa: E402  -- requires _ROOT on sys.path (above)
+from sqlalchemy.orm import Session  # noqa: E402
 
-from app.core.timezone import LAKE_HAVASU_TZ
-from app.db.database import SessionLocal
-from app.db.models import Provider
-from scripts.ingest.validate_enrichment_csv import (
+from app.core.timezone import LAKE_HAVASU_TZ  # noqa: E402
+from app.db.database import SessionLocal  # noqa: E402
+from app.db.models import Provider  # noqa: E402
+from scripts.ingest.validate_enrichment_csv import (  # noqa: E402
     print_report,
     validate_csv,
 )

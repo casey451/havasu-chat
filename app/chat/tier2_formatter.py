@@ -7,7 +7,6 @@ import logging
 import os
 import re
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional
 
 from app.chat import tier2_catalog_render
 from app.chat.confidence_tier import (

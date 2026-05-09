@@ -16,14 +16,11 @@ from __future__ import annotations
 from datetime import date
 from types import SimpleNamespace
 
-import pytest
-
 from app.home.queries import (
     CATEGORY_LABELS,
     _card_blurb,
     _category_label,
 )
-
 
 # ─────────── Fix #2 — _category_label ───────────
 

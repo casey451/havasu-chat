@@ -15,7 +15,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.chat.confidence_tier import (
-    ConfidenceTier,
     classify_confidence,
     hedge_phrase,
 )

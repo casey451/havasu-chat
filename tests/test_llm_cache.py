@@ -8,7 +8,6 @@ serialize/deserialize helpers are pure functions tested directly.
 from __future__ import annotations
 
 import math
-import os
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch

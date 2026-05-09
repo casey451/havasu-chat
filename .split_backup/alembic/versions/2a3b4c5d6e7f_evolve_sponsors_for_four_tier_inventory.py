@@ -42,6 +42,7 @@ runs on every /home render.
 from typing import Sequence, Union
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "2a3b4c5d6e7f"

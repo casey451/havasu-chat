@@ -28,7 +28,6 @@ from typing import Any
 from app.chat.tier2_schema import Tier2Filters
 from app.core.timezone import now_lake_havasu
 
-
 # ─────────── shape detection ───────────
 
 

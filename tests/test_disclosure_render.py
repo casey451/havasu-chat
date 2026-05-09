@@ -26,7 +26,6 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy.orm import Session
 
-from app.core.timezone import LAKE_HAVASU_TZ
 from app.chat.disclosure_render import (
     DISALLOWED_PHRASES,
     DISCLOSURE_WORD,
@@ -39,9 +38,9 @@ from app.chat.disclosure_render import (
     render_sponsored_block,
     select_placement_regime,
 )
+from app.core.timezone import LAKE_HAVASU_TZ
 from app.db.database import SessionLocal
 from app.db.models import Sponsor, SponsorStatus
-
 
 # ─────────── fixtures ───────────
 

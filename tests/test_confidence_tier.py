@@ -28,7 +28,6 @@ from app.chat.confidence_tier import (
     is_stale,
 )
 
-
 # ─────────── fixtures / helpers ───────────
 
 

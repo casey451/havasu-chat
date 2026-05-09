@@ -36,7 +36,6 @@ from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal
 from app.db.models import Event, LlmResponseCache, Program, Provider
 
-
 _FLAG = tf.FEATURE_FLAG_CONFIDENCE_TIER_ENV_VAR
 
 

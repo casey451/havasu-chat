@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 import json
-import os
 from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 import app.core.llm_messages as llm_messages
 from app.chat import tier2_formatter as tf

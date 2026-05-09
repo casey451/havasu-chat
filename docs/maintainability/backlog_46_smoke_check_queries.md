@@ -2,13 +2,12 @@
 
 **Purpose:** After Railway deploys the entity_matcher #46 fix, paste these queries against the live `/api/chat` endpoint and confirm the responses match the **Expected** column. Cursor's automated test file (`tests/test_entity_matcher_adversarial.py`) covers a subset of these in CI; this doc is the broader manual surface that complements it.
 
-**How to use:**
+**How to use (PowerShell — `Invoke-RestMethod` avoids the `curl.exe + $body` JSON-mangling bug):**
 
 ```powershell
-$body = '{"message":"<paste query here>","session_id":"smoke-46-N"}'
-curl.exe -sS -X POST "https://havasu-chat-production.up.railway.app/api/chat" `
-  -H "Content-Type: application/json" `
-  --data-binary $body
+Invoke-RestMethod -Method Post -Uri "https://havasu-chat-production.up.railway.app/api/chat" `
+  -ContentType "application/json" `
+  -Body '{"query":"<paste query here>","session_id":"smoke-46-N"}'
 ```
 
 For the connector-word bypass cases, "Expected: None / no entity match" means the response should **not** name the wrong canonical (e.g. should not say "I think you meant Ross Dress for Less" or auto-dispatch to Number One Nails). A safe gap response or a generic "I'm not sure which business you mean" is correct.

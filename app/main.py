@@ -408,4 +408,4 @@ def event_permalink(event_id: str, request: Request, db: Session = Depends(get_d
     event = db.query(Event).filter(Event.id == event_id).first()
     if event is None or event.status == "pending_review":
         return _render_not_found_response(request)
-    return _render_permalink_response(request, event=event, permalink_url=str(request.url)) 
+    return _render_permalink_response(request, event=event, permalink_url=str(request.url))

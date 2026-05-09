@@ -20,7 +20,9 @@ from app.chat.context_builder import (
     rows_for_tier3_classification,
 )
 from app.chat.intent_classifier import IntentResult
-from app.chat.llm_cache import lookup as cache_lookup, make_cache_key, store as cache_store
+from app.chat.llm_cache import lookup as cache_lookup
+from app.chat.llm_cache import make_cache_key
+from app.chat.llm_cache import store as cache_store
 from app.chat.local_voice_matcher import find_matching_blurbs
 from app.chat.tier2_formatter import (
     _enforce_low_tier_phone,

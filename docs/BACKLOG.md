@@ -1750,3 +1750,37 @@ mudsharks brewry     → Mudshark Brewery and Public House (MATCH, >75)   ← di
 
 **Filed by:** Cowork primary (2026-05-09); ChatGPT brainstorm + voice-battery agent.
 
+---
+
+## Ship log — Phase 1 deploy runbook bug fix: chat API request body field name
+
+**Context:** During the post-push live deploy verification (2026-05-09), the runbook §4.4 chat smoke command failed with HTTP 422 `{"message":"Some event details are not valid. Please check and try again."}`. Diagnosis: the runbook used `{"message":"..."}` for the `POST /api/chat` body, but the actual `ConciergeChatRequest` schema in `app/schemas/chat.py:37-41` requires `query` (not `message`). All five chat-smoke command examples in the runbook (§4.4 + §6.2 CT smoke + three §6.3 disclosure smokes) had the wrong field name.
+
+**Root cause:** Yesterday's CC runbook audit verified flag names, alembic heads, module imports, and pytest commands — but did NOT execute the smoke commands against a live API to catch schema mismatches. The `message` vs `query` confusion likely originated from copy-paste of an older draft that used `message` (or from confusion with the `message` field that appears in the 422 *error* response — making the bug self-confirming if you don't trace the validation error to the schema).
+
+**What shipped:**
+
+- **`docs/maintainability/phase1_deploy_runbook.md`** (5 anchored Edits): all `{"message":"..."}` chat-body examples → `{"query":"..."}`.
+- **`docs/maintainability/backlog_46_smoke_check_queries.md`** (1 anchored Edit): same fix at the top of the doc.
+
+**Process improvement note for future runbook audits:** smoke commands that hit live HTTP endpoints should be verified by actually executing them, not just by reading the route handler signature. Schema mismatches (`message` vs `query`, missing required fields, wrong enum values) only surface at runtime. Add to the audit rubric: "for each `curl.exe`/`Invoke-RestMethod` command in the runbook, verify the request body shape matches the actual Pydantic schema by either (a) executing the command against staging, or (b) reading the schema file directly and confirming field names + types."
+
+**Filed by:** Cowork primary (2026-05-09, post-deploy verification).
+
+---
+
+## Ship log — Phase 1 deploy runbook bug fix #2: PowerShell `curl.exe + $body` mangles JSON
+
+**Context:** During post-push live deploy verification (2026-05-09), the §4.4 chat smoke continued to return 422 even after fixing the `message` → `query` field name. Diagnosis via `Invoke-RestMethod` confirmed the API and deploy are correct: the same JSON body sent through PowerShell's native HTTP client succeeded with HTTP 200 and a real Tier-2 response. The problem was `curl.exe --data-binary $body` — PowerShell's variable expansion treats the JSON `{}` braces as scriptblock syntax somewhere in the command-line tokenization, mangling what curl actually sends.
+
+**What shipped:**
+
+- **`docs/maintainability/phase1_deploy_runbook.md`** (5 anchored Edits): all `$body = '...'; curl.exe ... --data-binary $body` patterns replaced with `Invoke-RestMethod -Method Post -Uri "..." -ContentType "application/json" -Body '{"query":"..."}'`. Added a PowerShell note in §4.4 explaining the curl bug so future operators don't go around the same loop.
+- **`docs/maintainability/backlog_46_smoke_check_queries.md`** (1 anchored Edit): same pattern swap at the top of the doc.
+
+**Verification:** `Invoke-RestMethod -Method Post -Uri "https://havasu-chat-production.up.railway.app/api/chat" -ContentType "application/json" -Body '{"query":"find a plumber"}'` returned HTTP 200 with `tier_used: 2`, `mode: ask`, `sub_intent: OPEN_ENDED`, no `Sponsored` text, no `recommend calling to confirm` parenthetical — exactly the byte-identical-to-pre-deploy behavior the runbook expected.
+
+**Process improvement note (extends bug fix #1):** the audit rubric improvement for future runbooks should also cover *invocation method* — even a correct API schema can be unreachable if the documented call command fails on the target operator's shell. For PowerShell-targeted runbooks, prefer `Invoke-RestMethod` over `curl.exe` for any command involving JSON request bodies.
+
+**Filed by:** Cowork primary (2026-05-09, post-deploy verification chain).
+

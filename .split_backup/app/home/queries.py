@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime, time, timedelta
-from typing import Any, Iterable
+from typing import Any
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
