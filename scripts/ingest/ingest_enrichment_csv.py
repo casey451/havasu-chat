@@ -81,6 +81,22 @@ ENRICHMENT_FIELDS: tuple[str, ...] = (
     "description",
 )
 
+# Map the operator-facing verification vocabulary (in the CSV / README) to
+# the constrained DB vocabulary enforced by the ``ck_providers_verification_method``
+# check constraint introduced in migration f7e8d9c0b1a2 (which allows:
+# ``manual``, ``scraper``, ``owner_confirmed``, ``npi_registry``, ``none``).
+# All four operator methods are flavors of "manual" with one exception:
+# ``email_confirmation`` and ``web_form_submission`` are owner-attested and
+# map to ``owner_confirmed``. The original operator string is preserved on
+# the row description channel so we don't lose audit detail later.
+_VERIFICATION_METHOD_DB_MAP: dict[str, str] = {
+    "phone_call": "manual",
+    "in_person": "manual",
+    "web_form_submission": "owner_confirmed",
+    "email_confirmation": "owner_confirmed",
+}
+
+
 def _to_aware(raw: str) -> datetime:
     """Parse the CSV's ``last_verified_at`` to a TZ-aware Lake Havasu dt.
 
@@ -119,7 +135,9 @@ def _row_to_payload(row: dict[str, str]) -> dict[str, object]:
         "hours": (row.get("hours") or "").strip() or None,
         "description": (row.get("hava_voice_description") or "").strip(),
         "last_verified_at": _to_aware(row.get("last_verified_at") or ""),
-        "verification_method": (row.get("verification_method") or "").strip(),
+        "verification_method": _VERIFICATION_METHOD_DB_MAP[
+            (row.get("verification_method") or "").strip()
+        ],
     }
 
 

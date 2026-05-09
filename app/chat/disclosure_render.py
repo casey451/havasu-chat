@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import os
 import re
-from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -75,39 +74,6 @@ class SponsoredBlock:
     attribution: str
     sponsor_id: str
     regime: PlacementRegime
-
-
-@dataclass(frozen=True)
-class RenderDecision:
-    """Lane P2.OBS.1 telemetry — what the renderer decided this turn.
-
-    Recorded for every renderer invocation regardless of whether a
-    SponsoredBlock was produced, so Phase 2 can audit hedge-leakage on
-    HIGH-confidence rows, measure regime-selection accuracy against the
-    audience-signal data (Backlog #39), and gate Premier inventory open
-    on real telemetry. Persisted to ``chat_logs`` via four typed columns
-    added in Alembic revision ``e7f8a9b0c1d2``.
-
-    Field semantics:
-
-    * ``regime`` — always set; the regime selected from the turn's intent.
-    * ``eligible`` — None when no candidates were evaluated (regime
-      ``SPECIFIC_QUALITY`` or zero candidates fetched), False when
-      candidates existed but all failed the per-regime eligibility gate
-      (status / verified_fields / organic-pairing / temporal), True when
-      at least one candidate passed.
-    * ``sponsor_id`` — the picked sponsor's ``id`` when the deterministic
-      tie-break selected one (regardless of downstream tone outcome, so
-      Phase 2 can debug "which sponsor's verified data was incomplete").
-      None when nothing was picked.
-    * ``tone_allowlist_passed`` — None when the tone check was never
-      reached (no sponsor picked), True/False from the actual check.
-    """
-
-    regime: PlacementRegime
-    eligible: Optional[bool] = None
-    sponsor_id: Optional[str] = None
-    tone_allowlist_passed: Optional[bool] = None
 
 
 # ─────────── tone allowlist ───────────
@@ -357,79 +323,6 @@ def _check_tone_allowlist(disclosure_word: str, body: str, attribution: str) -> 
 # ─────────── public renderer ───────────
 
 
-def render_with_decision(
-    regime: PlacementRegime,
-    candidate_sponsors: list[Sponsor],
-    *,
-    query_context: Optional[dict[str, Any]] = None,
-    db: Optional[Session] = None,
-) -> tuple[Optional[SponsoredBlock], RenderDecision]:
-    """Render a sponsored block AND return the decision telemetry.
-
-    Lane P2.OBS.1 — canonical implementation. ``render_sponsored_block``
-    is a thin wrapper that discards the decision for back-compat with
-    callers that don't need it. New call sites (Tier 3 handler)
-    should prefer this function so the decision can be persisted via
-    ``record_decision`` for the chat-log writer to consume.
-
-    Returns ``(block, decision)``:
-    - ``block`` is None when sponsored is suppressed for any of: regime
-      ``SPECIFIC_QUALITY``, no candidates, all candidates fail eligibility,
-      body assembled from verified fields is empty, tone allowlist rejects.
-    - ``decision`` is always populated; see :class:`RenderDecision` for
-      field semantics.
-
-    Deterministic for fixed inputs. ``db`` is accepted for API symmetry
-    but currently unused — provider-linked enrichment is a later slice.
-    """
-    if regime == PlacementRegime.SPECIFIC_QUALITY:
-        return None, RenderDecision(regime=regime)
-    if not candidate_sponsors:
-        return None, RenderDecision(regime=regime)
-
-    ctx = query_context or {}
-
-    eligible = [s for s in candidate_sponsors if _eligible(s, regime, ctx)]
-    if not eligible:
-        return None, RenderDecision(regime=regime, eligible=False)
-
-    sponsor = _pick_sponsor(eligible)
-    if sponsor is None:
-        return None, RenderDecision(regime=regime, eligible=False)
-
-    sponsor_id = str(getattr(sponsor, "id", "")) or None
-    attribution = _build_attribution(sponsor)
-    body = _build_body(sponsor)
-    if not body or not attribution:
-        return None, RenderDecision(
-            regime=regime, eligible=True, sponsor_id=sponsor_id
-        )
-
-    tone_passed = _check_tone_allowlist(DISCLOSURE_WORD, body, attribution)
-    if not tone_passed:
-        return None, RenderDecision(
-            regime=regime,
-            eligible=True,
-            sponsor_id=sponsor_id,
-            tone_allowlist_passed=False,
-        )
-
-    block = SponsoredBlock(
-        disclosure_word=DISCLOSURE_WORD,
-        body=body,
-        cta=_build_cta(sponsor),
-        attribution=attribution,
-        sponsor_id=sponsor_id or "",
-        regime=regime,
-    )
-    return block, RenderDecision(
-        regime=regime,
-        eligible=True,
-        sponsor_id=sponsor_id,
-        tone_allowlist_passed=True,
-    )
-
-
 def render_sponsored_block(
     regime: PlacementRegime,
     candidate_sponsors: list[Sponsor],
@@ -439,58 +332,45 @@ def render_sponsored_block(
 ) -> Optional[SponsoredBlock]:
     """Render a sponsored block, or return None when sponsored is suppressed.
 
-    Back-compat wrapper around :func:`render_with_decision` — discards
-    the telemetry decision. New call sites should prefer the decision-
-    aware variant.
+    Returns ``None`` for any of:
+    - Regime is ``SPECIFIC_QUALITY`` (zero sponsored allowed)
+    - No candidate sponsors passed
+    - All candidates fail eligibility (status, verified_fields, temporal,
+      organic-pairing)
+    - Body assembled from verified fields is empty
+    - Tone allowlist rejects body or attribution
+
+    Deterministic for fixed inputs. ``db`` is accepted for API symmetry
+    but currently unused — provider-linked enrichment is a later slice.
     """
-    block, _ = render_with_decision(
-        regime,
-        candidate_sponsors,
-        query_context=query_context,
-        db=db,
+    if regime == PlacementRegime.SPECIFIC_QUALITY:
+        return None
+    if not candidate_sponsors:
+        return None
+
+    ctx = query_context or {}
+
+    eligible = [s for s in candidate_sponsors if _eligible(s, regime, ctx)]
+    if not eligible:
+        return None
+
+    sponsor = _pick_sponsor(eligible)
+    if sponsor is None:
+        return None
+
+    attribution = _build_attribution(sponsor)
+    body = _build_body(sponsor)
+    if not body or not attribution:
+        return None
+
+    if not _check_tone_allowlist(DISCLOSURE_WORD, body, attribution):
+        return None
+
+    return SponsoredBlock(
+        disclosure_word=DISCLOSURE_WORD,
+        body=body,
+        cta=_build_cta(sponsor),
+        attribution=attribution,
+        sponsor_id=str(getattr(sponsor, "id", "")),
+        regime=regime,
     )
-    return block
-
-
-# ─────────── decision context (Lane P2.OBS.1 telemetry plumbing) ───────────
-
-
-_render_decision_ctx: ContextVar[Optional[RenderDecision]] = ContextVar(
-    "_render_decision_ctx", default=None
-)
-"""Request-scoped slot for the most recent RenderDecision.
-
-The Tier 3 handler computes a decision deep in the call stack, but the
-``log_unified_route`` writer is invoked from the unified router at the
-end of request handling and doesn't see the handler's return tuple
-(extending that signature would ripple across ~25 test sites that
-unpack ``text, _, _, _ = answer_with_tier3(...)``). The contextvar
-bridges the two without changing handler signatures.
-
-Pattern:
-- :func:`record_decision` sets the slot inside the renderer integration.
-- :func:`consume_decision` reads-and-clears in the chat-log writer.
-- :func:`reset_decision_context` is called at request entry by the
-  unified router as a defensive belt-and-suspenders against stale state
-  on a reused thread-pool worker — ``consume_decision`` already clears
-  on read, but a request that errors before reaching the writer would
-  leave the slot populated for the next turn on this thread.
-"""
-
-
-def record_decision(decision: RenderDecision) -> None:
-    """Store this turn's RenderDecision in the request context."""
-    _render_decision_ctx.set(decision)
-
-
-def consume_decision() -> Optional[RenderDecision]:
-    """Return the recorded decision and clear the slot (one-shot)."""
-    decision = _render_decision_ctx.get()
-    if decision is not None:
-        _render_decision_ctx.set(None)
-    return decision
-
-
-def reset_decision_context() -> None:
-    """Clear the slot. Call at request entry to defeat thread-pool reuse."""
-    _render_decision_ctx.set(None)

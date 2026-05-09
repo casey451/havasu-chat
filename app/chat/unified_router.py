@@ -534,10 +534,6 @@ def route(
     accept_language: str | None = None,
 ) -> ChatResponse:
     t0 = time.perf_counter()
-    # Lane P2.OBS.1: defeat thread-pool reuse — clear any RenderDecision a
-    # prior request on this worker thread might have recorded but failed to
-    # consume (e.g., crashed before reaching log_unified_route).
-    disclosure_render.reset_decision_context()
     sid = _stable_session_bucket(session_id)
     q_raw = query or ""
     q_hash = hashlib.sha256(q_raw.encode("utf-8")).hexdigest()
