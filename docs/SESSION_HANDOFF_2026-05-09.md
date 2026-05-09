@@ -6,9 +6,21 @@
 
 ---
 
+## §0 — For the next agent: start here
+
+You're picking up a fresh session after Phase 1 shipped. **The Phase 2 first-week dispatch playbook is at `docs/maintainability/phase2_first_week_dispatch.md`** — it has ready-to-paste prompts for the first 5 lanes plus tool-use guidance for routing work to Cursor / Claude Code / ChatGPT / general-purpose agents. Read that after you finish this handoff doc.
+
+**Recommended boot sequence:**
+
+1. Read this doc end-to-end (~8 min).
+2. Read `docs/STATE.md` top entry for the canonical "where is the project right now."
+3. Read `docs/maintainability/phase2_first_week_dispatch.md` for the ready-to-go work.
+4. Verify production hasn't drifted: `python -m pytest -q` should show **1327 passed**. If different, something changed; check `git log --oneline -10` first.
+5. If the operator (Casey) is at the keyboard, ask which lane to dispatch first — the playbook's lane order is opinionated but operator-overridable.
+
 ## §1 — One-paragraph summary
 
-This session **shipped Phase 1 to production** (commits `f9c96c6` + `dc7bd5f`, Railway deploy active and verified live), closed **Backlog #46** (entity matcher #44 connector-word bypass — a real production wrong-entity match risk surfaced by a voice-battery agent), shipped **#38 rename** (`request_time_utc` → `request_time_local`), and patched **two runbook bugs** that surfaced during the live deploy verification (the chat API request body field name `message` → `query`, and the PowerShell `curl.exe + $body` JSON-mangling bug → `Invoke-RestMethod`). Phase 2 lane decomposition spec drafted at `docs/maintainability/phase2_lane_decomposition.md` (17 lanes, 5-phase sequence). Production state at session close: Phase 1 code shipped; **`FEATURE_FLAG_DISCLOSURE_RENDERER` and `FEATURE_FLAG_CONFIDENCE_TIER` may or may not be flipped** depending on operator decision in §6 below — check Railway env vars and the BACKLOG ship-log tail for the truth.
+This session **shipped Phase 1 to production** (commits `f9c96c6` → `dc7bd5f` → `bf93293`, Railway deploy active and verified live), closed **Backlog #38, #41a, #41a-followup, #41b, #44, #46**, and surfaced + filed **three new production bugs (#47, #48, #49)** during the §6.2 CT flag verification chain that need to ship before `FEATURE_FLAG_CONFIDENCE_TIER` can safely re-enable. Patched **two runbook bugs** along the way (chat API field name `message` → `query`; PowerShell `curl.exe + $body` JSON-mangling → `Invoke-RestMethod`). Drafted Phase 2 lane decomposition spec at `docs/maintainability/phase2_lane_decomposition.md` (17 lanes, 5-phase sequence — modified by today's bug discoveries: P2.OBS.1 was the original first-week leader, but #47/#48/#49 fixes now lead instead). Production state at session close: **`FEATURE_FLAG_DISCLOSURE_RENDERER` = OFF** (intended; hold until enrichment puts Sponsor + Provider rows live), **`FEATURE_FLAG_CONFIDENCE_TIER` = OFF** (rolled back after #47/#48/#49 surfaced; do NOT re-flip until those land), audience-signal logging = AUTOMATIC (column-gated, working).
 
 ---
 
@@ -46,28 +58,68 @@ This session **shipped Phase 1 to production** (commits `f9c96c6` + `dc7bd5f`, R
 
 ## §3 — Production state at session close
 
-- **Repo HEAD:** `dc7bd5f` (post-lint-cleanup follow-up) on top of `f9c96c6` (Phase 1 keystone push). CI green on `dc7bd5f`.
-- **Railway deployment:** active, serving from `dc7bd5f` (or near it — re-verify via Railway dashboard).
-- **Live `/api/chat` smoke:** verified working (Tier 2 response, no flag leakage).
-- **Feature flag state at session close:**
-  - `FEATURE_FLAG_DISCLOSURE_RENDERER` — **OFF** (not flipped this session; recommend HOLD until enrichment sprint puts ≥1 Sponsor + matching Provider rows in production)
-  - `FEATURE_FLAG_CONFIDENCE_TIER` — **CHECK RAILWAY**. May or may not be flipped — operator was deciding at session close. If flipped, every Tier 2 LLM / Tier 3 response that names a Provider carries `recommend calling to confirm` because every Provider has `last_verified_at = NULL` until enrichment ships.
+- **Repo HEAD:** `bf93293` (Phase 1 close + Phase 2 setup) on top of `dc7bd5f` (lint cleanup + runbook fixes) on top of `f9c96c6` (Phase 1 keystone). CI green on `dc7bd5f`; verify CI status on `bf93293` if the next session opens before that build settles.
+- **Railway deployment:** active, serving from `bf93293` (verify via Railway dashboard).
+- **Live `/api/chat` smoke (final pre-close verification):** `Invoke-RestMethod` against `"who is a good plumber near me in lake havasu"` returned 8 real plumber listings via Tier 2, no `Sponsored` text, no `recommend calling to confirm` hedge — confirming both flags are off.
+- **Feature flag state — verified:**
+  - `FEATURE_FLAG_DISCLOSURE_RENDERER` — **OFF** (intended; HOLD until enrichment sprint puts ≥1 Sponsor + matching Provider rows in production).
+  - `FEATURE_FLAG_CONFIDENCE_TIER` — **OFF** (was briefly flipped to true during §6.2 verification, surfaced bugs #47/#48/#49, rolled back to false). **Do NOT re-flip until #47/#48/#49 land.**
   - Audience-signal persistence — **AUTOMATIC** (column-gated, Lane S1 column shipped, persistence on by default).
+
+### §3.1 — The §6.2 CT flag verification chain (what we found and why CT flag is now OFF)
+
+At ~16:00 UTC the operator flipped `FEATURE_FLAG_CONFIDENCE_TIER=true` in Railway and ran the §6.2 verification smoke. The first verification used a Tier 1 query (`"hours for All Seasons Plumbing"`) which by design doesn't carry CT hedges (CT2.A wires into Tier 2 LLM formatter; CT2.B wires into Tier 3 context — Tier 1 is deterministic templates). A second verification with an OPEN_ENDED query (`"what is the best plumber in lake havasu"`) confirmed the CT post-processor IS firing in production — and surfaced two real production bugs at the same time.
+
+**The smoke response:**
+> "I don't have any plumbers listed in the Lake Havasu catalog. If you know a good one, share the name and a link at /contribute so it can be added.
+> Their listed number is (928) 732-0099 -- recommend calling to confirm."
+
+The phone `(928) 732-0099` belongs to **Lake Havasu City BMX** (`entity: Lake Havasu City BMX`). Hava correctly says "no plumbers" then gives a BMX track's phone. **A real user would call expecting a plumber and get a BMX track.**
+
+**Three bugs converged here:**
+
+- **#47 — Entity matcher cross-category false positive.** The matcher resolved a "plumber" query to "Lake Havasu City BMX" because both contain the location tokens `lake` and `havasu`. The #46 fix addressed typo-bypass; #47 is a different class — exact-match location tokens overriding category context.
+- **#48 — Tier 3 post-processor inserts phone+hedge even when LLM stated no result.** `_enforce_low_tier_phone` blindly appended the resolved Provider's phone + hedge despite the LLM voice saying "no plumbers" — the post-processor doesn't check whether the LLM contradicted the row.
+- **#49 — LlmResponseCache stores post-processed CT hedge text — flag rollback doesn't immediately clean responses.** When the operator flipped `FEATURE_FLAG_CONFIDENCE_TIER=false` and re-ran the same query, the response was served from cache with the hedge still embedded (`llm_tokens_used: 0` confirmed cache hit). The CT2.B.1 design explicitly stores post-processed text in the cache; flag-off operation reads polluted entries until they expire (7-day TTL) or are manually purged.
+
+**Operational mitigations available:**
+
+- `scripts/cleanup/purge_llm_cache.py` (shipped today) — `--dry-run` / `--apply` pattern, purges all `LlmResponseCache` rows. Requires `DATABASE_URL` env var pointing at production.
+- The cached BMX/plumber response affects only a narrow query pattern; will expire naturally in 7 days. Operator deferred the manual purge.
+
+**Next session must:** (a) ship #47/#48/#49 fix lane(s), (b) re-verify with both fresh queries and cache purge, (c) only then re-enable `FEATURE_FLAG_CONFIDENCE_TIER` if the operator wants observability data flowing.
 
 ---
 
 ## §4 — Open backlog at session close
 
-### Truly open (ship next)
+### Truly open (ship next — priority order)
 
-- **#39 — thread audience signal into placement-regime selection** — DEFERRED to Phase 2 by design. Precondition: 4–6 weeks of `chat_logs.audience_signal` data + X1 + X2 in production with the disclosure-renderer flag flipped.
-- **#45 — expand `verification_method` CHECK constraint** — Phase 2 cleanup. Drop the lossy operator-vocab → DB-enum mapper in `scripts/ingest/ingest_enrichment_csv.py` once the new migration lands.
+**HIGH PRIORITY — must ship before re-enabling `FEATURE_FLAG_CONFIDENCE_TIER`:**
+
+- **#47 — Entity matcher cross-category false positive.** Plumber queries resolving to BMX track via shared location tokens. Recommended fix: layer a category-aware reranking or row-pruning at the Tier 3 retrieval stage. See BACKLOG #47 for full design sketch + verification harness.
+- **#48 — Post-processor inserts phone+hedge when LLM stated no result.** `_enforce_low_tier_phone` doesn't check LLM voice for negation. Recommended fix: negation-aware skip in the post-processor before appending. See BACKLOG #48 for design sketch + verification harness.
+- **#49 — LlmResponseCache pollution from post-processed text.** Cache stores hedge-baked-in text; flag flips don't clean cleanly. Recommended fix: cache the raw LLM output and re-run post-processors on cache hit. See BACKLOG #49 for full design sketch + verification harness.
+
+**MEDIUM PRIORITY — Phase 2 first-week per dispatch playbook:**
+
+- **#45 — expand `verification_method` CHECK constraint.** Drop the lossy operator-vocab → DB-enum mapper in `scripts/ingest/ingest_enrichment_csv.py` once the new migration lands. Small, bounded.
+- **P2.HOME.1 — `DISCLOSURE_WORD` consistency on `/home`.** Spotlight cards still use the literal `Spotlight` badge; align to `DISCLOSURE_WORD = "Sponsored"`. Small UI refactor.
+- **P2.OBS.1 — disclosure-renderer observability instrumentation.** Per Phase 2 spec §3, this was originally the highest-leverage first-week lane. Now downgraded behind #47/#48/#49 because observability data with known-buggy responses is anti-leverage.
+
+**LOWER PRIORITY (Phase 2 mid/late):**
+
+- **#39 — thread audience signal into placement-regime selection.** DEFERRED to Phase 2 by design. Precondition: 4–6 weeks of `chat_logs.audience_signal` data + X1 + X2 in production with the disclosure-renderer flag flipped.
 - **Backlog #2** — `_time_bucket_first_hits` and broad `span` (pre-Phase-1, Phase 2 candidate).
 - **Backlog #18** — Repo hygiene & documentation hierarchy (PM phases A–D), pre-Phase-1.
 
 ### Resolved this session
 
 #38, #41a, #41a-followup, #41b, #44, #46 — all closed. See `docs/BACKLOG.md` ship-log entries.
+
+### NEW filed this session — Phase 2 first-week priority
+
+#47 (entity matcher cross-category false positive), #48 (post-processor blind insertion when LLM said no result), #49 (LlmResponseCache stores post-processed text — flag rollbacks don't clean cleanly). All three surfaced from the §6.2 CT flag verification chain. Full reproduction recipes + recommended fixes in `docs/BACKLOG.md`. **Ready-to-paste dispatch prompts for the fix lane in `docs/maintainability/phase2_first_week_dispatch.md` Lane 1.**
 
 ### Operator-driven (not code)
 
