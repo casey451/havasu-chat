@@ -22,6 +22,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.chat.disclosure_render import DISCLOSURE_WORD
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.home import mock_data, queries, sponsor_store
@@ -36,6 +37,7 @@ router = APIRouter(tags=["home"])
 def serve_home(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     """Render /home with live catalog data + per-row mock fallbacks."""
     base = mock_data.build_context()
+    base["disclosure_word"] = DISCLOSURE_WORD
 
     # Live row reads. Fall back to the mocked equivalent per-row when the
     # DB returns empty (catalog still being populated).

@@ -148,12 +148,12 @@
   <section class="row row-spotlight">
     <div class="row-head">
       <h2>Local pros</h2>
-      <span class="sub">Spotlight · paid placement</span>
+      <span class="sub">{{ disclosure_word }} · paid placement</span>
     </div>
     <div class="grid-3">
       {% for biz in spotlights %}
         <a class="card card-biz" href="{{ biz.url }}">
-          <span class="spotlight-badge"><span class="dot"></span>Spotlight</span>
+          <span class="spotlight-badge"><span class="dot"></span>{{ disclosure_word }}</span>
           <div class="img">
             {% if biz.image_url %}
               <img loading="lazy" alt="{{ biz.image_alt or biz.name }}" src="{{ biz.image_url }}">

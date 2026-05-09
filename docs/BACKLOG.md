@@ -2009,3 +2009,100 @@ Or wait for the cache TTL to expire (check `app/chat/llm_cache.py` for the confi
 
 **Filed by:** Cursor (2026-05-09).
 
+---
+
+## Backlog 50 - Single-char queries match short entity prefix (**OPEN, low priority**)
+
+**Surfaced by:** Lane 1 post-deploy smoke catalog (2026-05-09 Class C2): query `"a"` resolved to entity `A & A Electronics Assembly` (tier=3) where None was expected.
+
+**Recommended fix:** Add a minimum-length floor (≥3 chars after normalization) at matcher entry points (`extract_catalog_entities_from_text`, `match_entity_with_ambiguity`, `find_near_match`) before substring/needle-match logic fires.
+
+**Priority:** LOW — pre-existing matcher behavior; not a Lane 1 regression.
+
+**Filed by:** Cowork primary (2026-05-09, Lane 1 post-deploy verification).
+
+---
+
+## Backlog 51 - Accent-bearing queries return HTTP 400 instead of normalized match (**OPEN, low priority**)
+
+**Surfaced by:** Lane 1 post-deploy smoke catalog (2026-05-09 Class E3): query `múdshärk bréwery` returned HTTP 400. Smoke doc allowed "Match OR safely None"; 400 is more aggressive than either acceptable outcome.
+
+**Recommended fix:** Either (1) NFD-normalize and strip combining marks at chat-route boundary so `múdshärk` → `mudshark`, or (2) return 422 with friendly_errors message instead of bare 400.
+
+**Priority:** LOW — orthogonal to Lane 1; pre-existing preprocessing concern.
+
+**Filed by:** Cowork primary (2026-05-09, Lane 1 post-deploy verification).
+
+---
+
+## Backlog 52 - Trade-superlative queries return null where real catalog entities exist (**OPEN, low priority**)
+
+**Surfaced by:** Lane 1 post-deploy verification (2026-05-09): `allstar gym` → null where Universal Gymnastics and All Star Cheer exists; `what is the best plumber in lake havasu` → null where All Seasons Plumbing exists. Lane 1 dispatch acceptance allowed null; addresses ideal-case behavior, not a regression.
+
+**Mechanism (hypothesized):** #47's `_category_guard_skips_row` is over-restrictive when (a) query has a trade tag, (b) candidate row's `category_blob` matches the same trade, and (c) the user didn't use distinctive entity tokens. The "trade-aligned bypass" path isn't exercised; the conservative skip path fires.
+
+**Recommended fix:** Add a "trade-aligned bypass" — when query and row tag the same trade, and there's no incompatible trade pair, let the row through fuzzy match.
+
+**Priority:** LOW — affects ideal-case behavior, not regressions. Worth tuning because trade-superlative queries are common UX patterns ("best plumber", "find a gym").
+
+**Filed by:** Cowork primary (2026-05-09, Lane 1 post-deploy verification).
+
+---
+
+## Backlog 53 - HALT 3 undefined on-tree; close-out blocked on definition recovery (**OPEN — gates Phase 2.5 / P2.PREM.1**)
+
+**Surfaced by:** General-purpose agent HALT 3 audit (2026-05-09 evening, dispatched in parallel with Lane 2 P2.HOME.1). The handoff doc, dispatch playbook, and phase2 lane decomposition all flag HALT 3 as a Phase 1 deliverable that gates Premier inventory open; nobody had actually audited it.
+
+**Finding — HALT 3 is referenced widely but DEFINED nowhere on-tree:**
+
+1. **No HALT 3 spec exists on disk.** No closure doc, no acceptance-criteria doc with named numeric thresholds for gating-rate / anchor-regression / catalog-flagging bands.
+2. **Strategy doc is off-tree** — `ask-hava-detailed-plan.docx` at repo root, Decision #37 area. Not directly readable as text.
+3. **No HALT 1 or HALT 2 closure docs on disk either.** `relay/halt1-closure-final-lexicons.md` is referenced from `app/eval/confabulation_detector.py` and `confabulation_query_gen.py` but missing from disk — orthogonal concern.
+4. **Phase 8.8.6 spec was pruned** per `docs/STATE.md:215`; possibly recoverable via `git log --all --diff-filter=D -- '**phase*8*'`.
+5. **Only on-disk HALT 3 artifact:** `relay/halt3-step1-runs-excerpts.txt` (raw confabulation-harness probe captures from BMX Training and Altitude Trampoline Park, no §Outcome / no pass-fail summary).
+6. `docs/BACKLOG.md` had no entry for HALT 3 prior to this filing.
+7. Multiple docs explicitly say HALT 3 was not audited: `SESSION_HANDOFF_2026-05-08.md:106`, `SESSION_HANDOFF_2026-05-09.md:129/169/171/232`, `phase1_deploy_runbook.md:559`, `phase2_lane_decomposition.md:20/33/49-53/92/104`, `phase2_first_week_dispatch.md:277/365`.
+
+**Implication:** "Audit HALT 3" can't mean "verify the close criteria are met" because the criteria are not on-tree. HALT 3 must first be **defined** (spec authored with numeric thresholds), then measured, then closed.
+
+**Work-to-close (sequenced — bulk of effort is the production-traffic dwell + harness run):**
+
+1. **Recover the strategy doc's HALT 3 definition** from `ask-hava-detailed-plan.docx` Decision #37 (off-tree). Optionally recover any pruned `phase 8.8.6` spec markdown via `git log --all --diff-filter=D -- '**halt*'` + `git log --all -- 'docs/**phase*8*'`.
+2. **Author `docs/maintainability/halt3_closeout.md`** capturing the recovered definition + the three acceptance bands (gating-rate, anchor-regression, catalog-flagging) with **named numeric thresholds**. Without thresholds, no future agent can determine pass/fail.
+3. **Production traffic dwell** — Phase 1 flags are now on (CT enabled 2026-05-09 afternoon, disclosure renderer still off pending enrichment). Need ≥1 week of traffic before the harness run is meaningful. P2.OPS.1 dependency is implicitly satisfied for CT; for the disclosure-renderer dimension, dwell can't start until enrichment unblocks the flag.
+4. **Run the confabulation harness:** `python scripts/confabulation_eval.py --mode=inprocess --runs=3 --flags=both --rows=both`. Generates `summary.md` + `per_row.csv` + `runs.jsonl`.
+5. **Compute and record** gating rate (Tier 2 + Tier 3-with-L2), top-gating-token table, regression anchors, per-row offender ranking against the recovered bands.
+6. **Produce close-out artifact** with §Outcome filled (pass/fail per band); append RESOLVED to BACKLOG + STATE.
+7. **Then dispatch P2.PREM.1** (Premier inventory open).
+
+**Estimated effort:** Strategy-doc recovery: 30 min (Casey opens the docx). Spec authoring: 2-4 hours. Production-traffic dwell: ≥1 week of real traffic. Harness run + analysis: 2-4 hours. Close-out: 1-2 hours. **Total wall-clock: ~2 weeks minimum**, mostly waiting for traffic. Cannot be compressed below the dwell window.
+
+**Unblocking step (do first):** Casey opens `ask-hava-detailed-plan.docx` Decision #37 and either pastes the HALT 3 definition into a new docs/ markdown file or copies the salient bands into a comment for whoever picks up the spec authoring lane.
+
+**Priority:** GATES PHASE 2.5 / P2.PREM.1 — Premier inventory open cannot ship until this resolves. Phase 2 first-week lanes (Lanes 2-4) and operator enrichment sprint can proceed in parallel; they don't depend on HALT 3.
+
+**Filed by:** Cowork primary (2026-05-09, post-Lane-1 parallel audit via general-purpose agent).
+
+---
+
+## Ship log — P2.HOME.1: DISCLOSURE_WORD consistency on /home
+
+**Problem:** `/home`'s Local pros (Spotlight) cards used the hardcoded literal `"Spotlight"` for the section subtitle and per-card badge, drifting from the chat-path canonical `DISCLOSURE_WORD = "Sponsored"` defined in `app/chat/disclosure_render.py`. Phase 2 spec calls for cross-channel consistency on the disclosure word.
+
+**Change:**
+
+- `app/home/router.py` — `from app.chat.disclosure_render import DISCLOSURE_WORD`; `base["disclosure_word"] = DISCLOSURE_WORD` injected immediately after `mock_data.build_context()` so every `/home` render carries the canonical word.
+- `app/templates/home.html` — Local pros section: subtitle `"Spotlight · paid placement"` → `"{{ disclosure_word }} · paid placement"`; card badge text `"Spotlight"` → `"{{ disclosure_word }}"`. CSS class `spotlight-badge` unchanged (semantic / word-agnostic per dispatch out-of-scope guidance).
+
+**Verification:**
+
+- New `tests/test_home_disclosure_word.py` — integration test using `TestClient` against `app.main:app`; asserts `GET /home` returns 200, response body contains `DISCLOSURE_WORD` (`"Sponsored"`), and does NOT contain literal `"Spotlight"` (case-sensitive — the lowercase `spotlight-badge` CSS class name doesn't trip it).
+- Targeted: `python -m pytest tests/test_home_queries.py tests/test_home_queries_lane_a.py tests/test_home_disclosure_word.py -q` → 33 passed.
+- Full suite: 1341 passed (1340 Lane 1 baseline + 1 new test).
+
+**Out-of-scope nit (optional follow-up if anyone cares):** CSS class name remains `spotlight-badge`; renaming to `disclosure-badge` for pure semantic alignment is a future small lane. Doesn't affect user-visible behavior.
+
+**Closes:** P2.HOME.1 (Phase 2 spec lane — not a numbered backlog item; lane closed via this ship-log).
+
+**Filed by:** Cursor (Lane 2 implementation, 2026-05-09 evening).
+
