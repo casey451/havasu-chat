@@ -1,0 +1,128 @@
+# Session Handoff — 2026-05-12 (fresh-session entry point)
+
+**Audience:** the agent picking up where the 2026-05-12 session left off. Today's session shipped one substantive ticket — #64 (confabulation harness v2: emit `category` / `activity_category` in `per_row.csv` + config-driven anchor allowlist) — closing the spec-vs-toolchain gap surfaced by yesterday's HALT 3 close-out template ambiguity-resolution lane. Plus the lockstep alignment of `halt3_closeout.md` to the v2 harness shape. Two commits, one substantive (`aa3abd4`) and one close-out (`426f992`). This doc is your canonical entry point.
+
+**Read time:** ~3 minutes for this doc.
+
+**Companion docs:**
+
+- `docs/SESSION_HANDOFF_2026-05-11.md` — yesterday's entry point (HALT 3 hardening + #64 filing + #65 design narrative)
+- `docs/SESSION_HANDOFF_2026-05-10.md` — Phase 2 follow-up cluster + sponsor outreach surface narrative
+- `docs/STATE.md` — canonical "where is the project right now"
+- `docs/BACKLOG.md` — ship logs + open tickets (entries up through #65)
+- `docs/maintainability/dispatch_protocol.md` — 12-rule reference card
+- `docs/maintainability/dispatch_channels.md` — channel-pick playbook + 7 common gotchas
+- `docs/maintainability/halt3_closeout.md` — close-out template, now aligned to harness v2 shape
+
+---
+
+## §0 — Boot sequence
+
+1. Read this doc end-to-end (~3 min).
+2. Skim `docs/SESSION_HANDOFF_2026-05-11.md` if you want the prior-day narrative.
+3. Confirm repo state: `git log --oneline -5` should start with **`426f992`** (today's close-out) sitting on **`aa3abd4`** (today's #64 ship) on **`4f9a322`** (yesterday's STATE close-out). If origin hasn't been pushed, `git status` will show "Your branch is ahead of 'origin/main' by 2 commits" — that's expected.
+4. Pytest verification (operator-side per Rule 7): `python -m pytest -q` should hit **1422 passed**.
+5. Check Railway: production deployed revision should still be at or behind `54a56b1` — runtime behavior unchanged since then. All 9 commits since `54a56b1` are doc-only, test-only, or eval-tooling-only.
+6. Ask Casey which thread he wants to start with — §7 below names three viable starts.
+
+## §1 — One-paragraph project summary
+
+havasu-chat is a local concierge chat product for Lake Havasu City, AZ. Hava (the chat persona) answers questions about local businesses, events, and activities in 1–3 sentences. Production is at https://havasu-chat-production.up.railway.app, deployed via Railway from `main`. Phase 1 (trust pipeline) shipped 2026-05-09 morning. Phase 2 first-week (Lanes 1–4 + sponsor outreach surface) shipped 2026-05-09 evening through 2026-05-11. The project is currently in a forward-looking / hardening posture: no production runtime changes for several days as the team works on (a) operator enrichment sprint readiness, (b) HALT 3 close-out tooling and pre-investigation, and (c) Phase 2.5 third-party-source rate-limiter design. The flag-flip cascade (`FEATURE_FLAG_DISCLOSURE_RENDERER=false → true`) is gated on enrichment populating ≥1 Sponsor + matching Provider rows.
+
+## §2 — Final state at session close (2026-05-12)
+
+- **Repo `main` HEAD:** **`426f992`** — `docs(BACKLOG+STATE+halt3): close out #64 + halt3 v2 alignment`. Sits on `aa3abd4` (#64 harness v2 ship). Local main is **2 commits ahead of origin/main** at session close — push when convenient.
+- **Pytest:** **1422 passed** (1417 → 1422; +5 net-new test methods + 1 in-place 7→9 column header pin extension in `tests/test_confabulation_report.py`).
+- **Alembic head:** `d6e7f8a9b0c1` (Lane 4 disclosure-render telemetry columns); unchanged.
+- **Feature flags:** `FEATURE_FLAG_DISCLOSURE_RENDERER=false` (HOLD), `FEATURE_FLAG_CONFIDENCE_TIER=true`. Audience-signal persistence: AUTOMATIC.
+- **Production runtime:** unchanged since `54a56b1`. The eval surface at `app/eval/confabulation_report.py` and `scripts/confabulation_eval.py` is harness/reporter code, not on the chat-route runtime path — #64's changes do not deploy to production behavior.
+- **Working tree:** clean at session close. No parallel lanes in flight.
+
+## §3 — What shipped on 2026-05-12
+
+1. **`aa3abd4`** — `feat(eval): #64 emit category + activity_category in per_row.csv + config-driven anchor allowlist`. Confabulation harness v2 for HALT 3 close-out tooling. `app/eval/confabulation_report.py::write_per_row_csv` now emits 9 columns with `category` (Provider) and `activity_category` (Program) inserted after `row_name`. The 2-name regression-anchor allowlist moved from inline at the previous `:167-173` to a module-top constant `_DEFAULT_REGRESSION_ANCHORS = ("Aqua Beginnings", "Grace Arts Live")` with governance comments referencing `halt3_definition.md` §6; `write_summary_md(..., *, anchors=...)` accepts an optional tuple override. `scripts/confabulation_eval.py::_probe_name_map()` now returns `dict[str, dict[str, str | None]]`; `_enrich_for_reports` fills `category` / `activity_category` by row type; new `--anchor-set-file PATH` CLI arg reads newline-delimited names with `#`/blank skipping. Ship channel: Cursor (after a v1 brief to CC halted at step-0; see §5 lesson). +5 net-new tests in `tests/test_confabulation_report.py` + minimal fixture updates in `tests/test_confabulation_eval_script.py`.
+2. **`426f992`** — `docs(BACKLOG+STATE+halt3): close out #64 + halt3 v2 alignment`. BACKLOG #64 status flip + ship-log paragraph. STATE.md HEAD/pytest/commits-chain update + new "Recently shipped" entry. `halt3_closeout.md` aligned to v2 harness shape — §2 per_row.csv schema (9 cols), §3.2 anchor-set composition + governance + per-category methodology (read columns directly, no DB join needed), §3.3 per-row offender ranking source (9-col header pin).
+
+**Deferred / not shipped:**
+
+- Per-category breakdown section in `summary.md` (optional in #64 ticket — close-out actor can derive from `per_row.csv`).
+- `relay/halt3-anchor-set.txt` (operator-authored at HALT 3 close-out time if using `--anchor-set-file`).
+
+## §4 — Dispatch channels
+
+Five channels in active rotation; see `docs/maintainability/dispatch_channels.md` for the canonical playbook + 7 common gotchas.
+
+- **Cursor** — focused-file edits, schema migrations. Today's #64 implementation lane after CC halted on the column-name issue. Took the multi-file lane cleanly with a heavily prescriptive brief.
+- **Claude Code** — multi-file refactors, audits. Today: dispatched the v1 #64 brief; CC halted appropriately at step-0 catching the `track_kind` column-name error (this is exactly the right behavior).
+- **ChatGPT** — non-file work; not used today.
+- **General-purpose sub-agent** — direct dispatch via the Task tool; not used today.
+- **Yourself** — direct file tools for BACKLOG/STATE/halt3_closeout updates after the Cursor ship landed.
+
+**Channel-pick wrinkle today:** the v2 brief was authored for CC (multi-file lane fits CC's strengths per the rubric) but Casey routed to Cursor instead. Worked fine — Cursor handled the multi-file scope cleanly with a heavily prescriptive brief (line numbers, suggested signatures, exact column ordering, enumerated test cases). Worth absorbing: a sufficiently prescriptive brief flattens the channel-fit difference for bounded multi-file scope.
+
+## §5 — Working agreements + lessons absorbed
+
+Canonical reference: `docs/maintainability/dispatch_protocol.md` (12 rules). All rules in force; no additions today.
+
+**Two forensic notes worth elevating from today's #64 lane:**
+
+1. **Schema-adjacent sub-agent investigations should ground column names against `app/db/models.py` directly, not just consuming code paths.** Yesterday's halt3 ambiguity-resolution sub-agent surface-read `track_kind` from doc/code text and propagated it into BACKLOG #64's description. The column doesn't exist on `Program` — actual column is `activity_category`. CC caught it at step-0 of the v1 implementation lane via the brief's "trust the source" clause; v2 brief shipped under the corrected name. The cure is a process discipline: when authoring a forensics report that names DB columns, the report should cite the model file at line offset, not just the consuming function. (See BACKLOG #64 ship-log, STATE.md "Recently shipped" §1, for the full forensic.)
+
+2. **Don't trust a single Glob for "does this file exist."** Pre-dispatch source-surface check on #64 used `**/test_confabulation*.py` to look for an existing test file; Glob returned "No files found" and the v2 brief said "no test file exists, author one." The file did exist with 6 pre-existing tests. Cursor caught the false negative by reading the actual tests directory and extending in place rather than authoring fresh. The cure: pair Glob with a `Read` of a likely path (e.g. `tests/test_confabulation_report.py` directly) or a `Grep` for distinctive content from the suspected file (e.g. `Grep "write_per_row_csv" --type py`). The Glob result alone is unreliable for non-existence claims.
+
+These two lessons are also captured in the BACKLOG #64 ship-log and STATE.md "Recently shipped" entry, but elevating them here makes them visible at session boot for the next agent.
+
+## §6 — Open backlog at session close
+
+### Truly open (could ship anytime)
+
+- **#39** — thread audience signal into placement-regime selection (DEFERRED to Phase 2; precondition: 4–6 weeks of `chat_logs.audience_signal` data).
+- **#62** — trade-superlative scoring: alias-resolution vs disambiguation behavior (P3; forward-looking, gated on catalog density from enrichment sprint).
+- **#65** — Phase 2.5 third-party-source rate-limiter implementation (DESIGN SHIPPED 2026-05-11; implementation OPEN, MEDIUM, gated on the 7 §8 open questions in `docs/maintainability/phase2_5_rate_limiter_design.md` + Casey's decision on Phase 2.5 launch concurrency).
+- Backlog #2 — `_time_bucket_first_hits` and broad `span` (Phase 2 candidate, pre-Phase-1).
+- Backlog #18 — Repo hygiene & documentation hierarchy (PM phases A–D, pre-Phase-1).
+
+### Spec-resolution work (no ticket; sub-agent forensics + apply edits pattern)
+
+- **Smoke catalog ambiguity resolution** — 6 open spec questions in `docs/maintainability/post_enrichment_smoke_catalog.md`: regime-naming spec mismatch, category alignment of candidate sponsors, regime B suppression on zero-organic, cache key composition, multi-sponsor rotation determinism, CT2.B ship status. Same shape as yesterday's halt3 ambiguity-resolution lane. Sub-agent dispatchable; no operator round-trip.
+
+### Strategic — gates Phase 2.5
+
+- **#53** — HALT 3 multi-week work-to-close. Definition recovered (`docs/maintainability/halt3_definition.md`); close-out template (`docs/maintainability/halt3_closeout.md`) now aligned to harness v2 shape (per #64 ship today). The three numeric bands (gating-rate, anchor-regression, catalog-flagging) are still placeholders awaiting the baseline confabulation harness run. Sequencing unchanged: enrichment sprint → flag flip → ≥1 week production traffic dwell → harness baseline run → set bands → run negative-set extension → close-out → unblock P2.PREM.1.
+
+### Operator-driven (not agent dispatchable)
+
+- **50-business enrichment sprint** for top-queried categories (restaurants, plumbers, HVAC, pool service, boat repair, urgent care, auto repair). Toolchain shipped 2026-05-08 + 2026-05-09; operator-facing playbook at `docs/sponsor_outreach/enrichment_sprint_runbook.md`. Casey fills CSVs → validates → dry-runs ingest → applies.
+- **HALT 3 close-out multi-week sequence** — see #53 above.
+
+## §7 — What to do first (recommended starting points)
+
+Three viable threads. No default-recommended order; trade-offs are clear and Casey's bandwidth/priorities decide.
+
+**Thread A — smoke catalog ambiguity resolution.** Sub-agent forensics + apply edits + file follow-up tickets if needed. Same shape as yesterday's halt3 lane. Closes a forward-looking spec doc against the eventual flag-flip readiness gate. *Rationale: low operator-keyboard burden; closes hardening work that's been sitting open since 2026-05-10.*
+
+**Thread B — enrichment sprint kickoff.** Operator-driven; agent is thinking partner / structuring helper. Highest leverage overall (gates Phase 2.5 / HALT 3 close / flag flip / #62). *Rationale: unblocks the most downstream work; only Casey's bandwidth gates it.*
+
+**Thread C — #65 implementation lane prep.** Resolve some of the 7 §8 open questions in the rate-limiter design doc, then dispatch the implementation lane. Casey owns the architectural calls (per-source default QPS, failure-mode policy, observability surface, Phase 2.5 launch concurrency). Could resolve a subset and dispatch under "P1 ships now; P2 questions deferred." *Rationale: forward-looking maintainability work; not blocking but unblocks future Phase 2.5 work.*
+
+## §8 — Reference docs and operational knowledge
+
+- **Project state:** `docs/STATE.md`
+- **Backlog:** `docs/BACKLOG.md`
+- **Dispatch protocol (12 rules):** `docs/maintainability/dispatch_protocol.md`
+- **Dispatch channel playbook + 7 gotchas:** `docs/maintainability/dispatch_channels.md`
+- **Phase 2 strategic plan:** `docs/maintainability/phase2_lane_decomposition.md`
+- **HALT 3 definition + close-criteria:** `docs/maintainability/halt3_definition.md`
+- **HALT 3 close-out template (v2-aligned 2026-05-12):** `docs/maintainability/halt3_closeout.md`
+- **Post-enrichment smoke catalog (6 open spec Qs):** `docs/maintainability/post_enrichment_smoke_catalog.md`
+- **Phase 2.5 rate-limiter design (7 open §8 Qs):** `docs/maintainability/phase2_5_rate_limiter_design.md`
+- **LLM-mock pattern (project standard):** `docs/maintainability/llm_mock_pattern.md`
+- **Confabulation eval runbook:** `docs/confabulation-eval-runbook.md`
+- **Phase 1 deploy runbook:** `docs/maintainability/phase1_deploy_runbook.md`
+- **Smoke catalog (39 queries, UTF-8 patched):** `docs/maintainability/backlog_46_smoke_check_queries.md`
+- **Sponsor outreach surface:** `docs/sponsor_outreach/cold_email_templates.md`, `cold_email_variants_2026-05-09.md`, `reply_handlers.md`, `post_launch_comms.md`, `enrichment_sprint_runbook.md`, `sponsor_quick_reference.md`
+- **End-user FAQ:** `docs/user_facing/hava_user_faq.md`
+
+---
+
+*This handoff supersedes `SESSION_HANDOFF_2026-05-11.md` for purposes of "where is the project right now" — the body of the older doc remains valid for prior-session narrative context. Next agent: read THIS doc, skim 2026-05-11 if you want yesterday's narrative, then dispatch.*
