@@ -1,5 +1,7 @@
 # Phase 2 Lane Decomposition Spec
 
+> **STATUS:** First-week dispatch table (§7) is SUPERSEDED — all lanes (P2.OPS.1, P2.HOME.1, P2.BL.45, P2.OBS.1, P2.OPS.3 launch tooling) shipped 2026-05-09 except P2.OPS.3 (operator enrichment, ongoing). The 17-lane plan in §2 remains the strategic source of truth; per-lane status is tracked via `docs/BACKLOG.md` ship-logs and `docs/STATE.md`. Phase 2 mid-week lanes (P2.X3.A, P2.OPS.2, P2.BL.2) remain blocked on the DISCLOSURE_RENDERER flag flip post-enrichment.
+
 **Status:** OPEN — drafted 2026-05-09 (morning, post Phase 1 close including Backlog #46).
 **Audience:** operator (Casey) + any agent (Cursor / Claude Code / Cowork primary / general-purpose) dispatched against a Phase 2 lane.
 **Source-of-truth references:** `ask-hava-detailed-plan.docx` Phase 2 + Appendix; `docs/STATE.md` 2026-05-09 morning entry; `docs/maintainability/disclosure_renderer_spec.md` §5, §7.2; `docs/maintainability/confidence_tier_integration_spec.md` §5; `docs/BACKLOG.md` #2, #18, #39, #45 (and #46 RESOLVED reference).
@@ -16,7 +18,7 @@ Phase 2's strategic objective is **visitor-mode go-live + monetization activatio
 
 | ID | Title | Effort | Dependencies | Agent type | Preconditions |
 |---|---|---|---|---|---|
-| **P2.OPS.1** | Phase 1 flag flip + post-deploy soak | S | none (Phase 1 already deployed) | operator + Cowork primary | runbook executed; both `FEATURE_FLAG_DISCLOSURE_RENDERER` and `FEATURE_FLAG_CONFIDENCE_TIER` flipped to `true` in Railway |
+| **P2.OPS.1** | Phase 1 flag flip + post-deploy soak (CT flag flipped 2026-05-09; DISCLOSURE_RENDERER still HOLD pending enrichment) | S | none (Phase 1 already deployed) | operator + Cowork primary | runbook executed; both `FEATURE_FLAG_DISCLOSURE_RENDERER` and `FEATURE_FLAG_CONFIDENCE_TIER` flipped to `true` in Railway |
 | **P2.OPS.2** | HALT 3 close-out review | M | P2.OPS.1 | operator + Claude Code (audit) | one week of flag-on production traffic; gating-rate / anchor-regression / catalog-flagging bands documented |
 | **P2.OBS.1** | Disclosure-renderer observability instrumentation | S | P2.OPS.1 | Claude Code | `chat_logs` schema accepts a structured JSON column or new typed columns for `regime`, `sponsor_id`, `tone_pass`; per `disclosure_renderer_spec.md` §7.2 |
 | **P2.OBS.2** | Confidence-tier formatter telemetry (Backlog #42a candidate) | S | P2.OPS.1, P2.OBS.1 (shares the `chat_logs` widening) | Claude Code | flag-on traffic exists; per `confidence_tier_integration_spec.md` §5 telemetry note |
@@ -49,7 +51,7 @@ Phase 2's strategic objective is **visitor-mode go-live + monetization activatio
 ### Phase 2.1 — Tier 2 renderer extension + HALT 3 close (weeks 2–3)
 
 **Ships:** P2.X3.A, P2.X3.B, P2.OPS.2, P2.BL.2 (if catalog density permits).
-**Closes when:** renderer fires on both Tier 2 and Tier 3; HALT 3 review artifact in `docs/`; full suite still 1314+ green.
+**Closes when:** renderer fires on both Tier 2 and Tier 3; HALT 3 review artifact in `docs/`; full suite still 1377+ green.
 **Gate to 2.2:** P2.OBS.1 telemetry shows zero disclosure-word drift on the new T2 path across 7 days; HALT 3 closed.
 
 ### Phase 2.2 — Operator enrichment + distribution kickoff (weeks 3–8, overlaps 2.1)

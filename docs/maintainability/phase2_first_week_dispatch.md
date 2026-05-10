@@ -1,5 +1,9 @@
 # Phase 2 First-Week Dispatch Playbook
 
+> **STATUS: Lanes 1-4 SHIPPED 2026-05-09. Lane 5 (operator enrichment sprint) is the only remaining work in this playbook.** Kept on-tree for historical reference and for anyone re-running the smoke catalog. Per-lane ship-log entries are in `docs/BACKLOG.md` and the `Recently shipped` section of `docs/STATE.md`.
+>
+> Specific shipped commits: Lane 1 `dd484a0` (#47/#48/#49 fix bundle), Lane 2 `8c5d008` (P2.HOME.1), Lane 3 `1749675` (P2.BL.45), Lane 4 `24abe82` (P2.OBS.1).
+
 **Audience:** A fresh Cowork primary picking up the project after the 2026-05-09 Phase 1 close.
 **Purpose:** Get to dispatch within ~10 minutes of opening this doc. Ready-to-paste prompts for the first 5 lanes; tool-use guidance for routing work to the available agents; risks/gotchas anchored to today's discoveries.
 **Companion docs:** `docs/SESSION_HANDOFF_2026-05-09.md` (what landed yesterday), `docs/STATE.md` (canonical project state), `docs/BACKLOG.md` (every ship-log + open item with attribution), `docs/maintainability/phase2_lane_decomposition.md` (the 17-lane / 5-phase strategic plan this playbook executes).
@@ -16,7 +20,7 @@ Before dispatching anything:
    cd C:\Users\casey\projects\havasu-chat
    .\.venv\Scripts\python.exe -m pytest -q
    ```
-   Expect: **1327 passed**. If different, `git log --oneline -10` to see what changed.
+   Expect: **1377 passed**. If different, `git log --oneline -10` to see what changed.
 3. Verify production hasn't drifted (Railway dashboard for deploy SHA + a quick smoke):
    ```powershell
    Invoke-RestMethod -Method Post -Uri "https://havasu-chat-production.up.railway.app/api/chat" -ContentType "application/json; charset=utf-8" -Body '{"query":"find a plumber","session_id":"boot-1"}'
@@ -148,7 +152,7 @@ python -m pytest tests/test_llm_cache.py tests/test_llm_cache_raw_storage.py -q
 python -m pytest -q
 ```
 
-The full suite must hit ≥ 1327 passed (baseline). Adversarial check (run inline Python or add a smoke script):
+The full suite must hit ≥ 1377 passed (baseline). Adversarial check (run inline Python or add a smoke script):
 
 ```
 phone for addrss              → None / None
@@ -265,7 +269,7 @@ def downgrade() -> None:
 - `python -m alembic downgrade -1` (clean downgrade — note the downgrade caveat above; if any test rows have new vocab values, the test should clean them first)
 - `python -m alembic upgrade head` (re-upgrade clean)
 - `python -m pytest tests/test_enrichment_ingestion.py -q` — must still hit 16 passed (or higher if you added tests for the new vocab).
-- Full suite: `python -m pytest -q` must still hit ≥ 1327 passed.
+- Full suite: `python -m pytest -q` must still hit ≥ 1377 passed.
 
 **Report:** migration file path, downgrade caveat note, new alembic head SHA, pytest line, ship-log markdown entry.
 ```
@@ -304,7 +308,7 @@ def downgrade() -> None:
 **Verification:**
 - `python -m alembic upgrade head` then `downgrade -1` then `upgrade head` (clean round-trip).
 - `python -m pytest tests/test_disclosure_render.py tests/test_disclosure_render_integration.py -q` — must pass.
-- Full suite ≥ 1327.
+- Full suite ≥ 1377.
 - Live smoke after deploy with `FEATURE_FLAG_DISCLOSURE_RENDERER=true`: query the chat, then verify the new column populates correctly via psql.
 
 **Report:** migration file path, schema design choice (JSON column vs typed columns) with rationale, new test counts, pytest line, ship-log markdown entry, spec update summary.
@@ -363,7 +367,7 @@ Open `docs/sponsor_outreach/cold_email_templates.md`, pick a category, copy the 
 3. **Cache pollution survives flag flips for up to 7 days.** `LlmResponseCache` TTL is `DEFAULT_TTL_DAYS = 7`. After any flag flip or prompt change, run `scripts/cleanup/purge_llm_cache.py --apply` (with `DATABASE_URL` set) to flush.
 4. **Bare-form severe typos return None in entity matcher.** That's the existing `_best_score_padded` F6 early-return path. Use the realistic chat shape `phone for X` for severe-typo verification — bare typos alone don't fire the WRatio scorer.
 5. **HALT 3 status is unverified.** Strategy doc treats HALT 3 close as a Phase 1 deliverable + a precondition for Premier inventory open. The 2026-05-09 STATE entry does NOT name HALT 3 as completed. If a Phase 2.5 lane ships before HALT 3 is closed, you may have a hidden gate. Recommend auditing HALT 3 status before locking the Phase 2.5 calendar.
-6. **CT flag is OFF — keep it off until Lane 1 ships.** Flipping it now reproduces #47/#48/#49 in production immediately. The smoke-check doc at `docs/maintainability/backlog_46_smoke_check_queries.md` has 30 queries to run after Lane 1 lands and CT flag re-enables — comprehensive verification surface.
+6. **Historical advisory (now SUPERSEDED):** CT flag was held OFF until Lane 1 (`dd484a0`) shipped 2026-05-09 morning. The flag was re-enabled to `true` later that day after Lane 1 cleared #47/#48/#49 across the smoke catalog. CT flag in production is now `true`. The smoke-check doc at `docs/maintainability/backlog_46_smoke_check_queries.md` has 30 queries to run after Lane 1 lands and CT flag re-enables — comprehensive verification surface.
 
 ---
 
