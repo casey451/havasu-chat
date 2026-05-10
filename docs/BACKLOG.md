@@ -2284,7 +2284,7 @@ Add corresponding test cases to `tests/test_confidence_tier.py` covering each ne
 
 ---
 
-## Backlog 60 - Index-side floor non-application invariant (**OPEN, LOW**)
+## Backlog 60 - Index-side floor non-application invariant (**SHIPPED 2026-05-10**)
 
 **Surfaced by:** Phase 2 first-week test coverage audit (Claude Code, 2026-05-10).
 
@@ -2296,9 +2296,11 @@ Add corresponding test cases to `tests/test_confidence_tier.py` covering each ne
 
 **Filed by:** Cowork primary (2026-05-10, from CC's coverage audit).
 
+**Ship-log (2026-05-10):** Added `tests/test_entity_matcher.py::MinimumQueryLengthFloorTests::test_needles_for_canonical_does_not_apply_query_side_floor` asserting `"mtb" in _needles_for_canonical("Lake Havasu Mountain Bike Club")`. Pins the design intent that the `_MIN_QUERY_LENGTH = 3` floor is a query-side gate — never applied at index-build time — so 3-char curated aliases (mtb, bmx, dbr, …) keep indexing. Prevents a future "consistency-fix" pass from collapsing `_needles_for_canonical`'s deliberate `normalize()` calls to `_normalize_for_match()` and silently dropping short aliases. +1 test method, 0 net-new subtests, no production code changes. Shipped together with #61 in commit `9460f69` as `test+docs: #60 mtb index invariant + #61 smoke-catalog Class E3 layer clarification`. Pytest: 1408 → 1409 passed.
+
 ---
 
-## Backlog 61 - Clarify smoke-catalog Class E3 scope post-#51 (**OPEN, LOW**)
+## Backlog 61 - Clarify smoke-catalog Class E3 scope post-#51 (**SHIPPED 2026-05-10**)
 
 **Surfaced by:** Phase 2 first-week test coverage audit (Claude Code, 2026-05-10).
 
@@ -2309,6 +2311,8 @@ Add corresponding test cases to `tests/test_confidence_tier.py` covering each ne
 **Priority:** LOW.
 
 **Filed by:** Cowork primary (2026-05-10, from CC's coverage audit).
+
+**Ship-log (2026-05-10):** Added a one-sentence layer clarifier to `docs/maintainability/backlog_46_smoke_check_queries.md` directly below the Class E table. Reads: *"the wire-level encoding concern is precondition-met by the `; charset=utf-8` clause documented at lines 9–11 above; this row now exercises only the matcher-side accent-folding behavior, not the Starlette body-parse path."* Disambiguates Class E3's "Match OR safely None (accent handling)" expected behavior post-#51 — operators reading the catalog now know that wire-level encoding is solved upstream and the test exercises matcher-side concerns only. Doc-only, no test impact. Shipped together with #60 in commit `9460f69`.
 
 ---
 
