@@ -109,6 +109,15 @@ _OPERATOR_VOCAB = (
     "email_confirmation",
 )
 
+# Trusted-band methods sharing ``_MEDIUM_TRUSTED_DAYS`` (90) with manual — excludes
+# scraper, which uses the 30-day MEDIUM scraper rule instead (spec §1.2).
+_MEDIUM_BOUNDARY_TRUSTED_METHODS = (
+    "manual",
+    "owner_confirmed",
+    "npi_registry",
+    *_OPERATOR_VOCAB,
+)
+
 
 @pytest.mark.parametrize("method", _OPERATOR_VOCAB)
 def test_operator_vocab_recognized_not_unknown(method: str) -> None:
@@ -161,12 +170,12 @@ def test_operator_vocab_low_past_90_days(method: str) -> None:
     assert result.rationale == "older than threshold"
 
 
-def test_KNOWN_METHODS_covers_full_operator_vocab() -> None:
-    """Sanity check: every operator-vocab value from migration
-    ``c5d6e7f8a9b0`` is registered as a known method, in lock-step with
-    the DB CHECK constraint."""
-    for method in _OPERATOR_VOCAB:
-        assert method in ct._KNOWN_METHODS, f"{method!r} missing from _KNOWN_METHODS"
+def test_operator_vocab_methods_match_prod_tuple_lock_step() -> None:
+    """Bidirectional lock-step: prod ``_OPERATOR_VOCAB_METHODS`` ↔ test fixture.
+
+    Either tuple drifting relative to the other fails loudly (Backlog #57).
+    """
+    assert tuple(sorted(ct._OPERATOR_VOCAB_METHODS)) == tuple(sorted(_OPERATOR_VOCAB))
 
 
 # ─────────── MEDIUM-tier cases ───────────
@@ -188,15 +197,42 @@ def test_medium_manual_31_to_90_days() -> None:
     assert result.age_days == 60
 
 
+@pytest.mark.parametrize("method", _MEDIUM_BOUNDARY_TRUSTED_METHODS)
+def test_medium_trusted_methods_at_90_day_boundary_inclusive(method: str) -> None:
+    """``≤ 90`` is inclusive for trusted methods — exactly 90 days ago stays MEDIUM."""
+    rec = _record(last_verified_at=_ago(90), verification_method=method)
+    result = classify_confidence(rec, now=_FIXED_NOW)
+    assert result.tier == ConfidenceTier.MEDIUM
+    assert result.age_days == 90
+    assert result.rationale == "verified within 90 days"
+
+
+@pytest.mark.parametrize("method", _MEDIUM_BOUNDARY_TRUSTED_METHODS)
+def test_low_trusted_methods_past_90_day_boundary(method: str) -> None:
+    """Past the 90-day trusted window → LOW (``> 90`` days). Backlog #59 boundary."""
+    rec = _record(last_verified_at=_ago(91), verification_method=method)
+    result = classify_confidence(rec, now=_FIXED_NOW)
+    assert result.tier == ConfidenceTier.LOW
+    assert result.age_days == 91
+    assert result.rationale == "older than threshold"
+
+
 # ─────────── LOW-tier cases ───────────
 
 
-def test_low_no_verification_record() -> None:
-    """Missing ``last_verified_at`` → LOW with no datetime arithmetic."""
-    rec = _record(last_verified_at=None, verification_method="manual")
+@pytest.mark.parametrize("method", _OPERATOR_VOCAB)
+def test_low_no_verification_record(method: str) -> None:
+    """Missing ``last_verified_at`` → LOW with no datetime arithmetic.
+
+    Parametrized over operator vocab so the no-record branch is pinned per method
+    (Backlog #57); logic is method-agnostic today — if dispatch order regresses,
+    every value fires the failure.
+    """
+    rec = _record(last_verified_at=None, verification_method=method)
     result = classify_confidence(rec, now=_FIXED_NOW)
     assert result.tier == ConfidenceTier.LOW
     assert result.age_days is None
+    assert result.rationale == "no verification record"
 
 
 def test_low_method_none() -> None:
