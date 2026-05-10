@@ -1,3 +1,55 @@
+# UPDATE — 2026-05-09 late evening: Phase 2 first-week dispatch FULLY SHIPPED
+
+**The session that wrote this handoff continued past the original wrap point and shipped two more lanes (Lane 3 + Lane 4) plus a HALT 3 definition recovery.** The body of this doc below is preserved as-written, but the "remaining work" section is superseded — Phase 2 first-week is now complete.
+
+## Final commits (in chronological order):
+
+- `dd484a0` — Lane 1 substantive (#47/#48/#49 fix bundle)
+- `db718ac` — Lane 1 STATE close-out
+- `8c5d008` — Lane 2: P2.HOME.1 DISCLOSURE_WORD on /home + filed #50/#51/#52/#53
+- `489915f` — Original session handoff doc (this file)
+- `d6cd782` — HALT 3 definition recovery → `docs/maintainability/halt3_definition.md` + #53 status update
+- `e725717` — **(REVERTED)** Lane 3 + partial Lane 4; alembic multi-head broke production
+- `913e790` — Revert of `e725717` to restore known-good state
+- `130f8ad` — Phase A: Phase 8.8.6 spec restore from git history (`731d551c`) + cold email variants + BACKLOG #54
+- `1749675` — Lane 3 (clean re-dispatch): P2.BL.45 expand `verification_method` CHECK → migration `c5d6e7f8a9b0`
+- `3c40ff4` — BACKLOG #55 (extend `confidence_tier._KNOWN_METHODS`)
+- `24abe82` — Lane 4 (clean re-dispatch): P2.OBS.1 disclosure-renderer observability → migration `d6e7f8a9b0c1`
+
+## Final state at session close:
+
+- **Pytest:** 1348 passed, 6 subtests passed (1341 baseline + 7 net new from Lane 4 tests).
+- **Alembic head:** `d6e7f8a9b0c1` (Lane 4); clean linear history (no multi-head merge needed because we sequenced Lane 3 before Lane 4 on the second pass).
+- **Feature flags:** `FEATURE_FLAG_DISCLOSURE_RENDERER=false` (HOLD until enrichment); `FEATURE_FLAG_CONFIDENCE_TIER=true` (verified mid-session).
+- **Production verified:** `chat_logs` has the four new `disclosure_*` columns post-deploy of `24abe82` (Railway web SQL confirmed, columns nullable, table currently empty).
+
+## Backlog adds this session:
+
+- `#50` single-char query matches short entity prefix (LOW; pre-existing matcher behavior)
+- `#51` accent-bearing queries return HTTP 400 (LOW; pre-existing preprocessing)
+- `#52` trade-superlative queries return null where real entities exist (LOW; #47 over-conservatism)
+- `#53` HALT 3 undefined on-tree → recovered via `docs/maintainability/halt3_definition.md`; gates Phase 2.5
+- `#54` dangling `relay/halt1-closure-final-lexicons.md` doc references (LOW; cosmetic doc-hygiene)
+- `#55` extend `confidence_tier._KNOWN_METHODS` for Lane 3's new operator vocab (LOW; should ship before enrichment sprint completes)
+
+## What's left for the next session:
+
+- **Operator enrichment sprint** (Casey-driven; toolchain ready at `templates/enrichment/` + `scripts/ingest/*`)
+- **Phase 2.5 / P2.PREM.1** gated on HALT 3 close (multi-week; sequenced work-to-close in `docs/maintainability/halt3_definition.md` §6)
+- **Phase 2 mid-week** lanes per `docs/maintainability/phase2_lane_decomposition.md`
+- **Three small follow-ups (#50/#51/#54)** that can roll into any future code-hygiene lane
+- **#55 should ship before enrichment** so confidence-tier classifier doesn't under-rank operator-vocab rows
+
+## Critical lesson learned (read before dispatching parallel agents):
+
+Mid-session, we dispatched Cursor (Lane 3) + Claude Code (Lane 4) in parallel. Both wrote files to the same working tree on overlapping schedules. Casey ran `git add -A` mid-flight, capturing partial Lane 4 work in a Lane 3 commit. The result was a multi-head alembic state that broke Railway's deploy and 1351 pytest errors locally. Recovery required `git revert e725717`, sequential replay of all the work, ~75 minutes of cleanup.
+
+**The protocol now**: dispatch lanes **sequentially** when they touch overlapping files (especially `app/db/models.py` and `alembic/versions/`). Wait for the agent's **text report** before any `git add` — the report is the explicit "I'm done writing files" signal. Working-tree state alone isn't reliable when an agent is mid-flight.
+
+Sequential dispatch (Cursor for Lane 3 → land it → Claude Code for Lane 4 → land it) was what worked the second time. The alembic head sequencing was clean: Lane 3's `c5d6e7f8a9b0` became Lane 4's `down_revision`, no merge migration needed.
+
+---
+
 # Session Handoff — Lane 1 close + Lane 2 close + HALT 3 audit (2026-05-09 evening)
 
 **Audience:** A fresh Cowork / Claude / Cursor session continuing where this evening session left off.
