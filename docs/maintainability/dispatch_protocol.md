@@ -258,6 +258,31 @@ Files immediately reappear or re-corrupt.
 Operator thinks git is malfunctioning.
 ```
 
+## 12. Don't `git commit --amend` while parallel lanes are in flight
+
+**Rule** — Never run `git commit --amend` while another agent's lane is open or its commit may land on top of yours.
+
+**Why** — `--amend` rewrites HEAD's commit, not your original commit by SHA. If a parallel lane committed between your original commit and your amend, the amend rewrites the parallel lane's commit by message while keeping its tree. Result: a commit whose message advertises your work but whose tree contains someone else's files. Undetectable until someone reads `git log` and notices the SHA-vs-message mismatch — and once it's pushed, the cleanup is force-push or live-with-the-wrinkle. Established in the 2026-05-09 #50/#51 dispatch race.
+
+**Example**
+
+```text
+Cursor commits abc123 (#50 code).
+No other lanes in flight; Cursor wants to fix a typo in the message.
+git commit --amend is safe — HEAD is still abc123.
+```
+
+**Counterexample**
+
+```text
+Cursor commits abc123 (#50 code).
+Claude Code commits def456 (#51 docs) on top.
+Cursor runs git commit --amend (HEAD is now def456).
+The amend rewrites def456's message to #50's text but keeps def456's tree.
+History now contains a commit ghi789 advertising #50 code but holding #51 docs.
+Force-push to fix is destructive once pushed.
+```
+
 ---
 
 If you only remember three things: use Anchored Edit on shared files, wait for the explicit text report before staging anything, and never run overlapping lanes in parallel against the same files. Almost every catastrophic failure from the 2026-05-09 session came from violating one of those three rules. The rest of this protocol exists to reinforce them.

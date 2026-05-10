@@ -2013,15 +2013,19 @@ Or wait for the cache TTL to expire (check `app/chat/llm_cache.py` for the confi
 
 ---
 
-## Backlog 50 - Single-char queries match short entity prefix (**OPEN, low priority**)
+## Backlog 50 - Single-char queries match short entity prefix (**SHIPPED 2026-05-09**)
 
 **Surfaced by:** Lane 1 post-deploy smoke catalog (2026-05-09 Class C2): query `"a"` resolved to entity `A & A Electronics Assembly` (tier=3) where None was expected.
 
-**Recommended fix:** Add a minimum-length floor (≥3 chars after normalization) at matcher entry points (`extract_catalog_entities_from_text`, `match_entity_with_ambiguity`, `find_near_match`) before substring/needle-match logic fires.
+**Recommended fix (initial):** Add a minimum-length floor (≥3 chars after normalization) at matcher entry points (`extract_catalog_entities_from_text`, `match_entity_with_ambiguity`, `find_near_match`) before substring/needle-match logic fires.
 
 **Priority:** LOW — pre-existing matcher behavior; not a Lane 1 regression.
 
 **Filed by:** Cowork primary (2026-05-09, Lane 1 post-deploy verification).
+
+**Ship-log (2026-05-09):** Added `_MIN_QUERY_LENGTH = 3` constant + `_normalize_for_match(query)` helper to `app/chat/entity_matcher.py`; swapped four direct entry points (`extract_catalog_entities_from_text`, `match_entity_with_ambiguity`, `find_near_match`, `match_entity_with_rows`) from `normalize(query)` to `_normalize_for_match(query)`. `match_entity` and `query_has_ambiguous_entities` inherit the floor for free via delegation. Floor is applied AFTER `normalize()` so whitespace-padded short queries (`"  a  "` → 1 char) are rejected. Two raw `normalize()` calls in `_needles_for_canonical()` were left intentionally untouched — those build the in-memory canonical-name index, not user queries; a 3-char alias like `"mtb"` must still index. Tests: `tests/test_entity_matcher.py` — 8 net-new test methods + 16 net-new subtests across two new classes (`MinimumQueryLengthFloorTests` DB-free, `MinimumQueryLengthFloorEntryPointTests` DB-backed). Pre-existing `EdgeCaseTests::test_single_character_query_does_not_match_seeded_canonical` (filed under #46 with conditional asserts in anticipation of this fix) passes unchanged. Verification: targeted `pytest -k "entity_matcher or min_query_length"` → 59 passed (51 + 8); full suite → 1377 passed (1369 + 8), no regressions. Ship SHA: `f9e9b06` on `main` as `feat(matcher): #50 add >=3-char minimum-length floor at entity-matcher entry`.
+
+**Git history note:** A subsequent `git commit --amend` race with the parallel #51 lane produced an intermediate commit `79f7396` whose message advertises this #50 work but whose tree actually contains CC's #51 doc patches. The real #50 code is in `f9e9b06`; HEAD's tree is correct (verified post-merge — `entity_matcher.py` floor is live and 1377 tests pass). Force-pushing to fix the metadata wrinkle would rewrite already-deployed history, so the wrinkle is documented here instead. Lesson codified as `dispatch_protocol.md` Rule 12 (don't amend while parallel lanes are in flight).
 
 ---
 
