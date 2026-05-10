@@ -2220,7 +2220,7 @@ Add corresponding test cases to `tests/test_confidence_tier.py` covering each ne
 
 ---
 
-## Backlog 56 - Chat-route UTF-8 regression test for accented query bodies (**OPEN, HIGH — priority-soon**)
+## Backlog 56 - Chat-route UTF-8 regression test for accented query bodies (**SHIPPED 2026-05-10**)
 
 **Surfaced by:** Phase 2 first-week test coverage audit (Claude Code, 2026-05-10) — see `docs/maintainability/phase2_midweek_coverage_audit.md` §"Recommended follow-ups". The #51 close-out was doc-only (PowerShell smoke catalog patched to send UTF-8). The architectural finding underneath — Starlette refuses mislabeled bytes with 400 before the route handler runs — has no automated regression test.
 
@@ -2231,6 +2231,8 @@ Add corresponding test cases to `tests/test_confidence_tier.py` covering each ne
 **Priority:** HIGH — closes the test gap from #51's doc-only ship. Should ship before any chat-route middleware refactor.
 
 **Filed by:** Cowork primary (2026-05-10, from CC's coverage audit).
+
+**Ship-log (2026-05-10):** Added `tests/test_chat_route_utf8.py` — FastAPI `TestClient` regression matrix for `POST /api/chat` mirroring CC's #51 investigation: (a) UTF-8 wire bytes + `charset=utf-8` → 200 with valid `ConciergeChatResponse` shape; (b) ISO-8859-1 wire bytes + `charset=latin-1` → 400 with Starlette body-parse detail pinned to exact string `"There was an error parsing the body"`; (c) strict UTF-8 wire that still carries semantically mojibake query text (UTF-8 octets reinterpreted through latin-1) → 200 (pins that replacement-free decode still reaches the route when bytes are valid UTF-8); (d) ASCII baseline → 200. Uses raw `content=` byte payloads (not `json=`) so the wire encoding is real. Targeted `pytest tests/test_chat_route_utf8.py` → 4 passed; full suite → 1391 passed. Surprise from investigation: `charset=latin-1` + latin-1 bytes still returns 400 — the stack treats JSON text as UTF-8 octets per RFC 8259, so non-UTF-8 bodies fail before the route regardless of the latin-1 declaration. Ship SHA: `6c6ca02` on `main` as `feat(test): #56 add chat-route UTF-8 regression test for accented query bodies`.
 
 ---
 
@@ -2248,7 +2250,7 @@ Add corresponding test cases to `tests/test_confidence_tier.py` covering each ne
 
 ---
 
-## Backlog 58 - Direct floor coverage for delegating entry points (**OPEN, MEDIUM**)
+## Backlog 58 - Direct floor coverage for delegating entry points (**SHIPPED 2026-05-10**)
 
 **Surfaced by:** Phase 2 first-week test coverage audit (Claude Code, 2026-05-10).
 
@@ -2259,6 +2261,8 @@ Add corresponding test cases to `tests/test_confidence_tier.py` covering each ne
 **Priority:** MEDIUM.
 
 **Filed by:** Cowork primary (2026-05-10, from CC's coverage audit).
+
+**Ship-log (2026-05-10):** Added 2 net-new test methods to `tests/test_entity_matcher.py::MinimumQueryLengthFloorEntryPointTests`: `test_match_entity_with_ambiguity_floor_on_subthreshold_queries` and `test_query_has_ambiguous_entities_floor_on_subthreshold_queries`, each parametrized over 4 sub-floor cases (1 char, 2 chars, whitespace + 1 char, whitespace + 2 chars) — 8 net-new subtests total. Investigation finding: confirmed clean delegation across both entry points — `match_entity_with_ambiguity` calls `_normalize_for_match(query)` directly at `app/chat/entity_matcher.py:754` with sub-floor input returning `(None, False)` at line 756; `match_entity` (line 797) and `query_has_ambiguous_entities` (lines 845–853) are 1-line and 2-line delegators respectively, neither has any direct `normalize()` call ahead of the floor. No #50 regression to surface. Tests pin the contract so a future refactor that hoists `normalize()` ahead of the helper, or inlines a direct call for performance, can't silently bypass the floor. Pytest: 1389 → 1391 passed (+8 subtests). Ship SHA: `f990488` on `main` as `test(matcher): #58 add direct floor coverage for delegating entry points`.
 
 ---
 
