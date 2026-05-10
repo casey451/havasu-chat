@@ -16,12 +16,27 @@
 
 ---
 
+## UPDATES — 2026-05-09 late evening (post-handoff session)
+
+After this handoff was originally written, Casey ran another work session that pushed **6 commits** and closed three of the four "truly open" backlog tickets listed in §5 below. **Net change:** pytest baseline grew **1340 → 1348 → 1369 → 1377 passed** across the Lane 3 / #55 / #50 ship sequence; production HEAD moved from `24abe82` to `df612d4`. The session also completed the **sponsor outreach surface** end-to-end (handoff addendum + dispatch protocol cheat sheet at `cbcf713`, three new cold-email variants for restaurants/boat-repair/auto-repair at `63d257f`, reply handlers at `5730f8a`, post-launch comms at `df612d4`) and codified one new working agreement: **`docs/maintainability/dispatch_protocol.md` is now at 12 rules** including today's amend-safety lesson (Rule 12: never `git commit --amend` while parallel sub-agent / Cursor / Claude Code lanes still hold uncommitted edits in the working tree — caused a #50/#51 git wrinkle today, recovery was minor but the pattern is worth permanent codification). See `docs/STATE.md` "Recently shipped" for full per-commit detail.
+
+**Tickets resolved since this snapshot was written:**
+
+- **#50** — SHIPPED `f9e9b06` (≥3-char minimum-length floor at entity matcher entry; +8 net-new tests)
+- **#51** — CLOSED `79f7396` (not-a-bug; smoke-harness PowerShell encoding artifact, UTF-8 charset patches landed across 4 docs)
+- **#55** — SHIPPED `847f79a` (extended `confidence_tier._KNOWN_METHODS` for Lane 3's operator vocab; +21 net-new tests)
+- **#54** — IN FLIGHT via parallel sub-agent A (dangling `relay/halt1-closure-final-lexicons.md` references scrub; expected to land before next session opens)
+
+**The "Truly open (could ship anytime)" list in §5 below is now stale** — only #39 (DEFERRED to Phase 2) and #52 (low-priority trade-superlative bypass, in-flight via Cursor) remain genuinely open of the original four. The §5 list is preserved below as historical record of the snapshot at original-handoff time.
+
+---
+
 ## §0 — Boot sequence
 
 1. Read this doc end-to-end (~3 min).
 2. Skim `docs/SESSION_HANDOFF_2026-05-09_evening.md` top addendum for the lessons-learned narrative (~2 min).
-3. Verify production hasn't drifted: `python -m pytest -q` should hit **1348 passed**.
-4. Confirm repo state: `git log --oneline -15` should start with `24abe82` (Lane 4 P2.OBS.1) — or whatever the latest is if the session has started shipping already.
+3. Verify production hasn't drifted: `python -m pytest -q` should hit **1377 passed**.
+4. Confirm repo state: `git log --oneline -15` should start with `df612d4` or later — or whatever the latest is if the session has started shipping already. (Older snapshot referenced `24abe82` (Lane 4 P2.OBS.1); the 2026-05-09 evening session moved HEAD forward through Lane 3 / #55 / #50 / sponsor outreach commits.)
 5. Check Railway: production should be on `24abe82` or later. Dashboard → app service → Variables — confirm `FEATURE_FLAG_DISCLOSURE_RENDERER=false`, `FEATURE_FLAG_CONFIDENCE_TIER=true`.
 6. Ask the operator (Casey) which thread he wants to start with. §6 below names three viable starting points.
 
