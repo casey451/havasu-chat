@@ -6,7 +6,7 @@
 
 Generates deterministic probe queries for the confabulation evaluation harness by enumerating live Provider/Program catalog rows and applying a fixed template set per row type. This module is the harness's "input fabric": every run record downstream (invoker, detector, report) starts from `Probe` objects emitted here.
 
-Template wording and ordering intentionally mirror `relay/halt1-closure-final-lexicons.md` Section 1; `<n>` replacement is literal and single-pass.
+Template wording is defined inline as Python constants in `app/eval/confabulation_query_gen.py`; `<n>` replacement is literal and single-pass.
 
 ## Public surface
 

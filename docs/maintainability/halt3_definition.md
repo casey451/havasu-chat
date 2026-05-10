@@ -106,7 +106,7 @@ Decision #37 is about the **disclosure renderer's Premier-gating role**, NOT spe
 
 ## §8 — Related missing artifacts (orthogonal but worth tracking)
 
-- **`relay/halt1-closure-final-lexicons.md`** — referenced from `app/eval/confabulation_detector.py` and `confabulation_query_gen.py` but missing from disk. Confabulation harness may still work (lexicons may be hardcoded in code or read from a different location), but the dangling reference is worth a follow-up ticket if it bites during the harness run.
+- **`relay/halt1-closure-final-lexicons.md`** — (closed via #54 — references stripped from `app/eval/confabulation_detector.py` and `confabulation_query_gen.py`; lexicons documented inline as Python constants)
 - **Phase 8.8.6 spec markdown** — pruned per `docs/STATE.md`:215; possibly recoverable via `git log --all --diff-filter=D -- 'docs/**phase*8*'`.
 - **HALT 1 and HALT 2 closure docs** — neither exists on disk. The "HALT 1 governance: owner-reviewed, append-only style updates, no silent drift" pattern is referenced in `docs/confabulation-eval-runbook.md` but no closure artifact remains.
 

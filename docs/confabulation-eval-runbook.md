@@ -71,7 +71,7 @@ Known v1 behavior:
 
 ## Lexicon Governance
 
-- Probe templates, safe framing, Layer 2, and Layer 3 canonicalizer rules are from `relay/halt1-closure-final-lexicons.md`.
+- Probe templates live in `app/eval/confabulation_query_gen.py` (`_PROBES_PROVIDER` etc.); Layer 2 and Layer 3 canonicalizer rules live in `app/eval/confabulation_detector.py`.
 - Any lexicon expansion follows HALT 1 governance: owner-reviewed, append-only style updates, no silent drift.
 
 ## Caveats

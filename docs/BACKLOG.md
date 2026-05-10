@@ -2118,7 +2118,7 @@ Or wait for the cache TTL to expire (check `app/chat/llm_cache.py` for the confi
 
 ---
 
-## Backlog 54 - Dangling docstring references to never-existed `relay/halt1-closure-final-lexicons.md` (**OPEN, low priority**)
+## Backlog 54 - Dangling docstring references to never-existed `relay/halt1-closure-final-lexicons.md` (**CLOSED 2026-05-09**)
 
 **Surfaced by:** Recovery investigation by general-purpose agent (2026-05-09 evening, dispatched in parallel with Lanes 3 and 4).
 
@@ -2138,6 +2138,8 @@ Or wait for the cache TTL to expire (check `app/chat/llm_cache.py` for the confi
 **Priority:** LOW — no broken behavior; cosmetic doc-hygiene fix. Could roll into any future `app/eval/` cleanup lane.
 
 **Filed by:** Cowork primary (2026-05-09 evening, post-recovery-investigation).
+
+**Close-out (2026-05-09):** Investigation confirmed the dangling references never pointed at a real file on any branch — the lexicons (`LAYER2`, `SAFE`, `VGEN`, `QTY`, `_PROBES_PROVIDER`, `_PROBES_PROGRAM`) live as Python constants inline in `app/eval/confabulation_detector.py` and `app/eval/confabulation_query_gen.py`, and the harness never reads any external lexicon file at runtime. Took Option 1 (strip the references): three docstring/comment scrubs in code (`app/eval/confabulation_detector.py:1` module docstring, `app/eval/confabulation_query_gen.py:3` module docstring, `app/eval/confabulation_query_gen.py:38` comment above `_PROBES_PROVIDER`) all rephrased to "defined as Python constants in this module"; four doc cross-reference updates (`docs/confabulation-eval-runbook.md` Lexicon Governance bullet now points at the actual code modules, `docs/components/confabulation_detector.md` Cross-references bullet now says "inlined as Python constants", `docs/components/confabulation_query_gen.md` Purpose paragraph now says "defined inline as Python constants", `docs/maintainability/halt3_definition.md` §8 Related missing artifacts entry now annotated as closed via #54). No app behavior changed — all edits were docstring/comment/doc text only; no code paths, constants, or test fixtures were touched.
 
 ---
 

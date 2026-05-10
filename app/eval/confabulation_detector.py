@@ -1,4 +1,4 @@
-﻿"""Confabulation detector: Layers 1–3. Lexicons: ``relay/halt1-closure-final-lexicons.md``.
+﻿"""Confabulation detector: Layers 1–3. Lexicons and canonicalizer rules are defined as Python constants in this module.
 
 POS tagging uses default Penn tags from ``nltk.pos_tag``.
 

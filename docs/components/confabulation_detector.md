@@ -141,4 +141,4 @@ No environment variables. Behavioral configuration is module constant driven:
 - `app/eval/confabulation_invoker.py`
 - `app/eval/confabulation_evidence.py`
 - `app/eval/confabulation_report.py`
-- Lexicon/spec source cited in module docstring (`relay/halt1-closure-final-lexicons.md`)
+- Lexicon/spec source inlined as Python constants in `app/eval/confabulation_detector.py`

@@ -1,7 +1,7 @@
 """Generate per-row eval probes for the confabulation harness (spec §3.2).
 
-Template strings and ordering follow ``relay/halt1-closure-final-lexicons.md`` Section 1
-literally.  ``<n>`` is replaced once with the row’s display name with no other transforms.
+Probe templates are defined as Python constants in this module. ``<n>`` is replaced once
+with the row’s display name with no other transforms.
 
 **Live rows** (aligned with :mod:`app.chat.tier2_db_query` / browse sampling):
 
@@ -35,7 +35,7 @@ def normalize_row_name_for_include(name: str) -> str:
 
 RowType = Literal["provider", "program"]
 
-# relay/halt1-closure-final-lexicons.md §1 — (template, stable template_id)
+# Probe templates are defined as Python constants in this module — (template, stable template_id)
 _PROBES_PROVIDER: tuple[tuple[str, str], ...] = (
     ("tell me about <n>", "provider_tell_me_about"),
     ("what does <n> offer", "provider_what_offer"),
