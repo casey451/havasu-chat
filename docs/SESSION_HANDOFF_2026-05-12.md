@@ -1,6 +1,8 @@
 # Session Handoff — 2026-05-12 (fresh-session entry point)
 
-**Audience:** the agent picking up where the 2026-05-12 session left off. Today's session shipped one substantive ticket — #64 (confabulation harness v2: emit `category` / `activity_category` in `per_row.csv` + config-driven anchor allowlist) — closing the spec-vs-toolchain gap surfaced by yesterday's HALT 3 close-out template ambiguity-resolution lane. Plus the lockstep alignment of `halt3_closeout.md` to the v2 harness shape. Two commits, one substantive (`aa3abd4`) and one close-out (`426f992`). This doc is your canonical entry point.
+> **⚠️ STRATEGIC PIVOT LANDED THIS SESSION.** Before reading further, read **`docs/STRATEGY_PIVOT_2026-05-12.md`** end-to-end (~5 min). The product is pivoting from chat-first concierge to structured local directory + chat as one of three front doors. That pivot doc is the authoritative strategic-priority signal — when this handoff or `docs/BACKLOG.md` disagrees with it, the pivot doc wins.
+
+**Audience:** the agent picking up where the 2026-05-12 session left off. Today's session shipped one substantive ticket — #64 (confabulation harness v2: emit `category` / `activity_category` in `per_row.csv` + config-driven anchor allowlist) — closing the spec-vs-toolchain gap surfaced by yesterday's HALT 3 close-out template ambiguity-resolution lane. Plus the lockstep alignment of `halt3_closeout.md` to the v2 harness shape. **Then** the session reviewed an external strategic deep-research report (`uploads/deep-research-report.md`) and locked a directory-first pivot — see `STRATEGY_PIVOT_2026-05-12.md`. Three commits, one substantive (`aa3abd4`), one close-out (`426f992`), one handoff (`eb6f2e1`); plus a fourth pending (pivot doc + this handoff update).
 
 **Read time:** ~3 minutes for this doc.
 
@@ -18,12 +20,13 @@
 
 ## §0 — Boot sequence
 
-1. Read this doc end-to-end (~3 min).
-2. Skim `docs/SESSION_HANDOFF_2026-05-11.md` if you want the prior-day narrative.
-3. Confirm repo state: `git log --oneline -5` should start with **`426f992`** (today's close-out) sitting on **`aa3abd4`** (today's #64 ship) on **`4f9a322`** (yesterday's STATE close-out). If origin hasn't been pushed, `git status` will show "Your branch is ahead of 'origin/main' by 2 commits" — that's expected.
-4. Pytest verification (operator-side per Rule 7): `python -m pytest -q` should hit **1422 passed**.
-5. Check Railway: production deployed revision should still be at or behind `54a56b1` — runtime behavior unchanged since then. All 9 commits since `54a56b1` are doc-only, test-only, or eval-tooling-only.
-6. Ask Casey which thread he wants to start with — §7 below names three viable starts.
+1. **Read `docs/STRATEGY_PIVOT_2026-05-12.md` end-to-end first (~5 min).** The product strategy changed materially this session. This handoff and BACKLOG priorities are stale relative to the pivot doc.
+2. Read this doc end-to-end (~3 min) for ship details + state confirmation.
+3. Skim `docs/SESSION_HANDOFF_2026-05-11.md` if you want the prior-day narrative (pre-pivot).
+4. Confirm repo state: `git log --oneline -6` should start with the pivot-doc commit (pending at session close) sitting on **`eb6f2e1`** (handoff doc) on **`426f992`** (#64 close-out) on **`aa3abd4`** (#64 ship) on **`4f9a322`** (yesterday's STATE close-out).
+5. Pytest verification (operator-side per Rule 7): `python -m pytest -q` should hit **1422 passed** (no test changes from the pivot doc).
+6. Check Railway: production deployed revision should still be at or behind `54a56b1` — runtime behavior unchanged since then. All 10+ commits since `54a56b1` are doc-only, test-only, or eval-tooling-only.
+7. Ask Casey which thread he wants to start with — §7 below has been rewritten around the pivot.
 
 ## §1 — One-paragraph project summary
 
@@ -42,6 +45,8 @@ havasu-chat is a local concierge chat product for Lake Havasu City, AZ. Hava (th
 
 1. **`aa3abd4`** — `feat(eval): #64 emit category + activity_category in per_row.csv + config-driven anchor allowlist`. Confabulation harness v2 for HALT 3 close-out tooling. `app/eval/confabulation_report.py::write_per_row_csv` now emits 9 columns with `category` (Provider) and `activity_category` (Program) inserted after `row_name`. The 2-name regression-anchor allowlist moved from inline at the previous `:167-173` to a module-top constant `_DEFAULT_REGRESSION_ANCHORS = ("Aqua Beginnings", "Grace Arts Live")` with governance comments referencing `halt3_definition.md` §6; `write_summary_md(..., *, anchors=...)` accepts an optional tuple override. `scripts/confabulation_eval.py::_probe_name_map()` now returns `dict[str, dict[str, str | None]]`; `_enrich_for_reports` fills `category` / `activity_category` by row type; new `--anchor-set-file PATH` CLI arg reads newline-delimited names with `#`/blank skipping. Ship channel: Cursor (after a v1 brief to CC halted at step-0; see §5 lesson). +5 net-new tests in `tests/test_confabulation_report.py` + minimal fixture updates in `tests/test_confabulation_eval_script.py`.
 2. **`426f992`** — `docs(BACKLOG+STATE+halt3): close out #64 + halt3 v2 alignment`. BACKLOG #64 status flip + ship-log paragraph. STATE.md HEAD/pytest/commits-chain update + new "Recently shipped" entry. `halt3_closeout.md` aligned to v2 harness shape — §2 per_row.csv schema (9 cols), §3.2 anchor-set composition + governance + per-category methodology (read columns directly, no DB join needed), §3.3 per-row offender ranking source (9-col header pin).
+3. **`eb6f2e1`** — `docs(handoff): add 2026-05-12 session handoff entry point`. This doc, in its initial pre-pivot form.
+4. **Pending commit (pivot)** — `docs(strategy): pivot to directory-first + chat-as-one-of-three-doors`. New `docs/STRATEGY_PIVOT_2026-05-12.md` (~210 lines) authored after Casey reviewed an external strategic deep-research report (`uploads/deep-research-report.md`) and locked four strategic answers: directory-first vision is the real target, bootstrapped/revenue-funded, Casey-as-primary-salesperson, pivot-now (pause enrichment as-scoped, redirect operator effort, build category pages). V1 directory category locked: Home Services. This handoff doc updated in lockstep with §0/§3/§7 reflecting the pivot. **Read the pivot doc first** when booting — its §6 backlog re-prioritization supersedes BACKLOG.md priority signals until further notice.
 
 **Deferred / not shipped:**
 
@@ -95,15 +100,34 @@ These two lessons are also captured in the BACKLOG #64 ship-log and STATE.md "Re
 - **50-business enrichment sprint** for top-queried categories (restaurants, plumbers, HVAC, pool service, boat repair, urgent care, auto repair). Toolchain shipped 2026-05-08 + 2026-05-09; operator-facing playbook at `docs/sponsor_outreach/enrichment_sprint_runbook.md`. Casey fills CSVs → validates → dry-runs ingest → applies.
 - **HALT 3 close-out multi-week sequence** — see #53 above.
 
-## §7 — What to do first (recommended starting points)
+## §7 — What to do first (post-pivot)
 
-Three viable threads. No default-recommended order; trade-offs are clear and Casey's bandwidth/priorities decide.
+Read `docs/STRATEGY_PIVOT_2026-05-12.md` first. Its §8 lists 7 open Casey-owned decisions that block the next 2–3 days of work:
 
-**Thread A — smoke catalog ambiguity resolution.** Sub-agent forensics + apply edits + file follow-up tickets if needed. Same shape as yesterday's halt3 lane. Closes a forward-looking spec doc against the eventual flag-flip readiness gate. *Rationale: low operator-keyboard burden; closes hardening work that's been sitting open since 2026-05-10.*
+1. Lock the canonical category taxonomy (12 categories or refined cut)
+2. `Place` model scope for V1 (full or defer to Phase 2)
+3. Account-lite auth provider choice (SendGrid / Resend / Postmark)
+4. Map provider choice (Mapbox / Leaflet+OSM / Google)
+5. Pricing finalization (cold-pitch ground-truth before locking)
+6. Sponsor package SKU naming
+7. `PROJECT.md` and `HAVA_CONCIERGE_HANDOFF.md` rewrites (defer full rewrite; add pivot notices for now)
 
-**Thread B — enrichment sprint kickoff.** Operator-driven; agent is thinking partner / structuring helper. Highest leverage overall (gates Phase 2.5 / HALT 3 close / flag flip / #62). *Rationale: unblocks the most downstream work; only Casey's bandwidth gates it.*
+**Recommended first session post-pivot:** work through decisions 1–4 with Casey via `AskUserQuestion`. Once locked, the next two weeks of work are:
 
-**Thread C — #65 implementation lane prep.** Resolve some of the 7 §8 open questions in the rate-limiter design doc, then dispatch the implementation lane. Casey owns the architectural calls (per-source default QPS, failure-mode policy, observability surface, Phase 2.5 launch concurrency). Could resolve a subset and dispatch under "P1 ships now; P2 questions deferred." *Rationale: forward-looking maintainability work; not blocking but unblocks future Phase 2.5 work.*
+- Schema additions (`Category` model, `category_id` FK on Provider/Program, `Place` model if scoped in, `attributes` JSON on Provider) — Cursor lane, anchored Edits to `app/db/models.py` + Alembic migration
+- Add pivot notices to `PROJECT.md` and `HAVA_CONCIERGE_HANDOFF.md` (small Edits)
+- Re-scope enrichment sprint operator workflow to feed the new structured fields
+
+**Alternative starting threads** (for sessions where Casey isn't available for the open decisions):
+
+- **#65 rate-limiter implementation prep.** Now more urgent under the pivot — directory hits Places API more than chat ever did. Casey-owned §8 questions still gate full ship, but P1 design is clear enough to start the implementation lane in parallel.
+- **#18 repo hygiene continuation.** Ongoing; relevant under either vision.
+
+**Threads to NOT start without Casey explicit go-ahead** (these were promoted in the pre-pivot handoff but are now deprioritized — see pivot doc §6):
+
+- ~~Smoke catalog ambiguity resolution~~ — chat-only concern, deprioritized
+- ~~Enrichment sprint kickoff as originally scoped~~ — needs re-scoping for new directory shape first
+- ~~HALT 3 close-out pre-investigation~~ — chat-surface gating, deprioritized
 
 ## §8 — Reference docs and operational knowledge
 
