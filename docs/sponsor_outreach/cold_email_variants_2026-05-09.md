@@ -3,7 +3,7 @@
 **Companion to:** `docs/sponsor_outreach/cold_email_templates.md` (the generic Hava cold-email template).
 **Source:** ChatGPT, 2026-05-09 evening; reviewed for tone consistency with the existing template.
 **Use:** during the operator enrichment sprint, copy the matching variant for each priority-category business, replace the `[BRACKETS]` placeholders with business-specific personalization, send from a personal email address, track responses.
-**Subject lines:** the urgent-care variant has one; the other three need a subject line added (suggestions inline below each).
+**Subject lines:** the urgent-care variant has a finalized one; the others have suggestion lines inline. Pick the suggestion or write your own before sending.
 
 The deal being pitched: $59/mo Spotlight slot on the home page + chat-result placement when relevant; 30-day money-back guarantee.
 
@@ -89,6 +89,66 @@ Thanks, Casey
 
 ---
 
+## Restaurants
+
+*Subject suggestion: "People searching for dinner in Havasu are bouncing between review apps instead of choosing a restaurant"*
+
+Hi [Business Name],
+
+A few different Hava users this month searched things like "good mexican food open now" and "where's a quiet place to eat with kids tonight." Most of them were trying to make a decision fast without digging through hundreds of reviews and outdated hours.
+
+The problem for restaurants is customers end up stuck comparing Yelp ratings, Google photos from three owners ago, delivery apps, and random Facebook comments. Half the time they stop looking or order somewhere easier to figure out.
+
+I'm building Hava to shortcut that process. We're adding a $59/mo Spotlight slot for a small number of local restaurants so when somebody asks Hava where to eat in Lake Havasu, your business shows up immediately before they start scrolling review sites.
+
+I think [Business Name] would fit well, especially with your [LOCAL FAVORITE STATUS / FAMILY OWNERSHIP / SIGNATURE DISH / OUTDOOR PATIO].
+
+30-day trial, $59 the first month — reply "yes" and I'll set it up Monday.
+
+Thanks, Casey
+
+---
+
+## Boat repair
+
+*Subject suggestion: "Boat owners in Havasu are searching for same-day repair help before weekends"*
+
+Hi [Business Name],
+
+A few different Hava users this month searched things like "boat repair near me open saturday" and "who can fix a jet ski today." Most of them were trying to get back on the water before friends or family showed up for the weekend.
+
+The problem for boat-repair shops is those customers usually end up calling marinas one by one, sorting through old Google listings, and guessing who actually has parts or availability. Whoever answers first usually gets the job.
+
+I'm building Hava to shortcut that process. We're adding a $59/mo Spotlight slot for a small number of local marine-repair businesses so when somebody asks Hava for boat repair in Lake Havasu, your business shows up immediately before they start calling around.
+
+I think [Business Name] would fit well, especially with your [FACTORY-AUTHORIZED MERCURY/YAMAHA SERVICE / WEEKEND HOURS / MOBILE REPAIR / DECADES IN HAVASU].
+
+30-day trial, $59 the first month — reply "yes" and I'll set it up Monday.
+
+Thanks, Casey
+
+---
+
+## Auto repair
+
+*Subject suggestion: "Havasu drivers searching for trustworthy mechanics are defaulting to whoever answers first"*
+
+Hi [Business Name],
+
+A few different Hava users this month searched things like "check engine light came on havasu" and "ac stopped working in my car." Most of them were sitting in a parking lot or driveway trying to figure out who they could actually trust to call.
+
+The problem for auto shops is customers usually bounce between Google reviews, dealer service departments, chain shops, and random price quotes without knowing who's reputable. Shops with real experience and certifications get buried next to everybody else.
+
+I'm building Hava to shortcut that process. We're adding a $59/mo Spotlight slot for a small number of local auto-repair businesses so when somebody asks Hava for a mechanic in Lake Havasu, your business shows up immediately before they start comparing listings.
+
+I think [Business Name] would fit well, especially with your [ASE CERTIFICATION / WOMAN-OWNED / BBB ACCREDITED / SPECIALIZES IN DOMESTIC OR IMPORT].
+
+30-day trial, $59 the first month — reply "yes" and I'll set it up Monday.
+
+Thanks, Casey
+
+---
+
 ## Personalization placeholders — quick reference
 
 | Email | Placeholder | Source for fill-in |
@@ -97,6 +157,9 @@ Thanks, Casey
 | HVAC | `[FAST RESPONSE / FAMILY-OWNED / LOCAL YEARS IN BUSINESS]` | Business website "About" page / NPI registry / Better Business Bureau profile |
 | Pool service | `[LONGTIME LOCAL PRESENCE / CONSISTENT REVIEWS / WEEKLY ROUTE COVERAGE]` | Founding year on business website / Google rating + review count / "service areas" page |
 | Urgent care | `[EXTENDED HOURS / WALK-IN AVAILABILITY / TOURIST-FRIENDLY LOCATION]` | Hours section of website / "no appointment needed" language / proximity to the channel + bridge tourist hotspots |
+| Restaurants | `[LOCAL FAVORITE STATUS / FAMILY OWNERSHIP / SIGNATURE DISH / OUTDOOR PATIO]` | Google reviews mentioning a specific dish or "best in havasu" / "About" page family story / Yelp photos showing patio + signage |
+| Boat repair | `[FACTORY-AUTHORIZED MERCURY/YAMAHA SERVICE / WEEKEND HOURS / MOBILE REPAIR / DECADES IN HAVASU]` | Business website "Brands" or "Services" page / posted hours / Google reviews mentioning "came out to the dock" / founding year on About page |
+| Auto repair | `[ASE CERTIFICATION / WOMAN-OWNED / BBB ACCREDITED / SPECIALIZES IN DOMESTIC OR IMPORT]` | ASE storefront badge + Yelp business attributes / BBB profile / "Services" page brand specialization |
 
 ## Send protocol
 
