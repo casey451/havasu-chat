@@ -31,7 +31,7 @@ Records what running the confabulation harness produced under the post-flip post
   - `scripts/confabulation_eval_results/halt3-baseline/summary.md` — gating rate by flag, top offenders, top gating tokens (L2+L3), Layer 1 advisory section, tier split, regression anchors (gating only)
   - `scripts/confabulation_eval_results/halt3-baseline/per_row.csv` — `row_id`, `row_name`, `total_runs`, `included_runs`, `gating_runs_with_hit`, `advisory_token_count`, `top_3_gating_tokens`
   - `scripts/confabulation_eval_results/halt3-baseline/runs.jsonl` — per-run probe / response / evidence / split hits / latency / tier / exclusion flags
-- **Mirrored to relay** (for cross-reference from this artifact): [FILL: confirm whether copies were also placed at `relay/halt3-baseline-summary.md` etc., or whether the canonical paths above are the only copy]
+- **Mirrored to relay:** None. The harness (`scripts/confabulation_eval.py`) writes only to `--output-dir`; no relay mirroring is performed. The canonical paths under `scripts/confabulation_eval_results/halt3-baseline/` are the only copy. Operator may optionally `Copy-Item` `summary.md` into `relay/` for cross-reference, but it is not authoritative.
 - **Run-environment notes:** [FILL: alembic head SHA at run time, Python version, harness git SHA, any `--include`/`--exclude`/`--limit` overrides (none expected for baseline), env-var overrides]
 - **Inclusion-policy reminder** (per runbook §v1 summary inclusion policy): denominator is **Tier 2 always + Tier 3 only when at least one Layer 2 hit fires**. Tier 1 runs are excluded (`tier_1_no_formatter`). Tier 3 runs with no Layer 2 hits are excluded (`tier_3_no_layer2_hits`). Layer 1 is advisory and does not feed the headline. — [FILL: confirm `excluded_reason` distribution from `runs.jsonl` matches expectations]
 
@@ -53,10 +53,11 @@ Each band: definition, baseline measurement, threshold set during this close, pa
 ### §3.2 — Anchor regression
 
 - **Definition:** percentage of curated anchor probes (queries with known correct answers in the post-enrichment catalog) that produce wrong-entity, null-where-correct, or gating-where-correct responses. Source: `summary.md` "regression anchors (gating only)" section. Per strategy doc §1.1, this is **per-category** with tighter thresholds for emergency / high-stakes categories.
-- **Anchor set composition:** [FILL: count of anchor probes; source file — likely `app/eval/confabulation_query_gen.py::_PROBES_PROVIDER` (and program/event variants) or a curated `relay/halt3-anchor-set.txt` if separately maintained — verify which is canonical at close time]
-- **Anchor set governance note:** anchor set is governed by HALT 1 (owner-reviewed, append-only, no silent drift) per `confabulation-eval-runbook.md` §Lexicon Governance. — [FILL: confirm no anchor-set churn between baseline and close]
+- **Anchor set composition:** Canonical anchor list is hard-coded in `app/eval/confabulation_report.py::write_summary_md` lines 167-173 as a two-name allowlist: `Aqua Beginnings` (Provider) and `Grace Arts Live` (Program). These names are matched case-insensitively against `row_name`. No `relay/halt3-anchor-set.txt` exists; `_PROBES_PROVIDER` / `_PROBES_PROGRAM` define the probe templates applied to every live row, not the anchor allowlist. Per-category regression at §3.2 granularity is a post-process step against `per_row.csv` joined to `Provider.category` — not produced by the v1 harness; tracked as #64 (harness v2 follow-up).
+- **Anchor set governance note:** anchor set (the two-name allowlist) is governed by HALT 1 (owner-reviewed, append-only, no silent drift) per `confabulation-eval-runbook.md` §Lexicon Governance. Confirm `app/eval/confabulation_report.py` lines 167-173 are unchanged between baseline run SHA and close-out SHA.
 - **Sequencing precondition** (per `halt3_definition.md` §3): anchor regression cannot be calibrated against an empty `Provider` table; enrichment sprint must have populated rows. — [FILL: confirm enrichment §1 above passed]
 - **Baseline measurement:** [FILL: <regressions> / <anchors> = <percentage> overall; per-category table below]
+- **Per-category methodology:** The v1 harness does not emit a category dimension in `per_row.csv` or `summary.md`. To populate the table below, join `per_row.csv.row_id` against `Provider.category` (and equivalent for `Program`) in the production DB — or, once #64 (harness v2) ships, read the new `category` column directly from `per_row.csv`. The seven categories are the operator-enrichment-sprint categories (`halt3_definition.md` §6.1): restaurants, plumbers, HVAC, pool service, boat repair, urgent care, auto repair. Emergency-tagged categories per strategy doc §1.1: plumbers, urgent care.
 
 | Category | Anchors | Regressions | Rate | Threshold set | Result |
 |---|---|---|---|---|---|
@@ -74,8 +75,8 @@ Each band: definition, baseline measurement, threshold set during this close, pa
 ### §3.3 — Catalog flagging
 
 - **Definition:** percentage of catalog rows (from the top-50 enriched businesses set per Phase 1 close criteria) that the harness flagged as confabulation-prone via repeated gating hits. Source: `per_row.csv`.
-- **Per-row offender ranking source:** column `gating_runs_with_hit` in `per_row.csv` (per `confabulation-eval-runbook.md` §Artifacts); `top_3_gating_tokens` provides the qualitative signal per row. — [FILL: confirm column name still matches at close time, in case runbook updated]
-- **Flagging cutoff used:** [FILL: e.g., "any row with `gating_runs_with_hit` ≥ 2 of 3 runs is flagged" — verify with runbook or set at close]
+- **Per-row offender ranking source:** column `gating_runs_with_hit` in `per_row.csv` (per `confabulation-eval-runbook.md` §Artifacts); `top_3_gating_tokens` provides the qualitative signal per row. Column names are hard-coded in `app/eval/confabulation_report.py::write_per_row_csv` lines 42-52 as the literal header `row_id, row_name, total_runs, included_runs, gating_runs_with_hit, advisory_token_count, top_3_gating_tokens`; spot-check the generated CSV header matches this exactly.
+- **Flagging cutoff used:** `gating_runs_with_hit >= 2` (majority of the three runs at `--runs=3`). Rationale: the runbook §Reading Results ("identify rows with repeated hits") and the strategy-doc phrasing both imply more-than-once; single-run-only hits are typical noise and should not flag.
 - **Baseline measurement:** [FILL: <flagged rows> / <top-50 enriched rows> = <percentage>]
 - **Top 5 flagged rows:** [FILL: row_name + gating_runs_with_hit + top_3_gating_tokens for each]
 - **Threshold set:** ≤ [FILL: percentage cap on top-50 enriched]. Above this, FAIL.
