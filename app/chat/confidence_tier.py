@@ -50,7 +50,9 @@ class ConfidenceTier(str, Enum):
 
 
 # Verification-method canonical values, mirrored from
-# ``Provider.verification_method`` (Lane S1, revision f7e8d9c0b1a2).
+# ``Provider.verification_method`` (Lane S1, revision f7e8d9c0b1a2; expanded
+# by Lane 3 / P2.BL.45, revision c5d6e7f8a9b0, to admit the operator-vocab
+# set below).
 # Source-of-truth for which strings the classifier knows; anything else
 # is treated as "unknown method" and falls through to LOW.
 METHOD_MANUAL = "manual"
@@ -59,8 +61,31 @@ METHOD_OWNER_CONFIRMED = "owner_confirmed"
 METHOD_NPI_REGISTRY = "npi_registry"
 METHOD_NONE = "none"
 
+# Operator enrichment vocab (Lane 3 / P2.BL.45). Semantic refinements of
+# the legacy ``manual`` / ``owner_confirmed`` paths — operator-trust
+# methods that share the same 30/90-day banding as those legacy values.
+METHOD_PHONE_CALL = "phone_call"
+METHOD_IN_PERSON = "in_person"
+METHOD_WEB_FORM_SUBMISSION = "web_form_submission"
+METHOD_EMAIL_CONFIRMATION = "email_confirmation"
+
+# Convenience tuple — the operator-vocab methods grouped together so the
+# HIGH and MEDIUM bands below stay single-line ``in`` checks.
+_OPERATOR_VOCAB_METHODS: tuple[str, ...] = (
+    METHOD_PHONE_CALL,
+    METHOD_IN_PERSON,
+    METHOD_WEB_FORM_SUBMISSION,
+    METHOD_EMAIL_CONFIRMATION,
+)
+
 _KNOWN_METHODS: frozenset[str] = frozenset(
-    {METHOD_MANUAL, METHOD_SCRAPER, METHOD_OWNER_CONFIRMED, METHOD_NPI_REGISTRY}
+    {
+        METHOD_MANUAL,
+        METHOD_SCRAPER,
+        METHOD_OWNER_CONFIRMED,
+        METHOD_NPI_REGISTRY,
+        *_OPERATOR_VOCAB_METHODS,
+    }
 )
 
 # Threshold table (spec §1.2). Centralized so a future policy revision
@@ -173,8 +198,12 @@ def classify_confidence(
     - ``manual`` ≤ 30 days → HIGH
     - ``scraper`` ≤ 7 days → HIGH
     - ``npi_registry`` ≤ 30 days → HIGH
+    - operator vocab (``phone_call`` / ``in_person`` /
+      ``web_form_submission`` / ``email_confirmation``, Lane 3
+      / P2.BL.45) ≤ 30 days → HIGH
     - ``scraper`` ≤ 30 days → MEDIUM
-    - ``manual`` / ``owner_confirmed`` / ``npi_registry`` ≤ 90 days → MEDIUM
+    - ``manual`` / ``owner_confirmed`` / ``npi_registry`` /
+      operator vocab ≤ 90 days → MEDIUM
     - else → LOW ("older than threshold")
     """
     last_verified_at = getattr(record, "last_verified_at", None)
@@ -236,6 +265,16 @@ def classify_confidence(
             method=method,
             rationale="NPI-registry validated within 30 days",
         )
+    # Lane 3 / P2.BL.45 operator vocab: same 30-day HIGH cutoff as
+    # ``owner_confirmed`` / ``manual`` (these are semantic refinements
+    # of those legacy methods, not a separate trust class).
+    if method in _OPERATOR_VOCAB_METHODS and age <= _HIGH_OWNER_DAYS:
+        return ConfidenceAssessment(
+            tier=ConfidenceTier.HIGH,
+            age_days=age,
+            method=method,
+            rationale="operator-verified within 30 days",
+        )
 
     # ── MEDIUM bands
     if method == METHOD_SCRAPER and age <= _MEDIUM_SCRAPER_DAYS:
@@ -246,7 +285,13 @@ def classify_confidence(
             rationale="scraped within 30 days",
         )
     if (
-        method in (METHOD_MANUAL, METHOD_OWNER_CONFIRMED, METHOD_NPI_REGISTRY)
+        method
+        in (
+            METHOD_MANUAL,
+            METHOD_OWNER_CONFIRMED,
+            METHOD_NPI_REGISTRY,
+            *_OPERATOR_VOCAB_METHODS,
+        )
         and age <= _MEDIUM_TRUSTED_DAYS
     ):
         return ConfidenceAssessment(

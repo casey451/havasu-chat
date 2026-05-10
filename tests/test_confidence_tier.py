@@ -90,6 +90,85 @@ def test_high_npi_registry_within_30_days() -> None:
     assert result.age_days == 20
 
 
+# ─────────── operator-vocab methods (Lane 3 / P2.BL.45) ───────────
+#
+# Migration ``c5d6e7f8a9b0_expand_verification_method_constraint`` admits
+# four operator-facing values into ``providers.verification_method``:
+# ``phone_call``, ``in_person``, ``web_form_submission``,
+# ``email_confirmation``. The classifier treats them as semantic
+# refinements of the ``manual`` / ``owner_confirmed`` legacy paths —
+# same 30-day HIGH cutoff and 90-day MEDIUM cutoff. These tests pin the
+# recognition (no fallthrough to "unknown verification method") and the
+# tier mapping for every new value.
+
+
+_OPERATOR_VOCAB = (
+    "phone_call",
+    "in_person",
+    "web_form_submission",
+    "email_confirmation",
+)
+
+
+@pytest.mark.parametrize("method", _OPERATOR_VOCAB)
+def test_operator_vocab_recognized_not_unknown(method: str) -> None:
+    """Each operator-vocab value is in ``_KNOWN_METHODS`` and never lands in
+    the unknown-method LOW branch — this is the regression Backlog #55 fixes."""
+    assert method in ct._KNOWN_METHODS
+    rec = _record(last_verified_at=_ago(5), verification_method=method)
+    result = classify_confidence(rec, now=_FIXED_NOW)
+    assert result.method == method
+    assert result.rationale != "unknown verification method"
+
+
+@pytest.mark.parametrize("method", _OPERATOR_VOCAB)
+def test_operator_vocab_high_within_30_days(method: str) -> None:
+    """Recent operator-verified rows (≤ 30 days) land in HIGH."""
+    rec = _record(last_verified_at=_ago(5), verification_method=method)
+    result = classify_confidence(rec, now=_FIXED_NOW)
+    assert result.tier == ConfidenceTier.HIGH
+    assert result.age_days == 5
+    assert result.rationale == "operator-verified within 30 days"
+
+
+@pytest.mark.parametrize("method", _OPERATOR_VOCAB)
+def test_operator_vocab_high_at_30_day_boundary(method: str) -> None:
+    """``≤ 30`` is inclusive for operator vocab, matching the legacy bands."""
+    rec = _record(last_verified_at=_ago(30), verification_method=method)
+    result = classify_confidence(rec, now=_FIXED_NOW)
+    assert result.tier == ConfidenceTier.HIGH
+    assert result.age_days == 30
+
+
+@pytest.mark.parametrize("method", _OPERATOR_VOCAB)
+def test_operator_vocab_medium_31_to_90_days(method: str) -> None:
+    """Operator vocab past 30 days but within 90 falls to MEDIUM, like manual."""
+    rec = _record(last_verified_at=_ago(60), verification_method=method)
+    result = classify_confidence(rec, now=_FIXED_NOW)
+    assert result.tier == ConfidenceTier.MEDIUM
+    assert result.age_days == 60
+    assert result.rationale == "verified within 90 days"
+
+
+@pytest.mark.parametrize("method", _OPERATOR_VOCAB)
+def test_operator_vocab_low_past_90_days(method: str) -> None:
+    """Operator vocab past 90 days drops to LOW with the stale rationale —
+    not the unknown-method rationale (the regression Backlog #55 guards against)."""
+    rec = _record(last_verified_at=_ago(120), verification_method=method)
+    result = classify_confidence(rec, now=_FIXED_NOW)
+    assert result.tier == ConfidenceTier.LOW
+    assert result.age_days == 120
+    assert result.rationale == "older than threshold"
+
+
+def test_KNOWN_METHODS_covers_full_operator_vocab() -> None:
+    """Sanity check: every operator-vocab value from migration
+    ``c5d6e7f8a9b0`` is registered as a known method, in lock-step with
+    the DB CHECK constraint."""
+    for method in _OPERATOR_VOCAB:
+        assert method in ct._KNOWN_METHODS, f"{method!r} missing from _KNOWN_METHODS"
+
+
 # ─────────── MEDIUM-tier cases ───────────
 
 
