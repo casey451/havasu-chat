@@ -196,9 +196,7 @@ def test_ingest_inserts_new_provider(tmp_path: Path, isolated_provider: str) -> 
         assert p.category == "home_services"
         assert p.phone == "9284440133"
         assert p.email == "owner@havasupoolpros.example"
-        # `phone_call` (operator vocab) maps to `manual` in DB (DB enforces a
-        # CHECK constraint on a smaller vocabulary).
-        assert p.verification_method == "manual"
+        assert p.verification_method == "phone_call"
         assert p.last_verified_at is not None
         # TZAwareDateTime always returns aware datetimes in LAKE_HAVASU_TZ.
         assert p.last_verified_at.tzinfo is not None

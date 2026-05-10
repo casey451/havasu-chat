@@ -88,6 +88,10 @@ class Provider(Base):
     last_verified_at: Mapped[datetime | None] = mapped_column(
         TZAwareDateTime(), nullable=True
     )
+    # CHECK ck_providers_verification_method — nullable string; allowed values are
+    # NULL or one of: manual, scraper, owner_confirmed, npi_registry, none,
+    # phone_call, in_person, web_form_submission, email_confirmation (see migration
+    # c5d6e7f8a9b0; legacy five values predate operator enrichment CSV vocab).
     verification_method: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     # BUILD.md step 2: editorial "Hava's pick" flag. Hand-curated via DB

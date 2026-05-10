@@ -1607,7 +1607,7 @@ Pytest collection on the file was momentarily blocked during CC's verification r
 
 ---
 
-## Backlog 45 - Expand `verification_method` CHECK constraint to preserve operator audit fidelity (**OPEN**)
+## Backlog 45 - Expand `verification_method` CHECK constraint to preserve operator audit fidelity (**RESOLVED 2026-05-09**)
 
 **Context:** Phase 1 schema (Lane S1, migration `f7e8d9c0b1a2`) added `Provider.verification_method` with a CHECK constraint `verification_method IN ('manual', 'scraper', 'owner_confirmed', 'npi_registry', 'none')`. The operator enrichment tooling (`scripts/ingest/ingest_enrichment_csv.py`, shipped 2026-05-08) uses operator-friendly vocab `{phone_call, in_person, web_form_submission, email_confirmation}` in the CSV and maps lossy to the DB enum (`phone_call`/`in_person` → `manual`; web/email → `owner_confirmed`). Audit fidelity loss: phone vs in-person verification becomes indistinguishable in the DB.
 
@@ -1623,6 +1623,8 @@ Pytest collection on the file was momentarily blocked during CC's verification r
 **Precondition:** None — independent of all current in-flight lanes.
 
 **Priority:** Phase 2 cleanup. Not blocking flag flip; not blocking the 50-business sprint.
+
+**Resolution:** Migration `c5d6e7f8a9b0` expands `ck_providers_verification_method`; ingest writes operator CSV values verbatim. Downgrade to the legacy five-value CHECK requires remapping or clearing any row still using the four operator-only tokens. Details: ship log — **P2.BL.45** (below).
 
 **Filed by:** Cowork primary (2026-05-08); decision recorded against the operator enrichment tooling agent's flag.
 
@@ -2130,4 +2132,30 @@ Or wait for the cache TTL to expire (check `app/chat/llm_cache.py` for the confi
 **Priority:** LOW — no broken behavior; cosmetic doc-hygiene fix. Could roll into any future `app/eval/` cleanup lane.
 
 **Filed by:** Cowork primary (2026-05-09 evening, post-recovery-investigation).
+
+---
+
+## Ship log — P2.BL.45: expand `verification_method` CHECK + ingest writes operator vocab (**SHIPPED P2.BL.45**)
+
+**Problem:** Enrichment ingest mapped CSV `phone_call` / `in_person` / `web_form_submission` / `email_confirmation` into the legacy five-value CHECK vocabulary lossy (`manual` / `owner_confirmed`), so operator audit trails could not distinguish phone vs in-person verification in the database.
+
+**Change:**
+
+- `alembic/versions/c5d6e7f8a9b0_expand_verification_method_constraint.py` — `down_revision` `b4c5d6e7f8a9`; replaces `ck_providers_verification_method` with a constraint allowing the legacy five values plus `phone_call`, `in_person`, `web_form_submission`, `email_confirmation`.
+- `scripts/ingest/ingest_enrichment_csv.py` — removed `_VERIFICATION_METHOD_DB_MAP`; `_row_to_payload` binds stripped CSV `verification_method` directly.
+- `app/db/models.py` — comment on `Provider.verification_method` documents CHECK-allowed values and points at migration `c5d6e7f8a9b0`.
+- `templates/enrichment/README.md` — column docs updated (no lossy mapping).
+- `tests/test_enrichment_ingestion.py` — ingest insert assertion expects `phone_call` in DB.
+
+**Downgrade caveat:** `alembic downgrade` past `c5d6e7f8a9b0` fails if any `providers.verification_method` row contains `phone_call`, `in_person`, `web_form_submission`, or `email_confirmation`; remap or NULL those values first.
+
+**Verification:**
+
+- `python -m alembic upgrade head` → `python -m alembic downgrade -1` → `python -m alembic upgrade head` (clean cycle on fresh SQLite).
+- `python -m pytest tests/test_enrichment_ingestion.py -q` → 16 passed.
+- Full suite: `python -m pytest -q` → ≥1341 passed.
+
+**Closes:** Backlog #45 (P2.BL.45).
+
+**Filed by:** Cursor (Lane 3 / P2.BL.45, 2026-05-09).
 

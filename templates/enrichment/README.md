@@ -46,13 +46,10 @@ your first batch.
   - `web_form_submission` — the owner filled out a verification form
   - `email_confirmation` — the owner replied to your email confirming details
 
-  Note: the database itself stores a smaller vocabulary
-  (`manual`, `owner_confirmed`, etc.) enforced by a CHECK constraint. The
-  ingest script automatically maps the operator-friendly value into the
-  DB value on write (`phone_call` and `in_person` -> `manual`;
-  `web_form_submission` and `email_confirmation` -> `owner_confirmed`).
-  Use the operator-friendly value in the CSV — the validator only accepts
-  those four.
+  The database stores this same value on the Provider row (CHECK constraint
+  allows these four plus legacy pipeline values such as `manual`, `scraper`,
+  `owner_confirmed`, `npi_registry`, `none`). Use the operator-friendly value
+  in the CSV — the validator only accepts those four.
 
 ## Allowed category slugs
 
