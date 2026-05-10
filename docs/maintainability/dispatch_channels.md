@@ -1,0 +1,175 @@
+# Dispatch channels — operator playbook
+
+This document is the *how-to* companion to `docs/maintainability/dispatch_protocol.md` (which covers the 12 working-agreement rules). Use this doc when picking which channel to route a piece of work to and how to write the prompt. Use the protocol doc when you're about to do something with `git`, edit a shared file, or run a smoke test.
+
+---
+
+## The five channels
+
+You (the Cowork primary) have five effective ways to get work done. The first four are paste-based or operator-mediated; the fifth is direct.
+
+### 1. Cursor — focused single-file edits
+
+**Best for:** bounded code changes with precise scope. Single-file or small multi-file lanes. Schema migrations. Operator scripts. Anything where the diff should be small and reviewable.
+
+**Pattern:** you write a self-contained dispatch prompt → operator (Casey) pastes it into a fresh Cursor chat → Cursor returns a text report → Casey pastes the report back to you → you review the diff and propose the commit recipe.
+
+**Strengths:** anchored-Edit-friendly, executes cleanly when scope is well-defined, good at "do exactly this and report back."
+
+**Weaknesses:** occasionally ships pragmatic deviations from the dispatch and reports them at the end (re-read for "deviation" callouts before integrating). Has been observed bundling unrelated working-tree changes into commits despite explicit constraints (the *absorption pattern* documented in `2026-05-10_absorption_forensics.md`). Solution: instruct Cursor to report ship-log entry text rather than editing `BACKLOG.md` directly; you add the entry after the commit lands.
+
+**Prompt anatomy:**
+1. Context (1-2 paragraphs — what's the ticket, what's the production state, what's blocked elsewhere)
+2. Scope (numbered steps, files to touch, files to leave alone)
+3. Constraints (anchored Edit only, don't run `git add -A`, don't push, don't amend)
+4. Report format (files modified, tests added, pytest before/after, SHA, ship-log text)
+
+**Recent example dispatches** (look at the corresponding ship-log entry in `BACKLOG.md` for the executed result):
+- `#50` (matcher floor) — single-file edit
+- `#56` (UTF-8 wire test) — single new test file
+- `#57 + #59` bundle — two related tickets in one prompt
+
+### 2. Claude Code — heavy multi-file lanes
+
+**Best for:** multi-file refactors, audit lanes, comprehensive test-suite generation, architectural investigations. Anything where "investigate first, then ship" is the right shape.
+
+**Pattern:** same paste-based as Cursor.
+
+**Strengths:** handles multi-file scope without losing the thread. Strong at "investigate this and propose a fix" lanes. Comprehensive test coverage. Proactive about halt-and-report when scope is unclear (this is good behavior — encourage it explicitly in your prompts).
+
+**Weaknesses:** can over-investigate when given an unbounded prompt. Brief-baseline-staleness pattern: pytest counts and SHAs in dispatch briefs go stale during execution; CC has flagged this 4+ times. Mitigation: instruct CC to run `git pull && pytest -q --collect-only | tail -1` as brief step 0 to confirm the actual baseline at execution time.
+
+**Prompt anatomy:** same as Cursor, plus:
+- Multi-phase scope: investigation → design → implementation → tests → commit
+- Halt-and-report etiquette: tell CC explicitly when to stop. Investigation phases should always allow stopping if scope is bigger than expected. The session 2026-05-10 #51 and #56 ships are good models — both halted appropriately.
+
+**Recent example dispatches:**
+- `#51` (UTF-8 charset patches) — investigation + halt-and-report (turned out to be smoke-harness encoding artifact, not an app bug)
+- `#58` (delegating-entry floor coverage) — investigation + ship
+- chat-route integration test — halted with 4 scoping decisions, shipped reduced scope
+
+### 3. ChatGPT — pure prose, no codebase access
+
+**Best for:** anything that doesn't need codebase access. Cold-email drafts, FAQ writing, operator-facing documentation, brainstorming, market research, copy editing.
+
+**Pattern:** you write the prompt → Casey pastes to ChatGPT → ChatGPT returns text → you write to file via the Write tool, polishing markdown structure on the way in.
+
+**Strengths:** fast, no file-access overhead. Good at structured creative work when given clear voice/format anchors.
+
+**Weaknesses:**
+- Cannot read codebase, cannot verify product reality. Use `[CASEY: confirm <fact>]` placeholders in prompts for facts ChatGPT can't ground.
+- Tends to skip markdown structure (no `#`/`##`/`---`) — always do a polish pass on save.
+- Auto-appends tracking parameters to URLs (e.g., `?utm_source=chatgpt.com`) — strip them.
+- Drifts toward marketing speak ("amazing," "thrilled," "excited") — explicitly ban these in the prompt.
+
+**Prompt anatomy:**
+1. Context (1-2 sentences — what's this for, who reads it)
+2. Voice anchor — paste an excerpt of existing prose that matches the target voice; tell ChatGPT to match it exactly
+3. Output requirements (sections, length, tone)
+4. Constraints (no exclamation points, no marketing speak, sign-off conventions, fact-check placeholders)
+
+**Recent example dispatches:**
+- Three new cold-email variants (restaurants, boat repair, auto repair) — voice-matched against existing variants
+- Reply handlers (yes/no/questions/follow-up) — operator-facing email templates
+- End-user FAQ — first content under `docs/user_facing/`
+- Lake Havasu seasonality calendar — operator reference for sprint pacing
+
+### 4. Sub-agents — your Agent tool
+
+**Best for:** parallel verification, code review, voice-battery / adversarial testing, doc audits, recovery investigations, forward-looking forensics.
+
+**Pattern:** you dispatch directly via your `Agent` tool with a self-contained prompt. The agent runs in its own context window and returns a text report. **No operator round-trip needed.**
+
+**Strengths:** parallel work that doesn't block the main conversation. Has full file tools + bash. Good at "go investigate X and report back." Can write files, but should be instructed not to (the operator's commit workflow expects deliberate staging).
+
+**Weaknesses:**
+- Burns YOUR context (the agent's report comes into your context). For long sessions this adds up.
+- Parallel commits can race the operator's git workflow. Always instruct sub-agents not to run any git operations.
+- Multiple sub-agents in parallel can race each other on shared files. Stay in non-overlapping file domains.
+
+**Prompt anatomy:**
+1. Context (current production HEAD, pytest baseline, what's already in flight elsewhere)
+2. Scope (file domain — explicit allowlist of files the agent may touch)
+3. What NOT to touch (every other file, especially files other in-flight lanes are using)
+4. Constraints (no git operations, use Read with Windows-side paths preferred, anchored Edit only)
+5. Report format (what to return as text)
+
+**Recent example dispatches:**
+- Cross-`docs/` reference audit (subsumed `#54`) — read-only forensics
+- Post-enrichment smoke catalog draft — forward-looking artifact
+- HALT 3 close-out template — forward-looking artifact
+- Absorption-pattern forensics + Rule 13 candidate — recommendation was DON'T add Rule 13
+
+### 5. Yourself — direct file tools
+
+**Best for:** small docs edits, `BACKLOG.md` status flips after a ship lands, anchored Edits to known files, writing prose ChatGPT just produced.
+
+**Pattern:** Read first if needed, then Edit/Write directly.
+
+**Strengths:** zero operator burden, immediate feedback.
+
+**Weaknesses:** burns your context if reading large files. The bash mount is unreliable for `git` operations (Rule 7 of dispatch protocol — Linux mount serves stale views; Windows-side Read is authoritative).
+
+---
+
+## Picking a channel
+
+| Work shape | Channel |
+|---|---|
+| Single-file edit, code | Cursor |
+| Multi-file lane / audit / heavy investigation | Claude Code |
+| Pure prose, no codebase needed | ChatGPT |
+| Parallel verification or read-only forensics | Sub-agent |
+| Tiny doc edit / `BACKLOG.md` status flip / append a paragraph | Yourself |
+
+**When in doubt:** start with a sub-agent investigation lane. Read-only investigation reveals the right channel for the actual ship.
+
+---
+
+## Multi-channel parallel dispatch
+
+You can run multiple sub-agents in parallel by sending a single message with multiple `Agent` tool calls — they execute concurrently. Casey-paste channels (Cursor, Claude Code, ChatGPT) run sequentially via Casey's keyboard; he pastes one prompt at a time.
+
+**Realistic parallel topology** (proven on session 2026-05-10):
+- 1 Cursor lane in flight + 1 Claude Code lane in flight + 1 ChatGPT prompt awaiting paste + 1-4 sub-agents running concurrently from your message.
+
+**Constraints when running multiple lanes:**
+- Each lane in a different file domain (no two lanes touching the same file).
+- Each lane instructed not to touch `BACKLOG.md` (you consolidate ship-log entries after commits land).
+- Sub-agents instructed not to run git operations.
+- Casey's commit boundaries are sequential — he commits one lane at a time as reports come in.
+
+---
+
+## Common gotchas
+
+**1. `BACKLOG.md` absorption.** Agents instructed not to touch `BACKLOG.md` sometimes commit it anyway when their `git add` stages working-tree changes implicitly. Substance is correct (the entries are right), history is messy. Mitigation: instruct agents to *report* ship-log entry text rather than editing `BACKLOG.md`; you add it after their commits land. Forensic memo: `docs/maintainability/2026-05-10_absorption_forensics.md`.
+
+**2. Brief baseline staleness.** Dispatch briefs say "pytest baseline 1391, HEAD `f990488`" but by the time the agent runs, other lanes have committed. Pytest count and HEAD have moved. Mitigation: instruct the agent to confirm baseline at execution time with `git pull && pytest -q --collect-only | tail -1`.
+
+**3. PowerShell encoding.** `Invoke-RestMethod -Body` defaults to ISO-8859-1. Always include `-ContentType "application/json; charset=utf-8"` in PowerShell smoke calls. See dispatch protocol Rule 4 + Rule 5.
+
+**4. Bash mount staleness.** The Linux bash mount serves stale `.git` views — `git log`, `git status`, `wc -l` on `/sessions/.../havasu-chat/...` all unreliable. Use the Read tool with Windows-side paths (`C:\Users\casey\projects\havasu-chat\...`) — those are authoritative. See dispatch protocol Rule 7.
+
+**5. `git commit --amend` while parallel lanes are in flight.** Don't. The amend will rewrite the most recent commit, which may not be yours. Dispatch protocol Rule 12 — added 2026-05-10 after the `#50`/`#51` git wrinkle.
+
+**6. ChatGPT URL tracking parameter.** ChatGPT auto-appends `?utm_source=chatgpt.com` when it inlines URLs. Always strip on save.
+
+**7. Sub-agent context burn.** Each sub-agent report comes back into your context window. After 4-5 sub-agent runs, your context is meaningfully fuller. Plan accordingly — for long sessions, prefer Cursor/CC/ChatGPT (whose contexts don't burn yours) over sub-agents.
+
+---
+
+## Working agreements
+
+The 12 hard-won rules live in `docs/maintainability/dispatch_protocol.md`. Read them once, then reference them by number in dispatch prompts when relevant. Today's session added Rule 12 (amend-safety); the `2026-05-10_absorption_forensics.md` memo includes a Rule 13 candidate that was *not* added (verdict: N=1, low severity, cure already implicit in Rule 2).
+
+---
+
+## When to escalate to a fresh chat
+
+You're a Cowork primary running a long session. Eventually context burn matters. Heuristic:
+- After 4-5 sub-agent dispatches, your context is meaningfully fuller.
+- After 10+ paste-channel round-trips, you've absorbed a lot of state.
+- When a fresh handoff doc has just been authored, that's a natural starting point for a new agent — using it validates the handoff actually works.
+
+When you escalate: write a fresh handoff doc capturing today's work (or update the existing one), then tell Casey the new chat should boot from `docs/SESSION_BOOT_PROMPT.md` + the latest `docs/SESSION_HANDOFF_<date>.md`.
