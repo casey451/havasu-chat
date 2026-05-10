@@ -2328,3 +2328,27 @@ Add corresponding test cases to `tests/test_confidence_tier.py` covering each ne
 
 **Filed by:** Cowork primary (2026-05-10, post-#52 ship review).
 
+---
+
+## Backlog 63 - Project-wide LLM-mock policy + remaining chat-route integration coverage (**OPEN, MEDIUM**)
+
+**Surfaced by:** CC's halt-and-report on the chat-route integration suite ship (2026-05-10 evening). Phase 2 first-week test coverage audit identified "no integration tests at the chat-route boundary" as a systematic gap; the initial integration ship covered the LLM-independent paths (#50 floor regression, empty-query 422 validation, Tier 1 happy path with seeded provider) but deferred the LLM-coupled paths because the project does not yet have a stable HTTP-route LLM-mock pattern.
+
+**The decisions this ticket gates:**
+
+1. Should HTTP-route tests that need LLM-shaped responses follow `tests/test_disclosure_render_integration.py`'s `@patch("app.core.llm_messages.OpenAI")` pattern, or a different approach (e.g., a project-wide `llm_mock` fixture in `conftest.py`, or environment-variable-controlled stubbing)? Project-wide stance.
+2. Once policy is set, ship the deferred coverage: Tier 2 listing path + Tier 3 fallthrough path + #49 cache contract (raw text storage at `LlmResponseCache` with `_enforce_low_tier_phone` post-process at serve time) + #52 superlative-routing behavior + #55 confidence-tier integration surface in the HTTP response.
+
+**Recommended fix:** decide (1) once, file the pattern as a brief operator-facing reference note in `docs/maintainability/`, then ship the deferred coverage in a single follow-up Cursor or CC lane.
+
+**Priority:** MEDIUM — the gap exists but the LLM-independent paths (the most fragile boundary cases) are now covered.
+
+**Architectural learnings worth preserving from CC's halt-and-report and ship:**
+
+- **Tier-1 family on a resolved entity is structurally `{1, 2}`, not `{1, gap_template}`.** Once the matcher resolves an entity (`intent_result.entity` non-empty), `gap_template` is structurally unreachable per `app/chat/unified_router.py:137`. The route either succeeds at Tier 1 (concrete data found, `tier_used == "1"`) or falls through to Tier 2 LLM (`tier_used == "2"`). CC's initial Tier 1 happy-path test failed with `tier_used == "2"` because the seed had no `phone` field — Tier 1 returned None and the route fell through. Fixed by adding `phone="(928) 555-0100"` (NANP fictional range) to the seed and asserting strictly. The strict pin catches future seed-helper drift.
+- **`_enrich_entity_from_db` calls `refresh_entity_matcher(db)` unconditionally on every chat-route request** (`app/chat/unified_router.py:509`, no `if _rows is None` guard). Integration tests don't need manual `refresh_entity_matcher` after seeding — the route does it. Worth knowing for the LLM-coupled tests this ticket gates.
+
+**Filed by:** Cowork primary (2026-05-10, post-CC halt-and-report on integration test ship).
+
+**Initial integration suite SHA:** `109c7ac` — `tests/test_chat_route_integration.py`, 3 LLM-independent tests (1409 → 1412 passed). Commit message: `test(chat-route): chat-route integration test suite (closes Phase 2 audit's systematic gap, scope reduced; LLM-coupled deferrals → #63)`.
+
