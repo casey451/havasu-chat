@@ -85,6 +85,21 @@ class Provider(Base):
     last_google_scraped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     zip: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    # Directory pivot V1 (2026-05-13): structured category FK alongside the
+    # legacy string `category` column (line 36). Nullable until backfill
+    # ticket lands. See docs/STRATEGY_PIVOT_2026-05-12.md §8.1.
+    category_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("categories.id"), nullable=True, index=True
+    )
+    # Directory pivot V1: operator-curated structured attributes (e.g. service
+    # area, sub-trade, emergency-service flag). Distinct from
+    # `raw_enrichment_json` which is the raw scraper dump. Nullable.
+    attributes: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Directory pivot V1: district label (e.g. "English Village", "Downtown")
+    # for Eat & Drink category page filtering. String column rather than a
+    # first-class Place row per pivot §8.2 (Place model deferred to Phase 2).
+    district: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
     last_verified_at: Mapped[datetime | None] = mapped_column(
         TZAwareDateTime(), nullable=True
     )
@@ -103,6 +118,10 @@ class Provider(Base):
 
     programs: Mapped[list["Program"]] = relationship(back_populates="provider")
     events: Mapped[list["Event"]] = relationship(back_populates="provider")
+
+    category_ref: Mapped["Category | None"] = relationship(
+        "Category", foreign_keys=[category_id]
+    )
 
 
 class FieldHistory(Base):
@@ -280,6 +299,12 @@ class Program(Base):
     provider_id: Mapped[str | None] = mapped_column(
         String, ForeignKey("providers.id"), nullable=True
     )
+    # Directory pivot V1 (2026-05-13): structured category FK alongside the
+    # legacy string `activity_category` column (line 267). Nullable until
+    # backfill ticket lands. See docs/STRATEGY_PIVOT_2026-05-12.md §8.1.
+    category_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("categories.id"), nullable=True, index=True
+    )
     show_pricing_cta: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     cost_description: Mapped[str | None] = mapped_column(Text, nullable=True)
     schedule_note: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -295,6 +320,10 @@ class Program(Base):
     )
 
     provider: Mapped["Provider | None"] = relationship(back_populates="programs")
+
+    category_ref: Mapped["Category | None"] = relationship(
+        "Category", foreign_keys=[category_id]
+    )
 
 
 class Contribution(Base):
@@ -536,4 +565,25 @@ class Sponsor(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
         nullable=False,
+    )
+
+
+class Category(Base):
+    """Directory taxonomy — V1 cut of 12 canonical categories.
+
+    Locked 2026-05-13 per docs/STRATEGY_PIVOT_2026-05-12.md §8.1. Coexists
+    with the legacy free-text Provider.category and Program.activity_category
+    string columns; backfill and deprecation are deferred to future tickets.
+    The 12 seed rows are inserted by the directory_v1_schema Alembic
+    migration; `slug` is the stable identifier for application code.
+    """
+
+    __tablename__ = "categories"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    slug: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
     )
