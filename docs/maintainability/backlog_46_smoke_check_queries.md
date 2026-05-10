@@ -96,6 +96,8 @@ These test pre-matcher normalization, NOT the #46 fix itself. If they fail, file
 | E2 | `MUDSHARK BREWERY` | Match (case-tolerant) |
 | E3 | `múdshärk bréwery` | Match OR safely None (accent handling) |
 
+> **E3 layer note (post-#51):** the wire-level encoding concern is precondition-met by the `; charset=utf-8` clause documented at lines 9–11 above; this row now exercises only the matcher-side accent-folding behavior, not the Starlette body-parse path.
+
 ---
 
 ## Pass/fail recording

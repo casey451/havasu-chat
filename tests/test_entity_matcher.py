@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.chat.entity_matcher import (
     _MIN_QUERY_LENGTH,
+    _needles_for_canonical,
     _normalize_for_match,
     extract_catalog_entities_from_text,
     find_near_match,
@@ -182,6 +183,18 @@ class MinimumQueryLengthFloorTests(unittest.TestCase):
         self.assertIsNotNone(hit)
         assert hit is not None
         self.assertEqual(hit[0], self._CANON)
+
+    def test_needles_for_canonical_does_not_apply_query_side_floor(self) -> None:
+        """Pin the index-side invariant: ``_needles_for_canonical`` deliberately
+        calls ``normalize`` (not ``_normalize_for_match``), so 3-char curated
+        aliases like ``"mtb"`` (in ``CANONICAL_EXTRAS`` for "Lake Havasu Mountain
+        Bike Club") are still indexed. The floor is a query-side gate, never an
+        index-side filter — a future "consistency-fix" pass that collapses the
+        index-side ``normalize`` call to ``_normalize_for_match`` would silently
+        drop the 3-char aliases and break short-query matches like ``"mtb"``.
+        This test would catch that regression."""
+        needles = _needles_for_canonical("Lake Havasu Mountain Bike Club")
+        self.assertIn("mtb", needles)
 
 
 class MinimumQueryLengthFloorEntryPointTests(unittest.TestCase):
