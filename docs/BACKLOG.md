@@ -2025,15 +2025,17 @@ Or wait for the cache TTL to expire (check `app/chat/llm_cache.py` for the confi
 
 ---
 
-## Backlog 51 - Accent-bearing queries return HTTP 400 instead of normalized match (**OPEN, low priority**)
+## Backlog 51 - Accent-bearing queries return HTTP 400 instead of normalized match (**CLOSED 2026-05-09 — not-a-bug, smoke harness encoding**)
 
 **Surfaced by:** Lane 1 post-deploy smoke catalog (2026-05-09 Class E3): query `múdshärk bréwery` returned HTTP 400. Smoke doc allowed "Match OR safely None"; 400 is more aggressive than either acceptable outcome.
 
-**Recommended fix:** Either (1) NFD-normalize and strip combining marks at chat-route boundary so `múdshärk` → `mudshark`, or (2) return 422 with friendly_errors message instead of bare 400.
+**Recommended fix (initial, before investigation):** Either (1) NFD-normalize and strip combining marks at chat-route boundary so `múdshärk` → `mudshark`, or (2) return 422 with friendly_errors message instead of bare 400.
 
 **Priority:** LOW — orthogonal to Lane 1; pre-existing preprocessing concern.
 
 **Filed by:** Cowork primary (2026-05-09, Lane 1 post-deploy verification).
+
+**Close-out (2026-05-09):** Investigation showed the 400 was a smoke-harness artifact, not an app bug. PowerShell's `Invoke-RestMethod -Body` defaults to ISO-8859-1 / Windows-1252 when no charset is in `-ContentType`, so `múdshärk bréwery` was serialized as latin-1 bytes (0xFA 0xE4 0xE9). Those are invalid UTF-8 — Starlette's body parser rejected them with `400 {"detail":"There was an error parsing the body"}` before any FastAPI route handler ran. A well-formed UTF-8 request with the same accented string returns 200 today (TestClient repro confirms: latin-1 → 400, UTF-8 → 200, Windows-1252 → 400, pure ASCII → 200). Fix was a `; charset=utf-8` clause added to every active `Invoke-RestMethod` snippet under `docs/` (the canonical smoke catalog plus four other runbooks: `phase1_deploy_runbook.md` ×5, `dispatch_protocol.md` ×2, `phase2_first_week_dispatch.md` ×1) plus an explanatory note in `backlog_46_smoke_check_queries.md` so the bug doesn't get re-introduced. No app code changes. Shipped in `fix(docs): #51 patch PowerShell smoke snippets to send UTF-8` on `main` — `git log --grep='#51'` to locate the commit SHA.
 
 ---
 

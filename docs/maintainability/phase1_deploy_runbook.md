@@ -246,7 +246,7 @@ A generic-category query exercises the Tier-2-fallback and Tier 3 paths. With bo
 
 ```powershell
 Invoke-RestMethod -Method Post -Uri "https://havasu-chat-production.up.railway.app/api/chat" `
-  -ContentType "application/json" `
+  -ContentType "application/json; charset=utf-8" `
   -Body '{"query":"find a plumber","session_id":"smoke-1"}'
 ```
 
@@ -363,7 +363,7 @@ A live `POST /api/chat` with a query that hits a known stale row exercises the L
 
 ```powershell
 Invoke-RestMethod -Method Post -Uri "https://havasu-chat-production.up.railway.app/api/chat" `
-  -ContentType "application/json" `
+  -ContentType "application/json; charset=utf-8" `
   -Body '{"query":"<query that hits a known-stale row>","session_id":"ct-smoke-1"}'
 ```
 
@@ -424,7 +424,7 @@ Save → Railway redeploys. Wait for green.
 
    ```powershell
    Invoke-RestMethod -Method Post -Uri "https://havasu-chat-production.up.railway.app/api/chat" `
-     -ContentType "application/json" `
+     -ContentType "application/json; charset=utf-8" `
      -Body '{"query":"I need a plumber","session_id":"dr-smoke-1"}'
    ```
 
@@ -434,7 +434,7 @@ Save → Railway redeploys. Wait for green.
 
    ```powershell
    Invoke-RestMethod -Method Post -Uri "https://havasu-chat-production.up.railway.app/api/chat" `
-     -ContentType "application/json" `
+     -ContentType "application/json; charset=utf-8" `
      -Body '{"query":"Best plumber for older Toyotas","session_id":"dr-smoke-2"}'
    ```
 
@@ -444,7 +444,7 @@ Save → Railway redeploys. Wait for green.
 
    ```powershell
    Invoke-RestMethod -Method Post -Uri "https://havasu-chat-production.up.railway.app/api/chat" `
-     -ContentType "application/json" `
+     -ContentType "application/json; charset=utf-8" `
      -Body '{"query":"plumber right now","session_id":"dr-smoke-3"}'
    ```
 

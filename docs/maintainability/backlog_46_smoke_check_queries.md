@@ -6,9 +6,11 @@
 
 ```powershell
 Invoke-RestMethod -Method Post -Uri "https://havasu-chat-production.up.railway.app/api/chat" `
-  -ContentType "application/json" `
+  -ContentType "application/json; charset=utf-8" `
   -Body '{"query":"<paste query here>","session_id":"smoke-46-N"}'
 ```
+
+> **Why `; charset=utf-8`:** PowerShell's `-Body` defaults to ISO-8859-1 / Windows-1252 when no charset is in `-ContentType`. Accented or non-ASCII characters serialized this way produce invalid UTF-8 bytes that Starlette rejects with HTTP 400 (`{"detail":"There was an error parsing the body"}`) before any app code runs. The `; charset=utf-8` clause forces PowerShell to honor UTF-8 — surfaced by Class E3 (`múdshärk bréwery`); see Backlog #51 close-out.
 
 For the connector-word bypass cases, "Expected: None / no entity match" means the response should **not** name the wrong canonical (e.g. should not say "I think you meant Ross Dress for Less" or auto-dispatch to Number One Nails). A safe gap response or a generic "I'm not sure which business you mean" is correct.
 

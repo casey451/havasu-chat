@@ -19,7 +19,7 @@ Before dispatching anything:
    Expect: **1327 passed**. If different, `git log --oneline -10` to see what changed.
 3. Verify production hasn't drifted (Railway dashboard for deploy SHA + a quick smoke):
    ```powershell
-   Invoke-RestMethod -Method Post -Uri "https://havasu-chat-production.up.railway.app/api/chat" -ContentType "application/json" -Body '{"query":"find a plumber","session_id":"boot-1"}'
+   Invoke-RestMethod -Method Post -Uri "https://havasu-chat-production.up.railway.app/api/chat" -ContentType "application/json; charset=utf-8" -Body '{"query":"find a plumber","session_id":"boot-1"}'
    ```
    Expect: HTTP 200, response with `tier_used: 2`, NO `Sponsored` text, NO `recommend calling to confirm`. If either flag-on artifact appears, check Railway env vars before doing anything else.
 4. Ask the operator (Casey) which lane to start with. The order in §3 below is opinionated but he overrides.
