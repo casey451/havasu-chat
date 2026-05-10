@@ -617,6 +617,43 @@ def _provider_id_for_name(db: Session, provider_name: str) -> str:
     return name
 
 
+# Backlog #50: minimum-length floor at matcher entry points.
+#
+# Smoke catalog Class C2 (2026-05-08) flagged that single-char queries like
+# ``"a"`` fuzzy-match short canonical prefixes (``"A & A Electronics
+# Assembly"``, etc.) and produce wrong-entity Tier 1 answers. Pre-existing
+# behavior — not a regression — but a hard floor at the matcher boundary is
+# the cleanest fix.
+#
+# Centralized in :func:`_normalize_for_match` rather than duplicated at each
+# entry. All four direct entry points (``extract_catalog_entities_from_text``,
+# ``match_entity_with_ambiguity``, ``find_near_match``, ``match_entity_with_rows``)
+# already call ``normalize(query)`` followed by ``if not norm: return …``;
+# swapping ``normalize`` for ``_normalize_for_match`` is a one-line change per
+# site and gives us a single source of truth for the floor + the
+# normalize-then-floor ordering. ``match_entity`` and
+# ``query_has_ambiguous_entities`` delegate to ``match_entity_with_ambiguity``,
+# so they inherit the floor for free.
+_MIN_QUERY_LENGTH = 3
+
+
+def _normalize_for_match(query: str) -> str:
+    """Normalize and apply the ≥3-char minimum-length floor (Backlog #50).
+
+    Returns the normalized query when it carries at least
+    :data:`_MIN_QUERY_LENGTH` chars of content. Returns ``""`` otherwise —
+    callers already treat empty-string normalize output as the "no match"
+    signal (``if not norm: return …``), so the floor is transparent to them.
+
+    Floor is applied AFTER ``normalize()`` so whitespace-padded short queries
+    like ``"  a  "`` (which normalize to a 1-char string) are also blocked.
+    """
+    norm = normalize(query)
+    if len(norm) < _MIN_QUERY_LENGTH:
+        return ""
+    return norm
+
+
 def extract_catalog_entities_from_text(text: str, db: Session) -> list[EntityMatch]:
     """Return all catalog **providers** mentioned in *text* with fuzzy score strictly above 75.
 
@@ -628,7 +665,7 @@ def extract_catalog_entities_from_text(text: str, db: Session) -> list[EntityMat
         refresh_entity_matcher(db)
     assert _rows is not None
 
-    norm = normalize(text)
+    norm = _normalize_for_match(text)
     if not norm:
         return []
 
@@ -674,7 +711,7 @@ def match_entity_with_ambiguity(
         refresh_entity_matcher(db)
     assert _rows is not None
 
-    norm = normalize(query)
+    norm = _normalize_for_match(query)
     if not norm:
         return None, False
 
@@ -742,7 +779,7 @@ def find_near_match(query: str, db: Session) -> tuple[str, float] | None:
         refresh_entity_matcher(db)
     assert _rows is not None
 
-    norm = normalize(query)
+    norm = _normalize_for_match(query)
     if not norm:
         return None
 
@@ -778,7 +815,7 @@ def query_has_ambiguous_entities(query: str, db: Session) -> bool:
 
 def match_entity_with_rows(query: str, canonical_names: Sequence[str]) -> tuple[str, float] | None:
     """Match *query* against an explicit list of canonical provider names (no DB)."""
-    norm = normalize(query)
+    norm = _normalize_for_match(query)
     if not norm:
         return None
     best_canon: str | None = None

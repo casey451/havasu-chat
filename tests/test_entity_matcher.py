@@ -6,7 +6,10 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from app.chat.entity_matcher import (
+    _MIN_QUERY_LENGTH,
+    _normalize_for_match,
     extract_catalog_entities_from_text,
+    find_near_match,
     match_entity,
     match_entity_with_rows,
     refresh_entity_matcher,
@@ -98,6 +101,158 @@ class EntityMatcherRowsTests(unittest.TestCase):
         text = path.read_text(encoding="utf-8")
         self.assertIn("DATE_LOOKUP", text)
         self.assertGreater(len([ln for ln in text.splitlines() if "|" in ln and not ln.strip().startswith("#")]), 80)
+
+
+# ─────────── Backlog #50 — minimum-length floor at matcher entry ───────────
+#
+# Smoke catalog Class C2 (2026-05-08): single-char queries like ``"a"`` fuzzy-
+# matched short canonical prefixes ("A & A Electronics Assembly", …). Fix:
+# ``_MIN_QUERY_LENGTH = 3`` floor centralized in
+# ``entity_matcher._normalize_for_match`` and used by every entry point.
+#
+# These tests pin the floor behavior across the four direct entry points and
+# the helper itself. Floor is applied AFTER ``normalize()``, so whitespace-only
+# / whitespace-padded short queries are also blocked.
+
+
+class MinimumQueryLengthFloorTests(unittest.TestCase):
+    """DB-free coverage via :func:`match_entity_with_rows` — the simplest entry
+    point to exercise the floor in isolation. Parameterized over the six cases
+    called out in the task scope."""
+
+    _CANON = "Lake Havasu City BMX"
+
+    def test_normalize_for_match_returns_empty_for_short_input(self) -> None:
+        """Sanity check on the helper: short or empty input → empty string,
+        so callers' existing ``if not norm: return …`` guards trigger."""
+        self.assertEqual(_normalize_for_match(""), "")
+        self.assertEqual(_normalize_for_match("  "), "")
+        self.assertEqual(_normalize_for_match("a"), "")
+        self.assertEqual(_normalize_for_match("ab"), "")
+        # Whitespace-padded short input must also fail the floor — that's the
+        # "post-normalize" contract: ``"  a  "`` normalizes to ``"a"`` (1 char)
+        # and is rejected, even though the raw string was 5 chars long.
+        self.assertEqual(_normalize_for_match("  a  "), "")
+        # ≥3 chars of content → identity passthrough (post-normalize).
+        self.assertEqual(_normalize_for_match("bmx"), "bmx")
+        self.assertEqual(_normalize_for_match("BMX"), "bmx")
+        self.assertEqual(_normalize_for_match("  bmx  "), "bmx")
+
+    def test_min_query_length_constant_is_three(self) -> None:
+        """Pin the floor at 3. Lowering it would re-open the C2 smoke regression;
+        raising it would silently drop legitimate ``"bmx"`` / ``"mtb"`` / ``"dbr"``
+        queries. A future tweak should be deliberate, not accidental."""
+        self.assertEqual(_MIN_QUERY_LENGTH, 3)
+
+    def test_floor_blocks_subthreshold_queries_via_match_entity_with_rows(self) -> None:
+        """Each subthreshold query must return ``None`` from
+        :func:`match_entity_with_rows`. Six cases per the task scope."""
+        cases = [
+            ("empty string", ""),
+            ("pure whitespace", "   "),
+            ("single char", "a"),
+            ("two chars", "ab"),
+            ("whitespace + 1 char (post-normalize check)", "  a  "),
+            ("whitespace + 2 chars (post-normalize check)", "  ab  "),
+        ]
+        for label, query in cases:
+            with self.subTest(label=label, query=repr(query)):
+                self.assertIsNone(
+                    match_entity_with_rows(query, [self._CANON]),
+                    msg=f"floor should block {label!r}",
+                )
+
+    def test_three_char_query_passes_floor_and_reaches_match_logic(self) -> None:
+        """At-floor queries (≥3 chars post-normalize) must reach scoring. ``"bmx"``
+        is a curated alias for ``Lake Havasu City BMX`` and exists specifically as
+        a short-query positive case."""
+        hit = match_entity_with_rows("bmx", [self._CANON])
+        self.assertIsNotNone(hit, "3-char query 'bmx' must clear the floor and match")
+        assert hit is not None
+        self.assertEqual(hit[0], self._CANON)
+        self.assertGreater(hit[1], 75.0)
+
+    def test_three_char_query_via_whitespace_padding_passes_floor(self) -> None:
+        """``"  bmx  "`` normalizes to a 3-char string and must NOT be blocked
+        by the floor. Pins the post-normalize ordering: the floor reads the
+        normalized length, not the raw input length."""
+        hit = match_entity_with_rows("  bmx  ", [self._CANON])
+        self.assertIsNotNone(hit)
+        assert hit is not None
+        self.assertEqual(hit[0], self._CANON)
+
+
+class MinimumQueryLengthFloorEntryPointTests(unittest.TestCase):
+    """Lock down the floor at every direct entry point, not just
+    :func:`match_entity_with_rows`. Backlog #50 added the same floor to
+    :func:`extract_catalog_entities_from_text`,
+    :func:`match_entity` (via :func:`match_entity_with_ambiguity`), and
+    :func:`find_near_match` — these tests prevent silent drift if a future
+    refactor reintroduces a per-entry ``normalize`` call that bypasses the
+    helper."""
+
+    def setUp(self) -> None:
+        reset_entity_matcher()
+        self._ids: list[str] = []
+
+    def tearDown(self) -> None:
+        with SessionLocal() as db:
+            for pid in self._ids:
+                row = db.get(Program, pid)
+                if row is not None:
+                    db.delete(row)
+            db.commit()
+        reset_entity_matcher()
+
+    def test_match_entity_floor_on_subthreshold_queries(self) -> None:
+        canon = "Lake Havasu City BMX"
+        with SessionLocal() as db:
+            self._ids.append(_insert_program(db, canon))
+            refresh_entity_matcher(db)
+            for label, query in (
+                ("single char", "a"),
+                ("two chars", "ab"),
+                ("whitespace + 1 char", "  a  "),
+                ("empty", ""),
+            ):
+                with self.subTest(label=label, query=repr(query)):
+                    self.assertIsNone(
+                        match_entity(query, db),
+                        msg=f"match_entity must drop {label!r}",
+                    )
+
+    def test_extract_catalog_entities_floor_on_subthreshold_text(self) -> None:
+        canon = "Lake Havasu City BMX"
+        with SessionLocal() as db:
+            self._ids.append(_insert_program(db, canon))
+            refresh_entity_matcher(db)
+            for label, text in (
+                ("single char", "a"),
+                ("two chars", "ab"),
+                ("pure whitespace", "   "),
+            ):
+                with self.subTest(label=label, text=repr(text)):
+                    self.assertEqual(
+                        extract_catalog_entities_from_text(text, db),
+                        [],
+                        msg=f"extract_catalog_entities_from_text must drop {label!r}",
+                    )
+
+    def test_find_near_match_floor_on_subthreshold_queries(self) -> None:
+        canon = "Lake Havasu City BMX"
+        with SessionLocal() as db:
+            self._ids.append(_insert_program(db, canon))
+            refresh_entity_matcher(db)
+            for label, query in (
+                ("single char", "a"),
+                ("two chars", "ab"),
+                ("whitespace + 2 chars", "  ab  "),
+            ):
+                with self.subTest(label=label, query=repr(query)):
+                    self.assertIsNone(
+                        find_near_match(query, db),
+                        msg=f"find_near_match must drop {label!r}",
+                    )
 
 
 class EntityMatcherDbTests(unittest.TestCase):
