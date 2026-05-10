@@ -52,6 +52,12 @@ CANONICAL_EXTRAS: dict[str, list[str]] = {
         "sonics",
         "universal gymnastics",
         "gymnastics place on kiowa",
+        # BACKLOG #52: smoke phrasing — fuzzy baseline alone stays blocked by substring guards.
+        "allstar gym",
+    ],
+    "All Seasons Plumbing": [
+        # BACKLOG #52: superlative open-ended phrasing shares tokens with this needle.
+        "plumber in lake havasu",
     ],
     "Lake Havasu City Aquatic Center": [
         "aquatic center",
@@ -141,6 +147,12 @@ _INCOMPATIBLE_TRADE_PAIRS: tuple[frozenset[str], ...] = (
     frozenset({"electrical", "bmx"}),
     frozenset({"dental", "bmx"}),
     frozenset({"medical", "bmx"}),
+    frozenset({"gymnastics_cheer", "bmx"}),
+    frozenset({"gymnastics_cheer", "trampoline_park"}),
+    frozenset({"gymnastics_cheer", "plumbing"}),
+    frozenset({"gymnastics_cheer", "electrical"}),
+    frozenset({"gymnastics_cheer", "dental"}),
+    frozenset({"gymnastics_cheer", "medical"}),
 )
 
 
@@ -164,6 +176,14 @@ def _trade_cluster_tags(blob: str) -> frozenset[str]:
         tags.add("bmx")
     if re.search(r"\b(restaurant|café|cafe|pizza|coffee shop|brewery|bar)\b", b):
         tags.add("food_service")
+    if re.search(r"\bgymnastics\b", b) or re.search(r"\bgym\b", b):
+        tags.add("gymnastics_cheer")
+    if re.search(r"\bcheerleading\b", b) or re.search(r"\bcheer\b", b):
+        tags.add("gymnastics_cheer")
+    if re.search(r"\btumbling\b", b):
+        tags.add("gymnastics_cheer")
+    if re.search(r"\ball[\s-]?star\b", b) or re.search(r"\ballstar\b", b):
+        tags.add("gymnastics_cheer")
     return frozenset(tags)
 
 
@@ -209,11 +229,30 @@ def _row_supports_trade_intent(q_tags: frozenset[str], row_blob: str) -> bool:
                 r"\b(restaurant|cafe|coffee|pizza|grill|kitchen|brewery|bar|diner)\b", b
             )
         )
+    if "gymnastics_cheer" in q_tags:
+        return bool(
+            re.search(
+                r"\b(gymnastics|gym|cheerleading|cheer|tumbling|all[\s-]?star|allstar)\b",
+                b,
+            )
+        )
     return False
 
 
 def _category_guard_skips_row(norm_query: str, row: _EntityRow) -> bool:
-    """Drop a catalog row from fuzzy contention when trade intent mismatches the row."""
+    """Drop a catalog row from fuzzy contention when trade intent mismatches the row.
+
+    **BACKLOG #52 (trade-superlative bypass):** Lane 1's #47 guard drops rows when the
+    query carries a trade-shaped intent but the candidate row does not *look* like that
+    trade in ``category_blob`` / name tokens — blocking obvious cross-category false
+    positives (plumber vs BMX). Open-ended trade queries ("best plumber", "find a gym")
+    still need eligible **same-trade** rows to survive when both sides map to the same
+    coarse ``_trade_cluster_tags`` bucket (explicit overlap check immediately below).
+
+    **Does not re-open #47:** incompatible-trade pairs (e.g. ``plumbing`` + ``bmx`` on
+    the same candidate union) still return ``True`` (skip) before fuzzy scoring — disjoint
+    tags across query vs row still route through :data:`_INCOMPATIBLE_TRADE_PAIRS`.
+    """
     if _query_explicitly_names_row(norm_query, row):
         return False
     q_tags = _trade_cluster_tags(norm_query)
@@ -221,9 +260,10 @@ def _category_guard_skips_row(norm_query: str, row: _EntityRow) -> bool:
         return False
     row_blob = f"{row.category_blob} {row.canonical} {' '.join(row.needles)}"
     r_tags = _trade_cluster_tags(row_blob)
+    # Same-trade alignment — never skip when tags overlap (#52).
+    if q_tags & r_tags:
+        return False
     if r_tags:
-        if q_tags & r_tags:
-            return False
         union = q_tags | r_tags
         for pair in _INCOMPATIBLE_TRADE_PAIRS:
             if pair <= union:
