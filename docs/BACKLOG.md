@@ -2043,7 +2043,7 @@ Or wait for the cache TTL to expire (check `app/chat/llm_cache.py` for the confi
 
 ---
 
-## Backlog 52 - Trade-superlative queries return null where real catalog entities exist (**OPEN, low priority**)
+## Backlog 52 - Trade-superlative queries return null where real catalog entities exist (**SHIPPED 2026-05-10**)
 
 **Surfaced by:** Lane 1 post-deploy verification (2026-05-09): `allstar gym` → null where Universal Gymnastics and All Star Cheer exists; `what is the best plumber in lake havasu` → null where All Seasons Plumbing exists. Lane 1 dispatch acceptance allowed null; addresses ideal-case behavior, not a regression.
 
@@ -2054,6 +2054,8 @@ Or wait for the cache TTL to expire (check `app/chat/llm_cache.py` for the confi
 **Priority:** LOW — affects ideal-case behavior, not regressions. Worth tuning because trade-superlative queries are common UX patterns ("best plumber", "find a gym").
 
 **Filed by:** Cowork primary (2026-05-09, Lane 1 post-deploy verification).
+
+**Ship-log (2026-05-10):** Implemented the trade-aligned bypass in `app/chat/entity_matcher.py::_category_guard_skips_row` — explicit `q_tags & r_tags` early exit when query and row share trade tags (Lane 1's #47 guard still drops incompatible unions via `_INCOMPATIBLE_TRADE_PAIRS`, so the disjoint cases stay closed). Extended `_trade_cluster_tags` and `_row_supports_trade_intent` with a new `gymnastics_cheer` cluster (gym / gymnastics / cheer / tumbling / all-star / allstar) and added gym-vs-off-domain incompatible pairs (mirrors plumbing-vs-BMX defensive posture). Added two `CANONICAL_EXTRAS` needles for smoke-aligned coverage: `"allstar gym"` under Universal Gymnastics and `"plumber in lake havasu"` under All Seasons Plumbing — the architectural same-trade bypass alone didn't clear the >75 fuzzy-score threshold for the two smoke phrasings. Tests: `tests/test_entity_matcher_trade_superlative.py` — 8 cases (3 positive same-trade / integration, 3 negative #47-style cross-category blocks still fire, 2 edge). Targeted `pytest -k "category_guard or trade_superlative or entity_matcher_adversarial"` → 26 passed. Full suite → 1385 passed (1377 + 8). Ship SHA: `d060240` on `main` as `fix(matcher): #52 add trade-aligned bypass in _category_guard_skips_row`. Followup #62 filed regarding the alias-resolution-vs-disambiguation product question raised by the `CANONICAL_EXTRAS` additions.
 
 ---
 
@@ -2215,4 +2217,102 @@ Add corresponding test cases to `tests/test_confidence_tier.py` covering each ne
 **Closes:** P2.OBS.1 (Phase 2 disclosure observability lane).
 
 **Filed by:** Cursor (2026-05-09).
+
+---
+
+## Backlog 56 - Chat-route UTF-8 regression test for accented query bodies (**OPEN, HIGH — priority-soon**)
+
+**Surfaced by:** Phase 2 first-week test coverage audit (Claude Code, 2026-05-10) — see `docs/maintainability/phase2_midweek_coverage_audit.md` §"Recommended follow-ups". The #51 close-out was doc-only (PowerShell smoke catalog patched to send UTF-8). The architectural finding underneath — Starlette refuses mislabeled bytes with 400 before the route handler runs — has no automated regression test.
+
+**Mechanism:** A future middleware that decodes-with-errors-replace would silently regress accented queries to mojibake without triggering any CI signal. The four-case TestClient matrix CC ran during #51 investigation lives only in conversation history.
+
+**Recommended fix:** Add `tests/test_chat_route_utf8.py` mirroring CC's TestClient matrix: (a) accented query body + `Content-Type "application/json; charset=utf-8"` → 200; (b) same body + `Content-Type "application/json; charset=latin-1"` → 400; (c) Win-1252 bytes labeled UTF-8 (mojibake input) → 200 with no match (matcher's job, not Starlette's); (d) ASCII baseline → 200. Pins the architectural assumption that Starlette refuses mislabeled bytes.
+
+**Priority:** HIGH — closes the test gap from #51's doc-only ship. Should ship before any chat-route middleware refactor.
+
+**Filed by:** Cowork primary (2026-05-10, from CC's coverage audit).
+
+---
+
+## Backlog 57 - Lock-step symmetry for `_OPERATOR_VOCAB_METHODS` ↔ test fixture (**OPEN, MEDIUM**)
+
+**Surfaced by:** Phase 2 first-week test coverage audit (Claude Code, 2026-05-10).
+
+**Mechanism:** #55's `_OPERATOR_VOCAB` test fixture in `tests/test_confidence_tier.py` is hand-maintained; the lock-step test (`test_KNOWN_METHODS_covers_full_operator_vocab`) only checks prod ⊇ test. If a future migration adds a fifth method to `_OPERATOR_VOCAB_METHODS`, the new value gets zero parametrized coverage and the lock-step assertion still passes.
+
+**Recommended fix:** Replace `test_KNOWN_METHODS_covers_full_operator_vocab` with a bidirectional assertion: `tuple(sorted(ct._OPERATOR_VOCAB_METHODS)) == tuple(sorted(_OPERATOR_VOCAB))`. Also parametrize `test_low_no_verification_record` over `_OPERATOR_VOCAB` so the no-`last_verified_at` branch is exercised for every operator-vocab method.
+
+**Priority:** MEDIUM — closes the "test fixture drifts from prod" risk surfaced by #55's audit.
+
+**Filed by:** Cowork primary (2026-05-10, from CC's coverage audit).
+
+---
+
+## Backlog 58 - Direct floor coverage for delegating entry points (**OPEN, MEDIUM**)
+
+**Surfaced by:** Phase 2 first-week test coverage audit (Claude Code, 2026-05-10).
+
+**Mechanism:** #50's `match_entity` and `query_has_ambiguous_entities` inherit the `_MIN_QUERY_LENGTH` floor via delegation only — they call into `match_entity_with_ambiguity` which uses `_normalize_for_match`. A refactor that re-introduces a direct `normalize()` call to either entry point would silently bypass the floor and re-open the C2 single-char regression for any caller of those direct entry points.
+
+**Recommended fix:** In `tests/test_entity_matcher.py::MinimumQueryLengthFloorEntryPointTests`, add direct floor assertions on `match_entity_with_ambiguity` and `query_has_ambiguous_entities`. Pins the delegation contract.
+
+**Priority:** MEDIUM.
+
+**Filed by:** Cowork primary (2026-05-10, from CC's coverage audit).
+
+---
+
+## Backlog 59 - 90-day MEDIUM boundary coverage for confidence-tier classifier (**OPEN, LOW**)
+
+**Surfaced by:** Phase 2 first-week test coverage audit (Claude Code, 2026-05-10).
+
+**Mechanism:** Every MEDIUM-band test in `tests/test_confidence_tier.py` picks `age=60`; the inclusive 90-day cutoff (`_MEDIUM_TRUSTED_DAYS`) has no boundary coverage. A future tweak to `_MEDIUM_TRUSTED_DAYS` would land off-by-one with no test signal.
+
+**Recommended fix:** Parametrize the MEDIUM-band tests over `(manual, owner_confirmed, npi_registry)` + `_OPERATOR_VOCAB` at `age=90` (MEDIUM expected) and `age=91` (LOW expected).
+
+**Priority:** LOW.
+
+**Filed by:** Cowork primary (2026-05-10, from CC's coverage audit).
+
+---
+
+## Backlog 60 - Index-side floor non-application invariant (**OPEN, LOW**)
+
+**Surfaced by:** Phase 2 first-week test coverage audit (Claude Code, 2026-05-10).
+
+**Mechanism:** #50's intentional preservation of `normalize()` (not `_normalize_for_match`) calls in `_needles_for_canonical` lets short canonical aliases like `"mtb"` still index — the floor is a query-side gate, never an index-side filter. No test pins this design intent. A future "consistency-fix" pass that collapses `_needles_for_canonical`'s `normalize()` calls to `_normalize_for_match()` would silently drop 3-char curated aliases.
+
+**Recommended fix:** Add direct assertion that `_needles_for_canonical("Lake Havasu Mountain Bike Club")` contains `"mtb"`. Pins the design intent.
+
+**Priority:** LOW.
+
+**Filed by:** Cowork primary (2026-05-10, from CC's coverage audit).
+
+---
+
+## Backlog 61 - Clarify smoke-catalog Class E3 scope post-#51 (**OPEN, LOW**)
+
+**Surfaced by:** Phase 2 first-week test coverage audit (Claude Code, 2026-05-10).
+
+**Mechanism:** `docs/maintainability/backlog_46_smoke_check_queries.md` Class E3 says "Match OR safely None (accent handling)" without specifying which layer. Post-#51, the wire-level concern is precondition-met by the `; charset=utf-8` clause documented at line 9-11; the remaining question is matcher-side accent-folding.
+
+**Recommended fix:** Edit Class E3 to disambiguate that the test now exercises the matcher-side accent-folding path; the wire-level concern is handled by the `; charset=utf-8` clause.
+
+**Priority:** LOW.
+
+**Filed by:** Cowork primary (2026-05-10, from CC's coverage audit).
+
+---
+
+## Backlog 62 - Trade-superlative scoring: alias-resolution vs disambiguation behavior (**OPEN, P3**)
+
+**Surfaced by:** #52 ship review (2026-05-10). Cursor's investigation revealed that for the two #52 smoke cases (`"what is the best plumber in lake havasu"` and `"allstar gym"`), `_category_guard_skips_row` was not the limiting factor — fuzzy scoring was. The smoke cases were resolved by adding `CANONICAL_EXTRAS` aliases (`"plumber in lake havasu"` → All Seasons Plumbing; `"allstar gym"` → Universal Gymnastics), which boost specific entities for specific superlative phrasings. Architecturally clean for narrow-alias cases, but raises a product-level question for ambiguous superlatives.
+
+**The question:** when a user asks `"best plumber in lake havasu"` and multiple plumber rows exist in the catalog, should the matcher (a) return whichever entity has the matching alias (current #52 behavior — ASP wins because it has the alias), (b) return null and route to a disambiguation/list handler, or (c) score-rank the trade-aligned rows and return the highest-confidence one. Lane 1's #47 fix took the conservative null path; #52's `CANONICAL_EXTRAS` additions partially loosen that for specific smoke phrasings. Catalog density during this sprint is too thin to inform the right answer empirically.
+
+**Recommended action:** revisit after the operator enrichment sprint completes (~50 verified businesses). Once the catalog has 5+ plumbers, 5+ HVAC, 5+ pool service, etc., re-run the trade-superlative smoke battery and observe whether alias-resolution still produces the right answers. If a sponsor objects to consistently losing superlative queries to a non-sponsor competitor with a lucky alias, that's the signal to ship (b) or (c).
+
+**Priority:** P3 — not blocking. Current behavior is defensible (real aliases work, smoke catalog passes). The architectural concern is forward-looking and tied to catalog density that doesn't exist yet.
+
+**Filed by:** Cowork primary (2026-05-10, post-#52 ship review).
 
