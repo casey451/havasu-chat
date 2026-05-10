@@ -1,5 +1,7 @@
 # Phase 1 Deploy Runbook — Operator-facing
 
+**Last refreshed:** 2026-05-09 late evening — alembic head and pytest baseline updated to reflect post-Lane-4 + #50/#51/#55 state.
+
 **Last updated:** 2026-05-08 (Phase 1 keystone close)
 **Reader assumes:** Railway operator, comfortable with `git`, no prior insider knowledge of the Phase 1 internal architecture required.
 **Companion docs:** [`docs/runbook.md`](../runbook.md) (general ops); [`docs/maintainability/disclosure_renderer_spec.md`](disclosure_renderer_spec.md) §7 (spec-side rollout schedule); [`docs/maintainability/confidence_tier_integration_spec.md`](confidence_tier_integration_spec.md) §7 (same); strategy doc `ask-hava-detailed-plan.docx` (off-tree).
@@ -75,7 +77,7 @@ Run these on a clean Windows checkout with the venv active. Each step is mandato
 .\.venv\Scripts\python.exe -m alembic heads
 ```
 
-**Expect:** `b4c5d6e7f8a9 (head)` (Lane S1.1 — timezone-aware temporal columns). The always-aware switch (Backlog #41a-followup, shipped 2026-05-08) is a SQLAlchemy-layer change with no migration, so the head does NOT advance. Anything older than `b4c5d6e7f8a9` means the migration chain is incomplete on this checkout.
+**Expect:** `d6e7f8a9b0c1 (head)` (Lane 4 — disclosure-render telemetry columns). The always-aware switch (Backlog #41a-followup, shipped 2026-05-08) is a SQLAlchemy-layer change with no migration, so the head does NOT advance. Anything older than `d6e7f8a9b0c1` means the migration chain is incomplete on this checkout.
 
 ### 2.3 Round-trip the migration chain
 
@@ -214,7 +216,7 @@ $env:DATABASE_URL = "<paste Railway Postgres URL here>"
 Remove-Item env:DATABASE_URL
 ```
 
-**Expect:** `b4c5d6e7f8a9 (head)`. **Do not log the URL** anywhere; unset the env var as soon as you're done.
+**Expect:** `d6e7f8a9b0c1 (head)`. **Do not log the URL** anywhere; unset the env var as soon as you're done.
 
 **Option B — SQL inspection via `psql`**:
 
@@ -222,7 +224,7 @@ Remove-Item env:DATABASE_URL
 SELECT version_num FROM alembic_version;
 ```
 
-**Expect:** a single row, `version_num = 'b4c5d6e7f8a9'`.
+**Expect:** a single row, `version_num = 'd6e7f8a9b0c1'`.
 
 If the production head lags behind local (e.g. shows `f7e8d9c0b1a2` or older), the deploy didn't run migrations. Check Railway logs for the migration step; the app boots run-on-startup migrations via standard Alembic plumbing.
 
@@ -481,7 +483,7 @@ Sample 10–20 rows manually. **Confirm:**
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-**Expect:** `1314 passed` (or higher if new tests have been added since 2026-05-08).
+**Expect:** `1377 passed` (or higher if new tests have been added since 2026-05-09).
 
 **Known caveat — Backlog #46 (entity-matcher #44 connector-word bypass):** the #44 fix passes all 1314 tests but an independent code-reviewer + voice-battery investigation found two real production wrong-entity matches against the live 2,232-provider catalog: `"sloane number"` → `Number One Nails` (75.9), `"phone for addrss"` → `Ross Dress for Less` (72.7). These are not exercised by the current test suite. **Mitigations:** the affected query patterns are severe typos against needles containing 3-char connector words (`"and"`, `"the"`, `"for"`, `"jiu"`, `"bmx"`); not common queries. **Do not block deploy on this** — file Backlog #46 as the follow-up. See `docs/BACKLOG.md` for the full reproduction recipe and proposed fix.
 
