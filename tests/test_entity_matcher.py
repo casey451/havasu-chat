@@ -11,7 +11,9 @@ from app.chat.entity_matcher import (
     extract_catalog_entities_from_text,
     find_near_match,
     match_entity,
+    match_entity_with_ambiguity,
     match_entity_with_rows,
+    query_has_ambiguous_entities,
     refresh_entity_matcher,
     reset_entity_matcher,
 )
@@ -252,6 +254,55 @@ class MinimumQueryLengthFloorEntryPointTests(unittest.TestCase):
                     self.assertIsNone(
                         find_near_match(query, db),
                         msg=f"find_near_match must drop {label!r}",
+                    )
+
+    def test_match_entity_with_ambiguity_floor_on_subthreshold_queries(self) -> None:
+        """Pins the delegation contract: ``match_entity`` and
+        ``query_has_ambiguous_entities`` inherit the floor via
+        ``match_entity_with_ambiguity``. A future refactor that re-introduces a
+        direct ``normalize()`` call would silently bypass the floor and re-open
+        #50's C2 regression for these direct entry points."""
+        canon = "Lake Havasu City BMX"
+        with SessionLocal() as db:
+            self._ids.append(_insert_program(db, canon))
+            refresh_entity_matcher(db)
+            for label, query in (
+                ("single char", "a"),
+                ("two chars", "ab"),
+                ("whitespace + 1 char", "  a  "),
+                ("whitespace + 2 chars", "  ab  "),
+            ):
+                with self.subTest(label=label, query=repr(query)):
+                    hit, ambiguous = match_entity_with_ambiguity(query, db)
+                    self.assertIsNone(
+                        hit,
+                        msg=f"match_entity_with_ambiguity must drop {label!r}",
+                    )
+                    self.assertFalse(
+                        ambiguous,
+                        msg=f"match_entity_with_ambiguity ambiguous flag must be False on {label!r}",
+                    )
+
+    def test_query_has_ambiguous_entities_floor_on_subthreshold_queries(self) -> None:
+        """Pins the delegation contract: ``match_entity`` and
+        ``query_has_ambiguous_entities`` inherit the floor via
+        ``match_entity_with_ambiguity``. A future refactor that re-introduces a
+        direct ``normalize()`` call would silently bypass the floor and re-open
+        #50's C2 regression for these direct entry points."""
+        canon = "Lake Havasu City BMX"
+        with SessionLocal() as db:
+            self._ids.append(_insert_program(db, canon))
+            refresh_entity_matcher(db)
+            for label, query in (
+                ("single char", "a"),
+                ("two chars", "ab"),
+                ("whitespace + 1 char", "  a  "),
+                ("whitespace + 2 chars", "  ab  "),
+            ):
+                with self.subTest(label=label, query=repr(query)):
+                    self.assertFalse(
+                        query_has_ambiguous_entities(query, db),
+                        msg=f"query_has_ambiguous_entities must return False on {label!r}",
                     )
 
 
