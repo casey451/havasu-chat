@@ -2159,3 +2159,22 @@ Or wait for the cache TTL to expire (check `app/chat/llm_cache.py` for the confi
 
 **Filed by:** Cursor (Lane 3 / P2.BL.45, 2026-05-09).
 
+---
+
+## Backlog 55 - Extend `confidence_tier._KNOWN_METHODS` to recognize new operator-vocab verification methods (**OPEN, low priority follow-up to P2.BL.45**)
+
+**Surfaced by:** Lane 3 / P2.BL.45 review (2026-05-09 evening). The expanded CHECK constraint shipped in migration `c5d6e7f8a9b0` allows `phone_call`, `in_person`, `web_form_submission`, `email_confirmation` to persist in `Provider.verification_method`, but `app/chat/confidence_tier.py::_KNOWN_METHODS` only includes the legacy 5 values (`manual`, `scraper`, `owner_confirmed`, `npi_registry`, `none`). A Provider with the new operator vocab will classify LOW confidence (unknown method) even when the operator's verification method is high-fidelity (e.g. `in_person` is functionally equivalent to a site visit; `phone_call` is an explicit operator-driven owner confirmation).
+
+**Recommended fix:** Extend `_KNOWN_METHODS` (or its scoring map) in `app/chat/confidence_tier.py` to include the operator vocab with appropriate confidence-tier mappings:
+
+- `phone_call` → equivalent to `owner_confirmed` (operator called and confirmed; MEDIUM-HIGH).
+- `in_person` → equivalent to `manual` or higher (operator visited the business; HIGH).
+- `web_form_submission` → equivalent to `manual` (operator filled the web form on owner's behalf; MEDIUM).
+- `email_confirmation` → equivalent to `owner_confirmed` (operator emailed and received confirmation; MEDIUM-HIGH).
+
+Add corresponding test cases to `tests/test_confidence_tier.py` covering each new method.
+
+**Priority:** LOW pre-enrichment-sprint (no Provider rows have the new vocab yet, so the under-classification isn't visible in production). Should ship **before the enrichment sprint completes** — when actual operator-vocab rows start landing in the DB, the confidence-tier classifier will under-rank them, which would cause the CT post-process to over-hedge legitimately verified rows.
+
+**Filed by:** Cowork primary (2026-05-09 evening, post-Lane-3 ship review).
+
