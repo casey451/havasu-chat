@@ -184,6 +184,16 @@ Drawn from report §Monetization design + filtered through "Casey-sells-it cold 
 
 Casey-owned architectural calls. Block the next 2–3 days of work until resolved.
 
+**Status (2026-05-13):** Decisions 1–4 locked this session. Decisions 5–7 still open.
+
+- §8.1 Taxonomy → **LOCKED: 12 as-proposed** (Eat & Drink, Events, Family, Home Services, Health, On the Water, Outdoors & Parks, Shopping, Auto & Gas, Lodging, Pets, Community)
+- §8.2 Place model scope → **LOCKED: defer to Phase 2.** Home Services + Eat & Drink ship business-only first; districts handled via string field on Provider rather than first-class Place rows. Place model returns when parks/ramps/beaches inventory becomes a sponsor priority.
+- §8.3 Account-lite auth provider → **LOCKED: Resend** (cheapest at bootstrapped scale; modern dev UX)
+- §8.4 Map provider → **LOCKED: Leaflet + OSM tiles** (zero cost; adequate polish for V1 directory map)
+- §8.5 Pricing finalization → still open (ground-truth via cold-pitch first)
+- §8.6 Sponsor package SKU naming → still open
+- §8.7 `PROJECT.md` / `HAVA_CONCIERGE_HANDOFF.md` rewrites → pivot-notice banners land this session; substantive rewrites deferred past Day 90
+
 1. **Canonical category taxonomy — lock the 12 (or different cut).** Report suggests: Eat & Drink, Events, Family, Home Services, Health, On the Water, Outdoors & Parks, Shopping, Auto & Gas, Lodging, Pets, Community. Worth reviewing against actual Havasu market shape — maybe consolidate (e.g. Outdoors & Parks ⊃ On the Water?) or split (e.g. Eat & Drink → Restaurants / Bars / Coffee). Lock by Day 7.
 2. **`Place` model scope for V1.** Full non-business entity model (parks, ramps, beaches, districts, dog parks) or defer Place entirely to Phase 2 and ship Home Services + Eat & Drink as business-only first? Home Services doesn't need Place; Eat & Drink could use it for districts (English Village, Downtown).
 3. **Account-lite auth provider.** Magic-link via SendGrid? Resend? Postmark? Cost matters at bootstrapped scale.

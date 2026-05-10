@@ -1,5 +1,7 @@
 # Havasu-chat
 
+> **⚠️ STRATEGIC PIVOT 2026-05-12.** Before reading further, read **`docs/STRATEGY_PIVOT_2026-05-12.md`** end-to-end (~5 min). havasu-chat is pivoting from chat-first concierge to a structured local directory with browse + search + chat as three equal front doors. The chat architecture described below remains accurate as code-level reference; the substantive product narrative rewrite is deferred past Day 90 per pivot §8.7. When this doc disagrees with the pivot doc, the pivot doc wins.
+
 An AI-powered local concierge app for Lake Havasu City. Users ask questions in natural language; the system answers from a community-driven catalog of events, programs, and providers.
 
 ## What it is

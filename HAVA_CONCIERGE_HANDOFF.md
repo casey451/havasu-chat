@@ -1,5 +1,7 @@
 # Hava Concierge — Architecture handoff (repo root)
 
+> **⚠️ STRATEGIC PIVOT 2026-05-12.** Before reading further, read **`docs/STRATEGY_PIVOT_2026-05-12.md`** end-to-end (~5 min). The product is pivoting from chat-first concierge to a structured local directory + chat as one of three front doors. The tier 1/2/3 routing architecture below stays accurate as backend reference; chat is now reframed as one of three front doors rather than the only one. Substantive rewrite is deferred past Day 90 per pivot §8.7. When this doc disagrees with the pivot doc, the pivot doc wins.
+
 **Audience:** Engineers and AI sessions changing routing, retrieval, data shape, or ops.  
 **Companion doc:** **`docs/persona-brief.md`** — canonical **persona, voice, blocklist, and delivery patterns** for Hava. This file does not duplicate that prose; it anchors **architecture, tiers, and “where to look next.”**
 
