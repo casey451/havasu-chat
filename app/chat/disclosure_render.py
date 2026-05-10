@@ -27,6 +27,7 @@ is invoked only when the flag is true. See spec §7 for the migration path.
 
 from __future__ import annotations
 
+import contextvars
 import os
 import re
 from dataclasses import dataclass
@@ -74,6 +75,44 @@ class SponsoredBlock:
     attribution: str
     sponsor_id: str
     regime: PlacementRegime
+
+
+@dataclass(frozen=True)
+class RenderDecision:
+    """Telemetry snapshot for one disclosure render attempt (P2.OBS.1).
+
+    Persisted to ``chat_logs`` via ``contextvars`` — see ``record_decision`` /
+    ``consume_decision``. ``eligible`` encodes whether at least one sponsor
+    passed regime gates for placement; ``tone_allowlist_passed`` is ``True``
+    only when a block was emitted.
+    """
+
+    regime: PlacementRegime
+    eligible: Optional[bool] = None
+    sponsor_id: Optional[str] = None
+    tone_allowlist_passed: Optional[bool] = None
+
+
+_render_decision_ctx: contextvars.ContextVar[Optional[RenderDecision]] = (
+    contextvars.ContextVar("disclosure_render_decision", default=None)
+)
+
+
+def record_decision(decision: RenderDecision) -> None:
+    """Store the latest render decision for the current task (request)."""
+    _render_decision_ctx.set(decision)
+
+
+def consume_decision() -> Optional[RenderDecision]:
+    """Return and clear the stored decision (one-shot for chat log writes)."""
+    current = _render_decision_ctx.get()
+    _render_decision_ctx.set(None)
+    return current
+
+
+def reset_decision_context() -> None:
+    """Clear decision state — call at unified-router request entry."""
+    _render_decision_ctx.set(None)
 
 
 # ─────────── tone allowlist ───────────
@@ -320,6 +359,60 @@ def _check_tone_allowlist(disclosure_word: str, body: str, attribution: str) -> 
     return True
 
 
+# ─────────── telemetry helper (P2.OBS.1) ───────────
+
+
+def _failure_render_decision(
+    regime: PlacementRegime,
+    candidate_sponsors: list[Sponsor],
+    *,
+    query_context: Optional[dict[str, Any]] = None,
+) -> RenderDecision:
+    """Infer ``RenderDecision`` when ``render_sponsored_block`` returns None."""
+    if regime == PlacementRegime.SPECIFIC_QUALITY:
+        return RenderDecision(
+            regime=regime, eligible=False, sponsor_id=None, tone_allowlist_passed=None
+        )
+    if not candidate_sponsors:
+        return RenderDecision(
+            regime=regime, eligible=False, sponsor_id=None, tone_allowlist_passed=None
+        )
+
+    ctx = query_context or {}
+    eligible = [s for s in candidate_sponsors if _eligible(s, regime, ctx)]
+    if not eligible:
+        return RenderDecision(
+            regime=regime, eligible=False, sponsor_id=None, tone_allowlist_passed=None
+        )
+
+    sponsor = _pick_sponsor(eligible)
+    if sponsor is None:
+        return RenderDecision(
+            regime=regime, eligible=False, sponsor_id=None, tone_allowlist_passed=None
+        )
+
+    attribution = _build_attribution(sponsor)
+    body = _build_body(sponsor)
+    sid = str(getattr(sponsor, "id", ""))
+    if not body or not attribution:
+        return RenderDecision(
+            regime=regime,
+            eligible=True,
+            sponsor_id=sid or None,
+            tone_allowlist_passed=None,
+        )
+    if not _check_tone_allowlist(DISCLOSURE_WORD, body, attribution):
+        return RenderDecision(
+            regime=regime,
+            eligible=True,
+            sponsor_id=sid or None,
+            tone_allowlist_passed=False,
+        )
+    return RenderDecision(
+        regime=regime, eligible=False, sponsor_id=None, tone_allowlist_passed=None
+    )
+
+
 # ─────────── public renderer ───────────
 
 
@@ -374,3 +467,35 @@ def render_sponsored_block(
         sponsor_id=str(getattr(sponsor, "id", "")),
         regime=regime,
     )
+
+
+def render_with_decision(
+    regime: PlacementRegime,
+    candidate_sponsors: list[Sponsor],
+    *,
+    query_context: Optional[dict[str, Any]] = None,
+    db: Optional[Session] = None,
+) -> Optional[SponsoredBlock]:
+    """Same as ``render_sponsored_block``, plus ``record_decision`` for telemetry."""
+    block = render_sponsored_block(
+        regime=regime,
+        candidate_sponsors=candidate_sponsors,
+        query_context=query_context,
+        db=db,
+    )
+    if block is not None:
+        record_decision(
+            RenderDecision(
+                regime=block.regime,
+                eligible=True,
+                sponsor_id=block.sponsor_id,
+                tone_allowlist_passed=True,
+            )
+        )
+    else:
+        record_decision(
+            _failure_render_decision(
+                regime, candidate_sponsors, query_context=query_context
+            )
+        )
+    return block

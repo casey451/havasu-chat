@@ -929,7 +929,20 @@ The renderer ships behind a feature flag. This de-risks rollout and allows gradu
 
 **Rationale:** Generic-category queries have low specificity; sponsored blocks are informative. No temporal constraints. Easiest to validate.
 
-**Observability:** Log every render decision (regime, sponsor picked, tone pass/fail) to `ChatLog.llm_tokens_used` as structured JSON (or new field).
+**Observability (P2.OBS.1 — shipped):** Persist disclosure telemetry as **typed scalar columns** on `chat_logs`, not JSON blobs:
+
+| Column | Purpose |
+| --- | --- |
+| `disclosure_regime` | `VARCHAR(32)` — nullable; CHECK allows `specific_quality` \| `generic_category` \| `emergency_urgent` (PlacementRegime values). Partial index `ix_chat_logs_disclosure_regime` where non-NULL. |
+| `disclosure_sponsor_id` | `VARCHAR(64)` — nullable sponsor UUID string when a candidate was evaluated or rendered. |
+| `disclosure_tone_allowlist_passed` | `BOOLEAN` — nullable; `TRUE` only when a sponsored block was emitted. |
+| `disclosure_eligible` | `BOOLEAN` — nullable; whether at least one sponsor passed regime eligibility gates for placement (may be `FALSE` when no inventory qualifies). |
+
+All four are **NULL** when the deterministic renderer did not run (feature flag off, non–Tier-3 path, or Tier 3 exit before `render_with_decision`). Phase 2 audit queries expect `GROUP BY disclosure_regime`, aggregates on booleans, and index-backed filters — typed columns support this; a single JSON column does not.
+
+**Transport:** `RenderDecision` (`regime`, `eligible`, `sponsor_id`, `tone_allowlist_passed`) is recorded from `disclosure_render.render_with_decision()` via a **`contextvars.ContextVar`**. `record_decision()` runs inside the renderer; `consume_decision()` runs once inside `log_unified_route` at chat-log insert time (one-shot read+clear). `reset_decision_context()` runs at **unified-router request entry** so decisions never bleed across requests.
+
+**Rejected:** stuffing observability into **`chat_logs.llm_tokens_used`** or any other typed numeric token counter — that column counts completion tokens; overloading it with JSON was a spec typo/misuse and is explicitly **out of scope**.
 
 **Rollback:** Feature flag flip to False; existing Tier 3 path restored.
 

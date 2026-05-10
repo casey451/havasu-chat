@@ -230,6 +230,13 @@ class ChatLog(Base):
     llm_output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     feedback_signal: Mapped[str | None] = mapped_column(String(32), nullable=True)
     audience_signal: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # P2.OBS.1 — disclosure renderer telemetry (nullable when renderer did not run).
+    disclosure_regime: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    disclosure_sponsor_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    disclosure_tone_allowlist_passed: Mapped[bool | None] = mapped_column(
+        Boolean, nullable=True
+    )
+    disclosure_eligible: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
 
 class Program(Base):

@@ -2178,3 +2178,31 @@ Add corresponding test cases to `tests/test_confidence_tier.py` covering each ne
 
 **Filed by:** Cowork primary (2026-05-09 evening, post-Lane-3 ship review).
 
+---
+
+## Ship log — P2.OBS.1: disclosure-renderer observability on `chat_logs` (**SHIPPED P2.OBS.1**)
+
+**Problem:** Phase 2 needs auditable, aggregate-friendly telemetry for deterministic disclosure renders (regime, sponsor, tone gate, eligibility) without overloading unrelated columns.
+
+**Change:**
+
+- `alembic/versions/d6e7f8a9b0c1_add_disclosure_render_telemetry_columns.py` — `down_revision` `c5d6e7f8a9b0`; adds nullable `disclosure_regime` (CHECK: PlacementRegime strings), `disclosure_sponsor_id` (64), `disclosure_tone_allowlist_passed`, `disclosure_eligible`; partial index `ix_chat_logs_disclosure_regime`.
+- `app/db/models.py` — four nullable columns on `ChatLog`.
+- `app/chat/disclosure_render.py` — `RenderDecision` dataclass; `contextvars` helpers `record_decision` / `consume_decision` / `reset_decision_context`; `render_with_decision` wraps `render_sponsored_block` + `_failure_render_decision` telemetry on suppress paths.
+- `app/chat/tier3_handler.py` — `render_with_decision` instead of `render_sponsored_block`.
+- `app/chat/unified_router.py` — `reset_decision_context()` at `route()` entry.
+- `app/db/chat_logging.py` — `consume_decision()` at insert to populate the four columns (one-shot).
+- `tests/test_disclosure_render.py` — +5 tests (dataclass, contextvar, `render_with_decision` success/failure).
+- `tests/test_disclosure_render_integration.py` — +2 persistence tests; exception patch target `render_with_decision`.
+- `docs/maintainability/disclosure_renderer_spec.md` §7.2 — typed columns, contextvar transport, explicit rejection of `llm_tokens_used` JSON misuse.
+
+**Verification:**
+
+- Fresh SQLite: `alembic upgrade head` → `downgrade -1` → `upgrade head`.
+- Targeted: `pytest tests/test_disclosure_render.py tests/test_disclosure_render_integration.py -q` → 47 passed.
+- Full suite: `pytest -q` → 1348 passed.
+
+**Closes:** P2.OBS.1 (Phase 2 disclosure observability lane).
+
+**Filed by:** Cursor (2026-05-09).
+

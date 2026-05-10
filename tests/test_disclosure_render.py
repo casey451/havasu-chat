@@ -31,11 +31,16 @@ from app.chat.disclosure_render import (
     DISCLOSURE_WORD,
     FEATURE_FLAG_ENV_VAR,
     PlacementRegime,
+    RenderDecision,
     SponsoredBlock,
     _check_tone_allowlist,
     _pick_sponsor,
+    consume_decision,
     is_renderer_enabled,
+    record_decision,
     render_sponsored_block,
+    render_with_decision,
+    reset_decision_context,
     select_placement_regime,
 )
 from app.core.timezone import LAKE_HAVASU_TZ
@@ -623,6 +628,101 @@ def test_feature_flag_other_values_off(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 # ─────────── 8. regression golden file ───────────
+
+
+# ─────────── 9. P2.OBS.1 — RenderDecision + contextvar telemetry ───────────
+
+
+def test_render_decision_dataclass_fields() -> None:
+    d = RenderDecision(
+        regime=PlacementRegime.GENERIC_CATEGORY,
+        eligible=True,
+        sponsor_id="sid",
+        tone_allowlist_passed=True,
+    )
+    assert d.regime == PlacementRegime.GENERIC_CATEGORY
+    assert d.eligible is True
+    assert d.sponsor_id == "sid"
+    assert d.tone_allowlist_passed is True
+
+
+def test_consume_decision_is_one_shot() -> None:
+    reset_decision_context()
+    record_decision(
+        RenderDecision(
+            regime=PlacementRegime.GENERIC_CATEGORY,
+            eligible=False,
+            sponsor_id=None,
+            tone_allowlist_passed=None,
+        )
+    )
+    c1 = consume_decision()
+    assert c1 is not None
+    assert c1.eligible is False
+    assert consume_decision() is None
+
+
+def test_reset_decision_context_clears_without_consume() -> None:
+    reset_decision_context()
+    record_decision(
+        RenderDecision(
+            regime=PlacementRegime.EMERGENCY_URGENT,
+            eligible=True,
+            sponsor_id="x",
+            tone_allowlist_passed=True,
+        )
+    )
+    reset_decision_context()
+    assert consume_decision() is None
+
+
+def test_render_with_decision_records_success(db: Session) -> None:
+    reset_decision_context()
+    sponsor = _make_sponsor(
+        db,
+        name="Brew Haven",
+        attribution_text="local coffee roaster",
+        headline="Hand-roasted espresso, open 7 AM to 6 PM.",
+    )
+    db.commit()
+    block = render_with_decision(
+        regime=PlacementRegime.GENERIC_CATEGORY,
+        candidate_sponsors=[sponsor],
+        query_context={"organic_rows": [], "category": "coffee"},
+        db=db,
+    )
+    assert block is not None
+    snap = consume_decision()
+    assert snap is not None
+    assert snap.regime == PlacementRegime.GENERIC_CATEGORY
+    assert snap.eligible is True
+    assert snap.sponsor_id == sponsor.id
+    assert snap.tone_allowlist_passed is True
+
+
+def test_render_with_decision_records_tone_failure(db: Session) -> None:
+    reset_decision_context()
+    sponsor = _make_sponsor(
+        db,
+        name="Best Coffee Ever",
+        attribution_text="award-winning cafe",
+        headline="Best coffee in Lake Havasu!",
+    )
+    db.commit()
+    assert (
+        render_with_decision(
+            regime=PlacementRegime.GENERIC_CATEGORY,
+            candidate_sponsors=[sponsor],
+            query_context={"organic_rows": [], "category": "coffee"},
+            db=db,
+        )
+        is None
+    )
+    snap = consume_decision()
+    assert snap is not None
+    assert snap.tone_allowlist_passed is False
+    assert snap.eligible is True
+    assert snap.sponsor_id == sponsor.id
 
 
 def test_regression_golden_generic_category_coffee(db: Session) -> None:

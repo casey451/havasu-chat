@@ -37,8 +37,9 @@ from app.chat import disclosure_render
 from app.chat.intent_classifier import IntentResult
 from app.chat.tier3_handler import answer_with_tier3
 from app.core.timezone import now_lake_havasu
+from app.db.chat_logging import log_unified_route
 from app.db.database import SessionLocal
-from app.db.models import LlmResponseCache, Sponsor, SponsorStatus
+from app.db.models import ChatLog, LlmResponseCache, Sponsor, SponsorStatus
 
 # ─────────── helpers ───────────
 
@@ -325,7 +326,7 @@ def test_renderer_exception_logs_warn_and_falls_through(
 
     # Patch the X1 entry point the integration helper calls; the helper
     # catches the exception and logs WARN.
-    monkeypatch.setattr(disclosure_render, "render_sponsored_block", _boom)
+    monkeypatch.setattr(disclosure_render, "render_with_decision", _boom)
 
     fake = _patched_openai("Hava Cafe is a solid choice.")
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
@@ -374,3 +375,67 @@ def test_disclosure_word_verbatim_in_injected_text(
     # Confirm we didn't drift to a synonym.
     for drift in ("Featured:", "Partner:", "Recommended:", "Spotlight:"):
         assert drift not in text, drift
+
+
+# ─────────── 9. disclosure telemetry persistence (P2.OBS.1) ───────────
+
+
+def test_chat_log_persists_disclosure_telemetry_from_contextvar(
+    db: Session,
+) -> None:
+    """``log_unified_route`` writes the four disclosure columns when a decision
+    was recorded via ``record_decision`` / consumed once at insert."""
+    disclosure_render.reset_decision_context()
+    disclosure_render.record_decision(
+        disclosure_render.RenderDecision(
+            regime=disclosure_render.PlacementRegime.GENERIC_CATEGORY,
+            eligible=True,
+            sponsor_id="550e8400-e29b-41d4-a716-446655440000",
+            tone_allowlist_passed=True,
+        )
+    )
+
+    log_id = log_unified_route(
+        db,
+        session_id="obs-test-session",
+        query_text_hashed="a" * 64,
+        normalized_query="where coffee",
+        mode="ask",
+        sub_intent="GENERAL_QUESTION",
+        entity_matched=None,
+        tier_used="tier3",
+        latency_ms=42,
+        response_text="Example assistant reply.",
+    )
+    assert log_id is not None
+
+    row = db.query(ChatLog).filter(ChatLog.id == log_id).one()
+    assert row.disclosure_regime == "generic_category"
+    assert row.disclosure_sponsor_id == "550e8400-e29b-41d4-a716-446655440000"
+    assert row.disclosure_tone_allowlist_passed is True
+    assert row.disclosure_eligible is True
+
+
+def test_chat_log_disclosure_columns_null_without_recorded_decision(
+    db: Session,
+) -> None:
+    disclosure_render.reset_decision_context()
+
+    log_id = log_unified_route(
+        db,
+        session_id="obs-test-session-2",
+        query_text_hashed="b" * 64,
+        normalized_query="hello",
+        mode="ask",
+        sub_intent=None,
+        entity_matched=None,
+        tier_used="tier1",
+        latency_ms=1,
+        response_text="Hi.",
+    )
+    assert log_id is not None
+    row = db.query(ChatLog).filter(ChatLog.id == log_id).one()
+    assert row.disclosure_regime is None
+    assert row.disclosure_sponsor_id is None
+    assert row.disclosure_tone_allowlist_passed is None
+    assert row.disclosure_eligible is None

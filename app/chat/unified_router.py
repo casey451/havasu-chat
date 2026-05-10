@@ -533,6 +533,7 @@ def route(
     client_ip: str | None = None,
     accept_language: str | None = None,
 ) -> ChatResponse:
+    disclosure_render.reset_decision_context()
     t0 = time.perf_counter()
     sid = _stable_session_bucket(session_id)
     q_raw = query or ""

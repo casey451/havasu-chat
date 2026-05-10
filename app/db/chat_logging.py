@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
+from app.chat.disclosure_render import consume_decision
 from app.db.models import ChatLog
 
 if TYPE_CHECKING:
@@ -60,6 +61,14 @@ def log_unified_route(
             llm_output_tokens=llm_output_tokens,
             feedback_signal=feedback_signal[:32] if feedback_signal else None,
         )
+        telemetry = consume_decision()
+        if telemetry is not None:
+            row.disclosure_regime = telemetry.regime.value[:32]
+            row.disclosure_sponsor_id = (
+                telemetry.sponsor_id[:64] if telemetry.sponsor_id else None
+            )
+            row.disclosure_tone_allowlist_passed = telemetry.tone_allowlist_passed
+            row.disclosure_eligible = telemetry.eligible
         # Lane S3 defensive write: only set audience_signal when the column
         # exists on ChatLog (Lane S1 / Cursor migration). Until the schema
         # migration lands, skip silently and log a single one-shot warning so

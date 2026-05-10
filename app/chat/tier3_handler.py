@@ -143,7 +143,7 @@ def _maybe_render_sponsored_block(
         )
         if not candidates:
             return None
-        return disclosure_render.render_sponsored_block(
+        return disclosure_render.render_with_decision(
             regime=regime,
             candidate_sponsors=candidates,
             query_context={
