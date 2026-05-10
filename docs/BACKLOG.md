@@ -2236,7 +2236,7 @@ Add corresponding test cases to `tests/test_confidence_tier.py` covering each ne
 
 ---
 
-## Backlog 57 - Lock-step symmetry for `_OPERATOR_VOCAB_METHODS` ↔ test fixture (**OPEN, MEDIUM**)
+## Backlog 57 - Lock-step symmetry for `_OPERATOR_VOCAB_METHODS` ↔ test fixture (**SHIPPED 2026-05-11**)
 
 **Surfaced by:** Phase 2 first-week test coverage audit (Claude Code, 2026-05-10).
 
@@ -2247,6 +2247,8 @@ Add corresponding test cases to `tests/test_confidence_tier.py` covering each ne
 **Priority:** MEDIUM — closes the "test fixture drifts from prod" risk surfaced by #55's audit.
 
 **Filed by:** Cowork primary (2026-05-10, from CC's coverage audit).
+
+**Ship-log (2026-05-11):** In `tests/test_confidence_tier.py`, replaced the one-way `test_KNOWN_METHODS_covers_full_operator_vocab` (which only checked prod ⊇ test) with `test_operator_vocab_methods_match_prod_tuple_lock_step` — a bidirectional assertion `tuple(sorted(ct._OPERATOR_VOCAB_METHODS)) == tuple(sorted(_OPERATOR_VOCAB))`. Prod and the test fixture cannot drift without failing in either direction. Parametrized `test_low_no_verification_record` over `_OPERATOR_VOCAB` (4 operator-vocab methods), pinning the no-`last_verified_at` branch and rationale `"no verification record"` for each. Shipped together with #59 in commit `9fff5c2` as `test(confidence_tier): #57 + #59 bidirectional lock-step + 90-day boundary parametrization`. Full pytest: 1408 passed.
 
 ---
 
@@ -2266,7 +2268,7 @@ Add corresponding test cases to `tests/test_confidence_tier.py` covering each ne
 
 ---
 
-## Backlog 59 - 90-day MEDIUM boundary coverage for confidence-tier classifier (**OPEN, LOW**)
+## Backlog 59 - 90-day MEDIUM boundary coverage for confidence-tier classifier (**SHIPPED 2026-05-11**)
 
 **Surfaced by:** Phase 2 first-week test coverage audit (Claude Code, 2026-05-10).
 
@@ -2277,6 +2279,8 @@ Add corresponding test cases to `tests/test_confidence_tier.py` covering each ne
 **Priority:** LOW.
 
 **Filed by:** Cowork primary (2026-05-10, from CC's coverage audit).
+
+**Ship-log (2026-05-11):** Added `_MEDIUM_BOUNDARY_TRUSTED_METHODS` tuple in `tests/test_confidence_tier.py` containing `manual`, `owner_confirmed`, `npi_registry`, and the four operator-vocab strings (7 methods total). Two new parametrized tests: `test_medium_trusted_methods_at_90_day_boundary_inclusive` at `age=90` → MEDIUM with rationale `"verified within 90 days"`, and `test_low_trusted_methods_past_90_day_boundary` at `age=91` → LOW with rationale `"older than threshold"`. Both cover all 7 methods. Scraper intentionally excluded — it has a 30-day MEDIUM rule (`_MEDIUM_SCRAPER_DAYS`), not the 90-day trusted-band rule, so its boundary lives elsewhere. Interior MEDIUM coverage at `age=60` is preserved unchanged on purpose so band interior + 90/91 boundaries are both pinned. Shipped together with #57 in commit `9fff5c2`. Full pytest: 1408 passed.
 
 ---
 
