@@ -28,7 +28,13 @@ def test_select_probes_include_ascii_hyphen_matches_catalog_en_dash_title(
     probes = [
         Probe("tell me about X", "rid1", "program", "program_tell_me_about"),
     ]
-    name_map = {"rid1": "Open Jump \u2013 90 Minutes"}
+    name_map = {
+        "rid1": {
+            "name": "Open Jump \u2013 90 Minutes",
+            "category": None,
+            "activity_category": None,
+        },
+    }
     include = {normalize_row_name_for_include("Open Jump - 90 Minutes")}
     out = mod._select_probes(
         probes,
@@ -44,7 +50,13 @@ def test_select_probes_include_ascii_hyphen_matches_catalog_en_dash_title(
 def test_select_probes_exclude_normalized(confabulation_eval_mod) -> None:
     mod = confabulation_eval_mod
     probes = [Probe("q", "r1", "program", "t")]
-    name_map = {"r1": "Open Jump \u2013 90 Minutes"}
+    name_map = {
+        "r1": {
+            "name": "Open Jump \u2013 90 Minutes",
+            "category": None,
+            "activity_category": None,
+        },
+    }
     exclude = {normalize_row_name_for_include("Open Jump - 90 Minutes")}
     out = mod._select_probes(
         probes, rows_mode="both", include=set(), exclude=exclude, limit=None, name_map=name_map
@@ -73,9 +85,17 @@ def test_enrich_for_reports_excludes_tier_chat(confabulation_eval_mod) -> None:
             "run_index": 0,
         }
     ]
-    name_map = {"r_chat": "Chat Tier Row"}
+    name_map = {
+        "r_chat": {
+            "name": "Chat Tier Row",
+            "category": "swim",
+            "activity_category": None,
+        },
+    }
     enriched = mod._enrich_for_reports(records, name_map)
     assert len(enriched) == 1
     assert enriched[0]["tier_used"] == "chat"
     assert enriched[0]["excluded_from_summary"] is True
     assert enriched[0]["excluded_reason"] == "tier_chat_no_formatter"
+    assert enriched[0]["category"] == "swim"
+    assert enriched[0]["activity_category"] is None

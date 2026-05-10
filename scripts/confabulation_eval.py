@@ -31,13 +31,21 @@ def _parse_csv_arg(s: str | None) -> set[str]:
     return {normalize_row_name_for_include(x) for x in s.split(",") if x.strip()}
 
 
-def _probe_name_map() -> dict[str, str]:
-    out: dict[str, str] = {}
+def _probe_name_map() -> dict[str, dict[str, str | None]]:
+    out: dict[str, dict[str, str | None]] = {}
     with SessionLocal() as db:
         for p in db.scalars(select(Provider).where(Provider.draft.is_(False), Provider.is_active.is_(True))).all():
-            out[p.id] = p.provider_name
+            out[p.id] = {
+                "name": p.provider_name,
+                "category": p.category,
+                "activity_category": None,
+            }
         for pr in db.scalars(select(Program).where(Program.draft.is_(False), Program.is_active.is_(True))).all():
-            out[pr.id] = pr.title
+            out[pr.id] = {
+                "name": pr.title,
+                "category": None,
+                "activity_category": pr.activity_category,
+            }
     return out
 
 
@@ -48,7 +56,7 @@ def _select_probes(
     include: set[str],
     exclude: set[str],
     limit: int | None,
-    name_map: dict[str, str],
+    name_map: dict[str, dict[str, str | None]],
 ) -> list[Probe]:
     q: list[Probe] = []
     for p in probes:
@@ -56,7 +64,8 @@ def _select_probes(
             continue
         if rows_mode == "programs" and p.row_type != "program":
             continue
-        name = name_map.get(p.row_id, "")
+        meta = name_map.get(p.row_id) or {}
+        name = str(meta.get("name") or "")
         lname = normalize_row_name_for_include(name)
         if include and lname not in include:
             continue
@@ -72,6 +81,17 @@ def _flag_states(mode: str) -> list[str]:
     if mode == "both":
         return ["off", "on"]
     return [mode]
+
+
+def _anchor_names_from_file(path: Path) -> tuple[str, ...]:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    out: list[str] = []
+    for line in lines:
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        out.append(s)
+    return tuple(out)
 
 
 def _default_output_dir() -> Path:
@@ -101,7 +121,9 @@ def _run_once(invoker, probe: Probe, flag_state: str) -> dict:
     }
 
 
-def _enrich_for_reports(records: list[dict], name_map: dict[str, str]) -> list[dict]:
+def _enrich_for_reports(
+    records: list[dict], name_map: dict[str, dict[str, str | None]]
+) -> list[dict]:
     out: list[dict] = []
     for r in records:
         p = r["probe"]
@@ -126,12 +148,22 @@ def _enrich_for_reports(records: list[dict], name_map: dict[str, str]) -> list[d
         else:
             excluded = False
             excluded_reason = None
+        meta = name_map.get(p["row_id"]) or {}
+        row_name = str(meta.get("name") or p["row_id"])
+        if p["row_type"] == "provider":
+            category = meta.get("category")
+            activity_category = None
+        else:
+            category = None
+            activity_category = meta.get("activity_category")
         out.append(
             {
                 "query_text": p["query_text"],
                 "template_id": p["template_id"],
                 "row_id": p["row_id"],
-                "row_name": name_map.get(p["row_id"], p["row_id"]),
+                "row_name": row_name,
+                "category": category,
+                "activity_category": activity_category,
                 "row_type": p["row_type"],
                 "flag_state": r["flag_state"],
                 "run_index": r.get("run_index", 0),
@@ -168,6 +200,11 @@ def main(argv: Iterable[str] | None = None) -> int:
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--include", default="", help="Comma-separated row names")
     ap.add_argument("--exclude", default="", help="Comma-separated row names")
+    ap.add_argument(
+        "--anchor-set-file",
+        default=None,
+        help="Optional newline-delimited regression anchor names (# and blank lines ignored)",
+    )
     args = ap.parse_args(list(argv) if argv is not None else None)
 
     include = _parse_csv_arg(args.include)
@@ -201,8 +238,11 @@ def main(argv: Iterable[str] | None = None) -> int:
     report_records = _enrich_for_reports(raw, name_map)
     outdir = Path(args.output_dir)
     outdir.mkdir(parents=True, exist_ok=True)
+    anchors: tuple[str, ...] | None = None
+    if args.anchor_set_file:
+        anchors = _anchor_names_from_file(Path(args.anchor_set_file))
     write_jsonl(outdir / "runs.jsonl", report_records)
-    write_summary_md(outdir / "summary.md", report_records)
+    write_summary_md(outdir / "summary.md", report_records, anchors=anchors)
     write_per_row_csv(outdir / "per_row.csv", report_records)
     print(f"Wrote {len(report_records)} runs to {outdir.resolve()}")
     return 0

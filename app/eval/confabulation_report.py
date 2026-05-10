@@ -8,6 +8,11 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
+# Regression anchors — owner-reviewed, append-only per HALT 3 strategy spec.
+# Adding a name here pins it for per-anchor sanity checks at close-out.
+# Removing requires explicit owner approval (see docs/maintainability/halt3_definition.md §6).
+_DEFAULT_REGRESSION_ANCHORS: tuple[str, ...] = ("Aqua Beginnings", "Grace Arts Live")
+
 
 def _ensure_parent(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -43,6 +48,8 @@ def write_per_row_csv(path: str | Path, runs: list[dict[str, Any]]) -> None:
             [
                 "row_id",
                 "row_name",
+                "category",
+                "activity_category",
                 "total_runs",
                 "included_runs",
                 "gating_runs_with_hit",
@@ -51,6 +58,11 @@ def write_per_row_csv(path: str | Path, runs: list[dict[str, Any]]) -> None:
             ]
         )
         for (row_id, row_name), rs in sorted(grouped.items(), key=lambda x: x[0][1].lower()):
+            r0 = rs[0]
+            cat = r0.get("category")
+            act_cat = r0.get("activity_category")
+            cat_s = "" if cat is None else str(cat)
+            act_cat_s = "" if act_cat is None else str(act_cat)
             total = len(rs)
             inc = [x for x in rs if not bool(x.get("excluded_from_summary", False))]
             included_n = len(inc)
@@ -62,11 +74,26 @@ def write_per_row_csv(path: str | Path, runs: list[dict[str, Any]]) -> None:
                     c[str(t)] += 1
             top = ", ".join(t for t, _ in c.most_common(3))
             w.writerow(
-                [row_id, row_name, total, included_n, gating_hits, adv_c, top]
+                [
+                    row_id,
+                    row_name,
+                    cat_s,
+                    act_cat_s,
+                    total,
+                    included_n,
+                    gating_hits,
+                    adv_c,
+                    top,
+                ]
             )
 
 
-def write_summary_md(path: str | Path, runs: list[dict[str, Any]]) -> None:
+def write_summary_md(
+    path: str | Path,
+    runs: list[dict[str, Any]],
+    *,
+    anchors: tuple[str, ...] | None = None,
+) -> None:
     p = Path(path)
     _ensure_parent(p)
 
@@ -165,7 +192,8 @@ def write_summary_md(path: str | Path, runs: list[dict[str, Any]]) -> None:
     lines.append("")
 
     lines.append("## Regression-anchor sanity check (gating: Layer 2 + Layer 3 only)")
-    for anchor in ("Aqua Beginnings", "Grace Arts Live"):
+    anchor_list = anchors if anchors is not None else _DEFAULT_REGRESSION_ANCHORS
+    for anchor in anchor_list:
         anchor_runs = [r for r in included if str(r.get("row_name", "")).lower() == anchor.lower()]
         nhit = _gating_rate_nz(anchor_runs)
         lines.append(
