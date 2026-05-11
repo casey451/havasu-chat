@@ -60,7 +60,8 @@ The phase content below references these. Read each when starting the correspond
 | 8 | `search_index_decision.md` | Postgres FTS + pg_trgm for V1 with clean Meilisearch upgrade path |
 | 9 | `boat_access_mode_design.md` | Directory-wide mode (not just a filter); JSON schema per venue type |
 | 10 | `manual_recovery_checklist.md` | Operator field-trip workflow for inventory no API covers |
-| 11 | `category_backfill_mapping_DRAFT.md` | 41 legacy category strings → 12 canonical slugs (awaiting review) |
+| 11 | `category_backfill_mapping_DRAFT.md` | 41 legacy category strings → original 12 canonical slugs (now superseded for target slugs by new-taxonomy 12) |
+| 11a | `category_backfill_mapping_audit_2026-05-14.md` | Audit of #11 against the locked new-taxonomy 12. Surfaces 5 strings that map CLEANER under new taxonomy + 5 professional-services strings that NULL out (V1.5 deferral). Master-plan-hole flag at §3 led to Phase 3 amendment 2026-05-14 absorbing category-seed rewrite + audited backfill. 2 of 5 §4 lock-now items resolved 2026-05-14; remaining 3 are trivial confirmations. 4 Phase-3 review questions queued for operator. |
 | 12 | `phase2_5_rate_limiter_decisions_memo.md` | 8 locked decisions for rate-limiter (already implemented) |
 | 13 | `pre_pivot_doc_banner_audit.md` | 13 docs need banners (5 done; 8 remain for Phase 10) |
 
@@ -135,9 +136,9 @@ Plus inputs:
 
 ---
 
-### Phase 3 — v1.1 schema pass: operator-curated fields + districts table + alerts schema (1-2 weeks)
+### Phase 3 — v1.1 schema pass: operator-curated fields + districts table + alerts schema + category taxonomy rewrite (1-2 weeks)
 
-**Goal:** Add the operator-curated data fields and supporting tables that the Opus features + ChatGPT taxonomy work assumes. Single additive migration; minimal app-layer changes.
+**Goal:** Add the operator-curated data fields and supporting tables that the Opus features + ChatGPT taxonomy work assumes. Reshape the seeded `categories` table to match the locked new-taxonomy 12 (see "Category taxonomy rewrite" deliverable below — amended 2026-05-14 per `category_backfill_mapping_audit_2026-05-14.md` §3). Single additive migration; minimal app-layer changes.
 
 **Deliverables (all in one migration):**
 - `entities.heat_exposure` (enum: indoor / shaded / outdoor / water_adjacent) — for Opus #2
@@ -153,16 +154,18 @@ Plus inputs:
 - New `external_conditions_cache` table: source (string PK), fetched_at, data (JSON), ttl_seconds, last_error, error_count — for Opus #1 conditions panel
 - `users.preferred_mode` enum (default / boat) — for boat-access mode persistence
 - New `peer_recommendations` table (per Opus #7, ships disabled-by-flag for V1.5 pilot)
+- **Category taxonomy rewrite (added 2026-05-14):** rename 7 surviving slugs (`eat-and-drink` → `eat-drink`, `home-services` → `home-property-services`, `health` → `health-wellness-care`, `outdoors-and-parks` → `outdoors-parks-trails`, `shopping` → `shopping-essentials`, `auto-and-gas` → `auto-rv-fuel`, `lodging` → `lodging-vacation-rentals`) with matching display-name updates; delete `family` + `community` rows (guarded by pre-flight check for FK references); insert `classes-sports-recreation` + `public-civic-resources` rows; reset `sort_order` per synthesis §1 Tier 1/2/3 ordering. Updates the parallel hard-coded slug list at `app/home/queries.py:27-55` (CATEGORY_LABELS) and validator vocab at `scripts/ingest/validate_enrichment_csv.py`.
+- **Backfill of legacy `Provider.category` / `Program.activity_category` strings → `category_id` FKs (added 2026-05-14):** uses the audited mapping in `docs/maintainability/category_backfill_mapping_audit_2026-05-14.md` §2 (NOT the original DRAFT, which targeted the now-superseded original 12). Audited mapping covers ~24 strings that carry forward cleanly + 5 strings that map cleaner under the new taxonomy + 5 professional-services strings that NULL out (V1.5 deferred per §10 decision 2026-05-14) + Phase-3-locked decisions for ambiguous strings (`beauty_personal_care`, `tourism`, K-12/charter schools, recreational-entertainment).
 
-**App-layer changes:** minimal. Schema additions are mostly read-by-future-phases; admin form extensions land in Phase 5.
+**App-layer changes:** minimal for the data-field additions. The category taxonomy rewrite touches `app/home/queries.py` CATEGORY_LABELS (~25 lines) and `scripts/ingest/validate_enrichment_csv.py` vocab. Admin form extensions land in Phase 5.
 
-**Operator workload (NEW in this phase):** author 8-12 district paragraphs. ~1 hour total. Suggested districts (refine during phase): English Village, Downtown / Main Street, North End, Lakefront, Mesquite Bay, Highway 95 corridor, Site Six, Pittsburgh Point, Castle Rock area, South side. Each gets a one-paragraph description per Opus design samples ("English Village fills up after 5pm Fri-Sun — parking lots near the bridge get tight by 6...").
+**Operator workload (NEW in this phase):** (a) author 8-12 district paragraphs (~1 hour). Suggested districts: English Village, Downtown / Main Street, North End, Lakefront, Mesquite Bay, Highway 95 corridor, Site Six, Pittsburgh Point, Castle Rock area, South side. Each gets a one-paragraph description per Opus design samples ("English Village fills up after 5pm Fri-Sun — parking lots near the bridge get tight by 6..."). (b) lock the four Phase-3 review questions from the audit memo §4 lock-during-Phase-3 list (~30 min): `beauty_personal_care` final home; `tourism` triage rule; K-12 / charter / public schools → Classes-Sports-Rec vs Public-Civic; bowling/arcades/mini golf → Classes-Sports-Rec vs different home. (c) run `SELECT DISTINCT category FROM providers` against production to confirm no new free-text strings have entered via the admin form since the DRAFT audit (~15 min). **Total operator hours bumped from ~1 hr to ~2-3 hr.**
 
 **Dependencies:** Phase 1 (ENTITY schema) must be complete.
 
-**Effort estimate:** S-M migration (~3-5 days dispatch) + ~1 hour operator authoring.
+**Effort estimate:** M migration (~5-8 days dispatch, bumped from 3-5 to absorb category rewrite + backfill) + ~2-3 hours operator authoring + decision-locks.
 
-**Success criteria:** Migration applies cleanly; districts table populated with operator paragraphs; pytest stays green.
+**Success criteria:** Migration applies cleanly; districts table populated with operator paragraphs; categories table holds the locked new-taxonomy 12 (with sort_order reflecting Tier 1/2/3); every existing Provider/Program row has `category_id` populated per the audited mapping (or NULL for the 5 professional-services strings deferred to V1.5); pytest stays green.
 
 ---
 
@@ -448,7 +451,8 @@ Engineering effort runs through dispatched lanes (Cursor / Claude Code / sub-age
 | Confirm available LHC open-data sources (Parks & Rec, business licenses) | Phase 4 prep | 2-4 hours |
 | Register AirNow API key + confirm USGS Lake Havasu gauge ID + check city emergency-notification feed format | Phase 8 prep | 2-3 hours |
 | Author district paragraphs (~8-12 paragraphs) | Phase 3 | ~1 hour |
-| Review + lock Provider.category backfill mapping draft (currently DRAFT awaiting Casey pass) | Anytime | 1-2 hours |
+| Lock 4 Phase-3 audit-memo review questions (`beauty_personal_care`, `tourism`, K-12 schools, recreational-entertainment) + run `SELECT DISTINCT category` against production | Phase 3 | ~1 hour |
+| Review + lock Provider.category backfill mapping (audited 2026-05-14; 2 of 5 §4 lock-now questions resolved; remaining lock-now items 4 + 5 are trivial single-mapping confirmations) | Anytime (best at Phase 3 start) | ~30 min |
 | Field-trip Layer 5 manual recovery for Tier 1 inventory gaps | Phase 5 | ~30-50 hours over 4-8 weeks |
 | Field-trip Layer 5 for Tier 2 + Tier 3 inventory | Phases 7 + 9 | ~20-40 hours additional |
 | Admin form data entry: boat_access details, heat_exposure tagging, crowd_notes, seasonal_hours where they differ | Phases 5 + 7 + 9 | ~40-80 hours over the build |
@@ -548,6 +552,8 @@ Decisions recorded as they're made. Each decision: date, what was decided, by wh
 | 2026-05-14 | Unified ENTITY schema (single core table + extensions) | Operator | Place model design Option A (separate places table); supersedes the place_model_design.md recommendation |
 | 2026-05-14 | Opus 4.7 second round — unified Hava card grammar + 4-level browse hierarchy + 8 themed groups + district context paragraphs + Events as third ENTITY type + honest freshness band | Operator (implicit acceptance via task completion) | — |
 | 2026-05-14 | Revenue optimization deferred per build-first sell-after; cold-pitch ground-truthing at launch | Operator | — |
+| 2026-05-14 | Category taxonomy rewrite + audited backfill mapping land in Phase 3 v1.1 schema pass (NOT Phase 1B, NOT a standalone Phase 1.5 ticket, NOT deferred to V1.5). Phase 3 effort bumps from ~3-5 days + 1 hr operator to ~5-8 days + 2-3 hr operator. Resolves the master-plan hole flagged by `category_backfill_mapping_audit_2026-05-14.md` §3. | Operator | Phase 3 deliverables list pre-audit (silent on category-seed rewrite) |
+| 2026-05-14 | Professional-services strings (`insurance`, `financial`, `legal`, `real_estate`, `professional_services`) NULL category_id during Phase 3 backfill; deferred to V1.5+ per synthesis §7 Q5. NULL operator-queue is the honest disposition; do NOT force into `public-civic-resources` or `home-property-services` for V1. Phase 13 V1.5 lane revisits if cold-pitch demand justifies a dedicated Professional Services category. | Operator | DRAFT mapping's "community catch-all" target (the catch-all no longer exists under new taxonomy) |
 
 ---
 
