@@ -125,6 +125,11 @@ class Provider(Base):
         Boolean, nullable=False, default=False, server_default=false()
     )
 
+    entity_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("entities.id"), nullable=True, index=True
+    )
+    entity: Mapped["Entity | None"] = relationship("Entity", foreign_keys=[entity_id])
+
     programs: Mapped[list["Program"]] = relationship(back_populates="provider")
     events: Mapped[list["Event"]] = relationship(back_populates="provider")
 
@@ -197,6 +202,11 @@ class Event(Base):
     last_verified_at: Mapped[datetime | None] = mapped_column(
         TZAwareDateTime(), nullable=True
     )
+
+    entity_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("entities.id"), nullable=True, index=True
+    )
+    entity: Mapped["Entity | None"] = relationship("Entity", foreign_keys=[entity_id])
 
     provider: Mapped["Provider | None"] = relationship(back_populates="events")
 
@@ -327,6 +337,11 @@ class Program(Base):
     featured: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
+
+    entity_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("entities.id"), nullable=True, index=True
+    )
+    entity: Mapped["Entity | None"] = relationship("Entity", foreign_keys=[entity_id])
 
     provider: Mapped["Provider | None"] = relationship(back_populates="programs")
 
