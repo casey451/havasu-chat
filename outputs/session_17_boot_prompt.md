@@ -25,16 +25,22 @@ origin/main HEAD = 1c98365.
    now has all four sub-phase ship-lines + the Phase 1 SHIPPED header)
    and §4 Phase 2 (next dispatchable lane: 2A account-lite + 2B image
    storage / search index — file-disjoint per Rule 3, parallelizable).
-4. docs/maintainability/account_lite_v01_design.md if dispatching
+4. outputs/operator_prereqs_phase_2.md — operator-side setup guide
+   for Resend (Lane 2A) + Cloudflare R2 (Lane 2B), authored at
+   session-16 close in response to Casey not knowing R2 was needed.
+   Read this BEFORE step 5 — it's what you'll point Casey at when
+   asking about prereq status in your first-actions step #2.
+5. docs/maintainability/account_lite_v01_design.md if dispatching
    Lane 2A; docs/maintainability/image_storage_design.md +
    docs/maintainability/search_index_decision.md if dispatching
    Lane 2B. (Read whichever lane Casey wants to dispatch first.)
-5. outputs/cursor_brief_phase_1_entity_schema.md — preserved as the
+6. outputs/cursor_brief_phase_1_entity_schema.md — preserved as the
    reference for the brief-authoring pattern. Sections 0/3/10/11/12/13
    are the canonical shape to mirror when authoring Phase 2 briefs.
-6. docs/maintainability/dispatch_protocol.md (12 working-agreement
+7. docs/maintainability/dispatch_protocol.md (12 working-agreement
    rules) + docs/maintainability/dispatch_channels.md (channel-pick
-   playbook + 12 gotchas).
+   playbook + 13 gotchas as of session-16 — new gotcha #13 covers
+   PowerShell ; vs && command chaining).
 
 ## New lessons from session-16 worth folding into Phase 2 briefs
 1. Postgres-vs-SQLite portability is a real and recurring risk. The
