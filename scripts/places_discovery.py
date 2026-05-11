@@ -36,9 +36,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import requests
+import httpx
 
 from app.bootstrap_env import ensure_dotenv_loaded
+from app.contrib.rate_limiter import GOOGLE_PLACES_LIMITER
 
 ensure_dotenv_loaded()
 
@@ -68,15 +69,12 @@ FIELD_MASK = ",".join(
     ]
 )
 
-# Conservative pacing — well under the 600 QPM default Places API quota.
-# 0.25s ≈ 4 QPS. Pagination pause is longer because Google's docs note
-# that nextPageToken can take a couple seconds to become valid.
-INTER_REQUEST_SLEEP_S = 0.25
+# Pagination pause: Google's nextPageToken can take ~seconds to become valid.
+# Not retry logic — do not fold into SourceLimiter (design memo 2026-05-13).
 PAGINATION_SLEEP_S = 2.0
 MAX_PAGES_PER_CATEGORY = 3
 QUERY_SUFFIX = " in Lake Havasu City, AZ"
-RETRY_STATUSES = {429, 500, 502, 503, 504}
-MAX_RETRIES = 5
+_RETRY_EXHAUSTED_STATUSES = frozenset({429, 500, 502, 503, 504})
 
 
 def load_categories(path: Path, dry_run: bool) -> list[dict[str, str]]:
@@ -95,7 +93,7 @@ def load_categories(path: Path, dry_run: bool) -> list[dict[str, str]]:
 def request_text_search(
     api_key: str, query: str, page_token: str | None
 ) -> dict[str, Any]:
-    """Single Text Search call. Retries on 429 / 5xx with exponential backoff."""
+    """Single Text Search call. QPS + retries via ``GOOGLE_PLACES_LIMITER``."""
     body: dict[str, Any] = {"textQuery": query}
     if page_token:
         body["pageToken"] = page_token
@@ -104,28 +102,20 @@ def request_text_search(
         "X-Goog-Api-Key": api_key,
         "X-Goog-FieldMask": FIELD_MASK,
     }
-    delay = 1.0
-    last_resp: requests.Response | None = None
-    for _attempt in range(MAX_RETRIES):
-        resp = requests.post(
-            PLACES_TEXT_SEARCH_URL, headers=headers, json=body, timeout=30
+    with httpx.Client(timeout=30) as client:
+        resp = GOOGLE_PLACES_LIMITER.call_with_retry(
+            lambda: client.post(PLACES_TEXT_SEARCH_URL, headers=headers, json=body)
         )
-        last_resp = resp
-        if resp.status_code == 200:
-            return resp.json()
-        if resp.status_code in RETRY_STATUSES:
-            time.sleep(delay)
-            delay = min(delay * 2, 16.0)
-            continue
-        # Other 4xx = unrecoverable. Surface body so we can diagnose.
+    if resp.status_code == 200:
+        return resp.json()
+    if resp.status_code in _RETRY_EXHAUSTED_STATUSES:
         raise RuntimeError(
-            f"Places API error {resp.status_code} on query={query!r}: "
-            f"{resp.text[:500]}"
+            f"Places API: retries exhausted for query={query!r} "
+            f"(last status {resp.status_code})"
         )
-    status = last_resp.status_code if last_resp is not None else "unknown"
     raise RuntimeError(
-        f"Places API: {MAX_RETRIES} retries exhausted for query={query!r} "
-        f"(last status {status})"
+        f"Places API error {resp.status_code} on query={query!r}: "
+        f"{resp.text[:500]}"
     )
 
 
@@ -203,7 +193,6 @@ def sweep(
                 f"({pages} page{'s' if pages != 1 else ''})",
                 flush=True,
             )
-            time.sleep(INTER_REQUEST_SLEEP_S)
 
     with unique_path.open("w") as unique_f:
         for place in seen.values():

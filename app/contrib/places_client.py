@@ -11,6 +11,8 @@ from typing import Any
 import httpx
 from rapidfuzz.distance import Levenshtein
 
+from app.contrib.rate_limiter import GOOGLE_PLACES_LIMITER
+
 logger = logging.getLogger(__name__)
 
 PLACES_SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
@@ -94,7 +96,9 @@ def lookup_provider(
 
     try:
         with httpx.Client(timeout=timeout_seconds) as client:
-            r = client.post(PLACES_SEARCH_URL, headers=headers, json=body)
+            r = GOOGLE_PLACES_LIMITER.call_with_retry(
+                lambda: client.post(PLACES_SEARCH_URL, headers=headers, json=body)
+            )
     except httpx.TimeoutException:
         return PlacesLookupResult(
             status="error",

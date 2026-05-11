@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 
+from app.contrib import places_client
 from app.contrib.places_client import PLACES_FIELD_MASK, lookup_provider
 
 
@@ -119,7 +120,9 @@ def test_missing_api_key_no_http() -> None:
 
 @patch.dict("os.environ", {"GOOGLE_PLACES_API_KEY": "test-key"}, clear=False)
 @patch("app.contrib.places_client.httpx.Client")
-def test_http_error_json(mock_cls: MagicMock) -> None:
+@patch("app.contrib.places_client.GOOGLE_PLACES_LIMITER.call_with_retry")
+def test_http_error_json(mock_cwr: MagicMock, mock_cls: MagicMock) -> None:
+    mock_cwr.side_effect = lambda fn: fn()
     inst = MagicMock()
     inst.post.return_value = _mock_post_response(500, {"error": "internal"})
     inst.__enter__.return_value = inst
@@ -127,3 +130,41 @@ def test_http_error_json(mock_cls: MagicMock) -> None:
     mock_cls.return_value = inst
     r = lookup_provider("X")
     assert r.status == "error"
+
+
+@patch.dict("os.environ", {"GOOGLE_PLACES_API_KEY": "test-key"}, clear=False)
+@patch("app.contrib.places_client.httpx.Client")
+def test_lookup_provider_routes_through_google_places_limiter(
+    mock_cls: MagicMock,
+) -> None:
+    """Pin that lookup_provider uses GOOGLE_PLACES_LIMITER.call_with_retry."""
+    called: list[object] = []
+
+    def fake_call_with_retry(fn):  # type: ignore[no-untyped-def]
+        called.append(fn)
+        return fn()
+
+    body = {
+        "places": [
+            {
+                "id": "places/ChIJabc",
+                "displayName": {"text": "Test Shop", "languageCode": "en"},
+                "formattedAddress": "1 Main St",
+            }
+        ]
+    }
+    inst = MagicMock()
+    inst.post.return_value = _mock_post_response(200, body)
+    inst.__enter__.return_value = inst
+    inst.__exit__.return_value = None
+    mock_cls.return_value = inst
+
+    with patch.object(
+        places_client.GOOGLE_PLACES_LIMITER,
+        "call_with_retry",
+        fake_call_with_retry,
+    ):
+        result = lookup_provider("Test Shop")
+
+    assert len(called) == 1, "lookup_provider must invoke call_with_retry exactly once"
+    assert result.status == "success"

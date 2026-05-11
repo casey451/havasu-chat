@@ -121,6 +121,11 @@ def _extract_meta(soup: BeautifulSoup) -> tuple[str | None, str | None]:
     return title or None, desc or None
 
 
+# TODO(rate-limit): per-host throttling against arbitrary contributor URLs.
+# Locked-deferred per phase2_5_rate_limiter_design.md §8 Q6 (2026-05-13).
+# Per-host throttling is a different shape (LRU+TTL host map, no fixed budget
+# per host) than SourceLimiter's per-source model. Inbound 1/hour/IP at
+# app/api/routes/contribute.py:48-58 is the de facto outbound limit today.
 def fetch_url_metadata(url: str, timeout_seconds: int = 10) -> UrlFetchResult:
     """Fetch URL, extract title + description. Returns structured result."""
     now = _naive_utc_now()

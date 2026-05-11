@@ -32,14 +32,14 @@ import argparse
 import json
 import os
 import sys
-import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import requests
+import httpx
 
 from app.bootstrap_env import ensure_dotenv_loaded
+from app.contrib.rate_limiter import SourceLimiter
 
 ensure_dotenv_loaded()
 
@@ -72,9 +72,9 @@ FIELD_MASK = ",".join(
     ]
 )
 
-INTER_REQUEST_SLEEP_S = 0.15  # ~6.5 QPS — comfortable under 600 QPM default
-RETRY_STATUSES = {429, 500, 502, 503, 504}
-MAX_RETRIES = 5
+# Enrichment uses 6.5 QPS (operator-tuned) — distinct from lookup path's 4 QPS.
+_ENRICHMENT_LIMITER = SourceLimiter("google_places_enrichment", qps=6.5)
+_RETRY_EXHAUSTED_STATUSES = frozenset({429, 500, 502, 503, 504})
 PROGRESS_EVERY = 50
 
 
@@ -106,33 +106,26 @@ def load_processed_ids(enriched_path: Path) -> set[str]:
 
 
 def request_place_details(api_key: str, place_id: str) -> dict[str, Any]:
-    """Single Place Details call. Retries 429/5xx with exponential backoff."""
+    """Single Place Details call. QPS + retries via ``_ENRICHMENT_LIMITER``."""
     url = PLACE_DETAILS_URL.format(place_id=place_id)
     headers = {
         "X-Goog-Api-Key": api_key,
         "X-Goog-FieldMask": FIELD_MASK,
     }
-    delay = 1.0
-    last_resp: requests.Response | None = None
-    for _attempt in range(MAX_RETRIES):
-        resp = requests.get(url, headers=headers, timeout=30)
-        last_resp = resp
-        if resp.status_code == 200:
-            return resp.json()
-        if resp.status_code == 404:
-            return {"_error_status": 404, "_place_id": place_id}
-        if resp.status_code in RETRY_STATUSES:
-            time.sleep(delay)
-            delay = min(delay * 2, 16.0)
-            continue
+    with httpx.Client(timeout=30) as client:
+        resp = _ENRICHMENT_LIMITER.call_with_retry(lambda: client.get(url, headers=headers))
+    if resp.status_code == 200:
+        return resp.json()
+    if resp.status_code == 404:
+        return {"_error_status": 404, "_place_id": place_id}
+    if resp.status_code in _RETRY_EXHAUSTED_STATUSES:
         raise RuntimeError(
-            f"Places API error {resp.status_code} on place_id={place_id!r}: "
-            f"{resp.text[:500]}"
+            f"Places API: retries exhausted for place_id={place_id!r} "
+            f"(last status {resp.status_code})"
         )
-    status = last_resp.status_code if last_resp is not None else "unknown"
     raise RuntimeError(
-        f"Places API: {MAX_RETRIES} retries exhausted for place_id={place_id!r} "
-        f"(last status {status})"
+        f"Places API error {resp.status_code} on place_id={place_id!r}: "
+        f"{resp.text[:500]}"
     )
 
 
@@ -249,7 +242,6 @@ def enrich(
                         f"errors={other_errors + errors_404} skipped={skipped}",
                         flush=True,
                     )
-                time.sleep(INTER_REQUEST_SLEEP_S)
                 continue
 
             if payload.get("_error_status") == 404:
@@ -265,7 +257,6 @@ def enrich(
                     + "\n"
                 )
                 raw_f.flush()
-                time.sleep(INTER_REQUEST_SLEEP_S)
                 continue
 
             success += 1
@@ -291,8 +282,6 @@ def enrich(
                     f"errors={other_errors + errors_404} skipped={skipped}",
                     flush=True,
                 )
-
-            time.sleep(INTER_REQUEST_SLEEP_S)
 
     finished_at = datetime.now(UTC).isoformat()
     summary = {
