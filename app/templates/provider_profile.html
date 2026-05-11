@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{{ vm.provider_name }} — Hava</title>
+</head>
+<body>
+  {# Phase A stub. The Phase B lane replaces this with the full
+     region-by-region layout per UX spec §2. Until then, this stub
+     proves the route + view-model wiring end-to-end. #}
+  <main data-page="provider-profile" data-slug="{{ vm.slug }}">
+    <h1>{{ vm.provider_name }}</h1>
+    <p data-region="category">{{ vm.category_label }}</p>
+    {% if vm.is_sponsored %}
+      <p data-region="sponsor-disclosure">{{ disclosure_word }}</p>
+    {% endif %}
+    {% if vm.is_featured %}
+      <p data-region="hava-pick">Hava's pick</p>
+    {% endif %}
+    {% if vm.freshness_copy %}
+      <p data-region="freshness" data-band="{{ vm.freshness_band }}">{{ vm.freshness_copy }}</p>
+    {% endif %}
+  </main>
+</body>
+</html>

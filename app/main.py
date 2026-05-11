@@ -36,6 +36,7 @@ from app.db.models import Event
 from app.home.chat_route import router as new_chat_ui_router
 from app.home.router import router as home_router
 from app.programs.router import router as programs_router
+from app.providers.router import router as providers_router
 from app.schemas.event import EventRead
 
 logger = logging.getLogger(__name__)
@@ -284,6 +285,9 @@ app.include_router(programs_router)
 # BUILD.md step 1: new /home page lives alongside the existing static / chat
 # UI during dogfooding. Cuts over to / once we're confident.
 app.include_router(home_router)
+# Directory pivot V1 (2026-05-13): per-provider profile page at
+# /provider/<slug>. Gates the Verified Presence sponsor package.
+app.include_router(providers_router)
 # BUILD.md step 5: new /chat surface that renders chat turns by
 # component.type. Lives alongside the existing static / chat UI
 # during dogfooding.
