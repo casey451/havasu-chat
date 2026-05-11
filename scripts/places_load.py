@@ -35,7 +35,7 @@ from app.bootstrap_env import ensure_dotenv_loaded
 ensure_dotenv_loaded()
 
 from app.db.database import SessionLocal  # noqa: E402
-from app.db.models import Provider  # noqa: E402
+from app.db.models import Entity, Location, Provider  # noqa: E402
 from app.db.seed_helpers import derive_provider_slug  # noqa: E402
 
 DEFAULT_INPUT_PATH = (
@@ -139,12 +139,24 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
     now = datetime.now(UTC)
 
     with SessionLocal() as session:
-        existing = (
+        # Phase 1C: match upsert keys on legacy ``google_place_id`` or ENTITY
+        # ``locations.google_place_id`` (backfilled Places rows).
+        existing_by_pid: dict[str, Provider] = {}
+        for p in (
             session.query(Provider)
             .filter(Provider.google_place_id.in_(place_ids))
             .all()
-        )
-        existing_by_pid = {p.google_place_id: p for p in existing}
+        ):
+            if p.google_place_id:
+                existing_by_pid[p.google_place_id] = p
+        for p, loc_pid in (
+            session.query(Provider, Location.google_place_id)
+            .join(Entity, Provider.entity_id == Entity.id)
+            .join(Location, Location.entity_id == Entity.id)
+            .filter(Location.google_place_id.in_(place_ids))
+            .all()
+        ):
+            existing_by_pid[loc_pid] = p
 
         for row in valid_rows:
             pid = row["place_id"]

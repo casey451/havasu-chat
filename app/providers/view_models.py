@@ -5,6 +5,10 @@ deferred until Phase 2; V1 trusts ``Provider.tier`` + ``sponsored_until``)
 that maps a ``Provider`` row + a ``viewer_is_owner`` flag into a flat,
 template-friendly struct. The Jinja template should never branch on
 business logic — only on the boolean flags below.
+
+**Phase 1C — Pattern B:** reads prefer ``provider.entity`` extensions (hours,
+location, contacts, taxonomy) when ``get_provider_by_slug`` eager-loads them;
+legacy columns remain the fallback for rows without ENTITY linkage.
 """
 
 from __future__ import annotations
@@ -120,7 +124,7 @@ def build(
 
     sponsor_disclosure_label = DISCLOSURE_WORD if is_sponsored else None
 
-    call_display, call_digits = _format_phone(provider.phone)
+    call_display, call_digits = _format_phone(queries.derive_primary_phone_raw(provider))
 
     service_area_only = queries.derive_service_area_only(provider)
     service_area = queries.derive_service_area(provider)
@@ -154,7 +158,7 @@ def build(
         call_phone=call_digits,
         call_phone_display=call_display,
         directions_url=queries.derive_directions_url(provider),
-        website_url=provider.website,
+        website_url=queries.derive_website_url(provider),
         ask_hava_url=queries.derive_ask_hava_url(provider),
         hero_photo_url=queries.derive_hero_photo(provider),
         gallery_photo_urls=queries.derive_gallery(provider),
@@ -162,8 +166,8 @@ def build(
         service_chips=queries.derive_service_chips(provider),
         service_area=service_area,
         service_area_only=service_area_only,
-        address=None if service_area_only else provider.address,
-        hours_structured=provider.hours_structured,
+        address=None if service_area_only else queries.derive_display_address(provider),
+        hours_structured=queries.effective_hours_structured(provider),
         hours_freetext=provider.hours,
         is_open_now=is_open,
         open_status_copy=open_copy,

@@ -1,4 +1,9 @@
-"""Google Places API (New) client for provider enrichment (Phase 5.2)."""
+"""Google Places API (New) client for provider enrichment (Phase 5.2).
+
+Phase 1C: outbound Places lookups remain unchanged; persisted Place IDs are read
+from ``Provider.google_place_id`` / ENTITY ``locations.google_place_id`` at
+call sites that hydrate stored rows (``scripts/places_load.py``).
+"""
 
 from __future__ import annotations
 

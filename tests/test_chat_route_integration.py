@@ -54,7 +54,8 @@ from app.chat.tier2_formatter import FEATURE_FLAG_CONFIDENCE_TIER_ENV_VAR
 from app.core.event_quality import CHAT_CONCIERGE_QUERY_VALIDATION_MESSAGE
 from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal
-from app.db.models import LlmResponseCache, Provider, Sponsor
+from app.db.entity_types import ENTITY_TYPE_COMMERCIAL
+from app.db.models import Entity, LlmResponseCache, Provider, Sponsor
 from app.main import app
 from tests._llm_mocks import patched_openai_client
 
@@ -779,4 +780,178 @@ class ChatRouteIntegrationLLMCoupledTests(unittest.TestCase):
                     if row is not None:
                         db.delete(row)
                         db.commit()
+            reset_entity_matcher()
+
+
+def _insert_google_provider_with_entity(
+    db: Session,
+    *,
+    provider_name: str,
+    category: str,
+    phone: str | None = None,
+) -> tuple[str, str]:
+    """Return ``(provider_id, entity_id)`` — Google-shaped Provider + ENTITY core row."""
+    from uuid import uuid4
+
+    eid = str(uuid4())
+    slug_e = f"ent-{uuid4().hex[:12]}"
+    ent = Entity(
+        id=eid,
+        entity_type=ENTITY_TYPE_COMMERCIAL,
+        slug=slug_e,
+        name=provider_name,
+        source="google_places",
+    )
+    db.add(ent)
+    p = Provider(
+        provider_name=provider_name,
+        category=category,
+        source="google_places",
+        google_place_id=(
+            f"test_place_{provider_name.lower().replace(' ', '_')}_{uuid4().hex[:6]}"
+        ),
+        phone=phone,
+        entity_id=eid,
+        is_active=True,
+        draft=False,
+    )
+    db.add(p)
+    db.commit()
+    db.refresh(p)
+    return p.id, eid
+
+
+class ChatRoutePhase1CEntityPivotTests(unittest.TestCase):
+    """Phase 1C — ENTITY-linked Provider seeds preserve chat-route contracts."""
+
+    def test_tier2_listing_shortcut_entity_linked_provider(self) -> None:
+        canonical = "Eastside Entity Barbershop Test"
+        provider_id: str | None = None
+        entity_id: str | None = None
+        try:
+            with SessionLocal() as db:
+                provider_id, entity_id = _insert_google_provider_with_entity(
+                    db,
+                    provider_name=canonical,
+                    category="barbershop",
+                )
+
+            no_llm = patched_openai_client("never reached")
+            no_llm.chat.completions.create.side_effect = AssertionError(
+                "Tier 2 listing shortcut must not call OpenAI"
+            )
+            with (
+                patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}, clear=False),
+                patch.object(llm_messages, "OpenAI", return_value=no_llm),
+                TestClient(app) as client,
+            ):
+                r = client.post(
+                    "/api/chat",
+                    json={
+                        "query": "find me a barber",
+                        "session_id": "integ-p1c-tier2-entity",
+                    },
+                )
+            self.assertEqual(r.status_code, 200)
+            data = r.json()
+            _assert_concierge_response_shape(data)
+            self.assertEqual(data["tier_used"], "2")
+            self.assertIn(canonical, data["response"])
+        finally:
+            with SessionLocal() as db:
+                if provider_id is not None:
+                    row = db.get(Provider, provider_id)
+                    if row is not None:
+                        db.delete(row)
+                if entity_id is not None:
+                    erow = db.get(Entity, entity_id)
+                    if erow is not None:
+                        db.delete(erow)
+                db.commit()
+            reset_entity_matcher()
+
+    def test_tier1_phone_lookup_entity_linked_provider(self) -> None:
+        canonical = "Entity Linked Plumbing Co Test"
+        phone = "(928) 555-0111"
+        provider_id: str | None = None
+        entity_id: str | None = None
+        try:
+            with SessionLocal() as db:
+                provider_id, entity_id = _insert_google_provider_with_entity(
+                    db,
+                    provider_name=canonical,
+                    category="plumbing",
+                    phone=phone,
+                )
+
+            with TestClient(app) as client:
+                r = client.post(
+                    "/api/chat",
+                    json={
+                        "query": f"phone number for {canonical}",
+                        "session_id": "integ-p1c-tier1-entity",
+                    },
+                )
+            self.assertEqual(r.status_code, 200)
+            data = r.json()
+            _assert_concierge_response_shape(data)
+            self.assertEqual(data["entity"], canonical)
+            self.assertEqual(data["tier_used"], "1")
+        finally:
+            with SessionLocal() as db:
+                if provider_id is not None:
+                    row = db.get(Provider, provider_id)
+                    if row is not None:
+                        db.delete(row)
+                if entity_id is not None:
+                    erow = db.get(Entity, entity_id)
+                    if erow is not None:
+                        db.delete(erow)
+                db.commit()
+            reset_entity_matcher()
+
+    def test_tier2_listing_coffee_entity_linked_provider(self) -> None:
+        canonical = "Lakefront Entity Coffee Lab Test"
+        provider_id: str | None = None
+        entity_id: str | None = None
+        try:
+            with SessionLocal() as db:
+                provider_id, entity_id = _insert_google_provider_with_entity(
+                    db,
+                    provider_name=canonical,
+                    category="coffee_shop",
+                )
+
+            no_llm = patched_openai_client("never reached")
+            no_llm.chat.completions.create.side_effect = AssertionError(
+                "Tier 2 listing shortcut must not call OpenAI"
+            )
+            with (
+                patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}, clear=False),
+                patch.object(llm_messages, "OpenAI", return_value=no_llm),
+                TestClient(app) as client,
+            ):
+                r = client.post(
+                    "/api/chat",
+                    json={
+                        "query": "any good coffee shops",
+                        "session_id": "integ-p1c-tier2-coffee",
+                    },
+                )
+            self.assertEqual(r.status_code, 200)
+            data = r.json()
+            _assert_concierge_response_shape(data)
+            self.assertEqual(data["tier_used"], "2")
+            self.assertIn(canonical, data["response"])
+        finally:
+            with SessionLocal() as db:
+                if provider_id is not None:
+                    row = db.get(Provider, provider_id)
+                    if row is not None:
+                        db.delete(row)
+                if entity_id is not None:
+                    erow = db.get(Entity, entity_id)
+                    if erow is not None:
+                        db.delete(erow)
+                db.commit()
             reset_entity_matcher()

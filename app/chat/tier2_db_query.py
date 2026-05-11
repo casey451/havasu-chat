@@ -7,7 +7,9 @@ days, time window, or open-now), the function returns a small mixed sample of
 live catalog rows so downstream formatting still has material to work with.
 
 When ``open_now=True``, provider rows are filtered in Python using
-``providers.hours_structured`` and :func:`app.contrib.hours_helper.is_open_at`.
+structured hours (legacy ``hours_structured`` JSON or ENTITY ``hours`` rows
+via :func:`app.providers.queries.effective_hours_structured`) and
+:func:`app.contrib.hours_helper.is_open_at`.
 Providers without structured hours are omitted. Events and programs are still
 returned using the same SQL filters with ``open_now`` stripped for the query
 builder (open/closed for events/programs is out of scope for Phase 5.6).
@@ -15,6 +17,13 @@ builder (open/closed for events/programs is out of scope for Phase 5.6).
 # open_now filtering happens in Python after SQL fetch because hours are JSON.
 # At current scale (<100 providers) this is negligible. Consider a SQL-side
 # derivation (e.g., computed column or materialized view) if scale grows.
+
+**Phase 1C — Pattern A (ENTITY-aware):** legacy ``events`` / ``programs`` /
+``providers`` rows are outer-joined to ``entities`` so orphan rows (no
+``entity_id`` yet) stay eligible while linked rows verify ``entity_type``.
+Category needle expansion can consult ``Entity`` M:M categories and
+offerings after fetch. Row payloads remain sourced from legacy ORM objects so
+chat formatting stays byte-stable.
 """
 
 from __future__ import annotations
@@ -25,12 +34,18 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import String, case, cast, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.chat.tier2_schema import Tier2Filters
 from app.contrib.hours_helper import LAKE_HAVASU_TZ, is_open_at
 from app.db.database import SessionLocal
-from app.db.models import Event, Program, Provider
+from app.db.entity_types import (
+    ENTITY_TYPE_COMMERCIAL,
+    ENTITY_TYPE_EVENT,
+    ENTITY_TYPE_PROGRAM,
+)
+from app.db.models import Entity, EntityCategory, Event, Location, Program, Provider
+from app.providers.queries import effective_hours_structured
 
 MAX_ROWS = 8
 # Broad calendar windows: fetch more before recurring collapse + time bucketing (Phase 8.8.4).
@@ -344,11 +359,13 @@ def _program_dict(p: Program) -> dict[str, Any]:
 
 
 def _provider_dict(p: Provider) -> dict[str, Any]:
+    loc = getattr(getattr(p, "entity", None), "location", None)
+    address = loc.address if loc is not None and loc.address else p.address
     return {
         "type": "provider",
         "name": p.provider_name,
         "category": p.category,
-        "address": p.address,
+        "address": address,
         "phone": p.phone,
         "hours": _truncate(p.hours, 120),
         "description": _truncate(p.description, 120),
@@ -366,7 +383,7 @@ def _text_needle(s: str | None) -> str | None:
     return f"%{str(s).strip()}%"
 
 
-def _category_match_event(e: Event, cat: str) -> bool:
+def _category_match_event_sql_columns(e: Event, cat: str) -> bool:
     c = cat.strip().lower()
     if c in (e.title or "").lower():
         return True
@@ -378,7 +395,38 @@ def _category_match_event(e: Event, cat: str) -> bool:
     return False
 
 
-def _category_match_program(p: Program, cat: str) -> bool:
+def _category_match_event(e: Event, cat: str) -> bool:
+    if _category_match_event_sql_columns(e, cat):
+        return True
+    needles = _category_needle_set(cat)
+    if not needles:
+        return False
+    ent = getattr(e, "entity", None)
+    if ent is None:
+        return False
+    haystacks: list[str] = [
+        (ent.name or "").lower(),
+        (ent.description or "").lower(),
+    ]
+    for ec in ent.categories or []:
+        cobj = ec.category
+        if cobj is not None and cobj.name:
+            haystacks.append(cobj.name.lower())
+    for off in ent.offerings or []:
+        if off.name:
+            haystacks.append(off.name.lower())
+        if off.description:
+            haystacks.append((off.description or "").lower()[:500])
+    for needle in needles:
+        if not needle:
+            continue
+        for hay in haystacks:
+            if hay and needle in hay:
+                return True
+    return False
+
+
+def _category_match_program_sql_columns(p: Program, cat: str) -> bool:
     c = cat.strip().lower()
     if c in (p.title or "").lower():
         return True
@@ -393,6 +441,37 @@ def _category_match_program(p: Program, cat: str) -> bool:
     for t in p.tags or []:
         if isinstance(t, str) and c in t.lower():
             return True
+    return False
+
+
+def _category_match_program(p: Program, cat: str) -> bool:
+    if _category_match_program_sql_columns(p, cat):
+        return True
+    needles = _category_needle_set(cat)
+    if not needles:
+        return False
+    ent = getattr(p, "entity", None)
+    if ent is None:
+        return False
+    haystacks: list[str] = [
+        (ent.name or "").lower(),
+        (ent.description or "").lower(),
+    ]
+    for ec in ent.categories or []:
+        cobj = ec.category
+        if cobj is not None and cobj.name:
+            haystacks.append(cobj.name.lower())
+    for off in ent.offerings or []:
+        if off.name:
+            haystacks.append(off.name.lower())
+        if off.description:
+            haystacks.append((off.description or "").lower()[:500])
+    for needle in needles:
+        if not needle:
+            continue
+        for hay in haystacks:
+            if hay and needle in hay:
+                return True
     return False
 
 
@@ -510,6 +589,16 @@ def _category_match_provider(p: Provider, cat: str) -> bool:
     ]
     if isinstance(p.google_categories, list):
         haystacks.extend(_normalize_for_match(t) for t in p.google_categories if isinstance(t, str))
+    ent = getattr(p, "entity", None)
+    if ent is not None:
+        haystacks.append((ent.name or "").lower())
+        for ec in ent.categories or []:
+            cobj = ec.category
+            if cobj is not None and cobj.name:
+                haystacks.append(cobj.name.lower())
+        for off in ent.offerings or []:
+            if off.name:
+                haystacks.append(off.name.lower())
     for needle in needles:
         if not needle:
             continue
@@ -698,9 +787,20 @@ def _query_events(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
         return []
     span = _filter_window_span_inclusive(win_start, win_end, today)
     limit = NARROW_EVENT_SQL_LIMIT if span <= 30 else BROAD_EVENT_SQL_LIMIT
-    q = select(Event).where(
-        Event.status == "live",
-        func.coalesce(Event.end_date, Event.date) >= lower,
+    q = (
+        select(Event)
+        .outerjoin(Entity, Event.entity_id == Entity.id)
+        .where(
+            Event.status == "live",
+            func.coalesce(Event.end_date, Event.date) >= lower,
+            or_(Event.entity_id.is_(None), Entity.entity_type == ENTITY_TYPE_EVENT),
+        )
+        .options(
+            selectinload(Event.entity)
+            .selectinload(Entity.categories)
+            .joinedload(EntityCategory.category),
+            selectinload(Event.entity).selectinload(Entity.offerings),
+        )
     )
     if win_end is not None:
         q = q.where(Event.date <= win_end)
@@ -767,7 +867,21 @@ def _query_programs(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
     if _has_temporal_filter(filters):
         return []
 
-    q = select(Program).where(Program.is_active.is_(True), Program.draft.is_(False))
+    q = (
+        select(Program)
+        .outerjoin(Entity, Program.entity_id == Entity.id)
+        .where(
+            Program.is_active.is_(True),
+            Program.draft.is_(False),
+            or_(Program.entity_id.is_(None), Entity.entity_type == ENTITY_TYPE_PROGRAM),
+        )
+        .options(
+            selectinload(Program.entity)
+            .selectinload(Entity.categories)
+            .joinedload(EntityCategory.category),
+            selectinload(Program.entity).selectinload(Entity.offerings),
+        )
+    )
 
     if needle := _text_needle(filters.entity_name):
         q = q.where(
@@ -816,7 +930,22 @@ def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
     if fmin is not None or fmax is not None:
         return []
 
-    q = select(Provider).where(Provider.draft.is_(False), Provider.is_active.is_(True))
+    q = (
+        select(Provider)
+        .outerjoin(Entity, Provider.entity_id == Entity.id)
+        .where(
+            Provider.draft.is_(False),
+            Provider.is_active.is_(True),
+            or_(Provider.entity_id.is_(None), Entity.entity_type == ENTITY_TYPE_COMMERCIAL),
+        )
+        .options(
+            selectinload(Provider.entity)
+            .selectinload(Entity.categories)
+            .joinedload(EntityCategory.category),
+            selectinload(Provider.entity).selectinload(Entity.offerings),
+            selectinload(Provider.entity).joinedload(Entity.location),
+        )
+    )
 
     if needle := _text_needle(filters.entity_name):
         q = q.where(
@@ -826,7 +955,9 @@ def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
             )
         )
     if needle := _text_needle(filters.location):
-        q = q.where(Provider.address.ilike(needle))
+        q = q.outerjoin(Location, Location.entity_id == Entity.id).where(
+            or_(Provider.address.ilike(needle), Location.address.ilike(needle))
+        )
     if filters.category and filters.category.strip():
         cat = filters.category.strip().lower()
         # Voice battery 2026-05-08 (§4.2): synonym expansion. _category_needle_set
@@ -902,9 +1033,11 @@ def _sample_mixed(db: Session, cap: int) -> list[dict[str, Any]]:
     events = list(
         db.scalars(
             select(Event)
+            .outerjoin(Entity, Event.entity_id == Entity.id)
             .where(
                 Event.status == "live",
                 func.coalesce(Event.end_date, Event.date) >= today,
+                or_(Event.entity_id.is_(None), Entity.entity_type == ENTITY_TYPE_EVENT),
             )
             .order_by(Event.date.asc(), Event.start_time.asc())
             .limit(cap)
@@ -913,7 +1046,12 @@ def _sample_mixed(db: Session, cap: int) -> list[dict[str, Any]]:
     programs = list(
         db.scalars(
             select(Program)
-            .where(Program.is_active.is_(True), Program.draft.is_(False))
+            .outerjoin(Entity, Program.entity_id == Entity.id)
+            .where(
+                Program.is_active.is_(True),
+                Program.draft.is_(False),
+                or_(Program.entity_id.is_(None), Entity.entity_type == ENTITY_TYPE_PROGRAM),
+            )
             .order_by(Program.title.asc())
             .limit(cap)
         ).all()
@@ -921,7 +1059,12 @@ def _sample_mixed(db: Session, cap: int) -> list[dict[str, Any]]:
     providers = list(
         db.scalars(
             select(Provider)
-            .where(Provider.draft.is_(False), Provider.is_active.is_(True))
+            .outerjoin(Entity, Provider.entity_id == Entity.id)
+            .where(
+                Provider.draft.is_(False),
+                Provider.is_active.is_(True),
+                or_(Provider.entity_id.is_(None), Entity.entity_type == ENTITY_TYPE_COMMERCIAL),
+            )
             .order_by(Provider.provider_name.asc())
             .limit(cap)
         ).all()
@@ -948,9 +1091,8 @@ def query(filters: Tier2Filters) -> list[dict[str, Any]]:
             prov_orm = [
                 p
                 for p in prov_orm
-                if isinstance(p.hours_structured, dict)
-                and p.hours_structured
-                and is_open_at(p.hours_structured, now_local)
+                if (hs := effective_hours_structured(p))
+                and is_open_at(hs, now_local)
             ]
 
         providers = [_provider_dict(p) for p in prov_orm[:MAX_ROWS]]

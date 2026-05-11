@@ -5,6 +5,12 @@ derive_* function takes a ``Provider`` and returns primitives so the
 view-model layer can stay flat. Time-dependent helpers accept an
 optional ``now`` argument for testability (matches the
 ``now_lake_havasu()`` injection pattern used elsewhere in the app).
+
+**Phase 1C — Pattern B (Legacy + alias):** callers continue to fetch ``Provider``
+rows; enriched reads resolve through ``provider.entity`` → locations / hours /
+contact_points / ``entity_categories`` when ``entity_id`` is populated
+(migrated ENTITY schema). Legacy columns remain for orphan rows and Phase 1D
+dual-write transition.
 """
 
 from __future__ import annotations
@@ -13,23 +19,43 @@ from datetime import datetime, time
 from typing import Optional
 from urllib.parse import quote
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
-from app.db.models import Provider
+from app.db.models import Entity, EntityCategory, Hours, Provider
 from app.home.queries import CATEGORY_LABELS
 
 
 def get_provider_by_slug(db: Session, slug: str) -> Optional[Provider]:
     """Return the active Provider with this slug, or None."""
-    return db.query(Provider).filter(Provider.slug == slug).first()
+    return (
+        db.query(Provider)
+        .options(
+            joinedload(Provider.category_ref),
+            joinedload(Provider.entity).joinedload(Entity.location),
+            joinedload(Provider.entity).selectinload(Entity.hours),
+            joinedload(Provider.entity).selectinload(Entity.contact_points),
+            joinedload(Provider.entity)
+            .selectinload(Entity.categories)
+            .joinedload(EntityCategory.category),
+        )
+        .filter(Provider.slug == slug)
+        .first()
+    )
 
 
 def category_label_for(provider: Provider) -> str:
-    """Prefer the structured ``category_ref.name`` when present; fall back to
-    the legacy free-text ``category`` string mapped through
+    """Prefer ENTITY taxonomy (``entity_categories`` → ``Category.name``), then
+    ``category_ref``, then legacy ``category`` mapped through
     ``app.home.queries.CATEGORY_LABELS``.
     """
+    ent = getattr(provider, "entity", None)
+    if ent is not None and ent.categories:
+        ordered = sorted(ent.categories, key=lambda ec: (not ec.is_primary, ec.id))
+        for ec in ordered:
+            cr = ec.category
+            if cr is not None and getattr(cr, "name", None):
+                return cr.name
     ref = getattr(provider, "category_ref", None)
     if ref is not None and getattr(ref, "name", None):
         return ref.name
@@ -115,17 +141,104 @@ def derive_directions_url(provider: Provider) -> Optional[str]:
     Prefers ``google_place_id`` (most stable), then address string, then
     lat/lng pair. Returns None when no location signal at all.
     """
-    place_id = provider.google_place_id
+    loc = getattr(getattr(provider, "entity", None), "location", None)
+    place_id = None
+    if loc is not None and loc.google_place_id:
+        place_id = loc.google_place_id
+    else:
+        place_id = provider.google_place_id
     if place_id:
         return (
             f"https://www.google.com/maps/search/?api=1"
             f"&query={quote(provider.provider_name)}&query_place_id={quote(place_id)}"
         )
-    if provider.address:
-        return f"https://www.google.com/maps/search/?api=1&query={quote(provider.address)}"
-    if provider.lat is not None and provider.lng is not None:
-        return f"https://www.google.com/maps/search/?api=1&query={provider.lat},{provider.lng}"
+    addr = None
+    if loc is not None and loc.address:
+        addr = loc.address
+    else:
+        addr = provider.address
+    if addr:
+        return f"https://www.google.com/maps/search/?api=1&query={quote(addr)}"
+    lat = loc.lat if loc is not None and loc.lat is not None else provider.lat
+    lng = loc.lng if loc is not None and loc.lng is not None else provider.lng
+    if lat is not None and lng is not None:
+        return f"https://www.google.com/maps/search/?api=1&query={lat},{lng}"
     return None
+
+
+def derive_display_address(provider: Provider) -> Optional[str]:
+    """Street / formatted address for profile display (non–service-area-only)."""
+    loc = getattr(getattr(provider, "entity", None), "location", None)
+    if loc is not None and loc.address:
+        return loc.address
+    return provider.address
+
+
+_WEEKDAY_KEYS_STRUCT = (
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+)
+
+
+def _hours_rows_to_structured(rows: list[Hours]) -> dict[str, list[dict[str, str]]] | None:
+    """Rebuild ``hours_structured`` JSON shape from ENTITY ``hours`` rows."""
+    if not rows:
+        return None
+    buckets: dict[str, list[dict[str, str]]] = {k: [] for k in _WEEKDAY_KEYS_STRUCT}
+    for h in rows:
+        if h.day_of_week < 0 or h.day_of_week > 6:
+            continue
+        day_key = _WEEKDAY_KEYS_STRUCT[h.day_of_week]
+        if h.opens_at is None or h.closes_at is None:
+            buckets[day_key] = []
+            continue
+        buckets[day_key].append(
+            {
+                "open": h.opens_at.strftime("%H:%M"),
+                "close": h.closes_at.strftime("%H:%M"),
+            }
+        )
+    if not any(buckets.values()):
+        return None
+    return buckets
+
+
+def effective_hours_structured(provider: Provider) -> dict | None:
+    """Prefer ENTITY weekly ``hours`` rows when present; else legacy JSON column."""
+    ent = getattr(provider, "entity", None)
+    if ent is not None and ent.hours:
+        rebuilt = _hours_rows_to_structured(list(ent.hours))
+        if rebuilt is not None:
+            return rebuilt
+    hs = provider.hours_structured
+    return hs if isinstance(hs, dict) else None
+
+
+def derive_primary_phone_raw(provider: Provider) -> Optional[str]:
+    """Phone digits/source string for ``_format_phone`` — ENTITY phone first."""
+    ent = getattr(provider, "entity", None)
+    if ent is not None and ent.contact_points:
+        phones = [cp for cp in ent.contact_points if cp.kind == "phone"]
+        phones.sort(key=lambda cp: (not cp.is_primary, cp.display_order, cp.id))
+        if phones:
+            return phones[0].value
+    return provider.phone
+
+
+def derive_website_url(provider: Provider) -> Optional[str]:
+    """Primary website URL — ENTITY ``contact_points`` website kind, then legacy."""
+    ent = getattr(provider, "entity", None)
+    if ent is not None and ent.contact_points:
+        sites = [cp for cp in ent.contact_points if cp.kind == "website"]
+        sites.sort(key=lambda cp: (not cp.is_primary, cp.display_order, cp.id))
+        if sites:
+            return sites[0].value
+    return provider.website
 
 
 def derive_service_chips(provider: Provider) -> list[str]:
@@ -232,7 +345,7 @@ def is_open_now(
     [{"open": "08:00", "close": "17:00"}, ...]}`` or ``None``. An empty
     list for a weekday means "closed today".
     """
-    hours = provider.hours_structured
+    hours = effective_hours_structured(provider)
     if not hours or not isinstance(hours, dict):
         return (None, None)
     now_dt = now or now_lake_havasu()
