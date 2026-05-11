@@ -5,8 +5,8 @@ from __future__ import annotations
 import unittest
 
 from app.chat.entity_matcher import (
-    _EntityRow,
     _category_guard_skips_row,
+    _EntityRow,
     _needles_for_canonical,
     match_entity_with_rows,
     normalize,

@@ -9,7 +9,6 @@ from sqlalchemy import delete
 from app.chat.entity_matcher import match_entity, refresh_entity_matcher, reset_entity_matcher
 from app.db.database import SessionLocal
 from app.db.models import Program, Provider
-
 from tests.test_entity_matcher import _insert_program
 
 _CANON_BMX = "Lake Havasu City BMX"

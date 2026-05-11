@@ -43,7 +43,7 @@ import os
 import unittest
 from datetime import timedelta
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -56,7 +56,6 @@ from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal
 from app.db.models import LlmResponseCache, Provider, Sponsor
 from app.main import app
-
 from tests._llm_mocks import patched_openai_client
 
 
