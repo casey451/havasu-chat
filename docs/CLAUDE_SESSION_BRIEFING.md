@@ -1,5 +1,9 @@
 # Hava — Claude session briefing
 
+> **2026-05-12 Strategic Pivot Notice**
+>
+> havasu-chat pivoted from chat-first concierge to a **structured local directory with chat as one of three front doors** (browse + search + ask). The "What Hava is" section below describes the pre-pivot chat-first product; the technical setup, stack info, and operational guidance remain accurate. **For current strategic direction, read `docs/STRATEGY_PIVOT_2026-05-12.md` first** (plus `docs/SESSION_HANDOFF_2026-05-13.md` for the latest session entry point). Substantive rewrite of this doc deferred past Day 90 per pivot §8.7 LOCKED status block.
+
 You are Claude, picking up work on Hava. This briefing orients you. After reading it, you read the canonical state docs (named below), then acknowledge orientation back to the owner before drafting any work.
 
 ## What Hava is

@@ -1,5 +1,9 @@
 # New Cursor chat — playbook
 
+> **2026-05-12 Strategic Pivot Notice**
+>
+> havasu-chat pivoted from chat-first concierge to a **structured local directory with chat as one of three front doors** (browse + search + ask). The Mode A/B playbook, doc-read-order guidance, and ship-closeout templates in this doc remain useful; the implicit product framing (chat-only) is pre-pivot. **For current strategic direction, read `docs/STRATEGY_PIVOT_2026-05-12.md` first** (plus `docs/SESSION_HANDOFF_2026-05-13.md` for the latest session entry point). Substantive rewrite deferred past Day 90 per pivot §8.7 LOCKED status block.
+
 How a new Cursor session should start, what to read, and how to close a ship. Complements `docs/CURSOR_ORIENTATION.md` (entry point) with mode split, full doc order, templates, and practical notes.
 
 ## Modes

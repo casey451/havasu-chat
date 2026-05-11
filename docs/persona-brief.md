@@ -1,5 +1,9 @@
 # Persona Brief — Hava
 
+> **2026-05-12 Strategic Pivot Notice**
+>
+> havasu-chat pivoted from chat-first concierge to a **structured local directory with chat as one of three front doors** (browse + search + ask). **The voice + persona + language-blocklist spec in this doc remains authoritative** — the pivot changed what the chat is FOR, not how it speaks. Some references to chat-only product framing pre-date the pivot. **For current strategic direction, read `docs/STRATEGY_PIVOT_2026-05-12.md` first.**
+
 **Phase:** 8.8.x voice and persona (shipped in prompts + templates)
 **Status:** **Authoritative** for Hava persona, delivery, and language blocklist. Architecture and tier routing: **`HAVA_CONCIERGE_HANDOFF.md`** (repo root).
 **Supersedes:** §2.1 of `HAVA_CONCIERGE_HANDOFF.md` (community-credit stance reopened; see §Revisions to locked decisions below).

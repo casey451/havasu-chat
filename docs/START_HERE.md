@@ -1,5 +1,9 @@
 # Orientation — new Claude session for Hava
 
+> **2026-05-12 Strategic Pivot Notice**
+>
+> havasu-chat pivoted from chat-first concierge to a **structured local directory with chat as one of three front doors** (browse + search + ask). The technical setup, repo info, and operational guidance in this doc remain accurate, but the product framing in `## Project` and below describes the chat-first product and pre-dates the pivot. **For current strategic direction, read `docs/STRATEGY_PIVOT_2026-05-12.md` first** (plus `docs/SESSION_HANDOFF_2026-05-13.md` for the latest session entry point). Substantive rewrite of this doc deferred past Day 90 per pivot §8.7 LOCKED status block.
+
 > **New Cursor session?** Read `docs/CURSOR_ORIENTATION.md` instead. It's shorter and tailored to Cursor's role. This file is for new Claude chat sessions.
 
 ## Project

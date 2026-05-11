@@ -1,5 +1,9 @@
 # Cursor orientation — Hava repo
 
+> **2026-05-12 Strategic Pivot Notice**
+>
+> havasu-chat pivoted from chat-first concierge to a **structured local directory with chat as one of three front doors** (browse + search + ask). Repo info, stack, and operational guidance in this doc remain accurate; the implicit product framing (chat-only) is pre-pivot. **For current strategic direction, read `docs/STRATEGY_PIVOT_2026-05-12.md` first** (plus `docs/SESSION_HANDOFF_2026-05-13.md` for the latest session entry point). Substantive rewrite deferred past Day 90 per pivot §8.7 LOCKED status block.
+
 This file is the entry point for new Cursor sessions working on Hava.
 Casey (owner) drives. Cursor executes in the repo.
 
