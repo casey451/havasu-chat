@@ -1,6 +1,13 @@
 # Verified Presence ($79/mo) — cold-pitch scripts and operator notes
 
 > **Operator note:** V1 directory category is **Home Services** (plumbers, HVAC, pool service, electrical, landscapers) per `docs/STRATEGY_PIVOT_2026-05-12.md` §1. Adapt category-specific examples in the scripts below when pitching outside Home Services. Drafted via ChatGPT 2026-05-13, voice-anchored against `docs/sponsor_outreach/cold_email_templates.md`; Cowork primary save with light polish. `[CASEY: confirm <X>]` markers are unfilled — replace before each pitch run.
+>
+> **Companion files (added 2026-05-13):**
+>
+> - [`verified_presence_objection_faq.md`](verified_presence_objection_faq.md) — extended 20-objection FAQ. The §6.4 list in this pitch doc is the core 8 for the 3-minute sit-down; the companion FAQ adds 12 more for prep, written replies, and post-pitch reference.
+> - [`verified_presence_leavebehind.md`](verified_presence_leavebehind.md) — 1-page handout (~200 words) for after-pitch handoff. Designed to read in 60 seconds.
+> - [`verified_presence_followup_emails.md`](verified_presence_followup_emails.md) — Day-2 (post-pitch recap) and Day-7 (final exit-ramp) follow-up email sequence.
+> - [`verified_presence_referral_script.md`](verified_presence_referral_script.md) — referral-ask script for end-of-"no" cordial conversations.
 
 ---
 
