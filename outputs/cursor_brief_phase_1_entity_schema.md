@@ -70,10 +70,10 @@ Add `entities` table + 11 extension tables. Add `Sponsor.entity_type`. **Zero ap
 
 **Acceptance:** new tables exist; foreign keys defined; relationships navigable on the ORM; new tests pin every column type + nullable + uniqueness; no chat-route or Provider-profile behavior change.
 
-### Phase 1B — Data backfill (target: 5-8 days)
-New migration backfills existing Provider/Event/Program rows into `entities` + relevant extension records. Adds nullable `entity_id` columns to providers/events/programs pointing back to entities (so the legacy tables and ENTITY can be cross-joined during transition). Backfill makes those `entity_id` columns non-null. **Still zero app-layer code changes.**
+### Phase 1B — Data backfill (target: 5-8 days) — SHIPPED 2026-05-14 at `d475b06`
+New migration backfills existing Provider/Event/Program rows into `entities` + relevant extension records. Adds nullable `entity_id` columns to providers/events/programs pointing back to entities (so the legacy tables and ENTITY can be cross-joined during transition). Backfill populates those `entity_id` columns. **The NOT NULL flip originally specified for stage 3 of this migration is DEFERRED to Phase 1D** per amendment 2026-05-14 — existing test fixtures create Provider/Event/Program rows directly without populating entity_id, and a non-null flip before Phase 1D's dual-write helpers exist would fail integrity. Stage 3 moves into Phase 1D's deliverables (§8). Still zero app-layer code changes in 1B.
 
-**Acceptance:** for every existing Provider row, an `entities` row with `entity_type="commercial"` exists with matching `entity_id`. Same for Events (`entity_type="event"`) and Programs (`entity_type="program"`). Extension records (`locations`, `hours`, `contact_points`, `entity_categories`) populated from the source rows. Pytest stays green; new tests pin backfill correctness for at least 5 representative row shapes.
+**Acceptance:** for every existing Provider row, an `entities` row with `entity_type="commercial"` exists with matching `entity_id`. Same for Events (`entity_type="event"`) and Programs (`entity_type="program"`). Extension records (`locations`, `hours`, `contact_points`, `entity_categories`) populated from the source rows. Pytest stays green; new tests pin backfill correctness for at least 5 representative row shapes. `entity_id` FK columns remain nullable; deviation pinned in test.
 
 ### Phase 1C — Application read pivot (target: 7-10 days)
 Application-layer queries pivot to read from `entities` + extensions instead of `providers`/`events`/`programs` directly. Writes still go to the legacy tables (1D handles dual-writes). **This is the biggest sub-phase.** Files touched: `app/providers/queries.py`, `app/providers/view_models.py`, `app/chat/tier2_db_query.py`, `app/contrib/places_client.py`, `app/contrib/enrichment.py`, `scripts/places_load.py`, plus any other read path the baseline reads in §0.7 surface.
@@ -448,11 +448,11 @@ Suggested commit subject: `feat(db): Phase 1A — unified ENTITY schema + 11 ext
 
 Chains off Phase 1A's migration. Adds `entity_id` columns to `providers`, `events`, `programs` (nullable initially), then runs the backfill via `op.execute` blocks, then flips the `entity_id` columns to NOT NULL.
 
-**Three-stage shape (matches the Provider.slug migration precedent at `f1a2b3c4d5e6`):**
+**Two-stage shape (amended 2026-05-14 per Phase 1B ship deviation — original three-stage spec at `f1a2b3c4d5e6` precedent had a NOT NULL flip in stage 3, but that flip is deferred to Phase 1D once dual-write helpers exist):**
 
 1. Add nullable `entity_id` String FK columns to providers/events/programs.
 2. Run backfill: for each Provider/Event/Program row, INSERT into entities + extension tables, populate the legacy row's `entity_id`.
-3. Flip `entity_id` to NOT NULL on all three legacy tables.
+3. ~~Flip `entity_id` to NOT NULL on all three legacy tables.~~ **DEFERRED to Phase 1D** — existing test fixtures construct Provider/Event/Program rows directly without populating entity_id; non-null flip before dual-write helpers fails integrity. Phase 1D's dual-write helper populates entity_id at write time; once that's in, Phase 1D can flip NOT NULL safely.
 
 ### §6.2 Provider → Entity backfill rules
 
@@ -582,7 +582,11 @@ Suggested commit subject: `refactor(app): Phase 1C — read pivot to ENTITY acro
 
 ---
 
-## §8 Phase 1D — Write dual-target + close-out (3-5 days estimate)
+## §8 Phase 1D — Write dual-target + close-out + entity_id NOT NULL flip (3-5 days estimate)
+
+### §8.0 entity_id NOT NULL flip (added 2026-05-14 per Phase 1B deferral)
+
+The Phase 1B migration left `providers.entity_id`, `events.entity_id`, and `programs.entity_id` nullable because Phase 1B preceded the dual-write helpers. Phase 1D's dual-write helper (§8.1 below) populates `entity_id` at write time for new rows. Once the dual-write helpers ship and tests pass, this sub-phase adds a small migration that flips NOT NULL on all three columns. **Order matters within Phase 1D:** dual-write helpers must be in place + every test fixture path must populate `entity_id` BEFORE the NOT NULL flip migration runs. Run the full test suite immediately after the flip migration to catch any fixture path that still constructs raw Provider/Event/Program rows without going through the dual-write helper. The flip migration is small (single alembic file, `op.alter_column` × 3 with `nullable=False`); the risk surface is entirely in the dual-write coverage being complete.
 
 ### §8.1 Dual-write strategy
 
