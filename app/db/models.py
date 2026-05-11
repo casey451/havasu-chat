@@ -546,6 +546,13 @@ class Sponsor(Base):
     # Validation/integrity is enforced in app layer (sponsor_store + admin UI).
     business_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # Phase 1 ENTITY schema (2026-05-14): discriminator for which entity_type
+    # the business_id references. Null until backfill completes; backfilled
+    # by the entity_schema migration to "commercial" for legacy rows (which
+    # all reference Provider records). Phase 1C app-layer routing keys off
+    # this column to disambiguate Provider vs Place vs Event sponsor refs.
+    entity_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
     # Booking window
     starts_at: Mapped[datetime | None] = mapped_column(TZAwareDateTime(), nullable=True)
     ends_at: Mapped[datetime | None] = mapped_column(TZAwareDateTime(), nullable=True)
@@ -596,6 +603,348 @@ class Category(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC), nullable=False
     )
+
+
+class Entity(Base):
+    """Unified core entity table — one row per directory thing.
+
+    Replaces the parallel Provider/Event/Program/Place top-level tables with
+    a single core + discriminator. Existing top-level tables remain during
+    transition (Phase 1B backfills them into entities; Phase 1C pivots app
+    reads to entities; Phase 1D pivots writes to dual-target; legacy table
+    drops are deferred to V1.5+/Phase 13 per master plan).
+
+    See docs/maintainability/master_build_plan.md §4 Phase 1.
+    """
+
+    __tablename__ = "entities"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    entity_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    slug: Mapped[str] = mapped_column(String(120), nullable=False, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_verified_at: Mapped[datetime | None] = mapped_column(
+        TZAwareDateTime(), nullable=True
+    )
+    source: Mapped[str] = mapped_column(String(64), nullable=False, default="seed")
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="1"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    categories: Mapped[list["EntityCategory"]] = relationship(
+        back_populates="entity", passive_deletes=True
+    )
+    location: Mapped["Location | None"] = relationship(
+        back_populates="entity", uselist=False, passive_deletes=True
+    )
+    hours: Mapped[list["Hours"]] = relationship(back_populates="entity", passive_deletes=True)
+    seasonal_hours: Mapped[list["SeasonalHours"]] = relationship(
+        back_populates="entity", passive_deletes=True
+    )
+    contact_points: Mapped[list["ContactPoint"]] = relationship(
+        back_populates="entity", passive_deletes=True
+    )
+    features: Mapped[list["Feature"]] = relationship(back_populates="entity", passive_deletes=True)
+    offerings: Mapped[list["Offering"]] = relationship(back_populates="entity", passive_deletes=True)
+    service_areas: Mapped[list["ServiceArea"]] = relationship(
+        back_populates="entity", passive_deletes=True
+    )
+    schedules: Mapped[list["Schedule"]] = relationship(back_populates="entity", passive_deletes=True)
+    source_evidence: Mapped[list["SourceEvidence"]] = relationship(
+        back_populates="entity", passive_deletes=True
+    )
+    sponsorship_slots: Mapped[list["SponsorshipSlot"]] = relationship(
+        back_populates="entity", passive_deletes=True
+    )
+
+
+class EntityCategory(Base):
+    """M:M link between Entity and Category (Tier 1/2/3 taxonomy)."""
+
+    __tablename__ = "entity_categories"
+    __table_args__ = (
+        UniqueConstraint(
+            "entity_id",
+            "category_id",
+            name="uq_entity_categories_entity_category",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entity_id: Mapped[str] = mapped_column(
+        String, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    category_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("categories.id"), nullable=False, index=True
+    )
+    is_primary: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    entity: Mapped["Entity"] = relationship(back_populates="categories")
+    category: Mapped["Category"] = relationship("Category", foreign_keys=[category_id])
+
+
+class Location(Base):
+    """Structured address + geo for an entity (1:1 with Entity)."""
+
+    __tablename__ = "locations"
+    __table_args__ = (UniqueConstraint("entity_id", name="uq_locations_entity_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entity_id: Mapped[str] = mapped_column(
+        String, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    address: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    address_normalized: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    state: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    zip: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lng: Mapped[float | None] = mapped_column(Float, nullable=True)
+    google_place_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    district: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    entity: Mapped["Entity"] = relationship(back_populates="location")
+
+
+class Hours(Base):
+    """Weekly hours row (1:N); one row per weekday slice."""
+
+    __tablename__ = "hours"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entity_id: Mapped[str] = mapped_column(
+        String, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    day_of_week: Mapped[int] = mapped_column(Integer, nullable=False)
+    opens_at: Mapped[time | None] = mapped_column(Time, nullable=True)
+    closes_at: Mapped[time | None] = mapped_column(Time, nullable=True)
+    is_24h: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    notes: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    entity: Mapped["Entity"] = relationship(back_populates="hours")
+
+
+class SeasonalHours(Base):
+    """Seasonal operating windows with structured hours overlay (JSON)."""
+
+    __tablename__ = "seasonal_hours"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entity_id: Mapped[str] = mapped_column(
+        String, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    season: Mapped[str] = mapped_column(String(16), nullable=False)
+    applies_from: Mapped[date | None] = mapped_column(Date, nullable=True)
+    applies_to: Mapped[date | None] = mapped_column(Date, nullable=True)
+    hours_overlay: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    notes: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    entity: Mapped["Entity"] = relationship(back_populates="seasonal_hours")
+
+
+class ContactPoint(Base):
+    """Phone, email, web, social handles for an entity."""
+
+    __tablename__ = "contact_points"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entity_id: Mapped[str] = mapped_column(
+        String, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    value: Mapped[str] = mapped_column(String(512), nullable=False)
+    label: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_primary: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    entity: Mapped["Entity"] = relationship(back_populates="contact_points")
+
+
+class Feature(Base):
+    """Boolean / enum-shaped feature flags (heat_exposure, boat_access, …)."""
+
+    __tablename__ = "features"
+    __table_args__ = (UniqueConstraint("entity_id", "key", name="uq_features_entity_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entity_id: Mapped[str] = mapped_column(
+        String, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    key: Mapped[str] = mapped_column(String(64), nullable=False)
+    value: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    entity: Mapped["Entity"] = relationship(back_populates="features")
+
+
+class Offering(Base):
+    """Services, menu items, or program offerings."""
+
+    __tablename__ = "offerings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entity_id: Mapped[str] = mapped_column(
+        String, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    price_text: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    price_min_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    price_max_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    entity: Mapped["Entity"] = relationship(back_populates="offerings")
+
+
+class ServiceArea(Base):
+    """Mobile service coverage zones."""
+
+    __tablename__ = "service_areas"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entity_id: Mapped[str] = mapped_column(
+        String, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    zone_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    zone_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    radius_miles: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    notes: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    entity: Mapped["Entity"] = relationship(back_populates="service_areas")
+
+
+class Schedule(Base):
+    """Event/program/recurring schedules."""
+
+    __tablename__ = "schedules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entity_id: Mapped[str] = mapped_column(
+        String, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    schedule_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    start_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
+    recurrence_rule: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    days_of_week: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    capacity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    capacity_label: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    notes: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    entity: Mapped["Entity"] = relationship(back_populates="schedules")
+
+
+class SourceEvidence(Base):
+    """Per-field provenance for ENTITY rows."""
+
+    __tablename__ = "source_evidence"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entity_id: Mapped[str] = mapped_column(
+        String, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    field_path: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    verified_at: Mapped[datetime | None] = mapped_column(TZAwareDateTime(), nullable=True)
+    verification_method: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    entity: Mapped["Entity"] = relationship(back_populates="source_evidence")
+
+
+class SponsorshipSlot(Base):
+    """Links an entity to sponsor inventory."""
+
+    __tablename__ = "sponsorship_slots"
+    __table_args__ = (
+        UniqueConstraint(
+            "entity_id",
+            "sponsor_id",
+            "slot_type",
+            name="uq_sponsorship_slots_entity_sponsor_slot",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entity_id: Mapped[str] = mapped_column(
+        String, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    sponsor_id: Mapped[str] = mapped_column(
+        String, ForeignKey("sponsors.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    slot_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    entity: Mapped["Entity"] = relationship(back_populates="sponsorship_slots")
 
 
 def _register_provider_slug_listeners() -> None:
