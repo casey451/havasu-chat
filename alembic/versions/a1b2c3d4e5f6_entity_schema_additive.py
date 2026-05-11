@@ -35,7 +35,7 @@ def upgrade() -> None:
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("last_verified_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("source", sa.String(length=64), nullable=False, server_default="seed"),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("1")),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
@@ -48,7 +48,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("entity_id", sa.String(), nullable=False),
         sa.Column("category_id", sa.Integer(), nullable=False),
-        sa.Column("is_primary", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("is_primary", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.ForeignKeyConstraint(
             ["entity_id"],
@@ -105,7 +105,7 @@ def upgrade() -> None:
         sa.Column("day_of_week", sa.Integer(), nullable=False),
         sa.Column("opens_at", sa.Time(), nullable=True),
         sa.Column("closes_at", sa.Time(), nullable=True),
-        sa.Column("is_24h", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("is_24h", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("notes", sa.String(length=255), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.ForeignKeyConstraint(
@@ -146,7 +146,7 @@ def upgrade() -> None:
         sa.Column("value", sa.String(length=512), nullable=False),
         sa.Column("label", sa.String(length=64), nullable=True),
         sa.Column("display_order", sa.Integer(), nullable=False, server_default="0"),
-        sa.Column("is_primary", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("is_primary", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.ForeignKeyConstraint(
             ["entity_id"],
