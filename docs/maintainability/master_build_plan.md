@@ -98,7 +98,14 @@ Plus inputs:
 
 **Success criteria:** All existing pytest passes against the new schema. Provider profile page renders correctly using ENTITY queries. No chat-route regression.
 
-**Open question for Casey:** should the ENTITY migration use Alembic's `op.execute` for the data move, or a separate Python script run post-migration? Recommend Alembic batch operations for atomicity.
+**Open question for Casey:** should the ENTITY migration use Alembic's `op.execute` for the data move, or a separate Python script run post-migration? Recommend Alembic batch operations for atomicity. **RESOLVED 2026-05-14 in `outputs/cursor_brief_phase_1_entity_schema.md` §2 + §6.1:** Alembic batch operations within the migration's `op.execute` blocks; idempotency guards on backfill INSERTs so the migration is safe to re-run.
+
+**Shipped (incremental, each sub-phase committed separately):**
+
+- **Phase 1A — schema additive (2026-05-14, commit `ff9832d`):** entities core + 11 extension tables (entity_categories, locations, hours, seasonal_hours, contact_points, features, offerings, service_areas, schedules, source_evidence, sponsorship_slots) + Sponsor.entity_type discriminator. Migration `a1b2c3d4e5f6` chains off `f1a2b3c4d5e6`. Pytest **1476 → 1497** (+21 net-new in `tests/test_entity_schema.py`). Ruff clean. Cursor session, ~half-day operator-walltime vs the brief's 5-8 day estimate — brief was conservative since Phase 1A is genuinely lighter than 1B/1C/1D (no data touched, no app code). **Four well-reasoned brief deviations transparently flagged by Cursor + accepted by primary:** (a) `passive_deletes=True` on all Entity→extension relationships so SQLite `ON DELETE CASCADE` works without SQLAlchemy's NULL-before-cascade dance; (b) `engine.dispose()` after the cascade-delete test (caught a `PRAGMA foreign_keys=ON` leak that would have silently broken unrelated DELETE tests via pooled connections — strong catch, would have been flakiness in CI later); (c) `SourceEvidence.verified_at` nullable to match legacy `Provider.last_verified_at` for Phase 1B backfill compatibility; (d) `SeasonalHours.hours_overlay` nullable since the table ships empty in Phase 1. All four within the brief's §11 acceptable-deviations guardrails. **Operator-side carry-over before 1B re-dispatch:** drop + recreate the local SQLite dev DB (Cursor's Path A chain-walk surfaced pre-1A drift at the `1a2b3c4d5e6f → 2a3b4c5d6e7f` step with `duplicate column name: slot`; benign for production but compounds confusion if not cleared before 1B). **No production runtime impact** — schema additive, dormant until 1B backfills data and 1C pivots reads.
+- **Phase 1B — pending re-dispatch.**
+- **Phase 1C — pending.**
+- **Phase 1D — pending.**
 
 ---
 
