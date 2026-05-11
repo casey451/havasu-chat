@@ -183,6 +183,21 @@ This ship is *purely additive* — no behavior change for current load. Suggeste
 
 ## 8. Open questions for the operator
 
+> **Status (2026-05-13):** All 7 §8 questions LOCKED + 1 §3-flagged extra. Decisions taken on the recommendations from `docs/maintainability/phase2_5_rate_limiter_decisions_memo.md`. The implementation lane is now unblocked. Locked answers below; original questions retained for narrative continuity.
+>
+> 1. **Scope framing — LOCKED: confirm retitle.** Third-party-source rate-limiter is correct. CSV ingest stays out of scope.
+> 2. **Default QPS — LOCKED: 4 QPS default + per-instance `qps=` override.** Lookup path keeps conservative 4 QPS; enrichment script keeps its 6.5 QPS via override. (Design §1.1's "same constants" claim is wrong — discovery is 4 QPS, enrichment is 6.5 QPS; impl lane preserves both.)
+> 3. **Failure-mode policy — LOCKED: keep `PlacesLookupResult(status="error", error_message="http_429_retry_exhausted")` envelope.** Defer retry queue / alerts to P2. Q4's structured logs will reveal whether 429-exhaustion is rare or frequent.
+> 4. **Observability surface — LOCKED: (c) structured logs in P1.** When Option B's `provider_api_quota` table ships (P2), telemetry columns come along for free; avoid two migrations.
+> 5. **Launch concurrency — LOCKED: single-process P1.** Ship Option A only; Option B follow-up gated on first concrete multi-process scenario. THIS WAS THE ONLY SIZING-CHANGING DECISION.
+> 6. **`url_fetcher.py` inclusion — LOCKED: defer.** Impl lane leaves a `# TODO(rate-limit): per-host throttling` comment near `fetch_url_metadata`. Inbound 1/hour/IP is the de facto outbound limit today.
+> 7. **OpenAI as future source — LOCKED: eventually wrap via same `SourceLimiter` interface; NOT in P1.** Do not rename `call_anthropic_messages` — `llm_messages.py:96` header explicitly retains the name for call-site stability.
+> 8. **(Memo §3 extra) `river_scene.py` inclusion — LOCKED: out of scope** per original §9. Symmetry can come later if scraping becomes a hot path.
+>
+> **Impl-lane carry-overs from memo §3:**
+> - **HTTP library mismatch:** runtime is `httpx`, scripts are `requests`. Standardize on `httpx` (already in runtime path) — recommended — or make `call_with_retry` library-agnostic.
+> - **`PAGINATION_SLEEP_S`** is not retry logic; keep inline in `places_discovery.py`, do not fold into `SourceLimiter`.
+
 These are decisions the implementation lane needs answers to before P1 ships. Listed in order of blocking-ness.
 
 1. **Confirm the §0 scope correction.** Is "third-party-source rate-limiter" the right framing, or did the brief mean something specific by "enrichment-ingest" that I missed?
