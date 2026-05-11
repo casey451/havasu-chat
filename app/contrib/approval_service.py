@@ -9,6 +9,11 @@ from sqlalchemy.orm import Session
 from app.contrib.hours_helper import places_hours_to_structured
 from app.core.event_recurrence import event_text_blob, is_recurring_heuristic
 from app.db.contribution_store import normalize_submission_url
+from app.db.entity_dual_write import (
+    create_event_and_entity,
+    create_program_and_entity,
+    create_provider_and_entity,
+)
 from app.db.models import Contribution, Event, Program, Provider
 from app.db.seed_helpers import derive_provider_slug
 from app.schemas.contribution import (
@@ -92,6 +97,7 @@ def approve_contribution_as_provider(
     )
     try:
         db.add(prov)
+        create_provider_and_entity(db, prov)
         db.flush()
         c.status = "approved"
         c.reviewed_at = _naive_utc_now()
@@ -166,6 +172,7 @@ def approve_contribution_as_program(
     )
     try:
         db.add(prog)
+        create_program_and_entity(db, prog)
         db.flush()
         c.status = "approved"
         c.reviewed_at = _naive_utc_now()
@@ -225,6 +232,7 @@ def approve_contribution_as_event(
     ev.verified = verified
     try:
         db.add(ev)
+        create_event_and_entity(db, ev)
         db.flush()
         c.status = "approved"
         c.reviewed_at = _naive_utc_now()

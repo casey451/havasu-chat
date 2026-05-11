@@ -63,6 +63,10 @@ from sqlalchemy.orm import Session  # noqa: E402
 
 from app.core.timezone import LAKE_HAVASU_TZ  # noqa: E402
 from app.db.database import SessionLocal  # noqa: E402
+from app.db.entity_dual_write import (  # noqa: E402
+    create_provider_and_entity,
+    sync_provider_entity_from_legacy,
+)
 from app.db.models import Provider  # noqa: E402
 from app.db.seed_helpers import derive_provider_slug  # noqa: E402
 from scripts.ingest.validate_enrichment_csv import (  # noqa: E402
@@ -211,6 +215,7 @@ def ingest_csv(csv_path: Path, *, dry_run: bool, db: Session) -> int:
                         source="operator_enrichment",
                     )
                     db.add(new_row)
+                    create_provider_and_entity(db, new_row)
                     db.flush()  # populate id without committing
                     n_insert += 1
                     print(
@@ -234,6 +239,7 @@ def ingest_csv(csv_path: Path, *, dry_run: bool, db: Session) -> int:
                     "verification_method",
                 ):
                     setattr(existing, field_name, payload[field_name])
+                sync_provider_entity_from_legacy(db, existing)
                 db.flush()
                 n_update += 1
                 print(

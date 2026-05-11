@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.rate_limit import limiter
 from app.db.database import get_db
+from app.db.entity_dual_write import create_program_and_entity
 from app.db.models import Program
 from app.schemas.program import ProgramCreate, ProgramRead
 
@@ -59,6 +60,7 @@ def create_program(
 ) -> Program:
     program = _program_from_create(payload)
     db.add(program)
+    create_program_and_entity(db, program)
     db.commit()
     db.refresh(program)
     return program
@@ -362,6 +364,7 @@ def program_submit(
         embedding=None,
     )
     db.add(program)
+    create_program_and_entity(db, program)
     db.commit()
     db.refresh(program)
     return HTMLResponse(_submit_success_html(program.title))

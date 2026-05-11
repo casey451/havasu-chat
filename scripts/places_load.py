@@ -35,6 +35,10 @@ from app.bootstrap_env import ensure_dotenv_loaded
 ensure_dotenv_loaded()
 
 from app.db.database import SessionLocal  # noqa: E402
+from app.db.entity_dual_write import (  # noqa: E402
+    create_provider_and_entity,
+    sync_provider_entity_from_legacy,
+)
 from app.db.models import Entity, Location, Provider  # noqa: E402
 from app.db.seed_helpers import derive_provider_slug  # noqa: E402
 
@@ -166,11 +170,13 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
                 for field, value in kwargs.items():
                     setattr(provider, field, value)
                 provider.last_google_scraped_at = now
+                sync_provider_entity_from_legacy(session, provider)
                 counts["updated"] += 1
             else:
                 slug = derive_provider_slug(session, kwargs["provider_name"])
                 provider = Provider(**kwargs, slug=slug, last_google_scraped_at=now)
                 session.add(provider)
+                create_provider_and_entity(session, provider)
                 counts["inserted"] += 1
 
         session.commit()

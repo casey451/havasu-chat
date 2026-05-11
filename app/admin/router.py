@@ -22,6 +22,7 @@ from app.admin.contributions_html import register_contribution_html_routes
 from app.admin.feedback_html import register_feedback_html_routes
 from app.admin.mentions_html import register_mentions_html_routes
 from app.db.database import DATABASE_URL, get_db
+from app.db.entity_dual_write import create_program_and_entity, create_provider_and_entity
 from app.db.models import ChatLog, Event, Program, Provider
 from app.db.seed_helpers import derive_provider_slug
 from app.schemas.program import ProgramCreate
@@ -1380,6 +1381,7 @@ def admin_program_create(
         embedding=None,
     )
     db.add(program)
+    create_program_and_entity(db, program)
     db.commit()
     return RedirectResponse(url="/admin?tab=programs", status_code=303)
 
@@ -1566,6 +1568,7 @@ def admin_provider_create(
 
     try:
         db.add(provider)
+        create_provider_and_entity(db, provider)
         db.commit()
     except Exception as exc:
         db.rollback()

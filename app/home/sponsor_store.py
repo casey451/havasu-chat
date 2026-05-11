@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.core.timezone import now_lake_havasu
 from app.db.models import Sponsor
+from app.db.sponsor_resolve import resolve_sponsor_linked_provider
 
 
 def get_active_sponsor(db: Session) -> dict[str, Any] | None:
@@ -36,7 +37,7 @@ def get_active_sponsor(db: Session) -> dict[str, Any] | None:
     )
     if row is None:
         return None
-    return {
+    out: dict[str, Any] = {
         "id": row.id,
         "name": row.name,
         "eyebrow": row.eyebrow or "",
@@ -45,3 +46,8 @@ def get_active_sponsor(db: Session) -> dict[str, Any] | None:
         "cta_url": row.cta_url,
         "image_url": row.image_url,
     }
+    linked = resolve_sponsor_linked_provider(db, row)
+    if linked is not None:
+        out["linked_provider_id"] = linked.id
+        out["linked_provider_name"] = linked.provider_name
+    return out

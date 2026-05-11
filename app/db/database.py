@@ -76,3 +76,16 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def _register_orm_listeners() -> None:
+    """Import ORM models for side effects, then register Phase 1D ``before_flush`` hooks."""
+    import importlib
+
+    importlib.import_module("app.db.models")
+    from app.db.entity_dual_write import register_catalog_dual_write_hooks
+
+    register_catalog_dual_write_hooks()
+
+
+_register_orm_listeners()

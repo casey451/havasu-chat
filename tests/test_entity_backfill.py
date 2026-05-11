@@ -216,9 +216,9 @@ def test_backfill_idempotent() -> None:
     assert n1 == n2
 
 
-def test_entity_id_fk_columns_remain_nullable_for_dual_write_gap() -> None:
-    """§6.1 leaves legacy FK nullable until Phase 1D dual-write (brief deviation)."""
+def test_entity_id_fk_columns_are_not_null_after_phase_1d_closeout() -> None:
+    """Phase 1D migration flips legacy ``entity_id`` FK columns to NOT NULL."""
     insp = inspect(engine)
     for tbl in ("providers", "events", "programs"):
         cols = {c["name"]: c for c in insp.get_columns(tbl)}
-        assert cols["entity_id"]["nullable"] is True
+        assert cols["entity_id"]["nullable"] is False
