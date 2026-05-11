@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Havasu Chat — Visual Mockup of UI Ideas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sand: #f5efe4;
+    --sand-2: #ebe2d1;
+    --cream: #fbf7ef;
+    --ink: #2a2421;
+    --ink-2: #4a423d;
+    --muted: #8a7f74;
+    --line: #e2d8c6;
+    --lake: #1f5d6e;
+    --lake-2: #2a7b8f;
+    --terra: #b8543a;
+    --terra-soft: #f4e0d8;
+    --green: #3d7a4f;
+    --green-soft: #dcebe0;
+    --amber: #b07a1f;
+    --amber-soft: #f3e6c9;
+    --red: #a64038;
+    --red-soft: #f1d9d6;
+    --gold: #8a6b1e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--sand);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    padding: 40px 20px;
+    min-height: 100vh;
+  }
+  .page-head {
+    max-width: 1400px;
+    margin: 0 auto 32px;
+    text-align: center;
+  }
+  .page-head h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 36px;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  .page-head p {
+    color: var(--muted);
+    font-size: 14px;
+    max-width: 560px;
+    margin: 0 auto;
+    line-height: 1.55;
+  }
+  .stage {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 40px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  @media (max-width: 1100px) {
+    .stage { grid-template-columns: 1fr; }
+  }
+  .screen-wrap { display: flex; flex-direction: column; align-items: center; }
+  .screen-label {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 16px;
+    letter-spacing: -0.01em;
+  }
+  .phone {
+    width: 380px;
+    background: var(--cream);
+    border-radius: 36px;
+    border: 1px solid #d8cdb8;
+    box-shadow: 0 14px 40px rgba(42, 36, 33, 0.10), 0 2px 6px rgba(42, 36, 33, 0.06);
+    overflow: hidden;
+    position: relative;
+  }
+  .phone-bezel {
+    height: 28px;
+    background: linear-gradient(180deg, #f1e9d6, #f5efe4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid var(--line);
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+  }
+  .app-head {
+    padding: 14px 18px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 22px;
+    color: var(--lake);
+    letter-spacing: -0.02em;
+  }
+  .logo em { font-style: italic; color: var(--terra); }
+  .boat-toggle {
+    font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 10px;
+    background: var(--cream);
+  }
+  .boat-toggle.on { background: var(--lake); color: white; border-color: var(--lake); }
+
+  /* Conditions strip */
+  .conditions {
+    padding: 10px 18px;
+    background: var(--sand);
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--line);
+    font-size: 11px;
+  }
+  .cond { display: flex; flex-direction: column; line-height: 1.3; min-width: max-content; }
+  .cond .lbl { color: var(--muted); font-weight: 500; }
+  .cond .val { color: var(--ink); font-weight: 600; }
+  .cond .val.warn { color: var(--terra); }
+
+  /* Ask Hava */
+  .ask-hava {
+    padding: 16px 18px 14px;
+    background: var(--cream);
+  }
+  .ask-hava h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 19px;
+    color: var(--ink);
+    margin-bottom: 10px;
+    letter-spacing: -0.01em;
+  }
+  .ask-box {
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 11px 13px;
+    color: var(--muted);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .ask-box::before {
+    content: "→";
+    color: var(--lake);
+    font-size: 16px;
+    font-weight: 500;
+  }
+  .prompt-chips {
+    display: flex;
+    gap: 7px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .prompt-chip {
+    background: var(--cream);
+    border: 1px solid var(--lake);
+    color: var(--lake);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+
+  /* Category grid */
+  .cat-section {
+    padding: 18px;
+  }
+  .cat-section h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 12px;
+    letter-spacing: -0.01em;
+  }
+  .cat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+  }
+  .tile {
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 12px;
+    text-align: left;
+  }
+  .tile.featured {
+    background: linear-gradient(135deg, #f4ede0, #ebe2d1);
+    border-color: #d8cdb8;
+  }
+  .tile-name {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--ink);
+    margin-bottom: 2px;
+  }
+  .tile-meta {
+    font-size: 10.5px;
+    color: var(--muted);
+  }
+
+  /* Chip rows */
+  .chips-block {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .chip-row {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    margin-bottom: 7px;
+    padding-bottom: 2px;
+  }
+  .chip-row:last-child { margin-bottom: 0; }
+  .chip {
+    border-radius: 999px;
+    padding: 5px 11px;
+    font-size: 11.5px;
+    white-space: nowrap;
+    border: 1px solid var(--line);
+    background: var(--cream);
+    color: var(--ink-2);
+    font-weight: 500;
+  }
+  .chip.active { background: var(--ink); color: white; border-color: var(--ink); }
+  .chip.op { background: var(--green-soft); border-color: #c4d8c9; color: var(--green); }
+  .chip.op.active { background: var(--green); color: white; border-color: var(--green); }
+
+  /* Sort row */
+  .sort-row {
+    padding: 10px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11.5px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line);
+  }
+  .sort-row .map-toggle {
+    color: var(--lake);
+    font-weight: 600;
+  }
+
+  /* Result cards */
+  .results {
+    padding: 12px 16px;
+  }
+  .card {
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 13px 14px;
+    margin-bottom: 10px;
+  }
+  .card.sponsored {
+    border-color: var(--terra);
+    background: var(--cream);
+    position: relative;
+  }
+  .card.sponsored::before {
+    content: "Sponsored";
+    position: absolute;
+    top: -8px;
+    left: 12px;
+    background: var(--terra);
+    color: white;
+    font-size: 9.5px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .card.pick {
+    border-color: #d8c890;
+    background: linear-gradient(180deg, #faf5e6 0%, var(--cream) 100%);
+  }
+  .pick-badge {
+    display: inline-block;
+    background: var(--gold);
+    color: white;
+    font-size: 9.5px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 5px;
+  }
+  .card-name {
+    font-weight: 600;
+    font-size: 14.5px;
+    color: var(--ink);
+    line-height: 1.25;
+  }
+  .fresh-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-top: 6px;
+    margin-left: 8px;
+    flex-shrink: 0;
+  }
+  .fresh-dot.green { background: var(--green); }
+  .fresh-dot.amber { background: var(--amber); }
+  .fresh-dot.red { background: var(--red); }
+  .card-status {
+    font-size: 12px;
+    color: var(--green);
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .card-status.closed { color: var(--muted); }
+  .card-meta {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .card-meta .dot { margin: 0 5px; color: #c8bea9; }
+  .op-pill {
+    display: inline-block;
+    background: var(--green-soft);
+    color: var(--green);
+    font-size: 10.5px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .ranking-line {
+    font-size: 10.5px;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--line);
+  }
+  .actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 9px;
+  }
+  .act {
+    flex: 1;
+    text-align: center;
+    border: 1px solid var(--line);
+    background: white;
+    color: var(--ink-2);
+    border-radius: 7px;
+    padding: 6px 0;
+    font-size: 11.5px;
+    font-weight: 500;
+  }
+  .act.primary { background: var(--lake); color: white; border-color: var(--lake); }
+
+  /* Profile screen */
+  .profile-id {
+    padding: 16px 18px 12px;
+  }
+  .profile-name {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+  }
+  .profile-meta {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .profile-status {
+    font-size: 13px;
+    color: var(--green);
+    font-weight: 500;
+  }
+  .freshness-band {
+    padding: 10px 18px;
+    background: var(--amber-soft);
+    color: var(--amber);
+    font-size: 12.5px;
+    font-weight: 500;
+    border-top: 1px solid #e6d6a8;
+    border-bottom: 1px solid #e6d6a8;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .freshness-band::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--amber);
+    flex-shrink: 0;
+  }
+  .profile-actions {
+    display: flex;
+    gap: 8px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .pact {
+    flex: 1;
+    text-align: center;
+    border: 1px solid var(--line);
+    background: white;
+    color: var(--ink);
+    border-radius: 8px;
+    padding: 9px 0;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .pact.primary { background: var(--lake); color: white; border-color: var(--lake); }
+  .trust-strip {
+    padding: 12px 18px;
+    display: flex;
+    gap: 14px;
+    font-size: 11px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line);
+    background: var(--sand);
+    flex-wrap: wrap;
+  }
+  .trust-item { display: flex; align-items: center; gap: 5px; }
+  .trust-item .badge {
+    background: var(--green-soft);
+    color: var(--green);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 10px;
+  }
+  .photos {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .photo-strip {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+  }
+  .photo {
+    flex-shrink: 0;
+    width: 90px;
+    height: 68px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--lake-2), var(--terra));
+  }
+  .photo:nth-child(2) { background: linear-gradient(135deg, #d8a878, #b8543a); }
+  .photo:nth-child(3) { background: linear-gradient(135deg, #2a7b8f, #1f5d6e); }
+  .photo:nth-child(4) { background: linear-gradient(135deg, #c8b896, #8a7f74); }
+  .district-strip {
+    margin: 14px 18px;
+    padding: 12px 14px;
+    background: var(--sand);
+    border-left: 3px solid var(--lake);
+    border-radius: 0 8px 8px 0;
+  }
+  .district-strip .label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--lake);
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  .district-strip p {
+    font-size: 12.5px;
+    color: var(--ink-2);
+    line-height: 1.5;
+  }
+  .sticky-demo {
+    position: absolute;
+    top: 28px;
+    left: 0;
+    right: 0;
+    background: rgba(251, 247, 239, 0.97);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+    padding: 8px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 2;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  }
+  .sticky-demo .name {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--ink);
+  }
+  .sticky-demo .status {
+    font-size: 11.5px;
+    color: var(--green);
+    font-weight: 500;
+  }
+  .sticky-demo .call {
+    background: var(--lake);
+    color: white;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  /* Annotations */
+  .callouts {
+    margin-top: 18px;
+    width: 380px;
+    font-size: 11.5px;
+    color: var(--ink-2);
+    line-height: 1.5;
+  }
+  .callout {
+    display: flex;
+    gap: 9px;
+    margin-bottom: 8px;
+    padding: 8px 11px;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .callout-tag {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    color: var(--terra);
+    flex-shrink: 0;
+    min-width: 26px;
+    font-size: 12.5px;
+  }
+  .callout strong { color: var(--ink); font-weight: 600; }
+  .legend {
+    max-width: 1400px;
+    margin: 40px auto 0;
+    padding: 18px 22px;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .legend h3 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 16px;
+    color: var(--ink);
+    margin-bottom: 10px;
+    letter-spacing: -0.01em;
+  }
+  .legend-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    font-size: 12.5px;
+    color: var(--ink-2);
+    line-height: 1.55;
+  }
+  @media (max-width: 900px) {
+    .legend-grid { grid-template-columns: 1fr; }
+  }
+  .legend-item strong { color: var(--ink); font-weight: 600; }
+  .freshness-legend {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .fl { display: flex; align-items: center; gap: 6px; }
+  .fl .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .fl .dot.g { background: var(--green); }
+  .fl .dot.a { background: var(--amber); }
+  .fl .dot.r { background: var(--red); }
+</style>
+</head>
+<body>
+  <div class="page-head">
+    <h1>Hava — three surfaces, in context</h1>
+    <p>A visual pass at the highest-leverage UI ideas (A1–A9). Restrained palette, mobile-first, server-rendered Jinja-buildable. Each callout maps to a numbered idea from the previous response.</p>
+  </div>
+
+  <div class="stage">
+
+    <!-- ============== HOMEPAGE ============== -->
+    <div class="screen-wrap">
+      <div class="screen-label">Homepage</div>
+      <div class="phone">
+        <div class="phone-bezel">9:41 · Tuesday · Lake Havasu City</div>
+
+        <div class="app-head">
+          <div class="logo">Ha<em>v</em>a</div>
+          <div class="boat-toggle">⛵ Boat mode</div>
+        </div>
+
+        <!-- Conditions strip (already locked - shown for context) -->
+        <div class="conditions">
+          <div class="cond"><span class="lbl">Now</span><span class="val warn">108°F · heat advisory</span></div>
+          <div class="cond"><span class="lbl">Lake</span><span class="val">82°F</span></div>
+          <div class="cond"><span class="lbl">Wind</span><span class="val">7mph N</span></div>
+          <div class="cond"><span class="lbl">Sunset</span><span class="val">7:34pm</span></div>
+        </div>
+
+        <!-- Ask Hava + prompt chips (A2) -->
+        <div class="ask-hava">
+          <h2>Ask Hava</h2>
+          <div class="ask-box">What's good in Havasu today?</div>
+          <div class="prompt-chips">
+            <div class="prompt-chip">Where's cool indoors right now?</div>
+            <div class="prompt-chip">Sunset dinner spots</div>
+            <div class="prompt-chip">Open late after 10pm</div>
+            <div class="prompt-chip">Boat-in lunch</div>
+          </div>
+        </div>
+
+        <!-- Condition-reordered category tiles (A6) -->
+        <div class="cat-section">
+          <h3>Today, ordered for the heat</h3>
+          <div class="cat-grid">
+            <div class="tile featured">
+              <div class="tile-name">Museums & Indoor</div>
+              <div class="tile-meta">9 places · AC</div>
+            </div>
+            <div class="tile featured">
+              <div class="tile-name">Breweries & Tap Rooms</div>
+              <div class="tile-meta">11 places · indoor</div>
+            </div>
+            <div class="tile">
+              <div class="tile-name">Restaurants</div>
+              <div class="tile-meta">142 places</div>
+            </div>
+            <div class="tile">
+              <div class="tile-name">Spas & Wellness</div>
+              <div class="tile-meta">23 places</div>
+            </div>
+            <div class="tile">
+              <div class="tile-name">Boat Rentals</div>
+              <div class="tile-meta">14 places</div>
+            </div>
+            <div class="tile">
+              <div class="tile-name">Auto & Services</div>
+              <div class="tile-meta">68 places</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="callouts">
+        <div class="callout">
+          <span class="callout-tag">A2</span>
+          <div><strong>Curated prompt chips.</strong> Operator-written, not auto-generated. Anti cold-start.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-tag">A6</span>
+          <div><strong>Condition-aware tile order.</strong> Heat advisory → indoor categories bubble up. No "trending" theater.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============== CATEGORY LANDING ============== -->
+    <div class="screen-wrap">
+      <div class="screen-label">Restaurants — category landing</div>
+      <div class="phone">
+        <div class="phone-bezel">Restaurants · 142 places</div>
+
+        <div class="app-head">
+          <div class="logo" style="font-size:18px;">← Restaurants</div>
+          <div class="boat-toggle">⛵</div>
+        </div>
+
+        <!-- 3-row chip system (already locked, shown for context) -->
+        <div class="chips-block">
+          <div class="chip-row">
+            <div class="chip">All cuisines</div>
+            <div class="chip active">Mexican</div>
+            <div class="chip">American</div>
+            <div class="chip">Italian</div>
+            <div class="chip">Asian</div>
+          </div>
+          <div class="chip-row">
+            <div class="chip">All districts</div>
+            <div class="chip active">English Village</div>
+            <div class="chip">McCulloch</div>
+            <div class="chip">Sunset</div>
+          </div>
+          <div class="chip-row">
+            <div class="chip op active">Open Now</div>
+            <div class="chip op">Boat Access</div>
+            <div class="chip op">Outdoor Seating</div>
+            <div class="chip op">Dog Friendly</div>
+          </div>
+        </div>
+
+        <div class="sort-row">
+          <span>Sorted by: relevance today</span>
+          <span class="map-toggle">Map view →</span>
+        </div>
+
+        <div class="results">
+          <!-- Sponsored card (already locked, with explicit label) -->
+          <div class="card sponsored">
+            <div class="card-top">
+              <div class="card-name">Casa del Rio</div>
+              <div class="fresh-dot green"></div>
+            </div>
+            <div class="card-status">Open until 10pm</div>
+            <div class="card-meta">Mexican · English Village <span class="dot">·</span> 0.4 mi</div>
+            <span class="op-pill">Outdoor</span>
+            <span class="op-pill">Dog OK</span>
+            <div class="ranking-line">Sponsored placement — labeled per our disclosure policy</div>
+            <div class="actions">
+              <div class="act">Call</div>
+              <div class="act">Directions</div>
+              <div class="act primary">Ask Hava</div>
+            </div>
+          </div>
+
+          <!-- Hava's Pick -->
+          <div class="card pick">
+            <span class="pick-badge">Hava's Pick</span>
+            <div class="card-top">
+              <div class="card-name">Barley Brothers</div>
+              <div class="fresh-dot green"></div>
+            </div>
+            <div class="card-status">Open until 11pm</div>
+            <div class="card-meta">Brewery/American · English Village <span class="dot">·</span> 0.5 mi · across the bridge</div>
+            <span class="op-pill">Boat-in</span>
+            <span class="op-pill">Outdoor</span>
+            <div class="ranking-line">Hava's Pick: verified, complete profile, recent photos</div>
+            <div class="actions">
+              <div class="act">Call</div>
+              <div class="act">Directions</div>
+              <div class="act primary">Ask Hava</div>
+            </div>
+          </div>
+
+          <!-- Regular organic with amber freshness -->
+          <div class="card">
+            <div class="card-top">
+              <div class="card-name">Mudshark Brewery</div>
+              <div class="fresh-dot amber"></div>
+            </div>
+            <div class="card-status">Open until 10pm</div>
+            <div class="card-meta">Brewery/American · McCulloch <span class="dot">·</span> 1.2 mi</div>
+            <span class="op-pill">Outdoor</span>
+            <div class="ranking-line">Open now · Verified 4 months ago · Cuisine match</div>
+            <div class="actions">
+              <div class="act">Call</div>
+              <div class="act">Directions</div>
+              <div class="act primary">Ask Hava</div>
+            </div>
+          </div>
+
+          <!-- Closed/red freshness -->
+          <div class="card">
+            <div class="card-top">
+              <div class="card-name">Shugrue's at the Bridge</div>
+              <div class="fresh-dot red"></div>
+            </div>
+            <div class="card-status closed">Closed · opens 11am tomorrow</div>
+            <div class="card-meta">American · English Village <span class="dot">·</span> 0.3 mi</div>
+            <div class="ranking-line">Not recently verified · call ahead</div>
+            <div class="actions">
+              <div class="act">Call</div>
+              <div class="act">Directions</div>
+              <div class="act primary">Ask Hava</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="callouts">
+        <div class="callout">
+          <span class="callout-tag">A1</span>
+          <div><strong>Freshness dot</strong> on every card (green/amber/red). Same band, expanded, sits on profile pages.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-tag">A4</span>
+          <div><strong>Unified Hava card.</strong> Same component renders in category pages, search, and chat — never a weaker version anywhere.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-tag">A8</span>
+          <div><strong>"Why this card is here"</strong> ranking explainer below each card. Anti-black-box.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============== PROFILE ============== -->
+    <div class="screen-wrap">
+      <div class="screen-label">Provider profile (mid-scroll)</div>
+      <div class="phone" style="padding-top:0;">
+        <div class="phone-bezel">Mudshark Brewery</div>
+
+        <!-- Sticky bar demo (A9) - shown overlaying -->
+        <div class="sticky-demo">
+          <div>
+            <div class="name">Mudshark Brewery</div>
+            <div class="status">Open until 10pm</div>
+          </div>
+          <div class="call">📞 Call</div>
+        </div>
+
+        <div style="height: 48px;"></div>
+
+        <div class="profile-id">
+          <div class="profile-name">Mudshark Brewery</div>
+          <div class="profile-meta">Brewery & American · McCulloch district · 1.2 mi</div>
+          <div class="profile-status">● Open until 10pm</div>
+        </div>
+
+        <!-- Freshness band (A1) - amber example -->
+        <div class="freshness-band">
+          Last verified 4 months ago — info may have changed. Call ahead to confirm hours.
+        </div>
+
+        <div class="profile-actions">
+          <div class="pact primary">📞 Call</div>
+          <div class="pact">📍 Directions</div>
+          <div class="pact">💬 Ask Hava</div>
+        </div>
+
+        <div class="trust-strip">
+          <div class="trust-item"><span class="badge">Verified</span></div>
+          <div class="trust-item">8 photos</div>
+          <div class="trust-item">Hours seasonal</div>
+          <div class="trust-item">Owner-edited</div>
+        </div>
+
+        <div class="photos">
+          <div class="photo-strip">
+            <div class="photo"></div>
+            <div class="photo"></div>
+            <div class="photo"></div>
+            <div class="photo"></div>
+          </div>
+        </div>
+
+        <!-- District context (A5) -->
+        <div class="district-strip">
+          <div class="label">McCulloch district</div>
+          <p>The main strip running south from the bridge — busy after work and on weekends. Parking is easier than English Village. Heavy snowbird crowd Nov–March; tourist crowd thins after spring break.</p>
+        </div>
+
+        <div style="padding: 0 18px 18px;">
+          <div style="font-family:'Fraunces',serif; font-size:14px; font-weight:500; color:var(--ink); margin-bottom:6px;">About</div>
+          <div style="font-size:12.5px; color:var(--ink-2); line-height:1.55;">
+            Local brewery and full kitchen since 1997. Wide patio, dog-friendly outside, full bar. Their IPA and pizzas are the regulars' picks…
+          </div>
+        </div>
+      </div>
+      <div class="callouts">
+        <div class="callout">
+          <span class="callout-tag">A1</span>
+          <div><strong>Color-coded freshness band</strong> immediately under identity. Honesty as the loudest signal on the page.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-tag">A5</span>
+          <div><strong>District context strip.</strong> Written once per district, rendered on every business in it. The hyperlocal moat.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-tag">A9</span>
+          <div><strong>Sticky status bar</strong> appears on scroll — name, "open until" status, and one Call button. No favorites, no share, no engagement bait.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="legend">
+    <h3>Reading this mockup</h3>
+    <div class="legend-grid">
+      <div class="legend-item">
+        <strong>Palette is intentionally muted.</strong> Sand/cream background, deep lake teal as the one accent, terracotta only for explicit sponsor labels. No purple gradients. No "discovering amazing experiences" loading copy. Inter for UI, Fraunces for display.
+      </div>
+      <div class="legend-item">
+        <strong>Freshness dots replace stars.</strong> Three states — green (recently verified), amber (stale, call ahead), red (not verified, treat with caution). The same logic renders on cards as a dot and on profiles as a full-width band.
+        <div class="freshness-legend">
+          <span class="fl"><span class="dot g"></span>&lt; 60 days</span>
+          <span class="fl"><span class="dot a"></span>60–180 days</span>
+          <span class="fl"><span class="dot r"></span>&gt; 180 days</span>
+        </div>
+      </div>
+      <div class="legend-item">
+        <strong>What's not on screen by design.</strong> No popups, no "save / favorite / share" trio, no badges system, no streaks, no countdown timers, no review-aggregation theater. The interface earns trust by what it refuses to do.
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

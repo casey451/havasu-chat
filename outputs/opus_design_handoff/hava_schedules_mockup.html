@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Havasu Chat — Events & Schedules Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sand: #f5efe4;
+    --sand-2: #ebe2d1;
+    --cream: #fbf7ef;
+    --ink: #2a2421;
+    --ink-2: #4a423d;
+    --muted: #8a7f74;
+    --line: #e2d8c6;
+    --lake: #1f5d6e;
+    --lake-2: #2a7b8f;
+    --terra: #b8543a;
+    --terra-soft: #f4e0d8;
+    --green: #3d7a4f;
+    --green-soft: #dcebe0;
+    --amber: #b07a1f;
+    --amber-soft: #f3e6c9;
+    --red: #a64038;
+    --gold: #8a6b1e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--sand);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    padding: 40px 20px;
+    min-height: 100vh;
+  }
+  .page-head {
+    max-width: 1400px;
+    margin: 0 auto 32px;
+    text-align: center;
+  }
+  .page-head h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 32px;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  .page-head p {
+    color: var(--muted);
+    font-size: 14px;
+    max-width: 560px;
+    margin: 0 auto;
+    line-height: 1.55;
+  }
+  .stage {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 40px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  @media (max-width: 1100px) { .stage { grid-template-columns: 1fr; } }
+  .screen-wrap { display: flex; flex-direction: column; align-items: center; }
+  .screen-label {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 16px;
+    letter-spacing: -0.01em;
+  }
+  .phone {
+    width: 380px;
+    background: var(--cream);
+    border-radius: 36px;
+    border: 1px solid #d8cdb8;
+    box-shadow: 0 14px 40px rgba(42, 36, 33, 0.10), 0 2px 6px rgba(42, 36, 33, 0.06);
+    overflow: hidden;
+    position: relative;
+  }
+  .phone-bezel {
+    height: 28px;
+    background: linear-gradient(180deg, #f1e9d6, #f5efe4);
+    display: flex; align-items: center; justify-content: center;
+    border-bottom: 1px solid var(--line);
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+  }
+  .app-head {
+    padding: 14px 18px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+  .app-head .back {
+    font-family: 'Fraunces', serif;
+    font-size: 17px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 22px;
+    color: var(--lake);
+    letter-spacing: -0.02em;
+  }
+  .logo em { font-style: italic; color: var(--terra); }
+  .boat-toggle {
+    font-size: 11px;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 10px;
+    background: var(--cream);
+  }
+
+  /* Subheader */
+  .subhead {
+    padding: 14px 18px 6px;
+  }
+  .subhead h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+  }
+  .subhead p {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  /* Chip system reused */
+  .chips-block {
+    padding: 10px 18px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .chip-row {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    margin-bottom: 7px;
+    padding-bottom: 2px;
+  }
+  .chip-row:last-child { margin-bottom: 0; }
+  .chip {
+    border-radius: 999px;
+    padding: 5px 11px;
+    font-size: 11.5px;
+    white-space: nowrap;
+    border: 1px solid var(--line);
+    background: var(--cream);
+    color: var(--ink-2);
+    font-weight: 500;
+  }
+  .chip.active { background: var(--ink); color: white; border-color: var(--ink); }
+  .chip.op { background: var(--green-soft); border-color: #c4d8c9; color: var(--green); }
+  .chip.op.active { background: var(--green); color: white; border-color: var(--green); }
+
+  /* Timeline */
+  .timeline {
+    padding: 14px 0 16px;
+    position: relative;
+  }
+  .timeline::before {
+    content: "";
+    position: absolute;
+    top: 14px;
+    bottom: 16px;
+    left: 56px;
+    width: 1px;
+    background: var(--line);
+  }
+  .slot {
+    display: flex;
+    gap: 14px;
+    padding: 0 18px 12px 0;
+    position: relative;
+  }
+  .slot-time {
+    width: 50px;
+    flex-shrink: 0;
+    text-align: right;
+    padding-top: 14px;
+    padding-left: 18px;
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .slot-time .ampm { font-size: 9px; display: block; margin-top: 1px; }
+  .slot-marker {
+    position: absolute;
+    left: 53px;
+    top: 18px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--lake);
+    border: 2px solid var(--cream);
+    box-shadow: 0 0 0 1px var(--lake);
+    z-index: 1;
+  }
+  .slot-marker.past { background: var(--line); box-shadow: 0 0 0 1px var(--line); }
+  .event-card {
+    flex: 1;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-top: 6px;
+  }
+  .event-card.past { opacity: 0.55; }
+  .event-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 3px;
+  }
+  .event-name {
+    font-weight: 600;
+    font-size: 13.5px;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .fresh-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+  .fresh-dot.green { background: var(--green); }
+  .fresh-dot.amber { background: var(--amber); }
+  .event-meta {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .event-meta .venue { color: var(--lake); font-weight: 500; }
+  .nature-pill {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .nature-pill.free { background: var(--green-soft); color: var(--green); }
+  .nature-pill.dropin { background: #e6e2f0; color: #5e4a8a; }
+  .nature-pill.booking { background: var(--terra-soft); color: var(--terra); }
+  .now-pill {
+    background: var(--lake);
+    color: white;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-right: 6px;
+  }
+  .now-row {
+    background: var(--cream);
+    padding: 8px 18px;
+    border-bottom: 1px solid var(--line);
+    border-top: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    font-size: 11.5px;
+    color: var(--lake);
+    font-weight: 500;
+  }
+
+  /* Event profile */
+  .ev-id {
+    padding: 16px 18px 10px;
+  }
+  .ev-title {
+    font-family: 'Fraunces', serif;
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    margin-bottom: 5px;
+    line-height: 1.15;
+  }
+  .ev-sub {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .ev-host {
+    display: inline-block;
+    color: var(--lake);
+    font-weight: 500;
+    font-size: 12.5px;
+    border-bottom: 1px dotted var(--lake);
+    margin-bottom: 4px;
+  }
+  .freshness-band {
+    padding: 9px 18px;
+    background: var(--green-soft);
+    color: var(--green);
+    font-size: 12px;
+    font-weight: 500;
+    border-top: 1px solid #c4d8c9;
+    border-bottom: 1px solid #c4d8c9;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .freshness-band::before {
+    content: "";
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    flex-shrink: 0;
+  }
+  .ev-actions {
+    display: flex;
+    gap: 8px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .pact {
+    flex: 1;
+    text-align: center;
+    border: 1px solid var(--line);
+    background: white;
+    color: var(--ink);
+    border-radius: 8px;
+    padding: 9px 0;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .pact.primary { background: var(--lake); color: white; border-color: var(--lake); }
+
+  .ev-section {
+    padding: 14px 18px 6px;
+  }
+  .ev-section h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+  .recurrence {
+    font-size: 12.5px;
+    color: var(--ink-2);
+    margin-bottom: 8px;
+    padding: 8px 12px;
+    background: var(--sand);
+    border-radius: 8px;
+  }
+  .next-dates {
+    list-style: none;
+  }
+  .next-dates li {
+    padding: 7px 0;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    font-size: 12.5px;
+    color: var(--ink-2);
+  }
+  .next-dates li:last-child { border-bottom: none; }
+  .next-dates .day { font-weight: 500; color: var(--ink); }
+  .next-dates .spots { color: var(--muted); font-size: 11.5px; }
+
+  .ev-detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 12.5px;
+    border-bottom: 1px solid var(--line);
+  }
+  .ev-detail-row:last-child { border-bottom: none; }
+  .ev-detail-row .k { color: var(--muted); }
+  .ev-detail-row .v { color: var(--ink); font-weight: 500; }
+
+  .venue-card-link {
+    margin: 14px 18px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--cream);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .venue-card-link .label {
+    font-size: 10.5px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 3px;
+  }
+  .venue-card-link .vname {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .venue-card-link .vmeta {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .venue-card-link .arrow {
+    color: var(--lake);
+    font-size: 18px;
+  }
+
+  /* Gym profile schedule region */
+  .gym-id {
+    padding: 16px 18px 8px;
+  }
+  .gym-name {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+  }
+  .gym-meta {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .gym-status {
+    font-size: 13px;
+    color: var(--green);
+    font-weight: 500;
+  }
+  .schedule-region {
+    margin: 0 18px 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .sched-head {
+    padding: 11px 14px;
+    background: var(--sand);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .sched-head h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .sched-head .freshness {
+    font-size: 10.5px;
+    color: var(--green);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .sched-head .freshness::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+  }
+  .day-tabs {
+    display: flex;
+    padding: 8px 14px;
+    gap: 6px;
+    background: var(--cream);
+    border-bottom: 1px solid var(--line);
+    overflow-x: auto;
+  }
+  .day-tab {
+    padding: 5px 10px;
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 500;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+  .day-tab.active {
+    background: var(--ink);
+    color: white;
+  }
+  .sched-table {
+    background: var(--cream);
+  }
+  .sched-row {
+    display: grid;
+    grid-template-columns: 60px 1fr auto;
+    gap: 10px;
+    padding: 10px 14px;
+    align-items: center;
+    border-bottom: 1px solid var(--line);
+    font-size: 12px;
+  }
+  .sched-row:last-child { border-bottom: none; }
+  .sched-time {
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 12px;
+  }
+  .sched-class {
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .sched-instructor {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+  .sched-status {
+    font-size: 10.5px;
+    color: var(--green);
+    font-weight: 600;
+  }
+  .sched-status.full { color: var(--red); }
+  .sched-status.few { color: var(--amber); }
+  .sched-cta {
+    margin: 12px 14px;
+    text-align: center;
+    padding: 10px;
+    font-size: 12px;
+    color: var(--lake);
+    font-weight: 500;
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+  }
+
+  /* Callouts */
+  .callouts {
+    margin-top: 18px;
+    width: 380px;
+    font-size: 11.5px;
+    color: var(--ink-2);
+    line-height: 1.5;
+  }
+  .callout {
+    display: flex;
+    gap: 9px;
+    margin-bottom: 8px;
+    padding: 8px 11px;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .callout-tag {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    color: var(--terra);
+    flex-shrink: 0;
+    min-width: 26px;
+    font-size: 12.5px;
+  }
+  .callout strong { color: var(--ink); font-weight: 600; }
+  .legend {
+    max-width: 1400px;
+    margin: 40px auto 0;
+    padding: 18px 22px;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .legend h3 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 16px;
+    color: var(--ink);
+    margin-bottom: 10px;
+    letter-spacing: -0.01em;
+  }
+  .legend p {
+    font-size: 12.5px;
+    color: var(--ink-2);
+    line-height: 1.55;
+  }
+</style>
+</head>
+<body>
+  <div class="page-head">
+    <h1>Schedules, classes &amp; events — three surfaces</h1>
+    <p>Events as first-class objects, a chronological "today" agenda, and a Schedule region on class-driven venues. Same Hava texture, new content type.</p>
+  </div>
+
+  <div class="stage">
+
+    <!-- ============ TODAY AGENDA ============ -->
+    <div class="screen-wrap">
+      <div class="screen-label">Today's agenda — /today</div>
+      <div class="phone">
+        <div class="phone-bezel">Tuesday · Lake Havasu City</div>
+
+        <div class="app-head">
+          <div class="logo">Ha<em>v</em>a</div>
+          <div class="boat-toggle">Menu</div>
+        </div>
+
+        <div class="subhead">
+          <h2>Today in Havasu</h2>
+          <p>Tuesday · 38 events &amp; classes</p>
+        </div>
+
+        <div class="chips-block">
+          <div class="chip-row">
+            <div class="chip active">Today</div>
+            <div class="chip">Tonight</div>
+            <div class="chip">Tomorrow</div>
+            <div class="chip">Weekend</div>
+          </div>
+          <div class="chip-row">
+            <div class="chip">All</div>
+            <div class="chip active">Fitness</div>
+            <div class="chip">Lessons</div>
+            <div class="chip">Kids</div>
+            <div class="chip">Live Music</div>
+          </div>
+          <div class="chip-row">
+            <div class="chip op">Free</div>
+            <div class="chip op">Drop-in OK</div>
+            <div class="chip op">Beginner</div>
+            <div class="chip op">Indoor</div>
+          </div>
+        </div>
+
+        <div class="timeline">
+
+          <div class="slot">
+            <div class="slot-time">6<span class="ampm">AM</span></div>
+            <div class="slot-marker past"></div>
+            <div class="event-card past">
+              <div class="event-top">
+                <div class="event-name">Lap Swim</div>
+                <div class="fresh-dot green"></div>
+              </div>
+              <div class="event-meta"><span class="venue">Aquatic Center</span> · McCulloch · 6:00–8:00am</div>
+              <span class="nature-pill dropin">Drop-in</span>
+            </div>
+          </div>
+
+          <div class="slot">
+            <div class="slot-time">9<span class="ampm">AM</span></div>
+            <div class="slot-marker"></div>
+            <div class="event-card">
+              <div class="event-top">
+                <div class="event-name">Beginner Pickleball Clinic</div>
+                <div class="fresh-dot green"></div>
+              </div>
+              <div class="event-meta"><span class="venue">Rotary Park Courts</span> · Lakefront · 9:00–10:30am</div>
+              <span class="nature-pill free">Free</span>
+            </div>
+          </div>
+
+          <div class="slot">
+            <div class="slot-time">10<span class="ampm">AM</span></div>
+            <div class="slot-marker"></div>
+            <div class="event-card">
+              <div class="event-top">
+                <div class="event-name">Toddler Story Time</div>
+                <div class="fresh-dot green"></div>
+              </div>
+              <div class="event-meta"><span class="venue">Mohave County Library</span> · Civic Center · 10:00–10:45am</div>
+              <span class="nature-pill free">Free</span>
+            </div>
+          </div>
+
+          <div class="now-row"><span class="now-pill">Now</span>It's 11:42am</div>
+
+          <div class="slot">
+            <div class="slot-time">12<span class="ampm">PM</span></div>
+            <div class="slot-marker"></div>
+            <div class="event-card">
+              <div class="event-top">
+                <div class="event-name">Water Aerobics</div>
+                <div class="fresh-dot amber"></div>
+              </div>
+              <div class="event-meta"><span class="venue">Aquatic Center</span> · McCulloch · 12:00–1:00pm</div>
+              <span class="nature-pill dropin">Drop-in</span>
+            </div>
+          </div>
+
+          <div class="slot">
+            <div class="slot-time">2<span class="ampm">PM</span></div>
+            <div class="slot-marker"></div>
+            <div class="event-card">
+              <div class="event-top">
+                <div class="event-name">Beginner Golf Lesson (group)</div>
+                <div class="fresh-dot green"></div>
+              </div>
+              <div class="event-meta"><span class="venue">The Refuge GC</span> · North · 2:00–3:00pm</div>
+              <span class="nature-pill booking">Book ahead</span>
+            </div>
+          </div>
+
+          <div class="slot">
+            <div class="slot-time">6<span class="ampm">PM</span></div>
+            <div class="slot-marker"></div>
+            <div class="event-card">
+              <div class="event-top">
+                <div class="event-name">Vinyasa Yoga</div>
+                <div class="fresh-dot green"></div>
+              </div>
+              <div class="event-meta"><span class="venue">Lake Havasu Yoga</span> · McCulloch · 6:00–7:00pm</div>
+              <span class="nature-pill dropin">Drop-in</span>
+            </div>
+          </div>
+
+          <div class="slot">
+            <div class="slot-time">7<span class="ampm">PM</span></div>
+            <div class="slot-marker"></div>
+            <div class="event-card">
+              <div class="event-top">
+                <div class="event-name">Live Music: The Drifters</div>
+                <div class="fresh-dot green"></div>
+              </div>
+              <div class="event-meta"><span class="venue">Kokomo Havasu</span> · English Village · 7:00–10:00pm</div>
+              <span class="nature-pill free">Free</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <div class="callouts">
+        <div class="callout">
+          <span class="callout-tag">E2</span>
+          <div><strong>Vertical time axis</strong> — chronological agenda for today. Calm. Past events fade. "Now" marker is factual, not theater.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-tag">E4</span>
+          <div><strong>Schedule-tuned chip rows.</strong> Time-window / category / nature — distinct from the place chips but visually identical.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-tag">E6</span>
+          <div><strong>Freshness dots</strong> on each event, decayed faster than business listings. Amber = schedule may have changed.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ EVENT PROFILE ============ -->
+    <div class="screen-wrap">
+      <div class="screen-label">Class series profile</div>
+      <div class="phone">
+        <div class="phone-bezel">Class series</div>
+
+        <div class="app-head">
+          <div class="back">← Today</div>
+          <div class="boat-toggle">Share</div>
+        </div>
+
+        <div class="ev-id">
+          <span class="ev-host">Lake Havasu Yoga</span>
+          <div class="ev-title">Vinyasa Yoga<br>(Tue / Thu 6pm)</div>
+          <div class="ev-sub">Recurring class · 60 min · all levels</div>
+        </div>
+
+        <div class="freshness-band">
+          Schedule confirmed by studio 4 days ago
+        </div>
+
+        <div class="ev-actions">
+          <div class="pact primary">Book a spot</div>
+          <div class="pact">Add to calendar</div>
+          <div class="pact">Call</div>
+        </div>
+
+        <div class="ev-section">
+          <h3>When it meets</h3>
+          <div class="recurrence">
+            Every <strong>Tuesday and Thursday</strong> at <strong>6:00pm</strong> · 60 minutes
+          </div>
+          <ul class="next-dates">
+            <li><span class="day">Tonight · Tue Nov 12</span><span class="spots">3 spots open</span></li>
+            <li><span class="day">Thu Nov 14</span><span class="spots">6 spots open</span></li>
+            <li><span class="day">Tue Nov 19</span><span class="spots">Open</span></li>
+          </ul>
+        </div>
+
+        <div class="ev-section">
+          <h3>Details</h3>
+          <div class="ev-detail-row"><span class="k">Instructor</span><span class="v">Sarah M.</span></div>
+          <div class="ev-detail-row"><span class="k">Level</span><span class="v">All levels</span></div>
+          <div class="ev-detail-row"><span class="k">Drop-in</span><span class="v">$18</span></div>
+          <div class="ev-detail-row"><span class="k">Member rate</span><span class="v">Included</span></div>
+          <div class="ev-detail-row"><span class="k">Mats</span><span class="v">Provided</span></div>
+        </div>
+
+        <div class="venue-card-link">
+          <div>
+            <div class="label">Held at</div>
+            <div class="vname">Lake Havasu Yoga</div>
+            <div class="vmeta">McCulloch district · 1.4 mi · Open until 9pm</div>
+          </div>
+          <div class="arrow">→</div>
+        </div>
+
+      </div>
+      <div class="callouts">
+        <div class="callout">
+          <span class="callout-tag">E1</span>
+          <div><strong>Event as its own object.</strong> Linked to the venue but searchable, freshness-banded, and bookable on its own page.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-tag">E1</span>
+          <div><strong>Next 3 dates.</strong> Recurring class shows the immediate horizon, not a calendar grid. Capacity info is honest ("3 spots open"), not manufactured scarcity.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ GYM SCHEDULE REGION ============ -->
+    <div class="screen-wrap">
+      <div class="screen-label">Schedule region on gym profile</div>
+      <div class="phone">
+        <div class="phone-bezel">Gym profile</div>
+
+        <div class="app-head">
+          <div class="back">← Fitness</div>
+          <div class="boat-toggle">Share</div>
+        </div>
+
+        <div class="gym-id">
+          <div class="gym-name">Lake Havasu Athletic Club</div>
+          <div class="gym-meta">Gym &amp; fitness · Civic Center · 1.1 mi</div>
+          <div class="gym-status">● Open until 10pm</div>
+        </div>
+
+        <div class="ev-actions" style="margin-top:0;">
+          <div class="pact primary">Call</div>
+          <div class="pact">Directions</div>
+          <div class="pact">Ask Hava</div>
+        </div>
+
+        <div style="padding: 8px 18px 4px;">
+          <div style="font-family:'Fraunces',serif; font-size:13px; color:var(--muted); margin-bottom:6px;">[ identity → trust strip → photos → about ]</div>
+        </div>
+
+        <div class="schedule-region">
+          <div class="sched-head">
+            <h3>This week's classes</h3>
+            <div class="freshness">Updated 2 days ago</div>
+          </div>
+
+          <div class="day-tabs">
+            <div class="day-tab active">Tue · today</div>
+            <div class="day-tab">Wed</div>
+            <div class="day-tab">Thu</div>
+            <div class="day-tab">Fri</div>
+            <div class="day-tab">Sat</div>
+            <div class="day-tab">Sun</div>
+            <div class="day-tab">Mon</div>
+          </div>
+
+          <div class="sched-table">
+            <div class="sched-row">
+              <div class="sched-time">6:00am</div>
+              <div>
+                <div class="sched-class">Spin</div>
+                <div class="sched-instructor">w/ Mike · 45 min</div>
+              </div>
+              <div class="sched-status">Past</div>
+            </div>
+            <div class="sched-row">
+              <div class="sched-time">9:30am</div>
+              <div>
+                <div class="sched-class">Strength Circuit</div>
+                <div class="sched-instructor">w/ Dana · 60 min</div>
+              </div>
+              <div class="sched-status">Past</div>
+            </div>
+            <div class="sched-row">
+              <div class="sched-time">12:00pm</div>
+              <div>
+                <div class="sched-class">Lunch HIIT</div>
+                <div class="sched-instructor">w/ Mike · 30 min</div>
+              </div>
+              <div class="sched-status few">2 spots</div>
+            </div>
+            <div class="sched-row">
+              <div class="sched-time">5:30pm</div>
+              <div>
+                <div class="sched-class">Power Yoga</div>
+                <div class="sched-instructor">w/ Sarah · 60 min</div>
+              </div>
+              <div class="sched-status">Open</div>
+            </div>
+            <div class="sched-row">
+              <div class="sched-time">6:30pm</div>
+              <div>
+                <div class="sched-class">Boxing Fundamentals</div>
+                <div class="sched-instructor">w/ Eli · 45 min</div>
+              </div>
+              <div class="sched-status full">Full</div>
+            </div>
+            <div class="sched-row">
+              <div class="sched-time">7:30pm</div>
+              <div>
+                <div class="sched-class">Pilates</div>
+                <div class="sched-instructor">w/ Dana · 60 min</div>
+              </div>
+              <div class="sched-status">Open</div>
+            </div>
+          </div>
+
+          <div class="sched-cta">See full schedule →</div>
+        </div>
+
+        <div style="padding: 0 18px 18px; font-family:'Fraunces',serif; font-size:13px; color:var(--muted);">
+          [ service details → hours → Google snippets → Ask Hava → CTA → footer ]
+        </div>
+      </div>
+      <div class="callouts">
+        <div class="callout">
+          <span class="callout-tag">E3</span>
+          <div><strong>Schedule region on the profile.</strong> Sits between service details and hours — for any venue with linked events.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-tag">E3</span>
+          <div><strong>Honest capacity.</strong> "2 spots" / "Open" / "Full" — only when the studio publishes real availability. No fake urgency.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-tag">E6</span>
+          <div><strong>Schedule freshness shown explicitly</strong> ("Updated 2 days ago") at the top of the region.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="legend">
+    <h3>How this slots into the locked design</h3>
+    <p>The chip-row pattern, freshness band, Hava card grammar, and district context all reuse the existing components — events get the same visual language as places. The new pieces are a third entity type (Event), a chronological time-axis view, and a Schedule region that inserts into the 11-region profile for class-driven venues. The chat surface gains the highest leverage from this content type because "yoga tonight" is exactly the kind of grounded, time-aware, hyperlocal query that generic search and a generic LLM both fail.</p>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,1729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Havasu Chat — Desktop Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sand: #f5efe4;
+    --sand-2: #ebe2d1;
+    --cream: #fbf7ef;
+    --ink: #2a2421;
+    --ink-2: #4a423d;
+    --muted: #8a7f74;
+    --line: #e2d8c6;
+    --lake: #1f5d6e;
+    --lake-2: #2a7b8f;
+    --terra: #b8543a;
+    --terra-soft: #f4e0d8;
+    --green: #3d7a4f;
+    --green-soft: #dcebe0;
+    --amber: #b07a1f;
+    --amber-soft: #f3e6c9;
+    --red: #a64038;
+    --gold: #8a6b1e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #efe8d8;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    padding: 40px 24px;
+  }
+  .page-head {
+    max-width: 1280px;
+    margin: 0 auto 24px;
+    text-align: center;
+  }
+  .page-head h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 32px;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  .page-head p {
+    color: var(--muted);
+    font-size: 14px;
+    max-width: 620px;
+    margin: 0 auto;
+    line-height: 1.55;
+  }
+  .stage {
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  .screen-block {
+    margin-bottom: 48px;
+  }
+  .screen-label {
+    font-family: 'Fraunces', serif;
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 14px;
+    letter-spacing: -0.01em;
+  }
+  .browser-frame {
+    background: var(--cream);
+    border-radius: 12px;
+    border: 1px solid #d8cdb8;
+    box-shadow: 0 16px 48px rgba(42, 36, 33, 0.10), 0 2px 6px rgba(42, 36, 33, 0.06);
+    overflow: hidden;
+  }
+  .browser-bar {
+    background: linear-gradient(180deg, #ebe2d1, #e2d8c6);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .dots { display: flex; gap: 7px; }
+  .dots span {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .dots span:nth-child(1) { background: #e3554a; }
+  .dots span:nth-child(2) { background: #ddb138; }
+  .dots span:nth-child(3) { background: #54b16a; }
+  .url-pill {
+    background: var(--cream);
+    border: 1px solid #d0c6b3;
+    border-radius: 6px;
+    padding: 4px 14px;
+    font-size: 12px;
+    color: var(--muted);
+    flex: 0 1 360px;
+    text-align: center;
+  }
+  .url-pill .lock { color: var(--green); margin-right: 5px; }
+
+  /* ============ TOP NAV ============ */
+  .topnav {
+    background: var(--cream);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 32px;
+  }
+  .nav-inner {
+    max-width: 1240px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 26px;
+    color: var(--lake);
+    letter-spacing: -0.02em;
+    flex-shrink: 0;
+  }
+  .logo em { font-style: italic; color: var(--terra); }
+  .nav-link {
+    font-size: 13.5px;
+    color: var(--ink);
+    font-weight: 500;
+    padding: 6px 8px;
+    cursor: pointer;
+  }
+  .nav-link .caret { color: var(--muted); font-size: 10px; margin-left: 3px; }
+  .search-bar {
+    flex: 1;
+    max-width: 480px;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-size: 13px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .search-bar::before {
+    content: "⌕";
+    color: var(--muted);
+    font-size: 16px;
+    font-weight: bold;
+  }
+  .boat-toggle-d {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--ink);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .ask-btn {
+    background: var(--lake);
+    color: white;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+  }
+  .signin {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  /* ============ CONDITIONS BAR ============ */
+  .conditions-bar {
+    background: var(--sand);
+    border-bottom: 1px solid var(--line);
+    padding: 8px 32px;
+  }
+  .conditions-inner {
+    max-width: 1240px;
+    margin: 0 auto;
+    display: flex;
+    gap: 28px;
+    align-items: center;
+    font-size: 12px;
+  }
+  .cond { display: flex; align-items: baseline; gap: 6px; }
+  .cond .lbl { color: var(--muted); font-weight: 500; }
+  .cond .val { color: var(--ink); font-weight: 600; }
+  .cond .val.warn { color: var(--terra); }
+
+  /* ============ HOMEPAGE MAIN ============ */
+  .home-main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px 48px;
+  }
+  .hero {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  .hero h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 36px;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+    line-height: 1.15;
+  }
+  .hero .tagline {
+    font-size: 14px;
+    color: var(--muted);
+    margin-bottom: 22px;
+  }
+  .hero-ask {
+    max-width: 620px;
+    margin: 0 auto;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 18px;
+    font-size: 15px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 12px rgba(42,36,33,0.04);
+  }
+  .hero-ask::before {
+    content: "→";
+    color: var(--lake);
+    font-size: 18px;
+    font-weight: 500;
+  }
+  .hero-prompts {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .hero-prompts .pchip {
+    background: var(--cream);
+    border: 1px solid var(--lake);
+    color: var(--lake);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+  .section {
+    margin-bottom: 36px;
+  }
+  .section-head-d {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 14px;
+  }
+  .section-head-d h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .section-head-d .sub {
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .section-head-d .see {
+    font-size: 13px;
+    color: var(--lake);
+    font-weight: 500;
+  }
+
+  /* Happening soon - desktop 4-col */
+  .happening-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .happening-card-d {
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .htime {
+    font-size: 11.5px;
+    color: var(--lake);
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  .htime::before { content: "● "; font-size: 8px; vertical-align: 2px; }
+  .hname {
+    font-weight: 600;
+    font-size: 13.5px;
+    color: var(--ink);
+    margin-bottom: 3px;
+    line-height: 1.3;
+  }
+  .hvenue {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .nature {
+    display: inline-block;
+    font-size: 9.5px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .nature.free { background: var(--green-soft); color: var(--green); }
+  .nature.dropin { background: #e6e2f0; color: #5e4a8a; }
+  .nature.booking { background: var(--terra-soft); color: var(--terra); }
+
+  /* Today tiles - desktop 4-col */
+  .today-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .today-tile-d {
+    background: linear-gradient(135deg, #f4ede0, #ebe2d1);
+    border: 1px solid #d8cdb8;
+    border-radius: 11px;
+    padding: 14px 16px;
+  }
+  .today-tile-d .tn {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--ink);
+    margin-bottom: 3px;
+  }
+  .today-tile-d .tm {
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .today-tile-d .tm .live { color: var(--lake); font-weight: 600; }
+
+  /* Browse Havasu - desktop 4-col */
+  .browse-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .group-tile-d {
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 18px;
+    min-height: 108px;
+  }
+  .gn {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--ink);
+    margin-bottom: 6px;
+    letter-spacing: -0.01em;
+  }
+  .gs {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 7px;
+  }
+  .gc {
+    font-size: 10.5px;
+    color: var(--lake);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .az-row {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 13.5px;
+    color: var(--lake);
+    font-weight: 500;
+  }
+
+  /* Footer */
+  .footer {
+    background: var(--ink);
+    color: #c8bea9;
+    padding: 32px 32px 24px;
+    margin-top: 16px;
+  }
+  .footer-inner {
+    max-width: 1240px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 2fr 1.5fr 1.5fr 1.5fr 1.5fr;
+    gap: 32px;
+  }
+  .footer-col h4 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 14px;
+    color: #f5efe4;
+    margin-bottom: 10px;
+    letter-spacing: -0.01em;
+  }
+  .footer-col p, .footer-col a {
+    font-size: 12px;
+    color: #a89e8c;
+    line-height: 1.7;
+    display: block;
+    text-decoration: none;
+  }
+  .footer-col p { margin-bottom: 8px; }
+  .footer-brand {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 22px;
+    color: #f5efe4;
+    margin-bottom: 10px;
+    letter-spacing: -0.02em;
+  }
+  .footer-brand em { font-style: italic; color: var(--terra); }
+  .footer-attribution {
+    max-width: 1240px;
+    margin: 28px auto 0;
+    padding-top: 16px;
+    border-top: 1px solid #4a423d;
+    font-size: 11px;
+    color: #8a7f74;
+    text-align: center;
+  }
+
+  /* ============ CATEGORY LANDING ============ */
+  .breadcrumb-bar {
+    background: var(--cream);
+    border-bottom: 1px solid var(--line);
+    padding: 12px 32px;
+  }
+  .breadcrumb-inner {
+    max-width: 1240px;
+    margin: 0 auto;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .breadcrumb-inner a { color: var(--muted); text-decoration: none; }
+  .breadcrumb-inner .current { color: var(--ink); font-weight: 600; }
+  .breadcrumb-inner .sep { margin: 0 8px; color: #c8bea9; }
+
+  .cat-header {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 22px 32px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .cat-header h1 {
+    font-family: 'Fraunces', serif;
+    font-size: 30px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+  }
+  .cat-header .meta {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .cat-layout {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 32px 48px;
+    display: grid;
+    grid-template-columns: 240px 1fr 320px;
+    gap: 24px;
+  }
+
+  /* Filter sidebar */
+  .filter-sidebar {
+    font-size: 13px;
+  }
+  .filter-group {
+    margin-bottom: 22px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 18px;
+  }
+  .filter-group:last-child { border-bottom: none; }
+  .filter-group h4 {
+    font-family: 'Fraunces', serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .filter-list { list-style: none; }
+  .filter-list li {
+    padding: 5px 0;
+    color: var(--ink-2);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .filter-list li.active { color: var(--ink); font-weight: 600; }
+  .check {
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid var(--line);
+    border-radius: 3px;
+    flex-shrink: 0;
+    display: inline-block;
+  }
+  .check.on { background: var(--ink); border-color: var(--ink); position: relative; }
+  .check.on::after {
+    content: "✓";
+    color: white;
+    position: absolute;
+    top: -3px;
+    left: 1.5px;
+    font-size: 12px;
+    font-weight: bold;
+  }
+  .filter-list li .count {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .time-toggle-row {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+  .time-toggle {
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 11.5px;
+    color: var(--ink-2);
+    font-weight: 500;
+  }
+  .time-toggle.active { background: var(--lake); color: white; border-color: var(--lake); }
+
+  /* Results column */
+  .results-col { min-width: 0; }
+  .results-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .results-head .sort {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .results-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .card {
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .card:hover {
+    border-color: #d0c6b3;
+    box-shadow: 0 2px 12px rgba(42,36,33,0.05);
+  }
+  .card.sponsored {
+    border-color: var(--terra);
+    position: relative;
+  }
+  .card.sponsored::before {
+    content: "Sponsored";
+    position: absolute;
+    top: -8px;
+    left: 14px;
+    background: var(--terra);
+    color: white;
+    font-size: 9.5px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .card.pick {
+    background: linear-gradient(180deg, #faf5e6 0%, var(--cream) 100%);
+    border-color: #d8c890;
+  }
+  .pick-badge {
+    display: inline-block;
+    background: var(--gold);
+    color: white;
+    font-size: 9.5px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 5px;
+  }
+  .card-name {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--ink);
+    line-height: 1.25;
+  }
+  .fresh-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-top: 7px;
+    margin-left: 8px;
+    flex-shrink: 0;
+  }
+  .fresh-dot.green { background: var(--green); }
+  .fresh-dot.amber { background: var(--amber); }
+  .fresh-dot.red { background: var(--red); }
+  .card-status {
+    font-size: 12.5px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .card-status.place { color: var(--green); }
+  .card-status.event { color: var(--lake); }
+  .card-status.closed { color: var(--muted); }
+  .card-status .pre-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    margin-right: 5px;
+    vertical-align: 1px;
+  }
+  .card-meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .card-meta .dot { margin: 0 5px; color: #c8bea9; }
+  .card-meta .venue-link { color: var(--lake); font-weight: 500; }
+  .op-pill {
+    display: inline-block;
+    background: var(--green-soft);
+    color: var(--green);
+    font-size: 10.5px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .ranking-line {
+    font-size: 10.5px;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--line);
+  }
+  .actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 9px;
+  }
+  .act {
+    flex: 1;
+    text-align: center;
+    border: 1px solid var(--line);
+    background: white;
+    color: var(--ink-2);
+    border-radius: 7px;
+    padding: 7px 0;
+    font-size: 11.5px;
+    font-weight: 500;
+  }
+  .act.primary { background: var(--lake); color: white; border-color: var(--lake); }
+
+  /* Map sidebar */
+  .map-col {
+    position: relative;
+  }
+  .map-frame {
+    position: sticky;
+    top: 20px;
+    height: 640px;
+    background: linear-gradient(135deg, #e8e0cc 0%, #ddd5c1 100%);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(42,36,33,0.05);
+  }
+  .map-grid-overlay {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(42,36,33,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(42,36,33,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .map-lake {
+    position: absolute;
+    inset: 30% 10% 20% 25%;
+    background: radial-gradient(ellipse at center, var(--lake-2) 0%, var(--lake) 70%);
+    border-radius: 50% 40% 60% 30% / 40% 60% 30% 50%;
+    opacity: 0.5;
+  }
+  .map-marker {
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    border-radius: 50% 50% 50% 0;
+    background: var(--lake);
+    transform: rotate(-45deg);
+    border: 2.5px solid var(--cream);
+    box-shadow: 0 2px 6px rgba(42,36,33,0.2);
+  }
+  .map-marker.event { background: var(--terra); }
+  .map-marker.pick { background: var(--gold); }
+  .map-attribution {
+    position: absolute;
+    bottom: 6px;
+    right: 8px;
+    font-size: 9px;
+    color: var(--ink-2);
+    background: rgba(245,239,228,0.85);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  /* ============ PROFILE PAGE ============ */
+  .profile-layout {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 22px 32px 48px;
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 36px;
+  }
+  .profile-main { min-width: 0; }
+  .p-identity {
+    margin-bottom: 16px;
+  }
+  .p-identity h1 {
+    font-family: 'Fraunces', serif;
+    font-size: 36px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+    margin-bottom: 6px;
+    line-height: 1.1;
+  }
+  .p-identity .p-meta {
+    font-size: 13.5px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .p-identity .p-status {
+    font-size: 14px;
+    color: var(--green);
+    font-weight: 500;
+  }
+  .p-fresh-band {
+    padding: 12px 16px;
+    background: var(--amber-soft);
+    color: var(--amber);
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid #e6d6a8;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 18px;
+  }
+  .p-fresh-band::before {
+    content: "";
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--amber);
+  }
+  .photo-gallery {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    grid-template-rows: 140px 140px;
+    gap: 6px;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .photo {
+    background: linear-gradient(135deg, var(--lake-2), var(--terra));
+  }
+  .photo:nth-child(1) { grid-row: 1 / span 2; background: linear-gradient(135deg, #d8a878, #b8543a); }
+  .photo:nth-child(2) { background: linear-gradient(135deg, #2a7b8f, #1f5d6e); }
+  .photo:nth-child(3) { background: linear-gradient(135deg, #c8b896, #8a7f74); }
+  .photo:nth-child(4) { background: linear-gradient(135deg, #c4a878, #8a6b1e); }
+  .photo:nth-child(5) { background: linear-gradient(135deg, #6b8a7f, #3d7a4f); }
+
+  .p-section {
+    margin-bottom: 26px;
+  }
+  .p-section h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 10px;
+    letter-spacing: -0.01em;
+  }
+  .p-section p {
+    font-size: 14px;
+    color: var(--ink-2);
+    line-height: 1.65;
+  }
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 24px;
+  }
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--line);
+  }
+  .detail-row .k { color: var(--muted); }
+  .detail-row .v { color: var(--ink); font-weight: 500; }
+  .district-context {
+    padding: 14px 16px;
+    background: var(--sand);
+    border-left: 3px solid var(--lake);
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 24px;
+  }
+  .district-context .label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--lake);
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  .district-context p {
+    font-size: 13px;
+    color: var(--ink-2);
+    line-height: 1.55;
+  }
+
+  /* What's on at venue */
+  .whats-on-d {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .wo-head-d {
+    padding: 12px 16px;
+    background: var(--sand);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .wo-head-d h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .wo-head-d .fr {
+    font-size: 11px;
+    color: var(--green);
+    font-weight: 500;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .wo-head-d .fr::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+  }
+  .sched-table-d {
+    background: var(--cream);
+  }
+  .sched-row-d {
+    display: grid;
+    grid-template-columns: 80px 1fr auto;
+    gap: 12px;
+    padding: 10px 16px;
+    align-items: center;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+  }
+  .sched-row-d:last-child { border-bottom: none; }
+  .sched-row-d .t { color: var(--ink); font-weight: 600; }
+  .sched-row-d .cn { color: var(--ink); font-weight: 500; }
+  .sched-row-d .ins { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+  .sched-row-d .st {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--green);
+  }
+  .sched-row-d .st.few { color: var(--amber); }
+  .sched-row-d .st.full { color: var(--red); }
+
+  /* Profile sticky sidebar */
+  .profile-sidebar {
+    position: relative;
+  }
+  .sticky-card {
+    position: sticky;
+    top: 20px;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(42,36,33,0.06);
+  }
+  .sticky-actions {
+    padding: 16px;
+    border-bottom: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .sa {
+    border: 1px solid var(--line);
+    background: white;
+    color: var(--ink);
+    border-radius: 8px;
+    padding: 10px 0;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+  }
+  .sa.primary {
+    background: var(--lake);
+    color: white;
+    border-color: var(--lake);
+    grid-column: 1 / -1;
+  }
+  .sticky-section {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .sticky-section:last-child { border-bottom: none; }
+  .sticky-section h4 {
+    font-family: 'Fraunces', serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .hours-table {
+    font-size: 12.5px;
+    color: var(--ink-2);
+  }
+  .hours-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+  }
+  .hours-row .day { color: var(--muted); }
+  .hours-row.today { font-weight: 600; color: var(--ink); }
+  .mini-map {
+    height: 140px;
+    background: linear-gradient(135deg, #e8e0cc 0%, #ddd5c1 100%);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+  .mini-map .marker {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -100%);
+    width: 18px;
+    height: 18px;
+    border-radius: 50% 50% 50% 0;
+    background: var(--lake);
+    transform-origin: bottom center;
+    transform: translate(-50%, -50%) rotate(-45deg);
+    border: 2px solid var(--cream);
+  }
+  .addr-line {
+    font-size: 12.5px;
+    color: var(--ink-2);
+    line-height: 1.45;
+  }
+
+  /* ============ CALLOUTS ============ */
+  .callouts {
+    max-width: 1280px;
+    margin: 16px auto 0;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    font-size: 12.5px;
+    color: var(--ink-2);
+    line-height: 1.5;
+  }
+  @media (max-width: 900px) { .callouts { grid-template-columns: 1fr; } }
+  .callout {
+    display: flex;
+    gap: 10px;
+    padding: 11px 13px;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .callout-tag {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    color: var(--terra);
+    flex-shrink: 0;
+    min-width: 38px;
+    font-size: 12.5px;
+  }
+  .callout strong { color: var(--ink); font-weight: 600; }
+  .closing-note {
+    max-width: 1100px;
+    margin: 24px auto 0;
+    padding: 22px 26px;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink-2);
+  }
+  .closing-note h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 10px;
+    letter-spacing: -0.01em;
+  }
+  .closing-note p { margin-bottom: 8px; }
+  .closing-note strong { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+
+  <div class="page-head">
+    <h1>Hava — desktop</h1>
+    <p>Same components, same texture, wider canvas. Real top nav, multi-column grids, persistent map on category pages, sticky action card on profiles.</p>
+  </div>
+
+  <div class="stage">
+
+    <!-- ============== DESKTOP HOMEPAGE ============== -->
+    <div class="screen-block">
+      <div class="screen-label">Homepage</div>
+      <div class="browser-frame">
+        <div class="browser-bar">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <div class="url-pill"><span class="lock">●</span>hava.lakehavasu.com</div>
+        </div>
+
+        <!-- Top nav -->
+        <nav class="topnav">
+          <div class="nav-inner">
+            <div class="logo">Ha<em>v</em>a</div>
+            <div class="nav-link">Browse<span class="caret">▾</span></div>
+            <div class="search-bar">Search Havasu — places, events, classes…</div>
+            <div class="boat-toggle-d">⛵ Boat mode</div>
+            <button class="ask-btn">Ask Hava</button>
+            <div class="signin">Sign in</div>
+          </div>
+        </nav>
+
+        <!-- Conditions bar -->
+        <div class="conditions-bar">
+          <div class="conditions-inner">
+            <div class="cond"><span class="lbl">Now</span><span class="val warn">108°F · heat advisory</span></div>
+            <div class="cond"><span class="lbl">Lake</span><span class="val">82°F</span></div>
+            <div class="cond"><span class="lbl">Wind</span><span class="val">7mph N</span></div>
+            <div class="cond"><span class="lbl">Sunset</span><span class="val">7:34pm</span></div>
+            <div class="cond"><span class="lbl">AQI</span><span class="val">42 (good)</span></div>
+          </div>
+        </div>
+
+        <!-- Main content -->
+        <main class="home-main">
+
+          <!-- Hero -->
+          <div class="hero">
+            <h1>Lake Havasu City, end to end</h1>
+            <p class="tagline">Ask anything · browse anything · honest about what we know and don't</p>
+            <div class="hero-ask">What's good in Havasu today?</div>
+            <div class="hero-prompts">
+              <div class="pchip">Yoga tonight?</div>
+              <div class="pchip">Cool indoor lunch</div>
+              <div class="pchip">Sunset dinner spots</div>
+              <div class="pchip">Live music tonight</div>
+              <div class="pchip">Open after 10pm</div>
+            </div>
+          </div>
+
+          <!-- Happening soon -->
+          <div class="section">
+            <div class="section-head-d">
+              <h2>Happening soon</h2>
+              <span class="see">Today's full agenda →</span>
+            </div>
+            <div class="happening-grid">
+              <div class="happening-card-d">
+                <div class="htime">In 18 min</div>
+                <div class="hname">Toddler Story Time</div>
+                <div class="hvenue">Library · Civic Center</div>
+                <span class="nature free">Free</span>
+              </div>
+              <div class="happening-card-d">
+                <div class="htime">Starts 12:00pm</div>
+                <div class="hname">Water Aerobics</div>
+                <div class="hvenue">Aquatic Center · McCulloch</div>
+                <span class="nature dropin">Drop-in</span>
+              </div>
+              <div class="happening-card-d">
+                <div class="htime">Starts 2:00pm</div>
+                <div class="hname">Beginner Golf (group)</div>
+                <div class="hvenue">The Refuge · North</div>
+                <span class="nature booking">Book ahead</span>
+              </div>
+              <div class="happening-card-d">
+                <div class="htime">Starts 6:00pm</div>
+                <div class="hname">Vinyasa Yoga</div>
+                <div class="hvenue">LH Yoga · McCulloch</div>
+                <span class="nature dropin">Drop-in</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Today -->
+          <div class="section">
+            <div class="section-head-d">
+              <h2>Today</h2>
+              <span class="sub">Ordered for the heat</span>
+            </div>
+            <div class="today-grid">
+              <div class="today-tile-d">
+                <div class="tn">Museums &amp; Indoor</div>
+                <div class="tm">9 places · AC</div>
+              </div>
+              <div class="today-tile-d">
+                <div class="tn">Fitness &amp; Classes</div>
+                <div class="tm"><span class="live">6 today, 3 tonight</span></div>
+              </div>
+              <div class="today-tile-d">
+                <div class="tn">Live Music</div>
+                <div class="tm"><span class="live">2 shows tonight</span></div>
+              </div>
+              <div class="today-tile-d">
+                <div class="tn">Restaurants</div>
+                <div class="tm">142 · <span class="live">happy hour 4–6</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Browse Havasu -->
+          <div class="section">
+            <div class="section-head-d">
+              <h2>Browse Havasu</h2>
+              <span class="sub">Everything in town, by theme</span>
+            </div>
+            <div class="browse-grid">
+              <div class="group-tile-d">
+                <div class="gn">Eat &amp; Drink</div>
+                <div class="gs">Restaurants · Bars · Coffee · Bakeries · Breweries · Markets</div>
+                <div class="gc">154 places</div>
+              </div>
+              <div class="group-tile-d">
+                <div class="gn">Stay</div>
+                <div class="gs">Hotels · Vacation Rentals · RV Parks · Campgrounds</div>
+                <div class="gc">42 places</div>
+              </div>
+              <div class="group-tile-d">
+                <div class="gn">On the Water</div>
+                <div class="gs">Boat Rentals · Watersports · Charters · Marinas · Launches</div>
+                <div class="gc">38 providers</div>
+              </div>
+              <div class="group-tile-d">
+                <div class="gn">Outdoors</div>
+                <div class="gs">Hiking · Trails · Parks · Beaches · Off-road · Disc Golf</div>
+                <div class="gc">31 spots</div>
+              </div>
+              <div class="group-tile-d">
+                <div class="gn">Things to Do</div>
+                <div class="gs">Live Music · Museums · Classes · Events · Kids · Tours</div>
+                <div class="gc">28 venues · 14 today</div>
+              </div>
+              <div class="group-tile-d">
+                <div class="gn">Health &amp; Fitness</div>
+                <div class="gs">Doctors · Dentists · Urgent Care · Gyms · Yoga · Spa</div>
+                <div class="gc">87 providers</div>
+              </div>
+              <div class="group-tile-d">
+                <div class="gn">Home &amp; Auto</div>
+                <div class="gs">HVAC · Plumbing · Electrical · Pool · Auto · Boat Repair</div>
+                <div class="gc">112 services</div>
+              </div>
+              <div class="group-tile-d">
+                <div class="gn">Shopping</div>
+                <div class="gs">Grocery · Hardware · Boutiques · Marine Supply · Antiques</div>
+                <div class="gc">64 stores</div>
+              </div>
+            </div>
+            <div class="az-row">Browse all 47 categories A–Z →</div>
+          </div>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+          <div class="footer-inner">
+            <div class="footer-col">
+              <div class="footer-brand">Ha<em>v</em>a</div>
+              <p>The hyperlocal guide to Lake Havasu City. Calm, honest, and built by someone who lives here.</p>
+            </div>
+            <div class="footer-col">
+              <h4>Browse</h4>
+              <a>Eat &amp; Drink</a>
+              <a>Stay</a>
+              <a>On the Water</a>
+              <a>Things to Do</a>
+              <a>All categories A–Z</a>
+            </div>
+            <div class="footer-col">
+              <h4>Districts</h4>
+              <a>English Village</a>
+              <a>McCulloch</a>
+              <a>Civic Center</a>
+              <a>Sunset Beach</a>
+              <a>North Havasu</a>
+            </div>
+            <div class="footer-col">
+              <h4>For Businesses</h4>
+              <a>Claim your listing</a>
+              <a>Verified Presence</a>
+              <a>Sponsor a category</a>
+              <a>Seasonal Takeover</a>
+            </div>
+            <div class="footer-col">
+              <h4>About</h4>
+              <a>How Hava works</a>
+              <a>Editorial standards</a>
+              <a>Sponsor disclosure</a>
+              <a>Privacy &amp; data</a>
+              <a>Contact</a>
+            </div>
+          </div>
+          <div class="footer-attribution">
+            © 2026 Havasu Chat · Map data © OpenStreetMap contributors · Made in Lake Havasu City
+          </div>
+        </footer>
+      </div>
+
+      <div class="callouts">
+        <div class="callout">
+          <span class="callout-tag">NAV</span>
+          <div><strong>Real top nav.</strong> Logo · Browse menu · Search bar · Boat mode · Ask Hava CTA · Sign in. Search and Ask Hava are both first-class actions.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-tag">GRID</span>
+          <div><strong>4-column grids</strong> for Happening soon, Today tiles, and Browse Havasu groups. Same content, more breathing room.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-tag">FOOT</span>
+          <div><strong>Real footer.</strong> Browse, Districts, For Businesses (subtle monetization entry), About. No dense link farm — just what locals/SEO need.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============== DESKTOP CATEGORY LANDING ============== -->
+    <div class="screen-block">
+      <div class="screen-label">Category landing — Restaurants (with persistent map)</div>
+      <div class="browser-frame">
+        <div class="browser-bar">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <div class="url-pill"><span class="lock">●</span>hava.lakehavasu.com/restaurants</div>
+        </div>
+
+        <nav class="topnav">
+          <div class="nav-inner">
+            <div class="logo">Ha<em>v</em>a</div>
+            <div class="nav-link">Browse<span class="caret">▾</span></div>
+            <div class="search-bar">Search Havasu — places, events, classes…</div>
+            <div class="boat-toggle-d">⛵ Boat mode</div>
+            <button class="ask-btn">Ask Hava</button>
+            <div class="signin">Sign in</div>
+          </div>
+        </nav>
+
+        <div class="conditions-bar">
+          <div class="conditions-inner">
+            <div class="cond"><span class="lbl">Now</span><span class="val warn">108°F · heat advisory</span></div>
+            <div class="cond"><span class="lbl">Lake</span><span class="val">82°F</span></div>
+            <div class="cond"><span class="lbl">Wind</span><span class="val">7mph N</span></div>
+            <div class="cond"><span class="lbl">Sunset</span><span class="val">7:34pm</span></div>
+          </div>
+        </div>
+
+        <div class="breadcrumb-bar">
+          <div class="breadcrumb-inner">
+            <a>Browse</a><span class="sep">/</span><a>Eat &amp; Drink</a><span class="sep">/</span><span class="current">Restaurants</span>
+          </div>
+        </div>
+
+        <div class="cat-header">
+          <h1>Restaurants</h1>
+          <div class="meta">142 places · 18 with happy hour today</div>
+        </div>
+
+        <div class="cat-layout">
+
+          <!-- Filter sidebar -->
+          <aside class="filter-sidebar">
+            <div class="filter-group">
+              <h4>When</h4>
+              <div class="time-toggle-row">
+                <div class="time-toggle active">Now</div>
+                <div class="time-toggle">Tonight</div>
+                <div class="time-toggle">Tomorrow</div>
+                <div class="time-toggle">Weekend</div>
+              </div>
+            </div>
+
+            <div class="filter-group">
+              <h4>Cuisine</h4>
+              <ul class="filter-list">
+                <li class="active"><span class="check on"></span>Mexican <span class="count">18</span></li>
+                <li><span class="check"></span>American <span class="count">32</span></li>
+                <li><span class="check"></span>Italian <span class="count">14</span></li>
+                <li><span class="check"></span>Asian <span class="count">9</span></li>
+                <li><span class="check"></span>Pizza <span class="count">11</span></li>
+                <li><span class="check"></span>Seafood <span class="count">6</span></li>
+                <li><span class="check"></span>Breakfast <span class="count">21</span></li>
+              </ul>
+            </div>
+
+            <div class="filter-group">
+              <h4>District</h4>
+              <ul class="filter-list">
+                <li class="active"><span class="check on"></span>English Village <span class="count">24</span></li>
+                <li><span class="check"></span>McCulloch <span class="count">31</span></li>
+                <li><span class="check"></span>Civic Center <span class="count">17</span></li>
+                <li><span class="check"></span>Sunset Beach <span class="count">12</span></li>
+                <li><span class="check"></span>North Havasu <span class="count">9</span></li>
+              </ul>
+            </div>
+
+            <div class="filter-group">
+              <h4>Operational</h4>
+              <ul class="filter-list">
+                <li><span class="check"></span>Boat access</li>
+                <li><span class="check"></span>Outdoor seating</li>
+                <li><span class="check"></span>Dog friendly</li>
+                <li><span class="check"></span>Live music</li>
+                <li><span class="check"></span>Happy hour</li>
+                <li><span class="check"></span>ADA accessible</li>
+                <li><span class="check"></span>Open late</li>
+              </ul>
+            </div>
+          </aside>
+
+          <!-- Results -->
+          <div class="results-col">
+            <div class="results-head">
+              <span>Showing 8 places · 2 events</span>
+              <span class="sort">Sort: relevance today ▾</span>
+            </div>
+            <div class="results-grid">
+
+              <div class="card sponsored">
+                <div class="card-top">
+                  <div class="card-name">Casa del Rio</div>
+                  <div class="fresh-dot green"></div>
+                </div>
+                <div class="card-status place"><span class="pre-dot"></span>Open until 10pm</div>
+                <div class="card-meta">Mexican · English Village <span class="dot">·</span> 0.4 mi</div>
+                <span class="op-pill">Outdoor</span><span class="op-pill">Dog OK</span>
+                <div class="ranking-line">Sponsored placement — labeled per our disclosure policy</div>
+                <div class="actions">
+                  <div class="act">Call</div>
+                  <div class="act">Directions</div>
+                  <div class="act primary">Ask Hava</div>
+                </div>
+              </div>
+
+              <div class="card pick">
+                <span class="pick-badge">Hava's Pick</span>
+                <div class="card-top">
+                  <div class="card-name">Barley Brothers</div>
+                  <div class="fresh-dot green"></div>
+                </div>
+                <div class="card-status place"><span class="pre-dot"></span>Open until 11pm</div>
+                <div class="card-meta">Brewery/American · English Village <span class="dot">·</span> 0.5 mi</div>
+                <span class="op-pill">Boat-in</span><span class="op-pill">Outdoor</span>
+                <div class="ranking-line">Hava's Pick: verified, complete profile, recent photos</div>
+                <div class="actions">
+                  <div class="act">Call</div>
+                  <div class="act">Directions</div>
+                  <div class="act primary">Ask Hava</div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-top">
+                  <div class="card-name">Mudshark Brewery</div>
+                  <div class="fresh-dot amber"></div>
+                </div>
+                <div class="card-status place"><span class="pre-dot"></span>Open until 10pm · happy hour 4–6</div>
+                <div class="card-meta">Brewery/American · McCulloch <span class="dot">·</span> 1.2 mi</div>
+                <span class="op-pill">Outdoor</span>
+                <div class="ranking-line">Open now · verified 4 months ago · happy hour active</div>
+                <div class="actions">
+                  <div class="act">Call</div>
+                  <div class="act">Directions</div>
+                  <div class="act primary">Ask Hava</div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-top">
+                  <div class="card-name">Live Music: The Drifters<br><span style="font-weight:400; font-size:11.5px; color:var(--muted);">at Kokomo Havasu</span></div>
+                  <div class="fresh-dot green"></div>
+                </div>
+                <div class="card-status event"><span class="pre-dot"></span>Tonight at 7:00pm · 3 hr</div>
+                <div class="card-meta">at <span class="venue-link">Kokomo Havasu</span> <span class="dot">·</span> English Village <span class="dot">·</span> 0.3 mi</div>
+                <span class="op-pill">Free</span><span class="op-pill">Boat-in</span>
+                <div class="ranking-line">Tonight at 7 · waterfront venue · no cover</div>
+                <div class="actions">
+                  <div class="act">Directions</div>
+                  <div class="act">Venue</div>
+                  <div class="act primary">Details</div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-top">
+                  <div class="card-name">Shugrue's at the Bridge</div>
+                  <div class="fresh-dot red"></div>
+                </div>
+                <div class="card-status closed"><span class="pre-dot"></span>Closed · opens 11am tomorrow</div>
+                <div class="card-meta">American · English Village <span class="dot">·</span> 0.3 mi</div>
+                <div class="ranking-line">Not recently verified · call ahead</div>
+                <div class="actions">
+                  <div class="act">Call</div>
+                  <div class="act">Directions</div>
+                  <div class="act primary">Ask Hava</div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-top">
+                  <div class="card-name">Cha-Bones</div>
+                  <div class="fresh-dot green"></div>
+                </div>
+                <div class="card-status place"><span class="pre-dot"></span>Open until 10pm</div>
+                <div class="card-meta">American/BBQ · English Village <span class="dot">·</span> 0.4 mi</div>
+                <span class="op-pill">Outdoor</span><span class="op-pill">Live music</span>
+                <div class="ranking-line">Open now · verified 3 weeks ago · nearby</div>
+                <div class="actions">
+                  <div class="act">Call</div>
+                  <div class="act">Directions</div>
+                  <div class="act primary">Ask Hava</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Map sidebar -->
+          <div class="map-col">
+            <div class="map-frame">
+              <div class="map-grid-overlay"></div>
+              <div class="map-lake"></div>
+              <div class="map-marker pick" style="top:38%; left:28%;"></div>
+              <div class="map-marker" style="top:32%; left:34%;"></div>
+              <div class="map-marker" style="top:48%; left:55%;"></div>
+              <div class="map-marker event" style="top:42%; left:32%;"></div>
+              <div class="map-marker" style="top:62%; left:42%;"></div>
+              <div class="map-marker" style="top:36%; left:48%;"></div>
+              <div class="map-marker" style="top:54%; left:24%;"></div>
+              <div class="map-marker" style="top:30%; left:62%;"></div>
+              <div class="map-attribution">© OpenStreetMap</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <div class="callouts">
+        <div class="callout">
+          <span class="callout-tag">FILT</span>
+          <div><strong>Sidebar filters</strong> replace the mobile 3-row chip block. Same content (cuisine, district, operational, time), vertical layout with counts.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-tag">2-COL</span>
+          <div><strong>Result cards in 2-col grid.</strong> Same Hava card component as mobile — places and events interleaved, identical shells.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-tag">MAP</span>
+          <div><strong>Persistent map column.</strong> Sticky on scroll. Lake-blue markers for places, terracotta for events, gold for Hava's Picks.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============== DESKTOP PROFILE ============== -->
+    <div class="screen-block">
+      <div class="screen-label">Profile — Mudshark Brewery</div>
+      <div class="browser-frame">
+        <div class="browser-bar">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <div class="url-pill"><span class="lock">●</span>hava.lakehavasu.com/place/mudshark-brewery</div>
+        </div>
+
+        <nav class="topnav">
+          <div class="nav-inner">
+            <div class="logo">Ha<em>v</em>a</div>
+            <div class="nav-link">Browse<span class="caret">▾</span></div>
+            <div class="search-bar">Search Havasu — places, events, classes…</div>
+            <div class="boat-toggle-d">⛵ Boat mode</div>
+            <button class="ask-btn">Ask Hava</button>
+            <div class="signin">Sign in</div>
+          </div>
+        </nav>
+
+        <div class="breadcrumb-bar">
+          <div class="breadcrumb-inner">
+            <a>Browse</a><span class="sep">/</span><a>Eat &amp; Drink</a><span class="sep">/</span><a>Restaurants</a><span class="sep">/</span><span class="current">Mudshark Brewery</span>
+          </div>
+        </div>
+
+        <div class="profile-layout">
+
+          <!-- Main content -->
+          <div class="profile-main">
+
+            <div class="p-identity">
+              <h1>Mudshark Brewery</h1>
+              <div class="p-meta">Brewery &amp; American · McCulloch district · 1.2 mi from English Village</div>
+              <div class="p-status">● Open until 10pm · happy hour 4–6pm</div>
+            </div>
+
+            <div class="p-fresh-band">
+              Last verified 4 months ago — hours and menu may have changed. Call ahead to confirm.
+            </div>
+
+            <div class="photo-gallery">
+              <div class="photo"></div>
+              <div class="photo"></div>
+              <div class="photo"></div>
+              <div class="photo"></div>
+              <div class="photo"></div>
+            </div>
+
+            <div class="p-section">
+              <h2>About</h2>
+              <p>Local brewery and full kitchen since 1997. Wide patio with outdoor seating, dog-friendly outside, full bar with their own taps and a rotating guest list. Their IPA and wood-fired pizzas are the regulars' picks. Live music on Friday and Saturday nights.</p>
+            </div>
+
+            <div class="district-context">
+              <div class="label">McCulloch district</div>
+              <p>The main strip running south from the bridge — busy after work and on weekends. Parking is easier than English Village. Heavy snowbird crowd Nov–March; tourist crowd thins after spring break.</p>
+            </div>
+
+            <div class="p-section">
+              <h2>Service details</h2>
+              <div class="detail-grid">
+                <div class="detail-row"><span class="k">Price range</span><span class="v">$$ ($15–30)</span></div>
+                <div class="detail-row"><span class="k">Dine-in</span><span class="v">Yes</span></div>
+                <div class="detail-row"><span class="k">Takeout</span><span class="v">Yes</span></div>
+                <div class="detail-row"><span class="k">Delivery</span><span class="v">DoorDash</span></div>
+                <div class="detail-row"><span class="k">Reservations</span><span class="v">Not required</span></div>
+                <div class="detail-row"><span class="k">Outdoor seating</span><span class="v">Yes · large patio</span></div>
+                <div class="detail-row"><span class="k">Kid friendly</span><span class="v">Yes</span></div>
+                <div class="detail-row"><span class="k">Dog friendly</span><span class="v">Patio only</span></div>
+                <div class="detail-row"><span class="k">Live music</span><span class="v">Fri &amp; Sat nights</span></div>
+                <div class="detail-row"><span class="k">Wheelchair</span><span class="v">Accessible</span></div>
+              </div>
+            </div>
+
+            <!-- What's on at this venue -->
+            <div class="whats-on-d">
+              <div class="wo-head-d">
+                <h3>What's on at Mudshark this week</h3>
+                <div class="fr">Updated 3 days ago</div>
+              </div>
+              <div class="sched-table-d">
+                <div class="sched-row-d">
+                  <div class="t">Tue 4–6pm</div>
+                  <div>
+                    <div class="cn">Happy Hour</div>
+                    <div class="ins">$2 off drafts · $6 select apps</div>
+                  </div>
+                  <div class="st">Now</div>
+                </div>
+                <div class="sched-row-d">
+                  <div class="t">Fri 7pm</div>
+                  <div>
+                    <div class="cn">Live: The Drifters</div>
+                    <div class="ins">Classic rock · no cover</div>
+                  </div>
+                  <div class="st">Free</div>
+                </div>
+                <div class="sched-row-d">
+                  <div class="t">Sat 8pm</div>
+                  <div>
+                    <div class="cn">Live: Acoustic Sessions</div>
+                    <div class="ins">Local artists · no cover</div>
+                  </div>
+                  <div class="st">Free</div>
+                </div>
+                <div class="sched-row-d">
+                  <div class="t">Sun all day</div>
+                  <div>
+                    <div class="cn">Brewer's Brunch</div>
+                    <div class="ins">10am–2pm · half-price pitchers</div>
+                  </div>
+                  <div class="st">Open</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-section">
+              <h2>What others say</h2>
+              <p style="font-size:12.5px; color:var(--muted); font-style:italic; margin-bottom:8px;">From Google reviews · last refreshed 2 weeks ago</p>
+              <p>4.4 stars from 1,847 reviews. Common praise: outdoor patio, IPA, friendly staff, pizza quality. Common critique: wait times on weekends, parking lot fills up.</p>
+            </div>
+
+          </div>
+
+          <!-- Sticky sidebar -->
+          <aside class="profile-sidebar">
+            <div class="sticky-card">
+              <div class="sticky-actions">
+                <button class="sa primary">📞 Call (928) 453-2981</button>
+                <button class="sa">📍 Directions</button>
+                <button class="sa">💬 Ask Hava</button>
+              </div>
+
+              <div class="sticky-section">
+                <h4>Hours today</h4>
+                <div class="hours-table">
+                  <div class="hours-row today"><span class="day">Tuesday</span><span>11am – 10pm</span></div>
+                  <div class="hours-row"><span class="day">Wednesday</span><span>11am – 10pm</span></div>
+                  <div class="hours-row"><span class="day">Thursday</span><span>11am – 10pm</span></div>
+                  <div class="hours-row"><span class="day">Friday</span><span>11am – 12am</span></div>
+                  <div class="hours-row"><span class="day">Saturday</span><span>10am – 12am</span></div>
+                  <div class="hours-row"><span class="day">Sunday</span><span>10am – 9pm</span></div>
+                  <div class="hours-row"><span class="day">Monday</span><span>Closed</span></div>
+                </div>
+              </div>
+
+              <div class="sticky-section">
+                <h4>Location</h4>
+                <div class="mini-map">
+                  <div class="marker"></div>
+                </div>
+                <div class="addr-line">210 Swanson Ave<br>Lake Havasu City, AZ 86403</div>
+              </div>
+            </div>
+          </aside>
+
+        </div>
+      </div>
+      <div class="callouts">
+        <div class="callout">
+          <span class="callout-tag">2-COL</span>
+          <div><strong>Two-column body.</strong> Content on the left (description, photos, schedule, reviews), action card sticky on the right.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-tag">STICK</span>
+          <div><strong>Action card stays visible</strong> as the user scrolls. Call / Directions / Ask Hava always one click away — no scroll-back-to-top needed.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-tag">SAME</span>
+          <div><strong>All the locked regions still present.</strong> Identity, freshness band, photos, description, service details, schedule, Google snippets — just in 2-col layout.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="closing-note">
+    <h3>How mobile and desktop relate</h3>
+    <p><strong>Same templates, responsive breakpoints.</strong> Server-rendered Jinja with CSS media queries handles both. The components don't fork — the Hava card, freshness band, chip system, district context, photo gallery, and "What's on" region all use the same partials and the same CSS classes.</p>
+    <p><strong>Single-column mobile → 2/3/4-column desktop</strong> happens entirely in the grid container. The card itself doesn't know whether it's in a 1-col or 4-col grid.</p>
+    <p><strong>Mobile bottom-sheet map (A7) → desktop persistent map column.</strong> Same Leaflet instance, different positioning. On mobile it's a slide-up sheet; on desktop it's a sticky right rail.</p>
+    <p><strong>Mobile sticky status bar (A9) → desktop sticky action sidebar.</strong> Same goal (keep actions visible during long scroll), different implementation: mobile gets a slim top bar, desktop gets a full action card.</p>
+    <p><strong>Mobile app-head → desktop top nav.</strong> The mobile version compresses to logo + boat toggle; the desktop expands to the full nav with search, browse, and Ask Hava CTA. Both are the same template with conditional rendering on viewport width.</p>
+  </div>
+
+</body>
+</html>
