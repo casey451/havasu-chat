@@ -1,7 +1,7 @@
-"""Tests for /provider/<slug> route + view-model (directory pivot V1).
+"""Tests for /provider/<slug> route + view-model + template (directory pivot V1).
 
-Phase A (this file): tests #1-12 cover the route + view-model layer.
-Phase B will add tests #13-18 for template rendering.
+Tests #1-12 cover the route + view-model layer (Phase A).
+Tests #13-18 cover template rendering + timezone-aware open-status (Phase B).
 """
 
 from __future__ import annotations
@@ -11,11 +11,12 @@ from datetime import datetime, timedelta
 
 from fastapi.testclient import TestClient
 
+from app.chat.disclosure_render import DISCLOSURE_WORD
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
 from app.db.database import SessionLocal
 from app.db.models import Provider
 from app.main import app
-from app.providers import view_models
+from app.providers import queries, view_models
 
 
 def _make_provider(**overrides) -> Provider:
@@ -195,3 +196,128 @@ def test_view_model_service_area_only_override() -> None:
     assert vm.service_area_only is True
     assert vm.address is None
     assert vm.service_area == ["86403", "86404"]
+
+
+# --- #13-14: Hava's pick badge ---
+
+
+def test_template_renders_hava_pick_badge_when_featured() -> None:
+    with SessionLocal() as db:
+        p = _make_provider(featured=True)
+        db.add(p)
+        db.commit()
+        slug = p.slug
+
+    with TestClient(app) as client:
+        r = client.get(f"/provider/{slug}")
+    assert r.status_code == 200
+    assert "Hava's pick" in r.text
+
+
+def test_template_omits_hava_pick_badge_when_not_featured() -> None:
+    with SessionLocal() as db:
+        p = _make_provider(featured=False)
+        db.add(p)
+        db.commit()
+        slug = p.slug
+
+    with TestClient(app) as client:
+        r = client.get(f"/provider/{slug}")
+    assert r.status_code == 200
+    assert "Hava's pick" not in r.text
+
+
+# --- #15: sponsor disclosure word ---
+
+
+def test_template_renders_sponsor_disclosure_when_sponsored() -> None:
+    now = now_lake_havasu()
+    with SessionLocal() as db:
+        p = _make_provider(
+            tier="sponsored",
+            sponsored_until=(now + timedelta(days=30)).replace(tzinfo=None),
+            verified=True,
+        )
+        db.add(p)
+        db.commit()
+        slug = p.slug
+
+    with TestClient(app) as client:
+        r = client.get(f"/provider/{slug}")
+    assert r.status_code == 200
+    assert DISCLOSURE_WORD in r.text
+
+
+# --- #16-17: claim + upgrade CTAs ---
+
+
+def test_template_renders_claim_cta_for_free_unclaimed() -> None:
+    """tier=free + verified=False → claim CTA visible (UX spec §8 + §10)."""
+    with SessionLocal() as db:
+        p = _make_provider(tier="free", verified=False)
+        db.add(p)
+        db.commit()
+        slug = p.slug
+
+    with TestClient(app) as client:
+        r = client.get(f"/provider/{slug}")
+    assert r.status_code == 200
+    assert "Claim this listing and manage the information customers see" in r.text
+
+
+def test_template_renders_upgrade_cta_for_claimed_not_sponsored() -> None:
+    """verified=True + tier!=sponsored → upgrade CTA visible (UX spec §8 + §10)."""
+    with SessionLocal() as db:
+        p = _make_provider(tier="free", verified=True)
+        db.add(p)
+        db.commit()
+        slug = p.slug
+
+    with TestClient(app) as client:
+        r = client.get(f"/provider/{slug}")
+    assert r.status_code == 200
+    assert "Upgrade to Verified Presence" in r.text
+
+
+# --- #18: timezone-aware is_open_now ---
+
+
+def test_open_status_respects_lake_havasu_timezone() -> None:
+    """Pin is_open_now against a known hours_structured + injected now in
+    America/Phoenix. Tuesday 10:00 AM local should be inside an 08:00-17:00
+    Tuesday span and read as Open. Tuesday 19:00 should read as Closed.
+    """
+    hours = {
+        "monday": [{"open": "08:00", "close": "17:00"}],
+        "tuesday": [{"open": "08:00", "close": "17:00"}],
+        "wednesday": [{"open": "08:00", "close": "17:00"}],
+        "thursday": [{"open": "08:00", "close": "17:00"}],
+        "friday": [{"open": "08:00", "close": "17:00"}],
+        "saturday": [],
+        "sunday": [],
+    }
+    p = Provider(
+        provider_name="Hours Test Co",
+        category="home_services",
+        hours_structured=hours,
+        verified=True,
+        draft=False,
+        is_active=True,
+        pending_review=False,
+        source="test-provider-profile",
+    )
+
+    # Tuesday 2026-05-12 10:00 AM in America/Phoenix.
+    tuesday_morning = datetime(2026, 5, 12, 10, 0, tzinfo=LAKE_HAVASU_TZ)
+    assert tuesday_morning.weekday() == 1  # 0=Monday, 1=Tuesday — guards the fixture.
+    is_open, copy = queries.is_open_now(p, now=tuesday_morning)
+    assert is_open is True
+    assert copy is not None
+    assert "Open now" in copy
+    assert "5 PM" in copy
+
+    # Tuesday 2026-05-12 19:00 — after the 17:00 close.
+    tuesday_evening = datetime(2026, 5, 12, 19, 0, tzinfo=LAKE_HAVASU_TZ)
+    is_open_pm, copy_pm = queries.is_open_now(p, now=tuesday_evening)
+    assert is_open_pm is False
+    assert copy_pm is not None
