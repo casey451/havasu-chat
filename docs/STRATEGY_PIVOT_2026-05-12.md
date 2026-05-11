@@ -65,6 +65,26 @@ The chat-side engineering investment is **reframed as backend trust infrastructu
 
 ## §4 — Newly required (Phase 1 of the new vision)
 
+> **2026-05-14 — Sequencing Amendment (Status Update)**
+>
+> The build sequence + 90-day shape in §4 and §5 below were sized for a 2-category soft-launch (Home Services + Eat & Drink) with parallel sales kickoff at Day 15-45. **Casey's evolved direction (2026-05-14):** build the FULL site — every useful Lake Havasu directory category + AI chat that gives information and makes recommendations — BEFORE any sales begin. This reshapes the strategy:
+>
+> - **Scope expansion.** The directory now targets every demographic (singles, families, couples, elderly, dog lovers, outdoor lovers, water enthusiasts, business travelers, vacation rental guests, etc.) and every useful category type — not just the 12 originally locked in §8.1. Final taxonomy is being ground-truthed via ChatGPT deep-research (in progress as of 2026-05-14); likely 15-25 top-level categories. Master build plan + locked taxonomy will land at `docs/maintainability/master_build_plan.md` once the research returns.
+>
+> - **Place model promoted from Phase 2 to Phase 1.** §8.2 below LOCKED Place as deferred. The full vision genuinely needs first-class Place entities (parks, ramps, beaches, dog parks, civic locations, hobbyist venues, scenic spots, sports fields) for V1. Architecture audit (`docs/maintainability/architecture_gaps_for_full_vision_audit.md` Gap #1) and Place model design memo (`docs/maintainability/place_model_design.md`) both recommend re-opening §8.2. Effective amendment: **§8.2 deferral reversed; Place model ships in build phase 2** (post-taxonomy, pre-scraper).
+>
+> - **Monetization flexibility.** The Verified Presence ($79/mo) / Category Visibility ($349/mo) / Seasonal Takeover ($1500-5000) sponsor packages described in §4 + §7 are now treated as **default fallback plan, subject to revision before launch.** Casey is keeping the monetization model open until the product is in a position to ground-truth pricing (per cold-pitch testing). The Sponsor schema already supports flexible monetization shapes (4-tier inventory model with state machine; `business_id` integer with no DB-level FK supports cross-entity sponsors per audit finding). Cold-pitch materials at `docs/sponsor_outreach/verified_presence_*.md` remain on the shelf as default-plan artifacts until monetization is locked.
+>
+> - **Build-first / sell-after sequencing.** No sales until the site functions as a comprehensive directory + AI chat. The "Sell Verified Presence during this window. Target: 5-10 paying merchants by Day 45" sequencing in §5 below is suspended. New sequence: lock taxonomy → close architecture gaps → build scrapers + manual recovery → gather data → build UI on populated data → lock monetization → launch.
+>
+> - **Layered data-gathering strategy.** Google Places API alone leaves gaps for ~20-40% of inventory. Layered approach: Google Places → OpenStreetMap/Overpass → city/state open data → specialized hobbyist + regulatory APIs (NPI, AZ ROC, etc.) → manual recovery for what survives. See `docs/maintainability/layered_scrape_strategy.md`.
+>
+> - **Timeline shift.** Original §5 had Day 90 ending at 2 categories + 10-20 paying sponsors + $30-55k MRR. Under build-first: roughly **6-9 months solo-founder pace** to reach launch state. Specific phase breakdown coming in the master build plan after taxonomy returns. Year-1 conservative target ($150-250k revenue, 40-60 paying merchants) shifts accordingly.
+>
+> - **Eventual cleanup pass.** After launch, a code-audit + scaling-readiness lane addresses (a) dormant code from chat-first→directory-first pivot (see `docs/maintainability/architecture_gaps_for_full_vision_audit.md` §4 for the catalogued list), (b) scaling to thousands of concurrent users (DB connection pool, slowapi per-worker, CDN, search index, etc.). Not part of the build phase — runs as launch-prep.
+>
+> Sections §4 and §5 below remain as the original strategic record (2026-05-12). The master build plan supersedes them for execution purposes once authored. Specific deltas: §4's "build effort + sponsor package it unlocks" framing remains useful as a build-order signal but the sponsor-package-unlock column is no longer load-bearing under monetization flexibility. §5's Day 90 milestone is no longer the target; replaced by "launch when full directory + chat are production-ready."
+
 Sequenced for time-to-revenue, not feature completeness. Each block has a target time-to-ship and the sponsor package it unlocks.
 
 | Block | Target | Sponsor package it unlocks |
