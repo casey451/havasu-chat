@@ -36,6 +36,7 @@ ensure_dotenv_loaded()
 
 from app.db.database import SessionLocal  # noqa: E402
 from app.db.models import Provider  # noqa: E402
+from app.db.seed_helpers import derive_provider_slug  # noqa: E402
 
 DEFAULT_INPUT_PATH = (
     Path(__file__).parent / "output" / "places_pull" / "enrichment_enriched.jsonl"
@@ -155,7 +156,8 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
                 provider.last_google_scraped_at = now
                 counts["updated"] += 1
             else:
-                provider = Provider(**kwargs, last_google_scraped_at=now)
+                slug = derive_provider_slug(session, kwargs["provider_name"])
+                provider = Provider(**kwargs, slug=slug, last_google_scraped_at=now)
                 session.add(provider)
                 counts["inserted"] += 1
 

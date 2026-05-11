@@ -37,7 +37,6 @@ in the scrapers.
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Any, Iterable
@@ -58,6 +57,7 @@ from app.schemas.contribution import (
     EventApprovalFields,
     ProgramApprovalFields,
 )
+from app.utils.slug import slugify as _slug
 
 WEBTRAC_SOURCE = "webtrac"
 AQUATIC_SOURCE = "lhcaz_aquatic"
@@ -136,10 +136,6 @@ class LoaderStats:
 # ---------------------------------------------------------------------------
 # Common helpers
 # ---------------------------------------------------------------------------
-
-def _slug(s: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", (s or "").lower()).strip("-") or "untitled"
-
 
 def _content_category(text: str) -> str:
     """Return a single content category (arts, sports, etc.). Used as the

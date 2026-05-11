@@ -10,6 +10,7 @@ from app.contrib.hours_helper import places_hours_to_structured
 from app.core.event_recurrence import event_text_blob, is_recurring_heuristic
 from app.db.contribution_store import normalize_submission_url
 from app.db.models import Contribution, Event, Program, Provider
+from app.db.seed_helpers import derive_provider_slug
 from app.schemas.contribution import (
     EventApprovalFields,
     ProgramApprovalFields,
@@ -71,9 +72,12 @@ def approve_contribution_as_provider(
             conv = places_hours_to_structured(roh)
             if conv:
                 hours_structured = conv
+    name_clean = edited_fields.name.strip()
+    slug = derive_provider_slug(db, name_clean)
     prov = Provider(
-        provider_name=edited_fields.name.strip(),
+        provider_name=name_clean,
         category=cat,
+        slug=slug,
         address=(edited_fields.address or "").strip() or None,
         phone=(edited_fields.phone or "").strip() or None,
         hours=(edited_fields.hours or "").strip() or None,

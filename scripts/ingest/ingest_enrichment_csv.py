@@ -64,6 +64,7 @@ from sqlalchemy.orm import Session  # noqa: E402
 from app.core.timezone import LAKE_HAVASU_TZ  # noqa: E402
 from app.db.database import SessionLocal  # noqa: E402
 from app.db.models import Provider  # noqa: E402
+from app.db.seed_helpers import derive_provider_slug  # noqa: E402
 from scripts.ingest.validate_enrichment_csv import (  # noqa: E402
     print_report,
     validate_csv,
@@ -194,9 +195,11 @@ def ingest_csv(csv_path: Path, *, dry_run: bool, db: Session) -> int:
                     db, payload["provider_name"], payload["category"]
                 )
                 if existing is None:
+                    slug = derive_provider_slug(db, payload["provider_name"])
                     new_row = Provider(
                         provider_name=payload["provider_name"],
                         category=payload["category"],
+                        slug=slug,
                         address=payload["address"],
                         phone=payload["phone"],
                         email=payload["email"],

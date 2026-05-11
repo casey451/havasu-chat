@@ -100,6 +100,15 @@ class Provider(Base):
     # first-class Place row per pivot §8.2 (Place model deferred to Phase 2).
     district: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
+    # Directory pivot V1 follow-up (2026-05-13): URL-safe slug derived from
+    # provider_name. Used as the route key for /provider/<slug>. Backfilled
+    # by the f1a2b3c4d5e6 migration; new rows get a slug via the ingest
+    # paths (see app/db/seed_helpers.py and scripts/ingest). Unique across
+    # all providers; collision handling appends -2, -3, etc.
+    slug: Mapped[str | None] = mapped_column(
+        String(120), nullable=True, unique=True, index=True
+    )
+
     last_verified_at: Mapped[datetime | None] = mapped_column(
         TZAwareDateTime(), nullable=True
     )
@@ -587,3 +596,12 @@ class Category(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC), nullable=False
     )
+
+
+def _register_provider_slug_listeners() -> None:
+    from app.db.seed_helpers import register_provider_slug_hooks
+
+    register_provider_slug_hooks()
+
+
+_register_provider_slug_listeners()

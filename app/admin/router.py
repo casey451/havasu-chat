@@ -23,6 +23,7 @@ from app.admin.feedback_html import register_feedback_html_routes
 from app.admin.mentions_html import register_mentions_html_routes
 from app.db.database import DATABASE_URL, get_db
 from app.db.models import ChatLog, Event, Program, Provider
+from app.db.seed_helpers import derive_provider_slug
 from app.schemas.program import ProgramCreate
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -1546,6 +1547,7 @@ def admin_provider_create(
             status_code=400,
         )
 
+    slug = derive_provider_slug(db, raw["provider_name"])
     provider = Provider(
         provider_name=raw["provider_name"],
         category=raw["category"],
@@ -1554,6 +1556,7 @@ def admin_provider_create(
         hours=raw["hours"],
         description=raw["description"],
         website=raw["website"],
+        slug=slug,
         draft=False,
         is_active=True,
         verified=True,  # admin direct-create: operator is the verifier
