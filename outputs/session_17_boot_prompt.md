@@ -8,19 +8,23 @@
 You're the new Cowork primary on havasu-chat — Lake Havasu City local
 directory + AI chat. Previous agent (session-16) closed out Phase 1 of
 the master build plan + signed off cleanly. State is durable on
-origin/main HEAD = 1c98365.
+origin/main HEAD = dcf2f7a.
 
 ## Boot sequence (~5-7 min)
 1. docs/SESSION_HANDOFF_2026-05-14_session16.md — closes session-16.
-   Captures the 8-commit narrative, Phase 1 close-out summary, queued
-   Phase 2 work, accepted pragmatic deviations, two new lessons worth
-   folding into Phase 2 briefs.
+   Captures the 11-commit narrative (8 substantive + 3 close-out
+   hygiene: gotcha #13 + prereq guide + boot prompt update), Phase 1
+   close-out summary, queued Phase 2 work, accepted pragmatic
+   deviations, two new lessons worth folding into Phase 2 briefs.
 2. docs/STATE.md — Production block notes the origin-vs-deployed
-   divergence: origin at 1c98365 with full Phase 1 chain through
+   divergence: origin at dcf2f7a (the latest at session-16 close;
+   STATE.md itself last updated at 1c98365 so it doesn't reflect the
+   final 3 close-out commits — those landed on top and are pure
+   docs hygiene, no code changes) with full Phase 1 chain through
    alembic head f8e9d0c1b2a3; production at 5132162 with alembic head
    b2c3d4e5f6a7 (1A + 1B live; 1C + 1D queued for next deploy at
    operator cadence). "Recently shipped" §1 has the full session-16
-   narrative.
+   narrative through 1c98365.
 3. docs/maintainability/master_build_plan.md §4 Phase 1 ("Shipped" list
    now has all four sub-phase ship-lines + the Phase 1 SHIPPED header)
    and §4 Phase 2 (next dispatchable lane: 2A account-lite + 2B image
@@ -63,9 +67,11 @@ origin/main HEAD = 1c98365.
    safety-net pattern so Cursor doesn't have to rediscover it.
 
 ## Your first actions, in order
-1. Run baseline: git log --oneline -3 (top should be 1c98365), pytest
-   --collect-only | tail -3 (should show 1518), python -m alembic heads
-   (should show f8e9d0c1b2a3). Report values to Casey.
+1. Run baseline: git log --oneline -3 (top should be dcf2f7a → 4bb74bc
+   → 03f7160 — the three close-out hygiene commits at the end of
+   session-16), pytest --collect-only | tail -3 (should show 1518),
+   python -m alembic heads (should show f8e9d0c1b2a3). Report values
+   to Casey.
 2. Check operator-prereq status. Phase 2 brief authoring is gated
    usefully on two operator actions: (a) Resend API key registration
    for Lane 2A account-lite; (b) Cloudflare R2 bucket + CDN domain for
@@ -118,8 +124,9 @@ Phase 1C/1D dispatch prompts.
   verify raw SQL works on Postgres not just SQLite
 
 ## What NOT to do
-- Don't redo session-16's work; 8 commits including Phase 1 close-out
-  are on origin
+- Don't redo session-16's work; 11 commits including Phase 1
+  close-out + close-out hygiene (handoff doc, boot prompt, gotcha
+  #13, operator-prereq guide) are on origin
 - Don't author Phase 2 briefs before checking with Casey on operator
   prereqs (Resend / R2) — premature briefs bake in unverified
   assumptions
@@ -139,7 +146,7 @@ Phase 1C/1D dispatch prompts.
   cleanup
 
 ## Begin
-1. Boot sequence reads (steps 1-6 above)
+1. Boot sequence reads (steps 1-7 above)
 2. Baseline check + report values to Casey
 3. Ask Casey which Phase 2 lane to author + whether the corresponding
    operator prereq is locked
