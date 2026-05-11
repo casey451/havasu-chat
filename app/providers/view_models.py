@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Optional
+from typing import Optional
 
 from sqlalchemy.orm import Session
 
@@ -20,7 +20,6 @@ from app.core.timezone import now_lake_havasu
 from app.db.models import Provider
 from app.home.queries import _format_phone
 from app.providers import queries
-
 
 # UX spec §5 method-to-copy table.
 _VERIFICATION_METHOD_COPY: dict[str, str] = {
