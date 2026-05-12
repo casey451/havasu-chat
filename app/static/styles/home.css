@@ -749,3 +749,92 @@ img { display: block; max-width: 100%; }
   }
   .pagefoot .pf-meta { text-align: right; }
 }
+
+/* ─── Phase 2B.3 directory search (catalog) ─── */
+.directory-search-wrap {
+  padding: 0 20px 12px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+.directory-search-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.directory-search {
+  position: relative;
+}
+.directory-search-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.directory-search input[type="search"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--rule, #e0e4ea);
+  border-radius: 10px;
+  background: var(--paper, #fff);
+  color: var(--ink, #1a1f29);
+}
+.directory-search-submit {
+  font-family: inherit;
+  font-weight: 500;
+  font-size: 0.875rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--water, #2f6f6a);
+  background: var(--water, #2f6f6a);
+  color: #fff;
+  cursor: pointer;
+}
+.directory-search-submit:hover {
+  filter: brightness(1.05);
+}
+.directory-search-results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 40;
+  background: var(--paper, #fff);
+  border: 1px solid var(--rule, #e0e4ea);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(26, 31, 41, 0.08);
+  max-height: 320px;
+  overflow-y: auto;
+}
+.directory-search-results[hidden] {
+  display: none !important;
+}
+.directory-search-hit {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  text-decoration: none;
+  color: inherit;
+  border-bottom: 1px solid var(--rule, #eef0f3);
+}
+.directory-search-hit:last-child {
+  border-bottom: none;
+}
+.directory-search-hit:hover {
+  background: var(--wash, #f6f7f9);
+}
+.directory-search-hit .name {
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+.directory-search-hit .meta {
+  font-size: 0.8125rem;
+  color: var(--ink-3, #5b6573);
+  margin-top: 0.15rem;
+}

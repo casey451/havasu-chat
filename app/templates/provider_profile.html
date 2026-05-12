@@ -31,7 +31,11 @@
       font-size: 16px;
     }
     .page { max-width: 760px; margin: 0 auto; padding: 1.25rem 1.25rem 3rem; }
-    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .topbar { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.5rem; }
+    .topbar-search { flex: 1 1 220px; max-width: 320px; margin: 0 auto; }
+    .directory-search--compact .directory-search-row { gap: 0.35rem; }
+    .directory-search--compact input[type="search"] { font-size: 0.875rem; padding: 0.35rem 0.5rem; }
+    .directory-search--compact .directory-search-submit { font-size: 0.8125rem; padding: 0.35rem 0.5rem; }
     .wordmark { font-family: 'Fraunces', serif; font-weight: 500; font-size: 1.5rem; text-decoration: none; color: var(--ink); }
     .topbar a { color: var(--muted); text-decoration: none; font-size: 0.875rem; }
     h1.provider-name { font-family: 'Fraunces', serif; font-weight: 500; font-size: 2.25rem; margin: 0 0 0.25rem; line-height: 1.15; }
@@ -120,6 +124,15 @@
 
   <header class="topbar">
     <a class="wordmark" href="/home">Hava</a>
+    <div class="topbar-search">
+      <form class="directory-search directory-search--compact" data-directory-search action="#" method="get" role="search">
+        <div class="directory-search-row">
+          <input type="search" name="q" placeholder="Search listings…" autocomplete="off" maxlength="200" aria-label="Search listings" />
+          <button type="submit" class="directory-search-submit">Go</button>
+        </div>
+        <div class="directory-search-results" data-directory-search-results hidden></div>
+      </form>
+    </div>
     <a href="/home">Back to Hava</a>
   </header>
 
@@ -366,6 +379,7 @@
   })();
 </script>
 <script src="/static/favorites.js" defer></script>
+<script src="/static/js/search.js" defer></script>
 
 </body>
 </html>

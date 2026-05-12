@@ -40,6 +40,7 @@ from app.home.router import router as home_router
 from app.programs.router import router as programs_router
 from app.providers.router import router as providers_router
 from app.schemas.event import EventRead
+from app.search.routes import router as search_router
 
 logger = logging.getLogger(__name__)
 
@@ -282,6 +283,7 @@ async def rate_limit_handler(_: Request, __: RateLimitExceeded) -> JSONResponse:
 app.include_router(concierge_chat_router)
 app.include_router(contribute_router)
 app.include_router(auth_router)
+app.include_router(search_router)
 app.include_router(admin_router)
 app.include_router(admin_contributions_router)
 app.include_router(admin_mentions_router)

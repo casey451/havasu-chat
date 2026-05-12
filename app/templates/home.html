@@ -27,6 +27,25 @@
     </div>
   </header>
 
+  {# ─────────── directory search (Phase 2B.3) — above hero / chat composer #}
+  <section class="directory-search-wrap" aria-label="Search the local catalog">
+    <form class="directory-search" data-directory-search action="#" method="get" role="search">
+      <label class="directory-search-label" for="directory-search-q">Search listings</label>
+      <div class="directory-search-row">
+        <input
+          id="directory-search-q"
+          type="search"
+          name="q"
+          placeholder="Plumbers, coffee, barbershop…"
+          autocomplete="off"
+          maxlength="200"
+        />
+        <button type="submit" class="directory-search-submit">Search</button>
+      </div>
+      <div class="directory-search-results" data-directory-search-results hidden></div>
+    </form>
+  </section>
+
   {# ─────────── hero ─────────── #}
   <section class="hero">
     <h1>Ask <em>Hava</em>.</h1>
@@ -286,5 +305,6 @@
 </div>
 
 <script type="module" src="/static/js/home-composer.js" defer></script>
+<script src="/static/js/search.js" defer></script>
 </body>
 </html>
