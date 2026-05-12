@@ -36,6 +36,7 @@ from typing import Any
 from sqlalchemy import String, case, cast, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.chat import tier2_synonyms as _tier2_synonyms
 from app.chat.tier2_schema import Tier2Filters
 from app.contrib.hours_helper import LAKE_HAVASU_TZ, is_open_at
 from app.db.database import SessionLocal
@@ -46,6 +47,12 @@ from app.db.entity_types import (
 )
 from app.db.models import Entity, EntityCategory, Event, Location, Program, Provider
 from app.providers.queries import effective_hours_structured
+from app.search import fts as search_fts
+from app.search import ranking as search_ranking
+
+_category_needle_set = _tier2_synonyms._category_needle_set
+_category_synonyms = _tier2_synonyms._category_synonyms
+_singularize_category = _tier2_synonyms._singularize_category
 
 MAX_ROWS = 8
 # Broad calendar windows: fetch more before recurring collapse + time bucketing (Phase 8.8.4).
@@ -81,6 +88,11 @@ _MONTH_TO_INT = {
 def _today() -> date:
     """Calendar \"today\" for catalog date filters (monkeypatch in tests)."""
     return date.today()
+
+
+def _is_postgres(db: Session) -> bool:
+    """True when the session bind is Postgres (FTS + ``entities.search_vector``)."""
+    return db.get_bind().dialect.name == "postgresql"
 
 
 def _weekday_name(d: date) -> str:
@@ -475,96 +487,12 @@ def _category_match_program(p: Program, cat: str) -> bool:
     return False
 
 
-def _singularize_category(cat: str) -> str:
-    """Strip a regular trailing-s plural from the LAST token; leave others alone.
-
-    Slice D fix: queries like "any good coffee shops" arrive as the plural form, but
-    Google tags places as ``coffee_shop`` (singular). Without singularization the
-    matcher misses everything. Conservative: skip short words and common irregular
-    endings ('ss'/'us'/'is') so we don't break "address" or "campus".
-    """
-    parts = cat.strip().split()
-    if not parts:
-        return cat
-    last = parts[-1]
-    if len(last) < 4:
-        return cat
-    if last.endswith("ies"):
-        parts[-1] = last[:-3] + "y"
-        return " ".join(parts)
-    if last.endswith(("ss", "us", "is")):
-        return cat
-    if last.endswith("s"):
-        parts[-1] = last[:-1]
-        return " ".join(parts)
-    return cat
-
-
 def _normalize_for_match(s: str | None) -> str:
     """Lowercase + replace underscores with spaces so Google's ``coffee_shop`` token
     matches a user-typed ``coffee shop`` substring check."""
     if not s:
         return ""
     return s.lower().replace("_", " ")
-
-
-# Voice battery 2026-05-08 (§4.2 synonym map): equivalence groups for category
-# names that the strict primary-category filter would otherwise miss. Each group
-# is a small set of mutually interchangeable terms — when a user query category
-# matches any term in a group, all other members are also tried as needles
-# against ``Provider.category`` and the normalized ``google_primary_category``.
-#
-# Conservative — only well-evidenced equivalences. The brief flags that
-# "coffee shop" misses providers tagged ``cafe`` (Google's primary type),
-# "barbershop" misses ``barber``, and "corner store" misses ``convenience_store``.
-# Pharmacy/drugstore and mechanic/auto-repair are added on the same logic
-# (Google primary types are ``drugstore`` and ``car_repair`` respectively).
-# Add new groups as recall gaps surface in chat_logs / voice battery FAILs.
-_CATEGORY_SYNONYM_GROUPS: tuple[frozenset[str], ...] = (
-    frozenset({"coffee shop", "coffee shops", "coffee", "cafe", "cafes"}),
-    frozenset({"barber", "barbers", "barbershop", "barbershops", "barber shop", "barber shops"}),
-    frozenset({"corner store", "corner stores", "convenience store", "convenience stores", "convenience"}),
-    frozenset({"pharmacy", "pharmacies", "drugstore", "drugstores", "drug store", "drug stores"}),
-    frozenset({"mechanic", "mechanics", "auto repair", "car repair", "auto shop", "auto shops"}),
-)
-
-
-def _category_synonyms(cat: str) -> tuple[str, ...]:
-    """Return all equivalent category terms for ``cat`` (including ``cat`` itself).
-
-    Lookup is case-insensitive and exact-match (whole string). If ``cat`` is in a
-    synonym group, returns the full group as a deterministic tuple. Otherwise
-    returns ``(cat,)`` so callers can iterate uniformly.
-    """
-    c = (cat or "").strip().lower()
-    if not c:
-        return ()
-    for group in _CATEGORY_SYNONYM_GROUPS:
-        if c in group:
-            return tuple(sorted(group))
-    return (c,)
-
-
-def _category_needle_set(cat: str) -> tuple[str, ...]:
-    """Build the full needle set for a category: synonyms × singularized forms.
-
-    Combines :func:`_category_synonyms` with :func:`_singularize_category` so
-    "coffee shops" expands to {coffee shops, coffee shop, cafe, cafes, cafe, coffee},
-    deduplicated. Empty strings are dropped.
-    """
-    c = (cat or "").strip().lower()
-    if not c:
-        return ()
-    out: set[str] = set()
-    seeds = {c, _singularize_category(c)}
-    for seed in seeds:
-        for syn in _category_synonyms(seed):
-            out.add(syn)
-            sing = _singularize_category(syn)
-            if sing:
-                out.add(sing)
-    out.discard("")
-    return tuple(sorted(out))
 
 
 def _category_match_provider(p: Provider, cat: str) -> bool:
@@ -806,7 +734,17 @@ def _query_events(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
         q = q.where(Event.date <= win_end)
 
     if needle := _text_needle(filters.entity_name):
-        q = q.where(or_(Event.title.ilike(needle), Event.description.ilike(needle)))
+        tsq = search_fts.build_tsquery_entity_name_only(filters) if _is_postgres(db) else None
+        if tsq:
+            q = q.where(
+                or_(
+                    Event.title.ilike(needle),
+                    Event.description.ilike(needle),
+                    search_fts.entities_search_vector_match(tsq),
+                )
+            )
+        else:
+            q = q.where(or_(Event.title.ilike(needle), Event.description.ilike(needle)))
     if needle := _text_needle(filters.location):
         q = q.where(Event.location_name.ilike(needle))
 
@@ -821,11 +759,24 @@ def _query_events(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
                 )
             )
 
+    rank_prefix: list[Any] = []
+    if _is_postgres(db):
+        rank_expr = search_ranking.build_rank_score_expr_for_filters(
+            filters,
+            last_verified_col=Event.last_verified_at,
+            featured_col=Event.featured,
+            ref_now=_now_lake_havasu(),
+        )
+        if rank_expr is not None:
+            rank_prefix.append(rank_expr.desc())
+
     if filters.date_exact is not None:
         starts_today_first = case((Event.date == filters.date_exact, 0), else_=1).asc()
-        ordered_q = q.order_by(starts_today_first, Event.date.asc(), Event.start_time.asc())
+        ordered_q = q.order_by(
+            *rank_prefix, starts_today_first, Event.date.asc(), Event.start_time.asc()
+        )
     else:
-        ordered_q = q.order_by(Event.date.asc(), Event.start_time.asc())
+        ordered_q = q.order_by(*rank_prefix, Event.date.asc(), Event.start_time.asc())
     rows = list(db.scalars(ordered_q.limit(limit)).all())
 
     if filters.category and filters.category.strip():
@@ -884,12 +835,19 @@ def _query_programs(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
     )
 
     if needle := _text_needle(filters.entity_name):
-        q = q.where(
-            or_(
-                Program.title.ilike(needle),
-                Program.provider_name.ilike(needle),
+        tsq = search_fts.build_tsquery_entity_name_only(filters) if _is_postgres(db) else None
+        if tsq:
+            q = q.where(
+                or_(
+                    Program.title.ilike(needle),
+                    Program.provider_name.ilike(needle),
+                    search_fts.entities_search_vector_match(tsq),
+                )
             )
-        )
+        else:
+            q = q.where(
+                or_(Program.title.ilike(needle), Program.provider_name.ilike(needle))
+            )
     if needle := _text_needle(filters.location):
         q = q.where(
             or_(
@@ -908,7 +866,18 @@ def _query_programs(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
                 )
             )
 
-    rows = list(db.scalars(q.order_by(Program.title.asc()).limit(80)).all())
+    prog_order: list[Any] = []
+    if _is_postgres(db):
+        rank_expr = search_ranking.build_rank_score_expr_for_filters(
+            filters,
+            last_verified_col=Entity.last_verified_at,
+            featured_col=Program.featured,
+            ref_now=_now_lake_havasu(),
+        )
+        if rank_expr is not None:
+            prog_order.append(rank_expr.desc())
+    prog_order.append(Program.title.asc())
+    rows = list(db.scalars(q.order_by(*prog_order).limit(80)).all())
 
     if filters.category and filters.category.strip():
         rows = [p for p in rows if _category_match_program(p, filters.category or "")]
@@ -948,12 +917,19 @@ def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
     )
 
     if needle := _text_needle(filters.entity_name):
-        q = q.where(
-            or_(
-                Provider.provider_name.ilike(needle),
-                Provider.description.ilike(needle),
+        tsq = search_fts.build_tsquery_entity_name_only(filters) if _is_postgres(db) else None
+        if tsq:
+            q = q.where(
+                or_(
+                    Provider.provider_name.ilike(needle),
+                    Provider.description.ilike(needle),
+                    search_fts.entities_search_vector_match(tsq),
+                )
             )
-        )
+        else:
+            q = q.where(
+                or_(Provider.provider_name.ilike(needle), Provider.description.ilike(needle))
+            )
     if needle := _text_needle(filters.location):
         q = q.outerjoin(Location, Location.entity_id == Entity.id).where(
             or_(Provider.address.ilike(needle), Location.address.ilike(needle))
@@ -1012,7 +988,18 @@ def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
             if conditions:
                 q = q.where(or_(*conditions))
 
-    rows = list(db.scalars(q.order_by(Provider.provider_name.asc()).limit(80)).all())
+    order_cols: list[Any] = []
+    if _is_postgres(db):
+        rank_expr = search_ranking.build_rank_score_expr_for_filters(
+            filters,
+            last_verified_col=Provider.last_verified_at,
+            featured_col=Provider.featured,
+            ref_now=_now_lake_havasu(),
+        )
+        if rank_expr is not None:
+            order_cols.append(rank_expr.desc())
+    order_cols.append(Provider.provider_name.asc())
+    rows = list(db.scalars(q.order_by(*order_cols).limit(80)).all())
 
     if filters.category and filters.category.strip():
         rows = [p for p in rows if _category_match_provider(p, filters.category or "")]
