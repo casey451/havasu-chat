@@ -635,6 +635,14 @@ class Entity(Base):
     """
 
     __tablename__ = "entities"
+    __table_args__ = (
+        CheckConstraint(
+            "heat_exposure IS NULL OR heat_exposure IN ("
+            "'indoor', 'shaded', 'outdoor', 'water_adjacent'"
+            ")",
+            name="ck_entities_heat_exposure",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
     entity_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
@@ -658,6 +666,21 @@ class Entity(Base):
         nullable=False,
     )
 
+    # Phase 3.1 — Opus v1.1 operator-curated fields (see Phase 3 brief §4.1).
+    heat_exposure: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    crowd_notes: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
+    is_mobile_service: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    boat_access: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
+    seasonal_hours: Mapped[dict | list | None] = mapped_column(JSON, nullable=True)
+    district_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("districts.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    featured: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false(), index=True
+    )
+
     categories: Mapped[list["EntityCategory"]] = relationship(
         back_populates="entity", passive_deletes=True
     )
@@ -665,7 +688,7 @@ class Entity(Base):
         back_populates="entity", uselist=False, passive_deletes=True
     )
     hours: Mapped[list["Hours"]] = relationship(back_populates="entity", passive_deletes=True)
-    seasonal_hours: Mapped[list["SeasonalHours"]] = relationship(
+    seasonal_hour_rows: Mapped[list["SeasonalHours"]] = relationship(
         back_populates="entity", passive_deletes=True
     )
     contact_points: Mapped[list["ContactPoint"]] = relationship(
@@ -688,6 +711,9 @@ class Entity(Base):
         primaryjoin="and_(Photo.entity_id == Entity.id, Photo.status == 'live')",
         viewonly=True,
         order_by="Photo.display_order",
+    )
+    district: Mapped["District | None"] = relationship(
+        "District", back_populates="entities", foreign_keys=[district_id]
     )
 
 
@@ -792,7 +818,7 @@ class SeasonalHours(Base):
         DateTime, default=lambda: datetime.now(UTC), nullable=False
     )
 
-    entity: Mapped["Entity"] = relationship(back_populates="seasonal_hours")
+    entity: Mapped["Entity"] = relationship(back_populates="seasonal_hour_rows")
 
 
 class ContactPoint(Base):
@@ -990,6 +1016,10 @@ class User(Base):
             "role IN ('end_user', 'merchant', 'admin')",
             name="ck_users_role",
         ),
+        CheckConstraint(
+            "preferred_mode IN ('default', 'boat')",
+            name="ck_users_preferred_mode",
+        ),
     )
 
     id: Mapped[str] = mapped_column(
@@ -1010,6 +1040,21 @@ class User(Base):
         DateTime, default=lambda: datetime.now(UTC), nullable=False
     )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    preferred_mode: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="default", server_default="default"
+    )
+
+    alert_subscriptions: Mapped[list["AlertSubscription"]] = relationship(
+        "AlertSubscription",
+        back_populates="user",
+        passive_deletes=True,
+    )
+    peer_recommendations: Mapped[list["PeerRecommendation"]] = relationship(
+        "PeerRecommendation",
+        back_populates="recommender",
+        passive_deletes=True,
+        foreign_keys=lambda: [PeerRecommendation.recommender_user_id],
+    )
 
 
 class MagicLinkToken(Base):
@@ -1259,6 +1304,172 @@ class Photo(Base):
 
     entity: Mapped["Entity"] = relationship("Entity", foreign_keys=[entity_id])
     uploader: Mapped["User"] = relationship("User", foreign_keys=[uploaded_by_user_id])
+
+
+class District(Base):
+    """Geographic / narrative district for profile context (Phase 3.1)."""
+
+    __tablename__ = "districts"
+    __table_args__ = (
+        UniqueConstraint("slug", name="uq_districts_slug"),
+        Index("ix_districts_display_order", "display_order"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    paragraph: Mapped[str] = mapped_column(Text, nullable=False)
+    display_order: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    entities: Mapped[list["Entity"]] = relationship(
+        "Entity", back_populates="district", foreign_keys="Entity.district_id"
+    )
+
+
+class AlertSubscription(Base):
+    """User opt-in for conditions / traffic alerts (Phase 3.1 storage; dispatcher Phase 8)."""
+
+    __tablename__ = "alert_subscriptions"
+    __table_args__ = (
+        CheckConstraint(
+            "alert_type IN ('heat_advisory', 'aqi_alert', 'lake_hazard', 'event_traffic')",
+            name="ck_alert_subscriptions_alert_type",
+        ),
+        CheckConstraint(
+            "delivery_channel IN ('email', 'sms')",
+            name="ck_alert_subscriptions_delivery_channel",
+        ),
+        UniqueConstraint(
+            "user_id",
+            "alert_type",
+            "delivery_channel",
+            name="uq_alert_subscriptions_user_type_channel",
+        ),
+        Index("ix_alert_subscriptions_user_id", "user_id"),
+        Index("ix_alert_subscriptions_alert_type", "alert_type"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    alert_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    delivery_channel: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="email", server_default="email"
+    )
+    paused_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    user: Mapped["User"] = relationship("User", back_populates="alert_subscriptions", foreign_keys=[user_id])
+    dispatches: Mapped[list["AlertDispatched"]] = relationship(
+        "AlertDispatched", back_populates="subscription", passive_deletes=True
+    )
+
+
+class AlertDispatched(Base):
+    """Audit trail for alert sends (Phase 3.1)."""
+
+    __tablename__ = "alerts_dispatched"
+    __table_args__ = (
+        CheckConstraint(
+            "delivery_status IN ('queued', 'sent', 'failed', 'bounced')",
+            name="ck_alerts_dispatched_delivery_status",
+        ),
+        Index("ix_alerts_dispatched_subscription_id", "subscription_id"),
+        Index("ix_alerts_dispatched_dispatched_at", "dispatched_at"),
+        Index("ix_alerts_dispatched_delivery_status", "delivery_status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    subscription_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("alert_subscriptions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    alert_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    trigger_data: Mapped[dict | list] = mapped_column(JSON, nullable=False)
+    dispatched_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    delivery_status: Mapped[str] = mapped_column(String(20), nullable=False)
+    body_snippet: Mapped[str | None] = mapped_column(String(280), nullable=True)
+
+    subscription: Mapped["AlertSubscription"] = relationship(
+        "AlertSubscription", back_populates="dispatches", foreign_keys=[subscription_id]
+    )
+
+
+class ExternalConditionsCache(Base):
+    """Keyed cache row per upstream conditions source (Phase 3.1)."""
+
+    __tablename__ = "external_conditions_cache"
+    __table_args__ = (Index("ix_external_conditions_cache_fetched_at", "fetched_at"),)
+
+    source: Mapped[str] = mapped_column(String(64), primary_key=True)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    data: Mapped[dict | list] = mapped_column(JSON, nullable=False)
+    ttl_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
+    last_error: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    error_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+
+
+class PeerRecommendation(Base):
+    """Peer-to-peer place notes; V1.5-gated writes (Phase 3.1 schema only)."""
+
+    __tablename__ = "peer_recommendations"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'published', 'rejected')",
+            name="ck_peer_recommendations_status",
+        ),
+        UniqueConstraint(
+            "recommender_user_id",
+            "entity_id",
+            name="uq_peer_recommendations_recommender_entity",
+        ),
+        Index("ix_peer_recommendations_entity_id_status", "entity_id", "status"),
+        Index("ix_peer_recommendations_recommender_user_id", "recommender_user_id"),
+        Index("ix_peer_recommendations_status", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    recommender_user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    entity_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    recommendation_text: Mapped[str] = mapped_column("text", String(500), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="pending", server_default="pending"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    approved_by_user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    recommender: Mapped["User"] = relationship(
+        "User", back_populates="peer_recommendations", foreign_keys=[recommender_user_id]
+    )
+    entity: Mapped["Entity"] = relationship("Entity", foreign_keys=[entity_id])
 
 
 _register_provider_slug_listeners()
