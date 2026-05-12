@@ -17,13 +17,17 @@ NOT to do), §10 (acceptable deviations), §11 (risk register), §12
 
 Phase 2A.1 SHIPPED on origin (commit 6000138 + 5bf4c14 dispatch
 artifacts + 9150be5 docs ship-line + 2423d4f Phase 2A.2 dispatch
-artifact). Phase 2A.2 SHIPPED at commit <TBD-FILL-AFTER-2A.2-LANDS>
-per master plan §4 Phase 2 "Shipped (incremental)" list. Origin/main
-HEAD should top at the most recent commit on main; run git log
+artifact). Phase 2A.2 SHIPPED at commit 714ca52 (master plan §4
+Phase 2 "Shipped (incremental)" list). Origin/main HEAD tops at
+0d73b0f (session-17 close-out: handoff + session-18 boot prompt +
+STATE refresh — pure docs, no code); the substantive Phase 2A.2
+ship is 714ca52 with 9e672b5 docs ship-line + 95d9f79 Phase 2A.3
+dispatch artifact + 7f5b1f7 Phase 3 district paragraphs ChatGPT
+draft + 0d73b0f session-17 close-out docs above it. Run git log
 --oneline -10 and confirm. Pytest collect baseline going in is
-**<TBD: 2A.2 final pytest count, expected ~1563>** tests. Alembic
-head is **92ce4899dc08** (Phase 2A.1 account-lite v0.1 schema —
-unchanged through 2A.2 since 2A.2 added no migration).
+**1563** tests. Alembic head is **92ce4899dc08** (Phase 2A.1
+account-lite v0.1 schema — unchanged through 2A.2 since 2A.2
+added no migration).
 
 Ship Phase 2A.3 ONLY per §3 + §7 of the brief — claim flow + admin
 review queue + viewer_is_owner plumbing + favorites + admin role
