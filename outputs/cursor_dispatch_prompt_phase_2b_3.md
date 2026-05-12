@@ -15,20 +15,20 @@ deliverable list -- the close-out sub-phase of Lane 2B), §9 (what
 NOT to do -- search-bar surface + endpoint scope guardrails), §10
 (acceptable deviations), §11 (risk register), §12 (final report format).
 
-Phase 2A.3 SHIPPED at commit <TBD-FILL-AFTER-2A.3-LANDS> (Lane 2A
+Phase 2A.3 SHIPPED at commit 5fea2ce (Lane 2A
 COMPLETE per master plan §4 Phase 2 "Shipped (incremental)" list).
-Phase 2B.2 SHIPPED at commit <TBD-FILL-AFTER-2B.2-LANDS> (FTS infra
+Phase 2B.2 SHIPPED at commit d631c77 (FTS infra
 + chat tier 2 LIKE->FTS swap). Phase 2B.1 (photos schema + R2 +
 Pillow + upload route) MAY OR MAY NOT have shipped at dispatch time
 -- 2B.3 is order-independent of 2B.1 since the search bar UI doesn't
 require photos to function (hero_url in result rows falls through
 the existing derive_hero_photo legacy/Google chain if 2B.1 hasn't
 shipped). Run git log --oneline -10 and report the top SHAs. Pytest
-collect baseline going in is **<TBD-pytest-count>** tests (expected
->=1591 per the 2B.2 acceptance floor; higher if 2B.1 also shipped).
-Alembic head is **<TBD-FTS-migration-rev>** (the FTS + pg_trgm
+collect baseline going in is **1607** tests (1 skipped under
+skip-unless-postgres for the 2B.2 FTS Postgres-only execution path).
+Alembic head is **c8d9e0f1a2b3** (the FTS + pg_trgm
 revision 2B.2 introduced); if 2B.1 also shipped, the photos-table
-revision sits between 92ce4899dc08 and <TBD-FTS-migration-rev> --
+revision sits between 92ce4899dc08 and c8d9e0f1a2b3 --
 verify with `python -m alembic heads`.
 
 Ship Phase 2B.3 ONLY per §3 + §7 of the brief -- new `/api/search`
@@ -120,7 +120,7 @@ ORDER MATTERS WITHIN PHASE 2B.3:
      button are present in the rendered HTML)
 8. After all of the above: confirm full pytest stays green, ruff
    clean, that `python -m alembic upgrade head` against a fresh
-   dev DB still reaches the FTS revision <TBD-FTS-migration-rev>
+   dev DB still reaches the FTS revision c8d9e0f1a2b3
    cleanly (no new migration in 2B.3), and manually smoke the
    search bar: visit /home, type "plumber" into the search bar,
    submit -> dropdown renders results in rank order -> click a

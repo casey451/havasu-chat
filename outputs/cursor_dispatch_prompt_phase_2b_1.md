@@ -20,19 +20,18 @@ on photos), §10 (acceptable deviations), §11 (risk register), §12
 Phase 2A.1 SHIPPED on origin (commit 6000138 + 5bf4c14 dispatch
 artifacts + 9150be5 docs ship-line + 2423d4f Phase 2A.2 dispatch
 artifact). Phase 2A.2 SHIPPED at commit 714ca52. Phase 2A.3 SHIPPED
-at commit <TBD-FILL-AFTER-2A.3-LANDS> (Lane 2A close-out — claim
+at commit 5fea2ce (Lane 2A close-out — claim
 flow + favorites + admin role + viewer_is_owner). Phase 2B.2 may
 also be shipped by the time you read this — if so, it shipped at
-commit <TBD-FILL-AFTER-2B.2-LANDS> (FTS migration + app/search/
+commit d631c77 (FTS migration + app/search/
 package + chat tier 2 LIKE->FTS swap). Run `git log --oneline -10`
 and report the top SHAs. Pytest collect baseline going in is
-**<TBD-pytest-count>** tests (expected ~1583+ after 2A.3 ships;
-~1600+ if 2B.2 also shipped). Alembic head is **92ce4899dc08**
-(Phase 2A.1 account-lite v0.1 — unchanged through 2A.2 + 2A.3
-since neither added a migration), UNLESS 2B.2 shipped first in
-which case the head advanced by one to the FTS revision; chain the
-2B.1 photos migration off whichever single head
-`python -m alembic heads` reports at dispatch time.
+**1607** tests (1 skipped under skip-unless-postgres for the 2B.2
+Postgres-only FTS execution path; baseline after both 2A.3 and 2B.2
+shipped). Alembic head is **c8d9e0f1a2b3** (Phase 2B.2 FTS + pg_trgm,
+chained off 92ce4899dc08 from Phase 2A.1 account-lite v0.1). Chain
+the 2B.1 photos migration off c8d9e0f1a2b3 — verify with
+`python -m alembic heads`.
 
 Ship Phase 2B.1 ONLY per §3 + §5 of the brief -- photos schema +
 new app/photos/ package (r2_client + processor + routes + sweep +
