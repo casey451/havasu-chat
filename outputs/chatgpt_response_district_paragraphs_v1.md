@@ -1,8 +1,8 @@
 # ChatGPT Response — District Paragraphs (V1 draft)
 
 > **Source:** ChatGPT response to `outputs/chatgpt_prompt_district_paragraphs_v1.md`. Pasted back to Cowork primary 2026-05-11.
-> **Status:** draft. Five `[CASEY: ...]` placeholders + 5 "Casey to verify" items pending operator polish.
-> **Destination:** these paragraphs become rows in the `districts.paragraph` column when Phase 3 of the master build plan ships.
+> **Status:** draft, illustrative not canonical. Operator reality check session-20 (2026-05-12): Havasu is too small (~57k pop, ~46 sq mi) for a 10-district paragraph-landing-page UX. McCulloch is the main commercial strip; English Village is the only bounded-character district. The other 8 here are directional/landmark/geography, not user-mental-model districts. **Don't polish these paragraphs yet** — Phase 3.2 dispatch will resolve the district UX direction first (three candidate paths in `outputs/cursor_brief_phase_3_v11_schema_pass.md` §7 operator-reality-check note). This draft may end up pared down to 2-3 real districts, deferred to V1.5, or replaced by a streets/landmarks UX. Phase 3.1 schema (districts table + `entities.district_id` FK) is forward-compatible and ships unaffected.
+> **Destination:** these paragraphs become rows in the `districts.paragraph` column when Phase 3.2 of the master build plan ships — IF the district paragraph surface survives the operator reality check above.
 
 ---
 

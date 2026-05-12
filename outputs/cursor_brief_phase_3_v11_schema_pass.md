@@ -600,6 +600,8 @@ Plus operator polish of the district paragraph draft:
 - 5 "Casey to verify" items at the bottom of the same draft
 - Estimated time: ~15-20 minutes operator polish
 
+**Operator reality check, session-20 (2026-05-12):** Lake Havasu is too small (~57k pop, ~46 sq mi) for a 10-district paragraph-landing-page UX. McCulloch is the main commercial strip — street-based search ("bars on McCulloch") would match user mental models better than district filters. English Village is the only district with bounded character. The other 8 in the draft are directional ("North End", "South side"), landmark-based ("Site Six", "Mesquite Bay"), or geographic ("Castle Rock area", "Highway 95 Corridor") — not user-mental-model districts. Phase 3.1 schema is forward-compatible and ships unaffected. **Phase 3.2 district UX direction is OPEN — three candidate paths:** (a) pare to 2-3 real districts (English Village + Downtown/McCulloch + maybe Lakefront commercial) + "Greater Lake Havasu" default, drop the 10-paragraph plan; (b) ship 3.2 with `district_id` backfill from existing String district column but defer paragraph landing pages to V1.5, use district as a backend tag; (c) re-think the primitive — districts demoted to backend tag, surface streets/landmarks as the user-facing filter dimension (highest cost; reopens 3.1 scope). **Decision deferred to Phase 3.2 dispatch authoring time.** When Phase 3.1 closes out, the dispatch-prompt author re-engages this question before authoring the 3.2 dispatch prompt. The district paragraphs draft at `outputs/chatgpt_response_district_paragraphs_v1.md` should be treated as illustrative not canonical until this resolves.
+
 ---
 
 ## §8 Postgres portability checklist (carried forward from Phase 2 brief §9)
