@@ -169,6 +169,26 @@ You can run multiple sub-agents in parallel by sending a single message with mul
 
 **13. PowerShell command chaining: `;` is universal; `&&` only works in pwsh 7+.** Session-16 surface: Cowork primary suggested `git add ...; git status; git commit ...; git push` blocks using `&&` between commands; Casey's PowerShell rejected the `&&` operator. Windows PowerShell 5.1 (the default on most Windows installs) doesn't support `&&` / `||` as command-chaining operators — those landed in pwsh 7+. The semicolon (`;`) is universally safe across both shells. Tradeoff: `;` doesn't short-circuit on failure (each command runs regardless of the previous one's exit code), so for any chain where you genuinely need stop-on-failure semantics, run the commands as separate lines instead. Cure: use `;` (or newline-separated commands) in any PowerShell chain unless you've confirmed Casey is on pwsh 7+. Same lesson scope as gotchas #3 + #8 — PowerShell's syntax surprises catch agents that default to bash-shaped command chains.
 
+**14. The reflog (`.git/logs/HEAD`) is NOT the commit ancestry — walk parent links instead.** Session-17 boot surface: Cowork primary needed to verify origin/main top-5 matched the boot prompt's expected SHAs (`dcf2f7a → 4bb74bc → 03f7160 → ...`). Bash mount git was broken per Rule 7, so the primary fell back to grepping `.git/logs/HEAD`. None of the expected SHAs matched, AND the reflog tail showed subjects from a completely different work stream (`tier2 category filter`, `feat(home+chat): editorial home + voice/component chat refactor`, `Add stale aquatic event pruner`, `merge redesign/phase-1-hero-and-palette`) — all from abandoned branches the repo's HEAD had visited historically. The primary false-alarmed Casey, claiming "none of the boot prompt SHAs exist in this repo." Wrong: the reflog is the chronological record of every commit HEAD has ever pointed at — including checkouts to other branches, dead experiments, and reset/rebase-orphaned commits — NOT the parent ancestry of the current HEAD. The decisive verification of "is commit X in the current ancestry of main?" is to walk parent links from HEAD via the commit objects. From the bash sandbox: `python3` + `zlib.decompress` on `.git/objects/<sha[:2]>/<sha[2:]>` reads a commit body and exposes its `parent` line; chain that walk and you have the ancestry. Cure: when verifying ancestry from the sandbox, walk parent links from HEAD via commit-object reads, don't grep the reflog. Reflog forensics are valid for "what has HEAD pointed at over time" (investigating force-pushes, accidental resets, branch experiments) — wrong tool for "is SHA X currently reachable from HEAD." Sample walker:
+
+```python
+import zlib, os
+def read_obj(sha):
+    p = f'.git/objects/{sha[:2]}/{sha[2:]}'
+    with open(p, 'rb') as f: raw = zlib.decompress(f.read())
+    return raw[raw.index(b'\0')+1:].decode('utf-8', errors='replace')
+sha = open('.git/refs/heads/main').read().strip()
+for _ in range(20):
+    body = read_obj(sha)
+    parents = [ln.split()[1] for ln in body.splitlines() if ln.startswith('parent ')]
+    subject = body[body.index('\n\n')+2:].splitlines()[0]
+    print(f'{sha[:10]} :: {subject}')
+    if not parents: break
+    sha = parents[0]
+```
+
+Same lesson scope as Rule 7 — Windows-side reads are authoritative when the Linux mount is unreliable, AND the right verification mechanism matters as much as the right side of the mount.
+
 ---
 
 ## Working agreements
