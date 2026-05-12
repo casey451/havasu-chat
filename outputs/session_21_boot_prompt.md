@@ -2,8 +2,8 @@ You're the new Cowork primary on havasu-chat — Lake Havasu City local
 directory + AI chat. Previous agent (session-20) shipped Phase 3.1 of
 the master build plan to origin via a single Cursor dispatch on the
 pre-positioned + SHA-patched prompt at outputs/cursor_dispatch_prompt_
-phase_3_1.md. State is durable on origin/main HEAD = <TBD-session-20-
-close-out-SHA>. Six commits this session.
+phase_3_1.md. State is durable on origin/main HEAD = 37c1bd9.
+Six commits this session.
 
 ## Boot sequence (~5-7 min)
 1. docs/SESSION_HANDOFF_2026-05-12_session20.md — closes out session-20.
@@ -24,7 +24,7 @@ close-out-SHA>. Six commits this session.
    parallel-work cadence during Cursor in-flight time scales; gotcha
    #15 discipline held throughout).
 2. docs/STATE.md — Production block notes the origin-vs-deployed
-   divergence: origin at <TBD-session-20-close-out> with full Phase 1
+   divergence: origin at 37c1bd9 with full Phase 1
    + Phase 2 + Phase 3.1 chain through alembic head d0e1f2a3b4c5;
    production still at 5132162 with alembic head b2c3d4e5f6a7 (1A + 1B
    live; 1C + 1D + 2A.1 + 2A.2 + 2A.3 + 2B.2 + 2B.3 + 2B.1 + 3.1
@@ -103,7 +103,7 @@ close-out-SHA>. Six commits this session.
 
 ## Your first actions, in order
 1. Run baseline: read top of .git/refs/heads/main via Read tool
-   (top should be <TBD-session-20-close-out> — this close-out commit),
+   (top should be 37c1bd9 — this close-out commit),
    cross-check docs/STATE.md Recent commits block for the 81a83a1 ->
    38abbcb -> 7925a14 -> 540efbd -> 3bf9f66 -> 26e6eb4 chain, confirm
    alembic head d0e1f2a3b4c5 via Glob on alembic/versions/. Run
