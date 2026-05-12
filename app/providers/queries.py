@@ -36,6 +36,8 @@ def get_provider_by_slug(db: Session, slug: str) -> Optional[Provider]:
             joinedload(Provider.entity).selectinload(Entity.hours),
             joinedload(Provider.entity).selectinload(Entity.contact_points),
             joinedload(Provider.entity)
+            .selectinload(Entity.photos),
+            joinedload(Provider.entity)
             .selectinload(Entity.categories)
             .joinedload(EntityCategory.category),
         )
@@ -104,9 +106,14 @@ def derive_freshness(
 
 
 def derive_hero_photo(provider: Provider) -> Optional[str]:
-    """Hero-selection priority (UX spec §7 + locked decision #5):
-    ``attributes.hero_pin_photo_url`` → first ``google_photo_refs`` → None.
-    """
+    """Hero URL: owner ``Photo`` (live + ``is_hero``) → pinned URL → Google."""
+    ent = getattr(provider, "entity", None)
+    if ent is not None:
+        for photo in getattr(ent, "photos", None) or []:
+            if photo.is_hero and photo.status == "live":
+                if photo.hero_url:
+                    return photo.hero_url
+                break
     attrs = provider.attributes or {}
     pinned = attrs.get("hero_pin_photo_url")
     if pinned:
@@ -120,19 +127,33 @@ def derive_hero_photo(provider: Provider) -> Optional[str]:
 def derive_gallery(
     provider: Provider, *, exclude_hero: bool = True
 ) -> list[str]:
-    """Return gallery photos beyond the hero. Pinned hero is excluded only
-    when it appears in the underlying ``google_photo_refs`` list."""
-    photos = list(provider.google_photo_refs or [])
-    if not photos:
-        return []
-    if exclude_hero:
-        attrs = provider.attributes or {}
-        pinned = attrs.get("hero_pin_photo_url")
-        if pinned:
-            return photos
-        # First photo is the hero — drop it.
-        return photos[1:]
-    return photos
+    """Gallery URLs: owner live non-hero ``Photo`` rows (``display_order``), then Google.
+
+    When ``exclude_hero`` is True, Google URLs matching the resolved hero URL
+    are skipped; if a pinned hero is set, all Google refs are kept (legacy
+    shape: pinned replaces hero without removing first Google ref).
+    """
+    out: list[str] = []
+    ent = getattr(provider, "entity", None)
+    if ent is not None:
+        live_non_hero = sorted(
+            (p for p in (getattr(ent, "photos", None) or []) if not p.is_hero),
+            key=lambda p: p.display_order,
+        )
+        for p in live_non_hero:
+            url = p.medium_url or p.cdn_url or p.thumbnail_url or p.hero_url
+            if url:
+                out.append(url)
+
+    google = list(provider.google_photo_refs or [])
+    attrs = provider.attributes or {}
+    pinned = attrs.get("hero_pin_photo_url")
+    hero_url = derive_hero_photo(provider) if exclude_hero else None
+    for url in google:
+        if exclude_hero and not pinned and hero_url is not None and url == hero_url:
+            continue
+        out.append(url)
+    return out
 
 
 def derive_directions_url(provider: Provider) -> Optional[str]:

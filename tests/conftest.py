@@ -33,6 +33,13 @@ def pytest_configure(config: pytest.Config) -> None:
     os.environ.setdefault("RATE_LIMIT_DISABLED", "1")
     os.environ.setdefault("AUTH_DEV_MODE", "1")
     os.environ.setdefault("AUTH_MAGIC_LINK_BASE_URL", "http://testserver")
+    os.environ.setdefault("R2_ACCESS_KEY_ID", "test-access-key-id")
+    os.environ.setdefault("R2_SECRET_ACCESS_KEY", "test-secret")
+    os.environ.setdefault(
+        "R2_ENDPOINT_URL", "https://test.r2.cloudflarestorage.com"
+    )
+    os.environ.setdefault("R2_BUCKET_NAME", "test-bucket")
+    os.environ.setdefault("R2_PUBLIC_URL_BASE", "https://pub-test.r2.dev")
     if os.environ.get("HAVASU_USE_DEV_DB_FOR_TESTS") == "1":
         return
     fd, path = tempfile.mkstemp(suffix=".sqlite", prefix="havasu_pytest_")

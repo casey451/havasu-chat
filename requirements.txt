@@ -4,6 +4,7 @@ annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.13.0
 bcrypt==5.0.0
+boto3==1.42.17
 beautifulsoup4==4.14.3
 certifi==2026.2.25
 cffi==2.0.0
@@ -35,6 +36,7 @@ nltk==3.9.2
 MarkupSafe==3.0.3
 openai==2.31.0
 packaging==26.1
+Pillow==12.0.0
 passlib==1.7.4
 pluggy==1.6.0
 psycopg2-binary==2.9.11

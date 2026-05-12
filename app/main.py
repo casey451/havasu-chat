@@ -37,6 +37,8 @@ from app.db.database import SessionLocal, get_db, init_db
 from app.db.models import Event
 from app.home.chat_route import router as new_chat_ui_router
 from app.home.router import router as home_router
+from app.photos.routes import router as photos_router
+from app.photos.sweep import run_stuck_photo_sweep
 from app.programs.router import router as programs_router
 from app.providers.router import router as providers_router
 from app.schemas.event import EventRead
@@ -250,6 +252,7 @@ async def _hourly_cleanup_loop() -> None:
     while True:
         await asyncio.sleep(3600)
         await asyncio.to_thread(run_expired_review_cleanup)
+        await asyncio.to_thread(run_stuck_photo_sweep)
 
 
 @asynccontextmanager
@@ -283,6 +286,7 @@ async def rate_limit_handler(_: Request, __: RateLimitExceeded) -> JSONResponse:
 app.include_router(concierge_chat_router)
 app.include_router(contribute_router)
 app.include_router(auth_router)
+app.include_router(photos_router)
 app.include_router(search_router)
 app.include_router(admin_router)
 app.include_router(admin_contributions_router)
