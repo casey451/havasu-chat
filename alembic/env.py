@@ -13,8 +13,8 @@ _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-import app.db.models  # noqa: F401, E402
-from app.db.database import Base, get_database_url  # noqa: E402
+from app.db.database import Base, get_database_url  # noqa: E402, F401, I001
+import app.db.models  # noqa: E402, F401, I001
 
 config = context.config
 
