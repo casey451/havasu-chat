@@ -25,9 +25,17 @@ This document is updated at the end of each session that ships work. It is the c
 
 ## Recent commits (newest first)
 
-> Session-17 (2026-05-11) shipped Phase 2A.1 (account-lite v0.1 schema + ORM + Resend scaffold), the first sub-phase of Phase 2 Lane 2A. Session-16 (2026-05-14) shipped Phase 1C + Phase 1D, closing out Phase 1 of the master build plan. For deeper narrative + pragmatic deviations per commit, see "Recently shipped (high signal)" below + master plan §4 Phase 1 / §4 Phase 2 incremental ship-line lists.
+> Session-17 (2026-05-11) shipped Phase 2A.1 + Phase 2A.2 (account-lite v0.1 schema + ORM + Resend scaffold; magic-link auth flow + SessionMiddleware + login UI), the first two sub-phases of Phase 2 Lane 2A. Eleven commits total this session including dispatch artifacts (Phase 2A.2 prompt, Phase 2A.3 prompt, Lane 2B brief + 2B.2 prompt), docs (gotcha #14 reflog forensics, master plan + STATE refreshes), and forward-looking artifacts (ChatGPT district paragraphs draft for Phase 3 V1). Session-16 (2026-05-14) shipped Phase 1C + Phase 1D, closing out Phase 1 of the master build plan. For deeper narrative + pragmatic deviations per commit, see "Recently shipped (high signal)" below + master plan §4 Phase 1 / §4 Phase 2 incremental ship-line lists + `docs/SESSION_HANDOFF_2026-05-11_session17.md`.
 
 ```
+7f5b1f7 chore(outputs): Phase 3 district paragraphs ChatGPT draft (prompt + response)
+95d9f79 chore(outputs): Phase 2A.3 dispatch prompt artifact
+9e672b5 docs: Phase 2A.2 shipped line + STATE.md session-17 refresh (round 2)
+714ca52 feat(auth): Phase 2A.2 -- magic-link auth flow + session middleware + login UI
+0e8e9e3 chore(outputs): Lane 2B brief + 2B.2 dispatch prompt artifacts
+37e7770 docs(maintainability): dispatch_channels gotcha #14 -- reflog vs ancestry forensics
+2423d4f chore(outputs): Phase 2A.2 dispatch prompt artifact
+9150be5 docs: Phase 2A.1 shipped line + STATE.md session-17 refresh
 5bf4c14 chore(outputs): Phase 2A dispatch artifacts (brief + 2A.1 dispatch prompt)
 6000138 feat(db+auth): Phase 2A.1 -- account-lite v0.1 schema + ORM + Resend scaffold
 4a5ee24 docs(outputs): patch session-17 boot prompt SHAs to current origin head
