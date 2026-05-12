@@ -7,6 +7,7 @@ list syntax. Layer 2 only parses ``[label](url)`` for click-through.
 from __future__ import annotations
 
 import calendar
+import html
 from datetime import date
 from typing import Any, Dict, List
 
@@ -186,3 +187,32 @@ def render_tier2_events(_query: str, rows: List[Dict[str, Any]]) -> str:
     core = header + _HEADER_BODY_SEPARATOR + "\n".join(numbered)
     framing = _event_list_framing_line(_query)
     return framing + _HEADER_BODY_SEPARATOR + core
+
+
+def render_tier2_provider_cards_html(rows: list[dict[str, Any]]) -> str:
+    """HTML snippet for commercial provider rows with favorite affordance.
+
+    Each row must include ``entity_id``, ``slug``, and ``name``. Used by tests
+    and reserved for a future deterministic HTML catalog path; the default chat
+    Tier-2 path still uses the LLM formatter for non-all-event row sets.
+    """
+    if not rows:
+        return ""
+    parts: list[str] = []
+    for row in rows:
+        eid = str(row.get("entity_id") or "").strip()
+        slug = str(row.get("slug") or "").strip()
+        name = str(row.get("name") or "").strip()
+        if not eid or not slug or not name:
+            continue
+        href = f"/provider/{html.escape(slug, quote=True)}"
+        safe_name = html.escape(name, quote=False)
+        parts.append(
+            '<div class="tier2-catalog-card" style="margin:0.5rem 0;padding:0.75rem;'
+            'border:1px solid #e5e7eb;border-radius:8px;display:flex;align-items:center;gap:0.5rem;">'
+            f'<a href="{href}">{safe_name}</a>'
+            f'<button type="button" class="favorite-heart" data-entity-id="{html.escape(eid, quote=True)}" '
+            'aria-label="Save to favorites" title="Save">♥</button>'
+            "</div>"
+        )
+    return "\n".join(parts)

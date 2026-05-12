@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import html
 from datetime import date, datetime, time, timedelta, timezone
+from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlalchemy import Date, and_, asc, cast, desc, func, or_, select
 from sqlalchemy.orm import Session
@@ -23,16 +25,35 @@ from app.admin.feedback_html import register_feedback_html_routes
 from app.admin.mentions_html import register_mentions_html_routes
 from app.db.database import DATABASE_URL, get_db
 from app.db.entity_dual_write import create_program_and_entity, create_provider_and_entity
-from app.db.models import ChatLog, Event, Program, Provider
+from app.db.models import ChatLog, Claim, Entity, Event, Program, Provider, User
 from app.db.seed_helpers import derive_provider_slug
 from app.schemas.program import ProgramCreate
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
+_CLAIM_TEMPLATES = Jinja2Templates(
+    directory=str(Path(__file__).resolve().parents[1] / "templates")
+)
+
+_CLAIM_VERIFICATION_METHODS: frozenset[str] = frozenset(
+    {
+        "phone_call_initiated_by_us",
+        "phone_call_initiated_by_them",
+        "in_person",
+        "email_confirmation",
+        "business_card_handoff",
+    }
+)
+
 
 def _guard(request: Request) -> RedirectResponse | None:
     if verify_admin_cookie(request.cookies.get(COOKIE_NAME)):
         return None
+    current_user = getattr(request.state, "current_user", None)
+    if current_user is not None and getattr(current_user, "role", None) == "admin":
+        return None
+    if current_user is not None:
+        raise HTTPException(status_code=403, detail="admin_only")
     return RedirectResponse(url="/admin/login", status_code=302)
 
 
@@ -2010,6 +2031,103 @@ def _queue_tab_html(
   </script>
 </body>
 </html>"""
+
+
+@router.get("/claims", response_class=HTMLResponse, response_model=None)
+def admin_claims_queue(
+    request: Request, db: Session = Depends(get_db)
+) -> HTMLResponse | RedirectResponse:
+    redir = _guard(request)
+    if redir is not None:
+        return redir
+    stmt = (
+        select(Claim, User, Entity)
+        .join(User, Claim.user_id == User.id)
+        .join(Entity, Claim.entity_id == Entity.id)
+        .where(Claim.status == "pending")
+        .order_by(Claim.claimed_at.asc())
+    )
+    rows = db.execute(stmt).all()
+    items: list[dict[str, object]] = []
+    for claim, user, ent in rows:
+        items.append(
+            {
+                "id": claim.id,
+                "email": user.email,
+                "entity_name": ent.name or ent.slug or claim.entity_id,
+                "claimed_at": claim.claimed_at,
+            }
+        )
+    return _CLAIM_TEMPLATES.TemplateResponse(
+        request=request,
+        name="admin_claims_queue.html",
+        context={"claims": items, "verification_methods": sorted(_CLAIM_VERIFICATION_METHODS)},
+    )
+
+
+def _naive_utc_now() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+@router.post("/claims/{claim_id}/verify", response_model=None)
+def admin_claim_verify(
+    request: Request,
+    claim_id: str,
+    verification_method: str = Form(...),
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    redir = _guard(request)
+    if redir is not None:
+        return redir
+    if verification_method not in _CLAIM_VERIFICATION_METHODS:
+        raise HTTPException(status_code=400, detail="invalid_verification_method")
+    claim = db.get(Claim, claim_id)
+    if claim is None or claim.status != "pending":
+        raise HTTPException(status_code=404, detail="claim_not_found")
+    now_n = _naive_utc_now()
+    verifier_id: str | None = None
+    cu = getattr(request.state, "current_user", None)
+    if cu is not None and getattr(cu, "role", None) == "admin":
+        verifier_id = cu.id
+    claim.status = "verified"
+    claim.verification_method = verification_method
+    claim.verified_at = now_n
+    claim.rejected_at = None
+    claim.rejection_reason = None
+    claim.verified_by = verifier_id
+    claimant = db.get(User, claim.user_id)
+    if claimant is not None and claimant.role == "end_user":
+        claimant.role = "merchant"
+    db.add(claim)
+    if claimant is not None:
+        db.add(claimant)
+    db.commit()
+    return RedirectResponse(url="/admin/claims", status_code=303)
+
+
+@router.post("/claims/{claim_id}/reject", response_model=None)
+def admin_claim_reject(
+    request: Request,
+    claim_id: str,
+    rejection_reason: str = Form(...),
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    redir = _guard(request)
+    if redir is not None:
+        return redir
+    claim = db.get(Claim, claim_id)
+    if claim is None or claim.status != "pending":
+        raise HTTPException(status_code=404, detail="claim_not_found")
+    now_n = _naive_utc_now()
+    claim.status = "rejected"
+    claim.rejected_at = now_n
+    claim.rejection_reason = rejection_reason.strip() or None
+    claim.verified_at = None
+    claim.verification_method = None
+    claim.verified_by = None
+    db.add(claim)
+    db.commit()
+    return RedirectResponse(url="/admin/claims", status_code=303)
 
 
 register_contribution_html_routes(router)

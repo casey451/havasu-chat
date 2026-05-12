@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Your account — Hava</title>
+  <title>Saved listings — Hava</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
@@ -22,15 +22,26 @@
   </header>
 
   <section class="hero" style="padding-top: 2rem;">
-    <h1>Signed in</h1>
-    <p class="mission">You are logged in as <strong>{{ user.email }}</strong>.</p>
-    <form action="/logout" method="post" style="margin-top: 1.5rem;">
-      <button class="send" type="submit">Log out</button>
-    </form>
+    <h1>Saved listings</h1>
+    <p class="mission">Signed in as <strong>{{ user.email }}</strong>.</p>
+    {% if not favorites %}
+    <p class="mission">You have not saved any listings yet.</p>
+    {% else %}
+    <ul class="mission" style="list-style: none; padding: 0;">
+      {% for f in favorites %}
+      <li style="margin: 0.5rem 0;">
+        {% if f.href %}
+        <a href="{{ f.href }}">{{ f.name }}</a>
+        {% else %}
+        {{ f.name }}
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
     <p class="mission" style="margin-top: 1.5rem;">
-      <a href="/account/favorites">Saved listings</a>
-    </p>
-    <p class="mission" style="margin-top: 1.5rem;">
+      <a href="/account">Account</a>
+      ·
       <a href="/home">Back to home</a>
     </p>
   </section>

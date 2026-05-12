@@ -138,6 +138,12 @@ def build(
     show_upgrade_cta = bool(provider.verified) and not is_sponsored
 
     slug = provider.slug or ""
+    ent = getattr(provider, "entity", None)
+    claim_slug = ""
+    if ent is not None and getattr(ent, "slug", None):
+        claim_slug = (ent.slug or "").strip()
+    if not claim_slug:
+        claim_slug = slug.strip()
 
     return ProviderProfileVM(
         provider_name=provider.provider_name,
@@ -175,7 +181,7 @@ def build(
         show_upgrade_cta=show_upgrade_cta,
         viewer_is_owner=viewer_is_owner,
         slug=slug,
-        claim_url=f"/claim/{slug}" if slug else "",
+        claim_url=f"/claim/{claim_slug}" if claim_slug else "",
         upgrade_url=f"/upgrade/{slug}" if slug else "",
     )
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Your account — Hava</title>
+  <title>Claim listing — Hava</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
@@ -22,14 +22,13 @@
   </header>
 
   <section class="hero" style="padding-top: 2rem;">
-    <h1>Signed in</h1>
-    <p class="mission">You are logged in as <strong>{{ user.email }}</strong>.</p>
-    <form action="/logout" method="post" style="margin-top: 1.5rem;">
-      <button class="send" type="submit">Log out</button>
+    <h1>Claim this listing</h1>
+    <p class="mission">Are you the owner of <strong>{{ entity.name or entity.slug }}</strong>? Tell us how we can verify you.</p>
+    <form class="composer" action="/claim/{{ entity.slug }}" method="post" style="max-width: 36rem; flex-direction: column; align-items: stretch;">
+      <label for="notes" style="font-size: 0.85rem; color: var(--ink-3, #555);">Notes (optional)</label>
+      <textarea id="notes" name="notes" rows="4" placeholder="Best phone number or time to reach you, business license details, etc."></textarea>
+      <button class="send" type="submit" style="margin-top: 1rem;">Submit claim</button>
     </form>
-    <p class="mission" style="margin-top: 1.5rem;">
-      <a href="/account/favorites">Saved listings</a>
-    </p>
     <p class="mission" style="margin-top: 1.5rem;">
       <a href="/home">Back to home</a>
     </p>

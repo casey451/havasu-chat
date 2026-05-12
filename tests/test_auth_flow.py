@@ -15,7 +15,7 @@ from app.auth.routes import _safe_next
 from app.auth.session import COOKIE_NAME, sign_session_cookie, verify_session_cookie
 from app.db.database import SessionLocal
 from app.db.models import AuthSession, MagicLinkToken, User
-from app.main import app as _fastapi_app  # noqa: F401 — load app graph before auth→models
+from app.main import app as _fastapi_app  # noqa: F401 — load app graph first
 
 
 @pytest.fixture(autouse=True)

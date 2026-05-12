@@ -5,14 +5,22 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
-from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as SqlSession
 
+from app.auth.claims import (
+    create_pending_claim,
+    entity_is_claimable,
+    find_existing_claim,
+    get_entity_by_slug,
+)
 from app.auth.dependencies import get_current_user
 from app.auth.email_helpers import (
     generate_magic_link_token,
@@ -23,6 +31,11 @@ from app.auth.email_helpers import (
     normalize_email,
 )
 from app.auth.email_sender import send_magic_link
+from app.auth.favorites import (
+    entity_is_favoritable,
+    list_user_favorites,
+    toggle_favorite,
+)
 from app.auth.session import (
     COOKIE_NAME,
     MAX_AGE_SECONDS,
@@ -32,7 +45,8 @@ from app.auth.session import (
 )
 from app.core.rate_limit import limiter
 from app.db.database import get_db
-from app.db.models import AuthSession, MagicLinkToken, User
+from app.db.entity_types import ENTITY_TYPE_COMMERCIAL
+from app.db.models import AuthSession, Entity, MagicLinkToken, Provider, User
 
 logger = logging.getLogger(__name__)
 
@@ -226,4 +240,163 @@ def account_page(request: Request) -> Response:
         request=request,
         name="account.html",
         context={"user": user},
+    )
+
+
+class FavoriteToggleBody(BaseModel):
+    entity_id: str
+
+
+def _profile_href_for_entity(db: SqlSession, ent: Entity) -> str | None:
+    if ent.entity_type == ENTITY_TYPE_COMMERCIAL:
+        p = (
+            db.query(Provider)
+            .filter(
+                Provider.entity_id == ent.id,
+                Provider.is_active.is_(True),
+            )
+            .first()
+        )
+        if p is not None and p.slug:
+            return f"/provider/{p.slug}"
+    return None
+
+
+@router.post("/api/favorites/toggle")
+def api_favorites_toggle(
+    request: Request,
+    body: FavoriteToggleBody,
+    db: SqlSession = Depends(get_db),
+) -> JSONResponse:
+    user = get_current_user(request)
+    if user is None:
+        return JSONResponse(status_code=401, content={"detail": "login_required"})
+    ent = db.get(Entity, body.entity_id)
+    if ent is None:
+        return JSONResponse(status_code=404, content={"detail": "entity_not_found"})
+    if not entity_is_favoritable(ent.entity_type):
+        return JSONResponse(status_code=400, content={"detail": "not_favoritable"})
+    action, favorite_count = toggle_favorite(db, user.id, body.entity_id)
+    db.commit()
+    return JSONResponse(content={"action": action, "favorite_count": favorite_count})
+
+
+@router.get("/api/favorites")
+def api_favorites_list(
+    request: Request, db: SqlSession = Depends(get_db)
+) -> JSONResponse:
+    user = get_current_user(request)
+    if user is None:
+        return JSONResponse(status_code=401, content={"detail": "login_required"})
+    entities = list_user_favorites(db, user.id)
+    payload = []
+    for ent in entities:
+        payload.append(
+            {
+                "entity_id": ent.id,
+                "slug": ent.slug,
+                "name": ent.name,
+                "entity_type": ent.entity_type,
+                "profile_href": _profile_href_for_entity(db, ent),
+            }
+        )
+    return JSONResponse(content={"favorites": payload})
+
+
+@router.get("/account/favorites", response_class=HTMLResponse)
+def account_favorites_page(request: Request, db: SqlSession = Depends(get_db)) -> Response:
+    user = get_current_user(request)
+    if user is None:
+        return RedirectResponse(
+            url=f"/login?next={quote('/account/favorites', safe='')}",
+            status_code=303,
+        )
+    entities = list_user_favorites(db, user.id)
+    rows: list[dict[str, object]] = []
+    for ent in entities:
+        rows.append(
+            {
+                "name": ent.name or ent.slug or ent.id,
+                "href": _profile_href_for_entity(db, ent),
+            }
+        )
+    return templates.TemplateResponse(
+        request=request,
+        name="account_favorites.html",
+        context={"user": user, "favorites": rows},
+    )
+
+
+@router.get("/claim/{slug}", response_class=HTMLResponse)
+def claim_get(
+    slug: str, request: Request, db: SqlSession = Depends(get_db)
+) -> Response:
+    user = get_current_user(request)
+    if user is None:
+        return RedirectResponse(
+            url=f"/login?next={quote(f'/claim/{slug}', safe='')}",
+            status_code=303,
+        )
+    ent = get_entity_by_slug(db, slug)
+    if ent is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    if not entity_is_claimable(ent.entity_type):
+        raise HTTPException(status_code=400, detail="not_claimable")
+    existing = find_existing_claim(db, user.id, ent.id)
+    if existing is not None:
+        return templates.TemplateResponse(
+            request=request,
+            name="claim_status.html",
+            context={"entity": ent, "claim": existing},
+        )
+    return templates.TemplateResponse(
+        request=request,
+        name="claim_form.html",
+        context={"entity": ent},
+    )
+
+
+@router.post("/claim/{slug}", response_class=HTMLResponse)
+def claim_post(
+    slug: str,
+    request: Request,
+    db: SqlSession = Depends(get_db),
+    notes: str | None = Form(default=None),
+) -> Response:
+    del notes  # V1 optional field — no column; reserved for a future migration
+    user = get_current_user(request)
+    if user is None:
+        return RedirectResponse(
+            url=f"/login?next={quote(f'/claim/{slug}', safe='')}",
+            status_code=303,
+        )
+    ent = get_entity_by_slug(db, slug)
+    if ent is None:
+        raise HTTPException(status_code=404, detail="Entity not found")
+    if not entity_is_claimable(ent.entity_type):
+        raise HTTPException(status_code=400, detail="not_claimable")
+    prior = find_existing_claim(db, user.id, ent.id)
+    if prior is not None:
+        return templates.TemplateResponse(
+            request=request,
+            name="claim_status.html",
+            context={"entity": ent, "claim": prior},
+        )
+    try:
+        create_pending_claim(db, user.id, ent.id)
+        db.commit()
+    except IntegrityError as err:
+        db.rollback()
+        existing = find_existing_claim(db, user.id, ent.id)
+        if existing is None:
+            raise err
+        return templates.TemplateResponse(
+            request=request,
+            name="claim_status.html",
+            context={"entity": ent, "claim": existing},
+        )
+    return templates.TemplateResponse(
+        request=request,
+        name="claim_submitted.html",
+        context={"entity": ent},
     )
