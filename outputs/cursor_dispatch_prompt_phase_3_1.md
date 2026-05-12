@@ -6,7 +6,7 @@
 >
 > **No operator prereq beyond Phase 2 close-out.** Phase 3.1 has no Cloudflare / Resend / external-service prereq. Operator decisions for Bucket C strings + district paragraph polish are needed for Phase 3.2 dispatch, NOT 3.1.
 >
-> **Author note:** this prompt was pre-positioned during Phase 2B.1 in-flight authoring. The §0 baseline values (top SHAs, pytest count, alembic head) reference the Phase 2B.1 ship — fill in after 2B.1 §13 report lands. The 2B.1 ship SHA goes in the `<TBD-FILL-AFTER-2B.1-LANDS>` slot; the 2B.1 alembic head (chain-off target for Phase 3.1) goes in the `<TBD-PHOTOS-MIGRATION-REV>` slot; the pytest baseline goes in `<TBD-pytest-count>`.
+> **Author note:** this prompt was pre-positioned during Phase 2B.1 in-flight authoring. The §0 baseline values (top SHAs, pytest count, alembic head) reference the Phase 2B.1 ship — fill in after 2B.1 §13 report lands. The 2B.1 ship SHA goes in the `1c57c73` slot; the 2B.1 alembic head (chain-off target for Phase 3.1) goes in the `f9e8d7c6b5a4` slot; the pytest baseline goes in `1663`.
 
 ---
 
@@ -19,17 +19,17 @@ sub-phase), §6 (locked decisions), §9 (acceptable deviations), §10
 
 Phase 2 of the master build plan is COMPLETE on origin (Lane 2A at
 5fea2ce + 6f7f1e9 + 5132162 + Lane 2B at d631c77 + 8338505 +
-<TBD-FILL-AFTER-2B.1-LANDS>). Phase 2B.1 SHIPPED at commit
-<TBD-FILL-AFTER-2B.1-LANDS> (photos schema + R2 client + Pillow
+1c57c73). Phase 2B.1 SHIPPED at commit
+1c57c73 (photos schema + R2 client + Pillow
 pipeline + upload route + sweep + three-tier hero/gallery on
 app/providers/queries.py). Run `git log --oneline -10` and report
-the top SHAs. Pytest collect baseline going in is **<TBD-pytest-count>**
+the top SHAs. Pytest collect baseline going in is **1663**
 tests (~1657+ expected after 2B.1 lands; 1616 was the post-2B.3
 baseline, 2B.1 adds ~40-50 net-new tests per brief §5.9). Alembic
-head is **<TBD-PHOTOS-MIGRATION-REV>** (the Phase 2B.1 photos-
+head is **f9e8d7c6b5a4** (the Phase 2B.1 photos-
 table revision, chained off c8d9e0f1a2b3 from 2B.2). Chain the
 Phase 3.1 schema-additions migration off
-<TBD-PHOTOS-MIGRATION-REV> -- verify with `python -m alembic heads`.
+f9e8d7c6b5a4 -- verify with `python -m alembic heads`.
 
 Ship Phase 3.1 ONLY per §3 + §4 of the brief -- 7 new entity
 columns + 5 new tables + 1 new users column + ORM model classes
@@ -48,7 +48,7 @@ ORDER MATTERS WITHIN PHASE 3.1:
    three-tier). Re-grep before anchoring edits.
 2. Then: new alembic migration <rev>_phase3_schema_pass.py per
    brief §4.8. Chains off the current single head as reported by
-   `python -m alembic heads` (<TBD-PHOTOS-MIGRATION-REV> at
+   `python -m alembic heads` (f9e8d7c6b5a4 at
    dispatch time, possibly different by then -- always trust
    `alembic heads` over the brief). Single op.create_table() for
    each of: districts (§4.2), alert_subscriptions (§4.3),
@@ -211,9 +211,9 @@ Same constraints as Phase 2 sub-phases:
 - Report per brief §12 (final report format) for sub-phase 3.1 only
 
 Pre-dispatch checklist (verify before paste):
-- Phase 2B.1 has shipped on origin at <TBD-FILL-AFTER-2B.1-LANDS>
-- <TBD-PHOTOS-MIGRATION-REV> is the current single alembic head
-- Pytest baseline going in is <TBD-pytest-count> (or matches the
+- Phase 2B.1 has shipped on origin at 1c57c73
+- f9e8d7c6b5a4 is the current single alembic head
+- Pytest baseline going in is 1663 (or matches the
   reality `python -m alembic heads` + `pytest --collect-only`
   return)
 - No operator prereq for 3.1 (Bucket C decisions + district
