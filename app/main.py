@@ -29,6 +29,8 @@ from app.api.routes.admin_contributions import router as admin_contributions_rou
 from app.api.routes.admin_mentions import router as admin_mentions_router
 from app.api.routes.chat import router as concierge_chat_router
 from app.api.routes.contribute import router as contribute_router
+from app.auth.routes import router as auth_router
+from app.auth.session import SessionMiddleware
 from app.core.event_quality import friendly_errors
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.db.database import SessionLocal, get_db, init_db
@@ -265,6 +267,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Havasu Chat", lifespan=lifespan)
+app.add_middleware(SessionMiddleware)
 app.state.limiter = limiter
 
 
@@ -278,6 +281,7 @@ async def rate_limit_handler(_: Request, __: RateLimitExceeded) -> JSONResponse:
 
 app.include_router(concierge_chat_router)
 app.include_router(contribute_router)
+app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(admin_contributions_router)
 app.include_router(admin_mentions_router)

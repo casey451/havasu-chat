@@ -31,6 +31,8 @@ def pytest_configure(config: pytest.Config) -> None:
     # Before any test module imports ``app`` (and builds the slowapi limiter), disable
     # rate limits unless the runner explicitly left ``RATE_LIMIT_DISABLED`` unset.
     os.environ.setdefault("RATE_LIMIT_DISABLED", "1")
+    os.environ.setdefault("AUTH_DEV_MODE", "1")
+    os.environ.setdefault("AUTH_MAGIC_LINK_BASE_URL", "http://testserver")
     if os.environ.get("HAVASU_USE_DEV_DB_FOR_TESTS") == "1":
         return
     fd, path = tempfile.mkstemp(suffix=".sqlite", prefix="havasu_pytest_")

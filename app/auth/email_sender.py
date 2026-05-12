@@ -39,11 +39,18 @@ def _dev_mode_enabled() -> bool:
     return v in _DEV_MODE_TRUTHY
 
 
-def _build_magic_link_url(token_plaintext: str) -> str:
+def _build_magic_link_url(
+    token_plaintext: str, *, next_path: str | None = None
+) -> str:
+    from urllib.parse import urlencode
+
     base = (os.environ.get("AUTH_MAGIC_LINK_BASE_URL") or "").rstrip("/")
     if not base:
         raise RuntimeError("AUTH_MAGIC_LINK_BASE_URL not set")
-    return f"{base}/auth/callback?token={token_plaintext}"
+    params: dict[str, str] = {"token": token_plaintext}
+    if next_path:
+        params["next"] = next_path
+    return f"{base}/auth/callback?{urlencode(params)}"
 
 
 def _render_email_body(magic_link_url: str) -> tuple[str, str]:
@@ -65,14 +72,16 @@ def _render_email_body(magic_link_url: str) -> tuple[str, str]:
     return html, text
 
 
-def send_magic_link(email: str, token_plaintext: str) -> None:
+def send_magic_link(
+    email: str, token_plaintext: str, *, next_path: str | None = None
+) -> None:
     """Send the magic-link email (or log it in dev mode).
 
     Raises RuntimeError on configuration error (missing env vars) and
     httpx.HTTPError on Resend API failure. Route handlers catch + return
     a generic 502.
     """
-    url = _build_magic_link_url(token_plaintext)
+    url = _build_magic_link_url(token_plaintext, next_path=next_path)
 
     if _dev_mode_enabled():
         logger.info(
