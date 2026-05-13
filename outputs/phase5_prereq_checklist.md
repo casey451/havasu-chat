@@ -61,6 +61,28 @@ These are the rubrics the operator follows when entering the operator-curated fi
 
 **k. `relay/HAVA_BUSINESSES_EXECUTION_PLAN_2026-05-06.md` doc gap.** This file is referenced in `scripts/places_discovery.py:12` docstring but doesn't exist in working tree (per the sub-agent's surprise #2). Either restore from git history (if it ever existed), re-author the operator-facing execution plan, or remove the stale reference from the script docstring. **Recommendation: re-author** if the operator wants a single-doc Phase 5 execution playbook; otherwise just patch the docstring to point at this checklist doc.
 
+### §3.5 — Lock state (new-chat session 2026-05-13)
+
+All 11 §3 decisions locked at the recommendation. Locks captured in brief `outputs/cursor_brief_phase_5_tier_1_data.md` §2; implementation across three commit batches:
+
+| Decision | Locked answer (short form) | Implementation |
+|---|---|---|
+| §3.1.a Beauty / personal care | Skip in Phase 5; `(None, None)` mapping documents intent | commit `62ab3b7` |
+| §3.1.b RV-park boundary | `rv_park` → `lodging-vacation-rentals`; `rv_repair` → `auto-rv-fuel` | commit `62ab3b7` |
+| §3.1.c Eat & Drink `types[]` | Expanded `google_types_mapping.py` (+~54 entries across all 6 Tier 1 categories) | commit `62ab3b7` |
+| §3.2.d Run sequencing | Per-category (discover → enrich → load → review → next), not all-at-once | doc-state this session |
+| §3.2.e OSM scope | `leisure=marina` + `man_made=pier` + `natural=beach` for `on-the-water` only | doc-state this session |
+| §3.2.f Ambig-queue triage | Direct DB query post-scrape; no Phase 5 admin form | doc-state this session |
+| §3.3.g `heat_exposure` rubric | Operator priority-30 brainstorm during lead-up; everything else → `indoor` | doc-state this session |
+| §3.3.h `crowd_notes` rubric | Short-form default; long-form for top-20 highest-volume venues only | doc-state this session |
+| §3.3.i `boat_access` shape | `docs/operations/boat_access_rubric.md` authored with 4 canonical shapes | commit `b755b03` |
+| §3.4.j `manual_recovery_checklist.md` back-fill | ~250 lines back-filled across §1-§7 with field-work prompts | commit `b755b03` |
+| §3.4.k `places_discovery.py` docstring | Repointed to `outputs/cursor_brief_phase_5_tier_1_data.md` + this checklist | commit `62ab3b7` |
+
+The 5 doc-state-only locks (§3.2.d-f + §3.3.g-h) require no code change — they govern operator workflow during Phase 5 execution. Brief §2 carries the full locked narrative; per-category playbooks (brief §3.1-§3.6) dispatch cleanly off these locks without further operator decision-friction.
+
+§3 lead-up is **closed**. Remaining Phase 5 lead-up surface: §4 external verifications (operator-driven browser work, ~3-4h) + Phase 4 Railway redeploy (operator UI action) + §3.3.g priority-30 list brainstorm (~30 min) before first scrape.
+
 ## §4 External data-source verifications
 
 Per strategy memo §3.3-§3.4, four external sources were named but never URL-verified in any memo before Phase 5 dispatch. The sub-agent flagged this as surprises #5 + #6; remediation here.
