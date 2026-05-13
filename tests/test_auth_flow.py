@@ -38,7 +38,12 @@ def _capture_send(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     def _fake(email: str, tok: str, *, next_path: str | None = None) -> None:
         tokens.append(tok)
 
-    monkeypatch.setattr("app.auth.routes.send_magic_link", _fake)
+    # Phase 4.1 (2026-05-13): the magic-link send now flows through
+    # ``app.core.background._magic_link_outbox_handler`` which does a
+    # function-scope import of ``send_magic_link`` from
+    # ``app.auth.email_sender``. Patch the canonical definition so the
+    # handler resolves to the fake.
+    monkeypatch.setattr("app.auth.email_sender.send_magic_link", _fake)
     return tokens
 
 
@@ -94,7 +99,11 @@ def test_request_link_send_failure_still_shows_check_email(
     def _boom(*_a, **_k):
         raise RuntimeError("simulated send failure")
 
-    monkeypatch.setattr("app.auth.routes.send_magic_link", _boom)
+    # Phase 4.1: send failure now surfaces inside deliver_outbox_row's
+    # background task; the request_link response is always 200 once the
+    # Outbox row commits. Patching the canonical send path lets us
+    # exercise that path explicitly.
+    monkeypatch.setattr("app.auth.email_sender.send_magic_link", _boom)
     email = f"fail-{uuid4().hex[:8]}@example.com"
     r = client.post("/api/auth/request-link", data={"email": email})
     assert r.status_code == 200
@@ -178,7 +187,7 @@ def test_callback_existing_user_updates_last_login(
 def test_callback_expired_token_no_user(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("app.auth.routes.send_magic_link", lambda *a, **k: None)
+    monkeypatch.setattr("app.auth.email_sender.send_magic_link", lambda *a, **k: None)
     email = f"exp-{uuid4().hex[:8]}@example.com"
     plain = "known-plaintext-token"
     from app.auth.email_helpers import hash_token

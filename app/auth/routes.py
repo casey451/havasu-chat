@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import quote, unquote
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -30,7 +30,11 @@ from app.auth.email_helpers import (
     is_valid_email,
     normalize_email,
 )
-from app.auth.email_sender import send_magic_link
+from app.core.background import (
+    OUTBOX_KIND_MAGIC_LINK,
+    deliver_outbox_row,
+    enqueue_outbox,
+)
 from app.auth.favorites import (
     entity_is_favoritable,
     list_user_favorites,
@@ -109,6 +113,7 @@ def login_page(request: Request) -> HTMLResponse:
 @limiter.limit("10/hour")
 def request_link(
     request: Request,
+    background_tasks: BackgroundTasks,
     email: str = Form(...),
     next_path: str = Form("", alias="next"),
     db: SqlSession = Depends(get_db),
@@ -142,12 +147,22 @@ def request_link(
             requested_from_ip_hash=hash_request_ip(_client_ip(request)),
         )
     )
+    # Phase 4.1: enqueue the magic-link send onto the Outbox in the same
+    # transaction as the MagicLinkToken row. Commit, then hand off
+    # delivery to BackgroundTasks. If the BackgroundTasks slot drops
+    # the call (process crash, queue full), the redrive cron sweep
+    # (scripts/outbox_redrive.py) picks the row up and retries. The
+    # email body + recipient + Resend API call semantics are unchanged
+    # from the pre-4.1 inline path — see app/auth/email_sender.py.
+    outbox_payload = {
+        "email": normalized,
+        "token": plaintext,
+        "next_path": safe_next,
+    }
+    outbox_id = enqueue_outbox(db, kind=OUTBOX_KIND_MAGIC_LINK, payload=outbox_payload)
     db.commit()
 
-    try:
-        send_magic_link(normalized, plaintext, next_path=safe_next)
-    except Exception:
-        logger.exception("magic-link send failed for %s", normalized)
+    background_tasks.add_task(deliver_outbox_row, outbox_id)
 
     return templates.TemplateResponse(
         request=request,

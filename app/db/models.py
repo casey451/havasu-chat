@@ -1472,4 +1472,68 @@ class PeerRecommendation(Base):
     entity: Mapped["Entity"] = relationship("Entity", foreign_keys=[entity_id])
 
 
+class Outbox(Base):
+    """Must-not-lose background-job row (Phase 4.1).
+
+    Each row represents one queued unit of work that the application
+    must eventually deliver — the canonical V1 consumer is the
+    magic-link send (silently dropping it costs a user signup). See
+    :mod:`app.core.background` for the state-machine semantics and
+    ``docs/maintainability/background_job_infrastructure_decision.md`` §6.2
+    for the design rationale.
+
+    NO module-import-time hook registration belongs on this class —
+    gotcha #17 cure. If session-level semantics are needed in the
+    future, the registration lives in ``app/db/__init__.py``, not here
+    and not in :mod:`app.core.background` (which is itself careful to
+    lazy-import this class via function-scope imports).
+    """
+
+    __tablename__ = "outbox"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('magic_link', 'sponsor_notification', 'image_processing', 'other')",
+            name="ck_outbox_kind",
+        ),
+        CheckConstraint(
+            "state IN ('pending', 'in_flight', 'delivered', 'failed')",
+            name="ck_outbox_state",
+        ),
+        Index("ix_outbox_state_created_at", "state", "created_at"),
+        Index("ix_outbox_kind", "kind"),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid4())
+    )
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    state: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="pending", server_default="pending"
+    )
+    attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        onupdate=lambda: datetime.now(UTC).replace(tzinfo=None),
+        server_default=func.now(),
+    )
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+# Phase 4.1 ships the ``Outbox`` ORM class above this line. The provider-slug
+# listener registration below remains the canonical "leaf-module hook"
+# pattern for this codebase (not to be confused with the Phase 1D dual-write
+# hook in ``app/db/__init__.py`` — gotcha #17 governs *that* one).
 _register_provider_slug_listeners()

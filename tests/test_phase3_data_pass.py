@@ -88,13 +88,20 @@ def test_migration_upgrade_downgrade_upgrade_cycle(
     eng.dispose()
     command.downgrade(cfg, "-1")
     command.upgrade(cfg, "head")
+    # Resolve the current alembic head dynamically so this reversibility
+    # test stays green when future phases add migrations on top of
+    # Phase 3.2 (Phase 4.1 added `0a1b2c3d4e5f` and was the first to
+    # trip the previously hardcoded assertion against `e1f2a3b4c5d6`).
+    from alembic.script import ScriptDirectory
+
+    expected_head = ScriptDirectory.from_config(cfg).get_current_head()
     eng2 = create_engine(url, connect_args={"check_same_thread": False})
     try:
         with eng2.connect() as conn:
             ver = conn.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
-            assert ver == "e1f2a3b4c5d6"
+            assert ver == expected_head
     finally:
         eng2.dispose()
 

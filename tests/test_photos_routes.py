@@ -42,7 +42,9 @@ def _capture_send(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     def _fake(email: str, tok: str, *, next_path: str | None = None) -> None:
         toks.append(tok)
 
-    monkeypatch.setattr("app.auth.routes.send_magic_link", _fake)
+    # Phase 4.1: magic-link send is invoked by the Outbox handler in
+    # app.core.background, which lazy-imports from app.auth.email_sender.
+    monkeypatch.setattr("app.auth.email_sender.send_magic_link", _fake)
     return toks
 
 
