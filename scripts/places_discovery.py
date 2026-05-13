@@ -9,7 +9,13 @@ the Places API (New), paginates via ``nextPageToken``, dedupes by Place ID,
 captures every raw response to JSONL for audit/replay, and writes a deduped
 summary of unique places to a second JSONL.
 
-Companion to relay/HAVA_BUSINESSES_EXECUTION_PLAN_2026-05-06.md.
+Phase 5 execution playbook: ``outputs/cursor_brief_phase_5_tier_1_data.md``
+§3 (per-category playbooks) + ``outputs/phase5_prereq_checklist.md`` §4
+(external data-source verifications). Operator picks per-category runs
+during the Phase 5 4-8 week execution window. (The earlier reference to
+``relay/HAVA_BUSINESSES_EXECUTION_PLAN_2026-05-06.md`` pointed at a doc
+that doesn't exist in the working tree — replaced 2026-05-13 per Phase 5
+prereq checklist §3.4.k.)
 
 Usage:
     python -m scripts.places_discovery --dry-run

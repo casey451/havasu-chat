@@ -128,6 +128,123 @@ def test_map_types_unknown() -> None:
     assert map_google_types_to_slug_and_place_type(["unknown_type_xyz"]) == (None, None)
 
 
+# -----------------------------------------------------------------------------
+# Phase 5 expansion (2026-05-13) — per-category coverage tests for the new
+# types[] entries added per outputs/cursor_brief_phase_5_tier_1_data.md
+# §3.1-§3.6. Each test picks one representative entry per category that
+# wasn't in the pre-Phase-5 mapping; the existing tests above (`restaurant`,
+# `dog_park`) cover the unchanged entries.
+# -----------------------------------------------------------------------------
+
+
+def test_map_types_phase5_eat_drink_expansion() -> None:
+    """§3.1 — verify a new Eat & Drink type maps to eat-drink/commercial."""
+    assert map_google_types_to_slug_and_place_type(["pizza_restaurant"]) == (
+        "eat-drink",
+        "commercial",
+    )
+    assert map_google_types_to_slug_and_place_type(["coffee_shop"]) == (
+        "eat-drink",
+        "commercial",
+    )
+
+
+def test_map_types_phase5_on_the_water_expansion() -> None:
+    """§3.2 — boat_dealer is commercial; marina (existing) stays as place."""
+    assert map_google_types_to_slug_and_place_type(["boat_dealer"]) == (
+        "on-the-water",
+        "commercial",
+    )
+    assert map_google_types_to_slug_and_place_type(["harbor"]) == (
+        "on-the-water",
+        "place",
+    )
+
+
+def test_map_types_phase5_home_property_expansion() -> None:
+    """§3.3 — verify a new Home & Property type maps to home-property-services."""
+    assert map_google_types_to_slug_and_place_type(["roofing_contractor"]) == (
+        "home-property-services",
+        "commercial",
+    )
+    assert map_google_types_to_slug_and_place_type(["pest_control_service"]) == (
+        "home-property-services",
+        "commercial",
+    )
+
+
+def test_map_types_phase5_health_expansion() -> None:
+    """§3.4 — verify a new Health & Wellness type maps to health-wellness-care."""
+    assert map_google_types_to_slug_and_place_type(["chiropractor"]) == (
+        "health-wellness-care",
+        "commercial",
+    )
+    assert map_google_types_to_slug_and_place_type(["medical_lab"]) == (
+        "health-wellness-care",
+        "commercial",
+    )
+
+
+def test_map_types_phase5_auto_rv_fuel_expansion() -> None:
+    """§3.5 — verify a new Auto/RV/Fuel type maps to auto-rv-fuel.
+
+    Also asserts the prereq §3.1.b lock: rv_park stays in
+    lodging-vacation-rentals (where-you-stay framing) even though
+    Phase 5's auto-rv-fuel umbrella includes RV-related services.
+    """
+    assert map_google_types_to_slug_and_place_type(["tire_shop"]) == (
+        "auto-rv-fuel",
+        "commercial",
+    )
+    assert map_google_types_to_slug_and_place_type(["rv_repair"]) == (
+        "auto-rv-fuel",
+        "commercial",
+    )
+    # rv_park stays in lodging-vacation-rentals per prereq §3.1.b lock
+    assert map_google_types_to_slug_and_place_type(["rv_park"]) == (
+        "lodging-vacation-rentals",
+        "commercial",
+    )
+
+
+def test_map_types_phase5_shopping_expansion() -> None:
+    """§3.6 — verify a new Shopping type maps to shopping-essentials."""
+    assert map_google_types_to_slug_and_place_type(["hardware_store"]) == (
+        "shopping-essentials",
+        "commercial",
+    )
+    assert map_google_types_to_slug_and_place_type(["clothing_store"]) == (
+        "shopping-essentials",
+        "commercial",
+    )
+
+
+def test_map_types_phase5_beauty_skip_lock() -> None:
+    """§3.1.a operator decision-lock — beauty types route to operator queue.
+
+    `hair_salon`, `beauty_salon`, `nail_salon` explicitly map to
+    `(None, None)` so the Phase 5 reconciler surfaces them to the
+    operator-queue rather than silently routing them into eat-drink or
+    shopping-essentials. Final category home is V1.5 territory.
+    """
+    assert map_google_types_to_slug_and_place_type(["hair_salon"]) == (None, None)
+    assert map_google_types_to_slug_and_place_type(["beauty_salon"]) == (None, None)
+    assert map_google_types_to_slug_and_place_type(["nail_salon"]) == (None, None)
+
+
+def test_map_types_phase5_primary_wins_through_expansion() -> None:
+    """Existing primary-type-wins behavior carries through the §3 expansion.
+
+    If a venue's types[] has `["pizza_restaurant", "restaurant", "food"]`,
+    primary (`pizza_restaurant`) should win and produce eat-drink/commercial.
+    Verifies the iteration order in `map_google_types_to_slug_and_place_type`
+    still respects the input list order after the table expanded.
+    """
+    assert map_google_types_to_slug_and_place_type(
+        ["pizza_restaurant", "restaurant", "food"]
+    ) == ("eat-drink", "commercial")
+
+
 def test_google_places_to_entity_payload_shape() -> None:
     c = GooglePlacesClient()
     raw_hit = RawHit(

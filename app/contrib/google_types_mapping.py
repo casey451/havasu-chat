@@ -3,42 +3,133 @@
 Operator-maintainable. Unmapped types return ``(None, None)`` for Phase 5
 operator-queue review. ``place_type`` is ``\"commercial\"``, ``\"place\"``,
 or ``None`` when only the slug is known from the table.
+
+Phase 5 expansion (2026-05-13): types[] coverage extended for the 6 Tier 1
+categories per ``outputs/cursor_brief_phase_5_tier_1_data.md`` §3.1-§3.6.
+``hair_salon`` / ``beauty_salon`` / ``nail_salon`` explicitly map to
+``(None, None)`` so they route to the operator-queue rather than getting
+absorbed into the wrong category — implements the Phase 5 prereq §3.1.a
+lock ("skip beauty_personal_care in Phase 5; revisit V1.5").
 """
 
 from __future__ import annotations
 
-# Google primary/secondary type string → (category_slug, place_type)
+# Google primary/secondary type string → (category_slug, place_type).
+# Organized by Tier 1 category in the order recommended at brief §9
+# starting-sequence. Tier 2/3 entries follow at the end.
 _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
+    # Tier 1.1 — Eat & Drink (brief §3.1)
     "restaurant": ("eat-drink", "commercial"),
     "cafe": ("eat-drink", "commercial"),
     "bar": ("eat-drink", "commercial"),
     "bakery": ("eat-drink", "commercial"),
+    "meal_delivery": ("eat-drink", "commercial"),
+    "meal_takeaway": ("eat-drink", "commercial"),
+    "fast_food_restaurant": ("eat-drink", "commercial"),
+    "dessert_shop": ("eat-drink", "commercial"),
+    "wine_bar": ("eat-drink", "commercial"),
+    "pub": ("eat-drink", "commercial"),
+    "pizza_restaurant": ("eat-drink", "commercial"),
+    "seafood_restaurant": ("eat-drink", "commercial"),
+    "mexican_restaurant": ("eat-drink", "commercial"),
+    "breakfast_restaurant": ("eat-drink", "commercial"),
+    "barbecue_restaurant": ("eat-drink", "commercial"),
+    "coffee_shop": ("eat-drink", "commercial"),
+    "ice_cream_shop": ("eat-drink", "commercial"),
+
+    # Tier 1.2 — On the Water (brief §3.2). marinas/beaches are places;
+    # dealers/rentals are commercial — Google's types[] doesn't always
+    # disambiguate, so the to_entity_payload caller may override
+    # place_type when the venue name signals dealer-vs-marina.
+    "marina": ("on-the-water", "place"),
+    "beach": ("on-the-water", "place"),
+    "harbor": ("on-the-water", "place"),
+    "boat_dealer": ("on-the-water", "commercial"),
+    "boat_rental": ("on-the-water", "commercial"),
+
+    # Tier 1.3 — Home & Property Services (brief §3.3)
     "plumber": ("home-property-services", "commercial"),
     "electrician": ("home-property-services", "commercial"),
     "hvac_contractor": ("home-property-services", "commercial"),
     "general_contractor": ("home-property-services", "commercial"),
+    "roofing_contractor": ("home-property-services", "commercial"),
+    "painter": ("home-property-services", "commercial"),
+    "locksmith": ("home-property-services", "commercial"),
+    "moving_company": ("home-property-services", "commercial"),
+    "storage": ("home-property-services", "commercial"),
+    "lawn_care_service": ("home-property-services", "commercial"),
+    "home_inspection": ("home-property-services", "commercial"),
+    "pest_control_service": ("home-property-services", "commercial"),
+    "cleaning_service": ("home-property-services", "commercial"),
+    "appliance_repair": ("home-property-services", "commercial"),
+
+    # Tier 1.4 — Health, Wellness & Care (brief §3.4)
     "doctor": ("health-wellness-care", "commercial"),
     "dentist": ("health-wellness-care", "commercial"),
     "hospital": ("health-wellness-care", "commercial"),
     "pharmacy": ("health-wellness-care", "commercial"),
-    "lodging": ("lodging-vacation-rentals", "commercial"),
-    "rv_park": ("lodging-vacation-rentals", "commercial"),
-    "store": ("shopping-essentials", "commercial"),
-    "supermarket": ("shopping-essentials", "commercial"),
-    "grocery_or_supermarket": ("shopping-essentials", "commercial"),
+    "gym": ("health-wellness-care", "commercial"),
+    "physiotherapist": ("health-wellness-care", "commercial"),
+    "chiropractor": ("health-wellness-care", "commercial"),
+    "optometrist": ("health-wellness-care", "commercial"),
+    "orthodontist": ("health-wellness-care", "commercial"),
+    "pediatrician": ("health-wellness-care", "commercial"),
+    "psychologist": ("health-wellness-care", "commercial"),
+    "dermatologist": ("health-wellness-care", "commercial"),
+    "medical_lab": ("health-wellness-care", "commercial"),
+    "home_health_care_service": ("health-wellness-care", "commercial"),
+
+    # Tier 1.5 — Auto, RV & Fuel (brief §3.5). `rv_park` stays in
+    # `lodging-vacation-rentals` per prereq §3.1.b lock (where-you-stay
+    # framing); `rv_repair` lives here as part of the auto-RV bundle.
     "gas_station": ("auto-rv-fuel", "commercial"),
     "car_repair": ("auto-rv-fuel", "commercial"),
     "car_dealer": ("auto-rv-fuel", "commercial"),
+    "car_wash": ("auto-rv-fuel", "commercial"),
+    "oil_change_service": ("auto-rv-fuel", "commercial"),
+    "tire_shop": ("auto-rv-fuel", "commercial"),
+    "auto_parts_store": ("auto-rv-fuel", "commercial"),
+    "motorcycle_dealer": ("auto-rv-fuel", "commercial"),
+    "rv_repair": ("auto-rv-fuel", "commercial"),
+
+    # Tier 1.6 — Shopping, Grocery & Essentials (brief §3.6)
+    "store": ("shopping-essentials", "commercial"),
+    "supermarket": ("shopping-essentials", "commercial"),
+    "grocery_or_supermarket": ("shopping-essentials", "commercial"),
+    "clothing_store": ("shopping-essentials", "commercial"),
+    "electronics_store": ("shopping-essentials", "commercial"),
+    "hardware_store": ("shopping-essentials", "commercial"),
+    "convenience_store": ("shopping-essentials", "commercial"),
+    "furniture_store": ("shopping-essentials", "commercial"),
+    "home_goods_store": ("shopping-essentials", "commercial"),
+    "liquor_store": ("shopping-essentials", "commercial"),
+    "book_store": ("shopping-essentials", "commercial"),
+    "florist": ("shopping-essentials", "commercial"),
+    "jewelry_store": ("shopping-essentials", "commercial"),
+
+    # Tier 2/3 — non-Tier-1 categories already mapped pre-Phase-5
+    "lodging": ("lodging-vacation-rentals", "commercial"),
+    "rv_park": ("lodging-vacation-rentals", "commercial"),
     "park": ("outdoors-parks-trails", "place"),
     "dog_park": ("outdoors-parks-trails", "place"),
-    "marina": ("on-the-water", "place"),
-    "beach": ("on-the-water", "place"),
     "veterinary_care": ("pets", "commercial"),
     "pet_store": ("pets", "commercial"),
     "school": ("classes-sports-recreation", "commercial"),
-    "gym": ("health-wellness-care", "commercial"),
     "library": ("public-civic-resources", "place"),
     "city_hall": ("public-civic-resources", "place"),
+
+    # Explicit Phase 5 skip: beauty / personal-care types route to the
+    # operator queue rather than getting absorbed into eat-drink or
+    # shopping-essentials. Per prereq checklist §3.1.a operator decision-
+    # lock ("skip in Phase 5"); revisit V1.5 when the final home is
+    # decided. Without these explicit `(None, None)` entries, Google's
+    # types[] for a hair salon would fall through to (None, None) anyway,
+    # but listing them defensively documents the intentional skip + lets
+    # the operator queue surface them for review rather than silently
+    # ignoring them.
+    "hair_salon": (None, None),
+    "beauty_salon": (None, None),
+    "nail_salon": (None, None),
 }
 
 
