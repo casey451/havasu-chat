@@ -207,7 +207,7 @@ Plus inputs:
 **Deliverables:**
 - Per `background_job_infrastructure_decision.md` (Option A — Railway scheduled jobs + FastAPI BackgroundTasks + optional Outbox)
 - One wide Railway scheduled-job service that polls all condition sources on 15-min tick (per conditions+alerts design memo's recommendation over per-source crons)
-- Existing `_hourly_cleanup_loop` pattern documented in a new `app/core/background_tasks.py` module
+- Existing `_hourly_cleanup_loop` pattern documented in a new `app/core/background.py` module (filename: `background.py`, NOT `background_tasks.py` — Phase 4.1 ship at `91cd37b` chose the shorter name; `BackgroundTasks` is FastAPI's class, the module is the retry-helper surface)
 - BackgroundTasks integration for magic-link email send (Resend)
 - BackgroundTasks integration for image processing (Pillow inline; externalize if volume justifies)
 - Per `layered_scrape_strategy.md`:
