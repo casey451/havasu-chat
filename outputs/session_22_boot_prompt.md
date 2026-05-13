@@ -1,6 +1,6 @@
 # Session-22 Boot Prompt
 
-> Paste this into the next Cowork session to boot the primary on havasu-chat. Origin/main HEAD will be `<TBD>` (session-21 close-out commit, to be SHA-patched here pre-paste mirroring `c4fdc69` precedent). Six commits this session-21: `5dbde39` (Phase 3.2 substantive) → `bd9b00f` (chore: Phase 3.2 dispatch prompt artifact) → `294567b` (Phase 3 SHIPPED on master plan + STATE.md session-21 refresh + district draft top-matter) → `<TBD>` (this session-21 close-out: handoff + boot prompt + STATE.md Recent commits final prepend) → `<TBD-cron-pause>` (chore: pause parks-rec-scrapes cron until production deploy lands). After this boot prompt is pasted into the next session, the SHA-patch follow-up chore at session-22 boot patches the two TBDs into the boot prompt + handoff doc + STATE.md Recent commits.
+> Paste this into the next Cowork session to boot the primary on havasu-chat. Origin/main HEAD will be `43b5f8f` (session-21 close-out commit, to be SHA-patched here pre-paste mirroring `c4fdc69` precedent). Six commits this session-21: `5dbde39` (Phase 3.2 substantive) → `bd9b00f` (chore: Phase 3.2 dispatch prompt artifact) → `294567b` (Phase 3 SHIPPED on master plan + STATE.md session-21 refresh + district draft top-matter) → `43b5f8f` (this session-21 close-out: handoff + boot prompt + STATE.md Recent commits final prepend) → `59521dd` (chore: pause parks-rec-scrapes cron until production deploy lands). SHA-patch chore landed at session-21 close (NOT session-22 boot as in earlier sessions — explicit choice to close out session-21 with zero pending placeholders); mirrors `c4fdc69` SHA-patch pattern but with both SHAs (close-out + cron-pause) known at patch time.
 
 ---
 
@@ -10,7 +10,7 @@ directory + AI chat. Previous agent (session-21) shipped Phase 3.2 of
 the master build plan to origin via a single Cursor dispatch on the
 pre-positioned + locked prompt at outputs/cursor_dispatch_prompt_
 phase_3_2.md. **Phase 3 of the master build plan is COMPLETE on
-origin (3.1 + 3.2).** State is durable on origin/main HEAD = <TBD>.
+origin (3.1 + 3.2).** State is durable on origin/main HEAD = 43b5f8f.
 Five-plus commits this session-21.
 
 ## Boot sequence (~5-7 min)
@@ -19,7 +19,7 @@ Five-plus commits this session-21.
    1 dispatch-prompt chore + 1 docs close-out with Phase 3 SHIPPED
    master plan header + this close-out + 1 cron-pause chore for parks-
    rec-scrapes pending production deploy), Phase 3.2 SHIPPED summary
-   (commit chain 5dbde39 -> bd9b00f -> 294567b -> <TBD>; pytest delta
+   (commit chain 5dbde39 -> bd9b00f -> 294567b -> 43b5f8f; pytest delta
    1681 -> 1702 +21; alembic head d0e1f2a3b4c5 -> e1f2a3b4c5d6;
    Phase 3 COMPLETE), queued Phase 4 brief-authoring + production
    deploy work, accepted pragmatic deviations (most notable:
@@ -34,7 +34,7 @@ Five-plus commits this session-21.
    semantics still surfacing in Phase 3; gotcha #15 + #16 discipline
    held -- three + two session streaks respectively).
 2. docs/STATE.md — Production block notes the origin-vs-deployed
-   divergence: origin at HEAD <TBD> with full Phase 1
+   divergence: origin at HEAD 43b5f8f with full Phase 1
    + Phase 2 + Phase 3 chain through alembic head e1f2a3b4c5d6;
    production still at 5132162 with alembic head b2c3d4e5f6a7 (1A + 1B
    live; 1C + 1D + 2A.1 + 2A.2 + 2A.3 + 2B.2 + 2B.3 + 2B.1 + 3.1 + 3.2
@@ -101,10 +101,10 @@ Five-plus commits this session-21.
 
 ## Your first actions, in order
 1. Run baseline: read top of .git/refs/heads/main via Read tool
-   (top should be <TBD> + the cron-pause chore commit if it landed
-   per session-21 close-out followups, else <TBD> directly),
+   (top should be 43b5f8f + the cron-pause chore commit if it landed
+   per session-21 close-out followups, else 43b5f8f directly),
    cross-check docs/STATE.md Recent commits block for the
-   <TBD> -> 294567b -> bd9b00f -> 5dbde39 -> c4fdc69 chain,
+   43b5f8f -> 294567b -> bd9b00f -> 5dbde39 -> c4fdc69 chain,
    confirm alembic head e1f2a3b4c5d6 via Glob on alembic/versions/.
    Run python -m pytest -q --collect-only | tail -3 if Windows-side
    venv is available (should show 1702 + 1 skipped). Report values
