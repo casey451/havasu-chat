@@ -2,13 +2,13 @@
 
 > Short paste-into-Cursor prompt for Phase 4.3 dispatch — the second-client + cross-layer reconciler sub-phase of Phase 4 of the master build plan. **This is the parallel-eligibility proof** per master plan §4 Phase 4 effort estimate: shipping a second `BaseIngestClient` subclass + the reconciler that lets two scrape layers coexist proves the framework holds without rework. The heavy-prescriptive operating doc is `outputs/cursor_brief_phase_4_background_jobs_scrape.md` (read end-to-end, especially §0 + §3 + §6 + §8 + §9 + §10 + §11 + §12). Phase 4.3 ships a minimal OSM Overpass-QL client (single-category proof: `leisure=dog_park`) conforming to the `BaseIngestClient` abstract interface from Phase 4.2 + a cross-layer `ingest_reconciler.reconcile_hit()` with three match strategies (google_place_id exact / geo proximity 50m / normalized name) + ~25-32 new tests. **No layer-3/4 clients, no Railway-cron service stand-up, no chat-surface changes, no new Python deps, no entities.sources JSON-array migration** (deferred per brief §6.5 recommendation — comma-separated string in `entity.source` suffices for V1) — all of that is Phase 4.4 / Phase 5 / V1.5.
 >
-> **Gating dependency:** Phase 4.2 of the master build plan COMPLETE on origin (commit `<PHASE_4_2_SHIP_SHA>` substantive — fill at paste time from `git log --oneline -10`; the ruff-autofix + docs commits if any). Phase 4.2 ships the abstract `BaseIngestClient` interface in `app/contrib/ingest_base.py` (4 methods: `discover` / `enrich` / `dedupe_key` / `to_entity_payload`) + the `GooglePlacesClient` Layer-1 subclass in `app/contrib/google_places_scraper.py` + the `google_types_mapping.py` table + ~10-15 new tests in `tests/test_phase4_ingest_client_interface.py`. **Phase 4.3 cannot dispatch until 4.2 closes out** — the OSM client subclasses `BaseIngestClient` and the reconciler uses `EntityPayload` from `ingest_base.py`. Verify 4.2 close-out on origin before pasting this prompt (operator commits Cursor's 4.2 work, push to origin, then dispatch 4.3 in a fresh session).
+> **Gating dependency:** Phase 4.2 of the master build plan COMPLETE on origin (commit `86eeaf8` substantive — fill at paste time from `git log --oneline -10`; the ruff-autofix + docs commits if any). Phase 4.2 ships the abstract `BaseIngestClient` interface in `app/contrib/ingest_base.py` (4 methods: `discover` / `enrich` / `dedupe_key` / `to_entity_payload`) + the `GooglePlacesClient` Layer-1 subclass in `app/contrib/google_places_scraper.py` + the `google_types_mapping.py` table + ~10-15 new tests in `tests/test_phase4_ingest_client_interface.py`. **Phase 4.3 cannot dispatch until 4.2 closes out** — the OSM client subclasses `BaseIngestClient` and the reconciler uses `EntityPayload` from `ingest_base.py`. Verify 4.2 close-out on origin before pasting this prompt (operator commits Cursor's 4.2 work, push to origin, then dispatch 4.3 in a fresh session).
 >
 > **No operator prereq for Phase 4.3.** Phase 4.3 is pure application code — new OSM client + new reconciler + tests. No new Railway services, no new env vars (OSM Overpass-QL is a public no-auth API), no Cloudflare changes, no Resend changes, no R2 changes. OSM Overpass is rate-limited generously (0.5 QPS comfortable per strategy memo §3.2); the new `OSM_OVERPASS_LIMITER: Final = SourceLimiter("osm_overpass", qps=0.5)` in `app/contrib/osm_overpass_client.py` reuses the existing `app/contrib/rate_limiter.py::SourceLimiter` interface verbatim (no rewrites of rate_limiter; consistent with Phase 4.2 reusing GOOGLE_PLACES_LIMITER).
 >
 > **Operator decision-lock BEFORE paste:** **DEFER `entities.sources` JSON-array migration** per brief §6.5 recommendation. The reconciler computes `merge_fields` for "update" actions including a `source` field; Phase 4.3 writes it back to the existing `entity.source` singular string column as a comma-separated multi-source string OR overwrites with the higher-priority single source (operator-typed > Google > OSM > city > specialized). Migrating to a JSON-array column adds a migration + alembic head advance for no V1 user-visible benefit; Phase 5 / V1.5 can revisit when query patterns force it. If Cursor finds the comma-separated approach genuinely doesn't work (e.g., reconciler logic gets tangled), it MAY flag in §13 and propose the migration — but recommendation is DEFER + ship the reconciler with comma-separated `source` semantics.
 >
-> **Author note:** this prompt was authored at session-23 close alongside the Phase 4.2 dispatch prompt artifact. The §0 baseline values reference the post-Phase-4.1 state — `git log --oneline -10` top SHA after 4.2 ships will be Cursor's 4.2 substantive ship + any chore/docs follow-ups (SHA-patch the `<PHASE_4_2_SHIP_SHA>` slot at paste time per the session-19 + 20 + 21 + 22 + 23 SHA-patch-at-paste rhythm); alembic head stays at `0a1b2c3d4e5f` (Phase 4.1 outbox table — Phase 4.2 has no migration); pytest baseline after 4.2 will be **1733 + 10-15 net-new = ~1743-1748** (SHA-patch the actual count from Cursor's 4.2 §13 report into the `<PYTEST_BASELINE_AFTER_4_2>` slot at paste time).
+> **Author note:** this prompt was authored at session-23 close alongside the Phase 4.2 dispatch prompt artifact. The §0 baseline values reference the post-Phase-4.1 state — `git log --oneline -10` top SHA after 4.2 ships will be Cursor's 4.2 substantive ship + any chore/docs follow-ups (SHA-patch the `86eeaf8` slot at paste time per the session-19 + 20 + 21 + 22 + 23 SHA-patch-at-paste rhythm); alembic head stays at `0a1b2c3d4e5f` (Phase 4.1 outbox table — Phase 4.2 has no migration); pytest baseline after 4.2 will be **1733 + 10-15 net-new = ~1743-1748** (SHA-patch the actual count from Cursor's 4.2 §13 report into the `1749` slot at paste time).
 
 ---
 
@@ -21,14 +21,14 @@ client + cross-layer reconciler), §8 (locked vs open), §9
 §12 (final report format).
 
 Phase 4.2 of the master build plan COMPLETE on origin at
-`<PHASE_4_2_SHIP_SHA>` (the layered-scrape framework + Google
+`86eeaf8` (the layered-scrape framework + Google
 Places refactor sub-phase; ships app/contrib/ingest_base.py
 BaseIngestClient + app/contrib/google_places_scraper.py
 GooglePlacesClient + app/contrib/google_types_mapping.py +
 anchored edits on scripts/places_discovery.py +
 scripts/places_enrichment.py + tests/test_phase4_ingest_client_
 interface.py). Run `git log --oneline -10` and report the top
-SHAs. Pytest collect baseline going in is **<PYTEST_BASELINE_AFTER_4_2>**
+SHAs. Pytest collect baseline going in is **1749**
 tests (1733 from session-23 + 4.2's net-new). Alembic head is
 **0a1b2c3d4e5f** (Phase 4.1 outbox table; Phase 4.2 had no
 migration; the post-4.2 origin tip).
@@ -210,7 +210,7 @@ ORDER MATTERS WITHIN PHASE 4.3:
        tests/test_phase4_background.py::test_background_module_does
        _not_import_models_at_module_top shape)
 7. After all of the above: confirm full pytest stays green
-   (<PYTEST_BASELINE_AFTER_4_2> floor + 25-32 net-new), ruff clean.
+   (1749 floor + 25-32 net-new), ruff clean.
    Manual smoke deferred-to-operator (`python -m scripts.osm_
    overpass_pull --tag leisure --value dog_park --dry-run` returns
    parseable Overpass response + maps to expected entity payloads)
@@ -319,12 +319,12 @@ sub-phases:
 - Report per brief §12 (final report format) for sub-phase 4.3 only
 
 Pre-dispatch checklist (verify before paste):
-- Phase 4.2 SHIPPED on origin (`<PHASE_4_2_SHIP_SHA>`)
+- Phase 4.2 SHIPPED on origin (`86eeaf8`)
 - 0a1b2c3d4e5f is the current single alembic head on origin
   (Phase 4.2 had no migration; 4.3 also no migration per operator
   decision-lock)
 - Pytest baseline going in matches Phase 4.2 §13 report's final
-  count (SHA-patch the <PYTEST_BASELINE_AFTER_4_2> slot)
+  count (SHA-patch the 1749 slot)
 - DEFER entities.sources migration is the operator decision-lock
 - OSM single-category default = leisure=dog_park (brief
   recommendation)
