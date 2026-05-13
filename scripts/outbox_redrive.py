@@ -35,7 +35,6 @@ import logging
 import sys
 from datetime import datetime, timedelta, timezone
 
-
 logger = logging.getLogger("scripts.outbox_redrive")
 
 

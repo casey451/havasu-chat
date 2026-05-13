@@ -46,7 +46,6 @@ from app.core.background import (
     OUTBOX_MAX_ATTEMPTS,
     OUTBOX_STATE_DELIVERED,
     OUTBOX_STATE_FAILED,
-    OUTBOX_STATE_IN_FLIGHT,
     OUTBOX_STATE_PENDING,
     deliver_outbox_row,
     enqueue_outbox,
@@ -57,7 +56,6 @@ from app.core.background import (
 from app.db.database import SessionLocal
 from app.db.models import MagicLinkToken, Outbox
 from app.main import app as _fastapi_app
-
 
 # ---------------------------------------------------------------------------
 # with_retry — sync
@@ -313,9 +311,10 @@ def test_outbox_migration_upgrade_downgrade_cycle_clean(
     via the ``DATABASE_URL`` env var instead so :func:`get_database_url`
     picks up our temp path.
     """
-    from alembic import command
     from alembic.config import Config
     from sqlalchemy import create_engine, inspect, text
+
+    from alembic import command
 
     db_path = tmp_path / "phase4_outbox_cycle.sqlite"
     repo_root = Path(__file__).resolve().parents[1]

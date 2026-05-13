@@ -30,11 +30,6 @@ from app.auth.email_helpers import (
     is_valid_email,
     normalize_email,
 )
-from app.core.background import (
-    OUTBOX_KIND_MAGIC_LINK,
-    deliver_outbox_row,
-    enqueue_outbox,
-)
 from app.auth.favorites import (
     entity_is_favoritable,
     list_user_favorites,
@@ -46,6 +41,11 @@ from app.auth.session import (
     SESSION_LIFETIME_SECONDS,
     cookie_secure_in_prod,
     sign_session_cookie,
+)
+from app.core.background import (
+    OUTBOX_KIND_MAGIC_LINK,
+    deliver_outbox_row,
+    enqueue_outbox,
 )
 from app.core.rate_limit import limiter
 from app.db.database import get_db
