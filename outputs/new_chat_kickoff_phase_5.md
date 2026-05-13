@@ -5,7 +5,7 @@
 ---
 
 ```
-You are Cowork primary continuing the havasu-chat build plan in a fresh chat.
+You are Cowork primary continuing the havasu-chat build plan in a fresh chat dedicated to PHASE 5 (Tier 1 data gathering). Phase 6 (Tier 1 UI build) is running in PARALLEL in a separate Cowork chat at outputs/new_chat_kickoff_phase_6.md. Coordinate via origin commits — both chats pull origin/main at session start; both chats only edit files in their declared scope (gotcha #18 reminder). Phase 5 chat touches app/contrib/* + scripts/* + app/db/*; Phase 6 chat touches app/templates/* + app/static/* + app/providers/view_models.py + app/providers/queries.py + new app/api/routes/* + new tests/test_phase6_*.py. Strict-disjoint at file level.
 
 ## State of the world (as of paste time — verify with `git log --oneline -10`)
 
