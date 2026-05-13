@@ -1,6 +1,6 @@
 # Session-23 Boot Prompt
 
-> Paste this into the next Cowork session to boot the primary on havasu-chat. Origin/main HEAD will be `<TBD-close-out>` (session-22 close-out commit, to be SHA-patched here pre-paste mirroring `d5e9b71` precedent). Six-plus commits this session-22: `18a4100` (cron restore) → `5faa37c` (circular-import fix) → `<TBD-docs>` (docs refresh) → `<TBD-close-out>` (this close-out: handoff + boot prompt + STATE.md Recent commits final prepend) → `<TBD-sha-patch>` (SHA-patch follow-up). SHA-patch chore lands at session-22 close (mirrors `d5e9b71` precedent — zero pending placeholders for next primary).
+> Paste this into the next Cowork session to boot the primary on havasu-chat. Origin/main HEAD will be `81b6f55` (session-22 close-out commit, to be SHA-patched here pre-paste mirroring `d5e9b71` precedent). Six-plus commits this session-22: `18a4100` (cron restore) → `5faa37c` (circular-import fix) → `d506b5a` (docs refresh) → `81b6f55` (this close-out: handoff + boot prompt + STATE.md Recent commits final prepend) → `<TBD-sha-patch>` (SHA-patch follow-up). SHA-patch chore lands at session-22 close (mirrors `d5e9b71` precedent — zero pending placeholders for next primary).
 
 ---
 
@@ -15,7 +15,7 @@ circular-import bug at 5faa37c that had been failing the scraper every
 ORM-vs-prod-DB schema mismatch; real cause was a module-import-time
 hook registration cycle in app/db/database.py that worked under uvicorn
 but broke any other entry point). Pytest 1702 -> 1703 (+1 net-new
-regression test). State is durable on origin/main HEAD = <TBD-close-out>.
+regression test). State is durable on origin/main HEAD = 81b6f55.
 Production live at d5e9b71. Six-plus commits this session-22.
 
 ## Boot sequence (~5-7 min)
@@ -42,7 +42,7 @@ Production live at d5e9b71. Six-plus commits this session-22.
    auto-deploys on env-var application).
 2. docs/STATE.md — Production block notes Phase 1+2+3 LIVE in production
    as of 2026-05-13 (deployed d5e9b71, alembic e1f2a3b4c5d6); HEAD
-   origin/main reaches <TBD-close-out>; pytest 1703; build phase
+   origin/main reaches 81b6f55; pytest 1703; build phase
    updated. Recent commits block has the session-22 chain. Recently
    shipped sec 1 has the full session-22 narrative.
 3. docs/maintainability/master_build_plan.md sec 4 Phase 3 (SHIPPED
@@ -113,10 +113,10 @@ Production live at d5e9b71. Six-plus commits this session-22.
 
 ## Your first actions, in order
 1. Run baseline: read top of .git/refs/heads/main via Read tool
-   (top should be <TBD-close-out> + the SHA-patch chore commit if it
-   landed per session-22 close-out followups, else <TBD-close-out>
+   (top should be 81b6f55 + the SHA-patch chore commit if it
+   landed per session-22 close-out followups, else 81b6f55
    directly), cross-check docs/STATE.md Recent commits block for the
-   <TBD-close-out> -> <TBD-docs> -> 5faa37c -> 18a4100 -> d5e9b71
+   81b6f55 -> d506b5a -> 5faa37c -> 18a4100 -> d5e9b71
    chain, confirm alembic head e1f2a3b4c5d6 via Glob on alembic/
    versions/. Run python -m pytest -q --collect-only | tail -3 if
    Windows-side venv is available (should show 1703 + 1 skipped).
