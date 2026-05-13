@@ -24,16 +24,24 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import select
+
 from app.bootstrap_env import ensure_dotenv_loaded
 
 ensure_dotenv_loaded()
 
+from app.contrib.google_places_scraper import enrichment_row_to_entity_payload  # noqa: E402
+from app.contrib.ingest_reconciler import (  # noqa: E402
+    log_ambiguous_reconcile,
+    reconcile_hit,
+)
 from app.db.database import SessionLocal  # noqa: E402
 from app.db.entity_dual_write import (  # noqa: E402
     create_provider_and_entity,
@@ -41,6 +49,8 @@ from app.db.entity_dual_write import (  # noqa: E402
 )
 from app.db.models import Entity, Location, Provider  # noqa: E402
 from app.db.seed_helpers import derive_provider_slug  # noqa: E402
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_INPUT_PATH = (
     Path(__file__).parent / "output" / "places_pull" / "enrichment_enriched.jsonl"
@@ -134,6 +144,8 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
         "skipped_no_name": skipped_no_name,
         "inserted": 0,
         "updated": 0,
+        "reconcile_skipped_ambiguous": 0,
+        "reconcile_merged_geo": 0,
     }
 
     if not valid_rows:
@@ -167,12 +179,57 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
             kwargs = row_to_provider_kwargs(row)
             if pid in existing_by_pid:
                 provider = existing_by_pid[pid]
+                payload = enrichment_row_to_entity_payload(row)
+                rec = reconcile_hit(session, payload)
+                log_ambiguous_reconcile(rec, context=f"places_load update branch place_id={pid}")
                 for field, value in kwargs.items():
                     setattr(provider, field, value)
                 provider.last_google_scraped_at = now
                 sync_provider_entity_from_legacy(session, provider)
+                if rec.action == "update" and rec.merge_fields:
+                    ent = session.get(Entity, provider.entity_id)
+                    if ent is not None:
+                        if "name" in rec.merge_fields:
+                            ent.name = str(rec.merge_fields["name"])[:255]
+                        if "description" in rec.merge_fields:
+                            ent.description = rec.merge_fields["description"]
+                        if "source" in rec.merge_fields:
+                            ent.source = str(rec.merge_fields["source"])[:64]
                 counts["updated"] += 1
             else:
+                payload = enrichment_row_to_entity_payload(row)
+                rec = reconcile_hit(session, payload)
+                if rec.action == "ambiguous":
+                    log_ambiguous_reconcile(rec, context=f"places_load insert branch place_id={pid}")
+                    counts["reconcile_skipped_ambiguous"] += 1
+                    continue
+                if rec.action == "update" and rec.existing_id:
+                    prov = session.scalars(
+                        select(Provider).where(Provider.entity_id == rec.existing_id).limit(1)
+                    ).first()
+                    if prov is None:
+                        logger.warning(
+                            "places_load reconcile update without provider row entity_id=%s",
+                            rec.existing_id,
+                        )
+                        counts["reconcile_skipped_ambiguous"] += 1
+                        continue
+                    for field, value in kwargs.items():
+                        setattr(prov, field, value)
+                    prov.last_google_scraped_at = now
+                    sync_provider_entity_from_legacy(session, prov)
+                    if rec.merge_fields:
+                        ent = session.get(Entity, rec.existing_id)
+                        if ent is not None:
+                            if "name" in rec.merge_fields:
+                                ent.name = str(rec.merge_fields["name"])[:255]
+                            if "description" in rec.merge_fields:
+                                ent.description = rec.merge_fields["description"]
+                            if "source" in rec.merge_fields:
+                                ent.source = str(rec.merge_fields["source"])[:64]
+                    counts["reconcile_merged_geo"] += 1
+                    counts["updated"] += 1
+                    continue
                 slug = derive_provider_slug(session, kwargs["provider_name"])
                 provider = Provider(**kwargs, slug=slug, last_google_scraped_at=now)
                 session.add(provider)

@@ -615,3 +615,41 @@ class GooglePlacesClient(BaseIngestClient):
         summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
         summary["summary_path"] = str(summary_path)
         return summary
+
+
+def enrichment_row_to_entity_payload(row: dict[str, Any]) -> EntityPayload:
+    """Map ``enrichment_enriched.jsonl`` row dict to :class:`EntityPayload` for reconciler.
+
+    Used by :mod:`scripts.places_load` before catalog writes (Phase 4.3).
+    """
+    types = list(row.get("types") or [])
+    name = str(row.get("display_name") or "")
+    pid = str(row.get("place_id") or "")
+    lat = row.get("lat")
+    lng = row.get("lng")
+    raw: dict[str, Any] = {
+        "types": types,
+        "displayName": {"text": name},
+        "location": {"latitude": lat, "longitude": lng},
+        "formattedAddress": row.get("formatted_address"),
+    }
+    enriched: dict[str, Any] = {
+        "types": types,
+        "displayName": {"text": name},
+        "location": {"latitude": lat, "longitude": lng},
+        "formattedAddress": row.get("formatted_address"),
+        "nationalPhoneNumber": row.get("phone"),
+        "websiteUri": row.get("website"),
+        "editorialSummary": None,
+    }
+    raw_hit = RawHit(
+        source="google_places",
+        source_stable_id=pid,
+        name=name,
+        lat=lat,
+        lng=lng,
+        raw=raw,
+    )
+    return GooglePlacesClient().to_entity_payload(
+        EnrichedHit(raw_hit=raw_hit, enriched=enriched)
+    )
