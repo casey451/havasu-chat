@@ -179,3 +179,60 @@ def test_explicit_dual_write_idempotent_with_prefilled_entity_id() -> None:
         create_provider_and_entity(db, p)
         assert p.entity_id == eid
         db.commit()
+
+
+def test_scraper_entry_point_import_chain_does_not_cycle() -> None:
+    """Phase 1D regression — Session-22 (2026-05-13).
+
+    Reproduces the parks-rec-scrapes CI failure where ``scripts/parks_rec_load.py``
+    transitively reached ``app.db.contribution_store -> app.db.models ->
+    app.db.database`` before ``app.db.models`` finished initializing. The old
+    ``_register_orm_listeners()`` hook at ``database.py`` module-top would then
+    try to import ``ContactPoint`` from a partially-initialized ``app.db.models``
+    and raise ``ImportError``.
+
+    The fix moved hook registration to the bottom of ``app/db/models.py`` (after
+    all ORM classes are defined). This test runs the failing import chain in a
+    fresh subprocess so it isn't masked by sys.modules caching from earlier
+    tests, and asserts both: the import succeeds, and ``register_catalog_dual_write_hooks``
+    actually fired (idempotency-flag check).
+    """
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[1]
+    script = (
+        "import sys, json\n"
+        "sys.path.insert(0, %r)\n"
+        "from app.contrib.parks_rec_loader import load_latest_snapshots  # noqa: F401\n"
+        "import app.db.entity_dual_write as edw\n"
+        "from app.db.models import ContactPoint\n"
+        "print(json.dumps({\n"
+        '   "loaded": True,\n'
+        '   "hooks_registered": bool(edw._CATALOG_DUAL_WRITE_HOOKS_REGISTERED),\n'
+        '   "contact_point_class": ContactPoint.__name__,\n'
+        "}))\n"
+    ) % str(repo_root)
+
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        cwd=str(repo_root),
+        timeout=60,
+    )
+    assert result.returncode == 0, (
+        f"scraper import chain raised in subprocess:\n"
+        f"--- stdout ---\n{result.stdout}\n"
+        f"--- stderr ---\n{result.stderr}"
+    )
+
+    import json
+
+    payload = json.loads(result.stdout.strip().splitlines()[-1])
+    assert payload["loaded"] is True
+    assert payload["hooks_registered"] is True, (
+        "register_catalog_dual_write_hooks() did not fire on parks-rec import path"
+    )
+    assert payload["contact_point_class"] == "ContactPoint"

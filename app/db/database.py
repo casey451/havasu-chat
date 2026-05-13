@@ -78,14 +78,14 @@ def get_db():
         db.close()
 
 
-def _register_orm_listeners() -> None:
-    """Import ORM models for side effects, then register Phase 1D ``before_flush`` hooks."""
-    import importlib
-
-    importlib.import_module("app.db.models")
-    from app.db.entity_dual_write import register_catalog_dual_write_hooks
-
-    register_catalog_dual_write_hooks()
-
-
-_register_orm_listeners()
+# Phase 1D dual-write hook registration lives in ``app/db/__init__.py`` — see
+# the module docstring there for the full why. Short version: both ``models``
+# and ``entity_dual_write`` need to be fully loaded before the registration
+# can succeed, and they reference each other, so registration must happen
+# from a third location that drives the load order. The package ``__init__.py``
+# runs before any submodule attribute lookup, which makes it the right home.
+#
+# Earlier sessions called ``_register_orm_listeners()`` here at module-top,
+# which broke when ``scripts/parks_rec_load.py`` reached ``contribution_store
+# -> models -> database`` before ``models`` finished initializing
+# (``ImportError: cannot import name 'ContactPoint'``). Session-22 fix.
