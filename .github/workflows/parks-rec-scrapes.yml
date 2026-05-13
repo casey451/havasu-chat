@@ -1,9 +1,17 @@
 name: parks-rec-scrapes
 
 on:
-  schedule:
-    # Every 6 hours, 15 minutes past the hour. Adjust as needed.
-    - cron: "15 */6 * * *"
+  # PAUSED 2026-05-12 (session-21): ORM-vs-prod-DB schema mismatch since
+  # Phase 3.1 ship (session-20). Origin includes 7 new entity columns +
+  # 5 new tables + users.preferred_mode that production Postgres (still
+  # at alembic head b2c3d4e5f6a7) lacks. Every cron run fails with exit
+  # code 1. Re-enable AFTER production deploy lands (6 migrations:
+  # f8e9d0c1b2a3 -> 92ce4899dc08 -> c8d9e0f1a2b3 -> f9e8d7c6b5a4 ->
+  # d0e1f2a3b4c5 -> e1f2a3b4c5d6) by uncommenting the schedule block.
+  # See docs/SESSION_HANDOFF_2026-05-12_session21.md sec 2 for diagnosis.
+  # schedule:
+  #   # Every 6 hours, 15 minutes past the hour. Adjust as needed.
+  #   - cron: "15 */6 * * *"
   workflow_dispatch: {}
 
 jobs:
