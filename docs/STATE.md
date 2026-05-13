@@ -29,7 +29,7 @@ This document is updated at the end of each session that ships work. It is the c
 
 ```
 <TBD-session22-closeout> docs: session-22 handoff + session-23 boot prompt + STATE recent-commits refresh
-<TBD-session22-docs> docs: Phase 3 DEPLOYED 2026-05-13 + dispatch_channels gotcha #17 + STATE.md session-22 production block refresh
+d506b5a docs: Phase 3 DEPLOYED 2026-05-13 + dispatch_channels gotcha #17 + STATE session-22 production block refresh
 5faa37c fix(db): break Phase 1D dual-write hook registration cycle -- centralize in app/db/__init__.py
 18a4100 chore(ci): re-enable parks-rec-scrapes cron after production deploy lands -- 6 migrations f8e9d0c1b2a3 -> e1f2a3b4c5d6 applied on prod Postgres; ORM-vs-DB mismatch resolved
 d5e9b71 chore: patch session-21 close-out SHA (43b5f8f) + cron-pause SHA (59521dd) into session-22 boot prompt + session-21 handoff doc + STATE.md Recent commits
