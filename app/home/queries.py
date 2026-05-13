@@ -23,35 +23,79 @@ from app.core.timezone import now_lake_havasu
 from app.db.models import Event, Program, Provider
 
 # ─────────── category labels & queries ───────────
+#
+# ``CATEGORY_LABELS`` — canonical **new-taxonomy** slugs (12) for Tier chips,
+# enrichment CSV validation, and any surface keyed by ``Category.slug``.
+# Order follows ``outputs/chatgpt_taxonomy_research_synthesis.md`` §1 (Tier 1,
+# then Tier 2, then Tier 3).
+#
+# ``LEGACY_PROVIDER_CATEGORY_LABELS`` — free-text ``Provider.category`` /
+# ``Program.activity_category`` strings still stored alongside ``category_id``
+# until Phase 13; maps to human labels aligned with the audit memo
+# (``docs/maintainability/category_backfill_mapping_audit_2026-05-14.md`` §2).
 
 CATEGORY_LABELS: dict[str, str] = {
-    "health_medical":        "Health & medical",
-    "food_drink":            "Food & drink",
-    "home_services":         "Home services",
-    "retail":                "Shops",
-    "lake_recreation":       "On the water",
+    "home-property-services": "Home & Property Services",
+    "health-wellness-care": "Health, Wellness & Care",
+    "eat-drink": "Eat & Drink",
+    "on-the-water": "On the Water",
+    "auto-rv-fuel": "Auto, RV & Fuel",
+    "shopping-essentials": "Shopping, Grocery & Essentials",
+    "outdoors-parks-trails": "Outdoors, Parks & Trails",
+    "lodging-vacation-rentals": "Lodging & Vacation Rentals",
+    "pets": "Pets",
+    "events": "Events",
+    "classes-sports-recreation": "Classes, Sports & Recreation",
+    "public-civic-resources": "Public & Civic Resources",
+}
+
+LEGACY_PROVIDER_CATEGORY_LABELS: dict[str, str] = {
+    # Bucket A + widened catalog / places strings → display aligned to new taxonomy.
+    "health_medical": "Health, Wellness & Care",
+    "food_drink": "Eat & Drink",
+    "food": "Eat & Drink",
+    "restaurant": "Eat & Drink",
+    "bakery": "Eat & Drink",
+    "home_services": "Home & Property Services",
+    "general_contractor": "Home & Property Services",
+    "plumbing": "Home & Property Services",
+    "services": "Home & Property Services",
+    "retail": "Shopping, Grocery & Essentials",
+    "lake_recreation": "On the Water",
+    "boat_repair": "On the Water",
+    "boat_rental": "On the Water",
+    "auto": "Auto, RV & Fuel",
+    "lodging": "Lodging & Vacation Rentals",
+    "pet": "Pets",
+    "pets": "Pets",
+    "veterinary": "Pets",
+    "event_venue": "Events",
+    "music": "Events",
+    "recreation": "Classes, Sports & Recreation",
+    "childcare_education": "Classes, Sports & Recreation",
+    "education": "Classes, Sports & Recreation",
+    "edu": "Classes, Sports & Recreation",
+    "religion_community": "Public & Civic Resources",
+    "fitness_sports": "Health, Wellness & Care",
+    "fitness": "Health, Wellness & Care",
     "professional_services": "Professional",
-    "beauty_personal_care":  "Beauty & care",
-    "auto":                  "Auto",
-    "religion_community":    "Community",
-    "fitness_sports":        "Fitness & sport",
-    # Widened set — common Provider.category values that previously fell
-    # through to a slug-replace fallback. Adding explicit entries removes
-    # title-cased underscores in the surface ("Real estate" not
-    # "Real Estate"; "Contractors" not "General_contractor", etc.).
-    # See docs/maintainability/ui_data_correctness_spec.md §2.2(c).
-    "general_contractor":    "Contractors",
-    "real_estate":           "Real estate",
-    "insurance":             "Insurance",
-    "financial":             "Financial",
-    "legal":                 "Legal",
-    "event_venue":           "Venues",
-    "lodging":               "Lodging",
-    "tourism":               "Tourism",
-    "education":             "Education",
-    "pet":                   "Pets",
-    "boat_repair":           "Boat repair",
-    "boat_rental":           "Boat rental",
+    "beauty_personal_care": "Beauty & care",
+    "real_estate": "Real estate",
+    "insurance": "Insurance",
+    "financial": "Financial",
+    "legal": "Legal",
+    "tourism": "Tourism",
+    "entertainment_attractions": "Attractions",
+    "barbershop": "Barbershop",
+    "uncategorized": "Uncategorized",
+    "misc": "Miscellaneous",
+    "other": "Other",
+    "svc": "Service",
+    "fun": "Fun",
+    "bmx": "BMX",
+    "bmxcaptest": "BMX",
+    "onxcat": "Other",
+    "space_pirates": "Other",
 }
 
 CATEGORY_QUERIES: dict[str, str] = {
@@ -66,6 +110,19 @@ CATEGORY_QUERIES: dict[str, str] = {
     "auto":                  "auto repair in Havasu",
     "religion_community":    "community and worship",
     "fitness_sports":        "gyms and classes",
+    # New-taxonomy slugs (forward-compatible if ``Provider.category`` ever stores them).
+    "home-property-services": "find a home pro",
+    "health-wellness-care": "find a doctor or clinic",
+    "eat-drink": "where should I eat",
+    "on-the-water": "what's on the water today",
+    "auto-rv-fuel": "auto repair in Havasu",
+    "shopping-essentials": "shops in Havasu",
+    "outdoors-parks-trails": "parks and trails in Havasu",
+    "lodging-vacation-rentals": "where to stay in Havasu",
+    "pets": "pet services in Havasu",
+    "events": "what's happening in Havasu",
+    "classes-sports-recreation": "classes and recreation in Havasu",
+    "public-civic-resources": "civic resources in Havasu",
 }
 
 # ─────────── helpers ───────────
@@ -116,6 +173,8 @@ def _category_label(category: str | None) -> str:
         return "Local pro"
     if category in CATEGORY_LABELS:
         return CATEGORY_LABELS[category]
+    if category in LEGACY_PROVIDER_CATEGORY_LABELS:
+        return LEGACY_PROVIDER_CATEGORY_LABELS[category]
     # Defensive fallback: replace underscores, sentence-case (not title-case
     # — "Real estate" reads better than "Real Estate" in surface meta).
     return category.replace("_", " ").capitalize()

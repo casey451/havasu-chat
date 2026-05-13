@@ -38,7 +38,7 @@ from scripts.ingest.validate_enrichment_csv import (
 
 _GOOD_ROW: dict[str, str] = {
     "provider_name": "Havasu Pool Pros",
-    "category": "home_services",
+    "category": "home-property-services",
     "address": "2200 N McCulloch Blvd, Lake Havasu City, AZ 86403",
     "phone": "(928) 444-0133",  # 555-01XX is a placeholder; use 444 instead
     "owner_email": "owner@havasupoolpros.example",
@@ -193,7 +193,7 @@ def test_ingest_inserts_new_provider(tmp_path: Path, isolated_provider: str) -> 
         )
         assert len(rows) == 1
         p = rows[0]
-        assert p.category == "home_services"
+        assert p.category == "home-property-services"
         assert p.phone == "9284440133"
         assert p.email == "owner@havasupoolpros.example"
         assert p.verification_method == "phone_call"

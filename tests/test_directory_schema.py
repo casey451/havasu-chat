@@ -3,45 +3,46 @@
 from __future__ import annotations
 
 import uuid
-from datetime import time
+from datetime import UTC, datetime, time
 
 import pytest
 from sqlalchemy.exc import IntegrityError
 
 from app.db.database import SessionLocal
+from app.db.entity_dual_write import create_program_and_entity, create_provider_and_entity
 from app.db.models import Category, Program, Provider
 
 _EXPECTED_CATEGORY_SLUGS = [
-    "eat-and-drink",
-    "events",
-    "family",
-    "home-services",
-    "health",
+    "home-property-services",
+    "health-wellness-care",
+    "eat-drink",
     "on-the-water",
-    "outdoors-and-parks",
-    "shopping",
-    "auto-and-gas",
-    "lodging",
+    "auto-rv-fuel",
+    "shopping-essentials",
+    "outdoors-parks-trails",
+    "lodging-vacation-rentals",
     "pets",
-    "community",
+    "events",
+    "classes-sports-recreation",
+    "public-civic-resources",
 ]
 
 
 def test_twelve_seeded_categories_exist_and_ordered() -> None:
-    """Migration seeds 12 rows; slug set and sort_order ordering match pivot §8.1."""
+    """Migration seeds 12 rows; slug set and sort_order match synthesis §1."""
     with SessionLocal() as db:
         rows = db.query(Category).order_by(Category.sort_order).all()
         assert len(rows) == 12
         assert [c.slug for c in rows] == _EXPECTED_CATEGORY_SLUGS
-        orders = [c.sort_order for c in rows]
-        assert orders == sorted(orders)
+        assert [c.sort_order for c in rows] == list(range(1, 13))
 
 
 def test_provider_round_trips_category_id_attributes_district_with_legacy_string() -> None:
     suf = uuid.uuid4().hex[:8]
     attrs = {"service_area": "86403", "emergency": True}
+    now = datetime.now(UTC)
     with SessionLocal() as db:
-        home = db.query(Category).filter_by(slug="home-services").one()
+        home = db.query(Category).filter_by(slug="home-property-services").one()
         home_id = home.id
         p = Provider(
             provider_name=f"RoundTrip Plumbing {suf}",
@@ -49,12 +50,17 @@ def test_provider_round_trips_category_id_attributes_district_with_legacy_string
             category_id=home_id,
             attributes=attrs,
             district="English Village",
+            address="1 Pipe Rd",
             verified=True,
             draft=False,
             is_active=True,
             source="test-directory-schema",
+            slug=f"roundtrip-plumbing-{suf}",
+            created_at=now,
+            updated_at=now,
         )
         db.add(p)
+        create_provider_and_entity(db, p)
         db.commit()
         pid = p.id
 
@@ -69,18 +75,24 @@ def test_provider_round_trips_category_id_attributes_district_with_legacy_string
 
 def test_provider_category_ref_relationship() -> None:
     suf = uuid.uuid4().hex[:8]
+    now = datetime.now(UTC)
     with SessionLocal() as db:
         cat = db.query(Category).filter_by(slug="pets").one()
         p = Provider(
             provider_name=f"Vet {suf}",
             category="veterinary",
             category_id=cat.id,
+            address="2 Paw St",
             verified=True,
             draft=False,
             is_active=True,
             source="test-directory-schema",
+            slug=f"vet-{suf}",
+            created_at=now,
+            updated_at=now,
         )
         db.add(p)
+        create_provider_and_entity(db, p)
         db.commit()
         pid = p.id
 
@@ -95,13 +107,13 @@ def test_provider_category_ref_relationship() -> None:
 def test_program_round_trips_category_id_with_legacy_activity_category() -> None:
     suf = uuid.uuid4().hex[:8]
     with SessionLocal() as db:
-        cat = db.query(Category).filter_by(slug="family").one()
-        family_id = cat.id
+        cat = db.query(Category).filter_by(slug="classes-sports-recreation").one()
+        csr_id = cat.id
         prog = Program(
             title=f"Kids craft {suf}",
             description="Weekly crafts session.",
             activity_category="arts",
-            category_id=family_id,
+            category_id=csr_id,
             schedule_days=["saturday"],
             schedule_start_time=time(10, 0),
             schedule_end_time=time(11, 30),
@@ -110,6 +122,7 @@ def test_program_round_trips_category_id_with_legacy_activity_category() -> None
             source="test-directory-schema",
         )
         db.add(prog)
+        create_program_and_entity(db, prog)
         db.commit()
         mid = prog.id
 
@@ -117,7 +130,7 @@ def test_program_round_trips_category_id_with_legacy_activity_category() -> None
         loaded = db.get(Program, mid)
         assert loaded is not None
         assert loaded.activity_category == "arts"
-        assert loaded.category_id == family_id
+        assert loaded.category_id == csr_id
 
 
 def test_program_category_ref_relationship() -> None:
@@ -137,6 +150,7 @@ def test_program_category_ref_relationship() -> None:
             source="test-directory-schema",
         )
         db.add(prog)
+        create_program_and_entity(db, prog)
         db.commit()
         mid = prog.id
 
@@ -153,7 +167,7 @@ def test_category_slug_uniqueness_enforced() -> None:
         with pytest.raises(IntegrityError):
             db.add(
                 Category(
-                    slug="eat-and-drink",
+                    slug="eat-drink",
                     name="Duplicate",
                     sort_order=999,
                 )
@@ -165,19 +179,25 @@ def test_category_slug_uniqueness_enforced() -> None:
 def test_provider_legacy_category_string_independent_of_category_id() -> None:
     """Additive schema: free-text `category` remains authoritative until backfill."""
     suf = uuid.uuid4().hex[:8]
+    now = datetime.now(UTC)
     with SessionLocal() as db:
-        lodging = db.query(Category).filter_by(slug="lodging").one()
+        lodging = db.query(Category).filter_by(slug="lodging-vacation-rentals").one()
         lodging_id = lodging.id
         p = Provider(
             provider_name=f"Motel {suf}",
             category="hotel-motel-free-text",
             category_id=lodging_id,
+            address="9 Hwy St",
             verified=True,
             draft=False,
             is_active=True,
             source="test-directory-schema",
+            slug=f"motel-{suf}",
+            created_at=now,
+            updated_at=now,
         )
         db.add(p)
+        create_provider_and_entity(db, p)
         db.commit()
         pid = p.id
 

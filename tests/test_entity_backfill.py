@@ -35,7 +35,7 @@ def test_provider_backfilled_to_entity() -> None:
     slug = f"bf-prov-{suf}"
     hs = {"monday": [{"open": "09:00", "close": "17:00"}]}
     with SessionLocal() as db:
-        cat = db.query(Category).filter_by(slug="health").one()
+        cat = db.query(Category).filter_by(slug="health-wellness-care").one()
         cat_id = cat.id
         p = Provider(
             provider_name=f"Backfill Plumbing {suf}",
@@ -141,7 +141,7 @@ def test_event_backfilled_to_entity() -> None:
 def test_program_backfilled_to_entity() -> None:
     suf = _suffix()
     with SessionLocal() as db:
-        cat = db.query(Category).filter_by(slug="family").one()
+        cat = db.query(Category).filter_by(slug="classes-sports-recreation").one()
         pr = Program(
             title=f"Youth Swim {suf}",
             description="Lessons for kids.",

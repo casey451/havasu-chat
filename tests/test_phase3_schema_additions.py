@@ -55,7 +55,7 @@ def test_migration_upgrade_downgrade_upgrade_cycle(
             ver = conn.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
-            assert ver == "d0e1f2a3b4c5"
+            assert ver == "e1f2a3b4c5d6"
             n = conn.execute(
                 text(
                     "SELECT COUNT(*) FROM sqlite_master "

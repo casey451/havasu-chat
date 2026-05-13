@@ -13,7 +13,8 @@ Validation rules (kept terse — one short sentence each):
 
 * All required columns must be present in the header.
 * ``provider_name`` is non-empty.
-* ``category`` is one of the slugs in ``CATEGORY_LABELS``.
+* ``category`` is one of the **new-taxonomy** slugs in ``CATEGORY_LABELS``;
+  legacy slugs (deleted / renamed) are rejected with an explicit error.
 * ``address`` is non-empty.
 * ``phone`` digit-only is exactly 10 chars and is NOT a NANP 555-01XX
   placeholder (the same regex used in ``app/home/queries.py``).
@@ -85,12 +86,24 @@ DESCRIPTION_MAX_CHARS = 400
 # ─────────── allowed categories (read from app.home.queries) ───────────
 
 
-def _allowed_categories() -> set[str]:
-    """Return the set of category slugs accepted by the surface.
+# Legacy CSV slugs — must not pass validation (Phase 3.2 taxonomy rewrite).
+_REJECTED_ENRICHMENT_CATEGORY_SLUGS: frozenset[str] = frozenset(
+    {
+        "family",
+        "community",
+        "eat-and-drink",
+        "home-services",
+        "health",
+        "outdoors-and-parks",
+        "shopping",
+        "auto-and-gas",
+        "lodging",
+    }
+)
 
-    Imported lazily so the validator can be invoked without the rest of
-    ``app/`` configured (e.g. a thin operator container).
-    """
+
+def _allowed_categories() -> set[str]:
+    """Return canonical category slugs accepted for enrichment CSV ``category``."""
     from app.home.queries import CATEGORY_LABELS  # local import — see docstring
 
     return set(CATEGORY_LABELS.keys())
@@ -177,6 +190,11 @@ def _check_verification_method(raw: str) -> str | None:
 
 
 def _check_category(raw: str, allowed: set[str]) -> str | None:
+    if raw in _REJECTED_ENRICHMENT_CATEGORY_SLUGS:
+        return (
+            f"category {raw!r} is a legacy slug removed or renamed in the Phase 3.2 "
+            f"taxonomy; use a current slug (e.g. eat-drink, home-property-services)"
+        )
     if raw not in allowed:
         return f"category {raw!r} is not in the allowed set"
     return None

@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
 from app.db.models import Entity, EntityCategory, Hours, Provider
-from app.home.queries import CATEGORY_LABELS
+from app.home.queries import CATEGORY_LABELS, LEGACY_PROVIDER_CATEGORY_LABELS
 
 
 def get_provider_by_slug(db: Session, slug: str) -> Optional[Provider]:
@@ -66,6 +66,8 @@ def category_label_for(provider: Provider) -> str:
         return "Local pro"
     if cat in CATEGORY_LABELS:
         return CATEGORY_LABELS[cat]
+    if cat in LEGACY_PROVIDER_CATEGORY_LABELS:
+        return LEGACY_PROVIDER_CATEGORY_LABELS[cat]
     return cat.replace("_", " ").capitalize()
 
 

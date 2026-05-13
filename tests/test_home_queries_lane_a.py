@@ -17,7 +17,6 @@ from datetime import date
 from types import SimpleNamespace
 
 from app.home.queries import (
-    CATEGORY_LABELS,
     _card_blurb,
     _category_label,
 )
@@ -26,11 +25,11 @@ from app.home.queries import (
 
 
 def test_category_label_known_slug() -> None:
-    assert _category_label("home_services") == "Home services"
+    assert _category_label("home-property-services") == "Home & Property Services"
 
 
 def test_category_label_known_slug_compound() -> None:
-    assert _category_label("religion_community") == "Community"
+    assert _category_label("religion_community") == "Public & Civic Resources"
 
 
 def test_category_label_widened_set_real_estate() -> None:
@@ -42,7 +41,7 @@ def test_category_label_widened_set_real_estate() -> None:
 
 
 def test_category_label_widened_set_general_contractor() -> None:
-    assert _category_label("general_contractor") == "Contractors"
+    assert _category_label("general_contractor") == "Home & Property Services"
 
 
 def test_category_label_unknown_slug_uses_capitalize_not_title() -> None:
@@ -58,8 +57,9 @@ def test_category_label_empty_returns_local_pro() -> None:
 
 
 def test_category_label_map_has_widened_entries() -> None:
-    """Lock the widened set in place so a future deletion is a deliberate
-    decision rather than an accidental regression."""
+    """Lock legacy free-text keys in ``LEGACY_PROVIDER_CATEGORY_LABELS``."""
+    from app.home.queries import LEGACY_PROVIDER_CATEGORY_LABELS
+
     widened = {
         "general_contractor",
         "real_estate",
@@ -74,7 +74,7 @@ def test_category_label_map_has_widened_entries() -> None:
         "boat_repair",
         "boat_rental",
     }
-    assert widened.issubset(set(CATEGORY_LABELS.keys()))
+    assert widened.issubset(set(LEGACY_PROVIDER_CATEGORY_LABELS.keys()))
 
 
 # ─────────── Fix #4 — _card_blurb sanitizer hardening ───────────
