@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.admin.auth import COOKIE_NAME, verify_admin_cookie
 from app.contrib.enrichment import enrich_contribution
+from app.core.background import with_retry
 from app.db.contribution_store import create_contribution
 from app.db.database import SessionLocal, get_db
 from app.db.llm_mention_store import (
@@ -146,7 +147,7 @@ def api_promote_mention(
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     contrib = create_contribution(db, cdata, submitter_ip_hash=None)
-    background_tasks.add_task(enrich_contribution, contrib.id, SessionLocal)
+    background_tasks.add_task(with_retry, enrich_contribution, contrib.id, SessionLocal)
     out = promote_mention(db, mention_id, contrib.id)
     assert out is not None
     return LlmMentionResponse.model_validate(out)

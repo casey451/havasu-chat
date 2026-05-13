@@ -13,6 +13,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from app.contrib.enrichment import enrich_contribution
+from app.core.background import with_retry
 from app.core.rate_limit import is_rate_limit_disabled
 from app.db.contribution_store import (
     count_submissions_since_by_ip_hash,
@@ -291,5 +292,5 @@ def post_contribute(
         return _render_contribute_page(field_errors=fe, preserve=preserve)
 
     row = create_contribution(db, body, submitter_ip_hash=_ip_hash(request))
-    background_tasks.add_task(enrich_contribution, row.id, SessionLocal)
+    background_tasks.add_task(with_retry, enrich_contribution, row.id, SessionLocal)
     return RedirectResponse(url="/contribute?submitted=1", status_code=302)

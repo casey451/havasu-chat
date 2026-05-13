@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.admin.auth import COOKIE_NAME, verify_admin_cookie
 from app.contrib.enrichment import enrich_contribution
+from app.core.background import with_retry
 from app.db.contribution_store import (
     create_contribution,
     get_contribution,
@@ -51,7 +52,7 @@ def post_contribution(
     body: ContributionCreate,
 ) -> ContributionResponse:
     row = create_contribution(db, body, submitter_ip_hash=None)
-    background_tasks.add_task(enrich_contribution, row.id, SessionLocal)
+    background_tasks.add_task(with_retry, enrich_contribution, row.id, SessionLocal)
     return ContributionResponse.model_validate(row)
 
 
@@ -126,7 +127,9 @@ def post_enrich_contribution(
     row = get_contribution(db, contribution_id)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    background_tasks.add_task(enrich_contribution, contribution_id, SessionLocal)
+    background_tasks.add_task(
+        with_retry, enrich_contribution, contribution_id, SessionLocal
+    )
     return JSONResponse(
         status_code=status.HTTP_202_ACCEPTED,
         content={"contribution_id": contribution_id, "enrichment": "scheduled"},

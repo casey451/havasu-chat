@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.admin.auth import COOKIE_NAME, verify_admin_cookie
 from app.admin.nav_html import admin_phase5_nav_html
 from app.contrib.enrichment import enrich_contribution
+from app.core.background import with_retry
 from app.db.contribution_store import create_contribution
 from app.db.database import SessionLocal, get_db
 from app.db.llm_mention_store import (
@@ -408,7 +409,7 @@ def register_mentions_html_routes(router: APIRouter) -> None:
                 status_code=400,
             )
         contrib = create_contribution(db, body, submitter_ip_hash=None)
-        background_tasks.add_task(enrich_contribution, contrib.id, SessionLocal)
+        background_tasks.add_task(with_retry, enrich_contribution, contrib.id, SessionLocal)
         promote_mention(db, mention_id, contrib.id)
         msg = quote("Contribution created from mention.")
         return RedirectResponse(url=f"/admin/mentioned-entities?flash={msg}&kind=ok", status_code=303)

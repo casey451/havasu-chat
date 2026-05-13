@@ -10,11 +10,14 @@ from typing import Any
 
 from PIL import Image, ImageOps
 
+from app.core.background import with_retry
 from app.db.database import SessionLocal
 from app.db.models import Entity, Photo
 from app.photos.r2_client import upload_bytes
 
 logger = logging.getLogger(__name__)
+
+_PROCESS_OK = object()
 
 MIN_EDGE = 128
 _VARIANT_SIZES = {
@@ -229,19 +232,32 @@ def _process_impl(photo_id: str, content: bytes, declared_mime: str) -> None:
         db.commit()
 
 
+def _flag_uploading_as_decode_failed(photo_id: str) -> None:
+    try:
+        with SessionLocal() as db:
+            row = db.get(Photo, photo_id)
+            if row is not None and row.status == "uploading":
+                row.status = "flagged"
+                row.processing_error = "decode_failed"
+                db.add(row)
+                db.commit()
+    except Exception:
+        logger.exception("process_uploaded_photo: failed to flag photo_id=%s", photo_id)
+
+
 def process_uploaded_photo(photo_id: str, content: bytes, declared_mime: str) -> None:
     """BackgroundTasks entry: run pipeline; flag row on handled errors."""
-    try:
+
+    def _attempt() -> object:
         _process_impl(photo_id, content, declared_mime)
+        return _PROCESS_OK
+
+    try:
+        if with_retry(_attempt) is None:
+            logger.error(
+                "process_uploaded_photo: retry exhaustion photo_id=%s", photo_id
+            )
+            _flag_uploading_as_decode_failed(photo_id)
     except Exception:
         logger.exception("process_uploaded_photo: unexpected error photo_id=%s", photo_id)
-        try:
-            with SessionLocal() as db:
-                row = db.get(Photo, photo_id)
-                if row is not None and row.status == "uploading":
-                    row.status = "flagged"
-                    row.processing_error = "decode_failed"
-                    db.add(row)
-                    db.commit()
-        except Exception:
-            logger.exception("process_uploaded_photo: failed to flag photo_id=%s", photo_id)
+        _flag_uploading_as_decode_failed(photo_id)

@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.chat import unified_router as unified
 from app.contrib.mention_scanner import scan_and_save_mentions
+from app.core.background import with_retry
 from app.core.rate_limit import limiter
 from app.core.session import get_session
 from app.db.database import SessionLocal, get_db
@@ -61,6 +62,7 @@ def post_concierge_chat(
     )
     if result.tier_used == "3" and result.chat_log_id:
         background_tasks.add_task(
+            with_retry,
             scan_and_save_mentions,
             result.chat_log_id,
             result.response,
