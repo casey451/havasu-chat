@@ -41,12 +41,12 @@ Each item has one of four outcomes recorded by operator:
 **Question to answer:** Is AZ ROC publicly searchable, with license + status + classification per row, at a tolerable rate-limit for Phase 5 Layer 3 cross-reference (~100-200 lookups across all home-property entries)?
 
 **Finding:**
-- Date verified: ___
-- Outcome: [ ] ✅ Verified [ ] ⚠️ Caveats [ ] ❌ Blocked [ ] ⏸ Deferred
-- Actual URL used: ___
-- Result shape (HTML vs XHR): ___
-- Throttling observed (yes/no, at what request count): ___
-- Notes: ___
+- Date verified: 2026-05-14 (Cursor / automated + spot HTTP)
+- Outcome: [ ] ✅ Verified [x] ⚠️ Caveats [ ] ❌ Blocked [ ] ⏸ Deferred
+- Actual URL used: `https://azroc.my.site.com/AZRoc/s/contractor-search` (HTTP 200; shell fetch ~3.5s)
+- Result shape (HTML vs XHR): **Salesforce / Experience Cloud shell** — initial HTML is a full document with CSP referencing `service.force.com`, `cdn.content.aws-prod1-useast1.aws.sfdc.cl`, Stripe, etc. Search results are expected to load via client-side / XHR (not plain static HTML rows). Treat as **Playwright-or-equivalent** for reliable automation unless reverse-engineered API calls are documented.
+- Throttling observed (yes/no, at what request count): **Not stress-tested** in this session (single HEAD-style read only). Prior brief still recommends ≤0.5 qps for any scripted access.
+- Notes: Public contractor search remains reachable 2026-05-14. `az_roc_verify.py` should assume JS-driven UI; optional HTML-only pre-check may still return the shell without row data.
 
 **Fallback if blocked:** Drop Layer 3 AZ ROC from the home-property playbook. `home-property-services` entries land with `verified=False` by default; operator manually verifies the top-30 contractors via direct AZ ROC search during field-entry. Brief §3.3 acceptance gate softens from "AZ ROC coverage on every licensed-trade entry" to "AZ ROC coverage on top-30 highest-traffic contractors."
 
@@ -68,12 +68,12 @@ Each item has one of four outcomes recorded by operator:
 **Question to answer:** Is the LHC Parks & Rec facility-list URL live + unchanged in format, and is the `parks-rec-scrapes.yml` workflow currently producing fresh data?
 
 **Finding:**
-- Date verified: ___
-- Outcome: [ ] ✅ [ ] ⚠️ [ ] ❌ [ ] ⏸
-- URL(s) tested (from workflow): ___
-- Last successful workflow run (date + duration): ___
-- Source format change since session-22 baseline (yes/no): ___
-- Notes: ___
+- Date verified: 2026-05-14
+- Outcome: [x] ✅ [ ] ⚠️ [ ] ❌ [ ] ⏸
+- URL(s) tested (from workflow): `https://www.lhcaz.gov/parks-recreation` (landing); `https://www.lhcaz.gov/parks-recreation/open-swim-schedule` (aquatic schedule — matches `lhcaz_aquatic.SCHEDULE_URL`); WebTrac base `https://register.lhcaz.gov/webtrac/web/` per `app/contrib/webtrac.py`.
+- Last successful workflow run (date + duration): GitHub Actions **run #30** scheduled **2026-05-14T12:53:44Z**, **~43s** (conclusion `success` per API).
+- Source format change since session-22 baseline (yes/no): **No** — open-swim page still Sitefinity-style day blocks + class rows; scraper docstring alignment confirmed on live HTML (e.g. MAY 14 schedule visible).
+- Notes: `parks-rec-scrapes.yml` invokes `scripts/run_scrapes.py` (webtrac + lhcaz_aquatic) then load/prune — not a single “facility PDF” URL; Layer 3 remains the registered-program + aquatic schedule pair.
 
 **Fallback if blocked:** Disable the cron + drop the Layer 3 LHC city source from on-the-water playbook. `on-the-water` entries depend on Google + OSM Layer 1+2 only; Layer 5 manual recovery covers the public-ramps the city source would have caught. Brief §3.2 supplemental-layers section updated to reflect the drop.
 
@@ -96,12 +96,12 @@ Each item has one of four outcomes recorded by operator:
 **Question to answer:** Does LHC publish business-license data in any machine-readable or browsable form?
 
 **Finding:**
-- Date verified: ___
-- Outcome: [ ] ✅ [ ] ⚠️ [ ] ❌ [ ] ⏸
-- URL or path found (if any): ___
-- Search vs downloadable-list vs neither: ___
-- Sample query result (if testable): ___
-- Notes: ___
+- Date verified: 2026-05-14
+- Outcome: [ ] ✅ [x] ⚠️ Caveats [ ] ❌ [ ] ⏸
+- URL or path found (if any): `https://www.lhcaz.gov/finance` loads (Budget & Finance content). Site search `https://www.lhcaz.gov/search-results?q=business+license` returned **no result rows** in fetched HTML (empty results shell).
+- Search vs downloadable-list vs neither: **Neither found** in this automated pass — no obvious public “business license lookup” or bulk CSV/PDF list from those entry points.
+- Sample query result (if testable): N/A (no working search UI discovered without deeper site navigation).
+- Notes: Treat as **documented gap** for machine cross-reference; fall back to AZ ROC + Layer 5 per briefing fallback. Operator may still locate a buried PDF or counter-only process via manual browse.
 
 **Fallback if blocked:** Document the gap. `home-property-services` falls back to AZ ROC (§1 above) for license verification; `shopping-essentials` falls back to Layer 5 (downtown walking surveys, McCulloch corridor drive-by per manual_recovery_checklist.md §3). No Phase 5 blocker.
 
@@ -123,12 +123,12 @@ Each item has one of four outcomes recorded by operator:
 **Question to answer:** Does Mohave County GIS publish commercial-business data (beyond parcel ownership) that Phase 5 can cross-reference?
 
 **Finding:**
-- Date verified: ___
-- Outcome: [ ] ✅ [ ] ⚠️ [ ] ❌ [ ] ⏸
-- Portal URL: ___
-- Commercial-business datasets found (yes/no, names): ___
-- Sample query result (if testable): ___
-- Notes: ___
+- Date verified: 2026-05-14
+- Outcome: [ ] ✅ [x] ⚠️ Caveats [ ] ❌ [ ] ⏸
+- Portal URL: Tried `https://www.mohavecounty.us/depts/gis/` → **404**; `https://www.mohave.gov/...` GIS paths → **404**; county ArcGIS portal **timed out** from automation. **No live GIS catalog confirmed** in this session.
+- Commercial-business datasets found (yes/no, names): **Unknown / not confirmed** — typical county GIS here is parcel-centric; Phase 5 should assume **no dependable commercial-business layer** until an operator manually confirms an active portal URL.
+- Sample query result (if testable): N/A
+- Notes: Defer supplemental Mohave GIS client to V1.5 unless operator pins a working open-data or REST endpoint with business names + addresses.
 
 **Fallback if blocked:** Defer to V1.5. Phase 5 proceeds without county GIS as a supplemental source. If parcel data alone becomes interesting later (e.g., for Phase 8 alerts or V1.5 geographic enrichment), revisit.
 
@@ -150,11 +150,11 @@ Each item has one of four outcomes recorded by operator:
 **Question to answer:** Is the NPI registry currently accessible + returning expected shape for LHC queries + still compatible with the existing `app/contrib/npi/` client?
 
 **Finding:**
-- Date verified: ___
-- Outcome: [ ] ✅ [ ] ⚠️ [ ] ❌ [ ] ⏸
-- Sample result count for LHC + AZ: ___
-- Existing client still matches endpoint (yes/no): ___
-- Notes: ___
+- Date verified: 2026-05-14
+- Outcome: [ ] ✅ Verified [x] ⚠️ Caveats [ ] ❌ Blocked [ ] ⏸ Deferred
+- Sample result count for LHC + AZ: API `GET https://npiregistry.cms.hhs.gov/api/?city=Lake+Havasu+City&state=AZ&version=2.1` → **`result_count`: 10** (first page); JSON includes `results[]` with `number`, `basic`, `addresses`, `taxonomies` — expected CMS NPPES shape.
+- Existing client still matches endpoint (yes/no): **No — `app/contrib/npi/` is absent in-tree** (only docs + reconciler priority string reference NPI). Endpoint shape is stable; **ship a small client module or inline HTTP in `npi_verify.py`** against this API.
+- Notes: Open, unauthenticated GET; suitable for synchronous `httpx`/`requests` with polite rate limiting. No headless browser required for registry reads.
 
 **Fallback if blocked:** Layer 4 NPI drops from health-wellness-care playbook. Health entries land with `npi_number=NULL`; operator manually adds NPI for top-20 practitioners during field-entry via direct search. Brief §3.4 acceptance gate softens.
 
@@ -176,11 +176,11 @@ Each item has one of four outcomes recorded by operator:
 **Question to answer:** Does USAPickleball list meaningful LHC pickleball venues, and is the data shape useful (court count, public/private, address)?
 
 **Finding:**
-- Date verified: ___
-- Outcome: [ ] ✅ [ ] ⚠️ [ ] ❌ [ ] ⏸
-- LHC result count: ___
-- Data shape per result: ___
-- Notes: ___
+- Date verified: 2026-05-14
+- Outcome: [ ] ✅ [x] ⚠️ Caveats [ ] ❌ [ ] ⏸
+- LHC result count: **Not counted in-product** — USA Pickleball **retired the in-house “Places 2 Play” URL** (`usapickleball.org/places-2-play/` → **404**). Current official page is `https://www.usapickleball.org/places-to-play/` which **redirects messaging to Pickleheads** (`pickleheads.com`) as the official court finder. LHC-specific row count requires Pickleheads search (not executed here).
+- Data shape per result: **Partner-site dependent** (Pickleheads) — expect modern web app / API, not the legacy USAP directory the briefing originally named.
+- Notes: Update Phase 5 playbook links to Pickleheads + treat USAPickleball as **indirect** supplemental source (same fallback: Google Places + Layer 5). Brief §6 URLs should be amended when editing playbooks.
 
 **Fallback if blocked:** Drop USAPickleball from Phase 5 Layer 4. Pickleball venues land via Google Places only (with the new `(None, None)` types or generic gym/recreation types). Layer 5 manual recovery covers public courts not on Google.
 
@@ -201,11 +201,11 @@ Each item has one of four outcomes recorded by operator:
 **Question to answer:** Does PDGA list LHC disc-golf courses, and is the data shape useful?
 
 **Finding:**
-- Date verified: ___
-- Outcome: [ ] ✅ [ ] ⚠️ [ ] ❌ [ ] ⏸
-- LHC result count: ___
-- Sample course names: ___
-- Notes: ___
+- Date verified: 2026-05-14
+- Outcome: [x] ✅ Verified [ ] ⚠️ Caveats [ ] ❌ [ ] ⏸
+- LHC result count: **≥1** confirmed — HTML for `https://www.pdga.com/course-directory/search?city=Lake+Havasu+City&state=AZ` contains **“SARA Park Disc Golf Course”** (matches priority-30 expectation). Full count not parsed (page embeds large JS dataset; at least one LHC course is listed).
+- Sample course names: **SARA Park Disc Golf Course**
+- Notes: Heavy client bundle; supplemental Layer 4 remains viable for disc-golf discovery. PDGA as API-first scrape would need network-tab reverse engineering beyond this verification.
 
 **Fallback if blocked:** Drop PDGA. Disc-golf courses land via Google Places only + Layer 5 manual recovery. Low-volume category; not a Phase 5 blocker.
 
@@ -229,12 +229,12 @@ Each item has one of four outcomes recorded by operator:
 **Question to answer:** Is the Google Places API key active, the API enabled, billing in good standing, and is a spend cap configured?
 
 **Finding:**
-- Date verified: ___
-- Outcome: [ ] ✅ [ ] ⚠️ [ ] ❌ [ ] ⏸
-- Current month spend (USD): ___
-- Spend cap set (yes/no, amount): ___
-- Dry-run test result: ___
-- Notes: ___
+- Date verified: 2026-05-14
+- Outcome: [ ] ✅ [ ] ⚠️ [ ] ❌ [x] ⏸ Deferred — operator action
+- Current month spend (USD): **_(operator: Google Cloud Console)_**
+- Spend cap set (yes/no, amount): **_(operator)_**
+- Dry-run test result: **_(operator / Railway)_**
+- Notes: Per dispatch §2 item 8 — **no Cloud Console access from this session**. Phase 5 spend controls remain **operator-owned** before first paid scrape batch.
 
 **Fallback if blocked:** Phase 5 cannot dispatch without Google Places. If billing is suspended / key revoked, operator + Cowork primary triage urgent fix BEFORE any Phase 5 lane starts. This is the only Lane B item that's a hard Phase 5 blocker.
 
@@ -269,14 +269,14 @@ Each item has one of four outcomes recorded by operator:
 **Question to answer:** Does the public Overpass endpoint handle the Phase 5 LHC query volume + tag-pair set without rate-limiting at the conservative qps=0.5 we currently enforce?
 
 **Finding:**
-- Date verified: ___
-- Outcome: [ ] ✅ [ ] ⚠️ [ ] ❌ [ ] ⏸
-- Marina query response time (sec): ___
-- Marina result count: ___
-- Pier query result count: ___
-- Beach query result count: ___
-- Throttling observed (yes/no): ___
-- Notes: ___
+- Date verified: 2026-05-14
+- Outcome: [x] ✅ Verified [ ] ⚠️ Caveats [ ] ❌ [ ] ⏸
+- Marina query response time (sec): **~0.9–1.0s** (urllib POST; bbox from briefing §9: `34.40,-114.45,34.60,-114.25`; query uses `out body;>;out skel qt` as written in briefing)
+- Marina result count: **401** JSON `elements` (includes expanded skeleton members from `>` recursion — not the same as “401 marinas”)
+- Pier query result count: **417** elements (`man_made=pier`, same bbox + out pattern)
+- Beach query result count: **437** elements (`natural=beach`, same bbox + out pattern)
+- Throttling observed (yes/no): **No** — five back-to-back marina requests (~50ms apart) all returned **200** in ~0.88–0.96s each with stable element count.
+- Notes: `app/contrib/osm_overpass_client.py` documents **`OSM_OVERPASS_LIMITER` qps=0.5** — Phase 5 loads should keep that limiter on writes. Public `overpass-api.de` tolerated this burst from one IP; still use conservative pacing for sustained Tier-1 runs. Production client uses tighter LHC bbox + `out body geom` (different element counts than this briefing probe).
 
 **Fallback if blocked:** Layer 2 OSM drops from on-the-water playbook. Marinas + piers + beaches land via Google Places only. Brief §3.2 acceptance gate stays at 25+ entries (low end of 40-90 estimate) but the high end gets harder to hit without OSM supplement.
 
@@ -299,12 +299,12 @@ Each item has one of four outcomes recorded by operator:
 **Question to answer:** Is the parks-rec-scrapes cron running green at the expected ~`15 */6 * * *` cadence since session-22's re-enable at `18a4100`?
 
 **Finding:**
-- Date verified: ___
-- Outcome: [ ] ✅ [ ] ⚠️ [ ] ❌ [ ] ⏸
-- Last 20 runs: __ green / __ red
-- Most recent failure date + cause (if any): ___
-- Schedule still matches expected: ___
-- Notes: ___
+- Date verified: 2026-05-14
+- Outcome: [ ] ✅ [x] ⚠️ Caveats [ ] ❌ [ ] ⏸
+- Last 20 runs: **12** green (`success`) / **8** red (`failure`) per GitHub REST `.../workflows/parks-rec-scrapes.yml/runs?per_page=20`. **Most recent four scheduled runs (#27–#30) are all success** (~35–43s). Failures clustered **2026-05-12 through 2026-05-13** (runs #18–#25) on earlier SHAs — investigate logs if recurrence appears.
+- Most recent failure date + cause (if any): **2026-05-13** — run **#25** `workflow_dispatch` conclusion `failure` (log inspection not performed in this session).
+- Schedule still matches expected: **Yes** — workflow file still has `cron: "15 */6 * * *"` + `workflow_dispatch: {}` as of repo HEAD.
+- Notes: Not “all green last 20” — treat as **healthy with recent recovery** after a red streak; operator should skim failing job logs once to confirm root cause (often `DATABASE_URL` secret, upstream HTML drift, or dependency).
 
 **Fallback if blocked:** If the cron is persistently red, file a small Cursor dispatch to fix the underlying script + re-enable. Phase 5 §3.2 on-the-water can dispatch without this (Layer 3 city source is supplemental, not blocking) but the §2 verification above becomes less useful.
 
@@ -314,9 +314,9 @@ Each item has one of four outcomes recorded by operator:
 
 When all 10 §1-§10 items are filled in:
 
-1. [ ] Every item has an outcome marked (✅ / ⚠️ / ❌ / ⏸)
+1. [ ] Every item has an outcome marked (✅ / ⚠️ / ❌ / ⏸) — **§8 is ⏸ operator-deferred per dispatch; remaining §1–§7,§9–§10 filled 2026-05-14**
 2. [ ] Every item has a finding date + notes (even if the note is just "no caveats")
-3. [ ] §8 specifically is ✅ (this is the only hard Phase 5 blocker)
+3. [ ] §8 specifically is ✅ (this is the only hard Phase 5 blocker) — **still OPEN: §8 remains ⏸ until operator completes Cloud Console checks**
 4. [ ] Any ❌-blocked items have their fallback documented in this file's notes section OR the brief §3 per-category playbook has been updated to reflect the drop
 5. [ ] Cowork primary or operator updates `outputs/phase5_prereq_checklist.md` §4 to mark each row with the outcome icon
 6. [ ] Commit this file + the prereq update with a body like *"docs: Phase 5 Lane B section-4 verifications complete -- N verified, M caveats, K blocked"*
