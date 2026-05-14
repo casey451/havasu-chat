@@ -99,6 +99,31 @@ class ProviderProfileVM:
     upgrade_url: str = ""
 
 
+@dataclass(frozen=True)
+class HavaCardViewModel:
+    """Flat card context for ``components/hava_card.html`` (Phase 6.1).
+
+    Populated by :func:`app.providers.queries.build_card_view_model`; the
+    template reads fields only — no inline ORM or business rules in Jinja.
+    """
+
+    entity_id: str
+    entity_type: str
+    name: str
+    profile_url: str
+    hero_photo_url: str | None
+    category_slug: str
+    category_label: str
+    district_slug: str
+    district_name: str
+    status_line_text: str
+    status_line_color: str
+    freshness_band: str
+    is_sponsored: bool
+    boat_access_badge: bool
+    heat_exposure_pill: str | None
+
+
 def build(
     provider: Provider,
     *,
@@ -200,4 +225,4 @@ def _is_sponsored_now(provider: Provider, *, now: datetime) -> bool:
     return until > now
 
 
-__all__ = ["ProviderProfileVM", "build"]
+__all__ = ["HavaCardViewModel", "ProviderProfileVM", "build"]

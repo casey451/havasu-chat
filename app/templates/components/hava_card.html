@@ -1,0 +1,30 @@
+{# Phase 6.1 — unified Hava card. Context: ``hava_card`` (:class:`HavaCardViewModel`). #}
+{% set c = hava_card %}
+{% set slug = (c.category_slug or 'local') | lower | replace('/', '-') | replace(' ', '-') %}
+<a class="hava-card hava-card--cat-{{ slug }}" href="{{ c.profile_url }}">
+  <div class="hava-card__hero hava-card__hero--{{ slug }}">
+    {% if c.hero_photo_url %}
+      <img class="hava-card__hero-img" src="{{ c.hero_photo_url }}" alt="" loading="lazy" decoding="async" />
+    {% endif %}
+    {% if c.is_sponsored %}
+      <span class="hava-card__sponsor">Sponsored</span>
+    {% endif %}
+    <span class="hava-card__freshness hava-card__freshness--{{ c.freshness_band }}" title="Listing freshness" aria-label="Freshness {{ c.freshness_band }}"></span>
+  </div>
+  <div class="hava-card__body">
+    <h3 class="hava-card__title">{{ c.name }}</h3>
+    <p class="hava-card__status hava-card__status--{{ c.status_line_color }}">{{ c.status_line_text }}</p>
+    <div class="hava-card__chips">
+      <span class="hava-card__chip hava-card__chip--muted">{{ c.category_label }}</span>
+      {% if c.district_slug %}
+        <span class="hava-card__chip">{{ c.district_name }}</span>
+      {% endif %}
+      {% if c.heat_exposure_pill %}
+        <span class="hava-card__chip hava-card__chip--accent">{{ c.heat_exposure_pill }}</span>
+      {% endif %}
+      {% if c.boat_access_badge %}
+        <span class="hava-card__chip">Boat access</span>
+      {% endif %}
+    </div>
+  </div>
+</a>

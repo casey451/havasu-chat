@@ -12,6 +12,8 @@
  * Source mockup: mockups/05-home-light-touch.html
  */
 
+@import url("components/hava_card.css");
+
 :root {
   /* surface — Ocean tide */
   --bg:        #eaf4f4;   /* mist — channel at first light */

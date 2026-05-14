@@ -1,0 +1,202 @@
+/* Phase 6.1 — unified Hava card (mobile-first; 768px desktop breakpoint per prereq §3.a) */
+
+:root {
+  --hava-card-lake: #0e6e7c;
+  --hava-card-lake-soft: rgba(14, 110, 124, 0.14);
+  --hava-card-ok: #4a7d44;
+  --hava-card-warn: #c87a18;
+  --hava-card-bad: #b23b2f;
+  --hava-card-fresh-ok: #4a7d44;
+  --hava-card-fresh-warn: #c87a18;
+  --hava-card-fresh-bad: #b23b2f;
+}
+
+.hava-card {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  position: relative;
+  text-decoration: none;
+  color: inherit;
+  background: var(--paper, #fff);
+  border-radius: var(--radius, 16px);
+  overflow: hidden;
+  box-shadow: var(--shadow-1, 0 1px 2px rgba(10, 34, 40, 0.05));
+  border: 1px solid var(--rule, rgba(10, 34, 40, 0.1));
+  -webkit-tap-highlight-color: transparent;
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.hava-card:hover {
+  box-shadow: var(--shadow-2, 0 8px 24px -12px rgba(10, 34, 40, 0.18));
+}
+
+.hava-card:active {
+  transform: scale(0.992);
+}
+
+.hava-card__hero {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background: linear-gradient(145deg, var(--bg-2, #c4dde4), var(--water-50, #d8eaeb));
+  background-size: cover;
+  background-position: center;
+}
+
+.hava-card__hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.hava-card__hero--eat-drink {
+  background: linear-gradient(145deg, #fae3d6, #eaf4f4);
+}
+
+.hava-card__hero--on-the-water {
+  background: linear-gradient(145deg, #a3d4d4, #0e6e7c);
+}
+
+.hava-card__hero--home-property,
+.hava-card__hero--local {
+  background: linear-gradient(145deg, #eaf4f4, #c4dde4);
+}
+
+.hava-card__hero--health-wellness {
+  background: linear-gradient(145deg, #eaf4f4, #d8eaeb);
+}
+
+.hava-card__hero--auto-rv-fuel {
+  background: linear-gradient(145deg, #eaeaea, #c4dde4);
+}
+
+.hava-card__hero--shopping-essentials {
+  background: linear-gradient(145deg, #fae3d6, #eaf4f4);
+}
+
+.hava-card__sponsor {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  font-family: var(--sans, system-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-2, #33545b);
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid var(--rule, rgba(10, 34, 40, 0.1));
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.hava-card__freshness {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 1px rgba(10, 34, 40, 0.12);
+}
+
+.hava-card__freshness--green {
+  background: var(--hava-card-fresh-ok);
+}
+
+.hava-card__freshness--amber {
+  background: var(--hava-card-fresh-warn);
+}
+
+.hava-card__freshness--red {
+  background: var(--hava-card-fresh-bad);
+}
+
+.hava-card__body {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hava-card__title {
+  font-family: var(--sans, system-ui, sans-serif);
+  font-size: var(--t-body, 16px);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--ink, #0a2228);
+  margin: 0;
+}
+
+.hava-card__status {
+  font-family: var(--sans, system-ui, sans-serif);
+  font-size: var(--t-meta, 13px);
+  font-weight: 500;
+  margin: 0;
+}
+
+.hava-card__status--green {
+  color: var(--hava-card-ok);
+}
+
+.hava-card__status--amber {
+  color: var(--hava-card-warn);
+}
+
+.hava-card__status--red {
+  color: var(--hava-card-bad);
+}
+
+.hava-card__status--lake-blue {
+  color: var(--hava-card-lake);
+}
+
+.hava-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.hava-card__chip {
+  font-family: var(--sans, system-ui, sans-serif);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(10, 34, 40, 0.06);
+  color: var(--ink-2, #33545b);
+  border: 1px solid var(--rule-soft, rgba(10, 34, 40, 0.05));
+}
+
+.hava-card__chip--muted {
+  background: rgba(10, 34, 40, 0.04);
+  color: var(--ink-3, #4d6c74);
+}
+
+.hava-card__chip--accent {
+  background: var(--hava-card-lake-soft);
+  color: var(--hava-card-lake);
+  border-color: rgba(14, 110, 124, 0.2);
+}
+
+@media (min-width: 768px) {
+  .hava-card {
+    grid-template-columns: minmax(160px, 38%) 1fr;
+    align-items: stretch;
+  }
+
+  .hava-card__hero {
+    aspect-ratio: auto;
+    min-height: 100%;
+  }
+
+  .hava-card__body {
+    padding: 16px 18px 18px;
+    justify-content: center;
+  }
+}

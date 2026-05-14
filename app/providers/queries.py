@@ -15,14 +15,17 @@ dual-write transition.
 
 from __future__ import annotations
 
-from datetime import datetime, time
-from typing import Optional
+from datetime import UTC, datetime, time
+from typing import TYPE_CHECKING, Optional
 from urllib.parse import quote
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
+
+if TYPE_CHECKING:
+    from app.providers.view_models import HavaCardViewModel
 
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
-from app.db.models import Entity, EntityCategory, Hours, Provider
+from app.db.models import Entity, EntityCategory, Event, Hours, Provider
 from app.home.queries import CATEGORY_LABELS, LEGACY_PROVIDER_CATEGORY_LABELS
 
 
@@ -327,6 +330,64 @@ def derive_ask_hava_url(provider: Provider) -> str:
 _WEEKDAY_KEYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 
 
+def effective_hours_structured_from_entity(entity: Entity) -> dict | None:
+    """Weekly hours dict from ENTITY ``hours`` rows (same shape as ``hours_structured``)."""
+    rows = getattr(entity, "hours", None) or []
+    if not rows:
+        return None
+    return _hours_rows_to_structured(list(rows))
+
+
+def is_open_status_from_structured_hours(
+    hours: dict | None, *, now: Optional[datetime] = None
+) -> tuple[Optional[bool], Optional[str]]:
+    """Return ``(is_open, status_copy)`` from structured weekly hours dict.
+
+    Shared by :func:`is_open_now` (Provider) and :func:`is_open_status_for_entity`.
+    """
+    if not hours or not isinstance(hours, dict):
+        return (None, None)
+    now_dt = now or now_lake_havasu()
+    if now_dt.tzinfo is None:
+        now_dt = now_dt.replace(tzinfo=LAKE_HAVASU_TZ)
+    weekday_key = _WEEKDAY_KEYS[now_dt.weekday()]
+    spans = hours.get(weekday_key)
+    if spans is None:
+        return (None, None)
+    if not spans:
+        return (False, "Closed today")
+    now_t = now_dt.time()
+    for span in spans:
+        if not isinstance(span, dict):
+            continue
+        open_t = _parse_hours_time(str(span.get("open") or ""))
+        close_t = _parse_hours_time(str(span.get("close") or ""))
+        if open_t is None or close_t is None:
+            continue
+        if open_t <= now_t < close_t:
+            close_label = _format_hour(close_t)
+            return (True, f"Open now · Closes at {close_label}")
+    upcoming = [
+        _parse_hours_time(str(s.get("open") or ""))
+        for s in spans
+        if isinstance(s, dict)
+    ]
+    upcoming = [t for t in upcoming if t is not None and t > now_t]
+    if upcoming:
+        opens_t = min(upcoming)
+        return (False, f"Closed · Opens at {_format_hour(opens_t)}")
+    return (False, "Closed now")
+
+
+def is_open_status_for_entity(
+    entity: Entity, *, now: Optional[datetime] = None
+) -> tuple[Optional[bool], Optional[str]]:
+    """Open/closed copy for an ENTITY row using weekly ``hours`` extension."""
+    return is_open_status_from_structured_hours(
+        effective_hours_structured_from_entity(entity), now=now
+    )
+
+
 def _parse_hours_time(value: str) -> Optional[time]:
     """Parse ``"08:00"`` / ``"8:00 AM"`` / ``"17:30"`` into a ``time`` object."""
     if not value:
@@ -368,40 +429,9 @@ def is_open_now(
     [{"open": "08:00", "close": "17:00"}, ...]}`` or ``None``. An empty
     list for a weekday means "closed today".
     """
-    hours = effective_hours_structured(provider)
-    if not hours or not isinstance(hours, dict):
-        return (None, None)
-    now_dt = now or now_lake_havasu()
-    if now_dt.tzinfo is None:
-        now_dt = now_dt.replace(tzinfo=LAKE_HAVASU_TZ)
-    weekday_key = _WEEKDAY_KEYS[now_dt.weekday()]
-    spans = hours.get(weekday_key)
-    if spans is None:
-        return (None, None)
-    if not spans:
-        return (False, "Closed today")
-    now_t = now_dt.time()
-    for span in spans:
-        if not isinstance(span, dict):
-            continue
-        open_t = _parse_hours_time(str(span.get("open") or ""))
-        close_t = _parse_hours_time(str(span.get("close") or ""))
-        if open_t is None or close_t is None:
-            continue
-        if open_t <= now_t < close_t:
-            close_label = _format_hour(close_t)
-            return (True, f"Open now · Closes at {close_label}")
-    # Past all spans for today — find the next opening within today's spans.
-    upcoming = [
-        _parse_hours_time(str(s.get("open") or ""))
-        for s in spans
-        if isinstance(s, dict)
-    ]
-    upcoming = [t for t in upcoming if t is not None and t > now_t]
-    if upcoming:
-        opens_t = min(upcoming)
-        return (False, f"Closed · Opens at {_format_hour(opens_t)}")
-    return (False, "Closed now")
+    return is_open_status_from_structured_hours(
+        effective_hours_structured(provider), now=now
+    )
 
 
 def _format_hour(t: time) -> str:
@@ -411,3 +441,274 @@ def _format_hour(t: time) -> str:
     if t.minute:
         return f"{h12}:{t.minute:02d} {suffix}"
     return f"{h12} {suffix}"
+
+
+def derive_freshness_band_from_updated_at(
+    updated_at: datetime, *, now: datetime
+) -> str:
+    """Phase 6 card freshness: green <30d / amber 30–90d / red >90d (``entities.updated_at``)."""
+    u = updated_at
+    if u.tzinfo is None:
+        u = u.replace(tzinfo=UTC)
+    n = now
+    if n.tzinfo is None:
+        n = n.replace(tzinfo=LAKE_HAVASU_TZ)
+    days = max(0, (n - u).days)
+    if days < 30:
+        return "green"
+    if days <= 90:
+        return "amber"
+    return "red"
+
+
+def derive_hero_photo_from_entity(entity: Entity) -> Optional[str]:
+    """Hero URL from live ENTITY ``Photo`` rows (``is_hero``), else None."""
+    for photo in getattr(entity, "photos", None) or []:
+        if photo.is_hero and photo.status == "live":
+            return (
+                photo.hero_url
+                or photo.medium_url
+                or photo.cdn_url
+                or photo.thumbnail_url
+            )
+    return None
+
+
+def _hero_photo_for_card(provider: Provider | None, entity: Entity) -> Optional[str]:
+    if provider is not None:
+        return derive_hero_photo(provider)
+    return derive_hero_photo_from_entity(entity)
+
+
+def _provider_is_sponsored_now(provider: Provider, *, now: datetime) -> bool:
+    if (provider.tier or "") != "sponsored":
+        return False
+    until = provider.sponsored_until
+    if until is None:
+        return True
+    if until.tzinfo is None and now.tzinfo is not None:
+        return until > now.replace(tzinfo=None)
+    return until > now
+
+
+def _primary_category_for_entity(entity: Entity) -> tuple[str, str]:
+    ecs = list(getattr(entity, "categories", None) or [])
+    if not ecs:
+        return ("local", "Local")
+    ecs.sort(key=lambda ec: (not ec.is_primary, ec.id))
+    cr = ecs[0].category
+    if cr is not None and getattr(cr, "slug", None):
+        return (str(cr.slug), str(cr.name or cr.slug))
+    return ("local", "Local")
+
+
+def _district_fields(entity: Entity) -> tuple[str, str]:
+    dist = getattr(entity, "district", None)
+    if dist is not None and getattr(dist, "slug", None):
+        return (str(dist.slug), str(dist.name or dist.slug))
+    return ("", "")
+
+
+def _commercial_status_line_for_card(
+    provider: Provider,
+    freshness_band: str,
+    *,
+    now: datetime,
+) -> tuple[str, str]:
+    is_open, raw = is_open_now(provider, now=now)
+    text = _commercial_card_status_line(is_open, raw)
+    color = _commercial_status_line_color(freshness_band, is_open)
+    return (text, color)
+
+
+def _commercial_card_status_line(
+    is_open: Optional[bool], raw: Optional[str]
+) -> str:
+    if raw is None or is_open is None:
+        return "Hours unknown"
+    if is_open:
+        if raw and "Closes at" in raw:
+            close_part = raw.split("Closes at", 1)[1].strip()
+            return f"Open until {close_part}"
+        return raw
+    if raw and "Opens at" in raw:
+        open_part = raw.split("Opens at", 1)[1].strip()
+        return f"Closed; opens {open_part.lower()}"
+    if raw:
+        return raw.replace("Closed ·", "Closed;").replace(" · ", "; ")
+    return "Hours unknown"
+
+
+def _commercial_status_line_color(
+    freshness_band: str, is_open: Optional[bool]
+) -> str:
+    if freshness_band == "red":
+        return "red"
+    if is_open is True:
+        return "green"
+    return "amber"
+
+
+def _seasonal_hours_present(entity: Entity) -> bool:
+    sh = entity.seasonal_hours
+    if sh is None:
+        return False
+    if isinstance(sh, dict) and not sh:
+        return False
+    if isinstance(sh, list) and not sh:
+        return False
+    return True
+
+
+def _place_status_line_for_card(
+    entity: Entity, freshness_band: str, *, now: datetime
+) -> tuple[str, str]:
+    if freshness_band == "red":
+        return ("Limited access", "red")
+    if _seasonal_hours_present(entity):
+        return ("Seasonal", "amber")
+    is_open, _ = is_open_status_for_entity(entity, now=now)
+    if is_open is True:
+        return ("Open", "green")
+    return ("Limited access", "amber")
+
+
+def _event_status_line_for_card(event: Event, *, now: datetime) -> tuple[str, str]:
+    today = now.date()
+    ev_date = event.date
+    days_ahead = (ev_date - today).days
+    days_behind = (today - ev_date).days
+
+    if ev_date == today:
+        tlabel = _format_hour(event.start_time)
+        return (f"Tonight at {tlabel.lower()}", "lake-blue")
+
+    if days_ahead > 7:
+        return (
+            f"{ev_date.strftime('%b')} {ev_date.day}, {_format_hour(event.start_time).lower()}",
+            "lake-blue",
+        )
+
+    if days_ahead > 0:
+        if ev_date.weekday() >= 5:
+            return ("This weekend", "lake-blue")
+        return (f"This {ev_date.strftime('%A')}", "lake-blue")
+
+    if days_behind > 7:
+        return ("Last week", "red")
+
+    if days_behind > 0:
+        return ("Earlier this week", "amber")
+
+    return (
+        f"{ev_date.strftime('%b')} {ev_date.day}, {_format_hour(event.start_time).lower()}",
+        "lake-blue",
+    )
+
+
+def _profile_url_for_card(
+    entity: Entity,
+    provider: Provider | None,
+    event: Event | None,
+) -> str:
+    et = entity.entity_type or ""
+    if et == "commercial" and provider and provider.slug:
+        return f"/provider/{provider.slug}"
+    if et == "event" and event is not None:
+        return f"/events/{event.id}"
+    return "/home"
+
+
+def _heat_exposure_pill(entity: Entity) -> Optional[str]:
+    hx = (entity.heat_exposure or "").strip()
+    if not hx or hx == "indoor":
+        return None
+    return {
+        "shaded": "Shaded",
+        "outdoor": "Outdoor",
+        "water_adjacent": "Water adjacent",
+    }.get(hx, hx.replace("_", " ").title())
+
+
+def build_card_view_model(
+    db: Session,
+    entity_id: str,
+    *,
+    now: Optional[datetime] = None,
+) -> HavaCardViewModel | None:
+    """Build a :class:`~app.providers.view_models.HavaCardViewModel` for any ENTITY row."""
+    from app.providers.view_models import HavaCardViewModel
+
+    now_dt = now or now_lake_havasu()
+    if now_dt.tzinfo is None:
+        now_dt = now_dt.replace(tzinfo=LAKE_HAVASU_TZ)
+
+    entity = (
+        db.query(Entity)
+        .options(
+            joinedload(Entity.location),
+            joinedload(Entity.district),
+            joinedload(Entity.categories).joinedload(EntityCategory.category),
+            selectinload(Entity.hours),
+            selectinload(Entity.photos),
+        )
+        .filter(Entity.id == entity_id)
+        .first()
+    )
+    if entity is None:
+        return None
+
+    provider = (
+        db.query(Provider).filter(Provider.entity_id == entity_id).first()
+    )
+    event = db.query(Event).filter(Event.entity_id == entity_id).first()
+
+    freshness = derive_freshness_band_from_updated_at(entity.updated_at, now=now_dt)
+    cat_slug, cat_label = _primary_category_for_entity(entity)
+    d_slug, d_name = _district_fields(entity)
+
+    et = entity.entity_type or "commercial"
+    if et == "commercial" and provider is not None:
+        status_text, status_color = _commercial_status_line_for_card(
+            provider, freshness, now=now_dt
+        )
+        is_sponsored = _provider_is_sponsored_now(provider, now=now_dt)
+    elif et == "place":
+        status_text, status_color = _place_status_line_for_card(
+            entity, freshness, now=now_dt
+        )
+        is_sponsored = False
+    elif et == "event" and event is not None:
+        status_text, status_color = _event_status_line_for_card(event, now=now_dt)
+        if freshness == "red":
+            status_color = "red"
+        is_sponsored = False
+    else:
+        is_open, _ = is_open_status_for_entity(entity, now=now_dt)
+        status_text = "Hours unknown" if is_open is None else (
+            "Open" if is_open else "Closed"
+        )
+        status_color = "red" if freshness == "red" else (
+            "green" if is_open is True else "amber"
+        )
+        is_sponsored = bool(provider and _provider_is_sponsored_now(provider, now=now_dt))
+
+    boat_badge = entity.boat_access is not None
+
+    return HavaCardViewModel(
+        entity_id=entity.id,
+        entity_type=et if et in ("commercial", "place", "event") else "commercial",
+        name=entity.name,
+        profile_url=_profile_url_for_card(entity, provider, event),
+        hero_photo_url=_hero_photo_for_card(provider, entity),
+        category_slug=cat_slug,
+        category_label=cat_label,
+        district_slug=d_slug,
+        district_name=d_name,
+        status_line_text=status_text,
+        status_line_color=status_color,
+        freshness_band=freshness,
+        is_sponsored=is_sponsored,
+        boat_access_badge=boat_badge,
+        heat_exposure_pill=_heat_exposure_pill(entity),
+    )
