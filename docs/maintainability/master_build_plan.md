@@ -241,17 +241,47 @@ Plus inputs:
 
 ---
 
-### Phase 5 — Tier 1 data gathering (4-8 weeks, parallel with Phase 6)
+### Phase 5 — Tier 1 data gathering (4-8 weeks, parallel with Phase 6) — **restructured into 5.0 + 5.1–5.6 on 2026-05-14**
 
 **Goal:** Populate Tier 1 categories (Home & Property Services + Health & Wellness + Eat & Drink + On the Water + Auto/RV/Fuel + Shopping). These are the resident-critical spine; making them dense first means the site is immediately useful for residents the moment Phase 6 UI ships.
 
-**Workflow:**
-1. **Run Layer 1 (Google Places) for each Tier 1 category** — operator-triggered single batch per category. Estimated 60-200 entities per category from Google.
-2. **Run Layer 2 (OSM) where complementary** — primarily for On the Water (marinas + ramps + beaches), parks-adjacent commercial.
-3. **Run Layer 3 (city open data) where applicable** — Home & Property gets AZ ROC license cross-referencing.
-4. **Run Layer 4 (specialized APIs)** — Health gets NPI cross-reference (already integrated). Eat & Drink gets nothing meaningful (Tripadvisor not in scope).
-5. **Manual recovery for Layer 5 gaps** — small mom-and-pop businesses, hobbyist venues, ephemeral locations. Per `manual_recovery_checklist.md` workflow. Estimated 20-40 manual-recovery items for Tier 1 categories.
-6. **Operator-curated field entry** — heat_exposure, crowd_notes, boat_access details for restaurants and marinas, seasonal_hours where they differ. Each entity gets ~5-15 minutes of operator review.
+**Structure (2026-05-14 restructure):** Phase 5 decomposes into a shared lead-up sub-phase (5.0) plus six per-category sub-phases (5.1–5.6). Unlike Phase 4's dependency chain, **5.1–5.6 are independent parallel-capable tracks** — the recommended sequence is for operator learning-curve + field-entry batching, not a hard ordering. Each sub-phase gets its own SHIPPED ledger line. **Partial close-out is explicit:** if the 8-week ceiling hits, ship the sub-phases that pass their acceptance gate and defer the rest to V1.5; Phase 6 renders empty-state copy for deferred categories. Per-category playbooks live in `outputs/cursor_brief_phase_5_tier_1_data.md` §3.1–§3.6; operator decisions are locked in that brief's §2 + `outputs/phase5_prereq_checklist.md` §3.5.
+
+#### Phase 5.0 — Lead-up & shared tooling (~1-2 weeks) — gates 5.1–5.6
+
+The only Phase-4-style sub-phase: it has a clean engineering "done."
+
+- **§3 decision-locks** — 11 operator decisions sealed. **SHIPPED `acf5e2b`** (brief §2 + prereq §3.5).
+- **Google types-mapping expansion** — ~54 Tier 1 `types[]` entries + beauty skip + RV-park boundary. **SHIPPED `62ab3b7`.**
+- **Lead-up content** — `boat_access_rubric.md`, `manual_recovery_checklist.md` back-fill, `heat_exposure_priority_30_list.md` scaffold, Lane B verification briefing. **SHIPPED `b755b03` + `54ca07d` + `4ba29e4`.**
+- **Lane B verifications + 3 tooling-touchup scripts** — `scripts/az_roc_verify.py` + `scripts/npi_verify.py` + `scripts/osm_overpass_load.py`, authored against verified endpoint shapes. Dispatch artifact `outputs/cursor_dispatch_prompt_phase5_leadup_tooling.md` **SHIPPED `23a6a1c`**; awaiting Cursor execution.
+- **Operator-only actions** — Google Places billing cap (Cloud Console), Phase 4 Railway redeploy to alembic `0a1b2c3d4e5f`, `heat_exposure_priority_30_list.md` operator amendment (fill 22 LHC-venue placeholders).
+
+**5.0 done when:** Lane B's 10 verifications are recorded, the 3 tooling scripts are pytest-green + ruff-clean, the Google Places billing cap is set, prod is redeployed, and the priority-30 list is operator-amended.
+
+#### Phase 5.1 — Eat & Drink (~1-2 weeks) — warm-up category
+
+Target 90-140 entries. Google Places only (no Layer 2/3/4). Pipeline: discovery → enrichment → load → ambiguous-queue triage → Layer 5 manual recovery → operator-curated field entry (`heat_exposure`, `crowd_notes`, `seasonal_hours`). **Acceptance gate:** 60+ entries loaded, all ambiguous hits reviewed, top-20 have long-form `crowd_notes`, every entry has `heat_exposure`, Phase 6 `/category/eat-drink` smoke renders 15+ per default filter.
+
+#### Phase 5.2 — On the Water (~1-2 weeks)
+
+Target 40-90 entries. Google Places + **OSM Layer 2** (`leisure=marina` + `man_made=pier` + `natural=beach`) + LHC Parks & Rec Layer 3. Heaviest operator-curated surface: `boat_access` JSON per `docs/operations/boat_access_rubric.md`. **Acceptance gate:** 25+ entries, every marina has `boat_access` populated, Google+OSM ambiguous hits reviewed, Phase 6 `/category/on-the-water` + boat-mode toggle both render ≥15.
+
+#### Phase 5.3 — Home & Property Services (~2-3 weeks)
+
+Target 120-220 entries (highest-volume category). Google Places + **AZ ROC Layer 3** license cross-reference via `scripts/az_roc_verify.py`. **Acceptance gate:** 80+ entries, AZ ROC coverage on every licensed-trade entry, `is_mobile_service` populated on every entry, Phase 6 `/category/home-property-services` renders ≥15.
+
+#### Phase 5.4 — Health, Wellness & Care (~1-2 weeks)
+
+Target 30-70 entries. Google Places + **NPI Layer 4** cross-reference via `scripts/npi_verify.py`. **Acceptance gate:** 20+ entries, NPI coverage on every practitioner-led practice, mental-health + alternative-medicine Layer 5 coverage, Phase 6 `/category/health-wellness-care` renders ≥15.
+
+#### Phase 5.5 — Auto, RV & Fuel (~1-2 weeks)
+
+Target 50-100 entries. Google Places + Layer 5. **Acceptance gate:** 30+ entries, `is_mobile_service` populated on every entry, RV-specific Layer 5 coverage, Phase 6 `/category/auto-rv-fuel` renders ≥15.
+
+#### Phase 5.6 — Shopping, Grocery & Essentials (~1-2 weeks)
+
+Target 60-120 entries. Google Places + Layer 5 + (conditional) LHC business-license Layer 3 if Lane B §3 surfaced a viable endpoint. **Acceptance gate:** 40+ entries, independent-boutique Layer 5 coverage, Phase 6 `/category/shopping-essentials` renders ≥15.
 
 **Estimated totals at end of Phase 5:**
 - Home & Property Services: 120-220 entries
@@ -262,11 +292,11 @@ Plus inputs:
 - Shopping, Grocery & Essentials: 60-120 entries
 - **Total Tier 1: 390-740 entries**
 
-**Dependencies:** Phase 4 (scrapers + admin form for operator entry). Runs in parallel with Phase 6 UI work.
+**Dependencies:** Phase 4 (layered-scrape framework + reconciler + Outbox — SHIPPED). Phase 5.1–5.6 each depend on Phase 5.0. Runs in parallel with Phase 6 UI work; Phase 6 consumes each 5.X category as it ships.
 
-**Effort estimate:** Operator workload ~60-100 hours spread over 4-8 weeks. Engineering effort minimal (admin form already shipping in Phase 4).
+**Effort estimate:** Operator workload — original master estimate 60-100h; bottom-up audit (`outputs/phase5_prereq_checklist.md` §5) re-derives 83-351h; **realistic mid-range budget: 100-150h over 6-8 weeks.** The long pole is operator-curated field entry (390-740 entries × 5-15 min each). Engineering effort minimal — the 3 tooling-touchup scripts in 5.0, plus reactive `GEO_PROXIMITY_THRESHOLD_M` tuning if a scrape surfaces >50 ambiguous hits.
 
-**Success criteria:** Each Tier 1 category has enough verified inventory that the corresponding category landing page (built in Phase 6) renders 15+ entries per default filter.
+**Success criteria:** Each of 5.1–5.6 meets its per-category acceptance gate (15+ entries per default filter on the corresponding Phase 6 category landing page). Phase 5 SHIPPED when all six pass; partial close-out (ship the passing sub-phases, defer the rest to V1.5) is acceptable at the 8-week ceiling. **Phase 7 (Tier 2 UI + chat integration) is the next major lane after Phase 5 completes** — see Phase 7 below + `outputs/phase7_handoff_note.md`.
 
 ---
 

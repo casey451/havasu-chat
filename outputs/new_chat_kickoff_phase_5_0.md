@@ -28,17 +28,18 @@ Alembic head on origin: 0a1b2c3d4e5f. Production deploy: still pre-Phase-4 (Rail
 ## Reading list (first session, in order)
 
 1. docs/STATE.md — production state + recently shipped + session lessons (gotcha #15 sandbox-bash-git staleness, gotcha #16 no embedded double-quotes in -m bodies, gotcha #18 parallel-chat file-scope lock)
-2. outputs/phase5_restructure_master_plan_patch.md — the 5.0 + 5.1–5.6 restructure; YOUR FIRST ACTION is to get this applied to master_build_plan.md (see "First action" below)
+2. outputs/phase5_restructure_master_plan_patch.md — the 5.0 + 5.1–5.6 restructure; ALREADY APPLIED to master_build_plan.md §4 on 2026-05-14 (this artifact is now the historical record of the change, not a pending task)
 3. outputs/phase5_prereq_checklist.md — 11 operator decisions (all locked, §3.5) + 10 §4 external verifications + workload audit
 4. outputs/cursor_brief_phase_5_tier_1_data.md — §2 locked decisions + §3.1–§3.6 per-category playbooks (these become Phase 5.1–5.6)
 5. outputs/cursor_dispatch_prompt_phase5_leadup_tooling.md — the Cursor dispatch for Lane B verifications + the 3 tooling-touchup scripts (SHIPPED 23a6a1c; awaiting operator to dispatch into Cursor)
 6. outputs/phase5_lane_b_verification_briefing.md — the spec the above Cursor dispatch executes
 7. outputs/heat_exposure_priority_30_list.md — scaffold; needs operator amendment (22 LHC-venue placeholders)
 8. docs/operations/boat_access_rubric.md + docs/maintainability/manual_recovery_checklist.md — Phase 5.2 + Layer-5 references
+9. outputs/phase7_handoff_note.md — Phase 7 (Tier 2 UI + chat integration) is the next major lane after Phase 5; reuses the Phase 5 playbook + tooling at smaller scale (75-175 entries across 3 Tier 2 categories)
 
 ## First action
 
-Get the Phase 5 restructure applied to docs/maintainability/master_build_plan.md §4. The exact old→new block is in outputs/phase5_restructure_master_plan_patch.md. BUT master_build_plan.md is a shared-surface doc the parallel Phase 6 agent may be touching — do NOT just edit it. Instead: check `git status` for whether master_build_plan.md is clean, and surface to the operator a choice: (a) operator applies the patch directly (~2 min), (b) the Phase 6 agent applies it since it's already in the file, or (c) you apply it in a confirmed-clean window. Whichever path — confirm the restructure lands before tracking Phase 5 progress against the new 5.0/5.1–5.6 ledger.
+The Phase 5 restructure (5.0 + 5.1–5.6) is **already applied** to docs/maintainability/master_build_plan.md §4 — landed 2026-05-14 in the new-chat post-`2f4676a` session, after the Phase 6 chat confirmed via coordination sync that it had not touched the `### Phase 5` block. The master plan ledger already reflects the 5.0/5.1–5.6 structure with per-sub-phase SHIPPED lines. No action needed on the restructure. Your first action is just: confirm state with `git log --oneline -12`, read the docs above, then surface the Phase 5.0 remaining-work punch list to the operator.
 
 ## Phase 5.0 status + what's left
 
@@ -76,7 +77,11 @@ Both are shared-surface docs — coordinate with the Phase 6 agent OR let it fol
 
 ## What to do first
 
-After confirming state with `git log --oneline -12`: (1) get the master_build_plan.md restructure applied per "First action" above; (2) surface to the operator the Phase 5.0 remaining-work punch list (the Cursor dispatch + 3 operator actions) and the parallelization map; (3) the operator drives 5.0 to done, then Phase 5.1 Eat & Drink dispatches as the first per-category sub-phase. Do NOT start Phase 5.1 work until 5.0's four items all close.
+After confirming state with `git log --oneline -12`: (1) surface to the operator the Phase 5.0 remaining-work punch list (the Cursor dispatch + 3 operator actions) and the parallelization map; (2) the operator drives 5.0 to done, then Phase 5.1 Eat & Drink dispatches as the first per-category sub-phase. Do NOT start Phase 5.1 work until 5.0's four items all close.
+
+## After Phase 5 — Phase 7 is next
+
+When Phase 5 (Tier 1 data gathering) completes, **Phase 7 (Tier 2 UI + chat integration)** is the next major lane — not a Phase 5 sub-phase, its own master-plan phase. Phase 7 carries forward both the Phase 6 unified card grammar (UI strand) and the Phase 5 operator-driven data-gathering playbook (Tier 2 data strand: ~75-175 entries across Outdoors/Parks/Trails, Lodging & VR, Pets — same workflow as Phase 5 at ~1/4 the volume). Full handoff in `outputs/phase7_handoff_note.md`. When you author the Phase 5 close-out narrative, end it with the Phase 7 pointer so the sequence isn't lost.
 ```
 
 ---
