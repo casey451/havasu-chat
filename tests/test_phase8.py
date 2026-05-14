@@ -8,6 +8,7 @@ from datetime import time as time_type
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from sqlalchemy import update
 
 from app.core.extraction import _deterministic_embedding
 from app.core.session import (
@@ -16,7 +17,7 @@ from app.core.session import (
     get_session,
 )
 from app.db.database import SessionLocal
-from app.db.models import ChatLog, Event, Program
+from app.db.models import ChatLog, Contribution, Event, LlmMentionedEntity, Program
 from app.main import app
 from app.schemas.event import EventCreate
 
@@ -33,6 +34,13 @@ class Phase8StabilizationTests(unittest.TestCase):
 
     def setUp(self) -> None:
         with SessionLocal() as db:
+            # Phase 5.5+ tables FK to chat_logs — clear dependents before bulk delete.
+            db.query(LlmMentionedEntity).delete()
+            db.execute(
+                update(Contribution)
+                .where(Contribution.llm_source_chat_log_id.is_not(None))
+                .values(llm_source_chat_log_id=None)
+            )
             db.query(ChatLog).delete()
             db.query(Event).delete()
             db.commit()
