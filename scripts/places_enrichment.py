@@ -11,7 +11,12 @@ for Phase 5 filter + load.
 Resume-safe: on restart, scans ``enrichment_enriched.jsonl`` for already-processed
 Place IDs and skips them. Append-mode writes. Network blips don't lose progress.
 
-Companion to relay/HAVA_BUSINESSES_EXECUTION_PLAN_2026-05-06.md.
+Phase 5 execution playbook: ``outputs/cursor_brief_phase_5_tier_1_data.md``
+§3 (per-category playbooks). (The earlier reference to
+``relay/HAVA_BUSINESSES_EXECUTION_PLAN_2026-05-06.md`` pointed at a doc that
+doesn't exist in the working tree — replaced 2026-05-14 per Phase 5.0 close-out
+§3 drift finding 3, mirroring the §3.4.k fix already applied to
+``places_discovery.py``.)
 
 Usage:
     python -m scripts.places_enrichment              # full enrichment
