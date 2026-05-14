@@ -2,7 +2,7 @@
 
 > Paste-into-Cursor prompt for the second Phase 6 sub-phase per master plan §4 Phase 6 + brief §3.2 — the FIRST category landing page template that the remaining 5 Tier 1 category pages will inherit, plus the Eat & Drink page as the proof. Phase 6.2 composes the Phase 6.1 unified Hava card grammar into a page-level shell (sub-hero + 3-row chip filter + sort dropdown + sponsor slot + organic stream + map view toggle stub + editorial footer). The heavy-prescriptive operating doc is `outputs/cursor_brief_phase_6_tier_1_ui.md` (read end-to-end, especially §0 + §3.2 + §2 + §4 + §5).
 >
-> **Gating dependency:** Phase 6.1 SHIPPED on origin at `<<<PATCH_PHASE_6_1_SHA_HERE>>>` (cleanup commit chain pre-6.1 closes at `0331102`). Phase 4 + Phase 5 prep on origin chain unchanged from 6.1 dispatch (`ac94b6c` + `62ab3b7` + `08bca69`). **Phase 6.2 consumes 6.1's `app/templates/components/hava_card.html` partial** as the per-card renderer inside the new category landing template; the deviation Cursor reported in 6.1 §13 (e.g., view-model placement, freshness anchor) is locked-as-shipped by the time 6.2 dispatches.
+> **Gating dependency:** Phase 6.1 SHIPPED on origin at `fd16e7a` (cleanup commit chain pre-6.1 closes at `0331102`). Phase 4 + Phase 5 prep on origin chain unchanged from 6.1 dispatch (`ac94b6c` + `62ab3b7` + `08bca69`). **Phase 6.2 consumes 6.1's `app/templates/components/hava_card.html` partial** as the per-card renderer inside the new category landing template; the deviation Cursor reported in 6.1 §13 (e.g., view-model placement, freshness anchor) is locked-as-shipped by the time 6.2 dispatches.
 >
 > **Parallel-with-Phase-5 caveat:** if a Phase 5 Cowork chat + Phase 5 Cursor session are running concurrently, the file-scope disjointness rule (gotcha #18) applies. Phase 6.2 touches `app/templates/category_landing.html` (new) + `app/api/routes/category_pages.py` (new) + `app/static/styles/category_landing.css` (new) + `app/static/js/category_filters.js` (new) + `tests/test_phase6_category_landing.py` (new) + possibly small `app/providers/queries.py` additions (chip-driven category-page query helpers). Phase 5 sessions touch `app/contrib/` + `scripts/` + `app/db/`. Zero overlap if both lanes hold scope.
 >
@@ -10,7 +10,7 @@
 >
 > **Operator decision-lock status:** the 10 prereq §3 decisions are locked at recommendation in brief §2 (read brief §2 entries 6 "Sort defaults per category" + entry 7 "District paragraph rendering" + entry 11 "Time-aware ranking" — all directly applicable to 6.2). If anything required operator confirmation during 6.1 implementation, brief §2 has been refreshed by Cowork primary review post-6.1 ship.
 >
-> **Author note:** authored at session-23-extension-3 (2026-05-13) pre-positioned during Phase 6.1 in-flight execution — saves the 2-3h re-author cycle between 6.1 close-out and 6.2 dispatch. SHA-patch slot at `<<<PATCH_PHASE_6_1_SHA_HERE>>>` — fill once 6.1 commit lands on origin.
+> **Author note:** authored at session-23-extension-3 (2026-05-13) pre-positioned during Phase 6.1 in-flight execution — saves the 2-3h re-author cycle between 6.1 close-out and 6.2 dispatch. SHA-patch slot at `fd16e7a` — fill once 6.1 commit lands on origin.
 >
 > **Clipboard pipeline** (after SHA patch; primes operator clipboard with prompt body only — skips the 22-line preamble + 34-line post-dispatch footer; verified offsets per fence positions at lines 22 + 277):
 > ```powershell
@@ -26,7 +26,7 @@ deliverable list -- first category landing template + Eat & Drink
 proof), §2 (locked decisions; entries 6 + 7 + 11 + 8 + 12 are
 6.2-relevant), §4 (what NOT to do), §5 (risk register).
 
-Phase 6.1 SHIPPED on origin at `<<<PATCH_PHASE_6_1_SHA_HERE>>>`
+Phase 6.1 SHIPPED on origin at `fd16e7a`
 (unified Hava card grammar -- the per-card renderer 6.2 composes
 into the page shell). Phase 4 SHIPPED chain unchanged
 (`ac94b6c` Phase 4.4 close-out). Phase 5 prep chain unchanged
@@ -263,7 +263,7 @@ Same constraints as Phase 6.1:
 - Report per Phase 4 §12 final report format adapted for 6.2
 
 Pre-dispatch checklist (verify before paste):
-- Phase 6.1 SHIPPED on origin (`<<<PATCH_PHASE_6_1_SHA_HERE>>>`)
+- Phase 6.1 SHIPPED on origin (`fd16e7a`)
 - Phase 4 SHIPPED chain (`ac94b6c`)
 - Phase 5 prep chain (`62ab3b7` + `08bca69`)
 - 0a1b2c3d4e5f is the current single alembic head on origin
@@ -311,4 +311,4 @@ Phase 6.3 dispatch prompt to be authored after 6.2 ships — chains off whatever
 
 ---
 
-*Authored at session-23-extension-3 (2026-05-13) pre-positioned during Phase 6.1 in-flight execution. Lives at `outputs/cursor_dispatch_prompt_phase_6_2.md`. Single SHA patch slot at `<<<PATCH_PHASE_6_1_SHA_HERE>>>` — fill when 6.1 ships.*
+*Authored at session-23-extension-3 (2026-05-13) pre-positioned during Phase 6.1 in-flight execution. Lives at `outputs/cursor_dispatch_prompt_phase_6_2.md`. Single SHA patch slot at `fd16e7a` — fill when 6.1 ships.*

@@ -1,5 +1,7 @@
 # Phase 6.1 Close-out Artifacts (pre-positioned)
 
+> **APPLIED 2026-05-14** — Phase 6.1 shipped at `fd16e7a` (1820 collected / 1818 passed + 2 skipped + 30 subtests; alembic `0a1b2c3d4e5f` unchanged; ruff clean). The §1 master-plan ship-line + §2/§3 STATE.md updates in this doc were applied to `docs/maintainability/master_build_plan.md` §4 Phase 6 + `docs/STATE.md`, and the §4 review rubric was walked against Cursor's §13 report (all gates passed; one invited deviation — place/program `profile_url` → `/home` stopgap). Placeholder slots below are left as the original template intentionally — this doc is now a historical record of the close-out plan, not a pending checklist.
+>
 > Pre-positioned during Phase 6.1 in-flight execution at session-23-extension-3 (2026-05-13). When Cursor returns with the §13 close-out report, fill the placeholder slots (`<<<SHA>>>`, `<<<PYTEST_DELTA>>>`, etc.) and paste each section into the indicated destination.
 >
 > **Why pre-position:** the operator-commit + STATE refresh + master plan ship-line authoring rhythm has been the bottleneck on prior sub-phase ships (~30-60 min per ship). Doing the templates now while Cursor runs saves that time on the back-end.
