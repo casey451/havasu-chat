@@ -44,6 +44,9 @@ from app.contrib.google_places_scraper import (  # noqa: E402
     DISCOVERY_CATEGORY_TO_DOMAINS,
     enrichment_row_to_entity_payload,
 )
+from app.contrib.google_types_mapping import (  # noqa: E402
+    map_google_types_to_slug_and_place_type,
+)
 from app.contrib.ingest_reconciler import (  # noqa: E402
     log_ambiguous_reconcile,
     reconcile_hit,
@@ -53,7 +56,7 @@ from app.db.entity_dual_write import (  # noqa: E402
     create_provider_and_entity,
     sync_provider_entity_from_legacy,
 )
-from app.db.models import Entity, Location, Provider  # noqa: E402
+from app.db.models import Category, Entity, EntityCategory, Location, Provider  # noqa: E402
 from app.db.seed_helpers import derive_provider_slug  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -144,6 +147,63 @@ def row_to_provider_kwargs(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _resolve_category_id(
+    row: dict[str, Any], category_id_by_slug: dict[str, int]
+) -> int | None:
+    """Resolve a Tier-1 ``Category.id`` for a Google Places enriched row.
+
+    Routes via ``map_google_types_to_slug_and_place_type`` (the operator-
+    maintained ``app/contrib/google_types_mapping.py`` table). Rows whose
+    ``types[]`` don't map to any Tier-1 slug stay ``None`` — that's the
+    intended Phase 5 operator-queue behavior per ``google_types_mapping``'s
+    docstring.
+
+    Without this resolution + a downstream ``EntityCategory`` row, entities
+    do not appear at ``/category/<slug>`` (route filters strictly via
+    ``EntityCategory`` join — see
+    ``app/api/routes/category_pages.py:_select_entities_for_category``).
+    """
+    types = row.get("types") or []
+    if not types and row.get("primary_type"):
+        types = [row["primary_type"]]
+    slug, _ = map_google_types_to_slug_and_place_type(list(types))
+    if slug is None:
+        return None
+    return category_id_by_slug.get(slug)
+
+
+def _ensure_entity_category(
+    session: Any, entity_id: str, category_id: int | None
+) -> bool:
+    """Idempotent EntityCategory upsert on the UPDATE branch.
+
+    The Phase 1D dual-write hook only creates an ``EntityCategory`` on
+    fresh ``Provider`` INSERT. The UPDATE branch (re-running the load
+    after the fix landed; or matching an existing ``google_place_id``)
+    needs to ensure the link exists when ``Provider.category_id`` is
+    populated. Returns ``True`` if a new row was inserted.
+    """
+    if category_id is None:
+        return False
+    existing = session.scalars(
+        select(EntityCategory).where(
+            EntityCategory.entity_id == entity_id,
+            EntityCategory.category_id == category_id,
+        )
+    ).first()
+    if existing is not None:
+        return False
+    session.add(
+        EntityCategory(
+            entity_id=entity_id,
+            category_id=category_id,
+            is_primary=True,
+            created_at=datetime.now(UTC).replace(tzinfo=None),
+        )
+    )
+    return True
+
+
 def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
     """Bulk upsert keyed on google_place_id.
 
@@ -165,13 +225,16 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
             continue
         valid_rows.append(row)
 
-    counts = {
+    counts: dict[str, int] = {
         "input": len(rows),
         "skipped_no_name": skipped_no_name,
         "inserted": 0,
         "updated": 0,
         "reconcile_skipped_ambiguous": 0,
         "reconcile_merged_geo": 0,
+        "category_id_set": 0,
+        "category_id_unmapped": 0,
+        "entity_category_inserted": 0,
     }
 
     if not valid_rows:
@@ -181,6 +244,18 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
     now = datetime.now(UTC)
 
     with SessionLocal() as session:
+        # One-shot Category lookup for the run — Tier-1 slug -> id table is
+        # tiny + immutable during a load. Used by ``_resolve_category_id``
+        # to translate Google ``types[]`` to ``Provider.category_id`` so
+        # the dual-write hook (or ``_ensure_entity_category`` on UPDATE)
+        # creates the EntityCategory link the ``/category/<slug>`` route
+        # filters by. Pre-fix, all newly-loaded Providers landed with
+        # ``category_id=None`` and never appeared at the route — surfaced
+        # by the Phase 5.2 §0 + diagnose_category_id_gap.py finding.
+        category_id_by_slug: dict[str, int] = {
+            c.slug: c.id for c in session.scalars(select(Category)).all()
+        }
+
         # Phase 1C: match upsert keys on legacy ``google_place_id`` or ENTITY
         # ``locations.google_place_id`` (backfilled Places rows).
         existing_by_pid: dict[str, Provider] = {}
@@ -203,6 +278,12 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
         for row in valid_rows:
             pid = row["place_id"]
             kwargs = row_to_provider_kwargs(row)
+            cat_id = _resolve_category_id(row, category_id_by_slug)
+            kwargs["category_id"] = cat_id
+            if cat_id is not None:
+                counts["category_id_set"] += 1
+            else:
+                counts["category_id_unmapped"] += 1
             if pid in existing_by_pid:
                 provider = existing_by_pid[pid]
                 payload = enrichment_row_to_entity_payload(row)
@@ -212,6 +293,8 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
                     setattr(provider, field, value)
                 provider.last_google_scraped_at = now
                 sync_provider_entity_from_legacy(session, provider)
+                if _ensure_entity_category(session, provider.entity_id, cat_id):
+                    counts["entity_category_inserted"] += 1
                 if rec.action == "update" and rec.merge_fields:
                     ent = session.get(Entity, provider.entity_id)
                     if ent is not None:
@@ -244,6 +327,8 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
                         setattr(prov, field, value)
                     prov.last_google_scraped_at = now
                     sync_provider_entity_from_legacy(session, prov)
+                    if _ensure_entity_category(session, rec.existing_id, cat_id):
+                        counts["entity_category_inserted"] += 1
                     if rec.merge_fields:
                         ent = session.get(Entity, rec.existing_id)
                         if ent is not None:
@@ -260,6 +345,11 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
                 provider = Provider(**kwargs, slug=slug, last_google_scraped_at=now)
                 session.add(provider)
                 create_provider_and_entity(session, provider)
+                # Dual-write hook auto-inserts EntityCategory when
+                # ``provider.category_id is not None``; count it here for
+                # the load summary.
+                if cat_id is not None:
+                    counts["entity_category_inserted"] += 1
                 counts["inserted"] += 1
 
         session.commit()
@@ -323,6 +413,9 @@ def main() -> int:
     print(f"updated (existing): {counts['updated']}")
     print(f"reconcile skipped (ambiguous): {counts['reconcile_skipped_ambiguous']}")
     print(f"reconcile merged (geo):        {counts['reconcile_merged_geo']}")
+    print(f"category_id resolved (Tier 1): {counts['category_id_set']}")
+    print(f"category_id unmapped (operator queue): {counts['category_id_unmapped']}")
+    print(f"EntityCategory rows inserted:  {counts['entity_category_inserted']}")
     return 0
 
 
