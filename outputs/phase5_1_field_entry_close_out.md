@@ -14,9 +14,10 @@
 
 ## §1 What this session did
 
-Booted post-`1bb2572`; origin advanced to **`c25eea8`** across 10 pushed commits.
-(This file was first authored at `e6bb257` and refreshed in place as the session
-continued — the AZ ROC build + sub-agent research landed after.)
+Booted post-`1bb2572`; origin advanced to **`3948add`** across 11 Phase-5-lane
+pushed commits, plus Phase 6.2 (`3948add`, Cursor) closing the 5th gate item.
+(This file was authored at `e6bb257`, refreshed at `46ca430`, and refreshed again
+post-`3948add` to mark **Phase 5.1 SHIPPED**.)
 
 | Commit | Contents |
 |---|---|
@@ -30,6 +31,8 @@ continued — the AZ ROC build + sub-agent research landed after.)
 | `e6bb257` | `chore(outputs)` — field-entry close-out + AZ ROC Playwright Cursor dispatch |
 | `fa0fddd` | `feat(az-roc)` — Playwright-backed contractor lookup + offline table parser (Cursor — task #6 Option A) |
 | `c25eea8` | `chore(outputs)` — fold sub-agent research: El Paraiso heat_exposure=shaded + boat_access booleans web-confirmed |
+| `46ca430` | `chore(outputs)` — refresh Phase 5.1 close-out (AZ ROC built, provisionals resolved, boat_access narrowed) |
+| `3948add` | `feat(phase6.2)` — `/category/<slug>` landing pages + Eat & Drink proof (Cursor — closes Phase 5.1's 5th gate item) |
 
 Four carry-forwards from the scrape-half handoff §5 were **cleared**: drift #5,
 the `filter_by_category` test, the OSM priority fix (was GATE 2 for Phase 5.2's OSM
@@ -53,7 +56,7 @@ independently verified by Cowork against a `/tmp` copy):
 `boat_access` was NOT applied — it's a field-survey worksheet, not a runnable
 artifact (rubric §4 "don't guess booleans").
 
-## §3 Phase 5.1 acceptance gate — 4 of 5 met
+## §3 Phase 5.1 acceptance gate — **5 of 5 met ✅ Phase 5.1 SHIPPED 2026-05-15**
 
 | Gate item | Status |
 |---|---|
@@ -61,22 +64,20 @@ artifact (rubric §4 "don't guess booleans").
 | All ambiguous reconciler hits reviewed | ✅ 0 ambiguous (rebuilt-empty DB) |
 | Top-20 entries have long-form `crowd_notes` | ✅ 17 applied (§3.3.h "14 eateries + 3 grocery anchors" reading) |
 | `heat_exposure` set on every entry (no NULL) | ✅ 0 NULLs confirmed |
-| Phase 6 `/category/eat-drink` renders 15+ per default filter | ⬜ **on the parallel Phase 6 agent** |
+| Phase 6 `/category/eat-drink` renders 15+ per default filter | ✅ Phase 6.2 (`3948add`, Cursor) ships `/category/<slug>` — 255 active entries render via `Entity.is_active=True` + `Provider.is_active=True + draft=False` filter |
 
-The 5th is the only thing between Phase 5.1 and a closed sub-phase, and it's not
-in this lane's control.
+**Phase 5.1 is SHIPPED** — first per-category sub-phase of the Phase 5 restructure complete.
 
 ## §4 Carry-forward — open items
 
 | Item | Where / what | When |
 |---|---|---|
-| **Phase 6 render check** | gate item 5 — parallel Phase 6 agent verifies `/category/eat-drink` renders 15+ | closes Phase 5.1 |
 | **AZ ROC client (task #6)** | ✅ **DONE** — built at `fa0fddd` (Cursor, Option A Playwright). One step remains before any live `az_roc_verify.py` run: `playwright install chromium` on the running machine. | done; chromium install before Phase 5.3 |
 | **Shugrue's Cornerside Bakery judgment call** | Both PROVISIONAL heat-list rows are now resolved by web research (El Paraiso → `shaded`, applied `c25eea8`; College Street → confirmed `indoor`, default correct). The only open heat/boat judgment: is Cornerside Bakery part of the English Village `water_adjacent` cluster? Left at `indoor` default + no `boat_access` for now. | operator decision / field trip |
 | **`boat_access` survey** | `outputs/phase5_1_boat_access_candidates.md` — 12 shoreline venues. The web-research pass (`c25eea8`) confirmed `dockable`/`guest_dock` for 8 of 12; the survey is narrowed to Cornerside Bakery + Boat House Grill (no evidence) plus numeric fields + dock-ownership detail. | field trip (5.2-rhythm) |
 | **15 borderline rows** | data-quality audit §3 — convenience stores / butcher shops / etc.; keep-in-eat-drink vs recategorize. Currently left active. | operator decision |
 | **`crowd_notes` long tail** | 48/255 done. ~99 more ≥100-review eateries available for follow-on batches; the sub-100 long tail is better as the operator's own pass (review signal too thin). Not a gate item. | optional completeness |
-| **`master_build_plan.md` §4 + `STATE.md`** | Phase 5.1 SHIPPED line + STATE refresh — shared docs, out of this chat's scope. Draft when the gate fully closes; coordinate with the Phase 6 agent. | at gate closure |
+| **`master_build_plan.md` + `STATE.md` SHIPPED entries** | ✅ **DONE** — Phase 5.1 SHIPPED line inline in `master_build_plan.md` §Phase 5.1 + Recently-shipped entry prepended to `STATE.md`. Per the active Phase 6 coordination loop. | done |
 
 ## §5 Artifacts produced this session (all in `outputs/`)
 
