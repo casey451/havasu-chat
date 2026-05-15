@@ -46,6 +46,15 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     "harbor": ("on-the-water", "place"),
     "boat_dealer": ("on-the-water", "commercial"),
     "boat_rental": ("on-the-water", "commercial"),
+    # Phase 5.2 §1 Layer 1 load surfaced two more Google primary types
+    # that are unambiguously on-the-water but had been routing to the
+    # operator queue (category_id=None). Added 2026-05-15 — the load
+    # produced 0 ferry_service + 0 fishing_pier post-this-extension
+    # because the few in the bbox already loaded with category_id=None;
+    # operator runs apply_on_the_water_promote_unmapped.py to backfill,
+    # then this extension catches future loads automatically.
+    "fishing_pier": ("on-the-water", "place"),
+    "ferry_service": ("on-the-water", "commercial"),
 
     # Tier 1.3 — Home & Property Services (brief §3.3)
     "plumber": ("home-property-services", "commercial"),
