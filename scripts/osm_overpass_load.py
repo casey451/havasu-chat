@@ -25,7 +25,7 @@ import argparse
 import json
 import logging
 import sys
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -158,6 +158,27 @@ def element_to_entity_payload(
     )
 
 
+def _fill_gaps(
+    prov: Provider,
+    kwargs: Mapping[str, Any],
+    *,
+    fields: tuple[str, ...] = ("phone", "website", "address", "description"),
+) -> None:
+    """Copy OSM kwargs into ``prov`` only where the row is missing contact data.
+
+    Used on reconcile ``update`` hits: OSM is lower ``SOURCE_PRIORITY`` than
+    ``google_places`` / ``operator``, so we supplement empty fields but never
+    clobber verified/Google identity or richer existing contact info.
+    """
+    for field in fields:
+        incoming = kwargs.get(field)
+        if incoming is None or incoming == "":
+            continue
+        current = getattr(prov, field)
+        if current is None or current == "":
+            setattr(prov, field, incoming)
+
+
 def _osm_provider_kwargs(
     payload: EntityPayload,
     *,
@@ -249,8 +270,7 @@ def ingest_rows(
                     )
                     counts["reconcile_skipped_ambiguous"] += 1
                     continue
-                for field, val in kwargs.items():
-                    setattr(prov, field, val)
+                _fill_gaps(prov, kwargs)
                 sync_provider_entity_from_legacy(session, prov)
                 if rec.merge_fields:
                     ent = session.get(Entity, rec.existing_id)
