@@ -321,6 +321,8 @@ def main() -> int:
     print(f"skipped (no name):  {counts['skipped_no_name']}")
     print(f"inserted (new):     {counts['inserted']}")
     print(f"updated (existing): {counts['updated']}")
+    print(f"reconcile skipped (ambiguous): {counts['reconcile_skipped_ambiguous']}")
+    print(f"reconcile merged (geo):        {counts['reconcile_merged_geo']}")
     return 0
 
 
