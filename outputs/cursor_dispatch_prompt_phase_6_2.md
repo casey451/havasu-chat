@@ -12,9 +12,9 @@
 >
 > **Author note:** authored at session-23-extension-3 (2026-05-13) pre-positioned during Phase 6.1 in-flight execution — saves the 2-3h re-author cycle between 6.1 close-out and 6.2 dispatch. SHA-patch slot at `fd16e7a` — fill once 6.1 commit lands on origin.
 >
-> **Clipboard pipeline** (after SHA patch; primes operator clipboard with prompt body only — skips the 22-line preamble + 34-line post-dispatch footer; verified offsets per fence positions at lines 22 + 277):
+> **Clipboard pipeline** (after SHA patch + Phase 5.1 data-context insertions; primes operator clipboard with prompt body only — skips the 22-line preamble + 38-line post-dispatch footer; verified offsets per fence positions at lines 22 + 317 in the post-`46ca430` version):
 > ```powershell
-> Get-Content outputs\cursor_dispatch_prompt_phase_6_2.md | Select-Object -Skip 22 | Select-Object -SkipLast 34 | Set-Clipboard
+> Get-Content outputs\cursor_dispatch_prompt_phase_6_2.md | Select-Object -Skip 22 | Select-Object -SkipLast 38 | Set-Clipboard
 > ```
 
 ---
@@ -36,6 +36,41 @@ net-new from 6.1; verify per `python -m pytest --collect-only -q
 | tail -3`). Alembic head is **0a1b2c3d4e5f** (Phase 4.1 outbox;
 unchanged through Phase 5 prep + Phase 6.1; Phase 6 ships no
 migration).
+
+PHASE 5.1 EAT & DRINK DATA CONTEXT (forward intel from the
+Phase 5.1 chat as of 2026-05-15 -- the operational reality the
+6.2 page renders against):
+- **287 Eat & Drink entries loaded; 255 active.** 32 were
+  deactivated via `is_active=0` (towing company, two resorts, a
+  movie theater, a laundromat keyword-false-positive, etc.) per
+  `outputs/phase5_1_eat_drink_cleanup_staged.md`. 15 borderline
+  rows (convenience stores, butcher shops, a distillery)
+  deliberately left active. **CRITICAL: `/category/eat-drink`
+  must filter `Entity.is_active = True` -- the 32 deactivated
+  rows must NOT appear in the stream.** `/api/search` already
+  filters on `is_active` at `app/search/routes.py:188`, so the
+  reads-from-/api/search path inherits the filter for free; the
+  parallel-server-rendered-query deviation path MUST add the
+  filter explicitly. The brief §3.2 acceptance gate "15+ entries
+  per default filter" is comfortably met (255 active >> 15).
+- **`heat_exposure` distribution complete: 279 indoor, 5
+  water_adjacent, 2 shaded, 1 outdoor, 0 NULLs.** The
+  `heat_exposure_pill` rendering in 6.1's HavaCardViewModel
+  will mostly be empty (indoor / null both omit the pill per
+  6.1's locks); the 8 visible-pill cases (shaded + outdoor +
+  water_adjacent) are testable against real data.
+- **`crowd_notes` JSON shape locked** (forward intel; **6.2
+  does NOT render `crowd_notes`** -- the brief §3.2 scope is
+  sub-hero + chips + sort + organic-card-stream + footer, not
+  card-blurb-prose; render-consumption is 6.3+ on profile
+  pages / themed group landings). Shape: `{"short": str}` for
+  typical venues; `{"short": str, "long": str}` for top-tier
+  venues (17 of 48 populated so far). Absence of `long` key =
+  signal to render as list-blurb vs profile-section. Contract
+  docs: `outputs/phase5_1_crowd_notes_top17_staged.md` +
+  `outputs/phase5_1_crowd_notes_batch2_staged.md`. Do not add
+  a `crowd_notes_*` field to HavaCardViewModel or the card
+  template in 6.2 -- defer to 6.3+ consumption.
 
 Ship Phase 6.2 ONLY per brief §3.2 -- new
 app/templates/category_landing.html base template + new
@@ -97,7 +132,12 @@ ORDER MATTERS WITHIN PHASE 6.2:
    unknown slugs. Reads from app/search internally OR composes a
    parallel server-rendered query (deviation-invited: pick
    whichever reads cleaner -- direct DB read may be simpler than
-   round-tripping through /api/search). Page context includes:
+   round-tripping through /api/search). **If the parallel-query
+   path is chosen, the query MUST filter
+   `Entity.is_active.is_(True)` (mirrors `/api/search` at
+   `app/search/routes.py:188`); without this filter Phase 5.1's
+   32 deactivated non-eatery rows would surface at
+   `/category/eat-drink`.** Page context includes:
    category_slug, category_label, sub_trade_chips (cuisine chips
    for eat-drink; trade chips for other categories), district_chips
    (10 districts from Phase 3.2 seed), operational_chips list, 
