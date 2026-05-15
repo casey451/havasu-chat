@@ -23,6 +23,15 @@ OSM_OVERPASS_LIMITER: Final = SourceLimiter("osm_overpass", qps=0.5)
 OSM_OVERPASS_ENDPOINT: Final = "https://overpass-api.de/api/interpreter"
 LHC_BOUNDING_BOX: Final = (34.43, -114.41, 34.59, -114.30)  # (south, west, north, east)
 
+# Overpass etiquette (https://wiki.openstreetmap.org/wiki/Overpass_API#Public_Overpass_API_instances)
+# asks for a descriptive User-Agent identifying the application. Without
+# one, ``overpass-api.de`` returns ``406 Not Acceptable`` for default
+# library UAs (``python-httpx/X.Y.Z``) — surfaced by the Phase 5.2 §0
+# pre-flight smoke test.
+OSM_OVERPASS_USER_AGENT: Final = (
+    "havasu-chat/1.0 (+https://github.com/casey451/havasu-chat)"
+)
+
 
 def build_query(tag: str, value: str) -> str:
     s, w, n, e = LHC_BOUNDING_BOX
@@ -45,18 +54,40 @@ class OsmOverpassClient(BaseIngestClient):
         value = str(query.get("value", "dog_park"))
         q = build_query(tag, value)
         try:
-            with httpx.Client(timeout=90.0) as http:
+            with httpx.Client(
+                timeout=90.0,
+                headers={"User-Agent": OSM_OVERPASS_USER_AGENT},
+            ) as http:
                 response = OSM_OVERPASS_LIMITER.call_with_retry(
                     lambda: http.post(OSM_OVERPASS_ENDPOINT, data={"data": q})
                 )
         except (httpx.RequestError, httpx.TimeoutException) as exc:
-            logger.warning("osm_overpass.transport_error", extra={"error": str(exc)})
+            # Inline the diagnostic fields into the message string — Python's
+            # default logging format does not render ``extra=`` keys, so the
+            # status code / tag / body snippet need to live in the message
+            # itself to actually surface to operators running the pull script.
+            logger.warning(
+                "osm_overpass.transport_error tag=%s value=%s error=%s",
+                tag, value, exc,
+            )
             return []
         if response.status_code != 200:
+            # Surface non-2xx visibly so the pull script can distinguish
+            # "Overpass returned 200 with empty elements" (real empty bbox)
+            # from "Overpass refused/throttled" (transient — retry).
+            body_snippet = (response.text or "")[:200].replace("\n", " ")
+            logger.warning(
+                "osm_overpass.non_200 status=%s tag=%s value=%s body_snippet=%r",
+                response.status_code, tag, value, body_snippet,
+            )
             return []
         try:
             elements = response.json().get("elements", [])
-        except ValueError:
+        except ValueError as exc:
+            logger.warning(
+                "osm_overpass.json_parse_error tag=%s value=%s error=%s",
+                tag, value, exc,
+            )
             return []
         out: list[RawHit] = []
         for el in elements:

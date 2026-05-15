@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -42,6 +43,15 @@ from app.bootstrap_env import ensure_dotenv_loaded
 ensure_dotenv_loaded()
 
 from app.contrib.osm_overpass_client import OsmOverpassClient  # noqa: E402
+
+# Surface OsmOverpassClient's transport / non-2xx / JSON-parse warnings,
+# which the client logs at WARNING level. Without this configuration the
+# pull silently reports "Discovered 0" when Overpass throttles or refuses,
+# making transient failures indistinguishable from genuine empty bboxes.
+logging.basicConfig(
+    level=logging.WARNING,
+    format="%(levelname)s %(name)s %(message)s",
+)
 
 # Mirror scripts.osm_overpass_load.DEFAULT_INPUT_PATH so a bare
 # ``pull`` followed by a bare ``load`` chains end-to-end without flags.
@@ -75,6 +85,20 @@ def main() -> int:
 
     for hit in hits[:5]:
         print(f"  {hit.name} @ ({hit.lat}, {hit.lng})")
+
+    if not hits:
+        # The client logs WARNING on transport / non-2xx / JSON-parse failure.
+        # If you see one of those above this line, the empty result is a
+        # transient Overpass failure — retry in 30s. If no WARNING preceded
+        # this line, the bbox truly contained zero named elements for the
+        # tag (see outputs/phase5_2_osm_yield_recalibration.md §1 for a
+        # current named-vs-unnamed inventory of the LHC bbox).
+        print(
+            "[osm_overpass_pull] 0 elements: if a WARNING was logged above, "
+            "Overpass throttled/refused — retry in 30s. Otherwise the bbox "
+            "is genuinely empty for this tag (see "
+            "outputs/phase5_2_osm_yield_recalibration.md §1)."
+        )
 
     if args.dry_run:
         print("[osm_overpass_pull] dry-run: no JSONL written")
