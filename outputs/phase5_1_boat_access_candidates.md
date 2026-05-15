@@ -48,52 +48,62 @@ shoreline → leave `NULL`.
 
 ## §2 The 12 shoreline eat-drink candidates
 
-`dockable` values below marked **(web-confirmed)** are well-sourced; **(cluster
-inference)** means the venue shares a waterfront frontage with a web-confirmed
-neighbor but wasn't individually confirmed — verify on the sweep. Everything else
-is a field measurement — left blank deliberately.
+**Updated 2026-05-15** with a deeper web-research pass (Cowork sub-agent). The
+`dockable` and `guest_dock` booleans below are now web-confirmed where evidence
+exists; `unknown` means no evidence was found — the operator confirms those
+on-site. The numeric fields (`guest_dock_slips`, `guest_dock_time_limit_min`,
+`ramp_walkable_m`, `fuel`) always need the field survey — that's the "still to
+survey" column.
 
 ### Cluster A — English Village (Bridgewater Channel, 1420/1425 McCulloch Blvd N)
 
-Web research confirms Shugrue's, Barley Brothers, and Javelina Cantina are a
-restaurant group and "popular dock-and-dine destinations" on the channel. The
-other three share the same English Village channel frontage.
+Shugrue's, Barley Brothers, and Javelina Cantina are a restaurant group of
+"dock-and-dine destinations" on the channel; the others share the English Village
+channel frontage. HEAT Bar's own site has a "Dock Your Boat" page (onsite docks +
+slip rental).
 
-| Entity | entity_id | `dockable` proposal | Confirm on survey |
-|---|---|---|---|
-| Shugrue's Restaurant and Brewery Group | `c1c8829c-b200-49ac-8cab-f69bf7ff23bd` | `true` (web-confirmed) | `guest_dock` + slips, time limit, `ramp_walkable_m`, `fuel` |
-| Barley Brothers Brewery | `400e7926-68cf-4eb8-a94e-639b02e4c817` | `true` (web-confirmed) | same |
-| Javelina Cantina | `ba787210-66ac-45f2-b7eb-54b3a8cbff1f` | `true` (web-confirmed) | same |
-| Makai Cafe | `d7e8fb73-9c1f-4491-9881-821026e16220` | `true` (cluster inference) | all fields |
-| HEAT Bar | `f491e591-256f-4dc7-8280-42ea83d584f8` | `true` (cluster inference) | all fields |
-| Island Mall & Brewery | `16faff70-41cd-4f67-9dc4-67e1a641ed24` | confirm — only 9 reviews, may be a minor/overlapping entity | check it's a distinct operating venue first |
-| Shugrue's Cornerside Bakery | `3723c4ba-3115-401b-a31c-78c7724d5c27` | confirm — bakery, 1 review; this is the same judgment-call entity flagged in the heat_exposure staging | decide if it's a distinct dock-relevant venue |
+| Entity | entity_id | `dockable` | `guest_dock` | Still to survey |
+|---|---|---|---|---|
+| Shugrue's Restaurant and Brewery Group | `c1c8829c-b200-49ac-8cab-f69bf7ff23bd` | **yes** (golakehavasu) | **yes** (golakehavasu — dock for boat-in dining) | slips, time limit, `ramp_walkable_m`, `fuel` |
+| HEAT Bar | `f491e591-256f-4dc7-8280-42ea83d584f8` | **yes** (heathotel.com) | **yes** (heathotel.com "Dock Your Boat" + slip rental) | slips, time limit, `ramp_walkable_m`, `fuel` |
+| Barley Brothers Brewery | `400e7926-68cf-4eb8-a94e-639b02e4c817` | **yes** (Shugrue's group, channelside) | unknown — shares group/channel frontage, no separate dock named | guest_dock, slips, time limit, `ramp_walkable_m`, `fuel` |
+| Javelina Cantina | `ba787210-66ac-45f2-b7eb-54b3a8cbff1f` | **yes** (Shugrue's group, channelside) | unknown — same caveat | guest_dock, slips, time limit, `ramp_walkable_m`, `fuel` |
+| Makai Cafe | `d7e8fb73-9c1f-4491-9881-821026e16220` | **yes** (own site — "closest to the London Bridge dock") | unknown — uses the shared/public bridge dock | guest_dock, slips, time limit, `ramp_walkable_m`, `fuel` |
+| Island Mall & Brewery | `16faff70-41cd-4f67-9dc4-67e1a641ed24` | **yes** (the channelfront building itself) | unknown | guest_dock + confirm it's a distinct operating venue (only 9 reviews) |
+| Shugrue's Cornerside Bakery | `3723c4ba-3115-401b-a31c-78c7724d5c27` | unknown — no water-access evidence found | unknown | everything — and decide if it's a distinct dock-relevant venue (also open in the heat_exposure staging) |
 
 ### Cluster B — London Bridge Resort (Queens Bay, 1477 Queens Bay)
 
-Martini Bay is the resort's on-site restaurant with channel-side seating; the
-resort has a marina. Kokomo Beach Club is also on the property.
+Both are on the London Bridge Resort property on the Bridgewater Channel; the
+resort offers courtesy boat docking 6am–6pm + complimentary guest slips.
 
-| Entity | entity_id | `dockable` proposal | Confirm on survey |
-|---|---|---|---|
-| Martini Bay | `e50c0500-24eb-4a29-b2f9-4a590a92d604` | `true` (web-confirmed channel-side) | `guest_dock` + slips, time limit, `ramp_walkable_m`, `fuel` |
-| Kokomo Beach Club | `c5b4c1cc-8ebe-41a9-87f9-19977e98eba6` | `true` (cluster inference) | all fields |
+| Entity | entity_id | `dockable` | `guest_dock` | Still to survey |
+|---|---|---|---|---|
+| Martini Bay | `e50c0500-24eb-4a29-b2f9-4a590a92d604` | **yes** (resort marina, channel-side) | **yes** (courtesy docking 6am–6pm) | slips, time limit, `ramp_walkable_m`, `fuel` |
+| Kokomo Beach Club | `c5b4c1cc-8ebe-41a9-87f9-19977e98eba6` | **yes** (same resort property) | **yes** (complimentary slips + courtesy docking) | slips, time limit, `ramp_walkable_m`, `fuel` |
 
 ### Cluster C — The Nautical Beachfront Resort (1000 McCulloch Blvd, lakefront)
 
-Turtle Grille explicitly advertises boat-up access ("jump off your boat, walk up").
-Turtle Beach Bar is on the same lakefront property.
+The Nautical has courtesy docks "outside the Turtle Grille for guests of the
+resort and others in the community." Turtle Beach Bar is the lakeside sand-beach
+bar on the same property.
 
-| Entity | entity_id | `dockable` proposal | Confirm on survey |
-|---|---|---|---|
-| Turtle Grille | `458ad457-37ca-4495-b3dc-62dcbc9834b2` | `true` (web-confirmed boat-up) | `guest_dock` + slips, time limit, `ramp_walkable_m`, `fuel` |
-| Turtle Beach Bar | `9e3dedfc-aaa0-4744-9b25-b2796faf8cb1` | `true` (cluster inference) | all fields |
+| Entity | entity_id | `dockable` | `guest_dock` | Still to survey |
+|---|---|---|---|---|
+| Turtle Grille | `458ad457-37ca-4495-b3dc-62dcbc9834b2` | **yes** (boat-up access advertised) | **yes** (courtesy docks outside the Grille) | slips, time limit, `ramp_walkable_m`, `fuel` |
+| Turtle Beach Bar | `9e3dedfc-aaa0-4744-9b25-b2796faf8cb1` | **yes** (boat-up beaching + shared courtesy docks) | **yes** (shared resort courtesy docks) | slips, time limit, `ramp_walkable_m`, `fuel` |
 
 ### Cluster D — Beachcomber Blvd
 
-| Entity | entity_id | `dockable` proposal | Confirm on survey |
-|---|---|---|---|
-| Boat House Grill | `4b157e3c-87bc-4c93-a551-0ceb1fbb60b0` | `true` (listed among "restaurants on the water") | all fields |
+| Entity | entity_id | `dockable` | `guest_dock` | Still to survey |
+|---|---|---|---|---|
+| Boat House Grill | `4b157e3c-87bc-4c93-a551-0ceb1fbb60b0` | unknown — "just off the lake" / on the island, but no dock or tie-up confirmed | unknown | everything — on-site survey needed |
+
+**Survey priorities after the web pass:** the two `unknown` venues — Shugrue's
+Cornerside Bakery and Boat House Grill — need the most attention (no evidence
+either way). For the English Village `dockable: yes / guest_dock: unknown` venues
+(Barley Brothers, Javelina, Makai, Island Mall), the open question is whether each
+has its own dedicated dock or shares one group/public channel dock.
 
 ## §3 Category artifacts found — 4 non-eateries in `food_drink` (finding, not a task)
 

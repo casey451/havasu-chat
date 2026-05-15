@@ -1,12 +1,16 @@
 """Apply heat_exposure tags to the eat-drink load — Phase 5.1 field entry.
 
 Staged by Cowork primary (Phase 5 lane, 2026-05-15) from the LOCKED decision tree
-`outputs/heat_exposure_priority_30_list.md`. Applies the 7 LOCKED off-default tags,
+`outputs/heat_exposure_priority_30_list.md`. Applies the 8 LOCKED off-default tags,
 then sweeps every remaining NULL to the 'indoor' default (rubric §4 rule 1).
 
-The 2 PROVISIONAL rows + the Cornerside Bakery judgment call are NOT applied here —
-they need an on-site confirm. See PROVISIONAL block at the bottom; uncomment and
-re-run after you've confirmed them.
+The 2 PROVISIONAL rows were resolved 2026-05-15 by web research: El Paraiso ->
+`shaded` (now in LOCKED_TAGS), College Street Brewhouse -> confirmed `indoor` (no
+entry needed). The Shugrue's Cornerside Bakery judgment call remains open — see the
+comment block below LOCKED_TAGS.
+
+Idempotent — safe to re-run; if you already ran the 7-tag version, re-running now
+just adds El Paraiso and re-sweeps.
 
 Run Windows-side from the repo root:
     python outputs/apply_heat_exposure.py --dry-run   # preview, no writes
@@ -25,7 +29,8 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).resolve().parent.parent / "data" / "events.db"
 
-# 7 LOCKED off-default tags (heat_exposure_priority_30_list.md §1/§2/§3).
+# 8 LOCKED off-default tags (heat_exposure_priority_30_list.md §1/§2/§3 + the
+# El Paraiso PROVISIONAL row, resolved 2026-05-15 by web research).
 LOCKED_TAGS: dict[str, str] = {
     "dc5168c6-f5ec-4e0f-ab5a-a4cbf8ed7506": "shaded",          # Locos Bar and Cocina - Northside (§2 #13)
     "c1c8829c-b200-49ac-8cab-f69bf7ff23bd": "water_adjacent",  # Shugrue's Restaurant and Brewery Group (§3 #20)
@@ -34,12 +39,16 @@ LOCKED_TAGS: dict[str, str] = {
     "ba787210-66ac-45f2-b7eb-54b3a8cbff1f": "water_adjacent",  # Javelina Cantina (§3 #20)
     "f491e591-256f-4dc7-8280-42ea83d584f8": "water_adjacent",  # HEAT Bar (§3 #20)
     "2b4b33dc-5e97-4b00-8479-0e87b35253e3": "outdoor",         # Lake Havasu Farmers Market (§1 #9)
+    "82d0eaea-06b7-451f-b3de-b67870ce4e09": "shaded",          # El Paraiso Family Mexican — was PROVISIONAL (§2 #14); resolved 2026-05-15: web research confirms misters + sun shades + a new enclosed patio
 }
 
-# --- PROVISIONAL — confirm on-site, then move into LOCKED_TAGS above and re-run ---
-# "82d0eaea-06b7-451f-b3de-b67870ce4e09": "shaded",          # El Paraiso Mexican — confirm patio mid-day shade
-# "f36fb5b3-f2e6-4236-8668-3c7e99994084": "shaded",          # College Street Brewhouse & Pub — confirm tag (shaded vs water_adjacent)
-# "3723c4ba-3115-401b-a31c-78c7724d5c27": "water_adjacent",  # Shugrue's Cornerside Bakery — judgment call: part of English Village cluster?
+# --- PROVISIONAL rows — resolved 2026-05-15 by web research (see phase5_1_field_entry_close_out.md §7) ---
+# El Paraiso Family Mexican -> RESOLVED `shaded`, now in LOCKED_TAGS above.
+# College Street Brewhouse & Pub (f36fb5b3-f2e6-4236-8668-3c7e99994084) -> CONFIRMED `indoor`:
+#   ~900ft inland (distant view only, not water_adjacent) + full-sun patio (misters, no shade
+#   structures). The indoor default is correct — no entry needed, intentionally left out.
+# Shugrue's Cornerside Bakery (3723c4ba-3115-401b-a31c-78c7724d5c27) -> still a judgment call:
+#   no water-access evidence found; left at the indoor default pending an operator call.
 
 
 def main() -> int:
@@ -57,9 +66,10 @@ def main() -> int:
         cur.execute("SELECT name FROM entities WHERE id = ?", (entity_id,))
         if cur.fetchone() is None:
             missing.append(entity_id)
+    n_locked = len(LOCKED_TAGS)
 
     if not dry_run:
-        # 1. the 7 LOCKED off-default tags
+        # 1. the LOCKED off-default tags
         for entity_id, tag in LOCKED_TAGS.items():
             cur.execute(
                 "UPDATE entities SET heat_exposure = ?, updated_at = ? WHERE id = ?",
@@ -81,13 +91,13 @@ def main() -> int:
 
     print()
     print(f"--- heat_exposure apply ({'dry-run' if dry_run else 'committed'}) ---")
-    print(f"LOCKED tags in script: {len(LOCKED_TAGS)}")
+    print(f"LOCKED tags in script: {n_locked}")
     if missing:
         print(f"  WARNING: {len(missing)} id(s) not found in DB: {missing}")
     else:
-        print("all 7 LOCKED entity_ids matched")
+        print(f"all {n_locked} LOCKED entity_ids matched")
     print(f"heat_exposure distribution now: {dist}")
-    print("  expect (LOCKED + sweep only): water_adjacent->5, shaded->1, outdoor->1, indoor->280, NULL->0")
+    print("  expect (LOCKED + sweep): water_adjacent->5, shaded->2, outdoor->1, indoor->279, NULL->0")
     return 0
 
 
