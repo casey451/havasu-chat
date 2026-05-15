@@ -23,8 +23,12 @@
 1. **`git log --oneline -12`** — origin should top at the Phase 5.1 close-out chain. Read
    any unfamiliar commits (the parallel Phase 6 agent may have pushed).
 2. **`git status`** — clean.
-3. **`python -m alembic heads`** — single head `0a1b2c3d4e5f`. Phase 5.2 ships **no
-   migrations**.
+3. **`python -m alembic current`** — confirm the *local DB* is actually at
+   `0a1b2c3d4e5f`, not just that the migration files' head is. If it is behind, run
+   **`python -m alembic upgrade head`**. Phase 5.2 ships **no migrations**, but the local
+   `data/events.db` must be migration-current before any `places_load` run — Phase 5.1 lost
+   a session to a DB stamped behind its schema (see `outputs/phase5_1_field_entry_handoff.md`
+   §4, drift #3/#4).
 4. **`python -m pytest -q --collect-only 2>&1 | tail -3`** — record the real baseline
    (1825+ as of the Phase 5.0 tooling commit `5d429aa`; verify — Phase 6 + the §1 task-#5
    fix may have moved it).
@@ -45,12 +49,19 @@ for the reconciler (see the ⚠️ callout below).
 ### Layer 1 — Google Places
 
 ```
-python -m scripts.places_discovery --category on-the-water --dry-run   # sanity check
-python -m scripts.places_discovery --category on-the-water             # full discovery
-python -m scripts.places_enrichment --limit 200                        # enrich
-python -m scripts.places_load --dry-run                                # parse + filter only
-python -m scripts.places_load                                          # load with reconciler
+python -m scripts.places_discovery --category on-the-water --dry-run        # sanity check
+python -m scripts.places_discovery --category on-the-water                  # full discovery
+python -m scripts.places_enrichment --limit 200                             # enrich
+python -m scripts.places_load --category on-the-water --dry-run             # parse + ZIP + category filter
+python -m scripts.places_load --category on-the-water                       # load with reconciler
 ```
+
+**`--category on-the-water` is required on `places_load`** (the flag was added in Phase
+5.1, commit `7455848`). `enrichment_enriched.jsonl` is shared across all categories and
+already carries rows from prior scrapes — without the flag, `places_load` loads every
+domain. The slug resolves to the `lake_recreation` discovery domain. The enrichment file
+already holds ~280 enriched `lake_recreation` rows from a prior comprehensive scrape, so
+enrichment here will be mostly resume-skips, and the load picks those up too.
 
 `types[]` coverage is already in place — `google_types_mapping.py` carries `marina`,
 `beach`, `harbor`, `boat_dealer`, `boat_rental` for this category (verified on disk,
