@@ -77,6 +77,30 @@ Place in **new file** `tests/test_phase5_osm_overpass_pull.py` (mirrors
 - This guards the pull→load contract at the JSONL shape level without
   needing a DB.
 
+### 2.5 `test_osm_client_sends_descriptive_user_agent(monkeypatch)`
+
+**Added in the same commit as the UA + visible-logging fix** (commit
+shipped post-2ef4b3b — see the kickoff context). Place this test in
+`tests/test_phase4_osm_client.py` since it covers client behavior, not
+the pull script.
+
+- Use `httpx.MockTransport` (or monkeypatch `httpx.Client.post`) to
+  capture the outgoing request.
+- Call `OsmOverpassClient().discover({"tag": "leisure", "value": "marina"})`.
+- Assert: the captured request's `User-Agent` header equals
+  `OSM_OVERPASS_USER_AGENT` (i.e., starts with `"havasu-chat/"`), **not**
+  `python-httpx/...`. Regression guard against the 406-from-Overpass
+  failure Phase 5.2 §0 pre-flight uncovered.
+
+### 2.6 `test_osm_client_logs_warning_on_non_200(caplog)`
+
+- Use `httpx.MockTransport` to return a 406 response.
+- Call `discover(...)`.
+- Assert: returns `[]`; `caplog.records` contains one WARNING from
+  `app.contrib.osm_overpass_client` whose message contains `status=406`
+  and the tag/value pair. Regression guard against the silent-failure
+  bug.
+
 ---
 
 ## §3 Conventions
@@ -93,11 +117,13 @@ Place in **new file** `tests/test_phase5_osm_overpass_pull.py` (mirrors
 
 ## §4 Definition of done
 
-- New file `tests/test_phase5_osm_overpass_pull.py` with the 4 tests above.
-- `python -m pytest tests/test_phase5_osm_overpass_pull.py -v` passes all 4.
-- Full collect count goes from **1855 → 1859**.
+- New file `tests/test_phase5_osm_overpass_pull.py` with §2.1–§2.4 (4 tests).
+- Tests §2.5 + §2.6 appended to `tests/test_phase4_osm_client.py` (2 tests).
+- `python -m pytest tests/test_phase5_osm_overpass_pull.py tests/test_phase4_osm_client.py -v`
+  passes all new tests.
+- Full collect count goes from **1855 → 1861** (+6 tests).
 - Single commit:
-  `test(scripts): osm_overpass_pull JSONL writer — round-trip vs load`
+  `test(osm): osm_overpass_pull JSONL writer + client UA + warning surface`
   with `Co-authored-by: Cursor` trailer.
 
 ---
