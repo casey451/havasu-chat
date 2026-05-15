@@ -14,9 +14,9 @@
 
 ## §1 What this session did
 
-Booted post-`1bb2572`; origin advanced to **`ca5489a`** across 7 pushed commits,
-plus 2 uncommitted `outputs/` docs at authoring (this file + the AZ ROC dispatch —
-operator commits).
+Booted post-`1bb2572`; origin advanced to **`c25eea8`** across 10 pushed commits.
+(This file was first authored at `e6bb257` and refreshed in place as the session
+continued — the AZ ROC build + sub-agent research landed after.)
 
 | Commit | Contents |
 |---|---|
@@ -27,10 +27,13 @@ operator commits).
 | `d9f7f3a` | `chore(outputs)` — eat-drink data-quality audit + cleanup SQL |
 | `250fa6b` | `chore(outputs)` — runnable apply scripts (eat-drink cleanup + heat_exposure) |
 | `ca5489a` | `chore(outputs)` — short-form crowd_notes batch 2 (eatery ranks 18-48) |
+| `e6bb257` | `chore(outputs)` — field-entry close-out + AZ ROC Playwright Cursor dispatch |
+| `fa0fddd` | `feat(az-roc)` — Playwright-backed contractor lookup + offline table parser (Cursor — task #6 Option A) |
+| `c25eea8` | `chore(outputs)` — fold sub-agent research: El Paraiso heat_exposure=shaded + boat_access booleans web-confirmed |
 
-Three carry-forwards from the scrape-half handoff §5 were **cleared**: drift #5,
-the `filter_by_category` test, and the OSM priority fix (was GATE 2 for Phase 5.2's
-OSM load — now clear).
+Four carry-forwards from the scrape-half handoff §5 were **cleared**: drift #5,
+the `filter_by_category` test, the OSM priority fix (was GATE 2 for Phase 5.2's OSM
+load — now clear), and the AZ ROC client (task #6, built at `fa0fddd` — Option A).
 
 ## §2 DB state — `data/events.db` after the field-entry applies
 
@@ -39,9 +42,10 @@ independently verified by Cowork against a `/tmp` copy):
 
 - **287 eat-drink** providers/entities total; **255 active** — `apply_eat_drink_cleanup.py`
   set `is_active = 0` on 32 (31 non-eateries + 1 duplicate "Lady Lee's" row).
-- **`heat_exposure`: 0 NULLs** — `apply_heat_exposure.py` applied 7 LOCKED off-default
-  tags + swept the rest to `indoor`. Distribution: `indoor 280, water_adjacent 5,
-  shaded 1, outdoor 1`.
+- **`heat_exposure`: 0 NULLs** — `apply_heat_exposure.py` applied 8 LOCKED off-default
+  tags (7 original + El Paraiso, resolved from PROVISIONAL by web research) + swept
+  the rest to `indoor`. Distribution: `indoor 279, water_adjacent 5, shaded 2,
+  outdoor 1`.
 - **`crowd_notes`: 48 populated** — `apply_crowd_notes_top17.py` (17 long-form
   `{short, long}`) + `apply_crowd_notes_batch2.py` (31 short-only `{short}`).
 - DB backed up Windows-side to `data/events.db.bak-20260515` before the applies.
@@ -67,9 +71,9 @@ in this lane's control.
 | Item | Where / what | When |
 |---|---|---|
 | **Phase 6 render check** | gate item 5 — parallel Phase 6 agent verifies `/category/eat-drink` renders 15+ | closes Phase 5.1 |
-| **AZ ROC client (task #6)** | Cursor dispatch staged: `outputs/cursor_dispatch_az_roc_client_playwright.md` (Option A — Playwright). Operator decides whether to take the `playwright` dependency, then dispatches. Option D (manual stopgap) is the fallback. | before Phase 5.3 |
-| **2 PROVISIONAL heat-list confirms** | El Paraiso, College Street Brewhouse — patio-shade confirm on the field trip. `apply_heat_exposure.py` has them commented-out, ready to enable. | field trip |
-| **`boat_access` survey** | `outputs/phase5_1_boat_access_candidates.md` — 12 shoreline venues, survey worksheet for the English Village + Channel field trip | field trip (5.2-rhythm) |
+| **AZ ROC client (task #6)** | ✅ **DONE** — built at `fa0fddd` (Cursor, Option A Playwright). One step remains before any live `az_roc_verify.py` run: `playwright install chromium` on the running machine. | done; chromium install before Phase 5.3 |
+| **Shugrue's Cornerside Bakery judgment call** | Both PROVISIONAL heat-list rows are now resolved by web research (El Paraiso → `shaded`, applied `c25eea8`; College Street → confirmed `indoor`, default correct). The only open heat/boat judgment: is Cornerside Bakery part of the English Village `water_adjacent` cluster? Left at `indoor` default + no `boat_access` for now. | operator decision / field trip |
+| **`boat_access` survey** | `outputs/phase5_1_boat_access_candidates.md` — 12 shoreline venues. The web-research pass (`c25eea8`) confirmed `dockable`/`guest_dock` for 8 of 12; the survey is narrowed to Cornerside Bakery + Boat House Grill (no evidence) plus numeric fields + dock-ownership detail. | field trip (5.2-rhythm) |
 | **15 borderline rows** | data-quality audit §3 — convenience stores / butcher shops / etc.; keep-in-eat-drink vs recategorize. Currently left active. | operator decision |
 | **`crowd_notes` long tail** | 48/255 done. ~99 more ≥100-review eateries available for follow-on batches; the sub-100 long tail is better as the operator's own pass (review signal too thin). Not a gate item. | optional completeness |
 | **`master_build_plan.md` §4 + `STATE.md`** | Phase 5.1 SHIPPED line + STATE refresh — shared docs, out of this chat's scope. Draft when the gate fully closes; coordinate with the Phase 6 agent. | at gate closure |
