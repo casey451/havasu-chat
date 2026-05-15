@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 from app.admin.router import router as admin_router
 from app.api.routes.admin_contributions import router as admin_contributions_router
 from app.api.routes.admin_mentions import router as admin_mentions_router
+from app.api.routes.category_pages import router as category_pages_router
 from app.api.routes.chat import router as concierge_chat_router
 from app.api.routes.contribute import router as contribute_router
 from app.auth.routes import router as auth_router
@@ -288,6 +289,7 @@ app.include_router(contribute_router)
 app.include_router(auth_router)
 app.include_router(photos_router)
 app.include_router(search_router)
+app.include_router(category_pages_router)
 app.include_router(admin_router)
 app.include_router(admin_contributions_router)
 app.include_router(admin_mentions_router)

@@ -1,0 +1,151 @@
+/* Phase 6.2 — Tier 1 category landing shell (Eat & Drink proof).
+ * Imports home tokens + shared components (includes Hava card styles).
+ */
+@import url("home.css");
+
+.category-page .directory-search-wrap--compact {
+  padding: 0.75rem 0 0;
+  max-width: 36rem;
+}
+
+.category-subhero {
+  padding: 0 1rem 0.5rem;
+}
+
+.category-title {
+  font-family: "Fraunces", serif;
+  font-weight: 500;
+  font-size: 1.65rem;
+  line-height: 1.15;
+  margin: 0.75rem 0 0.25rem;
+  color: var(--ink);
+}
+
+.category-lede {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 0.95rem;
+  max-width: 40rem;
+}
+
+.category-sparse-banner {
+  margin: 0.75rem 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  background: var(--clay-50);
+  color: var(--clay-700);
+  font-size: 0.9rem;
+}
+
+.category-filters {
+  padding: 0.5rem 1rem 1rem;
+}
+
+.chip-row {
+  display: flex;
+  gap: 0.45rem;
+  margin-bottom: 0.55rem;
+  align-items: center;
+}
+
+.chip-row--scroll {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.chip-row--scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.chip-row .chip {
+  flex: 0 0 auto;
+}
+
+.chip.chip-active {
+  border-color: var(--water);
+  background: var(--water-50);
+  color: var(--water-700);
+}
+
+.category-sort-map-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.35rem;
+}
+
+.sort-label {
+  font-size: 0.8rem;
+  color: var(--ink-3);
+  margin: 0;
+}
+
+.category-sort {
+  font: inherit;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--ink-4);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.map-toggle-stub {
+  font: inherit;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px dashed var(--ink-4);
+  background: transparent;
+  color: var(--ink-3);
+  cursor: not-allowed;
+}
+
+.category-sponsor-slot {
+  margin: 0 1rem 0.75rem;
+}
+
+.category-sponsor-slot-inner {
+  min-height: 3.25rem;
+  border-radius: 12px;
+  border: 1px dashed var(--ink-4);
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.category-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0 1rem 2rem;
+  max-width: 720px;
+}
+
+.category-editorial-footer {
+  padding: 1rem 1rem 2.5rem;
+  border-top: 1px solid rgba(10, 34, 40, 0.08);
+}
+
+.category-editorial-footer p {
+  margin: 0;
+  max-width: 44rem;
+  color: var(--ink-2);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+@media (min-width: 768px) {
+  .chip-row--scroll {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
+  .category-sort-map-row {
+    flex-wrap: nowrap;
+  }
+
+  .category-stream {
+    margin: 0 auto;
+  }
+}

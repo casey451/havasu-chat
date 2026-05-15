@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{ category_label }} — Hava</title>
+  <meta name="description" content="{{ category_one_liner }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles/category_landing.css">
+</head>
+<body>
+
+<div class="page category-page">
+
+  <header class="topbar">
+    <a class="wordmark" href="/home">
+      <span class="mark"></span>
+      <span>Hava</span>
+    </a>
+    <div class="topbar-meta">
+      <span class="dateline">Lake Havasu City · {{ today_label }}</span>
+      <span class="sep"></span>
+      <a href="/contribute">Add to catalog</a>
+    </div>
+  </header>
+
+  <section class="category-subhero" aria-labelledby="category-heading">
+    <div class="directory-search-wrap directory-search-wrap--compact" aria-label="Search the local catalog">
+      <form class="directory-search" data-directory-search action="#" method="get" role="search">
+        <label class="directory-search-label" for="directory-search-q">Search listings</label>
+        <div class="directory-search-row">
+          <input
+            id="directory-search-q"
+            type="search"
+            name="q"
+            placeholder="Search {{ category_label | lower }}…"
+            autocomplete="off"
+            maxlength="200"
+          />
+          <button type="submit" class="directory-search-submit">Search</button>
+        </div>
+        <div class="directory-search-results" data-directory-search-results hidden></div>
+      </form>
+    </div>
+    <h1 id="category-heading" class="category-title">{{ category_label }}</h1>
+    <p class="category-lede">{{ category_one_liner }}</p>
+  </section>
+
+  {% if show_sparse_banner %}
+  <p class="category-sparse-banner" role="status">
+    More {{ category_label }} coming soon — Hava is still building this section. Check back this week!
+  </p>
+  {% endif %}
+
+  <section class="category-filters" aria-label="Filters">
+    <div class="chip-row chip-row--scroll" data-chip-row="cuisine">
+      {% for chip in cuisine_chips %}
+      <a
+        class="chip{% if active_cuisine == chip.slug %} chip-active{% endif %}"
+        href="{{ cat_href(cuisine=(none if active_cuisine == chip.slug else chip.slug)) }}"
+        data-category-chip="cuisine"
+        data-chip-slug="{{ chip.slug }}"
+      >{{ chip.label }}</a>
+      {% endfor %}
+    </div>
+    <div class="chip-row chip-row--scroll" data-chip-row="district">
+      {% for chip in district_chips %}
+      <a
+        class="chip{% if active_district == chip.slug %} chip-active{% endif %}"
+        href="{{ cat_href(district=(none if active_district == chip.slug else chip.slug)) }}"
+        data-category-chip="district"
+        data-chip-slug="{{ chip.slug }}"
+      >{{ chip.label }}</a>
+      {% endfor %}
+    </div>
+    <div class="chip-row chip-row--scroll chip-row--ops" data-chip-row="ops">
+      {% for row in operational_chips %}
+      {% set p = row.param %}
+      {% if p == 'open' %}
+      <a
+        class="chip{% if active_open_now %} chip-active{% endif %}"
+        href="{{ cat_href(open=(none if active_open_now else 'now')) }}"
+        data-category-chip="open"
+      >{{ row.label }}</a>
+      {% elif p == 'late' %}
+      <a
+        class="chip{% if active_late %} chip-active{% endif %}"
+        href="{{ cat_href(late=(none if active_late else '1')) }}"
+        data-category-chip="late"
+      >{{ row.label }}</a>
+      {% elif p == 'brunch' %}
+      <a
+        class="chip{% if active_brunch %} chip-active{% endif %}"
+        href="{{ cat_href(brunch=(none if active_brunch else '1')) }}"
+        data-category-chip="brunch"
+      >{{ row.label }}</a>
+      {% elif p == 'dock' %}
+      <a
+        class="chip{% if active_dock %} chip-active{% endif %}"
+        href="{{ cat_href(dock=(none if active_dock else '1')) }}"
+        data-category-chip="dock"
+      >{{ row.label }}</a>
+      {% endif %}
+      {% endfor %}
+    </div>
+
+    <div class="category-sort-map-row">
+      <label class="sort-label" for="category-sort">Sort</label>
+      <select id="category-sort" class="category-sort" data-category-sort aria-label="Sort results">
+        {% for val, label in sort_options %}
+        <option value="{{ cat_href(sort=val) }}"{% if sort_current == val %} selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <button type="button" class="map-toggle-stub" disabled aria-disabled="true" title="Map view ships in Phase 6.4">
+        Map view (soon)
+      </button>
+    </div>
+  </section>
+
+  <section class="category-sponsor-slot" aria-label="Sponsor placement">
+    <div class="category-sponsor-slot-inner"></div>
+  </section>
+
+  <section class="category-stream" aria-label="{{ category_label }} listings">
+    {% for vm in organic_stream %}
+      {% set hava_card = vm %}
+      {% include "components/hava_card.html" %}
+    {% endfor %}
+  </section>
+
+  <footer class="category-editorial-footer">
+    <p>{{ editorial_footer_text }}</p>
+  </footer>
+
+</div>
+
+<script src="/static/js/search.js" defer></script>
+<script src="/static/js/category_filters.js" defer></script>
+</body>
+</html>
