@@ -1,9 +1,10 @@
 """Filter and load enriched Google Places rows into the providers table.
 
 Phase 5 of the LHC business pull. Reads
-scripts/output/places_pull/enrichment_enriched.jsonl, filters by LHC ZIP
-codes per the locked list (86403/86404/86405/86406), and upserts each
-survivor into the providers table.
+scripts/output/places_pull/enrichment_enriched.jsonl, optionally narrows to
+one Tier-1 category via ``--category`` (the enrichment file may carry rows
+from several domains' scrapes), filters by LHC ZIP codes per the locked list
+(86403/86404/86405/86406), and upserts each survivor into the providers table.
 
 Upsert key: `google_place_id`. Matches existing rows by Place ID and
 UPDATEs them; inserts new rows otherwise. Stamps `last_google_scraped_at`
@@ -12,8 +13,10 @@ on every write.
 Idempotent — re-running on the same input produces the same DB state.
 
 Usage:
-    python -m scripts.places_load --dry-run   # parse + filter only, no DB writes
-    python -m scripts.places_load             # filter + load
+    python -m scripts.places_load --dry-run                      # parse + filter only, no DB writes
+    python -m scripts.places_load --category eat-drink --dry-run # preview one Tier-1 slice
+    python -m scripts.places_load --category eat-drink           # load one Tier-1 slice
+    python -m scripts.places_load                                # filter + load every domain
 
 Environment:
     Uses whatever DB the app is configured against (DATABASE_URL or local
@@ -37,7 +40,10 @@ from app.bootstrap_env import ensure_dotenv_loaded
 
 ensure_dotenv_loaded()
 
-from app.contrib.google_places_scraper import enrichment_row_to_entity_payload  # noqa: E402
+from app.contrib.google_places_scraper import (  # noqa: E402
+    DISCOVERY_CATEGORY_TO_DOMAINS,
+    enrichment_row_to_entity_payload,
+)
 from app.contrib.ingest_reconciler import (  # noqa: E402
     log_ambiguous_reconcile,
     reconcile_hit,
@@ -65,6 +71,26 @@ def load_enriched(path: Path) -> list[dict[str, Any]]:
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
+
+
+def filter_by_category(
+    rows: list[dict[str, Any]], category_slug: str
+) -> list[dict[str, Any]]:
+    """Keep only rows whose discovery domain maps to the given Tier-1 slug.
+
+    Mirrors ``places_discovery``'s ``--category`` behaviour: the slug is
+    resolved through ``DISCOVERY_CATEGORY_TO_DOMAINS`` to one or more
+    ``_first_seen_domain`` values, and rows outside those domains are dropped.
+    This keeps a per-category load scoped to its category even when
+    ``enrichment_enriched.jsonl`` carries rows from other domains' scrapes.
+    """
+    domains = DISCOVERY_CATEGORY_TO_DOMAINS.get(category_slug)
+    if domains is None:
+        known = ", ".join(sorted(DISCOVERY_CATEGORY_TO_DOMAINS))
+        raise SystemExit(
+            f"Unknown --category {category_slug!r}. Expected one of: {known}"
+        )
+    return [r for r in rows if r.get("_first_seen_domain", "") in domains]
 
 
 def filter_by_zip(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, int]]:
@@ -247,6 +273,14 @@ def main() -> int:
     )
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT_PATH)
     parser.add_argument(
+        "--category",
+        default=None,
+        metavar="SLUG",
+        help="Tier-1 taxonomy slug (e.g. eat-drink). Filters enriched rows by "
+        "their discovery domain (via DISCOVERY_CATEGORY_TO_DOMAINS) before the "
+        "ZIP filter. Omit to load every domain in the enrichment file.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Parse + filter only. No DB writes.",
@@ -255,6 +289,10 @@ def main() -> int:
 
     rows = load_enriched(args.input)
     print(f"[load] enriched rows: {len(rows)}")
+
+    if args.category:
+        rows = filter_by_category(rows, args.category)
+        print(f"[load] after --category {args.category} filter: {len(rows)} rows")
 
     kept, drops = filter_by_zip(rows)
     print(f"[load] after ZIP filter: {len(kept)} kept, {sum(drops.values())} dropped")
