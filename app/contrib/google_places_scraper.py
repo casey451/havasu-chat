@@ -122,7 +122,16 @@ def load_categories_for_discovery(
                     f"Dry-run sample missing from categories file: {sorted(missing)}"
                 )
         else:
-            cats = [c for c in cats if c["label"] in DRY_RUN_LABELS]
+            # When --category is specified, dry-run samples the first 2 labels
+            # of the category's filtered set. The legacy ``DRY_RUN_LABELS``
+            # frozenset is hand-picked for the no-``--category`` 5-category
+            # sample and rarely overlaps with a single category's labels
+            # (e.g. ``home-property-services`` has zero overlap), so applying
+            # it on top of ``--category`` produced an empty intersection and
+            # silently zeroed the dry-run. This branch makes ``--dry-run
+            # --category <slug>`` deterministically preview the first 2
+            # labels of the slug — small budget, real signal.
+            cats = cats[:2]
     return cats
 
 
