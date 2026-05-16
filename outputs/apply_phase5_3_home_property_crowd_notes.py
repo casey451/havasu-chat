@@ -21,7 +21,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -35,7 +34,7 @@ from app.bootstrap_env import ensure_dotenv_loaded  # noqa: E402
 ensure_dotenv_loaded()
 
 from app.db.database import SessionLocal  # noqa: E402
-from app.db.models import Category, Entity  # noqa: E402
+from app.db.models import Entity  # noqa: E402
 
 # entity_id 8-char prefix -> {"short": str, "long": str}
 # Sourced from outputs/phase5_3_home_property_crowd_notes_top10_staged.md
