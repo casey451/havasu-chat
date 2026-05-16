@@ -81,6 +81,7 @@ def lookup_contractor(
 
 
 def _fetch_results_table_html(search_url: str, query: str) -> str:
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as p:
@@ -100,10 +101,26 @@ def _fetch_results_table_html(search_url: str, query: str) -> str:
             page.get_by_role("button", name="Search").first.click()
             page.wait_for_load_state("networkidle")
 
-            page.locator(
-                "table.slds-table_bordered tbody tr td[data-label='License No'], "
-                "table.slds-table_bordered tbody"
-            ).first.wait_for(state="attached", timeout=90_000)
+            # Wait for the results table — short timeout because AZ ROC hides
+            # the table entirely on 0 results (rather than rendering it empty).
+            # Pre-Phase 5.3 this used 90_000ms, which produced 90s per non-match
+            # — devastating when verifying 230 home-property-services rows where
+            # most are not AZ-ROC-licensed (Phase 5.3 §3 §3.1 fix). Combined with
+            # the sub-trade allowlist filter in ``scripts/az_roc_verify.py``,
+            # legitimate licensed-trade queries should never take more than a
+            # few seconds; a 15s ceiling is generous and bounds the no-match
+            # path to ~15s instead of 90s.
+            try:
+                page.locator(
+                    "table.slds-table_bordered tbody tr td[data-label='License No'], "
+                    "table.slds-table_bordered tbody"
+                ).first.wait_for(state="attached", timeout=15_000)
+            except PlaywrightTimeoutError:
+                # AZ ROC didn't surface a results table within the window —
+                # treat as a clean 0-results match and return an empty table
+                # stub. ``_parse_results_table`` handles empty tbody cleanly.
+                return "<table><tbody></tbody></table>"
+
             tbl = page.locator("table.slds-table_bordered").first
             return str(tbl.evaluate("el => el.outerHTML"))
         finally:

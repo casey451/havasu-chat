@@ -47,6 +47,18 @@ logger = logging.getLogger(__name__)
 CATEGORY_SLUG = "home-property-services"
 MIN_INTERVAL_S = 2.0
 
+# Per kickoff §3 table — AZ ROC issues licenses only for these sub-trades.
+# Storage, moving, locksmiths, cleaners, laundry, pest control, etc. are
+# NOT licensed by AZ ROC and would just timeout the Playwright row-wait at
+# 0 results. Filter them out upfront so the verifier doesn't waste cycles.
+AZ_ROC_LICENSED_PRIMARY_TYPES: frozenset[str] = frozenset({
+    "plumber",
+    "electrician",
+    "hvac_contractor",
+    "general_contractor",
+    "roofing_contractor",
+})
+
 
 def _home_providers_query(db: Session, *, limit: int | None) -> list[Provider]:
     cid = db.scalars(select(Category.id).where(Category.slug == CATEGORY_SLUG)).first()
@@ -55,6 +67,10 @@ def _home_providers_query(db: Session, *, limit: int | None) -> list[Provider]:
         q = q.where(or_(Provider.category_id == cid, Provider.category == CATEGORY_SLUG))
     else:
         q = q.where(Provider.category == CATEGORY_SLUG)
+    # Phase 5.3 §3 sub-trade filter — only run AZ ROC lookup for primary_types
+    # that AZ ROC actually licenses (kickoff §3 table). Skips storage, cleaners,
+    # locksmiths, etc. that would otherwise just timeout at 0 results.
+    q = q.where(Provider.google_primary_category.in_(AZ_ROC_LICENSED_PRIMARY_TYPES))
     q = q.order_by(Provider.provider_name)
     if limit is not None:
         q = q.limit(limit)
