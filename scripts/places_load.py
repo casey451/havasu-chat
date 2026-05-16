@@ -279,7 +279,30 @@ _DISCOVERY_DOMAIN_FALLBACK: dict[tuple[str | None, str], str] = {
     ("car_rental", "auto"): "auto-rv-fuel",
     ("point_of_interest", "auto"): "auto-rv-fuel",
     ("store", "auto"): "auto-rv-fuel",
-    # Phase 5.6+ entries land here as their per-category audits surface gaps.
+    # retail -> shopping-essentials (catches catch-all primary types for
+    # Havasu retail businesses per Phase 5.6 §1 Layer 1 findings: 268 input
+    # rows, 21 landed at category_id=None; 10 visible as Providers with NULL
+    # category_id {``service`` ×3 (IT/electronics service shops — Havasu
+    # Technologies, Vertical IT, Whiz Kid Computer Services), ``None`` ×1
+    # (Havasu Computers)}. 6 edge cases intentionally LEFT in operator queue
+    # for per-row review: ``corporate_office`` ×1 (wholesale beverage
+    # distributor — B2B), ``manufacturer`` ×1 (B2B electronics assembly),
+    # ``garden`` ×1 (community garden — not retail), ``farm`` ×1 (Serrano's
+    # Nursery — IS retail but ``farm`` type also covers actual farms),
+    # ``health`` ×1 (hospice — wrong category), ``community_center`` ×1
+    # (Clothes Closet thrift). The other 11 operator-queue rows are inside
+    # the 181-row ambig-skip pool. ``store`` is defensive (already in
+    # google_types_mapping → shopping-essentials so this never fires unless
+    # the mapping changes); ``shopping_mall`` covers The Shops at Lake
+    # Havasu and similar.
+    (None, "retail"): "shopping-essentials",
+    ("service", "retail"): "shopping-essentials",
+    ("supplier", "retail"): "shopping-essentials",
+    ("point_of_interest", "retail"): "shopping-essentials",
+    ("establishment", "retail"): "shopping-essentials",
+    ("store", "retail"): "shopping-essentials",
+    ("shopping_mall", "retail"): "shopping-essentials",
+    # Phase 5.7+ entries land here as their per-category audits surface gaps.
 }
 
 
