@@ -41,7 +41,7 @@ from app.bootstrap_env import ensure_dotenv_loaded  # noqa: E402
 ensure_dotenv_loaded()
 
 from app.db.database import SessionLocal  # noqa: E402
-from app.db.models import Category, Entity, EntityCategory  # noqa: E402
+from app.db.models import Category, Entity  # noqa: E402
 
 # entity_id 8-char prefix -> boat_access JSON (or {} for "field-survey pending").
 # Evidence drawn from google_review_snippets cached during enrichment.
