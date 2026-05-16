@@ -210,13 +210,17 @@ def main() -> int:
                 print(f"  MISSING entity_id prefix={prefix!r}")
                 missing += 1
                 continue
-            note_str = json.dumps(note, ensure_ascii=False)
+            # Entity.crowd_notes is mapped as JSON (app/db/models.py:671);
+            # SQLAlchemy serializes dicts on write + deserializes on read.
+            # Earlier draft of this script called json.dumps(note) first,
+            # which caused double-encoding (stored as '"{...escaped...}"').
+            # Pass the dict directly so the stored value is plain JSON.
             existing = ent.crowd_notes
-            if existing == note_str:
+            if existing == note:
                 already += 1
                 print(f"  {ent.name!r}  [already correct]")
                 continue
-            ent.crowd_notes = note_str
+            ent.crowd_notes = note
             ent.updated_at = now_naive
             applied += 1
             print(f"  {ent.name!r}  [applied]")
