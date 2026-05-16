@@ -147,29 +147,140 @@ def row_to_provider_kwargs(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# Sustainability layer post-Phase-5.2 audit (commit chain ending at 452c44e).
+# The Phase 5.2 §1 Layer 1 load surfaced two recurring routing gaps that the
+# pure types-map fix at efd193a didn't close:
+#
+#   (1) Google tags many Havasu boat businesses with vehicle types
+#       (``car_dealer``, ``car_rental``, ``car_repair``, ``car_wash``)
+#       because its taxonomy doesn't distinguish boats from cars well in
+#       sparse markets. Without intervention, every future scrape would
+#       re-route ~30+ boat businesses to ``auto-rv-fuel`` and require
+#       operator audit + apply_phase5_2_on_the_water_audit.py re-run.
+#
+#   (2) ~71 lake_recreation rows had primary_type in {``service``,
+#       ``tour_agency``, ``tourist_attraction``, ``point_of_interest``,
+#       ``<none>``} which the narrow types-map left as ``category_id=None``.
+#       apply_on_the_water_promote_unmapped.py promoted them once today;
+#       future scrapes would re-create the same operator-queue pile.
+#
+# Two enhancements below close both gaps automatically on every load:
+#
+#   (A) Name override — when discovered via lake_recreation, vehicle-typed
+#       rows whose name contains a boat keyword route to on-the-water.
+#       Runs BEFORE the types-map so it can override car_dealer etc.
+#
+#   (B) Discovery-domain fallback — for known (primary_type, domain) pairs
+#       (or (None, domain) when primary_type is missing), use the domain's
+#       Tier-1 mapping when types[] doesn't resolve. Runs AFTER the
+#       types-map so it doesn't override explicit type matches.
+#
+# Both layers are deliberately conservative: only fire for lake_recreation
+# domain in Phase 5.2 scope. Phase 5.3 (home_services) and beyond extend
+# the tables as their audits surface similar gaps.
+
+_VEHICLE_TYPES_THAT_MIGHT_BE_BOATS: frozenset[str] = frozenset({
+    "car_dealer",
+    "car_rental",
+    "car_repair",
+    "car_wash",
+})
+
+_BOAT_NAME_KEYWORDS: tuple[str, ...] = (
+    "marine",
+    "marina",
+    "boat",
+    "watersports",
+    "yacht",
+    "kayak",
+    "fishing",
+)
+
+# (primary_type, discovery_domain) -> Tier-1 slug. ``None`` matches rows
+# without a Google primary_type (10 in the Phase 5.2 load).
+_DISCOVERY_DOMAIN_FALLBACK: dict[tuple[str | None, str], str] = {
+    # lake_recreation -> on-the-water (catches the catch-all primary types
+    # for Havasu boat businesses per Phase 5.2 §1 Layer 1 + audit findings).
+    (None, "lake_recreation"): "on-the-water",
+    ("service", "lake_recreation"): "on-the-water",
+    ("tour_agency", "lake_recreation"): "on-the-water",
+    ("tourist_attraction", "lake_recreation"): "on-the-water",
+    ("tourist_information_center", "lake_recreation"): "on-the-water",
+    ("point_of_interest", "lake_recreation"): "on-the-water",
+    ("supplier", "lake_recreation"): "on-the-water",
+    ("sporting_goods_store", "lake_recreation"): "on-the-water",
+    ("adventure_sports_center", "lake_recreation"): "on-the-water",
+    # Phase 5.3+ entries land here as their per-category audits surface gaps.
+}
+
+
+def _name_signals_boat(name: str) -> bool:
+    """Lowercased substring check against ``_BOAT_NAME_KEYWORDS``."""
+    n = name.lower()
+    return any(kw in n for kw in _BOAT_NAME_KEYWORDS)
+
+
 def _resolve_category_id(
     row: dict[str, Any], category_id_by_slug: dict[str, int]
 ) -> int | None:
     """Resolve a Tier-1 ``Category.id`` for a Google Places enriched row.
 
-    Routes via ``map_google_types_to_slug_and_place_type`` (the operator-
-    maintained ``app/contrib/google_types_mapping.py`` table). Rows whose
-    ``types[]`` don't map to any Tier-1 slug stay ``None`` — that's the
-    intended Phase 5 operator-queue behavior per ``google_types_mapping``'s
-    docstring.
+    Three-layer resolution (in priority order):
+
+      1. **Name override** — when discovered via ``lake_recreation`` and
+         primary_type is vehicle-like (``car_dealer`` etc.) but the name
+         contains a boat keyword, route to on-the-water. Catches Havasu
+         boat dealers Google tags as ``car_dealer``.
+
+      2. **Types-map** (the existing layer) — ``map_google_types_to_slug_
+         and_place_type`` consults the operator-maintained
+         ``app/contrib/google_types_mapping.py`` table.
+
+      3. **Discovery-domain fallback** — for ``(primary_type, domain)``
+         pairs registered in ``_DISCOVERY_DOMAIN_FALLBACK``, use the
+         domain's Tier-1 mapping. Catches catch-all primary_types
+         (``service``, ``tour_agency``, etc.) that Google uses for
+         specialty lake businesses.
+
+    Returns ``None`` only when none of the three layers match — that's
+    the operator-queue fallback per Phase 5 design.
 
     Without this resolution + a downstream ``EntityCategory`` row, entities
     do not appear at ``/category/<slug>`` (route filters strictly via
     ``EntityCategory`` join — see
     ``app/api/routes/category_pages.py:_select_entities_for_category``).
     """
+    domain = row.get("_first_seen_domain") or ""
+    primary_type = row.get("primary_type")
+    name = row.get("display_name") or ""
+
+    # Layer 1 — name override for vehicle-typed boat businesses.
+    if (
+        domain == "lake_recreation"
+        and primary_type in _VEHICLE_TYPES_THAT_MIGHT_BE_BOATS
+        and _name_signals_boat(name)
+    ):
+        cat_id = category_id_by_slug.get("on-the-water")
+        if cat_id is not None:
+            return cat_id
+
+    # Layer 2 — Google types[] -> Tier-1 slug (existing behavior).
     types = row.get("types") or []
-    if not types and row.get("primary_type"):
-        types = [row["primary_type"]]
+    if not types and primary_type:
+        types = [primary_type]
     slug, _ = map_google_types_to_slug_and_place_type(list(types))
-    if slug is None:
-        return None
-    return category_id_by_slug.get(slug)
+    if slug is not None:
+        return category_id_by_slug.get(slug)
+
+    # Layer 3 — discovery-domain fallback for unmapped primary types.
+    fallback_slug = _DISCOVERY_DOMAIN_FALLBACK.get((primary_type, domain))
+    if fallback_slug is None:
+        # Also accept (None, domain) for rows without any primary_type.
+        fallback_slug = _DISCOVERY_DOMAIN_FALLBACK.get((None, domain))
+    if fallback_slug is not None:
+        return category_id_by_slug.get(fallback_slug)
+
+    return None
 
 
 def _ensure_entity_category(
@@ -286,6 +397,19 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
                 counts["category_id_unmapped"] += 1
             if pid in existing_by_pid:
                 provider = existing_by_pid[pid]
+                # Preserve operator-set category_id on UPDATE so apply-
+                # script decisions (audit re-routes, promote-unmapped)
+                # survive future re-pulls. Only auto-set when the existing
+                # row has no category — this keeps the resolver effective
+                # for backfilling NULLs without clobbering curation.
+                if provider.category_id is not None:
+                    kwargs.pop("category_id", None)
+                # cat_id used downstream for _ensure_entity_category — fall
+                # back to provider's existing category for the link check
+                # when we're preserving the operator's choice.
+                effective_cat_id = (
+                    provider.category_id if provider.category_id is not None else cat_id
+                )
                 payload = enrichment_row_to_entity_payload(row)
                 rec = reconcile_hit(session, payload)
                 log_ambiguous_reconcile(rec, context=f"places_load update branch place_id={pid}")
@@ -293,7 +417,7 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
                     setattr(provider, field, value)
                 provider.last_google_scraped_at = now
                 sync_provider_entity_from_legacy(session, provider)
-                if _ensure_entity_category(session, provider.entity_id, cat_id):
+                if _ensure_entity_category(session, provider.entity_id, effective_cat_id):
                     counts["entity_category_inserted"] += 1
                 if rec.action == "update" and rec.merge_fields:
                     ent = session.get(Entity, provider.entity_id)

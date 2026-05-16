@@ -34,7 +34,7 @@ from app.bootstrap_env import ensure_dotenv_loaded  # noqa: E402
 ensure_dotenv_loaded()
 
 from app.db.database import SessionLocal  # noqa: E402
-from app.db.models import Category, Entity, EntityCategory  # noqa: E402
+from app.db.models import Category, Entity  # noqa: E402
 
 # entity_id 8-char prefix -> {"short": str, "long": str}
 CROWD_NOTES_TOP10: dict[str, dict[str, str]] = {
