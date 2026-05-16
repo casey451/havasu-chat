@@ -23,7 +23,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import httpx
-from rapidfuzz import fuzz
+from rapidfuzz import fuzz, utils
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
@@ -79,11 +79,23 @@ def _npi_candidate_names(entry: dict[str, Any]) -> list[str]:
 
 
 def _best_npi_match(provider_name: str, registry: list[dict[str, Any]]) -> tuple[dict[str, Any], int] | None:
+    # rapidfuzz 3.x changed the default: no preprocessing. Without an
+    # explicit ``processor``, ``fuzz.token_set_ratio`` is case-sensitive
+    # AND retains punctuation -- so "Acacia Family Practice" vs
+    # "ACACIA FAMILY PRACTICE, INC" scores ~25 instead of ~95. Phase 5.4
+    # §3 dispatch surfaced this with 0/20 matches on first dry-run.
+    # ``utils.default_process`` lowercases + strips non-alphanumerics +
+    # collapses whitespace -- the rapidfuzz 2.x default behavior the
+    # threshold (86) was originally tuned against.
     best_entry: dict[str, Any] | None = None
     best_score = 0
     for entry in registry:
         for cand in _npi_candidate_names(entry):
-            score = int(fuzz.token_set_ratio(provider_name, cand))
+            score = int(
+                fuzz.token_set_ratio(
+                    provider_name, cand, processor=utils.default_process
+                )
+            )
             if score > best_score:
                 best_score = score
                 best_entry = entry
