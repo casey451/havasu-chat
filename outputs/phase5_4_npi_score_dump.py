@@ -77,11 +77,12 @@ def main() -> int:
         scores: list[tuple[int, str, str]] = []
         for entry in registry:
             for cand in _npi_candidate_names(entry):
-                # Same processor=utils.default_process as scripts/npi_verify.py
-                # post-fix (rapidfuzz 3.x default is case-sensitive — see the
-                # mid-session fix in scripts/npi_verify.py).
+                # Mirror scripts/npi_verify._best_npi_match: token_sort_ratio
+                # (not token_set_ratio -- the latter has a subset-100% trap
+                # documented in the script) with processor=utils.default_process
+                # for case + punctuation normalization.
                 s = int(
-                    fuzz.token_set_ratio(
+                    fuzz.token_sort_ratio(
                         prov_name, cand, processor=utils.default_process
                     )
                 )

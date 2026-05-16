@@ -145,6 +145,77 @@ def test_npi_verify_handles_case_mismatch(monkeypatch) -> None:
         assert prov.attributes and prov.attributes.get("npi_number") == "9999999999"
 
 
+def test_npi_verify_rejects_subset_false_positive(monkeypatch) -> None:
+    """A short NPI org name ('LAKE HAVASU CITY', 3 tokens) must NOT
+    match a long provider DBA name that happens to contain those tokens
+    as a subset ('Acacia Family Practice Group of Lake Havasu City').
+
+    Regression of the token_set_ratio -> token_sort_ratio switch
+    (Phase 5.4 §3 dispatch finding #2). token_set_ratio scored this
+    false-positive pair at 100 (subset trap); token_sort_ratio scores
+    it under 86 because tokens of differing counts impose Levenshtein
+    distance even after sort+lowercase.
+    """
+    registry = [
+        # Short NPI name -- subset trap bait.
+        {
+            "number": "1710727086",  # actual LHC NPI from the diagnostic
+            "enumeration_type": "NPI-2",
+            "basic": {"organization_name": "LAKE HAVASU CITY", "status": "A"},
+            "other_names": [],
+        },
+        # The true correct match (longer, same domain).
+        {
+            "number": "1295469641",  # actual NPI from the diagnostic
+            "enumeration_type": "NPI-2",
+            "basic": {
+                "organization_name": "ACACIA FAMILY PRACTICE GROUP OF LAKE HAVASU, INC",
+                "status": "A",
+            },
+            "other_names": [],
+        },
+    ]
+    monkeypatch.setattr(npi_verify, "fetch_npi_results_for_city", lambda *a, **k: registry)
+
+    with SessionLocal() as db:
+        cat = db.query(Category).filter_by(slug="health-wellness-care").one()
+        p = Provider(
+            id="npi-subset-test-1",
+            provider_name="Acacia Family Practice Group of Lake Havasu City",
+            category="health-wellness-care",
+            category_id=cat.id,
+            source="google_places",
+            slug="npi-subset-test-1",
+            google_place_id="places/npi-subset-1",
+        )
+        db.add(p)
+        create_provider_and_entity(db, p)
+        db.commit()
+
+    with httpx.Client() as client:
+        counts = npi_verify.run_verify(dry_run=False, limit=10, client=client)
+
+    assert counts["matched"] >= 1, (
+        "Expected the correct ACACIA FAMILY PRACTICE NPI to match. "
+        "If 0 matches, token_sort_ratio is too strict (consider lowering "
+        "threshold) or the case-fix regressed."
+    )
+
+    with SessionLocal() as db:
+        prov = db.query(Provider).filter_by(id="npi-subset-test-1").one()
+        # Critical: must NOT match the LAKE HAVASU CITY subset bait.
+        # If this fails, scripts/npi_verify reverted to token_set_ratio
+        # (the subset-100% scorer) -- check _best_npi_match.
+        assert prov.verified is True
+        assigned_npi = (prov.attributes or {}).get("npi_number")
+        assert assigned_npi == "1295469641", (
+            f"Expected NPI 1295469641 (ACACIA FAMILY PRACTICE GROUP), "
+            f"got {assigned_npi}. The 'LAKE HAVASU CITY' subset trap "
+            f"has resurfaced -- check that _best_npi_match uses "
+            f"token_sort_ratio, not token_set_ratio."
+        )
+
+
 def test_npi_verify_handles_legal_form_suffix_diff(monkeypatch) -> None:
     """Provider name without a legal-form suffix vs NPI entry WITH suffix
     should still match (PLLC / LLC / INC / PC variants are common)."""

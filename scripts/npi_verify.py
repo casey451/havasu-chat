@@ -79,20 +79,30 @@ def _npi_candidate_names(entry: dict[str, Any]) -> list[str]:
 
 
 def _best_npi_match(provider_name: str, registry: list[dict[str, Any]]) -> tuple[dict[str, Any], int] | None:
-    # rapidfuzz 3.x changed the default: no preprocessing. Without an
-    # explicit ``processor``, ``fuzz.token_set_ratio`` is case-sensitive
-    # AND retains punctuation -- so "Acacia Family Practice" vs
-    # "ACACIA FAMILY PRACTICE, INC" scores ~25 instead of ~95. Phase 5.4
-    # §3 dispatch surfaced this with 0/20 matches on first dry-run.
-    # ``utils.default_process`` lowercases + strips non-alphanumerics +
-    # collapses whitespace -- the rapidfuzz 2.x default behavior the
-    # threshold (86) was originally tuned against.
+    # Two fixes vs the original (Phase 5.4 §3 dispatch findings):
+    #
+    # 1. ``processor=utils.default_process`` -- rapidfuzz 3.x removed the
+    #    default preprocessing, so without this the comparison is
+    #    case-sensitive AND punctuation-sensitive. "Acacia" vs "ACACIA"
+    #    used to score 25 instead of ~95. Threshold (86) was tuned against
+    #    rapidfuzz 2.x default-preprocessing behavior.
+    #
+    # 2. ``token_sort_ratio`` rather than ``token_set_ratio`` -- aligns
+    #    with the original kickoff §3 spec ("rapidfuzz token-sort
+    #    similarity ≥ MATCH_THRESHOLD = 86"). ``token_set_ratio``'s
+    #    "subset" property (all tokens of A ⊆ B → score 100 regardless
+    #    of length diff) creates false positives like 'LAKE HAVASU CITY'
+    #    (3 tokens, NPI-2 entity) "perfectly" matching every health
+    #    provider whose name contains those three tokens (e.g. 'Acacia
+    #    Family Practice Group of Lake Havasu City' → 100). token_sort
+    #    preserves token duplicates and lengths, so short-name NPIs
+    #    don't trivially match long DBA names.
     best_entry: dict[str, Any] | None = None
     best_score = 0
     for entry in registry:
         for cand in _npi_candidate_names(entry):
             score = int(
-                fuzz.token_set_ratio(
+                fuzz.token_sort_ratio(
                     provider_name, cand, processor=utils.default_process
                 )
             )
