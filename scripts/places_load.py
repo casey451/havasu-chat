@@ -232,7 +232,39 @@ _DISCOVERY_DOMAIN_FALLBACK: dict[tuple[str | None, str], str] = {
     ("consultant", "home_services"): "home-property-services",
     ("laundry", "home_services"): "home-property-services",
     ("service", "home_services"): "home-property-services",
-    # Phase 5.4+ entries land here as their per-category audits surface gaps.
+    # health_medical -> health-wellness-care (catches the catch-all primary
+    # types for Havasu medical/wellness venues per Phase 5.4 §1 Layer 1
+    # findings: 282 input rows inserted, 111 landed at category_id=None.
+    # Dominant: ``health`` ×47 (Google's generic medical catch-all) and
+    # ``medical_clinic`` ×36 (surprisingly not in google_types_mapping.py),
+    # plus a long tail of spa/wellness_center/non_profit/dental_clinic/
+    # skin_care_clinic/apartment_building (the last is senior-living
+    # facilities Google tags as residential). NOTE: ``medical_clinic`` and
+    # ``dental_clinic`` arguably belong in google_types_mapping.py directly
+    # — left in the fallback for the 5.3 surgical-fix shape; types-map
+    # widening flagged as a soft-edge in outputs/phase5_4_*).
+    (None, "health_medical"): "health-wellness-care",
+    ("health", "health_medical"): "health-wellness-care",
+    ("medical_clinic", "health_medical"): "health-wellness-care",
+    ("dental_clinic", "health_medical"): "health-wellness-care",
+    ("skin_care_clinic", "health_medical"): "health-wellness-care",
+    ("wellness_center", "health_medical"): "health-wellness-care",
+    ("spa", "health_medical"): "health-wellness-care",
+    ("non_profit_organization", "health_medical"): "health-wellness-care",
+    ("apartment_building", "health_medical"): "health-wellness-care",
+    ("service", "health_medical"): "health-wellness-care",
+    ("point_of_interest", "health_medical"): "health-wellness-care",
+    # fitness_sports -> health-wellness-care (catches sports schools,
+    # athletic fields, courts, and generic catch-alls that surfaced under
+    # fitness label searches in Phase 5.4 §1).
+    (None, "fitness_sports"): "health-wellness-care",
+    ("sports_school", "fitness_sports"): "health-wellness-care",
+    ("health", "fitness_sports"): "health-wellness-care",
+    ("tennis_court", "fitness_sports"): "health-wellness-care",
+    ("athletic_field", "fitness_sports"): "health-wellness-care",
+    ("consultant", "fitness_sports"): "health-wellness-care",
+    ("point_of_interest", "fitness_sports"): "health-wellness-care",
+    # Phase 5.5+ entries land here as their per-category audits surface gaps.
 }
 
 
