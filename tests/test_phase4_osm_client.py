@@ -10,11 +10,13 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 from app.contrib.ingest_base import BaseIngestClient, EnrichedHit, RawHit
 from app.contrib.osm_overpass_client import (
     OSM_OVERPASS_LIMITER,
+    OSM_OVERPASS_USER_AGENT,
     OsmOverpassClient,
     build_query,
 )
@@ -153,3 +155,121 @@ def test_osm_and_reconciler_import_chain_no_cycle() -> None:
     assert result.returncode == 0, result.stdout + result.stderr
     data = json.loads(result.stdout.strip().splitlines()[-1])
     assert data["models_loaded"] is False
+
+
+def test_osm_client_sends_descriptive_user_agent(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured_ua: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_ua.append(request.headers.get("user-agent", ""))
+        return httpx.Response(200, json={"elements": []})
+
+    transport = httpx.MockTransport(handler)
+    real_client = httpx.Client
+
+    def client_factory(*args, **kwargs):
+        merged = dict(kwargs)
+        merged["transport"] = transport
+        return real_client(*args, **merged)
+
+    monkeypatch.setattr(
+        "app.contrib.osm_overpass_client.httpx.Client", client_factory
+    )
+    with patch.object(OSM_OVERPASS_LIMITER, "call_with_retry", lambda fn: fn()):
+        OsmOverpassClient().discover({"tag": "leisure", "value": "marina"})
+    assert len(captured_ua) == 1
+    assert captured_ua[0] == OSM_OVERPASS_USER_AGENT
+    assert not captured_ua[0].lower().startswith("python-httpx")
+
+
+def test_osm_client_logs_warning_on_non_200(monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(406, text="not acceptable")
+
+    transport = httpx.MockTransport(handler)
+    real_client = httpx.Client
+
+    def client_factory(*args, **kwargs):
+        merged = dict(kwargs)
+        merged["transport"] = transport
+        return real_client(*args, **merged)
+
+    monkeypatch.setattr(
+        "app.contrib.osm_overpass_client.httpx.Client", client_factory
+    )
+    import app.contrib.osm_overpass_client as oc
+
+    with patch.object(oc.logger, "warning") as mock_warn:
+        with patch.object(OSM_OVERPASS_LIMITER, "call_with_retry", lambda fn: fn()):
+            hits = OsmOverpassClient().discover(
+                {"tag": "leisure", "value": "marina"}
+            )
+    assert hits == []
+    mock_warn.assert_called()
+    args = mock_warn.call_args[0]
+    template, *values = args
+    rendered = template % tuple(values) if values else template
+    assert "status=406" in rendered
+    assert "leisure" in rendered and "marina" in rendered
+
+
+def test_osm_client_json_parse_error_logs_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="{not valid json")
+
+    transport = httpx.MockTransport(handler)
+    real_client = httpx.Client
+
+    def client_factory(*args, **kwargs):
+        merged = dict(kwargs)
+        merged["transport"] = transport
+        return real_client(*args, **merged)
+
+    monkeypatch.setattr(
+        "app.contrib.osm_overpass_client.httpx.Client", client_factory
+    )
+    import app.contrib.osm_overpass_client as oc
+
+    with patch.object(oc.logger, "warning") as mock_warn:
+        with patch.object(OSM_OVERPASS_LIMITER, "call_with_retry", lambda fn: fn()):
+            hits = OsmOverpassClient().discover(
+                {"tag": "leisure", "value": "marina"}
+            )
+    assert hits == []
+    mock_warn.assert_called()
+    args = mock_warn.call_args[0]
+    template, *values = args
+    rendered = template % tuple(values) if values else template
+    assert "json_parse_error" in rendered
+    assert "leisure" in rendered and "marina" in rendered
+
+
+def test_osm_client_transport_error_logs_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("simulated", request=_request)
+
+    transport = httpx.MockTransport(handler)
+    real_client = httpx.Client
+
+    def client_factory(*args, **kwargs):
+        merged = dict(kwargs)
+        merged["transport"] = transport
+        return real_client(*args, **merged)
+
+    monkeypatch.setattr(
+        "app.contrib.osm_overpass_client.httpx.Client", client_factory
+    )
+    import app.contrib.osm_overpass_client as oc
+
+    with patch.object(oc.logger, "warning") as mock_warn:
+        with patch.object(OSM_OVERPASS_LIMITER, "call_with_retry", lambda fn: fn()):
+            hits = OsmOverpassClient().discover(
+                {"tag": "leisure", "value": "dog_park"}
+            )
+    assert hits == []
+    mock_warn.assert_called()
+    args = mock_warn.call_args[0]
+    template, *values = args
+    rendered = template % tuple(values) if values else template
+    assert "transport_error" in rendered
+    assert "leisure" in rendered and "dog_park" in rendered
