@@ -97,15 +97,27 @@ def filter_by_category(
 
 
 def filter_by_zip(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, int]]:
-    """Keep only rows in LHC ZIPs. Return (kept, drop_reason_counts)."""
+    """Keep only rows in LHC ZIPs. Return (kept, drop_reason_counts).
+
+    Normalizes ZIP+4 codes (with or without the standard dash) to the
+    5-digit prefix before comparison. Google Places API occasionally
+    returns ZIP+4 with the dash stripped — e.g. ``864035889`` for
+    ``86403-5889`` — and the bare-string match would otherwise
+    misclassify those LHC addresses as non-LHC. Phase 5.4 dispatch
+    surfaced this with 3 real LHC health-wellness-care rows being
+    dropped at load time.
+    """
     kept: list[dict[str, Any]] = []
     drops: Counter[str] = Counter()
     for row in rows:
         zip_code = row.get("zip")
-        if zip_code in LHC_ZIPS:
-            kept.append(row)
-        elif zip_code is None:
+        if zip_code is None:
             drops["no_zip"] += 1
+            continue
+        # Normalize ZIP+4 (with or without dash) to 5-digit prefix.
+        zip5 = str(zip_code).replace("-", "")[:5]
+        if zip5 in LHC_ZIPS:
+            kept.append(row)
         else:
             drops[f"non_lhc:{zip_code}"] += 1
     return kept, dict(drops)
