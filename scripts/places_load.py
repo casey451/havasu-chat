@@ -210,7 +210,17 @@ _DISCOVERY_DOMAIN_FALLBACK: dict[tuple[str | None, str], str] = {
     ("supplier", "lake_recreation"): "on-the-water",
     ("sporting_goods_store", "lake_recreation"): "on-the-water",
     ("adventure_sports_center", "lake_recreation"): "on-the-water",
-    # Phase 5.3+ entries land here as their per-category audits surface gaps.
+    # home_services -> home-property-services (catches the catch-all primary
+    # types for Havasu trades per Phase 5.3 §1 Layer 1 findings: 282 input
+    # rows, 70 landed at category_id=None with primary_type in {``service``
+    # ×49, ``laundry`` ×3, ``consultant`` ×1, ``None`` ×1}. Adding these four
+    # entries catches the same shape automatically on every future load —
+    # no apply-script needed).
+    (None, "home_services"): "home-property-services",
+    ("consultant", "home_services"): "home-property-services",
+    ("laundry", "home_services"): "home-property-services",
+    ("service", "home_services"): "home-property-services",
+    # Phase 5.4+ entries land here as their per-category audits surface gaps.
 }
 
 
