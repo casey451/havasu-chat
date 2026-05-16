@@ -37,6 +37,11 @@ def test_az_roc_verify_marks_provider_and_name_cache() -> None:
             source="google_places",
             slug="az-roc-test-1",
             google_place_id="places/az-roc-1",
+            # Required: az_roc_verify._home_providers_query filters by
+            # google_primary_category ∈ AZ_ROC_LICENSED_PRIMARY_TYPES
+            # (added at 420f893). Without this, the query excludes the
+            # fixture and run_verify returns 0 candidates.
+            google_primary_category="plumber",
         )
         db.add(p)
         create_provider_and_entity(db, p)
@@ -50,6 +55,7 @@ def test_az_roc_verify_marks_provider_and_name_cache() -> None:
                 source="google_places",
                 slug=f"az-roc-cache-slug-{i}",
                 google_place_id=f"places/az-cache-{i}",
+                google_primary_category="plumber",
             )
             db.add(p2)
             create_provider_and_entity(db, p2)
