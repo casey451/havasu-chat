@@ -95,15 +95,29 @@ def test_npi_verify_dry_run_no_writes(monkeypatch) -> None:
 
 
 def test_npi_verify_handles_case_mismatch(monkeypatch) -> None:
-    """Provider name in Title Case vs NPI entry in ALL CAPS with trailing
-    legal-form suffix should still match. Regression guard for the
-    rapidfuzz 3.x case-sensitivity bug (Phase 5.4 §3 fix)."""
+    """Provider name in Title Case vs NPI entry in ALL CAPS (with matching
+    token shape: same length, same word order) should still match.
+    Regression guard for the rapidfuzz 3.x case-sensitivity bug
+    (Phase 5.4 §3 fix #1: processor=utils.default_process).
+
+    The NPI registry entry deliberately mirrors the actual LHC NPI for
+    Acacia Family Practice (NPI=1295469641, organization_name='ACACIA
+    FAMILY PRACTICE GROUP OF LAKE HAVASU, INC'). That entry scored 25.0
+    pre-case-fix and 90 post-case-fix per the live diagnostic at
+    outputs/phase5_4_npi_diag_v3.log. With both fixes applied
+    (case + token_sort), this pair must continue to match.
+    """
     registry = [
         {
-            "number": "9999999999",
+            "number": "1295469641",  # actual NPI from the live registry
             "enumeration_type": "NPI-2",
-            # ALL CAPS + ", LLC" suffix -- typical NPI registry shape.
-            "basic": {"organization_name": "ACACIA FAMILY PRACTICE GROUP, LLC", "status": "A"},
+            "basic": {
+                # ALL CAPS + ", INC" suffix; same word-order shape as the
+                # provider DBA. token_sort_ratio over default_process should
+                # score ~90 against the Title-Case provider name below.
+                "organization_name": "ACACIA FAMILY PRACTICE GROUP OF LAKE HAVASU, INC",
+                "status": "A",
+            },
             "other_names": [],
         }
     ]
@@ -111,9 +125,6 @@ def test_npi_verify_handles_case_mismatch(monkeypatch) -> None:
 
     with SessionLocal() as db:
         cat = db.query(Category).filter_by(slug="health-wellness-care").one()
-        # Title Case provider name with extra ' of Lake Havasu City' -- typical
-        # Google DBA shape. Differs from the NPI name by case + suffix only;
-        # token_set_ratio with default_process should score >=86.
         p = Provider(
             id="npi-case-test-1",
             provider_name="Acacia Family Practice Group of Lake Havasu City",
@@ -132,17 +143,17 @@ def test_npi_verify_handles_case_mismatch(monkeypatch) -> None:
 
     assert counts["matched"] >= 1, (
         "Regression of the Phase 5.4 rapidfuzz 3.x case-sensitivity fix. "
-        "Pre-fix this case-only-differing pair scored ~25 (well below 86) "
-        "and the provider was skipped as no-match. Post-fix it should match. "
-        "If this fails, check that scripts/npi_verify._best_npi_match passes "
-        "processor=utils.default_process to fuzz.token_set_ratio."
+        "Pre-fix this case-only-differing pair scored ~25 (well below 86). "
+        "Post-fix it should score ~90 and match. If this fails, check that "
+        "scripts/npi_verify._best_npi_match passes "
+        "processor=utils.default_process to fuzz.token_sort_ratio."
     )
 
     with SessionLocal() as db:
         prov = db.query(Provider).filter_by(id="npi-case-test-1").one()
         assert prov.verified is True
         assert prov.verification_method == "npi_registry"
-        assert prov.attributes and prov.attributes.get("npi_number") == "9999999999"
+        assert prov.attributes and prov.attributes.get("npi_number") == "1295469641"
 
 
 def test_npi_verify_rejects_subset_false_positive(monkeypatch) -> None:
