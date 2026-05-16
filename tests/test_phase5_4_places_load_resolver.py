@@ -12,7 +12,6 @@ import pytest
 
 from scripts.places_load import _DISCOVERY_DOMAIN_FALLBACK
 
-
 # (primary_type, discovery_domain) tuples that surfaced in the Phase 5.4
 # operator queue and must route to ``health-wellness-care``.
 _HEALTH_MEDICAL_KEYS: list[tuple[str | None, str]] = [
