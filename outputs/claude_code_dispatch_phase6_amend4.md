@@ -1,5 +1,15 @@
 # Claude Code dispatch — Phase 6 Amendment 4: Phase 5.4 SHIPPED ledger lines
 
+> **DISPOSITION (2026-05-16):** Landed in-line by Cowork primary at the end
+> of the Phase 5.4 session rather than dispatched to Claude Code as a
+> parallel agent — Phase 5.4 was already closed (no parallel-lane
+> rationale), so the operator opted to consolidate. The
+> `master_build_plan.md` + `STATE.md` edits this dispatch describes are
+> live in the close-out commit chain ahead of `a9a680a`. Retained as a
+> reference artifact for the Phase 6 amendment shape; future Phase 6
+> amendments (5+) can mirror this dispatch's structure if delegated to
+> Claude Code as a parallel agent.
+>
 > Drop-in artifact for the operator to paste into Claude Code terminal.
 > Lands the Phase 6 lane Amendment 4 for the Phase 5.4 SHIPPED milestone.
 > Mirrors `outputs/claude_code_dispatch_phase6_amend3.md` (which shipped
