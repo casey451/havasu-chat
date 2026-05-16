@@ -264,7 +264,22 @@ _DISCOVERY_DOMAIN_FALLBACK: dict[tuple[str | None, str], str] = {
     ("athletic_field", "fitness_sports"): "health-wellness-care",
     ("consultant", "fitness_sports"): "health-wellness-care",
     ("point_of_interest", "fitness_sports"): "health-wellness-care",
-    # Phase 5.5+ entries land here as their per-category audits surface gaps.
+    # auto -> auto-rv-fuel (catches catch-all primary types for Havasu
+    # auto/RV/fuel businesses per Phase 5.5 §1 Layer 1 findings: 179 input
+    # rows, 18 landed at category_id=None with primary_type distribution
+    # ``None`` ×5 (auto glass + mobile detailers Google tags without a
+    # specific primary), ``service`` ×3 (towing operators), ``car_rental``
+    # ×2 (Avis + Budget), plus ``point_of_interest`` and ``store`` as
+    # safety nets per the 5.5 kickoff §1 anticipation. NOTE: ``car_rental``
+    # arguably belongs in google_types_mapping.py directly — left in the
+    # fallback for the surgical-fix shape, mirroring 5.4's medical_clinic
+    # decision).
+    (None, "auto"): "auto-rv-fuel",
+    ("service", "auto"): "auto-rv-fuel",
+    ("car_rental", "auto"): "auto-rv-fuel",
+    ("point_of_interest", "auto"): "auto-rv-fuel",
+    ("store", "auto"): "auto-rv-fuel",
+    # Phase 5.6+ entries land here as their per-category audits surface gaps.
 }
 
 
