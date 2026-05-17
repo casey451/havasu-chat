@@ -2,19 +2,19 @@
 
 > Drop-in artifact for the operator to paste into a fresh Cowork session.
 > Mirrors `outputs/phase5_9_next_agent_boot_prompt.md` shape
-> (which booted the Phase 5.9 session that SHIPPED at `<SHIP-COMMIT>`
+> (which booted the Phase 5.9 session that SHIPPED at `4527ca1`
 > 2026-05-17).
 >
 > **Authored by:** Cowork primary, Phase 5 lane, Phase 5.9 session 1
-> (2026-05-17) post-`<SHIP-COMMIT>` SHIP. Pastable as-is below the
+> (2026-05-17) post-`4527ca1` SHIP. Pastable as-is below the
 > `---` line.
 
 ---
 
 You're picking up Phase 5.10 from scratch. Nothing shipped yet for 5.10 —
 this is the kickoff session. Phase 5.9 (Classes, Sports & Recreation)
-SHIPPED on origin at `<SHIP-COMMIT>` (2026-05-17) with all 6 gate items
-cleared and CI green. Top of origin/main is `<SHIP-COMMIT>` (or later
+SHIPPED on origin at `4527ca1` (2026-05-17) with all 6 gate items
+cleared and CI green. Top of origin/main is `4527ca1` (or later
 if the Phase 6 lane shipped the consolidated amend5-8 dispatch between
 sessions — check `git log -3` first).
 
@@ -27,7 +27,7 @@ THIS ORDER:
 
   1. `outputs/phase5_9_session_closeout.md` — the close-out for the
      prior Phase 5.9 session. §1 has the 3-commit chain (`0af5f73`
-     sustainability → `a99e2c4` wrapper-bundle → `<SHIP-COMMIT>`
+     sustainability → `a99e2c4` wrapper-bundle → `4527ca1`
      SHIP). §3 documents the §1 sustainability commit (Option A — 9
      direct `_PRIMARY_TYPE_MAP` entries for cat-12 primary_types + 1
      new childcare_education catch-all). §4 documents the §2 audit
@@ -66,7 +66,7 @@ PHASE 5.10 SCOPE — KEY FRAMING:
         dog trainers. Smaller LHC density; likely a faster lane.
       - **`events` is SHIPPED at 5.8 (`2808146`).**
       - **`classes-sports-recreation` is SHIPPED at 5.9
-        (`<SHIP-COMMIT>`).**
+        (`4527ca1`).**
     Operator picks at kickoff; the boot prompt assumes one of the
     above.
 

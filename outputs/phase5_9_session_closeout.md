@@ -3,20 +3,20 @@
 > **What this is:** the close-out for the single-session Phase 5.9 that
 > picked up at `4856020` (the 5.9 kickoff doc pre-staged by Phase 5.8
 > session 1) and pushed through to SHIP with all 6 gate items cleared.
-> Phase 5.9 SHIPPED at `<SHIP-COMMIT>`.
+> Phase 5.9 SHIPPED at `4527ca1`.
 >
 > **Authored by:** Cowork primary, Phase 5 lane, Phase 5.9 session 1
 > (2026-05-17) post-SHIP.
 
 ---
 
-## §1 Commit chain (origin `4856020 → <SHIP-COMMIT>`)
+## §1 Commit chain (origin `4856020 → 4527ca1`)
 
 | # | Commit | Subject | Source | Task |
 |---|---|---|---|---|
 | 1 | `0af5f73` | `fix(scripts)` — `_PRIMARY_TYPE_MAP` extend for Phase 5.9 sustainability layer | Cowork | §1 sustainability (Option A — 9 cat-12 direct mappings + 1 childcare_education catch-all) |
 | 2 | `a99e2c4` | `chore(outputs)` — Phase 5.9 narrow-label discovery wrapper + DB spot-check + amend5-8 dispatch | Cowork | §1 Layer 1 wrapper + §0 spot-check + Phase 6 sidecar dispatch doc bundle |
-| 3 | `<SHIP-COMMIT>` | `chore(outputs)` — Phase 5.9 SHIPPED — all 6 gate items cleared | Cowork | **SHIP** (bundles audit + apply-scripts + gate verification + close-out + 5.10 boot prompt) |
+| 3 | `4527ca1` | `chore(outputs)` — Phase 5.9 SHIPPED — all 6 gate items cleared | Cowork | **SHIP** (bundles audit + apply-scripts + gate verification + close-out + 5.10 boot prompt) |
 
 **Plus 4 DB-only writes** (no commit; events.db is gitignored):
 1. **§1 Layer 1 load** — 82 in-LHC rows (post-ZIP) → 27 inserts (cat-12) + 32 updates (preserved existing cats; mostly cat-5 HWC from 5.4 cache absorption) + 23 ambig + 0 unmapped
@@ -119,7 +119,7 @@ Three artifacts bundled:
   operator decision to defer all 4 amend backlogs to Phase 6 sidecar;
   Cowork primary stayed focused on 5.9 data plane).
 
-### `<SHIP-COMMIT>` — Phase 5.9 §2 audit + §4 apply-scripts + gate verification
+### `4527ca1` — Phase 5.9 §2 audit + §4 apply-scripts + gate verification
 
 Bundles all session §2-§4 work in one chunk:
 
@@ -288,10 +288,10 @@ they surface).
 
 ## §6 Remaining work for next session (Phase 5.10)
 
-### Gate-blocking (0) — Phase 5.9 SHIPPED at `<SHIP-COMMIT>`
+### Gate-blocking (0) — Phase 5.9 SHIPPED at `4527ca1`
 
 All 6 gate items met per `outputs/phase5_9_gate_verification.py`. The
-SHIPPED commit landed on `origin/main` at `<SHIP-COMMIT>` 2026-05-17.
+SHIPPED commit landed on `origin/main` at `4527ca1` 2026-05-17.
 
 ### 🚨 Carry-over for operator-side action
 
@@ -429,7 +429,7 @@ correctly — but a polish item for V1.5 apply-script templating.
 
 ## §9 Pre-flight for the next session
 
-1. **`git log --oneline -15`** — origin should top at `<SHIP-COMMIT>`
+1. **`git log --oneline -15`** — origin should top at `4527ca1`
    or later (Phase 6 lane may push the consolidated amend5-8 line
    `0addb63`-shape commit between sessions).
 2. **`git status`** — clean. Note the carry-over file-prune list above.
@@ -438,7 +438,7 @@ correctly — but a polish item for V1.5 apply-script templating.
 4. **`python -m pytest -q --collect-only 2>&1 | Select-Object -Last 3`**
    — expect **1985 collected** (5.9 baseline). Verify no drift.
 5. **`gh run list --branch main --limit 5`** — top run should be ✓ on
-   `<SHIP-COMMIT>`. Note that `parks-rec-scrapes` scheduled jobs
+   `4527ca1`. Note that `parks-rec-scrapes` scheduled jobs
    continue to ❌ unless the Phase 6 / sidecar fix lands first.
 6. **DB state spot-check** — `classes-sports-recreation` should show
    **31 entries / 0 verified / 29 indoor + 2 outdoor / 31 render / 10
@@ -459,8 +459,8 @@ correctly — but a polish item for V1.5 apply-script templating.
 ---
 
 *Authored by Cowork primary, Phase 5 lane, Phase 5.9 session 1
-(2026-05-17) post-`<SHIP-COMMIT>`. Phase 5.9 SHIPPED with all 6 gate
+(2026-05-17) post-`4527ca1`. Phase 5.9 SHIPPED with all 6 gate
 items cleared in a single session; 3 commits on origin/main from
-`4856020` → `<SHIP-COMMIT>` (`0af5f73` sustainability + `a99e2c4`
+`4856020` → `4527ca1` (`0af5f73` sustainability + `a99e2c4`
 wrapper-bundle + SHIP). Plus 4 DB-only writes (1 load + 1 audit apply
 + 1 heat + 1 crowd_notes). Hand-off to Phase 5.10 next session.*
