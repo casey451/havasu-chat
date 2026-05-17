@@ -20,15 +20,15 @@ You're picking up Phase 5.10 (Lodging & Vacation Rentals,
 session. Phase 5.9 (Classes, Sports & Recreation) SHIPPED on origin at
 `4527ca1` (2026-05-17) with all 6 gate items cleared and CI green;
 SHA-cleanup at `bc08bf6`; Phase 5.10 kickoff doc pre-staged at
-`<KICKOFF-COMMIT>`. Top of `origin/main` is `<KICKOFF-COMMIT>` (or
+`ef8325d`. Top of `origin/main` is `ef8325d` (or
 later if the Phase 6 lane shipped the consolidated amend5-8 dispatch
 between sessions). Find your own context before doing anything else.
 
 Working directory: `C:\Users\casey\projects\havasu-chat`.
 
-1. `git log --oneline -10` to confirm `<KICKOFF-COMMIT>` is top of main;
+1. `git log --oneline -10` to confirm `ef8325d` is top of main;
    the 5.9 → 5.10-pre-stage chain is
-   `0af5f73 → a99e2c4 → 4527ca1 → bc08bf6 → <KICKOFF-COMMIT>` on top
+   `0af5f73 → a99e2c4 → 4527ca1 → bc08bf6 → ef8325d` on top
    of the 5.8 SHIP at `2808146`.
 2. Read these four docs end-to-end, in this order:
    a. `outputs/phase5_10_next_agent_boot_prompt.md` (THIS file — the
