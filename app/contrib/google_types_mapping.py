@@ -179,6 +179,53 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
 
     "veterinary_care": ("pets", "commercial"),
     "pet_store": ("pets", "commercial"),
+
+    # Phase 5.9 §1 sustainability — classes-sports-recreation (cat-12)
+    # direct mappings. 5.9 Narrow scope is 9 of the 16 labels in the
+    # ``classes-sports-recreation`` two-domain bundle
+    # (``childcare_education`` + ``fitness_sports`` per
+    # ``app/contrib/google_places_scraper.py:DISCOVERY_CATEGORY_TO_DOMAINS``):
+    # the 5 childcare_education labels in-scope + 4 cat-12-native
+    # fitness_sports labels (the 7 HWC-absorbed fitness_sports labels —
+    # gyms/yoga/pilates/crossfit/martial_arts/jiu_jitsu/dance — deferred
+    # to V1.5 per kickoff §1 Narrow-scope decision; they continue to
+    # route to HWC via the 5.4 ``(None, "fitness_sports") ->
+    # "health-wellness-care"`` catch-all at
+    # ``scripts/places_load._DISCOVERY_DOMAIN_FALLBACK:260``).
+    #
+    # Direct ``_PRIMARY_TYPE_MAP`` entries beat the ``_DISCOVERY_DOMAIN_
+    # FALLBACK`` catch-all per the resolver order in
+    # ``scripts/places_load._resolve_category_id`` (Layer 2 types-map
+    # lookup runs before Layer 3 domain-fallback). The CRITICAL case is
+    # ``tennis_court``: the 5.4 ``fc51940`` commit added
+    # ``("tennis_court", "fitness_sports") -> "health-wellness-care"`` to
+    # the catch-all, but the direct ``("tennis_court",
+    # ("classes-sports-recreation", "place"))`` mapping below beats it
+    # via resolver order so 5.9 tennis_court entries route correctly to
+    # cat-12 instead of cat-5.
+    #
+    # ``commercial`` vs ``place`` split: childcare/preschool/music/
+    # driving/tutor + personal_trainer are ``commercial`` (fee-based,
+    # staffed); public swimming pools / tennis courts / pickleball
+    # courts are ``place`` (city-park amenities, free or municipal-fee
+    # access). The §2 audit can flip individual entries to
+    # ``commercial`` if they're membership-club venues.
+    #
+    # The new ``(None, "childcare_education") ->
+    # "classes-sports-recreation"`` catch-all at
+    # ``scripts/places_load._DISCOVERY_DOMAIN_FALLBACK`` covers any
+    # unmapped childcare_education primary_types (no prior phase
+    # populated the childcare_education domain).
+    "child_care_agency": ("classes-sports-recreation", "commercial"),
+    "preschool": ("classes-sports-recreation", "commercial"),
+    "music_school": ("classes-sports-recreation", "commercial"),
+    "driving_school": ("classes-sports-recreation", "commercial"),
+    "tutor": ("classes-sports-recreation", "commercial"),
+    "personal_trainer": ("classes-sports-recreation", "commercial"),
+    "swimming_pool": ("classes-sports-recreation", "place"),
+    "tennis_court": ("classes-sports-recreation", "place"),
+    "pickleball_court": ("classes-sports-recreation", "place"),
+
     "school": ("classes-sports-recreation", "commercial"),
     "library": ("public-civic-resources", "place"),
     "city_hall": ("public-civic-resources", "place"),

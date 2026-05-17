@@ -327,6 +327,21 @@ _DISCOVERY_DOMAIN_FALLBACK: dict[tuple[str | None, str], str] = {
     ("amusement_park", "entertainment_attractions"): "outdoors-parks-trails",
     ("point_of_interest", "entertainment_attractions"): "outdoors-parks-trails",
     ("establishment", "entertainment_attractions"): "outdoors-parks-trails",
+    # childcare_education -> classes-sports-recreation (Phase 5.9 §1
+    # sustainability). NEW domain — no prior phase populated the
+    # childcare_education catch-all. Pairs with the 5 direct
+    # ``_PRIMARY_TYPE_MAP`` entries shipped this commit for
+    # child_care_agency / preschool / music_school / driving_school /
+    # tutor (per kickoff §1 Option A); this fallback covers any
+    # unmapped childcare_education primary_types that Google emits for
+    # the 5 in-scope labels. The 4 cat-12-native fitness_sports
+    # primary_types (personal_trainer + swimming_pool + tennis_court +
+    # pickleball_court) route via direct ``_PRIMARY_TYPE_MAP`` entries
+    # (which beat the existing 5.4 ``(None, "fitness_sports") ->
+    # "health-wellness-care"`` catch-all per resolver order); the 7
+    # HWC-absorbed fitness types (gym/yoga/pilates/crossfit/martial/
+    # jiu_jitsu/dance) stay in HWC via that same 5.4 catch-all.
+    (None, "childcare_education"): "classes-sports-recreation",
     # Phase 5.8+ entries land here as their per-category audits surface gaps.
 }
 
