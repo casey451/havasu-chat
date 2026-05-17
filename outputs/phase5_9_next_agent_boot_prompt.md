@@ -37,12 +37,17 @@ THIS ORDER:
      the audit-trail lesson for 5.9** — always DB-verify the
      "existing entity in cat-X" premise before authoring cross-cat
      moves; the kickoff framing may misread the actual DB state.
-  2. `outputs/phase5_9_<category>_kickoff.md` — THE runbook for Phase
-     5.9. **🚨 NOT YET AUTHORED — your first action is to author this
-     doc**, mirroring `outputs/phase5_8_events_kickoff.md` shape with
-     5.9-specific overrides. The 5.8 kickoff was authored at the
-     start of session 1 per the established cadence; 5.9's kickoff
-     should land at the start of 5.9 session 1.
+  2. `outputs/phase5_9_classes_sports_recreation_kickoff.md` — THE
+     runbook for Phase 5.9. **Pre-staged by Phase 5.8 session 1**
+     (mirrors the `8dfa2a2` precedent where 5.7 session 2 pre-staged
+     the 5.8 kickoff). The category pick is `classes-sports-recreation`
+     (cat-12) per the 5.8-session operator decision; the kickoff
+     commits to that scope and lays out the §1 sustainability PIVOT
+     (Option A — direct `_PRIMARY_TYPE_MAP` entries for the 9
+     in-scope primary_types + a new `(None, "childcare_education")`
+     catch-all). If the operator wants to switch to `pets` or
+     `lodging-vacation-rentals` at boot, author a fresh kickoff and
+     archive this one.
   3. `outputs/phase5_8_events_kickoff.md` — the previous phase's
      runbook. Reads as the structural template the 5.9 kickoff
      mirrors. Particularly read §1 (the Narrow scope rationale +
