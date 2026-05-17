@@ -15,17 +15,17 @@ You're picking up Phase 5.11 (Pets, `pets`, cat-11) from scratch -- the
 kickoff session. Phase 5.10 (Lodging & Vacation Rentals) SHIPPED on
 origin at `592ee74` (2026-05-17) with all 6 gate items cleared and CI
 green; SHA-cleanup at `accc06d`; Phase 5.11 kickoff doc pre-staged at
-`<KICKOFF-COMMIT>`. **Phase 5.11 is the LAST remaining Tier-1
+`7472b4a`. **Phase 5.11 is the LAST remaining Tier-1
 category** -- 13 of 13 slugs after this. Top of `origin/main` is
-`<KICKOFF-COMMIT>` (or later if the Phase 6 lane shipped the
+`7472b4a` (or later if the Phase 6 lane shipped the
 consolidated amend5-X dispatch between sessions). Find your own
 context before doing anything else.
 
 Working directory: `C:\Users\casey\projects\havasu-chat`.
 
-1. `git log --oneline -10` to confirm `<KICKOFF-COMMIT>` is top of main;
+1. `git log --oneline -10` to confirm `7472b4a` is top of main;
    the 5.10 -> 5.11-pre-stage chain is
-   `ef8325d -> d597ef9 -> bf24e16 -> 592ee74 -> accc06d -> <KICKOFF-COMMIT>`
+   `ef8325d -> d597ef9 -> bf24e16 -> 592ee74 -> accc06d -> 7472b4a`
    on top of the 5.9 SHIP at `4527ca1` + 5.9 SHA-cleanup at `bc08bf6`.
 2. Read these four docs end-to-end, in this order:
    a. `outputs/phase5_11_next_agent_boot_prompt.md` (THIS file -- the
