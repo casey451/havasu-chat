@@ -1,0 +1,1679 @@
+[
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJ-Q3xsM7z0YARQmAT0Y7Qluk",
+      "name": "High End Productions Llc",
+      "address": "116 Lake Havasu Ave, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.471904699999996,
+      "lng": -114.340875,
+      "primary_type": null,
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "event venues",
+      "reviews": 2
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "f15202b6",
+        "entity_id": "f15202b6-e24e-4275-96c8-48a47266ea9f",
+        "name": "S-2 Contractors Inc",
+        "current_slugs": [
+          "home-property-services"
+        ],
+        "distance_m": 12.9,
+        "name_similarity": 0.438,
+        "existing_place_id": "ChIJx0AwLoLt0YARO2yA9-4HrRI",
+        "existing_primary": "general_contractor"
+      },
+      {
+        "entity_id_prefix": "351d1ab5",
+        "entity_id": "351d1ab5-ffc2-41db-a948-4af9e562f0bb",
+        "name": "Janecek Homes",
+        "current_slugs": [
+          "home-property-services"
+        ],
+        "distance_m": 12.9,
+        "name_similarity": 0.333,
+        "existing_place_id": "ChIJ1eL8LYLt0YARlGz2aVtlqiE",
+        "existing_primary": "general_contractor"
+      },
+      {
+        "entity_id_prefix": "9e488fbb",
+        "entity_id": "9e488fbb-a124-49ae-9fe1-e560e56731c3",
+        "name": "Bigfoot fry co.",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 65.0,
+        "name_similarity": 0.353,
+        "existing_place_id": "ChIJD488AQBx1oYRBRCkxh2IcjU",
+        "existing_primary": "barbecue_restaurant"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJ1fACU_Ht0YARsoP1HdiHOfo",
+      "name": "Christine's Fine Art LLC",
+      "address": "2069 W Acoma Blvd # A, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4964227,
+      "lng": -114.3379964,
+      "primary_type": "art_gallery",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "art galleries",
+      "reviews": 4
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "41db5e70",
+        "entity_id": "41db5e70-a13b-4af7-8212-632d06968935",
+        "name": "Prielipp Construction, Inc.",
+        "current_slugs": [
+          "home-property-services"
+        ],
+        "distance_m": 36.3,
+        "name_similarity": 0.571,
+        "existing_place_id": "ChIJx_SoMyzt0YAR2V81bbLDAig",
+        "existing_primary": "general_contractor"
+      },
+      {
+        "entity_id_prefix": "cefe2202",
+        "entity_id": "cefe2202-39d7-4fa3-b86c-ebc1db21037f",
+        "name": "Mohave Roofing",
+        "current_slugs": [
+          "home-property-services"
+        ],
+        "distance_m": 43.6,
+        "name_similarity": 0.467,
+        "existing_place_id": "ChIJ3wx0KfTt0YARx2ZmNGXcePE",
+        "existing_primary": "roofing_contractor"
+      },
+      {
+        "entity_id_prefix": "e95f620d",
+        "entity_id": "e95f620d-ceae-494a-a625-cb8df32ef0a4",
+        "name": "Autoworks",
+        "current_slugs": [
+          "auto-rv-fuel"
+        ],
+        "distance_m": 63.2,
+        "name_similarity": 0.267,
+        "existing_place_id": "ChIJo0UWsfbt0YARVO1p_i63pK8",
+        "existing_primary": "car_repair"
+      },
+      {
+        "entity_id_prefix": "6d309549",
+        "entity_id": "6d309549-8476-49cb-8ca8-441c0bebe01f",
+        "name": "Mission Accomplished Heating and Cooling",
+        "current_slugs": [
+          "home-property-services"
+        ],
+        "distance_m": 74.4,
+        "name_similarity": 0.562,
+        "existing_place_id": "ChIJr4SRpCvt0YARj_fy0zlXuis",
+        "existing_primary": "general_contractor"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJ3bbNkhzy0YAR8Dp076iuFH0",
+      "name": "WORCS Racing",
+      "address": "2765 N Kiowa Blvd, Lake Havasu City, AZ 86404, USA",
+      "lat": 34.5116523,
+      "lng": -114.3201588,
+      "primary_type": "race_course",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "event venues",
+      "reviews": 1
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "93fdccf1",
+        "entity_id": "93fdccf1-9f27-413b-b7b5-2101f1fe9412",
+        "name": "SERVPRO of Lake Havasu City/Bullhead City/Kingman",
+        "current_slugs": [
+          "home-property-services"
+        ],
+        "distance_m": 36.0,
+        "name_similarity": 0.364,
+        "existing_place_id": "ChIJq6qqqunt0YARxv8wWYJUGFQ",
+        "existing_primary": "general_contractor"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJ3ct6_gXu0YARcyK6unop4D8",
+      "name": "The Wedding Specialist",
+      "address": "420 El Camino Way, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4845669,
+      "lng": -114.3503459,
+      "primary_type": "service",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "event venues",
+      "reviews": 4
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "93ae14c9",
+        "entity_id": "93ae14c9-927a-4281-b75d-0d09c6a198b8",
+        "name": "Tux and Tulips",
+        "current_slugs": [
+          "shopping-essentials"
+        ],
+        "distance_m": 0.0,
+        "name_similarity": 0.533,
+        "existing_place_id": "ChIJRRs5tILt0YAR0uCvwRAQR1Y",
+        "existing_primary": "florist"
+      },
+      {
+        "entity_id_prefix": "f542b1a7",
+        "entity_id": "f542b1a7-f448-49f5-b07c-cab784d62265",
+        "name": "The Broken Yolk",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 71.0,
+        "name_similarity": 0.278,
+        "existing_place_id": "ChIJrVj6LwDt0YARRAWf1iY9m6Q",
+        "existing_primary": "brunch_restaurant"
+      },
+      {
+        "entity_id_prefix": "c3768918",
+        "entity_id": "c3768918-0667-4e69-b69c-ee5a9f85efdb",
+        "name": "Broken Yolk Cafe",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 71.0,
+        "name_similarity": 0.263,
+        "existing_place_id": "ChIJ13I4C9jt0YARoaKemmw7H00",
+        "existing_primary": "breakfast_restaurant"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJ5Z8kugbz0YARJKEZZ7slr3k",
+      "name": "Nomadic",
+      "address": "2119 McCulloch Blvd N, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4757525,
+      "lng": -114.3270283,
+      "primary_type": "coworking_space",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "event venues",
+      "reviews": 17
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "9c91db8b",
+        "entity_id": "9c91db8b-e44d-47b8-bdc9-7e0de3b1de8f",
+        "name": "Havasu Computers",
+        "current_slugs": [
+          "shopping-essentials"
+        ],
+        "distance_m": 5.3,
+        "name_similarity": 0.267,
+        "existing_place_id": "ChIJaTzshxPz0YARO1OuEwVI4Cs",
+        "existing_primary": ""
+      },
+      {
+        "entity_id_prefix": "7b3b92b2",
+        "entity_id": "7b3b92b2-bb24-40ff-b9d6-4ddbb6a469bd",
+        "name": "Sanchez Hawkins Fine Jewelers",
+        "current_slugs": [
+          "shopping-essentials"
+        ],
+        "distance_m": 46.1,
+        "name_similarity": 0.235,
+        "existing_place_id": "ChIJBXFZMXzy0YARCRirFcAwue8",
+        "existing_primary": "jewelry_store"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJAchdEJzy0YARnr690MH3PaQ",
+      "name": "Havasu Dunes Resort",
+      "address": "620 Lake Havasu Ave, Lake Havasu City, AZ 86406, USA",
+      "lat": 34.457213599999996,
+      "lng": -114.3285165,
+      "primary_type": "resort_hotel",
+      "discovery_domain": "lodging",
+      "discovery_label": "hotels",
+      "reviews": 712
+    },
+    "matched_entities": []
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJByT97GLy0YARPTGAWj-kcYY",
+      "name": "Realtor Convention Center",
+      "address": "2295 Swanson Ave, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4753837,
+      "lng": -114.3203887,
+      "primary_type": "real_estate_agency",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "event venues",
+      "reviews": 4
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "9744edf4",
+        "entity_id": "9744edf4-9027-493b-81fa-e32ee664b5d5",
+        "name": "Crystal Eppling, O.D. - Eye Doctor",
+        "current_slugs": [
+          "health-wellness-care"
+        ],
+        "distance_m": 37.2,
+        "name_similarity": 0.6,
+        "existing_place_id": "ChIJJ3yr6WXz0YARp9YL_F3KoaA",
+        "existing_primary": "health"
+      },
+      {
+        "entity_id_prefix": "94debd64",
+        "entity_id": "94debd64-28ac-4f45-ad20-924b4578204f",
+        "name": "Sandra Davidson, OD - Eyeglasses",
+        "current_slugs": [
+          "health-wellness-care"
+        ],
+        "distance_m": 37.2,
+        "name_similarity": 0.571,
+        "existing_place_id": "ChIJA3c0wQHz0YARINb8T-9MZD4",
+        "existing_primary": "health"
+      },
+      {
+        "entity_id_prefix": "7e667b08",
+        "entity_id": "7e667b08-49dd-460b-ad65-51e79fb06efa",
+        "name": "Tania Sobchuk, OD - Eye Doctor",
+        "current_slugs": [
+          "health-wellness-care"
+        ],
+        "distance_m": 37.2,
+        "name_similarity": 0.471,
+        "existing_place_id": "ChIJGxm9zHjy0YARsue5PYbngc0",
+        "existing_primary": "health"
+      },
+      {
+        "entity_id_prefix": "ef1c1270",
+        "entity_id": "ef1c1270-87d7-4fd7-b5e3-4db9f468a4fe",
+        "name": "Christina Martinez, OD - Eye Exam",
+        "current_slugs": [
+          "health-wellness-care"
+        ],
+        "distance_m": 37.2,
+        "name_similarity": 0.471,
+        "existing_place_id": "ChIJ8bI0uFjz0YAR80nkV7E3jZY",
+        "existing_primary": "health"
+      },
+      {
+        "entity_id_prefix": "b0963930",
+        "entity_id": "b0963930-19d3-449c-8bbe-b2229a30e3f2",
+        "name": "Jennings & Larson Family Dentistry - Lake Havasu",
+        "current_slugs": [
+          "health-wellness-care"
+        ],
+        "distance_m": 37.2,
+        "name_similarity": 0.45,
+        "existing_place_id": "ChIJo4UzBDnz0YARYGZ_tHcZOEQ",
+        "existing_primary": "dentist"
+      },
+      {
+        "entity_id_prefix": "2f53214c",
+        "entity_id": "2f53214c-9009-442f-987e-92b6d4a678fd",
+        "name": "Dr. Sylvia Rimbergas - Pediatric Eye Exam",
+        "current_slugs": [
+          "health-wellness-care"
+        ],
+        "distance_m": 37.2,
+        "name_similarity": 0.444,
+        "existing_place_id": "ChIJ1wAbIL7z0YARKPdefRQ_oFk",
+        "existing_primary": "health"
+      },
+      {
+        "entity_id_prefix": "de89a57f",
+        "entity_id": "de89a57f-effe-486e-b4b4-e7d75241745e",
+        "name": "The Eye Spa at Lake Havasu Family Eyecare",
+        "current_slugs": [
+          "health-wellness-care"
+        ],
+        "distance_m": 37.2,
+        "name_similarity": 0.444,
+        "existing_place_id": "ChIJTbr4bAzz0YAR2iHdgaRDNCI",
+        "existing_primary": "medical_clinic"
+      },
+      {
+        "entity_id_prefix": "7993f2b5",
+        "entity_id": "7993f2b5-4d7f-45d7-a211-80d3f7ce9b5c",
+        "name": "Lake Havasu Family Eyecare",
+        "current_slugs": [
+          "health-wellness-care"
+        ],
+        "distance_m": 37.2,
+        "name_similarity": 0.412,
+        "existing_place_id": "ChIJJUy7snjy0YAR9mlvky8EGng",
+        "existing_primary": "medical_clinic"
+      },
+      {
+        "entity_id_prefix": "81e9be79",
+        "entity_id": "81e9be79-97ed-47d9-ba58-71a1cf21fa65",
+        "name": "Breanna Ruesch, OD",
+        "current_slugs": [
+          "health-wellness-care"
+        ],
+        "distance_m": 37.2,
+        "name_similarity": 0.4,
+        "existing_place_id": "ChIJHUfE7LLz0YARGDDQx92jekg",
+        "existing_primary": "health"
+      },
+      {
+        "entity_id_prefix": "2d2cc096",
+        "entity_id": "2d2cc096-59d8-419a-911d-b884de337ca6",
+        "name": "Brooke Vetter, OD - Optometrist",
+        "current_slugs": [
+          "health-wellness-care"
+        ],
+        "distance_m": 37.2,
+        "name_similarity": 0.375,
+        "existing_place_id": "ChIJJUy7snjy0YAR9NBYSooUtvg",
+        "existing_primary": "health"
+      },
+      {
+        "entity_id_prefix": "8e066421",
+        "entity_id": "8e066421-7609-4ebf-ba80-a8d6a8d571d6",
+        "name": "Ike Arthur Tomas",
+        "current_slugs": [
+          "health-wellness-care"
+        ],
+        "distance_m": 37.8,
+        "name_similarity": 0.4,
+        "existing_place_id": "ChIJh4nP6mLy0YAR7exGJOwZWi0",
+        "existing_primary": "dentist"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJF1jVdeXt0YARb6LROJcnP4I",
+      "name": "AZ Party Express",
+      "address": "690 London Bridge Rd, Lake Havasu City, AZ 86404, USA",
+      "lat": 34.4901468,
+      "lng": -114.35579129999999,
+      "primary_type": "service",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "event venues",
+      "reviews": 11
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "1ca3d7e7",
+        "entity_id": "1ca3d7e7-958c-4651-9fee-f82ce9b69063",
+        "name": "Saleen Fiberglass Restoration",
+        "current_slugs": [
+          "on-the-water"
+        ],
+        "distance_m": 21.9,
+        "name_similarity": 0.312,
+        "existing_place_id": "ChIJLZHQUd3t0YARtQgBRlpqpa8",
+        "existing_primary": "service"
+      },
+      {
+        "entity_id_prefix": "eff14e6f",
+        "entity_id": "eff14e6f-ca90-4689-b6d9-0e6ed914fdb8",
+        "name": "Shimmer Boat Service",
+        "current_slugs": [
+          "on-the-water"
+        ],
+        "distance_m": 70.9,
+        "name_similarity": 0.312,
+        "existing_place_id": "ChIJPYsF_-rt0YARqDDx62Arzls",
+        "existing_primary": "supplier"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJFZ6-uH7y0YARY9vDKr073wQ",
+      "name": "Havasu Art Center",
+      "address": "2093 McCulloch Blvd N ste 101, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4759703,
+      "lng": -114.3296105,
+      "primary_type": "art_gallery",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "art galleries",
+      "reviews": 8
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "8ce0fd3e",
+        "entity_id": "8ce0fd3e-682d-43c3-8227-dcfaa8df3b39",
+        "name": "The Pour House",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 33.2,
+        "name_similarity": 0.5,
+        "existing_place_id": "ChIJoZErTqzz0YARLvZ13KvdC_k",
+        "existing_primary": "restaurant"
+      },
+      {
+        "entity_id_prefix": "722270d2",
+        "entity_id": "722270d2-ea64-447d-ac38-052176abf7e1",
+        "name": "Jersey bar & grille",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 39.8,
+        "name_similarity": 0.25,
+        "existing_place_id": "ChIJ7zPYRwDz0YAR5akWWo9MsqA",
+        "existing_primary": "american_restaurant"
+      },
+      {
+        "entity_id_prefix": "314ccac6",
+        "entity_id": "314ccac6-bb7f-4724-b715-a1a7df4dc999",
+        "name": "Booby Falls Restaurant & Rodeo",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 42.2,
+        "name_similarity": 0.438,
+        "existing_place_id": "ChIJ3VpxEADz0YARdMBzD8kgUSs",
+        "existing_primary": "american_restaurant"
+      },
+      {
+        "entity_id_prefix": "aea61293",
+        "entity_id": "aea61293-dfbe-4fa2-9576-e2c0369c6eac",
+        "name": "Smallcakes: Cupcakery & Creamery",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 44.3,
+        "name_similarity": 0.4,
+        "existing_place_id": "ChIJOWd1vX7y0YARsSPk-drt1_g",
+        "existing_primary": "bakery"
+      },
+      {
+        "entity_id_prefix": "52a93d98",
+        "entity_id": "52a93d98-0143-4dc3-a794-5ef581962646",
+        "name": "stevenSMOKED",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 44.3,
+        "name_similarity": 0.357,
+        "existing_place_id": "ChIJg8M-p3Xz0YARQhtyOoa5c7A",
+        "existing_primary": "catering_service"
+      },
+      {
+        "entity_id_prefix": "0505f934",
+        "entity_id": "0505f934-97d6-4bd9-976d-a2ae0042d3c6",
+        "name": "Best Brews Taproom",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 53.2,
+        "name_similarity": 0.333,
+        "existing_place_id": "ChIJpY7Xf-Tz0YARma75TD86Xz8",
+        "existing_primary": "bar"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJIxW0TJzt0YARdn1JLanVSEk",
+      "name": "Ru Art Gallery and Boutique",
+      "address": "1425 McCulloch Blvd N Suite F, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4712684,
+      "lng": -114.3495799,
+      "primary_type": "clothing_store",
+      "discovery_domain": "retail",
+      "discovery_label": "clothing stores",
+      "reviews": 18
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "3723c4ba",
+        "entity_id": "3723c4ba-3115-401b-a31c-78c7724d5c27",
+        "name": "Shugrue's Cornerside Bakery",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 0.0,
+        "name_similarity": 0.611,
+        "existing_place_id": "ChIJrSnubwTt0YARb0p_F7M97gY",
+        "existing_primary": "bakery"
+      },
+      {
+        "entity_id_prefix": "16faff70",
+        "entity_id": "16faff70-41cd-4f67-9dc4-67e1a641ed24",
+        "name": "Island Mall & Brewery",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 1.9,
+        "name_similarity": 0.529,
+        "existing_place_id": "ChIJN7le-Jzt0YARKYDNYp780t4",
+        "existing_primary": "bar"
+      },
+      {
+        "entity_id_prefix": "c1c8829c",
+        "entity_id": "c1c8829c-b200-49ac-8cab-f69bf7ff23bd",
+        "name": "Shugrue's Restaurant and Brewery Group",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 57.1,
+        "name_similarity": 0.611,
+        "existing_place_id": "ChIJqy5Ls53t0YARUljUGNCgabU",
+        "existing_primary": "steak_house"
+      },
+      {
+        "entity_id_prefix": "d7e8fb73",
+        "entity_id": "d7e8fb73-9c1f-4491-9881-821026e16220",
+        "name": "Makai Cafe",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 72.1,
+        "name_similarity": 0.167,
+        "existing_place_id": "ChIJSTC0TJzt0YARsck4hb9P-Rs",
+        "existing_primary": "breakfast_restaurant"
+      },
+      {
+        "entity_id_prefix": "400e7926",
+        "entity_id": "400e7926-68cf-4eb8-a94e-639b02e4c817",
+        "name": "Barley Brothers Brewery",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 73.4,
+        "name_similarity": 0.471,
+        "existing_place_id": "ChIJSTC0TJzt0YARMXvN8tBeGSA",
+        "existing_primary": "brewpub"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJKxyMk37y0YARPvuSLwpPYBE",
+      "name": "The Q Art Gallery",
+      "address": "2102 McCulloch Blvd N, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.475477,
+      "lng": -114.32942999999999,
+      "primary_type": "art_gallery",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "art galleries",
+      "reviews": 9
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "314ccac6",
+        "entity_id": "314ccac6-bb7f-4724-b715-a1a7df4dc999",
+        "name": "Booby Falls Restaurant & Rodeo",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 19.6,
+        "name_similarity": 0.375,
+        "existing_place_id": "ChIJ3VpxEADz0YARdMBzD8kgUSs",
+        "existing_primary": "american_restaurant"
+      },
+      {
+        "entity_id_prefix": "aea61293",
+        "entity_id": "aea61293-dfbe-4fa2-9576-e2c0369c6eac",
+        "name": "Smallcakes: Cupcakery & Creamery",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 61.1,
+        "name_similarity": 0.333,
+        "existing_place_id": "ChIJOWd1vX7y0YARsSPk-drt1_g",
+        "existing_primary": "bakery"
+      },
+      {
+        "entity_id_prefix": "52a93d98",
+        "entity_id": "52a93d98-0143-4dc3-a794-5ef581962646",
+        "name": "stevenSMOKED",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 61.1,
+        "name_similarity": 0.125,
+        "existing_place_id": "ChIJg8M-p3Xz0YARQhtyOoa5c7A",
+        "existing_primary": "catering_service"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJKxyMk37y0YARc9qqzo-PZjA",
+      "name": "Jaque Meng",
+      "address": "2102 McCulloch Blvd N, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.475477,
+      "lng": -114.32942999999999,
+      "primary_type": "art_gallery",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "art galleries",
+      "reviews": null
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "314ccac6",
+        "entity_id": "314ccac6-bb7f-4724-b715-a1a7df4dc999",
+        "name": "Booby Falls Restaurant & Rodeo",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 19.6,
+        "name_similarity": 0.235,
+        "existing_place_id": "ChIJ3VpxEADz0YARdMBzD8kgUSs",
+        "existing_primary": "american_restaurant"
+      },
+      {
+        "entity_id_prefix": "aea61293",
+        "entity_id": "aea61293-dfbe-4fa2-9576-e2c0369c6eac",
+        "name": "Smallcakes: Cupcakery & Creamery",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 61.1,
+        "name_similarity": 0.267,
+        "existing_place_id": "ChIJOWd1vX7y0YARsSPk-drt1_g",
+        "existing_primary": "bakery"
+      },
+      {
+        "entity_id_prefix": "52a93d98",
+        "entity_id": "52a93d98-0143-4dc3-a794-5ef581962646",
+        "name": "stevenSMOKED",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 61.1,
+        "name_similarity": 0.214,
+        "existing_place_id": "ChIJg8M-p3Xz0YARQhtyOoa5c7A",
+        "existing_primary": "catering_service"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJN55Jln7t0YAR18RO0S_8qtc",
+      "name": "Lake Havasu City Aquatic Center",
+      "address": "100 Park Ave, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4654343,
+      "lng": -114.33847619999999,
+      "primary_type": "swimming_pool",
+      "discovery_domain": "beauty_personal_care",
+      "discovery_label": "spas",
+      "reviews": 595
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "69f854fc",
+        "entity_id": "69f854fc-ebf6-405d-bd5d-3de4a6e2f2cc",
+        "name": "Parks & Recreation Department",
+        "current_slugs": [
+          "public-civic-resources"
+        ],
+        "distance_m": 22.2,
+        "name_similarity": 0.474,
+        "existing_place_id": "ChIJN55Jln7t0YARCJ151LBjnOk",
+        "existing_primary": "sports_activity_location"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJOTi2LzDz0YARPAXvfHOdksM",
+      "name": "HavaPic",
+      "address": "3370 Tolteca Dr, Lake Havasu City, AZ 86406, USA",
+      "lat": 34.460344,
+      "lng": -114.276426,
+      "primary_type": "service",
+      "discovery_domain": "professional_services",
+      "discovery_label": "photographers",
+      "reviews": 7
+    },
+    "matched_entities": []
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJUQlz-Jrt0YARL5Rae7sBEuM",
+      "name": "American Legion",
+      "address": "181 Paseo del Sol Ave, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4762116,
+      "lng": -114.3489958,
+      "primary_type": "association_or_organization",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "event venues",
+      "reviews": 140
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "51117ed2",
+        "entity_id": "51117ed2-6cb4-4e55-b9ac-b1952806f958",
+        "name": "Piccadilly\u2019s and More!",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 41.5,
+        "name_similarity": 0.643,
+        "existing_place_id": "ChIJ5dlJkwHt0YARf-wDJcHJc68",
+        "existing_primary": "restaurant"
+      },
+      {
+        "entity_id_prefix": "7d80aa11",
+        "entity_id": "7d80aa11-6f0a-4923-afcb-9b03e5e50b54",
+        "name": "Ronica's Sweet Buns",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 41.5,
+        "name_similarity": 0.467,
+        "existing_place_id": "ChIJAbsVdqbt0YARrhI2Sj6jyO4",
+        "existing_primary": "bakery"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJW0vNWkvy0YAR2I3297s7sAw",
+      "name": "Lake Havasu, AZ Elks Lodge #2399",
+      "address": "3532 McCulloch Blvd N, Lake Havasu City, AZ 86406, USA",
+      "lat": 34.4968078,
+      "lng": -114.2867361,
+      "primary_type": "association_or_organization",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "mini golf",
+      "reviews": 388
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "546755d9",
+        "entity_id": "546755d9-731d-40e2-9c67-1b61dbe38c8c",
+        "name": "Gallagher's Dining & Pub",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 48.2,
+        "name_similarity": 0.4,
+        "existing_place_id": "ChIJ4RVSWkvy0YAR57yASfNjOqg",
+        "existing_primary": "bar_and_grill"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJZzF0g53z0YARTWou8VfI4QA",
+      "name": "Tyanna Renee Gallery",
+      "address": "2153 McCulloch Blvd N, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4750532,
+      "lng": -114.32523139999999,
+      "primary_type": "art_gallery",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "art galleries",
+      "reviews": null
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "3c417ed7",
+        "entity_id": "3c417ed7-b464-4084-9692-2e38aa64e77f",
+        "name": "Hypnotherapist On Line",
+        "current_slugs": [
+          "health-wellness-care"
+        ],
+        "distance_m": 21.9,
+        "name_similarity": 0.538,
+        "existing_place_id": "ChIJU_YoZ17z0YAReaWRYAKhnLg",
+        "existing_primary": "service"
+      },
+      {
+        "entity_id_prefix": "1b2166c0",
+        "entity_id": "1b2166c0-8416-450b-8f90-bc58577a3568",
+        "name": "Fiore's Endorphin Factory",
+        "current_slugs": [
+          "health-wellness-care"
+        ],
+        "distance_m": 21.9,
+        "name_similarity": 0.375,
+        "existing_place_id": "ChIJETgWI7Tz0YARM3JwVWuAYcw",
+        "existing_primary": "fitness_center"
+      },
+      {
+        "entity_id_prefix": "7798e92a",
+        "entity_id": "7798e92a-000e-4e0c-9852-956f3d44b20f",
+        "name": "Women KravMaga Self Defense for Women",
+        "current_slugs": [
+          "health-wellness-care"
+        ],
+        "distance_m": 21.9,
+        "name_similarity": 0.375,
+        "existing_place_id": "ChIJKygcJzbz0YAR_YF1Kk4JG5k",
+        "existing_primary": "health"
+      },
+      {
+        "entity_id_prefix": "0034effb",
+        "entity_id": "0034effb-6cfb-4122-a17b-1bef624a9de2",
+        "name": "Arizona Kravmaga",
+        "current_slugs": [
+          "health-wellness-care"
+        ],
+        "distance_m": 21.9,
+        "name_similarity": 0.286,
+        "existing_place_id": "ChIJK1l6Kxbz0YAR0mSZHHZrMio",
+        "existing_primary": "sports_school"
+      },
+      {
+        "entity_id_prefix": "92acacb7",
+        "entity_id": "92acacb7-5e6d-4718-b6e0-b9bf2ee1bb02",
+        "name": "PrimePest Solutions",
+        "current_slugs": [
+          "home-property-services"
+        ],
+        "distance_m": 47.9,
+        "name_similarity": 0.357,
+        "existing_place_id": "ChIJJ0QDSlvz0YARKLTFJ4_E1fQ",
+        "existing_primary": "service"
+      },
+      {
+        "entity_id_prefix": "757d2b8f",
+        "entity_id": "757d2b8f-48ba-45df-9953-fbe4f947f114",
+        "name": "Paleo to Go, Inc",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 57.1,
+        "name_similarity": 0.5,
+        "existing_place_id": "ChIJ554as33y0YARO2s97ASzoiI",
+        "existing_primary": "restaurant"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJ_cXnMOnz0YARlPbjQzmEC5w",
+      "name": "Game Spot llc",
+      "address": "3524 McCulloch Blvd N suite 3, Lake Havasu City, AZ 86406, USA",
+      "lat": 34.4965136,
+      "lng": -114.28712619999999,
+      "primary_type": "casino",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "arcades",
+      "reviews": 1
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "546755d9",
+        "entity_id": "546755d9-731d-40e2-9c67-1b61dbe38c8c",
+        "name": "Gallagher's Dining & Pub",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 9.2,
+        "name_similarity": 0.353,
+        "existing_place_id": "ChIJ4RVSWkvy0YAR57yASfNjOqg",
+        "existing_primary": "bar_and_grill"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJa2cJSETy0YARZXiHd6P1AQE",
+      "name": "Four Quarters Amusements",
+      "address": "1640 W Acoma Blvd #112, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4956829,
+      "lng": -114.3524501,
+      "primary_type": "manufacturer",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "arcades",
+      "reviews": 46
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "351532b5",
+        "entity_id": "351532b5-15b2-45d3-8e9f-2cdec7832b13",
+        "name": "HTM Performance Boats",
+        "current_slugs": [
+          "on-the-water"
+        ],
+        "distance_m": 20.9,
+        "name_similarity": 0.6,
+        "existing_place_id": "ChIJ5zZN6ujt0YAR8c3u5t_55u0",
+        "existing_primary": "supplier"
+      },
+      {
+        "entity_id_prefix": "d43193ca",
+        "entity_id": "d43193ca-e4f2-4c0c-9abb-cc8f3ae4e4c3",
+        "name": "River Blend Coffee Company",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 51.2,
+        "name_similarity": 0.368,
+        "existing_place_id": "ChIJrdeTAG7t0YARK5DIOOEujkQ",
+        "existing_primary": "coffee_roastery"
+      },
+      {
+        "entity_id_prefix": "2d7ab66d",
+        "entity_id": "2d7ab66d-397b-4f18-b620-c34f7768f81e",
+        "name": "Prestige Marine",
+        "current_slugs": [
+          "on-the-water"
+        ],
+        "distance_m": 62.0,
+        "name_similarity": 0.5,
+        "existing_place_id": "ChIJ873OLOnt0YARSiwa7zThXGM",
+        "existing_primary": "service"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJb6Dznt7z0YARHnFclk03mN0",
+      "name": "Simply Savage Designs",
+      "address": "2102 McCulloch Blvd N, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4755716,
+      "lng": -114.32938349999999,
+      "primary_type": "art_gallery",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "art galleries",
+      "reviews": 1
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "314ccac6",
+        "entity_id": "314ccac6-bb7f-4724-b715-a1a7df4dc999",
+        "name": "Booby Falls Restaurant & Rodeo",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 8.4,
+        "name_similarity": 0.389,
+        "existing_place_id": "ChIJ3VpxEADz0YARdMBzD8kgUSs",
+        "existing_primary": "american_restaurant"
+      },
+      {
+        "entity_id_prefix": "aea61293",
+        "entity_id": "aea61293-dfbe-4fa2-9576-e2c0369c6eac",
+        "name": "Smallcakes: Cupcakery & Creamery",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 49.8,
+        "name_similarity": 0.438,
+        "existing_place_id": "ChIJOWd1vX7y0YARsSPk-drt1_g",
+        "existing_primary": "bakery"
+      },
+      {
+        "entity_id_prefix": "52a93d98",
+        "entity_id": "52a93d98-0143-4dc3-a794-5ef581962646",
+        "name": "stevenSMOKED",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 49.8,
+        "name_similarity": 0.4,
+        "existing_place_id": "ChIJg8M-p3Xz0YARQhtyOoa5c7A",
+        "existing_primary": "catering_service"
+      },
+      {
+        "entity_id_prefix": "722270d2",
+        "entity_id": "722270d2-ea64-447d-ac38-052176abf7e1",
+        "name": "Jersey bar & grille",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 65.4,
+        "name_similarity": 0.467,
+        "existing_place_id": "ChIJ7zPYRwDz0YAR5akWWo9MsqA",
+        "existing_primary": "american_restaurant"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJexoI1Hft0YARblpu6PprJRM",
+      "name": "Lions Dog Park",
+      "address": "1340 McCulloch Blvd N, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4676007,
+      "lng": -114.34872100000001,
+      "primary_type": "park",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "parks",
+      "reviews": 945
+    },
+    "matched_entities": []
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJg43qsFHz0YARF9STkPmDrrk",
+      "name": "Quest Realm",
+      "address": "2169 Swanson Ave Unit 3, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4738409,
+      "lng": -114.32293849999999,
+      "primary_type": "store",
+      "discovery_domain": "retail",
+      "discovery_label": "gift shops",
+      "reviews": 100
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "f9e8b712",
+        "entity_id": "f9e8b712-a6a3-4a46-9e50-2ca137ab7258",
+        "name": "Harmony Health & Wellness Center",
+        "current_slugs": [
+          "health-wellness-care"
+        ],
+        "distance_m": 12.8,
+        "name_similarity": 0.467,
+        "existing_place_id": "ChIJE7DPENXz0YARzWkgSmhJ1zU",
+        "existing_primary": "health"
+      },
+      {
+        "entity_id_prefix": "37ebd704",
+        "entity_id": "37ebd704-bf7c-4c33-993e-5bfc551daa0a",
+        "name": "Dr. Caroline M. Koch, MD",
+        "current_slugs": [
+          "health-wellness-care"
+        ],
+        "distance_m": 38.5,
+        "name_similarity": 0.312,
+        "existing_place_id": "ChIJnR22TX3y0YARy3Ej2QoBaiw",
+        "existing_primary": "doctor"
+      },
+      {
+        "entity_id_prefix": "84c814bc",
+        "entity_id": "84c814bc-436b-4ab9-8859-17171825d7ac",
+        "name": "Mohave Mental Health Clinic, Inc",
+        "current_slugs": [
+          "health-wellness-care"
+        ],
+        "distance_m": 41.0,
+        "name_similarity": 0.333,
+        "existing_place_id": "ChIJnR22TX3y0YARzRcooZ6fdLU",
+        "existing_primary": "medical_clinic"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJgyvG_1Tt0YARgO2t-UyfSO8",
+      "name": "At The Bridge Rentals",
+      "address": "1425 McCulloch Blvd N, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4712684,
+      "lng": -114.3495799,
+      "primary_type": "service",
+      "discovery_domain": "lake_recreation",
+      "discovery_label": "boat rentals",
+      "reviews": 284
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "3723c4ba",
+        "entity_id": "3723c4ba-3115-401b-a31c-78c7724d5c27",
+        "name": "Shugrue's Cornerside Bakery",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 0.0,
+        "name_similarity": 0.588,
+        "existing_place_id": "ChIJrSnubwTt0YARb0p_F7M97gY",
+        "existing_primary": "bakery"
+      },
+      {
+        "entity_id_prefix": "16faff70",
+        "entity_id": "16faff70-41cd-4f67-9dc4-67e1a641ed24",
+        "name": "Island Mall & Brewery",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 1.9,
+        "name_similarity": 0.6,
+        "existing_place_id": "ChIJN7le-Jzt0YARKYDNYp780t4",
+        "existing_primary": "bar"
+      },
+      {
+        "entity_id_prefix": "c1c8829c",
+        "entity_id": "c1c8829c-b200-49ac-8cab-f69bf7ff23bd",
+        "name": "Shugrue's Restaurant and Brewery Group",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 57.1,
+        "name_similarity": 0.588,
+        "existing_place_id": "ChIJqy5Ls53t0YARUljUGNCgabU",
+        "existing_primary": "steak_house"
+      },
+      {
+        "entity_id_prefix": "d7e8fb73",
+        "entity_id": "d7e8fb73-9c1f-4491-9881-821026e16220",
+        "name": "Makai Cafe",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 72.1,
+        "name_similarity": 0.188,
+        "existing_place_id": "ChIJSTC0TJzt0YARsck4hb9P-Rs",
+        "existing_primary": "breakfast_restaurant"
+      },
+      {
+        "entity_id_prefix": "400e7926",
+        "entity_id": "400e7926-68cf-4eb8-a94e-639b02e4c817",
+        "name": "Barley Brothers Brewery",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 73.4,
+        "name_similarity": 0.533,
+        "existing_place_id": "ChIJSTC0TJzt0YARMXvN8tBeGSA",
+        "existing_primary": "brewpub"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJh7Olrr3v0YAR20khr8UuHAg",
+      "name": "Star Cinemas",
+      "address": "5601 AZ-95, Lake Havasu City, AZ 86404, USA",
+      "lat": 34.5689546,
+      "lng": -114.3683509,
+      "primary_type": "movie_theater",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "movie theaters",
+      "reviews": 814
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "23b6425d",
+        "entity_id": "23b6425d-ad2c-48d9-9e39-d7f018bfa0d3",
+        "name": "Buffalo Wild Wings",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 0.1,
+        "name_similarity": 0.235,
+        "existing_place_id": "ChIJC2rVS0nv0YARf2ALqs-oXQ0",
+        "existing_primary": "chicken_wings_restaurant"
+      },
+      {
+        "entity_id_prefix": "c797b5a8",
+        "entity_id": "c797b5a8-9093-493b-95b7-759cd1e52273",
+        "name": "Frozen Spoon",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 65.8,
+        "name_similarity": 0.308,
+        "existing_place_id": "ChIJySKzMb_v0YARnrf997D3mKk",
+        "existing_primary": "dessert_shop"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJh7Olrr3v0YARP08i7k-BcHU",
+      "name": "The Shops At Lake Havasu",
+      "address": "5601 AZ-95 #730, Lake Havasu City, AZ 86404, USA",
+      "lat": 34.5688327,
+      "lng": -114.367199,
+      "primary_type": "shopping_mall",
+      "discovery_domain": "retail",
+      "discovery_label": "grocery stores",
+      "reviews": 2352
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "c021f7d5",
+        "entity_id": "c021f7d5-5425-4a5c-87dc-5f44fbc0f3c0",
+        "name": "Milemarkers-Lake Havasu City",
+        "current_slugs": [
+          "health-wellness-care"
+        ],
+        "distance_m": 34.1,
+        "name_similarity": 0.562,
+        "existing_place_id": "ChIJ1zmAZX_t0YARl666-5EvvRQ",
+        "existing_primary": "medical_clinic"
+      },
+      {
+        "entity_id_prefix": "b0b0881f",
+        "entity_id": "b0b0881f-26dc-4133-8459-26c3a2ed4247",
+        "name": "Northside Grill",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 49.7,
+        "name_similarity": 0.375,
+        "existing_place_id": "ChIJF-UPgWzv0YARZKS7w8cmrm0",
+        "existing_primary": "restaurant"
+      },
+      {
+        "entity_id_prefix": "c797b5a8",
+        "entity_id": "c797b5a8-9093-493b-95b7-759cd1e52273",
+        "name": "Frozen Spoon",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 52.4,
+        "name_similarity": 0.267,
+        "existing_place_id": "ChIJySKzMb_v0YARnrf997D3mKk",
+        "existing_primary": "dessert_shop"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJk94FZ5vt0YARsi8wIj04wcE",
+      "name": "Holiday Inn Express & Suites Lake Havasu - London Bridge by IHG",
+      "address": "40 London Bridge Rd, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4733987,
+      "lng": -114.34643299999999,
+      "primary_type": "hotel",
+      "discovery_domain": "lodging",
+      "discovery_label": "hotels",
+      "reviews": 619
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "6b5f814d",
+        "entity_id": "6b5f814d-4b34-4154-9b6e-fb4e2a8d076c",
+        "name": "The Local Craving",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 49.0,
+        "name_similarity": 0.55,
+        "existing_place_id": "ChIJNwSAqYzt0YARl_KSryUYSNA",
+        "existing_primary": "dessert_shop"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJkU_4m37y0YARvs33l3hFhDM",
+      "name": "Main Street Commons",
+      "address": "2-44 Querio Dr, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4756468,
+      "lng": -114.3285808,
+      "primary_type": "park",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "parks",
+      "reviews": 110
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "e4c4fe17",
+        "entity_id": "e4c4fe17-103b-4baa-bcf8-255ed18a54f3",
+        "name": "McKee's Pub & Grill",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 43.4,
+        "name_similarity": 0.375,
+        "existing_place_id": "ChIJDcmIhH7y0YARewdKsYk1Kko",
+        "existing_primary": "bar_and_grill"
+      },
+      {
+        "entity_id_prefix": "52a93d98",
+        "entity_id": "52a93d98-0143-4dc3-a794-5ef581962646",
+        "name": "stevenSMOKED",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 61.5,
+        "name_similarity": 0.462,
+        "existing_place_id": "ChIJg8M-p3Xz0YARQhtyOoa5c7A",
+        "existing_primary": "catering_service"
+      },
+      {
+        "entity_id_prefix": "aea61293",
+        "entity_id": "aea61293-dfbe-4fa2-9576-e2c0369c6eac",
+        "name": "Smallcakes: Cupcakery & Creamery",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 61.5,
+        "name_similarity": 0.4,
+        "existing_place_id": "ChIJOWd1vX7y0YARsSPk-drt1_g",
+        "existing_primary": "bakery"
+      },
+      {
+        "entity_id_prefix": "d966decc",
+        "entity_id": "d966decc-23ba-4504-812f-9ae679a987d6",
+        "name": "Desert Martini",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 63.3,
+        "name_similarity": 0.727,
+        "existing_place_id": "ChIJ4cEegn7y0YARn5rr-Y7ztHI",
+        "existing_primary": "bar"
+      },
+      {
+        "entity_id_prefix": "6a5f74e6",
+        "entity_id": "6a5f74e6-36c4-43b8-87f3-3d03ad40653d",
+        "name": "BJ's | Cabana Bar & Karaoke",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 70.3,
+        "name_similarity": 0.538,
+        "existing_place_id": "ChIJ1fD9gX7y0YARz1P1ItqRJbA",
+        "existing_primary": "bar"
+      },
+      {
+        "entity_id_prefix": "314ccac6",
+        "entity_id": "314ccac6-bb7f-4724-b715-a1a7df4dc999",
+        "name": "Booby Falls Restaurant & Rodeo",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 72.4,
+        "name_similarity": 0.438,
+        "existing_place_id": "ChIJ3VpxEADz0YARdMBzD8kgUSs",
+        "existing_primary": "american_restaurant"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJn3rSLH_y0YARzypda3tWk70",
+      "name": "Golf USA",
+      "address": "1850 McCulloch Blvd N C-2, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4758024,
+      "lng": -114.33816399999999,
+      "primary_type": "sporting_goods_store",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "mini golf",
+      "reviews": 24
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "c77834aa",
+        "entity_id": "c77834aa-d6ed-41f4-9d0e-271c765ddb02",
+        "name": "Amore Pie & More",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 22.5,
+        "name_similarity": 0.167,
+        "existing_place_id": "ChIJ0Ye3g07t0YARZHvqbplnxXM",
+        "existing_primary": "bakery"
+      },
+      {
+        "entity_id_prefix": "54df034f",
+        "entity_id": "54df034f-6c93-4cfe-835c-8e53d9a1a022",
+        "name": "Charged Up Nutrition Bar",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 63.2,
+        "name_similarity": 0.235,
+        "existing_place_id": "ChIJB26OTqLt0YAR5r2uF-ZdWh8",
+        "existing_primary": "juice_shop"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJnQl-VXJ2zoAR-5LWum3QNVI",
+      "name": "Havasu Adult Bookstore",
+      "address": "3590 London Bridge Rd, Lake Havasu City, AZ 86404, USA",
+      "lat": 34.5405083,
+      "lng": -114.3662293,
+      "primary_type": "store",
+      "discovery_domain": "retail",
+      "discovery_label": "bookstores",
+      "reviews": 41
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "dc5168c6",
+        "entity_id": "dc5168c6-f5ec-4e0f-ab5a-a4cbf8ed7506",
+        "name": "Locos Bar and Cocina - Northside",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 41.0,
+        "name_similarity": 0.625,
+        "existing_place_id": "ChIJ-Wz88k7u0YARXTyFW61E0Lg",
+        "existing_primary": "mexican_restaurant"
+      },
+      {
+        "entity_id_prefix": "0ca736f9",
+        "entity_id": "0ca736f9-8f5b-418a-8914-f033796c6988",
+        "name": "Cocoloco",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 41.9,
+        "name_similarity": 0.143,
+        "existing_place_id": "ChIJmeZRSADv0YARve6iOj4e-kg",
+        "existing_primary": "mexican_restaurant"
+      },
+      {
+        "entity_id_prefix": "a7b460c3",
+        "entity_id": "a7b460c3-29b3-4eaf-8bf8-3ed597001141",
+        "name": "Community Thrift and Gifts",
+        "current_slugs": [
+          "shopping-essentials"
+        ],
+        "distance_m": 59.8,
+        "name_similarity": 0.4,
+        "existing_place_id": "ChIJy7L6IwDv0YARNBUhjPL2ddU",
+        "existing_primary": "thrift_store"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJqy4ihILt0YARi_0Uoik-EGA",
+      "name": "Queens Real Estate By Connie",
+      "address": "141 Swanson Ave # 1, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4693852,
+      "lng": -114.34345169999999,
+      "primary_type": "real_estate_agency",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "event venues",
+      "reviews": 2
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "74663daa",
+        "entity_id": "74663daa-6975-4ef4-83ca-fc8e6e7cd844",
+        "name": "El Mariachi Mexican Restaurant",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 0.0,
+        "name_similarity": 0.588,
+        "existing_place_id": "ChIJOfJnhoLt0YARQbRGK_agve0",
+        "existing_primary": "mexican_restaurant"
+      },
+      {
+        "entity_id_prefix": "a1f9733f",
+        "entity_id": "a1f9733f-db2b-4f21-bc5f-693bf2a11dc4",
+        "name": "Los Chikis",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 64.1,
+        "name_similarity": 0.312,
+        "existing_place_id": "ChIJGc4TbADt0YARVa7s1ffk_jU",
+        "existing_primary": "mexican_restaurant"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJsWgn4JDt0YARakfX-O8_TYs",
+      "name": "Lake Havasu Museum of History & Havasu Rocks",
+      "address": "320 London Bridge Rd, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.480501,
+      "lng": -114.35034499999999,
+      "primary_type": "history_museum",
+      "discovery_domain": "entertainment_attractions",
+      "discovery_label": "museums",
+      "reviews": 213
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "fb2d5ba5",
+        "entity_id": "fb2d5ba5-41f4-4924-ba6e-d2e8425804a1",
+        "name": "Go Lake Havasu",
+        "current_slugs": [
+          "on-the-water"
+        ],
+        "distance_m": 17.5,
+        "name_similarity": 0.529,
+        "existing_place_id": "ChIJlw5Y4JDt0YARaDOZgAo71A0",
+        "existing_primary": "tourist_information_center"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJty55LV7z0YARFR-ReA7Yjpk",
+      "name": "The Views at Lake Havasu",
+      "address": "2110 Swanson Ave, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4730038,
+      "lng": -114.3236969,
+      "primary_type": "service",
+      "discovery_domain": "health_medical",
+      "discovery_label": "senior living",
+      "reviews": 43
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "b4184fc2",
+        "entity_id": "b4184fc2-b882-4c23-93e3-f0694b44e7ea",
+        "name": "Oasis at The Views Restaurant",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 0.0,
+        "name_similarity": 0.643,
+        "existing_place_id": "ChIJeUoHnoLz0YARatSnjEy-mjs",
+        "existing_primary": "restaurant"
+      },
+      {
+        "entity_id_prefix": "a6259f97",
+        "entity_id": "a6259f97-d1f4-4383-a3cb-83c560f60834",
+        "name": "Loaded Gun Coffee",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 54.9,
+        "name_similarity": 0.235,
+        "existing_place_id": "ChIJJa_ySQDz0YARRsydERbzRM0",
+        "existing_primary": "food_store"
+      }
+    ]
+  },
+  {
+    "ambig_kind": "geo50m_name_diff",
+    "candidate": {
+      "place_id": "ChIJtyZNfgbz0YARPmKm4epX4rA",
+      "name": "Flashback Toys & Collectibles",
+      "address": "39 Querio Dr, Lake Havasu City, AZ 86403, USA",
+      "lat": 34.4759211,
+      "lng": -114.3287043,
+      "primary_type": "toy_store",
+      "discovery_domain": "retail",
+      "discovery_label": "bookstores",
+      "reviews": 52
+    },
+    "matched_entities": [
+      {
+        "entity_id_prefix": "aea61293",
+        "entity_id": "aea61293-dfbe-4fa2-9576-e2c0369c6eac",
+        "name": "Smallcakes: Cupcakery & Creamery",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 39.1,
+        "name_similarity": 0.412,
+        "existing_place_id": "ChIJOWd1vX7y0YARsSPk-drt1_g",
+        "existing_primary": "bakery"
+      },
+      {
+        "entity_id_prefix": "52a93d98",
+        "entity_id": "52a93d98-0143-4dc3-a794-5ef581962646",
+        "name": "stevenSMOKED",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 39.1,
+        "name_similarity": 0.294,
+        "existing_place_id": "ChIJg8M-p3Xz0YARQhtyOoa5c7A",
+        "existing_primary": "catering_service"
+      },
+      {
+        "entity_id_prefix": "722270d2",
+        "entity_id": "722270d2-ea64-447d-ac38-052176abf7e1",
+        "name": "Jersey bar & grille",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 54.5,
+        "name_similarity": 0.438,
+        "existing_place_id": "ChIJ7zPYRwDz0YAR5akWWo9MsqA",
+        "existing_primary": "american_restaurant"
+      },
+      {
+        "entity_id_prefix": "314ccac6",
+        "entity_id": "314ccac6-bb7f-4724-b715-a1a7df4dc999",
+        "name": "Booby Falls Restaurant & Rodeo",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 68.2,
+        "name_similarity": 0.529,
+        "existing_place_id": "ChIJ3VpxEADz0YARdMBzD8kgUSs",
+        "existing_primary": "american_restaurant"
+      },
+      {
+        "entity_id_prefix": "e4c4fe17",
+        "entity_id": "e4c4fe17-103b-4baa-bcf8-255ed18a54f3",
+        "name": "McKee's Pub & Grill",
+        "current_slugs": [
+          "eat-drink"
+        ],
+        "distance_m": 74.2,
+        "name_similarity": 0.389,
+        "existing_place_id": "ChIJDcmIhH7y0YARewdKsYk1Kko",
+        "existing_primary": "bar_and_grill"
+      }
+    ]
+  }
+]
