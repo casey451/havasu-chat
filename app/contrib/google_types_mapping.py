@@ -226,6 +226,38 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     "tennis_court": ("classes-sports-recreation", "place"),
     "pickleball_court": ("classes-sports-recreation", "place"),
 
+    # Phase 5.10 §1 sustainability — lodging-vacation-rentals (cat-10)
+    # direct mappings. The pre-Phase-5 ``lodging`` direct mapping (above)
+    # already catches most lodging-shape places via the secondary-types[]
+    # first-match behavior in ``map_google_types_to_slug_and_place_type``
+    # (e.g., a hotel with types[]=["hotel", "lodging", "establishment"]
+    # lands in cat-10 via the secondary ``lodging`` slot). The 5.10 §1
+    # load empirically confirmed this catches 4 distinct non-mapped
+    # primary_types in cat-10 today: campground, mobile_home_park,
+    # camping_cabin, and service (JR RV Rentals + 14 RV parks + 6
+    # campgrounds + 2 mobile home parks + 1 camping cabin all routed
+    # correctly pre-5.10 via the secondary-types[] match). Adding the
+    # 5 expected lodging primary_types directly is defensive vs Google's
+    # types[] array changes and documents intent explicitly — same
+    # pattern 5.8 followed for events (``0b426e1``) where direct
+    # mappings overlap with the entertainment_attractions catch-all.
+    #
+    # The remaining edge case from the 5.10 §1 load — Vanderpump Rules
+    # Lake Havasu Luxury Villa (primary=``service``, types[] without
+    # ``lodging``) — is handled by the NEW ``(None, "lodging") ->
+    # "lodging-vacation-rentals"`` catch-all at
+    # ``scripts/places_load._DISCOVERY_DOMAIN_FALLBACK``.
+    #
+    # All 5 start as ``commercial`` (fee-based, staffed). The §2 audit
+    # can flip individual entries to ``place`` if there's a public-good
+    # edge case (rare for lodging — pools are amenities, not primary
+    # identity).
+    "hotel": ("lodging-vacation-rentals", "commercial"),
+    "motel": ("lodging-vacation-rentals", "commercial"),
+    "resort_hotel": ("lodging-vacation-rentals", "commercial"),
+    "extended_stay_hotel": ("lodging-vacation-rentals", "commercial"),
+    "bed_and_breakfast": ("lodging-vacation-rentals", "commercial"),
+
     "school": ("classes-sports-recreation", "commercial"),
     "library": ("public-civic-resources", "place"),
     "city_hall": ("public-civic-resources", "place"),

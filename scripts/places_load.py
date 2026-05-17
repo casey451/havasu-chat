@@ -342,6 +342,33 @@ _DISCOVERY_DOMAIN_FALLBACK: dict[tuple[str | None, str], str] = {
     # HWC-absorbed fitness types (gym/yoga/pilates/crossfit/martial/
     # jiu_jitsu/dance) stay in HWC via that same 5.4 catch-all.
     (None, "childcare_education"): "classes-sports-recreation",
+    # lodging -> lodging-vacation-rentals (Phase 5.10 §1 sustainability).
+    # NEW catch-all — no prior phase populated the lodging domain in
+    # the fallback. Pairs with the 5 direct ``_PRIMARY_TYPE_MAP``
+    # entries shipped this commit for hotel / motel / resort_hotel /
+    # extended_stay_hotel / bed_and_breakfast (per kickoff §1 Option
+    # A); this fallback covers any unmapped lodging primary_types that
+    # Google emits for the 5 in-scope labels (hotels, motels, resorts,
+    # vacation rentals, bed and breakfast). The 5.10 §1 load surfaced
+    # one such case: Vanderpump Rules Lake Havasu Luxury Villa
+    # (primary=``service``, _first_seen_domain=``lodging``, types[]
+    # without the ``lodging`` secondary that would otherwise catch it
+    # via the existing ``"lodging": ("lodging-vacation-rentals",
+    # "commercial")`` direct mapping in google_types_mapping.py:134).
+    # The new catch-all routes that edge case + any future similar
+    # cases to cat-10 instead of operator queue.
+    #
+    # The 5.2 ``(None, "lake_recreation") -> "on-the-water"`` catch-all
+    # stays in place for the lake_recreation domain (the OTHER half of
+    # the lodging-vacation-rentals two-domain bundle); RV parks already
+    # in cat-10 via the pre-Phase-5 ``rv_park`` direct mapping in
+    # _PRIMARY_TYPE_MAP, campgrounds + mobile_home_park + camping_cabin
+    # also already in cat-10 via the secondary-types[] first-match on
+    # the existing ``lodging`` direct mapping. The 11 (of 24)
+    # lake_recreation labels deferred to V1.5 per kickoff §1 Narrow
+    # scope: marina/boat shape already absorbed by 5.2; campgrounds +
+    # RV dealers/rentals re-evaluable per-label in V1.5.
+    (None, "lodging"): "lodging-vacation-rentals",
     # Phase 5.8+ entries land here as their per-category audits surface gaps.
 }
 
