@@ -13,18 +13,20 @@
 
 You're picking up Phase 5.11 (Pets, `pets`, cat-11) from scratch -- the
 kickoff session. Phase 5.10 (Lodging & Vacation Rentals) SHIPPED on
-origin at `592ee74` (2026-05-17) with all 6 gate items cleared
-and CI green. **Phase 5.11 is the LAST remaining Tier-1 category** --
-13 of 13 slugs after this. Top of `origin/main` is `592ee74` (or
-later if the Phase 6 lane shipped the consolidated amend5-X dispatch
-between sessions). Find your own context before doing anything else.
+origin at `592ee74` (2026-05-17) with all 6 gate items cleared and CI
+green; SHA-cleanup at `accc06d`; Phase 5.11 kickoff doc pre-staged at
+`<KICKOFF-COMMIT>`. **Phase 5.11 is the LAST remaining Tier-1
+category** -- 13 of 13 slugs after this. Top of `origin/main` is
+`<KICKOFF-COMMIT>` (or later if the Phase 6 lane shipped the
+consolidated amend5-X dispatch between sessions). Find your own
+context before doing anything else.
 
 Working directory: `C:\Users\casey\projects\havasu-chat`.
 
-1. `git log --oneline -10` to confirm `592ee74` is top of main;
-   the 5.10 chain since 5.9's `bc08bf6` SHA-cleanup is
-   `ef8325d -> d597ef9 -> bf24e16 -> 592ee74` on top of the
-   5.9 SHIP at `4527ca1`.
+1. `git log --oneline -10` to confirm `<KICKOFF-COMMIT>` is top of main;
+   the 5.10 -> 5.11-pre-stage chain is
+   `ef8325d -> d597ef9 -> bf24e16 -> 592ee74 -> accc06d -> <KICKOFF-COMMIT>`
+   on top of the 5.9 SHIP at `4527ca1` + 5.9 SHA-cleanup at `bc08bf6`.
 2. Read these four docs end-to-end, in this order:
    a. `outputs/phase5_11_next_agent_boot_prompt.md` (THIS file -- the
       boot prompt for this session -- read FIRST; it sets the scope
@@ -37,10 +39,11 @@ Working directory: `C:\Users\casey\projects\havasu-chat`.
       fix validation (select(func.count()) + session.flush() works),
       and the sustainability-conditional cadence that landed
       Vanderpump-style edge case via NEW (None, "lodging") catch-all)
-   c. `outputs/phase5_11_pets_kickoff.md` (the 5.11 runbook -- if
-      authored; otherwise the new agent authors this mirroring
-      `outputs/phase5_10_lodging_vacation_rentals_kickoff.md` shape
-      with 5.11-specific overrides)
+   c. `outputs/phase5_11_pets_kickoff.md` (the 5.11 runbook --
+      authoritative for the 6 acceptance gate definitions + the
+      single-domain clean scope (no Narrow scope decision needed --
+      all 4 pets labels are in scope) + 1 sustainability conditional
+      cadence + 3 Option C verifier resolution)
    d. `outputs/phase5_10_lodging_vacation_rentals_kickoff.md` (the
       5.10 runbook the 5.11 kickoff mirrors -- for shape continuity)
 
@@ -72,10 +75,14 @@ PHASE 5.11 SCOPE -- KEY FRAMING:
     `_DISCOVERY_DOMAIN_FALLBACK` has NO `(None, "pets")` catch-all
     today.
 
-  * **Narrow scope decision: TBD per 5.11 kickoff 1.** Estimated 4-6
-    in-scope pets labels. Likely: veterinarians, pet boarding /
-    daycare, pet groomers, pet stores, dog trainers, pet sitters.
-    Operator picks the in-scope label set at kickoff time.
+  * **Narrow scope decision: NOT NEEDED -- single-domain CLEAN.** Per
+    `scripts/places_categories.json:195-198`, the `pets` domain has
+    exactly 4 labels (pet stores, dog groomers, dog boarding, dog
+    trainers) -- all in scope. No bundle collision; no deferred
+    labels. Use `python -m scripts.places_discovery --category pets`
+    directly (no narrow-label-filter wrapper needed). Note: vet
+    clinics are NOT in 5.11 scope (no `veterinarians` label); 5.4 HWC
+    absorbed them via `medical_clinic` primary type.
 
   * **Sustainability layer PIVOT is CONDITIONAL, not pre-required.**
     Mirrors 5.10's conditional cadence:
