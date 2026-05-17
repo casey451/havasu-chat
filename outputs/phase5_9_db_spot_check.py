@@ -59,12 +59,12 @@ def main() -> int:
     print("[A] Categories table — classes-sports-recreation slug presence")
     print("-" * 78)
     rows = cur.execute(
-        "SELECT id, slug, label FROM categories "
+        "SELECT id, slug, name FROM categories "
         "WHERE slug IN ('classes-sports-recreation', 'events') "
         "ORDER BY id"
     ).fetchall()
     for row in rows:
-        print(f"  id={row[0]:>3}  slug={row[1]!r:<35}  label={row[2]!r}")
+        print(f"  id={row[0]:>3}  slug={row[1]!r:<35}  name={row[2]!r}")
     if not any(r[1] == "classes-sports-recreation" for r in rows):
         print("  🚨 ERROR: classes-sports-recreation slug NOT found in categories.")
     print()
@@ -130,8 +130,8 @@ def main() -> int:
     print(f"  long-form crowd   : {n_crowd} (expect 10)")
     print()
 
-    # --- Cat-12 classes-sports-recreation pre-load state ----------------
-    print("[C] Classes-Sports-Recreation (cat-12) — pre-§1 baseline")
+    # --- Cat-12 classes-sports-recreation state (post-§1 / post-§2) -----
+    print("[C] Classes-Sports-Recreation (cat-12) — current state")
     print("-" * 78)
     n_cat12 = cur.execute(
         """
@@ -142,22 +142,33 @@ def main() -> int:
         WHERE e.is_active = 1 AND c.slug = 'classes-sports-recreation'
         """
     ).fetchone()[0]
-    print(f"  total entries : {n_cat12} (expect 0-5; primarily 0, "
-          "but pre-existing _PRIMARY_TYPE_MAP['school'] may have caught some)")
+    print(f"  total entries : {n_cat12} (target >= 20 per kickoff §6; "
+          "expected ~29 post-§2)")
     if n_cat12 > 0:
         rows = cur.execute(
             """
-            SELECT e.id, e.name, e.entity_type, p.primary_type, p.draft
+            SELECT e.id, e.name, e.entity_type,
+                   p.google_primary_category, p.draft,
+                   GROUP_CONCAT(DISTINCT c.slug) AS all_slugs
             FROM entities e
-            JOIN entity_categories ec ON ec.entity_id = e.id
-            JOIN categories c ON c.id = ec.category_id
+            JOIN entity_categories ec_target ON ec_target.entity_id = e.id
+              AND ec_target.category_id = (
+                  SELECT id FROM categories WHERE slug = 'classes-sports-recreation'
+              )
+            LEFT JOIN entity_categories ec ON ec.entity_id = e.id
+            LEFT JOIN categories c ON c.id = ec.category_id
             LEFT JOIN providers p ON p.entity_id = e.id
-            WHERE e.is_active = 1 AND c.slug = 'classes-sports-recreation'
+            WHERE e.is_active = 1
+            GROUP BY e.id
             ORDER BY e.name
             """
         ).fetchall()
         for row in rows:
-            print(f"    {row[1]!r:<55}  type={row[2]!r:<11}  primary={row[3]!r}  draft={row[4]}")
+            slugs = row[5] or ""
+            print(
+                f"    {row[1]!r:<55}  type={row[2]!r:<11}  "
+                f"primary={row[3]!r:<28}  draft={row[4]}  cats=[{slugs}]"
+            )
     print()
 
     # --- 5.8 §9 V1.5 carry candidates: DB-verify existing state ---------
