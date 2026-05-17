@@ -5,14 +5,14 @@
 > 2 boot prompt + §2 ambig audit dump script) and pushed 2 commits to
 > land the §2 audit + §4 apply-scripts + gate verification, clearing
 > **ALL 6 acceptance gate items**.
-> Phase 5.7 SHIPPED at `[SHIP-COMMIT]`.
+> Phase 5.7 SHIPPED at `e60b051`.
 >
 > **Authored by:** Cowork primary, Phase 5 lane, Phase 5.7 session 2
-> (2026-05-17) post-`[SHIP-COMMIT]`.
+> (2026-05-17) post-`e60b051`.
 
 ---
 
-## §1 Commit chain (origin `c2bdb6d → [SHIP-COMMIT]`)
+## §1 Commit chain (origin `c2bdb6d → e60b051`)
 
 Session 1 lane: `f5d1062` (kickoff) → `1dfd28e` (sustainability) →
 `0c011ae` (narrow-label discovery wrapper) → `c2bdb6d` (session 1
@@ -22,7 +22,7 @@ script). Session 2 adds:
 | # | Commit | Subject | Source | Task |
 |---|---|---|---|---|
 | 4 | `5f8fe08` | `fix(outputs)` — drop F541 f-string prefixes in Phase 5.7 §2 ambig audit dump script | Cowork | CI green-fix (9 F541 violations on `c2bdb6d`'s dump-script bundle) |
-| 5 | `[SHIP-COMMIT]` | `chore(outputs)` — Phase 5.7 SHIPPED — all 6 gate items cleared | Cowork | **SHIP** |
+| 5 | `e60b051` | `chore(outputs)` — Phase 5.7 SHIPPED — all 6 gate items cleared | Cowork | **SHIP** |
 
 **Plus 4 DB-only writes** (no commit; events.db is gitignored):
 1. **Cache-reload load** (session 1) — 102 in-LHC rows → 28 inserts + 32 updates + 42 ambig-skips
@@ -44,7 +44,7 @@ that tripped CI on `c2bdb6d`. All session-2 apply-scripts + gate
 verification + discovery script F,I,W,E402-clean on first commit.
 
 **CI:** ✅ Green throughout (per operator confirmation on
-`[SHIP-COMMIT]`). The sibling `parks-rec-scrapes` cron continues to ❌
+`e60b051`). The sibling `parks-rec-scrapes` cron continues to ❌
 on schedule — root cause investigated in this session per §4.5
 sidebar (see §3 below) and handed off to Phase 6 / sidecar lane.
 
@@ -84,7 +84,7 @@ lines 357 + 411 keep their f-prefix (they interpolate `{placeholders}`
 / `{edge_placeholders}`); the line 375 block had no interpolation and
 dropped its f. No behavior change; pure lint cleanup.
 
-### `[SHIP-COMMIT]` — Phase 5.7 §2 audit + §4 apply-scripts + gate verification
+### `e60b051` — Phase 5.7 §2 audit + §4 apply-scripts + gate verification
 
 Bundles all session-2 work in one chunk:
 
@@ -238,10 +238,10 @@ catch-all will need **re-routing** for 5.8 — see Phase 5.8 boot prompt
 
 ## §6 Remaining work for next session (Phase 5.8)
 
-### Gate-blocking (0) — Phase 5.7 SHIPPED at `[SHIP-COMMIT]`
+### Gate-blocking (0) — Phase 5.7 SHIPPED at `e60b051`
 
 All 6 gate items met per `outputs/phase5_7_gate_verification.py`. The
-SHIPPED commit landed on `origin/main` at `[SHIP-COMMIT]` 2026-05-17.
+SHIPPED commit landed on `origin/main` at `e60b051` 2026-05-17.
 
 ### 🚨 Carry-over for operator-side action
 
@@ -332,7 +332,7 @@ escaping). Sibling to the existing empty-`-m""`-pathspec footgun.
 
 | Lane | Coordination need |
 |---|---|
-| Phase 6 (parallel agent OR in-line) | Amend `master_build_plan.md` + `STATE.md` with Phase 5.7 SHIPPED at `[SHIP-COMMIT]` via `outputs/claude_code_dispatch_phase6_amend7.md`; ALSO investigate `parks-rec-scrapes` cron fix per §3 above |
+| Phase 6 (parallel agent OR in-line) | Amend `master_build_plan.md` + `STATE.md` with Phase 5.7 SHIPPED at `e60b051` via `outputs/claude_code_dispatch_phase6_amend7.md`; ALSO investigate `parks-rec-scrapes` cron fix per §3 above |
 | Cursor | No dispatches pending (Phase 5.7 produced its own regression tests in-lane: +14 at 1946 via session 1's `1dfd28e`) |
 | Operator | Audit doc carry-over actions (V1.5 verifier build, wildlife_refuge mapping widening, SARA trail-pair de-dup decision, ASU SWANSON normalization, Butterfly Garden investigation, API key rotation), file-prune list (.bak files + stray .docx + historical CI logs + `outputs/_deltest`), `parks-rec-scrapes` cron fix decision (3 options surfaced in §3) |
 
@@ -359,7 +359,7 @@ escaping). Sibling to the existing empty-`-m""`-pathspec footgun.
 
 ## §9 Pre-flight for the next session
 
-1. **`git log --oneline -15`** — origin should top at `[SHIP-COMMIT]`
+1. **`git log --oneline -15`** — origin should top at `e60b051`
    or later (Phase 6 lane may push `0addb63`-shape Amendment 7
    between sessions).
 2. **`git status`** — clean. Note the carry-over file-prune list above.
@@ -369,7 +369,7 @@ escaping). Sibling to the existing empty-`-m""`-pathspec footgun.
    **1946 collected** (5.7 baseline; carries 5.7's +14 from `1dfd28e`).
    Verify no drift.
 5. **`gh run list --branch main --limit 5`** — top run should be ✓ on
-   `[SHIP-COMMIT]`. Note that `parks-rec-scrapes` scheduled jobs
+   `e60b051`. Note that `parks-rec-scrapes` scheduled jobs
    continue to ❌ unless the Phase 6 / sidecar fix lands first.
 6. **DB state spot-check** — `outdoors-parks-trails` should show
    **27 entries / 0 verified / 26 outdoor + 1 indoor / 26 render (1
@@ -396,8 +396,8 @@ escaping). Sibling to the existing empty-`-m""`-pathspec footgun.
 ---
 
 *Authored by Cowork primary, Phase 5 lane, Phase 5.7 session 2
-(2026-05-17) post-`[SHIP-COMMIT]`. Phase 5.7 SHIPPED with all 6 gate
+(2026-05-17) post-`e60b051`. Phase 5.7 SHIPPED with all 6 gate
 items cleared; 2 session-2 commits on origin/main from `c2bdb6d` →
-`[SHIP-COMMIT]` (`5f8fe08` F541 fix + `[SHIP-COMMIT]` SHIP). Plus
+`e60b051` (`5f8fe08` F541 fix + `e60b051` SHIP). Plus
 4 DB-only writes (2 loads from session 1 + 3 apply-scripts from
 session 2). Hand-off to Phase 5.8 (events, cat-2) next session.*

@@ -2,17 +2,17 @@
 
 > Drop-in artifact for the operator to paste into a fresh Cowork session.
 > Mirrors `outputs/phase5_7_next_agent_boot_prompt.md` shape (which booted
-> the Phase 5.7 session that SHIPPED at `[SHIP-COMMIT]` 2026-05-17).
+> the Phase 5.7 session that SHIPPED at `e60b051` 2026-05-17).
 >
 > **Authored by:** Cowork primary, Phase 5 lane, Phase 5.7 session 2
-> (2026-05-17) post-`[SHIP-COMMIT]` SHIP. Pastable as-is below the `---` line.
+> (2026-05-17) post-`e60b051` SHIP. Pastable as-is below the `---` line.
 
 ---
 
 You're picking up Phase 5.8 (Events) from scratch. Nothing shipped yet
 for 5.8 — this is the kickoff session. Phase 5.7 (Outdoors, Parks &
-Trails) SHIPPED on origin at `[SHIP-COMMIT]` (2026-05-17) with all 6
-gate items cleared and CI green. Top of origin/main is `[SHIP-COMMIT]`
+Trails) SHIPPED on origin at `e60b051` (2026-05-17) with all 6
+gate items cleared and CI green. Top of origin/main is `e60b051`
 (or later if the Phase 6 lane shipped Amendment 7 between sessions —
 check `git log -3` first).
 
@@ -25,7 +25,7 @@ THIS ORDER:
 
   1. `outputs/phase5_7_session_closeout.md` — the close-out for the
      prior Phase 5.7 session. §1 has the 2-session-commit chain
-     (`5f8fe08 F541 fix → [SHIP-COMMIT] SHIP`) on top of session 1's
+     (`5f8fe08 F541 fix → e60b051 SHIP`) on top of session 1's
      `f5d1062 → 1dfd28e → 0c011ae → c2bdb6d` chain. §3 documents the
      §4.5 `parks-rec-scrapes` cron investigation — root cause is a
      Postgres FK constraint violation in `scripts/parks_rec_prune.py`,
