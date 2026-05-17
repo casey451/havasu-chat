@@ -87,6 +87,20 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     "dermatologist": ("health-wellness-care", "commercial"),
     "medical_lab": ("health-wellness-care", "commercial"),
     "home_health_care_service": ("health-wellness-care", "commercial"),
+    # ``medical_clinic`` widening (Phase 5.7 §1 sustainability commit;
+    # closes the V1.5 carry-over flagged in 5.4 + 5.6 close-outs §3).
+    # Pre-5.7, ``medical_clinic`` resolved only via the
+    # ``(medical_clinic, "health_medical")`` entry in
+    # ``scripts/places_load._DISCOVERY_DOMAIN_FALLBACK`` — which works
+    # when the discovery domain IS ``health_medical``, but fails when a
+    # medical_clinic primary_type surfaces under a different discovery
+    # domain (5.6 §4 caught two eye-care providers — Lake Havasu Family
+    # Eyecare + Barnet Dulaney Perkins — that landed in shopping-
+    # essentials via the ``(None, "retail")`` catch-all because their
+    # ``medical_clinic`` type wasn't in _PRIMARY_TYPE_MAP directly).
+    # Adding the direct mapping catches them regardless of discovery
+    # domain.
+    "medical_clinic": ("health-wellness-care", "commercial"),
 
     # Tier 1.5 — Auto, RV & Fuel (brief §3.5). `rv_park` stays in
     # `lodging-vacation-rentals` per prereq §3.1.b lock (where-you-stay
@@ -121,6 +135,15 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     "rv_park": ("lodging-vacation-rentals", "commercial"),
     "park": ("outdoors-parks-trails", "place"),
     "dog_park": ("outdoors-parks-trails", "place"),
+    # ``golf_course`` widening (Phase 5.7 §1 sustainability commit). Golf
+    # courses are outdoors-and-parks-coded for the consumer-discovery
+    # surface but are ``commercial`` (entry fees, staff, business hours)
+    # rather than ``place``-typed like a city park. Same shape as how the
+    # 6 pre-existing outdoors-parks-trails entries (Avalon Park, Cattail
+    # Cove SP, Dick Samp Memorial, Lake Havasu SP, Rotary Community Park,
+    # SARA Park) all sit as ``commercial`` — most LHC-area state parks
+    # charge entry fees and have staffed visitor centers.
+    "golf_course": ("outdoors-parks-trails", "commercial"),
     "veterinary_care": ("pets", "commercial"),
     "pet_store": ("pets", "commercial"),
     "school": ("classes-sports-recreation", "commercial"),

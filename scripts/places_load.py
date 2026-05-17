@@ -302,7 +302,32 @@ _DISCOVERY_DOMAIN_FALLBACK: dict[tuple[str | None, str], str] = {
     ("establishment", "retail"): "shopping-essentials",
     ("store", "retail"): "shopping-essentials",
     ("shopping_mall", "retail"): "shopping-essentials",
-    # Phase 5.7+ entries land here as their per-category audits surface gaps.
+    # entertainment_attractions -> outdoors-parks-trails (catches catch-all
+    # primary types for Havasu parks/golf businesses per Phase 5.7 §1
+    # anticipation; Narrow scope = 3 labels (parks, golf courses, mini
+    # golf), all from the entertainment_attractions domain — fitness_sports
+    # labels deferred to V1.5 per kickoff §1 to avoid collision with the
+    # existing ``(None, "fitness_sports") -> "health-wellness-care"``
+    # fallback). The 6 pre-existing outdoors-parks-trails entries (Avalon
+    # Park, Cattail Cove SP, Dick Samp Memorial, Lake Havasu SP, Rotary
+    # Community Park, SARA Park) all sit as ``entity_type='commercial'``
+    # because Google often primary-types state parks as
+    # ``tourist_attraction`` rather than ``park`` — the
+    # ``("tourist_attraction", "entertainment_attractions")`` entry catches
+    # that pattern. ``amusement_park`` is the Google primary type for mini
+    # golf venues. ``point_of_interest`` and ``establishment`` are the
+    # generic safety nets seen across 5.3-5.6 fallback shapes. NOTE:
+    # ``golf_course`` is added directly to
+    # ``app/contrib/google_types_mapping._PRIMARY_TYPE_MAP`` in this same
+    # commit so golf courses route correctly regardless of discovery
+    # domain — the fallback here only fires for ambiguous fall-through
+    # cases.
+    (None, "entertainment_attractions"): "outdoors-parks-trails",
+    ("tourist_attraction", "entertainment_attractions"): "outdoors-parks-trails",
+    ("amusement_park", "entertainment_attractions"): "outdoors-parks-trails",
+    ("point_of_interest", "entertainment_attractions"): "outdoors-parks-trails",
+    ("establishment", "entertainment_attractions"): "outdoors-parks-trails",
+    # Phase 5.8+ entries land here as their per-category audits surface gaps.
 }
 
 
