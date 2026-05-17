@@ -278,7 +278,7 @@ def main() -> int:
     # Waterfront parks already ingested in 5.2 — Thompson Bay Beach is
     # the §1-surfaced candidate; Cattail Cove SP / Lake Havasu SP /
     # other lake-adjacent state parks may also overlap.
-    print(f"\n=== special audit (a): on-the-water (cat-6) cross-list ===")
+    print("\n=== special audit (a): on-the-water (cat-6) cross-list ===")
     otw_flagged = 0
     for rec in records:
         if not rec["matched_entities"]:
@@ -328,7 +328,7 @@ def main() -> int:
     # (cat-7/cat-12 axis). Per kickoff §1 Narrow scope, fitness_sports
     # labels were deferred — but some of the §1-inserted entries
     # arguably belong in cat-12 (sportsman's club, motocross park, etc.).
-    print(f"\n=== special audit (b): classes-sports-recreation (cat-12) cross-list ===")
+    print("\n=== special audit (b): classes-sports-recreation (cat-12) cross-list ===")
     csr_flagged = 0
     for rec in records:
         if not rec["matched_entities"]:
@@ -371,8 +371,8 @@ def main() -> int:
     # 8. Special audit (c): SARA Park same-cat de-dup
     # (6 §1-surfaced entries: parent + dog park + disc golf + hiking trail
     # head + mountain park loop trail + sara park hiking trail).
-    print(f"\n=== special audit (c): SARA Park same-cat de-dup ===")
-    cur.execute(f"""
+    print("\n=== special audit (c): SARA Park same-cat de-dup ===")
+    cur.execute("""
         SELECT p.provider_name, p.google_primary_category, e.id, p.id,
                COALESCE(l.lat, p.lat), COALESCE(l.lng, p.lng)
         FROM providers p
@@ -391,14 +391,14 @@ def main() -> int:
         print(f"    {name!r:42s}  primary={gpc!r:18s}  "
               f"({lat:.5f},{lng:.5f})  e_id={eid[:8]}")
     if len(sara_rows) > 1:
-        print(f"  -> V1 decision: KEEP parent SARA Park + sub-feature entries"
-              f" if each is a distinct physical surface (the dog park, disc"
-              f" golf, hiking trail head are real sub-amenities). DRAFT or"
-              f" merge if they're navigation aliases.")
+        print("  -> V1 decision: KEEP parent SARA Park + sub-feature entries"
+              " if each is a distinct physical surface (the dog park, disc"
+              " golf, hiking trail head are real sub-amenities). DRAFT or"
+              " merge if they're navigation aliases.")
 
     # 9. Edge-case routing review — entertainment_attractions primary_types
     # that landed via the new (None, "entertainment_attractions") catch-all.
-    print(f"\n=== edge-case review: catch-all routings to outdoors-parks-trails ===")
+    print("\n=== edge-case review: catch-all routings to outdoors-parks-trails ===")
     cur.execute("SELECT id FROM categories WHERE slug=?", (TARGET_SLUG,))
     opt_id = cur.fetchone()[0]
     edge_types = (
