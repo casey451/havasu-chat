@@ -2,28 +2,28 @@
 
 > Drop-in artifact for the operator to paste into a fresh Cowork session.
 > Mirrors `outputs/phase5_10_next_agent_boot_prompt.md` shape
-> (which booted the Phase 5.10 session that SHIPPED at `<SHIP-COMMIT>`
+> (which booted the Phase 5.10 session that SHIPPED at `592ee74`
 > 2026-05-17).
 >
 > **Authored by:** Cowork primary, Phase 5 lane, Phase 5.10 session 1
-> (2026-05-17) post-`<SHIP-COMMIT>` SHIP. Pastable as-is below the `---`
+> (2026-05-17) post-`592ee74` SHIP. Pastable as-is below the `---`
 > line.
 
 ---
 
 You're picking up Phase 5.11 (Pets, `pets`, cat-11) from scratch -- the
 kickoff session. Phase 5.10 (Lodging & Vacation Rentals) SHIPPED on
-origin at `<SHIP-COMMIT>` (2026-05-17) with all 6 gate items cleared
+origin at `592ee74` (2026-05-17) with all 6 gate items cleared
 and CI green. **Phase 5.11 is the LAST remaining Tier-1 category** --
-13 of 13 slugs after this. Top of `origin/main` is `<SHIP-COMMIT>` (or
+13 of 13 slugs after this. Top of `origin/main` is `592ee74` (or
 later if the Phase 6 lane shipped the consolidated amend5-X dispatch
 between sessions). Find your own context before doing anything else.
 
 Working directory: `C:\Users\casey\projects\havasu-chat`.
 
-1. `git log --oneline -10` to confirm `<SHIP-COMMIT>` is top of main;
+1. `git log --oneline -10` to confirm `592ee74` is top of main;
    the 5.10 chain since 5.9's `bc08bf6` SHA-cleanup is
-   `ef8325d -> d597ef9 -> bf24e16 -> <SHIP-COMMIT>` on top of the
+   `ef8325d -> d597ef9 -> bf24e16 -> 592ee74` on top of the
    5.9 SHIP at `4527ca1`.
 2. Read these four docs end-to-end, in this order:
    a. `outputs/phase5_11_next_agent_boot_prompt.md` (THIS file -- the

@@ -3,19 +3,19 @@
 > **What this is:** the close-out for the single-session Phase 5.10 that
 > picked up at `ef8325d` / `d597ef9` (the 5.10 kickoff doc pre-staged by
 > Phase 5.9 session 1 + boot-prompt SHA-cleanup) and pushed through to
-> SHIP with all 6 gate items cleared. Phase 5.10 SHIPPED at `<SHIP-COMMIT>`.
+> SHIP with all 6 gate items cleared. Phase 5.10 SHIPPED at `592ee74`.
 >
 > **Authored by:** Cowork primary, Phase 5 lane, Phase 5.10 session 1
 > (2026-05-17) post-SHIP.
 
 ---
 
-## 1 Commit chain (origin `d597ef9 -> <SHIP-COMMIT>`)
+## 1 Commit chain (origin `d597ef9 -> 592ee74`)
 
 | # | Commit | Subject | Source | Task |
 |---|---|---|---|---|
 | 1 | `bf24e16` | `fix(scripts)` -- `_PRIMARY_TYPE_MAP` + `_DISCOVERY_DOMAIN_FALLBACK` extend for Phase 5.10 sustainability layer | Cowork | 1.7 sustainability (Option A -- 5 cat-10 direct mappings + 1 lodging catch-all) |
-| 2 | `<SHIP-COMMIT>` | `chore(outputs)` -- Phase 5.10 SHIPPED -- all 6 gate items cleared | Cowork | **SHIP** (bundles wrapper + audit + apply-scripts + gate verification + close-out + 5.11 boot prompt + scrape log) |
+| 2 | `592ee74` | `chore(outputs)` -- Phase 5.10 SHIPPED -- all 6 gate items cleared | Cowork | **SHIP** (bundles wrapper + audit + apply-scripts + gate verification + close-out + 5.11 boot prompt + scrape log) |
 
 **Plus 4 DB-only writes** (no commit; events.db is gitignored):
 1. **1 Layer 1 load (initial)** -- 297 in-LHC rows (post-ZIP) -> 36 inserts (35 cat-10 + 1 NULL Vanderpump) + 224 updates (preserved existing cats; mostly cat-3 from 5.2 absorption) + 37 ambig + 2 unmapped pre-sustainability
@@ -102,7 +102,7 @@ entertainment_attractions catch-all + golf_course + medical_clinic,
 5.3 home_services + 5.5 auto + 5.6 retail catch-alls, park +
 dog_park unchanged). Pytest 1985 -> 2002.
 
-### `<SHIP-COMMIT>` -- Phase 5.10 2 audit + 4 apply-scripts + gate verification + wrapper bundle
+### `592ee74` -- Phase 5.10 2 audit + 4 apply-scripts + gate verification + wrapper bundle
 
 Bundles all session 1-5 work in one chunk:
 
@@ -285,10 +285,10 @@ would mis-route" should hold (no `(None, "pets")` catch-all today).
 
 ## 6 Remaining work for next session (Phase 5.11)
 
-### Gate-blocking (0) -- Phase 5.10 SHIPPED at `<SHIP-COMMIT>`
+### Gate-blocking (0) -- Phase 5.10 SHIPPED at `592ee74`
 
 All 6 gate items met per `outputs/phase5_10_gate_verification.py`. The
-SHIPPED commit landed on `origin/main` at `<SHIP-COMMIT>` 2026-05-17.
+SHIPPED commit landed on `origin/main` at `592ee74` 2026-05-17.
 
 ### Carry-over for operator-side action
 
@@ -426,7 +426,7 @@ the actual apply. **Fix validated; pattern carried to 5.11.**
 
 ## 9 Pre-flight for the next session
 
-1. **`git log --oneline -15`** -- origin should top at `<SHIP-COMMIT>`
+1. **`git log --oneline -15`** -- origin should top at `592ee74`
    or later (Phase 6 lane may push the consolidated amend5-X line
    commit between sessions).
 2. **`git status`** -- clean. Note the carry-over file-prune list above.
@@ -435,7 +435,7 @@ the actual apply. **Fix validated; pattern carried to 5.11.**
 4. **`python -m pytest -q --collect-only 2>&1 | Select-Object -Last 3`**
    -- expect **2002 collected** (5.10 baseline). Verify no drift.
 5. **`gh run list --branch main --limit 5`** -- top run should be green
-   on `<SHIP-COMMIT>`. Note that `parks-rec-scrapes` scheduled jobs
+   on `592ee74`. Note that `parks-rec-scrapes` scheduled jobs
    continue to fail unless the Phase 6 / sidecar fix lands first.
 6. **DB state spot-check** -- `lodging-vacation-rentals` should show
    **73 entries / 0 verified / 53 indoor + 19 outdoor + 1 water_adjacent
@@ -459,8 +459,8 @@ the actual apply. **Fix validated; pattern carried to 5.11.**
 ---
 
 *Authored by Cowork primary, Phase 5 lane, Phase 5.10 session 1
-(2026-05-17) post-`<SHIP-COMMIT>`. Phase 5.10 SHIPPED with all 6 gate
+(2026-05-17) post-`592ee74`. Phase 5.10 SHIPPED with all 6 gate
 items cleared in a single session; 2 commits on origin/main from
-`d597ef9` -> `<SHIP-COMMIT>` (`bf24e16` sustainability + `<SHIP-COMMIT>`
+`d597ef9` -> `592ee74` (`bf24e16` sustainability + `592ee74`
 SHIP). Plus 4 DB-only writes (1 load + 1 1.7c re-run + 1 audit apply +
 1 heat + 1 crowd_notes). Hand-off to Phase 5.11 next session.*
