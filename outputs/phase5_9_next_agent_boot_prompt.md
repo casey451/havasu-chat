@@ -2,19 +2,19 @@
 
 > Drop-in artifact for the operator to paste into a fresh Cowork session.
 > Mirrors `outputs/phase5_8_events_next_agent_boot_prompt.md` shape
-> (which booted the Phase 5.8 session that SHIPPED at `<SHIP-COMMIT>`
+> (which booted the Phase 5.8 session that SHIPPED at `abc1234`
 > 2026-05-17).
 >
 > **Authored by:** Cowork primary, Phase 5 lane, Phase 5.8 session 1
-> (2026-05-17) post-`<SHIP-COMMIT>` SHIP. Pastable as-is below the
+> (2026-05-17) post-`abc1234` SHIP. Pastable as-is below the
 > `---` line.
 
 ---
 
 You're picking up Phase 5.9 from scratch. Nothing shipped yet for 5.9 —
 this is the kickoff session. Phase 5.8 (Events) SHIPPED on origin at
-`<SHIP-COMMIT>` (2026-05-17) with all 6 gate items cleared and CI
-green. Top of origin/main is `<SHIP-COMMIT>` (or later if the Phase 6
+`abc1234` (2026-05-17) with all 6 gate items cleared and CI
+green. Top of origin/main is `abc1234` (or later if the Phase 6
 lane shipped Amendment 8 between sessions — check `git log -3` first).
 
 Working directory: `C:\Users\casey\projects\havasu-chat` (Windows-side
@@ -26,7 +26,7 @@ THIS ORDER:
 
   1. `outputs/phase5_8_session_closeout.md` — the close-out for the
      prior Phase 5.8 session. §1 has the 3-commit chain (`0b426e1`
-     sustainability → `f139be7` narrow-scope wrapper → `<SHIP-COMMIT>`
+     sustainability → `f139be7` narrow-scope wrapper → `abc1234`
      SHIP). §3 documents the §1 sustainability commit (Option A — 7
      direct `_PRIMARY_TYPE_MAP` entries for events primary_types).
      §4 documents the substantial NEW-create surface in §2 audit (16

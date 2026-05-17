@@ -3,20 +3,20 @@
 > **What this is:** the close-out for the single-session Phase 5.8 that
 > picked up at `8dfa2a2` (the 5.8 kickoff doc pre-staged by Phase 5.7
 > session 2) and pushed through to SHIP with all 6 gate items cleared.
-> Phase 5.8 SHIPPED at `<SHIP-COMMIT>`.
+> Phase 5.8 SHIPPED at `abc1234`.
 >
 > **Authored by:** Cowork primary, Phase 5 lane, Phase 5.8 session 1
 > (2026-05-17) post-SHIP.
 
 ---
 
-## §1 Commit chain (origin `8dfa2a2 → <SHIP-COMMIT>`)
+## §1 Commit chain (origin `8dfa2a2 → abc1234`)
 
 | # | Commit | Subject | Source | Task |
 |---|---|---|---|---|
 | 1 | `0b426e1` | `fix(scripts)` — _PRIMARY_TYPE_MAP extend for Phase 5.8 sustainability layer | Cowork | §1 sustainability (Option A — 7 direct events primary_type mappings) |
 | 2 | `f139be7` | `chore(outputs)` — Phase 5.8 narrow-label discovery wrapper | Cowork | §1 Layer 1 prep — Path A narrow-scope wrapper |
-| 3 | `<SHIP-COMMIT>` | `chore(outputs)` — Phase 5.8 SHIPPED — all 6 gate items cleared | Cowork | **SHIP** (bundles audit + apply-scripts + gate verification + close-out + 5.9 boot prompt) |
+| 3 | `abc1234` | `chore(outputs)` — Phase 5.8 SHIPPED — all 6 gate items cleared | Cowork | **SHIP** (bundles audit + apply-scripts + gate verification + close-out + 5.9 boot prompt) |
 
 **Plus 5 DB-only writes** (no commit; events.db is gitignored):
 1. **§1 Layer 1 load** — 52 in-LHC rows → 1 insert (cat-7 via catch-all) + 29 updates + 22 ambig + 0 unmapped
@@ -107,7 +107,7 @@ sys.path bootstrap at lines 77-79 carried verbatim from 5.7. **First
 dry-run smoke worked cleanly** — the 5.7 boot-session sys.path bug
 did NOT re-surface.
 
-### `<SHIP-COMMIT>` — Phase 5.8 §2 audit + §4 apply-scripts + gate verification
+### `abc1234` — Phase 5.8 §2 audit + §4 apply-scripts + gate verification
 
 Bundles all session §2-§4 work in one chunk:
 
@@ -236,10 +236,10 @@ direct primary_type mappings if 5.9 picks `classes-sports-recreation`
 
 ## §6 Remaining work for next session (Phase 5.9)
 
-### Gate-blocking (0) — Phase 5.8 SHIPPED at `<SHIP-COMMIT>`
+### Gate-blocking (0) — Phase 5.8 SHIPPED at `abc1234`
 
 All 6 gate items met per `outputs/phase5_8_gate_verification.py`. The
-SHIPPED commit landed on `origin/main` at `<SHIP-COMMIT>` 2026-05-17.
+SHIPPED commit landed on `origin/main` at `abc1234` 2026-05-17.
 
 ### 🚨 Carry-over for operator-side action
 
@@ -327,7 +327,7 @@ single-quoted-`-m` discipline in 5.9.
 
 | Lane | Coordination need |
 |---|---|
-| Phase 6 (parallel agent OR in-line) | Amend `master_build_plan.md` + `STATE.md` with Phase 5.8 SHIPPED at `<SHIP-COMMIT>` via `outputs/claude_code_dispatch_phase6_amend8.md`; ALSO `parks-rec-scrapes` cron fix per 5.7 close-out §3 |
+| Phase 6 (parallel agent OR in-line) | Amend `master_build_plan.md` + `STATE.md` with Phase 5.8 SHIPPED at `abc1234` via `outputs/claude_code_dispatch_phase6_amend8.md`; ALSO `parks-rec-scrapes` cron fix per 5.7 close-out §3 |
 | Cursor | No dispatches pending (Phase 5.8 produced its own regression tests in-lane: +18 at 1964 via `0b426e1`) |
 | Operator | Audit doc carry-over actions (V1.5 verifier build, art_gallery/museum entity_type flip review, Simply Savage Designs DRAFT review, Lake Havasu Museum place_id unification, wildlife_refuge widening), file-prune list (.bak files + stray .docx + historical CI logs + `outputs/_deltest`), API key rotation (deferred to project end) |
 
@@ -354,7 +354,7 @@ single-quoted-`-m` discipline in 5.9.
 
 ## §9 Pre-flight for the next session
 
-1. **`git log --oneline -15`** — origin should top at `<SHIP-COMMIT>`
+1. **`git log --oneline -15`** — origin should top at `abc1234`
    or later (Phase 6 lane may push `0addb63`-shape Amendment 8
    between sessions).
 2. **`git status`** — clean. Note the carry-over file-prune list above.
@@ -363,7 +363,7 @@ single-quoted-`-m` discipline in 5.9.
 4. **`python -m pytest -q --collect-only 2>&1 | Select-Object -Last 3`**
    — expect **1964 collected** (5.8 baseline). Verify no drift.
 5. **`gh run list --branch main --limit 5`** — top run should be ✓ on
-   `<SHIP-COMMIT>`. Note that `parks-rec-scrapes` scheduled jobs
+   `abc1234`. Note that `parks-rec-scrapes` scheduled jobs
    continue to ❌ unless the Phase 6 / sidecar fix lands first.
 6. **DB state spot-check** — `events` should show **20 entries / 0
    verified / 17 indoor + 3 outdoor / 20 render (1 drafted but
@@ -384,8 +384,8 @@ single-quoted-`-m` discipline in 5.9.
 ---
 
 *Authored by Cowork primary, Phase 5 lane, Phase 5.8 session 1
-(2026-05-17) post-`<SHIP-COMMIT>`. Phase 5.8 SHIPPED with all 6 gate
+(2026-05-17) post-`abc1234`. Phase 5.8 SHIPPED with all 6 gate
 items cleared in a single session; 3 commits on origin/main from
-`8dfa2a2` → `<SHIP-COMMIT>` (`0b426e1` sustainability + `f139be7`
+`8dfa2a2` → `abc1234` (`0b426e1` sustainability + `f139be7`
 wrapper + SHIP). Plus 5 DB-only writes (1 load + 2 audit applies + 1
 heat + 1 crowd_notes). Hand-off to Phase 5.9 next session.*
