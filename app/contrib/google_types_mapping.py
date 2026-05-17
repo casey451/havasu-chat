@@ -144,6 +144,39 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     # SARA Park) all sit as ``commercial`` — most LHC-area state parks
     # charge entry fees and have staffed visitor centers.
     "golf_course": ("outdoors-parks-trails", "commercial"),
+
+    # Phase 5.8 §1 sustainability — events (cat-2) direct mappings.
+    # Pre-5.8, the only entertainment_attractions resolver path for these
+    # primary_types was the catch-all ``(None, "entertainment_attractions")
+    # -> "outdoors-parks-trails"`` added in 5.7's ``1dfd28e``. That catch-
+    # all is correct for 5.7's scope (wildlife_refuge / tourist_attraction
+    # / point_of_interest under entertainment_attractions land in cat-7)
+    # but would mis-route the 7 deferred event primary_types if they
+    # surfaced. 5.8's Narrow scope (the 7 labels deferred in 5.7 — event
+    # venues, live music venues, art galleries, museums, movie theaters,
+    # bowling alleys, arcades) surfaces these primary_types directly;
+    # direct _PRIMARY_TYPE_MAP entries beat the catch-all per the
+    # resolver order in ``scripts/places_load._resolve_category_id``, so
+    # cat-7 routing remains correct for wildlife_refuge /
+    # tourist_attraction while these 7 route to cat-2.
+    #
+    # ``commercial``-vs-``place`` split: event_venue / live_music_venue /
+    # movie_theater / bowling_alley / amusement_arcade charge admission
+    # or cover/tickets and are unambiguously commercial. art_gallery and
+    # museum are the gray area — many LHC galleries are free showrooms
+    # for sale and small museums are often free / donation-based — so
+    # they start as ``place`` per the 5.8 kickoff §1 starting point. The
+    # §2 audit can flip individual entries to ``commercial`` if they
+    # charge admission (Lake Havasu Museum of History is the likely
+    # flip candidate).
+    "event_venue": ("events", "commercial"),
+    "art_gallery": ("events", "place"),
+    "museum": ("events", "place"),
+    "live_music_venue": ("events", "commercial"),
+    "movie_theater": ("events", "commercial"),
+    "bowling_alley": ("events", "commercial"),
+    "amusement_arcade": ("events", "commercial"),
+
     "veterinary_care": ("pets", "commercial"),
     "pet_store": ("pets", "commercial"),
     "school": ("classes-sports-recreation", "commercial"),
