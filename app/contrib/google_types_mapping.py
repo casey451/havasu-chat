@@ -180,6 +180,33 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     "veterinary_care": ("pets", "commercial"),
     "pet_store": ("pets", "commercial"),
 
+    # Phase 5.11 -- 1 sustainability -- pets (cat-11) primary types.
+    # The pre-Phase-5 ``veterinary_care`` + ``pet_store`` direct
+    # mappings (above) cover vet clinics + retail pet stores. The 5.11
+    # 1 load surfaced 7 unmapped rows from the 4 in-scope labels (pet
+    # stores / dog groomers / dog boarding / dog trainers): 4
+    # ``pet_care``-primary entities (Google has consolidated dog
+    # grooming + pet boarding + dog training under a single
+    # ``pet_care`` primary type) + 3 ``service``-primary entities
+    # (Google's generic catch-all -- same shape as 5.10's Vanderpump
+    # villa case). The new ``(None, "pets") -> "pets"`` catch-all in
+    # ``scripts/places_load._DISCOVERY_DOMAIN_FALLBACK`` handles the 3
+    # ``service``-primary entries; this ``pet_care`` direct mapping
+    # handles the 4 actual ``pet_care``-primary entries. The 3
+    # ``dog_groomer`` / ``pet_boarding`` / ``dog_trainer`` direct
+    # mappings are defensive vs Google ever un-consolidating
+    # ``pet_care`` back into the label-specific types (kickoff 1
+    # originally forecasted these would be the live unmapped types;
+    # Google's actual emission used the consolidated ``pet_care``
+    # instead). All 4 start as ``commercial`` (fee-based, staffed
+    # pet-service businesses); the 2 audit can flip individual
+    # entries to ``place`` if a public-good edge case emerges (rare
+    # for cat-11).
+    "pet_care": ("pets", "commercial"),
+    "dog_groomer": ("pets", "commercial"),
+    "pet_boarding": ("pets", "commercial"),
+    "dog_trainer": ("pets", "commercial"),
+
     # Phase 5.9 §1 sustainability — classes-sports-recreation (cat-12)
     # direct mappings. 5.9 Narrow scope is 9 of the 16 labels in the
     # ``classes-sports-recreation`` two-domain bundle

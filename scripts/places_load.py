@@ -369,6 +369,38 @@ _DISCOVERY_DOMAIN_FALLBACK: dict[tuple[str | None, str], str] = {
     # scope: marina/boat shape already absorbed by 5.2; campgrounds +
     # RV dealers/rentals re-evaluable per-label in V1.5.
     (None, "lodging"): "lodging-vacation-rentals",
+    # pets -> pets (Phase 5.11 -- 1 sustainability). NEW catch-all --
+    # no prior phase populated the pets domain in the fallback. Pairs
+    # with the 4 direct ``_PRIMARY_TYPE_MAP`` entries shipped this
+    # commit for pet_care / dog_groomer / pet_boarding / dog_trainer
+    # (per kickoff 1 Option A); this fallback covers any unmapped
+    # pets-domain primary_types Google emits for the 4 in-scope
+    # labels (pet stores / dog groomers / dog boarding / dog
+    # trainers). The 5.11 1 load surfaced 3 such cases: 3 entities
+    # with primary=``service`` (Google's generic catch-all type)
+    # discovered under the pets domain -- same shape as 5.10's
+    # Vanderpump villa case where primary=``service`` discovered
+    # under the lodging domain got routed by the new ``(None,
+    # "lodging") -> "lodging-vacation-rentals"`` catch-all. The 4
+    # ``pet_care``-primary entries from the same load are caught by
+    # the direct ``pet_care`` mapping above (which beats the catch-
+    # all per resolver order); this fallback documents intent for the
+    # ``service`` shape + provides future-proofing for any other
+    # unmapped pets primary_types Google emits.
+    #
+    # No prior phase populated the pets domain in _PRIMARY_TYPE_MAP
+    # either, beyond the pre-Phase-5 ``veterinary_care`` +
+    # ``pet_store`` direct mappings (which cover vets + pet retail).
+    # The 5.4 ``medical_clinic`` direct mapping in
+    # google_types_mapping.py routes vet clinics with primary=
+    # ``medical_clinic`` to cat-5 HWC (out of 5.11 scope by design);
+    # the pre-Phase-5 ``dog_park`` direct mapping continues to route
+    # dog parks to cat-7 outdoors-parks-trails. The 5.11 1 scrape
+    # used 4 pets-domain labels (pet stores / dog groomers / dog
+    # boarding / dog trainers) -- none of those labels would match
+    # ``medical_clinic`` or ``dog_park`` primaries (different label
+    # search surface), so no cross-cat collision.
+    (None, "pets"): "pets",
     # Phase 5.8+ entries land here as their per-category audits surface gaps.
 }
 
