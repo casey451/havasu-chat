@@ -98,7 +98,7 @@ Cowork primary landed the Plan agent's scope-reconciliation recommendation as a 
 
 **Operator decisions to lock before authoring:**
 - HALT 3 close-out scope: confirm the `FEATURE_FLAG_DISCLOSURE_RENDERER` validation criteria (master plan §7 risk register #7).
-- Snowbird-return view: is this still in Phase 7 scope per §8 open question #4, or has it drifted to V1.5?
+- Snowbird-return view: is this still in Phase 7 scope, or has it drifted to V1.5? (Pure operator-decide; no §8 OQ anchor — §8 OQ #4 is actually about vacation-rental permits joined to lodging records, not snowbird. Master plan §4 Phase 7 currently lists snowbird-return view as in-scope.)
 - Chat conditions awareness: confirm the stub-temperature approach mirrors Phase 6.3's `STUB_CURRENT_TEMPERATURE_F` (recommended) vs. introducing a separate `app/chat/` constant.
 
 **Effort estimate:** dispatch + Cursor session ~5–8 days (revised down from M-L 10–14 days per Lane C refresh). Parallel-eligible with Phase 6.4.
@@ -116,7 +116,7 @@ Cowork primary landed the Plan agent's scope-reconciliation recommendation as a 
 ## §4 Open carries (low-urgency, capture for next-session inventory)
 
 - **Untracked-file cleanup** (per boot prompt §6): `hava_api_catalog.docx`, `outputs/phase5_11_ambig_audit_data.json`, `outputs/phase5_11_top10_data.json`, `outputs/post_phase5_11_boot_prompt.bundle`, `outputs/post_phase5_11_starter_prompt.bundle`. Safe to `Remove-Item`. Operator may want to keep the .docx as a long-standing artifact; the audit JSONs are regenerable; the bundles served their purpose.
-- **Pytest count drift 2018 ↔ 2016 mystery** — Phase 6.3 pre-flight reported 2016 collected; boot prompt said 2018; post-sidecar+head-audit was 2018. Net result green but worth chasing once: which 2 tests disappeared between the boot prompt's authorship and the sidecar pre-flight? Look at `git log --oneline -10 -- tests/` between `54f17e6` and `ba0befb`.
+- **Pytest count drift 2018 ↔ 2016 mystery — RESOLVED 2026-05-20.** Investigation via `git log --stat dcf3dd4..04f7aa3 -- tests/` confirms no tests were deleted between 5.11 SHIP and 6.3 SHIP: `dcf3dd4` (5.11 SHIP) closed at 2018; `781902a` modified existing test (no net change); `532d48b` added the sidecar's new test file; `ba0befb` explicitly stated "collect unchanged at 2018"; `04f7aa3` (Phase 6.3 SHIP) took `2018 → 2060` (+42 net-new). Cursor's 6.3 pre-flight "2016" claim was a miscount — most likely a sandbox-vs-Windows env-specific skip difference or a Cursor reporting error. No actual tests disappeared. Closed as no-action.
 - **86 of 265 HWC providers `verified=False`** (5.4 carry) — operator-driven DBA→NPI follow-up surface. Layer 5 manual recovery. Low priority for V1; V1.5 candidate.
 - **Phase 6.3 manual smoke deferred** — Cursor's category-landing tests assert GET 200 OK + chip dispatcher correctness for all 12 slugs, so CI ✓ is functionally equivalent to a smoke test. Operator may still want to browse the 12 category pages + a profile page with `district_id IS NOT NULL` to confirm visual rendering. URL list in §6 below.
 - **V1.5 carries from Phase 5.7–5.11**:
