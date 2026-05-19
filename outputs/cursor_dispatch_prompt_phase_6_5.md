@@ -2,18 +2,11 @@
 
 > Paste-into-Cursor prompt for the fifth Phase 6 sub-phase per master plan §4 Phase 6 + Phase 6.4 wrapper's "What NOT to do" exclusion list. Phase 6.5 ships (a) full homepage rebuild with hero + Ask Hava box + 8 themed group tiles for browse + "Today in Havasu" conditions strip (data hookup deferred to Phase 8 — the strip ships with stub data + honest staleness indicators wired to Phase 8's `external_conditions_cache` table that doesn't exist yet, returns empty/stub display until Phase 8), (b) "What's on at this venue" region on provider_profile pages — the Phase 9 events scraper hook; renders an empty region with placeholder copy until Phase 9 wires real event data. Phase 6.5 completes the Tier 1 UI surface for V1 launch readiness; Phase 6.6+ doesn't exist (Phase 7 chat + Phase 8 conditions + Phase 9 events are the next major lanes).
 >
-> **PRE-POSITION STATUS — NOT YET READY TO DISPATCH.** This wrapper is authored 2026-05-20 BEFORE Phase 6.4 (Lane D) ships. Two SHA-patch slots remain:
-> - `<<<PHASE_6_4_HEAD_SHA>>>` — the commit SHA of Phase 6.4's SHIP feat commit
-> - `<<<PHASE_6_4_ALEMBIC_HEAD>>>` — the alembic head after Phase 6.4's `users.boat_mode_preference` migration
+> **DISPATCH STATUS — READY TO PASTE (SHA-patched 2026-05-20 post-Phase-6.4-ship).** Phase 6.4 SHIPPED at `96c915d`. Post-6.4 alembic head is `f6a7b8c9d0e1` (NO new migration — 6.4 reused Phase 3.1 `users.preferred_mode`; see Phase 6.4 close-out + gotcha #18 recovery). **Phase 7 SHIPPED at `0a305e0`** — snowbird-panel coordination is LOCKED to preserve mode (see Phase 7 dependency note). Origin single alembic head as of patch time is `c9d0e1f2a3b4` (Phase 7 `users.last_active_at`; chains from `f6a7b8c9d0e1`). Phase 6.5 ships NO migration; verify `python -m alembic heads` returns ONE head before paste.
 >
-> Fill both before paste. Operator may also need to revise file-scope claims below if Phase 6.4's actual ship deviates from the Phase 6.4 wrapper's expected file list.
+> **Gating dependencies:** All prior Phase 6 sub-phases SHIPPED — 6.1 (`fd16e7a`), 6.2 (`3948add`), 6.3 (`5ebee46`), 6.4 (`96c915d`). Phase 5 multi-phase data-population COMPLETE at Phase 5.11 close (`dcf3dd4`); STATE.md ledger at `3a2d895`. parks-rec-scrapes sidecar `f6a7b8c9d0e1` SHIPPED at `532d48b`. **Phase 7 SHIPPED at `0a305e0`** (chat + HALT 3 close-out + snowbird-return panel — HALT 3 flag-flip deferred to Phase 7.5). **Phase 6.5 consumes** the Hava card grammar (6.1) + category landing template (6.2) + breadth-pass categories + ranking + seasonal hours (6.3) + map view + boat-mode + 4 themed group landing pages + search bar (6.4) + snowbird panel anchor from Phase 7. Phase 6.5 is the closure of the Tier 1 UI lane.
 >
-> **Gating dependencies:** All prior Phase 6 sub-phases SHIPPED — 6.1 (`fd16e7a`), 6.2 (`3948add`), 6.3 (`5ebee46`), 6.4 (`<<<PHASE_6_4_HEAD_SHA>>>`). Phase 5 multi-phase data-population COMPLETE at Phase 5.11 close (`dcf3dd4`); STATE.md ledger at `3a2d895`. parks-rec-scrapes sidecar `f6a7b8c9d0e1` SHIPPED at `532d48b`. Phase 7 docs refresh `c1d9ed2`. **Phase 6.5 consumes** the Hava card grammar (6.1) + category landing template (6.2) + breadth-pass categories + ranking + seasonal hours (6.3) + map view + boat-mode + 4 themed group landing pages + search bar (6.4). Phase 6.5 is the closure of the Tier 1 UI lane.
->
-> **Phase 7 dependency note:** Phase 7 (chat + HALT 3 + cross-entity + snowbird) is parallel-eligible with Phase 6.5 per gotcha #18, BUT Phase 7's snowbird-panel-include anchor in `home.html` overlaps with this dispatch's homepage rebuild. **If Phase 7 is still in flight or has shipped when 6.5 dispatches:**
-> - If Phase 7 shipped: the `<!-- snowbird-panel-include -->` anchor + the snowbird `{% include %}` line are in `home.html`. 6.5's homepage rebuild MUST preserve the snowbird-panel-include anchor + include line at its existing location.
-> - If Phase 7 is in flight: gotcha #18 collision — recommend sequencing (Phase 7 finishes first, then 6.5 dispatches). Author Phase 7's anchor + include line into 6.5's rebuilt home.html structurally OR halt 6.5 until 7 ships.
-> - If Phase 7 hasn't shipped + isn't in flight: 6.5 may author the `<!-- snowbird-panel-include -->` anchor proactively to reserve the slot, OR just preserve the `<!-- search-bar-include -->` from 6.4 + leave snowbird coordination for Phase 7's own dispatch.
+> **Phase 7 dependency note (LOCKED — Phase 7 SHIPPED `0a305e0`):** Phase 7's `<!-- snowbird-panel-include -->` anchor + snowbird `{% include %}` line are already in `home.html`. 6.5's anchored extension MUST preserve both at their existing location. DO NOT touch any region inside the snowbird-panel anchor area. Read `home.html` shape before editing; verify snowbird panel intact in manual smoke + §13 report.
 >
 > **No operator prereq for Phase 6.5.** No new env vars, no Cloudflare changes, no R2 changes, no Resend changes, no migration. Pure template + route + helper authoring on top of 6.1+6.2+6.3+6.4. The conditions strip ships with stub data — no Phase 8 prereqs needed (AirNow / NWS / USGS wiring is Phase 8).
 >
@@ -36,14 +29,14 @@
 >    - (b) **Anchored extension:** keep 6.4's home.html structure; add themed group tiles + conditions strip + (if Phase 7 already shipped) snowbird panel as additional sections below the existing hero
 >    - Recommended: (b) — minimizes regression risk on 6.4's search bar wiring
 >
-> **Author note:** authored 2026-05-20 by Cowork primary at the post-`99eb12c` dispatch-pre-position session — pre-positioned during Phase 6.4 + Phase 7 parallel Cursor sessions to save the ~30–45 min Cowork-side authoring when 6.4 ships. SHA-patch slots NOT YET FILLED — operator fills `<<<PHASE_6_4_HEAD_SHA>>>` + `<<<PHASE_6_4_ALEMBIC_HEAD>>>` after Phase 6.4 ships.
+> **Author note:** authored 2026-05-20 by Cowork primary; SHA-patched post-`96c915d` (Phase 6.4 ship) + post-`0a305e0` (Phase 7 ship). Clipboard offsets: Skip **46**, SkipLast **48** (recompute if this file changes).
 >
 > **Clipboard pipeline** (primes operator clipboard with prompt body only — skips preamble + post-prompt footer; offsets recomputed post-SHA-patch since authoring may have shifted line counts):
 > ```powershell
 > # Verify offsets after SHA-patch by counting fence positions:
 > # python3 -c "import sys; lines = open('outputs/cursor_dispatch_prompt_phase_6_5.md').readlines(); fences = [i+1 for i, ln in enumerate(lines) if ln.strip() in ('```', '````')]; print('Fences at lines:', fences, 'Total:', len(lines))"
 > # Then use Skip = first fence line; SkipLast = total - last fence + 1
-> Get-Content outputs\cursor_dispatch_prompt_phase_6_5.md | Select-Object -Skip <SKIP> | Select-Object -SkipLast <SKIP_LAST> | Out-File -FilePath $env:TEMP\phase_6_5_clip.txt -Encoding utf8
+> Get-Content outputs\cursor_dispatch_prompt_phase_6_5.md | Select-Object -Skip 46 | Select-Object -SkipLast 48 | Out-File -FilePath $env:TEMP\phase_6_5_clip.txt -Encoding utf8
 > notepad $env:TEMP\phase_6_5_clip.txt
 > # In Notepad: Ctrl+A then Ctrl+C. Then close Notepad. Clipboard now contains the prompt body.
 > ```
@@ -61,20 +54,22 @@ Phase 6.2 SHIPPED on origin at `3948add` (first category landing
 template + Eat & Drink proof). Phase 6.3 SHIPPED on origin at
 `5ebee46` (breadth pass to all 11 remaining Tier 1 slugs + district
 chip + time/heat-aware ranking + seasonal hours). Phase 6.4 SHIPPED
-on origin at `<<<PHASE_6_4_HEAD_SHA>>>` (Leaflet+OSM map view + boat-
+on origin at `96c915d` (Leaflet+OSM map view + boat-
 access mode + 4 themed group landing pages at /group/<slug> + search
 bar in homepage hero + category page headers). Phase 5 multi-phase
 data-population COMPLETE at 5.11 close. parks-rec-scrapes sidecar
 shipped `532d48b`.
 
-Pytest baseline going in is post-Phase-6.4 -- verify per `python -m
-pytest --collect-only -q | tail -3` BEFORE starting work. Likely
-range 2090-2110 (2060 baseline + 30-50 net-new from 6.4). Alembic
-head is `<<<PHASE_6_4_ALEMBIC_HEAD>>>` (post Phase 6.4 users.
-boat_mode_preference migration; chains from f6a7b8c9d0e1). Verify
-per `python -m alembic current` BEFORE starting work and REPORT
-THE OBSERVED VALUE (do NOT copy the dispatch-body-claimed value --
-session-2026-05-19 lesson #6).
+Pytest baseline going in is post-Phase-6.4 + post-Phase-7 -- verify
+per `python -m pytest --collect-only -q | tail -3` BEFORE starting
+work. Likely range 2140-2160 (~2150 at patch time). Post-6.4 alembic
+head is `f6a7b8c9d0e1` (NO migration in 6.4 -- reused
+`users.preferred_mode`). Origin single head as of patch is
+`c9d0e1f2a3b4` (Phase 7 `users.last_active_at`, chains from
+f6a7b8c9d0e1). Phase 6.5 ships NO migration. Verify per `python -m
+alembic heads` (PLURAL) BEFORE starting -- must return ONE head.
+REPORT THE OBSERVED VALUE (do NOT copy the dispatch-body-claimed
+value -- session-2026-05-19 lesson #6). If multiple heads, HALT.
 
 Ship Phase 6.5 ONLY per brief §3.5 -- (a) full homepage rebuild
 with hero + Ask Hava box + 8 themed group tiles for browse +
@@ -122,16 +117,11 @@ may override at dispatch authoring time):
   conditions strip placeholder below the hero. Do NOT rewrite the
   hero block. RECOMMENDED.
 
-- Phase 7 snowbird-panel coordination:
-  - If Phase 7 already SHIPPED at dispatch time: PRESERVE the
-    <!-- snowbird-panel-include --> anchor + the {% include %}
-    line at its existing location in home.html.
-  - If Phase 7 has NOT shipped: 6.5 may proactively author the
-    <!-- snowbird-panel-include --> anchor comment as a reserve
-    slot WITHOUT the {% include %} line (Phase 7's own dispatch
-    will add the include line at the existing anchor when 7 ships).
-  - DO NOT touch any region inside the snowbird-panel anchor area
-    if Phase 7 has shipped; verify by reading home.html shape.
+- Phase 7 snowbird-panel coordination (LOCKED — Phase 7 SHIPPED
+  `0a305e0`): PRESERVE the <!-- snowbird-panel-include --> anchor +
+  the {% include %} line at their existing location in home.html.
+  DO NOT touch any region inside the snowbird-panel anchor area.
+  Verify by reading home.html shape before + after edit.
 
 ORDER MATTERS WITHIN PHASE 6.5:
 
@@ -236,8 +226,10 @@ ORDER MATTERS WITHIN PHASE 6.5:
 
 POSTGRES COMPATIBILITY (carry-forward from brief §0):
 
-- NO migration in Phase 6.5. Alembic head stays at
-  <<<PHASE_6_4_ALEMBIC_HEAD>>>.
+- NO migration in Phase 6.5. Do not advance alembic head. Observed
+  single head may be `c9d0e1f2a3b4` (Phase 7 shipped) or
+  `f6a7b8c9d0e1` (if Phase 7 not on your branch) — both OK if
+  `alembic heads` returns exactly one.
 - No new schema. No column additions. Pure template + route +
   static-asset authoring.
 
@@ -298,37 +290,35 @@ WHAT NOT TO DO (per brief §4 + §5):
 
 HALT at the §3 Phase 6.5 boundary. After 6.5 ships + commits +
 pushes, halt for operator re-dispatch in a fresh session for
-Phase 7 (if not yet shipped), Phase 8 (conditions data + alerts),
-or Phase 9 (events + Things to Do themed group).
+Phase 8 (conditions data + alerts), Phase 9 (events + Things to
+Do themed group), or Phase 7.5 (HALT 3 flag-flip polish).
 
 Same constraints as Phase 6.1 + 6.2 + 6.3 + 6.4:
 - Anchored Edit on existing files; Write only for new files
 - No git add / commit / push / amend (operator commits)
 - Pytest must stay green throughout
 - Report per Phase 4 §12 final report format adapted for 6.5
-- Re-verify `python -m alembic current` and report the observed
-  value (do NOT copy the dispatch-body-claimed value --
-  session-2026-05-19 lesson #6). If observed head differs from
-  <<<PHASE_6_4_ALEMBIC_HEAD>>>, HALT and ask operator before
-  proceeding.
+- Re-verify `python -m alembic heads` (plural) and report the
+  observed value (do NOT copy the dispatch-body-claimed value --
+  session-2026-05-19 lesson #6). If multiple heads returned,
+  HALT. If single head is `c9d0e1f2a3b4` or `f6a7b8c9d0e1`,
+  proceed (6.5 must not author a migration).
 
 Pre-dispatch checklist (verify before paste):
 
 - Phase 6.1 SHIPPED on origin (`fd16e7a`)
 - Phase 6.2 SHIPPED on origin (`3948add`)
 - Phase 6.3 SHIPPED on origin (`5ebee46`)
-- Phase 6.4 SHIPPED on origin (`<<<PHASE_6_4_HEAD_SHA>>>`)
+- Phase 6.4 SHIPPED on origin (`96c915d`)
+- Phase 7 SHIPPED on origin (`0a305e0`) — snowbird panel LOCKED
 - Sidecar migration SHIPPED on origin (`532d48b`)
 - Phase 5 ledger SHIPPED on origin (`3a2d895`)
-- `<<<PHASE_6_4_ALEMBIC_HEAD>>>` is the current single alembic
-  head on origin
+- `python -m alembic heads` returns a SINGLE head (`c9d0e1f2a3b4`
+  expected on origin post-Phase-7; `f6a7b8c9d0e1` if 7 not on branch)
 - Pytest baseline going in matches reality per `python -m
-  pytest --collect-only -q | tail -3` (likely 2090-2110)
+  pytest --collect-only -q | tail -3` (likely 2140-2160)
 - Brief §2 reflects any 6.1 + 6.2 + 6.3 + 6.4 §13 deviations
   (Cowork primary patched after ships if needed)
-- Phase 7 lane status verified (shipped, in-flight, or not-
-  started) -- snowbird-panel-include anchor coordination
-  depends on this
 - The 4 operator decisions are locked: conditions strip stub
   state, 8 tile cuts (4 themed + 4 solo), venue-events empty
   state, homepage rebuild approach (anchored extension)
@@ -373,10 +363,10 @@ Expected pragmatic deviations:
 Update master plan §4 Phase 6 — append Phase 6.5 entry under "Shipped (incremental)" subsection. Update STATE.md Production block + Recently shipped §1 prepend.
 
 Phase 6 lane COMPLETE post-6.5. Next major lanes:
-- Phase 7 (if not yet shipped) — chat + HALT 3 + cross-entity + snowbird
+- Phase 7.5 — HALT 3 validator triage + flag-flip closure (Phase 7 shipped with flag deferred)
 - Phase 8 — conditions panel wires real data into the 6.5 strip placeholder + alerts subsystem + cat-13 expansion
 - Phase 9 — events scraper subsystem fills in 6.5's "What's on at this venue" region + Things to Do themed group landing
 
 ---
 
-*Authored by Cowork primary at the post-`99eb12c` dispatch-pre-position session (2026-05-20). Lives at `outputs/cursor_dispatch_prompt_phase_6_5.md`. SHA-patch slots `<<<PHASE_6_4_HEAD_SHA>>>` + `<<<PHASE_6_4_ALEMBIC_HEAD>>>` need filling post-Phase-6.4-ship. Speculative pre-position; may need scope patching if Phase 6.4's actual ship deviates from the Phase 6.4 wrapper's expected file list or shape.*
+*Authored by Cowork primary (2026-05-20). SHA-patched post-`96c915d` + post-`0a305e0`. Lives at `outputs/cursor_dispatch_prompt_phase_6_5.md`. Clipboard: Skip 46, SkipLast 48. Phase 6.4 actual ship matched wrapper except NO alembic migration (preferred_mode reuse per close-out).*
