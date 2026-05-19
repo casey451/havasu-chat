@@ -2,7 +2,7 @@
 
 > Paste-into-Cursor prompt for the third Phase 6 sub-phase per master plan §4 Phase 6 + brief §3.3 — applies 6.2's `category_landing.html` template to the remaining 5 Tier 1 categories (On the Water, Home & Property Services, Health & Wellness, Auto/RV/Fuel, Shopping & Essentials), adds district-context chip rendering on profile pages, ships time-aware + heat-aware default ranking logic, and wires seasonal hours rendering on profile pages. Phase 6.3 is the **breadth pass** for Tier 1 categories — 6.2 proves the template with Eat & Drink; 6.3 makes all 6 categories live. The heavy-prescriptive operating doc is `outputs/cursor_brief_phase_6_tier_1_ui.md` (read end-to-end, especially §0 + §3.3 + §2 + §4 + §5).
 >
-> **Gating dependencies:** Phase 6.1 SHIPPED on origin at `fd16e7a` (unified Hava card grammar). Phase 6.2 SHIPPED on origin at `<<<PATCH_PHASE_6_2_SHA_HERE>>>` (first category landing template + Eat & Drink proof). Phase 4 + Phase 5 prep on origin chain unchanged (`ac94b6c` + `62ab3b7` + `08bca69`). **Phase 6.3 consumes 6.2's `app/templates/category_landing.html` template** + the `app/api/routes/category_pages.py` route module — extends both without rewriting. Any deviations Cursor reported in 6.2 §13 are locked-as-shipped by the time 6.3 dispatches.
+> **Gating dependencies:** Phase 6.1 SHIPPED on origin at `fd16e7a` (unified Hava card grammar). Phase 6.2 SHIPPED on origin at `3948add` (first category landing template + Eat & Drink proof). Phase 4 + Phase 5 prep on origin chain unchanged (`ac94b6c` + `62ab3b7` + `08bca69`). **Phase 6.3 consumes 6.2's `app/templates/category_landing.html` template** + the `app/api/routes/category_pages.py` route module — extends both without rewriting. Any deviations Cursor reported in 6.2 §13 are locked-as-shipped by the time 6.3 dispatches.
 >
 > **Parallel-with-Phase-5 caveat:** if a Phase 5 Cowork chat + Phase 5 Cursor session are running concurrently, the file-scope disjointness rule (gotcha #18) applies. Phase 6.3 touches: `app/templates/category_landing.html` (anchored edit — adds per-category chip sets), `app/templates/provider_profile.html` (anchored edit — district context chip insertion + seasonal hours region), `app/api/routes/category_pages.py` (anchored edit — adds chip dispatcher for remaining 5 slugs), new `app/core/ranking.py` (heat-bias + time-aware ranking helper), anchored edit on `app/providers/queries.py` (seasonal hours fallback logic), `app/providers/view_models.py` (anchored edit — appends seasonal-hours fields to ProviderProfileVM), new `tests/test_phase6_ranking.py`, new `tests/test_phase6_seasonal_hours.py`, anchored edit on `tests/test_phase6_category_landing.py` (adds per-category coverage). Phase 5 sessions touch `app/contrib/` + `scripts/` + `app/db/`. Zero overlap if both lanes hold scope.
 >
@@ -10,7 +10,7 @@
 >
 > **Operator decision-lock status:** the 10 prereq §3 decisions are locked at recommendation in brief §2. Most-relevant to 6.3: entry 6 "Sort defaults per category" (prereq §3.c — per-category locked), entry 7 "District paragraph rendering" (prereq §3.d — chip-only graceful fallback), entry 11 "Time-aware ranking" (prereq §3.h — heat-bias at 100°F + 20% indoor / 10% shaded). Brief §2 should already reflect any 6.1/6.2 §13 deviation patches.
 >
-> **Author note:** authored at session-23-extension-3 (2026-05-13) pre-positioned during Phase 6.1 in-flight execution — saves the 2-3h re-author cycle between 6.2 close-out and 6.3 dispatch. Two SHA-patch slots: `fd16e7a` + `<<<PATCH_PHASE_6_2_SHA_HERE>>>`. Fill both before paste; each appears in 3 sites (preamble, dispatch body, pre-dispatch checklist).
+> **Author note:** authored at session-23-extension-3 (2026-05-13) pre-positioned during Phase 6.1 in-flight execution — saves the 2-3h re-author cycle between 6.2 close-out and 6.3 dispatch. Two SHA-patch slots: `fd16e7a` + `3948add`. Fill both before paste; each appears in 3 sites (preamble, dispatch body, pre-dispatch checklist).
 >
 > **Clipboard pipeline** (after both SHAs patched; primes operator clipboard with prompt body only — skips the 22-line preamble + 37-line post-dispatch footer; verified offsets per fence positions at lines 22 + 318):
 > ```powershell
@@ -28,7 +28,7 @@ are 6.3-relevant), §4 (what NOT to do), §5 (risk register).
 
 Phase 6.1 SHIPPED on origin at `fd16e7a`
 (unified Hava card grammar). Phase 6.2 SHIPPED on origin at
-`<<<PATCH_PHASE_6_2_SHA_HERE>>>` (first category landing template
+`3948add` (first category landing template
 + Eat & Drink proof). Phase 4 SHIPPED chain unchanged
 (`ac94b6c` Phase 4.4 close-out). Phase 5 prep chain unchanged
 (`62ab3b7` types-mapping + `08bca69` prereq+brief). Pytest
@@ -304,7 +304,7 @@ Same constraints as Phase 6.1 + 6.2:
 
 Pre-dispatch checklist (verify before paste):
 - Phase 6.1 SHIPPED on origin (`fd16e7a`)
-- Phase 6.2 SHIPPED on origin (`<<<PATCH_PHASE_6_2_SHA_HERE>>>`)
+- Phase 6.2 SHIPPED on origin (`3948add`)
 - Phase 4 SHIPPED chain (`ac94b6c`)
 - Phase 5 prep chain (`62ab3b7` + `08bca69`)
 - 0a1b2c3d4e5f is the current single alembic head on origin
@@ -355,4 +355,4 @@ Phase 6.4 dispatch prompt to be authored after 6.3 ships — chains off whatever
 
 ---
 
-*Authored at session-23-extension-3 (2026-05-13) pre-positioned during Phase 6.1 in-flight execution. Lives at `outputs/cursor_dispatch_prompt_phase_6_3.md`. Two SHA-patch slots: `fd16e7a` + `<<<PATCH_PHASE_6_2_SHA_HERE>>>` — fill both before paste.*
+*Authored at session-23-extension-3 (2026-05-13) pre-positioned during Phase 6.1 in-flight execution. Lives at `outputs/cursor_dispatch_prompt_phase_6_3.md`. Two SHA-patch slots: `fd16e7a` + `3948add` — fill both before paste.*
