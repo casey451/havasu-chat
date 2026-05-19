@@ -14,13 +14,16 @@
 > all 6 acceptance gate items cleared.
 >
 > **Special note for 5.11:** this is the **last** 5.x sub-phase. The
-> bullet for 5.11 should reference V1 acceptance gate (Phase 6) as
-> the next major milestone, NOT a Phase 5.12.
+> bullet for 5.11 should reference Phase 7 (Tier 2 UI + chat
+> integration) as the next major lane per master_build_plan 4; Phase
+> 6 (Tier 1 UI build) continues in parallel (6.1 + 6.2 shipped at
+> fd16e7a + 3948add; 6.3+ outstanding). NOT a Phase 5.12.
 >
 > **Authored by:** Cowork primary, Phase 5 lane, Phase 5.11 session
 > (2026-05-17) post-`dcf3dd4` (5.11 SHIP). Operator dispatches
-> at convenience -- can run in parallel with V1 work (file-scope
-> disjoint with V1 cross-category review + Phase 6 V1 gate work).
+> at convenience -- can run in parallel with Phase 6 (6.3+) and
+> Phase 7 work (file-scope disjoint -- ledger update only touches
+> docs/STATE.md + docs/maintainability/master_build_plan.md).
 
 ---
 
@@ -47,8 +50,11 @@ The source of truth for each phase's gate scorecard, commit chain,
 and acceptance criteria is each close-out doc's §2.
 
 **5.11 is the LAST 5.x sub-phase.** Post-SHIP, all 13 Tier-1
-categories are populated; V1 acceptance gate (Phase 6) is the next
-major milestone (no Phase 5.12).
+categories are populated. Per master_build_plan 4, **Phase 7 (Tier 2
+UI + chat integration) is the next MAJOR lane after Phase 5 completes**.
+Phase 6 (Tier 1 UI build) continues in parallel -- 6.1 (fd16e7a 2026-05-14)
++ 6.2 (3948add 2026-05-15) already shipped; 6.3+ pending with dispatch
+prompt at outputs/cursor_dispatch_prompt_phase_6_3.md. (No Phase 5.12.)
 
 ---
 
@@ -103,7 +109,7 @@ close-out's §2):
   Lane chain: `3ecd8ed` -> `1dd443a` (sustainability) -> `dcf3dd4` (SHIP).
   Pytest 2002 -> 2018 (+16 in-lane via `_CAT11_KEYS` regression suite). Alembic head `0a1b2c3d4e5f`.
   **Notable §1 finding:** Google has consolidated dog grooming + pet boarding + dog training under a SINGLE `pet_care` primary type (the kickoff forecast label-specific types -- `dog_groomer` / `pet_boarding` / `dog_trainer` -- got added as 3 defensive direct mappings but aren't currently emitted by Google for LHC).
-  **5.11 IS THE LAST 5.x SUB-PHASE.** Next-lane pointer: V1 acceptance gate (Phase 6); no Phase 5.12.
+  **5.11 IS THE LAST 5.x SUB-PHASE.** Next-lane pointer: Phase 7 (Tier 2 UI + chat integration) per master_build_plan 4; Phase 6 (Tier 1 UI) continues in parallel (6.1 + 6.2 shipped at fd16e7a + 3948add; 6.3+ outstanding); no Phase 5.12.
 
 Companion artifacts in `outputs/` for each phase (one block per
 bullet): `phase5_<N>_*_audit.md`, `apply_phase5_<N>_*_audit.py`,
@@ -121,7 +127,7 @@ amendment.
 
 - 5.9 -> 5.10 dispatchable
 - 5.10 -> 5.11 dispatchable
-- 5.11 -> **V1 acceptance gate (Phase 6)**; no 5.12
+- 5.11 -> **Phase 7 (Tier 2 UI + chat integration)** per master_build_plan 4; Phase 6 (Tier 1 UI) continues in parallel (6.3+ outstanding); no 5.12
 
 ### File 2 -- `docs/maintainability/master_build_plan.md`
 
@@ -156,8 +162,9 @@ Then add `**SHIPPED \`dcf3dd4\` 2026-05-17**` line.
 **Add a "Phase 5 COMPLETE" line** after the Phase 5.11 SHIPPED line.
 Suggested wording: "Phase 5 multi-phase data-population lane
 COMPLETE at 5.11 SHIP -- all 13 Tier-1 categories populated; total
-active entities 1,314 across 12 active Tier-1 slugs; next milestone
-V1 acceptance gate (Phase 6)."
+active entities 1,314 across 12 active Tier-1 slugs; **next major lane:
+Phase 7 (Tier 2 UI + chat integration)** per 4; Phase 6 (Tier 1 UI)
+continues in parallel with 6.3+ outstanding."
 
 **Tone reference:** the Phase 5.4 SHIPPED line is the closest immediate
 shape mirror -- single dense paragraph with bold lead, each gate
@@ -177,8 +184,10 @@ docs(phase5): Phase 5.9-5.11 SHIPPED ledger entries -- master plan + STATE.md (A
 
 Lands Amendments 9+10+11 of the Phase 6 coordination message series
 in one consolidated commit. Closes the Phase 5 multi-phase data-
-population lane (5.0 through 5.11) and marks the hand-off to V1
-acceptance gate (Phase 6 V1 gate work).
+population lane (5.0 through 5.11) and marks the hand-off to Phase 7
+(Tier 2 UI + chat integration) per master_build_plan 4. Phase 6
+(Tier 1 UI build) continues in a parallel lane -- 6.1 + 6.2 already
+shipped; 6.3+ outstanding.
 
 Phase 5.9 (classes-sports-recreation): SHIPPED 4527ca1 2026-05-17
   31 entities (1.55x target); 6/6 gates; 1 sustainability + 1
@@ -191,7 +200,9 @@ Phase 5.10 (lodging-vacation-rentals): SHIPPED 592ee74 2026-05-17
 Phase 5.11 (pets) -- LAST 5.x SUB-PHASE: SHIPPED dcf3dd4
 2026-05-17
   38 entities (1.9x target); 6/6 gates; 1 sustainability + SHIP
-  commits. All 13 Tier-1 categories now populated.
+  commits. All 13 Tier-1 categories now populated. Next major lane:
+  Phase 7 (Tier 2 UI + chat integration); Phase 6 (Tier 1 UI) 6.1+6.2
+  already shipped, 6.3+ outstanding.
 
 Per Phase 5.11 §0 operator decision (defer all 3 amendments to Phase
 6 sidecar; Cowork stayed focused on the Phase 5.11 data plane).

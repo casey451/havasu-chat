@@ -7,9 +7,12 @@
 > SHIPPED at `dcf3dd4`.
 >
 > **5.11 IS THE LAST 5.x SUB-PHASE.** After this SHIP commit, all 13
-> Tier-1 categories are populated and V1 acceptance gate (Phase 6)
-> becomes the next major milestone. There is no 5.12 boot prompt;
-> instead, see 7 below for V1 hand-off context.
+> Tier-1 categories are populated. Per master_build_plan 4, **Phase 7
+> (Tier 2 UI + chat integration) is the next major lane after Phase 5
+> completes**. Phase 6 (Tier 1 UI build) continues in a parallel lane --
+> 6.1 (fd16e7a 2026-05-14) + 6.2 (3948add 2026-05-15) shipped; 6.3+
+> outstanding. There is no 5.12 boot prompt; instead, see 7 below for
+> hand-off context.
 >
 > **Authored by:** Cowork primary, Phase 5 lane, Phase 5.11 session 1
 > (2026-05-17) post-SHIP.
@@ -235,7 +238,7 @@ shipped this session covers 5.9 + 5.10 + 5.11. Together these two
 docs land the full 5.5-through-5.11 SHIPPED ledger update on
 `docs/maintainability/master_build_plan.md` + `docs/STATE.md`.
 Operator dispatches at convenience -- can run in parallel with V1
-acceptance / Phase 6 V1 gate work (file-scope disjoint).
+Phase 6 (6.3+) work and Phase 7 dispatch (file-scope disjoint).
 
 ### Pre-flight surprises (1 found, in-session FUSE-mount workaround applied)
 
@@ -360,11 +363,15 @@ All 6 gate items met per `outputs/phase5_11_gate_verification.py`.
 The SHIPPED commit lands on `origin/main` at `dcf3dd4`
 2026-05-17.
 
-### V1 hand-off (NEW for last 5.x sub-phase)
+### Hand-off (NEW for last 5.x sub-phase)
 
-**5.11 SHIP triggers V1 acceptance gate (Phase 6).** Post-SHIP, no
-5.12 boot prompt follows; instead the next major milestone is V1
-cross-category review and Phase 6 V1 gate work. V1 cross-category
+**5.11 SHIP completes the Phase 5 multi-phase data-population lane.**
+Post-SHIP, no 5.12 boot prompt follows. Per master_build_plan 4,
+**Phase 7 (Tier 2 UI + chat integration) is the next major lane**.
+Phase 6 (Tier 1 UI build) continues in a parallel lane -- 6.1
+(fd16e7a 2026-05-14) + 6.2 (3948add 2026-05-15) already shipped; 6.3+
+pending with the dispatch prompt staged at
+outputs/cursor_dispatch_prompt_phase_6_3.md. Cross-category
 review surface (per master_build_plan + STATE.md):
 
 - **Cross-category route rendering audit** -- 12 active slug pages
@@ -378,7 +385,7 @@ review surface (per master_build_plan + STATE.md):
   queue has been kept clear, but a final sweep is warranted.
 - **V1.5 carry inventory** -- consolidated list of all V1.5 carries
   across phases 5.0-5.11 (see V1.5 section below).
-- **Phase 6 V1 acceptance gate** -- the master_build_plan defines V1
+- **V1 acceptance gate** (eventually, post-Phase-7) -- the master_build_plan defines V1
   acceptance criteria; consult STATE.md "Recently shipped" for the
   exact gate definitions.
 
@@ -482,16 +489,17 @@ Phase 6.**
 
 ---
 
-## 7 V1 hand-off (NEW for last 5.x sub-phase)
+## 7 Hand-off (NEW for last 5.x sub-phase)
 
 **5.11 SHIP completes the Phase 5 multi-phase data-population lane.**
 All 13 Tier-1 categories populated; entity counts range from cat-13
 public-civic-resources (4) to cat-1 eat-drink (255). Total active
 entities: 1,314.
 
-### Acceptance criteria for V1 (per master_build_plan)
+### Phase 7 hand-off (per master_build_plan 4)
 
-V1 acceptance is defined in the master_build_plan + STATE.md.
+Phase 7 (Tier 2 UI + chat integration) is the next major lane. See
+master_build_plan 4 + outputs/phase7_handoff_note.md for the scope.
 Consultable touchpoints:
 
 - `docs/maintainability/master_build_plan.md` -- V1 phase definition
@@ -504,24 +512,24 @@ Consultable touchpoints:
 
 ### Suggested next-session focus
 
-The next Cowork session picks up V1 cross-category review or Phase 6
-V1 gate work. Specifically:
+The next Cowork session picks up Phase 7 dispatch OR continues Phase 6
+(6.3+ sub-phases). Specifically:
 
 1. **Phase 6 amend5-to-8 + amend9-to-11 dispatch** -- two
-   consolidated docs are SHIP-ready. Operator dispatches to Claude
-   Code (or lands in-line at a future commit). Parallel-eligible
-   with V1 work.
-2. **V1 cross-category sweep** -- audit all 12 active slug pages
-   render correctly with proper EntityCategory linkage and no NULL
-   `category_id` orphans. The Phase 5 lane left zero NULL
-   category_id rows on EVERY sub-phase ship.
-3. **V1.5 carry inventory triage** -- the V1.5 list above (~20
-   items) needs prioritization for what lands in V1 vs V1.5 vs
-   later.
-4. **Phase 6 V1 gate definition** -- consult master_build_plan for
-   the V1 acceptance gate items; the per-category gates have all
-   cleared, but V1 may have additional cross-cutting requirements
-   (search, navigation, mobile rendering, etc.).
+   consolidated docs are SHIP-ready (5.5-5.8 + 5.9-5.11 master plan +
+   STATE.md ledger updates). Operator dispatches to Claude Code (or
+   lands in-line at a future commit). Parallel-eligible with Phase 6
+   sub-phase work and Phase 7 dispatch.
+2. **Phase 6.3+ continuation** -- Phase 6 (Tier 1 UI) is in flight
+   in a parallel lane. 6.1 (Hava card grammar, fd16e7a) + 6.2 (category
+   landing pages, 3948add) shipped. 6.3+ dispatch prompt staged at
+   outputs/cursor_dispatch_prompt_phase_6_3.md.
+3. **Phase 7 dispatch** (Tier 2 UI + chat integration) -- the next
+   MAJOR lane after Phase 5 completes per master_build_plan 4. Hand-off
+   note at outputs/phase7_handoff_note.md.
+4. **V1.5 carry inventory triage** -- the V1.5 list in 6 (~20
+   items) needs prioritization for what lands in V1.5 vs later. V1
+   acceptance gate definitions live in master_build_plan + STATE.md.
 
 There is **no 5.12 sub-phase**. The Phase 5 data-population lane is
 complete with this 5.11 SHIP commit.
@@ -538,12 +546,12 @@ complete with this 5.11 SHIP commit.
 
 ---
 
-## 9 Read order for the next session (V1 / Phase 6)
+## 9 Read order for the next session (Phase 6 continuation OR Phase 7 dispatch)
 
 1. **This document** -- the state of play (close-out + commit chain).
-2. `docs/maintainability/master_build_plan.md` -- V1 phase definition
-   + Phase 5 ship-line carry-forward (post-amend5-to-8 + amend9-to-11
-   dispatch).
+2. `docs/maintainability/master_build_plan.md` -- 4 Phase 7 scope +
+   Phase 5 ship-line carry-forward (post-amend5-to-8 + amend9-to-11
+   dispatch). Phase 6 6.3+ continuation also lives here.
 3. `docs/STATE.md` -- "Recently shipped" + "Now / Next / Later"
    tracking.
 4. `outputs/claude_code_dispatch_phase6_amend5_to_8.md` +
@@ -552,8 +560,9 @@ complete with this 5.11 SHIP commit.
 5. `outputs/phase5_11_pets_audit.md` (this session's audit doc; the
    V1.5 carries are all listed in 7).
 
-There is no Phase 5.12 boot prompt; the next session picks up V1 /
-Phase 6 work directly per the master_build_plan.
+There is no Phase 5.12 boot prompt. The next session picks up either
+Phase 6.3+ continuation (Tier 1 UI lane) OR Phase 7 dispatch (Tier 2
+UI + chat integration -- the next MAJOR lane per master_build_plan 4).
 
 ---
 
@@ -563,4 +572,6 @@ items cleared in a single session; 2 commits on origin/main from
 `3ecd8ed` -> `1dd443a` (sustainability) -> `dcf3dd4` (SHIP).
 Plus 5 DB-only writes (1 load + 1.4b sustainability re-run + 1 audit
 apply + 1 heat + 1 crowd_notes). **LAST 5.x SUB-PHASE -- post-SHIP
-hands off to V1 cross-category review / Phase 6 V1 gate work.***
+hands off to Phase 7 (Tier 2 UI + chat integration) as the next
+major lane per master_build_plan 4; Phase 6 (Tier 1 UI, 6.1 + 6.2
+shipped) continues in parallel with 6.3+ outstanding.***
