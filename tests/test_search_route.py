@@ -216,8 +216,9 @@ def test_search_bar_ui_home_and_provider_templates(db: Session) -> None:
         assert h.status_code == 200
         t = h.text
         assert 'name="q"' in t
-        assert "directory-search-submit" in t
-        assert "/static/js/search.js" in t
+        assert "<!-- search-bar-include -->" in t
+        assert "hava-search-submit" in t
+        assert "/static/js/search_bar.js" in t
 
         pr = client.get(f"/provider/{slug}")
         assert pr.status_code == 200

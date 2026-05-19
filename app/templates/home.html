@@ -27,29 +27,34 @@
     </div>
   </header>
 
-  {# ─────────── directory search (Phase 2B.3) — above hero / chat composer #}
-  <section class="directory-search-wrap" aria-label="Search the local catalog">
-    <form class="directory-search" data-directory-search action="#" method="get" role="search">
-      <label class="directory-search-label" for="directory-search-q">Search listings</label>
-      <div class="directory-search-row">
-        <input
-          id="directory-search-q"
-          type="search"
-          name="q"
-          placeholder="Plumbers, coffee, barbershop…"
-          autocomplete="off"
-          maxlength="200"
-        />
-        <button type="submit" class="directory-search-submit">Search</button>
-      </div>
-      <div class="directory-search-results" data-directory-search-results hidden></div>
-    </form>
-  </section>
-
   {# ─────────── hero ─────────── #}
   <section class="hero">
     <h1>Ask <em>Hava</em>.</h1>
     <p class="mission">Search Local. Support Local. Lake <em>Havasu</em>.</p>
+
+    <!-- search-bar-include -->
+    <div class="hero-search-row">
+      <div class="hava-search-bar" aria-label="Search the local catalog">
+        <form data-hava-search action="#" method="get" role="search">
+          <label class="directory-search-label" for="hava-search-q-home">Search listings</label>
+          <div class="hava-search-row">
+            <input
+              id="hava-search-q-home"
+              class="hava-search-input"
+              type="search"
+              name="q"
+              placeholder="Plumbers, coffee, barbershop…"
+              autocomplete="off"
+              maxlength="200"
+              aria-label="Search listings"
+            />
+            <button type="submit" class="hava-search-submit">Search</button>
+          </div>
+          <div class="hava-search-results" data-hava-search-results hidden></div>
+        </form>
+      </div>
+      <a class="hava-ask-hava-btn" href="/chat">Ask Hava</a>
+    </div>
 
     <form class="composer" action="/chat" method="get" role="search">
       <span class="leading">
@@ -71,6 +76,9 @@
       <a class="chip" href="/chat?q=what+to+do+with+the+family" role="listitem">With the Family</a>
     </div>
   </section>
+
+  <!-- snowbird-panel-include -->
+  {% include 'components/snowbird_panel.html' %}
 
   {# ─────────── pros & services strip ─────────── #}
   <section class="cat-strip">
@@ -305,6 +313,6 @@
 </div>
 
 <script type="module" src="/static/js/home-composer.js" defer></script>
-<script src="/static/js/search.js" defer></script>
+<script src="/static/js/search_bar.js" defer></script>
 </body>
 </html>

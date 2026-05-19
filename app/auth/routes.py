@@ -262,6 +262,10 @@ class FavoriteToggleBody(BaseModel):
     entity_id: str
 
 
+class BoatModePreferenceBody(BaseModel):
+    enabled: bool
+
+
 def _profile_href_for_entity(db: SqlSession, ent: Entity) -> str | None:
     if ent.entity_type == ENTITY_TYPE_COMMERCIAL:
         p = (
@@ -275,6 +279,38 @@ def _profile_href_for_entity(db: SqlSession, ent: Entity) -> str | None:
         if p is not None and p.slug:
             return f"/provider/{p.slug}"
     return None
+
+
+@router.post("/api/users/me/boat_mode_preference")
+def api_boat_mode_preference(
+    request: Request,
+    body: BoatModePreferenceBody,
+    db: SqlSession = Depends(get_db),
+) -> JSONResponse:
+    """Persist boat-access mode for logged-in users (maps to ``users.preferred_mode``)."""
+    user = get_current_user(request)
+    if user is None:
+        return JSONResponse(status_code=401, content={"detail": "login_required"})
+    row = db.get(User, user.id)
+    if row is None:
+        return JSONResponse(status_code=401, content={"detail": "login_required"})
+    row.preferred_mode = "boat" if body.enabled else "default"
+    db.commit()
+    return JSONResponse(
+        content={
+            "boat_mode_preference": body.enabled,
+            "preferred_mode": user.preferred_mode,
+        }
+    )
+
+
+@router.get("/api/users/me/boat_mode_preference")
+def api_boat_mode_preference_get(request: Request) -> JSONResponse:
+    user = get_current_user(request)
+    if user is None:
+        return JSONResponse(status_code=401, content={"detail": "login_required"})
+    enabled = getattr(user, "preferred_mode", "default") == "boat"
+    return JSONResponse(content={"boat_mode_preference": enabled})
 
 
 @router.post("/api/favorites/toggle")

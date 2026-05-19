@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>{{ category_label }} — Hava</title>
-  <meta name="description" content="{{ category_one_liner }}">
+  <title>{{ group_label }} — Hava</title>
+  <meta name="description" content="{{ group_one_liner }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="/static/styles/category_landing.css">
 </head>
-<body data-boat-reload-on-toggle data-map-scope="{{ map_scope_slug }}"{% if category_slug in ['on-the-water', 'outdoors-parks-trails'] %} data-map-default-expanded="true"{% endif %}>
+<body class="themed-group-page group-accent-{{ group_accent }}" data-boat-reload-on-toggle data-map-scope="{{ map_scope_slug }}"{% if category_slug == 'on-the-water' %} data-map-default-expanded="true"{% endif %}>
 
 <div class="page category-page">
 
@@ -23,7 +23,7 @@
       <span>Hava</span>
     </a>
     <div class="topbar-actions">
-      <button type="button" class="boat-mode-toggle" data-boat-mode-toggle aria-pressed="{% if boat_mode_active %}true{% else %}false{% endif %}" aria-label="Boat-access mode">
+      <button type="button" class="boat-mode-toggle" data-boat-mode-toggle aria-pressed="false" aria-label="Boat-access mode">
         Boat mode
       </button>
     </div>
@@ -37,14 +37,14 @@
   <section class="category-subhero" aria-labelledby="category-heading">
     <div class="hava-search-bar" aria-label="Search the local catalog">
       <form data-hava-search action="#" method="get" role="search">
-        <label class="directory-search-label" for="hava-search-q-cat">Search listings</label>
+        <label class="directory-search-label" for="hava-search-q-group">Search listings</label>
         <div class="hava-search-row">
           <input
-            id="hava-search-q-cat"
+            id="hava-search-q-group"
             class="hava-search-input"
             type="search"
             name="q"
-            placeholder="Search {{ category_label | lower }}…"
+            placeholder="Search {{ group_label | lower }}…"
             autocomplete="off"
             maxlength="200"
             aria-label="Search listings"
@@ -54,34 +54,21 @@
         <div class="hava-search-results" data-hava-search-results hidden></div>
       </form>
     </div>
-    <h1 id="category-heading" class="category-title">{{ category_label }}</h1>
-    <p class="category-lede">{{ category_one_liner }}</p>
+    <h1 id="category-heading" class="category-title">{{ group_label }}</h1>
+    <p class="category-lede">{{ group_one_liner }}</p>
+    <p class="themed-group-bundled">Bundled categories: {{ category_slugs | join(', ') }}</p>
   </section>
 
   {% if show_sparse_banner %}
   <p class="category-sparse-banner" role="status">
-    More {{ category_label }} coming soon — Hava is still building this section. Check back this week!
+    More {{ group_label }} coming soon — Hava is still building this section. Check back this week!
   </p>
   {% endif %}
 
   <section class="category-filters" aria-label="Filters">
-    <div class="chip-row chip-row--scroll" data-chip-row="cuisine">
+    <div class="chip-row chip-row--scroll" data-chip-row="trade">
       {% for chip in cuisine_chips %}
-      {% if category_slug == 'eat-drink' %}
-      <a
-        class="chip{% if active_cuisine == chip.slug %} chip-active{% endif %}"
-        href="{{ cat_href(cuisine=(none if active_cuisine == chip.slug else chip.slug)) }}"
-        data-category-chip="cuisine"
-        data-chip-slug="{{ chip.slug }}"
-      >{{ chip.label }}</a>
-      {% else %}
-      <a
-        class="chip{% if active_trade == chip.slug %} chip-active{% endif %}"
-        href="{{ cat_href(trade=(none if active_trade == chip.slug else chip.slug)) }}"
-        data-category-chip="trade"
-        data-chip-slug="{{ chip.slug }}"
-      >{{ chip.label }}</a>
-      {% endif %}
+      <span class="chip chip-static">{{ chip.label }}</span>
       {% endfor %}
     </div>
     <div class="chip-row chip-row--scroll" data-chip-row="district">
@@ -98,59 +85,11 @@
       {% for row in operational_chips %}
       {% set p = row.param %}
       {% if p == 'open' %}
-      <a
-        class="chip{% if active_open_now %} chip-active{% endif %}"
-        href="{{ cat_href(open=(none if active_open_now else 'now')) }}"
-        data-category-chip="open"
-      >{{ row.label }}</a>
-      {% elif p == 'late' %}
-      <a
-        class="chip{% if active_late %} chip-active{% endif %}"
-        href="{{ cat_href(late=(none if active_late else '1')) }}"
-        data-category-chip="late"
-      >{{ row.label }}</a>
-      {% elif p == 'brunch' %}
-      <a
-        class="chip{% if active_brunch %} chip-active{% endif %}"
-        href="{{ cat_href(brunch=(none if active_brunch else '1')) }}"
-        data-category-chip="brunch"
-      >{{ row.label }}</a>
-      {% elif p == 'dock' %}
-      <a
-        class="chip{% if active_dock %} chip-active{% endif %}"
-        href="{{ cat_href(dock=(none if active_dock else '1')) }}"
-        data-category-chip="dock"
-      >{{ row.label }}</a>
-      {% elif p == 'verified' %}
-      <a
-        class="chip{% if active_verified %} chip-active{% endif %}"
-        href="{{ cat_href(verified=(none if active_verified else '1')) }}"
-        data-category-chip="verified"
-      >{{ row.label }}</a>
-      {% elif p == 'mobile' %}
-      <a
-        class="chip{% if active_mobile %} chip-active{% endif %}"
-        href="{{ cat_href(mobile=(none if active_mobile else '1')) }}"
-        data-category-chip="mobile"
-      >{{ row.label }}</a>
+      <a class="chip{% if active_open_now %} chip-active{% endif %}" href="{{ cat_href(open=(none if active_open_now else 'now')) }}">{{ row.label }}</a>
       {% elif p == 'boat' %}
-      <a
-        class="chip{% if active_dock %} chip-active{% endif %}"
-        href="{{ cat_href(boat=(none if active_dock else '1')) }}"
-        data-category-chip="boat"
-      >{{ row.label }}</a>
-      {% elif p == 'free' %}
-      <a
-        class="chip{% if active_free %} chip-active{% endif %}"
-        href="{{ cat_href(free=(none if active_free else '1')) }}"
-        data-category-chip="free"
-      >{{ row.label }}</a>
+      <a class="chip{% if active_dock %} chip-active{% endif %}" href="{{ cat_href(boat=(none if active_dock else '1')) }}">{{ row.label }}</a>
       {% else %}
-      <a
-        class="chip"
-        href="{{ cat_href(**{p: row.value}) }}"
-        data-category-chip="{{ p }}"
-      >{{ row.label }}</a>
+      <a class="chip" href="{{ cat_href(**{p: row.value}) }}">{{ row.label }}</a>
       {% endif %}
       {% endfor %}
     </div>
@@ -172,11 +111,7 @@
     <div id="map-container" hidden role="region" aria-label="Map of listings"></div>
   </div>
 
-  <section class="category-sponsor-slot" aria-label="Sponsor placement">
-    <div class="category-sponsor-slot-inner"></div>
-  </section>
-
-  <section class="category-stream" aria-label="{{ category_label }} listings">
+  <section class="category-stream" aria-label="{{ group_label }} listings">
     {% for vm in organic_stream %}
       {% set hava_card = vm %}
       {% include "components/hava_card.html" %}

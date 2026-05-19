@@ -65,8 +65,10 @@ TIER_1_CATEGORY_SLUGS: frozenset[str] = frozenset(
 )
 
 # Anonymous default anchor — Lake Havasu City approximate civic center.
-_REF_LAT = 34.4839
-_REF_LNG = -114.3225
+REF_LAT = 34.4839
+REF_LNG = -114.3225
+_REF_LAT = REF_LAT
+_REF_LNG = REF_LNG
 
 DEFAULT_SORT_BY_SLUG: dict[str, str] = {
     "eat-drink": "closest_now",
@@ -586,7 +588,7 @@ def _sort_entity_ids(
     if sort_key == "editorial_pick":
         return sorted(entities, key=editorial_key)
     if sort_key == "closest_now":
-        rank_inp = _rank_inputs_for_category(
+        rank_inp = rank_inputs_for_category(
             entities,
             category_slug=category_slug,
             ref_lat=ref_lat,
@@ -607,7 +609,7 @@ def _sort_entity_ids(
     )
 
 
-def _rank_inputs_for_category(
+def rank_inputs_for_category(
     entities: list[Entity],
     *,
     category_slug: str,
@@ -659,13 +661,15 @@ def _rank_inputs_for_category(
     return out
 
 
-def _select_entities_for_category(
+def select_entities_for_categories(
     db: Session,
     *,
-    category_slug: str,
+    category_slugs: list[str],
     district_slug: str | None,
-    dock_only: bool,
+    boat_only: bool,
 ) -> list[Entity]:
+    if not category_slugs:
+        return []
     stmt = (
         select(Entity)
         .join(EntityCategory, EntityCategory.entity_id == Entity.id)
@@ -674,10 +678,14 @@ def _select_entities_for_category(
             Provider,
             (Provider.entity_id == Entity.id) & (Entity.entity_type == ENTITY_TYPE_COMMERCIAL),
         )
-        .options(joinedload(Entity.location), joinedload(Entity.district))
+        .options(
+            joinedload(Entity.location),
+            joinedload(Entity.district),
+            joinedload(Entity.categories).joinedload(EntityCategory.category),
+        )
         .where(
             Entity.is_active.is_(True),
-            Category.slug == category_slug,
+            Category.slug.in_(category_slugs),
             or_(
                 Entity.entity_type != ENTITY_TYPE_COMMERCIAL,
                 and_(
@@ -692,11 +700,26 @@ def _select_entities_for_category(
         stmt = stmt.join(District, District.id == Entity.district_id).where(
             District.slug == district_slug.strip().lower()
         )
-    if dock_only:
+    if boat_only:
         stmt = stmt.where(Entity.boat_access.isnot(None))
 
     rows = db.scalars(stmt).unique().all()
     return list(rows)
+
+
+def _select_entities_for_category(
+    db: Session,
+    *,
+    category_slug: str,
+    district_slug: str | None,
+    dock_only: bool,
+) -> list[Entity]:
+    return select_entities_for_categories(
+        db,
+        category_slugs=[category_slug],
+        district_slug=district_slug,
+        boat_only=dock_only,
+    )
 
 
 def _apply_python_filters(
@@ -876,6 +899,8 @@ def category_landing(
     ctx = {
         "cat_href": cat_href,
         "today_label": now.strftime("%A, %B ") + str(now.day),
+        "map_scope_slug": cat_slug,
+        "boat_mode_active": dock_only,
         "category_slug": cat_slug,
         "category_label": category_label,
         "category_one_liner": _CATEGORY_ONE_LINERS.get(cat_slug, "Browse trusted local listings."),

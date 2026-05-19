@@ -30,6 +30,8 @@ from app.api.routes.admin_mentions import router as admin_mentions_router
 from app.api.routes.category_pages import router as category_pages_router
 from app.api.routes.chat import router as concierge_chat_router
 from app.api.routes.contribute import router as contribute_router
+from app.api.routes.map_data import router as map_data_router
+from app.api.routes.themed_groups import router as themed_groups_router
 from app.auth.routes import router as auth_router
 from app.auth.session import SessionMiddleware
 from app.core.event_quality import friendly_errors
@@ -290,6 +292,8 @@ app.include_router(auth_router)
 app.include_router(photos_router)
 app.include_router(search_router)
 app.include_router(category_pages_router)
+app.include_router(themed_groups_router)
+app.include_router(map_data_router)
 app.include_router(admin_router)
 app.include_router(admin_contributions_router)
 app.include_router(admin_mentions_router)
