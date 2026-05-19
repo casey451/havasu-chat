@@ -144,6 +144,14 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     # SARA Park) all sit as ``commercial`` — most LHC-area state parks
     # charge entry fees and have staffed visitor centers.
     "golf_course": ("outdoors-parks-trails", "commercial"),
+    # Phase 5.7 V1.5 carry — wildlife_refuge direct mapping. Caught by
+    # the (None, "entertainment_attractions") -> "outdoors-parks-trails"
+    # catch-all (5.7 1dfd28e) today via Bill Williams River NWR; this
+    # direct mapping is defensive vs Google ever changing the types[]
+    # routing AND documents intent explicitly. Same 1-line shape as the
+    # golf_course widening above. `place` (federal land, not commercial)
+    # contrasts with golf_course's `commercial` (entry fees / staffed).
+    "wildlife_refuge": ("outdoors-parks-trails", "place"),
 
     # Phase 5.8 §1 sustainability — events (cat-2) direct mappings.
     # Pre-5.8, the only entertainment_attractions resolver path for these
@@ -207,6 +215,20 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     "pet_boarding": ("pets", "commercial"),
     "dog_trainer": ("pets", "commercial"),
 
+    # Phase 5.11 V1.5 carry — 3 pets direct mappings. Pre-Phase-5.11
+    # `veterinary_care` + `pet_store` covered vet clinics + retail pet
+    # stores. The 5.11 §1 load surfaced no `pet_supply_store` /
+    # `animal_shelter` / `aquarium_store` entries explicitly because
+    # Google emitted the more generic `pet_store` for retail surfaces,
+    # but adding these is defensive vs Google ever splitting the
+    # consolidated `pet_store` back out + documents intent for cat-11
+    # routing. `pet_supply_store` + `aquarium_store` are `commercial`
+    # (retail); `animal_shelter` is `place` (typically nonprofit / civic
+    # facility — same shape as `dog_park`).
+    "pet_supply_store": ("pets", "commercial"),
+    "animal_shelter": ("pets", "place"),
+    "aquarium_store": ("pets", "commercial"),
+
     # Phase 5.9 §1 sustainability — classes-sports-recreation (cat-12)
     # direct mappings. 5.9 Narrow scope is 9 of the 16 labels in the
     # ``classes-sports-recreation`` two-domain bundle
@@ -253,6 +275,33 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     "tennis_court": ("classes-sports-recreation", "place"),
     "pickleball_court": ("classes-sports-recreation", "place"),
 
+    # Phase 5.9 V1.5 carry — 6 classes-sports-recreation direct
+    # mappings. The 5.9 §1 sustainability matrix flagged athletic_field
+    # / educational_institution / primary_school / sports_complex /
+    # sports_club / country_club as deferred-to-V1.5 widening targets.
+    # Surfaces relevant to existing 5.9 entries: Sand Volleyball at
+    # Rotary Park (athletic_field primary; currently in cat-5 HWC per
+    # 5.9 Slice F decision) + Mohave Traffic School + Psalms Learning
+    # Center (educational_institution-ish surfaces, currently routed
+    # via the `school` direct mapping at line 288).
+    #
+    # `commercial` vs `place` split: educational_institution +
+    # primary_school + sports_club + country_club are `commercial` (fee-
+    # based / membership / staffed); athletic_field + sports_complex
+    # are `place` (typically municipal/public-park amenities — same
+    # shape as swimming_pool / tennis_court / pickleball_court above).
+    #
+    # NOTE: `church` was a sibling 5.9 carry candidate but is omitted
+    # here per operator-decide (cat-12 vs cat-13 framing depends on
+    # the 5.9 The Ark Center recategorization decision). See
+    # outputs/v1_5_carry_inventory_triage.md §4 carry #29.
+    "athletic_field": ("classes-sports-recreation", "place"),
+    "educational_institution": ("classes-sports-recreation", "commercial"),
+    "primary_school": ("classes-sports-recreation", "commercial"),
+    "sports_complex": ("classes-sports-recreation", "place"),
+    "sports_club": ("classes-sports-recreation", "commercial"),
+    "country_club": ("classes-sports-recreation", "commercial"),
+
     # Phase 5.10 §1 sustainability — lodging-vacation-rentals (cat-10)
     # direct mappings. The pre-Phase-5 ``lodging`` direct mapping (above)
     # already catches most lodging-shape places via the secondary-types[]
@@ -284,6 +333,21 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     "resort_hotel": ("lodging-vacation-rentals", "commercial"),
     "extended_stay_hotel": ("lodging-vacation-rentals", "commercial"),
     "bed_and_breakfast": ("lodging-vacation-rentals", "commercial"),
+
+    # Phase 5.10 V1.5 carry — 4 lodging direct mappings. The 5.10 §1
+    # load empirically catches these via the secondary-types[] match
+    # against the existing `lodging` direct mapping (above), but direct
+    # mappings document intent explicitly + harden against Google
+    # types[] array changes. Same defensive pattern 5.8 followed for
+    # events. mobile_home_park is `place` (the park itself is a public/
+    # community surface; individual rentals are commercial — secondary-
+    # types[] match handles individual rentals via the same path).
+    # camping_cabin + cottage + guest_house are `commercial` (fee-based
+    # rentals).
+    "camping_cabin": ("lodging-vacation-rentals", "commercial"),
+    "cottage": ("lodging-vacation-rentals", "commercial"),
+    "mobile_home_park": ("lodging-vacation-rentals", "place"),
+    "guest_house": ("lodging-vacation-rentals", "commercial"),
 
     "school": ("classes-sports-recreation", "commercial"),
     "library": ("public-civic-resources", "place"),
