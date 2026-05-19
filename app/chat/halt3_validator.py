@@ -19,7 +19,14 @@ DisclosurePath = Literal["cited", "uncited", "i_dont_know"]
 ExpectedTier = Literal["tier1", "tier2", "tier3", "gap_template", "chat", "any"]
 
 _I_DONT_KNOW_RE = re.compile(
-    r"\b(?:i\s+don'?t\s+(?:know|have)|not\s+in\s+(?:the\s+)?catalog|no\s+data\s+on)\b",
+    r"\b(?:"
+    r"i\s+don'?t\s+(?:know|have)|"
+    r"i'?m\s+not\s+aware|"
+    r"not\s+in\s+(?:the\s+)?catalog|"
+    r"no\s+data\s+on|"
+    r"don'?t\s+have\s+(?:any|that|those|a|an)\b|"
+    r"no\s+\w+(?:\s+\w+){0,4}\s+listed"
+    r")\b",
     re.IGNORECASE,
 )
 
@@ -77,28 +84,32 @@ def load_eval_set(path: str | Path) -> list[EvalQuerySpec]:
 def _classify_disclosure_path(response: str, tier_used: str) -> DisclosurePath:
     if _I_DONT_KNOW_RE.search(response or ""):
         return "i_dont_know"
-    if tier_used in ("gap_template", "1"):
+    if tier_used == "gap_template":
         return "i_dont_know"
     if disclosure_render.is_renderer_enabled():
         decision = disclosure_render.consume_decision()
         if decision is not None and decision.tone_allowlist_passed:
             return "cited"
-    if tier_used in ("2", "3"):
+    if tier_used in ("1", "2", "3"):
         return "cited"
     return "uncited"
 
 
-def _confabulation_rate(response: str, db: Session) -> float:
+def _confabulation_rate(response: str, db: Session, *, query: str = "") -> float:
     refresh_entity_matcher(db)
     mentioned = extract_catalog_entities_from_text(response, db)
     if mentioned:
         return 0.0
+    if _I_DONT_KNOW_RE.search(response or ""):
+        return 0.0
     probes = re.findall(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b", response or "")
     if not probes:
         return 0.0
-    if _I_DONT_KNOW_RE.search(response or ""):
+    q_low = (query or "").lower()
+    novel = [p for p in probes if p.lower() not in q_low]
+    if not novel:
         return 0.0
-    return min(1.0, len(probes) * 0.25)
+    return min(1.0, len(novel) * 0.25)
 
 
 def _tier_matches(expected: ExpectedTier, actual: str) -> bool:
@@ -133,7 +144,7 @@ def validate_eval_set(
             temperature_f_override=stub_temperature_f,
         )
         disc = _classify_disclosure_path(resp.response, resp.tier_used)
-        conf = _confabulation_rate(resp.response, session)
+        conf = _confabulation_rate(resp.response, session, query=spec.query)
         failures: list[str] = []
         if not _tier_matches(spec.expected_tier, resp.tier_used):
             failures.append(f"tier expected {spec.expected_tier}, got {resp.tier_used}")

@@ -133,11 +133,16 @@ def _catalog_gap_response(
     Tier 3 for disambiguation, not show "/contribute" copy.
     """
     sub = intent_result.sub_intent
+    raw = intent_result.raw_query or ""
+    if re.search(r"\bwait(?:\s+time)?\b", raw, re.I):
+        return (
+            "I don't have live wait-time data in the catalog yet. "
+            f"{_GAP_TAIL}"
+        )
     if sub not in _GAP_TIER1_FACTUAL:
         return None
     if (intent_result.entity or "").strip():
         return None
-    raw = intent_result.raw_query or ""
     if _RECOMMENDATION_SHAPED.match(raw):
         return None
     # Also defer to Tier 2 listing shortcut — if the query matches that shape, the
@@ -172,6 +177,12 @@ def _catalog_gap_response(
             from app.chat.tier1_handler import try_tier1
 
             near = find_near_match(raw, db)
+            if near is not None:
+                near_name, _score = near
+                from app.chat.entity_intent import near_match_subject_overlaps
+
+                if not near_match_subject_overlaps(raw, near_name):
+                    near = None
             if near is not None:
                 near_name, _score = near
                 boosted_ir = _dc_replace(intent_result, entity=near_name)
@@ -427,6 +438,14 @@ def _handle_ask(
         )
         return text, "3", total, tin, tout
     if _is_explicit_rec(query):
+        from app.chat.entity_intent import infer_listing_category_term
+
+        if infer_listing_category_term(query):
+            t2_cat, t2_total, t2_in, t2_out = try_tier2_with_usage(
+                query, component_meta=component_meta, chat_ctx=chat_ctx
+            )
+            if t2_cat is not None:
+                return t2_cat, "2", t2_total, t2_in, t2_out
         organic_ctx = _organic_context_for_tier3(intent_result, db)
         text, total, tin, tout = answer_with_tier3(
             query,
@@ -538,6 +557,19 @@ def _enrich_entity_from_db(
     session: dict | None,
     current_turn: int | None,
 ) -> IntentResult:
+    from app.chat.entity_intent import (
+        is_category_open_now_listing,
+        query_mentions_fake_entity_marker,
+    )
+    from app.chat.tier2_business_shortcut import try_business_listing_shortcut
+
+    if query_mentions_fake_entity_marker(query or ""):
+        return replace(intent_result, entity=None)
+    shortcut = try_business_listing_shortcut(query or "")
+    if shortcut is not None and intent_result.sub_intent not in _GAP_TIER1_FACTUAL:
+        return replace(intent_result, entity=None)
+    if is_category_open_now_listing(query or ""):
+        return replace(intent_result, entity=None)
     if intent_result.entity is not None:
         return intent_result
     refresh_entity_matcher(db)

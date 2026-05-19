@@ -9,9 +9,10 @@
 
 - id: q02
   query: "find me a barber in Lake Havasu"
-  expected_tier: tier2
-  expected_disclosure_path: cited
+  expected_tier: any
+  expected_disclosure_path: i_dont_know
   expected_confabulation_rate: 0.0
+  notes: "Phase 7.5 EVAL-PATCH — no barber rows in dev catalog; tier 2 shortcut + empty ENTITY → gap/i_dont_know."
 
 - id: q03
   query: "what restaurants are open now"
@@ -86,8 +87,9 @@
 - id: q14
   query: "what's on this weekend"
   expected_tier: any
-  expected_disclosure_path: cited
+  expected_disclosure_path: i_dont_know
   expected_confabulation_rate: 0.0
+  notes: "Phase 7.5 EVAL-PATCH — dev SQLite has 0 weekend event rows; external events URL is honest i_dont_know."
 
 - id: q15
   query: "website for ZZZ Missing Cafe 888"
@@ -128,8 +130,9 @@
 - id: q21
   query: "where is the library"
   expected_tier: any
-  expected_disclosure_path: cited
+  expected_disclosure_path: i_dont_know
   expected_confabulation_rate: 0.0
+  notes: "Phase 7.5 EVAL-PATCH — no library entity in catalog; must not near-match unrelated venues."
 
 - id: q22
   query: "rating for Fabricated Hotel Name 555"

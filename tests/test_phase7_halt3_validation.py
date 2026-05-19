@@ -92,6 +92,8 @@ def test_cited_coverage_metric() -> None:
 
 
 def test_validator_gate_with_mocked_router() -> None:
+    specs = load_eval_set("app/chat/halt3_eval_set.yaml")
+
     def _fake_route(q, sid, db, **kwargs):
         low = q.lower()
         if any(
@@ -105,8 +107,9 @@ def test_validator_gate_with_mocked_router() -> None:
                 "missing",
                 "random place",
                 "wait at",
+                "barber",
             )
-        ):
+        ) or "this weekend" in low or low.strip() == "where is the library":
             return ChatResponse(
                 response="I don't have that in the catalog yet.",
                 mode="ask",
@@ -135,6 +138,7 @@ def test_validator_gate_with_mocked_router() -> None:
 
     with patch("app.chat.halt3_validator.route", side_effect=_fake_route):
         report = validate_eval_set("app/chat/halt3_eval_set.yaml")
+    assert len(report.results) == len(specs)
     assert report.cited_disclosure_coverage >= 1.0
     assert report.missing_data_max_confabulation == 0.0
     assert report.all_passed is True

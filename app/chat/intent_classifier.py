@@ -307,6 +307,31 @@ def classify(query: str) -> IntentResult:
     if ent_hit:
         entity, score = ent_hit
         entity_score = score / 100.0
+    if mode == "ask":
+        from app.chat.entity_intent import (
+            is_category_open_now_listing,
+            query_mentions_fake_entity_marker,
+        )
+        from app.chat.tier2_business_shortcut import try_business_listing_shortcut
+
+        if query_mentions_fake_entity_marker(raw):
+            entity = None
+            entity_score = None
+        elif sub not in (
+            "PHONE_LOOKUP",
+            "WEBSITE_LOOKUP",
+            "HOURS_LOOKUP",
+            "LOCATION_LOOKUP",
+            "RATING_LOOKUP",
+            "REVIEW_COUNT_LOOKUP",
+            "TIME_LOOKUP",
+            "OPEN_NOW",
+        ) and (
+            try_business_listing_shortcut(raw) is not None
+            or is_category_open_now_listing(raw)
+        ):
+            entity = None
+            entity_score = None
 
     conf = _merge_confidence(mode_conf, sub_conf, entity_score)
     if mode == "ask" and sub == "OPEN_ENDED" and conf < 0.4:

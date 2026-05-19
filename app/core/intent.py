@@ -142,6 +142,13 @@ def detect_out_of_scope_category(message: str) -> str | None:
     positives like "hotel grand opening event tonight" from being treated as
     lodging lookups.
     """
+    try:
+        from app.chat.entity_intent import suppress_out_of_scope_for_factual_lookup
+
+        if suppress_out_of_scope_for_factual_lookup(message):
+            return None
+    except Exception:
+        pass
     m = message.lower()
     if "restaurant week" in m:
         return None
