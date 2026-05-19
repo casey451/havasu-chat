@@ -27,7 +27,7 @@ These 3 prereqs are the operator-side blockers:
 |---|---|---|---|
 | 1 | AirNow API key registration | ~10 min request + email-activation (often near-instant; worst-case 1–2 business days) | **MEDIUM — register today; mostly likely instant** |
 | 2 | USGS gauge ID confirmation (canonical: `09427500`) | ~10 min browser verify | No lag; pre-researched |
-| 3 | LHC Nixle RSS agency ID lookup (Fire Dept confirmed at `local.nixle.com/lake-havasu-city-fire-department`) | ~15 min HTML-source inspection OR ~1 business day if email Nixle support | LOW — but resolve agency ID before Phase 8 dispatch |
+| 3 | LHC Nixle RSS verify (Fire Dept agency ID **`3726`** resolved 2026-05-20 via HTML-source inspection by sub-agent) | ~30 seconds browser-check of RSS URL | RESOLVED — just operator browser-verify |
 | – | **Total** | ~35 min active + email-activation wait (near-instant likely) | |
 
 Master plan §6 estimate is "2-3 hours" — this checklist trims that by giving exact URLs + decision criteria up front.
@@ -112,50 +112,45 @@ No API key needed — both USGS API surfaces are fully open.
 
 ---
 
-## §4 Prereq #3 — LHC Nixle RSS agency ID resolution (CONFIRMED 2026-05-20)
+## §4 Prereq #3 — LHC Nixle RSS verify (RESOLVED 2026-05-20)
 
-**Why:** Phase 8 ingests LHC official emergency notifications (lake hazards, road closures, evacuations, etc.) into the alert subsystem so subscribers get LHC-issued notifications alongside the AirNow / NWS / USGS-derived alerts. Research confirmed 2026-05-20 that **LHC uses Nixle** (Everbridge product), NOT CodeRED, and Nixle publishes public RSS feeds. Phase 8 will INGEST via Nixle RSS — not defer.
+**Why:** Phase 8 ingests LHC official emergency notifications (lake hazards, road closures, evacuations, etc.) into the alert subsystem so subscribers get LHC-issued notifications alongside the AirNow / NWS / USGS-derived alerts. Research confirmed 2026-05-20 that **LHC uses Nixle** (Everbridge product), NOT CodeRED, and Nixle publishes public RSS feeds. Phase 8 will INGEST via Nixle RSS.
 
-**Confirmed:**
-- LHC Fire Department has an active Nixle presence at: [local.nixle.com/lake-havasu-city-fire-department](https://local.nixle.com/lake-havasu-city-fire-department)
-- LHC Municipal landing page (suggests multiple agencies post under LHC umbrella): [local.nixle.com/city/az/lake-havasu-city/municipal/](https://local.nixle.com/city/az/lake-havasu-city/municipal/)
-- Nixle RSS feed URL pattern: `https://rss.nixle.com/pubs/feeds/latest/<agency-id>/`
-- Public subscription path (for reference): text ZIP code (86403 / 86404 / 86405 / 86406) to `888777`
+**Confirmed (full findings at `outputs/phase_8_nixle_agency_id_lookup.md`):**
+- **LHC Fire Department Nixle agency ID: `3726`** (HIGH confidence; resolved via HTML-source inspection by sub-agent — two independent signals: agency-logo S3 path `user25134-1336013322-3726_cceefa_138_83_PrsMe_.jpeg` + email-forward link `local.nixle.com/email_forward_agency/3726/`; cross-corroborated by the city landing page logo path).
+- **Canonical RSS URL: `https://rss.nixle.com/pubs/feeds/latest/3726/`** (alternate: `https://agency.nixle.com/pubs/feeds/latest/3726/`)
+- **LHC Police Department: NO Nixle presence** (HIGH confidence negative). The `/city/az/lake-havasu-city/municipal/` page lists EXACTLY ONE municipal agency — LHC Fire Dept. Phase 8 plans a single feed, not two. Downgrades the prior research's MEDIUM-confidence "PD might use Nixle" guess.
+- Public subscription path (for reference): text ZIP code (86403 / 86404 / 86405 / 86406) to `888777`.
 
 **Caveat:** Nixle's public RSS only includes "Nixle Wire" messages — not private/closed-group messages. For public-safety emergency alerts (lake hazards, evacuations, road closures), Wire distribution is typical, so V1 ingest will capture the substantive emergency surface. Phase 8 close-out should document this as a known limitation.
 
-**Your job: resolve the numeric agency ID for LHC Fire Department's Nixle account.**
+**Your job: browser-verify the RSS URL responds (~30 seconds).** The sub-agent couldn't directly fetch the RSS URL due to `web_fetch` provenance restrictions, so a quick operator-side browser check closes the verification gap.
 
-The agency ID is NOT exposed on the public landing page URL. Three lookup paths:
-
-1. **HTML source inspection** (fastest if it works): visit [local.nixle.com/lake-havasu-city-fire-department](https://local.nixle.com/lake-havasu-city-fire-department) in your browser; right-click → View Page Source; search for `agency-id` data attribute OR look for any `<link rel="alternate" type="application/rss+xml">` tags pointing at `rss.nixle.com/pubs/feeds/latest/<NUMERIC-ID>/`. Capture the numeric ID.
-2. **Alert permalink inspection:** click into one of the visible alerts on the LHC Fire Dept page (e.g., a URL like `local.nixle.com/alert/5081278/`); view source; look for embedded agency metadata. The alert page sometimes carries the parent agency ID.
-3. **Email Nixle support:** `support@nixle.com` — ask for the Lake Havasu City Fire Department agency ID for their public RSS feed. Typically 1-business-day response.
-
-**Optional stretch:** check whether LHC Police Department also has a Nixle presence (research couldn't directly confirm). If yes, capture its agency ID too as a second feed source.
-
-**Acceptance check after ID resolution:**
+**Acceptance check:**
 
 ```powershell
-$agencyId = "<numeric-id-from-lookup>"
-Invoke-RestMethod "https://rss.nixle.com/pubs/feeds/latest/$agencyId/"
-# Expected: RSS XML with recent alerts from LHC Fire Department.
-# If empty / 404: the agency ID is wrong; retry the lookup.
+# Open in browser (cleanest):
+Start-Process "https://rss.nixle.com/pubs/feeds/latest/3726/"
+# OR via PowerShell direct fetch:
+Invoke-RestMethod "https://rss.nixle.com/pubs/feeds/latest/3726/" | Select-Object -First 1
+# Expected: RSS XML with recent alerts from LHC Fire Department (e.g., titles mentioning Lake Havasu / LHCFD / fire / road closure).
+# If empty / 404 / unrelated content: try the alternate at https://agency.nixle.com/pubs/feeds/latest/3726/
+# If both 404: email support@nixle.com asking for confirmation of the LHC Fire Dept agency ID.
 ```
 
-**Record finding format:**
+**Record finding format (mostly pre-filled):**
 
 ```
-Phase 8 prereq §4 — LHC Nixle:
+Phase 8 prereq §4 — LHC Nixle: RESOLVED 2026-05-20
   - Provider: Nixle (Everbridge) — NOT CodeRED
-  - LHC Fire Dept agency ID: <numeric>
-  - LHC Fire Dept RSS URL: https://rss.nixle.com/pubs/feeds/latest/<numeric>/
-  - LHC Police Dept Nixle: <found / not found / agency ID if found>
+  - LHC Fire Dept agency ID: 3726
+  - LHC Fire Dept RSS URL: https://rss.nixle.com/pubs/feeds/latest/3726/
+  - LHC Police Dept Nixle: NO PRESENCE (single municipal agency listed)
   - Wire-only RSS caveat: yes, acknowledged
-  - Smoke test: passed / failed
+  - Browser smoke test: <passed / failed — fill in after 30-second check>
 ```
 
-This gets encoded in the Phase 8 dispatch wrapper as a config constant alongside AirNow + NWS + USGS surfaces.
+This is encoded in the Phase 8 dispatch wrapper as `LHC_NIXLE_FIRE_AGENCY_ID = "3726"` alongside the AirNow + NWS + USGS surfaces. See full sub-agent findings at `outputs/phase_8_nixle_agency_id_lookup.md`.
 
 ---
 
