@@ -1,53 +1,72 @@
-# Phase 7 Handoff Note — the next major lane after Phase 5
+# Phase 7 Handoff Note — the chat + HALT 3 lane after Phase 5 + 6.3
 
-> **Purpose:** make sure the Phase 5 → Phase 7 sequence isn't lost when Phase 5 (Tier 1 data gathering) wraps. Authored by Cowork primary at the new-chat post-`2f4676a` session (2026-05-14), at the coordination request of the parallel Phase 6 chat.
+> **SUPERSEDED-IN-PLACE 2026-05-19** — the Phase 5 restructure (5.1–5.11 SHIPPED 2026-05-17) absorbed both strands originally described in this note. Phase 7's data strand is moot (Phase 5 shipped data for all 13 categories including the 3 the original note named: Outdoors/Parks/Trails, Lodging & VR, and Pets). Phase 7's UI strand was absorbed by Phase 6.3 (commit `5ebee46`, 2026-05-19, extended the breadth pass to all 11 remaining Tier-1 slugs beyond Eat & Drink). The current Phase 7 scope is chat + HALT 3 + cross-entity queries + snowbird-return view. See `docs/maintainability/master_build_plan.md` §4 Phase 7 (refreshed 2026-05-19) for the authoritative scope. The original 2026-05-14 framing is preserved in git history.
+
+> **Purpose:** make sure the Phase 5/6 → Phase 7 sequence isn't lost. Authored by Cowork primary at the new-chat post-`2f4676a` session (2026-05-14); refreshed 2026-05-19 post-Phase-5-restructure + Phase 6.3 breadth pass.
 >
-> **One-line:** when Phase 5 completes, **Phase 7 (Tier 2 UI + chat integration)** is the next major lane — and it carries forward both the Phase 6 card-grammar work *and* the Phase 5 operator-driven data-gathering muscle.
+> **One-line (refreshed):** Phase 7 is the chat-integration + HALT 3 close-out lane that runs after Phase 6.3 lands the Tier 1 UI breadth pass. The original "Tier 2 UI + data" framing is historical — Phase 5 + 6.3 absorbed both strands.
 
 ---
 
-## §1 What Phase 7 is
+## §1 What Phase 7 is (refreshed)
 
-Per `docs/maintainability/master_build_plan.md` §4 Phase 7 + §5 dependency graph:
+Per `docs/maintainability/master_build_plan.md` §4 Phase 7 (refreshed 2026-05-19) + §5 dependency graph:
 
-**Phase 7 — Tier 2 UI + chat integration (3-4 weeks).** Two strands:
+**Phase 7 — Chat + HALT 3 + cross-entity + snowbird view (~1-2 weeks).** Single strand. The original "two strands: Tier 2 UI + Tier 2 data gathering" framing is fully absorbed:
 
-1. **Tier 2 UI** — category landing pages for the 3 Tier 2 categories (Outdoors/Parks/Trails, Lodging & Vacation Rentals, Pets), built on the *same template pattern as Phase 6* — i.e. it consumes the unified Hava card grammar that Phase 6.1 just shipped (`fd16e7a`). Plus chat integration wiring the ENTITY catalog into the chat surface.
+- **Tier 2 UI absorbed by Phase 6.3** (commit `5ebee46`, 2026-05-19): the breadth pass extended category landing pages to all 11 remaining Tier-1 slugs beyond Eat & Drink, including the 3 categories the original note claimed (Outdoors/Parks/Trails, Lodging & VR, Pets). Plus district chip + time/heat-aware ranking + seasonal hours rendering.
+- **Tier 2 data gathering absorbed by Phase 5 restructure**: 5.7 + 5.10 + 5.11 shipped data for those exact 3 categories (27 + 73 + 38 = 138 entries, comfortably within the original 75-175 forecast). All 13 Tier-1 categories populated at Phase 5.11 close; total active entities 1,314.
 
-2. **Tier 2 data gathering** — the operator-driven data work for those 3 categories. Per the master plan: *"same workflow as Phase 5 but smaller volume — 75-175 entries total across the 3 Tier 2 categories."* This is the natural continuation of the data-gathering muscle Phase 5 builds: the same layered-scrape pipeline, the same reconciler, the same per-category playbook shape, the same operator-curated field entry — just fewer entries and fewer categories.
+Active Phase 7 deliverables:
 
-## §2 Why Phase 7 follows Phase 5 specifically
+- **Chat tier 2 / tier 3 wired to query the ENTITY table** — replaces the pre-pivot River Scene events catalog query at `app/chat/tier2_db_query.py:33+`
+- **Chat awareness of boat-access mode** — when active, queries filter by `boat_access IS NOT NULL`; tier 3 LLM prompt gets a "user is in boat mode" preamble
+- **Chat awareness of conditions** — when heat advisory active, ranking shifts toward indoor venues per Opus #2; when AQI bad, similar. Uses a stub temperature constant until Phase 8 wires real AirNow + NWS + USGS data — mirrors Phase 6.3's `STUB_CURRENT_TEMPERATURE_F` pattern in `app/core/ranking.py`.
+- **HALT 3 close-out** — confabulation guardrails ship; `FEATURE_FLAG_DISCLOSURE_RENDERER` flipped to `true` if validation passes
+- **Cross-entity chat queries** — "where can I take my dog for breakfast?" returns dog-friendly restaurants AND dog parks interleaved
+- **Snowbird-return view on homepage** — logged-in users active October-April see a "what's reopened" panel
 
-- **Dependency-wise:** Phase 7 depends on Phase 1 (ENTITY schema — SHIPPED) + Phase 6 (unified card grammar — 6.1 SHIPPED `fd16e7a`, rest of Phase 6 in flight). It does **not** depend on Phase 5 *completing* — but it reuses Phase 5's tooling + playbook, so starting Phase 7's data strand before Phase 5's operator has built the data-gathering rhythm would mean climbing the same learning curve twice.
-- **Operator-continuity-wise:** Phase 5 is where the operator builds the scrape → reconcile → triage → Layer-5 → field-entry workflow into muscle memory. Phase 7's Tier 2 data gathering is that exact workflow at ~1/4 the volume. Sequencing Phase 7 right after Phase 5 means the operator carries that muscle straight over while it's warm.
-- **Restructure parallel:** just as Phase 5 was restructured (2026-05-14) into 5.0 + 5.1–5.6, Phase 7's data strand will naturally decompose the same way — a small shared lead-up + one sub-track per Tier 2 category (Outdoors/Parks/Trails, Lodging & VR, Pets). The Phase 5 artifacts (`cursor_brief_phase_5_tier_1_data.md`, `phase5_prereq_checklist.md`, `manual_recovery_checklist.md`, the 3 tooling-touchup scripts) are the templates Phase 7's data strand reuses — not re-authored from scratch.
+## §2 Dependencies
 
-## §3 What carries forward from Phase 5 into Phase 7
+- **Phase 1 (ENTITY schema)** — SHIPPED 2026-05-14
+- **Phase 4 (background jobs + scrapers + reconciler)** — SHIPPED 2026-05-13
+- **Phase 5 (Tier 1 data, all 13 categories populated)** — SHIPPED 2026-05-17 at Phase 5.11 close; STATE.md ledger landed at `3a2d895` 2026-05-19
+- **Phase 6.1 (unified Hava card grammar)** — SHIPPED `fd16e7a` 2026-05-14
+- **Phase 6.2 (category landing template + Eat & Drink proof)** — SHIPPED `3948add` 2026-05-15
+- **Phase 6.3 (breadth pass — all 11 remaining slugs + district chip + ranking + seasonal hours)** — SHIPPED `5ebee46` 2026-05-19
+- **Phase 8 (conditions data source)** — Phase 7 uses a stub until Phase 8 lands real AirNow + NWS + USGS data; the chat-conditions wiring is testable behind the stub
 
-| Phase 5 artifact / capability | Phase 7 reuse |
+Phase 7 dispatches against `5ebee46` or later. **Parallel-eligible with Phase 6.4** (map view, boat-mode toggle, themed group landing pages, search bar): Phase 6.4 touches `app/templates/`, `app/static/`, the Leaflet/map JS surface; Phase 7 touches `app/chat/`, `app/api/routes/chat.py`, the LLM prompt surfaces. File-scope disjoint per gotcha #18.
+
+## §3 What carries forward from Phase 5 + 6.3 into Phase 7
+
+| Predecessor artifact / capability | Phase 7 reuse |
 |---|---|
-| Layered-scrape framework + reconciler (Phase 4 SHIPPED) | Used as-is |
-| `scripts/az_roc_verify.py` / `scripts/npi_verify.py` / `scripts/osm_overpass_load.py` (Phase 5.0 tooling) | OSM load script reused for Outdoors/Parks/Trails; AZ ROC + NPI likely not relevant to Tier 2 categories |
-| `google_types_mapping.py` | Needs a Tier 2 `types[]` expansion (Outdoors/Parks/Trails, Lodging, Pets) — a small tooling-touchup, same shape as Phase 5.0's §4.a |
-| Per-category playbook structure (`cursor_brief_phase_5_tier_1_data.md` §3.x) | Template for Phase 7's per-category playbooks |
-| `manual_recovery_checklist.md` | Already has Tier-2 sub-categories sketched per its §6 — Phase 7 fills them in |
-| Operator-curated field rubrics (heat_exposure, crowd_notes, boat_access, seasonal_hours) | Same fields apply to Tier 2 entities; rubrics carry forward unchanged |
-| `heat_exposure_priority_30_list.md` | Outdoors/Parks/Trails will surface many `outdoor` / `shaded` venues — extend the priority list rather than re-author |
+| ENTITY catalog (1,314 active entities; 12 active Tier-1 slugs + cat-13 thin) | Chat tier 2/3 queries read against this; cross-entity queries operate over the full catalog |
+| `app/providers/queries.py` shared helpers (`is_open_now`, `effective_hours_structured`, `effective_seasonal_hours`, district eager-load) | Chat surfaces consume these for status + freshness signals; seasonal hours feed open-now chat predicates |
+| `app/core/ranking.py` (Phase 6.3 — `compute_card_rank` + heat-bias + `STUB_CURRENT_TEMPERATURE_F`) | Chat ranking surfaces reuse for "indoor bias when hot" behavior; stub temperature constant is the same one Phase 7 reads until Phase 8 swaps in live conditions |
+| Operator-curated `heat_exposure` + `boat_access` + `seasonal_hours` JSON fields (Phase 5 lanes) | Chat condition-awareness + boat-mode predicates query these directly |
+| `tests/test_phase6_ranking.py` + `tests/test_phase6_seasonal_hours.py` patterns | Shape templates for chat-integration tests |
+| `app/api/routes/category_pages.py` chip dispatcher (12 slugs) | Reference for category-aware chat surfaces if Phase 7 ships per-category chat tweaks |
 
-## §4 Where this pointer needs to land (propagation checklist)
+## §4 Propagation checklist (refreshed)
 
-This note is the canonical source; the Phase-7-is-next pointer should propagate to:
+- [x] `master_build_plan.md` §4 Phase 7 refreshed — **DONE 2026-05-19** (this commit; deliverables pruned, dependencies updated, effort revised M-L → M, success criteria simplified to "all 13 category slugs")
+- [x] `master_build_plan.md` §5 dependency graph refreshed — **DONE 2026-05-19** (this commit; `Phase 6 ──→ Phase 7 (Tier 2 + chat)` → `Phase 6.3 ──→ Phase 7 (chat + HALT 3)`)
+- [x] This hand-off note refreshed — **DONE 2026-05-19** (this commit; SUPERSEDED-IN-PLACE banner + §1–§5 rewrites; original framing preserved in git history)
+- [ ] `STATE.md` "Now / Next / Later" — **PENDING**: when Phase 7 dispatches, prepend a "Recently shipped" entry with the actual scope after Phase 7 ships
+- [ ] Phase 7 dispatch prompt (`outputs/cursor_dispatch_prompt_phase_7.md`) — **PENDING**: author when ready to dispatch; can mirror 6.1/6.2/6.3 dispatch shape
 
-- [x] `master_build_plan.md` §4 Phase 5 success-criteria line — **DONE 2026-05-14** (added "Phase 7 is the next major lane after Phase 5 completes" pointer)
-- [x] `outputs/new_chat_kickoff_phase_5_0.md` — **DONE 2026-05-14** (Phase 7 pointer added so the next Phase 5 agent knows the sequence)
-- [ ] `STATE.md` "Queued / open work" section — **PENDING**: add "Phase 7 (Tier 2 UI + chat integration) is the next major lane after Phase 5" — fold this into the coordination-checkpoint STATE.md refresh (see `outputs/phase5_closeout_loose_ends.md` §2)
-- [ ] Phase 5 close-out narrative (`outputs/phase5_close_out_narrative.md`, authored when Phase 5 SHIPS) — should end with the Phase 7 handoff pointer
+## §5 What Phase 7 does NOT include
 
-## §5 What Phase 7 does NOT inherit
-
-- Phase 7's UI strand depends on the *rest* of Phase 6 (6.2–6.5), not just 6.1. The Phase 6 lane is in flight (5 sub-phases, 6.1 done). Phase 7's UI strand can't fully dispatch until Phase 6's category-page template + map + profile surfaces are further along.
-- Phase 7 is NOT a Phase 5 sub-phase — it's its own master-plan phase. The 5.0 + 5.1–5.6 restructure stays scoped to Tier 1; Phase 7's data strand gets its own (smaller) decomposition when it's dispatched.
+- **NO category landing pages.** All 12 active Tier-1 slugs have landing pages from Phase 6.2 (Eat & Drink) + 6.3 (the other 11). Phase 7 doesn't ship UI for any category.
+- **NO themed group landing pages.** Those are Phase 6.4 (Outdoors, Stay, Things to Do, Eat & Drink themed groups) per master plan §4 Phase 6 deliverables list.
+- **NO map view.** Phase 6.4.
+- **NO new data gathering.** All Tier-1 categories shipped data in Phase 5.1–5.11. Phase 8 will land Public & Civic Resources expansion (cat-13 currently at 4 entries).
+- **NO real conditions data.** That's Phase 8's AirNow + NWS + USGS wiring. Phase 7 uses a stub temperature constant for the chat-conditions-awareness path (mirroring Phase 6.3's `STUB_CURRENT_TEMPERATURE_F`).
+- **NO district paragraph rendering.** V1.5 per the path-b lock — Phase 6.3 ships only the district chip, paragraph rendering is intentionally deferred.
+- **NO sponsor logic.** Phase 11.
 
 ---
 
-*Authored by Cowork primary at the new-chat post-`2f4676a` session (2026-05-14), at the coordination request of the parallel Phase 6 chat. Lives at `outputs/phase7_handoff_note.md` — brand-new outputs/ file, safe under the parallel-chat lock.*
+*Authored by Cowork primary at the new-chat post-`2f4676a` session (2026-05-14); refreshed 2026-05-19 post-Phase-5 restructure + Phase 6.3 breadth pass. Lives at `outputs/phase7_handoff_note.md`. The 2026-05-14 framing of "Tier 2 UI + Tier 2 data gathering" is preserved in git history; current scope is single-strand chat + HALT 3 close-out + cross-entity + snowbird.*

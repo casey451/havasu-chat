@@ -325,7 +325,7 @@ Target 20+ entries. Google Places only. Clean single-domain scope — all 4 in-s
 
 **SHIPPED `dcf3dd4` 2026-05-17** — All 6 gate items cleared. Gate scorecard at close: (1) 20+ entries in `pets` → **38 rendering** (1.9× target; 5 baseline + 8 §1 first-run/sustainability inserts + 25 Slice E NEW creates from §2 audit); (2) ambiguous reconciler hits reviewed (+ 4 special audits) → **25 reviewed, 0 misroutes** (all 25 reclassified as Slice E NEW creates — benign strip-mall geo-noise; 4 special-axis sweeps all cleared); (3) Layer-4 verifier surface → **Option C deferred to V1.5** (AZ State Veterinary Medical Examining Board + national pet franchise locators documented); (4) top-10 long-form `crowd_notes` → **10** (100% snippet coverage in top-10 — 5 snippets each); (5) `heat_exposure` non-NULL → **0 NULL** of 38 (34 indoor + 4 outdoor); (6) `/category/pets` ≥15 → **38** (2.5× target). Phase 5.11 lane commit chain: `3ecd8ed → 1dd443a → dcf3dd4`. Close-out index: `outputs/phase5_11_session_closeout.md`.
 
-**Phase 5 multi-phase data-population lane COMPLETE at 5.11 SHIP** — all 13 Tier-1 categories populated; total active entities **1,314** across 12 active Tier-1 slugs; **next major lane: Phase 7 (Tier 2 UI + chat integration)** per §4; Phase 6 (Tier 1 UI) continues in parallel with 6.3+ outstanding.
+**Phase 5 multi-phase data-population lane COMPLETE at 5.11 SHIP** — all 13 Tier-1 categories populated; total active entities **1,314** across 12 active Tier-1 slugs; **next major lane: Phase 7 (chat + HALT 3 + cross-entity + snowbird view)** per §4 (refreshed 2026-05-19 — the original "Tier 2 UI + chat integration" framing was absorbed by Phase 5's data strand + Phase 6.3's UI breadth pass); Phase 6.3 SHIPPED 2026-05-19 at `5ebee46` (all 12 active Tier-1 category landing pages live); Phase 6.4+ (map view, boat-mode toggle, themed group landing pages) outstanding and parallel-eligible with Phase 7.
 
 **Estimated totals at end of Phase 5:**
 - Home & Property Services: 120-220 entries
@@ -340,7 +340,7 @@ Target 20+ entries. Google Places only. Clean single-domain scope — all 4 in-s
 
 **Effort estimate:** Operator workload — original master estimate 60-100h; bottom-up audit (`outputs/phase5_prereq_checklist.md` §5) re-derives 83-351h; **realistic mid-range budget: 100-150h over 6-8 weeks.** The long pole is operator-curated field entry (390-740 entries × 5-15 min each). Engineering effort minimal — the 3 tooling-touchup scripts in 5.0, plus reactive `GEO_PROXIMITY_THRESHOLD_M` tuning if a scrape surfaces >50 ambiguous hits.
 
-**Success criteria:** Each of 5.1–5.6 meets its per-category acceptance gate (15+ entries per default filter on the corresponding Phase 6 category landing page). Phase 5 SHIPPED when all six pass; partial close-out (ship the passing sub-phases, defer the rest to V1.5) is acceptable at the 8-week ceiling. **Phase 7 (Tier 2 UI + chat integration) is the next major lane after Phase 5 completes** — see Phase 7 below + `outputs/phase7_handoff_note.md`.
+**Success criteria:** Each of 5.1–5.6 meets its per-category acceptance gate (15+ entries per default filter on the corresponding Phase 6 category landing page). Phase 5 SHIPPED when all six pass; partial close-out (ship the passing sub-phases, defer the rest to V1.5) is acceptable at the 8-week ceiling. **Phase 7 (chat + HALT 3 + cross-entity + snowbird view) is the next major lane after Phase 5 completes** — see Phase 7 below + `outputs/phase7_handoff_note.md` (both refreshed 2026-05-19 post-Phase-5-restructure + Phase 6.3 breadth pass).
 
 ---
 
@@ -378,27 +378,23 @@ Target 20+ entries. Google Places only. Clean single-domain scope — all 4 in-s
 
 ---
 
-### Phase 7 — Tier 2 UI + chat integration (3-4 weeks)
+### Phase 7 — Chat + HALT 3 + cross-entity + snowbird view (~1-2 weeks)
 
-**Goal:** Extend the directory to Tier 2 categories + wire chat to the populated directory.
+**Goal:** Wire chat to the populated ENTITY catalog + close HALT 3 + ship cross-entity queries + snowbird-return view. (Refreshed 2026-05-19: the original "Tier 2 UI + data" framing was absorbed by the Phase 5 restructure — which shipped data for all 13 Tier-1 categories including Outdoors/Parks/Trails, Lodging & VR, and Pets — and by Phase 6.3, which shipped category landing pages for all 11 remaining Tier-1 slugs beyond Eat & Drink. See `outputs/phase7_handoff_note.md` for the framing history.)
 
 **Deliverables:**
-- Category landing pages for Tier 2 (3 pages): Outdoors/Parks/Trails, Lodging & VR, Pets — same template pattern as Phase 6
-- Themed group landing pages for Tier 2 groups (Outdoors, Stay)
 - Chat tier 2 / tier 3 wired to query ENTITY table (replaces pre-pivot River Scene events catalog query at `app/chat/tier2_db_query.py:33+`)
 - Chat awareness of boat-access mode (when active, queries filter by `boat_access IS NOT NULL`; tier 3 LLM prompt gets "user is in boat mode" preamble)
-- Chat awareness of conditions (when heat advisory active, ranking shifts toward indoor venues per Opus #2; when AQI bad, similar)
+- Chat awareness of conditions (when heat advisory active, ranking shifts toward indoor venues per Opus #2; when AQI bad, similar). Uses a stub temperature constant until Phase 8 wires real AirNow + NWS + USGS data — mirrors Phase 6.3's `STUB_CURRENT_TEMPERATURE_F` pattern in `app/core/ranking.py`.
 - HALT 3 close-out work — confabulation guardrails ship; `FEATURE_FLAG_DISCLOSURE_RENDERER` flipped to `true` if validation passes
 - Cross-entity chat queries ("where can I take my dog for breakfast?") work — chat returns dog-friendly restaurants AND dog parks interleaved
 - Snowbird-return view on homepage (logged-in users active October-April see "what's reopened" panel)
 
-**Operator workload:** run Tier 2 data gathering in parallel (same workflow as Phase 5 but smaller volume — 75-175 entries total across the 3 Tier 2 categories).
+**Dependencies:** Phase 1 (ENTITY) + Phase 5 (all 13 categories populated, COMPLETE at `3a2d895`) + Phase 6.3 (Tier 1 UI breadth pass, SHIPPED at `5ebee46` — provides category landing pages chat surfaces interleave with). Phase 8 stub used for conditions data source until Phase 8 ships. Parallel-eligible with Phase 6.4 (map view, boat-mode toggle, themed group landing pages); file-scope disjoint per gotcha #18.
 
-**Dependencies:** Phase 1 (ENTITY) + Phase 6 (unified card grammar). Tier 2 data gathering runs alongside.
+**Effort estimate:** M (5-8 days dispatch). Reduced from original M-L (10-14 days) because the "Tier 2 UI + data" strand was absorbed by Phase 5 + 6.3.
 
-**Effort estimate:** M-L (10-14 days dispatch).
-
-**Success criteria:** Chat works across all Tier 1 + Tier 2 entities. HALT 3 close-out passes. Cross-category queries return interleaved results.
+**Success criteria:** Chat works across all 13 category slugs. HALT 3 close-out passes. Cross-category queries return interleaved results. Snowbird-return view renders correctly during the Oct-Apr window.
 
 ---
 
@@ -542,7 +538,7 @@ Phase 3 ──→ Phase 4 (bg-jobs + scrapers) ──┬─→ Phase 5 (Tier 1 d
                                             └─→ Phase 6 (Tier 1 UI build)
                                               ↑ parallel ↑
 
-Phase 6 ──→ Phase 7 (Tier 2 + chat)
+Phase 6.3 ──→ Phase 7 (chat + HALT 3)
 Phase 6 ──→ Phase 8 (trust + conditions + alerts)
 
 Phase 7, 8 ──→ Phase 9 (Events + Classes/Sports)
