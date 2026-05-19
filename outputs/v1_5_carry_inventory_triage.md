@@ -175,4 +175,19 @@ Individual entities flagged for identity / DRAFT / waterfront / re-cat review. S
 
 ---
 
+## §10 Actions taken — Lane L chip-away [2026-05-19]
+
+- §1.1 `.bak` file prune: 10 files removed; kept `events.db.bak-pre-lane-l-20260519-1601` + `events.db.bak-20260515-pre-ba-sweep`
+- §1.2 Untracked-file cleanup: 4 files removed (`phase5_11_ambig_audit_data.json`, `phase5_11_top10_data.json`, `post_phase5_11_boot_prompt.bundle`, `post_phase5_11_starter_prompt.bundle`); probes + `.preflight` already absent
+- #32 Anderson AZ West: **no-op** — `providers.draft` already `0` (published); cat-8 shopping-essentials; 227 reviews
+- #34 Butterfly Garden: **no-op** — `providers.draft` already `0`; cat-7 outdoors-parks-trails; Rotary Community Park parent row exists (`Rotary Community Park & Playgrounds`)
+- #35 ASU Swanson Fields: **name casing applied** (`ASU SWANSON FIELDS` → `ASU Swanson Fields` on entity + provider); `providers.draft` already `0`; cat-7 outdoors-parks-trails
+- #37 Simply Savage Designs: **kept DRAFT** (`providers.draft = 1` confirmed); defer V1.5 local-makers surface
+- §3 Slice E batch: **deferred to V1.5** — all 5 rows currently `providers.draft = 0` (not DRAFT as walkthrough assumed); operator investigation + PetSmart sub-service DRAFT flip pending
+- §4 Google Places API key rotation: deferred to Phase 12 per operator lock
+
+**Schema note:** V1 DB uses `providers.draft`, not `entities.draft`. Lane L package SQL targets `entities.draft` (pre-entity-pivot wording); chip-away applied on `providers` + `entities.name` where relevant.
+
+---
+
 *Authored by Cowork primary, 2026-05-20, against origin/main tip `23b3a70`. Lives at `outputs/v1_5_carry_inventory_triage.md`. Closes the observability gap flagged in `outputs/session_close_out_2026_05_19.md` §3 Lane F. Awaits operator dispositions per §8.*
