@@ -1,0 +1,20 @@
+{# Phase 6.5 — reusable homepage browse tile (themed group or solo category). #}
+<a class="themed-tile{% if tile.tile_kind == 'group' %} themed-tile--group{% else %} themed-tile--category{% endif %}"
+   href="{{ tile.tile_url }}">
+  <div class="themed-tile__media" aria-hidden="true">
+    {% if tile.tile_hero_image_url %}
+      <img class="themed-tile__img" src="{{ tile.tile_hero_image_url }}" alt="" loading="lazy" />
+    {% else %}
+      <span class="themed-tile__placeholder"></span>
+    {% endif %}
+  </div>
+  <div class="themed-tile__body">
+    <h3 class="themed-tile__title">{{ tile.tile_title }}</h3>
+    {% if tile.tile_subtitle %}
+      <p class="themed-tile__subtitle">{{ tile.tile_subtitle }}</p>
+    {% endif %}
+    {% if tile.tile_count %}
+      <p class="themed-tile__count">{{ tile.tile_count }}</p>
+    {% endif %}
+  </div>
+</a>

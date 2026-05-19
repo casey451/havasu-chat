@@ -80,6 +80,24 @@
   <!-- snowbird-panel-include -->
   {% include 'components/snowbird_panel.html' %}
 
+  <!-- themed-tiles-anchor -->
+  <section class="browse-section" aria-labelledby="browse-heading">
+    <div class="browse-section-head">
+      <h2 id="browse-heading">Browse</h2>
+    </div>
+    <div class="themed-tiles-grid">
+      {% for tile in browse_tiles %}
+        {% include 'components/themed_tile.html' %}
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- conditions-strip-anchor -->
+  <section class="conditions-strip conditions-strip--placeholder" aria-labelledby="conditions-strip-heading">
+    <h2 id="conditions-strip-heading" class="conditions-strip__heading">Today in Havasu</h2>
+    <p class="conditions-strip__placeholder">Conditions data coming soon — Phase 8</p>
+  </section>
+
   {# ─────────── pros & services strip ─────────── #}
   <section class="cat-strip">
     <div class="cat-strip-head">

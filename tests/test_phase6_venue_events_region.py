@@ -1,0 +1,125 @@
+"""Phase 6.5 — provider profile venue events hook region."""
+
+from __future__ import annotations
+
+import uuid
+from datetime import date, time
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import delete, select
+
+from app.db.database import SessionLocal
+from app.db.models import Category, Entity, Event, Provider
+from app.main import app
+
+
+@pytest.fixture
+def client() -> TestClient:
+    return TestClient(app)
+
+
+def _eat_category_id(db) -> int:
+    row = db.scalars(select(Category).where(Category.slug == "eat-drink")).first()
+    assert row is not None
+    return row.id
+
+
+def test_provider_profile_template_has_venue_events_anchor() -> None:
+    text = Path("app/templates/provider_profile.html").read_text(encoding="utf-8")
+    assert "<!-- venue-events-region-anchor -->" in text
+
+
+def test_provider_without_events_omits_venue_region(client: TestClient) -> None:
+    suf = uuid.uuid4().hex[:8]
+    with SessionLocal() as db:
+        eat_id = _eat_category_id(db)
+        p = Provider(
+            provider_name=f"No Events {suf}",
+            category="restaurant",
+            category_id=eat_id,
+            verified=False,
+            draft=False,
+            is_active=True,
+            pending_review=False,
+            source="test-phase65",
+            slug=f"no-events-{suf}",
+        )
+        db.add(p)
+        db.commit()
+        eid = p.entity_id
+        slug = f"no-events-{suf}"
+
+    r = client.get(f"/provider/{slug}")
+    assert r.status_code == 200
+    assert "<!-- venue-events-region-anchor -->" in r.text
+    assert "What&#39;s on at this venue" not in r.text
+    assert "What's on at this venue" not in r.text
+    assert 'data-region="venue-events"' not in r.text
+
+    with SessionLocal() as db:
+        db.execute(delete(Provider).where(Provider.entity_id == eid))
+        db.execute(delete(Entity).where(Entity.id == eid))
+        db.commit()
+
+
+def test_provider_with_events_renders_venue_region(client: TestClient) -> None:
+    suf = uuid.uuid4().hex[:8]
+    with SessionLocal() as db:
+        eat_id = _eat_category_id(db)
+        p = Provider(
+            provider_name=f"With Events {suf}",
+            category="restaurant",
+            category_id=eat_id,
+            verified=False,
+            draft=False,
+            is_active=True,
+            pending_review=False,
+            source="test-phase65",
+            slug=f"with-events-{suf}",
+        )
+        db.add(p)
+        db.commit()
+        pid = p.id
+        eid = p.entity_id
+        slug = f"with-events-{suf}"
+
+        ev = Event(
+            title=f"Live Night {suf}",
+            normalized_title=f"live night {suf}",
+            date=date(2026, 8, 1),
+            start_time=time(19, 0),
+            end_time=None,
+            location_name="Venue",
+            location_normalized="venue",
+            description="Test event.",
+            event_url="https://example.com/ev",
+            status="live",
+            source="admin",
+            provider_id=pid,
+        )
+        db.add(ev)
+        db.commit()
+        ev_id = ev.id
+
+    r = client.get(f"/provider/{slug}")
+    assert r.status_code == 200
+    assert 'data-region="venue-events"' in r.text
+    assert "What's on at this venue" in r.text or "What&rsquo;s on at this venue" in r.text
+    assert f"Live Night {suf}" in r.text
+
+    with SessionLocal() as db:
+        db.execute(delete(Event).where(Event.id == ev_id))
+        db.execute(delete(Provider).where(Provider.entity_id == eid))
+        db.execute(delete(Entity).where(Entity.id == eid))
+        db.commit()
+
+
+def test_provider_profile_regression_district_and_search(client: TestClient) -> None:
+    """Smoke: 6.3 district chip path + 6.4 search bar still load."""
+    r = client.get("/category/eat-drink")
+    assert r.status_code == 200
+    text = Path("app/templates/provider_profile.html").read_text(encoding="utf-8")
+    assert "district-chip" in text
+    assert "directory-search" in text or "data-directory-search" in text

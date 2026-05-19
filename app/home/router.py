@@ -27,7 +27,7 @@ from app.chat.disclosure_render import DISCLOSURE_WORD
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.db.models import User
-from app.home import mock_data, queries, snowbird_panel, sponsor_store
+from app.home import browse_tiles, mock_data, queries, snowbird_panel, sponsor_store
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
@@ -68,6 +68,7 @@ def serve_home(
         db, current_user=current_user
     )
     base["snowbird_panel"] = snowbird_panel.snowbird_panel_template_dict(panel_ctx)
+    base["browse_tiles"] = browse_tiles.build_browse_tiles(db)
 
     return templates.TemplateResponse(
         request=request,

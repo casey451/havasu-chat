@@ -123,6 +123,10 @@
     .boat-access-dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.35rem 1rem; font-size: 0.9375rem; }
     .boat-access-dl dt { font-weight: 600; color: var(--ink); margin: 0; }
     .boat-access-dl dd { margin: 0; color: var(--muted); }
+    .venue-events-region { margin: 1.75rem 0; padding-top: 1.25rem; border-top: 1px solid var(--rule); }
+    .venue-events-list { margin: 0; padding: 0; list-style: none; }
+    .venue-events-item { padding: 0.5rem 0; border-bottom: 1px solid var(--rule); font-size: 0.9375rem; }
+    .venue-events-item:last-child { border-bottom: none; }
 </head>
 <body data-current-user="{{ current_user_id }}" data-favorite-entity-id="{{ favorite_entity_id }}" data-viewer-is-owner="{% if vm.viewer_is_owner %}1{% else %}0{% endif %}">
 <div class="page">
@@ -321,6 +325,18 @@
       <p style="margin-top: 0.75rem;">{{ vm.address }}</p>
       <div class="map-placeholder">Map preview — coming soon</div>
     {% endif %}
+  </section>
+  {% endif %}
+
+  <!-- venue-events-region-anchor -->
+  {% if venue_events %}
+  <section data-region="venue-events" class="venue-events-region">
+    <h2>What&rsquo;s on at this venue</h2>
+    <ul class="venue-events-list">
+      {% for ev in venue_events %}
+        <li class="venue-events-item">{{ ev.title }}</li>
+      {% endfor %}
+    </ul>
   </section>
   {% endif %}
 

@@ -44,6 +44,7 @@ def get_provider_by_slug(db: Session, slug: str) -> Optional[Provider]:
             .selectinload(Entity.categories)
             .joinedload(EntityCategory.category),
             joinedload(Provider.entity).joinedload(Entity.district),
+            selectinload(Provider.events),
         )
         .filter(Provider.slug == slug)
         .first()
