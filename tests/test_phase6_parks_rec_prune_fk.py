@@ -60,7 +60,13 @@ def test_parks_rec_prune_fk_migration_upgrade_downgrade_cycle_clean(
     cfg = Config(str(repo_root / "alembic.ini"))
     script = ScriptDirectory.from_config(cfg)
     head_rev = script.get_current_head()
-    assert head_rev == "f6a7b8c9d0e1"
+    assert head_rev is not None
+    # Capture the pre-sidecar head dynamically — alembic exposes the
+    # down_revision of any revision, so "the head before this migration"
+    # resolves without a hardcoded literal. Mirrors the Phase 4.1 lesson
+    # #3 cure pattern (avoid hardcoded heads in reversibility tests).
+    pre_sidecar_rev = script.get_revision(head_rev).down_revision
+    assert pre_sidecar_rev is not None
 
     command.upgrade(cfg, "head")
     engine = create_engine(f"sqlite:///{db_path.as_posix()}")
@@ -81,7 +87,7 @@ def test_parks_rec_prune_fk_migration_upgrade_downgrade_cycle_clean(
         command.downgrade(cfg, "-1")
         with engine.connect() as conn:
             cur = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-            assert cur == "0a1b2c3d4e5f"
+            assert cur == pre_sidecar_rev
         insp = inspect(engine)
         fks_down = [
             fk
