@@ -143,9 +143,12 @@
       <button type="button" class="favorite-heart profile-fav-btn" hidden
               data-entity-id="{{ favorite_entity_id }}" aria-label="Save to favorites" title="Save listing">♥</button>
     </div>
-    <p class="category-line">
-      {{ vm.category_label }}{% if vm.district %} · {{ vm.district }}{% endif %}
+    <p class="category-line">{{ vm.category_label }}</p>
+    {% if vm.district_chip_url and vm.district_chip_name %}
+    <p class="district-chip-row">
+      <a class="chip district-chip" href="{{ vm.district_chip_url }}">{{ vm.district_chip_name }}</a>
     </p>
+    {% endif %}
 
     <div class="verification-cluster">
       {% if vm.data_inconsistency_flag %}
@@ -258,6 +261,9 @@
   {# ─────────── Region 7: Hours + address/service-area ─────────── #}
   {% if vm.hours_structured or vm.hours_freetext or vm.address or vm.service_area_only %}
   <section data-region="hours-location">
+    {% if vm.season_status_copy %}
+      <p class="season-hours-label">{{ vm.season_status_copy }}</p>
+    {% endif %}
     {% if vm.open_status_copy %}
       <p class="open-status {% if not vm.is_open_now %}closed{% endif %}">{{ vm.open_status_copy }}</p>
     {% endif %}

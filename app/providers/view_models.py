@@ -93,6 +93,12 @@ class ProviderProfileVM:
 
     slug: str = ""
 
+    district_chip_name: Optional[str] = None
+    district_chip_url: Optional[str] = None
+    seasonal_hours_active_season: Optional[str] = None
+    seasonal_hours_active_rows: Optional[dict] = None
+    season_status_copy: Optional[str] = None
+
     # Operational links rendered by the CTA region (placeholder routes in V1
     # — claim + upgrade flows haven't shipped yet).
     claim_url: str = ""
@@ -170,6 +176,28 @@ def build(
     if not claim_slug:
         claim_slug = slug.strip()
 
+    district_chip_name: Optional[str] = None
+    district_chip_url: Optional[str] = None
+    seasonal_hours_active_season: Optional[str] = None
+    seasonal_hours_active_rows: Optional[dict] = None
+    season_status_copy: Optional[str] = None
+    hours_structured = queries.effective_hours_structured(provider)
+    hours_freetext = provider.hours
+
+    if ent is not None:
+        dist = getattr(ent, "district", None)
+        if dist is not None and getattr(dist, "slug", None):
+            district_chip_name = str(dist.name or dist.slug)
+            district_chip_url = f"/district/{dist.slug}"
+        season_name, season_rows, season_copy = queries.effective_seasonal_hours(
+            ent, now=now_dt
+        )
+        if season_rows is not None:
+            seasonal_hours_active_season = season_name
+            seasonal_hours_active_rows = season_rows
+            season_status_copy = season_copy
+            hours_structured = season_rows
+
     return ProviderProfileVM(
         provider_name=provider.provider_name,
         category_label=queries.category_label_for(provider),
@@ -198,8 +226,13 @@ def build(
         service_area=service_area,
         service_area_only=service_area_only,
         address=None if service_area_only else queries.derive_display_address(provider),
-        hours_structured=queries.effective_hours_structured(provider),
-        hours_freetext=provider.hours,
+        hours_structured=hours_structured,
+        hours_freetext=hours_freetext,
+        district_chip_name=district_chip_name,
+        district_chip_url=district_chip_url,
+        seasonal_hours_active_season=seasonal_hours_active_season,
+        seasonal_hours_active_rows=seasonal_hours_active_rows,
+        season_status_copy=season_status_copy,
         is_open_now=is_open,
         open_status_copy=open_copy,
         show_claim_cta=show_claim_cta,

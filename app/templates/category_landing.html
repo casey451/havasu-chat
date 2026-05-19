@@ -57,12 +57,21 @@
   <section class="category-filters" aria-label="Filters">
     <div class="chip-row chip-row--scroll" data-chip-row="cuisine">
       {% for chip in cuisine_chips %}
+      {% if category_slug == 'eat-drink' %}
       <a
         class="chip{% if active_cuisine == chip.slug %} chip-active{% endif %}"
         href="{{ cat_href(cuisine=(none if active_cuisine == chip.slug else chip.slug)) }}"
         data-category-chip="cuisine"
         data-chip-slug="{{ chip.slug }}"
       >{{ chip.label }}</a>
+      {% else %}
+      <a
+        class="chip{% if active_trade == chip.slug %} chip-active{% endif %}"
+        href="{{ cat_href(trade=(none if active_trade == chip.slug else chip.slug)) }}"
+        data-category-chip="trade"
+        data-chip-slug="{{ chip.slug }}"
+      >{{ chip.label }}</a>
+      {% endif %}
       {% endfor %}
     </div>
     <div class="chip-row chip-row--scroll" data-chip-row="district">
@@ -101,6 +110,36 @@
         class="chip{% if active_dock %} chip-active{% endif %}"
         href="{{ cat_href(dock=(none if active_dock else '1')) }}"
         data-category-chip="dock"
+      >{{ row.label }}</a>
+      {% elif p == 'verified' %}
+      <a
+        class="chip{% if active_verified %} chip-active{% endif %}"
+        href="{{ cat_href(verified=(none if active_verified else '1')) }}"
+        data-category-chip="verified"
+      >{{ row.label }}</a>
+      {% elif p == 'mobile' %}
+      <a
+        class="chip{% if active_mobile %} chip-active{% endif %}"
+        href="{{ cat_href(mobile=(none if active_mobile else '1')) }}"
+        data-category-chip="mobile"
+      >{{ row.label }}</a>
+      {% elif p == 'boat' %}
+      <a
+        class="chip{% if active_dock %} chip-active{% endif %}"
+        href="{{ cat_href(boat=(none if active_dock else '1')) }}"
+        data-category-chip="boat"
+      >{{ row.label }}</a>
+      {% elif p == 'free' %}
+      <a
+        class="chip{% if active_free %} chip-active{% endif %}"
+        href="{{ cat_href(free=(none if active_free else '1')) }}"
+        data-category-chip="free"
+      >{{ row.label }}</a>
+      {% else %}
+      <a
+        class="chip"
+        href="{{ cat_href(**{p: row.value}) }}"
+        data-category-chip="{{ p }}"
       >{{ row.label }}</a>
       {% endif %}
       {% endfor %}

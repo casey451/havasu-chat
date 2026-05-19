@@ -19,6 +19,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.ranking import STUB_CURRENT_TEMPERATURE_F, CardRankInput, compute_card_rank
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
 from app.db.database import get_db
 from app.db.entity_types import ENTITY_TYPE_COMMERCIAL
@@ -39,6 +40,13 @@ class Chip:
     label: str
 
 
+@dataclass(frozen=True)
+class CategoryPageConfig:
+    sub_trade_chips: tuple[Chip, ...]
+    operational_chips: tuple[dict[str, str], ...]
+    sort_default: str
+
+
 TIER_1_CATEGORY_SLUGS: frozenset[str] = frozenset(
     {
         "eat-drink",
@@ -47,6 +55,12 @@ TIER_1_CATEGORY_SLUGS: frozenset[str] = frozenset(
         "health-wellness-care",
         "auto-rv-fuel",
         "shopping-essentials",
+        "events",
+        "outdoors-parks-trails",
+        "classes-sports-recreation",
+        "lodging-vacation-rentals",
+        "pets",
+        "public-civic-resources",
     }
 )
 
@@ -61,6 +75,12 @@ DEFAULT_SORT_BY_SLUG: dict[str, str] = {
     "health-wellness-care": "closest_now",
     "auto-rv-fuel": "closest_now",
     "shopping-essentials": "closest_now",
+    "events": "closest_now",
+    "outdoors-parks-trails": "closest_now",
+    "classes-sports-recreation": "closest_now",
+    "lodging-vacation-rentals": "closest_now",
+    "pets": "closest_now",
+    "public-civic-resources": "closest_now",
 }
 
 _CATEGORY_ONE_LINERS: dict[str, str] = {
@@ -70,6 +90,12 @@ _CATEGORY_ONE_LINERS: dict[str, str] = {
     "health-wellness-care": "Care, wellness, and fitness around town.",
     "auto-rv-fuel": "Auto, RV, marine fuel, and roadside help.",
     "shopping-essentials": "Groceries, retail, and everyday essentials.",
+    "events": "Festivals, venues, and things happening around town.",
+    "outdoors-parks-trails": "Parks, trails, golf, and outdoor recreation.",
+    "classes-sports-recreation": "Classes, sports, childcare, and recreation.",
+    "lodging-vacation-rentals": "Hotels, resorts, and vacation stays.",
+    "pets": "Pet stores, groomers, trainers, and pet services.",
+    "public-civic-resources": "Libraries, transit, visitor info, and civic services.",
 }
 
 _EDITORIAL_FOOTERS: dict[str, str] = {
@@ -93,7 +119,262 @@ _EDITORIAL_FOOTERS: dict[str, str] = {
     "shopping-essentials": (
         "Shopping & essentials blends grocery anchors with neighborhood retail."
     ),
+    "events": (
+        "Events on Hava surfaces venues and happenings — from live music to seasonal festivals."
+    ),
+    "outdoors-parks-trails": (
+        "Parks and trails around Lake Havasu — state parks, city parks, and golf."
+    ),
+    "classes-sports-recreation": (
+        "Classes and recreation for kids, sports, and active locals."
+    ),
+    "lodging-vacation-rentals": (
+        "Lodging from waterfront resorts to vacation rentals."
+    ),
+    "pets": (
+        "Pet services and supplies for Lake Havasu pet owners."
+    ),
+    "public-civic-resources": (
+        "Public and civic resources residents rely on year-round."
+    ),
 }
+
+_CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
+    "eat-drink": CategoryPageConfig(
+        sub_trade_chips=(
+            Chip("mexican", "Mexican"),
+            Chip("bbq", "BBQ"),
+            Chip("pizza", "Pizza"),
+            Chip("cafes", "Cafés"),
+            Chip("bars", "Bars"),
+            Chip("bakery", "Bakery"),
+            Chip("seafood", "Seafood"),
+            Chip("brunch", "Brunch"),
+        ),
+        operational_chips=(
+            {"param": "open", "value": "now", "label": "Open now"},
+            {"param": "late", "value": "1", "label": "Open past 9pm"},
+            {"param": "brunch", "value": "1", "label": "Brunch"},
+            {"param": "dock", "value": "1", "label": "Dock-and-dine"},
+        ),
+        sort_default="closest_now",
+    ),
+    "on-the-water": CategoryPageConfig(
+        sub_trade_chips=(
+            Chip("marinas", "Marinas"),
+            Chip("boat-rentals", "Boat rentals"),
+            Chip("lake-tours", "Lake tours"),
+            Chip("watersports", "Watersports"),
+            Chip("fishing-charters", "Fishing charters"),
+            Chip("beaches", "Beaches"),
+            Chip("launches", "Launches"),
+        ),
+        operational_chips=(
+            {"param": "open", "value": "now", "label": "Open now"},
+            {"param": "boat", "value": "1", "label": "Boat-friendly"},
+            {"param": "family", "value": "1", "label": "Family-friendly"},
+            {"param": "free", "value": "1", "label": "Free"},
+            {"param": "paid", "value": "1", "label": "Paid"},
+        ),
+        sort_default="closest_now",
+    ),
+    "home-property-services": CategoryPageConfig(
+        sub_trade_chips=(
+            Chip("plumber", "Plumber"),
+            Chip("electrician", "Electrician"),
+            Chip("hvac", "HVAC"),
+            Chip("handyman", "Handyman"),
+            Chip("landscaper", "Landscaper"),
+            Chip("pool-service", "Pool service"),
+            Chip("cleaning", "Cleaning"),
+            Chip("pest-control", "Pest control"),
+            Chip("roofer", "Roofer"),
+            Chip("garage-door", "Garage door"),
+        ),
+        operational_chips=(
+            {"param": "open", "value": "now", "label": "Open now"},
+            {"param": "verified", "value": "1", "label": "Verified"},
+            {"param": "mobile", "value": "1", "label": "Mobile-service"},
+            {"param": "emergency", "value": "1", "label": "Emergency 24h"},
+        ),
+        sort_default="editorial_pick",
+    ),
+    "health-wellness-care": CategoryPageConfig(
+        sub_trade_chips=(
+            Chip("doctor", "Doctor"),
+            Chip("dentist", "Dentist"),
+            Chip("urgent-care", "Urgent care"),
+            Chip("pharmacy", "Pharmacy"),
+            Chip("vet", "Vet"),
+            Chip("gym", "Gym"),
+            Chip("yoga", "Yoga"),
+            Chip("massage", "Massage"),
+            Chip("chiropractor", "Chiropractor"),
+            Chip("mental-health", "Mental health"),
+        ),
+        operational_chips=(
+            {"param": "open", "value": "now", "label": "Open now"},
+            {"param": "npi", "value": "1", "label": "NPI-verified"},
+            {"param": "new-patients", "value": "1", "label": "Accepting new patients"},
+            {"param": "insurance", "value": "1", "label": "Insurance accepted"},
+        ),
+        sort_default="closest_now",
+    ),
+    "auto-rv-fuel": CategoryPageConfig(
+        sub_trade_chips=(
+            Chip("auto-repair", "Auto repair"),
+            Chip("tire-shop", "Tire shop"),
+            Chip("rv-repair", "RV repair"),
+            Chip("rv-park", "RV park"),
+            Chip("gas-station", "Gas station"),
+            Chip("car-wash", "Car wash"),
+            Chip("detailing", "Detailing"),
+            Chip("mobile-mechanic", "Mobile mechanic"),
+        ),
+        operational_chips=(
+            {"param": "open", "value": "now", "label": "Open now"},
+            {"param": "mobile", "value": "1", "label": "Mobile-service"},
+            {"param": "tow", "value": "1", "label": "Tow available"},
+            {"param": "rv", "value": "1", "label": "RV-friendly"},
+        ),
+        sort_default="closest_now",
+    ),
+    "shopping-essentials": CategoryPageConfig(
+        sub_trade_chips=(
+            Chip("grocery", "Grocery"),
+            Chip("pharmacy", "Pharmacy"),
+            Chip("hardware", "Hardware"),
+            Chip("sporting-goods", "Sporting goods"),
+            Chip("pet-supplies", "Pet supplies"),
+            Chip("clothing", "Clothing"),
+            Chip("department-store", "Department store"),
+            Chip("liquor", "Liquor"),
+            Chip("bakery", "Bakery"),
+            Chip("specialty", "Specialty"),
+        ),
+        operational_chips=(
+            {"param": "open", "value": "now", "label": "Open now"},
+            {"param": "late", "value": "1", "label": "Open past 9pm"},
+            {"param": "drive", "value": "1", "label": "Drive-through"},
+            {"param": "curbside", "value": "1", "label": "Curbside pickup"},
+        ),
+        sort_default="closest_now",
+    ),
+    "events": CategoryPageConfig(
+        sub_trade_chips=(
+            Chip("event-venues", "Event venues"),
+            Chip("live-music", "Live music"),
+            Chip("art-galleries", "Art galleries"),
+            Chip("museums", "Museums"),
+            Chip("movie-theaters", "Movie theaters"),
+            Chip("bowling", "Bowling"),
+            Chip("arcades", "Arcades"),
+        ),
+        operational_chips=(
+            {"param": "open", "value": "now", "label": "Open now"},
+            {"param": "weekend", "value": "1", "label": "This weekend"},
+            {"param": "free", "value": "1", "label": "Free admission"},
+            {"param": "family", "value": "1", "label": "Family-friendly"},
+        ),
+        sort_default="closest_now",
+    ),
+    "outdoors-parks-trails": CategoryPageConfig(
+        sub_trade_chips=(
+            Chip("parks", "Parks"),
+            Chip("golf-courses", "Golf courses"),
+            Chip("mini-golf", "Mini golf"),
+            Chip("trails", "Trails"),
+            Chip("beaches", "Beaches"),
+            Chip("viewpoints", "Viewpoints"),
+            Chip("campgrounds", "Campgrounds"),
+        ),
+        operational_chips=(
+            {"param": "open", "value": "now", "label": "Open now"},
+            {"param": "free", "value": "1", "label": "Free"},
+            {"param": "family", "value": "1", "label": "Family-friendly"},
+            {"param": "dog", "value": "1", "label": "Dog-friendly"},
+            {"param": "seasonal", "value": "1", "label": "Seasonal access"},
+        ),
+        sort_default="closest_now",
+    ),
+    "classes-sports-recreation": CategoryPageConfig(
+        sub_trade_chips=(
+            Chip("daycare", "Daycare"),
+            Chip("preschool", "Preschool"),
+            Chip("tutoring", "Tutoring"),
+            Chip("music-lessons", "Music lessons"),
+            Chip("driving-schools", "Driving schools"),
+            Chip("personal-trainers", "Personal trainers"),
+            Chip("swimming-pools", "Swimming pools"),
+            Chip("tennis", "Tennis"),
+            Chip("pickleball", "Pickleball"),
+        ),
+        operational_chips=(
+            {"param": "open", "value": "now", "label": "Open now"},
+            {"param": "dropin", "value": "1", "label": "Drop-in available"},
+            {"param": "youth", "value": "1", "label": "Youth programs"},
+            {"param": "beginner", "value": "1", "label": "Beginner-friendly"},
+        ),
+        sort_default="closest_now",
+    ),
+    "lodging-vacation-rentals": CategoryPageConfig(
+        sub_trade_chips=(
+            Chip("hotels", "Hotels"),
+            Chip("motels", "Motels"),
+            Chip("resorts", "Resorts"),
+            Chip("vacation-rentals", "Vacation rentals"),
+            Chip("bed-breakfast", "Bed & breakfast"),
+        ),
+        operational_chips=(
+            {"param": "open", "value": "now", "label": "Open now"},
+            {"param": "waterfront", "value": "1", "label": "Waterfront"},
+            {"param": "pool", "value": "1", "label": "Pool"},
+            {"param": "pet", "value": "1", "label": "Pet-friendly"},
+            {"param": "parking", "value": "1", "label": "Free parking"},
+        ),
+        sort_default="closest_now",
+    ),
+    "pets": CategoryPageConfig(
+        sub_trade_chips=(
+            Chip("pet-stores", "Pet stores"),
+            Chip("dog-groomers", "Dog groomers"),
+            Chip("dog-boarding", "Dog boarding"),
+            Chip("dog-trainers", "Dog trainers"),
+            Chip("veterinary", "Veterinary"),
+        ),
+        operational_chips=(
+            {"param": "open", "value": "now", "label": "Open now"},
+            {"param": "walkins", "value": "1", "label": "Walk-ins"},
+            {"param": "mobile", "value": "1", "label": "Mobile service"},
+            {"param": "emergency", "value": "1", "label": "Emergency"},
+        ),
+        sort_default="closest_now",
+    ),
+    "public-civic-resources": CategoryPageConfig(
+        sub_trade_chips=(
+            Chip("library", "Library"),
+            Chip("transit", "Transit"),
+            Chip("visitor-info", "Visitor info"),
+            Chip("utilities", "Utilities"),
+            Chip("airport", "Airport"),
+            Chip("senior-resources", "Senior resources"),
+            Chip("payment-licensing", "Payment & licensing"),
+            Chip("civic-orgs", "Civic orgs"),
+        ),
+        operational_chips=(
+            {"param": "open", "value": "now", "label": "Open now"},
+            {"param": "free", "value": "1", "label": "Free"},
+            {"param": "appointment", "value": "1", "label": "Appointment required"},
+            {"param": "always", "value": "1", "label": "24/7 access"},
+        ),
+        sort_default="closest_now",
+    ),
+}
+
+
+def category_page_config(slug: str) -> CategoryPageConfig:
+    return _CATEGORY_PAGE_CONFIG.get(slug, _CATEGORY_PAGE_CONFIG["eat-drink"])
+
 
 _EAT_DRINK_CUISINE_CHIPS: tuple[Chip, ...] = (
     Chip("mexican", "Mexican"),
@@ -105,11 +386,6 @@ _EAT_DRINK_CUISINE_CHIPS: tuple[Chip, ...] = (
     Chip("seafood", "Seafood"),
     Chip("brunch", "Brunch"),
 )
-
-_PLACEHOLDER_TRADE_CHIPS: tuple[Chip, ...] = (
-    Chip("browse", "Browse listings"),
-)
-
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     r = 6371.0
@@ -168,6 +444,57 @@ def _provider_matches_cuisine(provider: Provider | None, cuisine_slug: str) -> b
                 if n and n in sl:
                     return True
     return False
+
+
+def _needles_for_trade(trade_slug: str) -> frozenset[str]:
+    c = trade_slug.strip().lower().replace("-", "_")
+    return frozenset({c, c.replace("_", " ")})
+
+
+def _provider_matches_trade(provider: Provider | None, trade_slug: str) -> bool:
+    if provider is None:
+        return False
+    needles = _needles_for_trade(trade_slug)
+    primary = (provider.google_primary_category or "").lower()
+    for n in needles:
+        if n and n in primary.replace("-", "_"):
+            return True
+    cats = provider.google_categories or []
+    if isinstance(cats, list):
+        for gc in cats:
+            gl = str(gc).lower()
+            for n in needles:
+                if n and n in gl.replace("-", "_"):
+                    return True
+    leg = (provider.category or "").lower()
+    for n in needles:
+        if n and n in leg.replace("-", "_"):
+            return True
+    attrs = provider.attributes or {}
+    subs = attrs.get("sub_trades")
+    if isinstance(subs, list):
+        for s in subs:
+            sl = str(s).lower().replace("-", "_")
+            for n in needles:
+                if n and n in sl:
+                    return True
+    return False
+
+
+def _entity_boat_friendly(ent: Entity) -> bool:
+    ba = ent.boat_access
+    if ba is None:
+        return False
+    if isinstance(ba, dict):
+        return bool(ba)
+    return True
+
+
+def _provider_attr_flag(provider: Provider | None, key: str) -> bool:
+    if provider is None:
+        return False
+    attrs = provider.attributes or {}
+    return bool(attrs.get(key))
 
 
 def _segment_open_close(seg: dict[str, Any]) -> tuple[time | None, time | None]:
@@ -231,6 +558,8 @@ def _sort_entity_ids(
     ref_lat: float,
     ref_lng: float,
     db: Session,
+    category_slug: str,
+    now: datetime,
 ) -> list[Entity]:
     if not entities:
         return []
@@ -256,10 +585,78 @@ def _sort_entity_ids(
         return sorted(entities, key=top_rated_key)
     if sort_key == "editorial_pick":
         return sorted(entities, key=editorial_key)
+    if sort_key == "closest_now":
+        rank_inp = _rank_inputs_for_category(
+            entities,
+            category_slug=category_slug,
+            ref_lat=ref_lat,
+            ref_lng=ref_lng,
+            prov_by_eid=prov_by_eid,
+            now=now,
+        )
+
+        def closest_key(e: Entity) -> tuple:
+            inp = rank_inp[e.id]
+            score = compute_card_rank(inp, now=now, temperature_f=STUB_CURRENT_TEMPERATURE_F)
+            return (-score, (e.name or "").lower())
+
+        return sorted(entities, key=closest_key)
     return sorted(
         entities,
         key=lambda e: (_distance_km_for_entity(e, ref_lat, ref_lng), (e.name or "").lower()),
     )
+
+
+def _rank_inputs_for_category(
+    entities: list[Entity],
+    *,
+    category_slug: str,
+    ref_lat: float,
+    ref_lng: float,
+    prov_by_eid: dict[str, Provider],
+    now: datetime,
+) -> dict[str, CardRankInput]:
+    out: dict[str, CardRankInput] = {}
+    verified_boost = 0.15
+    open_boost = 0.10
+    boat_boost = 0.12
+    mobile_boost = 0.10
+    if category_slug == "health-wellness-care":
+        verified_boost = 0.25
+    if category_slug in (
+        "shopping-essentials",
+        "outdoors-parks-trails",
+        "pets",
+        "public-civic-resources",
+    ):
+        open_boost = 0.18
+    if category_slug == "on-the-water":
+        boat_boost = 0.20
+    if category_slug == "auto-rv-fuel":
+        mobile_boost = 0.18
+    for ent in entities:
+        p = prov_by_eid.get(ent.id)
+        is_open: bool | None = None
+        if p is not None:
+            is_open, _ = is_open_now(p, now=now)
+        elif ent.entity_type != ENTITY_TYPE_COMMERCIAL:
+            is_open, _ = provider_queries.is_open_status_for_entity(ent, now=now)
+        out[ent.id] = CardRankInput(
+            distance_km=_distance_km_for_entity(ent, ref_lat, ref_lng),
+            name=ent.name or "",
+            heat_exposure=ent.heat_exposure,
+            verified=bool(p and p.verified),
+            is_open_now=is_open,
+            boat_access_populated=ent.boat_access is not None,
+            mobile_service=bool(
+                ent.is_mobile_service or (p and _provider_attr_flag(p, "mobile_service"))
+            ),
+            verified_boost=verified_boost,
+            open_now_boost=open_boost,
+            boat_access_boost=boat_boost,
+            mobile_service_boost=mobile_boost,
+        )
+    return out
 
 
 def _select_entities_for_category(
@@ -308,9 +705,14 @@ def _apply_python_filters(
     db: Session,
     category_slug: str,
     cuisine: str | None,
+    trade: str | None,
     open_now: bool,
     late_night: bool,
     brunch_only: bool,
+    verified_only: bool,
+    mobile_only: bool,
+    boat_only: bool,
+    free_only: bool,
     now: datetime,
 ) -> list[Entity]:
     if not entities:
@@ -327,17 +729,35 @@ def _apply_python_filters(
         if category_slug == "eat-drink" and cuisine and cuisine.strip():
             if not _provider_matches_cuisine(prov, cuisine.strip()):
                 continue
+        elif trade and trade.strip():
+            if not _provider_matches_trade(prov, trade.strip()):
+                continue
         if open_now:
-            if prov is None:
-                continue
-            is_o, _ = is_open_now(prov, now=now)
-            if is_o is not True:
-                continue
+            if prov is not None:
+                is_o, _ = is_open_now(prov, now=now)
+                if is_o is not True:
+                    continue
+            else:
+                is_o, _ = provider_queries.is_open_status_for_entity(ent, now=now)
+                if is_o is not True:
+                    continue
         if late_night:
             if prov is None or not _provider_open_past_hour(prov, 21):
                 continue
         if brunch_only:
             if prov is None or not _provider_brunch_window(prov):
+                continue
+        if verified_only and not (prov and prov.verified):
+            continue
+        if mobile_only and not (
+            ent.is_mobile_service or (prov and _provider_attr_flag(prov, "mobile_service"))
+        ):
+            continue
+        if boat_only and not _entity_boat_friendly(ent):
+            continue
+        if free_only:
+            attrs = (prov.attributes if prov else {}) or {}
+            if not attrs.get("free_admission") and not attrs.get("free"):
                 continue
         out.append(ent)
     return out
@@ -357,11 +777,16 @@ def category_landing(
     slug: str,
     db: Session = Depends(get_db),
     cuisine: str | None = Query(None),
+    trade: str | None = Query(None),
     district: str | None = Query(None),
     open_now_q: str | None = Query(None, alias="open"),
     late: str | None = Query(None),
     brunch: str | None = Query(None),
     dock: str | None = Query(None),
+    verified: str | None = Query(None),
+    mobile: str | None = Query(None),
+    boat: str | None = Query(None),
+    free: str | None = Query(None),
     sort: str | None = Query(None),
 ) -> HTMLResponse:
     cat_slug = slug.strip().lower()
@@ -373,14 +798,22 @@ def category_landing(
         now = now.replace(tzinfo=LAKE_HAVASU_TZ)
 
     category_label = CATEGORY_LABELS.get(cat_slug, cat_slug.replace("-", " ").title())
+    page_cfg = category_page_config(cat_slug)
     sort_key = _normalize_sort(sort, category_slug=cat_slug)
 
-    dock_only = dock is not None and str(dock).strip() in {"1", "true", "yes"}
+    def _flag(val: str | None) -> bool:
+        return val is not None and str(val).strip() in {"1", "true", "yes"}
+
+    dock_only = _flag(dock) or _flag(boat)
     open_now = open_now_q is not None and str(open_now_q).strip().lower() == "now"
-    late_night = late is not None and str(late).strip() == "1"
-    brunch_only = brunch is not None and str(brunch).strip() == "1"
+    late_night = _flag(late)
+    brunch_only = _flag(brunch)
+    verified_only = _flag(verified)
+    mobile_only = _flag(mobile)
+    free_only = _flag(free)
 
     district_slug_filter = district.strip().lower() if district and district.strip() else None
+    active_trade = (cuisine or trade or "").strip().lower() or None
 
     entities = _select_entities_for_category(
         db,
@@ -393,9 +826,14 @@ def category_landing(
         db=db,
         category_slug=cat_slug,
         cuisine=cuisine,
+        trade=trade,
         open_now=open_now,
         late_night=late_night,
         brunch_only=brunch_only,
+        verified_only=verified_only,
+        mobile_only=mobile_only,
+        boat_only=dock_only,
+        free_only=free_only,
         now=now,
     )
     entities = _sort_entity_ids(
@@ -404,6 +842,8 @@ def category_landing(
         ref_lat=_REF_LAT,
         ref_lng=_REF_LNG,
         db=db,
+        category_slug=cat_slug,
+        now=now,
     )
 
     organic_stream = []
@@ -413,18 +853,8 @@ def category_landing(
             organic_stream.append(vm)
 
     district_options = _district_rows(db)
-
-    if cat_slug == "eat-drink":
-        cuisine_chips = list(_EAT_DRINK_CUISINE_CHIPS)
-    else:
-        cuisine_chips = list(_PLACEHOLDER_TRADE_CHIPS)
-
-    operational_defs = [
-        {"param": "open", "value": "now", "label": "Open now"},
-        {"param": "late", "value": "1", "label": "Open past 9pm"},
-        {"param": "brunch", "value": "1", "label": "Brunch"},
-        {"param": "dock", "value": "1", "label": "Dock-and-dine"},
-    ]
+    cuisine_chips = list(page_cfg.sub_trade_chips)
+    operational_defs = list(page_cfg.operational_chips)
 
     sort_options = [
         ("closest_now", "Closest now"),
@@ -452,12 +882,16 @@ def category_landing(
         "cuisine_chips": cuisine_chips,
         "district_chips": [Chip(s, n) for s, n in district_options],
         "operational_chips": operational_defs,
-        "active_cuisine": (cuisine or "").strip().lower() or None,
+        "active_cuisine": active_trade if cat_slug == "eat-drink" else None,
+        "active_trade": active_trade if cat_slug != "eat-drink" else None,
         "active_district": district_slug_filter,
         "active_open_now": open_now,
         "active_late": late_night,
         "active_brunch": brunch_only,
         "active_dock": dock_only,
+        "active_verified": verified_only,
+        "active_mobile": mobile_only,
+        "active_free": free_only,
         "sort_options": sort_options,
         "sort_current": sort_key,
         "organic_stream": organic_stream,

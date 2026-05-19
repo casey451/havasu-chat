@@ -15,8 +15,8 @@ dual-write transition.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, time
-from typing import TYPE_CHECKING, Optional
+from datetime import UTC, date, datetime, time
+from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import quote
 
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -43,10 +43,100 @@ def get_provider_by_slug(db: Session, slug: str) -> Optional[Provider]:
             joinedload(Provider.entity)
             .selectinload(Entity.categories)
             .joinedload(EntityCategory.category),
+            joinedload(Provider.entity).joinedload(Entity.district),
         )
         .filter(Provider.slug == slug)
         .first()
     )
+
+
+# Lake Havasu seasonal windows (Phase 6.3 — tunable module constants).
+_SEASON_SUMMER_START = (6, 1)
+_SEASON_SUMMER_END = (9, 30)
+_SEASON_FALL_START = (10, 1)
+_SEASON_FALL_END = (10, 31)
+_SEASON_WINTER_START = (11, 1)
+_SEASON_WINTER_END = (4, 30)
+_SEASON_SPRING_START = (5, 1)
+_SEASON_SPRING_END = (5, 31)
+
+_SEASON_STATUS_COPY: dict[str, str] = {
+    "summer": "Summer hours (Jun 1 – Sep 30)",
+    "fall": "Fall hours (Oct 1 – Oct 31)",
+    "winter": "Winter hours (Nov 1 – Apr 30)",
+    "spring": "Spring hours (May 1 – May 31)",
+}
+
+
+def _active_season_key_for_date(d: date) -> str:
+    m, day = d.month, d.day
+
+    def in_range(start_m: int, start_d: int, end_m: int, end_d: int) -> bool:
+        start = (start_m, start_d)
+        end = (end_m, end_d)
+        cur = (m, day)
+        if start <= end:
+            return start <= cur <= end
+        return cur >= start or cur <= end
+
+    if in_range(*_SEASON_SUMMER_START, *_SEASON_SUMMER_END):
+        return "summer"
+    if in_range(*_SEASON_FALL_START, *_SEASON_FALL_END):
+        return "fall"
+    if in_range(*_SEASON_WINTER_START, *_SEASON_WINTER_END):
+        return "winter"
+    if in_range(*_SEASON_SPRING_START, *_SEASON_SPRING_END):
+        return "spring"
+    return "summer"
+
+
+def _season_hours_rows(block: Any) -> dict | None:
+    if not isinstance(block, dict):
+        return None
+    hours = block.get("hours")
+    if isinstance(hours, dict) and hours:
+        return hours
+    overlay = block.get("hours_overlay")
+    if isinstance(overlay, dict) and overlay:
+        return overlay
+    if any(k in block for k in _WEEKDAY_KEYS):
+        return block
+    return None
+
+
+def effective_seasonal_hours(
+    entity: Entity,
+    *,
+    now: Optional[datetime] = None,
+) -> tuple[str | None, dict | None, str | None]:
+    """Resolve active seasonal hours from ``entity.seasonal_hours`` JSON.
+
+    Returns ``(season_name, hours_structured_dict, status_copy)`` or
+    ``(None, None, None)`` when seasonal JSON is absent or the active season
+    has no hours block — callers fall back to weekly / freetext hours.
+    """
+    raw = entity.seasonal_hours
+    if raw is None:
+        return (None, None, None)
+    if not isinstance(raw, dict):
+        return (None, None, None)
+
+    now_dt = now or now_lake_havasu()
+    if now_dt.tzinfo is None:
+        now_dt = now_dt.replace(tzinfo=LAKE_HAVASU_TZ)
+    season_key = _active_season_key_for_date(now_dt.date())
+    block = raw.get(season_key)
+    if block is None:
+        return (None, None, None)
+    rows = _season_hours_rows(block)
+    if rows is None:
+        return (None, None, None)
+    copy = _SEASON_STATUS_COPY.get(season_key)
+    if isinstance(block, dict):
+        custom = block.get("status_copy") or block.get("label")
+        if isinstance(custom, str) and custom.strip():
+            copy = custom.strip()
+    return (season_key, rows, copy)
 
 
 def category_label_for(provider: Provider) -> str:

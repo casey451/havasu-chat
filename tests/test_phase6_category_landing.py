@@ -40,10 +40,136 @@ def test_all_tier1_category_slugs_return_200(client: TestClient) -> None:
         "health-wellness-care",
         "auto-rv-fuel",
         "shopping-essentials",
+        "events",
+        "outdoors-parks-trails",
+        "classes-sports-recreation",
+        "lodging-vacation-rentals",
+        "pets",
+        "public-civic-resources",
     )
     for slug in slugs:
         r = client.get(f"/category/{slug}")
         assert r.status_code == 200, slug
+
+
+@pytest.mark.parametrize(
+    ("slug", "chip_label"),
+    [
+        ("on-the-water", "Marinas"),
+        ("home-property-services", "Plumber"),
+        ("health-wellness-care", "Doctor"),
+        ("auto-rv-fuel", "Auto repair"),
+        ("shopping-essentials", "Grocery"),
+        ("events", "Event venues"),
+        ("outdoors-parks-trails", "Parks"),
+        ("classes-sports-recreation", "Daycare"),
+        ("lodging-vacation-rentals", "Hotels"),
+        ("pets", "Pet stores"),
+        ("public-civic-resources", "Library"),
+    ],
+)
+def test_category_chip_dispatcher_renders_sub_trade(
+    client: TestClient, slug: str, chip_label: str
+) -> None:
+    r = client.get(f"/category/{slug}")
+    assert r.status_code == 200
+    assert chip_label in r.text
+
+
+@pytest.mark.parametrize(
+    ("slug", "expected_sort"),
+    [
+        ("on-the-water", "closest_now"),
+        ("home-property-services", "editorial_pick"),
+        ("health-wellness-care", "closest_now"),
+        ("auto-rv-fuel", "closest_now"),
+        ("shopping-essentials", "closest_now"),
+        ("events", "closest_now"),
+        ("outdoors-parks-trails", "closest_now"),
+        ("classes-sports-recreation", "closest_now"),
+        ("lodging-vacation-rentals", "closest_now"),
+        ("pets", "closest_now"),
+        ("public-civic-resources", "closest_now"),
+    ],
+)
+def test_category_sort_default_matches_brief(
+    client: TestClient, slug: str, expected_sort: str
+) -> None:
+    from app.api.routes import category_pages
+
+    cfg = category_pages.category_page_config(slug)
+    assert cfg.sort_default == expected_sort
+    r = client.get(f"/category/{slug}")
+    assert r.status_code == 200
+    assert f'sort={expected_sort}' in r.text or expected_sort in r.text
+
+
+def test_provider_profile_district_chip_renders(client: TestClient) -> None:
+    suf = uuid.uuid4().hex[:8]
+    with SessionLocal() as db:
+        eat_id = _eat_category_id(db)
+        dist = db.scalars(select(District).where(District.slug == "english-village")).first()
+        assert dist is not None
+        p = Provider(
+            provider_name=f"District Profile {suf}",
+            category="restaurant",
+            category_id=eat_id,
+            google_primary_category="restaurant",
+            verified=False,
+            draft=False,
+            is_active=True,
+            pending_review=False,
+            source="test-phase63",
+            slug=f"district-profile-{suf}",
+        )
+        db.add(p)
+        db.commit()
+        eid = p.entity_id
+        ent = db.get(Entity, eid)
+        assert ent is not None
+        ent.district_id = dist.id
+        db.commit()
+        slug = f"district-profile-{suf}"
+
+    r = client.get(f"/provider/{slug}")
+    assert r.status_code == 200
+    assert "/district/english-village" in r.text
+    assert "English Village" in r.text or "english-village" in r.text.lower()
+
+    with SessionLocal() as db:
+        db.execute(delete(Provider).where(Provider.entity_id == eid))
+        db.execute(delete(Entity).where(Entity.id == eid))
+        db.commit()
+
+
+def test_provider_profile_omits_district_chip_without_district(client: TestClient) -> None:
+    suf = uuid.uuid4().hex[:8]
+    with SessionLocal() as db:
+        eat_id = _eat_category_id(db)
+        p = Provider(
+            provider_name=f"No District {suf}",
+            category="restaurant",
+            category_id=eat_id,
+            verified=False,
+            draft=False,
+            is_active=True,
+            pending_review=False,
+            source="test-phase63",
+            slug=f"no-district-{suf}",
+        )
+        db.add(p)
+        db.commit()
+        eid = p.entity_id
+        slug = f"no-district-{suf}"
+
+    r = client.get(f"/provider/{slug}")
+    assert r.status_code == 200
+    assert 'class="chip district-chip"' not in r.text
+
+    with SessionLocal() as db:
+        db.execute(delete(Provider).where(Provider.entity_id == eid))
+        db.execute(delete(Entity).where(Entity.id == eid))
+        db.commit()
 
 
 def test_eat_drink_renders_shell_and_footer(client: TestClient) -> None:
