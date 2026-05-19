@@ -531,6 +531,17 @@ Items intentionally deferred from V1 to post-launch. Build as time + revenue all
 - White-label for other small cities (genuinely V3; ignore unless inbound demand)
 - Native review system (still deferred unless review-war dynamics in Havasu prove otherwise)
 
+**Phase 5 carry-forward (added 2026-05-20):** Beyond the 11 strategic items above, the Phase 5.0–5.11 multi-phase data-population lane accumulated 39 operational V1.5-defer carries consolidated in `outputs/v1_5_carry_inventory_triage.md`. Categorized:
+
+- **Layer-4 verifier surfaces (~35–60h V1.5 eng; 13 items):** AZ MVD Dealer Locator + AZCC towing (5.5 carry), AZ TPT + BBB (5.6), AZ State Parks + NPS + LHC Parks & Rec shared (5.7+5.9), AZDHS childcare-license + franchise gym chain APIs (5.9), AZDOR transient-lodging + AZRE vacation-rental license + LHC Tourism Board (5.10), national pet franchise locators (5.11). All deferred via "Option C" at Phase 5.x kickoff — V1 ships without verifier surfaces; trust-signal upgrade post-launch. Recommended priority order: AZDHS childcare → AZDOR+AZRE lodging → AZ MVD+AZCC dealers → AZ TPT+BBB retail → AZ State Parks+NPS+LHC Parks&Rec → franchise gyms → pet franchise locators.
+- **Dual-place_id / dual-category consolidations (11 items):** HEAT Bar ↔ Heat Hotel + Havasu Dunes ↔ GetAways (5.10), 3 Beautiful Beards + 3 PetSmart franchise multi-place_id consolidations (5.11), 3 cat-8 pet-retail DUAL ADD candidates (5.11), 26 cat-5 HWC dual-cat with cat-12 reviews (5.9), 5 cat-7 outdoor dual-cat soft-edges (5.7), and 4 per-entity recategorizations. All KEEP-as-V1; per-entity V1.5 operator review.
+- **Specific-entity reviews (13 items):** Sara Park trail-pair navigation-alias merge (5.7), Lake Havasu Museum of History place_id unification (5.8), 8 single-entity Layer 5 manual recoveries (5.7+5.8+5.9), 5 waterfront-suggestive RV/campground candidates (5.10), 29 lake_recreation-domain ambig records cat-3 NEW creates IF 5.2 lane re-opens (5.10), pet mobile-services / dog-walkers / cat-boarding manual recovery (5.11), Havasu Suites + Xanadu + Queens Bay Resort identity reviews (5.10), off-island heat list venues (5.0).
+- **Cross-phase carries (1 item):** 86 of 265 HWC providers remain `verified=False` (5.4 carry-over through 5.11) — operator-driven DBA→NPI follow-up surface.
+
+See `outputs/v1_5_carry_inventory_triage.md` §1–§9 for the full per-carry table (source close-out, recommended disposition, effort estimate, operator-decide flags).
+
+**Phase 5 carry-forward V1.5 effort ballpark:** ~50–80h total eng, dominated by the Layer-4 verifier bundle at ~35–60h. Per-entity reviews are operator hours (not eng); roughly ~10–15h operator across the dual-place_id consolidations + specific-entity reviews.
+
 ---
 
 ## §5 Dependency graph
