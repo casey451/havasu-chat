@@ -18,7 +18,7 @@
 > the next major milestone, NOT a Phase 5.12.
 >
 > **Authored by:** Cowork primary, Phase 5 lane, Phase 5.11 session
-> (2026-05-17) post-`<SHIP-COMMIT>` (5.11 SHIP). Operator dispatches
+> (2026-05-17) post-`dcf3dd4` (5.11 SHIP). Operator dispatches
 > at convenience -- can run in parallel with V1 work (file-scope
 > disjoint with V1 cross-category review + Phase 6 V1 gate work).
 
@@ -34,7 +34,7 @@ through 5.8; this dispatch picks up at 5.9):
 |---|---|---|---|---|
 | **Phase 5.9 -- Classes, Sports & Recreation** | `4527ca1` | 2026-05-17 | 6/6 | `outputs/phase5_9_session_closeout.md` |
 | **Phase 5.10 -- Lodging & Vacation Rentals** | `592ee74` | 2026-05-17 | 6/6 | `outputs/phase5_10_session_closeout.md` |
-| **Phase 5.11 -- Pets** | `<SHIP-COMMIT>` | 2026-05-17 | 6/6 | `outputs/phase5_11_session_closeout.md` |
+| **Phase 5.11 -- Pets** | `dcf3dd4` | 2026-05-17 | 6/6 | `outputs/phase5_11_session_closeout.md` |
 
 Each lane's gate verification script outputs "PHASE 5.X ACCEPTANCE
 GATE: ALL 6 ITEMS CLEARED -- READY TO SHIP" -- proof-of-cleared at:
@@ -100,7 +100,7 @@ close-out's §2):
   5. `heat_exposure` non-NULL -> **0 NULL** of 38 (34 indoor + 4 outdoor -- Pet Oasis Doggy Daycare + The Dog House Doggy Day Care + Picky Mickie's Overnight Pet Sitting + Pooch Paradise; 0 water_adjacent since pets not lake-adjacent by definition)
   6. `/category/pets` >=15 -> **38** (2.5x target)
   Note: 6 gate items (not 7) -- `is_mobile_service` dropped per kickoff §6 (venue-based; mobile groomers exist in LHC -- Mandy's Mobile + De-Tails Mobile -- but Layer 5 manual recovery surface).
-  Lane chain: `3ecd8ed` -> `1dd443a` (sustainability) -> `<SHIP-COMMIT>` (SHIP).
+  Lane chain: `3ecd8ed` -> `1dd443a` (sustainability) -> `dcf3dd4` (SHIP).
   Pytest 2002 -> 2018 (+16 in-lane via `_CAT11_KEYS` regression suite). Alembic head `0a1b2c3d4e5f`.
   **Notable §1 finding:** Google has consolidated dog grooming + pet boarding + dog training under a SINGLE `pet_care` primary type (the kickoff forecast label-specific types -- `dog_groomer` / `pet_boarding` / `dog_trainer` -- got added as 3 defensive direct mappings but aren't currently emitted by Google for LHC).
   **5.11 IS THE LAST 5.x SUB-PHASE.** Next-lane pointer: V1 acceptance gate (Phase 6); no Phase 5.12.
@@ -151,7 +151,7 @@ add `**SHIPPED \`592ee74\` 2026-05-17**` line.
 Clean single-domain scope -- all 4 in-scope labels (pet stores / dog
 groomers / dog boarding / dog trainers). Vet clinics NOT in scope
 (5.4 HWC absorbs via medical_clinic primary). **LAST 5.x sub-phase.**"
-Then add `**SHIPPED \`<SHIP-COMMIT>\` 2026-05-17**` line.
+Then add `**SHIPPED \`dcf3dd4\` 2026-05-17**` line.
 
 **Add a "Phase 5 COMPLETE" line** after the Phase 5.11 SHIPPED line.
 Suggested wording: "Phase 5 multi-phase data-population lane
@@ -188,7 +188,7 @@ Phase 5.10 (lodging-vacation-rentals): SHIPPED 592ee74 2026-05-17
   73 entities (3.65x target); 6/6 gates; 1 sustainability + SHIP
   commits.
 
-Phase 5.11 (pets) -- LAST 5.x SUB-PHASE: SHIPPED <SHIP-COMMIT>
+Phase 5.11 (pets) -- LAST 5.x SUB-PHASE: SHIPPED dcf3dd4
 2026-05-17
   38 entities (1.9x target); 6/6 gates; 1 sustainability + SHIP
   commits. All 13 Tier-1 categories now populated.
@@ -253,7 +253,7 @@ since 5.11 is the last 5.x sub-phase.
 ---
 
 *Drop-in dispatch artifact authored by Cowork primary, Phase 5 lane,
-Phase 5.11 session (2026-05-17) post-`<SHIP-COMMIT>` (5.11 SHIP).
+Phase 5.11 session (2026-05-17) post-`dcf3dd4` (5.11 SHIP).
 Operator dispatches to Claude Code at convenience (or lands in-line
 per Amendment 4/5/5-to-8 precedent). Consolidates three deferred
 amendments (9+10+11) per operator decision at Phase 5.11 §0. Closes

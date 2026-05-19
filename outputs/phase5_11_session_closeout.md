@@ -4,7 +4,7 @@
 > that picked up at `7472b4a` / `3ecd8ed` (the 5.11 kickoff doc
 > pre-staged by Phase 5.10 session + boot-prompt SHA-cleanup) and
 > pushed through to SHIP with all 6 gate items cleared. Phase 5.11
-> SHIPPED at `<SHIP-COMMIT>`.
+> SHIPPED at `dcf3dd4`.
 >
 > **5.11 IS THE LAST 5.x SUB-PHASE.** After this SHIP commit, all 13
 > Tier-1 categories are populated and V1 acceptance gate (Phase 6)
@@ -16,12 +16,12 @@
 
 ---
 
-## 1 Commit chain (origin `3ecd8ed -> <SHIP-COMMIT>`)
+## 1 Commit chain (origin `3ecd8ed -> dcf3dd4`)
 
 | # | Commit | Subject | Source | Task |
 |---|---|---|---|---|
 | 1 | `1dd443a` | `fix(scripts)` -- `_PRIMARY_TYPE_MAP` + `_DISCOVERY_DOMAIN_FALLBACK` extend for Phase 5.11 sustainability layer | Cowork (/sessions clone -> bundle -> operator push) | 1 sustainability (Option A -- 4 cat-11 direct mappings + 1 pets catch-all) |
-| 2 | `<SHIP-COMMIT>` | `chore(outputs)` -- Phase 5.11 SHIPPED -- all 6 gate items cleared | Cowork (/sessions clone -> bundle -> operator push) | **SHIP** (bundles dupe-check + ambig dump + audit doc + apply-script + heat_exposure + crowd_notes + top-10 discovery + gate verification + spot-check + Layer 1 runner + scrape log + close-out + Phase 6 amend9-to-11 dispatch) |
+| 2 | `dcf3dd4` | `chore(outputs)` -- Phase 5.11 SHIPPED -- all 6 gate items cleared | Cowork (/sessions clone -> bundle -> operator push) | **SHIP** (bundles dupe-check + ambig dump + audit doc + apply-script + heat_exposure + crowd_notes + top-10 discovery + gate verification + spot-check + Layer 1 runner + scrape log + close-out + Phase 6 amend9-to-11 dispatch) |
 
 **Plus 4 DB-only writes** (no commit; events.db is gitignored):
 1. **1 Layer 1 load (initial)** -- 37 in-LHC rows (post-ZIP) -> 12
@@ -48,7 +48,7 @@ cat-11 primary_type asserts + 1 catch-all assert + 11 preservation
 guards covering all prior phases' fallbacks + direct mappings).
 
 **Ruff:** Clean throughout both commits. The sustainability commit
-`1dd443a` and the SHIP commit at `<SHIP-COMMIT>` ASCII-only stdout
+`1dd443a` and the SHIP commit at `dcf3dd4` ASCII-only stdout
 per the 5.9 cp1252-codec lesson, F+I+W+E402 clean.
 
 **CI:** CI status on `1dd443a` verified post-push (after operator
@@ -143,7 +143,7 @@ childcare_education catch-all, 5.4 medical_clinic direct mapping,
 5.2-5.6 domain catch-alls, pre-Phase-5 park/dog_park/veterinary_care/
 pet_store direct mappings). Pytest 2002 -> **2018**.
 
-### `<SHIP-COMMIT>` -- Phase 5.11 2 audit + 4 apply-scripts + gate verification + bundle
+### `dcf3dd4` -- Phase 5.11 2 audit + 4 apply-scripts + gate verification + bundle
 
 Bundles all session 0-5 work in one chunk:
 
@@ -354,10 +354,10 @@ covers the original home-services scope).
 
 ## 6 Remaining work for next session (V1 / Phase 6)
 
-### Gate-blocking (0) -- Phase 5.11 SHIPPED at `<SHIP-COMMIT>`
+### Gate-blocking (0) -- Phase 5.11 SHIPPED at `dcf3dd4`
 
 All 6 gate items met per `outputs/phase5_11_gate_verification.py`.
-The SHIPPED commit lands on `origin/main` at `<SHIP-COMMIT>`
+The SHIPPED commit lands on `origin/main` at `dcf3dd4`
 2026-05-17.
 
 ### V1 hand-off (NEW for last 5.x sub-phase)
@@ -558,9 +558,9 @@ Phase 6 work directly per the master_build_plan.
 ---
 
 *Authored by Cowork primary, Phase 5 lane, Phase 5.11 session 1
-(2026-05-17) post-`<SHIP-COMMIT>`. Phase 5.11 SHIPPED with all 6 gate
+(2026-05-17) post-`dcf3dd4`. Phase 5.11 SHIPPED with all 6 gate
 items cleared in a single session; 2 commits on origin/main from
-`3ecd8ed` -> `1dd443a` (sustainability) -> `<SHIP-COMMIT>` (SHIP).
+`3ecd8ed` -> `1dd443a` (sustainability) -> `dcf3dd4` (SHIP).
 Plus 5 DB-only writes (1 load + 1.4b sustainability re-run + 1 audit
 apply + 1 heat + 1 crowd_notes). **LAST 5.x SUB-PHASE -- post-SHIP
 hands off to V1 cross-category review / Phase 6 V1 gate work.***
