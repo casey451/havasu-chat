@@ -1,10 +1,10 @@
-# Cursor Dispatch Prompt — Phase 6.3 (remaining 5 category pages + district context + time-aware ranking + seasonal hours)
+# Cursor Dispatch Prompt — Phase 6.3 (remaining 11 category pages + district context + time-aware ranking + seasonal hours; post-Phase-5-restructure scope-amend 2026-05-19)
 
-> Paste-into-Cursor prompt for the third Phase 6 sub-phase per master plan §4 Phase 6 + brief §3.3 — applies 6.2's `category_landing.html` template to the remaining 5 Tier 1 categories (On the Water, Home & Property Services, Health & Wellness, Auto/RV/Fuel, Shopping & Essentials), adds district-context chip rendering on profile pages, ships time-aware + heat-aware default ranking logic, and wires seasonal hours rendering on profile pages. Phase 6.3 is the **breadth pass** for Tier 1 categories — 6.2 proves the template with Eat & Drink; 6.3 makes all 6 categories live. The heavy-prescriptive operating doc is `outputs/cursor_brief_phase_6_tier_1_ui.md` (read end-to-end, especially §0 + §3.3 + §2 + §4 + §5).
+> Paste-into-Cursor prompt for the third Phase 6 sub-phase per master plan §4 Phase 6 + brief §3.3 — applies 6.2's `category_landing.html` template to the remaining 11 Tier 1 categories (On the Water, Home & Property Services, Health & Wellness, Auto/RV/Fuel, Shopping & Essentials, Events, Outdoors/Parks/Trails, Classes/Sports/Recreation, Lodging & Vacation Rentals, Pets, Public & Civic Resources), adds district-context chip rendering on profile pages, ships time-aware + heat-aware default ranking logic, and wires seasonal hours rendering on profile pages. Phase 6.3 is the **breadth pass** for Tier 1 categories — 6.2 proves the template with Eat & Drink; 6.3 makes all 12 active Tier 1 category pages live. (Post-Phase-5-restructure scope: Tier 1 expanded from 6 → 13 categories across Phase 5.1–5.11; the 5-category framing baked into the dispatch body below predates the restructure — see the ADDENDUM at the top of the prompt fence for the amended scope.) The heavy-prescriptive operating doc is `outputs/cursor_brief_phase_6_tier_1_ui.md` (read end-to-end, especially §0 + §3.3 + §2 + §4 + §5).
 >
 > **Gating dependencies:** Phase 6.1 SHIPPED on origin at `fd16e7a` (unified Hava card grammar). Phase 6.2 SHIPPED on origin at `3948add` (first category landing template + Eat & Drink proof). Phase 4 + Phase 5 prep on origin chain unchanged (`ac94b6c` + `62ab3b7` + `08bca69`). **Phase 6.3 consumes 6.2's `app/templates/category_landing.html` template** + the `app/api/routes/category_pages.py` route module — extends both without rewriting. Any deviations Cursor reported in 6.2 §13 are locked-as-shipped by the time 6.3 dispatches.
 >
-> **Parallel-with-Phase-5 caveat:** if a Phase 5 Cowork chat + Phase 5 Cursor session are running concurrently, the file-scope disjointness rule (gotcha #18) applies. Phase 6.3 touches: `app/templates/category_landing.html` (anchored edit — adds per-category chip sets), `app/templates/provider_profile.html` (anchored edit — district context chip insertion + seasonal hours region), `app/api/routes/category_pages.py` (anchored edit — adds chip dispatcher for remaining 5 slugs), new `app/core/ranking.py` (heat-bias + time-aware ranking helper), anchored edit on `app/providers/queries.py` (seasonal hours fallback logic), `app/providers/view_models.py` (anchored edit — appends seasonal-hours fields to ProviderProfileVM), new `tests/test_phase6_ranking.py`, new `tests/test_phase6_seasonal_hours.py`, anchored edit on `tests/test_phase6_category_landing.py` (adds per-category coverage). Phase 5 sessions touch `app/contrib/` + `scripts/` + `app/db/`. Zero overlap if both lanes hold scope.
+> **Parallel-with-Phase-5 caveat:** if a Phase 5 Cowork chat + Phase 5 Cursor session are running concurrently, the file-scope disjointness rule (gotcha #18) applies. Phase 6.3 touches: `app/templates/category_landing.html` (anchored edit — adds per-category chip sets), `app/templates/provider_profile.html` (anchored edit — district context chip insertion + seasonal hours region), `app/api/routes/category_pages.py` (anchored edit — adds chip dispatcher for remaining 11 slugs per scope-amend addendum), new `app/core/ranking.py` (heat-bias + time-aware ranking helper), anchored edit on `app/providers/queries.py` (seasonal hours fallback logic), `app/providers/view_models.py` (anchored edit — appends seasonal-hours fields to ProviderProfileVM), new `tests/test_phase6_ranking.py`, new `tests/test_phase6_seasonal_hours.py`, anchored edit on `tests/test_phase6_category_landing.py` (adds per-category coverage). Phase 5 sessions touch `app/contrib/` + `scripts/` + `app/db/`. Zero overlap if both lanes hold scope.
 >
 > **No operator prereq for Phase 6.3.** No new env vars, no Cloudflare changes, no R2 changes, no Resend changes, no migration. Pure template + route + helper + tests authoring on top of 6.1 + 6.2.
 >
@@ -12,9 +12,9 @@
 >
 > **Author note:** authored at session-23-extension-3 (2026-05-13) pre-positioned during Phase 6.1 in-flight execution — saves the 2-3h re-author cycle between 6.2 close-out and 6.3 dispatch. Two SHA-patch slots: `fd16e7a` + `3948add`. Fill both before paste; each appears in 3 sites (preamble, dispatch body, pre-dispatch checklist).
 >
-> **Clipboard pipeline** (after both SHAs patched; primes operator clipboard with prompt body only — skips the 22-line preamble + 37-line post-dispatch footer; verified offsets per fence positions at lines 22 + 318):
+> **Clipboard pipeline** (primes operator clipboard with prompt body only — skips the 22-line preamble + 40-line post-dispatch footer; verified offsets per fence positions at lines 22 + 414 after the 2026-05-19 scope-amend addendum; pre-amend offsets were lines 22 + 318 with SkipLast 37):
 > ```powershell
-> Get-Content outputs\cursor_dispatch_prompt_phase_6_3.md | Select-Object -Skip 22 | Select-Object -SkipLast 37 | Set-Clipboard
+> Get-Content outputs\cursor_dispatch_prompt_phase_6_3.md | Select-Object -Skip 22 | Select-Object -SkipLast 40 | Set-Clipboard
 > ```
 
 ---
@@ -37,6 +37,102 @@ from 6.1 + 10-15 from 6.2; verify per `python -m pytest
 --collect-only -q | tail -3`). Alembic head is **0a1b2c3d4e5f**
 (Phase 4.1 outbox; unchanged through Phase 5 prep + Phase 6.1
 + Phase 6.2; Phase 6 ships no migration).
+
+POST-PHASE-5-RESTRUCTURE SCOPE AMEND (2026-05-19, origin/main tip
+ba0befb): the dispatch body below was authored 2026-05-13 pre-Phase-5-
+restructure when Tier 1 was 6 categories. Phase 5 then expanded Tier 1
+to 13 categories (SHIPPED 2026-05-17 at Phase 5.11 close; STATE.md +
+master plan ledger entries landed at 3a2d895; parks-rec-scrapes cron
+sidecar + head-audit chain at 781902a -> 532d48b -> 230fe1d -> ba0befb;
+parks-rec-scrapes workflow_dispatch verified green 2026-05-19).
+
+Phase 6.3 amended scope: extend the 5-category breadth pass below to
+cover ALL 11 remaining Tier 1 slugs beyond Eat & Drink (the slug Phase
+6.2 proved). All four 6.3 deliverables remain in scope -- (a) category
+pages, (b) district chip, (c) ranking, (d) seasonal hours -- but (a)
+extends to 11 slugs, not 5.
+
+The 6 NEW slugs to author chip dispatcher + sort default + landing-page
+test for, on top of the existing 5 in the dispatch body:
+- events (cat 2; 20 entries; shipped Phase 5.8)
+- outdoors-parks-trails (cat 7; 27 entries; shipped Phase 5.7)
+- classes-sports-recreation (cat 12; 31 entries; shipped Phase 5.9)
+- lodging-vacation-rentals (cat 10; 73 entries; shipped Phase 5.10)
+- pets (cat 11; 38 entries; shipped Phase 5.11)
+- public-civic-resources (cat 13; 4 entries; pre-Phase-5 baseline; THIN
+  but renderable -- trust-layer category; full population ships in
+  Phase 8 per master plan §4 Phase 8; Phase 6.3 just makes the page
+  render; the ">=15 per default filter" gate applies ONLY to Phase 5
+  data-gathering, NOT Phase 6.3 UI breadth)
+
+For each new slug, author the chip dispatcher entry by reading the
+corresponding Phase 5 close-out + kickoff doc -- the kickoff doc is
+the authoritative source for sub-trade taxonomy:
+- outputs/phase5_8_events_kickoff.md + phase5_8_session_closeout.md
+- outputs/phase5_7_parks_audit.md + phase5_7_session_closeout.md
+  (5.7 kickoff was inline; audit doc carries the sub-trade taxonomy)
+- outputs/phase5_9_classes_sports_recreation_kickoff.md + phase5_9_session_closeout.md
+- outputs/phase5_10_lodging_vacation_rentals_kickoff.md + phase5_10_session_closeout.md
+- outputs/phase5_11_pets_kickoff.md + phase5_11_session_closeout.md
+- public-civic-resources has no Phase 5 kickoff (pre-Phase-5 baseline);
+  chip set inferred from master plan §4 Phase 8 deliverable list (library
+  / transit / visitor info / utilities / airport / senior resources /
+  payment+licensing / civic orgs)
+
+Recommended sort defaults for the new 6 (mirror brief §2 entry 6 shape
+from the existing 5; adjust per kickoff insight if it argues different):
+- events: "Soonest upcoming + closest" (events sort by date primarily)
+- outdoors-parks-trails: "Closest + open-now"
+- classes-sports-recreation: "Closest + drop-in available"
+- lodging-vacation-rentals: "Closest + waterfront-first"
+- pets: "Closest + open-now"
+- public-civic-resources: "Closest + open-now"
+
+Pytest baseline update: the dispatch body says "~1823-1838" -- that
+was the pre-Phase-5 baseline. Current baseline on origin/main (post-
+ba0befb) is 2018 collected (5.11 SHIP 2018 + sidecar +2 + head-audit
+no-net-change). Verify per `python -m pytest --collect-only -q | tail -3`.
+The "1823-1838" reference in the dispatch body is stale-but-harmless;
+treat 2018 as the true floor.
+
+Expected pytest delta update: the dispatch body says "+19-30 net-new";
+for 11-slug coverage expect +31-50 (per-category landing-page test +
+chip dispatcher assertions + sort_default assertions = ~+2-4 tests per
+new slug x 6 new slugs = +12-24 above the existing 5-slug baseline).
+
+Effort update: the dispatch body says "5-8 days"; for 11-slug scope this
+becomes 8-12 days. CURSOR MAY SPLIT INTO TWO SUB-SESSIONS if it estimates
+the full scope as >8 days:
+- Phase 6.3a: chip dispatcher + per-category landing-page coverage for
+  all 11 slugs (~3-5 days; file scope = app/api/routes/category_pages.py
+  + tests/test_phase6_category_landing.py only)
+- Phase 6.3b: district chip on profile + time-aware/heat-aware ranking
+  + seasonal hours (~3-5 days; file scope = app/templates/provider_profile.html
+  + app/core/ranking.py + app/providers/queries.py + app/providers/view_models.py
+  + tests/test_phase6_ranking.py + tests/test_phase6_seasonal_hours.py)
+HALT between 6.3a and 6.3b is at the §3 Phase 6.3a boundary; operator
+commits + pushes 6.3a; 6.3b dispatches fresh against 6.3a's HEAD SHA.
+
+For monolithic 6.3 execution (single session, all 11 slugs + all 4
+deliverables), the existing dispatch body applies directly with chip
+dispatcher + tests + sort defaults extended to 11 slugs.
+
+Stale-framing notes elsewhere in the body that should be read with
+post-restructure context:
+- "remaining 5 Tier 1 slugs" or "remaining 5 categories" -> read as 11
+- "all 6 Tier 1 category pages rendering" (line ~354) -> read as "all
+  12 active Tier 1 category pages rendering"
+- The 5-category sort-defaults table is correct AS FAR AS IT GOES but
+  incomplete; append the 6 new sort defaults above
+- The 5-category chip-set table is correct AS FAR AS IT GOES but
+  incomplete; author 6 more chip sets from the kickoff + close-out
+  docs cited above
+- The 5-slug GET smoke test list -> extend to 11 URLs
+
+End of scope-amend addendum. Original dispatch body follows; apply the
+amendments above as you read.
+
+---
 
 Ship Phase 6.3 ONLY per brief §3.3 -- (a) apply 6.2's
 category_landing.html template to the remaining 5 Tier 1 slugs
