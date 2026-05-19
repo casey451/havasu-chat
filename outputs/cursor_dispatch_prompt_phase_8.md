@@ -2,13 +2,14 @@
 
 > Paste-into-Cursor prompt for Phase 8 per master plan §4 Phase 8 (lines 401–419) + `outputs/phase_8_architecture_design.md` (1050-line Plan-agent ADR-level design) + `outputs/phase_8_operator_prereq_checklist.md` (patched 2026-05-20 with research corrections + LHC Nixle agency ID resolution). Phase 8 ships the trust + retention layer: real conditions data driving the homepage "Today in Havasu" strip + the chat ranking that's been reading a stub since Phase 6.3 + the alert subscription + dispatch subsystem that Opus #1 + #8 originally designed.
 >
-> **PRE-POSITION STATUS — NOT YET READY TO DISPATCH.** Authored 2026-05-20 BEFORE Phase 7 (Lane E) ships. Two SHA-patch slots remain:
-> - `<<<PHASE_7_HEAD_SHA>>>` — the commit SHA of Phase 7's SHIP feat commit
-> - `<<<PHASE_7_ALEMBIC_HEAD>>>` — the alembic head after Phase 7 ships (may equal `f6a7b8c9d0e1` if Phase 7 ships no migration, OR a new revision SHA if Phase 7 ships User.last_active_at or similar)
+> **DISPATCH-READY STATUS — SHA-patched 2026-05-20 post-Phase-7-ship.** Phase 7 SHIPPED at `0a305e0`; alembic head `c9d0e1f2a3b4` (Phase 7's `users.last_active_at` migration). Both SHA slots in this wrapper are now resolved. Phase 7 close-out at `outputs/phase_7_close_out.md` documents the substantive ship + the HALT 3 validator 12/22-PASS state + Phase 7.5 polish-lane deferral for the HALT 3 flag flip. Phase 8 dispatch is unblocked.
 >
-> Fill both before paste. Operator may also need to revise wrapper scope claims if Phase 7's actual ship deviates from the Phase 7 wrapper's expected shape (e.g., if Phase 7 ships a different chat-cache shape that Phase 8 builds on).
+> **Phase 7 ship caveats Phase 8 should be aware of:**
+> - HALT 3 `FEATURE_FLAG_DISCLOSURE_RENDERER` is still `false`. Phase 7.5 polish lane will flip it after closing the 10 validator failures. **Phase 8 does NOT touch the flag.**
+> - Chat conditions-awareness only fires through the ENTITY catalog path (`prefers_entity_catalog()` returns True). `open_now` + `entity_name-only` queries route through the legacy events/programs SQL path and don't get heat-bias applied. When Phase 8 swaps `STUB_CURRENT_TEMPERATURE_F` → `read_current_temperature_f()`, the swap is automatic for ENTITY-catalog queries; legacy-path queries continue using the stub fallback (acceptable; legacy-path queries don't typically need conditions-aware ranking).
+> - Phase 7 + Phase 6.4 collision was operationalized via the alembic-collision gotcha. Phase 8's migrations chain off `c9d0e1f2a3b4`; verify SINGLE head before authoring.
 >
-> **Gating dependencies:** Phase 6.1 SHIPPED (`fd16e7a`) + 6.2 (`3948add`) + 6.3 (`5ebee46`) + 6.4 (`96c915d`); Phase 5 multi-phase data-population COMPLETE at `dcf3dd4` (1,314 active entities; cat-13 thin at 4 entries); Phase 7 SHIPPED at `<<<PHASE_7_HEAD_SHA>>>` (chat ENTITY wiring + boat-mode + conditions-awareness via STUB + HALT 3 + cross-entity + snowbird-return view); parks-rec-scrapes sidecar `f6a7b8c9d0e1` SHIPPED at `532d48b`. **Phase 8 consumes:** Phase 4 background-jobs framework (`with_retry`, Outbox); Phase 3.1 schema (`external_conditions_cache` table + `alerts_dispatched` table both already exist per design doc §2 — verify); Phase 6.5 "Today in Havasu" conditions strip empty-placeholder anchor at `<!-- conditions-strip-anchor -->`; Phase 6.3 `app/core/ranking.py` `STUB_CURRENT_TEMPERATURE_F` constant (swapped for live read in Phase 8); Phase 7's chat-conditions-awareness import chain (also swapped for live read); Phase 2A account-lite for `/account/alerts` subscription UI; Phase 4 Outbox + Resend email surface for alert dispatch.
+> **Gating dependencies:** Phase 6.1 SHIPPED (`fd16e7a`) + 6.2 (`3948add`) + 6.3 (`5ebee46`) + 6.4 (`96c915d`); Phase 5 multi-phase data-population COMPLETE at `dcf3dd4` (1,314 active entities; cat-13 thin at 4 entries); Phase 7 SHIPPED at `0a305e0` (chat ENTITY wiring + boat-mode + conditions-awareness via STUB + HALT 3 + cross-entity + snowbird-return view); parks-rec-scrapes sidecar `f6a7b8c9d0e1` SHIPPED at `532d48b`. **Phase 8 consumes:** Phase 4 background-jobs framework (`with_retry`, Outbox); Phase 3.1 schema (`external_conditions_cache` table + `alerts_dispatched` table both already exist per design doc §2 — verify); Phase 6.5 "Today in Havasu" conditions strip empty-placeholder anchor at `<!-- conditions-strip-anchor -->`; Phase 6.3 `app/core/ranking.py` `STUB_CURRENT_TEMPERATURE_F` constant (swapped for live read in Phase 8); Phase 7's chat-conditions-awareness import chain (also swapped for live read); Phase 2A account-lite for `/account/alerts` subscription UI; Phase 4 Outbox + Resend email surface for alert dispatch.
 >
 > **No parallel lane planned with Phase 8.** Per the 2026-05-20 alembic-collision gotcha (`outputs/dispatch_channels_alembic_collision_gotcha_draft.md`), Phase 7 + Phase 8 dispatching in parallel risks alembic revision-DAG collision (Phase 8 ships at least one new migration; Phase 7's User.last_active_at migration question if it lands also chains off `f6a7b8c9d0e1`). **Recommended posture: serialize.** Phase 7 ships first; Phase 8 dispatches against post-Phase-7 head.
 >
@@ -65,14 +66,14 @@ SHIPPED at 5ebee46 (breadth pass + district chip + ranking + seasonal
 hours). Phase 6.4 SHIPPED at 96c915d (Leaflet+OSM map + boat-access via
 preferred_mode reuse + 4 themed group landing pages + search bar). Phase 5
 multi-phase data-population COMPLETE at 5.11 (1,314 active entities).
-Phase 7 SHIPPED at <<<PHASE_7_HEAD_SHA>>> (chat ENTITY wiring + boat-mode
+Phase 7 SHIPPED at 0a305e0 (chat ENTITY wiring + boat-mode
 + conditions-awareness via STUB + HALT 3 + cross-entity + snowbird-return
 view).
 
 Pytest baseline going in is post-Phase-7. Verify per python -m pytest
 --collect-only -q | tail -3 BEFORE starting work. Likely range 2140-2200
 (Phase 6.3 baseline 2060 + Phase 6.4 ~+40 + Phase 7 ~+50-80). Alembic
-head is <<<PHASE_7_ALEMBIC_HEAD>>> (may equal f6a7b8c9d0e1 if Phase 7
+head is c9d0e1f2a3b4 (may equal f6a7b8c9d0e1 if Phase 7
 shipped no migration, OR a new revision SHA if it shipped User.last_
 active_at). Verify per python -m alembic current BEFORE starting work and
 REPORT THE OBSERVED VALUE (do NOT copy dispatch-body-claimed value).
@@ -195,7 +196,7 @@ ORDER MATTERS WITHIN PHASE 8a:
    tables exist with expected shape from Phase 3.1 + design doc sec2. If
    any additive column is needed (e.g. external_conditions_cache.source
    needs a new value enum), ship ONE alembic migration chaining from
-   <<<PHASE_7_ALEMBIC_HEAD>>>. CRITICAL: use python -m alembic heads to
+   c9d0e1f2a3b4. CRITICAL: use python -m alembic heads to
    verify SINGLE head before authoring. Migration upgrade + downgrade
    cycle tested in tests/test_phase8_conditions_schema.py with DYNAMIC
    head capture (script.get_current_head() + script.get_revision(head_rev).
@@ -285,7 +286,7 @@ ORDER MATTERS WITHIN PHASE 8a:
 
 11. After all of the above: confirm full pytest stays green (post-Phase-7
     baseline + 80-130 net-new = ~2220-2330), ruff clean, alembic head
-    matches expected (either <<<PHASE_7_ALEMBIC_HEAD>>> if no migration
+    matches expected (either c9d0e1f2a3b4 if no migration
     shipped, or the new revision SHA chaining off it). Manual smoke
     deferred-to-operator:
     - python -m fastapi run app.main:app + browse to / verify conditions
@@ -376,10 +377,10 @@ Pre-dispatch checklist (verify before paste):
 - Phase 6.2 SHIPPED on origin (3948add)
 - Phase 6.3 SHIPPED on origin (5ebee46)
 - Phase 6.4 SHIPPED on origin (96c915d)
-- Phase 7 SHIPPED on origin (<<<PHASE_7_HEAD_SHA>>>)
+- Phase 7 SHIPPED on origin (0a305e0)
 - Sidecar migration SHIPPED on origin (532d48b)
 - Phase 5 ledger SHIPPED on origin (3a2d895)
-- <<<PHASE_7_ALEMBIC_HEAD>>> is the current SINGLE alembic head on
+- c9d0e1f2a3b4 is the current SINGLE alembic head on
   origin (verify via `python -m alembic current` AND `python -m alembic
   heads`)
 - Pytest baseline going in matches reality per `python -m pytest
@@ -454,4 +455,4 @@ Phase 9 (events scraper + Classes/Sports schedule UX + Things to Do themed group
 
 ---
 
-*Authored by Cowork primary at the post-`616fd8b` session (2026-05-20). Lives at `outputs/cursor_dispatch_prompt_phase_8.md`. SHA-patch slots `<<<PHASE_7_HEAD_SHA>>>` + `<<<PHASE_7_ALEMBIC_HEAD>>>` need filling post-Phase-7-ship. Per the 2026-05-20 alembic-collision gotcha (`outputs/dispatch_channels_alembic_collision_gotcha_draft.md`), Phase 8 is the next post-Phase-7 dispatch; Phase 7 + Phase 8 do NOT run in parallel. Architectural design at `outputs/phase_8_architecture_design.md`, prereq checklist at `outputs/phase_8_operator_prereq_checklist.md`, Nixle agency ID lookup at `outputs/phase_8_nixle_agency_id_lookup.md` are the upstream artifacts.*
+*Authored by Cowork primary at the post-`616fd8b` session (2026-05-20). Lives at `outputs/cursor_dispatch_prompt_phase_8.md`. SHA-patch slots `0a305e0` + `c9d0e1f2a3b4` need filling post-Phase-7-ship. Per the 2026-05-20 alembic-collision gotcha (`outputs/dispatch_channels_alembic_collision_gotcha_draft.md`), Phase 8 is the next post-Phase-7 dispatch; Phase 7 + Phase 8 do NOT run in parallel. Architectural design at `outputs/phase_8_architecture_design.md`, prereq checklist at `outputs/phase_8_operator_prereq_checklist.md`, Nixle agency ID lookup at `outputs/phase_8_nixle_agency_id_lookup.md` are the upstream artifacts.*
