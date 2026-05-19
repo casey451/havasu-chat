@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+
 # Phase 8 wires real conditions; 6.3 uses a stub so heat-bias is testable in prod UI.
 STUB_CURRENT_TEMPERATURE_F = 105.0
 
