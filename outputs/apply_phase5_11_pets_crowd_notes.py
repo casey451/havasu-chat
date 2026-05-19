@@ -66,7 +66,6 @@ ensure_dotenv_loaded()
 from app.db.database import SessionLocal  # noqa: E402
 from app.db.models import Category, Entity, EntityCategory  # noqa: E402
 
-
 # entity_id 8-char prefix -> {"short": str, "long": str}
 CROWD_NOTES_TOP10: dict[str, dict[str, str]] = {
     "71e0553d": {  # Paws and Claws Animal Care -- 361r, 4.7*, veterinary_care
