@@ -322,19 +322,30 @@ def test_outbox_migration_upgrade_downgrade_cycle_clean(
 
     cfg = Config(str(repo_root / "alembic.ini"))
 
+    # Resolve the current alembic head dynamically so this migration cycle
+    # test stays green when future phases add migrations on top of Phase 4.1.
+    # Mirrors the cure pattern Phase 3 tests adopted post-session-23 lesson #3.
+    from alembic.script import ScriptDirectory
+
+    expected_head = ScriptDirectory.from_config(cfg).get_current_head()
+    pre_outbox_rev = "e1f2a3b4c5d6"
+
     command.upgrade(cfg, "head")
     engine = create_engine(f"sqlite:///{db_path.as_posix()}")
     try:
         with engine.connect() as conn:
             cur = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-            assert cur == "0a1b2c3d4e5f"
+            assert cur == expected_head
         insp = inspect(engine)
         assert "outbox" in insp.get_table_names()
 
-        command.downgrade(cfg, "-1")
+        # Downgrade to pre-outbox revision explicitly (not ``-1``) so stacked
+        # migrations above the outbox migration do not leave the DB at head-1
+        # with outbox still present.
+        command.downgrade(cfg, pre_outbox_rev)
         with engine.connect() as conn:
             cur = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-            assert cur == "e1f2a3b4c5d6"
+            assert cur == pre_outbox_rev
         insp = inspect(engine)
         assert "outbox" not in insp.get_table_names()
 
@@ -342,7 +353,7 @@ def test_outbox_migration_upgrade_downgrade_cycle_clean(
         command.upgrade(cfg, "head")
         with engine.connect() as conn:
             cur = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-            assert cur == "0a1b2c3d4e5f"
+            assert cur == expected_head
         insp = inspect(engine)
         assert "outbox" in insp.get_table_names()
     finally:
