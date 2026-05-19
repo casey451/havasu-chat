@@ -401,7 +401,9 @@ class Contribution(Base):
     created_program_id: Mapped[str | None] = mapped_column(
         String, ForeignKey("programs.id"), nullable=True
     )
-    created_event_id: Mapped[str | None] = mapped_column(String, ForeignKey("events.id"), nullable=True)
+    created_event_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("events.id", ondelete="SET NULL"), nullable=True
+    )
 
     source: Mapped[str] = mapped_column(String, nullable=False, default="user_submission")
     llm_source_chat_log_id: Mapped[str | None] = mapped_column(
