@@ -15,6 +15,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.chat import disclosure_render
+from app.chat.chat_request_context import ChatRequestContext
 from app.chat.context_builder import (
     build_context_for_tier3,
     rows_for_tier3_classification,
@@ -169,6 +170,7 @@ def answer_with_tier3(
     onboarding_hints: Mapping[str, Any] | None = None,
     now_line: str | None = None,
     organic_context: Optional[list[Mapping[str, Any]]] = None,
+    chat_ctx: ChatRequestContext | None = None,
 ) -> tuple[str, int | None, int | None, int | None]:
     """Return (assistant_text, total_tokens, llm_input_tokens, llm_output_tokens). Never raises."""
     api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
@@ -203,7 +205,8 @@ def answer_with_tier3(
             cached_response = _inject_sponsored_block(cached_response, sponsored_block)
         return cached_response, 0, 0, 0
 
-    context = build_context_for_tier3(query, intent_result, db)
+    request_ctx = chat_ctx or ChatRequestContext()
+    context = build_context_for_tier3(query, intent_result, db, chat_ctx=request_ctx)
     sub_intent_str = intent_result.sub_intent or "none"
     entity_str = intent_result.entity or "none"
     classifier_block = (
@@ -215,6 +218,8 @@ def answer_with_tier3(
         nl = f"Now: {nl}"
     bias_line = user_context_line_for_tier3(onboarding_hints)
     mid_parts: list[str] = [classifier_block]
+    for preamble in request_ctx.tier3_context_preambles():
+        mid_parts.append(preamble)
     if bias_line:
         mid_parts.append(bias_line)
     mid_parts.append(nl)

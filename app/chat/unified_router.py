@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.chat import disclosure_render, llm_router
 from app.chat.audience_signal import AudienceSignal, classify_audience
+from app.chat.chat_request_context import ChatRequestContext, parse_chat_request_context
 from app.chat.entity_matcher import (
     extract_catalog_entities_from_text,
     match_entity,
@@ -321,6 +322,28 @@ def _organic_context_for_tier3(
     ]
 
 
+def _build_chat_request_context(
+    intent_result: IntentResult,
+    *,
+    request_headers: dict[str, str] | None = None,
+    query_params: dict[str, str] | None = None,
+    preferred_mode: str | None = None,
+) -> ChatRequestContext:
+    base = parse_chat_request_context(
+        headers=request_headers,
+        query_params=query_params,
+        preferred_mode=preferred_mode,
+    )
+    multi = intent_result.multi_domain_category_slugs
+    if multi:
+        return ChatRequestContext(
+            boat_mode=base.boat_mode,
+            temperature_f=base.temperature_f,
+            multi_domain_category_slugs=multi,
+        )
+    return base
+
+
 def _handle_ask(
     query: str,
     intent_result: IntentResult,
@@ -331,6 +354,7 @@ def _handle_ask(
     allow_tier3_fallback: bool = True,
     router_meta: dict | None = None,
     component_meta: dict | None = None,
+    chat_ctx: ChatRequestContext | None = None,
 ) -> tuple[str | None, str, int | None, int | None, int | None]:
     tier1 = try_tier1(query, intent_result, db)
     if tier1 is not None:
@@ -356,6 +380,7 @@ def _handle_ask(
                 onboarding_hints=onboarding_hints,
                 now_line=now_line,
                 organic_context=organic_ctx,
+                chat_ctx=chat_ctx,
             )
             return text, "3", total, tin, tout
         if router_meta is not None:
@@ -370,7 +395,10 @@ def _handle_ask(
         )
         if decision.tier_recommendation == "2" and decision.tier2_filters is not None:
             t2_text, t2_total, t2_in, t2_out = try_tier2_with_filters_with_usage(
-                query, decision.tier2_filters, component_meta=component_meta
+                query,
+                decision.tier2_filters,
+                component_meta=component_meta,
+                chat_ctx=chat_ctx,
             )
             if t2_text is not None:
                 return t2_text, "2", t2_total, t2_in, t2_out
@@ -384,6 +412,7 @@ def _handle_ask(
                 onboarding_hints=onboarding_hints,
                 now_line=now_line,
                 organic_context=organic_ctx,
+                chat_ctx=chat_ctx,
             )
             return text, "3", total, tin, tout
         organic_ctx = _organic_context_for_tier3(routed_intent, db)
@@ -394,6 +423,7 @@ def _handle_ask(
             onboarding_hints=onboarding_hints,
             now_line=now_line,
             organic_context=organic_ctx,
+            chat_ctx=chat_ctx,
         )
         return text, "3", total, tin, tout
     if _is_explicit_rec(query):
@@ -405,9 +435,12 @@ def _handle_ask(
             onboarding_hints=onboarding_hints,
             now_line=now_line,
             organic_context=organic_ctx,
+            chat_ctx=chat_ctx,
         )
         return text, "3", total, tin, tout
-    t2_text, t2_total, t2_in, t2_out = try_tier2_with_usage(query, component_meta=component_meta)
+    t2_text, t2_total, t2_in, t2_out = try_tier2_with_usage(
+        query, component_meta=component_meta, chat_ctx=chat_ctx
+    )
     if t2_text is not None:
         return t2_text, "2", t2_total, t2_in, t2_out
     if not allow_tier3_fallback:
@@ -422,6 +455,7 @@ def _handle_ask(
         onboarding_hints=onboarding_hints,
         now_line=now_line,
         organic_context=organic_ctx,
+        chat_ctx=chat_ctx,
     )
     return text, "3", total, tin, tout
 
@@ -530,8 +564,11 @@ def route(
     db: Session,
     *,
     request_headers: dict[str, str] | None = None,
+    query_params: dict[str, str] | None = None,
     client_ip: str | None = None,
     accept_language: str | None = None,
+    preferred_mode: str | None = None,
+    temperature_f_override: float | None = None,
 ) -> ChatResponse:
     disclosure_render.reset_decision_context()
     t0 = time.perf_counter()
@@ -672,6 +709,19 @@ def route(
 
     now_line = f"Now: {format_now_lake_havasu()}"
 
+    chat_ctx = _build_chat_request_context(
+        intent_result,
+        request_headers=request_headers,
+        query_params=query_params,
+        preferred_mode=preferred_mode,
+    )
+    if temperature_f_override is not None:
+        chat_ctx = ChatRequestContext(
+            boat_mode=chat_ctx.boat_mode,
+            temperature_f=temperature_f_override,
+            multi_domain_category_slugs=chat_ctx.multi_domain_category_slugs,
+        )
+
     tier_used = "placeholder"
     llm_tokens_used: int | None = None
     llm_input_tokens: int | None = None
@@ -698,6 +748,7 @@ def route(
                     allow_tier3_fallback=False,
                     router_meta=router_meta,
                     component_meta=component_meta,
+                    chat_ctx=chat_ctx,
                 )
                 if text is None:
                     return _finish(
@@ -717,6 +768,7 @@ def route(
                     now_line=now_line,
                     router_meta=router_meta,
                     component_meta=component_meta,
+                    chat_ctx=chat_ctx,
                 )
             if router_meta:
                 response_mode = (router_meta.get("mode") or response_mode)
@@ -733,10 +785,13 @@ def route(
             text = _handle_chat(q_raw, intent_result, db, session_id)
         else:
             text, tier_used, llm_tokens_used, llm_input_tokens, llm_output_tokens = _handle_ask(
-                q_raw, intent_result, db,
+                q_raw,
+                intent_result,
+                db,
                 onboarding_hints=onboarding_hints,
                 now_line=now_line,
                 component_meta=component_meta,
+                chat_ctx=chat_ctx,
             )
     except Exception:
         logging.exception("unified_router: mode handler failed")

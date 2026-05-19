@@ -59,21 +59,18 @@ def test_parks_rec_prune_fk_migration_upgrade_downgrade_cycle_clean(
 
     cfg = Config(str(repo_root / "alembic.ini"))
     script = ScriptDirectory.from_config(cfg)
-    head_rev = script.get_current_head()
-    assert head_rev is not None
-    # Capture the pre-sidecar head dynamically — alembic exposes the
-    # down_revision of any revision, so "the head before this migration"
-    # resolves without a hardcoded literal. Mirrors the Phase 4.1 lesson
-    # #3 cure pattern (avoid hardcoded heads in reversibility tests).
-    pre_sidecar_rev = script.get_revision(head_rev).down_revision
+    # This test targets the Phase 6 sidecar revision specifically (not repo head).
+    sidecar_rev = "f6a7b8c9d0e1"
+    assert script.get_revision(sidecar_rev) is not None
+    pre_sidecar_rev = script.get_revision(sidecar_rev).down_revision
     assert pre_sidecar_rev is not None
 
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, sidecar_rev)
     engine = create_engine(f"sqlite:///{db_path.as_posix()}")
     try:
         with engine.connect() as conn:
             cur = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-            assert cur == head_rev
+            assert cur == sidecar_rev
         insp = inspect(engine)
         fks = {
             fk["name"]: fk
@@ -84,7 +81,7 @@ def test_parks_rec_prune_fk_migration_upgrade_downgrade_cycle_clean(
         ((_name, fk),) = fks.items()
         assert fk["options"].get("ondelete", "").upper() == "SET NULL"
 
-        command.downgrade(cfg, "-1")
+        command.downgrade(cfg, pre_sidecar_rev)
         with engine.connect() as conn:
             cur = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
             assert cur == pre_sidecar_rev
@@ -97,10 +94,10 @@ def test_parks_rec_prune_fk_migration_upgrade_downgrade_cycle_clean(
         assert fks_down, "FK should still exist post-downgrade — only ondelete changed"
         assert fks_down[0]["options"].get("ondelete", "").upper() != "SET NULL"
 
-        command.upgrade(cfg, "head")
+        command.upgrade(cfg, sidecar_rev)
         with engine.connect() as conn:
             cur = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-            assert cur == head_rev
+            assert cur == sidecar_rev
         insp = inspect(engine)
         fks_back = [
             fk

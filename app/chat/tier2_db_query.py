@@ -37,6 +37,8 @@ from sqlalchemy import String, case, cast, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.chat import tier2_synonyms as _tier2_synonyms
+from app.chat.chat_request_context import ChatRequestContext
+from app.chat.entity_catalog_query import prefers_entity_catalog, query_entities
 from app.chat.tier2_schema import Tier2Filters
 from app.contrib.hours_helper import LAKE_HAVASU_TZ, is_open_at
 from app.db.database import SessionLocal
@@ -1062,11 +1064,25 @@ def _sample_mixed(db: Session, cap: int) -> list[dict[str, Any]]:
     return _merge_simple(ev_d, pr_d, pv_d)[:cap]
 
 
-def query(filters: Tier2Filters) -> list[dict[str, Any]]:
+def query(
+    filters: Tier2Filters,
+    *,
+    ctx: ChatRequestContext | None = None,
+) -> list[dict[str, Any]]:
     """Return up to eight catalog rows matching ``filters``."""
+    request_ctx = ctx or ChatRequestContext()
     with SessionLocal() as db:
         if not _has_query_dimensions(filters):
+            if prefers_entity_catalog(filters, request_ctx):
+                return query_entities(db, filters, request_ctx, max_rows=MAX_ROWS)
             return _sample_mixed(db, MAX_ROWS)
+
+        if prefers_entity_catalog(filters, request_ctx) and not _has_temporal_filter(
+            filters
+        ):
+            entity_rows = query_entities(db, filters, request_ctx, max_rows=MAX_ROWS)
+            if entity_rows:
+                return entity_rows
 
         f_sql = filters.model_copy(update={"open_now": False})
         events = _query_events(db, f_sql)

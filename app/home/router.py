@@ -22,10 +22,12 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import get_current_user
 from app.chat.disclosure_render import DISCLOSURE_WORD
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
-from app.home import mock_data, queries, sponsor_store
+from app.db.models import User
+from app.home import mock_data, queries, snowbird_panel, sponsor_store
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
@@ -34,7 +36,11 @@ router = APIRouter(tags=["home"])
 
 
 @router.get("/home", response_class=HTMLResponse)
-def serve_home(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+def serve_home(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user),
+) -> HTMLResponse:
     """Render /home with live catalog data + per-row mock fallbacks."""
     base = mock_data.build_context()
     base["disclosure_word"] = DISCLOSURE_WORD
@@ -57,6 +63,11 @@ def serve_home(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
 
     # Sponsor slot: live record OR None (renders the fallback card).
     base["sponsor"] = sponsor_store.get_active_sponsor(db)
+
+    panel_ctx = snowbird_panel.build_snowbird_panel_context(
+        db, current_user=current_user
+    )
+    base["snowbird_panel"] = snowbird_panel.snowbird_panel_template_dict(panel_ctx)
 
     return templates.TemplateResponse(
         request=request,

@@ -1,0 +1,138 @@
+# Phase 7 HALT 3 held-out eval set (operator-reviewed before FEATURE_FLAG_DISCLOSURE_RENDERER flip).
+
+- id: q01
+  query: "Where can I get coffee right now?"
+  expected_tier: any
+  expected_disclosure_path: cited
+  expected_confabulation_rate: 0.0
+  notes: "Standard eat-drink intent; tier 2 ENTITY path."
+
+- id: q02
+  query: "find me a barber in Lake Havasu"
+  expected_tier: tier2
+  expected_disclosure_path: cited
+  expected_confabulation_rate: 0.0
+
+- id: q03
+  query: "what restaurants are open now"
+  expected_tier: any
+  expected_disclosure_path: cited
+  expected_confabulation_rate: 0.0
+
+- id: q04
+  query: "hey"
+  expected_tier: chat
+  expected_disclosure_path: uncited
+  expected_confabulation_rate: 0.0
+
+- id: q05
+  query: "what are the hours for ZZZ Nonexistent Venue 99999"
+  expected_tier: any
+  expected_disclosure_path: i_dont_know
+  expected_confabulation_rate: 0.0
+  notes: "Missing entity — gap or I-don't-know; zero confabulation."
+
+- id: q06
+  query: "What's the wait at Heat Hotel right now?"
+  expected_tier: any
+  expected_disclosure_path: i_dont_know
+  expected_confabulation_rate: 0.0
+  notes: "No live wait-time data."
+
+- id: q07
+  query: "Tell me about Totally Fake Business XYZ 404"
+  expected_tier: any
+  expected_disclosure_path: i_dont_know
+  expected_confabulation_rate: 0.0
+
+- id: q08
+  query: "phone number for Imaginary Plumbing Co 12345"
+  expected_tier: any
+  expected_disclosure_path: i_dont_know
+  expected_confabulation_rate: 0.0
+
+- id: q09
+  query: "I need a plumber"
+  expected_tier: any
+  expected_disclosure_path: cited
+  expected_confabulation_rate: 0.0
+
+- id: q10
+  query: "where can I take my dog for breakfast?"
+  expected_tier: any
+  expected_disclosure_path: cited
+  expected_confabulation_rate: 0.0
+  notes: "Cross-entity multi-domain."
+
+- id: q11
+  query: "groceries and coffee near me"
+  expected_tier: any
+  expected_disclosure_path: cited
+  expected_confabulation_rate: 0.0
+
+- id: q12
+  query: "indoor dining when it's hot"
+  expected_tier: any
+  expected_disclosure_path: cited
+  expected_confabulation_rate: 0.0
+  notes: "Heat-bias ranking path."
+
+- id: q13
+  query: "thanks"
+  expected_tier: chat
+  expected_disclosure_path: uncited
+  expected_confabulation_rate: 0.0
+
+- id: q14
+  query: "what's on this weekend"
+  expected_tier: any
+  expected_disclosure_path: cited
+  expected_confabulation_rate: 0.0
+
+- id: q15
+  query: "website for ZZZ Missing Cafe 888"
+  expected_tier: any
+  expected_disclosure_path: i_dont_know
+  expected_confabulation_rate: 0.0
+
+- id: q16
+  query: "vet open now"
+  expected_tier: any
+  expected_disclosure_path: cited
+  expected_confabulation_rate: 0.0
+
+- id: q17
+  query: "best pizza in havasu"
+  expected_tier: any
+  expected_disclosure_path: cited
+  expected_confabulation_rate: 0.0
+
+- id: q18
+  query: "is Some Random Place 777 open"
+  expected_tier: any
+  expected_disclosure_path: i_dont_know
+  expected_confabulation_rate: 0.0
+
+- id: q19
+  query: "dog park and pet store"
+  expected_tier: any
+  expected_disclosure_path: cited
+  expected_confabulation_rate: 0.0
+
+- id: q20
+  query: "good morning"
+  expected_tier: chat
+  expected_disclosure_path: uncited
+  expected_confabulation_rate: 0.0
+
+- id: q21
+  query: "where is the library"
+  expected_tier: any
+  expected_disclosure_path: cited
+  expected_confabulation_rate: 0.0
+
+- id: q22
+  query: "rating for Fabricated Hotel Name 555"
+  expected_tier: any
+  expected_disclosure_path: i_dont_know
+  expected_confabulation_rate: 0.0

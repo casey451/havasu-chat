@@ -64,3 +64,36 @@ def _init_test_database() -> None:
             os.unlink(path)
         except OSError:
             pass
+
+
+def _cleanup_phase7_seed_sources() -> None:
+    from sqlalchemy import delete, select
+
+    from app.db.database import SessionLocal
+    from app.db.models import Entity, EntityCategory, Provider
+
+    sources = (
+        "test-p7",
+        "test-p7-boat",
+        "test-p7-heat",
+        "test",
+        "test-p7-sb",
+        "test-tier2-pivot",
+    )
+    with SessionLocal() as db:
+        for src in sources:
+            for prov in db.scalars(select(Provider).where(Provider.source == src)).all():
+                db.delete(prov)
+            for ent in db.scalars(select(Entity).where(Entity.source == src)).all():
+                db.execute(
+                    delete(EntityCategory).where(EntityCategory.entity_id == ent.id)
+                )
+                db.delete(ent)
+        db.commit()
+
+
+@pytest.fixture(autouse=True)
+def _phase7_test_row_cleanup() -> None:
+    """Remove Phase 7 seed rows after every test so tier2 catalog tests stay isolated."""
+    yield
+    _cleanup_phase7_seed_sources()

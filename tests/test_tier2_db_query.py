@@ -839,7 +839,13 @@ def test_synonym_query_finds_provider_with_equivalent_primary_type(
     )
 
 
-def test_synonym_map_does_not_widen_non_group_categories(db: Session) -> None:
+def test_synonym_map_does_not_widen_non_group_categories(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Legacy provider SQL is the authority for synonym-map bleed checks.
+    monkeypatch.setattr(
+        "app.chat.tier2_db_query.prefers_entity_catalog", lambda _f, _c: False
+    )
     """Providers tagged 'cafe' must not show up for a query like 'plumber'.
     Sanity check that the synonym expansion is bounded to its groups."""
     suf = _suffix()

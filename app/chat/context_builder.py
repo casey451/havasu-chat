@@ -12,8 +12,9 @@ from datetime import date
 from typing import Sequence
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
+from app.chat.chat_request_context import ChatRequestContext
 from app.chat.confidence_tier import (
     classify_confidence,
     hedge_phrase,
@@ -21,7 +22,8 @@ from app.chat.confidence_tier import (
 from app.chat.intent_classifier import IntentResult
 from app.chat.tier2_formatter import is_confidence_tier_enabled
 from app.core.timezone import now_lake_havasu
-from app.db.models import Event, Program, Provider
+from app.db.entity_types import ENTITY_TYPE_COMMERCIAL
+from app.db.models import Entity, EntityCategory, Event, Program, Provider
 
 MAX_PROVIDERS = 10
 MAX_CONTEXT_WORDS = 1500
@@ -137,9 +139,85 @@ def _events_future_for(db: Session, provider_id: str, today: date) -> Sequence[E
     ).all()
 
 
-def build_context_for_tier3(query: str, intent_result: IntentResult, db: Session) -> str:
+def _entity_profile_url(ent: Entity, provider: Provider | None) -> str:
+    if ent.entity_type == ENTITY_TYPE_COMMERCIAL and provider and provider.slug:
+        return f"/provider/{provider.slug}"
+    if ent.slug:
+        return f"/provider/{ent.slug}"
+    return "/home"
+
+
+def _fetch_entity_rows(db: Session, entity_name: str | None, *, limit: int = 10) -> list[Entity]:
+    if not entity_name or not str(entity_name).strip():
+        return []
+    q = (
+        select(Entity)
+        .where(Entity.is_active.is_(True))
+        .options(
+            joinedload(Entity.location),
+            selectinload(Entity.categories).joinedload(EntityCategory.category),
+        )
+        .limit(limit * 3)
+    )
+    rows = list(db.scalars(q).unique().all())
+    needle = entity_name.strip().lower()
+    rows = [e for e in rows if (e.name or "").lower() == needle]
+    return rows[:limit]
+
+
+def build_context_for_tier3(
+    query: str,
+    intent_result: IntentResult,
+    db: Session,
+    *,
+    chat_ctx: ChatRequestContext | None = None,
+) -> str:
     """Return a plain-text context block for the Tier 3 system prompt (never empty)."""
+    _ = chat_ctx
     today = date.today()
+    entities = _fetch_entity_rows(db, intent_result.entity)
+    if entities:
+        flag_on = is_confidence_tier_enabled()
+        now = now_lake_havasu() if flag_on else None
+        prov_by_ent = {
+            p.entity_id: p
+            for p in db.scalars(
+                select(Provider).where(
+                    Provider.entity_id.in_([e.id for e in entities]),
+                    Provider.is_active.is_(True),
+                    Provider.draft.is_(False),
+                )
+            ).all()
+        }
+        parts: list[str] = [
+            "Context — Lake Havasu ENTITY catalog (cite profile_url when recommending):"
+        ]
+        for ent in entities:
+            prov = prov_by_ent.get(ent.id)
+            suffix = _hedge_suffix_for(prov or ent, now=now) if flag_on and prov else ""
+            url = _entity_profile_url(ent, prov)
+            lines = [f"Entity: {ent.name}{suffix}", f"  profile_url: {url}"]
+            if ent.description:
+                lines.append(f"  description: {_truncate_hours(ent.description)}")
+            if ent.heat_exposure:
+                lines.append(f"  heat_exposure: {ent.heat_exposure}")
+            if ent.boat_access:
+                lines.append("  boat_access: yes")
+            loc = ent.location
+            if loc and loc.address:
+                lines.append(f"  address: {loc.address}")
+            if prov:
+                if prov.phone:
+                    lines.append(f"  phone: {prov.phone}")
+                if prov.website:
+                    lines.append(f"  website: {prov.website}")
+                hrs = _truncate_hours(prov.hours)
+                if hrs:
+                    lines.append(f"  hours: {hrs}")
+            parts.append("\n".join(lines))
+        body = "\n\n".join(parts)
+        return _trim_to_word_budget(body, MAX_CONTEXT_WORDS)
+
     providers = _fetch_tier3_records(intent_result, db)
     if not providers:
         return (

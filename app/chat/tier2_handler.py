@@ -14,6 +14,7 @@ from app.chat import (
     tier2_formatter,
     tier2_parser,
 )
+from app.chat.chat_request_context import ChatRequestContext
 from app.chat.tier2_schema import Tier2Filters
 from app.core.timezone import now_lake_havasu
 
@@ -131,6 +132,7 @@ def try_tier2_with_usage(
     query: str,
     *,
     component_meta: Optional[dict[str, Any]] = None,
+    chat_ctx: ChatRequestContext | None = None,
 ) -> tuple[Optional[str], Optional[int], Optional[int], Optional[int]]:
     """Return (response_text, llm_tokens_used, llm_input_tokens, llm_output_tokens).
 
@@ -155,7 +157,7 @@ def try_tier2_with_usage(
 
     shortcut_filters = tier2_business_shortcut.try_business_listing_shortcut(q)
     if shortcut_filters is not None:
-        rows = tier2_db_query.query(shortcut_filters)
+        rows = tier2_db_query.query(shortcut_filters, ctx=chat_ctx)
         text = tier2_business_shortcut.render_business_listing(
             rows, shortcut_filters.category or ""
         )
@@ -178,7 +180,7 @@ def try_tier2_with_usage(
         return None, None, None, None
 
     filters = _normalize_tier2_filters_from_query(q, filters)
-    rows = tier2_db_query.query(filters)
+    rows = tier2_db_query.query(filters, ctx=chat_ctx)
     if len(rows) == 0:
         logging.info("tier2_handler: fallback: no matches")
         return None, None, None, None
@@ -224,6 +226,7 @@ def try_tier2_with_filters_with_usage(
     filters: Tier2Filters,
     *,
     component_meta: Optional[dict[str, Any]] = None,
+    chat_ctx: ChatRequestContext | None = None,
 ) -> tuple[Optional[str], Optional[int], Optional[int], Optional[int]]:
     """Run Tier 2 using precomputed filters (skip parser).
 
@@ -244,7 +247,7 @@ def try_tier2_with_filters_with_usage(
         return None, None, None, None
 
     filters = _normalize_tier2_filters_from_query(q, filters)
-    rows = tier2_db_query.query(filters)
+    rows = tier2_db_query.query(filters, ctx=chat_ctx)
     if len(rows) == 0:
         logging.info("tier2_handler: fallback: no matches")
         return None, None, None, None

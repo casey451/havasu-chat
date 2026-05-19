@@ -1042,6 +1042,9 @@ class User(Base):
         DateTime, default=lambda: datetime.now(UTC), nullable=False
     )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_active_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     preferred_mode: Mapped[str] = mapped_column(
         String(16), nullable=False, default="default", server_default="default"
     )

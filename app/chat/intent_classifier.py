@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from app.chat.entity_intent import detect_multi_domain_category_slugs
 from app.chat.entity_matcher import CANONICAL_EXTRAS, match_entity_with_rows
 from app.chat.normalizer import normalize
 from app.chat.tier1_templates import INTENT_PATTERNS
@@ -278,6 +279,7 @@ class IntentResult:
     entity: str | None
     raw_query: str
     normalized_query: str
+    multi_domain_category_slugs: tuple[str, ...] | None = None
 
 
 def classify(query: str) -> IntentResult:
@@ -310,6 +312,8 @@ def classify(query: str) -> IntentResult:
     if mode == "ask" and sub == "OPEN_ENDED" and conf < 0.4:
         conf = 0.42
 
+    multi = detect_multi_domain_category_slugs(raw)
+
     return IntentResult(
         mode=mode,
         sub_intent=sub,
@@ -317,4 +321,5 @@ def classify(query: str) -> IntentResult:
         entity=entity,
         raw_query=raw,
         normalized_query=nq,
+        multi_domain_category_slugs=multi,
     )
