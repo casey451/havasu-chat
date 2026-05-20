@@ -21,6 +21,14 @@
 > Copy-Item data\events.db "data\events.db.bak-2026-05-20-pre-action-items"
 > ```
 > Roll back via `Copy-Item "data\events.db.bak-2026-05-20-pre-action-items" data\events.db` if anything goes sideways.
+>
+> **Schema corrections (2026-05-19 post-execution; superseded by `outputs/lane_l_operator_action_items_chip_away_package.md`):** Verified against `app/db/models.py`:
+> - **`draft` lives on `providers`, NOT `entities`** (`Provider.draft` at models.py:50; `Entity` has no `draft` column). The SQL blocks below have been corrected: `UPDATE entities SET draft = X` → `UPDATE providers SET draft = X WHERE entity_id = <ID>`; SELECTs reference `p.draft` (joined via `providers p ON p.entity_id = e.id`).
+> - **`crowd_notes` on entities is JSON** (`Mapped[dict | list | None]` at models.py:673), not a string. String-concat patterns are invalid; V1.5 locks JSON-correct convention. This walkthrough's §4 Option A `crowd_notes` annotation is REMOVED below.
+> - **`is_active` lives on BOTH** `entities` (models.py:658) and `providers` (models.py:52). The walkthrough's `UPDATE entities SET is_active = 0` is technically valid but only hides from entity-side queries; updating both tables ensures full hide. See the Lane L package for the dual-table pattern.
+> - **`name` lives on BOTH** tables. Renames (e.g. ASU Swanson Fields casing fix) need parallel UPDATE on both to keep the pair consistent.
+>
+> Prefer the schema-corrected SQL in `outputs/lane_l_operator_action_items_chip_away_package.md` over this walkthrough's SQL for new chip-aways.
 
 ---
 
@@ -109,7 +117,7 @@ For `hava_api_catalog.docx` — leave it alone unless you have a strong opinion.
 -- Run in your SQLite client of choice (DB Browser for SQLite, sqlite3 CLI, etc.)
 -- Database: data/events.db
 SELECT
-    e.id, e.name, e.is_active, e.draft,
+    e.id, e.name, e.is_active, p.draft,
     e.category_id, c.slug AS category_slug,
     p.primary_type, p.google_place_id
 FROM entities e
@@ -160,7 +168,7 @@ WHERE entity_id = <ENTITY_ID>;
 
 ```sql
 SELECT
-    e.id, e.name, e.description, e.is_active, e.draft,
+    e.id, e.name, e.description, e.is_active, p.draft,
     e.category_id, c.slug,
     p.primary_type, p.address, p.google_place_id
 FROM entities e
@@ -176,22 +184,26 @@ WHERE e.name LIKE '%Butterfly Garden%';
 3. **Decision tree:**
    - Public-access garden / conservatory → keep in cat-7; no action needed
    - Community / volunteer garden → keep in cat-7; consider whether it deserves a `crowd_notes` snippet
-   - Private garden / nursery sales → flip to DRAFT (`UPDATE entities SET draft = 1 WHERE id = <ENTITY_ID>`)
+   - Private garden / nursery sales → flip to DRAFT (`UPDATE providers SET draft = 1 WHERE entity_id = <ENTITY_ID>`)
    - Doesn't exist / closed → soft-delete (`UPDATE entities SET is_active = 0 WHERE id = <ENTITY_ID>`)
 
 **Action — based on decision** (replace `<ENTITY_ID>`):
 
 ```sql
 -- Option A: keep + add a crowd_notes snippet
-UPDATE entities
-SET crowd_notes = '<your-30-to-60-word-description>'
-WHERE id = <ENTITY_ID>;
+-- DEFERRED: crowd_notes is JSON (Mapped[dict | list | None] per models.py:673),
+-- not a string. String-assignment patterns won't round-trip cleanly. V1.5
+-- locks a JSON-correct convention (e.g. {"notes":[{"source":"operator", ...}]}).
+-- For now, skip the annotation and just keep the entity in cat-7.
 
 -- Option B: flip to DRAFT (operator-curated re-review later)
-UPDATE entities SET draft = 1 WHERE id = <ENTITY_ID>;
+UPDATE providers SET draft = 1 WHERE entity_id = <ENTITY_ID>;
 
 -- Option C: soft-delete (entity stays in DB but excluded from queries)
-UPDATE entities SET is_active = 0 WHERE id = <ENTITY_ID>;
+UPDATE entities  SET is_active = 0 WHERE id = <ENTITY_ID>;
+UPDATE providers SET is_active = 0 WHERE entity_id = <ENTITY_ID>;
+-- Both tables; is_active lives on each. Single-table is_active=0 is also
+-- a valid partial hide if you prefer minimal change scope.
 ```
 
 **Skip / defer if:** the entity isn't found.
@@ -206,7 +218,7 @@ UPDATE entities SET is_active = 0 WHERE id = <ENTITY_ID>;
 
 ```sql
 SELECT
-    e.id, e.name, e.description, e.is_active, e.draft,
+    e.id, e.name, e.description, e.is_active, p.draft,
     e.category_id, c.slug,
     p.primary_type, p.address, p.google_place_id, p.website_url
 FROM entities e
@@ -222,14 +234,14 @@ WHERE e.name LIKE '%Anderson%';
 2. **Check the address:** if it's in an industrial zone vs. retail strip, that's a B2B signal.
 3. **Check Google reviews:** if there are consumer reviews mentioning walk-in / retail, that's a consumer-retail signal — un-DRAFT.
 4. **Decision tree:**
-   - Consumer-retail → un-DRAFT (`UPDATE entities SET draft = 0 WHERE id = <ENTITY_ID>`)
+   - Consumer-retail → un-DRAFT (`UPDATE providers SET draft = 0 WHERE entity_id = <ENTITY_ID>`)
    - B2B wholesale only → keep DRAFT, consider soft-delete (`UPDATE entities SET is_active = 0 WHERE id = <ENTITY_ID>`)
    - Mixed B2B/retail → keep DRAFT for now; revisit V1.5
 
 **Action (un-DRAFT path):**
 
 ```sql
-UPDATE entities SET draft = 0 WHERE id = <ENTITY_ID>;
+UPDATE providers SET draft = 0 WHERE entity_id = <ENTITY_ID>;
 ```
 
 **Action (soft-delete B2B-only path):**
@@ -250,7 +262,7 @@ UPDATE entities SET is_active = 0 WHERE id = <ENTITY_ID>;
 
 ```sql
 SELECT
-    e.id, e.name, e.description, e.is_active, e.draft,
+    e.id, e.name, e.description, e.is_active, p.draft,
     e.category_id, c.slug,
     p.primary_type, p.address, p.google_place_id, p.website_url,
     p.google_review_count
@@ -271,7 +283,7 @@ WHERE e.name LIKE '%Simply Savage%';
 **Action — un-DRAFT in cat-2:**
 
 ```sql
-UPDATE entities SET draft = 0 WHERE id = <ENTITY_ID>;
+UPDATE providers SET draft = 0 WHERE entity_id = <ENTITY_ID>;
 ```
 
 **Action — flip to cat-8 + un-DRAFT:**
@@ -309,7 +321,7 @@ UPDATE entities SET is_active = 0 WHERE id = <ENTITY_ID>;
 
 ```sql
 SELECT
-    e.id, e.name, e.is_active, e.draft,
+    e.id, e.name, e.is_active, p.draft,
     p.primary_type, p.address, p.google_place_id, p.website_url,
     p.google_review_count
 FROM entities e
@@ -338,7 +350,7 @@ ORDER BY e.name;
 
 ```sql
 -- Un-DRAFT (publish; keep cat-11)
-UPDATE entities SET draft = 0 WHERE id = <ENTITY_ID>;
+UPDATE providers SET draft = 0 WHERE entity_id = <ENTITY_ID>;
 
 -- Soft-delete (defunct or unverifiable)
 UPDATE entities SET is_active = 0 WHERE id = <ENTITY_ID>;

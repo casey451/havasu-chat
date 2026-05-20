@@ -7,7 +7,8 @@
 > **Companion docs:**
 > - `docs/maintainability/master_build_plan.md` §4 Phase 8 (scope canon), §7 (risk register #10 heat_exposure dep), §8 OQ #13 (SMS V1.5 deferral)
 > - `docs/maintainability/conditions_panel_and_alerts_design.md` (Opus #1 + #8 design memo — this Phase 8 design is the implementation-time refinement of that memo against the actual Phase 3.1 schema + Phase 4.1/4.4 background-jobs infra that have since shipped)
-> - `outputs/phase_8_operator_prereq_checklist.md` (operator-side prereqs — AirNow key, USGS gauge 09422500, LHC feed format)
+> - `outputs/phase_8_operator_prereq_checklist.md` (operator-side prereqs — AirNow key, USGS gauge 09427500)
+> - `outputs/phase_8a_prereq_verification_report.md` (**AMENDMENT AUTHORITY 2026-05-19** — narrowed USGS to single site `09427500` params `00065`+`00054`; dropped Nixle; reframed `lake_hazard` triggers)
 > - `outputs/cursor_dispatch_prompt_phase_6_5.md` (the conditions-strip placeholder ships here)
 > - `outputs/phase7_handoff_note.md` (chat-conditions-awareness uses `STUB_CURRENT_TEMPERATURE_F` swap surface)
 > - `docs/operations/railway_scheduled_jobs_runbook.md` (operator-side spin-up of new scheduled services)
@@ -73,12 +74,12 @@ This shape is sufficient for V1, but Phase 8 needs **two additive column extensi
 |---|---|---|---|
 | `airnow_86403` | 30 min | 1800 | conditions strip (AQI tile) + `aqi_alert` evaluator |
 | `nws_current` | 30 min | 1800 | conditions strip (temp + wind + heat-index tiles) + chat `STUB_CURRENT_TEMPERATURE_F` swap |
-| `nws_alerts_active` | 15 min | 900 | conditions strip (advisory tile, only renders when active) + `heat_advisory` evaluator |
+| `nws_alerts_lhc_zone` | 15 min | 900 | conditions strip (advisory tile, only renders when active) + `heat_advisory` + `lake_hazard` evaluators (AZZ002-zone-scoped per `phase_8a_prereq_verification_report.md §11`; marine surface dropped) |
 | `nws_forecast_daily` | daily 04:00 local | 86400 | not displayed in V1; reserved for V1.5 forecast-tile expansion (cheap to populate now since we're already polling NWS) |
 | `nws_sunset` | daily 03:00 local | 86400 | conditions strip (sunset tile) |
-| `usgs_09422500` | 60 min | 3600 | conditions strip (lake-level + water-temp tiles, if gauge reports `00010`) + `lake_hazard` cross-ref |
-| `lhc_emergency` | 15 min OR daily-scrape | varies | conditions strip (only renders on active item) + `lake_hazard` evaluator. Cadence + TTL depends on prereq §4 outcome — see §3.2.4 |
-| `lake_temp_operator` | manual via admin form | 604800 (7d) | conditions strip (lake-temp tile) — Layer 5 fallback per design memo §2.4 if USGS gauge `00010` is empty for site 09422500 |
+| `usgs_09427500` | 60 min | 3600 | conditions strip (lake gauge height ft + reservoir storage ac-ft tiles) + `lake_hazard` gauge-drop evaluator |
+| ~~`lhc_emergency`~~ | — | — | **DROPPED FROM V1** — Nixle agency 3726 RSS silent since 2021-09-01 per `phase_8a_prereq_verification_report.md` §4 |
+| ~~`lake_temp_operator`~~ | — | — | **DEFERRED** — site 09427500 does not report `00010`; water-temp is V1.5 carry (alternate source TBD) |
 
 The single-row-per-source `(source PK)` model means an UPSERT semantics; SQLAlchemy `merge()` plus an explicit `session.commit()` is the cleanest implementation (use `dialect.dialect_specific` `INSERT ... ON CONFLICT` only if profiling shows merge is slow, which it won't at <10 sources).
 
@@ -128,8 +129,8 @@ app/conditions/
   fetcher.py         # orchestrator: fetch_all_sources() called by scripts/fetch_external_conditions.py
   airnow.py          # AirNow API client (HTTP + response parser)
   nws.py             # NWS API client (gridpoint resolution + current + alerts + sunset)
-  usgs.py            # USGS Water Services client
-  lhc_emergency.py   # LHC city emergency feed client (only if prereq #3 confirms a feed exists)
+  usgs.py            # USGS OGC client — site 09427500 only; params 00065 + 00054
+  # NO lhc_emergency.py / nixle.py in V1 (Nixle dropped per phase_8a_prereq_verification_report.md)
 
 scripts/
   fetch_external_conditions.py  # Railway scheduled-job entry point
@@ -147,7 +148,7 @@ The `app/conditions/` location matches the convention set by `app/auth/` (Phase 
 | NWS alerts | every 15 min (`*/15 * * * *`, offset +2) | 900s | 10s | 1.0 | 3 retries, 1→2→4s |
 | NWS forecast (daily) | once daily at 04:00 local (Phoenix) | 86400s | 15s | 1.0 | 3 retries |
 | USGS | every 60 min (`30 * * * *`) | 3600s | 10s | 0.5 | 2 retries, 1→3s (USGS is slow; longer backoff) |
-| LHC emergency | every 15 min if structured feed; else daily scrape | 900s / 86400s | 10s | 0.2 | 2 retries, 1→3s |
+| ~~LHC emergency / Nixle~~ | — | — | — | — | **Dropped from V1** |
 
 **Why different cadences per source rather than uniform 15-min:** the question's prompt asks specifically about this. Three reasons:
 
@@ -170,12 +171,12 @@ The wide-service alternative from design memo §4.1 (one script tick every 15 mi
 # scripts/fetch_external_conditions.py
 # Usage:
 #   python -m scripts.fetch_external_conditions --source airnow_86403
-#   python -m scripts.fetch_external_conditions --source nws_alerts_active
+#   python -m scripts.fetch_external_conditions --source nws_alerts_lhc_zone
 #   python -m scripts.fetch_external_conditions --all   # for local dev / smoke
 
 # Railway config (one service per source):
 #   - Service "havasu-conditions-airnow": start = python -m scripts.fetch_external_conditions --source airnow_86403; cron = */30 * * * *
-#   - Service "havasu-conditions-nws-alerts": start = python -m scripts.fetch_external_conditions --source nws_alerts_active; cron = */15 * * * *
+#   - Service "havasu-conditions-nws-alerts": start = python -m scripts.fetch_external_conditions --source nws_alerts_lhc_zone; cron = */15 * * * *
 #   - ...
 ```
 
@@ -285,7 +286,8 @@ The `components/conditions_strip.html` partial is new in Phase 8. The home.py ro
 # app/conditions/view_model.py
 @dataclass(frozen=True)
 class ConditionsTile:
-    kind: str          # 'temp' | 'aqi' | 'wind' | 'sunset' | 'advisory' | 'lake_level' | 'lake_temp'
+    kind: str          # 'temp' | 'aqi' | 'wind' | 'sunset' | 'advisory' | 'lake_level' | 'lake_storage'
+    # 'lake_temp' deferred V1.5 (USGS 09427500 has no 00010)
     primary_value: str # "108°F", "Moderate", "12 mph SW", "7:42 PM"
     secondary_value: str | None  # heat index, dominant pollutant, etc.
     severity: str      # 'good' | 'moderate' | 'warning' | 'severe' | 'neutral'
@@ -309,7 +311,7 @@ The view-model is constructed once per request in the home route. Empty / all-st
 |---|---|---|---|
 | Mobile <768px | Vertical stack, full width OR 2-col grid | 4-5 tiles max (drop sunset, drop wind detail) | Primary value + severity color + staleness in microcopy |
 | Tablet 768-1024px | Horizontal row, 4-col | 4-6 tiles | Primary + secondary value + staleness |
-| Desktop >=1024px | Horizontal row, 6-8 tiles | Up to 8 (temp, AQI, wind, lake-level, lake-temp, sunset, advisory, lhc-emergency) | Full tile content + hover popover with detail_text |
+| Desktop >=1024px | Horizontal row, 6-7 tiles | Up to 7 (temp, AQI, wind, lake-level, lake-storage, sunset, advisory) | Full tile content + hover popover with detail_text |
 
 CSS lives at `app/static/styles/components/conditions_strip.css` (the file Phase 6.5 already creates). Phase 8 amends rather than replaces — Phase 6.5 ships the placeholder styles; Phase 8 adds severity color classes (`.cond-tile--good`, `.cond-tile--severe`, etc.) + the stale-state muted variants.
 
@@ -328,7 +330,7 @@ def staleness_label(fetched_at: datetime, now: datetime) -> tuple[str, bool]:
     return f"Updated {delta.days}d ago", True
 ```
 
-For `lake_temp_operator` (Layer 5 fallback), label format differs: `"Updated by operator on Jun 15"`. The view-model branches on source kind to pick the right format.
+Lake-temp operator fallback deferred to V1.5 (no `00010` at site 09427500). Storage tile label: e.g. `"589k ac-ft"` with optional capacity context in V1.5.
 
 ### §4.6 `/api/conditions` endpoint
 
@@ -374,7 +376,7 @@ Phase 8 swap pattern (recommended):
 
 ```
 1. Read cache rows for all relevant sources
-   (airnow_86403, nws_alerts_active, usgs_09422500, lhc_emergency)
+   (airnow_86403, nws_alerts_lhc_zone, usgs_09427500)
 2. For each alert_type in ('heat_advisory', 'aqi_alert', 'lake_hazard', 'event_traffic'):
      a. Evaluate threshold (§6) → fired: bool, trigger_data: dict
      b. If not fired, skip
@@ -436,16 +438,16 @@ Within the dispatcher script, `httpx.Client.post()` to Resend is just a synchron
 
 | `alert_type` | Trigger predicate | Source row read | Operator-tunable? |
 |---|---|---|---|
-| `heat_advisory` | `nws_alerts_active` row contains item where `event` matches `"Heat Advisory" OR "Excessive Heat Warning" OR "Heat Watch"` | `nws_alerts_active` | Threshold not tunable (NWS-issued is the signal). Bare heat-index threshold (e.g. >=110°F) explicitly excluded per design memo §10 Q3 — reduces false positives. |
+| `heat_advisory` | `nws_alerts_lhc_zone` row contains item where `event` matches `"Heat Advisory" OR "Excessive Heat Warning" OR "Heat Watch"` | `nws_alerts_lhc_zone` | Threshold not tunable (NWS-issued is the signal). Bare heat-index threshold (e.g. >=110°F) explicitly excluded per design memo §10 Q3 — reduces false positives. |
 | `aqi_alert` | `airnow_86403.data["category_name"]` NOT IN `{"Good", "Moderate"}` (i.e. "Unhealthy for Sensitive Groups" or worse) | `airnow_86403` | Threshold operator-tunable via `AQI_ALERT_CATEGORY_THRESHOLD` env var (default: `unhealthy_for_sensitive_groups`). |
-| `lake_hazard` | `lhc_emergency` row payload matches keywords (`closure`, `hazard`, `advisory`, `evacuation`) AND has been operator-approved | `lhc_emergency` | Keywords + the operator-approval requirement are both operator-tunable. V1 requires operator approval (in-the-loop) per design memo §2.5 to avoid false-positive risk. |
+| `lake_hazard` | `nws_alerts_lhc_zone` matches inland-LHC keyword set `LAKE_HAZARD_NWS_KEYWORDS` (flash flood / flood warning / flood advisory / lake wind / high wind / wind advisory / blowing dust / dust storm / severe thunderstorm) **OR** `usgs_09427500` gauge height dropped > `LAKE_HAZARD_GAUGE_DROP_FT` (default 2.0) in 24h | `nws_alerts_lhc_zone` + `usgs_09427500` | **Amended 2026-05-19 (§6 + §11 per verification report):** Nixle dropped (silent since 2021); NWS marine surface dropped (doesn't cover inland LHC); collapsed to single AZZ002-zone-scoped land surface + gauge-drop secondary. USGS drop threshold operator-tunable via env; keyword set tunable post-launch if false-pos pattern surfaces. |
 | `event_traffic` | TBD — Events table doesn't exist in usable form until Phase 9 | (deferred to V1.5 / Phase 9.5) | — |
 
 ### §6.2 Specific recommended values
 
 **Heat advisory threshold:** Master plan §4 Phase 8 says "heat advisory (NWS Excessive Heat Warning OR forecast > X°F — pick a threshold; mention operator-tunable)". My recommendation:
 
-- **Primary:** NWS-issued `Heat Advisory` OR `Excessive Heat Warning` OR `Heat Watch` from `nws_alerts_active`. This is what design memo §10 Q3 recommends; NWS authority signal.
+- **Primary:** NWS-issued `Heat Advisory` OR `Excessive Heat Warning` OR `Heat Watch` from `nws_alerts_lhc_zone`. This is what design memo §10 Q3 recommends; NWS authority signal.
 - **NOT a bare heat-index threshold.** Design memo §10 Q3 explicitly rejects this for V1 to avoid contradicting NWS (firing alerts they don't endorse). Confirmed recommendation.
 - **Operator override env var:** `HEAT_ADVISORY_INDEX_FLOOR_F` (default unset). If set to e.g. `112`, the evaluator ALSO fires when `nws_current.heat_index_f >= 112` regardless of NWS alert status. Off by default; operator opts in if NWS proves too conservative for Havasu.
 
@@ -455,10 +457,10 @@ Within the dispatcher script, `httpx.Client.post()` to Resend is just a synchron
 - **Operator-tunable via env var:** `AQI_ALERT_NUMERIC_FLOOR` (default 101). If operator wants tighter threshold (e.g. only fire at 150+ "Unhealthy"), set to 151.
 - **Suppression on stale data:** if `airnow_86403.is_stale = True`, skip evaluation entirely (don't fire alert based on hours-old data).
 
-**Lake hazard threshold:** Tightly bounded by prereq #3 outcome:
-- If LHC has structured feed AND prereq #3 confirms feed format: keyword match + operator-approval flag on the cache row before alert fires.
-- If LHC has CodeRED-only / no feed: `lake_hazard` alert deferred to V1.5. Alert subscription UI still shows the toggle but with "Coming soon — currently routed through city CodeRED separately" copy.
-- USGS-derived `lake_hazard` (e.g. lake level drop >X ft in 24h) deferred to V1.5; USGS data is informational in V1.
+**Lake hazard threshold (amended 2026-05-19 per `phase_8a_prereq_verification_report.md`):**
+- **Primary:** NWS AZZ002-zone alert keyword match against `nws_alerts_lhc_zone` cache row. Inland-LHC keyword set targets the actual products NWS issues for AZZ002 ("Lake Havasu and Fort Mohave", served by KVEF Las Vegas): Lake Wind Advisory, High Wind Warning, Wind Advisory, Flash Flood Warning, Flood Warning, Flood Advisory, Blowing Dust / Dust Storm Advisory, Severe Thunderstorm. (Marine surface dropped: NWS marine zones cover Coastal + Great Lakes only; inland reservoirs are not in scope. Verified at weather.gov/marine/usamz.)
+- **Secondary:** USGS gauge-height drop at site `09427500` — fire when `00065` drops more than `LAKE_HAZARD_GAUGE_DROP_FT` (default 2.0 ft) over 24h. Reservoir drawdowns during normal ops may false-positive; operator tunes threshold.
+- **Dropped:** Nixle RSS ingest + `lhc_emergency` cache row. NWS marine forecast + `nws_marine_alerts` cache row also dropped (§11 per verification report). V1.5 carry to research Mohave County SO / ein.az.gov / lhcaz.gov as alternate alert surfaces.
 
 **Event traffic threshold:** Per the question — "TBD; may be V1.5". My recommendation: **defer to V1.5 / Phase 9.5.** Reasoning:
 - Events as ENTITY type aren't fully wired until Phase 9 (master plan §4 Phase 9).
@@ -484,8 +486,26 @@ HEAT_ADVISORY_INDEX_FLOOR_F: float | None = (
 
 AQI_ALERT_NUMERIC_FLOOR: int = int(os.environ.get("AQI_ALERT_NUMERIC_FLOOR", "101"))
 
-LAKE_HAZARD_KEYWORDS = ("closure", "hazard", "advisory", "evacuation")
-LAKE_HAZARD_REQUIRES_OPERATOR_APPROVAL = True  # V1 in-the-loop; constant, not env
+LAKE_HAZARD_NWS_KEYWORDS = (
+    "flash flood",
+    "flood warning",
+    "flood advisory",
+    "lake wind",
+    "high wind",
+    "wind advisory",
+    "blowing dust",
+    "dust storm",
+    "severe thunderstorm",
+)
+# Inland-LHC keyword set per phase_8a_prereq_verification_report.md §11.2.
+# Dropped marine-only terms ("small craft", "capsize"), non-NWS-vocabulary
+# terms ("drowning", "rescue"), and over-broad terms ("advisory" without a
+# specific product prefix). Heat-advisory keywords live in their own constant
+# HEAT_ADVISORY_NWS_EVENT_PATTERNS above.
+LAKE_HAZARD_GAUGE_DROP_FT: float = float(os.environ.get("LAKE_HAZARD_GAUGE_DROP_FT", "2.0"))
+LHC_NWS_ZONE_ID = "AZZ002"  # Lake Havasu and Fort Mohave; KVEF Las Vegas. NWS land zone (marine zones don't cover inland LHC).
+USGS_LAKE_HAVASU_SITE = "09427500"
+USGS_PARAMETER_CODES = ("00065", "00054")
 
 ALERT_DEDUPE_WINDOW_HOURS = int(os.environ.get("ALERT_DEDUPE_WINDOW_HOURS", "6"))
 ```
@@ -809,7 +829,7 @@ Explicit non-scope list to prevent over-scoping:
 | Twitter/X API for LHC emergency feed | $100/mo minimum + dev account complexity per prereq checklist §4 | V1.5 if LHC has no other feed |
 | `event_traffic` alert fully wired | Events not as ENTITY type until Phase 9 | Phase 9.5 / V1.5 (toggle visible in UI but disabled) |
 | Conditions endpoint for V1.5 PWA | `/api/conditions` JSON endpoint exists; consumers TBD | V1.5 |
-| Lake-temp Layer 5 admin form | Optional per design memo §2.4; ship only if USGS site 09422500 doesn't report `00010` | Phase 8a stretch; otherwise omit |
+| Lake-temp Layer 5 admin form | Deferred V1.5 — site 09427500 confirmed no `00010` | Omit from Phase 8a |
 | Outbox-wrapped alert dispatch | V1 uses direct Resend + 15-min cron retry | V1.5 if >5% dispatch failure rate post-launch |
 
 ---
@@ -826,14 +846,14 @@ Top 5 risks for Phase 8, with mitigations:
 
 **Residual risk:** AirNow occasionally rotates approval requirements; key registration could fail for "intended use" wording mismatch. Cowork-side mitigation: pre-position acceptable wording in §2 of the prereq checklist + give operator a copy-paste-ready boilerplate.
 
-### Risk 2 — USGS gauge `09422500` retired or stops reporting `00010` (MEDIUM severity)
+### Risk 2 — USGS site `09427500` retired or parameter set changes (MEDIUM severity)
 
-**Threat:** USGS occasionally retires gauges with little notice. If site 09422500 (Colorado River below Parker Dam) is retired or stops reporting water-temp (`00010`), the lake-temp tile breaks AND the design memo §2.4 layer-2 path is gone.
+**Threat:** USGS occasionally retires gauges with little notice. Site `09427500` is verified live (2026-05-19) for `00065` + `00054` only — no `00010` water temp. Secondary site `09427520` is historic-only since 2006 (do not use).
 
 **Mitigation:**
-- Pre-flight smoke check in Phase 8 dispatch wrapper: `curl 'https://waterservices.usgs.gov/nwis/iv/?format=json&sites=09422500&parameterCd=00065,00010,00060&period=P1D'`. If empty, dispatch HALTs + operator picks alternate gauge.
-- Lake-temp Layer 5 fallback (operator-typed via admin form) is the documented backup per design memo §2.4. Ship the admin form alongside Phase 8 even if USGS works, so the fallback is ready.
-- Configure `USGS_LAKE_HAVASU_GAUGE_ID` as a Railway env var (default `"09422500"`), not a code constant. Operator switches to alternate gauge without code change.
+- Pre-flight smoke check: iv/OGC API for site `09427500` must return non-empty `00065` + `00054` series. If empty, dispatch HALTs.
+- `USGS_LAKE_HAVASU_SITE` env var (default `"09427500"`). Water-temp alternate source is V1.5 carry (e.g. Bill Williams River `09426630` — browser-verify pending).
+- Gauge-drop `lake_hazard` threshold tunable via `LAKE_HAZARD_GAUGE_DROP_FT` to limit false positives on reservoir operations.
 
 ### Risk 3 — Resend deliverability / spam classification on alert emails (MEDIUM severity)
 
@@ -902,7 +922,7 @@ Concrete pass/fail criteria for Phase 8 close-out:
 | # | Criterion | How to verify |
 |---|---|---|
 | A1 | Subscription UI at `/account/alerts` renders + saves | Authenticated user can browse, toggle, save; rows appear in `alert_subscriptions` |
-| A2 | Heat advisory alert fires when NWS issues one | Dry-run dispatcher against fixture-injected `nws_alerts_active` payload; verify rendered email body |
+| A2 | Heat advisory alert fires when NWS issues one | Dry-run dispatcher against fixture-injected `nws_alerts_lhc_zone` payload; verify rendered email body |
 | A3 | AQI alert fires above category threshold | Dry-run dispatcher against fixture-injected `airnow_86403` payload with category="Unhealthy"; verify dispatch |
 | A4 | Lake hazard alert fires only on operator-approved LHC payload | Dry-run + verify operator-approval flag check |
 | A5 | Per-alert dedup works — same alert_type not fired for same user within 6h | Run dispatcher twice in succession against fired condition; second run inserts `suppressed_dedupe` row + NO duplicate Resend POST |
@@ -938,7 +958,7 @@ Master plan §4 Phase 8 estimates "M (5-8 days dispatch). Plus operator work to 
 | Sub-lane | Effort | Notes |
 |---|---|---|
 | Alembic migration (3-4 column additions + CHECK extension) | 0.5 day | Minimal; pattern from Phase 3.1 + 4.1 |
-| `app/conditions/` package (5 modules: cache, sources, fetcher, airnow, nws, usgs, optional lhc_emergency) | 2 days | HTTP clients + SourceLimiter wiring + cache reader; mocked-HTTP tests |
+| `app/conditions/` package (5 modules: cache, sources, fetcher, airnow, nws, usgs) | 2 days | HTTP clients + SourceLimiter wiring + cache reader; mocked-HTTP tests; no Nixle/lhc_emergency in V1 |
 | `scripts/fetch_external_conditions.py` + Railway service config | 0.5 day | Pattern from `scripts/outbox_redrive.py` |
 | `/api/conditions` endpoint + view-model | 0.5 day | Simple route + dataclass→JSON |
 | Conditions strip template + CSS (replaces Phase 6.5 placeholder) | 1 day | Anchored edits to `home.html`, `components/conditions_strip.html` new, CSS amends |
@@ -991,7 +1011,7 @@ This is on top of the §6 master plan estimate of "2-3 hours" for prereqs. **Rec
 - Phase 4.1 + 4.4 shipped (background jobs scaffold + with_retry + Outbox infra). Confirmed at `app/core/background.py`.
 - Phase 6.5 shipped (home.html has `<!-- conditions-strip-anchor -->` + empty placeholder). PENDING — Phase 6.5 wrapper pre-positioned but not yet dispatched.
 - Phase 7 shipped (chat conditions awareness using `STUB_CURRENT_TEMPERATURE_F`). PENDING — Phase 7 currently in flight per the question's context.
-- Operator prereqs §2-4 of `phase_8_operator_prereq_checklist.md` complete (AirNow key + USGS gauge + LHC feed decision). PENDING — recommended to start today.
+- Operator prereqs: AirNow key (pending) + USGS `09427500` live-verified. Nixle dropped per `phase_8a_prereq_verification_report.md`.
 - Top-30 entities tagged with `heat_exposure`. PENDING — verify at dispatch time per §9.4 smoke check.
 
 ### §15.2 Phase 8 dispatch wrapper SHA-patch slots
@@ -1002,8 +1022,8 @@ The Phase 8 dispatch wrapper (to be authored AFTER Phase 7 ships) needs these pa
 - `<<<PHASE_7_ALEMBIC_HEAD>>>` — alembic head after Phase 7 (likely unchanged from Phase 6.4; verify)
 - `<<<PHASE_6_5_HEAD_SHA>>>` — Phase 6.5's SHIP commit (the conditions-strip placeholder slot)
 - `<<<AIRNOW_API_KEY_AVAILABLE>>>` — boolean confirming operator has the key in Railway env
-- `<<<USGS_LAKE_HAVASU_GAUGE_ID>>>` — likely `09422500` per prereq recommendation
-- `<<<LHC_EMERGENCY_FEED_DISPOSITION>>>` — one of `{has_rss, has_json, codered_only_no_feed, twitter_v1_5_defer}`
+- `<<<USGS_LAKE_HAVASU_SITE>>>` — locked `09427500`; params `00065` + `00054`
+- `<<<LHC_EMERGENCY_FEED_DISPOSITION>>>` — **locked: dropped_from_v1_nixle_silent**; V1.5 research replacement
 
 ### §15.3 Suggested commit batching
 

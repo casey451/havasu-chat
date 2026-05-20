@@ -190,4 +190,17 @@ Individual entities flagged for identity / DRAFT / waterfront / re-cat review. S
 
 ---
 
+## §11 Phase 8a prereq verification carries (2026-05-19)
+
+From `outputs/phase_8a_prereq_verification_report.md` §8 — surfaced by live USGS + Nixle checks:
+
+| Carry | Disposition | Why |
+|---|---|---|
+| Water temperature data source for Lake Havasu | **V1.5 — defer** | USGS `09427500` has no `00010`; candidates: `09426630` Bill Williams River (browser-verify), Bureau of Reclamation, marina sensor partnership |
+| LHC public-safety alert source (Nixle replacement) | **V1.5 — defer** | Nixle agency `3726` silent since 2021; research Mohave County SO, ein.az.gov, lhcaz.gov RSS |
+| Reservoir-storage UX ("X% full" / capacity) | **V1.5 — defer** | `00054` acre-ft available at `09427500`; nice-to-have conditions-strip tile |
+| Gauge-height-delta heuristic bounds doc | **V1 — operator action** | Document what drop threshold is meaningful for a managed reservoir; tune `LAKE_HAZARD_GAUGE_DROP_FT` at deploy |
+
+---
+
 *Authored by Cowork primary, 2026-05-20, against origin/main tip `23b3a70`. Lives at `outputs/v1_5_carry_inventory_triage.md`. Closes the observability gap flagged in `outputs/session_close_out_2026_05_19.md` §3 Lane F. Awaits operator dispositions per §8.*

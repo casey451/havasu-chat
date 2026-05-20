@@ -2,7 +2,7 @@
 
 > Paste-into-Cursor prompt for Phase 8 per master plan §4 Phase 8 (lines 401–419) + `outputs/phase_8_architecture_design.md` (1050-line Plan-agent ADR-level design) + `outputs/phase_8_operator_prereq_checklist.md` (patched 2026-05-20 with research corrections + LHC Nixle agency ID resolution). Phase 8 ships the trust + retention layer: real conditions data driving the homepage "Today in Havasu" strip + the chat ranking that's been reading a stub since Phase 6.3 + the alert subscription + dispatch subsystem that Opus #1 + #8 originally designed.
 >
-> **DISPATCH-READY STATUS — SHA-patched 2026-05-20 post-Phase-7-ship.** Phase 7 SHIPPED at `0a305e0`; alembic head `c9d0e1f2a3b4` (Phase 7's `users.last_active_at` migration). Both SHA slots in this wrapper are now resolved. Phase 7 close-out at `outputs/phase_7_close_out.md` documents the substantive ship + the HALT 3 validator 12/22-PASS state + Phase 7.5 polish-lane deferral for the HALT 3 flag flip. Phase 8 dispatch is unblocked.
+> **DISPATCH STATUS — BLOCKED pending prereq amendments (2026-05-19).** Live verification at `outputs/phase_8a_prereq_verification_report.md` surfaced P0 scope changes: USGS `09427500` reports only `00065` gauge height + `00054` reservoir storage (no water temp / discharge); USGS `09427520` is historic-only since 2006; LHC Nixle agency `3726` RSS silent since 2021-09-01. **Do NOT paste this wrapper until operator confirms amended scope below.** Phase 7 SHIPPED at `0a305e0`; alembic head `c9d0e1f2a3b4`. Phase 7 close-out at `outputs/phase_7_close_out.md`.
 >
 > **Phase 7 ship caveats Phase 8 should be aware of:**
 > - HALT 3 `FEATURE_FLAG_DISCLOSURE_RENDERER` is still `false`. Phase 7.5 polish lane will flip it after closing the 10 validator failures. **Phase 8 does NOT touch the flag.**
@@ -13,19 +13,19 @@
 >
 > **No parallel lane planned with Phase 8.** Per the 2026-05-20 alembic-collision gotcha (`outputs/dispatch_channels_alembic_collision_gotcha_draft.md`), Phase 7 + Phase 8 dispatching in parallel risks alembic revision-DAG collision (Phase 8 ships at least one new migration; Phase 7's User.last_active_at migration question if it lands also chains off `f6a7b8c9d0e1`). **Recommended posture: serialize.** Phase 7 ships first; Phase 8 dispatches against post-Phase-7 head.
 >
-> **Operator prereq status (per `outputs/phase_8_operator_prereq_checklist.md`):** all 3 prereqs should be RESOLVED before paste:
-> 1. **AirNow API key** — registered + activated + smoke-tested OK
-> 2. **USGS canonical sites locked** — `09427500` (Lake Havasu near Parker Dam; primary) + `09427520` (Colorado River below Parker Dam; secondary) — both browser-verified active
-> 3. **LHC Nixle agency ID** — **`3726`** (LHC Fire Department); RSS URL `https://rss.nixle.com/pubs/feeds/latest/3726/` — operator browser-verified responding
+> **Operator prereq status (per `outputs/phase_8a_prereq_verification_report.md` + `outputs/phase_8_operator_prereq_checklist.md`):**
+> 1. **AirNow API key** — operator-action-pending (register + smoke-test per checklist §2)
+> 2. **USGS single site `09427500`** — ✅ live; parameters **`00065` (gauge height, ft) + `00054` (reservoir storage, acre-ft)** only. **Dropped:** `00010` water temp, `00060` discharge, secondary site `09427520` (historic-only since 2006)
+> 3. **LHC Nixle** — **DROPPED FROM V1** per verification report §4 Option A (RSS silent since 2021; staff-recall content only). `lake_hazard` trigger uses NWS AZZ002-zone keyword match (`nws_alerts_lhc_zone` cache surface, inland-LHC keyword set per §11.2) + USGS gauge-height-delta heuristic instead. Marine surface also dropped per §11 (NWS marine zones cover Coastal + Great Lakes only; inland LHC not in scope).
 >
-> If any of the 3 is unresolved, HALT and finish prereqs before paste.
+> HALT if AirNow key unresolved. USGS/Nixle scope is locked to the amended constants below — do not restore dropped surfaces without operator re-lock.
 >
 > **Operator decision-lock status:** the 6 Phase 8-relevant decisions are locked per the architectural design (`outputs/phase_8_architecture_design.md`):
 >
 > 1. **Sub-phase split — 8a (conditions + alerts) + 8b (cat-13 expansion).** This wrapper covers **Phase 8a only**. Lane A (conditions data infrastructure + Today in Havasu strip + chat live-conditions wiring) + Lane B (alert dispatch + subscription UI + email templates + venue-context mapping + dedup). Lane C (cat-13 Public & Civic Resources expansion via Layer 3 + Layer 5) is **Phase 8b** — separate micro-dispatch after 8a ships. Per design doc §1 split recommendation.
 > 2. **Fetcher subsystem shape — per-source Railway scheduled jobs.** Four services with different cadences: AirNow (30 min), NWS alerts (15 min), USGS (30 min), NWS forecast (10 min — see §3.2.4 below). Source-isolation pattern: AirNow failure doesn't crash NWS reads. Reuses Phase 4 `with_retry` envelope.
 > 3. **External conditions cache schema reuse** — `external_conditions_cache` table from Phase 3.1 already exists per design doc §2. Phase 8 verifies + uses; no new migration UNLESS the existing schema needs additive columns. Design doc §2 enumerates expected columns; verify at step 1.
-> 4. **Threshold definitions** — per design doc §6: heat_advisory fires on (NWS Excessive Heat Warning active) OR (forecast > 110°F); aqi_alert fires on AirNow AQI > 150 (Unhealthy threshold); lake_hazard fires on Nixle RSS containing keywords {flood, drowning, capsize, rescue, evacuation, advisory} OR USGS extreme gauge readings; event_traffic deferred to V1.5 per master plan §8 OQ #12 capacity-display lock.
+> 4. **Threshold definitions** — per design doc §6 (amended post-verification): heat_advisory fires on NWS Heat Advisory / Excessive Heat Warning / Heat Watch; aqi_alert fires on AirNow AQI > 150; **lake_hazard** fires on NWS marine forecast OR Special Weather Statement keywords {flood, drowning, capsize, rescue, evacuation, advisory, small craft} OR optional USGS gauge-height drop > `LAKE_HAZARD_GAUGE_DROP_FT` (default 2.0 ft in 24h) at site `09427500`; **no Nixle ingest**; event_traffic deferred to V1.5 per master plan §8 OQ #12.
 > 5. **Per-alert dedup window** — 6 hours per user per alert_type. Uses existing `alerts_dispatched` table (Phase 3.1).
 > 6. **STUB swap pattern** — `STUB_CURRENT_TEMPERATURE_F = 105.0` in `app/core/ranking.py` becomes `read_current_temperature_f()` function reading from `external_conditions_cache`. Phase 6.3 ranking + Phase 7 chat tier-3 preamble both swap atomically via this single-source-of-truth helper.
 >
@@ -91,9 +91,10 @@ Ship Phase 8a ONLY per outputs/phase_8_architecture_design.md sec1 split
 (Lane A + Lane B; cat-13 = Lane C = Phase 8b is a SEPARATE later dispatch
 out of scope here):
 
-(a) AirNow + NWS + USGS + Nixle fetcher subsystem -- 4 Railway scheduled
-    services with different cadences (AirNow 30min / NWS alerts 15min /
-    USGS 30min / NWS forecast 10min) writing to external_conditions_cache.
+(a) AirNow + NWS + USGS fetcher subsystem -- 3 source families, per-source
+    Railway scheduled services (AirNow 30min / NWS alerts 15min / USGS 60min /
+    NWS forecast 10min) writing to external_conditions_cache. **No Nixle
+    fetcher in V1** (dropped per phase_8a_prereq_verification_report.md).
     Reuse Phase 4 with_retry envelope. Source-isolation pattern: AirNow
     failure doesn't crash NWS reads. New module app/conditions/ with
     per-source fetcher submodules. New scripts/fetch_external_conditions.py
@@ -101,9 +102,12 @@ out of scope here):
 
 (b) /api/conditions endpoint reads from external_conditions_cache; serves
     Today in Havasu strip + chat live-read. Returns JSON with current_aqi
-    + current_temp_f + active_nws_alerts + lake_water_temp_f + lake_gauge_ft
-    + active_lhc_nixle_alerts + per-field updated_at_iso for honest
-    staleness display.
+    + current_temp_f + active_nws_alerts (AZZ002-zone-scoped) +
+    lake_gauge_ft + lake_storage_acft + per-field updated_at_iso for
+    honest staleness display. **No lake_water_temp_f or nixle fields in
+    V1; no active_nws_marine_alerts** (USGS site does not report 00010;
+    Nixle dropped; NWS marine zones don't cover inland LHC per
+    phase_8a_prereq_verification_report.md §11).
 
 (c) "Today in Havasu" conditions strip on home.html wires up to /api/
     conditions; replaces the Phase 6.5 empty placeholder at <!-- conditions-
@@ -129,8 +133,13 @@ out of scope here):
       Operator-tunable: HEAT_ADVISORY_FORECAST_THRESHOLD_F = 110.0
     - aqi_alert: AirNow AQI > 150 (Unhealthy). Operator-tunable:
       AQI_ALERT_THRESHOLD = 150
-    - lake_hazard: Nixle RSS containing keywords {flood, drowning,
-      capsize, rescue, evacuation, advisory} OR USGS extreme readings
+    - lake_hazard: NWS AZZ002-zone alert keyword match (inland-LHC set
+      per phase_8a_prereq_verification_report.md §11.2: flash flood /
+      flood warning / flood advisory / lake wind / high wind / wind
+      advisory / blowing dust / dust storm / severe thunderstorm)
+      OR USGS gauge-height drop > LAKE_HAZARD_GAUGE_DROP_FT (default
+      2.0) in 24h at site 09427500 (no Nixle; no marine; no water-temp
+      signal)
     - event_traffic: DEFERRED to V1.5 per master plan sec8 OQ #12
 
 (g) Alert subscription UI on /account/alerts -- minimal form atop Phase 2A
@@ -150,28 +159,31 @@ out of scope here):
     table from Phase 3.1 may need additive column; verify before
     migration.
 
-LOCKED OPERATOR PREREQS (resolved 2026-05-20):
-- AirNow API key: registered + activated; stored in operator's secrets
-  vault + .env locally; Railway env var to set AIRNOW_API_KEY before
-  Phase 8 deploy
-- USGS canonical: USGS_LAKE_HAVASU_PRIMARY_SITE = "09427500" (Lake Havasu
-  near Parker Dam) + USGS_LAKE_HAVASU_SECONDARY_SITE = "09427520"
-  (Colorado River below Parker Dam outflow). USGS modern OGC API at
-  https://api.waterdata.usgs.gov/ogcapi/v0/ (legacy waterservices.usgs.gov
-  sunsetting early 2027 -- DO NOT target legacy)
-- LHC Nixle: LHC_NIXLE_FIRE_AGENCY_ID = "3726" (LHC Fire Department only;
-  HIGH confidence sub-agent finding 2026-05-20). RSS URL
-  https://rss.nixle.com/pubs/feeds/latest/3726/. LHC Police Dept does NOT
-  have Nixle presence (HIGH confidence negative; single municipal agency
-  on the city Nixle page).
+LOCKED OPERATOR PREREQS (amended 2026-05-19 per phase_8a_prereq_verification_report.md):
+- AirNow API key: operator registers + smoke-tests before deploy; store in
+  secrets vault + .env; Railway env var AIRNOW_API_KEY
+- USGS single-site model:
+  USGS_LAKE_HAVASU_SITE = "09427500"   # Lake Havasu near Parker Dam
+  USGS_PARAMETER_CODES = ("00065", "00054")  # gauge height ft + storage ac-ft
+  # DROPPED: USGS_LAKE_HAVASU_SECONDARY_SITE "09427520" (historic-only 2006)
+  # DROPPED: 00010 water temp, 00060 discharge at 09427500
+  USGS modern OGC API at https://api.waterdata.usgs.gov/ogcapi/v0/ (legacy
+  waterservices.usgs.gov sunsetting early 2027 -- DO NOT target legacy for prod)
+- Nixle: **DROPPED FROM V1** -- feed silent since 2021-09-01; V1.5 carry to
+  research Mohave County SO / ein.az.gov / lhcaz.gov RSS replacement
+- NWS zone scope: **LHC_NWS_ZONE_ID = "AZZ002"** (Lake Havasu and Fort
+  Mohave; served by NWS Las Vegas KVEF). Land zone -- marine zones don't
+  cover inland LHC per phase_8a_prereq_verification_report.md §11. All
+  active-alerts fetches scoped to AZZ002:
+  api.weather.gov/alerts/active?zone=AZZ002
 - NWS: api.weather.gov is open (no key); User-Agent header convention
   required (e.g. "havasu-chat/1.0 contact-email-here")
 - Resend: existing key from Phase 2A.1 reused for alert dispatch
 
 ORDER MATTERS WITHIN PHASE 8a:
 
-1. First: read the design doc end-to-end + the prereq checklist + the
-   Nixle lookup. Critical reads in the codebase:
+1. First: read the design doc end-to-end + phase_8a_prereq_verification_report.md
+   + the prereq checklist. Critical reads in the codebase:
    - app/db/models.py (verify external_conditions_cache + alert_subscriptions
      + alerts_dispatched tables ALREADY EXIST from Phase 3.1; verify
      column shapes match design doc sec2; flag any drift)
@@ -205,13 +217,13 @@ ORDER MATTERS WITHIN PHASE 8a:
 
 3. Then: per-source fetcher subsystem. New app/conditions/ module with:
    - app/conditions/airnow.py -- fetches AirNow current AQI for ZIP 86403
-   - app/conditions/nws_alerts.py -- fetches active NWS alerts for Lake
-     Havasu zone (User-Agent header)
+   - app/conditions/nws_alerts.py -- fetches active NWS alerts scoped to
+     LHC_NWS_ZONE_ID "AZZ002" via api.weather.gov/alerts/active?zone=AZZ002
+     (User-Agent header required; cache key nws_alerts_lhc_zone)
    - app/conditions/nws_forecast.py -- fetches NWS forecast (10-min cadence)
-   - app/conditions/usgs.py -- fetches USGS 09427500 + 09427520 via modern
-     OGC API
-   - app/conditions/nixle.py -- fetches LHC Nixle RSS feed (agency 3726);
-     parses RSS XML for active alerts; uses Wire-only-RSS caveat
+   - app/conditions/usgs.py -- fetches USGS 09427500 only; parameters 00065
+     (gauge height) + 00054 (reservoir storage ac-ft) via modern OGC API
+   # NO app/conditions/nixle.py in V1 (Nixle dropped per verification report)
    - app/conditions/base.py -- shared SourceFetcher interface; with_retry
      envelope; per-source last-success tracking; staleness-aware cache
      writes
@@ -269,7 +281,7 @@ ORDER MATTERS WITHIN PHASE 8a:
     - tests/test_phase8_fetcher_nws.py (~8-12 tests; mocks NWS alerts +
       forecast)
     - tests/test_phase8_fetcher_usgs.py (~6-10 tests; mocks USGS OGC API)
-    - tests/test_phase8_fetcher_nixle.py (~6-10 tests; mocks Nixle RSS)
+    # NO test_phase8_fetcher_nixle.py in V1 (Nixle dropped)
     - tests/test_phase8_conditions_endpoint.py (~6-10 tests; /api/
       conditions response shape + caching)
     - tests/test_phase8_conditions_strip.py (~6-10 tests; home.html render)
@@ -319,8 +331,10 @@ DEVIATION INVITATIONS (per design doc + master plan sec4 Phase 8):
   > 100 (Unhealthy for Sensitive Groups; more conservative). Flag.
 - Heat advisory threshold: design locks > 110F (Excessive Heat Warning
   semantics). Operator may want > 105F (more conservative). Flag.
-- Nixle RSS keyword matcher: design locks 6 keywords. If false-positives
-  or false-negatives surface on real LHC alerts, flag for V1.5 tuning.
+- lake_hazard NWS AZZ002-zone keyword matcher + USGS gauge-drop threshold:
+  tune LAKE_HAZARD_GAUGE_DROP_FT if false positives on reservoir ops;
+  tune keyword set if false-pos/false-neg pattern surfaces in shoulder
+  seasons.
 - USGS modern OGC API vs legacy: design strongly recommends modern (legacy
   sunsetting 2027). If modern OGC API has gotchas not yet documented,
   flag.
@@ -385,9 +399,9 @@ Pre-dispatch checklist (verify before paste):
   heads`)
 - Pytest baseline going in matches reality per `python -m pytest
   --collect-only -q | tail -3` (likely 2140-2200)
-- The 3 operator prereqs are RESOLVED: AirNow API key registered +
-  activated + smoke-test passed; USGS sites 09427500 + 09427520
-  browser-verified; LHC Nixle agency 3726 RSS URL browser-verified
+- AirNow API key registered + smoke-test passed (operator)
+- USGS site 09427500 live-verified (00065 + 00054 only); 09427520 dropped
+- Nixle dropped from V1 per phase_8a_prereq_verification_report.md
 - The 6 operator decisions are LOCKED at design-doc-defaults: 8a
   scope (Lane A + Lane B), per-source Railway services, schema reuse
   (verify Phase 3.1 existence), threshold definitions, 6-hour dedup,
@@ -407,7 +421,7 @@ Same rhythm as prior sub-phase ships: paste back to Cowork primary chat, primary
 Expected files touched:
 
 - 0 OR 1 new alembic migration (only if schema additive needed; verify at step 1)
-- 1 new module dir `app/conditions/` (~6 files: base.py, airnow.py, nws_alerts.py, nws_forecast.py, usgs.py, nixle.py)
+- 1 new module dir `app/conditions/` (~5 files: base.py, airnow.py, nws_alerts.py, nws_forecast.py, usgs.py)
 - 1 new module dir `app/alerts/` (~4 files: thresholds.py, evaluator.py, dispatcher.py, venue_context.py)
 - 2 new scripts: `scripts/fetch_external_conditions.py` + `scripts/evaluate_and_dispatch_alerts.py`
 - 1 new `app/api/routes/conditions.py` (~60-100 lines)
@@ -437,7 +451,7 @@ Expected pragmatic deviations:
 1. Fetcher cadence tuning (operator rate-limit anxiety)
 2. AQI alert threshold tuning (150 vs 100 conservatism)
 3. Heat advisory threshold tuning (110F vs 105F)
-4. Nixle RSS keyword matcher false-positive/negative pattern
+4. lake_hazard NWS AZZ002-zone keyword matcher false-positive/negative pattern
 5. USGS modern OGC API edge cases
 6. Conditions strip poll cadence (60s vs alternatives)
 7. Email send rate limit handling

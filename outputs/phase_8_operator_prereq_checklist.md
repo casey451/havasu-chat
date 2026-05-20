@@ -2,7 +2,7 @@
 
 > **What this is:** the operator-side prereq surface for Phase 8 (trust layer + conditions panel + alerts) per master plan §4 Phase 8 + §6 operator workload schedule (line 570: "~2-3 hours"). Pre-positioned 2026-05-20 during Cursor's Phase 6.4 + Phase 7 parallel grind so the operator can knock out these prereqs IN PARALLEL — most importantly the AirNow API key (1-2 business day approval lag historically) which would otherwise block Phase 8 dispatch the moment Phase 7 ships.
 >
-> **Author:** Cowork primary, 2026-05-20 post-`99eb12c`. **PATCHED 2026-05-20 post-research** (see `outputs/phase_8_prereq_research_findings.md`) — three material corrections folded in: (a) USGS canonical site changed `09422500 → 09427500` (09422500 was wrong; that's Lake Mohave at Davis Dam ~70mi north, NOT Lake Havasu); (b) LHC emergency feed: Nixle CONFIRMED (LHC Fire Department @ `local.nixle.com/lake-havasu-city-fire-department`) — Phase 8 will INGEST via Nixle RSS, not defer; (c) AirNow approval lag softened to "1–2 business days worst-case; may be near-instant via email-activation flow."
+> **Author:** Cowork primary, 2026-05-20 post-`99eb12c`. **PATCHED 2026-05-20 post-research** (see `outputs/phase_8_prereq_research_findings.md`). **AMENDED 2026-05-19 post-live-verification** — `outputs/phase_8a_prereq_verification_report.md` supersedes §1 status for USGS + Nixle: (a) USGS `09427500` live but only `00065` + `00054` (no temp/discharge); `09427520` historic-only since 2006 — **drop secondary**; (b) Nixle agency `3726` RSS silent since 2021 — **DROPPED FROM V1** per verification report §4 Option A; (c) AirNow unchanged (operator-action-pending).
 >
 > **Why now:** Phase 8 dispatches against Phase 7's HEAD SHA. If Phase 7 ships in 5-8 days and the operator hasn't registered the AirNow key yet, there could be approval-lag drag between "Phase 7 ready to commit" and "Phase 8 ready to dispatch". Pre-positioning now eliminates that risk window — register the key TODAY, complete by Day 2 (most likely instant via email activation; worst case 1-2 business days), and Phase 8 dispatches the moment Phase 7 ships.
 >
@@ -17,18 +17,18 @@ Per master plan §4 Phase 8 deliverables:
 - **Conditions data fetching infrastructure** running every 15 min via Railway scheduled job pulls from THREE external sources:
   - **AirNow** (AQI / particulate matter / ozone) — requires API key
   - **NWS** (weather + heat advisory + sunset) — no API key required (api.weather.gov is open)
-  - **USGS** (Lake Havasu gauge — water level + temperature) — no API key required but operator picks the canonical gauge ID
+  - **USGS** (Lake Havasu gauge — gauge height + reservoir storage at site `09427500`) — no API key; **no water temp in V1** (parameter `00010` not reported at this site)
 - **Alert dispatch evaluation job** reads `external_conditions_cache` + compares against trigger thresholds per `alert_type` + dispatches emails via Resend → requires the alert subscriptions table populated (already exists from Phase 3) + email templates (Phase 8 ships these)
-- **City of Lake Havasu emergency-notification feed** integration — only feasible if LHC publishes a structured feed; operator checks format + availability
+- ~~**City of Lake Havasu Nixle emergency feed**~~ — **DROPPED FROM V1** per `outputs/phase_8a_prereq_verification_report.md` §4 (RSS silent since 2021); `lake_hazard` uses NWS + USGS gauge-drop heuristic instead
 
-These 3 prereqs are the operator-side blockers:
+These 2 active prereqs are the operator-side blockers (Nixle removed):
 
-| # | Prereq | Estimated time | Blocking calendar lag |
+| # | Prereq | Estimated time | Status (2026-05-19 live verify) |
 |---|---|---|---|
-| 1 | AirNow API key registration | ~10 min request + email-activation (often near-instant; worst-case 1–2 business days) | **MEDIUM — register today; mostly likely instant** |
-| 2 | USGS gauge ID confirmation (canonical: `09427500`) | ~10 min browser verify | No lag; pre-researched |
-| 3 | LHC Nixle RSS verify (Fire Dept agency ID **`3726`** resolved 2026-05-20 via HTML-source inspection by sub-agent) | ~30 seconds browser-check of RSS URL | RESOLVED — just operator browser-verify |
-| – | **Total** | ~35 min active + email-activation wait (near-instant likely) | |
+| 1 | AirNow API key registration | ~10 min request + email-activation | **PENDING** — operator action |
+| 2 | USGS site `09427500` confirm (`00065` + `00054` only) | ~5 min API smoke test | **GREEN** — live; secondary `09427520` **RED/dropped** |
+| ~~3~~ | ~~LHC Nixle RSS~~ | — | **DROPPED FROM V1** — see verification report §4 |
+| – | **Total** | ~15 min active + AirNow wait | |
 
 Master plan §6 estimate is "2-3 hours" — this checklist trims that by giving exact URLs + decision criteria up front.
 
@@ -77,22 +77,23 @@ Invoke-RestMethod "https://www.airnowapi.org/aq/observation/zipCode/current/?for
 
 | Site ID | Name | Location | Reads | Notes |
 |---|---|---|---|---|
-| **09427500** | **Lake Havasu near Parker Dam, AZ-CA** | Lake Havasu reservoir itself | Gauge height + water temp + discharge | **RECOMMENDED CANONICAL — represents Lake Havasu directly. What users mean when they ask "how's the lake".** |
-| 09427520 | Colorado River below Parker Dam, AZ-CA | Below Parker Dam (downstream outflow) | Gauge height + discharge confirmed; water temp unconfirmed | **Recommended SECONDARY** for outflow/downstream-flow queries. Operator should browser-confirm water-temp availability before Phase 8 architecture finalizes. |
+| **09427500** | **Lake Havasu near Parker Dam, AZ-CA** | Lake Havasu reservoir itself | **`00065` gauge height (ft) + `00054` reservoir storage (acre-ft)** — live-verified 2026-05-19 | **CANONICAL (sole USGS site for V1).** No `00010` water temp; no `00060` discharge at this site. |
+| ~~09427520~~ | ~~Colorado River below Parker Dam~~ | — | — | **DROPPED** — historic-only since Sep 2006; iv-API returns empty values. Do not encode in wrapper. |
 | ~~09422500~~ | ~~Lake Mohave at Davis Dam~~ | ~70 mi NORTH of Lake Havasu | (irrelevant) | **DO NOT USE** — geographically wrong; different reservoir. |
 | 09424150 | Colorado River Aqueduct near Parker Dam | Aqueduct diversion | Various | Not user-facing-relevant; informational |
 
-**Decision recommendation: lock canonical = `09427500` + secondary = `09427520`.** Phase 8 dispatch wrapper will encode as:
+**Decision (locked 2026-05-19 per `outputs/phase_8a_prereq_verification_report.md` §2 Option A):** single site `09427500`, parameters `00065` + `00054` only. Phase 8 dispatch wrapper encodes:
 ```python
-USGS_LAKE_HAVASU_PRIMARY_SITE = "09427500"   # Lake Havasu near Parker Dam
-USGS_LAKE_HAVASU_SECONDARY_SITE = "09427520"  # Colorado River below Parker Dam (outflow)
+USGS_LAKE_HAVASU_SITE = "09427500"   # Lake Havasu near Parker Dam
+USGS_PARAMETER_CODES = ("00065", "00054")  # gauge height ft + storage ac-ft
+# DROPPED: secondary 09427520, 00010 temp, 00060 discharge
 ```
 
 **Process:**
 
 1. Visit [waterdata.usgs.gov/monitoring-location/USGS-09427500/](https://waterdata.usgs.gov/monitoring-location/USGS-09427500/) — confirm currently active + reporting.
-2. Verify the 3 parameters are reporting: gauge height (`00065`), water temperature (`00010`), discharge (`00060`).
-3. (Recommended) Also visit [waterdata.usgs.gov/monitoring-location/USGS-09427520/](https://waterdata.usgs.gov/monitoring-location/USGS-09427520/) and confirm whether water temperature (`00010`) is reported there too — this determines whether the secondary site can also answer "river temperature" queries.
+2. Verify **only** gauge height (`00065`) + reservoir storage (`00054`) — **not** water temperature (`00010`) or discharge (`00060`).
+3. ~~Secondary site 09427520~~ — **do not use** (historic-only since 2006).
 
 **API SUNSET WARNING (architectural decision):**
 
@@ -100,8 +101,8 @@ USGS has announced that the legacy `waterservices.usgs.gov` API is being **decom
 
 **Legacy API (sunsetting; use only for quick browser-style smoke tests):**
 ```powershell
-Invoke-RestMethod "https://waterservices.usgs.gov/nwis/iv/?format=json&sites=09427500&parameterCd=00065,00010,00060&period=P1D"
-# Expected: JSON with timeSeries array containing recent readings.
+Invoke-RestMethod "https://waterservices.usgs.gov/nwis/iv/?format=json&sites=09427500&period=P1D"
+# Expected: timeSeries for 00065 + 00054 only (NOT 00010 or 00060).
 ```
 
 **Modern OGC API (recommended for Phase 8 implementation):**
@@ -112,9 +113,11 @@ No API key needed — both USGS API surfaces are fully open.
 
 ---
 
-## §4 Prereq #3 — LHC Nixle RSS verify (RESOLVED 2026-05-20)
+## §4 Prereq #3 — LHC Nixle RSS — **DROPPED FROM V1** (per `outputs/phase_8a_prereq_verification_report.md` §4 Option A)
 
-**Why:** Phase 8 ingests LHC official emergency notifications (lake hazards, road closures, evacuations, etc.) into the alert subsystem so subscribers get LHC-issued notifications alongside the AirNow / NWS / USGS-derived alerts. Research confirmed 2026-05-20 that **LHC uses Nixle** (Everbridge product), NOT CodeRED, and Nixle publishes public RSS feeds. Phase 8 will INGEST via Nixle RSS.
+> **Status 2026-05-19:** Live fetch of `https://rss.nixle.com/pubs/feeds/latest/3726/` confirms HTTP 200 + valid XML, but **`lastBuildDate` = 2021-09-01** (silent ~4+ years). Historical items are staff-recall messages, not public lake-hazard alerts. Phase 8 V1 **does not ingest Nixle**. `lake_hazard` alert trigger reframed to NWS marine/SWS + optional USGS gauge-height-delta. V1.5 carry: research replacement alert source (Mohave County SO, ein.az.gov, lhcaz.gov RSS).
+
+**Original research (archived):** Phase 8 had planned to ingest LHC official emergency notifications via Nixle RSS. Agency ID `3726` (LHC Fire Department) was resolved 2026-05-20 but **recency was not verified until 2026-05-19 live check**.
 
 **Confirmed (full findings at `outputs/phase_8_nixle_agency_id_lookup.md`):**
 - **LHC Fire Department Nixle agency ID: `3726`** (HIGH confidence; resolved via HTML-source inspection by sub-agent — two independent signals: agency-logo S3 path `user25134-1336013322-3726_cceefa_138_83_PrsMe_.jpeg` + email-forward link `local.nixle.com/email_forward_agency/3726/`; cross-corroborated by the city landing page logo path).
@@ -150,7 +153,7 @@ Phase 8 prereq §4 — LHC Nixle: RESOLVED 2026-05-20
   - Browser smoke test: <passed / failed — fill in after 30-second check>
 ```
 
-This is encoded in the Phase 8 dispatch wrapper as `LHC_NIXLE_FIRE_AGENCY_ID = "3726"` alongside the AirNow + NWS + USGS surfaces. See full sub-agent findings at `outputs/phase_8_nixle_agency_id_lookup.md`.
+~~This is encoded in the Phase 8 dispatch wrapper as `LHC_NIXLE_FIRE_AGENCY_ID = "3726"`.~~ **Removed from V1 wrapper** per verification report. See `outputs/phase_8_nixle_agency_id_lookup.md` for historical agency-ID research only.
 
 ---
 
