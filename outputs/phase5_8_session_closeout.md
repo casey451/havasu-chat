@@ -147,8 +147,11 @@ Bundles all session §2-§4 work in one chunk:
 ### **NOT shipped this session: AZ event aggregators / LHC Tourism Board verifier surface**
 
 Operator picked Option C at kickoff — no Layer-4 verifier built for
-5.8. visitarizona.com + golakehavasu.com paths documented for V1.5
-pickup in the audit doc + kickoff §3.
+5.8. **Re-tag locked 2026-05-19 per V1.5 triage §8 #2 lock:**
+golakehavasu.com → Phase 9 Source 2 (absorbed); visitarizona.com →
+V1.5 — defer with Phase 9 Source 6 upgrade hook. See
+`outputs/lane_m_retag_5_8_aggregators_decision_lock.md` for the
+full decision-lock memo.
 
 ### **NOT shipped this session: `parks-rec-scrapes` cron fix**
 

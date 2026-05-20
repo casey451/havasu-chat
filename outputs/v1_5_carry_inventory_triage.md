@@ -44,7 +44,8 @@ Every Phase 5.5–5.11 sub-phase documented one or more Layer-4 verifier paths (
 | 5 | 5.7 | AZ State Parks Playwright (cat-7 parks) | ~2–3h | **V1.5 — defer** | Operator-driven follow-up; default `outdoor` heat_exposure already lands correctly without verifier. |
 | 6 | 5.7 | NPS REST API (cat-7 federal lands) | ~1–2h | **V1.5 — defer** | Easiest verifier build of the bunch (REST); also lowest yield (very few NPS-tagged entries in cat-7). |
 | 7 | 5.7 + 5.9 | LHC Parks & Rec municipal scrape (cat-7 + cat-12) | ~3–4h | **V1.5 — defer** | Shared surface between 5.7 (parks) + 5.9 (pool / tennis / pickleball schedules). Phase 9 (Events) may absorb this if the schedule infrastructure lands earlier. |
-| 8 | 5.8 | visitarizona.com + golakehavasu.com event aggregators (cat-2) | ~2–4h | **V1.5 — defer** | Phase 9 (Events) absorbs this naturally — RRULE-based event scraper subsystem is the right home, not a V1.5 retrofit. **Recommend: re-tag as Phase 9, not V1.5.** |
+| 8a | 5.8 | **golakehavasu.com event aggregator (cat-2)** | n/a | **Phase 9 — absorbed (Source 2)** | Confirmed as Phase 9 Source 2 (Simpleview JSON-LD) per `outputs/phase_9_event_source_research.md` §Source 2 GREEN. Phase 9 dispatch consumes this; no separate V1.5 work. |
+| 8b | 5.8 | **visitarizona.com event aggregator (cat-2)** | ~1–2h | **V1.5 — defer** | NOT among the 5 Phase 9 GREEN-locked sources; scrape-feasibility unresearched. **May upgrade to Phase 9 Source 6 if scrape research confirms ≥10% LHC-local yield;** else retain V1.5 — defer or drop during V1.5 sweep. |
 | 9 | 5.9 | AZDHS childcare-license registry (cat-12) | ~4–6h | **V1.5 — defer** | Covers ~70–90% of cat-12 childcare candidates. Trust signal for daycare/preschool; high parent-anxiety category, so worth shipping early in V1.5. |
 | 10 | 5.9 | Franchise gym chain APIs (Anytime / Snap / Orange Theory / CycleBar) | ~6–8h | **V1.5 — defer** | Narrow coverage (~10–20% of cat-12 fitness). Lower priority than AZDHS childcare. |
 | 11 | 5.10 | AZDOR transient-lodging tax registry (cat-10) | ~4–6h | **V1.5 — defer** | Covers ~70–90% of hotels/motels/B&Bs. Strong trust signal. |
@@ -53,7 +54,7 @@ Every Phase 5.5–5.11 sub-phase documented one or more Layer-4 verifier paths (
 | 14 | 5.11 | AZ State Veterinary Medical Examining Board (vets) | ~2–3h | **Drop / closed** | Out of scope per 5.11 design — vets land in cat-5 HWC via `medical_clinic` primary, not cat-11 pets. No V1.5 work needed here unless cat-5 verifier surface gets re-opened. |
 | 15 | 5.11 | National pet franchise locators (PetSmart / Petco / Banfield) | ~3–5h | **V1.5 — defer** | Low coverage (~5–10% of cat-11). Lowest priority of the franchise-locator carries. |
 
-**Subtotal:** 15 carries; 14 V1.5 — defer (including #8 with a re-tag-to-Phase-9 recommendation per §8 #2); 1 Drop/closed (#14). Total V1.5 effort ~35–60h.
+**Subtotal:** 15 carries (16 after #8 splits into #8a + #8b); 13 V1.5 — defer (including #8b with a possible Phase 9 upgrade hook); 1 Phase 9 — absorbed (#8a, GLH = Phase 9 Source 2); 1 Drop/closed (#14). Total V1.5 effort ~33–58h.
 
 ---
 
@@ -146,7 +147,7 @@ Individual entities flagged for identity / DRAFT / waterfront / re-cat review. S
 | **Drop / closed** | 2 | n/a (already resolved or out of scope) |
 | **Total inventoried** | 52 | |
 
-**Re-tag recommendation:** #8 (5.8 visitarizona.com + golakehavasu.com event aggregators) is currently labeled V1.5 — defer in §2 but §8 #2 recommends re-tagging to Phase 9 (event scraper subsystem absorbs it naturally). Pending operator decision.
+**Re-tag locked 2026-05-19:** #8 split into #8a (golakehavasu.com → Phase 9 Source 2, naturally absorbed) + #8b (visitarizona.com → V1.5 — defer with possible Phase 9 Source 6 upgrade hook). Phase 9 sub-agent research at `outputs/phase_9_event_source_research.md` confirmed GLH as Source 2 GREEN; visitarizona.com was not in that research scope. **§8 #2 closed.**
 
 ---
 
@@ -154,7 +155,7 @@ Individual entities flagged for identity / DRAFT / waterfront / re-cat review. S
 
 1. **Bundle the 4 sustainability-layer extensions (#17 + #18 + #19 + #20) into a single pre-Phase-7 chore commit.** Total ~20–30 min eng work. Closes a recurring carry that appeared in 5.7, 5.9, 5.10, 5.11 close-outs without ever landing. Recommended commit subject: `chore(data): sustainability layer direct mappings (5.7+5.9+5.10+5.11 V1.5 carries)`. Touches `app/providers/google_types_mapping.py` only (or whichever module owns the direct-map table).
 
-2. **Re-tag carry #8 (5.8 event aggregators) from V1.5 to Phase 9.** Phase 9's RRULE-based event scraper subsystem is the right home for visitarizona.com + golakehavasu.com scrapes, not a V1.5 retrofit. Update `outputs/phase5_8_session_closeout.md` §6 to reflect this if the operator agrees. **Operator-decide.**
+2. **#8 split locked 2026-05-19:** carry #8a (golakehavasu.com) re-tagged Phase 9 — absorbed (Source 2 per `outputs/phase_9_event_source_research.md`). Carry #8b (visitarizona.com) retained V1.5 — defer with Phase 9 Source 6 upgrade hook. Triage table §2 + subtotal §6 + cross-reference §7 all patched. **CLOSED.**
 
 3. **Close out the 7 V1 — operator action items in a single ~2h operator session.** Specifically: API key rotation (or defer per existing operator lock), `.bak` file prune, Anderson AZ West un-DRAFT, Butterfly Garden cat-7 fit, ASU SWANSON casing, Simply Savage Designs DRAFT, 5 zero-review Slice E DRAFT reviews. None blocks V1 ship but they tidy the data plane.
 
