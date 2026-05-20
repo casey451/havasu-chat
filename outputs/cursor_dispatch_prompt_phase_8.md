@@ -102,12 +102,18 @@ out of scope here):
 
 (b) /api/conditions endpoint reads from external_conditions_cache; serves
     Today in Havasu strip + chat live-read. Returns JSON with current_aqi
-    + current_temp_f + active_nws_alerts (AZZ002-zone-scoped) +
-    lake_gauge_ft + lake_storage_acft + per-field updated_at_iso for
+    + current_aqi_parameter (e.g. "O3") + aqi_source_station_name (e.g.
+    "Blythe") + aqi_source_state_code (e.g. "CA") + aqi_source_distance_mi
+    (e.g. 60) + current_temp_f + active_nws_alerts (AZZ002-zone-scoped)
+    + lake_gauge_ft + lake_storage_acft + per-field updated_at_iso for
     honest staleness display. **No lake_water_temp_f or nixle fields in
     V1; no active_nws_marine_alerts** (USGS site does not report 00010;
     Nixle dropped; NWS marine zones don't cover inland LHC per
-    phase_8a_prereq_verification_report.md §11).
+    phase_8a_prereq_verification_report.md §11). **AQI is single-parameter
+    O3 from Blythe CA ~60mi south per §12** (no PM2.5 / PM10 monitor
+    within 100mi of LHC); conditions strip renders attribution chip
+    "AQI 47 (O3) — from Blythe, CA ~60mi south" to be honest about
+    source-station distance.
 
 (c) "Today in Havasu" conditions strip on home.html wires up to /api/
     conditions; replaces the Phase 6.5 empty placeholder at <!-- conditions-
@@ -131,8 +137,12 @@ out of scope here):
     app/alerts/thresholds.py:
     - heat_advisory: (NWS Excessive Heat Warning active) OR (forecast > 110F).
       Operator-tunable: HEAT_ADVISORY_FORECAST_THRESHOLD_F = 110.0
-    - aqi_alert: AirNow AQI > 150 (Unhealthy). Operator-tunable:
-      AQI_ALERT_THRESHOLD = 150
+    - aqi_alert: AirNow AQI > 150 (Unhealthy) on ANY ParameterName row
+      returned in the response (multi-row tolerant; LHC's nearest monitor
+      Blythe returns O3-only per §12 verification, but evaluator should
+      not assume single-parameter). Operator-tunable:
+      AQI_ALERT_THRESHOLD = 150. Treats PM2.5/PM10 absence as
+      data-not-available (no firing), NOT as safe-condition zero.
     - lake_hazard: NWS AZZ002-zone alert keyword match (inland-LHC set
       per phase_8a_prereq_verification_report.md §11.2: flash flood /
       flood warning / flood advisory / lake wind / high wind / wind
@@ -161,7 +171,20 @@ out of scope here):
 
 LOCKED OPERATOR PREREQS (amended 2026-05-19 per phase_8a_prereq_verification_report.md):
 - AirNow API key: operator registers + smoke-tests before deploy; store in
-  secrets vault + .env; Railway env var AIRNOW_API_KEY
+  secrets vault + .env; Railway env var AIRNOW_API_KEY. **2026-05-19
+  verification confirmed key works; nearest monitor = Blythe CA at ~60mi
+  south of LHC; O3 only (no PM2.5 / PM10); per §12 of
+  phase_8a_prereq_verification_report.md.**
+- AirNow query scope:
+  AIRNOW_ZIP = "86403"  # Lake Havasu City
+  AIRNOW_DISTANCE_MI = int(os.environ.get("AIRNOW_DISTANCE_MI", "100"))
+  # distance=25 returns empty; distance=60 returns empty; distance=100
+  # returns Blythe CA (~60mi south of LHC) per §12 recheck. 100 default
+  # leaves headroom; operator-tunable down to 75 if tighter scope wanted.
+- AirNow response shape: 0..N rows; iterate ParameterName values
+  (LHC currently single-row O3 from Blythe); cache stores all rows
+  + the source-station attribution columns (aqi_source_station_name +
+  aqi_source_state_code + aqi_source_distance_mi).
 - USGS single-site model:
   USGS_LAKE_HAVASU_SITE = "09427500"   # Lake Havasu near Parker Dam
   USGS_PARAMETER_CODES = ("00065", "00054")  # gauge height ft + storage ac-ft
@@ -216,7 +239,12 @@ ORDER MATTERS WITHIN PHASE 8a:
    literals.
 
 3. Then: per-source fetcher subsystem. New app/conditions/ module with:
-   - app/conditions/airnow.py -- fetches AirNow current AQI for ZIP 86403
+   - app/conditions/airnow.py -- fetches AirNow current AQI for
+     AIRNOW_ZIP="86403" with AIRNOW_DISTANCE_MI=100 (§12 verification:
+     LHC has no monitor <60mi; Blythe CA O3-only at ~60mi south is the
+     nearest); iterates 0..N response rows; tolerates parameter-set
+     heterogeneity (don't assume PM2.5 + PM10 present); stores source-
+     station attribution (name + state + distance) alongside AQI values
    - app/conditions/nws_alerts.py -- fetches active NWS alerts scoped to
      LHC_NWS_ZONE_ID "AZZ002" via api.weather.gov/alerts/active?zone=AZZ002
      (User-Agent header required; cache key nws_alerts_lhc_zone)

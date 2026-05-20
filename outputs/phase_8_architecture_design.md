@@ -72,7 +72,7 @@ This shape is sufficient for V1, but Phase 8 needs **two additive column extensi
 
 | `source` value | Cadence | TTL seconds | Used by |
 |---|---|---|---|
-| `airnow_86403` | 30 min | 1800 | conditions strip (AQI tile) + `aqi_alert` evaluator |
+| `airnow_86403` | 30 min | 1800 | conditions strip (AQI tile + source-station attribution chip per §12) + `aqi_alert` evaluator. Data shape: 0..N parameter rows from AirNow (LHC currently single-row O3 from Blythe CA at ~60mi south per `phase_8a_prereq_verification_report.md §12`); store all rows + source-station attribution (`aqi_source_station_name`, `aqi_source_state_code`, `aqi_source_distance_mi`). |
 | `nws_current` | 30 min | 1800 | conditions strip (temp + wind + heat-index tiles) + chat `STUB_CURRENT_TEMPERATURE_F` swap |
 | `nws_alerts_lhc_zone` | 15 min | 900 | conditions strip (advisory tile, only renders when active) + `heat_advisory` + `lake_hazard` evaluators (AZZ002-zone-scoped per `phase_8a_prereq_verification_report.md §11`; marine surface dropped) |
 | `nws_forecast_daily` | daily 04:00 local | 86400 | not displayed in V1; reserved for V1.5 forecast-tile expansion (cheap to populate now since we're already polling NWS) |
@@ -289,7 +289,10 @@ class ConditionsTile:
     kind: str          # 'temp' | 'aqi' | 'wind' | 'sunset' | 'advisory' | 'lake_level' | 'lake_storage'
     # 'lake_temp' deferred V1.5 (USGS 09427500 has no 00010)
     primary_value: str # "108°F", "Moderate", "12 mph SW", "7:42 PM"
-    secondary_value: str | None  # heat index, dominant pollutant, etc.
+    secondary_value: str | None  # heat index, dominant pollutant ("O3"), etc.
+    attribution_chip: str | None  # AQI tile: "from Blythe, CA ~60mi south" per §12
+                                  # of phase_8a_prereq_verification_report.md. Other
+                                  # tiles: typically None.
     severity: str      # 'good' | 'moderate' | 'warning' | 'severe' | 'neutral'
     staleness_label: str  # "Updated 12 min ago" / "Updated >1h ago" / "Updated yesterday by operator"
     is_stale: bool     # drives muted styling
@@ -439,7 +442,7 @@ Within the dispatcher script, `httpx.Client.post()` to Resend is just a synchron
 | `alert_type` | Trigger predicate | Source row read | Operator-tunable? |
 |---|---|---|---|
 | `heat_advisory` | `nws_alerts_lhc_zone` row contains item where `event` matches `"Heat Advisory" OR "Excessive Heat Warning" OR "Heat Watch"` | `nws_alerts_lhc_zone` | Threshold not tunable (NWS-issued is the signal). Bare heat-index threshold (e.g. >=110°F) explicitly excluded per design memo §10 Q3 — reduces false positives. |
-| `aqi_alert` | `airnow_86403.data["category_name"]` NOT IN `{"Good", "Moderate"}` (i.e. "Unhealthy for Sensitive Groups" or worse) | `airnow_86403` | Threshold operator-tunable via `AQI_ALERT_CATEGORY_THRESHOLD` env var (default: `unhealthy_for_sensitive_groups`). |
+| `aqi_alert` | ANY row in `airnow_86403.data["rows"]` has `category_name` NOT IN `{"Good", "Moderate"}` (i.e. "Unhealthy for Sensitive Groups" or worse). Evaluator iterates the rows array; LHC currently has single O3 row from Blythe per §12, but evaluator must be multi-row tolerant. Absence of PM2.5/PM10 rows is data-not-available, NOT safe-condition zero. | `airnow_86403` | Threshold operator-tunable via `AQI_ALERT_CATEGORY_THRESHOLD` env var (default: `unhealthy_for_sensitive_groups`). **Amended 2026-05-19 (§12):** evaluator multi-row tolerant; source-station distance available on the row for honest UX. |
 | `lake_hazard` | `nws_alerts_lhc_zone` matches inland-LHC keyword set `LAKE_HAZARD_NWS_KEYWORDS` (flash flood / flood warning / flood advisory / lake wind / high wind / wind advisory / blowing dust / dust storm / severe thunderstorm) **OR** `usgs_09427500` gauge height dropped > `LAKE_HAZARD_GAUGE_DROP_FT` (default 2.0) in 24h | `nws_alerts_lhc_zone` + `usgs_09427500` | **Amended 2026-05-19 (§6 + §11 per verification report):** Nixle dropped (silent since 2021); NWS marine surface dropped (doesn't cover inland LHC); collapsed to single AZZ002-zone-scoped land surface + gauge-drop secondary. USGS drop threshold operator-tunable via env; keyword set tunable post-launch if false-pos pattern surfaces. |
 | `event_traffic` | TBD — Events table doesn't exist in usable form until Phase 9 | (deferred to V1.5 / Phase 9.5) | — |
 
@@ -485,6 +488,15 @@ HEAT_ADVISORY_INDEX_FLOOR_F: float | None = (
 )
 
 AQI_ALERT_NUMERIC_FLOOR: int = int(os.environ.get("AQI_ALERT_NUMERIC_FLOOR", "101"))
+
+AIRNOW_ZIP = "86403"  # Lake Havasu City
+AIRNOW_DISTANCE_MI: int = int(os.environ.get("AIRNOW_DISTANCE_MI", "100"))
+# §12 verification 2026-05-19: distance=25 + distance=60 both return empty
+# for LHC; distance=100 returns Blythe CA (O3 only) as nearest monitor at
+# ~60mi south. Operator-tunable down to 75 if tighter scope wanted. Cache
+# stores source-station attribution (name + state_code + distance_mi) so
+# the conditions strip can render honest "from Blythe, CA ~60mi south"
+# subtitle alongside the AQI value.
 
 LAKE_HAZARD_NWS_KEYWORDS = (
     "flash flood",

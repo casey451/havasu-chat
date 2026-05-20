@@ -34,7 +34,19 @@ Master plan §6 estimate is "2-3 hours" — this checklist trims that by giving 
 
 ---
 
-## §2 Prereq #1 — AirNow API key registration
+## §2 Prereq #1 — AirNow API key registration (RESOLVED 2026-05-19)
+
+**Verification finding (2026-05-19; full details in `outputs/phase_8a_prereq_verification_report.md §12`):**
+
+- ✅ AirNow key registered + activated (near-instant via email-activation flow; no 1-2 business day lag)
+- ⚠️ **Lake Havasu City has no AirNow monitor within 60 miles.** `distance=25` returns empty; `distance=60` returns empty; `distance=100` returns Blythe CA (~60mi south).
+- ⚠️ Blythe response is **single-parameter (O3 only)** — no PM2.5 / PM10 monitor within range.
+- 🔒 **`AIRNOW_DISTANCE_MI = 100`** locked as default (operator-tunable env var down to 75 if tighter scope wanted).
+- 🔒 Conditions strip + cache + aqi_alert evaluator all updated for multi-row tolerance + source-station attribution (Blythe, CA, ~60mi south) per `outputs/phase_8a_prereq_verification_report.md §12.3` wrapper amendments.
+
+V1 ships with honest "AQI 47 (O3) — from Blythe, CA ~60mi south" attribution. V1.5 candidates for tighter local fidelity: PurpleAir community sensors, AZDEQ state-level monitors, BLM dust stations (see verification report §12.4).
+
+**Original registration walkthrough (kept for reference; no longer operator-action since the key is already issued):**
 
 **Why:** AirNow is the EPA's air-quality data clearinghouse. Phase 8's conditions panel + heat-advisory alerts need real AQI data; the AirNow API is the canonical source.
 
@@ -55,11 +67,13 @@ Master plan §6 estimate is "2-3 hours" — this checklist trims that by giving 
    ```
 4. Add the same key to Railway production env vars (Phase 8 dispatch handles the wiring; the env var just needs to exist when Phase 8 ships).
 
-**Acceptance check:** once you have the key, a quick smoke test:
+**Acceptance check (UPDATED per §12 verification):** once you have the key, smoke-test with the V1 default distance (NOT 25 — that returns empty for LHC):
 ```powershell
 $key = "<your-key-here>"
-Invoke-RestMethod "https://www.airnowapi.org/aq/observation/zipCode/current/?format=application/json&zipCode=86403&distance=25&API_KEY=$key"
-# Expected: JSON array with current AQI for ZIP 86403 (Lake Havasu City).
+Invoke-RestMethod "https://www.airnowapi.org/aq/observation/zipCode/current/?format=application/json&zipCode=86403&distance=100&API_KEY=$key"
+# Expected: JSON array with 1 row from Blythe, CA (ParameterName=O3) — the
+# nearest active monitor at ~60mi south of LHC.
+# distance=25 + distance=60 both return empty for LHC; use 100 for V1.
 # If you get { "WebServiceError": [{...}] } the key isn't active yet.
 ```
 

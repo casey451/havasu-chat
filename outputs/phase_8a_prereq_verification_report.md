@@ -326,4 +326,95 @@ Amending the 2 files: ~20-30 min Cowork-side. Lower than the §6 amendment work 
 
 ---
 
-*Authored by Cowork primary at the post-`1e3f291` Lane I prereq-verification step. Lives at `outputs/phase_8a_prereq_verification_report.md`. Three P0 substantive findings; Lane I NOT safe to dispatch as currently wrapped. Operator decisions required on §2 USGS scope option + §4 Nixle scope option before wrapper amendments can land. §11 added post-§6-amendment to flag a substantive NWS product-type mismatch in the amended wrapper. Companion docs: `outputs/phase_8_operator_prereq_checklist.md` (superseded by this report's §1 status table); `outputs/cursor_dispatch_prompt_phase_8.md` (wrapper requires §6 + §11.2 amendments); `outputs/phase_8_architecture_design.md` (design doc requires §6 + §7 re-flow plus §11.2 corrections).*
+## §12 AirNow live verification + Blythe finding (2026-05-19 post-key-activation)
+
+**Context:** Operator's AirNow API key activated 2026-05-19 (near-instant via email-activation flow; no 1-2 business day lag). Live smoke-tests against the AirNow API surfaced a P0 scope-changing finding: **Lake Havasu City has no AirNow monitor within 25 miles**. The nearest active station is in Blythe, CA at lat 33.6178 / lon -114.5883 — roughly 60 air miles south of LHC.
+
+### §12.1 Smoke-test results
+
+| Test | Result | Disposition |
+|---|---|---|
+| `current?zipCode=86403&distance=25` | HTTP 200; **empty array `[]`** | No local monitor within 25mi |
+| `current?zipCode=86403&distance=100` | HTTP 200; **1 row returned** — Blythe CA, ParameterName=O3, AQI=47, Category=Good | Confirms nearest monitor at ~60mi south |
+| `historical?zipCode=86403&date=2026-05-18T00-0000&distance=50` | HTTP 200; **empty** | Historical backfill is also sparse for LHC ZIP at 50mi |
+
+**Net finding:** the operator's key works (AirNow auth + rate-limit path verified). But the data surface for LHC is much sparser than the Phase 8a wrapper + design doc assume — Blythe is a single-parameter (O3 only) station at ~60mi distance.
+
+### §12.2 Substantive scope-changing implications
+
+Three assumptions in the amended Phase 8a wrapper + design doc are contradicted by reality:
+
+**Finding A — `distance=25` default is too tight.** The wrapper at `outputs/cursor_dispatch_prompt_phase_8.md` line 208-209 specifies `app/conditions/airnow.py` "fetches AirNow current AQI for ZIP 86403" without specifying distance; the AirNow API default is 25, which returns empty for LHC. **Recommendation: lock `AIRNOW_DISTANCE_MI = 100` as a constant in `app/alerts/thresholds.py` alongside the other constants from §11.2.** Operator-tunable via env var `AIRNOW_DISTANCE_MI`. Smallest defensible default is ~75; 100 leaves headroom for monitor outages or seasonal data gaps.
+
+**Finding B — Multi-parameter assumption needs softening.** The design doc §6 + the conditions strip + the `aqi_alert` trigger assume multi-parameter AQI (O3 + PM2.5 + PM10). Reality at LHC: only O3 from Blythe. The `aqi_alert` evaluator must:
+
+- Iterate the response array (may be 0..N rows depending on distance + monitor coverage)
+- Evaluate the trigger against whichever `ParameterName` rows are present
+- Treat absence of PM2.5/PM10 as data-not-available, not as zero / safe
+- The conditions strip should render whatever's available, not require all three
+
+**Finding C — Honest attribution UX.** The "Today in Havasu" conditions strip will display AQI from a station ~60mi away. Per the design doc's honest-staleness pattern, the UX needs explicit attribution — not just "Lake Havasu AQI 47". Recommended pattern:
+
+```
+AQI: 47 (Good) — from Blythe, CA (~60mi south, O3 only)
+Updated 12 min ago
+```
+
+Two new fields needed in the cache row + JSON response: `aqi_source_station_name` + `aqi_source_distance_mi`. The conditions strip template renders both as a subtitle chip.
+
+### §12.3 Recommended wrapper amendments (low-effort follow-up)
+
+Three files; ~20-30 min Cowork-side. Can land in the same commit batch as the §6 + §11 amendments, OR as a separate `docs(phase8a): §12 AirNow Blythe finding` commit.
+
+**File 1: `outputs/cursor_dispatch_prompt_phase_8.md`**
+
+- LOCKED OPERATOR PREREQS section (~line 156-170): add `AIRNOW_DISTANCE_MI = 100` constant + nearest-monitor attribution lock (Blythe CA ~60mi south, O3 only).
+- §3.2.3 fetcher description: `app/conditions/airnow.py` — explicitly fetches with `distance=AIRNOW_DISTANCE_MI`; iterates response array; tolerates 0..N rows; tolerates parameter-set heterogeneity.
+- API response shape (~line 105-108): add `aqi_source_station_name` + `aqi_source_distance_mi` fields.
+
+**File 2: `outputs/phase_8_architecture_design.md`**
+
+- §6.1 trigger table — `aqi_alert` row: clarify "evaluates whichever ParameterName rows present in response; PM2.5/PM10 absence is data-not-available, not safe-condition".
+- §6.3 `app/alerts/thresholds.py` constants block: add `AIRNOW_DISTANCE_MI = int(os.environ.get("AIRNOW_DISTANCE_MI", "100"))`.
+- §4 cache schema: add `aqi_source_station_name` + `aqi_source_distance_mi` columns (or sub-keys in the existing `data` JSON column — schema decision per the existing cache shape).
+- §9 conditions strip rendering: add attribution-chip pattern showing source station name + distance + parameter coverage.
+
+**File 3: `outputs/phase_8_operator_prereq_checklist.md`**
+
+- §2 AirNow section: add post-verification finding — "nearest monitor confirmed as Blythe CA at ~60mi south (O3 only); `AIRNOW_DISTANCE_MI = 100` default locked."
+
+### §12.4 V1.5 carry surfaced
+
+**Local AirNow gap for Lake Havasu City** — no PM2.5/PM10 monitor within 100mi; nearest is O3-only at Blythe ~60mi. V1.5 candidates for tighter local AQI fidelity (in rough decreasing-yield order):
+
+- **PurpleAir community-network sensors** — likely 10+ in or near LHC; free public API; PM2.5 + PM10 + temperature/humidity; lower-quality than reference monitors but spatially dense. Best V1.5 candidate.
+- **AZDEQ (AZ Dept of Environmental Quality) state-level monitors** — state-side data feed; may have Mohave County coverage AirNow doesn't index. Worth a research pass.
+- **BLM dust-monitoring stations** along the Colorado River corridor — relevant for blowing-dust events that AirNow may not capture.
+- **NWS hourly observation stations at Havasu City Airport (KHII)** — already in scope via the NWS forecast fetcher; doesn't include AQI but does include visibility (proxy for dust).
+
+V1 ship is defensible with the Blythe-attribution honest-data UX; V1.5 upgrades the local fidelity story.
+
+### §12.5 Pre-amendment operator check — RESOLVED 2026-05-19
+
+Operator ran the `distance=60` recheck:
+
+```powershell
+Invoke-RestMethod "https://www.airnowapi.org/aq/observation/zipCode/current/?format=application/json&zipCode=86403&distance=60&API_KEY=$key" | Format-Table ReportingArea, StateCode, ParameterName, AQI
+```
+
+**Result: empty response.** No station within 60mi.
+
+**Net:** Blythe is at 60mi+ (likely 65-75mi by air given the lat/lon delta from LHC 34.48/-114.32 to Blythe 33.62/-114.59 ≈ 60-65mi air distance, but AirNow's distance parameter appears to floor at the nearest-integer mile). The original `distance=100` returning Blythe is the smallest radius that captures any LHC-area station.
+
+**Lock recommendation:** `AIRNOW_DISTANCE_MI = 100` as default. A tighter `75` is defensible if you want minimal extraneous-coverage data (e.g., excluding Phoenix-area stations that might appear at higher radii), but 100 leaves headroom for monitor outages or future station additions. **Both options encoded as env-var-tunable** — operator can adjust via Railway env var without code change.
+
+### §12.6 Sources for §12
+
+- AirNow API documentation: [docs.airnowapi.org](https://docs.airnowapi.org/)
+- AirNow API observation endpoint: [airnowapi.org/aq/observation/zipCode/current](https://www.airnowapi.org/aq/observation/zipCode/current/?format=application/json&zipCode=86403&distance=100)
+- PurpleAir community sensor network (V1.5 candidate): [api.purpleair.com](https://api.purpleair.com/)
+- AZDEQ Air Quality (V1.5 candidate): [azdeq.gov/Environment/Air](https://azdeq.gov/environment/air)
+
+---
+
+*Authored by Cowork primary at the post-`1e3f291` Lane I prereq-verification step. Lives at `outputs/phase_8a_prereq_verification_report.md`. Three P0 substantive findings (§1 + §11 + §12); Lane I NOT safe to dispatch as currently wrapped. Operator decisions required on §2 USGS scope option + §4 Nixle scope option before wrapper amendments can land. §11 added post-§6-amendment to flag a substantive NWS product-type mismatch in the amended wrapper. §12 added post-AirNow-key-activation to capture the Blythe-monitor finding (LHC has no monitor within 25mi; nearest = Blythe CA ~60mi south, O3 only). Companion docs: `outputs/phase_8_operator_prereq_checklist.md` (superseded by this report's §1 status table); `outputs/cursor_dispatch_prompt_phase_8.md` (wrapper requires §6 + §11.2 + §12.3 amendments); `outputs/phase_8_architecture_design.md` (design doc requires §6 + §7 re-flow plus §11.2 + §12.3 corrections).*
