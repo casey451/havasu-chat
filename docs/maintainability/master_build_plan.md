@@ -412,21 +412,44 @@ Target 20+ entries. Google Places only. Clean single-domain scope — all 4 in-s
 
 **Goal:** Land the Public & Civic Resources category (the trust/retention layer per ChatGPT taxonomy) + the Opus #1 + #8 conditions infrastructure.
 
-**Deliverables:**
-- Public & Civic Resources category page (library, transit, visitor info, utilities, airport, senior resources, payment/licensing links, civic orgs) — entities populated via Layer 3 (city open data) primarily
-- Conditions data fetching infrastructure: AirNow (AQI) + NWS (weather + heat advisory + sunset) + USGS (Lake Havasu gauge — operator confirms specific gauge ID) running on Railway scheduled job every 15 min
-- `external_conditions_cache` table populated; reads transparently cached
-- "Today in Havasu" conditions strip live on homepage with honest staleness indicators ("Updated 12 min ago")
-- Alert dispatch evaluation job (every 15 min): reads cache, compares against trigger thresholds per alert_type, queries opted-in subscriptions, dispatches email via Resend BackgroundTasks
-- Alert subscription UI on `/account/alerts`
-- Alert email templates with the texture-moat venue-context mapping (heat advisory email lists indoor alternatives from user's favorites)
-- Per-alert dedup: same alert_type not fired for same user more than once per 6 hours
+**Scope refined 2026-05-19 via live prereq verification.** Three substantive scope-changing findings landed in 3 wrapper-amendment waves (§6 + §11 + §12) per `outputs/phase_8a_prereq_verification_report.md`. The deliverables below reflect the post-amendment scope; original pre-verification framing is preserved in the architecture design doc + this entry's strikethroughs.
+
+**Deliverables (Phase 8a — conditions + alerts):**
+- Conditions data fetching infrastructure on Railway scheduled jobs:
+  - **AirNow** (AQI) — `AIRNOW_ZIP="86403"` + `AIRNOW_DISTANCE_MI=100` (default; tunable). Live verification confirms nearest monitor is **Blythe, CA O3-only at ~60mi south of LHC** — no PM2.5/PM10 within 100mi. Evaluator + cache + view-model are multi-row tolerant; conditions strip renders source-station attribution chip ("AQI 47 (O3) — from Blythe, CA ~60mi south"). 30-min cadence.
+  - **NWS land alerts** — scoped to **`LHC_NWS_ZONE_ID = "AZZ002"`** ("Lake Havasu and Fort Mohave"; served by NWS Las Vegas KVEF; confirmed NOT in the April 2026 zone-renumber list). Cache key `nws_alerts_lhc_zone`. 15-min cadence. **NWS marine forecasts dropped from V1** — marine zones cover Coastal + Great Lakes only; inland LHC is not in scope.
+  - **NWS forecast** — hourly + 7-day for AZZ002 region. 10-min cadence.
+  - **USGS gauge** — single site **`09427500`** ("Lake Havasu near Parker Dam") with parameters `00065` (gauge height ft) + `00054` (reservoir storage ac-ft). 30-min cadence. Original `09427520` secondary site DROPPED (historic-only since September 2006; empty value array). Water temperature `00010` + discharge `00060` NOT AVAILABLE at 09427500; both deferred to V1.5 (candidate alt sources: USGS 09426630 Bill Williams River, Bureau of Reclamation, marina sensor partnerships).
+  - **Nixle DROPPED FROM V1** — LHC Fire Department feed (agency `3726`) confirmed silent since 2021-09-01; staff-recall content only when active. V1.5 carry to research Mohave County SO / ein.az.gov / lhcaz.gov as alternate alert surfaces.
+  - Reuses Phase 4 `with_retry` envelope; per-source Railway services with source-isolation (AirNow failure doesn't crash NWS reads).
+- `external_conditions_cache` table populated with source-station attribution fields (`aqi_source_station_name`, `aqi_source_state_code`, `aqi_source_distance_mi`); reads transparently cached.
+- "Today in Havasu" conditions strip live on homepage with **honest staleness AND honest source-station distance** indicators ("Updated 12 min ago" + "from Blythe, CA ~60mi south" attribution chip). Per-tile severity + staleness color states; mobile + desktop shapes.
+- Chat live-conditions swap: `app/core/ranking.py` `STUB_CURRENT_TEMPERATURE_F` → `read_current_temperature_f()` reading from cache.
+- Alert dispatch evaluation job (15-min cadence): reads cache, compares against per-`alert_type` trigger thresholds, queries opted-in subscriptions, dispatches email via Resend BackgroundTasks.
+  - `heat_advisory`: NWS Excessive Heat Warning OR forecast > 110°F (tunable)
+  - `aqi_alert`: AirNow AQI > 150 (Unhealthy) on ANY ParameterName row; multi-row tolerant; PM2.5/PM10 absence is data-not-available, not safe-zero (tunable)
+  - `lake_hazard`: NWS AZZ002-zone alert keyword match (inland-LHC set: flash flood / flood warning / flood advisory / lake wind / high wind / wind advisory / blowing dust / dust storm / severe thunderstorm) OR USGS gauge height drop > 2.0 ft in 24h at 09427500 (tunable)
+  - `event_traffic`: deferred V1.5 (Events table doesn't have `traffic_impact` tag until Phase 9)
+- Alert subscription UI on `/account/alerts`.
+- Alert email templates with texture-moat venue-context mapping (heat advisory lists indoor alternatives from user's favorites).
+- Per-alert dedup: same `alert_type` not fired for same user more than once per 6 hours.
+
+**Deliverables (Phase 8b — cat-13 Public & Civic Resources expansion; separate dispatch):**
+- Public & Civic Resources category page (library, transit, visitor info, utilities, airport, senior resources, payment/licensing links, civic orgs) — entities populated via Layer 3 (city open data) primarily.
+- Expands cat-13 from 4 entries (current thin coverage) to ≥15 via Layer 3 scraper + Layer 5 seed script.
 
 **Dependencies:** Phase 2 (account-lite for User schema), Phase 3 (alert tables), Phase 4 (background jobs), Phase 6 (favorites system for venue-context mapping). Opus's hidden-dependency warning: Phase 5 + 6 must have tagged enough entities with `heat_exposure` for the alert venue-context mapping to fire (~30 entities minimum).
 
-**Effort estimate:** M (5-8 days dispatch). Plus operator work to register AirNow API key, confirm USGS gauge ID, check City of Lake Havasu emergency-notification feed format.
+**Effort estimate:** M (5-8 days dispatch Phase 8a) + S-M (2-4 days dispatch Phase 8b). Plus operator work to register AirNow API key (DONE 2026-05-19), confirm USGS gauge ID (DONE 2026-05-19 — narrowed to 09427500 only), check LHC emergency-feed format (DONE 2026-05-19 — Nixle dropped; V1.5 research alt sources).
 
-**Success criteria:** Conditions panel updates every 15 min. Alerts fire correctly for heat advisory / AQI / lake hazard / event traffic. Alert emails include relevant venue-context recommendations.
+**Success criteria:** Conditions panel updates every 15 min with honest source-station attribution. Alerts fire correctly for heat_advisory / aqi_alert / lake_hazard (event_traffic deferred V1.5). Alert emails include relevant venue-context recommendations.
+
+**Companion docs (authoritative):**
+- `outputs/phase_8_architecture_design.md` (1050+ lines; design spec amended through §11 + §12)
+- `outputs/phase_8_operator_prereq_checklist.md` (prereqs RESOLVED 2026-05-19 per §12 verification)
+- `outputs/phase_8a_prereq_verification_report.md` (the live-verification findings + 3-wave amendment justifications; §1 + §11 + §12)
+- `outputs/cursor_dispatch_prompt_phase_8.md` (dispatch wrapper; SHA-patched + amendment-complete; AirNow-Railway-env-var-blocked + Railway-recovery-blocked at 2026-05-19 session-close)
+- `outputs/cursor_dispatch_prompt_phase_8b.md` (Phase 8b dispatch; SHA slots pending Phase 8a ship)
 
 ---
 
