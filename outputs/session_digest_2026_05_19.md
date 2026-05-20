@@ -1,8 +1,8 @@
 # Session digest — 2026-05-19 — Lane L closure + Lane M closure + Phase 8a live prereq verification + 2-wave wrapper amendments (§6 + §11 + §12)
 
-> **What this is:** the durable close-out for the 2026-05-19 Cowork session that landed **5 commits** between origin/main `3bdc648` (the 2026-05-20 close-out commit per the boot prompt) and `1e1288b` (the §12 AirNow amendments commit). Two §8 closures (Lanes L + M → §8 closure scorecard 5 of 5); one full Phase 8a prereq live-verification pass surfaced **three substantive scope-changing findings** that flowed into 2 waves of wrapper amendments (§6 wave + §11 NWS-product-correction wave + §12 AirNow Blythe wave); plus the operator-side AirNow API key activation; plus the Railway-wide outage discovery (Google Cloud blocked Railway account; Lane H upstream-blocked).
+> **What this is:** the durable close-out for the 2026-05-19 Cowork session that landed **9 commits** between origin/main `3bdc648` (the 2026-05-20 close-out commit per the boot prompt) and `7e1a7fc` (post-digest polish: gotchas + Phase 8a close-out template + design-memo §10 refresh). Two §8 closures (Lanes L + M → §8 closure scorecard 5 of 5); one full Phase 8a prereq live-verification pass surfaced **five substantive scope-changing findings** across 3 wrapper-amendment waves (§6 + §11 + §12); plus operator-side AirNow API key activation; plus Railway-wide outage discovery (Google Cloud blocked Railway account; Lane H upstream-blocked); plus Cowork-light polish during the outage wait (Lanes N + O + R + S + T + Q — see §8).
 >
-> **Authored by:** Cowork primary, post-`1e1288b` (2026-05-19). Supplements (does not supersede) the 2026-05-20 session close-out at `outputs/session_close_out_2026_05_20.md` as the per-day work record.
+> **Authored by:** Cowork primary, post-`7e1a7fc` (2026-05-19). Supplements (does not supersede) the 2026-05-20 session close-out at `outputs/session_close_out_2026_05_20.md` as the per-day work record.
 >
 > **Note on date discrepancy:** Env reports today's date as 2026-05-19 while the prior close-out doc reads 2026-05-20. The project's working calendar treats this session as post-`3bdc648` chronologically; dates in this digest follow the env's 2026-05-19.
 
@@ -56,7 +56,7 @@ After Lane L's "schema finding" surfaced, Cowork primary corrected the SQL acros
 
 | Surface | State |
 |---|---|
-| origin/main tip | `1e1288b` (5 commits past `3bdc648`) |
+| origin/main tip | `7e1a7fc` (9 commits past `3bdc648`; see §8 for post-`bfd04ac` polish) |
 | Phase 5 data plane | COMPLETE (unchanged) |
 | Phase 6 UI | LANE COMPLETE (unchanged) |
 | Phase 7 chat | SHIPPED `0a305e0`; HALT 3 validator 22/22 PASS via Phase 7.5 `b701759`; **`FEATURE_FLAG_DISCLOSURE_RENDERER` flip BLOCKED on Railway outage recovery** |
@@ -66,8 +66,11 @@ After Lane L's "schema finding" surfaced, Cowork primary corrected the SQL acros
 | Pytest | 2166 collected (unchanged from `b701759`) |
 | Alembic head | `c9d0e1f2a3b4` (unchanged) |
 | Ruff | clean across touched paths |
-| STATE.md "Recently shipped" | Current through Phase 6.5 + Phase 7.5 (no STATE.md updates this session — possible Cowork-light chore) |
-| Master plan §4 Phase 8 | Original scope; not updated to reflect §6 + §11 + §12 amendments — possible follow-up |
+| STATE.md Production block | Refreshed through Phase 7.5 + Railway-outage caveats (`7143976`; Lane N **CLOSED**) |
+| STATE.md "Recently shipped" | Still through Phase 6.5 + Phase 7.5 only (Production block refreshed; Recently shipped prepend deferred) |
+| Master plan §4 Phase 8 | Refreshed for §6 + §11 + §12 amendments; Phase 8a + 8b split (`5350977`; Lane O **CLOSED**) |
+| dispatch_channels.md gotchas | #19–#23 landed (`7e1a7fc`; Lane R **CLOSED**) |
+| Phase 8a post-ship template | Pre-positioned at `outputs/phase_8a_post_ship_close_out_template.md` (`7e1a7fc`; Lane T) |
 | V1.5 triage §8 closure scorecard | **5 of 5 CLOSED** (#1 sustainability via `a4260ce`; #2 5.8 aggregators re-tag via `a5d12e7`; #3 V1 operator action items via `98d72ab`; #4 Phase 13 V1.5 carry-forward via `f168c52`; #5 Layer-4 verifier priority is V1.5 ranking only, no lock-now action) |
 | Local AirNow key | Saved to `.env` (Railway env var deferred until Railway recovers) |
 | Railway production | OUTAGE; Google Cloud account-block; no ETA |
@@ -81,6 +84,10 @@ After Lane L's "schema finding" surfaced, Cowork primary corrected the SQL acros
 | 3 | `a5d12e7` | `docs(triage): §8 #2 lock -- split carry #8 (GLH->Phase 9 Source 2 absorbed; visitarizona->V1.5 retained with upgrade hook)` |
 | 4 | `f065f31` | `docs(outputs): durable operator-action packages for Lanes H + M -- paste-ready runbooks` |
 | 5 | `1e1288b` | `docs(phase8a): §12 AirNow Blythe finding -- key verified; nearest monitor Blythe CA O3 only at ~60mi south; AIRNOW_DISTANCE_MI=100 default + multi-row tolerance + source-station attribution chip` |
+| 6 | `bfd04ac` | `docs(session): 2026-05-19 digest -- 5 commits + Lane L + Lane M closures + Phase 8a 3-wave amendments + V1.5 §8 5-of-5 + Railway outage Lane H/I block` |
+| 7 | `5350977` | `docs(master-plan): refresh §4 Phase 8 entry per Phase 8a §6 + §11 + §12 amendments (Lane O)` |
+| 8 | `7143976` | `docs(state+lane-h+triage): STATE.md Production block refresh + Lane H §6 Railway-outage row + V1.5 triage §11 consolidation (Lane N)` |
+| 9 | `7e1a7fc` | `docs(channels+template+design+digest): gotchas #19–#23 + Phase 8a post-ship template + Opus design memo §10 RESOLVED cross-refs (Lanes R + T + Q)` |
 
 ---
 
@@ -114,17 +121,20 @@ After Lane L's "schema finding" surfaced, Cowork primary corrected the SQL acros
 
 **Effort:** 12-18 days Cursor session; gated on Lane I ship.
 
-### Lane N — STATE.md Production block refresh (Cowork-light chore)
+### Lane N — STATE.md Production block refresh — **CLOSED** (`7143976`)
 
-**Status:** Long-standing carry from prior close-out. The "Currently deployed", "Build phase", "Alembic head", "Catalog posture" bullets carry pre-Phase-4.4 framing per the file's own staleness note. Not blocking any lane but worth a refresh pass.
+Production block refreshed through Phase 7.5 with Railway-outage UNVERIFIED caveats. "Recently shipped" prepend still deferred (non-blocking).
 
-**Effort:** ~15-30 min Cowork-side.
+### Lane O — Master plan §4 Phase 8 entry refresh — **CLOSED** (`5350977`)
 
-### Lane O — Master plan §4 Phase 8 entry refresh
+Phase 8 entry now reflects §6 + §11 + §12 amendments with Phase 8a + 8b split.
 
-**Status:** Phase 8 entry in master plan reflects original scope (Nixle in scope; multi-USGS-site; multi-AirNow-parameter). All three are now amended. Worth a refresh to reflect §6 + §11 + §12 wrapper amendments.
+### Lanes R / S / T / Q — post-digest polish — **CLOSED** (`7e1a7fc`)
 
-**Effort:** ~10 min Cowork-side.
+- **Lane R:** gotchas #19–#23 in `docs/maintainability/dispatch_channels.md`
+- **Lane S:** Phase 8b + Phase 9 wrappers + Phase 9 architecture design verified clean (no edits)
+- **Lane T:** `outputs/phase_8a_post_ship_close_out_template.md` pre-positioned
+- **Lane Q:** `conditions_panel_and_alerts_design.md` §10 — 5 of 10 open questions marked RESOLVED
 
 ---
 
@@ -134,16 +144,12 @@ After Lane L's "schema finding" surfaced, Cowork primary corrected the SQL acros
 - **Untracked `hava_api_catalog.docx`** — long-standing; operator preference whether to keep, delete, or .gitignore.
 - **V1.5 carry: Water temperature data source for Lake Havasu** — USGS 09427500 has no `00010`. Candidates: USGS 09426630 (Bill Williams River; browser-verify pending), Bureau of Reclamation Lower Colorado Region gauges, NDBC buoy partnership, marina sensor partnership.
 - **V1.5 carry: LHC public-safety alert source replacement** — Nixle silent since 2021. Candidates: Mohave County SO alerting platform, ein.az.gov, lhcaz.gov RSS, AZ DPS alerts.
-- **V1.5 carry: Tighter local AirNow fidelity** — Blythe at ~60mi south is the only LHC-area monitor; single-parameter O3 only. Candidates: PurpleAir community-network sensors, AZDEQ state-level monitors, BLM dust stations.
-- **V1.5 carry: NWS API User-Agent header convention** — explicit-lock in `app/conditions/nws_alerts.py` module-doc to avoid 403s.
-- **V1.5 carry: visitarizona.com Phase 9 Source 6 feasibility** — flagged in Lane M Option B as upgrade-hook research.
-- **V1.5 carry: PetSmart DUAL ADD pattern** — sub-services of franchise parent; modeling decision deferred from Lane L Slice E.
-- **`hint_extractor` token-budget perf** — V1.5 carry from Phase 7.5 (22 warnings per HALT 3 validator run; non-blocking).
+- **V1.5 carries consolidated in triage §11** (`7143976`) — includes tighter AirNow fidelity, NWS UA header, visitarizona Source 6, PetSmart DUAL ADD, Anderson sister-location, Rotary parent-child, local-makers subcat, Q Gallery next-scrape, crowd_notes JSON convention, and hint_extractor perf (see `outputs/v1_5_carry_inventory_triage.md` §11).
 - Other open carries from `outputs/session_close_out_2026_05_20.md §4` remain unchanged.
 
 ---
 
-## §5 Session-level lessons (capture for `docs/maintainability/dispatch_channels.md` consideration)
+## §5 Session-level lessons (landed as gotchas #19–#23 in `docs/maintainability/dispatch_channels.md` via `7e1a7fc`)
 
 ### Lesson 1 — Live prereq verification can surface scope-changing findings that fully document the gap
 
@@ -159,7 +165,7 @@ Original Lane L walkthrough + sub-agent research findings both used `entities.dr
 
 ### Lesson 4 — Railway-wide outages are upstream-blockers that can't be debugged from the operator dashboard
 
-Lane H §5a investigation initially assumed Railway-side issues (service hibernated / domain detached / failed deploy). Reality: Railway's account was blocked by Google Cloud, making the Railway dashboard ALSO inaccessible. **Lesson: when /health returns 404 + Railway dashboard is also unresponsive, check status.railway.com FIRST before assuming service-side issues.** Updated Lane H action package §6 failure-handling table can capture this pattern next time.
+Lane H §5a investigation initially assumed Railway-side issues (service hibernated / domain detached / failed deploy). Reality: Railway's account was blocked by Google Cloud, making the Railway dashboard ALSO inaccessible. **Lesson: when /health returns 404 + Railway dashboard is also unresponsive, check status.railway.com FIRST before assuming service-side issues.** Landed as gotcha #22 + Lane H package §6 Railway-wide-outage row (`7143976`).
 
 ### Lesson 5 — "Honest staleness" UX pattern scales to source-station attribution
 
@@ -169,57 +175,45 @@ Phase 6.5's design pattern was "Updated 12 min ago" per-field staleness. Phase 8
 
 ## §6 Paste-ready next-chat starter
 
-> Use as the operator's paste-blob to kick off the next Cowork session if/when Lane H + Lane I need re-orientation. Mirrors the 2026-05-20 close-out shape but post-`1e1288b`.
+> Use as the operator's paste-blob to kick off the next Cowork session if/when Lane H + Lane I need re-orientation. Mirrors the 2026-05-20 close-out shape but post-`7e1a7fc`.
 
 ```
 You're picking up the havasu-chat project after the 2026-05-19 session
-landed 5 commits + 1 substantial multi-track Phase 8a prereq live
-verification pass. Highlights: Lane L closed (98d72ab; §8 #3 sealed);
-Lane M closed (a5d12e7; §8 #2 sealed; split carry #8 GLH->Phase 9 +
-visitarizona->V1.5 hook); Phase 8a wrapper + design doc + prereq
-checklist + verification report ALL amendment-complete through 3 waves
-(§6 USGS narrow + Nixle drop; §11 NWS-product-type correction;
-§12 AirNow Blythe-monitor finding); operator-action packages durable
-for Lanes H/L/M (f065f31). V1.5 §8 closure scorecard: 5 of 5 CLOSED.
-Plus: AirNow API key activated + saved to local .env; Railway env var
-DEFERRED on Railway-wide outage (Google Cloud blocked Railway account;
-no ETA at session-end).
+landed 9 commits + 1 substantial multi-track Phase 8a prereq live
+verification pass + post-digest Cowork-light polish during Railway
+outage. Highlights: Lane L closed (98d72ab; §8 #3 sealed); Lane M
+closed (a5d12e7; §8 #2 sealed); Lanes N + O closed (7143976 +
+5350977); gotchas #19-#23 + Phase 8a post-ship template (7e1a7fc).
+Phase 8a wrapper + design + checklist + verification report ALL
+amendment-complete (§6 + §11 + §12). V1.5 §8 scorecard: 5 of 5 CLOSED.
+AirNow key in local .env; Railway env var DEFERRED on outage.
 
 Project state:
-- origin/main tip: `1e1288b`
+- origin/main tip: `7e1a7fc`
 - Phase 6 lane COMPLETE; Phase 7 SHIPPED + Phase 7.5 22/22 PASS;
   FEATURE_FLAG_DISCLOSURE_RENDERER flip BLOCKED on Railway recovery
-- Phase 8a: wrapper + design + checklist + verification report ALL
-  amendment-complete (§6 + §11 + §12); dispatch-ready post-Railway-
-  recovery + Railway AIRNOW_API_KEY env var write
+- Phase 8a: dispatch-ready post-Railway-recovery + AIRNOW_API_KEY
+  Railway env var write
 - Phase 8b + Phase 9: pre-positioned; gated on Phase 8a ship
-- V1.5 triage §8: 5 of 5 CLOSED
+- STATE.md Production block refreshed; Recently shipped still Phase 7.5
+- Master plan §4 Phase 8 refreshed for §6 + §11 + §12
 - Pytest 2166; alembic head c9d0e1f2a3b4; ruff clean
-- Railway: OUTAGE (Google Cloud account-block; status.railway.com)
+- Railway: OUTAGE (check status.railway.com first)
 
 Working directory: `C:\Users\casey\projects\havasu-chat`.
 
 Read these in order before doing anything else:
-1. `outputs/session_digest_2026_05_19.md` -- this is the authoritative
-   state-of-record for the 2026-05-19 session.
-2. `outputs/session_close_out_2026_05_20.md` -- the prior-day close-out;
-   still relevant for §3 Lane H/I/J/K + §4 carries that didn't move
-   today.
-3. `outputs/phase_8a_prereq_verification_report.md` §1 + §11 + §12 --
-   the substantive Phase 8a findings + amendment justifications.
-4. `outputs/lane_h_flag_flip_action_package.md` -- runbook for the
-   flag flip once Railway is back.
-5. `docs/STATE.md` "Recently shipped" -- current through Phase 7.5;
-   does NOT yet reflect today's docs commits.
+1. `outputs/session_digest_2026_05_19.md` (§8 for post-bfd04ac commits)
+2. `outputs/session_close_out_2026_05_20.md`
+3. `outputs/phase_8a_prereq_verification_report.md` §1 + §11 + §12
+4. `outputs/lane_h_flag_flip_action_package.md` (§6 has Railway-outage row)
+5. `docs/STATE.md` Production block (refreshed) + Recently shipped
 
 Open dispatchable lanes:
 - Lane H -- flag flip; upstream-blocked on Railway recovery
-- Lane I -- Phase 8a dispatch; AirNow-Railway-env-var + Railway-recovery
-  blocked
-- Lane J -- Phase 8b dispatch; gated on Lane I ship
-- Lane K -- Phase 9 dispatch; gated on Lane I ship
-- Lane N -- STATE.md Production block refresh (Cowork-light chore)
-- Lane O -- Master plan §4 Phase 8 entry refresh (Cowork-light chore)
+- Lane I -- Phase 8a dispatch; Railway-recovery + AIRNOW env var blocked
+- Lane J -- Phase 8b; gated on Lane I
+- Lane K -- Phase 9; gated on Lane I
 
 After reading the docs, surface a short context-discovery report
 covering:
@@ -245,13 +239,14 @@ step before dispatch.
 | Lane I — Phase 8a dispatch | Cursor via amended wrapper | Blocked on Railway recovery + Railway env var write; 5-8 days Cursor session |
 | Lane J — Phase 8b dispatch | Cursor via pre-positioned wrapper | Gated on Lane I ship; 2-4 days |
 | Lane K — Phase 9 dispatch | Cursor via pre-positioned wrapper | Gated on Lane I ship; 12-18 days |
-| Lane N — STATE.md refresh | Cowork-side docs commit | ~15-30 min when convenient |
-| Lane O — Master plan §4 Phase 8 refresh | Cowork-side docs commit | ~10 min when convenient |
+| Lane N — STATE.md Production block | **CLOSED** (`7143976`) | Recently shipped prepend still optional |
+| Lane O — Master plan §4 Phase 8 | **CLOSED** (`5350977`) | — |
+| Lanes R/T/Q — gotchas + template + design memo | **CLOSED** (`7e1a7fc`) | Lane S verified clean (no edits) |
 | Operator | Local + Railway dashboard | Watch Railway status; once green: AirNow env var → Lane H flip → Lane I dispatch |
 
 ---
 
-*Authored by Cowork primary at the post-`1e1288b` 2026-05-19 session-close step. Lives at `outputs/session_digest_2026_05_19.md`. Captures 5 commits across Lane L + Lane M + Lane I (verification + 2 amendment waves) + operator-action package durability + AirNow live verification. V1.5 §8 closure 5 of 5; Phase 8a fully amendment-complete; Lane H + Lane I both upstream-blocked on Railway outage recovery (Google Cloud account-block). Supplements (does not supersede) `outputs/session_close_out_2026_05_20.md` as the per-day work record.*
+*Authored by Cowork primary at post-`7e1a7fc` (2026-05-19). Lives at `outputs/session_digest_2026_05_19.md`. Captures 9 commits: Lane L + M + I (verification + 3 amendment waves) + operator-action packages + post-digest polish (N/O/R/S/T/Q). V1.5 §8 closure 5 of 5; Phase 8a fully amendment-complete; Lane H + Lane I upstream-blocked on Railway recovery. Supplements (does not supersede) `outputs/session_close_out_2026_05_20.md`.*
 
 ---
 
@@ -271,12 +266,12 @@ After this digest was authored at `bfd04ac`, the session continued with 4 Cowork
 - **Lane H package §6:** Added Railway-wide-outage row at the TOP of the failure-handling table (above all the service-side debugging rows). Per discipline lesson 4 from §5 of this digest: "when /health returns 404 + Railway dashboard inaccessible, check status.railway.com FIRST before assuming service-side issues."
 - **V1.5 triage §11 consolidation:** Restructured into 4 sub-sections (§11.1 USGS+Nixle wave, §11.2 NWS-product-type-correction wave, §11.3 AirNow Blythe wave, §11.4 cross-cutting today's-session carries) and added 9 new V1.5 carries: NWS UA header + tighter AirNow fidelity + visitarizona Source 6 + PetSmart DUAL ADD + Anderson sister-location + Rotary parent-child + local-makers subcat + Q Gallery next-scrape + crowd_notes JSON convention + hint_extractor perf.
 
-### `<post-7143976 commit>` — Dispatch channels gotchas + Lane T template + Lane Q stale-reference fix (Lanes R + S + T + Q)
+### `7e1a7fc` — Dispatch channels gotchas + Lane T template + Lane Q stale-reference fix (Lanes R + S + T + Q)
 
-Lane R: 5 new gotchas folded into `docs/maintainability/dispatch_channels.md` (#19 live-prereq-verification, #20 N-wave amendment pattern, #21 schema sanity, #22 Railway-outage triage, #23 honest spatial attribution); Lane S verified Phase 8b + Phase 9 wrappers + Phase 9 architecture design clean of stale references (no edits needed); Lane T pre-authored `outputs/phase_8a_post_ship_close_out_template.md` mirroring the Phase 7.5 template shape; Lane Q surfaced + patched a substantive stale reference in `docs/maintainability/conditions_panel_and_alerts_design.md §10` open questions (5 of 10 marked RESOLVED with cross-references to today's verification work).
+`docs(channels+template+design+digest): Lane R + Lane T + Lane Q + polish`. Lane R: 5 new gotchas in `docs/maintainability/dispatch_channels.md` (#19 live-prereq-verification, #20 N-wave amendment pattern, #21 schema sanity, #22 Railway-outage triage, #23 honest spatial attribution). Lane S: Phase 8b + Phase 9 wrappers + Phase 9 architecture design verified clean (no edits). Lane T: `outputs/phase_8a_post_ship_close_out_template.md` pre-positioned (mirrors Phase 7.5 template). Lane Q: `docs/maintainability/conditions_panel_and_alerts_design.md` §10 — 5 of 10 open questions marked RESOLVED with cross-refs to verification work.
 
-### Cumulative session commit chain (8 commits + 1 polish)
+### Cumulative session commit chain (9 commits)
 
-`98d72ab → dfdb5aa → a5d12e7 → f065f31 → 1e1288b → bfd04ac → 5350977 → 7143976 → <Lane R+S+T+Q polish commit>`
+`98d72ab → dfdb5aa → a5d12e7 → f065f31 → 1e1288b → bfd04ac → 5350977 → 7143976 → 7e1a7fc`
 
 V1.5 §8 closure scorecard remained **5 of 5 closed** throughout the post-digest commits; no new §8 items shipped during the polish. Net session totals: **9 commits + ~25 files touched + 5 substantive scope-changing findings + 3 wrapper-amendment waves + 5 new durable gotchas + 1 close-out template pre-positioned + 4 lanes closed (L + M + N + O) + 2 lanes refreshed (Lane H package + V1.5 triage)**. Railway outage spanned the full session and beyond; Lane H + Lane I remain upstream-blocked on Railway recovery.
