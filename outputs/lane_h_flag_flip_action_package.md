@@ -136,8 +136,10 @@ The Phase 8a operator prereqs (AirNow API key + USGS browser-verify + Nixle brow
 
 | Symptom | Action |
 |---|---|
+| **`/health` returns 404 "Application not found" at Railway edge BEFORE flipping anything** | **Check `https://status.railway.com/` FIRST** — this is the Railway-wide-outage pattern surfaced 2026-05-19 (Google Cloud blocked Railway's account; Railway dashboard ALSO inaccessible). Not a havasu-chat-side issue and cannot be debugged from the dashboard. Wait for upstream recovery; do NOT attempt service-side debugging (hibernation / domain detached / failed deploy assumptions all wrong in this case). When status.railway.com shows green: re-probe `/health`; if 200, proceed with §2. |
+| Railway dashboard inaccessible or shows "no healthy upstream" | Same as above — Railway-wide outage. Wait for upstream recovery. |
 | Deploy fails on build | Read deploy logs; if unrelated to disclosure-renderer, retry. Do NOT revert the env var on a build-system failure. |
-| `/health` returns non-200 post-deploy | Re-flip flag to `false`; deploy will revert. File an issue with the failure mode + logs. |
+| `/health` returns non-200 post-deploy (different from pre-flip 404 outage above) | Re-flip flag to `false`; deploy will revert. File an issue with the failure mode + logs. |
 | q07 confabulates in smoke check | **STOP.** Re-flip flag to `false`. This is a P0 regression in the disclosure renderer. Open an investigation thread; do NOT proceed to ledger updates. |
 | q03 returns `i_dont_know` when entities exist | Likely the pre-Phase-7.5 misread regression. Re-flip flag; investigate `unified_router.py` enrichment guards. |
 | q22 hits chat OUT_OF_SCOPE refusal | Likely the pre-Phase-7.5 routing misread. Re-flip flag; investigate `app/core/intent.py` lodging-OOS-skip-on-factual-lookup. |

@@ -193,14 +193,41 @@ Individual entities flagged for identity / DRAFT / waterfront / re-cat review. S
 
 ## §11 Phase 8a prereq verification carries (2026-05-19)
 
-From `outputs/phase_8a_prereq_verification_report.md` §8 — surfaced by live USGS + Nixle checks:
+From `outputs/phase_8a_prereq_verification_report.md` §8 + §11.5 + §12.4 — surfaced by 3 verification waves (USGS + Nixle live checks, NWS-product-type correction follow-up, AirNow live smoke + Blythe-monitor finding):
+
+### §11.1 Original §8 carries (USGS + Nixle wave)
 
 | Carry | Disposition | Why |
 |---|---|---|
-| Water temperature data source for Lake Havasu | **V1.5 — defer** | USGS `09427500` has no `00010`; candidates: `09426630` Bill Williams River (browser-verify), Bureau of Reclamation, marina sensor partnership |
-| LHC public-safety alert source (Nixle replacement) | **V1.5 — defer** | Nixle agency `3726` silent since 2021; research Mohave County SO, ein.az.gov, lhcaz.gov RSS |
-| Reservoir-storage UX ("X% full" / capacity) | **V1.5 — defer** | `00054` acre-ft available at `09427500`; nice-to-have conditions-strip tile |
+| Water temperature data source for Lake Havasu | **V1.5 — defer** | USGS `09427500` has no `00010`; candidates: `09426630` Bill Williams River (browser-verify), Bureau of Reclamation Lower Colorado Region gauges, NDBC buoy partnership, marina sensor partnership |
+| LHC public-safety alert source (Nixle replacement) | **V1.5 — defer** | Nixle agency `3726` silent since 2021-09-01; research Mohave County Sheriff's Office alerting platform, ein.az.gov, lhcaz.gov RSS, AZ DPS alerts |
+| Reservoir-storage UX ("X% full" / capacity) | **V1.5 — defer** | `00054` acre-ft available at `09427500`; nice-to-have conditions-strip tile beyond gauge-height |
 | Gauge-height-delta heuristic bounds doc | **V1 — operator action** | Document what drop threshold is meaningful for a managed reservoir; tune `LAKE_HAZARD_GAUGE_DROP_FT` at deploy |
+
+### §11.2 §11 NWS-product-type-correction wave carries
+
+| Carry | Disposition | Why |
+|---|---|---|
+| NWS API User-Agent header explicit-lock | **V1.5 — defer** (cheap to address; non-blocking) | `api.weather.gov` requires User-Agent header per their docs; explicit-lock in `app/conditions/nws_alerts.py` module-doc to avoid 403s. AZZ002 alerts API returned 400 during §11.3 secondary verification — likely UA header gate or `?zone=` query-syntax issue (path-form `/alerts/active/zone/AZZ002` may be required). Cursor's Phase 8a §0 audit will adapt. |
+
+### §11.3 §12 AirNow Blythe-finding wave carries
+
+| Carry | Disposition | Why |
+|---|---|---|
+| Tighter local AirNow fidelity for LHC | **V1.5 — defer** | Nearest AirNow monitor at Blythe CA ~60mi south; single-parameter (O3 only); no PM2.5/PM10 within 100mi. Candidates in decreasing-yield order: PurpleAir community-network sensors (likely 10+ in/near LHC; free public API; PM2.5+PM10), AZDEQ state-level monitors, BLM dust-monitoring stations along Colorado River corridor, NWS hourly observations at KHII (already in scope, but no AQI). V1 ships with honest "from Blythe, CA ~60mi south" attribution chip per §12.3 wrapper amendments. |
+
+### §11.4 Cross-cutting V1.5 carries from today's session (broader than prereq verification)
+
+| Carry | Disposition | Why |
+|---|---|---|
+| visitarizona.com Phase 9 Source 6 feasibility | **V1.5 — defer** with Phase 9 upgrade hook | Per Lane M §8 #2 Option B lock; carry #8b is retained V1.5 with explicit "may upgrade to Phase 9 Source 6 if scrape research confirms ≥10% LHC-local yield" hook. Operator-research pass. |
+| PetSmart DUAL ADD pattern modeling (sub-services of franchise parent) | **V1.5 — defer** | Surfaced during Lane L Slice E: PetSmart Grooming + PetSmart Dog Training are currently `providers.draft = 0` (published) in cat-11; the modeling decision is whether to keep granular or fold under the cat-8 PetSmart parent. Schema/UX decision, not data quality. |
+| Anderson Powersports Lake Havasu sister-location dedupe | **V1.5 — defer** | Confirmed during Lane L #32 research: north-Havasu site at 1040 N Lake Havasu Ave is a distinct Google place_id but same dealer group as Anderson AZ West (3198 Sweetwater Ave). Both already published; dedupe decision is V1.5. |
+| Rotary Community Park parent-child modeling | **V1.5 — defer** | Confirmed during Lane L #34 research: Butterfly Garden has distinct Google place_id but is conceptually a sub-feature of Rotary Community Park. V1.5 either-deduplicate-or-model-as-parent-child decision. |
+| V1.5 Local-makers / Art Trail subcat | **V1.5 — defer** | Surfaced by Lane L #37 Simply Savage Designs research: solo-artist brand with no storefront doesn't fit V1's destination-oriented UX; Havasu Art Trail has 20+ similar participants. V1.5 candidate subcat covers them. |
+| The Q Gallery (2102 McCulloch Blvd N) next-scrape candidate | **V1.5 — defer** | Visit-able venue hosting Simply Savage's work + other Havasu Art Trail artists; if not already in DB, add to next scrape pass. |
+| `crowd_notes` JSON convention lock | **V1.5 — defer** | Schema is `Mapped[dict | list | None]`; no convention locked for the dict/list shape. Locking a JSON-correct convention (e.g. `{"notes":[{"source":"operator","text":"...","added_at":"..."}]}`) enables operator annotations during chip-aways without ad-hoc shape. |
+| `hint_extractor` token-budget perf | **V1.5 — defer** | 22× `hint_extractor: token usage exceeds soft budget (inp=~378 out=8)` warnings per HALT 3 validator run. Tighten prompt or raise soft-budget constant. Not blocking. |
 
 ---
 
