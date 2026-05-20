@@ -252,3 +252,31 @@ step before dispatch.
 ---
 
 *Authored by Cowork primary at the post-`1e1288b` 2026-05-19 session-close step. Lives at `outputs/session_digest_2026_05_19.md`. Captures 5 commits across Lane L + Lane M + Lane I (verification + 2 amendment waves) + operator-action package durability + AirNow live verification. V1.5 §8 closure 5 of 5; Phase 8a fully amendment-complete; Lane H + Lane I both upstream-blocked on Railway outage recovery (Google Cloud account-block). Supplements (does not supersede) `outputs/session_close_out_2026_05_20.md` as the per-day work record.*
+
+---
+
+## §8 Post-digest commits (2026-05-19 continuation; Railway-still-outage)
+
+After this digest was authored at `bfd04ac`, the session continued with 4 Cowork-light polish commits during the Railway outage wait window:
+
+### `5350977` — Master plan §4 Phase 8 refresh (Lane O)
+
+`docs(master-plan): refresh §4 Phase 8 entry per Phase 8a §6 + §11 + §12 amendments`. Replaced the original 8-line Phase 8 deliverables block with a structured Phase 8a + Phase 8b split that reflects the post-amendment scope. Encodes: AirNow constants (ZIP 86403 + DISTANCE_MI=100) + Blythe O3-only finding + attribution chip pattern; NWS land alerts scoped to AZZ002 (KVEF Las Vegas); NWS marine surface explicitly DROPPED with rationale; USGS narrowed to single site 09427500 + parameters 00065+00054; USGS 09427520 secondary DROPPED with rationale + V1.5 water-temp candidates; Nixle DROPPED with rationale + V1.5 alt-source candidates; per-alert-type trigger predicates updated to match §6 + §11 + §12; companion docs section cross-references the verification report + amended wrapper + design doc.
+
+### `7143976` — STATE.md + Lane H §6 + V1.5 triage consolidation (Lane N + Lane H §6 refresh + V1.5 triage extension)
+
+`docs(state+lane-h+triage): STATE.md Production block refresh through Phase 7.5 + 5350977 + Railway-outage caveats; Lane H §6 failure-handling adds Railway-wide-outage row; V1.5 triage §11 consolidated with NWS UA + AirNow fidelity + visitarizona Source 6 + PetSmart DUAL ADD + Anderson sister + Rotary parent-child + local-makers + Q Gallery + crowd_notes JSON + hint_extractor carries`. Three substantive surfaces touched in one atomic commit:
+
+- **STATE.md Production block:** all 7 bullets refreshed; "Currently deployed" + "Alembic head (deployed prod)" + "Catalog posture (deployed)" marked UNVERIFIED with Railway-outage caveats + reverify-when-recovered language; "Build phase" full refresh with Phase 1+2+3+4+5+6+7+7.5 ALL SHIPPED narrative; "Pytest" refreshed 1820 → 2166; "Alembic head (origin)" refreshed `0a1b2c3d4e5f → c9d0e1f2a3b4`; "Feature flags" + "Health" reflect operator flag-flip pending Railway recovery.
+- **Lane H package §6:** Added Railway-wide-outage row at the TOP of the failure-handling table (above all the service-side debugging rows). Per discipline lesson 4 from §5 of this digest: "when /health returns 404 + Railway dashboard inaccessible, check status.railway.com FIRST before assuming service-side issues."
+- **V1.5 triage §11 consolidation:** Restructured into 4 sub-sections (§11.1 USGS+Nixle wave, §11.2 NWS-product-type-correction wave, §11.3 AirNow Blythe wave, §11.4 cross-cutting today's-session carries) and added 9 new V1.5 carries: NWS UA header + tighter AirNow fidelity + visitarizona Source 6 + PetSmart DUAL ADD + Anderson sister-location + Rotary parent-child + local-makers subcat + Q Gallery next-scrape + crowd_notes JSON convention + hint_extractor perf.
+
+### `<post-7143976 commit>` — Dispatch channels gotchas + Lane T template + Lane Q stale-reference fix (Lanes R + S + T + Q)
+
+Lane R: 5 new gotchas folded into `docs/maintainability/dispatch_channels.md` (#19 live-prereq-verification, #20 N-wave amendment pattern, #21 schema sanity, #22 Railway-outage triage, #23 honest spatial attribution); Lane S verified Phase 8b + Phase 9 wrappers + Phase 9 architecture design clean of stale references (no edits needed); Lane T pre-authored `outputs/phase_8a_post_ship_close_out_template.md` mirroring the Phase 7.5 template shape; Lane Q surfaced + patched a substantive stale reference in `docs/maintainability/conditions_panel_and_alerts_design.md §10` open questions (5 of 10 marked RESOLVED with cross-references to today's verification work).
+
+### Cumulative session commit chain (8 commits + 1 polish)
+
+`98d72ab → dfdb5aa → a5d12e7 → f065f31 → 1e1288b → bfd04ac → 5350977 → 7143976 → <Lane R+S+T+Q polish commit>`
+
+V1.5 §8 closure scorecard remained **5 of 5 closed** throughout the post-digest commits; no new §8 items shipped during the polish. Net session totals: **9 commits + ~25 files touched + 5 substantive scope-changing findings + 3 wrapper-amendment waves + 5 new durable gotchas + 1 close-out template pre-positioned + 4 lanes closed (L + M + N + O) + 2 lanes refreshed (Lane H package + V1.5 triage)**. Railway outage spanned the full session and beyond; Lane H + Lane I remain upstream-blocked on Railway recovery.
