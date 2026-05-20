@@ -1,0 +1,38 @@
+﻿# Linux sandbox venv (symlinks Windows can't traverse)
+.venv-linux/
+.venv-linux/**
+
+# Python venvs — all variants (.venv, .venv-p3, .venv-p4, .venv-windows, etc.)
+.venv/
+.venv/**
+.venv-*/
+.venv-*/**
+
+# Other common venv shapes
+venv/
+venv/**
+env/
+env/**
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Local DB + backups (already gitignored)
+data/
+*.db
+*.db.bak-*
+
+# IDE
+.vscode/
+.idea/
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+
+# Misc
+.pytest_cache/
+.mypy_cache/
+.coverage
