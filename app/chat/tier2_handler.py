@@ -21,6 +21,29 @@ from app.core.timezone import now_lake_havasu
 # Parser scores below this threshold skip Tier 2 and defer to Tier 3 (tunable in a later phase).
 TIER2_CONFIDENCE_THRESHOLD = 0.7
 
+# Phase 7.7 — honest empty listing for open_now zero-rows.
+# Fires when the user asked for currently-open <category> AND the catalog has rows
+# matching the category BUT zero rows survive the open_now filter (typically because
+# hours_structured / google_hours data is missing). Deterministic, zero LLM tokens.
+_OPEN_NOW_EMPTY_LISTING_TEMPLATE = (
+    "I have {category_label} in the Lake Havasu catalog, but I don't have "
+    "current hours data for them yet — so I can't tell you which are open "
+    "right now. Try https://www.golakehavasu.com/ for a hours-aware listing, "
+    "or share a Google Business page at /contribute and I'll fill the gap."
+)
+
+
+def _open_now_empty_listing(category: str) -> str:
+    """Render the honest empty listing for a single ``category`` (e.g. "restaurant").
+
+    Pluralizes via :func:`tier2_business_shortcut._pluralize_for_header` so the
+    label reads naturally for one-word ("restaurants") and two-word ("coffee
+    shops") categories alike.
+    """
+    label = tier2_business_shortcut._pluralize_for_header(category or "places")
+    return _OPEN_NOW_EMPTY_LISTING_TEMPLATE.format(category_label=label)
+
+
 _MONTHS: dict[str, int] = {
     "january": 1,
     "jan": 1,
@@ -164,6 +187,15 @@ def try_tier2_with_usage(
         if text is not None:
             logging.info("tier2_handler: business-listing shortcut hit (zero tokens)")
             return text, 0, 0, 0
+        # Phase 7.7 — honest empty listing. The shortcut matched the user-intent
+        # shape, the catalog has rows matching the category, but the open_now
+        # filter dropped them all (no hours_structured / google_hours). Emit a
+        # deterministic tier-2 reply instead of falling through to the LLM.
+        if shortcut_filters.open_now and shortcut_filters.category:
+            logging.info(
+                "tier2_handler: open_now zero-rows; emitting honest empty listing (shortcut path)"
+            )
+            return _open_now_empty_listing(shortcut_filters.category), 0, 0, 0
         # Shortcut matched the shape but returned no provider rows — fall through to the
         # LLM path so the user still gets a useful answer.
         logging.info("tier2_handler: shortcut shape matched but no provider rows; falling through")
@@ -182,6 +214,17 @@ def try_tier2_with_usage(
     filters = _normalize_tier2_filters_from_query(q, filters)
     rows = tier2_db_query.query(filters, ctx=chat_ctx)
     if len(rows) == 0:
+        # Phase 7.7 — same honest empty listing also applies to parser-built
+        # filters with the q03 shape (open_now + explicit category). The LLM
+        # parser sometimes sets open_now=True with category=None for shapes
+        # like "anywhere open right now"; those continue to fall through to
+        # tier-3 as today.
+        if filters.open_now and filters.category:
+            logging.info(
+                "tier2_handler: parser-path open_now zero-rows; emitting honest empty listing"
+            )
+            pi, po = (p_in or 0), (p_out or 0)
+            return _open_now_empty_listing(filters.category), pi + po, pi, po
         logging.info("tier2_handler: fallback: no matches")
         return None, None, None, None
 

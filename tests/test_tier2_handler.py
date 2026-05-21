@@ -119,3 +119,107 @@ def test_normalize_filters_maps_art_class_query_to_arts() -> None:
     out = _normalize_tier2_filters_from_query("any art classes this week?", f)
     assert out.category == "arts"
     assert out.time_window == "this_week"
+
+
+# ---------------------------------------------------------------------------
+# Phase 7.7 — honest empty listing on open_now zero-rows (q03 UX fix)
+# ---------------------------------------------------------------------------
+
+
+def test_open_now_empty_listing_helper_pluralizes() -> None:
+    """The helper must pluralize one-word and two-word categories naturally."""
+    from app.chat.tier2_handler import _open_now_empty_listing
+
+    assert "restaurants" in _open_now_empty_listing("restaurant")
+    assert "coffee shops" in _open_now_empty_listing("coffee shop")
+    assert "pharmacies" in _open_now_empty_listing("pharmacy")
+    assert "Lake Havasu catalog" in _open_now_empty_listing("restaurant")
+    assert "/contribute" in _open_now_empty_listing("restaurant")
+    assert "golakehavasu.com" in _open_now_empty_listing("restaurant")
+
+
+def test_shortcut_open_now_zero_rows_returns_honest_empty_listing() -> None:
+    """q03 shortcut path: shortcut fires, DB returns zero rows, handler emits template (no LLM)."""
+    with patch("app.chat.tier2_handler.tier2_db_query.query", return_value=[]):
+        text, total, tin, tout = try_tier2_with_usage("what restaurants are open now")
+    assert text is not None
+    assert "restaurants" in text
+    assert "current hours data" in text
+    assert total == 0  # zero LLM tokens — shortcut path
+    assert tin == 0
+    assert tout == 0
+
+
+def test_parser_path_open_now_zero_rows_returns_honest_empty_listing() -> None:
+    """Parser-built filters with the q03 shape also fire the template (carries parser tokens)."""
+    f = Tier2Filters(
+        parser_confidence=0.9,
+        category="restaurant",
+        open_now=True,
+        fallback_to_tier3=False,
+    )
+    # Bypass the shortcut by submitting a query the shortcut won't match
+    # (so the parser path is reached).
+    with patch(
+        "app.chat.tier2_handler.tier2_business_shortcut.try_business_listing_shortcut",
+        return_value=None,
+    ):
+        with patch("app.chat.tier2_handler.tier2_parser.parse", return_value=(f, 12, 5)):
+            with patch("app.chat.tier2_handler.tier2_db_query.query", return_value=[]):
+                text, total, tin, tout = try_tier2_with_usage(
+                    "anywhere good for dinner that's open right now"
+                )
+    assert text is not None
+    assert "restaurants" in text
+    # Parser tokens carried through honestly:
+    assert tin == 12
+    assert tout == 5
+    assert total == 17
+
+
+def test_parser_path_open_now_no_category_still_cascades() -> None:
+    """LLM parser sets open_now=True with category=None (recommendation shape): NO template fires."""
+    f = Tier2Filters(
+        parser_confidence=0.9,
+        category=None,
+        open_now=True,
+        fallback_to_tier3=False,
+    )
+    with patch(
+        "app.chat.tier2_handler.tier2_business_shortcut.try_business_listing_shortcut",
+        return_value=None,
+    ):
+        with patch("app.chat.tier2_handler.tier2_parser.parse", return_value=(f, 12, 5)):
+            with patch("app.chat.tier2_handler.tier2_db_query.query", return_value=[]):
+                text, _, _, _ = try_tier2_with_usage("anywhere open right now")
+    assert text is None  # cascades to tier-3 as before
+
+
+def test_shortcut_open_now_with_rows_still_renders_listing() -> None:
+    """Sanity: when rows DO survive the open_now filter, the existing listing render wins."""
+    rows = [{"type": "provider", "name": "Open Diner", "address": "1 Main", "phone": "555-1"}]
+    with patch("app.chat.tier2_handler.tier2_db_query.query", return_value=rows):
+        text, total, _, _ = try_tier2_with_usage("what restaurants are open now")
+    assert text is not None
+    assert "Open Diner" in text
+    assert "current hours data" not in text  # template did NOT fire
+    assert total == 0  # shortcut path is zero-token
+
+
+def test_non_open_now_zero_rows_still_returns_none() -> None:
+    """Non-open_now zero-rows path is unchanged (no template, falls through)."""
+    f = Tier2Filters(
+        parser_confidence=0.9,
+        category="nonexistent_xyz",
+        open_now=False,
+        fallback_to_tier3=False,
+    )
+    with patch(
+        "app.chat.tier2_handler.tier2_business_shortcut.try_business_listing_shortcut",
+        return_value=None,
+    ):
+        with patch("app.chat.tier2_handler.tier2_parser.parse", return_value=(f, 1, 1)):
+            with patch("app.chat.tier2_handler.tier2_db_query.query", return_value=[]):
+                text, total, _, _ = try_tier2_with_usage("find me a nonexistent_xyz")
+    assert text is None  # original behavior preserved
+    assert total is None
