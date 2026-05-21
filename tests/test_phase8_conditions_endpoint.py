@@ -8,14 +8,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.conditions.cache import upsert_source
+from app.conditions.constants import SOURCE_AIRNOW, SOURCE_NWS_CURRENT
+from app.db.database import SessionLocal
 from app.main import app
 
 
 @pytest.fixture
 def client() -> TestClient:
     return TestClient(app)
-from app.conditions.constants import SOURCE_AIRNOW, SOURCE_NWS_CURRENT
-from app.db.database import SessionLocal
 
 
 def test_api_conditions_returns_shape(client: TestClient) -> None:
