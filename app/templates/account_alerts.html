@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Alerts — Hava</title>
+  <link rel="stylesheet" href="/static/styles/home.css">
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <a class="wordmark" href="/home"><span class="mark"></span><span>Hava</span></a>
+  </header>
+
+  <section class="hero" style="padding-top: 2rem;">
+    <h1>Alerts</h1>
+    <p class="mission">We'll email <strong>{{ user.email }}</strong> when conditions matter.</p>
+    {% if saved %}
+    <p class="mission" style="color: var(--water, #0e6e7c);">Preferences saved.</p>
+    {% endif %}
+
+    <form action="/account/alerts" method="post" style="margin-top: 1.5rem; max-width: 28rem;">
+      <label style="display:block; margin-bottom: 1rem;">
+        <input type="checkbox" name="heat_advisory" value="1" {% if 'heat_advisory' in active_types %}checked{% endif %}>
+        <strong>Heat advisory</strong><br>
+        <span style="font-size: 0.9rem; color: var(--ink-3);">NWS heat products or forecast above threshold</span>
+      </label>
+      <label style="display:block; margin-bottom: 1rem;">
+        <input type="checkbox" name="aqi_alert" value="1" {% if 'aqi_alert' in active_types %}checked{% endif %}>
+        <strong>Air quality</strong><br>
+        <span style="font-size: 0.9rem; color: var(--ink-3);">When AQI exceeds unhealthy threshold</span>
+      </label>
+      <label style="display:block; margin-bottom: 1rem;">
+        <input type="checkbox" name="lake_hazard" value="1" {% if 'lake_hazard' in active_types %}checked{% endif %}>
+        <strong>Lake hazard</strong><br>
+        <span style="font-size: 0.9rem; color: var(--ink-3);">Flood/wind/dust alerts or sharp gauge drop</span>
+      </label>
+      <label style="display:block; margin-bottom: 1rem; opacity: 0.6;">
+        <input type="checkbox" disabled>
+        <strong>Event traffic</strong> (coming with events)
+      </label>
+
+      <p style="margin-top: 1.25rem; font-size: 0.9rem;">Snooze all until (optional):</p>
+      <input type="datetime-local" name="snooze_until" style="width: 100%; margin-bottom: 1rem;">
+
+      <button class="send" type="submit">Save changes</button>
+    </form>
+
+    <p class="mission" style="margin-top: 1.5rem;">
+      <a href="/account/favorites">Saved listings</a> ·
+      <a href="/home">Back to home</a>
+    </p>
+  </section>
+</div>
+</body>
+</html>

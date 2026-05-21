@@ -9,7 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.routes import category_pages as cat_pages
-from app.core.ranking import STUB_CURRENT_TEMPERATURE_F, compute_card_rank
+from app.core.conditions_temperature import read_current_temperature_f
+from app.core.ranking import compute_card_rank
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
 from app.db.database import get_db
 from app.db.models import Entity, Provider
@@ -106,9 +107,11 @@ def map_data(
         now=now,
     )
 
+    temp_f = read_current_temperature_f(db)
+
     def sort_key(e: Entity) -> tuple:
         inp = rank_inp[e.id]
-        score = compute_card_rank(inp, now=now, temperature_f=STUB_CURRENT_TEMPERATURE_F)
+        score = compute_card_rank(inp, now=now, temperature_f=temp_f)
         return (-score, (e.name or "").lower())
 
     entities = sorted(entities, key=sort_key)

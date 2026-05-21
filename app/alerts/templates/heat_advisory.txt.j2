@@ -1,0 +1,12 @@
+Heat advisory in effect for Lake Havasu City.
+
+{% if indoor_favorites %}
+Indoor places from your favorites:
+{% for fav in indoor_favorites %}
+  - {{ fav.name }}
+{% endfor %}
+{% else %}
+Favorite a few indoor spots at {{ alerts_url }} and we'll surface them next time.
+{% endif %}
+
+Stay hydrated. Manage alerts: {{ alerts_url }}

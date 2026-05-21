@@ -111,3 +111,53 @@ def send_magic_link(
     with httpx.Client(timeout=10.0) as client:
         response = client.post(_RESEND_API_URL, json=payload, headers=headers)
         response.raise_for_status()
+
+
+def send_alert_email(
+    *,
+    to_email: str,
+    subject: str,
+    html_body: str,
+    text_body: str,
+) -> None:
+    """Send a Phase 8a alert email (or log it in dev mode).
+
+    Mirrors ``send_magic_link``'s dev/prod posture:
+    - ``AUTH_DEV_MODE`` truthy → skip Resend, log subject + first 200 chars
+      of text body at INFO level.
+    - Otherwise POST to Resend's /emails endpoint with the pre-rendered
+      html + text bodies (rendered by ``app.alerts.render.render_alert_email``).
+
+    Raises ``RuntimeError`` if RESEND_API_KEY / RESEND_FROM_ADDRESS are
+    unset in prod, and ``httpx.HTTPError`` on Resend API failure. The
+    dispatcher (``app.alerts.dispatcher.dispatch_alerts``) catches both
+    and records ``delivery_status='failed'``.
+    """
+    if _dev_mode_enabled():
+        logger.info(
+            "AUTH_DEV_MODE: skipping Resend send — alert email for %s: %s | %s",
+            to_email,
+            subject,
+            (text_body or "")[:200],
+        )
+        return
+
+    api_key = (os.environ.get("RESEND_API_KEY") or "").strip()
+    from_addr = (os.environ.get("RESEND_FROM_ADDRESS") or "").strip()
+    if not api_key or not from_addr:
+        raise RuntimeError(
+            "RESEND_API_KEY and RESEND_FROM_ADDRESS must be set in prod"
+        )
+
+    payload = {
+        "from": from_addr,
+        "to": [to_email],
+        "subject": subject,
+        "html": html_body,
+        "text": text_body,
+    }
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+
+    with httpx.Client(timeout=10.0) as client:
+        response = client.post(_RESEND_API_URL, json=payload, headers=headers)
+        response.raise_for_status()

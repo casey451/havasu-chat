@@ -1,0 +1,12 @@
+Air quality alert for Lake Havasu City (AQI above threshold).
+
+{% if indoor_favorites %}
+Lower-exposure favorites:
+{% for fav in indoor_favorites %}
+  - {{ fav.name }}
+{% endfor %}
+{% else %}
+Add favorites for personalized indoor options: {{ alerts_url }}
+{% endif %}
+
+Manage alerts: {{ alerts_url }}

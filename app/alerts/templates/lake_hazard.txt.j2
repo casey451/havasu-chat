@@ -1,0 +1,12 @@
+Lake hazard advisory for Lake Havasu City.
+
+{% if land_favorites %}
+Land-based favorites:
+{% for fav in land_favorites %}
+  - {{ fav.name }}
+{% endfor %}
+{% else %}
+Check conditions and manage alerts: {{ alerts_url }}
+{% endif %}
+
+Manage alerts: {{ alerts_url }}

@@ -25,10 +25,12 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 
 from app.admin.router import router as admin_router
+from app.api.routes.account_alerts import router as account_alerts_router
 from app.api.routes.admin_contributions import router as admin_contributions_router
 from app.api.routes.admin_mentions import router as admin_mentions_router
 from app.api.routes.category_pages import router as category_pages_router
 from app.api.routes.chat import router as concierge_chat_router
+from app.api.routes.conditions import router as conditions_router
 from app.api.routes.contribute import router as contribute_router
 from app.api.routes.map_data import router as map_data_router
 from app.api.routes.themed_groups import router as themed_groups_router
@@ -294,6 +296,7 @@ app.include_router(search_router)
 app.include_router(category_pages_router)
 app.include_router(themed_groups_router)
 app.include_router(map_data_router)
+app.include_router(conditions_router)
 app.include_router(admin_router)
 app.include_router(admin_contributions_router)
 app.include_router(admin_mentions_router)
@@ -301,6 +304,7 @@ app.include_router(programs_router)
 # BUILD.md step 1: new /home page lives alongside the existing static / chat
 # UI during dogfooding. Cuts over to / once we're confident.
 app.include_router(home_router)
+app.include_router(account_alerts_router)
 # Directory pivot V1 (2026-05-13): per-provider profile page at
 # /provider/<slug>. Gates the Verified Presence sponsor package.
 app.include_router(providers_router)

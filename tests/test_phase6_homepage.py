@@ -79,12 +79,16 @@ def test_home_tile_titles_present(client: TestClient) -> None:
     assert "Public" in r.text
 
 
-def test_home_conditions_strip_placeholder(client: TestClient) -> None:
+def test_home_conditions_strip_anchor_and_heading(client: TestClient) -> None:
+    # Phase 8a: the placeholder section was replaced with the live conditions
+    # strip include. The anchor comment + heading remain stable; the body now
+    # renders tiles from cached upstream sources (with a fallback empty-state
+    # message when no source has populated yet).
     r = client.get("/home")
     assert "<!-- conditions-strip-anchor -->" in r.text
     assert "Today in Havasu" in r.text
-    assert "Conditions data coming soon" in r.text
-    assert "Phase 8" in r.text
+    assert 'id="conditions-strip"' in r.text
+    assert 'data-poll-url="/api/conditions"' in r.text
 
 
 def test_home_css_imports_phase65_components() -> None:

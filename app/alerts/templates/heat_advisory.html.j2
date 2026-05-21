@@ -1,0 +1,12 @@
+<p><strong>Heat advisory</strong> in effect for Lake Havasu City.</p>
+{% if indoor_favorites %}
+<p>Indoor places from your favorites:</p>
+<ul>
+{% for fav in indoor_favorites %}
+  <li>{{ fav.name }}</li>
+{% endfor %}
+</ul>
+{% else %}
+<p>Favorite indoor spots to get personalized suggestions next time.</p>
+{% endif %}
+<p><a href="{{ alerts_url }}">Manage alert settings</a></p>

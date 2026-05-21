@@ -1421,7 +1421,10 @@ class ExternalConditionsCache(Base):
     """Keyed cache row per upstream conditions source (Phase 3.1)."""
 
     __tablename__ = "external_conditions_cache"
-    __table_args__ = (Index("ix_external_conditions_cache_fetched_at", "fetched_at"),)
+    __table_args__ = (
+        Index("ix_external_conditions_cache_fetched_at", "fetched_at"),
+        Index("ix_external_conditions_cache_next_attempt_after", "next_attempt_after"),
+    )
 
     source: Mapped[str] = mapped_column(String(64), primary_key=True)
     fetched_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
@@ -1431,6 +1434,8 @@ class ExternalConditionsCache(Base):
     error_count: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    next_attempt_after: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class PeerRecommendation(Base):

@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_user
 from app.chat.disclosure_render import DISCLOSURE_WORD
+from app.conditions.view_model import build_conditions_strip_view_model
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.db.models import User
@@ -69,6 +70,7 @@ def serve_home(
     )
     base["snowbird_panel"] = snowbird_panel.snowbird_panel_template_dict(panel_ctx)
     base["browse_tiles"] = browse_tiles.build_browse_tiles(db)
+    base["conditions_strip"] = build_conditions_strip_view_model(db)
 
     return templates.TemplateResponse(
         request=request,

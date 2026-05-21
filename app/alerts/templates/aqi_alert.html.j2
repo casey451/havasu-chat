@@ -1,0 +1,12 @@
+<p><strong>Air quality alert</strong> for Lake Havasu City.</p>
+{% if indoor_favorites %}
+<p>Indoor / shaded favorites:</p>
+<ul>
+{% for fav in indoor_favorites %}
+  <li>{{ fav.name }}</li>
+{% endfor %}
+</ul>
+{% else %}
+<p>Add favorites for personalized suggestions.</p>
+{% endif %}
+<p><a href="{{ alerts_url }}">Manage alert settings</a></p>

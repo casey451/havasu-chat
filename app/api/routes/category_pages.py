@@ -19,7 +19,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.ranking import STUB_CURRENT_TEMPERATURE_F, CardRankInput, compute_card_rank
+from app.core.conditions_temperature import read_current_temperature_f
+from app.core.ranking import CardRankInput, compute_card_rank
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
 from app.db.database import get_db
 from app.db.entity_types import ENTITY_TYPE_COMMERCIAL
@@ -597,9 +598,11 @@ def _sort_entity_ids(
             now=now,
         )
 
+        temp_f = read_current_temperature_f(db)
+
         def closest_key(e: Entity) -> tuple:
             inp = rank_inp[e.id]
-            score = compute_card_rank(inp, now=now, temperature_f=STUB_CURRENT_TEMPERATURE_F)
+            score = compute_card_rank(inp, now=now, temperature_f=temp_f)
             return (-score, (e.name or "").lower())
 
         return sorted(entities, key=closest_key)

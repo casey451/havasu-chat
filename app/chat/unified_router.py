@@ -42,6 +42,7 @@ from app.chat.tier2_handler import (
 )
 from app.chat.tier3_handler import FALLBACK_MESSAGE as _GRACEFUL
 from app.chat.tier3_handler import answer_with_tier3
+from app.core.conditions_temperature import read_current_temperature_f
 from app.core.session import (
     get_session,
     record_entity,
@@ -843,6 +844,20 @@ def route(
         query_params=query_params,
         preferred_mode=preferred_mode,
     )
+    # Phase 8a: when no override supplied, read live temperature from cache.
+    # `read_current_temperature_f` returns STUB_CURRENT_TEMPERATURE_F on
+    # missing / stale data, so this is safe at cold-start. Wrap in try/except
+    # so any DB/cache failure falls back to the legacy stub via the
+    # ChatRequestContext default — never blocks the request.
+    if temperature_f_override is None:
+        try:
+            temperature_f_override = read_current_temperature_f(db)
+        except Exception:
+            logging.exception(
+                "unified_router: live conditions read failed; "
+                "falling back to ChatRequestContext stub default"
+            )
+            temperature_f_override = None
     if temperature_f_override is not None:
         chat_ctx = ChatRequestContext(
             boat_mode=chat_ctx.boat_mode,

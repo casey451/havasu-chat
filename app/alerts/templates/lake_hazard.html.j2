@@ -1,0 +1,12 @@
+<p><strong>Lake hazard advisory</strong> for Lake Havasu City.</p>
+{% if land_favorites %}
+<p>Land-based favorites:</p>
+<ul>
+{% for fav in land_favorites %}
+  <li>{{ fav.name }}</li>
+{% endfor %}
+</ul>
+{% else %}
+<p>Review conditions and update your alert preferences.</p>
+{% endif %}
+<p><a href="{{ alerts_url }}">Manage alert settings</a></p>

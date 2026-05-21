@@ -86,6 +86,13 @@ def rank_sort_key(
     return (-compute_card_rank(inp, now=now, temperature_f=temperature_f), (inp.name or "").lower())
 
 
+# Phase 8a: the live-temperature helper `read_current_temperature_f(db)` lives
+# in `app.core.conditions_temperature` (which imports STUB_CURRENT_TEMPERATURE_F
+# from this module as a fallback). Do NOT re-export it from here — that creates
+# a circular import. Callers should `from app.core.conditions_temperature
+# import read_current_temperature_f` directly.
+
+
 __all__ = [
     "CardRankInput",
     "HEAT_BIAS_INDOOR_WEIGHT",
