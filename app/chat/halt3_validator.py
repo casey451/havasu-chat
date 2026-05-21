@@ -48,7 +48,16 @@ _URL_RE = re.compile(r"https?://\S+")
 _EMAIL_RE = re.compile(r"\b[\w.+\-]+@[\w\-]+\.\w+\b")
 
 # Platform / contribute URLs are not business-confab signals.
-_PLATFORM_URL_MARKERS = ("golakehavasu.com", "/contribute")
+# Phase 7.5.4 — tightened: anchored hostname + path-segment patterns.
+# - golakehavasu.com must be the host (or subdomain): require '//' or '.' before it
+#   and a '/', ':', '?', '#', or end-of-string after the TLD.
+# - /contribute must be a path component: require it preceded by host or '/' and
+#   followed by '/', '?', '#', or end-of-string (NOT a substring of /contribute-please).
+_PLATFORM_URL_RE = re.compile(
+    r"(?:^|//|\.)golakehavasu\.com(?:[/:?#]|$)"
+    r"|(?:^|/)contribute(?:[/?#]|$)",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -119,23 +128,76 @@ def load_eval_set(path: str | Path) -> list[EvalQuerySpec]:
 
 
 def _is_platform_url(url: str) -> bool:
-    low = (url or "").lower()
-    return any(marker in low for marker in _PLATFORM_URL_MARKERS)
+    return bool(_PLATFORM_URL_RE.search(url or ""))
+
+
+# Phase 7.5.4 — per-sentence disclaimer patterns for hours scrub. A captured
+# hours probe is scrubbed only if it appears in a sentence that ALSO matches
+# one of these hedging-verb + "open tomorrow" co-occurrence shapes.
+_HOURS_DISCLAIMER_PATTERNS = (
+    re.compile(r"\b(?:can'?t|cannot)\s+say\b[^.!?]*\bopen\s+tomorrow\b", re.I),
+    re.compile(r"\b(?:don'?t|do\s+not)\s+(?:know|have)\b[^.!?]*\bopen\s+tomorrow\b", re.I),
+    re.compile(r"\b(?:not\s+sure|unclear)\b[^.!?]*\bopen\s+tomorrow\b", re.I),
+)
+
+# Phase 7.5.4 — per-sentence disclaimer patterns for rating scrub. A captured
+# rating value is scrubbed only if it appears in a sentence that ALSO matches
+# one of these template-disclaimer shapes. Replaces the whole-text substring
+# gate "rating for" / "rated above" / "stars in the catalog" that wiped the
+# entire rating list on q25-shape user-query echoes.
+_RATING_DISCLAIMER_PATTERNS = (
+    re.compile(
+        r"\b(?:don'?t|do\s+not)\s+have\b[^.!?]*\brating\s+for\b",
+        re.I,
+    ),
+    re.compile(
+        r"\bno\s+rating\b[^.!?]*\b(?:for|on|available)\b",
+        re.I,
+    ),
+    re.compile(
+        r"\bnot\s+in\s+(?:the\s+)?catalog\b[^.!?]*\brating\s+for\b",
+        re.I,
+    ),
+    re.compile(r"\bno\s+\w+(?:\s+\w+){0,4}\s+rated\s+above\b", re.I),
+    re.compile(r"\b\d\s+stars?\s+in\s+the\s+catalog\b", re.I),
+)
 
 
 def _sanitize_typed_facts(text: str, facts: dict[str, list[str]]) -> dict[str, list[str]]:
-    """Drop template-echo probes that are not business-confab signals."""
+    """Drop template-echo probes that are not business-confab signals.
+
+    Phase 7.5.4: per-sentence scrubs anchored on template-disclaimer shapes.
+    User-query echoes ("the rating for X is N.N stars", "X is open tomorrow at
+    8am") are NOT scrubbed — only sentences that ALSO match a disclaimer
+    pattern have their typed-fact values dropped.
+    """
     out = {k: list(v) for k, v in facts.items()}
+    sentences = re.split(r"(?<=[.!?])\s+", text or "")
+
     if out.get("hours"):
-        out["hours"] = [
-            h for h in out["hours"]
-            if not re.search(r"open\s+tomorrow", h, re.IGNORECASE)
-        ]
-    low = (text or "").lower()
-    if out.get("rating") and (
-        "rated above" in low or "stars in the catalog" in low or "rating for" in low
-    ):
-        out["rating"] = []
+        kept_hours: list[str] = []
+        for h in out["hours"]:
+            in_disclaimer = False
+            for s in sentences:
+                if h in s and any(p.search(s) for p in _HOURS_DISCLAIMER_PATTERNS):
+                    in_disclaimer = True
+                    break
+            if not in_disclaimer:
+                kept_hours.append(h)
+        out["hours"] = kept_hours
+
+    if out.get("rating"):
+        kept_rating: list[str] = []
+        for r in out["rating"]:
+            in_disclaimer = False
+            for s in sentences:
+                if r in s and any(p.search(s) for p in _RATING_DISCLAIMER_PATTERNS):
+                    in_disclaimer = True
+                    break
+            if not in_disclaimer:
+                kept_rating.append(r)
+        out["rating"] = kept_rating
+
     return out
 
 
