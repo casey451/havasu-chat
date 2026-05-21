@@ -217,4 +217,66 @@ After all three fixes — circular import, `send_alert_email`, chat live-conditi
 
 ---
 
+## §10 Phase 8a.1 follow-up — Railway cron landed (2026-05-21)
+
+Dashboard-only setup; no repo code change. The Phase 8a §3 "scheduled jobs" deferred carry is now closed.
+
+### What landed
+
+New `conditions-cron` Railway service alongside the existing `Havasu chat` web service + Postgres in the production environment. Configuration:
+
+| Field | Value |
+|---|---|
+| Service name | `conditions-cron` |
+| Source | `casey451/havasu-chat` @ `main` |
+| Start command | `python -m scripts.fetch_external_conditions --all` |
+| Cron schedule | `*/15 * * * *` (every 15 min UTC; ~96 runs/day; aligns with USGS native cadence; well under AirNow's 500/hr rate limit) |
+| Restart policy | Never (Railway auto-applies this for services with a cron schedule) |
+| Public networking | None (no domain, no TCP proxy — it's a job, not a web service) |
+| Env vars | `DATABASE_URL` → `${{Postgres.DATABASE_URL}}` reference; `AIRNOW_API_KEY` → Project Shared Variable reference |
+
+`AIRNOW_API_KEY` was promoted to a **Project Shared Variable** in the production environment, shared between `Havasu chat` (web) and `conditions-cron`. Project Settings → Shared Variables shows the var with a "2" badge indicating the dual binding. Single source of truth; the web service was rebuilt to pick up the shared reference (no behavior change since the value was already in use, just relocated).
+
+### Prod smoke after first cron run
+
+Within ~30 seconds of the first run completing:
+
+| Field | Value | Staleness | Result |
+|---|---|---|---|
+| AQI | 51, O3, Blythe CA | Updated 0 min ago | `is_stale=false` ✓ |
+| Temp | 93.2°F (heat_index 86.99°F, wind 8.05 mph) | Updated 0 min ago | `is_stale=false` ✓ |
+| NWS alerts | `[]` (none active) | Updated 0 min ago | `is_stale=false` ✓ |
+| Lake | 48.79 ft / 584,800 ac-ft | Updated >2h ago | `is_stale=true` ✗ |
+
+Three of four fetchers refreshed. The lake gauge stays stale — that's the **USGS 404 watch item** carried over from §7, not a Phase 8a.1 regression. USGS's OGC endpoint at `api.waterdata.usgs.gov/ogcapi/v0/` is returning 404 for site `09427500`; root cause likely an endpoint deprecation. Diagnosis queued as Phase 8a.2 candidate (~30-60 min).
+
+### Open carries refresh (vs. §7 baseline)
+
+The Phase 8a §7 open-carries list narrows substantially:
+
+- **AIRNOW_API_KEY not yet set on Railway env vars** → CLOSED (set as Project Shared Variable in Phase 8a.1)
+- **Initial fetcher run pending** → CLOSED (first cron run completed in ~30s)
+- **`/api/conditions` returns empty payload** → CLOSED (3 of 4 fields populated; lake remains the USGS 404 carry)
+- **`tests/test_gap_template_contribute_link.py::test_date_lookup_gap_includes_contribute`** failure → still pending diagnostic dispatch
+- **Phase 7.7.1** (q10/q12 eval pin + validator list-handling widening) → SHIPPED at `d370ed5` (2026-05-21, before this Phase 8a.1 setup); striking from open carries
+- **Phase 7.5.4** (rating-scrub exploit fix) → SHIPPED at `a91b350` (2026-05-21, same session as Phase 8a.1); striking from open carries
+- **Phase 7.5.5** (rapidfuzz tighten for `zzznonexistentevent999abc` false-positive into near-match dym) → queued for next sub-agent dispatch
+- **Phase 8a.2** (USGS 404 fix) → queued, ~30-60 min diagnosis
+- **Phase 8b** (cat-13 expansion) → still deferred per scope
+- **function-bun service cleanup** → cosmetic; abandoned Hello-world Bun template service sleeping on Railway, $0 cost
+
+### Verification posture
+
+Phase 8a.1 has no code surface, so there's no acceptance gate in the §2 sense. The acceptance signal is the prod smoke above. There's also a passive monitoring signal — every 15 minutes the cron should advance `*_updated_at_iso` on the three working fetchers; any prolonged staleness (e.g., 30+ min on AQI/temp/alerts) would indicate the cron stopped or the AirNow rate limit was hit. The setup walkthrough at `outputs/phase_8a_1_railway_cron_setup.md` includes a roll-back step (Settings → Danger Zone → Delete Service) if the cron misbehaves; the web service is unaffected by such a roll-back since the conditions cache is in the shared DB and just falls back to staleness display.
+
+### Pattern note
+
+This was the first Phase-8 sub-phase ship that ran entirely from Cowork without a Cursor session. The hazard documented in §5 + §6 about multi-window IDE buffer collisions doesn't apply to dashboard-only setups, but the durable insight is still relevant for any future repo-side Phase 8 sub-phases: prefer Edit-tool sub-agent dispatch over Cursor terminal writes when the scope is small enough to handle that way. (Phase 7.5.4 — shipped this same session at `a91b350` — used exactly this pattern and verified cleanly: 7 focused pytest tests PASS + HALT 3 validator 30/30 PASS without ever opening a Cursor window.)
+
+---
+
+*§10 authored by Cowork primary 2026-05-21 post-Phase-8a.1-setup. The original §1-§9 close-out remains accurate; §7 open-carries are superseded by the refresh above.*
+
+---
+
 *Authored by sub-agent under Cowork primary supervision, 2026-05-21 post-Phase-8a-ship. Saved to `outputs/phase_8a_close_out.md`.*
