@@ -61,9 +61,9 @@
 - id: q10
   query: "where can I take my dog for breakfast?"
   expected_tier: [tier2, gap_template]
-  expected_disclosure_path: cited
+  expected_disclosure_path: [cited, i_dont_know]
   expected_confabulation_rate: 0.0
-  notes: "Cross-entity multi-domain; tier-2 listing is primary dev path (gap on other runs)."
+  notes: "Cross-entity multi-domain; tier-2 listing is primary dev path (gap on other runs). Phase 7.7 honest-empty template fires when open_now+category set + zero rows; template body 'I have ... but I don't have current hours data' matches _I_DONT_KNOW_RE → disclosure widened 2026-05-21 (Phase 7.7.1) to accept either cited or i_dont_know."
 
 - id: q11
   query: "groceries and coffee near me"
@@ -74,9 +74,9 @@
 - id: q12
   query: "indoor dining when it's hot"
   expected_tier: [tier2, gap_template]
-  expected_disclosure_path: cited
+  expected_disclosure_path: [cited, i_dont_know]
   expected_confabulation_rate: 0.0
-  notes: "Heat-bias path; tier-2 listing is primary dev path (gap on other runs)."
+  notes: "Heat-bias path; tier-2 listing is primary dev path (gap on other runs). Phase 7.7 honest-empty template fires on zero rows; classifies as i_dont_know via _I_DONT_KNOW_RE — widened 2026-05-21 (Phase 7.7.1)."
 
 - id: q13
   query: "thanks"
