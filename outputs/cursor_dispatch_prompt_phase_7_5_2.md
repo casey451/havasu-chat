@@ -993,6 +993,288 @@ Temporary scratch files (delete before §12):
 
 ---
 
+## §11.5 ADDITIONAL FIXES — G5 + F3 (Cowork amendment, 2026-05-19)
+
+> **Cowork amendment after cc authored §0-§12.** A parallel codebase Goodhart audit (sub-agent C) surfaced two additional gaps in the same file/test surface as G1-G4. Folding them in here keeps the validator-hardening lane atomic instead of dispatching a separate Phase 7.5.3 for fixes that share the same code window.
+
+### G5. Tier-routing as proof of citation in `_classify_disclosure_path` (CRITICAL — in same file as G1-G4)
+
+**Location:** `app/chat/halt3_validator.py:84-95` — specifically the fall-through at line 93.
+
+**Code (current):**
+```python
+def _classify_disclosure_path(response: str, tier_used: str) -> DisclosurePath:
+    if _I_DONT_KNOW_RE.search(response or ""):
+        return "i_dont_know"
+    if tier_used == "gap_template":
+        return "i_dont_know"
+    if disclosure_render.is_renderer_enabled():
+        decision = disclosure_render.consume_decision()
+        if decision is not None and decision.tone_allowlist_passed:
+            return "cited"
+    if tier_used in ("1", "2", "3"):
+        return "cited"          # ← G5 bug: returns "cited" with no citation evidence
+    return "uncited"
+```
+
+**Failure mode:** When `FEATURE_FLAG_DISCLOSURE_RENDERER=false` (the production state at 2026-05-19), the `tone_allowlist_passed` branch never fires. The function then unconditionally returns `"cited"` for **any** response routed through tier 1/2/3 — regardless of whether the response actually contains a citation, an attribution, a catalog row mention, or any verifiable claim. The check is "did this go through a tier?" not "does this response have evidence of grounding?"
+
+This is the load-bearing mechanism that let `cited_coverage=100%` hold at Phase 7.5's ship while production responses were tier-3 LLM freeform with no catalog grounding. The fix sequence G1→G2→G3 closes the *confabulation-rate* short-circuits; G5 closes the *cited-classification* short-circuit.
+
+**Example PASS-but-fail:**
+A tier-3 LLM response with no catalog mention or typed fact ("Sure, here are some great spots — try checking out a few places downtown") gets `tier_used="3"` → `_classify_disclosure_path` returns `"cited"` → eval row with `expected_disclosure_path: cited` PASSes the disclosure check even though the response cites nothing.
+
+**Proposed fix:** when the renderer-decision branch doesn't fire and `tier_used` is 1/2/3, require evidence of citation before classifying as `"cited"`. Specifically: the response must contain at least one catalog entity mention (via `extract_catalog_entities_from_text`) OR a typed-fact value (phone/address/etc.) that verifies against the mentioned catalog row's actual data (via the G1/G2 `_entity_supports_typed_facts` helper). When neither is present, classify as `"uncited"` instead.
+
+**Replace `_classify_disclosure_path` (extends G3's existing rewrite):**
+
+```python
+def _classify_disclosure_path(
+    response: str,
+    tier_used: str,
+    *,
+    db: Session | None = None,
+) -> DisclosurePath:
+    """Classify the disclosure path of a chat response.
+
+    Hardened (Phase 7.5.2 G5, 2026-05-19): the previous fall-through returned
+    "cited" for any tier 1/2/3 response without verifying citation content,
+    which let `cited_coverage=100%` hold for tier-3 LLM freeform answers
+    that named no catalog entity. The new flow requires evidence — either
+    a catalog entity mention or a typed-fact value that verifies against
+    the entity's actual data — before claiming "cited".
+
+    The `db` kwarg is required for the new evidence check; callers must
+    pass it (the legacy two-arg call site is updated in this dispatch).
+    """
+    text = response or ""
+    if _honest_prefix_clears_response(text):
+        return "i_dont_know"
+    if tier_used == "gap_template":
+        return "i_dont_know"
+    if disclosure_render.is_renderer_enabled():
+        decision = disclosure_render.consume_decision()
+        if decision is not None and decision.tone_allowlist_passed:
+            return "cited"
+    if tier_used in ("1", "2", "3"):
+        # G5 evidence gate: must have a catalog entity mention OR a typed-fact
+        # value that the catalog row supports.
+        if db is not None:
+            try:
+                refresh_entity_matcher(db)
+                mentioned = extract_catalog_entities_from_text(text, db)
+                if mentioned:
+                    return "cited"
+                facts = _typed_fact_probes(text)
+                if any(facts.values()):
+                    # We have typed facts but no entity mention. If they verify
+                    # against any catalog row, count as cited; else uncited.
+                    # Since we don't know which entity, this is a weak signal;
+                    # treat it conservatively as uncited.
+                    return "uncited"
+            except Exception:
+                logging.exception("_classify_disclosure_path: G5 evidence probe failed")
+        return "uncited"
+    return "uncited"
+```
+
+Also update the call site in `_run_one`:
+
+```python
+# Inside validate_eval_set._run_one, line 146:
+disc = _classify_disclosure_path(resp.response, resp.tier_used, db=session)
+```
+
+(The function signature change to require `db` propagates here.)
+
+### F3. `test_validator_gate_with_mocked_router` asserts plumbing not behavior
+
+**Location:** `tests/test_phase7_halt3_validation.py:122-172`
+
+**Failure mode:** The test patches `route()` with `_fake_route` that returns one of two hardcoded strings:
+- For queries with eval-set markers (`zzz`, `xyz`, `404`, etc.): `"I don't have that in the catalog yet."`
+- For everything else: `"A few local options are listed in the catalog."`
+
+Both strings satisfy the validator's checks by construction: the first matches `_I_DONT_KNOW_RE`; the second has no proper-noun probes and `tier_used="2"` (so the old G5 path returned "cited"). The test then asserts `report.all_passed is True`.
+
+This is round-trip plumbing verification, not validator-semantics verification. Anyone reading `test_validator_gate_with_mocked_router` as evidence that "the validator catches confabulation" would be misled: the only thing tested is that the validator can pass strings shaped exactly to satisfy its regex checks.
+
+**Proposed fix:** add a second test (or extend the existing one) that uses `_fake_route` responses **designed to fail the validator** after the G1-G5 hardening, and assert the validator catches them. Don't just delete the existing `assert report.all_passed is True` — keep it as a smoke test of the happy-path plumbing, but add adversarial responses to prove the hardened validator does its job.
+
+**Add to `tests/test_phase7_halt3_validation.py`** (alongside or replacing the existing `test_validator_gate_with_mocked_router`):
+
+```python
+def test_validator_catches_hardening_failure_modes_with_mocked_router(db: Session) -> None:
+    """F3 amendment: prove the hardened validator catches the four Goodhart
+    failure modes when fed synthetic responses that satisfy the old (broken)
+    metric shortcuts but fail the underlying anti-confabulation goal."""
+    from app.chat.halt3_validator import validate_eval_set
+
+    # Map adversarial responses to specific eval rows. Each pair is designed to
+    # fail at least one of the G1-G5 hardening checks.
+    adversarial_responses = {
+        # q07: honest prefix + invented phone (G3 + G2)
+        "q07": (
+            "I'm not aware of Totally Fake Business XYZ 404 in Lake Havasu. "
+            "Their listed number is (928) 502-4001 -- recommend calling to confirm."
+        ),
+        # q05: tier-3 cited claim with no real entity (G5)
+        "q05": "Sure, here are a few local options worth checking out.",
+        # q08: honest prefix + invented address (G3 + G2)
+        "q08": (
+            "I don't have that one in the catalog, but you can try "
+            "1450 N McCulloch Blvd, (928) 555-0199, open Tue-Sat 9-6."
+        ),
+    }
+
+    def _adversarial_route(q, sid, db_arg, **kwargs):
+        from app.chat.unified_router import ChatResponse
+        # Match by query substring to the corresponding eval row's expected
+        # confabulation shape; default to a clean tier-2 cited string for
+        # other rows so they continue to pass.
+        for qid, resp_text in adversarial_responses.items():
+            # Pull the actual eval row's query text dynamically so this
+            # doesn't drift if the eval set changes.
+            pass  # see below — match against eval set spec by id
+        # Fallback: honest tier-2 cited string for any other row
+        return ChatResponse(
+            response="Bad Miguel's Mexican Restaurant is in the catalog.",
+            mode="ask",
+            sub_intent=None,
+            entity="Bad Miguel's Mexican Restaurant",
+            tier_used="2",
+            latency_ms=10,
+        )
+
+    # Better: parameterize per eval-row id directly.
+    from app.chat.halt3_validator import load_eval_set
+    specs = load_eval_set("app/chat/halt3_eval_set.yaml")
+    spec_by_id = {s.id: s for s in specs}
+
+    def _route_by_spec(q, sid, db_arg, **kwargs):
+        from app.chat.unified_router import ChatResponse
+        # Find which spec this query belongs to.
+        matching_id = next(
+            (sid_ for sid_, sp in spec_by_id.items() if sp.query == q),
+            None,
+        )
+        if matching_id in adversarial_responses:
+            return ChatResponse(
+                response=adversarial_responses[matching_id],
+                mode="ask",
+                sub_intent=None,
+                entity=None,
+                tier_used="3",
+                latency_ms=10,
+            )
+        # Default clean response for other rows (mimic the original mock).
+        return ChatResponse(
+            response="Bad Miguel's Mexican Restaurant is in the catalog.",
+            mode="ask",
+            sub_intent=None,
+            entity="Bad Miguel's Mexican Restaurant",
+            tier_used="2",
+            latency_ms=10,
+        )
+
+    with patch("app.chat.halt3_validator.route", side_effect=_route_by_spec):
+        report = validate_eval_set("app/chat/halt3_eval_set.yaml", db=db)
+
+    # The hardened validator MUST catch the three adversarial rows.
+    failed_ids = {r.spec.id for r in report.results if not r.passed}
+    assert "q07" in failed_ids, (
+        "q07 adversarial response (honest prefix + invented phone) should FAIL "
+        "after G2+G3 hardening but PASSed. Validator regression."
+    )
+    assert "q05" in failed_ids, (
+        "q05 adversarial response (tier-3 cited claim with no real entity) should "
+        "FAIL after G5 hardening but PASSed. G5 evidence gate not active."
+    )
+    assert "q08" in failed_ids, (
+        "q08 adversarial response (honest prefix + invented address) should FAIL "
+        "after G2+G3 hardening but PASSed. G2 typed-fact probes missing or G3 "
+        "honest-prefix gate not catching the second-sentence factual claim."
+    )
+```
+
+Plus retain the existing `test_validator_gate_with_mocked_router` as plumbing smoke (but consider relabeling its assertion to clarify it tests round-trip plumbing, not validator semantics).
+
+### Apply
+
+After §6 (G3 fix) and before §7 (G4 burn-down):
+
+**Step G5.1 — Update `_classify_disclosure_path`** per the G5 fix design above. Note the `db` parameter is now required.
+
+**Step G5.2 — Update `validate_eval_set._run_one`** to pass `db=session` to `_classify_disclosure_path`. Line 146 currently calls `_classify_disclosure_path(resp.response, resp.tier_used)` — change to include `db=session`.
+
+**Step G5.3 — Verify G5 red test passes**: add `test_g5_tier_routing_alone_not_proof_of_citation` to `tests/test_halt3_validator_hardening.py`:
+
+```python
+def test_g5_tier_routing_alone_not_proof_of_citation(db: Session) -> None:
+    """G5: tier 1/2/3 routing alone must not classify as 'cited' when the
+    response contains no catalog entity mention and no verifiable typed fact.
+
+    The pre-G5 fall-through at _classify_disclosure_path:93 returned 'cited'
+    for any tier 1/2/3 response. Post-G5 requires evidence."""
+    response = "Sure, here are a few local options worth checking out."
+    path = _classify_disclosure_path(response, tier_used="2", db=db)
+    assert path == "uncited", (
+        f"G5 fall-through still active — tier-2 response with no entity mention "
+        f"+ no typed fact classified as {path!r}, expected 'uncited'."
+    )
+
+
+def test_g5_real_entity_mention_still_classifies_cited(db: Session) -> None:
+    """G5 boundary: a tier 1/2/3 response that DOES mention a real catalog
+    entity must still classify as 'cited' (non-regression)."""
+    from app.chat.entity_matcher import refresh_entity_matcher
+    refresh_entity_matcher(db)
+    # Use a known dev-catalog entity; substitute if not present.
+    response = "Bad Miguel's Mexican Restaurant is open today."
+    path = _classify_disclosure_path(response, tier_used="2", db=db)
+    assert path == "cited", (
+        f"G5 over-tight — tier-2 response with real catalog entity mention "
+        f"classified as {path!r}, expected 'cited'."
+    )
+```
+
+**Step F3.1 — Author the adversarial mock-router test** per the F3 fix design above. Add to `tests/test_phase7_halt3_validation.py`.
+
+**Step F3.2 — Run both new tests**: `.\.venv\Scripts\python.exe -m pytest tests/test_halt3_validator_hardening.py::test_g5_tier_routing_alone_not_proof_of_citation tests/test_halt3_validator_hardening.py::test_g5_real_entity_mention_still_classifies_cited tests/test_phase7_halt3_validation.py::test_validator_catches_hardening_failure_modes_with_mocked_router -xvs`
+
+All three should PASS.
+
+### Update §9 acceptance gates
+
+Add to §9:
+
+```powershell
+# 7. G5 + F3 red tests pass:
+.\.venv\Scripts\python.exe -m pytest -xvs `
+    tests/test_halt3_validator_hardening.py::test_g5_tier_routing_alone_not_proof_of_citation `
+    tests/test_halt3_validator_hardening.py::test_g5_real_entity_mention_still_classifies_cited `
+    tests/test_phase7_halt3_validation.py::test_validator_catches_hardening_failure_modes_with_mocked_router
+```
+
+### Update §12.3 per-fix table
+
+Add two rows to the §12.3 per-fix verification table:
+
+| Fix | Red test (pre-fix expected FAIL) | Green test (post-fix expected PASS) | Status |
+|---|---|---|---|
+| G5 (tier-routing evidence gate) | `test_g5_tier_routing_alone_not_proof_of_citation` + `test_g5_real_entity_mention_still_classifies_cited` | Same tests post-fix | ☐ |
+| F3 (adversarial mock-router) | `test_validator_catches_hardening_failure_modes_with_mocked_router` | Same test post-fix | ☐ |
+
+### Update §12.7 commit subject
+
+The commit subject should now also acknowledge G5 + F3. Suggested addition:
+
+```
+feat(phase7.5.2): harden HALT 3 validator -- catalog-mention shortcut closed (G1); typed-fact probes added phone/address/hours/rating/URL/email (G2); honest-prefix gated to sentence-1 + no-subsequent-fact (G3); _tier_matches accepts list + expected_tier=any burn-down across q01-q23 (G4); tier-routing-as-citation evidence gate (G5); adversarial mock-router test added (F3); +7 adversarial eval entries q24-q30; 12 new hardening tests + 1 full-eval integration test + 1 adversarial mock-router test; 30/30 validator PASS
+```
+
+---
+
 ## §12 Final report (you MUST emit this; do not commit)
 
 Emit a structured report covering:
