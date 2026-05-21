@@ -40,14 +40,25 @@ def _utc_now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
-def fetch_one_source(db: Session, source: str, *, now: datetime | None = None) -> bool:
-    """Fetch and upsert one source. Returns True on success."""
+def fetch_one_source(
+    db: Session,
+    source: str,
+    *,
+    now: datetime | None = None,
+    force: bool = False,
+) -> bool:
+    """Fetch and upsert one source. Returns True on success.
+
+    Phase 8a.3: pass ``force=True`` to bypass the circuit-breaker gate
+    (see ``cache.should_skip_fetch``). Useful after deploying an API-rename
+    fix to unmask the next fetch attempt without waiting for the cooldown.
+    """
     now = now or _utc_now()
     if source not in _FETCHERS:
         raise ValueError(f"unknown conditions source: {source}")
 
     row = db.get(ExternalConditionsCache, source)
-    if should_skip_fetch(row, now=now):
+    if not force and should_skip_fetch(row, now=now):
         logger.info("conditions.circuit_skipped", extra={"source": source})
         return False
 
@@ -81,11 +92,16 @@ def fetch_one_source(db: Session, source: str, *, now: datetime | None = None) -
         return False
 
 
-def fetch_sources(db: Session, sources: list[str]) -> dict[str, bool]:
+def fetch_sources(
+    db: Session,
+    sources: list[str],
+    *,
+    force: bool = False,
+) -> dict[str, bool]:
     results: dict[str, bool] = {}
     for source in sources:
         try:
-            results[source] = fetch_one_source(db, source)
+            results[source] = fetch_one_source(db, source, force=force)
         except Exception:
             logger.exception("conditions.fetch_failed", extra={"source": source})
             results[source] = False

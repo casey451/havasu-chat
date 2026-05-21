@@ -26,6 +26,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Fetch external conditions sources")
     parser.add_argument("--source", action="append", dest="sources", metavar="SOURCE")
     parser.add_argument("--all", action="store_true", help="Fetch every known source")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help=(
+            "Bypass should_skip_fetch circuit-breaker (Phase 8a.3). "
+            "Use after deploying an API-rename fix to unmask the next fetch "
+            "attempt without waiting for the up-to-6-hour cooldown."
+        ),
+    )
     args = parser.parse_args(argv)
 
     if args.all:
@@ -36,7 +45,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("Specify --source SOURCE or --all")
 
     with SessionLocal() as db:
-        results = fetch_sources(db, sources)
+        results = fetch_sources(db, sources, force=args.force)
         db.commit()
 
     failed = [s for s, ok in results.items() if not ok]
