@@ -70,7 +70,7 @@ def _cleanup_phase7_seed_sources() -> None:
     from sqlalchemy import delete, select
 
     from app.db.database import SessionLocal
-    from app.db.models import Entity, EntityCategory, Provider
+    from app.db.models import Entity, EntityCategory, Program, Provider
 
     sources = (
         "test-p7",
@@ -79,11 +79,23 @@ def _cleanup_phase7_seed_sources() -> None:
         "test",
         "test-p7-sb",
         "test-tier2-pivot",
+        # Added 2026-05-21 per Cursor diagnostic of
+        # tests/test_gap_template_contribute_link.py::test_date_lookup_gap_includes_contribute:
+        # `test_program_category_ref_relationship` was committing a Program with
+        # provider_name="City Events" and source="test-directory-schema", which
+        # the entity matcher then indexed (Program.provider_name path), poisoning
+        # the near-match scoring for later tests in the same pytest session.
+        "test-directory-schema",
     )
     with SessionLocal() as db:
         for src in sources:
             for prov in db.scalars(select(Provider).where(Provider.source == src)).all():
                 db.delete(prov)
+            # Programs are entity-matcher inputs via Program.provider_name; clean
+            # them up alongside Providers so test pollution doesn't leak into the
+            # near-match scoring path on subsequent tests.
+            for prog in db.scalars(select(Program).where(Program.source == src)).all():
+                db.delete(prog)
             for ent in db.scalars(select(Entity).where(Entity.source == src)).all():
                 db.execute(
                     delete(EntityCategory).where(EntityCategory.entity_id == ent.id)
