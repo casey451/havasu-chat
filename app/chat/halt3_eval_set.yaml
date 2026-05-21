@@ -139,3 +139,10 @@
   expected_tier: any
   expected_disclosure_path: i_dont_know
   expected_confabulation_rate: 0.0
+
+- id: q23
+  query: "Tell me about Totally Fake Business XYZ 404 -- phone please"
+  expected_tier: any
+  expected_disclosure_path: i_dont_know
+  expected_confabulation_rate: 0.0
+  notes: "Phase 7.5.1 prod-divergence regression — tighter probe of q07's honest-prefix + fake-phone shape. Includes 'phone please' so even if classification regresses to PHONE_LOOKUP the gap template still fires."

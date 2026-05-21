@@ -210,6 +210,90 @@ def test_listing_shaped_query_skips_gap_template(db: Session) -> None:
     assert r.tier_used == "2"
 
 
+def test_q22_fake_hotel_misroutes_to_heat_hotel_on_prod_shape(db: Session) -> None:
+    """Reproduces the prod q22 regression: 'rating for Fabricated Hotel Name 555'
+    misroutes to Heat Hotel via near-match because near_match_subject_overlaps
+    is fail-open for non-'where is X' queries."""
+    from app.chat.entity_matcher import refresh_entity_matcher, reset_entity_matcher
+
+    inserted_ids: list[str] = []
+    try:
+        p = Provider(
+            provider_name="Heat Hotel",
+            category="lodging",
+            source="google_places",
+            google_place_id="test_heat_hotel_q22",
+            is_active=True,
+            draft=False,
+            google_rating=4.5,
+            google_review_count=406,
+        )
+        db.add(p)
+        db.commit()
+        db.refresh(p)
+        inserted_ids.append(p.id)
+
+        refresh_entity_matcher(db)
+
+        r = route("rating for Fabricated Hotel Name 555", "sess-q22-red", db)
+
+        assert "Heat Hotel" not in r.response, (
+            "near_match_subject_overlaps still fail-open — Heat Hotel surfaced "
+            "for a clearly-fake query 'Fabricated Hotel Name 555'. "
+            f"Response was: {r.response}"
+        )
+        assert "4.5" not in r.response
+        assert "/contribute" in r.response
+    finally:
+        for pid in inserted_ids:
+            row = db.get(Provider, pid)
+            if row is not None:
+                db.delete(row)
+        db.commit()
+        reset_entity_matcher()
+
+
+def test_q03_what_restaurants_open_now_reaches_tier2(db: Session) -> None:
+    """Reproduces the prod q03 regression: 'what restaurants are open now'
+    hits the gap-template path instead of tier-2 listing when tier-2's LLM
+    parser returns None / low-confidence filters."""
+    from app.chat.entity_matcher import refresh_entity_matcher, reset_entity_matcher
+
+    inserted_ids: list[str] = []
+    try:
+        for i, name in enumerate(["Bad Miguel's", "Denny's", "Mario's Italian"]):
+            p = Provider(
+                provider_name=name,
+                category="eat-drink",
+                source="google_places",
+                google_place_id=f"test_restaurant_q03_{i}",
+                is_active=True,
+                draft=False,
+            )
+            db.add(p)
+            db.commit()
+            db.refresh(p)
+            inserted_ids.append(p.id)
+
+        refresh_entity_matcher(db)
+
+        with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
+            r = route("what restaurants are open now", "sess-q03-red", db)
+
+        assert "/contribute" not in r.response, (
+            "Gap-template fired despite category-open-now listing pattern. "
+            "is_category_open_now_listing probe missing or not wired. "
+            f"Response was: {r.response}"
+        )
+    finally:
+        for pid in inserted_ids:
+            row = db.get(Provider, pid)
+            if row is not None:
+                db.delete(row)
+        db.commit()
+        reset_entity_matcher()
+
+
 def test_post_api_chat_gap_template_contract() -> None:
     with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)) as t2:
         with patch("app.chat.unified_router.answer_with_tier3") as m3:

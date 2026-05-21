@@ -97,6 +97,41 @@ _OPEN_NOW_PHRASE_RE = re.compile(
     re.IGNORECASE,
 )
 
+_CATEGORY_TOKENS: frozenset[str] = frozenset({
+    # lodging
+    "hotel", "motel", "inn", "resort", "lodge", "suites", "hostel",
+    # eat/drink
+    "restaurant", "cafe", "coffee", "bar", "grill", "diner", "bistro",
+    "kitchen", "pizzeria", "brewery", "pub", "tavern", "eatery",
+    # retail
+    "store", "shop", "shoppe", "market", "mart", "boutique",
+    # services / health
+    "salon", "spa", "studio", "gym", "clinic", "hospital", "pharmacy",
+    "dental", "dentist", "doctor", "vet", "veterinary",
+    # places
+    "park", "trail", "center", "centre", "plaza", "mall", "lanes",
+    # legal-suffix noise
+    "service", "services", "company", "co", "inc", "incorporated",
+    "llc", "ltd", "group", "corp", "corporation", "the",
+    # locale (Havasu-specific stopwords already used by entity_matcher)
+    "lake", "havasu", "city", "arizona", "az",
+})
+
+_SUBJECT_LEAD_RE = re.compile(
+    r"^\s*(?:"
+    r"rating|ratings|star\s+rating|google\s+rating|"
+    r"reviews?|review\s+count|how\s+many\s+(?:stars?|reviews?)|"
+    r"phone|phone\s+number|contact|number|"
+    r"address|location|located|"
+    r"hours?|business\s+hours|when\s+(?:does|is)|what\s+time|"
+    r"website|site|url|link|"
+    r"where(?:'s|\s+is|\s+are)?(?:\s+the)?|where\s+can\s+i\s+find|"
+    r"is|are|"
+    r"how\s+is(?:\s+the)?|how\s+are\s+the\s+reviews?"
+    r")\s+(?:for\s+|of\s+|at\s+)?",
+    re.IGNORECASE,
+)
+
 _BEST_CATEGORY_RE = re.compile(
     r"\bbest\s+(\w+(?:\s+\w+)?)\s+(?:in|around|near)\b",
     re.IGNORECASE,
@@ -155,13 +190,73 @@ def near_match_subject_tokens(query: str) -> frozenset[str]:
     return frozenset(t for t in re.findall(r"[a-z]+", subject) if t not in stop)
 
 
+def _general_subject_tokens(query: str) -> frozenset[str]:
+    """Extract content tokens from any query shape (not just 'where is X')."""
+    q = (query or "").lower().strip()
+    if not q:
+        return frozenset()
+    q = _SUBJECT_LEAD_RE.sub("", q, count=1)
+    q = q.strip(" ?.!,")
+    tokens = re.findall(r"[a-z0-9]+", q)
+    return frozenset(
+        t for t in tokens
+        if len(t) >= 2 and t not in _CATEGORY_TOKENS
+    )
+
+
 def near_match_subject_overlaps(query: str, canonical_name: str) -> bool:
-    """True when the query subject shares a token with the near-match name."""
-    subjects = near_match_subject_tokens(query)
-    if not subjects:
+    """True when the query and the near-match canonical share at least one
+    *content* token — i.e. a token that isn't a generic category word.
+
+    Tightened (q22 fix 2026-05-19): the previous implementation returned True
+    whenever the query wasn't shaped like 'where is X'. That fail-open default
+    let queries such as 'rating for Fabricated Hotel Name 555' pair with the
+    near-match canonical 'Heat Hotel' even though the only overlap is the
+    category word 'hotel'. The new guard:
+
+      1. Extracts subject tokens from any query shape (strips Tier-1 intent
+         leads, drops _CATEGORY_TOKENS, requires length >= 2).
+      2. Extracts the same content-only token set from the canonical name.
+      3. Returns True only when they share at least one content token.
+      4. Typo escape hatch: a single long query token (>= 6 chars) is
+         partial-ratio-fuzzed against name tokens >= 5 chars at threshold 80
+         to preserve severe-typo near-matches (e.g. 'mdshrkbrwry' ~ 'mudshark').
+
+    When the query has no content tokens at all (all category words), falls
+    back to permissive True — at that point the user hasn't named a specific
+    entity, and the near-match's caller is free to surface the closest catalog
+    row.
+    """
+    q_subjects = _general_subject_tokens(query)
+    if not q_subjects:
+        return True  # query is all category words — preserve original behavior
+
+    name_tokens = frozenset(
+        t for t in re.findall(r"[a-z0-9]+", (canonical_name or "").lower())
+        if len(t) >= 2 and t not in _CATEGORY_TOKENS
+    )
+    if not name_tokens:
+        raw_name_tokens = frozenset(re.findall(r"[a-z0-9]+", (canonical_name or "").lower()))
+        return bool(q_subjects & raw_name_tokens)
+
+    if q_subjects & name_tokens:
         return True
-    name_tokens = frozenset(re.findall(r"[a-z]+", (canonical_name or "").lower()))
-    return bool(subjects & name_tokens)
+
+    try:
+        from rapidfuzz import fuzz
+
+        for qt in q_subjects:
+            if len(qt) < 6:
+                continue
+            for nt in name_tokens:
+                if len(nt) < 5:
+                    continue
+                if fuzz.partial_ratio(qt, nt) >= 80:
+                    return True
+    except ImportError:
+        pass
+
+    return False
 
 
 __all__ = [

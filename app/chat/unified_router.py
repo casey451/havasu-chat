@@ -102,6 +102,45 @@ _GAP_TIER1_FACTUAL = frozenset(
     }
 )
 
+_UNKNOWN_ENTITY_GAP = (
+    "I don't have that one in the catalog. "
+    "If it's a real Lake Havasu business, share the name plus a URL "
+    "(Google Business page or official site) and I'll pass it along — "
+    "or add it at /contribute."
+)
+
+# Always gate — unambiguous "about a named entity" shapes (q07 primary).
+_ABOUT_GATE_STRICT_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"^\s*tell\s+me\s+(?:more\s+)?about\b", re.I),
+    re.compile(r"^\s*(?:can\s+you\s+)?describe\b", re.I),
+    re.compile(r"^\s*who(?:'s|\s+is)\b", re.I),
+    re.compile(r"^\s*(?:any\s+)?info(?:rmation)?\s+(?:on|about)\b", re.I),
+    re.compile(r"^\s*what(?:'s|\s+is)\s+\S+\s+like\b", re.I),
+)
+
+# Broader "what is X" — only when X is not activity/listing phrasing (Phase 7.5.1).
+_WHAT_IS_ENTITY_RE = re.compile(
+    r"^\s*what(?:'s|\s+is)\s+(?!the\s+weather|the\s+time|the\s+date|today)",
+    re.I,
+)
+
+_ACTIVITY_OR_LISTING_SKIP_RE = re.compile(
+    r"\b(?:"
+    r"fun|to\s+do|weekend|tonight|best\s+thing|should\s+we|"
+    r"at\s+the|open\s+(?:now|right\s+now)"
+    r")\b",
+    re.I,
+)
+
+
+def _about_gate_query_eligible(raw: str) -> bool:
+    """True when the query should enter _unknown_entity_about_gate."""
+    if any(p.search(raw) for p in _ABOUT_GATE_STRICT_PATTERNS):
+        return True
+    if _WHAT_IS_ENTITY_RE.search(raw):
+        return not bool(_ACTIVITY_OR_LISTING_SKIP_RE.search(raw))
+    return False
+
 # Queries that LOOK like Tier 1 factual lookups but are actually recommendation /
 # listing shapes — gap response would be misleading ("I don't have that place"). These
 # need to fall through to Tier 2/3.
@@ -154,6 +193,14 @@ def _catalog_gap_response(
             return None
     except Exception:
         logging.exception("_catalog_gap_response: shortcut probe failed")
+
+    try:
+        from app.chat.entity_intent import is_category_open_now_listing
+
+        if is_category_open_now_listing(raw):
+            return None
+    except Exception:
+        logging.exception("_catalog_gap_response: category-open-now probe failed")
 
     # NOTE (Slice F §3.2 reverted): the gap-skip-on-ambiguity check was disabled
     # after a prod regression — with 2,266 providers, the ambiguity probe over-fires
@@ -213,6 +260,48 @@ def _catalog_gap_response(
         return f"I don't have Google reviews for that one in the catalog yet. {_GAP_TAIL}"
     # AGE/COST/DATE/NEXT_OCCURRENCE — program/event-shaped copy.
     return f"I don't have that event or program in the catalog yet. {_GAP_TAIL}"
+
+
+def _unknown_entity_about_gate(
+    query: str,
+    intent_result: IntentResult,
+    db: Session | None = None,
+) -> str | None:
+    """Pre-tier-3 gate: 'tell me about X' patterns with no catalog match
+    short-circuit to a deterministic gap template, never invoking tier-3 LLM.
+
+    q07 fix 2026-05-19. Returns the gap string when the pattern fires; None
+    otherwise (caller proceeds with normal _handle_ask flow).
+    """
+    raw = (query or "").strip()
+    if not _about_gate_query_eligible(raw):
+        return None
+    if (intent_result.entity or "").strip():
+        return None  # we have a real entity — let tier 1/2/3 handle it
+
+    try:
+        from app.chat.entity_intent import (
+            near_match_subject_overlaps,
+            query_mentions_fake_entity_marker,
+        )
+
+        if query_mentions_fake_entity_marker(raw):
+            return _UNKNOWN_ENTITY_GAP
+
+        from app.chat.entity_matcher import find_near_match, match_entity
+
+        if db is not None:
+            refresh_entity_matcher(db)
+            if match_entity(raw, db) is not None:
+                return None
+            near = find_near_match(raw, db)
+            if near is not None and near_match_subject_overlaps(raw, near[0]):
+                return None  # plausible "did you mean" — defer to existing path
+    except Exception:
+        logging.exception("_unknown_entity_about_gate: matcher probe failed")
+        return None
+
+    return _UNKNOWN_ENTITY_GAP
 
 
 @dataclass
@@ -768,6 +857,16 @@ def route(
     component_meta: dict[str, object] = {}
     try:
         if intent_result.mode == "ask":
+            about_gap = _unknown_entity_about_gate(q_raw, intent_result, db)
+            if about_gap is not None:
+                return _finish(
+                    about_gap,
+                    "ask",
+                    intent_result.sub_intent,
+                    intent_result.entity,
+                    "gap_template",
+                    None,
+                )
             gap_text = _catalog_gap_response(intent_result, db)
             router_meta: dict[str, str | None] = {}
             if gap_text is not None:

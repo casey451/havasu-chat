@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy.orm import Session
 
 from app.chat import disclosure_render
 from app.chat.halt3_validator import (
@@ -13,7 +14,34 @@ from app.chat.halt3_validator import (
     load_eval_set,
     validate_eval_set,
 )
-from app.chat.unified_router import ChatResponse
+from app.chat.unified_router import ChatResponse, route
+from app.db.database import SessionLocal
+
+
+@pytest.fixture
+def db() -> Session:
+    s = SessionLocal()
+    try:
+        yield s
+    finally:
+        s.close()
+
+
+def test_q07_tell_me_about_fake_entity_routes_to_gap_template_not_tier3(db: Session) -> None:
+    """Reproduces the prod q07 regression: 'Tell me about Totally Fake Business
+    XYZ 404' falls through to tier-3 LLM which confabulates with honest prefix."""
+    def _tier3_should_not_be_called(*args, **kwargs):
+        raise AssertionError(
+            "tier-3 LLM invoked for q07 — _unknown_entity_about_gate failed to intercept"
+        )
+
+    with patch("app.chat.unified_router.answer_with_tier3", side_effect=_tier3_should_not_be_called):
+        r = route("Tell me about Totally Fake Business XYZ 404", "sess-q07-red", db)
+
+    assert r.tier_used == "gap_template", f"Expected gap_template tier, got {r.tier_used}"
+    assert "don't have that one in the catalog" in r.response, (
+        f"Expected _UNKNOWN_ENTITY_GAP template. Got: {r.response}"
+    )
 
 
 def test_eval_set_loads() -> None:
