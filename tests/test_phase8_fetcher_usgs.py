@@ -10,7 +10,7 @@ from app.conditions import usgs
 def test_fetch_usgs_parses_gauge_and_storage() -> None:
     calls: list[str] = []
 
-    def fake_retry(fn, client):
+    def fake_retry(fn):
         resp = MagicMock()
         resp.raise_for_status = MagicMock()
         resp.json.return_value = {
@@ -24,6 +24,7 @@ def test_fetch_usgs_parses_gauge_and_storage() -> None:
             ]
         }
         calls.append("x")
+        fn()
         return resp
 
     with patch.object(usgs._USGS_LIMITER, "call_with_retry", side_effect=fake_retry):

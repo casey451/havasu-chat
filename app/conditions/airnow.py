@@ -35,7 +35,11 @@ def fetch_airnow_current() -> dict[str, Any]:
         )
 
     with httpx.Client() as client:
-        response = _AIRNOW_LIMITER.call_with_retry(_inner, client)
+        # SourceLimiter.call_with_retry takes a no-arg callable; close over
+        # `client` via lambda (Phase 8a.0 hotfix 2026-05-21 — original signature
+        # passed `client` as a second positional arg → TypeError swallowed by
+        # outer with_retry as "exhausted").
+        response = _AIRNOW_LIMITER.call_with_retry(lambda: _inner(client))
     if response is None:
         raise RuntimeError("AirNow request failed after retries")
     response.raise_for_status()

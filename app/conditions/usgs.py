@@ -35,7 +35,10 @@ def fetch_usgs_lake_havasu() -> dict[str, Any]:
                     },
                 )
 
-            response = _USGS_LIMITER.call_with_retry(_inner, client)
+            # Phase 8a.0 hotfix 2026-05-21: SourceLimiter.call_with_retry takes
+            # a no-arg callable. USGS's `_inner` already defaults-closes over
+            # `client` + `pcode`, so just drop the extra positional arg.
+            response = _USGS_LIMITER.call_with_retry(_inner)
             if response is None:
                 continue
             response.raise_for_status()

@@ -27,7 +27,9 @@ def _get(path: str, *, timeout: float = 10.0) -> dict[str, Any]:
         return client.get(url, headers=_headers(), timeout=timeout)
 
     with httpx.Client() as client:
-        response = _NWS_LIMITER.call_with_retry(_inner, client)
+        # Phase 8a.0 hotfix 2026-05-21: SourceLimiter.call_with_retry takes a
+        # no-arg callable; close over `client` via lambda.
+        response = _NWS_LIMITER.call_with_retry(lambda: _inner(client))
     if response is None:
         raise RuntimeError(f"NWS request failed: {path}")
     response.raise_for_status()
