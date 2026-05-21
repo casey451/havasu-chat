@@ -37,7 +37,7 @@ _FAKE_ENTITY_MARKER_RE = re.compile(
 
 ### F4 — gap-template tests assert substring presence, not full template
 
-**Location:** `tests/test_gap_template_contribute_link.py:35,45,55`, `tests/test_phase38_gap_and_hours.py:90,143,246`.
+**Location:** `tests/test_gap_template_contribute_link.py:35,45,55` (3 sites) + `tests/test_phase38_gap_and_hours.py:90,143,246,310` (4 sites). **7 sites total** (audit-corrected from initial count of 6 — line 310 was missed in the first pass).
 
 **Code (current pattern):**
 ```python
@@ -87,7 +87,8 @@ _WHAT_IS_ENTITY_RE = re.compile(
 **Touch points:**
 
 - `app/chat/entity_intent.py:89-93` (`_FAKE_ENTITY_MARKER_RE`) — keep verbatim.
-- `app/chat/entity_intent.py:141-143` (`query_mentions_fake_entity_marker`) — extend to call a new helper `_looks_structurally_fake(query)` when the whitelist regex misses.
+- `app/chat/entity_intent.py:141` (`query_mentions_fake_entity_marker`, currently a one-line body extending to :143) — extend to call a new helper `_looks_structurally_fake(query)` when the whitelist regex misses.
+- **`app/chat/unified_router.py:282-302` (`_unknown_entity_about_gate`) — REORDER REQUIRED.** The marker probe at line 288 currently runs BEFORE `match_entity` (line 295) and `find_near_match` (line 297). The F1 consonant-run heuristic would flag `mdshrkbrwry` as structurally fake and short-circuit before rapidfuzz at `entity_intent.py:245-257` ever fires — regressing the Mudshark Brewery typo case. The wrapper must explicitly scope: move `query_mentions_fake_entity_marker` call to run AFTER both `match_entity` and `find_near_match` return None. Same change at the second call site (`unified_router.py:651-655`).
 - New helper `_looks_structurally_fake(query) -> bool` — returns True when the proper-noun span in the query contains:
   - mixed alphanumeric tokens with high digit density (e.g. `Business 4042`, `XYZ 555`), OR
   - 3+ consecutive consonants in a non-dictionary token (e.g. `zzznonexistent`, `mdshrk` — though note `mdshrkbrwry` is a real typo for Mudshark Brewery, so the rapidfuzz escape hatch in `near_match_subject_overlaps` must still take precedence), OR
@@ -129,8 +130,8 @@ def query_mentions_fake_entity_marker(query: str) -> bool:
 
 **Touch points:**
 
-- `tests/test_gap_template_contribute_link.py:35,45,55` — replace `assert "/contribute" in r.response` with full-template assertions.
-- `tests/test_phase38_gap_and_hours.py:90,143,246` — same treatment.
+- `tests/test_gap_template_contribute_link.py:35,45,55` — replace `assert "/contribute" in r.response` with full-template assertions (3 sites).
+- `tests/test_phase38_gap_and_hours.py:90,143,246,310` — same treatment (4 sites).
 
 **Code sketch:**
 ```python
@@ -186,8 +187,8 @@ Apply the same prefix to all five `_ABOUT_GATE_STRICT_PATTERNS` members and to `
 
 ## §3 Effort estimate
 
-- **F1:** S, ~40-80 LOC + ~6 unit tests. Heuristic is small but needs careful negative-regression tests against real catalog entity names. **~1 hour Cursor session.**
-- **F4:** S, ~20-30 LOC of test diff (no production code changes). Mechanical — replace 6 assertion sites with a 2-3-line block each. **~30 min Cursor session.**
+- **F1:** S, ~50-90 LOC + ~6 unit tests. Heuristic itself is small; includes the call-order reorder in `_unknown_entity_about_gate` (`unified_router.py:282-302`) to preserve the Mudshark Brewery typo case + careful negative-regression tests against real catalog entity names. **~1-1.5 hour Cursor session.**
+- **F4:** S, ~25-35 LOC of test diff (no production code changes). Mechanical — replace 7 assertion sites with a 2-3-line block each (3 in `test_gap_template_contribute_link.py` + 4 in `test_phase38_gap_and_hours.py`). **~30-40 min Cursor session.**
 - **F5:** S, ~15 LOC of prod code + ~4 unit tests. Single regex prefix added to 5 patterns. **~45 min Cursor session.**
 
 **Aggregate: M (~150 LOC + ~15 tests, ~2-3 hour Cursor session).** Genuinely a polish phase; not effort-comparable to 7.5.1 (~200 LOC + 12 tests, 4-6h session) or 7.5.2 (~300 LOC + 8 tests, 2-4h session).
@@ -219,7 +220,7 @@ Phase 7.5.3 CAN run in parallel with Phase 7.6 (zero file overlap), so the pract
 ### F1 risks
 
 - **False-positive on a real entity with a numeric model in the name.** A future Lake Havasu business named e.g. `"Studio 7 Coffee"` or `"Route 95 Diner"` could fire `_HIGH_DIGIT_DENSITY_RE` and be wrongly classified as fake. Mitigation: the regex requires 3+ digits (`\d{3,}`) so single/double-digit business names are safe. Add a negative-regression test for the actual prod catalog's numeric-in-name rows (need to enumerate from prod catalog first).
-- **Mudshark Brewery typo regression.** The `mdshrkbrwry` typo case must continue to route to Mudshark Brewery via rapidfuzz at `entity_intent.py:158-164` (post-7.5.1). The F1 heuristic runs upstream and would mark `mdshrkbrwry` as structurally fake via consonant-run. Mitigation: ensure `query_mentions_fake_entity_marker` is consulted *after* matcher + near-match probes in `_unknown_entity_about_gate`, not before. Verify by tracing the call path in `unified_router.py:285-301`.
+- **Mudshark Brewery typo regression.** The `mdshrkbrwry` typo case must continue to route to Mudshark Brewery via rapidfuzz at `entity_intent.py:245-257` (post-7.5.1; line range corrected from initial `:158-164` cite). The F1 heuristic runs upstream and would mark `mdshrkbrwry` as structurally fake via consonant-run. **Mitigation requires an explicit call-order reorder in `_unknown_entity_about_gate` (`unified_router.py:282-302`)** — currently the marker probe at line 288 runs BEFORE `match_entity` (line 295) and `find_near_match` (line 297). Phase 7.5.3 wrapper must scope this reorder, not just verify the existing order.
 
 ### F4 risks
 
@@ -236,12 +237,12 @@ Phase 7.5.3 CAN run in parallel with Phase 7.6 (zero file overlap), so the pract
 
 ## §6 Files referenced
 
-- `app/chat/entity_intent.py` lines 89-93 (`_FAKE_ENTITY_MARKER_RE`), 141-143 (`query_mentions_fake_entity_marker`), 158-164 (rapidfuzz escape hatch — must not regress under F1).
-- `app/chat/unified_router.py` lines 113-119 (`_ABOUT_GATE_STRICT_PATTERNS`), 122-125 (`_WHAT_IS_ENTITY_RE`), 127-133 (`_ACTIVITY_OR_LISTING_SKIP_RE`), 136-142 (`_about_gate_query_eligible`), 265-301 (`_unknown_entity_about_gate`), 285-288 + 651-655 (`query_mentions_fake_entity_marker` call sites).
+- `app/chat/entity_intent.py` lines 89-93 (`_FAKE_ENTITY_MARKER_RE`), 141 (`query_mentions_fake_entity_marker`, one-liner body extends to 143), 245-257 (rapidfuzz escape hatch in `near_match_subject_overlaps` — must not regress under F1; line range corrected from initial `:158-164` cite).
+- `app/chat/unified_router.py` lines 113-119 (`_ABOUT_GATE_STRICT_PATTERNS`), 122-125 (`_WHAT_IS_ENTITY_RE`), 127-133 (`_ACTIVITY_OR_LISTING_SKIP_RE`), 136-142 (`_about_gate_query_eligible`), 265-301 (`_unknown_entity_about_gate` — F1 call-order reorder required at 282-302; marker check at line 288 must move below `match_entity` at 295 and `find_near_match` at 297), 651-655 (second `query_mentions_fake_entity_marker` call site, same reorder applies).
 - `app/chat/halt3_validator.py` lines 21-31 (`_I_DONT_KNOW_RE` — context only; not touched by 7.5.3).
 - `tests/test_gap_template_contribute_link.py` lines 28-55 (3 gap-template tests with substring assertion at 35/45/55).
-- `tests/test_phase38_gap_and_hours.py` lines 90, 143, 246 (3 more `/contribute` substring assertions; line 283 has a `not in` negative assertion that should stay as-is).
-- `tests/test_phase7_halt3_validation.py` line 42 (`"don't have that one in the catalog"` substring assertion — F4-adjacent; same tightening applies).
+- `tests/test_phase38_gap_and_hours.py` lines 90, 143, 246, 310 (4 `/contribute` substring assertions; line 283 has a `not in` negative assertion that should stay as-is).
+- `tests/test_phase7_halt3_validation.py` line 42 (`"don't have that one in the catalog"` substring assertion — F4-adjacent; tightening optional, would bump F4 effort by ~5 LOC if folded into the lane).
 - `outputs/phase_7_5_prod_divergence_investigation.md` §4 "F1, F4, F5-F7 (LOW)" (lines ~252-259) — original F-gap enumeration.
 - `outputs/phase_7_5_prod_divergence_investigation.md` §9 V1.5 carries (lines ~398-401) — restated F-gap deferral.
 

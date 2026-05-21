@@ -2,7 +2,7 @@
 
 > Paste-into-Cursor prompt for Phase 8 per master plan §4 Phase 8 (lines 401–419) + `outputs/phase_8_architecture_design.md` (1050-line Plan-agent ADR-level design) + `outputs/phase_8_operator_prereq_checklist.md` (patched 2026-05-20 with research corrections + LHC Nixle agency ID resolution). Phase 8 ships the trust + retention layer: real conditions data driving the homepage "Today in Havasu" strip + the chat ranking that's been reading a stub since Phase 6.3 + the alert subscription + dispatch subsystem that Opus #1 + #8 originally designed.
 >
-> **DISPATCH STATUS — BLOCKED pending prereq amendments (2026-05-19).** Live verification at `outputs/phase_8a_prereq_verification_report.md` surfaced P0 scope changes: USGS `09427500` reports only `00065` gauge height + `00054` reservoir storage (no water temp / discharge); USGS `09427520` is historic-only since 2006; LHC Nixle agency `3726` RSS silent since 2021-09-01. **Do NOT paste this wrapper until operator confirms amended scope below.** Phase 7 SHIPPED at `0a305e0`; alembic head `c9d0e1f2a3b4`. Phase 7 close-out at `outputs/phase_7_close_out.md`.
+> **DISPATCH STATUS — BLOCKED pending prereq amendments (2026-05-19).** Live verification at `outputs/phase_8a_prereq_verification_report.md` surfaced P0 scope changes: USGS `09427500` reports only `00065` gauge height + `00054` reservoir storage (no water temp / discharge); USGS `09427520` is historic-only since 2006; LHC Nixle agency `3726` RSS silent since 2021-09-01. **Do NOT paste this wrapper until operator confirms amended scope below.** Phase 7 SHIPPED at `0a305e0`; Phase 7.5 SHIPPED at `b701759` (2026-05-20); Phase 7.5.1 SHIPPED at `fd695d2` (2026-05-19, prod-divergence routing fixes); Phase 7.5.2 SHIPPED at `64799d5` (2026-05-20, HALT 3 validator hardening); docs ledger at `c81f0d0`. Phase 7.6 in flight at time of audit (tier-2 LLM-parser divergence). Alembic head still `c9d0e1f2a3b4` (no migrations shipped since Phase 7). Phase 7 close-out at `outputs/phase_7_close_out.md`. Lane E dispatch-readiness re-check 2026-05-20: file scope disjoint from 7.5.1/7.5.2/7.6; STUB_CURRENT_TEMPERATURE_F constant + compute_card_rank signature unchanged; alembic head unchanged; pytest baseline now ~2193 (see body §0 update below).
 >
 > **Phase 7 ship caveats Phase 8 should be aware of:**
 > - HALT 3 `FEATURE_FLAG_DISCLOSURE_RENDERER` is still `false`. Phase 7.5 polish lane will flip it after closing the 10 validator failures. **Phase 8 does NOT touch the flag.**
@@ -70,12 +70,13 @@ Phase 7 SHIPPED at 0a305e0 (chat ENTITY wiring + boat-mode
 + conditions-awareness via STUB + HALT 3 + cross-entity + snowbird-return
 view).
 
-Pytest baseline going in is post-Phase-7. Verify per python -m pytest
---collect-only -q | tail -3 BEFORE starting work. Likely range 2140-2200
-(Phase 6.3 baseline 2060 + Phase 6.4 ~+40 + Phase 7 ~+50-80). Alembic
-head is c9d0e1f2a3b4 (may equal f6a7b8c9d0e1 if Phase 7
-shipped no migration, OR a new revision SHA if it shipped User.last_
-active_at). Verify per python -m alembic current BEFORE starting work and
+Pytest baseline going in is post-Phase-7.5.2. Verify per python -m pytest
+--collect-only -q | tail -3 BEFORE starting work. **Expected ~2193**
+(Phase 6.3 baseline 2060 + Phase 6.4 +25 + Phase 6.5 +16 + Phase 7 +50
++ Phase 7.5 +15 + Phase 7.5.1 +12 + Phase 7.5.2 +13; Phase 7.6 adds
+~3-5 more if shipped before this dispatch). Alembic head is c9d0e1f2a3b4
+(Phase 7 users.last_active_at migration; no Phase 7.5.x / 7.6 migrations
+shipped). Verify per python -m alembic current BEFORE starting work and
 REPORT THE OBSERVED VALUE (do NOT copy dispatch-body-claimed value).
 
 CRITICAL — RUN BOTH:
@@ -275,8 +276,12 @@ ORDER MATTERS WITHIN PHASE 8a:
    replacing STUB_CURRENT_TEMPERATURE_F constant with read_current_
    temperature_f() function reading from external_conditions_cache.
    Maintain backward-compat default for tests (env without cache
-   populated). Update Phase 6.3 + Phase 7 import chains -- tier2_db_query.
-   py + tier3_handler.py + any others importing the stub.
+   populated). Update Phase 6.3 + Phase 7 import chains -- ACTUAL stub
+   import sites (per Lane E re-check 2026-05-20): app/chat/chat_request_
+   context.py:8, app/api/routes/category_pages.py:22, app/api/routes/
+   map_data.py:12. (NOT tier2_db_query.py or tier3_handler.py -- those
+   import ChatRequestContext, not the stub directly. Run `grep -rn
+   STUB_CURRENT_TEMPERATURE_F app/` for any others added after 2026-05-20.)
 
 7. Then: alert evaluation + dispatch subsystem. New app/alerts/ module
    with:
@@ -420,13 +425,19 @@ Pre-dispatch checklist (verify before paste):
 - Phase 6.3 SHIPPED on origin (5ebee46)
 - Phase 6.4 SHIPPED on origin (96c915d)
 - Phase 7 SHIPPED on origin (0a305e0)
+- Phase 7.5 SHIPPED on origin (b701759, 2026-05-20, HALT 3 validator triage)
+- Phase 6.5 SHIPPED on origin (bdca0bd, 2026-05-20, homepage rebuild + tiles)
+- Phase 7.5.1 SHIPPED on origin (fd695d2, 2026-05-19, prod-divergence routing fixes)
+- Phase 7.5.2 SHIPPED on origin (64799d5, 2026-05-20, HALT 3 validator hardening)
+- Phase 7.6 SHIPPED on origin (TBD; verify before dispatch -- in flight at time of Lane E re-check)
+- Phase 7.5.2 docs ledger on origin (c81f0d0, 2026-05-20)
 - Sidecar migration SHIPPED on origin (532d48b)
 - Phase 5 ledger SHIPPED on origin (3a2d895)
 - c9d0e1f2a3b4 is the current SINGLE alembic head on
   origin (verify via `python -m alembic current` AND `python -m alembic
   heads`)
 - Pytest baseline going in matches reality per `python -m pytest
-  --collect-only -q | tail -3` (likely 2140-2200)
+  --collect-only -q | tail -3` (expected ~2193 post-7.5.2; ~2196-2198 if 7.6 shipped first)
 - AirNow API key registered + smoke-test passed (operator)
 - USGS site 09427500 live-verified (00065 + 00054 only); 09427520 dropped
 - Nixle dropped from V1 per phase_8a_prereq_verification_report.md
