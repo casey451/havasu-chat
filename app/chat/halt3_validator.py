@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -14,9 +15,11 @@ from app.chat import disclosure_render
 from app.chat.entity_matcher import extract_catalog_entities_from_text, refresh_entity_matcher
 from app.chat.unified_router import route
 from app.db.database import SessionLocal
+from app.db.models import Provider
 
 DisclosurePath = Literal["cited", "uncited", "i_dont_know"]
-ExpectedTier = Literal["tier1", "tier2", "tier3", "gap_template", "chat", "any"]
+ExpectedTier = Literal["tier1", "tier2", "tier3", "gap_template", "chat"]
+ExpectedTierField = ExpectedTier | list[ExpectedTier]
 
 _I_DONT_KNOW_RE = re.compile(
     r"\b(?:"
@@ -30,12 +33,28 @@ _I_DONT_KNOW_RE = re.compile(
     re.IGNORECASE,
 )
 
+_PHONE_RE = re.compile(r"\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]?\d{4}")
+_ADDRESS_RE = re.compile(
+    r"\b\d{1,6}\s+(?:[NSEW]\.?\s+)?[A-Z][\w.]*"
+    r"(?:\s+[A-Z][\w.]*){0,4}\s+(?:Blvd|Ave|St|Rd|Dr|Ln|Way|Hwy|Pl)\b"
+)
+_HOURS_RE = re.compile(
+    r"\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun|daily|today|tomorrow)\w*"
+    r"[^.]*?\d{1,2}(?::\d{2})?\s*(?:am|pm|AM|PM|–|-)"
+)
+_RATING_RE = re.compile(r"\b[1-5](?:\.\d)?\s*(?:stars?|/\s*5)\b", re.IGNORECASE)
+_URL_RE = re.compile(r"https?://\S+")
+_EMAIL_RE = re.compile(r"\b[\w.+\-]+@[\w\-]+\.\w+\b")
+
+# Platform / contribute URLs are not business-confab signals.
+_PLATFORM_URL_MARKERS = ("golakehavasu.com", "/contribute")
+
 
 @dataclass(frozen=True)
 class EvalQuerySpec:
     id: str
     query: str
-    expected_tier: ExpectedTier
+    expected_tier: ExpectedTierField
     expected_disclosure_path: DisclosurePath
     expected_confabulation_rate: float
     notes: str = ""
@@ -60,6 +79,12 @@ class EvalSetReport:
     all_passed: bool
 
 
+def _coerce_expected_tier(raw_val: object) -> ExpectedTierField:
+    if isinstance(raw_val, list):
+        return [str(x) for x in raw_val]  # type: ignore[list-item, return-value]
+    return str(raw_val) if raw_val is not None else "any"  # type: ignore[return-value]
+
+
 def load_eval_set(path: str | Path) -> list[EvalQuerySpec]:
     raw = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     if not isinstance(raw, list):
@@ -72,7 +97,7 @@ def load_eval_set(path: str | Path) -> list[EvalQuerySpec]:
             EvalQuerySpec(
                 id=str(row["id"]),
                 query=str(row["query"]),
-                expected_tier=str(row.get("expected_tier", "any")),  # type: ignore[arg-type]
+                expected_tier=_coerce_expected_tier(row.get("expected_tier")),
                 expected_disclosure_path=str(row["expected_disclosure_path"]),  # type: ignore[arg-type]
                 expected_confabulation_rate=float(row.get("expected_confabulation_rate", 0.0)),
                 notes=str(row.get("notes", "")),
@@ -81,8 +106,168 @@ def load_eval_set(path: str | Path) -> list[EvalQuerySpec]:
     return out
 
 
-def _classify_disclosure_path(response: str, tier_used: str) -> DisclosurePath:
-    if _I_DONT_KNOW_RE.search(response or ""):
+def _is_platform_url(url: str) -> bool:
+    low = (url or "").lower()
+    return any(marker in low for marker in _PLATFORM_URL_MARKERS)
+
+
+def _sanitize_typed_facts(text: str, facts: dict[str, list[str]]) -> dict[str, list[str]]:
+    """Drop template-echo probes that are not business-confab signals."""
+    out = {k: list(v) for k, v in facts.items()}
+    if out.get("hours"):
+        out["hours"] = [
+            h for h in out["hours"]
+            if not re.search(r"open\s+tomorrow", h, re.IGNORECASE)
+        ]
+    low = (text or "").lower()
+    if out.get("rating") and (
+        "rated above" in low or "stars in the catalog" in low or "rating for" in low
+    ):
+        out["rating"] = []
+    return out
+
+
+def _typed_fact_probes(text: str) -> dict[str, list[str]]:
+    """Return per-class lists of typed-fact strings extracted from text."""
+    s = text or ""
+    urls = [u for u in _URL_RE.findall(s) if not _is_platform_url(u)]
+    raw = {
+        "phone": _PHONE_RE.findall(s),
+        "address": _ADDRESS_RE.findall(s),
+        "hours": _HOURS_RE.findall(s),
+        "rating": _RATING_RE.findall(s),
+        "url": urls,
+        "email": _EMAIL_RE.findall(s),
+    }
+    return _sanitize_typed_facts(s, raw)
+
+
+def _digits_only(s: str) -> str:
+    return re.sub(r"\D", "", s or "")
+
+
+def _entity_has_hours(row: Provider) -> bool:
+    if getattr(row, "hours", None):
+        return True
+    if getattr(row, "hours_structured", None):
+        return True
+    if getattr(row, "google_hours", None):
+        return True
+    return False
+
+
+def _value_matches_any_entity(cls: str, value: str, rows: list[Provider]) -> bool:
+    """One typed-fact value vs the list of supporting entity rows."""
+    if cls == "phone":
+        target = _digits_only(value)
+        for r in rows:
+            if _digits_only(getattr(r, "phone", "") or "") == target:
+                return True
+        return False
+    if cls == "rating":
+        m = re.search(r"\b([1-5](?:\.\d)?)\b", value)
+        if not m:
+            return False
+        asserted = float(m.group(1))
+        for r in rows:
+            gr = getattr(r, "google_rating", None)
+            if gr is not None and abs(float(gr) - asserted) < 0.05:
+                return True
+        return False
+    if cls == "url":
+        v_low = value.lower().rstrip("/").rstrip(".")
+        for r in rows:
+            site = (getattr(r, "website", "") or "").lower().rstrip("/").rstrip(".")
+            if site and (site == v_low or site in v_low or v_low in site):
+                return True
+        return False
+    if cls == "address":
+        v_low = value.lower()
+        for r in rows:
+            addr = (getattr(r, "address", "") or "").lower()
+            if addr and (addr in v_low or v_low in addr):
+                return True
+        return False
+    if cls == "hours":
+        for r in rows:
+            if _entity_has_hours(r):
+                return True
+        return False
+    if cls == "email":
+        v_low = value.lower()
+        for r in rows:
+            em = (getattr(r, "email", "") or "").lower()
+            if em and em == v_low:
+                return True
+        return False
+    return False
+
+
+def _entity_supports_typed_facts(
+    entity_ids: list[str],
+    facts: dict[str, list[str]],
+    db: Session,
+) -> bool:
+    """True if every typed fact can be reconciled with one of the catalog entities."""
+    flat = [v for vs in facts.values() for v in vs]
+    if not flat:
+        return True
+    if not entity_ids:
+        return False
+    rows = db.query(Provider).filter(Provider.id.in_(entity_ids)).all()
+    for cls, values in facts.items():
+        for v in values:
+            if not _value_matches_any_entity(cls, v, rows):
+                return False
+    return True
+
+
+def _honest_prefix_clears_response(text: str) -> bool:
+    """True iff I-don't-know is in sentence 1 AND tail has no typed facts / novel proper nouns."""
+    s = (text or "").strip()
+    if not s:
+        return False
+    sentences = re.split(r"(?<=[.!?])\s+", s)
+    if not sentences:
+        return False
+    first = sentences[0]
+    match = _I_DONT_KNOW_RE.search(first)
+    if not match:
+        return False
+    # Typed facts in the same sentence after the disclaimer (comma-spliced confab).
+    same_sentence_tail = first[match.end() :]
+    if same_sentence_tail.strip():
+        tail_facts_first = _typed_fact_probes(same_sentence_tail)
+        if any(tail_facts_first.values()):
+            return False
+        if _has_novel_proper_nouns(same_sentence_tail):
+            return False
+    if len(sentences) == 1:
+        return True
+    tail = " ".join(sentences[1:])
+    if not tail.strip():
+        return True
+    tail_facts = _typed_fact_probes(tail)
+    if any(tail_facts.values()):
+        return False
+    return not _has_novel_proper_nouns(tail)
+
+
+def _has_novel_proper_nouns(text: str) -> bool:
+    probes = re.findall(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b", text or "")
+    locale_noise = {"lake havasu", "lake havasu city", "google business"}
+    return any(p.lower() not in locale_noise for p in probes)
+
+
+def _classify_disclosure_path(
+    response: str,
+    tier_used: str,
+    *,
+    db: Session | None = None,
+) -> DisclosurePath:
+    """Classify the disclosure path of a chat response."""
+    text = response or ""
+    if _honest_prefix_clears_response(text):
         return "i_dont_know"
     if tier_used == "gap_template":
         return "i_dont_know"
@@ -91,34 +276,79 @@ def _classify_disclosure_path(response: str, tier_used: str) -> DisclosurePath:
         if decision is not None and decision.tone_allowlist_passed:
             return "cited"
     if tier_used in ("1", "2", "3"):
-        return "cited"
+        if db is not None:
+            try:
+                refresh_entity_matcher(db)
+                mentioned = extract_catalog_entities_from_text(text, db)
+                if mentioned:
+                    return "cited"
+                facts = _typed_fact_probes(text)
+                if any(facts.values()):
+                    return "uncited"
+            except Exception:
+                logging.exception("_classify_disclosure_path: G5 evidence probe failed")
+        return "uncited"
     return "uncited"
 
 
 def _confabulation_rate(response: str, db: Session, *, query: str = "") -> float:
+    """Body-content confabulation score in [0.0, 1.0]."""
     refresh_entity_matcher(db)
-    mentioned = extract_catalog_entities_from_text(response, db)
+    text = response or ""
+
+    mentioned = extract_catalog_entities_from_text(text, db)
+    facts = _typed_fact_probes(text)
+    has_typed_facts = any(facts.values())
+
+    if _honest_prefix_clears_response(text):
+        return 0.0
+
+    # Multi-entity listings: several catalog hits ground the response body.
+    if len(mentioned) >= 2:
+        return 0.0
+
+    if has_typed_facts:
+        entity_ids = [e.id for e in mentioned] if mentioned else []
+        if not _entity_supports_typed_facts(entity_ids, facts, db):
+            return 1.0
+
     if mentioned:
         return 0.0
-    if _I_DONT_KNOW_RE.search(response or ""):
-        return 0.0
-    probes = re.findall(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b", response or "")
+
+    probes = re.findall(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b", text)
     if not probes:
         return 0.0
     q_low = (query or "").lower()
-    novel = [p for p in probes if p.lower() not in q_low]
+    mentioned_lower = {(e.name or "").lower() for e in mentioned}
+    locale_noise = {"lake havasu", "lake havasu city", "google business"}
+    novel = [
+        p for p in probes
+        if p.lower() not in q_low
+        and p.lower() not in mentioned_lower
+        and p.lower() not in locale_noise
+    ]
     if not novel:
         return 0.0
     return min(1.0, len(novel) * 0.25)
 
 
-def _tier_matches(expected: ExpectedTier, actual: str) -> bool:
-    if expected == "any":
-        return True
+def _tier_matches(expected: ExpectedTierField, actual: str) -> bool:
+    """Match an actual tier ID against an expected tier or allowlist of tiers."""
     mapping = {"tier1": "1", "tier2": "2", "tier3": "3"}
-    if expected in mapping:
-        return actual == mapping[expected]
-    return actual == expected
+
+    def _norm(x: str) -> str:
+        return mapping.get(x, x)
+
+    if isinstance(expected, list):
+        if not expected:
+            return False
+        return any(actual == _norm(e) for e in expected)
+    if expected == "any":
+        logging.warning(
+            "halt3 eval set still contains expected_tier='any' — burn-down incomplete"
+        )
+        return True
+    return actual == _norm(expected)
 
 
 def validate_eval_set(
@@ -143,7 +373,7 @@ def validate_eval_set(
             query_params=qparams,
             temperature_f_override=stub_temperature_f,
         )
-        disc = _classify_disclosure_path(resp.response, resp.tier_used)
+        disc = _classify_disclosure_path(resp.response, resp.tier_used, db=session)
         conf = _confabulation_rate(resp.response, session, query=spec.query)
         failures: list[str] = []
         if not _tier_matches(spec.expected_tier, resp.tier_used):

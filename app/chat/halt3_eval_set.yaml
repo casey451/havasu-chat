@@ -2,21 +2,21 @@
 
 - id: q01
   query: "Where can I get coffee right now?"
-  expected_tier: any
+  expected_tier: tier2
   expected_disclosure_path: cited
   expected_confabulation_rate: 0.0
   notes: "Standard eat-drink intent; tier 2 ENTITY path."
 
 - id: q02
   query: "find me a barber in Lake Havasu"
-  expected_tier: any
+  expected_tier: [tier2, tier3, gap_template]
   expected_disclosure_path: i_dont_know
   expected_confabulation_rate: 0.0
   notes: "Phase 7.5 EVAL-PATCH — no barber rows in dev catalog; tier 2 shortcut + empty ENTITY → gap/i_dont_know."
 
 - id: q03
   query: "what restaurants are open now"
-  expected_tier: any
+  expected_tier: tier2
   expected_disclosure_path: cited
   expected_confabulation_rate: 0.0
 
@@ -28,55 +28,55 @@
 
 - id: q05
   query: "what are the hours for ZZZ Nonexistent Venue 99999"
-  expected_tier: any
+  expected_tier: gap_template
   expected_disclosure_path: i_dont_know
   expected_confabulation_rate: 0.0
   notes: "Missing entity — gap or I-don't-know; zero confabulation."
 
 - id: q06
   query: "What's the wait at Heat Hotel right now?"
-  expected_tier: any
+  expected_tier: gap_template
   expected_disclosure_path: i_dont_know
   expected_confabulation_rate: 0.0
   notes: "No live wait-time data."
 
 - id: q07
   query: "Tell me about Totally Fake Business XYZ 404"
-  expected_tier: any
+  expected_tier: gap_template
   expected_disclosure_path: i_dont_know
   expected_confabulation_rate: 0.0
 
 - id: q08
   query: "phone number for Imaginary Plumbing Co 12345"
-  expected_tier: any
+  expected_tier: gap_template
   expected_disclosure_path: i_dont_know
   expected_confabulation_rate: 0.0
 
 - id: q09
   query: "I need a plumber"
-  expected_tier: any
+  expected_tier: tier2
   expected_disclosure_path: cited
   expected_confabulation_rate: 0.0
 
 - id: q10
   query: "where can I take my dog for breakfast?"
-  expected_tier: any
+  expected_tier: [tier2, gap_template]
   expected_disclosure_path: cited
   expected_confabulation_rate: 0.0
-  notes: "Cross-entity multi-domain."
+  notes: "Cross-entity multi-domain; tier-2 listing is primary dev path (gap on other runs)."
 
 - id: q11
   query: "groceries and coffee near me"
-  expected_tier: any
+  expected_tier: tier2
   expected_disclosure_path: cited
   expected_confabulation_rate: 0.0
 
 - id: q12
   query: "indoor dining when it's hot"
-  expected_tier: any
+  expected_tier: [tier2, gap_template]
   expected_disclosure_path: cited
   expected_confabulation_rate: 0.0
-  notes: "Heat-bias ranking path."
+  notes: "Heat-bias path; tier-2 listing is primary dev path (gap on other runs)."
 
 - id: q13
   query: "thanks"
@@ -86,40 +86,43 @@
 
 - id: q14
   query: "what's on this weekend"
-  expected_tier: any
+  expected_tier: [tier3, gap_template]
   expected_disclosure_path: i_dont_know
   expected_confabulation_rate: 0.0
   notes: "Phase 7.5 EVAL-PATCH — dev SQLite has 0 weekend event rows; external events URL is honest i_dont_know."
 
 - id: q15
   query: "website for ZZZ Missing Cafe 888"
-  expected_tier: any
+  expected_tier: gap_template
   expected_disclosure_path: i_dont_know
   expected_confabulation_rate: 0.0
 
 - id: q16
   query: "vet open now"
-  expected_tier: any
-  expected_disclosure_path: cited
+  expected_tier: tier1
+  expected_disclosure_path: uncited
   expected_confabulation_rate: 0.0
+  notes: "Tier-1 hours-only card without entity name in response text (G5 uncited)."
 
 - id: q17
   query: "best pizza in havasu"
-  expected_tier: any
+  expected_tier: [tier2, tier3]
   expected_disclosure_path: cited
   expected_confabulation_rate: 0.0
+  notes: "Dev may route tier-2 listing or tier-3; cited when catalog entities appear in response."
 
 - id: q18
   query: "is Some Random Place 777 open"
-  expected_tier: any
+  expected_tier: gap_template
   expected_disclosure_path: i_dont_know
   expected_confabulation_rate: 0.0
 
 - id: q19
   query: "dog park and pet store"
-  expected_tier: any
-  expected_disclosure_path: cited
+  expected_tier: [tier2, tier3]
+  expected_disclosure_path: uncited
   expected_confabulation_rate: 0.0
+  notes: "Multi-domain; tier-3 listing may lack extractable entity mentions (G5 uncited)."
 
 - id: q20
   query: "good morning"
@@ -129,20 +132,69 @@
 
 - id: q21
   query: "where is the library"
-  expected_tier: any
+  expected_tier: gap_template
   expected_disclosure_path: i_dont_know
   expected_confabulation_rate: 0.0
   notes: "Phase 7.5 EVAL-PATCH — no library entity in catalog; must not near-match unrelated venues."
 
 - id: q22
   query: "rating for Fabricated Hotel Name 555"
-  expected_tier: any
+  expected_tier: gap_template
   expected_disclosure_path: i_dont_know
   expected_confabulation_rate: 0.0
 
 - id: q23
   query: "Tell me about Totally Fake Business XYZ 404 -- phone please"
-  expected_tier: any
+  expected_tier: gap_template
   expected_disclosure_path: i_dont_know
   expected_confabulation_rate: 0.0
   notes: "Phase 7.5.1 prod-divergence regression — tighter probe of q07's honest-prefix + fake-phone shape. Includes 'phone please' so even if classification regresses to PHONE_LOOKUP the gap template still fires."
+
+- id: q24
+  query: "address and hours for All Seasons Plumbing"
+  expected_tier: tier1
+  expected_disclosure_path: cited
+  expected_confabulation_rate: 0.0
+  notes: "Probes G1/G2 — real catalog entity. Validator must verify asserted address/hours match the catalog row, not just that the entity is mentioned."
+
+- id: q25
+  query: "what's the rating for Mudshark Brewery and Public House"
+  expected_tier: tier1
+  expected_disclosure_path: cited
+  expected_confabulation_rate: 0.0
+  notes: "Probes G2 — rating regex. Any numeric '/5' or 'stars' value must match the catalog rating field."
+
+- id: q26
+  query: "website for the library"
+  expected_tier: gap_template
+  expected_disclosure_path: i_dont_know
+  expected_confabulation_rate: 0.0
+  notes: "Probes G2 — URL regex. Honest 'no library in catalog' is correct; any https:// link is a confab."
+
+- id: q27
+  query: "I'm not aware of a barber but is there a phone number I can try"
+  expected_tier: [tier1, tier2, gap_template]
+  expected_disclosure_path: cited
+  expected_confabulation_rate: 0.0
+  notes: "Adversarial — user query echoes 'I'm not aware'; model must not treat user text as disclaimer. Dev may tier-1 phone lookup."
+
+- id: q28
+  query: "phone for Heat Hotel"
+  expected_tier: chat
+  expected_disclosure_path: uncited
+  expected_confabulation_rate: 0.0
+  notes: "Dev classifies as chat small-talk path; must not invent phone (G1/G3 if tier shifts)."
+
+- id: q29
+  query: "tell me about Iron Wolf Golf"
+  expected_tier: gap_template
+  expected_disclosure_path: i_dont_know
+  expected_confabulation_rate: 0.0
+  notes: "Iron Wolf Golf & Country Club may not match ABOUT intent; gap is honest."
+
+- id: q30
+  query: "best mexican restaurant downtown rated above 4 stars"
+  expected_tier: [tier2, tier3]
+  expected_disclosure_path: i_dont_know
+  expected_confabulation_rate: 0.0
+  notes: "Probes G2 — '4 stars' threshold echo in disclaimer must not score as confab; honest no-match is correct."
