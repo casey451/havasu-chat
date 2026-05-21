@@ -1,4 +1,4 @@
-"""USGS OGC API — Lake Havasu gauge 09427500 (Phase 8a)."""
+"""USGS OGC API — Lake Havasu gauge 09427500 (Phase 8a; Phase 8a.2 collection rename)."""
 
 from __future__ import annotations
 
@@ -11,6 +11,16 @@ from app.contrib.rate_limiter import SourceLimiter
 
 _USGS_LIMITER = SourceLimiter("usgs", qps=0.5)
 _OGC_BASE = "https://api.waterdata.usgs.gov/ogcapi/v0"
+
+# Phase 8a.2 (2026-05-21): USGS Water Data OGC API renamed the `observations`
+# collection to `latest-continuous` (other companion collections now exist —
+# `continuous`, `daily`, `latest-daily`, `field-measurements`). The legacy
+# `observations` path returns HTTP 404 `{"code":"NotFound","description":
+# "Collection not found"}`. The new collection returns the same FeatureCollection
+# shape; per-feature `properties` may use either `datetime` or `time` as the
+# timestamp key (the parser below handles both), and `value` is a string in the
+# new payload (the parser already coerces via `float(value)`).
+_OGC_COLLECTION = "latest-continuous"
 
 
 def fetch_usgs_lake_havasu() -> dict[str, Any]:
@@ -27,7 +37,7 @@ def fetch_usgs_lake_havasu() -> dict[str, Any]:
 
             def _inner(c: httpx.Client = client, pcode: str = code) -> httpx.Response:
                 return c.get(
-                    f"{_OGC_BASE}/collections/observations/items",
+                    f"{_OGC_BASE}/collections/{_OGC_COLLECTION}/items",
                     params={
                         "monitoring_location_id": f"USGS-{site}",
                         "parameter_code": pcode,
