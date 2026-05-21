@@ -676,6 +676,88 @@ def _provider_id_for_name(db: Session, provider_name: str) -> str:
 # so they inherit the floor for free.
 _MIN_QUERY_LENGTH = 3
 
+# Phase 7.5.5 — structurally-fake token gate.
+#
+# Junk queries like ``"When is the zzznonexistentevent999abc?"`` produce false-
+# positive did-you-mean replies because rapidfuzz's substring scorers find
+# spurious matches between ``zzznonexistentevent999abc`` and short catalog
+# tokens (e.g. ``"steven"`` — the ``"even"`` substring scores 83.3 on
+# ``partial_ratio`` and clears the 80-point typo guard floor, pulling the row
+# into the 55–75 near-match band against names like "Biehn Steven A").
+#
+# The fix mirrors the structural-heuristic pattern already shipped in
+# :func:`app.chat.entity_intent._looks_structurally_fake` (Phase 7.5.3 F1) but
+# scoped per-token, not per-query, because the matcher's input has typically
+# already been stripped of intent verbs by ``_strip_intent_padding`` and may
+# only carry one or two surviving tokens. A query containing **any** token
+# that looks structurally fabricated is rejected at the matcher boundary.
+#
+# Load-bearing negative regression: legitimate severe typos like
+# ``"mdshrkbrwry"`` (vowels-dropped form of "mudshark brewery") must still
+# clear the gate — they are pure-consonant but contain no digits and are not
+# ≥15 chars. The Backlog #44 escape hatch for severe typos still works.
+_STRUCTURAL_FAKE_MIN_LONG_TOKEN_LEN = 15
+_STRUCTURAL_FAKE_MIN_VOWEL_DENSITY = 0.30
+_DIGIT_RUN_RE = re.compile(r"\d{3,}")
+_HAS_LETTER_RE = re.compile(r"[a-z]", re.I)
+_HAS_DIGIT_RE = re.compile(r"\d")
+_LONG_CONSONANT_RUN_RE = re.compile(r"[bcdfghjklmnpqrstvwxyz]{6,}", re.I)
+
+
+def _token_vowel_density(tok: str) -> float:
+    letters = [c for c in tok.lower() if c.isalpha()]
+    if not letters:
+        return 0.0
+    return sum(1 for c in letters if c in "aeiouy") / len(letters)
+
+
+def _token_looks_structurally_fake(tok: str) -> bool:
+    """True when ``tok`` is shaped like a fabricated entity name (Phase 7.5.5).
+
+    Three independent triggers — any one fires:
+
+    1. **Embedded digit run** — token has 3+ consecutive digits AND letters
+       (e.g. ``"event999abc"``, ``"joe9999tavern"``, ``"business4042"``).
+       Pure numeric tokens like ``"2024"`` are not flagged here — they fail
+       the letter check and may be legitimate (e.g. event dates).
+    2. **Long alphanumeric with low vowels** — token is ≥15 chars AND vowel
+       density is <30% (catches ``"zzznonexistentevent999abc"`` shape).
+    3. **Consonant-run + digits** — token has a 6+ consecutive-consonant run
+       AND contains at least one digit (catches ``"lhcbba999"`` shape).
+
+    Pure-consonant typos (``"mdshrkbrwry"``, 11 chars, 0 digits) are NOT
+    flagged — they fall through every trigger and remain matchable via the
+    Backlog #44 severe-typo escape hatch.
+    """
+    if not tok:
+        return False
+    has_letter = bool(_HAS_LETTER_RE.search(tok))
+    has_digit = bool(_HAS_DIGIT_RE.search(tok))
+    if has_letter and _DIGIT_RUN_RE.search(tok):
+        return True
+    if len(tok) >= _STRUCTURAL_FAKE_MIN_LONG_TOKEN_LEN:
+        if _token_vowel_density(tok) < _STRUCTURAL_FAKE_MIN_VOWEL_DENSITY:
+            return True
+    if has_digit and _LONG_CONSONANT_RUN_RE.search(tok):
+        return True
+    return False
+
+
+def _query_has_structurally_fake_token(norm_query: str) -> bool:
+    """True when the normalized query contains a structurally fake token.
+
+    A single fake-shaped token taints the whole query — the user wrote a junk
+    string interleaved with real words (e.g. ``"when is the
+    zzznonexistentevent999abc"`` has ``"zzznonexistentevent999abc"`` as the
+    only ≥5-char content token, but even with stopwords stripped the user did
+    not name a real entity). Returning True at the matcher boundary lets the
+    caller surface the generic gap template instead of a spurious did-you-mean.
+    """
+    for tok in norm_query.split():
+        if _token_looks_structurally_fake(tok):
+            return True
+    return False
+
 
 def _normalize_for_match(query: str) -> str:
     """Normalize and apply the ≥3-char minimum-length floor (Backlog #50).
@@ -687,9 +769,15 @@ def _normalize_for_match(query: str) -> str:
 
     Floor is applied AFTER ``normalize()`` so whitespace-padded short queries
     like ``"  a  "`` (which normalize to a 1-char string) are also blocked.
+
+    Phase 7.5.5: also rejects queries containing a structurally fake token
+    (digit-run inside letters, long low-vowel alphanumeric, or consonant-run
+    + digits). See :func:`_token_looks_structurally_fake`.
     """
     norm = normalize(query)
     if len(norm) < _MIN_QUERY_LENGTH:
+        return ""
+    if _query_has_structurally_fake_token(norm):
         return ""
     return norm
 
