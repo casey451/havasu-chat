@@ -137,10 +137,41 @@ _BEST_CATEGORY_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Phase 7.5.3 F1 — structural heuristic for unmarked fabricated entity names.
+_HIGH_DIGIT_DENSITY_RE = re.compile(r"\b[A-Za-z]+\s*\d{3,}\b")
+_CONSONANT_RUN_RE = re.compile(r"\b[bcdfghjklmnpqrstvwxyz]{4,}", re.I)
+
+
+def _looks_structurally_fake(query: str) -> bool:
+    """Best-effort detector for fabricated entity names without marker tokens.
+
+    Returns True when the query contains either:
+      - a token with high digit density (e.g. "Business 4042", "XYZ 555")
+      - a token with a 4+ consecutive-consonant run (e.g. "zzznonexistent")
+
+    Skipped on queries with < 5 tokens to avoid false-positives on short
+    legitimate entity references ("Heat Hotel", "phone for mdshrkbrwry").
+    """
+    q = (query or "").strip()
+    if len(q.split()) < 5:
+        return False
+    if _HIGH_DIGIT_DENSITY_RE.search(q):
+        return True
+    if _CONSONANT_RUN_RE.search(q):
+        return True
+    return False
+
 
 def query_mentions_fake_entity_marker(query: str) -> bool:
-    """True when the user named an obviously non-catalog test/missing entity."""
-    return bool(_FAKE_ENTITY_MARKER_RE.search(query or ""))
+    """True when the user named an obviously non-catalog test/missing entity.
+
+    Phase 7.5.3 F1: whitelist regex still handles eval markers (xyz / 404 / etc.).
+    Structural heuristic in _looks_structurally_fake catches unmarked
+    fabrications (digit-density + consonant-run shapes) on queries >= 5 tokens.
+    """
+    if _FAKE_ENTITY_MARKER_RE.search(query or ""):
+        return True
+    return _looks_structurally_fake(query or "")
 
 
 def suppress_out_of_scope_for_factual_lookup(message: str) -> bool:

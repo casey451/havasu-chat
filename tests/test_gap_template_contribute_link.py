@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy.orm import Session
 
-from app.chat.unified_router import route
+from app.chat.unified_router import _GAP_TAIL, route
 from app.db.database import SessionLocal
 
 
@@ -32,6 +32,8 @@ def test_date_lookup_gap_includes_contribute(db: Session) -> None:
     t2.assert_called_once()
     m3.assert_not_called()
     assert r.sub_intent == "DATE_LOOKUP"
+    assert r.tier_used == "gap_template"
+    assert r.response.rstrip().endswith(_GAP_TAIL)
     assert "/contribute" in r.response
 
 
@@ -42,6 +44,8 @@ def test_location_lookup_gap_includes_contribute(db: Session) -> None:
     t2.assert_called_once()
     m3.assert_not_called()
     assert r.sub_intent == "LOCATION_LOOKUP"
+    assert r.tier_used == "gap_template"
+    assert r.response.rstrip().endswith(_GAP_TAIL)
     assert "/contribute" in r.response
 
 
@@ -52,4 +56,6 @@ def test_hours_lookup_gap_includes_contribute(db: Session) -> None:
     t2.assert_called_once()
     m3.assert_not_called()
     assert r.sub_intent == "HOURS_LOOKUP"
+    assert r.tier_used == "gap_template"
+    assert r.response.rstrip().endswith(_GAP_TAIL)
     assert "/contribute" in r.response

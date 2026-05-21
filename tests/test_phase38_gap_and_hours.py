@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.chat.unified_router import route
+from app.chat.unified_router import _GAP_TAIL, route
 from app.db.database import SessionLocal
 from app.db.models import Provider
 from app.main import app
@@ -87,6 +87,7 @@ def test_catalog_gap_skips_tier3(query: str, expected_sub: str, db: Session) -> 
     assert r.tier_used == "gap_template"
     assert r.llm_tokens_used is None
     assert "catalog" in r.response.lower()
+    assert r.response.rstrip().endswith(_GAP_TAIL)
     assert "/contribute" in r.response
 
 
@@ -243,6 +244,8 @@ def test_q22_fake_hotel_misroutes_to_heat_hotel_on_prod_shape(db: Session) -> No
             f"Response was: {r.response}"
         )
         assert "4.5" not in r.response
+        assert r.tier_used == "gap_template"
+        assert r.response.rstrip().endswith(_GAP_TAIL)
         assert "/contribute" in r.response
     finally:
         for pid in inserted_ids:
@@ -307,6 +310,8 @@ def test_post_api_chat_gap_template_contract() -> None:
     assert r.status_code == 200
     body = r.json()
     assert body["tier_used"] == "gap_template"
-    assert "/contribute" in (body.get("response") or "")
+    resp = body.get("response") or ""
+    assert resp.rstrip().endswith(_GAP_TAIL)
+    assert "/contribute" in resp
     assert body["llm_tokens_used"] is None
     assert body["sub_intent"] == "LOCATION_LOOKUP"

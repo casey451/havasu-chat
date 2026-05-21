@@ -296,3 +296,57 @@ def test_boat_mode_param_forwarded() -> None:
             call.kwargs.get("query_params") == {"boat": "1"}
             for call in mock_route.call_args_list
         )
+
+
+def test_f5_lead_in_clause_enters_about_gate(db: Session) -> None:
+    """Phase 7.5.3 F5: conversational lead-in clauses must not defeat the
+    about-gate. Pre-fix: 'Hey, tell me about X' bypasses the gate and falls
+    through to tier-3 LLM. Post-fix: the lead-in is absorbed by _LEAD_IN_PREFIX
+    and the gate fires identically to bare 'tell me about X'.
+    """
+    from unittest.mock import patch
+
+    from app.chat.unified_router import route
+
+    def _tier3_should_not_be_called(*args, **kwargs):
+        raise AssertionError(
+            "tier-3 LLM invoked for F5 lead-in shape — _LEAD_IN_PREFIX failed"
+        )
+
+    queries = [
+        "Hey, tell me about Totally Fake Business XYZ 404",
+        "Quick question — describe Totally Fake Business XYZ 404",
+        "OK so, what is Totally Fake Business XYZ 404",
+    ]
+    with patch(
+        "app.chat.unified_router.answer_with_tier3",
+        side_effect=_tier3_should_not_be_called,
+    ):
+        for q in queries:
+            r = route(q, f"sess-f5-{abs(hash(q)) % 10000}", db)
+            assert r.tier_used == "gap_template", (
+                f"Expected gap_template for {q!r}, got {r.tier_used}. "
+                f"Response: {r.response}"
+            )
+
+
+def test_f5_about_gate_query_eligible_lead_in_positive() -> None:
+    """Unit-level: _about_gate_query_eligible must accept lead-in shapes."""
+    from app.chat.unified_router import _about_gate_query_eligible
+
+    assert _about_gate_query_eligible("Hey, tell me about Heat Hotel")
+    assert _about_gate_query_eligible("Quick question — describe Heat Hotel")
+    assert _about_gate_query_eligible("OK so, what is Heat Hotel")
+    # Bare shapes still fire (no regression):
+    assert _about_gate_query_eligible("tell me about Heat Hotel")
+    assert _about_gate_query_eligible("describe Heat Hotel")
+
+
+def test_f5_about_gate_no_overmatch_on_mid_sentence() -> None:
+    """Negative: mid-sentence 'tell me about' inside a quoted string does NOT fire.
+    The lead-in prefix requires punctuation; quoted-context drift should miss."""
+    from app.chat.unified_router import _about_gate_query_eligible
+
+    assert not _about_gate_query_eligible(
+        "the description says 'tell me about your services' is the legit?"
+    )

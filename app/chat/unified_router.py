@@ -109,18 +109,22 @@ _UNKNOWN_ENTITY_GAP = (
     "or add it at /contribute."
 )
 
+# Phase 7.5.3 F5: optional lead-in clause before about-gate patterns.
+# Captures "Hey, ", "Quick question — ", "OK, so ", etc. (punctuation-anchored).
+_LEAD_IN_PREFIX = r"^\s*(?:[a-z][a-z\s,'-]{0,40}[,—\-]\s+)?"
+
 # Always gate — unambiguous "about a named entity" shapes (q07 primary).
 _ABOUT_GATE_STRICT_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"^\s*tell\s+me\s+(?:more\s+)?about\b", re.I),
-    re.compile(r"^\s*(?:can\s+you\s+)?describe\b", re.I),
-    re.compile(r"^\s*who(?:'s|\s+is)\b", re.I),
-    re.compile(r"^\s*(?:any\s+)?info(?:rmation)?\s+(?:on|about)\b", re.I),
-    re.compile(r"^\s*what(?:'s|\s+is)\s+\S+\s+like\b", re.I),
+    re.compile(_LEAD_IN_PREFIX + r"tell\s+me\s+(?:more\s+)?about\b", re.I),
+    re.compile(_LEAD_IN_PREFIX + r"(?:can\s+you\s+)?describe\b", re.I),
+    re.compile(_LEAD_IN_PREFIX + r"who(?:'s|\s+is)\b", re.I),
+    re.compile(_LEAD_IN_PREFIX + r"(?:any\s+)?info(?:rmation)?\s+(?:on|about)\b", re.I),
+    re.compile(_LEAD_IN_PREFIX + r"what(?:'s|\s+is)\s+\S+\s+like\b", re.I),
 )
 
 # Broader "what is X" — only when X is not activity/listing phrasing (Phase 7.5.1).
 _WHAT_IS_ENTITY_RE = re.compile(
-    r"^\s*what(?:'s|\s+is)\s+(?!the\s+weather|the\s+time|the\s+date|today)",
+    _LEAD_IN_PREFIX + r"what(?:'s|\s+is)\s+(?!the\s+weather|the\s+time|the\s+date|today)",
     re.I,
 )
 
@@ -284,10 +288,6 @@ def _unknown_entity_about_gate(
             near_match_subject_overlaps,
             query_mentions_fake_entity_marker,
         )
-
-        if query_mentions_fake_entity_marker(raw):
-            return _UNKNOWN_ENTITY_GAP
-
         from app.chat.entity_matcher import find_near_match, match_entity
 
         if db is not None:
@@ -297,6 +297,13 @@ def _unknown_entity_about_gate(
             near = find_near_match(raw, db)
             if near is not None and near_match_subject_overlaps(raw, near[0]):
                 return None  # plausible "did you mean" — defer to existing path
+
+        # Phase 7.5.3 F1: marker probe runs AFTER matcher + near-match so the
+        # consonant-run heuristic cannot regress legitimate typo near-matches
+        # like "mdshrkbrwry" -> Mudshark Brewery (rapidfuzz in
+        # near_match_subject_overlaps must take precedence).
+        if query_mentions_fake_entity_marker(raw):
+            return _UNKNOWN_ENTITY_GAP
     except Exception:
         logging.exception("_unknown_entity_about_gate: matcher probe failed")
         return None
