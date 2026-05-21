@@ -51,10 +51,15 @@ def test_eval_set_loads() -> None:
 
 
 def test_eval_spec_shape() -> None:
+    valid = ("cited", "uncited", "i_dont_know")
     specs = load_eval_set(Path("app/chat/halt3_eval_set.yaml"))
     for s in specs:
         assert s.query
-        assert s.expected_disclosure_path in ("cited", "uncited", "i_dont_know")
+        exp = s.expected_disclosure_path
+        if isinstance(exp, list):
+            assert exp and all(p in valid for p in exp)
+        else:
+            assert exp in valid
 
 
 @patch("app.chat.halt3_validator.route")
