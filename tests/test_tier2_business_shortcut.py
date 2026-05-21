@@ -89,6 +89,59 @@ def test_shortcut_returns_none_for_non_listing_shapes(query: str) -> None:
     assert shortcut.try_business_listing_shortcut(query) is None
 
 
+# ---------------------------------------------------------------------------
+# Phase 7.6 — OPEN_NOW + category listing shortcut (q03 fix)
+# ---------------------------------------------------------------------------
+
+
+def test_open_now_listing_shortcut_matches_q03() -> None:
+    """q03 shape must match the deterministic shortcut (pre-fix: FAIL — returns None)."""
+    filters = shortcut.try_business_listing_shortcut("what restaurants are open now")
+    assert filters is not None
+    assert filters.category == "restaurant"
+    assert filters.open_now is True
+    assert filters.parser_confidence >= 0.7
+    assert filters.fallback_to_tier3 is False
+
+
+def test_open_now_listing_shortcut_returns_filters_with_open_now_true() -> None:
+    """Sibling shapes: optional 'are', 'right now', other allow-listed nouns."""
+    cases = [
+        ("what cafes are open now", "cafe", True),
+        ("what pharmacies are open right now", "pharmacy", True),
+        ("what vets are open now", "veterinarian", True),
+        ("what coffee shops are open now", "coffee shop", True),
+        ("what gyms are open now", "gym", True),
+    ]
+    for query, expected_cat, expected_open in cases:
+        filters = shortcut.try_business_listing_shortcut(query)
+        assert filters is not None, query
+        assert filters.category == expected_cat, query
+        assert filters.open_now is expected_open, query
+
+
+def test_open_now_listing_skips_when_event_shape_present() -> None:
+    """Temporal/event tokens defer to the LLM parser — 'tonight' is in _EVENT_SHAPE_TOKENS."""
+    assert shortcut.try_business_listing_shortcut("what restaurants are open tonight") is None
+    assert shortcut.try_business_listing_shortcut("what bars are open this weekend") is None
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "what restaurants are open later",  # no now/right now
+        "what restaurants open",  # missing temporal anchor (listing-prefix may match)
+        "which restaurants are open now",  # wrong lead word (not 'what')
+        "what is open now",  # no category noun
+        "find me a restaurant open now",  # listing-prefix shape, not open-now listing
+    ],
+)
+def test_open_now_listing_shortcut_negative_shapes(query: str) -> None:
+    """OPEN_NOW branch must not fire — listing-prefix may still match with open_now=False."""
+    filters = shortcut.try_business_listing_shortcut(query)
+    assert filters is None or filters.open_now is not True, query
+
+
 def test_shortcut_strips_locality_suffix() -> None:
     """'in LHC' / 'in Lake Havasu City' / 'near me' must not pollute the category."""
     for tail in (
@@ -283,6 +336,63 @@ def test_handler_uses_shortcut_zero_tokens(db_session: Session) -> None:
         assert "barber" in text.lower()
         # At least one of the inserted providers should appear.
         assert "Tier2Shortcut" in text
+    finally:
+        for pid in ids:
+            row = db_session.get(Provider, pid)
+            if row is not None:
+                db_session.delete(row)
+        db_session.commit()
+
+
+def test_handler_open_now_listing_shortcut_zero_tokens(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """q03 end-to-end: shortcut → query(open_now=True) → deterministic render, zero tokens."""
+    from datetime import datetime
+
+    from app.chat import tier2_db_query
+    from app.contrib.hours_helper import LAKE_HAVASU_TZ
+
+    monkeypatch.setattr(
+        tier2_db_query,
+        "_now_lake_havasu",
+        lambda: datetime(2026, 6, 15, 12, 0, 0, tzinfo=LAKE_HAVASU_TZ),
+    )
+    ids = _insert_test_providers(
+        db_session,
+        [
+            {
+                "name": "Tier2OpenNow Miguel's",
+                "category": "food_drink",
+                "google_primary_category": "restaurant",
+                "google_categories": ["restaurant", "food"],
+            },
+            {
+                "name": "Tier2OpenNow Closed Diner",
+                "category": "food_drink",
+                "google_primary_category": "restaurant",
+                "google_categories": ["restaurant"],
+            },
+        ],
+    )
+    try:
+        for pid in ids:
+            row = db_session.get(Provider, pid)
+            if row and "OpenNow Miguel" in (row.provider_name or ""):
+                row.hours_structured = {"monday": [{"open": "09:00", "close": "23:00"}]}
+            elif row and "Closed Diner" in (row.provider_name or ""):
+                row.hours_structured = {"monday": [{"open": "18:00", "close": "19:00"}]}
+        db_session.commit()
+
+        text, used, in_t, out_t = tier2_handler.try_tier2_with_usage(
+            "what restaurants are open now"
+        )
+        assert text is not None, "shortcut+open_now should produce a listing"
+        assert used == 0, f"expected zero tokens (no Haiku), got {used}"
+        assert in_t == 0
+        assert out_t == 0
+        assert "Tier2OpenNow Miguel" in text
+        assert "Closed Diner" not in text
     finally:
         for pid in ids:
             row = db_session.get(Provider, pid)

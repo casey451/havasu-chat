@@ -69,6 +69,49 @@ _LISTING_PREFIX = re.compile(
     re.IGNORECASE,
 )
 
+# Phase 7.6 — "what restaurants are open now" category+open_now listings.
+# Evaluated BEFORE _LISTING_PREFIX so these shapes never reach the Haiku parser.
+# Tight: requires "what <category-noun> [are] open (now|right now)" end-anchored.
+_OPEN_NOW_LISTING_RE = re.compile(
+    r"^what\s+"
+    r"(restaurants?|cafes?|coffee\s+shops?|bars?|"
+    r"pharmacies|vets?|veterinarians?|stores?|shops?|gyms?)\s+"
+    r"(?:are\s+)?open\s+(?:now|right\s+now)\s*$",
+    re.IGNORECASE,
+)
+
+# Map captured noun phrase → canonical category string for Tier2Filters + SQL needles.
+# Align with _category_needle_set / entity_intent._CATEGORY_OPEN_NOW_RE coverage.
+_OPEN_NOW_CAPTURE_TO_CATEGORY: dict[str, str] = {
+    "restaurant": "restaurant",
+    "restaurants": "restaurant",
+    "cafe": "cafe",
+    "cafes": "cafe",
+    "coffee shop": "coffee shop",
+    "coffee shops": "coffee shop",
+    "bar": "bar",
+    "bars": "bar",
+    "pharmacy": "pharmacy",
+    "pharmacies": "pharmacy",
+    "vet": "veterinarian",
+    "vets": "veterinarian",
+    "veterinarian": "veterinarian",
+    "veterinarians": "veterinarian",
+    "store": "store",
+    "stores": "store",
+    "shop": "shop",
+    "shops": "shop",
+    "gym": "gym",
+    "gyms": "gym",
+}
+
+
+def _category_from_open_now_capture(raw: str) -> str:
+    """Normalize the regex capture group to a canonical filter category."""
+    key = (raw or "").strip().lower()
+    return _OPEN_NOW_CAPTURE_TO_CATEGORY.get(key, key)
+
+
 # Locality suffix stripped from the category so the search term stays clean.
 # "barbers in lake havasu city" -> "barbers"; "haircut near me" -> "haircut".
 _LOCALITY_SUFFIX = re.compile(
@@ -263,6 +306,21 @@ def try_business_listing_shortcut(query: str) -> Tier2Filters | None:
     if not query or not query.strip():
         return None
     nq = query.strip()
+    on = _OPEN_NOW_LISTING_RE.match(nq)
+    if on is not None:
+        category = _category_from_open_now_capture(on.group(1))
+        category = _normalize_category_typos(category)
+        low_padded = " " + category.lower()
+        if any(tok in low_padded for tok in _EVENT_SHAPE_TOKENS):
+            return None
+        if len(category.split()) > 3:
+            return None
+        return Tier2Filters(
+            category=category.lower(),
+            open_now=True,
+            parser_confidence=0.9,
+            fallback_to_tier3=False,
+        )
     m = _LISTING_PREFIX.match(nq)
     if not m:
         return None
