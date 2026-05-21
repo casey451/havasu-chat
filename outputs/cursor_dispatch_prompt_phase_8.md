@@ -70,12 +70,13 @@ Phase 7 SHIPPED at 0a305e0 (chat ENTITY wiring + boat-mode
 + conditions-awareness via STUB + HALT 3 + cross-entity + snowbird-return
 view).
 
-Pytest baseline going in is post-Phase-7.5.2. Verify per python -m pytest
---collect-only -q | tail -3 BEFORE starting work. **Expected ~2193**
-(Phase 6.3 baseline 2060 + Phase 6.4 +25 + Phase 6.5 +16 + Phase 7 +50
-+ Phase 7.5 +15 + Phase 7.5.1 +12 + Phase 7.5.2 +13; Phase 7.6 adds
-~3-5 more if shipped before this dispatch). Alembic head is c9d0e1f2a3b4
-(Phase 7 users.last_active_at migration; no Phase 7.5.x / 7.6 migrations
+Pytest baseline going in is post-Phase-7.5.3+7.7 (origin/main `1e0d17a`).
+Verify per python -m pytest --collect-only -q | tail -3 BEFORE starting
+work. **Expected ~2224** (Phase 6.3 baseline 2060 + Phase 6.4 +25 +
+Phase 6.5 +16 + Phase 7 +50 + Phase 7.5 +15 + Phase 7.5.1 +12 +
+Phase 7.5.2 +13 + Phase 7.6 +9 + Phase 7.5.3 +16 + Phase 7.7 +6 =
+2222; tolerance ±5). Alembic head is c9d0e1f2a3b4 (Phase 7
+users.last_active_at migration; no Phase 7.5.x / 7.6 / 7.7 migrations
 shipped). Verify per python -m alembic current BEFORE starting work and
 REPORT THE OBSERVED VALUE (do NOT copy dispatch-body-claimed value).
 
@@ -429,15 +430,18 @@ Pre-dispatch checklist (verify before paste):
 - Phase 6.5 SHIPPED on origin (bdca0bd, 2026-05-20, homepage rebuild + tiles)
 - Phase 7.5.1 SHIPPED on origin (fd695d2, 2026-05-19, prod-divergence routing fixes)
 - Phase 7.5.2 SHIPPED on origin (64799d5, 2026-05-20, HALT 3 validator hardening)
-- Phase 7.6 SHIPPED on origin (TBD; verify before dispatch -- in flight at time of Lane E re-check)
-- Phase 7.5.2 docs ledger on origin (c81f0d0, 2026-05-20)
+- Phase 7.6 SHIPPED on origin (975e83f, 2026-05-20, tier-2 OPEN_NOW shortcut)
+- Phase 7.5.3 SHIPPED on origin (ac7c2fc, 2026-05-20, F-gap polish F1/F4/F5)
+- Phase 7.7 SHIPPED on origin (eb489a7, 2026-05-20, honest tier-2 empty listing)
+- Docs ledger close-outs on origin (c81f0d0, 19b6c8f, 44ca1c6, fe997ee, 1e0d17a)
+- **Lane E re-dispatch 2026-05-20:** Phase 8a was attempted previously; Cursor session's saves stomped on committed code with a stale snapshot (truncated tier2_handler.py, ranking.py, chat_request_context.py mid-write). Stashed at `8a-collision-corrupted-tree-2026-05-20` for forensics; this is a fresh dispatch from clean tree at `1e0d17a`.
 - Sidecar migration SHIPPED on origin (532d48b)
 - Phase 5 ledger SHIPPED on origin (3a2d895)
 - c9d0e1f2a3b4 is the current SINGLE alembic head on
   origin (verify via `python -m alembic current` AND `python -m alembic
   heads`)
 - Pytest baseline going in matches reality per `python -m pytest
-  --collect-only -q | tail -3` (expected ~2193 post-7.5.2; ~2196-2198 if 7.6 shipped first)
+  --collect-only -q | tail -3` (expected ~2224 post-7.5.3+7.7+7.6 stack on origin/main `1e0d17a`; verify and REPORT the observed count — do NOT assume the dispatch-body number).
 - AirNow API key registered + smoke-test passed (operator)
 - USGS site 09427500 live-verified (00065 + 00054 only); 09427520 dropped
 - Nixle dropped from V1 per phase_8a_prereq_verification_report.md
