@@ -42,7 +42,9 @@ def _pull_webtrac() -> list[dict[str, Any]]:
 
 
 def _pull_lhcaz_aquatic() -> list[dict[str, Any]]:
-    # Imported lazily so the runner still works before this module lands.
+    # Legacy HTML adapter -- preserved in case the city ever flips the
+    # schedule back to inline HTML. Not currently wired into SOURCES;
+    # the active adapter is ``_pull_lhcaz_aquatic_pdf`` below.
     try:
         from app.contrib import lhcaz_aquatic  # type: ignore
     except ModuleNotFoundError:
@@ -53,20 +55,30 @@ def _pull_lhcaz_aquatic() -> list[dict[str, Any]]:
     return lhcaz_aquatic.pull_snapshot()  # type: ignore[no-any-return]
 
 
+def _pull_lhcaz_aquatic_pdf() -> list[dict[str, Any]]:
+    # Active 2026-05-22+: the city moved the Aquatic Center schedule
+    # from inline HTML to two PDF downloads on the redesigned
+    # ``/329/Aquatic-Center`` page. ``app.contrib.lhcaz_aquatic_pdf``
+    # fetches both PDFs and returns AquaticSlot dicts matching the
+    # legacy contract -- the loader (``parks_rec_loader``) and the
+    # synthetic-URL dedup path are unchanged. See
+    # ``outputs/lhcaz_aquatic_pdf_rewrite_carry.md`` for context.
+    from app.contrib import lhcaz_aquatic_pdf  # type: ignore
+
+    return lhcaz_aquatic_pdf.pull_snapshot()  # type: ignore[no-any-return]
+
+
 SOURCES: dict[str, PullFn] = {
     "webtrac": _pull_webtrac,
-    # ---------------------------------------------------------------------
-    # DISABLED 2026-05-22: Lake Havasu City moved the open-swim schedule
-    # from inline HTML (parsed by ``app.contrib.lhcaz_aquatic``) to two
-    # PDF downloads on the redesigned Aquatic Center page. The old
-    # URL ``parks-recreation/open-swim-schedule`` now redirects to
-    # ``/329/Aquatic-Center`` which carries zero ``.sch-day-wrp`` blocks,
-    # so the parser returns []. Re-enable once the PDF-parser rewrite
-    # ships — see ``outputs/lhcaz_aquatic_pdf_rewrite_carry.md`` for the
-    # new URLs, proposed pdfplumber/pdftotext approach, and test-fixture
-    # needs. The ``_pull_lhcaz_aquatic`` adapter above is intentionally
-    # preserved so re-enable is a one-line change.
-    # "lhcaz_aquatic": _pull_lhcaz_aquatic,
+    # The Aquatic Center schedule lives in two PDFs on the city site
+    # as of 2026-05-22; ``_pull_lhcaz_aquatic_pdf`` fetches + parses
+    # both each cron tick. Keep the source key as ``lhcaz_aquatic`` so
+    # the snapshot directory layout (``data/scrapes/lhcaz_aquatic/``)
+    # and the loader's ``AQUATIC_SOURCE`` constant stay stable across
+    # the format flip. See
+    # ``outputs/lhcaz_aquatic_pdf_rewrite_carry.md`` for the carry
+    # narrative and ``app/contrib/lhcaz_aquatic_pdf.py`` for the parser.
+    "lhcaz_aquatic": _pull_lhcaz_aquatic_pdf,
 }
 
 

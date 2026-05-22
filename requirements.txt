@@ -39,6 +39,7 @@ packaging==26.1
 Pillow==12.0.0
 playwright==1.59.0
 passlib==1.7.4
+pdfplumber==0.11.9
 pluggy==1.6.0
 psycopg2-binary==2.9.11
 pyasn1==0.6.3

@@ -1,26 +1,25 @@
-"""Regression guard: ``lhcaz_aquatic`` source stays disabled until the
-PDF-parser rewrite ships.
+"""Wiring guard: ``lhcaz_aquatic`` source is fed by the PDF adapter.
 
-Why this test exists
---------------------
-The Lake Havasu City open-swim schedule moved from inline HTML to two
-PDF downloads sometime between 2026-05-07 and 2026-05-21. The existing
-``app.contrib.lhcaz_aquatic.parse_schedule_html`` parser silently
-returns ``[]`` against the new page, which propagated as
-``"no snapshot found"`` errors out of
-``app.contrib.parks_rec_loader.load_latest_snapshots`` and caused five
-consecutive ``parks-rec-scrapes`` cron failures (#57–#61).
+The 2026-05-22 disable ship took ``lhcaz_aquatic`` out of
+``scripts.run_scrapes.SOURCES`` after the city moved the schedule from
+inline HTML to two PDF downloads on the redesigned Aquatic Center
+page -- the old HTML parser silently returned ``[]`` and the
+``parks-rec-scrapes`` cron failed for five consecutive runs (#57-#61).
 
-The 2026-05-22 ship disabled the source in
-``scripts.run_scrapes.SOURCES`` and silenced the
-``"no snapshot found"`` path in
-``app.contrib.parks_rec_loader.load_latest_snapshots`` for the aquatic
-source only. The rewrite-required follow-up is documented in
-``outputs/lhcaz_aquatic_pdf_rewrite_carry.md``.
+The follow-up ship (this commit) restored the source and wired it to
+the new PDF parser at ``app.contrib.lhcaz_aquatic_pdf``. This test
+pins the wiring so a future revert that points the source back at
+the legacy HTML adapter (``_pull_lhcaz_aquatic``) -- whose target URL
+still redirects to the schedule-less landing page -- would fail loudly
+instead of silently producing empty snapshots.
 
-This test defends against an accidental silent re-enable. If a future
-commit puts ``lhcaz_aquatic`` back into SOURCES without also shipping
-the PDF parser, this test fails loudly with a pointer to the carry.
+See ``outputs/lhcaz_aquatic_pdf_rewrite_carry.md`` for the full carry
+narrative.
+
+NOTE: This file is named ``..._disabled.py`` for historical reasons
+(it was authored alongside the disable ship). The contract it asserts
+is now the *enabled-with-PDF-adapter* contract -- rename the file as
+a future cleanup carry if it bothers anyone.
 """
 
 from __future__ import annotations
@@ -32,26 +31,33 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.run_scrapes import SOURCES  # noqa: E402
+from scripts.run_scrapes import (  # noqa: E402
+    SOURCES,
+    _pull_lhcaz_aquatic_pdf,
+)
 
 
-def test_lhcaz_aquatic_source_disabled_until_pdf_rewrite_ships() -> None:
-    """``lhcaz_aquatic`` must stay out of SOURCES until the rewrite lands.
-
-    See ``outputs/lhcaz_aquatic_pdf_rewrite_carry.md`` for the re-enable
-    checklist (new ``app.contrib.lhcaz_aquatic_pdf`` module, test
-    fixtures, restored loader else-branch).
+def test_lhcaz_aquatic_wired_to_pdf_adapter() -> None:
+    """``lhcaz_aquatic`` SOURCES entry must point at the PDF adapter,
+    not the legacy HTML adapter. The HTML adapter's target URL
+    (``/parks-recreation/open-swim-schedule``) now redirects to a
+    schedule-less landing page; using it again would silently produce
+    empty snapshots and re-trigger the failures from #57-#61.
     """
-    assert "lhcaz_aquatic" not in SOURCES, (
-        "lhcaz_aquatic is back in scripts/run_scrapes.py::SOURCES but the "
-        "PDF-parser rewrite has not shipped — see "
-        "outputs/lhcaz_aquatic_pdf_rewrite_carry.md for the re-enable "
-        "checklist. If the rewrite did ship, update this test to reflect "
-        "the new contract (e.g., assert 'lhcaz_aquatic_pdf' is the active "
-        "key instead)."
+    assert "lhcaz_aquatic" in SOURCES, (
+        "lhcaz_aquatic vanished from scripts/run_scrapes.py::SOURCES — "
+        "if the source was disabled intentionally, update this test (or "
+        "delete it). See outputs/lhcaz_aquatic_pdf_rewrite_carry.md."
     )
-    # WebTrac stays on — the disable is targeted, not blanket.
+    assert SOURCES["lhcaz_aquatic"] is _pull_lhcaz_aquatic_pdf, (
+        "lhcaz_aquatic is wired to a different adapter — the legacy "
+        "HTML adapter (_pull_lhcaz_aquatic) targets a URL that now "
+        "redirects to a schedule-less landing page and would silently "
+        "produce empty snapshots. See "
+        "outputs/lhcaz_aquatic_pdf_rewrite_carry.md."
+    )
+    # WebTrac stays on -- the disable was targeted, not blanket.
     assert "webtrac" in SOURCES, (
         "webtrac source vanished from SOURCES — that's a regression unrelated "
-        "to the lhcaz_aquatic disable."
+        "to the lhcaz_aquatic wiring."
     )
