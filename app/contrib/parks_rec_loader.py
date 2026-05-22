@@ -525,8 +525,12 @@ def load_latest_snapshots(*, dry_run: bool = False) -> list[LoaderStats]:
 
         if aquatic_records:
             results.append(load_aquatic_records(aquatic_records, db=db, dry_run=dry_run))
-        else:
-            results.append(LoaderStats(source=AQUATIC_SOURCE, errors=["no snapshot found"]))
+        # DISABLED 2026-05-22: the lhcaz_aquatic source is currently disabled
+        # in scripts/run_scrapes.py::SOURCES (city moved schedule to PDF —
+        # see outputs/lhcaz_aquatic_pdf_rewrite_carry.md). When no aquatic
+        # snapshot exists on disk, omit the source from results rather than
+        # emitting a "no snapshot found" error. Restore the else-branch (or
+        # replace with the new PDF flow) when re-enabling the scraper.
 
     return results
 

@@ -55,7 +55,18 @@ def _pull_lhcaz_aquatic() -> list[dict[str, Any]]:
 
 SOURCES: dict[str, PullFn] = {
     "webtrac": _pull_webtrac,
-    "lhcaz_aquatic": _pull_lhcaz_aquatic,
+    # ---------------------------------------------------------------------
+    # DISABLED 2026-05-22: Lake Havasu City moved the open-swim schedule
+    # from inline HTML (parsed by ``app.contrib.lhcaz_aquatic``) to two
+    # PDF downloads on the redesigned Aquatic Center page. The old
+    # URL ``parks-recreation/open-swim-schedule`` now redirects to
+    # ``/329/Aquatic-Center`` which carries zero ``.sch-day-wrp`` blocks,
+    # so the parser returns []. Re-enable once the PDF-parser rewrite
+    # ships — see ``outputs/lhcaz_aquatic_pdf_rewrite_carry.md`` for the
+    # new URLs, proposed pdfplumber/pdftotext approach, and test-fixture
+    # needs. The ``_pull_lhcaz_aquatic`` adapter above is intentionally
+    # preserved so re-enable is a one-line change.
+    # "lhcaz_aquatic": _pull_lhcaz_aquatic,
 }
 
 
