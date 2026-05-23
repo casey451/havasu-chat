@@ -1,10 +1,12 @@
 # Cursor Dispatch Prompt — Phase 8b (cat-13 Public & Civic Resources expansion micro-dispatch)
 
+> **SHA-PATCH APPLIED 2026-05-22 — DISPATCH-READY.** Both SHA slots are now filled with concrete values from the post-Phase-8a + post-lhcaz-rewrite state: the Phase-8a HEAD-SHA placeholder is filled with **`8a905c6`** (Phase 8a SHIPPED at Railway v1.3.0 — conditions + alerts subsystem); the Phase-8a alembic-head placeholder is filled with **`d8e9f0a1b2c3`** (Phase 8a additive migration extended `external_conditions_cache` + `alerts_dispatched` enum). Current origin/main HEAD is `6070726` (well past Phase 8a); pytest baseline at HEAD is ~2290 + 3 skipped. No multi-head state. Wrapper is paste-ready in a fresh Cursor chat. Historical SHA-patch-pending framing preserved in the next paragraph for audit.
+>
 > Paste-into-Cursor prompt for Phase 8b per master plan §4 Phase 8 (lines 401-419) + `outputs/phase_8_architecture_design.md` §10 (Lane C cat-13 expansion via Layer 3 + Layer 5). Phase 8b ships the **content-density closure** for cat-13 — the slug that Phase 5.11 close-out flagged as "intentionally light at 4 entries" (`outputs/phase5_11_session_closeout.md` §5 + §7). The category page itself has rendered since Phase 6.3 (chip dispatcher SHIPPED for all 12 active slugs); Phase 8b just expands the entity catalog to a useful population threshold (~15-25 entities per design doc §10.2).
 >
-> **SHA-patch slots — fill post-Phase-8a-ship.** Phase 8a dispatches FIRST and ships the conditions + alerts subsystem. Phase 8b chains off Phase 8a's HEAD SHA. Two slots in this wrapper: `<<<PHASE_8A_HEAD_SHA>>>` (Phase 8a SHIPPED commit) + `<<<PHASE_8A_ALEMBIC_HEAD>>>` (alembic head post-Phase-8a; either `c9d0e1f2a3b4` if Phase 8a shipped no migration, OR the new revision SHA if Phase 8a shipped the `external_conditions_cache` additive migration per design doc §2.1).
+> **SHA-patch slots — fill post-Phase-8a-ship.** Phase 8a dispatches FIRST and ships the conditions + alerts subsystem. Phase 8b chains off Phase 8a's HEAD SHA. Two slots in this wrapper: `8a905c6` (Phase 8a SHIPPED commit) + `d8e9f0a1b2c3` (alembic head post-Phase-8a; either `c9d0e1f2a3b4` if Phase 8a shipped no migration, OR the new revision SHA if Phase 8a shipped the `external_conditions_cache` additive migration per design doc §2.1).
 >
-> **Gating dependencies:** Phase 8a SHIPPED at `<<<PHASE_8A_HEAD_SHA>>>`; Phase 7.5 SHIPPED (HALT 3 validator 22/22 PASS; operator flag-flip pending out-of-band); Phase 7 SHIPPED at `0a305e0`; Phase 6.5 SHIPPED (homepage chrome + conditions-strip-anchor); Phase 6.4 SHIPPED at `96c915d`; Phase 6.3 SHIPPED at `5ebee46` (chip dispatcher renders `/category/public-civic-resources` for cat-13 already); Phase 5 multi-phase data-population COMPLETE at `dcf3dd4` (1,314 active entities, **cat-13 thin at 4 entries** per Phase 5.11 close-out §5 table — that's the gap Phase 8b closes). Phase 6 lane COMPLETE. **Phase 8b consumes:** existing `entities` table (Phase 3.1 schema; no schema work); existing `categories` table (cat-13 row already present from Phase 3.1); existing `/category/public-civic-resources` route (Phase 6.3 chip dispatcher); existing `app/admin/contributions_html.py` admin form (Layer 5 manual-entry surface).
+> **Gating dependencies:** Phase 8a SHIPPED at `8a905c6`; Phase 7.5 SHIPPED (HALT 3 validator 22/22 PASS; operator flag-flip pending out-of-band); Phase 7 SHIPPED at `0a305e0`; Phase 6.5 SHIPPED (homepage chrome + conditions-strip-anchor); Phase 6.4 SHIPPED at `96c915d`; Phase 6.3 SHIPPED at `5ebee46` (chip dispatcher renders `/category/public-civic-resources` for cat-13 already); Phase 5 multi-phase data-population COMPLETE at `dcf3dd4` (1,314 active entities, **cat-13 thin at 4 entries** per Phase 5.11 close-out §5 table — that's the gap Phase 8b closes). Phase 6 lane COMPLETE. **Phase 8b consumes:** existing `entities` table (Phase 3.1 schema; no schema work); existing `categories` table (cat-13 row already present from Phase 3.1); existing `/category/public-civic-resources` route (Phase 6.3 chip dispatcher); existing `app/admin/contributions_html.py` admin form (Layer 5 manual-entry surface).
 >
 > **Operator prereq status — CONFIRM BEFORE PASTE.** Phase 8b's only operator-side prereq is **Layer 3 source-URL confirmation**. Operator-decide before dispatch:
 >
@@ -45,7 +47,7 @@
 PHASE 8b — CAT-13 PUBLIC & CIVIC RESOURCES EXPANSION (MICRO-DISPATCH)
 
 You are a focused content-density Cursor session. Phase 8a SHIPPED at
-<<<PHASE_8A_HEAD_SHA>>> (conditions + alerts subsystem). Phase 7.5 SHIPPED
+8a905c6 (conditions + alerts subsystem). Phase 7.5 SHIPPED
 (HALT 3 validator 22/22 PASS). Phase 6.5 SHIPPED (homepage chrome). Phase 6
 lane COMPLETE through 6.4. Phase 5 multi-phase data-population COMPLETE at
 dcf3dd4 (1,314 active entities); cat-13 public-civic-resources is the
@@ -90,11 +92,11 @@ Verify baseline at session start:
 - python -m pytest --collect-only -q | tail -3
   (expected: post-Phase-8a baseline, likely 2220-2330)
 - python -m alembic current
-  (expected: <<<PHASE_8A_ALEMBIC_HEAD>>>; either c9d0e1f2a3b4 if Phase 8a
+  (expected: d8e9f0a1b2c3; either c9d0e1f2a3b4 if Phase 8a
   shipped no migration, OR the new revision SHA if Phase 8a shipped the
   external_conditions_cache additive migration)
 - python -m alembic heads
-  (expected: <<<PHASE_8A_ALEMBIC_HEAD>>> SINGLE head; no multi-head)
+  (expected: d8e9f0a1b2c3 SINGLE head; no multi-head)
 - Cat-13 baseline count:
   python -c "from app.db.session import SessionLocal; from app.db.models import Entity, EntityCategory, Category; s = SessionLocal(); cat = s.query(Category).filter_by(slug='public-civic-resources').one(); n = s.query(EntityCategory).join(Entity).filter(EntityCategory.category_id == cat.id, Entity.is_active == True).count(); print(f'cat-13 baseline: {n} active entities')"
   (expected: 4 per Phase 5.11 close-out)
@@ -190,7 +192,7 @@ ORDER MATTERS WITHIN PHASE 8b:
    step + report to operator before resuming.
 
 2. Then: verify schema + baseline. Confirm:
-   - python -m alembic current returns <<<PHASE_8A_ALEMBIC_HEAD>>>
+   - python -m alembic current returns d8e9f0a1b2c3
    - python -m alembic heads returns SINGLE head
    - cat-13 baseline = 4 active entities (per Phase 5.11 close-out)
    - Category row for slug='public-civic-resources' exists in categories
@@ -237,7 +239,7 @@ ORDER MATTERS WITHIN PHASE 8b:
 
 8. After all of the above: confirm full pytest stays green (post-Phase-8a
    baseline + 10-20 net-new), ruff clean, alembic head UNCHANGED at
-   <<<PHASE_8A_ALEMBIC_HEAD>>> (no migration shipped). Document Layer 5
+   d8e9f0a1b2c3 (no migration shipped). Document Layer 5
    operator-follow-up surface (entities for remaining sub-categories that
    Cursor didn't auto-seed; operator types via admin form post-ship to
    top up to 20-25 entities). Manual smoke deferred-to-operator:
@@ -257,7 +259,7 @@ POSTGRES COMPATIBILITY (carry-forward from brief sec0 + Phase 1A lesson):
   no DDL changes.
 - python -m alembic heads MUST return SINGLE head at start AND at end
   of dispatch. If multi-head detected mid-flight, HALT and report.
-- Re-verify python -m alembic current returns <<<PHASE_8A_ALEMBIC_HEAD>>>
+- Re-verify python -m alembic current returns d8e9f0a1b2c3
   at end of session (unchanged from start; no migration shipped).
 
 DEVIATION INVITATIONS (per design doc sec10 + master plan sec4 Phase 8):
@@ -288,7 +290,7 @@ WHAT NOT TO DO (per design doc sec10 + master plan sec4 Phase 8):
 
 - Don't ship any Phase 8a Lane A or Lane B work (conditions / alerts /
   external_conditions_cache / /api/conditions / /account/alerts). That's
-  shipped already at <<<PHASE_8A_HEAD_SHA>>>.
+  shipped already at 8a905c6.
 - Don't ship Phase 9 events scraper subsystem.
 - Don't ship Phase 11 sponsor logic / monetization.
 - Don't modify the chat module (app/chat/*). Cat-13 expansion is purely
@@ -327,7 +329,7 @@ Same constraints as Phase 6.1 + 6.2 + 6.3 + 6.4 + Phase 7 + Phase 8a:
 
 Pre-dispatch checklist (verify before paste):
 
-- Phase 8a SHIPPED on origin (<<<PHASE_8A_HEAD_SHA>>>) -- SHA-patch slot
+- Phase 8a SHIPPED on origin (8a905c6) -- SHA-patch slot
   must be resolved before paste
 - Phase 7.5 SHIPPED on origin (HALT 3 validator 22/22 PASS)
 - Phase 7 SHIPPED on origin (0a305e0)
@@ -336,7 +338,7 @@ Pre-dispatch checklist (verify before paste):
 - Phase 6.3 SHIPPED on origin (5ebee46) -- /category/public-civic-resources
   route renders
 - Phase 5 ledger SHIPPED on origin (3a2d895); cat-13 baseline 4 entries
-- <<<PHASE_8A_ALEMBIC_HEAD>>> is the current SINGLE alembic head on
+- d8e9f0a1b2c3 is the current SINGLE alembic head on
   origin (verify via `python -m alembic current` AND `python -m alembic
   heads`)
 - Pytest baseline going in matches reality per `python -m pytest
@@ -403,4 +405,4 @@ The post-Phase-8 V1 surface area is complete for trust + density; Phase 9 ships 
 
 ---
 
-*Authored by Cowork primary at the post-Phase-7.5-ship session (2026-05-20). Lives at `outputs/cursor_dispatch_prompt_phase_8b.md`. SHA-patch slots `<<<PHASE_8A_HEAD_SHA>>>` + `<<<PHASE_8A_ALEMBIC_HEAD>>>` need filling post-Phase-8a-ship. Phase 8b is a micro-dispatch (S-M effort; 2-4 days) closing the cat-13 content-density gap from Phase 5.11 (4 entries → ≥15). Companion docs: `outputs/phase_8_architecture_design.md` §10 (authoritative scope spec for Lane C), `outputs/cursor_dispatch_prompt_phase_8.md` (Phase 8a wrapper; structural reference), `outputs/cursor_dispatch_prompt_phase_7_5.md` (micro-dispatch shape mirror), `outputs/phase5_11_session_closeout.md` §5 (current cat-13 baseline). No parallel-lane risk since Phase 8b file scope is disjoint from any other in-flight lane (Layer 3 scraper + Layer 5 seed script + cat-13 entity rows; no chat / no templates beyond optional chips / no migrations).*
+*Authored by Cowork primary at the post-Phase-7.5-ship session (2026-05-20). Lives at `outputs/cursor_dispatch_prompt_phase_8b.md`. SHA-patch slots `8a905c6` + `d8e9f0a1b2c3` need filling post-Phase-8a-ship. Phase 8b is a micro-dispatch (S-M effort; 2-4 days) closing the cat-13 content-density gap from Phase 5.11 (4 entries → ≥15). Companion docs: `outputs/phase_8_architecture_design.md` §10 (authoritative scope spec for Lane C), `outputs/cursor_dispatch_prompt_phase_8.md` (Phase 8a wrapper; structural reference), `outputs/cursor_dispatch_prompt_phase_7_5.md` (micro-dispatch shape mirror), `outputs/phase5_11_session_closeout.md` §5 (current cat-13 baseline). No parallel-lane risk since Phase 8b file scope is disjoint from any other in-flight lane (Layer 3 scraper + Layer 5 seed script + cat-13 entity rows; no chat / no templates beyond optional chips / no migrations).*

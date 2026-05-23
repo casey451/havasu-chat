@@ -1,11 +1,13 @@
 # Cursor Dispatch Prompt — Phase 9 (Events as ENTITY + RRULE recurrence + 5-source event scraper + Classes/Sports/Recreation + Things-to-Do themed group + "What's on at this venue" region; recommended 9a/9b split)
 
+> **SHA-PATCH APPLIED 2026-05-22 — DISPATCH-READY (Phase 9a paste-ready in a fresh Cursor chat).** All four SHA slots now filled with concrete values from the post-Phase-8a + post-Phase-6.5 + post-Phase-7.5 + post-lhcaz-rewrite state: Phase 8a HEAD-SHA placeholder → **`8a905c6`** (Phase 8a SHIPPED at Railway v1.3.0 — conditions + alerts subsystem); Phase 8a alembic-head placeholder → **`d8e9f0a1b2c3`** (additive migration extended `external_conditions_cache` + `alerts_dispatched` enum); Phase 6.5 HEAD-SHA placeholder → **`bdca0bd`** (homepage rebuild + 8 themed-group tiles + conditions strip placeholder + venue-events region hook on `provider_profile.html` — PHASE 6 LANE COMPLETE; anchor edit path in step (f) is now active rather than deferred); Phase 7.5 HEAD-SHA placeholder → **`b701759`** (HALT 3 validator 30/30 PASS + `FEATURE_FLAG_DISCLOSURE_RENDERER` flip executed at `d7179bc` 2026-05-22, flag is **`true`** on prod env vars). Current origin/main HEAD is `6070726` (well past all prereqs); pytest baseline at HEAD is ~2290 + 3 skipped; alembic head is `d8e9f0a1b2c3` SINGLE. The `<<<SKIP_N>>>` + `<<<SKIPLAST_N>>>` clipboard-pipeline offsets remain TBD by design — operator computes them at paste time from the actual line counts in this wrapper. Per the §9b research note in the design doc, operator should confirm scrapers cadence (3 daily + 2 weekly) and Things-to-Do bundle (cat-2 + cat-7 + cat-9) before Phase 9b paste. Historical dispatch-not-yet-ready framing preserved in the next paragraph for audit.
+>
 > Paste-into-Cursor prompt for Phase 9 per master plan §4 Phase 9 (lines 427-448) + `outputs/phase_9_architecture_design.md` (1620-line Plan-agent ADR-level design). Phase 9 lands the schedule-heavy expansion the master plan §4 deferred from Phase 5 — Events as a first-class ENTITY surface with RRULE-based recurrence, a 5-source event scraper subsystem reusing the Phase 4 `BaseIngestClient` envelope, multi-source dedup with operator-curated vs scraper-sourced merge semantics, integrated themed-group streams (Things-to-Do landing), Classes/Sports/Recreation category page with recurring schedule + age band + drop-in vs registration filters, and the "What's on at this venue" region filling the Phase 6.5-shipped anchor on `provider_profile.html`. Plus the event-card render through the unified Hava card grammar (status line "Tonight at 6:00pm" lake-blue per Phase 6.1).
 >
-> **DISPATCH-NOT-YET-READY — SHA-patch slots empty until Phase 8a ships.** Phase 8a SHIP SHA `<<<PHASE_8_HEAD_SHA>>>` + alembic head `<<<PHASE_8_ALEMBIC_HEAD>>>` BOTH need filling before paste. Phase 8a is currently scheduled to dispatch post-Phase-7.5 (which itself sits behind Phase 7's HALT 3 polish lane). Phase 9 dispatches AFTER Phase 8a SHIPS — the dispatch chain is sequential per the 2026-05-20 alembic-collision gotcha (`outputs/dispatch_channels_alembic_collision_gotcha_draft.md`).
+> **HISTORICAL FRAMING (preserved for audit; SHA-patch has since been applied — see top header). DISPATCH-NOT-YET-READY — SHA-patch slots empty until Phase 8a ships.** Phase 8a SHIP SHA `8a905c6` + alembic head `d8e9f0a1b2c3` BOTH need filling before paste. Phase 8a is currently scheduled to dispatch post-Phase-7.5 (which itself sits behind Phase 7's HALT 3 polish lane). Phase 9 dispatches AFTER Phase 8a SHIPS — the dispatch chain is sequential per the 2026-05-20 alembic-collision gotcha (`outputs/dispatch_channels_alembic_collision_gotcha_draft.md`).
 >
 > **Phase 8a ship caveats Phase 9 should be aware of (verify at SHA-patch time):**
-> - Phase 8a may or may not ship a new alembic migration. Per Phase 8 design doc §2, `external_conditions_cache` + `alert_subscriptions` + `alerts_dispatched` tables already exist from Phase 3.1; Phase 8a only ships a migration if additive columns are needed. **Phase 9 SHA-patch step:** observe the Phase 8a ship's actual alembic head and patch `<<<PHASE_8_ALEMBIC_HEAD>>>` accordingly (may equal `c9d0e1f2a3b4` if no migration shipped, or a new revision SHA if it did).
+> - Phase 8a may or may not ship a new alembic migration. Per Phase 8 design doc §2, `external_conditions_cache` + `alert_subscriptions` + `alerts_dispatched` tables already exist from Phase 3.1; Phase 8a only ships a migration if additive columns are needed. **Phase 9 SHA-patch step:** observe the Phase 8a ship's actual alembic head and patch `d8e9f0a1b2c3` accordingly (may equal `c9d0e1f2a3b4` if no migration shipped, or a new revision SHA if it did).
 > - Phase 8a swaps `STUB_CURRENT_TEMPERATURE_F` → `read_current_temperature_f()` at `app/core/ranking.py`. Phase 9's new `compute_event_card_rank()` helper reuses this swapped function for the heat-bias on events. Verify the swap is in place before Phase 9 dispatches; if Phase 8a's swap kept the stub as fallback, Phase 9's event-card heat-bias inherits the same fallback transparently.
 > - Phase 8a also extends `app/alerts/` for heat/AQI/lake_hazard alerts. **Phase 9 does NOT touch the alerts module.** The `event_traffic` alert type (stubbed in Phase 8 §11) is wired in Phase 9.5 against the Events surface Phase 9 lands — not in Phase 9 scope.
 >
@@ -18,7 +20,7 @@
 > - If Phase 6.5 ships AFTER Phase 9 — Phase 9 still ships `venue_events_region.html` partial + the route query path, but the include-line in `provider_profile.html` is deferred. Phase 6.5 then includes the partial when it wires the anchor. **Recommended posture: Phase 6.5 ships before Phase 9** — the anchor is small and Phase 6.5 is a homepage-heavy wrapper that benefits from being on the build trunk before Phase 9's schedule-heavy expansion.
 > - Verify Phase 6.5 ship status at Phase 9 SHA-patch time. If 6.5 has NOT shipped, swap the §11.1 anchored-edit step in the dispatch body for "ship the partial only; defer anchor wiring to Phase 6.5 lane".
 >
-> **Gating dependencies:** Phase 6.1 SHIPPED (`fd16e7a`) + 6.2 (`3948add`) + 6.3 (`5ebee46`) + 6.4 (`96c915d`) + Phase 5 multi-phase data-population COMPLETE at `dcf3dd4` (1,314 active entities) + Phase 7 SHIPPED at `0a305e0` + Phase 7.5 SHIPPED (assumed, post-`<<<PHASE_7_5_HEAD_SHA>>>` if applicable — Phase 9 doesn't require it) + Phase 8a SHIPPED at `<<<PHASE_8_HEAD_SHA>>>` + Phase 6.5 SHIPPED at `<<<PHASE_6_5_HEAD_SHA>>>` (recommended — see anchor coordination above). **Phase 9 consumes:** Phase 4 background-jobs framework (`with_retry`, Outbox, source-isolation pattern); Phase 4 `BaseIngestClient` + `EntityPayload` at `app/contrib/ingest_base.py` (Phase 9 extends to `EventIngestClient` + `EventPayload`); Phase 4.x existing RiverScene event-scraper pattern at `app/contrib/river_scene.py` + `app/contrib/river_scene_pull.py` (Phase 9 wraps in thin adapter `app/events/scrapers/river_scene_v2.py`); Phase 5 manual-recovery + sustainability-layer pattern (`field_history` table + per-field provenance); Phase 6.1 `_event_status_line_for_card` at `app/providers/queries.py:666-696` (Phase 9 extends with occurrence-date parameter); Phase 6.3 `compute_card_rank` + heat-bias constants (Phase 9 mirrors as `compute_event_card_rank`); Phase 6.4 themed-group landing pattern at `app/groups/themed_groups.py` (Phase 9 adds `things-to-do-group` entry); Phase 6.4 themed-group routes at `app/api/routes/themed_groups.py` (Phase 9 extends the stream-builder to interleave events with entities); Phase 6.5 `<!-- venue-events-region-anchor -->` empty hook on `provider_profile.html`; Phase 7 chat tier-2/tier-3 ENTITY wiring (Phase 9 adds event-intent detection branch); Phase 8a `read_current_temperature_f()` (Phase 9's event-card heat-bias reuses).
+> **Gating dependencies:** Phase 6.1 SHIPPED (`fd16e7a`) + 6.2 (`3948add`) + 6.3 (`5ebee46`) + 6.4 (`96c915d`) + Phase 5 multi-phase data-population COMPLETE at `dcf3dd4` (1,314 active entities) + Phase 7 SHIPPED at `0a305e0` + Phase 7.5 SHIPPED (assumed, post-`b701759` if applicable — Phase 9 doesn't require it) + Phase 8a SHIPPED at `8a905c6` + Phase 6.5 SHIPPED at `bdca0bd` (recommended — see anchor coordination above). **Phase 9 consumes:** Phase 4 background-jobs framework (`with_retry`, Outbox, source-isolation pattern); Phase 4 `BaseIngestClient` + `EntityPayload` at `app/contrib/ingest_base.py` (Phase 9 extends to `EventIngestClient` + `EventPayload`); Phase 4.x existing RiverScene event-scraper pattern at `app/contrib/river_scene.py` + `app/contrib/river_scene_pull.py` (Phase 9 wraps in thin adapter `app/events/scrapers/river_scene_v2.py`); Phase 5 manual-recovery + sustainability-layer pattern (`field_history` table + per-field provenance); Phase 6.1 `_event_status_line_for_card` at `app/providers/queries.py:666-696` (Phase 9 extends with occurrence-date parameter); Phase 6.3 `compute_card_rank` + heat-bias constants (Phase 9 mirrors as `compute_event_card_rank`); Phase 6.4 themed-group landing pattern at `app/groups/themed_groups.py` (Phase 9 adds `things-to-do-group` entry); Phase 6.4 themed-group routes at `app/api/routes/themed_groups.py` (Phase 9 extends the stream-builder to interleave events with entities); Phase 6.5 `<!-- venue-events-region-anchor -->` empty hook on `provider_profile.html`; Phase 7 chat tier-2/tier-3 ENTITY wiring (Phase 9 adds event-intent detection branch); Phase 8a `read_current_temperature_f()` (Phase 9's event-card heat-bias reuses).
 >
 > **Recommended sub-phase split — Phase 9a + Phase 9b.** Per design doc §1 + §17 effort table:
 > - **Phase 9a — Event ENTITY + RRULE foundation + Events category + venue-events region** (~7-10 days dispatch). File scope = additive alembic migration + `app/events/` module (`recurrence.py` + `queries.py` + `view_model.py`) + `app/providers/queries.py` extensions + `app/api/routes/category_pages.py` events-config extension + `app/templates/components/venue_events_region.html` + admin event-edit UI + `scripts/expire_past_events.py` + tests/test_phase9_events_* + tests/test_phase9_recurrence.py + tests/test_phase9_venue_events_region.py.
@@ -51,7 +53,7 @@
 > 7. **Per-source scrape cadence — daily for Chamber + Go Lake Havasu + RiverScene; weekly for LHC library + parks-rec.** Per design doc §5.1. Operator-tunable post-ship via Railway service env config.
 > 8. **Migration shape — additive 8-column migration + status CHECK + 4 new indexes.** Per design doc §2.2. Columns: `rrule String(255) NULL` + `rdate JSON NULL` + `exdate JSON NULL` + `scraped_at TZAwareDateTime NULL` + `cancellation_reason Text NULL` + `operator_override Boolean DEFAULT false NOT NULL` + `capacity Integer NULL` + `capacity_source String(64) NULL`. Indexes: `ix_events_status_date` + `ix_events_is_recurring_date` + `ix_events_provider_id_date` + `ix_events_scraped_at`. CHECK: `status IN ('draft', 'live', 'cancelled', 'expired')`. Plus `EVENT_AUTO_APPROVE_SOURCES = {'chamber', 'go_lake_havasu', 'river_scene'}` env-tunable allowlist (default in code; override via env var for ops flexibility).
 >
-> **Author note:** authored at the post-Phase-7-close-out Cowork primary session (2026-05-20) against the design-pre-positioned `outputs/phase_9_architecture_design.md`. Two SHA-patch slots — `<<<PHASE_8_HEAD_SHA>>>` + `<<<PHASE_8_ALEMBIC_HEAD>>>` — fill at post-Phase-8a-ship time. Plus optional `<<<PHASE_6_5_HEAD_SHA>>>` if Phase 6.5 shipped first + `<<<PHASE_7_5_HEAD_SHA>>>` for Phase 7.5 reference. The 1620-line `outputs/phase_9_architecture_design.md` is the authoritative scope spec. Per the master plan §4 Phase 9 — "Events as ENTITY type fully wired (already in schema from Phase 1; this phase wires the UX)."
+> **Author note:** authored at the post-Phase-7-close-out Cowork primary session (2026-05-20) against the design-pre-positioned `outputs/phase_9_architecture_design.md`. Two SHA-patch slots — `8a905c6` + `d8e9f0a1b2c3` — fill at post-Phase-8a-ship time. Plus optional `bdca0bd` if Phase 6.5 shipped first + `b701759` for Phase 7.5 reference. The 1620-line `outputs/phase_9_architecture_design.md` is the authoritative scope spec. Per the master plan §4 Phase 9 — "Events as ENTITY type fully wired (already in schema from Phase 1; this phase wires the UX)."
 >
 > **Clipboard pipeline** (PowerShell 5.1 truncates large payloads; uses Notepad as synchronous router per session-2026-05-19 lesson #3; offsets TBD until authored — recompute post-SHA-patch since authoring may shift line counts):
 > ```powershell
@@ -102,18 +104,18 @@ preferred_mode reuse + 4 themed group landing pages + search bar). Phase 5
 multi-phase data-population COMPLETE at 5.11 (1,314 active entities).
 Phase 7 SHIPPED at 0a305e0 (chat ENTITY wiring + boat-mode + conditions-
 awareness via STUB + HALT 3 + cross-entity + snowbird-return view).
-Phase 8a SHIPPED at <<<PHASE_8_HEAD_SHA>>> (conditions panel + alerts +
-chat live-conditions wiring; alembic head <<<PHASE_8_ALEMBIC_HEAD>>>).
-Phase 6.5 ship status: <<<PHASE_6_5_HEAD_SHA>>> if shipped first (fills
+Phase 8a SHIPPED at 8a905c6 (conditions panel + alerts +
+chat live-conditions wiring; alembic head d8e9f0a1b2c3).
+Phase 6.5 ship status: bdca0bd if shipped first (fills
 homepage rebuild + 8 themed group tiles + venue-events-region-anchor on
-provider_profile.html). Phase 7.5 ship status: <<<PHASE_7_5_HEAD_SHA>>>
+provider_profile.html). Phase 7.5 ship status: b701759
 if shipped (HALT 3 polish lane + FEATURE_FLAG_DISCLOSURE_RENDERER=true
 flip).
 
 Pytest baseline going in is post-Phase-8a. Verify per python -m pytest
 --collect-only -q | tail -3 BEFORE starting work. Likely range 2220-
 2330 (Phase 7 baseline 2135 + Phase 8a ~+80-130 net-new + any Phase 7.5
-+ 6.5 deltas). Alembic head is <<<PHASE_8_ALEMBIC_HEAD>>>. Verify per
++ 6.5 deltas). Alembic head is d8e9f0a1b2c3. Verify per
 python -m alembic current BEFORE starting work and REPORT THE OBSERVED
 VALUE (do NOT copy dispatch-body-claimed value — session-2026-05-19
 lesson #6).
@@ -139,7 +141,7 @@ sec18.4 9a/9b boundary for operator commit + fresh-session decision on
 PHASE 9a SCOPE (Event ENTITY + RRULE foundation + Events category +
 venue-events region; ~7-10 days dispatch):
 
-(a) Additive alembic migration chaining off <<<PHASE_8_ALEMBIC_HEAD>>>.
+(a) Additive alembic migration chaining off d8e9f0a1b2c3.
     Per design doc sec2.2: 8 columns added to events table (rrule + rdate
     + exdate + scraped_at + cancellation_reason + operator_override +
     capacity + capacity_source) + 4 new indexes (ix_events_status_date +
@@ -411,7 +413,7 @@ LOCKED OPERATOR DECISIONS (per design doc sec1-19):
   RiverScene; weekly for LHC library + parks-rec; operator-tunable post-
   ship
 - Migration shape: additive 8-column + status CHECK + 4 indexes;
-  Phase 9a ships ONE migration chaining from <<<PHASE_8_ALEMBIC_HEAD>>>;
+  Phase 9a ships ONE migration chaining from d8e9f0a1b2c3;
   Phase 9b ships ZERO migrations
 - Auto-approval allowlist: chamber + go_lake_havasu + river_scene; city
   sources stay manual-review V1 (operator audits 2 weeks then can flip
@@ -465,7 +467,7 @@ ORDER MATTERS WITHIN PHASE 9:
    - docs/maintainability/master_build_plan.md sec4 Phase 9 + sec7 #6 +
      sec8 OQ #12
 
-2. Then: schema migration. Verify <<<PHASE_8_ALEMBIC_HEAD>>> is current
+2. Then: schema migration. Verify d8e9f0a1b2c3 is current
    single head. Author additive migration adding 8 columns + status
    CHECK + 4 indexes per design doc sec2.2. CRITICAL: use python -m
    alembic heads to verify SINGLE head before authoring. Migration
@@ -663,16 +665,16 @@ Pre-dispatch checklist (verify before paste):
 - Phase 6.3 SHIPPED on origin (5ebee46)
 - Phase 6.4 SHIPPED on origin (96c915d)
 - Phase 7 SHIPPED on origin (0a305e0)
-- Phase 8a SHIPPED on origin (<<<PHASE_8_HEAD_SHA>>>) — fill at SHA-patch
-- Phase 8a alembic head <<<PHASE_8_ALEMBIC_HEAD>>> is the current SINGLE
+- Phase 8a SHIPPED on origin (8a905c6) — fill at SHA-patch
+- Phase 8a alembic head d8e9f0a1b2c3 is the current SINGLE
   alembic head on origin (verify via `python -m alembic current` AND
   `python -m alembic heads`)
 - Phase 5 ledger SHIPPED on origin (3a2d895)
 - Sidecar migration SHIPPED on origin (532d48b)
-- Phase 6.5 ship status verified (<<<PHASE_6_5_HEAD_SHA>>> if shipped
+- Phase 6.5 ship status verified (bdca0bd if shipped
   first; otherwise note "Phase 6.5 deferred; venue-events anchor wiring
   conditional in step (f)")
-- Phase 7.5 ship status verified (<<<PHASE_7_5_HEAD_SHA>>> if shipped;
+- Phase 7.5 ship status verified (b701759 if shipped;
   Phase 9 doesn't require it but worth noting for chat surface state)
 - Pytest baseline going in matches reality per `python -m pytest
   --collect-only -q | tail -3` (likely 2220-2330 post-Phase-8a)
@@ -776,4 +778,4 @@ Pre-position the Phase 9 close-out template at `outputs/phase_9_close_out_templa
 
 ---
 
-*Authored by Cowork primary at the post-Phase-7-close-out session (2026-05-20). Lives at `outputs/cursor_dispatch_prompt_phase_9.md`. SHA-patch slots `<<<PHASE_8_HEAD_SHA>>>` + `<<<PHASE_8_ALEMBIC_HEAD>>>` + `<<<PHASE_6_5_HEAD_SHA>>>` (optional) + `<<<PHASE_7_5_HEAD_SHA>>>` (optional) need filling post-Phase-8a-ship. Per the 2026-05-20 alembic-collision gotcha (`outputs/dispatch_channels_alembic_collision_gotcha_draft.md`), Phase 9 is sequential after Phase 8a — they do NOT run in parallel. Phase 9b is parallel-eligible with Phase 8b (cat-13 expansion) per file-scope disjointness; verify SINGLE alembic head if both dispatch in parallel sessions. Architectural design at `outputs/phase_9_architecture_design.md` (1620 lines) is the upstream artifact; operator prereq checklist at `outputs/phase_9_operator_prereq_checklist.md` (TBD — author before Phase 9b dispatch) gates the 5 event-source URLs + robots.txt audit. The recommended Phase 9a + Phase 9b split (sequential, with HALT at §18.4 boundary) mirrors Phase 6.4-Lane-D vs Lane-E + Phase 8a-A vs 8a-B + Phase 7-vs-7.5 split-lane discipline.*
+*Authored by Cowork primary at the post-Phase-7-close-out session (2026-05-20). Lives at `outputs/cursor_dispatch_prompt_phase_9.md`. SHA-patch slots `8a905c6` + `d8e9f0a1b2c3` + `bdca0bd` (optional) + `b701759` (optional) need filling post-Phase-8a-ship. Per the 2026-05-20 alembic-collision gotcha (`outputs/dispatch_channels_alembic_collision_gotcha_draft.md`), Phase 9 is sequential after Phase 8a — they do NOT run in parallel. Phase 9b is parallel-eligible with Phase 8b (cat-13 expansion) per file-scope disjointness; verify SINGLE alembic head if both dispatch in parallel sessions. Architectural design at `outputs/phase_9_architecture_design.md` (1620 lines) is the upstream artifact; operator prereq checklist at `outputs/phase_9_operator_prereq_checklist.md` (TBD — author before Phase 9b dispatch) gates the 5 event-source URLs + robots.txt audit. The recommended Phase 9a + Phase 9b split (sequential, with HALT at §18.4 boundary) mirrors Phase 6.4-Lane-D vs Lane-E + Phase 8a-A vs 8a-B + Phase 7-vs-7.5 split-lane discipline.*
