@@ -1,8 +1,17 @@
 # lhcaz_aquatic — PDF-parser rewrite carry
 
-> **Status:** Active carry. Authored 2026-05-22 during the resume-from-v5
-> session. Companion to the ship that disabled the `lhcaz_aquatic` source
-> in `scripts/run_scrapes.py` SOURCES + silenced the loader's
+> **Status:** ✅ **CLOSED** via commit `24f4aa1` 2026-05-22 ~03:14Z. Live PDF
+> fetcher + parser shipped; aquatic source re-enabled in
+> `scripts/run_scrapes.py::SOURCES`; loader else-branch restored; 16 parser
+> tests pass against committed PDF fixtures. Re-enable checklist below is
+> fully ticked. The next scheduled `parks-rec-scrapes` cron run at
+> 2026-05-22T07:15Z is the live prod-side validation of the PDF fetcher
+> working end-to-end. This carry doc is preserved as historical record;
+> the session-handoff supersedes it for next-session context.
+>
+> Originally authored 2026-05-22 during the resume-from-v5 session as
+> companion to the ship (`59ae1f2`) that disabled the `lhcaz_aquatic`
+> source in `scripts/run_scrapes.py` SOURCES + silenced the loader's
 > `"no snapshot found"` path for it.
 
 ## Why this carry exists
