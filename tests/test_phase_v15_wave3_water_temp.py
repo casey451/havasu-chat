@@ -247,12 +247,203 @@ def test_site_overridable_via_env(monkeypatch: pytest.MonkeyPatch) -> None:
     assert data["site"] == "09427520"
 
 
-def test_constant_added_to_constants_module() -> None:
-    """Smoke: the SOURCE_USGS_WATER_TEMP constant exists in constants.py for
-    eventual SOURCE_KEYS / TTL_BY_SOURCE wiring."""
+def test_constant_wired_into_source_keys_and_ttl() -> None:
+    """Wave-3 wiring: SOURCE_USGS_WATER_TEMP IS registered in SOURCE_KEYS +
+    TTL_BY_SOURCE (3600s, same cadence as the lake-gauge USGS source)."""
     from app.conditions import constants
 
     assert constants.SOURCE_USGS_WATER_TEMP == "usgs_water_temp_09426630"
-    # NOT yet in SOURCE_KEYS (deferred wiring per module docstring).
-    assert constants.SOURCE_USGS_WATER_TEMP not in constants.SOURCE_KEYS
-    assert constants.SOURCE_USGS_WATER_TEMP not in constants.TTL_BY_SOURCE
+    assert constants.SOURCE_USGS_WATER_TEMP in constants.SOURCE_KEYS
+    assert constants.TTL_BY_SOURCE[constants.SOURCE_USGS_WATER_TEMP] == 3600
+
+
+def test_fetcher_registered_in_fetcher_dispatch_dict() -> None:
+    """Wave-3 wiring: fetch_usgs_water_temp_09426630 is reachable via the
+    central _FETCHERS dispatch dict keyed by SOURCE_USGS_WATER_TEMP, so
+    fetch_one_source(db, SOURCE_USGS_WATER_TEMP) works without raising
+    ValueError('unknown conditions source: ...')."""
+    from app.conditions import fetcher
+    from app.conditions.constants import SOURCE_USGS_WATER_TEMP
+
+    assert SOURCE_USGS_WATER_TEMP in fetcher._FETCHERS
+    assert (
+        fetcher._FETCHERS[SOURCE_USGS_WATER_TEMP]
+        is usgs_water_temp.fetch_usgs_water_temp_09426630
+    )
+
+
+# ----- API payload + view-model wiring tests -----------------------------
+#
+# These tests exercise the end-to-end shape (cache row -> api_payload ->
+# view_model) for the water-temp signal, gating purely on the cache row's
+# feature_enabled flag rather than on the env var. This mirrors the prod
+# data flow: the fetcher writes feature_enabled into the cache row at fetch
+# time, and downstream layers honor whatever was captured there.
+
+
+def _seed_water_temp_cache(db, payload: dict, *, now) -> None:
+    """Helper: upsert a water-temp cache row + invalidate the in-process
+    local cache so the next read_source() actually hits the DB row."""
+    from app.conditions.cache import invalidate_local_cache, upsert_source
+    from app.conditions.constants import SOURCE_USGS_WATER_TEMP
+
+    upsert_source(db, SOURCE_USGS_WATER_TEMP, payload, now=now)
+    db.commit()
+    invalidate_local_cache(SOURCE_USGS_WATER_TEMP)
+
+
+def test_api_payload_emits_water_temp_when_feature_enabled() -> None:
+    """When the cache row's feature_enabled=True and the fetcher captured a
+    real reading, /api/conditions exposes water_temp_c / water_temp_f /
+    water_temp_updated_at_iso / water_temp_staleness_label / water_temp_is_stale."""
+    from datetime import UTC, datetime
+
+    from fastapi.testclient import TestClient
+
+    from app.db.database import SessionLocal
+    from app.main import app
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    with SessionLocal() as db:
+        _seed_water_temp_cache(
+            db,
+            {
+                "site": "09426630",
+                "water_temp_c": 22.5,
+                "water_temp_f": 72.5,
+                "observed_at": "2026-05-23T18:00:00+00:00",
+                "feature_enabled": True,
+                "history": [
+                    {
+                        "parameter_code": "00010",
+                        "value": 22.5,
+                        "observed_at": "2026-05-23T18:00:00+00:00",
+                        "is_sentinel": False,
+                    }
+                ],
+            },
+            now=now,
+        )
+
+    client = TestClient(app)
+    r = client.get("/api/conditions")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["water_temp_c"] == 22.5
+    assert body["water_temp_f"] == 72.5
+    assert "water_temp_updated_at_iso" in body
+    assert "water_temp_staleness_label" in body
+    assert body["water_temp_is_stale"] is False
+
+
+def test_api_payload_omits_water_temp_when_feature_disabled() -> None:
+    """When the cache row's feature_enabled=False (operator flag was OFF at
+    fetch time), /api/conditions must NOT emit any water_temp_* fields.
+    This is the prod-safe default behavior."""
+    from datetime import UTC, datetime
+
+    from fastapi.testclient import TestClient
+
+    from app.db.database import SessionLocal
+    from app.main import app
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    with SessionLocal() as db:
+        _seed_water_temp_cache(
+            db,
+            {
+                "site": "09426630",
+                "water_temp_c": None,
+                "water_temp_f": None,
+                "observed_at": None,
+                "feature_enabled": False,
+                "history": [],
+            },
+            now=now,
+        )
+
+    client = TestClient(app)
+    r = client.get("/api/conditions")
+    assert r.status_code == 200
+    body = r.json()
+    assert "water_temp_c" not in body
+    assert "water_temp_f" not in body
+    assert "water_temp_updated_at_iso" not in body
+    assert "water_temp_staleness_label" not in body
+    assert "water_temp_is_stale" not in body
+
+
+def test_view_model_renders_water_temp_tile_when_reading_present() -> None:
+    """When water_temp_f is present in the api payload, the view model
+    surfaces a kind=water_temp tile with the gotcha #23 attribution chip."""
+    from datetime import UTC, datetime
+
+    from app.conditions.view_model import build_conditions_strip_view_model
+    from app.db.database import SessionLocal
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    with SessionLocal() as db:
+        _seed_water_temp_cache(
+            db,
+            {
+                "site": "09426630",
+                "water_temp_c": 23.3,
+                "water_temp_f": 73.9,
+                "observed_at": "2026-05-23T18:00:00+00:00",
+                "feature_enabled": True,
+                "history": [],
+            },
+            now=now,
+        )
+
+        vm = build_conditions_strip_view_model(db, now=now)
+
+    water_tiles = [t for t in vm.tiles if t.kind == "water_temp"]
+    assert len(water_tiles) == 1
+    tile = water_tiles[0]
+    # Primary value is rounded F to keep the strip tidy.
+    assert tile.primary_value == "74°F"
+    # Secondary value carries the Celsius reading for the science audience.
+    assert "23.3" in (tile.secondary_value or "")
+    # Per gotcha #23 (honest spatial attribution), the chip names the
+    # station + distance / direction from Lake Havasu City.
+    assert tile.attribution_chip == "USGS 09426630 ~25mi south"
+    assert tile.severity == "neutral"
+    assert tile.visible is True
+
+
+def test_view_model_skips_water_temp_tile_when_reading_is_sentinel() -> None:
+    """When the gage is sentinel-valued (api payload sees feature_enabled
+    True but water_temp_f None), the view model degrades gracefully by
+    omitting the tile rather than rendering a None value."""
+    from datetime import UTC, datetime
+
+    from app.conditions.view_model import build_conditions_strip_view_model
+    from app.db.database import SessionLocal
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    with SessionLocal() as db:
+        _seed_water_temp_cache(
+            db,
+            {
+                "site": "09426630",
+                "water_temp_c": None,
+                "water_temp_f": None,
+                "observed_at": None,
+                "feature_enabled": True,
+                "history": [
+                    {
+                        "parameter_code": "00010",
+                        "value": None,
+                        "observed_at": "2026-05-21T17:00:00+00:00",
+                        "is_sentinel": True,
+                    }
+                ],
+            },
+            now=now,
+        )
+
+        vm = build_conditions_strip_view_model(db, now=now)
+
+    water_tiles = [t for t in vm.tiles if t.kind == "water_temp"]
+    assert water_tiles == []

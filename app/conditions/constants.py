@@ -10,9 +10,12 @@ SOURCE_NWS_SUNSET = "nws_sunset"
 SOURCE_USGS = "usgs_09427500"
 
 # V1.5 wave 3 (2026-05-23): USGS water-temperature alt-source for station
-# 09426630 ("Bill Williams River at Lake Havasu, abv HWY-95, AZ"). NOT yet
-# in SOURCE_KEYS / TTL_BY_SOURCE -- wiring is a separate 1-line addition
-# when the operator flips FEATURE_FLAG_WATER_TEMP_GAGE_09426630=true.
+# 09426630 ("Bill Williams River at Lake Havasu, abv HWY-95, AZ"). Wired
+# into SOURCE_KEYS / TTL_BY_SOURCE here; gated at fetcher + api_payload
+# layers via FEATURE_FLAG_WATER_TEMP_GAGE_09426630 (default OFF). When the
+# flag is OFF the cron still calls the fetcher each tick but the fetcher
+# short-circuits to an empty payload before any HTTP request, and the
+# api_payload reader skips emission so /api/conditions is unchanged.
 # See app/conditions/usgs_water_temp.py module docstring for context.
 SOURCE_USGS_WATER_TEMP = "usgs_water_temp_09426630"
 
@@ -23,6 +26,7 @@ SOURCE_KEYS: tuple[str, ...] = (
     SOURCE_NWS_FORECAST,
     SOURCE_NWS_SUNSET,
     SOURCE_USGS,
+    SOURCE_USGS_WATER_TEMP,
 )
 
 TTL_BY_SOURCE: dict[str, int] = {
@@ -32,6 +36,9 @@ TTL_BY_SOURCE: dict[str, int] = {
     SOURCE_NWS_FORECAST: 86400,
     SOURCE_NWS_SUNSET: 86400,
     SOURCE_USGS: 3600,
+    # Same 3600s TTL as the lake-gauge USGS source -- water temperature is a
+    # slow-moving signal (instrument cadence is hourly at most for 00010).
+    SOURCE_USGS_WATER_TEMP: 3600,
 }
 
 NWS_USER_AGENT = "havasu-chat/1.0 (contact: support@havasu-chat.example.com)"

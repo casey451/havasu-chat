@@ -22,12 +22,29 @@ section 3:
   When OFF, fetcher returns an empty payload signal and does NOT make any
   HTTP request.
 
-INTEGRATION STATUS: this module is NOT wired into the SourceLimiter chain
-in app/conditions/fetcher.py / constants.py SOURCE_KEYS / TTL_BY_SOURCE in
-v11. Wiring is a separate next-session 1-line addition to those three places
-when the feature is ready for prod activation. Until then, the cron does not
-call this fetcher and api_payload.py does not read its cache row, so prod
-behavior is unchanged regardless of whether the env flag is on or off.
+INTEGRATION STATUS (V1.5 wave 3 wiring): this fetcher IS wired into the
+fetch chain via app/conditions/fetcher.py::_FETCHERS, app/conditions/
+constants.py SOURCE_KEYS + TTL_BY_SOURCE (3600s), and app/conditions/
+api_payload.py + app/conditions/view_model.py emit/render layers. The
+feature-flag gate operates at TWO layers:
+
+1. Fetcher layer: when FEATURE_FLAG_WATER_TEMP_GAGE_09426630 is OFF,
+   fetch_usgs_water_temp_09426630() returns an empty payload with
+   feature_enabled=False and makes NO HTTP request. The cache row is still
+   written each cron tick (so the row exists for inspection / future flag
+   flips) but the data is the empty payload.
+2. API-payload layer: build_conditions_api_payload reads the cache row and
+   only emits water_temp_* fields when data["feature_enabled"] is truthy.
+   This keeps /api/conditions bit-for-bit unchanged in flag-OFF prod state.
+
+When the operator flips FEATURE_FLAG_WATER_TEMP_GAGE_09426630=true in the
+Railway env vars and the next cron tick fires, the fetcher hits USGS,
+caches the result, and api_payload starts emitting water_temp_c /
+water_temp_f / water_temp_updated_at_iso / water_temp_staleness_label /
+water_temp_is_stale. The view model surfaces a kind=water_temp tile on
+the conditions strip with attribution_chip naming the gage + distance.
+If the gage is still publishing the -100000 sentinel at activation, both
+api fields stay None and the view model skips the tile gracefully.
 """
 
 from __future__ import annotations

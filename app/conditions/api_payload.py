@@ -13,6 +13,7 @@ from app.conditions.constants import (
     SOURCE_NWS_ALERTS,
     SOURCE_NWS_CURRENT,
     SOURCE_USGS,
+    SOURCE_USGS_WATER_TEMP,
 )
 from app.conditions.staleness import staleness_label
 
@@ -85,5 +86,25 @@ def build_conditions_api_payload(db: Session, *, now: datetime | None = None) ->
                 "lake_is_stale": stale or usgs.is_stale,
             }
         )
+
+    # V1.5 wave 3: water-temperature signal from USGS 09426630, gated at the
+    # api-payload boundary on the cache row's feature_enabled flag. The
+    # fetcher writes feature_enabled=False when the env flag is OFF (and
+    # makes no HTTP request); we honor that here by skipping field emission
+    # so /api/conditions stays bit-for-bit unchanged in flag-OFF prod state.
+    water_temp = read_source(db, SOURCE_USGS_WATER_TEMP, now=now)
+    if water_temp is not None:
+        d = water_temp.data
+        if d.get("feature_enabled"):
+            label, stale = staleness_label(water_temp.fetched_at, now)
+            payload.update(
+                {
+                    "water_temp_c": d.get("water_temp_c"),
+                    "water_temp_f": d.get("water_temp_f"),
+                    "water_temp_updated_at_iso": _iso(water_temp.fetched_at),
+                    "water_temp_staleness_label": label,
+                    "water_temp_is_stale": stale or water_temp.is_stale,
+                }
+            )
 
     return payload

@@ -169,6 +169,40 @@ def build_conditions_strip_view_model(
             )
         )
 
+    # V1.5 wave 3: water-temperature tile (USGS 09426630). The api_payload
+    # layer already gates emission on the feature flag, so by the time we
+    # see water_temp_f here the operator has flipped the flag ON. We still
+    # skip the tile when water_temp_f is None (sentinel-valued gage) so the
+    # strip degrades gracefully. Per gotcha #23 (honest spatial attribution),
+    # the chip names the station + approximate distance / direction from
+    # Lake Havasu City -- the 09426630 gage is in the Bill Williams
+    # tributary backwater ~25mi south of town and its thermal regime
+    # diverges from the Colorado-mainstem gage at 09427500.
+    water_temp_f = api.get("water_temp_f")
+    if water_temp_f is not None:
+        label = api.get("water_temp_staleness_label") or "Updated recently"
+        stale = bool(api.get("water_temp_is_stale"))
+        any_stale = any_stale or stale
+        water_temp_c = api.get("water_temp_c")
+        secondary = (
+            f"Water temp · {float(water_temp_c):.1f}°C"
+            if water_temp_c is not None
+            else "Water temp"
+        )
+        tiles.append(
+            ConditionsTile(
+                kind="water_temp",
+                primary_value=f"{float(water_temp_f):.0f}°F",
+                secondary_value=secondary,
+                attribution_chip="USGS 09426630 ~25mi south",
+                severity="neutral",
+                staleness_label=label,
+                is_stale=stale,
+                detail_text=None,
+                visible=True,
+            )
+        )
+
     return ConditionsStripViewModel(
         tiles=tuple(tiles),
         any_source_stale=any_stale,

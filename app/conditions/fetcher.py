@@ -9,7 +9,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.conditions import airnow, nws, usgs
+from app.conditions import airnow, nws, usgs, usgs_water_temp
 from app.conditions.cache import record_fetch_failure, should_skip_fetch, upsert_source
 from app.conditions.constants import (
     SOURCE_AIRNOW,
@@ -19,6 +19,7 @@ from app.conditions.constants import (
     SOURCE_NWS_FORECAST,
     SOURCE_NWS_SUNSET,
     SOURCE_USGS,
+    SOURCE_USGS_WATER_TEMP,
     TTL_BY_SOURCE,
 )
 from app.core.background import with_retry
@@ -33,6 +34,11 @@ _FETCHERS: dict[str, Callable[[], dict[str, Any]]] = {
     SOURCE_NWS_FORECAST: nws.fetch_nws_forecast_daily,
     SOURCE_NWS_SUNSET: nws.fetch_nws_sunset,
     SOURCE_USGS: usgs.fetch_usgs_lake_havasu,
+    # V1.5 wave 3: water-temperature alt-source. Fetcher self-gates on
+    # FEATURE_FLAG_WATER_TEMP_GAGE_09426630 (default OFF) and returns an
+    # empty payload without issuing any HTTP request when disabled, so the
+    # cron is safe to call this on every tick regardless of flag state.
+    SOURCE_USGS_WATER_TEMP: usgs_water_temp.fetch_usgs_water_temp_09426630,
 }
 
 
