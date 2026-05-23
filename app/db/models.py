@@ -194,6 +194,18 @@ class Event(Base):
     is_recurring: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
+    rrule: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    rdate: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    exdate: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    scraped_at: Mapped[datetime | None] = mapped_column(
+        TZAwareDateTime(), nullable=True
+    )
+    cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    operator_override: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    capacity: Mapped[int | None] = mapped_column(nullable=True)
+    capacity_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # BUILD.md step 2: editorial "Hava's pick" flag. Hand-curated via DB
     # script; admin UI deferred. Distinct from spotlight placement on
     # Provider.tier / sponsored_until.

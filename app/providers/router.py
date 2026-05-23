@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.chat.disclosure_render import DISCLOSURE_WORD
 from app.db.database import get_db
 from app.db.models import Claim, Entity, Provider, User
+from app.events.queries import venue_events_for_profile
 from app.providers import queries, view_models
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
@@ -63,7 +64,7 @@ def serve_provider_profile(
     vm = view_models.build(provider, db=db, viewer_is_owner=viewer_is_owner)
     entity = db.get(Entity, provider.entity_id)
     boat_access = entity.boat_access if entity is not None else None
-    venue_events = [ev for ev in (provider.events or []) if ev.status == "live"]
+    venue_events = venue_events_for_profile(db, provider, limit=5)
     return templates.TemplateResponse(
         request=request,
         name="provider_profile.html",
@@ -75,5 +76,6 @@ def serve_provider_profile(
             "boat_access": boat_access,
             "has_boat_access": boat_access is not None,
             "venue_events": venue_events,
+            "provider_name": vm.provider_name,
         },
     )

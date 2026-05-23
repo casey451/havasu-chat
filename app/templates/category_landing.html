@@ -145,6 +145,12 @@
         href="{{ cat_href(free=(none if active_free else '1')) }}"
         data-category-chip="free"
       >{{ row.label }}</a>
+      {% elif p == 'when' %}
+      <a
+        class="chip{% if active_when == row.value %} chip-active{% endif %}"
+        href="{{ cat_href(when=(none if active_when == row.value else row.value)) }}"
+        data-category-chip="when"
+      >{{ row.label }}</a>
       {% else %}
       <a
         class="chip"

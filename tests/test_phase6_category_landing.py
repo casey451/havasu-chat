@@ -84,7 +84,7 @@ def test_category_chip_dispatcher_renders_sub_trade(
         ("health-wellness-care", "closest_now"),
         ("auto-rv-fuel", "closest_now"),
         ("shopping-essentials", "closest_now"),
-        ("events", "closest_now"),
+        ("events", "chronological"),
         ("outdoors-parks-trails", "closest_now"),
         ("classes-sports-recreation", "closest_now"),
         ("lodging-vacation-rentals", "closest_now"),

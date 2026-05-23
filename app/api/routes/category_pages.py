@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
@@ -25,6 +25,7 @@ from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
 from app.db.database import get_db
 from app.db.entity_types import ENTITY_TYPE_COMMERCIAL
 from app.db.models import Category, District, Entity, EntityCategory, Provider
+from app.events.queries import event_window_for_chip, events_in_window
 from app.home.queries import CATEGORY_LABELS
 from app.providers import queries as provider_queries
 from app.providers.queries import _parse_hours_time, is_open_now
@@ -78,7 +79,7 @@ DEFAULT_SORT_BY_SLUG: dict[str, str] = {
     "health-wellness-care": "closest_now",
     "auto-rv-fuel": "closest_now",
     "shopping-essentials": "closest_now",
-    "events": "closest_now",
+    "events": "chronological",
     "outdoors-parks-trails": "closest_now",
     "classes-sports-recreation": "closest_now",
     "lodging-vacation-rentals": "closest_now",
@@ -274,12 +275,12 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
             Chip("arcades", "Arcades"),
         ),
         operational_chips=(
-            {"param": "open", "value": "now", "label": "Open now"},
-            {"param": "weekend", "value": "1", "label": "This weekend"},
-            {"param": "free", "value": "1", "label": "Free admission"},
-            {"param": "family", "value": "1", "label": "Family-friendly"},
+            {"param": "when", "value": "today", "label": "Today"},
+            {"param": "when", "value": "this-weekend", "label": "This weekend"},
+            {"param": "when", "value": "this-week", "label": "This week"},
+            {"param": "when", "value": "next-month", "label": "Next month"},
         ),
-        sort_default="closest_now",
+        sort_default="chronological",
     ),
     "outdoors-parks-trails": CategoryPageConfig(
         sub_trade_chips=(
@@ -790,11 +791,95 @@ def _apply_python_filters(
 
 
 def _normalize_sort(raw: str | None, *, category_slug: str) -> str:
-    allowed = {"closest_now", "alphabetical", "top_rated", "editorial_pick"}
+    allowed = {"closest_now", "alphabetical", "top_rated", "editorial_pick", "chronological", "featured"}
     default = DEFAULT_SORT_BY_SLUG.get(category_slug, "closest_now")
+    if category_slug == "events":
+        allowed = {"chronological", "closest_now", "featured", "alphabetical", "top_rated", "editorial_pick"}
     if not raw or str(raw).strip().lower() not in allowed:
         return default
     return str(raw).strip().lower()
+
+
+def _build_events_category_stream(
+    db: Session,
+    *,
+    when: str | None,
+    sort_key: str,
+    ref_lat: float,
+    ref_lng: float,
+    now: datetime,
+    limit: int = 50,
+) -> list:
+    """Event-typed Hava cards for /category/events with RRULE expansion."""
+    today = now.date()
+    if when and when.strip():
+        win_start, win_end = event_window_for_chip(when.strip(), today=today)
+    else:
+        win_start, win_end = today, today + timedelta(days=30)
+
+    flat = events_in_window(
+        db,
+        window_start=win_start,
+        window_end=win_end,
+        category_slug="events",
+        limit=limit * 3,
+    )
+    seen: set[str] = set()
+    pairs: list[tuple] = []
+    for event, occ_date in flat:
+        if event.id in seen:
+            continue
+        seen.add(event.id)
+        pairs.append((event, occ_date))
+        if len(pairs) >= limit:
+            break
+
+    if sort_key == "chronological":
+        pairs.sort(key=lambda p: (p[1], p[0].start_time, p[0].normalized_title))
+    elif sort_key == "featured":
+        pairs.sort(
+            key=lambda p: (
+                not bool(p[0].featured),
+                p[1],
+                p[0].start_time,
+            )
+        )
+    elif sort_key == "closest_now":
+        eids = [p[0].entity_id for p in pairs]
+        entities = list(
+            db.scalars(select(Entity).where(Entity.id.in_(eids))).all()
+        ) if eids else []
+        prov_by_eid = {
+            pr.entity_id: pr
+            for pr in db.scalars(select(Provider).where(Provider.entity_id.in_(eids))).all()
+        } if eids else {}
+        rank_inp = rank_inputs_for_category(
+            entities,
+            category_slug="events",
+            ref_lat=ref_lat,
+            ref_lng=ref_lng,
+            prov_by_eid=prov_by_eid,
+            now=now,
+        )
+        temp_f = read_current_temperature_f(db)
+
+        def closest_key(pair: tuple) -> tuple:
+            inp = rank_inp.get(pair[0].entity_id)
+            score = compute_card_rank(inp, now=now, temperature_f=temp_f) if inp else 0.0
+            return (-score, pair[1], pair[0].normalized_title)
+
+        pairs.sort(key=closest_key)
+    else:
+        pairs.sort(key=lambda p: (p[0].title or "").lower())
+
+    stream = []
+    for event, occ_date in pairs:
+        vm = provider_queries.build_card_view_model_for_event_occurrence(
+            db, event.id, occ_date, now=now
+        )
+        if vm is not None:
+            stream.append(vm)
+    return stream
 
 
 @router.get("/category/{slug}", response_class=HTMLResponse)
@@ -814,6 +899,7 @@ def category_landing(
     boat: str | None = Query(None),
     free: str | None = Query(None),
     sort: str | None = Query(None),
+    when: str | None = Query(None),
 ) -> HTMLResponse:
     cat_slug = slug.strip().lower()
     if cat_slug not in TIER_1_CATEGORY_SLUGS:
@@ -841,53 +927,71 @@ def category_landing(
     district_slug_filter = district.strip().lower() if district and district.strip() else None
     active_trade = (cuisine or trade or "").strip().lower() or None
 
-    entities = _select_entities_for_category(
-        db,
-        category_slug=cat_slug,
-        district_slug=district_slug_filter,
-        dock_only=dock_only,
-    )
-    entities = _apply_python_filters(
-        entities,
-        db=db,
-        category_slug=cat_slug,
-        cuisine=cuisine,
-        trade=trade,
-        open_now=open_now,
-        late_night=late_night,
-        brunch_only=brunch_only,
-        verified_only=verified_only,
-        mobile_only=mobile_only,
-        boat_only=dock_only,
-        free_only=free_only,
-        now=now,
-    )
-    entities = _sort_entity_ids(
-        entities,
-        sort_key=sort_key,
-        ref_lat=_REF_LAT,
-        ref_lng=_REF_LNG,
-        db=db,
-        category_slug=cat_slug,
-        now=now,
-    )
+    if cat_slug == "events":
+        organic_stream = _build_events_category_stream(
+            db,
+            when=when,
+            sort_key=sort_key,
+            ref_lat=_REF_LAT,
+            ref_lng=_REF_LNG,
+            now=now,
+        )
+    else:
+        entities = _select_entities_for_category(
+            db,
+            category_slug=cat_slug,
+            district_slug=district_slug_filter,
+            dock_only=dock_only,
+        )
+        entities = _apply_python_filters(
+            entities,
+            db=db,
+            category_slug=cat_slug,
+            cuisine=cuisine,
+            trade=trade,
+            open_now=open_now,
+            late_night=late_night,
+            brunch_only=brunch_only,
+            verified_only=verified_only,
+            mobile_only=mobile_only,
+            boat_only=dock_only,
+            free_only=free_only,
+            now=now,
+        )
+        entities = _sort_entity_ids(
+            entities,
+            sort_key=sort_key,
+            ref_lat=_REF_LAT,
+            ref_lng=_REF_LNG,
+            db=db,
+            category_slug=cat_slug,
+            now=now,
+        )
 
-    organic_stream = []
-    for ent in entities:
-        vm = provider_queries.build_card_view_model(db, ent.id, now=now)
-        if vm is not None:
-            organic_stream.append(vm)
+        organic_stream = []
+        for ent in entities:
+            vm = provider_queries.build_card_view_model(db, ent.id, now=now)
+            if vm is not None:
+                organic_stream.append(vm)
 
     district_options = _district_rows(db)
     cuisine_chips = list(page_cfg.sub_trade_chips)
     operational_defs = list(page_cfg.operational_chips)
 
-    sort_options = [
-        ("closest_now", "Closest now"),
-        ("alphabetical", "Alphabetical"),
-        ("top_rated", "Top-rated"),
-        ("editorial_pick", "Editorial pick"),
-    ]
+    if cat_slug == "events":
+        sort_options = [
+            ("chronological", "Chronological"),
+            ("closest_now", "Closest now"),
+            ("featured", "Featured"),
+            ("alphabetical", "Alphabetical"),
+        ]
+    else:
+        sort_options = [
+            ("closest_now", "Closest now"),
+            ("alphabetical", "Alphabetical"),
+            ("top_rated", "Top-rated"),
+            ("editorial_pick", "Editorial pick"),
+        ]
 
     def cat_href(**kwargs: str | None) -> str:
         q = dict(request.query_params)
@@ -920,6 +1024,7 @@ def category_landing(
         "active_verified": verified_only,
         "active_mobile": mobile_only,
         "active_free": free_only,
+        "active_when": when.strip().lower() if when and when.strip() else None,
         "sort_options": sort_options,
         "sort_current": sort_key,
         "organic_stream": organic_stream,

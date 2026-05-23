@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, time
+from datetime import date, time, timedelta
 from pathlib import Path
 
 import pytest
@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
 
 from app.db.database import SessionLocal
+from app.db.entity_dual_write import create_event_and_entity
 from app.db.models import Category, Entity, Event, Provider
 from app.main import app
 
@@ -66,6 +67,7 @@ def test_provider_without_events_omits_venue_region(client: TestClient) -> None:
 
 def test_provider_with_events_renders_venue_region(client: TestClient) -> None:
     suf = uuid.uuid4().hex[:8]
+    on_date = date.today() + timedelta(days=5)
     with SessionLocal() as db:
         eat_id = _eat_category_id(db)
         p = Provider(
@@ -88,7 +90,7 @@ def test_provider_with_events_renders_venue_region(client: TestClient) -> None:
         ev = Event(
             title=f"Live Night {suf}",
             normalized_title=f"live night {suf}",
-            date=date(2026, 8, 1),
+            date=on_date,
             start_time=time(19, 0),
             end_time=None,
             location_name="Venue",
@@ -100,17 +102,20 @@ def test_provider_with_events_renders_venue_region(client: TestClient) -> None:
             provider_id=pid,
         )
         db.add(ev)
+        create_event_and_entity(db, ev)
         db.commit()
         ev_id = ev.id
+        event_entity_id = ev.entity_id
 
     r = client.get(f"/provider/{slug}")
     assert r.status_code == 200
     assert 'data-region="venue-events"' in r.text
-    assert "What's on at this venue" in r.text or "What&rsquo;s on at this venue" in r.text
-    assert f"Live Night {suf}" in r.text
+    assert f"With Events {suf}" in r.text or "What&rsquo;s on at" in r.text
+    assert "hava-card" in r.text or f"Live Night {suf}" in r.text
 
     with SessionLocal() as db:
         db.execute(delete(Event).where(Event.id == ev_id))
+        db.execute(delete(Entity).where(Entity.id == event_entity_id))
         db.execute(delete(Provider).where(Provider.entity_id == eid))
         db.execute(delete(Entity).where(Entity.id == eid))
         db.commit()

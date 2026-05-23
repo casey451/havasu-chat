@@ -329,16 +329,7 @@
   {% endif %}
 
   <!-- venue-events-region-anchor -->
-  {% if venue_events %}
-  <section data-region="venue-events" class="venue-events-region">
-    <h2>What&rsquo;s on at this venue</h2>
-    <ul class="venue-events-list">
-      {% for ev in venue_events %}
-        <li class="venue-events-item">{{ ev.title }}</li>
-      {% endfor %}
-    </ul>
-  </section>
-  {% endif %}
+  {% include 'components/venue_events_region.html' %}
 
   {# ─────────── Region 8: Google review snippets ─────────── #}
   {% if vm.google_review_snippets %}

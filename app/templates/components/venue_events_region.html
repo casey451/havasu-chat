@@ -1,0 +1,13 @@
+{% if venue_events %}
+<section data-region="venue-events" class="venue-events-region">
+  <h2>What&rsquo;s on at {{ provider_name }}</h2>
+  <ul class="venue-events-list">
+    {% for card in venue_events %}
+      <li class="venue-events-item">
+        {% set hava_card = card %}
+        {% include 'components/hava_card.html' %}
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}

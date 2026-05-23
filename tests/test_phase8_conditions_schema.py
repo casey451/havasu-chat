@@ -22,12 +22,13 @@ def test_migration_upgrade_downgrade_cycle(
     cfg = Config(str(root / "alembic.ini"))
     cfg.set_main_option("sqlalchemy.url", url)
 
-    command.upgrade(cfg, "head")
-    expected_head = ScriptDirectory.from_config(cfg).get_current_head()
+    phase8_rev = "d8e9f0a1b2c3"
+    command.upgrade(cfg, phase8_rev)
     script = ScriptDirectory.from_config(cfg)
-    head_rev = script.get_revision(expected_head)
+    head_rev = script.get_revision(phase8_rev)
     assert head_rev is not None
     assert head_rev.down_revision == "c9d0e1f2a3b4"
+    expected_head = phase8_rev
 
     eng = create_engine(url, connect_args={"check_same_thread": False})
     try:
@@ -48,7 +49,7 @@ def test_migration_upgrade_downgrade_cycle(
         eng.dispose()
 
     command.downgrade(cfg, "-1")
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, phase8_rev)
 
 
 def test_external_conditions_cache_orm_has_phase8_columns() -> None:

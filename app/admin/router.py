@@ -21,6 +21,7 @@ from app.admin.auth import (
 )
 from app.admin.categories_html import register_categories_html_routes
 from app.admin.contributions_html import register_contribution_html_routes
+from app.admin.events_html import register_events_html_routes
 from app.admin.feedback_html import register_feedback_html_routes
 from app.admin.mentions_html import register_mentions_html_routes
 from app.db.database import DATABASE_URL, get_db
@@ -2131,6 +2132,7 @@ def admin_claim_reject(
 
 
 register_contribution_html_routes(router)
+register_events_html_routes(router)
 register_mentions_html_routes(router)
 register_categories_html_routes(router)
 register_feedback_html_routes(router)

@@ -534,6 +534,30 @@ def _format_hour(t: time) -> str:
     return f"{h12} {suffix}"
 
 
+EVENT_FRESHNESS_GREEN_DAYS = 7
+EVENT_FRESHNESS_AMBER_DAYS = 21
+
+
+def derive_event_freshness_band(event: Event, *, now: datetime) -> str:
+    """Tighter decay for events: green <7d / amber 7-21d / red >21d from scrape anchor."""
+    anchor = event.scraped_at
+    if anchor is None:
+        ent = event.entity
+        anchor = ent.updated_at if ent is not None else event.created_at
+    u = anchor
+    if u.tzinfo is None:
+        u = u.replace(tzinfo=UTC)
+    n = now
+    if n.tzinfo is None:
+        n = n.replace(tzinfo=LAKE_HAVASU_TZ)
+    days = max(0, (n - u).days)
+    if days < EVENT_FRESHNESS_GREEN_DAYS:
+        return "green"
+    if days < EVENT_FRESHNESS_AMBER_DAYS:
+        return "amber"
+    return "red"
+
+
 def derive_freshness_band_from_updated_at(
     updated_at: datetime, *, now: datetime
 ) -> str:
@@ -664,9 +688,14 @@ def _place_status_line_for_card(
     return ("Limited access", "amber")
 
 
-def _event_status_line_for_card(event: Event, *, now: datetime) -> tuple[str, str]:
+def _event_status_line_for_card(
+    event: Event, *, now: datetime, occurrence_date: date | None = None
+) -> tuple[str, str]:
+    if (event.status or "").strip().lower() == "cancelled":
+        return ("Cancelled", "red")
+
     today = now.date()
-    ev_date = event.date
+    ev_date = occurrence_date if occurrence_date is not None else event.date
     days_ahead = (ev_date - today).days
     days_behind = (today - ev_date).days
 
@@ -755,6 +784,8 @@ def build_card_view_model(
     event = db.query(Event).filter(Event.entity_id == entity_id).first()
 
     freshness = derive_freshness_band_from_updated_at(entity.updated_at, now=now_dt)
+    if entity.entity_type == "event" and event is not None:
+        freshness = derive_event_freshness_band(event, now=now_dt)
     cat_slug, cat_label = _primary_category_for_entity(entity)
     d_slug, d_name = _district_fields(entity)
 
@@ -771,8 +802,6 @@ def build_card_view_model(
         is_sponsored = False
     elif et == "event" and event is not None:
         status_text, status_color = _event_status_line_for_card(event, now=now_dt)
-        if freshness == "red":
-            status_color = "red"
         is_sponsored = False
     else:
         is_open, _ = is_open_status_for_entity(entity, now=now_dt)
@@ -801,5 +830,67 @@ def build_card_view_model(
         freshness_band=freshness,
         is_sponsored=is_sponsored,
         boat_access_badge=boat_badge,
+        heat_exposure_pill=_heat_exposure_pill(entity),
+    )
+
+
+def build_card_view_model_for_event_occurrence(
+    db: Session,
+    event_id: str,
+    occurrence_date: date,
+    *,
+    now: Optional[datetime] = None,
+) -> HavaCardViewModel | None:
+    """Build a card for a specific occurrence date (recurring events)."""
+    from app.providers.view_models import HavaCardViewModel
+
+    now_dt = now or now_lake_havasu()
+    if now_dt.tzinfo is None:
+        now_dt = now_dt.replace(tzinfo=LAKE_HAVASU_TZ)
+
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if event is None:
+        return None
+
+    entity = (
+        db.query(Entity)
+        .options(
+            joinedload(Entity.location),
+            joinedload(Entity.district),
+            joinedload(Entity.categories).joinedload(EntityCategory.category),
+            selectinload(Entity.hours),
+            selectinload(Entity.photos),
+        )
+        .filter(Entity.id == event.entity_id)
+        .first()
+    )
+    if entity is None:
+        return None
+
+    provider = (
+        db.query(Provider).filter(Provider.entity_id == entity.id).first()
+    )
+    freshness = derive_event_freshness_band(event, now=now_dt)
+    cat_slug, cat_label = _primary_category_for_entity(entity)
+    d_slug, d_name = _district_fields(entity)
+    status_text, status_color = _event_status_line_for_card(
+        event, now=now_dt, occurrence_date=occurrence_date
+    )
+
+    return HavaCardViewModel(
+        entity_id=entity.id,
+        entity_type="event",
+        name=entity.name,
+        profile_url=_profile_url_for_card(entity, provider, event),
+        hero_photo_url=_hero_photo_for_card(provider, entity),
+        category_slug=cat_slug,
+        category_label=cat_label,
+        district_slug=d_slug,
+        district_name=d_name,
+        status_line_text=status_text,
+        status_line_color=status_color,
+        freshness_band=freshness,
+        is_sponsored=False,
+        boat_access_badge=entity.boat_access is not None,
         heat_exposure_pill=_heat_exposure_pill(entity),
     )

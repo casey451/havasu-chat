@@ -15,8 +15,11 @@ from app.chat import (
     tier2_parser,
 )
 from app.chat.chat_request_context import ChatRequestContext
+from app.chat.tier2_db_query import _event_dict
 from app.chat.tier2_schema import Tier2Filters
 from app.core.timezone import now_lake_havasu
+from app.db.database import SessionLocal
+from app.events.queries import events_in_window, intent_window_for_when
 
 # Parser scores below this threshold skip Tier 2 and defer to Tier 3 (tunable in a later phase).
 TIER2_CONFIDENCE_THRESHOLD = 0.7
@@ -100,6 +103,43 @@ def _explicit_month_day(query: str) -> date | None:
     return d
 
 
+def detect_event_intent(query: str) -> dict[str, str] | None:
+    """Return ``{'when': ...}`` when the query is event-flavored."""
+    q = (query or "").lower()
+    if "this weekend" in q or "saturday" in q or "sunday" in q:
+        return {"when": "this_weekend"}
+    if any(
+        k in q
+        for k in (
+            "tonight",
+            "what's on",
+            "whats on",
+            "what is on",
+            "what's happening",
+            "whats happening",
+            " events",
+            " event ",
+        )
+    ):
+        return {"when": "tonight" if "tonight" in q else "today"}
+    return None
+
+
+def _event_rows_for_intent(when: str) -> list[dict[str, Any]]:
+    today = now_lake_havasu().date()
+    win_start, win_end = intent_window_for_when(when, today=today)
+    with SessionLocal() as db:
+        flat = events_in_window(
+            db, window_start=win_start, window_end=win_end, limit=8
+        )
+    rows: list[dict[str, Any]] = []
+    for event, occ_date in flat:
+        row = _event_dict(event)
+        row["date"] = occ_date.isoformat()
+        rows.append(row)
+    return rows
+
+
 def _normalize_tier2_filters_from_query(query: str, filters: Tier2Filters) -> Tier2Filters:
     """Correct common LLM-router date/category drift with deterministic query facts."""
     q = query or ""
@@ -177,6 +217,17 @@ def try_tier2_with_usage(
     if not q:
         logging.info("tier2_handler: fallback: empty query")
         return None, None, None, None
+
+    event_intent = detect_event_intent(q)
+    if event_intent is not None:
+        from app.chat import tier2_catalog_render
+
+        rows = _event_rows_for_intent(event_intent["when"])
+        if rows:
+            logging.info("tier2_handler: event-intent path when=%s", event_intent["when"])
+            text = tier2_catalog_render.render_tier2_events(q, rows)
+            return text, 0, 0, 0
+        logging.info("tier2_handler: event-intent matched but zero rows; fall through")
 
     shortcut_filters = tier2_business_shortcut.try_business_listing_shortcut(q)
     if shortcut_filters is not None:
