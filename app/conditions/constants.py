@@ -9,6 +9,13 @@ SOURCE_NWS_FORECAST = "nws_forecast_daily"
 SOURCE_NWS_SUNSET = "nws_sunset"
 SOURCE_USGS = "usgs_09427500"
 
+# V1.5 wave 3 (2026-05-23): USGS water-temperature alt-source for station
+# 09426630 ("Bill Williams River at Lake Havasu, abv HWY-95, AZ"). NOT yet
+# in SOURCE_KEYS / TTL_BY_SOURCE -- wiring is a separate 1-line addition
+# when the operator flips FEATURE_FLAG_WATER_TEMP_GAGE_09426630=true.
+# See app/conditions/usgs_water_temp.py module docstring for context.
+SOURCE_USGS_WATER_TEMP = "usgs_water_temp_09426630"
+
 SOURCE_KEYS: tuple[str, ...] = (
     SOURCE_AIRNOW,
     SOURCE_NWS_CURRENT,
