@@ -56,3 +56,15 @@ outputs/_*.cmd
 outputs/_*_result.txt
 outputs/_*_result.json
 outputs/_*_msg.txt
+
+# Also match at repo root + any other location: ephemeral scratchpad .cmds
+# have accumulated at the workspace root too (pre-outputs/-convention
+# vintage; e.g. 2026-05-22 verify/commit pairs for the lhcaz_aquatic
+# disable + flag-flip-close-out + state-md commits dropped at root rather
+# than under outputs/). These bare-pattern extensions catch both root and
+# any future location so the same gotcha (stale .cmd accidentally
+# double-clicked → wrong commit message) is structurally suppressed.
+_*.cmd
+_*_result.txt
+_*_result.json
+_*_msg.txt
