@@ -46,3 +46,13 @@ sentinel_ids*.txt
 
 # Ruff (Slice 39 Phase D)
 .ruff_cache/
+
+# Per-ship verify/commit .cmd scaffolding (ephemeral; the result.txt files
+# are produced by the .cmd runs and never need to be tracked). Canonical
+# .cmds for a ship live at repo root or are committed intentionally; these
+# patterns only cover the throwaway _<topic>_*.cmd / _<topic>_*_result.txt
+# shape used per-session under outputs/.
+outputs/_*.cmd
+outputs/_*_result.txt
+outputs/_*_result.json
+outputs/_*_msg.txt

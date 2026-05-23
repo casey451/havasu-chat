@@ -6,20 +6,15 @@ inline HTML to two PDF downloads on the redesigned Aquatic Center
 page -- the old HTML parser silently returned ``[]`` and the
 ``parks-rec-scrapes`` cron failed for five consecutive runs (#57-#61).
 
-The follow-up ship (this commit) restored the source and wired it to
-the new PDF parser at ``app.contrib.lhcaz_aquatic_pdf``. This test
-pins the wiring so a future revert that points the source back at
-the legacy HTML adapter (``_pull_lhcaz_aquatic``) -- whose target URL
-still redirects to the schedule-less landing page -- would fail loudly
-instead of silently producing empty snapshots.
+The follow-up ship restored the source and wired it to the new PDF
+parser at ``app.contrib.lhcaz_aquatic_pdf``. This test pins the wiring
+so a future revert that points the source back at the legacy HTML
+adapter (``_pull_lhcaz_aquatic``) -- whose target URL still redirects
+to the schedule-less landing page -- would fail loudly instead of
+silently producing empty snapshots.
 
 See ``outputs/lhcaz_aquatic_pdf_rewrite_carry.md`` for the full carry
 narrative.
-
-NOTE: This file is named ``..._disabled.py`` for historical reasons
-(it was authored alongside the disable ship). The contract it asserts
-is now the *enabled-with-PDF-adapter* contract -- rename the file as
-a future cleanup carry if it bothers anyone.
 """
 
 from __future__ import annotations

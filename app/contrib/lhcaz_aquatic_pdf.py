@@ -430,7 +430,3 @@ def pull_snapshot() -> list[dict[str, Any]]:
     slots.extend(parse_schedule_pdf(exercise_pdf, today=today))
     slots.extend(parse_schedule_pdf(swim_pdf, today=today))
     return [s.to_dict() for s in slots]
-
-
-# vim: set fileencoding=utf-8 :
-
