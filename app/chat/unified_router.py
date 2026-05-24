@@ -858,11 +858,16 @@ def route(
                 "falling back to ChatRequestContext stub default"
             )
             temperature_f_override = None
-    if temperature_f_override is not None:
+    from app.chat.tier2_handler import detect_event_intent
+
+    event_intent = detect_event_intent(q_raw)
+    event_when = event_intent.get("when") if event_intent else None
+    if temperature_f_override is not None or event_when:
         chat_ctx = ChatRequestContext(
             boat_mode=chat_ctx.boat_mode,
-            temperature_f=temperature_f_override,
+            temperature_f=temperature_f_override or chat_ctx.temperature_f,
             multi_domain_category_slugs=chat_ctx.multi_domain_category_slugs,
+            event_intent_when=event_when or chat_ctx.event_intent_when,
         )
 
     tier_used = "placeholder"

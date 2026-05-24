@@ -303,21 +303,21 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
     ),
     "classes-sports-recreation": CategoryPageConfig(
         sub_trade_chips=(
-            Chip("daycare", "Daycare"),
-            Chip("preschool", "Preschool"),
-            Chip("tutoring", "Tutoring"),
-            Chip("music-lessons", "Music lessons"),
-            Chip("driving-schools", "Driving schools"),
-            Chip("personal-trainers", "Personal trainers"),
-            Chip("swimming-pools", "Swimming pools"),
-            Chip("tennis", "Tennis"),
+            Chip("yoga", "Yoga"),
+            Chip("pilates", "Pilates"),
+            Chip("swim", "Swim"),
             Chip("pickleball", "Pickleball"),
+            Chip("childcare", "Childcare"),
+            Chip("youth_sports", "Youth sports"),
+            Chip("adult_sports", "Adult sports"),
         ),
         operational_chips=(
-            {"param": "open", "value": "now", "label": "Open now"},
-            {"param": "dropin", "value": "1", "label": "Drop-in available"},
-            {"param": "youth", "value": "1", "label": "Youth programs"},
-            {"param": "beginner", "value": "1", "label": "Beginner-friendly"},
+            {"param": "drop_in", "value": "1", "label": "Drop-in OK"},
+            {"param": "registration", "value": "1", "label": "Registration required"},
+            {"param": "kids", "value": "1", "label": "Kids (0-12)"},
+            {"param": "teens", "value": "1", "label": "Teens (13-17)"},
+            {"param": "adults", "value": "1", "label": "Adults (18+)"},
+            {"param": "55_plus", "value": "1", "label": "55+"},
         ),
         sort_default="closest_now",
     ),
@@ -790,6 +790,91 @@ def _apply_python_filters(
     return out
 
 
+def _programs_for_entities(db: Session, entity_ids: list[str]) -> dict[str, list]:
+    from app.db.models import Program
+
+    if not entity_ids:
+        return {}
+    rows = db.scalars(
+        select(Program).where(
+            Program.entity_id.in_(entity_ids),
+            Program.is_active.is_(True),
+        )
+    ).all()
+    out: dict[str, list] = {}
+    for prog in rows:
+        out.setdefault(prog.entity_id, []).append(prog)
+    return out
+
+
+def _program_matches_age_band(prog, band: str) -> bool:
+    amin = prog.age_min
+    amax = prog.age_max
+    if amin is None and amax is None:
+        return False
+    amin = int(amin) if amin is not None else 0
+    amax = int(amax) if amax is not None else 99
+    if band == "kids":
+        return amin <= 12 and amax >= 0
+    if band == "teens":
+        return amin <= 17 and amax >= 13
+    if band == "adults":
+        return amax >= 18
+    if band == "55_plus":
+        return amin >= 55 or amax >= 55
+    return False
+
+
+def _crowd_notes_flag(notes: object, key: str) -> bool | None:
+    if not isinstance(notes, dict):
+        return None
+    val = notes.get(key)
+    if val is True:
+        return True
+    if val is False:
+        return False
+    return None
+
+
+def _apply_classes_sports_filters(
+    entities: list[Entity],
+    *,
+    db: Session,
+    drop_in: bool,
+    registration: bool,
+    kids: bool,
+    teens: bool,
+    adults: bool,
+    senior_55: bool,
+) -> list[Entity]:
+    if not any((drop_in, registration, kids, teens, adults, senior_55)):
+        return entities
+    eids = [e.id for e in entities]
+    prog_map = _programs_for_entities(db, eids)
+    out: list[Entity] = []
+    for ent in entities:
+        notes = ent.crowd_notes
+        if drop_in:
+            flag = _crowd_notes_flag(notes, "drop_in_friendly")
+            if flag is not True:
+                continue
+        if registration:
+            flag = _crowd_notes_flag(notes, "drop_in_friendly")
+            if flag is not False:
+                continue
+        progs = prog_map.get(ent.id, [])
+        if kids and not any(_program_matches_age_band(p, "kids") for p in progs):
+            continue
+        if teens and not any(_program_matches_age_band(p, "teens") for p in progs):
+            continue
+        if adults and not any(_program_matches_age_band(p, "adults") for p in progs):
+            continue
+        if senior_55 and not any(_program_matches_age_band(p, "55_plus") for p in progs):
+            continue
+        out.append(ent)
+    return out
+
+
 def _normalize_sort(raw: str | None, *, category_slug: str) -> str:
     allowed = {"closest_now", "alphabetical", "top_rated", "editorial_pick", "chronological", "featured"}
     default = DEFAULT_SORT_BY_SLUG.get(category_slug, "closest_now")
@@ -900,6 +985,12 @@ def category_landing(
     free: str | None = Query(None),
     sort: str | None = Query(None),
     when: str | None = Query(None),
+    drop_in: str | None = Query(None, alias="drop_in"),
+    registration: str | None = Query(None),
+    kids: str | None = Query(None),
+    teens: str | None = Query(None),
+    adults: str | None = Query(None),
+    senior_55: str | None = Query(None, alias="55_plus"),
 ) -> HTMLResponse:
     cat_slug = slug.strip().lower()
     if cat_slug not in TIER_1_CATEGORY_SLUGS:
@@ -958,6 +1049,17 @@ def category_landing(
             free_only=free_only,
             now=now,
         )
+        if cat_slug == "classes-sports-recreation":
+            entities = _apply_classes_sports_filters(
+                entities,
+                db=db,
+                drop_in=_flag(drop_in),
+                registration=_flag(registration),
+                kids=_flag(kids),
+                teens=_flag(teens),
+                adults=_flag(adults),
+                senior_55=_flag(senior_55),
+            )
         entities = _sort_entity_ids(
             entities,
             sort_key=sort_key,
@@ -1025,6 +1127,12 @@ def category_landing(
         "active_mobile": mobile_only,
         "active_free": free_only,
         "active_when": when.strip().lower() if when and when.strip() else None,
+        "active_drop_in": _flag(drop_in),
+        "active_registration": _flag(registration),
+        "active_kids": _flag(kids),
+        "active_teens": _flag(teens),
+        "active_adults": _flag(adults),
+        "active_55_plus": _flag(senior_55),
         "sort_options": sort_options,
         "sort_current": sort_key,
         "organic_stream": organic_stream,

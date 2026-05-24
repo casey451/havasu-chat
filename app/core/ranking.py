@@ -6,7 +6,11 @@ Pure functions only — no DB or ORM imports at module top (gotcha #17).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from app.providers.view_models import HavaCardViewModel
 
 # Phase 8 wires real conditions; 6.3 uses a stub so heat-bias is testable in prod UI.
 STUB_CURRENT_TEMPERATURE_F = 105.0
@@ -93,12 +97,79 @@ def rank_sort_key(
 # import read_current_temperature_f` directly.
 
 
+def compute_event_card_rank(
+    *,
+    event: Any,
+    occurrence_date: date,
+    now_temp_f: float = STUB_CURRENT_TEMPERATURE_F,
+    distance_mi: float | None = None,
+    user_in_boat_mode: bool = False,
+    venue_heat_exposure: str | None = None,
+    venue_boat_access: bool = False,
+    today: date | None = None,
+) -> float:
+    """Mirror :func:`compute_card_rank` for event cards (Phase 9b)."""
+    today = today or date.today()
+    days_ahead = (occurrence_date - today).days
+    base = 1.0
+
+    if days_ahead == 0:
+        base *= 1.30
+    elif days_ahead == 1:
+        base *= 1.15
+    elif days_ahead <= 7 and occurrence_date.weekday() >= 5:
+        base *= 1.10
+    elif days_ahead <= 7:
+        base *= 1.05
+
+    if distance_mi is not None:
+        dist_km = max(0.0, distance_mi * 1.60934)
+        base *= 1.0 / (1.0 + dist_km)
+
+    if now_temp_f > HEAT_BIAS_THRESHOLD_F:
+        hx = (venue_heat_exposure or "").strip().lower()
+        if hx == "indoor":
+            base *= 1.0 + HEAT_BIAS_INDOOR_WEIGHT
+
+    if user_in_boat_mode and venue_boat_access:
+        base *= 1.10
+
+    if bool(getattr(event, "featured", False)):
+        base *= 1.25
+
+    return base
+
+
+def _cap_event_share(
+    cards: list[tuple[HavaCardViewModel, float]],
+    *,
+    max_event_pct: float = 0.40,
+    limit: int = 30,
+) -> list[tuple[HavaCardViewModel, float]]:
+    """Cap event cards at ``max_event_pct`` of the visible themed-group stream."""
+    ranked = sorted(cards, key=lambda p: -p[1])
+    output: list[tuple[HavaCardViewModel, float]] = []
+    event_count = 0
+    for vm, score in ranked:
+        if vm.entity_type == "event":
+            projected = event_count / max(1, len(output) + 1)
+            if projected >= max_event_pct:
+                continue
+            event_count += 1
+        output.append((vm, score))
+        if len(output) >= limit:
+            break
+    return output
+
+
 __all__ = [
     "CardRankInput",
     "HEAT_BIAS_INDOOR_WEIGHT",
     "HEAT_BIAS_SHADED_WEIGHT",
     "HEAT_BIAS_THRESHOLD_F",
     "STUB_CURRENT_TEMPERATURE_F",
+    "_cap_event_share",
     "compute_card_rank",
+    "compute_event_card_rank",
     "rank_sort_key",
 ]

@@ -16,7 +16,17 @@ from pydantic import (
 )
 
 EntityType = Literal["provider", "program", "event", "tip"]
-ContributionSource = Literal["user_submission", "llm_inferred", "operator_backfill", "river_scene_import"]
+ContributionSource = Literal[
+    "user_submission",
+    "llm_inferred",
+    "operator_backfill",
+    "river_scene_import",
+    "chamber",
+    "go_lake_havasu",
+    "river_scene",
+    "lhc_library",
+    "lhc_parks_rec",
+]
 ContributionStatus = Literal["pending", "approved", "rejected", "needs_info"]
 RejectionReason = Literal["duplicate", "out_of_area", "spam", "incomplete", "unverifiable", "other"]
 

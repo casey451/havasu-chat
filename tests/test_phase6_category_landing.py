@@ -62,7 +62,7 @@ def test_all_tier1_category_slugs_return_200(client: TestClient) -> None:
         ("shopping-essentials", "Grocery"),
         ("events", "Event venues"),
         ("outdoors-parks-trails", "Parks"),
-        ("classes-sports-recreation", "Daycare"),
+        ("classes-sports-recreation", "Yoga"),
         ("lodging-vacation-rentals", "Hotels"),
         ("pets", "Pet stores"),
         ("public-civic-resources", "Library"),

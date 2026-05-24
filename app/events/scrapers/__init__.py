@@ -1,0 +1,27 @@
+"""Phase 9b event source scrapers."""
+
+from app.events.scrapers.base import EventIngestClient, EventPayload
+from app.events.scrapers.chamber import ChamberClient
+from app.events.scrapers.go_lake_havasu import GoLakeHavasuClient
+from app.events.scrapers.lhc_library import LhcLibraryClient
+from app.events.scrapers.lhc_parks_rec import LhcParksRecClient
+from app.events.scrapers.river_scene_v2 import RiverSceneV2Client
+
+SOURCE_REGISTRY: dict[str, type[EventIngestClient]] = {
+    "chamber": ChamberClient,
+    "go_lake_havasu": GoLakeHavasuClient,
+    "river_scene": RiverSceneV2Client,
+    "lhc_library": LhcLibraryClient,
+    "lhc_parks_rec": LhcParksRecClient,
+}
+
+__all__ = [
+    "ChamberClient",
+    "EventIngestClient",
+    "EventPayload",
+    "GoLakeHavasuClient",
+    "LhcLibraryClient",
+    "LhcParksRecClient",
+    "RiverSceneV2Client",
+    "SOURCE_REGISTRY",
+]

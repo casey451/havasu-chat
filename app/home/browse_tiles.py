@@ -12,12 +12,13 @@ from app.groups import themed_groups as tg
 
 _COUNT_CAP = 200
 
-# Order locked for Phase 6.5: 4 themed groups, then 4 solo categories.
+# Order locked for Phase 6.5 + Phase 9b: 5 themed groups, then 4 solo categories.
 _HOME_BROWSE_TILE_SPECS: tuple[tuple[str, str, str], ...] = (
     ("group", "eat-drink-group", "Eat & Drink"),
     ("group", "health-fitness-group", "Health & Fitness"),
     ("group", "on-the-water-group", "On the Water"),
     ("group", "home-auto-group", "Home & Auto"),
+    ("group", "things-to-do-group", "Things to Do"),
     ("category", "events", "Events"),
     ("category", "outdoors-parks-trails", "Outdoors, Parks & Trails"),
     ("category", "lodging-vacation-rentals", "Lodging & Vacation Rentals"),

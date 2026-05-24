@@ -14,6 +14,7 @@ from app.api.routes import category_pages as cat_pages
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
 from app.db.database import get_db
 from app.groups import themed_groups as tg
+from app.groups.themed_group_stream import get_themed_group_card_stream
 from app.providers import queries as provider_queries
 
 router = APIRouter(tags=["themed-groups"])
@@ -46,27 +47,37 @@ def themed_group_landing(
     sort_slug = category_slugs[0]
     sort_key = cat_pages._normalize_sort(sort, category_slug=sort_slug)
 
-    entities = cat_pages.select_entities_for_categories(
-        db,
-        category_slugs=category_slugs,
-        district_slug=None,
-        boat_only=boat_only,
-    )
-    entities = cat_pages._sort_entity_ids(
-        entities,
-        sort_key=sort_key,
-        ref_lat=cat_pages.REF_LAT,
-        ref_lng=cat_pages.REF_LNG,
-        db=db,
-        category_slug=sort_slug,
-        now=now,
-    )
-
-    organic_stream = []
-    for ent in entities:
-        vm = provider_queries.build_card_view_model(db, ent.id, now=now)
-        if vm is not None:
-            organic_stream.append(vm)
+    if "events" in category_slugs:
+        organic_stream = get_themed_group_card_stream(
+            db,
+            group_slug,
+            limit=30,
+            ref_lat=cat_pages.REF_LAT,
+            ref_lng=cat_pages.REF_LNG,
+            now=now,
+            boat_only=boat_only,
+        )
+    else:
+        entities = cat_pages.select_entities_for_categories(
+            db,
+            category_slugs=category_slugs,
+            district_slug=None,
+            boat_only=boat_only,
+        )
+        entities = cat_pages._sort_entity_ids(
+            entities,
+            sort_key=sort_key,
+            ref_lat=cat_pages.REF_LAT,
+            ref_lng=cat_pages.REF_LNG,
+            db=db,
+            category_slug=sort_slug,
+            now=now,
+        )
+        organic_stream = []
+        for ent in entities:
+            vm = provider_queries.build_card_view_model(db, ent.id, now=now)
+            if vm is not None:
+                organic_stream.append(vm)
 
     page_cfg = cat_pages.category_page_config(sort_slug)
     district_options = cat_pages._district_rows(db)

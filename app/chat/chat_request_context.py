@@ -15,6 +15,11 @@ BOAT_MODE_TIER3_PREAMBLE = (
     "Mention boat-access details when relevant."
 )
 
+EVENT_INTENT_TIER3_PREAMBLE = (
+    "The user is asking about events. Surface upcoming events chronologically; "
+    "mention venue name and time prominently."
+)
+
 
 def heat_bias_tier3_preamble(temperature_f: float) -> str:
     temp = int(round(temperature_f))
@@ -30,6 +35,7 @@ class ChatRequestContext:
     boat_mode: bool = False
     temperature_f: float | None = None
     multi_domain_category_slugs: tuple[str, ...] = field(default_factory=tuple)
+    event_intent_when: str | None = None
 
     def effective_temperature_f(self) -> float:
         if self.temperature_f is not None:
@@ -45,6 +51,8 @@ class ChatRequestContext:
             parts.append(BOAT_MODE_TIER3_PREAMBLE)
         if self.heat_bias_active():
             parts.append(heat_bias_tier3_preamble(self.effective_temperature_f()))
+        if self.event_intent_when:
+            parts.append(EVENT_INTENT_TIER3_PREAMBLE)
         return parts
 
 
@@ -74,6 +82,7 @@ __all__ = [
     "BOAT_MODE_HEADER",
     "BOAT_MODE_QUERY_PARAM",
     "BOAT_MODE_TIER3_PREAMBLE",
+    "EVENT_INTENT_TIER3_PREAMBLE",
     "ChatRequestContext",
     "heat_bias_tier3_preamble",
     "parse_chat_request_context",

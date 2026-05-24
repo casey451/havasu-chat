@@ -10,6 +10,11 @@ THEMED_GROUPS: dict[str, list[str]] = {
     "health-fitness-group": ["health-wellness-care", "classes-sports-recreation"],
     "on-the-water-group": ["on-the-water"],
     "home-auto-group": ["home-property-services", "auto-rv-fuel"],
+    "things-to-do-group": [
+        "events",
+        "outdoors-parks-trails",
+        "classes-sports-recreation",
+    ],
 }
 
 _GROUP_LABELS: dict[str, str] = {
@@ -17,6 +22,7 @@ _GROUP_LABELS: dict[str, str] = {
     "health-fitness-group": "Health & Fitness",
     "on-the-water-group": "On the Water",
     "home-auto-group": "Home & Auto",
+    "things-to-do-group": "Things to Do",
 }
 
 _GROUP_ONE_LINERS: dict[str, str] = {
@@ -32,6 +38,9 @@ _GROUP_ONE_LINERS: dict[str, str] = {
     "home-auto-group": (
         "Home pros, property services, auto, RV, and fuel around town."
     ),
+    "things-to-do-group": (
+        "Events, outdoor recreation, and classes — what to do around Lake Havasu."
+    ),
 }
 
 _GROUP_ACCENTS: dict[str, str] = {
@@ -39,6 +48,7 @@ _GROUP_ACCENTS: dict[str, str] = {
     "health-fitness-group": "fresh",
     "on-the-water-group": "water",
     "home-auto-group": "neutral",
+    "things-to-do-group": "warm",
 }
 
 

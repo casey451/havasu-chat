@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
@@ -245,6 +246,35 @@ def approve_contribution_as_event(
         raise
     db.refresh(ev)
     return ev
+
+
+_DEFAULT_AUTO_APPROVE_EVENT_SOURCES = frozenset(
+    {"chamber", "go_lake_havasu", "river_scene", "river_scene_import"}
+)
+
+
+def auto_approve_event_sources() -> frozenset[str]:
+    raw = os.environ.get("EVENT_AUTO_APPROVE_SOURCES", "").strip()
+    if not raw:
+        return _DEFAULT_AUTO_APPROVE_EVENT_SOURCES
+    return frozenset(s.strip() for s in raw.split(",") if s.strip())
+
+
+def should_auto_approve_event(contribution: Contribution) -> bool:
+    """High-trust scrape sources skip manual review when payload is complete."""
+    if contribution.entity_type != "event":
+        return False
+    if contribution.source not in auto_approve_event_sources():
+        return False
+    if not contribution.submission_name or not contribution.event_date:
+        return False
+    if not contribution.event_time_start:
+        return False
+    return True
+
+
+# Backward-compatible alias for design-doc naming.
+should_auto_approve = should_auto_approve_event
 
 
 def parse_comma_tags(raw: str | None) -> list[str]:

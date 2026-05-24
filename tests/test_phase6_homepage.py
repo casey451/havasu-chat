@@ -23,6 +23,7 @@ _EXPECTED_TILE_ORDER: tuple[tuple[str, str, str], ...] = (
     ("group", "health-fitness-group", "/group/health-fitness-group"),
     ("group", "on-the-water-group", "/group/on-the-water-group"),
     ("group", "home-auto-group", "/group/home-auto-group"),
+    ("group", "things-to-do-group", "/group/things-to-do-group"),
     ("category", "events", "/category/events"),
     ("category", "outdoors-parks-trails", "/category/outdoors-parks-trails"),
     ("category", "lodging-vacation-rentals", "/category/lodging-vacation-rentals"),
@@ -105,7 +106,7 @@ def test_browse_tile_specs_match_themed_groups_dict() -> None:
 def test_build_browse_tiles_count_labels_match_db() -> None:
     with SessionLocal() as db:
         tiles = browse_tiles.build_browse_tiles(db)
-    assert len(tiles) == 8
+    assert len(tiles) == 9
     with SessionLocal() as db:
         for tile, (kind, slug, _href) in zip(tiles, _EXPECTED_TILE_ORDER, strict=True):
             assert tile["tile_kind"] == kind
