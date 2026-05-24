@@ -28,7 +28,14 @@ from app.conditions.view_model import build_conditions_strip_view_model
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.db.models import User
-from app.home import browse_tiles, mock_data, queries, snowbird_panel, sponsor_store
+from app.home import (
+    browse_tiles,
+    feature_flags,
+    mock_data,
+    queries,
+    snowbird_panel,
+    sponsor_store,
+)
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
@@ -42,9 +49,19 @@ def serve_home(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user),
 ) -> HTMLResponse:
-    """Render /home with live catalog data + per-row mock fallbacks."""
+    """Render /home with live catalog data + per-row mock fallbacks.
+
+    The ``redesign`` context flag toggles the §B redesign-era surface
+    (Marquee partial, Supporters wall, magazine-pacing layout, C13 a11y
+    polish). It is off by default; controlled by the ``HOME_REDESIGN``
+    env var, with a per-request ``?redesign=1`` / ``?redesign=0`` query
+    override for staff preview. See ``app.home.feature_flags``.
+    """
     base = mock_data.build_context()
     base["disclosure_word"] = DISCLOSURE_WORD
+    base["redesign"] = feature_flags.home_redesign_enabled(
+        request.query_params.get("redesign"),
+    )
 
     # Live row reads. Fall back to the mocked equivalent per-row when the
     # DB returns empty (catalog still being populated).
