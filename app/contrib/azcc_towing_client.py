@@ -57,14 +57,14 @@ def fetch_azcc_entity_search(
     except Exception:
         logger.warning(
             "azcc_towing_client.fetch_failed",
-            extra={"name": query, "search_url": search_url},
+            extra={"query": query, "search_url": search_url},
             exc_info=True,
         )
         return []
     rows = _normalize_search_rows(payload)
     logger.info(
         "azcc_towing_client.fetch_complete",
-        extra={"name": query, "county": county, "total": len(rows)},
+        extra={"query": query, "county": county, "total": len(rows)},
     )
     return rows
 
@@ -167,12 +167,12 @@ def _fetch_public_search_payload(
                                 break
                     logger.info(
                         "azcc_towing_client.captcha_unsolved",
-                        extra={"name": query, "attempts": max_retries},
+                        extra={"query": query, "attempts": max_retries},
                     )
                 else:
                     logger.info(
                         "azcc_towing_client.captcha_blocked",
-                        extra={"name": query},
+                        extra={"query": query},
                     )
                 return {"succeeded": False, "data": []}
 
