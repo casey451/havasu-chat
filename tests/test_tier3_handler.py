@@ -269,3 +269,91 @@ def test_fallback_message_matches_unified_router_alias() -> None:
     from app.chat import unified_router as ur
 
     assert FALLBACK_MESSAGE == ur._GRACEFUL
+
+
+# ---------------------------------------------------------------------------
+# Lane B-1 -- deferred cache store via BackgroundTasks
+# ---------------------------------------------------------------------------
+
+
+def _seed_provider(db: Session) -> None:
+    db.add(
+        Provider(
+            provider_name="B1 Prov",
+            category="misc",
+            verified=True,
+            draft=False,
+            is_active=True,
+        )
+    )
+    db.commit()
+
+
+def test_answer_with_tier3_defers_cache_store_when_background_tasks_provided(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When BackgroundTasks is passed, cache_store does NOT run synchronously."""
+    from fastapi import BackgroundTasks
+
+    import app.chat.tier3_handler as tier3_handler
+
+    _seed_provider(db)
+
+    def fake_anthropic(**kw: object) -> SimpleNamespace:
+        return SimpleNamespace(
+            text="stubbed answer",
+            raw=SimpleNamespace(usage=True),
+            usage=SimpleNamespace(billable_input=10, output_tokens=5),
+        )
+
+    monkeypatch.setattr(tier3_handler, "call_anthropic_messages", fake_anthropic)
+    monkeypatch.setattr(
+        "app.chat.llm_cache._compute_query_embedding",
+        lambda t: [0.01] * 1536,
+    )
+
+    bg = BackgroundTasks()
+    pre_count = len(bg.tasks)
+
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "stub-key-not-used"}):
+        text, total, in_t, out_t = answer_with_tier3(
+            "b1 background test query",
+            _intent(),
+            db,
+            chat_ctx=None,
+            background_tasks=bg,
+        )
+
+    assert text == "stubbed answer"
+    assert len(bg.tasks) == pre_count + 1, "cache_store should be deferred, not skipped"
+
+
+def test_answer_with_tier3_falls_back_to_sync_store_when_no_background_tasks(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Backward compat: callers that don't pass background_tasks still write synchronously."""
+    from sqlalchemy import select
+
+    from app.db.models import LlmResponseCache
+
+    _seed_provider(db)
+    monkeypatch.setattr(
+        "app.chat.llm_cache._compute_query_embedding",
+        lambda t: [0.01] * 1536,
+    )
+
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.return_value = _resp(
+        "answer", prompt_tokens=1, completion_tokens=1
+    )
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "stub-key-not-used"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake_client):
+            out = answer_with_tier3(
+                "b1 sync fallback test",
+                _intent(),
+                db,
+                chat_ctx=None,
+            )
+    assert out[0] == "answer"
+    rows = db.scalars(select(LlmResponseCache)).all()
+    assert len(rows) >= 1, "sync path should have written a cache row"

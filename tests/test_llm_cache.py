@@ -468,3 +468,103 @@ def test_similarity_threshold_is_strict_enough() -> None:
     llm_cache.py and the docstring at the top of this file too."""
     assert SIMILARITY_THRESHOLD >= 0.85
     assert SIMILARITY_THRESHOLD <= 0.95
+
+
+# ---------------------------------------------------------------------------
+# Lane B-1 -- in-request embedding memo + deferred store
+# ---------------------------------------------------------------------------
+
+
+def test_lookup_with_embedding_returns_vector_on_miss(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    """lookup_with_embedding returns the computed vector when similarity misses."""
+    calls: list[str] = []
+
+    def fake_embed(text: str) -> list[float]:
+        calls.append(text)
+        return [0.01] * 1536
+
+    monkeypatch.setattr(llm_cache, "_compute_query_embedding", fake_embed)
+
+    text, vec = llm_cache.lookup_with_embedding(
+        db,
+        cache_key="nonexistent_b1_test_key_zzzzzzzzzzzzzzzz",
+        normalized_query="lane b-1 sentinel query",
+    )
+    assert text is None, "no cache row exists yet"
+    assert vec is not None, "must return the embedding for the caller to reuse"
+    assert len(calls) == 1, f"embedding should run once, ran {len(calls)} times"
+
+
+def test_store_with_embedding_skips_embed_call_when_precomputed(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """store_with_embedding does not re-embed when precomputed_embedding is passed."""
+    calls: list[str] = []
+
+    def fake_embed(text: str) -> list[float]:
+        calls.append(text)
+        return [0.02] * 1536
+
+    monkeypatch.setattr(llm_cache, "_compute_query_embedding", fake_embed)
+
+    fake_vec = [0.99] * 1536
+    llm_cache.store_with_embedding(
+        db,
+        cache_key="b1_store_key_yyyyyyyyyyyyyyyy",
+        normalized_query="b1 store test",
+        context={"k": "v"},
+        response_text="answer",
+        tier_used="tier3",
+        precomputed_embedding=fake_vec,
+    )
+    assert len(calls) == 0, "embedding API must not be called when vector provided"
+
+
+def test_miss_path_runs_embedding_once_end_to_end(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Combined: lookup_with_embedding + store_with_embedding -> exactly one embed call."""
+    calls: list[str] = []
+
+    def fake_embed(text: str) -> list[float]:
+        calls.append(text)
+        return [0.03] * 1536
+
+    monkeypatch.setattr(llm_cache, "_compute_query_embedding", fake_embed)
+
+    text, vec = llm_cache.lookup_with_embedding(
+        db,
+        cache_key="b1_combined_key_xxxxxxxxxxxxxxxx",
+        normalized_query="b1 combined",
+    )
+    assert text is None
+    llm_cache.store_with_embedding(
+        db,
+        cache_key="b1_combined_key_xxxxxxxxxxxxxxxx",
+        normalized_query="b1 combined",
+        context={},
+        response_text="answer",
+        tier_used="tier3",
+        precomputed_embedding=vec,
+    )
+    assert len(calls) == 1, f"end-to-end miss should embed once, embedded {len(calls)} times"
+
+
+def test_legacy_lookup_and_store_still_work(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Backward compat: callers that still use lookup() + store() must keep working."""
+    monkeypatch.setattr(llm_cache, "_compute_query_embedding", lambda t: [0.04] * 1536)
+
+    out = llm_cache.lookup(
+        db,
+        cache_key="b1_legacy_key_wwwwwwwwwwwwwwww",
+        normalized_query="b1 legacy",
+    )
+    assert out is None
+    llm_cache.store(
+        db,
+        cache_key="b1_legacy_key_wwwwwwwwwwwwwwww",
+        normalized_query="b1 legacy",
+        context={},
+        response_text="answer",
+        tier_used="tier3",
+    )
+    hit = llm_cache.lookup(db, cache_key="b1_legacy_key_wwwwwwwwwwwwwwww")
+    assert hit == "answer"

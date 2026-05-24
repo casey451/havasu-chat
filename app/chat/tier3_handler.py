@@ -9,10 +9,13 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Mapping, Optional
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
+
+if TYPE_CHECKING:
+    from fastapi import BackgroundTasks
 
 from app.chat import disclosure_render
 from app.chat.chat_request_context import ChatRequestContext
@@ -21,9 +24,9 @@ from app.chat.context_builder import (
     rows_for_tier3_classification,
 )
 from app.chat.intent_classifier import IntentResult
-from app.chat.llm_cache import lookup as cache_lookup
+from app.chat.llm_cache import lookup_with_embedding as cache_lookup_with_embedding
 from app.chat.llm_cache import make_cache_key
-from app.chat.llm_cache import store as cache_store
+from app.chat.llm_cache import store_with_embedding as cache_store_with_embedding
 from app.chat.local_voice_matcher import find_matching_blurbs
 from app.chat.tier2_formatter import (
     _enforce_low_tier_phone,
@@ -32,6 +35,7 @@ from app.chat.tier2_formatter import (
 from app.chat.tier3_postprocess import strip_soft_suggest
 from app.core.llm_messages import call_anthropic_messages, load_prompt
 from app.core.timezone import format_now_lake_havasu, now_lake_havasu
+from app.db.database import SessionLocal
 from app.db.models import Sponsor, SponsorStatus
 
 FALLBACK_MESSAGE = (
@@ -51,6 +55,45 @@ _INLINE_SYSTEM_PROMPT_FALLBACK = (
     "You are a Lake Havasu City concierge. Answer in 1-3 short sentences, "
     "contractions, no filler, no follow-up questions. Use only the Context block for facts."
 )
+
+
+def _store_cache_in_background(
+    db_sessionmaker,
+    cache_key: str,
+    query: str,
+    cache_context: dict,
+    text_for_cache: str,
+    precomputed_embedding: list[float] | None,
+) -> None:
+    """Best-effort cache write. Runs after the response has returned."""
+    import sentry_sdk
+
+    sentry_sdk.add_breadcrumb(
+        category="cache.store",
+        message="llm_cache.store_with_embedding (deferred)",
+        data={"cache_key_prefix": cache_key[:8], "has_embedding": precomputed_embedding is not None},
+        level="info",
+    )
+    logging.info(
+        "llm_cache.store_background.start key=%s has_embed=%s",
+        cache_key[:8],
+        precomputed_embedding is not None,
+    )
+    try:
+        with db_sessionmaker() as bg_db:
+            cache_store_with_embedding(
+                bg_db,
+                cache_key,
+                query,
+                cache_context,
+                text_for_cache,
+                tier_used="tier3",
+                precomputed_embedding=precomputed_embedding,
+            )
+        logging.info("llm_cache.store_background.ok key=%s", cache_key[:8])
+    except Exception:
+        sentry_sdk.capture_exception()
+        logging.exception("llm_cache.store_background.fail key=%s", cache_key[:8])
 
 
 def _load_tier3_system_prompt() -> str:
@@ -171,6 +214,7 @@ def answer_with_tier3(
     now_line: str | None = None,
     organic_context: Optional[list[Mapping[str, Any]]] = None,
     chat_ctx: ChatRequestContext | None = None,
+    background_tasks: "BackgroundTasks | None" = None,
 ) -> tuple[str, int | None, int | None, int | None]:
     """Return (assistant_text, total_tokens, llm_input_tokens, llm_output_tokens). Never raises."""
     api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
@@ -195,7 +239,9 @@ def answer_with_tier3(
                 cache_context[k] = v
     cache_context["_today"] = now_lake_havasu().date().isoformat()
     cache_key = make_cache_key(query, cache_context)
-    cached_response = cache_lookup(db, cache_key, normalized_query=query)
+    cached_response, precomputed_embedding = cache_lookup_with_embedding(
+        db, cache_key, normalized_query=query
+    )
     if cached_response:
         logging.info("tier3: cache hit (key=%s)", cache_key[:8])
         if is_confidence_tier_enabled():
@@ -273,14 +319,26 @@ def answer_with_tier3(
         rows = rows_for_tier3_classification(intent_result, db)
         cleaned_text = _enforce_low_tier_phone(cleaned_text, rows)
 
-    cache_store(
-        db,
-        cache_key,
-        query,
-        cache_context,
-        text_for_cache,
-        tier_used="tier3",
-    )
+    if background_tasks is not None:
+        background_tasks.add_task(
+            _store_cache_in_background,
+            SessionLocal,
+            cache_key,
+            query,
+            cache_context,
+            text_for_cache,
+            precomputed_embedding,
+        )
+    else:
+        cache_store_with_embedding(
+            db,
+            cache_key,
+            query,
+            cache_context,
+            text_for_cache,
+            tier_used="tier3",
+            precomputed_embedding=precomputed_embedding,
+        )
 
     if sponsored_block is not None:
         cleaned_text = _inject_sponsored_block(cleaned_text, sponsored_block)

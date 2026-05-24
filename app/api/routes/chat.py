@@ -65,6 +65,7 @@ def post_concierge_chat(
         client_ip=str(request.client.host) if request.client else None,
         accept_language=request.headers.get("accept-language"),
         preferred_mode=preferred_mode,
+        background_tasks=background_tasks,
     )
     if result.tier_used == "3" and result.chat_log_id:
         background_tasks.add_task(

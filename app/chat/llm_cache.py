@@ -152,11 +152,7 @@ def _bump_hit_telemetry(db, row):
             pass
 
 
-def _similarity_lookup(db, normalized_query):
-    nq = (normalized_query or "").strip()
-    if not nq:
-        return None
-    incoming = _compute_query_embedding(nq)
+def _similarity_scan_with_embedding(db, incoming):
     if incoming is None:
         return None
     now = datetime.now(UTC)
@@ -198,6 +194,51 @@ def _similarity_lookup(db, normalized_query):
     return cached_text
 
 
+def _similarity_lookup(db, normalized_query):
+    nq = (normalized_query or "").strip()
+    if not nq:
+        return None
+    incoming = _compute_query_embedding(nq)
+    if incoming is None:
+        return None
+    return _similarity_scan_with_embedding(db, incoming)
+
+
+def lookup_with_embedding(db, cache_key, normalized_query=None):
+    """Lookup variant that also returns the embedding computed for similarity fallback."""
+    if cache_key:
+        try:
+            row = db.scalars(
+                select(LlmResponseCache)
+                .where(LlmResponseCache.cache_key == cache_key)
+                .limit(1)
+            ).first()
+        except Exception:
+            logging.exception("llm_cache.lookup: select failed (key=%s)", cache_key[:8])
+            return None, None
+        fresh_exact_hit = row is not None and row.rubric_version == _RUBRIC_VERSION
+        if fresh_exact_hit and row.ttl_until is not None:
+            ttl = row.ttl_until
+            if ttl.tzinfo is None:
+                ttl = ttl.replace(tzinfo=UTC)
+            if ttl < datetime.now(UTC):
+                fresh_exact_hit = False
+        if fresh_exact_hit:
+            cached_text = row.response_text
+            _bump_hit_telemetry(db, row)
+            return cached_text, None
+    if normalized_query:
+        nq = (normalized_query or "").strip()
+        if not nq:
+            return None, None
+        embedding = _compute_query_embedding(nq)
+        if embedding is None:
+            return None, None
+        cached_text = _similarity_scan_with_embedding(db, embedding)
+        return cached_text, embedding
+    return None, None
+
+
 def lookup(db, cache_key, normalized_query=None):
     if not cache_key:
         if normalized_query:
@@ -228,20 +269,28 @@ def lookup(db, cache_key, normalized_query=None):
     return None
 
 
-def store(db, cache_key, normalized_query, context, response_text, tier_used, ttl_days=None):
-    """Persist ``response_text`` at insert time.
-
-    Tier 3 callers (see ``tier3_handler.answer_with_tier3``) store **raw** LLM
-    output so deterministic post-processors can run on cache hits without stale
-    hedges after flag flips (Backlog #49).
-    """
+def store_with_embedding(
+    db,
+    cache_key,
+    normalized_query,
+    context,
+    response_text,
+    tier_used,
+    *,
+    precomputed_embedding=None,
+    ttl_days=None,
+):
+    """Store variant that accepts a pre-computed embedding vector."""
     if not response_text or not cache_key:
         return
     nq = (normalized_query or "").strip().lower()
     ctx_hash = _hash_context(context)
     days = ttl_days if (ttl_days is not None and ttl_days > 0) else DEFAULT_TTL_DAYS
     ttl_until = datetime.now(UTC) + timedelta(days=days)
-    embedding_blob = _serialize_embedding(_compute_query_embedding(nq))
+    if precomputed_embedding is not None:
+        embedding_blob = _serialize_embedding(precomputed_embedding)
+    else:
+        embedding_blob = _serialize_embedding(_compute_query_embedding(nq))
     try:
         existing = db.scalars(
             select(LlmResponseCache)
@@ -281,6 +330,24 @@ def store(db, cache_key, normalized_query, context, response_text, tier_used, tt
             db.rollback()
         except Exception:
             pass
+
+
+def store(db, cache_key, normalized_query, context, response_text, tier_used, ttl_days=None):
+    """Persist ``response_text`` at insert time.
+
+    Tier 3 callers (see ``tier3_handler.answer_with_tier3``) store **raw** LLM
+    output so deterministic post-processors can run on cache hits without stale
+    hedges after flag flips (Backlog #49).
+    """
+    store_with_embedding(
+        db,
+        cache_key,
+        normalized_query,
+        context,
+        response_text,
+        tier_used,
+        ttl_days=ttl_days,
+    )
 
 
 def get_rubric_version() -> str:

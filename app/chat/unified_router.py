@@ -14,8 +14,11 @@ import os
 import re
 import time
 from dataclasses import dataclass, field, replace
-from typing import Any, Mapping
+from typing import TYPE_CHECKING, Any, Mapping
 from uuid import uuid4
+
+if TYPE_CHECKING:
+    from fastapi import BackgroundTasks
 
 from sqlalchemy import or_ as _sa_or
 from sqlalchemy.orm import Session
@@ -463,6 +466,7 @@ def _handle_ask(
     router_meta: dict | None = None,
     component_meta: dict | None = None,
     chat_ctx: ChatRequestContext | None = None,
+    background_tasks: "BackgroundTasks | None" = None,
 ) -> tuple[str | None, str, int | None, int | None, int | None]:
     tier1 = try_tier1(query, intent_result, db)
     if tier1 is not None:
@@ -489,6 +493,7 @@ def _handle_ask(
                 now_line=now_line,
                 organic_context=organic_ctx,
                 chat_ctx=chat_ctx,
+                background_tasks=background_tasks,
             )
             return text, "3", total, tin, tout
         if router_meta is not None:
@@ -521,6 +526,7 @@ def _handle_ask(
                 now_line=now_line,
                 organic_context=organic_ctx,
                 chat_ctx=chat_ctx,
+                background_tasks=background_tasks,
             )
             return text, "3", total, tin, tout
         organic_ctx = _organic_context_for_tier3(routed_intent, db)
@@ -532,6 +538,7 @@ def _handle_ask(
             now_line=now_line,
             organic_context=organic_ctx,
             chat_ctx=chat_ctx,
+            background_tasks=background_tasks,
         )
         return text, "3", total, tin, tout
     if _is_explicit_rec(query):
@@ -552,6 +559,7 @@ def _handle_ask(
             now_line=now_line,
             organic_context=organic_ctx,
             chat_ctx=chat_ctx,
+            background_tasks=background_tasks,
         )
         return text, "3", total, tin, tout
     t2_text, t2_total, t2_in, t2_out = try_tier2_with_usage(
@@ -572,6 +580,7 @@ def _handle_ask(
         now_line=now_line,
         organic_context=organic_ctx,
         chat_ctx=chat_ctx,
+        background_tasks=background_tasks,
     )
     return text, "3", total, tin, tout
 
@@ -698,6 +707,7 @@ def route(
     accept_language: str | None = None,
     preferred_mode: str | None = None,
     temperature_f_override: float | None = None,
+    background_tasks: "BackgroundTasks | None" = None,
 ) -> ChatResponse:
     disclosure_render.reset_decision_context()
     t0 = time.perf_counter()
@@ -907,6 +917,7 @@ def route(
                     router_meta=router_meta,
                     component_meta=component_meta,
                     chat_ctx=chat_ctx,
+                    background_tasks=background_tasks,
                 )
                 if text is None:
                     return _finish(
@@ -927,6 +938,7 @@ def route(
                     router_meta=router_meta,
                     component_meta=component_meta,
                     chat_ctx=chat_ctx,
+                    background_tasks=background_tasks,
                 )
             if router_meta:
                 response_mode = (router_meta.get("mode") or response_mode)
@@ -950,6 +962,7 @@ def route(
                 now_line=now_line,
                 component_meta=component_meta,
                 chat_ctx=chat_ctx,
+                background_tasks=background_tasks,
             )
     except Exception:
         logging.exception("unified_router: mode handler failed")
