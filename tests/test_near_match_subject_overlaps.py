@@ -62,11 +62,12 @@ class NearMatchSubjectOverlapsTests(unittest.TestCase):
     def test_where_is_library_still_works(self) -> None:
         self.assertEqual(near_match_subject_tokens("where is the library"), frozenset({"library"}))
 
-    def test_empty_query_returns_true(self) -> None:
-        self.assertTrue(near_match_subject_overlaps("", "Heat Hotel"))
+    def test_empty_query_returns_false(self) -> None:
+        self.assertFalse(near_match_subject_overlaps("", "Heat Hotel"))
 
-    def test_all_category_words_in_query_falls_back_to_true(self) -> None:
+    def test_all_category_words_requires_shared_token(self) -> None:
         self.assertTrue(near_match_subject_overlaps("rating for the hotel", "Heat Hotel"))
+        self.assertFalse(near_match_subject_overlaps("place near me", "Heat Hotel"))
 
 
 if __name__ == "__main__":

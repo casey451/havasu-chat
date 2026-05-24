@@ -253,14 +253,20 @@ def near_match_subject_overlaps(query: str, canonical_name: str) -> bool:
          partial-ratio-fuzzed against name tokens >= 5 chars at threshold 80
          to preserve severe-typo near-matches (e.g. 'mdshrkbrwry' ~ 'mudshark').
 
-    When the query has no content tokens at all (all category words), falls
-    back to permissive True — at that point the user hasn't named a specific
-    entity, and the near-match's caller is free to surface the closest catalog
-    row.
+    When the query has no content tokens at all (all category words), require
+    shared raw-token overlap with the canonical name before returning True.
+    Deictic tokens (near, me, place, …) are not entity-identifying and are
+    treated like category words for this fail-open guard.
     """
     q_subjects = _general_subject_tokens(query)
-    if not q_subjects:
-        return True  # query is all category words — preserve original behavior
+    _deictic_tokens = frozenset({"near", "me", "here", "there", "around", "nearby", "place"})
+    category_only_query = not q_subjects or q_subjects <= _deictic_tokens
+    if category_only_query:
+        raw_query_tokens = frozenset(re.findall(r"[a-z0-9]+", (query or "").lower()))
+        if raw_query_tokens & _CATEGORY_TOKENS:
+            name_raw = frozenset(re.findall(r"[a-z0-9]+", (canonical_name or "").lower()))
+            return bool(raw_query_tokens & name_raw)
+        return False
 
     name_tokens = frozenset(
         t for t in re.findall(r"[a-z0-9]+", (canonical_name or "").lower())

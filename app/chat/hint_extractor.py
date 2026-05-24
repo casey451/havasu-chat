@@ -21,6 +21,14 @@ try:
 except ImportError:  # pragma: no cover
     OpenAI = None  # type: ignore[misc, assignment]
 
+# Soft-budget for prompt-tuning observability. Bumped from 300/100 to 400/100
+# after Phase 7.5 close-out empirically observed inp=~378 per call. Real prompt
+# at prompts/hint_extractor.txt is ~370 tokens; the system intends 100-token
+# response headroom. Bumping inp avoids 22× warning noise per HALT 3 run
+# while preserving the warning's purpose (catching unexpected ballooning).
+_SOFT_BUDGET_INP = 400
+_SOFT_BUDGET_OUT = 100
+
 
 class ExtractedHints(BaseModel):
     age: int | str | None = None
@@ -79,7 +87,7 @@ def extract_hints(query: str) -> ExtractedHints | None:
     if usage is not None:
         inp = int(getattr(usage, "prompt_tokens", 0) or 0)
         out = int(getattr(usage, "completion_tokens", 0) or 0)
-        if inp > 300 or out > 100:
+        if inp > _SOFT_BUDGET_INP or out > _SOFT_BUDGET_OUT:
             logging.warning(
                 "hint_extractor: token usage exceeds soft budget (inp=%s out=%s)",
                 inp,

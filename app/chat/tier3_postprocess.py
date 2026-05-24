@@ -126,13 +126,22 @@ _LEADING_PHRASE_REWRITES: list[tuple[re.Pattern[str], str]] = [
 # "Useful" content = URL, /contribute, named entity-shape (Capitalized Word), or
 # a digit sequence (phone, address). If a sentence has none of those, it's a
 # bare suggestion remnant and we drop it.
+# Stoplist of capitalized words that are NOT proper-noun signal on their own.
+_NOT_PROPER_NOUN = frozenset({
+    "this", "that", "these", "those", "the", "a", "an",
+    "try", "visit", "check", "consider", "see", "find",
+    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+    "today", "tomorrow", "yesterday",
+    "lake", "hotel", "restaurant", "store", "shop",
+})
+
 _USEFUL_CONTENT_RE = re.compile(
-    r"https?://|"           # URL
-    r"\bwww\.[\w\-]+\.\w+|"  # bare domain
-    r"/contribute\b|"        # slash-command pointer
-    r"\b[A-Z][a-zA-Z]{2,}|"  # at least one capitalized proper-noun-shaped word
-    r"\b\d{3}|"              # phone area code or address number
-    r"@\w+",                 # social / email handle
+    r"https?://|"
+    r"\bwww\.[\w\-]+\.\w+|"
+    r"/contribute\b|"
+    r"\b[A-Z][a-zA-Z]{2,}(?:\s+[A-Z][a-zA-Z]{1,})+|"  # multi-word proper noun phrase
+    r"\b\d{3,}|"
+    r"@\w+",
 )
 
 
@@ -143,7 +152,12 @@ def _is_sentence_useful(sentence: str) -> bool:
     # Pure punctuation / whitespace remains? Drop.
     if not any(c.isalnum() for c in s):
         return False
-    return bool(_USEFUL_CONTENT_RE.search(s))
+    if _USEFUL_CONTENT_RE.search(s):
+        return True
+    for m in re.finditer(r"\b[A-Z][a-zA-Z]{2,}\b", s):
+        if m.group(0).lower() not in _NOT_PROPER_NOUN:
+            return True
+    return False
 
 
 def _split_sentences(text: str) -> list[str]:
