@@ -18,7 +18,9 @@ compatibility; Playwright manages HTTP for live lookups.
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 from typing import Any, Final
 
 import httpx
@@ -76,6 +78,7 @@ def _fetch_public_search_payload(
     from playwright.sync_api import sync_playwright
 
     captured: dict[str, Any] | None = None
+    session_cookies = _parse_session_cookies((os.getenv("AZCC_SESSION_COOKIE") or "").strip())
 
     def _on_response(response) -> None:
         nonlocal captured
@@ -93,7 +96,20 @@ def _fetch_public_search_payload(
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         try:
-            page = browser.new_page()
+            context = browser.new_context()
+            if session_cookies:
+                try:
+                    context.add_cookies(session_cookies)
+                    logger.info(
+                        "azcc_towing_client.cookie_primed",
+                        extra={"count": len(session_cookies)},
+                    )
+                except Exception:
+                    logger.warning(
+                        "azcc_towing_client.cookie_prime_failed",
+                        exc_info=True,
+                    )
+            page = context.new_page()
             page.on("response", _on_response)
             page.set_default_navigation_timeout(120_000)
             page.set_default_timeout(60_000)
@@ -122,12 +138,42 @@ def _fetch_public_search_payload(
             if captured is not None:
                 return captured
 
-            # Captcha gate — portal shows image validation instead of API rows.
+            # Captcha gate -- portal shows image validation instead of API rows.
             if page.get_by_text("User validation required", exact=False).count():
-                logger.info(
-                    "azcc_towing_client.captcha_blocked",
-                    extra={"name": query},
-                )
+                from app.contrib import _azcc_captcha_solver as _solver
+
+                if _solver.is_tesseract_enabled():
+                    max_retries = _solver.get_max_retries()
+                    for _attempt in range(max_retries):
+                        img_locator = page.locator("img.captcha-image").first
+                        if not img_locator.count():
+                            break
+                        src = img_locator.get_attribute("src") or ""
+                        guess = _solver.solve_captcha_image(src)
+                        if guess:
+                            page.locator("input[placeholder*='Enter the text']").first.fill(guess)
+                            page.get_by_role("button", name="Verify").click()
+                            page.wait_for_timeout(3_000)
+                            if captured is not None:
+                                return captured
+                        refresh = page.locator(
+                            "button[aria-label*='refresh'], .captcha-refresh"
+                        ).first
+                        if refresh.count():
+                            try:
+                                refresh.click()
+                                page.wait_for_timeout(800)
+                            except Exception:
+                                break
+                    logger.info(
+                        "azcc_towing_client.captcha_unsolved",
+                        extra={"name": query, "attempts": max_retries},
+                    )
+                else:
+                    logger.info(
+                        "azcc_towing_client.captcha_blocked",
+                        extra={"name": query},
+                    )
                 return {"succeeded": False, "data": []}
 
             # Fall back to parsing any visible mat-table rows if API wasn't intercepted.
@@ -191,4 +237,34 @@ def _normalize_search_rows(payload: Any) -> list[dict[str, Any]]:
         if status is not None:
             normalized["status"] = str(status).strip()
         out.append(normalized)
+    return out
+
+
+def _parse_session_cookies(raw: str) -> list[dict[str, Any]]:
+    """Parse AZCC_SESSION_COOKIE env value (JSON list of cookie dicts).
+
+    Returns [] on empty, malformed, or non-list input. Each cookie dict must
+    have at minimum 'name' and 'value'; other keys passed through to
+    Playwright's context.add_cookies as-is. Domain defaults to '.azcc.gov'
+    when absent so operator-pasted cookies from the seed helper work without
+    edits.
+    """
+    if not raw.strip():
+        return []
+    try:
+        parsed = json.loads(raw)
+    except Exception:
+        logger.warning("azcc_towing_client.cookie_parse_failed")
+        return []
+    if not isinstance(parsed, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for c in parsed:
+        if not isinstance(c, dict):
+            continue
+        if "name" not in c or "value" not in c:
+            continue
+        if "domain" not in c and "url" not in c:
+            c = {**c, "domain": ".azcc.gov", "path": "/"}
+        out.append(c)
     return out

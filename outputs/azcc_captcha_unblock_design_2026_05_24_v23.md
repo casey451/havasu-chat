@@ -2,7 +2,8 @@
 
 **Authored:** 2026-05-24 (v23 session, sub-agent A).
 **Predecessor:** `outputs/chrome_mcp_captcha_recon_v22.md` (v22 parallel-lane recon).
-**Status:** scope-only design doc; no code shipped this session.
+**Amended:** 2026-05-24 v25 — Q3 answered empirically; see `outputs/azcc_derisk_findings_2026_05_24_v25.md`.
+**Status:** scope-only design doc; no code shipped. v25 amendment shifts path (c) to cookie-primary.
 
 ---
 
@@ -44,9 +45,11 @@ The AZCC towing verifier (V1.5 Layer-4 bundle ticket #21, wave-3) currently soft
 
 **Effort estimate:** S (1-2 hours including Docker tweak + tests).
 
-**Expected success rate:** 50-70% per attempt on mild-distortion 6-char captchas (Tesseract baseline for clean-ish synthetic captchas). With a 3-attempt retry loop using the refresh button, effective success approaches 90-95%.
+**Expected success rate (v23 estimate, superseded by v25):** ~~50-70% per attempt~~. **v25 empirical floor:** Tesseract 4.1.1 (likely Nixpacks default) achieves **23-25% first-try exact-match** on synthetic 200x80 mixed-case 6-char captchas (`outputs/azcc_derisk_findings_2026_05_24_v25.md` Section B). At 25%/try, 3 attempts yield ~58% effective success; **9+ attempts** are needed for 90%+. Case-distinction and similar-glyph confusion dominate; preprocessing does not fix this.
 
-**Risk + mitigation:** AZCC could rate-limit refresh requests (mitigation: cap retries at 3, fall through to `skipped_no_match`). AZCC could detect repeated OCR-style guesses and tighten distortion (mitigation: low-volume verifier, batch sizes are dozens per pass per `scripts.azcc_towing_verify`, not thousands -- detection risk is low). Tesseract may produce confident-wrong answers (mitigation: rely on the portal's own validation -- a wrong solve just yields another captcha modal, which the retry loop handles).
+**v25 recommendation:** path (a) is **fallback only, behind feature flag default-off** — not a viable standalone primary. Do not ship Tesseract binary until flag enabled (defers Q4 image-size impact).
+
+**Risk + mitigation:** AZCC could rate-limit refresh requests (mitigation: **cap Tesseract retries at 3 max** regardless of math; fall through to `skipped_no_match` or cookie re-seed). Q5 refresh rate-limit empirics are now **CRITICAL** — a 9-retry loop is non-viable if AZCC throttles refresh. Tesseract may produce confident-wrong answers (mitigation: rely on portal validation; wrong solve yields another modal).
 
 ---
 
@@ -66,25 +69,29 @@ The AZCC towing verifier (V1.5 Layer-4 bundle ticket #21, wave-3) currently soft
 
 ---
 
-### Path (c) -- Hybrid (Tesseract first, manual cookie fallback, soft-fail terminal)
+### Path (c) -- Hybrid (cookie first, Tesseract fallback, soft-fail terminal)
 
-**Deps added:** same as path (a).
+**Deps added:** same as path (a), but Tesseract install is **deferred** until `AZCC_TESSERACT_ENABLED=1` (or equivalent feature flag).
 
-**Code changes:** combines (a) and (b). At captcha-detection time the client first checks for `AZCC_SESSION_COOKIE` and uses it as a session prime (skips the captcha modal entirely if the cookie is still good). On captcha modal appearance, it runs the Tesseract solver with 3 refresh-retries. If all OCR attempts fail and no cookie is available, fall through to today's `skipped_no_match` behavior. Estimate +50 LOC in `azcc_towing_client.py`, +70 LOC new solver module, +40 LOC seed helper.
+**Code changes:** combines (a) and (b). At captcha-detection time the client **first** checks for `AZCC_SESSION_COOKIE` and uses it as a session prime (skips the captcha modal entirely if the cookie is still good). On captcha modal appearance, if feature flag enabled, run the Tesseract solver with **max 3 refresh-retries** (conservative cap pending Q5 empirics). If OCR exhausted, no cookie, or flag off, fall through to today's `skipped_no_match` behavior. Estimate +50 LOC in `azcc_towing_client.py`, +70 LOC new solver module (flag-gated), +40 LOC seed helper.
 
-**Docker/Railway changes:** same as path (a) -- Tesseract binary install.
+**Docker/Railway changes:** Tesseract binary install **only when feature flag path is enabled**; ship cookie infra first with zero image growth.
 
-**Effort estimate:** S-M (2-3 hours).
+**Effort estimate:** S-M (3-4 hours) — cookie infra is now load-bearing, not optional.
 
-**Expected success rate:** 95%+ when cookie is fresh OR Tesseract succeeds; soft-fail when both fail. Strictly dominates (a) and (b) individually.
+**Expected success rate:** ~100% while cookie is fresh (Q1 TTL still unverified); Tesseract fallback adds ~58% effective success over 3 tries at v25-measured 25%/try — insufficient alone. Soft-fail when both fail.
 
-**Risk + mitigation:** code-path complexity grows (mitigation: keep the solver and cookie-seed code in separate small modules; the client only orchestrates). Two new failure modes to test (mitigation: see section 5).
+**Risk + mitigation:** cookie staleness mid-pass is now the primary failure mode (mitigation: Q1 TTL probe, chunk batch sizes, detect re-modal mid-pass). Code-path complexity grows (mitigation: separate small modules; client orchestrates only). Two new failure modes to test (mitigation: see section 5).
 
 ---
 
 ## Section 3 -- Recommendation
 
-**Concur with v22 recon: ship path (c) hybrid.** The marginal effort over path (a) alone is small (an env-var branch and a seed helper script), and the operational upside is large -- when Tesseract degrades (e.g. AZCC tightens distortion), the manual cookie path keeps the verifier hot without any code change. When the operator forgets to seed, Tesseract carries the load. The only scenario that yields zero matches is both-paths-failed, which is no worse than today's terminal soft-fail. Path (b) alone is rejected because it puts a recurring manual burden on Casey for every pass and risks mid-pass cookie expiry; path (a) alone is rejected because it leaves no fallback when AZCC adapts the captcha. The hybrid is the only path that preserves graceful degradation in both directions.
+**Ship path (c) hybrid with cookie-primary ordering (v25 revision).** v25 empirical probe (`outputs/azcc_derisk_findings_2026_05_24_v25.md`) shows Tesseract 4.1.1 at 23-25%/try — 2-3x below the v23 50-70% estimate — so OCR cannot carry the load alone. Cookie seeding is the primary unblock; Tesseract is a **feature-flag fallback default-off**.
+
+The marginal effort over path (b) alone is modest (+flag-gated solver module, +3-retry cap). Operational upside: ship cookie path immediately without 30 MB Tesseract in the image; enable OCR later if cookie ops prove burdensome or v5 re-probe shows better accuracy.
+
+Path (b) alone is rejected because mid-pass cookie expiry (Q1 unverified) risks silent zero-yield without OCR fallback. Path (a) alone is rejected because 23-25%/try requires 9+ retries for 90% success — impractical without Q5 rate-limit clearance. Path (c) cookie-first preserves graceful degradation: fresh cookie → full yield; stale cookie + flag off → today's soft-fail; stale cookie + flag on → modest OCR lift.
 
 ---
 
@@ -105,18 +112,19 @@ inside _fetch_public_search_payload:
 
     # NEW: captcha-modal branch (replaces today's lines 126-131)
     if page has text "User validation required":
-        for attempt in 1..3:
-            img_b64 = locate captcha img element, read src data-URL
-            decoded = base64-decode and Pillow-open
-            preprocessed = greyscale -> threshold -> denoise
-            guess = pytesseract.image_to_string(preprocessed, alphanum-whitelist)
-            if guess looks like 6 alphanumeric chars:
-                fill captcha input with guess
-                click Verify
-                wait briefly for XHR or new modal
-                if captured (XHR fired) -> return captured
-            if modal still present -> click refresh, loop
-        # all OCR attempts exhausted
+        if env AZCC_TESSERACT_ENABLED:
+            for attempt in 1..AZCC_TESSERACT_MAX_RETRIES (default 3):
+                img_b64 = locate captcha img element, read src data-URL
+                decoded = base64-decode and Pillow-open
+                preprocessed = greyscale -> threshold -> denoise
+                guess = pytesseract.image_to_string(preprocessed, alphanum-whitelist)
+                if guess looks like 6 alphanumeric chars:
+                    fill captcha input with guess
+                    click Verify
+                    wait briefly for XHR or new modal
+                    if captured (XHR fired) -> return captured
+                if modal still present -> click refresh, loop
+        # OCR disabled, exhausted, or no cookie re-seed available
         log azcc_towing_client.captcha_unsolved
         return {"succeeded": False, "data": []}   # same soft-fail as today
 
@@ -152,13 +160,6 @@ The function signature and return shape are unchanged so `scripts/azcc_towing_ve
 
 ## Section 6 -- Open questions for operator
 
-1. **Session cookie TTL.** v22 recon estimated ~30 min but did not measure. Before shipping path (c), should we run a one-shot empirical probe (solve manually, then poll the API at 5/15/30/60 min) to size the operator re-seed cadence? Without this, the cookie branch may quietly stop working mid-pass.
-2. **Cookie scope.** Is the AZCC session cookie HttpOnly / Secure / SameSite=Strict? If Strict, the cookie may not survive cross-domain redirects in Playwright contexts. v22 recon did not capture `Set-Cookie` headers (the relevant XHR fired before `read_network_requests` was armed).
-3. **Tesseract version pin.** Tesseract 5.x vs 4.x have materially different accuracy on noisy captchas. Do we pin `tesseract-ocr >= 5` in the Dockerfile, accept whatever Railway Nixpacks ships, or vendor a specific version?
-4. **Railway deploy-tier impact.** Adding a ~30 MB binary to the image pushes build time and cold-start. Acceptable? Or should the AZCC verifier move to a separate worker image so the main API stays lean?
-5. **Refresh rate-limit empirics.** Does AZCC throttle the captcha-refresh endpoint? If yes, the 3-retry loop in path (a)/(c) may itself trip a rate limiter. Worth a probe before shipping.
-6. **Captcha image dimensions sanity-check.** v22 recon reported 200x80 px from DOM attributes. The base64 payload at ~9.3 KB is on the high side for a 200x80 PNG -- worth decoding one to confirm the rendered size matches, since Tesseract preprocessing depends on knowing the true pixel grid.
-
----
-
-*End of design doc. No code changes shipped; this is a scope-only artifact for Casey to review before authorizing a code-ship wave.*
+| # | Question | Status (post-v25) | Priority | Notes |
+|---|----------|-------------------|----------|-------|
+| 1 | **Session cookie TTL** | OPEN | **CRITICAL** | Cookie-primary path depends on this. Probe: solve manually, poll API at 5/15/30/60/120 min. ~2 hr elapsed, ~5 min act
