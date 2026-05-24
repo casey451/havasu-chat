@@ -16,6 +16,7 @@ from app.chat.tier2_schema import Tier2Filters
 
 def test_happy_path_returns_formatter_string() -> None:
     f = Tier2Filters(parser_confidence=0.9, entity_name="X", fallback_to_tier3=False)
+    q = "tell me about X happy path isolate"
     with patch("app.chat.tier2_handler.tier2_parser.parse", return_value=(f, 10, 5)):
         with patch(
             "app.chat.tier2_handler.tier2_db_query.query",
@@ -25,11 +26,12 @@ def test_happy_path_returns_formatter_string() -> None:
                 "app.chat.tier2_handler.tier2_formatter.format",
                 return_value=("Final answer.", 8, 3),
             ):
-                assert answer_with_tier2("tell me about X") == "Final answer."
+                assert answer_with_tier2(q) == "Final answer."
 
 
 def test_try_tier2_with_usage_happy_path_token_sums() -> None:
     f = Tier2Filters(parser_confidence=0.9, entity_name="X", fallback_to_tier3=False)
+    q = "tell me about X token sums isolate"
     with patch("app.chat.tier2_handler.tier2_parser.parse", return_value=(f, 10, 5)):
         with patch(
             "app.chat.tier2_handler.tier2_db_query.query",
@@ -39,7 +41,7 @@ def test_try_tier2_with_usage_happy_path_token_sums() -> None:
                 "app.chat.tier2_handler.tier2_formatter.format",
                 return_value=("Final answer.", 8, 3),
             ):
-                text, total, tin, tout = try_tier2_with_usage("tell me about X")
+                text, total, tin, tout = try_tier2_with_usage(q)
     assert text == "Final answer."
     assert tin == 18 and tout == 8 and total == 26
 
@@ -223,3 +225,91 @@ def test_non_open_now_zero_rows_still_returns_none() -> None:
                 text, total, _, _ = try_tier2_with_usage("find me a nonexistent_xyz")
     assert text is None  # original behavior preserved
     assert total is None
+
+
+# ---------------------------------------------------------------------------
+# Lane B-2 — parser + formatter cache integration (token savings)
+# ---------------------------------------------------------------------------
+
+
+def test_try_tier2_parser_cache_hit_fires_parse_once(monkeypatch) -> None:
+    """Second identical turn serves parser from cache (zero extra parse tokens)."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    class _FixedNow:
+        def strftime(self, fmt: str) -> str:
+            return datetime(2026, 5, 24, 12, 0, tzinfo=ZoneInfo("America/Phoenix")).strftime(fmt)
+
+    monkeypatch.setattr("app.chat.tier2_handler.now_lake_havasu", lambda: _FixedNow())
+    monkeypatch.setattr("app.chat.tier2_cache.now_lake_havasu", lambda: _FixedNow(), raising=False)
+
+    f = Tier2Filters(
+        parser_confidence=0.9,
+        entity_name="B2CacheEntity",
+        fallback_to_tier3=False,
+    )
+    rows = [{"type": "provider", "id": "b2-1", "name": "B2CacheEntity"}]
+    parse_calls: list[str] = []
+
+    def counting_parse(q: str):
+        parse_calls.append(q)
+        return (f, 10, 5)
+
+    query = "b2 lane parser cache integration sentinel v2"
+    with patch(
+        "app.chat.tier2_handler.tier2_business_shortcut.try_business_listing_shortcut",
+        return_value=None,
+    ):
+        with patch("app.chat.tier2_handler.tier2_parser.parse", side_effect=counting_parse):
+            with patch("app.chat.tier2_handler.tier2_db_query.query", return_value=rows):
+                with patch(
+                    "app.chat.tier2_handler.tier2_formatter.format",
+                    return_value=("Cached path answer.", 8, 3),
+                ):
+                    try_tier2_with_usage(query)
+                    text2, total2, tin2, tout2 = try_tier2_with_usage(query)
+    assert len(parse_calls) == 1
+    assert text2 == "Cached path answer."
+    assert total2 == 0 and tin2 == 0 and tout2 == 0
+
+
+def test_try_tier2_formatter_cache_hit_fires_format_once(monkeypatch) -> None:
+    """Second identical turn serves formatter from cache (zero extra format tokens)."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    class _FixedNow:
+        def strftime(self, fmt: str) -> str:
+            return datetime(2026, 5, 24, 12, 0, tzinfo=ZoneInfo("America/Phoenix")).strftime(fmt)
+
+    monkeypatch.setattr("app.chat.tier2_handler.now_lake_havasu", lambda: _FixedNow())
+
+    f = Tier2Filters(
+        parser_confidence=0.9,
+        entity_name="B2FmtEntity",
+        fallback_to_tier3=False,
+    )
+    rows = [{"type": "provider", "id": "b2-fmt-1", "name": "B2FmtEntity"}]
+    format_calls: list[str] = []
+
+    def counting_format(q: str, r):
+        format_calls.append(q)
+        return ("Formatter once.", 8, 3)
+
+    query = "b2 lane formatter cache integration sentinel v2"
+    with patch(
+        "app.chat.tier2_handler.tier2_business_shortcut.try_business_listing_shortcut",
+        return_value=None,
+    ):
+        with patch("app.chat.tier2_handler.tier2_parser.parse", return_value=(f, 0, 0)):
+            with patch("app.chat.tier2_handler.tier2_db_query.query", return_value=rows):
+                with patch(
+                    "app.chat.tier2_handler.tier2_formatter.format",
+                    side_effect=counting_format,
+                ):
+                    try_tier2_with_usage(query)
+                    text2, total2, tin2, tout2 = try_tier2_with_usage(query)
+    assert len(format_calls) == 1
+    assert text2 == "Formatter once."
+    assert tin2 == 0 and tout2 == 0 and total2 == 0

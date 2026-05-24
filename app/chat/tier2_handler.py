@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 from app.chat import (
     tier2_business_shortcut,
+    tier2_cache,
     tier2_day_agenda,
     tier2_db_query,
     tier2_formatter,
@@ -251,7 +252,15 @@ def try_tier2_with_usage(
         # LLM path so the user still gets a useful answer.
         logging.info("tier2_handler: shortcut shape matched but no provider rows; falling through")
 
-    filters, p_in, p_out = tier2_parser.parse(q)
+    today_iso = now_lake_havasu().strftime("%Y-%m-%d")
+    with SessionLocal() as db:
+        cached_filters = tier2_cache.lookup_parser(db, q, today_iso)
+        if cached_filters is not None:
+            filters, p_in, p_out = cached_filters, 0, 0
+        else:
+            filters, p_in, p_out = tier2_parser.parse(q)
+            if filters is not None:
+                tier2_cache.store_parser(db, q, today_iso, filters)
     if filters is None:
         logging.info("tier2_handler: fallback: parser error")
         return None, None, None, None
@@ -296,7 +305,14 @@ def try_tier2_with_usage(
             total = in_sum + out_sum
             return voice, total, in_sum, out_sum
 
-    text, f_in, f_out = tier2_formatter.format(q, rows)
+    with SessionLocal() as db:
+        cached_text = tier2_cache.lookup_formatter(db, q, rows)
+        if cached_text is not None:
+            text, f_in, f_out = cached_text, 0, 0
+        else:
+            text, f_in, f_out = tier2_formatter.format(q, rows)
+            if text:
+                tier2_cache.store_formatter(db, q, rows, text)
     if text is None:
         logging.info("tier2_handler: fallback: formatter error")
         return None, None, None, None
@@ -357,7 +373,14 @@ def try_tier2_with_filters_with_usage(
             total = in_sum + out_sum
             return voice, total, in_sum, out_sum
 
-    text, f_in, f_out = tier2_formatter.format(q, rows)
+    with SessionLocal() as db:
+        cached_text = tier2_cache.lookup_formatter(db, q, rows)
+        if cached_text is not None:
+            text, f_in, f_out = cached_text, 0, 0
+        else:
+            text, f_in, f_out = tier2_formatter.format(q, rows)
+            if text:
+                tier2_cache.store_formatter(db, q, rows, text)
     if text is None:
         logging.info("tier2_handler: fallback: formatter error")
         return None, None, None, None
