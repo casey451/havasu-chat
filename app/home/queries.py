@@ -295,20 +295,94 @@ def _provider_image_url(p: Provider) -> str | None:
     return None  # placeholder until photo fetch is wired
 
 
-def _hours_status(p: Provider, *, now: datetime) -> tuple[str, str]:
-    """Return (status_class, status_text) for a Provider given current time.
+_CLOSING_SOON_MINUTES = 30
 
-    `status_class` ∈ {"open", "closed"}; `status_text` is short like
-    "Open · until 6" or "Closed · opens 8 am".
 
-    Reads ``Provider.google_hours`` (the most reliable, if present),
-    then falls back to ``hours_structured``. When neither is parseable,
-    returns ("closed", "Hours unknown") — kept short to avoid drawing
-    eye into a non-fact.
+def _minutes_until_close(
+    hours: dict | None, *, now: datetime
+) -> int | None:
+    """Return minutes until the current open span ends, or ``None``.
+
+    Returns ``None`` when no parseable open span covers ``now`` (i.e.
+    we're not currently open per the structured-hours data). Used to
+    surface the ``closing-soon`` state inside ``_hours_status``.
+
+    Mirrors the open-span scan in
+    :func:`app.providers.queries.is_open_status_from_structured_hours`
+    but returns the raw delta in minutes instead of an open/closed bool.
     """
-    # TODO(step 7.5): proper hours parsing. For step 2 we render a
-    # static placeholder so the template doesn't crash on real data.
-    return "open", "Hours on profile"
+    if not hours or not isinstance(hours, dict):
+        return None
+    # Use the same weekday keys as ``is_open_status_from_structured_hours``
+    # so we read the same fields the existing helper reads. Mismatched keys
+    # silently produced ``unknown`` for every Provider on the page until
+    # this was caught -- see _hours_status smoke battery.
+    from app.providers.queries import _WEEKDAY_KEYS, _parse_hours_time
+
+    weekday_key = _WEEKDAY_KEYS[now.weekday()]
+    spans = hours.get(weekday_key)
+    if not spans:
+        return None
+
+    now_t = now.time()
+    for span in spans:
+        if not isinstance(span, dict):
+            continue
+        open_t = _parse_hours_time(str(span.get("open") or ""))
+        close_t = _parse_hours_time(str(span.get("close") or ""))
+        if open_t is None or close_t is None:
+            continue
+        if open_t <= now_t < close_t:
+            delta_minutes = (
+                close_t.hour * 60 + close_t.minute
+            ) - (now_t.hour * 60 + now_t.minute)
+            return max(0, delta_minutes)
+    return None
+
+
+def _hours_status(p: Provider, *, now: datetime) -> tuple[str, str]:
+    """Return ``(status_class, status_text)`` for a Provider.
+
+    ``status_class`` is one of:
+
+    - ``"open"`` — within hours, at least 30 minutes until close.
+    - ``"closing-soon"`` — within 30 minutes of close.
+    - ``"closed"`` — outside hours, with optional ``Opens at ...`` copy.
+    - ``"unknown"`` — no parseable hours on file. The template must
+      render plain meta text (``status_text``) without a status pill;
+      see §B5.2 ("never show a pill we can't justify with data").
+
+    Delegates to :func:`app.providers.queries.is_open_now`, which
+    already handles seasonal-hours fallback, Phoenix-tz coercion, and
+    span-by-span parsing of ``hours_structured``. This wrapper adds:
+
+    1. The ``closing-soon`` state (not surfaced by ``is_open_now``).
+    2. The ``unknown`` class for the no-data branch, replacing the
+       prior placeholder that always rendered an ``open`` pill.
+
+    Note: the spec also calls for an ``Provider.google_hours``
+    fallback when ``hours_structured`` is empty; that's a separate
+    workstream (it needs ``google_hours`` → ``hours_structured`` shape
+    normalisation in ``effective_hours_structured`` itself, not here).
+    Tracked under v1.5 inventory.
+    """
+    # Local import: ``app.providers.queries`` imports from ``app.db.models``,
+    # not from this module, so this is safe — but the import is kept lazy so
+    # ``app.home.queries`` stays cheap to import in non-render code paths.
+    from app.providers.queries import effective_hours_structured, is_open_now
+
+    is_open, status_copy = is_open_now(p, now=now)
+    if is_open is None:
+        # No parseable hours — surface as plain text, never as a pill.
+        return "unknown", "Hours on profile"
+    if is_open:
+        minutes_left = _minutes_until_close(
+            effective_hours_structured(p), now=now
+        )
+        if minutes_left is not None and minutes_left <= _CLOSING_SOON_MINUTES:
+            return "closing-soon", status_copy or "Closing soon"
+        return "open", status_copy or "Open now"
+    return "closed", status_copy or "Closed now"
 
 
 # ─────────── builders ───────────
@@ -615,7 +689,7 @@ def spotlights(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
 
 
 def categories(db: Session) -> list[dict[str, Any]]:
-    """Pros & services pill row — top business categories by listing count.
+    """Pros & services pill row -- top business categories by listing count.
 
     Pulls distinct ``Provider.category`` values, ranked by count. Static
     fallback when the catalog is too small or empty (early-stage Postgres

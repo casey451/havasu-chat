@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="/static/styles/home.css">
 </head>
 <body>
+{% if redesign %}<!-- redesign-on -->{% endif %}
 
 <div class="page">
 
@@ -32,6 +33,10 @@
     <h1>Ask <em>Hava</em>.</h1>
     <p class="mission">Search Local. Support Local. Lake <em>Havasu</em>.</p>
 
+    {# Directory search bar — hidden in the redesign-flagged hero per
+       the canonical mockup (chat composer is the centerpiece). The
+       browse affordance lives in the cat-strip + /categories pages. #}
+    {% if not redesign %}
     <!-- search-bar-include -->
     <div class="hero-search-row">
       <div class="hava-search-bar" aria-label="Search the local catalog">
@@ -55,6 +60,7 @@
       </div>
       <a class="hava-ask-hava-btn" href="/chat">Ask Hava</a>
     </div>
+    {% endif %}
 
     <form class="composer" action="/chat" method="get" role="search">
       <span class="leading">
@@ -62,7 +68,8 @@
           <circle cx="8" cy="8" r="5"/><path d="m12 12 3 3"/>
         </svg>
       </span>
-      <input type="text" name="q" placeholder="Ask Hava — what's open, what's on, who to call…" autocomplete="off">
+      <label for="hero-composer-q" class="sr-only">Ask Hava</label>
+      <input id="hero-composer-q" type="text" name="q" placeholder="Ask Hava — what's open, what's on, who to call…" autocomplete="off">
       <button class="send" type="submit" aria-label="Send">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M3 8h10m-4-4 4 4-4 4"/>
@@ -70,11 +77,11 @@
       </button>
     </form>
 
-    <div class="chips" role="list">
-      <a class="chip" href="/chat?q=what%27s+on+today" role="listitem">Today</a>
-      <a class="chip warm" href="/chat?q=what%27s+on+this+weekend" role="listitem">This Weekend</a>
-      <a class="chip" href="/chat?q=what+to+do+with+the+family" role="listitem">With the Family</a>
-    </div>
+    <ul class="chips" role="list">
+      <li><a class="chip" href="/chat?q=what%27s+on+today">Today</a></li>
+      <li><a class="chip warm" href="/chat?q=what%27s+on+this+weekend">This Weekend</a></li>
+      <li><a class="chip" href="/chat?q=what+to+do+with+the+family">With the Family</a></li>
+    </ul>
   </section>
 
   <!-- snowbird-panel-include -->
@@ -139,8 +146,10 @@
             <div class="meta">
               <span class="tag-dot{% if item.dot == 'warm' %} warm{% elif item.dot == 'live' %} live{% endif %}"></span>
               {{ item.meta_text }}
-              {% if item.status %}
-                <span class="status {{ item.status }}"><span class="dot"></span>{{ item.status_text }}</span>
+              {% if item.status and item.status != 'unknown' %}
+                <span class="status {{ item.status }}" aria-label="{{ item.status_text }}"><span class="dot"></span>{{ item.status_text }}</span>
+              {% elif item.status_text %}
+                <span class="status-text">{{ item.status_text }}</span>
               {% endif %}
             </div>
             <h3 class="name">{{ item.name }}</h3>
@@ -205,7 +214,11 @@
             <div class="meta">
               <span class="tag-dot{% if biz.dot == 'warm' %} warm{% endif %}"></span>
               {{ biz.category }}
-              <span class="status {{ biz.status }}"><span class="dot"></span>{{ biz.status_text }}</span>
+              {% if biz.status and biz.status != 'unknown' %}
+                <span class="status {{ biz.status }}" aria-label="{{ biz.status_text }}"><span class="dot"></span>{{ biz.status_text }}</span>
+              {% elif biz.status_text %}
+                <span class="status-text">{{ biz.status_text }}</span>
+              {% endif %}
             </div>
             <h3 class="name">{{ biz.name }}</h3>
             <p class="blurb">{{ biz.blurb }}</p>
@@ -291,8 +304,10 @@
             <div class="meta">
               <span class="tag-dot{% if item.dot == 'warm' %} warm{% endif %}"></span>
               {{ item.meta_text }}
-              {% if item.status %}
-                <span class="status {{ item.status }}"><span class="dot"></span>{{ item.status_text }}</span>
+              {% if item.status and item.status != 'unknown' %}
+                <span class="status {{ item.status }}" aria-label="{{ item.status_text }}"><span class="dot"></span>{{ item.status_text }}</span>
+              {% elif item.status_text %}
+                <span class="status-text">{{ item.status_text }}</span>
               {% endif %}
             </div>
             <h3 class="name">{{ item.name }}</h3>

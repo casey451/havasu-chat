@@ -55,12 +55,19 @@ def _html_escape(s: str) -> str:
     )
 
 
-def _format_phone(digits: str) -> str:
-    """Pretty-print a 10-digit US number; raw stays unformatted for tel:."""
-    d = "".join(ch for ch in digits if ch.isdigit())
-    if len(d) == 10:
-        return f"({d[0:3]}) {d[3:6]}-{d[6:10]}"
-    return digits
+def _phone_fields(raw: str) -> dict[str, str]:
+    """Return ``phone`` + ``phone_raw`` using the live NANP scrubber.
+
+    Mock fallbacks must match ``app.home.queries._format_phone`` so
+    placeholder 555-01XX numbers never reach the template as tappable
+    ``tel:`` links when the catalog is empty.
+    """
+    from app.home.queries import _format_phone
+
+    display, digits = _format_phone(raw)
+    if not display:
+        return {"phone": "", "phone_raw": ""}
+    return {"phone": display, "phone_raw": digits or ""}
 
 
 # ─────────── builders ───────────
@@ -212,8 +219,7 @@ def _build_spotlights() -> list[dict[str, Any]]:
             ),
             "image_url": "https://images.unsplash.com/photo-1607400201515-c2c41c07d307?w=900&q=80&auto=format&fit=crop",
             "image_alt": "Plumber tools and pipe fittings",
-            "phone_raw": "9285550112",
-            "phone": _format_phone("9285550112"),
+            **_phone_fields("9285550112"),
             "status": "open",
             "status_text": "Open · until 6",
             "url": "/chat?q=Aqua+Bros+Plumbing",
@@ -228,8 +234,7 @@ def _build_spotlights() -> list[dict[str, Any]]:
             ),
             "image_url": "https://images.unsplash.com/photo-1621905251918-48416bd8575a?w=900&q=80&auto=format&fit=crop",
             "image_alt": "Electrical panel with breakers",
-            "phone_raw": "9285550144",
-            "phone": _format_phone("9285550144"),
+            **_phone_fields("9285550144"),
             "status": "open",
             "status_text": "Open · until 5",
             "url": "/chat?q=Bridgewater+Electric",
@@ -244,8 +249,7 @@ def _build_spotlights() -> list[dict[str, Any]]:
             ),
             "image_url": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=900&q=80&auto=format&fit=crop",
             "image_alt": "Backyard pool with cleaning equipment",
-            "phone_raw": "9285550178",
-            "phone": _format_phone("9285550178"),
+            **_phone_fields("9285550178"),
             "status": "closed",
             "status_text": "Closed · opens 8 am",
             "url": "/chat?q=Desert+Blue+Pools",
@@ -338,8 +342,7 @@ def _build_new_on_hava() -> list[dict[str, Any]]:
             "url": "/chat?q=Desert+Clay+Studio",
             "is_pick": False,
             "is_business": True,
-            "phone_raw": "9285550199",
-            "phone": _format_phone("9285550199"),
+            **_phone_fields("9285550199"),
             "status": "open",
             "status_text": "Open · until 9",
             "dot": "accent",
