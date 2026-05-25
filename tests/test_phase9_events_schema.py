@@ -23,8 +23,14 @@ def test_migration_upgrade_downgrade_cycle(
     cfg = Config(str(root / "alembic.ini"))
     cfg.set_main_option("sqlalchemy.url", url)
 
-    command.upgrade(cfg, "head")
-    expected_head = ScriptDirectory.from_config(cfg).get_current_head()
+    # Pin to Phase 9a's revision so this test stays valid as later migrations
+    # land. Originally checked "head" but Lane B-3 (acc50395da86) added a new
+    # head on 2026-05-24, which moved get_current_head() past Phase 9a and
+    # broke the down_revision assertion. We pin to the migration this test is
+    # actually about.
+    PHASE_9A_REVISION = "a9b0c1d2e3f4"
+    command.upgrade(cfg, PHASE_9A_REVISION)
+    expected_head = PHASE_9A_REVISION
     script = ScriptDirectory.from_config(cfg)
     head_rev = script.get_revision(expected_head)
     assert head_rev is not None
