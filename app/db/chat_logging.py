@@ -37,6 +37,8 @@ def log_unified_route(
     llm_output_tokens: int | None = None,
     feedback_signal: str | None = None,
     audience_signal: "AudienceSignal | None" = None,
+    cache_status: str | None = None,
+    timing_ms: dict | None = None,
 ) -> str | None:
     """Persist one unified-router turn (assistant message + analytics). Never raises.
 
@@ -60,6 +62,8 @@ def log_unified_route(
             llm_input_tokens=llm_input_tokens,
             llm_output_tokens=llm_output_tokens,
             feedback_signal=feedback_signal[:32] if feedback_signal else None,
+            cache_status=cache_status[:32] if cache_status else None,
+            timing_ms=timing_ms,
         )
         telemetry = consume_decision()
         if telemetry is not None:

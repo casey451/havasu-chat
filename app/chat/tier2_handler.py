@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from datetime import date
 from typing import Any, Optional
 
@@ -197,6 +198,7 @@ def try_tier2_with_usage(
     *,
     component_meta: Optional[dict[str, Any]] = None,
     chat_ctx: ChatRequestContext | None = None,
+    telemetry: dict | None = None,
 ) -> tuple[Optional[str], Optional[int], Optional[int], Optional[int]]:
     """Return (response_text, llm_tokens_used, llm_input_tokens, llm_output_tokens).
 
@@ -227,17 +229,24 @@ def try_tier2_with_usage(
         if rows:
             logging.info("tier2_handler: event-intent path when=%s", event_intent["when"])
             text = tier2_catalog_render.render_tier2_events(q, rows)
+            if telemetry is not None:
+                telemetry["cache_status"] = "bypass"
             return text, 0, 0, 0
         logging.info("tier2_handler: event-intent matched but zero rows; fall through")
 
     shortcut_filters = tier2_business_shortcut.try_business_listing_shortcut(q)
     if shortcut_filters is not None:
+        t_db_start = time.perf_counter()
         rows = tier2_db_query.query(shortcut_filters, ctx=chat_ctx)
+        if telemetry is not None:
+            telemetry["tier2_db_ms"] = int((time.perf_counter() - t_db_start) * 1000)
         text = tier2_business_shortcut.render_business_listing(
             rows, shortcut_filters.category or ""
         )
         if text is not None:
             logging.info("tier2_handler: business-listing shortcut hit (zero tokens)")
+            if telemetry is not None:
+                telemetry["cache_status"] = "bypass"
             return text, 0, 0, 0
         # Phase 7.7 — honest empty listing. The shortcut matched the user-intent
         # shape, the catalog has rows matching the category, but the open_now
@@ -247,20 +256,30 @@ def try_tier2_with_usage(
             logging.info(
                 "tier2_handler: open_now zero-rows; emitting honest empty listing (shortcut path)"
             )
+            if telemetry is not None:
+                telemetry["cache_status"] = "bypass"
             return _open_now_empty_listing(shortcut_filters.category), 0, 0, 0
         # Shortcut matched the shape but returned no provider rows — fall through to the
         # LLM path so the user still gets a useful answer.
         logging.info("tier2_handler: shortcut shape matched but no provider rows; falling through")
 
     today_iso = now_lake_havasu().strftime("%Y-%m-%d")
+    parser_cache_hit = False
+    t_parser_start = time.perf_counter()
     with SessionLocal() as db:
         cached_filters = tier2_cache.lookup_parser(db, q, today_iso)
         if cached_filters is not None:
             filters, p_in, p_out = cached_filters, 0, 0
+            parser_cache_hit = True
         else:
             filters, p_in, p_out = tier2_parser.parse(q)
             if filters is not None:
                 tier2_cache.store_parser(db, q, today_iso, filters)
+            parser_cache_hit = False
+    parser_ms = int((time.perf_counter() - t_parser_start) * 1000)
+    if telemetry is not None:
+        telemetry["tier2_parser_ms"] = parser_ms
+        telemetry["tier2_parser_cache"] = "hit_exact" if parser_cache_hit else "miss"
     if filters is None:
         logging.info("tier2_handler: fallback: parser error")
         return None, None, None, None
@@ -272,7 +291,11 @@ def try_tier2_with_usage(
         return None, None, None, None
 
     filters = _normalize_tier2_filters_from_query(q, filters)
+    t_db_start = time.perf_counter()
     rows = tier2_db_query.query(filters, ctx=chat_ctx)
+    db_ms = int((time.perf_counter() - t_db_start) * 1000)
+    if telemetry is not None:
+        telemetry["tier2_db_ms"] = db_ms
     if len(rows) == 0:
         # Phase 7.7 — same honest empty listing also applies to parser-built
         # filters with the q03 shape (open_now + explicit category). The LLM
@@ -284,6 +307,8 @@ def try_tier2_with_usage(
                 "tier2_handler: parser-path open_now zero-rows; emitting honest empty listing"
             )
             pi, po = (p_in or 0), (p_out or 0)
+            if telemetry is not None:
+                telemetry["cache_status"] = "bypass"
             return _open_now_empty_listing(filters.category), pi + po, pi, po
         logging.info("tier2_handler: fallback: no matches")
         return None, None, None, None
@@ -303,16 +328,30 @@ def try_tier2_with_usage(
             in_sum = pi + (v_in or 0)
             out_sum = po + (v_out or 0)
             total = in_sum + out_sum
+            if telemetry is not None:
+                telemetry["cache_status"] = "bypass"
             return voice, total, in_sum, out_sum
 
+    fmt_cache_hit = False
+    t_fmt_start = time.perf_counter()
     with SessionLocal() as db:
         cached_text = tier2_cache.lookup_formatter(db, q, rows)
         if cached_text is not None:
             text, f_in, f_out = cached_text, 0, 0
+            fmt_cache_hit = True
         else:
             text, f_in, f_out = tier2_formatter.format(q, rows)
             if text:
                 tier2_cache.store_formatter(db, q, rows, text)
+            fmt_cache_hit = False
+    fmt_ms = int((time.perf_counter() - t_fmt_start) * 1000)
+    if telemetry is not None:
+        telemetry["tier2_fmt_ms"] = fmt_ms
+        telemetry["tier2_fmt_cache"] = "hit_exact" if fmt_cache_hit else "miss"
+        if parser_cache_hit and fmt_cache_hit:
+            telemetry["cache_status"] = "hit_exact"
+        else:
+            telemetry["cache_status"] = "miss"
     if text is None:
         logging.info("tier2_handler: fallback: formatter error")
         return None, None, None, None
@@ -337,6 +376,7 @@ def try_tier2_with_filters_with_usage(
     *,
     component_meta: Optional[dict[str, Any]] = None,
     chat_ctx: ChatRequestContext | None = None,
+    telemetry: dict | None = None,
 ) -> tuple[Optional[str], Optional[int], Optional[int], Optional[int]]:
     """Run Tier 2 using precomputed filters (skip parser).
 
@@ -357,7 +397,10 @@ def try_tier2_with_filters_with_usage(
         return None, None, None, None
 
     filters = _normalize_tier2_filters_from_query(q, filters)
+    t_db_start = time.perf_counter()
     rows = tier2_db_query.query(filters, ctx=chat_ctx)
+    if telemetry is not None:
+        telemetry["tier2_db_ms"] = int((time.perf_counter() - t_db_start) * 1000)
     if len(rows) == 0:
         logging.info("tier2_handler: fallback: no matches")
         return None, None, None, None
@@ -371,16 +414,26 @@ def try_tier2_with_filters_with_usage(
             in_sum = v_in or 0
             out_sum = v_out or 0
             total = in_sum + out_sum
+            if telemetry is not None:
+                telemetry["cache_status"] = "bypass"
             return voice, total, in_sum, out_sum
 
+    fmt_cache_hit = False
+    t_fmt_start = time.perf_counter()
     with SessionLocal() as db:
         cached_text = tier2_cache.lookup_formatter(db, q, rows)
         if cached_text is not None:
             text, f_in, f_out = cached_text, 0, 0
+            fmt_cache_hit = True
         else:
             text, f_in, f_out = tier2_formatter.format(q, rows)
             if text:
                 tier2_cache.store_formatter(db, q, rows, text)
+            fmt_cache_hit = False
+    if telemetry is not None:
+        telemetry["tier2_fmt_ms"] = int((time.perf_counter() - t_fmt_start) * 1000)
+        telemetry["tier2_fmt_cache"] = "hit_exact" if fmt_cache_hit else "miss"
+        telemetry["cache_status"] = "hit_exact" if fmt_cache_hit else "miss"
     if text is None:
         logging.info("tier2_handler: fallback: formatter error")
         return None, None, None, None

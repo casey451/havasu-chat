@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from typing import TYPE_CHECKING, Any, Mapping, Optional
 
 from sqlalchemy import or_
@@ -215,6 +216,7 @@ def answer_with_tier3(
     organic_context: Optional[list[Mapping[str, Any]]] = None,
     chat_ctx: ChatRequestContext | None = None,
     background_tasks: "BackgroundTasks | None" = None,
+    telemetry: dict | None = None,
 ) -> tuple[str, int | None, int | None, int | None]:
     """Return (assistant_text, total_tokens, llm_input_tokens, llm_output_tokens). Never raises."""
     api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
@@ -239,9 +241,21 @@ def answer_with_tier3(
                 cache_context[k] = v
     cache_context["_today"] = now_lake_havasu().date().isoformat()
     cache_key = make_cache_key(query, cache_context)
+    t_lookup_start = time.perf_counter()
     cached_response, precomputed_embedding = cache_lookup_with_embedding(
         db, cache_key, normalized_query=query
     )
+    lookup_ms = int((time.perf_counter() - t_lookup_start) * 1000)
+    if telemetry is not None:
+        telemetry["tier3_lookup_ms"] = lookup_ms
+        if cached_response is not None:
+            telemetry["cache_status"] = (
+                "hit_exact" if precomputed_embedding is None else "hit_sim"
+            )
+        else:
+            telemetry["cache_status"] = "miss"
+        if precomputed_embedding is not None:
+            telemetry["tier3_embed_ran"] = True
     if cached_response:
         logging.info("tier3: cache hit (key=%s)", cache_key[:8])
         if is_confidence_tier_enabled():
@@ -286,6 +300,7 @@ def answer_with_tier3(
             mid = f"{mid}\n\nLocal voice:\n" + "\n".join(voice_lines)
     user_text = f"User query:\n{query.strip()}\n\n{mid}\n\n{context}"
 
+    t_llm_start = time.perf_counter()
     result = call_anthropic_messages(
         system_prompt=_load_tier3_system_prompt(),
         user_text=user_text,
@@ -293,6 +308,8 @@ def answer_with_tier3(
         temperature=_TEMPERATURE,
         model=_TIER3_MODEL,
     )
+    if telemetry is not None:
+        telemetry["tier3_llm_ms"] = int((time.perf_counter() - t_llm_start) * 1000)
     if result is None:
         logging.error("tier3: OpenAI chat.completions.create failed")
         return FALLBACK_MESSAGE, None, None, None

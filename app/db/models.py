@@ -289,6 +289,10 @@ class ChatLog(Base):
         Boolean, nullable=True
     )
     disclosure_eligible: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # Lane B-3 (cache-first observability) -- per-turn cache verdict and per-stage
+    # timing breakdown. Both nullable; legacy rows remain valid.
+    cache_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    timing_ms: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
 class Program(Base):

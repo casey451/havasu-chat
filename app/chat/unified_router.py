@@ -467,9 +467,14 @@ def _handle_ask(
     component_meta: dict | None = None,
     chat_ctx: ChatRequestContext | None = None,
     background_tasks: "BackgroundTasks | None" = None,
+    telemetry: dict[str, Any] | None = None,
 ) -> tuple[str | None, str, int | None, int | None, int | None]:
+    t_t1_start = time.perf_counter()
     tier1 = try_tier1(query, intent_result, db)
     if tier1 is not None:
+        if telemetry is not None:
+            telemetry["cache_status"] = "bypass"
+            telemetry["tier1_ms"] = int((time.perf_counter() - t_t1_start) * 1000)
         return tier1, "1", None, None, None
     if _use_llm_router():
         context: dict[str, object] = {}
@@ -494,6 +499,7 @@ def _handle_ask(
                 organic_context=organic_ctx,
                 chat_ctx=chat_ctx,
                 background_tasks=background_tasks,
+                telemetry=telemetry,
             )
             return text, "3", total, tin, tout
         if router_meta is not None:
@@ -512,6 +518,7 @@ def _handle_ask(
                 decision.tier2_filters,
                 component_meta=component_meta,
                 chat_ctx=chat_ctx,
+                telemetry=telemetry,
             )
             if t2_text is not None:
                 return t2_text, "2", t2_total, t2_in, t2_out
@@ -527,6 +534,7 @@ def _handle_ask(
                 organic_context=organic_ctx,
                 chat_ctx=chat_ctx,
                 background_tasks=background_tasks,
+                telemetry=telemetry,
             )
             return text, "3", total, tin, tout
         organic_ctx = _organic_context_for_tier3(routed_intent, db)
@@ -539,6 +547,7 @@ def _handle_ask(
             organic_context=organic_ctx,
             chat_ctx=chat_ctx,
             background_tasks=background_tasks,
+            telemetry=telemetry,
         )
         return text, "3", total, tin, tout
     if _is_explicit_rec(query):
@@ -546,7 +555,10 @@ def _handle_ask(
 
         if infer_listing_category_term(query):
             t2_cat, t2_total, t2_in, t2_out = try_tier2_with_usage(
-                query, component_meta=component_meta, chat_ctx=chat_ctx
+                query,
+                component_meta=component_meta,
+                chat_ctx=chat_ctx,
+                telemetry=telemetry,
             )
             if t2_cat is not None:
                 return t2_cat, "2", t2_total, t2_in, t2_out
@@ -560,10 +572,11 @@ def _handle_ask(
             organic_context=organic_ctx,
             chat_ctx=chat_ctx,
             background_tasks=background_tasks,
+            telemetry=telemetry,
         )
         return text, "3", total, tin, tout
     t2_text, t2_total, t2_in, t2_out = try_tier2_with_usage(
-        query, component_meta=component_meta, chat_ctx=chat_ctx
+        query, component_meta=component_meta, chat_ctx=chat_ctx, telemetry=telemetry
     )
     if t2_text is not None:
         return t2_text, "2", t2_total, t2_in, t2_out
@@ -581,6 +594,7 @@ def _handle_ask(
         organic_context=organic_ctx,
         chat_ctx=chat_ctx,
         background_tasks=background_tasks,
+        telemetry=telemetry,
     )
     return text, "3", total, tin, tout
 
@@ -748,6 +762,8 @@ def route(
         voice: str | None = None,
         component_type: str = "none",
         component_data: dict | None = None,
+        cache_status: str | None = None,
+        timing_ms: dict | None = None,
     ) -> ChatResponse:
         ms = _ms()
         chat_log_id: str | None = None
@@ -768,6 +784,8 @@ def route(
                 llm_output_tokens=llm_output_tokens,
                 feedback_signal=None,
                 audience_signal=audience,
+                cache_status=cache_status,
+                timing_ms=timing_ms,
             )
         except Exception:
             logging.exception("log_unified_route wrapper failure")
@@ -792,7 +810,9 @@ def route(
         nq_safe = normalize(q_raw)
     except Exception:
         logging.exception("unified_router: normalize failed")
-        return _finish(_GRACEFUL, "ask", None, None, "placeholder")
+        return _finish(
+            _GRACEFUL, "ask", None, None, "placeholder", cache_status="na"
+        )
 
     raw_sid = (session_id or "").strip()
     session_obj: dict | None = None
@@ -810,7 +830,9 @@ def route(
         intent_result = classify(nq_safe)
     except Exception:
         logging.exception("unified_router: classify failed")
-        return _finish(_GRACEFUL, "ask", None, None, "placeholder")
+        return _finish(
+            _GRACEFUL, "ask", None, None, "placeholder", cache_status="na"
+        )
 
     try:
         extracted = extract_hints(q_raw)
@@ -884,6 +906,7 @@ def route(
     llm_tokens_used: int | None = None
     llm_input_tokens: int | None = None
     llm_output_tokens: int | None = None
+    route_telemetry: dict[str, Any] = {}
     response_mode = intent_result.mode
     response_sub_intent = intent_result.sub_intent
     response_entity = intent_result.entity
@@ -896,6 +919,7 @@ def route(
         if intent_result.mode == "ask":
             about_gap = _unknown_entity_about_gate(q_raw, intent_result, db)
             if about_gap is not None:
+                route_telemetry["cache_status"] = "na"
                 return _finish(
                     about_gap,
                     "ask",
@@ -903,6 +927,8 @@ def route(
                     intent_result.entity,
                     "gap_template",
                     None,
+                    cache_status=route_telemetry.get("cache_status"),
+                    timing_ms=route_telemetry or None,
                 )
             gap_text = _catalog_gap_response(intent_result, db)
             router_meta: dict[str, str | None] = {}
@@ -918,8 +944,10 @@ def route(
                     component_meta=component_meta,
                     chat_ctx=chat_ctx,
                     background_tasks=background_tasks,
+                    telemetry=route_telemetry,
                 )
                 if text is None:
+                    route_telemetry["cache_status"] = "na"
                     return _finish(
                         gap_text,
                         "ask",
@@ -927,6 +955,8 @@ def route(
                         intent_result.entity,
                         "gap_template",
                         None,
+                        cache_status=route_telemetry.get("cache_status"),
+                        timing_ms=route_telemetry or None,
                     )
             else:
                 text, tier_used, llm_tokens_used, llm_input_tokens, llm_output_tokens = _handle_ask(
@@ -939,18 +969,22 @@ def route(
                     component_meta=component_meta,
                     chat_ctx=chat_ctx,
                     background_tasks=background_tasks,
+                    telemetry=route_telemetry,
                 )
             if router_meta:
                 response_mode = (router_meta.get("mode") or response_mode)
                 response_sub_intent = (router_meta.get("sub_intent") or response_sub_intent)
                 response_entity = (router_meta.get("entity") or response_entity)
         elif intent_result.mode == "contribute":
+            route_telemetry["cache_status"] = "na"
             tier_used = "intake"
             text = _handle_contribute(q_raw, intent_result, db, session_id)
         elif intent_result.mode == "correct":
+            route_telemetry["cache_status"] = "na"
             tier_used = "correction"
             text = _handle_correct(q_raw, intent_result, db, session_id)
         elif intent_result.mode == "chat":
+            route_telemetry["cache_status"] = "na"
             tier_used = "chat"
             text = _handle_chat(q_raw, intent_result, db, session_id)
         else:
@@ -963,9 +997,11 @@ def route(
                 component_meta=component_meta,
                 chat_ctx=chat_ctx,
                 background_tasks=background_tasks,
+                telemetry=route_telemetry,
             )
     except Exception:
         logging.exception("unified_router: mode handler failed")
+        route_telemetry["cache_status"] = "na"
         return _finish(
             _GRACEFUL,
             intent_result.mode,
@@ -975,6 +1011,8 @@ def route(
             llm_tokens_used=None,
             llm_input_tokens=None,
             llm_output_tokens=None,
+            cache_status=route_telemetry.get("cache_status"),
+            timing_ms=route_telemetry or None,
         )
 
     if raw_sid and current_turn is not None and tier_used in ("2", "3"):
@@ -1001,4 +1039,6 @@ def route(
         voice=text,
         component_type=_component_type,
         component_data=_component_data,
+        cache_status=route_telemetry.get("cache_status"),
+        timing_ms=route_telemetry or None,
     )
