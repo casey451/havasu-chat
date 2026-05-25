@@ -1,0 +1,55 @@
+{#
+  Direction C Discover grid -- masonry of featured Havasu places.
+
+  Renders inside ``home_c.html``. Expects ``discover_cards`` in context:
+  a list of dicts produced by ``app.home.queries_c.discover_grid()``.
+
+  Pure CSS grid -- no JS. Span values (3 / 4 / 5 / 6 / 8 / 12) come from
+  the curated JSON; the 12-col rhythm collapses to 6-col at <=768px via
+  the breakpoint in ``home_c.css``.
+
+  Linking: slug-bearing cards link to ``/provider/{slug}``. Landmark
+  cards (no slug) carry ``href="#"`` until PR D5 wires category /
+  detail routes. The visual rhythm is identical for both.
+
+  Empty state: the parent template should hide this whole region when
+  ``discover_cards`` is empty -- this partial only renders the grid.
+#}
+<section class="c-discover" role="region" aria-label="Discover Havasu">
+  <header class="c-section-head">
+    <h2 class="c-section-h2"><em>Discover</em> Havasu</h2>
+    <p class="c-section-sub">Hand-picked by Hava. Photos, hours, the local read.</p>
+  </header>
+
+  <div class="c-discover-grid">
+    {% for card in discover_cards %}
+    <a class="c-card c-span-{{ card.span }}"
+       href="{% if card.slug %}/provider/{{ card.slug }}{% else %}#{% endif %}"
+       style="background-image: url('{{ card.image_url }}');"
+       aria-label="{{ card.name }}{% if card.where %}, {{ card.where }}{% endif %}">
+      {% if card.status_text %}
+      <span class="c-card-pill c-pill-{{ card.status }}">
+        <span class="c-card-dot" aria-hidden="true"></span>{{ card.status_text }}
+      </span>
+      {% endif %}
+      {% if card.pick %}
+      <span class="c-card-pick" aria-label="Hava's pick">&#9733; Hava's pick</span>
+      {% endif %}
+      <div class="c-card-scrim" aria-hidden="true"></div>
+      <div class="c-card-body">
+        <h3 class="c-card-name">{{ card.name }}</h3>
+        {% if card.meta_line or card.where %}
+        <div class="c-card-meta">
+          {% if card.meta_line %}<span>{{ card.meta_line }}</span>{% endif %}
+          {% if card.meta_line and card.where %}<span class="c-card-meta-sep" aria-hidden="true">&middot;</span>{% endif %}
+          {% if card.where %}<span class="c-card-where">{{ card.where }}</span>{% endif %}
+        </div>
+        {% endif %}
+        {% if card.blurb %}
+        <p class="c-card-blurb">{{ card.blurb }}</p>
+        {% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</section>

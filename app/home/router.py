@@ -1,16 +1,20 @@
-"""Hava — ``GET /home`` route (BUILD.md steps 1-3).
+"""Hava -- ``GET /home`` route.
 
-Step 1: static template + mocked data.
-Step 2: live Tonight / This week / New on Hava / Local pros / categories
-        (per-row mock fallback when the catalog is empty).
-Step 3: live editorial sponsor slot from ``sponsors`` table — None when
-        no record is active, which renders the "Sponsor this slot →"
-        fallback card defined in ``home.html``.
+Direction C lane: when ``HOME_REDESIGN=1`` (or ``?redesign=1`` override),
+serve the new dark-chrome template ``home_c.html``. Otherwise serve the
+legacy ``home.html`` -- unchanged from prod behavior.
 
-Posture for empty catalog: each row falls back to its mocked equivalent
-when the DB returns nothing. The sponsor slot is the exception — when no
-sponsor is active, we render the real fallback ("Sponsor this slot"), not
-the mocked Havasu Outdoor Co. card.
+Direction A's PR #5 also wired ``base["redesign"]`` into ``home.html`` to
+toggle Marquee/Supporters/etc. inside the same template. Direction C
+supersedes Direction A: the flag now switches templates entirely. We keep
+``base["redesign"] = False`` on the legacy path so any A-era template
+conditionals stay off when the flag is off.
+
+Mock-data leak gate (HAVA_DEMO_MODE): when off (default in prod), the
+legacy path's per-row fallback to mock content is suppressed. With the
+gate off, an empty DB row yields an empty list, which the template's
+``{% for ... %}`` loop quietly skips. With the gate on (demos, screenshots,
+template development), the prior behavior is preserved.
 """
 
 from __future__ import annotations
@@ -30,9 +34,11 @@ from app.db.database import get_db
 from app.db.models import User
 from app.home import (
     browse_tiles,
+    demo_mode,
     feature_flags,
     mock_data,
     queries,
+    queries_c,
     snowbird_panel,
     sponsor_store,
 )
@@ -42,6 +48,35 @@ templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
 router = APIRouter(tags=["home"])
 
+# Hand-picked hero image for D1 (Bridgewater Channel sunset).
+# D2 will swap this for a curated rotation tied to time of day + season.
+_D1_HERO_IMAGE = (
+    "https://images.unsplash.com/photo-1502082553048-f009c37129b9"
+    "?w=1800&q=85&auto=format&fit=crop"
+)
+
+
+def _empty_context() -> dict:
+    """Return the minimum keys home.html needs when mock_data is off.
+
+    Mirrors the SHAPE of mock_data.build_context() but every row is empty.
+    The legacy template's ``{% for ... %}`` loops render nothing for empty
+    lists; section headers stay visible but bodies collapse gracefully.
+    """
+    today = now_lake_havasu()
+    return {
+        "today_label": today.strftime("%A, %B ") + str(today.day),
+        "tonight_label": "Tonight" if today.hour >= 16 else "Today",
+        "added_month": today.strftime("%B"),
+        "chips": [],
+        "tonight": [],
+        "this_week": [],
+        "this_week_total": 0,
+        "new_on_hava": [],
+        "spotlights": [],
+        "categories": [],
+    }
+
 
 @router.get("/home", response_class=HTMLResponse)
 def serve_home(
@@ -49,22 +84,38 @@ def serve_home(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user),
 ) -> HTMLResponse:
-    """Render /home with live catalog data + per-row mock fallbacks.
+    """Render /home -- Direction C when flag is on, legacy when off."""
 
-    The ``redesign`` context flag toggles the §B redesign-era surface
-    (Marquee partial, Supporters wall, magazine-pacing layout, C13 a11y
-    polish). It is off by default; controlled by the ``HOME_REDESIGN``
-    env var, with a per-request ``?redesign=1`` / ``?redesign=0`` query
-    override for staff preview. See ``app.home.feature_flags``.
-    """
-    base = mock_data.build_context()
-    base["disclosure_word"] = DISCLOSURE_WORD
-    base["redesign"] = feature_flags.home_redesign_enabled(
+    redesign = feature_flags.home_redesign_enabled(
         request.query_params.get("redesign"),
     )
 
-    # Live row reads. Fall back to the mocked equivalent per-row when the
-    # DB returns empty (catalog still being populated).
+    if redesign:
+        # ---- Direction C path (D1: chrome scaffold, D2: Discover grid) ----
+        now = now_lake_havasu()
+        discover_cards = queries_c.discover_grid(db, now=now)
+        return templates.TemplateResponse(
+            request=request,
+            name="home_c.html",
+            context={
+                "today_label": now.strftime("%A, %B ") + str(now.day),
+                "now_label": now.strftime("%I:%M %p").lstrip("0"),
+                "hero_image_url": _D1_HERO_IMAGE,
+                "discover_cards": discover_cards,
+            },
+        )
+
+    # ---- Legacy path (PR #5 layout, mock-gate aware) ----
+    if demo_mode.demo_mode_enabled():
+        base = mock_data.build_context()
+    else:
+        base = _empty_context()
+
+    base["disclosure_word"] = DISCLOSURE_WORD
+    base["redesign"] = False  # Direction A conditionals stay off in prod.
+
+    # Live row reads. With HAVA_DEMO_MODE off (default), an empty DB
+    # leaves these rows empty rather than falling back to mock content.
     live_tonight = queries.tonight(db)
     live_this_week = queries.this_week(db)
     live_new = queries.new_on_hava(db)
@@ -77,7 +128,7 @@ def serve_home(
     base["this_week_total"] = queries.this_week_total(db) or base["this_week_total"]
     base["new_on_hava"] = live_new or base["new_on_hava"]
     base["spotlights"] = live_spotlights or base["spotlights"]
-    base["categories"] = live_categories  # builder has its own fallback
+    base["categories"] = live_categories or base["categories"]
 
     # Sponsor slot: live record OR None (renders the fallback card).
     base["sponsor"] = sponsor_store.get_active_sponsor(db)

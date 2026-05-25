@@ -1,0 +1,97 @@
+{# Hava /home -- Direction C (dark cinematic chrome).
+   PR D1 scaffold: topbar + tabs (visual only) + hero + composer + footer.
+   Discover grid (D2), Eat row (D3), Services grid (D4), Category pages (D5)
+   land in subsequent PRs.
+
+   This template renders only when HOME_REDESIGN=1 (or ?redesign=1 query
+   override). When the flag is off, app/home/router.py serves the legacy
+   home.html unchanged.
+
+   Context dict shape (minimal for D1):
+     today_label   -- "Sunday, May 24"
+     now_label     -- "6:14 PM"
+     hero_image_url -- hand-picked Unsplash URL for D1
+#}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Hava &mdash; Lake Havasu City</title>
+  <meta name="description" content="The AI local of Lake Havasu City. Ask Hava about plumbers, restaurants, classes, what's open, what's worth your Saturday.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles/home_c.css">
+</head>
+<body class="home-c">
+
+{# -------- topbar (sticky, dark glass) -------- #}
+<header class="c-topbar" role="banner">
+  <div class="c-topbar-inner">
+    <a href="/home" class="c-wm" aria-label="Hava home">
+      <span class="c-wm-dot" aria-hidden="true"></span>
+      <span>Hava</span>
+    </a>
+    <nav class="c-tabs" role="navigation" aria-label="Browse">
+      {# D1: tabs are visually present but inert. D5 wires them to /categories/{slug}. #}
+      <button type="button" class="c-tab is-active" aria-current="page">Today</button>
+      <button type="button" class="c-tab" disabled aria-disabled="true" title="Coming in PR D5">Eat &amp; drink</button>
+      <button type="button" class="c-tab" disabled aria-disabled="true" title="Coming in PR D5">On the water</button>
+      <button type="button" class="c-tab" disabled aria-disabled="true" title="Coming in PR D5">Things to do</button>
+      <button type="button" class="c-tab" disabled aria-disabled="true" title="Coming in PR D5">Services</button>
+    </nav>
+    <a href="/chat" class="c-ask">Ask Hava</a>
+  </div>
+</header>
+
+{# -------- hero (full-bleed cinematic photo + overlay copy + composer) -------- #}
+<section class="c-hero" role="region" aria-label="Today in Havasu">
+  <div class="c-hero-bg" aria-hidden="true" style="background-image: url('{{ hero_image_url }}');"></div>
+  <div class="c-hero-scrim" aria-hidden="true"></div>
+  <div class="c-hero-inner">
+    <div class="c-hero-meta">
+      <span class="c-live-dot" aria-hidden="true"></span>
+      <span>Open in Havasu &middot; {{ today_label }} &middot; {{ now_label }}</span>
+    </div>
+    <h1 class="c-hero-h1">Ask <em>Hava</em>.</h1>
+    <p class="c-hero-sub">Locals first. Plumbers, patios, what's open, who to call &mdash; in 1 to 3 sentences.</p>
+    <form class="c-hero-composer" action="/chat" method="get" role="search" aria-label="Ask Hava">
+      <label class="c-sr-only" for="c-hero-q">Ask Hava</label>
+      <input
+        id="c-hero-q"
+        class="c-hero-input"
+        type="text"
+        name="q"
+        placeholder="Plumber, date night, what's open&hellip;"
+        autocomplete="off"
+        maxlength="200"
+      >
+      <button type="submit" class="c-hero-send">Ask</button>
+    </form>
+  </div>
+</section>
+
+{# -------- main body: D2 Discover grid (D3 eat row + D4 services follow) -------- #}
+<main class="c-body" role="main">
+  {% if discover_cards %}
+    {% include 'components/discover_grid.html' %}
+  {% else %}
+    <p class="c-bridge">
+      Hava's editorial picks are taking a breather. The composer above still takes any question.
+    </p>
+  {% endif %}
+</main>
+
+{# -------- footer -------- #}
+<footer class="c-footer" role="contentinfo">
+  <span class="c-foot-place">Lake Havasu City</span>
+  <nav class="c-foot-nav" aria-label="Site links">
+    <a href="/about">About</a>
+    <a href="/contribute">Add a place</a>
+    <a href="/sponsor">Sponsor</a>
+    <a href="/privacy">Privacy</a>
+  </nav>
+</footer>
+
+</body>
+</html>
