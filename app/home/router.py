@@ -91,9 +91,11 @@ def serve_home(
     )
 
     if redesign:
-        # ---- Direction C path (D1: chrome scaffold, D2: Discover grid) ----
+        # ---- Direction C path (D1: chrome scaffold, D2: Discover grid,
+        #      D3: Eat & drink scroll row) ----
         now = now_lake_havasu()
         discover_cards = queries_c.discover_grid(db, now=now)
+        eat_cards = queries_c.eat_row(db, now=now)
         return templates.TemplateResponse(
             request=request,
             name="home_c.html",
@@ -102,6 +104,7 @@ def serve_home(
                 "now_label": now.strftime("%I:%M %p").lstrip("0"),
                 "hero_image_url": _D1_HERO_IMAGE,
                 "discover_cards": discover_cards,
+                "eat_cards": eat_cards,
             },
         )
 

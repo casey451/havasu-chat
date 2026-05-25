@@ -7,10 +7,12 @@
    override). When the flag is off, app/home/router.py serves the legacy
    home.html unchanged.
 
-   Context dict shape (minimal for D1):
-     today_label   -- "Sunday, May 24"
-     now_label     -- "6:14 PM"
+   Context dict shape (D1 + D2 + D3):
+     today_label    -- "Sunday, May 24"
+     now_label      -- "6:14 PM"
      hero_image_url -- hand-picked Unsplash URL for D1
+     discover_cards -- list of dicts from queries_c.discover_grid() (D2)
+     eat_cards      -- list of dicts from queries_c.eat_row() (D3)
 #}<!doctype html>
 <html lang="en">
 <head>
@@ -71,13 +73,21 @@
   </div>
 </section>
 
-{# -------- main body: D2 Discover grid (D3 eat row + D4 services follow) -------- #}
+{# -------- main body: D2 Discover grid + D3 Eat row (D4 services follows) -------- #}
 <main class="c-body" role="main">
   {% if discover_cards %}
     {% include 'components/discover_grid.html' %}
   {% else %}
     <p class="c-bridge">
       Hava's editorial picks are taking a breather. The composer above still takes any question.
+    </p>
+  {% endif %}
+
+  {% if eat_cards %}
+    {% include 'components/scroll_row.html' %}
+  {% else %}
+    <p class="c-bridge c-bridge-eat">
+      Nothing's flagged as open in the kitchen right now. Try the composer for a recommendation.
     </p>
   {% endif %}
 </main>

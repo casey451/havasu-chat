@@ -1,0 +1,69 @@
+{#
+  Direction C Eat & drink scroll row -- horizontally-scrolling list of
+  open-right-now restaurant cards.
+
+  Renders inside ``home_c.html``. Expects ``eat_cards`` in context: a
+  list of dicts produced by ``app.home.queries_c.eat_row()``.
+
+  Per card (Jinja-safe defaults guaranteed by ``_build_eat_card``):
+    slug          optional Provider.slug; None -> non-linking anchor
+    name          display name
+    image_url     curated Unsplash URL or None (None -> gradient)
+    neighborhood  district label (e.g. "English Village") or ""
+    status        "open" or "closing-soon"
+    status_text   pill copy (e.g. "Open until 10")
+    rating        pre-formatted "4.5" or None (None -> hide rating span)
+
+  Scroll mechanics live in ``home_c.css``:
+    .c-scroll-wrap         outer section + horizontal scroll container
+    .c-pc                  place card (280px desktop, 240px mobile)
+    .c-pc.is-no-photo      gradient placeholder when image_url is None
+    scroll-snap-type: x mandatory + scroll-snap-align: start on cards.
+
+  Empty-state: the parent template gates this whole include with
+  ``{% if eat_cards %}`` -- when no cards, an editorial bridge line
+  renders instead (no "0 places", no empty header).
+#}
+<section class="c-eat" role="region" aria-label="Eat and drink, open right now">
+  <header class="c-section-head">
+    <h2 class="c-section-h2"><em>Eat</em> &amp; drink</h2>
+  </header>
+  <p class="c-section-sub">Open right now, by neighborhood.</p>
+
+  <div class="c-scroll-wrap">
+    <div class="c-scroll-row" role="list">
+      {% for card in eat_cards %}
+      <a class="c-pc{% if not card.image_url %} is-no-photo{% endif %}"
+         role="listitem"
+         href="{% if card.slug %}/provider/{{ card.slug }}{% else %}#{% endif %}"
+         aria-label="{{ card.name }}{% if card.neighborhood %}, {{ card.neighborhood }}{% endif %}{% if card.status_text %}, {{ card.status_text }}{% endif %}">
+        <div class="c-pc-photo"
+             {% if card.image_url %}style="background-image: url('{{ card.image_url }}');"{% endif %}
+             aria-hidden="true">
+          {% if not card.image_url %}
+          <span class="c-pc-photo-mark" aria-hidden="true">{{ card.name[:1]|upper }}</span>
+          {% endif %}
+        </div>
+        <div class="c-pc-body">
+          <h3 class="c-pc-name">{{ card.name }}</h3>
+          <div class="c-pc-meta">
+            {% if card.status_text %}
+            <span class="c-pc-status c-pill-{{ card.status }}">
+              <span class="c-pc-dot" aria-hidden="true"></span>{{ card.status_text }}
+            </span>
+            {% endif %}
+            {% if card.rating %}
+            <span class="c-pc-rating" aria-label="Rating {{ card.rating }} out of 5">
+              <span class="c-pc-star" aria-hidden="true">&#9733;</span>{{ card.rating }}
+            </span>
+            {% endif %}
+          </div>
+          {% if card.neighborhood %}
+          <div class="c-pc-where">{{ card.neighborhood }}</div>
+          {% endif %}
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
