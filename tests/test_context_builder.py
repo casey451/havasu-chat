@@ -52,19 +52,7 @@ def _intent(*, entity: str | None = None, sub: str = "OPEN_ENDED") -> IntentResu
     )
 
 
-def test_entity_matched_returns_only_matched_entity_with_details(
-    isolated_catalog: Session,
-) -> None:
-    """Phase 7 ENTITY-catalog path: when intent.entity matches, the context
-    returns ONLY that entity row (not all active providers). Verifies the
-    matched entity carries its Provider details (address/phone/website/hours)
-    via the entity_id join, and that non-matched providers (Zebra Zoo) are
-    omitted -- the Tier 3 LLM gets focused context.
-
-    Pre-Phase 7 contract listed all providers with the matched one first
-    (see test name pre-fix). New contract is matched-only (validated
-    2026-05-25 via CI #436 pytest-failure post-mortem).
-    """
+def test_entity_matched_provider_listed_first_with_details(isolated_catalog: Session) -> None:
     db = isolated_catalog
     p_other = Provider(
         provider_name="Zebra Zoo",
@@ -89,13 +77,9 @@ def test_entity_matched_returns_only_matched_entity_with_details(
     db.flush()
 
     ctx = build_context_for_tier3("hours?", _intent(entity="Target Biz LLC"), db)
-    # ENTITY catalog path: matched entity present, others omitted.
-    names = re.findall(r"^Entity: (.+)$", ctx, re.MULTILINE)
-    assert names == ["Target Biz LLC"], (
-        f"expected only matched entity, got: {names!r}"
-    )
-    assert "Zebra Zoo" not in ctx
-    # Matched entity Provider details surface via the entity_id join.
+    names = re.findall(r"^Provider: (.+)$", ctx, re.MULTILINE)
+    assert names[0] == "Target Biz LLC"
+    assert "Provider: Zebra Zoo" in ctx
     assert "address: 123 Main" in ctx
     assert "phone: 555-1212" in ctx
     assert "website: https://target.example" in ctx
@@ -277,12 +261,7 @@ def test_long_hours_truncated(isolated_catalog: Session) -> None:
     ctx = build_context_for_tier3("hours?", _intent(entity="Long Hours Biz"), db)
     assert "hours: " in ctx
     start = ctx.index("hours: ") + len("hours: ")
-    # ENTITY catalog path: hours is the last field for this entity, so the
-    # value runs to the next newline OR end-of-string (no trailing newline
-    # on the last line of the context block).
-    end = ctx.find("\n", start)
-    if end == -1:
-        end = len(ctx)
+    end = ctx.index("\n", start)
     hrs_val = ctx[start:end].strip()
     assert hrs_val.endswith("...")
     assert len(hrs_val) == 200
