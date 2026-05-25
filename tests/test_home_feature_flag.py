@@ -84,12 +84,16 @@ def test_query_override_unparseable_falls_through_to_env(
 
 
 def _has_redesign_marker(html: str) -> bool:
-    """The template renders an HTML comment marker when redesign is on.
+    """The redesign path is now a full template swap to ``home_c.html``.
 
-    We sentinel on a string rather than visual structure so this test
-    survives template churn during the rest of PR 1.
+    Direction C supersedes the Direction A in-template toggle: when the
+    flag is on, the router serves ``home_c.html`` which carries a stable
+    ``home-c`` body class and a ``c-topbar`` chrome header. We sentinel
+    on the body class -- the most stable, unambiguous marker of the new
+    template -- so this test survives Direction C template churn (D2+
+    will add Discover, Eat row, Services grid, but the chrome stays).
     """
-    return "redesign-on" in html
+    return 'class="home-c"' in html
 
 
 def test_get_home_default_no_redesign_marker(
@@ -141,7 +145,7 @@ def test_get_home_unparseable_override_falls_through_to_env(
 
 
 # Side-effect guarantee: turning the flag on must not change response status
-# (rendering must not crash) and must not strip pre-existing content blocks.
+# (rendering must not crash) and must not strip browse affordances entirely.
 def test_redesign_on_does_not_break_existing_surface(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -151,8 +155,9 @@ def test_redesign_on_does_not_break_existing_surface(
         flagged = client.get("/home?redesign=1")
     assert baseline.status_code == 200
     assert flagged.status_code == 200
-    # The pros & services strip is an unconditional hero-adjacent block that
-    # must remain in both paths so the redesign cut doesn't accidentally
-    # strip browse affordances.
+    # The legacy template carries the pros & services ``cat-strip`` block;
+    # Direction C replaces it with the sticky topbar tab nav. Both paths
+    # MUST still expose a way to browse -- we just assert the path-
+    # appropriate browse affordance on each side.
     assert "cat-strip" in baseline.text
-    assert "cat-strip" in flagged.text
+    assert "c-tabs" in flagged.text
