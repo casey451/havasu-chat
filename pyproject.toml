@@ -7,6 +7,12 @@ extend-exclude = [
     "scripts/confabulation_eval_results/",
     "relay/",
     "alembic/versions/",
+    # Cowork scratchpad: ad-hoc diagnostic scripts authored by Cowork
+    # mid-session. Not production code, not in git, and shouldn't fail
+    # `ruff check` locally even though CI never sees them (untracked).
+    "outputs/",
+    # One-off v27-era diagnostic at repo root; same rationale.
+    "_v27_check.py",
 ]
 
 [tool.ruff.lint]
