@@ -1,0 +1,143 @@
+{
+  "version": 1,
+  "updated": "2026-05-25",
+  "_comment": [
+    "Curated featured places for Direction C Discover grid (PR D2).",
+    "ASCII-only. Edit by hand; queries_c.discover_grid() reads this at request time (cached).",
+    "Schema (per place):",
+    "  slug:        optional Provider.slug; when present, queries_c may join Provider for live hours_status.",
+    "  name:        display name (required).",
+    "  where:       short location line (optional).",
+    "  image_url:   full Unsplash URL with sizing params (?w=N&q=85&auto=format&fit=crop).",
+    "  span:        12 / 8 / 6 / 5 / 4 / 3 (CSS grid column count, required).",
+    "  pick:        bool; renders the Hava's pick star ribbon (default false).",
+    "  blurb:       long description for hero cards (span-8 / span-12), optional.",
+    "  meta_line:   short meta line below name (optional).",
+    "  status:      pill state class: open / closing / closed / scenic / neutral.",
+    "  status_text: pill text content; null hides the pill.",
+    "Photo set is interim -- swap in Havasu-specific Unsplash IDs as a follow-up.",
+    "Acceptance: 10 places (5 masonry rows) renders 6-12 cards per spec."
+  ],
+  "places": [
+    {
+      "slug": null,
+      "name": "London Bridge",
+      "where": "Bridgewater Channel",
+      "image_url": "https://images.unsplash.com/photo-1559329007-40df8a9345d8?w=1400&q=85&auto=format&fit=crop",
+      "span": 8,
+      "pick": true,
+      "blurb": "Moved stone by stone from England in 1971. Walk it at dusk -- the channel water glows underneath and the bridge takes on a warmer color than it ever did over the Thames.",
+      "meta_line": "Landmark -- always open",
+      "status": "scenic",
+      "status_text": "Open air"
+    },
+    {
+      "slug": "mudshark-brewing",
+      "name": "Mudshark Brewing",
+      "where": "McCulloch Blvd",
+      "image_url": "https://images.unsplash.com/photo-1544025162-d76694265947?w=900&q=85&auto=format&fit=crop",
+      "span": 4,
+      "pick": false,
+      "blurb": null,
+      "meta_line": "Brewery + kitchen",
+      "status": "open",
+      "status_text": "Open until 10"
+    },
+    {
+      "slug": null,
+      "name": "Bridgewater Channel",
+      "where": "Under the bridge",
+      "image_url": "https://images.unsplash.com/photo-1538334421852-687c439c92f4?w=900&q=85&auto=format&fit=crop",
+      "span": 4,
+      "pick": false,
+      "blurb": null,
+      "meta_line": "Boats, walkers, sunset",
+      "status": "scenic",
+      "status_text": null
+    },
+    {
+      "slug": null,
+      "name": "Body Beach",
+      "where": "Lake Havasu Ave",
+      "image_url": "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=900&q=85&auto=format&fit=crop",
+      "span": 4,
+      "pick": false,
+      "blurb": null,
+      "meta_line": "Free public beach",
+      "status": "scenic",
+      "status_text": null
+    },
+    {
+      "slug": null,
+      "name": "Site Six",
+      "where": "Mulberry Ave",
+      "image_url": "https://images.unsplash.com/photo-1538334421852-687c439c92f4?w=900&q=85&auto=format&fit=crop",
+      "span": 4,
+      "pick": false,
+      "blurb": null,
+      "meta_line": "Boat ramp + day-use",
+      "status": "scenic",
+      "status_text": null
+    },
+    {
+      "slug": "barley-brothers",
+      "name": "Barley Brothers",
+      "where": "London Bridge",
+      "image_url": "https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=1200&q=85&auto=format&fit=crop",
+      "span": 6,
+      "pick": false,
+      "blurb": null,
+      "meta_line": "Pub + brewery, bridge views",
+      "status": "open",
+      "status_text": "Open until 10"
+    },
+    {
+      "slug": "javelina-cantina",
+      "name": "Javelina Cantina",
+      "where": "London Bridge",
+      "image_url": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&q=85&auto=format&fit=crop",
+      "span": 6,
+      "pick": false,
+      "blurb": null,
+      "meta_line": "Mexican + margaritas",
+      "status": "open",
+      "status_text": "Open until 11"
+    },
+    {
+      "slug": null,
+      "name": "Lake Havasu State Park",
+      "where": "Windsor Beach",
+      "image_url": "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=900&q=85&auto=format&fit=crop",
+      "span": 4,
+      "pick": false,
+      "blurb": null,
+      "meta_line": "Beaches, ramada, ramps",
+      "status": "scenic",
+      "status_text": null
+    },
+    {
+      "slug": null,
+      "name": "Cattail Cove",
+      "where": "Hwy 95 south",
+      "image_url": "https://images.unsplash.com/photo-1538334421852-687c439c92f4?w=900&q=85&auto=format&fit=crop",
+      "span": 4,
+      "pick": false,
+      "blurb": null,
+      "meta_line": "State park + camping",
+      "status": "scenic",
+      "status_text": null
+    },
+    {
+      "slug": null,
+      "name": "Sara Park",
+      "where": "South side",
+      "image_url": "https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=900&q=85&auto=format&fit=crop",
+      "span": 4,
+      "pick": false,
+      "blurb": null,
+      "meta_line": "Rodeo grounds, trails",
+      "status": "scenic",
+      "status_text": null
+    }
+  ]
+}

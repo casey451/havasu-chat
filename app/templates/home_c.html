@@ -71,11 +71,15 @@
   </div>
 </section>
 
-{# -------- editorial bridge (D2/D3/D4 land below this line) -------- #}
+{# -------- main body: D2 Discover grid (D3 eat row + D4 services follow) -------- #}
 <main class="c-body" role="main">
-  <p class="c-bridge">
-    The new home is being built &mdash; Discover grid, Eat &amp; drink row, and the Services index arrive in the next releases. Until then, the composer above takes any question.
-  </p>
+  {% if discover_cards %}
+    {% include 'components/discover_grid.html' %}
+  {% else %}
+    <p class="c-bridge">
+      Hava's editorial picks are taking a breather. The composer above still takes any question.
+    </p>
+  {% endif %}
 </main>
 
 {# -------- footer -------- #}
