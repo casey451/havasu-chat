@@ -15,7 +15,6 @@ integration test with a populated session is out of scope for D2.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -23,7 +22,6 @@ from fastapi.testclient import TestClient
 
 from app.home import queries_c
 from app.main import app
-
 
 _ALLOWED_SPANS = {3, 4, 5, 6, 8, 12}
 _ALLOWED_STATUS = {"open", "closing", "closed", "scenic", "neutral"}

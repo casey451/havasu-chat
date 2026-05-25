@@ -19,7 +19,6 @@ from fastapi.testclient import TestClient
 from app.home import demo_mode
 from app.main import app
 
-
 # ---------------------------------------------------------------------------
 # HAVA_DEMO_MODE gate
 # ---------------------------------------------------------------------------
