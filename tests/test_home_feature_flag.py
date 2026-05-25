@@ -7,14 +7,11 @@ exposes a boolean ``redesign`` flag).
 
 from __future__ import annotations
 
-import os
-
 import pytest
 from fastapi.testclient import TestClient
 
 from app.home import feature_flags
 from app.main import app
-
 
 # ---------------------------------------------------------------------------
 # Unit-level: home_redesign_enabled() resolution rules

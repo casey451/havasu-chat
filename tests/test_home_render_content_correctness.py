@@ -28,7 +28,6 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 
-
 # Card-text classes the user reads when scanning the home page. These
 # are the only places where forbidden patterns matter; URLs in href
 # and src attributes are out of scope.
