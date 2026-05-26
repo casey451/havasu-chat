@@ -649,3 +649,78 @@ body.home-c a.c-pc { color: var(--c-ink); }
   }
   .c-scroll-row::-webkit-scrollbar { display: none; }
 }
+
+/* ============ D4: Service icon grid (6-up) ============ */
+.c-svc-section {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 48px 32px 24px;
+}
+.c-svc-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
+}
+.c-svc {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  padding: 20px 12px 18px;
+  background: var(--c-bg-2);
+  border: 1px solid var(--c-rule);
+  border-radius: 14px;
+  color: var(--c-ink);
+  text-decoration: none;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+.c-svc:hover,
+.c-svc:focus-visible {
+  transform: translateY(-2px);
+  background: var(--c-bg-3);
+  border-color: rgba(77, 196, 207, 0.30);
+  outline: none;
+}
+.c-svc-ic {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--c-teal);
+}
+.c-svc-ic svg {
+  width: 100%;
+  height: 100%;
+}
+.c-svc-nm {
+  font-family: var(--c-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--c-ink);
+  line-height: 1.25;
+}
+.c-svc-ct {
+  font-family: var(--c-sans);
+  font-size: 12px;
+  color: var(--c-ink-3);
+  letter-spacing: 0.01em;
+}
+@media (max-width: 720px) {
+  .c-svc-section {
+    padding: 32px 16px 16px;
+  }
+  .c-svc-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .c-svc {
+    padding: 16px 8px 14px;
+    gap: 6px;
+  }
+  .c-svc-ic { width: 24px; height: 24px; }
+  .c-svc-nm { font-size: 13px; }
+  .c-svc-ct { font-size: 11px; }
+}

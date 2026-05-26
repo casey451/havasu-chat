@@ -156,12 +156,23 @@ def test_home_redesign_uses_editorial_status_pills() -> None:
 
 
 def test_home_redesign_no_zero_copy() -> None:
-    """No '0 places', '0 events', etc. -- editorial empty states only."""
+    """No '0 places', '0 events', etc. -- editorial empty states only.
+
+    The check strips inline SVG content first. PR D4's services grid
+    introduced 12 inline <svg viewBox="0 0 24 24"> icons whose path
+    data legitimately contains " 0 " (SVG arc flags like 'a4 4 0 0 1')
+    -- those are not editorial copy and must not trip this guard.
+    """
+    import re
+
     with TestClient(app) as client:
         r = client.get("/home?redesign=1")
     assert r.status_code == 200
     # The naive sentinel: a literal " 0 " surrounded by spaces, or ">0<"
     # in element bodies. Allow "0" in attribute values (e.g. tabindex=0).
     body = r.text
-    assert " 0 " not in body, "Found a bare ' 0 ' in rendered home_c"
-    assert ">0<" not in body, "Found '>0<' in rendered home_c"
+    # Strip inline SVG so SVG-internal " 0 " sequences (viewBox attrs,
+    # path 'd' arc flags) don't trip the editorial-copy guard.
+    body_without_svg = re.sub(r"<svg[\s\S]*?</svg>", "", body)
+    assert " 0 " not in body_without_svg, "Found a bare ' 0 ' in rendered home_c"
+    assert ">0<" not in body_without_svg, "Found '>0<' in rendered home_c"
