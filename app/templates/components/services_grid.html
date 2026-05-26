@@ -7,12 +7,14 @@
 
   Per card (defaults guaranteed by services_grid):
     name         display label (e.g. "Home & property")
-    slug         legacy Provider.category value
-    route        URL slug for D5 /categories/{route}
+    route        URL slug for D5 /categories/{route}; also drives the
+                 tile count via CATEGORY_FILTERS[route] (single source
+                 of truth for which legacy Provider.category slugs the
+                 tile counts and the destination page filters by).
     svg_path     inline SVG <path d=...> string
     count        int when > 0, None otherwise
     count_label  "N listed" or "" (never "0 listed")
-    href         "/categories/{route}" (may 404 until D5 ships)
+    href         "/categories/{route}"
 
   Grid mechanics live in ``home_c.css``:
     .c-svc-grid     repeat(6, 1fr) desktop, repeat(3, 1fr) <= 720px
