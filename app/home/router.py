@@ -107,6 +107,10 @@ def serve_home(
                 "discover_cards": discover_cards,
                 "eat_cards": eat_cards,
                 "service_cards": service_cards,
+                # D5 shared topbar partial reads ``active_tab`` to apply
+                # the ``is-active`` class. ``today`` -> Today pill lights
+                # up; the four category pills stay inert hyperlinks.
+                "active_tab": "today",
             },
         )
 

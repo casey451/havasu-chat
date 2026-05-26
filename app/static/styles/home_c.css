@@ -724,3 +724,219 @@ body.home-c a.c-pc { color: var(--c-ink); }
   .c-svc-nm { font-size: 13px; }
   .c-svc-ct { font-size: 11px; }
 }
+
+/* ============ D5: Category pages (slim header + uniform grid) ============ */
+/* Slim header -- back link + label + count line. No full hero -- per the
+   D5 boot prompt's "Slim header (Recommended)" decision, the cinematic
+   editorial hero is home-page real estate. Category pages are utility
+   surfaces; faster scroll to the grid. */
+.c-cat-head {
+  border-bottom: 1px solid var(--c-rule);
+  background: linear-gradient(180deg, rgba(24, 31, 37, 0.85) 0%, transparent 100%);
+}
+.c-cat-head-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 32px 32px 28px;
+}
+.c-cat-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--c-sans);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--c-ink-3);
+}
+body.home-c a.c-cat-back { color: var(--c-ink-3); }
+body.home-c a.c-cat-back:hover { color: var(--c-ink); }
+.c-cat-h1 {
+  margin: 14px 0 8px;
+  font-family: var(--c-serif);
+  font-weight: 300;
+  font-size: clamp(36px, 6vw, 64px);
+  line-height: 1.02;
+  letter-spacing: -0.018em;
+  color: var(--c-ink);
+}
+.c-cat-sub {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: 16px;
+  line-height: 1.45;
+  max-width: 68ch;
+}
+.c-cat-sep {
+  display: inline-block;
+  margin: 0 6px;
+  color: var(--c-ink-3);
+}
+.c-cat-count {
+  color: var(--c-ink-3);
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+/* Uniform category grid -- 3 cols desktop, 2 cols tablet, 1 col mobile.
+   No span values, no masonry. Handles 3 cards or 37 cards equally well
+   because grid-auto-flow does the work. The category page is "browse a
+   list", not "discover an editorial picks layout". */
+.c-cat-grid-wrap {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 36px 32px 56px;
+}
+.c-cat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+.c-cat-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--c-bg-2);
+  border-radius: 14px;
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--c-ink);
+  border: 1px solid var(--c-rule);
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+body.home-c a.c-cat-card { color: var(--c-ink); }
+.c-cat-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(77, 196, 207, 0.35);
+}
+.c-cat-card:focus-visible {
+  outline: 2px solid var(--c-teal);
+  outline-offset: 2px;
+}
+.c-cat-photo {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--c-bg-3);
+}
+/* Gradient placeholder for cards without a curated photo -- mirrors the
+   eat-row pattern (.c-pc.is-no-photo) so visual language stays consistent
+   across surfaces. Until Provider.google_photo_refs wiring lands, most
+   non-food/drink cards will render this way. */
+.c-cat-card.is-no-photo .c-cat-photo {
+  background-image: linear-gradient(
+    135deg,
+    rgba(77, 196, 207, 0.30) 0%,
+    rgba(24, 31, 37, 0.92) 65%,
+    rgba(14, 20, 25, 1) 100%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.c-cat-photo-mark {
+  font-family: var(--c-serif);
+  font-weight: 300;
+  font-size: 64px;
+  letter-spacing: -0.02em;
+  color: rgba(243, 241, 234, 0.55);
+  font-variation-settings: "opsz" 144;
+}
+.c-cat-body {
+  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.c-cat-name {
+  margin: 0;
+  font-family: var(--c-serif);
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1.18;
+  letter-spacing: -0.005em;
+  color: var(--c-ink);
+}
+.c-cat-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.c-cat-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px 4px 7px;
+  border-radius: 999px;
+  background: rgba(243, 241, 234, 0.08);
+  color: var(--c-ink);
+  font-weight: 500;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.c-cat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-ink-3);
+}
+.c-cat-status.c-pill-open .c-cat-dot { background: var(--c-ok); }
+.c-cat-status.c-pill-closing-soon .c-cat-dot { background: var(--c-warm); }
+.c-cat-status.c-pill-closed .c-cat-dot { background: #ef4444; }
+.c-cat-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--c-ink-2);
+  font-weight: 500;
+}
+.c-cat-star { color: var(--c-warm); font-size: 13px; }
+.c-cat-where {
+  font-size: 12px;
+  color: var(--c-ink-3);
+  letter-spacing: 0.01em;
+}
+
+/* Empty-state bridge for an empty category page. Same family as D2/D3
+   editorial bridges but tuned to the category surface. */
+.c-bridge.c-bridge-cat {
+  font-size: 18px;
+  margin: 24px 0 0;
+  max-width: 600px;
+  color: var(--c-ink-2);
+}
+
+/* ============ D5: Category page mobile (<= 768px) ============ */
+@media (max-width: 768px) {
+  .c-cat-head-inner {
+    padding: 24px 16px 22px;
+  }
+  .c-cat-h1 {
+    margin: 10px 0 6px;
+    font-size: clamp(30px, 9vw, 44px);
+  }
+  .c-cat-sub { font-size: 15px; }
+  .c-cat-grid-wrap {
+    padding: 24px 16px 48px;
+  }
+  .c-cat-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .c-cat-body { padding: 12px 14px 14px; gap: 6px; }
+  .c-cat-name { font-size: 18px; }
+  .c-cat-photo-mark { font-size: 48px; }
+}
+
+@media (max-width: 480px) {
+  .c-cat-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .c-cat-photo-mark { font-size: 56px; }
+}

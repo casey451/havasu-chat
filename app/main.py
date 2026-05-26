@@ -29,6 +29,7 @@ from app.api.routes.account_alerts import router as account_alerts_router
 from app.api.routes.admin_contributions import router as admin_contributions_router
 from app.api.routes.admin_mentions import router as admin_mentions_router
 from app.api.routes.category_pages import router as category_pages_router
+from app.categories.router import router as direction_c_categories_router
 from app.api.routes.chat import router as concierge_chat_router
 from app.api.routes.conditions import router as conditions_router
 from app.api.routes.contribute import router as contribute_router
@@ -294,6 +295,10 @@ app.include_router(auth_router)
 app.include_router(photos_router)
 app.include_router(search_router)
 app.include_router(category_pages_router)
+# PR D5: Direction C /categories/{slug} (plural) -- parallel surface
+# to the singular /category/ Phase 6.2 system. Both co-exist during
+# dogfooding; D6 / future PR picks a winner.
+app.include_router(direction_c_categories_router)
 app.include_router(themed_groups_router)
 app.include_router(map_data_router)
 app.include_router(conditions_router)
