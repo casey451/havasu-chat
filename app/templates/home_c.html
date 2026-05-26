@@ -27,24 +27,11 @@
 </head>
 <body class="home-c">
 
-{# -------- topbar (sticky, dark glass) -------- #}
-<header class="c-topbar" role="banner">
-  <div class="c-topbar-inner">
-    <a href="/home" class="c-wm" aria-label="Hava home">
-      <span class="c-wm-dot" aria-hidden="true"></span>
-      <span>Hava</span>
-    </a>
-    <nav class="c-tabs" role="navigation" aria-label="Browse">
-      {# D1: tabs are visually present but inert. D5 wires them to /categories/{slug}. #}
-      <button type="button" class="c-tab is-active" aria-current="page">Today</button>
-      <button type="button" class="c-tab" disabled aria-disabled="true" title="Coming in PR D5">Eat &amp; drink</button>
-      <button type="button" class="c-tab" disabled aria-disabled="true" title="Coming in PR D5">On the water</button>
-      <button type="button" class="c-tab" disabled aria-disabled="true" title="Coming in PR D5">Things to do</button>
-      <button type="button" class="c-tab" disabled aria-disabled="true" title="Coming in PR D5">Services</button>
-    </nav>
-    <a href="/chat" class="c-ask">Ask Hava</a>
-  </div>
-</header>
+{# -------- topbar (sticky, dark glass) --
+     D1 shipped inert buttons; D5 promoted to real anchors via the
+     shared ``components/topbar_c.html`` partial. ``active_tab`` is
+     passed from app/home/router.py as "today" on the /home path. #}
+{% include 'components/topbar_c.html' %}
 
 {# -------- hero (full-bleed cinematic photo + overlay copy + composer) -------- #}
 <section class="c-hero" role="region" aria-label="Today in Havasu">

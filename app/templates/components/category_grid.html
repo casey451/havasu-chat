@@ -1,0 +1,67 @@
+{#
+  Direction C category-page grid -- uniform-card grid of Providers in
+  the active category. PR D5.
+
+  Renders inside ``category_c.html``. Expects ``category_cards`` in
+  context: a list of dicts produced by
+  ``app.categories.queries.category_cards()``.
+
+  Card shape (Jinja-safe defaults guaranteed by the query layer):
+
+    slug          Provider.slug; None -> non-linking anchor
+    name          Provider.provider_name
+    image_url     curated Unsplash URL or None (None -> gradient + initial)
+    neighborhood  Provider.district or ""
+    status        "open" / "closing-soon" / "closed-soon" / "closed" / "unknown"
+    status_text   pill copy ("Open until 10") or "" when status is unknown
+    rating        single-decimal string ("4.5") or None to hide rating
+
+  Grid mechanics live in ``home_c.css`` (D5 block):
+    .c-cat-grid       3-col grid desktop, 2-col tablet, 1-col mobile
+    .c-cat-card       uniform card (image header + body)
+    .c-cat-card.is-no-photo   gradient placeholder w/ initial when image_url None
+
+  The grid auto-flows -- 3 cards or 37 cards both render cleanly. No
+  span values, no masonry. Discover masonry is reserved for /home's
+  editorial Discover surface; category pages are scan-and-pick utility.
+
+  Empty-state: the parent template gates this whole include with
+  ``{% if category_cards %}``. When empty, an editorial bridge line
+  renders instead -- no "0 listed", no empty header.
+#}
+<section class="c-cat-grid-wrap" role="region" aria-label="{{ category_label }} listings">
+  <div class="c-cat-grid" role="list">
+    {% for card in category_cards %}
+    <a class="c-cat-card{% if not card.image_url %} is-no-photo{% endif %}"
+       role="listitem"
+       href="{% if card.slug %}/provider/{{ card.slug }}{% else %}#{% endif %}"
+       aria-label="{{ card.name }}{% if card.neighborhood %}, {{ card.neighborhood }}{% endif %}{% if card.status_text %}, {{ card.status_text }}{% endif %}">
+      <div class="c-cat-photo"
+           {% if card.image_url %}style="background-image: url('{{ card.image_url }}');"{% endif %}
+           aria-hidden="true">
+        {% if not card.image_url %}
+        <span class="c-cat-photo-mark" aria-hidden="true">{{ card.name[:1]|upper }}</span>
+        {% endif %}
+      </div>
+      <div class="c-cat-body">
+        <h3 class="c-cat-name">{{ card.name }}</h3>
+        <div class="c-cat-meta">
+          {% if card.status_text %}
+          <span class="c-cat-status c-pill-{{ card.status }}">
+            <span class="c-cat-dot" aria-hidden="true"></span>{{ card.status_text }}
+          </span>
+          {% endif %}
+          {% if card.rating %}
+          <span class="c-cat-rating" aria-label="Rating {{ card.rating }} out of 5">
+            <span class="c-cat-star" aria-hidden="true">&#9733;</span>{{ card.rating }}
+          </span>
+          {% endif %}
+        </div>
+        {% if card.neighborhood %}
+        <div class="c-cat-where">{{ card.neighborhood }}</div>
+        {% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</section>
