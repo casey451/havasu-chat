@@ -438,7 +438,14 @@ def _clear_redesign_flag(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_home_redesign_renders_eat_bridge_when_empty() -> None:
     """Empty DB -> no scroll-row markup, editorial bridge instead.
-    Also: no '0' copy bleed-through."""
+    Also: no '0' copy bleed-through.
+
+    Strips inline SVG before the " 0 " check; D4's services-grid SVG
+    icon path data legitimately contains arc flags like '0 0 1' that
+    are not editorial copy.
+    """
+    import re
+
     with TestClient(app) as client:
         r = client.get("/home?redesign=1")
     assert r.status_code == 200
@@ -449,8 +456,9 @@ def test_home_redesign_renders_eat_bridge_when_empty() -> None:
     assert "c-scroll-row" not in body
     assert "c-pc-name" not in body
     # No "0" leak (defensive -- matches the D2 assertion shape).
-    assert " 0 " not in body
-    assert ">0<" not in body
+    body_without_svg = re.sub(r"<svg[\s\S]*?</svg>", "", body)
+    assert " 0 " not in body_without_svg
+    assert ">0<" not in body_without_svg
 
 
 def test_home_redesign_renders_scroll_row_when_eat_cards_populated() -> None:
