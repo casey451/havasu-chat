@@ -364,6 +364,181 @@ def eat_row(
     return cards
 
 
+# ============================================================
+# PR D4: Service icon grid 6-up
+# ============================================================
+#
+# Renders a 6-column-by-2-row icon grid below the eat row. Each
+# tile represents one top-level ``Provider.category`` bucket from
+# the legacy taxonomy and counts real active non-draft Providers
+# in that bucket.
+#
+# Tile set is derived from prod slug coverage (probed v32 session):
+# 14 distinct ``Provider.category`` values exist across 2,266 active
+# non-draft providers. We render the top 12 by count, excluding
+# ``food_drink`` because that bucket is already the D3 Eat row
+# above. Tiles drop ``childcare_education`` (29 providers) as the
+# smallest. When the catalog grows or shifts, this constant is the
+# single edit site.
+#
+# Per BUILD.md "no zero counts": tiles with count == 0 hide the
+# count line but still render the tile (icon + name). The href
+# routes to ``/categories/{slug}`` even when count is 0 -- D5
+# wires those pages; D4 ships placeholder hrefs that fall back
+# to ``#`` until the route exists.
+#
+# Icon SVG paths are inlined per-tile (no Lucide / CDN). They use
+# ``viewBox="0 0 24 24"`` and CSS-strokable single-path shapes.
+# When the design lane wants different icons, edit ``svg_path``.
+
+
+_SERVICE_TILES: tuple[dict[str, Any], ...] = (
+    {
+        "name": "Health & wellness",
+        "slug": "health_medical",
+        "route": "health-wellness-care",
+        "svg_path": "M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z",
+    },
+    {
+        "name": "Home & property",
+        "slug": "home_services",
+        "route": "home-property-services",
+        "svg_path": "M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1V11z",
+    },
+    {
+        "name": "Shopping & retail",
+        "slug": "retail",
+        "route": "shopping-essentials",
+        "svg_path": "M6 7h12l-1 13H7L6 7zM9 7V5a3 3 0 0 1 6 0v2",
+    },
+    {
+        "name": "On the water",
+        "slug": "lake_recreation",
+        "route": "on-the-water",
+        "svg_path": "M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0M2 13c2-2 4-2 6 0s4 2 6 0 4-2 6 0M5 10l7-6 7 6",
+    },
+    {
+        "name": "Professional",
+        "slug": "professional_services",
+        "route": "professional",
+        "svg_path": "M3 8h18v12H3zM9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18",
+    },
+    {
+        "name": "Beauty & care",
+        "slug": "beauty_personal_care",
+        "route": "beauty-care",
+        "svg_path": "M6 4l8 8M6 20l8-8M10 12a4 4 0 1 1-4-4 4 4 0 0 1 4 4zM18 6a2 2 0 1 1-2-2 2 2 0 0 1 2 2zM18 18a2 2 0 1 1-2-2 2 2 0 0 1 2 2z",
+    },
+    {
+        "name": "Auto, RV & fuel",
+        "slug": "auto",
+        "route": "auto-rv-fuel",
+        "svg_path": "M5 16h14M5 16l1-5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2l1 5M5 16v3M19 16v3M8 16a1.5 1.5 0 1 1-3 0M19 16a1.5 1.5 0 1 1-3 0",
+    },
+    {
+        "name": "Community",
+        "slug": "religion_community",
+        "route": "public-civic-resources",
+        "svg_path": "M9 11a3 3 0 1 1 6 0 3 3 0 0 1-6 0zM3 21v-1a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5v1",
+    },
+    {
+        "name": "Fitness & sports",
+        "slug": "fitness_sports",
+        "route": "classes-sports-recreation",
+        "svg_path": "M3 12h2M19 12h2M7 8v8M17 8v8M7 12h10",
+    },
+    {
+        "name": "Attractions",
+        "slug": "entertainment_attractions",
+        "route": "attractions",
+        "svg_path": "M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5L12 3z",
+    },
+    {
+        "name": "Lodging",
+        "slug": "lodging",
+        "route": "lodging-vacation-rentals",
+        "svg_path": "M3 18V8M21 18v-5a3 3 0 0 0-3-3H8M3 13h18M3 18h18M7 10a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z",
+    },
+    {
+        "name": "Pets",
+        "slug": "pets",
+        "route": "pets",
+        "svg_path": "M5 11a2 2 0 1 1-2-2 2 2 0 0 1 2 2zM21 11a2 2 0 1 1-2-2 2 2 0 0 1 2 2zM9 6a2 2 0 1 1-2-2 2 2 0 0 1 2 2zM17 6a2 2 0 1 1-2-2 2 2 0 0 1 2 2zM7 17a5 5 0 0 1 10 0 3 3 0 0 1-3 3h-4a3 3 0 0 1-3-3z",
+    },
+)
+
+
+def services_grid(db: Session) -> list[dict[str, Any]]:
+    """Service icon grid -- 12 category tiles with real counts.
+
+    Mirrors the legacy ``categories(db)`` shape (single GROUP BY against
+    ``Provider.category``) but joins to the curated ``_SERVICE_TILES``
+    constant so the surface keeps a fixed visual rhythm regardless of
+    catalog drift.
+
+    Per BUILD.md "no zero counts" rule: tiles with 0 providers still
+    render (icon + name + tap target) but the count line is suppressed.
+    The template reads ``card["count"]`` -- ``None`` means hide the
+    count line, an ``int`` means render "{n} listed". A tile is never
+    omitted from the output.
+
+    Args:
+        db: SQLAlchemy session. ``None`` returns the 12 tiles with all
+            counts as ``None`` -- defensive for tests / DB outages.
+
+    Returns:
+        List of 12 card dicts shaped for ``components/services_grid.html``.
+        Each card has: ``name`` (display), ``slug`` (legacy category),
+        ``route`` (D5 URL path segment), ``svg_path`` (inline SVG),
+        ``count`` (int|None), ``count_label`` ("N listed" or ""),
+        ``href`` ("/categories/{route}" until D5; same value either way
+        -- the route may 404 until D5 ships).
+
+    Never raises: a DB hiccup must not 500 /home. Errors swallow into
+    "all counts None" so the grid still renders.
+    """
+    from sqlalchemy import func as sa_func
+
+    counts: dict[str, int] = {}
+    if db is not None:
+        slug_list = [tile["slug"] for tile in _SERVICE_TILES]
+        try:
+            rows = (
+                db.query(Provider.category, sa_func.count(Provider.id))
+                .filter(
+                    Provider.is_active.is_(True),
+                    Provider.draft.is_(False),
+                    Provider.category.in_(slug_list),
+                )
+                .group_by(Provider.category)
+                .all()
+            )
+            counts = {category: int(n) for category, n in rows}
+        except Exception:
+            # Defensive: a DB outage leaves all tiles in "no count"
+            # state. Surface still renders -- counts just hide.
+            counts = {}
+
+    cards: list[dict[str, Any]] = []
+    for tile in _SERVICE_TILES:
+        n = counts.get(tile["slug"], 0)
+        # ``None`` count means "hide the count line"; 0 collapses to
+        # None per the no-zero rule. ``int > 0`` renders the line.
+        count_value: int | None = n if n > 0 else None
+        cards.append(
+            {
+                "name": tile["name"],
+                "slug": tile["slug"],
+                "route": tile["route"],
+                "svg_path": tile["svg_path"],
+                "count": count_value,
+                "count_label": f"{count_value} listed" if count_value else "",
+                "href": f"/categories/{tile['route']}",
+            }
+        )
+    return cards
+
+
 def reset_cache() -> None:
     """Clear the curated-JSON LRU caches. Test-only seam.
 

@@ -90,6 +90,10 @@
       Nothing's flagged as open in the kitchen right now. Try the composer for a recommendation.
     </p>
   {% endif %}
+
+  {% if service_cards %}
+    {% include 'components/services_grid.html' %}
+  {% endif %}
 </main>
 
 {# -------- footer -------- #}
