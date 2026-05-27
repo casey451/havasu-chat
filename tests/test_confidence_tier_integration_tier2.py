@@ -135,6 +135,7 @@ def test_flag_on_low_tier_phone_post_process_appends_when_missing(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     with patch.object(llm_messages, "OpenAI", return_value=fake):
         text, _, _ = tf.format("who's a good plumber", rows)
+        text = tf.postprocess(text, rows)
     assert text is not None
     assert "Their listed number is (928) 855-5678" in text
     assert "recommend calling to confirm" in text
@@ -152,6 +153,7 @@ def test_flag_on_low_tier_phone_post_process_skips_when_present(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     with patch.object(llm_messages, "OpenAI", return_value=fake):
         text, _, _ = tf.format("who's a good plumber", rows)
+        text = tf.postprocess(text, rows)
     assert text is not None
     assert text.count("(928) 855-5678") == 1
     assert "Their listed number is" not in text
@@ -169,6 +171,7 @@ def test_flag_on_low_tier_phone_post_process_skips_when_already_hedged(monkeypat
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     with patch.object(llm_messages, "OpenAI", return_value=fake):
         text, _, _ = tf.format("who's a good plumber", rows)
+        text = tf.postprocess(text, rows)
     assert text is not None
     assert text.count("recommend calling to confirm") == 1
     assert "Their listed number is" not in text

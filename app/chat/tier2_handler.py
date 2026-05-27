@@ -335,14 +335,21 @@ def try_tier2_with_usage(
     fmt_cache_hit = False
     t_fmt_start = time.perf_counter()
     with SessionLocal() as db:
-        cached_text = tier2_cache.lookup_formatter(db, q, rows)
-        if cached_text is not None:
-            text, f_in, f_out = cached_text, 0, 0
+        cached_raw = tier2_cache.lookup_formatter(db, q, rows)
+        if cached_raw is not None:
+            # Backlog #49: cache stores raw LLM text. Re-run post-processors
+            # on every hit so confidence-tier flag flips and edits to
+            # ``_inject_event_url_links`` / ``_enforce_low_tier_phone`` take
+            # effect immediately instead of waiting for the 1-day TTL.
+            text, f_in, f_out = tier2_formatter.postprocess(cached_raw, rows), 0, 0
             fmt_cache_hit = True
         else:
-            text, f_in, f_out = tier2_formatter.format(q, rows)
-            if text:
-                tier2_cache.store_formatter(db, q, rows, text)
+            raw_text, f_in, f_out = tier2_formatter.format(q, rows)
+            # Store the *raw* LLM output so post-processors can re-run on
+            # cache hits (see Backlog #49 / tier3_handler.py:332-334).
+            if raw_text:
+                tier2_cache.store_formatter(db, q, rows, raw_text)
+            text = tier2_formatter.postprocess(raw_text, rows)
             fmt_cache_hit = False
     fmt_ms = int((time.perf_counter() - t_fmt_start) * 1000)
     if telemetry is not None:
@@ -421,14 +428,18 @@ def try_tier2_with_filters_with_usage(
     fmt_cache_hit = False
     t_fmt_start = time.perf_counter()
     with SessionLocal() as db:
-        cached_text = tier2_cache.lookup_formatter(db, q, rows)
-        if cached_text is not None:
-            text, f_in, f_out = cached_text, 0, 0
+        cached_raw = tier2_cache.lookup_formatter(db, q, rows)
+        if cached_raw is not None:
+            # Backlog #49: cache stores raw LLM text -- post-process on hit so
+            # confidence-tier flag flips apply without waiting for TTL.
+            text, f_in, f_out = tier2_formatter.postprocess(cached_raw, rows), 0, 0
             fmt_cache_hit = True
         else:
-            text, f_in, f_out = tier2_formatter.format(q, rows)
-            if text:
-                tier2_cache.store_formatter(db, q, rows, text)
+            raw_text, f_in, f_out = tier2_formatter.format(q, rows)
+            # Store the *raw* LLM output (see Backlog #49 / tier3_handler.py).
+            if raw_text:
+                tier2_cache.store_formatter(db, q, rows, raw_text)
+            text = tier2_formatter.postprocess(raw_text, rows)
             fmt_cache_hit = False
     if telemetry is not None:
         telemetry["tier2_fmt_ms"] = int((time.perf_counter() - t_fmt_start) * 1000)
