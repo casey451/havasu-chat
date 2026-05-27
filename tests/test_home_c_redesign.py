@@ -59,8 +59,18 @@ def test_demo_mode_falsy_or_unparseable(
 # ---------------------------------------------------------------------------
 
 
-def test_home_redesign_off_serves_legacy_template() -> None:
-    """HOME_REDESIGN unset: GET /home serves legacy home.html (no Direction C markers)."""
+def test_home_redesign_explicit_off_serves_legacy_template(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """PR D6 cutover: HOME_REDESIGN=0 (explicit opt-out) serves legacy home.html.
+
+    Pre-D6 this test asserted that the *unset* env served legacy. After
+    D6 the unset default is ON, so legacy is only reachable via explicit
+    opt-out. The autouse ``_clear_flags`` fixture delenvs HOME_REDESIGN
+    for module-wide isolation, so we setenv "0" here to exercise the
+    rollback path.
+    """
+    monkeypatch.setenv("HOME_REDESIGN", "0")
     with TestClient(app) as client:
         r = client.get("/home")
     assert r.status_code == 200

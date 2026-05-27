@@ -3,8 +3,10 @@
  * Scope: topbar + hero + composer + footer + editorial bridge.
  * Discover grid, eat row, services grid arrive in D2/D3/D4.
  *
- * Loaded only by app/templates/home_c.html (HOME_REDESIGN=1 path). Class
- * names are prefixed `c-` to avoid collision with legacy home.css.
+ * Loaded by app/templates/home_c.html, which is the default /home as of
+ * PR D6 (2026-05-26 cutover). Class names are prefixed `c-` to avoid
+ * collision with legacy home.css, which still loads on the explicit
+ * HOME_REDESIGN=0 / ?redesign=0 opt-out path.
  *
  * Palette and type lifted from mockups/C-visual-guide.html. Light-mode
  * adaptation is deliberately out of scope per the Direction C decision

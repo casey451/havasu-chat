@@ -259,10 +259,17 @@ Read the actual schema in `app/db/models.py` before locking in front-end types. 
 ## Surfaces that already exist
 
 - `/` — current chat interface. Stays for now; the new home is built at `/home` first. After dogfooding, `/home` becomes `/` and the old chat-only `/` redirects to `/chat` (or retires).
-- `/home` — **new home page**, built fresh at this path during dogfooding. Cuts over to `/` after a few days of confidence-building.
+- `/home` — **new home page**, built fresh at this path during dogfooding. Cuts over to `/` after a few days of confidence-building. As of PR D6 (2026-05-26), `/home` defaults to the Direction C dark-chrome template (`home_c.html`); the legacy `home.html` only renders when an operator sets `HOME_REDESIGN=0` (or appends `?redesign=0`) for a one-env-var rollback.
 - `/chat` — **new chat surface**, where the home composer's submission lands. Renders the answer-rendering components. Session ID persisted in the URL so users can return to a conversation.
 - `/admin` — review user-submitted contributions. **Don't touch.**
 - `/contribute` — user submission form. Keep functional; restyle to match new design system as part of step 1.5 (so users clicking "Add to catalog" from the new home don't hit a style cliff).
+
+**Category surfaces (two routes, deliberate editorial split — PR D6).** Two category-page routes co-exist on different URLs and serve different points in the funnel:
+
+- `/categories/{slug}` (plural) — Direction C chrome-driven nav. The five mega-category routes that the topbar tabs link to (`today`, `eat-drink`, `on-the-water`, `things-to-do`, `services`). Aggregates multiple `Provider.category` slugs into one editorial grid. No filter chips per the "no filters in chrome / chat" rule. Lightweight template (~77 LoC). Lives in `app/categories/`.
+- `/category/{slug}` (singular) — Phase 6.2 SEO landing pages with intent-led narrowing. Twelve Tier-1 slugs (`plumbers`, `electricians`, `eat-drink`, `pets`, …) with sub-trade and operational filter chips, ranked by `closest_now` or `editorial_pick`. Entity / EntityCategory-backed. Heavier template (~1150 LoC). Lives in `app/api/routes/category_pages.py`.
+
+When the slug overlaps (`eat-drink`, `on-the-water`, `pets`, …) the routes serve different UX. The intended funnel is: chrome tab → `/categories/services` (plural, mega-grid) → tap a service tile → `/category/plumbers` (singular, SEO page with filters). Don't collapse these without a stronger reason than "two routes for the same noun."
 
 ## Open questions / explicitly deferred
 
