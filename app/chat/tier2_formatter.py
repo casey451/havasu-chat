@@ -181,6 +181,28 @@ def _enforce_low_tier_phone(text, rows):
     return out
 
 
+def postprocess(text, rows):
+    """Apply deterministic post-processors to a formatter response (Backlog #49 parity).
+
+    Tier 2 cache stores the raw LLM output (no URL injection, no LOW-tier
+    phone hedge). On both cache miss and cache hit, callers run this
+    helper so flag flips on ``is_confidence_tier_enabled()`` and edits to
+    ``_inject_event_url_links`` / ``_enforce_low_tier_phone`` take effect
+    immediately instead of waiting for the 1-day TTL to expire. Mirrors
+    the Tier 3 pattern in ``app/chat/tier3_handler.py`` (see comments at
+    line 332-334 referencing Backlog #49).
+
+    Safe to call on ``None`` / empty text: returns the input unchanged so
+    cache-miss callers don't need to special-case a failed LLM call.
+    """
+    if not text:
+        return text
+    out = _inject_event_url_links(text, rows)
+    if is_confidence_tier_enabled():
+        out = _enforce_low_tier_phone(out, rows)
+    return out
+
+
 def _format_via_llm(query, rows):
     api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
     if not api_key:
@@ -223,9 +245,15 @@ def _format_via_llm(query, rows):
 
 
 def format(query, rows):
-    """Render DB rows into a response. Returns (text, input_tokens, output_tokens).
+    """Render DB rows into a response. Returns (raw_text, input_tokens, output_tokens).
 
     Empty rows and all-event rows use deterministic paths (0 formatter tokens).
+
+    Backlog #49: ``raw_text`` is the **unprocessed** LLM output -- it has
+    NOT had ``_inject_event_url_links`` or ``_enforce_low_tier_phone``
+    applied. Callers MUST run :func:`postprocess` on the result before
+    returning it to the user (and again on any cache-hit string), so flag
+    flips take effect without waiting for the cached entry to expire.
     """
     rows = [
         {**r, "description": _strip_legacy_fallback(r.get("description"))}
@@ -253,8 +281,4 @@ def format(query, rows):
             return None, None, None
 
     text, in_tok, out_tok = _format_via_llm(query, rows)
-    if text is not None:
-        text = _inject_event_url_links(text, rows)
-        if is_confidence_tier_enabled():
-            text = _enforce_low_tier_phone(text, rows)
     return text, in_tok, out_tok
