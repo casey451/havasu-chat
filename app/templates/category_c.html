@@ -1,0 +1,77 @@
+{# Hava /categories/{slug} -- Direction C category page (PR D5).
+
+   Reuses the shared topbar partial (with the right mega-tab marked
+   active), then a slim header (back link + label + count + one-liner),
+   then the category grid -- uniform 3-col grid that scales to 1-col
+   on mobile and handles 3-37+ cards gracefully.
+
+   Context dict shape (see app/categories/router.py serve_category):
+     today_label         "Sunday, May 24"
+     now_label           "6:14 PM"
+     category_slug       URL segment, lowercase
+     category_label      display label ("Health & wellness")
+     category_one_liner  short editorial line
+     category_count      int when > 0, None otherwise (per no-zero rule)
+     category_cards      list of card dicts (see category_grid.html)
+     active_tab          which mega-tab to highlight in topbar_c
+
+   No hero. The big editorial hero is home-page real estate per the
+   D5 boot prompt's "Slim header (Recommended)" decision.
+#}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{ category_label }} &mdash; Hava</title>
+  <meta name="description" content="{{ category_one_liner }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles/home_c.css">
+</head>
+<body class="home-c">
+
+{# -------- shared topbar (with active mega-tab highlighted) -------- #}
+{% include 'components/topbar_c.html' %}
+
+{# -------- slim category header (back link + label + count + sub) -------- #}
+<section class="c-cat-head" role="region" aria-label="{{ category_label }} header">
+  <div class="c-cat-head-inner">
+    <a class="c-cat-back" href="/home" aria-label="Back to Hava home">
+      <span aria-hidden="true">&larr;</span> Home
+    </a>
+    <h1 class="c-cat-h1">{{ category_label }}</h1>
+    <p class="c-cat-sub">
+      {{ category_one_liner }}{% if category_count %}
+        <span class="c-cat-sep" aria-hidden="true">&middot;</span>
+        <span class="c-cat-count">{{ category_count }} listed</span>
+      {% endif %}
+    </p>
+  </div>
+</section>
+
+{# -------- main body: filtered grid OR editorial empty-state -------- #}
+<main class="c-body" role="main">
+  {% if category_cards %}
+    {% include 'components/category_grid.html' %}
+  {% else %}
+    <p class="c-bridge c-bridge-cat">
+      Nothing's flagged in {{ category_label }} right now.
+      Try the composer for a recommendation -- Hava knows more than the catalog shows.
+    </p>
+  {% endif %}
+</main>
+
+{# -------- footer -------- #}
+<footer class="c-footer" role="contentinfo">
+  <span class="c-foot-place">Lake Havasu City</span>
+  <nav class="c-foot-nav" aria-label="Site links">
+    <a href="/about">About</a>
+    <a href="/contribute">Add a place</a>
+    <a href="/sponsor">Sponsor</a>
+    <a href="/privacy">Privacy</a>
+  </nav>
+</footer>
+
+</body>
+</html>

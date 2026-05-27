@@ -116,11 +116,21 @@ def test_direction_c_no_mock_content(monkeypatch: pytest.MonkeyPatch) -> None:
         assert leaked not in r.text, f"D1 home_c.html leaked mock content: {leaked}"
 
 
-def test_direction_c_has_inert_tabs(monkeypatch: pytest.MonkeyPatch) -> None:
-    """D1 tabs are visually present but disabled (D5 wires routing)."""
+def test_direction_c_has_tab_anchors(monkeypatch: pytest.MonkeyPatch) -> None:
+    """PR D5 promoted the four right-side tabs from <button disabled>
+    to <a href="/categories/{slug}">. The Today pill is also an anchor
+    (back to /home itself) -- it's marked active when on /home."""
     monkeypatch.setenv("HOME_REDESIGN", "1")
     with TestClient(app) as client:
         r = client.get("/home")
     # Match both encoded and unencoded for resilience
     assert "Eat &amp; drink" in r.text or "Eat & drink" in r.text
-    assert "disabled" in r.text  # at least one disabled tab
+    # All four mega-tab routes are linked from /home.
+    assert 'href="/categories/eat-drink"' in r.text
+    assert 'href="/categories/on-the-water"' in r.text
+    assert 'href="/categories/things-to-do"' in r.text
+    assert 'href="/categories/services"' in r.text
+    # Today tab is marked active (PR D5 leaves Today inert as an anchor
+    # back to /home, but with is-active + aria-current="page").
+    assert "is-active" in r.text
+    assert 'aria-current="page"' in r.text

@@ -369,23 +369,27 @@ def eat_row(
 # ============================================================
 #
 # Renders a 6-column-by-2-row icon grid below the eat row. Each
-# tile represents one top-level ``Provider.category`` bucket from
-# the legacy taxonomy and counts real active non-draft Providers
-# in that bucket.
+# tile represents one ``/categories/{route}`` destination page
+# and counts real active non-draft Providers across all legacy
+# ``Provider.category`` slugs that map to that route.
 #
-# Tile set is derived from prod slug coverage (probed v32 session):
-# 14 distinct ``Provider.category`` values exist across 2,266 active
-# non-draft providers. We render the top 12 by count, excluding
-# ``food_drink`` because that bucket is already the D3 Eat row
-# above. Tiles drop ``childcare_education`` (29 providers) as the
-# smallest. When the catalog grows or shifts, this constant is the
-# single edit site.
+# Tile set covers the top 12 D5 category routes, excluding the
+# ``eat-drink`` route (the D3 Eat row above already surfaces
+# food/drink providers).
+#
+# The tile↔count↔page chain is anchored on ``route``:
+#
+#     tile.route  ->  CATEGORY_FILTERS[route]  ->  Provider.category set
+#
+# This means a tile's count is always the same arithmetic as the
+# slim header count on ``/categories/{route}`` -- no drift between
+# what the visitor reads on /home and what they see after a click.
+# When the catalog grows or shifts, ``CATEGORY_FILTERS`` in
+# ``app/categories/queries.py`` is the single edit site for the
+# slug set; this constant just picks which 12 routes to surface.
 #
 # Per BUILD.md "no zero counts": tiles with count == 0 hide the
-# count line but still render the tile (icon + name). The href
-# routes to ``/categories/{slug}`` even when count is 0 -- D5
-# wires those pages; D4 ships placeholder hrefs that fall back
-# to ``#`` until the route exists.
+# count line but still render the tile (icon + name + tap target).
 #
 # Icon SVG paths are inlined per-tile (no Lucide / CDN). They use
 # ``viewBox="0 0 24 24"`` and CSS-strokable single-path shapes.
@@ -395,73 +399,61 @@ def eat_row(
 _SERVICE_TILES: tuple[dict[str, Any], ...] = (
     {
         "name": "Health & wellness",
-        "slug": "health_medical",
         "route": "health-wellness-care",
         "svg_path": "M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z",
     },
     {
         "name": "Home & property",
-        "slug": "home_services",
         "route": "home-property-services",
         "svg_path": "M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1V11z",
     },
     {
         "name": "Shopping & retail",
-        "slug": "retail",
         "route": "shopping-essentials",
         "svg_path": "M6 7h12l-1 13H7L6 7zM9 7V5a3 3 0 0 1 6 0v2",
     },
     {
         "name": "On the water",
-        "slug": "lake_recreation",
         "route": "on-the-water",
         "svg_path": "M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0M2 13c2-2 4-2 6 0s4 2 6 0 4-2 6 0M5 10l7-6 7 6",
     },
     {
         "name": "Professional",
-        "slug": "professional_services",
         "route": "professional",
         "svg_path": "M3 8h18v12H3zM9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18",
     },
     {
         "name": "Beauty & care",
-        "slug": "beauty_personal_care",
         "route": "beauty-care",
         "svg_path": "M6 4l8 8M6 20l8-8M10 12a4 4 0 1 1-4-4 4 4 0 0 1 4 4zM18 6a2 2 0 1 1-2-2 2 2 0 0 1 2 2zM18 18a2 2 0 1 1-2-2 2 2 0 0 1 2 2z",
     },
     {
         "name": "Auto, RV & fuel",
-        "slug": "auto",
         "route": "auto-rv-fuel",
         "svg_path": "M5 16h14M5 16l1-5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2l1 5M5 16v3M19 16v3M8 16a1.5 1.5 0 1 1-3 0M19 16a1.5 1.5 0 1 1-3 0",
     },
     {
         "name": "Community",
-        "slug": "religion_community",
         "route": "public-civic-resources",
         "svg_path": "M9 11a3 3 0 1 1 6 0 3 3 0 0 1-6 0zM3 21v-1a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5v1",
     },
     {
         "name": "Fitness & sports",
-        "slug": "fitness_sports",
         "route": "classes-sports-recreation",
         "svg_path": "M3 12h2M19 12h2M7 8v8M17 8v8M7 12h10",
     },
     {
         "name": "Attractions",
-        "slug": "entertainment_attractions",
         "route": "attractions",
         "svg_path": "M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5L12 3z",
     },
     {
         "name": "Lodging",
-        "slug": "lodging",
         "route": "lodging-vacation-rentals",
         "svg_path": "M3 18V8M21 18v-5a3 3 0 0 0-3-3H8M3 13h18M3 18h18M7 10a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z",
     },
     {
         "name": "Pets",
-        "slug": "pets",
         "route": "pets",
         "svg_path": "M5 11a2 2 0 1 1-2-2 2 2 0 0 1 2 2zM21 11a2 2 0 1 1-2-2 2 2 0 0 1 2 2zM9 6a2 2 0 1 1-2-2 2 2 0 0 1 2 2zM17 6a2 2 0 1 1-2-2 2 2 0 0 1 2 2zM7 17a5 5 0 0 1 10 0 3 3 0 0 1-3 3h-4a3 3 0 0 1-3-3z",
     },
@@ -471,10 +463,14 @@ _SERVICE_TILES: tuple[dict[str, Any], ...] = (
 def services_grid(db: Session) -> list[dict[str, Any]]:
     """Service icon grid -- 12 category tiles with real counts.
 
-    Mirrors the legacy ``categories(db)`` shape (single GROUP BY against
-    ``Provider.category``) but joins to the curated ``_SERVICE_TILES``
-    constant so the surface keeps a fixed visual rhythm regardless of
-    catalog drift.
+    Each tile counts active non-draft Providers across the full slug
+    tuple in ``CATEGORY_FILTERS[tile['route']]``. This guarantees the
+    tile count on /home matches the slim-header count on the
+    ``/categories/{route}`` destination page -- no drift between
+    surfaces. The slug-set source of truth lives in
+    ``app/categories/queries.py``; this function imports it lazily to
+    avoid an import cycle (``categories.queries`` already imports
+    ``queries_c`` for ``_format_rating`` / ``_load_eat_photos``).
 
     Per BUILD.md "no zero counts" rule: tiles with 0 providers still
     render (icon + name + tap target) but the count line is suppressed.
@@ -488,27 +484,41 @@ def services_grid(db: Session) -> list[dict[str, Any]]:
 
     Returns:
         List of 12 card dicts shaped for ``components/services_grid.html``.
-        Each card has: ``name`` (display), ``slug`` (legacy category),
-        ``route`` (D5 URL path segment), ``svg_path`` (inline SVG),
-        ``count`` (int|None), ``count_label`` ("N listed" or ""),
-        ``href`` ("/categories/{route}" until D5; same value either way
-        -- the route may 404 until D5 ships).
+        Each card has: ``name`` (display), ``route`` (D5 URL path
+        segment), ``svg_path`` (inline SVG), ``count`` (int|None),
+        ``count_label`` ("N listed" or ""), ``href``
+        ("/categories/{route}").
 
     Never raises: a DB hiccup must not 500 /home. Errors swallow into
     "all counts None" so the grid still renders.
     """
+    # Lazy import: ``app.categories.queries`` imports ``_format_rating``
+    # and ``_load_eat_photos`` from this module at import time, so a
+    # top-level import here would create a cycle. Importing inside the
+    # function body is the cleanest break -- runtime cost is negligible
+    # and CPython caches the module after the first call.
     from sqlalchemy import func as sa_func
 
+    from app.categories.queries import CATEGORY_FILTERS
+
+    # Collect every legacy slug that any tile cares about. ``set`` so
+    # the IN-clause stays small even when several tiles share slugs
+    # (e.g. ``lodging`` appears in both ``on-the-water`` and
+    # ``lodging-vacation-rentals`` per the editorial cross-listing
+    # noted in CATEGORY_FILTERS).
+    needed_slugs: set[str] = set()
+    for tile in _SERVICE_TILES:
+        needed_slugs.update(CATEGORY_FILTERS.get(tile["route"], ()))
+
     counts: dict[str, int] = {}
-    if db is not None:
-        slug_list = [tile["slug"] for tile in _SERVICE_TILES]
+    if db is not None and needed_slugs:
         try:
             rows = (
                 db.query(Provider.category, sa_func.count(Provider.id))
                 .filter(
                     Provider.is_active.is_(True),
                     Provider.draft.is_(False),
-                    Provider.category.in_(slug_list),
+                    Provider.category.in_(sorted(needed_slugs)),
                 )
                 .group_by(Provider.category)
                 .all()
@@ -521,14 +531,18 @@ def services_grid(db: Session) -> list[dict[str, Any]]:
 
     cards: list[dict[str, Any]] = []
     for tile in _SERVICE_TILES:
-        n = counts.get(tile["slug"], 0)
+        route_slugs = CATEGORY_FILTERS.get(tile["route"], ())
+        # Sum every legacy slug that maps to this route. A tile pointing
+        # at a route missing from CATEGORY_FILTERS resolves to () and a
+        # count of 0 -- handled by the no-zero rule below. Defensive but
+        # surfaced by ``test_every_tile_route_is_in_category_filters``.
+        total = sum(counts.get(s, 0) for s in route_slugs)
         # ``None`` count means "hide the count line"; 0 collapses to
         # None per the no-zero rule. ``int > 0`` renders the line.
-        count_value: int | None = n if n > 0 else None
+        count_value: int | None = total if total > 0 else None
         cards.append(
             {
                 "name": tile["name"],
-                "slug": tile["slug"],
                 "route": tile["route"],
                 "svg_path": tile["svg_path"],
                 "count": count_value,

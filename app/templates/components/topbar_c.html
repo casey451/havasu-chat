@@ -1,0 +1,46 @@
+{#
+  Direction C shared topbar -- sticky dark glass with wordmark + tab row
+  + "Ask Hava" CTA.
+
+  Included by ``home_c.html`` and ``category_c.html``. Context contract:
+
+    active_tab    "today" | "eat-drink" | "on-the-water" |
+                  "things-to-do" | "services"
+                  Controls which pill carries ``is-active``. Use
+                  ``today`` on /home (no category) -- the Today pill
+                  highlights and the four category pills are inert
+                  hyperlinks. On a category page, ``active_tab`` is
+                  the mega-tab slug this route belongs to (see
+                  ``app.categories.queries.active_tab_for``).
+
+  PR D5 turned the four right-side pills into ``<a href>`` anchors.
+  Today stays a button (it is the current home; clicking would be a
+  same-page reload). Per BUILD.md no-filters rule, these are navigation
+  affordances, not in-place filters.
+#}
+<header class="c-topbar" role="banner">
+  <div class="c-topbar-inner">
+    <a href="/home" class="c-wm" aria-label="Hava home">
+      <span class="c-wm-dot" aria-hidden="true"></span>
+      <span>Hava</span>
+    </a>
+    <nav class="c-tabs" role="navigation" aria-label="Browse">
+      <a href="/home"
+         class="c-tab{% if active_tab == 'today' %} is-active{% endif %}"
+         {% if active_tab == 'today' %}aria-current="page"{% endif %}>Today</a>
+      <a href="/categories/eat-drink"
+         class="c-tab{% if active_tab == 'eat-drink' %} is-active{% endif %}"
+         {% if active_tab == 'eat-drink' %}aria-current="page"{% endif %}>Eat &amp; drink</a>
+      <a href="/categories/on-the-water"
+         class="c-tab{% if active_tab == 'on-the-water' %} is-active{% endif %}"
+         {% if active_tab == 'on-the-water' %}aria-current="page"{% endif %}>On the water</a>
+      <a href="/categories/things-to-do"
+         class="c-tab{% if active_tab == 'things-to-do' %} is-active{% endif %}"
+         {% if active_tab == 'things-to-do' %}aria-current="page"{% endif %}>Things to do</a>
+      <a href="/categories/services"
+         class="c-tab{% if active_tab == 'services' %} is-active{% endif %}"
+         {% if active_tab == 'services' %}aria-current="page"{% endif %}>Services</a>
+    </nav>
+    <a href="/chat" class="c-ask">Ask Hava</a>
+  </div>
+</header>
