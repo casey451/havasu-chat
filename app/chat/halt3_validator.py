@@ -12,7 +12,10 @@ import yaml
 from sqlalchemy.orm import Session
 
 from app.chat import disclosure_render
-from app.chat.entity_matcher import extract_catalog_entities_from_text, refresh_entity_matcher
+from app.chat.entity_matcher import (
+    ensure_entity_matcher,
+    extract_catalog_entities_from_text,
+)
 from app.chat.unified_router import route
 from app.db.database import SessionLocal
 from app.db.models import Provider
@@ -352,7 +355,7 @@ def _classify_disclosure_path(
     if tier_used in ("1", "2", "3"):
         if db is not None:
             try:
-                refresh_entity_matcher(db)
+                ensure_entity_matcher(db)
                 mentioned = extract_catalog_entities_from_text(text, db)
                 if mentioned:
                     return "cited"
@@ -367,7 +370,7 @@ def _classify_disclosure_path(
 
 def _confabulation_rate(response: str, db: Session, *, query: str = "") -> float:
     """Body-content confabulation score in [0.0, 1.0]."""
-    refresh_entity_matcher(db)
+    ensure_entity_matcher(db)
     text = response or ""
 
     mentioned = extract_catalog_entities_from_text(text, db)
@@ -458,7 +461,9 @@ def validate_eval_set(
     results: list[EvalQueryResult] = []
 
     def _run_one(spec: EvalQuerySpec, session: Session) -> EvalQueryResult:
-        refresh_entity_matcher(session)
+        # Eval-set semantics: every spec must see an up-to-date index in case
+        # a previous spec mutated the catalog. force=True preserves that.
+        ensure_entity_matcher(session, force=True)
         resp = route(
             spec.query,
             "halt3-eval",
