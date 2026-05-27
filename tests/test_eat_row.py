@@ -321,17 +321,21 @@ def test_eat_row_respects_limit() -> None:
 def test_eat_row_non_positive_limit_returns_empty(bad_limit: int) -> None:
     """``limit <= 0`` short-circuits to ``[]``. The DB is never queried
     and ``_hours_status`` is never called -- the contract for a non-
-    positive cap is "no cards" rather than "max(limit, 1) cards"."""
-    providers = [
-        SimpleNamespace(
-            slug=f"p{i}",
-            provider_name=f"Place {i}",
-            district=None,
-            google_rating=4.5,
-        )
-        for i in range(3)
-    ]
-    fake_db = _stub_db_returning(providers)
+    positive cap is "no cards" rather than "max(limit, 1) cards".
+
+    Uses an exploding DB stub (rather than ``_stub_db_returning``) so a
+    regression that drops the short-circuit and falls through to the DB
+    query fails LOUDLY with a clear AssertionError, rather than silently
+    appearing to "work" because the stub still returns rows."""
+
+    class _ExplodingDB:
+        def query(self, *args, **kwargs):  # noqa: ARG002
+            raise AssertionError(
+                "eat_row must short-circuit before calling db.query() "
+                "when limit <= 0"
+            )
+
+    fake_db = _ExplodingDB()
 
     with patch.object(queries_c, "_hours_status") as hours_status_mock:
         cards = queries_c.eat_row(fake_db, now=_NOW_EVENING, limit=bad_limit)
