@@ -213,6 +213,11 @@ class ChatRouteIntegrationTests(unittest.TestCase):
                 provider_id = _insert_google_provider(
                     db, provider_name=canonical, phone=phone
                 )
+            # Bust the matcher's module-level _rows cache so the next chat call
+            # triggers refresh_entity_matcher(db) and includes the just-seeded
+            # canonical. Mirrors the cleanup-side reset in `finally:` below —
+            # both are needed; cleanup-side handles bleed-OUT, this handles bleed-IN.
+            reset_entity_matcher()
 
             with TestClient(app) as client:
                 r = client.post(

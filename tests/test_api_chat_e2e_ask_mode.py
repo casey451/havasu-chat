@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.chat.entity_matcher import reset_entity_matcher
 from app.db.models import Program, Provider
 from app.main import app
 
@@ -64,6 +65,7 @@ def test_post_api_chat_tier1_phone_lookup_path(db: Session) -> None:
     db.flush()
     db.add(_program_for_provider(provider))
     db.commit()
+    reset_entity_matcher()  # bust stale _rows from prior tests; force refresh on next match
 
     with TestClient(app) as client:
         r = client.post(

@@ -214,6 +214,8 @@ def test_ask_tier1_when_provider_row_present(db: Session) -> None:
 def test_entity_enrichment_when_classifier_has_no_entity(db: Session) -> None:
     canon = "Lake Havasu City BMX"
     _insert_program(db, canon)
+    from app.chat.entity_matcher import reset_entity_matcher
+    reset_entity_matcher()  # force fresh matcher index that includes seeded canon
     fake = IntentResult(
         mode="ask",
         sub_intent="HOURS_LOOKUP",
