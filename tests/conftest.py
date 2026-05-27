@@ -115,6 +115,18 @@ def _cleanup_phase7_seed_sources() -> None:
 
 @pytest.fixture(autouse=True)
 def _phase7_test_row_cleanup() -> None:
-    """Remove Phase 7 seed rows after every test so tier2 catalog tests stay isolated."""
+    """Remove Phase 7 seed rows after every test so tier2 catalog tests stay isolated.
+
+    Also resets the entity-matcher module-level catalog cache (added 2026-05-27,
+    v45 session) so the 5-minute TTL on ``_rows_loaded_at`` doesn't carry stale
+    catalog state across tests within the same pytest process. See
+    ``outputs/entity_matcher_cache_deferral_2026-05-27_v41.md`` for the failure
+    mode this prevents (``test_post_api_chat_tier1_phone_lookup_path`` returning
+    ``tier_used == "gap_template"`` instead of ``"1"`` because a prior test's
+    catalog warm masked the freshly-seeded providers).
+    """
     yield
     _cleanup_phase7_seed_sources()
+    from app.chat.entity_matcher import reset_entity_matcher
+
+    reset_entity_matcher()
