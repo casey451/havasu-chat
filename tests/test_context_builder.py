@@ -306,3 +306,144 @@ def test_when_no_active_includes_verified_fallback_slice(isolated_catalog: Sessi
     db.flush()
     ctx = build_context_for_tier3("open ended", _intent(entity=None), db)
     assert ctx.count("Provider:") == 10
+
+
+def test_DIAGNOSTIC_ci_entity_matched_state_capture(isolated_catalog: Session) -> None:
+    """TEMP CI diagnostic — captures why the Entity branch returns empty on CI.
+
+    Local Python 3.13.5 (single-file and full-suite): Entity branch produces
+    "Entity: Target Biz LLC". CI Python 3.11.15 (full-suite): names == [].
+    Most likely cause: _fetch_entity_rows applies LIMIT 30 BEFORE the
+    case-insensitive name filter (which runs in Python). If the Entity table
+    holds >30 active rows when this test runs, the matching one falls outside
+    the LIMIT and the filter returns []. isolated_catalog clears Provider /
+    Event / Program but NOT Entity, so the table accumulates across the run.
+
+    This diagnostic prints:
+      - total active Entity row count visible from this session
+      - the first 30 Entity names the production query would return (no
+        name filter) — exactly the slice _fetch_entity_rows works with
+      - whether our matching "Target Biz LLC" is in that slice
+      - the result of calling _fetch_entity_rows("Target Biz LLC") directly
+      - the ctx string produced by build_context_for_tier3
+      - the branch fingerprint
+
+    Then asserts False so pytest prints stdout in the failure traceback.
+    Delete this test once the fix is identified.
+    """
+    from sqlalchemy import func, select as _diag_select
+
+    from app.chat.context_builder import _fetch_entity_rows as _diag_fetch_entity_rows
+    from app.db import entity_dual_write as _diag_edw
+    from app.db.models import Entity as _DiagEntity
+
+    db = isolated_catalog
+
+    print("\n[CIDIAG] === Entity table baseline (post isolated_catalog setup) ===")
+    try:
+        baseline_active = db.scalar(
+            _diag_select(func.count())
+            .select_from(_DiagEntity)
+            .where(_DiagEntity.is_active.is_(True))
+        )
+    except BaseException as exc:  # noqa: BLE001
+        baseline_active = f"<count raised: {type(exc).__name__}: {exc}>"
+    try:
+        baseline_total = db.scalar(_diag_select(func.count()).select_from(_DiagEntity))
+    except BaseException as exc:  # noqa: BLE001
+        baseline_total = f"<count raised: {type(exc).__name__}: {exc}>"
+    print(f"[CIDIAG] baseline Entity total: {baseline_total!r}")
+    print(f"[CIDIAG] baseline Entity active: {baseline_active!r}")
+
+    p_other = Provider(
+        provider_name="Zebra Zoo",
+        category="recreation",
+        phone="111",
+        verified=True,
+        draft=False,
+        is_active=True,
+    )
+    p_match = Provider(
+        provider_name="Target Biz LLC",
+        category="food",
+        address="123 Main",
+        phone="555-1212",
+        website="https://target.example",
+        hours="9-5",
+        verified=True,
+        draft=False,
+        is_active=True,
+    )
+
+    db.add_all([p_other, p_match])
+    flush_error: BaseException | None = None
+    try:
+        db.flush()
+    except BaseException as exc:  # noqa: BLE001
+        flush_error = exc
+
+    print(f"[CIDIAG] flush_error: {flush_error!r}")
+    print(f"[CIDIAG] p_match.entity_id post-flush: {p_match.entity_id!r}")
+    print(f"[CIDIAG] p_other.entity_id post-flush: {p_other.entity_id!r}")
+    print(
+        f"[CIDIAG] hook _CATALOG_DUAL_WRITE_HOOKS_REGISTERED = "
+        f"{_diag_edw._CATALOG_DUAL_WRITE_HOOKS_REGISTERED!r}"
+    )
+
+    try:
+        post_total = db.scalar(_diag_select(func.count()).select_from(_DiagEntity))
+        post_active = db.scalar(
+            _diag_select(func.count())
+            .select_from(_DiagEntity)
+            .where(_DiagEntity.is_active.is_(True))
+        )
+    except BaseException as exc:  # noqa: BLE001
+        post_total = post_active = f"<count raised: {type(exc).__name__}: {exc}>"
+    print(f"[CIDIAG] post-flush Entity total: {post_total!r}")
+    print(f"[CIDIAG] post-flush Entity active: {post_active!r}")
+
+    # Reproduce the prefilter slice _fetch_entity_rows uses: select active
+    # entities with limit=30 (= limit*3 from caller default of 10), in
+    # whatever DB-default order the production query gets.
+    try:
+        slice_q = (
+            _diag_select(_DiagEntity.name)
+            .where(_DiagEntity.is_active.is_(True))
+            .limit(30)
+        )
+        slice_names = list(db.scalars(slice_q).all())
+    except BaseException as exc:  # noqa: BLE001
+        slice_names = f"<scalars raised: {type(exc).__name__}: {exc}>"
+    print(f"[CIDIAG] _fetch_entity_rows-style LIMIT 30 slice size: "
+          f"{len(slice_names) if isinstance(slice_names, list) else 'N/A'!r}")
+    if isinstance(slice_names, list):
+        target_in_slice = "Target Biz LLC" in slice_names
+        zebra_in_slice = "Zebra Zoo" in slice_names
+        print(f"[CIDIAG] 'Target Biz LLC' in slice: {target_in_slice!r}")
+        print(f"[CIDIAG] 'Zebra Zoo'      in slice: {zebra_in_slice!r}")
+        print(f"[CIDIAG] full slice names (first 30): {slice_names!r}")
+
+    # Now call the actual production helper to see what it returns.
+    try:
+        helper_rows = _diag_fetch_entity_rows(db, "Target Biz LLC")
+        helper_names = [(e.id, e.name) for e in helper_rows]
+    except BaseException as exc:  # noqa: BLE001
+        helper_names = f"<_fetch_entity_rows raised: {type(exc).__name__}: {exc}>"
+    print(f"[CIDIAG] _fetch_entity_rows('Target Biz LLC') -> {helper_names!r}")
+
+    # And the full ctx.
+    try:
+        ctx = build_context_for_tier3("hours?", _intent(entity="Target Biz LLC"), db)
+    except BaseException as exc:  # noqa: BLE001
+        ctx = f"<build_context_for_tier3 raised: {type(exc).__name__}: {exc}>"
+    print(f"[CIDIAG] ctx repr: {ctx!r}")
+    if isinstance(ctx, str):
+        starts_entity = "Entity:" in ctx
+        starts_provider = "Provider:" in ctx
+        is_fallback = "No verified provider rows are available" in ctx
+        print(
+            f"[CIDIAG] branch fingerprint: entity_branch={starts_entity} "
+            f"provider_branch={starts_provider} fallback={is_fallback}"
+        )
+
+    raise AssertionError("CIDIAG - see [CIDIAG] stdout above")
