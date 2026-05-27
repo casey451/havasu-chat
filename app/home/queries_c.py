@@ -497,8 +497,9 @@ def services_grid(db: Session) -> list[dict[str, Any]]:
     # top-level import here would create a cycle. Importing inside the
     # function body is the cleanest break -- runtime cost is negligible
     # and CPython caches the module after the first call.
-    from app.categories.queries import CATEGORY_FILTERS
     from sqlalchemy import func as sa_func
+
+    from app.categories.queries import CATEGORY_FILTERS
 
     # Collect every legacy slug that any tile cares about. ``set`` so
     # the IN-clause stays small even when several tiles share slugs

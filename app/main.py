@@ -29,7 +29,6 @@ from app.api.routes.account_alerts import router as account_alerts_router
 from app.api.routes.admin_contributions import router as admin_contributions_router
 from app.api.routes.admin_mentions import router as admin_mentions_router
 from app.api.routes.category_pages import router as category_pages_router
-from app.categories.router import router as direction_c_categories_router
 from app.api.routes.chat import router as concierge_chat_router
 from app.api.routes.conditions import router as conditions_router
 from app.api.routes.contribute import router as contribute_router
@@ -37,6 +36,7 @@ from app.api.routes.map_data import router as map_data_router
 from app.api.routes.themed_groups import router as themed_groups_router
 from app.auth.routes import router as auth_router
 from app.auth.session import SessionMiddleware
+from app.categories.router import router as direction_c_categories_router
 from app.core.event_quality import friendly_errors
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.db.database import SessionLocal, get_db, init_db
