@@ -53,6 +53,20 @@ def _intent(*, entity: str | None = None, sub: str = "OPEN_ENDED") -> IntentResu
 
 
 def test_entity_matched_provider_listed_first_with_details(isolated_catalog: Session) -> None:
+    """When intent.entity matches, build_context_for_tier3 takes the ENTITY
+    branch and returns ONLY that entity row (focused Tier 3 LLM context),
+    with the matched provider's details (address/phone/website/hours) joined
+    in via entity_id. Non-matched providers (Zebra Zoo) are omitted.
+
+    Pre-Phase 7 contract listed all providers with the matched one first.
+    The test name is preserved from that contract for git-blame continuity,
+    but the assertions reflect the post-Phase 7 ENTITY catalog contract,
+    confirmed end-to-end by the CIDIAG run on PR #15 (2026-05-27) once the
+    `_fetch_entity_rows` limit-then-filter bug in app/chat/context_builder.py
+    was fixed (the bug was masking the Entity branch under accumulated
+    test-suite Entity rows by truncating the candidate slice with LIMIT 30
+    before the case-insensitive name match in Python).
+    """
     db = isolated_catalog
     p_other = Provider(
         provider_name="Zebra Zoo",
@@ -77,9 +91,13 @@ def test_entity_matched_provider_listed_first_with_details(isolated_catalog: Ses
     db.flush()
 
     ctx = build_context_for_tier3("hours?", _intent(entity="Target Biz LLC"), db)
-    names = re.findall(r"^Provider: (.+)$", ctx, re.MULTILINE)
-    assert names[0] == "Target Biz LLC"
-    assert "Provider: Zebra Zoo" in ctx
+    # ENTITY catalog path: matched entity present, others omitted.
+    names = re.findall(r"^Entity: (.+)$", ctx, re.MULTILINE)
+    assert names == ["Target Biz LLC"], (
+        f"expected only matched entity, got: {names!r}"
+    )
+    assert "Zebra Zoo" not in ctx
+    # Matched entity Provider details surface via the entity_id join.
     assert "address: 123 Main" in ctx
     assert "phone: 555-1212" in ctx
     assert "website: https://target.example" in ctx

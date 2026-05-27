@@ -150,19 +150,33 @@ def _entity_profile_url(ent: Entity, provider: Provider | None) -> str:
 def _fetch_entity_rows(db: Session, entity_name: str | None, *, limit: int = 10) -> list[Entity]:
     if not entity_name or not str(entity_name).strip():
         return []
+    # Push the case-insensitive exact-name match into SQL so LIMIT can never
+    # cut off the matching row. The prior `limit*3` Python-side filter pattern
+    # silently failed as soon as the active Entity table grew past ~30 rows:
+    # SQLite would return the first 30 by rowid order, the matching row could
+    # fall outside that window, and the Python filter would return []. The
+    # test `test_entity_matched_provider_listed_first_with_details` failed in
+    # CI for exactly this reason once accumulated test-suite Entity rows
+    # pushed the active count past 30; it passed locally only when the
+    # matching row happened to land in the first 30 by luck. See PR #15 /
+    # CIDIAG capture 2026-05-27 (49 baseline active entities; 'Target Biz
+    # LLC' outside the LIMIT 30 slice; ctx fell through to Provider branch).
+    from sqlalchemy import func
+
+    needle = entity_name.strip().lower()
     q = (
         select(Entity)
-        .where(Entity.is_active.is_(True))
+        .where(
+            Entity.is_active.is_(True),
+            func.lower(Entity.name) == needle,
+        )
         .options(
             joinedload(Entity.location),
             selectinload(Entity.categories).joinedload(EntityCategory.category),
         )
-        .limit(limit * 3)
+        .limit(limit)
     )
-    rows = list(db.scalars(q).unique().all())
-    needle = entity_name.strip().lower()
-    rows = [e for e in rows if (e.name or "").lower() == needle]
-    return rows[:limit]
+    return list(db.scalars(q).unique().all())
 
 
 def build_context_for_tier3(
