@@ -65,6 +65,32 @@ outputs/_*_msg.txt
 # any future location so the same gotcha (stale .cmd accidentally
 # double-clicked → wrong commit message) is structurally suppressed.
 _*.cmd
+_*.bat
+_*.ps1
 _*_result.txt
 _*_result.json
 _*_msg.txt
+
+# Session scratchpad directories. outputs/ accumulates per-session
+# handoffs, draft patches, .cmd scaffolding, and other artifacts; nothing
+# under it is currently tracked. mockups/ holds UI exploration HTML that
+# also lives outside version control. Without these patterns, `git add -A`
+# in either directory is a common foot-gun.
+outputs/
+mockups/
+
+# Backup files. Any *.bak anywhere, plus the specific .git/config.bak*
+# files that the Cowork Edit tool drops next to .git/config when it
+# repairs that file (see Appendix C.4 in
+# outputs/cowork_upstream_bug_report_fuse_stale_inode.md).
+*.bak
+.git/config.bak*
+
+# Shell-misfire orphan files at the repo root. `'%I'` came from an
+# unquoted batch `for /f %%I in (...)` token leaking into a redirection;
+# `tatus` came from a partial `git status` typo redirected to a file.
+# Both are harmless on disk but pollute `git status` output. The
+# patterns here suppress them in case they ever come back.
+'%I'
+%I
+tatus
