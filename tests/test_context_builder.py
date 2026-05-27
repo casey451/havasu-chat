@@ -261,7 +261,14 @@ def test_long_hours_truncated(isolated_catalog: Session) -> None:
     ctx = build_context_for_tier3("hours?", _intent(entity="Long Hours Biz"), db)
     assert "hours: " in ctx
     start = ctx.index("hours: ") + len("hours: ")
-    end = ctx.index("\n", start)
+    # The ``hours: ...`` field can be the last line of the context block
+    # with no trailing newline (the ENTITY-catalog code path renders it
+    # that way; the Provider-catalog path traditionally adds a newline).
+    # Tolerate both: search for the next newline, fall back to end-of-
+    # string when none exists.
+    end = ctx.find("\n", start)
+    if end == -1:
+        end = len(ctx)
     hrs_val = ctx[start:end].strip()
     assert hrs_val.endswith("...")
     assert len(hrs_val) == 200
