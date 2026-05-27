@@ -14,7 +14,19 @@ from sqlalchemy.orm import Session
 from app.chat.context_builder import MAX_CONTEXT_WORDS, build_context_for_tier3
 from app.chat.intent_classifier import IntentResult
 from app.db.database import SessionLocal
-from app.db.models import Event, Program, Provider
+from app.db.models import (
+    ContactPoint,
+    Entity,
+    EntityCategory,
+    Event,
+    Hours,
+    Location,
+    Offering,
+    Program,
+    Provider,
+    Schedule,
+    SourceEvidence,
+)
 
 
 @pytest.fixture
@@ -28,11 +40,32 @@ def db() -> Session:
 
 @pytest.fixture
 def isolated_catalog(db: Session) -> Session:
-    """Empty providers/programs/events for this test only; rolled back so the shared test DB stays clean."""
+    """Empty catalog for this test only; rolled back so the shared test DB stays clean.
+
+    Clears the legacy top-level tables (Provider/Event/Program) AND the Entity
+    subtree (Entity + its FK-child rows in EntityCategory, Location, Hours,
+    ContactPoint, Offering, Schedule, SourceEvidence). Hardening per v42 §2:
+    Phase-7+ tests can seed Entity rows that pollute later tests' matcher
+    lookups without this wipe.
+    """
     nested = db.begin_nested()
+    # FK-safe delete order: every table referencing entities.id first
+    # (Provider/Event/Program have entity_id NOT NULL; the Entity-subtree
+    # children EntityCategory/Location/Hours/ContactPoint/Offering/Schedule/
+    # SourceEvidence reference Entity too), then Entity itself last. SQLite
+    # default is `PRAGMA foreign_keys=OFF` so any order works today, but the
+    # safe ordering future-proofs against FK enforcement being switched on.
     db.execute(delete(Program))
     db.execute(delete(Event))
     db.execute(delete(Provider))
+    db.execute(delete(EntityCategory))
+    db.execute(delete(Location))
+    db.execute(delete(Hours))
+    db.execute(delete(ContactPoint))
+    db.execute(delete(Offering))
+    db.execute(delete(Schedule))
+    db.execute(delete(SourceEvidence))
+    db.execute(delete(Entity))
     db.flush()
     yield db
     try:

@@ -30,7 +30,19 @@ from app.chat.context_builder import (
 from app.chat.intent_classifier import IntentResult
 from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal
-from app.db.models import Event, Program, Provider
+from app.db.models import (
+    ContactPoint,
+    Entity,
+    EntityCategory,
+    Event,
+    Hours,
+    Location,
+    Offering,
+    Program,
+    Provider,
+    Schedule,
+    SourceEvidence,
+)
 
 _FLAG = tf.FEATURE_FLAG_CONFIDENCE_TIER_ENV_VAR
 
@@ -46,10 +58,26 @@ def db() -> Session:
 
 @pytest.fixture
 def isolated_catalog(db: Session) -> Session:
+    """Empty catalog for this test only; rolled back so the shared test DB stays clean.
+
+    Clears the legacy top-level tables (Provider/Event/Program) AND the Entity
+    subtree (Entity + its FK-child rows in EntityCategory, Location, Hours,
+    ContactPoint, Offering, Schedule, SourceEvidence). Hardening per v42 §2.
+    """
     nested = db.begin_nested()
+    # FK-safe delete order: rows referencing entities.id first, then Entity
+    # itself. See test_context_builder.isolated_catalog for the full rationale.
     db.execute(delete(Program))
     db.execute(delete(Event))
     db.execute(delete(Provider))
+    db.execute(delete(EntityCategory))
+    db.execute(delete(Location))
+    db.execute(delete(Hours))
+    db.execute(delete(ContactPoint))
+    db.execute(delete(Offering))
+    db.execute(delete(Schedule))
+    db.execute(delete(SourceEvidence))
+    db.execute(delete(Entity))
     db.flush()
     yield db
     try:
