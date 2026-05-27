@@ -6,7 +6,7 @@
   list of dicts produced by ``app.home.queries_c.eat_row()``.
 
   Per card (Jinja-safe defaults guaranteed by ``_build_eat_card``):
-    slug          optional Provider.slug; None -> non-linking anchor
+    slug          optional Provider.slug; None -> non-linking <div>
     name          display name
     image_url     curated Unsplash URL or None (None -> gradient)
     neighborhood  district label (e.g. "English Village") or ""
@@ -33,10 +33,16 @@
   <div class="c-scroll-wrap">
     <div class="c-scroll-row" role="list">
       {% for card in eat_cards %}
+      {% if card.slug %}
       <a class="c-pc{% if not card.image_url %} is-no-photo{% endif %}"
          role="listitem"
-         href="{% if card.slug %}/provider/{{ card.slug }}{% else %}#{% endif %}"
+         href="/provider/{{ card.slug }}"
          aria-label="{{ card.name }}{% if card.neighborhood %}, {{ card.neighborhood }}{% endif %}{% if card.status_text %}, {{ card.status_text }}{% endif %}">
+      {% else %}
+      <div class="c-pc{% if not card.image_url %} is-no-photo{% endif %}"
+           role="listitem"
+           aria-label="{{ card.name }}{% if card.neighborhood %}, {{ card.neighborhood }}{% endif %}{% if card.status_text %}, {{ card.status_text }}{% endif %}">
+      {% endif %}
         <div class="c-pc-photo"
              {% if card.image_url %}style="background-image: url('{{ card.image_url }}');"{% endif %}
              aria-hidden="true">
@@ -62,7 +68,7 @@
           <div class="c-pc-where">{{ card.neighborhood }}</div>
           {% endif %}
         </div>
-      </a>
+      {% if card.slug %}</a>{% else %}</div>{% endif %}
       {% endfor %}
     </div>
   </div>

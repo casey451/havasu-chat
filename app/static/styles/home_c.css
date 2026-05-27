@@ -632,13 +632,20 @@ body.home-c a.c-pc { color: var(--c-ink); }
   }
   .c-scroll-row {
     gap: 12px;
-    /* Hide the scrollbar on touch where the bar takes screen height and
-       isn't tappable anyway; native momentum scroll handles discovery. */
-    scrollbar-width: none;
     padding-bottom: 4px;
   }
-  .c-scroll-row::-webkit-scrollbar { display: none; }
   .c-pc { flex: 0 0 240px; }
   .c-pc-name { font-size: 18px; }
   .c-pc-photo-mark { font-size: 44px; }
+}
+
+/* Hide the scrollbar only on touch/coarse-pointer devices where the bar
+   takes screen height and isn't tappable anyway; native momentum scroll
+   handles discovery. Desktop browsers resized below 720px still keep the
+   scrollbar for hover/wheel affordance. */
+@media (max-width: 720px) and (hover: none) and (pointer: coarse) {
+  .c-scroll-row {
+    scrollbar-width: none;
+  }
+  .c-scroll-row::-webkit-scrollbar { display: none; }
 }

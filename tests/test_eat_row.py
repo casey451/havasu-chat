@@ -129,6 +129,34 @@ def test_load_eat_photos_drops_non_string_urls(
     assert photos == {"good-slug": "https://images.unsplash.com/photo-x?w=600"}
 
 
+@pytest.mark.parametrize(
+    "raw_json",
+    [
+        # Top-level is a list, not a dict -- legal JSON, wrong shape.
+        '[{"photos": {"x": "https://example.com/x.jpg"}}]',
+        # Top-level is a scalar.
+        '42',
+        '"a string at the root"',
+        # Top-level is a dict but ``photos`` is not a mapping.
+        '{"photos": 42}',
+        '{"photos": ["a", "b"]}',
+        '{"photos": "https://example.com/x.jpg"}',
+    ],
+)
+def test_load_eat_photos_malformed_shape_returns_empty(
+    monkeypatch: pytest.MonkeyPatch, tmp_path, raw_json: str,
+) -> None:
+    """Valid JSON of the wrong shape (top-level list, top-level scalar,
+    or ``photos`` not a mapping) must degrade to ``{}`` rather than
+    raise. A 500 on /home from a curator's JSON typo would be visible
+    to every visitor."""
+    payload = tmp_path / "wrong_shape.json"
+    payload.write_text(raw_json, encoding="utf-8")
+    monkeypatch.setattr(queries_c, "_EAT_PHOTOS_PATH", payload)
+    queries_c.reset_cache()
+    assert queries_c._load_eat_photos() == {}
+
+
 # ---------------------------------------------------------------------------
 # _format_rating
 # ---------------------------------------------------------------------------
@@ -276,10 +304,41 @@ def test_eat_row_respects_limit() -> None:
     def all_open(provider, *, now):  # noqa: ARG001
         return ("open", "Open now")
 
-    with patch.object(queries_c, "_hours_status", side_effect=all_open):
+    with patch.object(
+        queries_c, "_hours_status", side_effect=all_open
+    ) as hours_status_mock:
         cards = queries_c.eat_row(fake_db, now=_NOW_EVENING, limit=3)
 
     assert len(cards) == 3
+    # Contract-lock the early-stop: the loop must break as soon as
+    # ``limit`` cards are collected, not slice at the end. With 8
+    # all-open providers and ``limit=3``, ``_hours_status`` should be
+    # called exactly 3 times -- never 4-8. Guards against a regression
+    # where the function gathers all providers then truncates.
+    assert hours_status_mock.call_count == 3
+
+
+@pytest.mark.parametrize("bad_limit", [0, -1, -12])
+def test_eat_row_non_positive_limit_returns_empty(bad_limit: int) -> None:
+    """``limit <= 0`` short-circuits to ``[]``. The DB is never queried
+    and ``_hours_status`` is never called -- the contract for a non-
+    positive cap is "no cards" rather than "max(limit, 1) cards"."""
+    providers = [
+        SimpleNamespace(
+            slug=f"p{i}",
+            provider_name=f"Place {i}",
+            district=None,
+            google_rating=4.5,
+        )
+        for i in range(3)
+    ]
+    fake_db = _stub_db_returning(providers)
+
+    with patch.object(queries_c, "_hours_status") as hours_status_mock:
+        cards = queries_c.eat_row(fake_db, now=_NOW_EVENING, limit=bad_limit)
+
+    assert cards == []
+    assert hours_status_mock.call_count == 0
 
 
 def test_eat_row_skips_provider_when_hours_status_raises() -> None:
@@ -436,7 +495,12 @@ def test_home_redesign_renders_scroll_row_when_eat_cards_populated() -> None:
 
 
 def test_home_redesign_eat_card_links_to_provider_when_slug_present() -> None:
-    """Cards with a slug link to /provider/{slug}; sluggless cards link to #."""
+    """Cards with a slug render an ``<a>`` linking to /provider/{slug};
+    sluggless cards render a non-link ``<div>`` with the same styling
+    but no anchor semantics. The old ``href="#"`` fallback was an
+    accessibility regression (screen readers announce it as a link to
+    nowhere; clicking it scrolls the page to top), so this test also
+    locks the negative: no ``href="#"`` may appear in the rendered eat row."""
     cards = [
         {
             "slug": "mudshark-brewing",
@@ -461,8 +525,20 @@ def test_home_redesign_eat_card_links_to_provider_when_slug_present() -> None:
         with TestClient(app) as client:
             r = client.get("/home?redesign=1")
     body = r.text
+    # Slug-bearing card: real anchor with the provider href.
     assert 'href="/provider/mudshark-brewing"' in body
-    assert 'href="#"' in body
+    assert '<a class="c-pc is-no-photo"' in body
+    # Sluggless card: a non-link div with the same card class.
+    assert '<div class="c-pc is-no-photo"' in body
+    # Lock the regression scoped to eat-row anchors only. ``<a class="c-pc"``
+    # is unique to scroll_row.html (the discover_grid partial uses
+    # ``<a class="c-card"`` and still has its own href="#" fallback in D2
+    # scope), so this regex catches eat-row leaks without false positives
+    # from D2's lane.
+    import re
+    eat_anchors = re.findall(r'<a class="c-pc[^>]*>', body)
+    bad = [a for a in eat_anchors if 'href="#"' in a]
+    assert not bad, f"eat-row anchor still emits href=\"#\": {bad}"
 
 
 # ---------------------------------------------------------------------------

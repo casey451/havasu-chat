@@ -209,7 +209,11 @@ def _load_eat_photos() -> dict[str, str]:
             data = json.load(fh)
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         return {}
+    if not isinstance(data, dict):
+        return {}
     photos = data.get("photos") or {}
+    if not isinstance(photos, dict):
+        return {}
     # Belt-and-suspenders: ensure all values are strings (a JSON typo
     # could leave a number or null in there).
     return {
@@ -249,8 +253,8 @@ def _build_eat_card(
     Template-facing keys (Jinja-safe defaults for every field):
 
     - ``slug``: optional URL slug -- when present, card links to
-      ``/provider/{slug}``; otherwise the card is non-clickable in
-      the partial (anchor still rendered, ``href="#"``).
+      ``/provider/{slug}``; otherwise the partial renders a non-link
+      ``<div>`` with the same styling (no anchor semantics).
     - ``name``: ``Provider.provider_name`` verbatim.
     - ``image_url``: curated Unsplash URL or ``None``; ``None`` triggers
       the gradient placeholder in CSS.
@@ -311,6 +315,8 @@ def eat_row(
     """
     if db is None:
         return []
+    if limit <= 0:
+        return []
 
     try:
         candidates: list[Provider] = (
@@ -321,7 +327,7 @@ def eat_row(
                 Provider.draft.is_(False),
             )
             .order_by(Provider.google_rating.desc().nullslast())
-            .limit(max(limit, 1) * _EAT_FETCH_MULTIPLIER)
+            .limit(limit * _EAT_FETCH_MULTIPLIER)
             .all()
         )
     except Exception:
