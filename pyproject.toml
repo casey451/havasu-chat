@@ -26,6 +26,15 @@ extend-exclude = [
 # would surface ~1352 cosmetic findings.
 select = ["F", "I", "W", "E402"]
 
+[tool.ruff.lint.isort]
+# Pin `app` as first-party so ruff classifies it correctly even in
+# environments where third-party deps (fastapi, etc.) aren't installed
+# alongside ruff. Without this, CI's lint-only job (which installs only
+# ruff) misclassifies `fastapi.testclient` as first-party and re-sorts
+# `from app.* import ...` before it, producing spurious I001 errors on
+# test files that import both. See CI run #449 for the original failure.
+known-first-party = ["app"]
+
 [tool.ruff.lint.per-file-ignores]
 # Slice 49: intentional bootstrap-ordering. Imports below the gate must
 # stay in place because the gate (ensure_dotenv_loaded() or sys.path.insert)

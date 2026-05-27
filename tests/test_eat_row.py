@@ -27,7 +27,6 @@ from fastapi.testclient import TestClient
 from app.home import queries_c
 from app.main import app
 
-
 # Phoenix is UTC-7 year-round (no DST). Pick a time mid-evening so an
 # "Open until 10" restaurant counts as open and a 5am bakery counts as
 # closed -- realistic spread for one snapshot.
