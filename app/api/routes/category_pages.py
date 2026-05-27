@@ -2,6 +2,25 @@
 
 GET /category/<slug> renders the shared shell + organic Hava card stream.
 Eat & Drink is the first proof category; other Tier 1 slugs reuse the template.
+
+This singular ``/category/`` surface co-exists with the plural
+``/categories/`` surface in ``app/categories/router.py`` (PR D5).
+PR D6 (2026-05-26) documented the split rather than collapsing them:
+
+  /category/{slug}    (THIS module, singular)
+    SEO landing pages and intent-led narrowing. ~12 Tier-1 slugs with
+    sub-trade chips, operational chips, ranking modes (closest_now /
+    editorial_pick), and per-slug DEFAULT_SORT_BY_SLUG. Entity /
+    EntityCategory-backed, ~1150 LoC.
+
+  /categories/{slug}  (app/categories/router.py, plural)
+    Direction C chrome-driven nav. 5 mega-category routes that
+    aggregate multiple Provider.category slugs. No filter chips
+    (BUILD.md rule). Provider.category-backed, ~77 LoC template.
+
+When slugs overlap (eat-drink, on-the-water, pets, ...) the routes
+intentionally serve different UX: plural is the chrome-led "show me
+everything"; singular is the SEO landing with filter narrowing.
 """
 
 from __future__ import annotations
