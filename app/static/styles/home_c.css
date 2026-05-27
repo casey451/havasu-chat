@@ -459,3 +459,193 @@ body.home-c a.c-card { color: var(--c-paper); }
   .c-card { padding: 14px; }
   .c-card-blurb { display: none; }
 }
+
+/* ============ D3: Eat & drink horizontal scroll row ============ */
+.c-eat {
+  padding: 32px 32px 56px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+.c-eat .c-section-head { margin-top: 32px; }
+.c-eat .c-section-sub { margin-bottom: 20px; }
+
+/* Outer wrap exists so the section padding doesn't clip card shadows /
+   focus rings on the scroll container's overflow edge. */
+.c-scroll-wrap {
+  position: relative;
+  /* Bleed the scrollable area edge-to-edge inside the section padding,
+     so the first card lines up with the section's left edge but the
+     last card can scroll past the right edge naturally. */
+  margin: 0 -8px;
+  padding: 4px 8px;
+}
+
+.c-scroll-row {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-left: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-bg-3) transparent;
+  /* Bottom padding gives the thin scrollbar breathing room and keeps
+     card focus rings from clipping. */
+  padding-bottom: 12px;
+}
+.c-scroll-row::-webkit-scrollbar { height: 8px; }
+.c-scroll-row::-webkit-scrollbar-track { background: transparent; }
+.c-scroll-row::-webkit-scrollbar-thumb {
+  background: var(--c-bg-3);
+  border-radius: 999px;
+}
+.c-scroll-row::-webkit-scrollbar-thumb:hover { background: var(--c-ink-3); }
+
+.c-pc {
+  flex: 0 0 280px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-bg-2);
+  border-radius: 14px;
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--c-ink);
+  border: 1px solid var(--c-rule);
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+body.home-c a.c-pc { color: var(--c-ink); }
+.c-pc:hover {
+  transform: translateY(-2px);
+  border-color: rgba(77, 196, 207, 0.35);
+}
+.c-pc:focus-visible {
+  outline: 2px solid var(--c-teal);
+  outline-offset: 2px;
+}
+
+.c-pc-photo {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--c-bg-3);
+}
+/* Gradient placeholder for cards without a curated photo -- still
+   identifiable by the name initial, never an empty grey square. */
+.c-pc.is-no-photo .c-pc-photo {
+  background-image: linear-gradient(
+    135deg,
+    rgba(77, 196, 207, 0.32) 0%,
+    rgba(24, 31, 37, 0.92) 65%,
+    rgba(14, 20, 25, 1) 100%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.c-pc-photo-mark {
+  font-family: var(--c-serif);
+  font-weight: 300;
+  font-size: 56px;
+  letter-spacing: -0.02em;
+  color: rgba(243, 241, 234, 0.55);
+  font-variation-settings: "opsz" 144;
+}
+
+.c-pc-body {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+.c-pc-name {
+  margin: 0;
+  font-family: var(--c-serif);
+  font-weight: 400;
+  font-size: 20px;
+  line-height: 1.2;
+  letter-spacing: -0.005em;
+  color: var(--c-ink);
+}
+.c-pc-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.c-pc-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px 4px 7px;
+  border-radius: 999px;
+  background: rgba(243, 241, 234, 0.08);
+  color: var(--c-ink);
+  font-weight: 500;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.c-pc-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-ink-3);
+}
+.c-pc-status.c-pill-open .c-pc-dot { background: var(--c-ok); }
+.c-pc-status.c-pill-closing-soon .c-pc-dot { background: var(--c-warm); }
+.c-pc-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--c-ink-2);
+  font-weight: 500;
+}
+.c-pc-star { color: var(--c-warm); font-size: 13px; }
+.c-pc-where {
+  font-size: 12px;
+  color: var(--c-ink-3);
+  letter-spacing: 0.01em;
+}
+
+/* Eat-row empty-state bridge. Same family as the D2 .c-bridge but
+   smaller and tucked closer to the rule so the missing section reads
+   as honest absence, not a feature. */
+.c-bridge.c-bridge-eat {
+  font-size: 18px;
+  margin: 24px 0 0;
+  max-width: 580px;
+}
+
+/* ============ D3: Eat row mobile (<= 720px) ============ */
+@media (max-width: 720px) {
+  .c-eat {
+    padding: 24px 16px 40px;
+  }
+  .c-eat .c-section-head { margin-top: 16px; }
+  .c-scroll-wrap {
+    margin: 0 -16px;
+    padding: 4px 16px;
+  }
+  .c-scroll-row {
+    gap: 12px;
+    padding-bottom: 4px;
+  }
+  .c-pc { flex: 0 0 240px; }
+  .c-pc-name { font-size: 18px; }
+  .c-pc-photo-mark { font-size: 44px; }
+}
+
+/* Hide the scrollbar only on touch/coarse-pointer devices where the bar
+   takes screen height and isn't tappable anyway; native momentum scroll
+   handles discovery. Desktop browsers resized below 720px still keep the
+   scrollbar for hover/wheel affordance. */
+@media (max-width: 720px) and (hover: none) and (pointer: coarse) {
+  .c-scroll-row {
+    scrollbar-width: none;
+  }
+  .c-scroll-row::-webkit-scrollbar { display: none; }
+}

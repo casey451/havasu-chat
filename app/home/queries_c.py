@@ -1,9 +1,17 @@
-"""Direction C queries -- Discover grid (and forthcoming Eat row + Services).
+"""Direction C queries -- Discover grid + Eat row (and forthcoming Services).
 
 PR D2 introduces ``discover_grid()``: reads the curated featured-places
 JSON (``app/home/curated_discover.json``), optionally enriches business
 entries with live hours status from the Provider table, and returns a
 list of card dicts ready for the template.
+
+PR D3 introduces ``eat_row()``: the inverse pattern. Provider rows in
+the legacy food/drink ``category`` buckets are the source of truth;
+the curated photo map (``app/home/curated_eat_photos.json``) is a
+side-table that supplies an Unsplash image keyed by ``Provider.slug``.
+Cards without a curated photo fall back to a CSS gradient and still
+render. Filter is "open or closing soon now" via ``_hours_status``;
+sort is ``google_rating`` desc (NULLs last). Cap at 12.
 
 Why a separate module: Direction C diverges from the legacy ``queries.py``
 shape (mixed-span masonry, status-pill state machine, photos as data).
@@ -31,6 +39,31 @@ from app.db.models import Provider
 from app.home.queries import _hours_status
 
 _DATA_PATH = Path(__file__).resolve().parent / "curated_discover.json"
+_EAT_PHOTOS_PATH = Path(__file__).resolve().parent / "curated_eat_photos.json"
+
+# Legacy ``Provider.category`` string values that map to "Eat & Drink".
+# Source: ``app.home.queries.LEGACY_PROVIDER_CATEGORY_LABELS`` -- the four
+# keys whose label is "Eat & Drink". Hardcoded here (not imported) to keep
+# this module self-contained and to make the food/drink slug surface
+# explicit at the call site. If new strings appear in prod (e.g.
+# "cafe", "pub"), add them here and to the legacy map.
+_FOOD_DRINK_CATEGORIES: tuple[str, ...] = (
+    "food_drink",
+    "food",
+    "restaurant",
+    "bakery",
+)
+
+# Status classes from ``_hours_status`` that count as "open right now"
+# for the eat row's "Open right now, by neighborhood" framing. We include
+# "closing-soon" because a restaurant closing in 20 minutes is still a
+# real option for someone deciding where to eat.
+_OPEN_NOW_STATUSES: frozenset[str] = frozenset({"open", "closing-soon"})
+
+# Hard cap on Provider rows pulled before filtering by open-now status.
+# Set generously: with hundreds of food/drink Providers and a long-tail
+# of unparseable hours, we need a fat pre-filter slice to fill 12 cards.
+_EAT_FETCH_MULTIPLIER = 6
 
 
 @lru_cache(maxsize=1)
@@ -162,6 +195,185 @@ def discover_grid(
     return cards
 
 
+@lru_cache(maxsize=1)
+def _load_eat_photos() -> dict[str, str]:
+    """Read and cache the curated eat-row Unsplash photo map.
+
+    Returns ``{slug: image_url}`` or ``{}`` on any file-read failure.
+    A missing or corrupt file degrades to no curated photos -- cards
+    still render with the gradient placeholder, no error surfaces to
+    visitors.
+    """
+    try:
+        with _EAT_PHOTOS_PATH.open("r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    photos = data.get("photos") or {}
+    if not isinstance(photos, dict):
+        return {}
+    # Belt-and-suspenders: ensure all values are strings (a JSON typo
+    # could leave a number or null in there).
+    return {
+        str(k): str(v)
+        for k, v in photos.items()
+        if isinstance(v, str) and v
+    }
+
+
+def _format_rating(value: float | None) -> str | None:
+    """Render a Google rating as a single-decimal string, or ``None``.
+
+    Returns ``None`` when there's no rating to display so the template
+    can hide the rating span entirely -- never render a bare star with
+    no number, and never render "0" or "0.0" (BUILD.md no-zero rule).
+    """
+    if value is None:
+        return None
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    if v <= 0:
+        return None
+    return f"{v:.1f}"
+
+
+def _build_eat_card(
+    provider: Provider,
+    *,
+    status_class: str,
+    status_text: str,
+    image_url: str | None,
+) -> dict[str, Any]:
+    """Shape a Provider row into the scroll_row.html card contract.
+
+    Template-facing keys (Jinja-safe defaults for every field):
+
+    - ``slug``: optional URL slug -- when present, card links to
+      ``/provider/{slug}``; otherwise the partial renders a non-link
+      ``<div>`` with the same styling (no anchor semantics).
+    - ``name``: ``Provider.provider_name`` verbatim.
+    - ``image_url``: curated Unsplash URL or ``None``; ``None`` triggers
+      the gradient placeholder in CSS.
+    - ``neighborhood``: ``Provider.district`` (e.g. "English Village");
+      empty string when null so the template can ``{% if %}`` cleanly.
+    - ``status``: one of "open" / "closing-soon" (the eat row filters
+      to those two values; other classes never reach this builder).
+    - ``status_text``: pill copy from ``_hours_status``.
+    - ``rating``: pre-formatted single-decimal string, or ``None`` to
+      hide the rating span.
+    """
+    return {
+        "slug": provider.slug,
+        "name": provider.provider_name,
+        "image_url": image_url,
+        "neighborhood": provider.district or "",
+        "status": status_class,
+        "status_text": status_text,
+        "rating": _format_rating(provider.google_rating),
+    }
+
+
+def eat_row(
+    db: Session | None,
+    *,
+    now: datetime,
+    limit: int = 12,
+) -> list[dict[str, Any]]:
+    """Return cards for the Direction C Eat & drink scroll row.
+
+    Live DB query: ``Provider WHERE category IN food/drink slug set
+    AND is_active AND NOT draft``, post-filtered by ``_hours_status``
+    to keep only currently-open (or closing-soon) rows, sorted by
+    ``google_rating`` desc with NULLs last, capped at ``limit``.
+
+    Photos come from ``app/home/curated_eat_photos.json`` keyed by
+    ``Provider.slug``. Missing photos render as a gradient -- the row
+    still shows the live name, neighborhood, status, and rating.
+
+    Args:
+        db: SQLAlchemy session. Pass ``None`` to short-circuit to an
+            empty list (test seam; tests that don't need DB rows
+            shouldn't have to wire one up).
+        now: Datetime to evaluate ``_hours_status`` against. Required
+            (unlike ``discover_grid``) because the entire filter hinges
+            on "open now."
+        limit: Max cards to return. Default 12 matches the mockup; 8-12
+            is the spec band.
+
+    Returns:
+        List of card dicts shaped for ``components/scroll_row.html``.
+        Empty list when no rows match (DB has no eat/drink Providers,
+        nothing is open, DB is unreachable, etc.). The template's
+        ``{% if eat_cards %}`` gate handles the empty case.
+
+    Never raises: a single bad Provider row or DB hiccup must not 500
+    the home page. Errors swallow into an empty list.
+    """
+    if db is None:
+        return []
+    if limit <= 0:
+        return []
+
+    try:
+        candidates: list[Provider] = (
+            db.query(Provider)
+            .filter(
+                Provider.category.in_(_FOOD_DRINK_CATEGORIES),
+                Provider.is_active.is_(True),
+                Provider.draft.is_(False),
+            )
+            .order_by(Provider.google_rating.desc().nullslast())
+            .limit(limit * _EAT_FETCH_MULTIPLIER)
+            .all()
+        )
+    except Exception:
+        # Defensive: a DB outage or schema drift should leave the row
+        # empty (template hides the section) rather than 500 the home.
+        return []
+
+    if not candidates:
+        return []
+
+    photos = _load_eat_photos()
+    cards: list[dict[str, Any]] = []
+    for provider in candidates:
+        try:
+            status_class, status_text = _hours_status(provider, now=now)
+        except Exception:
+            # One malformed hours_structured row should never poison
+            # the entire row -- skip and continue.
+            continue
+        if status_class not in _OPEN_NOW_STATUSES:
+            continue
+        image_url = photos.get(provider.slug) if provider.slug else None
+        cards.append(
+            _build_eat_card(
+                provider,
+                status_class=status_class,
+                status_text=status_text,
+                image_url=image_url,
+            )
+        )
+        if len(cards) >= limit:
+            break
+
+    return cards
+
+
 def reset_cache() -> None:
-    """Clear the curated-JSON LRU cache. Test-only seam."""
-    _load_curated.cache_clear()
+    """Clear the curated-JSON LRU caches. Test-only seam.
+
+    Defensive against tests that ``monkeypatch.setattr`` the cached
+    loaders to plain lambdas: ``cache_clear`` only exists on lru_cache-
+    wrapped callables, so we look it up tolerantly. Without this, a
+    test that mocks the loader will pass its assertions but blow up
+    the autouse fixture's teardown call.
+    """
+    for fn in (_load_curated, _load_eat_photos):
+        clear = getattr(fn, "cache_clear", None)
+        if clear is not None:
+            clear()
