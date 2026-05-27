@@ -194,12 +194,22 @@ def postprocess(text, rows):
 
     Safe to call on ``None`` / empty text: returns the input unchanged so
     cache-miss callers don't need to special-case a failed LLM call.
+
+    The flag-gated phone hedge in ``_enforce_low_tier_phone`` checks
+    per-row ``confidence_hint``, which is added by
+    ``_annotate_rows_with_confidence_hint``. ``format()`` annotates a
+    *local* copy for the LLM prompt and discards it -- handler callers
+    pass raw catalog rows into here -- so we re-annotate inside this
+    function. Without that, phone enforcement silently no-ops on every
+    row (the bug that surfaced as the CI failure of
+    ``test_flag_on_low_tier_phone_post_process_appends_when_missing``).
     """
     if not text:
         return text
     out = _inject_event_url_links(text, rows)
     if is_confidence_tier_enabled():
-        out = _enforce_low_tier_phone(out, rows)
+        annotated = _annotate_rows_with_confidence_hint(rows)
+        out = _enforce_low_tier_phone(out, annotated)
     return out
 
 
