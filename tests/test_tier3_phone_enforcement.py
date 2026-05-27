@@ -34,7 +34,20 @@ from app.chat.intent_classifier import IntentResult
 from app.chat.tier3_handler import answer_with_tier3
 from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal
-from app.db.models import Event, LlmResponseCache, Program, Provider
+from app.db.models import (
+    ContactPoint,
+    Entity,
+    EntityCategory,
+    Event,
+    Hours,
+    LlmResponseCache,
+    Location,
+    Offering,
+    Program,
+    Provider,
+    Schedule,
+    SourceEvidence,
+)
 
 _FLAG = tf.FEATURE_FLAG_CONFIDENCE_TIER_ENV_VAR
 
@@ -51,12 +64,28 @@ def db() -> Session:
 
 @pytest.fixture
 def isolated_catalog(db: Session) -> Session:
-    """Wipe catalog plus LLM cache inside a savepoint."""
+    """Wipe catalog plus LLM cache plus the Entity subtree inside a savepoint.
+
+    Entity-subtree children (EntityCategory/Location/Hours/ContactPoint/
+    Offering/Schedule/SourceEvidence) and Entity itself are now also cleared
+    per v42 §2 hardening, so Entity rows seeded by prior tests cannot pollute
+    matcher lookups in this test.
+    """
     nested = db.begin_nested()
     db.execute(delete(LlmResponseCache))
+    # FK-safe delete order: rows referencing entities.id first, then Entity
+    # itself. See test_context_builder.isolated_catalog for the full rationale.
     db.execute(delete(Program))
     db.execute(delete(Event))
     db.execute(delete(Provider))
+    db.execute(delete(EntityCategory))
+    db.execute(delete(Location))
+    db.execute(delete(Hours))
+    db.execute(delete(ContactPoint))
+    db.execute(delete(Offering))
+    db.execute(delete(Schedule))
+    db.execute(delete(SourceEvidence))
+    db.execute(delete(Entity))
     db.flush()
     yield db
     try:
