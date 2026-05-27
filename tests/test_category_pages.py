@@ -44,7 +44,6 @@ from app.categories import queries as cat_queries
 from app.home.queries import LEGACY_PROVIDER_CATEGORY_LABELS
 from app.main import app
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
