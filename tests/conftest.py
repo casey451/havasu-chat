@@ -40,6 +40,15 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     os.environ.setdefault("R2_BUCKET_NAME", "test-bucket")
     os.environ.setdefault("R2_PUBLIC_URL_BASE", "https://pub-test.r2.dev")
+    # PR D6 (2026-05-26) flipped HOME_REDESIGN to ON by default in prod.
+    # Pin tests to HOME_REDESIGN=0 so the large pre-D-series test surface
+    # (Phase 3/6/7/8/9 etc.) keeps hitting the legacy home.html template
+    # without per-test refactors. Direction C / D-series tests opt back in
+    # explicitly via ``?redesign=1`` query param or
+    # ``monkeypatch.setenv("HOME_REDESIGN", "1")``. The feature-flag and
+    # direction-C test modules ``monkeypatch.delenv`` to test the prod
+    # default directly.
+    os.environ.setdefault("HOME_REDESIGN", "0")
     if os.environ.get("HAVASU_USE_DEV_DB_FOR_TESTS") == "1":
         return
     fd, path = tempfile.mkstemp(suffix=".sqlite", prefix="havasu_pytest_")

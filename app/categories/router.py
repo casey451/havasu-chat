@@ -6,10 +6,27 @@ Direction C category-page lane (PR D5). Sister surface to
 header (no full hero). The 12 D4 service tiles and the 4 home_c
 mega-tab anchors all resolve here.
 
-Co-exists with ``app/api/routes/category_pages.py``'s
-``/category/{slug}`` (singular) Phase 6.2 surface. Different URL,
-different data model, different rendering -- intentional during
-dogfooding. D6 / a future PR decides which surface wins.
+Two category surfaces live in the codebase. PR D6 (2026-05-26)
+resolved them as a *deliberate editorial split*, not duplicates to
+reconcile:
+
+  /categories/{slug}  (THIS module, plural)
+    Chrome-driven nav. Tap a topbar tab on /home -> land here.
+    5 mega-category routes (today / eat-drink / on-the-water /
+    things-to-do / services) that aggregate multiple
+    Provider.category slugs into a single editorial grid. No filter
+    chips per BUILD.md's "no filters in chrome / chat" rule.
+    Provider.category-backed, ~77 LoC template.
+
+  /category/{slug}    (app/api/routes/category_pages.py, singular)
+    SEO landing pages and intent-led narrowing. ~12 Tier-1 slugs
+    (plumbers, electricians, eat-drink, on-the-water, pets, ...)
+    with filter chips and sub-trade refinement. Entity / EntityCategory
+    backed, ~1150 LoC template, ranked by closest_now / editorial_pick.
+
+When the slugs overlap (eat-drink, on-the-water, pets, etc.) the
+two routes intentionally serve different UX -- the funnel is:
+chrome tab -> /categories/services -> tap a tile -> /category/plumbers.
 """
 
 from __future__ import annotations

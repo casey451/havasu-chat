@@ -3,9 +3,9 @@
    Discover grid (D2), Eat row (D3), Services grid (D4), Category pages (D5)
    land in subsequent PRs.
 
-   This template renders only when HOME_REDESIGN=1 (or ?redesign=1 query
-   override). When the flag is off, app/home/router.py serves the legacy
-   home.html unchanged.
+   PR D6 cutover (2026-05-26): this template is the production /home by
+   default. The legacy home.html only renders when an operator explicitly
+   opts out via HOME_REDESIGN=0 env var or ?redesign=0 query override.
 
    Context dict shape (D1 + D2 + D3):
      today_label    -- "Sunday, May 24"

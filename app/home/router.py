@@ -1,8 +1,12 @@
 """Hava -- ``GET /home`` route.
 
-Direction C lane: when ``HOME_REDESIGN=1`` (or ``?redesign=1`` override),
-serve the new dark-chrome template ``home_c.html``. Otherwise serve the
-legacy ``home.html`` -- unchanged from prod behavior.
+Direction C lane: serves the dark-chrome ``home_c.html`` by default
+(PR D6 cutover -- the redesign is now the production home page).
+The legacy ``home.html`` only renders when the operator explicitly opts
+out via ``HOME_REDESIGN=0`` env var or ``?redesign=0`` query override.
+
+Rollback path: set ``HOME_REDESIGN=0`` on Railway. No code change, no
+revert. The legacy template is still wired here for that exact reason.
 
 Direction A's PR #5 also wired ``base["redesign"]`` into ``home.html`` to
 toggle Marquee/Supporters/etc. inside the same template. Direction C
