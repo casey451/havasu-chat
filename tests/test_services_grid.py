@@ -33,7 +33,6 @@ from app.home import queries_c
 from app.home.queries import LEGACY_PROVIDER_CATEGORY_LABELS
 from app.main import app
 
-
 # ---------------------------------------------------------------------------
 # Module-level constant invariants
 # ---------------------------------------------------------------------------
