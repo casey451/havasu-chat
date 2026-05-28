@@ -9,8 +9,8 @@ from app.chat.component_builders import (
     fallback_card_row_voice,
     is_card_row_query,
 )
-from app.chat.tier2_schema import Tier2Filters
 from app.chat.tier2_card_row import try_build_card_row
+from app.chat.tier2_schema import Tier2Filters
 
 
 def _event(
