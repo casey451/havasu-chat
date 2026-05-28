@@ -48,19 +48,6 @@ def pytest_configure(config: pytest.Config) -> None:
     abs_path = Path(path).resolve().as_posix()
     os.environ["DATABASE_URL"] = f"sqlite:///{abs_path}"
 
-    from sqlalchemy import event
-
-    from app.db.database import engine
-
-    @event.listens_for(engine, "connect")
-    def _sqlite_enable_foreign_keys(
-        dbapi_connection: object, connection_record: object
-    ) -> None:
-        if str(engine.url).startswith("sqlite"):
-            cursor = dbapi_connection.cursor()  # type: ignore[union-attr]
-            cursor.execute("PRAGMA foreign_keys=ON")
-            cursor.close()
-
 
 @pytest.fixture(scope="session", autouse=True)
 def _init_test_database() -> None:
