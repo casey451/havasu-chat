@@ -284,15 +284,19 @@ def _category_dot(category: str | None) -> str:
 
 
 def _provider_image_url(p: Provider) -> str | None:
-    """Best-available image URL for a provider, falling back to None.
+    """Best-available image URL from ``google_photo_refs`` (full URLs only).
 
-    Note: ``google_photo_refs`` stores Places photo refs, not full URLs.
-    Fetching the actual image is a separate call to Places' Photo API
-    (deferred — see BUILD.md "Photography sourcing"). For now, we
-    return None when there's no externally-fetchable URL, and the card
-    falls back to its placeholder gradient.
+    ``google_photo_refs`` may contain raw Places reference IDs alongside
+    renderable URLs. Only ``http://`` / ``https://`` strings reach the
+    template — same guard as ``derive_hero_photo`` (PR #28).
     """
-    return None  # placeholder until photo fetch is wired
+    photos = p.google_photo_refs or []
+    for candidate in photos:
+        if isinstance(candidate, str) and (
+            candidate.startswith("http://") or candidate.startswith("https://")
+        ):
+            return candidate
+    return None
 
 
 _CLOSING_SOON_MINUTES = 30

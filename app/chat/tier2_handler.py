@@ -15,6 +15,7 @@ from app.chat import (
     tier2_db_query,
     tier2_formatter,
     tier2_parser,
+    tier2_week_strip,
 )
 from app.chat.chat_request_context import ChatRequestContext
 from app.chat.tier2_db_query import _event_dict
@@ -106,14 +107,25 @@ def _explicit_month_day(query: str) -> date | None:
 
 
 def detect_event_intent(query: str) -> dict[str, str] | None:
-    """Return ``{'when': ...}`` when the query is event-flavored."""
+    """Return intent dict when the query is event-flavored.
+
+    Includes optional ``time_start`` / ``time_end`` (``HH:MM``) for
+    time-of-day scoped queries like "tonight" or "this morning".
+    """
     q = (query or "").lower()
     if "this weekend" in q or "saturday" in q or "sunday" in q:
         return {"when": "this_weekend"}
+    if "tomorrow morning" in q:
+        return {"when": "tomorrow", "time_start": "05:00", "time_end": "11:59"}
+    if "this morning" in q:
+        return {"when": "today", "time_start": "05:00", "time_end": "11:59"}
+    if "this afternoon" in q:
+        return {"when": "today", "time_start": "12:00", "time_end": "16:59"}
+    if "tonight" in q:
+        return {"when": "tonight", "time_start": "17:00", "time_end": "23:59"}
     if any(
         k in q
         for k in (
-            "tonight",
             "what's on",
             "whats on",
             "what is on",
@@ -123,19 +135,32 @@ def detect_event_intent(query: str) -> dict[str, str] | None:
             " event ",
         )
     ):
-        return {"when": "tonight" if "tonight" in q else "today"}
+        return {"when": "today"}
     return None
 
 
-def _event_rows_for_intent(when: str) -> list[dict[str, Any]]:
+def _event_rows_for_intent(intent: dict[str, str]) -> list[dict[str, Any]]:
+    when = intent["when"]
+    time_start = intent.get("time_start")
+    time_end = intent.get("time_end")
     today = now_lake_havasu().date()
     win_start, win_end = intent_window_for_when(when, today=today)
     with SessionLocal() as db:
         flat = events_in_window(
-            db, window_start=win_start, window_end=win_end, limit=8
+            db,
+            window_start=win_start,
+            window_end=win_end,
+            time_start=time_start,
+            time_end=time_end,
+            limit=8,
         )
     rows: list[dict[str, Any]] = []
+    seen: set[tuple[Any, ...]] = set()
     for event, occ_date in flat:
+        key = (str(event.id), occ_date.isoformat())
+        if key in seen:
+            continue
+        seen.add(key)
         row = _event_dict(event)
         row["date"] = occ_date.isoformat()
         rows.append(row)
@@ -225,7 +250,7 @@ def try_tier2_with_usage(
     if event_intent is not None:
         from app.chat import tier2_catalog_render
 
-        rows = _event_rows_for_intent(event_intent["when"])
+        rows = _event_rows_for_intent(event_intent)
         if rows:
             logging.info("tier2_handler: event-intent path when=%s", event_intent["when"])
             text = tier2_catalog_render.render_tier2_events(q, rows)
@@ -240,10 +265,16 @@ def try_tier2_with_usage(
         rows = tier2_db_query.query(shortcut_filters, ctx=chat_ctx)
         if telemetry is not None:
             telemetry["tier2_db_ms"] = int((time.perf_counter() - t_db_start) * 1000)
-        text = tier2_business_shortcut.render_business_listing(
-            rows, shortcut_filters.category or ""
+        listing = tier2_business_shortcut.render_business_listing_with_component(
+            rows,
+            shortcut_filters.category or "",
+            intent_query=q,
         )
-        if text is not None:
+        if listing is not None:
+            text, comp_data = listing
+            if component_meta is not None:
+                component_meta["type"] = "business_list"
+                component_meta["data"] = comp_data
             logging.info("tier2_handler: business-listing shortcut hit (zero tokens)")
             if telemetry is not None:
                 telemetry["cache_status"] = "bypass"
@@ -323,6 +354,19 @@ def try_tier2_with_usage(
         if agenda is not None:
             voice, comp_data, v_in, v_out = agenda
             component_meta["type"] = "day_agenda"
+            component_meta["data"] = comp_data
+            pi, po = (p_in or 0), (p_out or 0)
+            in_sum = pi + (v_in or 0)
+            out_sum = po + (v_out or 0)
+            total = in_sum + out_sum
+            if telemetry is not None:
+                telemetry["cache_status"] = "bypass"
+            return voice, total, in_sum, out_sum
+
+        strip = tier2_week_strip.try_build_week_strip(q, filters, rows)
+        if strip is not None:
+            voice, comp_data, v_in, v_out = strip
+            component_meta["type"] = "week_strip"
             component_meta["data"] = comp_data
             pi, po = (p_in or 0), (p_out or 0)
             in_sum = pi + (v_in or 0)
@@ -417,6 +461,18 @@ def try_tier2_with_filters_with_usage(
         if agenda is not None:
             voice, comp_data, v_in, v_out = agenda
             component_meta["type"] = "day_agenda"
+            component_meta["data"] = comp_data
+            in_sum = v_in or 0
+            out_sum = v_out or 0
+            total = in_sum + out_sum
+            if telemetry is not None:
+                telemetry["cache_status"] = "bypass"
+            return voice, total, in_sum, out_sum
+
+        strip = tier2_week_strip.try_build_week_strip(q, filters, rows)
+        if strip is not None:
+            voice, comp_data, v_in, v_out = strip
+            component_meta["type"] = "week_strip"
             component_meta["data"] = comp_data
             in_sum = v_in or 0
             out_sum = v_out or 0
