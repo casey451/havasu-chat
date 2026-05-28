@@ -143,8 +143,13 @@ def serve_home(
     base["spotlights"] = live_spotlights or base["spotlights"]
     base["categories"] = live_categories or base["categories"]
 
-    # Sponsor slot: live record OR None (renders the fallback card).
+    # Legacy sponsor slot (back-compat — same record as marquee).
     base["sponsor"] = sponsor_store.get_active_sponsor(db)
+    # Phase 2B four-tier inventory (CRITIQUE_AND_REDESIGN.md §B5.6).
+    base["marquee"] = sponsor_store.active_marquee(db)
+    base["promoted"] = sponsor_store.active_promoted(db)
+    base["spotlight_sponsors"] = sponsor_store.active_spotlights(db)
+    base["supporters"] = sponsor_store.supporters(db)
 
     panel_ctx = snowbird_panel.build_snowbird_panel_context(
         db, current_user=current_user

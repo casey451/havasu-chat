@@ -168,31 +168,8 @@
     </div>
   </section>
 
-  {# ─────────── sponsor slot ─────────── #}
-  <aside class="sponsor">
-    <div class="sponsor-label">Sponsor</div>
-    {% if sponsor %}
-      <a class="sponsor-card" href="{{ sponsor.cta_url }}" target="_blank" rel="noopener">
-        <span class="sponsor-tag">Sponsored</span>
-        <div class="sp-img">
-          {% if sponsor.image_url %}<img loading="lazy" alt="{{ sponsor.name }}" src="{{ sponsor.image_url }}">{% endif %}
-        </div>
-        <div class="sp-body">
-          <div class="sp-eyebrow">{{ sponsor.eyebrow }}</div>
-          <h4 class="sp-name">{{ sponsor.name }}</h4>
-          <p class="sp-line">{{ sponsor.line }}</p>
-          <span class="sp-cta">{{ sponsor.cta_label }} →</span>
-        </div>
-      </a>
-      <p class="sponsor-foot">Hava is supported by local sponsors. <a href="/sponsor">Sponsor a slot.</a></p>
-    {% else %}
-      <a class="sponsor-fallback" href="/sponsor">
-        <div class="label">This slot is open</div>
-        <p class="pitch">Reach locals at the moment they're planning their day.</p>
-        <span class="cta">Sponsor a slot →</span>
-      </a>
-    {% endif %}
-  </aside>
+  {# ─────────── Marquee sponsor (Phase 2B — replaces the legacy aside) ─────────── #}
+  {% include "_partials/marquee.html" %}
 
   {# ─────────── Local pros (spotlight) ─────────── #}
   {% if spotlights %}
