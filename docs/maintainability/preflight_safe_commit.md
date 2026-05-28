@@ -6,6 +6,15 @@ runs three cheap checks before any state-mutating git operation and
 aborts with a non-zero exit code if the working tree is not in a state
 where a commit or push would be safe.
 
+## Session layout (Thread D, v47+)
+
+When multiple agents run concurrently, use worktrees per
+[`thread_d_session_conventions.md`](thread_d_session_conventions.md) (layout,
+Cowork mount, and FUSE `HEAD` workarounds) and `outputs/v47_coordination.md`.
+Preflight remains mandatory on every commit path regardless of worktree count.
+Set `PREFLIGHT_EXPECTED_BRANCH` to the branch the apply script targets when not
+on `main`.
+
 ## When to use it
 
 Call it from the top of any apply / commit / push script — anything
