@@ -30,6 +30,7 @@ from app.contrib.hours_helper import places_hours_to_structured
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
 from app.db.models import Entity, EntityCategory, Event, Hours, Provider
 from app.home.queries import CATEGORY_LABELS, LEGACY_PROVIDER_CATEGORY_LABELS
+from app.providers.photo_urls import google_photo_url
 
 
 def get_provider_by_slug(db: Session, slug: str) -> Optional[Provider]:
@@ -222,6 +223,7 @@ def derive_hero_photo(provider: Provider) -> Optional[str]:
         candidate = photos[0]
         if candidate.startswith("http://") or candidate.startswith("https://"):
             return candidate
+        return google_photo_url(candidate)
     return None
 
 
@@ -251,10 +253,15 @@ def derive_gallery(
     pinned = attrs.get("hero_pin_photo_url")
     hero_url = derive_hero_photo(provider) if exclude_hero else None
     for url in google:
-        if exclude_hero and not pinned and hero_url is not None and url == hero_url:
-            continue
         if url.startswith("http://") or url.startswith("https://"):
-            out.append(url)
+            resolved = url
+        else:
+            resolved = google_photo_url(url)
+        if resolved is None:
+            continue
+        if exclude_hero and not pinned and hero_url is not None and resolved == hero_url:
+            continue
+        out.append(resolved)
     return out
 
 
