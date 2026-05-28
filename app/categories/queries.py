@@ -22,7 +22,10 @@ than 500 the category page.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -30,6 +33,10 @@ from sqlalchemy.orm import Session
 from app.db.models import Provider
 from app.home.queries import _hours_status, _provider_image_url
 from app.home.queries_c import _format_rating, _load_eat_photos
+
+_CATEGORY_PHOTOS_PATH = (
+    Path(__file__).resolve().parent / "curated_category_photos.json"
+)
 
 # ---------------------------------------------------------------------------
 # Route -> Provider.category filter mapping
@@ -274,15 +281,51 @@ def is_valid_category_slug(slug: str) -> bool:
 #   status_text   pill copy from _hours_status
 #   rating        single-decimal string or None
 #
-# Photo coverage: curated eat photos override; then ``google_photo_refs``
-# full URLs via ``_provider_image_url``. Cards with no valid source render
-# the gradient placeholder.
+# Photo coverage: ``curated_category_photos.json`` first, then curated eat
+# photos, then ``google_photo_refs`` full URLs via ``_provider_image_url``.
 
 # Hard cap on how many Provider rows to pull per page before any
 # in-Python filtering. Set large enough that even sparse categories
 # (pets=37) render everything and dense ones (services aggregation
 # could be 1k+) don't drag the page.
 _DEFAULT_CARD_LIMIT = 60
+
+
+@lru_cache(maxsize=1)
+def _load_category_photos() -> dict[str, str]:
+    """Read and cache the hand-picked category card photo map.
+
+    Returns ``{slug: image_url}`` or ``{}`` on any file-read failure.
+    """
+    try:
+        with _CATEGORY_PHOTOS_PATH.open("r", encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    photos = data.get("photos") or {}
+    if not isinstance(photos, dict):
+        return {}
+    return {
+        str(k): str(v)
+        for k, v in photos.items()
+        if isinstance(v, str) and v
+    }
+
+
+def _resolve_category_card_image(provider: Provider) -> str | None:
+    """Photo URL for a category card: curated override → eat row → Google."""
+    slug = provider.slug
+    if not slug:
+        return _provider_image_url(provider)
+    category_photos = _load_category_photos()
+    if slug in category_photos:
+        return category_photos[slug]
+    eat_photos = _load_eat_photos()
+    if slug in eat_photos:
+        return eat_photos[slug]
+    return _provider_image_url(provider)
 
 
 def _build_category_card(
@@ -360,7 +403,6 @@ def category_cards(
     if not rows:
         return []
 
-    photos = _load_eat_photos()
     cards: list[dict[str, Any]] = []
     for provider in rows:
         try:
@@ -369,9 +411,7 @@ def category_cards(
             # One malformed hours_structured row should not poison the
             # whole grid. Surface the card without a status pill.
             status_class, status_text = "unknown", ""
-        image_url = photos.get(provider.slug) if provider.slug else None
-        if image_url is None:
-            image_url = _provider_image_url(provider)
+        image_url = _resolve_category_card_image(provider)
         cards.append(
             _build_category_card(
                 provider,
