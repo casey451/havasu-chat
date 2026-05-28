@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from sqlalchemy import or_, select
+from sqlalchemy import select
 
 from app.bootstrap_env import ensure_dotenv_loaded
 
@@ -50,12 +50,7 @@ def _candidates(db) -> list[Provider]:
     stmt = (
         select(Provider)
         .where(Provider.google_photo_refs.isnot(None))
-        .where(
-            or_(
-                Provider.google_photo_urls.is_(None),
-                Provider.google_photo_urls == [],  # type: ignore[arg-type]
-            )
-        )
+        .where(Provider.google_photo_urls.is_(None))
         .order_by(Provider.id)
     )
     return list(db.execute(stmt).scalars().all())
