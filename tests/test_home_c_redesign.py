@@ -1,4 +1,4 @@
-"""Direction C /home redesign tests (PR D1 -- dark chrome + tabs scaffold).
+"""Direction C /home redesign tests (PRs D1-D6).
 
 Two surfaces under test:
 
@@ -16,7 +16,8 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from app.home import demo_mode
+from app.home import demo_mode, pullquote
+from app.home.pullquote import _DEFAULT_QUOTE, _CacheState
 from app.main import app
 
 # ---------------------------------------------------------------------------
@@ -117,13 +118,17 @@ def test_home_redesign_query_off_overrides_env_on(
 
 
 def test_direction_c_no_mock_content(monkeypatch: pytest.MonkeyPatch) -> None:
-    """home_c.html should not leak any mock_data names. D1 has no grids."""
+    """home_c.html must not leak mock_data names when HAVA_DEMO_MODE is off.
+
+    Demo fixtures (discover/eat/services grids) are gated behind
+    HAVA_DEMO_MODE=1; with the flag unset, those strings must not appear.
+    """
     monkeypatch.setenv("HOME_REDESIGN", "1")
     # HAVA_DEMO_MODE is unset by the autouse fixture above.
     with TestClient(app) as client:
         r = client.get("/home")
     for leaked in ("Channel Brewing Co.", "Aquatic Center", "Havasu Outdoor Co."):
-        assert leaked not in r.text, f"D1 home_c.html leaked mock content: {leaked}"
+        assert leaked not in r.text, f"home_c.html leaked mock content: {leaked}"
 
 
 def test_direction_c_has_tab_anchors(monkeypatch: pytest.MonkeyPatch) -> None:
