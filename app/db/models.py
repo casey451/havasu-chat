@@ -83,6 +83,7 @@ class Provider(Base):
     google_review_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     google_review_snippets: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
     google_photo_refs: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    google_photo_urls: Mapped[list[str | None] | None] = mapped_column(JSON, nullable=True)
     google_hours: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     last_google_scraped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     zip: Mapped[str | None] = mapped_column(String, nullable=True)

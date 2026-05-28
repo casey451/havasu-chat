@@ -4,17 +4,24 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 from app.providers import photo_urls
-from app.providers.photo_urls import google_photo_url
+from app.providers.photo_urls import (
+    google_photo_url,
+    resolve_photo_ref,
+    resolve_photo_refs,
+)
 
 
 @pytest.fixture(autouse=True)
 def _clear_photo_url_cache() -> None:
     photo_urls._google_photo_url_cached.cache_clear()
+    photo_urls._resolve_photo_ref_cached.cache_clear()
     yield
     photo_urls._google_photo_url_cached.cache_clear()
+    photo_urls._resolve_photo_ref_cached.cache_clear()
 
 
 def test_google_photo_url_builds_expected_shape(
@@ -96,3 +103,101 @@ def test_google_photo_url_missing_key_emits_sentry_breadcrumb(
     assert google_photo_url("places/missing/photos/key") is None
     assert len(crumbs) == 1
     assert crumbs[0]["category"] == "google_photo_url"
+
+
+_RESOLVED_FIXTURE_URL = (
+    "https://lh3.googleusercontent.com/places/photo_fixture_abc123"
+)
+
+
+@patch("httpx.Client")
+def test_resolve_photo_ref_returns_https_url(
+    mock_client_cls: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "test-key")
+    ref = "places/ChIJfixture/photos/AeeoHfixture"
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.url = _RESOLVED_FIXTURE_URL
+    mock_client = MagicMock()
+    mock_client.__enter__.return_value = mock_client
+    mock_client.get.return_value = mock_response
+    mock_client_cls.return_value = mock_client
+
+    assert resolve_photo_ref(ref) == _RESOLVED_FIXTURE_URL
+    mock_client.get.assert_called_once()
+    called_url = mock_client.get.call_args[0][0]
+    assert ref in called_url
+    assert "maxWidthPx=1200" in called_url
+
+
+@pytest.mark.parametrize(
+    "bad_ref",
+    [
+        "",
+        "   ",
+        "ChIJabc/AeeoH123",
+        "not-a-places-ref",
+        "places/foo/bar",
+    ],
+)
+def test_resolve_photo_ref_returns_none_for_malformed_refs(
+    bad_ref: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "test-key")
+    assert resolve_photo_ref(bad_ref) is None
+
+
+@patch("httpx.Client")
+def test_resolve_photo_ref_returns_none_on_http_error(
+    mock_client_cls: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "test-key")
+    mock_response = MagicMock()
+    mock_response.status_code = 404
+    mock_response.url = "https://places.googleapis.com/v1/places/x/photos/y/media"
+    mock_client = MagicMock()
+    mock_client.__enter__.return_value = mock_client
+    mock_client.get.return_value = mock_response
+    mock_client_cls.return_value = mock_client
+
+    assert resolve_photo_ref("places/x/photos/y") is None
+
+
+def test_resolve_photo_ref_returns_none_without_raising_when_key_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("GOOGLE_PLACES_API_KEY", raising=False)
+    assert resolve_photo_ref("places/x/photos/y") is None
+
+
+@patch("httpx.Client")
+def test_resolve_photo_ref_returns_none_on_transport_error(
+    mock_client_cls: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "test-key")
+    mock_client = MagicMock()
+    mock_client.__enter__.return_value = mock_client
+    mock_client.get.side_effect = httpx.ConnectError("offline")
+    mock_client_cls.return_value = mock_client
+
+    assert resolve_photo_ref("places/x/photos/y") is None
+
+
+@patch("app.providers.photo_urls.resolve_photo_ref")
+def test_resolve_photo_refs_parallel_shape(mock_resolve: MagicMock) -> None:
+    mock_resolve.side_effect = [
+        "https://lh3.googleusercontent.com/a",
+        None,
+    ]
+    out = resolve_photo_refs(
+        ["places/a/photos/1", "places/a/photos/2"],
+    )
+    assert out == [
+        "https://lh3.googleusercontent.com/a",
+        None,
+    ]

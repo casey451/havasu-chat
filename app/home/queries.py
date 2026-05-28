@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.core.timezone import now_lake_havasu
 from app.db.models import Event, Program, Provider
+from app.providers.photo_urls import first_renderable_google_photo
 
 # ─────────── category labels & queries ───────────
 #
@@ -284,19 +285,14 @@ def _category_dot(category: str | None) -> str:
 
 
 def _provider_image_url(p: Provider) -> str | None:
-    """Best-available image URL from ``google_photo_refs`` (full URLs only).
+    """Best-available image URL from Google photo columns (full URLs only).
 
-    ``google_photo_refs`` may contain raw Places reference IDs alongside
-    renderable URLs. Only ``http://`` / ``https://`` strings reach the
-    template — same guard as ``derive_hero_photo`` (PR #28).
+    ``google_photo_urls`` holds resolved ``https://`` media URLs from the
+    backfill / ingest path. ``google_photo_refs`` may still contain raw
+    Places resource names; only ``http://`` / ``https://`` strings from
+    that column pass the guard — same safety net as ``derive_hero_photo``.
     """
-    photos = p.google_photo_refs or []
-    for candidate in photos:
-        if isinstance(candidate, str) and (
-            candidate.startswith("http://") or candidate.startswith("https://")
-        ):
-            return candidate
-    return None
+    return first_renderable_google_photo(p)
 
 
 _CLOSING_SOON_MINUTES = 30
