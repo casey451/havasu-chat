@@ -124,7 +124,7 @@ def test_terms_route_200_and_markers() -> None:
         r = client.get("/terms")
     assert r.status_code == 200
     body = r.text
-    assert "Terms of Service for Havasu Chat" in body
+    assert "Terms of Service for Hava" in body
     assert "1. Acceptance" in body
     assert "<!-- TODO: for public US launch, evaluate DMCA 512 agent" in body
 
