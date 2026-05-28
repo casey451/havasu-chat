@@ -58,6 +58,7 @@ from app.db.entity_dual_write import (  # noqa: E402
 )
 from app.db.models import Category, Entity, EntityCategory, Location, Provider  # noqa: E402
 from app.db.seed_helpers import derive_provider_slug  # noqa: E402
+from app.providers.photo_urls import resolve_photo_refs  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +146,7 @@ def row_to_provider_kwargs(row: dict[str, Any]) -> dict[str, Any]:
         "google_review_count": row.get("review_count"),
         "google_review_snippets": row.get("review_snippets") or None,
         "google_photo_refs": row.get("photo_refs") or None,
+        "google_photo_urls": resolve_photo_refs(row.get("photo_refs")),
         "google_hours": row.get("regular_opening_hours") or None,
         "lat": row.get("lat"),
         "lng": row.get("lng"),

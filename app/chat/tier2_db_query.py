@@ -37,6 +37,7 @@ from sqlalchemy import String, case, cast, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.chat import tier2_synonyms as _tier2_synonyms
+from app.providers.photo_urls import first_renderable_google_photo
 from app.chat.chat_request_context import ChatRequestContext
 from app.chat.entity_catalog_query import prefers_entity_catalog, query_entities
 from app.chat.tier2_schema import Tier2Filters
@@ -375,13 +376,7 @@ def _program_dict(p: Program) -> dict[str, Any]:
 def _provider_dict(p: Provider) -> dict[str, Any]:
     loc = getattr(getattr(p, "entity", None), "location", None)
     address = loc.address if loc is not None and loc.address else p.address
-    thumb_url: str | None = None
-    for candidate in p.google_photo_refs or []:
-        if isinstance(candidate, str) and (
-            candidate.startswith("http://") or candidate.startswith("https://")
-        ):
-            thumb_url = candidate
-            break
+    thumb_url = first_renderable_google_photo(p)
     return {
         "type": "provider",
         "name": p.provider_name,

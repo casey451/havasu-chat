@@ -8,12 +8,31 @@ from app.home.queries import _provider_image_url
 
 
 def _provider(**kwargs: object) -> SimpleNamespace:
-    defaults: dict[str, object] = {"google_photo_refs": None}
+    defaults: dict[str, object] = {
+        "google_photo_refs": None,
+        "google_photo_urls": None,
+    }
     defaults.update(kwargs)
     return SimpleNamespace(**defaults)
 
 
-def test_provider_image_url_returns_first_https_url() -> None:
+def test_provider_image_url_prefers_google_photo_urls() -> None:
+    p = _provider(
+        google_photo_urls=[
+            "https://lh3.googleusercontent.com/resolved-first.jpg",
+        ],
+        google_photo_refs=[
+            "places/ChIJabc/photos/AeeoH123",
+            "https://lh3.googleusercontent.com/places/photo1.jpg",
+        ],
+    )
+    assert (
+        _provider_image_url(p)
+        == "https://lh3.googleusercontent.com/resolved-first.jpg"
+    )
+
+
+def test_provider_image_url_returns_first_https_url_from_refs() -> None:
     p = _provider(
         google_photo_refs=[
             "places/ChIJabc/photos/AeeoH123",
