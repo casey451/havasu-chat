@@ -2,19 +2,22 @@
 
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date, datetime, time
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import delete
 
 from app.chat.component_builders import build_day_agenda
-from app.chat.tier2_handler import _event_rows_for_intent, detect_event_intent
+from app.chat.tier2_handler import _event_rows_for_intent, detect_event_intent, try_tier2_with_usage
 from app.chat.tier2_schema import Tier2Filters
 from app.db.database import SessionLocal
 from app.db.entity_dual_write import create_event_and_entity
 from app.db.models import Category, EntityCategory, Event
 from app.events.queries import events_in_window
+
+_LHC = ZoneInfo("America/Phoenix")
 
 
 def test_detect_tonight_includes_evening_bounds() -> None:
@@ -183,3 +186,88 @@ def test_event_rows_for_intent_passes_time_bounds() -> None:
     _, kwargs = mock_win.call_args
     assert kwargs["time_start"] == "17:00"
     assert kwargs["time_end"] == "23:59"
+
+
+def _fixed_lhc_now() -> datetime:
+    """Isolated test day — unlikely to collide with seeded catalog rows."""
+    return datetime(2099, 1, 15, 13, 48, tzinfo=_LHC)
+
+
+def _test_day() -> date:
+    return date(2099, 1, 15)
+
+
+def test_tonight_query_empty_when_only_morning_events(db) -> None:
+    """Regression: zero evening rows must not fall through to all-day LLM path."""
+    day = _test_day()
+    morning = _make_event(db, title="Morning Swim", on_date=day, start=time(6, 0))
+    db.commit()
+    component_meta: dict = {}
+    try:
+        with patch("app.chat.tier2_handler.now_lake_havasu", return_value=_fixed_lhc_now()):
+            with patch(
+                "app.chat.tier2_handler.tier2_parser.parse",
+                side_effect=AssertionError("must not fall through to LLM parser"),
+            ):
+                voice, total, in_t, out_t = try_tier2_with_usage(
+                    "what's on tonight",
+                    component_meta=component_meta,
+                )
+        assert voice == "Nothing on tonight — try \"what's on tomorrow\"."
+        assert total == 0 and in_t == 0 and out_t == 0
+        assert component_meta.get("type") == "day_agenda"
+        assert component_meta.get("data", {}).get("events") == []
+    finally:
+        db.execute(delete(Event).where(Event.id == morning.id))
+        db.commit()
+
+
+def test_tonight_query_excludes_morning_events(db) -> None:
+    day = _test_day()
+    morning = _make_event(db, title="Morning Swim", on_date=day, start=time(6, 0))
+    evening = _make_event(db, title="Evening Jazz", on_date=day, start=time(19, 0))
+    db.commit()
+    component_meta: dict = {}
+    try:
+        with patch("app.chat.tier2_handler.now_lake_havasu", return_value=_fixed_lhc_now()):
+            voice, total, _, _ = try_tier2_with_usage(
+                "what's on tonight",
+                component_meta=component_meta,
+            )
+        assert total == 0
+        assert component_meta.get("type") == "day_agenda"
+        events = component_meta.get("data", {}).get("events", [])
+        titles = {ev["title"] for ev in events}
+        assert "Morning Swim" not in titles
+        assert "Evening Jazz" in titles
+        for ev in events:
+            hour = int(str(ev.get("start") or "99").split(":")[0])
+            assert hour >= 17
+        assert "Evening Jazz" in voice or "one" in voice
+    finally:
+        for ev in (morning, evening):
+            db.execute(delete(Event).where(Event.id == ev.id))
+        db.commit()
+
+
+def test_whats_on_today_still_returns_full_day(db) -> None:
+    day = _test_day()
+    morning = _make_event(db, title="Morning Swim", on_date=day, start=time(6, 0))
+    evening = _make_event(db, title="Evening Jazz", on_date=day, start=time(19, 0))
+    db.commit()
+    component_meta: dict = {}
+    try:
+        with patch("app.chat.tier2_handler.now_lake_havasu", return_value=_fixed_lhc_now()):
+            _, total, _, _ = try_tier2_with_usage(
+                "what's on today",
+                component_meta=component_meta,
+            )
+        assert total == 0
+        assert component_meta.get("type") == "day_agenda"
+        titles = {ev["title"] for ev in component_meta.get("data", {}).get("events", [])}
+        assert "Morning Swim" in titles
+        assert "Evening Jazz" in titles
+    finally:
+        for ev in (morning, evening):
+            db.execute(delete(Event).where(Event.id == ev.id))
+        db.commit()
