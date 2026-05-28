@@ -22,11 +22,15 @@ category-browse query.
 
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
 from typing import Any
+from urllib.parse import quote
 
 from app.chat.tier2_schema import Tier2Filters
 from app.core.timezone import now_lake_havasu
+from app.home.queries import _format_phone
+from app.providers.queries import is_open_status_from_structured_hours
 
 # ─────────── shape detection ───────────
 
@@ -104,6 +108,131 @@ _DOW_INDEX = {
     "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
     "friday": 4, "saturday": 5, "sunday": 6,
 }
+
+
+# ─────────── business_list builder (BUILD.md step 7.5) ───────────
+
+
+def build_business_list(
+    rows: list[dict[str, Any]],
+    *,
+    category: str,
+    total_count: int,
+    intent_query: str | None = None,
+) -> dict[str, Any]:
+    """Build the ``data`` dict for a ``business_list`` chat component.
+
+    Maps tier-2 provider rows into the schema expected by ``renderBusinessList``
+    in ``chat-new.js``. Items are capped at five, sorted by rating (highest
+    first) to match the listing shortcut's prior prose ordering intent.
+    """
+    del intent_query  # reserved for future foot_link / query-aware copy
+    provider_rows = [r for r in rows if r.get("type") == "provider"]
+    provider_rows.sort(
+        key=lambda r: (
+            -(float(r["google_rating"]) if r.get("google_rating") is not None else -1.0),
+            str(r.get("name") or ""),
+        )
+    )
+    items: list[dict[str, Any]] = []
+    now = now_lake_havasu()
+    for row in provider_rows[:5]:
+        item = _provider_row_to_business_item(row, now=now)
+        if item is not None:
+            items.append(item)
+    cat_label = _pretty_category_label(category)
+    return {
+        "category": cat_label,
+        "total_count": total_count,
+        "items": items,
+    }
+
+
+def _pretty_category_label(category: str) -> str:
+    from app.chat.tier2_business_shortcut import _pluralize_for_header
+
+    plural = _pluralize_for_header(category or "businesses")
+    return plural.title() if plural.islower() else plural
+
+
+def _provider_row_to_business_item(
+    row: dict[str, Any], *, now: Any
+) -> dict[str, Any] | None:
+    name = str(row.get("name") or "").strip()
+    if not name:
+        return None
+    slug = str(row.get("slug") or "").strip()
+    url = f"/provider/{slug}" if slug else ""
+    phone_display, phone_raw = _format_phone(row.get("phone"))
+    address = str(row.get("address") or "").strip()
+    address_short = _short_address(address)
+    directions_url = _maps_directions_url(address) if address else None
+    status_class, status_text = _open_status_for_row(row, now=now)
+    rating = row.get("google_rating")
+    review_count = row.get("google_review_count")
+    item: dict[str, Any] = {
+        "name": name,
+        "url": url,
+        "category": _trade_category_label(row),
+        "address_short": address_short or address or None,
+        "directions_url": directions_url,
+    }
+    if phone_display:
+        item["phone"] = phone_display
+    if phone_raw:
+        item["phone_raw"] = phone_raw
+    if isinstance(rating, (int, float)):
+        item["rating"] = float(rating)
+    if isinstance(review_count, int):
+        item["review_count"] = review_count
+    if row.get("thumb_url"):
+        item["thumb_url"] = row["thumb_url"]
+    desc = str(row.get("description") or "").strip()
+    if desc:
+        item["blurb"] = desc
+    if status_class and status_class != "unknown":
+        item["status"] = status_class
+        item["status_class"] = status_class
+        if status_text:
+            item["status_text"] = status_text
+    return item
+
+
+def _short_address(address: str) -> str:
+    """First line / street portion for compact card display."""
+    line = address.split("\n", 1)[0].strip()
+    if len(line) > 80:
+        return line[:77] + "…"
+    return line
+
+
+def _maps_directions_url(address: str) -> str:
+    query = address.strip()
+    low = query.lower()
+    if query and "lake havasu" not in low:
+        query = f"{query}, Lake Havasu City AZ"
+    elif query and " az" not in low and "arizona" not in low:
+        query = f"{query} AZ"
+    return "https://www.google.com/maps/search/?api=1&query=" + quote(query)
+
+
+def _trade_category_label(row: dict[str, Any]) -> str:
+    gpc = str(row.get("google_primary_category") or row.get("category") or "")
+    gpc = re.sub(r"_+", " ", gpc).strip()
+    if gpc:
+        return gpc.title()
+    return ""
+
+
+def _open_status_for_row(row: dict[str, Any], *, now: Any) -> tuple[str, str]:
+    """Map structured hours on a provider row to pill status for the renderer."""
+    hours = row.get("hours_structured")
+    is_open, status_copy = is_open_status_from_structured_hours(hours, now=now)
+    if is_open is None:
+        return "unknown", "Hours on profile"
+    if is_open:
+        return "open", status_copy or "Open now"
+    return "closed", status_copy or "Closed now"
 
 
 # ─────────── day_agenda builder ───────────

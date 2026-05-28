@@ -326,16 +326,18 @@ def test_handler_uses_shortcut_zero_tokens(db_session: Session) -> None:
         ],
     )
     try:
+        component_meta: dict = {}
         text, used, in_t, out_t = tier2_handler.try_tier2_with_usage(
-            "find me a barber in LHC"
+            "find me a barber in LHC", component_meta=component_meta
         )
         assert text is not None, "shortcut should answer"
         assert used == 0, f"expected zero tokens, got {used}"
         assert in_t == 0
         assert out_t == 0
         assert "barber" in text.lower()
-        # At least one of the inserted providers should appear.
-        assert "Tier2Shortcut" in text
+        assert component_meta.get("type") == "business_list"
+        names = [it["name"] for it in component_meta["data"]["items"]]
+        assert any("Tier2Shortcut" in n for n in names)
     finally:
         for pid in ids:
             row = db_session.get(Provider, pid)
@@ -384,15 +386,18 @@ def test_handler_open_now_listing_shortcut_zero_tokens(
                 row.hours_structured = {"monday": [{"open": "18:00", "close": "19:00"}]}
         db_session.commit()
 
+        component_meta: dict = {}
         text, used, in_t, out_t = tier2_handler.try_tier2_with_usage(
-            "what restaurants are open now"
+            "what restaurants are open now", component_meta=component_meta
         )
         assert text is not None, "shortcut+open_now should produce a listing"
         assert used == 0, f"expected zero tokens (no Haiku), got {used}"
         assert in_t == 0
         assert out_t == 0
-        assert "Tier2OpenNow Miguel" in text
-        assert "Closed Diner" not in text
+        assert component_meta.get("type") == "business_list"
+        names = [it["name"] for it in component_meta["data"]["items"]]
+        assert any("Tier2OpenNow Miguel" in n for n in names)
+        assert not any("Closed Diner" in n for n in names)
     finally:
         for pid in ids:
             row = db_session.get(Provider, pid)
@@ -449,15 +454,19 @@ def test_handler_handles_plural_query_against_singular_google_tag(db_session: Se
         ],
     )
     try:
-        text, used, in_t, out_t = tier2_handler.try_tier2_with_usage("any good coffee shops")
+        component_meta: dict = {}
+        text, used, in_t, out_t = tier2_handler.try_tier2_with_usage(
+            "any good coffee shops", component_meta=component_meta
+        )
         assert text is not None, "shortcut should answer plural-form query"
         assert used == 0, f"expected zero tokens, got {used}"
         assert in_t == 0
         assert out_t == 0
         # Header should pluralize naturally.
         assert "coffee shops" in text.lower()
-        # At least one inserted provider should appear.
-        assert "Tier2Singular" in text
+        assert component_meta.get("type") == "business_list"
+        names = [it["name"] for it in component_meta["data"]["items"]]
+        assert any("Tier2Singular" in n for n in names)
     finally:
         for pid in ids:
             row = db_session.get(Provider, pid)

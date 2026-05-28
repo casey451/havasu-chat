@@ -198,12 +198,24 @@ def test_parser_path_open_now_no_category_still_cascades() -> None:
 
 
 def test_shortcut_open_now_with_rows_still_renders_listing() -> None:
-    """Sanity: when rows DO survive the open_now filter, the existing listing render wins."""
-    rows = [{"type": "provider", "name": "Open Diner", "address": "1 Main", "phone": "555-1"}]
+    """Sanity: when rows DO survive the open_now filter, the listing shortcut wins."""
+    rows = [
+        {
+            "type": "provider",
+            "name": "Open Diner",
+            "slug": "open-diner",
+            "address": "1 Main",
+            "phone": "555-1",
+        }
+    ]
+    component_meta: dict = {}
     with patch("app.chat.tier2_handler.tier2_db_query.query", return_value=rows):
-        text, total, _, _ = try_tier2_with_usage("what restaurants are open now")
+        text, total, _, _ = try_tier2_with_usage(
+            "what restaurants are open now", component_meta=component_meta
+        )
     assert text is not None
-    assert "Open Diner" in text
+    assert component_meta.get("type") == "business_list"
+    assert component_meta["data"]["items"][0]["name"] == "Open Diner"
     assert "current hours data" not in text  # template did NOT fire
     assert total == 0  # shortcut path is zero-token
 

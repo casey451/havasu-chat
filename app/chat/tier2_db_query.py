@@ -375,14 +375,27 @@ def _program_dict(p: Program) -> dict[str, Any]:
 def _provider_dict(p: Provider) -> dict[str, Any]:
     loc = getattr(getattr(p, "entity", None), "location", None)
     address = loc.address if loc is not None and loc.address else p.address
+    thumb_url: str | None = None
+    for candidate in p.google_photo_refs or []:
+        if isinstance(candidate, str) and (
+            candidate.startswith("http://") or candidate.startswith("https://")
+        ):
+            thumb_url = candidate
+            break
     return {
         "type": "provider",
         "name": p.provider_name,
+        "slug": p.slug,
         "category": p.category,
+        "google_primary_category": p.google_primary_category,
         "address": address,
         "phone": p.phone,
         "hours": _truncate(p.hours, 120),
+        "hours_structured": p.hours_structured,
         "description": _truncate(p.description, 120),
+        "google_rating": p.google_rating,
+        "google_review_count": p.google_review_count,
+        "thumb_url": thumb_url,
     }
 
 
