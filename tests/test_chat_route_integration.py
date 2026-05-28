@@ -121,6 +121,22 @@ def _assert_concierge_response_shape(data: dict[str, Any]) -> None:
     assert "type" in data["component"]
 
 
+def _assert_listing_includes_provider(data: dict[str, Any], canonical: str) -> None:
+    """Tier 2 business-list shortcuts surface provider names in the component payload."""
+    if canonical in data["response"]:
+        return
+    comp = data["component"]
+    assert comp.get("type") == "business_list", (
+        f"expected business_list component; got {comp.get('type')!r}"
+    )
+    items = (comp.get("data") or {}).get("items") or []
+    names = [item.get("name") for item in items]
+    assert canonical in names, (
+        f"seeded provider {canonical!r} must appear in listing; "
+        f"response={data['response']!r}, item_names={names!r}"
+    )
+
+
 class ChatRouteIntegrationTests(unittest.TestCase):
     """LLM-independent end-to-end coverage for ``POST /api/chat``."""
 
@@ -405,12 +421,7 @@ class ChatRouteIntegrationLLMCoupledTests(unittest.TestCase):
                 "2",
                 f"Tier 2 listing shortcut expected; got tier_used={data['tier_used']!r}",
             )
-            self.assertIn(
-                canonical,
-                data["response"],
-                f"seeded provider name must appear in shortcut response; "
-                f"got response={data['response']!r}",
-            )
+            _assert_listing_includes_provider(data, canonical)
         finally:
             with SessionLocal() as db:
                 if provider_id is not None:
@@ -861,7 +872,7 @@ class ChatRoutePhase1CEntityPivotTests(unittest.TestCase):
             data = r.json()
             _assert_concierge_response_shape(data)
             self.assertEqual(data["tier_used"], "2")
-            self.assertIn(canonical, data["response"])
+            _assert_listing_includes_provider(data, canonical)
         finally:
             with SessionLocal() as db:
                 if provider_id is not None:
@@ -947,7 +958,7 @@ class ChatRoutePhase1CEntityPivotTests(unittest.TestCase):
             data = r.json()
             _assert_concierge_response_shape(data)
             self.assertEqual(data["tier_used"], "2")
-            self.assertIn(canonical, data["response"])
+            _assert_listing_includes_provider(data, canonical)
         finally:
             with SessionLocal() as db:
                 if provider_id is not None:
