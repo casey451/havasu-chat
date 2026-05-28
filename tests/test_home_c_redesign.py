@@ -16,7 +16,8 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from app.home import demo_mode
+from app.home import demo_mode, pullquote
+from app.home.pullquote import _DEFAULT_QUOTE, _CacheState
 from app.main import app
 
 # ---------------------------------------------------------------------------
@@ -29,6 +30,15 @@ def _clear_flags(monkeypatch: pytest.MonkeyPatch) -> None:
     """Ensure HOME_REDESIGN and HAVA_DEMO_MODE start unset for every test."""
     monkeypatch.delenv("HOME_REDESIGN", raising=False)
     monkeypatch.delenv("HAVA_DEMO_MODE", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _reset_pullquote_cache() -> None:
+    """Isolate pullquote module cache for Direction C integration tests."""
+    pullquote._cache = _CacheState()
+    yield
+    pullquote._cache = _CacheState()
 
 
 def test_demo_mode_default_off() -> None:
@@ -148,3 +158,26 @@ def test_direction_c_has_tab_anchors(monkeypatch: pytest.MonkeyPatch) -> None:
     # back to /home, but with is-active + aria-current="page").
     assert "is-active" in r.text
     assert 'aria-current="page"' in r.text
+
+
+def test_home_c_renders_hava_read_section(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Direction C /home includes the Hava's read pullquote between hero and body."""
+    monkeypatch.setenv("HOME_REDESIGN", "1")
+    with TestClient(app) as client:
+        r = client.get("/home")
+    assert r.status_code == 200
+    assert 'class="c-hava-read"' in r.text
+    assert "refreshed" in r.text
+
+
+def test_home_c_pullquote_when_llm_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Missing OPENAI_API_KEY must not 500; the default quote still renders."""
+    monkeypatch.setenv("HOME_REDESIGN", "1")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    with TestClient(app) as client:
+        r = client.get("/home")
+    assert r.status_code == 200
+    assert 'class="c-hava-read"' in r.text
+    assert _DEFAULT_QUOTE in r.text

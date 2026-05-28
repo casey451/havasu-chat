@@ -41,6 +41,7 @@ from app.home import (
     demo_mode,
     feature_flags,
     mock_data,
+    pullquote,
     queries,
     queries_c,
     snowbird_panel,
@@ -115,6 +116,7 @@ def serve_home(
                 # the ``is-active`` class. ``today`` -> Today pill lights
                 # up; the four category pills stay inert hyperlinks.
                 "active_tab": "today",
+                "hava_read": pullquote.get_quote(db),
             },
         )
 
