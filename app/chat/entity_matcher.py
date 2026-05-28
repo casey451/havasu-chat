@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import re
+import time
 from dataclasses import dataclass
 from typing import Sequence
 
@@ -111,6 +113,15 @@ class EntityMatch:
 
 
 _rows: list[_EntityRow] | None = None
+# Monotonic timestamp of the last successful refresh_entity_matcher() call.
+# Used by ensure_entity_matcher() to skip rebuilds within the TTL window.
+_rows_loaded_at: float | None = None
+
+# Catalog TTL (seconds). Override via env for tests / staging. Default 5 min
+# matches the planning doc: cache hits drop the per-request rebuild cost from
+# ~50-150ms to ~0ms while keeping fresh catalog edits visible within 5 minutes
+# of an operator save.
+_CATALOG_TTL_SECONDS = float(os.environ.get("ENTITY_MATCHER_CATALOG_TTL_S", "300"))
 
 # Backlog #47: when the query names a trade (plumber, …) and the candidate row
 # names an incompatible trade (BMX, …), location-token overlap must not win.
@@ -323,6 +334,15 @@ def _needles_for_canonical(canonical: str) -> frozenset[str]:
 def refresh_entity_matcher(db: Session) -> None:
     """Rebuild the in-memory index from ``Program.provider_name`` + active ``Provider`` rows.
 
+    Performance: this function is hot - it runs at the start of every chat
+    request via the callers in ``unified_router.py`` and ``halt3_validator.py``.
+    The previous implementation issued 1 + 2*N DB queries (N ~= 2,200 canonical
+    names -> ~4,400 round-trips, ~50-150ms tax per request). It now issues a
+    fixed **4** queries regardless of catalog size: 2 to list distinct
+    canonical names, plus 2 batch ``IN`` queries that load every
+    ``Provider.category`` / ``Provider.google_primary_category`` and every
+    distinct ``(provider_name, activity_category)`` row in one round-trip each.
+
     Two sources are unioned because the catalog has historical denormalization:
 
     - ``Program.provider_name`` is a denormalized string column populated by River Scene
@@ -337,7 +357,7 @@ def refresh_entity_matcher(db: Session) -> None:
     business names use only normalized + lowercased forms as needles. Per-row scoring
     uses ``rapidfuzz.fuzz.token_set_ratio`` with threshold 75 (unchanged).
     """
-    global _rows
+    global _rows, _rows_loaded_at
     program_names = db.scalars(select(Program.provider_name).distinct()).all()
     provider_names = db.scalars(
         select(Provider.provider_name).where(
@@ -347,16 +367,95 @@ def refresh_entity_matcher(db: Session) -> None:
     canon = sorted(
         {(n or "").strip() for n in (*program_names, *provider_names) if (n or "").strip()}
     )
+    blob_by_canonical = _category_blobs_for_canonicals(db, canon)
     _rows = [
-        _EntityRow(c, _needles_for_canonical(c), _category_blob_for_canonical(db, c))
+        _EntityRow(c, _needles_for_canonical(c), blob_by_canonical.get(c, ""))
         for c in canon
     ]
+    _rows_loaded_at = time.monotonic()
+
+
+def _category_blobs_for_canonicals(
+    db: Session, canonicals: Sequence[str]
+) -> dict[str, str]:
+    """Batched equivalent of :func:`_category_blob_for_canonical` for many names.
+
+    Returns ``{canonical: " ".join(category_parts)}`` for every name in
+    ``canonicals``. Names with no matching Provider row and no Program rows
+    map to ``""`` (or are omitted; callers use ``.get(name, "")``).
+
+    Two DB queries total - one for Provider category info, one for distinct
+    Program activity_category per provider. Order within the blob mirrors the
+    per-canonical version (Provider.category -> google_primary_category ->
+    Program.activity_category) so :func:`_trade_cluster_tags` produces the
+    same tag set regardless of whether the blob was built per-row or batched.
+    """
+    if not canonicals:
+        return {}
+    names = list(canonicals)
+    parts_by_canon: dict[str, list[str]] = {c: [] for c in names}
+    prows = db.execute(
+        select(
+            Provider.provider_name,
+            Provider.category,
+            Provider.google_primary_category,
+        ).where(
+            Provider.provider_name.in_(names),
+            Provider.is_active.is_(True),
+            Provider.draft.is_(False),
+        )
+    ).all()
+    # Per-canonical version only takes the first Provider row (LIMIT 1); replicate
+    # that here so the resulting blob is byte-identical when a single Provider row
+    # exists, and uses a deterministic "first-seen" pick when there are duplicates.
+    seen_provider: set[str] = set()
+    for name, cat, gcat in prows:
+        if name in seen_provider:
+            continue
+        seen_provider.add(name)
+        bucket = parts_by_canon.setdefault(name, [])
+        if cat:
+            bucket.append(str(cat).strip().lower())
+        if gcat:
+            bucket.append(str(gcat).strip().lower())
+    act_rows = db.execute(
+        select(Program.provider_name, Program.activity_category)
+        .where(Program.provider_name.in_(names))
+        .distinct()
+    ).all()
+    for name, ac in act_rows:
+        if ac:
+            parts_by_canon.setdefault(name, []).append(str(ac).strip().lower())
+    return {c: " ".join(parts_by_canon.get(c, [])) for c in names}
 
 
 def reset_entity_matcher() -> None:
     """Clear the cache (mainly for tests)."""
-    global _rows
+    global _rows, _rows_loaded_at
     _rows = None
+    _rows_loaded_at = None
+
+
+def _catalog_is_fresh() -> bool:
+    """True when the in-memory catalog is loaded and within the TTL window."""
+    if _rows is None or _rows_loaded_at is None:
+        return False
+    return (time.monotonic() - _rows_loaded_at) < _CATALOG_TTL_SECONDS
+
+
+def ensure_entity_matcher(db: Session, *, force: bool = False) -> None:
+    """Ensure the in-memory catalog is loaded and fresh; rebuild only if needed.
+
+    Cheap call (~us) on the hot path when the catalog is already loaded and the
+    TTL window has not expired. Pass ``force=True`` to rebuild unconditionally
+    (used by the HALT 3 eval-set runner so each spec sees an up-to-date index).
+
+    Callers that previously invoked :func:`refresh_entity_matcher` on every
+    request should switch to this function. The behavior is identical the first
+    time it is called and after :func:`reset_entity_matcher` clears the cache.
+    """
+    if force or not _catalog_is_fresh():
+        refresh_entity_matcher(db)
 
 
 # Voice-battery 2026-05-07 (regression fix): Tier 1 intent verbs that appear as
