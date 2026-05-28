@@ -285,3 +285,189 @@ def _top_location_clause(rows: list[dict[str, Any]]) -> str | None:
     if count >= 2 and count >= len(rows) / 2:
         return f"mostly at the {top}" if not top.lower().startswith("the ") else f"mostly at {top}"
     return None
+
+
+# ─────────── week_strip builder ───────────
+
+
+def is_week_strip_query(filters: Tier2Filters, rows: list[dict[str, Any]]) -> bool:
+    """True when the query asks about a 7-day window with multiple events.
+
+    Conservative — mirrors is_day_agenda_query's discipline. Requires:
+      * filters scope a multi-day window (this_week / next_week / a date_start
+        with date_end >= date_start + 2 days),
+      * AND >=4 event rows in the result set (a 7-day strip with only 1–2
+        events reads worse than a sentence),
+      * AND mostly-events (>= 0.66 ratio), same as day_agenda.
+    """
+    if not rows:
+        return False
+    if _filters_narrow_to_single_day(filters):
+        return False
+    if not _filters_scope_week_window(filters):
+        return False
+
+    event_rows = [r for r in rows if r.get("type") == "event"]
+    if len(event_rows) < 4:
+        return False
+    if len(event_rows) / len(rows) < 0.66:
+        return False
+    return True
+
+
+def _filters_scope_week_window(f: Tier2Filters) -> bool:
+    """The filter set scopes to a multi-day week-shaped window."""
+    if f.time_window in ("this_week", "next_week"):
+        return True
+    if f.date_start is not None and f.date_end is not None:
+        return f.date_end >= f.date_start + timedelta(days=2)
+    return False
+
+
+def resolve_week_window(f: Tier2Filters) -> tuple[date, date]:
+    """7-day calendar window for a week-shape query.
+
+    * time_window == "this_week"  → today..today+6
+    * time_window == "next_week"  → next Monday..next Sunday
+    * date_start + date_end       → date_start..min(date_end, date_start+6)
+    * fallback                    → today..today+6 (best-effort)
+    """
+    today = now_lake_havasu().date()
+    if f.time_window == "this_week":
+        start = today
+        return start, start + timedelta(days=6)
+    if f.time_window == "next_week":
+        days_until = (7 - today.weekday()) % 7
+        if days_until == 0:
+            days_until = 7
+        start = today + timedelta(days=days_until)
+        return start, start + timedelta(days=6)
+    if f.date_start is not None:
+        start = f.date_start
+        end = f.date_end if f.date_end is not None else start + timedelta(days=6)
+        end = min(end, start + timedelta(days=6))
+        return start, end
+    start = today
+    return start, start + timedelta(days=6)
+
+
+def build_week_strip(
+    filters: Tier2Filters, rows: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Build the ``data`` dict for a ``week_strip`` component.
+
+    Schema (matches app/static/js/chat-new.js:286 renderer):
+
+      {
+        "title": "May 28 – Jun 3",            # optional; JS computes if absent
+        "total_count": int,                    # total event count across the 7 days
+        "days": [
+          { "date": "YYYY-MM-DD",
+            "dow":  "Thu", "num": 28,         # convenience for the JS dot picker
+            "count": int,                      # events on this day (dots, capped at 6)
+            "is_today": bool },
+          # ...exactly 7 entries
+        ],
+        "selected_date": "YYYY-MM-DD",         # default = first day with events,
+                                               #          else window_start
+        "agenda": [ <agenda_row items> ],     # same shape as day_agenda.events
+                                               # for the selected_date only
+      }
+    """
+    window_start, _window_end = resolve_week_window(filters)
+    today = now_lake_havasu().date()
+
+    buckets: dict[date, list[dict[str, Any]]] = {}
+    for r in rows:
+        if r.get("type") != "event":
+            continue
+        raw = r.get("date")
+        if not raw:
+            continue
+        try:
+            day = date.fromisoformat(str(raw)[:10])
+        except (ValueError, TypeError):
+            continue
+        buckets.setdefault(day, []).append(r)
+
+    days_out: list[dict[str, Any]] = []
+    total_count = 0
+    for i in range(7):
+        d = window_start + timedelta(days=i)
+        day_rows = buckets.get(d, [])
+        count = len(day_rows)
+        total_count += count
+        days_out.append({
+            "date": d.isoformat(),
+            "dow": d.strftime("%a"),
+            "num": d.day,
+            "count": count,
+            "is_today": d == today,
+        })
+
+    selected_date = window_start
+    for cell in days_out:
+        if cell["count"] > 0:
+            selected_date = date.fromisoformat(cell["date"])
+            break
+
+    agenda_rows = buckets.get(selected_date, [])
+    agenda_rows.sort(
+        key=lambda r: (r.get("start_time") or "99:99", r.get("name") or "")
+    )
+    agenda = [_event_to_agenda_item(r) for r in agenda_rows]
+
+    last_day = window_start + timedelta(days=6)
+    title = (
+        f"{window_start.strftime('%b ')}{window_start.day}"
+        f" – {last_day.strftime('%b ')}{last_day.day}"
+    )
+
+    return {
+        "title": title,
+        "total_count": total_count,
+        "days": days_out,
+        "selected_date": selected_date.isoformat(),
+        "agenda": agenda,
+    }
+
+
+def fallback_week_strip_voice(
+    rows: list[dict[str, Any]], window: tuple[date, date]
+) -> str:
+    """Deterministic short voice line for the week. Used when LLM is unavailable.
+
+    Pattern: "This week's <busy/quiet> — N things across <M> days, <where most are>."
+    """
+    event_rows = [r for r in rows if r.get("type") == "event"]
+    n = len(event_rows)
+    window_start, _ = window
+
+    if n == 0:
+        return "This week's quiet — nothing on the calendar."
+
+    days_with_events: set[date] = set()
+    for r in event_rows:
+        raw = r.get("date")
+        if not raw:
+            continue
+        try:
+            days_with_events.add(date.fromisoformat(str(raw)[:10]))
+        except (ValueError, TypeError):
+            continue
+    m = len(days_with_events)
+    descriptor = _busy_descriptor(n)
+    word = _spell_count(n)
+    location_clause = _top_location_clause(event_rows)
+
+    if m <= 1:
+        day_phrase = "one day"
+    else:
+        day_phrase = f"{_spell_count(m)} days"
+
+    if location_clause:
+        return (
+            f"This week's {descriptor} — {word} things across {day_phrase}, "
+            f"{location_clause}."
+        )
+    return f"This week's {descriptor} — {word} things across {day_phrase}."

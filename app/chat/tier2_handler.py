@@ -15,6 +15,7 @@ from app.chat import (
     tier2_db_query,
     tier2_formatter,
     tier2_parser,
+    tier2_week_strip,
 )
 from app.chat.chat_request_context import ChatRequestContext
 from app.chat.tier2_db_query import _event_dict
@@ -332,6 +333,19 @@ def try_tier2_with_usage(
                 telemetry["cache_status"] = "bypass"
             return voice, total, in_sum, out_sum
 
+        strip = tier2_week_strip.try_build_week_strip(q, filters, rows)
+        if strip is not None:
+            voice, comp_data, v_in, v_out = strip
+            component_meta["type"] = "week_strip"
+            component_meta["data"] = comp_data
+            pi, po = (p_in or 0), (p_out or 0)
+            in_sum = pi + (v_in or 0)
+            out_sum = po + (v_out or 0)
+            total = in_sum + out_sum
+            if telemetry is not None:
+                telemetry["cache_status"] = "bypass"
+            return voice, total, in_sum, out_sum
+
     fmt_cache_hit = False
     t_fmt_start = time.perf_counter()
     with SessionLocal() as db:
@@ -417,6 +431,18 @@ def try_tier2_with_filters_with_usage(
         if agenda is not None:
             voice, comp_data, v_in, v_out = agenda
             component_meta["type"] = "day_agenda"
+            component_meta["data"] = comp_data
+            in_sum = v_in or 0
+            out_sum = v_out or 0
+            total = in_sum + out_sum
+            if telemetry is not None:
+                telemetry["cache_status"] = "bypass"
+            return voice, total, in_sum, out_sum
+
+        strip = tier2_week_strip.try_build_week_strip(q, filters, rows)
+        if strip is not None:
+            voice, comp_data, v_in, v_out = strip
+            component_meta["type"] = "week_strip"
             component_meta["data"] = comp_data
             in_sum = v_in or 0
             out_sum = v_out or 0
