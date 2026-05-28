@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.core.timezone import now_lake_havasu
 from app.db.models import Event, Program, Provider
-from app.providers.photo_urls import first_renderable_google_photo
+from app.providers.photo_urls import first_renderable_google_photo, google_photo_url
 
 # ─────────── category labels & queries ───────────
 #
@@ -285,14 +285,28 @@ def _category_dot(category: str | None) -> str:
 
 
 def _provider_image_url(p: Provider) -> str | None:
-    """Best-available image URL from Google photo columns (full URLs only).
+    """Best-available image URL from Google photo columns.
 
-    ``google_photo_urls`` holds resolved ``https://`` media URLs from the
-    backfill / ingest path. ``google_photo_refs`` may still contain raw
-    Places resource names; only ``http://`` / ``https://`` strings from
-    that column pass the guard — same safety net as ``derive_hero_photo``.
+    ``google_photo_urls`` and guarded http(s) entries in ``google_photo_refs``
+    are returned first via :func:`first_renderable_google_photo`. Raw Places
+    photo refs are upgraded to renderable Photo Media URLs via
+    :func:`google_photo_url` so they become usable instead of dropped.
+    Returns ``None`` only when no candidate yields a URL.
     """
-    return first_renderable_google_photo(p)
+    url = first_renderable_google_photo(p)
+    if url:
+        return url
+    for candidate in p.google_photo_refs or []:
+        if not isinstance(candidate, str):
+            continue
+        if candidate.startswith("http://") or candidate.startswith("https://"):
+            continue
+        # Raw Places ref — upgrade via the PR #37 helper. Returns None
+        # when no API key is configured; fall through to next candidate.
+        url = google_photo_url(candidate)
+        if url:
+            return url
+    return None
 
 
 _CLOSING_SOON_MINUTES = 30
