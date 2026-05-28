@@ -519,6 +519,7 @@ def _handle_ask(
                 component_meta=component_meta,
                 chat_ctx=chat_ctx,
                 telemetry=telemetry,
+                intent_result=routed_intent,
             )
             if t2_text is not None:
                 return t2_text, "2", t2_total, t2_in, t2_out
@@ -559,6 +560,7 @@ def _handle_ask(
                 component_meta=component_meta,
                 chat_ctx=chat_ctx,
                 telemetry=telemetry,
+                intent_result=intent_result,
             )
             if t2_cat is not None:
                 return t2_cat, "2", t2_total, t2_in, t2_out
@@ -576,7 +578,11 @@ def _handle_ask(
         )
         return text, "3", total, tin, tout
     t2_text, t2_total, t2_in, t2_out = try_tier2_with_usage(
-        query, component_meta=component_meta, chat_ctx=chat_ctx, telemetry=telemetry
+        query,
+        component_meta=component_meta,
+        chat_ctx=chat_ctx,
+        telemetry=telemetry,
+        intent_result=intent_result,
     )
     if t2_text is not None:
         return t2_text, "2", t2_total, t2_in, t2_out
@@ -917,6 +923,9 @@ def route(
     component_meta: dict[str, object] = {}
     try:
         if intent_result.mode == "ask":
+            # Gap responses return component_meta empty → component.type == "none",
+            # which signals the UI to render voice-only (no skeleton flash).
+            # Confirmed by tests/test_tier2_single_card.py::test_gap_path_emits_none.
             about_gap = _unknown_entity_about_gate(q_raw, intent_result, db)
             if about_gap is not None:
                 route_telemetry["cache_status"] = "na"

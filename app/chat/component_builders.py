@@ -27,9 +27,11 @@ from datetime import date, timedelta
 from typing import Any
 from urllib.parse import quote
 
+from app.chat.intent_classifier import IntentResult
 from app.chat.tier2_schema import Tier2Filters
 from app.core.timezone import now_lake_havasu
 from app.home.queries import _format_phone
+from app.providers.photo_urls import google_photo_url
 from app.providers.queries import is_open_status_from_structured_hours
 
 # ─────────── shape detection ───────────
@@ -768,3 +770,316 @@ def fallback_card_row_voice(rows: list[dict[str, Any]], query: str) -> str:
     if n == 3:
         return "Three to pick from — quick picks below."
     return "Few decent options. Top three below."
+
+
+# ─────────── single_card + single_business_card builders ───────────
+
+_TIER1_FACTUAL_SUBINTENTS = frozenset({
+    "REVIEW_COUNT_LOOKUP",
+    "RATING_LOOKUP",
+    "WEBSITE_LOOKUP",
+    "PHONE_LOOKUP",
+    "AGE_LOOKUP",
+    "COST_LOOKUP",
+    "TIME_LOOKUP",
+    "HOURS_LOOKUP",
+    "LOCATION_LOOKUP",
+    "DATE_LOOKUP",
+    "OPEN_NOW",
+    "URGENT_NOW",
+    "LIST_BY_CATEGORY",
+})
+
+_SINGLE_ENTITY_ABOUT_SUBINTENTS = frozenset({
+    None,
+    "OPEN_ENDED",
+    "NEXT_OCCURRENCE",
+})
+
+
+def _normalize_entity_name(name: str) -> str:
+    return re.sub(r"\s+", " ", name.lower().strip())
+
+
+def _row_matches_entity(entity: str, row: dict[str, Any]) -> bool:
+    name = str(row.get("name") or "").strip()
+    if not name or not entity.strip():
+        return False
+    en = _normalize_entity_name(entity)
+    rn = _normalize_entity_name(name)
+    return en == rn or en in rn or rn in en
+
+
+def _is_about_sub_intent(sub_intent: str | None) -> bool:
+    if sub_intent in _TIER1_FACTUAL_SUBINTENTS:
+        return False
+    return sub_intent in _SINGLE_ENTITY_ABOUT_SUBINTENTS
+
+
+def _matching_rows_for_entity(
+    entity: str, rows: list[dict[str, Any]], *, row_types: tuple[str, ...]
+) -> list[dict[str, Any]]:
+    return [
+        r for r in rows
+        if r.get("type") in row_types and _row_matches_entity(entity, r)
+    ]
+
+
+def pick_single_entity_row(
+    entity: str, rows: list[dict[str, Any]], *, row_types: tuple[str, ...]
+) -> dict[str, Any] | None:
+    """Return the sole matching row when exactly one entity row is present."""
+    matches = _matching_rows_for_entity(entity, rows, row_types=row_types)
+    return matches[0] if len(matches) == 1 else None
+
+
+def is_single_card_query(
+    intent_result: IntentResult, rows: list[dict[str, Any]]
+) -> bool:
+    """True when the query names a single event/venue and asks 'what is it'."""
+    entity = (intent_result.entity or "").strip()
+    if not entity:
+        return False
+    if not _is_about_sub_intent(intent_result.sub_intent):
+        return False
+    matches = _matching_rows_for_entity(entity, rows, row_types=("event",))
+    return len(matches) == 1
+
+
+def is_single_business_card_query(
+    intent_result: IntentResult, rows: list[dict[str, Any]]
+) -> bool:
+    """True when the query names a single service provider for 'about'."""
+    entity = (intent_result.entity or "").strip()
+    if not entity:
+        return False
+    if not _is_about_sub_intent(intent_result.sub_intent):
+        return False
+    matches = _matching_rows_for_entity(entity, rows, row_types=("provider",))
+    if len(matches) != 1:
+        return False
+    row = matches[0]
+    if row.get("google_place_id"):
+        return True
+    cat = str(row.get("category") or row.get("google_primary_category") or "").strip()
+    return bool(cat)
+
+
+def _format_time_display(hhmm: str) -> str:
+    raw = hhmm.strip()
+    if not raw:
+        return ""
+    try:
+        hour_str, minute_str = raw.split(":", 1)
+        hour = int(hour_str)
+        minute = int(minute_str)
+    except (ValueError, AttributeError):
+        return raw
+    suffix = "AM" if hour < 12 else "PM"
+    display_hour = hour % 12 or 12
+    if minute:
+        return f"{display_hour}:{minute:02d} {suffix}"
+    return f"{display_hour} {suffix}"
+
+
+def _format_event_when(row: dict[str, Any]) -> str | None:
+    date_label = _event_card_date_label(row)
+    start = (row.get("start_time") or "").strip()
+    start_label = _format_time_display(start) if start else ""
+    parts = [p for p in (date_label, start_label) if p]
+    return ", ".join(parts) if parts else None
+
+
+def _truncate_summary(text: str, limit: int) -> str:
+    text = text.strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip() + "…"
+
+
+def _provider_image_url(row: dict[str, Any]) -> str | None:
+    thumb = row.get("thumb_url")
+    if isinstance(thumb, str) and thumb.strip():
+        return thumb.strip()
+    refs = row.get("google_photo_refs")
+    if isinstance(refs, list):
+        for ref in refs:
+            if isinstance(ref, str) and ref.strip():
+                url = google_photo_url(ref.strip())
+                if url:
+                    return url
+    return None
+
+
+def _format_hours_block(row: dict[str, Any]) -> str | None:
+    hours = str(row.get("hours") or "").strip()
+    if hours:
+        return hours
+    structured = row.get("hours_structured")
+    if not isinstance(structured, dict) or not structured:
+        return None
+    lines: list[str] = []
+    for day, spans in structured.items():
+        if not isinstance(spans, list) or not spans:
+            continue
+        parts: list[str] = []
+        for span in spans:
+            if not isinstance(span, dict):
+                continue
+            open_t = str(span.get("open") or "").strip()
+            close_t = str(span.get("close") or "").strip()
+            if open_t and close_t:
+                parts.append(f"{open_t}–{close_t}")
+        if parts:
+            lines.append(f"{str(day).title()}: {', '.join(parts)}")
+    return "\n".join(lines) if lines else None
+
+
+def _format_rating_fact(row: dict[str, Any]) -> str | None:
+    rating = row.get("google_rating")
+    count = row.get("google_review_count")
+    if not isinstance(rating, (int, float)):
+        return None
+    label = f"{float(rating):.1f}"
+    if isinstance(count, int) and count > 0:
+        label += f" ({count} reviews)"
+    return label
+
+
+def _format_review_snippet(row: dict[str, Any]) -> str | None:
+    snippets = row.get("google_review_snippets")
+    if not isinstance(snippets, list) or not snippets:
+        return None
+    first = snippets[0]
+    if not isinstance(first, dict):
+        return None
+    text = str(first.get("text") or "").strip()
+    attr = str(first.get("attribution") or "").strip()
+    if not text:
+        return None
+    if len(text) > 140:
+        text = text[:137].rstrip() + "…"
+    quoted = f"'{text}'"
+    return f"{quoted} — {attr}" if attr else quoted
+
+
+def build_single_card(
+    intent_result: IntentResult, row: dict[str, Any]
+) -> dict[str, Any]:
+    """Build the ``data`` dict for a ``single_card`` component."""
+    del intent_result
+    tags = [t for t in (row.get("tags") or []) if isinstance(t, str)]
+    category = _pretty_category_from_tags(tags) or "Event"
+    summary = _truncate_summary(str(row.get("description") or ""), 200)
+    facts: list[dict[str, Any]] = []
+    when = _format_event_when(row)
+    if when:
+        facts.append({"key": "When", "val": when})
+    venue = str(row.get("location_name") or "").strip()
+    if venue:
+        fact: dict[str, Any] = {"key": "Where", "val": venue}
+        maps_url = _maps_directions_url(venue)
+        if maps_url:
+            fact["val_url"] = maps_url
+        facts.append(fact)
+    cost = str(row.get("cost") or "").strip()
+    if cost:
+        facts.append({"key": "Cost", "val": cost})
+    ages = str(row.get("age_range") or "").strip()
+    if ages:
+        facts.append({"key": "Ages", "val": ages})
+    contact = str(row.get("contact_phone") or row.get("phone") or "").strip()
+    if contact:
+        facts.append({"key": "Contact", "val": contact})
+    actions: list[dict[str, Any]] = []
+    event_url = _event_url(row)
+    if event_url:
+        actions.append({"label": "Register", "url": event_url, "primary": True})
+    if venue:
+        directions = _maps_directions_url(venue)
+        if directions:
+            actions.append({"label": "Directions", "url": directions})
+    return {
+        "title": row.get("name") or "",
+        "image_url": None,
+        "image_alt": None,
+        "summary": summary,
+        "category": category,
+        "category_warm": _is_warm_category(category, tags),
+        "facts": facts,
+        "actions": actions,
+    }
+
+
+def build_single_business_card(
+    intent_result: IntentResult, row: dict[str, Any]
+) -> dict[str, Any]:
+    """Build the ``data`` dict for a ``single_business_card`` component."""
+    del intent_result
+    now = now_lake_havasu()
+    status_class, status_text = _open_status_for_row(row, now=now)
+    summary = _truncate_summary(
+        str(row.get("featured_description") or row.get("description") or ""), 200
+    )
+    address = str(row.get("address") or "").strip()
+    address_short = _short_address(address)
+    directions_url = _maps_directions_url(address) if address else None
+    phone_display, phone_raw = _format_phone(row.get("phone"))
+    website = str(row.get("website") or "").strip()
+    facts: list[dict[str, Any]] = []
+    hours_block = _format_hours_block(row)
+    if hours_block:
+        facts.append({"key": "Hours", "val": hours_block})
+    if address_short or address:
+        fact: dict[str, Any] = {"key": "Address", "val": address_short or address}
+        if directions_url:
+            fact["val_url"] = directions_url
+        facts.append(fact)
+    rating = _format_rating_fact(row)
+    if rating:
+        facts.append({"key": "Rating", "val": rating})
+    review = _format_review_snippet(row)
+    if review:
+        facts.append({"key": "Recent review", "val": review})
+    actions: list[dict[str, Any]] = []
+    if phone_raw:
+        actions.append({"label": "Call", "url": f"tel:{phone_raw}", "primary": True})
+    if website:
+        actions.append({"label": "Website", "url": website})
+    if directions_url:
+        actions.append({"label": "Directions", "url": directions_url})
+    return {
+        "title": row.get("name") or "",
+        "image_url": _provider_image_url(row),
+        "image_alt": row.get("name") or None,
+        "summary": summary,
+        "category": _trade_category_label(row) or "Business",
+        "category_warm": False,
+        "status": status_class,
+        "status_class": status_class,
+        "status_text": status_text,
+        "facts": facts,
+        "actions": actions,
+    }
+
+
+def fallback_single_card_voice(row: dict[str, Any], *, is_business: bool) -> str:
+    """Deterministic short voice line. Used when the LLM is unavailable."""
+    name = str(row.get("name") or "That one").strip()
+    if is_business:
+        category = _trade_category_label(row) or "local spot"
+        now = now_lake_havasu()
+        status_class, status_text = _open_status_for_row(row, now=now)
+        if status_class == "open" and status_text:
+            tail = status_text.split("·")[-1].strip() if "·" in status_text else status_text
+            return f"{name} — {category}. {tail}."
+        rating = _format_rating_fact(row)
+        if rating:
+            return f"{name} — {category}. {rating} on Google."
+        return f"{name} — {category}. Solid local pick."
+    when = _format_event_when(row) or "soon"
+    summary = str(row.get("description") or "").strip()
+    if summary:
+        sentence = _truncate_summary(summary, 120).rstrip(".")
+        return f"{name} on {when}. {sentence}."
+    return f"{name} on {when}. Worth a look."
