@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, or_, select
@@ -55,6 +55,9 @@ def intent_window_for_when(when: str, *, today: date) -> tuple[date, date]:
         return event_window_for_chip("this-weekend", today=today)
     if key == "today":
         return today, today
+    if key == "tomorrow":
+        tomorrow = today + timedelta(days=1)
+        return tomorrow, tomorrow
     return today, today + timedelta(days=7)
 
 
@@ -64,6 +67,8 @@ def events_in_window(
     window_start: date,
     window_end: date,
     category_slug: str | None = None,
+    time_start: str | None = None,
+    time_end: str | None = None,
     limit: int = 50,
 ) -> list[tuple[Event, date]]:
     """Return (event, occurrence_date) tuples sorted chronologically."""
@@ -94,7 +99,56 @@ def events_in_window(
     flat = occurrences_in_window(
         candidates, window_start=window_start, window_end=window_end
     )
-    return flat[:limit]
+    start_bound = _parse_hhmm_bound(time_start)
+    end_bound = _parse_hhmm_bound(time_end)
+    seen: set[tuple[str, date]] = set()
+    filtered: list[tuple[Event, date]] = []
+    for ev, occ_date in flat:
+        key = (str(ev.id), occ_date)
+        if key in seen:
+            continue
+        seen.add(key)
+        if not _event_start_in_time_window(ev.start_time, start_bound, end_bound):
+            continue
+        filtered.append((ev, occ_date))
+    return filtered[:limit]
+
+
+def _parse_hhmm_bound(value: str | None) -> tuple[int, int] | None:
+    if not value or not str(value).strip():
+        return None
+    parts = str(value).strip().split(":")
+    if len(parts) < 2:
+        return None
+    try:
+        hour, minute = int(parts[0]), int(parts[1])
+    except ValueError:
+        return None
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        return None
+    return hour, minute
+
+
+def _event_start_in_time_window(
+    start_time: time | None,
+    start_bound: tuple[int, int] | None,
+    end_bound: tuple[int, int] | None,
+) -> bool:
+    """True when no time bounds are set, or ``start_time`` falls in [start, end]."""
+    if start_bound is None and end_bound is None:
+        return True
+    if start_time is None:
+        return False
+    minutes = start_time.hour * 60 + start_time.minute
+    if start_bound is not None:
+        start_min = start_bound[0] * 60 + start_bound[1]
+        if minutes < start_min:
+            return False
+    if end_bound is not None:
+        end_min = end_bound[0] * 60 + end_bound[1]
+        if minutes > end_min:
+            return False
+    return True
 
 
 def venue_events_for_profile(
