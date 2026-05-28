@@ -295,9 +295,9 @@ app.include_router(auth_router)
 app.include_router(photos_router)
 app.include_router(search_router)
 app.include_router(category_pages_router)
-# PR D5: Direction C /categories/{slug} (plural) -- parallel surface
-# to the singular /category/ Phase 6.2 system. Both co-exist during
-# dogfooding; D6 / future PR picks a winner.
+# PR D6 (2026-05-26): deliberate editorial split — both surfaces ship.
+# /categories/{slug} = chrome funnel (mega-tabs); /category/{slug} =
+# SEO filter landing (Tier-1 slugs). See category_pages + categories routers.
 app.include_router(direction_c_categories_router)
 app.include_router(themed_groups_router)
 app.include_router(map_data_router)
