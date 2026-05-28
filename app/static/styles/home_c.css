@@ -24,6 +24,7 @@
   --c-ink-3:   #8a8880;
   --c-rule:    rgba(243, 241, 234, 0.10);
   --c-teal:    #4dc4cf;
+  --c-accent:  #0e6e7c;
   --c-warm:    #f08962;
   --c-ok:      #7fcb6d;
   --c-serif:   "Fraunces", Georgia, serif;
@@ -201,6 +202,44 @@ body.home-c a.c-ask:hover { color: var(--c-bg); background: #6ed5e0; }
   cursor: pointer;
 }
 .c-hero-send:hover { background: #6ed5e0; }
+
+/* ============ Hava's read pullquote (BUILD.md step 4) ============ */
+.c-hava-read {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 88px 32px 0;
+  text-align: center;
+}
+.c-hava-read-quote {
+  font-family: var(--c-serif);
+  font-size: clamp(22px, 3.2vw, 32px);
+  font-weight: 400;
+  font-style: italic;
+  line-height: 1.45;
+  color: var(--c-ink);
+  margin: 0;
+  letter-spacing: -0.012em;
+  font-variation-settings: "opsz" 144;
+  border: 0;
+  padding: 0;
+}
+.c-hava-read-quote a,
+body.home-c .c-hava-read-quote a {
+  color: var(--c-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.c-hava-read-quote a:hover {
+  color: var(--c-teal);
+}
+.c-hava-read-byline {
+  margin: 20px 0 0;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--c-ink-3);
+}
 
 /* ============ editorial bridge (placeholder until D2-D4 land) ============ */
 .c-body {
@@ -430,6 +469,7 @@ body.home-c a.c-card { color: var(--c-paper); }
   .c-hero-sub {
     font-size: 16px;
   }
+  .c-hava-read { padding: 56px 20px 0; }
   .c-body { padding: 40px 20px 72px; }
   .c-bridge { font-size: 19px; }
   .c-footer {

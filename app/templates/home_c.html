@@ -60,6 +60,14 @@
   </div>
 </section>
 
+{# -------- Hava's read (BUILD.md step 4 — hourly SWR pullquote) -------- #}
+<aside class="c-hava-read" role="complementary" aria-label="Hava's read on tonight">
+  <blockquote class="c-hava-read-quote">
+    {{ hava_read.quote_html | safe }}
+  </blockquote>
+  <p class="c-hava-read-byline">{{ hava_read.byline }}</p>
+</aside>
+
 {# -------- main body: D2 Discover grid + D3 Eat row (D4 services follows) -------- #}
 <main class="c-body" role="main">
   {% if discover_cards %}
