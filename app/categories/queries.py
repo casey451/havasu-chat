@@ -28,7 +28,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.db.models import Provider
-from app.home.queries import _hours_status
+from app.home.queries import _hours_status, _provider_image_url
 from app.home.queries_c import _format_rating, _load_eat_photos
 
 # ---------------------------------------------------------------------------
@@ -274,11 +274,9 @@ def is_valid_category_slug(slug: str) -> bool:
 #   status_text   pill copy from _hours_status
 #   rating        single-decimal string or None
 #
-# Photo coverage: only food/drink Providers have curated photos today.
-# Cards for other categories render with the gradient placeholder. A
-# Provider photo wiring pass (Provider.google_photo_refs) is on the
-# v32 carry list -- when that lands, this builder will read from there
-# instead of (or in addition to) the curated eat-photo map.
+# Photo coverage: curated eat photos override; then ``google_photo_refs``
+# full URLs via ``_provider_image_url``. Cards with no valid source render
+# the gradient placeholder.
 
 # Hard cap on how many Provider rows to pull per page before any
 # in-Python filtering. Set large enough that even sparse categories
@@ -371,9 +369,9 @@ def category_cards(
             # One malformed hours_structured row should not poison the
             # whole grid. Surface the card without a status pill.
             status_class, status_text = "unknown", ""
-        image_url = (
-            photos.get(provider.slug) if provider.slug else None
-        )
+        image_url = photos.get(provider.slug) if provider.slug else None
+        if image_url is None:
+            image_url = _provider_image_url(provider)
         cards.append(
             _build_category_card(
                 provider,
