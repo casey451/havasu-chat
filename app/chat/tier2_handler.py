@@ -50,6 +50,75 @@ def _open_now_empty_listing(category: str) -> str:
     return _OPEN_NOW_EMPTY_LISTING_TEMPLATE.format(category_label=label)
 
 
+def _event_intent_has_time_bounds(intent: dict[str, str]) -> bool:
+    return bool(intent.get("time_start") or intent.get("time_end"))
+
+
+def _filters_for_event_intent(intent: dict[str, str]) -> Tier2Filters:
+    """Minimal Tier2Filters for day_agenda rendering from event-intent rows."""
+    when = intent.get("when", "")
+    if when == "tonight":
+        return Tier2Filters(time_window="today", parser_confidence=1.0)
+    if when == "today":
+        return Tier2Filters(time_window="today", parser_confidence=1.0)
+    if when == "tomorrow":
+        return Tier2Filters(time_window="tomorrow", parser_confidence=1.0)
+    if when == "this_weekend":
+        return Tier2Filters(time_window="this_weekend", parser_confidence=1.0)
+    return Tier2Filters(parser_confidence=1.0)
+
+
+def _event_intent_empty_voice(intent: dict[str, str]) -> str:
+    """Explicit empty copy for time-of-day scoped event intents."""
+    when = intent.get("when", "")
+    time_start = intent.get("time_start")
+    if when == "tonight":
+        return "Nothing on tonight — try \"what's on tomorrow\"."
+    if when == "today" and time_start == "05:00":
+        return "Nothing this morning — try \"what's on this afternoon\"."
+    if when == "today" and time_start == "12:00":
+        return "Nothing this afternoon — try \"what's on tonight\"."
+    if when == "tomorrow" and time_start == "05:00":
+        return "Nothing tomorrow morning — try \"what's on tomorrow\"."
+    return "Nothing on the calendar for that window."
+
+
+def _respond_event_intent(
+    query: str,
+    intent: dict[str, str],
+    rows: list[dict[str, Any]],
+    *,
+    component_meta: Optional[dict[str, Any]] = None,
+    telemetry: dict | None = None,
+) -> tuple[str, int, int, int]:
+    """Render a time-scoped event-intent answer without falling through to the LLM."""
+    from app.chat import tier2_catalog_render
+    from app.chat.component_builders import (
+        build_day_agenda,
+        fallback_day_agenda_voice,
+        resolve_target_date,
+    )
+
+    filters = _filters_for_event_intent(intent)
+    if not rows:
+        voice = _event_intent_empty_voice(intent)
+        if component_meta is not None:
+            component_meta["type"] = "day_agenda"
+            component_meta["data"] = build_day_agenda(filters, [])
+    elif component_meta is not None and (
+        len(rows) >= 2 or _event_intent_has_time_bounds(intent)
+    ):
+        component_meta["type"] = "day_agenda"
+        component_meta["data"] = build_day_agenda(filters, rows)
+        voice = fallback_day_agenda_voice(rows, resolve_target_date(filters))
+    else:
+        voice = tier2_catalog_render.render_tier2_events(query, rows)
+
+    if telemetry is not None:
+        telemetry["cache_status"] = "bypass"
+    return voice, 0, 0, 0
+
+
 _MONTHS: dict[str, int] = {
     "january": 1,
     "jan": 1,
@@ -248,15 +317,20 @@ def try_tier2_with_usage(
 
     event_intent = detect_event_intent(q)
     if event_intent is not None:
-        from app.chat import tier2_catalog_render
-
         rows = _event_rows_for_intent(event_intent)
-        if rows:
-            logging.info("tier2_handler: event-intent path when=%s", event_intent["when"])
-            text = tier2_catalog_render.render_tier2_events(q, rows)
-            if telemetry is not None:
-                telemetry["cache_status"] = "bypass"
-            return text, 0, 0, 0
+        if rows or _event_intent_has_time_bounds(event_intent):
+            logging.info(
+                "tier2_handler: event-intent path when=%s rows=%d",
+                event_intent["when"],
+                len(rows),
+            )
+            return _respond_event_intent(
+                q,
+                event_intent,
+                rows,
+                component_meta=component_meta,
+                telemetry=telemetry,
+            )
         logging.info("tier2_handler: event-intent matched but zero rows; fall through")
 
     shortcut_filters = tier2_business_shortcut.try_business_listing_shortcut(q)
