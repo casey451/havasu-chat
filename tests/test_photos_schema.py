@@ -141,53 +141,57 @@ def _entity_and_user(db: SqlSession, suf: str) -> tuple[Entity, User]:
 def test_photos_fk_entity_cascade_delete() -> None:
     suf = uuid.uuid4().hex[:8]
     now = _now()
-    with SessionLocal() as db:
-        db.execute(text("PRAGMA foreign_keys=ON"))
-        e, u = _entity_and_user(db, suf)
-        pid = uuid.uuid4().hex
-        db.add(
-            Photo(
-                id=pid,
-                entity_id=e.id,
-                uploaded_by_user_id=u.id,
-                mime_type="image/jpeg",
-                storage_key="k/",
-                created_at=now,
-                updated_at=now,
+    with engine.connect() as conn:
+        conn.execute(text("PRAGMA foreign_keys=ON"))
+        with SqlSession(bind=conn) as db:
+            e, u = _entity_and_user(db, suf)
+            pid = uuid.uuid4().hex
+            db.add(
+                Photo(
+                    id=pid,
+                    entity_id=e.id,
+                    uploaded_by_user_id=u.id,
+                    mime_type="image/jpeg",
+                    storage_key="k/",
+                    created_at=now,
+                    updated_at=now,
+                )
             )
-        )
-        db.commit()
-        assert db.get(Photo, pid) is not None
-        db.delete(e)
-        db.commit()
-        assert db.get(Photo, pid) is None
+            db.commit()
+            assert db.get(Photo, pid) is not None
+            db.delete(e)
+            db.commit()
+            assert db.get(Photo, pid) is None
+        conn.commit()
     engine.dispose()
 
 
 def test_photos_fk_user_cascade_delete() -> None:
     suf = uuid.uuid4().hex[:8]
     now = _now()
-    with SessionLocal() as db:
-        db.execute(text("PRAGMA foreign_keys=ON"))
-        e, u = _entity_and_user(db, suf)
-        pid = uuid.uuid4().hex
-        db.add(
-            Photo(
-                id=pid,
-                entity_id=e.id,
-                uploaded_by_user_id=u.id,
-                mime_type="image/jpeg",
-                storage_key="k/",
-                created_at=now,
-                updated_at=now,
+    with engine.connect() as conn:
+        conn.execute(text("PRAGMA foreign_keys=ON"))
+        with SqlSession(bind=conn) as db:
+            e, u = _entity_and_user(db, suf)
+            pid = uuid.uuid4().hex
+            db.add(
+                Photo(
+                    id=pid,
+                    entity_id=e.id,
+                    uploaded_by_user_id=u.id,
+                    mime_type="image/jpeg",
+                    storage_key="k/",
+                    created_at=now,
+                    updated_at=now,
+                )
             )
-        )
-        db.commit()
-        db.delete(u)
-        db.commit()
-        assert db.get(Photo, pid) is None
-        db.delete(e)
-        db.commit()
+            db.commit()
+            db.delete(u)
+            db.commit()
+            assert db.get(Photo, pid) is None
+            db.delete(e)
+            db.commit()
+        conn.commit()
     engine.dispose()
 
 

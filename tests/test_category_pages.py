@@ -431,7 +431,7 @@ def test_home_redesign_tabs_are_real_anchors() -> None:
     <button disabled> placeholders to <a href> anchors. The Today
     button stays inert (it IS the current page)."""
     client = TestClient(app)
-    resp = client.get("/home?redesign=1")
+    resp = client.get("/home")
     assert resp.status_code == 200
     body = resp.text
     # The four mega-tab anchors are present.

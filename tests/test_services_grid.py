@@ -385,7 +385,7 @@ def test_home_redesign_renders_services_grid_section() -> None:
             for i, tile in enumerate(queries_c._SERVICE_TILES)
         ],
     ):
-        resp = client.get("/home?redesign=1")
+        resp = client.get("/home")
     assert resp.status_code == 200
     rendered = resp.text
     assert 'class="c-svc-section"' in rendered
@@ -426,7 +426,7 @@ def test_home_redesign_services_grid_hides_count_when_zero() -> None:
             }
         )
     with patch.object(queries_c, "services_grid", return_value=fake_cards):
-        resp = client.get("/home?redesign=1")
+        resp = client.get("/home")
     assert resp.status_code == 200
     rendered = resp.text
     # All names still render (Jinja autoescape converts '&' -> '&amp;').

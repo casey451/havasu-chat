@@ -15,21 +15,15 @@ def client() -> TestClient:
     return TestClient(app)
 
 
-def test_home_hero_search_bar_anchor_and_attributes(client: TestClient) -> None:
+def test_home_hero_composer_and_ask_hava(client: TestClient) -> None:
     r = client.get("/home")
     assert r.status_code == 200
-    assert "<!-- search-bar-include -->" in r.text
-    assert 'data-hava-search' in r.text
+    assert 'class="c-hero-composer"' in r.text
     assert 'role="search"' in r.text
-    assert 'aria-label="Search listings"' in r.text
-    assert "hava-search-input" in r.text
-
-
-def test_home_ask_hava_distinct_from_search(client: TestClient) -> None:
-    r = client.get("/home")
-    assert "hava-ask-hava-btn" in r.text
-    assert 'class="composer"' in r.text
-    assert "hava-search-submit" in r.text
+    assert 'aria-label="Ask Hava"' in r.text
+    assert 'name="q"' in r.text
+    assert "Ask Hava" in r.text
+    assert "<!-- search-bar-include -->" not in r.text
 
 
 def test_category_header_has_hava_search(client: TestClient) -> None:

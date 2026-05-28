@@ -98,13 +98,7 @@ def test_panel_none_in_summer(db: Session) -> None:
     assert build_snowbird_panel_context(db, current_user=user, now=now) is None
 
 
-def test_home_has_snowbird_anchor() -> None:
-    text = Path("app/templates/home.html").read_text(encoding="utf-8")
-    assert "<!-- snowbird-panel-include -->" in text
-
-
-def test_home_has_search_region_separate() -> None:
-    text = Path("app/templates/home.html").read_text(encoding="utf-8")
-    snow = text.index("<!-- snowbird-panel-include -->")
-    hero_end = text.index("</section>", text.index('class="hero"'))
-    assert snow > hero_end
+def test_snowbird_panel_partial_exists() -> None:
+    path = Path("app/home/snowbird_panel.py")
+    assert path.is_file()
+    assert "build_snowbird_panel_context" in path.read_text(encoding="utf-8")
