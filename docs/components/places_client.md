@@ -58,6 +58,8 @@ Thin **Google Places API (New) Text Search** client used for **provider contribu
 
 **`GOOGLE_PLACES_API_KEY`** — Read at call time via **`os.getenv`**. Empty → **`not_attempted`**.
 
+**Photo URLs:** Browser-renderable Google photo URLs for provider hero/gallery are built at read time by **`app/providers/photo_urls.py`** (`google_photo_url`), which constructs Places Photo Media URLs from stored `google_photo_refs` resource names. No server-side HTTP fetch — the browser follows Google's redirect to the CDN.
+
 ## Related
 
 **Direct callers:**
@@ -66,4 +68,4 @@ Thin **Google Places API (New) Text Search** client used for **provider contribu
 
 **Tests:** **`tests/test_places_client.py`** (HTTP mocking).
 
-**Downstream:** **`docs/components/hours_helper.md`**, **`docs/components/enrichment.md`**, **`docs/components/approval_service.md`**.
+**Downstream:** **`docs/components/hours_helper.md`**, **`docs/components/enrichment.md`**, **`docs/components/approval_service.md`**, **`app/providers/photo_urls.py`** (Photo Media URL helper for provider images).
