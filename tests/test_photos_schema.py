@@ -158,10 +158,12 @@ def test_photos_fk_entity_cascade_delete() -> None:
         )
         db.commit()
         assert db.get(Photo, pid) is not None
-        db.delete(e)
+        eid = e.id
+        db.execute(text("DELETE FROM entities WHERE id = :eid"), {"eid": eid})
         db.commit()
-        db.expire_all()
-        assert db.get(Photo, pid) is None
+    with SessionLocal() as verify:
+        verify.execute(text("PRAGMA foreign_keys=ON"))
+        assert verify.get(Photo, pid) is None
     engine.dispose()
 
 
@@ -184,12 +186,17 @@ def test_photos_fk_user_cascade_delete() -> None:
             )
         )
         db.commit()
-        db.delete(u)
+        uid = u.id
+        eid = e.id
+        db.execute(text("DELETE FROM users WHERE id = :uid"), {"uid": uid})
         db.commit()
-        db.expire_all()
-        assert db.get(Photo, pid) is None
-        db.delete(e)
-        db.commit()
+    with SessionLocal() as verify:
+        verify.execute(text("PRAGMA foreign_keys=ON"))
+        assert verify.get(Photo, pid) is None
+    with SessionLocal() as cleanup:
+        cleanup.execute(text("PRAGMA foreign_keys=ON"))
+        cleanup.execute(text("DELETE FROM entities WHERE id = :eid"), {"eid": eid})
+        cleanup.commit()
     engine.dispose()
 
 
