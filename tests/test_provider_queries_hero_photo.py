@@ -26,7 +26,17 @@ def test_derive_hero_photo_tier2_pinned_when_no_owner_hero() -> None:
     assert derive_hero_photo(p) == "https://pin/x.jpg"
 
 
-def test_derive_hero_photo_tier3_google_when_no_tier1_or_2() -> None:
+def test_derive_hero_photo_tier3_skips_raw_places_ref() -> None:
+    ent = SimpleNamespace(photos=[])
+    p = SimpleNamespace(
+        entity=ent,
+        attributes={},
+        google_photo_refs=["places/ChIJabc/photos/AeeoH123", "https://g/2.jpg"],
+    )
+    assert derive_hero_photo(p) is None
+
+
+def test_derive_hero_photo_tier3_returns_full_url_when_present() -> None:
     ent = SimpleNamespace(photos=[])
     p = SimpleNamespace(
         entity=ent,
@@ -56,7 +66,20 @@ def test_derive_gallery_owner_then_google() -> None:
     p = SimpleNamespace(
         entity=ent,
         attributes={},
-        google_photo_refs=["https://g/1.jpg"],
+        google_photo_refs=["places/ChIJabc/photos/AeeoH123"],
     )
     g = derive_gallery(p)
     assert g == ["https://m/1.webp"]
+
+
+def test_derive_gallery_google_keeps_only_full_urls() -> None:
+    ent = SimpleNamespace(photos=[])
+    p = SimpleNamespace(
+        entity=ent,
+        attributes={},
+        google_photo_refs=[
+            "places/ChIJabc/photos/AeeoH123",
+            "https://g/1.jpg",
+        ],
+    )
+    assert derive_gallery(p) == ["https://g/1.jpg"]

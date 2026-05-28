@@ -216,7 +216,9 @@ def derive_hero_photo(provider: Provider) -> Optional[str]:
         return pinned
     photos = provider.google_photo_refs or []
     if photos:
-        return photos[0]
+        candidate = photos[0]
+        if candidate.startswith("http://") or candidate.startswith("https://"):
+            return candidate
     return None
 
 
@@ -248,7 +250,8 @@ def derive_gallery(
     for url in google:
         if exclude_hero and not pinned and hero_url is not None and url == hero_url:
             continue
-        out.append(url)
+        if url.startswith("http://") or url.startswith("https://"):
+            out.append(url)
     return out
 
 
