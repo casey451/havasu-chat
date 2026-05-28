@@ -16,8 +16,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from app.home import demo_mode, pullquote
-from app.home.pullquote import _DEFAULT_QUOTE, _CacheState
+from app.home import demo_mode
 from app.main import app
 
 # ---------------------------------------------------------------------------
