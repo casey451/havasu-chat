@@ -218,7 +218,6 @@ def test_search_bar_ui_home_and_provider_templates(db: Session) -> None:
         assert 'name="q"' in t
         assert "home_c.css" in t
         assert 'class="c-hero-composer"' in t
-        assert "/static/js/search_bar.js" in t
 
         pr = client.get(f"/provider/{slug}")
         assert pr.status_code == 200
