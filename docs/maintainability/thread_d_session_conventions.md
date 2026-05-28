@@ -35,6 +35,42 @@ Human cmd.exe / IDE windows can still front-run prepared Cowork steps or mutate 
 1. Re-verify from Windows before each prepared apply step (`git status`, `git log origin/main..HEAD`, `gh pr list`).
 2. Do not trust sandbox `git status` / `wc -l` / `git show HEAD` for load-bearing tree state — use Read tool + cmd.exe.
 
+## FUSE wedge when Windows switches branch on the Cowork mount
+
+v47 reproduced issue [#62932](https://github.com/anthropics/claude-code/issues/62932) on
+`.git/HEAD`: after a Windows-side `git switch` on the path Cowork has mounted, sandbox
+bash can see a **truncated stale** `HEAD` (e.g. `ref: refs/heads/v47/t` instead of the
+full branch name). `stat` mtime/size on `.git/HEAD` can stay stale even when content
+recovers. The same bug class can wedge `.git/index` independently of `.git/HEAD`.
+
+**Content-length-sensitive wedge (v47 hypothesis):** short → long rewrites truncate at
+the cached page boundary; long → short rewrites may appear correct because the new
+content fits the stale cache. Example: `git switch -c v47/thread-d-decision main` left
+sandbox `.git/HEAD` at 21 bytes (`ref: refs/heads/v47/t`) while Windows held 38 bytes
+(`ref: refs/heads/v47/thread-d-decision`). Merging PR #24 (38 → 21 bytes) cleared the
+wedge coincidentally, not because FUSE recovered.
+
+**Until wedge clears or session reboots**, avoid these sandbox git ops (they resolve
+`HEAD` through the stale view):
+
+| Broken in sandbox | Use instead |
+| ----------------- | ----------- |
+| `git rev-parse HEAD` | Read tool on `.git/HEAD`; or explicit branch ref / cmd.exe |
+| `git status` | cmd.exe `git status` (or `--porcelain`) |
+| `git show HEAD:*` | `git show <sha>:path` with a known SHA or branch ref |
+| `git diff HEAD` | `git diff <sha>..<sha>` or `git diff <branch>..<branch>` |
+| `git ls-files` | cmd.exe `git ls-files` |
+
+Commit / push: Windows `apply_*.cmd` + preflight only (see
+`docs/maintainability/preflight_safe_commit.md`).
+
+**Convention:** multi-agent setup may switch the main checkout off `main` once; treat
+that as expected FUSE friction on agent A, not a reason to skip worktrees. Prefer
+**not** switching the Cowork-mounted checkout mid-session when avoidable; do code edits
+in sibling worktrees when another agent needs a different branch.
+
+Full repro notes: `outputs/v47_fuse_findings_A.md` (gitignored).
+
 ## Boot checklist (any agent)
 
 1. `git status --porcelain` and `git diff HEAD --stat` both empty (unless intentionally continuing WIP).
