@@ -87,11 +87,23 @@ def _normalise_card(raw: dict[str, Any]) -> dict[str, Any]:
     the JSON schema forgiving without sprinkling ``card.get('blurb')``
     through the template.
     """
+    attr = raw.get("image_attribution")
+    image_attribution: dict[str, str] | None = None
+    if isinstance(attr, dict):
+        photographer = attr.get("photographer")
+        profile_url = attr.get("profile_url")
+        if photographer and profile_url:
+            image_attribution = {
+                "photographer": str(photographer),
+                "profile_url": str(profile_url),
+            }
+
     return {
         "slug": raw.get("slug"),
         "name": raw["name"],
         "where": raw.get("where") or "",
         "image_url": raw["image_url"],
+        "image_attribution": image_attribution,
         "span": int(raw["span"]),
         "pick": bool(raw.get("pick", False)),
         "blurb": raw.get("blurb") or "",

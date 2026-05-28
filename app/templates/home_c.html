@@ -35,6 +35,9 @@
 <section class="c-hero" role="region" aria-label="Today in Havasu">
   <div class="c-hero-bg" aria-hidden="true" style="background-image: url('{{ hero_image_url }}');"></div>
   <div class="c-hero-scrim" aria-hidden="true"></div>
+  {% if hero_attribution %}
+  <a class="c-hero-attribution" href="{{ hero_attribution.profile_url }}" rel="noopener nofollow">Photo: {{ hero_attribution.photographer }}</a>
+  {% endif %}
   <div class="c-hero-inner">
     <div class="c-hero-meta">
       <span class="c-live-dot" aria-hidden="true"></span>
