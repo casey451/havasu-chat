@@ -27,9 +27,9 @@ from app.chat import disclosure_render, llm_router
 from app.chat.audience_signal import AudienceSignal, classify_audience
 from app.chat.chat_request_context import ChatRequestContext, parse_chat_request_context
 from app.chat.entity_matcher import (
+    ensure_entity_matcher,
     extract_catalog_entities_from_text,
     match_entity,
-    refresh_entity_matcher,
 )
 from app.chat.hint_extractor import extract_hints
 from app.chat.intent_classifier import IntentResult, classify
@@ -295,7 +295,7 @@ def _unknown_entity_about_gate(
         from app.chat.entity_matcher import find_near_match, match_entity
 
         if db is not None:
-            refresh_entity_matcher(db)
+            ensure_entity_matcher(db)
             if match_entity(raw, db) is not None:
                 return None
             near = find_near_match(raw, db)
@@ -692,7 +692,7 @@ def _enrich_entity_from_db(
         return replace(intent_result, entity=None)
     if intent_result.entity is not None:
         return intent_result
-    refresh_entity_matcher(db)
+    ensure_entity_matcher(db)
     hit = match_entity(query, db)
     if hit:
         name, _score = hit
