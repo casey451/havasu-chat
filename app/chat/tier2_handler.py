@@ -106,14 +106,25 @@ def _explicit_month_day(query: str) -> date | None:
 
 
 def detect_event_intent(query: str) -> dict[str, str] | None:
-    """Return ``{'when': ...}`` when the query is event-flavored."""
+    """Return intent dict when the query is event-flavored.
+
+    Includes optional ``time_start`` / ``time_end`` (``HH:MM``) for
+    time-of-day scoped queries like "tonight" or "this morning".
+    """
     q = (query or "").lower()
     if "this weekend" in q or "saturday" in q or "sunday" in q:
         return {"when": "this_weekend"}
+    if "tomorrow morning" in q:
+        return {"when": "tomorrow", "time_start": "05:00", "time_end": "11:59"}
+    if "this morning" in q:
+        return {"when": "today", "time_start": "05:00", "time_end": "11:59"}
+    if "this afternoon" in q:
+        return {"when": "today", "time_start": "12:00", "time_end": "16:59"}
+    if "tonight" in q:
+        return {"when": "tonight", "time_start": "17:00", "time_end": "23:59"}
     if any(
         k in q
         for k in (
-            "tonight",
             "what's on",
             "whats on",
             "what is on",
@@ -123,19 +134,32 @@ def detect_event_intent(query: str) -> dict[str, str] | None:
             " event ",
         )
     ):
-        return {"when": "tonight" if "tonight" in q else "today"}
+        return {"when": "today"}
     return None
 
 
-def _event_rows_for_intent(when: str) -> list[dict[str, Any]]:
+def _event_rows_for_intent(intent: dict[str, str]) -> list[dict[str, Any]]:
+    when = intent["when"]
+    time_start = intent.get("time_start")
+    time_end = intent.get("time_end")
     today = now_lake_havasu().date()
     win_start, win_end = intent_window_for_when(when, today=today)
     with SessionLocal() as db:
         flat = events_in_window(
-            db, window_start=win_start, window_end=win_end, limit=8
+            db,
+            window_start=win_start,
+            window_end=win_end,
+            time_start=time_start,
+            time_end=time_end,
+            limit=8,
         )
     rows: list[dict[str, Any]] = []
+    seen: set[tuple[Any, ...]] = set()
     for event, occ_date in flat:
+        key = (str(event.id), occ_date.isoformat())
+        if key in seen:
+            continue
+        seen.add(key)
         row = _event_dict(event)
         row["date"] = occ_date.isoformat()
         rows.append(row)
@@ -225,7 +249,7 @@ def try_tier2_with_usage(
     if event_intent is not None:
         from app.chat import tier2_catalog_render
 
-        rows = _event_rows_for_intent(event_intent["when"])
+        rows = _event_rows_for_intent(event_intent)
         if rows:
             logging.info("tier2_handler: event-intent path when=%s", event_intent["when"])
             text = tier2_catalog_render.render_tier2_events(q, rows)

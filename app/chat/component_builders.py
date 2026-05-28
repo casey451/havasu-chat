@@ -125,8 +125,18 @@ def build_day_agenda(
     target = resolve_target_date(filters)
     events_in: list[dict[str, Any]] = []
     other: list[dict[str, Any]] = []
+    seen_events: set[tuple[Any, ...]] = set()
     for r in rows:
         if r.get("type") == "event":
+            key = (
+                r.get("name"),
+                r.get("date"),
+                r.get("start_time"),
+                r.get("location_name"),
+            )
+            if key in seen_events:
+                continue
+            seen_events.add(key)
             events_in.append(r)
         else:
             other.append(r)
