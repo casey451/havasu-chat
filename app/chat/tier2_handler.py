@@ -16,9 +16,11 @@ from app.chat import (
     tier2_db_query,
     tier2_formatter,
     tier2_parser,
+    tier2_single_card,
     tier2_week_strip,
 )
 from app.chat.chat_request_context import ChatRequestContext
+from app.chat.intent_classifier import IntentResult
 from app.chat.tier2_db_query import _event_dict
 from app.chat.tier2_schema import Tier2Filters
 from app.core.timezone import now_lake_havasu
@@ -294,6 +296,7 @@ def try_tier2_with_usage(
     component_meta: Optional[dict[str, Any]] = None,
     chat_ctx: ChatRequestContext | None = None,
     telemetry: dict | None = None,
+    intent_result: IntentResult | None = None,
 ) -> tuple[Optional[str], Optional[int], Optional[int], Optional[int]]:
     """Return (response_text, llm_tokens_used, llm_input_tokens, llm_output_tokens).
 
@@ -464,6 +467,22 @@ def try_tier2_with_usage(
                 telemetry["cache_status"] = "bypass"
             return voice, total, in_sum, out_sum
 
+        if intent_result is not None:
+            card = tier2_single_card.try_build_single_card(
+                q, intent_result, filters, rows
+            )
+            if card is not None:
+                comp_type, voice, comp_data, v_in, v_out = card
+                component_meta["type"] = comp_type
+                component_meta["data"] = comp_data
+                pi, po = (p_in or 0), (p_out or 0)
+                in_sum = pi + (v_in or 0)
+                out_sum = po + (v_out or 0)
+                total = in_sum + out_sum
+                if telemetry is not None:
+                    telemetry["cache_status"] = "bypass"
+                return voice, total, in_sum, out_sum
+
     fmt_cache_hit = False
     t_fmt_start = time.perf_counter()
     with SessionLocal() as db:
@@ -516,6 +535,7 @@ def try_tier2_with_filters_with_usage(
     component_meta: Optional[dict[str, Any]] = None,
     chat_ctx: ChatRequestContext | None = None,
     telemetry: dict | None = None,
+    intent_result: IntentResult | None = None,
 ) -> tuple[Optional[str], Optional[int], Optional[int], Optional[int]]:
     """Run Tier 2 using precomputed filters (skip parser).
 
@@ -580,6 +600,21 @@ def try_tier2_with_filters_with_usage(
             if telemetry is not None:
                 telemetry["cache_status"] = "bypass"
             return voice, total, in_sum, out_sum
+
+        if intent_result is not None:
+            card = tier2_single_card.try_build_single_card(
+                q, intent_result, filters, rows
+            )
+            if card is not None:
+                comp_type, voice, comp_data, v_in, v_out = card
+                component_meta["type"] = comp_type
+                component_meta["data"] = comp_data
+                in_sum = v_in or 0
+                out_sum = v_out or 0
+                total = in_sum + out_sum
+                if telemetry is not None:
+                    telemetry["cache_status"] = "bypass"
+                return voice, total, in_sum, out_sum
 
     fmt_cache_hit = False
     t_fmt_start = time.perf_counter()
