@@ -11,7 +11,7 @@ import pytest
 from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal
 from app.home import pullquote
-from app.home.mock_data import render_voice_links
+from app.home.voice_links import render_voice_links
 from app.home.pullquote import _DEFAULT_QUOTE, _TTL, _CacheState
 
 

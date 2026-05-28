@@ -430,12 +430,6 @@ def test_eat_row_no_zero_rating_or_count_in_output() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture(autouse=True)
-def _clear_redesign_flag(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("HOME_REDESIGN", raising=False)
-    monkeypatch.delenv("HAVA_DEMO_MODE", raising=False)
-
-
 def test_home_redesign_renders_eat_bridge_when_empty() -> None:
     """Empty DB -> no scroll-row markup, editorial bridge instead.
     Also: no '0' copy bleed-through.
@@ -447,7 +441,7 @@ def test_home_redesign_renders_eat_bridge_when_empty() -> None:
     import re
 
     with TestClient(app) as client:
-        r = client.get("/home?redesign=1")
+        r = client.get("/home")
     assert r.status_code == 200
     body = r.text
     # The empty-state bridge for the eat row is present.
@@ -486,7 +480,7 @@ def test_home_redesign_renders_scroll_row_when_eat_cards_populated() -> None:
     ]
     with patch.object(queries_c, "eat_row", return_value=fake_cards):
         with TestClient(app) as client:
-            r = client.get("/home?redesign=1")
+            r = client.get("/home")
     assert r.status_code == 200
     body = r.text
     assert "c-scroll-row" in body
@@ -534,7 +528,7 @@ def test_home_redesign_eat_card_links_to_provider_when_slug_present() -> None:
     ]
     with patch.object(queries_c, "eat_row", return_value=cards):
         with TestClient(app) as client:
-            r = client.get("/home?redesign=1")
+            r = client.get("/home")
     body = r.text
     # Slug-bearing card: real anchor with the provider href.
     assert 'href="/provider/mudshark-brewing"' in body

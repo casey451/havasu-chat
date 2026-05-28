@@ -124,16 +124,10 @@ def test_discover_grid_status_text_can_be_none() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture(autouse=True)
-def _clear_redesign_flag(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("HOME_REDESIGN", raising=False)
-    monkeypatch.delenv("HAVA_DEMO_MODE", raising=False)
-
-
 def test_home_redesign_renders_discover_grid() -> None:
-    """?redesign=1 renders the discover region with card markup."""
+    """GET /home renders the discover region with card markup."""
     with TestClient(app) as client:
-        r = client.get("/home?redesign=1")
+        r = client.get("/home")
     assert r.status_code == 200
     assert 'class="c-discover"' in r.text
     assert "c-discover-grid" in r.text
@@ -146,7 +140,7 @@ def test_home_redesign_renders_discover_grid() -> None:
 def test_home_redesign_uses_editorial_status_pills() -> None:
     """Pill state class follows the C9 vocabulary (open/closing/closed/scenic/neutral)."""
     with TestClient(app) as client:
-        r = client.get("/home?redesign=1")
+        r = client.get("/home")
     assert r.status_code == 200
     # At least one pill is rendered (some cards have status_text=None which hides it).
     assert "c-card-pill" in r.text
@@ -166,7 +160,7 @@ def test_home_redesign_no_zero_copy() -> None:
     import re
 
     with TestClient(app) as client:
-        r = client.get("/home?redesign=1")
+        r = client.get("/home")
     assert r.status_code == 200
     # The naive sentinel: a literal " 0 " surrounded by spaces, or ">0<"
     # in element bodies. Allow "0" in attribute values (e.g. tabindex=0).

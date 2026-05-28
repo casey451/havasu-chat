@@ -17,7 +17,7 @@ DB persistence is a future concern; in-memory keeps the surface tiny.
 
 Voice contract: 1–3 sentences, declarative, periods only (no question
 marks), at most one ``[name](url)`` link to a catalog item, never invents
-venues. The system prompt enforces this; ``mock_data.render_voice_links``
+venues. The system prompt enforces this; ``voice_links.render_voice_links``
 turns the markdown link into a safe anchor at render time.
 """
 
@@ -34,7 +34,7 @@ from sqlalchemy.orm import Session
 from app.core.llm_messages import call_anthropic_messages
 from app.core.timezone import now_lake_havasu
 from app.db.models import Event
-from app.home.mock_data import render_voice_links
+from app.home.voice_links import render_voice_links
 
 logger = logging.getLogger(__name__)
 

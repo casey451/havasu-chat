@@ -1,183 +1,44 @@
-"""Direction C /home redesign tests (PRs D1-D6).
-
-Two surfaces under test:
-
-1. ``HAVA_DEMO_MODE`` env-var gate in ``app.home.demo_mode`` (unit-level).
-2. ``GET /home`` template switching: legacy ``home.html`` when the
-   ``HOME_REDESIGN`` flag is off; the new dark-chrome ``home_c.html``
-   when on. Mirrors the convention used by
-   ``tests/test_home_feature_flag.py`` -- monkeypatch for env vars,
-   inline ``with TestClient(app) as client:`` per test, no shared
-   fixture.
-"""
+"""Direction C /home redesign tests (post legacy home retirement)."""
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
-from app.home import demo_mode, pullquote
-from app.home.pullquote import _DEFAULT_QUOTE, _CacheState
 from app.main import app
 
-# ---------------------------------------------------------------------------
-# HAVA_DEMO_MODE gate
-# ---------------------------------------------------------------------------
 
-
-@pytest.fixture(autouse=True)
-def _clear_flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Ensure HOME_REDESIGN and HAVA_DEMO_MODE start unset for every test."""
-    monkeypatch.delenv("HOME_REDESIGN", raising=False)
-    monkeypatch.delenv("HAVA_DEMO_MODE", raising=False)
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-
-
-@pytest.fixture(autouse=True)
-def _reset_pullquote_cache() -> None:
-    """Isolate pullquote module cache for Direction C integration tests."""
-    pullquote._cache = _CacheState()
-    yield
-    pullquote._cache = _CacheState()
-
-
-def test_demo_mode_default_off() -> None:
-    """Unset env reads as off (production-safe default)."""
-    assert demo_mode.demo_mode_enabled() is False
-
-
-@pytest.mark.parametrize(
-    "val", ["1", "true", "True", "yes", "YES", "on", "On"]
-)
-def test_demo_mode_truthy(monkeypatch: pytest.MonkeyPatch, val: str) -> None:
-    monkeypatch.setenv("HAVA_DEMO_MODE", val)
-    assert demo_mode.demo_mode_enabled() is True
-
-
-@pytest.mark.parametrize(
-    "val", ["0", "false", "no", "off", "", "maybe", "?"]
-)
-def test_demo_mode_falsy_or_unparseable(
-    monkeypatch: pytest.MonkeyPatch, val: str
-) -> None:
-    monkeypatch.setenv("HAVA_DEMO_MODE", val)
-    assert demo_mode.demo_mode_enabled() is False
-
-
-# ---------------------------------------------------------------------------
-# Template switching by HOME_REDESIGN flag
-# ---------------------------------------------------------------------------
-
-
-def test_home_redesign_explicit_off_serves_legacy_template(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """PR D6 cutover: HOME_REDESIGN=0 (explicit opt-out) serves legacy home.html.
-
-    Pre-D6 this test asserted that the *unset* env served legacy. After
-    D6 the unset default is ON, so legacy is only reachable via explicit
-    opt-out. The autouse ``_clear_flags`` fixture delenvs HOME_REDESIGN
-    for module-wide isolation, so we setenv "0" here to exercise the
-    rollback path.
-    """
-    monkeypatch.setenv("HOME_REDESIGN", "0")
-    with TestClient(app) as client:
-        r = client.get("/home")
-    assert r.status_code == 200
-    # Direction C sentinel ABSENT
-    assert "home_c.css" not in r.text
-    assert 'class="home-c"' not in r.text
-
-
-def test_home_redesign_query_override_serves_direction_c() -> None:
-    """?redesign=1 override flips to home_c.html regardless of env."""
-    with TestClient(app) as client:
-        r = client.get("/home?redesign=1")
-    assert r.status_code == 200
-    assert "home_c.css" in r.text
-    assert "c-tab" in r.text
-
-
-def test_home_redesign_env_on_serves_direction_c(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """HOME_REDESIGN=1 in env serves home_c.html."""
-    monkeypatch.setenv("HOME_REDESIGN", "1")
+def test_home_serves_home_c_by_default() -> None:
     with TestClient(app) as client:
         r = client.get("/home")
     assert r.status_code == 200
     assert "home_c.css" in r.text
-    assert "Ask Hava" in r.text  # composer label / hero h1
+    assert 'class="home-c"' in r.text
+    assert "Ask Hava" in r.text
+    assert "c-hava-read" in r.text
 
 
-def test_home_redesign_query_off_overrides_env_on(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """?redesign=0 wins over HOME_REDESIGN=1 env (staff preview off)."""
-    monkeypatch.setenv("HOME_REDESIGN", "1")
+def test_home_redesign_query_param_still_serves_home_c() -> None:
     with TestClient(app) as client:
-        r = client.get("/home?redesign=0")
-    assert r.status_code == 200
-    assert "home_c.css" not in r.text
+        for path in ("/home?redesign=0", "/home?redesign=1"):
+            r = client.get(path)
+            assert r.status_code == 200
+            assert "home_c.css" in r.text
 
 
-# ---------------------------------------------------------------------------
-# Direction C content sanity
-# ---------------------------------------------------------------------------
-
-
-def test_direction_c_no_mock_content(monkeypatch: pytest.MonkeyPatch) -> None:
-    """home_c.html must not leak mock_data names when HAVA_DEMO_MODE is off.
-
-    Demo fixtures (discover/eat/services grids) are gated behind
-    HAVA_DEMO_MODE=1; with the flag unset, those strings must not appear.
-    """
-    monkeypatch.setenv("HOME_REDESIGN", "1")
-    # HAVA_DEMO_MODE is unset by the autouse fixture above.
+def test_direction_c_no_mock_content() -> None:
     with TestClient(app) as client:
         r = client.get("/home")
     for leaked in ("Channel Brewing Co.", "Aquatic Center", "Havasu Outdoor Co."):
         assert leaked not in r.text, f"home_c.html leaked mock content: {leaked}"
 
 
-def test_direction_c_has_tab_anchors(monkeypatch: pytest.MonkeyPatch) -> None:
-    """PR D5 promoted the four right-side tabs from <button disabled>
-    to <a href="/categories/{slug}">. The Today pill is also an anchor
-    (back to /home itself) -- it's marked active when on /home."""
-    monkeypatch.setenv("HOME_REDESIGN", "1")
+def test_direction_c_has_tab_anchors() -> None:
     with TestClient(app) as client:
         r = client.get("/home")
-    # Match both encoded and unencoded for resilience
     assert "Eat &amp; drink" in r.text or "Eat & drink" in r.text
-    # All four mega-tab routes are linked from /home.
     assert 'href="/categories/eat-drink"' in r.text
     assert 'href="/categories/on-the-water"' in r.text
     assert 'href="/categories/things-to-do"' in r.text
     assert 'href="/categories/services"' in r.text
-    # Today tab is marked active (PR D5 leaves Today inert as an anchor
-    # back to /home, but with is-active + aria-current="page").
     assert "is-active" in r.text
     assert 'aria-current="page"' in r.text
-
-
-def test_home_c_renders_hava_read_section(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Direction C /home includes the Hava's read pullquote between hero and body."""
-    monkeypatch.setenv("HOME_REDESIGN", "1")
-    with TestClient(app) as client:
-        r = client.get("/home")
-    assert r.status_code == 200
-    assert 'class="c-hava-read"' in r.text
-    assert "refreshed" in r.text
-
-
-def test_home_c_pullquote_when_llm_unavailable(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Missing OPENAI_API_KEY must not 500; the default quote still renders."""
-    monkeypatch.setenv("HOME_REDESIGN", "1")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    with TestClient(app) as client:
-        r = client.get("/home")
-    assert r.status_code == 200
-    assert 'class="c-hava-read"' in r.text
-    assert _DEFAULT_QUOTE in r.text

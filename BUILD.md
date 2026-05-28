@@ -259,7 +259,7 @@ Read the actual schema in `app/db/models.py` before locking in front-end types. 
 ## Surfaces that already exist
 
 - `/` — current chat interface. Stays for now; the new home is built at `/home` first. After dogfooding, `/home` becomes `/` and the old chat-only `/` redirects to `/chat` (or retires).
-- `/home` — **new home page**, built fresh at this path during dogfooding. Cuts over to `/` after a few days of confidence-building. As of PR D6 (2026-05-26), `/home` defaults to the Direction C dark-chrome template (`home_c.html`); the legacy `home.html` only renders when an operator sets `HOME_REDESIGN=0` (or appends `?redesign=0`) for a one-env-var rollback.
+- `/home` — **new home page**, built fresh at this path during dogfooding. Cuts over to `/` after a few days of confidence-building. As of PR D6 (2026-05-26), `/home` serves the Direction C dark-chrome template (`home_c.html`).
 - `/chat` — **new chat surface**, where the home composer's submission lands. Renders the answer-rendering components. Session ID persisted in the URL so users can return to a conversation.
 - `/admin` — review user-submitted contributions. **Don't touch.**
 - `/contribute` — user submission form. Keep functional; restyle to match new design system as part of step 1.5 (so users clicking "Add to catalog" from the new home don't hit a style cliff).
