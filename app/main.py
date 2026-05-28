@@ -23,6 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.admin.router import router as admin_router
 from app.api.routes.account_alerts import router as account_alerts_router
@@ -399,14 +400,14 @@ def serve_chat_ui() -> FileResponse:
 @app.get("/privacy", response_class=HTMLResponse)
 def privacy_page(request: Request) -> HTMLResponse:
     return _render_static_doc(
-        request, path=_PRIVACY_MD_PATH, head_title="Privacy — Havasu Chat"
+        request, path=_PRIVACY_MD_PATH, head_title="Privacy — Hava"
     )
 
 
 @app.get("/terms", response_class=HTMLResponse)
 def terms_page(request: Request) -> HTMLResponse:
     return _render_static_doc(
-        request, path=_TOS_MD_PATH, head_title="Terms — Havasu Chat"
+        request, path=_TOS_MD_PATH, head_title="Terms — Hava"
     )
 
 
@@ -415,6 +416,34 @@ async def request_validation_handler(_: Request, exc: RequestValidationError) ->
     return JSONResponse(
         status_code=422,
         content={"message": friendly_errors(exc.errors())},
+    )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(
+    request: Request, exc: StarletteHTTPException
+) -> HTMLResponse | JSONResponse:
+    # Styled Hava-branded 404 page for unmatched HTML routes.
+    # JSON clients and /api/* paths still get the default JSON shape.
+    if exc.status_code != 404:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+        )
+    accept = (request.headers.get("accept") or "").lower()
+    wants_json = (
+        "application/json" in accept and "text/html" not in accept
+    ) or request.url.path.startswith("/api/")
+    if wants_json:
+        return JSONResponse(
+            status_code=404,
+            content={"detail": exc.detail or "Not Found"},
+        )
+    return templates.TemplateResponse(
+        request=request,
+        name="not_found.html",
+        context={},
+        status_code=404,
     )
 
 

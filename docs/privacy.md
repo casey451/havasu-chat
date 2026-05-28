@@ -1,6 +1,6 @@
 ## What we collect
 
-When you use Havasu Chat, we store:
+When you use Hava, we store:
 
 - **Your chat messages and our responses** — to improve the
   service, fix bugs, and catch gaps in what we cover.
@@ -76,7 +76,7 @@ becomes a concern you'd like to raise sooner, contact us (below).
 
 ## Your choices
 
-- You can use Havasu Chat without providing an email address or
+- You can use Hava without providing an email address or
   any personal information.
 - Your session gets a fresh random identifier each time you
   load or reload the app — no persistent

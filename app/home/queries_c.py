@@ -135,8 +135,21 @@ def _enrich_from_provider(
     )
     by_slug = {p.slug: p for p in rows}
 
+    # Drop cards that claim a slug but have no matching Provider row.
+    # Without this guard, a stale curated entry (typo, deleted provider,
+    # provider not yet seeded) renders a link to /provider/<slug> that
+    # returns 404 -- the single highest-traffic broken link on /home.
+    # Landmark cards (slug=None) are kept; the template renders them as
+    # non-link divs.
+    filtered: list[dict[str, Any]] = []
     for card in cards:
         slug = card.get("slug")
+        if slug and slug not in by_slug:
+            # Slug present but no Provider row -- skip rather than render
+            # a broken link. Editorial decision: better to show 9 cards
+            # than 10 with a guaranteed 404.
+            continue
+        filtered.append(card)
         if not slug or slug not in by_slug:
             continue
         try:
@@ -152,7 +165,7 @@ def _enrich_from_provider(
         card["status"] = status_class
         card["status_text"] = status_text
 
-    return cards
+    return filtered
 
 
 def discover_grid(

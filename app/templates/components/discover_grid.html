@@ -9,8 +9,10 @@
   the breakpoint in ``home_c.css``.
 
   Linking: slug-bearing cards link to ``/provider/{slug}``. Landmark
-  cards (no slug) carry ``href="#"`` until PR D5 wires category /
-  detail routes. The visual rhythm is identical for both.
+  cards (no slug) render as non-link ``<div>`` elements with the same
+  styling -- no anchor semantics, no dead ``href="#"``. The visual
+  rhythm is identical for both. PR D5 will wire landmark detail routes;
+  until then, landmarks are read-only tiles.
 
   Empty state: the parent template should hide this whole region when
   ``discover_cards`` is empty -- this partial only renders the grid.
@@ -23,10 +25,17 @@
 
   <div class="c-discover-grid">
     {% for card in discover_cards %}
+    {% if card.slug %}
     <a class="c-card c-span-{{ card.span }}"
-       href="{% if card.slug %}/provider/{{ card.slug }}{% else %}#{% endif %}"
+       href="/provider/{{ card.slug }}"
        style="background-image: url('{{ card.image_url }}');"
        aria-label="{{ card.name }}{% if card.where %}, {{ card.where }}{% endif %}">
+    {% else %}
+    <div class="c-card c-card-static c-span-{{ card.span }}"
+         style="background-image: url('{{ card.image_url }}');"
+         role="img"
+         aria-label="{{ card.name }}{% if card.where %}, {{ card.where }}{% endif %}">
+    {% endif %}
       {% if card.status_text %}
       <span class="c-card-pill c-pill-{{ card.status }}">
         <span class="c-card-dot" aria-hidden="true"></span>{{ card.status_text }}
@@ -49,7 +58,7 @@
         <p class="c-card-blurb">{{ card.blurb }}</p>
         {% endif %}
       </div>
-    </a>
+    {% if card.slug %}</a>{% else %}</div>{% endif %}
     {% endfor %}
   </div>
 </section>

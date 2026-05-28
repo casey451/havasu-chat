@@ -1,18 +1,18 @@
-# Terms of Service for Havasu Chat
+# Terms of Service for Hava
 
 Last updated: 2026-04-22
 
 ## 1. Acceptance
 
-By using Havasu Chat (this website and service), you agree to these
+By using Hava (this website and service), you agree to these
 Terms of Service. If you do not agree, please do not use the
 service. Our [Privacy page](/privacy) explains how we collect and
 use information; it is part of your agreement with us when you use
-Havasu Chat.
+Hava.
 
-## 2. What Havasu Chat is
+## 2. What Hava is
 
-Havasu Chat is a local concierge for the Lake Havasu City area. It
+Hava is a local concierge for the Lake Havasu City area. It
 offers a chat experience, access to a catalog of activities,
 events, and programs, ways to explore what is happening (including
 browsing and calendar-style views where available), and a path
@@ -21,7 +21,7 @@ local life—things to do, where to go, and what is on around town.
 The service is run by a small, independent operator (not a big
 company, not a government agency).
 
-Havasu Chat is **not** professional advice. We are not a lawyer,
+Hava is **not** professional advice. We are not a lawyer,
 doctor, financial advisor, or emergency service. If you are in
 danger or need official help, use the appropriate local emergency
 or government services, not this chat. We do not offer user
@@ -67,7 +67,7 @@ truthful, in good faith, and appropriate for a general audience.
 you keep ownership of the words and ideas you contribute. You also
 grant the operator a **non-exclusive, worldwide, royalty-free
 license** to **store, review, display, and incorporate** approved
-material into the Havasu Chat website and related materials (for
+material into the Hava website and related materials (for
 example, the public catalog, administrative tools, and backups) as
 long as we run the service. This license is what lets us read your
 suggestion, decide if it fits, and show it to others if we accept
@@ -100,7 +100,7 @@ rely on outdated or incorrect information from the service.
 
 ## 6. Intellectual property
 
-The Havasu Chat name, the site’s design, and the **curated
+The Hava name, the site’s design, and the **curated
 catalog and materials we operate** are protected as our respective
 branding and content rights allow. You may not copy, scrape, or
 reuse the database, bulk data, or site structure to build a
@@ -117,7 +117,7 @@ policies on their own sites.
 
 ## 7. Disclaimers and limitations
 
-Havasu Chat is provided **“as is”** and **“as available,”** without
+Hava is provided **“as is”** and **“as available,”** without
 warranties of any kind, whether express or implied, including
 warranties of **merchantability**, **fitness for a particular
 purpose**, or **non-infringement**, to the fullest extent allowed by
