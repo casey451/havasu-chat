@@ -58,6 +58,11 @@
         <p class="c-card-blurb">{{ card.blurb }}</p>
         {% endif %}
       </div>
+      {% if card.image_attribution %}
+      <span class="c-card-attribution">
+        Photo: <a href="{{ card.image_attribution.profile_url }}" rel="noopener nofollow">{{ card.image_attribution.photographer }}</a>
+      </span>
+      {% endif %}
     {% if card.slug %}</a>{% else %}</div>{% endif %}
     {% endfor %}
   </div>

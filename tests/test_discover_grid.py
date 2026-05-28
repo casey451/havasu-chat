@@ -44,7 +44,7 @@ def _reset_curated_cache() -> None:
 def test_curated_json_is_valid_and_in_range() -> None:
     """File loads, has 6-12 places, schema fields populated."""
     data = queries_c._load_curated()
-    assert data["version"] == 1
+    assert data["version"] == 2
     places = data["places"]
     assert 6 <= len(places) <= 12, f"want 6-12 places, got {len(places)}"
     for i, p in enumerate(places):
@@ -74,7 +74,7 @@ def test_discover_grid_returns_normalised_cards() -> None:
     cards = queries_c.discover_grid()
     assert 6 <= len(cards) <= 12
     required_keys = {
-        "slug", "name", "where", "image_url", "span", "pick",
+        "slug", "name", "where", "image_url", "image_attribution", "span", "pick",
         "blurb", "meta_line", "status", "status_text",
     }
     for c in cards:
