@@ -160,6 +160,7 @@ def test_photos_fk_entity_cascade_delete() -> None:
         assert db.get(Photo, pid) is not None
         db.delete(e)
         db.commit()
+        db.expire_all()
         assert db.get(Photo, pid) is None
     engine.dispose()
 
@@ -185,6 +186,7 @@ def test_photos_fk_user_cascade_delete() -> None:
         db.commit()
         db.delete(u)
         db.commit()
+        db.expire_all()
         assert db.get(Photo, pid) is None
         db.delete(e)
         db.commit()
