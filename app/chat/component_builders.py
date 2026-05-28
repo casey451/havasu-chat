@@ -610,3 +610,161 @@ def fallback_week_strip_voice(
             f"{location_clause}."
         )
     return f"This week's {descriptor} — {word} things across {day_phrase}."
+
+
+# ─────────── card_row builder ───────────
+
+
+_CARD_ROW_INTENT_RE = re.compile(
+    r"\b("
+    r"date\s*night|"
+    r"romantic|"
+    r"good\s+(?:for|spot|spots|place|places)\s+(?:for|to)|"
+    r"where(?:'s|\s+is|\s+are)?\s+(?:a\s+)?good|"
+    r"best\s+(?:spot|spots|place|places)\s+(?:for|to)|"
+    r"recommend\s+(?:me\s+)?(?:somewhere|some\s+places?|a\s+spot)|"
+    r"any\s+(?:good\s+)?(?:spots?|places?|recs?)\s+(?:for|to)|"
+    r"top\s+(?:spots?|places?|picks?)|"
+    r"what(?:'s|\s+is|\s+are)\s+(?:a\s+)?good\s+(?:spot|place|pick)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def is_card_row_query(
+    query: str,
+    filters: Tier2Filters,
+    rows: list[dict[str, Any]],
+) -> bool:
+    """True when the query asks for a curated short list of 2–3 venues/events.
+
+    Conservative — mirrors is_day_agenda_query's discipline. Requires ALL of:
+      * query matches a recommendation-shape regex (see _CARD_ROW_INTENT_RE),
+      * filters do NOT narrow to a single day (day_agenda owns that),
+      * filters do NOT scope a 7-day window (week_strip owns that),
+      * 2 <= len(rows) <= 6 (we display up to 3 cards; 1 reads as a sentence,
+        7+ is a listing → business_list owns it),
+      * NOT mostly-providers when filters.category is set (those are
+        business listings — tier2_business_shortcut owns that path).
+
+    Day_agenda and week_strip both run BEFORE this in tier2_handler — this
+    detector is the last gate before the long-prose formatter.
+    """
+    if not rows:
+        return False
+    if not _CARD_ROW_INTENT_RE.search(query or ""):
+        return False
+    if _filters_narrow_to_single_day(filters):
+        return False
+    if _filters_scope_week_window(filters):
+        return False
+    if len(rows) < 2 or len(rows) > 6:
+        return False
+    if filters.category:
+        provider_rows = [r for r in rows if r.get("type") == "provider"]
+        if provider_rows and len(provider_rows) / len(rows) >= 0.66:
+            return False
+    return True
+
+
+def build_card_row(
+    filters: Tier2Filters, rows: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Build the ``data`` dict for a ``card_row`` component.
+
+    Schema (matches app/static/js/chat-new.js:392 renderer):
+
+      {
+        "items": [
+          { "title":      str,
+            "blurb":      str | None,
+            "meta":       str | None,
+            "image_url":  str | None,
+            "image_alt":  str | None,
+            "url":        str,
+            "category":   str,
+            "category_warm": bool },
+          # exactly 2–3 items, max 3
+        ]
+      }
+    """
+    del filters  # reserved for future filter-aware ranking
+    if not rows:
+        return {"items": []}
+
+    ranked = sorted(
+        rows,
+        key=lambda r: (
+            0 if (r.get("type") == "provider" and r.get("thumb_url")) else 1,
+            str(r.get("name") or ""),
+        ),
+    )
+    items = [_row_to_card_item(r) for r in ranked[:3]]
+    return {"items": items}
+
+
+def _row_to_card_item(row: dict[str, Any]) -> dict[str, Any]:
+    """Convert a tier2 row dict to a card_row mini-card item."""
+    if row.get("type") == "event":
+        tags = [t for t in (row.get("tags") or []) if isinstance(t, str)]
+        category = _pretty_category_from_tags(tags) or "Event"
+        date_label = _event_card_date_label(row)
+        start_time = (row.get("start_time") or "").strip()
+        meta_parts = [p for p in (date_label, start_time) if p]
+        meta = " · ".join(meta_parts) if meta_parts else None
+        desc = str(row.get("description") or "").strip()
+        return {
+            "title": row.get("name") or "",
+            "blurb": _truncate_blurb(desc) if desc else None,
+            "meta": meta,
+            "image_url": None,
+            "image_alt": None,
+            "url": _event_url(row),
+            "category": category,
+            "category_warm": _is_warm_category(category, tags),
+        }
+
+    name = str(row.get("name") or "").strip()
+    slug = str(row.get("slug") or "").strip()
+    address = str(row.get("address") or "").strip()
+    desc = str(row.get("description") or "").strip()
+    thumb = row.get("thumb_url")
+    return {
+        "title": name,
+        "blurb": _truncate_blurb(desc) if desc else None,
+        "meta": _short_address(address) or None,
+        "image_url": thumb if thumb else None,
+        "image_alt": name or None,
+        "url": f"/provider/{slug}" if slug else "",
+        "category": _trade_category_label(row) or "Place",
+        "category_warm": False,
+    }
+
+
+def _event_card_date_label(row: dict[str, Any]) -> str | None:
+    raw = row.get("date")
+    if not raw:
+        return None
+    try:
+        d = date.fromisoformat(str(raw)[:10])
+        return d.strftime("%a %b ") + str(d.day)
+    except (ValueError, TypeError):
+        return None
+
+
+def _truncate_blurb(text: str, limit: int = 120) -> str:
+    text = text.strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip() + "…"
+
+
+def fallback_card_row_voice(rows: list[dict[str, Any]], query: str) -> str:
+    """Deterministic short voice line for the card row."""
+    del query
+    n = len(rows)
+    if n == 2:
+        return "Two solid bets for that. Quick picks below."
+    if n == 3:
+        return "Three to pick from — quick picks below."
+    return "Few decent options. Top three below."

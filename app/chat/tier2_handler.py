@@ -11,6 +11,7 @@ from typing import Any, Optional
 from app.chat import (
     tier2_business_shortcut,
     tier2_cache,
+    tier2_card_row,
     tier2_day_agenda,
     tier2_db_query,
     tier2_formatter,
@@ -450,6 +451,19 @@ def try_tier2_with_usage(
                 telemetry["cache_status"] = "bypass"
             return voice, total, in_sum, out_sum
 
+        card_row = tier2_card_row.try_build_card_row(q, filters, rows)
+        if card_row is not None:
+            voice, comp_data, v_in, v_out = card_row
+            component_meta["type"] = "card_row"
+            component_meta["data"] = comp_data
+            pi, po = (p_in or 0), (p_out or 0)
+            in_sum = pi + (v_in or 0)
+            out_sum = po + (v_out or 0)
+            total = in_sum + out_sum
+            if telemetry is not None:
+                telemetry["cache_status"] = "bypass"
+            return voice, total, in_sum, out_sum
+
     fmt_cache_hit = False
     t_fmt_start = time.perf_counter()
     with SessionLocal() as db:
@@ -547,6 +561,18 @@ def try_tier2_with_filters_with_usage(
         if strip is not None:
             voice, comp_data, v_in, v_out = strip
             component_meta["type"] = "week_strip"
+            component_meta["data"] = comp_data
+            in_sum = v_in or 0
+            out_sum = v_out or 0
+            total = in_sum + out_sum
+            if telemetry is not None:
+                telemetry["cache_status"] = "bypass"
+            return voice, total, in_sum, out_sum
+
+        card_row = tier2_card_row.try_build_card_row(q, filters, rows)
+        if card_row is not None:
+            voice, comp_data, v_in, v_out = card_row
+            component_meta["type"] = "card_row"
             component_meta["data"] = comp_data
             in_sum = v_in or 0
             out_sum = v_out or 0
