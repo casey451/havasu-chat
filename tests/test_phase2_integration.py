@@ -422,14 +422,15 @@ def test_api_chat_graceful_when_build_context_raises() -> None:
     sid = "p83-ctx-boom"
     with TestClient(app) as client:
         with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
-            with patch(
-                "app.chat.tier3_handler.build_context_for_tier3",
-                side_effect=RuntimeError("context build boom"),
-            ):
-                r = client.post(
-                    "/api/chat",
-                    json={"query": "What is fun to do this weekend?", "session_id": sid},
-                )
+            with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+                with patch(
+                    "app.chat.tier3_handler.build_context_for_tier3",
+                    side_effect=RuntimeError("context build boom"),
+                ):
+                    r = client.post(
+                        "/api/chat",
+                        json={"query": "What is fun to do this weekend?", "session_id": sid},
+                    )
     assert r.status_code == 200
     body = r.json()
     # Router assigns tier_used only after a successful handler return; an exception
