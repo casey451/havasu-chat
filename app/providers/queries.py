@@ -15,7 +15,9 @@ dual-write transition.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, date, datetime, time
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import quote
 
@@ -24,6 +26,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 if TYPE_CHECKING:
     from app.providers.view_models import HavaCardViewModel
 
+from app.contrib.hours_helper import places_hours_to_structured
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
 from app.db.models import Entity, EntityCategory, Event, Hours, Provider
 from app.home.queries import CATEGORY_LABELS, LEGACY_PROVIDER_CATEGORY_LABELS
@@ -328,6 +331,18 @@ def _hours_rows_to_structured(rows: list[Hours]) -> dict[str, list[dict[str, str
     return buckets
 
 
+@lru_cache(maxsize=2048)
+def _structured_from_google_hours_cached(
+    provider_id: int, gh_serialized: str
+) -> dict | None:
+    """Memoized ``google_hours`` → ``hours_structured`` conversion per provider."""
+    gh = json.loads(gh_serialized)
+    if not isinstance(gh, dict):
+        return None
+    converted = places_hours_to_structured(gh)
+    return converted if converted else None
+
+
 def effective_hours_structured(provider: Provider) -> dict | None:
     """Prefer ENTITY weekly ``hours`` rows when present; else legacy JSON column."""
     ent = getattr(provider, "entity", None)
@@ -336,7 +351,17 @@ def effective_hours_structured(provider: Provider) -> dict | None:
         if rebuilt is not None:
             return rebuilt
     hs = provider.hours_structured
-    return hs if isinstance(hs, dict) else None
+    if isinstance(hs, dict):
+        return hs
+    gh = provider.google_hours
+    if isinstance(gh, dict) and gh:
+        pid = getattr(provider, "id", None)
+        if pid is not None:
+            ser = json.dumps(gh, sort_keys=True, default=str)
+            return _structured_from_google_hours_cached(pid, ser)
+        converted = places_hours_to_structured(gh)
+        return converted if converted else None
+    return None
 
 
 def derive_primary_phone_raw(provider: Provider) -> Optional[str]:
