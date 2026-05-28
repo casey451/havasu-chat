@@ -241,10 +241,16 @@ def try_tier2_with_usage(
         rows = tier2_db_query.query(shortcut_filters, ctx=chat_ctx)
         if telemetry is not None:
             telemetry["tier2_db_ms"] = int((time.perf_counter() - t_db_start) * 1000)
-        text = tier2_business_shortcut.render_business_listing(
-            rows, shortcut_filters.category or ""
+        listing = tier2_business_shortcut.render_business_listing_with_component(
+            rows,
+            shortcut_filters.category or "",
+            intent_query=q,
         )
-        if text is not None:
+        if listing is not None:
+            text, comp_data = listing
+            if component_meta is not None:
+                component_meta["type"] = "business_list"
+                component_meta["data"] = comp_data
             logging.info("tier2_handler: business-listing shortcut hit (zero tokens)")
             if telemetry is not None:
                 telemetry["cache_status"] = "bypass"

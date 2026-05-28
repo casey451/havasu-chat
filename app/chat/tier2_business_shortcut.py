@@ -349,12 +349,61 @@ def try_business_listing_shortcut(query: str) -> Tier2Filters | None:
 
 
 def render_business_listing(rows: list[dict[str, Any]], category: str) -> str | None:
-    """Render up to five provider rows as a short deterministic listing.
+    """Render up to five provider rows as a short deterministic listing (prose).
 
     Returns ``None`` when no provider rows are present so the caller can fall through
-    to the gap response. Phone / address are added when present; nothing else is
-    surfaced (rating + hours stay terse — Tier 1 owns those when the user asks).
+    to the gap response. Prefer :func:`render_business_listing_with_component`
+    for chat responses that should include a structured ``business_list`` payload.
     """
+    return _render_business_listing_prose(rows, category)
+
+
+def render_business_listing_with_component(
+    rows: list[dict[str, Any]],
+    category: str,
+    *,
+    intent_query: str | None = None,
+) -> tuple[str, dict[str, Any]] | None:
+    """Return ``(voice_line, component_data)`` for a business listing shortcut hit.
+
+    ``component_data`` is shaped for ``renderBusinessList`` in ``chat-new.js``.
+    Returns ``None`` when no provider rows are present.
+    """
+    from app.chat.component_builders import build_business_list
+
+    voice, provider_rows = _business_listing_voice(rows, category)
+    if voice is None or not provider_rows:
+        return None
+    comp_data = build_business_list(
+        provider_rows,
+        category=category,
+        total_count=len(provider_rows),
+        intent_query=intent_query,
+    )
+    return voice, comp_data
+
+
+def _business_listing_voice(
+    rows: list[dict[str, Any]], category: str
+) -> tuple[str | None, list[dict[str, Any]]]:
+    """Short voice line + provider rows for the structured listing path."""
+    provider_rows = [r for r in rows if r.get("type") == "provider"]
+    if not provider_rows:
+        return None, []
+    cat_label = _pluralize_for_header(category)
+    count = len(provider_rows)
+    count_word = str(count) if count != 1 else "1"
+    header = f"Here are {count_word} {cat_label} in Lake Havasu City."
+    framing = _landscape_framing_for_category(category)
+    if framing:
+        voice = framing + "\n\n" + header
+    else:
+        voice = header
+    return voice, provider_rows
+
+
+def _render_business_listing_prose(rows: list[dict[str, Any]], category: str) -> str | None:
+    """Legacy prose listing with bullet lines (tests + older callers)."""
     provider_rows = [r for r in rows if r.get("type") == "provider"]
     if not provider_rows:
         return None

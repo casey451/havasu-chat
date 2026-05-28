@@ -640,12 +640,12 @@
     if (it.blurb) body.appendChild(el("p", "blurb", it.blurb));
 
     // Actions (Call + Directions when phone is present)
-    if (it.phone || it.phone_raw || it.address_short) {
+    if (it.phone || it.phone_raw || it.phone_tel || it.address_short || it.address_query) {
       const actions = el("div", "actions");
-      if (it.phone_raw || it.phone) {
+      if (it.phone_raw || it.phone_tel || it.phone) {
         const call = document.createElement("a");
         call.className = "btn primary";
-        call.href = "tel:" + (it.phone_raw || it.phone.replace(/\D/g, ""));
+        call.href = "tel:" + (it.phone_raw || it.phone_tel || it.phone.replace(/\D/g, ""));
         // Phone icon
         const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         svg.setAttribute("viewBox", "0 0 16 16");
@@ -663,10 +663,13 @@
         call.addEventListener("click", function (e) { e.stopPropagation(); });
         actions.appendChild(call);
       }
-      if (it.address_short || it.url) {
+      if (it.address_short || it.address_query || it.url) {
         const dir = document.createElement("a");
         dir.className = "btn";
-        dir.href = it.directions_url || it.url || "#";
+        const mapsQuery = it.address_query
+          ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(it.address_query)
+          : null;
+        dir.href = it.directions_url || mapsQuery || it.url || "#";
         dir.textContent = "Directions";
         dir.addEventListener("click", function (e) { e.stopPropagation(); });
         actions.appendChild(dir);
