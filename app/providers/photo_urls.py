@@ -63,16 +63,57 @@ def _is_renderable_http_url(candidate: object) -> bool:
 
 
 def iter_renderable_google_photos(provider: _GooglePhotoProvider) -> Iterator[str]:
-    """Yield https/http photo URLs: ``google_photo_urls`` first, then guarded refs."""
+    """Yield card/hero-ready Google photo URLs for ``provider``.
+
+    Order:
+
+    1. ``google_photo_urls`` -- backfilled, already-resolved URLs. Any
+       renderable http(s) entries are yielded in stored order. If at
+       least one entry is renderable, the refs fallback is skipped (the
+       backfill is authoritative once it ran).
+    2. ``google_photo_refs`` -- fallback when the urls column is empty,
+       missing, or yields zero renderable entries (e.g. backfill never
+       ran, or every resolved url was ``None`` after a credential
+       outage). Renderable http(s) ref entries are yielded directly;
+       raw ``places/.../photos/...`` resource names are upgraded to a
+       Photo Media URL via :func:`google_photo_url` and yielded when
+       an API key is configured.
+
+    Hoisting the raw-ref upgrade into this helper restores symmetry
+    between the provider profile path (``derive_hero_photo`` /
+    ``derive_gallery``) and the home/categories path
+    (``_provider_image_url``). Before this change, only home/categories
+    upgraded raw refs (PR #43); the profile path silently dropped them
+    after PR #41 collapsed the two branches. A provider whose ingest
+    backfill never landed -- e.g. ``GOOGLE_PLACES_API_KEY`` was unset
+    during ingest -- now renders on every surface that the backfill
+    eventually fixes, not just home/categories.
+    """
+    yielded_any = False
     urls = getattr(provider, "google_photo_urls", None)
     if urls:
         for candidate in urls:
             if _is_renderable_http_url(candidate):
+                yielded_any = True
                 yield candidate
+    if yielded_any:
         return
     for candidate in provider.google_photo_refs or []:
-        if _is_renderable_http_url(candidate):
-            yield candidate
+        if not isinstance(candidate, str):
+            continue
+        cleaned = candidate.strip()
+        if not cleaned:
+            continue
+        if _is_renderable_http_url(cleaned):
+            yield cleaned
+            continue
+        # Raw Places resource name -- upgrade via the PR #37 helper.
+        # Returns ``None`` when no API key is configured; we then fall
+        # through to the next candidate (the previous behavior dropped
+        # raw refs entirely on the profile surface).
+        upgraded = google_photo_url(cleaned)
+        if upgraded:
+            yield upgraded
 
 
 def first_renderable_google_photo(provider: _GooglePhotoProvider) -> str | None:
