@@ -89,6 +89,43 @@ def test_build_business_list_marks_spotlight_row(monkeypatch) -> None:
     assert "spotlight" not in by_name["Organic Plumber"]
 
 
+def test_build_business_list_rotates_spotlight_to_top(monkeypatch) -> None:
+    """Spotlight row lands at items[0] even when organic rating would rank it lower.
+
+    Organic rows preserve rating-desc ordering in the remaining slots.
+    BUILD.md step 7.5 phase B. Mockup: mockups/07-business-answer.html:511.
+    """
+    fixed = datetime(2026, 5, 28, 12, 0, tzinfo=ZoneInfo("America/Phoenix"))
+    monkeypatch.setattr("app.chat.component_builders.now_lake_havasu", lambda: fixed)
+    rows = _rows(
+        {
+            "name": "Top Organic",
+            "slug": "top-organic",
+            "tier": "free",
+            "google_rating": 4.9,
+        },
+        {
+            "name": "Mid Organic",
+            "slug": "mid-organic",
+            "tier": "free",
+            "google_rating": 4.5,
+        },
+        {
+            "name": "Sponsored Pick",
+            "slug": "sponsored-pick",
+            "tier": "spotlight",
+            "sponsored_until": fixed + timedelta(days=30),
+            "google_rating": 3.0,
+        },
+    )
+    data = build_business_list(rows, category="plumber", total_count=3)
+    names = [it["name"] for it in data["items"]]
+    assert names == ["Sponsored Pick", "Top Organic", "Mid Organic"]
+    assert data["items"][0].get("spotlight") is True
+    # Disclosure still emitted (Phase A behavior, preserved).
+    assert data.get("disclosure") is True
+
+
 def test_build_business_list_emits_disclosure_when_spotlight_present(
     monkeypatch,
 ) -> None:
