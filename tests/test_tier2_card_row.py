@@ -162,7 +162,7 @@ def test_try_build_card_row_llm_fallback_on_exception() -> None:
     f = Tier2Filters(parser_confidence=0.9)
     rows = [_event("2026-05-30") for _ in range(3)]
     with patch(
-        "app.chat.tier2_card_row.call_anthropic_messages",
+        "app.chat.voice_principles.call_anthropic_messages",
         side_effect=RuntimeError("llm down"),
     ):
         result = try_build_card_row("where's good for date night", f, rows)

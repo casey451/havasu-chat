@@ -18,28 +18,9 @@ from app.chat.component_builders import (
     is_card_row_query,
 )
 from app.chat.tier2_schema import Tier2Filters
-from app.core.llm_messages import call_anthropic_messages
+from app.chat.voice_principles import compose_voice_prompt, run_voice_llm
 
 logger = logging.getLogger(__name__)
-
-
-_SYSTEM_PROMPT = (
-    "You are Hava — the AI local of Lake Havasu City.\n\n"
-    "VOICE (non-negotiable):\n"
-    "* Speak AS THE LOCAL. Direct, declarative, no customer-service phrasing.\n"
-    "* 1–2 short sentences. End every sentence with a period. NO question marks.\n"
-    "* You're framing 2–3 hand-picked recommendations — give the read on the"
-    " shape of the picks (e.g. 'Both lean upscale.' 'One waterfront, one"
-    " patio.'). The cards render BELOW your line — DO NOT enumerate them"
-    " inline. DO NOT list names.\n"
-    "* No customer-service phrasing: never 'you might want to...', 'feel free"
-    " to...', 'I'd be happy to...', 'here are several options'.\n"
-    "* No Southwest climate-as-texture ('monsoon', 'dry heat').\n"
-    "* Optional: AT MOST ONE Markdown link `[name](url)`, only if you mention"
-    " something specific from the catalog and the URL was provided. Never"
-    " invent venues or URLs.\n\n"
-    "OUTPUT: just Hava's read. No quotation marks, no preface, no signature."
-)
 
 
 def try_build_card_row(
@@ -65,38 +46,14 @@ def _generate_voice(
     rows: list[dict[str, Any]],
 ) -> tuple[str, int, int]:
     fallback = fallback_card_row_voice(rows, query)
-
     user_text = _build_user_prompt(query, rows)
-    try:
-        result = call_anthropic_messages(
-            system_prompt=_SYSTEM_PROMPT,
-            user_text=user_text,
-            max_tokens=120,
-            temperature=0.5,
-        )
-    except Exception:
-        logger.exception("tier2_card_row: voice LLM raised; using fallback")
-        return fallback, 0, 0
-
-    if result is None or not (result.text or "").strip():
-        return fallback, 0, 0
-
-    text = result.text.strip()
-    if (text.startswith(('"', "'", "“", "”")) and text.endswith(('"', "'", "“", "”"))
-            and len(text) > 1):
-        text = text[1:-1].strip()
-
-    in_tok = result.usage.billable_input or 0
-    out_tok = result.usage.output_tokens or 0
-
-    if "?" in text:
-        logger.warning("tier2_card_row: voice contained '?'; using fallback")
-        return fallback, in_tok, out_tok
-    if len(text) > 280:
-        logger.warning("tier2_card_row: voice too long; using fallback")
-        return fallback, in_tok, out_tok
-
-    return text, in_tok, out_tok
+    return run_voice_llm(
+        system_prompt=compose_voice_prompt("card_row"),
+        user_text=user_text,
+        fallback_text=fallback,
+        logger=logger,
+        surface="tier2_card_row",
+    )
 
 
 def _build_user_prompt(

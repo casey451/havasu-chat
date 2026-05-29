@@ -164,7 +164,7 @@ def test_try_build_week_strip_llm_fallback_on_exception() -> None:
     f = Tier2Filters(time_window="this_week", parser_confidence=0.9)
     rows = [_event(f"2026-05-{d:02d}") for d in range(28, 33)]
     with patch(
-        "app.chat.tier2_week_strip.call_anthropic_messages",
+        "app.chat.voice_principles.call_anthropic_messages",
         side_effect=RuntimeError("llm down"),
     ):
         result = try_build_week_strip("what's on this week", f, rows)

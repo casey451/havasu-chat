@@ -192,7 +192,7 @@ def test_try_build_single_card_llm_fallback_on_exception() -> None:
     intent = _intent(entity="Bridgewater 5K")
     rows = [_event_row()]
     with patch(
-        "app.chat.tier2_single_card.call_anthropic_messages",
+        "app.chat.voice_principles.call_anthropic_messages",
         side_effect=RuntimeError("llm down"),
     ):
         result = try_build_single_card("tell me about the bridgewater 5k", intent, f, rows)
