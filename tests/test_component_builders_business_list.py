@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from app.chat.component_builders import build_business_list
@@ -62,6 +62,61 @@ def test_build_business_list_open_status_from_structured_hours(monkeypatch) -> N
     item = data["items"][0]
     assert item["status"] == "open"
     assert "Open" in (item.get("status_text") or "")
+
+
+def test_build_business_list_marks_spotlight_row(monkeypatch) -> None:
+    fixed = datetime(2026, 5, 28, 12, 0, tzinfo=ZoneInfo("America/Phoenix"))
+    monkeypatch.setattr("app.chat.component_builders.now_lake_havasu", lambda: fixed)
+    rows = _rows(
+        {
+            "name": "Sponsored Plumber",
+            "slug": "sponsored-plumber",
+            "tier": "spotlight",
+            "sponsored_until": fixed + timedelta(days=7),
+            "google_rating": 4.5,
+        },
+        {
+            "name": "Organic Plumber",
+            "slug": "organic-plumber",
+            "tier": "free",
+            "sponsored_until": None,
+            "google_rating": 4.7,
+        },
+    )
+    data = build_business_list(rows, category="plumber", total_count=2)
+    by_name = {it["name"]: it for it in data["items"]}
+    assert by_name["Sponsored Plumber"].get("spotlight") is True
+    assert "spotlight" not in by_name["Organic Plumber"]
+
+
+def test_build_business_list_emits_disclosure_when_spotlight_present(
+    monkeypatch,
+) -> None:
+    fixed = datetime(2026, 5, 28, 12, 0, tzinfo=ZoneInfo("America/Phoenix"))
+    monkeypatch.setattr("app.chat.component_builders.now_lake_havasu", lambda: fixed)
+    spotlight_row = {
+        "name": "Spot Pros",
+        "slug": "spot-pros",
+        "tier": "spotlight",
+        "sponsored_until": fixed + timedelta(days=7),
+        "google_rating": 4.5,
+    }
+    organic_row = {
+        "name": "Free Plumber",
+        "slug": "free-plumber",
+        "tier": "free",
+        "sponsored_until": None,
+        "google_rating": 4.0,
+    }
+    with_spotlight = build_business_list(
+        _rows(spotlight_row, organic_row), category="plumber", total_count=2
+    )
+    assert with_spotlight["disclosure"] is True
+
+    organic_only = build_business_list(
+        _rows(organic_row), category="plumber", total_count=1
+    )
+    assert "disclosure" not in organic_only
 
 
 def test_build_business_list_caps_at_five() -> None:

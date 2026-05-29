@@ -23,7 +23,7 @@ category-browse query.
 from __future__ import annotations
 
 import re
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 from urllib.parse import quote
 
@@ -115,6 +115,22 @@ _DOW_INDEX = {
 # ─────────── business_list builder (BUILD.md step 7.5) ───────────
 
 
+def _is_spotlight_now(row: dict[str, Any], *, now: datetime) -> bool:
+    """True when a provider row is a paid spotlight active at ``now``.
+
+    Mirrors the filter in ``app/home/queries.py:spotlights``. The voice
+    answer path MUST NOT call this — spotlight status is a rendering signal only.
+    """
+    if (row.get("tier") or "") != "spotlight":
+        return False
+    until = row.get("sponsored_until")
+    if until is None:
+        return True
+    if hasattr(until, "tzinfo") and until.tzinfo is None and now.tzinfo is not None:
+        return until > now.replace(tzinfo=None)
+    return until > now
+
+
 def build_business_list(
     rows: list[dict[str, Any]],
     *,
@@ -138,16 +154,24 @@ def build_business_list(
     )
     items: list[dict[str, Any]] = []
     now = now_lake_havasu()
+    any_spotlight = False
     for row in provider_rows[:5]:
         item = _provider_row_to_business_item(row, now=now)
-        if item is not None:
-            items.append(item)
+        if item is None:
+            continue
+        if _is_spotlight_now(row, now=now):
+            item["spotlight"] = True
+            any_spotlight = True
+        items.append(item)
     cat_label = _pretty_category_label(category)
-    return {
+    payload: dict[str, Any] = {
         "category": cat_label,
         "total_count": total_count,
         "items": items,
     }
+    if any_spotlight:
+        payload["disclosure"] = True
+    return payload
 
 
 def _pretty_category_label(category: str) -> str:
@@ -1048,7 +1072,7 @@ def build_single_business_card(
         actions.append({"label": "Website", "url": website})
     if directions_url:
         actions.append({"label": "Directions", "url": directions_url})
-    return {
+    payload: dict[str, Any] = {
         "title": row.get("name") or "",
         "image_url": _provider_image_url(row),
         "image_alt": row.get("name") or None,
@@ -1061,6 +1085,9 @@ def build_single_business_card(
         "facts": facts,
         "actions": actions,
     }
+    if _is_spotlight_now(row, now=now):
+        payload["spotlight"] = True
+    return payload
 
 
 def fallback_single_card_voice(row: dict[str, Any], *, is_business: bool) -> str:
