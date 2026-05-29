@@ -25,8 +25,8 @@ def clean_name(value: str | None) -> str:
     return value.split("|", 1)[0].rstrip()
 
 
-def register_template_filters(templates: "object") -> None:
-    """Register CLUSTER-08 Jinja filters on a ``Jinja2Templates`` instance.
+def register_template_filters(templates_or_env: "object") -> None:
+    """Register CLUSTER-08 Jinja filters on a ``Jinja2Templates`` or ``Environment``.
 
     The codebase has multiple ``Jinja2Templates`` instances (one per router
     module). Each must call this helper after construction so ``clean_name``
@@ -34,8 +34,14 @@ def register_template_filters(templates: "object") -> None:
     rendered the template. Without this, templates that work in dev (where
     the main app's instance is in scope) break under tests that import a
     subset of routers directly.
+
+    Duck-typed argument: pass either a ``fastapi.templating.Jinja2Templates``
+    (which exposes ``.env``) or a raw ``jinja2.Environment``. Tests that build
+    a bare ``Environment`` for direct template rendering should call this
+    helper too — see ``tests/test_phase6_hava_card.py`` for an example.
     """
-    templates.env.filters["clean_name"] = clean_name
+    env = getattr(templates_or_env, "env", templates_or_env)
+    env.filters["clean_name"] = clean_name
 
 
 def _norm_provider_name(name: str) -> str:

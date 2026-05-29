@@ -10,6 +10,7 @@ import pytest
 from jinja2 import Environment, FileSystemLoader
 from sqlalchemy import delete, select
 
+from app.core.provider_name import register_template_filters
 from app.core.timezone import LAKE_HAVASU_TZ
 from app.db.database import SessionLocal
 from app.db.models import Category, Entity, Event, Photo, Provider, User
@@ -18,7 +19,12 @@ from app.providers import queries, view_models
 
 def _templates_env() -> Environment:
     root = Path(__file__).resolve().parents[1] / "app" / "templates"
-    return Environment(loader=FileSystemLoader(str(root)), autoescape=True)
+    env = Environment(loader=FileSystemLoader(str(root)), autoescape=True)
+    # Templates use the ``clean_name`` filter (CLUSTER-08). Bare ``Environment``
+    # instances need the registrar too — ``Jinja2Templates`` callers get this
+    # from their router modules.
+    register_template_filters(env)
+    return env
 
 
 def test_hava_card_view_model_dataclass_fields() -> None:
