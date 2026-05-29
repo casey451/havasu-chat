@@ -32,12 +32,15 @@ population; absolute counts include bot traffic but the ratio is what
 advertisers care about. Assumes ``/home`` is not cached (true today — no CDN
 headers). If page caching is added later, impressions will undercount.
 
-Long-form telemetry (v54 Track B): :func:`active_spotlights` also emits one
-``home.spotlight.impression`` row to ``analytics_events`` per spotlight
+Long-form telemetry (v54 Track B, extended v55): every ``active_*`` helper
+emits one ``home.<tier>.impression`` row to ``analytics_events`` per row
 rendered, capturing ``ranking_score`` (= ``Sponsor.weight`` at emit time)
 so downstream CTR-by-rank math doesn't have to re-join to a mutable Sponsor
-row. The other tier helpers stay counter-only for now; add ``record_event``
-calls here when rank-aware analytics ship for them too.
+row. Event names: ``home.marquee.impression``, ``home.spotlight.impression``,
+``home.promoted.impression``, ``home.supporter.impression``. Each is emitted
+alongside (not inside) ``_bump_impressions`` — the helper only sees ids, but
+we need ``weight`` for ``ranking_score``. ``record_event`` is best-effort and
+swallows DB errors, so analytics never breaks a /home render.
 """
 
 from __future__ import annotations
@@ -124,6 +127,13 @@ def active_marquee(db: Session) -> dict[str, Any] | None:
     if row is None:
         return None
     _bump_impressions(db, [row.id])
+    record_event(
+        db,
+        "home.marquee.impression",
+        slot=AdSlot.MARQUEE.value,
+        sponsor_id=row.id,
+        ranking_score=row.weight,
+    )
     return _to_template_dict(db, row)
 
 
@@ -162,6 +172,13 @@ def active_promoted(db: Session) -> dict[str, Any] | None:
     if row is None:
         return None
     _bump_impressions(db, [row.id])
+    record_event(
+        db,
+        "home.promoted.impression",
+        slot=AdSlot.PROMOTED.value,
+        sponsor_id=row.id,
+        ranking_score=row.weight,
+    )
     return _to_template_dict(db, row)
 
 
@@ -174,6 +191,14 @@ def supporters(db: Session, *, limit: int = 4) -> list[dict[str, Any]]:
         .all()
     )
     _bump_impressions(db, [r.id for r in rows])
+    for r in rows:
+        record_event(
+            db,
+            "home.supporter.impression",
+            slot=AdSlot.SUPPORTER.value,
+            sponsor_id=r.id,
+            ranking_score=r.weight,
+        )
     return [_to_template_dict(db, r) for r in rows]
 
 
