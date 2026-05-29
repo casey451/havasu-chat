@@ -20,6 +20,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
+from app.analytics import record_event
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.rate_limit import limiter
 from app.core.timezone import now_lake_havasu
@@ -156,6 +157,26 @@ def sponsor_click(
         update(Sponsor).where(Sponsor.id == row.id).values(clicks=Sponsor.clicks + 1)
     )
     db.commit()
+    # v54 Track B — long-form click event. ``home.spotlight.click`` fires
+    # only when the slot is spotlight (cleanest downstream join with the
+    # ``home.spotlight.impression`` rows from sponsor_store.active_spotlights).
+    # ``home.sponsor.click`` fires for every slot so cross-tier CTR roll-ups
+    # don't need a UNION. Best-effort: ``record_event`` swallows DB errors.
+    if ad_slot is AdSlot.SPOTLIGHT:
+        record_event(
+            db,
+            "home.spotlight.click",
+            slot=ad_slot.value,
+            sponsor_id=row.id,
+            ranking_score=row.weight,
+        )
+    record_event(
+        db,
+        "home.sponsor.click",
+        slot=ad_slot.value,
+        sponsor_id=row.id,
+        ranking_score=row.weight,
+    )
     # 302 (not 301) — never cache the redirect; CTA URLs can rotate.
     return RedirectResponse(url=row.cta_url, status_code=302)
 
