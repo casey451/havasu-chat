@@ -2,21 +2,30 @@
   Direction C shared topbar -- sticky dark glass with wordmark + tab row
   + "Ask Hava" CTA.
 
-  Included by ``home_c.html`` and ``category_c.html``. Context contract:
+  Included by ``home_c.html``, ``category_c.html``, and
+  ``categories_index.html`` (Q2). Context contract:
 
     active_tab    "today" | "eat-drink" | "on-the-water" |
-                  "things-to-do" | "services"
+                  "things-to-do" | "services" | "all-categories"
                   Controls which pill carries ``is-active``. Use
                   ``today`` on /home (no category) -- the Today pill
                   highlights and the four category pills are inert
                   hyperlinks. On a category page, ``active_tab`` is
                   the mega-tab slug this route belongs to (see
-                  ``app.categories.queries.active_tab_for``).
+                  ``app.categories.queries.active_tab_for``). On the
+                  /categories index page (Q2, v48 2026-05-29) it is
+                  ``"all-categories"``, which highlights the fifth
+                  "All categories" pill.
 
   PR D5 turned the four right-side pills into ``<a href>`` anchors.
   Today stays a button (it is the current home; clicking would be a
   same-page reload). Per BUILD.md no-filters rule, these are navigation
   affordances, not in-place filters.
+
+  Q2 (v48): a fifth ``c-tab c-tab-all`` link to /categories sits after
+  the four mega-tabs. v48 audit CLUSTER-07 found the topbar exposed
+  only 4 of 15 routes; this link is the discoverability affordance
+  Casey picked over a More dropdown.
 #}
 <header class="c-topbar" role="banner">
   <div class="c-topbar-inner">
@@ -40,6 +49,9 @@
       <a href="/categories/services"
          class="c-tab{% if active_tab == 'services' %} is-active{% endif %}"
          {% if active_tab == 'services' %}aria-current="page"{% endif %}>Services</a>
+      <a href="/categories"
+         class="c-tab c-tab-all{% if active_tab == 'all-categories' %} is-active{% endif %}"
+         {% if active_tab == 'all-categories' %}aria-current="page"{% endif %}>All categories &rarr;</a>
     </nav>
     <a href="/chat" class="c-ask">Ask Hava</a>
   </div>

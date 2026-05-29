@@ -31,6 +31,13 @@ because both numerators draw from the same approved+active+windowed
 population; absolute counts include bot traffic but the ratio is what
 advertisers care about. Assumes ``/home`` is not cached (true today — no CDN
 headers). If page caching is added later, impressions will undercount.
+
+Long-form telemetry (v54 Track B): :func:`active_spotlights` also emits one
+``home.spotlight.impression`` row to ``analytics_events`` per spotlight
+rendered, capturing ``ranking_score`` (= ``Sponsor.weight`` at emit time)
+so downstream CTR-by-rank math doesn't have to re-join to a mutable Sponsor
+row. The other tier helpers stay counter-only for now; add ``record_event``
+calls here when rank-aware analytics ship for them too.
 """
 
 from __future__ import annotations
@@ -40,6 +47,7 @@ from typing import Any
 from sqlalchemy import or_, update
 from sqlalchemy.orm import Query, Session
 
+from app.analytics import record_event
 from app.core.timezone import now_lake_havasu
 from app.db.models import AdSlot, Sponsor, SponsorStatus
 from app.db.sponsor_resolve import resolve_sponsor_linked_provider
@@ -128,6 +136,19 @@ def active_spotlights(db: Session, *, limit: int = 2) -> list[dict[str, Any]]:
         .all()
     )
     _bump_impressions(db, [r.id for r in rows])
+    # v54 Track B — one ``analytics_events`` row per spotlight rendered.
+    # Emitted alongside (not inside) ``_bump_impressions`` because the
+    # helper only sees ids; we need ``weight`` for ``ranking_score`` and
+    # would have to widen its signature otherwise. ``record_event`` is
+    # best-effort and swallows DB errors.
+    for r in rows:
+        record_event(
+            db,
+            "home.spotlight.impression",
+            slot=AdSlot.SPOTLIGHT.value,
+            sponsor_id=r.id,
+            ranking_score=r.weight,
+        )
     return [_to_template_dict(db, r) for r in rows]
 
 

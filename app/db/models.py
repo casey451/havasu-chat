@@ -620,6 +620,48 @@ class Sponsor(Base):
     )
 
 
+class AnalyticsEvent(Base):
+    """One row per render / click on a sponsor or chat-surface card (v54 Track B).
+
+    Long-form sibling to the per-row ``Sponsor.impressions`` / ``Sponsor.clicks``
+    counters (v52 P0). The counters answer "is this slot performing?"; this
+    table answers "which slot, which rank, which surface, when?".
+
+    ``sponsor_id`` and ``provider_id`` are SET NULL on delete so analytics
+    outlives the underlying row — a sponsor takedown should not nuke the
+    historical CTR data the takedown decision was based on.
+
+    ``slot`` is sponsor inventory (``marquee`` / ``spotlight`` / ``promoted``
+    / ``supporter``); ``slot_origin`` is render surface
+    (``tier2_card_row`` / ``tier2_single_card``). They are intentionally
+    separate columns so a future "spotlight slot rendered inside a chat
+    card row" event can populate both.
+
+    ``ranking_score`` mirrors ``Sponsor.weight`` (Integer) at emit time so
+    downstream CTR-by-rank math doesn't have to re-join to a possibly-
+    mutated Sponsor row. ``payload_json`` is a catch-all for fields that
+    don't yet justify their own column.
+    """
+
+    __tablename__ = "analytics_events"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    event_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    slot: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    sponsor_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("sponsors.id", ondelete="SET NULL"), nullable=True
+    )
+    provider_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("providers.id", ondelete="SET NULL"), nullable=True
+    )
+    ranking_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    slot_origin: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    payload_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False, index=True
+    )
+
+
 class Category(Base):
     """Directory taxonomy — V1 cut of 12 canonical categories.
 

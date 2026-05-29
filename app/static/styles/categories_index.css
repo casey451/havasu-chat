@@ -1,0 +1,192 @@
+/* /categories index (Q2, v48 2026-05-29).
+ *
+ * Layered on top of home_c.css -- inherits the dark cinematic palette,
+ * type scale, and topbar/footer chrome. New surfaces here are limited
+ * to the .c-cidx-* family (hero strip + responsive card grid) and the
+ * .c-tab-all topbar pill (thin left-rule separator after the four
+ * mega-tabs). Tokens are referenced by name; this file does not
+ * redeclare them.
+ */
+
+/* ---- Hero strip (shorter than /home's full-bleed hero) ---- */
+
+.c-cidx {
+  padding: 56px 24px 64px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.c-cidx-head {
+  text-align: left;
+  margin-bottom: 40px;
+}
+
+.c-cidx-meta {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-ink-3, #8a8880);
+  margin: 0 0 12px;
+}
+
+.c-cidx-h1 {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 300;
+  font-size: clamp(40px, 7vw, 72px);
+  line-height: 1.05;
+  color: var(--c-ink, #f3f1ea);
+  margin: 0 0 12px;
+  letter-spacing: -0.02em;
+}
+
+.c-cidx-h1 em {
+  font-style: italic;
+  color: var(--c-teal, #4dc4cf);
+}
+
+.c-cidx-sub {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 17px;
+  color: var(--c-ink-2, #c5c2b8);
+  margin: 0;
+  max-width: 580px;
+}
+
+/* ---- Card grid (3-up desktop / 2-up tablet / 1-up mobile) ---- */
+
+.c-cidx-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .c-cidx-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .c-cidx-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.c-cidx-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.c-cidx-card:hover {
+  border-color: rgba(77, 196, 207, 0.45);
+  transform: translateY(-2px);
+}
+
+.c-cidx-card-link {
+  display: grid;
+  grid-template-rows: 180px auto auto;
+  text-decoration: none;
+  color: inherit;
+  height: 100%;
+}
+
+.c-cidx-peek {
+  position: relative;
+  background: linear-gradient(135deg, #143038 0%, #0a2228 100%);
+  overflow: hidden;
+}
+
+.c-cidx-peek-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.c-cidx-peek-placeholder {
+  width: 100%;
+  height: 100%;
+  background:
+    linear-gradient(135deg, rgba(77, 196, 207, 0.18) 0%, rgba(10, 34, 40, 0) 70%),
+    linear-gradient(135deg, #143038 0%, #0a2228 100%);
+}
+
+.c-cidx-body {
+  padding: 16px 18px 8px;
+}
+
+.c-cidx-label {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1.2;
+  color: var(--c-ink, #f3f1ea);
+  margin: 0 0 6px;
+}
+
+.c-cidx-blurb {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--c-ink-2, #c5c2b8);
+  margin: 0 0 12px;
+}
+
+.c-cidx-count,
+.c-cidx-empty {
+  display: inline-block;
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.c-cidx-count {
+  background: rgba(77, 196, 207, 0.16);
+  color: var(--c-teal, #4dc4cf);
+}
+
+.c-cidx-empty {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--c-ink-3, #8a8880);
+}
+
+.c-cidx-view {
+  display: block;
+  padding: 12px 18px 16px;
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--c-teal, #4dc4cf);
+}
+
+/* ---- Topbar: fifth "All categories" pill with left-rule separator ---- */
+
+.c-tab.c-tab-all {
+  position: relative;
+  margin-left: 8px;
+  padding-left: 14px;
+}
+
+.c-tab.c-tab-all::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 18%;
+  bottom: 18%;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.c-tab.c-tab-all.is-active::before {
+  background: rgba(77, 196, 207, 0.35);
+}

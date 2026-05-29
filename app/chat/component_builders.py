@@ -22,18 +22,64 @@ category-browse query.
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import date, datetime, timedelta
 from typing import Any
 from urllib.parse import quote
 
+from app.analytics import record_event
 from app.chat.intent_classifier import IntentResult
 from app.chat.tier2_schema import Tier2Filters
 from app.core.provider_name import clean_name as _clean_provider_name
 from app.core.timezone import now_lake_havasu
+from app.db.database import SessionLocal
 from app.home.queries import _format_phone
 from app.providers.photo_urls import google_photo_url
 from app.providers.queries import is_open_status_from_structured_hours
+
+logger = logging.getLogger(__name__)
+
+# v54 Track B — slot_origin tags for analytics_events emitted from this
+# module. ``slot_origin`` is the render-surface dimension (distinct from
+# ``slot`` which is sponsor inventory). Defined here so the emit sites
+# and any downstream queryers share one source of truth.
+SLOT_ORIGIN_TIER2_CARD_ROW = "tier2_card_row"
+SLOT_ORIGIN_TIER2_SINGLE_CARD = "tier2_single_card"
+
+
+def _emit_analytics_event(
+    event_name: str,
+    *,
+    slot_origin: str,
+    provider_id: str | None = None,
+    payload: dict[str, Any] | None = None,
+) -> None:
+    """Open a short-lived Session and write one analytics row. Never raises.
+
+    Chat builders don't hold a DB session (they're pure transforms over
+    ``rows`` dicts), so we open one here — same pattern tier2_handler.py
+    uses at line 488 for the tier2 cache. ``record_event`` itself is
+    best-effort; the outer try/except guards against SessionLocal()
+    construction failing (e.g. DATABASE_URL unset in a test that bypasses
+    the conftest fixture).
+    """
+    try:
+        with SessionLocal() as db:
+            record_event(
+                db,
+                event_name,
+                slot_origin=slot_origin,
+                provider_id=provider_id,
+                payload=payload,
+            )
+    except Exception:
+        logger.warning(
+            "component_builders._emit_analytics_event failed (event_name=%s)",
+            event_name,
+            exc_info=True,
+        )
+
 
 # ─────────── shape detection ───────────
 
@@ -742,6 +788,15 @@ def build_card_row(
         ),
     )
     items = [_row_to_card_item(r) for r in ranked[:3]]
+    # v54 Track B — one ``chat.card_row.impression`` per row render (not per
+    # card). ``provider_count`` reflects rows handed to the builder; the
+    # rendered cap is 3, but the broader population is the more useful
+    # denominator downstream.
+    _emit_analytics_event(
+        "chat.card_row.impression",
+        slot_origin=SLOT_ORIGIN_TIER2_CARD_ROW,
+        payload={"provider_count": len(rows)},
+    )
     return {"items": items}
 
 
@@ -1103,6 +1158,15 @@ def build_single_business_card(
     }
     if _is_spotlight_now(row, now=now):
         payload["spotlight"] = True
+    # v54 Track B — one ``chat.single_card.open`` per render. ``provider_id``
+    # is the Provider PK (String UUID) when present; non-Provider rows
+    # without an ``id`` fall through as null rather than fabricating one.
+    provider_id = row.get("id")
+    _emit_analytics_event(
+        "chat.single_card.open",
+        slot_origin=SLOT_ORIGIN_TIER2_SINGLE_CARD,
+        provider_id=str(provider_id) if provider_id else None,
+    )
     return payload
 
 
