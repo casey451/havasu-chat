@@ -26,10 +26,11 @@ def _templates():
 
     from fastapi.templating import Jinja2Templates
 
-    from app.core.provider_name import register_template_filters
+    from app.core.provider_name import register_template_filters, register_template_globals
 
     t = Jinja2Templates(directory=str(Path(__file__).resolve().parents[2] / "templates"))
     register_template_filters(t)
+    register_template_globals(t)
     return t
 
 

@@ -1,0 +1,12 @@
+{# ─────────── Plausible analytics (Q5) ───────────
+   Renders the Plausible <script> tag only when ``plausible_domain`` is
+   set (a Jinja global wired by ``register_template_globals`` in
+   app/core/provider_name.py). In local dev the env var is unset, so
+   nothing is injected — keeps dev a no-op and avoids cookie banners.
+
+   Uses ``script.outbound-links.js`` so outbound link clicks (sponsor
+   sites, provider websites) are auto-tracked alongside pageviews.
+#}
+{% if plausible_domain %}
+<script defer data-domain="{{ plausible_domain }}" src="https://plausible.io/js/script.outbound-links.js"></script>
+{% endif %}

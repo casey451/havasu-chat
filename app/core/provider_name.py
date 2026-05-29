@@ -1,6 +1,16 @@
-"""Provider display name normalization for matching and deduplication."""
+"""Provider display name normalization for matching and deduplication.
+
+Also hosts the shared Jinja template-extension helpers
+(``register_template_filters`` and ``register_template_globals``) — both
+sit here because every ``Jinja2Templates`` site already imports this
+module for ``register_template_filters``, so co-locating
+``register_template_globals`` keeps the per-router boilerplate to one
+import line. If a third extension lands and this module starts feeling
+overloaded, factor the two registrars into ``app/core/templates.py``.
+"""
 from __future__ import annotations
 
+import os
 import re
 import unicodedata
 
@@ -42,6 +52,32 @@ def register_template_filters(templates_or_env: "object") -> None:
     """
     env = getattr(templates_or_env, "env", templates_or_env)
     env.filters["clean_name"] = clean_name
+
+
+def register_template_globals(templates_or_env: "object") -> None:
+    """Register shared Jinja globals (Q5 Plausible analytics, future shared
+    template-wide values) on a ``Jinja2Templates`` or ``Environment``.
+
+    Currently exposes ``plausible_domain``: the value of the
+    ``PLAUSIBLE_DOMAIN`` env var (whitespace-stripped, with empty string
+    coerced to ``None``). When unset, every ``_partials/plausible.html``
+    include is a no-op — local dev never loads the script tag and never
+    sends events, so no consent banner is required.
+
+    **Re-reads the env var on every call** rather than caching at import
+    time. That keeps tests honest: they can ``monkeypatch.setenv`` then
+    re-invoke this registrar against an already-constructed ``templates``
+    instance and the global will refresh. The per-call cost is one
+    ``os.getenv`` lookup — negligible at app-startup time, which is when
+    each router calls this.
+
+    Duck-typed argument: pass either a ``fastapi.templating.Jinja2Templates``
+    (which exposes ``.env``) or a raw ``jinja2.Environment``. Mirrors the
+    contract of ``register_template_filters`` above.
+    """
+    env = getattr(templates_or_env, "env", templates_or_env)
+    raw = (os.getenv("PLAUSIBLE_DOMAIN") or "").strip()
+    env.globals["plausible_domain"] = raw or None
 
 
 def _norm_provider_name(name: str) -> str:

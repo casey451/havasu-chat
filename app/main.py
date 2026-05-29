@@ -41,7 +41,10 @@ from app.auth.session import SessionMiddleware
 from app.categories.queries import CATEGORY_FILTERS
 from app.categories.router import router as direction_c_categories_router
 from app.core.event_quality import friendly_errors
-from app.core.provider_name import register_template_filters as _register_template_filters
+from app.core.provider_name import (
+    register_template_filters as _register_template_filters,
+    register_template_globals as _register_template_globals,
+)
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.db.database import SessionLocal, get_db, init_db
 from app.db.models import Event, Provider
@@ -67,6 +70,10 @@ templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 # instances (one per router module); each must call the shared registrar so
 # the filter resolves regardless of which router rendered the template.
 _register_template_filters(templates)
+# Q5 Plausible analytics: ``plausible_domain`` Jinja global gates the
+# ``_partials/plausible.html`` include in every page <head>. Unset env var
+# → global is ``None`` → script tag never renders (local dev no-op).
+_register_template_globals(templates)
 _SENSITIVE_EVENT_KEYS = frozenset({"query", "message", "normalized_query"})
 
 

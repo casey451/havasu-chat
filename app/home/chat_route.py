@@ -16,11 +16,12 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from app.core.provider_name import register_template_filters
+from app.core.provider_name import register_template_filters, register_template_globals
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 register_template_filters(templates)
+register_template_globals(templates)
 
 router = APIRouter(tags=["chat-ui"])
 

@@ -13,6 +13,31 @@
 (function () {
   "use strict";
 
+  // ─────────── Plausible analytics (Q5) ───────────
+  //
+  // Three custom events. All payloads are structural metadata only —
+  // never the user's query text, business name, or any PII. That's
+  // load-bearing for the GDPR-compliant / no-cookie-banner posture.
+  //
+  // Guarded with a typeof check so local dev (where PLAUSIBLE_DOMAIN
+  // is unset and the script tag isn't injected) is a silent no-op.
+
+  function trackPlausible(eventName, props) {
+    if (typeof plausible !== "function") return;
+    try {
+      plausible(eventName, props ? { props: props } : undefined);
+    } catch (_) {
+      // Never let analytics break the chat surface.
+    }
+  }
+
+  function lengthBucket(text) {
+    const n = (text || "").length;
+    if (n < 20) return "short";
+    if (n <= 100) return "medium";
+    return "long";
+  }
+
   // ─────────── session ───────────
   // Session ID survives back/forward but resets on hard reload. URL-bound
   // so /chat?q=foo always starts a fresh conversation, but submitting from
@@ -189,6 +214,8 @@
     const a = document.createElement("a");
     a.className = "agenda-row";
     a.href = ev.url || "#";
+    // Q5: card_type for Plausible "Chat Card Tap" delegated listener.
+    a.dataset.cardType = "event";
 
     const time = el("div", "time");
     const t = formatTime(ev.start);
@@ -400,6 +427,7 @@
     const a = document.createElement("a");
     a.className = "mini-card";
     a.href = it.url || "#";
+    a.dataset.cardType = "card_row";
 
     const img = el("div", "img");
     if (it.image_url) {
@@ -443,6 +471,7 @@
   function renderSingleCard(data) {
     if (!data || !data.title) return null;
     const root = el("article", "single-card");
+    root.dataset.cardType = "single_card";
 
     // Image (skipped if no URL — placeholder gradient takes over)
     const img = el("div", "img");
@@ -585,6 +614,14 @@
     const a = document.createElement("a");
     a.className = "biz-row" + (it.spotlight ? " is-spotlight" : "");
     a.href = it.url || "#";
+    a.dataset.cardType = "business_list";
+    // Q5: Spotlight rows are paid placements. Stamp slot + id so the
+    // delegated "Sponsor Click" listener can fire alongside the row tap.
+    // ``id`` falls back to slug/url so the event is never empty.
+    if (it.spotlight) {
+      a.dataset.sponsorSlot = "biz_spotlight";
+      a.dataset.sponsorId = String(it.id || it.slug || it.url || "");
+    }
 
     // Thumbnail
     const thumb = el("div", "thumb");
@@ -734,6 +771,10 @@
   function submit(query) {
     const q = (query || "").trim();
     if (!q) return;
+    // Plausible: fire BEFORE the network request so a page-unload navigation
+    // between submit and response doesn't drop the event. Only the length
+    // bucket goes on the wire — never the query text.
+    trackPlausible("Chat Query Sent", { length_bucket: lengthBucket(q) });
     appendUserTurn(q);
     postChat(q);
     input.value = "";
@@ -743,6 +784,56 @@
     e.preventDefault();
     submit(input.value);
   });
+
+  // Q5: delegated Plausible listener for card + sponsor taps. Walks up
+  // from the event target to find:
+  //   1. The nearest ``[data-card-type]`` ancestor → ``Chat Card Tap``.
+  //      Catches clicks on links inside cards (Call/Directions buttons in
+  //      single_card, action anchors inside biz-row, etc.) as well as the
+  //      outer card anchor itself.
+  //   2. The nearest ``[data-sponsor-slot]`` ancestor OR any anchor whose
+  //      href starts with ``/sponsor/click`` → ``Sponsor Click`` with the
+  //      slot + id parsed off the element (data attrs preferred, otherwise
+  //      pulled from the URL query string). Fires alongside the regular
+  //      navigation, so the server-side ``/sponsor/click`` redirect logic
+  //      still records the click independently.
+  //
+  // Only structural metadata (card_type / slot / id) goes on the wire —
+  // never the user's query text, business name, or any PII. Required by
+  // the cookieless / no-consent-banner GDPR posture.
+  if (thread) {
+    thread.addEventListener("click", function (e) {
+      const target = e.target;
+      if (!target || typeof target.closest !== "function") return;
+
+      const card = target.closest("[data-card-type]");
+      if (card) {
+        trackPlausible("Chat Card Tap", { card_type: card.dataset.cardType });
+      }
+
+      const sponsorEl = target.closest("[data-sponsor-slot]");
+      if (sponsorEl) {
+        trackPlausible("Sponsor Click", {
+          slot: sponsorEl.dataset.sponsorSlot || "",
+          id: sponsorEl.dataset.sponsorId || "",
+        });
+        return;
+      }
+      const sponsorLink = target.closest('a[href^="/sponsor/click"]');
+      if (sponsorLink) {
+        let slot = "";
+        let id = "";
+        try {
+          const u = new URL(sponsorLink.getAttribute("href"), window.location.origin);
+          slot = u.searchParams.get("slot") || "";
+          id = u.searchParams.get("id") || "";
+        } catch (_) {
+          // Malformed href — fire with empty props rather than dropping the event.
+        }
+        trackPlausible("Sponsor Click", { slot: slot, id: id });
+      }
+    });
+  }
 
   // Chips (in the empty state) submit the chip text as a query.
   document.querySelectorAll(".chip[data-q]").forEach(function (btn) {
