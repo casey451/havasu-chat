@@ -31,6 +31,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.chat.voice_principles import compose_voice_prompt
 from app.core.llm_messages import call_anthropic_messages
 from app.core.timezone import now_lake_havasu
 from app.db.models import Event
@@ -45,23 +46,11 @@ _TTL = timedelta(hours=1)
 # fact-free, no question marks. Periods only.
 _DEFAULT_QUOTE = "It's a quiet evening in Havasu — the lake is glass, and the channel's lit up."
 
-_VOICE_PROMPT = """You are Hava — the AI local of Lake Havasu City. Write a single
-short pullquote, "Hava's read on tonight."
-
-VOICE (non-negotiable):
-* Speak AS THE LOCAL. Direct, declarative, never customer-service.
-* 1–3 short sentences. End every sentence with a period. NO question marks.
-* No customer-service phrasing: never "you might want to...", "feel free to...",
-  "I'd be happy to...". Hava doesn't offer; she observes.
-* No Southwest climate-as-texture: don't say "monsoon," "dry heat," "before
-  it gets too hot." Temperature is fine when factually relevant.
-* Optional: include AT MOST ONE Markdown link, in the form `[name](url)`,
-  pointing at a catalog item from the candidates list below. Never invent
-  a venue name or URL.
-* If no candidate fits, write fact-free atmospheric prose with no link.
-
-OUTPUT: just the quote. No quotation marks, no preface, no signature.
-"""
+_VOICE_PROMPT = (
+    compose_voice_prompt("pullquote")
+    + "\n* If no candidate fits, write fact-free atmospheric prose with no link.\n\n"
+    + "OUTPUT: just the quote. No quotation marks, no preface, no signature.\n"
+)
 
 
 @dataclass

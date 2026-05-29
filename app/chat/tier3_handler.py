@@ -137,6 +137,14 @@ def _apply_tier3_component_probe(
         logging.exception("tier3: component_meta probe failed")
 
 
+# Tier 3's voice prompt lives at prompts/system_prompt.txt and is loaded
+# verbatim to enable Anthropic prompt-cache hits — it is intentionally
+# NOT routed through app.chat.voice_principles. The brand source of
+# truth (BUILD.md §"Voice principles") is mirrored independently in
+# both surfaces. See voice_principles.py module docstring for the
+# boundary rationale.
+
+
 def _load_tier3_system_prompt() -> str:
     """Tier3-specific graceful fallback on missing prompt file."""
     try:
