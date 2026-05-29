@@ -122,3 +122,71 @@ def test_get_active_sponsor_is_marquee_shim(db: Session) -> None:
     _add(db, slot=AdSlot.PROMOTED.value, name="not-marquee")
     got = sponsor_store.get_active_sponsor(db)
     assert got is not None and got["name"] == "marquee-only"
+
+
+# v52 P0 — impression counter increments at query time. ----------------------
+
+
+def _impressions(db: Session, sponsor_id: str) -> int:
+    db.expire_all()
+    row = db.query(Sponsor).filter(Sponsor.id == sponsor_id).one()
+    return row.impressions
+
+
+def test_active_marquee_increments_impressions(db: Session) -> None:
+    sp = _add(db, slot=AdSlot.MARQUEE.value, name="marquee-impr")
+    assert _impressions(db, sp.id) == 0
+    sponsor_store.active_marquee(db)
+    assert _impressions(db, sp.id) == 1
+    sponsor_store.active_marquee(db)
+    assert _impressions(db, sp.id) == 2
+
+
+def test_active_promoted_increments_impressions(db: Session) -> None:
+    sp = _add(db, slot=AdSlot.PROMOTED.value, name="promoted-impr")
+    sponsor_store.active_promoted(db)
+    assert _impressions(db, sp.id) == 1
+
+
+def test_active_spotlights_increments_each_returned_row(db: Session) -> None:
+    """3 seeded, limit=2 → exactly the 2 returned rows increment; 3rd stays 0."""
+    heavy = _add(db, slot=AdSlot.SPOTLIGHT.value, name="heavy", weight=10)
+    third = _add(db, slot=AdSlot.SPOTLIGHT.value, name="third", weight=5)
+    light = _add(db, slot=AdSlot.SPOTLIGHT.value, name="light", weight=1)
+
+    rows = sponsor_store.active_spotlights(db, limit=2)
+    assert [r["name"] for r in rows] == ["heavy", "third"]
+
+    assert _impressions(db, heavy.id) == 1
+    assert _impressions(db, third.id) == 1
+    assert _impressions(db, light.id) == 0
+
+
+def test_supporters_increments_each_returned_row(db: Session) -> None:
+    a = _add(db, slot=AdSlot.SUPPORTER.value, name="supp-a")
+    b = _add(db, slot=AdSlot.SUPPORTER.value, name="supp-b")
+    sponsor_store.supporters(db, limit=4)
+    assert _impressions(db, a.id) == 1
+    assert _impressions(db, b.id) == 1
+
+
+def test_no_increment_when_no_match(db: Session) -> None:
+    """Unsold slot returns None and touches no Sponsor row."""
+    inactive = _add(
+        db,
+        slot=AdSlot.MARQUEE.value,
+        name="inactive",
+        active=False,
+    )
+    assert sponsor_store.active_marquee(db) is None
+    assert _impressions(db, inactive.id) == 0
+
+
+def test_clicks_counter_untouched_by_impression_increment(db: Session) -> None:
+    """Impression increments must not bump clicks (counters are separate)."""
+    sp = _add(db, slot=AdSlot.MARQUEE.value, name="ratio-honest")
+    sponsor_store.active_marquee(db)
+    db.expire_all()
+    row = db.query(Sponsor).filter(Sponsor.id == sp.id).one()
+    assert row.impressions == 1
+    assert row.clicks == 0

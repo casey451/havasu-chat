@@ -22,13 +22,22 @@ Active criteria for every tier:
     AND active is True            (admin kill-switch override of FSM)
     AND (starts_at is null OR starts_at <= now)
     AND (ends_at   is null OR ends_at   >  now)
+
+Impression counter (v52 P0): each ``active_*`` helper atomically increments
+``Sponsor.impressions`` for the row(s) it returns, in the same DB transaction
+as ``_to_template_dict``. The click counter is bumped in the matching
+``/sponsor/click`` route handler. The clicks/impressions ratio is honest
+because both numerators draw from the same approved+active+windowed
+population; absolute counts include bot traffic but the ratio is what
+advertisers care about. Assumes ``/home`` is not cached (true today — no CDN
+headers). If page caching is added later, impressions will undercount.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import or_
+from sqlalchemy import or_, update
 from sqlalchemy.orm import Query, Session
 
 from app.core.timezone import now_lake_havasu
@@ -76,6 +85,22 @@ def _to_template_dict(db: Session, row: Sponsor) -> dict[str, Any]:
     return out
 
 
+def _bump_impressions(db: Session, ids: list[str]) -> None:
+    """Atomic ``impressions += 1`` for the given sponsor ids; no-op if empty.
+
+    Single SQL UPDATE (no row lock needed) keeps this safe under concurrent
+    workers and cheap enough to do on every /home render.
+    """
+    if not ids:
+        return
+    db.execute(
+        update(Sponsor)
+        .where(Sponsor.id.in_(ids))
+        .values(impressions=Sponsor.impressions + 1)
+    )
+    db.commit()
+
+
 def active_marquee(db: Session) -> dict[str, Any] | None:
     """Tier 1 — Marquee sponsor below the *Today* section. None when unsold.
 
@@ -88,7 +113,10 @@ def active_marquee(db: Session) -> dict[str, Any] | None:
         .order_by(Sponsor.weight.desc(), Sponsor.created_at.desc())
         .first()
     )
-    return _to_template_dict(db, row) if row else None
+    if row is None:
+        return None
+    _bump_impressions(db, [row.id])
+    return _to_template_dict(db, row)
 
 
 def active_spotlights(db: Session, *, limit: int = 2) -> list[dict[str, Any]]:
@@ -99,6 +127,7 @@ def active_spotlights(db: Session, *, limit: int = 2) -> list[dict[str, Any]]:
         .limit(limit)
         .all()
     )
+    _bump_impressions(db, [r.id for r in rows])
     return [_to_template_dict(db, r) for r in rows]
 
 
@@ -109,7 +138,10 @@ def active_promoted(db: Session) -> dict[str, Any] | None:
         .order_by(Sponsor.weight.desc(), Sponsor.created_at.desc())
         .first()
     )
-    return _to_template_dict(db, row) if row else None
+    if row is None:
+        return None
+    _bump_impressions(db, [row.id])
+    return _to_template_dict(db, row)
 
 
 def supporters(db: Session, *, limit: int = 4) -> list[dict[str, Any]]:
@@ -120,6 +152,7 @@ def supporters(db: Session, *, limit: int = 4) -> list[dict[str, Any]]:
         .limit(limit)
         .all()
     )
+    _bump_impressions(db, [r.id for r in rows])
     return [_to_template_dict(db, r) for r in rows]
 
 
