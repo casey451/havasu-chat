@@ -391,6 +391,10 @@ def _provider_dict(p: Provider) -> dict[str, Any]:
         "google_rating": p.google_rating,
         "google_review_count": p.google_review_count,
         "thumb_url": thumb_url,
+        # Step 7.5 — spotlight surface (voice path MUST NOT read these).
+        "tier": p.tier,
+        "sponsored_until": p.sponsored_until,
+        "featured_description": p.featured_description,
     }
 
 
