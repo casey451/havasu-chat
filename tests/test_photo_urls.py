@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-
-from types import SimpleNamespace
 
 from app.providers import photo_urls
 from app.providers.photo_urls import (
