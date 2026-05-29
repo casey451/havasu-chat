@@ -86,6 +86,35 @@ a { color: var(--water); text-decoration: none; }
 a:hover { color: var(--water-700); }
 img { display: block; max-width: 100%; }
 
+/* ─────────── dark cinematic chrome (Q1 — match /home palette) ───────────
+ * Q1 (2026-05-29): the /chat surface adopts the dark Direction-C palette
+ * that /home (home_c.css) uses, so the brand reads continuous from the
+ * home composer's submit into the chat thread. Scope is `.chat-dark` on
+ * <body> — applied by chat.html. Only the *page chrome* (background,
+ * topbar, empty state, chips, composer) flips. Thread cards (.agenda,
+ * .single-card, .biz-list, .mini-card, .weekstrip) keep their own
+ * `--paper` surfaces and still read well sitting on the dark page bg.
+ *
+ * Token reuse: this file already declares `--bg-3: #0a2228` (night-ink)
+ * which is the same family as home_c's `--c-bg: #0e1419`. We use `--bg-3`
+ * as the page bg rather than importing a second tokens file.
+ *
+ * Inverted ink scale lifted from home_c.css `--c-ink`/`--c-ink-2`/
+ * `--c-ink-3` so contrast and warmth match /home exactly.
+ *
+ * Contrast (verified against bg `#0a2228`):
+ *   `#f3f1ea` ink-on-dark ............. ~15:1   (heading + body)
+ *   `#c5c2b8` ink-2-on-dark ........... ~9.5:1  (body + chip text)
+ *   `#8a8880` ink-3-on-dark ........... ~4.8:1  (eyebrow / meta — AA body)
+ *   `#a3d4d4` water-100 accent ........ ~9.5:1  (h1 em on dark)
+ */
+body.chat-dark {
+  background: var(--bg-3);
+  color: #f3f1ea;
+}
+body.chat-dark a { color: #4dc4cf; }       /* teal — matches home_c --c-teal */
+body.chat-dark a:hover { color: #6ed5e0; } /* lighter teal */
+
 .page {
   max-width: 880px;
   margin: 0 auto;
@@ -117,6 +146,21 @@ img { display: block; max-width: 100%; }
 }
 .topbar-meta a { color: var(--ink-2); }
 .topbar-meta a:hover { color: var(--ink); }
+
+/* ─────────── dark topbar override (Q1) ─────────── */
+/* The chat-specific topbar (wordmark + "Back to Hava") stays inline rather
+ * than swapping to components/topbar_c.html — that shared partial includes
+ * an "Ask Hava" CTA pointing to /chat, which would be a self-link on this
+ * page. The dark glass treatment below mirrors home_c.css `.c-topbar`. */
+body.chat-dark .wordmark { color: #f3f1ea; }
+body.chat-dark .wordmark .mark {
+  /* Slightly brighter inner highlight reads better on dark than the
+   * light-bg version's inner shadow. */
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+body.chat-dark .topbar-meta { color: #8a8880; }
+body.chat-dark .topbar-meta a { color: #c5c2b8; }
+body.chat-dark .topbar-meta a:hover { color: #f3f1ea; }
 
 /* ─────────── chat thread ─────────── */
 .thread {
@@ -204,6 +248,24 @@ img { display: block; max-width: 100%; }
   color: var(--clay);
 }
 
+/* ─────────── dark thread chrome (Q1) ───────────
+ * `.turn-hava .voice` and `.turn-user .bubble` render *directly on the
+ * page bg*, not inside a card surface — so their default `var(--ink)`
+ * (#0a2228) would be invisible on the dark page bg (#0a2228). Flip text
+ * and the user-bubble to a dark glass treatment. Component cards in
+ * `.component-slot` keep their own `--paper` surfaces (out of scope per
+ * the Q1 handoff). */
+body.chat-dark .turn-hava .voice { color: #f3f1ea; }
+body.chat-dark .turn-hava .voice em { color: var(--water-100); }
+body.chat-dark .turn-hava .voice a { color: #4dc4cf; }
+body.chat-dark .turn-hava.is-loading .voice { color: #8a8880; }
+body.chat-dark .typing-dots span { background: #8a8880; }
+body.chat-dark .turn-user .bubble {
+  background: rgba(184, 98, 61, 0.22);     /* warm-soft equivalent on dark */
+  color: #f3f1ea;
+  border-color: rgba(184, 98, 61, 0.32);
+}
+
 /* ─────────── empty state ─────────── */
 .empty-state {
   text-align: center;
@@ -256,6 +318,26 @@ img { display: block; max-width: 100%; }
   color: var(--ink);
   border-color: rgba(20, 20, 15, 0.22);
   background: var(--paper);
+}
+
+/* ─────────── dark empty state + chips (Q1) ─────────── */
+/* Inverted ink scale lifted from home_c.css. The h1 em accent uses
+ * `--water-100` (#a3d4d4) — the existing token, a lighter water tone
+ * than `--water-700` (#064551 would disappear on dark). 9.5:1 against
+ * the night-ink bg. */
+body.chat-dark .empty-state .eyebrow { color: #8a8880; }      /* ~4.8:1, AA body */
+body.chat-dark .empty-state h1 { color: #f3f1ea; }            /* ~15:1, headline */
+body.chat-dark .empty-state h1 em { color: var(--water-100); } /* #a3d4d4 — ~9.5:1 */
+body.chat-dark .empty-state p { color: #c5c2b8; }             /* ~9.5:1, body */
+
+body.chat-dark .chip {
+  border-color: rgba(243, 241, 234, 0.18);  /* ink-on-dark @ low alpha */
+  color: #c5c2b8;
+}
+body.chat-dark .chip:hover {
+  color: #f3f1ea;
+  border-color: rgba(243, 241, 234, 0.35);
+  background: rgba(243, 241, 234, 0.06);
 }
 
 /* ─────────── day_agenda component ─────────── */
@@ -413,6 +495,30 @@ img { display: block; max-width: 100%; }
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* ─────────── dark composer (Q1) ───────────
+ * Mirrors home_c.css `.c-hero-composer` — dark glass with light ink and
+ * a teal send button. Stays sticky (visual-only change; behavior intact). */
+body.chat-dark .stuck-composer .composer {
+  background: rgba(14, 20, 25, 0.92);
+  border-color: rgba(243, 241, 234, 0.14);
+  box-shadow:
+    0 8px 32px -8px rgba(0, 0, 0, 0.55),
+    0 1px 3px rgba(0, 0, 0, 0.30);
+}
+body.chat-dark .stuck-composer .composer:focus-within {
+  border-color: #4dc4cf;  /* teal */
+  box-shadow:
+    0 0 0 4px rgba(77, 196, 207, 0.18),
+    0 8px 32px -8px rgba(0, 0, 0, 0.55);
+}
+body.chat-dark .stuck-composer .composer input { color: #f3f1ea; }
+body.chat-dark .stuck-composer .composer input::placeholder { color: #8a8880; }
+body.chat-dark .stuck-composer .composer .send {
+  background: #4dc4cf;
+  color: var(--bg-3);
+}
+body.chat-dark .stuck-composer .composer .send:hover { background: #6ed5e0; }
 
 /* ─────────── desktop progressive enhancement ─────────── */
 @media (min-width: 720px) {
