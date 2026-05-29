@@ -35,7 +35,6 @@ from app.core.provider_name import clean_name as _clean_provider_name
 from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal
 from app.home.queries import _format_phone
-from app.providers.photo_urls import google_photo_url
 from app.providers.queries import is_open_status_from_structured_hours
 
 logger = logging.getLogger(__name__)
@@ -993,16 +992,15 @@ def _truncate_summary(text: str, limit: int) -> str:
 
 
 def _provider_image_url(row: dict[str, Any]) -> str | None:
+    # Chat provider rows carry a fully-resolved ``thumb_url`` built by
+    # ``first_renderable_google_photo`` (see ``tier2_db_query`` /
+    # ``context_builder``) — the urls-column-then-raw-ref resolution
+    # already happened there. The rows never carry a ``google_photo_refs``
+    # key, so the old refs-fallback branch here was dead after PR #41
+    # collapsed the read path; removed in the v51 audit Finding-1 cleanup.
     thumb = row.get("thumb_url")
     if isinstance(thumb, str) and thumb.strip():
         return thumb.strip()
-    refs = row.get("google_photo_refs")
-    if isinstance(refs, list):
-        for ref in refs:
-            if isinstance(ref, str) and ref.strip():
-                url = google_photo_url(ref.strip())
-                if url:
-                    return url
     return None
 
 

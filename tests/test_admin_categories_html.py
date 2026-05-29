@@ -95,8 +95,39 @@ def test_categories_shows_pending_hint_row(client: TestClient) -> None:
 
 
 def test_categories_provider_counts_reasonable(client: TestClient) -> None:
+    # Hermetic seed. The page renders a counts table (with the "Count"
+    # header) only for sections that have rows; on a fresh DB every
+    # section shows "No data in this section yet" and these assertions
+    # fail. Seeding one pending contribution hint guarantees the
+    # "Pending contribution category hints" table renders, regardless of
+    # ambient provider/program data. Matches the seed-and-cleanup pattern
+    # used by the other tests in this file.
+    u = uuid.uuid4().hex[:8]
+    hint = f"counts-{u}"
+    with SessionLocal() as db:
+        create_contribution(
+            db,
+            ContributionCreate(
+                entity_type="tip",
+                submission_name=f"CountSeed {u}",
+                submission_category_hint=hint,
+                source="operator_backfill",
+            ),
+            None,
+        )
     _login(client)
     r = client.get("/admin/categories")
     assert r.status_code == 200
     assert "Count" in r.text
     assert "<table>" in r.text
+    with SessionLocal() as db:
+        from sqlalchemy import select
+
+        from app.db.models import Contribution
+
+        row = db.scalars(
+            select(Contribution).where(Contribution.submission_name == f"CountSeed {u}")
+        ).first()
+        if row:
+            db.delete(row)
+            db.commit()

@@ -58,7 +58,7 @@ Thin **Google Places API (New) Text Search** client used for **provider contribu
 
 **`GOOGLE_PLACES_API_KEY`** — Read at call time via **`os.getenv`**. Empty → **`not_attempted`**.
 
-**Photo URLs:** Browser-renderable Google photo URLs for provider hero/gallery are built at read time by **`app/providers/photo_urls.py`** (`google_photo_url`), which constructs Places Photo Media URLs from stored `google_photo_refs` resource names. No server-side HTTP fetch — the browser follows Google's redirect to the CDN.
+**Photo URLs:** Browser-renderable Google photo URLs for provider hero/gallery are produced at read time by **`app/providers/photo_urls.py`**. The read-time entry point is **`first_renderable_google_photo`** (via `iter_renderable_google_photos`), which prefers the backfilled **`google_photo_urls`** column and falls back to the raw **`google_photo_refs`** resource names — upgrading each raw ref to a Places Photo Media URL via `google_photo_url` when an API key is set. The **`google_photo_urls`** column itself is populated out of band by **`resolve_photo_refs`** (`scripts/backfill_photo_urls.py`), which resolves each ref to its long-lived `lh3.googleusercontent.com` URL. No server-side HTTP fetch on the read path — the browser follows Google's redirect to the CDN.
 
 ## Related
 
