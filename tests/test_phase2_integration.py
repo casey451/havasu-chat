@@ -424,7 +424,7 @@ def test_api_chat_graceful_when_build_context_raises() -> None:
         with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
             with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
                 with patch(
-                    "app.chat.tier3_handler.build_context_for_tier3",
+                    "app.chat.tier3_handler.build_context_and_rows_for_tier3",
                     side_effect=RuntimeError("context build boom"),
                 ):
                     r = client.post(
