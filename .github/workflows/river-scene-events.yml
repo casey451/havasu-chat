@@ -1,0 +1,46 @@
+name: river-scene-events
+
+# Pulls RiverScene Magazine events into the catalog a few times a week.
+#
+# Why this exists: the River Scene pipeline (scripts/river_scene_pull.py) had
+# NO scheduler -- events only entered Hava when someone ran the script by hand,
+# so the events calendar went stale between manual runs. This workflow puts it
+# on autopilot, mirroring the parks-rec-scrapes cron.
+#
+# Behavior: run_pull() discovers events from the RiverScene sitemap, parses
+# each event page, skips duplicates / past events, flags seed-event overlaps,
+# and AUTO-APPROVES the rest into live Event rows. If you later want a review
+# gate instead of auto-approve, that's a change in app/contrib/river_scene_pull.py.
+#
+# NOTE: GitHub only runs scheduled workflows from the repository's DEFAULT
+# branch. This file must be merged to main before the cron takes effect.
+# Until then, use the "Run workflow" button (workflow_dispatch) to trigger it.
+
+on:
+  schedule:
+    # Mon / Wed / Fri at 13:30 UTC (= 6:30 AM Arizona, MST/UTC-7, no DST).
+    # :30 past the hour to avoid colliding with parks-rec-scrapes (:15).
+    - cron: "30 13 * * 1,3,5"
+  workflow_dispatch: {}
+
+jobs:
+  pull-river-scene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Pull RiverScene events into the catalog
+        env:
+          # Same Railway Postgres secret the parks-rec cron uses. Set in:
+          # GitHub repo -> Settings -> Secrets and variables -> Actions
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/river_scene_pull.py
