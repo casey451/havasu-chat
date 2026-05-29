@@ -1,4 +1,8 @@
-"""Voice prompt unification — byte-equivalence + helper contract."""
+"""Voice prompt unification — byte-equivalence + helper contract.
+
+Attests that compose_voice_prompt() reproduces each pre-refactor inlined
+_SYSTEM_PROMPT verbatim (brand-contract attestation).
+"""
 
 from __future__ import annotations
 
