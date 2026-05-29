@@ -18,12 +18,13 @@ from urllib.parse import urlparse
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.admin.router import router as admin_router
 from app.api.routes.account_alerts import router as account_alerts_router
@@ -37,11 +38,12 @@ from app.api.routes.map_data import router as map_data_router
 from app.api.routes.themed_groups import router as themed_groups_router
 from app.auth.routes import router as auth_router
 from app.auth.session import SessionMiddleware
+from app.categories.queries import CATEGORY_FILTERS
 from app.categories.router import router as direction_c_categories_router
 from app.core.event_quality import friendly_errors
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.db.database import SessionLocal, get_db, init_db
-from app.db.models import Event
+from app.db.models import Event, Provider
 from app.home.chat_route import router as new_chat_ui_router
 from app.home.router import router as home_router
 from app.photos.routes import router as photos_router
@@ -279,6 +281,47 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="Havasu Chat", lifespan=lifespan)
 app.add_middleware(SessionMiddleware)
+
+
+# Launch hardening (v48): minimal security headers on HTML responses. CSP is
+# deliberately deferred — it requires a full audit of inline scripts/styles
+# and image sources, and is tracked in a separate PR. /health and /api/*
+# routes skip these headers: Railway probes only need a 200, and JSON API
+# clients don't benefit from frame/permissions policies.
+_SECURITY_HEADER_SKIP_EXACT = frozenset({"/health"})
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Attach baseline security headers to HTML responses.
+
+    Skips ``/health`` (Railway liveness probe) and any path beginning with
+    ``/api/`` (JSON endpoints — keeps the API contract minimal). HSTS is
+    only emitted when the request scheme is HTTPS so dev/local traffic
+    doesn't get a long-lived enforcement record.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        if path in _SECURITY_HEADER_SKIP_EXACT or path.startswith("/api/"):
+            return response
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault(
+            "Referrer-Policy", "strict-origin-when-cross-origin"
+        )
+        response.headers.setdefault(
+            "Permissions-Policy", "geolocation=(), microphone=(), camera=()"
+        )
+        if request.url.scheme == "https":
+            response.headers.setdefault(
+                "Strict-Transport-Security",
+                "max-age=63072000; includeSubDomains",
+            )
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 app.state.limiter = limiter
 
 
@@ -389,6 +432,143 @@ def _render_permalink_response(
             "event_link_html": event_link_html,
             "tags_html": tags_html,
         },
+    )
+
+
+# --------------------------------------------------------------------------
+# robots.txt + sitemap.xml (launch hardening v48)
+# --------------------------------------------------------------------------
+#
+# robots.txt is fully static. sitemap.xml enumerates the home page, static
+# legal/contribute pages, every category route in CATEGORY_FILTERS, every
+# active non-draft provider profile, and every live event. The XML is
+# cached in-process for one hour because regeneration walks providers +
+# events tables (thousands of rows). The cache is a simple
+# (timestamp, xml) tuple rather than functools.lru_cache so it correctly
+# expires by wall-clock time and is easy to reason about under tests.
+_DEFAULT_BASE_URL = "https://havasu-chat-production.up.railway.app"
+_SITEMAP_TTL_SECONDS = 3600
+_sitemap_cache: tuple[float, str] | None = None
+
+
+def _base_url() -> str:
+    raw = (os.getenv("BASE_URL") or _DEFAULT_BASE_URL).strip()
+    return raw.rstrip("/") or _DEFAULT_BASE_URL
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+def robots_txt() -> PlainTextResponse:
+    body = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "\n"
+        f"Sitemap: {_base_url()}/sitemap.xml\n"
+    )
+    return PlainTextResponse(body)
+
+
+def _sitemap_url_entry(loc: str, lastmod: str) -> str:
+    return (
+        "  <url>\n"
+        f"    <loc>{html.escape(loc, quote=False)}</loc>\n"
+        f"    <lastmod>{lastmod}</lastmod>\n"
+        "  </url>\n"
+    )
+
+
+def _format_lastmod(value: datetime | None, *, today_iso: str) -> str:
+    if value is None:
+        return today_iso
+    try:
+        return value.date().isoformat()
+    except Exception:
+        return today_iso
+
+
+def _build_sitemap_xml() -> str:
+    base = _base_url()
+    today_iso = datetime.now(timezone.utc).date().isoformat()
+
+    entries: list[str] = []
+
+    # Static surfaces. /home is the editorial home; / is the legacy chat UI
+    # entry point — both are canonical so both ship in the sitemap.
+    static_paths = ("/", "/home", "/chat", "/privacy", "/terms", "/contribute")
+    for path in static_paths:
+        entries.append(_sitemap_url_entry(f"{base}{path}", today_iso))
+
+    # Category routes — every key in CATEGORY_FILTERS gets a /categories/<slug>.
+    for slug in CATEGORY_FILTERS:
+        entries.append(
+            _sitemap_url_entry(f"{base}/categories/{slug}", today_iso)
+        )
+
+    # Active, non-draft providers with a slug.
+    try:
+        with SessionLocal() as db:
+            providers = (
+                db.query(Provider.slug, Provider.updated_at)
+                .filter(
+                    Provider.is_active.is_(True),
+                    Provider.draft.is_(False),
+                    Provider.slug.isnot(None),
+                )
+                .all()
+            )
+        for slug, updated_at in providers:
+            if not slug:
+                continue
+            entries.append(
+                _sitemap_url_entry(
+                    f"{base}/provider/{slug}",
+                    _format_lastmod(updated_at, today_iso=today_iso),
+                )
+            )
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.warning("sitemap: provider enumeration failed: %s", exc)
+
+    # Live events — Event has no updated_at column, so fall back to created_at.
+    try:
+        with SessionLocal() as db:
+            events = (
+                db.query(Event.id, Event.created_at)
+                .filter(Event.status == "live")
+                .all()
+            )
+        for event_id, created_at in events:
+            entries.append(
+                _sitemap_url_entry(
+                    f"{base}/events/{event_id}",
+                    _format_lastmod(created_at, today_iso=today_iso),
+                )
+            )
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.warning("sitemap: event enumeration failed: %s", exc)
+
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + "".join(entries)
+        + "</urlset>\n"
+    )
+
+
+def _get_cached_sitemap_xml() -> str:
+    global _sitemap_cache  # noqa: PLW0603 — module-level cache by design
+    now = datetime.now(timezone.utc).timestamp()
+    cache = _sitemap_cache
+    if cache is not None and (now - cache[0]) < _SITEMAP_TTL_SECONDS:
+        return cache[1]
+    xml = _build_sitemap_xml()
+    _sitemap_cache = (now, xml)
+    return xml
+
+
+@app.get("/sitemap.xml")
+def sitemap_xml() -> Response:
+    return Response(
+        content=_get_cached_sitemap_xml(),
+        media_type="application/xml",
     )
 
 

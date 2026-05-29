@@ -58,7 +58,13 @@ def test_provider_image_url_accepts_http_url() -> None:
     assert _provider_image_url(p) == "http://example.com/photo.jpg"
 
 
-def test_provider_image_url_skips_raw_places_refs_only() -> None:
+def test_provider_image_url_skips_raw_places_refs_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Without GOOGLE_PLACES_API_KEY, raw refs cannot upgrade; result is None.
+    # Explicit delenv so the test is hermetic against dev shells / .env files
+    # that have the key set.
+    monkeypatch.delenv("GOOGLE_PLACES_API_KEY", raising=False)
     p = _provider(
         google_photo_refs=[
             "places/ChIJabc/photos/AeeoH123",
