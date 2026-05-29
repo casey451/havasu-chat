@@ -42,7 +42,14 @@ def test_provider_image_url_prefers_google_photo_urls() -> None:
     )
 
 
-def test_provider_image_url_returns_first_https_url_from_refs() -> None:
+def test_provider_image_url_returns_first_renderable_from_refs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Refs are tried in stored order; the first entry that yields a
+    renderable URL wins. Under the Track C symmetry fix a raw Places ref
+    counts as renderable when ``GOOGLE_PLACES_API_KEY`` is set, so the
+    leading raw ref upgrades and is returned before the http entries."""
+    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "test-key")
     p = _provider(
         google_photo_refs=[
             "places/ChIJabc/photos/AeeoH123",
@@ -50,7 +57,32 @@ def test_provider_image_url_returns_first_https_url_from_refs() -> None:
             "https://lh3.googleusercontent.com/places/photo2.jpg",
         ]
     )
-    assert _provider_image_url(p) == "https://lh3.googleusercontent.com/places/photo1.jpg"
+    url = _provider_image_url(p)
+    assert url is not None
+    assert url.startswith(
+        "https://places.googleapis.com/v1/places/ChIJabc/photos/AeeoH123/media"
+    )
+    assert "key=test-key" in url
+
+
+def test_provider_image_url_skips_raw_ref_to_http_when_key_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without an API key the raw ref cannot upgrade, so we fall through
+    to the next renderable entry in refs (the http URL). Preserves the
+    pre-Track-C behavior in the no-key environment."""
+    monkeypatch.delenv("GOOGLE_PLACES_API_KEY", raising=False)
+    p = _provider(
+        google_photo_refs=[
+            "places/ChIJabc/photos/AeeoH123",
+            "https://lh3.googleusercontent.com/places/photo1.jpg",
+            "https://lh3.googleusercontent.com/places/photo2.jpg",
+        ]
+    )
+    assert (
+        _provider_image_url(p)
+        == "https://lh3.googleusercontent.com/places/photo1.jpg"
+    )
 
 
 def test_provider_image_url_accepts_http_url() -> None:

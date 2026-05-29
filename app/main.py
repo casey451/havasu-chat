@@ -43,6 +43,8 @@ from app.categories.router import router as direction_c_categories_router
 from app.core.event_quality import friendly_errors
 from app.core.provider_name import (
     register_template_filters as _register_template_filters,
+)
+from app.core.provider_name import (
     register_template_globals as _register_template_globals,
 )
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
