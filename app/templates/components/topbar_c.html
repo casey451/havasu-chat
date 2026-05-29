@@ -40,6 +40,9 @@
       <a href="/categories/services"
          class="c-tab{% if active_tab == 'services' %} is-active{% endif %}"
          {% if active_tab == 'services' %}aria-current="page"{% endif %}>Services</a>
+      <a href="/categories"
+         class="c-tab c-tab-all{% if active_tab == 'all-categories' %} is-active{% endif %}"
+         {% if active_tab == 'all-categories' %}aria-current="page"{% endif %}>All categories &rarr;</a>
     </nav>
     <a href="/chat" class="c-ask">Ask Hava</a>
   </div>
