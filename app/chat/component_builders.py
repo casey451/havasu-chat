@@ -163,6 +163,18 @@ def build_business_list(
             item["spotlight"] = True
             any_spotlight = True
         items.append(item)
+    # BUILD.md step 7.5 phase B — rotate one active spotlight to the top.
+    # Single-spotlight assumption: BUILD.md does not specify multi-spotlight
+    # tie-breaking and v1 expects ~1 spotlight per category. Rotate the FIRST
+    # spotlight row encountered; any additional spotlight rows keep their
+    # organic (rating-desc) position. When Provider.weight lands (BUILD.md
+    # §233 `ORDER BY weight, random()`), promote this to a real ranking pass.
+    spotlight_idx = next(
+        (i for i, it in enumerate(items) if it.get("spotlight")),
+        None,
+    )
+    if spotlight_idx is not None and spotlight_idx > 0:
+        items.insert(0, items.pop(spotlight_idx))
     cat_label = _pretty_category_label(category)
     payload: dict[str, Any] = {
         "category": cat_label,
