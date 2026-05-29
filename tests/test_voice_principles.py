@@ -6,8 +6,6 @@ import logging
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import pytest
-
 from app.chat.voice_principles import compose_voice_prompt, run_voice_llm
 from app.home import pullquote
 
