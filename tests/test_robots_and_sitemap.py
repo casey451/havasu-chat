@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from datetime import date, datetime, time, timezone
 from uuid import uuid4
 from xml.etree import ElementTree as ET
