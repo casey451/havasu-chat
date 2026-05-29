@@ -23,7 +23,7 @@
 
   <section class="hero" style="padding-top: 2rem;">
     <h1>Thanks — we received your claim</h1>
-    <p class="mission">We’ll review your request for <strong>{{ entity.name or entity.slug }}</strong> and be in touch within 48 hours.</p>
+    <p class="mission">We’ll review your request for <strong>{{ (entity.name | clean_name) or entity.slug }}</strong> and be in touch within 48 hours.</p>
     <p class="mission" style="margin-top: 1.5rem;">
       <a href="/account">Your account</a>
       ·

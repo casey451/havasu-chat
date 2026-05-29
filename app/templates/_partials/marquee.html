@@ -17,7 +17,7 @@
       {% if marquee.pitch %}
       <p class="pitch">{{ marquee.pitch }}</p>
       {% endif %}
-      <p class="meta">{{ marquee.name }}</p>
+      <p class="meta">{{ marquee.name | clean_name }}</p>
     </div>
     <span class="cta">{{ marquee.cta_label }} →</span>
   </a>

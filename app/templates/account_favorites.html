@@ -31,9 +31,9 @@
       {% for f in favorites %}
       <li style="margin: 0.5rem 0;">
         {% if f.href %}
-        <a href="{{ f.href }}">{{ f.name }}</a>
+        <a href="{{ f.href }}">{{ f.name | clean_name }}</a>
         {% else %}
-        {{ f.name }}
+        {{ f.name | clean_name }}
         {% endif %}
       </li>
       {% endfor %}

@@ -47,6 +47,7 @@ from app.core.background import (
     deliver_outbox_row,
     enqueue_outbox,
 )
+from app.core.provider_name import register_template_filters
 from app.core.rate_limit import limiter
 from app.db.database import get_db
 from app.db.entity_types import ENTITY_TYPE_COMMERCIAL
@@ -56,6 +57,7 @@ logger = logging.getLogger(__name__)
 
 _TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
+register_template_filters(templates)
 
 router = APIRouter(tags=["auth"])
 

@@ -5,6 +5,39 @@ import re
 import unicodedata
 
 
+def clean_name(value: str | None) -> str:
+    """Strip vendor marketing tails from a display name.
+
+    Some Google Places sources return names with a pipe character followed by
+    marketing copy, e.g. ``"Havasu Hills Apartment Homes | An AllThrive 365
+    Affordable Housing Property"``. This helper keeps everything before the
+    first ``|`` and trims trailing whitespace.
+
+    Render-time fix only — the underlying ``Provider.name`` column is left
+    untouched so the mapping is reversible. Used both as a Jinja filter
+    (registered via ``register_template_filters``) and on the chat
+    ``build_business_list`` server path so the API surface carries clean names.
+
+    Idempotent: applying twice produces the same result as applying once.
+    """
+    if not value:
+        return ""
+    return value.split("|", 1)[0].rstrip()
+
+
+def register_template_filters(templates: "object") -> None:
+    """Register CLUSTER-08 Jinja filters on a ``Jinja2Templates`` instance.
+
+    The codebase has multiple ``Jinja2Templates`` instances (one per router
+    module). Each must call this helper after construction so ``clean_name``
+    (and any future shared filters) is available regardless of which router
+    rendered the template. Without this, templates that work in dev (where
+    the main app's instance is in scope) break under tests that import a
+    subset of routers directly.
+    """
+    templates.env.filters["clean_name"] = clean_name
+
+
 def _norm_provider_name(name: str) -> str:
     """Normalize a provider display name for comparison (dedupe + program backfill).
 

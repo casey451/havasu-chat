@@ -23,7 +23,7 @@
 
   <section class="hero" style="padding-top: 2rem;">
     <h1>Claim this listing</h1>
-    <p class="mission">Are you the owner of <strong>{{ entity.name or entity.slug }}</strong>? Tell us how we can verify you.</p>
+    <p class="mission">Are you the owner of <strong>{{ (entity.name | clean_name) or entity.slug }}</strong>? Tell us how we can verify you.</p>
     <form class="composer" action="/claim/{{ entity.slug }}" method="post" style="max-width: 36rem; flex-direction: column; align-items: stretch;">
       <label for="notes" style="font-size: 0.85rem; color: var(--ink-3, #555);">Notes (optional)</label>
       <textarea id="notes" name="notes" rows="4" placeholder="Best phone number or time to reach you, business license details, etc."></textarea>

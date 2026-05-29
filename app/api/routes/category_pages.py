@@ -39,6 +39,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.conditions_temperature import read_current_temperature_f
+from app.core.provider_name import register_template_filters
 from app.core.ranking import CardRankInput, compute_card_rank
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
 from app.db.database import get_db
@@ -53,6 +54,7 @@ router = APIRouter(tags=["category"])
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
+register_template_filters(templates)
 
 
 @dataclass(frozen=True)

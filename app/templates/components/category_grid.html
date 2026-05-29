@@ -35,16 +35,16 @@
     <a class="c-cat-card{% if not card.image_url %} is-no-photo{% endif %}"
        role="listitem"
        href="{% if card.slug %}/provider/{{ card.slug }}{% else %}#{% endif %}"
-       aria-label="{{ card.name }}{% if card.neighborhood %}, {{ card.neighborhood }}{% endif %}{% if card.status_text %}, {{ card.status_text }}{% endif %}">
+       aria-label="{{ card.name | clean_name }}{% if card.neighborhood %}, {{ card.neighborhood }}{% endif %}{% if card.status_text %}, {{ card.status_text }}{% endif %}">
       <div class="c-cat-photo"
            {% if card.image_url %}style="background-image: url('{{ card.image_url }}');"{% endif %}
            aria-hidden="true">
         {% if not card.image_url %}
-        <span class="c-cat-photo-mark" aria-hidden="true">{{ card.name[:1]|upper }}</span>
+        <span class="c-cat-photo-mark" aria-hidden="true">{{ (card.name | clean_name)[:1]|upper }}</span>
         {% endif %}
       </div>
       <div class="c-cat-body">
-        <h3 class="c-cat-name">{{ card.name }}</h3>
+        <h3 class="c-cat-name">{{ card.name | clean_name }}</h3>
         <div class="c-cat-meta">
           {% if card.status_text %}
           <span class="c-cat-status c-pill-{{ card.status }}">

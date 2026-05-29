@@ -41,6 +41,7 @@ from app.auth.session import SessionMiddleware
 from app.categories.queries import CATEGORY_FILTERS
 from app.categories.router import router as direction_c_categories_router
 from app.core.event_quality import friendly_errors
+from app.core.provider_name import register_template_filters as _register_template_filters
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.db.database import SessionLocal, get_db, init_db
 from app.db.models import Event, Provider
@@ -60,6 +61,12 @@ _PRIVACY_MD_PATH = _DOCS_DIR / "privacy.md"
 _TOS_MD_PATH = _DOCS_DIR / "tos.md"
 _TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
+# CLUSTER-08 name hygiene: ``clean_name`` strips vendor marketing tails
+# (everything from the first ``|`` onward) at render time so dirty Google
+# Places names never reach the page. The codebase has ~10 ``Jinja2Templates``
+# instances (one per router module); each must call the shared registrar so
+# the filter resolves regardless of which router rendered the template.
+_register_template_filters(templates)
 _SENSITIVE_EVENT_KEYS = frozenset({"query", "message", "normalized_query"})
 
 

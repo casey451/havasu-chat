@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>{{ vm.provider_name }} — Hava</title>
-  <meta name="description" content="{{ vm.provider_name }} on Hava — Lake Havasu City's local directory." />
+  <title>{{ vm.provider_name | clean_name }} — Hava</title>
+  <meta name="description" content="{{ vm.provider_name | clean_name }} on Hava — Lake Havasu City's local directory." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,400&display=swap" rel="stylesheet" />
@@ -148,7 +148,7 @@
   {# ─────────── Region 1: Identity header ─────────── #}
   <section data-region="identity">
     <div class="provider-title-row" style="display:flex; flex-wrap:wrap; align-items:flex-start; gap:0.35rem 0.75rem;">
-      <h1 class="provider-name" style="flex:1 1 auto; margin:0;">{{ vm.provider_name }}</h1>
+      <h1 class="provider-name" style="flex:1 1 auto; margin:0;">{{ vm.provider_name | clean_name }}</h1>
       <button type="button" class="favorite-heart profile-fav-btn" hidden
               data-entity-id="{{ favorite_entity_id }}" aria-label="Save to favorites" title="Save listing">♥</button>
     </div>
@@ -246,11 +246,11 @@
   {# ─────────── Region 4: Photos ─────────── #}
   <section data-region="photos">
     {% if vm.hero_photo_url %}
-      <img class="photo-hero" src="{{ vm.hero_photo_url }}" alt="{{ vm.provider_name }}" />
+      <img class="photo-hero" src="{{ vm.hero_photo_url }}" alt="{{ vm.provider_name | clean_name }}" />
       {% if vm.gallery_photo_urls %}
         <div class="gallery">
           {% for photo in vm.gallery_photo_urls %}
-            <img src="{{ photo }}" alt="{{ vm.provider_name }} photo" loading="lazy" />
+            <img src="{{ photo }}" alt="{{ vm.provider_name | clean_name }} photo" loading="lazy" />
           {% endfor %}
         </div>
       {% endif %}

@@ -23,7 +23,7 @@
 
   <section class="hero" style="padding-top: 2rem;">
     <h1>Your claim</h1>
-    <p class="mission">Your claim for <strong>{{ entity.name or entity.slug }}</strong> is
+    <p class="mission">Your claim for <strong>{{ (entity.name | clean_name) or entity.slug }}</strong> is
       {% if claim.status == 'pending' %}<strong>pending review</strong>.{% elif claim.status == 'verified' %}<strong>verified</strong>.{% elif claim.status == 'rejected' %}<strong>rejected</strong>.{% else %}<strong>{{ claim.status }}</strong>.{% endif %}
     </p>
     {% if claim.status == 'rejected' and claim.rejection_reason %}

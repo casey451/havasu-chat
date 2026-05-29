@@ -24,6 +24,7 @@ from app.admin.contributions_html import register_contribution_html_routes
 from app.admin.events_html import register_events_html_routes
 from app.admin.feedback_html import register_feedback_html_routes
 from app.admin.mentions_html import register_mentions_html_routes
+from app.core.provider_name import register_template_filters
 from app.db.database import DATABASE_URL, get_db
 from app.db.entity_dual_write import create_program_and_entity, create_provider_and_entity
 from app.db.models import ChatLog, Claim, Entity, Event, Program, Provider, User
@@ -35,6 +36,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 _CLAIM_TEMPLATES = Jinja2Templates(
     directory=str(Path(__file__).resolve().parents[1] / "templates")
 )
+register_template_filters(_CLAIM_TEMPLATES)
 
 _CLAIM_VERIFICATION_METHODS: frozenset[str] = frozenset(
     {

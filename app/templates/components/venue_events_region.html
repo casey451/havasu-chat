@@ -1,6 +1,6 @@
 {% if venue_events %}
 <section data-region="venue-events" class="venue-events-region">
-  <h2>What&rsquo;s on at {{ provider_name }}</h2>
+  <h2>What&rsquo;s on at {{ provider_name | clean_name }}</h2>
   <ul class="venue-events-list">
     {% for card in venue_events %}
       <li class="venue-events-item">

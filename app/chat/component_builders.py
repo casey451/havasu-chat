@@ -29,6 +29,7 @@ from urllib.parse import quote
 
 from app.chat.intent_classifier import IntentResult
 from app.chat.tier2_schema import Tier2Filters
+from app.core.provider_name import clean_name as _clean_provider_name
 from app.core.timezone import now_lake_havasu
 from app.home.queries import _format_phone
 from app.providers.photo_urls import google_photo_url
@@ -196,7 +197,10 @@ def _pretty_category_label(category: str) -> str:
 def _provider_row_to_business_item(
     row: dict[str, Any], *, now: Any
 ) -> dict[str, Any] | None:
-    name = str(row.get("name") or "").strip()
+    # CLUSTER-08 name hygiene: strip vendor marketing tails (anything after
+    # the first "|") before the name reaches the component payload so the
+    # chat API surface carries clean names.
+    name = _clean_provider_name(str(row.get("name") or "").strip())
     if not name:
         return None
     slug = str(row.get("slug") or "").strip()

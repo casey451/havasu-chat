@@ -163,6 +163,36 @@ def test_build_business_list_caps_at_five() -> None:
     assert data["total_count"] == 12
 
 
+def test_build_business_list_strips_pipe_marketing_tail_from_name() -> None:
+    """CLUSTER-08 name hygiene.
+
+    Provider rows from Google Places sometimes carry vendor marketing copy
+    after a pipe character (e.g. "Havasu Hills Apartment Homes | An
+    AllThrive 365 Affordable Housing Property"). The chat business_list
+    payload must carry the clean prefix only so the front-end renderer
+    never has to know about this.
+    """
+    rows = _rows(
+        {
+            "name": "Foo | Bar Marketing Copy",
+            "slug": "foo",
+            "google_rating": 4.5,
+        },
+        {
+            "name": "Havasu Hills Apartment Homes | An AllThrive 365 Property",
+            "slug": "havasu-hills",
+            "google_rating": 4.2,
+        },
+    )
+    data = build_business_list(rows, category="apartment", total_count=2)
+    names = [it["name"] for it in data["items"]]
+    assert "Foo" in names
+    assert "Havasu Hills Apartment Homes" in names
+    # Sanity: no pipe leaked through into the payload at all.
+    for item in data["items"]:
+        assert "|" not in item["name"]
+
+
 def test_render_business_listing_with_component() -> None:
     from app.chat import tier2_business_shortcut as shortcut
 

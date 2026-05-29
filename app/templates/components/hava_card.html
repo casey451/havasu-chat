@@ -12,7 +12,7 @@
     <span class="hava-card__freshness hava-card__freshness--{{ c.freshness_band }}" title="Listing freshness" aria-label="Freshness {{ c.freshness_band }}"></span>
   </div>
   <div class="hava-card__body">
-    <h3 class="hava-card__title">{{ c.name }}</h3>
+    <h3 class="hava-card__title">{{ c.name | clean_name }}</h3>
     <p class="hava-card__status hava-card__status--{{ c.status_line_color }}">{{ c.status_line_text }}</p>
     <div class="hava-card__chips">
       <span class="hava-card__chip hava-card__chip--muted">{{ c.category_label }}</span>

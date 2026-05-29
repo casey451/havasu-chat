@@ -26,7 +26,11 @@ def _templates():
 
     from fastapi.templating import Jinja2Templates
 
-    return Jinja2Templates(directory=str(Path(__file__).resolve().parents[2] / "templates"))
+    from app.core.provider_name import register_template_filters
+
+    t = Jinja2Templates(directory=str(Path(__file__).resolve().parents[2] / "templates"))
+    register_template_filters(t)
+    return t
 
 
 @router.get("/account/alerts", response_class=HTMLResponse)

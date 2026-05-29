@@ -37,21 +37,21 @@
       <a class="c-pc{% if not card.image_url %} is-no-photo{% endif %}"
          role="listitem"
          href="/provider/{{ card.slug }}"
-         aria-label="{{ card.name }}{% if card.neighborhood %}, {{ card.neighborhood }}{% endif %}{% if card.status_text %}, {{ card.status_text }}{% endif %}">
+         aria-label="{{ card.name | clean_name }}{% if card.neighborhood %}, {{ card.neighborhood }}{% endif %}{% if card.status_text %}, {{ card.status_text }}{% endif %}">
       {% else %}
       <div class="c-pc{% if not card.image_url %} is-no-photo{% endif %}"
            role="listitem"
-           aria-label="{{ card.name }}{% if card.neighborhood %}, {{ card.neighborhood }}{% endif %}{% if card.status_text %}, {{ card.status_text }}{% endif %}">
+           aria-label="{{ card.name | clean_name }}{% if card.neighborhood %}, {{ card.neighborhood }}{% endif %}{% if card.status_text %}, {{ card.status_text }}{% endif %}">
       {% endif %}
         <div class="c-pc-photo"
              {% if card.image_url %}style="background-image: url('{{ card.image_url }}');"{% endif %}
              aria-hidden="true">
           {% if not card.image_url %}
-          <span class="c-pc-photo-mark" aria-hidden="true">{{ card.name[:1]|upper }}</span>
+          <span class="c-pc-photo-mark" aria-hidden="true">{{ (card.name | clean_name)[:1]|upper }}</span>
           {% endif %}
         </div>
         <div class="c-pc-body">
-          <h3 class="c-pc-name">{{ card.name }}</h3>
+          <h3 class="c-pc-name">{{ card.name | clean_name }}</h3>
           <div class="c-pc-meta">
             {% if card.status_text %}
             <span class="c-pc-status c-pill-{{ card.status }}">

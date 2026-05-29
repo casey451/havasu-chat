@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.api.routes import category_pages as cat_pages
+from app.core.provider_name import register_template_filters
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
 from app.db.database import get_db
 from app.groups import themed_groups as tg
@@ -21,6 +22,7 @@ router = APIRouter(tags=["themed-groups"])
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
+register_template_filters(templates)
 
 
 @router.get("/group/{slug}", response_class=HTMLResponse)

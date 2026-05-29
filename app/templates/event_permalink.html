@@ -64,7 +64,7 @@
     <a class="back-link" href="/">Back to Havasu Chat</a>
     <article class="card">
       <h1>{{ event_title }}</h1>
-      <p class="meta">{{ formatted_datetime }} • {{ location_name }}</p>
+      <p class="meta">{{ formatted_datetime }} • {{ location_name | clean_name }}</p>
       <p>{{ description }}</p>
       {{ contact_html | safe }}
       {{ event_link_html | safe }}
