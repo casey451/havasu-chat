@@ -495,3 +495,85 @@ def test_pluralize_for_header_y_to_ies() -> None:
 def test_pluralize_for_header_sh_ch_x() -> None:
     assert shortcut._pluralize_for_header("church") == "churches"
     assert shortcut._pluralize_for_header("car wash") == "car washes"
+
+
+def test_voice_answer_never_sees_spotlight_status() -> None:
+    """Trust-critical: _business_listing_voice output is byte-identical
+    regardless of row['tier'] / row['sponsored_until'] / row['featured_description'].
+
+    Locks BUILD.md §231, §235, §321 — Hava's voice answer must never
+    know about spotlight status. This test guards against future
+    refactors that accidentally leak spotlight into the voice line.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from app.chat.tier2_business_shortcut import _business_listing_voice
+
+    future = datetime.now(timezone.utc) + timedelta(days=30)
+
+    base_rows = [
+        {
+            "type": "provider",
+            "name": "Acme Plumbing",
+            "address": "123 Main St",
+            "phone": "928-555-0001",
+            "google_rating": 4.7,
+        },
+        {
+            "type": "provider",
+            "name": "Best Pipes",
+            "address": "456 Oak Ave",
+            "phone": "928-555-0002",
+            "google_rating": 4.5,
+        },
+    ]
+
+    # Baseline: no spotlight fields set
+    voice_baseline, rows_baseline = _business_listing_voice(
+        base_rows, "plumber"
+    )
+
+    # Variation 1: first row is spotlight with future sponsored_until
+    rows_v1 = [
+        {**base_rows[0], "tier": "spotlight", "sponsored_until": future,
+         "featured_description": "Top-rated plumber in LHC"},
+        {**base_rows[1], "tier": "free", "sponsored_until": None,
+         "featured_description": None},
+    ]
+    voice_v1, _ = _business_listing_voice(rows_v1, "plumber")
+
+    # Variation 2: second row is spotlight, first is paid (tier varies)
+    rows_v2 = [
+        {**base_rows[0], "tier": "paid", "sponsored_until": None,
+         "featured_description": "Old description"},
+        {**base_rows[1], "tier": "spotlight", "sponsored_until": future,
+         "featured_description": "Reliable local"},
+    ]
+    voice_v2, _ = _business_listing_voice(rows_v2, "plumber")
+
+    # Variation 3: both rows are expired spotlight
+    past = datetime.now(timezone.utc) - timedelta(days=1)
+    rows_v3 = [
+        {**base_rows[0], "tier": "spotlight", "sponsored_until": past,
+         "featured_description": "Expired ad copy"},
+        {**base_rows[1], "tier": "spotlight", "sponsored_until": past,
+         "featured_description": "Also expired"},
+    ]
+    voice_v3, _ = _business_listing_voice(rows_v3, "plumber")
+
+    # Byte-equivalence under tier variation. If this fails, the voice
+    # path has begun reading a monetization field — surface immediately.
+    assert voice_v1 == voice_baseline, (
+        "voice changed when tier=spotlight on row 0 — spotlight leak"
+    )
+    assert voice_v2 == voice_baseline, (
+        "voice changed when tier=spotlight on row 1 — spotlight leak"
+    )
+    assert voice_v3 == voice_baseline, (
+        "voice changed when both rows expired-spotlight — spotlight leak"
+    )
+
+    # Sanity: voice substring assertions (no monetization terms leak)
+    assert "spotlight" not in (voice_baseline or "").lower()
+    assert "sponsored" not in (voice_baseline or "").lower()
+    assert "featured" not in (voice_baseline or "").lower()
