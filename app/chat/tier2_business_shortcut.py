@@ -386,7 +386,18 @@ def render_business_listing_with_component(
 def _business_listing_voice(
     rows: list[dict[str, Any]], category: str
 ) -> tuple[str | None, list[dict[str, Any]]]:
-    """Short voice line + provider rows for the structured listing path."""
+    """Short voice line + provider rows for the structured listing path.
+
+    TRUST INVARIANT (BUILD.md §231, §235, §321 — step 7.5 phase C).
+    This function MUST NOT read row["tier"], row["sponsored_until"],
+    or row["featured_description"]. Hava's voice answer is generated
+    without knowledge of spotlight status — that is the load-bearing
+    monetization-trust property of the spotlight feature. See
+    test_voice_answer_never_sees_spotlight_status in
+    tests/test_tier2_business_shortcut.py for the machine-checked
+    assertion. If you need to add behavior here that depends on a
+    new field, audit it for spotlight-leak first.
+    """
     provider_rows = [r for r in rows if r.get("type") == "provider"]
     if not provider_rows:
         return None, []
