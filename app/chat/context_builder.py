@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date
-from typing import Sequence
+from typing import Any, Sequence
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -24,6 +24,7 @@ from app.chat.tier2_formatter import is_confidence_tier_enabled
 from app.core.timezone import now_lake_havasu
 from app.db.entity_types import ENTITY_TYPE_COMMERCIAL
 from app.db.models import Entity, EntityCategory, Event, Program, Provider
+from app.providers.photo_urls import first_renderable_google_photo
 
 MAX_PROVIDERS = 10
 MAX_CONTEXT_WORDS = 1500
@@ -179,14 +180,79 @@ def _fetch_entity_rows(db: Session, entity_name: str | None, *, limit: int = 10)
     return list(db.scalars(q).unique().all())
 
 
-def build_context_for_tier3(
+def _truncate_desc(s: str | None, max_len: int = 120) -> str:
+    if not s:
+        return ""
+    t = s.strip()
+    if len(t) <= max_len:
+        return t
+    return t[: max_len - 3] + "..."
+
+
+def _provider_probe_row(p: Provider) -> dict[str, Any]:
+    """Dict row for Tier 3 component probes (matches Tier 2 single_card shape)."""
+    loc = getattr(getattr(p, "entity", None), "location", None)
+    address = loc.address if loc is not None and loc.address else p.address
+    return {
+        "type": "provider",
+        "name": p.provider_name,
+        "slug": p.slug,
+        "category": p.category,
+        "google_primary_category": p.google_primary_category,
+        "google_place_id": p.google_place_id,
+        "address": address,
+        "phone": p.phone,
+        "website": p.website,
+        "hours": _truncate_hours(p.hours),
+        "hours_structured": p.hours_structured,
+        "description": _truncate_desc(p.description),
+        "google_rating": p.google_rating,
+        "google_review_count": p.google_review_count,
+        "thumb_url": first_renderable_google_photo(p),
+    }
+
+
+def _event_probe_row(e: Event) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "type": "event",
+        "name": e.title,
+        "date": e.date.isoformat(),
+        "start_time": e.start_time.strftime("%H:%M") if e.start_time else None,
+        "end_time": e.end_time.strftime("%H:%M") if e.end_time else None,
+        "location_name": e.location_name,
+        "description": _truncate_desc(e.description),
+        "event_url": e.event_url,
+        "tags": list(e.tags or [])[:8],
+    }
+    if e.end_date is not None:
+        out["end_date"] = e.end_date.isoformat()
+    return out
+
+
+def _probe_rows_for_providers(
+    db: Session, providers: Sequence[Provider], today: date
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for p in providers:
+        rows.append(_provider_probe_row(p))
+        for ev in _events_future_for(db, p.id, today):
+            rows.append(_event_probe_row(ev))
+    return rows
+
+
+def build_context_and_rows_for_tier3(
     query: str,
     intent_result: IntentResult,
     db: Session,
     *,
     chat_ctx: ChatRequestContext | None = None,
-) -> str:
-    """Return a plain-text context block for the Tier 3 system prompt (never empty)."""
+) -> tuple[str, list[dict[str, Any]]]:
+    """Return assembled Tier 3 context plus catalog rows for component probes.
+
+    BUILD.md step 5 Phase 5E: ``context_str`` matches ``build_context_for_tier3``;
+    ``rows`` is the provider/event dict list the string was assembled from.
+    """
+    _ = query
     _ = chat_ctx
     today = date.today()
     entities = _fetch_entity_rows(db, intent_result.entity)
@@ -230,14 +296,21 @@ def build_context_for_tier3(
                     lines.append(f"  hours: {hrs}")
             parts.append("\n".join(lines))
         body = "\n\n".join(parts)
-        return _trim_to_word_budget(body, MAX_CONTEXT_WORDS)
+        probe_rows: list[dict[str, Any]] = []
+        for ent in entities:
+            prov = prov_by_ent.get(ent.id)
+            if prov is not None:
+                probe_rows.extend(_probe_rows_for_providers(db, [prov], today))
+        return _trim_to_word_budget(body, MAX_CONTEXT_WORDS), probe_rows
 
     providers = _fetch_tier3_records(intent_result, db)
     if not providers:
         return (
             "Context: No verified provider rows are available in the local catalog yet. "
             "Answer conservatively and do not invent businesses or events."
-        )
+        ), []
+
+    probe_rows = _probe_rows_for_providers(db, providers, today)
 
     flag_on = is_confidence_tier_enabled()
     now = now_lake_havasu() if flag_on else None
@@ -295,7 +368,21 @@ def build_context_for_tier3(
 
     body = "\n\n".join(parts)
     body = _trim_to_word_budget(body, MAX_CONTEXT_WORDS)
-    return body
+    return body, probe_rows
+
+
+def build_context_for_tier3(
+    query: str,
+    intent_result: IntentResult,
+    db: Session,
+    *,
+    chat_ctx: ChatRequestContext | None = None,
+) -> str:
+    """Return a plain-text context block for the Tier 3 system prompt (never empty)."""
+    context, _rows = build_context_and_rows_for_tier3(
+        query, intent_result, db, chat_ctx=chat_ctx
+    )
+    return context
 
 
 def rows_for_tier3_classification(

@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 from app.chat import disclosure_render
 from app.chat.chat_request_context import ChatRequestContext
 from app.chat.context_builder import (
-    build_context_for_tier3,
+    build_context_and_rows_for_tier3,
     rows_for_tier3_classification,
 )
 from app.chat.intent_classifier import IntentResult
@@ -95,6 +95,46 @@ def _store_cache_in_background(
     except Exception:
         sentry_sdk.capture_exception()
         logging.exception("llm_cache.store_background.fail key=%s", cache_key[:8])
+
+
+def _tier3_components_enabled() -> bool:
+    """BUILD.md step 5 Phase 5E feature flag. Off by default."""
+    v = (os.getenv("HAVA_TIER3_COMPONENTS") or "").strip().lower()
+    return v in ("1", "true", "yes", "on")
+
+
+def _apply_tier3_component_probe(
+    component_meta: dict[str, Any] | None,
+    intent_result: IntentResult,
+    tier3_rows: list[dict[str, Any]],
+) -> None:
+    """Post-LLM deterministic single_card / single_business_card overlay."""
+    if component_meta is None or not _tier3_components_enabled():
+        return
+    entity = (intent_result.entity or "").strip()
+    if not entity:
+        return
+    try:
+        from app.chat.component_builders import (
+            build_single_business_card,
+            build_single_card,
+            is_single_business_card_query,
+            is_single_card_query,
+            pick_single_entity_row,
+        )
+
+        if is_single_business_card_query(intent_result, tier3_rows):
+            row = pick_single_entity_row(entity, tier3_rows, row_types=("provider",))
+            if row is not None:
+                component_meta["type"] = "single_business_card"
+                component_meta["data"] = build_single_business_card(intent_result, row)
+        elif is_single_card_query(intent_result, tier3_rows):
+            row = pick_single_entity_row(entity, tier3_rows, row_types=("event",))
+            if row is not None:
+                component_meta["type"] = "single_card"
+                component_meta["data"] = build_single_card(intent_result, row)
+    except Exception:
+        logging.exception("tier3: component_meta probe failed")
 
 
 # Tier 3's voice prompt lives at prompts/system_prompt.txt and is loaded
@@ -225,6 +265,7 @@ def answer_with_tier3(
     chat_ctx: ChatRequestContext | None = None,
     background_tasks: "BackgroundTasks | None" = None,
     telemetry: dict | None = None,
+    component_meta: Optional[dict[str, Any]] = None,
 ) -> tuple[str, int | None, int | None, int | None]:
     """Return (assistant_text, total_tokens, llm_input_tokens, llm_output_tokens). Never raises."""
     api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
@@ -264,17 +305,27 @@ def answer_with_tier3(
             telemetry["cache_status"] = "miss"
         if precomputed_embedding is not None:
             telemetry["tier3_embed_ran"] = True
-    if cached_response:
-        logging.info("tier3: cache hit (key=%s)", cache_key[:8])
-        if is_confidence_tier_enabled():
-            rows_hit = rows_for_tier3_classification(intent_result, db)
-            cached_response = _enforce_low_tier_phone(cached_response, rows_hit)
-        if sponsored_block is not None:
-            cached_response = _inject_sponsored_block(cached_response, sponsored_block)
-        return cached_response, 0, 0, 0
 
     request_ctx = chat_ctx or ChatRequestContext()
-    context = build_context_for_tier3(query, intent_result, db, chat_ctx=request_ctx)
+    context, tier3_rows = build_context_and_rows_for_tier3(
+        query, intent_result, db, chat_ctx=request_ctx
+    )
+
+    if cached_response:
+        logging.info("tier3: cache hit (key=%s)", cache_key[:8])
+        # BUILD.md step 5 Phase 5E: component_meta is intentionally NOT in the
+        # cache key — voice text is cached; structured component is re-derived
+        # from tier3_rows on every call (hit or miss). Rows stay fresh via
+        # build_context_and_rows_for_tier3 above even when voice is cached.
+        cleaned_text = cached_response
+        if is_confidence_tier_enabled():
+            rows_hit = rows_for_tier3_classification(intent_result, db)
+            cleaned_text = _enforce_low_tier_phone(cleaned_text, rows_hit)
+        _apply_tier3_component_probe(component_meta, intent_result, tier3_rows)
+        if sponsored_block is not None:
+            cleaned_text = _inject_sponsored_block(cleaned_text, sponsored_block)
+        return cleaned_text, 0, 0, 0
+
     sub_intent_str = intent_result.sub_intent or "none"
     entity_str = intent_result.entity or "none"
     classifier_block = (
@@ -344,6 +395,9 @@ def answer_with_tier3(
         rows = rows_for_tier3_classification(intent_result, db)
         cleaned_text = _enforce_low_tier_phone(cleaned_text, rows)
 
+    _apply_tier3_component_probe(component_meta, intent_result, tier3_rows)
+
+    # component_meta is intentionally NOT in the cache key — voice text only.
     if background_tasks is not None:
         background_tasks.add_task(
             _store_cache_in_background,
