@@ -500,6 +500,7 @@ def _handle_ask(
                 chat_ctx=chat_ctx,
                 background_tasks=background_tasks,
                 telemetry=telemetry,
+                component_meta=component_meta,
             )
             return text, "3", total, tin, tout
         if router_meta is not None:
@@ -536,6 +537,7 @@ def _handle_ask(
                 chat_ctx=chat_ctx,
                 background_tasks=background_tasks,
                 telemetry=telemetry,
+                component_meta=component_meta,
             )
             return text, "3", total, tin, tout
         organic_ctx = _organic_context_for_tier3(routed_intent, db)
@@ -549,6 +551,7 @@ def _handle_ask(
             chat_ctx=chat_ctx,
             background_tasks=background_tasks,
             telemetry=telemetry,
+            component_meta=component_meta,
         )
         return text, "3", total, tin, tout
     if _is_explicit_rec(query):
@@ -575,6 +578,7 @@ def _handle_ask(
             chat_ctx=chat_ctx,
             background_tasks=background_tasks,
             telemetry=telemetry,
+            component_meta=component_meta,
         )
         return text, "3", total, tin, tout
     t2_text, t2_total, t2_in, t2_out = try_tier2_with_usage(
@@ -601,6 +605,7 @@ def _handle_ask(
         chat_ctx=chat_ctx,
         background_tasks=background_tasks,
         telemetry=telemetry,
+        component_meta=component_meta,
     )
     return text, "3", total, tin, tout
 
