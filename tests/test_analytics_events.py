@@ -159,6 +159,43 @@ def test_spotlight_impression_event_fired_on_active_spotlights(db: Session) -> N
     assert all(ev.slot == AdSlot.SPOTLIGHT.value for ev in impressions)
 
 
+# 3b. other tiers emit impressions (v55 Track B follow-up) --------------------
+
+
+def test_marquee_impression_event_fired_on_active_marquee(db: Session) -> None:
+    m = _add_sponsor(db, name="marq", slot=AdSlot.MARQUEE.value, weight=6)
+    sponsor_store.active_marquee(db)
+    impressions = _events(db, event_name="home.marquee.impression")
+    assert len(impressions) == 1
+    ev = impressions[0]
+    assert ev.sponsor_id == m.id
+    assert ev.slot == AdSlot.MARQUEE.value
+    assert ev.ranking_score == 6
+
+
+def test_promoted_impression_event_fired_on_active_promoted(db: Session) -> None:
+    p = _add_sponsor(db, name="promo", slot=AdSlot.PROMOTED.value, weight=4)
+    sponsor_store.active_promoted(db)
+    impressions = _events(db, event_name="home.promoted.impression")
+    assert len(impressions) == 1
+    ev = impressions[0]
+    assert ev.sponsor_id == p.id
+    assert ev.slot == AdSlot.PROMOTED.value
+    assert ev.ranking_score == 4
+
+
+def test_supporter_impression_event_fired_per_supporter(db: Session) -> None:
+    a = _add_sponsor(db, name="sup-a", slot=AdSlot.SUPPORTER.value, weight=9)
+    b = _add_sponsor(db, name="sup-b", slot=AdSlot.SUPPORTER.value, weight=1)
+    sponsor_store.supporters(db)
+    impressions = _events(db, event_name="home.supporter.impression")
+    assert {ev.sponsor_id for ev in impressions} == {a.id, b.id}
+    by_id = {ev.sponsor_id: ev for ev in impressions}
+    assert by_id[a.id].ranking_score == 9
+    assert by_id[b.id].ranking_score == 1
+    assert all(ev.slot == AdSlot.SUPPORTER.value for ev in impressions)
+
+
 # 4. /sponsor/click spotlight emits home.spotlight.click ----------------------
 
 
