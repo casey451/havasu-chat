@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime, time, timedelta
+from types import SimpleNamespace
 from typing import Any
 
 from sqlalchemy import or_
@@ -21,6 +22,14 @@ from sqlalchemy.orm import Session
 
 from app.core.timezone import now_lake_havasu
 from app.db.models import Event, Program, Provider
+from app.home.algorithmic_picks import (
+    category_pick_index,
+    new_on_hava_program_ranking,
+    new_on_hava_provider_ranking,
+    new_on_hava_ranking,
+    this_week_ranking,
+    tonight_ranking,
+)
 from app.providers.photo_urls import first_renderable_google_photo, google_photo_url
 
 # ─────────── category labels & queries ───────────
@@ -451,7 +460,7 @@ def tonight(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
                 Event.start_time >= floor,
             ),
         )
-        .order_by(Event.featured.desc(), Event.start_time.asc())
+        .order_by(*tonight_ranking())
         .limit(limit * 3)
         .all()
     )
@@ -474,6 +483,7 @@ def tonight(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
             if len(selected) >= limit:
                 break
     rows = selected
+    pick_idx = category_pick_index(rows)
     out: list[dict[str, Any]] = []
     for i, ev in enumerate(rows):
         when = _format_time(ev.start_time)
@@ -487,7 +497,7 @@ def tonight(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
                 "image_url": None,  # Event has no image surface yet
                 "image_alt": ev.title,
                 "url": f"/events/{ev.id}",
-                "is_pick": bool(ev.featured) and i == 0,
+                "is_pick": pick_idx is not None and i == pick_idx,
                 "feature": i == 0,
                 "dot": _category_dot(",".join(ev.tags or [])),
             }
@@ -506,16 +516,14 @@ def this_week(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
             Event.date <= end,
             Event.status == "live",
         )
-        .order_by(Event.featured.desc(), Event.date.asc(), Event.start_time.asc())
+        .order_by(*this_week_ranking())
         .limit(limit)
         .all()
     )
+    pick_idx = category_pick_index(rows)
     out: list[dict[str, Any]] = []
-    pick_used = False
-    for ev in rows:
-        is_pick = bool(ev.featured) and not pick_used
-        if is_pick:
-            pick_used = True
+    for i, ev in enumerate(rows):
+        is_pick = pick_idx is not None and i == pick_idx
         when = _format_time(ev.start_time)
         weekday = ev.date.strftime("%A")
         meta = f"{weekday} · {when}" if when else weekday
@@ -553,7 +561,7 @@ def new_on_hava(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
     """Recently added catalog items — mix of providers, events, programs.
 
     Picks the most-recent N by ``created_at`` across the three tables.
-    Featured items rank above unfeatured at equal recency.
+    ``featured`` only affects which card gets the pick badge, not sort order.
     """
     cutoff = now_lake_havasu() - timedelta(days=45)
 
@@ -562,13 +570,14 @@ def new_on_hava(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
     for ev in (
         db.query(Event)
         .filter(Event.created_at >= cutoff, Event.status == "live")
-        .order_by(Event.featured.desc(), Event.created_at.desc())
+        .order_by(*new_on_hava_ranking())
         .limit(limit * 2)
         .all()
     ):
         items.append(
             (
                 ev.created_at,
+                bool(ev.featured),
                 {
                     "name": ev.title,
                     "blurb": _card_blurb(ev),
@@ -577,7 +586,7 @@ def new_on_hava(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
                     "image_url": None,
                     "image_alt": ev.title,
                     "url": f"/events/{ev.id}",
-                    "is_pick": bool(ev.featured),
+                    "is_pick": False,
                     "is_business": False,
                     "dot": _category_dot(",".join(ev.tags or [])),
                 },
@@ -587,13 +596,14 @@ def new_on_hava(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
     for pr in (
         db.query(Program)
         .filter(Program.created_at >= cutoff, Program.is_active.is_(True))
-        .order_by(Program.featured.desc(), Program.created_at.desc())
+        .order_by(*new_on_hava_program_ranking())
         .limit(limit * 2)
         .all()
     ):
         items.append(
             (
                 pr.created_at,
+                bool(pr.featured),
                 {
                     "name": pr.title,
                     "blurb": _card_blurb(pr),
@@ -602,7 +612,7 @@ def new_on_hava(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
                     "image_url": None,
                     "image_alt": pr.title,
                     "url": f"/programs/{pr.id}",
-                    "is_pick": bool(pr.featured),
+                    "is_pick": False,
                     "is_business": False,
                     "dot": "warm",
                 },
@@ -616,7 +626,7 @@ def new_on_hava(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
             Provider.is_active.is_(True),
             Provider.draft.is_(False),
         )
-        .order_by(Provider.featured.desc(), Provider.created_at.desc())
+        .order_by(*new_on_hava_provider_ranking())
         .limit(limit * 2)
         .all()
     ):
@@ -625,6 +635,7 @@ def new_on_hava(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
         items.append(
             (
                 prov.created_at,
+                bool(prov.featured),
                 {
                     "name": prov.provider_name,
                     "blurb": _card_blurb(prov),
@@ -633,7 +644,7 @@ def new_on_hava(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
                     "image_url": _provider_image_url(prov),
                     "image_alt": prov.provider_name,
                     "url": f"/chat?q={prov.provider_name.replace(' ', '+')}",
-                    "is_pick": bool(prov.featured),
+                    "is_pick": False,
                     "is_business": True,
                     "phone": display,
                     "phone_raw": digits,
@@ -645,15 +656,14 @@ def new_on_hava(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
         )
 
     items.sort(key=lambda pair: pair[0], reverse=True)
-    # Cap a single Hava's pick across the row to preserve signal.
-    seen_pick = False
+    merged = items[: limit * 3]
+    pick_idx = category_pick_index(
+        [SimpleNamespace(featured=featured) for _ts, featured, _item in merged]
+    )
     out: list[dict[str, Any]] = []
-    for _ts, item in items[: limit * 3]:
-        if item["is_pick"]:
-            if seen_pick:
-                item = {**item, "is_pick": False}
-            else:
-                seen_pick = True
+    for i, (_ts, _featured, item) in enumerate(merged):
+        if pick_idx is not None and i == pick_idx:
+            item = {**item, "is_pick": True}
         out.append(item)
         if len(out) >= limit:
             break
