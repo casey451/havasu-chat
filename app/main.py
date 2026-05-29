@@ -507,7 +507,7 @@ def _build_sitemap_xml() -> str:
 
     # Static surfaces. /home is the editorial home; / is the legacy chat UI
     # entry point — both are canonical so both ship in the sitemap.
-    static_paths = ("/", "/home", "/chat", "/categories", "/privacy", "/terms", "/contribute")
+    static_paths = ("/", "/home", "/chat", "/privacy", "/terms", "/contribute")
     for path in static_paths:
         entries.append(_sitemap_url_entry(f"{base}{path}", today_iso))
 
