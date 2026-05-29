@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -9,7 +10,9 @@ import pytest
 
 from app.providers import photo_urls
 from app.providers.photo_urls import (
+    first_renderable_google_photo,
     google_photo_url,
+    iter_renderable_google_photos,
     resolve_photo_ref,
     resolve_photo_refs,
 )
@@ -201,3 +204,112 @@ def test_resolve_photo_refs_parallel_shape(mock_resolve: MagicMock) -> None:
         "https://lh3.googleusercontent.com/a",
         None,
     ]
+
+
+# ──────────────── iter_renderable_google_photos / first_renderable_google_photo ────────────────
+
+
+def _provider(**kwargs: object) -> SimpleNamespace:
+    defaults: dict[str, object] = {
+        "google_photo_urls": None,
+        "google_photo_refs": None,
+    }
+    defaults.update(kwargs)
+    return SimpleNamespace(**defaults)
+
+
+def test_iter_renderable_prefers_urls_column_over_refs() -> None:
+    p = _provider(
+        google_photo_urls=["https://lh3.googleusercontent.com/a.jpg"],
+        google_photo_refs=["https://lh3.googleusercontent.com/b.jpg"],
+    )
+    assert list(iter_renderable_google_photos(p)) == [
+        "https://lh3.googleusercontent.com/a.jpg",
+    ]
+
+
+def test_iter_renderable_falls_through_when_urls_has_zero_renderable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A partial backfill that resolved every entry to ``None`` previously
+    short-circuited and silently dropped the refs. Track C: refs become the
+    fallback when urls yields zero renderable entries."""
+    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "test-key")
+    p = _provider(
+        google_photo_urls=[None, None],
+        google_photo_refs=["places/abc/photos/xyz"],
+    )
+    out = list(iter_renderable_google_photos(p))
+    assert len(out) == 1
+    assert "places/abc/photos/xyz/media" in out[0]
+
+
+def test_iter_renderable_upgrades_raw_refs_inline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "test-key")
+    p = _provider(
+        google_photo_refs=[
+            "places/a/photos/1",
+            "https://lh3.googleusercontent.com/literal.jpg",
+            "places/b/photos/2",
+        ],
+    )
+    out = list(iter_renderable_google_photos(p))
+    assert len(out) == 3
+    assert "places/a/photos/1/media" in out[0]
+    assert out[1] == "https://lh3.googleusercontent.com/literal.jpg"
+    assert "places/b/photos/2/media" in out[2]
+
+
+def test_iter_renderable_skips_raw_refs_when_key_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("GOOGLE_PLACES_API_KEY", raising=False)
+    p = _provider(
+        google_photo_refs=[
+            "places/a/photos/1",
+            "https://lh3.googleusercontent.com/literal.jpg",
+        ],
+    )
+    assert list(iter_renderable_google_photos(p)) == [
+        "https://lh3.googleusercontent.com/literal.jpg",
+    ]
+
+
+def test_iter_renderable_skips_non_string_and_empty_refs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "test-key")
+    p = _provider(
+        google_photo_refs=[
+            None,
+            42,
+            "",
+            "   ",
+            "places/valid/photos/ref",
+        ],
+    )
+    out = list(iter_renderable_google_photos(p))
+    assert len(out) == 1
+    assert "places/valid/photos/ref/media" in out[0]
+
+
+def test_first_renderable_returns_none_when_no_columns() -> None:
+    p = _provider()
+    assert first_renderable_google_photo(p) is None
+
+
+def test_first_renderable_returns_first_from_iter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "test-key")
+    p = _provider(
+        google_photo_refs=[
+            "places/first/photos/one",
+            "places/second/photos/two",
+        ],
+    )
+    url = first_renderable_google_photo(p)
+    assert url is not None
+    assert "places/first/photos/one/media" in url

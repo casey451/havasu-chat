@@ -282,7 +282,9 @@ def is_valid_category_slug(slug: str) -> bool:
 #   rating        single-decimal string or None
 #
 # Photo coverage: ``curated_category_photos.json`` first, then curated eat
-# photos, then ``google_photo_refs`` full URLs via ``_provider_image_url``.
+# photos, then ``_provider_image_url`` (which delegates to
+# ``first_renderable_google_photo`` — ``google_photo_urls`` first, then
+# upgraded raw refs from ``google_photo_refs``).
 
 # Hard cap on how many Provider rows to pull per page before any
 # in-Python filtering. Set large enough that even sparse categories

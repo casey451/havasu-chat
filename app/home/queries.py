@@ -30,7 +30,7 @@ from app.home.algorithmic_picks import (
     this_week_ranking,
     tonight_ranking,
 )
-from app.providers.photo_urls import first_renderable_google_photo, google_photo_url
+from app.providers.photo_urls import first_renderable_google_photo
 
 # ─────────── category labels & queries ───────────
 #
@@ -296,26 +296,15 @@ def _category_dot(category: str | None) -> str:
 def _provider_image_url(p: Provider) -> str | None:
     """Best-available image URL from Google photo columns.
 
-    ``google_photo_urls`` and guarded http(s) entries in ``google_photo_refs``
-    are returned first via :func:`first_renderable_google_photo`. Raw Places
-    photo refs are upgraded to renderable Photo Media URLs via
-    :func:`google_photo_url` so they become usable instead of dropped.
-    Returns ``None`` only when no candidate yields a URL.
+    Thin wrapper over :func:`first_renderable_google_photo`. As of the
+    Track C photo-lane symmetry fix, the raw-ref upgrade (Places
+    resource name → Photo Media URL via :func:`google_photo_url`) lives
+    inside :func:`iter_renderable_google_photos`, so every call site —
+    home, categories, provider profile — picks it up uniformly. Kept
+    as a named helper so existing call sites (``new_on_hava`` row,
+    spotlights row, category card resolver) read intent-first.
     """
-    url = first_renderable_google_photo(p)
-    if url:
-        return url
-    for candidate in p.google_photo_refs or []:
-        if not isinstance(candidate, str):
-            continue
-        if candidate.startswith("http://") or candidate.startswith("https://"):
-            continue
-        # Raw Places ref — upgrade via the PR #37 helper. Returns None
-        # when no API key is configured; fall through to next candidate.
-        url = google_photo_url(candidate)
-        if url:
-            return url
-    return None
+    return first_renderable_google_photo(p)
 
 
 _CLOSING_SOON_MINUTES = 30
