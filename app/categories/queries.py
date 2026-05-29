@@ -32,7 +32,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Provider
 from app.home.queries import _hours_status, _provider_image_url
-from app.home.queries_c import _format_rating, _load_eat_photos
+from app.home.queries_c import _load_eat_photos, _rating_display, _rating_sort_key
 
 _CATEGORY_PHOTOS_PATH = (
     Path(__file__).resolve().parent / "curated_category_photos.json"
@@ -338,6 +338,9 @@ def _build_category_card(
     image_url: str | None,
 ) -> dict[str, Any]:
     """Shape a Provider row into the category-grid card contract."""
+    rating, review_count = _rating_display(
+        provider.google_rating, getattr(provider, "google_review_count", None)
+    )
     return {
         "slug": provider.slug,
         "name": provider.provider_name,
@@ -345,7 +348,8 @@ def _build_category_card(
         "neighborhood": (provider.district or "") if hasattr(provider, "district") else "",
         "status": status_class,
         "status_text": status_text,
-        "rating": _format_rating(provider.google_rating),
+        "rating": rating,
+        "review_count": review_count,
     }
 
 
@@ -392,7 +396,7 @@ def category_cards(
                 Provider.is_active.is_(True),
                 Provider.draft.is_(False),
             )
-            .order_by(Provider.google_rating.desc().nullslast())
+            .order_by(*_rating_sort_key())
             .limit(max(limit, 1))
             .all()
         )
