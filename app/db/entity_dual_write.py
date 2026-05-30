@@ -43,6 +43,15 @@ _DEFAULT_CITY = "Lake Havasu City"
 _DEFAULT_STATE = "AZ"
 
 
+def _location_address_fields(raw: str | None) -> tuple[str | None, str | None]:
+    """Truncate to locations.address / address_normalized VARCHAR(255) limits."""
+    addr = (raw or "").strip() or None
+    if addr is None:
+        return None, None
+    addr = addr[:255]
+    return addr, addr.lower()[:255]
+
+
 def _utc_now_naive() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
@@ -109,8 +118,7 @@ def _attach_provider_extensions(db: Session, entity_id: str, provider: Provider)
             )
         )
 
-    addr = (provider.address or "").strip() or None
-    addr_norm = addr.lower() if addr else None
+    addr, addr_norm = _location_address_fields(provider.address)
     db.add(
         Location(
             entity_id=entity_id,
@@ -122,7 +130,7 @@ def _attach_provider_extensions(db: Session, entity_id: str, provider: Provider)
             lat=provider.lat,
             lng=provider.lng,
             google_place_id=provider.google_place_id,
-            district=provider.district,
+            district=(provider.district or "")[:64] or None,
             created_at=_utc_now_naive(),
             updated_at=_utc_now_naive(),
         )
@@ -228,11 +236,12 @@ def create_event_and_entity(db: Session, event: Event) -> tuple[Event, Entity]:
 
     loc = (event.location_name or "").strip()
     if loc:
+        addr, addr_norm = _location_address_fields(loc)
         db.add(
             Location(
                 entity_id=ent.id,
-                address=loc[:255],
-                address_normalized=loc.lower(),
+                address=addr,
+                address_normalized=addr_norm,
                 city=None,
                 state=None,
                 zip=None,
@@ -439,8 +448,8 @@ def sync_provider_entity_from_legacy(db: Session, provider: Provider) -> None:
     ent.updated_at = provider.updated_at
 
     loc = db.scalar(select(Location).where(Location.entity_id == ent.id))
-    addr = (provider.address or "").strip() or None
-    addr_norm = addr.lower() if addr else None
+    addr, addr_norm = _location_address_fields(provider.address)
+    district = (provider.district or "")[:64] or None
     if loc is None:
         db.add(
             Location(
@@ -453,7 +462,7 @@ def sync_provider_entity_from_legacy(db: Session, provider: Provider) -> None:
                 lat=provider.lat,
                 lng=provider.lng,
                 google_place_id=provider.google_place_id,
-                district=provider.district,
+                district=district,
                 created_at=_utc_now_naive(),
                 updated_at=_utc_now_naive(),
             )
@@ -467,7 +476,7 @@ def sync_provider_entity_from_legacy(db: Session, provider: Provider) -> None:
         loc.lat = provider.lat
         loc.lng = provider.lng
         loc.google_place_id = provider.google_place_id
-        loc.district = provider.district
+        loc.district = district
         loc.updated_at = _utc_now_naive()
 
     db.execute(delete(ContactPoint).where(ContactPoint.entity_id == ent.id))
