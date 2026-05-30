@@ -30,8 +30,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import httpx
 
