@@ -1,19 +1,15 @@
 """
-Orchestration: RiverScene → contributions queue (Phase 8.10).
+Orchestration: RiverScene -> contributions queue (Phase 8.10).
 
 ``scripts/river_scene_pull.py`` is a thin CLI over :func:`run_pull`.
 """
 
 from __future__ import annotations
 
-import difflib
-import re
 import sys
 from datetime import date
 
 import httpx
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
 
 from app.contrib.approval_service import approve_contribution_as_event
 from app.contrib.event_reconciler import reconcile_event
@@ -28,13 +24,13 @@ from app.contrib.river_scene import (
 )
 from app.db import contribution_store as cs
 from app.db.database import SessionLocal
-from app.db.models import Contribution, Event
+from app.db.models import Event
 from app.events.scrapers.base import EventPayload
 from app.schemas.contribution import EventApprovalFields
 
 # Existing-event sources that are NOT treated as a cross-source duplicate of a
 # river_scene import: river_scene's own rows and seed rows (seed overlaps are
-# handled separately by ``_find_seed_overlap`` as a flag-don't-skip review aid).
+# flagged for review when reconcile_event returns duplicate on a seed row).
 _RIVER_SCENE_OWN_SOURCES = frozenset({"river_scene", "river_scene_import"})
 
 
@@ -57,69 +53,32 @@ def _river_scene_event_payload(rse: RiverSceneEvent) -> EventPayload:
     )
 
 
-def _norm_title(s: str) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", s.lower()).strip()
+def _prefetch_reconcile_payload(url: str) -> EventPayload:
+    """Minimal payload so reconcile_event can check source_url before HTML fetch."""
+    return EventPayload(
+        name=".",
+        entity_type="event",
+        source="river_scene",
+        start_date=date.today(),
+        source_stable_url=url,
+    )
 
 
-def _find_seed_overlap(db: Session, rse: RiverSceneEvent) -> Event | None:
-    """Fuzzy match title + same calendar date on seed events."""
-    for ev in db.query(Event).filter(Event.created_by == "seed").all():
-        if ev.date != rse.start_date:
-            continue
-        a = _norm_title(ev.title or "")
-        b = _norm_title(rse.title or "")
-        if not a or not b:
-            continue
-        if difflib.SequenceMatcher(None, a, b).ratio() > 0.85:
-            return ev
-    return None
-
-
-def _duplicate_rs_article_import(db: Session, article_url: str) -> bool:
-    """Return True if this River Scene article URL was already imported.
-
-    Primary: normalized ``source_url`` on contributions or events.
-
-    Legacy fallback: pre-Commit-1 rows may have ``NULL`` ``source_url`` while
-    ``submission_url`` / ``event_url`` still holds the article URL. After
-    backfill (Commit 3 apply), ``event_url`` becomes the organizer URL and this
-    branch stops matching those rows.
-    """
-    normalized = cs.normalize_submission_url(article_url)
-    if not normalized:
+def _is_cross_source_duplicate(matched: Event | None) -> bool:
+    if matched is None:
         return False
-
-    contrib_hit = db.scalar(
-        select(Contribution.id).where(Contribution.source_url == normalized).limit(1)
+    return (
+        (matched.created_by or "") != "seed"
+        and (matched.source or "") not in _RIVER_SCENE_OWN_SOURCES
     )
-    if contrib_hit is not None:
-        return True
-    event_hit = db.scalar(select(Event.id).where(Event.source_url == normalized).limit(1))
-    if event_hit is not None:
-        return True
 
-    # Legacy: pending/approved-style rows in queue with NULL source_url
-    contrib_legacy = db.scalar(
-        select(Contribution.id)
-        .where(
-            Contribution.source_url.is_(None),
-            Contribution.submission_url.isnot(None),
-            func.lower(func.rtrim(Contribution.submission_url, "/")) == normalized,
-        )
-        .limit(1)
-    )
-    if contrib_legacy is not None:
-        return True
 
-    legacy_event_hit = db.scalar(
-        select(Event.id)
-        .where(
-            Event.source_url.is_(None),
-            func.lower(func.rtrim(Event.event_url, "/")) == normalized,
-        )
-        .limit(1)
+def _seed_overlap_note(matched: Event, notes: str | None) -> str:
+    prefix = (
+        f"[POSSIBLE DUPLICATE OF SEED EVENT: {matched.title} "
+        f"({matched.date})]\n\n"
     )
-    return legacy_event_hit is not None
+    return prefix + (notes or "")
 
 
 def run_pull(
@@ -157,7 +116,8 @@ def run_pull(
             if not url:
                 continue
             with SessionLocal() as db:
-                if _duplicate_rs_article_import(db, url):
+                pre = reconcile_event(db, _prefetch_reconcile_payload(url))
+                if pre.action == "update" and pre.reason == "source_url exact match":
                     skipped_duplicate += 1
                     continue
 
@@ -172,39 +132,30 @@ def run_pull(
                 skipped_past_or_unparseable += 1
                 continue
 
-            # Shared cross-source dedup: skip only when this event already
-            # exists from a DIFFERENT real source (e.g. golakehavasu, chamber).
-            # river_scene's own source_url dups are caught above; seed overlaps
-            # are flagged (not skipped) by _find_seed_overlap below.
-            with SessionLocal() as db:
-                rec = reconcile_event(db, _river_scene_event_payload(rse))
-                if rec.action in ("duplicate", "update") and rec.existing_id:
-                    matched = db.get(Event, rec.existing_id)
-                    if (
-                        matched is not None
-                        and (matched.created_by or "") != "seed"
-                        and (matched.source or "") not in _RIVER_SCENE_OWN_SOURCES
-                    ):
-                        skipped_cross_source += 1
-                        print(
-                            f"info: skip cross-source duplicate of event "
-                            f"{rec.existing_id} ({rec.reason}) for {url}"
-                        )
-                        continue
-
+            event_payload = _river_scene_event_payload(rse)
             try:
                 payload = normalize_to_contribution(rse)
                 url_str = str(payload.submission_url) if payload.submission_url else ""
                 with SessionLocal() as db:
-                    seed_hit = _find_seed_overlap(db, rse)
-                    if seed_hit is not None:
-                        prefix = (
-                            f"[POSSIBLE DUPLICATE OF SEED EVENT: {seed_hit.title} "
-                            f"({seed_hit.date})]\n\n"
-                        )
-                        notes = payload.submission_notes or ""
-                        payload = payload.model_copy(update={"submission_notes": prefix + notes})
-                        flagged_seed_overlap += 1
+                    rec = reconcile_event(db, event_payload)
+                    if rec.action == "update":
+                        skipped_duplicate += 1
+                        continue
+                    if rec.action == "duplicate" and rec.existing_id:
+                        matched = db.get(Event, rec.existing_id)
+                        if _is_cross_source_duplicate(matched):
+                            skipped_cross_source += 1
+                            print(
+                                f"info: skip cross-source duplicate of event "
+                                f"{rec.existing_id} ({rec.reason}) for {url}"
+                            )
+                            continue
+                        if matched is not None and (matched.created_by or "") == "seed":
+                            notes = payload.submission_notes or ""
+                            payload = payload.model_copy(
+                                update={"submission_notes": _seed_overlap_note(matched, notes)}
+                            )
+                            flagged_seed_overlap += 1
                     if dry_run:
                         imported += 1
                         continue
@@ -250,7 +201,7 @@ def run_pull(
         print(f"  flagged_seed_overlap:          {flagged_seed_overlap}")
         print(f"  errors:                        {errors}")
         if dry_run:
-            print("  (dry run — no database writes)")
+            print("  (dry run -- no database writes)")
 
         return 1 if errors else 0
 

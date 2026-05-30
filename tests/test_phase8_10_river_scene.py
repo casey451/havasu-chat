@@ -17,7 +17,8 @@ from app.contrib.river_scene import (
     fetch_sitemap_urls,
     normalize_to_contribution,
 )
-from app.contrib.river_scene_pull import _duplicate_rs_article_import, run_pull
+from app.contrib.event_reconciler import reconcile_event
+from app.contrib.river_scene_pull import run_pull
 from app.db.contribution_store import create_contribution, normalize_submission_url
 from app.db.database import SessionLocal
 from app.db.models import Contribution, Event
@@ -371,17 +372,24 @@ def test_normalize_empty_body_no_imported_scaffold() -> None:
 def test_pull_skips_known_url_without_fetch(capsys: pytest.CaptureFixture[str]) -> None:
     url = "https://riverscenemagazine.com/events/dup-test/"
     with SessionLocal() as db:
-        create_contribution(
-            db,
-            ContributionCreate(
-                entity_type="event",
-                submission_name="Already queued",
-                submission_url=url,
-                source_url=normalize_submission_url(url),
-                submission_notes="Z" * 22,
-                source="river_scene_import",
-            ),
+        db.add(
+            Event.from_create(
+                EventCreate(
+                    title="Already Imported",
+                    date=date(2026, 6, 15),
+                    start_time=time(10, 0),
+                    end_time=None,
+                    location_name="Some Venue Here",
+                    description="A long enough description for validation rules here.",
+                    event_url=url,
+                    source="river_scene_import",
+                    source_url=normalize_submission_url(url),
+                    status="live",
+                    created_by="admin",
+                )
+            )
         )
+        db.commit()
 
     index = (FIXTURES / "river_scene_sitemap_index.xml").read_text(encoding="utf-8")
     sub = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -414,8 +422,8 @@ def test_pull_skips_known_url_without_fetch(capsys: pytest.CaptureFixture[str]) 
     )
 
 
-def test_duplicate_check_handles_legacy_null_source_url() -> None:
-    """Pre-Commit-1 catalog rows may have NULL source_url but the article URL in event_url."""
+def test_backfilled_source_url_matches_via_reconcile_event() -> None:
+    """Post-backfill river_scene_import rows match on source_url through reconcile_event."""
     article = "https://riverscenemagazine.com/events/legacy-dedupe-only/"
     with SessionLocal() as db:
         db.add(
@@ -429,7 +437,7 @@ def test_duplicate_check_handles_legacy_null_source_url() -> None:
                     description="A long enough description for validation rules here.",
                     event_url=article,
                     source="river_scene_import",
-                    source_url=None,
+                    source_url=normalize_submission_url(article),
                     status="live",
                     created_by="admin",
                 )
@@ -437,8 +445,20 @@ def test_duplicate_check_handles_legacy_null_source_url() -> None:
         )
         db.commit()
 
+    from app.events.scrapers.base import EventPayload
+
+    payload = EventPayload(
+        name="Legacy Dedupe Row",
+        entity_type="event",
+        source="river_scene",
+        start_date=date(2026, 10, 15),
+        start_time=time(10, 0),
+        source_stable_url=article,
+    )
     with SessionLocal() as db:
-        assert _duplicate_rs_article_import(db, article) is True
+        result = reconcile_event(db, payload)
+    assert result.action == "update"
+    assert result.reason == "source_url exact match"
 
 
 def test_pull_seed_overlap_flag() -> None:
@@ -468,7 +488,9 @@ def test_pull_seed_overlap_flag() -> None:
 
     html = f"""<!DOCTYPE html><html><head><title>RiverScene Magazine | Farmer's Market downtown</title></head>
 <body><div class="entry-content"><p>Produce and more.</p>
-<table><tr><td>Start Date</td><td>{d.strftime("%B %d, %Y")}</td></tr></table>
+<table><tr><td>Start Date</td><td>{d.strftime("%B %d, %Y")}</td></tr>
+<tr><td>Time</td><td>8:00 am</td></tr>
+<tr><td>Venue</td><td>Downtown</td></tr></table>
 </div></body></html>"""
     ev_url = "https://riverscenemagazine.com/events/fm-test/"
     index = (FIXTURES / "river_scene_sitemap_index.xml").read_text(encoding="utf-8")
