@@ -33,10 +33,11 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import case
 from sqlalchemy.orm import Session
 
 from app.db.models import Provider
-from app.home.queries import _hours_status
+from app.home.queries import _hours_status, _provider_image_url
 
 _DATA_PATH = Path(__file__).resolve().parent / "curated_discover.json"
 _EAT_PHOTOS_PATH = Path(__file__).resolve().parent / "curated_eat_photos.json"
@@ -266,6 +267,54 @@ def _format_rating(value: float | None) -> str | None:
     return f"{v:.1f}"
 
 
+# Minimum Google review count before a star rating is credible enough to
+# show. A 5.0 from a single review is noise -- it floats junk to the top of
+# rating-sorted grids and reads as fake. Below this floor we hide the rating
+# entirely (the card still renders name/status/photo) and sort the provider
+# after the credibly-rated ones.
+MIN_RATING_REVIEWS = 5
+
+
+def _rating_display(
+    rating: float | None, review_count: int | None
+) -> tuple[str | None, int | None]:
+    """Return ``(rating_str, review_count)`` for a card, or ``(None, None)``.
+
+    Hides the rating when there's no rating OR fewer than
+    ``MIN_RATING_REVIEWS`` reviews behind it, so a 1-review 5.0 never renders
+    as a credibility signal. When shown, the review count rides along so the
+    template can print "4.3 (1,862)" instead of a bare star.
+    """
+    formatted = _format_rating(rating)
+    if formatted is None:
+        return None, None
+    try:
+        n = int(review_count) if review_count is not None else 0
+    except (TypeError, ValueError):
+        n = 0
+    if n < MIN_RATING_REVIEWS:
+        return None, None
+    return formatted, n
+
+
+def _rating_sort_key():
+    """SQL ordering that puts credibly-reviewed providers first.
+
+    Tiered: providers at/above ``MIN_RATING_REVIEWS`` rank ahead of those
+    below it (or with no reviews), then by rating desc, then by review count
+    desc. Stops single-review 5.0s from topping a rating-sorted grid.
+    """
+    qualified = case(
+        (Provider.google_review_count >= MIN_RATING_REVIEWS, 1),
+        else_=0,
+    )
+    return (
+        qualified.desc(),
+        Provider.google_rating.desc().nullslast(),
+        Provider.google_review_count.desc().nullslast(),
+    )
+
+
 def _build_eat_card(
     provider: Provider,
     *,
@@ -291,6 +340,9 @@ def _build_eat_card(
     - ``rating``: pre-formatted single-decimal string, or ``None`` to
       hide the rating span.
     """
+    rating, review_count = _rating_display(
+        provider.google_rating, getattr(provider, "google_review_count", None)
+    )
     return {
         "slug": provider.slug,
         "name": provider.provider_name,
@@ -298,7 +350,8 @@ def _build_eat_card(
         "neighborhood": provider.district or "",
         "status": status_class,
         "status_text": status_text,
-        "rating": _format_rating(provider.google_rating),
+        "rating": rating,
+        "review_count": review_count,
     }
 
 
@@ -351,7 +404,7 @@ def eat_row(
                 Provider.is_active.is_(True),
                 Provider.draft.is_(False),
             )
-            .order_by(Provider.google_rating.desc().nullslast())
+            .order_by(*_rating_sort_key())
             .limit(limit * _EAT_FETCH_MULTIPLIER)
             .all()
         )
@@ -375,6 +428,16 @@ def eat_row(
         if status_class not in _OPEN_NOW_STATUSES:
             continue
         image_url = photos.get(provider.slug) if provider.slug else None
+        if not image_url:
+            # Fall back to the provider's Google photo so the home row stops
+            # rendering letter-tile placeholders for everything not in the
+            # small curated file. Mirrors the category page resolver. Guarded
+            # so a malformed photo column degrades to the gradient rather than
+            # 500-ing the home (eat_row's "never raises" contract).
+            try:
+                image_url = _provider_image_url(provider)
+            except Exception:
+                image_url = None
         cards.append(
             _build_eat_card(
                 provider,

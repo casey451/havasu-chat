@@ -673,6 +673,7 @@ body.home-c a.c-pc { color: var(--c-ink); }
   font-weight: 500;
 }
 .c-pc-star { color: var(--c-warm); font-size: 13px; }
+.c-pc-rating-count { color: var(--c-ink-3); font-weight: 400; font-size: 12px; }
 .c-pc-where {
   font-size: 12px;
   color: var(--c-ink-3);
@@ -964,6 +965,7 @@ body.home-c a.c-cat-card { color: var(--c-ink); }
   font-weight: 500;
 }
 .c-cat-star { color: var(--c-warm); font-size: 13px; }
+.c-cat-rating-count { color: var(--c-ink-3); font-weight: 400; font-size: 12px; }
 .c-cat-where {
   font-size: 12px;
   color: var(--c-ink-3);

@@ -190,6 +190,7 @@ def test_build_eat_card_shape() -> None:
         provider_name="Mudshark Brewing",
         district="McCulloch Blvd",
         google_rating=4.5,
+        google_review_count=128,
     )
     card = queries_c._build_eat_card(
         fake,
@@ -205,6 +206,7 @@ def test_build_eat_card_shape() -> None:
         "status": "open",
         "status_text": "Open until 10",
         "rating": "4.5",
+        "review_count": 128,
     }
 
 
@@ -214,6 +216,7 @@ def test_build_eat_card_handles_missing_district_and_rating() -> None:
         provider_name="Some Place",
         district=None,
         google_rating=None,
+        google_review_count=None,
     )
     card = queries_c._build_eat_card(
         fake,
@@ -224,7 +227,38 @@ def test_build_eat_card_handles_missing_district_and_rating() -> None:
     assert card["slug"] is None
     assert card["neighborhood"] == ""
     assert card["rating"] is None
+    assert card["review_count"] is None
     assert card["image_url"] is None
+
+
+def test_build_eat_card_hides_low_review_rating() -> None:
+    """A high rating backed by too few reviews is hidden, not shown -- a
+    1-review 5.0 reads as fake and floats junk to the top of the row."""
+    thin = SimpleNamespace(
+        slug="one-review-wonder",
+        provider_name="One Review Wonder",
+        district=None,
+        google_rating=5.0,
+        google_review_count=1,
+    )
+    card = queries_c._build_eat_card(
+        thin, status_class="open", status_text="Open", image_url=None
+    )
+    assert card["rating"] is None
+    assert card["review_count"] is None
+
+
+def test_rating_display_gate() -> None:
+    """``_rating_display`` shows a rating only at/above the review floor."""
+    assert queries_c._rating_display(4.3, 1862) == ("4.3", 1862)
+    assert queries_c._rating_display(5.0, 1) == (None, None)
+    assert queries_c._rating_display(5.0, None) == (None, None)
+    assert queries_c._rating_display(None, 500) == (None, None)
+    # Exactly at the floor shows.
+    assert queries_c._rating_display(4.8, queries_c.MIN_RATING_REVIEWS) == (
+        "4.8",
+        queries_c.MIN_RATING_REVIEWS,
+    )
 
 
 # ---------------------------------------------------------------------------
