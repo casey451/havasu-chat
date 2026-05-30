@@ -93,6 +93,21 @@ def _norm_web(url: str | None) -> str | None:
     return s.rstrip("/") or None
 
 
+def _norm_phone(phone: str | None) -> str | None:
+    """Normalize a phone to its last 10 digits for exact-match comparison.
+
+    Strips non-digits and a leading US country code so ``(702) 787-9568`` and
+    ``+1 702-787-9568`` compare equal. Returns ``None`` if fewer than 10 digits
+    remain (too little to be a confident identity key).
+    """
+    if not phone:
+        return None
+    digits = "".join(c for c in str(phone) if c.isdigit())
+    if len(digits) == 11 and digits.startswith("1"):
+        digits = digits[1:]
+    return digits[-10:] if len(digits) >= 10 else None
+
+
 def _pick_canonical(rows: list[Provider]) -> Provider:
     """Choose the row to keep when a CVB listing already has >1 provider:
     a live (non-draft, active) row first, else any non-draft, else the first."""
@@ -198,6 +213,45 @@ def _fuzzy_geo_match(
     return None
 
 
+def _contact_match(session: Any, payload: EntityPayload) -> str | None:
+    """Highest-precision merge tier: exact website or phone to a Google row.
+
+    Runs BEFORE the fuzzy tier and needs no geo -- a shared website/phone is a
+    stronger identity signal than the name. Candidates are GOOGLE-backed entities
+    (a Location with ``google_place_id``). Returns the entity_id only when
+    EXACTLY ONE distinct Google entity matches on normalized website or phone --
+    otherwise ``None`` (stay pending), mirroring the geo/fuzzy tiers.
+    """
+    from app.db.models import Location
+    from app.db.models import Provider as _Provider
+
+    web = _norm_web(payload.website)
+    phone = _norm_phone(payload.phone)
+    if not web and not phone:
+        return None
+    google_ids = {
+        loc.entity_id
+        for loc in session.query(Location)
+        .filter(Location.google_place_id.isnot(None))
+        .all()
+    }
+    if not google_ids:
+        return None
+    matches: set[str] = set()
+    for prov in (
+        session.query(_Provider).filter(_Provider.entity_id.in_(google_ids)).all()
+    ):
+        if not prov.entity_id:
+            continue
+        if web and _norm_web(prov.website) == web:
+            matches.add(prov.entity_id)
+        elif phone and _norm_phone(prov.phone) == phone:
+            matches.add(prov.entity_id)
+    if len(matches) == 1:
+        return next(iter(matches))
+    return None
+
+
 def _provider_to_payload(prov: Provider) -> EntityPayload:
     """Rebuild a source-agnostic payload from a stored CVB provider row.
 
@@ -235,6 +289,7 @@ def ingest_partners(
         "inserted_pending": 0,
         "updated": 0,
         "updated_fuzzy": 0,
+        "updated_contact": 0,
         "idempotent_updated": 0,
         "retired_duplicates": 0,
         "reconcile_skipped_ambiguous": 0,
@@ -324,21 +379,32 @@ def ingest_partners(
 
                 rec = reconcile_hit(session, payload)
                 if rec.action == "ambiguous":
-                    # Fuzzy-name-at-geo tier: reconcile_hit found a nearby
-                    # provider but the normalized names did not match exactly
-                    # (CVB title vs Google Places name). Before holding it for
-                    # review, attempt a confident fuzzy merge onto a single
-                    # Google-backed row within 50m. Only a unique high-score
-                    # match promotes; anything else stays pending.
-                    fuzzy_id = _fuzzy_geo_match(session, payload, threshold=fuzzy_threshold)
-                    if fuzzy_id is not None:
+                    # Two confident merge tiers, highest precision first:
+                    #   1. contact match: exact website/phone to a unique Google
+                    #      row (no geo needed -- identity beats name).
+                    #   2. fuzzy name within 50m of a unique Google row.
+                    contact_id = _contact_match(session, payload)
+                    fuzzy_id = (
+                        None
+                        if contact_id is not None
+                        else _fuzzy_geo_match(session, payload, threshold=fuzzy_threshold)
+                    )
+                    match_id = contact_id or fuzzy_id
+                    if match_id is not None:
                         rec = ReconcileResult(
                             action="update",
-                            existing_id=fuzzy_id,
-                            merge_fields=_compute_merge_fields(session, fuzzy_id, payload),
-                            reason="fuzzy name within 50m of Google row",
+                            existing_id=match_id,
+                            merge_fields=_compute_merge_fields(session, match_id, payload),
+                            reason=(
+                                "exact website/phone match to Google row"
+                                if contact_id is not None
+                                else "fuzzy name within 50m of Google row"
+                            ),
                         )
-                        counts["updated_fuzzy"] += 1
+                        if contact_id is not None:
+                            counts["updated_contact"] += 1
+                        else:
+                            counts["updated_fuzzy"] += 1
                         # fall through to the update handling below
                     else:
                         # Don't drop the listing and don't silently merge. Land
@@ -405,6 +471,8 @@ def reconcile_pending(
     counts: dict[str, int] = {
         "scanned": 0,
         "merged": 0,
+        "merged_contact": 0,
+        "merged_fuzzy": 0,
         "retired": 0,
         "left_pending": 0,
     }
@@ -423,16 +491,20 @@ def reconcile_pending(
         for prov in rows:
             counts["scanned"] += 1
             payload = _provider_to_payload(prov)
-            fuzzy_id = _fuzzy_geo_match(session, payload, threshold=fuzzy_threshold)
-            if fuzzy_id is None:
+            contact_id = _contact_match(session, payload)
+            match_id = contact_id or _fuzzy_geo_match(
+                session, payload, threshold=fuzzy_threshold
+            )
+            if match_id is None:
                 counts["left_pending"] += 1
                 continue
             target = session.scalars(
-                select(Provider).where(Provider.entity_id == fuzzy_id).limit(1)
+                select(Provider).where(Provider.entity_id == match_id).limit(1)
             ).first()
             if target is None or target.id == prov.id:
                 counts["left_pending"] += 1
                 continue
+            tier = "contact" if contact_id is not None else "fuzzy"
 
             kwargs = _provider_kwargs(
                 payload,
@@ -441,17 +513,18 @@ def reconcile_pending(
             )
             _fill_gaps(target, kwargs)
             sync_provider_entity_from_legacy(session, target)
-            ent = session.get(Entity, fuzzy_id)
+            ent = session.get(Entity, match_id)
             ent_name = ent.name if ent is not None else "?"
             if ent is not None:
                 ent.source = _combine_sources(ent.source, "go_lake_havasu")[:64]
             prov.is_active = False
             prov.pending_review = False
             counts["merged"] += 1
+            counts[f"merged_{tier}"] += 1
             counts["retired"] += 1
             print(
-                f"  MERGE pending '{prov.provider_name}' [{prov.address or 'no addr'}] "
-                f"-> entity {fuzzy_id} '{ent_name}'"
+                f"  MERGE[{tier}] pending '{prov.provider_name}' "
+                f"[{prov.address or 'no addr'}] -> entity {match_id} '{ent_name}'"
             )
         if not dry_run:
             session.commit()

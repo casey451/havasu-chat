@@ -24,6 +24,7 @@ from app.admin.contributions_html import register_contribution_html_routes
 from app.admin.events_html import register_events_html_routes
 from app.admin.feedback_html import register_feedback_html_routes
 from app.admin.mentions_html import register_mentions_html_routes
+from app.admin.provider_approval import pending_provider_count
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.db.database import DATABASE_URL, get_db
 from app.db.entity_dual_write import create_program_and_entity, create_provider_and_entity
@@ -250,6 +251,7 @@ def _analytics_page_html(db: Session) -> str:
         ("Total events created (30d)", str(total_ev)),
         ("Live (approved)", str(approved)),
         ("Pending review", str(pending)),
+        ("Providers pending review", str(pending_provider_count(db))),
         ("Rejected / removed (deleted)", str(rejected)),
         ("Approval rate (live / (live + deleted))", rate_s),
     ]

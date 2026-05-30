@@ -117,6 +117,73 @@ def map_cvb_category(cvb_name: str | None) -> str | None:
     key = " ".join(cvb_name.strip().lower().split())
     return CVB_PRIMARY_CATEGORY_TO_SLUG.get(key)
 
+
+# CVB primary category -> LEGACY free-text Provider.category string. These values
+# MUST appear in app/categories/queries.py CATEGORY_FILTERS so the legacy
+# category-page surface (which filters Provider.category strings) matches CVB
+# partners. The modern category-page + chat surfaces use category_id (set from
+# the Tier-1 slug above), so we populate BOTH. Keys mirror
+# CVB_PRIMARY_CATEGORY_TO_SLUG. Unmapped -> None -> loader falls back to a safe
+# legacy default ("uncategorized", which is a known legacy label).
+CVB_PRIMARY_CATEGORY_TO_LEGACY: dict[str, str] = {
+    # Eat & Drink -> "restaurant" (in CATEGORY_FILTERS["eat-drink"])
+    "restaurant/bar": "restaurant",
+    "breweries and wine bar": "restaurant",
+    # Lodging -> "lodging" (CATEGORY_FILTERS["lodging-vacation-rentals"])
+    "lodging": "lodging",
+    "hotels / motels / suites": "lodging",
+    "vacation rentals / condos": "lodging",
+    "resorts": "lodging",
+    "rv parks": "lodging",
+    # On the Water -> "boat_rental" / "lake_recreation" (CATEGORY_FILTERS["on-the-water"])
+    "boating": "boat_rental",
+    "boat rental with captain": "boat_rental",
+    "launch ramps and marinas": "boat_rental",
+    "charters": "boat_rental",
+    "water tours": "lake_recreation",
+    "water sports": "lake_recreation",
+    "fishing": "lake_recreation",
+    "fishing guide": "lake_recreation",
+    "beaches and swimming": "lake_recreation",
+    "boat-in beaches and campsites": "lake_recreation",
+    # Outdoors -> "recreation" (CATEGORY_FILTERS["classes-sports-recreation"];
+    # no dedicated legacy outdoors route -- category_id carries the Tier-1
+    # outdoors-parks-trails bucket for the modern surface).
+    "parks": "recreation",
+    "dog parks": "recreation",
+    "hiking": "recreation",
+    "easy hikes": "recreation",
+    "moderate hikes with climbing": "recreation",
+    "difficult hikes with long slopes or scrambling": "recreation",
+    "walks": "recreation",
+    "birding": "recreation",
+    "camping": "recreation",
+    "ohv": "recreation",
+    "offroad": "recreation",
+    # Classes, Sports & Recreation -> "recreation"
+    "golf": "recreation",
+    "gaming and casinos": "recreation",
+    "movie theaters": "recreation",
+    "performing arts": "recreation",
+    # Shopping -> "retail" (CATEGORY_FILTERS["shopping-essentials"])
+    "shopping": "retail",
+    # Events -> "event_venue" (legacy events label)
+    "events": "event_venue",
+}
+
+
+def map_cvb_legacy_category(cvb_name: str | None) -> str | None:
+    """Map a CVB primary category to a LEGACY ``Provider.category`` string.
+
+    Parallel to :func:`map_cvb_category` (which yields the Tier-1 slug for
+    ``category_id``). ``None`` means no confident legacy mapping; the loader
+    falls back to a safe default.
+    """
+    if not cvb_name:
+        return None
+    key = " ".join(cvb_name.strip().lower().split())
+    return CVB_PRIMARY_CATEGORY_TO_LEGACY.get(key)
+
 PARTNER_PAGE_HTTP_TIMEOUT = httpx.Timeout(60.0, connect=20.0)
 
 _LATLON_RE = re.compile(r"markers=color:[^\"'&]*?%7C(-?\d+\.\d+),(-?\d+\.\d+)")
@@ -332,6 +399,7 @@ def partner_to_entity_payload(
         website=listing.website,
         description=listing.description,
         category_slug=mapped or category_slug,
+        legacy_category=map_cvb_legacy_category(listing.category),
         google_place_id=None,
         source=SOURCE_NAME,
     )

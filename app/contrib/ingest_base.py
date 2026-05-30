@@ -16,7 +16,7 @@ this base plus the Google Places library; Phase 4.3 adds OSM + reconciler.
 extension tables directly.
 
 This module stays ORM-free at import time: only dataclasses, ``typing``, and
-``abc`` — no ``app.db.models`` imports.
+``abc`` -- no ``app.db.models`` imports.
 """
 
 from __future__ import annotations
@@ -59,6 +59,11 @@ class EntityPayload:
     website: str | None = None
     description: str | None = None
     category_slug: str | None = None
+    # Optional legacy free-text Provider.category string (e.g. "restaurant",
+    # "lodging") for sources that need to populate BOTH the Tier-1 category_id
+    # (via category_slug) AND the legacy Provider.category column that older
+    # category-page queries still filter on. None => caller's default applies.
+    legacy_category: str | None = None
     google_place_id: str | None = None
     source: str = "unknown"
     extension_payloads: dict[str, Any] = field(default_factory=dict)

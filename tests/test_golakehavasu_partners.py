@@ -11,10 +11,12 @@ import pytest
 
 from app.contrib.golakehavasu import SITEMAP_INDEX_URL
 from app.contrib.golakehavasu_partners import (
+    CVB_PRIMARY_CATEGORY_TO_LEGACY,
     CVB_PRIMARY_CATEGORY_TO_SLUG,
     fetch_and_parse_partner,
     fetch_partner_sitemap_urls,
     map_cvb_category,
+    map_cvb_legacy_category,
     partner_to_entity_payload,
 )
 from app.contrib.ingest_base import EntityPayload
@@ -24,7 +26,9 @@ from app.db.models import Provider
 from app.db.seed_helpers import derive_provider_slug
 from scripts.golakehavasu_partners_load import (
     FUZZY_NAME_THRESHOLD,
+    _contact_match,
     _fuzzy_geo_match,
+    _norm_phone,
     _provider_to_payload,
 )
 
@@ -99,6 +103,9 @@ def test_partner_to_entity_payload_source_and_category() -> None:
     # Lobster 3 Ways is data-dms-category-name="Restaurant/Bar" -> eat-drink,
     # which overrides the passed default of things-to-do (Task C).
     assert payload.category_slug == "eat-drink"
+    # Dual-write: the legacy Provider.category string is also set, and it is a
+    # value the legacy CATEGORY_FILTERS["eat-drink"] tuple contains.
+    assert payload.legacy_category == "restaurant"
     assert payload.lat == pytest.approx(34.4682917)
     assert payload.website == "http://www.lobster3ways.com"
 
@@ -119,6 +126,33 @@ def test_map_cvb_category_known_and_case_insensitive() -> None:
     assert map_cvb_category("Boating") == "on-the-water"
     assert map_cvb_category("Golf") == "classes-sports-recreation"
     assert map_cvb_category("Shopping") == "shopping-essentials"
+
+
+def test_map_cvb_legacy_category_known_and_case_insensitive() -> None:
+    assert map_cvb_legacy_category("Restaurant/Bar") == "restaurant"
+    assert map_cvb_legacy_category("  restaurant/bar  ") == "restaurant"
+    assert map_cvb_legacy_category("Lodging") == "lodging"
+    assert map_cvb_legacy_category("Resorts") == "lodging"
+    assert map_cvb_legacy_category("Boating") == "boat_rental"
+    assert map_cvb_legacy_category("Shopping") == "retail"
+    assert map_cvb_legacy_category("Events") == "event_venue"
+
+
+def test_map_cvb_legacy_category_unmapped_returns_none() -> None:
+    for unmapped in ("Attractions", "Rentals", "Guided Tour", "Kingman", "", None):
+        assert map_cvb_legacy_category(unmapped) is None
+
+
+def test_cvb_legacy_values_are_accepted_by_category_filters() -> None:
+    """Every legacy string we write must be matchable by at least one legacy
+    category-page route (app/categories/queries.py CATEGORY_FILTERS)."""
+    from app.categories.queries import CATEGORY_FILTERS
+
+    accepted = {s for slugs in CATEGORY_FILTERS.values() for s in slugs}
+    # event_venue is an Events label not present in CATEGORY_FILTERS (events are
+    # a separate surface), so exclude it from this page-route assertion.
+    page_routed = set(CVB_PRIMARY_CATEGORY_TO_LEGACY.values()) - {"event_venue"}
+    assert page_routed <= accepted, page_routed - accepted
 
 
 def test_map_cvb_category_unmapped_returns_none() -> None:
@@ -209,6 +243,8 @@ def _google_provider(
     *,
     lat: float = _LAT,
     lng: float = _LNG,
+    website: str | None = None,
+    phone: str | None = None,
 ) -> Provider:
     """Create a Google-backed Provider (+ Entity + Location via dual-write).
 
@@ -224,6 +260,8 @@ def _google_provider(
         google_place_id=f"ChIJ-{uuid.uuid4().hex[:16]}",
         lat=lat,
         lng=lng,
+        website=website,
+        phone=phone,
         draft=False,
         is_active=True,
     )
@@ -310,3 +348,84 @@ def test_provider_to_payload_maps_fields() -> None:
     assert payload.lat == _LAT and payload.lng == _LNG
     assert payload.category_slug == "eat-drink"
     assert payload.google_place_id is None
+
+
+def test_norm_phone_variants() -> None:
+    assert _norm_phone("(702) 787-9568") == "7027879568"
+    assert _norm_phone("+1 702-787-9568") == "7027879568"
+    assert _norm_phone("1.702.787.9568") == "7027879568"
+    assert _norm_phone("787-9568") is None
+    assert _norm_phone(None) is None
+
+
+def test_contact_match_on_website_ignores_geo(db_session) -> None:
+    prov = _google_provider(
+        db_session, "Lobster 3 Ways Food Truck", website="http://www.lobster3ways.com"
+    )
+    payload = EntityPayload(
+        name="Lobster 3 Ways",
+        entity_type="place",
+        source="go_lake_havasu",
+        lat=None,
+        lng=None,
+        website="https://lobster3ways.com/",
+        category_slug="eat-drink",
+    )
+    assert _contact_match(db_session, payload) == prov.entity_id
+
+
+def test_contact_match_on_phone(db_session) -> None:
+    prov = _google_provider(db_session, "Barley Brothers Brewery", phone="(928) 505-7837")
+    payload = EntityPayload(
+        name="Barley Brothers Restaurant & Brewery",
+        entity_type="place",
+        source="go_lake_havasu",
+        phone="928-505-7837",
+        category_slug="eat-drink",
+    )
+    assert _contact_match(db_session, payload) == prov.entity_id
+
+
+def test_contact_match_ambiguous_website_returns_none(db_session) -> None:
+    _google_provider(db_session, "Plaza Unit A", website="http://sharedplaza.com")
+    _google_provider(db_session, "Plaza Unit B", website="http://sharedplaza.com")
+    payload = EntityPayload(
+        name="Plaza Tenant",
+        entity_type="place",
+        source="go_lake_havasu",
+        website="http://sharedplaza.com",
+        category_slug="eat-drink",
+    )
+    assert _contact_match(db_session, payload) is None
+
+
+def test_contact_match_no_contact_fields_returns_none(db_session) -> None:
+    _google_provider(db_session, "Some Place", website="http://example.com")
+    payload = EntityPayload(
+        name="Some Place", entity_type="place", source="go_lake_havasu"
+    )
+    assert _contact_match(db_session, payload) is None
+
+
+def test_contact_match_ignores_non_google_rows(db_session) -> None:
+    prov = Provider(
+        provider_name="OSM Cafe",
+        category="eat-drink",
+        slug=derive_provider_slug(db_session, "OSM Cafe"),
+        source="osm",
+        google_place_id=None,
+        website="http://osmcafe.com",
+        draft=False,
+        is_active=True,
+    )
+    db_session.add(prov)
+    create_provider_and_entity(db_session, prov)
+    db_session.flush()
+    payload = EntityPayload(
+        name="OSM Cafe",
+        entity_type="place",
+        source="go_lake_havasu",
+        website="http://osmcafe.com",
+        category_slug="eat-drink",
+    )
+    assert _contact_match(db_session, payload) is None
