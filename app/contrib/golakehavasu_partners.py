@@ -37,6 +37,153 @@ from app.contrib.ingest_base import EntityPayload
 PARTNERS_SITEMAP_SUBSTR = "partnerDirectory"
 SOURCE_NAME = "go_lake_havasu"
 
+# CVB primary category (DOM ``<main data-dms-category-name>``) -> Hava Tier-1
+# slug. Only HIGH-PRECISION mappings are listed; ambiguous, geographic, or
+# catch-all CVB categories are intentionally absent so they fall back to the
+# loader's ``--category-slug`` default (no mis-bucketing).
+#
+# Mapping decisions follow the existing Hava taxonomy precedents in
+# app/contrib/google_types_mapping.py (e.g. casino/theater/golf ->
+# classes-sports-recreation, marina/charter -> on-the-water).
+#
+# DELIBERATELY NOT MAPPED (left to fall back, by design):
+#   - "Attractions": CVB uses it as a catch-all -- e.g. College Street
+#     Brewhouse (a brewery) is tagged "Attractions" -- so mapping it would
+#     mis-bucket. Leave to fallback.
+#   - "Rentals": ambiguous (boat / car / gear / vacation).
+#   - "Family-Fun" / "Family Fun", "Entertainment", "Activities", "Venues":
+#     span water/outdoors/rec; no single confident slug.
+#   - "Guided Tour" / "Tours" / "Outdoor Land Tours" / "Air Tours": land vs
+#     water tours are mixed in LHC; no confident slug.
+#   - "Transportation" / "Transportation Within Lake Havasu City" /
+#     "To/From Las Vegas & Phoenix Airports": no Hava transport category.
+#   - Day-trip TOWNS (geographic, not business types): Blythe, Kingman,
+#     Parker, Needles, "Laughlin | Bullhead City", "Las Vegas", Oatman,
+#     Topock, "Day Trip", "Arizona Getaway Trip", "Plan Your Escape", "Misc".
+# See SESSION_HANDOFF (Task C) for the full deferred list + recommendation.
+CVB_PRIMARY_CATEGORY_TO_SLUG: dict[str, str] = {
+    # Eat & Drink
+    "restaurant/bar": "eat-drink",
+    "breweries and wine bar": "eat-drink",
+    # Lodging & Vacation Rentals
+    "lodging": "lodging-vacation-rentals",
+    "hotels / motels / suites": "lodging-vacation-rentals",
+    "vacation rentals / condos": "lodging-vacation-rentals",
+    "resorts": "lodging-vacation-rentals",
+    "rv parks": "lodging-vacation-rentals",
+    # On the Water
+    "boating": "on-the-water",
+    "boat rental with captain": "on-the-water",
+    "water tours": "on-the-water",
+    "water sports": "on-the-water",
+    "fishing": "on-the-water",
+    "fishing guide": "on-the-water",
+    "launch ramps and marinas": "on-the-water",
+    "boat-in beaches and campsites": "on-the-water",
+    "beaches and swimming": "on-the-water",
+    "charters": "on-the-water",
+    # Outdoors, Parks & Trails
+    "parks": "outdoors-parks-trails",
+    "dog parks": "outdoors-parks-trails",
+    "hiking": "outdoors-parks-trails",
+    "easy hikes": "outdoors-parks-trails",
+    "moderate hikes with climbing": "outdoors-parks-trails",
+    "difficult hikes with long slopes or scrambling": "outdoors-parks-trails",
+    "walks": "outdoors-parks-trails",
+    "birding": "outdoors-parks-trails",
+    "camping": "outdoors-parks-trails",
+    "ohv": "outdoors-parks-trails",
+    "offroad": "outdoors-parks-trails",
+    # Classes, Sports & Recreation
+    "golf": "classes-sports-recreation",
+    "gaming and casinos": "classes-sports-recreation",
+    "movie theaters": "classes-sports-recreation",
+    "performing arts": "classes-sports-recreation",
+    # Shopping & Essentials
+    "shopping": "shopping-essentials",
+    # Events
+    "events": "events",
+}
+
+
+def map_cvb_category(cvb_name: str | None) -> str | None:
+    """Map a CVB primary category name to a Hava Tier-1 slug, or ``None``.
+
+    Case/whitespace-insensitive. ``None`` means "no confident mapping" -- the
+    caller should fall back to its default category slug.
+    """
+    if not cvb_name:
+        return None
+    key = " ".join(cvb_name.strip().lower().split())
+    return CVB_PRIMARY_CATEGORY_TO_SLUG.get(key)
+
+
+# CVB primary category -> LEGACY free-text Provider.category string. These values
+# MUST appear in app/categories/queries.py CATEGORY_FILTERS so the legacy
+# category-page surface (which filters Provider.category strings) matches CVB
+# partners. The modern category-page + chat surfaces use category_id (set from
+# the Tier-1 slug above), so we populate BOTH. Keys mirror
+# CVB_PRIMARY_CATEGORY_TO_SLUG. Unmapped -> None -> loader falls back to a safe
+# legacy default ("uncategorized", which is a known legacy label).
+CVB_PRIMARY_CATEGORY_TO_LEGACY: dict[str, str] = {
+    # Eat & Drink -> "restaurant" (in CATEGORY_FILTERS["eat-drink"])
+    "restaurant/bar": "restaurant",
+    "breweries and wine bar": "restaurant",
+    # Lodging -> "lodging" (CATEGORY_FILTERS["lodging-vacation-rentals"])
+    "lodging": "lodging",
+    "hotels / motels / suites": "lodging",
+    "vacation rentals / condos": "lodging",
+    "resorts": "lodging",
+    "rv parks": "lodging",
+    # On the Water -> "boat_rental" / "lake_recreation" (CATEGORY_FILTERS["on-the-water"])
+    "boating": "boat_rental",
+    "boat rental with captain": "boat_rental",
+    "launch ramps and marinas": "boat_rental",
+    "charters": "boat_rental",
+    "water tours": "lake_recreation",
+    "water sports": "lake_recreation",
+    "fishing": "lake_recreation",
+    "fishing guide": "lake_recreation",
+    "beaches and swimming": "lake_recreation",
+    "boat-in beaches and campsites": "lake_recreation",
+    # Outdoors -> "recreation" (CATEGORY_FILTERS["classes-sports-recreation"];
+    # no dedicated legacy outdoors route -- category_id carries the Tier-1
+    # outdoors-parks-trails bucket for the modern surface).
+    "parks": "recreation",
+    "dog parks": "recreation",
+    "hiking": "recreation",
+    "easy hikes": "recreation",
+    "moderate hikes with climbing": "recreation",
+    "difficult hikes with long slopes or scrambling": "recreation",
+    "walks": "recreation",
+    "birding": "recreation",
+    "camping": "recreation",
+    "ohv": "recreation",
+    "offroad": "recreation",
+    # Classes, Sports & Recreation -> "recreation"
+    "golf": "recreation",
+    "gaming and casinos": "recreation",
+    "movie theaters": "recreation",
+    "performing arts": "recreation",
+    # Shopping -> "retail" (CATEGORY_FILTERS["shopping-essentials"])
+    "shopping": "retail",
+    # Events -> "event_venue" (legacy events label)
+    "events": "event_venue",
+}
+
+
+def map_cvb_legacy_category(cvb_name: str | None) -> str | None:
+    """Map a CVB primary category to a LEGACY ``Provider.category`` string.
+
+    Parallel to :func:`map_cvb_category` (which yields the Tier-1 slug for
+    ``category_id``). ``None`` means no confident legacy mapping; the loader
+    falls back to a safe default.
+    """
+    if not cvb_name:
+        return None
+    key = " ".join(cvb_name.strip().lower().split())
+    return CVB_PRIMARY_CATEGORY_TO_LEGACY.get(key)
+
 PARTNER_PAGE_HTTP_TIMEOUT = httpx.Timeout(60.0, connect=20.0)
 
 _LATLON_RE = re.compile(r"markers=color:[^\"'&]*?%7C(-?\d+\.\d+),(-?\d+\.\d+)")
@@ -58,6 +205,7 @@ class PartnerListing:
     phone: str | None
     website: str | None
     description: str | None
+    category: str | None = None  # raw CVB primary category (data-dms-category-name)
     raw: dict[str, Any] = field(default_factory=dict)
 
 
@@ -161,6 +309,28 @@ def _description(soup: BeautifulSoup) -> str | None:
     return None
 
 
+def _primary_category(soup: BeautifulSoup) -> str | None:
+    """Parse the listing's own primary category from the DOM.
+
+    The detail page's ``<main>`` element carries ``data-dms-category-name``
+    (the CMS's primary category for THIS listing), e.g. ``Restaurant/Bar``,
+    ``Lodging``, ``Resorts``. This is the listing-specific category -- unlike
+    the global-nav category links, which rotate and are identical across pages.
+    """
+    main = soup.find("main")
+    if main is not None:
+        val = main.get("data-dms-category-name")
+        if val and val.strip():
+            return val.strip()
+    # Fallback: first element on the page that carries the attribute.
+    el = soup.find(attrs={"data-dms-category-name": True})
+    if el is not None:
+        val = el.get("data-dms-category-name")
+        if val and val.strip():
+            return val.strip()
+    return None
+
+
 def _latlon(html: str) -> tuple[float | None, float | None]:
     m = _LATLON_RE.search(html)
     if not m:
@@ -202,6 +372,7 @@ def fetch_and_parse_partner(
         phone=phone,
         website=_website(soup),
         description=_description(soup),
+        category=_primary_category(soup),
     )
 
 
@@ -210,7 +381,14 @@ def partner_to_entity_payload(
     *,
     category_slug: str,
 ) -> EntityPayload:
-    """Map a :class:`PartnerListing` to a source-agnostic :class:`EntityPayload`."""
+    """Map a :class:`PartnerListing` to a source-agnostic :class:`EntityPayload`.
+
+    The payload's ``category_slug`` is the per-listing Hava slug derived from the
+    CVB primary category when a confident mapping exists; otherwise it falls back
+    to the passed ``category_slug`` default (so unmapped CVB categories keep the
+    loader's ``--category-slug`` behaviour rather than being mis-bucketed).
+    """
+    mapped = map_cvb_category(listing.category)
     return EntityPayload(
         name=listing.name,
         entity_type="place",
@@ -220,7 +398,8 @@ def partner_to_entity_payload(
         phone=listing.phone,
         website=listing.website,
         description=listing.description,
-        category_slug=category_slug,
+        category_slug=mapped or category_slug,
+        legacy_category=map_cvb_legacy_category(listing.category),
         google_place_id=None,
         source=SOURCE_NAME,
     )

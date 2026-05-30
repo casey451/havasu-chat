@@ -1,0 +1,56 @@
+name: golakehavasu-partners
+
+# Pulls Visit Lake Havasu (golakehavasu.com / CVB) PARTNER DIRECTORY listings
+# into the provider catalog, mirroring golakehavasu-events but for businesses
+# rather than events.
+#
+# Behavior: golakehavasu_partners_load discovers partner listings from the CVB
+# sitemap, parses each (name, contact, geo, and the per-listing category from
+# <main data-dms-category-name>), maps the CVB category to a Hava Tier-1 slug,
+# and routes each through CVB idempotency -> ingest reconciler. When a listing
+# matches an existing Google Places provider, the loader merges onto it:
+#   1. exact website/phone match to a unique Google row (no geo needed), else
+#   2. fuzzy name within 50m of a unique Google row (token_sort_ratio >= 88).
+# Confident matches merge; genuinely new listings insert; anything ambiguous
+# lands held (draft + pending_review) for human review.
+#
+# Cadence: weekly. Partner directories change far less often than events, so a
+# weekly refresh is plenty. Sunday 09:40 UTC. parks-rec runs every 6 hours on
+# the :15 (00:15/06:15/12:15/18:15), events run :45 past, so :40 on an hour no
+# other cron touches keeps this isolated.
+#
+# NOTE: GitHub only runs scheduled workflows from the repository's DEFAULT
+# branch. This file must be merged to main before the cron takes effect.
+# Until then, use the "Run workflow" button (workflow_dispatch) to trigger it.
+#
+# SAFETY: the first prod run should be done MANUALLY with --dry-run first (see
+# run_partners_load_prod.cmd) and the insert/merge/category counts reviewed,
+# because partners have never been loaded to prod before. Enable this cron only
+# after that first reviewed load looks right.
+
+on:
+  schedule:
+    - cron: "40 9 * * 0"
+  workflow_dispatch: {}
+
+jobs:
+  pull-golakehavasu-partners:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Pull golakehavasu partner listings into the catalog
+        env:
+          # Same Railway Postgres secret the other scrape crons use. Set in:
+          # GitHub repo -> Settings -> Secrets and variables -> Actions
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/golakehavasu_partners_load.py
