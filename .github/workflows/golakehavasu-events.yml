@@ -1,0 +1,45 @@
+name: golakehavasu-events
+
+# Pulls Visit Lake Havasu (golakehavasu.com / CVB) events into the catalog a
+# few times a week, mirroring river-scene-events.
+#
+# Behavior: run_pull() discovers events from the golakehavasu sitemap, parses
+# each event page, and routes every event through the SHARED event reconciler
+# (app/contrib/event_reconciler.py) before insert. Genuinely new events are
+# AUTO-APPROVED (go_lake_havasu is a high-trust CVB source already in
+# auto_approve_event_sources); cross-source duplicates are merged onto the
+# existing row; same-date/same-venue ambiguous matches land PENDING for review.
+#
+# NOTE: GitHub only runs scheduled workflows from the repository's DEFAULT
+# branch. This file must be merged to main before the cron takes effect.
+# Until then, use the "Run workflow" button (workflow_dispatch) to trigger it.
+
+on:
+  schedule:
+    # Tue / Thu / Sat at 13:45 UTC (= 6:45 AM Arizona, MST/UTC-7, no DST).
+    # :45 past the hour to avoid colliding with parks-rec (:15) and
+    # river-scene (:30); different days from river-scene (Mon/Wed/Fri).
+    - cron: "45 13 * * 2,4,6"
+  workflow_dispatch: {}
+
+jobs:
+  pull-golakehavasu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Pull golakehavasu events into the catalog
+        env:
+          # Same Railway Postgres secret the other scrape crons use. Set in:
+          # GitHub repo -> Settings -> Secrets and variables -> Actions
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/golakehavasu_pull.py

@@ -38,6 +38,7 @@ SOURCE_PRIORITY: dict[str, int] = {
     "google_places": 1,
     "osm": 2,
     "lhc_open_data": 3,
+    "go_lake_havasu": 3,
     "az_roc": 3,
     "npi_registry": 4,
     "usapickleball": 4,

@@ -206,7 +206,9 @@ def approve_contribution_as_event(
         list(tags or []),
     )
     is_rec = is_recurring_heuristic(blob)
-    event_source: str | None = "river_scene_import" if c.source == "river_scene_import" else None
+    # Preserve provenance for high-trust scrape sources (cross-source dedup +
+    # analytics) instead of letting them fall back to "admin".
+    event_source: str | None = c.source if c.source in _SCRAPE_EVENT_SOURCES else None
     event_source_url = (
         normalize_submission_url(c.source_url) if c.source_url else None
     )
@@ -247,6 +249,12 @@ def approve_contribution_as_event(
     db.refresh(ev)
     return ev
 
+
+# Contribution sources whose provenance should be stamped onto Event.source
+# (so cross-source dedup + analytics can identify them) rather than "admin".
+_SCRAPE_EVENT_SOURCES = frozenset(
+    {"river_scene_import", "river_scene", "go_lake_havasu", "chamber"}
+)
 
 _DEFAULT_AUTO_APPROVE_EVENT_SOURCES = frozenset(
     {"chamber", "go_lake_havasu", "river_scene", "river_scene_import"}

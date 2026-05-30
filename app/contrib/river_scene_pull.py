@@ -16,10 +16,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.contrib.approval_service import approve_contribution_as_event
+from app.contrib.event_reconciler import reconcile_event
 from app.contrib.river_scene import (
     REQUEST_TIMEOUT,
     USER_AGENT,
     RiverSceneEvent,
+    _submission_public_url,
     fetch_and_parse_event,
     fetch_sitemap_urls,
     normalize_to_contribution,
@@ -27,7 +29,32 @@ from app.contrib.river_scene import (
 from app.db import contribution_store as cs
 from app.db.database import SessionLocal
 from app.db.models import Contribution, Event
+from app.events.scrapers.base import EventPayload
 from app.schemas.contribution import EventApprovalFields
+
+# Existing-event sources that are NOT treated as a cross-source duplicate of a
+# river_scene import: river_scene's own rows and seed rows (seed overlaps are
+# handled separately by ``_find_seed_overlap`` as a flag-don't-skip review aid).
+_RIVER_SCENE_OWN_SOURCES = frozenset({"river_scene", "river_scene_import"})
+
+
+def _river_scene_event_payload(rse: RiverSceneEvent) -> EventPayload:
+    """Build a shared EventPayload from a parsed RiverScene event."""
+    return EventPayload(
+        name=rse.title,
+        entity_type="event",
+        source="river_scene",
+        start_date=rse.start_date,
+        end_date=(rse.end_date if rse.end_date and rse.end_date > rse.start_date else None),
+        start_time=rse.start_time,
+        end_time=(rse.end_time if rse.end_time != rse.start_time else None),
+        venue_name=rse.venue_name,
+        address=rse.venue_address,
+        description=rse.description_html or "",
+        event_url=_submission_public_url(rse),
+        source_stable_url=rse.url,
+        tags=list(rse.category_slugs or []),
+    )
 
 
 def _norm_title(s: str) -> str:
@@ -108,6 +135,7 @@ def run_pull(
     errors = 0
     imported = 0
     skipped_duplicate = 0
+    skipped_cross_source = 0
     skipped_past_or_unparseable = 0
     flagged_seed_overlap = 0
     fetched_urls = 0
@@ -115,7 +143,7 @@ def run_pull(
     auto_approval_failed = 0
 
     def body(client: httpx.Client) -> int:
-        nonlocal errors, imported, skipped_duplicate, skipped_past_or_unparseable, flagged_seed_overlap, fetched_urls, auto_approved, auto_approval_failed
+        nonlocal errors, imported, skipped_duplicate, skipped_cross_source, skipped_past_or_unparseable, flagged_seed_overlap, fetched_urls, auto_approved, auto_approval_failed
         try:
             urls = fetch_sitemap_urls(client=client)
         except Exception as e:
@@ -143,6 +171,26 @@ def run_pull(
             if rse is None:
                 skipped_past_or_unparseable += 1
                 continue
+
+            # Shared cross-source dedup: skip only when this event already
+            # exists from a DIFFERENT real source (e.g. golakehavasu, chamber).
+            # river_scene's own source_url dups are caught above; seed overlaps
+            # are flagged (not skipped) by _find_seed_overlap below.
+            with SessionLocal() as db:
+                rec = reconcile_event(db, _river_scene_event_payload(rse))
+                if rec.action in ("duplicate", "update") and rec.existing_id:
+                    matched = db.get(Event, rec.existing_id)
+                    if (
+                        matched is not None
+                        and (matched.created_by or "") != "seed"
+                        and (matched.source or "") not in _RIVER_SCENE_OWN_SOURCES
+                    ):
+                        skipped_cross_source += 1
+                        print(
+                            f"info: skip cross-source duplicate of event "
+                            f"{rec.existing_id} ({rec.reason}) for {url}"
+                        )
+                        continue
 
             try:
                 payload = normalize_to_contribution(rse)
@@ -197,6 +245,7 @@ def run_pull(
         print(f"  auto_approved:                 {auto_approved}")
         print(f"  auto_approval_failed:          {auto_approval_failed}")
         print(f"  skipped_duplicate:             {skipped_duplicate}")
+        print(f"  skipped_cross_source:          {skipped_cross_source}")
         print(f"  skipped_past_or_unparseable:   {skipped_past_or_unparseable}")
         print(f"  flagged_seed_overlap:          {flagged_seed_overlap}")
         print(f"  errors:                        {errors}")
