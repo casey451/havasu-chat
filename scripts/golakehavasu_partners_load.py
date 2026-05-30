@@ -126,9 +126,10 @@ def _provider_kwargs(
     category_slug: str,
     category_id: int | None,
 ) -> dict[str, Any]:
+    legacy = payload.legacy_category or "uncategorized"
     return {
         "provider_name": payload.name,
-        "category": category_slug,
+        "category": legacy,
         "category_id": category_id,
         "address": payload.address,
         "phone": payload.phone,
@@ -367,7 +368,9 @@ def ingest_partners(
                     # CVB owns these rows: re-bucket category in place on re-run
                     # when a confident per-listing mapping exists.
                     if payload.category_slug:
-                        canonical.category = row_slug
+                        canonical.category = (
+                            payload.legacy_category or "uncategorized"
+                        )
                         canonical.category_id = row_cat_id
                     sync_provider_entity_from_legacy(session, canonical)
                     for other in cvb_matches:
