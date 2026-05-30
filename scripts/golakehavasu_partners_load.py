@@ -7,11 +7,23 @@ Mirrors :mod:`scripts.osm_overpass_load`: each listing becomes an
 then :func:`~app.contrib.ingest_reconciler.reconcile_hit` decides insert vs
 merge. A partner that already exists as a Google Places provider updates the
 existing row (CVB fills gaps; Google identity wins); a genuinely new attraction
-is inserted; an ambiguous name-only match is skipped for human review.
+is inserted.
+
+When reconcile_hit returns ``ambiguous`` (a nearby provider exists but the
+normalized names differ -- common for CVB title vs Google Places name), a
+fuzzy-name-at-geo tier (:func:`_fuzzy_geo_match`) attempts a confident merge
+onto a single Google-backed row within 50m whose ``rapidfuzz`` token_sort_ratio
+clears ``--fuzzy-threshold``. Only a unique high-score match promotes; anything
+else is held for human review (draft + pending_review).
+
+The ``--reconcile-pending`` mode re-runs that fuzzy match over rows previously
+held pending and merges/retires the ones that now have a confident Google match.
 
 Usage:
     python -m scripts.golakehavasu_partners_load --dry-run
     python -m scripts.golakehavasu_partners_load --limit 25 --category-slug things-to-do
+    python -m scripts.golakehavasu_partners_load --fuzzy-threshold 88
+    python -m scripts.golakehavasu_partners_load --reconcile-pending --dry-run --limit 25
 """
 
 from __future__ import annotations
@@ -25,6 +37,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import httpx
+from rapidfuzz import fuzz
 from sqlalchemy import select
 
 from app.bootstrap_env import ensure_dotenv_loaded
@@ -39,6 +52,11 @@ from app.contrib.golakehavasu_partners import (  # noqa: E402
 )
 from app.contrib.ingest_base import EntityPayload  # noqa: E402
 from app.contrib.ingest_reconciler import (  # noqa: E402
+    GEO_PROXIMITY_THRESHOLD_M,
+    ReconcileResult,
+    _combine_sources,
+    _compute_merge_fields,
+    haversine_m,
     log_ambiguous_reconcile,
     reconcile_hit,
     slugify,
@@ -52,6 +70,14 @@ from app.db.models import Category, Entity, Provider  # noqa: E402
 from app.db.seed_helpers import derive_provider_slug  # noqa: E402
 
 logger = logging.getLogger(__name__)
+
+# rapidfuzz token_sort_ratio floor (0-100) for promoting an ``ambiguous``
+# geo-near reconcile into a confident merge onto a Google-backed row. CVB
+# partner titles and Google Places names diverge often enough that an EXACT
+# normalized-name match (what ingest_reconciler.reconcile_hit requires) misses
+# real overlaps; a high fuzzy floor at <=50m recovers them without merging
+# distinct neighbours. Tune via --fuzzy-threshold.
+FUZZY_NAME_THRESHOLD = 88
 
 
 def _norm_web(url: str | None) -> str | None:
@@ -123,11 +149,82 @@ def _fill_gaps(
             setattr(prov, f, incoming)
 
 
+def _fuzzy_geo_match(
+    session: Any,
+    payload: EntityPayload,
+    *,
+    threshold: float,
+    max_distance_m: float = GEO_PROXIMITY_THRESHOLD_M,
+) -> str | None:
+    """Confident fuzzy-name merge target for a geo-near CVB payload.
+
+    Called only when :func:`reconcile_hit` returned ``ambiguous`` (it found a
+    nearby provider but the normalized names did not match exactly). Restrict
+    candidates to GOOGLE-backed locations (``google_place_id`` set) within
+    ``max_distance_m`` and score ``fuzz.token_sort_ratio`` on raw lowercased
+    names. Return the entity_id only when EXACTLY ONE distinct Google entity
+    clears ``threshold`` -- otherwise ``None`` so the caller keeps it pending.
+    This mirrors reconcile_hit's "multiple matches -> ambiguous" conservatism.
+    """
+    from app.db.models import Entity, Location
+
+    if payload.lat is None or payload.lng is None or not (payload.name or "").strip():
+        return None
+
+    target = payload.name.strip().lower()
+    candidates = (
+        session.query(Location)
+        .filter(
+            Location.lat.isnot(None),
+            Location.lng.isnot(None),
+            Location.google_place_id.isnot(None),
+        )
+        .all()
+    )
+    best_by_entity: dict[str, float] = {}
+    for cand in candidates:
+        if haversine_m(payload.lat, payload.lng, cand.lat, cand.lng) > max_distance_m:
+            continue
+        ent = session.get(Entity, cand.entity_id)
+        if not ent or not (ent.name or "").strip():
+            continue
+        score = float(fuzz.token_sort_ratio(target, ent.name.strip().lower()))
+        if score >= threshold:
+            prev = best_by_entity.get(cand.entity_id, 0.0)
+            if score > prev:
+                best_by_entity[cand.entity_id] = score
+    if len(best_by_entity) == 1:
+        return next(iter(best_by_entity))
+    return None
+
+
+def _provider_to_payload(prov: Provider) -> EntityPayload:
+    """Rebuild a source-agnostic payload from a stored CVB provider row.
+
+    Used by the --reconcile-pending cleanup pass to re-run matching against the
+    current entity graph for rows that were previously held pending.
+    """
+    return EntityPayload(
+        name=prov.provider_name or "",
+        entity_type="place",
+        source="go_lake_havasu",
+        lat=prov.lat,
+        lng=prov.lng,
+        address=prov.address,
+        phone=prov.phone,
+        website=prov.website,
+        description=prov.description,
+        category_slug=prov.category or "things-to-do",
+        google_place_id=None,
+    )
+
+
 def ingest_partners(
     *,
     category_slug: str,
     dry_run: bool,
     limit: int | None,
+    fuzzy_threshold: float = FUZZY_NAME_THRESHOLD,
     http_client: httpx.Client | None = None,
 ) -> dict[str, int]:
     counts: dict[str, int] = {
@@ -137,6 +234,7 @@ def ingest_partners(
         "inserted": 0,
         "inserted_pending": 0,
         "updated": 0,
+        "updated_fuzzy": 0,
         "idempotent_updated": 0,
         "retired_duplicates": 0,
         "reconcile_skipped_ambiguous": 0,
@@ -168,9 +266,17 @@ def ingest_partners(
             return counts
 
         with SessionLocal() as session:
-            cat_id = session.scalars(
-                select(Category.id).where(Category.slug == category_slug)
-            ).first()
+            # Per-slug Category.id cache (categories are per-listing now, Task C).
+            _cat_id_cache: dict[str, int | None] = {}
+
+            def _cat_id_for(slug: str | None) -> int | None:
+                if not slug:
+                    return None
+                if slug not in _cat_id_cache:
+                    _cat_id_cache[slug] = session.scalars(
+                        select(Category.id).where(Category.slug == slug)
+                    ).first()
+                return _cat_id_cache[slug]
 
             # Idempotency snapshot: existing CVB providers keyed by name + website
             # so a re-run UPDATES the prior row (and retires any duplicates)
@@ -187,7 +293,12 @@ def ingest_partners(
                     cvb_by_web.setdefault(w, prov)
 
             for payload in payloads:
-                kwargs = _provider_kwargs(payload, category_slug=category_slug, category_id=cat_id)
+                # Per-listing category (Task C): payload.category_slug carries the
+                # CVB->Hava mapped slug, or the --category-slug default when the
+                # CVB category had no confident mapping.
+                row_slug = payload.category_slug or category_slug
+                row_cat_id = _cat_id_for(row_slug)
+                kwargs = _provider_kwargs(payload, category_slug=row_slug, category_id=row_cat_id)
 
                 # CVB-to-CVB idempotency: already ingested this listing?
                 name_slug = slugify(payload.name)
@@ -198,6 +309,11 @@ def ingest_partners(
                 if cvb_matches:
                     canonical = _pick_canonical(cvb_matches)
                     _fill_gaps(canonical, kwargs)
+                    # CVB owns these rows: re-bucket category in place on re-run
+                    # when a confident per-listing mapping exists.
+                    if payload.category_slug:
+                        canonical.category = row_slug
+                        canonical.category_id = row_cat_id
                     sync_provider_entity_from_legacy(session, canonical)
                     for other in cvb_matches:
                         if other is not canonical and other.is_active:
@@ -208,21 +324,36 @@ def ingest_partners(
 
                 rec = reconcile_hit(session, payload)
                 if rec.action == "ambiguous":
-                    # Don't drop the listing and don't silently merge: the
-                    # reconciler saw a nearby/name-similar provider but couldn't
-                    # confidently match (e.g. CVB title vs Google Places name).
-                    # Land it held (draft + pending_review) so the data is
-                    # captured and a human can confirm dup-vs-distinct later.
-                    log_ambiguous_reconcile(rec, context="golakehavasu_partners_load")
-                    pend = dict(kwargs)
-                    pend["draft"] = True
-                    pend["pending_review"] = True
-                    slug = derive_provider_slug(session, pend["provider_name"])
-                    provider = Provider(**pend, slug=slug, last_google_scraped_at=None)
-                    session.add(provider)
-                    create_provider_and_entity(session, provider)
-                    counts["inserted_pending"] += 1
-                    continue
+                    # Fuzzy-name-at-geo tier: reconcile_hit found a nearby
+                    # provider but the normalized names did not match exactly
+                    # (CVB title vs Google Places name). Before holding it for
+                    # review, attempt a confident fuzzy merge onto a single
+                    # Google-backed row within 50m. Only a unique high-score
+                    # match promotes; anything else stays pending.
+                    fuzzy_id = _fuzzy_geo_match(session, payload, threshold=fuzzy_threshold)
+                    if fuzzy_id is not None:
+                        rec = ReconcileResult(
+                            action="update",
+                            existing_id=fuzzy_id,
+                            merge_fields=_compute_merge_fields(session, fuzzy_id, payload),
+                            reason="fuzzy name within 50m of Google row",
+                        )
+                        counts["updated_fuzzy"] += 1
+                        # fall through to the update handling below
+                    else:
+                        # Don't drop the listing and don't silently merge. Land
+                        # it held (draft + pending_review) so the data is
+                        # captured and a human can confirm dup-vs-distinct later.
+                        log_ambiguous_reconcile(rec, context="golakehavasu_partners_load")
+                        pend = dict(kwargs)
+                        pend["draft"] = True
+                        pend["pending_review"] = True
+                        slug = derive_provider_slug(session, pend["provider_name"])
+                        provider = Provider(**pend, slug=slug, last_google_scraped_at=None)
+                        session.add(provider)
+                        create_provider_and_entity(session, provider)
+                        counts["inserted_pending"] += 1
+                        continue
                 if rec.action == "update" and rec.existing_id:
                     prov = session.scalars(
                         select(Provider).where(Provider.entity_id == rec.existing_id).limit(1)
@@ -256,6 +387,77 @@ def ingest_partners(
         return _run(client)
 
 
+def reconcile_pending(
+    *,
+    dry_run: bool,
+    limit: int | None,
+    fuzzy_threshold: float = FUZZY_NAME_THRESHOLD,
+) -> dict[str, int]:
+    """Cleanup pass for CVB rows held as draft + pending_review.
+
+    Re-runs fuzzy-name-at-geo matching against the current entity graph. Where a
+    single confident Google-backed match now exists, fills contact gaps onto the
+    Google row, records CVB provenance on the surviving entity, and retires the
+    pending CVB row (``is_active=False``, ``pending_review=False``). Rows without
+    a confident match are left untouched (still pending). Idempotent and safe to
+    re-run; honour ``--dry-run`` to preview without writing.
+    """
+    counts: dict[str, int] = {
+        "scanned": 0,
+        "merged": 0,
+        "retired": 0,
+        "left_pending": 0,
+    }
+    with SessionLocal() as session:
+        rows = session.scalars(
+            select(Provider).where(
+                Provider.draft.is_(True),
+                Provider.pending_review.is_(True),
+                Provider.is_active.is_(True),
+                Provider.source.like("%go_lake_havasu%"),
+            )
+        ).all()
+        if limit is not None:
+            rows = rows[:limit]
+
+        for prov in rows:
+            counts["scanned"] += 1
+            payload = _provider_to_payload(prov)
+            fuzzy_id = _fuzzy_geo_match(session, payload, threshold=fuzzy_threshold)
+            if fuzzy_id is None:
+                counts["left_pending"] += 1
+                continue
+            target = session.scalars(
+                select(Provider).where(Provider.entity_id == fuzzy_id).limit(1)
+            ).first()
+            if target is None or target.id == prov.id:
+                counts["left_pending"] += 1
+                continue
+
+            kwargs = _provider_kwargs(
+                payload,
+                category_slug=payload.category_slug or "things-to-do",
+                category_id=None,
+            )
+            _fill_gaps(target, kwargs)
+            sync_provider_entity_from_legacy(session, target)
+            ent = session.get(Entity, fuzzy_id)
+            ent_name = ent.name if ent is not None else "?"
+            if ent is not None:
+                ent.source = _combine_sources(ent.source, "go_lake_havasu")[:64]
+            prov.is_active = False
+            prov.pending_review = False
+            counts["merged"] += 1
+            counts["retired"] += 1
+            print(
+                f"  MERGE pending '{prov.provider_name}' [{prov.address or 'no addr'}] "
+                f"-> entity {fuzzy_id} '{ent_name}'"
+            )
+        if not dry_run:
+            session.commit()
+    return counts
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     p = argparse.ArgumentParser(description="Ingest golakehavasu partner listings")
@@ -266,14 +468,34 @@ def main() -> int:
         default="things-to-do",
         help="Tier-1 slug for new Provider.category + EntityCategory FK",
     )
+    p.add_argument(
+        "--fuzzy-threshold",
+        type=float,
+        default=FUZZY_NAME_THRESHOLD,
+        help="rapidfuzz token_sort_ratio floor (0-100) for geo-near fuzzy merge",
+    )
+    p.add_argument(
+        "--reconcile-pending",
+        action="store_true",
+        help="Cleanup mode: re-match existing draft+pending CVB rows onto Google rows",
+    )
     args = p.parse_args()
 
-    counts = ingest_partners(
-        category_slug=args.category_slug,
-        dry_run=bool(args.dry_run),
-        limit=args.limit,
-    )
-    print("--- golakehavasu_partners_load summary ---")
+    if args.reconcile_pending:
+        counts = reconcile_pending(
+            dry_run=bool(args.dry_run),
+            limit=args.limit,
+            fuzzy_threshold=args.fuzzy_threshold,
+        )
+        print("--- golakehavasu_partners_load --reconcile-pending summary ---")
+    else:
+        counts = ingest_partners(
+            category_slug=args.category_slug,
+            dry_run=bool(args.dry_run),
+            limit=args.limit,
+            fuzzy_threshold=args.fuzzy_threshold,
+        )
+        print("--- golakehavasu_partners_load summary ---")
     for k, v in counts.items():
         print(f"{k}: {v}")
     if args.dry_run:
