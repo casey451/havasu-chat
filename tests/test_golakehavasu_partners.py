@@ -139,7 +139,9 @@ def test_map_cvb_legacy_category_known_and_case_insensitive() -> None:
 
 
 def test_map_cvb_legacy_category_unmapped_returns_none() -> None:
-    for unmapped in ("Attractions", "Rentals", "Guided Tour", "Kingman", "", None):
+    # Attractions / Guided Tour are now mapped (see attractions test above);
+    # only genuinely ambiguous / geographic categories remain unmapped.
+    for unmapped in ("Rentals", "Transportation", "Kingman", "Misc", "", None):
         assert map_cvb_legacy_category(unmapped) is None
 
 
@@ -155,11 +157,23 @@ def test_cvb_legacy_values_are_accepted_by_category_filters() -> None:
     assert page_routed <= accepted, page_routed - accepted
 
 
+def test_map_cvb_category_attractions_family_tours() -> None:
+    # Attractions / family-fun / tours / entertainment have no dedicated Tier-1
+    # category, so they map to the closest seeded bucket (classes-sports-
+    # recreation) and route to the attractions legacy page via the legacy string.
+    assert map_cvb_category("Attractions") == "classes-sports-recreation"
+    assert map_cvb_category("Family-Fun") == "classes-sports-recreation"
+    assert map_cvb_category("Family Fun") == "classes-sports-recreation"
+    assert map_cvb_category("Guided Tour") == "classes-sports-recreation"
+    assert map_cvb_category("Entertainment") == "classes-sports-recreation"
+    assert map_cvb_legacy_category("Attractions") == "entertainment_attractions"
+    assert map_cvb_legacy_category("Guided Tour") == "tourism"
+
+
 def test_map_cvb_category_unmapped_returns_none() -> None:
-    # Catch-all / ambiguous / geographic CVB categories are intentionally
-    # unmapped so the loader falls back to its --category-slug default.
-    for unmapped in ("Attractions", "Rentals", "Guided Tour", "Transportation",
-                     "Kingman", "Family-Fun", "Misc", "", None):
+    # Genuinely ambiguous or geographic CVB categories stay unmapped so the
+    # loader falls back to its --category-slug default.
+    for unmapped in ("Rentals", "Transportation", "Kingman", "Misc", "", None):
         assert map_cvb_category(unmapped) is None
 
 
@@ -167,15 +181,15 @@ def test_partner_to_entity_payload_falls_back_when_unmapped() -> None:
     from app.contrib.golakehavasu_partners import PartnerListing
 
     listing = PartnerListing(
-        name="Some Tour Co",
-        url="https://www.golakehavasu.com/directory/some-tour-co/",
+        name="Some Rental Co",
+        url="https://www.golakehavasu.com/directory/some-rental-co/",
         address=None,
         lat=None,
         lng=None,
         phone=None,
         website=None,
         description=None,
-        category="Guided Tour",  # not in the confident map
+        category="Rentals",  # genuinely ambiguous -> not in the confident map
     )
     payload = partner_to_entity_payload(listing, category_slug="things-to-do")
     assert payload.category_slug == "things-to-do"
