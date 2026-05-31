@@ -207,7 +207,31 @@ needs_review, or max_group_size 4->3.
   NOTE" about a prompt injection. No such injection occurred; that note was
   removed. Casey's answers were normal selections.
 
+## PROD cleanup DONE (geo+name) + website guard added
+- Prod (zephyr.proxy.rlwy.net public URL) geo+name --apply: 3 merged, 0 skipped,
+  single commit. All score-100, <26m, google_places (Lake Havasu Retreat,
+  BRB/Brb Market casing, Close to Downtown listing). Post-audit geo+name = 0.
+  Prod now: 2431 providers, 425 candidate pairs remaining (website 252, phone
+  173 -- all needs_review, none auto).
+- WEBSITE prod pass revealed --require-identical-name is NOT enough: 47 pairs,
+  most are same-name CHAIN locations sharing a corporate domain 3km+ apart
+  (Subway x3, Dollar General x4, 76, McDonald's, Shell, Verizon, banks). Cursor
+  correctly SKIPPED the website apply.
+- FIX (shipped): added --max-distance-m to scripts/merge_existing_dups.py. When
+  set, a pair must have a real distance <= the limit; pairs with no distance
+  (missing coords) are EXCLUDED (conservative). Use:
+    python -m scripts.merge_existing_dups --reason website --require-identical-name --max-distance-m 500
+  -> keeps true co-located dups (London Bridge Resort 66m, Sugared in the City
+  0m, Heat Hotel, Jin's) and drops the chains. Run dry-run, eyeball, then --apply.
+- The unmerged website/phone pairs are NOT a problem: all needs_review, nothing
+  auto-merges, none are shown as dupes to users (the merge primitive is the only
+  thing that retires rows). Weekly audit will keep surfacing them for review.
+
 ## NOT done / next sessions
+- Website prod cleanup with --max-distance-m 500 (dry-run -> review -> apply).
+  This is the remaining operational task; uncommitted prod_dups.csv has the list.
+- The --max-distance-m change needs to be committed + a fast-follow PR to main
+  (it is currently an uncommitted local edit to merge_existing_dups.py).
 - Do NOT silently batch-auto-merge soft website pairs; use the admin UI or
   scripts/merge_existing_dups.py with explicit --reason / human review.
 - Persisted candidate-pairs table (status pending/merged/dismissed) is the upgrade
