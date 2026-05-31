@@ -91,6 +91,15 @@ DEFAULT_MAX_GROUP_SIZE = 4
 # additionally protected upstream by the shared-key cap.
 _AUTO_REASONS = {"google_place_id"}
 
+# Strongest signal wins for a pair, regardless of fuzz score. geo+name can score
+# 100 on identical names but must never override a definite identity key.
+_REASON_TIER: dict[str, int] = {
+    "google_place_id": 4,
+    "website": 3,
+    "phone": 2,
+    "geo+name": 1,
+}
+
 
 def _min_source_priority(source: str | None) -> int:
     parts = [p.strip() for p in (source or "").split(",") if p.strip()]
@@ -199,7 +208,12 @@ def find_provider_pairs(
             return
         key = frozenset((a.id, b.id))
         prev = best.get(key)
-        if prev is None or score > prev.score:
+        tier = _REASON_TIER.get(reason, 0)
+        if prev is None:
+            best[key] = _pair_for(a, b, reason=reason, score=score)
+            return
+        prev_tier = _REASON_TIER.get(prev.reason, 0)
+        if tier > prev_tier or (tier == prev_tier and score > prev.score):
             best[key] = _pair_for(a, b, reason=reason, score=score)
 
     # Identity tiers: group by key in O(n), pair within each group.
@@ -299,7 +313,7 @@ def _load_provider_rows(limit: int | None) -> list[ProvRow]:
 
 
 def _write_provider_csv(pairs: list[CandidatePair], out_path: Path) -> None:
-    with out_path.open("w", newline="", encoding="ascii", errors="replace") as fh:
+    with out_path.open("w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(
             [
@@ -335,7 +349,7 @@ def _write_provider_csv(pairs: list[CandidatePair], out_path: Path) -> None:
 
 
 def _write_shared_keys_csv(shared: list[SharedKey], out_path: Path) -> None:
-    with out_path.open("w", newline="", encoding="ascii", errors="replace") as fh:
+    with out_path.open("w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(["reason", "key", "count", "sample_names"])
         for s in shared:
@@ -437,7 +451,7 @@ def find_event_pairs(limit: int | None, fuzzy_threshold: float) -> list[EventPai
 
 
 def _write_event_csv(rows: list[EventPairRow], out_path: Path) -> None:
-    with out_path.open("w", newline="", encoding="ascii", errors="replace") as fh:
+    with out_path.open("w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(
             [

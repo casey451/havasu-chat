@@ -147,6 +147,33 @@ def test_identity_beats_geo_name_for_same_pair():
     assert pairs[0].reason == "website"
 
 
+def test_website_beats_geo_name_at_perfect_name_ratio():
+    # Identical names at the same spot score geo+name=100, but website tier
+    # must still win (tier precedence, not raw score).
+    rows = [
+        _row(
+            "a",
+            "Joe's Bar",
+            website="https://joes.com",
+            lat=34.48,
+            lng=-114.32,
+            source="google_places",
+        ),
+        _row(
+            "b",
+            "Joe's Bar",
+            website="http://www.joes.com",
+            lat=34.48,
+            lng=-114.32,
+            source="osm",
+        ),
+    ]
+    pairs = _pairs(rows)
+    assert len(pairs) == 1
+    assert pairs[0].reason == "website"
+    assert pairs[0].score == 99.0
+
+
 def test_shared_phone_above_cap_is_flagged_not_paired():
     # A switchboard number on 6 rows must NOT mint C(6,2)=15 auto-merge pairs.
     rows = [

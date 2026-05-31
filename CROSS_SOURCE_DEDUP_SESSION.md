@@ -208,19 +208,14 @@ needs_review, or max_group_size 4->3.
   removed. Casey's answers were normal selections.
 
 ## NOT done / next sessions
-- Item A "resolve/apply" batch mode: the admin UI + scripts/merge_existing_dups.py
-  are the intended consumers. Do NOT silently batch-auto-merge the website pairs.
-- ALL THIS SESSION'S WORK IS UNVERIFIED BY TESTS IN-SANDBOX (FUSE: cannot run
-  pytest, cannot reach DB; grep/line-numbers were garbled all session -- writes
-  were verified by Read only). Casey MUST run the suites listed above before merge.
+- Do NOT silently batch-auto-merge soft website pairs; use the admin UI or
+  scripts/merge_existing_dups.py with explicit --reason / human review.
 - Persisted candidate-pairs table (status pending/merged/dismissed) is the upgrade
   if the compute-live UI + "no dismiss" gets annoying for the soft website pairs.
+- Item B: enable INGEST_CONTACT_TIER_ENABLED in prod only after a full provider
+  suite run with the flag on (code is shipped, default OFF).
+- PROD still needs merge_existing_dups dry-run -> apply (geo+name batch, then the
+  two identical-name website self-dups with --require-identical-name).
 - Open product Q (carried): Attractions/Things-to-do Tier-1 category migration.
-- The 58 existing live self-dups still need resolving (loader fix only stops NEW
-  ones). Use merge_providers per pair once the admin merge UI exists, or a small
-  reviewed one-off script over the needs_review CSV rows.
-- Item B: promote contact tier into reconcile_hit (changes all sources; full suite).
-- Item D: shared per-source normalization helper (_norm_domain/_norm_phone/geo).
-- Open product Q (carried): Attractions/Things-to-do Tier-1 category.
 - Owner run: python scripts/cross_source_dedup_audit.py --out report.csv
   (add --events; --fuzzy-threshold / --max-group-size to tune).

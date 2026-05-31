@@ -65,11 +65,20 @@ Do NOT push.
 Print this block for me to run myself once I have the rotated DATABASE_PUBLIC_URL.
 Do not ask for the URL; just output the commands:
     set DATABASE_URL=<Railway public URL>
+    $env:DATABASE_URL="<Railway public URL>"
     python -m scripts.merge_existing_dups
     python -m scripts.merge_existing_dups --apply
     python -m scripts.merge_existing_dups --reason website --require-identical-name
     python -m scripts.merge_existing_dups --reason website --require-identical-name --apply
     python scripts\cross_source_dedup_audit.py --out prod_dups.csv
+
+## Step 6 -- Push the branch (do this; it needs git credentials I lack)
+The dedup work is committed (89d116b) on feat/golakehavasu-partners-closeout,
+2 commits ahead of origin. Push it:
+    git push -u origin feat/golakehavasu-partners-closeout
+Do NOT open or merge the PR yourself -- that is being handled separately in the
+browser, and the human will click the final Merge. Just push and confirm the
+branch is on origin.
 
 ## Out of scope (do nothing, just confirm you understand)
 - Item B flag stays OFF (enable later only after a full provider-suite run with
