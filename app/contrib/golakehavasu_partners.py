@@ -103,6 +103,20 @@ CVB_PRIMARY_CATEGORY_TO_SLUG: dict[str, str] = {
     "shopping": "shopping-essentials",
     # Events
     "events": "events",
+    # Attractions / sightseeing / tours / family fun / entertainment. No
+    # dedicated "attractions" Tier-1 Category exists (the 12 are locked), so the
+    # closest seeded bucket is classes-sports-recreation. The legacy string
+    # (below) routes these to the proper attractions/things-to-do legacy pages.
+    "attractions": "classes-sports-recreation",
+    "family-fun": "classes-sports-recreation",
+    "family fun": "classes-sports-recreation",
+    "entertainment": "classes-sports-recreation",
+    "activities": "classes-sports-recreation",
+    "venues": "classes-sports-recreation",
+    "guided tour": "classes-sports-recreation",
+    "tours": "classes-sports-recreation",
+    "outdoor land tours": "classes-sports-recreation",
+    "air tours": "classes-sports-recreation",
 }
 
 
@@ -169,6 +183,18 @@ CVB_PRIMARY_CATEGORY_TO_LEGACY: dict[str, str] = {
     "shopping": "retail",
     # Events -> "event_venue" (legacy events label)
     "events": "event_venue",
+    # Attractions/sightseeing -> "entertainment_attractions"; tours -> "tourism".
+    # Both are legal CATEGORY_FILTERS values (routes: attractions, things-to-do).
+    "attractions": "entertainment_attractions",
+    "family-fun": "entertainment_attractions",
+    "family fun": "entertainment_attractions",
+    "entertainment": "entertainment_attractions",
+    "activities": "entertainment_attractions",
+    "venues": "entertainment_attractions",
+    "guided tour": "tourism",
+    "tours": "tourism",
+    "outdoor land tours": "tourism",
+    "air tours": "tourism",
 }
 
 
