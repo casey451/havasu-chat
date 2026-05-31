@@ -30,12 +30,14 @@ Run commands (from a real environment that can reach the database)::
     python -m scripts.merge_existing_dups --reason geo+name --reason website --apply
 
     # Safe website cleanup -- merge ONLY website pairs whose normalized names are
-    # IDENTICAL (e.g. "Express Getaway" x2, "Empty Spaces..." x2). This excludes
-    # the dangerous co-located-distinct-venue website pairs (WET Pool Bar vs
-    # Turtle Grille, Lake View Grill vs the golf courses, etc.) which share a
-    # domain but are different businesses:
-    python -m scripts.merge_existing_dups --reason website --require-identical-name
-    python -m scripts.merge_existing_dups --reason website --require-identical-name --apply
+    # IDENTICAL and that are physically close. --require-identical-name alone is
+    # NOT enough on prod: same-name CHAIN locations (Subway x3, Dollar General x4,
+    # Shell, McDonald's...) share one corporate domain at 3km+ apart and would be
+    # wrongly merged. Add --max-distance-m 500 so only truly co-located same-name
+    # dups qualify (London Bridge Resort 66m, Sugared in the City 0m) while the
+    # chains are excluded:
+    python -m scripts.merge_existing_dups --reason website --require-identical-name --max-distance-m 500
+    python -m scripts.merge_existing_dups --reason website --require-identical-name --max-distance-m 500 --apply
 """
 from __future__ import annotations
 
@@ -136,6 +138,19 @@ def build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--max-distance-m",
+        type=float,
+        default=None,
+        help=(
+            "Only consider pairs whose two rows are within this many meters. "
+            "Pairs with NO distance (a row missing lat/lng) are EXCLUDED when "
+            "this is set. Use with --reason website to exclude same-name chain "
+            "locations that merely share a corporate domain (Subway, Dollar "
+            "General 3km+ apart) while keeping true co-located dups (London "
+            "Bridge Resort 66m, Sugared in the City 0m). Suggested: 500."
+        ),
+    )
+    parser.add_argument(
         "--apply",
         action="store_true",
         help=(
@@ -152,6 +167,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     min_score = args.min_score
     apply_mode = bool(args.apply)
     require_identical_name = bool(args.require_identical_name)
+    max_distance_m = args.max_distance_m
 
     mode_label = "APPLY (writes + single commit)" if apply_mode else "DRY RUN (read-only)"
     print("=" * 70)
@@ -161,6 +177,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print("Minimum score:  %s" % min_score)
     if require_identical_name:
         print("Filter: identical normalized names only")
+    if max_distance_m is not None:
+        print("Filter: distance <= %s m (pairs with no distance excluded)" % max_distance_m)
     print("=" * 70)
 
     # Snapshot the live rows up front and score them. Pairs are computed from
@@ -169,6 +187,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # below before each merge.
     rows = _load_provider_rows(None)
     pairs, _shared = find_provider_pairs(rows)
+
+    def _within_distance(pair: object) -> bool:
+        if max_distance_m is None:
+            return True
+        # No distance (a row is missing coords) cannot be confirmed close, so
+        # exclude it under a distance guard -- conservative by design.
+        dist = getattr(pair, "distance_m", None)
+        return dist is not None and dist <= max_distance_m
 
     selected = [
         pair
@@ -179,6 +205,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             not require_identical_name
             or slugify(pair.keep_name or "") == slugify(pair.dup_name or "")
         )
+        and _within_distance(pair)
     ]
 
     pairs_considered = len(selected)
