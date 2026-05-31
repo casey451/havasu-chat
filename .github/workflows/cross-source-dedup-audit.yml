@@ -1,0 +1,63 @@
+name: cross-source-dedup-audit
+
+# READ-ONLY weekly sweep for already-live duplicate rows across sources.
+#
+# At-ingest reconciliation (app/contrib/ingest_reconciler.reconcile_hit and
+# event_reconciler.reconcile_event) only compares an incoming row against rows
+# that exist at ingest time. Pairs that go live in an order the match tiers miss
+# stay live as duplicates. scripts/cross_source_dedup_audit.py finds those pairs
+# and writes a ranked CSV; it WRITES NOTHING to the DB. A human (or the future
+# Item C merge primitive) resolves from the report.
+#
+# Cadence: weekly. Sunday 10:10 UTC -- partners run :40, parks-rec :15, events
+# :45, so :10 keeps this isolated from the write crons.
+#
+# NOTE: GitHub only runs scheduled workflows from the DEFAULT branch; merge to
+# main before the cron takes effect. Use "Run workflow" (workflow_dispatch)
+# meanwhile. The DATABASE_URL secret is read-only for this job's purposes -- the
+# script issues SELECTs only.
+
+on:
+  schedule:
+    - cron: "10 10 * * 0"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  audit-cross-source-dups:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Audit provider duplicates (read-only)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/cross_source_dedup_audit.py --out provider_dup_candidates.csv
+
+      - name: Audit event duplicates (read-only)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/cross_source_dedup_audit.py --events --out events_dup_candidates.csv
+
+      - name: Upload duplicate-candidate reports
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dedup-candidates
+          path: |
+            provider_dup_candidates.csv
+            provider_dup_candidates_shared_keys.csv
+            events_dup_candidates.csv
+          if-no-files-found: warn

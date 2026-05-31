@@ -348,6 +348,27 @@ def ingest_partners(
                 if w:
                     cvb_by_web.setdefault(w, prov)
 
+            def _register_cvb(prov: Provider) -> None:
+                """Register a freshly-inserted CVB row into the in-batch
+                idempotency snapshot.
+
+                The snapshot above is built ONCE before the loop. The CVB
+                sitemap lists some businesses under multiple partner URLs (e.g.
+                the wildlife refuge, WACKO), so without this a later payload for
+                the SAME listing in the same run would not see the row just
+                inserted and would insert a second copy -- and geo can't catch
+                it because both carry the visitor-center coords (0.0m apart).
+                Registering here routes the later identical payload into the
+                idempotent-update branch instead. Mirrors the pre-loop snapshot
+                keys exactly (name slug + normalized website).
+                """
+                cvb_by_name.setdefault(
+                    slugify(prov.provider_name or ""), []
+                ).append(prov)
+                w = _norm_web(prov.website)
+                if w:
+                    cvb_by_web.setdefault(w, prov)
+
             for payload in payloads:
                 # Per-listing category (Task C): payload.category_slug carries the
                 # CVB->Hava mapped slug, or the --category-slug default when the
@@ -421,6 +442,7 @@ def ingest_partners(
                         provider = Provider(**pend, slug=slug, last_google_scraped_at=None)
                         session.add(provider)
                         create_provider_and_entity(session, provider)
+                        _register_cvb(provider)
                         counts["inserted_pending"] += 1
                         continue
                 if rec.action == "update" and rec.existing_id:
@@ -442,6 +464,7 @@ def ingest_partners(
                 provider = Provider(**kwargs, slug=slug, last_google_scraped_at=None)
                 session.add(provider)
                 create_provider_and_entity(session, provider)
+                _register_cvb(provider)
                 counts["inserted"] += 1
             session.commit()
         return counts

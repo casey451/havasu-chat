@@ -25,6 +25,7 @@ from app.admin.events_html import register_events_html_routes
 from app.admin.feedback_html import register_feedback_html_routes
 from app.admin.mentions_html import register_mentions_html_routes
 from app.admin.provider_approval import pending_provider_count
+from app.admin.provider_merge_review import duplicate_pair_count
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.db.database import DATABASE_URL, get_db
 from app.db.entity_dual_write import create_program_and_entity, create_provider_and_entity
@@ -252,6 +253,7 @@ def _analytics_page_html(db: Session) -> str:
         ("Live (approved)", str(approved)),
         ("Pending review", str(pending)),
         ("Providers pending review", str(pending_provider_count(db))),
+        ("Duplicate candidates", str(duplicate_pair_count(db))),
         ("Rejected / removed (deleted)", str(rejected)),
         ("Approval rate (live / (live + deleted))", rate_s),
     ]
@@ -313,6 +315,7 @@ def _analytics_page_html(db: Session) -> str:
     <h2>Event funnel (30 days)</h2>
     <p class="sub">Rows in <code>events</code> created in the last 30 days by status.</p>
     <table>{_table_rows_html(funnel_rows, ("Metric", "Value"))}</table>
+    <p class="nav"><a href="/admin/providers/duplicates">Review duplicate candidates &rarr;</a></p>
 
     {finding}
   </div>
