@@ -1,0 +1,99 @@
+"""Single safe entry point for ANY scraper writing providers into Ask Hava.
+
+The goal: adding new scrapers should not surface duplicates to users. That holds
+only if every source funnels through the same prevention path instead of each
+scraper re-implementing insert/merge logic (and forgetting a step). This module
+is that funnel.
+
+The contract (see NEW_SCRAPER_CHECKLIST.md):
+
+  1. NORMALIZE the payload first (strip whitespace, "" -> None) so the reconciler
+     matches on clean values regardless of how messy a given source is.
+  2. RECONCILE against existing rows via ``ingest_reconciler.reconcile_hit``:
+       * update     -> merge onto the existing entity (no new row)
+       * ambiguous  -> a possible dup we are NOT sure about
+       * insert     -> genuinely new
+  3. The KEY rule: an ``ambiguous`` decision must land the row HIDDEN
+     (``draft=True`` + ``pending_review=True``). Every consumption query filters
+     ``draft=False``, so a held row is captured for review but NEVER shown to a
+     user as a duplicate. :func:`decide_ingest` surfaces this as ``should_hide``
+     so a scraper author cannot forget it.
+
+This module returns DECISIONS; the caller still performs the actual
+Provider/Entity write (via app.db.entity_dual_write) so source-specific fields
+are preserved. What it guarantees is that the decision -- and the hide-on-doubt
+rule -- are identical across every source.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, replace
+
+from sqlalchemy.orm import Session
+
+from app.contrib.ingest_base import EntityPayload
+from app.contrib.ingest_reconciler import ReconcileResult, reconcile_hit
+
+
+def _clean(value: str | None) -> str | None:
+    if value is None:
+        return None
+    s = str(value).strip()
+    return s or None
+
+
+def normalize_payload(payload: EntityPayload) -> EntityPayload:
+    """Return a cleaned copy: whitespace stripped, empty strings -> None.
+
+    Cleaning before reconciliation matters because a source that emits ``""`` or
+    ``" Joe's Bar "`` would otherwise miss matches (or create near-dup rows) that
+    a clean value would catch. Name whitespace is collapsed to single spaces.
+    Stored values stay human-readable -- domain/phone canonicalization for
+    MATCHING happens inside the reconciler's contact tier, not here, so we do not
+    mangle what gets displayed.
+    """
+    name = _clean(payload.name)
+    if name:
+        name = " ".join(name.split())
+    return replace(
+        payload,
+        name=name or "",
+        address=_clean(payload.address),
+        phone=_clean(payload.phone),
+        website=_clean(payload.website),
+        description=_clean(payload.description),
+        google_place_id=_clean(payload.google_place_id),
+    )
+
+
+@dataclass
+class IngestDecision:
+    """What a scraper should do with one payload, after normalization + reconcile."""
+
+    action: str  # "update" | "ambiguous" | "insert"
+    existing_id: str | None
+    should_hide: bool  # True -> write draft=True + pending_review=True (hidden)
+    reason: str | None
+    payload: EntityPayload  # the NORMALIZED payload the caller should persist
+    reconcile: ReconcileResult
+
+
+def decide_ingest(db: Session, payload: EntityPayload) -> IngestDecision:
+    """Normalize, reconcile, and return a uniform decision for the caller.
+
+    ``should_hide`` is True exactly when the reconciler is unsure (``ambiguous``)
+    -- the caller MUST honour it (draft=True + pending_review=True) so an
+    uncertain row is captured for the admin review queue rather than shown to a
+    user. ``update`` means merge onto ``existing_id`` (no new row); ``insert``
+    means a genuinely new provider.
+    """
+    clean = normalize_payload(payload)
+    result = reconcile_hit(db, clean)
+    return IngestDecision(
+        action=result.action,
+        existing_id=result.existing_id,
+        should_hide=(result.action == "ambiguous"),
+        reason=result.reason,
+        payload=clean,
+        reconcile=result,
+    )
