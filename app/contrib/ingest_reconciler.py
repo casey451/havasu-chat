@@ -22,6 +22,7 @@ ORM models are lazy-imported inside functions to avoid import-cycle gotcha #17.
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from math import asin, cos, radians, sin, sqrt
 from typing import Any
@@ -29,6 +30,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.contrib.ingest_base import EntityPayload
+from app.utils.contact_norm import norm_domain, norm_phone
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +84,56 @@ def _combine_sources(existing: str | None, incoming: str) -> str:
     return ",".join(tokens)
 
 
+def _contact_tier_enabled() -> bool:
+    """Whether the website/phone contact-match tier runs (read at CALL time).
+
+    BLAST RADIUS: this gate guards a tier inside :func:`reconcile_hit`, which is
+    the central reconciler for EVERY provider ingest source (osm, google_places,
+    az_roc, npi_registry, etc.). When enabled, a payload whose normalized website
+    or phone uniquely matches an existing active Provider will MERGE onto that
+    entity even with no geo/name match -- so flipping this on changes dedup
+    behavior for all of those sources at once. Default is OFF: an unset / empty /
+    falsey env value leaves reconcile_hit behaving exactly as before. Casey opts
+    in per-environment by setting INGEST_CONTACT_TIER_ENABLED.
+    """
+    return os.environ.get("INGEST_CONTACT_TIER_ENABLED", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def _contact_match_entity_id(db: Session, payload: EntityPayload) -> str | None:
+    """Unique active-Provider entity_id matching the payload's website/phone.
+
+    Identity tier: a shared website domain or phone is a stronger signal than
+    geo/name, so this runs just below google_place_id. Candidates are ALL active
+    providers (not only google-backed ones, unlike the CVB loader's narrower
+    _contact_match). Returns an entity_id only when EXACTLY ONE distinct entity
+    matches -- zero or multiple -> None, so the caller falls through to the
+    geo/name tiers (high precision: unique match only).
+    """
+    from app.db.models import Provider
+
+    web = norm_domain(payload.website)
+    phone = norm_phone(payload.phone)
+    if web is None and phone is None:
+        return None
+
+    matches: set[str] = set()
+    for prov in db.query(Provider).filter(Provider.is_active.is_(True)).all():
+        if not prov.entity_id:
+            continue
+        if web is not None and norm_domain(prov.website) == web:
+            matches.add(prov.entity_id)
+        elif phone is not None and norm_phone(prov.phone) == phone:
+            matches.add(prov.entity_id)
+    if len(matches) == 1:
+        return next(iter(matches))
+    return None
+
+
 def reconcile_hit(db: Session, payload: EntityPayload) -> ReconcileResult:
     from app.db.models import Entity, Location
 
@@ -97,6 +149,20 @@ def reconcile_hit(db: Session, payload: EntityPayload) -> ReconcileResult:
                 existing_id=loc.entity_id,
                 merge_fields=_compute_merge_fields(db, loc.entity_id, payload),
                 reason="google_place_id exact match",
+            )
+
+    # Contact (website/phone) identity tier -- runs ABOVE geo because a shared
+    # website domain or phone number is a stronger identity signal than mere
+    # proximity. Gated OFF by default; see _contact_tier_enabled for blast radius
+    # (this changes dedup behavior for every provider source when enabled).
+    if _contact_tier_enabled():
+        contact_id = _contact_match_entity_id(db, payload)
+        if contact_id is not None:
+            return ReconcileResult(
+                action="update",
+                existing_id=contact_id,
+                merge_fields=_compute_merge_fields(db, contact_id, payload),
+                reason="contact (website/phone) exact match",
             )
 
     if payload.lat is not None and payload.lng is not None:

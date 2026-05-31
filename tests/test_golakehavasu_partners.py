@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import httpx
 import pytest
+from sqlalchemy import select
 
 from app.contrib.golakehavasu import SITEMAP_INDEX_URL
 from app.contrib.golakehavasu_partners import (
@@ -443,3 +444,83 @@ def test_contact_match_ignores_non_google_rows(db_session) -> None:
         category_slug="eat-drink",
     )
     assert _contact_match(db_session, payload) is None
+
+
+# --- in-batch idempotency (regression for the same-source 0.0m self-dups) ----
+def test_ingest_partners_dedupes_same_name_within_one_run(monkeypatch) -> None:
+    """Two partner URLs for the SAME business in one run yield ONE row.
+
+    The CVB sitemap lists some businesses under multiple URLs; the loader's
+    idempotency snapshot was built once before the payload loop, so the second
+    payload could not see the row the first had just inserted and inserted a
+    duplicate -- and geo could not catch it because both carried the
+    visitor-center coords (0.0m apart). _register_cvb closes that window. This
+    is the source of the 58 same-source geo+name self-dups the cross-source
+    audit surfaced.
+    """
+    import scripts.golakehavasu_partners_load as loader
+    from app.contrib.golakehavasu_partners import PartnerListing
+
+    name = "Multiurl Self Dup ZZZ"
+
+    def _make_listing(url: str) -> PartnerListing:
+        # Isolated coords: visitor-center lat/lng sits among many Google rows and
+        # the first payload lands in ambiguous reconcile (inserted_pending), which
+        # would mask the _register_cvb same-run dedup this test targets.
+        return PartnerListing(
+            name=name,
+            url=url,
+            address="1 Pier Rd, Lake Havasu City, AZ 86403",
+            lat=34.5123,
+            lng=-114.3789,
+            phone="(928) 555-0142",
+            website="http://multiurl-selfdup.example",
+            description="desc",
+            category="Restaurant/Bar",
+        )
+
+    # Same listing served from two distinct partner URLs (the real sitemap shape).
+    monkeypatch.setattr(
+        loader, "fetch_partner_sitemap_urls", lambda **k: ["u1", "u2"]
+    )
+    monkeypatch.setattr(
+        loader, "fetch_and_parse_partner", lambda url, **k: _make_listing(url)
+    )
+
+    def _cleanup() -> None:
+        # ingest_partners commits internally (no rollback harness), so remove the
+        # rows it created -- providers AND their entities -- to keep the DB clean
+        # and stop a prior run's leftovers from poisoning the snapshot.
+        from app.db.models import Entity
+
+        with SessionLocal() as session:
+            provs = session.scalars(
+                select(Provider).where(Provider.provider_name == name)
+            ).all()
+            ent_ids = [p.entity_id for p in provs if p.entity_id]
+            for p in provs:
+                session.delete(p)
+            session.flush()
+            for ent in session.scalars(
+                select(Entity).where(Entity.id.in_(ent_ids))
+            ).all():
+                session.delete(ent)
+            session.commit()
+
+    _cleanup()  # clear any leftovers from an earlier failed run
+    try:
+        counts = loader.ingest_partners(
+            category_slug="eat-drink", dry_run=False, limit=None
+        )
+
+        assert counts["inserted"] == 1
+        assert counts["idempotent_updated"] == 1
+        assert counts["retired_duplicates"] == 0
+
+        with SessionLocal() as session:
+            rows = session.scalars(
+                select(Provider).where(Provider.provider_name == name)
+            ).all()
+            assert len(rows) == 1
+    finally:
+        _cleanup()
