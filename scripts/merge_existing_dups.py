@@ -48,15 +48,14 @@ from typing import List, Optional, Sequence, Set
 # scripts/merge_existing_dups.py), matching the sibling audit script's pattern.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.cross_source_dedup_audit import (  # noqa: E402
-    find_provider_pairs,
-    _load_provider_rows,
-)
 from app.contrib.ingest_reconciler import slugify  # noqa: E402
 from app.contrib.provider_merge import merge_providers  # noqa: E402
 from app.db.database import SessionLocal  # noqa: E402
 from app.db.models import Provider  # noqa: E402
-
+from scripts.cross_source_dedup_audit import (  # noqa: E402
+    _load_provider_rows,
+    find_provider_pairs,
+)
 
 # Reasons emitted by the audit scorer. "geo+name" is the safe same-source
 # self-dup worklist and is the default target.
