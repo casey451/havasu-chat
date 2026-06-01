@@ -148,6 +148,16 @@ def _scraperapi_api_params(
     return params
 
 
+def _scraperapi_sapi_headers(*, ultra_premium: bool = True, render: bool = False) -> dict[str, str]:
+    """ScraperAPI control headers (work for POSTs where query params may not)."""
+    hdrs = {"x-sapi-keep_headers": "true"}
+    if ultra_premium:
+        hdrs["x-sapi-ultra_premium"] = "true"
+    if render:
+        hdrs["x-sapi-render"] = "true"
+    return hdrs
+
+
 def _scraperapi_get(
     proxy: str,
     target_url: str,
@@ -164,6 +174,7 @@ def _scraperapi_get(
         return httpx.get(
             SCRAPERAPI_API_URL,
             params=params,
+            headers=_scraperapi_sapi_headers(render=render),
             timeout=PROXY_REQUEST_TIMEOUT,
         )
     except httpx.HTTPError as exc:  # pragma: no cover - network dependent
@@ -180,16 +191,17 @@ def _scraperapi_post(
     headers: dict[str, str],
 ) -> httpx.Response | None:
     params = _scraperapi_api_params(
-        proxy, target_url, session_number=session_number, render=False
+        proxy, target_url, session_number=session_number, ultra_premium=False, render=False
     )
     if params is None:
         return None
+    out_headers = {**headers, **_scraperapi_sapi_headers()}
     try:
         return httpx.post(
             SCRAPERAPI_API_URL,
             params=params,
             json=json_body,
-            headers=headers,
+            headers=out_headers,
             timeout=PROXY_REQUEST_TIMEOUT,
         )
     except httpx.HTTPError as exc:  # pragma: no cover - network dependent
