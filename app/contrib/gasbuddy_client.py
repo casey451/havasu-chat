@@ -139,11 +139,12 @@ def _scraperapi_proxies(
     if not api_key:
         logger.error("ScraperAPI proxy URL is missing API key (password component)")
         return None
-    parts = [f"session_number={session_number}"]
+    parts: list[str] = []
     if ultra_premium:
         parts.append("ultra_premium=true")
     elif premium:
         parts.append("premium=true")
+    parts.append(f"session_number={session_number}")
     if render:
         parts.append("render=true")
     username = "scraperapi." + ".".join(parts)
@@ -151,17 +152,6 @@ def _scraperapi_proxies(
     port = urlparse(proxy).port or 8001
     proxy_url = f"http://{username}:{api_key}@{host}:{port}"
     return {"http": proxy_url, "https": proxy_url}
-
-
-def _requests_to_httpx_response(
-    resp: requests.Response, *, method: str, url: str
-) -> httpx.Response:
-    return httpx.Response(
-        status_code=resp.status_code,
-        headers=resp.headers,
-        content=resp.content,
-        request=httpx.Request(method, url),
-    )
 
 
 def _fetch_csrf_token_scraperapi(
@@ -254,8 +244,8 @@ def _fetch_stations_scraperapi(
                     (resp.text or "")[:300],
                 )
             try:
-                _requests_to_httpx_response(resp, method="POST", url=GRAPHQL_URL).raise_for_status()
-            except httpx.HTTPStatusError as exc:
+                resp.raise_for_status()
+            except requests.HTTPError as exc:
                 logger.warning("GasBuddy fetch failed for %s: %s", zip_code, exc)
                 break
             try:
