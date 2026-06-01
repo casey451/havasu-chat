@@ -45,11 +45,12 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.categories import queries as cat_queries
+from app.v1.categories import BUCKET_SLUG_REDIRECTS
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
@@ -234,21 +235,25 @@ def serve_categories_index(
     )
 
 
-@router.get("/categories/{slug}", response_class=HTMLResponse)
+@router.get("/categories/{slug}", response_class=HTMLResponse, response_model=None)
 def serve_category(
     request: Request,
     slug: str,
     db: Session = Depends(get_db),
-) -> HTMLResponse:
+) -> HTMLResponse | RedirectResponse:
     """Render a single category page.
 
-    Returns 404 when the slug is not in
-    ``app.categories.queries.CATEGORY_FILTERS``. Otherwise, renders
+    Master-bucket slugs (``food-drink``, ``events``, …) 301 to their
+    mapped Tier-1 ``/categories/{slug}`` page. Returns 404 when the
+    slug is neither a known route nor a master bucket. Otherwise renders
     ``category_c.html`` with a filtered Provider list, a slim header,
     and the shared topbar with the right tab marked active.
     """
     normalised = (slug or "").strip().lower()
     if not cat_queries.is_valid_category_slug(normalised):
+        bucket_dest = BUCKET_SLUG_REDIRECTS.get(normalised)
+        if bucket_dest:
+            return RedirectResponse(url=bucket_dest, status_code=301)
         raise HTTPException(status_code=404, detail="unknown_category")
 
     now = now_lake_havasu()

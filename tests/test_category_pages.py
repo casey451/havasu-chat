@@ -43,6 +43,7 @@ from fastapi.testclient import TestClient
 from app.categories import queries as cat_queries
 from app.home.queries import LEGACY_PROVIDER_CATEGORY_LABELS
 from app.main import app
+from app.v1.categories import BUCKET_SLUG_REDIRECTS, MASTER_BUCKETS
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -293,6 +294,40 @@ def test_category_route_404_for_unknown_slug() -> None:
     client = TestClient(app)
     resp = client.get("/categories/garbage-slug")
     assert resp.status_code == 404
+
+
+@pytest.mark.parametrize("bucket", [b["slug"] for b in MASTER_BUCKETS])
+def test_master_bucket_slug_resolves_to_category_page(bucket: str) -> None:
+    """Browse Havasu bucket links 301 to Tier-1 pages (or 200 when slug matches)."""
+    client = TestClient(app, follow_redirects=False)
+    expected_dest = BUCKET_SLUG_REDIRECTS[bucket]
+    with (
+        patch.object(cat_queries, "category_cards", return_value=_stub_cards(3)),
+        patch.object(cat_queries, "category_count", return_value=5),
+    ):
+        resp = client.get(f"/categories/{bucket}")
+    if bucket == "services":
+        assert resp.status_code == 200
+    else:
+        assert resp.status_code == 301, f"/categories/{bucket} should redirect, got {resp.status_code}"
+        assert resp.headers["location"] == expected_dest
+        final = client.get(f"/categories/{bucket}", follow_redirects=True)
+        assert final.status_code == 200, (
+            f"followed redirect from /categories/{bucket} to {expected_dest}, got {final.status_code}"
+        )
+
+
+def test_food_drink_and_events_bucket_redirects() -> None:
+    """Regression: Browse Havasu links that previously 404."""
+    client = TestClient(app, follow_redirects=False)
+    cases = {
+        "food-drink": "/categories/eat-drink",
+        "events": "/categories/things-to-do",
+    }
+    for bucket, dest in cases.items():
+        resp = client.get(f"/categories/{bucket}")
+        assert resp.status_code == 301
+        assert resp.headers["location"] == dest
 
 
 @pytest.mark.parametrize("slug", sorted(cat_queries.CATEGORY_FILTERS.keys()))

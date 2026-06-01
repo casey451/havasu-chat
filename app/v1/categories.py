@@ -14,6 +14,18 @@ MASTER_BUCKETS: Final[tuple[dict[str, str], ...]] = (
     {"id": "stay", "label": "Stay", "slug": "stay"},
 )
 
+# Master-bucket slugs (API / Browse Havasu) → public Tier-1 ``/categories/{slug}``
+# pages. Shared by ``/categories/{bucket}`` and ``/lake-havasu/categories/{bucket}``.
+BUCKET_SLUG_REDIRECTS: Final[dict[str, str]] = {
+    "events": "/categories/things-to-do",
+    "food-drink": "/categories/eat-drink",
+    "recreation-outdoors": "/categories/on-the-water",
+    "sports-fitness": "/categories/classes-sports-recreation",
+    "shopping": "/categories/shopping-essentials",
+    "services": "/categories/services",
+    "stay": "/categories/lodging-vacation-rentals",
+}
+
 # Legacy Provider.category / Tier-1 slug hints → master bucket id.
 _LEGACY_CATEGORY_TO_BUCKET: dict[str, str] = {
     "events": "events",
