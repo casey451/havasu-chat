@@ -16,9 +16,14 @@ one their own site uses. The request shape mirrors the open-source
 Reliability: from a datacenter IP (Railway / GitHub Actions) -- and often
 from residential IPs too -- Cloudflare challenges the /home GET, so the token
 cannot be scraped and the feed falls back to Google. Set
-``GAS_SCRAPE_PROXY_URL`` (a Bright Data Web Unlocker / Nimble proxy,
-``http://user:pass@host:port``) and every request routes through it so both
-the token fetch and the POST get past Cloudflare.
+``GAS_SCRAPE_PROXY_URL`` (ScraperAPI proxy port, Bright Data Web Unlocker,
+Nimble, etc. -- ``http://user:pass@host:port``) and every request routes
+through it so both the token fetch and the POST get past Cloudflare.
+
+Proxied fetches use ``verify=False`` on the httpx client only (ScraperAPI and
+similar unblockers terminate TLS and re-encrypt with their own cert). When
+GasBuddy still returns zero stations via a ScraperAPI proxy, we retry once
+with ``scraperapi.render=true`` in the proxy username (JS rendering).
 
 ASCII-only by project convention.
 """
@@ -29,6 +34,7 @@ import logging
 import os
 import re
 from typing import Any
+from urllib.parse import urlparse, urlunparse
 
 import httpx
 
@@ -94,15 +100,47 @@ def _proxy_url() -> str | None:
     return val or None
 
 
-def _build_client() -> httpx.Client:
+def _scraperapi_render_proxy(proxy: str) -> str | None:
+    """Return a ScraperAPI proxy URL with ``render=true``, or None if N/A.
+
+    ScraperAPI encodes API params in the proxy username (e.g.
+    ``scraperapi.render=true:API_KEY@proxy-server.scraperapi.com:8001``).
+    """
+    parsed = urlparse(proxy)
+    host = (parsed.hostname or "").lower()
+    if "scraperapi.com" not in host:
+        return None
+    user = parsed.username or ""
+    if not user.startswith("scraperapi"):
+        return None
+    if "render=true" in user:
+        return None
+    if user == "scraperapi":
+        new_user = "scraperapi.render=true"
+    elif user.startswith("scraperapi."):
+        new_user = f"scraperapi.render=true.{user[len('scraperapi.') :]}"
+    else:
+        return None
+    password = parsed.password or ""
+    auth = f"{new_user}:{password}@" if password else f"{new_user}@"
+    port = f":{parsed.port}" if parsed.port else ""
+    netloc = f"{auth}{parsed.hostname}{port}"
+    return urlunparse(
+        (parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment)
+    )
+
+
+def _build_client(*, proxy: str | None = None) -> httpx.Client:
     """Construct an httpx client, routing through the unblocker proxy if set."""
-    proxy = _proxy_url()
+    proxy = _proxy_url() if proxy is None else proxy
     kwargs: dict[str, Any] = {
         "headers": dict(DEFAULT_HEADERS),
         "timeout": REQUEST_TIMEOUT,
         "follow_redirects": True,
     }
     if proxy:
+        # ScraperAPI / similar proxies MITM TLS; cert won't chain to a public CA.
+        kwargs["verify"] = False
         # httpx >=0.26 uses ``proxy=``; older releases use ``proxies=``.
         try:
             return httpx.Client(proxy=proxy, **kwargs)
@@ -176,30 +214,52 @@ def fetch_stations_for_search(
     return out
 
 
+def _fetch_lhc_stations_with_client(
+    client: httpx.Client, zips: tuple[str, ...]
+) -> list[dict[str, Any]]:
+    """Fetch + de-dupe raw GasBuddy stations for one httpx client session."""
+    seen: set[str] = set()
+    merged: list[dict[str, Any]] = []
+    token = _fetch_csrf_token(client)
+    if token:
+        client.headers["gbcsrf"] = token
+    for zip_code in zips:
+        try:
+            results = fetch_stations_for_search(client, zip_code)
+        except httpx.HTTPError as exc:  # pragma: no cover - network dependent
+            logger.warning("GasBuddy fetch failed for %s: %s", zip_code, exc)
+            continue
+        for st in results:
+            sid = str(st.get("id") or "")
+            if sid and sid in seen:
+                continue
+            if sid:
+                seen.add(sid)
+            merged.append(st)
+    return merged
+
+
 def fetch_lhc_stations(zips: tuple[str, ...] = LHC_ZIPS) -> list[dict[str, Any]]:
     """Fetch + de-duplicate raw GasBuddy stations across all LHC ZIPs.
 
     De-dupes on GasBuddy station ``id`` (the same station appears in more than
     one ZIP search because GasBuddy returns a radius around the term).
+
+    When ``GAS_SCRAPE_PROXY_URL`` points at ScraperAPI and the first pass
+    returns zero stations, retries once with ``render=true`` (JS rendering).
     """
-    seen: set[str] = set()
-    merged: list[dict[str, Any]] = []
-    with _build_client() as client:
-        token = _fetch_csrf_token(client)
-        if token:
-            client.headers["gbcsrf"] = token
-        for zip_code in zips:
-            try:
-                results = fetch_stations_for_search(client, zip_code)
-            except httpx.HTTPError as exc:  # pragma: no cover - network dependent
-                logger.warning("GasBuddy fetch failed for %s: %s", zip_code, exc)
-                continue
-            for st in results:
-                sid = str(st.get("id") or "")
-                if sid and sid in seen:
-                    continue
-                if sid:
-                    seen.add(sid)
-                merged.append(st)
+    proxy = _proxy_url()
+    with _build_client(proxy=proxy) as client:
+        merged = _fetch_lhc_stations_with_client(client, zips)
+
+    if not merged and proxy:
+        render_proxy = _scraperapi_render_proxy(proxy)
+        if render_proxy:
+            logger.info(
+                "GasBuddy returned 0 stations via ScraperAPI proxy; retrying with render=true"
+            )
+            with _build_client(proxy=render_proxy) as client:
+                merged = _fetch_lhc_stations_with_client(client, zips)
+
     logger.info("GasBuddy returned %d unique stations across %d ZIPs", len(merged), len(zips))
     return merged
