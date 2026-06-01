@@ -389,7 +389,9 @@ app.include_router(providers_router)
 app.include_router(new_chat_ui_router)
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
-app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
+# Mount the more-specific /static/biz-photos BEFORE the broad /static mount.
+# Starlette matches mounts in registration order; if /static is registered first
+# it shadows /static/biz-photos (the request resolves against app/static -> 404).
 _BIZ_PHOTOS_DIR = Path("/data/biz-photos")
 if _BIZ_PHOTOS_DIR.is_dir():
     app.mount(
@@ -397,6 +399,7 @@ if _BIZ_PHOTOS_DIR.is_dir():
         StaticFiles(directory=str(_BIZ_PHOTOS_DIR)),
         name="biz_photos",
     )
+app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 
 _CONTRIB_UPLOADS = Path(__file__).resolve().parents[1] / "data" / "contrib_uploads"
 if _CONTRIB_UPLOADS.is_dir():
