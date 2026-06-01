@@ -24,11 +24,13 @@ Proxied fetches use ``verify=False`` on the httpx client only (ScraperAPI and
 similar unblockers terminate TLS and re-encrypt with their own cert).
 
 ScraperAPI specifics (``proxy-server.scraperapi.com``):
-  - GasBuddy is a protected domain: GraphQL POSTs need ``ultra_premium=true``
-    (or ``premium=true``) in the ScraperAPI proxy username.
-  - ``render=true`` is GET-only in ScraperAPI; use it for a fallback /home
-    CSRF fetch, not for GraphQL POSTs.
-  - ``session_number`` pins the same proxy IP across the /home GET and POSTs.
+  - GasBuddy is a protected domain: requests need ``ultra_premium=true``.
+  - Proxy-port mode did not reliably forward username params on GraphQL POSTs
+    via httpx, so ScraperAPI URLs are converted to the HTTP API
+    (``https://api.scraperapi.com/``) using the API key from the proxy URL
+    password.
+  - ``render=true`` is GET-only; use it for a fallback /home CSRF fetch.
+  - ``session_number`` pins the same proxy IP across /home and GraphQL.
 
 ASCII-only by project convention.
 """
@@ -48,6 +50,7 @@ logger = logging.getLogger(__name__)
 
 GRAPHQL_URL = "https://www.gasbuddy.com/graphql"
 PRIME_URL = "https://www.gasbuddy.com/home"
+SCRAPERAPI_API_URL = "https://api.scraperapi.com/"
 REQUEST_TIMEOUT = 30.0
 # ScraperAPI / unblocker round-trips are slow; keep below their ~70s ceiling.
 PROXY_REQUEST_TIMEOUT = 90.0
@@ -113,82 +116,198 @@ def _is_scraperapi_proxy(proxy: str) -> bool:
     return "scraperapi.com" in (urlparse(proxy).hostname or "").lower()
 
 
-def _parse_scraperapi_username(user: str) -> dict[str, str]:
-    """Parse ``scraperapi.k=v.k2=v2`` username params into a dict."""
-    if user in ("", "scraperapi"):
-        return {}
-    if not user.startswith("scraperapi."):
-        return {}
-    params: dict[str, str] = {}
-    for part in user[len("scraperapi.") :].split("."):
-        if "=" in part:
-            key, val = part.split("=", 1)
-            params[key] = val
+
+def _scraperapi_api_key(proxy: str) -> str | None:
+    """API key is stored as the password component of ``GAS_SCRAPE_PROXY_URL``."""
+    key = urlparse(proxy).password
+    return key or None
+
+
+def _scraperapi_api_params(
+    proxy: str,
+    target_url: str,
+    *,
+    session_number: str,
+    ultra_premium: bool = True,
+    render: bool = False,
+) -> dict[str, str] | None:
+    api_key = _scraperapi_api_key(proxy)
+    if not api_key:
+        logger.error("ScraperAPI proxy URL is missing API key (password component)")
+        return None
+    params: dict[str, str] = {
+        "api_key": api_key,
+        "url": target_url,
+        "session_number": session_number,
+        "keep_headers": "true",
+    }
+    if ultra_premium:
+        params["ultra_premium"] = "true"
+    if render:
+        params["render"] = "true"
     return params
 
 
-def _prepare_scraperapi_proxy(
+def _scraperapi_get(
     proxy: str,
+    target_url: str,
     *,
-    session_number: str | None = None,
-    premium: bool = False,
-    ultra_premium: bool = False,
+    session_number: str,
     render: bool = False,
-) -> tuple[str, str, str]:
-    """Build ScraperAPI proxy endpoint + auth tuple for httpx.Proxy.
-
-    Returns ``(proxy_base_url, username, password)``. Params like
-    ``premium=true`` belong in the username, not the URL userinfo string,
-    so httpx forwards them reliably on both GET and POST.
-    """
-    parsed = urlparse(proxy)
-    params = _parse_scraperapi_username(parsed.username or "")
-    sid = session_number or params.get("session_number") or str(random.randint(1, 9_999_999))
-    params["session_number"] = sid
-    if ultra_premium:
-        params.pop("premium", None)
-        params["ultra_premium"] = "true"
-    elif premium and "premium" not in params and "ultra_premium" not in params:
-        params["premium"] = "true"
-    if render:
-        params["render"] = "true"
-    else:
-        params.pop("render", None)
-    parts = [f"{key}={val}" for key, val in params.items()]
-    username = f"scraperapi.{'.'.join(parts)}" if parts else "scraperapi"
-    password = parsed.password or ""
-    port = parsed.port or 8001
-    proxy_base = f"{parsed.scheme}://{parsed.hostname}:{port}"
-    return proxy_base, username, password
+) -> httpx.Response | None:
+    params = _scraperapi_api_params(
+        proxy, target_url, session_number=session_number, render=render
+    )
+    if params is None:
+        return None
+    try:
+        return httpx.get(
+            SCRAPERAPI_API_URL,
+            params=params,
+            timeout=PROXY_REQUEST_TIMEOUT,
+        )
+    except httpx.HTTPError as exc:  # pragma: no cover - network dependent
+        logger.warning("ScraperAPI GET %s failed: %s", target_url, exc)
+        return None
 
 
-def _build_scraperapi_client(
+def _scraperapi_post(
     proxy: str,
+    target_url: str,
     *,
-    session_number: str | None = None,
-    premium: bool = False,
-    ultra_premium: bool = False,
-    render: bool = False,
-    timeout: float | None = None,
-) -> httpx.Client:
-    """httpx client wired for ScraperAPI proxy-port auth params."""
-    proxy_base, username, password = _prepare_scraperapi_proxy(
-        proxy,
-        session_number=session_number,
-        premium=premium,
-        ultra_premium=ultra_premium,
-        render=render,
+    session_number: str,
+    json_body: dict[str, Any],
+    headers: dict[str, str],
+) -> httpx.Response | None:
+    params = _scraperapi_api_params(
+        proxy, target_url, session_number=session_number, render=False
     )
-    effective_timeout = timeout if timeout is not None else PROXY_REQUEST_TIMEOUT
-    proxy_obj = httpx.Proxy(url=proxy_base, auth=(username, password))
-    return httpx.Client(
-        headers=dict(DEFAULT_HEADERS),
-        timeout=effective_timeout,
-        follow_redirects=True,
-        verify=False,
-        proxy=proxy_obj,
-        limits=httpx.Limits(max_keepalive_connections=0),
-    )
+    if params is None:
+        return None
+    try:
+        return httpx.post(
+            SCRAPERAPI_API_URL,
+            params=params,
+            json=json_body,
+            headers=headers,
+            timeout=PROXY_REQUEST_TIMEOUT,
+        )
+    except httpx.HTTPError as exc:  # pragma: no cover - network dependent
+        logger.warning("ScraperAPI POST %s failed: %s", target_url, exc)
+        return None
+
+
+def _fetch_csrf_token_scraperapi(
+    proxy: str, *, session_number: str, render: bool = False
+) -> str | None:
+    resp = _scraperapi_get(proxy, PRIME_URL, session_number=session_number, render=render)
+    if resp is None:
+        return None
+    if resp.status_code != 200:
+        logger.warning(
+            "GasBuddy /home via ScraperAPI returned HTTP %s: %s",
+            resp.status_code,
+            (resp.text or "")[:300],
+        )
+        return None
+    match = _CSRF_PATTERN.search(resp.text)
+    if not match:
+        logger.warning("GasBuddy /home via ScraperAPI loaded but window.gbcsrf not found.")
+        return None
+    token = match.group(2)
+    logger.debug("GasBuddy CSRF token acquired via ScraperAPI (len=%d)", len(token))
+    return token
+
+
+def _graphql_headers(token: str | None) -> dict[str, str]:
+    headers = dict(DEFAULT_HEADERS)
+    if token:
+        headers["gbcsrf"] = token
+        headers["x-apollo-operation-name"] = "LocationBySearchTerm"
+        headers["Cookie"] = f"gbcsrf={token}"
+    return headers
+
+
+def _fetch_stations_scraperapi(
+    proxy: str,
+    zips: tuple[str, ...],
+    *,
+    session_number: str,
+    token: str | None,
+) -> list[dict[str, Any]]:
+    headers = _graphql_headers(token)
+    seen: set[str] = set()
+    merged: list[dict[str, Any]] = []
+    for zip_code in zips:
+        cursor: str | None = None
+        for _ in range(MAX_PAGES_PER_ZIP):
+            payload = {
+                "operationName": "LocationBySearchTerm",
+                "query": LOCATION_QUERY_PRICES,
+                "variables": {"maxAge": 0, "search": zip_code, "cursor": cursor},
+            }
+            resp = _scraperapi_post(
+                proxy,
+                GRAPHQL_URL,
+                session_number=session_number,
+                json_body=payload,
+                headers=headers,
+            )
+            if resp is None:
+                break
+            if resp.status_code >= 400:
+                logger.warning(
+                    "GasBuddy graphql HTTP %s for %s: %s",
+                    resp.status_code,
+                    zip_code,
+                    (resp.text or "")[:300],
+                )
+            try:
+                resp.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                logger.warning("GasBuddy fetch failed for %s: %s", zip_code, exc)
+                break
+            body = resp.json()
+            if not isinstance(body, dict):
+                break
+            if body.get("errors"):
+                logger.warning("GasBuddy graphql errors for %s: %s", zip_code, body["errors"])
+            data = body.get("data") or {}
+            loc = (data.get("locationBySearchTerm") or {}) if isinstance(data, dict) else {}
+            stations = (loc.get("stations") or {}) if isinstance(loc, dict) else {}
+            results = stations.get("results") if isinstance(stations, dict) else None
+            if isinstance(results, list):
+                for st in results:
+                    if not isinstance(st, dict):
+                        continue
+                    sid = str(st.get("id") or "")
+                    if sid and sid in seen:
+                        continue
+                    if sid:
+                        seen.add(sid)
+                    merged.append(st)
+            nxt = stations.get("cursor") if isinstance(stations, dict) else None
+            cursor = nxt.get("next") if isinstance(nxt, dict) else None
+            if not cursor:
+                break
+    return merged
+
+
+def _fetch_lhc_stations_scraperapi(proxy: str, zips: tuple[str, ...]) -> list[dict[str, Any]]:
+    """ScraperAPI HTTP API path with ultra_premium and render /home fallback."""
+    session = str(random.randint(1, 9_999_999))
+    token = _fetch_csrf_token_scraperapi(proxy, session_number=session, render=False)
+    if not token:
+        logger.info(
+            "GasBuddy /home CSRF fetch failed via ScraperAPI; "
+            "retrying /home with render=true (same session)"
+        )
+        token = _fetch_csrf_token_scraperapi(proxy, session_number=session, render=True)
+    if not token:
+        logger.warning(
+            "GasBuddy CSRF token unavailable via ScraperAPI; GraphQL will likely fail."
+        )
+    return _fetch_stations_scraperapi(proxy, zips, session_number=session, token=token)
 
 
 def _apply_csrf(client: httpx.Client, token: str) -> None:
@@ -336,31 +455,6 @@ def _fetch_lhc_stations_with_client(
                 seen.add(sid)
             merged.append(st)
     return merged
-
-
-def _fetch_lhc_stations_scraperapi(proxy: str, zips: tuple[str, ...]) -> list[dict[str, Any]]:
-    """ScraperAPI path: ultra_premium POST client + optional render=true /home fallback."""
-    session = str(random.randint(1, 9_999_999))
-    with _build_scraperapi_client(
-        proxy, session_number=session, ultra_premium=True, render=False
-    ) as client:
-        token = _fetch_csrf_token(client)
-        if not token:
-            logger.info(
-                "GasBuddy /home CSRF fetch failed via ScraperAPI; "
-                "retrying /home with render=true (same session)"
-            )
-            with _build_scraperapi_client(
-                proxy, session_number=session, ultra_premium=True, render=True
-            ) as render_client:
-                token = _fetch_csrf_token(render_client)
-        if token:
-            _apply_csrf(client, token)
-        else:
-            logger.warning(
-                "GasBuddy CSRF token unavailable via ScraperAPI; GraphQL will likely fail."
-            )
-        return _fetch_lhc_stations_with_client(client, zips, token=token)
 
 
 def fetch_lhc_stations(zips: tuple[str, ...] = LHC_ZIPS) -> list[dict[str, Any]]:
