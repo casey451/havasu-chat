@@ -2,418 +2,150 @@
 <html lang="en">
 <head>
   {% include '_partials/plausible.html' %}
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>{{ vm.provider_name | clean_name }} — Hava</title>
-  <meta name="description" content="{{ vm.provider_name | clean_name }} on Hava — Lake Havasu City's local directory." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,400&display=swap" rel="stylesheet" />
-  <style>
-    :root {
-      --ink: #1a1f29;
-      --muted: #5b6573;
-      --rule: #e7eaee;
-      --accent: #2f6f6a;
-      --accent-soft: #e6efee;
-      --warm: #c25a2c;
-      --pick: #4a3d6b;
-      --pick-soft: #ece6f5;
-      --bg: #fafaf7;
-      --card: #fff;
-    }
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; }
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      color: var(--ink);
-      background: var(--bg);
-      line-height: 1.5;
-      font-size: 16px;
-    }
-    .page { max-width: 760px; margin: 0 auto; padding: 1.25rem 1.25rem 3rem; }
-    .topbar { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1.5rem; }
-    .topbar-search { flex: 1 1 220px; max-width: 320px; margin: 0 auto; }
-    .directory-search--compact .directory-search-row { gap: 0.35rem; }
-    .directory-search--compact input[type="search"] { font-size: 0.875rem; padding: 0.35rem 0.5rem; }
-    .directory-search--compact .directory-search-submit { font-size: 0.8125rem; padding: 0.35rem 0.5rem; }
-    .wordmark { font-family: 'Fraunces', serif; font-weight: 500; font-size: 1.5rem; text-decoration: none; color: var(--ink); }
-    .topbar a { color: var(--muted); text-decoration: none; font-size: 0.875rem; }
-    h1.provider-name { font-family: 'Fraunces', serif; font-weight: 500; font-size: 2.25rem; margin: 0 0 0.25rem; line-height: 1.15; }
-    .category-line { color: var(--muted); font-size: 1rem; margin: 0 0 0.875rem; }
-    .verification-cluster { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: center; margin-bottom: 1rem; }
-    .badge { display: inline-flex; align-items: center; gap: 0.375rem; font-size: 0.8125rem; font-weight: 500; padding: 0.25rem 0.625rem; border-radius: 999px; border: 1px solid var(--rule); background: var(--card); }
-    .badge-verified { color: var(--accent); border-color: var(--accent-soft); background: var(--accent-soft); }
-    .badge-sponsor { color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.6875rem; }
-    .badge-pick { color: var(--pick); background: var(--pick-soft); border-color: var(--pick-soft); }
-    .badge-pick::before { content: "★"; font-size: 0.75rem; }
-    .badge-inconsistency { color: var(--muted); }
-    .rating-summary { color: var(--ink); font-size: 0.9375rem; }
-    .actions { display: flex; flex-wrap: wrap; gap: 0.625rem; margin: 1rem 0 1.5rem; }
-    .profile-action {
-      display: inline-flex; align-items: center; gap: 0.5rem;
-      font-family: inherit; font-weight: 500; font-size: 0.9375rem;
-      padding: 0.625rem 1rem; border-radius: 8px;
-      background: var(--card); color: var(--ink); border: 1px solid var(--rule);
-      text-decoration: none; cursor: pointer;
-    }
-    .profile-action-call { background: var(--accent); color: #fff; border-color: var(--accent); }
-    .profile-action-number { font-size: 0.8125rem; opacity: 0.9; }
-    .profile-action-copy {
-      background: transparent; border: 1px solid var(--rule); padding: 0.5rem 0.625rem;
-      border-radius: 8px; cursor: pointer; color: var(--muted); font-family: inherit;
-    }
-    .profile-action-copy:hover { color: var(--ink); }
-    .copy-status { font-size: 0.8125rem; color: var(--accent); margin-left: 0.5rem; display: inline-block; }
-    section[data-region] { margin: 1.75rem 0; padding-top: 1.25rem; border-top: 1px solid var(--rule); }
-    section[data-region]:first-of-type { border-top: none; padding-top: 0; }
-    section h2 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 1.25rem; margin: 0 0 0.625rem; }
-    .trust-strip p { margin: 0.25rem 0; color: var(--muted); font-size: 0.9375rem; }
-    .trust-strip p.fresh { color: var(--accent); }
-    .trust-strip p.stale, .trust-strip p.aging { color: var(--warm); }
-    .photo-hero { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 12px; background: var(--rule); }
-    .photo-placeholder {
-      width: 100%; aspect-ratio: 16/9; border-radius: 12px;
-      background: linear-gradient(135deg, #ece6f5 0%, #e6efee 100%);
-      display: flex; align-items: center; justify-content: center;
-      color: var(--muted); font-size: 0.9375rem;
-    }
-    .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 0.5rem; margin-top: 0.625rem; }
-    .gallery img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; }
-    .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-    .chip { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 999px; background: var(--card); border: 1px solid var(--rule); font-size: 0.8125rem; color: var(--ink); }
-    .hours-table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; margin-top: 0.5rem; }
-    .hours-table td { padding: 0.25rem 0; color: var(--muted); }
-    .hours-table td:first-child { width: 7rem; color: var(--ink); font-weight: 500; }
-    .open-status { font-weight: 500; color: var(--accent); margin: 0 0 0.5rem; }
-    .open-status.closed { color: var(--warm); }
-    .map-placeholder {
-      width: 100%; aspect-ratio: 16/9; border-radius: 8px;
-      background: var(--rule); display: flex; align-items: center; justify-content: center;
-      color: var(--muted); font-size: 0.875rem; margin-top: 0.75rem;
-    }
-    .reviews { display: flex; flex-direction: column; gap: 0.625rem; }
-    .review-snippet {
-      padding: 0.75rem; border: 1px solid var(--rule); border-radius: 8px;
-      background: var(--card); font-size: 0.9375rem; color: var(--muted);
-    }
-    .cta-card { background: var(--card); border: 1px solid var(--rule); border-radius: 12px; padding: 1.25rem; }
-    .cta-card.cta-claim { background: var(--accent-soft); border-color: var(--accent-soft); }
-    .cta-card h3 { margin: 0 0 0.5rem; font-family: 'Fraunces', serif; font-weight: 500; font-size: 1.125rem; }
-    .cta-card p { margin: 0 0 0.875rem; color: var(--muted); font-size: 0.9375rem; }
-    .cta-card a.cta-button {
-      display: inline-block; padding: 0.5rem 1rem; background: var(--accent); color: #fff;
-      border-radius: 8px; text-decoration: none; font-weight: 500; font-size: 0.9375rem;
-    }
-    .footer-meta { color: var(--muted); font-size: 0.8125rem; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--rule); }
-    .footer-meta a { color: var(--muted); }
-    .profile-fav-btn {
-      font-size: 1.35rem; line-height: 1; padding: 0.15rem 0.35rem;
-      border: none; background: transparent; cursor: pointer; color: var(--muted);
-    }
-    .profile-fav-btn.is-saved { color: #c25a2c; }
-    .fav-toast {
-      position: fixed; bottom: 1.25rem; left: 50%; transform: translateX(-50%);
-      background: var(--ink); color: #fff; padding: 0.35rem 0.75rem; border-radius: 6px;
-      font-size: 0.8125rem; opacity: 0; pointer-events: none; transition: opacity 0.2s;
-      z-index: 50;
-    }
-    .fav-toast.show { opacity: 1; }
-    .boat-access-region { display: none; margin: 1rem 0; padding: 1rem; border-radius: 12px; background: var(--accent-soft); border: 1px solid var(--accent-soft); }
-    body.boat-mode-active .boat-access-region { display: block; }
-    .boat-access-dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.35rem 1rem; font-size: 0.9375rem; }
-    .boat-access-dl dt { font-weight: 600; color: var(--ink); margin: 0; }
-    .boat-access-dl dd { margin: 0; color: var(--muted); }
-    .venue-events-region { margin: 1.75rem 0; padding-top: 1.25rem; border-top: 1px solid var(--rule); }
-    .venue-events-list { margin: 0; padding: 0; list-style: none; }
-    .venue-events-item { padding: 0.5rem 0; border-bottom: 1px solid var(--rule); font-size: 0.9375rem; }
-    .venue-events-item:last-child { border-bottom: none; }
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{ vm.provider_name | clean_name }} &mdash; Ask Hava</title>
+  <meta name="description" content="{{ vm.provider_name | clean_name }} on Ask Hava, Lake Havasu City's local directory.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles/lake_light.css">
 </head>
-<body data-current-user="{{ current_user_id }}" data-favorite-entity-id="{{ favorite_entity_id }}" data-viewer-is-owner="{% if vm.viewer_is_owner %}1{% else %}0{% endif %}">
-<div class="page">
-
-  <header class="topbar">
-    <a class="wordmark" href="/home">Hava</a>
-    <div class="topbar-search">
-      <form class="directory-search directory-search--compact" data-directory-search action="#" method="get" role="search">
-        <div class="directory-search-row">
-          <input type="search" name="q" placeholder="Search listings…" autocomplete="off" maxlength="200" aria-label="Search listings" />
-          <button type="submit" class="directory-search-submit">Go</button>
-        </div>
-        <div class="directory-search-results" data-directory-search-results hidden></div>
-      </form>
-    </div>
-    <a href="/home">Back to Hava</a>
+<body class="ll-page" data-current-user="{{ current_user_id }}" data-favorite-entity-id="{{ favorite_entity_id }}" data-viewer-is-owner="{% if vm.viewer_is_owner %}1{% else %}0{% endif %}">
+<main class="ll-provider-wrap">
+  <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+    <a href="/home" class="ll-wordmark" style="color:var(--ll-ink); font-size:32px;">Ask <em>Hava</em></a>
+    <a href="/home" class="ll-pill">Back to Home</a>
   </header>
 
-  {# ─────────── Region 1: Identity header ─────────── #}
-  <section data-region="identity">
-    <div class="provider-title-row" style="display:flex; flex-wrap:wrap; align-items:flex-start; gap:0.35rem 0.75rem;">
-      <h1 class="provider-name" style="flex:1 1 auto; margin:0;">{{ vm.provider_name | clean_name }}</h1>
-      <button type="button" class="favorite-heart profile-fav-btn" hidden
-              data-entity-id="{{ favorite_entity_id }}" aria-label="Save to favorites" title="Save listing">♥</button>
-    </div>
-    <p class="category-line">{{ vm.category_label }}</p>
-    {% if vm.district_chip_url and vm.district_chip_name %}
-    <p class="district-chip-row">
-      <a class="chip district-chip" href="{{ vm.district_chip_url }}">{{ vm.district_chip_name }}</a>
-    </p>
-    {% endif %}
-
-    <div class="verification-cluster">
-      {% if vm.data_inconsistency_flag %}
-        {# UX spec §9: verified=False but tier=sponsored → render "Sponsored listing"
-           in place of the verified badge. Disclosure word still appears below. #}
-        <span class="badge badge-inconsistency">Sponsored listing</span>
-      {% elif vm.verified %}
-        <span class="badge badge-verified">Verified business</span>
-      {% endif %}
-
-      {% if vm.is_sponsored %}
-        <span class="badge badge-sponsor">{{ disclosure_word }}</span>
-      {% endif %}
-
-      {% if vm.is_featured %}
-        <span class="badge badge-pick" title="Editorially recommended by Hava">Hava's pick</span>
-      {% endif %}
-
-      {% if vm.google_rating and vm.google_review_count %}
-        <span class="rating-summary">
-          {{ "%.1f"|format(vm.google_rating) }} ★ ({{ vm.google_review_count }} Google reviews)
-        </span>
-      {% endif %}
-    </div>
-  </section>
-
-  {% if has_boat_access and boat_access is mapping %}
-  <section class="boat-access-region" data-region="boat-access" aria-labelledby="boat-access-heading">
-    <h2 id="boat-access-heading">Boat access</h2>
-    <dl class="boat-access-dl">
-      {% for key, val in boat_access.items() %}
-      {% if key != 'type' and val is not none and val != '' %}
-      <dt>{{ key | replace('_', ' ') | title }}</dt>
-      <dd>{% if val is sameas true %}Yes{% elif val is sameas false %}No{% else %}{{ val }}{% endif %}</dd>
-      {% endif %}
-      {% endfor %}
-    </dl>
-  </section>
-  {% endif %}
-
-  {# ─────────── Region 2: Primary actions ─────────── #}
-  <section data-region="actions" style="border-top: none; padding-top: 0; margin-top: 0;">
-    <div class="actions">
-      {% if vm.call_phone %}
-        <a class="profile-action profile-action-call" href="tel:{{ vm.call_phone }}">
-          <span>Call</span>
-          {% if vm.call_phone_display %}
-            <span class="profile-action-number">{{ vm.call_phone_display }}</span>
-          {% endif %}
-        </a>
-        <button type="button" class="profile-action-copy"
-                data-clipboard="{{ vm.call_phone }}"
-                aria-label="Copy phone number">
-          Copy
-        </button>
-        <span class="copy-status" data-copy-status hidden>Phone number copied</span>
-      {% endif %}
-
-      {% if vm.directions_url %}
-        <a class="profile-action" href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer">Directions</a>
-      {% endif %}
-
-      {% if vm.website_url %}
-        <a class="profile-action" href="{{ vm.website_url }}" target="_blank" rel="noopener noreferrer">Website</a>
-      {% endif %}
-
-      <a class="profile-action" href="{{ vm.ask_hava_url }}">Ask Hava</a>
-    </div>
-  </section>
-
-  {# ─────────── Region 3: Trust strip ─────────── #}
-  {% if vm.verified or vm.freshness_copy or vm.verification_method_copy or vm.data_inconsistency_flag %}
-  <section data-region="trust" class="trust-strip">
-    {% if vm.verified and not vm.data_inconsistency_flag %}
-      <p>Verified business</p>
-    {% endif %}
-    {% if vm.freshness_copy %}
-      <p class="{{ vm.freshness_band }}">{{ vm.freshness_copy }}</p>
-    {% endif %}
-    {% if vm.verification_method_copy %}
-      <p>{{ vm.verification_method_copy }}</p>
-    {% endif %}
-  </section>
-  {% endif %}
-
-  {# ─────────── Region 4: Photos ─────────── #}
-  <section data-region="photos">
+  {% if not vm.show_claim_cta %}
+  <section class="ll-provider-hero">
     {% if vm.hero_photo_url %}
-      <img class="photo-hero" src="{{ vm.hero_photo_url }}" alt="{{ vm.provider_name | clean_name }}" />
-      {% if vm.gallery_photo_urls %}
-        <div class="gallery">
-          {% for photo in vm.gallery_photo_urls %}
-            <img src="{{ photo }}" alt="{{ vm.provider_name | clean_name }} photo" loading="lazy" />
-          {% endfor %}
-        </div>
+    <img src="{{ vm.hero_photo_url }}" alt="{{ vm.provider_name | clean_name }}" onerror="this.style.display='none';this.nextElementSibling.style.display='grid';">
+    {% endif %}
+    <div style="width:94px; height:94px; border-radius:22px; background:#fff; display:{% if vm.hero_photo_url %}none{% else %}grid{% endif %}; place-items:center; font-family:'Playfair Display',serif; font-size:42px; color:var(--ll-jade);">
+      {{ vm.provider_name[0] if vm.provider_name else 'H' }}
+    </div>
+  </section>
+  {% else %}
+  <section class="ll-provider-hero" style="background:var(--ll-jade-soft); display:grid; place-items:center;">
+    <div style="width:94px; height:94px; border-radius:22px; background:#fff; display:grid; place-items:center; font-family:'Playfair Display',serif; font-size:42px; color:var(--ll-jade);">
+      {{ vm.provider_name[0] if vm.provider_name else 'H' }}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="ll-provider-identity">
+    <p class="ll-eyebrow">{{ vm.category_label }}</p>
+    <h1 class="ll-title" style="margin-bottom:8px;">{{ vm.provider_name | clean_name }}</h1>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px;">
+      {% if vm.is_featured or vm.is_sponsored %}
+      <span class="ll-featured-tag">★ Featured Local</span>
       {% endif %}
-    {% else %}
-      <div class="photo-placeholder">No business photos available yet</div>
+      {% if vm.google_rating %}
+      <span style="color:#8d6331;">★ {{ "%.1f"|format(vm.google_rating) }}{% if vm.google_review_count %} ({{ vm.google_review_count }}){% endif %}</span>
+      {% endif %}
+      {% if vm.open_status_copy %}
+      <span style="color:var(--ll-muted);">{{ vm.open_status_copy }}</span>
+      {% endif %}
+    </div>
+
+    <div class="ll-actions">
+      {% if vm.call_phone %}<a class="primary" href="tel:{{ vm.call_phone }}">Call</a>{% endif %}
+      {% if vm.directions_url %}<a href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer">Directions</a>{% endif %}
+      {% if vm.website_url and not vm.show_claim_cta %}<a href="{{ vm.website_url }}" target="_blank" rel="noopener noreferrer">Website</a>{% endif %}
+      <a href="{{ vm.ask_hava_url }}">Save</a>
+    </div>
+
+    {% if not vm.show_claim_cta %}
+    <div class="ll-provider-coupon">
+      <p class="ll-eyebrow" style="margin:0 0 6px;">Local offer</p>
+      <p style="margin:0; color:var(--ll-muted);">Show this screen for a featured-local welcome offer this week.</p>
+    </div>
+    {% endif %}
+
+    {% if vm.show_claim_cta %}
+    <div class="ll-locked">
+      <p class="ll-eyebrow" style="margin:0 0 6px;">Locked profile</p>
+      <p style="margin:0;">Photos, full description, and offers unlock once this listing is claimed.</p>
+    </div>
     {% endif %}
   </section>
 
-  {# ─────────── Region 5: Description ─────────── #}
-  <section data-region="description">
-    <h2>About</h2>
+  <section class="ll-card" style="padding:16px; margin-top:12px;">
+    <p class="ll-eyebrow">About</p>
     {% if vm.description %}
-      <p>{{ vm.description }}</p>
+    <p class="ll-serif" style="margin:0 0 8px; font-size:24px; font-style:italic;">Local favorite in Lake Havasu.</p>
+    <p style="margin:0; color:var(--ll-muted);">{{ vm.description }}</p>
     {% else %}
-      <p style="color: var(--muted);">No business description has been added yet.</p>
+    <p style="margin:0; color:var(--ll-muted);">This listing is auto-built from trusted public data.</p>
     {% endif %}
   </section>
 
-  {# ─────────── Region 6: Service details / chips ─────────── #}
-  {% if vm.service_chips %}
-  <section data-region="services">
-    <h2>Services</h2>
-    <div class="chips">
-      {% for chip in vm.service_chips %}
-        <span class="chip">{{ chip }}</span>
+  {% if vm.gallery_photo_urls and not vm.show_claim_cta %}
+  <section class="ll-card" style="padding:14px; margin-top:12px;">
+    <p class="ll-eyebrow">Photo gallery</p>
+    <div style="display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px;">
+      {% for photo in vm.gallery_photo_urls[:8] %}
+      <img src="{{ photo }}" alt="{{ vm.provider_name | clean_name }} photo" loading="lazy" onerror="this.style.display='none';" style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:12px;">
       {% endfor %}
     </div>
   </section>
   {% endif %}
 
-  {# ─────────── Region 7: Hours + address/service-area ─────────── #}
-  {% if vm.hours_structured or vm.hours_freetext or vm.address or vm.service_area_only %}
-  <section data-region="hours-location">
-    {% if vm.season_status_copy %}
-      <p class="season-hours-label">{{ vm.season_status_copy }}</p>
-    {% endif %}
-    {% if vm.open_status_copy %}
-      <p class="open-status {% if not vm.is_open_now %}closed{% endif %}">{{ vm.open_status_copy }}</p>
-    {% endif %}
+  <section class="ll-card" style="padding:16px; margin-top:12px;">
+    <p class="ll-eyebrow">Good to know</p>
+    <ul style="margin:0; padding-left:18px; color:var(--ll-muted);">
+      {% if vm.address %}<li>{{ vm.address }}</li>{% endif %}
+      {% if vm.hours_freetext %}<li>{{ vm.hours_freetext }}</li>{% endif %}
+      {% if vm.freshness_copy %}<li>{{ vm.freshness_copy }}</li>{% endif %}
+      {% if vm.verification_method_copy %}<li>{{ vm.verification_method_copy }}</li>{% endif %}
+      {% if vm.service_area_only and vm.service_area %}<li>Serves: {{ vm.service_area|join(', ') }}</li>{% endif %}
+    </ul>
+  </section>
 
-    {% if vm.hours_structured %}
-      <table class="hours-table">
-        {% for day in ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] %}
-          {% set spans = vm.hours_structured.get(day) %}
-          <tr>
-            <td>{{ day|capitalize }}</td>
-            <td>
-              {% if spans is none %}–
-              {% elif spans|length == 0 %}Closed
-              {% else %}
-                {%- for span in spans -%}
-                  {{ span.open }}–{{ span.close }}{% if not loop.last %}, {% endif %}
-                {%- endfor -%}
-              {% endif %}
-            </td>
-          </tr>
-        {% endfor %}
-      </table>
-    {% elif vm.hours_freetext %}
-      <p>{{ vm.hours_freetext }}</p>
+  {% if vm.address %}
+  <section class="ll-card" style="padding:16px; margin-top:12px;">
+    <p class="ll-eyebrow">Map</p>
+    {% if vm.directions_url %}
+    <a href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer">{{ vm.address }}</a>
     {% else %}
-      <p style="color: var(--muted);">Hours not available</p>
-    {% endif %}
-
-    {% if vm.service_area_only %}
-      {% if vm.service_area %}
-        <p style="margin-top: 0.75rem;"><strong>Serves:</strong> {{ vm.service_area|join(', ') }}</p>
-      {% else %}
-        <p style="margin-top: 0.75rem; color: var(--muted);">Service area not specified</p>
-      {% endif %}
-    {% elif vm.address %}
-      <p style="margin-top: 0.75rem;">{{ vm.address }}</p>
-      <div class="map-placeholder">Map preview — coming soon</div>
+    <p style="margin:0; color:var(--ll-muted);">{{ vm.address }}</p>
     {% endif %}
   </section>
   {% endif %}
 
-  <!-- venue-events-region-anchor -->
-  {% include 'components/venue_events_region.html' %}
-
-  {# ─────────── Region 8: Google review snippets ─────────── #}
   {% if vm.google_review_snippets %}
-  <section data-region="reviews">
-    <h2>What people are saying</h2>
-    <div class="reviews">
-      {% for snippet in vm.google_review_snippets[:3] %}
-        <div class="review-snippet">
-          {% if snippet.text %}"{{ snippet.text }}"{% endif %}
-        </div>
-      {% endfor %}
+  <section class="ll-card" style="padding:16px; margin-top:12px;">
+    <p class="ll-eyebrow">What locals say</p>
+    {% for snippet in vm.google_review_snippets[:3] %}
+    <div style="border:1px solid var(--ll-line); border-radius:14px; padding:10px; margin-bottom:8px; background:#fff;">
+      <div style="color:var(--ll-mauve); margin-bottom:4px;">● ● ● ● ●</div>
+      <div style="color:var(--ll-muted);">{{ snippet.text or 'Trusted by local residents.' }}</div>
     </div>
+    {% endfor %}
   </section>
   {% endif %}
 
-  {# ─────────── Region 9: Ask Hava CTA ─────────── #}
-  <section data-region="ask-hava">
-    <a class="ask-hava-link" href="{{ vm.ask_hava_url }}">Ask Hava about this business</a>
-  </section>
-
-  {# ─────────── Region 10: Claim / upgrade CTA ─────────── #}
   {% if vm.show_claim_cta %}
-  <section data-region="cta-claim">
-    <div class="cta-card cta-claim">
-      <h3>This your business?</h3>
-      <p>This your business? Claim this listing and manage the information customers see.</p>
-      <a class="cta-button" href="{{ vm.claim_url }}">Claim this listing</a>
-    </div>
-  </section>
-  {% elif vm.show_upgrade_cta %}
-  <section data-region="cta-upgrade">
-    <div class="cta-card">
-      <h3>Upgrade to Verified Presence</h3>
-      <p>Upgrade to Verified Presence to add owner-managed photos, recent verification status, and expanded business details. This listing already appears in Havasu Chat results.</p>
-      <a class="cta-button" href="{{ vm.upgrade_url }}">Learn more</a>
-    </div>
+  <section class="ll-claim-box" style="margin-top:12px;">
+    <p class="ll-eyebrow" style="margin:0 0 6px;">Is this your business?</p>
+    <p style="margin:0 0 10px; color:var(--ll-muted);">Claim it and stand out with photos, accurate details, and featured placement options.</p>
+    <a class="ll-pill" href="{{ vm.claim_url or '/contribute' }}">Claim this listing</a>
   </section>
   {% endif %}
 
-  {# ─────────── Region 11: Footer metadata ─────────── #}
-  <footer class="footer-meta" data-region="footer">
-    <p>Business information provided by owner and public sources.</p>
-  </footer>
+  <section class="ll-card" style="padding:14px; margin-top:12px;">
+    <a href="{{ vm.ask_hava_url }}">Ask Hava about this business</a>
+  </section>
 
-</div>
+  <section class="ll-sticky-cta">
+    <a href="{{ vm.ask_hava_url }}">Ask Hava for the best time to visit</a>
+  </section>
+</main>
 
-<script>
-  (function () {
-    var buttons = document.querySelectorAll('.profile-action-copy');
-    buttons.forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var phone = btn.getAttribute('data-clipboard') || '';
-        if (!phone) return;
-        var status = document.querySelector('[data-copy-status]');
-        var write = navigator.clipboard && navigator.clipboard.writeText
-          ? navigator.clipboard.writeText(phone)
-          : Promise.reject(new Error('no-clipboard'));
-        write.then(function () {
-          if (status) {
-            status.hidden = false;
-            setTimeout(function () { status.hidden = true; }, 2000);
-          }
-        }).catch(function () {
-          // Fallback: textarea select + execCommand for older browsers.
-          var ta = document.createElement('textarea');
-          ta.value = phone; ta.setAttribute('readonly', '');
-          ta.style.position = 'absolute'; ta.style.left = '-9999px';
-          document.body.appendChild(ta);
-          ta.select();
-          try { document.execCommand('copy'); } catch (e) { /* swallow */ }
-          document.body.removeChild(ta);
-          if (status) {
-            status.hidden = false;
-            setTimeout(function () { status.hidden = true; }, 2000);
-          }
-        });
-      });
-    });
-  })();
-</script>
+{% set active_tab = "saved" %}
+{% include "_partials/lake_light_bottom_nav.html" %}
 <script src="/static/favorites.js" defer></script>
-<script src="/static/js/boat_mode.js" defer></script>
-<script src="/static/js/search.js" defer></script>
-
 </body>
 </html>

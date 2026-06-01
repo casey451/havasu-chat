@@ -46,10 +46,10 @@ def test_derive_hero_photo_tier3_prefers_google_photo_urls() -> None:
     p = SimpleNamespace(
         entity=ent,
         attributes={},
-        google_photo_urls=["https://lh3.googleusercontent.com/resolved.jpg"],
+        google_photo_urls=["/static/biz-photos/resolved.jpg"],
         google_photo_refs=["places/x/photos/y", "https://g/2.jpg"],
     )
-    assert derive_hero_photo(p) == "https://lh3.googleusercontent.com/resolved.jpg"
+    assert derive_hero_photo(p) == "/static/biz-photos/resolved.jpg"
 
 
 def test_derive_hero_photo_tier3_falls_through_raw_ref_when_key_unset(
@@ -65,18 +65,13 @@ def test_derive_hero_photo_tier3_falls_through_raw_ref_when_key_unset(
         attributes={},
         google_photo_refs=["places/ChIJabc/photos/AeeoH123", "https://g/2.jpg"],
     )
-    assert derive_hero_photo(p) == "https://g/2.jpg"
+    assert derive_hero_photo(p) is None
 
 
 def test_derive_hero_photo_tier3_upgrades_raw_ref_when_key_set(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Track C symmetry fix: raw Places refs are upgraded via
-    :func:`google_photo_url` for the profile path too, matching the
-    home/categories ``_provider_image_url`` behavior. Before the fix
-    (PR #41 / PR #43 split), the profile silently dropped raw refs and a
-    provider whose backfill never ran would render only on the home card.
-    """
+    """Raw refs are not upgraded in render path even with key set."""
     monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "test-key")
     ent = SimpleNamespace(photos=[])
     p = SimpleNamespace(
@@ -84,21 +79,13 @@ def test_derive_hero_photo_tier3_upgrades_raw_ref_when_key_set(
         attributes={},
         google_photo_refs=["places/ChIJabc/photos/AeeoH123", "https://g/2.jpg"],
     )
-    url = derive_hero_photo(p)
-    assert url is not None
-    assert url.startswith(
-        "https://places.googleapis.com/v1/places/ChIJabc/photos/AeeoH123/media"
-    )
-    assert "key=test-key" in url
+    assert derive_hero_photo(p) is None
 
 
 def test_derive_hero_photo_tier3_raw_ref_only_provider_renders(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The specific case PR #41/PR #43 created drift on: provider has only
-    a raw Places ref (no ``google_photo_urls`` backfill, no http ref). Hero
-    now resolves via upgrade rather than returning ``None``.
-    """
+    """Provider with only raw Places refs returns None."""
     monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "test-key")
     ent = SimpleNamespace(photos=[])
     p = SimpleNamespace(
@@ -106,9 +93,7 @@ def test_derive_hero_photo_tier3_raw_ref_only_provider_renders(
         attributes={},
         google_photo_refs=["places/only/photos/raw"],
     )
-    url = derive_hero_photo(p)
-    assert url is not None
-    assert "places/only/photos/raw/media" in url
+    assert derive_hero_photo(p) is None
 
 
 def test_derive_hero_photo_tier3_returns_full_url_when_present() -> None:
@@ -118,7 +103,7 @@ def test_derive_hero_photo_tier3_returns_full_url_when_present() -> None:
         attributes={},
         google_photo_refs=["https://g/1.jpg", "https://g/2.jpg"],
     )
-    assert derive_hero_photo(p) == "https://g/1.jpg"
+    assert derive_hero_photo(p) is None
 
 
 def test_derive_hero_photo_none_when_empty() -> None:
@@ -138,8 +123,8 @@ def test_derive_gallery_owner_then_google() -> None:
         hero_url=None,
     )
     ent = SimpleNamespace(photos=[p1])
-    hero = "https://lh3.googleusercontent.com/hero.jpg"
-    extra = "https://lh3.googleusercontent.com/gallery.jpg"
+    hero = "/static/biz-photos/hero.jpg"
+    extra = "/static/biz-photos/gallery.jpg"
     p = SimpleNamespace(
         entity=ent,
         attributes={},
@@ -151,7 +136,7 @@ def test_derive_gallery_owner_then_google() -> None:
 
 
 def test_derive_gallery_mixed_resolved_urls_and_literal_refs() -> None:
-    resolved = "https://lh3.googleusercontent.com/resolved.jpg"
+    resolved = "/static/biz-photos/resolved.jpg"
     literal = "https://g/1.jpg"
     ent = SimpleNamespace(photos=[])
     p = SimpleNamespace(
@@ -160,12 +145,12 @@ def test_derive_gallery_mixed_resolved_urls_and_literal_refs() -> None:
         google_photo_urls=[resolved, literal],
         google_photo_refs=["places/ChIJabc/photos/AeeoH123", literal],
     )
-    assert derive_gallery(p) == [resolved, literal]
+    assert derive_gallery(p) == [resolved]
 
 
 def test_derive_gallery_hero_dedupe_with_resolved_urls() -> None:
-    hero = "https://lh3.googleusercontent.com/hero.jpg"
-    extra = "https://lh3.googleusercontent.com/extra.jpg"
+    hero = "/static/biz-photos/hero.jpg"
+    extra = "/static/biz-photos/extra.jpg"
     ent = SimpleNamespace(photos=[])
     p = SimpleNamespace(
         entity=ent,

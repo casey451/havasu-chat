@@ -8,6 +8,7 @@ SOURCE_NWS_ALERTS = "nws_alerts_lhc_zone"
 SOURCE_NWS_FORECAST = "nws_forecast_daily"
 SOURCE_NWS_SUNSET = "nws_sunset"
 SOURCE_USGS = "usgs_09427500"
+SOURCE_GAS = "gas_prices_lhc"
 
 # V1.5 wave 3 (2026-05-23): USGS water-temperature alt-source for station
 # 09426630 ("Bill Williams River at Lake Havasu, abv HWY-95, AZ"). Wired
@@ -27,6 +28,7 @@ SOURCE_KEYS: tuple[str, ...] = (
     SOURCE_NWS_SUNSET,
     SOURCE_USGS,
     SOURCE_USGS_WATER_TEMP,
+    SOURCE_GAS,
 )
 
 TTL_BY_SOURCE: dict[str, int] = {
@@ -39,6 +41,7 @@ TTL_BY_SOURCE: dict[str, int] = {
     # Same 3600s TTL as the lake-gauge USGS source -- water temperature is a
     # slow-moving signal (instrument cadence is hourly at most for 00010).
     SOURCE_USGS_WATER_TEMP: 3600,
+    SOURCE_GAS: 86400,
 }
 
 NWS_USER_AGENT = "havasu-chat/1.0 (contact: support@havasu-chat.example.com)"

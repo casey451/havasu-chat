@@ -4,17 +4,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import pytest
-
 from app.home.queries import _provider_image_url
-from app.providers import photo_urls
-
-
-@pytest.fixture(autouse=True)
-def _clear_photo_url_cache() -> None:
-    photo_urls._google_photo_url_cached.cache_clear()
-    yield
-    photo_urls._google_photo_url_cached.cache_clear()
 
 
 def _provider(**kwargs: object) -> SimpleNamespace:
@@ -29,74 +19,47 @@ def _provider(**kwargs: object) -> SimpleNamespace:
 def test_provider_image_url_prefers_google_photo_urls() -> None:
     p = _provider(
         google_photo_urls=[
-            "https://lh3.googleusercontent.com/resolved-first.jpg",
+            "/static/biz-photos/resolved-first.jpg",
         ],
         google_photo_refs=[
             "places/ChIJabc/photos/AeeoH123",
-            "https://lh3.googleusercontent.com/places/photo1.jpg",
+            "https://example.com/places/photo1.jpg",
         ],
     )
     assert (
         _provider_image_url(p)
-        == "https://lh3.googleusercontent.com/resolved-first.jpg"
+        == "/static/biz-photos/resolved-first.jpg"
     )
 
 
-def test_provider_image_url_returns_first_renderable_from_refs(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Refs are tried in stored order; the first entry that yields a
-    renderable URL wins. Under the Track C symmetry fix a raw Places ref
-    counts as renderable when ``GOOGLE_PLACES_API_KEY`` is set, so the
-    leading raw ref upgrades and is returned before the http entries."""
-    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "test-key")
+def test_provider_image_url_returns_none_when_only_refs_have_values() -> None:
+    p = _provider(
+        google_photo_refs=[
+            "https://example.com/places/photo1.jpg",
+            "/static/biz-photos/photo2.jpg",
+        ]
+    )
+    assert _provider_image_url(p) is None
+
+
+def test_provider_image_url_skips_google_hosts_and_raw_refs() -> None:
     p = _provider(
         google_photo_refs=[
             "places/ChIJabc/photos/AeeoH123",
             "https://lh3.googleusercontent.com/places/photo1.jpg",
-            "https://lh3.googleusercontent.com/places/photo2.jpg",
+            "https://places.googleapis.com/v1/places/abc/photos/123/media?key=test",
+            "https://example.com/places/photo2.jpg",
         ]
     )
-    url = _provider_image_url(p)
-    assert url is not None
-    assert url.startswith(
-        "https://places.googleapis.com/v1/places/ChIJabc/photos/AeeoH123/media"
-    )
-    assert "key=test-key" in url
-
-
-def test_provider_image_url_skips_raw_ref_to_http_when_key_unset(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Without an API key the raw ref cannot upgrade, so we fall through
-    to the next renderable entry in refs (the http URL). Preserves the
-    pre-Track-C behavior in the no-key environment."""
-    monkeypatch.delenv("GOOGLE_PLACES_API_KEY", raising=False)
-    p = _provider(
-        google_photo_refs=[
-            "places/ChIJabc/photos/AeeoH123",
-            "https://lh3.googleusercontent.com/places/photo1.jpg",
-            "https://lh3.googleusercontent.com/places/photo2.jpg",
-        ]
-    )
-    assert (
-        _provider_image_url(p)
-        == "https://lh3.googleusercontent.com/places/photo1.jpg"
-    )
+    assert _provider_image_url(p) is None
 
 
 def test_provider_image_url_accepts_http_url() -> None:
     p = _provider(google_photo_refs=["http://example.com/photo.jpg"])
-    assert _provider_image_url(p) == "http://example.com/photo.jpg"
+    assert _provider_image_url(p) is None
 
 
-def test_provider_image_url_skips_raw_places_refs_only(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # Without GOOGLE_PLACES_API_KEY, raw refs cannot upgrade; result is None.
-    # Explicit delenv so the test is hermetic against dev shells / .env files
-    # that have the key set.
-    monkeypatch.delenv("GOOGLE_PLACES_API_KEY", raising=False)
+def test_provider_image_url_skips_raw_places_refs_only() -> None:
     p = _provider(
         google_photo_refs=[
             "places/ChIJabc/photos/AeeoH123",
@@ -116,47 +79,22 @@ def test_provider_image_url_none_when_refs_null() -> None:
     assert _provider_image_url(p) is None
 
 
-def test_provider_image_url_upgrades_raw_ref(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Raw Places refs get upgraded via google_photo_url helper."""
-    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "test-key")
-    p = _provider(google_photo_refs=["places/abc/photos/xyz"])
-    url = _provider_image_url(p)
-    assert url is not None
-    assert url.startswith("https://places.googleapis.com/v1/")
-    assert "key=test-key" in url
-
-
-def test_provider_image_url_returns_none_when_key_unset(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Raw refs return None when GOOGLE_PLACES_API_KEY is unset."""
-    monkeypatch.delenv("GOOGLE_PLACES_API_KEY", raising=False)
+def test_provider_image_url_returns_none_for_raw_ref_only() -> None:
     p = _provider(google_photo_refs=["places/abc/photos/xyz"])
     assert _provider_image_url(p) is None
 
 
-def test_provider_image_url_prefers_http_over_raw_ref(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """http URLs win even when raw refs follow."""
-    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "test-key")
+def test_provider_image_url_prefers_http_over_raw_ref() -> None:
+    """Refs are ignored; only google_photo_urls can render."""
     p = _provider(
         google_photo_refs=[
             "https://example.com/photo.jpg",
             "places/abc/photos/xyz",
         ]
     )
-    assert _provider_image_url(p) == "https://example.com/photo.jpg"
+    assert _provider_image_url(p) is None
 
 
-def test_provider_image_url_falls_through_to_raw_ref(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Non-string candidates are skipped; raw ref still upgrades."""
-    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "test-key")
-    p = _provider(google_photo_refs=[None, 42, "places/abc/photos/xyz"])
-    url = _provider_image_url(p)
-    assert url is not None
-    assert url.startswith("https://places.googleapis.com/v1/")
+def test_provider_image_url_falls_through_to_static_ref() -> None:
+    p = _provider(google_photo_refs=[None, 42, "/static/biz-photos/abc.jpg"])
+    assert _provider_image_url(p) is None

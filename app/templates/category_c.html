@@ -1,78 +1,64 @@
-{# Hava /categories/{slug} -- Direction C category page (PR D5).
-
-   Reuses the shared topbar partial (with the right mega-tab marked
-   active), then a slim header (back link + label + count + one-liner),
-   then the category grid -- uniform 3-col grid that scales to 1-col
-   on mobile and handles 3-37+ cards gracefully.
-
-   Context dict shape (see app/categories/router.py serve_category):
-     today_label         "Sunday, May 24"
-     now_label           "6:14 PM"
-     category_slug       URL segment, lowercase
-     category_label      display label ("Health & wellness")
-     category_one_liner  short editorial line
-     category_count      int when > 0, None otherwise (per no-zero rule)
-     category_cards      list of card dicts (see category_grid.html)
-     active_tab          which mega-tab to highlight in topbar_c
-
-   No hero. The big editorial hero is home-page real estate per the
-   D5 boot prompt's "Slim header (Recommended)" decision.
-#}<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   {% include '_partials/plausible.html' %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>{{ category_label }} &mdash; Hava</title>
+  <title>{{ category_label }} &mdash; Ask Hava</title>
   <meta name="description" content="{{ category_one_liner }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles/home_c.css">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles/lake_light.css">
 </head>
-<body class="home-c">
+<body class="ll-page">
+<main class="ll-category-wrap" role="main">
+  <header style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+    <a href="/home" class="ll-wordmark ll-wordmark-dark" style="font-size:32px;">Ask <em>Hava</em></a>
+    <a href="/categories" class="ll-pill">All categories</a>
+  </header>
 
-{# -------- shared topbar (with active mega-tab highlighted) -------- #}
-{% include 'components/topbar_c.html' %}
-
-{# -------- slim category header (back link + label + count + sub) -------- #}
-<section class="c-cat-head" role="region" aria-label="{{ category_label }} header">
-  <div class="c-cat-head-inner">
-    <a class="c-cat-back" href="/home" aria-label="Back to Hava home">
-      <span aria-hidden="true">&larr;</span> Home
+  <section class="ll-category-header" aria-label="{{ category_label }} header">
+    <a class="ll-pill" href="/home" aria-label="Back to Hava home">
+      Home
     </a>
-    <h1 class="c-cat-h1">{{ category_label }}</h1>
-    <p class="c-cat-sub">
+    <h1 class="ll-title" style="margin-top:10px;">{{ category_label }}</h1>
+    <p style="margin:8px 0 0; color:var(--ll-muted);">
       {{ category_one_liner }}{% if category_count %}
-        <span class="c-cat-sep" aria-hidden="true">&middot;</span>
-        <span class="c-cat-count">{{ category_count }} listed</span>
+        <span aria-hidden="true">&middot;</span>
+        <span>{{ category_count }} listed</span>
       {% endif %}
     </p>
-  </div>
-</section>
+  </section>
 
-{# -------- main body: filtered grid OR editorial empty-state -------- #}
-<main class="c-body" role="main">
   {% if category_cards %}
-    {% include 'components/category_grid.html' %}
+  <section class="ll-category-grid">
+    {% for card in category_cards %}
+    <a class="ll-categories-card" href="{% if card.slug %}/provider/{{ card.slug }}{% else %}/chat?q={{ card.name | urlencode }}{% endif %}">
+      <div class="ll-categories-peek" {% if card.image_url %}style="background-image:url('{{ card.image_url }}'); background-size:cover; background-position:center;"{% endif %}></div>
+      <div class="ll-categories-body">
+        <h2 class="ll-categories-name">{{ card.name }}</h2>
+        <p class="ll-categories-copy">{{ card.neighborhood or category_label }}</p>
+        {% if card.status_text %}
+        <p class="ll-categories-copy" style="margin-top:0;">{{ card.status_text }}</p>
+        {% endif %}
+        {% if card.rating %}
+        <span class="ll-categories-count">★ {{ card.rating }}{% if card.review_count %} ({{ card.review_count }}){% endif %}</span>
+        {% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </section>
   {% else %}
-    <p class="c-bridge c-bridge-cat">
+    <p style="margin:0; color:var(--ll-muted);">
       Nothing's flagged in {{ category_label }} right now.
       Try the composer for a recommendation -- Hava knows more than the catalog shows.
     </p>
   {% endif %}
 </main>
 
-{# -------- footer -------- #}
-<footer class="c-footer" role="contentinfo">
-  <span class="c-foot-place">Lake Havasu City</span>
-  <nav class="c-foot-nav" aria-label="Site links">
-    <a href="/about">About</a>
-    <a href="/contribute">Add a place</a>
-    <a href="/sponsor">Sponsor</a>
-    <a href="/privacy">Privacy</a>
-  </nav>
-</footer>
+{% set active_tab = "explore" %}
+{% include "_partials/lake_light_bottom_nav.html" %}
 
 </body>
 </html>

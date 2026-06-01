@@ -233,16 +233,11 @@ def test_get_categories_index_renders_every_label(client: TestClient) -> None:
 def test_get_categories_index_has_all_categories_topbar_link(
     client: TestClient,
 ) -> None:
-    """The new fifth topbar link is present AND marked active."""
+    """Categories index highlights Explore navigation."""
     r = client.get("/categories")
     assert r.status_code == 200
     body = r.text
-    # Link is present.
-    assert "All categories" in body
-    # And it carries is-active + aria-current on this page.
-    assert "c-tab-all" in body
-    assert "is-active" in body
-    assert 'aria-current="page"' in body
+    assert '<a class="is-active" href="/categories">Explore</a>' in body
 
 
 def test_get_categories_index_links_to_each_category_page(

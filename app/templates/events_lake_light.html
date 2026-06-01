@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  {% include '_partials/plausible.html' %}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Events &mdash; Ask Hava</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles/lake_light.css">
+</head>
+<body class="ll-page">
+<main class="ll-events-shell">
+  <p class="ll-eyebrow">Local calendar</p>
+  <h1 class="ll-title">Events <span style="color:var(--ll-muted); font-size:0.65em;">{{ events_total }}</span></h1>
+
+  <div class="ll-toggle" role="tablist" aria-label="Events view">
+    <button class="is-active" id="events-view-list" type="button" role="tab" aria-selected="true">List</button>
+    <button id="events-view-calendar" type="button" role="tab" aria-selected="false">Calendar</button>
+  </div>
+
+  <section class="ll-list" id="events-list-panel">
+    {% for group_label, items in [('Today', events_groups.today), ('This Weekend', events_groups.weekend), ('Next Week', events_groups.next_week)] %}
+    <section class="ll-event-group">
+      <h2 class="ll-group-title">{{ group_label }} <span style="font-size:0.5em; color:var(--ll-muted);">{{ items|length }} events</span></h2>
+      {% for ev in items %}
+      <a class="ll-list-card {% if ev.featured %}is-boosted{% endif %}" href="{{ ev.url }}">
+        {% if ev.featured %}<span class="ll-list-ribbon">★ FEATURED</span>{% endif %}
+        <span class="ll-bookmark" aria-hidden="true">♡</span>
+        <div class="ll-list-thumb"></div>
+        <div>
+          <div class="ll-list-time">{{ ev.time_label }}</div>
+          <h3 class="ll-serif" style="margin:3px 0; font-size:24px;">{{ ev.title }}</h3>
+          <div style="font-size:13px; color:var(--ll-muted);">{{ ev.venue }}</div>
+        </div>
+      </a>
+      {% else %}
+      <div class="ll-card" style="padding:12px 14px; color:var(--ll-muted);">No events in this window yet.</div>
+      {% endfor %}
+    </section>
+    {% endfor %}
+  </section>
+
+  <section class="ll-calendar" id="events-calendar-panel">
+    <div class="ll-card" style="padding:14px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <button type="button" id="ll-cal-prev" class="ll-pill">Prev</button>
+        <h2 class="ll-serif" id="ll-cal-title" style="margin:0; font-size:30px;">{{ month_label }}</h2>
+        <button type="button" id="ll-cal-next" class="ll-pill">Next</button>
+      </div>
+      <div class="ll-calendar-grid" id="ll-cal-grid"></div>
+    </div>
+    <div class="ll-event-group">
+      <h3 class="ll-group-title" style="font-size:24px;">Selected day</h3>
+      <div id="ll-selected-events"></div>
+    </div>
+  </section>
+</main>
+
+{% set active_tab = "events" %}
+{% include "_partials/lake_light_bottom_nav.html" %}
+<script src="/static/js/events_lake_light.js" defer></script>
+</body>
+</html>

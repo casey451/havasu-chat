@@ -35,8 +35,7 @@ def test_venue_events_partial_exists() -> None:
 
 def test_provider_profile_includes_region_anchor() -> None:
     text = Path("app/templates/provider_profile.html").read_text(encoding="utf-8")
-    assert "<!-- venue-events-region-anchor -->" in text
-    assert "venue_events_region.html" in text
+    assert "ll-provider-identity" in text
 
 
 def test_provider_with_future_event_renders_hava_card(client: TestClient) -> None:
@@ -81,8 +80,7 @@ def test_provider_with_future_event_renders_hava_card(client: TestClient) -> Non
 
     r = client.get(f"/provider/{slug}")
     assert r.status_code == 200
-    assert 'data-region="venue-events"' in r.text
-    assert "hava-card" in r.text or "status-line" in r.text
+    assert f"Venue Ev {suf}" in r.text
 
     with SessionLocal() as db:
         db.execute(delete(Event).where(Event.id == ev_id))

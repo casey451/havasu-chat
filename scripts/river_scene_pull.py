@@ -15,6 +15,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from app.bootstrap_env import ensure_dotenv_loaded
+
+ensure_dotenv_loaded()
+
 from app.contrib.river_scene_pull import run_pull
 
 

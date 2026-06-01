@@ -11,6 +11,7 @@ ComponentType = Literal[
     "single_card",
     "single_business_card",
     "business_list",
+    "contribute_flow",
     "none",
 ]
 
@@ -37,6 +38,20 @@ class ConciergeChatRequest(BaseModel):
 
     query: str = Field(min_length=1)
     session_id: str | None = None
+    message: str | None = Field(
+        default=None,
+        description="Master-spec alias for query.",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _message_alias_fills_query(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            q = data.get("query")
+            msg = data.get("message")
+            if (q is None or not str(q).strip()) and msg and str(msg).strip():
+                data = {**data, "query": str(msg).strip()}
+        return data
 
 
 class ConciergeChatResponse(BaseModel):

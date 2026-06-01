@@ -296,6 +296,70 @@ class ChatLog(Base):
     timing_ms: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
+class QueryLog(Base):
+    """Privacy-friendly anonymized search intent log (master spec §3.7)."""
+
+    __tablename__ = "query_log"
+    __table_args__ = (Index("ix_query_log_created_at", "created_at"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    normalized_intent: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    category: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    result_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class CatalogAdSlot(Base):
+    """Master spec §3.8 — schema only; buying/serving deferred (table: ad_slots)."""
+
+    __tablename__ = "ad_slots"
+    __table_args__ = (
+        Index("ix_ad_slots_business_id", "business_id"),
+        Index("ix_ad_slots_active", "active"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    business_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("providers.id"), nullable=True
+    )
+    category: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    tier: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    position: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class ContributeFlow(Base):
+    """In-chat contribution clarify state (master spec §6; API §4.3)."""
+
+    __tablename__ = "contribute_flows"
+    __table_args__ = (Index("ix_contribute_flows_session_id", "session_id"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    session_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    contribution_type: Mapped[str] = mapped_column(String(16), nullable=False, default="event")
+    payload: Mapped[dict] = mapped_column(JSON(none_as_null=True), nullable=False, default=dict)
+    raw_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    extraction: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="in_progress")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+
 class Program(Base):
     __tablename__ = "programs"
 

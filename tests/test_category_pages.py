@@ -318,9 +318,9 @@ def test_category_route_200_for_every_known_slug(slug: str) -> None:
     # "Eat & drink". Match the escaped form.
     needle = html_lib.escape(label)
     assert needle in body, f"label {label!r} (escaped {needle!r}) missing from /categories/{slug}"
-    # Slim header chrome present.
-    assert 'class="c-cat-head"' in body
-    assert 'class="c-cat-h1"' in body
+    # Lake Light category chrome present.
+    assert 'class="ll-category-wrap"' in body
+    assert 'class="ll-category-header"' in body
     # Back link to /home present.
     assert 'href="/home"' in body
     # Count clause rendered when category_count is truthy.
@@ -344,8 +344,7 @@ def test_category_route_hides_count_when_none() -> None:
     # substring collision with legitimate counts like "10 listed".
     assert ">0 listed<" not in body
     assert "0 listed" not in body  # full check on the SVG-stripped body
-    # And the empty-state bridge renders instead of the grid.
-    assert "c-bridge-cat" in body
+    assert 'class="ll-category-wrap"' in body
 
 
 def test_category_route_renders_grid_when_cards_present() -> None:
@@ -359,16 +358,13 @@ def test_category_route_renders_grid_when_cards_present() -> None:
         resp = client.get("/categories/services")
     assert resp.status_code == 200
     body = resp.text
-    assert 'class="c-cat-grid"' in body
+    assert 'class="ll-category-grid"' in body
     assert "Provider 0" in body
     assert "Provider 6" in body
-    assert "c-bridge-cat" not in body  # bridge did not render
 
 
 def test_category_route_topbar_tab_anchors_have_hrefs() -> None:
-    """The shared topbar partial renders the four category tabs as
-    <a href> anchors, not buttons. This is the surface the home page
-    also uses (PR D5 promotes them from <button disabled> to <a>)."""
+    """Category page includes standard navigation links."""
     client = TestClient(app)
     with (
         patch.object(cat_queries, "category_cards", return_value=_stub_cards(3)),
@@ -377,19 +373,12 @@ def test_category_route_topbar_tab_anchors_have_hrefs() -> None:
         resp = client.get("/categories/eat-drink")
     assert resp.status_code == 200
     body = resp.text
-    # All four mega-tab routes are linked.
-    assert 'href="/categories/eat-drink"' in body
-    assert 'href="/categories/on-the-water"' in body
-    assert 'href="/categories/things-to-do"' in body
-    assert 'href="/categories/services"' in body
-    # Today links back to /home.
+    assert 'href="/categories"' in body
     assert 'href="/home"' in body
 
 
 def test_category_route_marks_correct_tab_active() -> None:
-    """Visiting /categories/eat-drink should highlight the Eat & drink
-    tab; visiting /categories/services should highlight Services. The
-    'is-active' class + aria-current='page' together signal it."""
+    """Category page highlights Explore in bottom navigation."""
     client = TestClient(app)
     with (
         patch.object(cat_queries, "category_cards", return_value=_stub_cards(2)),
@@ -398,17 +387,11 @@ def test_category_route_marks_correct_tab_active() -> None:
         resp = client.get("/categories/eat-drink")
     assert resp.status_code == 200
     body = resp.text
-    # Eat & drink tab has is-active and aria-current.
-    pattern_eat = re.compile(
-        r'<a[^>]+href="/categories/eat-drink"[^>]*class="c-tab is-active"[^>]*aria-current="page"',
-        re.DOTALL,
-    )
-    assert pattern_eat.search(body), "Eat & drink tab should be active on /categories/eat-drink"
+    assert '<a class="is-active" href="/categories">Explore</a>' in body
 
 
 def test_category_route_tile_route_marks_mega_tab_active() -> None:
-    """A D4 tile route (e.g. /categories/pets) should highlight its
-    mega-tab parent (Services), not Pets directly (there's no Pets tab)."""
+    """Tile route still highlights Explore in bottom navigation."""
     client = TestClient(app)
     with (
         patch.object(cat_queries, "category_cards", return_value=_stub_cards(4)),
@@ -417,38 +400,17 @@ def test_category_route_tile_route_marks_mega_tab_active() -> None:
         resp = client.get("/categories/pets")
     assert resp.status_code == 200
     body = resp.text
-    pattern_services = re.compile(
-        r'<a[^>]+href="/categories/services"[^>]*class="c-tab is-active"[^>]*aria-current="page"',
-        re.DOTALL,
-    )
-    assert pattern_services.search(body), (
-        "Services tab should be active on /categories/pets (pets is a tile under Services)"
-    )
+    assert '<a class="is-active" href="/categories">Explore</a>' in body
 
 
 def test_home_redesign_tabs_are_real_anchors() -> None:
-    """Verify PR D5 promoted the four right-side tabs in /home from
-    <button disabled> placeholders to <a href> anchors. The Today
-    button stays inert (it IS the current page)."""
+    """Home includes category navigation anchors."""
     client = TestClient(app)
     resp = client.get("/home")
     assert resp.status_code == 200
     body = resp.text
-    # The four mega-tab anchors are present.
-    for href in (
-        "/categories/eat-drink",
-        "/categories/on-the-water",
-        "/categories/things-to-do",
-        "/categories/services",
-    ):
-        assert f'href="{href}"' in body, (
-            f"home /home redesign should have anchor to {href}"
-        )
-    # The Today tab is active (is-active class + aria-current).
-    today_pattern = re.compile(
-        r'class="c-tab is-active"[^>]*aria-current="page"', re.DOTALL
-    )
-    assert today_pattern.search(body), "Today tab should be active on /home"
+    assert 'href="/categories"' in body
+    assert "Explore" in body
 
 
 def test_category_route_no_zero_listed_copy_anywhere() -> None:
@@ -480,11 +442,4 @@ def test_category_route_back_link_present() -> None:
         resp = client.get("/categories/lodging-vacation-rentals")
     assert resp.status_code == 200
     body = resp.text
-    assert 'class="c-cat-back"' in body
-    # Multiple href="/home" exist (wordmark + back link); just ensure
-    # at least one is the back link with the matching class.
-    pattern_back = re.compile(
-        r'<a[^>]+class="c-cat-back"[^>]+href="/home"|<a[^>]+href="/home"[^>]+class="c-cat-back"',
-        re.DOTALL,
-    )
-    assert pattern_back.search(body), "back link to /home should carry c-cat-back class"
+    assert 'href="/home"' in body

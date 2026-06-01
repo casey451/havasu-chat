@@ -39,15 +39,12 @@ def test_resolve_category_card_image_falls_back_to_eat_photos() -> None:
     assert url == cat_queries._load_eat_photos()["mudshark-brewing"]
 
 
-def test_resolve_category_card_image_falls_back_to_google_refs() -> None:
+def test_resolve_category_card_image_ignores_google_refs_fallback() -> None:
     p = SimpleNamespace(
         slug="unknown-provider-slug",
         google_photo_refs=["https://google.example/photo.jpg"],
     )
-    assert (
-        cat_queries._resolve_category_card_image(p)
-        == "https://google.example/photo.jpg"
-    )
+    assert cat_queries._resolve_category_card_image(p) is None
 
 
 def test_resolve_category_card_image_none_without_slug_or_refs() -> None:

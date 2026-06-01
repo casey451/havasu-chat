@@ -1,76 +1,35 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   {% include '_partials/plausible.html' %}
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>{{ event_title }} - Havasu Chat</title>
-  <meta property="og:title" content="{{ event_title }}" />
-  <meta property="og:description" content="{{ og_description }}" />
-  <meta property="og:url" content="{{ og_url }}" />
-  <style>
-    :root {
-      --bg: #ffffff;
-      --surface: #f4f6f8;
-      --border: #dee2e6;
-      --text: #212529;
-      --muted: #6c757d;
-      --link: #0d6efd;
-      --radius: 16px;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--text); }
-    .wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 40px; }
-    .card {
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: #fff;
-      padding: 20px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-    }
-    h1 { margin: 0 0 10px; font-size: 1.5rem; line-height: 1.3; }
-    .meta { margin: 0 0 14px; color: var(--muted); font-size: 0.95rem; }
-    p { margin: 0 0 12px; line-height: 1.55; }
-    a { color: var(--link); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    h2 {
-      margin: 0 0 8px;
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-      color: var(--muted);
-    }
-    .tags { margin-top: 16px; }
-    .tag-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      padding: 4px 10px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      border-radius: 999px;
-      font-size: 0.85rem;
-      color: #495057;
-    }
-    .back-link {
-      display: inline-block;
-      margin-bottom: 14px;
-      font-weight: 600;
-    }
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{ event_title }} — Ask Hava</title>
+  <meta property="og:title" content="{{ event_title }}">
+  <meta property="og:description" content="{{ og_description }}">
+  <meta property="og:url" content="{{ og_url }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles/lake_light.css">
 </head>
-<body>
-  <main class="wrap">
-    <a class="back-link" href="/">Back to Havasu Chat</a>
-    <article class="card">
-      <h1>{{ event_title }}</h1>
-      <p class="meta">{{ formatted_datetime }} • {{ location_name | clean_name }}</p>
-      <p>{{ description }}</p>
-      {{ contact_html | safe }}
-      {{ event_link_html | safe }}
-      {{ tags_html | safe }}
-    </article>
-  </main>
+<body class="ll-page">
+{% set active_tab = "events" %}
+<main class="ll-utility-shell" role="main">
+  {% set header_back_href = "/events-ui" %}
+  {% set header_back_label = "Back to Events" %}
+  {% include "_partials/lake_light_header.html" %}
+  <article class="ll-utility-main">
+    <p class="ll-eyebrow">Event details</p>
+    <h1>{{ event_title }}</h1>
+    <p class="ll-muted">{{ formatted_datetime }} · {{ location_name | clean_name }}</p>
+    <p>{{ description }}</p>
+    {{ contact_html | safe }}
+    {{ event_link_html | safe }}
+    {{ tags_html | safe }}
+  </article>
+  {% include "_partials/lake_light_footer.html" %}
+</main>
+{% include "_partials/lake_light_bottom_nav.html" %}
 </body>
 </html>

@@ -1,0 +1,55 @@
+name: gas-prices
+
+# Pulls per-station Lake Havasu City gas prices into the conditions cache daily.
+#
+# Source: scripts/gas_prices_pull.py -> app/contrib/gas_prices.py
+#   Primary  = GasBuddy GraphQL (full station coverage, crowd-updated)
+#   Fallback = Google Places fuelOptions (fills gaps for known gas-station
+#              providers; needs GOOGLE_PLACES_API_KEY)
+# The merged result is stored as one JSON payload in external_conditions_cache
+# (source "gas_prices_lhc") and read back by /gas, /api/gas, and /api/conditions.
+#
+# Reliability: from GitHub's datacenter IPs GasBuddy's Cloudflare will often
+# challenge the request. Set the GAS_SCRAPE_PROXY_URL secret to a Bright Data
+# Web Unlocker / Nimble proxy endpoint so the request is unblocked. Without it
+# the run still succeeds via the Google fallback (fewer stations).
+#
+# NOTE: GitHub only runs scheduled workflows from the repository's DEFAULT
+# branch. This file must be merged to main before the cron takes effect. Until
+# then, use the "Run workflow" button (workflow_dispatch) to trigger it.
+
+on:
+  schedule:
+    # Daily at 13:45 UTC (= 6:45 AM Arizona, MST/UTC-7, no DST). :45 past the
+    # hour to avoid colliding with parks-rec-scrapes (:15) and river-scene (:30).
+    - cron: "45 13 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  pull-gas-prices:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Pull gas prices into the conditions cache
+        env:
+          # Set these in: GitHub repo -> Settings -> Secrets and variables -> Actions
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # Google Places fuelOptions gap-fill DISABLED 2026-05-31 to stop ongoing
+          # API cost. The pull still works via GasBuddy (+ proxy); it just skips
+          # the Google gap-fill (non-fatal by design). To re-enable for an
+          # occasional run, uncomment the next line (or run the script locally
+          # with the key set):
+          # GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+          # Optional but strongly recommended (Bright Data / Nimble unblocker):
+          GAS_SCRAPE_PROXY_URL: ${{ secrets.GAS_SCRAPE_PROXY_URL }}
+        run: python scripts/gas_prices_pull.py

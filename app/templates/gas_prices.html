@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  {% include '_partials/plausible.html' %}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Gas Prices — Ask Hava</title>
+  <meta name="description" content="Today's cheapest gas stations in Lake Havasu City, with regular, mid, premium and diesel prices updated daily.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles/lake_light.css">
+</head>
+<body class="ll-page">
+{% set active_tab = "home" %}
+<main class="ll-utility-shell" role="main">
+  {% set header_back_href = "/home" %}
+  {% set header_back_label = "Back to Home" %}
+  {% include "_partials/lake_light_header.html" %}
+  <section class="ll-utility-main">
+    <p class="ll-eyebrow">Daily utility</p>
+    <h1>Gas prices in Lake Havasu City</h1>
+    {% if has_data %}
+      <p class="ll-muted">
+        {{ data.station_count }} stations &middot; updated {{ data.updated_at_iso }}
+        {% if data.city_avg and data.city_avg.regular %}
+          &middot; city avg regular ${{ data.city_avg.regular }}
+        {% endif %}
+      </p>
+      {% if is_stale %}<p class="ll-warning ll-spaced">Prices may be out of date ({{ staleness_label }})</p>{% endif %}
+
+      <h2 class="ll-serif ll-spaced">Today's 5 cheapest</h2>
+      <div class="ll-grid-two">
+        {% for s in data.cheapest %}
+        <div class="ll-card" style="padding:12px;">
+          <p class="ll-eyebrow" style="margin:0 0 6px;">#{{ loop.index }}{% if s.brand %} · {{ s.brand }}{% endif %}</p>
+          <p class="ll-title" style="font-size:32px;">
+            {% if s.prices and s.prices.regular %}${{ s.prices.regular }}{% else %}&mdash;{% endif %}
+          </p>
+          <p>
+            {% if s.provider_slug %}<a href="/provider/{{ s.provider_slug }}">{{ s.name }}</a>{% else %}{{ s.name }}{% endif %}
+          </p>
+          <p class="ll-muted" style="margin:0;">{{ s.address or "" }}</p>
+        </div>
+        {% endfor %}
+      </div>
+
+      <h2 class="ll-serif ll-spaced">All stations</h2>
+      <div class="ll-table-wrap">
+      <table class="ll-table">
+        <thead>
+          <tr>
+            <th>Station</th>
+            {% for g in grades %}<th style="text-align:right">{{ grade_labels[g] }}</th>{% endfor %}
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in data.stations %}
+          <tr>
+            <td>
+              {% if s.provider_slug %}<a href="/provider/{{ s.provider_slug }}">{{ s.name }}</a>{% else %}{{ s.name }}{% endif %}
+              {% if s.address %}<div class="ll-muted" style="font-size:12px;">{{ s.address }}</div>{% endif %}
+            </td>
+            {% for g in grades %}
+            <td class="num">{% if s.prices and s.prices[g] %}${{ s.prices[g] }}{% else %}&mdash;{% endif %}</td>
+            {% endfor %}
+            <td><span class="ll-chip-static">{{ s.source }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    {% else %}
+      <div class="ll-warning ll-spaced">
+        No gas price data yet. The daily pull has not run successfully.<br>
+        Run <code>python scripts/gas_prices_pull.py</code> to populate prices.
+      </div>
+    {% endif %}
+    <p class="ll-muted ll-spaced">
+      Prices are crowd-sourced (GasBuddy) and official-feed (Google) and update
+      once daily. Always confirm at the pump.
+    </p>
+  </section>
+  {% include "_partials/lake_light_footer.html" %}
+</main>
+{% include "_partials/lake_light_bottom_nav.html" %}
+</body>
+</html>

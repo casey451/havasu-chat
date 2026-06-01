@@ -1,108 +1,194 @@
-{# Hava /home -- Direction C (dark cinematic chrome).
-   PR D1 scaffold: topbar + tabs (visual only) + hero + composer + footer.
-   Discover grid (D2), Eat row (D3), Services grid (D4), Category pages (D5)
-   land in subsequent PRs.
-
-   PR D6 cutover (2026-05-26): this template is the production /home.
-
-   Context dict shape (D1 + D2 + D3):
-     today_label    -- "Sunday, May 24"
-     now_label      -- "6:14 PM"
-     hero_image_url -- hand-picked Unsplash URL for D1
-     discover_cards -- list of dicts from queries_c.discover_grid() (D2)
-     eat_cards      -- list of dicts from queries_c.eat_row() (D3)
-#}<!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   {% include '_partials/plausible.html' %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Hava &mdash; Lake Havasu City</title>
-  <meta name="description" content="The AI local of Lake Havasu City. Ask Hava about plumbers, restaurants, classes, what's open, what's worth your Saturday.">
+  <title>Ask Hava &mdash; Lake Havasu</title>
+  <meta name="description" content="Ask Hava is your local concierge for Lake Havasu City: events, businesses, gas prices, and what to do next.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles/home_c.css">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles/lake_light.css">
 </head>
-<body class="home-c">
-
-{# -------- topbar (sticky, dark glass) --
-     D1 shipped inert buttons; D5 promoted to real anchors via the
-     shared ``components/topbar_c.html`` partial. ``active_tab`` is
-     passed from app/home/router.py as "today" on the /home path. #}
-{% include 'components/topbar_c.html' %}
-
-{# -------- hero (full-bleed cinematic photo + overlay copy + composer) -------- #}
-<section class="c-hero" role="region" aria-label="Today in Havasu">
-  <div class="c-hero-bg" aria-hidden="true" style="background-image: url('{{ hero_image_url }}');"></div>
-  <div class="c-hero-scrim" aria-hidden="true"></div>
-  {% if hero_attribution %}
-  <a class="c-hero-attribution" href="{{ hero_attribution.profile_url }}" rel="noopener nofollow">Photo: {{ hero_attribution.photographer }}</a>
-  {% endif %}
-  <div class="c-hero-inner">
-    <div class="c-hero-meta">
-      <span class="c-live-dot" aria-hidden="true"></span>
-      <span>Open in Havasu &middot; {{ today_label }} &middot; {{ now_label }}</span>
-    </div>
-    <h1 class="c-hero-h1">Ask <em>Hava</em>.</h1>
-    <p class="c-hero-sub">Locals first. Plumbers, patios, what's open, who to call &mdash; in 1 to 3 sentences.</p>
-    <form class="c-hero-composer" action="/chat" method="get" role="search" aria-label="Ask Hava">
-      <label class="c-sr-only" for="c-hero-q">Ask Hava</label>
-      <input
-        id="c-hero-q"
-        class="c-hero-input"
-        type="text"
-        name="q"
-        placeholder="Plumber, date night, what's open&hellip;"
-        autocomplete="off"
-        maxlength="200"
-      >
-      <button type="submit" class="c-hero-send">Ask</button>
+<body class="ll-page">
+<header class="ll-desktop-topbar" role="banner">
+  <div class="ll-desktop-topbar-inner">
+    <a href="/home" class="ll-wordmark ll-wordmark-dark">Ask <em>Hava</em></a>
+    <form class="ll-desktop-search" action="/chat" method="get" role="search" aria-label="Ask Hava">
+      <input type="text" name="q" placeholder="Ask Hava anything in Lake Havasu">
+      <button type="submit" aria-label="Submit ask">→</button>
     </form>
+    <nav class="ll-desktop-links" aria-label="Primary desktop navigation">
+      <a href="/events-ui">Events</a>
+      <a href="/categories">Explore</a>
+      <a href="/account/favorites">Saved</a>
+      <span class="ll-account-dot" aria-hidden="true">C</span>
+    </nav>
   </div>
-</section>
+</header>
+<main class="ll-shell" role="main">
+  <section class="ll-hero" style="--hero-url: url('{{ hero_image_url }}');" aria-label="Lake Havasu hero">
+    <header class="ll-topbar">
+      <a href="/home" class="ll-wordmark">Ask <em>Hava</em></a>
+      <span class="ll-pill">Lake Havasu</span>
+    </header>
+    <p class="ll-eyebrow" style="color:#f7e7d9;">WELCOME BACK</p>
+    <h1>What are you in the mood for?</h1>
+  </section>
 
-{# -------- Hava's read (BUILD.md step 4 — hourly SWR pullquote) -------- #}
-<aside class="c-hava-read" role="complementary" aria-label="Hava's read on tonight">
-  <blockquote class="c-hava-read-quote">
-    {{ hava_read.quote_html | safe }}
-  </blockquote>
-  <p class="c-hava-read-byline">{{ hava_read.byline }}</p>
-</aside>
+  <form class="ll-askbar" id="home-ask-form" action="/chat" method="get" role="search" aria-label="Ask Hava">
+    <input id="home-ask-input" name="q" type="text" value="" placeholder="happy hour near the channel tonight">
+    <button type="submit" aria-label="Submit ask">→</button>
+  </form>
+  <div class="ll-chip-row" aria-label="Quick asks">
+    <button class="ll-chip" type="button" data-q="happy hour near the channel tonight">happy hour</button>
+    <button class="ll-chip" type="button" data-q="dog groomers open Saturday">dog groomers</button>
+    <button class="ll-chip" type="button" data-q="boat rentals for 6">boat rentals</button>
+    <button class="ll-chip" type="button" data-q="kids activities this weekend">kids weekend</button>
+  </div>
 
-{# -------- main body: D2 Discover grid + D3 Eat row (D4 services follows) -------- #}
-<main class="c-body" role="main">
-  {% if discover_cards %}
-    {% include 'components/discover_grid.html' %}
-  {% else %}
-    <p class="c-bridge">
-      Hava's editorial picks are taking a breather. The composer above still takes any question.
-    </p>
-  {% endif %}
+  <div class="ll-desktop-grid">
+    <aside class="ll-desktop-nav ll-card" style="padding:14px;">
+      <p class="ll-eyebrow">Browse Havasu</p>
+      {% for cat in category_cards %}
+      <a class="ll-category-row" href="/categories/{{ cat.slug }}" style="margin-bottom:8px;">
+        <span>{{ cat.label }}</span>
+        <span>{{ cat.count }}</span>
+      </a>
+      {% endfor %}
+    </aside>
 
-  {% if eat_cards %}
-    {% include 'components/scroll_row.html' %}
-  {% else %}
-    <p class="c-bridge c-bridge-eat">
-      Nothing's flagged as open in the kitchen right now. Try the composer for a recommendation.
-    </p>
-  {% endif %}
+    <section>
+      <section class="ll-section">
+        <p class="ll-eyebrow">Cheapest gas today</p>
+        <h2 class="ll-title">Fuel before you head out</h2>
+        <div class="ll-card">
+          <ul class="ll-gas-list">
+            {% if gas_snapshot.has_data %}
+              {% for station in gas_snapshot.cheapest %}
+              <li>
+                <span>{{ station.station_name or station.name or 'Station' }}</span>
+                <span class="ll-price">
+                  {% if station.prices and station.prices.regular is not none %}
+                  ${{ '%.2f'|format(station.prices.regular) }}/gal
+                  {% else %}
+                  --/gal
+                  {% endif %}
+                </span>
+              </li>
+              {% endfor %}
+            {% else %}
+              <li><span>Gas feed is still loading.</span><a href="/gas">View details</a></li>
+            {% endif %}
+          </ul>
+        </div>
+      </section>
 
-  {% if service_cards %}
-    {% include 'components/services_grid.html' %}
-  {% endif %}
+      <section class="ll-section">
+        <p class="ll-eyebrow">Happening soon</p>
+        <h2 class="ll-title">Tonight through next week</h2>
+        <div class="ll-row-scroll">
+          {% for ev in events_soon %}
+          <a class="ll-event-card" href="{{ ev.url }}">
+            <div class="ll-event-photo">
+              {% if ev.image_url %}<img src="{{ ev.image_url }}" alt="{{ ev.title }}" onerror="this.style.display='none';">{% endif %}
+              <div class="ll-event-date">{{ ev.month_label }}<br>{{ ev.date_label }}</div>
+            </div>
+            <div class="ll-event-body">
+              <div class="ll-event-time">{{ ev.time_label }}</div>
+              <h3 class="ll-event-name">{{ ev.title }}</h3>
+              <div style="color:var(--ll-muted); font-size:13px;">{{ ev.venue }}</div>
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="ll-section">
+        <p class="ll-eyebrow">Local spotlight</p>
+        <h2 class="ll-title">Featured around town</h2>
+        <article class="ll-card ll-spotlight">
+          <div class="ll-spotlight-media">
+            {% if spotlight_card and spotlight_card.image_url %}
+            <img src="{{ spotlight_card.image_url }}" alt="{{ spotlight_card.name }}" onerror="this.style.display='none';this.nextElementSibling.style.display='grid';">
+            {% endif %}
+            <div style="width:100%; height:100%; min-height:220px; display:{% if spotlight_card and spotlight_card.image_url %}none{% else %}grid{% endif %}; place-items:center; background:var(--ll-jade-soft); color:var(--ll-jade); font-family:'Playfair Display',serif; font-size:62px;">
+              {{ (spotlight_card.name if spotlight_card and spotlight_card.name else 'H')[:1]|upper }}
+            </div>
+          </div>
+          <div class="ll-spotlight-copy">
+            <span class="ll-featured-tag">★ Featured local</span>
+            <h3 class="ll-title" style="font-size:34px; margin-top:10px;">
+              {{ spotlight_card.name if spotlight_card else 'Lake Havasu pick' }}
+            </h3>
+            <p style="color:var(--ll-muted); margin:8px 0 14px;">
+              {{ spotlight_card.blurb if spotlight_card and spotlight_card.blurb else 'Discover trusted local spots curated for this week.' }}
+            </p>
+            <div class="ll-spotlight-coupon">
+              <p class="ll-eyebrow" style="margin:0 0 4px;">Featured offer</p>
+              <p style="margin:0; color:var(--ll-muted); font-size:13px;">Mention Ask Hava for this week's local deal.</p>
+            </div>
+            {% if spotlight_card and spotlight_card.slug %}
+            <div class="ll-spotlight-actions">
+              <a class="ll-pill" href="/provider/{{ spotlight_card.slug }}">View profile</a>
+              <a class="ll-pill" href="/chat?q={{ spotlight_card.name | urlencode }}">Ask about this spot</a>
+            </div>
+            {% endif %}
+          </div>
+        </article>
+      </section>
+
+      <section class="ll-section">
+        <p class="ll-eyebrow">Things to do</p>
+        <h2 class="ll-title">Browse by mood</h2>
+        <div class="ll-grid-two">
+          {% for card in discover_cards[:4] %}
+          <a class="ll-tile" href="{% if card.slug %}/provider/{{ card.slug }}{% else %}/chat?q={{ card.name | urlencode }}{% endif %}" style="{% if card.image_url %}background-image:url('{{ card.image_url }}'); background-size:cover; background-position:center;{% endif %}">
+            <span>{{ card.name }}</span>
+          </a>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="ll-section">
+        <p class="ll-eyebrow">Browse Havasu</p>
+        <h2 class="ll-title">All seven buckets</h2>
+        <div class="ll-categories">
+          {% for cat in category_cards %}
+          <a class="ll-category-row" href="/categories/{{ cat.slug }}">
+            <span>{{ cat.label }}</span>
+            <span>{{ cat.count }}</span>
+          </a>
+          {% endfor %}
+        </div>
+      </section>
+
+      <p class="ll-subtle-link">
+        <a href="/contribute">Add to Hava</a> &nbsp; &mdash; made in Lake Havasu &mdash;
+      </p>
+    </section>
+
+    <aside class="ll-right-rail">
+      <div class="ll-card">
+        <p class="ll-eyebrow">Sponsored</p>
+        <h3 class="ll-serif" style="margin:0 0 8px; font-size:28px;">Weekend deal</h3>
+        <p style="margin:0; color:var(--ll-muted);">Quiet local promotion space. Honest and clearly labeled.</p>
+      </div>
+      <div class="ll-card">
+        <p class="ll-eyebrow">Gas snapshot</p>
+        <p style="margin:0; color:var(--ll-muted);">{{ gas_snapshot.staleness_label or 'Updating now' }}</p>
+      </div>
+      <div class="ll-card" style="border-style:dashed;">
+        <p class="ll-eyebrow">Add to Hava</p>
+        <a href="/contribute">Submit a local update</a>
+      </div>
+    </aside>
+  </div>
 </main>
 
-{# -------- footer -------- #}
-<footer class="c-footer" role="contentinfo">
-  <span class="c-foot-place">Lake Havasu City</span>
-  <nav class="c-foot-nav" aria-label="Site links">
-    <a href="/about">About</a>
-    <a href="/contribute">Add a place</a>
-    <a href="/sponsor">Sponsor</a>
-    <a href="/privacy">Privacy</a>
-  </nav>
-</footer>
-
+{% set active_tab = "home" %}
+{% include "_partials/lake_light_bottom_nav.html" %}
+<script src="/static/js/lake_light_home.js" defer></script>
 </body>
 </html>

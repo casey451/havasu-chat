@@ -10,6 +10,7 @@ import difflib
 import re
 import sys
 from datetime import date
+from datetime import timedelta
 
 import httpx
 from sqlalchemy import func, select
@@ -22,6 +23,7 @@ from app.contrib.river_scene import (
     USER_AGENT,
     RiverSceneEvent,
     _submission_public_url,
+    build_river_scene_client,
     fetch_and_parse_event,
     fetch_sitemap_urls,
     normalize_to_contribution,
@@ -36,6 +38,7 @@ from app.schemas.contribution import EventApprovalFields
 # river_scene import: river_scene's own rows and seed rows (seed overlaps are
 # handled separately by ``_find_seed_overlap`` as a flag-don't-skip review aid).
 _RIVER_SCENE_OWN_SOURCES = frozenset({"river_scene", "river_scene_import"})
+SITEMAP_LASTMOD_LOOKBACK_DAYS = 90
 
 
 def _river_scene_event_payload(rse: RiverSceneEvent) -> EventPayload:
@@ -145,7 +148,8 @@ def run_pull(
     def body(client: httpx.Client) -> int:
         nonlocal errors, imported, skipped_duplicate, skipped_cross_source, skipped_past_or_unparseable, flagged_seed_overlap, fetched_urls, auto_approved, auto_approval_failed
         try:
-            urls = fetch_sitemap_urls(client=client)
+            sitemap_cutoff = start_date - timedelta(days=SITEMAP_LASTMOD_LOOKBACK_DAYS)
+            urls = fetch_sitemap_urls(client=client, start_date=sitemap_cutoff)
         except Exception as e:
             print(f"error: fetch_sitemap_urls failed: {e}", file=sys.stderr)
             return 1
@@ -256,9 +260,5 @@ def run_pull(
 
     if http_client is not None:
         return body(http_client)
-    with httpx.Client(
-        timeout=REQUEST_TIMEOUT,
-        headers={"User-Agent": USER_AGENT},
-        follow_redirects=True,
-    ) as client:
+    with build_river_scene_client(timeout=REQUEST_TIMEOUT) as client:
         return body(client)

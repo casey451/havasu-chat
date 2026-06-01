@@ -18,7 +18,7 @@ def client() -> TestClient:
 def test_home_hero_composer_and_ask_hava(client: TestClient) -> None:
     r = client.get("/home")
     assert r.status_code == 200
-    assert 'class="c-hero-composer"' in r.text
+    assert 'class="ll-askbar"' in r.text
     assert 'role="search"' in r.text
     assert 'aria-label="Ask Hava"' in r.text
     assert 'name="q"' in r.text
@@ -27,10 +27,10 @@ def test_home_hero_composer_and_ask_hava(client: TestClient) -> None:
 
 
 def test_category_header_has_hava_search(client: TestClient) -> None:
-    r = client.get("/category/eat-drink")
+    r = client.get("/categories/eat-drink")
     assert r.status_code == 200
-    assert "hava-search-input" in r.text
-    assert "search_bar.js" in r.text
+    assert 'class="ll-category-header"' in r.text
+    assert "search_bar.js" not in r.text
 
 
 def test_search_css_and_js_files_exist() -> None:

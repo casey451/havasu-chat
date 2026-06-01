@@ -216,15 +216,14 @@ def test_search_bar_ui_home_and_provider_templates(db: Session) -> None:
         assert h.status_code == 200
         t = h.text
         assert 'name="q"' in t
-        assert "home_c.css" in t
-        assert 'class="c-hero-composer"' in t
+        assert "/static/styles/lake_light.css" in t
+        assert 'id="home-ask-form"' in t
 
         pr = client.get(f"/provider/{slug}")
         assert pr.status_code == 200
         pt = pr.text
-        assert 'name="q"' in pt
-        assert "directory-search-submit" in pt
-        assert "/static/js/search.js" in pt
+        assert "/chat?q=" in pt
+        assert "Ask Hava about this business" in pt
 
 
 def test_cursor_helpers_round_trip() -> None:

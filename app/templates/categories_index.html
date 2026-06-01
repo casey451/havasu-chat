@@ -17,65 +17,54 @@
   {% include '_partials/plausible.html' %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>All categories &mdash; Hava</title>
+  <title>All categories &mdash; Ask Hava</title>
   <meta name="description" content="Every category Hava covers in Lake Havasu City -- restaurants, marinas, plumbers, classes, and more. Browse the full list with live counts.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles/home_c.css">
-  <link rel="stylesheet" href="/static/styles/categories_index.css">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles/lake_light.css">
 </head>
-<body class="home-c">
-
-{% include 'components/topbar_c.html' %}
-
-<main class="c-cidx" role="main">
-  <header class="c-cidx-head">
-    <p class="c-cidx-meta">{{ today_label }} &middot; {{ now_label }}</p>
-    <h1 class="c-cidx-h1">Explore <em>Lake Havasu</em>.</h1>
-    <p class="c-cidx-sub">Every category Hava covers, with live counts and a peek inside.</p>
+<body class="ll-page">
+<main class="ll-categories-index" role="main">
+  <header style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+    <a href="/home" class="ll-wordmark ll-wordmark-dark" style="font-size:32px;">Ask <em>Hava</em></a>
+    <a href="/home" class="ll-pill">Back to Home</a>
   </header>
-
-  <ul class="c-cidx-grid" role="list">
+  <section class="ll-section" style="margin-top:10px;">
+    <p class="ll-eyebrow">{{ today_label }} · {{ now_label }}</p>
+    <h1 class="ll-title">Explore <em style="font-style:italic;">Lake Havasu</em></h1>
+    <p style="margin:8px 0 0; color:var(--ll-muted);">Every category Hava covers, with live counts and a peek inside.</p>
+  </section>
+  <section class="ll-section">
+    <div class="ll-categories-grid">
     {% for cat in categories %}
-    <li class="c-cidx-card">
-      <a class="c-cidx-card-link" href="/categories/{{ cat.slug }}">
-        <div class="c-cidx-peek" aria-hidden="true">
+      <a class="ll-categories-card" href="/categories/{{ cat.slug }}">
+        <div class="ll-categories-peek" aria-hidden="true">
           {% if cat.peek_images %}
             {% set peek = cat.peek_images[0] %}
-            <img class="c-cidx-peek-img"
+            <img
                  src="{{ peek.url }}"
                  alt="{{ peek.name | clean_name }}"
                  loading="lazy">
-          {% else %}
-            <div class="c-cidx-peek-placeholder"></div>
           {% endif %}
         </div>
-        <div class="c-cidx-body">
-          <h2 class="c-cidx-label">{{ cat.label }}</h2>
-          <p class="c-cidx-blurb">{{ cat.blurb }}</p>
+        <div class="ll-categories-body">
+          <h2 class="ll-categories-name">{{ cat.label }}</h2>
+          <p class="ll-categories-copy">{{ cat.blurb }}</p>
           {% if cat.count > 0 %}
-          <span class="c-cidx-count">{{ cat.count }} listing{% if cat.count != 1 %}s{% endif %}</span>
+          <span class="ll-categories-count">{{ cat.count }} listing{% if cat.count != 1 %}s{% endif %}</span>
           {% else %}
-          <span class="c-cidx-empty">{{ cat.empty_blurb }}</span>
+          <span class="ll-categories-count">{{ cat.empty_blurb }}</span>
           {% endif %}
         </div>
-        <span class="c-cidx-view" aria-hidden="true">View &rarr;</span>
       </a>
-    </li>
     {% endfor %}
-  </ul>
+    </div>
+  </section>
 </main>
 
-<footer class="c-foot" role="contentinfo">
-  <div class="c-foot-inner">
-    <a href="/home">Home</a>
-    <a href="/chat">Ask Hava</a>
-    <a href="/sponsor">Sponsor</a>
-    <a href="/privacy">Privacy</a>
-    <a href="/terms">Terms</a>
-  </div>
-</footer>
+{% set active_tab = "explore" %}
+{% include "_partials/lake_light_bottom_nav.html" %}
 
 </body>
 </html>

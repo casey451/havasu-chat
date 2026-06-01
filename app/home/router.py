@@ -11,22 +11,27 @@ Also hosts the sponsor attribution endpoints (v52 P0):
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import func
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.analytics import record_event
+from app.conditions.cache import read_source
+from app.conditions.constants import SOURCE_GAS
+from app.conditions.staleness import staleness_label
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.rate_limit import limiter
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
-from app.db.models import AdSlot, Sponsor
+from app.db.models import AdSlot, Event, Provider, Sponsor
 from app.home import pullquote, queries_c, sponsor_store
+from app.v1.categories import MASTER_BUCKETS, bucket_for_legacy_category
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
@@ -86,17 +91,115 @@ def _pick_hero(now: datetime) -> dict[str, str]:
     }
 
 
+def _format_event_time_label(start_at: datetime) -> str:
+    return start_at.strftime("%I:%M %p").lstrip("0")
+
+
+def _events_for_window(
+    db: Session, *, start_day: datetime, end_day: datetime, limit: int
+) -> list[dict[str, str]]:
+    rows = (
+        db.query(Event)
+        .filter(
+            Event.status == "live",
+            Event.date >= start_day.date(),
+            Event.date <= end_day.date(),
+        )
+        .order_by(Event.featured.desc(), Event.date.asc(), Event.start_time.asc())
+        .limit(limit)
+        .all()
+    )
+    items: list[dict[str, str]] = []
+    for ev in rows:
+        start_at = datetime.combine(ev.date, ev.start_time)
+        items.append(
+            {
+                "id": ev.id,
+                "title": ev.title,
+                "venue": ev.location_name,
+                "url": f"/events/{ev.id}",
+                "time_label": _format_event_time_label(start_at),
+                "day_label": start_at.strftime("%a"),
+                "date_label": str(start_at.day),
+                "month_label": start_at.strftime("%b"),
+                "image_url": None,
+                "featured": bool(ev.featured),
+            }
+        )
+    return items
+
+
+def _category_cards(db: Session) -> list[dict[str, str | int]]:
+    provider_rows = (
+        db.query(Provider.category, func.count(Provider.id))
+        .filter(Provider.is_active.is_(True), Provider.draft.is_(False))
+        .group_by(Provider.category)
+        .all()
+    )
+    counts: dict[str, int] = {bucket["id"]: 0 for bucket in MASTER_BUCKETS}
+    for category, n in provider_rows:
+        bid = bucket_for_legacy_category(category)
+        counts[bid] = counts.get(bid, 0) + int(n)
+    event_count = int(db.query(Event).filter(Event.status == "live").count())
+    counts["events"] = counts.get("events", 0) + event_count
+    cards: list[dict[str, str | int]] = []
+    for bucket in MASTER_BUCKETS:
+        cards.append(
+            {
+                "id": bucket["id"],
+                "label": bucket["label"],
+                "slug": bucket["slug"],
+                "count": counts.get(bucket["id"], 0),
+            }
+        )
+    return cards
+
+
+def _gas_snapshot(db: Session) -> dict[str, object]:
+    now_utc = datetime.now(UTC).replace(tzinfo=None)
+    row = read_source(db, SOURCE_GAS, now=now_utc)
+    if row is None or not isinstance(row.data, dict):
+        return {"has_data": False}
+    stations = [s for s in (row.data.get("stations") or []) if isinstance(s, dict)]
+    stations_sorted = sorted(
+        stations,
+        key=lambda s: float(
+            s.get("prices", {}).get("regular")
+            if isinstance(s.get("prices"), dict)
+            and isinstance(s.get("prices", {}).get("regular"), (int, float))
+            else 9999
+        ),
+    )
+    cheapest = stations_sorted[:5]
+    label, stale = staleness_label(row.fetched_at, now_utc)
+    return {
+        "has_data": bool(cheapest),
+        "staleness_label": label,
+        "is_stale": bool(stale or row.is_stale),
+        "cheapest": cheapest,
+    }
+
+
 @router.get("/home", response_class=HTMLResponse)
 def serve_home(
     request: Request,
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
-    """Render /home — dark-chrome Direction C template."""
+    """Render /home — Lake Light editorial home."""
     now = now_lake_havasu()
     hero = _pick_hero(now)
     discover_cards = queries_c.discover_grid(db, now=now)
     eat_cards = queries_c.eat_row(db, now=now)
     service_cards = queries_c.services_grid(db)
+    upcoming = _events_for_window(
+        db,
+        start_day=now,
+        end_day=now + timedelta(days=7),
+        limit=12,
+    )
+    gas = _gas_snapshot(db)
+    categories = _category_cards(db)
+    spotlight = discover_cards[0] if discover_cards else None
     return templates.TemplateResponse(
         request=request,
         name="home_c.html",
@@ -111,8 +214,38 @@ def serve_home(
             "discover_cards": discover_cards,
             "eat_cards": eat_cards,
             "service_cards": service_cards,
+            "events_soon": upcoming,
+            "gas_snapshot": gas,
+            "category_cards": categories,
+            "spotlight_card": spotlight,
             "active_tab": "today",
             "hava_read": pullquote.get_quote(db),
+        },
+    )
+
+
+@router.get("/events-ui", response_class=HTMLResponse)
+def serve_events_ui(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    """Render Lake Light events list/calendar shell (data via /api/events)."""
+    now = now_lake_havasu()
+    groups = {
+        "today": _events_for_window(db, start_day=now, end_day=now, limit=12),
+        "weekend": _events_for_window(
+            db, start_day=now + timedelta(days=1), end_day=now + timedelta(days=3), limit=12
+        ),
+        "next_week": _events_for_window(
+            db, start_day=now + timedelta(days=4), end_day=now + timedelta(days=10), limit=16
+        ),
+    }
+    total = sum(len(v) for v in groups.values())
+    return templates.TemplateResponse(
+        request=request,
+        name="events_lake_light.html",
+        context={
+            "events_groups": groups,
+            "events_total": total,
+            "month_label": now.strftime("%B %Y"),
+            "active_tab": "events",
         },
     )
 

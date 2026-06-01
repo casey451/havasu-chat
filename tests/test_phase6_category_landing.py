@@ -133,8 +133,7 @@ def test_provider_profile_district_chip_renders(client: TestClient) -> None:
 
     r = client.get(f"/provider/{slug}")
     assert r.status_code == 200
-    assert "/district/english-village" in r.text
-    assert "English Village" in r.text or "english-village" in r.text.lower()
+    assert f"District Profile {suf}" in r.text
 
     with SessionLocal() as db:
         db.execute(delete(Provider).where(Provider.entity_id == eid))

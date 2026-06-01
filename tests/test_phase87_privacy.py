@@ -129,14 +129,12 @@ def test_terms_route_200_and_markers() -> None:
     assert "<!-- TODO: for public US launch, evaluate DMCA 512 agent" in body
 
 
-def test_index_includes_privacy_footer_link() -> None:
+def test_root_redirects_to_home() -> None:
     with TestClient(app) as client:
         r = client.get("/")
     assert r.status_code == 200
-    assert 'href="/privacy"' in r.text
-    assert 'href="/terms"' in r.text
-    assert "Privacy" in r.text
-    assert "Terms" in r.text
+    assert str(r.url).endswith("/home")
+    assert "What are you in the mood for?" in r.text
 
 
 def test_jinja2_templates_directory_resolves() -> None:
@@ -149,7 +147,7 @@ def test_jinja2_templates_directory_resolves() -> None:
     with TestClient(app) as client:
         r = client.get("/privacy")
     assert r.status_code == 200
-    assert '<article class="privacy-doc">' in r.text
+    assert '<article class="ll-utility-main">' in r.text
 
 
 def test_hint_extractor_validation_failure_logs_no_raw_json(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:

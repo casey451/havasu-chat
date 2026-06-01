@@ -12,6 +12,9 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from datetime import time as time_type
+import logging
+import os
+import random
 from typing import Any
 
 import httpx
@@ -21,13 +24,17 @@ from dateutil import parser as dateutil_parser
 from app.db.contribution_store import normalize_submission_url
 from app.schemas.contribution import ContributionCreate
 
+logger = logging.getLogger(__name__)
+
 SITEMAP_INDEX_URL = "https://riverscenemagazine.com/wp-sitemap.xml"
 EVENTS_SITEMAP_PREFIX = "wp-sitemap-posts-events-"
 USER_AGENT = "Hava/0.1 (+https://github.com/casey451/havasu-chat)"
+RIVER_SCENE_PROXY_ENV = "RIVER_SCENE_SCRAPE_PROXY_URL"
+_FALLBACK_PROXY_ENV = "GAS_SCRAPE_PROXY_URL"
 
 # Sitemaps are small XML; event pages can be slow (WordPress + assets).
-SITEMAP_HTTP_TIMEOUT = httpx.Timeout(45.0, connect=20.0)
-EVENT_PAGE_HTTP_TIMEOUT = httpx.Timeout(120.0, connect=25.0)
+SITEMAP_HTTP_TIMEOUT = httpx.Timeout(20.0, connect=8.0)
+EVENT_PAGE_HTTP_TIMEOUT = httpx.Timeout(45.0, connect=12.0)
 
 # Default ``httpx.Client`` ceiling for :func:`run_pull` (matches event pages).
 REQUEST_TIMEOUT = EVENT_PAGE_HTTP_TIMEOUT
@@ -71,7 +78,30 @@ def _headers() -> dict[str, str]:
 
 
 def _sleep_polite() -> None:
-    time.sleep(1.0)
+    time.sleep(0.25)
+
+
+def _proxy_url() -> str | None:
+    specific = (os.getenv(RIVER_SCENE_PROXY_ENV) or "").strip()
+    if specific:
+        return specific
+    fallback = (os.getenv(_FALLBACK_PROXY_ENV) or "").strip()
+    return fallback or None
+
+
+def build_river_scene_client(*, timeout: httpx.Timeout) -> httpx.Client:
+    kwargs: dict[str, Any] = {
+        "timeout": timeout,
+        "headers": _headers(),
+        "follow_redirects": True,
+    }
+    proxy = _proxy_url()
+    if proxy:
+        try:
+            return httpx.Client(proxy=proxy, **kwargs)
+        except TypeError:
+            return httpx.Client(proxies=proxy, **kwargs)
+    return httpx.Client(**kwargs)
 
 
 def _http_get_text(
@@ -91,21 +121,37 @@ def _http_get_text(
         return client.get(url, timeout=timeout)
 
     r: httpx.Response | None = None
-    for attempt in range(3):
+    max_attempts = 4
+    retryable_statuses = {408, 425, 429, 500, 502, 503, 504}
+    for attempt in range(max_attempts):
         try:
             r = once()
             r.raise_for_status()
             break
-        except (httpx.TimeoutException, httpx.ReadTimeout, httpx.ConnectTimeout):
-            if attempt >= 2:
+        except (
+            httpx.TimeoutException,
+            httpx.ReadTimeout,
+            httpx.ConnectTimeout,
+            httpx.ConnectError,
+            httpx.ReadError,
+            httpx.RemoteProtocolError,
+        ):
+            if attempt >= max_attempts - 1:
                 raise
-            time.sleep(0.5 + 0.5 * attempt)
+            time.sleep(0.35 * (2**attempt) + random.uniform(0.0, 0.25))
         except httpx.HTTPStatusError as e:
-            if e.response is not None and e.response.status_code >= 500 and attempt < 2:
-                time.sleep(0.5)
+            status_code = e.response.status_code if e.response is not None else None
+            if status_code in retryable_statuses and attempt < max_attempts - 1:
+                time.sleep(0.35 * (2**attempt) + random.uniform(0.0, 0.25))
                 continue
             raise
+        except httpx.RequestError:
+            if attempt >= max_attempts - 1:
+                raise
+            time.sleep(0.35 * (2**attempt) + random.uniform(0.0, 0.25))
     assert r is not None
+    if attempt > 0:
+        logger.info("river_scene_http.retry_success url=%s attempts=%d", url, attempt + 1)
     text = r.text
     _sleep_polite()
     return text
@@ -269,18 +315,19 @@ def _clean_venue_text(s: str) -> str:
     return t
 
 
-def fetch_sitemap_urls(*, client: httpx.Client | None = None) -> list[str]:
+def fetch_sitemap_urls(
+    *, client: httpx.Client | None = None, start_date: date | None = None
+) -> list[str]:
     """
     Load ``wp-sitemap.xml``, follow ``wp-sitemap-posts-events-*.xml`` children,
-    and return every ``<url><loc>`` (no filtering).
+    and return every ``<url><loc>``.
+
+    When ``start_date`` is provided, entries with a parseable ``<lastmod>`` that
+    predate ``start_date`` are skipped to avoid fetching thousands of stale pages.
     """
     if client is None:
-        with httpx.Client(
-            timeout=SITEMAP_HTTP_TIMEOUT,
-            headers=_headers(),
-            follow_redirects=True,
-        ) as c:
-            return fetch_sitemap_urls(client=c)
+        with build_river_scene_client(timeout=SITEMAP_HTTP_TIMEOUT) as c:
+            return fetch_sitemap_urls(client=c, start_date=start_date)
 
     xml_index = _http_get_text(SITEMAP_INDEX_URL, client, timeout=SITEMAP_HTTP_TIMEOUT)
     root = ET.fromstring(xml_index)
@@ -301,8 +348,18 @@ def fetch_sitemap_urls(*, client: httpx.Client | None = None) -> list[str]:
         subroot = ET.fromstring(xml_page)
         for url_el in subroot.findall("sm:url", ns):
             loc = url_el.find("sm:loc", ns)
-            if loc is not None and loc.text:
-                urls.append(loc.text.strip())
+            if loc is None or not loc.text:
+                continue
+            if start_date is not None:
+                lastmod = url_el.find("sm:lastmod", ns)
+                if lastmod is not None and lastmod.text:
+                    try:
+                        parsed_lastmod = dateutil_parser.parse(lastmod.text).date()
+                    except (ValueError, TypeError, OverflowError):
+                        parsed_lastmod = None
+                    if parsed_lastmod is not None and parsed_lastmod < start_date:
+                        continue
+            urls.append(loc.text.strip())
     return urls
 
 
@@ -314,11 +371,7 @@ def fetch_and_parse_event(
 ) -> RiverSceneEvent | None:
     """Fetch one event page and parse it. Returns ``None`` if unparseable or start date is in the past."""
     if client is None:
-        with httpx.Client(
-            timeout=EVENT_PAGE_HTTP_TIMEOUT,
-            headers=_headers(),
-            follow_redirects=True,
-        ) as c:
+        with build_river_scene_client(timeout=EVENT_PAGE_HTTP_TIMEOUT) as c:
             return fetch_and_parse_event(url, client=c, today=today)
 
     as_of = today if today is not None else date.today()

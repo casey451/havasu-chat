@@ -4,8 +4,9 @@
 <a class="hava-card hava-card--cat-{{ slug }}" href="{{ c.profile_url }}">
   <div class="hava-card__hero hava-card__hero--{{ slug }}">
     {% if c.hero_photo_url %}
-      <img class="hava-card__hero-img" src="{{ c.hero_photo_url }}" alt="" loading="lazy" decoding="async" />
+      <img class="hava-card__hero-img" src="{{ c.hero_photo_url }}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='grid';" />
     {% endif %}
+    <span class="hava-card__hero-fallback" {% if c.hero_photo_url %}style="display:none;"{% endif %} aria-hidden="true">{{ (c.name or 'H')[:1]|upper }}</span>
     {% if c.is_sponsored %}
       <span class="hava-card__sponsor">Sponsored</span>
     {% endif %}

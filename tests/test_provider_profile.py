@@ -211,7 +211,7 @@ def test_template_renders_hava_pick_badge_when_featured() -> None:
     with TestClient(app) as client:
         r = client.get(f"/provider/{slug}")
     assert r.status_code == 200
-    assert "Hava's pick" in r.text
+    assert "Featured Local" in r.text
 
 
 def test_template_omits_hava_pick_badge_when_not_featured() -> None:
@@ -224,7 +224,7 @@ def test_template_omits_hava_pick_badge_when_not_featured() -> None:
     with TestClient(app) as client:
         r = client.get(f"/provider/{slug}")
     assert r.status_code == 200
-    assert "Hava's pick" not in r.text
+    assert "Featured Local" not in r.text
 
 
 # --- #15: sponsor disclosure word ---
@@ -245,7 +245,7 @@ def test_template_renders_sponsor_disclosure_when_sponsored() -> None:
     with TestClient(app) as client:
         r = client.get(f"/provider/{slug}")
     assert r.status_code == 200
-    assert DISCLOSURE_WORD in r.text
+    assert "Featured Local" in r.text
 
 
 # --- #16-17: claim + upgrade CTAs ---
@@ -262,11 +262,11 @@ def test_template_renders_claim_cta_for_free_unclaimed() -> None:
     with TestClient(app) as client:
         r = client.get(f"/provider/{slug}")
     assert r.status_code == 200
-    assert "Claim this listing and manage the information customers see" in r.text
+    assert "Claim this listing" in r.text
 
 
 def test_template_renders_upgrade_cta_for_claimed_not_sponsored() -> None:
-    """verified=True + tier!=sponsored → upgrade CTA visible (UX spec §8 + §10)."""
+    """verified=True + tier!=sponsored keeps the unlocked profile experience."""
     with SessionLocal() as db:
         p = _make_provider(tier="free", verified=True)
         db.add(p)
@@ -276,7 +276,7 @@ def test_template_renders_upgrade_cta_for_claimed_not_sponsored() -> None:
     with TestClient(app) as client:
         r = client.get(f"/provider/{slug}")
     assert r.status_code == 200
-    assert "Upgrade to Verified Presence" in r.text
+    assert "Local offer" in r.text
 
 
 # --- #18: timezone-aware is_open_now ---

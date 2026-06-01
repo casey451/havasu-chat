@@ -11,10 +11,10 @@ def test_home_serves_home_c_by_default() -> None:
     with TestClient(app) as client:
         r = client.get("/home")
     assert r.status_code == 200
-    assert "home_c.css" in r.text
-    assert 'class="home-c"' in r.text
+    assert "/static/styles/lake_light.css" in r.text
+    assert 'class="ll-page"' in r.text
     assert "Ask Hava" in r.text
-    assert "c-hava-read" in r.text
+    assert "ll-askbar" in r.text
 
 
 def test_home_redesign_query_param_still_serves_home_c() -> None:
@@ -22,7 +22,7 @@ def test_home_redesign_query_param_still_serves_home_c() -> None:
         for path in ("/home?redesign=0", "/home?redesign=1"):
             r = client.get(path)
             assert r.status_code == 200
-            assert "home_c.css" in r.text
+            assert "/static/styles/lake_light.css" in r.text
 
 
 def test_direction_c_no_mock_content() -> None:
@@ -35,10 +35,6 @@ def test_direction_c_no_mock_content() -> None:
 def test_direction_c_has_tab_anchors() -> None:
     with TestClient(app) as client:
         r = client.get("/home")
-    assert "Eat &amp; drink" in r.text or "Eat & drink" in r.text
-    assert 'href="/categories/eat-drink"' in r.text
-    assert 'href="/categories/on-the-water"' in r.text
-    assert 'href="/categories/things-to-do"' in r.text
-    assert 'href="/categories/services"' in r.text
+    assert 'href="/categories"' in r.text
     assert "is-active" in r.text
-    assert 'aria-current="page"' in r.text
+    assert "Explore" in r.text

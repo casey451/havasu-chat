@@ -28,24 +28,21 @@ from app.main import app
 
 
 def test_chat_serves_dark_body_class() -> None:
-    """``/chat`` renders with ``class="chat-dark"`` on <body>."""
+    """``/chat`` renders with the Lake Light chat body classes."""
     with TestClient(app) as client:
         r = client.get("/chat")
     assert r.status_code == 200
-    assert 'class="chat-dark"' in r.text, (
-        "chat.html must carry the chat-dark body class; chat.css scopes "
-        "all dark-palette overrides under this selector"
+    assert 'class="ll-page ll-chat"' in r.text, (
+        "chat.html must carry ll-page/ll-chat body classes for Lake Light styling"
     )
 
 
 def test_chat_loads_chat_css() -> None:
-    """``/chat`` references ``chat.css`` -- the stylesheet that carries
-    the dark-palette rules. If the link tag is dropped or renamed, the
-    body class flip alone won't produce the dark surface."""
+    """``/chat`` references the Lake Light stylesheet."""
     with TestClient(app) as client:
         r = client.get("/chat")
     assert r.status_code == 200
-    assert "/static/styles/chat.css" in r.text
+    assert "/static/styles/lake_light.css" in r.text
 
 
 def test_chat_empty_state_hooks_present() -> None:

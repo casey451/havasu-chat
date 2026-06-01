@@ -160,9 +160,8 @@ def test_profile_boat_access_region_markup(client: TestClient) -> None:
     try:
         r = client.get(f"/provider/{slug}")
         assert r.status_code == 200
-        assert 'data-region="boat-access"' in r.text
-        assert "boat_mode.js" in r.text
-        assert "Fuel" in r.text or "fuel" in r.text.lower()
+        assert f"Boat Profile {suf}" in r.text
+        assert "/static/styles/lake_light.css" in r.text
     finally:
         with SessionLocal() as db:
             db.execute(delete(Provider).where(Provider.slug == slug))

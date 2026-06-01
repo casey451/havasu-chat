@@ -52,6 +52,12 @@
   const form = document.getElementById("composer-form");
   const input = document.getElementById("composer-input");
   const sendBtn = document.getElementById("composer-send");
+  const photoInput = document.getElementById("composer-photo");
+  const photoBtn = document.getElementById("composer-photo-btn");
+  const loadingOverlay = document.getElementById("ll-loading-overlay");
+  const loadingAnswer = document.getElementById("ll-loading-answer");
+  const FLOW_KEY = "hava.contrib.flowId";
+  let contributeFlowId = sessionStorage.getItem(FLOW_KEY) || null;
 
   // ─────────── render helpers ───────────
 
@@ -168,6 +174,49 @@
     // composer. Use requestAnimationFrame so layout has settled.
     requestAnimationFrame(() => {
       window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    });
+  }
+
+  function showLoadingOverlay() {
+    if (!loadingOverlay) return;
+    loadingOverlay.style.display = "flex";
+    loadingOverlay.setAttribute("aria-hidden", "false");
+    loadingOverlay.dataset.readyToClose = "0";
+    if (loadingAnswer) {
+      loadingAnswer.style.display = "none";
+      loadingAnswer.innerHTML = "";
+    }
+  }
+
+  function hideLoadingOverlay() {
+    if (!loadingOverlay) return;
+    loadingOverlay.style.display = "none";
+    loadingOverlay.setAttribute("aria-hidden", "true");
+    loadingOverlay.dataset.readyToClose = "0";
+    if (loadingAnswer) {
+      loadingAnswer.style.display = "none";
+      loadingAnswer.innerHTML = "";
+    }
+  }
+
+  function showLoadingAnswer(query, text) {
+    if (!loadingOverlay || !loadingAnswer) return Promise.resolve();
+    loadingAnswer.style.display = "block";
+    loadingAnswer.innerHTML = "";
+    const askedLabel = el("p", "ll-loading-you-asked", "YOU ASKED");
+    const askedQuestion = el("p", "ll-loading-question", query || "");
+    const answerCard = el("div", "ll-loading-answer-card", text || "");
+    const closeHint = el("p", "ll-loading-close", "Tap anywhere to close.");
+    loadingAnswer.appendChild(askedLabel);
+    loadingAnswer.appendChild(askedQuestion);
+    loadingAnswer.appendChild(answerCard);
+    loadingAnswer.appendChild(closeHint);
+    loadingOverlay.dataset.readyToClose = "1";
+    return new Promise(function (resolve) {
+      window.setTimeout(function () {
+        hideLoadingOverlay();
+        resolve();
+      }, 1100);
     });
   }
 
@@ -721,13 +770,146 @@
   // ─────────── component dispatch ───────────
   // Add a key here when a new component type lands. Returning null falls
   // through to voice-only rendering.
+  function renderContributeFlow(data) {
+    if (!data || !data.flow_id) return null;
+    contributeFlowId = data.flow_id;
+    sessionStorage.setItem(FLOW_KEY, contributeFlowId);
+    const root = el("div", "contribute-flow");
+    root.dataset.flowId = data.flow_id;
+    if (data.summary) {
+      root.appendChild(el("p", "cf-summary", data.summary));
+    }
+    if (data.next_question) {
+      root.appendChild(el("p", "cf-q", data.next_question));
+    }
+    const actions = el("div", "cf-actions");
+    if (data.status === "ready") {
+      const submit = el("button", "cf-btn primary", "Submit for review");
+      submit.type = "button";
+      submit.addEventListener("click", function () {
+        submitContributeFlow();
+      });
+      actions.appendChild(submit);
+    }
+    const cancel = el("button", "cf-btn", "Cancel");
+    cancel.type = "button";
+    cancel.addEventListener("click", function () {
+      clearContributeFlow();
+      const row = el("div", "turn-hava");
+      row.appendChild(el("span", "avatar"));
+      const said = el("div", "said");
+      said.appendChild(el("p", "voice", "No problem — ask me anything else when you're ready."));
+      row.appendChild(said);
+      thread.appendChild(row);
+      scrollToBottom();
+    });
+    actions.appendChild(cancel);
+    root.appendChild(actions);
+    return root;
+  }
+
+  function clearContributeFlow() {
+    contributeFlowId = null;
+    sessionStorage.removeItem(FLOW_KEY);
+    if (photoInput) photoInput.value = "";
+    if (photoBtn) photoBtn.classList.remove("has-file");
+  }
+
+  async function submitContributeFlow() {
+    if (!contributeFlowId) return;
+    const turn = appendHavaTurn();
+    sendBtn.disabled = true;
+    try {
+      const resp = await fetch("/api/contribute/submit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          flow_id: contributeFlowId,
+          session_id: sessionId,
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        failHavaTurn(turn, data.detail || "Couldn't submit — try again.");
+        return;
+      }
+      clearContributeFlow();
+      turn.row.classList.remove("is-loading");
+      turn.voice.textContent = data.message || "Sent for review. Thanks!";
+    } catch (_) {
+      failHavaTurn(turn, "Couldn't reach the server. Try again in a sec.");
+    } finally {
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+
+  async function postContributeClarify(answer) {
+    const turn = appendHavaTurn();
+    sendBtn.disabled = true;
+    try {
+      const resp = await fetch("/api/contribute/clarify", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ flow_id: contributeFlowId, answer: answer }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        failHavaTurn(turn, data.detail || "Something went wrong.");
+        return;
+      }
+      fillHavaTurn(turn, {
+        voice: data.next_question
+          ? data.next_question
+          : "Ready when you are — review and submit below.",
+        component: { type: "contribute_flow", data: data },
+      });
+    } catch (_) {
+      failHavaTurn(turn, "Couldn't reach the server. Try again.");
+    } finally {
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+
+  async function postContributeWithPhoto(file, text) {
+    const turn = appendHavaTurn();
+    sendBtn.disabled = true;
+    const fd = new FormData();
+    fd.append("session_id", sessionId);
+    if (text) fd.append("text", text);
+    fd.append("image", file);
+    try {
+      const resp = await fetch("/api/contribute", { method: "POST", body: fd });
+      const data = await resp.json();
+      if (!resp.ok) {
+        failHavaTurn(turn, data.detail || "Couldn't read that photo.");
+        return;
+      }
+      fillHavaTurn(turn, {
+        voice: data.next_question
+          ? "I pulled what I could from the photo. " + data.next_question
+          : "Here's what I have — submit when it looks right.",
+        component: { type: "contribute_flow", data: data },
+      });
+    } catch (_) {
+      failHavaTurn(turn, "Couldn't upload the photo. Try again.");
+    } finally {
+      sendBtn.disabled = false;
+      if (photoInput) photoInput.value = "";
+      if (photoBtn) photoBtn.classList.remove("has-file");
+      input.focus();
+    }
+  }
+
   const COMPONENT_RENDERERS = {
     day_agenda: renderDayAgenda,
     week_strip: renderWeekStrip,
     card_row: renderCardRow,
     single_card: renderSingleCard,
-    single_business_card: renderSingleCard,           // shares the single_card shape
+    single_business_card: renderSingleCard,
     business_list: renderBusinessList,
+    contribute_flow: renderContributeFlow,
     none: function () { return null; },
   };
 
@@ -736,6 +918,7 @@
   async function postChat(query) {
     const turn = appendHavaTurn();
     sendBtn.disabled = true;
+    showLoadingOverlay();
     try {
       const resp = await fetch("/api/chat", {
         method: "POST",
@@ -757,12 +940,21 @@
         return;
       }
       const payload = await resp.json();
+      if (payload.mode === "contribute" && payload.component
+          && payload.component.type === "contribute_flow"
+          && payload.component.data && payload.component.data.flow_id) {
+        contributeFlowId = payload.component.data.flow_id;
+        sessionStorage.setItem(FLOW_KEY, contributeFlowId);
+      }
+      await showLoadingAnswer(query, payload.voice || payload.response || "Done.");
       fillHavaTurn(turn, payload);
     } catch (e) {
       failHavaTurn(turn, "Couldn't reach me — check your connection and try again.");
+      hideLoadingOverlay();
     } finally {
       sendBtn.disabled = false;
       input.focus();
+      hideLoadingOverlay();
     }
   }
 
@@ -770,20 +962,55 @@
 
   function submit(query) {
     const q = (query || "").trim();
+    const file = photoInput && photoInput.files && photoInput.files[0];
+    if (!q && !file && !contributeFlowId) return;
+    if (file) {
+      trackPlausible("Chat Query Sent", { length_bucket: "photo" });
+      if (q) appendUserTurn(q);
+      else appendUserTurn("[Photo attached]");
+      postContributeWithPhoto(file, q || null);
+      input.value = "";
+      return;
+    }
+    if (contributeFlowId && q) {
+      trackPlausible("Chat Query Sent", { length_bucket: lengthBucket(q) });
+      appendUserTurn(q);
+      postContributeClarify(q);
+      input.value = "";
+      return;
+    }
     if (!q) return;
-    // Plausible: fire BEFORE the network request so a page-unload navigation
-    // between submit and response doesn't drop the event. Only the length
-    // bucket goes on the wire — never the query text.
     trackPlausible("Chat Query Sent", { length_bucket: lengthBucket(q) });
     appendUserTurn(q);
     postChat(q);
     input.value = "";
   }
 
+  if (photoBtn && photoInput) {
+    photoBtn.addEventListener("click", function () {
+      photoInput.click();
+    });
+    photoInput.addEventListener("change", function () {
+      if (photoInput.files && photoInput.files.length > 0) {
+        photoBtn.classList.add("has-file");
+      } else {
+        photoBtn.classList.remove("has-file");
+      }
+    });
+  }
+
   form.addEventListener("submit", function (e) {
     e.preventDefault();
     submit(input.value);
   });
+
+  if (loadingOverlay) {
+    loadingOverlay.addEventListener("click", function () {
+      if (loadingOverlay.dataset.readyToClose === "1") {
+        hideLoadingOverlay();
+      }
+    });
+  }
 
   // Q5: delegated Plausible listener for card + sponsor taps. Walks up
   // from the event target to find:

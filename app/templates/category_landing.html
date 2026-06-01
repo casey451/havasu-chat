@@ -4,17 +4,18 @@
   {% include '_partials/plausible.html' %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>{{ category_label }} — Hava</title>
+  <title>{{ category_label }} — Ask Hava</title>
   <meta name="description" content="{{ category_one_liner }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="/static/styles/lake_light.css">
   <link rel="stylesheet" href="/static/styles/category_landing.css">
 </head>
-<body data-boat-reload-on-toggle data-map-scope="{{ map_scope_slug }}"{% if category_slug in ['on-the-water', 'outdoors-parks-trails'] %} data-map-default-expanded="true"{% endif %}>
+<body class="ll-page" data-boat-reload-on-toggle data-map-scope="{{ map_scope_slug }}"{% if category_slug in ['on-the-water', 'outdoors-parks-trails'] %} data-map-default-expanded="true"{% endif %}>
 
 <div class="page category-page">
 
@@ -202,5 +203,7 @@
 <script src="/static/js/search_bar.js" defer></script>
 <script src="/static/js/map.js" defer></script>
 <script src="/static/js/category_filters.js" defer></script>
+{% set active_tab = "explore" %}
+{% include "_partials/lake_light_bottom_nav.html" %}
 </body>
 </html>

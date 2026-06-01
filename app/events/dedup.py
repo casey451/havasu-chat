@@ -30,12 +30,9 @@ def find_duplicate(
     """Return existing Event row if a likely duplicate, else None."""
     stmt = select(Event).where(Event.date == start_date)
     if venue_entity_id:
-        prov_ids = [
-            p.id
-            for p in db.scalars(
-                select(Provider.id).where(Provider.entity_id == venue_entity_id)
-            ).all()
-        ]
+        prov_ids = list(
+            db.scalars(select(Provider.id).where(Provider.entity_id == venue_entity_id)).all()
+        )
         clauses = [Event.entity_id == venue_entity_id]
         if prov_ids:
             clauses.append(Event.provider_id.in_(prov_ids))

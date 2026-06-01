@@ -98,6 +98,15 @@ body.home-c a:hover { color: var(--c-ink); }
 }
 /* Higher-specificity selector beats body.home-c a {} which would otherwise
    paint this CTA teal-on-teal and make the label invisible. */
+.c-add-hava, body.home-c a.c-add-hava {
+  color: var(--c-muted, rgba(255, 255, 255, 0.55));
+  font-size: 12px;
+  font-weight: 400;
+  padding: 8px 10px;
+  margin-right: 4px;
+}
+body.home-c a.c-add-hava:hover { color: var(--c-text, #fff); }
+
 .c-ask, body.home-c a.c-ask {
   background: var(--c-teal); color: var(--c-bg);
   padding: 8px 16px; border-radius: 999px;

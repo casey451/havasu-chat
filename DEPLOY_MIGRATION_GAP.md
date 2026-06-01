@@ -3,6 +3,50 @@
 ASCII-only. Written 2026-05-30 while diagnosing the golakehavasu-events /
 river-scene-events cron failures.
 
+---
+
+## RESOLVED 2026-05-31 -- orphaned revision `d3e4f5a6b7c8` healed + auto-migrate wired
+
+Two follow-ups from this doc are now closed:
+
+1. **Orphaned `d3e4f5a6b7c8` (chain hole) -- FIXED.**
+   The backfill `d3e4f5a6b7c8` was authored on the unmerged river_scene branch
+   (Task B / PR #63) and a local SQLite DB was stamped at it, but the version
+   file never landed on `main`. Result: any DB stamped at `d3e4f5a6b7c8` could
+   not `alembic upgrade head` ("Can't locate revision identified by
+   'd3e4f5a6b7c8'"), and the only known workaround was a manual re-stamp.
+
+   Fix: the revision was reconstructed faithfully from the original spec
+   (recorded in `SESSION_HANDOFF_2026-05-30_golakehavasu-followups-DONE.md`) as
+   `alembic/versions/d3e4f5a6b7c8_backfill_river_scene_source_url.py` and
+   re-inserted into the chain between `c2d3e4f5a6b7` and `v1a2b3c4d5e6`. The
+   chain is now continuous and single-headed:
+   `... -> c2d3e4f5a6b7 -> d3e4f5a6b7c8 -> v1a2b3c4d5e6 -> v1b2c3d4e5f7 (head)`.
+   The backfill is idempotent (touches only `events` rows where
+   `source_url IS NULL AND source='river_scene_import'`), a no-op on an empty
+   table, and dialect-portable (SQLite + PostgreSQL). Downgrade is a documented
+   no-op (the original NULLs are unrecoverable).
+
+   Verified (`alembic upgrade head`, no manual stamping required):
+   - fresh empty DB -> head: passes (runs straight through the reconstructed rev).
+   - DB stamped at `d3e4f5a6b7c8` -> head: now passes (previously FAILED).
+   - re-run upgrade head: no-op, idempotent.
+   - data check: a river_scene row with NULL source_url is normalized; an
+     already-set row and a non-river_scene row are left untouched.
+
+   NOTE: only the *migration* was reconstructed. The broader river_scene app
+   consolidation (Task B steps 2-5: deleting `_duplicate_rs_article_import` /
+   `_find_seed_overlap` in `app/contrib/river_scene_pull.py` and rewriting the
+   3 pinned tests) remains unmerged and is intentionally OUT of scope here.
+
+2. **Auto-migrate on deploy -- IN PLACE.**
+   `railway.json` at the repo root now carries the recommended release step:
+   `{"deploy": {"preDeployCommand": "alembic upgrade head"}}`. See the
+   "Recommended fix" section below for rationale. Verify per "Verify after
+   enabling".
+
+---
+
 ## What happened
 The event crons were emailing failures. Root cause turned out NOT to be the
 scrapers: prod Postgres was 3 Alembic migrations behind `main`. The middle one,

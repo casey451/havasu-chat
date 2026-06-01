@@ -18,7 +18,7 @@ from urllib.parse import urlparse
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from slowapi.errors import RateLimitExceeded
@@ -29,12 +29,14 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.admin.provider_approval import router as admin_provider_approval_router
 from app.admin.provider_merge_review import router as admin_provider_merge_review_router
 from app.admin.router import router as admin_router
+from app.admin.v1_overview import router as admin_v1_overview_router
 from app.api.routes.account_alerts import router as account_alerts_router
 from app.api.routes.admin_contributions import router as admin_contributions_router
 from app.api.routes.admin_mentions import router as admin_mentions_router
 from app.api.routes.category_pages import router as category_pages_router
 from app.api.routes.chat import router as concierge_chat_router
 from app.api.routes.conditions import router as conditions_router
+from app.api.routes.gas import router as gas_router
 from app.api.routes.contribute import router as contribute_router
 from app.api.routes.map_data import router as map_data_router
 from app.api.routes.themed_groups import router as themed_groups_router
@@ -60,6 +62,7 @@ from app.programs.router import router as programs_router
 from app.providers.router import router as providers_router
 from app.schemas.event import EventRead
 from app.search.routes import router as search_router
+from app.v1.routes import router as v1_master_spec_router
 
 logger = logging.getLogger(__name__)
 
@@ -351,6 +354,7 @@ async def rate_limit_handler(_: Request, __: RateLimitExceeded) -> JSONResponse:
     )
 
 
+app.include_router(v1_master_spec_router)
 app.include_router(concierge_chat_router)
 app.include_router(contribute_router)
 app.include_router(auth_router)
@@ -364,7 +368,9 @@ app.include_router(direction_c_categories_router)
 app.include_router(themed_groups_router)
 app.include_router(map_data_router)
 app.include_router(conditions_router)
+app.include_router(gas_router)
 app.include_router(admin_router)
+app.include_router(admin_v1_overview_router)
 app.include_router(admin_contributions_router)
 app.include_router(admin_mentions_router)
 app.include_router(admin_provider_approval_router)
@@ -384,6 +390,21 @@ app.include_router(new_chat_ui_router)
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
+_BIZ_PHOTOS_DIR = Path("/data/biz-photos")
+if _BIZ_PHOTOS_DIR.is_dir():
+    app.mount(
+        "/static/biz-photos",
+        StaticFiles(directory=str(_BIZ_PHOTOS_DIR)),
+        name="biz_photos",
+    )
+
+_CONTRIB_UPLOADS = Path(__file__).resolve().parents[1] / "data" / "contrib_uploads"
+if _CONTRIB_UPLOADS.is_dir():
+    app.mount(
+        "/data/contrib_uploads",
+        StaticFiles(directory=str(_CONTRIB_UPLOADS)),
+        name="contrib_uploads",
+    )
 
 
 def _format_event_datetime(event: Event) -> str:
@@ -593,8 +614,8 @@ def sitemap_xml() -> Response:
 
 
 @app.get("/")
-def serve_chat_ui() -> FileResponse:
-    return FileResponse(_STATIC_DIR / "index.html")
+def serve_chat_ui() -> RedirectResponse:
+    return RedirectResponse(url="/home", status_code=307)
 
 
 @app.get("/privacy", response_class=HTMLResponse)

@@ -78,7 +78,8 @@ class TestRiverSceneHttpGetTextRetriesAndTimeouts:
         with httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True) as client:
             with pytest.raises(httpx.ReadTimeout):
                 _http_get_text(url, client, timeout=to)
-        assert state["n"] == 3
+        # Retry policy allows one initial try + up to three retries.
+        assert state["n"] == 4
 
     def test_http_get_text_retries_on_5xx_then_succeeds(self) -> None:
         state = {"n": 0}
@@ -540,7 +541,7 @@ def test_pull_past_event_skipped(capsys: pytest.CaptureFixture[str]) -> None:
     index = (FIXTURES / "river_scene_sitemap_index.xml").read_text(encoding="utf-8")
     sub = f"""<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>{ev_url}</loc><lastmod>2020-01-01</lastmod></url>
+  <url><loc>{ev_url}</loc><lastmod>2026-07-20</lastmod></url>
 </urlset>"""
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -576,7 +577,7 @@ def test_river_scene_pull_auto_approves_contribution() -> None:
     index = (FIXTURES / "river_scene_sitemap_index.xml").read_text(encoding="utf-8")
     sub = f"""<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>{ev_url}</loc><lastmod>2026-04-20</lastmod></url>
+  <url><loc>{ev_url}</loc><lastmod>2026-07-20</lastmod></url>
 </urlset>"""
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -698,7 +699,7 @@ def test_river_scene_pull_auto_approval_failure_leaves_contribution_pending(
     index = (FIXTURES / "river_scene_sitemap_index.xml").read_text(encoding="utf-8")
     sub = f"""<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>{ev_url}</loc><lastmod>2026-04-20</lastmod></url>
+  <url><loc>{ev_url}</loc><lastmod>2026-07-20</lastmod></url>
 </urlset>"""
 
     def handler(request: httpx.Request) -> httpx.Response:

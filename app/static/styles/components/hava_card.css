@@ -50,6 +50,16 @@
   display: block;
 }
 
+.hava-card__hero-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(28px, 4vw, 44px);
+  color: rgba(10, 34, 40, 0.78);
+}
+
 .hava-card__hero--eat-drink {
   background: linear-gradient(145deg, #fae3d6, #eaf4f4);
 }

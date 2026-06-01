@@ -58,7 +58,6 @@ from app.db.entity_dual_write import (  # noqa: E402
 )
 from app.db.models import Category, Entity, EntityCategory, Location, Provider  # noqa: E402
 from app.db.seed_helpers import derive_provider_slug  # noqa: E402
-from app.providers.photo_urls import resolve_photo_refs  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +123,26 @@ def filter_by_zip(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dic
     return kept, dict(drops)
 
 
+def _local_photo_urls(raw_urls: Any) -> list[str] | None:
+    """Accept only already-self-hosted local static paths.
+
+    ``places_load`` must stay fully offline from Google APIs; photo URL resolution
+    happens in the one-time photo backfill, not during category loads.
+    """
+    if not isinstance(raw_urls, list):
+        return None
+    kept: list[str] = []
+    for candidate in raw_urls:
+        if not isinstance(candidate, str):
+            continue
+        cleaned = candidate.strip()
+        if not cleaned:
+            continue
+        if cleaned.startswith("/static/"):
+            kept.append(cleaned)
+    return kept or None
+
+
 def row_to_provider_kwargs(row: dict[str, Any]) -> dict[str, Any]:
     """Map an enriched row to the kwargs for Provider construction.
 
@@ -146,7 +165,7 @@ def row_to_provider_kwargs(row: dict[str, Any]) -> dict[str, Any]:
         "google_review_count": row.get("review_count"),
         "google_review_snippets": row.get("review_snippets") or None,
         "google_photo_refs": row.get("photo_refs") or None,
-        "google_photo_urls": resolve_photo_refs(row.get("photo_refs")),
+        "google_photo_urls": _local_photo_urls(row.get("photo_urls")),
         "google_hours": row.get("regular_opening_hours") or None,
         "lat": row.get("lat"),
         "lng": row.get("lng"),

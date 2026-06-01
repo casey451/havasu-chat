@@ -1,0 +1,7 @@
+<nav class="ll-bottom-nav" aria-label="Primary mobile navigation">
+  <a{% if active_tab == "home" %} class="is-active"{% endif %} href="/home">Home</a>
+  <a{% if active_tab == "events" %} class="is-active"{% endif %} href="/events-ui">Events</a>
+  <a{% if active_tab == "ask" %} class="is-active ll-ask-nav"{% else %} class="ll-ask-nav"{% endif %} href="/chat" aria-label="Ask"><span>Ask</span></a>
+  <a{% if active_tab == "explore" %} class="is-active"{% endif %} href="/categories">Explore</a>
+  <a{% if active_tab == "saved" %} class="is-active"{% endif %} href="/account/favorites">Saved</a>
+</nav>

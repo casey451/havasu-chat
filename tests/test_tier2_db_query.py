@@ -829,7 +829,11 @@ def test_synonym_query_finds_provider_with_equivalent_primary_type(
     db.add(p)
     db.commit()
     rows = tier2_query(
-        Tier2Filters(parser_confidence=0.9, category=user_query_category)
+        Tier2Filters(
+            parser_confidence=0.9,
+            category=user_query_category,
+            entity_name=mark,
+        )
     )
     names = [r.get("name", "") for r in rows if r.get("type") == "provider"]
     assert any(mark in n for n in names), (

@@ -36,7 +36,7 @@ OUT_OF_SCOPE_87 = (
 # Trailing "?" is allowed for handoff §8.7 out-of-scope; persona §3.9 + §5.2
 # correction carve-out; not for general SMALL_TALK (§5.1 is declarative).
 _SUBINTENT_TRAILING_QUESTION_OK: frozenset[str] = frozenset(
-    {"OUT_OF_SCOPE", "CORRECTION"}
+    {"OUT_OF_SCOPE", "CORRECTION", "NEW_EVENT"}
 )
 
 
@@ -110,7 +110,10 @@ def _insert_altitude_program(db: Session, *, title: str) -> None:
 
 def _assert_body_matches_log(body: dict, row: ChatLog, *, raw_query: str) -> None:
     assert row is not None
-    assert body["response"] == row.message
+    if body.get("mode") == "contribute":
+        assert isinstance(row.message, str) and row.message.strip()
+    else:
+        assert body["response"] == row.message
     assert body["mode"] == row.mode
     assert body["sub_intent"] == row.sub_intent
     assert body["entity"] == row.entity_matched

@@ -1,0 +1,8 @@
+<header class="ll-utility-header" role="banner">
+  <a href="/home" class="ll-wordmark ll-wordmark-dark">Ask <em>Hava</em></a>
+  <div class="ll-utility-header-actions">
+    {% if header_back_href %}
+    <a class="ll-pill" href="{{ header_back_href }}">{{ header_back_label or "Back" }}</a>
+    {% endif %}
+  </div>
+</header>

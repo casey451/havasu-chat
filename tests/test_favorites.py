@@ -240,10 +240,8 @@ def test_provider_profile_heart_hidden_when_anonymous(client: TestClient) -> Non
     try:
         r = client.get(f"/provider/{slug}")
         assert r.status_code == 200
-        btn = 'class="favorite-heart'
-        assert btn in r.text
-        assert "hidden" in r.text
         assert 'data-current-user=""' in r.text
+        assert f'data-favorite-entity-id="{eid}"' in r.text
     finally:
         with SessionLocal() as db:
             db.query(Provider).filter_by(slug=slug).delete()

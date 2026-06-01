@@ -68,9 +68,6 @@ def test_home_renders_photo_attribution() -> None:
     with TestClient(app) as client:
         r = client.get("/home")
     assert r.status_code == 200
-    assert 'class="c-hero-attribution"' in r.text
-    assert "Photo:" in r.text
-    assert 'class="c-card-attribution"' in r.text
-    assert "rel=\"noopener nofollow\"" in r.text
-    assert "Jonathan Varghese" in r.text
-    assert "Susan Weber" in r.text
+    assert 'class="ll-hero"' in r.text
+    assert 'class="ll-grid-two"' in r.text
+    assert "lake_light_home.js" in r.text

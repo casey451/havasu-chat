@@ -3,9 +3,33 @@
  */
 @import url("home.css");
 
+:root {
+  --bg: #F6F1E7;
+  --bg-2: #DCE5DB;
+  --paper: #FBF7EF;
+  --ink: #27332B;
+  --ink-2: #4f5b52;
+  --ink-3: #7C857C;
+  --ink-4: #97a298;
+  --water-50: #DCE5DB;
+  --water: #3F5C4B;
+  --water-700: #2f4639;
+  --clay-50: #F1DDD0;
+  --clay: #C16B4A;
+  --clay-700: #915338;
+  --rule: rgba(39, 51, 43, 0.12);
+  --rule-soft: rgba(39, 51, 43, 0.07);
+  --sans: "Poppins", "Segoe UI", sans-serif;
+  --serif: "Playfair Display", Georgia, serif;
+}
+
 .category-page .directory-search-wrap--compact {
   padding: 0.75rem 0 0;
   max-width: 36rem;
+}
+
+.category-page {
+  padding-bottom: 110px;
 }
 
 .category-subhero {
@@ -13,8 +37,8 @@
 }
 
 .category-title {
-  font-family: "Fraunces", serif;
-  font-weight: 500;
+  font-family: var(--serif);
+  font-weight: 400;
   font-size: 1.65rem;
   line-height: 1.15;
   margin: 0.75rem 0 0.25rem;

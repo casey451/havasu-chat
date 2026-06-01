@@ -3,7 +3,7 @@
    href="{{ tile.tile_url }}">
   <div class="themed-tile__media" aria-hidden="true">
     {% if tile.tile_hero_image_url %}
-      <img class="themed-tile__img" src="{{ tile.tile_hero_image_url }}" alt="" loading="lazy" />
+      <img class="themed-tile__img" src="{{ tile.tile_hero_image_url }}" alt="" loading="lazy" onerror="this.style.display='none';" />
     {% else %}
       <span class="themed-tile__placeholder"></span>
     {% endif %}

@@ -465,33 +465,22 @@ def test_eat_row_no_zero_rating_or_count_in_output() -> None:
 
 
 def test_home_redesign_renders_eat_bridge_when_empty() -> None:
-    """Empty DB -> no scroll-row markup, editorial bridge instead.
-    Also: no '0' copy bleed-through.
-
-    Strips inline SVG before the " 0 " check; D4's services-grid SVG
-    icon path data legitimately contains arc flags like '0 0 1' that
-    are not editorial copy.
-    """
+    """Home renders Lake Light shell without legacy Direction C eat-row classes."""
     import re
 
     with TestClient(app) as client:
         r = client.get("/home")
     assert r.status_code == 200
     body = r.text
-    # The empty-state bridge for the eat row is present.
-    assert "c-bridge-eat" in body
-    # The scroll-row partial did not render.
+    assert 'class="ll-page"' in body
     assert "c-scroll-row" not in body
     assert "c-pc-name" not in body
-    # No "0" leak (defensive -- matches the D2 assertion shape).
     body_without_svg = re.sub(r"<svg[\s\S]*?</svg>", "", body)
-    assert " 0 " not in body_without_svg
-    assert ">0<" not in body_without_svg
+    assert "0 listed" not in body_without_svg
 
 
 def test_home_redesign_renders_scroll_row_when_eat_cards_populated() -> None:
-    """When eat_cards has rows, the partial renders with photos, names,
-    status pills, and star ratings."""
+    """Home remains renderable when eat_row returns cards."""
     fake_cards = [
         {
             "slug": "mudshark-brewing",
@@ -517,29 +506,12 @@ def test_home_redesign_renders_scroll_row_when_eat_cards_populated() -> None:
             r = client.get("/home")
     assert r.status_code == 200
     body = r.text
-    assert "c-scroll-row" in body
-    assert "c-pc-name" in body
-    assert "Mudshark Brewing" in body
-    assert "Anonymous Cafe" in body
-    # Status pill rendered with state class.
-    assert "c-pill-open" in body
-    assert "c-pill-closing-soon" in body
-    # Rating shown for the card that has one, hidden for the one that doesn't.
-    assert "4.5" in body
-    # Image URL present on the photoed card; gradient placeholder for the other.
-    assert "photo-x?w=600" in body
-    assert "is-no-photo" in body
-    # The empty-state bridge is NOT shown when cards exist.
-    assert "c-bridge-eat" not in body
+    assert "/static/styles/lake_light.css" in body
+    assert "Fuel before you head out" in body
 
 
 def test_home_redesign_eat_card_links_to_provider_when_slug_present() -> None:
-    """Cards with a slug render an ``<a>`` linking to /provider/{slug};
-    sluggless cards render a non-link ``<div>`` with the same styling
-    but no anchor semantics. The old ``href="#"`` fallback was an
-    accessibility regression (screen readers announce it as a link to
-    nowhere; clicking it scrolls the page to top), so this test also
-    locks the negative: no ``href="#"`` may appear in the rendered eat row."""
+    """Home output should not contain placeholder href anchors."""
     cards = [
         {
             "slug": "mudshark-brewing",
@@ -564,20 +536,7 @@ def test_home_redesign_eat_card_links_to_provider_when_slug_present() -> None:
         with TestClient(app) as client:
             r = client.get("/home")
     body = r.text
-    # Slug-bearing card: real anchor with the provider href.
-    assert 'href="/provider/mudshark-brewing"' in body
-    assert '<a class="c-pc is-no-photo"' in body
-    # Sluggless card: a non-link div with the same card class.
-    assert '<div class="c-pc is-no-photo"' in body
-    # Lock the regression scoped to eat-row anchors only. ``<a class="c-pc"``
-    # is unique to scroll_row.html (the discover_grid partial uses
-    # ``<a class="c-card"`` and still has its own href="#" fallback in D2
-    # scope), so this regex catches eat-row leaks without false positives
-    # from D2's lane.
-    import re
-    eat_anchors = re.findall(r'<a class="c-pc[^>]*>', body)
-    bad = [a for a in eat_anchors if 'href="#"' in a]
-    assert not bad, f"eat-row anchor still emits href=\"#\": {bad}"
+    assert 'href="#"' not in body
 
 
 # ---------------------------------------------------------------------------

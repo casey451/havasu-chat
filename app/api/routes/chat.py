@@ -27,6 +27,8 @@ from app.core.rate_limit import limiter
 from app.core.session import get_session
 from app.db.database import SessionLocal, get_db
 from app.db.models import ChatLog
+from app.v1.chat_contribute import maybe_enrich_contribute_response
+from app.v1.query_log import log_query_intent
 from app.schemas.chat import (
     ChatFeedbackRequest,
     ChatFeedbackResponse,
@@ -75,17 +77,33 @@ def post_concierge_chat(
             result.response,
             SessionLocal,
         )
-    # BUILD.md step 5: emit voice + component alongside legacy `response`.
-    # `voice` defaults to `response` until handlers populate it explicitly;
-    # `component` is "none" for now and lights up in steps 6+ as each query
-    # shape gets its renderer.
+    if result.mode == "ask":
+        log_query_intent(
+            db,
+            normalized_intent=result.sub_intent,
+            sub_intent=result.sub_intent,
+            mode=result.mode,
+            component_type=result.component_type,
+            component_data=result.component_data,
+        )
+
+    voice = result.voice or result.response
+    component = ComponentPayload(
+        type=result.component_type,
+        data=result.component_data,
+    )
+    if result.mode == "contribute":
+        voice, component = maybe_enrich_contribute_response(
+            db,
+            session_id=payload.session_id,
+            query_text=payload.query or "",
+            result=result,
+        )
+
     return ConciergeChatResponse(
-        response=result.response,
-        voice=result.voice or result.response,
-        component=ComponentPayload(
-            type=result.component_type,
-            data=result.component_data,
-        ),
+        response=voice,
+        voice=voice,
+        component=component,
         mode=result.mode,
         sub_intent=result.sub_intent,
         entity=result.entity,
