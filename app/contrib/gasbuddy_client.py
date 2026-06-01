@@ -59,10 +59,11 @@ _CSRF_PATTERN = re.compile(r'window\.gbcsrf\s*=\s*(["\'])(.*?)\1')
 # blocked as CSRF with HTTP 400.
 DEFAULT_HEADERS: dict[str, str] = {
     "Content-Type": "application/json",
-    "Accept": "application/json, text/plain, */*",
-    "apollo-require-preflight": "true",
+    "Sec-Fetch-Dest": "",
     "Sec-Fetch-Mode": "cors",
     "Sec-Fetch-Site": "same-origin",
+    "Priority": "u=0",
+    "apollo-require-preflight": "true",
     "Origin": "https://www.gasbuddy.com",
     "Referer": PRIME_URL,
     "User-Agent": (
@@ -133,10 +134,7 @@ def _rebuild_proxy_url(proxy: str, username: str) -> str:
 
 
 def _prepare_scraperapi_proxy(proxy: str, *, render: bool = False) -> str:
-    """Pin ScraperAPI session stickiness (CSRF token + POST must share an IP).
-
-    Optionally enable ``render=true`` for a JS-rendered retry pass.
-    """
+    """Adjust a ScraperAPI proxy URL for session stickiness and optional JS render."""
     parsed = urlparse(proxy)
     params = _parse_scraperapi_username(parsed.username or "")
     params.setdefault("session_number", str(random.randint(1, 9_999_999)))
@@ -147,19 +145,14 @@ def _prepare_scraperapi_proxy(proxy: str, *, render: bool = False) -> str:
     return _rebuild_proxy_url(proxy, username)
 
 
-def _scraperapi_render_proxy(proxy: str) -> str | None:
-    """Return a ScraperAPI proxy URL with ``render=true``, or None if N/A."""
-    if not _is_scraperapi_proxy(proxy):
-        return None
-    user = urlparse(proxy).username or ""
-    if "render=true" in user:
-        return None
-    return _prepare_scraperapi_proxy(proxy, render=True)
+def _apply_csrf(client: httpx.Client, token: str) -> None:
+    """Attach GasBuddy CSRF token as header + cookie for GraphQL POSTs."""
+    client.headers["gbcsrf"] = token
+    client.headers["x-apollo-operation-name"] = "LocationBySearchTerm"
+    client.cookies.set("gbcsrf", token, domain="www.gasbuddy.com")
 
 
-def _build_client(
-    *, proxy: str | None = None, timeout: float | None = None, prepare_scraperapi: bool = True
-) -> httpx.Client:
+def _build_client(*, proxy: str | None = None, timeout: float | None = None) -> httpx.Client:
     """Construct an httpx client, routing through the unblocker proxy if set."""
     proxy = _proxy_url() if proxy is None else proxy
     effective_timeout = (
@@ -171,8 +164,6 @@ def _build_client(
         "follow_redirects": True,
     }
     if proxy:
-        if prepare_scraperapi and _is_scraperapi_proxy(proxy):
-            proxy = _prepare_scraperapi_proxy(proxy, render=False)
         # ScraperAPI / similar proxies MITM TLS; cert won't chain to a public CA.
         kwargs["verify"] = False
         # httpx >=0.26 uses ``proxy=``; older releases use ``proxies=``.
@@ -181,6 +172,16 @@ def _build_client(
         except TypeError:
             return httpx.Client(proxies=proxy, **kwargs)
     return httpx.Client(**kwargs)
+
+
+def _scraperapi_render_proxy(proxy: str) -> str | None:
+    """Return a ScraperAPI proxy URL with ``render=true``, or None if N/A."""
+    if not _is_scraperapi_proxy(proxy):
+        return None
+    user = urlparse(proxy).username or ""
+    if "render=true" in user:
+        return None
+    return _prepare_scraperapi_proxy(proxy, render=True)
 
 
 def _fetch_csrf_token(client: httpx.Client) -> str | None:
@@ -229,6 +230,13 @@ def fetch_stations_for_search(
             "variables": {"maxAge": 0, "search": search, "cursor": cursor},
         }
         resp = client.post(GRAPHQL_URL, json=payload)
+        if resp.status_code >= 400:
+            logger.warning(
+                "GasBuddy graphql HTTP %s for %s: %s",
+                resp.status_code,
+                search,
+                (resp.text or "")[:300],
+            )
         resp.raise_for_status()
         body = resp.json()
         if not isinstance(body, dict):
@@ -256,10 +264,30 @@ def _fetch_lhc_stations_with_client(
     merged: list[dict[str, Any]] = []
     token = _fetch_csrf_token(client)
     if token:
-        client.headers["gbcsrf"] = token
+        _apply_csrf(client, token)
     for zip_code in zips:
         try:
             results = fetch_stations_for_search(client, zip_code)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code in (400, 403) and token:
+                token = _fetch_csrf_token(client)
+                if token:
+                    _apply_csrf(client, token)
+                    try:
+                        results = fetch_stations_for_search(client, zip_code)
+                    except httpx.HTTPError as retry_exc:
+                        logger.warning(
+                            "GasBuddy fetch failed for %s after CSRF refresh: %s",
+                            zip_code,
+                            retry_exc,
+                        )
+                        continue
+                else:
+                    logger.warning("GasBuddy fetch failed for %s: %s", zip_code, exc)
+                    continue
+            else:
+                logger.warning("GasBuddy fetch failed for %s: %s", zip_code, exc)
+                continue
         except httpx.HTTPError as exc:  # pragma: no cover - network dependent
             logger.warning("GasBuddy fetch failed for %s: %s", zip_code, exc)
             continue
@@ -292,7 +320,7 @@ def fetch_lhc_stations(zips: tuple[str, ...] = LHC_ZIPS) -> list[dict[str, Any]]
             logger.info(
                 "GasBuddy returned 0 stations via ScraperAPI proxy; retrying with render=true"
             )
-            with _build_client(proxy=render_proxy, prepare_scraperapi=False) as client:
+            with _build_client(proxy=render_proxy) as client:
                 merged = _fetch_lhc_stations_with_client(client, zips)
 
     logger.info("GasBuddy returned %d unique stations across %d ZIPs", len(merged), len(zips))
