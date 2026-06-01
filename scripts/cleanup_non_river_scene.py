@@ -92,14 +92,14 @@ def count_deletable_rows(db: Session) -> CleanupCounts:
     n_fh = int(db.scalar(select(func.count()).select_from(FieldHistory)) or 0)
     n_c = int(
         db.scalar(
-            select(func.count()).select_from(Contribution).where(Contribution.source == OPERATOR_BACKFILL)
+            select(func.count())
+            .select_from(Contribution)
+            .where(Contribution.source == OPERATOR_BACKFILL)
         )
         or 0
     )
     n_e = int(
-        db.scalar(
-            select(func.count()).select_from(Event).where(Event.source == ADMIN_EVENT_SOURCE)
-        )
+        db.scalar(select(func.count()).select_from(Event).where(Event.source == ADMIN_EVENT_SOURCE))
         or 0
     )
     n_p = int(db.scalar(select(func.count()).select_from(Program)) or 0)
@@ -114,15 +114,22 @@ def count_deletable_rows(db: Session) -> CleanupCounts:
     )
 
 
-def run_preflight(db: Session, *, min_rs_contributions: int | None = None, min_rs_events: int | None = None) -> None:
+def run_preflight(
+    db: Session, *, min_rs_contributions: int | None = None, min_rs_events: int | None = None
+) -> None:
     """Abort with ``PreflightError`` if RS inventory checks fail or illegal RS→admin links exist."""
     min_c = _min_rs_contributions() if min_rs_contributions is None else min_rs_contributions
     min_e = _min_rs_events() if min_rs_events is None else min_rs_events
 
     rs_c = int(
-        db.scalar(select(func.count()).select_from(Contribution).where(Contribution.source == RS_SOURCE)) or 0
+        db.scalar(
+            select(func.count()).select_from(Contribution).where(Contribution.source == RS_SOURCE)
+        )
+        or 0
     )
-    rs_e = int(db.scalar(select(func.count()).select_from(Event).where(Event.source == RS_SOURCE)) or 0)
+    rs_e = int(
+        db.scalar(select(func.count()).select_from(Event).where(Event.source == RS_SOURCE)) or 0
+    )
 
     if rs_c < min_c:
         raise PreflightError(
@@ -183,10 +190,16 @@ def _prompt_apply(counts: CleanupCounts, input_fn: Callable[[str], str] = input)
 
 def _clear_fks_before_program_provider_delete(db: Session) -> None:
     """Detach surviving rows from programs/providers so DELETE does not violate FKs."""
-    db.execute(update(Contribution).values(created_program_id=None).where(Contribution.created_program_id.is_not(None)))
+    db.execute(
+        update(Contribution)
+        .values(created_program_id=None)
+        .where(Contribution.created_program_id.is_not(None))
+    )
     db.execute(update(Event).values(provider_id=None).where(Event.provider_id.is_not(None)))
     db.execute(
-        update(Contribution).values(created_provider_id=None).where(Contribution.created_provider_id.is_not(None))
+        update(Contribution)
+        .values(created_provider_id=None)
+        .where(Contribution.created_provider_id.is_not(None))
     )
 
 
@@ -211,7 +224,9 @@ def _execute_six_deletes(
     r1 = db.execute(delete(LlmMentionedEntity))
     n1 = r1.rowcount or 0
     if n1 != expected.llm_mentioned_entities:
-        raise AssertionError(f"llm_mentioned_entities deleted {n1} != expected {expected.llm_mentioned_entities}")
+        raise AssertionError(
+            f"llm_mentioned_entities deleted {n1} != expected {expected.llm_mentioned_entities}"
+        )
 
     if inject_failure_before == "field_history":
         raise RuntimeError("injected DB failure")
@@ -227,7 +242,9 @@ def _execute_six_deletes(
     r3 = db.execute(delete(Contribution).where(Contribution.source == OPERATOR_BACKFILL))
     n3 = r3.rowcount or 0
     if n3 != expected.contributions_non_rs:
-        raise AssertionError(f"contributions deleted {n3} != expected {expected.contributions_non_rs}")
+        raise AssertionError(
+            f"contributions deleted {n3} != expected {expected.contributions_non_rs}"
+        )
 
     if inject_failure_before == "events":
         raise RuntimeError("injected DB failure")
@@ -307,7 +324,9 @@ def run_cleanup(
 
     db.rollback()
     with db.begin():
-        actual = _execute_six_deletes(db, expected=expected, inject_failure_before=inject_failure_before)
+        actual = _execute_six_deletes(
+            db, expected=expected, inject_failure_before=inject_failure_before
+        )
 
     _print_summary("apply", actual)
     return actual

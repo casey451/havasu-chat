@@ -359,7 +359,10 @@ def test_approve_provider_sets_hours_structured_from_places(db: Session) -> None
         "lookup_status": "success",
         "regular_opening_hours": {
             "periods": [
-                {"open": {"day": 2, "hour": 10, "minute": 0}, "close": {"day": 2, "hour": 16, "minute": 0}},
+                {
+                    "open": {"day": 2, "hour": 10, "minute": 0},
+                    "close": {"day": 2, "hour": 16, "minute": 0},
+                },
             ]
         },
     }
@@ -400,7 +403,10 @@ def test_approve_provider_without_places_leaves_hours_structured_none(db: Sessio
 
 def test_approve_provider_malformed_places_hours_structured_none(db: Session) -> None:
     c = _provider_contribution(db)
-    c.google_enriched_data = {"lookup_status": "success", "regular_opening_hours": {"periods": "bad"}}
+    c.google_enriched_data = {
+        "lookup_status": "success",
+        "regular_opening_hours": {"periods": "bad"},
+    }
     db.add(c)
     db.commit()
     p = approve_contribution_as_provider(

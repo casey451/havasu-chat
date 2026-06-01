@@ -50,7 +50,6 @@ def test_lake_recreation_fallback_entries_preserved() -> None:
     }
     for key in required_lake_rec:
         assert key in _DISCOVERY_DOMAIN_FALLBACK, (
-            f"Phase 5.2 lake_recreation fallback entry {key!r} is missing. "
-            "Regression of 65b0824."
+            f"Phase 5.2 lake_recreation fallback entry {key!r} is missing. Regression of 65b0824."
         )
         assert _DISCOVERY_DOMAIN_FALLBACK[key] == "on-the-water"

@@ -36,7 +36,6 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     "barbecue_restaurant": ("eat-drink", "commercial"),
     "coffee_shop": ("eat-drink", "commercial"),
     "ice_cream_shop": ("eat-drink", "commercial"),
-
     # Tier 1.2 — On the Water (brief §3.2). marinas/beaches are places;
     # dealers/rentals are commercial — Google's types[] doesn't always
     # disambiguate, so the to_entity_payload caller may override
@@ -55,7 +54,6 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     # then this extension catches future loads automatically.
     "fishing_pier": ("on-the-water", "place"),
     "ferry_service": ("on-the-water", "commercial"),
-
     # Tier 1.3 — Home & Property Services (brief §3.3)
     "plumber": ("home-property-services", "commercial"),
     "electrician": ("home-property-services", "commercial"),
@@ -71,7 +69,6 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     "pest_control_service": ("home-property-services", "commercial"),
     "cleaning_service": ("home-property-services", "commercial"),
     "appliance_repair": ("home-property-services", "commercial"),
-
     # Tier 1.4 — Health, Wellness & Care (brief §3.4)
     "doctor": ("health-wellness-care", "commercial"),
     "dentist": ("health-wellness-care", "commercial"),
@@ -101,7 +98,6 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     # Adding the direct mapping catches them regardless of discovery
     # domain.
     "medical_clinic": ("health-wellness-care", "commercial"),
-
     # Tier 1.5 — Auto, RV & Fuel (brief §3.5). `rv_park` stays in
     # `lodging-vacation-rentals` per prereq §3.1.b lock (where-you-stay
     # framing); `rv_repair` lives here as part of the auto-RV bundle.
@@ -114,7 +110,6 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     "auto_parts_store": ("auto-rv-fuel", "commercial"),
     "motorcycle_dealer": ("auto-rv-fuel", "commercial"),
     "rv_repair": ("auto-rv-fuel", "commercial"),
-
     # Tier 1.6 — Shopping, Grocery & Essentials (brief §3.6)
     "store": ("shopping-essentials", "commercial"),
     "supermarket": ("shopping-essentials", "commercial"),
@@ -129,7 +124,6 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     "book_store": ("shopping-essentials", "commercial"),
     "florist": ("shopping-essentials", "commercial"),
     "jewelry_store": ("shopping-essentials", "commercial"),
-
     # Tier 2/3 — non-Tier-1 categories already mapped pre-Phase-5
     "lodging": ("lodging-vacation-rentals", "commercial"),
     "rv_park": ("lodging-vacation-rentals", "commercial"),
@@ -152,7 +146,6 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     # golf_course widening above. `place` (federal land, not commercial)
     # contrasts with golf_course's `commercial` (entry fees / staffed).
     "wildlife_refuge": ("outdoors-parks-trails", "place"),
-
     # Phase 5.8 §1 sustainability — events (cat-2) direct mappings.
     # Pre-5.8, the only entertainment_attractions resolver path for these
     # primary_types was the catch-all ``(None, "entertainment_attractions")
@@ -184,10 +177,8 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     "movie_theater": ("events", "commercial"),
     "bowling_alley": ("events", "commercial"),
     "amusement_arcade": ("events", "commercial"),
-
     "veterinary_care": ("pets", "commercial"),
     "pet_store": ("pets", "commercial"),
-
     # Phase 5.11 -- 1 sustainability -- pets (cat-11) primary types.
     # The pre-Phase-5 ``veterinary_care`` + ``pet_store`` direct
     # mappings (above) cover vet clinics + retail pet stores. The 5.11
@@ -214,7 +205,6 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     "dog_groomer": ("pets", "commercial"),
     "pet_boarding": ("pets", "commercial"),
     "dog_trainer": ("pets", "commercial"),
-
     # Phase 5.11 V1.5 carry — 3 pets direct mappings. Pre-Phase-5.11
     # `veterinary_care` + `pet_store` covered vet clinics + retail pet
     # stores. The 5.11 §1 load surfaced no `pet_supply_store` /
@@ -228,7 +218,6 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     "pet_supply_store": ("pets", "commercial"),
     "animal_shelter": ("pets", "place"),
     "aquarium_store": ("pets", "commercial"),
-
     # Phase 5.9 §1 sustainability — classes-sports-recreation (cat-12)
     # direct mappings. 5.9 Narrow scope is 9 of the 16 labels in the
     # ``classes-sports-recreation`` two-domain bundle
@@ -274,7 +263,6 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     "swimming_pool": ("classes-sports-recreation", "place"),
     "tennis_court": ("classes-sports-recreation", "place"),
     "pickleball_court": ("classes-sports-recreation", "place"),
-
     # Phase 5.9 V1.5 carry — 6 classes-sports-recreation direct
     # mappings. The 5.9 §1 sustainability matrix flagged athletic_field
     # / educational_institution / primary_school / sports_complex /
@@ -301,7 +289,6 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     "sports_complex": ("classes-sports-recreation", "place"),
     "sports_club": ("classes-sports-recreation", "commercial"),
     "country_club": ("classes-sports-recreation", "commercial"),
-
     # Phase 5.10 §1 sustainability — lodging-vacation-rentals (cat-10)
     # direct mappings. The pre-Phase-5 ``lodging`` direct mapping (above)
     # already catches most lodging-shape places via the secondary-types[]
@@ -333,7 +320,6 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     "resort_hotel": ("lodging-vacation-rentals", "commercial"),
     "extended_stay_hotel": ("lodging-vacation-rentals", "commercial"),
     "bed_and_breakfast": ("lodging-vacation-rentals", "commercial"),
-
     # Phase 5.10 V1.5 carry — 4 lodging direct mappings. The 5.10 §1
     # load empirically catches these via the secondary-types[] match
     # against the existing `lodging` direct mapping (above), but direct
@@ -348,11 +334,9 @@ _PRIMARY_TYPE_MAP: dict[str, tuple[str, str | None]] = {
     "cottage": ("lodging-vacation-rentals", "commercial"),
     "mobile_home_park": ("lodging-vacation-rentals", "place"),
     "guest_house": ("lodging-vacation-rentals", "commercial"),
-
     "school": ("classes-sports-recreation", "commercial"),
     "library": ("public-civic-resources", "place"),
     "city_hall": ("public-civic-resources", "place"),
-
     # Explicit Phase 5 skip: beauty / personal-care types route to the
     # operator queue rather than getting absorbed into eat-drink or
     # shopping-essentials. Per prereq checklist §3.1.a operator decision-

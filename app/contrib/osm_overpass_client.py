@@ -28,9 +28,7 @@ LHC_BOUNDING_BOX: Final = (34.43, -114.41, 34.59, -114.30)  # (south, west, nort
 # one, ``overpass-api.de`` returns ``406 Not Acceptable`` for default
 # library UAs (``python-httpx/X.Y.Z``) — surfaced by the Phase 5.2 §0
 # pre-flight smoke test.
-OSM_OVERPASS_USER_AGENT: Final = (
-    "havasu-chat/1.0 (+https://github.com/casey451/havasu-chat)"
-)
+OSM_OVERPASS_USER_AGENT: Final = "havasu-chat/1.0 (+https://github.com/casey451/havasu-chat)"
 
 
 def build_query(tag: str, value: str) -> str:
@@ -68,7 +66,9 @@ class OsmOverpassClient(BaseIngestClient):
             # itself to actually surface to operators running the pull script.
             logger.warning(
                 "osm_overpass.transport_error tag=%s value=%s error=%s",
-                tag, value, exc,
+                tag,
+                value,
+                exc,
             )
             return []
         if response.status_code != 200:
@@ -78,7 +78,10 @@ class OsmOverpassClient(BaseIngestClient):
             body_snippet = (response.text or "")[:200].replace("\n", " ")
             logger.warning(
                 "osm_overpass.non_200 status=%s tag=%s value=%s body_snippet=%r",
-                response.status_code, tag, value, body_snippet,
+                response.status_code,
+                tag,
+                value,
+                body_snippet,
             )
             return []
         try:
@@ -86,7 +89,9 @@ class OsmOverpassClient(BaseIngestClient):
         except ValueError as exc:
             logger.warning(
                 "osm_overpass.json_parse_error tag=%s value=%s error=%s",
-                tag, value, exc,
+                tag,
+                value,
+                exc,
             )
             return []
         out: list[RawHit] = []

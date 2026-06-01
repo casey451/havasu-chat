@@ -185,9 +185,7 @@ def test_deleting_referenced_event_nulls_contribution_created_event_id(
             )
 
         with engine.begin() as conn:
-            cur = conn.execute(
-                text("SELECT id, created_event_id FROM contributions")
-            ).first()
+            cur = conn.execute(text("SELECT id, created_event_id FROM contributions")).first()
             assert cur is not None
             contribution_id, ceid_before = cur
             assert ceid_before == event_id
@@ -196,9 +194,7 @@ def test_deleting_referenced_event_nulls_contribution_created_event_id(
 
         with engine.connect() as conn:
             after = conn.execute(
-                text(
-                    "SELECT id, created_event_id FROM contributions WHERE id = :id"
-                ),
+                text("SELECT id, created_event_id FROM contributions WHERE id = :id"),
                 {"id": contribution_id},
             ).first()
             assert after is not None, "contribution row should survive event delete"

@@ -24,10 +24,7 @@ def test_build_tsquery_entity_name_two_tokens() -> None:
 
 
 def test_build_tsquery_entity_name_strips_unsafe_tokens() -> None:
-    assert (
-        search_fts.build_tsquery_entity_name_only(_f(entity_name="plumber's OR 1=1"))
-        is None
-    )
+    assert search_fts.build_tsquery_entity_name_only(_f(entity_name="plumber's OR 1=1")) is None
 
 
 def test_build_tsquery_string_combines_name_and_category_synonyms() -> None:

@@ -98,7 +98,9 @@ def get_snowbird_reopened_entities(
             )
             .options(joinedload(Entity.location))
             .limit(500)
-        ).unique().all()
+        )
+        .unique()
+        .all()
     )
     reopened = [e for e in rows if entity_reopened_after_seasonal_gap(e, now=ref_date)]
     reopened.sort(key=lambda e: (e.name or "").lower())

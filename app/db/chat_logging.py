@@ -68,9 +68,7 @@ def log_unified_route(
         telemetry = consume_decision()
         if telemetry is not None:
             row.disclosure_regime = telemetry.regime.value[:32]
-            row.disclosure_sponsor_id = (
-                telemetry.sponsor_id[:64] if telemetry.sponsor_id else None
-            )
+            row.disclosure_sponsor_id = telemetry.sponsor_id[:64] if telemetry.sponsor_id else None
             row.disclosure_tone_allowlist_passed = telemetry.tone_allowlist_passed
             row.disclosure_eligible = telemetry.eligible
         # Lane S3 defensive write: only set audience_signal when the column
@@ -82,9 +80,7 @@ def log_unified_route(
                 try:
                     row.audience_signal = audience_signal.audience[:32]
                 except Exception:
-                    logging.exception(
-                        "audience_signal assignment failed; persistence skipped"
-                    )
+                    logging.exception("audience_signal assignment failed; persistence skipped")
             else:
                 global _audience_signal_warned_once
                 if not _audience_signal_warned_once:

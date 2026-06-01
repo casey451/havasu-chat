@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db

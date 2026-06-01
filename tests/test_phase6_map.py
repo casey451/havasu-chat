@@ -43,9 +43,7 @@ def test_map_data_category_returns_json_shape(client: TestClient) -> None:
         )
         db.add(ent)
         db.flush()
-        db.add(
-            Location(entity_id=ent.id, lat=lat, lng=lng, city="Lake Havasu City", state="AZ")
-        )
+        db.add(Location(entity_id=ent.id, lat=lat, lng=lng, city="Lake Havasu City", state="AZ"))
         p = Provider(
             provider_name=ent.name,
             slug=f"map-cafe-{suf}",
@@ -68,7 +66,9 @@ def test_map_data_category_returns_json_shape(client: TestClient) -> None:
         assert "entities" in data
         assert "truncated_at_n" in data
         assert isinstance(data["entities"], list)
-        hit = next((row for row in data["entities"] if row.get("name") == f"Map Marker Cafe {suf}"), None)
+        hit = next(
+            (row for row in data["entities"] if row.get("name") == f"Map Marker Cafe {suf}"), None
+        )
         assert hit is not None
         assert hit["lat"] == lat
         assert hit["lng"] == lng

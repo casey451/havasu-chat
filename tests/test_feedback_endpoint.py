@@ -70,10 +70,13 @@ def test_feedback_overwrite_positive_then_negative() -> None:
     cid = _make_chat_log()
     try:
         with TestClient(app) as client:
-            assert client.post(
-                "/api/chat/feedback",
-                json={"chat_log_id": cid, "signal": "positive"},
-            ).status_code == 200
+            assert (
+                client.post(
+                    "/api/chat/feedback",
+                    json={"chat_log_id": cid, "signal": "positive"},
+                ).status_code
+                == 200
+            )
             r2 = client.post(
                 "/api/chat/feedback",
                 json={"chat_log_id": cid, "signal": "negative"},

@@ -50,9 +50,7 @@ def run(*, dry_run: bool = False) -> int:
                 to_expire[:10],
             )
             return len(to_expire)
-        db.execute(
-            update(Event).where(Event.id.in_(to_expire)).values(status="expired")
-        )
+        db.execute(update(Event).where(Event.id.in_(to_expire)).values(status="expired"))
         db.commit()
         logger.info("expire_past_events: expired %s events", len(to_expire))
         return len(to_expire)

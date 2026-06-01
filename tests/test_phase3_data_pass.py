@@ -98,9 +98,7 @@ def test_migration_upgrade_downgrade_upgrade_cycle(
     eng2 = create_engine(url, connect_args={"check_same_thread": False})
     try:
         with eng2.connect() as conn:
-            ver = conn.execute(
-                text("SELECT version_num FROM alembic_version")
-            ).scalar_one()
+            ver = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
             assert ver == expected_head
     finally:
         eng2.dispose()

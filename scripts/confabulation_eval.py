@@ -34,13 +34,17 @@ def _parse_csv_arg(s: str | None) -> set[str]:
 def _probe_name_map() -> dict[str, dict[str, str | None]]:
     out: dict[str, dict[str, str | None]] = {}
     with SessionLocal() as db:
-        for p in db.scalars(select(Provider).where(Provider.draft.is_(False), Provider.is_active.is_(True))).all():
+        for p in db.scalars(
+            select(Provider).where(Provider.draft.is_(False), Provider.is_active.is_(True))
+        ).all():
             out[p.id] = {
                 "name": p.provider_name,
                 "category": p.category,
                 "activity_category": None,
             }
-        for pr in db.scalars(select(Program).where(Program.draft.is_(False), Program.is_active.is_(True))).all():
+        for pr in db.scalars(
+            select(Program).where(Program.draft.is_(False), Program.is_active.is_(True))
+        ).all():
             out[pr.id] = {
                 "name": pr.title,
                 "category": None,

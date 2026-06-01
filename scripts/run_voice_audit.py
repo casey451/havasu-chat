@@ -95,7 +95,10 @@ _TIER3_QUERIES: list[tuple[str, list[str]]] = [
         "Bridge City Combat vs Footlite School of Dance for Saturday morning kids classes?",
         ["multi_entity", "disambiguation"],
     ),
-    ("Which martial arts gym has Saturday morning kids classes?", ["multi_entity", "disambiguation"]),
+    (
+        "Which martial arts gym has Saturday morning kids classes?",
+        ["multi_entity", "disambiguation"],
+    ),
     ("Best place for toddler tumbling", ["multi_entity", "explicit_rec_query"]),
     ("Compare Footlite and Ballet Havasu for preschool dance", ["multi_entity", "disambiguation"]),
     ("What's the best sushi in town?", ["out_of_scope"]),
@@ -189,10 +192,9 @@ def _today() -> str:
 
 
 def _token_cost_usd(input_tokens: int, output_tokens: int) -> float:
-    return (
-        (input_tokens / 1_000_000.0) * _HAIKU_1M_INPUT_USD
-        + (output_tokens / 1_000_000.0) * _HAIKU_1M_OUTPUT_USD
-    )
+    return (input_tokens / 1_000_000.0) * _HAIKU_1M_INPUT_USD + (
+        output_tokens / 1_000_000.0
+    ) * _HAIKU_1M_OUTPUT_USD
 
 
 def _count_future_events_null_provider(db: Session, today: date) -> int:
@@ -378,9 +380,7 @@ def discover_tier1_matrix(db: Session) -> tuple[list[dict[str, Any]], list[dict[
             continue
         for pr in _programs_active(db, p.id):
             if (pr.schedule_start_time or "").strip():
-                q = (
-                    f"What time is {pr.title} at {p.provider_name} — schedule window"
-                )
+                q = f"What time is {pr.title} at {p.provider_name} — schedule window"
                 prog_path = (p, pr, q)
                 break
         if prog_path:
@@ -627,7 +627,9 @@ def discover_tier1_matrix(db: Session) -> tuple[list[dict[str, Any]], list[dict[
         age_order_names.append(p.provider_name)
         seen_age_names.add(p.provider_name)
 
-    _push_age_provider(_first_provider_where(db, Provider.provider_name == "Flips for Fun Gymnastics"))
+    _push_age_provider(
+        _first_provider_where(db, Provider.provider_name == "Flips for Fun Gymnastics")
+    )
     _push_age_provider(
         db.scalars(
             select(Provider)
@@ -865,7 +867,8 @@ def _run_voice_audits(samples: Iterable[dict[str, Any]]) -> list[dict[str, Any]]
         if parsed is None:
             result2 = call_anthropic_messages(
                 system_prompt=system,
-                user_text=body + "\n\nYour previous reply was not valid JSON. Reply with one JSON object only.",
+                user_text=body
+                + "\n\nYour previous reply was not valid JSON. Reply with one JSON object only.",
                 max_tokens=_AUDIT_MAX_TOKENS,
                 temperature=_AUDIT_TEMPERATURE,
                 model=_AUDIT_MODEL,
@@ -980,9 +983,13 @@ def _print_dry_run(
     )
     print(f"Estimated total USD (upper bound): ${est_usd:.4f}")
     print(f"Estimated total tokens (in+out): {tot_in + tot_out}")
-    print(f"Hard ceiling configured: ${_HARD_CEILING_USD:.2f} (runner aborts --execute if estimate exceeds)")
+    print(
+        f"Hard ceiling configured: ${_HARD_CEILING_USD:.2f} (runner aborts --execute if estimate exceeds)"
+    )
     if est_usd > _HARD_CEILING_USD:
-        print("WARNING: estimate exceeds hard ceiling — --execute will refuse without sample changes.")
+        print(
+            "WARNING: estimate exceeds hard ceiling — --execute will refuse without sample changes."
+        )
     print()
     if future_null_prov:
         print(
@@ -1036,7 +1043,9 @@ def main() -> int:
 
     n_t3 = len(_TIER3_QUERIES)
     n_ref = len(_REFERENCE_SAMPLES)
-    est_usd, tot_in, tot_out = _estimate_plan_cost_usd(len(tier1_ok), n_t3, n_ref, assume_all_tier3_hits_llm=True)
+    est_usd, tot_in, tot_out = _estimate_plan_cost_usd(
+        len(tier1_ok), n_t3, n_ref, assume_all_tier3_hits_llm=True
+    )
 
     if do_dry:
         _configure_stdout_utf8()

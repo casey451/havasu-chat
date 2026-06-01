@@ -19,7 +19,9 @@ def derive_provider_slug(session: Session, provider_name: str) -> str:
     for s in session.scalars(select(Provider.slug).where(Provider.slug.is_not(None))):
         if s:
             used.add(s)
-    for s in session.scalars(select(Entity.slug).where(Entity.entity_type == ENTITY_TYPE_COMMERCIAL)):
+    for s in session.scalars(
+        select(Entity.slug).where(Entity.entity_type == ENTITY_TYPE_COMMERCIAL)
+    ):
         used.add(s)
     for obj in session.new:
         if isinstance(obj, Provider) and obj.slug:

@@ -62,9 +62,7 @@ def _user(session) -> User:
 
 def test_gap_fill_and_soft_retire(db_session):
     keep = _provider(db_session, "Joes Bar", website=None, phone=None)
-    dup = _provider(
-        db_session, "Joes Bar", website="http://joes.com", phone="928-555-0101"
-    )
+    dup = _provider(db_session, "Joes Bar", website="http://joes.com", phone="928-555-0101")
     res = merge_providers(db_session, keep_id=keep.id, dup_id=dup.id)
     db_session.flush()
 
@@ -154,9 +152,7 @@ def test_claim_dedupe(db_session):
 
     merge_providers(db_session, keep_id=keep.id, dup_id=dup.id)
     db_session.flush()
-    claims = db_session.scalars(
-        select(Claim).where(Claim.entity_id == keep.entity_id)
-    ).all()
+    claims = db_session.scalars(select(Claim).where(Claim.entity_id == keep.entity_id)).all()
     assert len(claims) == 1  # collision deleted, original kept
 
 

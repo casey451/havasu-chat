@@ -227,18 +227,16 @@ def register_mentions_html_routes(router: APIRouter) -> None:
                 "<table><thead><tr>"
                 "<th>Detected</th><th>Mention</th><th>Context</th><th>Status</th>"
                 "<th>In catalog?</th><th>Actions</th>"
-                "</tr></thead><tbody>"
-                + "".join(trs)
-                + "</tbody></table>"
+                "</tr></thead><tbody>" + "".join(trs) + "</tbody></table>"
             )
         filter_form = f"""
 <form method="get" class="section" style="background:#fff">
   <label>Status</label>
   <select name="status">
-    <option value="unreviewed" {"selected" if st_key=="unreviewed" else ""}>unreviewed</option>
-    <option value="promoted" {"selected" if st_key=="promoted" else ""}>promoted</option>
-    <option value="dismissed" {"selected" if st_key=="dismissed" else ""}>dismissed</option>
-    <option value="all" {"selected" if st_key=="all" else ""}>all</option>
+    <option value="unreviewed" {"selected" if st_key == "unreviewed" else ""}>unreviewed</option>
+    <option value="promoted" {"selected" if st_key == "promoted" else ""}>promoted</option>
+    <option value="dismissed" {"selected" if st_key == "dismissed" else ""}>dismissed</option>
+    <option value="all" {"selected" if st_key == "all" else ""}>all</option>
   </select>
   <label>Detected from (YYYY-MM-DD)</label>
   <input type="text" name="detected_from" value="{_esc(detected_from or "")}" placeholder="optional" />
@@ -256,13 +254,17 @@ def register_mentions_html_routes(router: APIRouter) -> None:
             next_off = offset + limit if offset + limit < total else offset
             q_prev = {**q_base, "limit": str(limit), "offset": str(prev_off)}
             q_next = {**q_base, "limit": str(limit), "offset": str(next_off)}
-            prev_link = f'<a href="/admin/mentioned-entities?{urlencode(q_prev)}">Previous</a>' if offset > 0 else "Previous"
+            prev_link = (
+                f'<a href="/admin/mentioned-entities?{urlencode(q_prev)}">Previous</a>'
+                if offset > 0
+                else "Previous"
+            )
             next_link = (
-                f'<a href="/admin/mentioned-entities?{urlencode(q_next)}">Next</a>' if offset + limit < total else "Next"
+                f'<a href="/admin/mentioned-entities?{urlencode(q_next)}">Next</a>'
+                if offset + limit < total
+                else "Next"
             )
-            pages = (
-                f'<p class="pagination">{prev_link} · showing {offset + 1}–{min(offset + limit, total)} of {total} · {next_link}</p>'
-            )
+            pages = f'<p class="pagination">{prev_link} · showing {offset + 1}–{min(offset + limit, total)} of {total} · {next_link}</p>'
         inner = f"""{flash_html}
 <h1>LLM-mentioned entities</h1>
 <p class="sub">Tier 3 title-case candidates. JSON: <code>/admin/api/mentioned-entities</code>.</p>
@@ -271,8 +273,12 @@ def register_mentions_html_routes(router: APIRouter) -> None:
 {pages}"""
         return HTMLResponse(_nav_shell("Mentioned entities", inner))
 
-    @router.get("/mentioned-entities/{mention_id}", response_class=HTMLResponse, response_model=None)
-    def mention_detail(request: Request, mention_id: int, db: Session = Depends(get_db)) -> HTMLResponse | RedirectResponse:
+    @router.get(
+        "/mentioned-entities/{mention_id}", response_class=HTMLResponse, response_model=None
+    )
+    def mention_detail(
+        request: Request, mention_id: int, db: Session = Depends(get_db)
+    ) -> HTMLResponse | RedirectResponse:
         redir = _guard(request)
         if redir:
             return redir
@@ -309,8 +315,12 @@ def register_mentions_html_routes(router: APIRouter) -> None:
 <p style="margin-top:18px"><a href="/admin/mentioned-entities">← Back to list</a></p>"""
         return HTMLResponse(_nav_shell(f"Mention {row.id}", inner))
 
-    @router.get("/mentioned-entities/{mention_id}/promote", response_class=HTMLResponse, response_model=None)
-    def promote_get(request: Request, mention_id: int, db: Session = Depends(get_db)) -> HTMLResponse | RedirectResponse:
+    @router.get(
+        "/mentioned-entities/{mention_id}/promote", response_class=HTMLResponse, response_model=None
+    )
+    def promote_get(
+        request: Request, mention_id: int, db: Session = Depends(get_db)
+    ) -> HTMLResponse | RedirectResponse:
         redir = _guard(request)
         if redir:
             return redir
@@ -347,7 +357,9 @@ def register_mentions_html_routes(router: APIRouter) -> None:
 </form>"""
         return HTMLResponse(_nav_shell("Promote", inner))
 
-    @router.post("/mentioned-entities/{mention_id}/promote", response_class=HTMLResponse, response_model=None)
+    @router.post(
+        "/mentioned-entities/{mention_id}/promote", response_class=HTMLResponse, response_model=None
+    )
     def promote_post(
         request: Request,
         mention_id: int,
@@ -370,7 +382,9 @@ def register_mentions_html_routes(router: APIRouter) -> None:
             return HTMLResponse(_nav_shell("Promote", "<p>Not unreviewed.</p>"), status_code=400)
         et = (entity_type or "").strip()
         if et not in ("provider", "program", "event", "tip"):
-            return HTMLResponse(_nav_shell("Promote", '<p class="err">Invalid entity type.</p>'), status_code=400)
+            return HTMLResponse(
+                _nav_shell("Promote", '<p class="err">Invalid entity type.</p>'), status_code=400
+            )
         url_s = (submission_url or "").strip() or None
         if et in ("provider", "program") and not url_s:
             return HTMLResponse(
@@ -386,7 +400,9 @@ def register_mentions_html_routes(router: APIRouter) -> None:
             try:
                 ev_date = date.fromisoformat(event_date.strip())
             except ValueError:
-                return HTMLResponse(_nav_shell("Promote", '<p class="err">Invalid event date.</p>'), status_code=400)
+                return HTMLResponse(
+                    _nav_shell("Promote", '<p class="err">Invalid event date.</p>'), status_code=400
+                )
         hint = (submission_category_hint or "").strip() or None
         notes = (submission_notes or "").strip() or None
         try:
@@ -412,10 +428,16 @@ def register_mentions_html_routes(router: APIRouter) -> None:
         background_tasks.add_task(with_retry, enrich_contribution, contrib.id, SessionLocal)
         promote_mention(db, mention_id, contrib.id)
         msg = quote("Contribution created from mention.")
-        return RedirectResponse(url=f"/admin/mentioned-entities?flash={msg}&kind=ok", status_code=303)
+        return RedirectResponse(
+            url=f"/admin/mentioned-entities?flash={msg}&kind=ok", status_code=303
+        )
 
-    @router.get("/mentioned-entities/{mention_id}/dismiss", response_class=HTMLResponse, response_model=None)
-    def dismiss_get(request: Request, mention_id: int, db: Session = Depends(get_db)) -> HTMLResponse | RedirectResponse:
+    @router.get(
+        "/mentioned-entities/{mention_id}/dismiss", response_class=HTMLResponse, response_model=None
+    )
+    def dismiss_get(
+        request: Request, mention_id: int, db: Session = Depends(get_db)
+    ) -> HTMLResponse | RedirectResponse:
         redir = _guard(request)
         if redir:
             return redir
@@ -438,7 +460,9 @@ def register_mentions_html_routes(router: APIRouter) -> None:
 </form>"""
         return HTMLResponse(_nav_shell("Dismiss", inner))
 
-    @router.post("/mentioned-entities/{mention_id}/dismiss", response_class=HTMLResponse, response_model=None)
+    @router.post(
+        "/mentioned-entities/{mention_id}/dismiss", response_class=HTMLResponse, response_model=None
+    )
     def dismiss_post(
         request: Request,
         mention_id: int,
@@ -454,7 +478,11 @@ def register_mentions_html_routes(router: APIRouter) -> None:
         if row.status != "unreviewed":
             return HTMLResponse(_nav_shell("Dismiss", "<p>Not unreviewed.</p>"), status_code=400)
         if dismissal_reason not in get_args(DismissalReason):
-            return HTMLResponse(_nav_shell("Dismiss", '<p class="err">Invalid reason.</p>'), status_code=400)
+            return HTMLResponse(
+                _nav_shell("Dismiss", '<p class="err">Invalid reason.</p>'), status_code=400
+            )
         dismiss_mention(db, mention_id, dismissal_reason)
         msg = quote("Mention dismissed.")
-        return RedirectResponse(url=f"/admin/mentioned-entities?flash={msg}&kind=ok", status_code=303)
+        return RedirectResponse(
+            url=f"/admin/mentioned-entities?flash={msg}&kind=ok", status_code=303
+        )

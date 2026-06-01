@@ -24,8 +24,10 @@ def test_clean_name_passes_through_when_no_pipe() -> None:
 
 
 def test_clean_name_strips_basic_pipe_tail() -> None:
-    assert clean_name("Havasu Hills Apartment Homes | An AllThrive 365 Property") \
+    assert (
+        clean_name("Havasu Hills Apartment Homes | An AllThrive 365 Property")
         == "Havasu Hills Apartment Homes"
+    )
 
 
 def test_clean_name_handles_pipe_with_no_tail() -> None:

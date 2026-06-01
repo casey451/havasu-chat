@@ -42,9 +42,7 @@ def test_heat_bias_fires_above_threshold() -> None:
 
 
 def test_shaded_gets_partial_heat_boost() -> None:
-    outdoor = compute_card_rank(
-        _inp(heat_exposure="outdoor"), temperature_f=101.0
-    )
+    outdoor = compute_card_rank(_inp(heat_exposure="outdoor"), temperature_f=101.0)
     shaded = compute_card_rank(_inp(heat_exposure="shaded"), temperature_f=101.0)
     assert shaded > outdoor
 

@@ -77,10 +77,14 @@ def test_provider_backfilled_to_entity() -> None:
         loc = db.scalars(select(Location).where(Location.entity_id == ent.id)).first()
         assert loc is not None
         assert loc.address == "123 River Rd"
-        assert db.scalar(select(func.count()).select_from(Hours).where(Hours.entity_id == ent.id)) >= 1
+        assert (
+            db.scalar(select(func.count()).select_from(Hours).where(Hours.entity_id == ent.id)) >= 1
+        )
         assert (
             db.scalar(
-                select(func.count()).select_from(ContactPoint).where(ContactPoint.entity_id == ent.id)
+                select(func.count())
+                .select_from(ContactPoint)
+                .where(ContactPoint.entity_id == ent.id)
             )
             >= 3
         )

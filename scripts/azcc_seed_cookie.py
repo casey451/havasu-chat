@@ -56,7 +56,10 @@ def main() -> int:
                 while captured is None:
                     page.wait_for_timeout(1_000)
                     if time.monotonic() >= deadline:
-                        print("Timed out waiting for successful public-search response.", file=sys.stderr)
+                        print(
+                            "Timed out waiting for successful public-search response.",
+                            file=sys.stderr,
+                        )
                         return 1
 
                 cookies = context.cookies()

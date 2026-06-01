@@ -73,7 +73,9 @@ def main() -> int:
         f"parks_rec_prune (dry_run={stats.dry_run}) "
         f"cutoff={stats.cutoff.isoformat()} grace_days={args.grace_days}"
     )
-    print(f"  {stats.source}: matched={stats.matched} {label}={stats.matched if stats.dry_run else stats.deleted}")
+    print(
+        f"  {stats.source}: matched={stats.matched} {label}={stats.matched if stats.dry_run else stats.deleted}"
+    )
 
     if stats.errors:
         print(f"  errors ({len(stats.errors)}):")

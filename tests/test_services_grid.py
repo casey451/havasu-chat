@@ -26,7 +26,6 @@ TestClient render path.
 
 from __future__ import annotations
 
-import html as html_lib
 from unittest.mock import patch
 
 import pytest
@@ -141,8 +140,7 @@ def test_tile_svg_paths_look_like_svg_path_data() -> None:
     for tile in queries_c._SERVICE_TILES:
         first = tile["svg_path"].lstrip()[:1]
         assert first in valid_starts, (
-            f"tile {tile['name']} svg_path must start with SVG command, "
-            f"got {first!r}"
+            f"tile {tile['name']} svg_path must start with SVG command, got {first!r}"
         )
 
 
@@ -220,7 +218,7 @@ def test_services_grid_with_mocked_db_returns_real_counts() -> None:
         ("home_services", 262),
         ("auto", 166),
         ("pets", 30),
-        ("veterinary", 7),       # 30 + 7 = 37 for pets
+        ("veterinary", 7),  # 30 + 7 = 37 for pets
     ]
     db = _FakeSession(fake_rows)
     cards = queries_c.services_grid(db)
@@ -281,17 +279,17 @@ def test_services_grid_tile_count_matches_category_page_arithmetic() -> None:
     fake_rows = [
         ("health_medical", 200),
         ("fitness", 5),
-        ("fitness_sports", 25),     # health-wellness-care = 230
-                                     # classes-sports-recreation += 25
+        ("fitness_sports", 25),  # health-wellness-care = 230
+        # classes-sports-recreation += 25
         ("childcare_education", 4),  # classes-sports-recreation += 4
-        ("education", 2),            # classes-sports-recreation += 2 (= 31)
+        ("education", 2),  # classes-sports-recreation += 2 (= 31)
         ("professional_services", 80),
         ("real_estate", 40),
         ("insurance", 30),
         ("financial", 10),
-        ("legal", 20),               # professional = 180
+        ("legal", 20),  # professional = 180
         ("entertainment_attractions", 50),
-        ("tourism", 10),             # attractions = 60
+        ("tourism", 10),  # attractions = 60
     ]
     db = _FakeSession(fake_rows)
     cards = queries_c.services_grid(db)

@@ -86,7 +86,10 @@ def test_extract_hints_openai_failure_still_returns_ask_response(db: Session) ->
 
 def test_route_extractor_empty_hints_noop(db: Session) -> None:
     clear_session_state("hint-d")
-    with patch("app.chat.unified_router.extract_hints", return_value=ExtractedHints(age=None, location=None)):
+    with patch(
+        "app.chat.unified_router.extract_hints",
+        return_value=ExtractedHints(age=None, location=None),
+    ):
         with patch("app.chat.unified_router.try_tier1", return_value=None):
             with patch(
                 "app.chat.unified_router.try_tier2_with_usage",

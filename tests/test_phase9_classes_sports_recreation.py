@@ -62,7 +62,14 @@ def test_drop_in_filter(db) -> None:
     db.add(ent)
     db.flush()
     out = _apply_classes_sports_filters(
-        [ent], db=db, drop_in=True, registration=False, kids=False, teens=False, adults=False, senior_55=False
+        [ent],
+        db=db,
+        drop_in=True,
+        registration=False,
+        kids=False,
+        teens=False,
+        adults=False,
+        senior_55=False,
     )
     assert ent in out
 

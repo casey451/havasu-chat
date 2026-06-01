@@ -64,7 +64,9 @@ def _money_to_float(price: dict[str, Any] | None) -> float | None:
     return round(units + nanos / 1_000_000_000, 3)
 
 
-def fetch_fuel_options(place_id: str, *, client: httpx.Client | None = None) -> dict[str, Any] | None:
+def fetch_fuel_options(
+    place_id: str, *, client: httpx.Client | None = None
+) -> dict[str, Any] | None:
     """Return normalized fuel prices for one Google place_id, or None.
 
     Shape: ``{"prices": {grade: float}, "update_time": iso_or_None}``.

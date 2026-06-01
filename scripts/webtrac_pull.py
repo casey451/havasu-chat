@@ -44,10 +44,14 @@ def _format_line(s: Section) -> str:
     elif s.start_date:
         when = s.start_date.isoformat()
     days = "/".join(s.days) if s.days else "-"
-    cost = "free" if (s.cost_resident == 0 and s.cost_nonresident == 0) else (
-        f"${s.cost_resident:.0f}/${s.cost_nonresident:.0f}"
-        if s.cost_resident is not None and s.cost_nonresident is not None
-        else "?"
+    cost = (
+        "free"
+        if (s.cost_resident == 0 and s.cost_nonresident == 0)
+        else (
+            f"${s.cost_resident:.0f}/${s.cost_nonresident:.0f}"
+            if s.cost_resident is not None and s.cost_nonresident is not None
+            else "?"
+        )
     )
     flag = "" if s.available_for_signup else f"  [{s.availability_label}]"
     return (
@@ -64,9 +68,22 @@ def main() -> int:
         default=None,
         help="Parse a saved HTML file instead of hitting the live site",
     )
-    p.add_argument("--category", type=str, default=None, help="WebTrac category code (ADULT, YOUTH, PET)")
-    p.add_argument("--type", dest="type_", type=str, default=None, help="WebTrac type code (ACTV, AQUA, ASP, ...)")
-    p.add_argument("--json", dest="as_json", action="store_true", help="Emit JSON instead of human-readable lines")
+    p.add_argument(
+        "--category", type=str, default=None, help="WebTrac category code (ADULT, YOUTH, PET)"
+    )
+    p.add_argument(
+        "--type",
+        dest="type_",
+        type=str,
+        default=None,
+        help="WebTrac type code (ACTV, AQUA, ASP, ...)",
+    )
+    p.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        help="Emit JSON instead of human-readable lines",
+    )
     p.add_argument("--out", type=str, default=None, help="Write JSON to this path (implies --json)")
     p.add_argument(
         "--only-available",

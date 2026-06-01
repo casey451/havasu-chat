@@ -52,7 +52,9 @@ def _hm(point: dict[str, Any] | None) -> str | None:
     return f"{h:02d}:{m:02d}"
 
 
-def _append_segment(out: dict[str, list[dict[str, str]]], day_key: str, open_s: str, close_s: str) -> None:
+def _append_segment(
+    out: dict[str, list[dict[str, str]]], day_key: str, open_s: str, close_s: str
+) -> None:
     if day_key not in out:
         out[day_key] = []
     out[day_key].append({"open": open_s, "close": close_s})

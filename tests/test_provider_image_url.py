@@ -26,10 +26,7 @@ def test_provider_image_url_prefers_google_photo_urls() -> None:
             "https://example.com/places/photo1.jpg",
         ],
     )
-    assert (
-        _provider_image_url(p)
-        == "/static/biz-photos/resolved-first.jpg"
-    )
+    assert _provider_image_url(p) == "/static/biz-photos/resolved-first.jpg"
 
 
 def test_provider_image_url_returns_none_when_only_refs_have_values() -> None:

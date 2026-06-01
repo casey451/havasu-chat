@@ -1,4 +1,4 @@
-﻿"""Invocation strategies for confabulation eval harness.
+"""Invocation strategies for confabulation eval harness.
 
 - ``InProcessInvoker``: installs evidence monkeypatch, calls ``unified.route``, consumes
   last captured evidence snapshot, restores patch in ``finally``.
@@ -99,7 +99,9 @@ class InProcessInvoker:
 class HttpInvoker:
     """Call deployed API endpoint; degraded mode (no evidence rows)."""
 
-    def __init__(self, *, base_url: str, timeout_sec: float = 30.0, session_id: str = "confab-eval") -> None:
+    def __init__(
+        self, *, base_url: str, timeout_sec: float = 30.0, session_id: str = "confab-eval"
+    ) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout_sec = timeout_sec
         self.session_id = session_id
@@ -144,7 +146,9 @@ class HttpInvoker:
             return InvocationResult(
                 response_text=str(body.get("response", "") or ""),
                 evidence_row_dicts=[],
-                tier_used=(str(body.get("tier_used")) if body.get("tier_used") is not None else None),
+                tier_used=(
+                    str(body.get("tier_used")) if body.get("tier_used") is not None else None
+                ),
                 latency_ms=ms,
                 raw_log={"status_code": r.status_code, "body": body},
             )

@@ -48,13 +48,7 @@ def _is_blocked_target(url: str) -> tuple[bool, str | None]:
         return True, "blocked_host"
     try:
         ip = ipaddress.ip_address(host_l)
-        if (
-            ip.is_private
-            or ip.is_loopback
-            or ip.is_link_local
-            or ip.is_multicast
-            or ip.is_reserved
-        ):
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved:
             return True, "blocked_ip_literal"
     except ValueError:
         pass

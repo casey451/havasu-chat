@@ -438,7 +438,9 @@ def test_main_preflight_returns_3(cleanup_mod, db_session, monkeypatch: pytest.M
     assert cleanup_mod.main(["--dry-run"]) == 3
 
 
-def test_main_dry_run_returns_0_with_env_floor(cleanup_mod, db_session, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_dry_run_returns_0_with_env_floor(
+    cleanup_mod, db_session, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _seed_full_graph(db_session)
     monkeypatch.setattr(cleanup_mod, "SessionLocal", lambda: _session_local_cm(db_session))
     monkeypatch.setenv("CLEANUP_MIN_RS_CONTRIBUTIONS", "2")
@@ -455,11 +457,12 @@ def test_main_apply_yes_returns_0(cleanup_mod, db_session, monkeypatch: pytest.M
     assert cleanup_mod.count_deletable_rows(db_session).total == 0
 
 
-def test_main_apply_declined_returns_5(cleanup_mod, db_session, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_apply_declined_returns_5(
+    cleanup_mod, db_session, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _seed_full_graph(db_session)
     monkeypatch.setattr(cleanup_mod, "SessionLocal", lambda: _session_local_cm(db_session))
     monkeypatch.setenv("CLEANUP_MIN_RS_CONTRIBUTIONS", "2")
     monkeypatch.setenv("CLEANUP_MIN_RS_EVENTS", "2")
     monkeypatch.setattr("builtins.input", lambda _p: "no")
     assert cleanup_mod.main(["--apply"]) == 5
-

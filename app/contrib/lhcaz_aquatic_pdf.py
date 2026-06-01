@@ -75,12 +75,8 @@ from app.contrib.lhcaz_aquatic import (
 # the landing page would be more robust but adds an extra fetch +
 # selector dependency. Defer unless / until these URLs prove unstable
 # (would manifest as 404s from ``fetch_pdf`` -- monitor via the cron).
-EXERCISE_PDF_URL = (
-    "https://www.lhcaz.gov/DocumentCenter/View/7325/Exercise-Class-Schedule-PDF"
-)
-SWIM_PDF_URL = (
-    "https://www.lhcaz.gov/DocumentCenter/View/7326/Lap-and-Open-Swim-Schedule-PDF"
-)
+EXERCISE_PDF_URL = "https://www.lhcaz.gov/DocumentCenter/View/7325/Exercise-Class-Schedule-PDF"
+SWIM_PDF_URL = "https://www.lhcaz.gov/DocumentCenter/View/7326/Lap-and-Open-Swim-Schedule-PDF"
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -104,13 +100,28 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 _MONTH_LOOKUP: dict[str, int] = {
-    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
-    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+    "jan": 1,
+    "feb": 2,
+    "mar": 3,
+    "apr": 4,
+    "may": 5,
+    "jun": 6,
+    "jul": 7,
+    "aug": 8,
+    "sep": 9,
+    "oct": 10,
+    "nov": 11,
+    "dec": 12,
 }
 
 _DAY_NAMES: dict[str, str] = {
-    "Sun": "SUNDAY", "Mon": "MONDAY", "Tue": "TUESDAY",
-    "Wed": "WEDNESDAY", "Thu": "THURSDAY", "Fri": "FRIDAY", "Sat": "SATURDAY",
+    "Sun": "SUNDAY",
+    "Mon": "MONDAY",
+    "Tue": "TUESDAY",
+    "Wed": "WEDNESDAY",
+    "Thu": "THURSDAY",
+    "Fri": "FRIDAY",
+    "Sat": "SATURDAY",
 }
 
 # A cell that starts with ``5/4`` (no leading whitespace after the
@@ -230,6 +241,7 @@ def _extract_year(full_text: str, fallback_year: int) -> int:
 # Core parser
 # ---------------------------------------------------------------------------
 
+
 def parse_schedule_pdf(
     pdf_bytes: bytes,
     *,
@@ -336,7 +348,7 @@ def _parse_cell_body(
         if current_time is None and not current_title_parts:
             return
         title = " ".join(current_title_parts).strip()
-        start, end = (current_time or (None, None))
+        start, end = current_time or (None, None)
         if not title and start is None and end is None:
             current_title_parts = []
             current_time = None
@@ -372,7 +384,7 @@ def _parse_cell_body(
             flush()
             start, end = _parse_time_range(ln)
             current_time = (start, end)
-            title_text = ln[tm.end():].strip()
+            title_text = ln[tm.end() :].strip()
             if title_text:
                 current_title_parts.append(title_text)
         else:
@@ -388,6 +400,7 @@ def _parse_cell_body(
 # ---------------------------------------------------------------------------
 # Live fetcher + snapshot adapter
 # ---------------------------------------------------------------------------
+
 
 def fetch_pdf(url: str, *, client: httpx.Client | None = None) -> bytes:
     """Fetch a PDF and return raw bytes. Caller owns the client lifecycle

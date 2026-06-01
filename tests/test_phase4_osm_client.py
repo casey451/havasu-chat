@@ -172,9 +172,7 @@ def test_osm_client_sends_descriptive_user_agent(monkeypatch: pytest.MonkeyPatch
         merged["transport"] = transport
         return real_client(*args, **merged)
 
-    monkeypatch.setattr(
-        "app.contrib.osm_overpass_client.httpx.Client", client_factory
-    )
+    monkeypatch.setattr("app.contrib.osm_overpass_client.httpx.Client", client_factory)
     with patch.object(OSM_OVERPASS_LIMITER, "call_with_retry", lambda fn: fn()):
         OsmOverpassClient().discover({"tag": "leisure", "value": "marina"})
     assert len(captured_ua) == 1
@@ -194,16 +192,12 @@ def test_osm_client_logs_warning_on_non_200(monkeypatch: pytest.MonkeyPatch) -> 
         merged["transport"] = transport
         return real_client(*args, **merged)
 
-    monkeypatch.setattr(
-        "app.contrib.osm_overpass_client.httpx.Client", client_factory
-    )
+    monkeypatch.setattr("app.contrib.osm_overpass_client.httpx.Client", client_factory)
     import app.contrib.osm_overpass_client as oc
 
     with patch.object(oc.logger, "warning") as mock_warn:
         with patch.object(OSM_OVERPASS_LIMITER, "call_with_retry", lambda fn: fn()):
-            hits = OsmOverpassClient().discover(
-                {"tag": "leisure", "value": "marina"}
-            )
+            hits = OsmOverpassClient().discover({"tag": "leisure", "value": "marina"})
     assert hits == []
     mock_warn.assert_called()
     args = mock_warn.call_args[0]
@@ -225,16 +219,12 @@ def test_osm_client_json_parse_error_logs_warning(monkeypatch: pytest.MonkeyPatc
         merged["transport"] = transport
         return real_client(*args, **merged)
 
-    monkeypatch.setattr(
-        "app.contrib.osm_overpass_client.httpx.Client", client_factory
-    )
+    monkeypatch.setattr("app.contrib.osm_overpass_client.httpx.Client", client_factory)
     import app.contrib.osm_overpass_client as oc
 
     with patch.object(oc.logger, "warning") as mock_warn:
         with patch.object(OSM_OVERPASS_LIMITER, "call_with_retry", lambda fn: fn()):
-            hits = OsmOverpassClient().discover(
-                {"tag": "leisure", "value": "marina"}
-            )
+            hits = OsmOverpassClient().discover({"tag": "leisure", "value": "marina"})
     assert hits == []
     mock_warn.assert_called()
     args = mock_warn.call_args[0]
@@ -256,16 +246,12 @@ def test_osm_client_transport_error_logs_warning(monkeypatch: pytest.MonkeyPatch
         merged["transport"] = transport
         return real_client(*args, **merged)
 
-    monkeypatch.setattr(
-        "app.contrib.osm_overpass_client.httpx.Client", client_factory
-    )
+    monkeypatch.setattr("app.contrib.osm_overpass_client.httpx.Client", client_factory)
     import app.contrib.osm_overpass_client as oc
 
     with patch.object(oc.logger, "warning") as mock_warn:
         with patch.object(OSM_OVERPASS_LIMITER, "call_with_retry", lambda fn: fn()):
-            hits = OsmOverpassClient().discover(
-                {"tag": "leisure", "value": "dog_park"}
-            )
+            hits = OsmOverpassClient().discover({"tag": "leisure", "value": "dog_park"})
     assert hits == []
     mock_warn.assert_called()
     args = mock_warn.call_args[0]

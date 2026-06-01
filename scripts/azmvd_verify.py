@@ -40,29 +40,31 @@ CATEGORY_SLUG = "auto-rv-fuel"
 MATCH_THRESHOLD = 86
 VERIFICATION_METHOD = "scraper"
 
-_DEALER_KEYWORDS = frozenset({
-    "auto",
-    "motor",
-    "cars",
-    "automotive",
-    "dealer",
-    "ford",
-    "chevrolet",
-    "chevy",
-    "toyota",
-    "honda",
-    "nissan",
-    "ram",
-    "dodge",
-    "jeep",
-    "gm",
-    "buick",
-    "hyundai",
-    "kia",
-    "rv",
-    "motorhome",
-    "trailer",
-})
+_DEALER_KEYWORDS = frozenset(
+    {
+        "auto",
+        "motor",
+        "cars",
+        "automotive",
+        "dealer",
+        "ford",
+        "chevrolet",
+        "chevy",
+        "toyota",
+        "honda",
+        "nissan",
+        "ram",
+        "dodge",
+        "jeep",
+        "gm",
+        "buick",
+        "hyundai",
+        "kia",
+        "rv",
+        "motorhome",
+        "trailer",
+    }
+)
 
 
 def _is_dealer_candidate(prov: Provider) -> bool:
@@ -94,11 +96,7 @@ def _best_azmvd_match(
     best_score = 0
     for entry in registry:
         for cand in _dealer_candidate_names(entry):
-            score = int(
-                fuzz.token_sort_ratio(
-                    provider_name, cand, processor=utils.default_process
-                )
-            )
+            score = int(fuzz.token_sort_ratio(provider_name, cand, processor=utils.default_process))
             if score > best_score:
                 best_score = score
                 best_entry = entry

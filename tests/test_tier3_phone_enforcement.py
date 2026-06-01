@@ -167,7 +167,9 @@ def test_low_tier_provider_no_phone_in_response_appends_phone(isolated_catalog, 
     assert "recommend calling to confirm" in text.lower(), text
 
 
-def test_low_tier_provider_phone_already_in_response_no_double_append(isolated_catalog, monkeypatch):
+def test_low_tier_provider_phone_already_in_response_no_double_append(
+    isolated_catalog, monkeypatch
+):
     monkeypatch.setenv(_FLAG, "true")
     db = isolated_catalog
     _add_provider(
@@ -179,9 +181,7 @@ def test_low_tier_provider_phone_already_in_response_no_double_append(isolated_c
     )
     db.flush()
 
-    fake = _patched_openai(
-        "Crestline Plumbing -- (928) 855-3333 is the listed line."
-    )
+    fake = _patched_openai("Crestline Plumbing -- (928) 855-3333 is the listed line.")
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     with patch.object(llm_messages, "OpenAI", return_value=fake):
         text, _, _, _ = answer_with_tier3(
@@ -208,9 +208,7 @@ def test_low_tier_provider_already_hedged_no_double_hedge(isolated_catalog, monk
     )
     db.flush()
 
-    fake = _patched_openai(
-        "Crestline Plumbing might fit -- recommend calling to confirm hours."
-    )
+    fake = _patched_openai("Crestline Plumbing might fit -- recommend calling to confirm hours.")
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     with patch.object(llm_messages, "OpenAI", return_value=fake):
         text, _, _, _ = answer_with_tier3(
@@ -236,9 +234,7 @@ def test_high_tier_provider_no_phone_appended(isolated_catalog, monkeypatch):
     fake = _patched_openai("Acme Plumbing is a solid pick.")
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     with patch.object(llm_messages, "OpenAI", return_value=fake):
-        text, _, _, _ = answer_with_tier3(
-            "i need a plumber", _intent(entity="Acme Plumbing"), db
-        )
+        text, _, _, _ = answer_with_tier3("i need a plumber", _intent(entity="Acme Plumbing"), db)
 
     assert "(928) 855-1111" not in text, text
     assert "Their listed number is" not in text, text
@@ -258,9 +254,9 @@ def test_flag_off_post_process_skipped(isolated_catalog, monkeypatch):
     )
     db.flush()
 
-    spy = MagicMock(side_effect=AssertionError(
-        "_enforce_low_tier_phone must not run when feature flag is off"
-    ))
+    spy = MagicMock(
+        side_effect=AssertionError("_enforce_low_tier_phone must not run when feature flag is off")
+    )
     monkeypatch.setattr(tier3_handler, "_enforce_low_tier_phone", spy)
 
     fake = _patched_openai("Crestline Plumbing might be a fit.")

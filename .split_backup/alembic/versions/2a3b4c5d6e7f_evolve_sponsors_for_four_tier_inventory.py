@@ -56,9 +56,7 @@ def upgrade() -> None:
     # a normal ALTER. All column additions ride in the same batch transaction
     # so a partial failure doesn't leave the table half-evolved.
     with op.batch_alter_table("sponsors", recreate="auto") as batch:
-        batch.add_column(
-            sa.Column("slot", sa.String(32), nullable=False, server_default="marquee")
-        )
+        batch.add_column(sa.Column("slot", sa.String(32), nullable=False, server_default="marquee"))
         batch.add_column(
             sa.Column("status", sa.String(32), nullable=False, server_default="approved")
         )
@@ -67,12 +65,8 @@ def upgrade() -> None:
         batch.add_column(sa.Column("attribution_text", sa.String(255), nullable=True))
         batch.add_column(sa.Column("paused_at", sa.DateTime(), nullable=True))
         batch.add_column(sa.Column("paused_reason", sa.String(255), nullable=True))
-        batch.add_column(
-            sa.Column("impressions", sa.Integer(), nullable=False, server_default="0")
-        )
-        batch.add_column(
-            sa.Column("clicks", sa.Integer(), nullable=False, server_default="0")
-        )
+        batch.add_column(sa.Column("impressions", sa.Integer(), nullable=False, server_default="0"))
+        batch.add_column(sa.Column("clicks", sa.Integer(), nullable=False, server_default="0"))
         batch.add_column(sa.Column("approved_at", sa.DateTime(), nullable=True))
         batch.add_column(sa.Column("approved_by", sa.String(255), nullable=True))
         batch.add_column(sa.Column("business_id", sa.Integer(), nullable=True))

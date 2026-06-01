@@ -14,8 +14,7 @@ from app.contrib.ingest_base import EnrichedHit, RawHit
 from app.events.scrapers.base import EventIngestClient, EventPayload
 
 CHAMBER_LIST_URL = (
-    "https://business.havasuchamber.com/community-event-calendar/"
-    "Search?showpastevents=false"
+    "https://business.havasuchamber.com/community-event-calendar/Search?showpastevents=false"
 )
 CHAMBER_BASE = "https://business.havasuchamber.com"
 
@@ -29,7 +28,9 @@ class ChamberClient(EventIngestClient):
         soup = BeautifulSoup(html, "html.parser")
         hits: list[RawHit] = []
         seen: set[str] = set()
-        for a in soup.select('a.gz-event-card-title[itemprop="url"], a[itemprop="url"].gz-event-card-title'):
+        for a in soup.select(
+            'a.gz-event-card-title[itemprop="url"], a[itemprop="url"].gz-event-card-title'
+        ):
             href = (a.get("href") or "").strip()
             if not href or "Details/" not in href:
                 continue
@@ -63,7 +64,10 @@ class ChamberClient(EventIngestClient):
                 continue
             items = data if isinstance(data, list) else [data]
             for item in items:
-                if isinstance(item, dict) and item.get("@type") in ("Event", "http://schema.org/Event"):
+                if isinstance(item, dict) and item.get("@type") in (
+                    "Event",
+                    "http://schema.org/Event",
+                ):
                     enriched["json_ld"] = item
                     break
             if "json_ld" in enriched:
@@ -91,13 +95,13 @@ class ChamberClient(EventIngestClient):
     def to_event_payload(self, hit: EnrichedHit) -> EventPayload:
         data = hit.enriched
         jld = data.get("json_ld") if isinstance(data.get("json_ld"), dict) else {}
-        title = (
-            (jld.get("name") if jld else None)
-            or data.get("title")
-            or hit.raw_hit.name
-        )
+        title = (jld.get("name") if jld else None) or data.get("title") or hit.raw_hit.name
         title = str(title).strip()
-        start_raw = jld.get("startDate") if jld else data.get("startDate") or hit.raw_hit.raw.get("start_raw")
+        start_raw = (
+            jld.get("startDate")
+            if jld
+            else data.get("startDate") or hit.raw_hit.raw.get("start_raw")
+        )
         end_raw = jld.get("endDate") if jld else data.get("endDate")
         start_dt = dateutil_parser.parse(str(start_raw)) if start_raw else None
         end_dt = dateutil_parser.parse(str(end_raw)) if end_raw else None

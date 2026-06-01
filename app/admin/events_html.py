@@ -88,9 +88,7 @@ def _record_field_changes(
 
 def register_events_html_routes(router: APIRouter) -> None:
     @router.get("/events/{event_id}/edit", response_class=HTMLResponse)
-    def admin_event_edit_form(
-        event_id: str, request: Request, db: Session = Depends(get_db)
-    ):
+    def admin_event_edit_form(event_id: str, request: Request, db: Session = Depends(get_db)):
         if redir := _guard(request):
             return redir
         event = db.get(Event, event_id)
@@ -136,9 +134,7 @@ def register_events_html_routes(router: APIRouter) -> None:
         event.normalized_title = event.title.lower()
         event.date = date.fromisoformat(event_date.strip())
         event.start_time = time.fromisoformat(start_time.strip()[:8])
-        event.end_time = (
-            time.fromisoformat(end_time.strip()[:8]) if end_time.strip() else None
-        )
+        event.end_time = time.fromisoformat(end_time.strip()[:8]) if end_time.strip() else None
         event.description = description.strip()
         event.status = status.strip() or "live"
         event.cancellation_reason = (
@@ -147,11 +143,7 @@ def register_events_html_routes(router: APIRouter) -> None:
         new_rrule = _build_rrule(rrule_freq, rrule_byday, rrule_until)
         event.rrule = new_rrule
         event.is_recurring = bool(new_rrule or event.rdate)
-        ex_list = [
-            x.strip()[:10]
-            for x in exdate_raw.replace("\n", ",").split(",")
-            if x.strip()
-        ]
+        ex_list = [x.strip()[:10] for x in exdate_raw.replace("\n", ",").split(",") if x.strip()]
         event.exdate = ex_list or None
         event.operator_override = operator_override.strip().lower() in {
             "1",
@@ -167,9 +159,7 @@ def register_events_html_routes(router: APIRouter) -> None:
         }
         _record_field_changes(db, event, before=before, after=after, source="operator")
         db.commit()
-        return RedirectResponse(
-            url=f"/admin/events/{event_id}/edit?flash=saved", status_code=303
-        )
+        return RedirectResponse(url=f"/admin/events/{event_id}/edit?flash=saved", status_code=303)
 
 
 def _render_edit_form(
@@ -198,7 +188,7 @@ label{{display:block;margin-top:1rem;font-weight:600}} input,textarea,select{{wi
 <form method="post" action="/admin/events/{_esc(event.id)}/edit">
 <label>Title <input name="title" value="{_esc(event.title)}" required></label>
 <label>Date <input type="date" name="date" value="{event.date.isoformat()}" required></label>
-<label>Start time <input type="time" name="start_time" value="{event.start_time.strftime('%H:%M')}" required></label>
+<label>Start time <input type="time" name="start_time" value="{event.start_time.strftime("%H:%M")}" required></label>
 <label>End time <input type="time" name="end_time" value="{end_t}"></label>
 <label>Description <textarea name="description" rows="4">{_esc(event.description)}</textarea></label>
 <label>Recurrence frequency

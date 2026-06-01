@@ -24,7 +24,9 @@ def test_az_roc_verify_marks_provider_and_name_cache() -> None:
                 raw=None,
             )
         if "AZCACHE" in name:
-            return AzRocMatch(license_number="ROC-1", classification=None, status="ACTIVE", raw=None)
+            return AzRocMatch(
+                license_number="ROC-1", classification=None, status="ACTIVE", raw=None
+            )
         return None
 
     with SessionLocal() as db:
@@ -62,14 +64,21 @@ def test_az_roc_verify_marks_provider_and_name_cache() -> None:
         db.commit()
 
     with httpx.Client() as client:
-        counts = az_roc_verify.run_verify(dry_run=False, limit=20, client=client, lookup_fn=counting_lookup)
+        counts = az_roc_verify.run_verify(
+            dry_run=False, limit=20, client=client, lookup_fn=counting_lookup
+        )
 
     assert counts["matched"] == 3
     assert len(calls) == 2
 
     with SessionLocal() as db:
         prov = db.query(Provider).filter_by(id="az-roc-test-1").one()
-        assert prov.attributes and prov.attributes.get("az_roc", {}).get("license_number") == "ROC-99999"
+        assert (
+            prov.attributes
+            and prov.attributes.get("az_roc", {}).get("license_number") == "ROC-99999"
+        )
         for pid in ("az-roc-cache-1", "az-roc-cache-2"):
             p3 = db.query(Provider).filter_by(id=pid).one()
-            assert p3.attributes and p3.attributes.get("az_roc", {}).get("license_number") == "ROC-1"
+            assert (
+                p3.attributes and p3.attributes.get("az_roc", {}).get("license_number") == "ROC-1"
+            )

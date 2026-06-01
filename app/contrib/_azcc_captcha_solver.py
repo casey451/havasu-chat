@@ -16,9 +16,7 @@ logger = logging.getLogger(__name__)
 
 _TESSERACT_TRUTHY = frozenset({"1", "true", "yes"})
 _ALNUM_6 = re.compile(r"^[A-Za-z0-9]{6}$")
-_TESSERACT_CONFIG = (
-    "--psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-)
+_TESSERACT_CONFIG = "--psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 
 
 def is_tesseract_enabled() -> bool:

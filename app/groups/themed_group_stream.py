@@ -22,11 +22,7 @@ def _event_in_category_bundle(event: Event, cat_slugs: set[str], db: Session) ->
     ent = db.get(Entity, event.entity_id)
     if ent is None:
         return False
-    slugs = {
-        ec.category.slug
-        for ec in ent.categories
-        if ec.category is not None
-    }
+    slugs = {ec.category.slug for ec in ent.categories if ec.category is not None}
     if slugs & cat_slugs:
         return True
     rows = db.scalars(
@@ -103,11 +99,7 @@ def get_themed_group_card_stream(
         ).get(ent.id)
         from app.core.ranking import compute_card_rank
 
-        score = (
-            compute_card_rank(inp, now=now, temperature_f=temp_f)
-            if inp
-            else 0.5
-        )
+        score = compute_card_rank(inp, now=now, temperature_f=temp_f) if inp else 0.5
         scored.append((vm, score))
 
     for event, occ_date in upcoming:

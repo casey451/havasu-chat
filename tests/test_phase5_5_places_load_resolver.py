@@ -65,8 +65,7 @@ def test_phase5_4_health_medical_fallback_entries_preserved() -> None:
     }
     for key in required_health_medical:
         assert key in _DISCOVERY_DOMAIN_FALLBACK, (
-            f"Phase 5.4 health_medical fallback entry {key!r} is missing. "
-            "Regression of fc51940."
+            f"Phase 5.4 health_medical fallback entry {key!r} is missing. Regression of fc51940."
         )
         assert _DISCOVERY_DOMAIN_FALLBACK[key] == "health-wellness-care"
 
@@ -85,8 +84,7 @@ def test_phase5_4_fitness_sports_fallback_entries_preserved() -> None:
     }
     for key in required_fitness_sports:
         assert key in _DISCOVERY_DOMAIN_FALLBACK, (
-            f"Phase 5.4 fitness_sports fallback entry {key!r} is missing. "
-            "Regression of fc51940."
+            f"Phase 5.4 fitness_sports fallback entry {key!r} is missing. Regression of fc51940."
         )
         assert _DISCOVERY_DOMAIN_FALLBACK[key] == "health-wellness-care"
 
@@ -102,8 +100,7 @@ def test_phase5_3_home_services_fallback_entries_preserved() -> None:
     }
     for key in required_home_services:
         assert key in _DISCOVERY_DOMAIN_FALLBACK, (
-            f"Phase 5.3 home_services fallback entry {key!r} is missing. "
-            "Regression of 7c994aa."
+            f"Phase 5.3 home_services fallback entry {key!r} is missing. Regression of 7c994aa."
         )
         assert _DISCOVERY_DOMAIN_FALLBACK[key] == "home-property-services"
 
@@ -124,7 +121,6 @@ def test_phase5_2_lake_recreation_fallback_entries_preserved() -> None:
     }
     for key in required_lake_rec:
         assert key in _DISCOVERY_DOMAIN_FALLBACK, (
-            f"Phase 5.2 lake_recreation fallback entry {key!r} is missing. "
-            "Regression of 65b0824."
+            f"Phase 5.2 lake_recreation fallback entry {key!r} is missing. Regression of 65b0824."
         )
         assert _DISCOVERY_DOMAIN_FALLBACK[key] == "on-the-water"

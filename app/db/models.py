@@ -108,13 +108,9 @@ class Provider(Base):
     # by the f1a2b3c4d5e6 migration; new rows get a slug via the ingest
     # paths (see app/db/seed_helpers.py and scripts/ingest). Unique across
     # all providers; collision handling appends -2, -3, etc.
-    slug: Mapped[str | None] = mapped_column(
-        String(120), nullable=True, unique=True, index=True
-    )
+    slug: Mapped[str | None] = mapped_column(String(120), nullable=True, unique=True, index=True)
 
-    last_verified_at: Mapped[datetime | None] = mapped_column(
-        TZAwareDateTime(), nullable=True
-    )
+    last_verified_at: Mapped[datetime | None] = mapped_column(TZAwareDateTime(), nullable=True)
     # CHECK ck_providers_verification_method — nullable string; allowed values are
     # NULL or one of: manual, scraper, owner_confirmed, npi_registry, none,
     # phone_call, in_person, web_form_submission, email_confirmation (see migration
@@ -136,9 +132,7 @@ class Provider(Base):
     programs: Mapped[list["Program"]] = relationship(back_populates="provider")
     events: Mapped[list["Event"]] = relationship(back_populates="provider")
 
-    category_ref: Mapped["Category | None"] = relationship(
-        "Category", foreign_keys=[category_id]
-    )
+    category_ref: Mapped["Category | None"] = relationship("Category", foreign_keys=[category_id])
 
 
 class FieldHistory(Base):
@@ -186,7 +180,9 @@ class Event(Base):
     status: Mapped[str] = mapped_column(String, default="live", nullable=False)
     source: Mapped[str] = mapped_column(String, default="admin", nullable=False)
     verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
     created_by: Mapped[str] = mapped_column(String, default="user", nullable=False)
     admin_review_by: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     provider_id: Mapped[str | None] = mapped_column(
@@ -198,9 +194,7 @@ class Event(Base):
     rrule: Mapped[str | None] = mapped_column(String(255), nullable=True)
     rdate: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     exdate: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
-    scraped_at: Mapped[datetime | None] = mapped_column(
-        TZAwareDateTime(), nullable=True
-    )
+    scraped_at: Mapped[datetime | None] = mapped_column(TZAwareDateTime(), nullable=True)
     cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     operator_override: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
@@ -214,9 +208,7 @@ class Event(Base):
         Boolean, nullable=False, default=False, server_default=false()
     )
 
-    last_verified_at: Mapped[datetime | None] = mapped_column(
-        TZAwareDateTime(), nullable=True
-    )
+    last_verified_at: Mapped[datetime | None] = mapped_column(TZAwareDateTime(), nullable=True)
 
     entity_id: Mapped[str] = mapped_column(
         String, ForeignKey("entities.id"), nullable=False, index=True
@@ -286,9 +278,7 @@ class ChatLog(Base):
     # P2.OBS.1 — disclosure renderer telemetry (nullable when renderer did not run).
     disclosure_regime: Mapped[str | None] = mapped_column(String(32), nullable=True)
     disclosure_sponsor_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    disclosure_tone_allowlist_passed: Mapped[bool | None] = mapped_column(
-        Boolean, nullable=True
-    )
+    disclosure_tone_allowlist_passed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     disclosure_eligible: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     # Lane B-3 (cache-first observability) -- per-turn cache verdict and per-stage
     # timing breakdown. Both nullable; legacy rows remain valid.
@@ -329,7 +319,9 @@ class CatalogAdSlot(Base):
     position: Mapped[str | None] = mapped_column(String(32), nullable=True)
     starts_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     ends_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC), nullable=False
     )
@@ -428,9 +420,7 @@ class Program(Base):
 
     provider: Mapped["Provider | None"] = relationship(back_populates="programs")
 
-    category_ref: Mapped["Category | None"] = relationship(
-        "Category", foreign_keys=[category_id]
-    )
+    category_ref: Mapped["Category | None"] = relationship("Category", foreign_keys=[category_id])
 
 
 class Contribution(Base):
@@ -509,7 +499,9 @@ class LlmMentionedEntity(Base):
     chat_log_id: Mapped[str] = mapped_column(String, ForeignKey("chat_logs.id"), nullable=False)
     mentioned_name: Mapped[str] = mapped_column(String(300), nullable=False)
     context_snippet: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    detected_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    detected_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
     status: Mapped[str] = mapped_column(String, nullable=False, default="unreviewed")
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     dismissal_reason: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -774,9 +766,7 @@ class Entity(Base):
     slug: Mapped[str] = mapped_column(String(120), nullable=False, unique=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    last_verified_at: Mapped[datetime | None] = mapped_column(
-        TZAwareDateTime(), nullable=True
-    )
+    last_verified_at: Mapped[datetime | None] = mapped_column(TZAwareDateTime(), nullable=True)
     source: Mapped[str] = mapped_column(String(64), nullable=False, default="seed")
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=true()
@@ -820,11 +810,15 @@ class Entity(Base):
         back_populates="entity", passive_deletes=True
     )
     features: Mapped[list["Feature"]] = relationship(back_populates="entity", passive_deletes=True)
-    offerings: Mapped[list["Offering"]] = relationship(back_populates="entity", passive_deletes=True)
+    offerings: Mapped[list["Offering"]] = relationship(
+        back_populates="entity", passive_deletes=True
+    )
     service_areas: Mapped[list["ServiceArea"]] = relationship(
         back_populates="entity", passive_deletes=True
     )
-    schedules: Mapped[list["Schedule"]] = relationship(back_populates="entity", passive_deletes=True)
+    schedules: Mapped[list["Schedule"]] = relationship(
+        back_populates="entity", passive_deletes=True
+    )
     source_evidence: Mapped[list["SourceEvidence"]] = relationship(
         back_populates="entity", passive_deletes=True
     )
@@ -916,7 +910,9 @@ class Hours(Base):
     day_of_week: Mapped[int] = mapped_column(Integer, nullable=False)
     opens_at: Mapped[time | None] = mapped_column(Time, nullable=True)
     closes_at: Mapped[time | None] = mapped_column(Time, nullable=True)
-    is_24h: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
+    is_24h: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
     notes: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC), nullable=False
@@ -1147,12 +1143,8 @@ class User(Base):
         ),
     )
 
-    id: Mapped[str] = mapped_column(
-        String, primary_key=True, default=lambda: str(uuid4())
-    )
-    email: Mapped[str] = mapped_column(
-        String(320), nullable=False, unique=True, index=True
-    )
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True, index=True)
     # email is lower-cased at write time — see normalize helper in app/auth/email_helpers.py.
     display_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     role: Mapped[str] = mapped_column(
@@ -1165,9 +1157,7 @@ class User(Base):
         DateTime, default=lambda: datetime.now(UTC), nullable=False
     )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    last_active_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     preferred_mode: Mapped[str] = mapped_column(
         String(16), nullable=False, default="default", server_default="default"
     )
@@ -1199,9 +1189,7 @@ class MagicLinkToken(Base):
         Index("ix_magic_link_tokens_expires_at", "expires_at"),
     )
 
-    id: Mapped[str] = mapped_column(
-        String, primary_key=True, default=lambda: str(uuid4())
-    )
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
     email: Mapped[str] = mapped_column(String(320), nullable=False)
     # NOT a FK to users — User row may not exist at request-link time
     # (first-time login creates the row on successful callback).
@@ -1209,12 +1197,8 @@ class MagicLinkToken(Base):
     # SHA-256 hex digest of plaintext token. 64 chars.
     expires_at: Mapped[datetime] = mapped_column(TZAwareDateTime(), nullable=False)
     # 15 minutes from created_at by default.
-    consumed_at: Mapped[datetime | None] = mapped_column(
-        TZAwareDateTime(), nullable=True
-    )
-    requested_from_ip_hash: Mapped[str | None] = mapped_column(
-        String(64), nullable=True
-    )
+    consumed_at: Mapped[datetime | None] = mapped_column(TZAwareDateTime(), nullable=True)
+    requested_from_ip_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC), nullable=False
     )
@@ -1240,9 +1224,7 @@ class AuthSession(Base):
         Index("ix_sessions_expires_at", "expires_at"),
     )
 
-    id: Mapped[str] = mapped_column(
-        String, primary_key=True, default=lambda: str(uuid4())
-    )
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
     user_id: Mapped[str] = mapped_column(
         String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
@@ -1272,9 +1254,7 @@ class UserFavorite(Base):
 
     __tablename__ = "user_favorites"
     __table_args__ = (
-        UniqueConstraint(
-            "user_id", "entity_id", name="uq_user_favorites_user_entity"
-        ),
+        UniqueConstraint("user_id", "entity_id", name="uq_user_favorites_user_entity"),
         Index("ix_user_favorites_user_id", "user_id"),
         Index("ix_user_favorites_entity_id", "entity_id"),
     )
@@ -1307,9 +1287,7 @@ class Claim(Base):
 
     __tablename__ = "claims"
     __table_args__ = (
-        UniqueConstraint(
-            "user_id", "entity_id", name="uq_claims_user_entity"
-        ),
+        UniqueConstraint("user_id", "entity_id", name="uq_claims_user_entity"),
         CheckConstraint(
             "status IN ('pending', 'verified', 'rejected')",
             name="ck_claims_status",
@@ -1326,9 +1304,7 @@ class Claim(Base):
         Index("ix_claims_status", "status"),
     )
 
-    id: Mapped[str] = mapped_column(
-        String, primary_key=True, default=lambda: str(uuid4())
-    )
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
     user_id: Mapped[str] = mapped_column(
         String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
@@ -1351,9 +1327,7 @@ class Claim(Base):
 
     user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
     entity: Mapped["Entity"] = relationship("Entity", foreign_keys=[entity_id])
-    verifier: Mapped["User | None"] = relationship(
-        "User", foreign_keys=[verified_by]
-    )
+    verifier: Mapped["User | None"] = relationship("User", foreign_keys=[verified_by])
 
 
 class Photo(Base):
@@ -1384,9 +1358,7 @@ class Photo(Base):
         Index("ix_photos_entity_hash_status", "entity_id", "image_hash", "status"),
     )
 
-    id: Mapped[str] = mapped_column(
-        String, primary_key=True, default=lambda: str(uuid4())
-    )
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
     entity_id: Mapped[str] = mapped_column(
         String, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
     )
@@ -1501,7 +1473,9 @@ class AlertSubscription(Base):
         DateTime, default=lambda: datetime.now(UTC), nullable=False
     )
 
-    user: Mapped["User"] = relationship("User", back_populates="alert_subscriptions", foreign_keys=[user_id])
+    user: Mapped["User"] = relationship(
+        "User", back_populates="alert_subscriptions", foreign_keys=[user_id]
+    )
     dispatches: Mapped[list["AlertDispatched"]] = relationship(
         "AlertDispatched", back_populates="subscription", passive_deletes=True
     )
@@ -1554,9 +1528,7 @@ class ExternalConditionsCache(Base):
     data: Mapped[dict | list] = mapped_column(JSON, nullable=False)
     ttl_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
     last_error: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    error_count: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, server_default="0"
-    )
+    error_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     next_attempt_after: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
@@ -1636,17 +1608,13 @@ class Outbox(Base):
         Index("ix_outbox_kind", "kind"),
     )
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid4())
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
     payload: Mapped[dict] = mapped_column(JSON, nullable=False)
     state: Mapped[str] = mapped_column(
         String(20), nullable=False, default="pending", server_default="pending"
     )
-    attempts: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, server_default="0"
-    )
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_error: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

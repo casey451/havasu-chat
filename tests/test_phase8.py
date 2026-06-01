@@ -148,7 +148,12 @@ class Phase8StabilizationTests(unittest.TestCase):
     def test_analytics_renders_with_empty_data(self) -> None:
         os.environ["ADMIN_PASSWORD"] = "changeme"
         c = self.__class__.client
-        self.assertEqual(c.post("/admin/login", data={"password": "changeme"}, follow_redirects=False).status_code, 303)
+        self.assertEqual(
+            c.post(
+                "/admin/login", data={"password": "changeme"}, follow_redirects=False
+            ).status_code,
+            303,
+        )
         r = c.get("/admin/analytics")
         self.assertEqual(r.status_code, 200)
         self.assertIn("No data yet", r.text)
@@ -159,9 +164,7 @@ class Phase8StabilizationTests(unittest.TestCase):
         now = datetime.now(UTC)
         sid = "phase8-analytics-seed"
         user_msg = "unique analytics query xyz"
-        assistant_msg = (
-            "No zydeco in the system yet. If you hear of one, add it here and help others find it — just tell me the details 👋"
-        )
+        assistant_msg = "No zydeco in the system yet. If you hear of one, add it here and help others find it — just tell me the details 👋"
         with SessionLocal() as db:
             db.add(
                 ChatLog(
@@ -204,7 +207,12 @@ class Phase8StabilizationTests(unittest.TestCase):
             db.commit()
 
         c = self.__class__.client
-        self.assertEqual(c.post("/admin/login", data={"password": "changeme"}, follow_redirects=False).status_code, 303)
+        self.assertEqual(
+            c.post(
+                "/admin/login", data={"password": "changeme"}, follow_redirects=False
+            ).status_code,
+            303,
+        )
         r = c.get("/admin/analytics")
         self.assertEqual(r.status_code, 200)
         self.assertIn(user_msg.lower(), r.text.lower())

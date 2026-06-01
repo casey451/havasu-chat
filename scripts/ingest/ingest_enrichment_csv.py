@@ -86,6 +86,7 @@ ENRICHMENT_FIELDS: tuple[str, ...] = (
     "description",
 )
 
+
 def _to_aware(raw: str) -> datetime:
     """Parse the CSV's ``last_verified_at`` to a TZ-aware Lake Havasu dt.
 
@@ -195,9 +196,7 @@ def ingest_csv(csv_path: Path, *, dry_run: bool, db: Session) -> int:
         for row_number, row in _iter_data_rows(reader):
             try:
                 payload = _row_to_payload(row)
-                existing = _find_existing(
-                    db, payload["provider_name"], payload["category"]
-                )
+                existing = _find_existing(db, payload["provider_name"], payload["category"])
                 if existing is None:
                     slug = derive_provider_slug(db, payload["provider_name"])
                     new_row = Provider(
@@ -253,10 +252,7 @@ def ingest_csv(csv_path: Path, *, dry_run: bool, db: Session) -> int:
                 raise
 
     print("-" * 64)
-    summary = (
-        f"summary: {n_insert} insert, {n_update} update, "
-        f"{n_noop} noop, {n_error} error"
-    )
+    summary = f"summary: {n_insert} insert, {n_update} update, {n_noop} noop, {n_error} error"
     print(summary)
     return n_error
 

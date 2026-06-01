@@ -31,7 +31,10 @@ def scenario_a() -> None:
             "/api/chat/onboarding",
             json={"session_id": "mv-scen-a", "visitor_status": "visiting", "has_kids": True},
         )
-        with patch("app.chat.unified_router.extract_hints", return_value=ExtractedHints(age=6, location="near the channel")):
+        with patch(
+            "app.chat.unified_router.extract_hints",
+            return_value=ExtractedHints(age=6, location="near the channel"),
+        ):
             with patch("app.chat.unified_router.try_tier1", return_value=None):
                 with patch(
                     "app.chat.unified_router.try_tier2_with_usage",

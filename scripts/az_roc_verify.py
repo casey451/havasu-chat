@@ -51,13 +51,15 @@ MIN_INTERVAL_S = 2.0
 # Storage, moving, locksmiths, cleaners, laundry, pest control, etc. are
 # NOT licensed by AZ ROC and would just timeout the Playwright row-wait at
 # 0 results. Filter them out upfront so the verifier doesn't waste cycles.
-AZ_ROC_LICENSED_PRIMARY_TYPES: frozenset[str] = frozenset({
-    "plumber",
-    "electrician",
-    "hvac_contractor",
-    "general_contractor",
-    "roofing_contractor",
-})
+AZ_ROC_LICENSED_PRIMARY_TYPES: frozenset[str] = frozenset(
+    {
+        "plumber",
+        "electrician",
+        "hvac_contractor",
+        "general_contractor",
+        "roofing_contractor",
+    }
+)
 
 
 def _home_providers_query(db: Session, *, limit: int | None) -> list[Provider]:

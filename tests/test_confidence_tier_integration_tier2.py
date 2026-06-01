@@ -20,9 +20,14 @@ def _resp(text, *, prompt_tokens=120, completion_tokens=40):
     return SimpleNamespace(choices=[choice], usage=usage)
 
 
-def _provider_row(*, name="Acme Plumbing", phone="(928) 855-1234",
-                   age_days=1, method="owner_confirmed",
-                   include_verification=True):
+def _provider_row(
+    *,
+    name="Acme Plumbing",
+    phone="(928) 855-1234",
+    age_days=1,
+    method="owner_confirmed",
+    include_verification=True,
+):
     row = {
         "type": "provider",
         "id": f"prov-{name.lower().replace(' ', '-')}",
@@ -49,10 +54,16 @@ def _user_text(fake):
 def test_flag_off_byte_identical_to_current_behavior(monkeypatch):
     monkeypatch.delenv(tf.FEATURE_FLAG_CONFIDENCE_TIER_ENV_VAR, raising=False)
     rows = [
-        _json_safe_row(_provider_row(name="Acme Plumbing", phone="(928) 855-1234",
-                                      age_days=1, method="owner_confirmed")),
-        _json_safe_row(_provider_row(name="Bayview Plumbing", phone="(928) 855-5678",
-                                      age_days=200, method="manual")),
+        _json_safe_row(
+            _provider_row(
+                name="Acme Plumbing", phone="(928) 855-1234", age_days=1, method="owner_confirmed"
+            )
+        ),
+        _json_safe_row(
+            _provider_row(
+                name="Bayview Plumbing", phone="(928) 855-5678", age_days=200, method="manual"
+            )
+        ),
     ]
     fake = MagicMock()
     fake.chat.completions.create.return_value = _resp(
@@ -71,8 +82,11 @@ def test_flag_off_byte_identical_to_current_behavior(monkeypatch):
 # 2. HIGH tier
 def test_flag_on_high_tier_no_hedge_in_prompt(monkeypatch):
     monkeypatch.setenv(tf.FEATURE_FLAG_CONFIDENCE_TIER_ENV_VAR, "true")
-    rows = [_provider_row(name="Acme Plumbing", phone="(928) 855-1234",
-                          age_days=1, method="owner_confirmed")]
+    rows = [
+        _provider_row(
+            name="Acme Plumbing", phone="(928) 855-1234", age_days=1, method="owner_confirmed"
+        )
+    ]
     fake = MagicMock()
     fake.chat.completions.create.return_value = _resp(
         "Acme Plumbing at (928) 855-1234 is a solid pick."
@@ -90,8 +104,11 @@ def test_flag_on_high_tier_no_hedge_in_prompt(monkeypatch):
 # 3. MEDIUM tier
 def test_flag_on_medium_tier_hedge_inlined(monkeypatch):
     monkeypatch.setenv(tf.FEATURE_FLAG_CONFIDENCE_TIER_ENV_VAR, "true")
-    rows = [_provider_row(name="Bayview Plumbing", phone="(928) 855-5678",
-                          age_days=14, method="scraper")]
+    rows = [
+        _provider_row(
+            name="Bayview Plumbing", phone="(928) 855-5678", age_days=14, method="scraper"
+        )
+    ]
     fake = MagicMock()
     fake.chat.completions.create.return_value = _resp(
         "Bayview Plumbing at (928) 855-5678 -- as of last week."
@@ -108,8 +125,11 @@ def test_flag_on_medium_tier_hedge_inlined(monkeypatch):
 # 4. LOW tier
 def test_flag_on_low_tier_hedge_inlined(monkeypatch):
     monkeypatch.setenv(tf.FEATURE_FLAG_CONFIDENCE_TIER_ENV_VAR, "true")
-    rows = [_provider_row(name="Bayview Plumbing", phone="(928) 855-5678",
-                          age_days=200, method="manual")]
+    rows = [
+        _provider_row(
+            name="Bayview Plumbing", phone="(928) 855-5678", age_days=200, method="manual"
+        )
+    ]
     fake = MagicMock()
     fake.chat.completions.create.return_value = _resp(
         "Bayview Plumbing at (928) 855-5678 -- recommend calling to confirm."
@@ -126,12 +146,13 @@ def test_flag_on_low_tier_hedge_inlined(monkeypatch):
 # 5. LOW phone post-process appends
 def test_flag_on_low_tier_phone_post_process_appends_when_missing(monkeypatch):
     monkeypatch.setenv(tf.FEATURE_FLAG_CONFIDENCE_TIER_ENV_VAR, "true")
-    rows = [_provider_row(name="Bayview Plumbing", phone="(928) 855-5678",
-                          age_days=200, method="manual")]
+    rows = [
+        _provider_row(
+            name="Bayview Plumbing", phone="(928) 855-5678", age_days=200, method="manual"
+        )
+    ]
     fake = MagicMock()
-    fake.chat.completions.create.return_value = _resp(
-        "Bayview Plumbing's a name we have on file."
-    )
+    fake.chat.completions.create.return_value = _resp("Bayview Plumbing's a name we have on file.")
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     with patch.object(llm_messages, "OpenAI", return_value=fake):
         text, _, _ = tf.format("who's a good plumber", rows)
@@ -144,8 +165,11 @@ def test_flag_on_low_tier_phone_post_process_appends_when_missing(monkeypatch):
 # 6. LOW phone post-process skips when phone present
 def test_flag_on_low_tier_phone_post_process_skips_when_present(monkeypatch):
     monkeypatch.setenv(tf.FEATURE_FLAG_CONFIDENCE_TIER_ENV_VAR, "true")
-    rows = [_provider_row(name="Bayview Plumbing", phone="(928) 855-5678",
-                          age_days=200, method="manual")]
+    rows = [
+        _provider_row(
+            name="Bayview Plumbing", phone="(928) 855-5678", age_days=200, method="manual"
+        )
+    ]
     fake = MagicMock()
     fake.chat.completions.create.return_value = _resp(
         "Bayview Plumbing at (928) 855-5678 is on file."
@@ -162,8 +186,11 @@ def test_flag_on_low_tier_phone_post_process_skips_when_present(monkeypatch):
 # 7. LOW post-process skips when already hedged
 def test_flag_on_low_tier_phone_post_process_skips_when_already_hedged(monkeypatch):
     monkeypatch.setenv(tf.FEATURE_FLAG_CONFIDENCE_TIER_ENV_VAR, "true")
-    rows = [_provider_row(name="Bayview Plumbing", phone="(928) 855-5678",
-                          age_days=200, method="manual")]
+    rows = [
+        _provider_row(
+            name="Bayview Plumbing", phone="(928) 855-5678", age_days=200, method="manual"
+        )
+    ]
     fake = MagicMock()
     fake.chat.completions.create.return_value = _resp(
         "Bayview Plumbing -- recommend calling to confirm."
@@ -180,8 +207,9 @@ def test_flag_on_low_tier_phone_post_process_skips_when_already_hedged(monkeypat
 # 8. legacy row without verification
 def test_legacy_row_without_verification_fields_classifies_low(monkeypatch):
     monkeypatch.setenv(tf.FEATURE_FLAG_CONFIDENCE_TIER_ENV_VAR, "true")
-    legacy_row = _provider_row(name="Old School Plumbing", phone="(928) 555-0001",
-                                include_verification=False)
+    legacy_row = _provider_row(
+        name="Old School Plumbing", phone="(928) 555-0001", include_verification=False
+    )
     fake = MagicMock()
     fake.chat.completions.create.return_value = _resp(
         "Old School Plumbing -- recommend calling to confirm."
@@ -199,12 +227,15 @@ def test_legacy_row_without_verification_fields_classifies_low(monkeypatch):
 def test_mixed_tier_rows_in_one_response(monkeypatch):
     monkeypatch.setenv(tf.FEATURE_FLAG_CONFIDENCE_TIER_ENV_VAR, "true")
     rows = [
-        _provider_row(name="Acme Plumbing", phone="(928) 855-1111",
-                      age_days=1, method="owner_confirmed"),
-        _provider_row(name="Bayview Plumbing", phone="(928) 855-2222",
-                      age_days=14, method="scraper"),
-        _provider_row(name="Crestline Plumbing", phone="(928) 855-3333",
-                      age_days=200, method="manual"),
+        _provider_row(
+            name="Acme Plumbing", phone="(928) 855-1111", age_days=1, method="owner_confirmed"
+        ),
+        _provider_row(
+            name="Bayview Plumbing", phone="(928) 855-2222", age_days=14, method="scraper"
+        ),
+        _provider_row(
+            name="Crestline Plumbing", phone="(928) 855-3333", age_days=200, method="manual"
+        ),
     ]
     fake = MagicMock()
     fake.chat.completions.create.return_value = _resp(
@@ -216,9 +247,7 @@ def test_mixed_tier_rows_in_one_response(monkeypatch):
     with patch.object(llm_messages, "OpenAI", return_value=fake):
         text, _, _ = tf.format("who's a good plumber", rows)
     user_text = _user_text(fake)
-    parsed = json.loads(
-        user_text.split("Catalog rows:\n", 1)[1].split("\n\nRespond:", 1)[0]
-    )
+    parsed = json.loads(user_text.split("Catalog rows:\n", 1)[1].split("\n\nRespond:", 1)[0])
     by_name = {r["name"]: r for r in parsed}
     assert by_name["Acme Plumbing"]["confidence_hint"] == "high"
     assert by_name["Acme Plumbing"]["confidence_hedge"] == ""

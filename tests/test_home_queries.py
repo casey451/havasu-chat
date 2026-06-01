@@ -121,9 +121,7 @@ def _seed_three_placeholder_two_real(db) -> None:
     db.commit()
 
 
-def test_cleanup_script_dry_run(
-    placeholder_cleanup_mod, db_session, tmp_path: Path
-) -> None:
+def test_cleanup_script_dry_run(placeholder_cleanup_mod, db_session, tmp_path: Path) -> None:
     _seed_three_placeholder_two_real(db_session)
     result = placeholder_cleanup_mod.run_placeholder_cleanup(
         db_session, apply=False, log_dir=tmp_path
@@ -138,21 +136,15 @@ def test_cleanup_script_apply_idempotent(
     placeholder_cleanup_mod, db_session, tmp_path: Path
 ) -> None:
     _seed_three_placeholder_two_real(db_session)
-    r1 = placeholder_cleanup_mod.run_placeholder_cleanup(
-        db_session, apply=True, log_dir=tmp_path
-    )
+    r1 = placeholder_cleanup_mod.run_placeholder_cleanup(db_session, apply=True, log_dir=tmp_path)
     assert r1.matched == 3
     assert r1.updated == 3
 
-    r2 = placeholder_cleanup_mod.run_placeholder_cleanup(
-        db_session, apply=True, log_dir=tmp_path
-    )
+    r2 = placeholder_cleanup_mod.run_placeholder_cleanup(db_session, apply=True, log_dir=tmp_path)
     assert r2.matched == 0
     assert r2.updated == 0
 
-    remaining_with_phone = (
-        db_session.query(Provider).filter(Provider.phone.isnot(None)).count()
-    )
+    remaining_with_phone = db_session.query(Provider).filter(Provider.phone.isnot(None)).count()
     assert remaining_with_phone == 2
 
 
@@ -189,9 +181,7 @@ def _fix_now(
 ) -> datetime:
     """Pin ``home_queries.now_lake_havasu`` to ``on_date`` at ``hour:minute``."""
     today = on_date or datetime.now(LAKE_HAVASU_TZ).date()
-    fixed = datetime(
-        today.year, today.month, today.day, hour, minute, tzinfo=LAKE_HAVASU_TZ
-    )
+    fixed = datetime(today.year, today.month, today.day, hour, minute, tzinfo=LAKE_HAVASU_TZ)
     monkeypatch.setattr(home_queries, "now_lake_havasu", lambda: fixed)
     return fixed
 
@@ -285,9 +275,7 @@ def test_tonight_includes_all_day_events(
     real_all = Query.all
 
     def spy(self):
-        captured.append(
-            str(self.statement.compile(compile_kwargs={"literal_binds": True}))
-        )
+        captured.append(str(self.statement.compile(compile_kwargs={"literal_binds": True})))
         return real_all(self)
 
     monkeypatch.setattr(Query, "all", spy)

@@ -177,7 +177,10 @@ def test_post_event_persists_datetime(client: TestClient) -> None:
     db = SessionLocal()
     try:
         row = db.execute(
-            select(Contribution).where(Contribution.submission_name == name).order_by(Contribution.id.desc()).limit(1)
+            select(Contribution)
+            .where(Contribution.submission_name == name)
+            .order_by(Contribution.id.desc())
+            .limit(1)
         ).scalar_one_or_none()
         assert row is not None
         assert row.entity_type == "event"
@@ -191,7 +194,9 @@ def test_post_event_persists_datetime(client: TestClient) -> None:
 
 @patch("app.api.routes.contribute.is_rate_limit_disabled", return_value=False)
 @patch("app.api.routes.contribute.get_remote_address", return_value="10.255.0.234")
-def test_post_rate_limit_second_submission(_mock_ip: object, _mock_rl: object, client: TestClient) -> None:
+def test_post_rate_limit_second_submission(
+    _mock_ip: object, _mock_rl: object, client: TestClient
+) -> None:
     payload = {
         "entity_type": "program",
         "submission_name": "Rate limit program A",

@@ -240,9 +240,10 @@ def test_map_types_phase5_primary_wins_through_expansion() -> None:
     Verifies the iteration order in `map_google_types_to_slug_and_place_type`
     still respects the input list order after the table expanded.
     """
-    assert map_google_types_to_slug_and_place_type(
-        ["pizza_restaurant", "restaurant", "food"]
-    ) == ("eat-drink", "commercial")
+    assert map_google_types_to_slug_and_place_type(["pizza_restaurant", "restaurant", "food"]) == (
+        "eat-drink",
+        "commercial",
+    )
 
 
 def test_google_places_to_entity_payload_shape() -> None:

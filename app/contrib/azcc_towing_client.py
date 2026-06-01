@@ -121,7 +121,9 @@ def _fetch_public_search_payload(
 
             if county:
                 # County filter is optional; best-effort if the mat-select exists.
-                county_select = page.locator("mat-select[formcontrolname='county'], mat-select").first
+                county_select = page.locator(
+                    "mat-select[formcontrolname='county'], mat-select"
+                ).first
                 if county_select.count():
                     try:
                         county_select.click()

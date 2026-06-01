@@ -25,7 +25,9 @@ def test_lookup_parser_returns_none_on_miss(db_session: Session) -> None:
 
 
 def test_store_then_lookup_parser_roundtrip(db_session: Session) -> None:
-    filters = Tier2Filters(category="restaurant", open_now=True, parser_confidence=0.9, fallback_to_tier3=False)
+    filters = Tier2Filters(
+        category="restaurant", open_now=True, parser_confidence=0.9, fallback_to_tier3=False
+    )
     tier2_cache.store_parser(db_session, "b2 parser roundtrip", "2026-05-24", filters)
     hit = tier2_cache.lookup_parser(db_session, "b2 parser roundtrip", "2026-05-24")
     assert hit is not None
@@ -36,7 +38,9 @@ def test_store_then_lookup_parser_roundtrip(db_session: Session) -> None:
 
 def test_parser_cache_key_includes_today_iso(db_session: Session) -> None:
     """Same query, different dates -- different cache entries (today_iso matters)."""
-    filters_may = Tier2Filters(category="restaurant", open_now=True, parser_confidence=0.9, fallback_to_tier3=False)
+    filters_may = Tier2Filters(
+        category="restaurant", open_now=True, parser_confidence=0.9, fallback_to_tier3=False
+    )
     tier2_cache.store_parser(db_session, "may 8 events", "2026-05-08", filters_may)
     hit_same_day = tier2_cache.lookup_parser(db_session, "may 8 events", "2026-05-08")
     hit_next_year = tier2_cache.lookup_parser(db_session, "may 8 events", "2027-05-08")

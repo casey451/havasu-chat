@@ -1,4 +1,4 @@
-﻿"""Confabulation detector: Layers 1–3. Lexicons and canonicalizer rules are defined as Python constants in this module.
+"""Confabulation detector: Layers 1–3. Lexicons and canonicalizer rules are defined as Python constants in this module.
 
 POS tagging uses default Penn tags from ``nltk.pos_tag``.
 
@@ -316,7 +316,13 @@ def _l1(response: str, ev: set[str], rids: tuple[str, ...]) -> list[DetectorHit]
 
 def _l2_phrase_in(phrase: str, text: str) -> bool:
     pl, txt = phrase.lower(), (text or "")
-    if " " in pl or "/" in phrase or phrase in ("A/V", "18+", "21+") or "-" in phrase or re.search(r"^\d", phrase):
+    if (
+        " " in pl
+        or "/" in phrase
+        or phrase in ("A/V", "18+", "21+")
+        or "-" in phrase
+        or re.search(r"^\d", phrase)
+    ):
         return pl in txt.lower()
     return re.search(r"(?i)(?<![a-z0-9+])" + re.escape(phrase) + r"(?![a-z0-9+])", txt) is not None
 

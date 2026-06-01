@@ -61,9 +61,7 @@ _CAT11_PRIMARY_TYPES: list[tuple[str, tuple[str, str]]] = [
 
 
 @pytest.mark.parametrize("primary_type,expected", _CAT11_PRIMARY_TYPES)
-def test_cat11_primary_type_maps_to_pets(
-    primary_type: str, expected: tuple[str, str]
-) -> None:
+def test_cat11_primary_type_maps_to_pets(primary_type: str, expected: tuple[str, str]) -> None:
     """Each cat-11 primary_type direct mapping shipped this session must
     persist. Removing any direct mapping would cause the type to fall
     through to the new ``(None, "pets")`` catch-all (still cat-11 --
@@ -145,8 +143,7 @@ def test_phase5_10_cat10_primary_type_entries_preserved() -> None:
     }
     for primary_type, expected in required_cat10.items():
         assert primary_type in _PRIMARY_TYPE_MAP, (
-            f"Phase 5.10 cat-10 direct mapping {primary_type!r} is missing. "
-            "Regression of bf24e16."
+            f"Phase 5.10 cat-10 direct mapping {primary_type!r} is missing. Regression of bf24e16."
         )
         assert _PRIMARY_TYPE_MAP[primary_type] == expected
 
@@ -157,10 +154,7 @@ def test_phase5_10_lodging_catch_all_preserved() -> None:
     assert (None, "lodging") in _DISCOVERY_DOMAIN_FALLBACK, (
         "Phase 5.10 lodging catch-all is missing. Regression of bf24e16."
     )
-    assert (
-        _DISCOVERY_DOMAIN_FALLBACK[(None, "lodging")]
-        == "lodging-vacation-rentals"
-    )
+    assert _DISCOVERY_DOMAIN_FALLBACK[(None, "lodging")] == "lodging-vacation-rentals"
 
 
 def test_phase5_9_cat12_primary_type_entries_preserved() -> None:
@@ -179,8 +173,7 @@ def test_phase5_9_cat12_primary_type_entries_preserved() -> None:
     }
     for primary_type, expected in required_cat12.items():
         assert primary_type in _PRIMARY_TYPE_MAP, (
-            f"Phase 5.9 cat-12 direct mapping {primary_type!r} is missing. "
-            "Regression of 0af5f73."
+            f"Phase 5.9 cat-12 direct mapping {primary_type!r} is missing. Regression of 0af5f73."
         )
         assert _PRIMARY_TYPE_MAP[primary_type] == expected
 
@@ -189,45 +182,25 @@ def test_phase5_9_childcare_education_catch_all_preserved() -> None:
     """Defensive: ensure adding Phase 5.11 entries didn't disturb the
     Phase 5.9 childcare_education catch-all (``0af5f73``)."""
     assert (None, "childcare_education") in _DISCOVERY_DOMAIN_FALLBACK
-    assert (
-        _DISCOVERY_DOMAIN_FALLBACK[(None, "childcare_education")]
-        == "classes-sports-recreation"
-    )
+    assert _DISCOVERY_DOMAIN_FALLBACK[(None, "childcare_education")] == "classes-sports-recreation"
 
 
 def test_phase5_x_other_domain_fallback_entries_preserved() -> None:
     """Defensive: ensure adding Phase 5.11 entries didn't disturb the
     Phase 5.2 / 5.3 / 5.4 / 5.5 / 5.6 / 5.8 domain fallback entries."""
     # 5.2 lake_recreation
-    assert (
-        _DISCOVERY_DOMAIN_FALLBACK[(None, "lake_recreation")]
-        == "on-the-water"
-    )
-    assert (
-        _DISCOVERY_DOMAIN_FALLBACK[("tour_agency", "lake_recreation")]
-        == "on-the-water"
-    )
+    assert _DISCOVERY_DOMAIN_FALLBACK[(None, "lake_recreation")] == "on-the-water"
+    assert _DISCOVERY_DOMAIN_FALLBACK[("tour_agency", "lake_recreation")] == "on-the-water"
     # 5.3 home_services
-    assert (
-        _DISCOVERY_DOMAIN_FALLBACK[(None, "home_services")]
-        == "home-property-services"
-    )
+    assert _DISCOVERY_DOMAIN_FALLBACK[(None, "home_services")] == "home-property-services"
     # 5.4 health_medical
-    assert (
-        _DISCOVERY_DOMAIN_FALLBACK[(None, "health_medical")]
-        == "health-wellness-care"
-    )
+    assert _DISCOVERY_DOMAIN_FALLBACK[(None, "health_medical")] == "health-wellness-care"
     # 5.4 fitness_sports
-    assert (
-        _DISCOVERY_DOMAIN_FALLBACK[(None, "fitness_sports")]
-        == "health-wellness-care"
-    )
+    assert _DISCOVERY_DOMAIN_FALLBACK[(None, "fitness_sports")] == "health-wellness-care"
     # 5.5 auto
     assert _DISCOVERY_DOMAIN_FALLBACK[(None, "auto")] == "auto-rv-fuel"
     # 5.6 retail
-    assert (
-        _DISCOVERY_DOMAIN_FALLBACK[(None, "retail")] == "shopping-essentials"
-    )
+    assert _DISCOVERY_DOMAIN_FALLBACK[(None, "retail")] == "shopping-essentials"
 
 
 def test_park_and_dog_park_primary_types_preserved() -> None:

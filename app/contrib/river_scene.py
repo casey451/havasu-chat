@@ -6,15 +6,15 @@ Fetches and parses; does not write to the database.
 
 from __future__ import annotations
 
+import logging
+import os
+import random
 import re
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from datetime import time as time_type
-import logging
-import os
-import random
 from typing import Any
 
 import httpx

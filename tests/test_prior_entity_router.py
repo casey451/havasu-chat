@@ -76,7 +76,14 @@ def test_enrich_explicit_entity_wins_over_prior(db: Session) -> None:
         raw_query="what time does bmx open",
         normalized_query="what time does bmx open",
     )
-    session = {"prior_entity": {"id": "x", "name": "Altitude Trampoline Park — Lake Havasu City", "type": "provider", "turn_number": 1}}
+    session = {
+        "prior_entity": {
+            "id": "x",
+            "name": "Altitude Trampoline Park — Lake Havasu City",
+            "type": "provider",
+            "turn_number": 1,
+        }
+    }
     out = _enrich_entity_from_db(
         "what time does bmx open",
         ir,
@@ -228,7 +235,9 @@ def _patch_ask_to_tier2(response_text: str):
     )
 
 
-def test_recommended_capture_tier3_single_provider(db: Session, router_program_cleanup: list[str]) -> None:
+def test_recommended_capture_tier3_single_provider(
+    db: Session, router_program_cleanup: list[str]
+) -> None:
     sid = f"pe641-t3-1-{uuid4().hex[:10]}"
     clear_session_state(sid)
     router_program_cleanup.append(_insert_program(db, _CANON_BMX, "bmx1"))
@@ -289,7 +298,9 @@ def test_recommended_capture_tier3_zero_mentions_leaves_prior(
     assert get_session(sid)["prior_entity"]["name"] == "Stale Prior"
 
 
-def test_recommended_capture_tier2_single_provider(db: Session, router_program_cleanup: list[str]) -> None:
+def test_recommended_capture_tier2_single_provider(
+    db: Session, router_program_cleanup: list[str]
+) -> None:
     sid = f"pe641-t2-1-{uuid4().hex[:10]}"
     clear_session_state(sid)
     router_program_cleanup.append(_insert_program(db, _CANON_LANES, "lanes2"))

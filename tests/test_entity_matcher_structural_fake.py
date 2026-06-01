@@ -23,6 +23,7 @@ Load-bearing negative regressions:
 - Legitimate short canonicals/aliases (``"mtb"``, ``"bmx"``, ``"lhcbba"``,
   ``"sonics"``, ``"havasu"``) — must NOT trigger structural-fake.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -105,8 +106,18 @@ class TokenLooksStructurallyFakeTests(unittest.TestCase):
         self.assertFalse(_token_looks_structurally_fake("mdshrkbrwry"))
 
     def test_real_short_aliases_not_flagged(self) -> None:
-        for tok in ("mtb", "bmx", "lhcbba", "sonics", "havasu", "mudshark",
-                    "steven", "biehn", "altitude", "foundry"):
+        for tok in (
+            "mtb",
+            "bmx",
+            "lhcbba",
+            "sonics",
+            "havasu",
+            "mudshark",
+            "steven",
+            "biehn",
+            "altitude",
+            "foundry",
+        ):
             with self.subTest(tok=tok):
                 self.assertFalse(_token_looks_structurally_fake(tok))
 
@@ -124,11 +135,7 @@ class QueryHasStructurallyFakeTokenTests(unittest.TestCase):
 
     def test_junk_query_with_embedded_token_flagged(self) -> None:
         """The headline repro: real intent words + one junk token = junk query."""
-        self.assertTrue(
-            _query_has_structurally_fake_token(
-                "when is the zzznonexistentevent999abc"
-            )
-        )
+        self.assertTrue(_query_has_structurally_fake_token("when is the zzznonexistentevent999abc"))
 
     def test_clean_typo_query_not_flagged(self) -> None:
         """``phone for mdshrkbrwry`` has no fake-shaped tokens — only a
@@ -136,11 +143,7 @@ class QueryHasStructurallyFakeTokenTests(unittest.TestCase):
         self.assertFalse(_query_has_structurally_fake_token("phone for mdshrkbrwry"))
 
     def test_clean_real_query_not_flagged(self) -> None:
-        self.assertFalse(
-            _query_has_structurally_fake_token(
-                "phone number for mudshark brewery"
-            )
-        )
+        self.assertFalse(_query_has_structurally_fake_token("phone number for mudshark brewery"))
 
 
 class NormalizeForMatchStructuralFakeGateTests(unittest.TestCase):

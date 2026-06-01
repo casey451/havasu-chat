@@ -18,7 +18,13 @@ from urllib.parse import urlparse
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
+from fastapi.responses import (
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from slowapi.errors import RateLimitExceeded
@@ -36,8 +42,8 @@ from app.api.routes.admin_mentions import router as admin_mentions_router
 from app.api.routes.category_pages import router as category_pages_router
 from app.api.routes.chat import router as concierge_chat_router
 from app.api.routes.conditions import router as conditions_router
-from app.api.routes.gas import router as gas_router
 from app.api.routes.contribute import router as contribute_router
+from app.api.routes.gas import router as gas_router
 from app.api.routes.map_data import router as map_data_router
 from app.api.routes.themed_groups import router as themed_groups_router
 from app.auth.routes import router as auth_router
@@ -328,9 +334,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             return response
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
-        response.headers.setdefault(
-            "Referrer-Policy", "strict-origin-when-cross-origin"
-        )
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         response.headers.setdefault(
             "Permissions-Policy", "geolocation=(), microphone=(), camera=()"
         )
@@ -440,27 +444,21 @@ def _render_permalink_response(
 ) -> HTMLResponse:
     contact_html = ""
     if event.contact_name or event.contact_phone:
-        parts = [
-            html.escape(p) for p in [event.contact_name, event.contact_phone] if p
-        ]
+        parts = [html.escape(p) for p in [event.contact_name, event.contact_phone] if p]
         contact_html = f"<p><strong>Contact:</strong> {' | '.join(parts)}</p>"
 
     event_link_html = ""
     if event.event_url:
         escaped_url = html.escape(event.event_url)
         event_link_html = (
-            f'<p><strong>Event Link:</strong> '
+            f"<p><strong>Event Link:</strong> "
             f'<a href="{escaped_url}" target="_blank" rel="noopener noreferrer">{escaped_url}</a></p>'
         )
 
     tags_html = ""
     if event.tags:
-        tag_nodes = "".join(
-            f'<span class="tag">{html.escape(tag)}</span>' for tag in event.tags
-        )
-        tags_html = (
-            f'<div class="tags"><h2>Tags</h2><div class="tag-wrap">{tag_nodes}</div></div>'
-        )
+        tag_nodes = "".join(f'<span class="tag">{html.escape(tag)}</span>' for tag in event.tags)
+        tags_html = f'<div class="tags"><h2>Tags</h2><div class="tag-wrap">{tag_nodes}</div></div>'
 
     return templates.TemplateResponse(
         request=request,
@@ -502,12 +500,7 @@ def _base_url() -> str:
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
 def robots_txt() -> PlainTextResponse:
-    body = (
-        "User-agent: *\n"
-        "Allow: /\n"
-        "\n"
-        f"Sitemap: {_base_url()}/sitemap.xml\n"
-    )
+    body = f"User-agent: *\nAllow: /\n\nSitemap: {_base_url()}/sitemap.xml\n"
     return PlainTextResponse(body)
 
 
@@ -543,9 +536,7 @@ def _build_sitemap_xml() -> str:
 
     # Category routes — every key in CATEGORY_FILTERS gets a /categories/<slug>.
     for slug in CATEGORY_FILTERS:
-        entries.append(
-            _sitemap_url_entry(f"{base}/categories/{slug}", today_iso)
-        )
+        entries.append(_sitemap_url_entry(f"{base}/categories/{slug}", today_iso))
 
     # Active, non-draft providers with a slug.
     try:
@@ -574,11 +565,7 @@ def _build_sitemap_xml() -> str:
     # Live events — Event has no updated_at column, so fall back to created_at.
     try:
         with SessionLocal() as db:
-            events = (
-                db.query(Event.id, Event.created_at)
-                .filter(Event.status == "live")
-                .all()
-            )
+            events = db.query(Event.id, Event.created_at).filter(Event.status == "live").all()
         for event_id, created_at in events:
             entries.append(
                 _sitemap_url_entry(
@@ -623,16 +610,12 @@ def serve_chat_ui() -> RedirectResponse:
 
 @app.get("/privacy", response_class=HTMLResponse)
 def privacy_page(request: Request) -> HTMLResponse:
-    return _render_static_doc(
-        request, path=_PRIVACY_MD_PATH, head_title="Privacy — Hava"
-    )
+    return _render_static_doc(request, path=_PRIVACY_MD_PATH, head_title="Privacy — Hava")
 
 
 @app.get("/terms", response_class=HTMLResponse)
 def terms_page(request: Request) -> HTMLResponse:
-    return _render_static_doc(
-        request, path=_TOS_MD_PATH, head_title="Terms — Hava"
-    )
+    return _render_static_doc(request, path=_TOS_MD_PATH, head_title="Terms — Hava")
 
 
 @app.exception_handler(RequestValidationError)

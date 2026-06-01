@@ -8,6 +8,7 @@ module for ``register_template_filters``, so co-locating
 import line. If a third extension lands and this module starts feeling
 overloaded, factor the two registrars into ``app/core/templates.py``.
 """
+
 from __future__ import annotations
 
 import os

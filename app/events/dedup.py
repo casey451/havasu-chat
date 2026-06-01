@@ -13,9 +13,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Entity, Event, Provider
 from app.events.scrapers.base import EventPayload, normalize_event_title
 
-DEDUP_DATETIME_WINDOW_MINUTES = int(
-    os.environ.get("EVENT_DEDUP_DATETIME_WINDOW_MINUTES", "30")
-)
+DEDUP_DATETIME_WINDOW_MINUTES = int(os.environ.get("EVENT_DEDUP_DATETIME_WINDOW_MINUTES", "30"))
 DEDUP_TITLE_FUZZY_THRESHOLD = int(os.environ.get("EVENT_DEDUP_TITLE_THRESHOLD", "85"))
 
 
@@ -38,9 +36,7 @@ def find_duplicate(
             clauses.append(Event.provider_id.in_(prov_ids))
         stmt = stmt.where(or_(*clauses) if clauses else false())
     candidates = list(db.scalars(stmt).all())
-    target_dt = (
-        datetime.combine(start_date, start_time_obj) if start_time_obj else None
-    )
+    target_dt = datetime.combine(start_date, start_time_obj) if start_time_obj else None
     norm = normalize_event_title(normalized_title)
 
     for cand in candidates:
@@ -73,12 +69,8 @@ def resolve_venue_entity_id(
     norm = normalize_event_title(name)
     best_id: str | None = None
     best_score = 0
-    for ent in db.scalars(
-        select(Entity).where(Entity.is_active.is_(True))
-    ).all():
-        score = fuzz.token_sort_ratio(
-            normalize_event_title(ent.name or ""), norm
-        )
+    for ent in db.scalars(select(Entity).where(Entity.is_active.is_(True))).all():
+        score = fuzz.token_sort_ratio(normalize_event_title(ent.name or ""), norm)
         if score > best_score:
             best_score = score
             best_id = ent.id

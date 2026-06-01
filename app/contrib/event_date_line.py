@@ -15,14 +15,10 @@ _RANGE_SEP = r"[–\-—]"
 
 # Full line after optional "Date:" prefix: single month-day-year, or same-month range.
 _SINGLE = re.compile(r"^([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})\s*$")
-_RANGE = re.compile(
-    rf"^([A-Za-z]+)\s+(\d{{1,2}})\s*{_RANGE_SEP}\s*(\d{{1,2}}),\s*(\d{{4}})\s*$"
-)
+_RANGE = re.compile(rf"^([A-Za-z]+)\s+(\d{{1,2}})\s*{_RANGE_SEP}\s*(\d{{1,2}}),\s*(\d{{4}})\s*$")
 _DATE_PREFIX = re.compile(r"^\s*date:\s*", re.IGNORECASE)
 
-_month_to_index: dict[str, int] = {
-    n.lower(): i for i, n in enumerate(calendar.month_name) if n
-}
+_month_to_index: dict[str, int] = {n.lower(): i for i, n in enumerate(calendar.month_name) if n}
 
 
 def _month_num(name: str) -> int | None:

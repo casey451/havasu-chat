@@ -210,9 +210,7 @@ class MissingSlotTests(unittest.TestCase):
 
     def test_empty_cost_string_falls_through(self) -> None:
         # Empty cost with no CTA flag → can't fill template → None
-        self.assertIsNone(
-            render("COST_LOOKUP", _Entity(provider_name="Foo"), {"cost": ""})
-        )
+        self.assertIsNone(render("COST_LOOKUP", _Entity(provider_name="Foo"), {"cost": ""}))
 
 
 class IntentPatternTests(unittest.TestCase):

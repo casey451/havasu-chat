@@ -57,9 +57,7 @@ def test_account_alerts_save_subscription(
         user = db.scalars(select(User).where(User.email == email)).first()
         assert user is not None
         subs = list(
-            db.scalars(
-                select(AlertSubscription).where(AlertSubscription.user_id == user.id)
-            ).all()
+            db.scalars(select(AlertSubscription).where(AlertSubscription.user_id == user.id)).all()
         )
         types = {s.alert_type for s in subs}
         assert "heat_advisory" in types

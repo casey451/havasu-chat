@@ -27,7 +27,9 @@ def _login(c: TestClient) -> None:
 
 def _seed_mention() -> int:
     with SessionLocal() as db:
-        log = ChatLog(session_id="adm-html", message="Tier3 reply about Foo Bar Grill.", role="assistant")
+        log = ChatLog(
+            session_id="adm-html", message="Tier3 reply about Foo Bar Grill.", role="assistant"
+        )
         db.add(log)
         db.commit()
         db.refresh(log)

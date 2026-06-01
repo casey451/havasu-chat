@@ -17,11 +17,10 @@ def _event(**kwargs) -> SimpleNamespace:
 def test_imminence_today_beats_next_week() -> None:
     today = date(2026, 6, 1)
     ev = _event()
-    today_score = compute_event_card_rank(
-        event=ev, occurrence_date=today, today=today
-    )
+    today_score = compute_event_card_rank(event=ev, occurrence_date=today, today=today)
     next_week = compute_event_card_rank(
-        event=ev, occurrence_date=today + __import__("datetime").timedelta(days=14),
+        event=ev,
+        occurrence_date=today + __import__("datetime").timedelta(days=14),
         today=today,
     )
     assert today_score > next_week
@@ -30,12 +29,8 @@ def test_imminence_today_beats_next_week() -> None:
 def test_tomorrow_boost_between_today_and_later() -> None:
     today = date(2026, 6, 1)
     ev = _event()
-    tomorrow = compute_event_card_rank(
-        event=ev, occurrence_date=date(2026, 6, 2), today=today
-    )
-    later = compute_event_card_rank(
-        event=ev, occurrence_date=date(2026, 6, 20), today=today
-    )
+    tomorrow = compute_event_card_rank(event=ev, occurrence_date=date(2026, 6, 2), today=today)
+    later = compute_event_card_rank(event=ev, occurrence_date=date(2026, 6, 20), today=today)
     assert tomorrow > later
 
 
@@ -111,9 +106,7 @@ def _vm(et: str) -> HavaCardViewModel:
 
 
 def test_cap_event_share_40_percent() -> None:
-    cards = [(_vm("event"), 2.0) for _ in range(10)] + [
-        (_vm("commercial"), 1.0) for _ in range(10)
-    ]
+    cards = [(_vm("event"), 2.0) for _ in range(10)] + [(_vm("commercial"), 1.0) for _ in range(10)]
     capped = _cap_event_share(cards, max_event_pct=0.40, limit=20)
     event_n = sum(1 for vm, _ in capped if vm.entity_type == "event")
     assert event_n <= 8

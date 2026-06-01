@@ -13,7 +13,9 @@ class NormalizeQueryTests(unittest.TestCase):
         self.assertEqual(normalize('??"When is desert storm!"'), "when is desert storm")
 
     def test_whens_whats_wheres(self) -> None:
-        self.assertEqual(normalize("whens desert storm this year"), "when is desert storm this year")
+        self.assertEqual(
+            normalize("whens desert storm this year"), "when is desert storm this year"
+        )
         self.assertEqual(normalize("whats the phone for sonics"), "what is the phone for sonics")
         self.assertEqual(normalize("wheres the bowling alley"), "where is the bowling alley")
 

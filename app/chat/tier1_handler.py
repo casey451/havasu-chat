@@ -252,7 +252,9 @@ def _next_open_after(structured: dict, now_local: datetime) -> tuple[str, str, s
         future = [
             s
             for s in segs
-            if isinstance(s, dict) and isinstance(s.get("open"), str) and len(s.get("open", "")) == 5
+            if isinstance(s, dict)
+            and isinstance(s.get("open"), str)
+            and len(s.get("open", "")) == 5
         ]
         if future:
             seg = min(future, key=lambda s: s["open"])
@@ -297,9 +299,7 @@ def _describe_open_state(provider: Provider, now: datetime) -> str | None:
         if nxt is not None:
             day_label, open_hm, close_hm = nxt
             window = (
-                f"{_fmt_clock(open_hm)}–{_fmt_clock(close_hm)}"
-                if close_hm
-                else _fmt_clock(open_hm)
+                f"{_fmt_clock(open_hm)}–{_fmt_clock(close_hm)}" if close_hm else _fmt_clock(open_hm)
             )
             if day_label == "today":
                 return f"Closed right now — opens at {_fmt_clock(open_hm)} today."

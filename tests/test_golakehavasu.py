@@ -19,9 +19,7 @@ from app.contrib.golakehavasu import (
 
 FIXTURES = Path(__file__).resolve().parent.parent / "scripts" / "fixtures"
 
-EVENTS_SITEMAP_URL = (
-    "https://www.golakehavasu.com/sitemaps-1-event-default-1-sitemap.xml"
-)
+EVENTS_SITEMAP_URL = "https://www.golakehavasu.com/sitemaps-1-event-default-1-sitemap.xml"
 SOIREE_URL = "https://www.golakehavasu.com/events/a-soiree-of-ballet/"
 MARKET_URL = "https://www.golakehavasu.com/events/lake-havasu-farmers-market/"
 PAST_URL = "https://www.golakehavasu.com/events/old-past-event/"

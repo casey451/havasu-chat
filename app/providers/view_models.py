@@ -149,9 +149,7 @@ def build(
     is_featured = bool(provider.featured)
     data_inconsistency_flag = is_sponsored and not bool(provider.verified)
 
-    verification_method_copy = _VERIFICATION_METHOD_COPY.get(
-        provider.verification_method or "", ""
-    )
+    verification_method_copy = _VERIFICATION_METHOD_COPY.get(provider.verification_method or "", "")
 
     sponsor_disclosure_label = DISCLOSURE_WORD if is_sponsored else None
 
@@ -189,9 +187,7 @@ def build(
         if dist is not None and getattr(dist, "slug", None):
             district_chip_name = str(dist.name or dist.slug)
             district_chip_url = f"/district/{dist.slug}"
-        season_name, season_rows, season_copy = queries.effective_seasonal_hours(
-            ent, now=now_dt
-        )
+        season_name, season_rows, season_copy = queries.effective_seasonal_hours(ent, now=now_dt)
         if season_rows is not None:
             seasonal_hours_active_season = season_name
             seasonal_hours_active_rows = season_rows

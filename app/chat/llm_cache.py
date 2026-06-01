@@ -209,9 +209,7 @@ def lookup_with_embedding(db, cache_key, normalized_query=None):
     if cache_key:
         try:
             row = db.scalars(
-                select(LlmResponseCache)
-                .where(LlmResponseCache.cache_key == cache_key)
-                .limit(1)
+                select(LlmResponseCache).where(LlmResponseCache.cache_key == cache_key).limit(1)
             ).first()
         except Exception:
             logging.exception("llm_cache.lookup: select failed (key=%s)", cache_key[:8])
@@ -246,9 +244,7 @@ def lookup(db, cache_key, normalized_query=None):
         return None
     try:
         row = db.scalars(
-            select(LlmResponseCache)
-            .where(LlmResponseCache.cache_key == cache_key)
-            .limit(1)
+            select(LlmResponseCache).where(LlmResponseCache.cache_key == cache_key).limit(1)
         ).first()
     except Exception:
         logging.exception("llm_cache.lookup: select failed (key=%s)", cache_key[:8])
@@ -293,9 +289,7 @@ def store_with_embedding(
         embedding_blob = _serialize_embedding(_compute_query_embedding(nq))
     try:
         existing = db.scalars(
-            select(LlmResponseCache)
-            .where(LlmResponseCache.cache_key == cache_key)
-            .limit(1)
+            select(LlmResponseCache).where(LlmResponseCache.cache_key == cache_key).limit(1)
         ).first()
         if existing is not None:
             existing.normalized_query = nq[:500]
@@ -325,7 +319,9 @@ def store_with_embedding(
             db.add(entry)
         db.commit()
     except Exception:
-        logging.exception("llm_cache.store: write failed (key=%s, tier=%s)", cache_key[:8], tier_used)
+        logging.exception(
+            "llm_cache.store: write failed (key=%s, tier=%s)", cache_key[:8], tier_used
+        )
         try:
             db.rollback()
         except Exception:

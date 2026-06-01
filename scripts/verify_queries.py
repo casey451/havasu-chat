@@ -1,4 +1,5 @@
 """Quick verification of key queries against the live app."""
+
 import json
 import urllib.request
 

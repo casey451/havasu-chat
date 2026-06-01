@@ -129,9 +129,7 @@ def test_multi_domain_ctx_prefers_entity_catalog() -> None:
 
 
 def test_temporal_filter_skips_entity_only_path() -> None:
-    f = Tier2Filters(
-        parser_confidence=0.9, time_window="this_weekend", fallback_to_tier3=False
-    )
+    f = Tier2Filters(parser_confidence=0.9, time_window="this_weekend", fallback_to_tier3=False)
     assert prefers_entity_catalog(f, ChatRequestContext()) is False
 
 

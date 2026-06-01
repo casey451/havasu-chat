@@ -5,21 +5,21 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
-from app.admin.auth import COOKIE_NAME, admin_password_ok, sign_admin_cookie, verify_admin_cookie
+from app.admin.auth import COOKIE_NAME, admin_password_ok, sign_admin_cookie
 from app.api.routes.admin_contributions import require_admin
 from app.conditions.cache import read_source
 from app.conditions.constants import SOURCE_GAS
+from app.conditions.staleness import staleness_label
 from app.contrib.gas_prices import run_pull
 from app.contrib.golakehavasu_pull import run_pull as golake_pull
 from app.contrib.river_scene_pull import run_pull as river_scene_pull
 from app.core.timezone import now_lake_havasu
 from app.db.contribution_store import list_contributions
 from app.db.database import get_db
-from app.conditions.staleness import staleness_label
 from app.db.models import Contribution, Event, Provider, QueryLog
 from app.schemas.contribution import ContributionResponse
 

@@ -45,27 +45,17 @@ def test_phase2b_sponsor_migration_round_trip(alembic_cfg: Config) -> None:
 
     command.upgrade(alembic_cfg, "2a3b4c5d6e7f")
     with eng.connect() as conn:
-        row = conn.execute(
-            text("SELECT slot, status FROM sponsors WHERE id = 'legacy-1'")
-        ).one()
+        row = conn.execute(text("SELECT slot, status FROM sponsors WHERE id = 'legacy-1'")).one()
         assert row.slot == "marquee"
         assert row.status == "approved"
-        cols = {
-            r[1]
-            for r in conn.execute(text("PRAGMA table_info(sponsors)")).fetchall()
-        }
+        cols = {r[1] for r in conn.execute(text("PRAGMA table_info(sponsors)")).fetchall()}
         assert "headline" in cols and "business_id" in cols
 
     command.downgrade(alembic_cfg, "1a2b3c4d5e6f")
     with eng.connect() as conn:
-        cols = {
-            r[1]
-            for r in conn.execute(text("PRAGMA table_info(sponsors)")).fetchall()
-        }
+        cols = {r[1] for r in conn.execute(text("PRAGMA table_info(sponsors)")).fetchall()}
         assert "slot" not in cols and "status" not in cols
-        name = conn.execute(
-            text("SELECT name FROM sponsors WHERE id = 'legacy-1'")
-        ).scalar_one()
+        name = conn.execute(text("SELECT name FROM sponsors WHERE id = 'legacy-1'")).scalar_one()
         assert name == "Legacy Banner"
 
     command.upgrade(alembic_cfg, "2a3b4c5d6e7f")

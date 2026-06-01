@@ -24,9 +24,8 @@ def contribute_component_for_chat(
         image_url=None,
     )
     data = flow_response(flow)
-    voice = (
-        "Got it — I'll walk you through what to add. "
-        + (data.get("next_question") or "Review the summary below, then send it for review.")
+    voice = "Got it — I'll walk you through what to add. " + (
+        data.get("next_question") or "Review the summary below, then send it for review."
     )
     if data.get("status") == "ready":
         voice = "Here's what I'll send for review. Tap Submit when it looks right."

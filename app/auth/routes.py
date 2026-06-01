@@ -181,11 +181,7 @@ def auth_callback(
     db: SqlSession = Depends(get_db),
 ) -> Response:
     token_hash_val = hash_token(token)
-    row = (
-        db.query(MagicLinkToken)
-        .filter(MagicLinkToken.token_hash == token_hash_val)
-        .first()
-    )
+    row = db.query(MagicLinkToken).filter(MagicLinkToken.token_hash == token_hash_val).first()
     now_aware = datetime.now(timezone.utc)
 
     if row is None or row.consumed_at is not None or row.expires_at < now_aware:
@@ -208,9 +204,7 @@ def auth_callback(
         user_id=user.id,
         expires_at=now_aware + timedelta(seconds=SESSION_LIFETIME_SECONDS),
         ip_hash=hash_request_ip(_client_ip(request)),
-        user_agent_hash=hash_optional_fingerprint(
-            request.headers.get("user-agent")
-        ),
+        user_agent_hash=hash_optional_fingerprint(request.headers.get("user-agent")),
     )
     db.add(session_row)
     db.commit()
@@ -336,9 +330,7 @@ def api_favorites_toggle(
 
 
 @router.get("/api/favorites")
-def api_favorites_list(
-    request: Request, db: SqlSession = Depends(get_db)
-) -> JSONResponse:
+def api_favorites_list(request: Request, db: SqlSession = Depends(get_db)) -> JSONResponse:
     user = get_current_user(request)
     if user is None:
         return JSONResponse(status_code=401, content={"detail": "login_required"})
@@ -382,9 +374,7 @@ def account_favorites_page(request: Request, db: SqlSession = Depends(get_db)) -
 
 
 @router.get("/claim/{slug}", response_class=HTMLResponse)
-def claim_get(
-    slug: str, request: Request, db: SqlSession = Depends(get_db)
-) -> Response:
+def claim_get(slug: str, request: Request, db: SqlSession = Depends(get_db)) -> Response:
     user = get_current_user(request)
     if user is None:
         return RedirectResponse(

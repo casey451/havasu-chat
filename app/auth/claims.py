@@ -13,11 +13,7 @@ def entity_is_claimable(entity_type: str) -> bool:
 
 
 def find_existing_claim(db: SqlSession, user_id: str, entity_id: str) -> Claim | None:
-    return (
-        db.query(Claim)
-        .filter(Claim.user_id == user_id, Claim.entity_id == entity_id)
-        .first()
-    )
+    return db.query(Claim).filter(Claim.user_id == user_id, Claim.entity_id == entity_id).first()
 
 
 def create_pending_claim(db: SqlSession, user_id: str, entity_id: str) -> Claim:

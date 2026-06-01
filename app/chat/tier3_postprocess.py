@@ -127,13 +127,38 @@ _LEADING_PHRASE_REWRITES: list[tuple[re.Pattern[str], str]] = [
 # a digit sequence (phone, address). If a sentence has none of those, it's a
 # bare suggestion remnant and we drop it.
 # Stoplist of capitalized words that are NOT proper-noun signal on their own.
-_NOT_PROPER_NOUN = frozenset({
-    "this", "that", "these", "those", "the", "a", "an",
-    "try", "visit", "check", "consider", "see", "find",
-    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
-    "today", "tomorrow", "yesterday",
-    "lake", "hotel", "restaurant", "store", "shop",
-})
+_NOT_PROPER_NOUN = frozenset(
+    {
+        "this",
+        "that",
+        "these",
+        "those",
+        "the",
+        "a",
+        "an",
+        "try",
+        "visit",
+        "check",
+        "consider",
+        "see",
+        "find",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday",
+        "today",
+        "tomorrow",
+        "yesterday",
+        "lake",
+        "hotel",
+        "restaurant",
+        "store",
+        "shop",
+    }
+)
 
 _USEFUL_CONTENT_RE = re.compile(
     r"https?://|"

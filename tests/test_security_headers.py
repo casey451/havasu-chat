@@ -49,9 +49,7 @@ def test_health_endpoint_skips_security_headers(client: TestClient) -> None:
     r = client.get("/health")
     assert r.status_code == 200
     for header in _SECURITY_HEADERS:
-        assert header not in {k.lower() for k in r.headers}, (
-            f"/health should not carry {header}"
-        )
+        assert header not in {k.lower() for k in r.headers}, f"/health should not carry {header}"
 
 
 def test_api_routes_skip_security_headers(client: TestClient) -> None:
@@ -64,9 +62,7 @@ def test_api_routes_skip_security_headers(client: TestClient) -> None:
     r = client.get("/api/__security_headers_probe__")
     # Whatever the status, the middleware should have skipped this path.
     for header in _SECURITY_HEADERS:
-        assert header not in {k.lower() for k in r.headers}, (
-            f"/api/* should not carry {header}"
-        )
+        assert header not in {k.lower() for k in r.headers}, f"/api/* should not carry {header}"
 
 
 def test_http_request_omits_hsts(client: TestClient) -> None:
@@ -78,9 +74,5 @@ def test_http_request_omits_hsts(client: TestClient) -> None:
 def test_https_request_includes_hsts(client: TestClient) -> None:
     """When the scheme is https, HSTS should be present."""
     r = client.get("https://testserver/home")
-    assert r.headers.get("strict-transport-security", "").startswith(
-        "max-age=63072000"
-    )
-    assert "includeSubDomains" in (
-        r.headers.get("strict-transport-security") or ""
-    )
+    assert r.headers.get("strict-transport-security", "").startswith("max-age=63072000")
+    assert "includeSubDomains" in (r.headers.get("strict-transport-security") or "")

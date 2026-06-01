@@ -57,9 +57,7 @@ class RiverSceneV2Client(EventIngestClient):
         today = date.today()
 
         def _run(client: httpx.Client) -> EnrichedHit:
-            rse = fetch_and_parse_event(
-                hit.source_stable_id, client=client, today=today
-            )
+            rse = fetch_and_parse_event(hit.source_stable_id, client=client, today=today)
             return EnrichedHit(raw_hit=hit, enriched={"rse": rse})
 
         if self._client is not None:

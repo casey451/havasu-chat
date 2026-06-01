@@ -139,9 +139,7 @@ _EDITORIAL_FOOTERS: dict[str, str] = {
     "health-wellness-care": (
         "Health & wellness entries favor verified providers and nearby options."
     ),
-    "auto-rv-fuel": (
-        "Auto & RV surfaces mobile-service-friendly picks when we have that signal."
-    ),
+    "auto-rv-fuel": ("Auto & RV surfaces mobile-service-friendly picks when we have that signal."),
     "shopping-essentials": (
         "Shopping & essentials blends grocery anchors with neighborhood retail."
     ),
@@ -151,18 +149,10 @@ _EDITORIAL_FOOTERS: dict[str, str] = {
     "outdoors-parks-trails": (
         "Parks and trails around Lake Havasu — state parks, city parks, and golf."
     ),
-    "classes-sports-recreation": (
-        "Classes and recreation for kids, sports, and active locals."
-    ),
-    "lodging-vacation-rentals": (
-        "Lodging from waterfront resorts to vacation rentals."
-    ),
-    "pets": (
-        "Pet services and supplies for Lake Havasu pet owners."
-    ),
-    "public-civic-resources": (
-        "Public and civic resources residents rely on year-round."
-    ),
+    "classes-sports-recreation": ("Classes and recreation for kids, sports, and active locals."),
+    "lodging-vacation-rentals": ("Lodging from waterfront resorts to vacation rentals."),
+    "pets": ("Pet services and supplies for Lake Havasu pet owners."),
+    "public-civic-resources": ("Public and civic resources residents rely on year-round."),
 }
 
 _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
@@ -413,6 +403,7 @@ _EAT_DRINK_CUISINE_CHIPS: tuple[Chip, ...] = (
     Chip("brunch", "Brunch"),
 )
 
+
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     r = 6371.0
     p1, p2 = math.radians(lat1), math.radians(lat2)
@@ -591,7 +582,8 @@ def _sort_entity_ids(
         return []
     eids = [e.id for e in entities]
     prov_by_eid = {
-        p.entity_id: p for p in db.scalars(select(Provider).where(Provider.entity_id.in_(eids))).all()
+        p.entity_id: p
+        for p in db.scalars(select(Provider).where(Provider.entity_id.in_(eids))).all()
     }
 
     def editorial_key(e: Entity) -> tuple:
@@ -898,10 +890,24 @@ def _apply_classes_sports_filters(
 
 
 def _normalize_sort(raw: str | None, *, category_slug: str) -> str:
-    allowed = {"closest_now", "alphabetical", "top_rated", "editorial_pick", "chronological", "featured"}
+    allowed = {
+        "closest_now",
+        "alphabetical",
+        "top_rated",
+        "editorial_pick",
+        "chronological",
+        "featured",
+    }
     default = DEFAULT_SORT_BY_SLUG.get(category_slug, "closest_now")
     if category_slug == "events":
-        allowed = {"chronological", "closest_now", "featured", "alphabetical", "top_rated", "editorial_pick"}
+        allowed = {
+            "chronological",
+            "closest_now",
+            "featured",
+            "alphabetical",
+            "top_rated",
+            "editorial_pick",
+        }
     if not raw or str(raw).strip().lower() not in allowed:
         return default
     return str(raw).strip().lower()
@@ -953,13 +959,15 @@ def _build_events_category_stream(
         )
     elif sort_key == "closest_now":
         eids = [p[0].entity_id for p in pairs]
-        entities = list(
-            db.scalars(select(Entity).where(Entity.id.in_(eids))).all()
-        ) if eids else []
-        prov_by_eid = {
-            pr.entity_id: pr
-            for pr in db.scalars(select(Provider).where(Provider.entity_id.in_(eids))).all()
-        } if eids else {}
+        entities = list(db.scalars(select(Entity).where(Entity.id.in_(eids))).all()) if eids else []
+        prov_by_eid = (
+            {
+                pr.entity_id: pr
+                for pr in db.scalars(select(Provider).where(Provider.entity_id.in_(eids))).all()
+            }
+            if eids
+            else {}
+        )
         rank_inp = rank_inputs_for_category(
             entities,
             category_slug="events",

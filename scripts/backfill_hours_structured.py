@@ -98,7 +98,9 @@ def run(*, apply: bool) -> tuple[int, int, int]:
                     db.add_all(batch)
                     db.commit()
                     applied += len(batch)
-                    logging.info("Committed batch of %d rows (total applied=%d)", len(batch), applied)
+                    logging.info(
+                        "Committed batch of %d rows (total applied=%d)", len(batch), applied
+                    )
                     batch.clear()
 
         if apply and batch:

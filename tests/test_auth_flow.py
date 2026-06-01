@@ -85,16 +85,13 @@ def test_request_link_valid_creates_token_and_check_email(
     assert email in r.text
     assert len(toks) == 1
     with SessionLocal() as db:
-        n = (
-            db.query(MagicLinkToken)
-            .filter(MagicLinkToken.email == email)
-            .count()
-        )
+        n = db.query(MagicLinkToken).filter(MagicLinkToken.email == email).count()
         assert n == 1
 
 
 def test_request_link_send_failure_still_shows_check_email(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch,
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def _boom(*_a, **_k):
         raise RuntimeError("simulated send failure")
@@ -127,20 +124,12 @@ def test_request_link_email_rate_limit_silent_sixth_no_new_row(
         assert r.status_code == 200
         assert "Check your email" in r.text
     with SessionLocal() as db:
-        before = (
-            db.query(MagicLinkToken)
-            .filter(MagicLinkToken.email == email)
-            .count()
-        )
+        before = db.query(MagicLinkToken).filter(MagicLinkToken.email == email).count()
     r6 = client.post("/api/auth/request-link", data={"email": email})
     assert r6.status_code == 200
     assert "Check your email" in r6.text
     with SessionLocal() as db:
-        after = (
-            db.query(MagicLinkToken)
-            .filter(MagicLinkToken.email == email)
-            .count()
-        )
+        after = db.query(MagicLinkToken).filter(MagicLinkToken.email == email).count()
     assert before == 5 == after
 
 
@@ -217,10 +206,7 @@ def test_callback_consumed_token_second_hit_expired_page(
     email = f"dbl-{uuid4().hex[:8]}@example.com"
     client.post("/api/auth/request-link", data={"email": email})
     tok = toks[0]
-    assert (
-        client.get(f"/auth/callback?token={tok}", follow_redirects=False).status_code
-        == 303
-    )
+    assert client.get(f"/auth/callback?token={tok}", follow_redirects=False).status_code == 303
     r2 = client.get(f"/auth/callback?token={tok}", follow_redirects=False)
     assert r2.status_code == 400
 

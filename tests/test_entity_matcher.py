@@ -103,7 +103,10 @@ class EntityMatcherRowsTests(unittest.TestCase):
         self.assertTrue(path.is_file())
         text = path.read_text(encoding="utf-8")
         self.assertIn("DATE_LOOKUP", text)
-        self.assertGreater(len([ln for ln in text.splitlines() if "|" in ln and not ln.strip().startswith("#")]), 80)
+        self.assertGreater(
+            len([ln for ln in text.splitlines() if "|" in ln and not ln.strip().startswith("#")]),
+            80,
+        )
 
 
 # ─────────── Backlog #50 — minimum-length floor at matcher entry ───────────
@@ -498,9 +501,7 @@ class EntityMatcherGoogleProviderTests(unittest.TestCase):
     def test_draft_google_provider_excluded(self) -> None:
         canon = "Half Finished Cafe"
         with SessionLocal() as db:
-            self._provider_ids.append(
-                _insert_google_provider(db, provider_name=canon, draft=True)
-            )
+            self._provider_ids.append(_insert_google_provider(db, provider_name=canon, draft=True))
             refresh_entity_matcher(db)
             hit = match_entity("half finished cafe address", db)
         self.assertIsNone(hit)
@@ -625,7 +626,9 @@ class EntityMatcherTypoToleranceTests(unittest.TestCase):
             self._provider_ids.append(_insert_google_provider(db, provider_name=canon))
             refresh_entity_matcher(db)
             hit = match_entity("is mudsharks open right now", db)
-        self.assertIsNotNone(hit, "trailing-s typo should still resolve via partial_token_set_ratio")
+        self.assertIsNotNone(
+            hit, "trailing-s typo should still resolve via partial_token_set_ratio"
+        )
         assert hit is not None
         self.assertEqual(hit[0], canon)
 
@@ -655,8 +658,12 @@ class EntityMatcherTypoToleranceTests(unittest.TestCase):
         (Brewery, not Pizza) that the matcher should resolve it directly to Tier 1
         without surfacing the 'Did you mean X?' disambiguation."""
         with SessionLocal() as db:
-            self._provider_ids.append(_insert_google_provider(db, provider_name="Mudshark Brewery and Public House"))
-            self._provider_ids.append(_insert_google_provider(db, provider_name="Mudshark Pizza & Pasta"))
+            self._provider_ids.append(
+                _insert_google_provider(db, provider_name="Mudshark Brewery and Public House")
+            )
+            self._provider_ids.append(
+                _insert_google_provider(db, provider_name="Mudshark Pizza & Pasta")
+            )
             refresh_entity_matcher(db)
             hit = match_entity("phone for mudsharks brewry", db)
         self.assertIsNotNone(hit)
@@ -766,8 +773,12 @@ class EntityMatcherAmbiguityTests(unittest.TestCase):
         )
 
         with SessionLocal() as db:
-            self._provider_ids.append(_insert_google_provider(db, provider_name="Joes Pizza Downtown"))
-            self._provider_ids.append(_insert_google_provider(db, provider_name="Joes Pizza Channel"))
+            self._provider_ids.append(
+                _insert_google_provider(db, provider_name="Joes Pizza Downtown")
+            )
+            self._provider_ids.append(
+                _insert_google_provider(db, provider_name="Joes Pizza Channel")
+            )
             refresh_entity_matcher(db)
             hit = match_entity("phone for joes pizza", db)
             resolution, ambiguous = match_entity_with_ambiguity("phone for joes pizza", db)
@@ -794,9 +805,7 @@ class EntityMatcherAmbiguityTests(unittest.TestCase):
             )
             refresh_entity_matcher(db)
             hit = match_entity("phone for mudshark brewing", db)
-            resolution, ambiguous = match_entity_with_ambiguity(
-                "phone for mudshark brewing", db
-            )
+            resolution, ambiguous = match_entity_with_ambiguity("phone for mudshark brewing", db)
         self.assertIsNotNone(hit)
         assert hit is not None
         self.assertEqual(hit[0], "Mudshark Brewing Company")

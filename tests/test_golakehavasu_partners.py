@@ -41,6 +41,7 @@ def db_session():
         yield session
         session.rollback()
 
+
 FIXTURES = Path(__file__).resolve().parent.parent / "scripts" / "fixtures"
 PARTNERS_SITEMAP_URL = (
     "https://www.golakehavasu.com/sitemaps-1-section-partnerDirectory-1-sitemap-p1.xml"
@@ -198,10 +199,18 @@ def test_partner_to_entity_payload_falls_back_when_unmapped() -> None:
 
 def test_cvb_category_map_values_are_known_tier1_slugs() -> None:
     valid = {
-        "eat-drink", "on-the-water", "home-property-services",
-        "health-wellness-care", "auto-rv-fuel", "shopping-essentials",
-        "events", "outdoors-parks-trails", "classes-sports-recreation",
-        "lodging-vacation-rentals", "pets", "public-civic-resources",
+        "eat-drink",
+        "on-the-water",
+        "home-property-services",
+        "health-wellness-care",
+        "auto-rv-fuel",
+        "shopping-essentials",
+        "events",
+        "outdoors-parks-trails",
+        "classes-sports-recreation",
+        "lodging-vacation-rentals",
+        "pets",
+        "public-civic-resources",
     }
     assert set(CVB_PRIMARY_CATEGORY_TO_SLUG.values()) <= valid
 
@@ -291,10 +300,7 @@ def test_fuzzy_geo_match_merges_close_name_at_geo(db_session) -> None:
     #                  "london bridge resort & spa") ~= 92 (>= 88 floor).
     prov = _google_provider(db_session, "London Bridge Resort & Spa")
     payload = _fuzzy_payload("London Bridge Resort and Spa")
-    assert (
-        _fuzzy_geo_match(db_session, payload, threshold=FUZZY_NAME_THRESHOLD)
-        == prov.entity_id
-    )
+    assert _fuzzy_geo_match(db_session, payload, threshold=FUZZY_NAME_THRESHOLD) == prov.entity_id
 
 
 def test_fuzzy_geo_match_below_threshold_returns_none(db_session) -> None:
@@ -416,9 +422,7 @@ def test_contact_match_ambiguous_website_returns_none(db_session) -> None:
 
 def test_contact_match_no_contact_fields_returns_none(db_session) -> None:
     _google_provider(db_session, "Some Place", website="http://example.com")
-    payload = EntityPayload(
-        name="Some Place", entity_type="place", source="go_lake_havasu"
-    )
+    payload = EntityPayload(name="Some Place", entity_type="place", source="go_lake_havasu")
     assert _contact_match(db_session, payload) is None
 
 
@@ -480,12 +484,8 @@ def test_ingest_partners_dedupes_same_name_within_one_run(monkeypatch) -> None:
         )
 
     # Same listing served from two distinct partner URLs (the real sitemap shape).
-    monkeypatch.setattr(
-        loader, "fetch_partner_sitemap_urls", lambda **k: ["u1", "u2"]
-    )
-    monkeypatch.setattr(
-        loader, "fetch_and_parse_partner", lambda url, **k: _make_listing(url)
-    )
+    monkeypatch.setattr(loader, "fetch_partner_sitemap_urls", lambda **k: ["u1", "u2"])
+    monkeypatch.setattr(loader, "fetch_and_parse_partner", lambda url, **k: _make_listing(url))
 
     def _cleanup() -> None:
         # ingest_partners commits internally (no rollback harness), so remove the
@@ -494,33 +494,25 @@ def test_ingest_partners_dedupes_same_name_within_one_run(monkeypatch) -> None:
         from app.db.models import Entity
 
         with SessionLocal() as session:
-            provs = session.scalars(
-                select(Provider).where(Provider.provider_name == name)
-            ).all()
+            provs = session.scalars(select(Provider).where(Provider.provider_name == name)).all()
             ent_ids = [p.entity_id for p in provs if p.entity_id]
             for p in provs:
                 session.delete(p)
             session.flush()
-            for ent in session.scalars(
-                select(Entity).where(Entity.id.in_(ent_ids))
-            ).all():
+            for ent in session.scalars(select(Entity).where(Entity.id.in_(ent_ids))).all():
                 session.delete(ent)
             session.commit()
 
     _cleanup()  # clear any leftovers from an earlier failed run
     try:
-        counts = loader.ingest_partners(
-            category_slug="eat-drink", dry_run=False, limit=None
-        )
+        counts = loader.ingest_partners(category_slug="eat-drink", dry_run=False, limit=None)
 
         assert counts["inserted"] == 1
         assert counts["idempotent_updated"] == 1
         assert counts["retired_duplicates"] == 0
 
         with SessionLocal() as session:
-            rows = session.scalars(
-                select(Provider).where(Provider.provider_name == name)
-            ).all()
+            rows = session.scalars(select(Provider).where(Provider.provider_name == name)).all()
             assert len(rows) == 1
     finally:
         _cleanup()

@@ -131,10 +131,10 @@ def _render_contribute_page(
     <form class="form-card" method="post" action="/contribute" id="contrib-form">
       <label>What are you submitting?</label>
       <div class="row-radio">
-        <label><input type="radio" name="entity_type" value="provider" {"checked" if ent=="provider" else ""}/> Business</label>
-        <label><input type="radio" name="entity_type" value="program" {"checked" if ent=="program" else ""}/> Program</label>
-        <label><input type="radio" name="entity_type" value="event" {"checked" if ent=="event" else ""}/> Event</label>
-        <label><input type="radio" name="entity_type" value="tip" {"checked" if ent=="tip" else ""}/> Tip</label>
+        <label><input type="radio" name="entity_type" value="provider" {"checked" if ent == "provider" else ""}/> Business</label>
+        <label><input type="radio" name="entity_type" value="program" {"checked" if ent == "program" else ""}/> Program</label>
+        <label><input type="radio" name="entity_type" value="event" {"checked" if ent == "event" else ""}/> Event</label>
+        <label><input type="radio" name="entity_type" value="tip" {"checked" if ent == "tip" else ""}/> Tip</label>
       </div>
 
       <label for="submission_name">Name</label>

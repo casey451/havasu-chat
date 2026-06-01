@@ -5,7 +5,7 @@ from __future__ import annotations
 import html
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
@@ -77,11 +77,14 @@ def admin_v1_overview(request: Request, db: Session = Depends(get_db)) -> HTMLRe
             label, _ = staleness_label(row.fetched_at, now)
             sources_rows.append((key, label, row.fetched_at.isoformat() if row.fetched_at else "—"))
 
-    q_rows = "".join(
-        f"<tr><td>{_esc(q.normalized_intent)}</td><td>{_esc(q.category)}</td>"
-        f"<td>{q.result_count}</td><td>{_esc(q.created_at.isoformat() if q.created_at else '')}</td></tr>"
-        for q in queries
-    ) or "<tr><td colspan='4'>No query_log rows yet.</td></tr>"
+    q_rows = (
+        "".join(
+            f"<tr><td>{_esc(q.normalized_intent)}</td><td>{_esc(q.category)}</td>"
+            f"<td>{q.result_count}</td><td>{_esc(q.created_at.isoformat() if q.created_at else '')}</td></tr>"
+            for q in queries
+        )
+        or "<tr><td colspan='4'>No query_log rows yet.</td></tr>"
+    )
 
     src_rows = "".join(
         f"<tr><td><code>{_esc(k)}</code></td><td>{_esc(st)}</td><td>{_esc(at)}</td></tr>"

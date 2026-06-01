@@ -200,9 +200,7 @@ def test_with_retry_async_exhaustion_returns_none() -> None:
     async def _no_sleep(_s: float) -> None:
         return None
 
-    out = asyncio.run(
-        with_retry_async(_boom, max_attempts=3, sleep=_no_sleep)
-    )
+    out = asyncio.run(with_retry_async(_boom, max_attempts=3, sleep=_no_sleep))
     assert out is None
 
 
@@ -604,20 +602,12 @@ def test_magic_link_request_inserts_outbox_row_and_delivers(
 
     # MagicLinkToken row is created (Phase 2A.2 behavior preserved).
     with SessionLocal() as db:
-        n_token = (
-            db.query(MagicLinkToken)
-            .filter(MagicLinkToken.email == email)
-            .count()
-        )
+        n_token = db.query(MagicLinkToken).filter(MagicLinkToken.email == email).count()
         assert n_token == 1
         # Outbox row was created for the magic-link send and delivered
         # by FastAPI BackgroundTasks before the response unblocked the
         # client. The handler was the monkeypatched capture fn.
-        rows = (
-            db.query(Outbox)
-            .filter(Outbox.kind == OUTBOX_KIND_MAGIC_LINK)
-            .all()
-        )
+        rows = db.query(Outbox).filter(Outbox.kind == OUTBOX_KIND_MAGIC_LINK).all()
         # At least one row for this run; isolate by payload email.
         matching = [r for r in rows if (r.payload or {}).get("email") == email]
         assert len(matching) == 1
@@ -645,11 +635,7 @@ def test_magic_link_send_failure_leaves_outbox_pending_with_attempt_bumped(
     assert "Check your email" in r.text
 
     with SessionLocal() as db:
-        rows = (
-            db.query(Outbox)
-            .filter(Outbox.kind == OUTBOX_KIND_MAGIC_LINK)
-            .all()
-        )
+        rows = db.query(Outbox).filter(Outbox.kind == OUTBOX_KIND_MAGIC_LINK).all()
         matching = [r for r in rows if (r.payload or {}).get("email") == email]
         assert len(matching) == 1
         row = matching[0]
@@ -699,8 +685,7 @@ def test_background_module_does_not_import_models_at_module_top() -> None:
         env={**os.environ, "AUTH_DEV_MODE": "1"},
     )
     assert result.returncode == 0, (
-        f"import chain failed:\n--- stdout ---\n{result.stdout}\n"
-        f"--- stderr ---\n{result.stderr}"
+        f"import chain failed:\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
     )
     payload = json.loads(result.stdout.strip().splitlines()[-1])
     assert payload["background_loaded"] is True

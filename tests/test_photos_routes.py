@@ -71,9 +71,7 @@ def test_upload_anon_401(client: TestClient) -> None:
     assert r.status_code == 401
 
 
-def test_upload_no_verified_claim_403(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_upload_no_verified_claim_403(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     suf = uuid.uuid4().hex[:8]
     eid = str(uuid.uuid4())
     slug = f"ph403-{suf}"
@@ -109,9 +107,7 @@ def test_upload_no_verified_claim_403(
             db.commit()
 
 
-def test_upload_verified_claim_201(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_upload_verified_claim_201(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     suf = uuid.uuid4().hex[:8]
     eid = str(uuid.uuid4())
     slug = f"ph201-{suf}"
@@ -246,9 +242,7 @@ def test_upload_gif_400(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> 
             db.commit()
 
 
-def test_upload_too_large_413(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_upload_too_large_413(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     suf = uuid.uuid4().hex[:8]
     eid = str(uuid.uuid4())
     slug = f"big-{suf}"
@@ -319,9 +313,7 @@ def test_upload_event_entity_400(client: TestClient, monkeypatch: pytest.MonkeyP
             db.commit()
 
 
-def test_upload_entity_not_found_404(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_upload_entity_not_found_404(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     email = f"nf-{uuid.uuid4().hex[:8]}@example.com"
     _login_email(client, monkeypatch, email)
     with SessionLocal() as db:
@@ -343,9 +335,7 @@ def test_upload_entity_not_found_404(
             db.commit()
 
 
-def test_upload_entity_cap_429(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_upload_entity_cap_429(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     suf = uuid.uuid4().hex[:8]
     eid = str(uuid.uuid4())
     slug = f"cap-{suf}"
@@ -406,9 +396,7 @@ def test_upload_entity_cap_429(
             db.commit()
 
 
-def test_upload_daily_cap_429(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_upload_daily_cap_429(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     suf = uuid.uuid4().hex[:8]
     eid = str(uuid.uuid4())
     slug = f"dcap-{suf}"
@@ -527,9 +515,7 @@ def test_delete_by_uploader_soft_deletes(
             db.commit()
 
 
-def test_delete_forbidden_for_stranger(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_delete_forbidden_for_stranger(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     suf = uuid.uuid4().hex[:8]
     eid = str(uuid.uuid4())
     slug = f"str-{suf}"
@@ -588,9 +574,7 @@ def test_delete_forbidden_for_stranger(
             db.commit()
 
 
-def test_set_hero_clears_siblings(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_set_hero_clears_siblings(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     suf = uuid.uuid4().hex[:8]
     eid = str(uuid.uuid4())
     slug = f"hero-{suf}"

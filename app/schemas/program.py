@@ -114,9 +114,7 @@ class ProgramBase(BaseModel):
                 raise ValueError("schedule_days must be day-name strings.")
             lowered = item.strip().lower()
             if lowered not in _VALID_DAYS:
-                raise ValueError(
-                    f"'{item}' is not a valid day name. Use monday..sunday."
-                )
+                raise ValueError(f"'{item}' is not a valid day name. Use monday..sunday.")
             cleaned.append(lowered)
         return cleaned
 

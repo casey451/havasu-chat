@@ -12,8 +12,7 @@ from app.events.scrapers.base import EventIngestClient, EventPayload
 from app.events.scrapers.ical_parse import parse_ical_events
 
 CIVIC_ICAL_URL = (
-    "https://www.lhcaz.gov/common/modules/iCalendar/iCalendar.aspx"
-    "?catID=23&feed=calendar"
+    "https://www.lhcaz.gov/common/modules/iCalendar/iCalendar.aspx?catID=23&feed=calendar"
 )
 CIVIC_RSS_URL = "https://www.lhcaz.gov/RSSFeed.aspx?ModID=58&CID=All-calendar.xml"
 CIVIC_EVENT_BASE = "https://www.lhcaz.gov/Calendar.aspx"
@@ -89,12 +88,8 @@ class LhcParksRecClient(EventIngestClient):
 
         entry = hit.raw.get("rss") or {}
         desc = entry.get("description") or ""
-        date_m = re.search(
-            r"Event date:</strong>\s*([^<]+)", desc, re.I
-        )
-        time_m = re.search(
-            r"Event Time:\s*</strong>\s*([^<]+)", desc, re.I
-        )
+        date_m = re.search(r"Event date:</strong>\s*([^<]+)", desc, re.I)
+        time_m = re.search(r"Event Time:\s*</strong>\s*([^<]+)", desc, re.I)
         loc_m = re.search(r"Location:</strong>\s*([^<]+)", desc, re.I)
         start_date = dateutil_parser.parse(date_m.group(1)).date() if date_m else None
         start_time = time(9, 0)
@@ -107,7 +102,9 @@ class LhcParksRecClient(EventIngestClient):
                 end_t = dateutil_parser.parse(parts[1].strip()).time()
                 end_iso = f"{start_date.isoformat()}T{end_t.isoformat()}"
         enriched = {
-            "start_iso": f"{start_date.isoformat()}T{start_time.isoformat()}" if start_date else None,
+            "start_iso": f"{start_date.isoformat()}T{start_time.isoformat()}"
+            if start_date
+            else None,
             "end_iso": end_iso,
             "location": loc_m.group(1).strip() if loc_m else "Lake Havasu City",
             "description": desc,

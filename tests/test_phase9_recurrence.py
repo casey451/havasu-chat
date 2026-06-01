@@ -76,9 +76,7 @@ def test_cap_exceeded_raises() -> None:
 
 
 def test_parsed_until_from_rrule() -> None:
-    assert parsed_until_from_rrule("FREQ=WEEKLY;UNTIL=20261201T000000Z") == date(
-        2026, 12, 1
-    )
+    assert parsed_until_from_rrule("FREQ=WEEKLY;UNTIL=20261201T000000Z") == date(2026, 12, 1)
     assert parsed_until_from_rrule("FREQ=WEEKLY") is None
 
 

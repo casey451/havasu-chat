@@ -80,10 +80,22 @@ def test_website_colocated_distinct_venues_are_needs_review():
     # The resort case: same domain, 0m apart, DIFFERENT venues -> needs_review,
     # NOT auto. (Geo must not promote these -- co-location is the trap.)
     rows = [
-        _row("a", "WET Pool Bar", website="http://nautical.com", lat=34.48, lng=-114.32,
-             source="go_lake_havasu"),
-        _row("b", "Turtle Grille", website="http://nautical.com/dine",
-             lat=34.48, lng=-114.32, source="go_lake_havasu"),
+        _row(
+            "a",
+            "WET Pool Bar",
+            website="http://nautical.com",
+            lat=34.48,
+            lng=-114.32,
+            source="go_lake_havasu",
+        ),
+        _row(
+            "b",
+            "Turtle Grille",
+            website="http://nautical.com/dine",
+            lat=34.48,
+            lng=-114.32,
+            source="go_lake_havasu",
+        ),
     ]
     pairs = _pairs(rows)
     assert len(pairs) == 1
@@ -176,9 +188,7 @@ def test_website_beats_geo_name_at_perfect_name_ratio():
 
 def test_shared_phone_above_cap_is_flagged_not_paired():
     # A switchboard number on 6 rows must NOT mint C(6,2)=15 auto-merge pairs.
-    rows = [
-        _row(str(i), f"Tenant {i}", phone="(928) 855-0000") for i in range(6)
-    ]
+    rows = [_row(str(i), f"Tenant {i}", phone="(928) 855-0000") for i in range(6)]
     pairs, shared = find_provider_pairs(rows, max_group_size=4)
     assert pairs == []
     assert len(shared) == 1

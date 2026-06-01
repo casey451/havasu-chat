@@ -6,6 +6,7 @@ Run against production with Railway env injection, e.g.:
 
 Requires ADMIN_PASSWORD. GOOGLE_PLACES_API_KEY optional (enrichment degrades if unset).
 """
+
 from __future__ import annotations
 
 import os
@@ -14,7 +15,9 @@ import time
 
 import httpx
 
-BASE = (os.environ.get("HAVASU_SMOKE_BASE") or "https://havasu-chat-production.up.railway.app").rstrip("/")
+BASE = (
+    os.environ.get("HAVASU_SMOKE_BASE") or "https://havasu-chat-production.up.railway.app"
+).rstrip("/")
 WAIT_SEC = float(os.environ.get("HAVASU_SMOKE_WAIT", "8"))
 
 
@@ -22,7 +25,10 @@ def main() -> int:
     pw = (os.environ.get("ADMIN_PASSWORD") or "").strip()
     if not pw:
         print("ERROR: ADMIN_PASSWORD is not set.", file=sys.stderr)
-        print("Hint: railway run .\\.venv\\Scripts\\python.exe scripts/smoke_phase52_contributions.py", file=sys.stderr)
+        print(
+            "Hint: railway run .\\.venv\\Scripts\\python.exe scripts/smoke_phase52_contributions.py",
+            file=sys.stderr,
+        )
         return 2
 
     payload = {
@@ -81,7 +87,9 @@ def main() -> int:
     if ok_url or ok_gp:
         print("SMOKE_RESULT: PARTIAL (only one branch populated — check logs / API key)")
         return 0
-    print("SMOKE_RESULT: FAIL (enrichment still empty — check Railway logs, GOOGLE_PLACES_API_KEY, outbound network)")
+    print(
+        "SMOKE_RESULT: FAIL (enrichment still empty — check Railway logs, GOOGLE_PLACES_API_KEY, outbound network)"
+    )
     return 1
 
 

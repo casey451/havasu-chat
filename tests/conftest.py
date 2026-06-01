@@ -35,9 +35,7 @@ def pytest_configure(config: pytest.Config) -> None:
     os.environ.setdefault("AUTH_MAGIC_LINK_BASE_URL", "http://testserver")
     os.environ.setdefault("R2_ACCESS_KEY_ID", "test-access-key-id")
     os.environ.setdefault("R2_SECRET_ACCESS_KEY", "test-secret")
-    os.environ.setdefault(
-        "R2_ENDPOINT_URL", "https://test.r2.cloudflarestorage.com"
-    )
+    os.environ.setdefault("R2_ENDPOINT_URL", "https://test.r2.cloudflarestorage.com")
     os.environ.setdefault("R2_BUCKET_NAME", "test-bucket")
     os.environ.setdefault("R2_PUBLIC_URL_BASE", "https://pub-test.r2.dev")
     if os.environ.get("HAVASU_USE_DEV_DB_FOR_TESTS") == "1":
@@ -97,9 +95,7 @@ def _cleanup_phase7_seed_sources() -> None:
             for prog in db.scalars(select(Program).where(Program.source == src)).all():
                 db.delete(prog)
             for ent in db.scalars(select(Entity).where(Entity.source == src)).all():
-                db.execute(
-                    delete(EntityCategory).where(EntityCategory.entity_id == ent.id)
-                )
+                db.execute(delete(EntityCategory).where(EntityCategory.entity_id == ent.id))
                 db.delete(ent)
         db.commit()
 

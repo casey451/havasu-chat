@@ -242,11 +242,7 @@ def _load_eat_photos() -> dict[str, str]:
         return {}
     # Belt-and-suspenders: ensure all values are strings (a JSON typo
     # could leave a number or null in there).
-    return {
-        str(k): str(v)
-        for k, v in photos.items()
-        if isinstance(v, str) and v
-    }
+    return {str(k): str(v) for k, v in photos.items() if isinstance(v, str) and v}
 
 
 def _format_rating(value: float | None) -> str | None:

@@ -5,6 +5,7 @@ category word with a real catalog row must not pass the near-match guard.
 
 Green tests: legitimate typo near-matches still pass.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -16,30 +17,21 @@ from app.chat.entity_intent import (
 
 
 class NearMatchSubjectOverlapsTests(unittest.TestCase):
-
     def test_q22_fabricated_hotel_vs_real_hotel_rejected(self) -> None:
         self.assertFalse(
-            near_match_subject_overlaps(
-                "rating for Fabricated Hotel Name 555", "Heat Hotel"
-            )
+            near_match_subject_overlaps("rating for Fabricated Hotel Name 555", "Heat Hotel")
         )
 
     def test_fake_restaurant_vs_real_restaurant_rejected(self) -> None:
         self.assertFalse(
-            near_match_subject_overlaps(
-                "hours for ZZZ Imaginary Restaurant", "Heat Restaurant"
-            )
+            near_match_subject_overlaps("hours for ZZZ Imaginary Restaurant", "Heat Restaurant")
         )
 
     def test_fake_gym_vs_real_gym_rejected(self) -> None:
-        self.assertFalse(
-            near_match_subject_overlaps("phone for Fake 999 Gym", "Iron Gym")
-        )
+        self.assertFalse(near_match_subject_overlaps("phone for Fake 999 Gym", "Iron Gym"))
 
     def test_only_category_word_in_query_rejected(self) -> None:
-        self.assertFalse(
-            near_match_subject_overlaps("rating for nowhere hotel", "Heat Hotel")
-        )
+        self.assertFalse(near_match_subject_overlaps("rating for nowhere hotel", "Heat Hotel"))
 
     def test_typo_heat_hotell_passes(self) -> None:
         self.assertTrue(near_match_subject_overlaps("rating for Heat Hotell", "Heat Hotel"))

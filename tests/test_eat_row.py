@@ -45,9 +45,7 @@ def test_food_drink_categories_covers_legacy_labels() -> None:
     from app.home.queries import LEGACY_PROVIDER_CATEGORY_LABELS
 
     legacy_food_drink = {
-        slug
-        for slug, label in LEGACY_PROVIDER_CATEGORY_LABELS.items()
-        if label == "Eat & Drink"
+        slug for slug, label in LEGACY_PROVIDER_CATEGORY_LABELS.items() if label == "Eat & Drink"
     }
     eat_row_filter = set(queries_c._FOOD_DRINK_CATEGORIES)
     missing = legacy_food_drink - eat_row_filter
@@ -91,7 +89,8 @@ def test_curated_eat_photos_file_loads() -> None:
 
 
 def test_load_eat_photos_missing_file_returns_empty(
-    monkeypatch: pytest.MonkeyPatch, tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
 ) -> None:
     """Missing photo file must degrade to {} -- cards still render with
     the gradient placeholder, no 500."""
@@ -102,7 +101,8 @@ def test_load_eat_photos_missing_file_returns_empty(
 
 
 def test_load_eat_photos_malformed_file_returns_empty(
-    monkeypatch: pytest.MonkeyPatch, tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
 ) -> None:
     """Corrupt JSON -- still degrades to {}, never raises."""
     bad = tmp_path / "bad.json"
@@ -113,7 +113,8 @@ def test_load_eat_photos_malformed_file_returns_empty(
 
 
 def test_load_eat_photos_drops_non_string_urls(
-    monkeypatch: pytest.MonkeyPatch, tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
 ) -> None:
     """A JSON-typo URL (null, number) is skipped; valid entries survive."""
     payload = tmp_path / "mixed.json"
@@ -134,7 +135,7 @@ def test_load_eat_photos_drops_non_string_urls(
         # Top-level is a list, not a dict -- legal JSON, wrong shape.
         '[{"photos": {"x": "https://example.com/x.jpg"}}]',
         # Top-level is a scalar.
-        '42',
+        "42",
         '"a string at the root"',
         # Top-level is a dict but ``photos`` is not a mapping.
         '{"photos": 42}',
@@ -143,7 +144,9 @@ def test_load_eat_photos_drops_non_string_urls(
     ],
 )
 def test_load_eat_photos_malformed_shape_returns_empty(
-    monkeypatch: pytest.MonkeyPatch, tmp_path, raw_json: str,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    raw_json: str,
 ) -> None:
     """Valid JSON of the wrong shape (top-level list, top-level scalar,
     or ``photos`` not a mapping) must degrade to ``{}`` rather than
@@ -241,9 +244,7 @@ def test_build_eat_card_hides_low_review_rating() -> None:
         google_rating=5.0,
         google_review_count=1,
     )
-    card = queries_c._build_eat_card(
-        thin, status_class="open", status_text="Open", image_url=None
-    )
+    card = queries_c._build_eat_card(thin, status_class="open", status_text="Open", image_url=None)
     assert card["rating"] is None
     assert card["review_count"] is None
 
@@ -337,9 +338,7 @@ def test_eat_row_respects_limit() -> None:
     def all_open(provider, *, now):  # noqa: ARG001
         return ("open", "Open now")
 
-    with patch.object(
-        queries_c, "_hours_status", side_effect=all_open
-    ) as hours_status_mock:
+    with patch.object(queries_c, "_hours_status", side_effect=all_open) as hours_status_mock:
         cards = queries_c.eat_row(fake_db, now=_NOW_EVENING, limit=3)
 
     assert len(cards) == 3
@@ -365,8 +364,7 @@ def test_eat_row_non_positive_limit_returns_empty(bad_limit: int) -> None:
     class _ExplodingDB:
         def query(self, *args, **kwargs):  # noqa: ARG002
             raise AssertionError(
-                "eat_row must short-circuit before calling db.query() "
-                "when limit <= 0"
+                "eat_row must short-circuit before calling db.query() when limit <= 0"
             )
 
     fake_db = _ExplodingDB()
@@ -382,12 +380,8 @@ def test_eat_row_skips_provider_when_hours_status_raises() -> None:
     """A malformed hours_structured row triggers an exception inside
     ``_hours_status``; the eat row must skip that provider and continue
     rather than 500 the home."""
-    good = SimpleNamespace(
-        slug="good", provider_name="Good", district=None, google_rating=4.5
-    )
-    bad = SimpleNamespace(
-        slug="bad", provider_name="Bad", district=None, google_rating=4.8
-    )
+    good = SimpleNamespace(slug="good", provider_name="Good", district=None, google_rating=4.5)
+    bad = SimpleNamespace(slug="bad", provider_name="Bad", district=None, google_rating=4.8)
 
     def maybe_raise(provider, *, now):  # noqa: ARG001
         if provider.slug == "bad":
@@ -437,7 +431,9 @@ def test_eat_row_pairs_curated_photo_by_slug(
     fake_db = _stub_db_returning([in_map, not_in_map])
 
     with patch.object(
-        queries_c, "_hours_status", side_effect=lambda p, *, now: ("open", "Open")  # noqa: ARG005
+        queries_c,
+        "_hours_status",
+        side_effect=lambda p, *, now: ("open", "Open"),  # noqa: ARG005
     ):
         cards = queries_c.eat_row(fake_db, now=_NOW_EVENING)
 
@@ -448,12 +444,12 @@ def test_eat_row_pairs_curated_photo_by_slug(
 
 def test_eat_row_no_zero_rating_or_count_in_output() -> None:
     """No card should expose a literal 0 / 0.0 to the template."""
-    p = SimpleNamespace(
-        slug="p", provider_name="P", district=None, google_rating=0.0
-    )
+    p = SimpleNamespace(slug="p", provider_name="P", district=None, google_rating=0.0)
     fake_db = _stub_db_returning([p])
     with patch.object(
-        queries_c, "_hours_status", side_effect=lambda x, *, now: ("open", "Open")  # noqa: ARG005
+        queries_c,
+        "_hours_status",
+        side_effect=lambda x, *, now: ("open", "Open"),  # noqa: ARG005
     ):
         cards = queries_c.eat_row(fake_db, now=_NOW_EVENING)
     assert cards[0]["rating"] is None  # zero-rating hidden, not "0.0"

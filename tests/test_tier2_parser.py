@@ -148,9 +148,7 @@ def test_high_conf_best_bmx_program() -> None:
         "parser_confidence": 0.85,
         "fallback_to_tier3": False,
     }
-    filters, _, _, _ = _parse_with_mock(
-        json.dumps(payload), "what is the best bmx program in town"
-    )
+    filters, _, _, _ = _parse_with_mock(json.dumps(payload), "what is the best bmx program in town")
     _assert_high_conf(filters)
     cat = (filters.category or "").lower()
     ent = (filters.entity_name or "").lower()
@@ -260,9 +258,7 @@ def test_parse_prepends_date_context_to_system_prompt() -> None:
 
     assert fake_client.chat.completions.create.called, "parse() should have called the LLM"
     messages = fake_client.chat.completions.create.call_args.kwargs.get("messages")
-    assert isinstance(messages, list) and messages, (
-        "messages kwarg should be a non-empty list"
-    )
+    assert isinstance(messages, list) and messages, "messages kwarg should be a non-empty list"
     system_msg = next((m for m in messages if m.get("role") == "system"), None)
     assert system_msg is not None, "messages should contain a system entry"
     system_text = system_msg.get("content", "")

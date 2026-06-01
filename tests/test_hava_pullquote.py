@@ -47,9 +47,7 @@ def test_cold_cache_returns_default(db, monkeypatch: pytest.MonkeyPatch) -> None
     assert spawned == [True]
 
 
-def test_fresh_cache_returns_cached_no_llm_call(
-    db, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_fresh_cache_returns_cached_no_llm_call(db, monkeypatch: pytest.MonkeyPatch) -> None:
     """Within TTL, serve cached quote without touching the LLM."""
     now = now_lake_havasu()
     cached_quote = "The channel is busy tonight."
@@ -68,9 +66,7 @@ def test_fresh_cache_returns_cached_no_llm_call(
     assert cached_quote in result["quote_html"]
 
 
-def test_stale_cache_serves_stale_triggers_refresh(
-    db, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_stale_cache_serves_stale_triggers_refresh(db, monkeypatch: pytest.MonkeyPatch) -> None:
     """Expired cache returns the previous quote synchronously and refreshes async."""
     now = now_lake_havasu()
     stale_quote = "Stale but still on the page."

@@ -180,7 +180,12 @@ def main() -> int:
                 {
                     "ok": not failed,
                     "results": [
-                        {"label": r.label, "status": r.status, "detail": r.detail, "critical": r.critical}
+                        {
+                            "label": r.label,
+                            "status": r.status,
+                            "detail": r.detail,
+                            "critical": r.critical,
+                        }
                         for r in results
                     ],
                 },

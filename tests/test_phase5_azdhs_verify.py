@@ -124,9 +124,7 @@ def test_azdhs_verify_handles_case_mismatch(monkeypatch) -> None:
             "N_COUNTY": "MOHAVE COUNTY",
         }
     ]
-    monkeypatch.setattr(
-        azdhs_verify, "fetch_azdhs_childcare_for_county", lambda *a, **k: registry
-    )
+    monkeypatch.setattr(azdhs_verify, "fetch_azdhs_childcare_for_county", lambda *a, **k: registry)
 
     with SessionLocal() as db:
         cat = db.query(Category).filter_by(slug="health-wellness-care").one()

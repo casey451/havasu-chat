@@ -38,9 +38,7 @@ class ProcessingError:
     code: str
 
 
-def decode_and_validate(
-    content: bytes, *, declared_mime: str
-) -> Image.Image | ProcessingError:
+def decode_and_validate(content: bytes, *, declared_mime: str) -> Image.Image | ProcessingError:
     """Decode bytes with Pillow; enforce MIME sniff + minimum dimensions."""
     dm = declared_mime.strip().lower()
     try:
@@ -96,9 +94,7 @@ def generate_variants(
     out: dict[str, dict[str, bytes]] = {}
     try:
         for name, size in _VARIANT_SIZES.items():
-            fitted = ImageOps.fit(
-                base, size, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5)
-            )
+            fitted = ImageOps.fit(base, size, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
             wbuf = io.BytesIO()
             fitted.save(wbuf, format="WEBP", quality=_WEBP_Q, method=6)
             jbuf = io.BytesIO()
@@ -158,9 +154,7 @@ def _process_impl(photo_id: str, content: bytes, declared_mime: str) -> None:
         if row is None:
             return
         if row.status == "live":
-            logger.warning(
-                "process_uploaded_photo: skip already live photo_id=%s", photo_id
-            )
+            logger.warning("process_uploaded_photo: skip already live photo_id=%s", photo_id)
             return
         if row.status != "uploading":
             return
@@ -254,9 +248,7 @@ def process_uploaded_photo(photo_id: str, content: bytes, declared_mime: str) ->
 
     try:
         if with_retry(_attempt) is None:
-            logger.error(
-                "process_uploaded_photo: retry exhaustion photo_id=%s", photo_id
-            )
+            logger.error("process_uploaded_photo: retry exhaustion photo_id=%s", photo_id)
             _flag_uploading_as_decode_failed(photo_id)
     except Exception:
         logger.exception("process_uploaded_photo: unexpected error photo_id=%s", photo_id)

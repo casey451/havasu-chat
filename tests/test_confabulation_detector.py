@@ -34,9 +34,7 @@ def test_layer1_aqua_beginnings_hits_private_heated_outdoor() -> None:
         "description": "Max 3 swimmers per group. Free initial assessment. Coach Rick (Swim America® certified).",
         "category": "swim",
     }
-    resp = (
-        "Aqua Beginnings has private heated outdoor pool sessions, though you would need to book directly."
-    )
+    resp = "Aqua Beginnings has private heated outdoor pool sessions, though you would need to book directly."
     r = InvocationResult(response_text=resp, evidence_row_dicts=[row])
     h1 = {h.token for h in _h1(r, "1_advisory")}
     h2 = {h.token for h in _h1(r, "2")}
@@ -142,15 +140,23 @@ def test_layer3_invented_price() -> None:
 def test_layer3_normalization_free() -> None:
     a = "Admission is free today."
     b = "Price is $0.00 and free."
-    ra = InvocationResult("Same day $0.00 and no charge here.", [{"type": "p", "name": "E", "description": a, "category": "x"}])
-    rb = InvocationResult("Same as listed.", [{"type": "p", "name": "E", "description": b, "category": "x"}])
+    ra = InvocationResult(
+        "Same day $0.00 and no charge here.",
+        [{"type": "p", "name": "E", "description": a, "category": "x"}],
+    )
+    rb = InvocationResult(
+        "Same as listed.", [{"type": "p", "name": "E", "description": b, "category": "x"}]
+    )
     d3a = {h.token for h in _h1(ra, "3")}
     d3b = {h.token for h in _h1(rb, "3")}
     assert d3a == set() and d3b == set(), (d3a, d3b)
 
 
 def test_safe_framing_worth_no_layer1() -> None:
-    r = InvocationResult("It is worth checking out. Nothing in evidence about worth.", [{"type": "provider", "name": "Q", "description": "A place.", "category": "c"}])
+    r = InvocationResult(
+        "It is worth checking out. Nothing in evidence about worth.",
+        [{"type": "provider", "name": "Q", "description": "A place.", "category": "c"}],
+    )
     toks = {h.token for h in _h1(r, "1_advisory")}
     assert "worth" not in toks
 
@@ -229,7 +235,12 @@ def test_l2_av_not_matched_inside_available() -> None:
 
 
 def test_em_dash_split_no_glued_tokens() -> None:
-    ev = {"type": "provider", "name": "P", "description": "max 3 swimmers per group", "category": "x"}
+    ev = {
+        "type": "provider",
+        "name": "P",
+        "description": "max 3 swimmers per group",
+        "category": "x",
+    }
     r = InvocationResult("Groups stay small—max 3 swimmers per session—and start quickly.", [ev])
     l1 = {h.token for h in _h1(r, "1_advisory")}
     assert all("—" not in t for t in l1)
@@ -260,5 +271,15 @@ def test_safe_framing_expansion_words_not_l1_hits() -> None:
         [ev],
     )
     l1 = {h.token for h in _h1(r, "1_advisory")}
-    for tok in ("current", "detail", "specific", "list", "directory", "contact", "info", "phone", "number"):
+    for tok in (
+        "current",
+        "detail",
+        "specific",
+        "list",
+        "directory",
+        "contact",
+        "info",
+        "phone",
+        "number",
+    ):
         assert tok not in l1

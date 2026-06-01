@@ -75,9 +75,7 @@ def assert_response_length_ok(response: str) -> None:
         parts = [t]
     n = len(parts)
     if n > 3:
-        raise AssertionError(
-            f"expected at most 3 sentences, got {n} (handoff §8.2): {response!r}"
-        )
+        raise AssertionError(f"expected at most 3 sentences, got {n} (handoff §8.2): {response!r}")
 
 
 def assert_voice_rules(response: str) -> None:
@@ -243,7 +241,9 @@ def _phase34_seed() -> None:
     finally:
         db.query(Event).filter(Event.source == "phase34-test").delete(synchronize_session=False)
         db.query(Program).filter(Program.source == "phase34-test").delete(synchronize_session=False)
-        db.query(Provider).filter(Provider.source == "phase34-test").delete(synchronize_session=False)
+        db.query(Provider).filter(Provider.source == "phase34-test").delete(
+            synchronize_session=False
+        )
         db.commit()
         reset_entity_matcher()
         db.close()

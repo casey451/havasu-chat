@@ -23,9 +23,7 @@ EVENT_INTENT_TIER3_PREAMBLE = (
 
 def heat_bias_tier3_preamble(temperature_f: float) -> str:
     temp = int(round(temperature_f))
-    return (
-        f"Current temperature is {temp}°F; user comfort favors indoor venues."
-    )
+    return f"Current temperature is {temp}°F; user comfort favors indoor venues."
 
 
 @dataclass(frozen=True)

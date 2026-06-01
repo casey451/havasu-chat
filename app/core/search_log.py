@@ -53,7 +53,9 @@ def log_query(raw: str, intent: str, slots: dict, strategy: str) -> None:
     _log.info("STRATEGY    : %s", strategy)
 
 
-def log_db_params(date_ctx, activity: str | None, keywords: list, audience: str | None, query_message: str) -> None:
+def log_db_params(
+    date_ctx, activity: str | None, keywords: list, audience: str | None, query_message: str
+) -> None:
     if not is_search_diag_verbose():
         return
     _ensure_file_handler()

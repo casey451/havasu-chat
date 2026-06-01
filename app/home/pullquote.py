@@ -105,6 +105,7 @@ def db_factory_from_session(db: Session):
     """
     bind = db.get_bind()
     from sqlalchemy.orm import sessionmaker
+
     Maker = sessionmaker(bind=bind, autoflush=False, autocommit=False)
     return Maker
 
@@ -152,9 +153,7 @@ def _store(quote: str, now: datetime) -> None:
         _cache.expires_at = now + _TTL
 
 
-def _format_for_template(
-    quote: str, quote_html: str, now: datetime
-) -> dict[str, str]:
+def _format_for_template(quote: str, quote_html: str, now: datetime) -> dict[str, str]:
     """Match the dict shape the home template expects."""
     posted = now.strftime("%I:%M %p").lower().lstrip("0")
     return {

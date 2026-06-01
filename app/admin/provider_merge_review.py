@@ -60,9 +60,7 @@ def _live_provider_rows(db: Session):
     from scripts.cross_source_dedup_audit import ProvRow
 
     out = []
-    for p in db.query(Provider).filter(
-        Provider.is_active.is_(True), Provider.draft.is_(False)
-    ):
+    for p in db.query(Provider).filter(Provider.is_active.is_(True), Provider.draft.is_(False)):
         out.append(
             ProvRow(
                 id=p.id,
@@ -159,10 +157,7 @@ def admin_duplicates_preview(
             status_code=400,
         )
     gap = ", ".join(plan.gap_filled) or "(none)"
-    repoint = (
-        "<br>".join(f"{_esc(k)}: {_esc(v)}" for k, v in plan.repointed.items())
-        or "(none)"
-    )
+    repoint = "<br>".join(f"{_esc(k)}: {_esc(v)}" for k, v in plan.repointed.items()) or "(none)"
     body = f"""<!doctype html><html><head><meta charset="utf-8">
 <title>Confirm merge</title></head><body>
 <h1>Confirm merge</h1>

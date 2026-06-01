@@ -76,13 +76,13 @@ def _event_intent_empty_voice(intent: dict[str, str]) -> str:
     when = intent.get("when", "")
     time_start = intent.get("time_start")
     if when == "tonight":
-        return "Nothing on tonight — try \"what's on tomorrow\"."
+        return 'Nothing on tonight — try "what\'s on tomorrow".'
     if when == "today" and time_start == "05:00":
-        return "Nothing this morning — try \"what's on this afternoon\"."
+        return 'Nothing this morning — try "what\'s on this afternoon".'
     if when == "today" and time_start == "12:00":
-        return "Nothing this afternoon — try \"what's on tonight\"."
+        return 'Nothing this afternoon — try "what\'s on tonight".'
     if when == "tomorrow" and time_start == "05:00":
-        return "Nothing tomorrow morning — try \"what's on tomorrow\"."
+        return 'Nothing tomorrow morning — try "what\'s on tomorrow".'
     return "Nothing on the calendar for that window."
 
 
@@ -108,9 +108,7 @@ def _respond_event_intent(
         if component_meta is not None:
             component_meta["type"] = "day_agenda"
             component_meta["data"] = build_day_agenda(filters, [])
-    elif component_meta is not None and (
-        len(rows) >= 2 or _event_intent_has_time_bounds(intent)
-    ):
+    elif component_meta is not None and (len(rows) >= 2 or _event_intent_has_time_bounds(intent)):
         component_meta["type"] = "day_agenda"
         component_meta["data"] = build_day_agenda(filters, rows)
         voice = fallback_day_agenda_voice(rows, resolve_target_date(filters))
@@ -468,9 +466,7 @@ def try_tier2_with_usage(
             return voice, total, in_sum, out_sum
 
         if intent_result is not None:
-            card = tier2_single_card.try_build_single_card(
-                q, intent_result, filters, rows
-            )
+            card = tier2_single_card.try_build_single_card(q, intent_result, filters, rows)
             if card is not None:
                 comp_type, voice, comp_data, v_in, v_out = card
                 component_meta["type"] = comp_type
@@ -602,9 +598,7 @@ def try_tier2_with_filters_with_usage(
             return voice, total, in_sum, out_sum
 
         if intent_result is not None:
-            card = tier2_single_card.try_build_single_card(
-                q, intent_result, filters, rows
-            )
+            card = tier2_single_card.try_build_single_card(q, intent_result, filters, rows)
             if card is not None:
                 comp_type, voice, comp_data, v_in, v_out = card
                 component_meta["type"] = comp_type

@@ -147,9 +147,7 @@ def fetch_usgs_water_temp_09426630() -> dict[str, Any]:
 
         response = _USGS_LIMITER.call_with_retry(_inner)
         if response is None:
-            logger.warning(
-                "usgs_water_temp.fetch_returned_none site=%s", site
-            )
+            logger.warning("usgs_water_temp.fetch_returned_none site=%s", site)
             return _empty_payload(site, feature_on=True)
         response.raise_for_status()
         payload = response.json()

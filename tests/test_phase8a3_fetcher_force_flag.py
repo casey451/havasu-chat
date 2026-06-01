@@ -95,7 +95,10 @@ def test_fetch_one_source_with_force_bypasses_active_breaker(
     with patch.dict(fetcher._FETCHERS, {SOURCE_USGS: _spy}, clear=False):
         with SessionLocal() as db:
             result = fetcher.fetch_one_source(
-                db, SOURCE_USGS, now=_FIXED_NOW, force=True,
+                db,
+                SOURCE_USGS,
+                now=_FIXED_NOW,
+                force=True,
             )
 
     assert result is True, "force=True must bypass breaker and complete fetch"

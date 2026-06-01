@@ -84,9 +84,7 @@ def test_reject_deactivates_provider(admin_client, db_session) -> None:
 
 
 def test_approve_missing_provider_404(admin_client) -> None:
-    resp = admin_client.post(
-        "/admin/provider/nonexistent-id/approve", follow_redirects=False
-    )
+    resp = admin_client.post("/admin/provider/nonexistent-id/approve", follow_redirects=False)
     assert resp.status_code == 404
 
 

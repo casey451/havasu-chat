@@ -39,7 +39,10 @@ def test_api_chat_tier3_persists_mention_row() -> None:
                     with TestClient(app) as client:
                         r = client.post(
                             "/api/chat",
-                            json={"query": "What kayak rentals exist?", "session_id": "tier3-mention-scan"},
+                            json={
+                                "query": "What kayak rentals exist?",
+                                "session_id": "tier3-mention-scan",
+                            },
                         )
     assert r.status_code == 200
     body = r.json()
@@ -53,7 +56,9 @@ def test_api_chat_tier3_persists_mention_row() -> None:
                     LlmMentionedEntity.chat_log_id == log_id,
                     LlmMentionedEntity.mentioned_name == "Sunset Paddle Rentals",
                 )
-            ).scalars().all()
+            )
+            .scalars()
+            .all()
         )
         assert len(rows) == 1
         m = rows[0]

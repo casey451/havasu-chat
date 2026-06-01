@@ -340,14 +340,10 @@ def test_open_now_uses_lake_havasu_local_time() -> None:
     fixed_local_10am = _dt(2026, 5, 4, 10, 0, tzinfo=havasu_tz)
 
     with patch("app.chat.tier1_handler.now_lake_havasu", return_value=fixed_local_10am):
-        is_open = _t1._open_now_from_hours(
-            "9am-5pm", fixed_local_10am.replace(tzinfo=None)
-        )
+        is_open = _t1._open_now_from_hours("9am-5pm", fixed_local_10am.replace(tzinfo=None))
         assert is_open is True, "10am should be open during 9am-5pm window"
 
-        is_closed = _t1._open_now_from_hours(
-            "11am-5pm", fixed_local_10am.replace(tzinfo=None)
-        )
+        is_closed = _t1._open_now_from_hours("11am-5pm", fixed_local_10am.replace(tzinfo=None))
         assert is_closed is False, "10am should be closed before 11am-5pm window"
 
 
@@ -454,7 +450,9 @@ def test_hours_lookup_uses_google_hours_when_legacy_empty(db: Session) -> None:
     )
     db.add(p)
     db.commit()
-    out = try_tier1("hours for googlehoursco", _intent(sub="HOURS_LOOKUP", entity=p.provider_name), db)
+    out = try_tier1(
+        "hours for googlehoursco", _intent(sub="HOURS_LOOKUP", entity=p.provider_name), db
+    )
     assert out is not None
     assert "Monday" in out and "9:00 AM" in out
 

@@ -72,7 +72,10 @@ def _store_cache_in_background(
     sentry_sdk.add_breadcrumb(
         category="cache.store",
         message="llm_cache.store_with_embedding (deferred)",
-        data={"cache_key_prefix": cache_key[:8], "has_embedding": precomputed_embedding is not None},
+        data={
+            "cache_key_prefix": cache_key[:8],
+            "has_embedding": precomputed_embedding is not None,
+        },
         level="info",
     )
     logging.info(
@@ -196,9 +199,7 @@ def _format_sponsored_block(block: disclosure_render.SponsoredBlock) -> str:
     return line
 
 
-def _inject_sponsored_block(
-    text: str, block: disclosure_render.SponsoredBlock
-) -> str:
+def _inject_sponsored_block(text: str, block: disclosure_render.SponsoredBlock) -> str:
     """Place a sponsored block in the response text per regime."""
     rendered = _format_sponsored_block(block)
     if block.regime == disclosure_render.PlacementRegime.EMERGENCY_URGENT:
@@ -298,9 +299,7 @@ def answer_with_tier3(
     if telemetry is not None:
         telemetry["tier3_lookup_ms"] = lookup_ms
         if cached_response is not None:
-            telemetry["cache_status"] = (
-                "hit_exact" if precomputed_embedding is None else "hit_sim"
-            )
+            telemetry["cache_status"] = "hit_exact" if precomputed_embedding is None else "hit_sim"
         else:
             telemetry["cache_status"] = "miss"
         if precomputed_embedding is not None:
@@ -329,8 +328,7 @@ def answer_with_tier3(
     sub_intent_str = intent_result.sub_intent or "none"
     entity_str = intent_result.entity or "none"
     classifier_block = (
-        f"Classifier: mode={intent_result.mode}, sub_intent={sub_intent_str}, "
-        f"entity={entity_str}"
+        f"Classifier: mode={intent_result.mode}, sub_intent={sub_intent_str}, entity={entity_str}"
     )
     nl = (now_line or "").strip() or f"Now: {format_now_lake_havasu()}"
     if not nl.lower().startswith("now:"):

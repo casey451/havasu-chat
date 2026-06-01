@@ -88,7 +88,9 @@ def test_categories_shows_pending_hint_row(client: TestClient) -> None:
 
         from app.db.models import Contribution
 
-        row = db.scalars(select(Contribution).where(Contribution.submission_name == f"HintRow {u}")).first()
+        row = db.scalars(
+            select(Contribution).where(Contribution.submission_name == f"HintRow {u}")
+        ).first()
         if row:
             db.delete(row)
             db.commit()

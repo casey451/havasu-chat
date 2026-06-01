@@ -48,7 +48,9 @@ def _singularize_category(cat: str) -> str:
 _CATEGORY_SYNONYM_GROUPS: tuple[frozenset[str], ...] = (
     frozenset({"coffee shop", "coffee shops", "coffee", "cafe", "cafes"}),
     frozenset({"barber", "barbers", "barbershop", "barbershops", "barber shop", "barber shops"}),
-    frozenset({"corner store", "corner stores", "convenience store", "convenience stores", "convenience"}),
+    frozenset(
+        {"corner store", "corner stores", "convenience store", "convenience stores", "convenience"}
+    ),
     frozenset({"pharmacy", "pharmacies", "drugstore", "drugstores", "drug store", "drug stores"}),
     frozenset({"mechanic", "mechanics", "auto repair", "car repair", "auto shop", "auto shops"}),
 )

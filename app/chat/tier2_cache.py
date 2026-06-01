@@ -187,7 +187,9 @@ def lookup_formatter(db: Session, normalized_query: str, rows: list[dict[str, An
     return text
 
 
-def store_formatter(db: Session, normalized_query: str, rows: list[dict[str, Any]], text: str) -> None:
+def store_formatter(
+    db: Session, normalized_query: str, rows: list[dict[str, Any]], text: str
+) -> None:
     """Persist successful formatter output. Empty / None text NOT cached."""
     if not text:
         return

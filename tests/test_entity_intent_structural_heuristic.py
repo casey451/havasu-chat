@@ -9,6 +9,7 @@ trigger the heuristic. The Mudshark Brewery typo case is the load-bearing
 negative-regression — F1 must not steal it from the rapidfuzz escape hatch in
 near_match_subject_overlaps.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -20,23 +21,16 @@ from app.chat.entity_intent import (
 
 
 class LooksStructurallyFakeTests(unittest.TestCase):
-
     # ------- Positive: structurally-fake shapes (RED before F1) -------
 
     def test_high_digit_density_token_flagged(self) -> None:
-        self.assertTrue(
-            _looks_structurally_fake("Tell me about Joe 9999 Tavern Place")
-        )
+        self.assertTrue(_looks_structurally_fake("Tell me about Joe 9999 Tavern Place"))
 
     def test_consonant_run_flagged(self) -> None:
-        self.assertTrue(
-            _looks_structurally_fake("Tell me about zzznonexistent fancy venue")
-        )
+        self.assertTrue(_looks_structurally_fake("Tell me about zzznonexistent fancy venue"))
 
     def test_long_query_with_consonant_run_flagged(self) -> None:
-        self.assertTrue(
-            _looks_structurally_fake("Where is xkcdbzzz Restaurant in Lake Havasu")
-        )
+        self.assertTrue(_looks_structurally_fake("Where is xkcdbzzz Restaurant in Lake Havasu"))
 
     # ------- Negative regressions (must stay False) -------
 
@@ -59,44 +53,31 @@ class LooksStructurallyFakeTests(unittest.TestCase):
 
 
 class QueryMentionsFakeEntityMarkerTests(unittest.TestCase):
-
     # ------- Whitelist path preserved -------
 
     def test_xyz_marker_still_flagged(self) -> None:
         self.assertTrue(
-            query_mentions_fake_entity_marker(
-                "Tell me about Totally Fake Business XYZ 404"
-            )
+            query_mentions_fake_entity_marker("Tell me about Totally Fake Business XYZ 404")
         )
 
     def test_zzz_marker_still_flagged(self) -> None:
         # Whitelist requires a word-boundary token (not "zzz" inside "zzznonexistent").
-        self.assertTrue(
-            query_mentions_fake_entity_marker("about zzz nonexistent venue")
-        )
+        self.assertTrue(query_mentions_fake_entity_marker("about zzz nonexistent venue"))
 
     # ------- Heuristic path (RED before F1) -------
 
     def test_unmarked_digit_density_flagged_via_heuristic(self) -> None:
         # No whitelist token; relies on _looks_structurally_fake.
-        self.assertTrue(
-            query_mentions_fake_entity_marker(
-                "Tell me about Joe 9999 Tavern Place"
-            )
-        )
+        self.assertTrue(query_mentions_fake_entity_marker("Tell me about Joe 9999 Tavern Place"))
 
     # ------- Negative regressions -------
 
     def test_mudshark_brewery_typo_not_flagged(self) -> None:
         # Same load-bearing assertion at the function-level.
-        self.assertFalse(
-            query_mentions_fake_entity_marker("phone for mdshrkbrwry")
-        )
+        self.assertFalse(query_mentions_fake_entity_marker("phone for mdshrkbrwry"))
 
     def test_heat_hotel_not_flagged(self) -> None:
-        self.assertFalse(
-            query_mentions_fake_entity_marker("rating for Heat Hotel")
-        )
+        self.assertFalse(query_mentions_fake_entity_marker("rating for Heat Hotel"))
 
     def test_short_real_entity_not_flagged(self) -> None:
         self.assertFalse(query_mentions_fake_entity_marker("hours for Mudshark"))

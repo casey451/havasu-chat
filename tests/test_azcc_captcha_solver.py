@@ -87,6 +87,6 @@ def test_fetch_azcc_entity_search_signature_unchanged() -> None:
     assert params[:4] == ["client", "name", "search_url", "county"]
     for pname in params[4:]:
         p = sig.parameters[pname]
-        assert p.default is not inspect.Parameter.empty or p.kind == inspect.Parameter.VAR_KEYWORD, (
-            f"new param {pname} must have a default"
-        )
+        assert (
+            p.default is not inspect.Parameter.empty or p.kind == inspect.Parameter.VAR_KEYWORD
+        ), f"new param {pname} must have a default"

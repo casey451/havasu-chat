@@ -253,9 +253,7 @@ def test_helper_returns_none_for_non_emergency_regime(
     _seed_provider(db, name="Kids Activities Studio")
     db.commit()
 
-    result = unified_router._organic_context_for_tier3(
-        _intent("GENERAL_QUESTION"), db
-    )
+    result = unified_router._organic_context_for_tier3(_intent("GENERAL_QUESTION"), db)
     assert result is None
 
 

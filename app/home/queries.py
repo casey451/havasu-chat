@@ -110,16 +110,16 @@ LEGACY_PROVIDER_CATEGORY_LABELS: dict[str, str] = {
 
 CATEGORY_QUERIES: dict[str, str] = {
     # what the chip submits to /chat — Hava-voiced, not slug-shaped
-    "health_medical":        "find a doctor or clinic",
-    "food_drink":            "where should I eat",
-    "home_services":         "find a home pro",
-    "retail":                "shops in Havasu",
-    "lake_recreation":       "what's on the water today",
+    "health_medical": "find a doctor or clinic",
+    "food_drink": "where should I eat",
+    "home_services": "find a home pro",
+    "retail": "shops in Havasu",
+    "lake_recreation": "what's on the water today",
     "professional_services": "find a pro",
-    "beauty_personal_care":  "salons and barbers",
-    "auto":                  "auto repair in Havasu",
-    "religion_community":    "community and worship",
-    "fitness_sports":        "gyms and classes",
+    "beauty_personal_care": "salons and barbers",
+    "auto": "auto repair in Havasu",
+    "religion_community": "community and worship",
+    "fitness_sports": "gyms and classes",
     # New-taxonomy slugs (forward-compatible if ``Provider.category`` ever stores them).
     "home-property-services": "find a home pro",
     "health-wellness-care": "find a doctor or clinic",
@@ -310,9 +310,7 @@ def _provider_image_url(p: Provider) -> str | None:
 _CLOSING_SOON_MINUTES = 30
 
 
-def _minutes_until_close(
-    hours: dict | None, *, now: datetime
-) -> int | None:
+def _minutes_until_close(hours: dict | None, *, now: datetime) -> int | None:
     """Return minutes until the current open span ends, or ``None``.
 
     Returns ``None`` when no parseable open span covers ``now`` (i.e.
@@ -345,9 +343,7 @@ def _minutes_until_close(
         if open_t is None or close_t is None:
             continue
         if open_t <= now_t < close_t:
-            delta_minutes = (
-                close_t.hour * 60 + close_t.minute
-            ) - (now_t.hour * 60 + now_t.minute)
+            delta_minutes = (close_t.hour * 60 + close_t.minute) - (now_t.hour * 60 + now_t.minute)
             return max(0, delta_minutes)
     return None
 
@@ -388,9 +384,7 @@ def _hours_status(p: Provider, *, now: datetime) -> tuple[str, str]:
         # No parseable hours — surface as plain text, never as a pill.
         return "unknown", "Hours on profile"
     if is_open:
-        minutes_left = _minutes_until_close(
-            effective_hours_structured(p), now=now
-        )
+        minutes_left = _minutes_until_close(effective_hours_structured(p), now=now)
         if minutes_left is not None and minutes_left <= _CLOSING_SOON_MINUTES:
             return "closing-soon", status_copy or "Closing soon"
         return "open", status_copy or "Open now"

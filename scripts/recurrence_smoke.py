@@ -40,9 +40,7 @@ def main() -> int:
         )
         for ev in rows:
             try:
-                dates = expand_event(
-                    ev, window_start=today, window_end=window_end, cap=100
-                )
+                dates = expand_event(ev, window_start=today, window_end=window_end, cap=100)
                 logger.info(
                     "ok event=%s title=%r occurrences=%s",
                     ev.id[:8],
@@ -55,9 +53,7 @@ def main() -> int:
             except Exception as exc:
                 errors += 1
                 logger.warning("parse-error event=%s: %s", ev.id, exc)
-    logger.info(
-        "recurrence_smoke complete: %s events, %s errors", len(rows), errors
-    )
+    logger.info("recurrence_smoke complete: %s events, %s errors", len(rows), errors)
     return 1 if errors else 0
 
 

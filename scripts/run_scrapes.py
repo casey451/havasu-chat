@@ -36,6 +36,7 @@ from app.contrib.scrape_runner import PullFn, run_all  # noqa: E402
 # Source adapters: each returns a list[dict] for the snapshot runner.
 # ---------------------------------------------------------------------------
 
+
 def _pull_webtrac() -> list[dict[str, Any]]:
     sections = webtrac.fetch_all_sections()
     return [s.to_dict() for s in sections]

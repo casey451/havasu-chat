@@ -128,9 +128,7 @@ def merge_providers(
     if not dup.entity_id:
         raise ValueError(f"dup provider has no entity_id: {dup_id}")
     if (dup.source or "").strip() == "operator":
-        raise ValueError(
-            "refusing to retire an operator-sourced provider; pass it as keep_id"
-        )
+        raise ValueError("refusing to retire an operator-sourced provider; pass it as keep_id")
 
     result = MergeResult(keep_id=keep_id, dup_id=dup_id, dry_run=dry_run)
 
@@ -152,9 +150,7 @@ def merge_providers(
 
     def _count(model: Any, attr: str, value: str) -> int:
         col = getattr(model, attr)
-        return int(
-            db.scalar(select(func.count()).select_from(model).where(col == value)) or 0
-        )
+        return int(db.scalar(select(func.count()).select_from(model).where(col == value)) or 0)
 
     # Provider-level FKs: loser provider id -> keeper provider id.
     provider_fk = [
@@ -178,9 +174,7 @@ def merge_providers(
         if n:
             result.repointed[f"{model.__tablename__}.{attr}"] = n
             if not dry_run:
-                for row in db.scalars(
-                    select(model).where(getattr(model, attr) == dup_id)
-                ).all():
+                for row in db.scalars(select(model).where(getattr(model, attr) == dup_id)).all():
                     setattr(row, attr, keep_id)
 
     for model, attr in entity_fk_plain:
@@ -188,22 +182,16 @@ def merge_providers(
         if n:
             result.repointed[f"{model.__tablename__}.{attr}"] = n
             if not dry_run:
-                for row in db.scalars(
-                    select(model).where(getattr(model, attr) == dup_ent)
-                ).all():
+                for row in db.scalars(select(model).where(getattr(model, attr) == dup_ent)).all():
                     setattr(row, attr, keep_ent)
 
     for model in entity_fk_unique:
-        rows = db.scalars(
-            select(model).where(model.entity_id == dup_ent)
-        ).all()
+        rows = db.scalars(select(model).where(model.entity_id == dup_ent)).all()
         if not rows:
             continue
         existing_users = {
             uid
-            for (uid,) in db.execute(
-                select(model.user_id).where(model.entity_id == keep_ent)
-            ).all()
+            for (uid,) in db.execute(select(model.user_id).where(model.entity_id == keep_ent)).all()
         }
         moved = deduped = 0
         for row in rows:

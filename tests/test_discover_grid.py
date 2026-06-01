@@ -74,8 +74,17 @@ def test_discover_grid_returns_normalised_cards() -> None:
     cards = queries_c.discover_grid()
     assert 6 <= len(cards) <= 12
     required_keys = {
-        "slug", "name", "where", "image_url", "image_attribution", "span", "pick",
-        "blurb", "meta_line", "status", "status_text",
+        "slug",
+        "name",
+        "where",
+        "image_url",
+        "image_attribution",
+        "span",
+        "pick",
+        "blurb",
+        "meta_line",
+        "status",
+        "status_text",
     }
     for c in cards:
         assert set(c.keys()) == required_keys, f"card missing keys: {required_keys - set(c.keys())}"
@@ -89,7 +98,8 @@ def test_discover_grid_limit_caps_result() -> None:
 
 
 def test_discover_grid_missing_file_returns_empty(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     """File-missing path must return [], not raise -- the template
     falls back to the 'taking a breather' editorial empty state."""
@@ -100,7 +110,8 @@ def test_discover_grid_missing_file_returns_empty(
 
 
 def test_discover_grid_malformed_file_returns_empty(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     """A corrupt JSON file should not 500 the home page."""
     bad = tmp_path / "bad.json"

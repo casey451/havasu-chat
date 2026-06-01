@@ -42,9 +42,7 @@ def _user_can_manage_photo(db: SqlSession, user: User, photo: Photo) -> bool:
     return claim is not None and claim.status == "verified"
 
 
-def _require_verified_claim_or_admin(
-    db: SqlSession, user: User, entity_id: str
-) -> None:
+def _require_verified_claim_or_admin(db: SqlSession, user: User, entity_id: str) -> None:
     if user.role == "admin":
         return
     claim = find_existing_claim(db, user.id, entity_id)
@@ -71,7 +69,8 @@ async def upload_photo(
         raise HTTPException(status_code=404, detail="entity_not_found")
     if entity.entity_type not in (ENTITY_TYPE_COMMERCIAL, ENTITY_TYPE_PLACE):
         raise HTTPException(
-            status_code=400, detail="entity_not_photo_uploadable",
+            status_code=400,
+            detail="entity_not_photo_uploadable",
         )
 
     _require_verified_claim_or_admin(db, current_user, entity_id)
@@ -146,9 +145,7 @@ def set_hero_photo(
         raise HTTPException(status_code=403, detail="forbidden")
 
     siblings = (
-        db.query(Photo)
-        .filter(Photo.entity_id == row.entity_id, Photo.status == "live")
-        .all()
+        db.query(Photo).filter(Photo.entity_id == row.entity_id, Photo.status == "live").all()
     )
     for p in siblings:
         p.is_hero = p.id == row.id

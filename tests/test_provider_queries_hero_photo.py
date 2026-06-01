@@ -23,9 +23,7 @@ def _clear_photo_url_cache() -> None:
 
 
 def test_derive_hero_photo_tier1_owner_photo() -> None:
-    ph = SimpleNamespace(
-        is_hero=True, status="live", hero_url="https://cdn/o/hero.webp"
-    )
+    ph = SimpleNamespace(is_hero=True, status="live", hero_url="https://cdn/o/hero.webp")
     ent = SimpleNamespace(photos=[ph])
     p = SimpleNamespace(entity=ent, attributes={}, google_photo_refs=None)
     assert derive_hero_photo(p) == "https://cdn/o/hero.webp"

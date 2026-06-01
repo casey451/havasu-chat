@@ -53,13 +53,13 @@ SAT_AFTERNOON = datetime(2026, 5, 30, 14, 0)
 
 # Standard weekly hours: Mon-Fri 8 AM - 5 PM, weekends closed.
 WEEKDAY_8_TO_5: dict = {
-    "monday":    [{"open": "08:00", "close": "17:00"}],
-    "tuesday":   [{"open": "08:00", "close": "17:00"}],
+    "monday": [{"open": "08:00", "close": "17:00"}],
+    "tuesday": [{"open": "08:00", "close": "17:00"}],
     "wednesday": [{"open": "08:00", "close": "17:00"}],
-    "thursday":  [{"open": "08:00", "close": "17:00"}],
-    "friday":    [{"open": "08:00", "close": "17:00"}],
-    "saturday":  [],
-    "sunday":    [],
+    "thursday": [{"open": "08:00", "close": "17:00"}],
+    "friday": [{"open": "08:00", "close": "17:00"}],
+    "saturday": [],
+    "sunday": [],
 }
 
 
@@ -183,6 +183,5 @@ def test_only_allowed_state_classes_returned(hours, now) -> None:
     p = _StubProvider(hours)
     state, _ = _hours_status(p, now=now)
     assert state in ALLOWED_STATES, (
-        f"_hours_status returned out-of-spec state {state!r}. "
-        f"Allowed: {sorted(ALLOWED_STATES)}"
+        f"_hours_status returned out-of-spec state {state!r}. Allowed: {sorted(ALLOWED_STATES)}"
     )

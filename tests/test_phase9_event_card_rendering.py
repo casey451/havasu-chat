@@ -47,9 +47,7 @@ def test_derive_event_freshness_band_tighter_than_entity() -> None:
     )
     assert provider_queries.derive_event_freshness_band(ev, now=now) == "amber"
     assert (
-        provider_queries.derive_freshness_band_from_updated_at(
-            now - timedelta(days=10), now=now
-        )
+        provider_queries.derive_freshness_band_from_updated_at(now - timedelta(days=10), now=now)
         == "green"
     )
 
@@ -83,9 +81,7 @@ def test_occurrence_date_drives_status_line() -> None:
         description="d",
         status="live",
     )
-    text, _ = provider_queries._event_status_line_for_card(
-        ev, now=now, occurrence_date=now.date()
-    )
+    text, _ = provider_queries._event_status_line_for_card(ev, now=now, occurrence_date=now.date())
     assert "Tonight" in text
 
 

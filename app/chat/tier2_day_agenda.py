@@ -78,9 +78,7 @@ def _generate_voice(
     )
 
 
-def _build_user_prompt(
-    query: str, rows: list[dict[str, Any]], target: Any
-) -> str:
+def _build_user_prompt(query: str, rows: list[dict[str, Any]], target: Any) -> str:
     target_label = (
         target.strftime("%A, %B ") + str(target.day) if hasattr(target, "strftime") else str(target)
     )

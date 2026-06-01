@@ -161,4 +161,3 @@ def test_feedback_window_filters_and_invalid_fallback(client: TestClient) -> Non
     assert "RECENT_2D" in sinv
     assert "RECENT_10D" not in sinv
     assert "OLD_40D" not in sinv
-

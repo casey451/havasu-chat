@@ -62,10 +62,7 @@ def _set_flag(db: Session, kind: str, row_id: str, value: bool) -> int:
     before = row.featured
     row.featured = value
     db.commit()
-    print(
-        f"{kind} {row_id} ({getattr(row, name_field)!r}): "
-        f"featured {before} -> {value}"
-    )
+    print(f"{kind} {row_id} ({getattr(row, name_field)!r}): featured {before} -> {value}")
     return 0
 
 

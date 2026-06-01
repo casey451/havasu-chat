@@ -45,10 +45,7 @@ def _google_photo_url_cached(ref: str, max_width_px: int) -> str | None:
             data={"ref": ref},
         )
         return None
-    return (
-        f"{_PHOTO_MEDIA_BASE}/{ref}/media"
-        f"?maxWidthPx={max_width_px}&key={key}"
-    )
+    return f"{_PHOTO_MEDIA_BASE}/{ref}/media?maxWidthPx={max_width_px}&key={key}"
 
 
 def google_photo_url(ref: str, *, max_width_px: int = 1200) -> str | None:
@@ -95,14 +92,12 @@ def iter_renderable_google_photos(provider: _GooglePhotoProvider) -> Iterator[st
        Raw ``google_photo_refs`` are intentionally ignored here so request-time
        rendering never depends on live Google calls.
     """
-    yielded_any = False
     urls = getattr(provider, "google_photo_urls", None)
     if urls:
         for candidate in urls:
             if _is_renderable_photo_url(candidate) and not _is_blocked_remote_photo_url(
                 str(candidate)
             ):
-                yielded_any = True
                 yield str(candidate).strip()
     return
 
@@ -126,15 +121,10 @@ def _resolve_photo_ref_cached(ref: str, max_width: int) -> str | None:
         )
         return None
 
-    media_url = (
-        f"{_PHOTO_MEDIA_BASE}/{ref}/media"
-        f"?maxWidthPx={max_width}&key={key}"
-    )
+    media_url = f"{_PHOTO_MEDIA_BASE}/{ref}/media?maxWidthPx={max_width}&key={key}"
     try:
         with httpx.Client(timeout=30, follow_redirects=True) as client:
-            response = GOOGLE_PLACES_LIMITER.call_with_retry(
-                lambda: client.get(media_url)
-            )
+            response = GOOGLE_PLACES_LIMITER.call_with_retry(lambda: client.get(media_url))
     except httpx.HTTPError:
         logger.warning(
             "resolve_photo_ref.transport_error",
@@ -180,9 +170,7 @@ def resolve_photo_ref(ref: str, *, max_width: int = 1200) -> str | None:
     return resolved
 
 
-def resolve_photo_refs(
-    refs: list[str] | None, *, max_width: int = 1200
-) -> list[str | None] | None:
+def resolve_photo_refs(refs: list[str] | None, *, max_width: int = 1200) -> list[str | None] | None:
     """Resolve each ref in parallel to ``google_photo_urls`` column shape."""
     if not refs:
         return None

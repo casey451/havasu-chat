@@ -47,21 +47,32 @@ def test_word_boundary_no_substring_match() -> None:
 
 def test_adults_only_filtered_when_has_kids() -> None:
     blurbs = [
-        {"id": "wine", "keywords": ["wine"], "category": "x", "text": "t", "context_tags": ["adults_only"]}
+        {
+            "id": "wine",
+            "keywords": ["wine"],
+            "category": "x",
+            "text": "t",
+            "context_tags": ["adults_only"],
+        }
     ]
     assert (
-        find_matching_blurbs("wine tasting", {"has_kids": True}, date(2026, 6, 1), blurbs=blurbs) == []
+        find_matching_blurbs("wine tasting", {"has_kids": True}, date(2026, 6, 1), blurbs=blurbs)
+        == []
     )
 
 
 def test_kids_ok_still_returned_without_kids() -> None:
-    blurbs = [{"id": "p", "keywords": ["park"], "category": "x", "text": "t", "context_tags": ["kids_ok"]}]
+    blurbs = [
+        {"id": "p", "keywords": ["park"], "category": "x", "text": "t", "context_tags": ["kids_ok"]}
+    ]
     r = find_matching_blurbs("park ideas", {"has_kids": False}, date(2026, 6, 1), blurbs=blurbs)
     assert len(r) == 1
 
 
 def test_summer_season_excluded_in_january() -> None:
-    blurbs = [{"id": "sum", "keywords": ["water"], "category": "x", "text": "t", "season": "summer"}]
+    blurbs = [
+        {"id": "sum", "keywords": ["water"], "category": "x", "text": "t", "season": "summer"}
+    ]
     assert find_matching_blurbs("water fun", None, date(2026, 1, 15), blurbs=blurbs) == []
 
 

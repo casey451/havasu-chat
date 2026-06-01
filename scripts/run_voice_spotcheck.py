@@ -2,6 +2,7 @@
 
 Diagnostic only — not imported by app. Uses stdlib HTTP + optional ``railway run`` for DB rows.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -157,7 +158,9 @@ def run_smoke(base: str) -> tuple[bool, str]:
     return True, "ok"
 
 
-def run_battery(base: str, pause_s: float = 1.5) -> tuple[str, list[dict], list[dict] | None, str | None]:
+def run_battery(
+    base: str, pause_s: float = 1.5
+) -> tuple[str, list[dict], list[dict] | None, str | None]:
     stamp_fs = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M")
     sid = f"voice-spot-{stamp_fs}-{uuid.uuid4().hex[:10]}"
     results: list[dict] = []
@@ -297,10 +300,13 @@ def main() -> int:
     if not args.skip_smoke:
         ok, msg = run_smoke(base)
         if not ok:
-            print("Smoke test failed — production may be down or request shape rejected.", file=sys.stderr)
+            print(
+                "Smoke test failed — production may be down or request shape rejected.",
+                file=sys.stderr,
+            )
             print(msg, file=sys.stderr)
             print(
-                "Note: concierge expects JSON {\"query\": \"...\", \"session_id\": \"...\"} on POST /api/chat.",
+                'Note: concierge expects JSON {"query": "...", "session_id": "..."} on POST /api/chat.',
                 file=sys.stderr,
             )
             return 1

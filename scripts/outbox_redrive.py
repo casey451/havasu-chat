@@ -68,10 +68,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help=(
-            "Print the IDs of rows that would be redriven without invoking "
-            "handlers."
-        ),
+        help=("Print the IDs of rows that would be redriven without invoking handlers."),
     )
     parser.add_argument(
         "--verbose",

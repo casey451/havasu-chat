@@ -81,12 +81,12 @@ def test_coerce_plain_json_object() -> None:
 
 
 def test_coerce_fenced_json_object() -> None:
-    raw = "```\n{\"a\": 1}\n```"
+    raw = '```\n{"a": 1}\n```'
     assert coerce_llm_text_to_json_object(raw) == {"a": 1}
 
 
 def test_coerce_fenced_with_json_language_tag() -> None:
-    raw = "```json\n{\"a\": 1}\n```"
+    raw = '```json\n{"a": 1}\n```'
     assert coerce_llm_text_to_json_object(raw) == {"a": 1}
 
 
@@ -172,12 +172,15 @@ def test_call_anthropic_messages_no_api_key_unset(monkeypatch: pytest.MonkeyPatc
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     ctor = MagicMock()
     with patch.object(llm_messages, "OpenAI", ctor):
-        assert call_anthropic_messages(
-            system_prompt="s",
-            user_text="u",
-            max_tokens=1,
-            temperature=0.0,
-        ) is None
+        assert (
+            call_anthropic_messages(
+                system_prompt="s",
+                user_text="u",
+                max_tokens=1,
+                temperature=0.0,
+            )
+            is None
+        )
     ctor.assert_not_called()
 
 
@@ -254,7 +257,9 @@ def test_call_anthropic_messages_missing_choices_returns_empty_text(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "k")
-    fake_resp = SimpleNamespace(choices=[], usage=SimpleNamespace(prompt_tokens=11, completion_tokens=22))
+    fake_resp = SimpleNamespace(
+        choices=[], usage=SimpleNamespace(prompt_tokens=11, completion_tokens=22)
+    )
     fake_client = MagicMock()
     fake_client.chat.completions.create.return_value = fake_resp
     with patch.object(llm_messages, "OpenAI", return_value=fake_client):

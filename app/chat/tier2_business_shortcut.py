@@ -189,6 +189,7 @@ def _normalize_category_typos(category: str) -> str:
     out = [_CATEGORY_TOKEN_ALIASES.get(t.lower(), t) for t in tokens]
     return " ".join(out)
 
+
 # Optional one-line landscape beat before the listing header (voice battery / rubric alignment).
 # Keys are matched as substrings of the lowercased category from the shortcut extractor.
 _BUSINESS_FRAMING_BY_CATEGORY_SUBSTR: tuple[tuple[str, str], ...] = (
@@ -324,7 +325,7 @@ def try_business_listing_shortcut(query: str) -> Tier2Filters | None:
     m = _LISTING_PREFIX.match(nq)
     if not m:
         return None
-    rest = nq[m.end():].strip()
+    rest = nq[m.end() :].strip()
     if not rest:
         return None
     category = _strip_locality_and_punct(rest)

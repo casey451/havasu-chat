@@ -17,8 +17,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func
-from sqlalchemy import update
+from sqlalchemy import func, update
 from sqlalchemy.orm import Session
 
 from app.analytics import record_event
@@ -286,9 +285,7 @@ def sponsor_click(
     if row is None:
         raise HTTPException(status_code=404, detail="Sponsor not found")
     # Atomic UPDATE — single statement, no row lock needed for ++ counter.
-    db.execute(
-        update(Sponsor).where(Sponsor.id == row.id).values(clicks=Sponsor.clicks + 1)
-    )
+    db.execute(update(Sponsor).where(Sponsor.id == row.id).values(clicks=Sponsor.clicks + 1))
     db.commit()
     # v54 Track B — long-form click event. ``home.spotlight.click`` fires
     # only when the slot is spotlight (cleanest downstream join with the

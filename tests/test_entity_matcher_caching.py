@@ -60,9 +60,7 @@ def _insert_program(db: Session, provider_name: str, category: str = "sports") -
     return p.id
 
 
-def _insert_provider(
-    db: Session, name: str, category: str, google_cat: str | None = None
-) -> str:
+def _insert_provider(db: Session, name: str, category: str, google_cat: str | None = None) -> str:
     row = Provider(
         provider_name=name,
         category=category,
@@ -99,9 +97,7 @@ class EntityMatcherCachingTests(unittest.TestCase):
     def test_ensure_entity_matcher_skips_rebuild_when_fresh(self) -> None:
         """Repeated ensure() calls within the TTL window must hit the cache."""
         ensure_entity_matcher(self.db)  # initial load
-        with mock.patch.object(
-            entity_matcher, "refresh_entity_matcher"
-        ) as refresh_spy:
+        with mock.patch.object(entity_matcher, "refresh_entity_matcher") as refresh_spy:
             for _ in range(5):
                 ensure_entity_matcher(self.db)
             self.assertEqual(refresh_spy.call_count, 0)
@@ -179,9 +175,7 @@ class EntityMatcherCachingTests(unittest.TestCase):
             _insert_program(self.db, name, act_cat)
 
         refresh_entity_matcher(self.db)
-        rows_by_name: dict[str, _EntityRow] = {
-            r.canonical: r for r in (entity_matcher._rows or [])
-        }
+        rows_by_name: dict[str, _EntityRow] = {r.canonical: r for r in (entity_matcher._rows or [])}
         for name, _, _, _ in seeds:
             self.assertIn(name, rows_by_name, f"missing canonical {name!r}")
             batched_blob = rows_by_name[name].category_blob

@@ -117,9 +117,7 @@ def build_conditions_strip_view_model(
                 severity="warning",
                 staleness_label=label,
                 is_stale=stale,
-                detail_text=(
-                    first.get("headline") if isinstance(first, dict) else None
-                ),
+                detail_text=(first.get("headline") if isinstance(first, dict) else None),
                 visible=True,
             )
         )

@@ -84,9 +84,7 @@ def run_entity_backfill(connection: Connection) -> None:
     Safe to call twice: only processes rows with ``entity_id IS NULL``.
     """
     used_slugs: set[str] = set(
-        r[0]
-        for r in connection.execute(text("SELECT slug FROM entities")).fetchall()
-        if r[0]
+        r[0] for r in connection.execute(text("SELECT slug FROM entities")).fetchall() if r[0]
     )
 
     _backfill_providers(connection, used_slugs)
@@ -633,5 +631,3 @@ def _backfill_events(connection: Connection, used_slugs: set[str]) -> None:
             text("UPDATE events SET entity_id = :eid WHERE id = :eid2"),
             {"eid": eid, "eid2": evid},
         )
-
-

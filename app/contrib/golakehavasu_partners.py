@@ -210,6 +210,7 @@ def map_cvb_legacy_category(cvb_name: str | None) -> str | None:
     key = " ".join(cvb_name.strip().lower().split())
     return CVB_PRIMARY_CATEGORY_TO_LEGACY.get(key)
 
+
 PARTNER_PAGE_HTTP_TIMEOUT = httpx.Timeout(60.0, connect=20.0)
 
 _LATLON_RE = re.compile(r"markers=color:[^\"'&]*?%7C(-?\d+\.\d+),(-?\d+\.\d+)")

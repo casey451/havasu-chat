@@ -47,11 +47,7 @@ REVIEW_BUCKETS: list[tuple[str, int, int | float]] = [
 
 def main() -> None:
     with SessionLocal() as session:
-        rows = (
-            session.query(Provider)
-            .filter(Provider.google_place_id.isnot(None))
-            .all()
-        )
+        rows = session.query(Provider).filter(Provider.google_place_id.isnot(None)).all()
 
     print(f"Total Google-sourced providers: {len(rows)}")
     print()
@@ -64,9 +60,7 @@ def main() -> None:
     print()
 
     # Top primary categories
-    primary: Counter[str] = Counter(
-        r.google_primary_category or "(none)" for r in rows
-    )
+    primary: Counter[str] = Counter(r.google_primary_category or "(none)" for r in rows)
     print("Top 20 google_primary_category values:")
     for t, c in primary.most_common(20):
         print(f"  {t}: {c}")
@@ -112,9 +106,7 @@ def main() -> None:
     sample = random.sample(rows, min(10, len(rows)))
     for r in sample:
         rating_str = f"{r.google_rating:.1f}" if r.google_rating is not None else "—"
-        reviews_str = (
-            f"{r.google_review_count}" if r.google_review_count is not None else "—"
-        )
+        reviews_str = f"{r.google_review_count}" if r.google_review_count is not None else "—"
         print(
             f"  {r.provider_name[:40]:40s}  {r.google_primary_category or '—':25s}  "
             f"ZIP {r.zip or '—'}  rating {rating_str}  reviews {reviews_str}"

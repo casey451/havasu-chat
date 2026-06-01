@@ -60,8 +60,7 @@ def expand_event(
                 occurrences.append(d)
             if len(occurrences) > cap:
                 raise ValueError(
-                    f"event.id={event.id} expansion exceeded cap={cap}; "
-                    f"check rrule={event.rrule!r}"
+                    f"event.id={event.id} expansion exceeded cap={cap}; check rrule={event.rrule!r}"
                 )
 
     for extra in event.rdate or []:
@@ -69,9 +68,7 @@ def expand_event(
         if window_start <= d <= window_end and d not in occurrences:
             occurrences.append(d)
             if len(occurrences) > cap:
-                raise ValueError(
-                    f"event.id={event.id} expansion exceeded cap={cap}; check rdate"
-                )
+                raise ValueError(f"event.id={event.id} expansion exceeded cap={cap}; check rdate")
 
     excluded = {date.fromisoformat(str(x)[:10]) for x in (event.exdate or [])}
     occurrences = [d for d in occurrences if d not in excluded]

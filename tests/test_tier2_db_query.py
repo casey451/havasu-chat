@@ -19,7 +19,9 @@ def _suffix() -> str:
     return uuid.uuid4().hex[:10]
 
 
-def _prov(db: Session, *, name: str, category: str = "misc", address: str | None = None) -> Provider:
+def _prov(
+    db: Session, *, name: str, category: str = "misc", address: str | None = None
+) -> Provider:
     p = Provider(
         provider_name=name,
         category=category,
@@ -164,7 +166,9 @@ def test_location_sara_park(db: Session) -> None:
         location_name="Sara Park Field",
         location_address="Sara Park Rd",
     )
-    _evt(db, title=f"Concert {suf}", on_date=date(2030, 7, 1), location_name="Sara Park Amphitheater")
+    _evt(
+        db, title=f"Concert {suf}", on_date=date(2030, 7, 1), location_name="Sara Park Amphitheater"
+    )
     db.commit()
     rows = tier2_query(Tier2Filters(parser_confidence=0.9, location="Sara Park"))
     assert len(rows) >= 1
@@ -179,9 +183,7 @@ def test_day_of_week_saturday_event(db: Session, monkeypatch: pytest.MonkeyPatch
     sat = date(2026, 6, 13)
     _evt(db, title=f"Saturday fair {suf}", on_date=sat, provider=pv)
     db.commit()
-    rows = tier2_query(
-        Tier2Filters(parser_confidence=0.9, day_of_week=["saturday"])
-    )
+    rows = tier2_query(Tier2Filters(parser_confidence=0.9, day_of_week=["saturday"]))
     assert any(r["type"] == "event" and suf in r["name"] for r in rows)
 
 
@@ -195,9 +197,7 @@ def test_day_of_week_weekend_program(db: Session) -> None:
         schedule_days=["saturday", "sunday"],
     )
     db.commit()
-    rows = tier2_query(
-        Tier2Filters(parser_confidence=0.9, day_of_week=["saturday", "sunday"])
-    )
+    rows = tier2_query(Tier2Filters(parser_confidence=0.9, day_of_week=["saturday", "sunday"]))
     assert any(r["type"] == "program" and suf in r["name"] for r in rows)
 
 
@@ -237,14 +237,18 @@ def test_time_window_this_month(db: Session, monkeypatch: pytest.MonkeyPatch) ->
     assert not any("July" in r["name"] and suf in r["name"] for r in rows)
 
 
-def test_time_window_this_week_is_rolling_seven_days(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_time_window_this_week_is_rolling_seven_days(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 5, 7))
     suf = _suffix()
     pv = _prov(db, name=f"RollingWeekOrg {suf}")
     _evt(db, title=f"Six days out {suf}", on_date=date(2026, 5, 13), provider=pv)
     _evt(db, title=f"Seven days out {suf}", on_date=date(2026, 5, 14), provider=pv)
     db.commit()
-    rows = tier2_query(Tier2Filters(parser_confidence=0.9, entity_name=suf, time_window="this_week"))
+    rows = tier2_query(
+        Tier2Filters(parser_confidence=0.9, entity_name=suf, time_window="this_week")
+    )
     names = [r["name"] for r in rows if r["type"] == "event"]
     assert f"Six days out {suf}" in names
     assert f"Seven days out {suf}" not in names
@@ -306,7 +310,9 @@ def test_arts_category_does_not_match_martial_arts_program(
         activity_category="martial_arts",
     )
     db.commit()
-    rows = tier2_query(Tier2Filters(parser_confidence=0.9, category="arts", time_window="this_week"))
+    rows = tier2_query(
+        Tier2Filters(parser_confidence=0.9, category="arts", time_window="this_week")
+    )
     assert not any(r["type"] == "program" and f"Jiu Jitsu {suf}" == r["name"] for r in rows)
 
 
@@ -330,12 +336,16 @@ def test_temporal_category_query_returns_dated_events_only(
         tags=["arts"],
     )
     db.commit()
-    rows = tier2_query(Tier2Filters(parser_confidence=0.9, category="arts", time_window="this_week"))
+    rows = tier2_query(
+        Tier2Filters(parser_confidence=0.9, category="arts", time_window="this_week")
+    )
     assert any(r["type"] == "event" and f"Dated Art Event {suf}" == r["name"] for r in rows)
     assert all(r["type"] == "event" for r in rows)
 
 
-def test_this_weekend_window_includes_upcoming_friday(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_this_weekend_window_includes_upcoming_friday(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 5, 7))  # Thursday
     suf = _suffix()
     pv = _prov(db, name=f"WeekendFridayOrg {suf}")
@@ -347,11 +357,17 @@ def test_this_weekend_window_includes_upcoming_friday(db: Session, monkeypatch: 
         start=time(18, 30),
     )
     db.commit()
-    rows = tier2_query(Tier2Filters(parser_confidence=0.9, entity_name=f"Dodgeball Friday {suf}", time_window="this_weekend"))
+    rows = tier2_query(
+        Tier2Filters(
+            parser_confidence=0.9, entity_name=f"Dodgeball Friday {suf}", time_window="this_weekend"
+        )
+    )
     assert any(r["type"] == "event" and f"Dodgeball Friday {suf}" == r["name"] for r in rows)
 
 
-def test_open_now_excludes_providers_without_structured_hours(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_open_now_excludes_providers_without_structured_hours(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(
         tier2_db_query,
         "_now_lake_havasu",
@@ -376,7 +392,9 @@ def test_row_shape_type_and_name(db: Session) -> None:
     assert "name" in r and r["name"]
 
 
-def test_broad_window_dedupes_recurring_series_to_one(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_broad_window_dedupes_recurring_series_to_one(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """>30d: weekly ``is_recurring`` BMX (same title + start) collapses to a single event row (earliest)."""
     monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 5, 15))
     suf = _suffix()
@@ -496,9 +514,7 @@ def test_explicit_past_date_exact_not_clamped_to_today(
         provider=pv,
     )
     db.commit()
-    rows = tier2_query(
-        Tier2Filters(parser_confidence=0.9, date_exact=date(2026, 4, 26))
-    )
+    rows = tier2_query(Tier2Filters(parser_confidence=0.9, date_exact=date(2026, 4, 26)))
     names = [r["name"] for r in rows if r["type"] == "event"]
     assert any(f"Weekend Pull {suf}" == n for n in names)
     assert all(f"Future Pull {suf}" != n for n in names)
@@ -528,7 +544,8 @@ def test_multi_day_event_surfaces_on_middle_day_date_exact(
         )
     )
     assert any(
-        r["type"] == "event" and mark in r["name"] and r.get("end_date") == "2026-05-09" for r in rows
+        r["type"] == "event" and mark in r["name"] and r.get("end_date") == "2026-05-09"
+        for r in rows
     ), rows
 
 
@@ -847,9 +864,7 @@ def test_synonym_map_does_not_widen_non_group_categories(
     db: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Legacy provider SQL is the authority for synonym-map bleed checks.
-    monkeypatch.setattr(
-        "app.chat.tier2_db_query.prefers_entity_catalog", lambda _f, _c: False
-    )
+    monkeypatch.setattr("app.chat.tier2_db_query.prefers_entity_catalog", lambda _f, _c: False)
     """Providers tagged 'cafe' must not show up for a query like 'plumber'.
     Sanity check that the synonym expansion is bounded to its groups."""
     suf = _suffix()

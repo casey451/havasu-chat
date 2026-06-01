@@ -44,8 +44,7 @@ def _nws_keyword_match(alerts: list[Any]) -> bool:
         if not isinstance(item, dict):
             continue
         blob = " ".join(
-            str(item.get(k) or "")
-            for k in ("event", "headline", "description")
+            str(item.get(k) or "") for k in ("event", "headline", "description")
         ).lower()
         if any(kw in blob for kw in LAKE_HAZARD_NWS_KEYWORDS):
             return True
@@ -75,8 +74,7 @@ def evaluate_heat_advisory(db: Session) -> AlertEvaluation:
             forecast_high = float(fh)
 
     forecast_fired = (
-        forecast_high is not None
-        and forecast_high > HEAT_ADVISORY_FORECAST_THRESHOLD_F
+        forecast_high is not None and forecast_high > HEAT_ADVISORY_FORECAST_THRESHOLD_F
     )
 
     index_fired = False

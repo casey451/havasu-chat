@@ -66,9 +66,7 @@ def fetch_usgs_lake_havasu() -> dict[str, Any]:
                     val_f = float(value)
                 except (TypeError, ValueError):
                     continue
-                history.append(
-                    {"parameter_code": code, "value": val_f, "observed_at": ts}
-                )
+                history.append({"parameter_code": code, "value": val_f, "observed_at": ts})
                 if code == "00065" and gauge_ft is None:
                     gauge_ft = val_f
                 elif code == "00054" and storage_acft is None:

@@ -105,9 +105,7 @@ def test_events_in_window_filters_tonight_hours(db) -> None:
     evening = _make_event(db, title="Evening Jazz", on_date=day, start=time(19, 0))
     db.commit()
     try:
-        all_day = events_in_window(
-            db, window_start=day, window_end=day, limit=20
-        )
+        all_day = events_in_window(db, window_start=day, window_end=day, limit=20)
         titles_all = {ev.title for ev, _ in all_day}
         assert "Morning Swim" in titles_all
         assert "Evening Jazz" in titles_all
@@ -213,7 +211,7 @@ def test_tonight_query_empty_when_only_morning_events(db) -> None:
                     "what's on tonight",
                     component_meta=component_meta,
                 )
-        assert voice == "Nothing on tonight — try \"what's on tomorrow\"."
+        assert voice == 'Nothing on tonight — try "what\'s on tomorrow".'
         assert total == 0 and in_t == 0 and out_t == 0
         assert component_meta.get("type") == "day_agenda"
         assert component_meta.get("data", {}).get("events") == []

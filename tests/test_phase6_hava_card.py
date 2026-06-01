@@ -51,9 +51,15 @@ def test_hava_card_view_model_dataclass_fields() -> None:
 
 def test_derive_freshness_band_from_updated_at() -> None:
     now = datetime(2026, 6, 15, 12, 0, 0, tzinfo=LAKE_HAVASU_TZ)
-    assert queries.derive_freshness_band_from_updated_at(now - timedelta(days=10), now=now) == "green"
-    assert queries.derive_freshness_band_from_updated_at(now - timedelta(days=45), now=now) == "amber"
-    assert queries.derive_freshness_band_from_updated_at(now - timedelta(days=100), now=now) == "red"
+    assert (
+        queries.derive_freshness_band_from_updated_at(now - timedelta(days=10), now=now) == "green"
+    )
+    assert (
+        queries.derive_freshness_band_from_updated_at(now - timedelta(days=45), now=now) == "amber"
+    )
+    assert (
+        queries.derive_freshness_band_from_updated_at(now - timedelta(days=100), now=now) == "red"
+    )
 
 
 def test_build_card_view_model_commercial_with_photo() -> None:
@@ -424,9 +430,7 @@ def test_hava_card_css_responsive_rules() -> None:
 
 
 def test_home_css_imports_hava_card() -> None:
-    home = (
-        Path(__file__).resolve().parents[1] / "app" / "static" / "styles" / "home.css"
-    )
+    home = Path(__file__).resolve().parents[1] / "app" / "static" / "styles" / "home.css"
     assert '@import url("components/hava_card.css");' in home.read_text(encoding="utf-8")
 
 

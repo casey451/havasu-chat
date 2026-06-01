@@ -73,16 +73,14 @@ def main() -> None:
     null_tokens = sum(1 for r in rows if r.llm_tokens_used is None)
     non_null_tokens = sum(1 for r in rows if r.llm_tokens_used is not None)
 
-    tier3_tokens = [r.llm_tokens_used for r in rows if r.tier_used == "3" and r.llm_tokens_used is not None]
+    tier3_tokens = [
+        r.llm_tokens_used for r in rows if r.tier_used == "3" and r.llm_tokens_used is not None
+    ]
     t_sum, t_mean, t_median, t_min, t_max, t_n = _tier3_token_stats(tier3_tokens)
 
     mode_counts = Counter((r.mode or "(null)") for r in rows)
 
-    tier1_subs = Counter(
-        (r.sub_intent or "(null)")
-        for r in rows
-        if r.tier_used == "1"
-    )
+    tier1_subs = Counter((r.sub_intent or "(null)") for r in rows if r.tier_used == "1")
     top_subs = tier1_subs.most_common(10)
 
     print("=== Chat log cost / usage analytics ===")

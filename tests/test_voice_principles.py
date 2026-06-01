@@ -102,12 +102,15 @@ def test_compose_voice_prompt_single_business_card_matches_previous_inlined() ->
 def test_compose_voice_prompt_allow_link_false_drops_link_clause() -> None:
     prompt = compose_voice_prompt("day_agenda", allow_link=False)
     assert "Markdown link" not in prompt
-    assert _LEGACY_DAY_AGENDA.replace(
-        "* Optional: AT MOST ONE Markdown link `[name](url)`, only if you mention"
-        " something specific from the catalog and the URL was provided. Never"
-        " invent venues or URLs.\n\n",
-        "\n",
-    ) == prompt
+    assert (
+        _LEGACY_DAY_AGENDA.replace(
+            "* Optional: AT MOST ONE Markdown link `[name](url)`, only if you mention"
+            " something specific from the catalog and the URL was provided. Never"
+            " invent venues or URLs.\n\n",
+            "\n",
+        )
+        == prompt
+    )
 
 
 def test_run_voice_llm_returns_fallback_on_exception() -> None:

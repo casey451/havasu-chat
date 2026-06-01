@@ -47,9 +47,7 @@ _EVENTS_PRIMARY_TYPES: list[tuple[str, tuple[str, str]]] = [
 
 
 @pytest.mark.parametrize("primary_type,expected", _EVENTS_PRIMARY_TYPES)
-def test_events_primary_type_maps_to_events(
-    primary_type: str, expected: tuple[str, str]
-) -> None:
+def test_events_primary_type_maps_to_events(primary_type: str, expected: tuple[str, str]) -> None:
     """Each events primary_type direct mapping shipped this session must
     persist. Removing any would cause that primary_type to fall through
     to the 5.7 catch-all ``(None, "entertainment_attractions") ->
@@ -158,8 +156,7 @@ def test_phase5_6_retail_fallback_entries_preserved() -> None:
     }
     for key in required_retail:
         assert key in _DISCOVERY_DOMAIN_FALLBACK, (
-            f"Phase 5.6 retail fallback entry {key!r} is missing. "
-            "Regression of 44e8097."
+            f"Phase 5.6 retail fallback entry {key!r} is missing. Regression of 44e8097."
         )
         assert _DISCOVERY_DOMAIN_FALLBACK[key] == "shopping-essentials"
 
@@ -176,8 +173,7 @@ def test_phase5_5_auto_fallback_entries_preserved() -> None:
     }
     for key in required_auto:
         assert key in _DISCOVERY_DOMAIN_FALLBACK, (
-            f"Phase 5.5 auto fallback entry {key!r} is missing. "
-            "Regression of 4d41944."
+            f"Phase 5.5 auto fallback entry {key!r} is missing. Regression of 4d41944."
         )
         assert _DISCOVERY_DOMAIN_FALLBACK[key] == "auto-rv-fuel"
 
@@ -200,8 +196,7 @@ def test_phase5_4_health_medical_fallback_entries_preserved() -> None:
     }
     for key in required_health_medical:
         assert key in _DISCOVERY_DOMAIN_FALLBACK, (
-            f"Phase 5.4 health_medical fallback entry {key!r} is missing. "
-            "Regression of fc51940."
+            f"Phase 5.4 health_medical fallback entry {key!r} is missing. Regression of fc51940."
         )
         assert _DISCOVERY_DOMAIN_FALLBACK[key] == "health-wellness-care"
 
@@ -220,8 +215,7 @@ def test_phase5_4_fitness_sports_fallback_entries_preserved() -> None:
     }
     for key in required_fitness_sports:
         assert key in _DISCOVERY_DOMAIN_FALLBACK, (
-            f"Phase 5.4 fitness_sports fallback entry {key!r} is missing. "
-            "Regression of fc51940."
+            f"Phase 5.4 fitness_sports fallback entry {key!r} is missing. Regression of fc51940."
         )
         assert _DISCOVERY_DOMAIN_FALLBACK[key] == "health-wellness-care"
 
@@ -237,8 +231,7 @@ def test_phase5_3_home_services_fallback_entries_preserved() -> None:
     }
     for key in required_home_services:
         assert key in _DISCOVERY_DOMAIN_FALLBACK, (
-            f"Phase 5.3 home_services fallback entry {key!r} is missing. "
-            "Regression of 7c994aa."
+            f"Phase 5.3 home_services fallback entry {key!r} is missing. Regression of 7c994aa."
         )
         assert _DISCOVERY_DOMAIN_FALLBACK[key] == "home-property-services"
 
@@ -259,8 +252,7 @@ def test_phase5_2_lake_recreation_fallback_entries_preserved() -> None:
     }
     for key in required_lake_rec:
         assert key in _DISCOVERY_DOMAIN_FALLBACK, (
-            f"Phase 5.2 lake_recreation fallback entry {key!r} is missing. "
-            "Regression of 65b0824."
+            f"Phase 5.2 lake_recreation fallback entry {key!r} is missing. Regression of 65b0824."
         )
         assert _DISCOVERY_DOMAIN_FALLBACK[key] == "on-the-water"
 

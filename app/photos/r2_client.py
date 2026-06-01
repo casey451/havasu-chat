@@ -35,8 +35,7 @@ def get_r2_client() -> Any:
     missing = _missing_env_vars()
     if missing:
         raise RuntimeError(
-            "R2 is not configured: missing environment variable(s): "
-            + ", ".join(missing)
+            "R2 is not configured: missing environment variable(s): " + ", ".join(missing)
         )
     _r2_client = boto3.client(
         "s3",

@@ -41,9 +41,7 @@ def _hedge_suffix_for(record, *, now) -> str:
         assessment = classify_confidence(record, now=now)
         hedge = hedge_phrase(assessment.tier)
     except Exception:
-        logging.exception(
-            "context_builder: classify_confidence raised on row, no hedge suffix"
-        )
+        logging.exception("context_builder: classify_confidence raised on row, no hedge suffix")
         return ""
     if not hedge:
         return ""
@@ -345,10 +343,7 @@ def build_context_and_rows_for_tier3(
             sched_et = prog.schedule_end_time
             sched_st_s = sched_st.strftime("%H:%M") if sched_st is not None else ""
             sched_et_s = sched_et.strftime("%H:%M") if sched_et is not None else ""
-            seg = (
-                f"  Program: {prog.title} | ages {ages} | "
-                f"schedule {sched_st_s}-{sched_et_s}"
-            )
+            seg = f"  Program: {prog.title} | ages {ages} | schedule {sched_st_s}-{sched_et_s}"
             if prog.cost:
                 seg += f" | cost: {prog.cost}"
             if prog.schedule_note:
@@ -379,15 +374,11 @@ def build_context_for_tier3(
     chat_ctx: ChatRequestContext | None = None,
 ) -> str:
     """Return a plain-text context block for the Tier 3 system prompt (never empty)."""
-    context, _rows = build_context_and_rows_for_tier3(
-        query, intent_result, db, chat_ctx=chat_ctx
-    )
+    context, _rows = build_context_and_rows_for_tier3(query, intent_result, db, chat_ctx=chat_ctx)
     return context
 
 
-def rows_for_tier3_classification(
-    intent_result: IntentResult, db: Session
-) -> list[dict]:
+def rows_for_tier3_classification(intent_result: IntentResult, db: Session) -> list[dict]:
     """Return Tier 3 Provider rows shaped for the LOW-tier phone post-processor (Lane CT2.B.1).
 
     Sibling helper to ``build_context_for_tier3``. Both call the shared
@@ -425,8 +416,7 @@ def rows_for_tier3_classification(
                 hint = assessment.tier.value
             except Exception:
                 logging.exception(
-                    "context_builder: classify_confidence raised on row, "
-                    "skipping confidence_hint"
+                    "context_builder: classify_confidence raised on row, skipping confidence_hint"
                 )
                 hint = ""
         out.append(

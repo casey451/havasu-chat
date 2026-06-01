@@ -119,7 +119,9 @@ def test_tier1_unchanged_no_llm_tokens(db: Session) -> None:
 def test_tier1_none_invokes_tier2_then_tier3(db: Session) -> None:
     calls: list[str] = []
 
-    def spy_tier2(q: str, **_kwargs: object) -> tuple[str | None, int | None, int | None, int | None]:
+    def spy_tier2(
+        q: str, **_kwargs: object
+    ) -> tuple[str | None, int | None, int | None, int | None]:
         # Accept **kwargs so the spy stays valid as the unified_router signature
         # evolves — current call sites pass ``component_meta=...`` and other
         # threaded context. We only care about counting invocations here.
@@ -140,7 +142,9 @@ def test_tier1_none_invokes_tier2_then_tier3(db: Session) -> None:
 
 def test_tier1_none_tier2_none_silent_tier3(db: Session) -> None:
     with patch("app.chat.unified_router.try_tier1", return_value=None):
-        with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
+        with patch(
+            "app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)
+        ):
             with patch(
                 "app.chat.unified_router.answer_with_tier3",
                 return_value=("Tier-3 silent fallback.", 12, 7, 5),
@@ -184,7 +188,9 @@ def test_tier2_formatter_sdk_error_falls_through_route(db: Session) -> None:
 
 
 def test_gap_template_runs_after_tier2_no_rows(db: Session) -> None:
-    with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)) as t2:
+    with patch(
+        "app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)
+    ) as t2:
         with patch("app.chat.unified_router.answer_with_tier3") as t3:
             r = route("Where is Totally Fictional Venue XYZ?", "sess-t2-gap", db)
     t2.assert_called_once()

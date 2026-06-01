@@ -152,10 +152,7 @@ def test_hedge_suffix_low_returns_recommend_calling(monkeypatch):
         last_verified_at=now_lake_havasu() - timedelta(days=200),
         verification_method="manual",
     )
-    assert (
-        _hedge_suffix_for(record, now=now_lake_havasu())
-        == " (recommend calling to confirm)"
-    )
+    assert _hedge_suffix_for(record, now=now_lake_havasu()) == " (recommend calling to confirm)"
 
 
 def test_flag_off_byte_identical_context_block(monkeypatch, isolated_catalog: Session):
@@ -222,12 +219,15 @@ def test_flag_on_low_tier_hedge_suffix_inlined(monkeypatch, isolated_catalog: Se
 def test_flag_on_mixed_tier_rows_each_carries_own_hedge(monkeypatch, isolated_catalog: Session):
     monkeypatch.setenv(_FLAG, "true")
     db = isolated_catalog
-    _add_provider(db, name="Acme Plumbing", age_days=1, method="owner_confirmed",
-                  phone="(928) 855-1111")
-    _add_provider(db, name="Bayview Plumbing", age_days=14, method="scraper",
-                  phone="(928) 855-2222")
-    _add_provider(db, name="Crestline Plumbing", age_days=200, method="manual",
-                  phone="(928) 855-3333")
+    _add_provider(
+        db, name="Acme Plumbing", age_days=1, method="owner_confirmed", phone="(928) 855-1111"
+    )
+    _add_provider(
+        db, name="Bayview Plumbing", age_days=14, method="scraper", phone="(928) 855-2222"
+    )
+    _add_provider(
+        db, name="Crestline Plumbing", age_days=200, method="manual", phone="(928) 855-3333"
+    )
     ctx = build_context_for_tier3("anything", _intent(), db)
 
     assert "Provider: Acme Plumbing\n" in ctx
@@ -292,9 +292,7 @@ def test_event_row_low_tier_carries_hedge_suffix(monkeypatch, isolated_catalog: 
 
 
 def test_system_prompt_contains_hedge_instruction():
-    prompt_path = (
-        Path(__file__).resolve().parents[1] / "prompts" / "system_prompt.txt"
-    )
+    prompt_path = Path(__file__).resolve().parents[1] / "prompts" / "system_prompt.txt"
     body = prompt_path.read_text(encoding="utf-8")
     assert "Confidence hedges in Context lines" in body
     assert "(as of last week)" in body

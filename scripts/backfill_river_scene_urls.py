@@ -198,8 +198,7 @@ def run_rescrape(*, apply: bool) -> tuple[int, int, int, int, int, int, int]:
                 new_c_src = src_key
                 if c is not None and (cur_c_ev_u != new_c_ev_u or cur_c_src != new_c_src):
                     print(
-                        f"  contribution {c.id}: submission_url / source_url "
-                        f"would align with event"
+                        f"  contribution {c.id}: submission_url / source_url would align with event"
                     )
 
                 if apply:

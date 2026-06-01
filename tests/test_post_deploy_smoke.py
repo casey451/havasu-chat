@@ -128,7 +128,9 @@ def test_main_writes_json_out(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     assert len(data["results"]) == 2
 
 
-def test_main_returns_exit_code_1_on_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_main_returns_exit_code_1_on_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     eval_path = tmp_path / "eval.yaml"
     eval_path.write_text(_sample_yaml(1), encoding="utf-8")
 

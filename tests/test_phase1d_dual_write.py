@@ -47,9 +47,7 @@ def test_create_provider_and_entity_writes_entity_and_extensions() -> None:
         assert p2 is not None and p2.entity_id is not None
         ent = db.get(Entity, p2.entity_id)
         assert ent is not None and ent.entity_type == "commercial"
-        assert (
-            db.scalars(select(Location).where(Location.entity_id == ent.id)).first() is not None
-        )
+        assert db.scalars(select(Location).where(Location.entity_id == ent.id)).first() is not None
         assert (
             db.scalars(select(ContactPoint).where(ContactPoint.entity_id == ent.id)).first()
             is not None
@@ -88,7 +86,9 @@ def test_create_event_and_entity_writes_schedule_and_evidence() -> None:
             is not None
         )
         assert (
-            db.scalars(select(SourceEvidence).where(SourceEvidence.entity_id == ev2.entity_id)).first()
+            db.scalars(
+                select(SourceEvidence).where(SourceEvidence.entity_id == ev2.entity_id)
+            ).first()
             is not None
         )
 

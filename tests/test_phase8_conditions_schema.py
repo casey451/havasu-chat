@@ -12,9 +12,7 @@ from sqlalchemy import create_engine, inspect, text
 from alembic import command
 
 
-def test_migration_upgrade_downgrade_cycle(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_migration_upgrade_downgrade_cycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     db_path = tmp_path / "phase8.sqlite"
     url = f"sqlite:///{db_path.resolve().as_posix()}"
     monkeypatch.setenv("DATABASE_URL", url)
@@ -33,9 +31,7 @@ def test_migration_upgrade_downgrade_cycle(
     eng = create_engine(url, connect_args={"check_same_thread": False})
     try:
         with eng.connect() as conn:
-            ver = conn.execute(
-                text("SELECT version_num FROM alembic_version")
-            ).scalar_one()
+            ver = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
             assert ver == expected_head
             cols = {
                 row[1]

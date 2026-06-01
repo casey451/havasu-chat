@@ -157,15 +157,9 @@ def _check_email(raw: str) -> str | None:
 def _check_description(raw: str) -> str | None:
     n = len(raw.strip())
     if n < DESCRIPTION_MIN_CHARS:
-        return (
-            f"hava_voice_description is {n} chars; "
-            f"must be at least {DESCRIPTION_MIN_CHARS}"
-        )
+        return f"hava_voice_description is {n} chars; must be at least {DESCRIPTION_MIN_CHARS}"
     if n > DESCRIPTION_MAX_CHARS:
-        return (
-            f"hava_voice_description is {n} chars; "
-            f"must be at most {DESCRIPTION_MAX_CHARS}"
-        )
+        return f"hava_voice_description is {n} chars; must be at most {DESCRIPTION_MAX_CHARS}"
     return None
 
 

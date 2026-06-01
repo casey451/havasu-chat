@@ -104,7 +104,9 @@ def test_tier3_omits_empty_local_voice_payload(db: Session) -> None:
     with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
         with patch.object(llm_messages, "OpenAI", return_value=fake_client):
             with patch("app.data.local_voice.LOCAL_VOICE", []):
-                answer_with_tier3("no keyword match", _intent(), db, onboarding_hints={}, now_line=now)
+                answer_with_tier3(
+                    "no keyword match", _intent(), db, onboarding_hints={}, now_line=now
+                )
     content = fake_client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
     assert "Local voice:" not in content
     assert now in content

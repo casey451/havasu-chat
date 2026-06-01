@@ -63,8 +63,12 @@ def _purge(db, *, dry_run: bool) -> tuple[int, int, int]:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Reset parks-rec catalog rows and reload from snapshots")
-    p.add_argument("--dry-run", action="store_true", help="Count rows without deleting or reloading")
+    p = argparse.ArgumentParser(
+        description="Reset parks-rec catalog rows and reload from snapshots"
+    )
+    p.add_argument(
+        "--dry-run", action="store_true", help="Count rows without deleting or reloading"
+    )
     args = p.parse_args()
 
     with SessionLocal() as db:

@@ -150,7 +150,9 @@ _CORRECT_MARKERS = (
 
 _CONTRIBUTE_MARKERS = (
     re.compile(r"^\s*(there is a|there is an)\b"),
-    re.compile(r"\bthere is a\b.+\b(happening|scheduled|this weekend|on saturday|on sunday|on friday)\b"),
+    re.compile(
+        r"\bthere is a\b.+\b(happening|scheduled|this weekend|on saturday|on sunday|on friday)\b"
+    ),
     re.compile(r"\b(just opened|grand opening)\b"),
     re.compile(r"\bnew event\b"),
     re.compile(r"\b(i want to add|want to add|need to add|going to add)\b"),
@@ -219,43 +221,95 @@ _OUT_OF_SCOPE_TRIGGERS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         "weather",
         (
-            "weather", "forecast", "temperature", "how hot", "how cold",
-            "is it hot", "is it cold", "what to wear", "humidity",
-            "rainfall", "rain", "raining", "is it going to rain", "going to rain",
+            "weather",
+            "forecast",
+            "temperature",
+            "how hot",
+            "how cold",
+            "is it hot",
+            "is it cold",
+            "what to wear",
+            "humidity",
+            "rainfall",
+            "rain",
+            "raining",
+            "is it going to rain",
+            "going to rain",
         ),
     ),
     (
         "lodging",
         (
-            "hotel", "motel", "airbnb", "where to stay", "where should i stay",
-            "place to stay", "places to stay", "where can i stay", "accommodation",
-            "accommodations", "lodging", "place to sleep", "where to sleep",
+            "hotel",
+            "motel",
+            "airbnb",
+            "where to stay",
+            "where should i stay",
+            "place to stay",
+            "places to stay",
+            "where can i stay",
+            "accommodation",
+            "accommodations",
+            "lodging",
+            "place to sleep",
+            "where to sleep",
             "somewhere to stay",
         ),
     ),
     (
         "transportation",
         (
-            "directions", "how to get to", "how to get there", "how do i get there",
-            "how far", "uber", "lyft", "taxi", "parking", "where do i park",
-            "place to park", "rent a car", "car rental", "nearest airport",
-            "closest airport", "drive to",
+            "directions",
+            "how to get to",
+            "how to get there",
+            "how do i get there",
+            "how far",
+            "uber",
+            "lyft",
+            "taxi",
+            "parking",
+            "where do i park",
+            "place to park",
+            "rent a car",
+            "car rental",
+            "nearest airport",
+            "closest airport",
+            "drive to",
         ),
     ),
 )
 
 _EVENT_INDICATOR_WORDS = (
-    "event", "events", "festival", "parade", "fireworks", "tournament", "concert",
-    "gala", "fundraiser", "tour",
+    "event",
+    "events",
+    "festival",
+    "parade",
+    "fireworks",
+    "tournament",
+    "concert",
+    "gala",
+    "fundraiser",
+    "tour",
 )
 
 _NIGHT_ACTIVITY_WORDS = (
-    "bike", "trivia", "karaoke", "comedy", "music", "movie", "paint", "open mic",
+    "bike",
+    "trivia",
+    "karaoke",
+    "comedy",
+    "music",
+    "movie",
+    "paint",
+    "open mic",
 )
 
 _COMMERCIAL_EVENT_RESCUE_PHRASES = (
-    "rental event", "booking event", "open house", "ribbon cutting",
-    "tour event", "grand opening",
+    "rental event",
+    "booking event",
+    "open house",
+    "ribbon cutting",
+    "tour event",
+    "grand opening",
 )
 
 
@@ -317,10 +371,29 @@ _LOCALITY_SUFFIX = re.compile(
 )
 _TRIM_TAIL = re.compile(r"[?\.!\s]+$")
 _EVENT_SHAPE_TOKENS = (
-    " this week", " this weekend", " tonight", " today", " tomorrow",
-    " monday", " tuesday", " wednesday", " thursday", " friday", " saturday", " sunday",
-    " happening", " event", " events", " class", " classes",
-    " program", " programs", " league", " leagues", " lesson", " lessons",
+    " this week",
+    " this weekend",
+    " tonight",
+    " today",
+    " tomorrow",
+    " monday",
+    " tuesday",
+    " wednesday",
+    " thursday",
+    " friday",
+    " saturday",
+    " sunday",
+    " happening",
+    " event",
+    " events",
+    " class",
+    " classes",
+    " program",
+    " programs",
+    " league",
+    " leagues",
+    " lesson",
+    " lessons",
 )
 
 
@@ -350,9 +423,18 @@ def try_business_listing_shortcut(query: str) -> str | None:
 # Gap-response — post-F3
 _GAP_TIER1_FACTUAL = frozenset(
     {
-        "PHONE_LOOKUP", "WEBSITE_LOOKUP", "RATING_LOOKUP", "REVIEW_COUNT_LOOKUP",
-        "TIME_LOOKUP", "OPEN_NOW", "HOURS_LOOKUP", "LOCATION_LOOKUP",
-        "DATE_LOOKUP", "AGE_LOOKUP", "COST_LOOKUP", "NEXT_OCCURRENCE",
+        "PHONE_LOOKUP",
+        "WEBSITE_LOOKUP",
+        "RATING_LOOKUP",
+        "REVIEW_COUNT_LOOKUP",
+        "TIME_LOOKUP",
+        "OPEN_NOW",
+        "HOURS_LOOKUP",
+        "LOCATION_LOOKUP",
+        "DATE_LOOKUP",
+        "AGE_LOOKUP",
+        "COST_LOOKUP",
+        "NEXT_OCCURRENCE",
     }
 )
 
@@ -372,6 +454,7 @@ _RECOMMENDATION_SHAPED = re.compile(
 # =====================================================================
 # Catalog load — real LHC providers from the data pull JSONL
 # =====================================================================
+
 
 def load_provider_names() -> list[str]:
     if not PROVIDERS_JSONL.is_file():
@@ -453,6 +536,7 @@ def _jaccard_match(query: str, names: list[str]) -> tuple[str, float] | None:
 # Routing simulation
 # =====================================================================
 
+
 def _count_correct(nq: str) -> int:
     return sum(1 for p in _CORRECT_MARKERS if p.search(nq))
 
@@ -503,9 +587,18 @@ def predict_classification(query: str) -> dict[str, Any]:
 
 _TIER1_SUB_INTENTS = frozenset(
     {
-        "TIME_LOOKUP", "HOURS_LOOKUP", "PHONE_LOOKUP", "LOCATION_LOOKUP",
-        "WEBSITE_LOOKUP", "COST_LOOKUP", "AGE_LOOKUP", "DATE_LOOKUP",
-        "NEXT_OCCURRENCE", "OPEN_NOW", "RATING_LOOKUP", "REVIEW_COUNT_LOOKUP",
+        "TIME_LOOKUP",
+        "HOURS_LOOKUP",
+        "PHONE_LOOKUP",
+        "LOCATION_LOOKUP",
+        "WEBSITE_LOOKUP",
+        "COST_LOOKUP",
+        "AGE_LOOKUP",
+        "DATE_LOOKUP",
+        "NEXT_OCCURRENCE",
+        "OPEN_NOW",
+        "RATING_LOOKUP",
+        "REVIEW_COUNT_LOOKUP",
     }
 )
 
@@ -514,7 +607,12 @@ def predict_route(query: str, provider_names: list[str]) -> dict[str, Any]:
     cls = predict_classification(query)
     mode = cls["mode"]
     sub = cls["sub_intent"]
-    out: dict[str, Any] = {**cls, "tier_used": "?", "predicted_response_shape": "", "entity_match": None}
+    out: dict[str, Any] = {
+        **cls,
+        "tier_used": "?",
+        "predicted_response_shape": "",
+        "entity_match": None,
+    }
 
     if mode == "chat":
         out["tier_used"] = "chat"
@@ -542,9 +640,7 @@ def predict_route(query: str, provider_names: list[str]) -> dict[str, Any]:
     # Tier 1 path: requires entity AND sub_intent in _TIER1_SUB_INTENTS
     if sub in _TIER1_SUB_INTENTS and em is not None:
         out["tier_used"] = "1"
-        out["predicted_response_shape"] = (
-            f"Tier 1 template for {sub}, entity={em[0]!r}"
-        )
+        out["predicted_response_shape"] = f"Tier 1 template for {sub}, entity={em[0]!r}"
         return out
 
     # Gap response check — post-F3
@@ -577,6 +673,7 @@ def predict_route(query: str, provider_names: list[str]) -> dict[str, Any]:
 # =====================================================================
 # YAML loader (inline — same as static_check.py)
 # =====================================================================
+
 
 def _load_yaml(path: Path) -> list[dict[str, Any]]:
     text = path.read_text(encoding="utf-8")
@@ -648,6 +745,7 @@ def _coerce(v: str) -> Any:
 # =====================================================================
 # Main
 # =====================================================================
+
 
 def main() -> int:
     if not QUESTIONS_PATH.is_file():

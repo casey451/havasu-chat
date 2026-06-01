@@ -3,6 +3,7 @@
 Run from repo root with OPENAI_API_KEY set. Uses the same prompt file and
 parameters as ``app.chat.hint_extractor``.
 """
+
 from __future__ import annotations
 
 import os

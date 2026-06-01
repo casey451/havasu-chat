@@ -39,6 +39,7 @@ Run commands (from a real environment that can reach the database)::
     python -m scripts.merge_existing_dups --reason website --require-identical-name --max-distance-m 500
     python -m scripts.merge_existing_dups --reason website --require-identical-name --max-distance-m 500 --apply
 """
+
 from __future__ import annotations
 
 import argparse
@@ -77,8 +78,7 @@ def _parse_reasons(raw: Optional[Sequence[str]]) -> Set[str]:
                 continue
             if token not in VALID_REASONS:
                 raise SystemExit(
-                    "Unknown --reason %r. Valid values: %s"
-                    % (token, ", ".join(VALID_REASONS))
+                    "Unknown --reason %r. Valid values: %s" % (token, ", ".join(VALID_REASONS))
                 )
             out.add(token)
     return out
@@ -117,8 +117,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "Reason(s) to target. Repeatable and/or comma-separated. "
-            "Valid: %s. Default: %s."
-            % (", ".join(VALID_REASONS), ", ".join(DEFAULT_REASONS))
+            "Valid: %s. Default: %s." % (", ".join(VALID_REASONS), ", ".join(DEFAULT_REASONS))
         ),
     )
     parser.add_argument(

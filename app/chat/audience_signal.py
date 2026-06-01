@@ -131,11 +131,7 @@ def bucket_geo_from_headers(headers: Mapping[str, str] | None) -> str:
             return "in_town"
 
     # 2) Region — nearby AZ/NV/CA, only when paired with country == US.
-    country = (
-        norm.get("cf-ipcountry")
-        or norm.get("x-vercel-ip-country")
-        or norm.get("x-country")
-    )
+    country = norm.get("cf-ipcountry") or norm.get("x-vercel-ip-country") or norm.get("x-country")
     region = (
         norm.get("cf-region-code")
         or norm.get("cf-region")

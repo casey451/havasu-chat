@@ -94,9 +94,9 @@ def build_tsquery_entity_name_only(filters: Tier2Filters) -> str | None:
 
 def entities_search_vector_match(tsquery_str: str) -> ColumnElement[bool]:
     """``entities.search_vector @@ to_tsquery('english', <tsquery_str>)`` (Postgres)."""
-    return sql_exp.text(
-        "entities.search_vector @@ to_tsquery('english', :__tier2_tsq)"
-    ).bindparams(__tier2_tsq=tsquery_str)
+    return sql_exp.text("entities.search_vector @@ to_tsquery('english', :__tier2_tsq)").bindparams(
+        __tier2_tsq=tsquery_str
+    )
 
 
 def fts_rank_cd_expr(tsquery_str: str) -> Any:
@@ -139,6 +139,4 @@ def build_entity_select_for_filters(
         if tsq:
             q = q.where(entities_search_vector_match(tsq))
         return q.limit(limit)
-    return sqlite_fallback.build_ilike_entity_select(
-        filters, entity_type=entity_type, limit=limit
-    )
+    return sqlite_fallback.build_ilike_entity_select(filters, entity_type=entity_type, limit=limit)

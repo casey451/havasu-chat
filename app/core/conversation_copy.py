@@ -1,9 +1,7 @@
 """Casual, friendly user-facing strings (Phase 7)."""
 
 # Greeting (idle sessions only)
-GREETING_REPLY = (
-    "Hey! I can help you find what's going on around town, or add an event if you're hosting — what sounds good?"
-)
+GREETING_REPLY = "Hey! I can help you find what's going on around town, or add an event if you're hosting — what sounds good?"
 
 # When intent is unclear
 UNCLEAR_REPLY = (
@@ -23,9 +21,7 @@ ADDED_LIVE = "You're all set — it's live 🎉"
 DUPLICATE_PROMPT = "Heads up — this looks a lot like {title}. Same one?"
 
 # Confirmed duplicate — merge flow
-MERGE_FOLLOWUP = (
-    "Cool — that's {title} on {date} at {time}, at {location}. Want to tack on anything that's missing?"
-)
+MERGE_FOLLOWUP = "Cool — that's {title} on {date} at {time}, at {location}. Want to tack on anything that's missing?"
 
 # Kept existing on merge decline
 MERGE_KEPT = "Got it — I left the original event as-is."
@@ -33,11 +29,11 @@ MERGE_KEPT = "Got it — I left the original event as-is."
 # After merge with updates
 MERGE_UPDATED = "Nice — I folded that into {title} for you."
 
+
 # Preview before confirm
 def preview_event_line(title: str, date_s: str, time_s: str, loc: str) -> str:
-    return (
-        f"So I've got: {title}, {date_s}, {time_s}, at {loc}. Sound right?"
-    )
+    return f"So I've got: {title}, {date_s}, {time_s}, at {loc}. Sound right?"
+
 
 # Search
 SEARCH_EMPTY = "Nothing yet! You can add one by telling me the details."
@@ -45,7 +41,9 @@ SEARCH_EMPTY = "Nothing yet! You can add one by telling me the details."
 SEARCH_INTRO_MANY = "Here's what I found:"
 
 # Missing-field fallback (should be rare)
-MISSING_FIELD_GLITCH = "Whoops — I lost track for a second. Mind starting that event again from the top?"
+MISSING_FIELD_GLITCH = (
+    "Whoops — I lost track for a second. Mind starting that event again from the top?"
+)
 
 # Generic soft recovery (exceptions)
 CHAT_SOFT_FAIL = "Something went wrong on my end, try again?"
@@ -88,9 +86,7 @@ DEAL_STUB_REPLY = (
 )
 
 # Search relevance — honest no-match (must match product copy exactly)
-NO_MATCH_HONEST = (
-    "No {label} in the system yet. If you hear of one, add it here and help others find it — just tell me the details 👋"
-)
+NO_MATCH_HONEST = "No {label} in the system yet. If you hear of one, add it here and help others find it — just tell me the details 👋"
 
 NO_MATCH_BROADEN = "Want me to show you other {category} instead?"
 
@@ -105,13 +101,11 @@ OUT_OF_SCOPE_WEATHER = (
 )
 
 OUT_OF_SCOPE_LODGING = (
-    "I track events, not places to stay. For lodging in Havasu, "
-    "check VisitArizona or Airbnb."
+    "I track events, not places to stay. For lodging in Havasu, check VisitArizona or Airbnb."
 )
 
 OUT_OF_SCOPE_TRANSPORTATION = (
-    "I track events, not transportation. Event details include a location "
-    "you can tap to map."
+    "I track events, not transportation. Event details include a location you can tap to map."
 )
 
 OUT_OF_SCOPE_DINING = (
@@ -120,9 +114,7 @@ OUT_OF_SCOPE_DINING = (
     "If you're looking for a food festival or restaurant week, let me know."
 )
 
-OUT_OF_SCOPE_COMMERCIAL = (
-    "I track events, not rentals or services. For rentals and venues, try Yelp, Google, or VisitArizona."
-)
+OUT_OF_SCOPE_COMMERCIAL = "I track events, not rentals or services. For rentals and venues, try Yelp, Google, or VisitArizona."
 
 OUT_OF_SCOPE_REPLIES: dict[str, str] = {
     "weather": OUT_OF_SCOPE_WEATHER,
@@ -140,6 +132,4 @@ PROGRAMS_NONE = (
 )
 
 # Calendar view (Session AC-2)
-CALENDAR_OPEN_REPLY = (
-    "Opening the calendar for you. Tap a highlighted day to see what's on."
-)
+CALENDAR_OPEN_REPLY = "Opening the calendar for you. Tap a highlighted day to see what's on."

@@ -61,9 +61,7 @@ MARINA_HITS = _hits_from_elements(_marina_elements())
 
 @pytest.fixture
 def mock_marina_discover(monkeypatch: pytest.MonkeyPatch) -> None:
-    def _discover(
-        self: pull.OsmOverpassClient, _query: dict[str, object]
-    ) -> list[RawHit]:
+    def _discover(self: pull.OsmOverpassClient, _query: dict[str, object]) -> list[RawHit]:
         return list(MARINA_HITS)
 
     monkeypatch.setattr(pull.OsmOverpassClient, "discover", _discover)
@@ -146,11 +144,7 @@ def test_pull_output_is_consumable_by_load(
     )
     assert pull.main() == 0
     obj = json.loads(out_path.read_text(encoding="utf-8").strip().splitlines()[0])
-    yielded = list(
-        osm_overpass_load._iter_feature_elements(
-            obj, tag="leisure", value="marina"
-        )
-    )
+    yielded = list(osm_overpass_load._iter_feature_elements(obj, tag="leisure", value="marina"))
     assert len(yielded) == 3
     for el in yielded:
         assert el["tags"].get("leisure") == "marina"

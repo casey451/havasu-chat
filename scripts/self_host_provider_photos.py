@@ -155,17 +155,14 @@ def run(*, apply: bool, max_static_mb: float) -> int:
         )
         for provider in rows:
             current_urls = provider.google_photo_urls
-            current_nonempty_urls = [
-                item.strip()
-                for item in current_urls
-                if isinstance(item, str) and item.strip()
-            ] if isinstance(current_urls, list) else []
-            if (
-                current_nonempty_urls
-                and all(
-                    _is_localized_photo_url(item, local_prefix=local_prefix)
-                    for item in current_nonempty_urls
-                )
+            current_nonempty_urls = (
+                [item.strip() for item in current_urls if isinstance(item, str) and item.strip()]
+                if isinstance(current_urls, list)
+                else []
+            )
+            if current_nonempty_urls and all(
+                _is_localized_photo_url(item, local_prefix=local_prefix)
+                for item in current_nonempty_urls
             ):
                 localized_skipped += 1
                 continue

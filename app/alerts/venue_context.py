@@ -8,9 +8,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Entity, UserFavorite
 
 
-def indoor_favorites_for_user(
-    db: Session, user_id: str, *, limit: int = 5
-) -> list[Entity]:
+def indoor_favorites_for_user(db: Session, user_id: str, *, limit: int = 5) -> list[Entity]:
     return list(
         db.scalars(
             select(Entity)
@@ -23,9 +21,7 @@ def indoor_favorites_for_user(
     )
 
 
-def land_favorites_for_user(
-    db: Session, user_id: str, *, limit: int = 5
-) -> list[Entity]:
+def land_favorites_for_user(db: Session, user_id: str, *, limit: int = 5) -> list[Entity]:
     return list(
         db.scalars(
             select(Entity)

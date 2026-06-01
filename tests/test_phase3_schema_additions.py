@@ -59,15 +59,10 @@ def test_migration_upgrade_downgrade_upgrade_cycle(
     eng2 = create_engine(url, connect_args={"check_same_thread": False})
     try:
         with eng2.connect() as conn:
-            ver = conn.execute(
-                text("SELECT version_num FROM alembic_version")
-            ).scalar_one()
+            ver = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
             assert ver == expected_head
             n = conn.execute(
-                text(
-                    "SELECT COUNT(*) FROM sqlite_master "
-                    "WHERE type='table' AND name='districts'"
-                )
+                text("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='districts'")
             ).scalar()
             assert n == 1
             cols = conn.execute(text("PRAGMA table_info(entities)")).fetchall()
@@ -368,7 +363,7 @@ def test_peer_recommendations_status_check_rejects_invalid() -> None:
         with engine.connect() as conn:
             conn.execute(
                 text(
-                    'INSERT INTO peer_recommendations '
+                    "INSERT INTO peer_recommendations "
                     '(id, recommender_user_id, entity_id, "text", status, created_at) '
                     "VALUES (:id, :uid, :eid, 'x', 'draft', :ts)"
                 ),

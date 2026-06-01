@@ -41,7 +41,7 @@ def parse(query: str) -> tuple[Optional[Tier2Filters], int | None, int | None]:
     date_context = (
         f"Today's date is {today_iso} (Lake Havasu City, Arizona; MST/UTC-7, no DST). "
         f"Use this to resolve year for ambiguous calendar queries "
-        f"(e.g. \"May 8\" without a year means the next May 8 from today's date).\n\n"
+        f'(e.g. "May 8" without a year means the next May 8 from today\'s date).\n\n'
     )
     system_prompt = date_context + system_prompt
 

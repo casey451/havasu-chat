@@ -37,16 +37,12 @@ LAKE_HAZARD_NWS_KEYWORDS: tuple[str, ...] = (
     "severe thunderstorm",
 )
 
-LAKE_HAZARD_GAUGE_DROP_FT: float = float(
-    os.environ.get("LAKE_HAZARD_GAUGE_DROP_FT", "2.0")
-)
+LAKE_HAZARD_GAUGE_DROP_FT: float = float(os.environ.get("LAKE_HAZARD_GAUGE_DROP_FT", "2.0"))
 
 LHC_NWS_ZONE_ID = os.environ.get("LHC_NWS_ZONE_ID", "AZZ002")
 USGS_LAKE_HAVASU_SITE = os.environ.get("USGS_LAKE_HAVASU_SITE", "09427500")
 USGS_PARAMETER_CODES: tuple[str, ...] = tuple(
-    c.strip()
-    for c in os.environ.get("USGS_PARAMETER_CODES", "00065,00054").split(",")
-    if c.strip()
+    c.strip() for c in os.environ.get("USGS_PARAMETER_CODES", "00065,00054").split(",") if c.strip()
 )
 
 ALERT_DEDUPE_WINDOW_HOURS: int = int(os.environ.get("ALERT_DEDUPE_WINDOW_HOURS", "6"))

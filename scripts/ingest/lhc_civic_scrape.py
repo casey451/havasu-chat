@@ -354,7 +354,8 @@ def parse_library_html(html: str) -> CivicEntityRecord:
         address="1780 McCulloch Blvd N, Lake Havasu City, AZ 86403",
         website=LIBRARY_URL,
         phone=phone or "(928) 453-0718",
-        hours_text=hours_text or "Mon–Thu 9am–7pm; Fri–Sat 9am–5pm (verify at mohavecountylibrary.us)",
+        hours_text=hours_text
+        or "Mon–Thu 9am–7pm; Fri–Sat 9am–5pm (verify at mohavecountylibrary.us)",
         description="Public library branch serving Lake Havasu City.",
         sub_category="library",
         lat=34.4834,
@@ -380,7 +381,8 @@ def parse_transit_html(html: str) -> list[CivicEntityRecord]:
             address="2240 McCulloch Blvd N, Lake Havasu City, AZ 86403",
             website=TRANSIT_URL,
             phone=phone or "(928) 453-4141",
-            hours_text=schedule_hint or "Mon–Fri service; check lhcaz.gov/transit for seasonal schedule",
+            hours_text=schedule_hint
+            or "Mon–Fri service; check lhcaz.gov/transit for seasonal schedule",
             description="City fixed-route and demand-response public transit (Havasu Hopper).",
             sub_category="transit",
             lat=34.4838,
@@ -464,7 +466,11 @@ def build_scraper_records(
     fetch_html = fetch_html or fetch_url
     out: list[CivicEntityRecord] = []
 
-    def _safe(source_key: str, url: str, parser: Callable[[str], CivicEntityRecord | list[CivicEntityRecord]]) -> None:
+    def _safe(
+        source_key: str,
+        url: str,
+        parser: Callable[[str], CivicEntityRecord | list[CivicEntityRecord]],
+    ) -> None:
         try:
             html = fetch_html(url)
             result = parser(html)

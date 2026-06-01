@@ -164,15 +164,9 @@ def test_cache_hit_reruns_postprocessor(monkeypatch, isolated_catalog):
     fake = _patched_openai(llm_voice)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     with patch.object(llm_messages, "OpenAI", return_value=fake):
-        t1, *_ = answer_with_tier3(
-            "i need a plumber", _intent(entity="Crestline Plumbing"), db
-        )
-        fake.chat.completions.create.side_effect = AssertionError(
-            "LLM must not run on cache hit"
-        )
-        t2, *_ = answer_with_tier3(
-            "i need a plumber", _intent(entity="Crestline Plumbing"), db
-        )
+        t1, *_ = answer_with_tier3("i need a plumber", _intent(entity="Crestline Plumbing"), db)
+        fake.chat.completions.create.side_effect = AssertionError("LLM must not run on cache hit")
+        t2, *_ = answer_with_tier3("i need a plumber", _intent(entity="Crestline Plumbing"), db)
 
     assert "recommend calling to confirm" in t1.lower()
     assert "recommend calling to confirm" in t2.lower()

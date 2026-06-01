@@ -27,8 +27,6 @@ from app.core.rate_limit import limiter
 from app.core.session import get_session
 from app.db.database import SessionLocal, get_db
 from app.db.models import ChatLog
-from app.v1.chat_contribute import maybe_enrich_contribute_response
-from app.v1.query_log import log_query_intent
 from app.schemas.chat import (
     ChatFeedbackRequest,
     ChatFeedbackResponse,
@@ -38,6 +36,8 @@ from app.schemas.chat import (
     ConciergeChatRequest,
     ConciergeChatResponse,
 )
+from app.v1.chat_contribute import maybe_enrich_contribute_response
+from app.v1.query_log import log_query_intent
 
 logger = logging.getLogger(__name__)
 

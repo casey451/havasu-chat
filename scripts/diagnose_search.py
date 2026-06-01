@@ -3,6 +3,7 @@ Diagnostic script: fire ~25 realistic queries at the live Havasu Chat app,
 summarise results, flag anomalies, and cross-reference search_debug.log.
 Output saved to scripts/output/diagnose_output.txt.
 """
+
 from __future__ import annotations
 
 import json
@@ -77,7 +78,11 @@ def run() -> None:
     lines: list[str] = []
 
     def out(s: str = "") -> None:
-        print(s.encode(sys.stdout.encoding, errors="replace").decode(sys.stdout.encoding, errors="replace"))
+        print(
+            s.encode(sys.stdout.encoding, errors="replace").decode(
+                sys.stdout.encoding, errors="replace"
+            )
+        )
         lines.append(s)
 
     out("=" * 70)
@@ -97,13 +102,15 @@ def run() -> None:
         count = data.get("data", {}).get("count", "?")
         first = first_line(response_text)
         top_responses[first] += 1
-        results.append({
-            "query": query,
-            "intent": intent,
-            "count": count,
-            "first_line": first,
-            "full_response": response_text,
-        })
+        results.append(
+            {
+                "query": query,
+                "intent": intent,
+                "count": count,
+                "first_line": first,
+                "full_response": response_text,
+            }
+        )
         status = "OK"
         if "ERROR" in intent:
             status = "ERR"
@@ -128,7 +135,11 @@ def run() -> None:
             out()
 
     # No results
-    no_result = [r for r in results if r["count"] == 0 or "Nothing" in r["first_line"] or "No " in r["first_line"][:6]]
+    no_result = [
+        r
+        for r in results
+        if r["count"] == 0 or "Nothing" in r["first_line"] or "No " in r["first_line"][:6]
+    ]
     if no_result:
         out("-- ZERO-RESULT queries (may be correct or may need synonym help):")
         for r in no_result:

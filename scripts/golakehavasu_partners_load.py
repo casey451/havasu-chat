@@ -232,16 +232,12 @@ def _contact_match(session: Any, payload: EntityPayload) -> str | None:
         return None
     google_ids = {
         loc.entity_id
-        for loc in session.query(Location)
-        .filter(Location.google_place_id.isnot(None))
-        .all()
+        for loc in session.query(Location).filter(Location.google_place_id.isnot(None)).all()
     }
     if not google_ids:
         return None
     matches: set[str] = set()
-    for prov in (
-        session.query(_Provider).filter(_Provider.entity_id.in_(google_ids)).all()
-    ):
+    for prov in session.query(_Provider).filter(_Provider.entity_id.in_(google_ids)).all():
         if not prov.entity_id:
             continue
         if web and _norm_web(prov.website) == web:
@@ -362,9 +358,7 @@ def ingest_partners(
                 idempotent-update branch instead. Mirrors the pre-loop snapshot
                 keys exactly (name slug + normalized website).
                 """
-                cvb_by_name.setdefault(
-                    slugify(prov.provider_name or ""), []
-                ).append(prov)
+                cvb_by_name.setdefault(slugify(prov.provider_name or ""), []).append(prov)
                 w = _norm_web(prov.website)
                 if w:
                     cvb_by_web.setdefault(w, prov)
@@ -389,9 +383,7 @@ def ingest_partners(
                     # CVB owns these rows: re-bucket category in place on re-run
                     # when a confident per-listing mapping exists.
                     if payload.category_slug:
-                        canonical.category = (
-                            payload.legacy_category or "uncategorized"
-                        )
+                        canonical.category = payload.legacy_category or "uncategorized"
                         canonical.category_id = row_cat_id
                     sync_provider_entity_from_legacy(session, canonical)
                     for other in cvb_matches:
@@ -518,9 +510,7 @@ def reconcile_pending(
             counts["scanned"] += 1
             payload = _provider_to_payload(prov)
             contact_id = _contact_match(session, payload)
-            match_id = contact_id or _fuzzy_geo_match(
-                session, payload, threshold=fuzzy_threshold
-            )
+            match_id = contact_id or _fuzzy_geo_match(session, payload, threshold=fuzzy_threshold)
             if match_id is None:
                 counts["left_pending"] += 1
                 continue

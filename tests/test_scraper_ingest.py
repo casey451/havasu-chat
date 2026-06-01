@@ -37,8 +37,8 @@ def _payload(name, **kw):
 def test_normalize_strips_and_blanks_to_none():
     p = _payload("  Joe's   Bar  ", website="  ", phone="", address=" 1 Main St ")
     n = normalize_payload(p)
-    assert n.name == "Joe's Bar"          # collapsed internal whitespace
-    assert n.website is None               # "" / whitespace -> None
+    assert n.name == "Joe's Bar"  # collapsed internal whitespace
+    assert n.website is None  # "" / whitespace -> None
     assert n.phone is None
     assert n.address == "1 Main St"
 

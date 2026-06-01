@@ -199,9 +199,7 @@ def test_supporter_impression_event_fired_per_supporter(db: Session) -> None:
 # 4. /sponsor/click spotlight emits home.spotlight.click ----------------------
 
 
-def test_sponsor_click_emits_spotlight_click_event(
-    client: TestClient, db: Session
-) -> None:
+def test_sponsor_click_emits_spotlight_click_event(client: TestClient, db: Session) -> None:
     sp = _add_sponsor(db, name="click-me", slot=AdSlot.SPOTLIGHT.value, weight=8)
     r = client.get(
         "/sponsor/click",
@@ -220,9 +218,7 @@ def test_sponsor_click_emits_spotlight_click_event(
     assert generic_clicks[0].sponsor_id == sp.id
 
 
-def test_sponsor_click_non_spotlight_skips_spotlight_event(
-    client: TestClient, db: Session
-) -> None:
+def test_sponsor_click_non_spotlight_skips_spotlight_event(client: TestClient, db: Session) -> None:
     """A marquee click should NOT emit home.spotlight.click — only the generic event."""
     sp = _add_sponsor(db, name="marq", slot=AdSlot.MARQUEE.value, weight=2)
     r = client.get(
@@ -290,9 +286,7 @@ def test_single_card_open_fires_with_provider_id(db: Session) -> None:
 # 7. end-to-end ranking_score == Sponsor.weight ------------------------------
 
 
-def test_ranking_score_in_payload_matches_sponsor_weight(
-    client: TestClient, db: Session
-) -> None:
+def test_ranking_score_in_payload_matches_sponsor_weight(client: TestClient, db: Session) -> None:
     """Defends against a refactor that drops the row.weight read at the source."""
     sp = _add_sponsor(db, name="rank-check", slot=AdSlot.SPOTLIGHT.value, weight=42)
     # Impression path

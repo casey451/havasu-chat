@@ -35,9 +35,7 @@ from app.schemas.program import ProgramCreate
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-_CLAIM_TEMPLATES = Jinja2Templates(
-    directory=str(Path(__file__).resolve().parents[1] / "templates")
-)
+_CLAIM_TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parents[1] / "templates"))
 register_template_filters(_CLAIM_TEMPLATES)
 register_template_globals(_CLAIM_TEMPLATES)
 
@@ -113,11 +111,15 @@ def _query_top_user_messages(db: Session, *, days: int, limit: int) -> list[tupl
     return out
 
 
-def _query_zero_result_user_messages(db: Session, *, days: int, limit: int) -> list[tuple[str, int]]:
+def _query_zero_result_user_messages(
+    db: Session, *, days: int, limit: int
+) -> list[tuple[str, int]]:
     """Pairs prior user message with assistant reply using LAG (same session, ordered by time)."""
     cutoff = _analytics_cutoff(days)
     lag_role = (
-        func.lag(ChatLog.role).over(partition_by=ChatLog.session_id, order_by=ChatLog.created_at).label("prev_role")
+        func.lag(ChatLog.role)
+        .over(partition_by=ChatLog.session_id, order_by=ChatLog.created_at)
+        .label("prev_role")
     )
     lag_msg = (
         func.lag(ChatLog.message)
@@ -125,16 +127,14 @@ def _query_zero_result_user_messages(db: Session, *, days: int, limit: int) -> l
         .label("prev_msg")
     )
     # LAG must see full session history so the row before each assistant reply is correct.
-    subq = (
-        select(
-            ChatLog.role,
-            ChatLog.message,
-            ChatLog.intent,
-            ChatLog.created_at,
-            lag_role,
-            lag_msg,
-        ).subquery("clw")
-    )
+    subq = select(
+        ChatLog.role,
+        ChatLog.message,
+        ChatLog.intent,
+        ChatLog.created_at,
+        lag_role,
+        lag_msg,
+    ).subquery("clw")
     prev_msg = subq.c.prev_msg
     qkey = func.lower(func.trim(prev_msg)).label("qk")
     cnt = func.count().label("cnt")
@@ -198,7 +198,11 @@ def _query_daily_active_sessions(db: Session, *, days: int) -> list[tuple[date |
 
 def _query_event_funnel_30d(db: Session) -> dict[str, int]:
     cutoff = _analytics_cutoff(30)
-    stmt = select(Event.status, func.count().label("n")).where(Event.created_at >= cutoff).group_by(Event.status)
+    stmt = (
+        select(Event.status, func.count().label("n"))
+        .where(Event.created_at >= cutoff)
+        .group_by(Event.status)
+    )
     rows = db.execute(stmt).all()
     by_status = {str(status or ""): int(n) for status, n in rows}
     return {
@@ -219,7 +223,7 @@ def _bar_chars(count: int, max_count: int, width: int = 32) -> str:
 def _table_rows_html(rows: list[tuple[str, ...]], headers: tuple[str, ...]) -> str:
     th = "".join(f"<th>{html.escape(h)}</th>" for h in headers)
     if not rows:
-        return f"<thead><tr>{th}</tr></thead><tbody><tr><td colspan=\"{len(headers)}\">No data yet</td></tr></tbody>"
+        return f'<thead><tr>{th}</tr></thead><tbody><tr><td colspan="{len(headers)}">No data yet</td></tr></tbody>'
     body = ""
     for tup in rows:
         body += "<tr>" + "".join(f"<td>{html.escape(str(c))}</td>" for c in tup) + "</tr>"
@@ -259,7 +263,7 @@ def _analytics_page_html(db: Session) -> str:
     ]
 
     finding = (
-        "<p class=\"note\"><strong>Note on zero-result queries:</strong> <code>chat_logs</code> stores "
+        '<p class="note"><strong>Note on zero-result queries:</strong> <code>chat_logs</code> stores '
         "<code>session_id</code>, <code>message</code>, <code>role</code>, <code>intent</code>, and "
         "<code>created_at</code> only — there is no stored event count. This section pairs each assistant "
         "reply with the immediately preceding user message in the same session (SQL <code>LAG</code>) and "
@@ -441,11 +445,7 @@ def _sort_controls_html(tab: str, current_sort: str) -> str:
 
 
 def _login_html(error: bool = False) -> str:
-    err = (
-        '<p class="err">That password does not match. Try again.</p>'
-        if error
-        else ""
-    )
+    err = '<p class="err">That password does not match. Try again.</p>' if error else ""
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -484,10 +484,15 @@ def _login_html(error: bool = False) -> str:
 
 def _dashboard_html_simple(pending: list[Event], live: list[Event], tab: str, sort: str) -> str:
     if tab == "live":
-        body_inner = "\n".join(_card_html(e, "live") for e in live) or '<p class="empty">No live events.</p>'
+        body_inner = (
+            "\n".join(_card_html(e, "live") for e in live) or '<p class="empty">No live events.</p>'
+        )
         title = "Live events"
     else:
-        body_inner = "\n".join(_card_html(e, "pending") for e in pending) or '<p class="empty">No events pending review.</p>'
+        body_inner = (
+            "\n".join(_card_html(e, "pending") for e in pending)
+            or '<p class="empty">No events pending review.</p>'
+        )
         title = "Pending review"
 
     sort_bar = _sort_controls_html(tab, sort)
@@ -559,10 +564,10 @@ def _dashboard_html_simple(pending: list[Event], live: list[Event], tab: str, so
     <p class="sub">{title}</p>
   </header>
   <nav class="tabs">
-    <a class="{('active' if tab == 'queue' else '')}" href="/admin?tab=queue">Queue</a>
-    <a class="{('active' if tab == 'pending' else '')}" href="{pending_href}">Pending events</a>
-    <a class="{('active' if tab == 'live' else '')}" href="{live_href}">Live events</a>
-    <a class="{('active' if tab == 'programs' else '')}" href="/admin?tab=programs">Programs</a>
+    <a class="{("active" if tab == "queue" else "")}" href="/admin?tab=queue">Queue</a>
+    <a class="{("active" if tab == "pending" else "")}" href="{pending_href}">Pending events</a>
+    <a class="{("active" if tab == "live" else "")}" href="{live_href}">Live events</a>
+    <a class="{("active" if tab == "programs" else "")}" href="/admin?tab=programs">Programs</a>
     <a href="/admin/analytics">Analytics</a>
     <a href="/admin/feedback">Feedback</a>
   </nav>
@@ -611,7 +616,11 @@ def _card_html(ev: Event, mode: Literal["pending", "live"]) -> str:
         badges_cell += f'<div style="margin-top:6px">{preview}</div>'
     badges_cell += "</div>"
 
-    top_row = f'<div class="card-top">{tags_block}{badges_cell}</div>' if tags_block else f'<div class="card-top"><div></div>{badges_cell}</div>'
+    top_row = (
+        f'<div class="card-top">{tags_block}{badges_cell}</div>'
+        if tags_block
+        else f'<div class="card-top"><div></div>{badges_cell}</div>'
+    )
 
     meta_row = _card_metadata_row(ev, mode)
 
@@ -675,9 +684,7 @@ def admin_dashboard(
 
     if tab == "programs":
         programs = (
-            db.query(Program)
-            .order_by(desc(Program.is_active), desc(Program.updated_at))
-            .all()
+            db.query(Program).order_by(desc(Program.is_active), desc(Program.updated_at)).all()
         )
         return HTMLResponse(_programs_tab_html(programs))
 
@@ -694,9 +701,7 @@ def admin_dashboard(
             .order_by(asc(Program.created_at))
             .all()
         )
-        return HTMLResponse(
-            _queue_tab_html(db, pending_events, pending_programs)
-        )
+        return HTMLResponse(_queue_tab_html(db, pending_events, pending_programs))
 
     sort_eff = _effective_sort(tab, sort)
 
@@ -720,7 +725,9 @@ def admin_dashboard(
 
 
 @router.get("/analytics", response_class=HTMLResponse, response_model=None)
-def admin_analytics(request: Request, db: Session = Depends(get_db)) -> HTMLResponse | RedirectResponse:
+def admin_analytics(
+    request: Request, db: Session = Depends(get_db)
+) -> HTMLResponse | RedirectResponse:
     redir = _guard(request)
     if redir:
         return redir
@@ -955,16 +962,14 @@ def _program_card_admin_html(p: Program) -> str:
         <button type="submit" class="btn ok">Activate</button>
       </form>"""
 
-    edit_btn = (
-        f'<a class="btn-link" href="/admin/programs/{_escape(p.id)}/edit">Edit</a>'
-    )
+    edit_btn = f'<a class="btn-link" href="/admin/programs/{_escape(p.id)}/edit">Edit</a>'
 
     tag_pills = _program_tag_pills(p)
     desc = (p.description or "").strip()
 
     top_badges = (
         f'<div class="card-badges">{_program_status_badge(p)} '
-        f'{_source_verified_badge(p.source, bool(p.verified))}</div>'
+        f"{_source_verified_badge(p.source, bool(p.verified))}</div>"
     )
     top_row = f'<div class="card-top">{tag_pills or "<div></div>"}{top_badges}</div>'
 
@@ -1112,14 +1117,10 @@ def _program_form_html(
             # Slice 56 (Backlog #30 close): canonical schedule columns are
             # typed Time; format for HTML form display.
             "schedule_start_time": (
-                program.schedule_start_time.strftime("%H:%M")
-                if program.schedule_start_time
-                else ""
+                program.schedule_start_time.strftime("%H:%M") if program.schedule_start_time else ""
             ),
             "schedule_end_time": (
-                program.schedule_end_time.strftime("%H:%M")
-                if program.schedule_end_time
-                else ""
+                program.schedule_end_time.strftime("%H:%M") if program.schedule_end_time else ""
             ),
             "location_name": program.location_name or "",
             "location_address": program.location_address or "",
@@ -1164,7 +1165,7 @@ def _program_form_html(
     }
     day_boxes = "".join(
         f'<label><input type="checkbox" name="schedule_days" value="{d}"'
-        f'{" checked" if d in selected_days else ""}/> {d.capitalize()}</label>'
+        f"{' checked' if d in selected_days else ''}/> {d.capitalize()}</label>"
         for d in _PROGRAM_DAYS
     )
 
@@ -1325,9 +1326,7 @@ def admin_program_new(request: Request) -> HTMLResponse | RedirectResponse:
     redir = _guard(request)
     if redir:
         return redir
-    return HTMLResponse(
-        _program_form_html(action="/admin/programs", submit_label="Create program")
-    )
+    return HTMLResponse(_program_form_html(action="/admin/programs", submit_label="Create program"))
 
 
 @router.post("/programs", response_model=None)
@@ -1899,9 +1898,7 @@ def _queue_program_item_html(p: Program, db: Session) -> str:
         f"Every {days} • {_escape(_hhmm_or_empty(p.schedule_start_time))}"
         f"–{_escape(_hhmm_or_empty(p.schedule_end_time))}"
     )
-    link_bits = [
-        _escape(x) for x in (p.contact_url, p.contact_email, p.contact_phone) if x
-    ]
+    link_bits = [_escape(x) for x in (p.contact_url, p.contact_email, p.contact_phone) if x]
     contact_line = " · ".join(link_bits) if link_bits else "—"
     return f"""
     <article class="queue-card" data-approve-url="/admin/programs/{_escape(p.id)}/activate" data-deny-url="/admin/programs/{_escape(p.id)}/deactivate">
@@ -1928,17 +1925,13 @@ def _queue_program_item_html(p: Program, db: Session) -> str:
     </article>"""
 
 
-def _queue_tab_html(
-    db: Session, events: list[Event], programs: list[Program]
-) -> str:
+def _queue_tab_html(db: Session, events: list[Event], programs: list[Program]) -> str:
     total = len(events) + len(programs)
     if total == 0:
         body_inner = '<p class="empty">Nothing waiting for review. You\'re caught up.</p>'
     else:
         event_cards = "\n".join(_queue_event_item_html(ev, db) for ev in events)
-        program_cards = "\n".join(
-            _queue_program_item_html(p, db) for p in programs
-        )
+        program_cards = "\n".join(_queue_program_item_html(p, db) for p in programs)
         sections: list[str] = []
         if events:
             sections.append(

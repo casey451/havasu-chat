@@ -120,7 +120,4 @@ def test_curated_category_photo_still_overrides_raw_ref(
     )
     curated = {"curated-slug-xyz": "https://curated.example/hero.jpg"}
     with patch.object(cat_queries, "_load_category_photos", return_value=curated):
-        assert (
-            cat_queries._resolve_category_card_image(p)
-            == "https://curated.example/hero.jpg"
-        )
+        assert cat_queries._resolve_category_card_image(p) == "https://curated.example/hero.jpg"

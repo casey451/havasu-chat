@@ -116,14 +116,11 @@ def test_tier2_handler_populates_telemetry_on_parser_cache_hit(
 
     telemetry: dict = {}
     try:
-        tier2_handler.try_tier2_with_usage(
-            "b3 tier2 telemetry test", telemetry=telemetry
-        )
+        tier2_handler.try_tier2_with_usage("b3 tier2 telemetry test", telemetry=telemetry)
     except TypeError:
-        pytest.skip(
-            "try_tier2_with_usage does not yet accept telemetry kwarg; verify §2c wiring"
-        )
+        pytest.skip("try_tier2_with_usage does not yet accept telemetry kwarg; verify §2c wiring")
 
-    assert telemetry.get("tier2_parser_cache") == "hit_exact" or telemetry.get(
-        "cache_status"
-    ) in {"hit_exact", "miss"}, f"telemetry not populated: {telemetry}"
+    assert telemetry.get("tier2_parser_cache") == "hit_exact" or telemetry.get("cache_status") in {
+        "hit_exact",
+        "miss",
+    }, f"telemetry not populated: {telemetry}"

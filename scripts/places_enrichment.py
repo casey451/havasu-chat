@@ -47,9 +47,7 @@ from app.contrib.google_places_scraper import GooglePlacesClient
 
 ensure_dotenv_loaded()
 
-DEFAULT_INPUT_PATH = (
-    Path(__file__).parent / "output" / "places_pull" / "discovery_unique.jsonl"
-)
+DEFAULT_INPUT_PATH = Path(__file__).parent / "output" / "places_pull" / "discovery_unique.jsonl"
 DEFAULT_OUTPUT_DIR = Path(__file__).parent / "output" / "places_pull"
 
 
@@ -81,8 +79,7 @@ def main() -> int:
     if args.limit is not None:
         n_places = min(n_places, args.limit)
     print(
-        f"[enrichment] enriching up to {n_places} place(s) "
-        f"output_dir={args.output_dir}",
+        f"[enrichment] enriching up to {n_places} place(s) output_dir={args.output_dir}",
         flush=True,
     )
 

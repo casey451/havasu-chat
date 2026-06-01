@@ -111,7 +111,9 @@ def _summarize_response(response: str | None, max_chars: int = 240) -> str:
     return one
 
 
-def _build_judge_sample(q: dict[str, Any], observed_tier: str, response_text: str) -> dict[str, Any]:
+def _build_judge_sample(
+    q: dict[str, Any], observed_tier: str, response_text: str
+) -> dict[str, Any]:
     """Shape the per-question payload the judge prompt expects (per voice_audit.txt §13)."""
     tags: list[str] = []
     shape = str(q.get("intent_shape") or "")
@@ -279,7 +281,10 @@ def _run(args: argparse.Namespace) -> int:
             jf.flush()
 
             verdict_glyph = {"PASS": ".", "MINOR": "m", "FAIL": "F", "ERROR": "E"}.get(verdict, "?")
-            print(f"[{idx:3d}/{len(questions)}] {qid:<28s} tier={tier:<5s} {verdict_glyph} {summary[:60]}", flush=True)
+            print(
+                f"[{idx:3d}/{len(questions)}] {qid:<28s} tier={tier:<5s} {verdict_glyph} {summary[:60]}",
+                flush=True,
+            )
 
     finished = datetime.utcnow().isoformat() + "Z"
 
@@ -329,7 +334,9 @@ def _run(args: argparse.Namespace) -> int:
             lines.append(f"### {r['id']} — {r['intent_shape']}")
             lines.append("")
             lines.append(f"- **query:** `{r['query']}`")
-            lines.append(f"- **observed tier:** {r['observed_tier']} (expected {r['expected_tier']})")
+            lines.append(
+                f"- **observed tier:** {r['observed_tier']} (expected {r['expected_tier']})"
+            )
             cited = ", ".join(r["voice_rules_cited"]) if r["voice_rules_cited"] else "(none)"
             lines.append(f"- **rules cited:** {cited}")
             lines.append(f"- **response:** {r['response']}")
@@ -399,9 +406,7 @@ def _run(args: argparse.Namespace) -> int:
     print()
     print(f"Wrote {report_md.relative_to(REPO_ROOT)}")
     print(f"Wrote {report_jsonl.relative_to(REPO_ROOT)}")
-    print(
-        f"Total: {total}  PASS: {pass_n}  MINOR: {minor_n}  FAIL: {fail_n}  ERROR: {error_n}"
-    )
+    print(f"Total: {total}  PASS: {pass_n}  MINOR: {minor_n}  FAIL: {fail_n}  ERROR: {error_n}")
     print(f"Judge spend (approx): ${judge_total_cost:.4f}")
     return 0
 

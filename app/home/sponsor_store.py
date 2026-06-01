@@ -105,9 +105,7 @@ def _bump_impressions(db: Session, ids: list[str]) -> None:
     if not ids:
         return
     db.execute(
-        update(Sponsor)
-        .where(Sponsor.id.in_(ids))
-        .values(impressions=Sponsor.impressions + 1)
+        update(Sponsor).where(Sponsor.id.in_(ids)).values(impressions=Sponsor.impressions + 1)
     )
     db.commit()
 

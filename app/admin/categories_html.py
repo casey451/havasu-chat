@@ -60,7 +60,9 @@ def _nav_shell(title: str, inner: str) -> str:
 
 def register_categories_html_routes(router: APIRouter) -> None:
     @router.get("/categories", response_class=HTMLResponse, response_model=None)
-    def categories_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse | RedirectResponse:
+    def categories_page(
+        request: Request, db: Session = Depends(get_db)
+    ) -> HTMLResponse | RedirectResponse:
         redir = _guard(request)
         if redir:
             return redir
@@ -91,10 +93,7 @@ def register_categories_html_routes(router: APIRouter) -> None:
         def table(rows: list, col: str) -> str:
             if not rows:
                 return '<p class="empty">No data in this section yet.</p>'
-            body = "".join(
-                f"<tr><td>{_esc(str(a))}</td><td>{int(b)}</td></tr>"
-                for a, b in rows
-            )
+            body = "".join(f"<tr><td>{_esc(str(a))}</td><td>{int(b)}</td></tr>" for a, b in rows)
             return (
                 f"<table><thead><tr><th>{_esc(col)}</th><th>Count</th></tr></thead>"
                 f"<tbody>{body}</tbody></table>"

@@ -93,8 +93,8 @@ class RenderDecision:
     tone_allowlist_passed: Optional[bool] = None
 
 
-_render_decision_ctx: contextvars.ContextVar[Optional[RenderDecision]] = (
-    contextvars.ContextVar("disclosure_render_decision", default=None)
+_render_decision_ctx: contextvars.ContextVar[Optional[RenderDecision]] = contextvars.ContextVar(
+    "disclosure_render_decision", default=None
 )
 
 
@@ -494,8 +494,6 @@ def render_with_decision(
         )
     else:
         record_decision(
-            _failure_render_decision(
-                regime, candidate_sponsors, query_context=query_context
-            )
+            _failure_render_decision(regime, candidate_sponsors, query_context=query_context)
         )
     return block

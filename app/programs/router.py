@@ -117,7 +117,7 @@ def _submit_form_html(
     }
     day_boxes = "".join(
         f'<label class="day-opt"><input type="checkbox" name="schedule_days" value="{d}"'
-        f'{" checked" if d in selected_days else ""}/> {d.capitalize()}</label>'
+        f"{' checked' if d in selected_days else ''}/> {d.capitalize()}</label>"
         for d in _PROGRAM_DAYS_ORDER
     )
     err_html = f'<p class="err">{html.escape(error)}</p>' if error else ""

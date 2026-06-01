@@ -226,9 +226,7 @@ class ChatRouteIntegrationTests(unittest.TestCase):
         provider_id: str | None = None
         try:
             with SessionLocal() as db:
-                provider_id = _insert_google_provider(
-                    db, provider_name=canonical, phone=phone
-                )
+                provider_id = _insert_google_provider(db, provider_name=canonical, phone=phone)
             # Bust the matcher's module-level _rows cache so the next chat call
             # triggers refresh_entity_matcher(db) and includes the just-seeded
             # canonical. Mirrors the cleanup-side reset in `finally:` below —
@@ -295,9 +293,7 @@ def _insert_provider_full(
     their own ad-hoc rows).
     """
     last_verified_at = (
-        now_lake_havasu() - timedelta(days=age_days)
-        if age_days is not None
-        else None
+        now_lake_havasu() - timedelta(days=age_days) if age_days is not None else None
     )
     p = Provider(
         provider_name=provider_name,
@@ -400,9 +396,7 @@ class ChatRouteIntegrationLLMCoupledTests(unittest.TestCase):
                 "Tier 2 listing shortcut must not call OpenAI"
             )
             with (
-                patch.dict(
-                    os.environ, {"OPENAI_API_KEY": "test-key"}, clear=False
-                ),
+                patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}, clear=False),
                 patch.object(llm_messages, "OpenAI", return_value=no_llm),
                 TestClient(app) as client,
             ):
@@ -452,9 +446,7 @@ class ChatRouteIntegrationLLMCoupledTests(unittest.TestCase):
         llm_voice = "Try the boardwalk after sunset, it's quiet then."
         fake = patched_openai_client(llm_voice)
         with (
-            patch.dict(
-                os.environ, {"OPENAI_API_KEY": "test-key"}, clear=False
-            ),
+            patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}, clear=False),
             patch.object(llm_messages, "OpenAI", return_value=fake),
             TestClient(app) as client,
         ):
@@ -477,8 +469,7 @@ class ChatRouteIntegrationLLMCoupledTests(unittest.TestCase):
         self.assertIn(
             llm_voice,
             data["response"],
-            f"mocked LLM voice must reach the response body; "
-            f"got response={data['response']!r}",
+            f"mocked LLM voice must reach the response body; got response={data['response']!r}",
         )
         # Prove the patched LLM was actually called -- if production fell
         # back to the FALLBACK_MESSAGE path due to a missing API key,
@@ -652,9 +643,7 @@ class ChatRouteIntegrationLLMCoupledTests(unittest.TestCase):
             llm_voice = "All Seasons Plumbing in Lake Havasu has solid reviews."
             fake = patched_openai_client(llm_voice)
             with (
-                patch.dict(
-                    os.environ, {"OPENAI_API_KEY": "test-key"}, clear=False
-                ),
+                patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}, clear=False),
                 patch.object(llm_messages, "OpenAI", return_value=fake),
                 TestClient(app) as client,
             ):
@@ -823,9 +812,7 @@ def _insert_google_provider_with_entity(
         provider_name=provider_name,
         category=category,
         source="google_places",
-        google_place_id=(
-            f"test_place_{provider_name.lower().replace(' ', '_')}_{uuid4().hex[:6]}"
-        ),
+        google_place_id=(f"test_place_{provider_name.lower().replace(' ', '_')}_{uuid4().hex[:6]}"),
         phone=phone,
         entity_id=eid,
         is_active=True,

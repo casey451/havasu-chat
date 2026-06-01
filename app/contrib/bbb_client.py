@@ -34,28 +34,28 @@ CITY_PATH_VARIANTS: Final[tuple[str, ...]] = (
     "/us/az/lake-havasu-city/",
     "/us/az/lk-havasu-cty/",
 )
-PROFILE_ID_RE: Final[re.Pattern[str]] = re.compile(
-    r"/profile/[^/]+/[^/]+-1126-(\d+)(?:/|$)", re.I
-)
+PROFILE_ID_RE: Final[re.Pattern[str]] = re.compile(r"/profile/[^/]+/[^/]+-1126-(\d+)(?:/|$)", re.I)
 CATEGORY_SLUG_RE: Final[re.Pattern[str]] = re.compile(r"/category/([^/]+)/?", re.I)
 
 # Shopping-essentials–aligned BBB category slugs (subset walk when set).
-SHOPPING_ESSENTIALS_CATEGORY_SLUGS: Final[frozenset[str]] = frozenset({
-    "convenience-store",
-    "department-stores",
-    "discount-stores",
-    "drug-stores-and-pharmacies",
-    "electronics-and-technology",
-    "furniture-stores",
-    "gift-shop",
-    "grocery-store",
-    "hardware-store",
-    "home-improvement-stores",
-    "jewelry-stores",
-    "office-supplies",
-    "sporting-goods",
-    "variety-stores",
-})
+SHOPPING_ESSENTIALS_CATEGORY_SLUGS: Final[frozenset[str]] = frozenset(
+    {
+        "convenience-store",
+        "department-stores",
+        "discount-stores",
+        "drug-stores-and-pharmacies",
+        "electronics-and-technology",
+        "furniture-stores",
+        "gift-shop",
+        "grocery-store",
+        "hardware-store",
+        "home-improvement-stores",
+        "jewelry-stores",
+        "office-supplies",
+        "sporting-goods",
+        "variety-stores",
+    }
+)
 
 
 def _browser_headers(*, referer: str | None = None) -> dict[str, str]:
@@ -188,9 +188,9 @@ def fetch_bbb_businesses(
 ) -> list[dict[str, Any]]:
     """Return accredited BBB businesses for Lake Havasu City.
 
-    Walks ``/category/<slug>/accredited`` pages. Slugs blocked by Cloudflare /
-    HTTP 403 are skipped; returns partial rows when some slugs succeed, or
-  ``[]`` when every slug blocks (functional-but-inert path).
+      Walks ``/category/<slug>/accredited`` pages. Slugs blocked by Cloudflare /
+      HTTP 403 are skipped; returns partial rows when some slugs succeed, or
+    ``[]`` when every slug blocks (functional-but-inert path).
     """
     all_slugs = category_slugs or fetch_bbb_category_slugs(client)
     if category_slugs is None:
@@ -214,10 +214,7 @@ def fetch_bbb_businesses(
             blocked += 1
             consecutive_blocked += 1
             time.sleep(polite_delay_s)
-            if (
-                not rows
-                and consecutive_blocked >= max_blocked_without_rows
-            ):
+            if not rows and consecutive_blocked >= max_blocked_without_rows:
                 logger.info(
                     "bbb_client.early_abort_all_blocked",
                     extra={"blocked_slugs": blocked, "slugs_walked": blocked},
@@ -233,10 +230,7 @@ def fetch_bbb_businesses(
             blocked += 1
             consecutive_blocked += 1
             time.sleep(polite_delay_s)
-            if (
-                not rows
-                and consecutive_blocked >= max_blocked_without_rows
-            ):
+            if not rows and consecutive_blocked >= max_blocked_without_rows:
                 logger.info(
                     "bbb_client.early_abort_all_blocked",
                     extra={"blocked_slugs": blocked, "slugs_walked": blocked},

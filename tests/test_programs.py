@@ -197,15 +197,15 @@ class ProgramSubmitFlowTests(unittest.TestCase):
         self.assertIn('name="schedule_days"', body)
 
     def test_submit_program_creates_parent_source_inactive(self) -> None:
-        r = self.__class__.client.post(
-            "/programs/submit", data=self._minimal_submit_form()
-        )
+        r = self.__class__.client.post("/programs/submit", data=self._minimal_submit_form())
         self.assertEqual(r.status_code, 200, msg=r.text[:300])
         self.assertIn("We got it", r.text)
         with SessionLocal() as db:
-            rows = db.query(Program).filter(
-                Program.title == "Parent Submitted Basketball Clinic"
-            ).all()
+            rows = (
+                db.query(Program)
+                .filter(Program.title == "Parent Submitted Basketball Clinic")
+                .all()
+            )
         self.assertEqual(len(rows), 1)
         row = rows[0]
         self.assertEqual(row.source, "parent")
@@ -222,9 +222,7 @@ class ProgramSubmitFlowTests(unittest.TestCase):
         r = self.__class__.client.post("/programs/submit", data=data)
         self.assertEqual(r.status_code, 200, msg=r.text[:300])
         with SessionLocal() as db:
-            row = db.query(Program).filter(
-                Program.title == "Attempted Self-Declared Admin"
-            ).one()
+            row = db.query(Program).filter(Program.title == "Attempted Self-Declared Admin").one()
         self.assertEqual(row.source, "parent")
         self.assertFalse(row.is_active)
         self.assertFalse(row.verified)

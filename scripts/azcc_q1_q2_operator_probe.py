@@ -74,8 +74,10 @@ def _print_q2_report(cookies: list[dict], set_cookie_headers: list[str]) -> None
         print("  (no cookies captured)")
     else:
         cols = ("name", "domain", "path", "httpOnly", "secure", "sameSite", "expires")
-        widths = {c: max(len(c), max((len(str(ck.get(c, ""))) for ck in cookies), default=0))
-                  for c in cols}
+        widths = {
+            c: max(len(c), max((len(str(ck.get(c, ""))) for ck in cookies), default=0))
+            for c in cols
+        }
         header = "  ".join(c.ljust(widths[c]) for c in cols)
         print("  " + header)
         print("  " + "-" * len(header))
@@ -147,11 +149,13 @@ def main() -> int:
         help=f"Comma-separated minute marks for TTL re-probes (default: {DEFAULT_INTERVALS_MIN})",
     )
     ap.add_argument(
-        "--search-url", default=DEFAULT_SEARCH_URL,
+        "--search-url",
+        default=DEFAULT_SEARCH_URL,
         help="AZCC public business search URL",
     )
     ap.add_argument(
-        "--out-dir", default="outputs",
+        "--out-dir",
+        default="outputs",
         help="Directory for the JSON report (default: outputs/)",
     )
     args = ap.parse_args()
@@ -159,7 +163,10 @@ def main() -> int:
     try:
         intervals_min = sorted({int(x.strip()) for x in args.intervals.split(",") if x.strip()})
     except ValueError:
-        print(f"--intervals must be comma-separated integers, got: {args.intervals!r}", file=sys.stderr)
+        print(
+            f"--intervals must be comma-separated integers, got: {args.intervals!r}",
+            file=sys.stderr,
+        )
         return 2
     if not intervals_min:
         print("--intervals produced an empty list; nothing to probe.", file=sys.stderr)
@@ -169,8 +176,10 @@ def main() -> int:
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        print("playwright is not installed in this env. `pip install playwright && playwright install chromium`.",
-              file=sys.stderr)
+        print(
+            "playwright is not installed in this env. `pip install playwright && playwright install chromium`.",
+            file=sys.stderr,
+        )
         return 2
 
     out_dir = Path(args.out_dir)
@@ -286,9 +295,11 @@ def main() -> int:
                         "result": probe_result,
                     }
                     report["q1_probes"].append(entry)
-                    print(f"T+{minute_mark} min (actual +{elapsed_real_s}s): "
-                          f"{classification} -- status={probe_result.get('status')}, "
-                          f"bodyLength={probe_result.get('bodyLength')}")
+                    print(
+                        f"T+{minute_mark} min (actual +{elapsed_real_s}s): "
+                        f"{classification} -- status={probe_result.get('status')}, "
+                        f"bodyLength={probe_result.get('bodyLength')}"
+                    )
                     # Flush after each probe so a long-running probe survives interruptions
                     out_path.write_text(json.dumps(report, indent=2))
 

@@ -105,12 +105,18 @@ def test_backfill_skips_non_river_scene_pending(approve_pending_mod) -> None:
     with SessionLocal() as db:
         rs = (
             db.query(Contribution)
-            .filter(Contribution.submission_name.like(f"%{u}%"), Contribution.source == "river_scene_import")
+            .filter(
+                Contribution.submission_name.like(f"%{u}%"),
+                Contribution.source == "river_scene_import",
+            )
             .one()
         )
         us = (
             db.query(Contribution)
-            .filter(Contribution.submission_name.like(f"%{u}%"), Contribution.source == "user_submission")
+            .filter(
+                Contribution.submission_name.like(f"%{u}%"),
+                Contribution.source == "user_submission",
+            )
             .one()
         )
         assert rs.status == "approved" and rs.created_event_id is not None
@@ -205,11 +211,7 @@ def test_backfill_passes_contribution_event_end_date_to_event(approve_pending_mo
         )
     mod.run_backfill()
     with SessionLocal() as db:
-        c = (
-            db.query(Contribution)
-            .filter(Contribution.submission_name == f"EndDate Row {u}")
-            .one()
-        )
+        c = db.query(Contribution).filter(Contribution.submission_name == f"EndDate Row {u}").one()
         assert c.status == "approved" and c.created_event_id
         ev = db.get(Event, c.created_event_id)
         assert ev is not None

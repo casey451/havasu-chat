@@ -11,7 +11,6 @@ from datetime import datetime, timedelta
 
 from fastapi.testclient import TestClient
 
-from app.chat.disclosure_render import DISCLOSURE_WORD
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
 from app.db.database import SessionLocal
 from app.db.models import Provider
@@ -160,7 +159,10 @@ def test_view_model_hero_pin_wins_over_google_photo() -> None:
     with SessionLocal() as db:
         p = _make_provider(
             attributes={"hero_pin_photo_url": pinned},
-            google_photo_refs=["https://example.com/google-1.jpg", "https://example.com/google-2.jpg"],
+            google_photo_refs=[
+                "https://example.com/google-1.jpg",
+                "https://example.com/google-2.jpg",
+            ],
         )
         db.add(p)
         db.commit()

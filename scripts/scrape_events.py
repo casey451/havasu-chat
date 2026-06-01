@@ -49,9 +49,7 @@ def _persist_payload(
     dry_run: bool,
 ) -> str:
     """Returns action label: created | merged | skipped_duplicate | auto_approved."""
-    venue_id = payload.venue_entity_id or resolve_venue_entity_id(
-        db, payload.venue_name
-    )
+    venue_id = payload.venue_entity_id or resolve_venue_entity_id(db, payload.venue_name)
     if not payload.start_date or not payload.start_time:
         return "skipped_incomplete"
     dup = find_duplicate(
@@ -88,9 +86,7 @@ def _persist_payload(
             event_url=str(contrib_body.submission_url or payload.event_url or ""),
             source_url=contrib_body.source_url,
         )
-        approve_contribution_as_event(
-            db, created.id, fields, list(payload.tags or [])
-        )
+        approve_contribution_as_event(db, created.id, fields, list(payload.tags or []))
         return "auto_approved"
     return "queued"
 

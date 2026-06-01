@@ -23,7 +23,12 @@ def test_tier2filters_coerces_open_now_null() -> None:
 
 def test_tier2filters_open_now_true_from_json() -> None:
     f = Tier2Filters.model_validate(
-        {"parser_confidence": 0.82, "category": "restaurant", "open_now": True, "fallback_to_tier3": False}
+        {
+            "parser_confidence": 0.82,
+            "category": "restaurant",
+            "open_now": True,
+            "fallback_to_tier3": False,
+        }
     )
     assert f.open_now is True
     assert f.category == "restaurant"
@@ -55,7 +60,9 @@ def db() -> Session:
         s.close()
 
 
-def test_open_now_filters_providers_by_structured_hours(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_open_now_filters_providers_by_structured_hours(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(
         tier2_db_query,
         "_now_lake_havasu",

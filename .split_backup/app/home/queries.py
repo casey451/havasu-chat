@@ -25,30 +25,30 @@ from app.db.models import Event, Program, Provider
 # ─────────── category labels & queries ───────────
 
 CATEGORY_LABELS: dict[str, str] = {
-    "health_medical":        "Health & medical",
-    "food_drink":            "Food & drink",
-    "home_services":         "Home services",
-    "retail":                "Shops",
-    "lake_recreation":       "On the water",
+    "health_medical": "Health & medical",
+    "food_drink": "Food & drink",
+    "home_services": "Home services",
+    "retail": "Shops",
+    "lake_recreation": "On the water",
     "professional_services": "Professional",
-    "beauty_personal_care":  "Beauty & care",
-    "auto":                  "Auto",
-    "religion_community":    "Community",
-    "fitness_sports":        "Fitness & sport",
+    "beauty_personal_care": "Beauty & care",
+    "auto": "Auto",
+    "religion_community": "Community",
+    "fitness_sports": "Fitness & sport",
 }
 
 CATEGORY_QUERIES: dict[str, str] = {
     # what the chip submits to /chat — Hava-voiced, not slug-shaped
-    "health_medical":        "find a doctor or clinic",
-    "food_drink":            "where should I eat",
-    "home_services":         "find a home pro",
-    "retail":                "shops in Havasu",
-    "lake_recreation":       "what's on the water today",
+    "health_medical": "find a doctor or clinic",
+    "food_drink": "where should I eat",
+    "home_services": "find a home pro",
+    "retail": "shops in Havasu",
+    "lake_recreation": "what's on the water today",
     "professional_services": "find a pro",
-    "beauty_personal_care":  "salons and barbers",
-    "auto":                  "auto repair in Havasu",
-    "religion_community":    "community and worship",
-    "fitness_sports":        "gyms and classes",
+    "beauty_personal_care": "salons and barbers",
+    "auto": "auto repair in Havasu",
+    "religion_community": "community and worship",
+    "fitness_sports": "gyms and classes",
 }
 
 # ─────────── helpers ───────────
@@ -185,11 +185,7 @@ def tonight(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
     q = db.query(Event).filter(Event.date == today, Event.status == "live")
     if now.hour >= _TONIGHT_HOUR_THRESHOLD:
         q = q.filter(Event.start_time >= _time(_TONIGHT_HOUR_THRESHOLD, 0))
-    rows: list[Event] = (
-        q.order_by(Event.featured.desc(), Event.start_time.asc())
-        .limit(limit)
-        .all()
-    )
+    rows: list[Event] = q.order_by(Event.featured.desc(), Event.start_time.asc()).limit(limit).all()
     out: list[dict[str, Any]] = []
     for i, ev in enumerate(rows):
         when = _format_time(ev.start_time)

@@ -22,7 +22,7 @@ from app.bootstrap_env import ensure_dotenv_loaded
 
 ensure_dotenv_loaded()
 
-from app.contrib.gas_prices import run_pull
+from app.contrib.gas_prices import run_pull  # noqa: E402
 
 
 def main() -> int:

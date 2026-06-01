@@ -282,10 +282,16 @@ def extract_search_label(message: str, slots: dict[str, Any]) -> str:
     if "golf" in lowered and "lesson" in lowered:
         return "golf lessons"
 
-    if "yoga" in lowered and ("this weekend" in lowered or "weekend" in lowered or _is_weekend_date_range(dr)):
+    if "yoga" in lowered and (
+        "this weekend" in lowered or "weekend" in lowered or _is_weekend_date_range(dr)
+    ):
         return "yoga events coming up"
 
-    if "activities" in lowered and ("kid" in lowered or "child" in lowered) and _is_weekend_date_range(dr):
+    if (
+        "activities" in lowered
+        and ("kid" in lowered or "child" in lowered)
+        and _is_weekend_date_range(dr)
+    ):
         return "kids activities this weekend"
 
     af = slots.get("activity_family")

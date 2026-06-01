@@ -118,9 +118,21 @@ _CLASSIFY_FIXTURES: list[tuple[str, str, str]] = [
         "contribute",
         "NEW_BUSINESS",
     ),
-    ("New business: corner of Jamaica and Swanson, suite 3, phone 928-555-9999.", "contribute", "NEW_BUSINESS"),
-    ("Just opened — hours weekdays 9-5, address 200 Lake Havasu Ave.", "contribute", "NEW_BUSINESS"),
-    ("Put in a new shop with storefront on London Bridge Rd, phone on file 928-555-4141.", "contribute", "NEW_BUSINESS"),
+    (
+        "New business: corner of Jamaica and Swanson, suite 3, phone 928-555-9999.",
+        "contribute",
+        "NEW_BUSINESS",
+    ),
+    (
+        "Just opened — hours weekdays 9-5, address 200 Lake Havasu Ave.",
+        "contribute",
+        "NEW_BUSINESS",
+    ),
+    (
+        "Put in a new shop with storefront on London Bridge Rd, phone on file 928-555-4141.",
+        "contribute",
+        "NEW_BUSINESS",
+    ),
     # --- contribute: NEW_PROGRAM (5) ---
     (
         "Adding weekly gymnastics classes for ages 6 to 12 with enrollment on Mondays.",
@@ -137,8 +149,16 @@ _CLASSIFY_FIXTURES: list[tuple[str, str, str]] = [
         "contribute",
         "NEW_EVENT",
     ),
-    ("Adding karate instruction — program runs year-round, age group 8-14.", "contribute", "NEW_PROGRAM"),
-    ("New youth program with weekly sessions and enrollment forms at the desk.", "contribute", "NEW_PROGRAM"),
+    (
+        "Adding karate instruction — program runs year-round, age group 8-14.",
+        "contribute",
+        "NEW_PROGRAM",
+    ),
+    (
+        "New youth program with weekly sessions and enrollment forms at the desk.",
+        "contribute",
+        "NEW_PROGRAM",
+    ),
     # --- correct: CORRECTION (10) ---
     ("That is wrong — the phone changed.", "correct", "CORRECTION"),
     ("Actually it's on Kiowa now, not McCulloch.", "correct", "CORRECTION"),

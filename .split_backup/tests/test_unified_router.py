@@ -132,7 +132,9 @@ def test_correct_acknowledgment(db: Session) -> None:
     r = route("That is wrong — the phone changed.", "sess-cr", db)
     assert r.mode == "correct"
     assert r.sub_intent == "CORRECTION"
-    assert r.response == "Got it — flagging that for admin review."  # Updated 2026-05-08 to match tier1_templates.py:227
+    assert (
+        r.response == "Got it — flagging that for admin review."
+    )  # Updated 2026-05-08 to match tier1_templates.py:227
 
 
 def test_chat_greeting_one_of_variants(db: Session) -> None:
@@ -316,7 +318,9 @@ def test_normalize_failure_returns_graceful(db: Session) -> None:
 
 
 def test_record_entity_failure_still_returns_answer(db: Session) -> None:
-    with patch("app.chat.unified_router.record_entity", side_effect=RuntimeError("record_entity boom")):
+    with patch(
+        "app.chat.unified_router.record_entity", side_effect=RuntimeError("record_entity boom")
+    ):
         with patch("app.chat.unified_router.try_tier1", return_value=None):
             with patch(
                 "app.chat.unified_router.try_tier2_with_usage",

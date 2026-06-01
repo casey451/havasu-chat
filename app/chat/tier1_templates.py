@@ -76,9 +76,15 @@ INTENT_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
             r"call them|call for|reach (?:them|out)|reach|number)\b"
         ),
     ),
-    ("AGE_LOOKUP", re.compile(r"\b(age groups?|age range|age requirements?|ages?|how old|youngest age)\b")),
+    (
+        "AGE_LOOKUP",
+        re.compile(r"\b(age groups?|age range|age requirements?|ages?|how old|youngest age)\b"),
+    ),
     ("COST_LOOKUP", re.compile(r"\b(how much|cost|costs|pricing|price|fees?)\b")),
-    ("TIME_LOOKUP", re.compile(r"\b(what time|start time|opening time|closing time|open time|close time)\b")),
+    (
+        "TIME_LOOKUP",
+        re.compile(r"\b(what time|start time|opening time|closing time|open time|close time)\b"),
+    ),
     (
         "HOURS_LOOKUP",
         re.compile(

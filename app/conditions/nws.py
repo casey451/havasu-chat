@@ -78,9 +78,11 @@ def fetch_nws_current() -> dict[str, Any]:
         raise RuntimeError("NWS station id missing")
     latest = _get(f"{station_url}/observations/latest")
     props = latest.get("properties") or {}
-    temp_c = props.get("temperature", {}).get("value") if isinstance(
-        props.get("temperature"), dict
-    ) else None
+    temp_c = (
+        props.get("temperature", {}).get("value")
+        if isinstance(props.get("temperature"), dict)
+        else None
+    )
     temp_f: float | None = None
     if temp_c is not None:
         temp_f = float(temp_c) * 9.0 / 5.0 + 32.0

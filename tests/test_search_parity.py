@@ -45,9 +45,7 @@ def test_build_tsquery_entity_name_only_none_for_whitespace() -> None:
 def test_sqlite_memory_session_entity_select_runs() -> None:
     eng = create_engine("sqlite:///:memory:")
     with Session(eng) as session:
-        stmt = search_fts.build_entity_select_for_filters(
-            session, _f(entity_name="x"), limit=3
-        )
+        stmt = search_fts.build_entity_select_for_filters(session, _f(entity_name="x"), limit=3)
         session.execute(select(1))
         _ = stmt
 

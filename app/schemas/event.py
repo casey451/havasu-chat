@@ -71,7 +71,9 @@ class EventBase(BaseModel):
             return v
         if "." in v:
             return v
-        raise ValueError("That link should start with http(s):// or look like a website (include a dot).")
+        raise ValueError(
+            "That link should start with http(s):// or look like a website (include a dot)."
+        )
 
     @field_validator("title")
     @classmethod

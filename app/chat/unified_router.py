@@ -82,9 +82,7 @@ _OUT_OF_SCOPE_REPLY = (
 )
 
 
-_GAP_TAIL = (
-    "Add it at /contribute or share the name and a link (Google Business page or official site) — either works."
-)
+_GAP_TAIL = "Add it at /contribute or share the name and a link (Google Business page or official site) — either works."
 
 # Slice F3: extend the gap-template path to every Tier 1 factual sub_intent so a
 # missing-entity factual lookup gets a structured zero-token reply instead of falling
@@ -149,6 +147,7 @@ def _about_gate_query_eligible(raw: str) -> bool:
         return not bool(_ACTIVITY_OR_LISTING_SKIP_RE.search(raw))
     return False
 
+
 # Queries that LOOK like Tier 1 factual lookups but are actually recommendation /
 # listing shapes — gap response would be misleading ("I don't have that place"). These
 # need to fall through to Tier 2/3.
@@ -168,9 +167,7 @@ _RECOMMENDATION_SHAPED = re.compile(
 )
 
 
-def _catalog_gap_response(
-    intent_result: IntentResult, db: Session | None = None
-) -> str | None:
+def _catalog_gap_response(intent_result: IntentResult, db: Session | None = None) -> str | None:
     """Tier 1-shaped fact lookup with no catalog entity — template only, no Tier 3.
 
     Slice F3 extends this from the original three intents (DATE/LOCATION/HOURS) to all
@@ -182,10 +179,7 @@ def _catalog_gap_response(
     sub = intent_result.sub_intent
     raw = intent_result.raw_query or ""
     if re.search(r"\bwait(?:\s+time)?\b", raw, re.I):
-        return (
-            "I don't have live wait-time data in the catalog yet. "
-            f"{_GAP_TAIL}"
-        )
+        return f"I don't have live wait-time data in the catalog yet. {_GAP_TAIL}"
     if sub not in _GAP_TIER1_FACTUAL:
         return None
     if (intent_result.entity or "").strip():
@@ -653,7 +647,9 @@ def _handle_chat(
         return _OUT_OF_SCOPE_REPLY
 
     if sub == "SMALL_TALK":
-        if any(t in nq for t in ("thanks", "thank you", "thx", "appreciate it", "much appreciated")):
+        if any(
+            t in nq for t in ("thanks", "thank you", "thx", "appreciate it", "much appreciated")
+        ):
             return "anytime."
         if "how are you" in nq:
             return "Pretty good, thanks."
@@ -708,11 +704,7 @@ def _enrich_entity_from_db(
     if hit:
         name, _score = hit
         return replace(intent_result, entity=name)
-    if (
-        session is not None
-        and current_turn is not None
-        and _pronoun_referent_query(query)
-    ):
+    if session is not None and current_turn is not None and _pronoun_referent_query(query):
         pe = _prior_entity_fresh(session, current_turn)
         if pe and isinstance(pe.get("name"), str):
             nm = pe["name"].strip()
@@ -821,9 +813,7 @@ def route(
         nq_safe = normalize(q_raw)
     except Exception:
         logging.exception("unified_router: normalize failed")
-        return _finish(
-            _GRACEFUL, "ask", None, None, "placeholder", cache_status="na"
-        )
+        return _finish(_GRACEFUL, "ask", None, None, "placeholder", cache_status="na")
 
     raw_sid = (session_id or "").strip()
     session_obj: dict | None = None
@@ -841,9 +831,7 @@ def route(
         intent_result = classify(nq_safe)
     except Exception:
         logging.exception("unified_router: classify failed")
-        return _finish(
-            _GRACEFUL, "ask", None, None, "placeholder", cache_status="na"
-        )
+        return _finish(_GRACEFUL, "ask", None, None, "placeholder", cache_status="na")
 
     try:
         extracted = extract_hints(q_raw)
@@ -986,9 +974,9 @@ def route(
                     telemetry=route_telemetry,
                 )
             if router_meta:
-                response_mode = (router_meta.get("mode") or response_mode)
-                response_sub_intent = (router_meta.get("sub_intent") or response_sub_intent)
-                response_entity = (router_meta.get("entity") or response_entity)
+                response_mode = router_meta.get("mode") or response_mode
+                response_sub_intent = router_meta.get("sub_intent") or response_sub_intent
+                response_entity = router_meta.get("entity") or response_entity
         elif intent_result.mode == "contribute":
             route_telemetry["cache_status"] = "na"
             tier_used = "intake"

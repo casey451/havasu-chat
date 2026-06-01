@@ -80,13 +80,15 @@ def main() -> int:
             print(f"FAIL  {qid}: ERROR {e}", file=sys.stderr)
             continue
         passed, failures = evaluate(spec, response)
-        results.append({
-            "id": qid,
-            "passed": passed,
-            "tier_used": response.get("tier_used"),
-            "latency_ms": latency_ms,
-            "failures": failures,
-        })
+        results.append(
+            {
+                "id": qid,
+                "passed": passed,
+                "tier_used": response.get("tier_used"),
+                "latency_ms": latency_ms,
+                "failures": failures,
+            }
+        )
         if passed:
             print(f"PASS  {qid} tier={response.get('tier_used')} latency={latency_ms}ms")
         else:

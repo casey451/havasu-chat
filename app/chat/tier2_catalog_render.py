@@ -56,7 +56,9 @@ def _format_date_span(start: date, end: date) -> str:
         return f"{_format_short_mdy(start)}–{_format_short_mdy(end)}"
     if start.month == end.month:
         return f"{calendar.month_name[start.month]} {start.day}–{end.day}, {start.year}"
-    return f"{_format_calendar_date(start)}–{calendar.month_name[end.month]} {end.day}, {start.year}"
+    return (
+        f"{_format_calendar_date(start)}–{calendar.month_name[end.month]} {end.day}, {start.year}"
+    )
 
 
 def _parse_hhmm(s: Any) -> tuple[int, int] | None:

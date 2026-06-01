@@ -143,12 +143,18 @@ def _format_opening_hours(blob: Any) -> str:
 
 
 def _distinct_provider_categories(db: Session) -> list[str]:
-    rows = db.execute(select(Provider.category).distinct().order_by(Provider.category)).scalars().all()
+    rows = (
+        db.execute(select(Provider.category).distinct().order_by(Provider.category)).scalars().all()
+    )
     return [str(r) for r in rows if r]
 
 
 def _distinct_program_activity_categories(db: Session) -> list[str]:
-    rows = db.execute(select(Program.activity_category).distinct().order_by(Program.activity_category)).scalars().all()
+    rows = (
+        db.execute(select(Program.activity_category).distinct().order_by(Program.activity_category))
+        .scalars()
+        .all()
+    )
     return [str(r) for r in rows if r]
 
 
@@ -263,7 +269,9 @@ def register_contribution_html_routes(router: APIRouter) -> None:
         filter_status: str | None = None if st_key == "all" else st_key
         et = (entity_type or "").strip() or None
         src = (source or "").strip() or None
-        rows = list_contributions(db, status=filter_status, entity_type=et, source=src, limit=limit, offset=offset)
+        rows = list_contributions(
+            db, status=filter_status, entity_type=et, source=src, limit=limit, offset=offset
+        )
         total = count_contributions(db, status=filter_status, entity_type=et, source=src)
         flash_html = ""
         if flash:
@@ -294,9 +302,7 @@ def register_contribution_html_routes(router: APIRouter) -> None:
                 "<table><thead><tr>"
                 "<th>Submitted</th><th>Type</th><th>Name</th><th>Status</th>"
                 "<th>Source</th><th>URL fetch</th><th>Places</th>"
-                "</tr></thead><tbody>"
-                + "".join(trs)
-                + "</tbody></table>"
+                "</tr></thead><tbody>" + "".join(trs) + "</tbody></table>"
             )
         q_base: dict[str, str] = {}
         if st_key != "pending":
@@ -309,26 +315,26 @@ def register_contribution_html_routes(router: APIRouter) -> None:
 <form method="get" class="section" style="background:#fff">
   <label>Status</label>
   <select name="status">
-    <option value="pending" {"selected" if st_key=="pending" else ""}>pending</option>
-    <option value="approved" {"selected" if st_key=="approved" else ""}>approved</option>
-    <option value="rejected" {"selected" if st_key=="rejected" else ""}>rejected</option>
-    <option value="needs_info" {"selected" if st_key=="needs_info" else ""}>needs_info</option>
-    <option value="all" {"selected" if st_key=="all" else ""}>all</option>
+    <option value="pending" {"selected" if st_key == "pending" else ""}>pending</option>
+    <option value="approved" {"selected" if st_key == "approved" else ""}>approved</option>
+    <option value="rejected" {"selected" if st_key == "rejected" else ""}>rejected</option>
+    <option value="needs_info" {"selected" if st_key == "needs_info" else ""}>needs_info</option>
+    <option value="all" {"selected" if st_key == "all" else ""}>all</option>
   </select>
   <label>Entity type</label>
   <select name="entity_type">
     <option value="">any</option>
-    <option value="provider" {"selected" if et=="provider" else ""}>provider</option>
-    <option value="program" {"selected" if et=="program" else ""}>program</option>
-    <option value="event" {"selected" if et=="event" else ""}>event</option>
-    <option value="tip" {"selected" if et=="tip" else ""}>tip</option>
+    <option value="provider" {"selected" if et == "provider" else ""}>provider</option>
+    <option value="program" {"selected" if et == "program" else ""}>program</option>
+    <option value="event" {"selected" if et == "event" else ""}>event</option>
+    <option value="tip" {"selected" if et == "tip" else ""}>tip</option>
   </select>
   <label>Source</label>
   <select name="source">
     <option value="">any</option>
-    <option value="user_submission" {"selected" if src=="user_submission" else ""}>user_submission</option>
-    <option value="llm_inferred" {"selected" if src=="llm_inferred" else ""}>llm_inferred</option>
-    <option value="operator_backfill" {"selected" if src=="operator_backfill" else ""}>operator_backfill</option>
+    <option value="user_submission" {"selected" if src == "user_submission" else ""}>user_submission</option>
+    <option value="llm_inferred" {"selected" if src == "llm_inferred" else ""}>llm_inferred</option>
+    <option value="operator_backfill" {"selected" if src == "operator_backfill" else ""}>operator_backfill</option>
   </select>
   <label>Limit</label>
   <input type="text" name="limit" value="{limit}" inputmode="numeric" pattern="[0-9]+" />
@@ -342,9 +348,15 @@ def register_contribution_html_routes(router: APIRouter) -> None:
             next_off = offset + limit if offset + limit < total else offset
             q_prev = {**q_base, "limit": str(limit), "offset": str(prev_off)}
             q_next = {**q_base, "limit": str(limit), "offset": str(next_off)}
-            prev_link = f'<a href="/admin/contributions?{urlencode(q_prev)}">Previous</a>' if offset > 0 else "Previous"
+            prev_link = (
+                f'<a href="/admin/contributions?{urlencode(q_prev)}">Previous</a>'
+                if offset > 0
+                else "Previous"
+            )
             next_link = (
-                f'<a href="/admin/contributions?{urlencode(q_next)}">Next</a>' if offset + limit < total else "Next"
+                f'<a href="/admin/contributions?{urlencode(q_next)}">Next</a>'
+                if offset + limit < total
+                else "Next"
             )
             pages = f'<p class="pagination">{prev_link} · showing {offset + 1}–{min(offset + limit, total)} of {total} · {next_link}</p>'
         inner = f"""{flash_html}
@@ -355,8 +367,12 @@ def register_contribution_html_routes(router: APIRouter) -> None:
 {pages}"""
         return HTMLResponse(_nav_shell("Contributions", inner))
 
-    @router.get("/contributions/{contribution_id}", response_class=HTMLResponse, response_model=None)
-    def contribution_detail(request: Request, contribution_id: int, db: Session = Depends(get_db)) -> HTMLResponse | RedirectResponse:
+    @router.get(
+        "/contributions/{contribution_id}", response_class=HTMLResponse, response_model=None
+    )
+    def contribution_detail(
+        request: Request, contribution_id: int, db: Session = Depends(get_db)
+    ) -> HTMLResponse | RedirectResponse:
         redir = _guard(request)
         if redir:
             return redir
@@ -370,39 +386,59 @@ def register_contribution_html_routes(router: APIRouter) -> None:
                 f'<div class="kv"><span class="k">URL fetch</span> {_esc(c.url_fetch_status or "—")}</div>'
             )
             if c.url_title:
-                enrich_bits.append(f'<div class="kv"><span class="k">URL title</span> {_esc(c.url_title)}</div>')
+                enrich_bits.append(
+                    f'<div class="kv"><span class="k">URL title</span> {_esc(c.url_title)}</div>'
+                )
             if c.url_description:
                 enrich_bits.append(
                     f'<div class="kv"><span class="k">URL description</span> {_esc(c.url_description[:500])}</div>'
                 )
             if c.url_fetched_at:
-                enrich_bits.append(f'<div class="kv"><span class="k">Fetched at</span> {_esc(str(c.url_fetched_at))}</div>')
+                enrich_bits.append(
+                    f'<div class="kv"><span class="k">Fetched at</span> {_esc(str(c.url_fetched_at))}</div>'
+                )
         if ged:
-            enrich_bits.append(f'<div class="kv"><span class="k">Places status</span> {_esc(_places_status(c))}</div>')
+            enrich_bits.append(
+                f'<div class="kv"><span class="k">Places status</span> {_esc(_places_status(c))}</div>'
+            )
             if ged.get("place_id"):
-                enrich_bits.append(f'<div class="kv"><span class="k">place_id</span> {_esc(str(ged.get("place_id")))}</div>')
+                enrich_bits.append(
+                    f'<div class="kv"><span class="k">place_id</span> {_esc(str(ged.get("place_id")))}</div>'
+                )
             if ged.get("display_name"):
-                enrich_bits.append(f'<div class="kv"><span class="k">display_name</span> {_esc(str(ged.get("display_name")))}</div>')
+                enrich_bits.append(
+                    f'<div class="kv"><span class="k">display_name</span> {_esc(str(ged.get("display_name")))}</div>'
+                )
             if ged.get("formatted_address"):
                 enrich_bits.append(
                     f'<div class="kv"><span class="k">formatted_address</span> {_esc(str(ged.get("formatted_address")))}</div>'
                 )
             if ged.get("phone"):
-                enrich_bits.append(f'<div class="kv"><span class="k">phone</span> {_esc(str(ged.get("phone")))}</div>')
+                enrich_bits.append(
+                    f'<div class="kv"><span class="k">phone</span> {_esc(str(ged.get("phone")))}</div>'
+                )
             if ged.get("website_uri"):
-                enrich_bits.append(f'<div class="kv"><span class="k">website</span> {_esc(str(ged.get("website_uri")))}</div>')
+                enrich_bits.append(
+                    f'<div class="kv"><span class="k">website</span> {_esc(str(ged.get("website_uri")))}</div>'
+                )
             if ged.get("business_status"):
                 enrich_bits.append(
                     f'<div class="kv"><span class="k">business_status</span> {_esc(str(ged.get("business_status")))}</div>'
                 )
             if ged.get("types"):
-                enrich_bits.append(f'<div class="kv"><span class="k">types</span> {_esc(str(ged.get("types")))}</div>')
+                enrich_bits.append(
+                    f'<div class="kv"><span class="k">types</span> {_esc(str(ged.get("types")))}</div>'
+                )
             roh = ged.get("regular_opening_hours")
             hrs = _format_opening_hours(roh)
             if hrs:
-                enrich_bits.append(f'<div class="kv"><span class="k">Hours</span><pre class="hours">{_esc(hrs)}</pre></div>')
+                enrich_bits.append(
+                    f'<div class="kv"><span class="k">Hours</span><pre class="hours">{_esc(hrs)}</pre></div>'
+                )
             if ged.get("error"):
-                enrich_bits.append(f'<div class="kv"><span class="k">Places error</span> {_esc(str(ged.get("error")))}</div>')
+                enrich_bits.append(
+                    f'<div class="kv"><span class="k">Places error</span> {_esc(str(ged.get("error")))}</div>'
+                )
         enrich_section = ""
         if enrich_bits:
             enrich_section = f'<div class="section"><h2>Enrichment</h2>{"".join(enrich_bits)}</div>'
@@ -437,9 +473,7 @@ def register_contribution_html_routes(router: APIRouter) -> None:
                     "use Needs Info to flag for later processing</button>"
                 )
             else:
-                approve_btn = (
-                    f'<a class="btn btn-primary" href="/admin/contributions/{c.id}/approve">Approve</a>'
-                )
+                approve_btn = f'<a class="btn btn-primary" href="/admin/contributions/{c.id}/approve">Approve</a>'
             actions = f"""<div class="section"><h2>Actions</h2>
 <div class="actions">
   {approve_btn}
@@ -471,8 +505,12 @@ def register_contribution_html_routes(router: APIRouter) -> None:
         opts = "".join(f'<option value="{_esc(v)}"/>' for v in _merged_category_suggestions(db))
         return f'<datalist id="{_esc(list_id)}">{opts}</datalist>'
 
-    @router.get("/contributions/{contribution_id}/approve", response_class=HTMLResponse, response_model=None)
-    def approve_get(request: Request, contribution_id: int, db: Session = Depends(get_db)) -> HTMLResponse | RedirectResponse:
+    @router.get(
+        "/contributions/{contribution_id}/approve", response_class=HTMLResponse, response_model=None
+    )
+    def approve_get(
+        request: Request, contribution_id: int, db: Session = Depends(get_db)
+    ) -> HTMLResponse | RedirectResponse:
         redir = _guard(request)
         if redir:
             return redir
@@ -579,7 +617,9 @@ def register_contribution_html_routes(router: APIRouter) -> None:
 {err_html}{inner_body}"""
         return HTMLResponse(_nav_shell("Approve", inner))
 
-    @router.post("/contributions/{contribution_id}/approve", response_class=HTMLResponse, response_model=None)
+    @router.post(
+        "/contributions/{contribution_id}/approve", response_class=HTMLResponse, response_model=None
+    )
     def approve_post(
         request: Request,
         contribution_id: int,
@@ -646,6 +686,7 @@ def register_contribution_html_routes(router: APIRouter) -> None:
                 p = approve_contribution_as_provider(db, contribution_id, pf, category or "")
                 msg = f"Approved: {p.provider_name} is now in the catalog."
             elif c.entity_type == "program":
+
                 def _opt_int(x: str | None) -> int | None:
                     if x is None or not str(x).strip():
                         return None
@@ -703,8 +744,12 @@ def register_contribution_html_routes(router: APIRouter) -> None:
         q = urlencode({"flash": msg, "kind": "ok"})
         return RedirectResponse(url=f"/admin/contributions?{q}", status_code=303)
 
-    @router.get("/contributions/{contribution_id}/reject", response_class=HTMLResponse, response_model=None)
-    def reject_get(request: Request, contribution_id: int, db: Session = Depends(get_db)) -> HTMLResponse | RedirectResponse:
+    @router.get(
+        "/contributions/{contribution_id}/reject", response_class=HTMLResponse, response_model=None
+    )
+    def reject_get(
+        request: Request, contribution_id: int, db: Session = Depends(get_db)
+    ) -> HTMLResponse | RedirectResponse:
         redir = _guard(request)
         if redir:
             return redir
@@ -713,7 +758,10 @@ def register_contribution_html_routes(router: APIRouter) -> None:
             raise HTTPException(status_code=404, detail="Not found")
         if c.status != "pending":
             return HTMLResponse(
-                _nav_shell("Reject", f'<p>Not pending.</p><p><a href="/admin/contributions/{c.id}">Back</a></p>'),
+                _nav_shell(
+                    "Reject",
+                    f'<p>Not pending.</p><p><a href="/admin/contributions/{c.id}">Back</a></p>',
+                ),
                 status_code=400,
             )
         opts = "".join(
@@ -733,7 +781,9 @@ def register_contribution_html_routes(router: APIRouter) -> None:
 </form>"""
         return HTMLResponse(_nav_shell("Reject", inner))
 
-    @router.post("/contributions/{contribution_id}/reject", response_class=HTMLResponse, response_model=None)
+    @router.post(
+        "/contributions/{contribution_id}/reject", response_class=HTMLResponse, response_model=None
+    )
     def reject_post(
         request: Request,
         contribution_id: int,
@@ -764,8 +814,14 @@ def register_contribution_html_routes(router: APIRouter) -> None:
         msg = quote("Contribution rejected.")
         return RedirectResponse(url=f"/admin/contributions?flash={msg}&kind=ok", status_code=303)
 
-    @router.get("/contributions/{contribution_id}/needs-info", response_class=HTMLResponse, response_model=None)
-    def needs_get(request: Request, contribution_id: int, db: Session = Depends(get_db)) -> HTMLResponse | RedirectResponse:
+    @router.get(
+        "/contributions/{contribution_id}/needs-info",
+        response_class=HTMLResponse,
+        response_model=None,
+    )
+    def needs_get(
+        request: Request, contribution_id: int, db: Session = Depends(get_db)
+    ) -> HTMLResponse | RedirectResponse:
         redir = _guard(request)
         if redir:
             return redir
@@ -774,7 +830,10 @@ def register_contribution_html_routes(router: APIRouter) -> None:
             raise HTTPException(status_code=404, detail="Not found")
         if c.status != "pending":
             return HTMLResponse(
-                _nav_shell("Needs info", f'<p>Not pending.</p><p><a href="/admin/contributions/{c.id}">Back</a></p>'),
+                _nav_shell(
+                    "Needs info",
+                    f'<p>Not pending.</p><p><a href="/admin/contributions/{c.id}">Back</a></p>',
+                ),
                 status_code=400,
             )
         inner = f"""<h1>Needs info — contribution #{c.id}</h1>
@@ -788,7 +847,11 @@ def register_contribution_html_routes(router: APIRouter) -> None:
 </form>"""
         return HTMLResponse(_nav_shell("Needs info", inner))
 
-    @router.post("/contributions/{contribution_id}/needs-info", response_class=HTMLResponse, response_model=None)
+    @router.post(
+        "/contributions/{contribution_id}/needs-info",
+        response_class=HTMLResponse,
+        response_model=None,
+    )
     def needs_post(
         request: Request,
         contribution_id: int,

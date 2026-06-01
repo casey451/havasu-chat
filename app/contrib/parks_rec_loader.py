@@ -96,18 +96,57 @@ CONTENT_CATEGORY_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
     ("aquatics", ("kayak", "paddle", "swim", "aqua", "water")),
     ("arts", ("art", "craft", "paint", "glass", "windchime", "pottery", "draw")),
     ("food", ("cook", "baking", "cuisine", "kitchen")),
-    ("sports", (
-        "dodgeball", "basketball", "soccer", "volleyball", "softball", "baseball",
-        "pickleball", "tennis", "football", "lacrosse", "hockey", "league", "tournament",
-    )),
-    ("fitness", ("yoga", "exercise", "fit ", "fit-", "aerobic", "wellness", "tai chi", "mobility", "strong")),
+    (
+        "sports",
+        (
+            "dodgeball",
+            "basketball",
+            "soccer",
+            "volleyball",
+            "softball",
+            "baseball",
+            "pickleball",
+            "tennis",
+            "football",
+            "lacrosse",
+            "hockey",
+            "league",
+            "tournament",
+        ),
+    ),
+    (
+        "fitness",
+        (
+            "yoga",
+            "exercise",
+            "fit ",
+            "fit-",
+            "aerobic",
+            "wellness",
+            "tai chi",
+            "mobility",
+            "strong",
+        ),
+    ),
 ]
 
 AUDIENCE_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
-    ("youth", (
-        "youth", "kids", "kid ", "kid-", "junior", "teen", "child",
-        "summer camp", "after school", "asp ", "iwannago",
-    )),
+    (
+        "youth",
+        (
+            "youth",
+            "kids",
+            "kid ",
+            "kid-",
+            "junior",
+            "teen",
+            "child",
+            "summer camp",
+            "after school",
+            "asp ",
+            "iwannago",
+        ),
+    ),
     ("adult", ("adult",)),
 ]
 
@@ -115,6 +154,7 @@ AUDIENCE_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
 # ---------------------------------------------------------------------------
 # Stats / result containers
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class LoaderStats:
@@ -136,6 +176,7 @@ class LoaderStats:
 # ---------------------------------------------------------------------------
 # Common helpers
 # ---------------------------------------------------------------------------
+
 
 def _content_category(text: str) -> str:
     """Return a single content category (arts, sports, etc.). Used as the
@@ -173,7 +214,10 @@ def _has_existing_source_url(db: Session, normalized_url: str | None) -> bool:
     """Return True if any contribution OR event already has this source_url."""
     if not normalized_url:
         return False
-    if db.scalar(select(Contribution.id).where(Contribution.source_url == normalized_url).limit(1)) is not None:
+    if (
+        db.scalar(select(Contribution.id).where(Contribution.source_url == normalized_url).limit(1))
+        is not None
+    ):
         return True
     if db.scalar(select(Event.id).where(Event.source_url == normalized_url).limit(1)) is not None:
         return True
@@ -209,6 +253,7 @@ def _fmt_hhmm(t: time | None) -> str | None:
 # ---------------------------------------------------------------------------
 # WebTrac
 # ---------------------------------------------------------------------------
+
 
 def _webtrac_is_recurring(record: dict[str, Any]) -> bool:
     sd = _parse_date(record.get("start_date"))
@@ -247,7 +292,9 @@ def _webtrac_event_description(record: dict[str, Any]) -> str:
     )
 
 
-def _webtrac_event_payload(record: dict[str, Any]) -> tuple[ContributionCreate, EventApprovalFields, list[str]] | None:
+def _webtrac_event_payload(
+    record: dict[str, Any],
+) -> tuple[ContributionCreate, EventApprovalFields, list[str]] | None:
     sd = _parse_date(record.get("start_date"))
     st = _parse_time(record.get("start_time"))
     if sd is None or st is None:
@@ -284,11 +331,13 @@ def _webtrac_event_payload(record: dict[str, Any]) -> tuple[ContributionCreate, 
         event_url=info_url,
         source_url=normalized,
     )
-    tags = _all_tags(f"{record.get('program_name','')} {title}")
+    tags = _all_tags(f"{record.get('program_name', '')} {title}")
     return payload, approve, tags
 
 
-def _webtrac_program_payload(record: dict[str, Any]) -> tuple[ContributionCreate, ProgramApprovalFields, str] | None:
+def _webtrac_program_payload(
+    record: dict[str, Any],
+) -> tuple[ContributionCreate, ProgramApprovalFields, str] | None:
     title = (record.get("program_name") or record.get("section_name") or "").strip()
     if not title:
         return None
@@ -338,9 +387,9 @@ def _webtrac_program_payload(record: dict[str, Any]) -> tuple[ContributionCreate
         contact_phone=None,
         contact_email=None,
         contact_url=info_url,
-        tags=_all_tags(f"{title} {record.get('section_name','')}"),
+        tags=_all_tags(f"{title} {record.get('section_name', '')}"),
     )
-    return payload, approve, _content_category(f"{title} {record.get('section_name','')}")
+    return payload, approve, _content_category(f"{title} {record.get('section_name', '')}")
 
 
 def load_webtrac_records(
@@ -402,6 +451,7 @@ def load_webtrac_records(
 # ---------------------------------------------------------------------------
 # Aquatic Center
 # ---------------------------------------------------------------------------
+
 
 def _aquatic_synthetic_url(record: dict[str, Any]) -> str | None:
     sd = record.get("slot_date")
@@ -506,6 +556,7 @@ def load_aquatic_records(
 # Top-level orchestration
 # ---------------------------------------------------------------------------
 
+
 def load_latest_snapshots(*, dry_run: bool = False) -> list[LoaderStats]:
     """Load the newest snapshot from each source into the catalog.
 
@@ -542,6 +593,7 @@ def load_latest_snapshots(*, dry_run: bool = False) -> list[LoaderStats]:
 # ---------------------------------------------------------------------------
 # Pruner — stale aquatic events
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class PruneStats:

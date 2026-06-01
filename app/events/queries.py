@@ -96,9 +96,7 @@ def events_in_window(
         )
 
     candidates = list(db.scalars(stmt).unique().all())
-    flat = occurrences_in_window(
-        candidates, window_start=window_start, window_end=window_end
-    )
+    flat = occurrences_in_window(candidates, window_start=window_start, window_end=window_end)
     start_bound = _parse_hhmm_bound(time_start)
     end_bound = _parse_hhmm_bound(time_end)
     seen: set[tuple[str, date]] = set()
@@ -188,18 +186,14 @@ def venue_events_for_profile(
         ).all()
     )
 
-    flat = occurrences_in_window(
-        candidates, window_start=today, window_end=horizon_end
-    )
+    flat = occurrences_in_window(candidates, window_start=today, window_end=horizon_end)
     seen: set[str] = set()
     cards: list[HavaCardViewModel] = []
     for event, occ_date in flat:
         if event.id in seen:
             continue
         seen.add(event.id)
-        vm = provider_queries.build_card_view_model_for_event_occurrence(
-            db, event.id, occ_date
-        )
+        vm = provider_queries.build_card_view_model_for_event_occurrence(db, event.id, occ_date)
         if vm is not None:
             cards.append(vm)
         if len(cards) >= limit:

@@ -36,11 +36,7 @@ def toggle_favorite(
         db.add(UserFavorite(user_id=user_id, entity_id=entity_id))
         db.flush()
         action = "added"
-    cnt = (
-        db.query(func.count(UserFavorite.id))
-        .filter(UserFavorite.user_id == user_id)
-        .scalar()
-    )
+    cnt = db.query(func.count(UserFavorite.id)).filter(UserFavorite.user_id == user_id).scalar()
     return action, int(cnt or 0)
 
 
@@ -56,9 +52,5 @@ def list_user_favorites(db: SqlSession, user_id: str) -> list[Entity]:
 
 
 def favorite_count_for_user(db: SqlSession, user_id: str) -> int:
-    cnt = (
-        db.query(func.count(UserFavorite.id))
-        .filter(UserFavorite.user_id == user_id)
-        .scalar()
-    )
+    cnt = db.query(func.count(UserFavorite.id)).filter(UserFavorite.user_id == user_id).scalar()
     return int(cnt or 0)

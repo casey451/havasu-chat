@@ -27,9 +27,7 @@ def _eat_category_id(db) -> int:
 
 
 def test_venue_events_partial_exists() -> None:
-    text = Path("app/templates/components/venue_events_region.html").read_text(
-        encoding="utf-8"
-    )
+    text = Path("app/templates/components/venue_events_region.html").read_text(encoding="utf-8")
     assert "hava_card.html" in text
 
 

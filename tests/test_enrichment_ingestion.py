@@ -122,9 +122,7 @@ def test_validate_row_rejects_short_description() -> None:
 
 
 def test_validate_row_rejects_long_description() -> None:
-    result = validate_row(
-        _good_row(hava_voice_description="x" * 401), row_number=2
-    )
+    result = validate_row(_good_row(hava_voice_description="x" * 401), row_number=2)
     assert not result.passed
     assert any("hava_voice_description" in e for e in result.errors)
 
@@ -186,11 +184,7 @@ def test_ingest_inserts_new_provider(tmp_path: Path, isolated_provider: str) -> 
     assert rc == 0
 
     with SessionLocal() as db:
-        rows = (
-            db.query(Provider)
-            .filter(Provider.provider_name == isolated_provider)
-            .all()
-        )
+        rows = db.query(Provider).filter(Provider.provider_name == isolated_provider).all()
         assert len(rows) == 1
         p = rows[0]
         assert p.category == "home-property-services"
@@ -200,9 +194,7 @@ def test_ingest_inserts_new_provider(tmp_path: Path, isolated_provider: str) -> 
         assert p.last_verified_at is not None
         # TZAwareDateTime always returns aware datetimes in LAKE_HAVASU_TZ.
         assert p.last_verified_at.tzinfo is not None
-        assert p.last_verified_at.utcoffset() == LAKE_HAVASU_TZ.utcoffset(
-            datetime(2026, 5, 8)
-        )
+        assert p.last_verified_at.utcoffset() == LAKE_HAVASU_TZ.utcoffset(datetime(2026, 5, 8))
 
 
 def test_ingest_updates_existing_provider_idempotently(
@@ -220,50 +212,32 @@ def test_ingest_updates_existing_provider_idempotently(
 
     # Now mutate one field and re-run — should UPDATE.
     new_addr = "9999 Updated Way, Lake Havasu City, AZ 86403"
-    path2 = _write_csv(
-        tmp_path / "ingest_upsert2.csv", [_good_row(address=new_addr)]
-    )
+    path2 = _write_csv(tmp_path / "ingest_upsert2.csv", [_good_row(address=new_addr)])
     rc3 = ingest_run(path2, dry_run=False)
     assert rc3 == 0
 
     with SessionLocal() as db:
-        rows = (
-            db.query(Provider)
-            .filter(Provider.provider_name == isolated_provider)
-            .all()
-        )
+        rows = db.query(Provider).filter(Provider.provider_name == isolated_provider).all()
         assert len(rows) == 1, "upsert must not create duplicates"
         assert rows[0].address == new_addr
 
 
-def test_ingest_dry_run_does_not_commit(
-    tmp_path: Path, isolated_provider: str
-) -> None:
+def test_ingest_dry_run_does_not_commit(tmp_path: Path, isolated_provider: str) -> None:
     path = _write_csv(tmp_path / "ingest_dry.csv", [_good_row()])
     rc = ingest_run(path, dry_run=True)
     assert rc == 0
 
     with SessionLocal() as db:
-        rows = (
-            db.query(Provider)
-            .filter(Provider.provider_name == isolated_provider)
-            .all()
-        )
+        rows = db.query(Provider).filter(Provider.provider_name == isolated_provider).all()
         assert rows == [], "dry-run must not commit any rows"
 
 
-def test_ingest_refuses_when_validation_fails(
-    tmp_path: Path, isolated_provider: str
-) -> None:
+def test_ingest_refuses_when_validation_fails(tmp_path: Path, isolated_provider: str) -> None:
     bad = _good_row(phone="123")
     path = _write_csv(tmp_path / "ingest_bad.csv", [bad])
     rc = ingest_run(path, dry_run=False)
     assert rc == 1
 
     with SessionLocal() as db:
-        rows = (
-            db.query(Provider)
-            .filter(Provider.provider_name == isolated_provider)
-            .all()
-        )
+        rows = db.query(Provider).filter(Provider.provider_name == isolated_provider).all()
         assert rows == [], "validation failure must block any DB writes"

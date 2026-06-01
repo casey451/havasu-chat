@@ -1,4 +1,4 @@
-﻿"""Harness-only evidence capture for the confabulation eval harness.
+"""Harness-only evidence capture for the confabulation eval harness.
 
 Install monkeypatches ``app.chat.tier2_formatter.format`` with a wrapper that stores
 ``(query, [dict(r) for r in rows])`` into ``tier2_evidence`` while the inner call runs,
@@ -21,11 +21,13 @@ from typing import Any, Dict, List, Optional, cast
 
 from app.chat import tier2_formatter
 
-tier2_evidence: contextvars.ContextVar[
-    tuple[str, list[dict[str, Any]]] | None
-] = contextvars.ContextVar("tier2_evidence", default=None)
+tier2_evidence: contextvars.ContextVar[tuple[str, list[dict[str, Any]]] | None] = (
+    contextvars.ContextVar("tier2_evidence", default=None)
+)
 
-_OriginalFormat = Callable[[str, List[Dict[str, Any]]], tuple[Optional[str], int | None, int | None]]
+_OriginalFormat = Callable[
+    [str, List[Dict[str, Any]]], tuple[Optional[str], int | None, int | None]
+]
 _original_format: _OriginalFormat | None = None
 _format_restoration_ref: _OriginalFormat | None = None
 _installed: bool = False

@@ -85,17 +85,11 @@ def _cleanup_sitemap_rows() -> None:
     from sqlalchemy import select
 
     with SessionLocal() as db:
-        for prov in db.scalars(
-            select(Provider).where(Provider.source == "test-sitemap")
-        ).all():
+        for prov in db.scalars(select(Provider).where(Provider.source == "test-sitemap")).all():
             db.delete(prov)
-        for ev in db.scalars(
-            select(Event).where(Event.source == "test-sitemap")
-        ).all():
+        for ev in db.scalars(select(Event).where(Event.source == "test-sitemap")).all():
             db.delete(ev)
-        for ent in db.scalars(
-            select(Entity).where(Entity.source == "test-sitemap")
-        ).all():
+        for ent in db.scalars(select(Entity).where(Entity.source == "test-sitemap")).all():
             db.delete(ent)
         db.commit()
 
@@ -134,10 +128,7 @@ def test_robots_txt_uses_default_base_url(
     monkeypatch.delenv("BASE_URL", raising=False)
     r = client.get("/robots.txt")
     assert r.status_code == 200
-    assert (
-        "Sitemap: https://havasu-chat-production.up.railway.app/sitemap.xml"
-        in r.text
-    )
+    assert "Sitemap: https://havasu-chat-production.up.railway.app/sitemap.xml" in r.text
 
 
 def test_robots_txt_honors_base_url_env(
@@ -159,16 +150,10 @@ _SITEMAP_NS = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
 
 def _parse_sitemap_locs(xml_text: str) -> list[str]:
     root = ET.fromstring(xml_text)
-    return [
-        loc.text
-        for loc in root.findall("sm:url/sm:loc", _SITEMAP_NS)
-        if loc.text is not None
-    ]
+    return [loc.text for loc in root.findall("sm:url/sm:loc", _SITEMAP_NS) if loc.text is not None]
 
 
-def test_sitemap_xml_returns_valid_xml(
-    client: TestClient, sitemap_rows: dict[str, str]
-) -> None:
+def test_sitemap_xml_returns_valid_xml(client: TestClient, sitemap_rows: dict[str, str]) -> None:
     r = client.get("/sitemap.xml")
     assert r.status_code == 200
     assert "xml" in r.headers["content-type"]
@@ -177,9 +162,7 @@ def test_sitemap_xml_returns_valid_xml(
     assert root.tag.endswith("urlset")
 
 
-def test_sitemap_includes_static_pages(
-    client: TestClient, sitemap_rows: dict[str, str]
-) -> None:
+def test_sitemap_includes_static_pages(client: TestClient, sitemap_rows: dict[str, str]) -> None:
     r = client.get("/sitemap.xml")
     locs = _parse_sitemap_locs(r.text)
     # At least one of the static surfaces should appear.
@@ -195,32 +178,26 @@ def test_sitemap_includes_all_category_routes(
     r = client.get("/sitemap.xml")
     locs = _parse_sitemap_locs(r.text)
     for slug in CATEGORY_FILTERS:
-        assert any(
-            loc.endswith(f"/categories/{slug}") for loc in locs
-        ), f"missing /categories/{slug} in sitemap"
+        assert any(loc.endswith(f"/categories/{slug}") for loc in locs), (
+            f"missing /categories/{slug} in sitemap"
+        )
 
 
-def test_sitemap_includes_active_provider(
-    client: TestClient, sitemap_rows: dict[str, str]
-) -> None:
+def test_sitemap_includes_active_provider(client: TestClient, sitemap_rows: dict[str, str]) -> None:
     r = client.get("/sitemap.xml")
     locs = _parse_sitemap_locs(r.text)
     expected = f"/provider/{sitemap_rows['provider_slug']}"
     assert any(loc.endswith(expected) for loc in locs)
 
 
-def test_sitemap_includes_live_event(
-    client: TestClient, sitemap_rows: dict[str, str]
-) -> None:
+def test_sitemap_includes_live_event(client: TestClient, sitemap_rows: dict[str, str]) -> None:
     r = client.get("/sitemap.xml")
     locs = _parse_sitemap_locs(r.text)
     expected = f"/events/{sitemap_rows['event_id']}"
     assert any(loc.endswith(expected) for loc in locs)
 
 
-def test_sitemap_entries_have_lastmod(
-    client: TestClient, sitemap_rows: dict[str, str]
-) -> None:
+def test_sitemap_entries_have_lastmod(client: TestClient, sitemap_rows: dict[str, str]) -> None:
     r = client.get("/sitemap.xml")
     root = ET.fromstring(r.text)
     url_nodes = root.findall("sm:url", _SITEMAP_NS)
@@ -230,9 +207,7 @@ def test_sitemap_entries_have_lastmod(
         assert lastmod is not None and lastmod.text, "every <url> needs a <lastmod>"
 
 
-def test_sitemap_caches_for_one_hour(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_sitemap_caches_for_one_hour(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """Second request inside the TTL window should reuse the cached XML."""
     calls = {"n": 0}
     real_build = main_module._build_sitemap_xml

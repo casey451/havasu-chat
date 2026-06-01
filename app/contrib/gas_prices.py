@@ -148,7 +148,9 @@ def _match_provider(station: dict[str, Any], providers: list[Provider]) -> Provi
         p_name = _norm_name(p.provider_name)
         if not p_name:
             continue
-        name_hit = st_name in p_name or p_name in st_name or st_name.split(" ")[0] == p_name.split(" ")[0]
+        name_hit = (
+            st_name in p_name or p_name in st_name or st_name.split(" ")[0] == p_name.split(" ")[0]
+        )
         if not name_hit:
             continue
         p_num = _street_number(p.address)

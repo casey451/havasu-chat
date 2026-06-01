@@ -13,9 +13,7 @@ from alembic import command
 from app.db.models import Event
 
 
-def test_migration_upgrade_downgrade_cycle(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_migration_upgrade_downgrade_cycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     db_path = tmp_path / "phase9.sqlite"
     url = f"sqlite:///{db_path.resolve().as_posix()}"
     monkeypatch.setenv("DATABASE_URL", url)
@@ -39,14 +37,9 @@ def test_migration_upgrade_downgrade_cycle(
     eng = create_engine(url, connect_args={"check_same_thread": False})
     try:
         with eng.connect() as conn:
-            ver = conn.execute(
-                text("SELECT version_num FROM alembic_version")
-            ).scalar_one()
+            ver = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
             assert ver == expected_head
-            cols = {
-                row[1]
-                for row in conn.execute(text("PRAGMA table_info(events)")).fetchall()
-            }
+            cols = {row[1] for row in conn.execute(text("PRAGMA table_info(events)")).fetchall()}
             for name in (
                 "rrule",
                 "rdate",
@@ -58,12 +51,7 @@ def test_migration_upgrade_downgrade_cycle(
                 "capacity_source",
             ):
                 assert name in cols
-            indexes = {
-                row[1]
-                for row in conn.execute(
-                    text("PRAGMA index_list(events)")
-                ).fetchall()
-            }
+            indexes = {row[1] for row in conn.execute(text("PRAGMA index_list(events)")).fetchall()}
             assert "ix_events_status_date" in indexes
             assert "ix_events_is_recurring_date" in indexes
             assert "ix_events_provider_id_date" in indexes
@@ -75,7 +63,9 @@ def test_migration_upgrade_downgrade_cycle(
     command.upgrade(cfg, "head")
 
 
-def test_events_status_check_rejects_invalid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_events_status_check_rejects_invalid(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     db_path = tmp_path / "phase9_check.sqlite"
     url = f"sqlite:///{db_path.resolve().as_posix()}"
     monkeypatch.setenv("DATABASE_URL", url)

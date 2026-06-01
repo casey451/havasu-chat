@@ -43,7 +43,9 @@ def test_duplicate_returns_none() -> None:
         b = create_mention(db, str(log.id), "Dup Name", "c2")
         assert a is not None
         assert b is None
-        for row in db.execute(select(LlmMentionedEntity).where(LlmMentionedEntity.chat_log_id == str(log.id))).scalars():
+        for row in db.execute(
+            select(LlmMentionedEntity).where(LlmMentionedEntity.chat_log_id == str(log.id))
+        ).scalars():
             db.delete(row)
         db.delete(log)
         db.commit()
@@ -114,7 +116,9 @@ def test_count_matches_list() -> None:
         n = count_mentions(db, status="unreviewed")
         rows = list_mentions(db, status="unreviewed", limit=200, offset=0)
         assert n >= len([r for r in rows if r.chat_log_id == str(log.id)])
-        for row in db.execute(select(LlmMentionedEntity).where(LlmMentionedEntity.chat_log_id == str(log.id))).scalars():
+        for row in db.execute(
+            select(LlmMentionedEntity).where(LlmMentionedEntity.chat_log_id == str(log.id))
+        ).scalars():
             db.delete(row)
         db.delete(log)
         db.commit()

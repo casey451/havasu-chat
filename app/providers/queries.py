@@ -45,8 +45,7 @@ def get_provider_by_slug(db: Session, slug: str) -> Optional[Provider]:
             joinedload(Provider.entity).joinedload(Entity.location),
             joinedload(Provider.entity).selectinload(Entity.hours),
             joinedload(Provider.entity).selectinload(Entity.contact_points),
-            joinedload(Provider.entity)
-            .selectinload(Entity.photos),
+            joinedload(Provider.entity).selectinload(Entity.photos),
             joinedload(Provider.entity)
             .selectinload(Entity.categories)
             .joinedload(EntityCategory.category),
@@ -177,9 +176,7 @@ _ACCEPTABLE_DAYS = 90
 _AGING_DAYS = 180
 
 
-def derive_freshness(
-    provider: Provider, *, now: Optional[datetime] = None
-) -> tuple[str, str]:
+def derive_freshness(provider: Provider, *, now: Optional[datetime] = None) -> tuple[str, str]:
     """Return ``(band, copy)`` per UX spec §5 freshness-band table.
 
     Bands: ``fresh`` (≤30d), ``acceptable`` (≤90d), ``aging`` (≤180d),
@@ -224,9 +221,7 @@ def derive_hero_photo(provider: Provider) -> Optional[str]:
     return first_renderable_google_photo(provider)
 
 
-def derive_gallery(
-    provider: Provider, *, exclude_hero: bool = True
-) -> list[str]:
+def derive_gallery(provider: Provider, *, exclude_hero: bool = True) -> list[str]:
     """Gallery URLs: owner live non-hero ``Photo`` rows (``display_order``), then Google.
 
     When ``exclude_hero`` is True, Google URLs matching the resolved hero URL
@@ -329,9 +324,7 @@ def _hours_rows_to_structured(rows: list[Hours]) -> dict[str, list[dict[str, str
 
 
 @lru_cache(maxsize=2048)
-def _structured_from_google_hours_cached(
-    provider_id: int, gh_serialized: str
-) -> dict | None:
+def _structured_from_google_hours_cached(provider_id: int, gh_serialized: str) -> dict | None:
     """Memoized ``google_hours`` → ``hours_structured`` conversion per provider."""
     gh = json.loads(gh_serialized)
     if not isinstance(gh, dict):
@@ -483,11 +476,7 @@ def is_open_status_from_structured_hours(
         if open_t <= now_t < close_t:
             close_label = _format_hour(close_t)
             return (True, f"Open now · Closes at {close_label}")
-    upcoming = [
-        _parse_hours_time(str(s.get("open") or ""))
-        for s in spans
-        if isinstance(s, dict)
-    ]
+    upcoming = [_parse_hours_time(str(s.get("open") or "")) for s in spans if isinstance(s, dict)]
     upcoming = [t for t in upcoming if t is not None and t > now_t]
     if upcoming:
         opens_t = min(upcoming)
@@ -545,9 +534,7 @@ def is_open_now(
     [{"open": "08:00", "close": "17:00"}, ...]}`` or ``None``. An empty
     list for a weekday means "closed today".
     """
-    return is_open_status_from_structured_hours(
-        effective_hours_structured(provider), now=now
-    )
+    return is_open_status_from_structured_hours(effective_hours_structured(provider), now=now)
 
 
 def _format_hour(t: time) -> str:
@@ -583,9 +570,7 @@ def derive_event_freshness_band(event: Event, *, now: datetime) -> str:
     return "red"
 
 
-def derive_freshness_band_from_updated_at(
-    updated_at: datetime, *, now: datetime
-) -> str:
+def derive_freshness_band_from_updated_at(updated_at: datetime, *, now: datetime) -> str:
     """Phase 6 card freshness: green <30d / amber 30–90d / red >90d (``entities.updated_at``)."""
     u = updated_at
     if u.tzinfo is None:
@@ -605,12 +590,7 @@ def derive_hero_photo_from_entity(entity: Entity) -> Optional[str]:
     """Hero URL from live ENTITY ``Photo`` rows (``is_hero``), else None."""
     for photo in getattr(entity, "photos", None) or []:
         if photo.is_hero and photo.status == "live":
-            return (
-                photo.hero_url
-                or photo.medium_url
-                or photo.cdn_url
-                or photo.thumbnail_url
-            )
+            return photo.hero_url or photo.medium_url or photo.cdn_url or photo.thumbnail_url
     return None
 
 
@@ -661,9 +641,7 @@ def _commercial_status_line_for_card(
     return (text, color)
 
 
-def _commercial_card_status_line(
-    is_open: Optional[bool], raw: Optional[str]
-) -> str:
+def _commercial_card_status_line(is_open: Optional[bool], raw: Optional[str]) -> str:
     if raw is None or is_open is None:
         return "Hours unknown"
     if is_open:
@@ -679,9 +657,7 @@ def _commercial_card_status_line(
     return "Hours unknown"
 
 
-def _commercial_status_line_color(
-    freshness_band: str, is_open: Optional[bool]
-) -> str:
+def _commercial_status_line_color(freshness_band: str, is_open: Optional[bool]) -> str:
     if freshness_band == "red":
         return "red"
     if is_open is True:
@@ -803,9 +779,7 @@ def build_card_view_model(
     if entity is None:
         return None
 
-    provider = (
-        db.query(Provider).filter(Provider.entity_id == entity_id).first()
-    )
+    provider = db.query(Provider).filter(Provider.entity_id == entity_id).first()
     event = db.query(Event).filter(Event.entity_id == entity_id).first()
 
     freshness = derive_freshness_band_from_updated_at(entity.updated_at, now=now_dt)
@@ -821,21 +795,15 @@ def build_card_view_model(
         )
         is_sponsored = _provider_is_sponsored_now(provider, now=now_dt)
     elif et == "place":
-        status_text, status_color = _place_status_line_for_card(
-            entity, freshness, now=now_dt
-        )
+        status_text, status_color = _place_status_line_for_card(entity, freshness, now=now_dt)
         is_sponsored = False
     elif et == "event" and event is not None:
         status_text, status_color = _event_status_line_for_card(event, now=now_dt)
         is_sponsored = False
     else:
         is_open, _ = is_open_status_for_entity(entity, now=now_dt)
-        status_text = "Hours unknown" if is_open is None else (
-            "Open" if is_open else "Closed"
-        )
-        status_color = "red" if freshness == "red" else (
-            "green" if is_open is True else "amber"
-        )
+        status_text = "Hours unknown" if is_open is None else ("Open" if is_open else "Closed")
+        status_color = "red" if freshness == "red" else ("green" if is_open is True else "amber")
         is_sponsored = bool(provider and _provider_is_sponsored_now(provider, now=now_dt))
 
     boat_badge = entity.boat_access is not None
@@ -892,9 +860,7 @@ def build_card_view_model_for_event_occurrence(
     if entity is None:
         return None
 
-    provider = (
-        db.query(Provider).filter(Provider.entity_id == entity.id).first()
-    )
+    provider = db.query(Provider).filter(Provider.entity_id == entity.id).first()
     freshness = derive_event_freshness_band(event, now=now_dt)
     cat_slug, cat_label = _primary_category_for_entity(entity)
     d_slug, d_name = _district_fields(entity)

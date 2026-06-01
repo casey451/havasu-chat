@@ -96,9 +96,7 @@ class _RunStats:
     results: list[_Result] = field(default_factory=list)
 
 
-def _one_request(
-    client: httpx.Client, base: str, session_id: str, body: dict[str, Any]
-) -> _Result:
+def _one_request(client: httpx.Client, base: str, session_id: str, body: dict[str, Any]) -> _Result:
     url = f"{base.rstrip('/')}/api/chat"
     t0 = time.perf_counter()
     try:
@@ -183,7 +181,10 @@ def main() -> int:
         "--duration-seconds", type=int, default=180, help="How long each thread runs (default 180)"
     )
     p.add_argument(
-        "--interval-seconds", type=float, default=25.0, help="Pause between calls per thread (default 25)"
+        "--interval-seconds",
+        type=float,
+        default=25.0,
+        help="Pause between calls per thread (default 25)",
     )
     args = p.parse_args()
     n_threads = max(1, int(args.threads))
@@ -194,9 +195,7 @@ def main() -> int:
     t3_lat: list[float] = []
 
     with ThreadPoolExecutor(max_workers=n_threads) as ex:
-        futs = [
-            ex.submit(_worker, args.base_url, i, dur, ival) for i in range(n_threads)
-        ]
+        futs = [ex.submit(_worker, args.base_url, i, dur, ival) for i in range(n_threads)]
         for f in as_completed(futs):
             s = f.result()
             merged.extend(s.results)
@@ -216,21 +215,13 @@ def main() -> int:
     print(f"Base URL: {args.base_url}")
     print(f"Threads: {n_threads}  Duration (each): {dur:.0f}s  Interval: {ival:g}s")
     print(f"Total requests: {len(merged)}")
-    print(
-        f"p50 / p95 latency (ms, all 200s):  {p50:,.0f} / {p95:,.0f}"
-    )
+    print(f"p50 / p95 latency (ms, all 200s):  {p50:,.0f} / {p95:,.0f}")
     if t3_lat:
-        print(
-            f"p50 / p95 (Tier 3 only, 200s):  {statistics.median(t3_lat):,.0f} / {p95_t3:,.0f}"
-        )
-    print(
-        f"5xx: {fives}  client errors: {err_n}  fallback responses: {fallback_n} / {len(merged)}"
-    )
+        print(f"p50 / p95 (Tier 3 only, 200s):  {statistics.median(t3_lat):,.0f} / {p95_t3:,.0f}")
+    print(f"5xx: {fives}  client errors: {err_n}  fallback responses: {fallback_n} / {len(merged)}")
 
     if t3_lat and p95_t3 > 20_000:
-        print(
-            f"WARNING: Tier 3 p95 ({p95_t3:,.0f} ms) > 20s (local; cold starts often dominate)."
-        )
+        print(f"WARNING: Tier 3 p95 ({p95_t3:,.0f} ms) > 20s (local; cold starts often dominate).")
 
     if fives or err_n:
         return 1

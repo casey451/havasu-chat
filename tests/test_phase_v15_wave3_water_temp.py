@@ -26,17 +26,13 @@ def test_feature_disabled_by_default() -> None:
 
 
 @pytest.mark.parametrize("value", ["true", "TRUE", "True", "1", "yes", "on"])
-def test_feature_enabled_when_env_set_truthy(
-    value: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_feature_enabled_when_env_set_truthy(value: str, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(usgs_water_temp.FEATURE_FLAG_ENV_VAR, value)
     assert usgs_water_temp.feature_enabled() is True
 
 
 @pytest.mark.parametrize("value", ["false", "0", "no", "off", "", "anything-else"])
-def test_feature_disabled_when_env_set_falsy(
-    value: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_feature_disabled_when_env_set_falsy(value: str, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(usgs_water_temp.FEATURE_FLAG_ENV_VAR, value)
     assert usgs_water_temp.feature_enabled() is False
 
@@ -76,9 +72,7 @@ def test_fetch_parses_normal_reading_and_converts_to_fahrenheit(
         fn()
         return resp
 
-    with patch.object(
-        usgs_water_temp._USGS_LIMITER, "call_with_retry", side_effect=fake_retry
-    ):
+    with patch.object(usgs_water_temp._USGS_LIMITER, "call_with_retry", side_effect=fake_retry):
         data = usgs_water_temp.fetch_usgs_water_temp_09426630()
 
     assert data["water_temp_c"] == 22.5
@@ -115,9 +109,7 @@ def test_fetch_filters_minus_100000_sentinel_value(
         fn()
         return resp
 
-    with patch.object(
-        usgs_water_temp._USGS_LIMITER, "call_with_retry", side_effect=fake_retry
-    ):
+    with patch.object(usgs_water_temp._USGS_LIMITER, "call_with_retry", side_effect=fake_retry):
         data = usgs_water_temp.fetch_usgs_water_temp_09426630()
 
     assert data["water_temp_c"] is None
@@ -158,9 +150,7 @@ def test_fetch_picks_first_non_sentinel_when_history_has_mix(
         fn()
         return resp
 
-    with patch.object(
-        usgs_water_temp._USGS_LIMITER, "call_with_retry", side_effect=fake_retry
-    ):
+    with patch.object(usgs_water_temp._USGS_LIMITER, "call_with_retry", side_effect=fake_retry):
         data = usgs_water_temp.fetch_usgs_water_temp_09426630()
 
     # water_temp_c picks the first non-sentinel value (20.0 C); sentinel entry
@@ -205,9 +195,7 @@ def test_fetch_uses_latest_continuous_collection_url(
             return MagicMock()
 
     with patch.object(usgs_water_temp.httpx, "Client", _FakeClient):
-        with patch.object(
-            usgs_water_temp._USGS_LIMITER, "call_with_retry", side_effect=fake_retry
-        ):
+        with patch.object(usgs_water_temp._USGS_LIMITER, "call_with_retry", side_effect=fake_retry):
             usgs_water_temp.fetch_usgs_water_temp_09426630()
 
     assert captured_urls, "fetcher did not issue any HTTP requests"
@@ -239,9 +227,7 @@ def test_site_overridable_via_env(monkeypatch: pytest.MonkeyPatch) -> None:
         fn()
         return resp
 
-    with patch.object(
-        usgs_water_temp._USGS_LIMITER, "call_with_retry", side_effect=fake_retry
-    ):
+    with patch.object(usgs_water_temp._USGS_LIMITER, "call_with_retry", side_effect=fake_retry):
         data = usgs_water_temp.fetch_usgs_water_temp_09426630()
 
     assert data["site"] == "09427520"
@@ -267,8 +253,7 @@ def test_fetcher_registered_in_fetcher_dispatch_dict() -> None:
 
     assert SOURCE_USGS_WATER_TEMP in fetcher._FETCHERS
     assert (
-        fetcher._FETCHERS[SOURCE_USGS_WATER_TEMP]
-        is usgs_water_temp.fetch_usgs_water_temp_09426630
+        fetcher._FETCHERS[SOURCE_USGS_WATER_TEMP] is usgs_water_temp.fetch_usgs_water_temp_09426630
     )
 
 

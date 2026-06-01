@@ -101,7 +101,7 @@ def test_category_sort_default_matches_brief(
     assert cfg.sort_default == expected_sort
     r = client.get(f"/category/{slug}")
     assert r.status_code == 200
-    assert f'sort={expected_sort}' in r.text or expected_sort in r.text
+    assert f"sort={expected_sort}" in r.text or expected_sort in r.text
 
 
 def test_provider_profile_district_chip_renders(client: TestClient) -> None:
@@ -180,7 +180,9 @@ def test_eat_drink_renders_shell_and_footer(client: TestClient) -> None:
     assert "Dock-and-dine" in body
 
 
-def test_sparse_banner_when_stream_short(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
+def test_sparse_banner_when_stream_short(
+    monkeypatch: pytest.MonkeyPatch, client: TestClient
+) -> None:
     from app.api.routes import category_pages
 
     monkeypatch.setattr(
@@ -460,9 +462,9 @@ def test_combined_filters(client: TestClient, monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_category_css_mobile_then_desktop_rules() -> None:
-    css = (Path(__file__).resolve().parents[1] / "app/static/styles/category_landing.css").read_text(
-        encoding="utf-8"
-    )
+    css = (
+        Path(__file__).resolve().parents[1] / "app/static/styles/category_landing.css"
+    ).read_text(encoding="utf-8")
     assert "overflow-x: auto" in css
     assert "@media (min-width: 768px)" in css
     assert "flex-wrap: wrap" in css
@@ -478,7 +480,9 @@ def test_entity_without_eat_drink_category_not_force_linked(client: TestClient) 
     """Regression: listing queries join entity_categories — orphans stay excluded."""
     suf = uuid.uuid4().hex[:8]
     with SessionLocal() as db:
-        home_id = db.scalars(select(Category).where(Category.slug == "home-property-services")).first()
+        home_id = db.scalars(
+            select(Category).where(Category.slug == "home-property-services")
+        ).first()
         assert home_id is not None
         p = Provider(
             provider_name=f"Plumber Not Food {suf}",

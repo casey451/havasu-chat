@@ -209,9 +209,7 @@ def approve_contribution_as_event(
     # Preserve provenance for high-trust scrape sources (cross-source dedup +
     # analytics) instead of letting them fall back to "admin".
     event_source: str | None = c.source if c.source in _SCRAPE_EVENT_SOURCES else None
-    event_source_url = (
-        normalize_submission_url(c.source_url) if c.source_url else None
-    )
+    event_source_url = normalize_submission_url(c.source_url) if c.source_url else None
     end_date = edited_fields.end_date if edited_fields.end_date is not None else c.event_end_date
     ec = EventCreate(
         title=edited_fields.title.strip(),

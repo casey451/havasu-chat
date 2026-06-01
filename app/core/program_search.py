@@ -91,9 +91,7 @@ def _extract_age_from_query(message: str) -> int | None:
 
 def _query_tokens(message: str) -> list[str]:
     return [
-        t
-        for t in re.findall(r"[a-z0-9]+", message.lower())
-        if len(t) > 2 and t not in _STOP_TOKENS
+        t for t in re.findall(r"[a-z0-9]+", message.lower()) if len(t) > 2 and t not in _STOP_TOKENS
     ]
 
 
@@ -135,17 +133,14 @@ def search_programs(
     tokens = _query_tokens(message)
     synonyms = expand_query_synonyms(message)
 
-    programs: list[Program] = (
-        db.query(Program).filter(Program.is_active.is_(True)).all()
-    )
+    programs: list[Program] = db.query(Program).filter(Program.is_active.is_(True)).all()
 
     age = _extract_age_from_query(message)
     if age is not None:
         programs = [
             p
             for p in programs
-            if (p.age_min is None or p.age_min <= age)
-            and (p.age_max is None or p.age_max >= age)
+            if (p.age_min is None or p.age_min <= age) and (p.age_max is None or p.age_max >= age)
         ]
 
     if not tokens and not synonyms:
@@ -225,11 +220,7 @@ def _program_card(p: Program) -> str:
     if desc:
         lines.append("")
         lines.append(desc)
-    contact_bits = [
-        x
-        for x in (p.contact_phone, p.contact_email, p.contact_url)
-        if x and x.strip()
-    ]
+    contact_bits = [x for x in (p.contact_phone, p.contact_email, p.contact_url) if x and x.strip()]
     if contact_bits:
         lines.append("")
         lines.append("📞 " + " • ".join(contact_bits))

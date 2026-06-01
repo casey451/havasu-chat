@@ -36,9 +36,7 @@ _MONTHS = frozenset(
     }
 )
 _SEASONS = frozenset({"spring", "summer", "fall", "winter"})
-_DAYS = frozenset(
-    {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
-)
+_DAYS = frozenset({"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"})
 
 
 class Tier2Filters(BaseModel):
@@ -55,7 +53,9 @@ class Tier2Filters(BaseModel):
 
     # Temporal
     day_of_week: Optional[List[str]] = None  # ["saturday"], ["saturday","sunday"] for "weekend"
-    time_window: Optional[str] = None  # simple canonical window tokens, or null when using structured dates
+    time_window: Optional[str] = (
+        None  # simple canonical window tokens, or null when using structured dates
+    )
     month_name: Optional[
         Literal[
             "january",

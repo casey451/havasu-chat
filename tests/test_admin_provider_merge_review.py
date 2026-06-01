@@ -64,9 +64,7 @@ def _make_pair(name: str) -> tuple[str, str]:
 
 def _cleanup(name: str) -> None:
     with SessionLocal() as s:
-        provs = s.scalars(
-            select(Provider).where(Provider.provider_name == name)
-        ).all()
+        provs = s.scalars(select(Provider).where(Provider.provider_name == name)).all()
         ent_ids = [p.entity_id for p in provs if p.entity_id]
         for p in provs:
             s.delete(p)

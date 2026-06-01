@@ -38,14 +38,14 @@ def test_range_em_dash() -> None:
 
 
 def test_range_whitespace_around_separator() -> None:
-    assert parse_event_date_line("Date: May 8  –  10, 2026") == (date(2026, 5, 8), date(2026, 5, 10))
+    assert parse_event_date_line("Date: May 8  –  10, 2026") == (
+        date(2026, 5, 8),
+        date(2026, 5, 10),
+    )
 
 
 def test_cross_month_two_segment_returns_none() -> None:
-    assert (
-        parse_event_date_line("Date: May 8, 2026 – May 10, 2026")
-        is None
-    )
+    assert parse_event_date_line("Date: May 8, 2026 – May 10, 2026") is None
 
 
 def test_garbage_returns_none() -> None:

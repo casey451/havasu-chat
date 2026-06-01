@@ -179,9 +179,7 @@ def _trade_cluster_tags(blob: str) -> frozenset[str]:
         tags.add("dental")
     if re.search(r"\b(doctor|physician|clinic|medical)\b", b) and "veterinary" not in b:
         tags.add("medical")
-    if re.search(r"\b(trampoline|trampoline park)\b", b) or (
-        "altitude" in b and "trampoline" in b
-    ):
+    if re.search(r"\b(trampoline|trampoline park)\b", b) or ("altitude" in b and "trampoline" in b):
         tags.add("trampoline_park")
     if re.search(r"\bbmx\b", b) or "bicycle motocross" in b:
         tags.add("bmx")
@@ -222,13 +220,10 @@ def _row_supports_trade_intent(q_tags: frozenset[str], row_blob: str) -> bool:
     """True when row text/slug hints align with a trade-shaped query."""
     b = row_blob.lower()
     if "plumbing" in q_tags:
-        return bool(
-            re.search(r"\b(plumber|plumbing|plumbers|drain|sewer)\b", b) or "plumb" in b
-        )
+        return bool(re.search(r"\b(plumber|plumbing|plumbers|drain|sewer)\b", b) or "plumb" in b)
     if "electrical" in q_tags:
         return bool(
-            re.search(r"\b(electrician|electrical|electric|wiring)\b", b)
-            or "electric" in b
+            re.search(r"\b(electrician|electrical|electric|wiring)\b", b) or "electric" in b
         )
     if "dental" in q_tags:
         return bool(re.search(r"\b(dentist|dental|orthodont)\b", b))
@@ -236,9 +231,7 @@ def _row_supports_trade_intent(q_tags: frozenset[str], row_blob: str) -> bool:
         return bool(re.search(r"\b(doctor|physician|clinic|medical)\b", b))
     if "food_service" in q_tags:
         return bool(
-            re.search(
-                r"\b(restaurant|cafe|coffee|pizza|grill|kitchen|brewery|bar|diner)\b", b
-            )
+            re.search(r"\b(restaurant|cafe|coffee|pizza|grill|kitchen|brewery|bar|diner)\b", b)
         )
     if "gymnastics_cheer" in q_tags:
         return bool(
@@ -289,11 +282,13 @@ def _category_blob_for_canonical(db: Session, canonical: str) -> str:
     """Concatenate Provider + Program category hints for ``canonical``."""
     parts: list[str] = []
     prow = db.execute(
-        select(Provider.category, Provider.google_primary_category).where(
+        select(Provider.category, Provider.google_primary_category)
+        .where(
             Provider.provider_name == canonical,
             Provider.is_active.is_(True),
             Provider.draft.is_(False),
-        ).limit(1)
+        )
+        .limit(1)
     ).first()
     if prow is not None:
         cat, gcat = prow
@@ -302,9 +297,7 @@ def _category_blob_for_canonical(db: Session, canonical: str) -> str:
         if gcat:
             parts.append(str(gcat).strip().lower())
     act_cats = db.scalars(
-        select(Program.activity_category)
-        .where(Program.provider_name == canonical)
-        .distinct()
+        select(Program.activity_category).where(Program.provider_name == canonical).distinct()
     ).all()
     for ac in act_cats:
         if ac:
@@ -368,16 +361,11 @@ def refresh_entity_matcher(db: Session) -> None:
         {(n or "").strip() for n in (*program_names, *provider_names) if (n or "").strip()}
     )
     blob_by_canonical = _category_blobs_for_canonicals(db, canon)
-    _rows = [
-        _EntityRow(c, _needles_for_canonical(c), blob_by_canonical.get(c, ""))
-        for c in canon
-    ]
+    _rows = [_EntityRow(c, _needles_for_canonical(c), blob_by_canonical.get(c, "")) for c in canon]
     _rows_loaded_at = time.monotonic()
 
 
-def _category_blobs_for_canonicals(
-    db: Session, canonicals: Sequence[str]
-) -> dict[str, str]:
+def _category_blobs_for_canonicals(db: Session, canonicals: Sequence[str]) -> dict[str, str]:
     """Batched equivalent of :func:`_category_blob_for_canonical` for many names.
 
     Returns ``{canonical: " ".join(category_parts)}`` for every name in
@@ -561,16 +549,13 @@ def _best_score(norm_query: str, needles: frozenset[str]) -> float:
     of the intent verb.
     """
     long_query_tokens = [
-        t
-        for t in norm_query.split()
-        if len(t) >= 5 and t.lower() not in _INTENT_VERB_TOKENS
+        t for t in norm_query.split() if len(t) >= 5 and t.lower() not in _INTENT_VERB_TOKENS
     ]
     best = 0.0
     for needle in needles:
         if long_query_tokens and len(needle) >= 5:
             if not any(
-                _typo_guard_query_token_matches_needle(tok, needle)
-                for tok in long_query_tokens
+                _typo_guard_query_token_matches_needle(tok, needle) for tok in long_query_tokens
             ):
                 continue
         best = max(best, float(fuzz.token_set_ratio(norm_query, needle)))
@@ -597,6 +582,7 @@ def _long_tokens(stripped: str) -> str:
 # WRatio rewards the shared "havasu" + partial overlap. The graded battery
 # surfaced six wrong-entity Tier 1 answers from this single failure mode.
 # Backlog #46: substantive needle tokens + stricter floor for exactly-5-char tokens.
+
 
 def _typo_path_passes_guard(long_only: str, needle: str) -> bool:
     """``True`` iff every ≥5-char token in ``long_only`` substring-matches ``needle``.
@@ -921,9 +907,7 @@ def extract_catalog_entities_from_text(text: str, db: Session) -> list[EntityMat
 _AMBIGUITY_MARGIN = 8.0
 
 
-def match_entity_with_ambiguity(
-    query: str, db: Session
-) -> tuple[tuple[str, float] | None, bool]:
+def match_entity_with_ambiguity(query: str, db: Session) -> tuple[tuple[str, float] | None, bool]:
     """Return ``(top_match_or_none, is_ambiguous)``.
 
     Slice F §3.2 (post-revert): the matcher always returns the top match if it clears
@@ -962,9 +946,7 @@ def match_entity_with_ambiguity(
     if best_canon is None or best_score <= 75.0:
         return None, False
 
-    is_ambiguous = (
-        second_score > 75.0 and (best_score - second_score) < _AMBIGUITY_MARGIN
-    )
+    is_ambiguous = second_score > 75.0 and (best_score - second_score) < _AMBIGUITY_MARGIN
     return (best_canon, best_score), is_ambiguous
 
 

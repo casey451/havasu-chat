@@ -385,7 +385,9 @@ def test_tier3_timeout_triggers_graceful_fallback() -> None:
     fake = MagicMock()
     fake.chat.completions.create.side_effect = httpx.ReadTimeout("read timeout", request=None)
     with TestClient(app) as client:
-        with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
+        with patch(
+            "app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)
+        ):
             with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
                 with patch.object(llm_messages, "OpenAI", return_value=fake):
                     r = client.post(
@@ -407,7 +409,9 @@ def test_api_chat_tier3_graceful_when_llm_fails() -> None:
     fake = MagicMock()
     fake.chat.completions.create.side_effect = RuntimeError("openai transport boom")
     with TestClient(app) as client:
-        with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
+        with patch(
+            "app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)
+        ):
             with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
                 with patch.object(llm_messages, "OpenAI", return_value=fake):
                     r = client.post(
@@ -424,7 +428,9 @@ def test_api_chat_graceful_when_build_context_raises() -> None:
     """§3.11: context build failure before Anthropic call → graceful + placeholder tier."""
     sid = "p83-ctx-boom"
     with TestClient(app) as client:
-        with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
+        with patch(
+            "app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)
+        ):
             with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
                 with patch(
                     "app.chat.tier3_handler.build_context_and_rows_for_tier3",

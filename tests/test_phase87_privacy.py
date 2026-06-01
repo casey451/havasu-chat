@@ -99,7 +99,9 @@ def test_search_log_writes_when_verbose(monkeypatch: pytest.MonkeyPatch) -> None
 
     sl._log.handlers.clear()
     assert sl.is_search_diag_verbose() is True
-    assert not isinstance(sl._log, MagicMock), "search_diag logger must not stay mocked between tests"
+    assert not isinstance(sl._log, MagicMock), (
+        "search_diag logger must not stay mocked between tests"
+    )
     with patch.object(sl._log, "info") as info:
         sl.log_query("hello", "SEARCH_EVENTS", {"a": 1}, "RUN_BROAD")
     assert info.call_count >= 2
@@ -150,7 +152,9 @@ def test_jinja2_templates_directory_resolves() -> None:
     assert '<article class="ll-utility-main">' in r.text
 
 
-def test_hint_extractor_validation_failure_logs_no_raw_json(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+def test_hint_extractor_validation_failure_logs_no_raw_json(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
 
     from app.chat import hint_extractor as he
 

@@ -177,9 +177,7 @@ def test_usage_sums_input_output_tokens(db: Session) -> None:
 def test_compact_onboarding_user_context_line() -> None:
     assert compact_onboarding_user_context_line(None) is None
     assert compact_onboarding_user_context_line({}) is None
-    line = compact_onboarding_user_context_line(
-        {"visitor_status": "visiting", "has_kids": True}
-    )
+    line = compact_onboarding_user_context_line({"visitor_status": "visiting", "has_kids": True})
     assert line is not None
     assert line.startswith("User context:")
     assert "visiting" in line.lower()

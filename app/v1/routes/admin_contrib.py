@@ -6,7 +6,7 @@ from datetime import date, time
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.routes.admin_contributions import require_admin
@@ -88,9 +88,8 @@ def patch_contribution(
                 phone=extra.get("phone"),
                 hours=extra.get("hours"),
                 description=extra.get("description") or row.submission_notes,
-                website=extra.get("website") or (
-                    str(row.submission_url) if row.submission_url else None
-                ),
+                website=extra.get("website")
+                or (str(row.submission_url) if row.submission_url else None),
             )
             approve_contribution_as_provider(db, contribution_id, pf, cat)
         elif row.entity_type == "program":
@@ -131,7 +130,11 @@ def patch_contribution(
                 end_time=row.event_time_end,
                 location_name=extra.get("location_name") or "Lake Havasu City",
                 event_url=extra.get("event_url")
-                or (str(row.submission_url) if row.submission_url else "https://havasu-chat.example.com"),
+                or (
+                    str(row.submission_url)
+                    if row.submission_url
+                    else "https://havasu-chat.example.com"
+                ),
                 source_url=row.source_url,
             )
             approve_contribution_as_event(db, contribution_id, evf, [])

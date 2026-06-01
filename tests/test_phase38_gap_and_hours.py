@@ -77,7 +77,9 @@ def test_open_late_hits_tier1_when_provider_hours_in_db(db: Session) -> None:
     ],
 )
 def test_catalog_gap_skips_tier3(query: str, expected_sub: str, db: Session) -> None:
-    with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)) as t2:
+    with patch(
+        "app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)
+    ) as t2:
         with patch("app.chat.unified_router.answer_with_tier3") as m3:
             r = route(query, f"sess-gap-{expected_sub}", db)
     t2.assert_called_once()
@@ -95,7 +97,9 @@ def test_recommendation_query_skips_gap_template(db: Session) -> None:
     """Slice F3: 'where should I eat tonight' looks like LOCATION_LOOKUP but is a
     recommendation, not a missing-entity lookup. Gap template would mislead — must
     fall through to Tier 2/Tier 3 instead."""
-    with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
+    with patch(
+        "app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)
+    ):
         with patch(
             "app.chat.unified_router.answer_with_tier3",
             return_value=("Tier 3 reply text", 100, 50, 50),
@@ -130,7 +134,9 @@ def test_near_match_typo_returns_did_you_mean(db: Session) -> None:
 
         refresh_entity_matcher(db)
 
-        with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
+        with patch(
+            "app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)
+        ):
             with patch("app.chat.unified_router.answer_with_tier3") as m3:
                 # "mdshrkbrwry" scores ~65 (NEAR band) — too far to resolve directly,
                 # close enough that we can answer using the near match as the entity.
@@ -280,7 +286,9 @@ def test_q03_what_restaurants_open_now_reaches_tier2(db: Session) -> None:
 
         refresh_entity_matcher(db)
 
-        with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)):
+        with patch(
+            "app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)
+        ):
             r = route("what restaurants are open now", "sess-q03-red", db)
 
         assert "/contribute" not in r.response, (
@@ -298,12 +306,17 @@ def test_q03_what_restaurants_open_now_reaches_tier2(db: Session) -> None:
 
 
 def test_post_api_chat_gap_template_contract() -> None:
-    with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)) as t2:
+    with patch(
+        "app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)
+    ) as t2:
         with patch("app.chat.unified_router.answer_with_tier3") as m3:
             with TestClient(app) as client:
                 r = client.post(
                     "/api/chat",
-                    json={"query": "Where is Totally Fictional Venue XYZ?", "session_id": "p38-gap-http"},
+                    json={
+                        "query": "Where is Totally Fictional Venue XYZ?",
+                        "session_id": "p38-gap-http",
+                    },
                 )
     t2.assert_called_once()
     m3.assert_not_called()

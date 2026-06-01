@@ -62,7 +62,11 @@ def _element_lat_lng(el: dict[str, Any]) -> tuple[float, float] | None:
     geom = el.get("geometry")
     if isinstance(geom, list) and geom:
         first = geom[0]
-        if isinstance(first, dict) and first.get("lat") is not None and first.get("lon") is not None:
+        if (
+            isinstance(first, dict)
+            and first.get("lat") is not None
+            and first.get("lon") is not None
+        ):
             return float(first["lat"]), float(first["lon"])
     return None
 

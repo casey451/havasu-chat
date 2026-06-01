@@ -138,11 +138,7 @@ def reconcile_hit(db: Session, payload: EntityPayload) -> ReconcileResult:
     from app.db.models import Entity, Location
 
     if payload.google_place_id:
-        loc = (
-            db.query(Location)
-            .filter(Location.google_place_id == payload.google_place_id)
-            .first()
-        )
+        loc = db.query(Location).filter(Location.google_place_id == payload.google_place_id).first()
         if loc:
             return ReconcileResult(
                 action="update",
@@ -176,7 +172,10 @@ def reconcile_hit(db: Session, payload: EntityPayload) -> ReconcileResult:
         )
         nearby: list[Any] = []
         for cand in candidates:
-            if haversine_m(payload.lat, payload.lng, cand.lat, cand.lng) <= GEO_PROXIMITY_THRESHOLD_M:
+            if (
+                haversine_m(payload.lat, payload.lng, cand.lat, cand.lng)
+                <= GEO_PROXIMITY_THRESHOLD_M
+            ):
                 nearby.append(cand)
         name_matches: list[Any] = []
         for cand in nearby:

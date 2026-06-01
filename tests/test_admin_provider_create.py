@@ -52,11 +52,7 @@ def test_admin_provider_create_happy_path() -> None:
     assert resp.headers["location"] == "/admin"
 
     with SessionLocal() as db:
-        rows = (
-            db.query(Provider)
-            .filter(Provider.provider_name == "Test Provider Slice 45")
-            .all()
-        )
+        rows = db.query(Provider).filter(Provider.provider_name == "Test Provider Slice 45").all()
         assert len(rows) == 1
         p = rows[0]
         assert p.category == "test_category"

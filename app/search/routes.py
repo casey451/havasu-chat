@@ -225,7 +225,9 @@ def api_search(
             Provider,
             (Provider.entity_id == Entity.id) & (Entity.entity_type == ENTITY_TYPE_COMMERCIAL),
         )
-        .outerjoin(Event, (Event.entity_id == Entity.id) & (Entity.entity_type == ENTITY_TYPE_EVENT))
+        .outerjoin(
+            Event, (Event.entity_id == Entity.id) & (Entity.entity_type == ENTITY_TYPE_EVENT)
+        )
         .outerjoin(
             Program,
             (Program.entity_id == Entity.id) & (Entity.entity_type == ENTITY_TYPE_PROGRAM),
@@ -274,10 +276,7 @@ def api_search(
             prog_by_ent[pr.entity_id] = pr
 
     hydrated = (
-        db.query(Entity)
-        .filter(Entity.id.in_(ids))
-        .options(joinedload(Entity.location))
-        .all()
+        db.query(Entity).filter(Entity.id.in_(ids)).options(joinedload(Entity.location)).all()
     )
     ent_order = {eid: i for i, eid in enumerate(ids)}
     hydrated.sort(key=lambda e: ent_order.get(e.id, 999))

@@ -71,14 +71,20 @@ def test_tier3_receives_onboarding_hints_from_session() -> None:
     sid = "onb-tier3-" + uuid.uuid4().hex[:12]
     clear_session_state(sid)
     with TestClient(app) as client:
-        assert client.post(
-            "/api/chat/onboarding",
-            json={"session_id": sid, "visitor_status": "visiting"},
-        ).status_code == 200
-        assert client.post(
-            "/api/chat/onboarding",
-            json={"session_id": sid, "has_kids": True},
-        ).status_code == 200
+        assert (
+            client.post(
+                "/api/chat/onboarding",
+                json={"session_id": sid, "visitor_status": "visiting"},
+            ).status_code
+            == 200
+        )
+        assert (
+            client.post(
+                "/api/chat/onboarding",
+                json={"session_id": sid, "has_kids": True},
+            ).status_code
+            == 200
+        )
         with patch("app.chat.unified_router.answer_with_tier3") as m:
             m.return_value = ("stub", 1, 1, 0)
             with patch("app.chat.unified_router.extract_hints", return_value=None):

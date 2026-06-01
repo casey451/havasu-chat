@@ -155,7 +155,9 @@ def test_shortcut_strips_locality_suffix() -> None:
     ):
         filters = shortcut.try_business_listing_shortcut(f"find me a barber {tail}")
         assert filters is not None
-        assert filters.category == "barber", f"tail {tail!r} polluted category: {filters.category!r}"
+        assert filters.category == "barber", (
+            f"tail {tail!r} polluted category: {filters.category!r}"
+        )
 
 
 @pytest.mark.parametrize(
@@ -183,8 +185,7 @@ def test_shortcut_normalizes_common_typos(query: str, expected_category: str) ->
     filters = shortcut.try_business_listing_shortcut(query)
     assert filters is not None, f"shortcut should match {query!r}"
     assert filters.category == expected_category.lower(), (
-        f"typo in {query!r} should normalize to {expected_category!r}, "
-        f"got {filters.category!r}"
+        f"typo in {query!r} should normalize to {expected_category!r}, got {filters.category!r}"
     )
 
 
@@ -249,8 +250,7 @@ def test_render_listing_returns_none_when_no_provider_rows() -> None:
 
 def test_render_listing_caps_at_five() -> None:
     rows = [
-        {"type": "provider", "name": f"Shop {i}", "address": "x", "phone": "y"}
-        for i in range(20)
+        {"type": "provider", "name": f"Shop {i}", "address": "x", "phone": "y"} for i in range(20)
     ]
     out = shortcut.render_business_listing(rows, "shops")
     assert out is not None
@@ -529,46 +529,59 @@ def test_voice_answer_never_sees_spotlight_status() -> None:
     ]
 
     # Baseline: no spotlight fields set
-    voice_baseline, rows_baseline = _business_listing_voice(
-        base_rows, "plumber"
-    )
+    voice_baseline, rows_baseline = _business_listing_voice(base_rows, "plumber")
 
     # Variation 1: first row is spotlight with future sponsored_until
     rows_v1 = [
-        {**base_rows[0], "tier": "spotlight", "sponsored_until": future,
-         "featured_description": "Top-rated plumber in LHC"},
-        {**base_rows[1], "tier": "free", "sponsored_until": None,
-         "featured_description": None},
+        {
+            **base_rows[0],
+            "tier": "spotlight",
+            "sponsored_until": future,
+            "featured_description": "Top-rated plumber in LHC",
+        },
+        {**base_rows[1], "tier": "free", "sponsored_until": None, "featured_description": None},
     ]
     voice_v1, _ = _business_listing_voice(rows_v1, "plumber")
 
     # Variation 2: second row is spotlight, first is paid (tier varies)
     rows_v2 = [
-        {**base_rows[0], "tier": "paid", "sponsored_until": None,
-         "featured_description": "Old description"},
-        {**base_rows[1], "tier": "spotlight", "sponsored_until": future,
-         "featured_description": "Reliable local"},
+        {
+            **base_rows[0],
+            "tier": "paid",
+            "sponsored_until": None,
+            "featured_description": "Old description",
+        },
+        {
+            **base_rows[1],
+            "tier": "spotlight",
+            "sponsored_until": future,
+            "featured_description": "Reliable local",
+        },
     ]
     voice_v2, _ = _business_listing_voice(rows_v2, "plumber")
 
     # Variation 3: both rows are expired spotlight
     past = datetime.now(timezone.utc) - timedelta(days=1)
     rows_v3 = [
-        {**base_rows[0], "tier": "spotlight", "sponsored_until": past,
-         "featured_description": "Expired ad copy"},
-        {**base_rows[1], "tier": "spotlight", "sponsored_until": past,
-         "featured_description": "Also expired"},
+        {
+            **base_rows[0],
+            "tier": "spotlight",
+            "sponsored_until": past,
+            "featured_description": "Expired ad copy",
+        },
+        {
+            **base_rows[1],
+            "tier": "spotlight",
+            "sponsored_until": past,
+            "featured_description": "Also expired",
+        },
     ]
     voice_v3, _ = _business_listing_voice(rows_v3, "plumber")
 
     # Byte-equivalence under tier variation. If this fails, the voice
     # path has begun reading a monetization field — surface immediately.
-    assert voice_v1 == voice_baseline, (
-        "voice changed when tier=spotlight on row 0 — spotlight leak"
-    )
-    assert voice_v2 == voice_baseline, (
-        "voice changed when tier=spotlight on row 1 — spotlight leak"
-    )
+    assert voice_v1 == voice_baseline, "voice changed when tier=spotlight on row 0 — spotlight leak"
+    assert voice_v2 == voice_baseline, "voice changed when tier=spotlight on row 1 — spotlight leak"
     assert voice_v3 == voice_baseline, (
         "voice changed when both rows expired-spotlight — spotlight leak"
     )

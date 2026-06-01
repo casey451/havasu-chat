@@ -24,7 +24,9 @@ def db() -> Session:
         yield s
     finally:
         s.query(Program).filter(Program.source == "phase33-test").delete(synchronize_session=False)
-        s.query(Provider).filter(Provider.source == "phase33-test").delete(synchronize_session=False)
+        s.query(Provider).filter(Provider.source == "phase33-test").delete(
+            synchronize_session=False
+        )
         s.commit()
         s.close()
 

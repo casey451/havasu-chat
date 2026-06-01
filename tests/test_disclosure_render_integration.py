@@ -154,9 +154,7 @@ def test_feature_flag_default_off_no_renderer_invoked(
     db.commit()
 
     spy = MagicMock(side_effect=AssertionError("renderer must not run when flag is off"))
-    monkeypatch.setattr(
-        tier3_handler, "_maybe_render_sponsored_block", spy
-    )
+    monkeypatch.setattr(tier3_handler, "_maybe_render_sponsored_block", spy)
 
     fake = _patched_openai("Plumbers in Havasu are easy enough to find.")
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")

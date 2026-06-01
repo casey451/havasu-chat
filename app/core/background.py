@@ -176,8 +176,7 @@ def with_retry(
     sentry_sdk.add_breadcrumb(
         category=_BREADCRUMB_CATEGORY,
         message=(
-            f"{fn_name} exhausted retries: "
-            f"{type(last_exc).__name__ if last_exc else 'unknown'}"
+            f"{fn_name} exhausted retries: {type(last_exc).__name__ if last_exc else 'unknown'}"
         ),
         level="error",
         data={
@@ -273,8 +272,7 @@ async def with_retry_async(
     sentry_sdk.add_breadcrumb(
         category=_BREADCRUMB_CATEGORY,
         message=(
-            f"{fn_name} exhausted retries: "
-            f"{type(last_exc).__name__ if last_exc else 'unknown'}"
+            f"{fn_name} exhausted retries: {type(last_exc).__name__ if last_exc else 'unknown'}"
         ),
         level="error",
         data={

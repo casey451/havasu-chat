@@ -42,13 +42,15 @@ CATEGORY_SLUG = "auto-rv-fuel"
 MATCH_THRESHOLD = 86
 VERIFICATION_METHOD = "scraper"
 
-_TOWING_KEYWORDS = frozenset({
-    "towing",
-    "tow",
-    "wrecker",
-    "roadside",
-    "recovery",
-})
+_TOWING_KEYWORDS = frozenset(
+    {
+        "towing",
+        "tow",
+        "wrecker",
+        "roadside",
+        "recovery",
+    }
+)
 
 
 def _is_towing_candidate(prov: Provider) -> bool:
@@ -80,11 +82,7 @@ def _best_azcc_match(
     best_score = 0
     for entry in registry:
         for cand in _azcc_candidate_names(entry):
-            score = int(
-                fuzz.token_sort_ratio(
-                    provider_name, cand, processor=utils.default_process
-                )
-            )
+            score = int(fuzz.token_sort_ratio(provider_name, cand, processor=utils.default_process))
             if score > best_score:
                 best_score = score
                 best_entry = entry

@@ -61,6 +61,4 @@ def gas_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
 @router.get("/api/gas", response_class=JSONResponse)
 def gas_api(db: Session = Depends(get_db)) -> JSONResponse:
     data, staleness, is_stale = _read_payload(db)
-    return JSONResponse(
-        content={**data, "staleness_label": staleness, "is_stale": is_stale}
-    )
+    return JSONResponse(content={**data, "staleness_label": staleness, "is_stale": is_stale})

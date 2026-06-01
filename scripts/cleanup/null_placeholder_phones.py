@@ -52,9 +52,7 @@ def is_placeholder_nanp_phone(raw: str | None) -> bool:
     return bool(d and _PLACEHOLDER_PHONE_RE.match(d))
 
 
-def run_placeholder_cleanup(
-    db: Session, *, apply: bool, log_dir: Path
-) -> PlaceholderCleanupResult:
+def run_placeholder_cleanup(db: Session, *, apply: bool, log_dir: Path) -> PlaceholderCleanupResult:
     """Find providers with placeholder phones; optionally null them. Always writes a log file."""
     log_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -80,9 +78,13 @@ def run_placeholder_cleanup(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Null NANP 555-01XX placeholder phones on providers.")
+    parser = argparse.ArgumentParser(
+        description="Null NANP 555-01XX placeholder phones on providers."
+    )
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--dry-run", action="store_true", help="Report matches only; do not update rows.")
+    group.add_argument(
+        "--dry-run", action="store_true", help="Report matches only; do not update rows."
+    )
     group.add_argument("--apply", action="store_true", help="Set matching phones to NULL.")
     args = parser.parse_args()
 

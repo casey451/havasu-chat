@@ -32,12 +32,8 @@ _GROUP_ONE_LINERS: dict[str, str] = {
     "health-fitness-group": (
         "Care, wellness, classes, and recreation — doctors to drop-in sports."
     ),
-    "on-the-water-group": (
-        "Marinas, launches, rentals, and everything tied to lake life."
-    ),
-    "home-auto-group": (
-        "Home pros, property services, auto, RV, and fuel around town."
-    ),
+    "on-the-water-group": ("Marinas, launches, rentals, and everything tied to lake life."),
+    "home-auto-group": ("Home pros, property services, auto, RV, and fuel around town."),
     "things-to-do-group": (
         "Events, outdoor recreation, and classes — what to do around Lake Havasu."
     ),

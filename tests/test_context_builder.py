@@ -126,9 +126,7 @@ def test_entity_matched_provider_listed_first_with_details(isolated_catalog: Ses
     ctx = build_context_for_tier3("hours?", _intent(entity="Target Biz LLC"), db)
     # ENTITY catalog path: matched entity present, others omitted.
     names = re.findall(r"^Entity: (.+)$", ctx, re.MULTILINE)
-    assert names == ["Target Biz LLC"], (
-        f"expected only matched entity, got: {names!r}"
-    )
+    assert names == ["Target Biz LLC"], f"expected only matched entity, got: {names!r}"
     assert "Zebra Zoo" not in ctx
     # Matched entity Provider details surface via the entity_id join.
     assert "address: 123 Main" in ctx

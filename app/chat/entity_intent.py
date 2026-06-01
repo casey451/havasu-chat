@@ -97,25 +97,79 @@ _OPEN_NOW_PHRASE_RE = re.compile(
     re.IGNORECASE,
 )
 
-_CATEGORY_TOKENS: frozenset[str] = frozenset({
-    # lodging
-    "hotel", "motel", "inn", "resort", "lodge", "suites", "hostel",
-    # eat/drink
-    "restaurant", "cafe", "coffee", "bar", "grill", "diner", "bistro",
-    "kitchen", "pizzeria", "brewery", "pub", "tavern", "eatery",
-    # retail
-    "store", "shop", "shoppe", "market", "mart", "boutique",
-    # services / health
-    "salon", "spa", "studio", "gym", "clinic", "hospital", "pharmacy",
-    "dental", "dentist", "doctor", "vet", "veterinary",
-    # places
-    "park", "trail", "center", "centre", "plaza", "mall", "lanes",
-    # legal-suffix noise
-    "service", "services", "company", "co", "inc", "incorporated",
-    "llc", "ltd", "group", "corp", "corporation", "the",
-    # locale (Havasu-specific stopwords already used by entity_matcher)
-    "lake", "havasu", "city", "arizona", "az",
-})
+_CATEGORY_TOKENS: frozenset[str] = frozenset(
+    {
+        # lodging
+        "hotel",
+        "motel",
+        "inn",
+        "resort",
+        "lodge",
+        "suites",
+        "hostel",
+        # eat/drink
+        "restaurant",
+        "cafe",
+        "coffee",
+        "bar",
+        "grill",
+        "diner",
+        "bistro",
+        "kitchen",
+        "pizzeria",
+        "brewery",
+        "pub",
+        "tavern",
+        "eatery",
+        # retail
+        "store",
+        "shop",
+        "shoppe",
+        "market",
+        "mart",
+        "boutique",
+        # services / health
+        "salon",
+        "spa",
+        "studio",
+        "gym",
+        "clinic",
+        "hospital",
+        "pharmacy",
+        "dental",
+        "dentist",
+        "doctor",
+        "vet",
+        "veterinary",
+        # places
+        "park",
+        "trail",
+        "center",
+        "centre",
+        "plaza",
+        "mall",
+        "lanes",
+        # legal-suffix noise
+        "service",
+        "services",
+        "company",
+        "co",
+        "inc",
+        "incorporated",
+        "llc",
+        "ltd",
+        "group",
+        "corp",
+        "corporation",
+        "the",
+        # locale (Havasu-specific stopwords already used by entity_matcher)
+        "lake",
+        "havasu",
+        "city",
+        "arizona",
+        "az",
+    }
+)
 
 _SUBJECT_LEAD_RE = re.compile(
     r"^\s*(?:"
@@ -229,10 +283,7 @@ def _general_subject_tokens(query: str) -> frozenset[str]:
     q = _SUBJECT_LEAD_RE.sub("", q, count=1)
     q = q.strip(" ?.!,")
     tokens = re.findall(r"[a-z0-9]+", q)
-    return frozenset(
-        t for t in tokens
-        if len(t) >= 2 and t not in _CATEGORY_TOKENS
-    )
+    return frozenset(t for t in tokens if len(t) >= 2 and t not in _CATEGORY_TOKENS)
 
 
 def near_match_subject_overlaps(query: str, canonical_name: str) -> bool:
@@ -269,7 +320,8 @@ def near_match_subject_overlaps(query: str, canonical_name: str) -> bool:
         return False
 
     name_tokens = frozenset(
-        t for t in re.findall(r"[a-z0-9]+", (canonical_name or "").lower())
+        t
+        for t in re.findall(r"[a-z0-9]+", (canonical_name or "").lower())
         if len(t) >= 2 and t not in _CATEGORY_TOKENS
     )
     if not name_tokens:

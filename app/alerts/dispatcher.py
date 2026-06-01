@@ -31,9 +31,7 @@ def _alerts_manage_url() -> str:
     return f"{base}/account/alerts" if base else "/account/alerts"
 
 
-def _favorites_for_alert(
-    db: Session, user_id: str, alert_type: str
-) -> list:
+def _favorites_for_alert(db: Session, user_id: str, alert_type: str) -> list:
     if alert_type in ("heat_advisory", "aqi_alert"):
         return indoor_favorites_for_user(db, user_id)
     if alert_type == "lake_hazard":

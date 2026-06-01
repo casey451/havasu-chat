@@ -245,9 +245,7 @@ def find_provider_pairs(
                         reason=reason,
                         key=key,
                         count=len(members),
-                        sample_names=tuple(
-                            (m.name or "").strip() for m in members[:5]
-                        ),
+                        sample_names=tuple((m.name or "").strip() for m in members[:5]),
                     )
                 )
                 continue
@@ -288,9 +286,7 @@ def _load_provider_rows(limit: int | None) -> list[ProvRow]:
 
     out: list[ProvRow] = []
     with SessionLocal() as session:
-        stmt = select(Provider).where(
-            Provider.is_active.is_(True), Provider.draft.is_(False)
-        )
+        stmt = select(Provider).where(Provider.is_active.is_(True), Provider.draft.is_(False))
         rows = session.scalars(stmt).all()
         if limit is not None:
             rows = rows[:limit]

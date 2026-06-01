@@ -81,7 +81,9 @@ def test_azcc_towing_verify_dry_run_no_writes(monkeypatch) -> None:
 
 
 def test_azcc_towing_verify_handles_case_mismatch(monkeypatch) -> None:
-    registry = [{"corp_id": "99887766", "entity_name": "Abc Towing Service LLC", "status": "Active"}]
+    registry = [
+        {"corp_id": "99887766", "entity_name": "Abc Towing Service LLC", "status": "Active"}
+    ]
     monkeypatch.setattr(
         azcc_towing_verify,
         "fetch_azcc_entity_search",

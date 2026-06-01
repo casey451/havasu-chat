@@ -36,9 +36,7 @@ def _primary_category_slug(ent: Entity) -> str:
     return ""
 
 
-def _status_line_for_entity(
-    db: Session, ent: Entity, *, now
-) -> str:
+def _status_line_for_entity(db: Session, ent: Entity, *, now) -> str:
     vm = provider_queries.build_card_view_model(db, ent.id, now=now)
     if vm is None:
         return ""
@@ -82,11 +80,7 @@ def map_data(
         district_slug=None,
         boat_only=boat_only,
     )
-    entities = [
-        e
-        for e in entities
-        if _entity_lat_lng(e) is not None
-    ]
+    entities = [e for e in entities if _entity_lat_lng(e) is not None]
 
     eids = [e.id for e in entities]
     prov_by_eid = (

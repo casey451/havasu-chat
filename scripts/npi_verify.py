@@ -78,7 +78,9 @@ def _npi_candidate_names(entry: dict[str, Any]) -> list[str]:
     return out
 
 
-def _best_npi_match(provider_name: str, registry: list[dict[str, Any]]) -> tuple[dict[str, Any], int] | None:
+def _best_npi_match(
+    provider_name: str, registry: list[dict[str, Any]]
+) -> tuple[dict[str, Any], int] | None:
     # Two fixes vs the original (Phase 5.4 §3 dispatch findings):
     #
     # 1. ``processor=utils.default_process`` -- rapidfuzz 3.x removed the
@@ -101,11 +103,7 @@ def _best_npi_match(provider_name: str, registry: list[dict[str, Any]]) -> tuple
     best_score = 0
     for entry in registry:
         for cand in _npi_candidate_names(entry):
-            score = int(
-                fuzz.token_sort_ratio(
-                    provider_name, cand, processor=utils.default_process
-                )
-            )
+            score = int(fuzz.token_sort_ratio(provider_name, cand, processor=utils.default_process))
             if score > best_score:
                 best_score = score
                 best_entry = entry

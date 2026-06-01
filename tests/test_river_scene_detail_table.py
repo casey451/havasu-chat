@@ -142,12 +142,19 @@ def test_submission_public_url_website_then_facebook_then_article() -> None:
         organizer=None,
         category_slugs=[],
     )
-    only_fb = RiverSceneEvent(**base, raw={"labels": {"Facebook": "https://www.facebook.com/events/1"}})
+    only_fb = RiverSceneEvent(
+        **base, raw={"labels": {"Facebook": "https://www.facebook.com/events/1"}}
+    )
     assert _submission_public_url(only_fb) == "https://www.facebook.com/events/1"
 
     both = RiverSceneEvent(
         **base,
-        raw={"labels": {"Website": "https://site.example/", "Facebook": "https://www.facebook.com/events/2"}},
+        raw={
+            "labels": {
+                "Website": "https://site.example/",
+                "Facebook": "https://www.facebook.com/events/2",
+            }
+        },
     )
     assert _submission_public_url(both) == "https://site.example/"
 

@@ -60,24 +60,24 @@ ITEMINFO_URL = f"{BASE_URL}/iteminfo.html"
 class Section:
     """A single schedulable occurrence under a parent program."""
 
-    fmid: int                       # WebTrac's stable section ID
-    program_id: int                 # Parent program code
-    program_name: str               # e.g. "Adult art and crafts"
-    section_name: str               # e.g. "Mason jar Terrarium 1-2:30pm"
-    availability_state: str         # raw CSS suffix (available, unavailable, ...)
-    available_for_signup: bool      # True iff state == "available"
-    availability_label: str         # human label as shown on page
+    fmid: int  # WebTrac's stable section ID
+    program_id: int  # Parent program code
+    program_name: str  # e.g. "Adult art and crafts"
+    section_name: str  # e.g. "Mason jar Terrarium 1-2:30pm"
+    availability_state: str  # raw CSS suffix (available, unavailable, ...)
+    available_for_signup: bool  # True iff state == "available"
+    availability_label: str  # human label as shown on page
     start_date: date | None
     end_date: date | None
     start_time: time | None
     end_time: time | None
-    days: tuple[str, ...]           # ("M","Tu","W","Th") etc.
+    days: tuple[str, ...]  # ("M","Tu","W","Th") etc.
     location: str
     age_min: float | None
     age_max: float | None
     cost_resident: float | None
     cost_nonresident: float | None
-    info_url: str                   # iteminfo.html?Module=AR&FMID=...
+    info_url: str  # iteminfo.html?Module=AR&FMID=...
     raw: dict[str, Any] = field(default_factory=dict, repr=False, compare=False)
 
     # Convenience for JSON-friendly export
@@ -212,7 +212,7 @@ def _availability_state(span: Tag | None) -> str:
     classes = span.get("class") or []
     for c in classes:
         if c.startswith(_AVAIL_PREFIX):
-            return c[len(_AVAIL_PREFIX):].lower()
+            return c[len(_AVAIL_PREFIX) :].lower()
     return "unknown"
 
 
@@ -228,6 +228,7 @@ def _cells_by_title(tr: Tag) -> dict[str, Tag]:
 # ---------------------------------------------------------------------------
 # Public parser
 # ---------------------------------------------------------------------------
+
 
 def parse_search_html(html: str) -> list[Section]:
     """Return every section found in a WebTrac search-results document.
@@ -256,7 +257,9 @@ def parse_search_html(html: str) -> list[Section]:
             if "Description" not in cells:
                 continue
 
-            avail_span = cells.get("Availability") and cells["Availability"].select_one(".itemstatus")
+            avail_span = cells.get("Availability") and cells["Availability"].select_one(
+                ".itemstatus"
+            )
             state = _availability_state(avail_span)
             label = _text(avail_span)
 
@@ -282,12 +285,20 @@ def parse_search_html(html: str) -> list[Section]:
             if not fmid:
                 continue
 
-            start_date, end_date = _parse_dates_cell(cells.get("Dates")) if "Dates" in cells else (None, None)
-            start_time, end_time = _parse_times_cell(cells.get("Times")) if "Times" in cells else (None, None)
+            start_date, end_date = (
+                _parse_dates_cell(cells.get("Dates")) if "Dates" in cells else (None, None)
+            )
+            start_time, end_time = (
+                _parse_times_cell(cells.get("Times")) if "Times" in cells else (None, None)
+            )
             days = _parse_days_cell(cells.get("Days")) if "Days" in cells else ()
             location = _text(cells.get("Location")) if "Location" in cells else ""
-            age_min, age_max = _parse_ages_cell(cells.get("Ages")) if "Ages" in cells else (None, None)
-            cost_res, cost_non = _parse_cost_cell(cells.get("Cost")) if "Cost" in cells else (None, None)
+            age_min, age_max = (
+                _parse_ages_cell(cells.get("Ages")) if "Ages" in cells else (None, None)
+            )
+            cost_res, cost_non = (
+                _parse_cost_cell(cells.get("Cost")) if "Cost" in cells else (None, None)
+            )
 
             sections.append(
                 Section(

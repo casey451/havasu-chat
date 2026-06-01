@@ -115,27 +115,19 @@ def test_contact_tier_phone_unique_match_updates(db_session, monkeypatch) -> Non
         "Barley Brothers Brewery",
         phone="(928) 505-7837",
     )
-    payload = _payload(
-        "Barley Brothers Restaurant & Brewery", phone="+1 928-505-7837"
-    )
+    payload = _payload("Barley Brothers Restaurant & Brewery", phone="+1 928-505-7837")
     rec = reconcile_hit(db_session, payload)
     assert rec.action == "update"
     assert rec.existing_id == prov.entity_id
 
 
-def test_contact_tier_ambiguous_website_does_not_uniquely_merge(
-    db_session, monkeypatch
-) -> None:
+def test_contact_tier_ambiguous_website_does_not_uniquely_merge(db_session, monkeypatch) -> None:
     monkeypatch.setenv("INGEST_CONTACT_TIER_ENABLED", "1")
     # Two active providers share the website -> the contact tier finds >1 match
     # and must NOT resolve here. With no geo/name overlap the result falls
     # through to the insert tier; assert it did NOT contact-merge onto either.
-    a = create_provider_and_entity_row(
-        db_session, "Plaza Unit A", website="http://sharedplaza.com"
-    )
-    b = create_provider_and_entity_row(
-        db_session, "Plaza Unit B", website="http://sharedplaza.com"
-    )
+    a = create_provider_and_entity_row(db_session, "Plaza Unit A", website="http://sharedplaza.com")
+    b = create_provider_and_entity_row(db_session, "Plaza Unit B", website="http://sharedplaza.com")
     payload = _payload("Some Unrelated Tenant", website="https://sharedplaza.com/")
     rec = reconcile_hit(db_session, payload)
     assert rec.reason != "contact (website/phone) exact match"

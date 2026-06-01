@@ -61,24 +61,18 @@ from app.db.seed_helpers import derive_provider_slug  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_INPUT_PATH = (
-    Path(__file__).parent / "output" / "places_pull" / "enrichment_enriched.jsonl"
-)
+DEFAULT_INPUT_PATH = Path(__file__).parent / "output" / "places_pull" / "enrichment_enriched.jsonl"
 LHC_ZIPS = {"86403", "86404", "86405", "86406"}
 ENRICHMENT_VERSION = "places_api_new_2026-05-06"
 
 
 def load_enriched(path: Path) -> list[dict[str, Any]]:
     return [
-        json.loads(line)
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
     ]
 
 
-def filter_by_category(
-    rows: list[dict[str, Any]], category_slug: str
-) -> list[dict[str, Any]]:
+def filter_by_category(rows: list[dict[str, Any]], category_slug: str) -> list[dict[str, Any]]:
     """Keep only rows whose discovery domain maps to the given Tier-1 slug.
 
     Mirrors ``places_discovery``'s ``--category`` behaviour: the slug is
@@ -90,9 +84,7 @@ def filter_by_category(
     domains = DISCOVERY_CATEGORY_TO_DOMAINS.get(category_slug)
     if domains is None:
         known = ", ".join(sorted(DISCOVERY_CATEGORY_TO_DOMAINS))
-        raise SystemExit(
-            f"Unknown --category {category_slug!r}. Expected one of: {known}"
-        )
+        raise SystemExit(f"Unknown --category {category_slug!r}. Expected one of: {known}")
     return [r for r in rows if r.get("_first_seen_domain", "") in domains]
 
 
@@ -212,12 +204,14 @@ def row_to_provider_kwargs(row: dict[str, Any]) -> dict[str, Any]:
 # domain in Phase 5.2 scope. Phase 5.3 (home_services) and beyond extend
 # the tables as their audits surface similar gaps.
 
-_VEHICLE_TYPES_THAT_MIGHT_BE_BOATS: frozenset[str] = frozenset({
-    "car_dealer",
-    "car_rental",
-    "car_repair",
-    "car_wash",
-})
+_VEHICLE_TYPES_THAT_MIGHT_BE_BOATS: frozenset[str] = frozenset(
+    {
+        "car_dealer",
+        "car_rental",
+        "car_repair",
+        "car_wash",
+    }
+)
 
 _BOAT_NAME_KEYWORDS: tuple[str, ...] = (
     "marine",
@@ -432,9 +426,7 @@ def _name_signals_boat(name: str) -> bool:
     return any(kw in n for kw in _BOAT_NAME_KEYWORDS)
 
 
-def _resolve_category_id(
-    row: dict[str, Any], category_id_by_slug: dict[str, int]
-) -> int | None:
+def _resolve_category_id(row: dict[str, Any], category_id_by_slug: dict[str, int]) -> int | None:
     """Resolve a Tier-1 ``Category.id`` for a Google Places enriched row.
 
     Three-layer resolution (in priority order):
@@ -495,9 +487,7 @@ def _resolve_category_id(
     return None
 
 
-def _ensure_entity_category(
-    session: Any, entity_id: str, category_id: int | None
-) -> bool:
+def _ensure_entity_category(session: Any, entity_id: str, category_id: int | None) -> bool:
     """Idempotent EntityCategory upsert on the UPDATE branch.
 
     The Phase 1D dual-write hook only creates an ``EntityCategory`` on
@@ -582,11 +572,7 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
         # Phase 1C: match upsert keys on legacy ``google_place_id`` or ENTITY
         # ``locations.google_place_id`` (backfilled Places rows).
         existing_by_pid: dict[str, Provider] = {}
-        for p in (
-            session.query(Provider)
-            .filter(Provider.google_place_id.in_(place_ids))
-            .all()
-        ):
+        for p in session.query(Provider).filter(Provider.google_place_id.in_(place_ids)).all():
             if p.google_place_id:
                 existing_by_pid[p.google_place_id] = p
         for p, loc_pid in (
@@ -645,7 +631,9 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
                 payload = enrichment_row_to_entity_payload(row)
                 rec = reconcile_hit(session, payload)
                 if rec.action == "ambiguous":
-                    log_ambiguous_reconcile(rec, context=f"places_load insert branch place_id={pid}")
+                    log_ambiguous_reconcile(
+                        rec, context=f"places_load insert branch place_id={pid}"
+                    )
                     counts["reconcile_skipped_ambiguous"] += 1
                     continue
                 if rec.action == "update" and rec.existing_id:

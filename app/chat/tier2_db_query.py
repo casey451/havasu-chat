@@ -246,9 +246,7 @@ def _schedule_matches_days(p: Program, days: list[str] | None) -> bool:
     return bool(allowed.intersection(sched))
 
 
-def _resolve_time_window(
-    tw: str | None, ref: date
-) -> tuple[date | None, date | None]:
+def _resolve_time_window(tw: str | None, ref: date) -> tuple[date | None, date | None]:
     """Inclusive (start, end); ``(ref, None)`` means from ``ref`` forward without upper bound."""
     if tw is None:
         return ref, None
@@ -315,7 +313,9 @@ def _truncate(s: str | None, max_len: int) -> str:
     return t[: max_len - 3] + "..."
 
 
-def _program_location_display(location_name: str | None, location_address: str | None) -> str | None:
+def _program_location_display(
+    location_name: str | None, location_address: str | None
+) -> str | None:
     """Single compact location string for program row payloads (Phase 4.5)."""
     n = (location_name or "").strip()
     a = (location_address or "").strip()
@@ -556,7 +556,13 @@ def _row_dedupe_key(row: dict[str, Any]) -> tuple[Any, ...]:
     if t == "event":
         return (t, row.get("name"), row.get("date"), row.get("start_time"))
     if t == "program":
-        return (t, row.get("name"), row.get("provider_name"), row.get("schedule_hours"), row.get("location"))
+        return (
+            t,
+            row.get("name"),
+            row.get("provider_name"),
+            row.get("schedule_hours"),
+            row.get("location"),
+        )
     if t == "provider":
         return (t, row.get("name"), row.get("address"), row.get("phone"))
     return (t, repr(row))
@@ -582,9 +588,7 @@ def _merge_simple(
     return out
 
 
-def _filter_window_span_inclusive(
-    win_start: date | None, win_end: date | None, ref: date
-) -> int:
+def _filter_window_span_inclusive(win_start: date | None, win_end: date | None, ref: date) -> int:
     """Inclusive day span of the *filter* window. Unbounded upper = broad (large)."""
     if win_start is not None and win_end is not None:
         return max(0, (win_end - win_start).days) + 1
@@ -628,9 +632,7 @@ def _upper_bound_for_clustering(
     return mx
 
 
-def _is_still_clustered_early(
-    events: list[Event], lower: date, upper: date
-) -> bool:
+def _is_still_clustered_early(events: list[Event], lower: date, upper: date) -> bool:
     if len(events) < 4:
         return False
     w = max(0, (upper - lower).days) + 1
@@ -640,9 +642,7 @@ def _is_still_clustered_early(
     return (mid.date - lower).days < (w * 0.3)
 
 
-def _time_bucket_first_hits(
-    evs: list[Event], lower: date, upper: date, k: int
-) -> list[Event]:
+def _time_bucket_first_hits(evs: list[Event], lower: date, upper: date, k: int) -> list[Event]:
     """Partition ``[lower, upper]`` into k day-subranges; one earliest event per subrange, then chrono backfill to k."""
     if not evs or upper < lower or k < 1:
         return []
@@ -688,7 +688,11 @@ def _event_time_bucket_first_hits(evs: list[Event], k: int) -> list[Event]:
         for e in evs:
             if e.id in used:
                 continue
-            minute = (e.start_time.hour * 60 + e.start_time.minute) if e.start_time is not None else 12 * 60
+            minute = (
+                (e.start_time.hour * 60 + e.start_time.minute)
+                if e.start_time is not None
+                else 12 * 60
+            )
             if lo <= minute < hi:
                 selected.append(e)
                 used.add(e.id)
@@ -859,9 +863,7 @@ def _query_programs(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
                 )
             )
         else:
-            q = q.where(
-                or_(Program.title.ilike(needle), Program.provider_name.ilike(needle))
-            )
+            q = q.where(or_(Program.title.ilike(needle), Program.provider_name.ilike(needle)))
     if needle := _text_needle(filters.location):
         q = q.where(
             or_(
@@ -1089,9 +1091,7 @@ def query(
                 return query_entities(db, filters, request_ctx, max_rows=MAX_ROWS)
             return _sample_mixed(db, MAX_ROWS)
 
-        if prefers_entity_catalog(filters, request_ctx) and not _has_temporal_filter(
-            filters
-        ):
+        if prefers_entity_catalog(filters, request_ctx) and not _has_temporal_filter(filters):
             entity_rows = query_entities(db, filters, request_ctx, max_rows=MAX_ROWS)
             if entity_rows:
                 return entity_rows
@@ -1106,8 +1106,7 @@ def query(
             prov_orm = [
                 p
                 for p in prov_orm
-                if (hs := effective_hours_structured(p))
-                and is_open_at(hs, now_local)
+                if (hs := effective_hours_structured(p)) and is_open_at(hs, now_local)
             ]
 
         providers = [_provider_dict(p) for p in prov_orm[:MAX_ROWS]]

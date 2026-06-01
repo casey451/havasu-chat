@@ -26,7 +26,9 @@ def _disable_llm_router(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_date_lookup_gap_includes_contribute(db: Session) -> None:
-    with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)) as t2:
+    with patch(
+        "app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)
+    ) as t2:
         with patch("app.chat.unified_router.answer_with_tier3") as m3:
             r = route("When is the zzznonexistentevent999abc?", "sess-gap-date", db)
     t2.assert_called_once()
@@ -38,7 +40,9 @@ def test_date_lookup_gap_includes_contribute(db: Session) -> None:
 
 
 def test_location_lookup_gap_includes_contribute(db: Session) -> None:
-    with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)) as t2:
+    with patch(
+        "app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)
+    ) as t2:
         with patch("app.chat.unified_router.answer_with_tier3") as m3:
             r = route("Where is Totally Fictional Venue XYZ?", "sess-gap-loc", db)
     t2.assert_called_once()
@@ -50,7 +54,9 @@ def test_location_lookup_gap_includes_contribute(db: Session) -> None:
 
 
 def test_hours_lookup_gap_includes_contribute(db: Session) -> None:
-    with patch("app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)) as t2:
+    with patch(
+        "app.chat.unified_router.try_tier2_with_usage", return_value=(None, None, None, None)
+    ) as t2:
         with patch("app.chat.unified_router.answer_with_tier3") as m3:
             r = route("What are the hours for zzznonexistent999xyz?", "sess-gap-hrs", db)
     t2.assert_called_once()

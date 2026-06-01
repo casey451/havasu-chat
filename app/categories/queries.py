@@ -34,9 +34,7 @@ from app.db.models import Provider
 from app.home.queries import _hours_status, _provider_image_url
 from app.home.queries_c import _load_eat_photos, _rating_display, _rating_sort_key
 
-_CATEGORY_PHOTOS_PATH = (
-    Path(__file__).resolve().parent / "curated_category_photos.json"
-)
+_CATEGORY_PHOTOS_PATH = Path(__file__).resolve().parent / "curated_category_photos.json"
 
 # ---------------------------------------------------------------------------
 # Route -> Provider.category filter mapping
@@ -101,9 +99,7 @@ CATEGORY_FILTERS: dict[str, tuple[str, ...]] = {
         "plumbing",
         "services",
     ),
-    "shopping-essentials": (
-        "retail",
-    ),
+    "shopping-essentials": ("retail",),
     "professional": (
         "professional_services",
         "real_estate",
@@ -111,15 +107,9 @@ CATEGORY_FILTERS: dict[str, tuple[str, ...]] = {
         "financial",
         "legal",
     ),
-    "beauty-care": (
-        "beauty_personal_care",
-    ),
-    "auto-rv-fuel": (
-        "auto",
-    ),
-    "public-civic-resources": (
-        "religion_community",
-    ),
+    "beauty-care": ("beauty_personal_care",),
+    "auto-rv-fuel": ("auto",),
+    "public-civic-resources": ("religion_community",),
     "classes-sports-recreation": (
         "fitness_sports",
         "childcare_education",
@@ -131,9 +121,7 @@ CATEGORY_FILTERS: dict[str, tuple[str, ...]] = {
         "entertainment_attractions",
         "tourism",
     ),
-    "lodging-vacation-rentals": (
-        "lodging",
-    ),
+    "lodging-vacation-rentals": ("lodging",),
     "pets": (
         "pets",
         "pet",
@@ -309,11 +297,7 @@ def _load_category_photos() -> dict[str, str]:
     photos = data.get("photos") or {}
     if not isinstance(photos, dict):
         return {}
-    return {
-        str(k): str(v)
-        for k, v in photos.items()
-        if isinstance(v, str) and v
-    }
+    return {str(k): str(v) for k, v in photos.items() if isinstance(v, str) and v}
 
 
 def _resolve_category_card_image(provider: Provider) -> str | None:

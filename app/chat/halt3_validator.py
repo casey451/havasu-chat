@@ -399,7 +399,8 @@ def _confabulation_rate(response: str, db: Session, *, query: str = "") -> float
     mentioned_lower = {(e.name or "").lower() for e in mentioned}
     locale_noise = {"lake havasu", "lake havasu city", "google business"}
     novel = [
-        p for p in probes
+        p
+        for p in probes
         if p.lower() not in q_low
         and p.lower() not in mentioned_lower
         and p.lower() not in locale_noise
@@ -421,9 +422,7 @@ def _tier_matches(expected: ExpectedTierField, actual: str) -> bool:
             return False
         return any(actual == _norm(e) for e in expected)
     if expected == "any":
-        logging.warning(
-            "halt3 eval set still contains expected_tier='any' — burn-down incomplete"
-        )
+        logging.warning("halt3 eval set still contains expected_tier='any' — burn-down incomplete")
         return True
     return actual == _norm(expected)
 
@@ -478,13 +477,9 @@ def validate_eval_set(
         if not _tier_matches(spec.expected_tier, resp.tier_used):
             failures.append(f"tier expected {spec.expected_tier}, got {resp.tier_used}")
         if not _disclosure_matches(spec.expected_disclosure_path, disc):
-            failures.append(
-                f"disclosure expected {spec.expected_disclosure_path}, got {disc}"
-            )
+            failures.append(f"disclosure expected {spec.expected_disclosure_path}, got {disc}")
         if conf > spec.expected_confabulation_rate + 1e-9:
-            failures.append(
-                f"confabulation {conf:.2f} > {spec.expected_confabulation_rate}"
-            )
+            failures.append(f"confabulation {conf:.2f} > {spec.expected_confabulation_rate}")
         return EvalQueryResult(
             spec=spec,
             tier_used=resp.tier_used,
@@ -508,20 +503,14 @@ def validate_eval_set(
     # cited coverage if its actual is "cited" (the canonical cited-tier path).
     cited = [r for r in results if _expected_includes_cited(r.spec.expected_disclosure_path)]
     cited_ok = sum(
-        1
-        for r in cited
-        if _disclosure_matches(r.spec.expected_disclosure_path, r.disclosure_path)
+        1 for r in cited if _disclosure_matches(r.spec.expected_disclosure_path, r.disclosure_path)
     )
     cited_cov = (cited_ok / len(cited)) if cited else 1.0
 
     missing = [r for r in results if r.spec.expected_confabulation_rate == 0.0]
     max_conf = max((r.confabulation_rate for r in missing), default=0.0)
 
-    all_passed = (
-        all(r.passed for r in results)
-        and cited_cov >= 1.0
-        and max_conf <= 0.0
-    )
+    all_passed = all(r.passed for r in results) and cited_cov >= 1.0 and max_conf <= 0.0
     return EvalSetReport(
         results=results,
         cited_disclosure_coverage=cited_cov,

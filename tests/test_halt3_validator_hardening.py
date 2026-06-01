@@ -225,8 +225,7 @@ def test_url_scrub_does_not_match_adversarial_substring(db: Session) -> None:
     response = "Check https://evil.example.com?ref=golakehavasu.com for the address."
     facts = _typed_fact_probes(response)
     assert facts.get("url") == ["https://evil.example.com?ref=golakehavasu.com"], (
-        f"Expected adversarial URL retained, got {facts.get('url')!r}. "
-        f"URL regex still too loose."
+        f"Expected adversarial URL retained, got {facts.get('url')!r}. URL regex still too loose."
     )
 
 

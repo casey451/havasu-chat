@@ -34,12 +34,7 @@ def is_confidence_tier_enabled() -> bool:
     behavior. When unset, format() skips classification and the row
     dicts the LLM sees are unchanged from the pre-CT2 path.
     """
-    return (
-        os.environ.get(FEATURE_FLAG_CONFIDENCE_TIER_ENV_VAR, "")
-        .strip()
-        .lower()
-        == "true"
-    )
+    return os.environ.get(FEATURE_FLAG_CONFIDENCE_TIER_ENV_VAR, "").strip().lower() == "true"
 
 
 _LEGACY_FALLBACK_RE = re.compile(
@@ -226,11 +221,7 @@ def _format_via_llm(query, rows):
         return None, None, None
 
     rows_json = json.dumps(rows, ensure_ascii=False, separators=(",", ":"))
-    user_text = (
-        f"Query: {query.strip()}\n\n"
-        f"Catalog rows:\n{rows_json}\n\n"
-        "Respond:"
-    )
+    user_text = f"Query: {query.strip()}\n\nCatalog rows:\n{rows_json}\n\nRespond:"
 
     result = call_anthropic_messages(
         system_prompt=system_prompt,

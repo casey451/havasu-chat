@@ -278,7 +278,13 @@ def test_per_row_csv_mixed_runs_grouped_counts(tmp_path: Path) -> None:
     }
     runs = [
         {**base, "flag_state": "off", "gating_hit_count": 1},
-        {**base, "flag_state": "on", "gating_hit_count": 0, "gating_tokens": [], "layer_2_hits": []},
+        {
+            **base,
+            "flag_state": "on",
+            "gating_hit_count": 0,
+            "gating_tokens": [],
+            "layer_2_hits": [],
+        },
     ]
     write_per_row_csv(p, runs)
     with p.open(newline="", encoding="utf-8") as f:

@@ -150,9 +150,7 @@ def test_build_business_list_emits_disclosure_when_spotlight_present(
     )
     assert with_spotlight["disclosure"] is True
 
-    organic_only = build_business_list(
-        _rows(organic_row), category="plumber", total_count=1
-    )
+    organic_only = build_business_list(_rows(organic_row), category="plumber", total_count=1)
     assert "disclosure" not in organic_only
 
 
@@ -228,9 +226,7 @@ def test_tier2_handler_populates_component_meta() -> None:
     )
     component_meta: dict = {}
     with patch("app.chat.tier2_handler.tier2_db_query.query", return_value=rows):
-        text, total, _, _ = try_tier2_with_usage(
-            "find a plumber", component_meta=component_meta
-        )
+        text, total, _, _ = try_tier2_with_usage("find a plumber", component_meta=component_meta)
     assert text is not None
     assert total == 0
     assert component_meta.get("type") == "business_list"

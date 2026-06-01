@@ -73,7 +73,10 @@ def test_lake_havasu_seo_redirect_home() -> None:
 def test_chat_contribute_mode_returns_flow_component() -> None:
     r = client.post(
         "/api/chat",
-        json={"message": "I want to add an event to the calendar", "session_id": "spec-contrib-chat"},
+        json={
+            "message": "I want to add an event to the calendar",
+            "session_id": "spec-contrib-chat",
+        },
     )
     assert r.status_code == 200
     body = r.json()

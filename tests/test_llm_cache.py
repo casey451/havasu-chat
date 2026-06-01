@@ -303,9 +303,7 @@ def test_similarity_lookup_skips_rows_without_embedding(
     assert result is None
 
 
-def test_similarity_lookup_skips_expired_rows(
-    db: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_similarity_lookup_skips_expired_rows(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
     """An expired row must not be returned even if its embedding is identical
     to the incoming query."""
     _seed_cache_row(
@@ -475,7 +473,9 @@ def test_similarity_threshold_is_strict_enough() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_lookup_with_embedding_returns_vector_on_miss(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_lookup_with_embedding_returns_vector_on_miss(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """lookup_with_embedding returns the computed vector when similarity misses."""
     calls: list[str] = []
 
@@ -520,7 +520,9 @@ def test_store_with_embedding_skips_embed_call_when_precomputed(
     assert len(calls) == 0, "embedding API must not be called when vector provided"
 
 
-def test_miss_path_runs_embedding_once_end_to_end(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_miss_path_runs_embedding_once_end_to_end(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Combined: lookup_with_embedding + store_with_embedding -> exactly one embed call."""
     calls: list[str] = []
 

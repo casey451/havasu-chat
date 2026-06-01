@@ -153,9 +153,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     filter_desc = (
-        f" (older than {result.older_than_days} days)"
-        if result.older_than_days is not None
-        else ""
+        f" (older than {result.older_than_days} days)" if result.older_than_days is not None else ""
     )
     if args.dry_run:
         print(

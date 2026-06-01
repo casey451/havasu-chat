@@ -153,8 +153,13 @@ def resolve_target_date(f: Tier2Filters) -> date:
 
 
 _DOW_INDEX = {
-    "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
-    "friday": 4, "saturday": 5, "sunday": 6,
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+    "saturday": 5,
+    "sunday": 6,
 }
 
 
@@ -239,9 +244,7 @@ def _pretty_category_label(category: str) -> str:
     return plural.title() if plural.islower() else plural
 
 
-def _provider_row_to_business_item(
-    row: dict[str, Any], *, now: Any
-) -> dict[str, Any] | None:
+def _provider_row_to_business_item(row: dict[str, Any], *, now: Any) -> dict[str, Any] | None:
     # CLUSTER-08 name hygiene: strip vendor marketing tails (anything after
     # the first "|") before the name reaches the component payload so the
     # chat API surface carries clean names.
@@ -325,9 +328,7 @@ def _open_status_for_row(row: dict[str, Any], *, now: Any) -> tuple[str, str]:
 # ─────────── day_agenda builder ───────────
 
 
-def build_day_agenda(
-    filters: Tier2Filters, rows: list[dict[str, Any]]
-) -> dict[str, Any]:
+def build_day_agenda(filters: Tier2Filters, rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Build the ``data`` dict for a ``day_agenda`` component.
 
     Mirrors the schema in BUILD.md "Answer rendering contract":
@@ -397,9 +398,7 @@ def _event_to_agenda_item(row: dict[str, Any]) -> dict[str, Any]:
         try:
             start_d = date.fromisoformat(row["date"])
             end_d = date.fromisoformat(row["end_date"])
-            item["range_label"] = (
-                f"{start_d.strftime('%b ')}{start_d.day} – {end_d.day}"
-            )
+            item["range_label"] = f"{start_d.strftime('%b ')}{start_d.day} – {end_d.day}"
         except (ValueError, TypeError):
             pass
     return item
@@ -416,7 +415,17 @@ def _other_to_agenda_item(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-_WARM_KEYWORDS = ("festival", "food", "music", "live", "concert", "wine", "beer", "restaurant", "bar")
+_WARM_KEYWORDS = (
+    "festival",
+    "food",
+    "music",
+    "live",
+    "concert",
+    "wine",
+    "beer",
+    "restaurant",
+    "bar",
+)
 
 
 def _is_warm_category(category: str, tags: list[str]) -> bool:
@@ -433,8 +442,20 @@ def _pretty_category_from_tags(tags: list[str]) -> str | None:
     """
     if not tags:
         return None
-    known = {"arts", "sports", "aquatic", "aquatics", "food", "fitness", "recreation",
-             "music", "festival", "kids", "family", "drinks"}
+    known = {
+        "arts",
+        "sports",
+        "aquatic",
+        "aquatics",
+        "food",
+        "fitness",
+        "recreation",
+        "music",
+        "festival",
+        "kids",
+        "family",
+        "drinks",
+    }
     lower_tags = [(t, t.lower()) for t in tags if isinstance(t, str)]
     for original, lower in lower_tags:
         if lower in known:
@@ -493,8 +514,16 @@ def _busy_descriptor(n: int) -> str:
 
 def _spell_count(n: int) -> str:
     return {
-        1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
-        6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten",
+        1: "one",
+        2: "two",
+        3: "three",
+        4: "four",
+        5: "five",
+        6: "six",
+        7: "seven",
+        8: "eight",
+        9: "nine",
+        10: "ten",
     }.get(n, str(n))
 
 
@@ -577,9 +606,7 @@ def resolve_week_window(f: Tier2Filters) -> tuple[date, date]:
     return start, start + timedelta(days=6)
 
 
-def build_week_strip(
-    filters: Tier2Filters, rows: list[dict[str, Any]]
-) -> dict[str, Any]:
+def build_week_strip(filters: Tier2Filters, rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Build the ``data`` dict for a ``week_strip`` component.
 
     Schema (matches app/static/js/chat-new.js:286 renderer):
@@ -623,13 +650,15 @@ def build_week_strip(
         day_rows = buckets.get(d, [])
         count = len(day_rows)
         total_count += count
-        days_out.append({
-            "date": d.isoformat(),
-            "dow": d.strftime("%a"),
-            "num": d.day,
-            "count": count,
-            "is_today": d == today,
-        })
+        days_out.append(
+            {
+                "date": d.isoformat(),
+                "dow": d.strftime("%a"),
+                "num": d.day,
+                "count": count,
+                "is_today": d == today,
+            }
+        )
 
     selected_date = window_start
     for cell in days_out:
@@ -638,9 +667,7 @@ def build_week_strip(
             break
 
     agenda_rows = buckets.get(selected_date, [])
-    agenda_rows.sort(
-        key=lambda r: (r.get("start_time") or "99:99", r.get("name") or "")
-    )
+    agenda_rows.sort(key=lambda r: (r.get("start_time") or "99:99", r.get("name") or ""))
     agenda = [_event_to_agenda_item(r) for r in agenda_rows]
 
     last_day = window_start + timedelta(days=6)
@@ -658,9 +685,7 @@ def build_week_strip(
     }
 
 
-def fallback_week_strip_voice(
-    rows: list[dict[str, Any]], window: tuple[date, date]
-) -> str:
+def fallback_week_strip_voice(rows: list[dict[str, Any]], window: tuple[date, date]) -> str:
     """Deterministic short voice line for the week. Used when LLM is unavailable.
 
     Pattern: "This week's <busy/quiet> — N things across <M> days, <where most are>."
@@ -692,10 +717,7 @@ def fallback_week_strip_voice(
         day_phrase = f"{_spell_count(m)} days"
 
     if location_clause:
-        return (
-            f"This week's {descriptor} — {word} things across {day_phrase}, "
-            f"{location_clause}."
-        )
+        return f"This week's {descriptor} — {word} things across {day_phrase}, {location_clause}."
     return f"This week's {descriptor} — {word} things across {day_phrase}."
 
 
@@ -754,9 +776,7 @@ def is_card_row_query(
     return True
 
 
-def build_card_row(
-    filters: Tier2Filters, rows: list[dict[str, Any]]
-) -> dict[str, Any]:
+def build_card_row(filters: Tier2Filters, rows: list[dict[str, Any]]) -> dict[str, Any]:
     """Build the ``data`` dict for a ``card_row`` component.
 
     Schema (matches app/static/js/chat-new.js:392 renderer):
@@ -868,27 +888,31 @@ def fallback_card_row_voice(rows: list[dict[str, Any]], query: str) -> str:
 
 # ─────────── single_card + single_business_card builders ───────────
 
-_TIER1_FACTUAL_SUBINTENTS = frozenset({
-    "REVIEW_COUNT_LOOKUP",
-    "RATING_LOOKUP",
-    "WEBSITE_LOOKUP",
-    "PHONE_LOOKUP",
-    "AGE_LOOKUP",
-    "COST_LOOKUP",
-    "TIME_LOOKUP",
-    "HOURS_LOOKUP",
-    "LOCATION_LOOKUP",
-    "DATE_LOOKUP",
-    "OPEN_NOW",
-    "URGENT_NOW",
-    "LIST_BY_CATEGORY",
-})
+_TIER1_FACTUAL_SUBINTENTS = frozenset(
+    {
+        "REVIEW_COUNT_LOOKUP",
+        "RATING_LOOKUP",
+        "WEBSITE_LOOKUP",
+        "PHONE_LOOKUP",
+        "AGE_LOOKUP",
+        "COST_LOOKUP",
+        "TIME_LOOKUP",
+        "HOURS_LOOKUP",
+        "LOCATION_LOOKUP",
+        "DATE_LOOKUP",
+        "OPEN_NOW",
+        "URGENT_NOW",
+        "LIST_BY_CATEGORY",
+    }
+)
 
-_SINGLE_ENTITY_ABOUT_SUBINTENTS = frozenset({
-    None,
-    "OPEN_ENDED",
-    "NEXT_OCCURRENCE",
-})
+_SINGLE_ENTITY_ABOUT_SUBINTENTS = frozenset(
+    {
+        None,
+        "OPEN_ENDED",
+        "NEXT_OCCURRENCE",
+    }
+)
 
 
 def _normalize_entity_name(name: str) -> str:
@@ -913,10 +937,7 @@ def _is_about_sub_intent(sub_intent: str | None) -> bool:
 def _matching_rows_for_entity(
     entity: str, rows: list[dict[str, Any]], *, row_types: tuple[str, ...]
 ) -> list[dict[str, Any]]:
-    return [
-        r for r in rows
-        if r.get("type") in row_types and _row_matches_entity(entity, r)
-    ]
+    return [r for r in rows if r.get("type") in row_types and _row_matches_entity(entity, r)]
 
 
 def pick_single_entity_row(
@@ -927,9 +948,7 @@ def pick_single_entity_row(
     return matches[0] if len(matches) == 1 else None
 
 
-def is_single_card_query(
-    intent_result: IntentResult, rows: list[dict[str, Any]]
-) -> bool:
+def is_single_card_query(intent_result: IntentResult, rows: list[dict[str, Any]]) -> bool:
     """True when the query names a single event/venue and asks 'what is it'."""
     entity = (intent_result.entity or "").strip()
     if not entity:
@@ -940,9 +959,7 @@ def is_single_card_query(
     return len(matches) == 1
 
 
-def is_single_business_card_query(
-    intent_result: IntentResult, rows: list[dict[str, Any]]
-) -> bool:
+def is_single_business_card_query(intent_result: IntentResult, rows: list[dict[str, Any]]) -> bool:
     """True when the query names a single service provider for 'about'."""
     entity = (intent_result.entity or "").strip()
     if not entity:
@@ -1056,9 +1073,7 @@ def _format_review_snippet(row: dict[str, Any]) -> str | None:
     return f"{quoted} — {attr}" if attr else quoted
 
 
-def build_single_card(
-    intent_result: IntentResult, row: dict[str, Any]
-) -> dict[str, Any]:
+def build_single_card(intent_result: IntentResult, row: dict[str, Any]) -> dict[str, Any]:
     """Build the ``data`` dict for a ``single_card`` component."""
     del intent_result
     tags = [t for t in (row.get("tags") or []) if isinstance(t, str)]
@@ -1104,9 +1119,7 @@ def build_single_card(
     }
 
 
-def build_single_business_card(
-    intent_result: IntentResult, row: dict[str, Any]
-) -> dict[str, Any]:
+def build_single_business_card(intent_result: IntentResult, row: dict[str, Any]) -> dict[str, Any]:
     """Build the ``data`` dict for a ``single_business_card`` component."""
     del intent_result
     now = now_lake_havasu()

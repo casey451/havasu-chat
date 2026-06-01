@@ -116,9 +116,7 @@ def _summarize_response(response: str | None) -> str:
     return one
 
 
-def _grade_row(
-    q: dict[str, Any], observed_tier: str, response: str | None
-) -> tuple[str, str]:
+def _grade_row(q: dict[str, Any], observed_tier: str, response: str | None) -> tuple[str, str]:
     """Quick deterministic grading: PASS/FAIL on tier match + must_contain checks.
 
     For nuanced voice judgments the harness defers to the (separate) LLM grader —
@@ -219,9 +217,7 @@ def _run() -> int:
     pass_n = sum(1 for r in rows if r["verdict"] == "PASS")
     fail_n = total - pass_n
     nonzero_token_factual_listing = [
-        r
-        for r in rows
-        if r["expected_tier"] in ("1", "2") and (r["tokens_used"] or 0) > 0
+        r for r in rows if r["expected_tier"] in ("1", "2") and (r["tokens_used"] or 0) > 0
     ]
 
     lines: list[str] = []
@@ -281,7 +277,9 @@ def _run() -> int:
     REPORT_MD.write_text("\n".join(lines), encoding="utf-8")
     print(f"Wrote {REPORT_MD.relative_to(REPO_ROOT)}")
     print(f"Wrote {REPORT_JSONL.relative_to(REPO_ROOT)}")
-    print(f"Total: {total}, PASS: {pass_n}, FAIL: {fail_n}, Tier1/2 token leaks: {len(nonzero_token_factual_listing)}")
+    print(
+        f"Total: {total}, PASS: {pass_n}, FAIL: {fail_n}, Tier1/2 token leaks: {len(nonzero_token_factual_listing)}"
+    )
     return 0
 
 

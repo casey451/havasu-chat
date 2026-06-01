@@ -179,7 +179,9 @@ def test_fetch_sitemap_urls_parses_index_and_sub() -> None:
     assert "https://riverscenemagazine.com/events/third/" in urls
 
 
-def _html_client(html: str, page_url: str = "https://riverscenemagazine.com/events/x/") -> httpx.Client:
+def _html_client(
+    html: str, page_url: str = "https://riverscenemagazine.com/events/x/"
+) -> httpx.Client:
     def handler(request: httpx.Request) -> httpx.Response:
         if str(request.url).rstrip("/") == page_url.rstrip("/"):
             return httpx.Response(200, text=html)
@@ -403,7 +405,9 @@ def test_pull_skips_known_url_without_fetch(capsys: pytest.CaptureFixture[str]) 
             return httpx.Response(200, text="<html><body>should not fetch</body></html>")
         return httpx.Response(404)
 
-    client = httpx.Client(transport=httpx.MockTransport(handler), timeout=5.0, follow_redirects=True)
+    client = httpx.Client(
+        transport=httpx.MockTransport(handler), timeout=5.0, follow_redirects=True
+    )
     with client:
         rc = run_pull(date(2026, 6, 1), dry_run=False, http_client=client)
     assert rc == 0
@@ -411,7 +415,8 @@ def test_pull_skips_known_url_without_fetch(capsys: pytest.CaptureFixture[str]) 
     assert sum(1 for u in requested if "wp-sitemap" in u or "sitemap-posts-events" in u) == 2
     out = capsys.readouterr().out
     assert any(
-        ln.strip().startswith("skipped_duplicate:") and ln.split()[-1] == "1" for ln in out.splitlines()
+        ln.strip().startswith("skipped_duplicate:") and ln.split()[-1] == "1"
+        for ln in out.splitlines()
     )
 
 
@@ -488,7 +493,9 @@ def test_pull_seed_overlap_flag() -> None:
             return httpx.Response(200, text=html)
         return httpx.Response(404)
 
-    client = httpx.Client(transport=httpx.MockTransport(handler), timeout=5.0, follow_redirects=True)
+    client = httpx.Client(
+        transport=httpx.MockTransport(handler), timeout=5.0, follow_redirects=True
+    )
     with client:
         run_pull(d, dry_run=False, http_client=client)
 
@@ -526,7 +533,9 @@ def test_pull_dry_run() -> None:
             return httpx.Response(200, text=html)
         return httpx.Response(404)
 
-    client = httpx.Client(transport=httpx.MockTransport(handler), timeout=5.0, follow_redirects=True)
+    client = httpx.Client(
+        transport=httpx.MockTransport(handler), timeout=5.0, follow_redirects=True
+    )
     with SessionLocal() as db:
         before = db.query(Contribution).count()
     with client:
@@ -552,7 +561,9 @@ def test_pull_past_event_skipped(capsys: pytest.CaptureFixture[str]) -> None:
             return httpx.Response(200, text=sub)
         return httpx.Response(404)
 
-    client = httpx.Client(transport=httpx.MockTransport(handler), timeout=5.0, follow_redirects=True)
+    client = httpx.Client(
+        transport=httpx.MockTransport(handler), timeout=5.0, follow_redirects=True
+    )
     with patch("app.contrib.river_scene_pull.fetch_and_parse_event", return_value=None):
         with client:
             rc = run_pull(date(2026, 8, 1), dry_run=False, http_client=client)
@@ -590,7 +601,9 @@ def test_river_scene_pull_auto_approves_contribution() -> None:
             return httpx.Response(200, text=html)
         return httpx.Response(404)
 
-    client = httpx.Client(transport=httpx.MockTransport(handler), timeout=5.0, follow_redirects=True)
+    client = httpx.Client(
+        transport=httpx.MockTransport(handler), timeout=5.0, follow_redirects=True
+    )
     with client:
         rc = run_pull(date(2026, 8, 1), dry_run=False, http_client=client)
     assert rc == 0
@@ -636,7 +649,9 @@ def test_river_scene_pull_auto_approval_sets_end_date_for_multi_day() -> None:
             return httpx.Response(200, text=html)
         return httpx.Response(404)
 
-    client = httpx.Client(transport=httpx.MockTransport(handler), timeout=5.0, follow_redirects=True)
+    client = httpx.Client(
+        transport=httpx.MockTransport(handler), timeout=5.0, follow_redirects=True
+    )
     with client:
         rc = run_pull(date(2026, 4, 1), dry_run=False, http_client=client)
     assert rc == 0
@@ -668,9 +683,14 @@ def test_river_scene_pull_does_not_auto_approve_user_submission() -> None:
         category_slugs=["community"],
     )
     payload = normalize_to_contribution(rse).model_copy(update={"source": "user_submission"})
-    with patch("app.contrib.river_scene_pull.fetch_sitemap_urls", return_value=["https://riverscenemagazine.com/events/no-auto/"]):
+    with patch(
+        "app.contrib.river_scene_pull.fetch_sitemap_urls",
+        return_value=["https://riverscenemagazine.com/events/no-auto/"],
+    ):
         with patch("app.contrib.river_scene_pull.fetch_and_parse_event", return_value=rse):
-            with patch("app.contrib.river_scene_pull.normalize_to_contribution", return_value=payload):
+            with patch(
+                "app.contrib.river_scene_pull.normalize_to_contribution", return_value=payload
+            ):
                 with httpx.Client(
                     transport=httpx.MockTransport(lambda _r: httpx.Response(200)),
                     timeout=5.0,
@@ -712,13 +732,21 @@ def test_river_scene_pull_auto_approval_failure_leaves_contribution_pending(
             return httpx.Response(200, text=html)
         return httpx.Response(404)
 
-    client = httpx.Client(transport=httpx.MockTransport(handler), timeout=5.0, follow_redirects=True)
-    with patch("app.contrib.river_scene_pull.approve_contribution_as_event", side_effect=RuntimeError("boom")):
+    client = httpx.Client(
+        transport=httpx.MockTransport(handler), timeout=5.0, follow_redirects=True
+    )
+    with patch(
+        "app.contrib.river_scene_pull.approve_contribution_as_event",
+        side_effect=RuntimeError("boom"),
+    ):
         with client:
             rc = run_pull(date(2026, 8, 1), dry_run=False, http_client=client)
     assert rc == 0
     out = capsys.readouterr().out
-    assert any(ln.strip().startswith("auto_approval_failed:") and ln.split()[-1] == "1" for ln in out.splitlines())
+    assert any(
+        ln.strip().startswith("auto_approval_failed:") and ln.split()[-1] == "1"
+        for ln in out.splitlines()
+    )
     with SessionLocal() as db:
         row = db.query(Contribution).order_by(Contribution.id.desc()).first()
         assert row is not None

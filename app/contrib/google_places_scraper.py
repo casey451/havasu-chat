@@ -109,18 +109,14 @@ def load_categories_for_discovery(
         domains = DISCOVERY_CATEGORY_TO_DOMAINS.get(category_slug)
         if domains is None:
             known = ", ".join(sorted(DISCOVERY_CATEGORY_TO_DOMAINS))
-            raise SystemExit(
-                f"Unknown --category {category_slug!r}. Expected one of: {known}"
-            )
+            raise SystemExit(f"Unknown --category {category_slug!r}. Expected one of: {known}")
         cats = [c for c in cats if c.get("domain", "") in domains]
     if dry_run:
         if category_slug is None:
             cats = [c for c in cats if c["label"] in DRY_RUN_LABELS]
             missing = DRY_RUN_LABELS - {c["label"] for c in cats}
             if missing:
-                raise SystemExit(
-                    f"Dry-run sample missing from categories file: {sorted(missing)}"
-                )
+                raise SystemExit(f"Dry-run sample missing from categories file: {sorted(missing)}")
         else:
             # When --category is specified, dry-run samples the first 2 labels
             # of the category's filtered set. The legacy ``DRY_RUN_LABELS``
@@ -233,8 +229,7 @@ class GooglePlacesClient(BaseIngestClient):
                 f"(last status {resp.status_code})"
             )
         raise RuntimeError(
-            f"Places API error {resp.status_code} on place_id={place_id!r}: "
-            f"{resp.text[:500]}"
+            f"Places API error {resp.status_code} on place_id={place_id!r}: {resp.text[:500]}"
         )
 
     def enrich(self, hit: RawHit) -> EnrichedHit:
@@ -319,9 +314,7 @@ class GooglePlacesClient(BaseIngestClient):
                     }
                     with httpx.Client(timeout=30) as client:
                         resp = self._discovery_limiter.call_with_retry(
-                            lambda: client.post(
-                                PLACES_TEXT_SEARCH_URL, headers=headers, json=body
-                            )
+                            lambda: client.post(PLACES_TEXT_SEARCH_URL, headers=headers, json=body)
                         )
                     request_count += 1
                     pages += 1
@@ -461,9 +454,7 @@ class GooglePlacesClient(BaseIngestClient):
             "lng": location.get("longitude"),
             "rating": payload.get("rating"),
             "review_count": payload.get("userRatingCount"),
-            "review_snippets": [
-                self.flatten_review(r) for r in (payload.get("reviews") or [])
-            ],
+            "review_snippets": [self.flatten_review(r) for r in (payload.get("reviews") or [])],
             "photo_refs": [p.get("name") for p in (payload.get("photos") or [])],
             "regular_opening_hours": payload.get("regularOpeningHours"),
             "address_components": payload.get("addressComponents"),
@@ -536,9 +527,10 @@ class GooglePlacesClient(BaseIngestClient):
         errors_404 = 0
         other_errors = 0
 
-        with raw_path.open("a", encoding="utf-8") as raw_f, enriched_path.open(
-            "a", encoding="utf-8"
-        ) as enriched_f:
+        with (
+            raw_path.open("a", encoding="utf-8") as raw_f,
+            enriched_path.open("a", encoding="utf-8") as enriched_f,
+        ):
             for idx, place in enumerate(places, start=1):
                 pid = place.get("id")
                 if not pid:
@@ -659,6 +651,4 @@ def enrichment_row_to_entity_payload(row: dict[str, Any]) -> EntityPayload:
         lng=lng,
         raw=raw,
     )
-    return GooglePlacesClient().to_entity_payload(
-        EnrichedHit(raw_hit=raw_hit, enriched=enriched)
-    )
+    return GooglePlacesClient().to_entity_payload(EnrichedHit(raw_hit=raw_hit, enriched=enriched))

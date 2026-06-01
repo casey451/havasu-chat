@@ -29,7 +29,9 @@ from app.contrib.parks_rec_loader import load_latest_snapshots  # noqa: E402
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Load the latest parks-and-rec snapshot into the catalog")
+    p = argparse.ArgumentParser(
+        description="Load the latest parks-and-rec snapshot into the catalog"
+    )
     p.add_argument("--dry-run", action="store_true", help="Count imports without writing to the DB")
     args = p.parse_args()
 

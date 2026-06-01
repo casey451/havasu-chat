@@ -291,7 +291,9 @@ def test_call_with_retry_emits_structured_log_on_exhaustion() -> None:
     with patch("app.contrib.rate_limiter.logger.warning") as warn:
         limiter.call_with_retry(fn)
 
-    exhausted = [c for c in warn.call_args_list if c[1].get("extra", {}).get("event") == "exhausted"]
+    exhausted = [
+        c for c in warn.call_args_list if c[1].get("extra", {}).get("event") == "exhausted"
+    ]
     assert len(exhausted) == 1
     extra = exhausted[0][1]["extra"]
     assert tuple(extra.keys()) == _LOG_EXTRA_KEYS

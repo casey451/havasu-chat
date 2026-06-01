@@ -116,9 +116,7 @@ def _best_azre_match(
     for entry in registry:
         for cand in _azre_candidate_addresses(entry):
             score = int(
-                fuzz.token_sort_ratio(
-                    provider_address, cand, processor=utils.default_process
-                )
+                fuzz.token_sort_ratio(provider_address, cand, processor=utils.default_process)
             )
             if score > best_score:
                 best_score = score
@@ -202,7 +200,9 @@ def run_verify(
             # rather than verification_method enum match, because the 'scraper'
             # value is shared with AZ ROC + AZDHS verifiers.
             existing = (prov.attributes or {}).get("azre_lhc") if prov.attributes else None
-            existing_parcel = (existing or {}).get("USER_Parcel_Number") if isinstance(existing, dict) else None
+            existing_parcel = (
+                (existing or {}).get("USER_Parcel_Number") if isinstance(existing, dict) else None
+            )
             if existing_parcel:
                 counts["skipped_already"] += 1
                 continue

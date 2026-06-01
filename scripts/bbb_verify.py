@@ -62,11 +62,7 @@ def _best_bbb_match(
     best_score = 0
     for entry in registry:
         for cand in _bbb_candidate_names(entry):
-            score = int(
-                fuzz.token_sort_ratio(
-                    provider_name, cand, processor=utils.default_process
-                )
-            )
+            score = int(fuzz.token_sort_ratio(provider_name, cand, processor=utils.default_process))
             if score > best_score:
                 best_score = score
                 best_entry = entry

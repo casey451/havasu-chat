@@ -21,11 +21,7 @@ def run_stuck_photo_sweep() -> int:
 
 
 def _run_stuck_photo_sweep_session(db: SqlSession, *, cutoff: datetime) -> int:
-    stuck = (
-        db.query(Photo)
-        .filter(Photo.status == "uploading", Photo.created_at < cutoff)
-        .all()
-    )
+    stuck = db.query(Photo).filter(Photo.status == "uploading", Photo.created_at < cutoff).all()
     for p in stuck:
         p.status = "flagged"
         p.processing_error = "decode_failed"

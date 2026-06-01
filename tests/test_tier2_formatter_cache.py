@@ -34,7 +34,9 @@ def test_formatter_cache_keyed_on_rows_payload(db_session: Session) -> None:
     """Same query, different row payloads -- different cache entries."""
     rows_morning = [{"id": "a", "name": "Cafe Open AM"}]
     rows_evening = [{"id": "b", "name": "Bar Open PM"}]
-    tier2_cache.store_formatter(db_session, "what is open", rows_morning, "Cafe Open AM serves until 11.")
+    tier2_cache.store_formatter(
+        db_session, "what is open", rows_morning, "Cafe Open AM serves until 11."
+    )
     hit_morning = tier2_cache.lookup_formatter(db_session, "what is open", rows_morning)
     hit_evening = tier2_cache.lookup_formatter(db_session, "what is open", rows_evening)
     assert hit_morning is not None

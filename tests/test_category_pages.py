@@ -96,9 +96,7 @@ def test_every_filter_tuple_is_nonempty_and_unique() -> None:
     for route, slugs in cat_queries.CATEGORY_FILTERS.items():
         assert isinstance(slugs, tuple), f"{route} filter is not a tuple"
         assert len(slugs) > 0, f"{route} has empty filter tuple"
-        assert len(set(slugs)) == len(slugs), (
-            f"{route} has duplicate slugs in filter: {slugs}"
-        )
+        assert len(set(slugs)) == len(slugs), f"{route} has duplicate slugs in filter: {slugs}"
 
 
 def test_every_filter_slug_is_known_legacy_category() -> None:
@@ -108,8 +106,7 @@ def test_every_filter_slug_is_known_legacy_category() -> None:
     for route, slugs in cat_queries.CATEGORY_FILTERS.items():
         for slug in slugs:
             assert slug in LEGACY_PROVIDER_CATEGORY_LABELS, (
-                f"route {route} filter slug {slug!r} not in "
-                f"LEGACY_PROVIDER_CATEGORY_LABELS"
+                f"route {route} filter slug {slug!r} not in LEGACY_PROVIDER_CATEGORY_LABELS"
             )
 
 
@@ -121,9 +118,7 @@ def test_every_display_entry_is_label_plus_one_liner() -> None:
         assert isinstance(value, tuple), f"{route} display is not a tuple"
         assert len(value) == 2, f"{route} display tuple is wrong arity"
         label, one_liner = value
-        assert isinstance(label, str) and label.strip(), (
-            f"{route} display label is empty"
-        )
+        assert isinstance(label, str) and label.strip(), f"{route} display label is empty"
         assert isinstance(one_liner, str) and one_liner.strip(), (
             f"{route} display one_liner is empty"
         )
@@ -257,9 +252,7 @@ def test_category_cards_swallows_db_exception() -> None:
         def query(self, *_a, **_kw):
             return _BrokenQuery()
 
-    cards = cat_queries.category_cards(
-        _BrokenSession(), "eat-drink", now=datetime.now()
-    )
+    cards = cat_queries.category_cards(_BrokenSession(), "eat-drink", now=datetime.now())
     assert cards == []
 
 

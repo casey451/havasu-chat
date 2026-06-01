@@ -14,6 +14,7 @@ The mappings close 4 deferred carries:
 cat-13; see outputs/v1_5_carry_inventory_triage.md §4 carry #29 + the
 sustainability_extensions_apply artifact §5 narrative).
 """
+
 from __future__ import annotations
 
 import pytest
@@ -43,7 +44,9 @@ SUSTAINABILITY_EXTENSIONS: list[tuple[str, str, str]] = [
 ]
 
 
-@pytest.mark.parametrize("primary_type,expected_slug,expected_place_type", SUSTAINABILITY_EXTENSIONS)
+@pytest.mark.parametrize(
+    "primary_type,expected_slug,expected_place_type", SUSTAINABILITY_EXTENSIONS
+)
 def test_sustainability_extension_direct_mapping(
     primary_type: str,
     expected_slug: str,
@@ -59,8 +62,7 @@ def test_sustainability_extension_direct_mapping(
         f"{primary_type!r}: expected slug {expected_slug!r}, got {actual_slug!r}"
     )
     assert actual_place_type == expected_place_type, (
-        f"{primary_type!r}: expected place_type {expected_place_type!r}, "
-        f"got {actual_place_type!r}"
+        f"{primary_type!r}: expected place_type {expected_place_type!r}, got {actual_place_type!r}"
     )
 
 

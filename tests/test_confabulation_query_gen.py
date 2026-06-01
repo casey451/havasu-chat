@@ -109,9 +109,9 @@ def test_generate_probes_nine_probes_and_templates() -> None:
 
 
 def test_normalize_row_name_for_include_en_dash_matches_ascii_hyphen() -> None:
-    assert normalize_row_name_for_include("Open Jump - 90 Minutes") == normalize_row_name_for_include(
-        "Open Jump \u2013 90 Minutes"
-    )
+    assert normalize_row_name_for_include(
+        "Open Jump - 90 Minutes"
+    ) == normalize_row_name_for_include("Open Jump \u2013 90 Minutes")
     assert normalize_row_name_for_include("Open Jump \u2014 90") == normalize_row_name_for_include(
         "Open Jump - 90"
     )

@@ -33,8 +33,7 @@ def test_google_photo_url_builds_expected_shape(
     monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "test-key")
     ref = "places/abc/photos/xyz"
     assert google_photo_url(ref) == (
-        "https://places.googleapis.com/v1/places/abc/photos/xyz/media"
-        "?maxWidthPx=1200&key=test-key"
+        "https://places.googleapis.com/v1/places/abc/photos/xyz/media?maxWidthPx=1200&key=test-key"
     )
 
 
@@ -81,7 +80,9 @@ def test_google_photo_url_logs_ref_not_key(
     ref = "places/log/photos/discipline"
     logged: list[tuple[str, dict[str, object]]] = []
 
-    def _capture(msg: str, *args: object, extra: dict[str, object] | None = None, **kwargs: object) -> None:
+    def _capture(
+        msg: str, *args: object, extra: dict[str, object] | None = None, **kwargs: object
+    ) -> None:
         logged.append((msg, extra or {}))
 
     monkeypatch.setattr(photo_urls.logger, "info", _capture)
@@ -108,9 +109,7 @@ def test_google_photo_url_missing_key_emits_sentry_breadcrumb(
     assert crumbs[0]["category"] == "google_photo_url"
 
 
-_RESOLVED_FIXTURE_URL = (
-    "https://lh3.googleusercontent.com/places/photo_fixture_abc123"
-)
+_RESOLVED_FIXTURE_URL = "https://lh3.googleusercontent.com/places/photo_fixture_abc123"
 
 
 @patch("httpx.Client")

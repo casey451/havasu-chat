@@ -131,9 +131,7 @@ def test_azre_verify_handles_address_case_mismatch(monkeypatch) -> None:
             "BusinessCity": "Lake Havasu City",
         }
     ]
-    monkeypatch.setattr(
-        azre_verify, "fetch_azre_lhc_vacation_rentals", lambda *a, **k: registry
-    )
+    monkeypatch.setattr(azre_verify, "fetch_azre_lhc_vacation_rentals", lambda *a, **k: registry)
 
     with SessionLocal() as db:
         cat = db.query(Category).filter_by(slug="lodging-vacation-rentals").one()

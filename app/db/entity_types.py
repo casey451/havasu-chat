@@ -14,12 +14,14 @@ ENTITY_TYPE_PLACE = "place"
 ENTITY_TYPE_EVENT = "event"
 ENTITY_TYPE_PROGRAM = "program"
 
-ENTITY_TYPES: frozenset[str] = frozenset({
-    ENTITY_TYPE_COMMERCIAL,
-    ENTITY_TYPE_PLACE,
-    ENTITY_TYPE_EVENT,
-    ENTITY_TYPE_PROGRAM,
-})
+ENTITY_TYPES: frozenset[str] = frozenset(
+    {
+        ENTITY_TYPE_COMMERCIAL,
+        ENTITY_TYPE_PLACE,
+        ENTITY_TYPE_EVENT,
+        ENTITY_TYPE_PROGRAM,
+    }
+)
 
 
 def is_valid_entity_type(value: str) -> bool:

@@ -39,7 +39,9 @@ _CORRECT_MARKERS: tuple[re.Pattern[str], ...] = (
 
 _CONTRIBUTE_MARKERS: tuple[re.Pattern[str], ...] = (
     re.compile(r"^\s*(there is a|there is an)\b"),
-    re.compile(r"\bthere is a\b.+\b(happening|scheduled|this weekend|on saturday|on sunday|on friday)\b"),
+    re.compile(
+        r"\bthere is a\b.+\b(happening|scheduled|this weekend|on saturday|on sunday|on friday)\b"
+    ),
     re.compile(r"\b(just opened|grand opening)\b"),
     re.compile(r"\bnew event\b"),
     re.compile(r"\b(i want to add|want to add|need to add|going to add)\b"),
@@ -326,10 +328,7 @@ def classify(query: str) -> IntentResult:
             "REVIEW_COUNT_LOOKUP",
             "TIME_LOOKUP",
             "OPEN_NOW",
-        ) and (
-            try_business_listing_shortcut(raw) is not None
-            or is_category_open_now_listing(raw)
-        ):
+        ) and (try_business_listing_shortcut(raw) is not None or is_category_open_now_listing(raw)):
             entity = None
             entity_score = None
 

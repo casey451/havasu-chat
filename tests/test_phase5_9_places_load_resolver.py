@@ -110,10 +110,7 @@ def test_phase5_9_tennis_court_direct_mapping_beats_phase5_4_fallback() -> None:
     # makes it dormant for tennis_court but it documents the 5.4 HWC
     # scope and could fire for other fitness_sports primary types).
     assert ("tennis_court", "fitness_sports") in _DISCOVERY_DOMAIN_FALLBACK
-    assert (
-        _DISCOVERY_DOMAIN_FALLBACK[("tennis_court", "fitness_sports")]
-        == "health-wellness-care"
-    )
+    assert _DISCOVERY_DOMAIN_FALLBACK[("tennis_court", "fitness_sports")] == "health-wellness-care"
 
 
 def test_phase5_9_childcare_education_catch_all_present() -> None:
@@ -128,10 +125,7 @@ def test_phase5_9_childcare_education_catch_all_present() -> None:
         "Missing childcare_education catch-all in _DISCOVERY_DOMAIN_FALLBACK. "
         "Regression of the Phase 5.9 §1 sustainability extension."
     )
-    assert (
-        _DISCOVERY_DOMAIN_FALLBACK[(None, "childcare_education")]
-        == "classes-sports-recreation"
-    )
+    assert _DISCOVERY_DOMAIN_FALLBACK[(None, "childcare_education")] == "classes-sports-recreation"
 
 
 def test_phase5_9_pool_court_entity_type_is_place() -> None:
@@ -192,8 +186,7 @@ def test_phase5_8_events_primary_type_entries_preserved() -> None:
     }
     for primary_type, expected in required_events.items():
         assert primary_type in _PRIMARY_TYPE_MAP, (
-            f"Phase 5.8 events direct mapping {primary_type!r} is missing. "
-            "Regression of 0b426e1."
+            f"Phase 5.8 events direct mapping {primary_type!r} is missing. Regression of 0b426e1."
         )
         assert _PRIMARY_TYPE_MAP[primary_type] == expected
 
@@ -251,8 +244,7 @@ def test_phase5_4_fitness_sports_fallback_entries_preserved() -> None:
     }
     for key in required_fitness_sports:
         assert key in _DISCOVERY_DOMAIN_FALLBACK, (
-            f"Phase 5.4 fitness_sports fallback entry {key!r} is missing. "
-            "Regression of fc51940."
+            f"Phase 5.4 fitness_sports fallback entry {key!r} is missing. Regression of fc51940."
         )
         assert _DISCOVERY_DOMAIN_FALLBACK[key] == "health-wellness-care"
 
@@ -275,8 +267,7 @@ def test_phase5_4_health_medical_fallback_entries_preserved() -> None:
     }
     for key in required_health_medical:
         assert key in _DISCOVERY_DOMAIN_FALLBACK, (
-            f"Phase 5.4 health_medical fallback entry {key!r} is missing. "
-            "Regression of fc51940."
+            f"Phase 5.4 health_medical fallback entry {key!r} is missing. Regression of fc51940."
         )
         assert _DISCOVERY_DOMAIN_FALLBACK[key] == "health-wellness-care"
 
@@ -287,26 +278,15 @@ def test_phase5_x_other_domain_fallback_entries_preserved() -> None:
     (``65b0824`` / ``7c994aa`` / ``4d41944`` / ``44e8097``)."""
     # 5.2 lake_recreation
     assert _DISCOVERY_DOMAIN_FALLBACK[(None, "lake_recreation")] == "on-the-water"
-    assert (
-        _DISCOVERY_DOMAIN_FALLBACK[("tour_agency", "lake_recreation")]
-        == "on-the-water"
-    )
+    assert _DISCOVERY_DOMAIN_FALLBACK[("tour_agency", "lake_recreation")] == "on-the-water"
     # 5.3 home_services
-    assert (
-        _DISCOVERY_DOMAIN_FALLBACK[(None, "home_services")]
-        == "home-property-services"
-    )
+    assert _DISCOVERY_DOMAIN_FALLBACK[(None, "home_services")] == "home-property-services"
     # 5.5 auto
     assert _DISCOVERY_DOMAIN_FALLBACK[(None, "auto")] == "auto-rv-fuel"
     assert _DISCOVERY_DOMAIN_FALLBACK[("car_rental", "auto")] == "auto-rv-fuel"
     # 5.6 retail
-    assert (
-        _DISCOVERY_DOMAIN_FALLBACK[(None, "retail")] == "shopping-essentials"
-    )
-    assert (
-        _DISCOVERY_DOMAIN_FALLBACK[("shopping_mall", "retail")]
-        == "shopping-essentials"
-    )
+    assert _DISCOVERY_DOMAIN_FALLBACK[(None, "retail")] == "shopping-essentials"
+    assert _DISCOVERY_DOMAIN_FALLBACK[("shopping_mall", "retail")] == "shopping-essentials"
 
 
 def test_park_and_dog_park_primary_types_preserved() -> None:

@@ -98,11 +98,9 @@ def run(*, apply: bool) -> tuple[int, int, int, int]:
             failed_refs += row_failed
 
             if samples_shown < SAMPLE_LIMIT:
-                sample_pairs = [
-                    (r, u)
-                    for r, u in zip(refs, urls, strict=False)
-                    if u is not None
-                ][:3]
+                sample_pairs = [(r, u) for r, u in zip(refs, urls, strict=False) if u is not None][
+                    :3
+                ]
                 logging.info(
                     "Sample %d slug=%s pairs=%s",
                     samples_shown + 1,
@@ -132,8 +130,7 @@ def run(*, apply: bool) -> tuple[int, int, int, int]:
             logging.info("Committed final batch of %d rows", len(batch))
 
     logging.info(
-        "Backfill complete: total=%d convertible=%d resolved=%d failed=%d "
-        "applied=%d mode=%s",
+        "Backfill complete: total=%d convertible=%d resolved=%d failed=%d applied=%d mode=%s",
         total,
         convertible,
         resolved_refs,

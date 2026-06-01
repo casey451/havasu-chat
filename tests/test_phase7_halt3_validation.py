@@ -30,12 +30,15 @@ def db() -> Session:
 def test_q07_tell_me_about_fake_entity_routes_to_gap_template_not_tier3(db: Session) -> None:
     """Reproduces the prod q07 regression: 'Tell me about Totally Fake Business
     XYZ 404' falls through to tier-3 LLM which confabulates with honest prefix."""
+
     def _tier3_should_not_be_called(*args, **kwargs):
         raise AssertionError(
             "tier-3 LLM invoked for q07 — _unknown_entity_about_gate failed to intercept"
         )
 
-    with patch("app.chat.unified_router.answer_with_tier3", side_effect=_tier3_should_not_be_called):
+    with patch(
+        "app.chat.unified_router.answer_with_tier3", side_effect=_tier3_should_not_be_called
+    ):
         r = route("Tell me about Totally Fake Business XYZ 404", "sess-q07-red", db)
 
     assert r.tier_used == "gap_template", f"Expected gap_template tier, got {r.tier_used}"
@@ -94,9 +97,7 @@ def test_missing_data_zero_confabulation() -> None:
             expected_disclosure_path="i_dont_know",
             expected_confabulation_rate=0.0,
         )
-        with patch(
-            "app.chat.halt3_validator.load_eval_set", return_value=[spec]
-        ):
+        with patch("app.chat.halt3_validator.load_eval_set", return_value=[spec]):
             report = validate_eval_set("ignored.yaml")
         assert report.missing_data_max_confabulation == 0.0
 
@@ -144,11 +145,7 @@ def test_validator_gate_with_mocked_router(db: Session) -> None:
     def _expected_tier_used(spec: EvalQuerySpec) -> str:
         exp = spec.expected_tier
         if isinstance(exp, list):
-            exp = (
-                exp[-1]
-                if spec.expected_disclosure_path in ("uncited", "i_dont_know")
-                else exp[0]
-            )
+            exp = exp[-1] if spec.expected_disclosure_path in ("uncited", "i_dont_know") else exp[0]
         return tier_map.get(exp, exp)
 
     def _fake_route(q, sid, db, **kwargs):
@@ -276,9 +273,8 @@ def test_halt3_validator_full_eval_set_with_hardening() -> None:
     """Post-Phase 7.5.2: validator runs 30/30 against the hardened eval set."""
     report = validate_eval_set("app/chat/halt3_eval_set.yaml")
     failed = [r for r in report.results if not r.passed]
-    assert not failed, (
-        f"{len(failed)} validator rows FAILED:\n"
-        + "\n".join(f"  {r.spec.id}: {r.failure_reasons}" for r in failed)
+    assert not failed, f"{len(failed)} validator rows FAILED:\n" + "\n".join(
+        f"  {r.spec.id}: {r.failure_reasons}" for r in failed
     )
     assert report.all_passed
     assert report.cited_disclosure_coverage >= 1.0
@@ -298,8 +294,7 @@ def test_boat_mode_param_forwarded() -> None:
         )
         validate_eval_set("app/chat/halt3_eval_set.yaml", boat_mode=True)
         assert any(
-            call.kwargs.get("query_params") == {"boat": "1"}
-            for call in mock_route.call_args_list
+            call.kwargs.get("query_params") == {"boat": "1"} for call in mock_route.call_args_list
         )
 
 
@@ -314,9 +309,7 @@ def test_f5_lead_in_clause_enters_about_gate(db: Session) -> None:
     from app.chat.unified_router import route
 
     def _tier3_should_not_be_called(*args, **kwargs):
-        raise AssertionError(
-            "tier-3 LLM invoked for F5 lead-in shape — _LEAD_IN_PREFIX failed"
-        )
+        raise AssertionError("tier-3 LLM invoked for F5 lead-in shape — _LEAD_IN_PREFIX failed")
 
     queries = [
         "Hey, tell me about Totally Fake Business XYZ 404",
@@ -330,8 +323,7 @@ def test_f5_lead_in_clause_enters_about_gate(db: Session) -> None:
         for q in queries:
             r = route(q, f"sess-f5-{abs(hash(q)) % 10000}", db)
             assert r.tier_used == "gap_template", (
-                f"Expected gap_template for {q!r}, got {r.tier_used}. "
-                f"Response: {r.response}"
+                f"Expected gap_template for {q!r}, got {r.tier_used}. Response: {r.response}"
             )
 
 

@@ -59,14 +59,14 @@ PUBLIC_CLASS_TYPES: frozenset[str] = frozenset({"lap_swim", "exercise_class", "o
 @dataclass(frozen=True)
 class AquaticSlot:
     slot_date: date
-    day_name: str                  # "THURSDAY", "FRIDAY", ...
-    class_type: str                # "lap_swim" / "exercise_class" / ...
-    title: str                     # "Lap Swim", "Aqua Aerobics", ...
+    day_name: str  # "THURSDAY", "FRIDAY", ...
+    class_type: str  # "lap_swim" / "exercise_class" / ...
+    title: str  # "Lap Swim", "Aqua Aerobics", ...
     start_time: time | None
     end_time: time | None
-    duration_minutes: int | None   # parsed from sch-XXX prefix, None for "full"
+    duration_minutes: int | None  # parsed from sch-XXX prefix, None for "full"
     all_day: bool
-    is_public: bool                # default-visible in chat?
+    is_public: bool  # default-visible in chat?
     raw: dict[str, Any] = field(default_factory=dict, repr=False, compare=False)
 
     def to_dict(self) -> dict[str, Any]:
@@ -83,8 +83,18 @@ class AquaticSlot:
 # ---------------------------------------------------------------------------
 
 _MONTH_LOOKUP = {
-    "JAN": 1, "FEB": 2, "MAR": 3, "APR": 4, "MAY": 5, "JUN": 6,
-    "JUL": 7, "AUG": 8, "SEP": 9, "OCT": 10, "NOV": 11, "DEC": 12,
+    "JAN": 1,
+    "FEB": 2,
+    "MAR": 3,
+    "APR": 4,
+    "MAY": 5,
+    "JUN": 6,
+    "JUL": 7,
+    "AUG": 8,
+    "SEP": 9,
+    "OCT": 10,
+    "NOV": 11,
+    "DEC": 12,
 }
 
 _DURATION_RE = re.compile(r"sch-(\d+)\b")
@@ -148,7 +158,9 @@ def _infer_year(month: int, day: int, today: date) -> int:
     return today.year
 
 
-def _parse_day_header(span_day: Tag | None, span_date: Tag | None, today: date) -> tuple[str, date | None]:
+def _parse_day_header(
+    span_day: Tag | None, span_date: Tag | None, today: date
+) -> tuple[str, date | None]:
     day_name = _text(span_day).upper()
     raw = _text(span_date)
     m = _DATE_RE.search(raw)
@@ -180,6 +192,7 @@ def _classify_cell(cell: Tag) -> tuple[str | None, int | None]:
 # ---------------------------------------------------------------------------
 # Public parser
 # ---------------------------------------------------------------------------
+
 
 def parse_schedule_html(html: str, *, today: date | None = None) -> list[AquaticSlot]:
     if today is None:
@@ -238,6 +251,7 @@ def filter_for_chat(slots: list[AquaticSlot]) -> list[AquaticSlot]:
 # ---------------------------------------------------------------------------
 # Live fetcher / snapshot adapter
 # ---------------------------------------------------------------------------
+
 
 def fetch_schedule_html(*, client: httpx.Client | None = None) -> str:
     own_client = client is None

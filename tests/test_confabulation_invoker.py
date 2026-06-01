@@ -1,4 +1,4 @@
-﻿"""Tests for :mod:`app.eval.confabulation_invoker` (spec §5.2 smoke)."""
+"""Tests for :mod:`app.eval.confabulation_invoker` (spec §5.2 smoke)."""
 
 from __future__ import annotations
 
@@ -25,7 +25,14 @@ def test_inprocess_invoker_smoke(monkeypatch):
     def fake_route(query: str, session_id: str | None, db):
         _ = session_id
         _ = db
-        rows = [{"type": "provider", "name": "Smoke Provider", "description": "desc", "category": "test"}]
+        rows = [
+            {
+                "type": "provider",
+                "name": "Smoke Provider",
+                "description": "desc",
+                "category": "test",
+            }
+        ]
         tier2_formatter.format(query, rows)
         return SimpleNamespace(response="stub response", tier_used="2", chat_log_id=None)
 

@@ -46,9 +46,7 @@ def test_confabulation_evidence_exception_safety(monkeypatch: pytest.MonkeyPatch
     ev.install()
     try:
 
-        def boom(
-            _q: str, _r: list[dict]
-        ) -> tuple[str | None, int | None, int | None]:
+        def boom(_q: str, _r: list[dict]) -> tuple[str | None, int | None, int | None]:
             raise ValueError("inner boom")
 
         monkeypatch.setattr(ev, "_original_format", boom, raising=True)
@@ -59,9 +57,7 @@ def test_confabulation_evidence_exception_safety(monkeypatch: pytest.MonkeyPatch
         # Default must be visible again in this context (no leaked (q1, rows))
         assert ev.tier2_evidence.get() is None
 
-        def ok(
-            q: str, r: list[dict]
-        ) -> tuple[str | None, int | None, int | None]:
+        def ok(q: str, r: list[dict]) -> tuple[str | None, int | None, int | None]:
             return "ok", 0, 0
 
         monkeypatch.setattr(ev, "_original_format", ok, raising=True)
@@ -87,9 +83,7 @@ def test_confabulation_evidence_return_passthrough(monkeypatch: pytest.MonkeyPat
     ev.install()
     try:
 
-        def all_none(
-            _q: str, _r: list[dict]
-        ) -> tuple[str | None, int | None, int | None]:
+        def all_none(_q: str, _r: list[dict]) -> tuple[str | None, int | None, int | None]:
             return None, None, None
 
         def empty_response_tokens(
@@ -97,9 +91,7 @@ def test_confabulation_evidence_return_passthrough(monkeypatch: pytest.MonkeyPat
         ) -> tuple[str | None, int | None, int | None]:
             return None, 7, 8
 
-        def success(
-            _q: str, _r: list[dict]
-        ) -> tuple[str | None, int | None, int | None]:
+        def success(_q: str, _r: list[dict]) -> tuple[str | None, int | None, int | None]:
             return "text", 1, 2
 
         monkeypatch.setattr(ev, "_original_format", all_none, raising=True)

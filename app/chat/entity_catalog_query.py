@@ -162,9 +162,7 @@ def _fetch_ranked_entities(
 ) -> list[dict[str, Any]]:
     stmt = _base_entity_stmt(category_slugs=category_slugs, boat_mode=ctx.boat_mode)
     if needle := _text_needle(filters.entity_name):
-        stmt = stmt.where(
-            or_(Entity.name.ilike(needle), Entity.description.ilike(needle))
-        )
+        stmt = stmt.where(or_(Entity.name.ilike(needle), Entity.description.ilike(needle)))
     if needle := _text_needle(filters.location):
         stmt = stmt.outerjoin(Location, Location.entity_id == Entity.id).where(
             or_(Location.address.ilike(needle), Location.district.ilike(needle))
@@ -178,16 +176,10 @@ def _fetch_ranked_entities(
         prov_map = {
             p.entity_id: p
             for p in db.scalars(
-                select(Provider).where(
-                    Provider.entity_id.in_([e.id for e in rows])
-                )
+                select(Provider).where(Provider.entity_id.in_([e.id for e in rows]))
             ).all()
         }
-        rows = [
-            e
-            for e in rows
-            if _category_match_entity(e, cat, prov_map.get(e.id))
-        ]
+        rows = [e for e in rows if _category_match_entity(e, cat, prov_map.get(e.id))]
 
     now = now_lake_havasu()
     temp = ctx.effective_temperature_f()
@@ -281,9 +273,7 @@ def query_entities(
             if noun in cat_low or cat_low in noun:
                 slug_lock = slug_tuple[:1]
                 break
-        rows = _fetch_ranked_entities(
-            db, filters, ctx, category_slugs=slug_lock
-        )
+        rows = _fetch_ranked_entities(db, filters, ctx, category_slugs=slug_lock)
     else:
         rows = _fetch_ranked_entities(db, filters, ctx, category_slugs=None)
 

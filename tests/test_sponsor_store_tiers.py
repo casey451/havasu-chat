@@ -69,11 +69,7 @@ def test_live_helpers_return_only_approved_active_in_slot(
     limit: int,
 ) -> None:
     """Each helper ignores wrong slot, non-approved status, and inactive rows."""
-    wrong_slot = (
-        AdSlot.SPOTLIGHT.value
-        if slot == AdSlot.MARQUEE
-        else AdSlot.MARQUEE.value
-    )
+    wrong_slot = AdSlot.SPOTLIGHT.value if slot == AdSlot.MARQUEE else AdSlot.MARQUEE.value
     _add(db, slot=slot.value, name="winner")
     _add(db, slot=wrong_slot, name="wrong-slot")
     _add(db, slot=slot.value, status=SponsorStatus.DRAFT.value, name="draft")

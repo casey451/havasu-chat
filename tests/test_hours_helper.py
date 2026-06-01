@@ -14,7 +14,10 @@ PHX = LAKE_HAVASU_TZ
 def test_places_standard_weekday() -> None:
     blob = {
         "periods": [
-            {"open": {"day": 1, "hour": 9, "minute": 0}, "close": {"day": 1, "hour": 17, "minute": 0}},
+            {
+                "open": {"day": 1, "hour": 9, "minute": 0},
+                "close": {"day": 1, "hour": 17, "minute": 0},
+            },
         ]
     }
     out = places_hours_to_structured(blob)
@@ -35,7 +38,10 @@ def test_places_malformed_period_skipped() -> None:
 def test_places_overnight_split() -> None:
     blob = {
         "periods": [
-            {"open": {"day": 6, "hour": 22, "minute": 0}, "close": {"day": 0, "hour": 2, "minute": 0}},
+            {
+                "open": {"day": 6, "hour": 22, "minute": 0},
+                "close": {"day": 0, "hour": 2, "minute": 0},
+            },
         ]
     }
     out = places_hours_to_structured(blob)
@@ -47,7 +53,10 @@ def test_places_same_day_sunday() -> None:
     """Single-day Sunday window (e.g. all-day style as one period)."""
     blob = {
         "periods": [
-            {"open": {"day": 0, "hour": 0, "minute": 0}, "close": {"day": 0, "hour": 23, "minute": 59}},
+            {
+                "open": {"day": 0, "hour": 0, "minute": 0},
+                "close": {"day": 0, "hour": 23, "minute": 59},
+            },
         ]
     }
     out = places_hours_to_structured(blob)
@@ -101,7 +110,10 @@ def test_overnight_sunday_early_open() -> None:
     hs = places_hours_to_structured(
         {
             "periods": [
-                {"open": {"day": 6, "hour": 22, "minute": 0}, "close": {"day": 0, "hour": 2, "minute": 0}},
+                {
+                    "open": {"day": 6, "hour": 22, "minute": 0},
+                    "close": {"day": 0, "hour": 2, "minute": 0},
+                },
             ]
         }
     )

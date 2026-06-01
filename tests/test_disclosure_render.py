@@ -277,9 +277,9 @@ def test_tone_allowlist_unit_lists_all_documented_phrases() -> None:
     }
     # Sanity: each sample really does trip at least one pattern.
     for label, text in samples.items():
-        assert not _check_tone_allowlist(
-            "Sponsored", body=text, attribution="x"
-        ), f"expected '{label}' phrase to trip allowlist; sample={text!r}"
+        assert not _check_tone_allowlist("Sponsored", body=text, attribution="x"), (
+            f"expected '{label}' phrase to trip allowlist; sample={text!r}"
+        )
     # And the documented phrase list isn't empty (sanity on the export).
     assert len(DISALLOWED_PHRASES) >= 20
 
@@ -328,9 +328,7 @@ def test_regime_generic_category_when_no_entity() -> None:
 def test_regime_generic_category_falls_back_to_specific_when_entity_present() -> None:
     """Even a category-shaped sub_intent collapses to SPECIFIC_QUALITY when an
     entity is resolved — that's a 'tell me about X' query, not a category browse."""
-    regime = select_placement_regime(
-        _intent(sub_intent="GENERAL_QUESTION", entity="Hava Cafe")
-    )
+    regime = select_placement_regime(_intent(sub_intent="GENERAL_QUESTION", entity="Hava Cafe"))
     assert regime == PlacementRegime.SPECIFIC_QUALITY
 
 

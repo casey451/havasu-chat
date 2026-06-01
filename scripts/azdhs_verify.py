@@ -109,11 +109,7 @@ def _best_azdhs_match(
     best_score = 0
     for entry in registry:
         for cand in _azdhs_candidate_names(entry):
-            score = int(
-                fuzz.token_sort_ratio(
-                    provider_name, cand, processor=utils.default_process
-                )
-            )
+            score = int(fuzz.token_sort_ratio(provider_name, cand, processor=utils.default_process))
             if score > best_score:
                 best_score = score
                 best_entry = entry
@@ -196,7 +192,9 @@ def run_verify(
             # — base the per-verifier idempotency on attribute provenance,
             # not on the shared verification_method enum.
             existing = (prov.attributes or {}).get("azdhs") if prov.attributes else None
-            existing_lic = (existing or {}).get("LICENSE_NUMBER") if isinstance(existing, dict) else None
+            existing_lic = (
+                (existing or {}).get("LICENSE_NUMBER") if isinstance(existing, dict) else None
+            )
             if existing_lic:
                 counts["skipped_already"] += 1
                 continue

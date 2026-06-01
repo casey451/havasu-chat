@@ -66,7 +66,9 @@ def write_per_row_csv(path: str | Path, runs: list[dict[str, Any]]) -> None:
             total = len(rs)
             inc = [x for x in rs if not bool(x.get("excluded_from_summary", False))]
             included_n = len(inc)
-            gating_hits = sum(1 for x in inc if int(x.get("gating_hit_count", x.get("hit_count", 0)) or 0) > 0)
+            gating_hits = sum(
+                1 for x in inc if int(x.get("gating_hit_count", x.get("hit_count", 0)) or 0) > 0
+            )
             adv_c = sum(int(x.get("advisory_hit_count", 0) or 0) for x in inc)
             c: Counter[str] = Counter()
             for x in inc:
@@ -110,9 +112,7 @@ def write_summary_md(
         if str(r.get("tier_used", "")) == "3" and not (r.get("layer_2_hits") or [])
     )
     tier3_l2_included = sum(
-        1
-        for r in included
-        if str(r.get("tier_used", "")) == "3" and (r.get("layer_2_hits") or [])
+        1 for r in included if str(r.get("tier_used", "")) == "3" and (r.get("layer_2_hits") or [])
     )
 
     def _gating_rate_nz(rs: list[dict[str, Any]]) -> int:
@@ -135,13 +135,9 @@ def write_summary_md(
         "Tier `1` and Tier `3` runs with no Layer 2 hits are excluded from the headline denominator."
     )
     lines.append(f"- Tier 1 invocations excluded: {excluded_t1}")
-    lines.append(
-        f"- Tier 3 invocations excluded (no Layer 2 gating signal): {excluded_t3_nol2}"
-    )
+    lines.append(f"- Tier 3 invocations excluded (no Layer 2 gating signal): {excluded_t3_nol2}")
     if tier3_l2_included:
-        lines.append(
-            f"- Tier 3 invocations **included** due to Layer 2 hits: {tier3_l2_included}"
-        )
+        lines.append(f"- Tier 3 invocations **included** due to Layer 2 hits: {tier3_l2_included}")
     lines.append("")
     lines.append("## Per-flag gating confabulation rate (Layer 2 + Layer 3 only)")
     for flag in ("off", "on", "both", "unknown"):
@@ -196,8 +192,6 @@ def write_summary_md(
     for anchor in anchor_list:
         anchor_runs = [r for r in included if str(r.get("row_name", "")).lower() == anchor.lower()]
         nhit = _gating_rate_nz(anchor_runs)
-        lines.append(
-            f"- `{anchor}`: {nhit}/{len(anchor_runs)} included runs with ≥1 gating hit"
-        )
+        lines.append(f"- `{anchor}`: {nhit}/{len(anchor_runs)} included runs with ≥1 gating hit")
 
     p.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")

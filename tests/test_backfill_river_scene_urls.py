@@ -128,7 +128,9 @@ def _fetch_router():
     return _fetch
 
 
-def test_parse_args_rejects_dry_run_and_apply_together(monkeypatch: pytest.MonkeyPatch, backfill_mod) -> None:
+def test_parse_args_rejects_dry_run_and_apply_together(
+    monkeypatch: pytest.MonkeyPatch, backfill_mod
+) -> None:
     monkeypatch.setattr(sys, "argv", ["backfill_river_scene_urls.py", "--dry-run", "--apply"])
     with pytest.raises(SystemExit) as ei:
         backfill_mod._parse_args()
@@ -191,8 +193,8 @@ def test_counter_partition_dry_run(backfill_mod) -> None:
 
     with patch.object(backfill_mod.time, "sleep", lambda *a, **k: None):
         with patch.object(backfill_mod, "fetch_and_parse_event", side_effect=_fetch_router()):
-            total, would_change, no_change, no_org, applied, skipped, no_art = backfill_mod.run_rescrape(
-                apply=False
+            total, would_change, no_change, no_org, applied, skipped, no_art = (
+                backfill_mod.run_rescrape(apply=False)
             )
 
     assert total == 5

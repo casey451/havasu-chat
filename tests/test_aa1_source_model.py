@@ -123,11 +123,7 @@ class AA1SourceModelTests(unittest.TestCase):
         """Admin programs tab shows the correct verification badge per (source, verified) pair."""
         with SessionLocal() as db:
             db.add(_sample_program(title="Admin Row", source="admin", verified=True))
-            db.add(
-                _sample_program(
-                    title="Provider Verified Row", source="provider", verified=True
-                )
-            )
+            db.add(_sample_program(title="Provider Verified Row", source="provider", verified=True))
             db.add(
                 _sample_program(
                     title="Provider Unclaimed Row",
@@ -135,12 +131,8 @@ class AA1SourceModelTests(unittest.TestCase):
                     verified=False,
                 )
             )
-            db.add(
-                _sample_program(title="Parent Row", source="parent", verified=False)
-            )
-            db.add(
-                _sample_program(title="Scraped Row", source="scraped", verified=False)
-            )
+            db.add(_sample_program(title="Parent Row", source="parent", verified=False))
+            db.add(_sample_program(title="Scraped Row", source="scraped", verified=False))
             db.commit()
 
         self._login()

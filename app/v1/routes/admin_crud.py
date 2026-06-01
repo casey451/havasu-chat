@@ -6,7 +6,7 @@ from datetime import date as date_type
 from datetime import time
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -181,10 +181,7 @@ def admin_list_events(
     count_stmt = select(func.count()).select_from(Event)
     if status:
         count_stmt = count_stmt.where(Event.status == status)
-    total = int(db.scalar(count_stmt) or 0)
-    rows = list(
-        db.scalars(stmt.order_by(Event.date.desc()).offset(offset).limit(limit)).all()
-    )
+    rows = list(db.scalars(stmt.order_by(Event.date.desc()).offset(offset).limit(limit)).all())
     return {
         "items": [event_from_row(e) for e in rows],
         "total": len(rows),

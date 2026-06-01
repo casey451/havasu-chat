@@ -55,7 +55,9 @@ TIER1_CASES: list[Case] = [
     Case("hours", "what are the hours for {provider}", "1", True, requires_provider=True),
     Case("open_now", "is {provider} open right now", "1", True, requires_provider=True),
     Case("rating", "what is the rating for {provider}", "1", True, requires_provider=True),
-    Case("review_count", "how many reviews does {provider} have", "1", True, requires_provider=True),
+    Case(
+        "review_count", "how many reviews does {provider} have", "1", True, requires_provider=True
+    ),
 ]
 
 # Tier 2 — listing shortcut. Zero tokens.
@@ -120,7 +122,9 @@ def _format_token_cost(resp: ChatResponse) -> str:
     return f"{resp.llm_input_tokens or 0}+{resp.llm_output_tokens or 0}={resp.llm_tokens_used}"
 
 
-def _run_battery(cases: list[Case], provider_name: str) -> list[tuple[Case, ChatResponse, list[str]]]:
+def _run_battery(
+    cases: list[Case], provider_name: str
+) -> list[tuple[Case, ChatResponse, list[str]]]:
     results: list[tuple[Case, ChatResponse, list[str]]] = []
     for case in cases:
         try:
@@ -142,7 +146,9 @@ def _run_battery(cases: list[Case], provider_name: str) -> list[tuple[Case, Chat
     return results
 
 
-def _print_results(label: str, results: list[tuple[Case, ChatResponse, list[str]]]) -> tuple[int, int]:
+def _print_results(
+    label: str, results: list[tuple[Case, ChatResponse, list[str]]]
+) -> tuple[int, int]:
     passes = 0
     fails = 0
     print(f"\n=== {label} ({len(results)} cases) ===")
@@ -165,7 +171,9 @@ def _print_results(label: str, results: list[tuple[Case, ChatResponse, list[str]
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--provider", help="Override the sample provider_name used in entity-bound queries.")
+    p.add_argument(
+        "--provider", help="Override the sample provider_name used in entity-bound queries."
+    )
     p.add_argument("--skip-tier3", action="store_true", help="Skip Tier 3 cases (no token spend).")
     args = p.parse_args()
 

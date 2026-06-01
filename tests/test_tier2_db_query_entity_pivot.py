@@ -79,7 +79,9 @@ def test_pivot_entity_name_query_returns_stable_provider_payload(
     db.commit()
 
 
-def test_pivot_time_window_event_payload_stable(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_pivot_time_window_event_payload_stable(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(tier2_db_query, "_today", lambda: date(2026, 7, 10))
     title = f"Pivot Concert {uuid4().hex[:6]}"
     ent = _mk_entity(etype=ENTITY_TYPE_EVENT, name=title)
@@ -196,7 +198,9 @@ def test_pivot_open_now_reads_hours_extension_when_legacy_json_absent(
     from app.chat.tier2_db_query import query as tier2_query
 
     rows = tier2_query(
-        Tier2Filters(parser_confidence=0.9, entity_name=name, open_now=True, fallback_to_tier3=False),
+        Tier2Filters(
+            parser_confidence=0.9, entity_name=name, open_now=True, fallback_to_tier3=False
+        ),
     )
     assert any(r.get("type") == "provider" and name in r.get("name", "") for r in rows)
 
@@ -230,7 +234,9 @@ def test_pivot_program_outerjoin_does_not_drop_orphan_program(db: Session) -> No
 
     from app.chat.tier2_db_query import query as tier2_query
 
-    rows = tier2_query(Tier2Filters(parser_confidence=0.9, entity_name=title, fallback_to_tier3=False))
+    rows = tier2_query(
+        Tier2Filters(parser_confidence=0.9, entity_name=title, fallback_to_tier3=False)
+    )
     assert any(r.get("type") == "program" and title in r.get("name", "") for r in rows)
 
     db.delete(prog)

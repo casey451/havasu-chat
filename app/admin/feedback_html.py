@@ -119,8 +119,12 @@ def register_feedback_html_routes(router: APIRouter) -> None:
         if days is not None:
             cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
-        positive_cnt = func.sum(case((ChatLog.feedback_signal == "positive", 1), else_=0)).label("positive")
-        negative_cnt = func.sum(case((ChatLog.feedback_signal == "negative", 1), else_=0)).label("negative")
+        positive_cnt = func.sum(case((ChatLog.feedback_signal == "positive", 1), else_=0)).label(
+            "positive"
+        )
+        negative_cnt = func.sum(case((ChatLog.feedback_signal == "negative", 1), else_=0)).label(
+            "negative"
+        )
         total_cnt = func.count().label("total")
         summary_stmt = (
             select(

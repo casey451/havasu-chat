@@ -127,9 +127,7 @@ def post_enrich_contribution(
     row = get_contribution(db, contribution_id)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    background_tasks.add_task(
-        with_retry, enrich_contribution, contribution_id, SessionLocal
-    )
+    background_tasks.add_task(with_retry, enrich_contribution, contribution_id, SessionLocal)
     return JSONResponse(
         status_code=status.HTTP_202_ACCEPTED,
         content={"contribution_id": contribution_id, "enrichment": "scheduled"},

@@ -39,9 +39,7 @@ def _dev_mode_enabled() -> bool:
     return v in _DEV_MODE_TRUTHY
 
 
-def _build_magic_link_url(
-    token_plaintext: str, *, next_path: str | None = None
-) -> str:
+def _build_magic_link_url(token_plaintext: str, *, next_path: str | None = None) -> str:
     from urllib.parse import urlencode
 
     base = (os.environ.get("AUTH_MAGIC_LINK_BASE_URL") or "").rstrip("/")
@@ -63,7 +61,7 @@ def _render_email_body(magic_link_url: str) -> tuple[str, str]:
     )
     html = (
         "<!DOCTYPE html><html><body>"
-        '<p>Sign in to <strong>Havasu Chat</strong>:</p>'
+        "<p>Sign in to <strong>Havasu Chat</strong>:</p>"
         f'<p><a href="{magic_link_url}">Click here to sign in</a></p>'
         "<p>This link expires in 15 minutes.</p>"
         "<p>If you didn't request this, you can safely ignore this email.</p>"
@@ -72,9 +70,7 @@ def _render_email_body(magic_link_url: str) -> tuple[str, str]:
     return html, text
 
 
-def send_magic_link(
-    email: str, token_plaintext: str, *, next_path: str | None = None
-) -> None:
+def send_magic_link(email: str, token_plaintext: str, *, next_path: str | None = None) -> None:
     """Send the magic-link email (or log it in dev mode).
 
     Raises RuntimeError on configuration error (missing env vars) and
@@ -94,9 +90,7 @@ def send_magic_link(
     api_key = (os.environ.get("RESEND_API_KEY") or "").strip()
     from_addr = (os.environ.get("RESEND_FROM_ADDRESS") or "").strip()
     if not api_key or not from_addr:
-        raise RuntimeError(
-            "RESEND_API_KEY and RESEND_FROM_ADDRESS must be set in prod"
-        )
+        raise RuntimeError("RESEND_API_KEY and RESEND_FROM_ADDRESS must be set in prod")
 
     html, text = _render_email_body(url)
     payload = {
@@ -145,9 +139,7 @@ def send_alert_email(
     api_key = (os.environ.get("RESEND_API_KEY") or "").strip()
     from_addr = (os.environ.get("RESEND_FROM_ADDRESS") or "").strip()
     if not api_key or not from_addr:
-        raise RuntimeError(
-            "RESEND_API_KEY and RESEND_FROM_ADDRESS must be set in prod"
-        )
+        raise RuntimeError("RESEND_API_KEY and RESEND_FROM_ADDRESS must be set in prod")
 
     payload = {
         "from": from_addr,

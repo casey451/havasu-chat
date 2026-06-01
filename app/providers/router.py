@@ -30,9 +30,7 @@ register_template_globals(templates)
 router = APIRouter(tags=["providers"])
 
 
-def _viewer_owns_provider(
-    db: Session, *, current_user: User | None, provider: Provider
-) -> bool:
+def _viewer_owns_provider(db: Session, *, current_user: User | None, provider: Provider) -> bool:
     if current_user is None:
         return False
     if getattr(current_user, "role", None) == "admin":
@@ -61,9 +59,7 @@ def serve_provider_profile(
         raise HTTPException(status_code=404, detail="Provider not found")
 
     current_user = getattr(request.state, "current_user", None)
-    viewer_is_owner = _viewer_owns_provider(
-        db, current_user=current_user, provider=provider
-    )
+    viewer_is_owner = _viewer_owns_provider(db, current_user=current_user, provider=provider)
     vm = view_models.build(provider, db=db, viewer_is_owner=viewer_is_owner)
     entity = db.get(Entity, provider.entity_id)
     boat_access = entity.boat_access if entity is not None else None

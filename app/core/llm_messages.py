@@ -44,11 +44,7 @@ class Usage:
 
     @property
     def billable_input(self) -> int:
-        return (
-            self.input_tokens
-            + self.cache_read_input_tokens
-            + self.cache_creation_input_tokens
-        )
+        return self.input_tokens + self.cache_read_input_tokens + self.cache_creation_input_tokens
 
     @classmethod
     def from_sdk_usage(cls, sdk_usage: Any) -> Usage:

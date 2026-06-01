@@ -240,9 +240,7 @@ def test_admin_verify_promotes_end_user_to_merchant(
             db.commit()
 
 
-def test_admin_reject_sets_reason(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_admin_reject_sets_reason(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     suf = uuid4().hex[:8]
     eid = str(uuid4())
     slug = f"rej-{suf}"

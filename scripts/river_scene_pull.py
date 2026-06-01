@@ -19,7 +19,7 @@ from app.bootstrap_env import ensure_dotenv_loaded
 
 ensure_dotenv_loaded()
 
-from app.contrib.river_scene_pull import run_pull
+from app.contrib.river_scene_pull import run_pull  # noqa: E402
 
 
 def main() -> int:

@@ -129,7 +129,9 @@ def api_promote_mention(
     if row.status != "unreviewed":
         raise HTTPException(status_code=400, detail="Mention is not unreviewed")
     if body.entity_type in ("provider", "program") and body.submission_url is None:
-        raise HTTPException(status_code=422, detail="submission_url is required for provider and program")
+        raise HTTPException(
+            status_code=422, detail="submission_url is required for provider and program"
+        )
     try:
         cdata = ContributionCreate(
             entity_type=body.entity_type,

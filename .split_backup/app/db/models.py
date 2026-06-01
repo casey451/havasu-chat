@@ -140,7 +140,9 @@ class Event(Base):
     status: Mapped[str] = mapped_column(String, default="live", nullable=False)
     source: Mapped[str] = mapped_column(String, default="admin", nullable=False)
     verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
     created_by: Mapped[str] = mapped_column(String, default="user", nullable=False)
     admin_review_by: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     provider_id: Mapped[str | None] = mapped_column(
@@ -324,7 +326,9 @@ class Contribution(Base):
     created_program_id: Mapped[str | None] = mapped_column(
         String, ForeignKey("programs.id"), nullable=True
     )
-    created_event_id: Mapped[str | None] = mapped_column(String, ForeignKey("events.id"), nullable=True)
+    created_event_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("events.id"), nullable=True
+    )
 
     source: Mapped[str] = mapped_column(String, nullable=False, default="user_submission")
     llm_source_chat_log_id: Mapped[str | None] = mapped_column(
@@ -349,7 +353,9 @@ class LlmMentionedEntity(Base):
     chat_log_id: Mapped[str] = mapped_column(String, ForeignKey("chat_logs.id"), nullable=False)
     mentioned_name: Mapped[str] = mapped_column(String(300), nullable=False)
     context_snippet: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    detected_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    detected_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
     status: Mapped[str] = mapped_column(String, nullable=False, default="unreviewed")
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     dismissal_reason: Mapped[str | None] = mapped_column(String, nullable=True)

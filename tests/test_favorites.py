@@ -124,9 +124,7 @@ def test_favorites_toggle_program_not_favoritable(
             db.commit()
 
 
-def test_favorites_api_list_json(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_favorites_api_list_json(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     suf = uuid4().hex[:8]
     eid = str(uuid4())
     email = f"lst-{suf}@example.com"
@@ -160,9 +158,7 @@ def test_favorites_api_list_json(
             db.commit()
 
 
-def test_account_favorites_renders(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_account_favorites_renders(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     suf = uuid4().hex[:8]
     eid = str(uuid4())
     email = f"af-{suf}@example.com"
@@ -261,4 +257,4 @@ def test_tier2_provider_cards_html_includes_favorite_heart() -> None:
     )
     assert "tier2-catalog-card" in html
     assert "favorite-heart" in html
-    assert "data-entity-id=\"e1\"" in html
+    assert 'data-entity-id="e1"' in html

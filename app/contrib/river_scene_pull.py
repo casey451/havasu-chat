@@ -9,8 +9,7 @@ from __future__ import annotations
 import difflib
 import re
 import sys
-from datetime import date
-from datetime import timedelta
+from datetime import date, timedelta
 
 import httpx
 from sqlalchemy import func, select
@@ -20,7 +19,6 @@ from app.contrib.approval_service import approve_contribution_as_event
 from app.contrib.event_reconciler import reconcile_event
 from app.contrib.river_scene import (
     REQUEST_TIMEOUT,
-    USER_AGENT,
     RiverSceneEvent,
     _submission_public_url,
     build_river_scene_client,
@@ -146,7 +144,16 @@ def run_pull(
     auto_approval_failed = 0
 
     def body(client: httpx.Client) -> int:
-        nonlocal errors, imported, skipped_duplicate, skipped_cross_source, skipped_past_or_unparseable, flagged_seed_overlap, fetched_urls, auto_approved, auto_approval_failed
+        nonlocal \
+            errors, \
+            imported, \
+            skipped_duplicate, \
+            skipped_cross_source, \
+            skipped_past_or_unparseable, \
+            flagged_seed_overlap, \
+            fetched_urls, \
+            auto_approved, \
+            auto_approval_failed
         try:
             sitemap_cutoff = start_date - timedelta(days=SITEMAP_LASTMOD_LOOKBACK_DAYS)
             urls = fetch_sitemap_urls(client=client, start_date=sitemap_cutoff)
@@ -227,7 +234,9 @@ def run_pull(
                                 event_url=url_str,
                                 source_url=payload.source_url,
                             )
-                            ev = approve_contribution_as_event(db, created.id, approve_fields, list(rse.category_slugs or []))
+                            ev = approve_contribution_as_event(
+                                db, created.id, approve_fields, list(rse.category_slugs or [])
+                            )
                             auto_approved += 1
                             print(
                                 f"info: auto-approved river scene contribution {created.id} -> event {ev.id}"

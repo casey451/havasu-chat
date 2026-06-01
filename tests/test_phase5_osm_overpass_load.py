@@ -20,14 +20,22 @@ from scripts.osm_overpass_load import ingest_rows
 def test_osm_overpass_load_filters_wrapper_elements(tmp_path: Path) -> None:
     wrapper = {
         "elements": [
-            {"type": "node", "id": 1, "lat": 34.5, "lon": -114.35, "tags": {"leisure": "marina", "name": "A"}},
+            {
+                "type": "node",
+                "id": 1,
+                "lat": 34.5,
+                "lon": -114.35,
+                "tags": {"leisure": "marina", "name": "A"},
+            },
             {"type": "node", "id": 2, "lat": 34.51, "lon": -114.36, "tags": {"natural": "tree"}},
         ]
     }
     p = tmp_path / "osm.jsonl"
     p.write_text(json.dumps(wrapper) + "\n", encoding="utf-8")
     rows = [json.loads(line) for line in p.read_text(encoding="utf-8").splitlines() if line.strip()]
-    counts = ingest_rows(rows, tag="leisure", value="marina", category_slug="on-the-water", dry_run=True)
+    counts = ingest_rows(
+        rows, tag="leisure", value="marina", category_slug="on-the-water", dry_run=True
+    )
     assert counts["elements_seen"] == 1
     assert counts["payloads_ready"] == 1
 
@@ -110,7 +118,9 @@ def _seed_google_like_provider(
 
 
 @patch("scripts.osm_overpass_load.reconcile_hit")
-def test_osm_reconcile_update_preserves_identity_and_populated_contact(mock_rec, tmp_path: Path) -> None:
+def test_osm_reconcile_update_preserves_identity_and_populated_contact(
+    mock_rec, tmp_path: Path
+) -> None:
     uid = uuid.uuid4().hex[:10]
     entity_id, name, lat, lng, google_place_id = _seed_google_like_provider(
         uid=uid,

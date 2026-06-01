@@ -7,13 +7,13 @@ from fastapi import APIRouter
 from app.v1.routes.admin import router as admin_router
 from app.v1.routes.admin_contrib import router as admin_contrib_router
 from app.v1.routes.admin_crud import router as admin_crud_router
-from app.v1.routes.seo import router as seo_router
 from app.v1.routes.businesses import router as businesses_router
 from app.v1.routes.categories import router as categories_router
 from app.v1.routes.chat import router as chat_router
 from app.v1.routes.contribute import router as contribute_router
 from app.v1.routes.events import router as events_router
 from app.v1.routes.feed import router as feed_router
+from app.v1.routes.seo import router as seo_router
 
 router = APIRouter(tags=["v1-master-spec"])
 router.include_router(feed_router)
