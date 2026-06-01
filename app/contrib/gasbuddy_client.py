@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import logging
 import os
+import random
 import re
 from typing import Any
 from urllib.parse import urlparse, urlunparse
@@ -43,6 +44,8 @@ logger = logging.getLogger(__name__)
 GRAPHQL_URL = "https://www.gasbuddy.com/graphql"
 PRIME_URL = "https://www.gasbuddy.com/home"
 REQUEST_TIMEOUT = 30.0
+# ScraperAPI / unblocker round-trips are slow; keep below their ~70s ceiling.
+PROXY_REQUEST_TIMEOUT = 90.0
 MAX_PAGES_PER_ZIP = 5
 
 # Lake Havasu City ZIP codes searched on GasBuddy. 86405 is PO-box only and is
@@ -100,29 +103,28 @@ def _proxy_url() -> str | None:
     return val or None
 
 
-def _scraperapi_render_proxy(proxy: str) -> str | None:
-    """Return a ScraperAPI proxy URL with ``render=true``, or None if N/A.
+def _is_scraperapi_proxy(proxy: str) -> bool:
+    return "scraperapi.com" in (urlparse(proxy).hostname or "").lower()
 
-    ScraperAPI encodes API params in the proxy username (e.g.
-    ``scraperapi.render=true:API_KEY@proxy-server.scraperapi.com:8001``).
-    """
+
+def _parse_scraperapi_username(user: str) -> dict[str, str]:
+    """Parse ``scraperapi.k=v.k2=v2`` username params into a dict."""
+    if user in ("", "scraperapi"):
+        return {}
+    if not user.startswith("scraperapi."):
+        return {}
+    params: dict[str, str] = {}
+    for part in user[len("scraperapi.") :].split("."):
+        if "=" in part:
+            key, val = part.split("=", 1)
+            params[key] = val
+    return params
+
+
+def _rebuild_proxy_url(proxy: str, username: str) -> str:
     parsed = urlparse(proxy)
-    host = (parsed.hostname or "").lower()
-    if "scraperapi.com" not in host:
-        return None
-    user = parsed.username or ""
-    if not user.startswith("scraperapi"):
-        return None
-    if "render=true" in user:
-        return None
-    if user == "scraperapi":
-        new_user = "scraperapi.render=true"
-    elif user.startswith("scraperapi."):
-        new_user = f"scraperapi.render=true.{user[len('scraperapi.') :]}"
-    else:
-        return None
     password = parsed.password or ""
-    auth = f"{new_user}:{password}@" if password else f"{new_user}@"
+    auth = f"{username}:{password}@" if password else f"{username}@"
     port = f":{parsed.port}" if parsed.port else ""
     netloc = f"{auth}{parsed.hostname}{port}"
     return urlunparse(
@@ -130,15 +132,47 @@ def _scraperapi_render_proxy(proxy: str) -> str | None:
     )
 
 
-def _build_client(*, proxy: str | None = None) -> httpx.Client:
+def _prepare_scraperapi_proxy(proxy: str, *, render: bool = False) -> str:
+    """Pin ScraperAPI session stickiness (CSRF token + POST must share an IP).
+
+    Optionally enable ``render=true`` for a JS-rendered retry pass.
+    """
+    parsed = urlparse(proxy)
+    params = _parse_scraperapi_username(parsed.username or "")
+    params.setdefault("session_number", str(random.randint(1, 9_999_999)))
+    if render:
+        params["render"] = "true"
+    parts = [f"{key}={val}" for key, val in params.items()]
+    username = f"scraperapi.{'.'.join(parts)}" if parts else "scraperapi"
+    return _rebuild_proxy_url(proxy, username)
+
+
+def _scraperapi_render_proxy(proxy: str) -> str | None:
+    """Return a ScraperAPI proxy URL with ``render=true``, or None if N/A."""
+    if not _is_scraperapi_proxy(proxy):
+        return None
+    user = urlparse(proxy).username or ""
+    if "render=true" in user:
+        return None
+    return _prepare_scraperapi_proxy(proxy, render=True)
+
+
+def _build_client(
+    *, proxy: str | None = None, timeout: float | None = None, prepare_scraperapi: bool = True
+) -> httpx.Client:
     """Construct an httpx client, routing through the unblocker proxy if set."""
     proxy = _proxy_url() if proxy is None else proxy
+    effective_timeout = (
+        timeout if timeout is not None else (PROXY_REQUEST_TIMEOUT if proxy else REQUEST_TIMEOUT)
+    )
     kwargs: dict[str, Any] = {
         "headers": dict(DEFAULT_HEADERS),
-        "timeout": REQUEST_TIMEOUT,
+        "timeout": effective_timeout,
         "follow_redirects": True,
     }
     if proxy:
+        if prepare_scraperapi and _is_scraperapi_proxy(proxy):
+            proxy = _prepare_scraperapi_proxy(proxy, render=False)
         # ScraperAPI / similar proxies MITM TLS; cert won't chain to a public CA.
         kwargs["verify"] = False
         # httpx >=0.26 uses ``proxy=``; older releases use ``proxies=``.
@@ -157,7 +191,7 @@ def _fetch_csrf_token(client: httpx.Client) -> str | None:
     returns the real page; otherwise the POST will 400 and we fall back).
     """
     try:
-        resp = client.get(PRIME_URL, timeout=REQUEST_TIMEOUT)
+        resp = client.get(PRIME_URL)
     except httpx.HTTPError as exc:  # pragma: no cover - network dependent
         logger.warning("GasBuddy /home request failed: %s", exc)
         return None
@@ -194,7 +228,7 @@ def fetch_stations_for_search(
             "query": LOCATION_QUERY_PRICES,
             "variables": {"maxAge": 0, "search": search, "cursor": cursor},
         }
-        resp = client.post(GRAPHQL_URL, json=payload, timeout=REQUEST_TIMEOUT)
+        resp = client.post(GRAPHQL_URL, json=payload)
         resp.raise_for_status()
         body = resp.json()
         if not isinstance(body, dict):
@@ -252,13 +286,13 @@ def fetch_lhc_stations(zips: tuple[str, ...] = LHC_ZIPS) -> list[dict[str, Any]]
     with _build_client(proxy=proxy) as client:
         merged = _fetch_lhc_stations_with_client(client, zips)
 
-    if not merged and proxy:
+    if not merged and proxy and _is_scraperapi_proxy(proxy):
         render_proxy = _scraperapi_render_proxy(proxy)
         if render_proxy:
             logger.info(
                 "GasBuddy returned 0 stations via ScraperAPI proxy; retrying with render=true"
             )
-            with _build_client(proxy=render_proxy) as client:
+            with _build_client(proxy=render_proxy, prepare_scraperapi=False) as client:
                 merged = _fetch_lhc_stations_with_client(client, zips)
 
     logger.info("GasBuddy returned %d unique stations across %d ZIPs", len(merged), len(zips))
