@@ -101,6 +101,10 @@ def test_parse_age_band(phrase, band):
         "what is the meaning of life",
         "tell me a joke",
         "asdf qwer zxcv",
+        # venue-specific event questions -> entity-aware path, not a generic list
+        "next event at fake provider inc",
+        "what's happening at the bridge tonight",
+        "live music at mudshark brewery",
     ],
 )
 def test_falls_through_when_unconfident(query):

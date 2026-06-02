@@ -126,6 +126,13 @@ _FITNESS = {
 
 _CLASS_WORDS = ("lesson", "lessons", "class", "classes", "program", "swim lesson")
 
+# "next event at <venue>", "what's happening at <place>", "live music at X" name a
+# specific venue. The layer can't filter events by venue, so listing all events
+# would answer a different question -- fall through to the entity-aware path.
+_VENUE_AT_RE = re.compile(
+    r"\b(?:happening|event|events|class|classes|show|shows|game|games|live music)\s+at\s+\w"
+)
+
 
 def _match_area(text: str) -> str | None:
     for phrase, district in dicts.AREA_DICT.items():
@@ -201,6 +208,8 @@ def resolve(query: str) -> ResolvedIntent | None:
 
     # 2. Events -- explicit event signal, optionally with a date window.
     if _has_any(t, _EVENT_WORDS):
+        if _VENUE_AT_RE.search(t):
+            return None  # venue-specific ("event at X") -> entity-aware path owns it
         window = _event_window(t)
         slots: dict[str, object] = {"window": window}
         if _has_any(t, ("live music", "concert")):
