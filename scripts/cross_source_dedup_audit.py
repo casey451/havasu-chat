@@ -79,6 +79,7 @@ from app.contrib.ingest_reconciler import (  # noqa: E402
     haversine_m,
     slugify,
 )
+from app.utils.contact_norm import is_identity_domain as _is_identity_domain  # noqa: E402
 from app.utils.contact_norm import norm_domain as _norm_domain  # noqa: E402
 from app.utils.contact_norm import norm_phone as _norm_phone  # noqa: E402
 
@@ -288,7 +289,7 @@ def find_provider_pairs(
         if r.google_place_id:
             by_gpid.setdefault(r.google_place_id.strip(), []).append(r)
         w = _norm_domain(r.website)
-        if w:
+        if w and _is_identity_domain(w):
             by_web.setdefault(w, []).append(r)
         p = _norm_phone(r.phone)
         if p:
