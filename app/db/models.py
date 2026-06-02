@@ -1695,6 +1695,78 @@ class DigestSubscription(Base):
     user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
 
 
+class UpgradeRequestStatus(str, Enum):
+    """Lifecycle of a merchant's request to feature/spotlight their listing.
+
+    ``pending`` — submitted by a verified owner, awaiting admin review.
+    ``approved`` — admin accepted; an admin may have spawned a live Sponsor row.
+    ``declined`` — admin rejected (with an optional reason).
+
+    No payment/billing state lives here — pricing and what-is-sold is a Casey
+    product decision (Phase A4 FLAG). The request is purely a queued lead.
+    """
+
+    PENDING = "pending"
+    APPROVED = "approved"
+    DECLINED = "declined"
+
+
+class UpgradeRequest(Base):
+    """Merchant-initiated request to upgrade a claimed listing to a paid ad slot.
+
+    Captures intent only: a verified owner of an Entity (commercial/place) asks
+    to have their listing featured in a sponsor slot (marquee/spotlight/
+    promoted/supporter). An admin reviews the queue and, on approval, can create
+    a live :class:`Sponsor` row from the request. NO billing — pricing and
+    free-vs-paid is deferred to Casey.
+
+    ``entity_id`` mirrors the :class:`Claim` linkage (the owner edits a listing
+    via a verified claim on the same entity). ``business_id`` is an optional
+    Provider id snapshot so the admin queue can deep-link without re-resolving
+    the entity. ``requested_slot`` is the desired :class:`AdSlot`.
+    """
+
+    __tablename__ = "upgrade_requests"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'approved', 'declined')",
+            name="ck_upgrade_requests_status",
+        ),
+        Index("ix_upgrade_requests_status", "status"),
+        Index("ix_upgrade_requests_entity_id", "entity_id"),
+        Index("ix_upgrade_requests_user_id", "user_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(
+        String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    entity_id: Mapped[str] = mapped_column(
+        String, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    )
+    business_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    requested_slot: Mapped[str] = mapped_column(
+        String(32), nullable=False, default=AdSlot.SPOTLIGHT.value
+    )
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default=UpgradeRequestStatus.PENDING.value
+    )
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    admin_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Set when an admin spins a live Sponsor row out of this request.
+    created_sponsor_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    reviewed_by: Mapped[str | None] = mapped_column(
+        String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
+    entity: Mapped["Entity"] = relationship("Entity", foreign_keys=[entity_id])
+
+
 # Phase 4.1 ships the ``Outbox`` ORM class above this line. The provider-slug
 # listener registration below remains the canonical "leaf-module hook"
 # pattern for this codebase (not to be confused with the Phase 1D dual-write

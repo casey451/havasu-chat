@@ -16,7 +16,7 @@
   <div class="ll-desktop-topbar-inner">
     <a href="/home" class="ll-wordmark ll-wordmark-dark">Ask <em>Hava</em></a>
     <form class="ll-desktop-search" action="/chat" method="get" role="search" aria-label="Ask Hava">
-      <input type="text" name="q" placeholder="Ask Hava anything in Lake Havasu">
+      <input type="text" name="q" placeholder="Ask Hava anything in Lake Havasu" aria-label="Ask Hava anything in Lake Havasu">
       <button type="submit" aria-label="Submit ask">→</button>
     </form>
     <nav class="ll-desktop-links" aria-label="Primary desktop navigation">
@@ -32,7 +32,7 @@
   <div class="ll-utilstrip" role="group" aria-label="Local conditions &amp; gas">
     {% for chip in utility_chips %}
     <details class="ll-utilchip ll-utilchip--{{ chip.kind }} sev-{{ chip.severity }}{% if chip.is_stale %} is-stale{% endif %}">
-      <summary><span class="ll-utilchip-icon" aria-hidden="true">{{ chip.icon }}</span><span class="ll-utilchip-val">{{ chip.value }}</span></summary>
+      <summary aria-label="{{ chip.label }}: {{ chip.value }}{% if chip.is_stale %} (stale){% endif %}"><span class="ll-utilchip-icon" aria-hidden="true">{{ chip.icon }}</span><span class="ll-utilchip-val">{{ chip.value }}</span></summary>
       <div class="ll-utilchip-pop">
         <strong>{{ chip.label }}</strong>
         {% if chip.detail %}<span>{{ chip.detail }}</span>{% endif %}
@@ -57,7 +57,7 @@
   </section>
 
   <form class="ll-askbar" id="home-ask-form" action="/chat" method="get" role="search" aria-label="Ask Hava">
-    <input id="home-ask-input" name="q" type="text" value="" placeholder="happy hour near the channel tonight">
+    <input id="home-ask-input" name="q" type="text" value="" placeholder="happy hour near the channel tonight" aria-label="Ask Hava anything in Lake Havasu">
     <button type="submit" aria-label="Submit ask">→</button>
   </form>
   <div class="ll-chip-row" aria-label="Quick asks">

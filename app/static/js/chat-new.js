@@ -177,6 +177,58 @@
     });
   }
 
+  // ─────────── loading micro-ad (Phase A4) ───────────
+  // Best-effort: fetch a small live sponsor and render it inside the loading
+  // card. The endpoint is read-only (it does NOT bump impressions — see
+  // app/api/routes/micro_ad.py), so a load-screen render never inflates the
+  // paid /home CTR denominator. Any failure is swallowed: the loading overlay
+  // must never break because an ad couldn't load.
+  function clearMicroAd() {
+    if (!loadingOverlay) return;
+    var existing = loadingOverlay.querySelector("[data-micro-ad]");
+    if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+  }
+
+  function renderMicroAd(ad) {
+    if (!loadingOverlay || !ad) return;
+    var card = loadingOverlay.querySelector(".ll-loading-card");
+    if (!card) return;
+    clearMicroAd();
+    var wrap = el("div", "ll-micro-ad");
+    wrap.setAttribute("data-micro-ad", "");
+    wrap.setAttribute("data-slot", ad.slot || "");
+    var link = document.createElement("a");
+    link.className = "ll-micro-ad-link";
+    link.href = ad.click_url; // server-built /sponsor/click attribution URL
+    link.target = "_blank";
+    link.rel = "noopener noreferrer sponsored";
+    if (ad.image_url) {
+      var img = document.createElement("img");
+      img.className = "ll-micro-ad-logo";
+      img.src = ad.image_url;
+      img.alt = "";
+      img.loading = "lazy";
+      link.appendChild(img);
+    }
+    var body = el("span", "ll-micro-ad-body");
+    body.appendChild(el("span", "ll-micro-ad-headline", ad.headline || ad.name || ""));
+    body.appendChild(el("span", "ll-micro-ad-attr", ad.attribution_text || ""));
+    link.appendChild(body);
+    if (ad.cta_label) link.appendChild(el("span", "ll-micro-ad-cta", ad.cta_label));
+    wrap.appendChild(link);
+    card.appendChild(wrap);
+  }
+
+  function loadMicroAd() {
+    if (!loadingOverlay) return;
+    fetch("/api/micro_ad", { headers: { accept: "application/json" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (data && data.micro_ad) renderMicroAd(data.micro_ad);
+      })
+      .catch(function () { /* swallow — never break the loading flow */ });
+  }
+
   function showLoadingOverlay() {
     if (!loadingOverlay) return;
     loadingOverlay.style.display = "flex";
@@ -186,6 +238,7 @@
       loadingAnswer.style.display = "none";
       loadingAnswer.innerHTML = "";
     }
+    loadMicroAd();
   }
 
   function hideLoadingOverlay() {
@@ -197,6 +250,7 @@
       loadingAnswer.style.display = "none";
       loadingAnswer.innerHTML = "";
     }
+    clearMicroAd();
   }
 
   function showLoadingAnswer(query, text) {

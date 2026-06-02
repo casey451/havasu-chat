@@ -1859,3 +1859,15 @@ a.ll-facet.is-active {
   outline: 2px solid var(--ll-jade);
   outline-offset: 2px;
 }
+
+/* A11y: keyboard focus on the home utility chips (<details> summary, which had
+   list-style:none and no focus ring) and the home content links/tiles that
+   previously showed no focus indicator. */
+.ll-utilchip > summary:focus-visible,
+.ll-category-row:focus-visible,
+.ll-event-card:focus-visible,
+.ll-tile:focus-visible,
+.ll-shortcut-title:focus-visible {
+  outline: 2px solid var(--ll-jade);
+  outline-offset: 2px;
+}

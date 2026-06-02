@@ -51,6 +51,27 @@ STAY_SUBCATS: tuple[str, ...] = ("hotels", "vacation-rentals", "rv-parks")
 SHOPPING_LEGACY_CATEGORIES: tuple[str, ...] = ("retail", "shopping_essentials")
 SHOPPING_SUBCATS: tuple[str, ...] = ("boutiques", "home-goods", "specialty", "markets")
 
+# On-the-water bucket: marinas, boat rental/repair, lake recreation. Subcat
+# group "on-the-water" (recreation-outdoors) + the legacy category strings the
+# loaders/backfill use (see app/categories/subcategories.py LEGACY_TO_SUBCAT).
+WATER_LEGACY_CATEGORIES: tuple[str, ...] = (
+    "lake_recreation",
+    "boat_rental",
+    "boat_repair",
+    "on-the-water",
+)
+WATER_SUBCATS: tuple[str, ...] = ("on-the-water",)
+
+# Parks / trails / beaches (recreation-outdoors). Legacy "recreation" backfills
+# to "parks-beaches".
+RECREATION_LEGACY_CATEGORIES: tuple[str, ...] = ("recreation",)
+RECREATION_SUBCATS: tuple[str, ...] = ("parks-beaches", "trails-offroad")
+
+# Civic & community: libraries, worship, non-profits, public services. Subcat
+# group "civic-community"; legacy "religion_community".
+CIVIC_LEGACY_CATEGORIES: tuple[str, ...] = ("religion_community",)
+CIVIC_SUBCATS: tuple[str, ...] = ("civic-community",)
+
 
 @dataclass(frozen=True)
 class ServiceRoute:

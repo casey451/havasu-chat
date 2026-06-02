@@ -35,6 +35,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.admin.provider_approval import router as admin_provider_approval_router
 from app.admin.provider_merge_review import router as admin_provider_merge_review_router
 from app.admin.router import router as admin_router
+from app.admin.sponsor_surface import merchant_upgrade_router
 from app.admin.v1_overview import router as admin_v1_overview_router
 from app.api.routes.account_alerts import router as account_alerts_router
 from app.api.routes.admin_contributions import router as admin_contributions_router
@@ -45,7 +46,9 @@ from app.api.routes.conditions import router as conditions_router
 from app.api.routes.contribute import router as contribute_router
 from app.api.routes.gas import router as gas_router
 from app.api.routes.map_data import router as map_data_router
+from app.api.routes.micro_ad import router as micro_ad_router
 from app.api.routes.themed_groups import router as themed_groups_router
+from app.api.routes.today import router as today_router
 from app.auth.routes import router as auth_router
 from app.auth.session import SessionMiddleware
 from app.categories.queries import CATEGORY_FILTERS
@@ -373,6 +376,7 @@ app.include_router(direction_c_categories_router)
 app.include_router(themed_groups_router)
 app.include_router(map_data_router)
 app.include_router(conditions_router)
+app.include_router(today_router)
 app.include_router(gas_router)
 app.include_router(admin_router)
 app.include_router(admin_v1_overview_router)
@@ -393,6 +397,10 @@ app.include_router(providers_router)
 # component.type. Lives alongside the existing static / chat UI
 # during dogfooding.
 app.include_router(new_chat_ui_router)
+# Phase A4 ad-surface activation: loading micro-ad payload + merchant
+# featured-listing upgrade funnel (admin review routes live on admin_router).
+app.include_router(micro_ad_router)
+app.include_router(merchant_upgrade_router)
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 # Mount the more-specific /static/biz-photos BEFORE the broad /static mount.

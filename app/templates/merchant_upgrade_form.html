@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  {% include '_partials/plausible.html' %}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Feature your listing — {{ entity.name }}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 1.5rem auto; max-width: 560px; color: #1a1a1a; }
+    h1 { font-size: 1.3rem; }
+    label { display: block; margin: 0.75rem 0 0.25rem; font-weight: 600; }
+    select, textarea { width: 100%; padding: 0.45rem; font: inherit; }
+    button { margin-top: 1rem; padding: 0.5rem 1rem; cursor: pointer; }
+    .note { background: #f4f4f4; padding: 0.75rem; border-radius: 0.4rem; font-size: 0.85rem; }
+    .ok { background: #d6f5d6; padding: 0.75rem; border-radius: 0.4rem; }
+  </style>
+</head>
+<body>
+  <h1>Feature {{ entity.name }}</h1>
+  {% if pending %}
+  <p class="ok">Thanks — your request to feature this listing has been received. Our team will reach out about availability and next steps. (No payment is collected here.)</p>
+  {% else %}
+  <p class="note">Request to have your listing featured in a sponsor slot. This sends a request to our team — pricing and availability are handled separately. No payment is collected on this page.</p>
+  <form method="post" action="/merchant/upgrade/{{ entity.slug }}">
+    <label for="requested_slot">Where would you like to be featured?</label>
+    <select id="requested_slot" name="requested_slot" required>
+      {% for s in slots %}
+      <option value="{{ s }}">{{ s }}</option>
+      {% endfor %}
+    </select>
+    <label for="message">Anything we should know? (optional)</label>
+    <textarea id="message" name="message" rows="3" placeholder="e.g. seasonal promo, preferred dates"></textarea>
+    <button type="submit">Request to be featured</button>
+  </form>
+  {% endif %}
+  <p style="margin-top:1.25rem;"><a href="/provider/{{ entity.slug }}">← Back to listing</a></p>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  {% include '_partials/plausible.html' %}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sponsor inventory — Admin</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 1.5rem; background: #fafafa; color: #1a1a1a; }
+    h1 { font-size: 1.25rem; }
+    h2 { font-size: 1.05rem; margin-top: 1.75rem; text-transform: capitalize; }
+    table { border-collapse: collapse; width: 100%; max-width: 1100px; background: #fff; }
+    th, td { border: 1px solid #ddd; padding: 0.4rem 0.6rem; text-align: left; vertical-align: top; font-size: 0.85rem; }
+    th { background: #f0f0f0; }
+    form.inline { display: inline-block; margin: 0.1rem 0.3rem 0 0; }
+    button { cursor: pointer; padding: 0.2rem 0.45rem; }
+    .badge { display: inline-block; padding: 0.05rem 0.4rem; border-radius: 0.6rem; font-size: 0.75rem; }
+    .live { background: #d6f5d6; }
+    .off { background: #f5d6d6; }
+    .summary { font-size: 0.85rem; color: #555; margin: 0.25rem 0 0.5rem; }
+  </style>
+</head>
+<body>
+  <h1>Sponsor inventory</h1>
+  <p class="summary">Pricing and inventory caps are set offline (not shown here). "Sold" = currently live in that slot.</p>
+  {% for group in groups %}
+  <h2>{{ group.slot }} <span class="summary">— {{ group.sold }} live / available: —</span></h2>
+  {% if not group.sponsors %}
+  <p class="summary">No sponsors in this slot.</p>
+  {% else %}
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Status</th>
+        <th>Kill-switch</th>
+        <th>Weight</th>
+        <th>Window</th>
+        <th>Impr.</th>
+        <th>Clicks</th>
+        <th>CTR %</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in group.sponsors %}
+      <tr>
+        <td>{{ s.name }}{% if s.is_live %} <span class="badge live">live</span>{% endif %}</td>
+        <td>{{ s.status }}</td>
+        <td><span class="badge {{ 'live' if s.active else 'off' }}">{{ 'on' if s.active else 'off' }}</span></td>
+        <td>{{ s.weight }}</td>
+        <td>{{ s.starts_at or '—' }} → {{ s.ends_at or '—' }}</td>
+        <td>{{ s.impressions }}</td>
+        <td>{{ s.clicks }}</td>
+        <td>{{ s.ctr }}</td>
+        <td>
+          <form class="inline" method="post" action="/admin/sponsors/{{ s.id }}/approve">
+            <button type="submit">Approve</button>
+          </form>
+          <form class="inline" method="post" action="/admin/sponsors/{{ s.id }}/pause">
+            <input type="hidden" name="reason" value="admin pause">
+            <button type="submit">Pause</button>
+          </form>
+          <form class="inline" method="post" action="/admin/sponsors/{{ s.id }}/toggle-active">
+            <button type="submit">{{ 'Deactivate' if s.active else 'Activate' }}</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% endfor %}
+  <p style="margin-top:1.5rem;"><a href="/admin">← Admin home</a> · <a href="/admin/upgrade-requests">Upgrade requests →</a></p>
+</body>
+</html>

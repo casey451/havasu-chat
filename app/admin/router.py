@@ -26,6 +26,7 @@ from app.admin.feedback_html import register_feedback_html_routes
 from app.admin.mentions_html import register_mentions_html_routes
 from app.admin.provider_approval import pending_provider_count
 from app.admin.provider_merge_review import duplicate_pair_count
+from app.admin.sponsor_surface import register_sponsor_admin_routes
 from app.contrib.ingest_base import EntityPayload
 from app.contrib.ingest_reconciler import reconcile_hit
 from app.core.provider_name import register_template_filters, register_template_globals
@@ -2223,3 +2224,4 @@ register_events_html_routes(router)
 register_mentions_html_routes(router)
 register_categories_html_routes(router)
 register_feedback_html_routes(router)
+register_sponsor_admin_routes(router)

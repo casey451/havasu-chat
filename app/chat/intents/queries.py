@@ -31,7 +31,8 @@ from app.chat.intents.resolver import ResolvedIntent
 from app.conditions.cache import read_source
 from app.conditions.constants import SOURCE_GAS
 from app.core.timezone import now_lake_havasu
-from app.db.models import Program, Provider
+from app.db.models import Offering, Program, Provider
+from app.programs.pricing import format_offering_price, format_program_price
 from app.providers.queries import is_open_now
 
 _PROVIDER_LIMIT = 12
@@ -221,6 +222,37 @@ def _safe_time_label(t) -> str:
     return f"{h12}:{t.minute:02d} {suffix}" if t.minute else f"{h12} {suffix}"
 
 
+def _offering_by_program(db: Session, programs: list[Program]) -> dict[str, Offering]:
+    """Map program id -> its entity's first priced ``Offering``.
+
+    Price "lives on offerings": Program.provider_id -> Provider.entity_id ->
+    Offering.entity_id. Picks the lowest-display_order offering that actually
+    carries a price; programs with no linked priced offering are absent (the
+    caller falls back to ``Program.cost``). Two batched queries, no N+1.
+    """
+    prov_ids = {p.provider_id for p in programs if p.provider_id}
+    if not prov_ids:
+        return {}
+    ent_by_prov = dict(
+        db.query(Provider.id, Provider.entity_id).filter(Provider.id.in_(prov_ids)).all()
+    )
+    eids = {e for e in ent_by_prov.values() if e}
+    if not eids:
+        return {}
+    priced_by_eid: dict[str, Offering] = {}
+    for off in (
+        db.query(Offering).filter(Offering.entity_id.in_(eids)).order_by(Offering.display_order).all()
+    ):
+        if off.entity_id not in priced_by_eid and format_offering_price(off):
+            priced_by_eid[off.entity_id] = off
+    out: dict[str, Offering] = {}
+    for p in programs:
+        eid = ent_by_prov.get(p.provider_id) if p.provider_id else None
+        if eid and eid in priced_by_eid:
+            out[p.id] = priced_by_eid[eid]
+    return out
+
+
 def _query_programs(
     db: Session, *, age_band: str | None, limit: int = _PROVIDER_LIMIT
 ) -> list[dict[str, Any]]:
@@ -234,8 +266,10 @@ def _query_programs(
             or_(Program.age_min.is_(None), Program.age_min <= hi),
             or_(Program.age_max.is_(None), Program.age_max >= lo),
         )
+    programs = q.limit(limit).all()
+    offering_by_prog = _offering_by_program(db, programs)
     rows: list[dict[str, Any]] = []
-    for prog in q.limit(limit).all():
+    for prog in programs:
         days = ", ".join(prog.schedule_days) if prog.schedule_days else ""
         sub_bits = [b for b in (prog.provider_name, days) if b]
         rows.append(
@@ -243,7 +277,8 @@ def _query_programs(
                 "type": "program",
                 "name": prog.title,
                 "subtitle": " · ".join(sub_bits),
-                "detail": prog.cost or "",
+                # Price lives on offerings; fall back to the program's freeform cost.
+                "detail": format_program_price(prog.cost, offering_by_prog.get(prog.id)),
             }
         )
     return rows
@@ -444,6 +479,73 @@ def run_query(
             "shopping_essentials",
             "Where to shop:",
             label="shop",
+        )
+
+    if key in ("boat_rental", "boat_repair", "on_the_water"):
+        # Rent / repair narrow the on-the-water bucket by name token; the general
+        # on_the_water ask returns the whole bucket. Tokens are a soft narrowing
+        # within the bucket -- an empty result falls through to the honest gap.
+        name_tokens: tuple[str, ...] = ()
+        if key == "boat_rental":
+            name_tokens = ("rent", "rental", "boat", "kayak", "paddle", "watercraft")
+            lead = "Where to get out on the water:"
+            label = "rental"
+        elif key == "boat_repair":
+            name_tokens = ("repair", "service", "marine", "boat")
+            lead = "Boat service and repair:"
+            label = "shop"
+        else:
+            lead = "Out on the water:"
+            label = "spot"
+        rows = _query_providers(
+            db,
+            subcats=dicts.WATER_SUBCATS,
+            legacy_categories=dicts.WATER_LEGACY_CATEGORIES,
+            name_tokens=name_tokens,
+            district=_area(slots),
+            now=now,
+        )
+        return QueryResult(
+            key,
+            "providers",
+            [_provider_to_row(p) for p in rows],
+            "on_the_water",
+            lead,
+            label=label,
+        )
+
+    if key == "parks_trails":
+        rows = _query_providers(
+            db,
+            subcats=dicts.RECREATION_SUBCATS,
+            legacy_categories=dicts.RECREATION_LEGACY_CATEGORIES,
+            district=_area(slots),
+            now=now,
+        )
+        return QueryResult(
+            key,
+            "providers",
+            [_provider_to_row(p) for p in rows],
+            "recreation_outdoors",
+            "Parks, trails, and beaches:",
+            label="spot",
+        )
+
+    if key == "civic_resources":
+        rows = _query_providers(
+            db,
+            subcats=dicts.CIVIC_SUBCATS,
+            legacy_categories=dicts.CIVIC_LEGACY_CATEGORIES,
+            district=_area(slots),
+            now=now,
+        )
+        return QueryResult(
+            key,
+            "providers",
+            [_provider_to_row(p) for p in rows],
+            "civic_community",
+            "Community resources:",
+            label="resource",
         )
 
     # Unknown intent key -> empty (caller falls through / renders nothing).
