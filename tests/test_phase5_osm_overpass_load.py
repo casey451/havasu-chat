@@ -117,7 +117,7 @@ def _seed_google_like_provider(
     return eid, name, lat, lng, google_place_id
 
 
-@patch("scripts.osm_overpass_load.reconcile_hit")
+@patch("app.contrib.scraper_ingest.reconcile_hit")
 def test_osm_reconcile_update_preserves_identity_and_populated_contact(
     mock_rec, tmp_path: Path
 ) -> None:
@@ -175,7 +175,7 @@ def test_osm_reconcile_update_preserves_identity_and_populated_contact(
         assert prov.description == "From Google"
 
 
-@patch("scripts.osm_overpass_load.reconcile_hit")
+@patch("app.contrib.scraper_ingest.reconcile_hit")
 def test_osm_reconcile_update_fills_empty_contact_fields(mock_rec, tmp_path: Path) -> None:
     uid = uuid.uuid4().hex[:10]
     entity_id, name, lat, lng, google_place_id = _seed_google_like_provider(
@@ -226,7 +226,57 @@ def test_osm_reconcile_update_fills_empty_contact_fields(mock_rec, tmp_path: Pat
         assert prov.google_place_id == google_place_id
 
 
-@patch("scripts.osm_overpass_load.reconcile_hit")
+@patch("app.contrib.scraper_ingest.reconcile_hit")
+def test_osm_reconcile_ambiguous_holds_for_review(mock_rec, tmp_path: Path) -> None:
+    # Funnel-adoption behavior change: an ambiguous reconcile no longer DROPS the
+    # OSM element. It now lands HELD (draft + pending_review) via decide_ingest's
+    # should_hide, so the row is captured for the admin review queue but hidden
+    # from users (every consumption query filters draft=False).
+    uid = uuid.uuid4().hex[:10]
+    name = f"OSM Ambiguous Marina {uid}"
+    mock_rec.return_value = ReconcileResult(
+        action="ambiguous",
+        existing_id="some-other-entity",
+        reason="geo within 50m but name differs",
+    )
+    row = {
+        "type": "node",
+        "id": 9100,
+        "lat": 34.461,
+        "lon": -114.341,
+        "tags": {"leisure": "marina", "name": name},
+    }
+    p = tmp_path / "amb.jsonl"
+    p.write_text(json.dumps(row) + "\n", encoding="utf-8")
+    rows = [json.loads(line) for line in p.read_text(encoding="utf-8").splitlines() if line.strip()]
+    counts = ingest_rows(
+        rows,
+        tag="leisure",
+        value="marina",
+        category_slug="on-the-water",
+        dry_run=False,
+    )
+    assert counts["inserted_pending"] == 1
+    assert counts["inserted"] == 0
+
+    with SessionLocal() as db:
+        prov = db.scalars(select(Provider).where(Provider.provider_name == name)).one()
+        assert prov.draft is True
+        assert prov.pending_review is True
+        assert prov.source == "osm"
+        # Cleanup: this test writes a real row (not in the update path).
+        eid = prov.entity_id
+        db.delete(prov)
+        if eid:
+            from app.db.models import Entity
+
+            ent = db.get(Entity, eid)
+            if ent is not None:
+                db.delete(ent)
+        db.commit()
+
+
+@patch("app.contrib.scraper_ingest.reconcile_hit")
 def test_osm_reconcile_update_fills_empty_string_contact_fields(mock_rec, tmp_path: Path) -> None:
     uid = uuid.uuid4().hex[:10]
     entity_id, name, lat, lng, _gpid = _seed_google_like_provider(
