@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <h1>This weekend in Havasu</h1>
+    <p>{{ window_start_label }} &ndash; {{ window_end_label }}</p>
+
+    {% if not has_content %}
+      <p>
+        Nothing on the Lake Havasu calendar for this weekend yet. We'll keep
+        looking and let you know when something turns up.
+      </p>
+    {% else %}
+      {% if has_saved_venue_events %}
+        <h2>At venues you follow</h2>
+        <ul>
+          {% for ev in saved_venue_events %}
+            <li>
+              <strong>{{ ev.title }}</strong> &mdash; {{ ev.date_label }}
+              {% if ev.location_name %}&mdash; {{ ev.location_name }}{% endif %}
+              {% if ev.event_url %}
+                &mdash; <a href="{{ ev.event_url }}">details</a>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>
+          You're not following any venues with events this weekend yet. Follow
+          a few spots and we'll surface their events here next time.
+        </p>
+      {% endif %}
+
+      <h2>Happening this weekend</h2>
+      {% if weekend_events %}
+        <ul>
+          {% for ev in weekend_events %}
+            <li>
+              <strong>{{ ev.title }}</strong> &mdash; {{ ev.date_label }}
+              {% if ev.location_name %}&mdash; {{ ev.location_name }}{% endif %}
+              {% if ev.event_url %}
+                &mdash; <a href="{{ ev.event_url }}">details</a>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>(no city-wide events listed for this weekend)</p>
+      {% endif %}
+    {% endif %}
+
+    <p><a href="{{ digest_url }}">Manage your digest</a></p>
+  </body>
+</html>

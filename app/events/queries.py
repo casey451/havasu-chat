@@ -149,6 +149,64 @@ def _event_start_in_time_window(
     return True
 
 
+def events_for_favorite_entities(
+    db: Session,
+    *,
+    venue_entity_ids: list[str],
+    window_start: date,
+    window_end: date,
+    limit: int = 50,
+) -> list[tuple[Event, date]]:
+    """Events occurring in [window_start, window_end] at the given venue ids.
+
+    Phase A3 weekend-digest helper. A venue match is either an event whose own
+    ``entity_id`` is a saved venue, OR an event hosted by a Provider whose
+    ``entity_id`` is a saved venue (matched via ``Event.provider_id``). Returns
+    (event, occurrence_date) tuples sorted chronologically and deduped per
+    (event, occurrence). Empty input -> empty result (no fabrication).
+    """
+    if not venue_entity_ids:
+        return []
+
+    ids = set(venue_entity_ids)
+    provider_ids = list(
+        db.scalars(select(Provider.id).where(Provider.entity_id.in_(ids))).all()
+    )
+
+    venue_match = [Event.entity_id.in_(ids)]
+    if provider_ids:
+        venue_match.append(Event.provider_id.in_(provider_ids))
+
+    stmt = (
+        select(Event)
+        .where(Event.status == "live")
+        .where(or_(*venue_match))
+        .where(
+            or_(
+                and_(
+                    Event.is_recurring.is_(False),
+                    Event.date.between(window_start, window_end),
+                ),
+                Event.is_recurring.is_(True),
+                Event.rrule.isnot(None),
+                Event.rdate.isnot(None),
+            )
+        )
+    )
+
+    candidates = list(db.scalars(stmt).unique().all())
+    flat = occurrences_in_window(candidates, window_start=window_start, window_end=window_end)
+    seen: set[tuple[str, date]] = set()
+    out: list[tuple[Event, date]] = []
+    for ev, occ_date in flat:
+        key = (str(ev.id), occ_date)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append((ev, occ_date))
+    return out[:limit]
+
+
 def venue_events_for_profile(
     db: Session,
     provider: Provider,
