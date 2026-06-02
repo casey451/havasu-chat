@@ -327,6 +327,9 @@ class ChatResponse:
     voice: str = ""
     component_type: str = "none"
     component_data: dict = field(default_factory=dict)
+    # Slice 0: True when the intent layer already wrote the query_log row for
+    # this turn, so the HTTP layer's logger skips (one query_log row per turn).
+    intent_logged: bool = False
 
 
 def _stable_session_bucket(session_id: str | None) -> str:
@@ -479,7 +482,11 @@ def _handle_ask(
         from app.chat.intents.runtime import try_intent_layer
 
         intent_answer = try_intent_layer(
-            query, db, entity=intent_result.entity, sub_intent=intent_result.sub_intent
+            query,
+            db,
+            entity=intent_result.entity,
+            sub_intent=intent_result.sub_intent,
+            telemetry=telemetry,
         )
     except Exception:
         logging.exception("unified_router: intent layer failed")
@@ -789,6 +796,7 @@ def route(
         component_data: dict | None = None,
         cache_status: str | None = None,
         timing_ms: dict | None = None,
+        intent_logged: bool = False,
     ) -> ChatResponse:
         ms = _ms()
         chat_log_id: str | None = None
@@ -828,6 +836,7 @@ def route(
             llm_input_tokens=llm_input_tokens,
             llm_output_tokens=llm_output_tokens,
             chat_log_id=chat_log_id,
+            intent_logged=intent_logged,
         )
 
     nq_safe = ""
@@ -1037,6 +1046,7 @@ def route(
             llm_output_tokens=None,
             cache_status=route_telemetry.get("cache_status"),
             timing_ms=route_telemetry or None,
+            intent_logged=bool(route_telemetry.get("intent_logged")),
         )
 
     if raw_sid and current_turn is not None and tier_used in ("2", "3"):
@@ -1065,4 +1075,5 @@ def route(
         component_data=_component_data,
         cache_status=route_telemetry.get("cache_status"),
         timing_ms=route_telemetry or None,
+        intent_logged=bool(route_telemetry.get("intent_logged")),
     )

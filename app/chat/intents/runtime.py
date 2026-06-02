@@ -150,6 +150,7 @@ def try_intent_layer(
     *,
     entity: str | None = None,
     sub_intent: str | None = None,
+    telemetry: dict | None = None,
     today: date | None = None,
     now: datetime | None = None,
 ) -> IntentAnswer | None:
@@ -189,8 +190,13 @@ def try_intent_layer(
         return None
 
     # Log the resolved intent + result_count (incl. zero) for coverage, then
-    # fall through on empty so the legacy honest-gap path answers.
+    # fall through on empty so the legacy honest-gap path answers. Signal that
+    # we wrote the row so the HTTP layer's logger skips (one query_log row per
+    # turn). The flag is set whether we claim or fall through on empty -- both
+    # write a precise row here.
     _log(db, result)
+    if telemetry is not None:
+        telemetry["intent_logged"] = True
     if result.result_count == 0:
         return None
 

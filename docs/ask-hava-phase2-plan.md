@@ -28,9 +28,12 @@
 
 ## Slices (smallest valuable first)
 
-- **Slice 0 — Dedupe `query_log` writers** (tiny prerequisite). Make the intent
-  path the single writer on turns it claims; one row per ask turn proven by test
-  on both intent-claimed and fall-through paths. No response change.
+- **Slice 0 — Dedupe `query_log` writers** ✅ DONE. The intent layer signals
+  `intent_logged` (telemetry → `ChatResponse.intent_logged`); `app/api/routes/chat.py`
+  skips its write when set, so the intent layer's precise row (intent_key +
+  result_count) is the single row on claim and empty-fall-through, and the HTTP
+  layer logs once on no-match. Proven by `tests/test_query_log_single_write.py`
+  (one row per turn on all three paths). No response change.
 - **Slice 1 — Telemetry columns + layer threading** (small). Additive nullable
   `min_layer String(8)` (indexed) + `sub_intent String(64)` on `query_log`;
   thread `resolved.layer` and the real `sub_intent` through `runtime._log` and

@@ -77,7 +77,10 @@ def post_concierge_chat(
             result.response,
             SessionLocal,
         )
-    if result.mode == "ask":
+    # Slice 0 (query_log dedupe): the intent layer writes its own precise
+    # query_log row (intent_key + result_count) when it resolves a turn, so skip
+    # the HTTP-layer write in that case -- exactly one row per ask turn.
+    if result.mode == "ask" and not result.intent_logged:
         log_query_intent(
             db,
             normalized_intent=result.sub_intent,
