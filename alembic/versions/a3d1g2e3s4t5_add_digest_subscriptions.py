@@ -5,12 +5,14 @@ weekend-digest opt-in (see :class:`app.db.models.DigestSubscription`). Purely
 additive; reversible. Distinct from ``alert_subscriptions`` (conditions/traffic
 alerts) so the two opt-in surfaces never share state.
 
-NOTE: sibling Phase-A lanes also branch off ``d1e2f3a4b5c6``; this may create
-parallel alembic heads needing an ``alembic merge`` by Casey. We do NOT run
-``alembic upgrade`` here.
+NOTE: re-chained onto ``a4b1c2d3e4f5`` (Phase A4 upgrade_requests) at merge time
+so the two sibling Phase-A migrations form a single linear head instead of
+parallel heads -- the tables are independent (digest_subscriptions vs
+upgrade_requests) so ordering is arbitrary. Avoids a multi-head ``alembic
+upgrade head`` failure on the auto-deploy.
 
 Revision ID: a3d1g2e3s4t5
-Revises: d1e2f3a4b5c6
+Revises: a4b1c2d3e4f5
 Create Date: 2026-06-02
 """
 
@@ -21,7 +23,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "a3d1g2e3s4t5"
-down_revision: Union[str, Sequence[str], None] = "d1e2f3a4b5c6"
+down_revision: Union[str, Sequence[str], None] = "a4b1c2d3e4f5"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
