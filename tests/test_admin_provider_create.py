@@ -33,6 +33,13 @@ def test_admin_provider_new_form_renders_when_logged_in() -> None:
 def test_admin_provider_create_happy_path() -> None:
     client = TestClient(app)
     _login_admin(client)
+    # The create handler now warns on a likely duplicate before writing (a
+    # reconcile_hit match re-renders the form instead of redirecting -- see #72).
+    # This happy-path asserts the CREATE path, so it confirms past that gate with
+    # confirm_create_duplicate=1; otherwise the generic example.com / phone here
+    # can match a seeded row (especially with INGEST_CONTACT_TIER_ENABLED on in
+    # the full suite) and return the 200 warning page instead of the 303. The
+    # warn path itself is covered by tests/test_admin_provider_create_dedup.py.
     resp = client.post(
         "/admin/providers",
         data={
@@ -43,6 +50,7 @@ def test_admin_provider_create_happy_path() -> None:
             "hours": "Mon-Fri 9am-5pm",
             "website": "https://example.com",
             "description": "A provider created by Slice 45 tests.",
+            "confirm_create_duplicate": "1",
         },
         follow_redirects=False,
     )
