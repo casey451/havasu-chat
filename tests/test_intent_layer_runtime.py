@@ -182,3 +182,85 @@ def test_resolved_entity_falls_through(db, monkeypatch):
     monkeypatch.setenv("USE_INTENT_LAYER", "1")
     # "brewery" would otherwise match the eat cuisine token.
     assert try_intent_layer("tell me about Mudshark Brewery", db, entity="Mudshark Brewery") is None
+
+
+def _cleanup_seeded(db, *provs):
+    """Delete seeded Provider + its Entity/Location/EntityCategory rows.
+
+    The on-the-water test seeds a "Marina" row; left behind it would pollute
+    cross-suite fuzzy name matching (the same leak fixed for the OSM suite), so
+    tear down by entity_id even on failure.
+    """
+    from sqlalchemy import delete
+
+    from app.db.models import Entity, EntityCategory, Location
+
+    for p in provs:
+        eid = p.entity_id
+        db.execute(delete(Provider).where(Provider.id == p.id))
+        if eid:
+            db.execute(delete(Location).where(Location.entity_id == eid))
+            db.execute(delete(EntityCategory).where(EntityCategory.entity_id == eid))
+            db.execute(delete(Entity).where(Entity.id == eid))
+    db.commit()
+
+
+def test_on_the_water_parks_and_civic_buckets(db, monkeypatch):
+    """Step-1 gap-fix buckets: on-the-water, parks/trails, civic resources."""
+    import uuid
+
+    monkeypatch.setenv("USE_INTENT_LAYER", "1")
+    suf = uuid.uuid4().hex[:8]
+    marina = _seed_provider(
+        db, f"Havasu Marina {suf}", category="lake_recreation",
+        subcategory="on-the-water", google_rating=4.6,
+    )
+    park = _seed_provider(
+        db, f"Rotary Park {suf}", category="recreation",
+        subcategory="parks-beaches", google_rating=4.7,
+    )
+    church = _seed_provider(
+        db, f"Lakeside Church {suf}", category="religion_community",
+        subcategory="civic-community", google_rating=4.5,
+    )
+    try:
+        a1 = try_intent_layer("closest marina", db)
+        assert a1 is not None and a1.intent_key == "on_the_water"
+        assert f"Havasu Marina {suf}" in [
+            it.get("name") for it in a1.component_data.get("items", [])
+        ]
+
+        a2 = try_intent_layer("hiking trails near me", db)
+        assert a2 is not None and a2.intent_key == "parks_trails"
+        assert f"Rotary Park {suf}" in [
+            it.get("name") for it in a2.component_data.get("items", [])
+        ]
+
+        a3 = try_intent_layer("where's a church", db)
+        assert a3 is not None and a3.intent_key == "civic_resources"
+        assert f"Lakeside Church {suf}" in [
+            it.get("name") for it in a3.component_data.get("items", [])
+        ]
+    finally:
+        _cleanup_seeded(db, marina, park, church)
+
+
+def test_boat_rental_vs_repair_route_distinctly(db, monkeypatch):
+    """Rent vs repair verbs split the on-the-water bucket into distinct intents."""
+    import uuid
+
+    monkeypatch.setenv("USE_INTENT_LAYER", "1")
+    suf = uuid.uuid4().hex[:8]
+    rental = _seed_provider(
+        db, f"Havasu Boat Rentals {suf}", category="boat_rental",
+        subcategory="on-the-water", google_rating=4.5,
+    )
+    try:
+        ans = try_intent_layer("where can i rent a boat", db)
+        assert ans is not None
+        assert ans.intent_key == "boat_rental"
+        assert f"Havasu Boat Rentals {suf}" in [
+            it.get("name") for it in ans.component_data.get("items", [])
+        ]
+    finally:
+        _cleanup_seeded(db, rental)

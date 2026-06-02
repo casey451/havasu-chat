@@ -38,11 +38,43 @@ from app.chat.intents.resolver import resolve
         ("hotels near the lake", "lodging_find"),
         ("place to stay this weekend", "lodging_find"),
         ("where can i go shopping", "shopping_find"),
+        # On-the-water bucket (Step 1 gap-fix).
+        ("where can i rent a boat", "boat_rental"),
+        ("kayak rental", "boat_rental"),
+        ("jet ski rentals on the lake", "boat_rental"),
+        ("boat repair shop", "boat_repair"),
+        ("who services boats", "boat_repair"),
+        ("where's the boat launch", "on_the_water"),
+        ("closest marina", "on_the_water"),
+        ("good fishing spots", "on_the_water"),
+        # Parks / trails / beaches.
+        ("hiking trails near me", "parks_trails"),
+        ("best beach in town", "parks_trails"),
+        ("where's a good park", "parks_trails"),
+        # Civic / community.
+        ("where's a church", "civic_resources"),
+        ("public library", "civic_resources"),
+        ("where is city hall", "civic_resources"),
     ],
 )
 def test_resolves_to_expected_intent(query, intent_key):
     resolved = resolve(query)
     assert resolved is not None, f"{query!r} should resolve"
+    assert resolved.intent_key == intent_key
+
+
+@pytest.mark.parametrize(
+    "query, intent_key",
+    [
+        # The new water/parks rules must NOT steal these from earlier rules.
+        ("rv park for the weekend", "lodging_find"),
+        ("hotels near the lake", "lodging_find"),
+        ("pizza by the lake", "eat_find"),
+    ],
+)
+def test_new_buckets_do_not_regress_existing(query, intent_key):
+    resolved = resolve(query)
+    assert resolved is not None
     assert resolved.intent_key == intent_key
 
 
