@@ -19,7 +19,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.analytics import record_event
@@ -32,7 +32,7 @@ from app.core.provider_name import register_template_filters, register_template_
 from app.core.rate_limit import limiter
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
-from app.db.models import AdSlot, Event, Sponsor
+from app.db.models import AdSlot, Event, Provider, Sponsor
 from app.events import series as event_series
 from app.groups.themed_groups import group_label
 from app.home import collections as curated_collections
@@ -575,17 +575,50 @@ def sponsor_click(
     return RedirectResponse(url=row.cta_url, status_code=302)
 
 
+def _delink_stale_places(db: Session, collection: dict) -> dict:
+    """Return a copy of ``collection`` with place links pruned to live providers.
+
+    A curated place ``slug`` that no longer resolves to an active, non-draft
+    provider would render a card linking to a 404 ``/provider/<slug>`` page. We
+    null those slugs so the card still shows (name/blurb/image) but isn't a dead
+    link — the same drop-broken-links discipline the Discover grid uses. Never
+    mutates the loader's cached dict.
+    """
+    places = collection.get("places") or []
+    wanted = [p["slug"] for p in places if isinstance(p, dict) and p.get("slug")]
+    resolved: set[str] = set()
+    if wanted:
+        rows = db.scalars(
+            select(Provider.slug).where(
+                Provider.slug.in_(wanted),
+                Provider.is_active.is_(True),
+                Provider.draft.is_(False),
+            )
+        ).all()
+        resolved = {s for s in rows if s}
+    safe_places = [
+        ({**p, "slug": None} if p.get("slug") and p["slug"] not in resolved else p)
+        for p in places
+        if isinstance(p, dict)
+    ]
+    return {**collection, "places": safe_places}
+
+
 @router.get("/collection/{slug}", response_class=HTMLResponse)
-def collection_landing(request: Request, slug: str) -> HTMLResponse:
+def collection_landing(
+    request: Request, slug: str, db: Session = Depends(get_db)
+) -> HTMLResponse:
     """Render a curated editorial collection (e.g. "Dog-friendly patios").
 
     Source of truth is ``app/home/curated_collections.json`` via
     ``app.home.collections``. Unknown slug 404s; the loader never raises, so a
-    stale entry degrades to a clean 404 rather than a 500.
+    stale entry degrades to a clean 404 rather than a 500. Place links that no
+    longer point at a live provider are de-linked (rendered as non-link cards).
     """
     collection = curated_collections.get_collection(slug)
     if collection is None:
         raise HTTPException(status_code=404, detail="unknown_collection")
+    collection = _delink_stale_places(db, collection)
     now = now_lake_havasu()
     return templates.TemplateResponse(
         request=request,

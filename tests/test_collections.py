@@ -130,3 +130,44 @@ def test_route_renders_place_names(client: TestClient) -> None:
 def test_route_404_unknown_slug(client: TestClient) -> None:
     r = client.get("/collection/not-a-real-collection")
     assert r.status_code == 404
+
+
+def test_route_delinks_stale_provider_slugs(client: TestClient) -> None:
+    """A place whose slug no longer resolves to a live provider renders as a
+    non-link card (no dead /provider/<slug> link), while a resolving one stays
+    linked. Prevents the prod issue where stale editorial slugs 404'd on click."""
+    from sqlalchemy import delete
+
+    from app.db.database import SessionLocal
+    from app.db.models import Entity, Provider
+
+    ids: list[str] = []
+    with SessionLocal() as db:
+        # Seed only ONE of the dog-friendly-patios providers.
+        p = Provider(
+            provider_name="Javelina Cantina",
+            category="restaurant",
+            draft=False,
+            is_active=True,
+            pending_review=False,
+            source="test-coll",
+            slug="javelina-cantina",
+        )
+        db.add(p)
+        db.commit()
+        ids.append(p.entity_id)
+    try:
+        body = client.get("/collection/dog-friendly-patios").text
+        # Resolving provider keeps its link...
+        assert "/provider/javelina-cantina" in body
+        # ...stale slugs are de-linked (no dead link)...
+        assert "/provider/barley-brothers-brewery" not in body
+        assert "/provider/mudshark-brewery-and-public-house" not in body
+        # ...but every card still renders.
+        assert "Barley Brothers" in body
+        assert "Mudshark" in body
+    finally:
+        with SessionLocal() as db:
+            db.execute(delete(Provider).where(Provider.entity_id.in_(ids)))
+            db.execute(delete(Entity).where(Entity.id.in_(ids)))
+            db.commit()
