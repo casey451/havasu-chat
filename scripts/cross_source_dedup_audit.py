@@ -8,14 +8,23 @@ CROSS_SOURCE_DEDUP_SESSION.md).
 Providers: every LIVE provider (is_active AND NOT draft) is paired against every
 other and scored by the strongest signal:
 
-  * same google_place_id            -> reason "google_place_id", definite
-  * same normalized website domain  -> reason "website",        definite
-  * same last-10-digit phone        -> reason "phone",          definite
+  * same google_place_id            -> reason "google_place_id", auto
+  * same normalized website domain  -> reason "website",        review
+  * same last-10-digit phone        -> reason "phone",          review
   * geo <=50m AND fuzzy name >= T    -> reason "geo+name",       review
 
-The first three are identity signals (action "auto_merge_eligible"); the geo+name
-tier is heuristic (action "needs_review"). This matches the resolution policy:
-definite identity matches can later auto-merge, fuzzy/geo go to a human.
+Only google_place_id is a single global identity, so it alone is action
+"auto_merge_eligible"; website and phone are SOFT (a hospitality group / plaza /
+CVB listing routinely shares one domain or number across DISTINCT venues), and
+geo+name is heuristic, so all three are action "needs_review" for a human. See
+_AUTO_REASONS.
+
+Two classes of identity key are pulled out as shared-key data-quality flags
+instead of being paired (see SharedKey): "oversized" (shared by more than
+--max-group-size rows -- a switchboard / umbrella domain / bad backfill) and
+"dispersed" (a SOFT key whose coord-bearing members span more than
+--max-shared-key-spread-m -- a designer/aggregator domain or chain number on
+distinct, far-apart listings). google_place_id is exempt from the spread guard.
 
 Events: every LIVE event is paired with same-date events whose venue matches and
 whose fuzzy title clears the threshold (mirrors app/events/dedup semantics) ->
