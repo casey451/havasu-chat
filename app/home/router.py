@@ -387,6 +387,33 @@ def serve_home(
     )
 
 
+def _split_oneoff_and_ongoing(
+    groups: dict[str, list[dict]],
+) -> tuple[dict[str, list[dict]], list[dict]]:
+    """Split time-grouped events into one-off (kept time-grouped) and recurring.
+
+    Recurring series are pulled out into a single "Classes & ongoing" list,
+    deduped across the time windows (a weekday class shows in Today *and* Next
+    Week), so one-off festivals aren't buried under the daily-class repeats
+    (brief §4 optional split).
+    """
+    ongoing: list[dict] = []
+    seen: set[tuple] = set()
+    oneoff_groups: dict[str, list[dict]] = {}
+    for key, items in groups.items():
+        oneoff: list[dict] = []
+        for it in items:
+            if it.get("recurring"):
+                dedup_key = (it.get("title"), it.get("venue"), it.get("schedule_label"))
+                if dedup_key not in seen:
+                    seen.add(dedup_key)
+                    ongoing.append(it)
+            else:
+                oneoff.append(it)
+        oneoff_groups[key] = oneoff
+    return oneoff_groups, ongoing
+
+
 @router.get("/events-ui", response_class=HTMLResponse)
 def serve_events_ui(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     """Render Lake Light events list/calendar shell (data via /api/events)."""
@@ -400,12 +427,14 @@ def serve_events_ui(request: Request, db: Session = Depends(get_db)) -> HTMLResp
             db, start_day=now + timedelta(days=4), end_day=now + timedelta(days=10), limit=16
         ),
     }
-    total = sum(len(v) for v in groups.values())
+    oneoff_groups, ongoing_classes = _split_oneoff_and_ongoing(groups)
+    total = sum(len(v) for v in oneoff_groups.values()) + len(ongoing_classes)
     return templates.TemplateResponse(
         request=request,
         name="events_lake_light.html",
         context={
-            "events_groups": groups,
+            "events_groups": oneoff_groups,
+            "ongoing_classes": ongoing_classes,
             "events_total": total,
             "month_label": now.strftime("%B %Y"),
             "active_tab": "events",

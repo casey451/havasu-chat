@@ -138,3 +138,21 @@ def test_time_group_labels_are_plain_language() -> None:
     assert "Today" in events
     assert "This Weekend" in events
     assert "Next Week" in events
+
+
+def test_split_oneoff_and_ongoing_dedupes_recurring_across_windows() -> None:
+    from app.home.router import _split_oneoff_and_ongoing
+
+    klass = {"title": "Lap Swim", "venue": "Pool", "recurring": True, "schedule_label": "Mon–Fri"}
+    groups = {
+        "today": [klass, {"title": "Gala", "venue": "Bridge", "recurring": False}],
+        "weekend": [klass],  # same series, later window
+        "next_week": [{"title": "Fair", "venue": "Park", "recurring": False}],
+    }
+    oneoff, ongoing = _split_oneoff_and_ongoing(groups)
+    # One-off festivals stay in their time buckets...
+    assert [i["title"] for i in oneoff["today"]] == ["Gala"]
+    assert [i["title"] for i in oneoff["next_week"]] == ["Fair"]
+    assert oneoff["weekend"] == []
+    # ...and the recurring class is pulled out once into "Classes & ongoing".
+    assert [i["title"] for i in ongoing] == ["Lap Swim"]
