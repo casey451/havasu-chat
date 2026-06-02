@@ -245,6 +245,28 @@ def build_conditions_strip_view_model(
             )
         )
 
+    # Sunset tile (NWS, approximated from the tonight/evening forecast period).
+    # api_payload only surfaces sunset_local when a usable timestamp is cached,
+    # so the tile is simply absent when the sunset source is missing/empty.
+    sunset_local = api.get("sunset_local")
+    if isinstance(sunset_local, str) and sunset_local.strip():
+        label = api.get("sunset_staleness_label") or "Updated recently"
+        stale = bool(api.get("sunset_is_stale"))
+        any_stale = any_stale or stale
+        tiles.append(
+            ConditionsTile(
+                kind="sunset",
+                primary_value=sunset_local.strip(),
+                secondary_value="Sunset",
+                attribution_chip="NWS forecast",
+                severity="neutral",
+                staleness_label=label,
+                is_stale=stale,
+                detail_text=None,
+                visible=True,
+            )
+        )
+
     return ConditionsStripViewModel(
         tiles=tuple(tiles),
         any_source_stale=any_stale,

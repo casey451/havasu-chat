@@ -13,11 +13,35 @@ from app.conditions.constants import (
     SOURCE_NWS_ALERTS,
     SOURCE_NWS_CURRENT,
     SOURCE_NWS_FORECAST,
+    SOURCE_NWS_SUNSET,
     SOURCE_OPENUV,
     SOURCE_USGS,
     SOURCE_USGS_WATER_TEMP,
 )
 from app.conditions.staleness import staleness_label
+from app.core.timezone import LAKE_HAVASU_TZ
+
+
+def _format_sunset_local(sunset_iso: str | None) -> str | None:
+    """Render an NWS sunset ISO timestamp as Lake Havasu wall-clock, e.g. ``7:42 PM``.
+
+    The NWS sunset source stores the tonight/evening period startTime, which is
+    an approximation of sunset rather than an astronomical value. We convert to
+    America/Phoenix and strip any leading zero from the hour (Windows-safe).
+    """
+    if not sunset_iso:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(sunset_iso).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    local = parsed.astimezone(LAKE_HAVASU_TZ)
+    stamp = local.strftime("%I:%M %p")
+    if stamp.startswith("0"):
+        stamp = stamp[1:]
+    return stamp
 
 
 def _iso(dt: datetime | None) -> str | None:
@@ -140,6 +164,26 @@ def build_conditions_api_payload(db: Session, *, now: datetime | None = None) ->
                     "water_temp_updated_at_iso": _iso(water_temp.fetched_at),
                     "water_temp_staleness_label": label,
                     "water_temp_is_stale": stale or water_temp.is_stale,
+                }
+            )
+
+    # Sunset: the SOURCE_NWS_SUNSET row caches {sunset_iso, periods}. We surface
+    # the raw ISO plus a Lake-Havasu-local formatted string so both the JSON API
+    # and the /today Lake Light strip can render it. Emitted only when a usable
+    # ISO is present so /api/conditions stays unchanged when the source is absent.
+    sunset_row = read_source(db, SOURCE_NWS_SUNSET, now=now)
+    if sunset_row is not None and isinstance(sunset_row.data, dict):
+        sunset_iso = sunset_row.data.get("sunset_iso")
+        sunset_local = _format_sunset_local(sunset_iso) if sunset_iso else None
+        if sunset_local is not None:
+            label, stale = staleness_label(sunset_row.fetched_at, now)
+            payload.update(
+                {
+                    "sunset_iso": sunset_iso,
+                    "sunset_local": sunset_local,
+                    "sunset_updated_at_iso": _iso(sunset_row.fetched_at),
+                    "sunset_staleness_label": label,
+                    "sunset_is_stale": stale or sunset_row.is_stale,
                 }
             )
 
