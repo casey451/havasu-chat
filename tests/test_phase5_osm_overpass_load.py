@@ -7,14 +7,47 @@ import uuid
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from sqlalchemy import select
 
 from app.contrib.ingest_reconciler import ReconcileResult
 from app.db.database import SessionLocal
 from app.db.entity_dual_write import create_provider_and_entity
-from app.db.models import Category, Provider
+from app.db.models import Category, Entity, Provider
 from app.db.seed_helpers import derive_provider_slug
 from scripts.osm_overpass_load import ingest_rows
+
+# Name prefix used by _seed_google_like_provider; teardown matches on this.
+_SEEDED_NAME_PREFIX = "OSM Pri Marina "
+# Name prefixes for every real Provider row the tests in this module insert.
+# Both are matched by the teardown fixture so none survive into other suites.
+_TEARDOWN_NAME_PREFIXES = (_SEEDED_NAME_PREFIX, "OSM Test Marina ")
+
+
+@pytest.fixture
+def cleanup_seeded_providers():
+    """Tear down real Provider+Entity rows inserted by this module's tests.
+
+    The insert/update tests create real ``OSM Test Marina {uid}`` /
+    ``OSM Pri Marina {uid}`` rows in the shared test DB. Without teardown they
+    pollute cross-suite fuzzy catalog matching (e.g. test_phase38_gap_and_hours
+    finds them as a "closest match"), so we delete them by name prefix after
+    each test — even if the test body fails.
+    """
+    yield
+    with SessionLocal() as db:
+        for prefix in _TEARDOWN_NAME_PREFIXES:
+            provs = db.scalars(
+                select(Provider).where(Provider.provider_name.like(f"{prefix}%"))
+            ).all()
+            for prov in provs:
+                eid = prov.entity_id
+                db.delete(prov)
+                if eid:
+                    ent = db.get(Entity, eid)
+                    if ent is not None:
+                        db.delete(ent)
+        db.commit()
 
 
 def test_osm_overpass_load_filters_wrapper_elements(tmp_path: Path) -> None:
@@ -40,7 +73,7 @@ def test_osm_overpass_load_filters_wrapper_elements(tmp_path: Path) -> None:
     assert counts["payloads_ready"] == 1
 
 
-def test_osm_overpass_load_inserts_provider(tmp_path: Path) -> None:
+def test_osm_overpass_load_inserts_provider(tmp_path: Path, cleanup_seeded_providers) -> None:
     uid = uuid.uuid4().hex[:10]
     name = f"OSM Test Marina {uid}"
     row = {
@@ -81,7 +114,7 @@ def _seed_google_like_provider(
     description: str | None,
 ) -> tuple[str, str, float, float, str]:
     """Returns ``entity_id``, venue ``name``, ``lat``, ``lng``, ``google_place_id``."""
-    name = f"OSM Pri Marina {uid}"
+    name = f"{_SEEDED_NAME_PREFIX}{uid}"
     lat, lng = 34.472, -114.348
     google_place_id = f"ChIJseed_{uid}"
     with SessionLocal() as session:
@@ -119,7 +152,7 @@ def _seed_google_like_provider(
 
 @patch("app.contrib.scraper_ingest.reconcile_hit")
 def test_osm_reconcile_update_preserves_identity_and_populated_contact(
-    mock_rec, tmp_path: Path
+    mock_rec, tmp_path: Path, cleanup_seeded_providers
 ) -> None:
     uid = uuid.uuid4().hex[:10]
     entity_id, name, lat, lng, google_place_id = _seed_google_like_provider(
@@ -176,7 +209,9 @@ def test_osm_reconcile_update_preserves_identity_and_populated_contact(
 
 
 @patch("app.contrib.scraper_ingest.reconcile_hit")
-def test_osm_reconcile_update_fills_empty_contact_fields(mock_rec, tmp_path: Path) -> None:
+def test_osm_reconcile_update_fills_empty_contact_fields(
+    mock_rec, tmp_path: Path, cleanup_seeded_providers
+) -> None:
     uid = uuid.uuid4().hex[:10]
     entity_id, name, lat, lng, google_place_id = _seed_google_like_provider(
         uid=uid,
@@ -277,7 +312,9 @@ def test_osm_reconcile_ambiguous_holds_for_review(mock_rec, tmp_path: Path) -> N
 
 
 @patch("app.contrib.scraper_ingest.reconcile_hit")
-def test_osm_reconcile_update_fills_empty_string_contact_fields(mock_rec, tmp_path: Path) -> None:
+def test_osm_reconcile_update_fills_empty_string_contact_fields(
+    mock_rec, tmp_path: Path, cleanup_seeded_providers
+) -> None:
     uid = uuid.uuid4().hex[:10]
     entity_id, name, lat, lng, _gpid = _seed_google_like_provider(
         uid=uid,
