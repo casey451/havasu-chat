@@ -35,6 +35,13 @@ Usage:
     python scripts/cross_source_dedup_audit.py --out providers_dups.csv
     python scripts/cross_source_dedup_audit.py --events --out events_dups.csv
     python scripts/cross_source_dedup_audit.py --fuzzy-threshold 88 --limit 500
+    python scripts/cross_source_dedup_audit.py --max-shared-key-spread-m 500
+
+Soft identity keys (website / phone) shared by a small group whose members are
+spread farther than --max-shared-key-spread-m apart are reported as "dispersed"
+shared-key flags rather than paired -- a designer/aggregator domain or chain
+number on distinct, far-apart listings is not one business. See
+DEFAULT_MAX_SHARED_KEY_SPREAD_M.
 """
 
 from __future__ import annotations
@@ -79,6 +86,24 @@ DEFAULT_FUZZY_THRESHOLD = 88.0
 # --max-group-size; raise it only if a venue legitimately has that many distinct
 # sub-listings on one line.
 DEFAULT_MAX_GROUP_SIZE = 4
+
+# A SOFT identity key (website / phone) shared by a SMALL group (<= the cap) whose
+# coord-bearing members are spread farther apart than this is almost never one
+# business: it is a web designer's footer-credit domain, an aggregator/booking
+# host, a chain's central number, or a referral site stamped on many distinct
+# listings (real prod run: weence.com on 8 clinics, "Simply Savage Designs"
+# credited as 3 unrelated shops' website 1-6 km apart). A genuine same-business
+# website/phone dup is geo-COINCIDENT (the resort sub-venues sit at 0 m) or has no
+# coords at all, so those keep pairing. Only DISPERSED soft-key groups are pulled
+# out as shared-key flags. google_place_id is exempt -- it is a single global
+# identity, so two rows sharing one are the same place even if a bad coordinate
+# puts them far apart. Tune via --max-shared-key-spread-m; raise it for a campus
+# /resort that legitimately spans more than this.
+DEFAULT_MAX_SHARED_KEY_SPREAD_M = 500.0
+
+# Soft identity tiers subject to the geo-spread guard above (google_place_id is
+# a hard global identity and is deliberately excluded).
+_SOFT_DISPERSION_REASONS = {"website", "phone"}
 
 # Only google_place_id is strong enough to auto-merge: it is a single global
 # identity for one real-world place. website and phone are SOFT -- a hospitality
@@ -141,13 +166,17 @@ class CandidatePair:
 
 @dataclass(frozen=True)
 class SharedKey:
-    """An identity key shared by more rows than the cap -- a data-quality flag,
-    not a duplicate set. Excluded from auto-merge pairing on purpose."""
+    """An identity key excluded from pairing as a data-quality flag, not a
+    duplicate set. Two causes: ``oversized`` (shared by more rows than the cap)
+    and ``dispersed`` (a small soft-key group whose members are spread too far
+    apart to be one business). Excluded from candidate pairing on purpose."""
 
     reason: str  # phone | website | google_place_id
     key: str
     count: int
     sample_names: tuple[str, ...]
+    cause: str = "oversized"  # oversized (> max_group_size) | dispersed (geo spread)
+    spread_m: float | None = None  # max pairwise distance among coord-bearing members
 
 
 def _order_keep_dup(a: ProvRow, b: ProvRow) -> tuple[ProvRow, ProvRow]:
@@ -165,6 +194,25 @@ def _order_keep_dup(a: ProvRow, b: ProvRow) -> tuple[ProvRow, ProvRow]:
         )
 
     return (a, b) if key(a) <= key(b) else (b, a)
+
+
+def _max_pairwise_spread_m(members: list[ProvRow]) -> float | None:
+    """Largest haversine distance (m) between any two coord-bearing members.
+
+    None when fewer than two members carry coordinates -- a no-coords soft-key
+    group cannot be judged dispersed, so it keeps pairing. Members within the cap
+    are tiny (<= max_group_size), so the O(n^2) scan here is negligible.
+    """
+    pts = [(m.lat, m.lng) for m in members if m.lat is not None and m.lng is not None]
+    if len(pts) < 2:
+        return None
+    worst = 0.0
+    for i in range(len(pts)):
+        for j in range(i + 1, len(pts)):
+            d = haversine_m(pts[i][0], pts[i][1], pts[j][0], pts[j][1])
+            if d > worst:
+                worst = d
+    return worst
 
 
 def _pair_for(a: ProvRow, b: ProvRow, *, reason: str, score: float) -> CandidatePair:
@@ -192,14 +240,21 @@ def find_provider_pairs(
     *,
     fuzzy_threshold: float = DEFAULT_FUZZY_THRESHOLD,
     max_group_size: int = DEFAULT_MAX_GROUP_SIZE,
+    max_shared_key_spread_m: float = DEFAULT_MAX_SHARED_KEY_SPREAD_M,
 ) -> tuple[list[CandidatePair], list[SharedKey]]:
     """Return (ranked candidate-duplicate pairs, shared-key flags).
 
     Each unordered pair appears once, tagged with its strongest signal (identity
-    tiers beat geo+name). Identity keys shared by more than ``max_group_size``
-    rows are NOT paired -- they are returned as :class:`SharedKey` flags, because
-    a key on that many live rows is a shared switchboard / umbrella domain / bad
-    backfill rather than N copies of one business.
+    tiers beat geo+name). Two classes of identity key are pulled out as
+    :class:`SharedKey` flags instead of being paired:
+
+    * ``oversized`` -- a key shared by more than ``max_group_size`` rows (a shared
+      switchboard / umbrella domain / bad backfill rather than N copies of one
+      business);
+    * ``dispersed`` -- a SOFT key (website / phone) on a small group whose
+      coord-bearing members span more than ``max_shared_key_spread_m`` (a
+      designer/aggregator domain or chain number on distinct, far-apart listings).
+      google_place_id is exempt: it is a single global identity.
     """
     best: dict[frozenset[str], CandidatePair] = {}
 
@@ -246,9 +301,24 @@ def find_provider_pairs(
                         key=key,
                         count=len(members),
                         sample_names=tuple((m.name or "").strip() for m in members[:5]),
+                        cause="oversized",
                     )
                 )
                 continue
+            if reason in _SOFT_DISPERSION_REASONS:
+                spread = _max_pairwise_spread_m(members)
+                if spread is not None and spread > max_shared_key_spread_m:
+                    shared.append(
+                        SharedKey(
+                            reason=reason,
+                            key=key,
+                            count=len(members),
+                            sample_names=tuple((m.name or "").strip() for m in members[:5]),
+                            cause="dispersed",
+                            spread_m=round(spread, 1),
+                        )
+                    )
+                    continue
             for i in range(len(members)):
                 for j in range(i + 1, len(members)):
                     consider(members[i], members[j], reason, score)
@@ -347,9 +417,18 @@ def _write_provider_csv(pairs: list[CandidatePair], out_path: Path) -> None:
 def _write_shared_keys_csv(shared: list[SharedKey], out_path: Path) -> None:
     with out_path.open("w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
-        w.writerow(["reason", "key", "count", "sample_names"])
+        w.writerow(["reason", "cause", "key", "count", "spread_m", "sample_names"])
         for s in shared:
-            w.writerow([s.reason, s.key, s.count, " | ".join(s.sample_names)])
+            w.writerow(
+                [
+                    s.reason,
+                    s.cause,
+                    s.key,
+                    s.count,
+                    "" if s.spread_m is None else s.spread_m,
+                    " | ".join(s.sample_names),
+                ]
+            )
 
 
 def _summarize(pairs: list[CandidatePair], shared: list[SharedKey]) -> None:
@@ -365,10 +444,17 @@ def _summarize(pairs: list[CandidatePair], shared: list[SharedKey]) -> None:
     for k in sorted(by_action):
         print(f"  action {k}: {by_action[k]}")
     if shared:
-        print(f"shared_keys (excluded as data-quality flags): {len(shared)}")
+        by_cause: dict[str, int] = {}
+        for s in shared:
+            by_cause[s.cause] = by_cause.get(s.cause, 0) + 1
+        cause_summary = ", ".join(f"{k}={by_cause[k]}" for k in sorted(by_cause))
+        print(f"shared_keys (excluded as data-quality flags): {len(shared)} ({cause_summary})")
         for s in shared[:10]:
             sample = ", ".join(s.sample_names[:3])
-            print(f"  {s.reason} shared by {s.count} rows [{s.key}]: {sample} ...")
+            spread = "" if s.spread_m is None else f" spread={s.spread_m}m"
+            print(
+                f"  {s.reason}/{s.cause} on {s.count} rows{spread} [{s.key}]: {sample} ..."
+            )
     print("(read-only: no DB writes)")
 
 
@@ -500,6 +586,14 @@ def main() -> int:
         help="identity keys (phone/website/gpid) shared by more rows than this "
         "are reported as shared-key flags, not paired (providers only)",
     )
+    p.add_argument(
+        "--max-shared-key-spread-m",
+        type=float,
+        default=DEFAULT_MAX_SHARED_KEY_SPREAD_M,
+        help="soft keys (website/phone) on a small group whose coord-bearing "
+        "members span more than this many meters are flagged as 'dispersed' "
+        "shared keys, not paired (providers only)",
+    )
     args = p.parse_args()
 
     if args.events:
@@ -516,6 +610,7 @@ def main() -> int:
         prov_rows,
         fuzzy_threshold=args.fuzzy_threshold,
         max_group_size=args.max_group_size,
+        max_shared_key_spread_m=args.max_shared_key_spread_m,
     )
     out_path = Path(args.out or "provider_dup_candidates.csv")
     _write_provider_csv(pairs, out_path)

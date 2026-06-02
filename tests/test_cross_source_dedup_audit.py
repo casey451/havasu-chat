@@ -230,3 +230,89 @@ def test_three_way_website_group_yields_three_pairs():
     pairs = _pairs(rows)
     assert len(pairs) == 3
     assert all(p.reason == "website" for p in pairs)
+
+
+def test_dispersed_website_group_is_flagged_not_paired():
+    # The "Simply Savage Designs" prod case: one designer/aggregator domain
+    # credited as the website of distinct shops 1-6 km apart. A small group (<=
+    # cap) but geographically dispersed -> a "dispersed" shared-key flag, no pairs.
+    rows = [
+        _row("a", "Action Sports", website="simplysavage.com", lat=34.48, lng=-114.32),
+        _row("b", "Golden Hour Salon", website="simplysavage.com", lat=34.49, lng=-114.35),
+        _row("c", "Project 72 Baits", website="simplysavage.com", lat=34.52, lng=-114.30),
+    ]
+    pairs, shared = find_provider_pairs(rows)
+    assert pairs == []
+    assert len(shared) == 1
+    assert shared[0].reason == "website"
+    assert shared[0].cause == "dispersed"
+    assert shared[0].count == 3
+    assert shared[0].spread_m is not None and shared[0].spread_m > 500
+
+
+def test_colocated_website_group_still_pairs():
+    # The resort sub-venues: same domain, co-located (a few meters apart) -> NOT
+    # dispersed, so they still pair as needs_review for a human to judge.
+    rows = [
+        _row("a", "WET Pool Bar", website="nautical.com", lat=34.48, lng=-114.32),
+        _row("b", "Turtle Grille", website="nautical.com", lat=34.48001, lng=-114.32001),
+        _row("c", "Naked Turtle", website="nautical.com", lat=34.47999, lng=-114.31999),
+    ]
+    pairs, shared = find_provider_pairs(rows)
+    assert shared == []
+    assert len(pairs) == 3
+    assert all(p.reason == "website" and p.action == "needs_review" for p in pairs)
+
+
+def test_dispersion_guard_ignored_when_coords_missing():
+    # Without coords a soft-key group cannot be judged dispersed, so it keeps
+    # pairing (the no-geo website path must be unchanged).
+    rows = [
+        _row("a", "A", website="shared.com"),
+        _row("b", "B", website="shared.com"),
+        _row("c", "C", website="shared.com"),
+    ]
+    pairs, shared = find_provider_pairs(rows)
+    assert shared == []
+    assert len(pairs) == 3
+
+
+def test_dispersed_phone_group_within_cap_is_flagged():
+    # A chain's central number on a small set of far-apart listings -> dispersed.
+    rows = [
+        _row("a", "Outlet East", phone="(928) 855-0000", lat=34.48, lng=-114.32),
+        _row("b", "Outlet West", phone="(928) 855-0000", lat=34.50, lng=-114.40),
+    ]
+    pairs, shared = find_provider_pairs(rows)
+    assert pairs == []
+    assert len(shared) == 1
+    assert shared[0].reason == "phone"
+    assert shared[0].cause == "dispersed"
+
+
+def test_gpid_not_demoted_by_spread():
+    # google_place_id is a global identity: two rows sharing one are the same
+    # place even with a bad coordinate far away. Must still auto-merge, never
+    # flagged as dispersed.
+    rows = [
+        _row("a", "Joe's", google_place_id="GP1", lat=34.48, lng=-114.32, source="google_places"),
+        _row("b", "Joe's", google_place_id="GP1", lat=34.90, lng=-114.90, source="osm"),
+    ]
+    pairs, shared = find_provider_pairs(rows)
+    assert shared == []
+    assert len(pairs) == 1
+    assert pairs[0].reason == "google_place_id"
+    assert pairs[0].action == "auto_merge_eligible"
+
+
+def test_spread_threshold_is_tunable():
+    # Members ~1.1 km apart: dispersed at the 500 m default, but a campus that
+    # legitimately spans more can raise the bound to keep the group paired.
+    rows = [
+        _row("a", "A", website="campus.com", lat=34.48, lng=-114.32),
+        _row("b", "B", website="campus.com", lat=34.49, lng=-114.32),
+    ]
+    flagged, shared = find_provider_pairs(rows)
+    assert flagged == [] and len(shared) == 1
+    paired, shared2 = find_provider_pairs(rows, max_shared_key_spread_m=5000.0)
+    assert shared2 == [] and len(paired) == 1
