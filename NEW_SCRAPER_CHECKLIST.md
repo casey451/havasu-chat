@@ -53,6 +53,18 @@ A new scraper only has to get layer 1-2 right; 3-4 are already running.
    tests/test_golakehavasu_partners.py::
    test_ingest_partners_dedupes_same_name_within_one_run).
 
+## Adoption status of existing scrapers (Item D, 2026-06-02)
+- `scripts/osm_overpass_load.py` and `scripts/places_load.py` route their insert
+  path through `decide_ingest` and honour `should_hide` -- an ambiguous match is
+  now HELD (draft + pending_review) for review, not dropped (the old behavior
+  silently discarded uncertain rows).
+- `scripts/golakehavasu_partners_load.py` intentionally calls `reconcile_hit`
+  directly: it layers two CVB-specific confident-merge tiers (exact contact
+  match, fuzzy-name-within-50m of a Google row) on top of the reconciler before
+  deciding to hold. It already honours the hide-on-doubt rule (draft +
+  pending_review), which is the invariant the funnel enforces. New scrapers
+  without such bespoke tiers should use `decide_ingest` per step 2 above.
+
 ## After the scraper is live
 - The weekly `cross-source-dedup-audit` workflow will report any cross-source
   pairs the new source introduces. Review them at /admin/providers/duplicates.

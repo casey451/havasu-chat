@@ -38,8 +38,8 @@ ensure_dotenv_loaded()
 from app.contrib.ingest_base import EntityPayload  # noqa: E402
 from app.contrib.ingest_reconciler import (  # noqa: E402
     log_ambiguous_reconcile,
-    reconcile_hit,
 )
+from app.contrib.scraper_ingest import decide_ingest  # noqa: E402
 from app.db.database import SessionLocal  # noqa: E402
 from app.db.entity_dual_write import (  # noqa: E402
     create_provider_and_entity,
@@ -235,6 +235,7 @@ def ingest_rows(
         "skipped_no_name_or_coords": 0,
         "payloads_ready": 0,
         "inserted": 0,
+        "inserted_pending": 0,
         "updated": 0,
         "reconcile_skipped_ambiguous": 0,
         "reconcile_merged_geo": 0,
@@ -258,10 +259,24 @@ def ingest_rows(
         cat_id = session.scalars(select(Category.id).where(Category.slug == category_slug)).first()
         for payload in payloads:
             kwargs = _osm_provider_kwargs(payload, category_slug=category_slug, category_id=cat_id)
-            rec = reconcile_hit(session, payload)
-            if rec.action == "ambiguous":
+            # Funnel: normalize + reconcile + hide-on-doubt in one place
+            # (app.contrib.scraper_ingest.decide_ingest). ``should_hide`` is True
+            # exactly when the reconciler is unsure (ambiguous); we honour it by
+            # landing the row HELD (draft + pending_review) for admin review
+            # rather than dropping it -- so an uncertain OSM element is captured,
+            # never shown to a user, and never silently lost.
+            decision = decide_ingest(session, payload)
+            rec = decision.reconcile
+            if decision.should_hide:
                 log_ambiguous_reconcile(rec, context="osm_overpass_load insert branch")
-                counts["reconcile_skipped_ambiguous"] += 1
+                pend = dict(kwargs)
+                pend["draft"] = True
+                pend["pending_review"] = True
+                slug = derive_provider_slug(session, pend["provider_name"])
+                provider = Provider(**pend, slug=slug, last_google_scraped_at=None)
+                session.add(provider)
+                create_provider_and_entity(session, provider)
+                counts["inserted_pending"] += 1
                 continue
             if rec.action == "update" and rec.existing_id:
                 prov = session.scalars(

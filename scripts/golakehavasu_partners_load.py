@@ -393,6 +393,14 @@ def ingest_partners(
                     counts["idempotent_updated"] += 1
                     continue
 
+                # NOTE: this loader intentionally calls reconcile_hit directly
+                # rather than the app.contrib.scraper_ingest.decide_ingest funnel.
+                # It layers two CVB-specific confident-merge tiers (exact
+                # contact match, fuzzy-name-within-50m of a Google row) ON TOP of
+                # the reconciler's ambiguous result before deciding to hold -- the
+                # generic funnel has no such tiers. It already honours the
+                # hide-on-doubt rule (draft + pending_review) in the else branch
+                # below, which is the invariant the funnel exists to enforce.
                 rec = reconcile_hit(session, payload)
                 if rec.action == "ambiguous":
                     # Two confident merge tiers, highest precision first:

@@ -51,6 +51,7 @@ from app.contrib.ingest_reconciler import (  # noqa: E402
     log_ambiguous_reconcile,
     reconcile_hit,
 )
+from app.contrib.scraper_ingest import decide_ingest  # noqa: E402
 from app.db.database import SessionLocal  # noqa: E402
 from app.db.entity_dual_write import (  # noqa: E402
     create_provider_and_entity,
@@ -542,6 +543,7 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
         "input": len(rows),
         "skipped_no_name": skipped_no_name,
         "inserted": 0,
+        "inserted_pending": 0,
         "updated": 0,
         "reconcile_skipped_ambiguous": 0,
         "reconcile_merged_geo": 0,
@@ -629,12 +631,26 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
                 counts["updated"] += 1
             else:
                 payload = enrichment_row_to_entity_payload(row)
-                rec = reconcile_hit(session, payload)
-                if rec.action == "ambiguous":
+                # Funnel: normalize + reconcile + hide-on-doubt via decide_ingest.
+                # ``should_hide`` (ambiguous) now lands the row HELD (draft +
+                # pending_review) for admin review instead of dropping it, so an
+                # uncertain Google row is captured rather than silently lost.
+                decision = decide_ingest(session, payload)
+                rec = decision.reconcile
+                if decision.should_hide:
                     log_ambiguous_reconcile(
                         rec, context=f"places_load insert branch place_id={pid}"
                     )
-                    counts["reconcile_skipped_ambiguous"] += 1
+                    pend = dict(kwargs)
+                    pend["draft"] = True
+                    pend["pending_review"] = True
+                    slug = derive_provider_slug(session, pend["provider_name"])
+                    provider = Provider(**pend, slug=slug, last_google_scraped_at=now)
+                    session.add(provider)
+                    create_provider_and_entity(session, provider)
+                    if cat_id is not None:
+                        counts["entity_category_inserted"] += 1
+                    counts["inserted_pending"] += 1
                     continue
                 if rec.action == "update" and rec.existing_id:
                     prov = session.scalars(
