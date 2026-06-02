@@ -1,0 +1,21 @@
+{# Loading-overlay micro-ad (Phase A4).
+   Renders a small sponsor line in the chat "thinking" state. Collapses to
+   nothing when no sponsor is live so the overlay never advertises an empty
+   slot. Click goes through /sponsor/click for attribution. #}
+{% if micro_ad %}
+<div class="ll-micro-ad" data-micro-ad data-slot="{{ micro_ad.slot }}">
+  <a class="ll-micro-ad-link"
+     href="{{ micro_ad.click_url }}"
+     target="_blank"
+     rel="noopener noreferrer sponsored">
+    {% if micro_ad.image_url %}
+    <img class="ll-micro-ad-logo" src="{{ micro_ad.image_url }}" alt="" loading="lazy">
+    {% endif %}
+    <span class="ll-micro-ad-body">
+      <span class="ll-micro-ad-headline">{{ micro_ad.headline }}</span>
+      <span class="ll-micro-ad-attr">{{ micro_ad.attribution_text }}</span>
+    </span>
+    <span class="ll-micro-ad-cta">{{ micro_ad.cta_label }}</span>
+  </a>
+</div>
+{% endif %}

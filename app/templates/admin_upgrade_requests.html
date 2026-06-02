@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  {% include '_partials/plausible.html' %}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Upgrade requests — Admin</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 1.5rem; background: #fafafa; color: #1a1a1a; }
+    h1 { font-size: 1.25rem; }
+    table { border-collapse: collapse; width: 100%; max-width: 1000px; background: #fff; }
+    th, td { border: 1px solid #ddd; padding: 0.5rem 0.65rem; text-align: left; vertical-align: top; font-size: 0.88rem; }
+    th { background: #f0f0f0; }
+    form.inline { display: inline-block; margin: 0.15rem 0.35rem 0 0; }
+    button { cursor: pointer; padding: 0.25rem 0.5rem; }
+    textarea { width: 100%; min-height: 2.2rem; margin: 0.2rem 0; }
+    label { font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <h1>Featured-listing upgrade requests</h1>
+  <p style="font-size:0.85rem;color:#555;">Approving can spin out a DRAFT sponsor row (you then set copy/window and approve it in inventory). No billing here — pricing is set offline.</p>
+  {% if not requests %}
+  <p>No pending upgrade requests.</p>
+  {% else %}
+  <table>
+    <thead>
+      <tr>
+        <th>Owner</th>
+        <th>Listing</th>
+        <th>Requested slot</th>
+        <th>Message</th>
+        <th>Submitted</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in requests %}
+      <tr>
+        <td>{{ r.email }}</td>
+        <td>{{ r.entity_name }}</td>
+        <td>{{ r.requested_slot }}</td>
+        <td>{{ r.message or '—' }}</td>
+        <td>{{ r.created_at }}</td>
+        <td>
+          <form class="inline" method="post" action="/admin/upgrade-requests/{{ r.id }}/approve">
+            <label><input type="checkbox" name="create_sponsor" value="1"> create draft sponsor</label><br>
+            <textarea name="admin_note" placeholder="Note (optional)"></textarea>
+            <button type="submit">Approve</button>
+          </form>
+          <form class="inline" method="post" action="/admin/upgrade-requests/{{ r.id }}/decline">
+            <textarea name="admin_note" placeholder="Reason (optional)"></textarea>
+            <button type="submit">Decline</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  <p style="margin-top:1.5rem;"><a href="/admin">← Admin home</a> · <a href="/admin/sponsors">Sponsor inventory →</a></p>
+</body>
+</html>
