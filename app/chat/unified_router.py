@@ -470,6 +470,26 @@ def _handle_ask(
             telemetry["cache_status"] = "bypass"
             telemetry["tier1_ms"] = int((time.perf_counter() - t_t1_start) * 1000)
         return tier1, "1", None, None, None
+    # Ask Hava intent layer (flag-gated; USE_INTENT_LAYER off by default). Sits
+    # at the front of Tier 2: a confident rule/slot match answers from the
+    # catalog with no LLM call and logs the intent to query_log. Anything else
+    # returns None and falls through to the existing Tier 2 / Tier 3 path
+    # unchanged. Best-effort -- any failure falls through.
+    try:
+        from app.chat.intents.runtime import try_intent_layer
+
+        intent_answer = try_intent_layer(query, db)
+    except Exception:
+        logging.exception("unified_router: intent layer failed")
+        intent_answer = None
+    if intent_answer is not None:
+        if telemetry is not None:
+            telemetry["cache_status"] = "bypass"
+            telemetry["intent_key"] = intent_answer.intent_key
+        if component_meta is not None and intent_answer.component_type != "none":
+            component_meta["type"] = intent_answer.component_type
+            component_meta["data"] = intent_answer.component_data
+        return intent_answer.text, "2", None, None, None
     if _use_llm_router():
         context: dict[str, object] = {}
         if onboarding_hints:
