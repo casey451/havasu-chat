@@ -26,7 +26,7 @@
       "accent": "warm",
       "places": [
         {
-          "slug": "barley-brothers",
+          "slug": "barley-brothers-brewery",
           "name": "Barley Brothers",
           "where": "London Bridge",
           "image_url": "https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=1200&q=85&auto=format&fit=crop",
@@ -34,7 +34,7 @@
           "meta_line": "Pub + brewery"
         },
         {
-          "slug": "mudshark-brewing",
+          "slug": "mudshark-brewery-and-public-house",
           "name": "Mudshark Brewing",
           "where": "McCulloch Blvd",
           "image_url": "https://images.unsplash.com/photo-1544025162-d76694265947?w=900&q=85&auto=format&fit=crop",
