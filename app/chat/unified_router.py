@@ -327,6 +327,9 @@ class ChatResponse:
     voice: str = ""
     component_type: str = "none"
     component_data: dict = field(default_factory=dict)
+    # Slice 0: True when the intent layer already wrote the query_log row for
+    # this turn, so the HTTP layer's logger skips (one query_log row per turn).
+    intent_logged: bool = False
 
 
 def _stable_session_bucket(session_id: str | None) -> str:
@@ -470,6 +473,32 @@ def _handle_ask(
             telemetry["cache_status"] = "bypass"
             telemetry["tier1_ms"] = int((time.perf_counter() - t_t1_start) * 1000)
         return tier1, "1", None, None, None
+    # Ask Hava intent layer (flag-gated; USE_INTENT_LAYER off by default). Sits
+    # at the front of Tier 2: a confident rule/slot match answers from the
+    # catalog with no LLM call and logs the intent to query_log. Anything else
+    # returns None and falls through to the existing Tier 2 / Tier 3 path
+    # unchanged. Best-effort -- any failure falls through.
+    try:
+        from app.chat.intents.runtime import try_intent_layer
+
+        intent_answer = try_intent_layer(
+            query,
+            db,
+            entity=intent_result.entity,
+            sub_intent=intent_result.sub_intent,
+            telemetry=telemetry,
+        )
+    except Exception:
+        logging.exception("unified_router: intent layer failed")
+        intent_answer = None
+    if intent_answer is not None:
+        if telemetry is not None:
+            telemetry["cache_status"] = "bypass"
+            telemetry["intent_key"] = intent_answer.intent_key
+        if component_meta is not None and intent_answer.component_type != "none":
+            component_meta["type"] = intent_answer.component_type
+            component_meta["data"] = intent_answer.component_data
+        return intent_answer.text, "2", None, None, None
     if _use_llm_router():
         context: dict[str, object] = {}
         if onboarding_hints:
@@ -767,6 +796,7 @@ def route(
         component_data: dict | None = None,
         cache_status: str | None = None,
         timing_ms: dict | None = None,
+        intent_logged: bool = False,
     ) -> ChatResponse:
         ms = _ms()
         chat_log_id: str | None = None
@@ -806,6 +836,7 @@ def route(
             llm_input_tokens=llm_input_tokens,
             llm_output_tokens=llm_output_tokens,
             chat_log_id=chat_log_id,
+            intent_logged=intent_logged,
         )
 
     nq_safe = ""
@@ -1015,6 +1046,7 @@ def route(
             llm_output_tokens=None,
             cache_status=route_telemetry.get("cache_status"),
             timing_ms=route_telemetry or None,
+            intent_logged=bool(route_telemetry.get("intent_logged")),
         )
 
     if raw_sid and current_turn is not None and tier_used in ("2", "3"):
@@ -1043,4 +1075,5 @@ def route(
         component_data=_component_data,
         cache_status=route_telemetry.get("cache_status"),
         timing_ms=route_telemetry or None,
+        intent_logged=bool(route_telemetry.get("intent_logged")),
     )

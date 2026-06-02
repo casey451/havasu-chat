@@ -15,6 +15,7 @@ integration test with a populated session is out of scope for D2.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -51,8 +52,14 @@ def test_curated_json_is_valid_and_in_range() -> None:
         assert "name" in p and p["name"], f"place {i} missing name"
         assert p["span"] in _ALLOWED_SPANS, f"place {i} bad span {p['span']}"
         assert p["status"] in _ALLOWED_STATUS, f"place {i} bad status"
-        assert p["image_url"].startswith("https://images.unsplash.com/")
-        assert "?w=" in p["image_url"], "image_url missing sizing params"
+        # image_url is optional (P0 Task 3): None falls back to a per-card
+        # gradient + name. When present it must be a real, sized CDN asset URL --
+        # not a page-slug form (photo-<slug>) that 404s.
+        url = p["image_url"]
+        if url is not None:
+            assert url.startswith("https://images.unsplash.com/"), f"place {i} bad image host"
+            assert re.search(r"/photo-\d{6,}-", url), f"place {i} invalid CDN id: {url}"
+            assert "?w=" in url, "image_url missing sizing params"
 
 
 def test_curated_layout_fills_clean_rows() -> None:

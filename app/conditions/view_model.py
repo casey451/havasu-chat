@@ -74,6 +74,50 @@ def build_conditions_strip_view_model(
             )
         )
 
+    # Sky/condition text chip (e.g. "Sunny") from the NWS daily forecast. Only
+    # emitted when api_payload surfaced a non-empty sky_condition, so the strip
+    # degrades gracefully when the forecast source is missing.
+    sky = api.get("sky_condition")
+    if isinstance(sky, str) and sky.strip():
+        label = api.get("sky_staleness_label") or "Updated recently"
+        stale = bool(api.get("sky_is_stale"))
+        any_stale = any_stale or stale
+        tiles.append(
+            ConditionsTile(
+                kind="sky_condition",
+                primary_value=sky.strip(),
+                secondary_value=None,
+                attribution_chip="NWS forecast",
+                severity="neutral",
+                staleness_label=label,
+                is_stale=stale,
+                detail_text=None,
+                visible=True,
+            )
+        )
+
+    # UV index (Open-UV, key-gated). api_payload only surfaces uv_index when the
+    # OPENUV_API_KEY-backed source has data, so this tile is absent by default.
+    uv = api.get("uv_index")
+    if isinstance(uv, (int, float)):
+        label = api.get("uv_staleness_label") or "Updated recently"
+        stale = bool(api.get("uv_is_stale"))
+        any_stale = any_stale or stale
+        uv_max = api.get("uv_max")
+        tiles.append(
+            ConditionsTile(
+                kind="uv",
+                primary_value=f"UV {uv:g}",
+                secondary_value=(f"Peak UV {uv_max:g}" if isinstance(uv_max, (int, float)) else None),
+                attribution_chip="Open-UV",
+                severity=str(api.get("uv_severity") or "neutral"),
+                staleness_label=label,
+                is_stale=stale,
+                detail_text=None,
+                visible=True,
+            )
+        )
+
     aqi = api.get("current_aqi")
     if aqi is not None:
         param = api.get("current_aqi_parameter") or "AQI"

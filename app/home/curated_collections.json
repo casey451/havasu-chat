@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "updated": "2026-06-01",
+  "_comment": [
+    "Curated editorial collections (e.g. 'Dog-friendly patios', 'Best sunset spots').",
+    "ASCII-only. Edit by hand; collections.py reads this at request time (cached).",
+    "Schema (per collection):",
+    "  slug:    URL slug, lowercase kebab-case (required, unique).",
+    "  title:   display title (required).",
+    "  blurb:   short editorial intro line (optional).",
+    "  accent:  optional pill/body accent: warm / fresh / water / neutral (default neutral).",
+    "  places:  list of place entries; reuses the curated_discover entry schema where possible:",
+    "    slug:        optional Provider.slug; when present, card links to /provider/<slug>.",
+    "    name:        display name (required).",
+    "    where:       short location line (optional).",
+    "    image_url:   full Unsplash URL with sizing params (optional).",
+    "    blurb:       one-line editorial note (optional).",
+    "    meta_line:   short meta line below name (optional).",
+    "Acceptance: 2-3 collections, each with a handful of place entries."
+  ],
+  "collections": [
+    {
+      "slug": "dog-friendly-patios",
+      "title": "Dog-friendly patios",
+      "blurb": "Where you can post up with a cold drink and your dog at your feet. Water bowls usually on the house.",
+      "accent": "warm",
+      "places": [
+        {
+          "slug": "barley-brothers",
+          "name": "Barley Brothers",
+          "where": "London Bridge",
+          "image_url": "https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=1200&q=85&auto=format&fit=crop",
+          "blurb": "Bridge-view patio with room for the dog to sprawl.",
+          "meta_line": "Pub + brewery"
+        },
+        {
+          "slug": "mudshark-brewing",
+          "name": "Mudshark Brewing",
+          "where": "McCulloch Blvd",
+          "image_url": "https://images.unsplash.com/photo-1544025162-d76694265947?w=900&q=85&auto=format&fit=crop",
+          "blurb": "Shaded outdoor tables, easy with a leash.",
+          "meta_line": "Brewery + kitchen"
+        },
+        {
+          "slug": "javelina-cantina",
+          "name": "Javelina Cantina",
+          "where": "London Bridge",
+          "image_url": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1200&q=85&auto=format&fit=crop",
+          "blurb": "Margaritas on the patio, dogs welcome at the rail.",
+          "meta_line": "Mexican + margaritas"
+        }
+      ]
+    },
+    {
+      "slug": "best-sunset-spots",
+      "title": "Best sunset spots",
+      "blurb": "Where locals go when the light turns gold. Free, scenic, and worth the short drive.",
+      "accent": "water",
+      "places": [
+        {
+          "slug": null,
+          "name": "London Bridge",
+          "where": "Bridgewater Channel",
+          "image_url": "https://images.unsplash.com/photo-1559329007-40df8a9345d8?w=1400&q=85&auto=format&fit=crop",
+          "blurb": "The channel water glows under the arches at dusk.",
+          "meta_line": "Landmark"
+        },
+        {
+          "slug": null,
+          "name": "Body Beach",
+          "where": "Lake Havasu Ave",
+          "image_url": "https://images.unsplash.com/photo-ATGecbX--mU?w=900&q=85&auto=format&fit=crop",
+          "blurb": "Wide-open western view straight down the lake.",
+          "meta_line": "Free public beach"
+        },
+        {
+          "slug": null,
+          "name": "Site Six",
+          "where": "Mulberry Ave",
+          "image_url": "https://images.unsplash.com/photo-J0tl4W-yUUI?w=900&q=85&auto=format&fit=crop",
+          "blurb": "Watch the boats come in as the sky lights up.",
+          "meta_line": "Boat ramp + day-use"
+        }
+      ]
+    },
+    {
+      "slug": "on-the-water-classics",
+      "title": "On-the-water classics",
+      "blurb": "The launches, beaches, and coves that make a Havasu weekend.",
+      "accent": "water",
+      "places": [
+        {
+          "slug": null,
+          "name": "Lake Havasu State Park",
+          "where": "Windsor Beach",
+          "image_url": "https://images.unsplash.com/photo-rMS4YYBPOMY?w=900&q=85&auto=format&fit=crop",
+          "blurb": "Beaches, ramada, and boat ramps in one spot.",
+          "meta_line": "State park"
+        },
+        {
+          "slug": null,
+          "name": "Cattail Cove",
+          "where": "Hwy 95 south",
+          "image_url": "https://images.unsplash.com/photo-xDHsu-TnDbE?w=900&q=85&auto=format&fit=crop",
+          "blurb": "Quieter cove with camping right on the shore.",
+          "meta_line": "State park + camping"
+        }
+      ]
+    }
+  ]
+}

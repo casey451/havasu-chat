@@ -12,6 +12,8 @@ from app.conditions.constants import (
     SOURCE_AIRNOW,
     SOURCE_NWS_ALERTS,
     SOURCE_NWS_CURRENT,
+    SOURCE_NWS_FORECAST,
+    SOURCE_OPENUV,
     SOURCE_USGS,
     SOURCE_USGS_WATER_TEMP,
 )
@@ -72,6 +74,40 @@ def build_conditions_api_payload(db: Session, *, now: datetime | None = None) ->
                 "alerts_is_stale": stale or nws_alerts.is_stale,
             }
         )
+
+    # Sky/condition text (e.g. "Sunny", "Mostly Cloudy") sourced from the NWS
+    # daily forecast's first/current period shortForecast. Emitted only when
+    # present so /api/conditions stays unchanged when the forecast is absent.
+    nws_forecast = read_source(db, SOURCE_NWS_FORECAST, now=now)
+    if nws_forecast is not None:
+        d = nws_forecast.data
+        sky = d.get("short_forecast")
+        if isinstance(sky, str) and sky.strip():
+            label, stale = staleness_label(nws_forecast.fetched_at, now)
+            payload.update(
+                {
+                    "sky_condition": sky.strip(),
+                    "sky_updated_at_iso": _iso(nws_forecast.fetched_at),
+                    "sky_staleness_label": label,
+                    "sky_is_stale": stale or nws_forecast.is_stale,
+                }
+            )
+
+    openuv_row = read_source(db, SOURCE_OPENUV, now=now)
+    if openuv_row is not None and isinstance(openuv_row.data, dict):
+        uv = openuv_row.data.get("uv_index")
+        if isinstance(uv, (int, float)):
+            label, stale = staleness_label(openuv_row.fetched_at, now)
+            payload.update(
+                {
+                    "uv_index": float(uv),
+                    "uv_max": openuv_row.data.get("uv_max"),
+                    "uv_severity": openuv_row.data.get("uv_severity") or "neutral",
+                    "uv_updated_at_iso": _iso(openuv_row.fetched_at),
+                    "uv_staleness_label": label,
+                    "uv_is_stale": stale or openuv_row.is_stale,
+                }
+            )
 
     usgs = read_source(db, SOURCE_USGS, now=now)
     if usgs is not None:

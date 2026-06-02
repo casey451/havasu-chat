@@ -1,0 +1,127 @@
+/* Full-page map view (/map → map_c.html). Pairs with map.js + Leaflet CDN.
+ * Distinct from components/map.css (the collapsible map shell embedded in
+ * category/group pages); this file owns ONLY the full-viewport /map layout,
+ * the scope-selector bar, and the #map-container fill. */
+
+.map-page {
+  /* Lock the page to the viewport so the map fills the remaining space
+   * without the body scrolling behind the bottom nav. */
+  min-height: 100vh;
+}
+
+.map-page-main {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.map-page-topbar {
+  flex: 0 0 auto;
+  padding: 12px 16px 8px;
+  background: #fffdf9;
+  border-bottom: 1px solid rgba(20, 30, 45, 0.08);
+}
+
+.map-page-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.map-page-dateline {
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  color: rgba(20, 30, 45, 0.6);
+}
+
+.map-scope-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.map-scope-group {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.map-scope-group::-webkit-scrollbar {
+  display: none;
+}
+
+.map-scope-tab {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(20, 30, 45, 0.14);
+  background: #fff;
+  color: #1b2533;
+  font-family: "Poppins", system-ui, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.map-scope-tab:hover {
+  border-color: rgba(20, 30, 45, 0.3);
+}
+
+.map-scope-tab.is-active {
+  background: #0f4c5c;
+  border-color: #0f4c5c;
+  color: #fff;
+}
+
+.map-scope-tab--category {
+  font-weight: 400;
+  font-size: 0.78rem;
+  color: rgba(27, 37, 51, 0.85);
+}
+
+/* The full-viewport Leaflet host. map.js mounts the tile layer + clusters
+ * here; it needs an explicit, non-zero height for Leaflet to render.
+ * Scoped to .map-page so we never collide with components/map.css's
+ * fixed-height #map-container rule on category pages. */
+.map-page .map-page-container {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: #e8eef2;
+  z-index: 1;
+}
+
+/* Hidden toggle that map.js still requires to bind its page handler. */
+.map-page-toggle-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+@media (min-width: 768px) {
+  .map-scope-bar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+}

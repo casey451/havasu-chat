@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  {% include '_partials/plausible.html' %}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{ collection.title }} — Ask Hava</title>
+  <meta name="description" content="{{ collection.blurb }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles/lake_light.css">
+  <link rel="stylesheet" href="/static/styles/category_landing.css">
+</head>
+<body class="ll-page collection-page group-accent-{{ collection.accent }}">
+
+<div class="page category-page">
+
+  <header class="topbar">
+    <a class="wordmark" href="/home">
+      <span class="mark"></span>
+      <span>Hava</span>
+    </a>
+    <div class="topbar-meta">
+      <span class="dateline">Lake Havasu City · {{ today_label }}</span>
+      <span class="sep"></span>
+      <a href="/contribute">Add to catalog</a>
+    </div>
+  </header>
+
+  <section class="category-subhero" aria-labelledby="collection-heading">
+    <p class="collection-eyebrow">Collection</p>
+    <h1 id="collection-heading" class="category-title">{{ collection.title }}</h1>
+    {% if collection.blurb %}
+    <p class="category-lede">{{ collection.blurb }}</p>
+    {% endif %}
+  </section>
+
+  <section class="category-stream collection-stream" aria-label="{{ collection.title }} picks">
+    {% for place in collection.places %}
+    {% if place.slug %}
+    <a class="collection-card" href="/provider/{{ place.slug }}">
+    {% else %}
+    <div class="collection-card collection-card--static">
+    {% endif %}
+      {% if place.image_url %}
+      <div class="collection-card-media" style="background-image: url('{{ place.image_url }}');" role="img" aria-label="{{ place.name }}"></div>
+      {% endif %}
+      <div class="collection-card-body">
+        <h2 class="collection-card-name">{{ place.name }}</h2>
+        {% if place.where %}<p class="collection-card-where">{{ place.where }}</p>{% endif %}
+        {% if place.blurb %}<p class="collection-card-blurb">{{ place.blurb }}</p>{% endif %}
+        {% if place.meta_line %}<p class="collection-card-meta">{{ place.meta_line }}</p>{% endif %}
+      </div>
+    {% if place.slug %}
+    </a>
+    {% else %}
+    </div>
+    {% endif %}
+    {% endfor %}
+  </section>
+
+  <footer class="category-editorial-footer">
+    <p>Curated by Hava — a hand-picked grouping of local spots. Spotted something we missed? <a href="/contribute">Add it to the catalog</a>.</p>
+  </footer>
+
+</div>
+
+{% set active_tab = "explore" %}
+{% include "_partials/lake_light_bottom_nav.html" %}
+</body>
+</html>

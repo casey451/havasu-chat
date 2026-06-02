@@ -36,6 +36,14 @@ def _disable_llm_router(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _disable_intent_layer(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Legacy Tier 2 -> Tier 3 routing mechanics with mocked tier handlers. The
+    # intent layer (front-of-tier-2) is covered by tests/test_intent_*; disable
+    # it here so these tests are deterministic regardless of seeded catalog rows.
+    monkeypatch.setenv("USE_INTENT_LAYER", "0")
+
+
+@pytest.fixture(autouse=True)
 def _disable_hint_extractor(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.chat.unified_router.extract_hints", lambda *_a, **_kw: None)
 

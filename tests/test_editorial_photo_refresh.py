@@ -1,24 +1,37 @@
-"""Editorial photo refresh (items #7 + #8) — hero rotation + discover grid."""
+"""Editorial imagery — configurable hero, clean fallbacks, event date blocks.
+
+Rewritten for P0 Task 3. The previous version of this file *enshrined the bug*:
+it asserted that the discover cards carried ``photo-<page-slug>`` Unsplash URLs
+(e.g. ``photo-IbBDRgpNkkQ``) — which are not valid ``images.unsplash.com`` asset
+URLs and 404 on the live site — and the hero test only checked the id started
+with ``photo-``. These tests now assert the fixes instead.
+"""
 
 from __future__ import annotations
 
+import re
+import uuid
 from datetime import datetime
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import delete
 
+from app.core.timezone import now_lake_havasu
+from app.db.database import SessionLocal
+from app.db.models import Entity, Event
 from app.home import queries_c
-from app.home.router import _HERO_ROTATION, _pick_hero
+from app.home.router import (
+    _DEFAULT_HERO_ASSET,
+    _event_accent,
+    _events_for_window,
+    _hero_context,
+)
 from app.main import app
 
-_SWAPPED_DISCOVER = {
-    "Bridgewater Channel": "photo-IbBDRgpNkkQ",
-    "Body Beach": "photo-ATGecbX--mU",
-    "Site Six": "photo-J0tl4W-yUUI",
-    "Lake Havasu State Park": "photo-rMS4YYBPOMY",
-    "Cattail Cove": "photo-xDHsu-TnDbE",
-    "Sara Park": "photo-3ZAKE8qVTK0",
-}
+# Real Unsplash CDN asset URLs look like ``photo-<digits>-<hex>``; the page-slug
+# form (``photo-IbBDRgpNkkQ``) is not a CDN asset and 404s.
+_VALID_UNSPLASH = re.compile(r"images\.unsplash\.com/photo-\d{6,}-")
 
 
 @pytest.fixture(autouse=True)
@@ -28,46 +41,97 @@ def _reset_curated_cache() -> None:
     queries_c.reset_cache()
 
 
-def test_pick_hero_is_deterministic_for_pinned_date() -> None:
-    """Same calendar day always yields the same hero photo."""
-    pinned = datetime(2026, 6, 1, 15, 30)
-    first = _pick_hero(pinned)
-    second = _pick_hero(datetime(2026, 6, 1, 8, 0))
-
-    assert first["id"] == second["id"]
-    assert first["url"] == second["url"]
-    assert first["id"] == "photo-QS-aTbuoJFc"
-    assert first["photographer"] == "Spencer Davis"
-    assert first["profile_url"] == "https://unsplash.com/@spencerdavis"
-    assert first["url"].endswith("?w=1800&q=85&auto=format&fit=crop")
+# --- configurable hero ------------------------------------------------------
 
 
-def test_hero_rotation_has_vetted_pool() -> None:
-    assert 4 <= len(_HERO_ROTATION) <= 16
-    for entry in _HERO_ROTATION:
-        assert entry["id"].startswith("photo-")
-        assert entry["photographer"]
-        assert entry["profile_url"].startswith("https://unsplash.com/@")
+def test_hero_defaults_to_bundled_asset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("HOME_HERO_IMAGE_URL", raising=False)
+    ctx = _hero_context()
+    assert ctx["url"] == _DEFAULT_HERO_ASSET
+    assert ctx["attribution"] is None
 
 
-def test_discover_grid_swapped_cards_have_new_photos_and_attribution() -> None:
-    cards = queries_c.discover_grid()
-    assert len(cards) == 10
-
-    by_name = {c["name"]: c for c in cards}
-    for name, photo_id in _SWAPPED_DISCOVER.items():
-        card = by_name[name]
-        assert photo_id in card["image_url"]
-        attr = card["image_attribution"]
-        assert attr is not None
-        assert attr["photographer"]
-        assert attr["profile_url"].startswith("https://unsplash.com/@")
+def test_hero_env_override_with_attribution(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HOME_HERO_IMAGE_URL", "/static/img/custom-hero.jpg")
+    monkeypatch.setenv("HOME_HERO_CREDIT", "Jane Doe")
+    monkeypatch.setenv("HOME_HERO_CREDIT_URL", "https://unsplash.com/@jane")
+    ctx = _hero_context()
+    assert ctx["url"] == "/static/img/custom-hero.jpg"
+    assert ctx["attribution"] == {
+        "photographer": "Jane Doe",
+        "profile_url": "https://unsplash.com/@jane",
+    }
 
 
-def test_home_renders_photo_attribution() -> None:
+# --- no broken / reused fallback imagery ------------------------------------
+
+
+def test_discover_cards_have_no_invalid_unsplash_urls() -> None:
+    """Regression: a curated card's image is either a valid CDN asset URL or
+    None (which falls back to a per-card gradient + name, never a reused photo)."""
+    for card in queries_c.discover_grid():
+        url = card["image_url"]
+        if url and "images.unsplash.com" in url:
+            assert _VALID_UNSPLASH.search(url), f"invalid Unsplash URL on {card['name']}: {url}"
+
+
+def test_previously_broken_scenic_cards_now_fall_back_cleanly() -> None:
+    by_name = {c["name"]: c for c in queries_c.discover_grid()}
+    for name in ("Body Beach", "Site Six", "Sara Park", "Cattail Cove"):
+        assert by_name[name]["image_url"] is None
+
+
+# --- image-optional event cards (date block is the hero) --------------------
+
+
+def test_event_accent_maps_tags_to_category_color() -> None:
+    assert _event_accent(["aquatics"]) == ("Water", "#2f7d9a")
+    assert _event_accent(["Live Music"])[0] == "Music"
+    assert _event_accent(["food", "market"])[0] == "Food"
+    assert _event_accent(None) == ("Event", "#3f5c4b")
+
+
+def test_events_window_carries_category_accent() -> None:
+    ids: list[str] = []
+    with SessionLocal() as db:
+        ev = Event(
+            title=f"Lap Swim {uuid.uuid4().hex[:6]}",
+            normalized_title="lap swim",
+            date=now_lake_havasu().date(),
+            start_time=datetime(2026, 6, 1, 9, 0).time(),
+            location_name="Aquatic Center",
+            location_normalized="aquatic center",
+            description="swim",
+            event_url="https://example.com/e",
+            tags=["aquatics"],
+            status="live",
+            source="test-imagery",
+            verified=True,
+        )
+        db.add(ev)
+        db.commit()
+        ids.append(ev.entity_id)
+        now = now_lake_havasu()
+        items = _events_for_window(
+            db, start_day=now, end_day=now, limit=20
+        )
+    try:
+        mine = [i for i in items if i["title"].startswith("Lap Swim")]
+        assert mine, "seeded event not in window"
+        assert mine[0]["category_label"] == "Water"
+        assert mine[0]["accent_color"] == "#2f7d9a"
+        assert mine[0]["image_url"] is None  # date block is the hero
+    finally:
+        with SessionLocal() as db:
+            db.execute(delete(Event).where(Event.entity_id.in_(ids)))
+            db.execute(delete(Entity).where(Entity.id.in_(ids)))
+            db.commit()
+
+
+def test_home_renders_configurable_hero(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("HOME_HERO_IMAGE_URL", raising=False)
     with TestClient(app) as client:
         r = client.get("/home")
     assert r.status_code == 200
     assert 'class="ll-hero"' in r.text
-    assert 'class="ll-grid-two"' in r.text
-    assert "lake_light_home.js" in r.text
+    assert _DEFAULT_HERO_ASSET in r.text  # hero wired to the bundled asset

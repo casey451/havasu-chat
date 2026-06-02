@@ -28,13 +28,32 @@
   </div>
 </header>
 <main class="ll-shell" role="main">
+  {% if utility_chips %}
+  <div class="ll-utilstrip" role="group" aria-label="Local conditions &amp; gas">
+    {% for chip in utility_chips %}
+    <details class="ll-utilchip ll-utilchip--{{ chip.kind }} sev-{{ chip.severity }}{% if chip.is_stale %} is-stale{% endif %}">
+      <summary><span class="ll-utilchip-icon" aria-hidden="true">{{ chip.icon }}</span><span class="ll-utilchip-val">{{ chip.value }}</span></summary>
+      <div class="ll-utilchip-pop">
+        <strong>{{ chip.label }}</strong>
+        {% if chip.detail %}<span>{{ chip.detail }}</span>{% endif %}
+        {% if chip.source %}<span class="ll-utilchip-src">{{ chip.source }}</span>{% endif %}
+        {% if chip.freshness %}<span class="ll-utilchip-fresh">{{ chip.freshness }}{% if chip.is_stale %} · stale{% endif %}</span>{% endif %}
+        {% if chip.href %}<a href="{{ chip.href }}">Full list →</a>{% endif %}
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+  {% endif %}
   <section class="ll-hero" style="--hero-url: url('{{ hero_image_url }}');" aria-label="Lake Havasu hero">
     <header class="ll-topbar">
       <a href="/home" class="ll-wordmark">Ask <em>Hava</em></a>
       <span class="ll-pill">Lake Havasu</span>
     </header>
-    <p class="ll-eyebrow" style="color:#f7e7d9;">WELCOME BACK</p>
-    <h1>What are you in the mood for?</h1>
+    <p class="ll-eyebrow" style="color:#f7e7d9;">{{ hero_eyebrow }}</p>
+    <h1>{{ hero_headline }}</h1>
+    {% if hero_attribution %}
+    <p class="ll-hero-credit">Photo: <a href="{{ hero_attribution.profile_url }}" rel="nofollow noopener" target="_blank">{{ hero_attribution.photographer }}</a></p>
+    {% endif %}
   </section>
 
   <form class="ll-askbar" id="home-ask-form" action="/chat" method="get" role="search" aria-label="Ask Hava">
@@ -57,48 +76,65 @@
         <span>{{ cat.count }}</span>
       </a>
       {% endfor %}
+      {% if collection_links %}
+      <p class="ll-eyebrow" style="margin-top:14px;">Collections</p>
+      {% for coll in collection_links %}
+      <a class="ll-category-row" href="/collection/{{ coll.slug }}" style="margin-bottom:8px;">
+        <span>{{ coll.title }}</span>
+      </a>
+      {% endfor %}
+      {% endif %}
     </aside>
 
     <section>
-      <section class="ll-section">
-        <p class="ll-eyebrow">Cheapest gas today</p>
-        <h2 class="ll-title">Fuel before you head out</h2>
-        <div class="ll-card">
-          <ul class="ll-gas-list">
-            {% if gas_snapshot.has_data %}
-              {% for station in gas_snapshot.cheapest %}
-              <li>
-                <span>{{ station.station_name or station.name or 'Station' }}</span>
-                <span class="ll-price">
-                  {% if station.prices and station.prices.regular is not none %}
-                  ${{ '%.2f'|format(station.prices.regular) }}/gal
-                  {% else %}
-                  --/gal
-                  {% endif %}
-                </span>
-              </li>
-              {% endfor %}
-            {% else %}
-              <li><span>Gas feed is still loading.</span><a href="/gas">View details</a></li>
-            {% endif %}
-          </ul>
+      {% if home_services_shortcut or popular_subcategories %}
+      <section class="ll-section ll-shortcuts">
+        <p class="ll-eyebrow">Popular in Havasu</p>
+        {% if home_services_shortcut %}
+        <div class="ll-shortcut-card ll-card">
+          <a class="ll-shortcut-title" href="{{ home_services_shortcut.url }}">{{ home_services_shortcut.title }}</a>
+          <div class="ll-chip-row">
+            {% for it in home_services_shortcut['items'] %}
+            <a class="ll-chip" href="{{ it.url }}">{{ it.label }}</a>
+            {% endfor %}
+          </div>
         </div>
+        {% endif %}
+        {% if popular_subcategories %}
+        <div class="ll-chip-row" style="margin-top:10px;">
+          {% for sc in popular_subcategories %}
+          <a class="ll-chip" href="{{ sc.url }}">{{ sc.label }}</a>
+          {% endfor %}
+        </div>
+        {% endif %}
       </section>
+      {% endif %}
 
       <section class="ll-section">
         <p class="ll-eyebrow">Happening soon</p>
-        <h2 class="ll-title">Tonight through next week</h2>
+        <h2 class="ll-title">This week around the lake</h2>
         <div class="ll-row-scroll">
           {% for ev in events_soon %}
           <a class="ll-event-card" href="{{ ev.url }}">
+            {% if ev.image_url %}
             <div class="ll-event-photo">
-              {% if ev.image_url %}<img src="{{ ev.image_url }}" alt="{{ ev.title }}" onerror="this.style.display='none';">{% endif %}
+              <img src="{{ ev.image_url }}" alt="{{ ev.title }}" onerror="this.style.display='none';">
               <div class="ll-event-date">{{ ev.month_label }}<br>{{ ev.date_label }}</div>
             </div>
+            {% else %}
+            {# Image-optional: the date block IS the hero, colour-coded by category. #}
+            <div class="ll-event-dateblock" style="--accent: {{ ev.accent_color }};">
+              <span class="ll-event-dateblock-month">{{ ev.month_label }}</span>
+              <span class="ll-event-dateblock-day">{{ ev.date_label }}</span>
+              <span class="ll-event-dateblock-dow">{{ ev.day_label }}</span>
+              {% if ev.category_label %}<span class="ll-event-dateblock-cat">{{ ev.category_label }}</span>{% endif %}
+            </div>
+            {% endif %}
             <div class="ll-event-body">
-              <div class="ll-event-time">{{ ev.time_label }}</div>
+              <div class="ll-event-time">{% if ev.recurring and ev.schedule_label %}{{ ev.schedule_label }} &middot; {% endif %}{{ ev.time_label }}</div>
               <h3 class="ll-event-name">{{ ev.title }}</h3>
               <div style="color:var(--ll-muted); font-size:13px;">{{ ev.venue }}</div>
+              {% if ev.recurring %}<span class="ll-event-recurring">↻ Runs regularly</span>{% endif %}
             </div>
           </a>
           {% endfor %}
@@ -151,19 +187,6 @@
         </div>
       </section>
 
-      <section class="ll-section">
-        <p class="ll-eyebrow">Browse Havasu</p>
-        <h2 class="ll-title">All seven buckets</h2>
-        <div class="ll-categories">
-          {% for cat in category_cards %}
-          <a class="ll-category-row" href="/categories/{{ cat.slug }}">
-            <span>{{ cat.label }}</span>
-            <span>{{ cat.count }}</span>
-          </a>
-          {% endfor %}
-        </div>
-      </section>
-
       <p class="ll-subtle-link">
         <a href="/contribute">Add to Hava</a> &nbsp; &mdash; made in Lake Havasu &mdash;
       </p>
@@ -174,10 +197,6 @@
         <p class="ll-eyebrow">Sponsored</p>
         <h3 class="ll-serif" style="margin:0 0 8px; font-size:28px;">Weekend deal</h3>
         <p style="margin:0; color:var(--ll-muted);">Quiet local promotion space. Honest and clearly labeled.</p>
-      </div>
-      <div class="ll-card">
-        <p class="ll-eyebrow">Gas snapshot</p>
-        <p style="margin:0; color:var(--ll-muted);">{{ gas_snapshot.staleness_label or 'Updating now' }}</p>
       </div>
       <div class="ll-card" style="border-style:dashed;">
         <p class="ll-eyebrow">Add to Hava</p>

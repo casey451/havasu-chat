@@ -24,7 +24,9 @@ def business_from_provider(provider: Provider) -> dict[str, Any]:
         "id": provider.id,
         "name": provider.provider_name,
         "category": bucket,
-        "subcategory": provider.google_primary_category,
+        # Canonical second level (master spec §3.1). Falls back to the raw Google
+        # primary type when a row hasn't been classified yet (subcategory NULL).
+        "subcategory": provider.subcategory or provider.google_primary_category,
         "phone": provider.phone,
         "address": provider.address,
         "lat": provider.lat,

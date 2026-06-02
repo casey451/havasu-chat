@@ -47,7 +47,13 @@ def list_businesses(
         # Filter in Python after fetch for bucket mapping (legacy categories vary).
         pass
     if subcategory:
-        stmt = stmt.where(Provider.google_primary_category.ilike(f"%{subcategory}%"))
+        # Prefer the canonical second-level column (P0 Task 2); fall back to a
+        # Google-type substring match for rows not yet classified.
+        sub = subcategory.strip().lower()
+        stmt = stmt.where(
+            (Provider.subcategory == sub)
+            | (Provider.subcategory.is_(None) & Provider.google_primary_category.ilike(f"%{sub}%"))
+        )
     if q and q.strip():
         needle = f"%{q.strip()}%"
         stmt = stmt.where(Provider.provider_name.ilike(needle))

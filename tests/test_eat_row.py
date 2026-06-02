@@ -503,7 +503,9 @@ def test_home_redesign_renders_scroll_row_when_eat_cards_populated() -> None:
     assert r.status_code == 200
     body = r.text
     assert "/static/styles/lake_light.css" in body
-    assert "Fuel before you head out" in body
+    # P0 Task 5: gas moved from a full-width section into the slim utility strip
+    # (strip presence is data-dependent; asserted in test_utility_strip).
+    assert "Fuel before you head out" not in body
 
 
 def test_home_redesign_eat_card_links_to_provider_when_slug_present() -> None:

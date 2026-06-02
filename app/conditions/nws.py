@@ -110,11 +110,21 @@ def fetch_nws_forecast_daily() -> dict[str, Any]:
     forecast = _get(forecast_url)
     periods = (forecast.get("properties") or {}).get("periods") or []
     daily_high_f: float | None = None
+    short_forecast: str | None = None
     if periods and isinstance(periods[0], dict):
         temp = periods[0].get("temperature")
         if isinstance(temp, (int, float)):
             daily_high_f = float(temp)
-    return {"periods": periods[:14], "forecast_high_f": daily_high_f}
+        # Surface the first/current period's sky condition (e.g. "Sunny",
+        # "Mostly Cloudy") so the home utility strip can render a sky chip.
+        sf = periods[0].get("shortForecast")
+        if isinstance(sf, str) and sf.strip():
+            short_forecast = sf.strip()
+    return {
+        "periods": periods[:14],
+        "forecast_high_f": daily_high_f,
+        "short_forecast": short_forecast,
+    }
 
 
 def fetch_nws_sunset() -> dict[str, Any]:

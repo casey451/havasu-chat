@@ -301,10 +301,7 @@ def test_master_bucket_slug_resolves_to_category_page(bucket: str) -> None:
     """Browse Havasu bucket links 301 to Tier-1 pages (or 200 when slug matches)."""
     client = TestClient(app, follow_redirects=False)
     expected_dest = BUCKET_SLUG_REDIRECTS[bucket]
-    with (
-        patch.object(cat_queries, "category_cards", return_value=_stub_cards(3)),
-        patch.object(cat_queries, "category_count", return_value=5),
-    ):
+    with patch.object(cat_queries, "category_listing", return_value=(_stub_cards(3), 5)):
         resp = client.get(f"/categories/{bucket}")
     if bucket == "services":
         assert resp.status_code == 200
@@ -335,10 +332,7 @@ def test_category_route_200_for_every_known_slug(slug: str) -> None:
     """All 15 known routes return 200 with the slim header and grid."""
     client = TestClient(app)
     label, _ = cat_queries.CATEGORY_DISPLAY[slug]
-    with (
-        patch.object(cat_queries, "category_cards", return_value=_stub_cards(5)),
-        patch.object(cat_queries, "category_count", return_value=12),
-    ):
+    with patch.object(cat_queries, "category_listing", return_value=(_stub_cards(5), 12)):
         resp = client.get(f"/categories/{slug}")
     assert resp.status_code == 200, f"GET /categories/{slug} returned {resp.status_code}"
     body = resp.text
@@ -361,10 +355,7 @@ def test_category_route_hides_count_when_none() -> None:
     in the body. SVG blocks are stripped before the scan to avoid
     tripping on path data."""
     client = TestClient(app)
-    with (
-        patch.object(cat_queries, "category_cards", return_value=[]),
-        patch.object(cat_queries, "category_count", return_value=None),
-    ):
+    with patch.object(cat_queries, "category_listing", return_value=([], 0)):
         resp = client.get("/categories/eat-drink")
     assert resp.status_code == 200
     body = _strip_svg(resp.text)
@@ -379,10 +370,7 @@ def test_category_route_renders_grid_when_cards_present() -> None:
     """When category_cards returns rows, the grid partial renders. The
     bridge empty-state branch should NOT appear."""
     client = TestClient(app)
-    with (
-        patch.object(cat_queries, "category_cards", return_value=_stub_cards(7)),
-        patch.object(cat_queries, "category_count", return_value=7),
-    ):
+    with patch.object(cat_queries, "category_listing", return_value=(_stub_cards(7), 7)):
         resp = client.get("/categories/services")
     assert resp.status_code == 200
     body = resp.text
@@ -394,10 +382,7 @@ def test_category_route_renders_grid_when_cards_present() -> None:
 def test_category_route_topbar_tab_anchors_have_hrefs() -> None:
     """Category page includes standard navigation links."""
     client = TestClient(app)
-    with (
-        patch.object(cat_queries, "category_cards", return_value=_stub_cards(3)),
-        patch.object(cat_queries, "category_count", return_value=3),
-    ):
+    with patch.object(cat_queries, "category_listing", return_value=(_stub_cards(3), 3)):
         resp = client.get("/categories/eat-drink")
     assert resp.status_code == 200
     body = resp.text
@@ -408,10 +393,7 @@ def test_category_route_topbar_tab_anchors_have_hrefs() -> None:
 def test_category_route_marks_correct_tab_active() -> None:
     """Category page highlights Explore in bottom navigation."""
     client = TestClient(app)
-    with (
-        patch.object(cat_queries, "category_cards", return_value=_stub_cards(2)),
-        patch.object(cat_queries, "category_count", return_value=2),
-    ):
+    with patch.object(cat_queries, "category_listing", return_value=(_stub_cards(2), 2)):
         resp = client.get("/categories/eat-drink")
     assert resp.status_code == 200
     body = resp.text
@@ -421,10 +403,7 @@ def test_category_route_marks_correct_tab_active() -> None:
 def test_category_route_tile_route_marks_mega_tab_active() -> None:
     """Tile route still highlights Explore in bottom navigation."""
     client = TestClient(app)
-    with (
-        patch.object(cat_queries, "category_cards", return_value=_stub_cards(4)),
-        patch.object(cat_queries, "category_count", return_value=4),
-    ):
+    with patch.object(cat_queries, "category_listing", return_value=(_stub_cards(4), 4)):
         resp = client.get("/categories/pets")
     assert resp.status_code == 200
     body = resp.text
@@ -448,10 +427,7 @@ def test_category_route_no_zero_listed_copy_anywhere() -> None:
     full '0 listed' check on the SVG-stripped body."""
     client = TestClient(app)
     # Test the no-data path: empty cards, no count.
-    with (
-        patch.object(cat_queries, "category_cards", return_value=[]),
-        patch.object(cat_queries, "category_count", return_value=None),
-    ):
+    with patch.object(cat_queries, "category_listing", return_value=([], 0)):
         resp = client.get("/categories/pets")
     assert resp.status_code == 200
     body = _strip_svg(resp.text)
@@ -463,10 +439,7 @@ def test_category_route_back_link_present() -> None:
     """Slim header must include a back link to /home so visitors can
     bail out of a category page back to the editorial home surface."""
     client = TestClient(app)
-    with (
-        patch.object(cat_queries, "category_cards", return_value=_stub_cards(1)),
-        patch.object(cat_queries, "category_count", return_value=1),
-    ):
+    with patch.object(cat_queries, "category_listing", return_value=(_stub_cards(1), 1)):
         resp = client.get("/categories/lodging-vacation-rentals")
     assert resp.status_code == 200
     body = resp.text

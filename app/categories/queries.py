@@ -23,16 +23,24 @@ than 500 the category page.
 from __future__ import annotations
 
 import json
-from datetime import datetime
+import math
+from dataclasses import dataclass
+from datetime import datetime, time
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
 from app.db.models import Provider
 from app.home.queries import _hours_status, _provider_image_url
 from app.home.queries_c import _load_eat_photos, _rating_display, _rating_sort_key
+from app.providers.queries import (
+    _parse_hours_time,
+    effective_hours_structured,
+    is_open_now,
+)
 
 _CATEGORY_PHOTOS_PATH = Path(__file__).resolve().parent / "curated_category_photos.json"
 
@@ -444,3 +452,182 @@ def category_count(db: Session | None, slug: str) -> int | None:
     if row is None or int(row) <= 0:
         return None
     return int(row)
+
+
+# ---------------------------------------------------------------------------
+# P0 Task 2 — faceted listing (subcategory + Open now / Closest / Top rated)
+# ---------------------------------------------------------------------------
+#
+# Powers both the plural mega-page and the /lake-havasu/{subcategory} landing.
+# Facets are independent and combinable. SQL-expressible filters (subcategory,
+# top_rated) run in the query; Open-now and Closest need each row's live hours /
+# geo, so when either is active we materialize the candidate set (bounded by
+# _MATERIALIZE_CAP) and finish in Python. Price/Hours facets from the brief are
+# intentionally omitted — there is no price signal in the catalog yet (flagged).
+
+# Civic-center anchor for the Closest sort. Mirrors category_pages._REF_*; a real
+# device-geolocation "near me" is a client-side follow-up (P1).
+_REF_LAT = 34.4839
+_REF_LNG = -114.3225
+_TOP_RATED_MIN = 4.0
+# Upper bound on rows scanned when a Python-side facet (open_now / closest) is
+# active. Comfortably above the largest bucket (Services ~1.5k) so the facet
+# count stays accurate; only paid when the facet is engaged.
+_MATERIALIZE_CAP = 2000
+
+
+# Hours-derived facets (open_late / open_weekends) parse the same weekday-keyed
+# hours_structured shape used for the open/closed pills. They never raise on
+# malformed input — a bad span is skipped; missing/non-dict hours → False.
+_WEEKEND_KEYS = ("saturday", "sunday")
+_LATE_HOURS_THRESHOLD_HOUR = 20  # 8 PM — "open late"
+
+
+def _has_late_hours(hours_structured: dict | None, threshold_hour: int = _LATE_HOURS_THRESHOLD_HOUR) -> bool:
+    """Whether any day's close time is at/after ``threshold_hour`` (24h). A span
+    wrapping past midnight (close <= open) counts as late."""
+    if not hours_structured or not isinstance(hours_structured, dict):
+        return False
+    threshold = time(threshold_hour % 24, 0)
+    for spans in hours_structured.values():
+        if not isinstance(spans, list):
+            continue
+        for span in spans:
+            if not isinstance(span, dict):
+                continue
+            open_t = _parse_hours_time(str(span.get("open") or ""))
+            close_t = _parse_hours_time(str(span.get("close") or ""))
+            if close_t is None:
+                continue
+            if open_t is not None and close_t <= open_t:
+                return True
+            if close_t >= threshold:
+                return True
+    return False
+
+
+def _has_weekend_hours(hours_structured: dict | None) -> bool:
+    """Whether the provider has any open span on Saturday or Sunday."""
+    if not hours_structured or not isinstance(hours_structured, dict):
+        return False
+    for day_key in _WEEKEND_KEYS:
+        spans = hours_structured.get(day_key)
+        if not isinstance(spans, list) or not spans:
+            continue
+        for span in spans:
+            if isinstance(span, dict) and _parse_hours_time(str(span.get("open") or "")) is not None:
+                return True
+    return False
+
+
+@dataclass(frozen=True)
+class CategoryFacets:
+    """Active facet selections for a category listing. All independent."""
+
+    subcategory: str | None = None
+    open_now: bool = False
+    top_rated: bool = False
+    open_late: bool = False
+    open_weekends: bool = False
+    sort: str = "default"  # default | closest | alpha
+
+    @property
+    def any_active(self) -> bool:
+        return bool(
+            self.subcategory
+            or self.open_now
+            or self.top_rated
+            or self.open_late
+            or self.open_weekends
+            or self.sort != "default"
+        )
+
+    @property
+    def needs_materialize(self) -> bool:
+        """Whether a facet requires Python-side scanning (live hours / distance).
+
+        SQL-expressible facets (subcategory, top_rated) and the alpha sort do
+        NOT; ``open_now`` / ``open_late`` / ``open_weekends`` / ``closest`` do.
+        """
+        return self.open_now or self.open_late or self.open_weekends or self.sort == "closest"
+
+
+def _distance_km(provider: Provider, ref_lat: float, ref_lng: float) -> float:
+    if provider.lat is None or provider.lng is None:
+        return 9e6
+    r = 6371.0
+    p1, p2 = math.radians(ref_lat), math.radians(float(provider.lat))
+    dp = math.radians(float(provider.lat) - ref_lat)
+    dl = math.radians(float(provider.lng) - ref_lng)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+def _provider_card(db: Session, provider: Provider, *, now: datetime) -> dict[str, Any]:
+    try:
+        status_class, status_text = _hours_status(provider, now=now)
+    except Exception:
+        status_class, status_text = "unknown", ""
+    return _build_category_card(
+        provider,
+        status_class=status_class,
+        status_text=status_text,
+        image_url=_resolve_category_card_image(provider),
+    )
+
+
+def category_listing(
+    db: Session | None,
+    slug: str,
+    *,
+    now: datetime,
+    facets: CategoryFacets | None = None,
+    limit: int = _DEFAULT_CARD_LIMIT,
+) -> tuple[list[dict[str, Any]], int]:
+    """Return ``(cards, total)`` for a category page under the given facets.
+
+    ``total`` is the count of providers matching the facets (so the header's
+    "N listed" always matches the grid's basis — same no-mismatch discipline as
+    the home bucket counts). Never raises: a DB error degrades to ``([], 0)``.
+    """
+    if db is None or not is_valid_category_slug(slug):
+        return [], 0
+    facets = facets or CategoryFacets()
+    slugs_for_route = CATEGORY_FILTERS[slug.strip().lower()]
+    try:
+        base = db.query(Provider).filter(
+            Provider.category.in_(slugs_for_route),
+            Provider.is_active.is_(True),
+            Provider.draft.is_(False),
+        )
+        if facets.subcategory:
+            base = base.filter(Provider.subcategory == facets.subcategory.strip().lower())
+        if facets.top_rated:
+            base = base.filter(Provider.google_rating >= _TOP_RATED_MIN)
+
+        needs_scan = facets.needs_materialize
+        if not needs_scan:
+            total = int(base.with_entities(sa_func.count(Provider.id)).scalar() or 0)
+            ordered = (
+                base.order_by(Provider.provider_name.asc())
+                if facets.sort == "alpha"
+                else base.order_by(*_rating_sort_key())
+            )
+            rows = ordered.limit(max(limit, 1)).all()
+            return [_provider_card(db, p, now=now) for p in rows], total
+
+        rows = base.order_by(*_rating_sort_key()).limit(_MATERIALIZE_CAP).all()
+        if facets.open_now:
+            rows = [p for p in rows if is_open_now(p, now=now)[0] is True]
+        if facets.open_late:
+            rows = [p for p in rows if _has_late_hours(effective_hours_structured(p))]
+        if facets.open_weekends:
+            rows = [p for p in rows if _has_weekend_hours(effective_hours_structured(p))]
+        if facets.sort == "closest":
+            rows.sort(key=lambda p: (_distance_km(p, _REF_LAT, _REF_LNG), (p.provider_name or "").lower()))
+        elif facets.sort == "alpha":
+            rows.sort(key=lambda p: (p.provider_name or "").lower())
+        total = len(rows)
+        return [_provider_card(db, p, now=now) for p in rows[:limit]], total
+    except Exception:
+        return [], 0
