@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  {% include '_partials/plausible.html' %}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{ itinerary.title }} — Ask Hava</title>
+  <meta name="description" content="A time-ordered Lake Havasu City day plan — morning, lunch, on-the-water, and an evening event — built only from real local listings.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles/lake_light.css">
+</head>
+<body class="ll-page">
+{% set active_tab = "home" %}
+<main class="ll-utility-shell" role="main">
+  {% set header_back_href = "/home" %}
+  {% set header_back_label = "Back to Home" %}
+  {% include "_partials/lake_light_header.html" %}
+  <section class="ll-utility-main">
+    <p class="ll-eyebrow">Plan your day</p>
+    <h1>{{ itinerary.title }}</h1>
+    <p class="ll-muted">{{ itinerary.plan_date.strftime('%A, %B') }} {{ itinerary.plan_date.day }}</p>
+
+    {% if itinerary.all_empty %}
+      <div class="ll-warning ll-spaced">
+        We couldn't build a plan from the catalog for this day yet. As local
+        listings grow, this will fill in. Know great spots?
+        <a href="/contribute">Add them</a>.
+      </div>
+    {% endif %}
+
+    <div class="ll-spaced">
+      {% for stop in itinerary.stops %}
+      <div class="ll-card" style="padding:14px;margin-bottom:12px;">
+        <p class="ll-eyebrow" style="margin:0 0 4px;">{{ stop.time_label }} · {{ stop.label }}</p>
+        {% if stop.filled %}
+          <p class="ll-title" style="font-size:22px;margin:0;">
+            {% if stop.pick.href %}<a href="{{ stop.pick.href }}">{{ stop.pick.name }}</a>{% else %}{{ stop.pick.name }}{% endif %}
+          </p>
+          {% if stop.pick.detail %}<p class="ll-muted" style="margin:4px 0 0;">{{ stop.pick.detail }}</p>{% endif %}
+          {% if stop.pick.note %}<p class="ll-muted" style="font-size:12px;margin:4px 0 0;">{{ stop.pick.note }}</p>{% endif %}
+        {% else %}
+          <p class="ll-muted" style="margin:0;">{{ stop.empty_message }}</p>
+          <p style="margin:6px 0 0;"><a href="{{ stop.contribute_href }}">Add a spot</a></p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <p class="ll-muted ll-spaced">
+      Every stop is a real listing from the local catalog — we never invent a
+      venue, a time, or an event. Suggested times are a rough rhythm for the day,
+      not guaranteed hours; always confirm before you head out.
+    </p>
+  </section>
+  {% include "_partials/lake_light_footer.html" %}
+</main>
+{% include "_partials/lake_light_bottom_nav.html" %}
+</body>
+</html>

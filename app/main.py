@@ -68,6 +68,7 @@ from app.home.chat_route import router as new_chat_ui_router
 from app.home.router import router as home_router
 from app.photos.routes import router as photos_router
 from app.photos.sweep import run_stuck_photo_sweep
+from app.plan.router import router as plan_router
 from app.programs.router import router as programs_router
 from app.providers.router import router as providers_router
 from app.schemas.event import EventRead
@@ -378,6 +379,9 @@ app.include_router(map_data_router)
 app.include_router(conditions_router)
 app.include_router(today_router)
 app.include_router(gas_router)
+# Lane B5: "/plan my day/weekend" itinerary builder (GET /plan, POST /api/plan).
+# Additive surface — assembled from the real catalog only, never fabricated.
+app.include_router(plan_router)
 app.include_router(admin_router)
 app.include_router(admin_v1_overview_router)
 app.include_router(admin_contributions_router)
