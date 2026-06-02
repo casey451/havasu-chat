@@ -43,19 +43,22 @@ from __future__ import annotations
 import time as _time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.categories import queries as cat_queries
-from app.v1.categories import BUCKET_SLUG_REDIRECTS
+from app.categories import subcategories as subcats
+from app.categories.queries import CategoryFacets
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.db.models import Provider
 from app.home.queries import _provider_image_url
+from app.v1.categories import BUCKET_SLUG_REDIRECTS
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
@@ -235,19 +238,108 @@ def serve_categories_index(
     )
 
 
+def _facets_from_query(
+    *, subcategory: str | None, open_now: str | None, rating: str | None, sort: str | None
+) -> CategoryFacets:
+    """Parse raw query params into a validated CategoryFacets."""
+
+    def _flag(val: str | None) -> bool:
+        # Truthy unless explicitly empty/zero/false — so both ``open=1`` and the
+        # threshold-style ``rating=4`` toggle on.
+        return val is not None and str(val).strip().lower() not in {"", "0", "false", "no"}
+
+    sort_key = (sort or "").strip().lower()
+    if sort_key not in {"closest", "alpha"}:
+        sort_key = "default"
+    sub = (subcategory or "").strip().lower() or None
+    if sub and subcats.subcategory_by_slug(sub) is None:
+        sub = None
+    return CategoryFacets(
+        subcategory=sub,
+        open_now=_flag(open_now),
+        top_rated=_flag(rating),
+        sort=sort_key,
+    )
+
+
+_SORT_OPTIONS: tuple[tuple[str, str], ...] = (
+    ("default", "Featured"),
+    ("closest", "Closest"),
+    ("alpha", "A–Z"),
+)
+
+
+def _render_category_page(
+    request: Request,
+    db: Session,
+    *,
+    route_slug: str,
+    facets: CategoryFacets,
+    label: str,
+    one_liner: str,
+    chip_bucket_id: str | None,
+    active_subcategory: str | None,
+    active_tab: str,
+) -> HTMLResponse:
+    """Shared render for the plural mega-page and the subcategory SEO landing.
+
+    ``route_slug`` is the ``CATEGORY_FILTERS`` route providers are drawn from;
+    ``active_subcategory`` (when set) both filters and highlights its chip.
+    """
+    now = now_lake_havasu()
+    cards, total = cat_queries.category_listing(db, route_slug, now=now, facets=facets)
+
+    chips = subcats.subcategories_for_bucket(chip_bucket_id) if chip_bucket_id else []
+
+    def facet_href(**changes: str | None) -> str:
+        """Current path with facet params toggled; drops falsy values."""
+        q = {k: v for k, v in request.query_params.items()}
+        for key, val in changes.items():
+            if val in (None, "", False):
+                q.pop(key, None)
+            else:
+                q[key] = str(val)
+        tail = urlencode(sorted(q.items()))
+        return request.url.path + ("?" + tail if tail else "")
+
+    return templates.TemplateResponse(
+        request=request,
+        name="category_c.html",
+        context={
+            "today_label": now.strftime("%A, %B ") + str(now.day),
+            "now_label": now.strftime("%I:%M %p").lstrip("0"),
+            "category_slug": route_slug,
+            "category_label": label,
+            "category_one_liner": one_liner,
+            "category_count": total,
+            "category_cards": cards,
+            "active_tab": active_tab,
+            "subcat_chips": chips,
+            "active_subcategory": active_subcategory,
+            "facets": facets,
+            "sort_options": _SORT_OPTIONS,
+            "facet_href": facet_href,
+            # "All" chip target: the plural mega-page for this bucket.
+            "all_chip_url": f"/categories/{route_slug}",
+        },
+    )
+
+
 @router.get("/categories/{slug}", response_class=HTMLResponse, response_model=None)
 def serve_category(
     request: Request,
     slug: str,
     db: Session = Depends(get_db),
+    subcategory: str | None = Query(None, alias="sub"),
+    open_now: str | None = Query(None, alias="open"),
+    rating: str | None = Query(None),
+    sort: str | None = Query(None),
 ) -> HTMLResponse | RedirectResponse:
-    """Render a single category page.
+    """Render a single category page with subcategory chips + faceted filters.
 
     Master-bucket slugs (``food-drink``, ``events``, …) 301 to their
     mapped Tier-1 ``/categories/{slug}`` page. Returns 404 when the
-    slug is neither a known route nor a master bucket. Otherwise renders
-    ``category_c.html`` with a filtered Provider list, a slim header,
-    and the shared topbar with the right tab marked active.
+    slug is neither a known route nor a master bucket.
     """
     normalised = (slug or "").strip().lower()
     if not cat_queries.is_valid_category_slug(normalised):
@@ -256,23 +348,65 @@ def serve_category(
             return RedirectResponse(url=bucket_dest, status_code=301)
         raise HTTPException(status_code=404, detail="unknown_category")
 
-    now = now_lake_havasu()
     label, one_liner = cat_queries.CATEGORY_DISPLAY[normalised]
-    count = cat_queries.category_count(db, normalised)
-    cards = cat_queries.category_cards(db, normalised, now=now)
-    active_tab = cat_queries.active_tab_for(normalised)
-
-    return templates.TemplateResponse(
-        request=request,
-        name="category_c.html",
-        context={
-            "today_label": now.strftime("%A, %B ") + str(now.day),
-            "now_label": now.strftime("%I:%M %p").lstrip("0"),
-            "category_slug": normalised,
-            "category_label": label,
-            "category_one_liner": one_liner,
-            "category_count": count,
-            "category_cards": cards,
-            "active_tab": active_tab,
-        },
+    facets = _facets_from_query(
+        subcategory=subcategory, open_now=open_now, rating=rating, sort=sort
     )
+    return _render_category_page(
+        request,
+        db,
+        route_slug=normalised,
+        facets=facets,
+        label=label,
+        one_liner=one_liner,
+        chip_bucket_id=subcats.bucket_for_category_route(normalised),
+        active_subcategory=None,
+        active_tab=cat_queries.active_tab_for(normalised),
+    )
+
+
+def render_subcategory_landing(
+    request: Request,
+    db: Session,
+    *,
+    subcategory_slug: str,
+    open_now: str | None = None,
+    rating: str | None = None,
+    sort: str | None = None,
+) -> HTMLResponse | None:
+    """Render the ``/lake-havasu/{subcategory}`` SEO landing, or None if unknown.
+
+    Draws providers from the subcategory's bucket route, pre-filtered to the
+    subcategory, with its own ``<h1>`` headline. Returns None so the caller can
+    fall through to the provider-slug alias when the token isn't a subcategory.
+    """
+    sub = subcats.subcategory_by_slug(subcategory_slug)
+    if sub is None:
+        return None
+    bucket_route = _bucket_route_for_subcategory(sub.bucket_id)
+    if bucket_route is None:
+        return None
+    facets = _facets_from_query(
+        subcategory=sub.slug, open_now=open_now, rating=rating, sort=sort
+    )
+    headline = f"{sub.label} in Lake Havasu City"
+    return _render_category_page(
+        request,
+        db,
+        route_slug=bucket_route,
+        facets=facets,
+        label=headline,
+        one_liner=sub.one_liner,
+        chip_bucket_id=sub.bucket_id,
+        active_subcategory=sub.slug,
+        active_tab=cat_queries.active_tab_for(bucket_route),
+    )
+
+
+def _bucket_route_for_subcategory(bucket_id: str) -> str | None:
+    """Plural ``CATEGORY_FILTERS`` route that hosts a bucket's providers."""
+    dest = BUCKET_SLUG_REDIRECTS.get(bucket_id)
+    if not dest:
+        return None
+    route = dest.rsplit("/", 1)[-1]
+    return route if cat_queries.is_valid_category_slug(route) else None

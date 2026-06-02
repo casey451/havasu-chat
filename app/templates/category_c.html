@@ -31,6 +31,33 @@
     </p>
   </section>
 
+  {% if subcat_chips %}
+  <nav class="ll-chip-row ll-subcat-row" aria-label="Subcategories">
+    <a class="ll-chip{% if not active_subcategory %} is-active{% endif %}" href="{{ all_chip_url }}">All</a>
+    {% for sc in subcat_chips %}
+    <a class="ll-chip{% if active_subcategory == sc.slug %} is-active{% endif %}"
+       href="/lake-havasu/{{ sc.slug }}">{{ sc.label }}</a>
+    {% endfor %}
+  </nav>
+  {% endif %}
+
+  {% if facet_href %}
+  <div class="ll-facet-bar" role="group" aria-label="Filters">
+    <a class="ll-facet{% if facets.open_now %} is-active{% endif %}"
+       href="{{ facet_href(open=(none if facets.open_now else '1')) }}"
+       {% if facets.open_now %}aria-pressed="true"{% endif %}>Open now</a>
+    <a class="ll-facet{% if facets.top_rated %} is-active{% endif %}"
+       href="{{ facet_href(rating=(none if facets.top_rated else '4')) }}"
+       {% if facets.top_rated %}aria-pressed="true"{% endif %}>Top rated</a>
+    <span class="ll-facet-sort" aria-label="Sort">
+      {% for val, lbl in sort_options %}
+      <a class="ll-facet{% if facets.sort == val %} is-active{% endif %}"
+         href="{{ facet_href(sort=(none if val == 'default' else val)) }}">{{ lbl }}</a>
+      {% endfor %}
+    </span>
+  </div>
+  {% endif %}
+
   {% if category_cards %}
   <section class="ll-category-grid">
     {% for card in category_cards %}

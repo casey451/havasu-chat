@@ -114,9 +114,14 @@ a:hover {
   content: "";
   position: absolute;
   inset: 0;
+  /* Layer order (top -> bottom): legibility scrim, hero photo, golden-hour
+     gradient. The gradient is the floor: if the photo is missing, slow, or
+     404s, the hero still reads as an intentional Lake Havasu sunset instead of
+     a broken box or a reused stock image. */
   background:
     linear-gradient(180deg, rgba(24, 28, 24, 0.2) 20%, rgba(24, 28, 24, 0.68) 100%),
-    var(--hero-url) center / cover no-repeat;
+    var(--hero-url, none) center / cover no-repeat,
+    linear-gradient(168deg, #2e2852 0%, #5b3a63 32%, #c46042 56%, #f0b25c 70%, #3a5c60 71%, #1c2e36 100%);
 }
 
 .ll-hero > * {
@@ -1538,4 +1543,256 @@ body.ll-chat .turn-hava .component-slot {
   .ll-utility-main {
     padding: 20px;
   }
+}
+
+/* P0 Task 2 — subcategory chips + faceted filter bar (category pages) */
+.ll-subcat-row {
+  margin-top: 16px;
+}
+
+a.ll-chip {
+  text-decoration: none;
+  cursor: pointer;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.ll-chip.is-active {
+  background: var(--ll-jade, #1f6f5c);
+  border-color: var(--ll-jade, #1f6f5c);
+  color: #fff;
+}
+
+.ll-facet-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ll-line);
+}
+
+.ll-facet-bar .ll-facet-sort {
+  display: inline-flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+a.ll-facet {
+  text-decoration: none;
+  cursor: pointer;
+  flex: 0 0 auto;
+  border: 1px solid var(--ll-line);
+  border-radius: 999px;
+  background: var(--ll-card);
+  color: var(--ll-ink);
+  font-size: 12px;
+  padding: 7px 13px;
+}
+
+a.ll-facet.is-active {
+  background: var(--ll-ink, #14202b);
+  border-color: var(--ll-ink, #14202b);
+  color: #fff;
+}
+
+/* P0 Task 2 — home "Popular in Havasu" subcategory shortcuts */
+.ll-shortcut-card {
+  padding: 14px;
+  margin-top: 8px;
+}
+
+.ll-shortcut-title {
+  display: inline-block;
+  font-weight: 600;
+  color: var(--ll-ink);
+  text-decoration: none;
+  margin-bottom: 10px;
+}
+
+.ll-shortcut-title::after {
+  content: " ›";
+  color: var(--ll-jade, #1f6f5c);
+}
+
+/* P0 Task 3 — image-optional event cards: the date block is the hero,
+   colour-coded by category via the inline --accent var. Also the hero credit. */
+.ll-hero-credit {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: rgba(247, 231, 217, 0.8);
+}
+
+.ll-hero-credit a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.ll-event-dateblock {
+  height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  color: #fff;
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--accent, #3f5c4b) 88%, #fff 12%),
+      color-mix(in srgb, var(--accent, #3f5c4b) 78%, #000 22%));
+  position: relative;
+}
+
+.ll-event-dateblock-month {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.92;
+}
+
+.ll-event-dateblock-day {
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 44px;
+  line-height: 1;
+  font-weight: 600;
+}
+
+.ll-event-dateblock-dow {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.ll-event-dateblock-cat {
+  margin-top: 6px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Events list: date-as-hero thumbnail when no photo. */
+.ll-list-thumb--date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--accent, #3f5c4b) 88%, #fff 12%),
+      color-mix(in srgb, var(--accent, #3f5c4b) 78%, #000 22%));
+}
+
+.ll-list-thumb-month {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.92;
+}
+
+.ll-list-thumb-day {
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 26px;
+  line-height: 1;
+  font-weight: 600;
+}
+
+/* P0 Task 4 — "runs regularly" tag on collapsed recurring series. */
+.ll-event-recurring {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ll-jade);
+  background: var(--ll-jade-soft);
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+
+/* P0 Task 5 — slim top utility strip: cheapest gas + ambient conditions as
+   compact chips that expand on tap. Replaces the old full-width gas panel; it
+   is a thin bar, never a section. */
+.ll-utilstrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  margin: 0 0 10px;
+  padding: 2px 0;
+}
+
+.ll-utilchip {
+  position: relative;
+  border: 1px solid var(--ll-line);
+  border-radius: 999px;
+  background: var(--ll-card);
+}
+
+.ll-utilchip > summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ll-ink);
+  white-space: nowrap;
+}
+
+.ll-utilchip > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ll-utilchip-icon {
+  font-size: 13px;
+}
+
+.ll-utilchip[open] {
+  border-color: var(--ll-jade);
+}
+
+.ll-utilchip.sev-warning > summary,
+.ll-utilchip.sev-severe > summary {
+  color: var(--ll-terracotta);
+}
+
+.ll-utilchip.is-stale > summary {
+  opacity: 0.6;
+}
+
+.ll-utilchip-pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  min-width: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 11px 13px;
+  border: 1px solid var(--ll-line);
+  border-radius: 14px;
+  background: var(--ll-card);
+  box-shadow: var(--ll-shadow);
+  font-size: 12px;
+  color: var(--ll-muted);
+}
+
+.ll-utilchip-pop strong {
+  color: var(--ll-ink);
+  font-size: 13px;
+}
+
+.ll-utilchip-src,
+.ll-utilchip-fresh {
+  font-size: 11px;
+  opacity: 0.85;
 }

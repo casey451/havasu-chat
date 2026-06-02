@@ -36,6 +36,12 @@ class Provider(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
     provider_name: Mapped[str] = mapped_column(String, nullable=False)
     category: Mapped[str] = mapped_column(String, nullable=False)
+    # P0 Task 2: second-level group slug (e.g. "home-services", "dog groomer"
+    # bucket). One of app/categories/subcategories.py's group slugs. Nullable —
+    # rows with no classifiable Google/legacy signal stay NULL and surface under
+    # the landing page's "All" chip rather than being mislabeled. Indexed for the
+    # /lake-havasu/{subcategory} landing filter. Master spec §3.1.
+    subcategory: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     address: Mapped[str | None] = mapped_column(String, nullable=True)
     phone: Mapped[str | None] = mapped_column(String, nullable=True)
     email: Mapped[str | None] = mapped_column(String, nullable=True)

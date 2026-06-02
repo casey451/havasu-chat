@@ -28,11 +28,19 @@
       <a class="ll-list-card {% if ev.featured %}is-boosted{% endif %}" href="{{ ev.url }}">
         {% if ev.featured %}<span class="ll-list-ribbon">★ FEATURED</span>{% endif %}
         <span class="ll-bookmark" aria-hidden="true">♡</span>
-        <div class="ll-list-thumb"></div>
+        {% if ev.image_url %}
+        <div class="ll-list-thumb" style="background-image:url('{{ ev.image_url }}'); background-size:cover; background-position:center;"></div>
+        {% else %}
+        <div class="ll-list-thumb ll-list-thumb--date" style="--accent: {{ ev.accent_color | default('#3f5c4b') }};">
+          <span class="ll-list-thumb-month">{{ ev.month_label }}</span>
+          <span class="ll-list-thumb-day">{{ ev.date_label }}</span>
+        </div>
+        {% endif %}
         <div>
-          <div class="ll-list-time">{{ ev.time_label }}</div>
+          <div class="ll-list-time">{% if ev.recurring and ev.schedule_label %}{{ ev.schedule_label }} &middot; {% endif %}{{ ev.time_label }}</div>
           <h3 class="ll-serif" style="margin:3px 0; font-size:24px;">{{ ev.title }}</h3>
           <div style="font-size:13px; color:var(--ll-muted);">{{ ev.venue }}</div>
+          {% if ev.recurring %}<span class="ll-event-recurring">↻ Runs regularly</span>{% endif %}
         </div>
       </a>
       {% else %}

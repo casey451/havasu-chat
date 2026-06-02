@@ -1,0 +1,158 @@
+"""P0 Task 2 — subcategory taxonomy, derivation, facets, and SEO landing."""
+
+from __future__ import annotations
+
+import uuid
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import delete
+
+from app.categories import subcategories as subcats
+from app.categories.queries import CategoryFacets, category_listing
+from app.categories.subcategories import derive_subcategory
+from app.core.timezone import now_lake_havasu
+from app.db.database import SessionLocal
+from app.db.models import Entity, Provider
+from app.main import app
+
+
+@pytest.fixture()
+def client() -> TestClient:
+    return TestClient(app)
+
+
+# --- taxonomy ---------------------------------------------------------------
+
+
+def test_storage_lives_under_services_not_recreation() -> None:
+    storage = subcats.subcategory_by_slug("storage")
+    assert storage is not None
+    assert storage.bucket_id == "services"
+    rec_slugs = {s.slug for s in subcats.subcategories_for_bucket("recreation-outdoors")}
+    assert "storage" not in rec_slugs
+    svc_slugs = {s.slug for s in subcats.subcategories_for_bucket("services")}
+    assert "storage" in svc_slugs
+
+
+def test_subcategories_for_category_route_maps_bucket_destinations() -> None:
+    # /categories/services is the Services bucket destination → Services chips.
+    labels = {s.slug for s in subcats.subcategories_for_category_route("services")}
+    assert {"home-services", "auto", "pets", "storage"} <= labels
+    # A non-bucket tile route has no second level.
+    assert subcats.subcategories_for_category_route("beauty-care") == []
+
+
+# --- derivation -------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "kwargs,expected",
+    [
+        ({"category": "x", "google_primary_category": "plumber"}, "home-services"),
+        ({"category": "x", "google_primary_category": "self_storage"}, "storage"),
+        ({"category": "x", "google_primary_category": "dentist"}, "health-medical"),
+        ({"category": "x", "google_categories": ["bar", "establishment"]}, "bars-breweries"),
+        ({"category": "lodging"}, "hotels"),  # legacy fallback
+        ({"category": "professional_services"}, "professional"),
+        ({"category": "religion_community"}, "civic-community"),
+        ({"category": "totally-unknown-bucket"}, None),  # no guess
+    ],
+)
+def test_derive_subcategory(kwargs: dict, expected: str | None) -> None:
+    assert derive_subcategory(**kwargs) == expected
+
+
+def test_specific_google_type_beats_legacy_bucket() -> None:
+    # legacy "services" is vague; the Google type pins it to auto.
+    assert (
+        derive_subcategory(category="services", google_primary_category="car_repair") == "auto"
+    )
+
+
+# --- facets + SEO landing (integration) ------------------------------------
+
+
+def _seed(db, *, name: str, category: str, subcategory: str | None, rating: float | None = None) -> str:
+    suf = uuid.uuid4().hex[:8]
+    p = Provider(
+        provider_name=f"{name} {suf}",
+        category=category,
+        subcategory=subcategory,
+        google_rating=rating,
+        google_review_count=50 if rating else None,
+        draft=False,
+        is_active=True,
+        pending_review=False,
+        source="test-subcat",
+        slug=f"{name.lower().replace(' ', '-')}-{suf}",
+    )
+    db.add(p)
+    db.commit()
+    return p.entity_id
+
+
+def test_subcategory_seo_landing_renders_and_filters(client: TestClient) -> None:
+    ids: list[str] = []
+    with SessionLocal() as db:
+        ids.append(_seed(db, name="Ace Plumbing", category="home_services", subcategory="home-services", rating=4.8))
+        ids.append(_seed(db, name="Bob Electric", category="home_services", subcategory="home-services", rating=3.2))
+        ids.append(_seed(db, name="Zed Storage", category="services", subcategory="storage"))
+    try:
+        r = client.get("/lake-havasu/home-services")
+        assert r.status_code == 200
+        body = r.text
+        # Own headline + active chip + does not leak the storage row.
+        assert "Home Services in Lake Havasu City" in body
+        assert "Ace Plumbing" in body
+        assert "Zed Storage" not in body
+        # Top-rated facet drops the 3.2 provider.
+        r2 = client.get("/lake-havasu/home-services?rating=4")
+        assert "Ace Plumbing" in r2.text
+        assert "Bob Electric" not in r2.text
+    finally:
+        with SessionLocal() as db:
+            db.execute(delete(Provider).where(Provider.entity_id.in_(ids)))
+            db.execute(delete(Entity).where(Entity.id.in_(ids)))
+            db.commit()
+
+
+def test_unknown_subcategory_token_is_not_a_landing(client: TestClient) -> None:
+    # A token that is neither a subcategory nor a provider slug → 404 (falls
+    # through to the provider alias).
+    r = client.get("/lake-havasu/definitely-not-a-subcategory-or-business", follow_redirects=False)
+    assert r.status_code == 404
+
+
+def test_category_listing_facets_combine() -> None:
+    ids: list[str] = []
+    with SessionLocal() as db:
+        ids.append(_seed(db, name="Pro One", category="professional_services", subcategory="professional", rating=4.9))
+        ids.append(_seed(db, name="Pro Two", category="professional_services", subcategory="professional", rating=2.0))
+    try:
+        now = now_lake_havasu()
+        _, total_all = category_listing(
+            SessionLocal(), "services", now=now, facets=CategoryFacets(subcategory="professional")
+        )
+        _, total_top = category_listing(
+            SessionLocal(),
+            "services",
+            now=now,
+            facets=CategoryFacets(subcategory="professional", top_rated=True),
+        )
+        assert total_all >= 2
+        assert total_top < total_all  # the 2.0-rated row is filtered out
+    finally:
+        with SessionLocal() as db:
+            db.execute(delete(Provider).where(Provider.entity_id.in_(ids)))
+            db.execute(delete(Entity).where(Entity.id.in_(ids)))
+            db.commit()
+
+
+def test_plural_page_shows_subcategory_chips(client: TestClient) -> None:
+    r = client.get("/categories/services")
+    assert r.status_code == 200
+    body = r.text
+    assert 'class="ll-chip-row ll-subcat-row"' in body
+    assert "/lake-havasu/storage" in body  # Storage chip present under Services
+    assert 'class="ll-facet-bar"' in body  # facet bar rendered
