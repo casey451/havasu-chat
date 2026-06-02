@@ -61,6 +61,7 @@ _SUBCATEGORIES: tuple[Subcategory, ...] = (
     Subcategory("trails-offroad", "Trails & Off-road", "recreation-outdoors", "Hiking and off-road routes."),
     Subcategory("parks-beaches", "Parks & Beaches", "recreation-outdoors", "City parks and shoreline."),
     Subcategory("golf", "Golf", "recreation-outdoors", "Courses and driving ranges."),
+    Subcategory("disc-golf", "Disc Golf", "recreation-outdoors", "Disc golf courses and baskets."),
     Subcategory("biking", "Biking", "recreation-outdoors", "Trails, shops, and rentals."),
     # -- Sports, Fitness & Classes --
     Subcategory("gyms", "Gyms", "sports-fitness", "Fitness centers and weight rooms."),
@@ -159,6 +160,10 @@ _TYPE_TO_SUBCAT: tuple[tuple[str, str], ...] = (
     ("harbor", "on-the-water"),
     ("ferry", "on-the-water"),
     ("fishing", "on-the-water"),
+    # disc golf before plain golf: "disc golf course" contains "golf", and
+    # first-match-wins, so the more specific token must come first.
+    ("disc_golf", "disc-golf"),
+    ("disc golf", "disc-golf"),
     ("golf", "golf"),
     ("bicycle", "biking"),
     ("bike", "biking"),
@@ -282,6 +287,12 @@ _LEGACY_TO_SUBCAT: dict[str, str] = {
     "boat_rental": "on-the-water",
     "boat_repair": "on-the-water",
     "recreation": "parks-beaches",
+    # Net-new recreation verticals (USA Pickleball / PDGA loaders). The loaders
+    # set Provider.subcategory explicitly; these keep the backfill pass
+    # (scripts/backfill_subcategory.py) idempotent so it does not re-derive and
+    # clobber the loader's value.
+    "pickleball": "racquet-sports",
+    "disc_golf": "disc-golf",
     "fitness_sports": "gyms",
     "fitness": "gyms",
     "childcare_education": "kids-lessons",
