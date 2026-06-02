@@ -1,0 +1,31 @@
+This weekend in Havasu ({{ window_start_label }} - {{ window_end_label }})
+
+{% if not has_content %}
+Nothing on the Lake Havasu calendar for this weekend yet. We'll keep looking
+and let you know when something turns up.
+
+Manage your digest: {{ digest_url }}
+{% else %}
+{% if has_saved_venue_events %}
+At venues you follow:
+{% for ev in saved_venue_events %}
+  - {{ ev.title }} - {{ ev.date_label }}{% if ev.location_name %} - {{ ev.location_name }}{% endif %}{% if ev.event_url %} ({{ ev.event_url }}){% endif %}
+
+{% endfor %}
+{% else %}
+You're not following any venues with events this weekend yet. Follow a few
+spots and we'll surface their events here next time.
+{% endif %}
+
+Happening this weekend:
+{% if weekend_events %}
+{% for ev in weekend_events %}
+  - {{ ev.title }} - {{ ev.date_label }}{% if ev.location_name %} - {{ ev.location_name }}{% endif %}{% if ev.event_url %} ({{ ev.event_url }}){% endif %}
+
+{% endfor %}
+{% else %}
+  (no city-wide events listed for this weekend)
+{% endif %}
+
+Manage your digest: {{ digest_url }}
+{% endif %}

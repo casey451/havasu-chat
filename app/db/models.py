@@ -1644,6 +1644,57 @@ class Outbox(Base):
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class DigestSubscription(Base):
+    """User opt-in for the "This weekend in Havasu" digest (Phase A3).
+
+    Deliberately separate from :class:`AlertSubscription` (conditions/traffic
+    alerts, owned by a sibling lane). This row is purely an opt-in record;
+    the digest *builder* (:mod:`app.digest.builder`) and dry-run *render*
+    (:mod:`app.digest.render`) are decoupled from delivery — actual send
+    cadence/cron is a flagged Casey product decision and is NOT wired here.
+
+    Opt-in posture: a row exists only when the user has explicitly opted in
+    (``enabled`` defaults True on insert; toggling off sets it False rather
+    than deleting, to preserve the opt-in history). No auto-enrollment.
+    """
+
+    __tablename__ = "digest_subscriptions"
+    __table_args__ = (
+        CheckConstraint(
+            "delivery_channel IN ('email')",
+            name="ck_digest_subscriptions_delivery_channel",
+        ),
+        UniqueConstraint(
+            "user_id",
+            "delivery_channel",
+            name="uq_digest_subscriptions_user_channel",
+        ),
+        Index("ix_digest_subscriptions_user_id", "user_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    delivery_channel: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="email", server_default="email"
+    )
+    enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
+    user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
+
+
 class UpgradeRequestStatus(str, Enum):
     """Lifecycle of a merchant's request to feature/spotlight their listing.
 

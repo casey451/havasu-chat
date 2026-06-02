@@ -63,6 +63,7 @@ from app.core.provider_name import (
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.db.database import SessionLocal, get_db, init_db
 from app.db.models import Event, Provider
+from app.digest.routes import router as digest_router
 from app.home.chat_route import router as new_chat_ui_router
 from app.home.router import router as home_router
 from app.photos.routes import router as photos_router
@@ -388,6 +389,7 @@ app.include_router(programs_router)
 # UI during dogfooding. Cuts over to / once we're confident.
 app.include_router(home_router)
 app.include_router(account_alerts_router)
+app.include_router(digest_router)
 # Directory pivot V1 (2026-05-13): per-provider profile page at
 # /provider/<slug>. Gates the Verified Presence sponsor package.
 app.include_router(providers_router)
