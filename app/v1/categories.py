@@ -26,27 +26,66 @@ BUCKET_SLUG_REDIRECTS: Final[dict[str, str]] = {
     "stay": "/categories/lodging-vacation-rentals",
 }
 
-# Legacy Provider.category / Tier-1 slug hints → master bucket id.
+# Legacy ``Provider.category`` value → master bucket id.
+#
+# IMPORTANT: keys are the *actual* legacy category strings the catalog stores
+# (``lake_recreation``, ``retail``, ``lodging``, ``fitness_sports`` …) — see
+# ``CATEGORY_FILTERS`` in ``app/categories/queries.py`` and the seed data. The
+# earlier version keyed on spec-style slugs (``on_the_water``,
+# ``shopping_essentials`` …) that never matched a stored value, so every row fell
+# through to the ``services`` default — zeroing Recreation/Sports/Shopping/Stay
+# and inflating Services across the whole ``/api/v1`` surface (counts, the
+# ``?category=`` business filter, and the serialized per-business bucket). This
+# map mirrors the legacy→subcategory→bucket taxonomy in
+# ``app/categories/subcategories.py`` so the API agrees with the public pages.
+# A few Tier-1 route slugs are kept as aliases for callers that pass those.
 _LEGACY_CATEGORY_TO_BUCKET: dict[str, str] = {
-    "events": "events",
+    # Food & Drink
     "food_drink": "food-drink",
     "food": "food-drink",
     "restaurant": "food-drink",
     "bakery": "food-drink",
-    "on_the_water": "recreation-outdoors",
-    "outdoors_parks_trails": "recreation-outdoors",
-    "classes_sports_recreation": "sports-fitness",
-    "shopping_essentials": "shopping",
-    "home_property_services": "services",
-    "health_wellness_care": "services",
-    "auto_rv_fuel": "services",
+    # Recreation & Outdoors
+    "lake_recreation": "recreation-outdoors",
+    "boat_rental": "recreation-outdoors",
+    "boat_repair": "recreation-outdoors",
+    "recreation": "recreation-outdoors",
+    # Sports, Fitness & Classes
+    "fitness_sports": "sports-fitness",
+    "fitness": "sports-fitness",
+    "childcare_education": "sports-fitness",
+    "education": "sports-fitness",
+    "edu": "sports-fitness",
+    # Shopping
+    "retail": "shopping",
+    # Services
+    "home_services": "services",
+    "general_contractor": "services",
+    "plumbing": "services",
+    "auto": "services",
+    "health_medical": "services",
+    "professional_services": "services",
+    "real_estate": "services",
+    "insurance": "services",
+    "financial": "services",
+    "legal": "services",
     "pets": "services",
-    "public_civic_resources": "services",
-    "lodging_vacation_rentals": "stay",
+    "pet": "services",
+    "veterinary": "services",
+    "beauty_personal_care": "services",
+    "religion_community": "services",
+    "services": "services",
+    # Stay
+    "lodging": "stay",
+    # Events (calendar bucket also gathers attraction/venue providers)
+    "events": "events",
+    "entertainment_attractions": "events",
+    "tourism": "events",
+    "event_venue": "events",
+    # Tier-1 route-slug aliases (callers that pass a public slug).
     "eat-drink": "food-drink",
     "on-the-water": "recreation-outdoors",
     "things-to-do": "events",
-    "services": "services",
 }
 
 
