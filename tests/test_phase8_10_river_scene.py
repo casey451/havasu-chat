@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 import app.contrib.river_scene as river_scene
+from app.contrib.event_reconciler import reconcile_event
 from app.contrib.river_scene import (
     EVENT_PAGE_HTTP_TIMEOUT,
     SITEMAP_HTTP_TIMEOUT,
@@ -17,7 +18,6 @@ from app.contrib.river_scene import (
     fetch_sitemap_urls,
     normalize_to_contribution,
 )
-from app.contrib.event_reconciler import reconcile_event
 from app.contrib.river_scene_pull import run_pull
 from app.db.contribution_store import create_contribution, normalize_submission_url
 from app.db.database import SessionLocal
