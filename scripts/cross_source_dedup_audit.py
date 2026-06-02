@@ -8,14 +8,23 @@ CROSS_SOURCE_DEDUP_SESSION.md).
 Providers: every LIVE provider (is_active AND NOT draft) is paired against every
 other and scored by the strongest signal:
 
-  * same google_place_id            -> reason "google_place_id", definite
-  * same normalized website domain  -> reason "website",        definite
-  * same last-10-digit phone        -> reason "phone",          definite
+  * same google_place_id            -> reason "google_place_id", auto
+  * same normalized website domain  -> reason "website",        review
+  * same last-10-digit phone        -> reason "phone",          review
   * geo <=50m AND fuzzy name >= T    -> reason "geo+name",       review
 
-The first three are identity signals (action "auto_merge_eligible"); the geo+name
-tier is heuristic (action "needs_review"). This matches the resolution policy:
-definite identity matches can later auto-merge, fuzzy/geo go to a human.
+Only google_place_id is a single global identity, so it alone is action
+"auto_merge_eligible"; website and phone are SOFT (a hospitality group / plaza /
+CVB listing routinely shares one domain or number across DISTINCT venues), and
+geo+name is heuristic, so all three are action "needs_review" for a human. See
+_AUTO_REASONS.
+
+Two classes of identity key are pulled out as shared-key data-quality flags
+instead of being paired (see SharedKey): "oversized" (shared by more than
+--max-group-size rows -- a switchboard / umbrella domain / bad backfill) and
+"dispersed" (a SOFT key whose coord-bearing members span more than
+--max-shared-key-spread-m -- a designer/aggregator domain or chain number on
+distinct, far-apart listings). google_place_id is exempt from the spread guard.
 
 Events: every LIVE event is paired with same-date events whose venue matches and
 whose fuzzy title clears the threshold (mirrors app/events/dedup semantics) ->
@@ -35,6 +44,13 @@ Usage:
     python scripts/cross_source_dedup_audit.py --out providers_dups.csv
     python scripts/cross_source_dedup_audit.py --events --out events_dups.csv
     python scripts/cross_source_dedup_audit.py --fuzzy-threshold 88 --limit 500
+    python scripts/cross_source_dedup_audit.py --max-shared-key-spread-m 500
+
+Soft identity keys (website / phone) shared by a small group whose members are
+spread farther than --max-shared-key-spread-m apart are reported as "dispersed"
+shared-key flags rather than paired -- a designer/aggregator domain or chain
+number on distinct, far-apart listings is not one business. See
+DEFAULT_MAX_SHARED_KEY_SPREAD_M.
 """
 
 from __future__ import annotations
@@ -79,6 +95,24 @@ DEFAULT_FUZZY_THRESHOLD = 88.0
 # --max-group-size; raise it only if a venue legitimately has that many distinct
 # sub-listings on one line.
 DEFAULT_MAX_GROUP_SIZE = 4
+
+# A SOFT identity key (website / phone) shared by a SMALL group (<= the cap) whose
+# coord-bearing members are spread farther apart than this is almost never one
+# business: it is a web designer's footer-credit domain, an aggregator/booking
+# host, a chain's central number, or a referral site stamped on many distinct
+# listings (real prod run: weence.com on 8 clinics, "Simply Savage Designs"
+# credited as 3 unrelated shops' website 1-6 km apart). A genuine same-business
+# website/phone dup is geo-COINCIDENT (the resort sub-venues sit at 0 m) or has no
+# coords at all, so those keep pairing. Only DISPERSED soft-key groups are pulled
+# out as shared-key flags. google_place_id is exempt -- it is a single global
+# identity, so two rows sharing one are the same place even if a bad coordinate
+# puts them far apart. Tune via --max-shared-key-spread-m; raise it for a campus
+# /resort that legitimately spans more than this.
+DEFAULT_MAX_SHARED_KEY_SPREAD_M = 500.0
+
+# Soft identity tiers subject to the geo-spread guard above (google_place_id is
+# a hard global identity and is deliberately excluded).
+_SOFT_DISPERSION_REASONS = {"website", "phone"}
 
 # Only google_place_id is strong enough to auto-merge: it is a single global
 # identity for one real-world place. website and phone are SOFT -- a hospitality
@@ -141,13 +175,17 @@ class CandidatePair:
 
 @dataclass(frozen=True)
 class SharedKey:
-    """An identity key shared by more rows than the cap -- a data-quality flag,
-    not a duplicate set. Excluded from auto-merge pairing on purpose."""
+    """An identity key excluded from pairing as a data-quality flag, not a
+    duplicate set. Two causes: ``oversized`` (shared by more rows than the cap)
+    and ``dispersed`` (a small soft-key group whose members are spread too far
+    apart to be one business). Excluded from candidate pairing on purpose."""
 
     reason: str  # phone | website | google_place_id
     key: str
     count: int
     sample_names: tuple[str, ...]
+    cause: str = "oversized"  # oversized (> max_group_size) | dispersed (geo spread)
+    spread_m: float | None = None  # max pairwise distance among coord-bearing members
 
 
 def _order_keep_dup(a: ProvRow, b: ProvRow) -> tuple[ProvRow, ProvRow]:
@@ -165,6 +203,25 @@ def _order_keep_dup(a: ProvRow, b: ProvRow) -> tuple[ProvRow, ProvRow]:
         )
 
     return (a, b) if key(a) <= key(b) else (b, a)
+
+
+def _max_pairwise_spread_m(members: list[ProvRow]) -> float | None:
+    """Largest haversine distance (m) between any two coord-bearing members.
+
+    None when fewer than two members carry coordinates -- a no-coords soft-key
+    group cannot be judged dispersed, so it keeps pairing. Members within the cap
+    are tiny (<= max_group_size), so the O(n^2) scan here is negligible.
+    """
+    pts = [(m.lat, m.lng) for m in members if m.lat is not None and m.lng is not None]
+    if len(pts) < 2:
+        return None
+    worst = 0.0
+    for i in range(len(pts)):
+        for j in range(i + 1, len(pts)):
+            d = haversine_m(pts[i][0], pts[i][1], pts[j][0], pts[j][1])
+            if d > worst:
+                worst = d
+    return worst
 
 
 def _pair_for(a: ProvRow, b: ProvRow, *, reason: str, score: float) -> CandidatePair:
@@ -192,14 +249,21 @@ def find_provider_pairs(
     *,
     fuzzy_threshold: float = DEFAULT_FUZZY_THRESHOLD,
     max_group_size: int = DEFAULT_MAX_GROUP_SIZE,
+    max_shared_key_spread_m: float = DEFAULT_MAX_SHARED_KEY_SPREAD_M,
 ) -> tuple[list[CandidatePair], list[SharedKey]]:
     """Return (ranked candidate-duplicate pairs, shared-key flags).
 
     Each unordered pair appears once, tagged with its strongest signal (identity
-    tiers beat geo+name). Identity keys shared by more than ``max_group_size``
-    rows are NOT paired -- they are returned as :class:`SharedKey` flags, because
-    a key on that many live rows is a shared switchboard / umbrella domain / bad
-    backfill rather than N copies of one business.
+    tiers beat geo+name). Two classes of identity key are pulled out as
+    :class:`SharedKey` flags instead of being paired:
+
+    * ``oversized`` -- a key shared by more than ``max_group_size`` rows (a shared
+      switchboard / umbrella domain / bad backfill rather than N copies of one
+      business);
+    * ``dispersed`` -- a SOFT key (website / phone) on a small group whose
+      coord-bearing members span more than ``max_shared_key_spread_m`` (a
+      designer/aggregator domain or chain number on distinct, far-apart listings).
+      google_place_id is exempt: it is a single global identity.
     """
     best: dict[frozenset[str], CandidatePair] = {}
 
@@ -246,9 +310,24 @@ def find_provider_pairs(
                         key=key,
                         count=len(members),
                         sample_names=tuple((m.name or "").strip() for m in members[:5]),
+                        cause="oversized",
                     )
                 )
                 continue
+            if reason in _SOFT_DISPERSION_REASONS:
+                spread = _max_pairwise_spread_m(members)
+                if spread is not None and spread > max_shared_key_spread_m:
+                    shared.append(
+                        SharedKey(
+                            reason=reason,
+                            key=key,
+                            count=len(members),
+                            sample_names=tuple((m.name or "").strip() for m in members[:5]),
+                            cause="dispersed",
+                            spread_m=round(spread, 1),
+                        )
+                    )
+                    continue
             for i in range(len(members)):
                 for j in range(i + 1, len(members)):
                     consider(members[i], members[j], reason, score)
@@ -347,9 +426,18 @@ def _write_provider_csv(pairs: list[CandidatePair], out_path: Path) -> None:
 def _write_shared_keys_csv(shared: list[SharedKey], out_path: Path) -> None:
     with out_path.open("w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
-        w.writerow(["reason", "key", "count", "sample_names"])
+        w.writerow(["reason", "cause", "key", "count", "spread_m", "sample_names"])
         for s in shared:
-            w.writerow([s.reason, s.key, s.count, " | ".join(s.sample_names)])
+            w.writerow(
+                [
+                    s.reason,
+                    s.cause,
+                    s.key,
+                    s.count,
+                    "" if s.spread_m is None else s.spread_m,
+                    " | ".join(s.sample_names),
+                ]
+            )
 
 
 def _summarize(pairs: list[CandidatePair], shared: list[SharedKey]) -> None:
@@ -365,10 +453,17 @@ def _summarize(pairs: list[CandidatePair], shared: list[SharedKey]) -> None:
     for k in sorted(by_action):
         print(f"  action {k}: {by_action[k]}")
     if shared:
-        print(f"shared_keys (excluded as data-quality flags): {len(shared)}")
+        by_cause: dict[str, int] = {}
+        for s in shared:
+            by_cause[s.cause] = by_cause.get(s.cause, 0) + 1
+        cause_summary = ", ".join(f"{k}={by_cause[k]}" for k in sorted(by_cause))
+        print(f"shared_keys (excluded as data-quality flags): {len(shared)} ({cause_summary})")
         for s in shared[:10]:
             sample = ", ".join(s.sample_names[:3])
-            print(f"  {s.reason} shared by {s.count} rows [{s.key}]: {sample} ...")
+            spread = "" if s.spread_m is None else f" spread={s.spread_m}m"
+            print(
+                f"  {s.reason}/{s.cause} on {s.count} rows{spread} [{s.key}]: {sample} ..."
+            )
     print("(read-only: no DB writes)")
 
 
@@ -389,61 +484,136 @@ class EventPairRow:
     venue: str
 
 
-def find_event_pairs(limit: int | None, fuzzy_threshold: float) -> list[EventPairRow]:
-    from app.db.database import SessionLocal
-    from app.db.models import Event
+@dataclass(frozen=True)
+class EventRow:
+    """Plain, DB-free event record for the events sweep core (mirrors ProvRow).
+
+    Materialized from ORM rows by :func:`find_event_pairs` so the scoring core
+    is unit-testable without a database.
+    """
+
+    id: str
+    title: str
+    normalized_title: str | None
+    source: str | None
+    date: Any
+    entity_id: str | None = None
+    location_normalized: str | None = None
+    location_name: str | None = None
+
+
+def _event_min_source_priority(source: str | None) -> int:
+    """Lowest EVENT_SOURCE_PRIORITY across a (possibly comma-joined) source string.
+
+    Mirrors the provider _min_source_priority but on the EVENT priority map; 99
+    for unknown/empty so any known source outranks it.
+    """
+    from app.contrib.event_reconciler import EVENT_SOURCE_PRIORITY
+
+    parts = [p.strip() for p in (source or "").split(",") if p.strip()]
+    if not parts:
+        return 99
+    return min(EVENT_SOURCE_PRIORITY.get(p, 99) for p in parts)
+
+
+def _order_event_keep_dup(a: EventRow, b: EventRow) -> tuple[EventRow, EventRow]:
+    """Advisory survivor selection for an event pair: lower EVENT_SOURCE_PRIORITY
+    wins, tie-broken by id for stability (mirrors the provider _order_keep_dup).
+    Advisory only -- nothing is merged here.
+    """
+
+    def key(e: EventRow) -> tuple:
+        return (_event_min_source_priority(e.source), e.id)
+
+    return (a, b) if key(a) <= key(b) else (b, a)
+
+
+def find_event_pairs_core(
+    rows: list[EventRow], *, fuzzy_threshold: float = DEFAULT_FUZZY_THRESHOLD
+) -> list[EventPairRow]:
+    """Pure same-date / same-venue / fuzzy-title pairing over EventRow records.
+
+    Two events pair when they share a calendar date, share a venue (same
+    entity_id OR identical non-empty location_normalized), and their titles clear
+    ``fuzzy_threshold`` under normalize_event_title + token_sort_ratio (the scorer
+    the event reconciler uses). Each unordered pair appears once; keep/dup is the
+    advisory survivor split by EVENT_SOURCE_PRIORITY (see _order_event_keep_dup).
+    Ranked by score desc.
+    """
     from app.events.scrapers.base import normalize_event_title
 
+    by_date: dict[Any, list[EventRow]] = {}
+    for e in rows:
+        by_date.setdefault(e.date, []).append(e)
     out: list[EventPairRow] = []
+    seen: set[frozenset[str]] = set()
+    for day, evs in by_date.items():
+        for i in range(len(evs)):
+            a = evs[i]
+            for j in range(i + 1, len(evs)):
+                b = evs[j]
+                same_venue = (a.entity_id and a.entity_id == b.entity_id) or (
+                    (a.location_normalized or "").strip() != ""
+                    and (a.location_normalized or "").strip()
+                    == (b.location_normalized or "").strip()
+                )
+                if not same_venue:
+                    continue
+                ratio = float(
+                    fuzz.token_sort_ratio(
+                        normalize_event_title(a.normalized_title or a.title),
+                        normalize_event_title(b.normalized_title or b.title),
+                    )
+                )
+                if ratio < fuzzy_threshold:
+                    continue
+                key = frozenset((a.id, b.id))
+                if key in seen:
+                    continue
+                seen.add(key)
+                keep, dup = _order_event_keep_dup(a, b)
+                out.append(
+                    EventPairRow(
+                        rank=0,
+                        score=round(ratio, 1),
+                        keep_id=keep.id,
+                        keep_title=keep.title,
+                        keep_source=keep.source,
+                        dup_id=dup.id,
+                        dup_title=dup.title,
+                        dup_source=dup.source,
+                        event_date=str(day),
+                        venue=keep.location_name or "",
+                    )
+                )
+    out.sort(key=lambda r: r.score, reverse=True)
+    return [EventPairRow(**{**r.__dict__, "rank": i}) for i, r in enumerate(out, 1)]
+
+
+def find_event_pairs(limit: int | None, fuzzy_threshold: float) -> list[EventPairRow]:
+    """DB loader: materialize live events into EventRow, delegate to the core."""
+    from app.db.database import SessionLocal
+    from app.db.models import Event
+
     with SessionLocal() as session:
         stmt = select(Event).where(Event.status == "live")
         rows = list(session.scalars(stmt).all())
         if limit is not None:
             rows = rows[:limit]
-        by_date: dict[Any, list[Event]] = {}
-        for e in rows:
-            by_date.setdefault(e.date, []).append(e)
-        seen: set[frozenset[str]] = set()
-        for day, evs in by_date.items():
-            for i in range(len(evs)):
-                a = evs[i]
-                for j in range(i + 1, len(evs)):
-                    b = evs[j]
-                    same_venue = (a.entity_id and a.entity_id == b.entity_id) or (
-                        (a.location_normalized or "").strip() != ""
-                        and (a.location_normalized or "").strip()
-                        == (b.location_normalized or "").strip()
-                    )
-                    if not same_venue:
-                        continue
-                    ratio = float(
-                        fuzz.token_sort_ratio(
-                            normalize_event_title(a.normalized_title or a.title),
-                            normalize_event_title(b.normalized_title or b.title),
-                        )
-                    )
-                    if ratio < fuzzy_threshold:
-                        continue
-                    key = frozenset((a.id, b.id))
-                    if key in seen:
-                        continue
-                    seen.add(key)
-                    out.append(
-                        EventPairRow(
-                            rank=0,
-                            score=round(ratio, 1),
-                            keep_id=a.id,
-                            keep_title=a.title,
-                            keep_source=a.source,
-                            dup_id=b.id,
-                            dup_title=b.title,
-                            dup_source=b.source,
-                            event_date=str(day),
-                            venue=a.location_name or "",
-                        )
-                    )
-    out.sort(key=lambda r: r.score, reverse=True)
-    return [EventPairRow(**{**r.__dict__, "rank": i}) for i, r in enumerate(out, 1)]
+        event_rows = [
+            EventRow(
+                id=e.id,
+                title=e.title,
+                normalized_title=e.normalized_title,
+                source=e.source,
+                date=e.date,
+                entity_id=e.entity_id,
+                location_normalized=e.location_normalized,
+                location_name=e.location_name,
+            )
+            for e in rows
+        ]
+    return find_event_pairs_core(event_rows, fuzzy_threshold=fuzzy_threshold)
 
 
 def _write_event_csv(rows: list[EventPairRow], out_path: Path) -> None:
@@ -500,6 +670,14 @@ def main() -> int:
         help="identity keys (phone/website/gpid) shared by more rows than this "
         "are reported as shared-key flags, not paired (providers only)",
     )
+    p.add_argument(
+        "--max-shared-key-spread-m",
+        type=float,
+        default=DEFAULT_MAX_SHARED_KEY_SPREAD_M,
+        help="soft keys (website/phone) on a small group whose coord-bearing "
+        "members span more than this many meters are flagged as 'dispersed' "
+        "shared keys, not paired (providers only)",
+    )
     args = p.parse_args()
 
     if args.events:
@@ -516,6 +694,7 @@ def main() -> int:
         prov_rows,
         fuzzy_threshold=args.fuzzy_threshold,
         max_group_size=args.max_group_size,
+        max_shared_key_spread_m=args.max_shared_key_spread_m,
     )
     out_path = Path(args.out or "provider_dup_candidates.csv")
     _write_provider_csv(pairs, out_path)
