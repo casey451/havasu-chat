@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  {% include '_partials/plausible.html' %}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Demand intelligence — Admin</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 1.5rem; background: #fafafa; color: #1a1a1a; max-width: 1100px; }
+    h1 { font-size: 1.3rem; }
+    h2 { font-size: 1.05rem; margin-top: 1.75rem; }
+    p.summary { font-size: 0.85rem; color: #555; margin: 0.25rem 0 0.75rem; }
+    table { border-collapse: collapse; width: 100%; max-width: 1000px; background: #fff; margin-bottom: 1rem; }
+    th, td { border: 1px solid #ddd; padding: 0.4rem 0.6rem; text-align: left; font-size: 0.85rem; }
+    th { background: #f0f0f0; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .stat { display: inline-block; margin-right: 2rem; }
+    .stat strong { font-size: 1.6rem; display: block; }
+    .nav a { margin-right: 0.75rem; }
+    .bar { display: inline-block; height: 0.6rem; background: #c33; border-radius: 0.3rem; vertical-align: middle; }
+    .barv { display: inline-block; height: 0.6rem; background: #39c; border-radius: 0.3rem; vertical-align: middle; }
+    code { background: #eee; padding: 0 0.2rem; border-radius: 0.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Demand intelligence</h1>
+  <nav class="nav">
+    <a href="/admin/overview">Dashboard</a>
+    <a href="/admin/contributions">Contributions</a>
+    <a href="/admin/categories">Categories</a>
+    <a href="/admin/analytics">Analytics</a>
+  </nav>
+  <p class="summary">Read-only analytics over the search intent log (<code>query_log</code>). Top intents and coverage gaps span the last {{ gap_window_days }} days; trends span the last {{ trend_window_days }} days.</p>
+
+  <div class="stat"><strong>{{ total_queries }}</strong> queries ({{ gap_window_days }}d)</div>
+  <div class="stat"><strong>{{ total_zero }}</strong> zero-result</div>
+  <div class="stat"><strong>{{ (zero_rate * 100) | round(1) }}%</strong> zero-result rate</div>
+
+  <h2>Top intents</h2>
+  <p class="summary">Most-asked intents, grouped by <code>normalized_intent</code>. "Zero" is how many of those turns returned nothing.</p>
+  <table>
+    <thead><tr><th>Intent</th><th>Total</th><th>Zero-result</th></tr></thead>
+    <tbody>
+      {% for row in top %}
+      <tr>
+        <td>{{ row.intent }}</td>
+        <td class="num">{{ row.total }}</td>
+        <td class="num">{{ row.zero_results }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3">No query_log rows in window.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Coverage gaps (demand with no supply)</h2>
+  <p class="summary">Zero-result queries ranked by frequency. These are searches where the catalog returned nothing — the highest-leverage list for what to add next.</p>
+  <table>
+    <thead><tr><th>Intent</th><th>Category</th><th>Misses</th></tr></thead>
+    <tbody>
+      {% for row in gaps %}
+      <tr>
+        <td>{{ row.intent }}</td>
+        <td>{{ row.category if row.category else '—' }}</td>
+        <td class="num">
+          {{ row.misses }}
+          <span class="bar" style="width: {{ (row.misses / gaps[0].misses * 120) | round | int }}px"></span>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3">No zero-result queries in window. Good coverage.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Trends ({{ trend_window_days }} days)</h2>
+  <p class="summary">Per-day query volume and zero-result rate. Days with no traffic are omitted.</p>
+  <table>
+    <thead><tr><th>Day</th><th>Queries</th><th>Zero-result</th><th>Zero-rate</th></tr></thead>
+    <tbody>
+      {% for row in trends %}
+      <tr>
+        <td>{{ row.day }}</td>
+        <td class="num">
+          {{ row.total }}
+          <span class="barv" style="width: {{ (row.total / trends|map(attribute='total')|max * 120) | round | int }}px"></span>
+        </td>
+        <td class="num">{{ row.zero }}</td>
+        <td class="num">{{ (row.zero_rate * 100) | round(1) }}%</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4">No query_log rows in window.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

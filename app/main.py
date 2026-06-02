@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.admin.demand_intel import router as admin_demand_intel_router
 from app.admin.provider_approval import router as admin_provider_approval_router
 from app.admin.provider_merge_review import router as admin_provider_merge_review_router
 from app.admin.router import router as admin_router
@@ -391,6 +392,7 @@ app.include_router(admin_contributions_router)
 app.include_router(admin_mentions_router)
 app.include_router(admin_provider_approval_router)
 app.include_router(admin_provider_merge_review_router)
+app.include_router(admin_demand_intel_router)
 app.include_router(programs_router)
 # BUILD.md step 1: new /home page lives alongside the existing static / chat
 # UI during dogfooding. Cuts over to / once we're confident.
