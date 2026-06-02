@@ -26,6 +26,8 @@ from app.admin.feedback_html import register_feedback_html_routes
 from app.admin.mentions_html import register_mentions_html_routes
 from app.admin.provider_approval import pending_provider_count
 from app.admin.provider_merge_review import duplicate_pair_count
+from app.contrib.ingest_base import EntityPayload
+from app.contrib.ingest_reconciler import reconcile_hit
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.db.database import DATABASE_URL, get_db
 from app.db.entity_dual_write import create_program_and_entity, create_provider_and_entity
@@ -1430,6 +1432,8 @@ def _provider_form_html(
     provider: Provider | None = None,
     error: str | None = None,
     values: dict | None = None,
+    warning: str | None = None,
+    confirm_duplicate: bool = False,
 ) -> str:
     v = dict(values or {})
     if provider is not None and not values:
@@ -1459,10 +1463,20 @@ def _provider_form_html(
         )
 
     err_html = f'<p class="err">{_escape(error)}</p>' if error else ""
+    # When re-rendering after a duplicate warning, carry a hidden flag so the
+    # operator's next submit is an explicit "create anyway" (never auto-merge:
+    # operator entries are the highest-priority source and stay visible).
+    confirm_html = (
+        '<input type="hidden" name="confirm_create_duplicate" value="1" />'
+        if confirm_duplicate
+        else ""
+    )
 
     inner = f"""
     <form class="program-form" method="post" action="{action}">
+      {warning or ""}
       {err_html}
+      {confirm_html}
       <label for="provider_name">Name</label>
       {inp("provider_name", placeholder="e.g. Altitude Trampoline Park")}
 
@@ -1486,11 +1500,53 @@ def _provider_form_html(
         placeholder="What it is, who it's for">{_escape(v.get("description", ""))}</textarea>
 
       <div class="form-actions">
-        <button type="submit" class="btn ok">{html.escape(submit_label)}</button>
+        <button type="submit" class="btn ok">{
+        html.escape("Create anyway" if confirm_duplicate else submit_label)}</button>
         <a class="btn-link" href="/admin?tab=programs">Cancel</a>
       </div>
     </form>"""
     return _programs_tab_shell(inner, title=submit_label)
+
+
+def _provider_duplicate_warning_html(db: Session, result: object) -> str:
+    """Banner listing the existing record(s) an operator entry likely duplicates.
+
+    *result* is a ReconcileResult with action update|ambiguous. Its ``existing_id``
+    is an entity id; we surface the live Provider(s) on that entity (name, source,
+    link to the public profile) plus the reconciler's match reason so the operator
+    can eyeball the match before choosing "Create anyway".
+    """
+    existing_id = getattr(result, "existing_id", None)
+    reason = getattr(result, "reason", None)
+    rows: list[str] = []
+    provs = (
+        db.query(Provider).filter(Provider.entity_id == existing_id).all() if existing_id else []
+    )
+    if provs:
+        for p in provs:
+            label = f"{p.provider_name or '(unnamed)'} [{p.source or '?'}]"
+            if p.slug:
+                rows.append(
+                    f'<li><a href="/provider/{_escape(p.slug)}" target="_blank">'
+                    f"{_escape(label)}</a></li>"
+                )
+            else:
+                rows.append(f"<li>{_escape(label)}</li>")
+    else:
+        ent = db.get(Entity, existing_id) if existing_id else None
+        rows.append(f"<li>{_escape((ent.name if ent else existing_id) or '(unknown)')}</li>")
+    items = "\n".join(rows)
+    return (
+        '<div class="warn" style="border:1px solid #b58105;background:#fff8e1;'
+        'padding:0.75rem 1rem;border-radius:6px;margin-bottom:1rem">'
+        "<p><b>Possible duplicate.</b> This entry looks like an existing record "
+        f"({_escape(reason or 'match')}):</p>"
+        f"<ul>{items}</ul>"
+        "<p>If these are the same business, cancel and edit the existing record "
+        'instead. To create this as a separate record anyway, press '
+        "<b>Create anyway</b>.</p>"
+        "</div>"
+    )
 
 
 def _parse_provider_form(
@@ -1540,6 +1596,7 @@ def admin_provider_create(
     hours: str = Form(""),
     description: str = Form(""),
     website: str = Form(""),
+    confirm_create_duplicate: str = Form(""),
     db: Session = Depends(get_db),
 ) -> RedirectResponse | HTMLResponse:
     redir = _guard(request)
@@ -1577,6 +1634,35 @@ def admin_provider_create(
             ),
             status_code=400,
         )
+
+    # Duplicate guard (warn, don't block). The admin operator-entry path is the
+    # only provider write path with no reconcile -- every scraper source already
+    # routes through reconcile_hit. Run it READ-ONLY here: if the entry likely
+    # matches an existing record and the operator has not yet confirmed, re-render
+    # the form with a warning instead of silently creating a visible duplicate.
+    # We never apply the scraper hide-on-doubt (draft/pending_review) path: an
+    # operator entry stays visible once confirmed (operator is SOURCE_PRIORITY 0).
+    if confirm_create_duplicate.strip().lower() not in ("1", "true", "yes", "on"):
+        payload = EntityPayload(
+            name=raw["provider_name"],
+            entity_type="provider",
+            address=raw["address"],
+            phone=raw["phone"],
+            website=raw["website"],
+            description=raw["description"],
+            source="operator",
+        )
+        result = reconcile_hit(db, payload)
+        if result.action in ("update", "ambiguous"):
+            return HTMLResponse(
+                _provider_form_html(
+                    action="/admin/providers",
+                    submit_label="Create provider",
+                    values=raw,
+                    warning=_provider_duplicate_warning_html(db, result),
+                    confirm_duplicate=True,
+                )
+            )
 
     slug = derive_provider_slug(db, raw["provider_name"])
     provider = Provider(
