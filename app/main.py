@@ -66,6 +66,7 @@ from app.db.models import Event, Provider
 from app.digest.routes import router as digest_router
 from app.home.chat_route import router as new_chat_ui_router
 from app.home.router import router as home_router
+from app.leads.routes import router as leads_router
 from app.photos.routes import router as photos_router
 from app.photos.sweep import run_stuck_photo_sweep
 from app.programs.router import router as programs_router
@@ -401,6 +402,8 @@ app.include_router(new_chat_ui_router)
 # featured-listing upgrade funnel (admin review routes live on admin_router).
 app.include_router(micro_ad_router)
 app.include_router(merchant_upgrade_router)
+# Phase B7: dormant lead-capture hook (returns 404 unless LEADS_ENABLED is on).
+app.include_router(leads_router)
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 # Mount the more-specific /static/biz-photos BEFORE the broad /static mount.

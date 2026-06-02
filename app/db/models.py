@@ -1767,6 +1767,74 @@ class UpgradeRequest(Base):
     entity: Mapped["Entity"] = relationship("Entity", foreign_keys=[entity_id])
 
 
+class Lead(Base):
+    """Pay-per-lead capture record — Phase B7 DORMANT scaffolding.
+
+    A ``Lead`` is one inbound contact-intent for a provider (e.g. a "request a
+    quote" / "contact this business" submission surfaced off a category list or
+    provider profile). This is plumbing ONLY: the capture path is gated behind
+    the ``LEADS_ENABLED`` env flag (default OFF) — see
+    :func:`app.leads.capture.leads_enabled`. When the flag is off the capture
+    function and the HTTP hook are dormant (no row is written; the endpoint
+    returns 404). NO billing, payment, pricing, or charge logic lives here or
+    anywhere in the lane.
+
+    Attribution: ``intent_key`` mirrors the intent-layer key
+    (:class:`app.chat.intents.runtime.IntentAnswer`); ``chat_log_id`` and
+    ``query_log_id`` are optional back-links to the conversational turn /
+    anonymized search-intent row that produced the lead, so a future
+    attribution report can join lead → originating query without re-resolving.
+    Both are nullable (a lead can originate from a static provider page with no
+    chat/query context).
+
+    Contact payload (``contact_name`` / ``contact_phone`` / ``contact_email`` /
+    ``contact_message``) is PII. Consent/retention/PII-handling policy is a
+    Casey product decision and is FLAGGED, not implemented — the columns exist
+    so the dormant capture path is schema-complete, nothing more.
+
+    ``status`` is a lightweight lifecycle marker (``new`` on capture); the
+    delivery/routing state machine (who receives a lead, SLA, etc.) is also a
+    flagged product decision and intentionally not modeled beyond this column.
+    """
+
+    __tablename__ = "leads"
+    __table_args__ = (
+        Index("ix_leads_provider_id", "provider_id"),
+        Index("ix_leads_category", "category"),
+        Index("ix_leads_status", "status"),
+        Index("ix_leads_created_at", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    provider_id: Mapped[str] = mapped_column(
+        String, ForeignKey("providers.id", ondelete="CASCADE"), nullable=False
+    )
+    category: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    # Attribution / source linkage (all nullable — static-page leads have none).
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="web_form")
+    intent_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    chat_log_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("chat_logs.id", ondelete="SET NULL"), nullable=True
+    )
+    query_log_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("query_log.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # Contact payload (PII — policy FLAGGED, not enforced here).
+    contact_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    contact_phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    contact_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    contact_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="new")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    provider: Mapped["Provider"] = relationship("Provider", foreign_keys=[provider_id])
+
+
 # Phase 4.1 ships the ``Outbox`` ORM class above this line. The provider-slug
 # listener registration below remains the canonical "leaf-module hook"
 # pattern for this codebase (not to be confused with the Phase 1D dual-write
