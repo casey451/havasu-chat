@@ -31,7 +31,13 @@ from dataclasses import dataclass
 # rows are only labeled at one level.
 # ---------------------------------------------------------------------------
 
-EAT_LEGACY_CATEGORIES: tuple[str, ...] = ("food_drink", "food", "restaurant", "bakery")
+EAT_LEGACY_CATEGORIES: tuple[str, ...] = (
+    "food_drink",
+    "food",
+    "restaurant",
+    "bakery",
+    "eat-drink",  # some rows carry the route slug as the category value
+)
 EAT_SUBCATS: tuple[str, ...] = (
     "restaurants",
     "bars-breweries",

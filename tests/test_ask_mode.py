@@ -398,11 +398,18 @@ def test_tier3_fixtures(query: str, expected_sub: str | None) -> None:
             "app.chat.unified_router._catalog_gap_response",
             return_value=None,
         ):
-            with TestClient(app) as client:
-                r = client.post(
-                    "/api/chat",
-                    json={"query": query, "session_id": "phase34-tier3"},
-                )
+            # The intent layer is another catalog-answering preemption (like
+            # tier2/gap above); bypass it so these fixtures exercise the Tier 3
+            # fallback path deterministically, independent of catalog state.
+            with patch(
+                "app.chat.intents.runtime.try_intent_layer",
+                return_value=None,
+            ):
+                with TestClient(app) as client:
+                    r = client.post(
+                        "/api/chat",
+                        json={"query": query, "session_id": "phase34-tier3"},
+                    )
     assert r.status_code == 200
     body = r.json()
     assert body["mode"] == "ask"

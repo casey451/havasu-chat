@@ -32,9 +32,25 @@ logger = logging.getLogger(__name__)
 
 _FLAG_ENV = "USE_INTENT_LAYER"
 _MAX_LISTED = 6
-_CONTRIBUTE_TAIL = (
-    "Add it at /contribute or share the name and a link "
-    "(Google Business page or official site) and I'll pass it along."
+
+# Entity-specific factual lookups ("rating for X", "phone for X", "when is X").
+# These are about ONE named thing -> the entity-aware Tier 1 / gap-template path
+# owns them (incl. the anti-fabrication / near-match guards). The intent layer
+# must not answer them with a generic category list.
+_ENTITY_FACTUAL_SUBINTENTS = frozenset(
+    {
+        "PHONE_LOOKUP",
+        "WEBSITE_LOOKUP",
+        "RATING_LOOKUP",
+        "REVIEW_COUNT_LOOKUP",
+        "TIME_LOOKUP",
+        "HOURS_LOOKUP",
+        "LOCATION_LOOKUP",
+        "DATE_LOOKUP",
+        "AGE_LOOKUP",
+        "COST_LOOKUP",
+        "NEXT_OCCURRENCE",
+    }
 )
 
 
@@ -49,16 +65,8 @@ class IntentAnswer:
 
 
 def is_enabled() -> bool:
-    return (os.environ.get(_FLAG_ENV) or "").strip().lower() in ("1", "true", "yes", "on")
-
-
-def _empty_text(result: QueryResult) -> str:
-    noun = {
-        "events": "events on the calendar for that yet",
-        "programs": "classes listed for that yet",
-        "gas": "live gas prices right now",
-    }.get(result.kind, "anything listed for that yet")
-    return f"I don't have {noun}. {_CONTRIBUTE_TAIL}"
+    # Default ON; explicit "0"/"false"/"no"/"off" is the kill switch.
+    return (os.environ.get(_FLAG_ENV) or "").strip().lower() not in ("0", "false", "no", "off")
 
 
 def _text_list(result: QueryResult) -> str:
@@ -107,9 +115,7 @@ def _build_events(result: QueryResult, *, today: date) -> tuple[str, str, dict]:
 
 
 def _render(result: QueryResult, *, today: date) -> tuple[str, str, dict]:
-    """Return (voice_text, component_type, component_data)."""
-    if result.result_count == 0:
-        return _empty_text(result), "none", {}
+    """Return (voice_text, component_type, component_data). Non-empty only."""
     if result.kind == "providers":
         return _build_providers(result)
     if result.kind == "events":
@@ -143,20 +149,30 @@ def try_intent_layer(
     db: Session,
     *,
     entity: str | None = None,
+    sub_intent: str | None = None,
     today: date | None = None,
     now: datetime | None = None,
 ) -> IntentAnswer | None:
     """Resolve + answer at the intent layer, or None to fall through.
 
-    ``entity`` is the catalog entity the router already resolved for this turn.
-    When set, the question is about a specific named business/event ("tell me
-    about Mudshark Brewery") -- the intent layer must NOT hijack it with a
-    generic category list, so it falls through to the entity-aware Tier 1/2/3
-    path.
+    Falls through (returns None) when:
+    * the flag is off;
+    * ``entity`` is set -- the turn is about a specific named business/event
+      ("tell me about Mudshark Brewery"); the entity-aware path owns it;
+    * ``sub_intent`` is an entity-specific factual lookup ("rating for X") --
+      the Tier 1 / gap-template path (with its anti-fabrication guards) owns it;
+    * the resolver finds no confident intent;
+    * the query template returns zero rows -- the legacy path's honest gap
+      template + /contribute handles empties. We still log the zero-row to
+      query_log first (the coverage signal) before falling through.
+
+    The layer therefore only *claims* a query when it has real catalog results.
     """
     if not is_enabled():
         return None
     if entity and entity.strip():
+        return None
+    if sub_intent and sub_intent in _ENTITY_FACTUAL_SUBINTENTS:
         return None
     try:
         resolved = resolve(query)
@@ -172,6 +188,12 @@ def try_intent_layer(
         logger.exception("intent_layer: query template failed for %s", resolved.intent_key)
         return None
 
+    # Log the resolved intent + result_count (incl. zero) for coverage, then
+    # fall through on empty so the legacy honest-gap path answers.
+    _log(db, result)
+    if result.result_count == 0:
+        return None
+
     if today is None:
         from app.core.timezone import now_lake_havasu
 
@@ -183,7 +205,6 @@ def try_intent_layer(
         logger.exception("intent_layer: render failed for %s", result.intent_key)
         return None
 
-    _log(db, result)
     return IntentAnswer(
         text=text,
         intent_key=result.intent_key,

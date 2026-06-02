@@ -65,8 +65,16 @@ def _latest_query_log(session, intent_key):
 
 
 def test_flag_off_returns_none(db, monkeypatch):
-    monkeypatch.delenv("USE_INTENT_LAYER", raising=False)
+    # Default is now ON; "0" is the explicit kill switch.
+    monkeypatch.setenv("USE_INTENT_LAYER", "0")
     assert try_intent_layer("i need a plumber", db) is None
+
+
+def test_default_is_enabled(db, monkeypatch):
+    monkeypatch.delenv("USE_INTENT_LAYER", raising=False)
+    from app.chat.intents.runtime import is_enabled
+
+    assert is_enabled() is True
 
 
 def test_find_service_returns_seeded_provider(db, monkeypatch):
@@ -93,18 +101,26 @@ def test_find_service_returns_seeded_provider(db, monkeypatch):
     assert row.result_count >= 1
 
 
-def test_honest_empty_offers_contribute(db, monkeypatch):
+def test_empty_result_falls_through_but_logs(db, monkeypatch):
     monkeypatch.setenv("USE_INTENT_LAYER", "1")
-    # No plumber seeded -> honest empty, never fabricated.
+    # No plumber seeded -> the layer falls through (the legacy path's honest gap
+    # template handles the empty), but the zero-row is still logged for coverage.
     ans = try_intent_layer("i need a plumber", db)
-    assert ans is not None
-    assert ans.result_count == 0
-    assert "/contribute" in ans.text
-    assert "don't have" in ans.text.lower()
+    assert ans is None
 
     row = _latest_query_log(db, "find_service")
     assert row is not None
     assert row.result_count == 0
+
+
+def test_factual_lookup_falls_through(db, monkeypatch):
+    monkeypatch.setenv("USE_INTENT_LAYER", "1")
+    # "rating for <fake place>" is an entity-factual lookup -> the layer must not
+    # answer it with a category list; the gap path owns it.
+    assert (
+        try_intent_layer("rating for Fabricated Hotel 555", db, sub_intent="RATING_LOOKUP")
+        is None
+    )
 
 
 def test_eat_find_cuisine_name_token(db, monkeypatch):
