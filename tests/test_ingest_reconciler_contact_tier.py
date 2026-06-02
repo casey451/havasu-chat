@@ -135,9 +135,14 @@ def test_contact_tier_ambiguous_website_does_not_uniquely_merge(db_session, monk
     assert rec.action == "insert"
 
 
-def test_contact_tier_disabled_by_default_inserts(db_session) -> None:
-    # Same setup as the website-match case but the flag is unset (default OFF):
-    # the tier must not run, so with no geo/name overlap we get an insert.
+def test_contact_tier_disabled_by_default_inserts(db_session, monkeypatch) -> None:
+    # Same setup as the website-match case but the flag is FORCED off: the tier
+    # must not run, so with no geo/name overlap we get an insert. delenv (not just
+    # "leave it unset") so this default-behavior assertion holds even when the
+    # whole suite is run with INGEST_CONTACT_TIER_ENABLED=1 in the ambient env
+    # (the blast-radius check) -- the flag is read at call time, so without this
+    # the test would flip to "update" purely from the ambient flag.
+    monkeypatch.delenv("INGEST_CONTACT_TIER_ENABLED", raising=False)
     create_provider_and_entity_row(
         db_session,
         "Lobster 3 Ways Food Truck",
