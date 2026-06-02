@@ -278,6 +278,7 @@ _UTILITY_TILE_MAP: dict[str, tuple[str, str, str]] = {
     # conditions-tile kind -> (chip kind, icon, label)
     "temp": ("weather", "🌡", "Now"),
     "sky_condition": ("sky", "🌤", "Sky"),
+    "uv": ("uv", "☀", "UV index"),
     "aqi": ("air", "💨", "Air quality"),
     "water_temp": ("water", "🌊", "Water temp"),
     "lake_level": ("lake", "🏞", "Lake level"),

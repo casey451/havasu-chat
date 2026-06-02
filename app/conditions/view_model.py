@@ -96,6 +96,28 @@ def build_conditions_strip_view_model(
             )
         )
 
+    # UV index (Open-UV, key-gated). api_payload only surfaces uv_index when the
+    # OPENUV_API_KEY-backed source has data, so this tile is absent by default.
+    uv = api.get("uv_index")
+    if isinstance(uv, (int, float)):
+        label = api.get("uv_staleness_label") or "Updated recently"
+        stale = bool(api.get("uv_is_stale"))
+        any_stale = any_stale or stale
+        uv_max = api.get("uv_max")
+        tiles.append(
+            ConditionsTile(
+                kind="uv",
+                primary_value=f"UV {uv:g}",
+                secondary_value=(f"Peak UV {uv_max:g}" if isinstance(uv_max, (int, float)) else None),
+                attribution_chip="Open-UV",
+                severity=str(api.get("uv_severity") or "neutral"),
+                staleness_label=label,
+                is_stale=stale,
+                detail_text=None,
+                visible=True,
+            )
+        )
+
     aqi = api.get("current_aqi")
     if aqi is not None:
         param = api.get("current_aqi_parameter") or "AQI"

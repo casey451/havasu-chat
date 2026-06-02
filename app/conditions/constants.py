@@ -20,6 +20,13 @@ SOURCE_GAS = "gas_prices_lhc"
 # See app/conditions/usgs_water_temp.py module docstring for context.
 SOURCE_USGS_WATER_TEMP = "usgs_water_temp_09426630"
 
+# Optional UV index (Open-UV, https://www.openuv.io/). Key-gated on
+# OPENUV_API_KEY: when the key is unset the fetcher makes NO HTTP call (returns
+# an empty payload) and api_payload/view_model skip the UV chip — so the cron is
+# safe to call it every tick. The hourly TTL keeps usage within the 50-req/day
+# free tier (~24 calls/day). See app/conditions/openuv.py.
+SOURCE_OPENUV = "openuv_index"
+
 SOURCE_KEYS: tuple[str, ...] = (
     SOURCE_AIRNOW,
     SOURCE_NWS_CURRENT,
@@ -28,6 +35,7 @@ SOURCE_KEYS: tuple[str, ...] = (
     SOURCE_NWS_SUNSET,
     SOURCE_USGS,
     SOURCE_USGS_WATER_TEMP,
+    SOURCE_OPENUV,
     SOURCE_GAS,
 )
 
@@ -41,6 +49,7 @@ TTL_BY_SOURCE: dict[str, int] = {
     # Same 3600s TTL as the lake-gauge USGS source -- water temperature is a
     # slow-moving signal (instrument cadence is hourly at most for 00010).
     SOURCE_USGS_WATER_TEMP: 3600,
+    SOURCE_OPENUV: 3600,
     SOURCE_GAS: 86400,
 }
 
