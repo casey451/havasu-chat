@@ -6,14 +6,15 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.routes import category_pages as cat_pages
+from app.categories.queries import CATEGORY_FILTERS
 from app.core.conditions_temperature import read_current_temperature_f
 from app.core.ranking import compute_card_rank
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
 from app.db.database import get_db
-from app.db.models import Entity, Provider
+from app.db.models import Entity, EntityCategory, Provider
 from app.groups.themed_groups import resolve_map_categories
 from app.providers import queries as provider_queries
 
@@ -22,11 +23,20 @@ router = APIRouter(tags=["map"])
 MAP_MARKER_CAP = 500
 
 
-def _entity_lat_lng(ent: Entity) -> tuple[float, float] | None:
+def _coords_for(ent: Entity, prov: Provider | None) -> tuple[float, float] | None:
+    """Resolve a marker's lat/lng.
+
+    Prefers the entity's ``Location`` row (the unified-model source), then
+    falls back to ``Provider.lat/lng``. The fallback is what lets providers
+    whose entity has no ``locations`` row still render a pin — the bulk of the
+    catalog is geocoded on ``Provider`` directly.
+    """
     loc = ent.location
-    if loc is None or loc.lat is None or loc.lng is None:
-        return None
-    return float(loc.lat), float(loc.lng)
+    if loc is not None and loc.lat is not None and loc.lng is not None:
+        return float(loc.lat), float(loc.lng)
+    if prov is not None and prov.lat is not None and prov.lng is not None:
+        return float(prov.lat), float(prov.lng)
+    return None
 
 
 def _primary_category_slug(ent: Entity) -> str:
@@ -57,6 +67,58 @@ def _profile_url_for_entity(db: Session, ent: Entity) -> str:
     return vm.profile_url or "/home"
 
 
+def _legacy_categories_for(category_slugs: list[str]) -> set[str]:
+    """Union of legacy ``Provider.category`` strings for the given route slugs.
+
+    Map scopes resolve to Tier-1 route slugs (same vocabulary as
+    ``CATEGORY_FILTERS`` keys / ``Category.slug``); this expands them into the
+    legacy free-string vocab actually stored on ``Provider.category``. Slugs
+    with no provider mapping (e.g. ``events``, ``outdoors-parks-trails``)
+    contribute nothing here and are served purely by the entity-category path.
+    """
+    legacy: set[str] = set()
+    for slug in category_slugs:
+        legacy.update(CATEGORY_FILTERS.get(slug, ()))
+    return legacy
+
+
+def _select_provider_entities(
+    db: Session,
+    *,
+    category_slugs: list[str],
+    boat_only: bool,
+) -> list[Entity]:
+    """Select active providers' entities by legacy ``Provider.category``.
+
+    This is the gap-fix path: the entity-category join in
+    ``select_entities_for_categories`` only surfaces providers whose entity has
+    an ``entity_categories`` row, but most of the catalog is categorized solely
+    via the legacy ``Provider.category`` string (the same field the category
+    landing pages filter on). Selecting on it here makes large service
+    categories — home services, health, classes/sports — render pins again.
+    """
+    legacy = _legacy_categories_for(category_slugs)
+    if not legacy:
+        return []
+    stmt = (
+        select(Entity)
+        .join(Provider, Provider.entity_id == Entity.id)
+        .options(
+            joinedload(Entity.location),
+            joinedload(Entity.categories).joinedload(EntityCategory.category),
+        )
+        .where(
+            Entity.is_active.is_(True),
+            Provider.category.in_(legacy),
+            Provider.is_active.is_(True),
+            Provider.draft.is_(False),
+        )
+    )
+    if boat_only:
+        stmt = stmt.where(Entity.boat_access.isnot(None))
+    return list(db.scalars(stmt).unique().all())
+
+
 @router.get("/api/map_data/{scope_slug}")
 def map_data(
     scope_slug: str,
@@ -74,13 +136,27 @@ def map_data(
     boat_only = boat is not None and str(boat).strip() in {"1", "true", "yes"}
     sort_slug = categories[0]
 
-    entities = cat_pages.select_entities_for_categories(
+    # Two selection paths, unioned by entity id (additive — never drops a pin
+    # the entity-category path already produced):
+    #   1. entity-category join — serves non-commercial entities (events,
+    #      outdoors, civic) and properly-linked providers.
+    #   2. legacy Provider.category — the gap fix, surfacing the bulk of
+    #      providers that carry no entity_categories row.
+    by_id: dict[str, Entity] = {}
+    for ent in cat_pages.select_entities_for_categories(
         db,
         category_slugs=categories,
         district_slug=None,
         boat_only=boat_only,
-    )
-    entities = [e for e in entities if _entity_lat_lng(e) is not None]
+    ):
+        by_id[ent.id] = ent
+    for ent in _select_provider_entities(
+        db,
+        category_slugs=categories,
+        boat_only=boat_only,
+    ):
+        by_id.setdefault(ent.id, ent)
+    entities = list(by_id.values())
 
     eids = [e.id for e in entities]
     prov_by_eid = (
@@ -91,6 +167,8 @@ def map_data(
         if eids
         else {}
     )
+
+    entities = [e for e in entities if _coords_for(e, prov_by_eid.get(e.id)) is not None]
 
     rank_inp = cat_pages.rank_inputs_for_category(
         entities,
@@ -115,7 +193,7 @@ def map_data(
 
     markers: list[dict[str, Any]] = []
     for ent in entities:
-        coords = _entity_lat_lng(ent)
+        coords = _coords_for(ent, prov_by_eid.get(ent.id))
         if coords is None:
             continue
         lat, lng = coords
