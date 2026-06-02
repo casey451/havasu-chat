@@ -159,3 +159,10 @@ def test_cheapest_gas_reads_cache(db, monkeypatch):
 def test_unconfident_query_falls_through(db, monkeypatch):
     monkeypatch.setenv("USE_INTENT_LAYER", "1")
     assert try_intent_layer("tell me a joke", db) is None
+
+
+def test_resolved_entity_falls_through(db, monkeypatch):
+    """A question about a named business must not be hijacked by a category list."""
+    monkeypatch.setenv("USE_INTENT_LAYER", "1")
+    # "brewery" would otherwise match the eat cuisine token.
+    assert try_intent_layer("tell me about Mudshark Brewery", db, entity="Mudshark Brewery") is None

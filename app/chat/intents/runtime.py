@@ -142,11 +142,21 @@ def try_intent_layer(
     query: str,
     db: Session,
     *,
+    entity: str | None = None,
     today: date | None = None,
     now: datetime | None = None,
 ) -> IntentAnswer | None:
-    """Resolve + answer at the intent layer, or None to fall through."""
+    """Resolve + answer at the intent layer, or None to fall through.
+
+    ``entity`` is the catalog entity the router already resolved for this turn.
+    When set, the question is about a specific named business/event ("tell me
+    about Mudshark Brewery") -- the intent layer must NOT hijack it with a
+    generic category list, so it falls through to the entity-aware Tier 1/2/3
+    path.
+    """
     if not is_enabled():
+        return None
+    if entity and entity.strip():
         return None
     try:
         resolved = resolve(query)

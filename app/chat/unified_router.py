@@ -478,7 +478,7 @@ def _handle_ask(
     try:
         from app.chat.intents.runtime import try_intent_layer
 
-        intent_answer = try_intent_layer(query, db)
+        intent_answer = try_intent_layer(query, db, entity=intent_result.entity)
     except Exception:
         logging.exception("unified_router: intent layer failed")
         intent_answer = None
