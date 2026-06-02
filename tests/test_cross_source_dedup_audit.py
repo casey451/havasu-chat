@@ -412,3 +412,29 @@ def test_event_normalized_title_takes_precedence():
     pairs = find_event_pairs_core(rows)
     assert len(pairs) == 1
     assert pairs[0].score == 100.0
+
+
+def test_event_keep_is_higher_priority_source():
+    # go_lake_havasu (EVENT_SOURCE_PRIORITY 1) outranks city (3) -> it is the
+    # advisory keeper regardless of scan order.
+    rows = [
+        _ev("a", "Boat Parade", "2026-07-04", entity_id="E1", source="city"),
+        _ev("b", "Boat Parade", "2026-07-04", entity_id="E1", source="go_lake_havasu"),
+    ]
+    pairs = find_event_pairs_core(rows)
+    assert len(pairs) == 1
+    assert pairs[0].keep_source == "go_lake_havasu"
+    assert pairs[0].dup_source == "city"
+
+
+def test_event_keep_dup_tiebreak_by_id_when_source_equal():
+    # Equal source priority -> stable tiebreak on id (smaller id is the keeper),
+    # independent of insertion order.
+    rows = [
+        _ev("z", "Boat Parade", "2026-07-04", entity_id="E1", source="city"),
+        _ev("a", "Boat Parade", "2026-07-04", entity_id="E1", source="city"),
+    ]
+    pairs = find_event_pairs_core(rows)
+    assert len(pairs) == 1
+    assert pairs[0].keep_id == "a"
+    assert pairs[0].dup_id == "z"

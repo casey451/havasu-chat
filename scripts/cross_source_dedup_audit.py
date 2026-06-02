@@ -502,6 +502,32 @@ class EventRow:
     location_name: str | None = None
 
 
+def _event_min_source_priority(source: str | None) -> int:
+    """Lowest EVENT_SOURCE_PRIORITY across a (possibly comma-joined) source string.
+
+    Mirrors the provider _min_source_priority but on the EVENT priority map; 99
+    for unknown/empty so any known source outranks it.
+    """
+    from app.contrib.event_reconciler import EVENT_SOURCE_PRIORITY
+
+    parts = [p.strip() for p in (source or "").split(",") if p.strip()]
+    if not parts:
+        return 99
+    return min(EVENT_SOURCE_PRIORITY.get(p, 99) for p in parts)
+
+
+def _order_event_keep_dup(a: EventRow, b: EventRow) -> tuple[EventRow, EventRow]:
+    """Advisory survivor selection for an event pair: lower EVENT_SOURCE_PRIORITY
+    wins, tie-broken by id for stability (mirrors the provider _order_keep_dup).
+    Advisory only -- nothing is merged here.
+    """
+
+    def key(e: EventRow) -> tuple:
+        return (_event_min_source_priority(e.source), e.id)
+
+    return (a, b) if key(a) <= key(b) else (b, a)
+
+
 def find_event_pairs_core(
     rows: list[EventRow], *, fuzzy_threshold: float = DEFAULT_FUZZY_THRESHOLD
 ) -> list[EventPairRow]:
@@ -510,8 +536,9 @@ def find_event_pairs_core(
     Two events pair when they share a calendar date, share a venue (same
     entity_id OR identical non-empty location_normalized), and their titles clear
     ``fuzzy_threshold`` under normalize_event_title + token_sort_ratio (the scorer
-    the event reconciler uses). Each unordered pair appears once; keep/dup follows
-    scan order (advisory only, like the provider sweep). Ranked by score desc.
+    the event reconciler uses). Each unordered pair appears once; keep/dup is the
+    advisory survivor split by EVENT_SOURCE_PRIORITY (see _order_event_keep_dup).
+    Ranked by score desc.
     """
     from app.events.scrapers.base import normalize_event_title
 
@@ -544,18 +571,19 @@ def find_event_pairs_core(
                 if key in seen:
                     continue
                 seen.add(key)
+                keep, dup = _order_event_keep_dup(a, b)
                 out.append(
                     EventPairRow(
                         rank=0,
                         score=round(ratio, 1),
-                        keep_id=a.id,
-                        keep_title=a.title,
-                        keep_source=a.source,
-                        dup_id=b.id,
-                        dup_title=b.title,
-                        dup_source=b.source,
+                        keep_id=keep.id,
+                        keep_title=keep.title,
+                        keep_source=keep.source,
+                        dup_id=dup.id,
+                        dup_title=dup.title,
+                        dup_source=dup.source,
                         event_date=str(day),
-                        venue=a.location_name or "",
+                        venue=keep.location_name or "",
                     )
                 )
     out.sort(key=lambda r: r.score, reverse=True)
