@@ -93,6 +93,14 @@ def _openai_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
 
+@pytest.fixture(autouse=True)
+def _disable_intent_layer(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The Tier-3 component-threading test routes through the legacy path; the
+    # intent layer (front-of-tier-2) is covered by tests/test_intent_*. Disable
+    # it so routing reaches Tier 3 deterministically regardless of seeded rows.
+    monkeypatch.setenv("USE_INTENT_LAYER", "0")
+
+
 def _run_tier3(
     db: Session,
     *,

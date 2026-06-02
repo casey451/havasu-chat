@@ -32,6 +32,14 @@ def _disable_llm_router(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("USE_LLM_ROUTER", "false")
 
 
+@pytest.fixture(autouse=True)
+def _disable_intent_layer(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Prior-entity tracking via the legacy tier2/tier3 recommendation flow. The
+    # intent layer (front-of-tier-2) is covered by tests/test_intent_*; disable
+    # it here so these tests are deterministic regardless of seeded catalog rows.
+    monkeypatch.setenv("USE_INTENT_LAYER", "0")
+
+
 def _intent_open() -> IntentResult:
     return IntentResult(
         mode="ask",
