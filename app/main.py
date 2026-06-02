@@ -46,6 +46,7 @@ from app.api.routes.contribute import router as contribute_router
 from app.api.routes.gas import router as gas_router
 from app.api.routes.map_data import router as map_data_router
 from app.api.routes.themed_groups import router as themed_groups_router
+from app.api.routes.today import router as today_router
 from app.auth.routes import router as auth_router
 from app.auth.session import SessionMiddleware
 from app.categories.queries import CATEGORY_FILTERS
@@ -372,6 +373,7 @@ app.include_router(direction_c_categories_router)
 app.include_router(themed_groups_router)
 app.include_router(map_data_router)
 app.include_router(conditions_router)
+app.include_router(today_router)
 app.include_router(gas_router)
 app.include_router(admin_router)
 app.include_router(admin_v1_overview_router)
