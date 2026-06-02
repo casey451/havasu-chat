@@ -446,6 +446,73 @@ def run_query(
             label="shop",
         )
 
+    if key in ("boat_rental", "boat_repair", "on_the_water"):
+        # Rent / repair narrow the on-the-water bucket by name token; the general
+        # on_the_water ask returns the whole bucket. Tokens are a soft narrowing
+        # within the bucket -- an empty result falls through to the honest gap.
+        name_tokens: tuple[str, ...] = ()
+        if key == "boat_rental":
+            name_tokens = ("rent", "rental", "boat", "kayak", "paddle", "watercraft")
+            lead = "Where to get out on the water:"
+            label = "rental"
+        elif key == "boat_repair":
+            name_tokens = ("repair", "service", "marine", "boat")
+            lead = "Boat service and repair:"
+            label = "shop"
+        else:
+            lead = "Out on the water:"
+            label = "spot"
+        rows = _query_providers(
+            db,
+            subcats=dicts.WATER_SUBCATS,
+            legacy_categories=dicts.WATER_LEGACY_CATEGORIES,
+            name_tokens=name_tokens,
+            district=_area(slots),
+            now=now,
+        )
+        return QueryResult(
+            key,
+            "providers",
+            [_provider_to_row(p) for p in rows],
+            "on_the_water",
+            lead,
+            label=label,
+        )
+
+    if key == "parks_trails":
+        rows = _query_providers(
+            db,
+            subcats=dicts.RECREATION_SUBCATS,
+            legacy_categories=dicts.RECREATION_LEGACY_CATEGORIES,
+            district=_area(slots),
+            now=now,
+        )
+        return QueryResult(
+            key,
+            "providers",
+            [_provider_to_row(p) for p in rows],
+            "recreation_outdoors",
+            "Parks, trails, and beaches:",
+            label="spot",
+        )
+
+    if key == "civic_resources":
+        rows = _query_providers(
+            db,
+            subcats=dicts.CIVIC_SUBCATS,
+            legacy_categories=dicts.CIVIC_LEGACY_CATEGORIES,
+            district=_area(slots),
+            now=now,
+        )
+        return QueryResult(
+            key,
+            "providers",
+            [_provider_to_row(p) for p in rows],
+            "civic_community",
+            "Community resources:",
+            label="resource",
+        )
+
     # Unknown intent key -> empty (caller falls through / renders nothing).
     return QueryResult(key, "providers", [], None, "")
 

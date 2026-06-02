@@ -117,6 +117,78 @@ _SHOPPING_WORDS = (
     "supermarket",
 )
 
+# On-the-water: explicit water-activity nouns only. Deliberately NOT bare "lake"
+# (so "hotels near the lake" stays lodging) -- requires a boat/marina/watercraft
+# signal or an explicit launch/ramp.
+_WATER_WORDS = (
+    "boat",
+    "boats",
+    "marina",
+    "kayak",
+    "canoe",
+    "paddleboard",
+    "paddle board",
+    "jet ski",
+    "jetski",
+    "jet-ski",
+    "wave runner",
+    "waverunner",
+    "watercraft",
+    "boat launch",
+    "boat ramp",
+    "boat rental",
+    "boat tour",
+    "lake access",
+    "fishing",
+)
+_RENT_WORDS = ("rent", "rental", "rentals", "hire")
+_REPAIR_WORDS = ("repair", "fix", "service", "mechanic")
+
+# Strong purchase signal -- when present, a water/park noun is the thing being
+# BOUGHT ("buy fishing gear", "buy beach stuff"), so it's a shopping intent, not
+# an on-the-water / parks one. Excludes weak "shop"/"store" (those appear in
+# "repair shop" / "body shop" without a purchase intent).
+_SHOPPING_STRONG = ("buy", "shopping", "grocery", "groceries", "supermarket", "boutique")
+
+# Parks / trails / beaches. Placed after lodging so "rv park" stays lodging.
+_PARK_WORDS = (
+    "park",
+    "parks",
+    "trail",
+    "trails",
+    "trailhead",
+    "hike",
+    "hiking",
+    "beach",
+    "beaches",
+    "off road",
+    "off-road",
+    "offroad",
+)
+
+# Civic / community resources -- libraries, worship, public services.
+_CIVIC_WORDS = (
+    "church",
+    "churches",
+    "worship",
+    "synagogue",
+    "mosque",
+    "temple",
+    "library",
+    "libraries",
+    "city hall",
+    "dmv",
+    "post office",
+    "courthouse",
+    "government",
+    "non profit",
+    "non-profit",
+    "nonprofit",
+    "community center",
+    "food bank",
+    "senior center",
+)
+
 _FITNESS = {
     "yoga_pilates": ("yoga", "pilates", "barre"),
     "martial_arts": ("martial arts", "karate", "jiu jitsu", "bjj", "judo", "taekwondo", "dojo"),
@@ -294,7 +366,38 @@ def resolve(query: str) -> ResolvedIntent | None:
             slots["area"] = area
         return ResolvedIntent("lodging_find", slots, L1)
 
-    # 9. Shopping.
+    # 9. On the water -- boat/marina/watercraft signal. Rent vs repair vs
+    # general from the verb; otherwise the on-the-water bucket. Before shopping
+    # so "boat repair shop" routes to boat_repair, not shopping (the "shop"
+    # token).
+    if _has_any(t, _WATER_WORDS) and not _has_any(t, _SHOPPING_STRONG):
+        slots = {}
+        area = _match_area(t)
+        if area:
+            slots["area"] = area
+        if _has_any(t, _RENT_WORDS):
+            key = "boat_rental"
+        elif _has_any(t, _REPAIR_WORDS):
+            key = "boat_repair"
+        else:
+            key = "on_the_water"
+        layer = L2 if (area or key != "on_the_water") else L1
+        return ResolvedIntent(key, slots, layer)
+
+    # 10. Parks / trails / beaches.
+    if _has_any(t, _PARK_WORDS) and not _has_any(t, _SHOPPING_STRONG):
+        slots = {}
+        area = _match_area(t)
+        if area:
+            slots["area"] = area
+        return ResolvedIntent("parks_trails", slots, L2 if slots else L1)
+
+    # 11. Civic / community resources.
+    if _has_any(t, _CIVIC_WORDS):
+        return ResolvedIntent("civic_resources", {}, L1)
+
+    # 12. Shopping (last broad bucket -- "shop"/"store" are generic, so the
+    # specific buckets above win first).
     if _has_any(t, _SHOPPING_WORDS):
         slots = {}
         area = _match_area(t)
