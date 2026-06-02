@@ -146,6 +146,10 @@ def _match_cuisine(text: str) -> str | None:
     for term in sorted(dicts.CUISINE_DICT, key=len, reverse=True):
         if _has(text, term):
             return term
+    # Token-level fallback: "taco"/"taqueria" -> mexican, "breweries" -> brewery.
+    for cuisine, tokens in dicts.CUISINE_DICT.items():
+        if _has_any(text, tokens):
+            return cuisine
     return None
 
 
