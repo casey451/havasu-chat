@@ -45,6 +45,7 @@ from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
 from app.db.database import get_db
 from app.db.entity_types import ENTITY_TYPE_COMMERCIAL
 from app.db.models import Category, District, Entity, EntityCategory, Provider
+from app.events import series as event_series
 from app.events.queries import event_window_for_chip, events_in_window
 from app.home.queries import CATEGORY_LABELS
 from app.providers import queries as provider_queries
@@ -937,12 +938,20 @@ def _build_events_category_stream(
         category_slug="events",
         limit=limit * 3,
     )
-    seen: set[str] = set()
+    # Collapse recurring series (e.g. daily Lap Swim) to a single card on their
+    # next occurrence — same de-flooding as the home/events feeds (P0 Task 4).
+    # Sort chronologically first so the kept occurrence is the earliest in-window
+    # one; dedup on the series key, not event.id (occurrences are distinct rows).
+    flat = sorted(flat, key=lambda p: (p[1], p[0].start_time))
+    seen: set[tuple[str, str, str]] = set()
     pairs: list[tuple] = []
     for event, occ_date in flat:
-        if event.id in seen:
+        key = event_series.series_key(
+            event.normalized_title, event.location_normalized, event.start_time
+        )
+        if key in seen:
             continue
-        seen.add(event.id)
+        seen.add(key)
         pairs.append((event, occ_date))
         if len(pairs) >= limit:
             break
