@@ -234,6 +234,17 @@ def test_three_way_website_group_yields_three_pairs():
     assert all(p.reason == "website" for p in pairs)
 
 
+def test_shared_social_domain_does_not_pair():
+    # A social/aggregator host (facebook.com) is shared by many distinct
+    # businesses, so it must NOT mint website pairs -- even two rows carrying it,
+    # with no other signal, stay unpaired.
+    rows = [
+        _row("a", "Bad Miguel's", website="https://facebook.com/badmiguels"),
+        _row("b", "SARA Park Disc Golf", website="http://www.facebook.com/saraparkdg"),
+    ]
+    assert _pairs(rows) == []
+
+
 def test_dispersed_website_group_is_flagged_not_paired():
     # The "Simply Savage Designs" prod case: one designer/aggregator domain
     # credited as the website of distinct shops 1-6 km apart. A small group (<=

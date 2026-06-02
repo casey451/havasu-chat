@@ -153,6 +153,24 @@ def test_contact_tier_disabled_by_default_inserts(db_session, monkeypatch) -> No
     assert rec.action == "insert"
 
 
+def test_contact_tier_ignores_social_domain(db_session, monkeypatch) -> None:
+    monkeypatch.setenv("INGEST_CONTACT_TIER_ENABLED", "1")
+    # An existing provider whose only "website" is a facebook page. A new payload
+    # pointing at the same multi-tenant host must NOT contact-merge onto it --
+    # facebook.com is not a same-business identity key. With no geo/name overlap
+    # the payload inserts instead.
+    prov = create_provider_and_entity_row(
+        db_session,
+        "Some Cafe",
+        website="https://facebook.com/somecafe",
+    )
+    payload = _payload("Unrelated Shop", website="https://www.facebook.com/unrelatedshop")
+    rec = reconcile_hit(db_session, payload)
+    assert rec.reason != "contact (website/phone) exact match"
+    assert not (rec.action == "update" and rec.existing_id == prov.entity_id)
+    assert rec.action == "insert"
+
+
 def test_contact_tier_beats_geo(db_session, monkeypatch) -> None:
     monkeypatch.setenv("INGEST_CONTACT_TIER_ENABLED", "1")
     # Existing provider matches by website but is ~1.1 km away (0.01 deg lat)

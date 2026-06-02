@@ -30,7 +30,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.contrib.ingest_base import EntityPayload
-from app.utils.contact_norm import norm_domain, norm_phone
+from app.utils.contact_norm import is_identity_domain, norm_domain, norm_phone
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +117,13 @@ def _contact_match_entity_id(db: Session, payload: EntityPayload) -> str | None:
     from app.db.models import Provider
 
     web = norm_domain(payload.website)
+    # A social / aggregator / marketplace / site-builder host is shared by many
+    # distinct businesses, so it is not a usable identity key -- drop it and let
+    # phone (or the geo/name tiers) decide. Without this, a payload pointing at,
+    # say, a facebook.com page would contact-merge onto the one existing provider
+    # that happens to carry the same host.
+    if web is not None and not is_identity_domain(web):
+        web = None
     phone = norm_phone(payload.phone)
     if web is None and phone is None:
         return None
