@@ -155,6 +155,82 @@ def _featured_case_expr() -> Any:
     )
 
 
+@router.get("/api/search/suggestions")
+def api_search_suggestions(
+    q: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> list[dict[str, Any]]:
+    """Lightweight autocomplete for the hero/topbar ask bars.
+
+    Returns up to 8 ``{name, type, subcategory, url}`` rows whose entity name
+    matches ``q`` as a prefix or substring (active commercial/event/program
+    entities only). Prefix hits rank above mid-string hits. Kept intentionally
+    cheap: a single bounded query with one optional outerjoin to Provider for
+    the commercial subcategory; no FTS/ranking machinery and no per-row
+    hydration like :func:`api_search`.
+    """
+    if q is None or len(str(q).strip()) < 2:
+        return []
+
+    needle = str(q).strip()
+    prefix_like = f"{needle}%"
+    sub_like = f"%{needle}%"
+
+    suggest_types = (
+        ENTITY_TYPE_COMMERCIAL,
+        ENTITY_TYPE_EVENT,
+        ENTITY_TYPE_PROGRAM,
+    )
+
+    # Prefix matches sort first (rank 0), then mid-string matches (rank 1),
+    # then alphabetically — a stable, predictable order for a dropdown.
+    rank_expr = case((Entity.name.ilike(prefix_like), 0), else_=1)
+
+    stmt = (
+        select(
+            Entity.id,
+            Entity.entity_type,
+            Entity.name,
+            Entity.slug,
+            Provider.slug.label("provider_slug"),
+            func.coalesce(Provider.google_primary_category, Provider.category).label("subcategory"),
+        )
+        .outerjoin(
+            Provider,
+            (Provider.entity_id == Entity.id) & (Entity.entity_type == ENTITY_TYPE_COMMERCIAL),
+        )
+        .where(
+            Entity.is_active.is_(True),
+            Entity.entity_type.in_(suggest_types),
+            Entity.name.ilike(sub_like),
+        )
+        .order_by(rank_expr.asc(), Entity.name.asc(), Entity.id.asc())
+        .limit(8)
+    )
+
+    out: list[dict[str, Any]] = []
+    for row in db.execute(stmt).all():
+        if row.entity_type == ENTITY_TYPE_COMMERCIAL:
+            slug_out = row.provider_slug or row.slug
+            url = f"/provider/{slug_out}"
+        elif row.entity_type == ENTITY_TYPE_EVENT:
+            url = f"/events/{row.id}"
+        elif row.entity_type == ENTITY_TYPE_PROGRAM:
+            url = f"/programs/{row.id}"
+        else:  # pragma: no cover - filtered out above
+            url = "/home"
+        subcat = row.subcategory if row.entity_type == ENTITY_TYPE_COMMERCIAL else None
+        out.append(
+            {
+                "name": row.name,
+                "type": row.entity_type,
+                "subcategory": subcat,
+                "url": url,
+            }
+        )
+    return out
+
+
 @router.get("/api/search")
 def api_search(
     q: str | None = Query(None),

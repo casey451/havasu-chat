@@ -34,7 +34,10 @@ from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.db.models import AdSlot, Event, Sponsor
 from app.events import series as event_series
+from app.groups.themed_groups import group_label
+from app.home import collections as curated_collections
 from app.home import pullquote, queries_c, sponsor_store
+from app.home.queries import CATEGORY_LABELS
 from app.v1.categories import BUCKET_SLUG_REDIRECTS, MASTER_BUCKETS
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
@@ -55,6 +58,11 @@ router = APIRouter(tags=["home"])
 # add an attribution line when the owner supplies a licensed photo.
 _DEFAULT_HERO_ASSET = "/static/img/home-hero.jpg"
 
+# Place-grounded hero copy, env-overridable (same pattern as the hero image) so
+# the headline can be tuned per season/campaign without a redeploy.
+_HERO_EYEBROW_DEFAULT = "YOUR LAKE, RIGHT NOW"
+_HERO_HEADLINE_DEFAULT = "Your day on Lake Havasu starts here"
+
 
 def _hero_context() -> dict[str, Any]:
     url = (os.getenv("HOME_HERO_IMAGE_URL") or "").strip() or _DEFAULT_HERO_ASSET
@@ -63,7 +71,12 @@ def _hero_context() -> dict[str, Any]:
     attribution = (
         {"photographer": credit, "profile_url": credit_url} if credit and credit_url else None
     )
-    return {"url": url, "attribution": attribution}
+    return {
+        "url": url,
+        "attribution": attribution,
+        "eyebrow": (os.getenv("HOME_HERO_EYEBROW") or "").strip() or _HERO_EYEBROW_DEFAULT,
+        "headline": (os.getenv("HOME_HERO_HEADLINE") or "").strip() or _HERO_HEADLINE_DEFAULT,
+    }
 
 
 def _format_event_time_label(start_at: datetime) -> str:
@@ -264,6 +277,7 @@ def _category_cards(db: Session) -> list[dict[str, str | int]]:
 _UTILITY_TILE_MAP: dict[str, tuple[str, str, str]] = {
     # conditions-tile kind -> (chip kind, icon, label)
     "temp": ("weather", "🌡", "Now"),
+    "sky_condition": ("sky", "🌤", "Sky"),
     "aqi": ("air", "💨", "Air quality"),
     "water_temp": ("water", "🌊", "Water temp"),
     "lake_level": ("lake", "🏞", "Lake level"),
@@ -372,6 +386,8 @@ def serve_home(
             "now_label": now.strftime("%I:%M %p").lstrip("0"),
             "hero_image_url": hero["url"],
             "hero_attribution": hero["attribution"],
+            "hero_eyebrow": hero["eyebrow"],
+            "hero_headline": hero["headline"],
             "discover_cards": discover_cards,
             "eat_cards": eat_cards,
             "service_cards": service_cards,
@@ -380,9 +396,63 @@ def serve_home(
             "category_cards": categories,
             "home_services_shortcut": _HOME_SERVICES_SHORTCUT,
             "popular_subcategories": _POPULAR_SUBCATEGORIES,
+            "collection_links": curated_collections.list_collections(),
             "spotlight_card": spotlight,
             "active_tab": "today",
             "hava_read": pullquote.get_quote(db),
+        },
+    )
+
+
+@router.get("/map", response_class=HTMLResponse)
+def serve_map_view(request: Request, scope: str | None = None) -> HTMLResponse:
+    """Render /map — full-page Leaflet map (markers via /api/map_data/{scope}).
+
+    Ships a scope selector (themed groups + tier-1 categories) whose tabs link to
+    ``/map?scope=<slug>``; the server stamps ``data-map-scope`` on the body and
+    the existing ``map.js`` reads it and calls ``/api/map_data``. ``map.js`` is
+    reused unmodified (it captures the scope at init, so switching reloads).
+    """
+    now = now_lake_havasu()
+    group_scopes = [
+        {"slug": slug, "label": group_label(slug)}
+        for slug in (
+            "eat-drink-group",
+            "on-the-water-group",
+            "things-to-do-group",
+            "home-auto-group",
+            "health-fitness-group",
+        )
+    ]
+    category_scopes = [
+        {"slug": slug, "label": CATEGORY_LABELS.get(slug, slug.replace("-", " ").title())}
+        for slug in (
+            "eat-drink",
+            "on-the-water",
+            "outdoors-parks-trails",
+            "classes-sports-recreation",
+            "shopping-essentials",
+            "home-property-services",
+            "health-wellness-care",
+            "auto-rv-fuel",
+            "lodging-vacation-rentals",
+            "pets",
+            "public-civic-resources",
+            "events",
+        )
+    ]
+    valid_scopes = {s["slug"] for s in group_scopes} | {s["slug"] for s in category_scopes}
+    requested = (scope or "").strip().lower()
+    default_scope = requested if requested in valid_scopes else group_scopes[0]["slug"]
+    return templates.TemplateResponse(
+        request=request,
+        name="map_c.html",
+        context={
+            "today_label": now.strftime("%A, %B ") + str(now.day),
+            "group_scopes": group_scopes,
+            "category_scopes": category_scopes,
+            "default_scope": default_scope,
+            "active_tab": "map",
         },
     )
 
@@ -502,6 +572,29 @@ def sponsor_click(
     )
     # 302 (not 301) — never cache the redirect; CTA URLs can rotate.
     return RedirectResponse(url=row.cta_url, status_code=302)
+
+
+@router.get("/collection/{slug}", response_class=HTMLResponse)
+def collection_landing(request: Request, slug: str) -> HTMLResponse:
+    """Render a curated editorial collection (e.g. "Dog-friendly patios").
+
+    Source of truth is ``app/home/curated_collections.json`` via
+    ``app.home.collections``. Unknown slug 404s; the loader never raises, so a
+    stale entry degrades to a clean 404 rather than a 500.
+    """
+    collection = curated_collections.get_collection(slug)
+    if collection is None:
+        raise HTTPException(status_code=404, detail="unknown_collection")
+    now = now_lake_havasu()
+    return templates.TemplateResponse(
+        request=request,
+        name="collection_landing.html",
+        context={
+            "collection": collection,
+            "today_label": now.strftime("%A, %B ") + str(now.day),
+            "active_tab": "explore",
+        },
+    )
 
 
 @router.get("/sponsor", response_class=HTMLResponse)

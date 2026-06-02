@@ -74,6 +74,28 @@ def build_conditions_strip_view_model(
             )
         )
 
+    # Sky/condition text chip (e.g. "Sunny") from the NWS daily forecast. Only
+    # emitted when api_payload surfaced a non-empty sky_condition, so the strip
+    # degrades gracefully when the forecast source is missing.
+    sky = api.get("sky_condition")
+    if isinstance(sky, str) and sky.strip():
+        label = api.get("sky_staleness_label") or "Updated recently"
+        stale = bool(api.get("sky_is_stale"))
+        any_stale = any_stale or stale
+        tiles.append(
+            ConditionsTile(
+                kind="sky_condition",
+                primary_value=sky.strip(),
+                secondary_value=None,
+                attribution_chip="NWS forecast",
+                severity="neutral",
+                staleness_label=label,
+                is_stale=stale,
+                detail_text=None,
+                visible=True,
+            )
+        )
+
     aqi = api.get("current_aqi")
     if aqi is not None:
         param = api.get("current_aqi_parameter") or "AQI"

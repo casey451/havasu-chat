@@ -51,21 +51,23 @@ def test_events_category_page_collapses_recurring_series() -> None:
     oneoff_title = f"ZZ Gala {suffix}"
     ids: list[str] = []
     start = now_lake_havasu()
-    monday = start.date() - timedelta(days=start.weekday())
+    # Anchor inside the page's today..+30 window (date-independent): the series
+    # spans 5 consecutive days from today; the one-off is also within the window.
+    base = start.date()
     with SessionLocal() as db:
-        for d in range(5):  # Mon-Fri, same series
+        for d in range(5):  # same series, 5 consecutive days
             ids.append(
                 _make_event(
                     db,
                     title=series_title,
-                    on_date=monday + timedelta(days=d),
+                    on_date=base + timedelta(days=d),
                     start=time(5, 0),
                     loc="Aquatic Center",
                 )
             )
         ids.append(
             _make_event(
-                db, title=oneoff_title, on_date=monday, start=time(18, 0), loc="London Bridge"
+                db, title=oneoff_title, on_date=base, start=time(18, 0), loc="London Bridge"
             )
         )
         db.commit()

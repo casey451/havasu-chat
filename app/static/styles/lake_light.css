@@ -1796,3 +1796,66 @@ a.ll-facet.is-active {
   font-size: 11px;
   opacity: 0.85;
 }
+
+/* --- Search autocomplete suggestions (feat: autocomplete) --------------- */
+.ll-ac-wrap {
+  position: relative;
+  display: block;
+  flex: 1 1 auto;
+}
+
+.ll-suggestions {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 320px;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+}
+
+.ll-suggestions li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #0f172a;
+}
+
+.ll-suggestions li:hover,
+.ll-suggestions li.is-active {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.ll-ac-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ll-ac-meta {
+  margin-left: auto;
+  font-size: 12px;
+  color: #64748b;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+/* A11y: visible keyboard focus on interactive chips, facets, and cards. */
+.ll-chip:focus-visible,
+.ll-facet:focus-visible,
+.ll-list-card:focus-visible,
+.ll-categories-card:focus-visible {
+  outline: 2px solid var(--ll-jade);
+  outline-offset: 2px;
+}

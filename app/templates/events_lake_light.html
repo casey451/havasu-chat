@@ -16,8 +16,8 @@
   <h1 class="ll-title">Events <span style="color:var(--ll-muted); font-size:0.65em;">{{ events_total }}</span></h1>
 
   <div class="ll-toggle" role="tablist" aria-label="Events view">
-    <button class="is-active" id="events-view-list" type="button" role="tab" aria-selected="true">List</button>
-    <button id="events-view-calendar" type="button" role="tab" aria-selected="false">Calendar</button>
+    <button class="is-active" id="events-view-list" type="button" role="tab" aria-selected="true" aria-controls="events-list-panel">List</button>
+    <button id="events-view-calendar" type="button" role="tab" aria-selected="false" aria-controls="events-calendar-panel">Calendar</button>
   </div>
 
   {% macro event_card(ev) %}
@@ -41,7 +41,7 @@
       </a>
   {% endmacro %}
 
-  <section class="ll-list" id="events-list-panel">
+  <section class="ll-list" id="events-list-panel" role="tabpanel" aria-labelledby="events-view-list">
     {% for group_label, items in [('Today', events_groups.today), ('This Weekend', events_groups.weekend), ('Next Week', events_groups.next_week)] %}
     <section class="ll-event-group">
       <h2 class="ll-group-title">{{ group_label }} <span style="font-size:0.5em; color:var(--ll-muted);">{{ items|length }} events</span></h2>
@@ -64,12 +64,12 @@
     {% endif %}
   </section>
 
-  <section class="ll-calendar" id="events-calendar-panel">
+  <section class="ll-calendar" id="events-calendar-panel" role="tabpanel" aria-labelledby="events-view-calendar">
     <div class="ll-card" style="padding:14px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <button type="button" id="ll-cal-prev" class="ll-pill">Prev</button>
+        <button type="button" id="ll-cal-prev" class="ll-pill" aria-label="Previous month">Prev</button>
         <h2 class="ll-serif" id="ll-cal-title" style="margin:0; font-size:30px;">{{ month_label }}</h2>
-        <button type="button" id="ll-cal-next" class="ll-pill">Next</button>
+        <button type="button" id="ll-cal-next" class="ll-pill" aria-label="Next month">Next</button>
       </div>
       <div class="ll-calendar-grid" id="ll-cal-grid"></div>
     </div>

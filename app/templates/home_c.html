@@ -49,8 +49,8 @@
       <a href="/home" class="ll-wordmark">Ask <em>Hava</em></a>
       <span class="ll-pill">Lake Havasu</span>
     </header>
-    <p class="ll-eyebrow" style="color:#f7e7d9;">WELCOME BACK</p>
-    <h1>What are you in the mood for?</h1>
+    <p class="ll-eyebrow" style="color:#f7e7d9;">{{ hero_eyebrow }}</p>
+    <h1>{{ hero_headline }}</h1>
     {% if hero_attribution %}
     <p class="ll-hero-credit">Photo: <a href="{{ hero_attribution.profile_url }}" rel="nofollow noopener" target="_blank">{{ hero_attribution.photographer }}</a></p>
     {% endif %}
@@ -76,6 +76,14 @@
         <span>{{ cat.count }}</span>
       </a>
       {% endfor %}
+      {% if collection_links %}
+      <p class="ll-eyebrow" style="margin-top:14px;">Collections</p>
+      {% for coll in collection_links %}
+      <a class="ll-category-row" href="/collection/{{ coll.slug }}" style="margin-bottom:8px;">
+        <span>{{ coll.title }}</span>
+      </a>
+      {% endfor %}
+      {% endif %}
     </aside>
 
     <section>

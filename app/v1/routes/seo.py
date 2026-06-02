@@ -35,6 +35,8 @@ def lake_havasu_business(
     open_now: str | None = Query(None, alias="open"),
     rating: str | None = Query(None),
     sort: str | None = Query(None),
+    late: str | None = Query(None),
+    weekends: str | None = Query(None),
 ) -> HTMLResponse | RedirectResponse:
     """Subcategory SEO landing, else the business-profile alias.
 
@@ -45,7 +47,14 @@ def lake_havasu_business(
     small fixed set and we never mint a provider slug that collides).
     """
     landing = render_subcategory_landing(
-        request, db, subcategory_slug=slug, open_now=open_now, rating=rating, sort=sort
+        request,
+        db,
+        subcategory_slug=slug,
+        open_now=open_now,
+        rating=rating,
+        sort=sort,
+        late=late,
+        weekends=weekends,
     )
     if landing is not None:
         return landing

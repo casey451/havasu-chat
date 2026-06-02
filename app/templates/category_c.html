@@ -49,6 +49,12 @@
     <a class="ll-facet{% if facets.top_rated %} is-active{% endif %}"
        href="{{ facet_href(rating=(none if facets.top_rated else '4')) }}"
        {% if facets.top_rated %}aria-pressed="true"{% endif %}>Top rated</a>
+    <a class="ll-facet{% if facets.open_late %} is-active{% endif %}"
+       href="{{ facet_href(late=(none if facets.open_late else '1')) }}"
+       {% if facets.open_late %}aria-pressed="true"{% endif %}>Open late</a>
+    <a class="ll-facet{% if facets.open_weekends %} is-active{% endif %}"
+       href="{{ facet_href(weekends=(none if facets.open_weekends else '1')) }}"
+       {% if facets.open_weekends %}aria-pressed="true"{% endif %}>Open weekends</a>
     <span class="ll-facet-sort" aria-label="Sort">
       {% for val, lbl in sort_options %}
       <a class="ll-facet{% if facets.sort == val %} is-active{% endif %}"

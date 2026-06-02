@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, time
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -36,7 +36,11 @@ from sqlalchemy.orm import Session
 from app.db.models import Provider
 from app.home.queries import _hours_status, _provider_image_url
 from app.home.queries_c import _load_eat_photos, _rating_display, _rating_sort_key
-from app.providers.queries import is_open_now
+from app.providers.queries import (
+    _parse_hours_time,
+    effective_hours_structured,
+    is_open_now,
+)
 
 _CATEGORY_PHOTOS_PATH = Path(__file__).resolve().parent / "curated_category_photos.json"
 
@@ -472,6 +476,50 @@ _TOP_RATED_MIN = 4.0
 _MATERIALIZE_CAP = 2000
 
 
+# Hours-derived facets (open_late / open_weekends) parse the same weekday-keyed
+# hours_structured shape used for the open/closed pills. They never raise on
+# malformed input — a bad span is skipped; missing/non-dict hours → False.
+_WEEKEND_KEYS = ("saturday", "sunday")
+_LATE_HOURS_THRESHOLD_HOUR = 20  # 8 PM — "open late"
+
+
+def _has_late_hours(hours_structured: dict | None, threshold_hour: int = _LATE_HOURS_THRESHOLD_HOUR) -> bool:
+    """Whether any day's close time is at/after ``threshold_hour`` (24h). A span
+    wrapping past midnight (close <= open) counts as late."""
+    if not hours_structured or not isinstance(hours_structured, dict):
+        return False
+    threshold = time(threshold_hour % 24, 0)
+    for spans in hours_structured.values():
+        if not isinstance(spans, list):
+            continue
+        for span in spans:
+            if not isinstance(span, dict):
+                continue
+            open_t = _parse_hours_time(str(span.get("open") or ""))
+            close_t = _parse_hours_time(str(span.get("close") or ""))
+            if close_t is None:
+                continue
+            if open_t is not None and close_t <= open_t:
+                return True
+            if close_t >= threshold:
+                return True
+    return False
+
+
+def _has_weekend_hours(hours_structured: dict | None) -> bool:
+    """Whether the provider has any open span on Saturday or Sunday."""
+    if not hours_structured or not isinstance(hours_structured, dict):
+        return False
+    for day_key in _WEEKEND_KEYS:
+        spans = hours_structured.get(day_key)
+        if not isinstance(spans, list) or not spans:
+            continue
+        for span in spans:
+            if isinstance(span, dict) and _parse_hours_time(str(span.get("open") or "")) is not None:
+                return True
+    return False
+
+
 @dataclass(frozen=True)
 class CategoryFacets:
     """Active facet selections for a category listing. All independent."""
@@ -479,7 +527,29 @@ class CategoryFacets:
     subcategory: str | None = None
     open_now: bool = False
     top_rated: bool = False
+    open_late: bool = False
+    open_weekends: bool = False
     sort: str = "default"  # default | closest | alpha
+
+    @property
+    def any_active(self) -> bool:
+        return bool(
+            self.subcategory
+            or self.open_now
+            or self.top_rated
+            or self.open_late
+            or self.open_weekends
+            or self.sort != "default"
+        )
+
+    @property
+    def needs_materialize(self) -> bool:
+        """Whether a facet requires Python-side scanning (live hours / distance).
+
+        SQL-expressible facets (subcategory, top_rated) and the alpha sort do
+        NOT; ``open_now`` / ``open_late`` / ``open_weekends`` / ``closest`` do.
+        """
+        return self.open_now or self.open_late or self.open_weekends or self.sort == "closest"
 
 
 def _distance_km(provider: Provider, ref_lat: float, ref_lng: float) -> float:
@@ -535,7 +605,7 @@ def category_listing(
         if facets.top_rated:
             base = base.filter(Provider.google_rating >= _TOP_RATED_MIN)
 
-        needs_scan = facets.open_now or facets.sort == "closest"
+        needs_scan = facets.needs_materialize
         if not needs_scan:
             total = int(base.with_entities(sa_func.count(Provider.id)).scalar() or 0)
             ordered = (
@@ -549,6 +619,10 @@ def category_listing(
         rows = base.order_by(*_rating_sort_key()).limit(_MATERIALIZE_CAP).all()
         if facets.open_now:
             rows = [p for p in rows if is_open_now(p, now=now)[0] is True]
+        if facets.open_late:
+            rows = [p for p in rows if _has_late_hours(effective_hours_structured(p))]
+        if facets.open_weekends:
+            rows = [p for p in rows if _has_weekend_hours(effective_hours_structured(p))]
         if facets.sort == "closest":
             rows.sort(key=lambda p: (_distance_km(p, _REF_LAT, _REF_LNG), (p.provider_name or "").lower()))
         elif facets.sort == "alpha":

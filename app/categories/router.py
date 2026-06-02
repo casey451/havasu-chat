@@ -239,7 +239,13 @@ def serve_categories_index(
 
 
 def _facets_from_query(
-    *, subcategory: str | None, open_now: str | None, rating: str | None, sort: str | None
+    *,
+    subcategory: str | None,
+    open_now: str | None,
+    rating: str | None,
+    sort: str | None,
+    late: str | None = None,
+    weekends: str | None = None,
 ) -> CategoryFacets:
     """Parse raw query params into a validated CategoryFacets."""
 
@@ -258,6 +264,8 @@ def _facets_from_query(
         subcategory=sub,
         open_now=_flag(open_now),
         top_rated=_flag(rating),
+        open_late=_flag(late),
+        open_weekends=_flag(weekends),
         sort=sort_key,
     )
 
@@ -334,6 +342,8 @@ def serve_category(
     open_now: str | None = Query(None, alias="open"),
     rating: str | None = Query(None),
     sort: str | None = Query(None),
+    late: str | None = Query(None),
+    weekends: str | None = Query(None),
 ) -> HTMLResponse | RedirectResponse:
     """Render a single category page with subcategory chips + faceted filters.
 
@@ -350,7 +360,12 @@ def serve_category(
 
     label, one_liner = cat_queries.CATEGORY_DISPLAY[normalised]
     facets = _facets_from_query(
-        subcategory=subcategory, open_now=open_now, rating=rating, sort=sort
+        subcategory=subcategory,
+        open_now=open_now,
+        rating=rating,
+        sort=sort,
+        late=late,
+        weekends=weekends,
     )
     return _render_category_page(
         request,
@@ -373,6 +388,8 @@ def render_subcategory_landing(
     open_now: str | None = None,
     rating: str | None = None,
     sort: str | None = None,
+    late: str | None = None,
+    weekends: str | None = None,
 ) -> HTMLResponse | None:
     """Render the ``/lake-havasu/{subcategory}`` SEO landing, or None if unknown.
 
@@ -387,7 +404,12 @@ def render_subcategory_landing(
     if bucket_route is None:
         return None
     facets = _facets_from_query(
-        subcategory=sub.slug, open_now=open_now, rating=rating, sort=sort
+        subcategory=sub.slug,
+        open_now=open_now,
+        rating=rating,
+        sort=sort,
+        late=late,
+        weekends=weekends,
     )
     headline = f"{sub.label} in Lake Havasu City"
     return _render_category_page(
