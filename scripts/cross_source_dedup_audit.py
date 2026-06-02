@@ -475,61 +475,108 @@ class EventPairRow:
     venue: str
 
 
-def find_event_pairs(limit: int | None, fuzzy_threshold: float) -> list[EventPairRow]:
-    from app.db.database import SessionLocal
-    from app.db.models import Event
+@dataclass(frozen=True)
+class EventRow:
+    """Plain, DB-free event record for the events sweep core (mirrors ProvRow).
+
+    Materialized from ORM rows by :func:`find_event_pairs` so the scoring core
+    is unit-testable without a database.
+    """
+
+    id: str
+    title: str
+    normalized_title: str | None
+    source: str | None
+    date: Any
+    entity_id: str | None = None
+    location_normalized: str | None = None
+    location_name: str | None = None
+
+
+def find_event_pairs_core(
+    rows: list[EventRow], *, fuzzy_threshold: float = DEFAULT_FUZZY_THRESHOLD
+) -> list[EventPairRow]:
+    """Pure same-date / same-venue / fuzzy-title pairing over EventRow records.
+
+    Two events pair when they share a calendar date, share a venue (same
+    entity_id OR identical non-empty location_normalized), and their titles clear
+    ``fuzzy_threshold`` under normalize_event_title + token_sort_ratio (the scorer
+    the event reconciler uses). Each unordered pair appears once; keep/dup follows
+    scan order (advisory only, like the provider sweep). Ranked by score desc.
+    """
     from app.events.scrapers.base import normalize_event_title
 
+    by_date: dict[Any, list[EventRow]] = {}
+    for e in rows:
+        by_date.setdefault(e.date, []).append(e)
     out: list[EventPairRow] = []
+    seen: set[frozenset[str]] = set()
+    for day, evs in by_date.items():
+        for i in range(len(evs)):
+            a = evs[i]
+            for j in range(i + 1, len(evs)):
+                b = evs[j]
+                same_venue = (a.entity_id and a.entity_id == b.entity_id) or (
+                    (a.location_normalized or "").strip() != ""
+                    and (a.location_normalized or "").strip()
+                    == (b.location_normalized or "").strip()
+                )
+                if not same_venue:
+                    continue
+                ratio = float(
+                    fuzz.token_sort_ratio(
+                        normalize_event_title(a.normalized_title or a.title),
+                        normalize_event_title(b.normalized_title or b.title),
+                    )
+                )
+                if ratio < fuzzy_threshold:
+                    continue
+                key = frozenset((a.id, b.id))
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append(
+                    EventPairRow(
+                        rank=0,
+                        score=round(ratio, 1),
+                        keep_id=a.id,
+                        keep_title=a.title,
+                        keep_source=a.source,
+                        dup_id=b.id,
+                        dup_title=b.title,
+                        dup_source=b.source,
+                        event_date=str(day),
+                        venue=a.location_name or "",
+                    )
+                )
+    out.sort(key=lambda r: r.score, reverse=True)
+    return [EventPairRow(**{**r.__dict__, "rank": i}) for i, r in enumerate(out, 1)]
+
+
+def find_event_pairs(limit: int | None, fuzzy_threshold: float) -> list[EventPairRow]:
+    """DB loader: materialize live events into EventRow, delegate to the core."""
+    from app.db.database import SessionLocal
+    from app.db.models import Event
+
     with SessionLocal() as session:
         stmt = select(Event).where(Event.status == "live")
         rows = list(session.scalars(stmt).all())
         if limit is not None:
             rows = rows[:limit]
-        by_date: dict[Any, list[Event]] = {}
-        for e in rows:
-            by_date.setdefault(e.date, []).append(e)
-        seen: set[frozenset[str]] = set()
-        for day, evs in by_date.items():
-            for i in range(len(evs)):
-                a = evs[i]
-                for j in range(i + 1, len(evs)):
-                    b = evs[j]
-                    same_venue = (a.entity_id and a.entity_id == b.entity_id) or (
-                        (a.location_normalized or "").strip() != ""
-                        and (a.location_normalized or "").strip()
-                        == (b.location_normalized or "").strip()
-                    )
-                    if not same_venue:
-                        continue
-                    ratio = float(
-                        fuzz.token_sort_ratio(
-                            normalize_event_title(a.normalized_title or a.title),
-                            normalize_event_title(b.normalized_title or b.title),
-                        )
-                    )
-                    if ratio < fuzzy_threshold:
-                        continue
-                    key = frozenset((a.id, b.id))
-                    if key in seen:
-                        continue
-                    seen.add(key)
-                    out.append(
-                        EventPairRow(
-                            rank=0,
-                            score=round(ratio, 1),
-                            keep_id=a.id,
-                            keep_title=a.title,
-                            keep_source=a.source,
-                            dup_id=b.id,
-                            dup_title=b.title,
-                            dup_source=b.source,
-                            event_date=str(day),
-                            venue=a.location_name or "",
-                        )
-                    )
-    out.sort(key=lambda r: r.score, reverse=True)
-    return [EventPairRow(**{**r.__dict__, "rank": i}) for i, r in enumerate(out, 1)]
+        event_rows = [
+            EventRow(
+                id=e.id,
+                title=e.title,
+                normalized_title=e.normalized_title,
+                source=e.source,
+                date=e.date,
+                entity_id=e.entity_id,
+                location_normalized=e.location_normalized,
+                location_name=e.location_name,
+            )
+            for e in rows
+        ]
+    return find_event_pairs_core(event_rows, fuzzy_threshold=fuzzy_threshold)
 
 
 def _write_event_csv(rows: list[EventPairRow], out_path: Path) -> None:

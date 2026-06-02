@@ -8,10 +8,12 @@ from __future__ import annotations
 from datetime import datetime
 
 from scripts.cross_source_dedup_audit import (
+    EventRow,
     ProvRow,
     _norm_domain,
     _norm_phone,
     _order_keep_dup,
+    find_event_pairs_core,
     find_provider_pairs,
 )
 
@@ -316,3 +318,97 @@ def test_spread_threshold_is_tunable():
     assert flagged == [] and len(shared) == 1
     paired, shared2 = find_provider_pairs(rows, max_shared_key_spread_m=5000.0)
     assert shared2 == [] and len(paired) == 1
+
+
+# --------------------------------------------------------------------------- #
+# Events sweep core (no DB).
+# --------------------------------------------------------------------------- #
+def _ev(eid, title, date, **kw):
+    base = dict(
+        normalized_title=None,
+        source=None,
+        entity_id=None,
+        location_normalized=None,
+        location_name=None,
+    )
+    base.update(kw)
+    return EventRow(id=eid, title=title, date=date, **base)
+
+
+def test_event_same_entity_identical_title_pairs():
+    rows = [
+        _ev("a", "Live Jazz Night", "2026-06-10", entity_id="E1", source="city"),
+        _ev("b", "Live Jazz Night", "2026-06-10", entity_id="E1", source="go_lake_havasu"),
+    ]
+    pairs = find_event_pairs_core(rows)
+    assert len(pairs) == 1
+    assert pairs[0].score == 100.0
+    assert pairs[0].rank == 1
+    assert {pairs[0].keep_id, pairs[0].dup_id} == {"a", "b"}
+
+
+def test_event_same_location_normalized_pairs():
+    rows = [
+        _ev("a", "Farmers Market", "2026-06-10", location_normalized="main st plaza"),
+        _ev("b", "Farmers Market", "2026-06-10", location_normalized="main st plaza"),
+    ]
+    assert len(find_event_pairs_core(rows)) == 1
+
+
+def test_event_different_venue_not_paired():
+    rows = [
+        _ev("a", "Farmers Market", "2026-06-10", entity_id="E1"),
+        _ev("b", "Farmers Market", "2026-06-10", entity_id="E2"),
+    ]
+    assert find_event_pairs_core(rows) == []
+
+
+def test_event_blank_location_is_not_a_venue_match():
+    # Blank location_normalized on both, no entity_id -> NOT same venue (else every
+    # venue-less event on a date would pair). The non-empty guard protects this.
+    rows = [
+        _ev("a", "Farmers Market", "2026-06-10", location_normalized=""),
+        _ev("b", "Farmers Market", "2026-06-10", location_normalized="  "),
+    ]
+    assert find_event_pairs_core(rows) == []
+
+
+def test_event_different_date_not_paired():
+    rows = [
+        _ev("a", "Live Jazz Night", "2026-06-10", entity_id="E1"),
+        _ev("b", "Live Jazz Night", "2026-06-11", entity_id="E1"),
+    ]
+    assert find_event_pairs_core(rows) == []
+
+
+def test_event_title_below_threshold_not_paired():
+    rows = [
+        _ev("a", "Live Jazz Night", "2026-06-10", entity_id="E1"),
+        _ev("b", "Farmers Market and Craft Fair", "2026-06-10", entity_id="E1"),
+    ]
+    assert find_event_pairs_core(rows) == []
+
+
+def test_event_pairs_dedup_and_ranked():
+    # Three identical-title events at one venue/date -> C(3,2)=3 pairs, each once,
+    # ranked 1..3.
+    rows = [
+        _ev("a", "Boat Parade", "2026-07-04", entity_id="E1"),
+        _ev("b", "Boat Parade", "2026-07-04", entity_id="E1"),
+        _ev("c", "Boat Parade", "2026-07-04", entity_id="E1"),
+    ]
+    pairs = find_event_pairs_core(rows)
+    assert len(pairs) == 3
+    assert [p.rank for p in pairs] == [1, 2, 3]
+    assert len({frozenset((p.keep_id, p.dup_id)) for p in pairs}) == 3
+
+
+def test_event_normalized_title_takes_precedence():
+    # normalized_title is scored when present, even if the raw titles diverge.
+    rows = [
+        _ev("a", "RAW ONE!!!", "2026-06-10", entity_id="E1", normalized_title="boat parade"),
+        _ev("b", "different raw", "2026-06-10", entity_id="E1", normalized_title="boat parade"),
+    ]
+    pairs = find_event_pairs_core(rows)
+    assert len(pairs) == 1
+    assert pairs[0].score == 100.0
