@@ -40,6 +40,7 @@ from app.admin.v1_overview import router as admin_v1_overview_router
 from app.api.routes.account_alerts import router as account_alerts_router
 from app.api.routes.admin_contributions import router as admin_contributions_router
 from app.api.routes.admin_mentions import router as admin_mentions_router
+from app.api.routes.category_pages import TIER_1_CATEGORY_SLUGS
 from app.api.routes.category_pages import router as category_pages_router
 from app.api.routes.chat import router as concierge_chat_router
 from app.api.routes.conditions import router as conditions_router
@@ -64,6 +65,8 @@ from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.db.database import SessionLocal, get_db, init_db
 from app.db.models import Event, Provider
 from app.digest.routes import router as digest_router
+from app.geo.jsonld import event_to_jsonld as geo_event_to_jsonld
+from app.geo.jsonld import to_script_block as geo_to_script_block
 from app.home.chat_route import router as new_chat_ui_router
 from app.home.router import router as home_router
 from app.photos.routes import router as photos_router
@@ -474,6 +477,7 @@ def _render_permalink_response(
         tag_nodes = "".join(f'<span class="tag">{html.escape(tag)}</span>' for tag in event.tags)
         tags_html = f'<div class="tags"><h2>Tags</h2><div class="tag-wrap">{tag_nodes}</div></div>'
 
+    jsonld_block = geo_to_script_block(geo_event_to_jsonld(event, url=permalink_url))
     return templates.TemplateResponse(
         request=request,
         name="event_permalink.html",
@@ -487,6 +491,8 @@ def _render_permalink_response(
             "contact_html": contact_html,
             "event_link_html": event_link_html,
             "tags_html": tags_html,
+            "jsonld_block": jsonld_block,
+            "canonical_url": permalink_url,
         },
     )
 
@@ -551,6 +557,12 @@ def _build_sitemap_xml() -> str:
     # Category routes — every key in CATEGORY_FILTERS gets a /categories/<slug>.
     for slug in CATEGORY_FILTERS:
         entries.append(_sitemap_url_entry(f"{base}/categories/{slug}", today_iso))
+
+    # Singular SEO landing pages — the Tier-1 /category/<slug> surfaces that
+    # carry the GEO/AEO FAQ + JSON-LD markup (LANE B6). Distinct surface from
+    # the plural /categories/<slug> chrome pages above.
+    for slug in sorted(TIER_1_CATEGORY_SLUGS):
+        entries.append(_sitemap_url_entry(f"{base}/category/{slug}", today_iso))
 
     # Active, non-draft providers with a slug.
     try:

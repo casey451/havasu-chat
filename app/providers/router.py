@@ -9,6 +9,7 @@ so a single string change there propagates here.
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -20,7 +21,17 @@ from app.core.provider_name import register_template_filters, register_template_
 from app.db.database import get_db
 from app.db.models import Claim, Entity, Provider, User
 from app.events.queries import venue_events_for_profile
+from app.geo.jsonld import provider_to_jsonld, to_script_block
 from app.providers import queries, view_models
+
+_DEFAULT_BASE_URL = "https://havasu-chat-production.up.railway.app"
+
+
+def _base_url() -> str:
+    import os
+
+    raw = (os.getenv("BASE_URL") or _DEFAULT_BASE_URL).strip()
+    return raw.rstrip("/") or _DEFAULT_BASE_URL
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
@@ -64,6 +75,19 @@ def serve_provider_profile(
     entity = db.get(Entity, provider.entity_id)
     boat_access = entity.boat_access if entity is not None else None
     venue_events = venue_events_for_profile(db, provider, limit=5)
+    canonical_url = f"{_base_url()}/provider/{provider.slug}" if provider.slug else None
+    # Build LocalBusiness JSON-LD from the *resolved* view model (ENTITY
+    # extension location/contact win over legacy Provider columns), not the raw
+    # row — otherwise a stale legacy address could leak into the markup.
+    jsonld_source = SimpleNamespace(
+        provider_name=vm.provider_name,
+        phone=vm.call_phone_display or vm.call_phone,
+        address=vm.address,
+        website=vm.website_url,
+        google_rating=vm.google_rating,
+        google_review_count=vm.google_review_count,
+    )
+    jsonld_block = to_script_block(provider_to_jsonld(jsonld_source, url=canonical_url))
     return templates.TemplateResponse(
         request=request,
         name="provider_profile.html",
@@ -76,5 +100,7 @@ def serve_provider_profile(
             "has_boat_access": boat_access is not None,
             "venue_events": venue_events,
             "provider_name": vm.provider_name,
+            "jsonld_block": jsonld_block,
+            "canonical_url": canonical_url,
         },
     )

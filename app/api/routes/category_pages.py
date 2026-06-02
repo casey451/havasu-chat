@@ -47,6 +47,8 @@ from app.db.entity_types import ENTITY_TYPE_COMMERCIAL
 from app.db.models import Category, District, Entity, EntityCategory, Provider
 from app.events import series as event_series
 from app.events.queries import event_window_for_chip, events_in_window
+from app.geo.faq_content import category_faq_target
+from app.geo.jsonld import faqs_to_jsonld, item_list_to_jsonld, to_script_block
 from app.home.queries import CATEGORY_LABELS
 from app.providers import queries as provider_queries
 from app.providers.queries import _parse_hours_time, is_open_now
@@ -391,6 +393,68 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
 
 def category_page_config(slug: str) -> CategoryPageConfig:
     return _CATEGORY_PAGE_CONFIG.get(slug, _CATEGORY_PAGE_CONFIG["eat-drink"])
+
+
+_GEO_DEFAULT_BASE_URL = "https://havasu-chat-production.up.railway.app"
+
+
+def _geo_base_url() -> str:
+    import os
+
+    raw = (os.getenv("BASE_URL") or _GEO_DEFAULT_BASE_URL).strip()
+    return raw.rstrip("/") or _GEO_DEFAULT_BASE_URL
+
+
+def _build_geo_context(
+    request: Request, *, cat_slug: str, organic_stream: list
+) -> dict[str, Any]:
+    """Verified FAQ content + schema.org JSON-LD for the category landing.
+
+    Returns template keys (faq_target, geo_jsonld_block, plus canonical/meta).
+    A category with no verified content yields the canonical + ItemList only.
+    Never raises — content lookups degrade to None.
+    """
+    base = _geo_base_url()
+    canonical_url = f"{base}{request.url.path}"
+    target = category_faq_target(cat_slug)
+
+    blocks: list[str] = []
+    faqs: list[dict[str, str]] = []
+    meta_description: str | None = None
+    if target is not None:
+        faqs = target.faq_list
+        meta_description = target.meta_description or None
+        faq_node = faqs_to_jsonld(faqs)
+        faq_block = to_script_block(faq_node)
+        if faq_block:
+            blocks.append(faq_block)
+
+    # ItemList from the rendered listings (real catalog rows only).
+    items: list[dict[str, str]] = []
+    for vm in organic_stream:
+        name = getattr(vm, "name", None)
+        if not name:
+            continue
+        item: dict[str, str] = {"name": str(name)}
+        profile_url = getattr(vm, "profile_url", None)
+        if profile_url:
+            url = str(profile_url)
+            if url.startswith("/"):
+                url = base + url
+            item["url"] = url
+        items.append(item)
+    list_name = target.title if target is not None else None
+    item_block = to_script_block(item_list_to_jsonld(items, name=list_name))
+    if item_block:
+        blocks.append(item_block)
+
+    return {
+        "faq_target": target,
+        "faqs": faqs,
+        "geo_jsonld_block": "\n".join(blocks),
+        "canonical_url": canonical_url,
+        "geo_meta_description": meta_description,
+    }
 
 
 _EAT_DRINK_CUISINE_CHIPS: tuple[Chip, ...] = (
@@ -1144,6 +1208,9 @@ def category_landing(
         tail = urlencode(sorted(q.items()))
         return request.url.path + ("?" + tail if tail else "")
 
+    # GEO/AEO (LANE B6): verified FAQ content + schema.org JSON-LD.
+    geo_ctx = _build_geo_context(request, cat_slug=cat_slug, organic_stream=organic_stream)
+
     ctx = {
         "cat_href": cat_href,
         "today_label": now.strftime("%A, %B ") + str(now.day),
@@ -1179,6 +1246,7 @@ def category_landing(
         "editorial_footer_text": _EDITORIAL_FOOTERS.get(cat_slug, ""),
         "ref_lat": _REF_LAT,
         "ref_lng": _REF_LNG,
+        **geo_ctx,
     }
 
     return templates.TemplateResponse(

@@ -5,9 +5,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{{ event_title }} — Ask Hava</title>
+  <meta name="description" content="{{ og_description }}">
+  {% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}">{% endif %}
+  <meta property="og:type" content="event">
   <meta property="og:title" content="{{ event_title }}">
   <meta property="og:description" content="{{ og_description }}">
   <meta property="og:url" content="{{ og_url }}">
+  {{ jsonld_block | safe }}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">

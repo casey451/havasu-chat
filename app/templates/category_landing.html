@@ -5,7 +5,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{{ category_label }} — Ask Hava</title>
-  <meta name="description" content="{{ category_one_liner }}">
+  <meta name="description" content="{{ geo_meta_description or category_one_liner }}">
+  {% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}">{% endif %}
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ category_label }} — Ask Hava">
+  <meta property="og:description" content="{{ geo_meta_description or category_one_liner }}">
+  {% if canonical_url %}<meta property="og:url" content="{{ canonical_url }}">{% endif %}
+  {% if geo_jsonld_block %}{{ geo_jsonld_block | safe }}{% endif %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -190,6 +196,20 @@
       {% include "components/hava_card.html" %}
     {% endfor %}
   </section>
+
+  {% if faqs %}
+  <section class="category-faq" aria-labelledby="category-faq-heading">
+    <h2 id="category-faq-heading" class="category-faq-heading">Frequently asked about {{ category_label | lower }} in Lake Havasu City</h2>
+    <dl class="category-faq-list">
+      {% for faq in faqs %}
+      <div class="category-faq-item">
+        <dt class="category-faq-q">{{ faq.q }}</dt>
+        <dd class="category-faq-a">{{ faq.a }}</dd>
+      </div>
+      {% endfor %}
+    </dl>
+  </section>
+  {% endif %}
 
   <footer class="category-editorial-footer">
     <p>{{ editorial_footer_text }}</p>

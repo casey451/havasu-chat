@@ -173,3 +173,28 @@
     margin: 0 auto;
   }
 }
+
+/* GEO/AEO FAQ block (LANE B6) — verified Q&A rendered below the listings. */
+.category-faq {
+  max-width: 760px;
+  margin: 28px auto 8px;
+  padding: 0 16px;
+}
+.category-faq-heading {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  margin-bottom: 16px;
+}
+.category-faq-item {
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 14px 0;
+}
+.category-faq-q {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.category-faq-a {
+  margin: 0;
+  color: var(--ll-muted, #5a5a5a);
+  line-height: 1.55;
+}

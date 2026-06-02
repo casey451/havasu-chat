@@ -1,0 +1,371 @@
+{
+  "_meta": {
+    "purpose": "Verified, no-fabrication grounded FAQ/landing content for AI answer-engine visibility (GEO/AEO). Keyed by CATEGORY_FILTERS slug (category targets) and intent key (intent targets). Each entry is verbatim from the LANE B6 verified content set; do not add, embellish, or invent any fact beyond what is here. Targets with empty accepted_faqs (or accepted_faqs that are all coverage-being-built copy) render the honest 'coverage being built' state.",
+    "do_not_edit": "This content was adversarially verified against the catalog fact set. Edits must re-pass that verification."
+  },
+  "categories": {
+    "eat-drink": {
+      "has_data": true,
+      "landing": {
+        "title": "Restaurants & Dining in Lake Havasu City, AZ",
+        "intro": "Lake Havasu City has a range of places to eat and drink, from casual diners and taco spots to taprooms and pub-style restaurants. Browse the listings below to find something that fits your plans.",
+        "meta_description": "Find restaurants, bars, and coffee spots in Lake Havasu City, AZ. Browse local dining listings on Ask Hava."
+      },
+      "faqs": [
+        {"q": "What restaurants are listed in Lake Havasu City on Ask Hava?", "a": "The eat-drink listings include Black Meadow Landing Diner, Hangar 24 Taproom & Restaurant, Kegler's Pub at Havasu Lanes, The Human Bean (Palo Verde Blvd N), Dos Amigos Taco's, The Bunker Bar, Niko's Grill and Pub, and Subway at Smith's Shopping Center, among others. The catalog currently shows 21 listings in this category."},
+        {"q": "Where is Hangar 24 Taproom & Restaurant located?", "a": "Hangar 24 Taproom & Restaurant is located at 5600 Hwy 95 N #6, Lake Havasu City, AZ 86404. You can reach them at (928) 846-4447."},
+        {"q": "Is there a taco place in Lake Havasu City?", "a": "Yes, Dos Amigos Taco's is listed at 2231 McCulloch Blvd N #107, Lake Havasu City, AZ 86403. Their phone number is (928) 302-3282."},
+        {"q": "Where can I get coffee in Lake Havasu City?", "a": "The Human Bean on Palo Verde Blvd N is listed in the eat-drink category. They are located at 2035 Palo Verde Blvd N, Lake Havasu City, AZ 86404, and can be reached at (928) 680-7356."},
+        {"q": "Are there any pub-style restaurants near McCulloch Blvd?", "a": "Kegler's Pub at Havasu Lanes is located at 2128 McCulloch Blvd N, Lake Havasu City, AZ 86403, phone (928) 855-2695. Niko's Grill and Pub is also listed at 2690 N Kiowa Blvd, Lake Havasu City, AZ 86403, reachable at (928) 733-6400."}
+      ]
+    },
+    "on-the-water": {
+      "has_data": true,
+      "landing": {
+        "title": "On the Water in Lake Havasu City — Boat Rentals, Tours & Water Recreation",
+        "intro": "Lake Havasu City sits on one of Arizona's premier recreational lakes, with outfitters offering everything from boat rentals and jet boat tours to paddling adventures right along the channel. Browse our listings to find the water-activity provider that fits your trip.",
+        "meta_description": "Find boat rentals, jet boat tours, and water recreation outfitters in Lake Havasu City, AZ. Local providers on the channel and lake."
+      },
+      "faqs": [
+        {"q": "Which on-the-water providers in Lake Havasu City have the most reviews?", "a": "At The Bridge Rentals (1425 McCulloch Blvd N) leads with 284 reviews and a 4.8 rating. Southwest Outfitters (159 Paseo del Sol Ave) has 75 reviews and a 4.9 rating. Both are among the most-reviewed providers in this category in our catalog."},
+        {"q": "Where can I rent a boat near the London Bridge channel?", "a": "Our catalog lists several boat rental and lake recreation providers in the area, including At The Bridge Rentals at 1425 McCulloch Blvd N, Arizona TikiToons Boat Rental at Havasu Riviera Marina (Dock E, 2067 Havasu Riviera Pkwy), and Arizona's Fun On The Water. Additional options include Picture Rock and Ghost Mine Saloon, which are also listed as boat rental providers."},
+        {"q": "Is there a jet boat tour near the London Bridge?", "a": "Yes — London Bridge Jet Boat Tour is listed in our on-the-water catalog as a lake recreation provider in Lake Havasu City."},
+        {"q": "What is the highest-rated on-the-water outfitter in our listings?", "a": "Southwest Outfitters holds the highest rating among providers with a rating in this category, at 4.9 out of 5 based on 75 reviews. At The Bridge Rentals follows closely with a 4.8 rating across 284 reviews."},
+        {"q": "How many on-the-water providers are listed for Lake Havasu City?", "a": "Our catalog currently has 25 on-the-water providers listed for Lake Havasu City, covering boat rentals, lake recreation outfitters, and tours. If you know a provider that is missing, you can add it at /contribute."}
+      ]
+    },
+    "things-to-do": {
+      "has_data": true,
+      "landing": {
+        "title": "Things to Do in Lake Havasu City, AZ",
+        "intro": "Lake Havasu City has a range of community organizations and local groups to connect with. Browse listings across the city to find places and groups that match your interests.",
+        "meta_description": "Find things to do in Lake Havasu City, AZ. Explore community organizations and local groups listed in the Ask Hava guide."
+      },
+      "faqs": [
+        {"q": "What community organizations are listed under things to do in Lake Havasu City?", "a": "The things-to-do category includes community and religious organizations. Among those listed are Chabad of Lake Havasu City (116 Acoma Blvd N), Bethany Bible Church of Lake Havasu City Arizona (1200 Park Terrace Ave), Christ Alone Church (3430 McCulloch Blvd N), The Church of Jesus Christ of Latter-day Saints (504 Acoma Blvd N), and Lamb of God Lutheran Church (2791 Inca Dr)."},
+        {"q": "Which things-to-do listings in Lake Havasu City have the most reviews?", "a": "Among the listings in this category, The Church of Jesus Christ of Latter-day Saints has the highest review count at 46 reviews with a 4.9 rating. Lamb of God Lutheran Church follows with 19 reviews and a 4.9 rating. Chabad of Lake Havasu City has 13 reviews at 5.0, and Bethany Bible Church of Lake Havasu City Arizona has 12 reviews at 5.0."},
+        {"q": "Where is Chabad of Lake Havasu City located?", "a": "Chabad of Lake Havasu City is located at 116 Acoma Blvd N, Lake Havasu City, AZ 86403. They can be reached at (928) 706-1232. The listing carries a 5.0 rating based on 13 reviews."},
+        {"q": "How do I find things to do near the channel or in central Lake Havasu City?", "a": "Several listings in this category share addresses along Acoma Blvd and nearby streets. Chabad of Lake Havasu City and Congregation Beth Sholom are both at 116 Acoma Blvd N. The Church of Jesus Christ of Latter-day Saints is at 504 Acoma Blvd N. Bethany Bible Church is at 1200 Park Terrace Ave."},
+        {"q": "How can I add a things-to-do listing that is missing from Ask Hava?", "a": "Our things-to-do listings are actively growing. If you know of a local organization, attraction, or activity that belongs here, you can submit it at /contribute to help keep the guide complete."}
+      ]
+    },
+    "services": {
+      "has_data": true,
+      "landing": {
+        "title": "Local Services in Lake Havasu City, AZ",
+        "intro": "Lake Havasu City has a range of local service providers — from insurance and real estate professionals to barbershops, beauty lounges, and photographers. Browse the listings below to find services that fit your needs.",
+        "meta_description": "Find local services in Lake Havasu City, AZ — insurance, real estate, barbershops, beauty, photography, and more. Reviewed by real locals."
+      },
+      "faqs": [
+        {"q": "What are some well-reviewed service providers in Lake Havasu City?", "a": "Several local providers have earned 5.0 ratings. Kendi A Schembri Insurance (2457 Baron Dr) has 73 reviews. Double Threat Barbering Co (2126 McCulloch Blvd N #23) has 45 reviews. HAVADRONE Photography (3201 Longview Dr) has 34 reviews. LeFemme Lounge (2721 N Kiowa Blvd Suite 102) has 25 reviews."},
+        {"q": "Where can I find a barber or beauty salon in Lake Havasu City?", "a": "Double Threat Barbering Co is located at 2126 McCulloch Blvd N #23 and holds a 5.0 rating across 45 reviews. LeFemme Lounge is at 2721 N Kiowa Blvd Suite 102 with a 5.0 rating and 25 reviews. Bare Body and Beauty Bar is at 1675 E Susan Dr with a 5.0 rating and 5 reviews."},
+        {"q": "Are there local real estate agents in Lake Havasu City?", "a": "Yes. Travis Mancuso - Realtor Lake Havasu City is listed at 3505 Maricopa Ave with a 5.0 rating across 17 reviews. Kristie Day - Coldwell Banker Realtor is at 450 N Lake Havasu Ave Ste 206 and holds a 5.0 rating with 7 reviews."},
+        {"q": "Is there a local photographer or drone photography service in Lake Havasu City?", "a": "HAVADRONE Photography, based at 3201 Longview Dr, holds a 5.0 rating with 34 reviews and can be reached at (928) 275-2741. HavaPic is another local photography provider at 3370 Tolteca Dr with a 5.0 rating and 7 reviews, reachable at (928) 486-2473."},
+        {"q": "Where can I find insurance services in Lake Havasu City?", "a": "Kendi A Schembri Insurance is located at 2457 Baron Dr, Lake Havasu City, AZ 86403 and can be reached at (928) 453-7571. They hold a 5.0 rating with 73 reviews, making them one of the most-reviewed service providers in the local catalog."}
+      ]
+    },
+    "health-wellness-care": {
+      "has_data": false,
+      "landing": {
+        "title": "Health, Wellness & Care in Lake Havasu City",
+        "intro": "We are still building out our health, wellness, and care listings for Lake Havasu City — if you know a great provider, add them at /contribute so locals can find them here.",
+        "meta_description": "Health, wellness, and care providers in Lake Havasu City, AZ. Listings coming soon — help us grow by adding a provider at /contribute."
+      },
+      "faqs": [
+        {"q": "What health and wellness providers are listed in Lake Havasu City?", "a": "Our health, wellness, and care section is still being built out. We do not yet have any verified provider listings in this category. Visit /contribute to add a doctor, clinic, gym, therapist, or other provider you trust."},
+        {"q": "Where can I find a doctor or urgent care clinic near the channel?", "a": "We do not currently have urgent care or medical clinic listings in our catalog for Lake Havasu City. Check back soon, or help the community by submitting a provider at /contribute."},
+        {"q": "Are there gyms or fitness studios listed in Havasu?", "a": "Gym and fitness studio listings are not yet in our catalog for this category. If you know of one, please add it at /contribute so other locals can find it."},
+        {"q": "How do I add a health or wellness business to Ask Hava?", "a": "Our catalog is community-supported. You can submit any health, wellness, or care provider — clinic, therapist, gym, chiropractor, or spa — at /contribute, and it will be reviewed for inclusion."}
+      ]
+    },
+    "home-property-services": {
+      "has_data": false,
+      "landing": {
+        "title": "Home & Property Services in Lake Havasu City, AZ",
+        "intro": "We are still building out our home and property services listings for Lake Havasu City — if you know a local contractor, landscaper, pool company, or other home service provider, help your neighbors find them by adding a listing at /contribute.",
+        "meta_description": "Home and property services in Lake Havasu City, AZ. Our listings are being built — add a local provider at /contribute."
+      },
+      "faqs": [
+        {"q": "What home and property service providers are listed in Lake Havasu City?", "a": "Our home and property services directory for Lake Havasu City is still being built out. We do not yet have verified listings to share, but you can help by submitting a provider at /contribute."},
+        {"q": "Where can I find a contractor or home repair service near Lake Havasu City?", "a": "Ask Hava's coverage of home and property services is currently in progress. Once listings are added, you will be able to search for contractors, repair services, and other home providers here. In the meantime, visit /contribute to add one you know."},
+        {"q": "How do I add a home service business to the Lake Havasu City guide?", "a": "If you run or know a local home or property service business, you can submit it for inclusion at /contribute. Community contributions help keep the directory accurate and complete."},
+        {"q": "Are there landscaping or pool service companies listed in Lake Havasu City?", "a": "The home and property services category is actively being expanded. We do not have verified landscaping or pool service listings to share at this time. Check back soon or add a provider at /contribute."}
+      ]
+    },
+    "shopping-essentials": {
+      "has_data": false,
+      "landing": {
+        "title": "Shopping & Essentials in Lake Havasu City",
+        "intro": "We are still building out our shopping and essentials listings for Lake Havasu City. If you know a great local shop, grocery store, or retail spot, help the community by adding it at /contribute.",
+        "meta_description": "Shopping and essentials listings for Lake Havasu City are coming soon. Add a local store or retailer at /contribute and help us build this out."
+      },
+      "faqs": [
+        {"q": "What shopping and essentials stores are listed in Lake Havasu City?", "a": "We do not have any shopping and essentials listings in our catalog yet. This section is actively being built out. You can help by submitting a business at /contribute."},
+        {"q": "Where can I find grocery stores or retail shops near the channel?", "a": "Our shopping and essentials category currently has no verified listings, so we cannot point you to specific stores near the channel. Check back soon, or add a store you know at /contribute."},
+        {"q": "How do I add a local shop or market to the Ask Hava guide?", "a": "Head to /contribute to submit a business. Once reviewed and added, it will appear in this category for other locals and visitors to find."},
+        {"q": "Will Ask Hava cover pharmacies, hardware stores, and convenience shops?", "a": "That is the goal for this category, but we have not published any listings yet. If you know of pharmacies, hardware stores, or convenience shops in Lake Havasu City, please add them at /contribute."}
+      ]
+    },
+    "professional": {
+      "has_data": true,
+      "landing": {
+        "title": "Professional Services in Lake Havasu City, AZ",
+        "intro": "Lake Havasu City has a range of professional services — from insurance and financial planning to real estate and photography — to help residents and visitors handle what matters. Ask Hava can point you to providers listed in our local guide.",
+        "meta_description": "Find professional services in Lake Havasu City, AZ — insurance, real estate, financial advisors, photographers, CPAs, and more. Ask Hava local guide."
+      },
+      "faqs": [
+        {"q": "Which professional services providers in Lake Havasu City have strong ratings?", "a": "Several providers in our catalog hold a 5.0 rating: Kendi A Schembri Insurance (73 reviews, 2457 Baron Dr), HAVADRONE Photography (34 reviews, 3201 Longview Dr), Travis Mancuso - Realtor Lake Havasu City (17 reviews, 3505 Maricopa Ave), Kristie Day - Coldwell Banker Realtor (7 reviews, 450 N Lake Havasu Ave Ste 206), HavaPic (7 reviews, 3370 Tolteca Dr), Imagine Financial Services with Marianne Nolte CFP (5 reviews, 4809 N Diana Ave), NSC Certified Public Accountants LLC (4 reviews, 10 Acoma Blvd S #100), and Rogue Realty Lake Havasu City (4 reviews, 820 Paseo Granada)."},
+        {"q": "Where can I find a real estate agent or realtor in Lake Havasu City?", "a": "Our catalog lists several real estate professionals locally. Travis Mancuso - Realtor Lake Havasu City is at 3505 Maricopa Ave (rated 5.0, 17 reviews). Kristie Day - Coldwell Banker Realtor is at 450 N Lake Havasu Ave Ste 206, phone (951) 532-8774 (rated 5.0, 7 reviews). Rogue Realty Lake Havasu City is at 820 Paseo Granada, phone (847) 704-0694 (rated 5.0, 4 reviews)."},
+        {"q": "Is there a CPA or financial advisor in Lake Havasu City?", "a": "Yes. NSC Certified Public Accountants LLC is located at 10 Acoma Blvd S #100, phone (928) 453-2290, and carries a 5.0 rating from 4 reviews. For financial planning, Imagine Financial Services with Certified Financial Planner Marianne Nolte is at 4809 N Diana Ave, phone (760) 472-5155, rated 5.0 from 5 reviews."},
+        {"q": "Who are the local photographers in Lake Havasu City?", "a": "Our catalog includes two photography providers. HAVADRONE Photography is located at 3201 Longview Dr, phone (928) 275-2741 (rated 5.0, 34 reviews). HavaPic is at 3370 Tolteca Dr, phone (928) 486-2473 (rated 5.0, 7 reviews)."},
+        {"q": "Where can I get insurance in Lake Havasu City?", "a": "Kendi A Schembri Insurance is listed in our professional services catalog at 2457 Baron Dr, phone (928) 453-7571. They hold a 5.0 rating based on 73 reviews — the most-reviewed professional services provider in this slice of our catalog."}
+      ]
+    },
+    "beauty-care": {
+      "has_data": true,
+      "landing": {
+        "title": "Beauty & Personal Care in Lake Havasu City, AZ",
+        "intro": "Lake Havasu City has a range of salons, barbershops, spas, and beauty studios serving both locals and visitors. Whether you need a haircut, a spa treatment, or aesthetic services, you will find beauty businesses throughout the city.",
+        "meta_description": "Find salons, barbershops, spas, and beauty studios in Lake Havasu City, AZ. Browse top-rated local providers on Ask Hava."
+      },
+      "faqs": [
+        {"q": "What are some top-rated beauty and personal care spots in Lake Havasu City?", "a": "Several providers in the catalog carry a 5.0 rating. Double Threat Barbering Co (2126 McCulloch Blvd N #23, (928) 706-2400) has 45 reviews at 5.0. LeFemme Lounge (2721 N Kiowa Blvd Suite 102, (719) 313-2608) has 25 reviews at 5.0. Body Essentials Holistic Spa (2005 Injo Dr #104, (928) 453-7557) holds a 4.7 rating across 19 reviews."},
+        {"q": "Where can I find a barbershop in Lake Havasu City?", "a": "Double Threat Barbering Co is located at 2126 McCulloch Blvd N #23 and can be reached at (928) 706-2400. It carries a 5.0 rating from 45 reviews. Poyo_the_barber operates on Rainbow Ave N and can be reached at (928) 230-2043."},
+        {"q": "Are there spas or holistic beauty services in Lake Havasu City?", "a": "Body Essentials Holistic Spa at 2005 Injo Dr #104 offers holistic spa services and holds a 4.7 rating across 19 reviews. You can reach them at (928) 453-7557. Bare Body and Beauty Bar (1675 E Susan Dr, (760) 903-4808) is another option with a 5.0 rating."},
+        {"q": "Is there a beauty salon near the English Village or London Bridge area?", "a": "Queen Aesthetic is located at 203 English Village, Lake Havasu City, AZ 86403, placing it right in the English Village area near the London Bridge."},
+        {"q": "Where can I get hair design services in Lake Havasu City?", "a": "Project Beauty Hair Design by Maripaz is located at 1685 Mesquite Ave Suite I and can be reached at (928) 486-9974. It holds a 5.0 rating from 2 reviews. LeFemme Lounge at 2721 N Kiowa Blvd Suite 102 is another well-reviewed option with 25 reviews at 5.0."}
+      ]
+    },
+    "auto-rv-fuel": {
+      "has_data": false,
+      "landing": {
+        "title": "Auto, RV & Fuel in Lake Havasu City",
+        "intro": "We are still building out our auto, RV, and fuel listings for Lake Havasu City — if you know a gas station, auto shop, or RV service provider worth adding, please contribute at /contribute.",
+        "meta_description": "Auto, RV, and fuel listings in Lake Havasu City, AZ — coming soon. Help us grow the guide by adding a business at /contribute."
+      },
+      "faqs": [
+        {"q": "Where can I find gas stations in Lake Havasu City?", "a": "Our auto and fuel listings for Lake Havasu City are still being built out. We do not yet have verified gas station data in this category. You can help by submitting a listing at /contribute."},
+        {"q": "Are there RV repair or service shops listed in Lake Havasu City?", "a": "We have not yet added RV service providers to our directory. This section is actively being expanded. If you know a reputable RV shop in the area, please add it at /contribute."},
+        {"q": "How do I find auto repair shops near the London Bridge area?", "a": "Our auto repair listings for Lake Havasu City are currently empty — coverage for this category is being built. Visit /contribute to add a shop you trust."},
+        {"q": "How can I add a gas station, auto shop, or RV dealer to this guide?", "a": "You can submit any auto, RV, or fuel business directly at /contribute. Once reviewed, it will appear in this category for locals and visitors to find."}
+      ]
+    },
+    "public-civic-resources": {
+      "has_data": true,
+      "landing": {
+        "title": "Public, Civic & Community Resources in Lake Havasu City",
+        "intro": "Lake Havasu City has an active community of civic and religious organizations serving residents and visitors. Whether you are looking for a place of worship, community connection, or neighborhood support, the city has a range of options across faiths and traditions.",
+        "meta_description": "Find public, civic, and community resources in Lake Havasu City, AZ — including places of worship and community organizations."
+      },
+      "faqs": [
+        {"q": "What community and religious organizations are listed in Lake Havasu City?", "a": "The catalog currently features religion and community organizations. Highly rated listings include Chabad of Lake Havasu City (5.0, 13 reviews) at 116 Acoma Blvd N, Bethany Bible Church of Lake Havasu City Arizona (5.0, 12 reviews) at 1200 Park Terrace Ave, and The Church of Jesus Christ of Latter-day Saints (4.9, 46 reviews) at 504 Acoma Blvd N."},
+        {"q": "Are there Jewish community organizations in Lake Havasu City?", "a": "Yes. Both Chabad of Lake Havasu City (5.0, 13 reviews) and Congregation Beth Sholom (5.0, 4 reviews) are listed at 116 Acoma Blvd N, Lake Havasu City, AZ 86403. Chabad can be reached at (928) 706-1232."},
+        {"q": "Which civic or community listings near McCulloch Blvd are in the catalog?", "a": "Christ Alone Church is listed at 3430 McCulloch Blvd N (rating 5.0, 7 reviews, phone (928) 706-7256). Lamb of God Lutheran Church is located at 2791 Inca Dr (rating 4.9, 19 reviews, phone (928) 854-7170)."},
+        {"q": "How many public and civic resource listings does Ask Hava have for Lake Havasu City?", "a": "The catalog currently includes 33 listings in the public and civic resources category, covering community and religious organizations across the city."},
+        {"q": "Is there a way to add a civic resource or community organization that is missing from the list?", "a": "Yes. If a public, civic, or community resource in Lake Havasu City is not yet in the catalog, you can submit it at /contribute so it can be reviewed and added."}
+      ]
+    },
+    "classes-sports-recreation": {
+      "has_data": true,
+      "landing": {
+        "title": "Classes, Sports & Recreation in Lake Havasu City",
+        "intro": "Lake Havasu City and the surrounding area offer a range of recreational options — from wildlife refuges and trampoline parks to OHV areas and casino entertainment. Browse the listings below to find activities that fit your trip or your day off.",
+        "meta_description": "Discover recreation spots, classes, and sports venues in Lake Havasu City, AZ — parks, wildlife refuges, trampoline parks, and more."
+      },
+      "faqs": [
+        {"q": "What recreation spots are listed in Lake Havasu City?", "a": "The catalog includes recreation options such as Altitude Trampoline Park, Havasu National Wildlife Refuge, Win Win Bingo Casino, Bird Watching, and Havasu Landing Resort & Casino, among others in the area."},
+        {"q": "Is there a trampoline park in Lake Havasu City?", "a": "Yes, Altitude Trampoline Park — Lake Havasu City is listed in this category. Their phone number on file is 928-555-0199."},
+        {"q": "Where can I find outdoor or nature-based recreation near Lake Havasu City?", "a": "Havasu National Wildlife Refuge and Bird Watching are both listed in this category. The visitor center contact on file for those listings is (800) 242-8278 at 422 English Village, Lake Havasu City, AZ 86403."},
+        {"q": "Are there OHV or off-road recreation options near Lake Havasu City?", "a": "Copper Basin Dunes OHV Area is listed in this category. Note that it is located off the Parker Strip in Parker, AZ 85344, outside Lake Havasu City proper."},
+        {"q": "Is there a casino or gaming venue in this category?", "a": "Two venues are listed: Win Win Bingo Casino at 5601 Hwy 95 N #F606, Lake Havasu City, AZ 86404 (phone: (928) 706-3534), and Havasu Landing Resort & Casino, which lists the visitor center as its contact point."}
+      ]
+    },
+    "attractions": {
+      "has_data": true,
+      "landing": {
+        "title": "Attractions in Lake Havasu City, AZ",
+        "intro": "Lake Havasu City has a range of attractions spanning live performing arts, family entertainment, outdoor parks, and water-access destinations. Whether you are looking for a show at a local theater, a bowling outing, a green space near the channel, or a guided paddle trip, the city has options spread across its neighborhoods.",
+        "meta_description": "Discover attractions in Lake Havasu City — performing arts, bowling, arcades, parks, paddle outfitters, and more. Browse the local guide on Ask Hava."
+      },
+      "faqs": [
+        {"q": "What kinds of attractions are listed in Lake Havasu City?", "a": "The current listings include live performing arts venues, a bowling alley, a pizza-and-arcade spot, a canoe and kayak outfitter, an outdoor park, and boat-in beach and campsite access. Specific venues in the catalog include Lake Havasu Performing Arts Center & Little Theater (2675 Palo Verde Blvd S), GraceArts LIVE Performing Arts Theatre (2146 McCulloch Blvd N), Havasu Lanes (2128 McCulloch Blvd N), The Spot - Pizza, Arcade & More (3612 Jamaica Blvd S), Cypress Park (301 Cypress Dr), Western Arizona Canoe & Kayak Outfitters (WACKO), and Boat-In Beaches & Campsites."},
+        {"q": "Where can I see live theater or a performance in Lake Havasu City?", "a": "Two performing arts venues appear in the catalog. Lake Havasu Performing Arts Center & Little Theater is located at 2675 Palo Verde Blvd S and can be reached at (928) 505-6915. GraceArts LIVE Performing Arts Theatre is at 2146 McCulloch Blvd N. Neither venue currently has a published rating in our listings."},
+        {"q": "Is there a bowling alley in Lake Havasu City?", "a": "Yes. Havasu Lanes is listed at 2128 McCulloch Blvd N, Lake Havasu City, AZ 86403. Their phone number is (928) 855-2695. No rating data is currently available for this venue in our catalog."},
+        {"q": "Are there any family-friendly or kids' attractions downtown?", "a": "The Spot - Pizza, Arcade & More is a family-oriented attraction listed at 3612 Jamaica Blvd S, Lake Havasu City, AZ 86406, reachable at (928) 505-7768. Cypress Park, a public outdoor space at 301 Cypress Dr, is another option and can be contacted at (928) 453-8686."},
+        {"q": "Where can I rent a kayak or canoe near Lake Havasu City?", "a": "Western Arizona Canoe & Kayak Outfitters (WACKO) is listed as an attraction in the catalog. Contact information routes through the Go Lake Havasu Visitor Center at 422 English Village, Lake Havasu City, AZ 86403, phone (800) 242-8278."}
+      ]
+    },
+    "lodging-vacation-rentals": {
+      "has_data": true,
+      "landing": {
+        "title": "Hotels & Vacation Rentals in Lake Havasu City, AZ",
+        "intro": "Lake Havasu City has a range of lodging and vacation rental options to fit your stay, from lakeside resorts along Beachcomber Blvd to rental management companies and resort properties nearby. Browse the listings below to find availability for your visit.",
+        "meta_description": "Find hotels, resorts, and vacation rentals in Lake Havasu City, AZ. Browse lodging options near the lake and London Bridge for your next trip."
+      },
+      "faqs": [
+        {"q": "What hotels and resorts are listed in Lake Havasu City?", "a": "The catalog includes several lodging options in and near Lake Havasu City. On Beachcomber Blvd you will find Sam's Beachcomber Resort (555 Beachcomber Blvd) and Islander Resort Lake Havasu (751 Beachcomber Blvd). Havasu Springs Resort is located at 2581 Hwy 95 in Parker, AZ, a short drive from the city."},
+        {"q": "Are there vacation rental management companies in Lake Havasu City?", "a": "Yes. Empty Spaces Vacation Rental Management is one option listed in the catalog that handles vacation rentals in Lake Havasu City."},
+        {"q": "Where are hotels located near the water in Lake Havasu City?", "a": "Sam's Beachcomber Resort at 555 Beachcomber Blvd and Islander Resort Lake Havasu at 751 Beachcomber Blvd are both situated along Beachcomber Blvd near the lake. Black Meadow Landing is another lodging option listed in the catalog."},
+        {"q": "Is there a real estate or property management company that handles short-term rentals in Lake Havasu City?", "a": "The catalog lists Havasu Realty, Inc. at 30 Acoma Blvd S #210, Lake Havasu City, AZ 86403, phone (928) 453-5887, and Integrity Arizona Real Estate Sales, LLC at 2035 Swanson Ave #101, Lake Havasu City, AZ 86403, phone (928) 846-4080. Both appear under the lodging and vacation-rentals category."},
+        {"q": "How do I find more lodging options or add a missing property to the guide?", "a": "The Ask Hava catalog currently lists 9 lodging and vacation-rental entries. If your property or a favorite stay is not listed, you can add it at /contribute to help expand coverage for future visitors."}
+      ]
+    },
+    "pets": {
+      "has_data": false,
+      "landing": {
+        "title": "Pets in Lake Havasu City",
+        "intro": "We are still building out our pet services listings for Lake Havasu City — vets, groomers, boarding, and more. If you know a great local business, add it at /contribute and help your neighbors find it.",
+        "meta_description": "Pet services in Lake Havasu City, AZ — our listings are still growing. Know a vet, groomer, or pet shop? Add it at /contribute."
+      },
+      "faqs": [
+        {"q": "What veterinarians or pet clinics are listed in Lake Havasu City?", "a": "We do not yet have any pet service providers in our catalog for Lake Havasu City. We are actively building out this category. If you know a vet, clinic, or other pet business, please add it at /contribute."},
+        {"q": "Are there any pet groomers or boarding facilities in Havasu?", "a": "Our pet services category currently has no listings. Coverage is being built out — you can help by submitting a business at /contribute."},
+        {"q": "Where can I find a dog park or pet-friendly spot near the channel?", "a": "We do not have pet-friendly location listings in our catalog yet. If you know of a dog park or pet-friendly spot near the lake or channel, please add it at /contribute so other locals can find it."},
+        {"q": "How do I add a pet business I know about to the Ask Hava directory?", "a": "Visit /contribute to submit a pet-related business — vets, groomers, boarding, pet supply stores, or any other service. Your submission helps the whole community."}
+      ]
+    }
+  },
+  "intents": {
+    "eat_find": {
+      "has_data": true,
+      "landing": {
+        "title": "Where to Eat in Lake Havasu City, AZ",
+        "intro": "Ask Hava tracks restaurants and dining spots across Lake Havasu City so you can find your next meal fast. Our current listings include options ranging from casual pub fare to tacos and coffee — browse below or search to narrow it down.",
+        "meta_description": "Find restaurants and places to eat in Lake Havasu City, AZ. Browse Ask Hava's local dining guide for pubs, tacos, coffee, and more."
+      },
+      "faqs": [
+        {"q": "What restaurants are listed in Lake Havasu City on Ask Hava?", "a": "The current restaurant listings include Black Meadow Landing Diner, Hangar 24 Taproom & Restaurant, Kegler's Pub at Havasu Lanes, The Human Bean on Palo Verde Blvd N, and Dos Amigos Taco's. These are the restaurant-category providers in our catalog for this intent."},
+        {"q": "Are there more dining listings being added to Ask Hava?", "a": "Yes — our catalog currently shows 12 results for this intent and we are actively growing it. If you know a local restaurant that should be listed, you can add it at /contribute."}
+      ]
+    },
+    "events_weekend": {
+      "has_data": true,
+      "landing": {
+        "title": "Events This Weekend in Lake Havasu City",
+        "intro": "Lake Havasu City has events happening this weekend, from aquatic fitness classes at the Aquatic Center to performing arts and community gatherings. Browse what is on and plan your weekend.",
+        "meta_description": "Find events happening this weekend in Lake Havasu City, AZ — fitness classes, performing arts, community meetups, and more."
+      },
+      "faqs": [
+        {"q": "What events are happening this weekend in Lake Havasu City?", "a": "This weekend (around June 5, 2026) there are events including Lap Swim, Open Swim, Aqua Aerobics, Motion & Mobility, Arthritis Class, and Deep Water Fit — all at the Lake Havasu City Aquatic Center. There is also the Lake Havasu Area Chamber of Commerce AM Exchange at First Savings Bank, and Grace Arts Live Presents The SpongeBob Musical Youth Edition at 2146 McCulloch Blvd."},
+        {"q": "Is there anything for kids to do in Lake Havasu City this weekend?", "a": "Yes. Grace Arts Live is presenting The SpongeBob Musical Youth Edition at 2146 McCulloch Blvd on June 5. The Lake Havasu City Aquatic Center also has Open Swim and other water-based programs on the same day."},
+        {"q": "What fitness or water activities are scheduled at the Aquatic Center this weekend?", "a": "The Lake Havasu City Aquatic Center has several programs on June 5: Lap Swim, Open Swim, Motion & Mobility (Margie), Arthritis Class (Vince), Aqua Aerobics (Margie), and Deep Water Fit (Vince)."},
+        {"q": "Are there any business or networking events in Lake Havasu City this weekend?", "a": "The Lake Havasu Area Chamber of Commerce AM Exchange is scheduled for June 5 at First Savings Bank."},
+        {"q": "How do I add an event to the Lake Havasu City weekend listings?", "a": "If you know of an event that is not listed here, you can submit it at /contribute to help keep the local guide up to date."}
+      ]
+    },
+    "find_service": {
+      "has_data": false,
+      "landing": {
+        "title": "Find Local Services in Lake Havasu City, AZ",
+        "intro": "We are still building out our local service provider listings for Lake Havasu City — plumbers, electricians, and other home and trade services are coming soon. Know a provider worth listing? Add them at /contribute.",
+        "meta_description": "Looking for a local service provider in Lake Havasu City? Our listings are being built — help us grow by adding a business at /contribute."
+      },
+      "faqs": [
+        {"q": "Can I find a plumber or electrician near me in Lake Havasu City on Ask Hava?", "a": "We are actively building out our local home and trade services listings for Lake Havasu City. No providers are in our catalog for this category yet, but you can help by submitting one at /contribute."},
+        {"q": "Why doesn't Ask Hava show any results when I search for a local service provider?", "a": "Our service provider coverage for this intent is still being established. The catalog currently has no entries for this category. Visit /contribute to add a business and help fill the gap."},
+        {"q": "How can I get my local service business listed on Ask Hava?", "a": "You can submit your business through our community contribution page at /contribute. Once reviewed, it will appear in Ask Hava search results for Lake Havasu City residents and visitors."}
+      ]
+    },
+    "urgent_care": {
+      "has_data": false,
+      "landing": {
+        "title": "Urgent Care in Lake Havasu City, AZ",
+        "intro": "We are still building out our urgent care listings for Lake Havasu City — if you know a provider, help your neighbors find it by adding one at /contribute.",
+        "meta_description": "Find urgent care clinics in Lake Havasu City, AZ. Our listings are growing — add a provider at /contribute and help the community."
+      },
+      "faqs": [
+        {"q": "What urgent care clinics are available in Lake Havasu City?", "a": "We do not yet have verified urgent care listings in our catalog. We are actively building out this category. You can help by submitting a provider at /contribute."},
+        {"q": "Is there a walk-in clinic near the London Bridge channel area?", "a": "Our urgent care listings for the Lake Havasu City area are still being populated. Check back soon, or add a clinic you know at /contribute."},
+        {"q": "Where can I go for urgent medical care in Havasu without an appointment?", "a": "We do not have urgent care providers listed yet. Once our coverage grows, this page will show verified walk-in options. You can speed that up by submitting a listing at /contribute."},
+        {"q": "How do I add an urgent care clinic to Ask Hava?", "a": "Visit /contribute to submit a business or provider listing. Community submissions help us fill gaps like this one faster."}
+      ]
+    },
+    "gym_fitness": {
+      "has_data": false,
+      "landing": {
+        "title": "Gyms & Fitness Centers in Lake Havasu City",
+        "intro": "We are still building out our gym and fitness listings for Lake Havasu City — if you know a great place to work out, add it at /contribute.",
+        "meta_description": "Find gyms and fitness centers in Lake Havasu City, AZ. Listings coming soon — help us build this directory at /contribute."
+      },
+      "faqs": [
+        {"q": "What gyms are listed in Lake Havasu City right now?", "a": "Our gym and fitness directory for Lake Havasu City is still being built out. We do not yet have verified listings to share. You can help by adding a gym at /contribute."},
+        {"q": "How do I find a fitness center near the London Bridge channel?", "a": "We are actively working to add gym and fitness center listings to the Ask Hava guide. Check back soon, or submit a business you know at /contribute."},
+        {"q": "Can I suggest a local gym that should be listed here?", "a": "Yes — head to /contribute to add any gym or fitness center you think belongs in the Lake Havasu City guide. Every submission helps us cover the community better."},
+        {"q": "Are there any workout classes or fitness programs listed on Ask Hava?", "a": "Gym and fitness provider listings are not yet available in our catalog. We are working to expand coverage in this category. Visit /contribute to help us fill the gap."}
+      ]
+    },
+    "kids_lessons": {
+      "has_data": true,
+      "landing": {
+        "title": "Kids Lessons & Youth Programs in Lake Havasu City",
+        "intro": "Lake Havasu City Parks & Recreation runs structured youth programs — including Activity Camps and Adventure Camp — giving kids a supervised, activity-filled experience during the week. Browse current program listings below or visit /contribute to add a provider we may have missed.",
+        "meta_description": "Find kids lessons and youth programs in Lake Havasu City, AZ. See Activity Camps and Adventure Camp from Lake Havasu City Parks & Recreation."
+      },
+      "faqs": [
+        {"q": "What kids programs does Lake Havasu City Parks & Recreation offer?", "a": "Lake Havasu City Parks & Recreation lists Activity Camps and Adventure Camp in our catalog. Both run on Tuesdays, Wednesdays, and Thursdays."},
+        {"q": "How much do Activity Camps and Adventure Camp cost?", "a": "Both Activity Camps and Adventure Camp are priced at $45.00 for residents and $45.00 for non-residents per the program listings."},
+        {"q": "Which days of the week do the Parks & Recreation youth programs meet?", "a": "Activity Camps and Adventure Camp are both scheduled on Tuesdays, Wednesdays, and Thursdays."},
+        {"q": "Are there swim lessons or other kids lessons listed beyond the Parks & Recreation camps?", "a": "Our current listings for this category are primarily programs from Lake Havasu City Parks & Recreation. If you know of additional providers offering kids swim lessons or other youth instruction, you can add them at /contribute."},
+        {"q": "How do I sign up for Activity Camps or Adventure Camp?", "a": "Our listings show these programs are offered through Lake Havasu City Parks & Recreation, but we do not currently have registration links or phone numbers in this slice. We recommend contacting Lake Havasu City Parks & Recreation directly for enrollment details."}
+      ]
+    },
+    "lodging_find": {
+      "has_data": true,
+      "landing": {
+        "title": "Hotels, Resorts & Vacation Rentals in Lake Havasu City",
+        "intro": "Lake Havasu City has a range of lodging options — from lakeside resorts and vacation rental management companies to waterfront properties along Beachcomber Blvd. Ask Hava can help you find places to stay that fit your trip.",
+        "meta_description": "Find hotels, resorts, and vacation rentals in Lake Havasu City, AZ. Browse lodging options near the lake and London Bridge."
+      },
+      "faqs": [
+        {"q": "What hotels and resorts are listed in Lake Havasu City?", "a": "The Ask Hava catalog currently includes Sam's Beachcomber Resort (555 Beachcomber Blvd), Islander Resort Lake Havasu (751 Beachcomber Blvd), and Havasu Springs Resort (2581 Hwy 95, Parker, AZ) among the lodging options in the area."},
+        {"q": "Are there vacation rental companies in Lake Havasu City?", "a": "Yes — Empty Spaces Vacation Rental Management and Express Getaway are both listed in the catalog as lodging providers in Lake Havasu City."},
+        {"q": "Is there a resort near the water at Lake Havasu City?", "a": "Sam's Beachcomber Resort at 555 Beachcomber Blvd and Islander Resort Lake Havasu at 751 Beachcomber Blvd are both listed as lodging options on Beachcomber Blvd near the lake."},
+        {"q": "Are there any lodging options outside of Lake Havasu City itself?", "a": "Yes — Havasu Springs Resort is listed at 2581 Hwy 95 in Parker, AZ, and Black Meadow Landing is also included as a lodging option in the catalog."},
+        {"q": "How do I find more lodging options or add one that is missing?", "a": "The catalog currently lists 12 lodging providers. If you know of a hotel, resort, or vacation rental that is not listed, you can submit it at /contribute to help grow the guide."}
+      ]
+    },
+    "boat_rental": {
+      "has_data": true,
+      "landing": {
+        "title": "Boat Rentals in Lake Havasu City, AZ",
+        "intro": "Lake Havasu City has a solid selection of boat rental operators ready to put you on the water, from pontoon cruisers to jet boats near the iconic London Bridge Channel. Ask Hava tracks the local providers so you can compare options and get out on the lake faster.",
+        "meta_description": "Find boat rentals in Lake Havasu City, AZ. Browse local providers near the channel and London Bridge — updated listings from Ask Hava."
+      },
+      "faqs": [
+        {"q": "What boat rental providers does Ask Hava currently list in Lake Havasu City?", "a": "Our current listings include At The Bridge Rentals, Arizona's Fun On The Water, Arizona TikiToons Boat Rental, Ghost Mine Saloon, London Bridge Jet Boat Tour, Picture Rock, Chalk Cliffs, and Copper Canyon, among others in the area."},
+        {"q": "How many boat rental options are in the Ask Hava guide?", "a": "Ask Hava currently tracks 10 boat rental providers in the Lake Havasu City area. Not all providers have ratings on file yet — if you know one we are missing, you can add it at /contribute."},
+        {"q": "Does Ask Hava list jet boat tours as well as standard rentals?", "a": "Yes. London Bridge Jet Boat Tour appears in our boat rental listings alongside pontoon and standard rental operators such as At The Bridge Rentals and Arizona TikiToons Boat Rental."}
+      ]
+    },
+    "parks_trails": {
+      "has_data": true,
+      "landing": {
+        "title": "Parks, Trails & Outdoor Recreation in Lake Havasu City",
+        "intro": "Lake Havasu City has a variety of parks, trails, and outdoor recreation spots to explore — from wildlife refuges and off-road areas to local parks and open desert terrain. Ask Hava to find recreation options that match what you are looking for.",
+        "meta_description": "Find parks, trails, and outdoor recreation in Lake Havasu City, AZ. Browse local recreation listings and discover what's near you."
+      },
+      "faqs": [
+        {"q": "What parks and recreation spots are listed in Lake Havasu City?", "a": "The Ask Hava catalog currently includes recreation listings such as Altitude Trampoline Park, Havasu National Wildlife Refuge, Copper Basin Dunes OHV Area, Bird Watching, and Havasu Landing Resort & Casino, among others. None of these listings currently carry a published rating or review count in our catalog."},
+        {"q": "Is Havasu National Wildlife Refuge listed as a recreation destination?", "a": "Yes, Havasu National Wildlife Refuge appears in the parks and trails section of Ask Hava's recreation listings. No rating, review count, or detailed address is available for it in the current catalog."},
+        {"q": "Are there any OHV or off-road recreation areas listed near Lake Havasu City?", "a": "Copper Basin Dunes OHV Area is listed in the recreation catalog, with an address of Off the Parker Strip, Parker, AZ 85344. No rating or review count is available for this listing."},
+        {"q": "Does Ask Hava list bird watching or nature recreation options?", "a": "Bird Watching is listed as a recreation entry in the catalog. No rating, review count, or specific location detail is currently attached to that listing."},
+        {"q": "How do I add a park or trail that is missing from Ask Hava?", "a": "If you know a park, trail, or outdoor recreation spot that is not yet in the catalog, you can submit it at /contribute. The catalog currently shows recreation listings including Altitude Trampoline Park, Havasu National Wildlife Refuge, Copper Basin Dunes OHV Area, and others, but coverage is still growing."}
+      ]
+    },
+    "cheapest_gas": {
+      "has_data": true,
+      "landing": {
+        "title": "Cheapest Gas in Lake Havasu City, AZ",
+        "intro": "Gas prices in Lake Havasu City vary by station, and checking before you fill up can save you real money. Ask Hava tracks current regular unleaded prices at stations across the area so you can find the best deal without driving around.",
+        "meta_description": "Find the cheapest gas in Lake Havasu City, AZ. Current regular unleaded prices at Love's, ARCO, Zip Fuels, Maverik, and nearby stations."
+      },
+      "faqs": [
+        {"q": "What is the cheapest gas in Lake Havasu City right now?", "a": "Based on current data, Love's Travel Stop at 14875 AZ-95 has the lowest regular unleaded price at $4.40/gal. ARCO (311 N Lake Havasu Ave) and Zip Fuels (54 Lake Havasu Ave) are both at $4.54/gal, and Maverik (2197 McCulloch Blvd N) is at $4.58/gal."},
+        {"q": "Where is Love's Travel Stop in Lake Havasu City?", "a": "Love's Travel Stop is located at 14875 AZ-95, Lake Havasu City, AZ 86404. It currently has the lowest tracked regular unleaded price at $4.40/gal."},
+        {"q": "Are there cheaper gas options near Lake Havasu City if I am driving in?", "a": "Petro Travel Center in Kingman, AZ (970 S Blake Ranch Rd) is tracked at $4.46/gal regular. That is between Love's ($4.40/gal) and the in-city stations like ARCO and Zip Fuels ($4.54/gal), so it may be worth a stop if you are coming from that direction."},
+        {"q": "What gas stations are on or near McCulloch Blvd?", "a": "Maverik is on McCulloch Blvd N at 2197 McCulloch Blvd N, Lake Havasu City, AZ 86403, with regular unleaded currently at $4.58/gal."},
+        {"q": "How current are the gas prices shown here?", "a": "The prices displayed reflect the most recent data in the Ask Hava catalog. Gas prices change frequently, so treat these as a useful starting point and confirm at the pump. If you know of a better price not listed, you can submit it at /contribute."}
+      ]
+    }
+  }
+}
