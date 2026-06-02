@@ -375,7 +375,7 @@ def run_query(
             [_provider_to_row(p) for p in rows],
             "food_drink",
             _EAT_LEAD,
-            label=cuisine or "restaurant",
+            label=f"{cuisine} spot" if cuisine else "restaurant",
         )
 
     if key in ("gym_fitness", "yoga_pilates", "martial_arts", "pickleball"):
