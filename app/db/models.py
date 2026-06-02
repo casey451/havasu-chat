@@ -302,6 +302,11 @@ class QueryLog(Base):
     normalized_intent: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     category: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     result_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Phase 2 Slice 1: which matcher layer resolved the turn (L1..L4 / a future
+    # "clarify" marker, hence String(8)) and the legacy sub-intent on HTTP-layer
+    # fall-through turns. Both additive + nullable (telemetry only).
+    min_layer: Mapped[str | None] = mapped_column(String(8), nullable=True, index=True)
+    sub_intent: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC), nullable=False
     )

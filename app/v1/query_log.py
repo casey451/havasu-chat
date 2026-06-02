@@ -39,6 +39,7 @@ def log_query_intent(
     category_hint: str | None = None,
     component_type: str = "none",
     component_data: dict[str, Any] | None = None,
+    min_layer: str | None = None,
 ) -> None:
     """Best-effort insert; never raises."""
     intent = (normalized_intent or sub_intent or mode or "unknown").strip()[:128]
@@ -56,6 +57,9 @@ def log_query_intent(
             normalized_intent=intent,
             category=category,
             result_count=count,
+            # Phase 2 Slice 1 telemetry (both nullable).
+            min_layer=(min_layer or None),
+            sub_intent=(sub_intent.strip()[:64] if sub_intent else None),
         )
         db.add(row)
         db.commit()

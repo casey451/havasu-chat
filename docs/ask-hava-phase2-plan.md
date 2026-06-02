@@ -34,10 +34,12 @@
   result_count) is the single row on claim and empty-fall-through, and the HTTP
   layer logs once on no-match. Proven by `tests/test_query_log_single_write.py`
   (one row per turn on all three paths). No response change.
-- **Slice 1 — Telemetry columns + layer threading** (small). Additive nullable
-  `min_layer String(8)` (indexed) + `sub_intent String(64)` on `query_log`;
-  thread `resolved.layer` and the real `sub_intent` through `runtime._log` and
-  `app/v1/query_log.py`. Migration reversible; no behavior change.
+- **Slice 1 — Telemetry columns + layer threading** ✅ DONE. Migration
+  `d1e2f3a4b5c6` adds nullable `min_layer String(8)` (indexed) + `sub_intent
+  String(64)` to `query_log` (single head). `runtime._log` threads
+  `resolved.layer`; `app/v1/query_log.py` persists `min_layer` + `sub_intent`.
+  Proven by `tests/test_query_log_telemetry_cols.py` (L1/L2 recorded, zero-row
+  keeps layer, sub_intent persisted). Additive + nullable; no behavior change.
 - **Slice 2 — ~5k-phrase CI regression gate** (medium, no app code). Generator
   expands the dicts × templates into phrases with derived `intent_key`/`min_layer`;
   committed dataset; ordinal-layer assertion (`order[resolved.layer] <=

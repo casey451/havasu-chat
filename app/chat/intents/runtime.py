@@ -124,7 +124,7 @@ def _render(result: QueryResult, *, today: date) -> tuple[str, str, dict]:
     return _text_list(result), "none", {}
 
 
-def _log(db: Session, result: QueryResult) -> None:
+def _log(db: Session, result: QueryResult, *, min_layer: str | None = None) -> None:
     # log_query_intent derives result_count from the component payload; pass the
     # rows under "businesses" so the logged count == result.result_count for
     # every kind (the component_type arg is used only for that count, not stored).
@@ -139,6 +139,7 @@ def _log(db: Session, result: QueryResult) -> None:
             category_hint=result.category_hint,
             component_type="business_list",
             component_data={"businesses": result.rows},
+            min_layer=min_layer,
         )
     except Exception:
         logger.exception("intent_layer: query_log write failed")
@@ -194,7 +195,7 @@ def try_intent_layer(
     # we wrote the row so the HTTP layer's logger skips (one query_log row per
     # turn). The flag is set whether we claim or fall through on empty -- both
     # write a precise row here.
-    _log(db, result)
+    _log(db, result, min_layer=resolved.layer)
     if telemetry is not None:
         telemetry["intent_logged"] = True
     if result.result_count == 0:
