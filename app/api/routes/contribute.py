@@ -137,10 +137,10 @@ def _render_contribute_page(
         <label><input type="radio" name="entity_type" value="tip" {"checked" if ent == "tip" else ""}/> Tip</label>
       </div>
 
-      <label for="submission_name">Name</label>
-      <input type="text" name="submission_name" id="submission_name" maxlength="200" required value="{_esc(p.get("submission_name", ""))}"/>
+      <label for="submission_name">Name <span class="req" aria-hidden="true">*</span></label>
+      <input type="text" name="submission_name" id="submission_name" maxlength="200" required aria-required="true" value="{_esc(p.get("submission_name", ""))}"/>
 
-      <label for="submission_url">Website or listing URL</label>
+      <label for="submission_url">Website or listing URL <span class="req" id="url-req" aria-hidden="true" {"" if ent in ("provider", "program") else "hidden"}>*</span></label>
       <input type="url" name="submission_url" id="submission_url" value="{url_val}" placeholder="https://…" data-url-required-for="provider program"/>
 
       <label for="category_hint">Category hint (optional)</label>
@@ -163,6 +163,7 @@ def _render_contribute_page(
       <label for="submitter_email">Email (optional)</label>
       <input type="email" name="submitter_email" id="submitter_email" placeholder="So we can reach you if we have questions" value="{_esc(p.get("submitter_email", ""))}"/>
 
+      <p class="req-legend"><span class="req" aria-hidden="true">*</span> Required</p>
       <button type="submit" class="submit">Submit for review</button>
     </form>
 
@@ -174,6 +175,7 @@ def _render_contribute_page(
   var form = document.getElementById("contrib-form");
   var eventBlock = document.getElementById("event-fields");
   var urlInput = document.getElementById("submission_url");
+  var urlReq = document.getElementById("url-req");
   function entityType() {{
     var r = form.querySelector('input[name="entity_type"]:checked');
     return r ? r.value : "provider";
@@ -181,8 +183,10 @@ def _render_contribute_page(
   function sync() {{
     var et = entityType();
     eventBlock.style.display = et === "event" ? "block" : "none";
-    if (et === "provider" || et === "program") {{ urlInput.setAttribute("required", "required"); }}
+    var urlRequired = et === "provider" || et === "program";
+    if (urlRequired) {{ urlInput.setAttribute("required", "required"); }}
     else {{ urlInput.removeAttribute("required"); }}
+    if (urlReq) {{ urlReq.hidden = !urlRequired; }}
   }}
   form.querySelectorAll('input[name="entity_type"]').forEach(function (el) {{
     el.addEventListener("change", sync);

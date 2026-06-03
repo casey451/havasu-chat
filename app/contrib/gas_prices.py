@@ -34,6 +34,19 @@ logger = logging.getLogger(__name__)
 
 GRADES: tuple[str, ...] = ("regular", "midgrade", "premium", "diesel")
 
+# Google primary categories for providers a fuel station may deep-link to.
+# GasBuddy/Places return real fuel stations; many LHC stations are catalogued
+# under a fuel-adjacent primary rather than ``gas_station`` -- Pilot/Love's are
+# ``truck_stop``; Terrible Herbst / Hacienda / Circle K combos are
+# ``convenience_store``. Matching stays name+street gated (see _match_provider),
+# so widening the candidate pool only lets these brands link, it does not link
+# anything a name match wouldn't already claim.
+_FUEL_PRIMARY_CATEGORIES: tuple[str, ...] = (
+    "gas_station",
+    "truck_stop",
+    "convenience_store",
+)
+
 # GasBuddy fuelProduct keys -> our canonical grade keys.
 _GB_PRODUCT_TO_GRADE: dict[str, str] = {
     "regular_gas": "regular",
@@ -130,7 +143,7 @@ def normalize_gasbuddy_station(raw: dict[str, Any]) -> dict[str, Any]:
 def _load_gas_station_providers(db: Session) -> list[Provider]:
     stmt = (
         select(Provider)
-        .where(Provider.google_primary_category == "gas_station")
+        .where(Provider.google_primary_category.in_(_FUEL_PRIMARY_CATEGORIES))
         .where(Provider.is_active.is_(True))
         .where(Provider.draft.is_(False))
     )

@@ -29,6 +29,21 @@ def test_get_contribute_renders_form(client: TestClient) -> None:
     assert 'action="/contribute"' in r.text
 
 
+def test_get_contribute_marks_required_fields(client: TestClient) -> None:
+    """CB-2: the two required fields (Name, and URL for Business/Program) carry a
+    visible marker + a legend, so required isn't left implicit."""
+    r = client.get("/contribute")
+    assert r.status_code == 200
+    # Name input is required and visibly marked.
+    assert 'id="submission_name"' in r.text
+    assert "aria-required" in r.text
+    assert 'class="req"' in r.text
+    # The URL marker exists (shown by default since entity_type defaults to provider).
+    assert 'id="url-req"' in r.text
+    # A legend explains the asterisk.
+    assert "Required" in r.text
+
+
 def test_get_contribute_submitted_shows_banner(client: TestClient) -> None:
     r = client.get("/contribute?submitted=1")
     assert r.status_code == 200
