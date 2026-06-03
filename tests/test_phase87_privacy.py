@@ -136,10 +136,9 @@ def test_root_redirects_to_home() -> None:
         r = client.get("/")
     assert r.status_code == 200
     assert str(r.url).endswith("/home")
-    # Hero copy is now configurable; assert the hero shell + the default
-    # place-grounded headline rather than the old hardcoded string.
-    assert 'class="ll-hero"' in r.text
-    assert "Your day on Lake Havasu starts here" in r.text
+    # Sandstone home: assert the locked stylesheet + the editorial hero headline.
+    assert "/static/styles/sandstone.css" in r.text
+    assert "What's the plan on" in r.text
 
 
 def test_jinja2_templates_directory_resolves() -> None:

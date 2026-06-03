@@ -30,18 +30,18 @@ def client() -> TestClient:
     return TestClient(app)
 
 
-def test_home_returns_200_serves_home_c(client: TestClient) -> None:
+def test_home_returns_200_serves_sandstone(client: TestClient) -> None:
     r = client.get("/home")
     assert r.status_code == 200
-    assert "/static/styles/lake_light.css" in r.text
-    assert 'class="ll-page"' in r.text
+    assert "/static/styles/sandstone.css" in r.text
+    assert 'data-mode="ask"' in r.text
 
 
-def test_home_query_redesign_param_still_serves_home_c(client: TestClient) -> None:
-    for qs in ("", "?redesign=0", "?redesign=1"):
+def test_home_calendar_param_still_serves_sandstone(client: TestClient) -> None:
+    for qs in ("", "?cal=2026-07", "?cal=2025-12"):
         r = client.get(f"/home{qs}")
         assert r.status_code == 200
-        assert "/static/styles/lake_light.css" in r.text
+        assert "/static/styles/sandstone.css" in r.text
 
 
 def test_browse_tile_specs_match_themed_groups_dict() -> None:

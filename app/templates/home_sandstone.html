@@ -1,0 +1,131 @@
+{% extends "sandstone_base.html" %}
+{% block title %}Ask Hava — Lake Havasu City concierge & directory{% endblock %}
+
+{% block content %}
+  {# ---- Hero + single search → existing 3-tier /chat backend ---- #}
+  <div class="hero wrap">
+    <div class="eyebrow">{% if hero_eyebrow_override %}{{ hero_eyebrow_override }}{% else %}Your lake · {{ today_label }}{% endif %}</div>
+    <h1>{% if hero_headline_override %}{{ hero_headline_override }}{% else %}What's the plan on <em>Lake&nbsp;Havasu?</em>{% endif %}</h1>
+    <form class="searchbox" id="home-ask-form" action="/chat" method="get" role="search" aria-label="Ask Hava">
+      <div class="field">
+        <span class="mag" aria-hidden="true">🔍</span>
+        <input id="home-ask-input" name="q" type="text" value="" placeholder="Mexican food near the channel" aria-label="Ask Hava anything in Lake Havasu">
+        <button class="go" type="submit">Ask Hava</button>
+      </div>
+    </form>
+    <div class="quicklinks">
+      <a href="/categories/eat-drink">What's open now</a>
+      <a href="/categories/on-the-water">On the water</a>
+      <a href="/events-ui">This week's events</a>
+      <a href="/categories/things-to-do">Things to do</a>
+    </div>
+  </div>
+
+  {# ---- Today around the lake — only cards with live data render ---- #}
+  {% if today_cards %}
+  <section class="block wrap" aria-label="Today around the lake">
+    <div class="sec-head">
+      <h2>Today around the lake</h2>
+      {% if now_label %}<span class="meta">Updated {{ now_label }}</span>{% endif %}
+    </div>
+    <div class="today"><div class="row">
+      {% for card in today_cards %}
+      {% if card.href %}<a class="tcard" href="{{ card.href }}">{% else %}<div class="tcard">{% endif %}
+        <div class="k">{% if card.live %}<span class="dot" aria-hidden="true"></span>{% endif %}{{ card.k }}</div>
+        <h4>{{ card.title }}</h4>
+        {% if card.sub %}<p>{{ card.sub }}</p>{% endif %}
+      {% if card.href %}</a>{% else %}</div>{% endif %}
+      {% endfor %}
+    </div></div>
+  </section>
+  {% endif %}
+
+  {# ---- Featured around town — real sponsors or the honest claim slot ---- #}
+  <section class="block wrap" aria-label="Featured around town">
+    <div class="sec-head"><h2>Featured around town</h2><a class="more" href="/sponsor">Advertise here →</a></div>
+    <div class="spon-row">
+      {% for card in featured_cards %}
+      {% if card.empty %}
+      <a class="spon empty" href="/sponsor">
+        <div>
+          <div class="cat" style="color:var(--muted)">Your business</div>
+          <h3 style="margin-top:5px;color:var(--text)">Claim this spot</h3>
+          <div class="deal">Quiet, clearly labeled. No pop-ups.</div>
+        </div>
+      </a>
+      {% else %}
+      {% if card.url %}<a class="spon" href="{{ card.url }}">{% else %}<div class="spon">{% endif %}
+        {% if card.image_url %}<div class="img" style="background-image:url('{{ card.image_url }}')"></div>{% else %}<div class="img"></div>{% endif %}
+        <span class="tag">Sponsored</span>
+        <div class="body">
+          {% if card.eyebrow %}<div class="cat">{{ card.eyebrow }}</div>{% endif %}
+          <h3>{{ card.name }}</h3>
+          {% if card.deal %}<div class="deal">{{ card.deal }}</div>{% endif %}
+        </div>
+      {% if card.url %}</a>{% else %}</div>{% endif %}
+      {% endif %}
+      {% endfor %}
+    </div>
+  </section>
+
+  {# ---- This month calendar — real Event rows, JS-free prev/next ---- #}
+  <section class="block wrap" aria-label="This month around the lake">
+    <div class="sec-head"><h2>This month around the lake</h2><a class="more" href="/events-ui">Full calendar →</a></div>
+    <div class="cal-card">
+      <div class="cal-top">
+        <div class="m">{{ calendar.label }}</div>
+        <div class="cal-nav">
+          <a href="/home?cal={{ calendar.prev }}#calendar" aria-label="Previous month">‹</a>
+          <a href="/home?cal={{ calendar.next }}#calendar" aria-label="Next month">›</a>
+        </div>
+      </div>
+      <div class="dow"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+      {% if calendar.has_any %}
+      <div class="grid" id="calendar">
+        {% for week in calendar.weeks %}{% for cell in week %}
+        {% if not cell.in_month %}
+        <div class="cell empty"></div>
+        {% else %}
+        <div class="cell{% if cell.is_today %} today{% endif %}{% if cell.has %} has{% endif %}{% if cell.special %} special-day{% endif %}">
+          <div class="d">{{ cell.day }}</div>
+          {% for ev in cell.events %}<span class="ev {{ ev.type }}">{{ ev.title }}</span>{% endfor %}
+          {% if cell.overflow > 0 %}<span class="ev more">+{{ cell.overflow }}</span>{% endif %}
+        </div>
+        {% endif %}
+        {% endfor %}{% endfor %}
+      </div>
+      <div class="cal-legend">
+        <span><i style="background:var(--live)"></i>Special event</span>
+        <span><i style="background:var(--accent)"></i>On the water</span>
+        <span><i style="background:var(--accent-soft)"></i>Class / ongoing</span>
+      </div>
+      {% else %}
+      <div class="cal-empty" id="calendar">No events posted for {{ calendar.label }} yet. <a href="/events-ui" style="color:var(--accent);font-weight:600">Browse all events →</a></div>
+      {% endif %}
+    </div>
+  </section>
+
+  {# ---- Explore Havasu — live category counts (count omitted when none) ---- #}
+  <section class="block wrap" aria-label="Explore Havasu">
+    <div class="sec-head"><h2>Explore Havasu</h2><a class="more" href="/categories">All categories →</a></div>
+    <div class="cat-strip">
+      {% for tile in explore_tiles %}
+      <a class="catchip" href="{{ tile.url }}">
+        <span class="e" aria-hidden="true">{{ tile.emoji }}</span>
+        <div><div class="t">{{ tile.label }}</div>{% if tile.count %}<div class="n">{{ tile.count }} listed</div>{% endif %}</div>
+      </a>
+      {% endfor %}
+    </div>
+    {% if service_tiles %}
+    <div class="sec-head" style="margin-top:26px"><h2 style="font-size:1.1rem">Need something done?</h2></div>
+    <div class="cat-strip secondary">
+      {% for tile in service_tiles %}
+      <a class="catchip" href="{{ tile.url }}">
+        <span class="e" aria-hidden="true">{{ tile.emoji }}</span>
+        <div><div class="t">{{ tile.label }}</div></div>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+{% endblock %}

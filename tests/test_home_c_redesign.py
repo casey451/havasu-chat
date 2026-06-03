@@ -1,4 +1,9 @@
-"""Direction C /home redesign tests (post legacy home retirement)."""
+"""Sandstone /home redesign tests (replaces the Lake Light home).
+
+The home page is now the Sandstone editorial home (``home_sandstone.html``).
+These assert the locked design markers + the anti-confabulation contract: no
+mock counts, every section wired to live data or omitted.
+"""
 
 from __future__ import annotations
 
@@ -7,34 +12,37 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 
-def test_home_serves_home_c_by_default() -> None:
+def test_home_serves_sandstone_by_default() -> None:
     with TestClient(app) as client:
         r = client.get("/home")
     assert r.status_code == 200
-    assert "/static/styles/lake_light.css" in r.text
-    assert 'class="ll-page"' in r.text
-    assert "Ask Hava" in r.text
-    assert "ll-askbar" in r.text
+    assert "/static/styles/sandstone.css" in r.text
+    assert 'data-mode="ask"' in r.text
+    assert "Ask <em>Hava</em>" in r.text
+    assert 'id="home-ask-form"' in r.text
 
 
-def test_home_redesign_query_param_still_serves_home_c() -> None:
+def test_home_calendar_param_still_serves_sandstone() -> None:
     with TestClient(app) as client:
-        for path in ("/home?redesign=0", "/home?redesign=1"):
+        for path in ("/home?cal=2026-07", "/home?cal=2026-01"):
             r = client.get(path)
             assert r.status_code == 200
-            assert "/static/styles/lake_light.css" in r.text
+            assert "/static/styles/sandstone.css" in r.text
 
 
-def test_direction_c_no_mock_content() -> None:
+def test_sandstone_no_mock_content() -> None:
+    """The prototype's hardcoded numbers must never reach production."""
     with TestClient(app) as client:
         r = client.get("/home")
-    for leaked in ("Channel Brewing Co.", "Aquatic Center", "Havasu Outdoor Co."):
-        assert leaked not in r.text, f"home_c.html leaked mock content: {leaked}"
+    for leaked in ("12 happy hours", "280 places", "448.7", "6 kid events"):
+        assert leaked not in r.text, f"home leaked mock content: {leaked}"
+    for leaked in ("Channel Brewing Co.", "Havasu Outdoor Co."):
+        assert leaked not in r.text
 
 
-def test_direction_c_has_tab_anchors() -> None:
+def test_sandstone_has_explore_and_nav() -> None:
     with TestClient(app) as client:
         r = client.get("/home")
     assert 'href="/categories"' in r.text
-    assert "is-active" in r.text
-    assert "Explore" in r.text
+    assert "Explore all" in r.text
+    assert "Explore Havasu" in r.text

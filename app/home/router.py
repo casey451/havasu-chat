@@ -36,7 +36,7 @@ from app.db.models import AdSlot, Event, Provider, Sponsor
 from app.events import series as event_series
 from app.groups.themed_groups import group_label
 from app.home import collections as curated_collections
-from app.home import pullquote, queries_c, sponsor_store
+from app.home import sandstone, sponsor_store
 from app.home.queries import CATEGORY_LABELS
 from app.v1.categories import BUCKET_SLUG_REDIRECTS, MASTER_BUCKETS
 
@@ -363,44 +363,44 @@ def _gas_snapshot(db: Session) -> dict[str, object]:
 def serve_home(
     request: Request,
     db: Session = Depends(get_db),
+    cal: str | None = None,
 ) -> HTMLResponse:
-    """Render /home — Lake Light editorial home."""
+    """Render /home — the Sandstone editorial home (Ask mode).
+
+    Every count/badge traces to a live query or is omitted (the anti-confabulation
+    contract in 01_UI_BUILD_GUIDE.md §4). The optional ``cal=YYYY-MM`` param drives
+    the server-rendered month calendar's prev/next without any client JS.
+    """
     now = now_lake_havasu()
-    hero = _hero_context()
-    discover_cards = queries_c.discover_grid(db, now=now)
-    eat_cards = queries_c.eat_row(db, now=now)
-    service_cards = queries_c.services_grid(db)
-    upcoming = _events_for_window(
-        db,
-        start_day=now,
-        end_day=now + timedelta(days=7),
-        limit=12,
-    )
     utility_chips = _utility_chips(db)
-    categories = _category_cards(db)
-    spotlight = discover_cards[0] if discover_cards else None
+    events_today = _events_for_window(db, start_day=now, end_day=now, limit=6)
+    cal_year, cal_month = sandstone.parse_cal_param(cal, default=now)
+    spotlights = sponsor_store.active_spotlights(db)
+    # Hero copy defaults to the locked prototype wording (with its italic accent);
+    # owners can retune the eyebrow/headline per season via env without a redeploy.
+    hero_eyebrow_override = os.getenv("HOME_HERO_EYEBROW") or None
+    hero_headline_override = os.getenv("HOME_HERO_HEADLINE") or None
     return templates.TemplateResponse(
         request=request,
-        name="home_c.html",
+        name="home_sandstone.html",
         context={
             "today_label": now.strftime("%A, %B ") + str(now.day),
             "now_label": now.strftime("%I:%M %p").lstrip("0"),
-            "hero_image_url": hero["url"],
-            "hero_attribution": hero["attribution"],
-            "hero_eyebrow": hero["eyebrow"],
-            "hero_headline": hero["headline"],
-            "discover_cards": discover_cards,
-            "eat_cards": eat_cards,
-            "service_cards": service_cards,
-            "events_soon": upcoming,
+            "hero_eyebrow_override": hero_eyebrow_override,
+            "hero_headline_override": hero_headline_override,
             "utility_chips": utility_chips,
-            "category_cards": categories,
-            "home_services_shortcut": _HOME_SERVICES_SHORTCUT,
-            "popular_subcategories": _POPULAR_SUBCATEGORIES,
-            "collection_links": curated_collections.list_collections(),
-            "spotlight_card": spotlight,
+            "primary_nav": sandstone.primary_nav(),
+            "mega_columns": sandstone.mega_columns(db),
+            "today_cards": sandstone.today_cards(
+                utility_chips=utility_chips, events_today=events_today
+            ),
+            "featured_cards": sandstone.featured_cards(spotlights),
+            "calendar": sandstone.calendar_month(
+                db, year=cal_year, month=cal_month, today=now.date()
+            ),
+            "explore_tiles": sandstone.explore_tiles(db),
+            "service_tiles": sandstone.service_tiles(db),
             "active_tab": "today",
-            "hava_read": pullquote.get_quote(db),
         },
     )
 
