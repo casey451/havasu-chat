@@ -17,6 +17,17 @@
     </div>
     {% endif %}
 
+    {# C-2: cuisine drill-down — second-level chip row (Food & Drink only) #}
+    {% if cuisine_chips %}
+    <div class="chips chips-cuisine" id="cuisine-chips">
+      <span class="lbl" style="opacity:.65;font-size:.8rem;align-self:center;margin-right:4px">Cuisine:</span>
+      <a class="chip{% if not active_cuisine %} on{% endif %}" href="{{ facet_href(cuisine=None) }}">All</a>
+      {% for c in cuisine_chips %}
+      <a class="chip{% if active_cuisine == c.slug %} on{% endif %}" href="{{ facet_href(cuisine=c.slug) }}">{{ c.label }}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
     <div class="sortbar">
       <span class="lbl">Sort:</span>
       <a class="sortpill{% if facets.sort in ('favorites', 'default') %} on{% endif %}" href="{{ facet_href(sort=None) }}">Locals' favorites</a>

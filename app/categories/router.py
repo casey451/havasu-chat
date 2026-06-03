@@ -248,6 +248,7 @@ def _facets_from_query(
     sort: str | None,
     late: str | None = None,
     weekends: str | None = None,
+    cuisine: str | None = None,
 ) -> CategoryFacets:
     """Parse raw query params into a validated CategoryFacets."""
 
@@ -264,8 +265,12 @@ def _facets_from_query(
     sub = (subcategory or "").strip().lower() or None
     if sub and subcats.subcategory_by_slug(sub) is None:
         sub = None
+    cui = (cuisine or "").strip().lower() or None
+    if cui and cui not in subcats.cuisine_slugs_in_order():
+        cui = None
     return CategoryFacets(
         subcategory=sub,
+        cuisine=cui,
         open_now=_flag(open_now),
         top_rated=_flag(rating),
         open_late=_flag(late),
@@ -302,6 +307,9 @@ def _render_category_page(
     cards, total = cat_queries.category_listing(db, route_slug, now=now, facets=facets)
 
     chips = subcats.subcategories_for_bucket(chip_bucket_id) if chip_bucket_id else []
+    # C-2: cuisine drill-down — a second-level chip row, only populated on routes
+    # whose providers carry cuisine signals (Food & Drink). Empty elsewhere.
+    cuisine_chips = cat_queries.available_cuisines_for_route(db, route_slug)
 
     def facet_href(**changes: str | None) -> str:
         """Current path with facet params toggled; drops falsy values."""
@@ -328,6 +336,8 @@ def _render_category_page(
             "active_tab": active_tab,
             "subcat_chips": chips,
             "active_subcategory": active_subcategory,
+            "cuisine_chips": cuisine_chips,
+            "active_cuisine": facets.cuisine,
             "facets": facets,
             "sort_options": _SORT_OPTIONS,
             "facet_href": facet_href,
@@ -354,6 +364,7 @@ def serve_category(
     sort: str | None = Query(None),
     late: str | None = Query(None),
     weekends: str | None = Query(None),
+    cuisine: str | None = Query(None),
 ) -> HTMLResponse | RedirectResponse:
     """Render a single category page with subcategory chips + faceted filters.
 
@@ -376,6 +387,7 @@ def serve_category(
         sort=sort,
         late=late,
         weekends=weekends,
+        cuisine=cuisine,
     )
     return _render_category_page(
         request,

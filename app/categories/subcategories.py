@@ -390,3 +390,69 @@ def derive_subcategory(
         if key in _LEGACY_TO_SUBCAT:
             return _LEGACY_TO_SUBCAT[key]
     return None
+
+
+# ---------------------------------------------------------------------------
+# Cuisine (C-2) — a second-level facet under Food & Drink › Restaurants.
+# ---------------------------------------------------------------------------
+#
+# Derived deterministically from Google types (``mexican_restaurant`` → Mexican).
+# Order matters: specific ethnic/style tokens are checked before the broad
+# ``american`` / ``diner`` fallbacks so a place tagged both lands on the specific
+# one. ``pizza`` precedes ``italian`` so pizzerias read as Pizza. Returns ``None``
+# when no cuisine token matches — the chip simply isn't shown for that card.
+
+# (slug, label, match tokens) — tokens matched as substrings of lowercased types.
+_CUISINES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("mexican", "Mexican", ("mexican", "taco", "taqueria", "burrito")),
+    ("pizza", "Pizza", ("pizza", "pizzeria")),
+    ("italian", "Italian", ("italian",)),
+    ("chinese", "Chinese", ("chinese",)),
+    ("japanese", "Japanese", ("japanese", "sushi", "ramen")),
+    ("thai", "Thai", ("thai",)),
+    ("indian", "Indian", ("indian",)),
+    ("mediterranean", "Mediterranean", ("mediterranean", "greek")),
+    ("bbq", "BBQ", ("barbecue", "barbeque", "bbq")),
+    ("seafood", "Seafood", ("seafood",)),
+    ("steakhouse", "Steakhouse", ("steak",)),
+    ("burgers", "Burgers", ("burger", "hamburger")),
+    ("sandwiches", "Sandwiches", ("sandwich", "deli", "_sub_", "submarine")),
+    ("breakfast", "Breakfast", ("breakfast", "brunch", "pancake")),
+    ("diner", "Diner", ("diner",)),
+    ("american", "American", ("american",)),
+)
+
+_CUISINE_LABELS: dict[str, str] = {slug: label for slug, label, _ in _CUISINES}
+_CUISINE_ORDER: list[str] = [slug for slug, _, _ in _CUISINES]
+
+
+def cuisine_label(slug: str | None) -> str | None:
+    return _CUISINE_LABELS.get((slug or "").strip().lower()) if slug else None
+
+
+def cuisine_slugs_in_order() -> list[str]:
+    """Canonical display order for cuisine chips."""
+    return list(_CUISINE_ORDER)
+
+
+def derive_cuisine(
+    google_primary_category: str | None = None,
+    google_categories: Any = None,
+) -> str | None:
+    """Best cuisine slug for a restaurant from its Google types, or ``None``.
+
+    Pure (no DB). Checks the primary type first, then secondary types; first
+    matching cuisine in ``_CUISINES`` order wins.
+    """
+    if isinstance(google_categories, str):
+        try:
+            google_categories = json.loads(google_categories)
+        except (ValueError, TypeError):
+            google_categories = None
+    tokens = list(_iter_type_tokens(google_primary_category, google_categories, None))
+    for slug, _label, needles in _CUISINES:
+        for needle in needles:
+            for tok in tokens:
+                if needle in tok:
+                    return slug
+    return None
