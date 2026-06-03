@@ -142,6 +142,12 @@ _TYPE_TO_SUBCAT: tuple[tuple[str, str], ...] = (
     ("brewery", "bars-breweries"),
     ("wine_bar", "bars-breweries"),
     ("pub", "bars-breweries"),
+    # Guard the broad "bar" token against substring collisions before it runs:
+    # "barber_shop" and "barbecue_restaurant" both contain "bar" (prod bug — barber
+    # shops were filing as bars-breweries). These must be checked first.
+    ("barber", "beauty"),
+    ("barbecue", "restaurants"),
+    ("barbeque", "restaurants"),
     ("bar", "bars-breweries"),
     ("night_club", "bars-breweries"),
     ("coffee", "cafes-coffee"),
