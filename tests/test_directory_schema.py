@@ -29,12 +29,13 @@ _EXPECTED_CATEGORY_SLUGS = [
 
 
 def test_twelve_seeded_categories_exist_and_ordered() -> None:
-    """Migration seeds 12 rows; slug set and sort_order match synthesis §1."""
+    """The original synthesis seeds 12 rows (sort_order 1-12); the Sandstone
+    taxonomy migration later adds tier-1 buckets above (sort_order > 12)."""
     with SessionLocal() as db:
         rows = db.query(Category).order_by(Category.sort_order).all()
-        assert len(rows) == 12
-        assert [c.slug for c in rows] == _EXPECTED_CATEGORY_SLUGS
-        assert [c.sort_order for c in rows] == list(range(1, 13))
+        original = [c for c in rows if c.sort_order <= 12]
+        assert [c.slug for c in original] == _EXPECTED_CATEGORY_SLUGS
+        assert [c.sort_order for c in original] == list(range(1, 13))
 
 
 def test_provider_round_trips_category_id_attributes_district_with_legacy_string() -> None:
