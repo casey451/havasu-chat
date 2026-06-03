@@ -105,19 +105,31 @@ def test_migration_upgrade_downgrade_upgrade_cycle(
 
 
 def test_after_upgrade_categories_count_and_slugs() -> None:
+    # The Sandstone taxonomy migration (b1f2a3c4d5e6) seeds 5 more tier-1 buckets
+    # on top of the original 12, so every CATEGORY_FILTERS route has a row.
+    from app.categories.backfill_plan import NEW_BUCKETS
+
+    expected = NEW_12_SLUGS | {slug for slug, _name, _order in NEW_BUCKETS}
     with SessionLocal() as db:
         rows = db.query(Category).all()
-        assert len(rows) == 12
-        assert {c.slug for c in rows} == NEW_12_SLUGS
+        assert {c.slug for c in rows} == expected
+        assert len(rows) == len(expected)
         assert all(c.slug not in ("family", "community") for c in rows)
 
 
 def test_sort_order_synthesis_tier_order() -> None:
+    from app.categories.backfill_plan import NEW_BUCKETS
+
     with SessionLocal() as db:
         rows = db.query(Category).order_by(Category.sort_order).all()
-        assert [c.sort_order for c in rows] == list(range(1, 13))
-        assert rows[0].slug == "home-property-services"
-        assert rows[-1].slug == "public-civic-resources"
+    # The original 12 keep their contiguous 1-12 tier order...
+    original = [r for r in rows if r.sort_order <= 12]
+    assert [r.sort_order for r in original] == list(range(1, 13))
+    assert original[0].slug == "home-property-services"
+    assert original[-1].slug == "public-civic-resources"
+    # ...and the migration's new buckets sort after that tier (sort_order > 12).
+    new = [r for r in rows if r.sort_order > 12]
+    assert {r.slug for r in new} == {slug for slug, _name, _order in NEW_BUCKETS}
 
 
 def test_bucket_a_provider_food_drink() -> None:
