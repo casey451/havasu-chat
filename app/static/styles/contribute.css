@@ -162,6 +162,22 @@ label {
 }
 label:first-child { margin-top: 0; }
 
+/* Required-field marker. The asterisk sits in the field label so the two
+ * required inputs (Name always; URL when Business/Program is selected) read as
+ * required without a separate legend. `.req.is-optional` is toggled off by the
+ * entity-type JS for Tip/Event, where the URL is not required. */
+.req {
+  color: var(--err);
+  font-weight: 600;
+  margin-left: 2px;
+}
+.req[hidden] { display: none; }
+.req-legend {
+  margin: 16px 0 0;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
 input[type="text"],
 input[type="url"],
 input[type="email"],
