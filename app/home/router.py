@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 from app.analytics import record_event
 from app.categories import queries as cat_queries
 from app.conditions.cache import read_source
-from app.conditions.constants import SOURCE_GAS
+from app.conditions.constants import GAS_STALE_AFTER_HOURS, SOURCE_GAS
 from app.conditions.staleness import staleness_label
 from app.conditions.view_model import build_conditions_strip_view_model
 from app.core.provider_name import register_template_filters, register_template_globals
@@ -350,7 +350,11 @@ def _gas_snapshot(db: Session) -> dict[str, object]:
         ),
     )
     cheapest = stations_sorted[:5]
-    label, stale = staleness_label(row.fetched_at, now_utc)
+    # Gas updates ~daily; use the daily-feed staleness threshold so a fresh fetch
+    # doesn't read "stale" on the home widget (G-2 / H-2).
+    label, stale = staleness_label(
+        row.fetched_at, now_utc, stale_after_hours=GAS_STALE_AFTER_HOURS
+    )
     return {
         "has_data": bool(cheapest),
         "staleness_label": label,

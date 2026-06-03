@@ -50,6 +50,7 @@ class ProviderProfileVM:
 
     provider_name: str
     category_label: str
+    category_url: str
     district: Optional[str]
 
     verified: bool
@@ -197,6 +198,7 @@ def build(
     return ProviderProfileVM(
         provider_name=provider.provider_name,
         category_label=queries.category_label_for(provider),
+        category_url=_category_url_for(provider),
         district=provider.district,
         verified=bool(provider.verified),
         last_verified_at=provider.last_verified_at,
@@ -238,6 +240,33 @@ def build(
         claim_url=f"/claim/{claim_slug}" if claim_slug else "",
         upgrade_url=f"/upgrade/{slug}" if slug else "",
     )
+
+
+def _category_url_for(provider: Provider) -> str:
+    """The actual category-page URL for the breadcrumb (P-1).
+
+    The breadcrumb used to link to ``/categories`` (the Explore index) regardless
+    of the business's category. Resolve the provider's legacy category to its most
+    specific listing route — preferring a tile route (so a church links to
+    Community, not the broad Services mega) — and fall back to Explore when unknown.
+    Lazy import of ``CATEGORY_FILTERS`` avoids a categories↔providers import cycle.
+    """
+    from app.categories.queries import CATEGORY_FILTERS
+
+    cat = (provider.category or "").strip().lower()
+    if not cat:
+        return "/categories"
+    mega = {"services", "things-to-do", "eat-drink", "on-the-water"}
+    tile_match: str | None = None
+    mega_match: str | None = None
+    for route, slugs in CATEGORY_FILTERS.items():
+        if cat in slugs:
+            if route in mega:
+                mega_match = mega_match or route
+            else:
+                tile_match = tile_match or route
+    route = tile_match or mega_match
+    return f"/categories/{route}" if route else "/categories"
 
 
 def _is_sponsored_now(provider: Provider, *, now: datetime) -> bool:

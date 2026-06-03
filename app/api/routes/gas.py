@@ -26,8 +26,9 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.conditions.cache import read_source
-from app.conditions.constants import SOURCE_GAS
+from app.conditions.constants import GAS_STALE_AFTER_HOURS, SOURCE_GAS
 from app.conditions.staleness import staleness_label
+from app.core.timezone import LAKE_HAVASU_TZ
 from app.db.database import get_db
 
 router = APIRouter(tags=["gas"])
@@ -51,14 +52,20 @@ def _read_payload(db: Session) -> tuple[dict[str, Any], str | None, bool, str | 
     row = read_source(db, SOURCE_GAS, now=now)
     if row is None or not isinstance(row.data, dict):
         return {}, None, False, None
-    label, stale = staleness_label(row.fetched_at, now)
+    label, stale = staleness_label(row.fetched_at, now, stale_after_hours=GAS_STALE_AFTER_HOURS)
     fetched_at_label = _format_fetched_at(row.fetched_at)
     return row.data, label, bool(stale or row.is_stale), fetched_at_label
 
 
 def _format_fetched_at(fetched_at: datetime) -> str:
-    """Human timestamp for the freshness banner (same clock as the label)."""
-    return fetched_at.strftime("%b ") + str(fetched_at.day) + fetched_at.strftime(", %Y %H:%M UTC")
+    """Human timestamp for the freshness banner, in Lake Havasu local time (G-1).
+
+    ``fetched_at`` is stored as naive UTC; render it as America/Phoenix so the
+    banner reads in the visitor's local time, not a raw UTC clock.
+    """
+    local = fetched_at.replace(tzinfo=UTC).astimezone(LAKE_HAVASU_TZ)
+    hour12 = local.strftime("%I:%M %p").lstrip("0")
+    return local.strftime("%b ") + str(local.day) + local.strftime(", %Y ") + hour12
 
 
 @router.get("/gas", response_class=HTMLResponse)

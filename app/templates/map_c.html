@@ -41,6 +41,7 @@
     </div>
     <nav class="map-scope-bar" aria-label="Map scope selector">
       <div class="map-scope-group" role="group" aria-label="Themed groups">
+        <span class="map-scope-label" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;opacity:.65;align-self:center;margin-right:4px">Collections</span>
         {% for scope in group_scopes %}
         <a
           class="map-scope-tab{% if scope.slug == default_scope %} is-active{% endif %}"
@@ -52,6 +53,7 @@
         {% endfor %}
       </div>
       <div class="map-scope-group map-scope-group--categories" role="group" aria-label="Categories">
+        <span class="map-scope-label" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;opacity:.65;align-self:center;margin-right:4px">Categories</span>
         {% for scope in category_scopes %}
         <a
           class="map-scope-tab map-scope-tab--category{% if scope.slug == default_scope %} is-active{% endif %}"

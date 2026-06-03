@@ -16,6 +16,7 @@ dual-write transition.
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, date, datetime, time
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Optional
@@ -281,12 +282,25 @@ def derive_directions_url(provider: Provider) -> Optional[str]:
     return None
 
 
+def _clean_address(address: Optional[str]) -> Optional[str]:
+    """Strip a stray leading fragment from a formatted address (P-3).
+
+    Some Google-sourced addresses arrive prefixed with an orphan number — e.g.
+    ``"2806, 950 N Lake Havasu Ave"`` — where a leading ``<digits>,`` precedes the
+    real street number. Drop that prefix; leave well-formed addresses untouched.
+    """
+    if not address:
+        return address
+    cleaned = re.sub(r"^\s*\d{1,6}\s*,\s*(?=\d)", "", address.strip())
+    return cleaned or address
+
+
 def derive_display_address(provider: Provider) -> Optional[str]:
     """Street / formatted address for profile display (non–service-area-only)."""
     loc = getattr(getattr(provider, "entity", None), "location", None)
     if loc is not None and loc.address:
-        return loc.address
-    return provider.address
+        return _clean_address(loc.address)
+    return _clean_address(provider.address)
 
 
 _WEEKDAY_KEYS_STRUCT = (
