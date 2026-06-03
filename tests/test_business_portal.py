@@ -34,6 +34,15 @@ def test_advertise_catalog_renders_products_and_prices() -> None:
     assert "/ mo" in body  # monetization-range price labels render
 
 
+def test_claim_entry_renders_no_dead_link() -> None:
+    """The /portal/claim entry the landing/advertise link to must exist (not 404)."""
+    with TestClient(app) as client:
+        r = client.get("/portal/claim")
+    assert r.status_code == 200
+    assert "Claim your listing" in r.text
+    assert "/contribute" in r.text  # add-a-business path
+
+
 def test_no_payment_route_yet() -> None:
     """Stripe checkout is deferred — /portal/checkout must not exist yet."""
     with TestClient(app) as client:

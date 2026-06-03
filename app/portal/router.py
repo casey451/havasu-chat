@@ -42,3 +42,11 @@ def portal_advertise(request: Request, db: Session = Depends(get_db)) -> HTMLRes
         name="portal_advertise.html",
         context={"catalog": products.catalog(db)},
     )
+
+
+@router.get("/claim", response_class=HTMLResponse)
+def portal_claim(request: Request) -> HTMLResponse:
+    """Claim entry point: find your listing (then claim it from its page) or add
+    a new one. The per-listing claim itself lives at /claim/{slug} via the
+    provider profile's 'Claim this listing' CTA."""
+    return templates.TemplateResponse(request=request, name="portal_claim.html", context={})

@@ -1,0 +1,34 @@
+{% extends "sandstone_base.html" %}
+{% block title %}Claim your listing — Ask Hava{% endblock %}
+
+{% block content %}
+  <div class="cathead wrap">
+    <div class="crumb"><a href="/portal">For businesses</a> › Claim</div>
+    <h1>Claim your listing</h1>
+    <p>Claiming is free. It unlocks your enriched profile — photos, hours, menu and links — and the verified mark. Find your business below, then tap <strong>“Claim this listing”</strong> on its page.</p>
+  </div>
+
+  <div class="wrap">
+    <form class="searchbox" action="/chat" method="get" role="search" aria-label="Find your business" style="margin-left:0">
+      <div class="field">
+        <span class="mag" aria-hidden="true">🔍</span>
+        <input name="q" type="text" placeholder="Your business name" aria-label="Find your business">
+        <button class="go" type="submit">Find it</button>
+      </div>
+    </form>
+
+    <section class="block">
+      <div class="cat-strip">
+        <a class="catchip" href="/categories">
+          <span class="e" aria-hidden="true">🔎</span>
+          <div><div class="t">Browse the directory</div><div class="n">Find your business by category, then claim it from its page.</div></div>
+        </a>
+        <a class="catchip" href="/contribute">
+          <span class="e" aria-hidden="true">➕</span>
+          <div><div class="t">Not listed yet?</div><div class="n">Add your business to Ask Hava.</div></div>
+        </a>
+      </div>
+      <p style="color:var(--muted);font-size:.9rem;margin-top:16px">A real person reviews each claim before anything changes — that's the human gate that keeps the directory trustworthy.</p>
+    </section>
+  </div>
+{% endblock %}
