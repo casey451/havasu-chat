@@ -542,13 +542,16 @@ def serve_events_ui(request: Request, db: Session = Depends(get_db)) -> HTMLResp
     total = sum(len(v) for v in oneoff_groups.values()) + len(ongoing_classes)
     return templates.TemplateResponse(
         request=request,
-        name="events_lake_light.html",
+        name="events_sandstone.html",
         context={
             "events_groups": oneoff_groups,
             "ongoing_classes": ongoing_classes,
             "events_total": total,
             "month_label": now.strftime("%B %Y"),
             "active_tab": "events",
+            "primary_nav": sandstone.primary_nav(),
+            "mega_columns": sandstone.mega_columns(db),
+            "utility_chips": _utility_chips(db),
         },
     )
 

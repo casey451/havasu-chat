@@ -108,23 +108,23 @@ def test_category_page_all_categories_pill_is_labelled() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_events_page_tabs_are_wired_for_screen_readers() -> None:
-    """The List/Calendar toggle is a real tablist: each tab points at its
-    panel via aria-controls and each panel is a labelled tabpanel."""
+def test_events_page_sections_are_labelled_for_screen_readers() -> None:
+    """Sandstone events is a server-rendered list; each time-window group is a
+    labelled <section> so screen readers can navigate by heading region."""
     client = TestClient(app)
     resp = client.get("/events-ui")
     assert resp.status_code == 200
     body = resp.text
-    assert 'aria-controls="events-list-panel"' in body
-    assert 'aria-controls="events-calendar-panel"' in body
-    assert 'role="tabpanel"' in body
+    assert 'aria-label="Today"' in body
+    assert "Events around the lake" in body
+    # The month calendar lives on the home page; events links to it.
+    assert "/home#calendar" in body
 
 
-def test_events_page_calendar_pager_buttons_have_aria_label() -> None:
-    """'Prev'/'Next' lack context on their own -- the month pager buttons
-    must spell out what they navigate."""
+def test_home_calendar_pager_buttons_have_aria_label() -> None:
+    """The month pager (now on the home calendar) spells out what it navigates."""
     client = TestClient(app)
-    resp = client.get("/events-ui")
+    resp = client.get("/home")
     assert resp.status_code == 200
     body = resp.text
     assert 'aria-label="Previous month"' in body
@@ -152,4 +152,4 @@ def test_events_page_renders_with_empty_db() -> None:
     client = TestClient(app)
     resp = client.get("/events-ui")
     assert resp.status_code == 200
-    assert 'role="tablist"' in resp.text
+    assert "Events around the lake" in resp.text

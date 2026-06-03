@@ -1,0 +1,21 @@
+/* Events page — Sandstone event list (server-rendered, no JS). Built on the
+   shared sandstone.css chrome (.cathead, .sec-head, section.block). */
+.ev-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.ev-card{display:flex;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px 16px;transition:.2s;color:inherit}
+.ev-card:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--accent-soft)}
+.ev-card.is-featured{border-color:var(--accent-soft);background:linear-gradient(180deg,var(--accent-tint),var(--surface))}
+.ev-date{flex:0 0 auto;width:58px;text-align:center;border-radius:var(--radius-sm);overflow:hidden;
+  border:1px solid var(--border);background:var(--bg);align-self:flex-start}
+.ev-date .m{display:block;font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--on-accent);background:var(--ev-accent,var(--accent));padding:3px 0}
+.ev-date .d{display:block;font-family:"Fraunces",serif;font-size:1.5rem;font-weight:600;color:var(--text);padding:4px 0 6px}
+.ev-body{min-width:0;flex:1}
+.ev-flag{display:inline-block;font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:3px}
+.ev-time{font-size:.78rem;color:var(--accent-soft);font-weight:600}
+.ev-body h3{font-family:"Fraunces",serif;font-weight:500;font-size:1.15rem;line-height:1.2;color:var(--text);margin:3px 0}
+.ev-venue{font-size:.85rem;color:var(--muted)}
+.ev-recurring{display:inline-block;margin-top:5px;font-size:.72rem;color:var(--muted);background:var(--chip);
+  padding:2px 9px;border-radius:999px}
+.ev-empty{color:var(--muted);font-size:.9rem;padding:6px 0 4px}
