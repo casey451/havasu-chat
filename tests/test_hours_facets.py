@@ -318,6 +318,40 @@ def _cleanup(entity_ids: list[str]) -> None:
         db.commit()
 
 
+def test_default_favorites_sort_demotes_closed_below_open() -> None:
+    """C-3: the default favorites sort must not open with a wall of Closed.
+
+    A *closed* but higher-rated venue ranks below an *open* lower-rated one, so
+    the top of the grid is something the visitor can actually walk into now.
+    """
+    suf = uuid.uuid4().hex[:8]
+    closed_name = f"Beloved But Closed {suf}"  # 4.9 / 500 reviews, closed at 14:00
+    open_name = f"Decent And Open {suf}"  # 4.2 / 80 reviews, open at 14:00
+    with SessionLocal() as db:
+        closed_p = _make_restaurant(closed_name, {"monday": [{"open": "17:00", "close": "20:00"}]})
+        closed_p.google_rating = 4.9
+        closed_p.google_review_count = 500
+        open_p = _make_restaurant(open_name, {"monday": [{"open": "09:00", "close": "22:00"}]})
+        open_p.google_rating = 4.2
+        open_p.google_review_count = 80
+        db.add(closed_p)
+        db.add(open_p)
+        db.commit()
+        eids = [closed_p.entity_id, open_p.entity_id]
+
+    try:
+        cards, _total = category_listing(
+            db_session_factory(),
+            "eat-drink",
+            now=FIXED_NOW,
+            facets=CategoryFacets(sort="favorites"),
+        )
+        order = [c["name"] for c in cards if c["name"] in (closed_name, open_name)]
+        assert order == [open_name, closed_name]
+    finally:
+        _cleanup(eids)
+
+
 @pytest.fixture(autouse=True)
 def _no_op() -> None:
     """Placeholder autouse fixture; keeps the module importable as a suite."""

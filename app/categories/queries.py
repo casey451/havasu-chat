@@ -75,13 +75,14 @@ CATEGORY_FILTERS: dict[str, tuple[str, ...]] = {
         "boat_rental",
         "lodging",
     ),
+    # "Things to Do & Attractions" is attractions/tourism only. The fitness,
+    # childcare/education, recreation, and religion/civic types it used to also
+    # pull in have their own canonical homes (classes-sports-recreation,
+    # public-civic-resources), so a church or gym no longer appears under BOTH
+    # this route and Community/Sports (audit S2/P-4 cross-listing). This also
+    # aligns the page with its own [Attractions, Venues] chips.
     "things-to-do": (
         "entertainment_attractions",
-        "fitness_sports",
-        "childcare_education",
-        "religion_community",
-        "recreation",
-        "education",
         "tourism",
     ),
     "services": (
@@ -322,17 +323,61 @@ def _resolve_category_card_image(provider: Provider) -> str | None:
     return _provider_image_url(provider)
 
 
+def _card_subcategory_token(provider: Provider, allowed: set[str] | None) -> str:
+    """The card's subtype token, blanked when off-taxonomy for the page (C-1)."""
+    token = (provider.subcategory or "") if hasattr(provider, "subcategory") else ""
+    if token and allowed is not None and token not in allowed:
+        return ""
+    return token
+
+
+def _route_bucket_id(route_slug: str) -> str | None:
+    """The single canonical bucket a category route belongs to.
+
+    Mega routes resolve via the chip mapping; tile routes (which carry no chips)
+    fall back to the bucket of their representative legacy category. Used to decide
+    whether a card's subtype label is on-taxonomy for the page (C-1).
+    """
+    from app.categories.subcategories import bucket_for_category_route
+    from app.v1.categories import bucket_for_legacy_category
+
+    bid = bucket_for_category_route(route_slug)
+    if bid:
+        return bid
+    slugs = CATEGORY_FILTERS.get(route_slug) or ()
+    return bucket_for_legacy_category(slugs[0]) if slugs else None
+
+
+def _allowed_subcategory_slugs(route_slug: str) -> set[str] | None:
+    """Subcategory slugs that legitimately belong on ``route_slug``'s page.
+
+    Returns ``None`` (= no restriction) when the route has no resolvable bucket.
+    A card whose subcategory is outside this set gets no subtype label, so a
+    Shopping ``Specialty`` row that leaked onto the Services page via a foreign
+    legacy category no longer mislabels the card (audit C-1).
+    """
+    from app.categories.subcategories import subcategories_for_bucket
+
+    bucket_id = _route_bucket_id(route_slug)
+    if not bucket_id:
+        return None
+    return {s.slug for s in subcategories_for_bucket(bucket_id)}
+
+
 def _build_category_card(
     provider: Provider,
     *,
     status_class: str,
     status_text: str,
     image_url: str | None,
+    allowed_subcategories: set[str] | None = None,
 ) -> dict[str, Any]:
     """Shape a Provider row into the category-grid card contract.
 
     ``subcategory`` rides along so the Sandstone page can filter the
     server-rendered grid in place by chip (the JS shows/hides on this token).
+    It is blanked when off-taxonomy for the page (``allowed_subcategories``), so
+    a foreign subtype never labels a card or matches a chip it doesn't belong to.
     ``is_open`` drives the Sandstone open/closed pill: True/False from the live
     hours status, None when hours are unknown (pill omitted, no fabrication).
     """
@@ -354,7 +399,7 @@ def _build_category_card(
         "status_text": status_text,
         "rating": rating,
         "review_count": review_count,
-        "subcategory": (provider.subcategory or "") if hasattr(provider, "subcategory") else "",
+        "subcategory": _card_subcategory_token(provider, allowed_subcategories),
         "is_open": is_open,
     }
 
@@ -617,7 +662,13 @@ def _distance_km(provider: Provider, ref_lat: float, ref_lng: float) -> float:
     return 2 * r * math.asin(math.sqrt(a))
 
 
-def _provider_card(db: Session, provider: Provider, *, now: datetime) -> dict[str, Any]:
+def _provider_card(
+    db: Session,
+    provider: Provider,
+    *,
+    now: datetime,
+    allowed_subcategories: set[str] | None = None,
+) -> dict[str, Any]:
     try:
         status_class, status_text = _hours_status(provider, now=now)
     except Exception:
@@ -627,6 +678,7 @@ def _provider_card(db: Session, provider: Provider, *, now: datetime) -> dict[st
         status_class=status_class,
         status_text=status_text,
         image_url=_resolve_category_card_image(provider),
+        allowed_subcategories=allowed_subcategories,
     )
 
 
@@ -647,7 +699,9 @@ def category_listing(
     if db is None or not is_valid_category_slug(slug):
         return [], 0
     facets = facets or CategoryFacets()
-    slugs_for_route = CATEGORY_FILTERS[slug.strip().lower()]
+    route_key = slug.strip().lower()
+    slugs_for_route = CATEGORY_FILTERS[route_key]
+    allowed_subs = _allowed_subcategory_slugs(route_key)
     try:
         base = db.query(Provider).filter(
             Provider.category.in_(slugs_for_route),
@@ -668,7 +722,7 @@ def category_listing(
                 else base.order_by(*_rating_sort_key())
             )
             rows = ordered.limit(max(limit, 1)).all()
-            return [_provider_card(db, p, now=now) for p in rows], total
+            return [_provider_card(db, p, now=now, allowed_subcategories=allowed_subs) for p in rows], total
 
         rows = base.order_by(*_rating_sort_key()).limit(_MATERIALIZE_CAP).all()
         if facets.open_now:
@@ -680,8 +734,14 @@ def category_listing(
         if facets.sort == "closest":
             rows.sort(key=lambda p: (_distance_km(p, _REF_LAT, _REF_LNG), (p.provider_name or "").lower()))
         elif facets.sort == "favorites":
+            # C-3: the default "Locals' favorites" sort used to open with a wall of
+            # high-rated but *closed* businesses. Demote definitively-closed rows
+            # below open/unknown ones (rank 1 vs 0), keeping the favorites score as
+            # the ordering within each band. Compute open-state once per row.
+            open_state = {id(p): is_open_now(p, now=now)[0] for p in rows}
             rows.sort(
                 key=lambda p: (
+                    1 if open_state.get(id(p)) is False else 0,
                     -weighted_favorites_score(
                         p.google_rating, getattr(p, "google_review_count", None)
                     ),
@@ -691,6 +751,6 @@ def category_listing(
         elif facets.sort == "alpha":
             rows.sort(key=lambda p: (p.provider_name or "").lower())
         total = len(rows)
-        return [_provider_card(db, p, now=now) for p in rows[:limit]], total
+        return [_provider_card(db, p, now=now, allowed_subcategories=allowed_subs) for p in rows[:limit]], total
     except Exception:
         return [], 0
