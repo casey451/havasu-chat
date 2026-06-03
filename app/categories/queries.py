@@ -33,6 +33,7 @@ from typing import Any
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
+from app.categories.subcategories import derive_cuisine
 from app.db.models import Provider
 from app.home.queries import _hours_status, _provider_image_url
 from app.home.queries_c import _load_eat_photos, _rating_display, _rating_sort_key
@@ -400,6 +401,11 @@ def _build_category_card(
         "rating": rating,
         "review_count": review_count,
         "subcategory": _card_subcategory_token(provider, allowed_subcategories),
+        "cuisine": derive_cuisine(
+            getattr(provider, "google_primary_category", None),
+            getattr(provider, "google_categories", None),
+        )
+        or "",
         "is_open": is_open,
     }
 
@@ -616,6 +622,7 @@ class CategoryFacets:
     """Active facet selections for a category listing. All independent."""
 
     subcategory: str | None = None
+    cuisine: str | None = None
     open_now: bool = False
     top_rated: bool = False
     open_late: bool = False
@@ -626,6 +633,7 @@ class CategoryFacets:
     def any_active(self) -> bool:
         return bool(
             self.subcategory
+            or self.cuisine
             or self.open_now
             or self.top_rated
             or self.open_late
@@ -647,6 +655,7 @@ class CategoryFacets:
             self.open_now
             or self.open_late
             or self.open_weekends
+            or bool(self.cuisine)
             or self.sort in ("closest", "favorites")
         )
 
@@ -680,6 +689,43 @@ def _provider_card(
         image_url=_resolve_category_card_image(provider),
         allowed_subcategories=allowed_subcategories,
     )
+
+
+def available_cuisines_for_route(db: Session | None, slug: str) -> list[dict[str, str]]:
+    """Cuisine chips present among a route's providers (C-2), in canonical order.
+
+    Returns ``[]`` for non-food routes (no cuisine tokens match) or on any DB
+    hiccup — the template then renders no cuisine row. One light two-column query.
+    """
+    from app.categories.subcategories import cuisine_label, cuisine_slugs_in_order
+
+    if db is None:
+        return []
+    slugs = CATEGORY_FILTERS.get((slug or "").strip().lower())
+    if not slugs:
+        return []
+    try:
+        rows = (
+            db.query(Provider.google_primary_category, Provider.google_categories)
+            .filter(
+                Provider.category.in_(slugs),
+                Provider.is_active.is_(True),
+                Provider.draft.is_(False),
+            )
+            .all()
+        )
+    except Exception:
+        return []
+    present: set[str] = set()
+    for primary, cats in rows:
+        c = derive_cuisine(primary, cats)
+        if c:
+            present.add(c)
+    return [
+        {"slug": s, "label": cuisine_label(s) or s}
+        for s in cuisine_slugs_in_order()
+        if s in present
+    ]
 
 
 def category_listing(
@@ -725,6 +771,17 @@ def category_listing(
             return [_provider_card(db, p, now=now, allowed_subcategories=allowed_subs) for p in rows], total
 
         rows = base.order_by(*_rating_sort_key()).limit(_MATERIALIZE_CAP).all()
+        if facets.cuisine:
+            want = facets.cuisine.strip().lower()
+            rows = [
+                p
+                for p in rows
+                if derive_cuisine(
+                    getattr(p, "google_primary_category", None),
+                    getattr(p, "google_categories", None),
+                )
+                == want
+            ]
         if facets.open_now:
             rows = [p for p in rows if is_open_now(p, now=now)[0] is True]
         if facets.open_late:
