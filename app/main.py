@@ -45,6 +45,7 @@ from app.api.routes.chat import router as concierge_chat_router
 from app.api.routes.conditions import router as conditions_router
 from app.api.routes.contribute import router as contribute_router
 from app.api.routes.gas import router as gas_router
+from app.api.routes.ingest import router as ingest_router
 from app.api.routes.map_data import router as map_data_router
 from app.api.routes.micro_ad import router as micro_ad_router
 from app.api.routes.themed_groups import router as themed_groups_router
@@ -379,6 +380,7 @@ app.include_router(map_data_router)
 app.include_router(conditions_router)
 app.include_router(today_router)
 app.include_router(gas_router)
+app.include_router(ingest_router)
 app.include_router(admin_router)
 app.include_router(admin_v1_overview_router)
 app.include_router(admin_contributions_router)
