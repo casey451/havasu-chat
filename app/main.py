@@ -68,6 +68,7 @@ from app.home.chat_route import router as new_chat_ui_router
 from app.home.router import router as home_router
 from app.photos.routes import router as photos_router
 from app.photos.sweep import run_stuck_photo_sweep
+from app.portal.router import router as portal_router
 from app.programs.router import router as programs_router
 from app.providers.router import router as providers_router
 from app.schemas.event import EventRead
@@ -401,6 +402,7 @@ app.include_router(new_chat_ui_router)
 # featured-listing upgrade funnel (admin review routes live on admin_router).
 app.include_router(micro_ad_router)
 app.include_router(merchant_upgrade_router)
+app.include_router(portal_router)
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 # Mount the more-specific /static/biz-photos BEFORE the broad /static mount.
