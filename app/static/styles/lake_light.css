@@ -1,17 +1,23 @@
+/* Sandstone re-theme: the secondary pages (chat, map, events, account, login,
+   collections, claim, …) inherit the Sandstone palette + type by remapping the
+   Lake Light tokens here. No structural/JS changes — one source of truth, fully
+   reversible. The directory core (home/category/profile/modes/gas) uses
+   sandstone.css directly. */
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Figtree:wght@400;500;600;700&display=swap");
 :root {
-  --ll-paper: #F6F1E7;
-  --ll-card: #FBF7EF;
-  --ll-ink: #27332B;
-  --ll-muted: #7C857C;
-  --ll-jade: #3F5C4B;
-  --ll-jade-soft: #DCE5DB;
-  --ll-terracotta: #C16B4A;
-  --ll-terra-soft: #F1DDD0;
-  --ll-mauve: #9A6E72;
-  --ll-gold: #D9A85E;
-  --ll-line: #E7DECF;
-  --ll-shadow: 0 18px 35px -28px rgba(39, 51, 43, 0.45);
-  --ll-radius: 22px;
+  --ll-paper: #F4F1EA;   /* Sandstone --bg */
+  --ll-card: #FFFFFF;    /* --surface */
+  --ll-ink: #1C1B18;     /* --text */
+  --ll-muted: #6F6A60;   /* --muted */
+  --ll-jade: #B5472B;    /* primary accent -> Sandstone sienna */
+  --ll-jade-soft: #EFE0D9; /* soft accent wash */
+  --ll-terracotta: #B5472B; /* accent */
+  --ll-terra-soft: #F3E3DB; /* light accent tint */
+  --ll-mauve: #8A6E60;   /* warm muted */
+  --ll-gold: #C68A2E;    /* warm gold (featured/sponsored) */
+  --ll-line: #E0DACE;    /* --border */
+  --ll-shadow: 0 1px 2px rgba(20, 18, 15, 0.05), 0 10px 30px rgba(20, 18, 15, 0.08);
+  --ll-radius: 18px;
 }
 
 * {
@@ -24,7 +30,7 @@ html, body {
 }
 
 body {
-  font-family: "Poppins", "Segoe UI", sans-serif;
+  font-family: "Figtree", "Segoe UI", sans-serif;
   background: var(--ll-paper);
   color: var(--ll-ink);
   line-height: 1.45;
@@ -48,7 +54,7 @@ a:hover {
 }
 
 .ll-serif {
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: "Fraunces", Georgia, serif;
 }
 
 .ll-eyebrow {
@@ -62,7 +68,7 @@ a:hover {
 
 .ll-title {
   margin: 0;
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: "Fraunces", Georgia, serif;
   font-size: clamp(28px, 6vw, 44px);
   font-weight: 500;
   line-height: 1.1;
@@ -82,7 +88,7 @@ a:hover {
 }
 
 .ll-wordmark {
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: "Fraunces", Georgia, serif;
   font-size: 30px;
   color: #fff;
 }
@@ -132,7 +138,7 @@ a:hover {
 .ll-hero h1 {
   margin: 9px 0 0;
   max-width: 480px;
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: "Fraunces", Georgia, serif;
   font-size: clamp(30px, 8vw, 52px);
   font-weight: 500;
 }
@@ -279,7 +285,7 @@ a:hover {
 }
 
 .ll-event-name {
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: "Fraunces", Georgia, serif;
   font-size: 20px;
   margin: 0 0 3px;
 }
@@ -367,7 +373,7 @@ a:hover {
 .ll-tile span {
   position: relative;
   z-index: 1;
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: "Fraunces", Georgia, serif;
   font-size: 23px;
 }
 
@@ -483,7 +489,7 @@ a:hover {
 }
 
 .ll-group-title {
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: "Fraunces", Georgia, serif;
   font-size: 28px;
   margin: 0 0 8px;
 }
@@ -576,7 +582,7 @@ body.ll-chat .empty-state .eyebrow {
 }
 
 body.ll-chat .empty-state h1 {
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: "Fraunces", Georgia, serif;
   color: var(--ll-ink);
   font-weight: 500;
 }
@@ -608,7 +614,7 @@ body.ll-chat .turn-user .bubble {
 
 body.ll-chat .turn-hava .voice {
   color: var(--ll-ink);
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: "Fraunces", Georgia, serif;
   font-size: 22px;
 }
 
@@ -898,7 +904,7 @@ body.ll-chat .topbar {
 }
 
 body.ll-chat .wordmark {
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: "Fraunces", Georgia, serif;
   font-size: 30px;
   display: inline-flex;
   align-items: center;
@@ -909,7 +915,7 @@ body.ll-chat .wordmark .mark {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #5f7f6e 0%, #3f5c4b 68%, #2d4236 100%);
+  background: radial-gradient(circle at 35% 35%, #D2745A 0%, #B5472B 68%, #7A2E1B 100%);
 }
 
 body.ll-chat .topbar-meta {
@@ -1053,7 +1059,7 @@ body.ll-chat .turn-hava .component-slot {
 
 .ll-loading-question {
   margin: 4px 0 8px;
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: "Fraunces", Georgia, serif;
   font-style: italic;
   font-size: 24px;
   color: var(--ll-ink);
@@ -1171,7 +1177,7 @@ body.ll-chat .turn-hava .component-slot {
 
 .ll-categories-name {
   margin: 0;
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: "Fraunces", Georgia, serif;
   font-size: 24px;
 }
 
@@ -1233,7 +1239,7 @@ body.ll-chat .turn-hava .component-slot {
 
 .ll-utility-main h1 {
   margin: 0 0 8px;
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: "Fraunces", Georgia, serif;
   font-size: clamp(30px, 7vw, 44px);
   font-weight: 500;
   line-height: 1.1;
@@ -1241,7 +1247,7 @@ body.ll-chat .turn-hava .component-slot {
 
 .ll-utility-main h2 {
   margin: 24px 0 10px;
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: "Fraunces", Georgia, serif;
   font-size: clamp(22px, 5vw, 30px);
   font-weight: 500;
   border-bottom: 1px solid var(--ll-line);
@@ -1638,8 +1644,8 @@ a.ll-facet.is-active {
   gap: 1px;
   color: #fff;
   background:
-    linear-gradient(160deg, color-mix(in srgb, var(--accent, #3f5c4b) 88%, #fff 12%),
-      color-mix(in srgb, var(--accent, #3f5c4b) 78%, #000 22%));
+    linear-gradient(160deg, color-mix(in srgb, var(--accent, #B5472B) 88%, #fff 12%),
+      color-mix(in srgb, var(--accent, #B5472B) 78%, #000 22%));
   position: relative;
 }
 
@@ -1652,7 +1658,7 @@ a.ll-facet.is-active {
 }
 
 .ll-event-dateblock-day {
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: "Fraunces", Georgia, serif;
   font-size: 44px;
   line-height: 1;
   font-weight: 600;
@@ -1683,8 +1689,8 @@ a.ll-facet.is-active {
   justify-content: center;
   color: #fff;
   background:
-    linear-gradient(160deg, color-mix(in srgb, var(--accent, #3f5c4b) 88%, #fff 12%),
-      color-mix(in srgb, var(--accent, #3f5c4b) 78%, #000 22%));
+    linear-gradient(160deg, color-mix(in srgb, var(--accent, #B5472B) 88%, #fff 12%),
+      color-mix(in srgb, var(--accent, #B5472B) 78%, #000 22%));
 }
 
 .ll-list-thumb-month {
@@ -1696,7 +1702,7 @@ a.ll-facet.is-active {
 }
 
 .ll-list-thumb-day {
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: "Fraunces", Georgia, serif;
   font-size: 26px;
   line-height: 1;
   font-weight: 600;
