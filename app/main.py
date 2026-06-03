@@ -479,6 +479,7 @@ def _render_permalink_response(
             "event_title": event.title,
             "og_description": _truncate_for_og(event.description),
             "og_url": permalink_url,
+            "image_url": event.image_url,
             "formatted_datetime": _format_event_datetime(event),
             "location_name": event.location_name,
             "description": event.description,
@@ -685,4 +686,7 @@ def event_permalink(event_id: str, request: Request, db: Session = Depends(get_d
     event = db.query(Event).filter(Event.id == event_id).first()
     if event is None or event.status == "pending_review":
         return _render_not_found_response(request)
-    return _render_permalink_response(request, event=event, permalink_url=str(request.url))
+    # ED-5: build a canonical https URL from the configured base (request.url is
+    # http behind Railway's proxy when X-Forwarded-Proto isn't honored).
+    permalink_url = f"{_base_url()}/events/{event.id}"
+    return _render_permalink_response(request, event=event, permalink_url=permalink_url)

@@ -6,11 +6,11 @@
   <div class="cathead wrap">
     <div class="crumb"><a href="/home">Home</a> › Events</div>
     <h1>Events around the lake</h1>
-    <p>{% if events_total %}{{ events_total }} upcoming. {% endif %}What's on today, this weekend, and the week ahead. <a href="/home#calendar" style="color:var(--accent);font-weight:600">See the month calendar →</a></p>
+    <p>{% if events_total %}{{ events_total }} coming up. {% endif %}What's on today, this week, and the week ahead. <a href="/home#calendar" style="color:var(--accent);font-weight:600">See the month calendar →</a></p>
   </div>
 
   <div class="wrap">
-    {% for group_label, items in [('Today', events_groups.today), ('This Weekend', events_groups.weekend), ('Next Week', events_groups.next_week)] %}
+    {% for group_label, items in [('Today', events_groups.today), ('This Week', events_groups.this_week), ('Next Week', events_groups.next_week)] %}
     <section class="block" aria-label="{{ group_label }}">
       <div class="sec-head"><h2>{{ group_label }}</h2><span class="meta">{{ items|length }} event{{ '' if items|length == 1 else 's' }}</span></div>
       {% if items %}

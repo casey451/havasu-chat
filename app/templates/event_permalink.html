@@ -8,6 +8,7 @@
   <meta property="og:title" content="{{ event_title }}">
   <meta property="og:description" content="{{ og_description }}">
   <meta property="og:url" content="{{ og_url }}">
+  {% if image_url %}<meta property="og:image" content="{{ image_url }}">{% endif %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -22,7 +23,8 @@
   <article class="ll-utility-main">
     <p class="ll-eyebrow">Event details</p>
     <h1>{{ event_title }}</h1>
-    <p class="ll-muted">{{ formatted_datetime }} · {{ location_name | clean_name }}</p>
+    <p class="ll-muted">{{ formatted_datetime }} · {{ (location_name | clean_name) or "Location TBD" }}</p>
+    {% if image_url %}<img class="ll-event-image" src="{{ image_url }}" alt="{{ event_title }}" loading="lazy" style="max-width:100%;height:auto;border-radius:10px;margin:12px 0" onerror="this.style.display='none'">{% endif %}
     <p>{{ description }}</p>
     {{ contact_html | safe }}
     {{ event_link_html | safe }}

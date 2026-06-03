@@ -183,6 +183,10 @@ class Event(Base):
     contact_phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
     tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     embedding: Mapped[list[float] | None] = mapped_column(JSON(none_as_null=True), nullable=True)
+    # ED-3: optional event image URL (e.g. from the golakehavasu feed). Recovered
+    # from a scrambled description's ``Image:`` line by the backfill, or set on
+    # ingest; rendered on the event permalink when present.
+    image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     status: Mapped[str] = mapped_column(String, default="live", nullable=False)
     source: Mapped[str] = mapped_column(String, default="admin", nullable=False)
     verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
