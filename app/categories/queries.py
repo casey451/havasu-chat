@@ -364,6 +364,66 @@ def _allowed_subcategory_slugs(route_slug: str) -> set[str] | None:
     return {s.slug for s in subcategories_for_bucket(bucket_id)}
 
 
+# ---------------------------------------------------------------------------
+# Taxonomy pivot — list providers by their (Google-derived) subcategory bucket
+# instead of the often-wrong legacy ``Provider.category`` (prod audit: 397 rows
+# misfiled, e.g. a hospital as ``retail``). Each route owns a canonical
+# subcategory set; mega routes own their whole bucket, tile routes a slice.
+# ---------------------------------------------------------------------------
+
+_TILE_ROUTE_SUBCATS: dict[str, tuple[str, ...]] = {
+    "health-wellness-care": ("health-medical",),
+    "home-property-services": ("home-services",),
+    "professional": ("professional",),
+    "beauty-care": ("beauty",),
+    "auto-rv-fuel": ("auto",),
+    "public-civic-resources": ("civic-community",),
+    "pets": ("pets",),
+    "attractions": ("attractions",),
+}
+
+
+def _route_subcategory_slugs(route_slug: str) -> set[str]:
+    """Canonical subcategory slugs a route lists. Tile routes own a slice; mega
+    routes own their whole bucket; unknown routes own nothing."""
+    from app.categories.subcategories import (
+        bucket_for_category_route,
+        subcategories_for_bucket,
+    )
+
+    route = (route_slug or "").strip().lower()
+    if route in _TILE_ROUTE_SUBCATS:
+        return set(_TILE_ROUTE_SUBCATS[route])
+    bucket = bucket_for_category_route(route)
+    if bucket:
+        return {s.slug for s in subcategories_for_bucket(bucket)}
+    return set()
+
+
+def route_provider_filter(route_slug: str):
+    """SQLAlchemy clause selecting the providers that belong on ``route_slug``.
+
+    A provider belongs when its **subcategory** (the strong Google-derived signal)
+    is in the route's canonical set. Providers not yet subcategorized (``NULL``)
+    fall back to the legacy ``CATEGORY_FILTERS`` match — so already-classified prod
+    rows route correctly (a hospital → Health, not Shopping) while unclassified
+    rows and test fixtures keep their prior behavior. The ``subcategory IS NULL``
+    guard is what makes a wrong legacy category irrelevant once a subcategory exists.
+    """
+    from sqlalchemy import and_, false, or_
+
+    subs = _route_subcategory_slugs(route_slug)
+    legacy = CATEGORY_FILTERS.get((route_slug or "").strip().lower(), ())
+    clauses = []
+    if subs:
+        clauses.append(Provider.subcategory.in_(subs))
+    if legacy:
+        clauses.append(and_(Provider.subcategory.is_(None), Provider.category.in_(legacy)))
+    if not clauses:
+        return false()
+    return or_(*clauses)
+
+
 def _build_category_card(
     provider: Provider,
     *,
@@ -437,13 +497,12 @@ def category_cards(
     if not is_valid_category_slug(slug):
         return []
 
-    slugs_for_route = CATEGORY_FILTERS[slug.strip().lower()]
 
     try:
         rows: list[Provider] = (
             db.query(Provider)
             .filter(
-                Provider.category.in_(slugs_for_route),
+                route_provider_filter(slug.strip().lower()),
                 Provider.is_active.is_(True),
                 Provider.draft.is_(False),
             )
@@ -495,12 +554,11 @@ def category_count(db: Session | None, slug: str) -> int | None:
 
     from sqlalchemy import func as sa_func
 
-    slugs_for_route = CATEGORY_FILTERS[slug.strip().lower()]
     try:
         row = (
             db.query(sa_func.count(Provider.id))
             .filter(
-                Provider.category.in_(slugs_for_route),
+                route_provider_filter(slug.strip().lower()),
                 Provider.is_active.is_(True),
                 Provider.draft.is_(False),
             )
@@ -700,11 +758,10 @@ def category_listing(
         return [], 0
     facets = facets or CategoryFacets()
     route_key = slug.strip().lower()
-    slugs_for_route = CATEGORY_FILTERS[route_key]
     allowed_subs = _allowed_subcategory_slugs(route_key)
     try:
         base = db.query(Provider).filter(
-            Provider.category.in_(slugs_for_route),
+            route_provider_filter(slug.strip().lower()),
             Provider.is_active.is_(True),
             Provider.draft.is_(False),
         )

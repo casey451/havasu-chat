@@ -98,14 +98,13 @@ def reset_index_cache() -> None:
     _index_cache = None
 
 
-def _category_count(db: Session, slugs_for_route: tuple[str, ...]) -> int:
-    """Count active non-draft providers in the slug set.
+def _category_count(db: Session, route_slug: str) -> int:
+    """Count active non-draft providers that belong on ``route_slug`` (pivot).
 
-    Returns 0 on any DB hiccup so a transient outage degrades the card
-    to its empty-state copy rather than 500-ing the page. The empty-tuple
-    guard short-circuits without touching the DB.
+    Uses ``route_provider_filter`` (subcategory-primary, legacy fallback) so the
+    count matches the listing. Returns 0 on any DB hiccup or empty route.
     """
-    if not slugs_for_route:
+    if not route_slug:
         return 0
     try:
         from sqlalchemy import func as sa_func
@@ -113,7 +112,7 @@ def _category_count(db: Session, slugs_for_route: tuple[str, ...]) -> int:
         row = (
             db.query(sa_func.count(Provider.id))
             .filter(
-                Provider.category.in_(slugs_for_route),
+                cat_queries.route_provider_filter(route_slug),
                 Provider.is_active.is_(True),
                 Provider.draft.is_(False),
             )
@@ -129,18 +128,18 @@ def _category_count(db: Session, slugs_for_route: tuple[str, ...]) -> int:
         return 0
 
 
-def _peek_provider(db: Session, slugs_for_route: tuple[str, ...]) -> Provider | None:
-    """Top-rated active non-draft provider in the slug set, or None.
+def _peek_provider(db: Session, route_slug: str) -> Provider | None:
+    """Top-rated active non-draft provider on ``route_slug``, or None.
 
-    Returns None on any DB hiccup; empty-tuple short-circuits.
+    Returns None on any DB hiccup; empty route short-circuits.
     """
-    if not slugs_for_route:
+    if not route_slug:
         return None
     try:
         return (
             db.query(Provider)
             .filter(
-                Provider.category.in_(slugs_for_route),
+                cat_queries.route_provider_filter(route_slug),
                 Provider.is_active.is_(True),
                 Provider.draft.is_(False),
             )
@@ -165,7 +164,7 @@ def _build_index_payload(db: Session) -> list[dict[str, Any]]:
       empty_blurb   editorial copy shown when count == 0
     """
     rows: list[dict[str, Any]] = []
-    for slug, slugs_for_route in cat_queries.CATEGORY_FILTERS.items():
+    for slug in cat_queries.CATEGORY_FILTERS:
         display = cat_queries.CATEGORY_DISPLAY.get(slug)
         if display is not None:
             label, blurb = display
@@ -173,11 +172,11 @@ def _build_index_payload(db: Session) -> list[dict[str, Any]]:
             label = slug.replace("-", " ").capitalize()
             blurb = _FALLBACK_BLURB
 
-        count = _category_count(db, slugs_for_route)
+        count = _category_count(db, slug)
 
         peek_images: list[dict[str, str]] = []
         if count > 0:
-            peek = _peek_provider(db, slugs_for_route)
+            peek = _peek_provider(db, slug)
             if peek is not None:
                 image_url = _provider_image_url(peek)
                 if image_url:
