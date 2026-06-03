@@ -39,7 +39,7 @@
 <header class="top"><div class="wrap">
   <a class="logo" href="/home">Ask <em>Hava</em></a>
   <nav class="navlinks" aria-label="Primary">
-    {% for link in primary_nav %}<a href="{{ link.url }}">{{ link.label }}</a>{% endfor %}
+    {% for link in primary_nav|default([]) %}<a href="{{ link.url }}">{{ link.label }}</a>{% endfor %}
     {% if mega_columns %}
     <span class="explore">
       <a class="mega-trigger" href="/categories" role="button" aria-haspopup="true" aria-expanded="false">Explore all ▾</a>
