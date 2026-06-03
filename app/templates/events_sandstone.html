@@ -1,0 +1,61 @@
+{% extends "sandstone_base.html" %}
+{% block title %}Events around the lake — Ask Hava{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/sandstone_events.css">{% endblock %}
+
+{% block content %}
+  <div class="cathead wrap">
+    <div class="crumb"><a href="/home">Home</a> › Events</div>
+    <h1>Events around the lake</h1>
+    <p>{% if events_total %}{{ events_total }} upcoming. {% endif %}What's on today, this weekend, and the week ahead. <a href="/home#calendar" style="color:var(--accent);font-weight:600">See the month calendar →</a></p>
+  </div>
+
+  <div class="wrap">
+    {% for group_label, items in [('Today', events_groups.today), ('This Weekend', events_groups.weekend), ('Next Week', events_groups.next_week)] %}
+    <section class="block" aria-label="{{ group_label }}">
+      <div class="sec-head"><h2>{{ group_label }}</h2><span class="meta">{{ items|length }} event{{ '' if items|length == 1 else 's' }}</span></div>
+      {% if items %}
+      <div class="ev-list">
+        {% for ev in items %}
+        <a class="ev-card{% if ev.featured %} is-featured{% endif %}" href="{{ ev.url }}">
+          <div class="ev-date" style="--ev-accent: {{ ev.accent_color | default('#B5472B') }}">
+            <span class="m">{{ ev.month_label }}</span><span class="d">{{ ev.date_label }}</span>
+          </div>
+          <div class="ev-body">
+            {% if ev.featured %}<span class="ev-flag">★ Featured</span>{% endif %}
+            <div class="ev-time">{% if ev.recurring and ev.schedule_label %}{{ ev.schedule_label }} · {% endif %}{{ ev.time_label }}</div>
+            <h3>{{ ev.title }}</h3>
+            {% if ev.venue %}<div class="ev-venue">{{ ev.venue }}</div>{% endif %}
+            {% if ev.recurring %}<span class="ev-recurring">↻ Runs regularly</span>{% endif %}
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="ev-empty">Nothing posted for this window yet.</p>
+      {% endif %}
+    </section>
+    {% endfor %}
+
+    {% if ongoing_classes %}
+    <section class="block" aria-label="Classes and ongoing">
+      <div class="sec-head"><h2>Classes &amp; ongoing</h2><span class="meta">{{ ongoing_classes|length }} series</span></div>
+      <p style="color:var(--muted);font-size:.88rem;margin:-8px 0 14px">Regular classes and recurring programs — each shown once on its next session.</p>
+      <div class="ev-list">
+        {% for ev in ongoing_classes %}
+        <a class="ev-card" href="{{ ev.url }}">
+          <div class="ev-date" style="--ev-accent: {{ ev.accent_color | default('#B5472B') }}">
+            <span class="m">{{ ev.month_label }}</span><span class="d">{{ ev.date_label }}</span>
+          </div>
+          <div class="ev-body">
+            <div class="ev-time">{% if ev.schedule_label %}{{ ev.schedule_label }} · {% endif %}{{ ev.time_label }}</div>
+            <h3>{{ ev.title }}</h3>
+            {% if ev.venue %}<div class="ev-venue">{{ ev.venue }}</div>{% endif %}
+            <span class="ev-recurring">↻ Runs regularly</span>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+  </div>
+{% endblock %}
