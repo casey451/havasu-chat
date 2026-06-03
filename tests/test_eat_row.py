@@ -460,81 +460,25 @@ def test_eat_row_no_zero_rating_or_count_in_output() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_home_redesign_renders_eat_bridge_when_empty() -> None:
-    """Home renders Lake Light shell without legacy Direction C eat-row classes."""
+def test_home_renders_without_legacy_eat_row_or_zero_counts() -> None:
+    """The Sandstone home dropped the Lake Light eat-row (not in the prototype).
+
+    The ``queries_c.eat_row`` contract is still unit-tested above; here we only
+    guard that the home no longer ships the legacy eat-row markup and never
+    fabricates a "0 listed" count (anti-confabulation).
+    """
     import re
 
     with TestClient(app) as client:
         r = client.get("/home")
     assert r.status_code == 200
     body = r.text
-    assert 'class="ll-page"' in body
+    assert 'data-mode="ask"' in body
     assert "c-scroll-row" not in body
     assert "c-pc-name" not in body
+    assert 'href="#"' not in body
     body_without_svg = re.sub(r"<svg[\s\S]*?</svg>", "", body)
     assert "0 listed" not in body_without_svg
-
-
-def test_home_redesign_renders_scroll_row_when_eat_cards_populated() -> None:
-    """Home remains renderable when eat_row returns cards."""
-    fake_cards = [
-        {
-            "slug": "mudshark-brewing",
-            "name": "Mudshark Brewing",
-            "image_url": "https://images.unsplash.com/photo-x?w=600",
-            "neighborhood": "McCulloch Blvd",
-            "status": "open",
-            "status_text": "Open until 10",
-            "rating": "4.5",
-        },
-        {
-            "slug": None,
-            "name": "Anonymous Cafe",
-            "image_url": None,
-            "neighborhood": "",
-            "status": "closing-soon",
-            "status_text": "Closes 9",
-            "rating": None,
-        },
-    ]
-    with patch.object(queries_c, "eat_row", return_value=fake_cards):
-        with TestClient(app) as client:
-            r = client.get("/home")
-    assert r.status_code == 200
-    body = r.text
-    assert "/static/styles/lake_light.css" in body
-    # P0 Task 5: gas moved from a full-width section into the slim utility strip
-    # (strip presence is data-dependent; asserted in test_utility_strip).
-    assert "Fuel before you head out" not in body
-
-
-def test_home_redesign_eat_card_links_to_provider_when_slug_present() -> None:
-    """Home output should not contain placeholder href anchors."""
-    cards = [
-        {
-            "slug": "mudshark-brewing",
-            "name": "Mudshark",
-            "image_url": None,
-            "neighborhood": "",
-            "status": "open",
-            "status_text": "Open",
-            "rating": None,
-        },
-        {
-            "slug": None,
-            "name": "Anon",
-            "image_url": None,
-            "neighborhood": "",
-            "status": "open",
-            "status_text": "Open",
-            "rating": None,
-        },
-    ]
-    with patch.object(queries_c, "eat_row", return_value=cards):
-        with TestClient(app) as client:
-            r = client.get("/home")
-    body = r.text
-    assert 'href="#"' not in body
 
 
 # ---------------------------------------------------------------------------

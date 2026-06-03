@@ -1,4 +1,9 @@
-"""Configurable /home hero copy (eyebrow + headline) tests."""
+"""Configurable /home hero copy (eyebrow + headline) tests.
+
+The Sandstone home defaults to the locked prototype hero wording, but keeps the
+env-override capability so owners can retune the copy per season/campaign without
+a redeploy.
+"""
 
 from __future__ import annotations
 
@@ -14,8 +19,9 @@ def test_home_renders_default_hero_copy(monkeypatch: pytest.MonkeyPatch) -> None
     with TestClient(app) as client:
         r = client.get("/home")
     assert r.status_code == 200
-    assert "YOUR LAKE, RIGHT NOW" in r.text
-    assert "Your day on Lake Havasu starts here" in r.text
+    # Locked prototype hero: dated eyebrow + the concierge question headline.
+    assert "Your lake ·" in r.text
+    assert "What's the plan on" in r.text
     # Legacy hardcoded copy is gone.
     assert "WELCOME BACK" not in r.text
     assert "What are you in the mood for?" not in r.text
@@ -29,5 +35,5 @@ def test_home_hero_headline_env_override(monkeypatch: pytest.MonkeyPatch) -> Non
     assert r.status_code == 200
     assert "Beat the heat at the channel" in r.text
     assert "HELLO HAVASU" in r.text
-    # Defaults must not leak when overridden.
-    assert "Your day on Lake Havasu starts here" not in r.text
+    # The prototype default must not leak when overridden.
+    assert "What's the plan on" not in r.text

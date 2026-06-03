@@ -18,7 +18,9 @@ def client() -> TestClient:
 def test_home_hero_composer_and_ask_hava(client: TestClient) -> None:
     r = client.get("/home")
     assert r.status_code == 200
-    assert 'class="ll-askbar"' in r.text
+    assert 'class="searchbox"' in r.text
+    assert 'id="home-ask-form"' in r.text
+    assert 'action="/chat"' in r.text
     assert 'role="search"' in r.text
     assert 'aria-label="Ask Hava"' in r.text
     assert 'name="q"' in r.text

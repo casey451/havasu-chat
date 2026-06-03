@@ -142,22 +142,21 @@ def test_discover_grid_status_text_can_be_none() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_home_redesign_renders_discover_grid() -> None:
-    """GET /home renders the discover/mood browse grid."""
+def test_home_renders_sandstone_explore_strip() -> None:
+    """The Lake Light discover/mood grid is replaced by the Sandstone Explore
+    strip (live category counts). 'Browse by mood' was cut in the blueprint.
+
+    ``queries_c.discover_grid`` keeps its own unit coverage above.
+    """
     with TestClient(app) as client:
         r = client.get("/home")
     assert r.status_code == 200
-    assert 'class="ll-grid-two"' in r.text
-    assert 'class="ll-tile"' in r.text
-
-
-def test_home_redesign_uses_editorial_status_pills() -> None:
-    """Discover section renders editable card titles in Lake Light UI."""
-    with TestClient(app) as client:
-        r = client.get("/home")
-    assert r.status_code == 200
-    assert "Things to do" in r.text
-    assert "Browse by mood" in r.text
+    assert "Explore Havasu" in r.text
+    assert 'class="cat-strip"' in r.text
+    assert 'href="/categories/eat-drink"' in r.text
+    # Legacy discover-grid markup and the cut "Browse by mood" copy are gone.
+    assert 'class="ll-grid-two"' not in r.text
+    assert "Browse by mood" not in r.text
 
 
 def test_home_redesign_no_zero_copy() -> None:

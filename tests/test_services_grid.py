@@ -26,8 +26,6 @@ TestClient render path.
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
 import pytest
 from fastapi.testclient import TestClient
 
@@ -364,55 +362,26 @@ def _reset_curated_caches() -> None:
     queries_c.reset_cache()
 
 
-def test_home_redesign_renders_services_grid_section() -> None:
-    """Home renders successfully when services_grid is mocked."""
-    client = TestClient(app)
-    with patch.object(
-        queries_c,
-        "services_grid",
-        return_value=[
-            {
-                "name": tile["name"],
-                "route": tile["route"],
-                "svg_path": tile["svg_path"],
-                "count": (i + 1) * 10,
-                "count_label": f"{(i + 1) * 10} listed",
-                "href": f"/categories/{tile['route']}",
-            }
-            for i, tile in enumerate(queries_c._SERVICE_TILES)
-        ],
-    ):
+def test_home_renders_sandstone_services_strip() -> None:
+    """The Sandstone home renders the 'Need something done?' service strip.
+
+    The Lake Light ``services_grid`` section is replaced by the prototype's
+    secondary service strip (``app.home.sandstone.service_tiles``); every tile
+    links to a real ``/categories/{route}`` page. ``queries_c.services_grid``
+    keeps its own unit coverage above.
+    """
+    with TestClient(app) as client:
         resp = client.get("/home")
     assert resp.status_code == 200
     rendered = resp.text
-    assert "/static/styles/lake_light.css" in rendered
-    assert "Browse Havasu" in rendered
+    assert "/static/styles/sandstone.css" in rendered
+    assert "Need something done?" in rendered
+    assert 'href="/categories/home-property-services"' in rendered
+    assert "Professional" in rendered
 
 
-def test_home_redesign_services_grid_hides_count_when_zero() -> None:
-    """No explicit zero-listing copy should render on home."""
-    client = TestClient(app)
-    # First tile has no count; others have real counts.
-    fake_cards = []
-    for i, tile in enumerate(queries_c._SERVICE_TILES):
-        if i == 0:
-            count_value = None
-            count_label = ""
-        else:
-            count_value = (i + 1) * 5
-            count_label = f"{count_value} listed"
-        fake_cards.append(
-            {
-                "name": tile["name"],
-                "route": tile["route"],
-                "svg_path": tile["svg_path"],
-                "count": count_value,
-                "count_label": count_label,
-                "href": f"/categories/{tile['route']}",
-            }
-        )
-    with patch.object(queries_c, "services_grid", return_value=fake_cards):
-        resp = client.get("/home")
-    assert resp.status_code == 200
-    rendered = resp.text
+def test_home_services_strip_has_no_zero_counts() -> None:
+    """The service strip is a directory (no counts) -> never a '0 listed'."""
+    with TestClient(app) as client:
+        rendered = client.get("/home").text
     assert "0 listed" not in rendered
