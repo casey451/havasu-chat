@@ -436,6 +436,96 @@ def derive_ask_hava_url(provider: Provider) -> str:
     return f"/chat?q={quote(q)}"
 
 
+# Category-glyph map for the "While you're here" cross-discovery strip. These are
+# presentation glyphs keyed off the same legacy ``Provider.category`` strings the
+# home explore tiles use; they decorate the chip and never stand in for data.
+_CATEGORY_GLYPHS: dict[str, str] = {
+    "eat_drink": "\U0001F37D️",
+    "restaurants": "\U0001F37D️",
+    "on_the_water": "⛵",
+    "things_to_do": "\U0001F39F️",
+    "shopping": "\U0001F6CD️",
+    "health_services": "\U0001FA7A",
+    "home_services": "\U0001F527",
+    "auto_services": "\U0001F697",
+    "beauty_services": "\U0001F488",
+    "pets": "\U0001F43E",
+    "professional_services": "\U0001F4BC",
+    "lodging": "\U0001F3E1",
+}
+_DEFAULT_CATEGORY_GLYPH = "\U0001F4CD"  # round pushpin
+
+
+def _glyph_for_provider(provider: Provider) -> str:
+    return _CATEGORY_GLYPHS.get(provider.category or "", _DEFAULT_CATEGORY_GLYPH)
+
+
+def nearby_providers(
+    db: Session, provider: Provider, *, limit: int = 3
+) -> list[dict[str, Any]]:
+    """Real related listings for the cross-discovery strip.
+
+    Same legacy ``category`` as ``provider`` (the honest "related" signal we have
+    in V1), preferring rows that share the provider's district, excluding the
+    provider itself and any inactive/draft/unslugged rows. Returns an empty list
+    when there's nothing real to show — the template omits the strip entirely
+    rather than fabricate neighbors.
+    """
+    if not provider.category:
+        return []
+
+    q = (
+        db.query(Provider)
+        .filter(
+            Provider.category == provider.category,
+            Provider.id != provider.id,
+            Provider.is_active.is_(True),
+            Provider.draft.is_(False),
+            Provider.slug.isnot(None),
+        )
+    )
+    district = (provider.district or "").strip()
+    rows: list[Provider] = []
+    seen: set[int] = set()
+    if district:
+        same_district = (
+            q.filter(Provider.district == provider.district)
+            .order_by(Provider.featured.desc(), Provider.google_review_count.desc().nullslast())
+            .limit(limit)
+            .all()
+        )
+        for r in same_district:
+            rows.append(r)
+            seen.add(r.id)
+    if len(rows) < limit:
+        fill = (
+            q.order_by(Provider.featured.desc(), Provider.google_review_count.desc().nullslast())
+            .limit(limit * 3)
+            .all()
+        )
+        for r in fill:
+            if r.id in seen:
+                continue
+            rows.append(r)
+            seen.add(r.id)
+            if len(rows) >= limit:
+                break
+
+    cards: list[dict[str, Any]] = []
+    for r in rows[:limit]:
+        if not r.slug:
+            continue
+        cards.append(
+            {
+                "name": r.provider_name,
+                "url": f"/provider/{r.slug}",
+                "glyph": _glyph_for_provider(r),
+                "label": category_label_for(r),
+            }
+        )
+    return cards
+
+
 _WEEKDAY_KEYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 
 

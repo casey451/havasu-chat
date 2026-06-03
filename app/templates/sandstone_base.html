@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="/static/styles/sandstone.css">
   {% block head_extra %}{% endblock %}
 </head>
-<body data-mode="{% block mode %}ask{% endblock %}">
+<body data-mode="{% block mode %}ask{% endblock %}"{% block body_attrs %}{% endblock %}>
 
 {# ---- Conditions ribbon (centered). Tiles with no live source are omitted. ---- #}
 {% block ribbon %}
