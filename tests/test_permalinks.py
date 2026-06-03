@@ -60,6 +60,26 @@ class PermalinkRouteTests(unittest.TestCase):
         self.assertIn("text/html", response.headers.get("content-type", ""))
         self.assertIn("Sunset Music Night", response.text)
 
+    def test_event_permalink_renders_image_when_present(self) -> None:
+        # ED-3: an event with an image_url renders an <img> + og:image.
+        event_id = self._create_event(title="Lantern Festival")
+        img = "https://www.golakehavasu.com/imager/lantern.jpg"
+        with SessionLocal() as db:
+            ev = db.get(Event, event_id)
+            ev.image_url = img
+            db.commit()
+
+        response = self.__class__.client.get(f"/events/{event_id}")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(f'src="{img}"', response.text)
+        self.assertIn(f'property="og:image" content="{img}"', response.text)
+
+    def test_event_permalink_no_image_tag_when_absent(self) -> None:
+        event_id = self._create_event(title="No Photo Meetup")
+        response = self.__class__.client.get(f"/events/{event_id}")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("ll-event-image", response.text)
+
     def test_event_permalink_404_for_missing(self) -> None:
         response = self.__class__.client.get("/events/nonexistent-id")
 

@@ -479,6 +479,7 @@ def _render_permalink_response(
             "event_title": event.title,
             "og_description": _truncate_for_og(event.description),
             "og_url": permalink_url,
+            "image_url": event.image_url,
             "formatted_datetime": _format_event_datetime(event),
             "location_name": event.location_name,
             "description": event.description,

@@ -119,6 +119,13 @@ class GoLakeHavasuClient(EventIngestClient):
         venue_name = recovered.location_name if recovered.location_name != "Location TBD" else None
         address = recovered.address or ld_address
 
+        # ED-3: capture an event image — from a recovered ``Image:`` line, else the
+        # JSON-LD ``image`` (string or {url}).
+        ld_image = jld.get("image")
+        if isinstance(ld_image, dict):
+            ld_image = ld_image.get("url")
+        image_url = recovered.image_url or (str(ld_image).strip() if ld_image else None)
+
         return EventPayload(
             name=title,
             entity_type="event",
@@ -132,5 +139,6 @@ class GoLakeHavasuClient(EventIngestClient):
             description=recovered.description,
             event_url=url,
             source_stable_url=hit.raw_hit.source_stable_id,
+            image_url=image_url,
             category_slug="events",
         )

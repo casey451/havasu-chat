@@ -30,6 +30,7 @@ class EventPayload(EntityPayload):
     event_url: str | None = None
     description: str = ""
     source_stable_url: str | None = None
+    image_url: str | None = None
 
 
 class EventIngestClient(BaseIngestClient):
