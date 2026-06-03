@@ -50,7 +50,16 @@ def _routes_matching(category: str | None) -> list[str]:
 
 
 def _primary_route(category: str | None) -> str | None:
-    """The single canonical route under bucket-based single-membership."""
+    """The single canonical top-level route under single-membership.
+
+    Prefer the most *specific* matching tile (the route with the fewest legacy
+    slugs) so a provider lands on its narrowest home — e.g. ``lodging`` resolves to
+    ``lodging-vacation-rentals`` (1 slug), not ``on-the-water`` (4). Falls back to
+    the coarse bucket route only when no top-level tile matches.
+    """
+    matches = _routes_matching(category)
+    if matches:
+        return min(matches, key=lambda r: (len(CATEGORY_FILTERS[r]), r))
     bucket = bucket_for_legacy_category(category)
     dest = BUCKET_SLUG_REDIRECTS.get(bucket)
     return dest.rsplit("/", 1)[-1] if dest else None
