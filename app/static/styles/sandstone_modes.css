@@ -1,0 +1,9 @@
+/* Mode-landing hero: a theme-aware accent gradient stands in until real Lake
+   Havasu photography is licensed (photography is the make-or-break per the
+   build guide). Token-based so each mode's accent carries through, and the
+   .mode-hero::after dark overlay (in sandstone.css) keeps the white text
+   readable over it. No external stock image -> no 404, no misrepresentation. */
+.mode-hero{
+  background-color:var(--surface-2);
+  background-image:linear-gradient(135deg,var(--accent),var(--ribbon-bg));
+}
