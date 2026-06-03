@@ -734,8 +734,14 @@ def category_listing(
         if facets.sort == "closest":
             rows.sort(key=lambda p: (_distance_km(p, _REF_LAT, _REF_LNG), (p.provider_name or "").lower()))
         elif facets.sort == "favorites":
+            # C-3: the default "Locals' favorites" sort used to open with a wall of
+            # high-rated but *closed* businesses. Demote definitively-closed rows
+            # below open/unknown ones (rank 1 vs 0), keeping the favorites score as
+            # the ordering within each band. Compute open-state once per row.
+            open_state = {id(p): is_open_now(p, now=now)[0] for p in rows}
             rows.sort(
                 key=lambda p: (
+                    1 if open_state.get(id(p)) is False else 0,
                     -weighted_favorites_score(
                         p.google_rating, getattr(p, "google_review_count", None)
                     ),
