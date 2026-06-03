@@ -175,150 +175,72 @@ def test_services_grid_card_href_routes_to_categories() -> None:
         assert card["href"] == f"/categories/{card['route']}"
 
 
-def test_services_grid_with_mocked_db_returns_real_counts() -> None:
-    """Mock the SQLAlchemy query path to return known per-slug counts;
-    verify ``services_grid`` SUMS them across the full
-    ``CATEGORY_FILTERS[route]`` tuple. This is the key invariant: a
-    tile's count must match the count the visitor sees on the
-    destination ``/categories/{route}`` page -- no drift."""
+def test_services_grid_tile_count_reconciles_with_category_page() -> None:
+    """S4 — a /home service tile count must equal the slim-header count on
+    ``/categories/{route}``. Both now compute via the same
+    ``route_provider_filter`` (subcategory-primary), so seeding real providers
+    and comparing the two surfaces proves no drift."""
+    import uuid
+    from datetime import datetime
 
-    class _FakeQuery:
-        def __init__(self, rows):
-            self._rows = rows
+    from sqlalchemy import delete
 
-        def filter(self, *_a, **_kw):
-            return self
+    from app.categories.queries import CategoryFacets, category_count, category_listing
+    from app.core.timezone import LAKE_HAVASU_TZ
+    from app.db.database import SessionLocal
+    from app.db.models import Entity, Provider
 
-        def group_by(self, *_a, **_kw):
-            return self
-
-        def all(self):
-            return self._rows
-
-    class _FakeSession:
-        def __init__(self, rows):
-            self._rows = rows
-
-        def query(self, *_a, **_kw):
-            return _FakeQuery(self._rows)
-
-    # ``health-wellness-care`` filters (health_medical, fitness,
-    # fitness_sports). All three contribute to the tile count.
-    # ``home-property-services`` filters (home_services,
-    # general_contractor, plumbing, services) -- only home_services in
-    # the mock, so the tile count is just that single slug's value.
-    # ``pets`` filters (pets, pet, veterinary) -- pets + veterinary in
-    # the mock. ``auto-rv-fuel`` filters (auto,) -- single slug.
-    fake_rows = [
-        ("health_medical", 300),
-        ("fitness", 10),
-        ("fitness_sports", 18),  # 300 + 10 + 18 = 328 for health-wellness-care
-        ("home_services", 262),
-        ("auto", 166),
-        ("pets", 30),
-        ("veterinary", 7),  # 30 + 7 = 37 for pets
-    ]
-    db = _FakeSession(fake_rows)
-    cards = queries_c.services_grid(db)
-    by_route = {c["route"]: c for c in cards}
-
-    # health-wellness-care sums all three contributing slugs.
-    assert by_route["health-wellness-care"]["count"] == 328
-    assert by_route["health-wellness-care"]["count_label"] == "328 listed"
-    # home-property-services has 4 slugs in CATEGORY_FILTERS but only
-    # one has rows in the mock; the tile count equals that slug.
-    assert by_route["home-property-services"]["count"] == 262
-    # Single-slug tile: auto-rv-fuel -> (auto,).
-    assert by_route["auto-rv-fuel"]["count"] == 166
-    # pets tile sums (pets, pet, veterinary) -> 30 + 0 + 7.
-    assert by_route["pets"]["count"] == 37
-    # Tile whose slug set has no rows in the mock falls back to None / "".
-    # NB: ``lodging-vacation-rentals`` filters ``(lodging,)``. This
-    # assertion holds only as long as ``fake_rows`` above has no
-    # ``("lodging", N)`` entry -- if a future test author adds one,
-    # change this assertion to the new expected count rather than
-    # deleting it.
-    assert by_route["lodging-vacation-rentals"]["count"] is None
-    assert by_route["lodging-vacation-rentals"]["count_label"] == ""
-
-
-def test_services_grid_tile_count_matches_category_page_arithmetic() -> None:
-    """The whole point of this PR: a /home tile labeled "247 listed"
-    and the slim header on ``/categories/{route}`` must compute the
-    same number. Verify against the same mocked rows that the tile
-    sum equals what a hand-rolled CATEGORY_FILTERS[route] sum would
-    produce. (Mirror of the upstream contract -- if this test passes
-    but visitors still see drift, the bug is in ``category_count``,
-    not here.)"""
-
-    class _FakeQuery:
-        def __init__(self, rows):
-            self._rows = rows
-
-        def filter(self, *_a, **_kw):
-            return self
-
-        def group_by(self, *_a, **_kw):
-            return self
-
-        def all(self):
-            return self._rows
-
-    class _FakeSession:
-        def __init__(self, rows):
-            self._rows = rows
-
-        def query(self, *_a, **_kw):
-            return _FakeQuery(self._rows)
-
-    # Construct a row set with multiple slugs in tuples that span
-    # several tiles (especially the broad ones: health-wellness-care,
-    # professional, classes-sports-recreation).
-    fake_rows = [
-        ("health_medical", 200),
-        ("fitness", 5),
-        ("fitness_sports", 25),  # health-wellness-care = 230
-        # classes-sports-recreation += 25
-        ("childcare_education", 4),  # classes-sports-recreation += 4
-        ("education", 2),  # classes-sports-recreation += 2 (= 31)
-        ("professional_services", 80),
-        ("real_estate", 40),
-        ("insurance", 30),
-        ("financial", 10),
-        ("legal", 20),  # professional = 180
-        ("entertainment_attractions", 50),
-        ("tourism", 10),  # attractions = 60
-    ]
-    db = _FakeSession(fake_rows)
-    cards = queries_c.services_grid(db)
-    by_route = {c["route"]: c for c in cards}
-
-    counts_map = dict(fake_rows)
-    for tile in queries_c._SERVICE_TILES:
-        expected = sum(counts_map.get(s, 0) for s in CATEGORY_FILTERS[tile["route"]])
-        if expected > 0:
-            assert by_route[tile["route"]]["count"] == expected, (
-                f"tile {tile['name']} count mismatch: "
-                f"got {by_route[tile['route']]['count']}, expected sum {expected}"
+    suf = uuid.uuid4().hex[:8]
+    now = datetime(2026, 1, 5, 14, 0, 0, tzinfo=LAKE_HAVASU_TZ)
+    # Three health providers (subcategory-classified) -> health-wellness-care tile.
+    with SessionLocal() as db:
+        made = [
+            Provider(
+                provider_name=f"Clinic {i} {suf}",
+                category="retail",  # deliberately WRONG legacy -> proves pivot
+                subcategory="health-medical",
+                verified=False,
+                draft=False,
+                is_active=True,
+                pending_review=False,
+                source="test-s4",
             )
-        else:
-            assert by_route[tile["route"]]["count"] is None
+            for i in range(3)
+        ]
+        for p in made:
+            db.add(p)
+        db.commit()
+        eids = [p.entity_id for p in made]
+
+    try:
+        with SessionLocal() as db:
+            cards = queries_c.services_grid(db)
+            by_route = {c["route"]: c for c in cards}
+            tile_count = by_route["health-wellness-care"]["count"]
+            page_count = category_count(db, "health-wellness-care")
+            listing, listing_total = category_listing(
+                db, "health-wellness-care", now=now, facets=CategoryFacets()
+            )
+        # The home tile, the page header count, and the listing total all agree.
+        assert tile_count == page_count == listing_total
+        assert tile_count >= 3
+    finally:
+        with SessionLocal() as db:
+            db.execute(delete(Provider).where(Provider.entity_id.in_(eids)))
+            db.execute(delete(Entity).where(Entity.id.in_(eids)))
+            db.commit()
 
 
 def test_services_grid_no_zero_count_renders() -> None:
-    """When the catalog has 0 providers in a slug bucket, the tile's
-    count is None and count_label is the empty string -- never
-    "0 listed" (BUILD.md no-zero rule)."""
+    """When a route has 0 providers, the tile's count is None and count_label is
+    the empty string -- never "0 listed" (BUILD.md no-zero rule)."""
 
     class _ZeroQuery:
         def filter(self, *_a, **_kw):
             return self
 
-        def group_by(self, *_a, **_kw):
-            return self
-
-        def all(self):
-            return []  # no rows -> no counts
+        def scalar(self):
+            return 0  # no providers on any route
 
     class _ZeroSession:
         def query(self, *_a, **_kw):
@@ -328,7 +250,6 @@ def test_services_grid_no_zero_count_renders() -> None:
     for card in cards:
         assert card["count"] is None
         assert card["count_label"] == ""
-        # And especially never "0 listed"
         assert "0 listed" not in card["count_label"]
 
 

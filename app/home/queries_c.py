@@ -583,47 +583,33 @@ def services_grid(db: Session) -> list[dict[str, Any]]:
     # and CPython caches the module after the first call.
     from sqlalchemy import func as sa_func
 
-    from app.categories.queries import CATEGORY_FILTERS
+    from app.categories.queries import route_provider_filter
 
-    # Collect every legacy slug that any tile cares about. ``set`` so
-    # the IN-clause stays small even when several tiles share slugs
-    # (e.g. ``lodging`` appears in both ``on-the-water`` and
-    # ``lodging-vacation-rentals`` per the editorial cross-listing
-    # noted in CATEGORY_FILTERS).
-    needed_slugs: set[str] = set()
-    for tile in _SERVICE_TILES:
-        needed_slugs.update(CATEGORY_FILTERS.get(tile["route"], ()))
-
-    counts: dict[str, int] = {}
-    if db is not None and needed_slugs:
-        try:
-            rows = (
-                db.query(Provider.category, sa_func.count(Provider.id))
-                .filter(
-                    Provider.is_active.is_(True),
-                    Provider.draft.is_(False),
-                    Provider.category.in_(sorted(needed_slugs)),
-                )
-                .group_by(Provider.category)
-                .all()
-            )
-            counts = {category: int(n) for category, n in rows}
-        except Exception:
-            # Defensive: a DB outage leaves all tiles in "no count"
-            # state. Surface still renders -- counts just hide.
-            counts = {}
-
+    # S4 reconciliation: count each tile with the SAME ``route_provider_filter``
+    # the ``/categories/{route}`` page uses (subcategory-primary, legacy fallback),
+    # so the tile count on /home equals the slim-header count on the destination
+    # page — no drift. One small COUNT per tile (12 total).
     cards: list[dict[str, Any]] = []
     for tile in _SERVICE_TILES:
-        route_slugs = CATEGORY_FILTERS.get(tile["route"], ())
-        # Sum every legacy slug that maps to this route. A tile pointing
-        # at a route missing from CATEGORY_FILTERS resolves to () and a
-        # count of 0 -- handled by the no-zero rule below. Defensive but
-        # surfaced by ``test_every_tile_route_is_in_category_filters``.
-        total = sum(counts.get(s, 0) for s in route_slugs)
-        # ``None`` count means "hide the count line"; 0 collapses to
-        # None per the no-zero rule. ``int > 0`` renders the line.
-        count_value: int | None = total if total > 0 else None
+        count_value: int | None = None
+        if db is not None:
+            try:
+                total = (
+                    db.query(sa_func.count(Provider.id))
+                    .filter(
+                        route_provider_filter(tile["route"]),
+                        Provider.is_active.is_(True),
+                        Provider.draft.is_(False),
+                    )
+                    .scalar()
+                )
+                total = int(total or 0)
+                # 0 collapses to None per the no-zero rule; >0 renders the line.
+                count_value = total if total > 0 else None
+            except Exception:
+                # A DB hiccup leaves the tile in "no count" state — surface
+                # still renders, count line just hides.
+                count_value = None
         cards.append(
             {
                 "name": tile["name"],
