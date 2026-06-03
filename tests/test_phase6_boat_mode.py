@@ -161,7 +161,7 @@ def test_profile_boat_access_region_markup(client: TestClient) -> None:
         r = client.get(f"/provider/{slug}")
         assert r.status_code == 200
         assert f"Boat Profile {suf}" in r.text
-        assert "/static/styles/lake_light.css" in r.text
+        assert "/static/styles/sandstone.css" in r.text
     finally:
         with SessionLocal() as db:
             db.execute(delete(Provider).where(Provider.slug == slug))
