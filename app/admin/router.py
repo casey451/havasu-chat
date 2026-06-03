@@ -737,6 +737,25 @@ def admin_analytics(
     return HTMLResponse(_analytics_page_html(db))
 
 
+@router.get("/demand", response_class=HTMLResponse, response_model=None)
+def admin_demand(
+    request: Request, db: Session = Depends(get_db)
+) -> HTMLResponse | RedirectResponse:
+    """Demand dashboard: top intents, unserved demand (the acquisition list),
+    and volume trend — read-only over QueryLog (Phase 2 §5a)."""
+    redir = _guard(request)
+    if redir:
+        return redir
+    from app.admin.demand import build_demand_view
+
+    demand = build_demand_view(db, now=_naive_utc_now())
+    return _CLAIM_TEMPLATES.TemplateResponse(
+        request=request,
+        name="admin_demand.html",
+        context={"demand": demand},
+    )
+
+
 def _apply_status(event_id: str, db: Session, status: str) -> None:
     ev = db.get(Event, event_id)
     if not ev:
