@@ -11,10 +11,29 @@ from bs4 import BeautifulSoup
 from dateutil import parser as dateutil_parser
 
 from app.contrib.ingest_base import EnrichedHit, RawHit
+from app.events.field_recovery import recover_event_fields
 from app.events.scrapers.base import EventIngestClient, EventPayload
 
 GO_LAKE_LIST_URL = "https://www.golakehavasu.com/events/"
 GO_LAKE_BASE = "https://www.golakehavasu.com"
+
+
+def _postal_address_to_str(addr: Any) -> str | None:
+    """Flatten a JSON-LD ``PostalAddress`` dict into a clean one-line string.
+
+    Guards the ED-1 corruption: ``str(dict)`` previously dumped ``{'@type': …}``
+    into the venue field. A plain string address passes through unchanged.
+    """
+    if isinstance(addr, str):
+        return addr.strip() or None
+    if isinstance(addr, dict):
+        parts = [
+            str(addr.get(k)).strip()
+            for k in ("streetAddress", "addressLocality", "addressRegion", "postalCode")
+            if addr.get(k)
+        ]
+        return ", ".join(parts) or None
+    return None
 
 
 class GoLakeHavasuClient(EventIngestClient):
@@ -79,10 +98,27 @@ class GoLakeHavasuClient(EventIngestClient):
             raise ValueError(f"go_lake_havasu missing startDate: {hit.raw_hit.source_stable_id}")
         loc = jld.get("location")
         venue = None
+        ld_address = None
         if isinstance(loc, dict):
-            venue = loc.get("name") or loc.get("address")
+            # Prefer a real venue name; fall back to a *flattened* address string,
+            # never str(dict) (the ED-1 PostalAddress dump).
+            venue = loc.get("name")
+            ld_address = _postal_address_to_str(loc.get("address"))
+            if not venue:
+                venue = ld_address
         desc = str(jld.get("description") or "")
         url = str(jld.get("url") or hit.raw_hit.source_stable_id)
+
+        # ED-1: the authoritative venue/address often sits on a ``LOCATION:`` line
+        # inside the description, and the description carries ingest noise. Run the
+        # shared recovery pass so new rows land clean (and match the backfill).
+        recovered = recover_event_fields(
+            location_name=str(venue).strip() if venue else "",
+            description=desc,
+        )
+        venue_name = recovered.location_name if recovered.location_name != "Location TBD" else None
+        address = recovered.address or ld_address
+
         return EventPayload(
             name=title,
             entity_type="event",
@@ -91,8 +127,9 @@ class GoLakeHavasuClient(EventIngestClient):
             end_date=end_dt.date() if end_dt else None,
             start_time=start_dt.time().replace(tzinfo=None),
             end_time=end_dt.time().replace(tzinfo=None) if end_dt else None,
-            venue_name=str(venue).strip() if venue else None,
-            description=desc,
+            venue_name=venue_name,
+            address=address,
+            description=recovered.description,
             event_url=url,
             source_stable_url=hit.raw_hit.source_stable_id,
             category_slug="events",

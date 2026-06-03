@@ -525,17 +525,41 @@ def _split_oneoff_and_ongoing(
     return oneoff_groups, ongoing
 
 
+def _event_list_windows(now: datetime) -> dict[str, tuple[datetime, datetime]]:
+    """Honest, contiguous, gap-free buckets for the events list (E-1).
+
+    The old code used a naive rolling ``now+1..now+3`` window mislabeled "This
+    Weekend" (so a Wednesday event showed under "This Weekend" and a Sunday under
+    "Next Week"). Instead anchor to real calendar-week boundaries in Lake Havasu
+    local time:
+
+    * **today**     — today only.
+    * **this_week** — tomorrow through the end of this week (Sunday).
+    * **next_week** — the following Monday–Sunday.
+
+    Windows are disjoint and adjacent, so no event is dropped or double-listed.
+    """
+    days_to_sunday = (6 - now.weekday()) % 7  # Mon=0 … Sun=6
+    this_sunday = now + timedelta(days=days_to_sunday)
+    return {
+        "today": (now, now),
+        "this_week": (now + timedelta(days=1), this_sunday),
+        "next_week": (this_sunday + timedelta(days=1), this_sunday + timedelta(days=7)),
+    }
+
+
 @router.get("/events-ui", response_class=HTMLResponse)
 def serve_events_ui(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    """Render Lake Light events list/calendar shell (data via /api/events)."""
+    """Render the Sandstone events list (today / this week / next week)."""
     now = now_lake_havasu()
+    windows = _event_list_windows(now)
     groups = {
-        "today": _events_for_window(db, start_day=now, end_day=now, limit=12),
-        "weekend": _events_for_window(
-            db, start_day=now + timedelta(days=1), end_day=now + timedelta(days=3), limit=12
+        "today": _events_for_window(db, start_day=windows["today"][0], end_day=windows["today"][1], limit=12),
+        "this_week": _events_for_window(
+            db, start_day=windows["this_week"][0], end_day=windows["this_week"][1], limit=16
         ),
         "next_week": _events_for_window(
-            db, start_day=now + timedelta(days=4), end_day=now + timedelta(days=10), limit=16
+            db, start_day=windows["next_week"][0], end_day=windows["next_week"][1], limit=16
         ),
     }
     oneoff_groups, ongoing_classes = _split_oneoff_and_ongoing(groups)

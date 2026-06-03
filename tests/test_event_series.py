@@ -134,9 +134,10 @@ def test_time_group_labels_are_plain_language() -> None:
         home = client.get("/home").text
         events = client.get("/events-ui").text
     assert "Tonight through next week" not in home
-    # The events list uses plain Today / This Weekend / Next Week buckets.
+    # The events list uses plain Today / This Week / Next Week buckets (E-1: the
+    # old "This Weekend" label was a naive rolling window that mislabeled weekdays).
     assert "Today" in events
-    assert "This Weekend" in events
+    assert "This Week" in events
     assert "Next Week" in events
 
 

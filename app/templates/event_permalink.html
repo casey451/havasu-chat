@@ -22,7 +22,7 @@
   <article class="ll-utility-main">
     <p class="ll-eyebrow">Event details</p>
     <h1>{{ event_title }}</h1>
-    <p class="ll-muted">{{ formatted_datetime }} · {{ location_name | clean_name }}</p>
+    <p class="ll-muted">{{ formatted_datetime }} · {{ (location_name | clean_name) or "Location TBD" }}</p>
     <p>{{ description }}</p>
     {{ contact_html | safe }}
     {{ event_link_html | safe }}
