@@ -26,6 +26,7 @@ ContributionSource = Literal[
     "river_scene",
     "lhc_library",
     "lhc_parks_rec",
+    "facebook_scrape",
 ]
 ContributionStatus = Literal["pending", "approved", "rejected", "needs_info"]
 RejectionReason = Literal["duplicate", "out_of_area", "spam", "incomplete", "unverifiable", "other"]

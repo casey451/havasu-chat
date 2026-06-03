@@ -1,0 +1,100 @@
+"""Machine-to-machine ingest API for the autonomous Facebook scraper (Phase A).
+
+OpenClaw's sweep subagent curl-POSTs extracted findings here. Each finding is
+written to the existing ``contributions`` queue with ``source="facebook_scrape"``
+and ``status="pending"`` so it flows through the SAME review/promote pipeline as
+every other contribution (admin_contributions / admin_mentions). Auth is a bearer
+token (``INGEST_API_TOKEN``), deliberately distinct from the human admin-session
+cookie — machines use a token, people use the cookie.
+"""
+
+from __future__ import annotations
+
+import os
+import secrets
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
+from sqlalchemy.orm import Session
+
+from app.bootstrap_env import ensure_dotenv_loaded
+from app.db.contribution_store import (
+    create_contribution,
+    has_pending_or_approved_duplicate_url,
+    normalize_submission_url,
+)
+from app.db.database import get_db
+from app.schemas.contribution import ContributionCreate
+
+ensure_dotenv_loaded()
+
+router = APIRouter(prefix="/api/ingest", tags=["ingest"])
+
+# Findings always land as this source, forced server-side so a leaked token
+# can never masquerade as operator- or admin-origin content.
+_INGEST_SOURCE = "facebook_scrape"
+
+
+def _ingest_token_from_env() -> str | None:
+    """Read INGEST_API_TOKEN at call time (correct for Railway/runtime). None disables ingest."""
+    raw = os.getenv("INGEST_API_TOKEN")
+    if raw is None:
+        return None
+    stripped = raw.strip()
+    return stripped or None
+
+
+def require_ingest_token(authorization: Annotated[str | None, Header()] = None) -> None:
+    """Bearer-token gate for machine ingest.
+
+    Secure by default: if INGEST_API_TOKEN is unset, every request is refused
+    (503), so the door is never silently wide open. Constant-time comparison.
+    """
+    expected = _ingest_token_from_env()
+    if not expected:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Ingest is not configured (INGEST_API_TOKEN unset).",
+        )
+    prefix = "Bearer "
+    presented = (
+        authorization[len(prefix) :]
+        if authorization and authorization.startswith(prefix)
+        else ""
+    )
+    if not presented or not secrets.compare_digest(presented, expected):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing ingest token.",
+        )
+
+
+IngestAuth = Annotated[None, Depends(require_ingest_token)]
+DbSession = Annotated[Session, Depends(get_db)]
+
+
+@router.post("/contribution", status_code=status.HTTP_201_CREATED)
+def ingest_contribution(
+    _: IngestAuth,
+    payload: ContributionCreate,
+    db: DbSession,
+    response: Response,
+) -> dict:
+    """Queue one scraped finding as a pending contribution.
+
+    Idempotent on ``submission_url``: if a pending/approved contribution already
+    has that URL, returns 200 ``{"status": "duplicate"}`` without inserting. The
+    scraper also dedupes on its side; this is defense-in-depth.
+    """
+    # Force provenance server-side regardless of what the caller sent.
+    data = payload.model_copy(update={"source": _INGEST_SOURCE})
+
+    normalized = normalize_submission_url(
+        str(data.submission_url) if data.submission_url is not None else None
+    )
+    if normalized and has_pending_or_approved_duplicate_url(db, normalized):
+        response.status_code = status.HTTP_200_OK
+        return {"status": "duplicate", "submission_url": normalized}
+
+    row = create_contribution(db, data)
+    return {"status": "queued", "id": row.id, "contribution_status": row.status}
