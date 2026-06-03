@@ -1,0 +1,30 @@
+{% extends "sandstone_base.html" %}
+{% block title %}Advertise on Ask Hava{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/sandstone_portal.css">{% endblock %}
+
+{% block content %}
+  <div class="cathead wrap">
+    <div class="crumb"><a href="/portal">For businesses</a> › Advertise</div>
+    <h1>Advertise on Ask Hava</h1>
+    <p>Clearly-labeled, scarcity-priced placements — one paid unit per surface, never a wall of ads. Prices shown are ranges; we'll confirm before anything goes live.</p>
+  </div>
+
+  <div class="wrap">
+    <div class="adcat">
+      {% for p in catalog %}
+      <div class="adcard{% if p.availability.sold_out %} is-soldout{% endif %}">
+        <div class="adcard-head">
+          <h3>{{ p.name }}</h3>
+          <span class="adcard-price">{{ p.price }}</span>
+        </div>
+        <p class="adcard-blurb">{{ p.blurb }}</p>
+        <div class="adcard-foot">
+          <span class="avail{% if p.availability.sold_out %} sold{% elif p.availability.scarce %} scarce{% endif %}">{{ p.availability.label }}</span>
+          <a class="adcard-cta" href="{{ p.cta }}">{{ p.cta_label }} →</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <p style="color:var(--muted);font-size:.85rem;margin-top:18px">Paying makes a listing <em>more useful</em>, never more deceptive. Sponsored units are always labeled.</p>
+  </div>
+{% endblock %}
