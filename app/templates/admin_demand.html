@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  {% include '_partials/plausible.html' %}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Demand dashboard — Admin</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 1.5rem; background: #fafafa; color: #1a1a1a; }
+    h1 { font-size: 1.25rem; }
+    h2 { font-size: 1.05rem; margin-top: 1.75rem; }
+    a { color: #B5472B; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1100px; align-items: start; }
+    table { border-collapse: collapse; width: 100%; background: #fff; }
+    th, td { border: 1px solid #ddd; padding: 0.35rem 0.6rem; text-align: left; font-size: 0.85rem; }
+    th { background: #f0f0f0; }
+    td.n { text-align: right; font-variant-numeric: tabular-nums; }
+    .summary { font-size: 0.9rem; color: #555; margin: 0.25rem 0 1rem; }
+    .kpi { display: inline-block; margin-right: 1.5rem; }
+    .kpi b { font-size: 1.4rem; display: block; }
+    .unserved th { background: #f7e2db; }
+    .bar { background: #B5472B; height: 0.7rem; border-radius: 2px; }
+    .empty { color: #888; font-style: italic; padding: 0.5rem 0; }
+    .trend td { padding: 2px 6px; }
+  </style>
+</head>
+<body>
+  <p><a href="/admin">&larr; Admin</a></p>
+  <h1>Demand dashboard <span style="font-weight:400;color:#777">· last {{ demand.days }} days</span></h1>
+  <p class="summary">
+    <span class="kpi"><b>{{ demand.total }}</b> queries logged</span>
+    <span class="kpi"><b>{{ demand.unserved_total }}</b> returned nothing</span>
+  </p>
+
+  {% if demand.total == 0 %}
+  <p class="empty">No query-log rows in this window yet. (Demand instrumentation populates this as traffic flows.)</p>
+  {% else %}
+  <div class="grid">
+    <div>
+      <h2>Top intents</h2>
+      {% if demand.top_intents %}
+      <table><tr><th>Intent</th><th>Count</th></tr>
+        {% for row in demand.top_intents %}<tr><td>{{ row.label }}</td><td class="n">{{ row.count }}</td></tr>{% endfor %}
+      </table>
+      {% else %}<p class="empty">No intents recorded.</p>{% endif %}
+
+      <h2>By category</h2>
+      {% if demand.by_category %}
+      <table><tr><th>Category</th><th>Count</th></tr>
+        {% for row in demand.by_category %}<tr><td>{{ row.label }}</td><td class="n">{{ row.count }}</td></tr>{% endfor %}
+      </table>
+      {% else %}<p class="empty">No category data.</p>{% endif %}
+    </div>
+
+    <div>
+      <h2>Unserved demand <span style="font-weight:400;color:#777">· the acquisition list</span></h2>
+      <p class="summary">Searches that returned <b>0</b> results — businesses we should recruit.</p>
+      {% if demand.unserved %}
+      <table class="unserved"><tr><th>Intent (nothing to serve)</th><th>Count</th></tr>
+        {% for row in demand.unserved %}<tr><td>{{ row.label }}</td><td class="n">{{ row.count }}</td></tr>{% endfor %}
+      </table>
+      {% else %}<p class="empty">Nothing came up empty — every logged search had a result.</p>{% endif %}
+
+      <h2>Volume · last 14 days</h2>
+      {% if demand.trend %}
+      <table class="trend">
+        {% for row in demand.trend %}
+        <tr><td>{{ row.day }}</td>
+          <td style="width:60%"><span class="bar" style="display:inline-block;width:{{ (row.count * 100 // (demand.trend_max or 1)) }}%"></span></td>
+          <td class="n">{{ row.count }}</td></tr>
+        {% endfor %}
+      </table>
+      {% else %}<p class="empty">No recent volume.</p>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+</body>
+</html>
