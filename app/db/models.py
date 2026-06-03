@@ -1771,6 +1771,41 @@ class UpgradeRequest(Base):
     entity: Mapped["Entity"] = relationship("Entity", foreign_keys=[entity_id])
 
 
+class ScrapeCapture(Base):
+    """Image inbox for OpenClaw Facebook-post screenshots (the capture bridge).
+
+    OpenClaw stays dumb — it uploads a screenshot (or, when it couldn't capture,
+    a metadata-only ``flagged`` row) plus the source URL here. A Cowork skill
+    later pulls the queue, judges each shot, and marks it ``reviewed`` /
+    ``discarded``; publishing happens in a future phase and never touches this
+    table. Rows start ``new`` (image present) or ``flagged`` (no image).
+    """
+
+    __tablename__ = "scrape_captures"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('new', 'reviewed', 'discarded', 'flagged')",
+            name="ck_scrape_captures_status",
+        ),
+        Index("ix_scrape_captures_status", "status"),
+        Index("ix_scrape_captures_created_at", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    business_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    source_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    captured_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    image_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="new", server_default="new"
+    )
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
 # Phase 4.1 ships the ``Outbox`` ORM class above this line. The provider-slug
 # listener registration below remains the canonical "leaf-module hook"
 # pattern for this codebase (not to be confused with the Phase 1D dual-write
