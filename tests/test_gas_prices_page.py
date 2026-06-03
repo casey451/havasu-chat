@@ -14,6 +14,12 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
+from fastapi.testclient import TestClient
+
+from app.api.routes import gas as gas_route
+from app.conditions.cache import CacheReadResult
+from app.main import app
+
 
 def _now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
@@ -23,12 +29,6 @@ def _body_only(html: str) -> str:
     """The <body>..</body> slice, so <head> meta copy doesn't trip assertions."""
     start = html.find("<body")
     return html[start:] if start != -1 else html
-
-from fastapi.testclient import TestClient
-
-from app.api.routes import gas as gas_route
-from app.conditions.cache import CacheReadResult
-from app.main import app
 
 
 def _station(name: str, regular: float, *, slug: str | None = None) -> dict:
@@ -69,14 +69,14 @@ def _get_gas(result: CacheReadResult | None) -> str:
 
 
 def test_gas_page_extends_sandstone_and_loads_gas_css() -> None:
-    body = _get_gas(_result(_payload(), fetched_at=datetime.utcnow() - timedelta(minutes=5)))
+    body = _get_gas(_result(_payload(), fetched_at=_now() - timedelta(minutes=5)))
     assert "/static/styles/sandstone.css" in body  # from sandstone_base
     assert "/static/styles/sandstone_gas.css" in body  # page-specific, separate file
     assert "/static/styles/lake_light.css" not in body  # old skin gone
 
 
 def test_no_source_column_and_no_google_feed_line() -> None:
-    body = _get_gas(_result(_payload(), fetched_at=datetime.utcnow() - timedelta(minutes=5)))
+    body = _get_gas(_result(_payload(), fetched_at=_now() - timedelta(minutes=5)))
     # Fix 1: the per-row Source column header is gone.
     assert ">Source<" not in body
     # Fix 4: the Google official-feed footer wording is gone.
@@ -102,7 +102,7 @@ def test_freshness_label_and_timestamp_share_one_clock() -> None:
 
 def test_shows_six_cheapest_not_five() -> None:
     """Fix 3: up to 6 cheapest cards render (no cut-off top 5)."""
-    fetched = datetime.utcnow() - timedelta(minutes=5)
+    fetched = _now() - timedelta(minutes=5)
     # Route slices data["stations"]... actually it slices data["cheapest"]; give 6+.
     payload = _payload(8)
     payload["cheapest"] = payload["stations"][:8]
@@ -114,7 +114,7 @@ def test_shows_six_cheapest_not_five() -> None:
 
 
 def test_city_average_rendered_prominently() -> None:
-    body = _get_gas(_result(_payload(), fetched_at=datetime.utcnow() - timedelta(minutes=5)))
+    body = _get_gas(_result(_payload(), fetched_at=_now() - timedelta(minutes=5)))
     assert "City average" in body
     assert "$3.69" in body  # regular city avg, formatted
 
@@ -131,6 +131,6 @@ def test_no_data_renders_honest_empty_state_never_a_price() -> None:
 
 
 def test_stale_banner_flags_out_of_date() -> None:
-    fetched = datetime.utcnow() - timedelta(days=3)
+    fetched = _now() - timedelta(days=3)
     body = _get_gas(_result(_payload(), fetched_at=fetched, is_stale=True))
     assert "out of date" in body
