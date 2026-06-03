@@ -40,6 +40,7 @@ from app.admin.v1_overview import router as admin_v1_overview_router
 from app.api.routes.account_alerts import router as account_alerts_router
 from app.api.routes.admin_contributions import router as admin_contributions_router
 from app.api.routes.admin_mentions import router as admin_mentions_router
+from app.api.routes.captures import router as captures_router
 from app.api.routes.category_pages import router as category_pages_router
 from app.api.routes.chat import router as concierge_chat_router
 from app.api.routes.conditions import router as conditions_router
@@ -381,6 +382,7 @@ app.include_router(conditions_router)
 app.include_router(today_router)
 app.include_router(gas_router)
 app.include_router(ingest_router)
+app.include_router(captures_router)
 app.include_router(admin_router)
 app.include_router(admin_v1_overview_router)
 app.include_router(admin_contributions_router)
