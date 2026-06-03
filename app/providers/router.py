@@ -15,11 +15,13 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.auth.favorites import is_favorited
 from app.chat.disclosure_render import DISCLOSURE_WORD
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.db.database import get_db
 from app.db.models import Claim, Entity, Provider, User
 from app.events.queries import venue_events_for_profile
+from app.home import sandstone as home_sandstone
 from app.providers import queries, view_models
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
@@ -64,6 +66,12 @@ def serve_provider_profile(
     entity = db.get(Entity, provider.entity_id)
     boat_access = entity.boat_access if entity is not None else None
     venue_events = venue_events_for_profile(db, provider, limit=5)
+    nearby = queries.nearby_providers(db, provider, limit=3)
+    already_saved = (
+        bool(current_user)
+        and bool(provider.entity_id)
+        and is_favorited(db, current_user.id, provider.entity_id)
+    )
     return templates.TemplateResponse(
         request=request,
         name="provider_profile.html",
@@ -71,10 +79,15 @@ def serve_provider_profile(
             "vm": vm,
             "disclosure_word": DISCLOSURE_WORD,
             "current_user_id": current_user.id if current_user else "",
-            "favorite_entity_id": provider.entity_id,
+            "favorite_entity_id": provider.entity_id or "",
+            "is_favorited": already_saved,
+            "nearby_providers": nearby,
             "boat_access": boat_access,
             "has_boat_access": boat_access is not None,
             "venue_events": venue_events,
             "provider_name": vm.provider_name,
+            # Sandstone header chrome (shared base): real nav + mega-menu.
+            "primary_nav": home_sandstone.primary_nav(),
+            "mega_columns": home_sandstone.mega_columns(db),
         },
     )

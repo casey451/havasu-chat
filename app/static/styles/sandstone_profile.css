@@ -1,0 +1,67 @@
+/* Sandstone — provider profile additions.
+   Profile-specific styles only. The shared .prof/.cover/.lock/.head/.actions/
+   .cols/.about/.tags/.side/.claim/.alsosee classes live in sandstone.css; this
+   file adds the Save-button states, the cross-discovery glyph fallback, the
+   sponsored cover tag, and the favorites toast. No hardcoded palette hex —
+   everything references the Sandstone tokens. */
+
+/* --- Save button (favorites) — distinct third CTA in .prof .actions --- */
+.prof .actions .fav-save{
+  cursor:pointer;
+}
+.prof .actions .fav-save .heart{
+  font-size:1rem;line-height:1;
+}
+.prof .actions .fav-save .heart-on{display:none}
+.prof .actions .fav-save .heart-off{display:inline}
+.prof .actions .fav-save.is-saved{
+  background:var(--accent-tint);border-color:var(--accent-soft);color:var(--accent);
+}
+.prof .actions .fav-save.is-saved .heart-on{display:inline}
+.prof .actions .fav-save.is-saved .heart-off{display:none}
+.prof .actions .fav-save[hidden]{display:none}
+
+/* --- Sponsored tag on the cover (mirrors .spon .tag) --- */
+.prof .cover .spon-tag{
+  position:absolute;top:12px;left:12px;background:var(--surface);color:var(--muted);
+  font-size:.6rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
+  padding:4px 9px;border-radius:999px;opacity:.95;z-index:2;
+}
+
+/* --- Featured-local pill in the identity sub-line --- */
+.prof .sub .featured-tag{
+  background:var(--accent-tint);color:var(--accent);font-weight:700;font-size:.78rem;
+  padding:3px 10px;border-radius:999px;
+}
+
+/* --- Reviews block inside the about column --- */
+.prof .reviews{margin-top:18px}
+.prof .reviews .rev{
+  border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 13px;
+  margin-top:9px;background:var(--surface);color:var(--muted);font-size:.88rem;line-height:1.5;
+}
+.prof .reviews .rev .stars{color:var(--accent);font-weight:700;display:block;margin-bottom:4px}
+
+/* --- Photo gallery (claimed/enriched only) --- */
+.prof .gallery{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-top:14px;
+}
+.prof .gallery img{
+  width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius-sm);
+  background:var(--surface-2);
+}
+
+/* --- Side panel "Good to know" rows wrap cleanly --- */
+.prof .side .row{flex-wrap:wrap}
+
+/* --- Cross-discovery glyph fallback (uses .catchip from sandstone.css) --- */
+.prof .alsosee .catchip .n{text-transform:none}
+
+/* --- Favorites toast (used by favorites.js) --- */
+.fav-toast{
+  position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(12px);
+  background:var(--ribbon-bg);color:var(--ribbon-text);padding:10px 18px;border-radius:999px;
+  font-size:.88rem;font-weight:600;box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;
+  transition:opacity .2s,transform .2s;z-index:200;
+}
+.fav-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
