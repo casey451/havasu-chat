@@ -30,7 +30,7 @@
   </div>
 
   {# ---- Identity + the three distinct CTAs (Call / Directions / Save) ---- #}
-  <div class="head">
+  <div class="head" data-region="provider-identity">
     <div>
       <h1>{{ vm.provider_name | clean_name }}</h1>
       <div class="sub">
@@ -121,8 +121,17 @@
         <b>Local offer</b> — show this screen for a featured-local welcome offer this week.
       </div>
       {% endif %}
+
+      {# ---- Concierge CTA: always available, routes to the 3-tier /chat backend ---- #}
+      <a class="ask-hava-cta" href="/chat?q={{ ('Tell me about ' ~ (vm.provider_name | clean_name))|urlencode }}">
+        💬 Ask Hava about this business
+      </a>
     </div>
   </div>
+
+  {# ---- What's on at this venue — real upcoming events only (omitted if none) ---- #}
+  {% set provider_name = vm.provider_name %}
+  {% include 'components/venue_events_region.html' %}
 
   {# ---- "While you're here" cross-discovery — real related listings only ---- #}
   {% if nearby_providers %}

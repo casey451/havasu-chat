@@ -65,3 +65,13 @@
   transition:opacity .2s,transform .2s;z-index:200;
 }
 .fav-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* Concierge CTA — routes to /chat about this specific business. */
+.ask-hava-cta{display:block;margin-top:16px;text-align:center;background:var(--chip);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:13px 15px;font-weight:600;color:var(--accent);transition:.18s}
+.ask-hava-cta:hover{border-color:var(--accent-soft);background:var(--surface-2)}
+
+/* "What's on at {venue}" — real upcoming events at this provider. */
+.venue-events-region{margin-top:30px}
+.venue-events-region h2{font-family:"Fraunces",serif;font-weight:500;font-size:clamp(1.3rem,2.4vw,1.7rem);color:var(--brand);margin-bottom:14px}
+.venue-events-list{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;padding:0}
