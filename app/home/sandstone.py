@@ -313,3 +313,186 @@ def featured_cards(spotlights: list[dict[str, Any]]) -> list[dict[str, Any]]:
         )
     cards.append({"empty": True})
     return cards
+
+
+# ---------------------------------------------------------------------------
+# Mode landings — Lake / Night / Family (01_UI_BUILD_GUIDE.md §4.10)
+# ---------------------------------------------------------------------------
+#
+# Each landing is a hero + a sub-tile strip. Sub-tiles are NAVIGATION: every
+# tile resolves to a real ``/categories/{route}`` page when one fits, or a
+# ``/chat?q=<intent>`` search when no category route is close enough — never a
+# dead/404 link. The hero "live counters" from the prototype ("12 happy hours",
+# "6 kid events", "4 live music") are NOT real data yet, so they are omitted
+# entirely; the Lake hero's mini-conditions row uses ONLY live conditions
+# (lake level / water temp / wind / sunset / air temp), and any tile without a
+# live source is left out rather than faked (no hardcoded "448.7 ft").
+
+# Theme accent per mode for the active-state stamp on the header toggle and the
+# page's ``data-mode``. The palette itself lives in sandstone.css tokens.
+MODE_LABELS: dict[str, str] = {
+    "ask": "Ask",
+    "lake": "Lake",
+    "night": "Night",
+    "family": "Family",
+}
+
+
+def _chat_url(query: str) -> str:
+    """A real search URL into the existing 3-tier /chat backend."""
+    from urllib.parse import quote_plus
+
+    return f"/chat?q={quote_plus(query)}"
+
+
+def _tile(emoji: str, title: str, blurb: str, url: str) -> dict[str, str]:
+    return {"emoji": emoji, "label": title, "blurb": blurb, "url": url}
+
+
+# -- Lake -------------------------------------------------------------------
+# Boat rentals / launch ramps / marinas+fuel / gear+ice / tours+charters /
+# watercraft service. The closest real route for all on-water sub-tiles is
+# ``/categories/on-the-water`` (its filter covers boat_rental, boat_repair,
+# lake_recreation, lodging). Where the sub-tile is a finer intent than that
+# route exposes today, we deep-link a /chat search so the user still lands on
+# real results instead of a generic page.
+def _lake_tiles() -> list[dict[str, str]]:
+    water = "/categories/on-the-water"
+    return [
+        _tile("⛵", "Boat Rentals", "Pontoons, wave runners", _chat_url("boat rental")),
+        _tile("🛟", "Launch Ramps", "Fees, parking, status", _chat_url("boat launch ramp")),
+        _tile("⛽", "Marinas & Fuel", "On-water fuel, slips", _chat_url("marina fuel")),
+        _tile("🧊", "Gear & Ice", "Coolers, bait, tubes", _chat_url("boating gear and ice")),
+        _tile("🧭", "Tours & Charters", "Guided, fishing", _chat_url("lake tours and charters")),
+        _tile("🔧", "Watercraft Service", "Repair, storage", water),
+    ]
+
+
+# -- Night ------------------------------------------------------------------
+# Bars / breweries+wineries / live music / happy hours / late kitchens /
+# get-home-safe. Bars, breweries and late kitchens are food_drink, so they
+# point at ``/categories/eat-drink``; the time/event-specific intents (live
+# music tonight, happy hours on now) have no category route, so they search.
+def _night_tiles() -> list[dict[str, str]]:
+    eat = "/categories/eat-drink"
+    return [
+        _tile("🍸", "Bars & Lounges", "Waterfront, dive, cocktail", eat),
+        _tile("🍺", "Breweries & Wineries", "Tastings, taprooms", eat),
+        _tile("🎶", "Live Music", "Who's playing & when", _chat_url("live music tonight")),
+        _tile("🕙", "Happy Hours", "Sorted by ending soon", _chat_url("happy hour now")),
+        _tile("🍔", "Late Kitchens", "Food after 10 PM", _chat_url("late night food")),
+        _tile("🚖", "Get Home Safe", "Local taxi & rideshare", _chat_url("taxi or rideshare")),
+    ]
+
+
+# -- Family -----------------------------------------------------------------
+# Parks / swim+splash / classes+camps / free events / beat-the-heat /
+# kid-friendly eats. Parks, swim and classes map onto things-to-do /
+# classes-sports-recreation routes; free events and kid eats are finer intents
+# routed to /chat search.
+def _family_tiles() -> list[dict[str, str]]:
+    things = "/categories/things-to-do"
+    classes = "/categories/classes-sports-recreation"
+    return [
+        _tile("🛝", "Parks & Playgrounds", "Shade, splash pads", things),
+        _tile("🏊", "Swim & Splash", "Aquatic center, beaches", _chat_url("swimming and splash pads")),
+        _tile("🎨", "Classes & Camps", "Art, music, sports", classes),
+        _tile("🎈", "Free Family Events", "This week's lineup", _chat_url("free family events")),
+        _tile("🌧️", "Beat-the-Heat / Rainy Day", "Indoor play, library", _chat_url("indoor activities for kids")),
+        _tile("🍦", "Kid-Friendly Eats", "Menus, patios, treats", _chat_url("kid friendly restaurants")),
+    ]
+
+
+_MODE_CONFIG: dict[str, dict[str, Any]] = {
+    "lake": {
+        "eyebrow": "Lake Life",
+        "heading": "Everything for a day on the water",
+        "blurb": (
+            "Conditions, ramps, rentals, fuel and ice — the lake organized "
+            "around getting you out there."
+        ),
+        "sec_head": "Out on the water",
+        "tiles": _lake_tiles,
+    },
+    "night": {
+        "eyebrow": "Night",
+        "heading": "Where the night goes",
+        "blurb": (
+            "Tonight's happy hours, the patios, live music, late kitchens — "
+            "and a safe ride home."
+        ),
+        "sec_head": "Out tonight",
+        "tiles": _night_tiles,
+    },
+    "family": {
+        "eyebrow": "Family",
+        "heading": "Plenty to do with the kids",
+        "blurb": (
+            "The answer to \"there's nothing to do here\" — parks, splash pads, "
+            "classes, free events, and rainy-day backups, all in one place."
+        ),
+        "sec_head": "For the kids",
+        "tiles": _family_tiles,
+    },
+}
+
+
+def lake_mini_conditions(db: Session) -> list[dict[str, str]]:
+    """Live mini-conditions for the Lake hero: lake level / water temp / wind /
+    sunset (plus air temp). Each tile is omitted when its source has no live
+    value — NEVER the prototype's hardcoded 448.7 ft / 74°F / 8 mph SW.
+    """
+    from app.conditions.api_payload import build_conditions_api_payload
+
+    try:
+        api = build_conditions_api_payload(db)
+    except Exception:  # pragma: no cover - never block the page on conditions
+        return []
+
+    tiles: list[dict[str, str]] = []
+
+    gauge = api.get("lake_gauge_ft")
+    if isinstance(gauge, (int, float)):
+        tiles.append({"value": f"{float(gauge):.1f} ft", "label": "Lake level"})
+
+    water = api.get("water_temp_f")
+    if isinstance(water, (int, float)):
+        tiles.append({"value": f"{float(water):.0f}°F", "label": "Water temp"})
+
+    wind = api.get("wind_speed_mph")
+    if isinstance(wind, (int, float)):
+        tiles.append({"value": f"{int(round(float(wind)))} mph", "label": "Wind"})
+
+    sunset = api.get("sunset_local")
+    if isinstance(sunset, str) and sunset.strip():
+        tiles.append({"value": sunset.strip(), "label": "Sunset"})
+
+    air = api.get("current_temp_f")
+    if isinstance(air, (int, float)) and not water:
+        # Air temp is a useful fallback only when water temp is unavailable, so
+        # the strip never goes empty when one upstream source is down.
+        tiles.append({"value": f"{int(round(float(air)))}°F", "label": "Air temp"})
+
+    return tiles
+
+
+def mode_landing(db: Session, mode: str) -> dict[str, Any]:
+    """Assemble a mode-landing context.
+
+    ``mini_conditions`` is populated for Lake only (live conditions); Night and
+    Family have no honest live hero metric yet, so their hero shows copy only —
+    the mock counters are deliberately absent (anti-confabulation, §4.10).
+    """
+    if mode not in _MODE_CONFIG:
+        raise KeyError(mode)
+    cfg = _MODE_CONFIG[mode]
+    mini = lake_mini_conditions(db) if mode == "lake" else []
+    return {
+        "mode": mode,
+        "eyebrow": cfg["eyebrow"],
+        "heading": cfg["heading"],
+        "blurb": cfg["blurb"],
+        "sec_head": cfg["sec_head"],
+        "tiles": cfg["tiles"](),
+        "mini_conditions": mini,
+    }
