@@ -1,0 +1,6 @@
+/* Category page — small additions on top of the shared sandstone.css classes
+   (.cathead, .chips, .sortbar, .biz-grid, .biz, .spon-inline already defined).
+   The sponsored inline card keeps a min-height so its image band matches the
+   organic cards even before its photo loads. */
+.biz.spon-inline .img{min-height:124px}
+.biz .meta span + span{margin-left:2px}

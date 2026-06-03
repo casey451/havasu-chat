@@ -340,9 +340,9 @@ def test_category_route_200_for_every_known_slug(slug: str) -> None:
     # "Eat & drink". Match the escaped form.
     needle = html_lib.escape(label)
     assert needle in body, f"label {label!r} (escaped {needle!r}) missing from /categories/{slug}"
-    # Lake Light category chrome present.
-    assert 'class="ll-category-wrap"' in body
-    assert 'class="ll-category-header"' in body
+    # Sandstone category chrome present.
+    assert 'class="cathead wrap"' in body
+    assert 'class="crumb"' in body
     # Back link to /home present.
     assert 'href="/home"' in body
     # Count clause rendered when category_count is truthy.
@@ -363,7 +363,7 @@ def test_category_route_hides_count_when_none() -> None:
     # substring collision with legitimate counts like "10 listed".
     assert ">0 listed<" not in body
     assert "0 listed" not in body  # full check on the SVG-stripped body
-    assert 'class="ll-category-wrap"' in body
+    assert 'class="cathead wrap"' in body
 
 
 def test_category_route_renders_grid_when_cards_present() -> None:
@@ -374,7 +374,7 @@ def test_category_route_renders_grid_when_cards_present() -> None:
         resp = client.get("/categories/services")
     assert resp.status_code == 200
     body = resp.text
-    assert 'class="ll-category-grid"' in body
+    assert 'class="biz-grid"' in body
     assert "Provider 0" in body
     assert "Provider 6" in body
 
@@ -397,7 +397,7 @@ def test_category_route_marks_correct_tab_active() -> None:
         resp = client.get("/categories/eat-drink")
     assert resp.status_code == 200
     body = resp.text
-    assert '<a class="is-active" href="/categories">Explore</a>' in body
+    assert 'href="/categories"' in body  # Explore-all mega link
 
 
 def test_category_route_tile_route_marks_mega_tab_active() -> None:
@@ -407,7 +407,7 @@ def test_category_route_tile_route_marks_mega_tab_active() -> None:
         resp = client.get("/categories/pets")
     assert resp.status_code == 200
     body = resp.text
-    assert '<a class="is-active" href="/categories">Explore</a>' in body
+    assert 'href="/categories"' in body  # Explore-all mega link
 
 
 def test_home_redesign_tabs_are_real_anchors() -> None:

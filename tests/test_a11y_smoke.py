@@ -96,9 +96,11 @@ def test_category_page_all_categories_pill_is_labelled() -> None:
         resp = client.get("/categories/eat-drink")
     assert resp.status_code == 200
     body = resp.text
-    assert "All categories" in body
-    # Back-to-home pill keeps an explicit aria-label.
-    assert 'aria-label="Back to Hava home"' in body
+    # Sandstone: the "All" subcategory chip and the "Explore all" mega trigger
+    # carry accessible text names; the breadcrumb + logo link home.
+    assert ">All</a>" in body
+    assert "Explore all" in body
+    assert 'href="/home"' in body
 
 
 # ---------------------------------------------------------------------------

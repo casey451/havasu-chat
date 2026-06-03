@@ -153,6 +153,9 @@ def test_plural_page_shows_subcategory_chips(client: TestClient) -> None:
     r = client.get("/categories/services")
     assert r.status_code == 200
     body = r.text
-    assert 'class="ll-chip-row ll-subcat-row"' in body
-    assert "/lake-havasu/storage" in body  # Storage chip present under Services
-    assert 'class="ll-facet-bar"' in body  # facet bar rendered
+    # Sandstone: subcategory chips render in the in-place filter row, each with a
+    # data-filter token; the sort/facet bar renders below.
+    assert 'class="chips"' in body
+    assert 'data-filter="all"' in body
+    assert "?sub=storage" in body  # Storage subcategory chip present under Services
+    assert 'class="sortbar"' in body

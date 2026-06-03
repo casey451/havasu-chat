@@ -57,7 +57,10 @@ from app.core.provider_name import register_template_filters, register_template_
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.db.models import Provider
+from app.home import sandstone as home_sandstone
+from app.home import sponsor_store
 from app.home.queries import _provider_image_url
+from app.home.router import _utility_chips as _home_utility_chips
 from app.v1.categories import BUCKET_SLUG_REDIRECTS
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
@@ -255,8 +258,10 @@ def _facets_from_query(
         return val is not None and str(val).strip().lower() not in {"", "0", "false", "no"}
 
     sort_key = (sort or "").strip().lower()
-    if sort_key not in {"closest", "alpha"}:
-        sort_key = "default"
+    # Default = volume-weighted "Locals' favorites" (01_UI_BUILD_GUIDE.md §4.8),
+    # so institutions outrank thin 5.0/3-review outliers out of the box.
+    if sort_key not in {"closest", "alpha", "favorites"}:
+        sort_key = "favorites"
     sub = (subcategory or "").strip().lower() or None
     if sub and subcats.subcategory_by_slug(sub) is None:
         sub = None
@@ -312,7 +317,7 @@ def _render_category_page(
 
     return templates.TemplateResponse(
         request=request,
-        name="category_c.html",
+        name="category_sandstone.html",
         context={
             "today_label": now.strftime("%A, %B ") + str(now.day),
             "now_label": now.strftime("%I:%M %p").lstrip("0"),
@@ -329,6 +334,12 @@ def _render_category_page(
             "facet_href": facet_href,
             # "All" chip target: the plural mega-page for this bucket.
             "all_chip_url": f"/categories/{route_slug}",
+            # One labeled sponsored slot (≤1, real-or-omit). active_promoted is the
+            # single page-wide promoted row; None -> no slot (never a fake sponsor).
+            "sponsored": sponsor_store.active_promoted(db),
+            "primary_nav": home_sandstone.primary_nav(),
+            "mega_columns": home_sandstone.mega_columns(db),
+            "utility_chips": _home_utility_chips(db),
         },
     )
 
