@@ -12,7 +12,7 @@
 <div class="prof wrap">
   <div class="crumb">
     <a href="/home">Home</a> ›
-    <a href="/categories">{{ vm.category_label }}</a> ›
+    <a href="{{ vm.category_url }}">{{ vm.category_label }}</a> ›
     {{ vm.provider_name | clean_name }}
   </div>
 
@@ -86,9 +86,13 @@
 
       {% if vm.google_review_snippets %}
       <div class="reviews">
+        <div class="rev-source" style="color:var(--muted);font-size:.85rem;margin-bottom:6px">From Google reviews</div>
         {% for snippet in vm.google_review_snippets[:3] %}
         {% if snippet.text %}
-        <div class="rev"><span class="stars" aria-hidden="true">★★★★★</span>{{ snippet.text }}</div>
+        <div class="rev">
+          {% if snippet.rating %}<span class="stars" aria-label="{{ snippet.rating }} out of 5">{{ "★" * (snippet.rating | int) }}{{ "☆" * (5 - (snippet.rating | int)) }}</span>{% endif %}
+          {{ snippet.text }}
+        </div>
         {% endif %}
         {% endfor %}
       </div>

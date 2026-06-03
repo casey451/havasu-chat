@@ -100,6 +100,55 @@ def test_profile_renders_entity_location_hours_and_contact_over_legacy_columns()
             db.commit()
 
 
+def test_profile_reviews_are_labeled_google_with_real_per_review_stars() -> None:
+    """P-6/P-2/P-1: review excerpts are labeled 'From Google reviews', each shows its
+    real rating (not a hardcoded 5 stars), and the breadcrumb links to the category."""
+    suf = uuid4().hex[:8]
+    slug = f"reviews-vm-{suf}"
+    with SessionLocal() as db:
+        p = Provider(
+            provider_name=f"Reviewed Restaurant {suf}",
+            category="restaurant",  # -> breadcrumb /categories/eat-drink
+            source="test-profile-reviews",
+            slug=slug,
+            draft=False,
+            is_active=True,
+            verified=True,
+            google_rating=4.3,
+            google_review_count=51,
+            google_review_snippets=[
+                {"author": "A", "rating": 3, "text": "Solid but it fell short of great."},
+                {"author": "B", "rating": 5, "text": "Loved every bite."},
+            ],
+        )
+        db.add(p)
+        db.commit()
+
+    try:
+        with TestClient(app) as client:
+            r = client.get(f"/provider/{slug}")
+        assert r.status_code == 200
+        body = r.text
+        # P-6: sourced-review attribution present.
+        assert "From Google reviews" in body
+        # P-2: the 3-star review renders 3 filled stars, not a hardcoded 5.
+        assert 'aria-label="3 out of 5"' in body
+        assert 'aria-label="5 out of 5"' in body
+        # P-1: breadcrumb links to the real category page, not the Explore index.
+        assert 'href="/categories/eat-drink"' in body
+    finally:
+        with SessionLocal() as db:
+            pr = db.query(Provider).filter_by(slug=slug).first()
+            eid = pr.entity_id if pr else None
+            if pr:
+                db.delete(pr)
+            if eid:
+                en = db.get(Entity, eid)
+                if en:
+                    db.delete(en)
+            db.commit()
+
+
 def _session_cookie(user_id: str) -> str:
     now_a = datetime.now(timezone.utc)
     with SessionLocal() as db:
