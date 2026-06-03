@@ -121,5 +121,5 @@ def test_provider_profile_regression_district_and_search(client: TestClient) -> 
     r = client.get("/categories/eat-drink")
     assert r.status_code == 200
     text = Path("app/templates/provider_profile.html").read_text(encoding="utf-8")
-    assert "ll-provider-identity" in text
+    assert 'data-region="provider-identity"' in text  # Sandstone identity anchor
     assert "Ask Hava about this business" in text

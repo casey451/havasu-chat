@@ -1,89 +1,110 @@
-<!doctype html>
-<html lang="en">
-<head>
-  {% include '_partials/plausible.html' %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Gas Prices — Ask Hava</title>
-  <meta name="description" content="Today's cheapest gas stations in Lake Havasu City, with regular, mid, premium and diesel prices updated daily.">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles/lake_light.css">
-</head>
-<body class="ll-page">
-{% set active_tab = "home" %}
-<main class="ll-utility-shell" role="main">
-  {% set header_back_href = "/home" %}
-  {% set header_back_label = "Back to Home" %}
-  {% include "_partials/lake_light_header.html" %}
-  <section class="ll-utility-main">
-    <p class="ll-eyebrow">Daily utility</p>
+{% extends "sandstone_base.html" %}
+{% block title %}Gas prices — Ask Hava{% endblock %}
+{% block meta_description %}Today's cheapest gas stations in Lake Havasu City, with regular, mid, premium and diesel prices updated daily. Always confirm at the pump.{% endblock %}
+
+{% block head_extra %}
+  <link rel="stylesheet" href="/static/styles/sandstone_gas.css">
+{% endblock %}
+
+{% block content %}
+  {# ---- Header ---- #}
+  <div class="cathead wrap">
+    <div class="crumb"><a href="/home">Home</a> · Daily utility</div>
     <h1>Gas prices in Lake Havasu City</h1>
     {% if has_data %}
-      <p class="ll-muted">
-        {{ data.station_count }} stations &middot; updated {{ data.updated_at_iso }}
-        {% if data.city_avg and data.city_avg.regular %}
-          &middot; city avg regular ${{ data.city_avg.regular }}
-        {% endif %}
+      <p>
+        {{ data.station_count }} stations tracked.
+        {% if fetched_at_label %}Updated {{ fetched_at_label }}.{% endif %}
       </p>
-      {% if is_stale %}<p class="ll-warning ll-spaced">Prices may be out of date ({{ staleness_label }})</p>{% endif %}
-
-      <h2 class="ll-serif ll-spaced">Today's 5 cheapest</h2>
-      <div class="ll-grid-two">
-        {% for s in data.cheapest %}
-        <div class="ll-card" style="padding:12px;">
-          <p class="ll-eyebrow" style="margin:0 0 6px;">#{{ loop.index }}{% if s.brand %} · {{ s.brand }}{% endif %}</p>
-          <p class="ll-title" style="font-size:32px;">
-            {% if s.prices and s.prices.regular %}${{ s.prices.regular }}{% else %}&mdash;{% endif %}
-          </p>
-          <p>
-            {% if s.provider_slug %}<a href="/provider/{{ s.provider_slug }}">{{ s.name }}</a>{% else %}{{ s.name }}{% endif %}
-          </p>
-          <p class="ll-muted" style="margin:0;">{{ s.address or "" }}</p>
-        </div>
-        {% endfor %}
-      </div>
-
-      <h2 class="ll-serif ll-spaced">All stations</h2>
-      <div class="ll-table-wrap">
-      <table class="ll-table">
-        <thead>
-          <tr>
-            <th>Station</th>
-            {% for g in grades %}<th style="text-align:right">{{ grade_labels[g] }}</th>{% endfor %}
-            <th>Source</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for s in data.stations %}
-          <tr>
-            <td>
-              {% if s.provider_slug %}<a href="/provider/{{ s.provider_slug }}">{{ s.name }}</a>{% else %}{{ s.name }}{% endif %}
-              {% if s.address %}<div class="ll-muted" style="font-size:12px;">{{ s.address }}</div>{% endif %}
-            </td>
-            {% for g in grades %}
-            <td class="num">{% if s.prices and s.prices[g] %}${{ s.prices[g] }}{% else %}&mdash;{% endif %}</td>
-            {% endfor %}
-            <td><span class="ll-chip-static">{{ s.source }}</span></td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      </div>
-    {% else %}
-      <div class="ll-warning ll-spaced">
-        No gas price data yet. The daily pull has not run successfully.<br>
-        Run <code>python scripts/gas_prices_pull.py</code> to populate prices.
+      {# Freshness banner: BOTH the label and the timestamp above come from the
+         same row.fetched_at clock, so they cannot contradict each other. #}
+      <div class="gas-freshness{% if is_stale %} is-stale{% endif %}">
+        <span class="dot" aria-hidden="true"></span>
+        {{ staleness_label }}{% if is_stale %} — prices may be out of date{% endif %}
       </div>
     {% endif %}
-    <p class="ll-muted ll-spaced">
-      Prices are crowd-sourced (GasBuddy) and official-feed (Google) and update
-      once daily. Always confirm at the pump.
-    </p>
+  </div>
+
+  {% if has_data %}
+    {# ---- City average — prominent ---- #}
+    {% if city_avg and city_avg.regular %}
+    <section class="block wrap" aria-label="City average">
+      <div class="gas-avg">
+        <div class="gas-avg-main">
+          <div class="eyebrow">City average · regular</div>
+          <div class="gas-avg-price">${{ '%.2f'|format(city_avg.regular) }}</div>
+          <div class="gas-avg-sub">Mean of every tracked station's regular price</div>
+        </div>
+        <div class="gas-avg-grades">
+          {% for g in grades %}
+          {% if city_avg[g] %}
+          <div class="gas-avg-grade">
+            <span class="l">{{ grade_labels[g] }}</span>
+            <span class="v">${{ '%.2f'|format(city_avg[g]) }}</span>
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
+    {# ---- Cheapest stations (6-up, not a cut-off top 5) ---- #}
+    {% if cheapest %}
+    <section class="block wrap" aria-label="Cheapest stations">
+      <div class="sec-head"><h2>Cheapest right now</h2></div>
+      <div class="gas-cheap-grid">
+        {% for s in cheapest %}
+        {% if s.provider_slug %}<a class="gas-card" href="/provider/{{ s.provider_slug }}">{% else %}<div class="gas-card">{% endif %}
+          <div class="rank">#{{ loop.index }}{% if s.brand %} · {{ s.brand }}{% endif %}</div>
+          <div class="price">{% if s.prices and s.prices.regular %}${{ '%.2f'|format(s.prices.regular) }}{% else %}&mdash;{% endif %}</div>
+          <div class="name">{{ s.name }}</div>
+          {% if s.address %}<div class="addr">{{ s.address }}</div>{% endif %}
+        {% if s.provider_slug %}</a>{% else %}</div>{% endif %}
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    {# ---- Full station table (no Source column) ---- #}
+    <section class="block wrap" aria-label="All stations">
+      <div class="sec-head"><h2>All stations</h2></div>
+      <div class="gas-table-wrap">
+        <table class="gas-table">
+          <thead>
+            <tr>
+              <th scope="col">Station</th>
+              {% for g in grades %}<th scope="col" class="num">{{ grade_labels[g] }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in stations %}
+            <tr>
+              <td>
+                {% if s.provider_slug %}<a href="/provider/{{ s.provider_slug }}">{{ s.name }}</a>{% else %}{{ s.name }}{% endif %}
+                {% if s.address %}<div class="addr">{{ s.address }}</div>{% endif %}
+              </td>
+              {% for g in grades %}
+              <td class="num">{% if s.prices and s.prices[g] %}${{ '%.2f'|format(s.prices[g]) }}{% else %}&mdash;{% endif %}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% else %}
+    {# ---- Honest empty state — never a placeholder price ---- #}
+    <section class="block wrap" aria-label="No gas data">
+      <div class="gas-empty">
+        <h2>No gas prices yet</h2>
+        <p>The daily price pull hasn't returned data yet. Check back soon — we never show a guessed price.</p>
+      </div>
+    </section>
+  {% endif %}
+
+  {# ---- Footer note: kept the pump disclaimer, dropped the Google-feed line ---- #}
+  <section class="block wrap">
+    <p class="gas-note">Prices update once daily. Always confirm at the pump.</p>
   </section>
-  {% include "_partials/lake_light_footer.html" %}
-</main>
-{% include "_partials/lake_light_bottom_nav.html" %}
-</body>
-</html>
+{% endblock %}

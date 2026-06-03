@@ -1,0 +1,33 @@
+{% extends "sandstone_base.html" %}
+{% block title %}Ask Hava — {{ heading }}{% endblock %}
+{% block mode %}{{ mode }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/sandstone_modes.css">{% endblock %}
+
+{% block content %}
+  <div class="wrap">
+    <div class="mode-hero mode-hero--{{ mode }}">
+      <div class="eyebrow">{{ eyebrow }}</div>
+      <h1>{{ heading }}</h1>
+      <p>{{ blurb }}</p>
+      {% if mini_conditions %}
+      <div class="mini-cond">
+        {% for m in mini_conditions %}
+        <div class="m"><div class="v">{{ m.value }}</div><div class="l">{{ m.label }}</div></div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <section class="block wrap" aria-label="{{ sec_head }}">
+    <div class="sec-head"><h2>{{ sec_head }}</h2></div>
+    <div class="cat-strip">
+      {% for t in tiles %}
+      <a class="catchip" href="{{ t.url }}">
+        <span class="e" aria-hidden="true">{{ t.emoji }}</span>
+        <div><div class="t">{{ t.label }}</div>{% if t.blurb %}<div class="n">{{ t.blurb }}</div>{% endif %}</div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

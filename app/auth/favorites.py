@@ -51,6 +51,16 @@ def list_user_favorites(db: SqlSession, user_id: str) -> list[Entity]:
     return [r.entity for r in rows if r.entity is not None]
 
 
+def is_favorited(db: SqlSession, user_id: str, entity_id: str) -> bool:
+    """True when this user has already saved this entity (initial heart state)."""
+    return (
+        db.query(UserFavorite.id)
+        .filter(UserFavorite.user_id == user_id, UserFavorite.entity_id == entity_id)
+        .first()
+        is not None
+    )
+
+
 def favorite_count_for_user(db: SqlSession, user_id: str) -> int:
     cnt = db.query(func.count(UserFavorite.id)).filter(UserFavorite.user_id == user_id).scalar()
     return int(cnt or 0)

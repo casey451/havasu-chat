@@ -33,7 +33,7 @@ def test_venue_events_partial_exists() -> None:
 
 def test_provider_profile_includes_region_anchor() -> None:
     text = Path("app/templates/provider_profile.html").read_text(encoding="utf-8")
-    assert "ll-provider-identity" in text
+    assert 'data-region="provider-identity"' in text  # Sandstone identity anchor
 
 
 def test_provider_with_future_event_renders_hava_card(client: TestClient) -> None:

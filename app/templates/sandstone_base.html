@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="/static/styles/sandstone.css">
   {% block head_extra %}{% endblock %}
 </head>
-<body data-mode="{% block mode %}ask{% endblock %}">
+<body data-mode="{% block mode %}ask{% endblock %}"{% block body_attrs %}{% endblock %}>
 
 {# ---- Conditions ribbon (centered). Tiles with no live source are omitted. ---- #}
 {% block ribbon %}
@@ -54,13 +54,14 @@
     </span>
     {% endif %}
   </nav>
-  <div class="modes" id="modes" role="group" aria-label="Browse mode">
-    <button class="on" type="button" data-mode="ask" aria-pressed="true"><span class="e" aria-hidden="true">💬</span> Ask</button>
-    <button type="button" data-mode="lake" aria-pressed="false"><span class="e" aria-hidden="true">⛵</span> Lake</button>
-    <button type="button" data-mode="night" aria-pressed="false"><span class="e" aria-hidden="true">🍸</span> Night</button>
-    <button type="button" data-mode="family" aria-pressed="false"><span class="e" aria-hidden="true">🪁</span> Family</button>
-  </div>
-  <button class="menu-btn" type="button" aria-label="Switch browse mode">☰</button>
+  {% set _mode = current_mode|default('ask') %}
+  <nav class="modes" id="modes" aria-label="Browse mode">
+    <a class="{% if _mode == 'ask' %}on{% endif %}" href="/home" data-mode="ask"{% if _mode == 'ask' %} aria-current="page"{% endif %}><span class="e" aria-hidden="true">💬</span> Ask</a>
+    <a class="{% if _mode == 'lake' %}on{% endif %}" href="/lake" data-mode="lake"{% if _mode == 'lake' %} aria-current="page"{% endif %}><span class="e" aria-hidden="true">⛵</span> Lake</a>
+    <a class="{% if _mode == 'night' %}on{% endif %}" href="/night" data-mode="night"{% if _mode == 'night' %} aria-current="page"{% endif %}><span class="e" aria-hidden="true">🍸</span> Night</a>
+    <a class="{% if _mode == 'family' %}on{% endif %}" href="/family" data-mode="family"{% if _mode == 'family' %} aria-current="page"{% endif %}><span class="e" aria-hidden="true">🪁</span> Family</a>
+  </nav>
+  <a class="menu-btn" href="/lake" data-mode-cycle aria-label="Switch browse mode">☰</a>
 </div></header>
 
 <main id="main" role="main">

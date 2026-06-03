@@ -31,7 +31,9 @@ def test_home_hero_composer_and_ask_hava(client: TestClient) -> None:
 def test_category_header_has_hava_search(client: TestClient) -> None:
     r = client.get("/categories/eat-drink")
     assert r.status_code == 200
-    assert 'class="ll-category-header"' in r.text
+    # Sandstone category page uses the shared editorial header (logo + nav +
+    # Explore mega); search lives on the home hero, not the category header.
+    assert 'class="cathead wrap"' in r.text
     assert "search_bar.js" not in r.text
 
 

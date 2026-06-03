@@ -405,6 +405,46 @@ def serve_home(
     )
 
 
+def _serve_mode_landing(request: Request, db: Session, mode: str) -> HTMLResponse:
+    """Shared renderer for the Lake / Night / Family landings.
+
+    The page loads PRE-THEMED (``data-mode`` = mode) so Night fires its dark
+    transformation server-side. Sub-tiles are navigation to real routes; the
+    hero shows only live data (Lake conditions) or copy — never the mock
+    counters (anti-confabulation, §4.10).
+    """
+    landing = sandstone.mode_landing(db, mode)
+    return templates.TemplateResponse(
+        request=request,
+        name="mode_sandstone.html",
+        context={
+            "utility_chips": _utility_chips(db),
+            "primary_nav": sandstone.primary_nav(),
+            "mega_columns": sandstone.mega_columns(db),
+            "current_mode": mode,
+            **landing,
+        },
+    )
+
+
+@router.get("/lake", response_class=HTMLResponse)
+def serve_lake(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    """Lake Life mode landing."""
+    return _serve_mode_landing(request, db, "lake")
+
+
+@router.get("/night", response_class=HTMLResponse)
+def serve_night(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    """Night mode landing (fires the dark transformation)."""
+    return _serve_mode_landing(request, db, "night")
+
+
+@router.get("/family", response_class=HTMLResponse)
+def serve_family(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    """Family mode landing."""
+    return _serve_mode_landing(request, db, "family")
+
+
 @router.get("/map", response_class=HTMLResponse)
 def serve_map_view(request: Request, scope: str | None = None) -> HTMLResponse:
     """Render /map — full-page Leaflet map (markers via /api/map_data/{scope}).

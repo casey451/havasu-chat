@@ -1,151 +1,156 @@
-<!doctype html>
-<html lang="en">
-<head>
-  {% include '_partials/plausible.html' %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>{{ vm.provider_name | clean_name }} &mdash; Ask Hava</title>
-  <meta name="description" content="{{ vm.provider_name | clean_name }} on Ask Hava, Lake Havasu City's local directory.">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles/lake_light.css">
-</head>
-<body class="ll-page" data-current-user="{{ current_user_id }}" data-favorite-entity-id="{{ favorite_entity_id }}" data-viewer-is-owner="{% if vm.viewer_is_owner %}1{% else %}0{% endif %}">
-<main class="ll-provider-wrap">
-  <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-    <a href="/home" class="ll-wordmark" style="color:var(--ll-ink); font-size:32px;">Ask <em>Hava</em></a>
-    <a href="/home" class="ll-pill">Back to Home</a>
-  </header>
+{% extends "sandstone_base.html" %}
+{% block title %}{{ vm.provider_name | clean_name }} — Ask Hava{% endblock %}
+{% block meta_description %}{{ vm.provider_name | clean_name }} on Ask Hava, Lake Havasu City's local directory.{% endblock %}
 
-  {% if not vm.show_claim_cta %}
-  <section class="ll-provider-hero">
-    {% if vm.hero_photo_url %}
-    <img src="{{ vm.hero_photo_url }}" alt="{{ vm.provider_name | clean_name }}" onerror="this.style.display='none';this.nextElementSibling.style.display='grid';">
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/sandstone_profile.css">{% endblock %}
+
+{# data-current-user / data-favorite-entity-id / data-viewer-is-owner stay on the
+   body so the shared favorites.js + the owner-aware tests keep working. #}
+{% block body_attrs %} data-current-user="{{ current_user_id }}" data-favorite-entity-id="{{ favorite_entity_id }}" data-viewer-is-owner="{% if vm.viewer_is_owner %}1{% else %}0{% endif %}"{% endblock %}
+
+{% block content %}
+<div class="prof wrap">
+  <div class="crumb">
+    <a href="/home">Home</a> ›
+    <a href="/categories">{{ vm.category_label }}</a> ›
+    {{ vm.provider_name | clean_name }}
+  </div>
+
+  {# ---- Cover: enriched photo for claimed listings, locked overlay otherwise ---- #}
+  <div class="cover"{% if not vm.show_claim_cta and vm.hero_photo_url %} style="background-image:url('{{ vm.hero_photo_url }}')"{% endif %}>
+    {% if vm.is_sponsored and vm.sponsor_disclosure_label %}
+    <span class="spon-tag">{{ vm.sponsor_disclosure_label }}</span>
     {% endif %}
-    <div style="width:94px; height:94px; border-radius:22px; background:#fff; display:{% if vm.hero_photo_url %}none{% else %}grid{% endif %}; place-items:center; font-family:'Playfair Display',serif; font-size:42px; color:var(--ll-jade);">
-      {{ vm.provider_name[0] if vm.provider_name else 'H' }}
-    </div>
-  </section>
-  {% else %}
-  <section class="ll-provider-hero" style="background:var(--ll-jade-soft); display:grid; place-items:center;">
-    <div style="width:94px; height:94px; border-radius:22px; background:#fff; display:grid; place-items:center; font-family:'Playfair Display',serif; font-size:42px; color:var(--ll-jade);">
-      {{ vm.provider_name[0] if vm.provider_name else 'H' }}
-    </div>
-  </section>
-  {% endif %}
-
-  <section class="ll-provider-identity">
-    <p class="ll-eyebrow">{{ vm.category_label }}</p>
-    <h1 class="ll-title" style="margin-bottom:8px;">{{ vm.provider_name | clean_name }}</h1>
-    <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px;">
-      {% if vm.is_featured or vm.is_sponsored %}
-      <span class="ll-featured-tag">★ Featured Local</span>
-      {% endif %}
-      {% if vm.google_rating %}
-      <span style="color:#8d6331;">★ {{ "%.1f"|format(vm.google_rating) }}{% if vm.google_review_count %} ({{ vm.google_review_count }}){% endif %}</span>
-      {% endif %}
-      {% if vm.open_status_copy %}
-      <span style="color:var(--ll-muted);">{{ vm.open_status_copy }}</span>
-      {% endif %}
-    </div>
-
-    <div class="ll-actions">
-      {% if vm.call_phone %}<a class="primary" href="tel:{{ vm.call_phone }}">Call</a>{% endif %}
-      {% if vm.directions_url %}<a href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer">Directions</a>{% endif %}
-      {% if vm.website_url and not vm.show_claim_cta %}<a href="{{ vm.website_url }}" target="_blank" rel="noopener noreferrer">Website</a>{% endif %}
-      <a href="{{ vm.ask_hava_url }}">Save</a>
-    </div>
-
-    {% if not vm.show_claim_cta %}
-    <div class="ll-provider-coupon">
-      <p class="ll-eyebrow" style="margin:0 0 6px;">Local offer</p>
-      <p style="margin:0; color:var(--ll-muted);">Show this screen for a featured-local welcome offer this week.</p>
-    </div>
-    {% endif %}
-
     {% if vm.show_claim_cta %}
-    <div class="ll-locked">
-      <p class="ll-eyebrow" style="margin:0 0 6px;">Locked profile</p>
-      <p style="margin:0;">Photos, full description, and offers unlock once this listing is claimed.</p>
+    <div class="lock">
+      <span class="e" aria-hidden="true">🔒</span>
+      <span>Photos, full menu and offers unlock when {{ vm.provider_name | clean_name }} claims its listing.</span>
     </div>
     {% endif %}
-  </section>
+  </div>
 
-  <section class="ll-card" style="padding:16px; margin-top:12px;">
-    <p class="ll-eyebrow">About</p>
-    {% if vm.description %}
-    <p class="ll-serif" style="margin:0 0 8px; font-size:24px; font-style:italic;">Local favorite in Lake Havasu.</p>
-    <p style="margin:0; color:var(--ll-muted);">{{ vm.description }}</p>
-    {% else %}
-    <p style="margin:0; color:var(--ll-muted);">This listing is auto-built from trusted public data.</p>
-    {% endif %}
-  </section>
+  {# ---- Identity + the three distinct CTAs (Call / Directions / Save) ---- #}
+  <div class="head" data-region="provider-identity">
+    <div>
+      <h1>{{ vm.provider_name | clean_name }}</h1>
+      <div class="sub">
+        <span>{{ vm.category_label }}</span>
+        {% if vm.is_featured or vm.is_sponsored %}<span class="featured-tag">★ Featured Local</span>{% endif %}
+        {% if vm.google_rating %}· <span class="stars">★ {{ "%.1f"|format(vm.google_rating) }}</span>{% if vm.google_review_count %} <span>({{ vm.google_review_count }})</span>{% endif %}{% endif %}
+        {% if vm.open_status_copy %}· <span class="open">{{ vm.open_status_copy }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="actions">
+      {% if vm.call_phone %}
+      <a class="primary" href="tel:{{ vm.call_phone }}">📞 Call</a>
+      {% endif %}
+      {% if vm.directions_url %}
+      <a href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer">🧭 Directions</a>
+      {% endif %}
+      {% if current_user_id and favorite_entity_id %}
+      {# Logged-in: real persistence via favorites.js → POST /api/favorites/toggle #}
+      <button type="button" class="fav-save favorite-heart{% if is_favorited %} is-saved{% endif %}" data-entity-id="{{ favorite_entity_id }}" aria-label="Save to favorites" aria-pressed="{% if is_favorited %}true{% else %}false{% endif %}">
+        <span class="heart" aria-hidden="true"><span class="heart-on">♥</span><span class="heart-off">♡</span></span> Save
+      </button>
+      {% else %}
+      {# Logged-out: route to login (sandstone_profile.js) — never a dead Save. #}
+      <button type="button" class="fav-save" data-requires-login="1" aria-label="Save to favorites">
+        <span class="heart" aria-hidden="true"><span class="heart-off">♡</span></span> Save
+      </button>
+      {% endif %}
+    </div>
+  </div>
 
-  {% if vm.gallery_photo_urls and not vm.show_claim_cta %}
-  <section class="ll-card" style="padding:14px; margin-top:12px;">
-    <p class="ll-eyebrow">Photo gallery</p>
-    <div style="display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px;">
-      {% for photo in vm.gallery_photo_urls[:8] %}
-      <img src="{{ photo }}" alt="{{ vm.provider_name | clean_name }} photo" loading="lazy" onerror="this.style.display='none';" style="width:100%; aspect-ratio:1; object-fit:cover; border-radius:12px;">
+  {# ---- Two-column body: about + side panel ---- #}
+  <div class="cols">
+    <div class="about">
+      {% if vm.description %}
+      <p>{{ vm.description }}</p>
+      {% else %}
+      <p>This listing is auto-built from trusted public data for Lake Havasu City.</p>
+      {% endif %}
+
+      {% if vm.service_chips %}
+      <div class="tags">
+        {% for chip in vm.service_chips %}<span>{{ chip }}</span>{% endfor %}
+      </div>
+      {% endif %}
+
+      {% if vm.gallery_photo_urls and not vm.show_claim_cta %}
+      <div class="gallery">
+        {% for photo in vm.gallery_photo_urls[:8] %}
+        <img src="{{ photo }}" alt="{{ vm.provider_name | clean_name }} photo" loading="lazy" onerror="this.style.display='none';">
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if vm.google_review_snippets %}
+      <div class="reviews">
+        {% for snippet in vm.google_review_snippets[:3] %}
+        {% if snippet.text %}
+        <div class="rev"><span class="stars" aria-hidden="true">★★★★★</span>{{ snippet.text }}</div>
+        {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <div>
+      <div class="side">
+        <h4>Good to know</h4>
+        {% if vm.address %}<div class="row">📍 {{ vm.address }}</div>{% endif %}
+        {% if vm.open_status_copy %}<div class="row">🕒 {{ vm.open_status_copy }}</div>
+        {% elif vm.hours_freetext %}<div class="row">🕒 {{ vm.hours_freetext }}</div>{% endif %}
+        {% if vm.call_phone_display %}<div class="row">📞 {{ vm.call_phone_display }}</div>{% endif %}
+        {% if vm.website_url and not vm.show_claim_cta %}<div class="row">🔗 <a href="{{ vm.website_url }}" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">Website</a></div>{% endif %}
+        {% if vm.service_area_only and vm.service_area %}<div class="row">🗺️ Serves: {{ vm.service_area|join(', ') }}</div>{% endif %}
+        {% if vm.freshness_copy %}<div class="row">✅ {{ vm.freshness_copy }}</div>{% endif %}
+        {% if vm.verification_method_copy %}<div class="row">🛡️ {{ vm.verification_method_copy }}</div>{% endif %}
+        {% if not (vm.address or vm.open_status_copy or vm.hours_freetext or vm.call_phone_display) %}
+        <div class="row" style="color:var(--muted)">Details are still being gathered for this listing.</div>
+        {% endif %}
+      </div>
+
+      {% if vm.show_claim_cta %}
+      <div class="claim">
+        <b>Is this your business?</b> Claim it to add photos, your menu, and offers — and stand out in {{ vm.category_label }}.
+        <div style="margin-top:10px"><a href="{{ vm.claim_url or '/contribute' }}" style="color:var(--accent);font-weight:700">Claim this listing →</a></div>
+      </div>
+      {% elif vm.show_upgrade_cta %}
+      <div class="claim">
+        <b>Local offer</b> — show this screen for a featured-local welcome offer this week.
+      </div>
+      {% endif %}
+
+      {# ---- Concierge CTA: always available, routes to the 3-tier /chat backend ---- #}
+      <a class="ask-hava-cta" href="/chat?q={{ ('Tell me about ' ~ (vm.provider_name | clean_name))|urlencode }}">
+        💬 Ask Hava about this business
+      </a>
+    </div>
+  </div>
+
+  {# ---- What's on at this venue — real upcoming events only (omitted if none) ---- #}
+  {% set provider_name = vm.provider_name %}
+  {% include 'components/venue_events_region.html' %}
+
+  {# ---- "While you're here" cross-discovery — real related listings only ---- #}
+  {% if nearby_providers %}
+  <div class="alsosee">
+    <div class="sec-head"><h2 style="font-size:1.2rem">While you're here</h2></div>
+    <div class="cat-strip">
+      {% for n in nearby_providers %}
+      <a class="catchip" href="{{ n.url }}">
+        <span class="e" aria-hidden="true">{{ n.glyph }}</span>
+        <div><div class="t">{{ n.name | clean_name }}</div><div class="n">{{ n.label }}</div></div>
+      </a>
       {% endfor %}
     </div>
-  </section>
+  </div>
   {% endif %}
+</div>
+{% endblock %}
 
-  <section class="ll-card" style="padding:16px; margin-top:12px;">
-    <p class="ll-eyebrow">Good to know</p>
-    <ul style="margin:0; padding-left:18px; color:var(--ll-muted);">
-      {% if vm.address %}<li>{{ vm.address }}</li>{% endif %}
-      {% if vm.hours_freetext %}<li>{{ vm.hours_freetext }}</li>{% endif %}
-      {% if vm.freshness_copy %}<li>{{ vm.freshness_copy }}</li>{% endif %}
-      {% if vm.verification_method_copy %}<li>{{ vm.verification_method_copy }}</li>{% endif %}
-      {% if vm.service_area_only and vm.service_area %}<li>Serves: {{ vm.service_area|join(', ') }}</li>{% endif %}
-    </ul>
-  </section>
-
-  {% if vm.address %}
-  <section class="ll-card" style="padding:16px; margin-top:12px;">
-    <p class="ll-eyebrow">Map</p>
-    {% if vm.directions_url %}
-    <a href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer">{{ vm.address }}</a>
-    {% else %}
-    <p style="margin:0; color:var(--ll-muted);">{{ vm.address }}</p>
-    {% endif %}
-  </section>
-  {% endif %}
-
-  {% if vm.google_review_snippets %}
-  <section class="ll-card" style="padding:16px; margin-top:12px;">
-    <p class="ll-eyebrow">What locals say</p>
-    {% for snippet in vm.google_review_snippets[:3] %}
-    <div style="border:1px solid var(--ll-line); border-radius:14px; padding:10px; margin-bottom:8px; background:#fff;">
-      <div style="color:var(--ll-mauve); margin-bottom:4px;">● ● ● ● ●</div>
-      <div style="color:var(--ll-muted);">{{ snippet.text or 'Trusted by local residents.' }}</div>
-    </div>
-    {% endfor %}
-  </section>
-  {% endif %}
-
-  {% if vm.show_claim_cta %}
-  <section class="ll-claim-box" style="margin-top:12px;">
-    <p class="ll-eyebrow" style="margin:0 0 6px;">Is this your business?</p>
-    <p style="margin:0 0 10px; color:var(--ll-muted);">Claim it and stand out with photos, accurate details, and featured placement options.</p>
-    <a class="ll-pill" href="{{ vm.claim_url or '/contribute' }}">Claim this listing</a>
-  </section>
-  {% endif %}
-
-  <section class="ll-card" style="padding:14px; margin-top:12px;">
-    <a href="{{ vm.ask_hava_url }}">Ask Hava about this business</a>
-  </section>
-
-  <section class="ll-sticky-cta">
-    <a href="{{ vm.ask_hava_url }}">Ask Hava for the best time to visit</a>
-  </section>
-</main>
-
-{% set active_tab = "saved" %}
-{% include "_partials/lake_light_bottom_nav.html" %}
+{% block scripts %}
 <script src="/static/favorites.js" defer></script>
-</body>
-</html>
+<script src="/static/js/sandstone_profile.js" defer></script>
+{% endblock %}
