@@ -329,10 +329,22 @@ def _build_category_card(
     status_text: str,
     image_url: str | None,
 ) -> dict[str, Any]:
-    """Shape a Provider row into the category-grid card contract."""
+    """Shape a Provider row into the category-grid card contract.
+
+    ``subcategory`` rides along so the Sandstone page can filter the
+    server-rendered grid in place by chip (the JS shows/hides on this token).
+    ``is_open`` drives the Sandstone open/closed pill: True/False from the live
+    hours status, None when hours are unknown (pill omitted, no fabrication).
+    """
     rating, review_count = _rating_display(
         provider.google_rating, getattr(provider, "google_review_count", None)
     )
+    if status_class in ("open", "closing-soon"):
+        is_open: bool | None = True
+    elif status_class in ("closed", "closed-soon"):
+        is_open = False
+    else:
+        is_open = None
     return {
         "slug": provider.slug,
         "name": provider.provider_name,
@@ -342,6 +354,8 @@ def _build_category_card(
         "status_text": status_text,
         "rating": rating,
         "review_count": review_count,
+        "subcategory": (provider.subcategory or "") if hasattr(provider, "subcategory") else "",
+        "is_open": is_open,
     }
 
 
@@ -470,6 +484,38 @@ def category_count(db: Session | None, slug: str) -> int | None:
 _REF_LAT = 34.4839
 _REF_LNG = -114.3225
 _TOP_RATED_MIN = 4.0
+
+# "Locals' favorites" weighted sort (01_UI_BUILD_GUIDE.md §4.8). A Bayesian
+# shrink toward the prior mean: a venue's star rating is pulled toward
+# ``_FAV_PRIOR_MEAN`` until it has accumulated reviews, with ``_FAV_PRIOR_WEIGHT``
+# pseudo-reviews of weight. So a 4.6/3878 institution outranks a 5.0/3 outlier —
+# the thin 5.0 barely moves off the 4.3 prior, while the institution's huge n
+# lets its real rating dominate. Formula: (rating*n + mean*weight)/(n + weight).
+_FAV_PRIOR_MEAN = 4.3
+_FAV_PRIOR_WEIGHT = 30
+
+
+def weighted_favorites_score(
+    rating: float | None,
+    review_count: int | None,
+) -> float:
+    """Volume-weighted "Locals' favorites" score for one provider.
+
+    ``score = (rating*n + 4.3*30)/(n+30)``. A provider with no rating scores at
+    the prior mean (it neither benefits nor suffers), so unrated rows sink below
+    credibly-reviewed ones without being fabricated into a rating. Never raises.
+    """
+    try:
+        r = float(rating) if rating is not None else _FAV_PRIOR_MEAN
+    except (TypeError, ValueError):
+        r = _FAV_PRIOR_MEAN
+    try:
+        n = int(review_count) if review_count is not None else 0
+    except (TypeError, ValueError):
+        n = 0
+    if n < 0:
+        n = 0
+    return (r * n + _FAV_PRIOR_MEAN * _FAV_PRIOR_WEIGHT) / (n + _FAV_PRIOR_WEIGHT)
 # Upper bound on rows scanned when a Python-side facet (open_now / closest) is
 # active. Comfortably above the largest bucket (Services ~1.5k) so the facet
 # count stays accurate; only paid when the facet is engaged.
@@ -529,7 +575,7 @@ class CategoryFacets:
     top_rated: bool = False
     open_late: bool = False
     open_weekends: bool = False
-    sort: str = "default"  # default | closest | alpha
+    sort: str = "default"  # default | favorites | closest | alpha
 
     @property
     def any_active(self) -> bool:
@@ -544,12 +590,20 @@ class CategoryFacets:
 
     @property
     def needs_materialize(self) -> bool:
-        """Whether a facet requires Python-side scanning (live hours / distance).
+        """Whether a facet requires Python-side scanning (live hours / distance /
+        weighted score).
 
         SQL-expressible facets (subcategory, top_rated) and the alpha sort do
-        NOT; ``open_now`` / ``open_late`` / ``open_weekends`` / ``closest`` do.
+        NOT; ``open_now`` / ``open_late`` / ``open_weekends`` / ``closest`` and
+        the ``favorites`` weighted sort do (the latter ranks on a Python-side
+        Bayesian score, not a column).
         """
-        return self.open_now or self.open_late or self.open_weekends or self.sort == "closest"
+        return (
+            self.open_now
+            or self.open_late
+            or self.open_weekends
+            or self.sort in ("closest", "favorites")
+        )
 
 
 def _distance_km(provider: Provider, ref_lat: float, ref_lng: float) -> float:
@@ -625,6 +679,15 @@ def category_listing(
             rows = [p for p in rows if _has_weekend_hours(effective_hours_structured(p))]
         if facets.sort == "closest":
             rows.sort(key=lambda p: (_distance_km(p, _REF_LAT, _REF_LNG), (p.provider_name or "").lower()))
+        elif facets.sort == "favorites":
+            rows.sort(
+                key=lambda p: (
+                    -weighted_favorites_score(
+                        p.google_rating, getattr(p, "google_review_count", None)
+                    ),
+                    (p.provider_name or "").lower(),
+                )
+            )
         elif facets.sort == "alpha":
             rows.sort(key=lambda p: (p.provider_name or "").lower())
         total = len(rows)
