@@ -169,3 +169,39 @@ def test_find_collapses_shared_venue_url_is_not_identity() -> None:
     out = find_collapses(rows)
     assert len(out) == 1
     assert {out[0].keep_id, out[0].dup_id} == {"lap", "lap-dup"}
+
+
+def test_events_status_constraint_allows_duplicate() -> None:
+    """The apply pass writes status='duplicate'; the migrated schema must accept
+    it (prod regression 2026-06-04: ck_events_status predated the script and
+    rejected the value, so --apply could never run)."""
+    import uuid
+    from datetime import date as _date
+
+    from app.db.database import SessionLocal
+    from app.db.models import Event
+
+    suf = uuid.uuid4().hex[:8]
+    with SessionLocal() as db:
+        from datetime import time as _time
+
+        ev = Event(
+            title=f"Dup Status Probe {suf}",
+            normalized_title=f"dup status probe {suf}",
+            date=_date(2026, 6, 6),
+            start_time=_time(18, 0),
+            location_name="Test Venue",
+            location_normalized="test venue",
+            description="constraint probe",
+            status="duplicate",
+            source="test-dedupe",
+        )
+        db.add(ev)
+        db.commit()
+        try:
+            assert db.get(Event, ev.id).status == "duplicate"
+        finally:
+            row = db.get(Event, ev.id)
+            if row is not None:
+                db.delete(row)
+            db.commit()
