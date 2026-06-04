@@ -18,6 +18,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.bootstrap_env import ensure_dotenv_loaded
+from app.contrib.autopublish_policy import is_eligible
+from app.contrib.schedule_publish import publish_contribution
 from app.db.contribution_store import (
     create_contribution,
     has_pending_or_approved_duplicate_url,
@@ -97,4 +99,17 @@ def ingest_contribution(
         return {"status": "duplicate", "submission_url": normalized}
 
     row = create_contribution(db, data)
+
+    # Auto-publish high-confidence class schedules onto their existing venue, if
+    # the kill-switch is enabled. The contribution row is always kept (audit);
+    # anything not eligible or that doesn't cleanly resolve stays pending for
+    # manual review in /admin/contributions.
+    if is_eligible(row):
+        result = publish_contribution(db, row)
+        if result.get("status") == "published":
+            return {
+                "status": "published",
+                "id": row.id,
+                "entity_id": result.get("entity_id"),
+            }
     return {"status": "queued", "id": row.id, "contribution_status": row.status}
