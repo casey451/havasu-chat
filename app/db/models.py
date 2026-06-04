@@ -94,6 +94,17 @@ class Provider(Base):
     last_google_scraped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     zip: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    # Liveness ranking (2026-06-03) — bury likely-dead listings without removing
+    # them. ``newest_review_at`` is the max review publishTime from the Places
+    # enrichment payload (the core staleness signal). ``liveness_score`` is the
+    # 0–1 blend computed by ``app/core/liveness.compute_liveness`` at load /
+    # backfill time; it feeds a multiplicative rank dampener so stale rows sink
+    # but are never excluded. Both nullable — non-Google rows leave them NULL,
+    # which the dampener treats as 1.0 (no dampening). See the 24b922964acd
+    # migration and LIVENESS_RANKING_HANDOFF_2026-06-03.md.
+    newest_review_at: Mapped[datetime | None] = mapped_column(TZAwareDateTime(), nullable=True)
+    liveness_score: Mapped[float | None] = mapped_column(Float, nullable=True, index=True)
+
     # Directory pivot V1 (2026-05-13): structured category FK alongside the
     # legacy string `category` column (line 36). Nullable until backfill
     # ticket lands. See docs/STRATEGY_PIVOT_2026-05-12.md §8.1.
@@ -810,6 +821,13 @@ class Entity(Base):
     featured: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false(), index=True
     )
+
+    # Liveness ranking (2026-06-03) — forward-compat mirror of
+    # ``Provider.liveness_score`` on the unified entity. Synced from the legacy
+    # Provider row by the dual-write hooks; NULL for non-Google / non-commercial
+    # entities (the rank dampener treats NULL as 1.0). See the 24b922964acd
+    # migration and LIVENESS_RANKING_HANDOFF_2026-06-03.md.
+    liveness_score: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     categories: Mapped[list["EntityCategory"]] = relationship(
         back_populates="entity", passive_deletes=True

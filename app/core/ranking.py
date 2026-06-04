@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
+from app.core.liveness import liveness_dampener
+
 if TYPE_CHECKING:
     from app.providers.view_models import HavaCardViewModel
 
@@ -40,6 +42,9 @@ class CardRankInput:
     open_now_boost: float = DEFAULT_OPEN_NOW_BOOST
     boat_access_boost: float = DEFAULT_BOAT_ACCESS_BOOST
     mobile_service_boost: float = DEFAULT_MOBILE_SERVICE_BOOST
+    # Liveness dampener input (0–1). ``None`` → no dampening (multiplier 1.0),
+    # so non-Google entities are unaffected. See ``app/core/liveness.py``.
+    liveness_score: float | None = None
 
 
 def compute_card_rank(
@@ -76,6 +81,10 @@ def compute_card_rank(
         score += base * inp.boat_access_boost
     if inp.mobile_service and inp.mobile_service_boost:
         score += base * inp.mobile_service_boost
+
+    # Liveness dampener — bury likely-dead listings without excluding them.
+    # Applied last so it scales the fully-boosted score; NULL → multiplier 1.0.
+    score *= liveness_dampener(inp.liveness_score)
 
     return score
 
