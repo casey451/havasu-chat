@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.routes import category_pages as cat_pages
-from app.categories.queries import CATEGORY_FILTERS
+from app.categories.queries import primary_listing_filter
 from app.core.conditions_temperature import read_current_temperature_f
 from app.core.ranking import compute_card_rank
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
@@ -75,44 +75,22 @@ def _profile_url_for_entity(db: Session, ent: Entity) -> str:
     return vm.profile_url or "/home"
 
 
-def _legacy_categories_for(category_slugs: list[str]) -> set[str]:
-    """Union of legacy ``Provider.category`` strings for the given route slugs.
-
-    Map scopes resolve to Tier-1 route slugs (same vocabulary as
-    ``CATEGORY_FILTERS`` keys / ``Category.slug``); this expands them into the
-    legacy free-string vocab actually stored on ``Provider.category``. Slugs
-    with no provider mapping (e.g. ``events``, ``outdoors-parks-trails``)
-    contribute nothing here and are served purely by the entity-category path.
-    """
-    legacy: set[str] = set()
-    for slug in category_slugs:
-        legacy.update(CATEGORY_FILTERS.get(slug, ()))
-    return legacy
-
-
 def _select_provider_entities(
     db: Session,
     *,
     category_slugs: list[str],
     boat_only: bool,
 ) -> list[Entity]:
-    """Select active providers' entities for a map scope (WP-9).
+    """Select active providers' entities for a map scope (WP-9 / WP-12).
 
-    Scope slugs are the canonical 12 (``TIER_1_CATEGORY_SLUGS``). A provider is
-    selected when its canonical ``primary_category`` is in the scope OR — while
-    that column is still NULL — when its legacy ``Provider.category`` is in the
-    scope's legacy set (``CATEGORY_FILTERS``). The legacy path is the gap-fix that
-    keeps large service categories rendering pins until the backfill lands; the
-    primary path makes the map group by the same canonical taxonomy as Home/Explore.
+    Scope slugs are the canonical 13 (``TIER_1_CATEGORY_SLUGS``). A provider is
+    selected by :func:`primary_listing_filter` — the ONE canonical category clause
+    every count surface shares (audit S4): canonical ``primary_category`` in the
+    scope, OR (while that column is still NULL) a legacy ``Provider.category`` that
+    folds into the scope. Using the shared clause — rather than a map-local legacy
+    expansion — is what makes a category's pin count agree with its Home tile and
+    Explore header count.
     """
-    from sqlalchemy import and_, or_
-
-    legacy = _legacy_categories_for(category_slugs)
-    clauses = [Provider.primary_category.in_(category_slugs)]
-    if legacy:
-        clauses.append(
-            and_(Provider.primary_category.is_(None), Provider.category.in_(legacy))
-        )
     stmt = (
         select(Entity)
         .join(Provider, Provider.entity_id == Entity.id)
@@ -122,7 +100,7 @@ def _select_provider_entities(
         )
         .where(
             Entity.is_active.is_(True),
-            or_(*clauses),
+            primary_listing_filter(set(category_slugs)),
             Provider.is_active.is_(True),
             Provider.draft.is_(False),
         )
