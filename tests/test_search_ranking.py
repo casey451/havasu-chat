@@ -57,3 +57,54 @@ def test_composite_rank_stacks_featured_and_fresh() -> None:
         Tier2RankInputs(fts_score=0.5, last_verified_at=lv, featured=True, ref_now=ref)
     )
     assert r == 0.5 + 30.0 + 25.0
+
+
+# --- liveness dampener (bury stale listings; NULL → unchanged) ---
+
+
+def test_composite_rank_null_liveness_unchanged() -> None:
+    ref = datetime(2026, 5, 1, 12, 0, tzinfo=UTC)
+    base = composite_rank_float(
+        Tier2RankInputs(fts_score=10.0, last_verified_at=None, featured=False, ref_now=ref)
+    )
+    with_null = composite_rank_float(
+        Tier2RankInputs(
+            fts_score=10.0,
+            last_verified_at=None,
+            featured=False,
+            ref_now=ref,
+            liveness_score=None,
+        )
+    )
+    assert base == with_null == 10.0
+
+
+def test_composite_rank_zero_liveness_halves() -> None:
+    ref = datetime(2026, 5, 1, 12, 0, tzinfo=UTC)
+    r = composite_rank_float(
+        Tier2RankInputs(
+            fts_score=10.0,
+            last_verified_at=None,
+            featured=False,
+            ref_now=ref,
+            liveness_score=0.0,
+        )
+    )
+    assert r == 5.0
+
+
+def test_composite_rank_liveness_orders_equal_base() -> None:
+    ref = datetime(2026, 5, 1, 12, 0, tzinfo=UTC)
+
+    def score(liveness: float) -> float:
+        return composite_rank_float(
+            Tier2RankInputs(
+                fts_score=10.0,
+                last_verified_at=None,
+                featured=False,
+                ref_now=ref,
+                liveness_score=liveness,
+            )
+        )
+
+    assert score(0.9) > score(0.2)
