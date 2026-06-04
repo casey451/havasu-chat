@@ -66,6 +66,7 @@ from app.core.provider_name import (
     register_template_globals as _register_template_globals,
 )
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
+from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal, get_db, init_db
 from app.db.models import AuthSession, Event, Provider
 from app.digest.routes import router as digest_router
@@ -441,11 +442,34 @@ def _format_event_datetime(event: Event) -> str:
     weekday = event.date.strftime("%A")
     month = event.date.strftime("%B")
     day = event.date.day
+    if event.start_time is None:
+        # WP-4 allows NULL times at ingest (never fabricate noon). A timeless
+        # event shows the date only -- dereferencing start_time here would 500
+        # the permalink.
+        return f"{weekday}, {month} {day}"
     hour_24 = event.start_time.hour
     minute = event.start_time.minute
     suffix = "AM" if hour_24 < 12 else "PM"
     hour_12 = hour_24 % 12 or 12
     return f"{weekday}, {month} {day}, {hour_12}:{minute:02d} {suffix}"
+
+
+def _event_is_past(event: Event) -> bool:
+    # Drives the "This event has passed" banner on the detail page. A recurring
+    # series (rdate) is never "passed" while it still recurs, so only flag genuine
+    # one-offs. Compare against Lake Havasu local time. A date-only event (NULL
+    # time) is past only once the whole day is over -- never mid-day -- so a
+    # same-day all-day event is not prematurely buried.
+    if event.rdate:
+        return False
+    now = now_lake_havasu()
+    end_d = event.end_date or event.date
+    if end_d < now.date():
+        return True
+    if end_d > now.date():
+        return False
+    last_time = event.end_time or event.start_time
+    return last_time is not None and last_time < now.time()
 
 
 def _truncate_for_og(value: str, limit: int = 160) -> str:
@@ -502,6 +526,7 @@ def _render_permalink_response(
             "og_url": permalink_url,
             "image_url": event.image_url,
             "formatted_datetime": _format_event_datetime(event),
+            "is_past": _event_is_past(event),
             "location_name": event.location_name,
             "description": event.description,
             "contact_html": contact_html,
