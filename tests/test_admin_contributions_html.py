@@ -413,3 +413,83 @@ def test_detail_no_proposed_record_section_when_absent(client: TestClient) -> No
     r = client.get(f"/admin/contributions/{cid}")
     assert r.status_code == 200
     assert "Proposed record (scraped)" not in r.text
+
+
+def test_approve_form_prefills_from_proposed_record(client: TestClient) -> None:
+    """The program approve form must pre-fill from the scraped proposed_record —
+    otherwise the operator submits the placeholder defaults (venue name as the
+    class title, monday 09:00-17:00) and garbage lands on the venue."""
+    client.cookies.clear()
+    _login(client)
+    db = SessionLocal()
+    try:
+        row = create_contribution(
+            db,
+            ContributionCreate(
+                entity_type="program",
+                submission_name="Prefill Studio",
+                source_url="https://example.com/prefill-schedule",
+                source="facebook_scrape",
+                confidence=0.8,
+                target_entity_id="00000000-0000-0000-0000-000000000002",
+                proposed_record={
+                    "title": "Moonrise Pilates",
+                    "description": "Evening reformer pilates class for all levels.",
+                    "schedule_days": ["tuesday", "thursday"],
+                    "schedule_start_time": "18:15",
+                    "schedule_end_time": "19:15",
+                    "location_name": "Prefill Studio Annex",
+                    "provider_name": "Prefill Studio LLC",
+                    "cost": "$22/class",
+                    "contact_phone": "928-555-0000",
+                    "tags": ["pilates", "fitness"],
+                },
+            ),
+            None,
+        )
+        cid = row.id
+    finally:
+        db.close()
+    r = client.get(f"/admin/contributions/{cid}/approve")
+    assert r.status_code == 200
+    body = r.text
+    assert 'value="Moonrise Pilates"' in body
+    assert "Evening reformer pilates class for all levels." in body
+    assert 'value="tuesday,thursday"' in body
+    assert 'value="18:15"' in body
+    assert 'value="19:15"' in body
+    assert 'value="Prefill Studio Annex"' in body
+    assert 'value="Prefill Studio LLC"' in body
+    assert 'value="$22/class"' in body
+    assert 'value="928-555-0000"' in body
+    assert 'value="pilates,fitness"' in body
+    # placeholder defaults must NOT remain
+    assert 'value="monday"' not in body
+    assert 'value="09:00"' not in body
+
+
+def test_approve_form_falls_back_without_proposed_record(client: TestClient) -> None:
+    """Legacy user submissions (no proposed_record) keep the old defaults."""
+    client.cookies.clear()
+    _login(client)
+    db = SessionLocal()
+    try:
+        row = create_contribution(
+            db,
+            ContributionCreate(
+                entity_type="program",
+                submission_name="Legacy Program Submission",
+                source="user_submission",
+            ),
+            None,
+        )
+        cid = row.id
+    finally:
+        db.close()
+    r = client.get(f"/admin/contributions/{cid}/approve")
+    assert r.status_code == 200
+    body = r.text
+    assert 'value="Legacy Program Submission"' in body
+    assert 'value="monday"' in body
+    assert 'value="09:00"' in body
+    assert 'value="17:00"' in body

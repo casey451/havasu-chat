@@ -98,6 +98,9 @@ def test_publish_attaches_to_existing_entity_no_dup() -> None:
             sch = db.query(Schedule).filter(Schedule.entity_id == eid).one()
             assert sch.days_of_week == ["monday", "wednesday"]
             assert sch.start_time.hour == 9
+            # notes carries the class title so readers can pair the Schedule
+            # with its Offering (no FK between the tables).
+            assert sch.notes == "Vinyasa Flow"
             c = db.get(Contribution, cid)
             assert c.status == "approved"
             assert c.created_entity_id == eid

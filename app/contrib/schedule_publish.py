@@ -124,7 +124,9 @@ def attach_schedule_to_entity(
             days_of_week=list(fields.schedule_days or []),
             capacity=None,
             capacity_label=None,
-            notes=None,
+            # Class title — lets readers pair this Schedule with its Offering
+            # (no FK between the two tables).
+            notes=fields.title[:255],
             created_at=_utc_now_naive(),
             updated_at=_utc_now_naive(),
         )
