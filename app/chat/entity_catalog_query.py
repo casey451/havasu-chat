@@ -190,6 +190,14 @@ def _base_entity_stmt(*, category_slugs: tuple[str, ...] | None, boat_mode: bool
                     Provider.is_active.is_(True),
                     Provider.draft.is_(False),
                 ),
+                # Carve-out: a commercial venue with NO Provider record at all
+                # but with published content (Offerings attached by the
+                # schedule-hunt approve flow) is chat-visible. The schedule-hunt
+                # import creates bare Entities; without this their approved
+                # class schedules can never surface. Entities whose Provider is
+                # draft/inactive stay hidden — the provider review gate still
+                # applies whenever a Provider row exists.
+                and_(Provider.id.is_(None), Entity.offerings.any()),
             ),
         )
     )
