@@ -10,7 +10,7 @@ from app.core.rate_limit import limiter
 from app.db.database import get_db
 from app.db.entity_dual_write import create_program_and_entity
 from app.db.models import Program
-from app.schemas.program import ProgramCreate, ProgramRead
+from app.schemas.program import ProgramCreate, ProgramPublic, ProgramRead
 
 router = APIRouter()
 
@@ -66,7 +66,10 @@ def create_program(
     return program
 
 
-@router.get("/programs", response_model=list[ProgramRead])
+# Public payload: ProgramPublic drops the internal ML embedding + provenance
+# `source` (parity with the /events -> /api/events scrub in WP-7). `id` is kept
+# -- it is the public /programs/{id} permalink key.
+@router.get("/programs", response_model=list[ProgramPublic])
 def list_programs(db: Session = Depends(get_db)) -> list[Program]:
     return (
         db.query(Program)
@@ -370,7 +373,7 @@ def program_submit(
     return HTMLResponse(_submit_success_html(program.title))
 
 
-@router.get("/programs/{program_id}", response_model=ProgramRead)
+@router.get("/programs/{program_id}", response_model=ProgramPublic)
 def get_program(program_id: str, db: Session = Depends(get_db)) -> Program:
     program = db.query(Program).filter(Program.id == program_id).first()
     if program is None:

@@ -96,6 +96,13 @@ class ProgramApiTests(unittest.TestCase):
             db.query(Program).delete()
             db.commit()
 
+    def tearDown(self) -> None:
+        # Symmetric cleanup so seeded programs cannot leak into the shared
+        # session DB and pollute later tests.
+        with SessionLocal() as db:
+            db.query(Program).delete()
+            db.commit()
+
     def test_create_program_minimal(self) -> None:
         r = self.__class__.client.post("/programs", json=_minimal_program_payload())
         self.assertEqual(r.status_code, 200, msg=r.text)
@@ -142,6 +149,29 @@ class ProgramApiTests(unittest.TestCase):
         titles = {item["title"] for item in r.json()}
         self.assertIn(a.title, titles)
         self.assertIn(b.title, titles)
+
+    def test_list_programs_excludes_internal_fields(self) -> None:
+        # Public payload must not leak the ML embedding or internal provenance
+        # `source` (parity with the /events -> /api/events scrub).
+        _insert_program_directly(title="Public Hygiene A")
+        r = self.__class__.client.get("/programs")
+        self.assertEqual(r.status_code, 200)
+        items = r.json()
+        self.assertTrue(items)
+        for item in items:
+            self.assertNotIn("embedding", item)
+            self.assertNotIn("source", item)
+            # id stays -- it is the public /programs/{id} permalink key.
+            self.assertIn("id", item)
+
+    def test_get_program_by_id_excludes_internal_fields(self) -> None:
+        program = _insert_program_directly(title="Public Hygiene B")
+        r = self.__class__.client.get(f"/programs/{program.id}")
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertNotIn("embedding", body)
+        self.assertNotIn("source", body)
+        self.assertEqual(body["id"], program.id)
 
     def test_program_schema_validation(self) -> None:
         payload = _minimal_program_payload()
