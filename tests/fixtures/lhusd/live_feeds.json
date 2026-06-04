@@ -1,0 +1,22 @@
+{
+  "data": [
+    {
+      "id": 9001,
+      "title": "Kindergarten Registration Now Open",
+      "url": "https://www.havasu.k12.az.us/article/9001",
+      "description": "<p>Register your incoming kindergartener for the 2026-27 school year.</p>",
+      "published_at": "2026-06-02T15:00:00Z"
+    },
+    {
+      "id": 9002,
+      "headline": "District Wins STEM Grant",
+      "permalink": "https://www.havasu.k12.az.us/article/9002",
+      "content": "<div>LHUSD received a $50,000 grant for robotics.</div>",
+      "created_at": "2026-05-30T18:30:00Z"
+    },
+    {
+      "id": 9003,
+      "description": "Item with no title or url - should be skipped."
+    }
+  ]
+}
