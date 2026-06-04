@@ -13,10 +13,10 @@ from uuid import uuid4
 
 from app.chat.entity_catalog_query import _entity_row_dict, _program_lines
 from app.db.database import SessionLocal
-from app.db.models import Entity, Offering, Schedule
+from app.db.models import Category, Entity, EntityCategory, Offering, Schedule
 
 
-def _seed_entity(db, name="Catalog Programs Gym") -> Entity:
+def _seed_entity(db, name="Catalog Programs Gym", *, categorize=False) -> Entity:
     ent = Entity(
         id=str(uuid4()),
         entity_type="commercial",
@@ -26,6 +26,11 @@ def _seed_entity(db, name="Catalog Programs Gym") -> Entity:
         is_active=True,
     )
     db.add(ent)
+    if categorize:
+        # the schedule-hunt import assigns one primary category per venue
+        cat = db.query(Category).order_by(Category.id).first()
+        assert cat is not None, "seeded Category required"
+        db.add(EntityCategory(entity_id=ent.id, category_id=cat.id, is_primary=True))
     db.commit()
     return ent
 
@@ -54,6 +59,7 @@ def _add_pair(db, eid, title, days, start, end, price=None, notes=None):
 
 
 def _cleanup(db, eid):
+    db.query(EntityCategory).filter(EntityCategory.entity_id == eid).delete()
     db.query(Schedule).filter(Schedule.entity_id == eid).delete()
     db.query(Offering).filter(Offering.entity_id == eid).delete()
     db.query(Entity).filter(Entity.id == eid).delete()
@@ -146,6 +152,49 @@ def test_entity_row_dict_programs_empty_for_plain_business() -> None:
     try:
         row = _entity_row_dict(ent, provider=None, event=None, rank_score=1.0)
         assert row["programs"] == []
+    finally:
+        _cleanup(db, ent.id)
+        db.close()
+
+
+def test_commercial_entity_with_offerings_visible_without_provider() -> None:
+    """Schedule-hunt venues are commercial Entities with no Provider row; the
+    provider gate must not hide them once they carry published offerings."""
+    from app.chat.chat_request_context import ChatRequestContext
+    from app.chat.entity_catalog_query import query_entities
+    from app.chat.tier2_schema import Tier2Filters
+
+    db = SessionLocal()
+    ent = _seed_entity(db, name="Gateless Quilt Guild Annex", categorize=True)
+    try:
+        _add_pair(db, ent.id, "Open Sew", ["wednesday"], "10:00", "14:00",
+                  notes="Open Sew")
+        db.refresh(ent)
+        rows = query_entities(
+            db, Tier2Filters(entity_name="Gateless Quilt Guild", parser_confidence=1.0), ChatRequestContext()
+        )
+        names = [r["name"] for r in rows]
+        assert "Gateless Quilt Guild Annex" in names
+        row = next(r for r in rows if r["name"] == "Gateless Quilt Guild Annex")
+        assert row["programs"] == ["Open Sew | Wed 10:00-14:00"]
+    finally:
+        _cleanup(db, ent.id)
+        db.close()
+
+
+def test_commercial_entity_without_offerings_stays_gated() -> None:
+    """No provider AND no published content -> still hidden (quality gate)."""
+    from app.chat.chat_request_context import ChatRequestContext
+    from app.chat.entity_catalog_query import query_entities
+    from app.chat.tier2_schema import Tier2Filters
+
+    db = SessionLocal()
+    ent = _seed_entity(db, name="Bare Gateless Entity", categorize=True)
+    try:
+        rows = query_entities(
+            db, Tier2Filters(entity_name="Bare Gateless Entity", parser_confidence=1.0), ChatRequestContext()
+        )
+        assert all(r["name"] != "Bare Gateless Entity" for r in rows)
     finally:
         _cleanup(db, ent.id)
         db.close()
