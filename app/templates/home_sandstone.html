@@ -14,7 +14,7 @@
       </div>
     </form>
     <div class="quicklinks">
-      <a href="/categories/eat-drink">What's open now</a>
+      <a href="/categories/eat-drink?open=1">What's open now</a>
       <a href="/categories/on-the-water">On the water</a>
       <a href="/events-ui">This week's events</a>
       <a href="/categories/things-to-do">Things to do</a>
@@ -84,20 +84,25 @@
       <div class="grid" id="calendar">
         {% for week in calendar.weeks %}{% for cell in week %}
         {% if not cell.in_month %}
-        <div class="cell empty"></div>
-        {% else %}
-        <div class="cell{% if cell.is_today %} today{% endif %}{% if cell.has %} has{% endif %}{% if cell.special %} special-day{% endif %}">
+        <div class="cell empty" aria-hidden="true"></div>
+        {% elif cell.has %}
+        <a class="cell has{% if cell.is_today %} today{% endif %}{% if cell.special %} special-day{% endif %}" href="/events-ui?date={{ cell.iso }}" aria-label="{{ cell.count }} event{{ '' if cell.count == 1 else 's' }} on day {{ cell.day }}">
           <div class="d">{{ cell.day }}</div>
-          {% for ev in cell.events %}<span class="ev {{ ev.type }}">{{ ev.title }}</span>{% endfor %}
+          <span class="cell-count" aria-hidden="true">{{ cell.count }}</span>
+          {% for ev in cell.events %}<span class="ev ev-{{ ev.type }}">{{ ev.title }}</span>{% endfor %}
           {% if cell.overflow > 0 %}<span class="ev more">+{{ cell.overflow }}</span>{% endif %}
+        </a>
+        {% else %}
+        <div class="cell{% if cell.is_today %} today{% endif %}">
+          <div class="d">{{ cell.day }}</div>
         </div>
         {% endif %}
         {% endfor %}{% endfor %}
       </div>
       <div class="cal-legend">
-        <span><i style="background:var(--live)"></i>Special event</span>
-        <span><i style="background:var(--accent)"></i>On the water</span>
-        <span><i style="background:var(--accent-soft)"></i>Class / ongoing</span>
+        <span><i class="leg ev-special"></i>Special event</span>
+        <span><i class="leg ev-water"></i>On the water</span>
+        <span><i class="leg ev-class"></i>Class / ongoing</span>
       </div>
       {% else %}
       <div class="cal-empty" id="calendar">No events posted for {{ calendar.label }} yet. <a href="/events-ui" style="color:var(--accent);font-weight:600">Browse all events →</a></div>

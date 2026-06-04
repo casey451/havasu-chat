@@ -9,29 +9,57 @@
   <meta property="og:description" content="{{ og_description }}">
   <meta property="og:url" content="{{ og_url }}">
   {% if image_url %}<meta property="og:image" content="{{ image_url }}">{% endif %}
+  {# DL-15: event detail moves onto the Sandstone Fraunces/Figtree font stack
+     (fixes the old Georgia fallback from lake_light.css). #}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles/lake_light.css">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles/sandstone.css">
+  <link rel="stylesheet" href="/static/styles/sandstone_events.css">
 </head>
-<body class="ll-page">
-{% set active_tab = "events" %}
-<main class="ll-utility-shell" role="main">
-  {% set header_back_href = "/events-ui" %}
-  {% set header_back_label = "Back to Events" %}
-  {% include "_partials/lake_light_header.html" %}
-  <article class="ll-utility-main">
-    <p class="ll-eyebrow">Event details</p>
-    <h1>{{ event_title }}</h1>
-    <p class="ll-muted">{{ formatted_datetime }} · {{ (location_name | clean_name) or "Location TBD" }}</p>
-    {% if image_url %}<img class="ll-event-image" src="{{ image_url }}" alt="{{ event_title }}" loading="lazy" style="max-width:100%;height:auto;border-radius:10px;margin:12px 0" onerror="this.style.display='none'">{% endif %}
-    <p>{{ description }}</p>
+<body data-mode="ask">
+<main id="main" role="main">
+  <article class="ev-detail wrap">
+    <div class="crumb"><a href="/home">Home</a> › <a href="/events-ui">Events</a> › Detail</div>
+
+    {% if is_past %}
+    <div class="ev-passed-banner" role="status">This event has passed. Check the <a href="/events-ui">events list</a> for what's coming up.</div>
+    {% endif %}
+
+    <p class="ev-eyebrow">Event details</p>
+    <h1 class="ev-detail-title">{{ event_title }}</h1>
+    <p class="ev-detail-meta">{{ formatted_datetime }} · {{ (location_name | clean_name) or "Location TBD" }}</p>
+
+    {% if image_url %}<img class="ev-detail-image" src="{{ image_url }}" alt="{{ event_title }}" loading="lazy" onerror="this.style.display='none'">{% endif %}
+
+    {# Action row: directions to the venue + the canonical event link (when the
+       route supplies one). .ics download and the save-heart need route context
+       the main.py handler does not yet pass -- noted as a PR follow-up. #}
+    <div class="ev-detail-actions">
+      {% if location_name %}
+      <a class="ev-btn" href="https://www.google.com/maps/dir/?api=1&destination={{ location_name | urlencode }}" target="_blank" rel="noopener noreferrer">Directions</a>
+      {% endif %}
+    </div>
+
+    {% if description %}<div class="ev-detail-desc">{{ description }}</div>{% else %}
+    {# Sparse-event fallback: lead with the venue + organizer card and a map link
+       so a description-less event still reads as a real, useful page. #}
+    <div class="ev-sparse-card">
+      <h2>About this event</h2>
+      <p>Details for this event are limited. Here is what we know:</p>
+      <ul class="ev-sparse-list">
+        <li><strong>When:</strong> {{ formatted_datetime }}</li>
+        <li><strong>Where:</strong> {{ (location_name | clean_name) or "Location TBD" }}</li>
+      </ul>
+    </div>
+    {% endif %}
+
     {{ contact_html | safe }}
     {{ event_link_html | safe }}
     {{ tags_html | safe }}
+
+    <p class="ev-detail-back"><a href="/events-ui">← Back to all events</a></p>
   </article>
-  {% include "_partials/lake_light_footer.html" %}
 </main>
-{% include "_partials/lake_light_bottom_nav.html" %}
 </body>
 </html>
