@@ -659,7 +659,11 @@ def admin_login_submit(
         sign_admin_cookie(),
         max_age=MAX_AGE_SECONDS,
         httponly=True,
-        samesite="lax",
+        # T1.5 / D3: Strict closes the cross-site POST (CSRF) vector on the
+        # admin console's state-changing forms. The admin tool has no
+        # cross-site entry flow (unlike the user magic-link return), so Strict
+        # is safe here; the user ``hava_session`` cookie stays Lax.
+        samesite="strict",
         path="/",
     )
     return resp
