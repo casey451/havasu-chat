@@ -127,6 +127,11 @@ def build_conditions_api_payload(db: Session, *, now: datetime | None = None) ->
                     "uv_index": float(uv),
                     "uv_max": openuv_row.data.get("uv_max"),
                     "uv_severity": openuv_row.data.get("uv_severity") or "neutral",
+                    # uv_source distinguishes the live Open-UV reading from the
+                    # keyless EPA forecast fallback so the tile attributes
+                    # honestly; default to Open-UV for rows written before the
+                    # robust fetcher landed.
+                    "uv_source": openuv_row.data.get("uv_source") or "Open-UV",
                     "uv_updated_at_iso": _iso(openuv_row.fetched_at),
                     "uv_staleness_label": label,
                     "uv_is_stale": stale or openuv_row.is_stale,

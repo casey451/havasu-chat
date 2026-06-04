@@ -74,30 +74,14 @@ def build_conditions_strip_view_model(
             )
         )
 
-    # Sky/condition text chip (e.g. "Sunny") from the NWS daily forecast. Only
-    # emitted when api_payload surfaced a non-empty sky_condition, so the strip
-    # degrades gracefully when the forecast source is missing.
-    sky = api.get("sky_condition")
-    if isinstance(sky, str) and sky.strip():
-        label = api.get("sky_staleness_label") or "Updated recently"
-        stale = bool(api.get("sky_is_stale"))
-        any_stale = any_stale or stale
-        tiles.append(
-            ConditionsTile(
-                kind="sky_condition",
-                primary_value=sky.strip(),
-                secondary_value=None,
-                attribution_chip="NWS forecast",
-                severity="neutral",
-                staleness_label=label,
-                is_stale=stale,
-                detail_text=None,
-                visible=True,
-            )
-        )
+    # Task 0 (source-expansion): the low-value "Sunny" sky chip was demoted in
+    # favour of a UV tile. sky_condition is still computed by nws.py and carried
+    # in the api_payload for JSON consumers, but it is no longer rendered as a
+    # conditions-strip tile — UV (sun-safety) is the higher-value desert signal.
 
-    # UV index (Open-UV, key-gated). api_payload only surfaces uv_index when the
-    # OPENUV_API_KEY-backed source has data, so this tile is absent by default.
+    # UV index. api_payload surfaces uv_index whenever EITHER the key-gated
+    # Open-UV source OR the keyless EPA forecast fallback has data, so this tile
+    # now renders without an OPENUV_API_KEY (it just attributes to EPA instead).
     uv = api.get("uv_index")
     if isinstance(uv, (int, float)):
         label = api.get("uv_staleness_label") or "Updated recently"
@@ -109,7 +93,7 @@ def build_conditions_strip_view_model(
                 kind="uv",
                 primary_value=f"UV {uv:g}",
                 secondary_value=(f"Peak UV {uv_max:g}" if isinstance(uv_max, (int, float)) else None),
-                attribution_chip="Open-UV",
+                attribution_chip=str(api.get("uv_source") or "Open-UV"),
                 severity=str(api.get("uv_severity") or "neutral"),
                 staleness_label=label,
                 is_stale=stale,
