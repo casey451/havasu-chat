@@ -27,7 +27,7 @@ from app.home.queries import CATEGORY_LABELS
 _ROUTE_LABEL_FALLBACK: dict[str, str] = {
     "things-to-do": "Things to Do",
     "services": "Services",
-    "professional": "Professional",
+    "professional-services": "Professional",
     "beauty-care": "Beauty & Personal Care",
     "attractions": "Attractions",
 }
@@ -70,7 +70,7 @@ _SERVICE_TILES: tuple[tuple[str, str, str], ...] = (
     ("\U0001F697", "Auto & RV", "auto-rv-fuel"),
     ("\U0001F488", "Beauty", "beauty-care"),
     ("\U0001F43E", "Pets", "pets"),
-    ("\U0001F4BC", "Professional", "professional"),
+    ("\U0001F4BC", "Professional", "professional-services"),
     ("\U0001F3DB️", "Civic & Public", "public-civic-resources"),
 )
 
@@ -105,7 +105,7 @@ _MEGA_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Eat & Drink", ("eat-drink",)),
     ("On the Water", ("on-the-water",)),
     ("Things to Do", ("things-to-do", "attractions", "classes-sports-recreation")),
-    ("Services", ("services", "home-property-services", "auto-rv-fuel", "beauty-care", "professional", "pets")),
+    ("Services", ("services", "home-property-services", "auto-rv-fuel", "beauty-care", "professional-services", "pets")),
     ("Health & Medical", ("health-wellness-care",)),
     ("Living Here", ("lodging-vacation-rentals", "shopping-essentials", "public-civic-resources")),
 )

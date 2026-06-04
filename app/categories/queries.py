@@ -114,7 +114,7 @@ CATEGORY_FILTERS: dict[str, tuple[str, ...]] = {
         "services",
     ),
     "shopping-essentials": ("retail",),
-    "professional": (
+    "professional-services": (
         "professional_services",
         "real_estate",
         "insurance",
@@ -184,8 +184,8 @@ CATEGORY_DISPLAY: dict[str, tuple[str, str]] = {
         "Shopping",
         "Grocery, retail, specialty shops.",
     ),
-    "professional": (
-        "Professional",
+    "professional-services": (
+        "Professional Services",
         "Real estate, legal, financial, insurance.",
     ),
     "beauty-care": (
@@ -237,7 +237,7 @@ _TAB_FOR_ROUTE: dict[str, str] = {
     "health-wellness-care": "services",
     "home-property-services": "services",
     "shopping-essentials": "services",
-    "professional": "services",
+    "professional-services": "services",
     "beauty-care": "services",
     "auto-rv-fuel": "services",
     "public-civic-resources": "services",
@@ -400,7 +400,7 @@ def _allowed_subcategory_slugs(route_slug: str) -> set[str] | None:
 _TILE_ROUTE_SUBCATS: dict[str, tuple[str, ...]] = {
     "health-wellness-care": ("health-medical",),
     "home-property-services": ("home-services",),
-    "professional": ("professional",),
+    "professional-services": ("professional",),
     "beauty-care": ("beauty",),
     "auto-rv-fuel": ("auto",),
     "public-civic-resources": ("civic-community",),

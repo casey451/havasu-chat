@@ -70,6 +70,13 @@ register_template_globals(templates)
 
 router = APIRouter(tags=["categories"])
 
+# Renamed tier-1 route slugs -> their canonical destination. ``professional``
+# became ``professional-services`` when WP-9 split the 13th canonical category
+# out of public-civic; old bookmarks/links 301 to the new page.
+ROUTE_SLUG_ALIASES: dict[str, str] = {
+    "professional": "/categories/professional-services",
+}
+
 
 # ---------------------------------------------------------------------------
 # /categories index: cached payload (Q2)
@@ -470,6 +477,9 @@ def serve_category(
     """
     normalised = (slug or "").strip().lower()
     if not cat_queries.is_valid_category_slug(normalised):
+        alias_dest = ROUTE_SLUG_ALIASES.get(normalised)
+        if alias_dest:
+            return RedirectResponse(url=alias_dest, status_code=301)
         bucket_dest = BUCKET_SLUG_REDIRECTS.get(normalised)
         if bucket_dest:
             return RedirectResponse(url=bucket_dest, status_code=301)

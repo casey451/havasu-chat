@@ -24,7 +24,7 @@ from __future__ import annotations
 # (slug, display name, sort_order)
 NEW_BUCKETS: tuple[tuple[str, str, int], ...] = (
     ("things-to-do", "Things to Do", 30),
-    ("professional", "Professional Services", 40),
+    ("professional-services", "Professional Services", 40),
     ("beauty-care", "Beauty & Personal Care", 41),
     ("attractions", "Attractions", 31),
     ("services", "Services", 42),
@@ -33,7 +33,7 @@ NEW_BUCKETS: tuple[tuple[str, str, int], ...] = (
 # legacy Provider.category value -> target Category slug. Conservative, hand-made.
 LEGACY_TO_BUCKET: dict[str, str] = {
     "things-to-do": "things-to-do",
-    "professional_services": "professional",
+    "professional_services": "professional-services",
     "religion_community": "public-civic-resources",
     "beauty_personal_care": "beauty-care",
     "recreation": "classes-sports-recreation",
@@ -113,3 +113,95 @@ def reverse_backfill(conn) -> None:
     seeded = [s for s, _n, _o in NEW_BUCKETS]
     if seeded:
         conn.execute(sa.delete(categories).where(categories.c.slug.in_(seeded)))
+
+
+# ---------------------------------------------------------------------------
+# WP-9 step 2 -- the 13th canonical category, ``professional-services``
+# ---------------------------------------------------------------------------
+#
+# The route/code taxonomy gained ``professional-services`` (split out of
+# public-civic); prod's ``categories`` table only had the older ``professional``
+# bucket. ``seed_professional_services`` adds the canonical row (no-op when the
+# pivoted ``NEW_BUCKETS`` above already seeded it on a fresh DB) and repoints
+# ``Provider.category_id`` for providers whose canonical
+# ``primary_category='professional-services'`` -- but ONLY rows that are NULL or
+# still point at the legacy ``professional`` bucket. A deliberate different
+# assignment is never overwritten. Idempotent.
+
+PROFESSIONAL_SERVICES_SLUG = "professional-services"
+PROFESSIONAL_SERVICES_NAME = "Professional Services"
+PROFESSIONAL_SERVICES_SORT = 40
+_LEGACY_PROFESSIONAL_SLUG = "professional"
+
+
+def _tables_ps():
+    import sqlalchemy as sa
+
+    categories, providers = _tables()
+    providers_ps = sa.table(
+        "providers",
+        sa.column("category_id", sa.Integer),
+        sa.column("primary_category", sa.String),
+    )
+    return categories, providers_ps
+
+
+def seed_professional_services(conn) -> dict[str, int]:
+    """Seed the canonical row + repoint category_id. Returns counts."""
+    import sqlalchemy as sa
+
+    categories, providers = _tables_ps()
+    slug_to_id = {
+        r[0]: r[1] for r in conn.execute(sa.select(categories.c.slug, categories.c.id))
+    }
+    new_id = slug_to_id.get(PROFESSIONAL_SERVICES_SLUG)
+    seeded = 0
+    if new_id is None:
+        res = conn.execute(
+            sa.insert(categories).values(
+                slug=PROFESSIONAL_SERVICES_SLUG,
+                name=PROFESSIONAL_SERVICES_NAME,
+                sort_order=PROFESSIONAL_SERVICES_SORT,
+            )
+        )
+        seeded = 1
+        new_id = conn.execute(
+            sa.select(categories.c.id).where(
+                categories.c.slug == PROFESSIONAL_SERVICES_SLUG
+            )
+        ).scalar_one()
+
+    old_id = slug_to_id.get(_LEGACY_PROFESSIONAL_SLUG)
+    eligible = [providers.c.category_id.is_(None)]
+    if old_id is not None:
+        eligible.append(providers.c.category_id == old_id)
+    res = conn.execute(
+        sa.update(providers)
+        .where(providers.c.primary_category == PROFESSIONAL_SERVICES_SLUG)
+        .where(sa.or_(*eligible))
+        .values(category_id=new_id)
+    )
+    return {"seeded": seeded, "repointed": res.rowcount or 0}
+
+
+def reverse_professional_services(conn) -> None:
+    """Undo: repoint rows back to the legacy bucket (when it exists, else NULL),
+    then drop the canonical row."""
+    import sqlalchemy as sa
+
+    categories, providers = _tables_ps()
+    slug_to_id = {
+        r[0]: r[1] for r in conn.execute(sa.select(categories.c.slug, categories.c.id))
+    }
+    new_id = slug_to_id.get(PROFESSIONAL_SERVICES_SLUG)
+    if new_id is None:
+        return
+    old_id = slug_to_id.get(_LEGACY_PROFESSIONAL_SLUG)
+    conn.execute(
+        sa.update(providers)
+        .where(providers.c.category_id == new_id)
+        .values(category_id=old_id)
+    )
+    conn.execute(
+        sa.delete(categories).where(categories.c.slug == PROFESSIONAL_SERVICES_SLUG)
+    )
