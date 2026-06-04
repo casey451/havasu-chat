@@ -2,6 +2,15 @@
 
 Separate from heuristic ``classify()`` — one gpt-4.1-mini JSON call per turn when
 ``OPENAI_API_KEY`` is set. On failure or missing key, returns ``None`` (no-op).
+
+Signal gate (2026-06-04): the prompt only ever extracts an explicit child age
+("my 6-year-old", "for a teenager") or a specific Lake Havasu location ("near
+the island", "staying downtown"), so a message containing none of those signals
+cannot produce a hint. We pre-screen with a cheap regex and skip the API call
+when no signal is present. At ~$0.0003 and ~1s per call on every chat turn,
+this call site was the dominant per-turn cost and latency line at scale.
+Kill switch: set ``HINT_GATE`` to ``0``/``false``/``no``/``off`` to restore the
+old call-every-turn behavior.
 """
 
 from __future__ import annotations
@@ -9,11 +18,13 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
 
+from app.chat.intents.dicts import AREA_DICT
 from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
 
 try:
@@ -28,6 +39,47 @@ except ImportError:  # pragma: no cover
 # while preserving the warning's purpose (catching unexpected ballooning).
 _SOFT_BUDGET_INP = 400
 _SOFT_BUDGET_OUT = 100
+
+# --- Signal gate -----------------------------------------------------------
+# Age: digits ("my 6 year old", "for 9-12 year olds") or age words. "kid" /
+# "adult" alone are NOT signals — the prompt explicitly refuses to infer age
+# from them, so gating them out loses nothing.
+_AGE_SIGNALS = r"\d|year|yr\b|teen|toddler|month[- ]old"
+# Location: relational phrases that introduce a place, plus the canonical Lake
+# Havasu area names (kept in sync with the intent layer via AREA_DICT), plus
+# common landmark words from prompts/hint_extractor.txt examples.
+_LOCATION_PHRASES = [
+    "near",
+    "close to",
+    "staying",
+    "by the",
+    "next to",
+    "walking distance",
+    "channel",
+    "london bridge",
+]
+_SIGNAL_RE = re.compile(
+    "|".join(
+        [_AGE_SIGNALS]
+        + [re.escape(p) for p in _LOCATION_PHRASES]
+        + [re.escape(k) for k in AREA_DICT]
+    ),
+    re.IGNORECASE,
+)
+
+
+def _gate_enabled() -> bool:
+    return (os.getenv("HINT_GATE") or "").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+
+
+def has_hint_signal(query: str) -> bool:
+    """True when the message plausibly contains an age or location hint."""
+    return bool(_SIGNAL_RE.search(query or ""))
 
 
 class ExtractedHints(BaseModel):
@@ -54,6 +106,8 @@ def extract_hints(query: str) -> ExtractedHints | None:
     """Call gpt-4.1-mini for optional age/location hints. Returns ``None`` on skip/failure."""
     q = (query or "").strip()
     if not q:
+        return None
+    if _gate_enabled() and not has_hint_signal(q):
         return None
     api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
     if not api_key or OpenAI is None:
