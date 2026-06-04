@@ -551,6 +551,34 @@ def effective_hours_structured_from_entity(entity: Entity) -> dict | None:
     return _hours_rows_to_structured(list(rows))
 
 
+_OVERNIGHT_CLAMP_CLOSE = time(23, 59)
+_OVERNIGHT_CLAMP_OPEN = time(0, 0)
+
+
+def _overnight_effective_close(hours: dict, weekday: int, close_t: time) -> time:
+    """Resolve the true close time across the 23:59/00:00 overnight split (L4).
+
+    When today's span ends at the 23:59 pipeline clamp and tomorrow's first
+    span opens at 00:00, the run continues past midnight — return tomorrow's
+    close time so the "Closes at ..." copy reads the real hour rather than the
+    awkward 11:59 PM artifact. Otherwise return ``close_t`` unchanged.
+    """
+    if close_t != _OVERNIGHT_CLAMP_CLOSE:
+        return close_t
+    next_key = _WEEKDAY_KEYS[(weekday + 1) % 7]
+    next_spans = hours.get(next_key)
+    if not isinstance(next_spans, list) or not next_spans:
+        return close_t
+    first = next_spans[0]
+    if not isinstance(first, dict):
+        return close_t
+    nxt_open = _parse_hours_time(str(first.get("open") or ""))
+    nxt_close = _parse_hours_time(str(first.get("close") or ""))
+    if nxt_open == _OVERNIGHT_CLAMP_OPEN and nxt_close is not None:
+        return nxt_close
+    return close_t
+
+
 def is_open_status_from_structured_hours(
     hours: dict | None, *, now: Optional[datetime] = None
 ) -> tuple[Optional[bool], Optional[str]]:
@@ -578,7 +606,13 @@ def is_open_status_from_structured_hours(
         if open_t is None or close_t is None:
             continue
         if open_t <= now_t < close_t:
-            close_label = _format_hour(close_t)
+            # Overnight clamp fix (L4): the pipeline splits a cross-midnight
+            # period into a span closing at 23:59 plus a next-day 00:00 span.
+            # When this span ends at the 23:59 clamp AND tomorrow opens at
+            # midnight, the business is really open into tomorrow — report the
+            # next-day close ("Closes at 2 AM") instead of "Closes at 11:59 PM".
+            display_close = _overnight_effective_close(hours, now_dt.weekday(), close_t)
+            close_label = _format_hour(display_close)
             return (True, f"Open now · Closes at {close_label}")
     upcoming = [_parse_hours_time(str(s.get("open") or "")) for s in spans if isinstance(s, dict)]
     upcoming = [t for t in upcoming if t is not None and t > now_t]
