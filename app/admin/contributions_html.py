@@ -22,6 +22,7 @@ from app.contrib.approval_service import (
     parse_comma_tags,
     parse_schedule_days_field,
 )
+from app.contrib.schedule_publish import attach_program_to_existing_entity
 from app.db.contribution_store import (
     count_contributions,
     get_contribution,
@@ -29,7 +30,7 @@ from app.db.contribution_store import (
     update_contribution_status,
 )
 from app.db.database import get_db
-from app.db.models import Contribution, Program, Provider
+from app.db.models import Contribution, Entity, Program, Provider
 from app.schemas.contribution import (
     EventApprovalFields,
     ProgramApprovalFields,
@@ -713,8 +714,16 @@ def register_contribution_html_routes(router: APIRouter) -> None:
                     contact_url=contact_url,
                     tags=parse_comma_tags(tags),
                 )
-                prog = approve_contribution_as_program(db, contribution_id, pr, category or "")
-                msg = f"Approved: {prog.title} is now in the catalog."
+                target = (c.target_entity_id or "").strip()
+                if target and db.get(Entity, target) is not None:
+                    # Scraped class schedule for an existing venue → attach to it
+                    # instead of minting a duplicate venue (uses the operator's
+                    # edits to the form fields).
+                    attach_program_to_existing_entity(db, c, pr, target)
+                    msg = f"Approved: '{pr.title}' attached to the existing venue."
+                else:
+                    prog = approve_contribution_as_program(db, contribution_id, pr, category or "")
+                    msg = f"Approved: {prog.title} is now in the catalog."
             elif c.entity_type == "event":
                 if not event_date:
                     raise ValueError("event_date required")

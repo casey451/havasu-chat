@@ -168,3 +168,36 @@ def test_resolve_prefers_explicit_target() -> None:
         finally:
             pass
     _cleanup(eid, cid)
+
+
+def test_attach_program_to_existing_entity_uses_edited_fields() -> None:
+    """Manual-approve attach path lands the operator-edited fields on the venue."""
+    from app.contrib.schedule_publish import attach_program_to_existing_entity
+    from app.schemas.contribution import ProgramApprovalFields
+
+    with SessionLocal() as db:
+        eid = _seed_entity(db, name="Attach Probe Studio")
+        cid = _seed_contribution(db, target_entity_id=eid)
+    try:
+        edited = ProgramApprovalFields(
+            title="Edited Class Name",
+            description="Operator-edited description, at least twenty chars.",
+            schedule_days=["friday"],
+            schedule_start_time="17:30",
+            schedule_end_time="18:30",
+            location_name="Attach Probe Studio",
+            provider_name="Attach Probe Studio",
+        )
+        with SessionLocal() as db:
+            c = db.get(Contribution, cid)
+            before = db.query(func.count(Entity.id)).scalar()
+            rid = attach_program_to_existing_entity(db, c, edited, eid)
+            assert rid == eid
+        with SessionLocal() as db:
+            assert db.query(func.count(Entity.id)).scalar() == before  # no new venue
+            off = db.query(Offering).filter(Offering.entity_id == eid).one()
+            assert off.name == "Edited Class Name"
+            assert db.get(Contribution, cid).status == "approved"
+            assert db.get(Contribution, cid).created_entity_id == eid
+    finally:
+        _cleanup(eid, cid)

@@ -38,6 +38,39 @@ def has_pending_or_approved_duplicate_url(db: Session, normalized_url: str | Non
     return False
 
 
+def _norm_title(title: str | None) -> str:
+    """Whitespace/case-normalized title for scraped-program dedup."""
+    return " ".join((title or "").lower().split())
+
+
+def has_pending_or_approved_program_dup(
+    db: Session, target_entity_id: str | None, title: str | None
+) -> bool:
+    """True if a pending/approved ``program`` contribution already targets this
+    entity with the same proposed-record title.
+
+    Scraped class schedules POST a ``source_url`` (the schedule page) but no
+    ``submission_url``, and many distinct classes share one page — so the
+    ``submission_url`` dedup never fires for them. Without this, a daily
+    autonomous run would re-queue the same class every time. Key on
+    (target_entity_id, normalized proposed_record.title): distinct classes on the
+    same page are kept; an identical re-post is rejected.
+    """
+    norm = _norm_title(title)
+    if not target_entity_id or not norm:
+        return False
+    stmt = select(Contribution).where(
+        Contribution.status.in_(("pending", "approved")),
+        Contribution.entity_type == "program",
+        Contribution.target_entity_id == target_entity_id,
+    )
+    for row in db.execute(stmt).scalars().all():
+        pr = row.proposed_record if isinstance(row.proposed_record, dict) else {}
+        if _norm_title(pr.get("title")) == norm:
+            return True
+    return False
+
+
 def count_submissions_since_by_ip_hash(db: Session, ip_hash: str, since: datetime) -> int:
     """Count contributions from this IP hash with submitted_at >= since (naive UTC)."""
     n = db.scalar(
