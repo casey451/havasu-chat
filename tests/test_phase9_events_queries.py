@@ -69,6 +69,43 @@ def test_event_window_for_chip_this_weekend_friday_before() -> None:
     assert end.weekday() == 6
 
 
+# --- strict Sat-Sun ``weekend`` chip + this-week anchor matrix (WP-3) --------
+# 2026-06-03 is a Wednesday; 06-06 a Saturday; 06-07 a Sunday.
+
+
+def test_weekend_chip_from_wednesday_jumps_to_upcoming_saturday() -> None:
+    start, end = event_window_for_chip("weekend", today=date(2026, 6, 3))  # Wed
+    assert (start.weekday(), end.weekday()) == (5, 6)  # Sat .. Sun
+    assert start.isoformat() == "2026-06-06"
+    assert end.isoformat() == "2026-06-07"
+
+
+def test_weekend_chip_on_saturday_is_that_weekend() -> None:
+    start, end = event_window_for_chip("weekend", today=date(2026, 6, 6))  # Sat
+    assert start.isoformat() == "2026-06-06"
+    assert end.isoformat() == "2026-06-07"
+
+
+def test_weekend_chip_on_sunday_keeps_current_weekend() -> None:
+    # Sunday must not collapse forward to next Saturday -- it stays in the
+    # weekend that is ending today (Sat 06-06 .. Sun 06-07).
+    start, end = event_window_for_chip("weekend", today=date(2026, 6, 7))  # Sun
+    assert start.isoformat() == "2026-06-06"
+    assert end.isoformat() == "2026-06-07"
+
+
+def test_this_week_anchor_wed_sat_sun() -> None:
+    # Wednesday -> today through Sunday.
+    s, e = event_window_for_chip("this-week", today=date(2026, 6, 3))
+    assert (s.isoformat(), e.isoformat()) == ("2026-06-03", "2026-06-07")
+    # Saturday -> today through Sunday.
+    s, e = event_window_for_chip("this-week", today=date(2026, 6, 6))
+    assert (s.isoformat(), e.isoformat()) == ("2026-06-06", "2026-06-07")
+    # Sunday -> just today (week already ends today; not a collapse bug).
+    s, e = event_window_for_chip("this-week", today=date(2026, 6, 7))
+    assert (s.isoformat(), e.isoformat()) == ("2026-06-07", "2026-06-07")
+
+
 def test_events_in_window_non_recurring(db) -> None:
     ev = _make_live_event(db, on_date=date(2026, 8, 1))
     db.commit()

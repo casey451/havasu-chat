@@ -12,7 +12,8 @@ Also hosts the sponsor attribution endpoints (v52 P0):
 from __future__ import annotations
 
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
+from datetime import date as dt_date
 from pathlib import Path
 from typing import Any
 
@@ -144,15 +145,49 @@ def _series_index_for(db: Session, *, start_day: datetime, end_day: datetime) ->
     )
 
 
-def _events_for_window(
-    db: Session, *, start_day: datetime, end_day: datetime, limit: int
+def _window_event_dict(ev: Event, *, recurring: bool, schedule_label: str) -> dict[str, str]:
+    start_at = datetime.combine(ev.date, ev.start_time)
+    category_label, accent = _event_accent(ev.tags)
+    # M-16/M-17: render the start-end span when an end time is known so a class
+    # reads "5:00 - 6:00 AM", not just a start. Falls back to the start label.
+    time_label = _format_event_time_label(start_at)
+    if ev.end_time is not None:
+        end_at = datetime.combine(ev.end_date or ev.date, ev.end_time)
+        if end_at > start_at:
+            time_label = f"{_format_event_time_label(start_at)} - {_format_event_time_label(end_at)}"
+    return {
+        "id": ev.id,
+        "title": ev.title,
+        "venue": ev.location_name,
+        "url": f"/events/{ev.id}",
+        "time_label": time_label,
+        "day_label": start_at.strftime("%a"),
+        "date_label": str(start_at.day),
+        "month_label": start_at.strftime("%b"),
+        "image_url": None,
+        "featured": bool(ev.featured),
+        "category_label": category_label,
+        "accent_color": accent,
+        "recurring": recurring,
+        "schedule_label": schedule_label,
+    }
+
+
+def _collapse_window_events(
+    db: Session, *, start_day: datetime, end_day: datetime
 ) -> list[dict[str, str]]:
-    """Events in the window, with recurring series collapsed to one entry.
+    """All events in the window, recurring series collapsed to one entry each.
 
     A class that occurs every weekday (28 separate rows for "Lap Swim") would
     otherwise flood the feed and bury one-off events. We detect series by their
-    natural key and emit each once — anchored on its next occurrence in the
+    natural key and emit each once -- anchored on its next occurrence in the
     window, tagged ``recurring`` with a human ``schedule_label`` (brief §4).
+
+    Ordering puts one-offs first (then by date/time) so that a later cap never
+    drops a one-off festival in favour of a recurring class. ``featured`` is a
+    secondary key *within* the one-off and recurring groups, not the primary
+    sort -- the old ``featured.desc()`` primary let featured recurring classes
+    fill the cap ahead of plain one-offs (brief §2).
     """
     rows = (
         db.query(Event)
@@ -161,7 +196,7 @@ def _events_for_window(
             Event.date >= start_day.date(),
             Event.date <= end_day.date(),
         )
-        .order_by(Event.featured.desc(), Event.date.asc(), Event.start_time.asc())
+        .order_by(Event.date.asc(), Event.start_time.asc())
         .all()
     )
     index = _series_index_for(db, start_day=start_day, end_day=end_day)
@@ -174,31 +209,102 @@ def _events_for_window(
         recurring = bool(info and info.is_series)
         if recurring:
             if key in seen_series:
-                continue  # one card per series — this is the next occurrence
+                continue  # one card per series -- this is the next occurrence
             seen_series.add(key)
-        start_at = datetime.combine(ev.date, ev.start_time)
-        category_label, accent = _event_accent(ev.tags)
         items.append(
-            {
-                "id": ev.id,
-                "title": ev.title,
-                "venue": ev.location_name,
-                "url": f"/events/{ev.id}",
-                "time_label": _format_event_time_label(start_at),
-                "day_label": start_at.strftime("%a"),
-                "date_label": str(start_at.day),
-                "month_label": start_at.strftime("%b"),
-                "image_url": None,
-                "featured": bool(ev.featured),
-                "category_label": category_label,
-                "accent_color": accent,
-                "recurring": recurring,
-                "schedule_label": event_series.schedule_label(info.weekdays) if recurring else "",
-            }
+            _window_event_dict(
+                ev,
+                recurring=recurring,
+                schedule_label=event_series.schedule_label(info.weekdays) if recurring else "",
+            )
         )
-        if len(items) >= limit:
-            break
+
+    # One-offs first (preserving chronological order within each group), then
+    # featured-but-one-off rise within the one-off block, then recurring.
+    items.sort(key=lambda it: (it["recurring"], not it["featured"]))
     return items
+
+
+def _events_for_window(
+    db: Session, *, start_day: datetime, end_day: datetime, limit: int
+) -> list[dict[str, str]]:
+    """Capped, series-collapsed window feed (one-offs prioritised before fill)."""
+    return _collapse_window_events(db, start_day=start_day, end_day=end_day)[:limit]
+
+
+def _events_for_window_with_total(
+    db: Session, *, start_day: datetime, end_day: datetime, limit: int
+) -> tuple[list[dict[str, str]], int]:
+    """Return ``(shown_rows, total_after_collapse)`` for honest "N total" copy.
+
+    The total is the *collapsed* count (recurring series counted once) so the
+    "N coming up . showing M" line matches what the user can actually scroll to,
+    not the raw row count that the series collapse hides (brief §2).
+    """
+    collapsed = _collapse_window_events(db, start_day=start_day, end_day=end_day)
+    return collapsed[:limit], len(collapsed)
+
+
+def _tonight_card(db: Session, *, now: datetime) -> dict[str, Any] | None:
+    """Build the home "Tonight" card per DL-16.
+
+    Selection: the next event today that has *not yet started* (start_time strictly
+    after ``now``), preferring one-offs over recurring classes. If nothing remains
+    today, fall back to the earliest event tomorrow. The card label switches:
+
+    * "Tonight" -- a remaining event today when it is already evening (>= 16:00).
+    * "Today"   -- a remaining event today earlier in the day.
+    * "Tomorrow"-- when today is exhausted and the next event is tomorrow.
+
+    Returns ``None`` (card omitted) when neither today nor tomorrow has an event
+    -- never a fabricated placeholder (anti-confabulation contract).
+    """
+    today = now.date()
+    now_t = now.time()
+
+    def _earliest(rows: list[Event]) -> Event | None:
+        # One-offs win ties so a festival beats a recurring class at the same time.
+        ranked = sorted(rows, key=lambda e: (e.start_time, bool(e.is_recurring)))
+        return ranked[0] if ranked else None
+
+    todays = (
+        db.query(Event)
+        .filter(
+            Event.status == "live",
+            Event.date == today,
+            Event.start_time > now_t,
+        )
+        .all()
+    )
+    chosen = _earliest(todays)
+    if chosen is not None:
+        label = "Tonight" if now.hour >= 16 else "Today"
+    else:
+        tomorrow = today + timedelta(days=1)
+        rows = (
+            db.query(Event)
+            .filter(
+                Event.status == "live",
+                Event.date == tomorrow,
+            )
+            .all()
+        )
+        chosen = _earliest(rows)
+        label = "Tomorrow"
+
+    if chosen is None:
+        return None
+
+    start_at = datetime.combine(chosen.date, chosen.start_time)
+    sub_bits = [b for b in (_format_event_time_label(start_at), chosen.location_name) if b]
+    return {
+        "kind": "tonight",
+        "k": label,
+        "title": chosen.title,
+        "sub": " · ".join(sub_bits),
+        "href": f"/events/{chosen.id}",
+        "live": False,
+    }
 
 
 def _bucket_destination_route(bucket_id: str) -> str:
@@ -377,7 +483,7 @@ def serve_home(
     """
     now = now_lake_havasu()
     utility_chips = _utility_chips(db)
-    events_today = _events_for_window(db, start_day=now, end_day=now, limit=6)
+    tonight_card = _tonight_card(db, now=now)
     cal_year, cal_month = sandstone.parse_cal_param(cal, default=now)
     spotlights = sponsor_store.active_spotlights(db)
     # Hero copy defaults to the locked prototype wording (with its italic accent);
@@ -396,7 +502,7 @@ def serve_home(
             "primary_nav": sandstone.primary_nav(),
             "mega_columns": sandstone.mega_columns(db),
             "today_cards": sandstone.today_cards(
-                utility_chips=utility_chips, events_today=events_today
+                utility_chips=utility_chips, tonight_card=tonight_card
             ),
             "featured_cards": sandstone.featured_cards(spotlights),
             "calendar": sandstone.calendar_month(
@@ -529,6 +635,25 @@ def _split_oneoff_and_ongoing(
     return oneoff_groups, ongoing
 
 
+def _group_series_by_venue(ongoing: list[dict]) -> list[dict]:
+    """Group the recurring "Classes & ongoing" list by venue (brief §3).
+
+    Returns ``[{"venue": str, "items": [...]}]`` ordered by first appearance so
+    the events list can render one collapsible block per venue
+    ("Aquatic Center -- 5 classes") instead of a flat flood of class rows.
+    """
+    buckets: dict[str, dict] = {}
+    order: list[str] = []
+    for it in ongoing:
+        venue = (it.get("venue") or "").strip()
+        bkey = venue.lower()
+        if bkey not in buckets:
+            buckets[bkey] = {"venue": venue, "cards": []}
+            order.append(bkey)
+        buckets[bkey]["cards"].append(it)
+    return [buckets[k] for k in order]
+
+
 def _event_list_windows(now: datetime) -> dict[str, tuple[datetime, datetime]]:
     """Honest, contiguous, gap-free buckets for the events list (E-1).
 
@@ -552,29 +677,118 @@ def _event_list_windows(now: datetime) -> dict[str, tuple[datetime, datetime]]:
     }
 
 
+# ``?when=`` chips on /events-ui. Each maps to the subset of buckets to show.
+# ``all`` (and any unknown value) shows every bucket. ``today``/``this-week``/
+# ``next-week`` narrow to a single bucket; ``weekend`` reuses the strict Sat-Sun
+# window from ``event_window_for_chip`` so the chip agrees with the category page.
+_EVENTS_WHEN_CHIPS: tuple[tuple[str, str], ...] = (
+    ("all", "All"),
+    ("today", "Today"),
+    ("weekend", "This Weekend"),
+    ("this-week", "This Week"),
+    ("next-week", "Next Week"),
+)
+_WINDOW_CAP = 16
+
+
+def _parse_iso_date(value: str | None) -> dt_date | None:
+    if not value or not str(value).strip():
+        return None
+    try:
+        return dt_date.fromisoformat(str(value).strip()[:10])
+    except ValueError:
+        return None
+
+
 @router.get("/events-ui", response_class=HTMLResponse)
-def serve_events_ui(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    """Render the Sandstone events list (today / this week / next week)."""
+def serve_events_ui(
+    request: Request,
+    db: Session = Depends(get_db),
+    when: str | None = None,
+    date: str | None = None,
+) -> HTMLResponse:
+    """Render the Sandstone events list (today / this week / next week).
+
+    ``?when=`` narrows to a single bucket (``today``/``weekend``/``this-week``/
+    ``next-week``); ``?date=YYYY-MM-DD`` (the home-calendar day links) shows a
+    single-day window. Each rendered bucket carries an honest total so the
+    section header reads "N coming up . showing M . See all ->".
+    """
     now = now_lake_havasu()
+    when_key = (when or "all").strip().lower()
+    single_day = _parse_iso_date(date)
+
     windows = _event_list_windows(now)
-    groups = {
-        "today": _events_for_window(db, start_day=windows["today"][0], end_day=windows["today"][1], limit=12),
-        "this_week": _events_for_window(
-            db, start_day=windows["this_week"][0], end_day=windows["this_week"][1], limit=16
-        ),
-        "next_week": _events_for_window(
-            db, start_day=windows["next_week"][0], end_day=windows["next_week"][1], limit=16
-        ),
-    }
-    oneoff_groups, ongoing_classes = _split_oneoff_and_ongoing(groups)
-    total = sum(len(v) for v in oneoff_groups.values()) + len(ongoing_classes)
+    if single_day is not None:
+        day_dt = datetime.combine(single_day, time(12, 0))
+        window_defs = [("date", single_day.strftime("%A, %B ") + str(single_day.day), (day_dt, day_dt))]
+    elif when_key == "weekend":
+        from app.events.queries import event_window_for_chip as _chip
+
+        w_start, w_end = _chip("weekend", today=now.date())
+        window_defs = [
+            (
+                "weekend",
+                "This Weekend",
+                (datetime.combine(w_start, time(12, 0)), datetime.combine(w_end, time(12, 0))),
+            )
+        ]
+    else:
+        ordered = [
+            ("today", "Today", windows["today"]),
+            ("this_week", "This Week", windows["this_week"]),
+            ("next_week", "Next Week", windows["next_week"]),
+        ]
+        key_map = {"today": "today", "this-week": "this_week", "next-week": "next_week"}
+        if when_key in key_map:
+            window_defs = [d for d in ordered if d[0] == key_map[when_key]]
+        else:
+            window_defs = ordered
+
+    raw_groups: dict[str, list[dict[str, str]]] = {}
+    totals: dict[str, int] = {}
+    labels: dict[str, str] = {}
+    for gkey, label, (start_day, end_day) in window_defs:
+        rows, total = _events_for_window_with_total(
+            db, start_day=start_day, end_day=end_day, limit=_WINDOW_CAP
+        )
+        raw_groups[gkey] = rows
+        totals[gkey] = total
+        labels[gkey] = label
+
+    oneoff_groups, ongoing_classes = _split_oneoff_and_ongoing(raw_groups)
+    ongoing_by_venue = _group_series_by_venue(ongoing_classes)
+    # Sections preserve the requested order; each carries shown/total for the
+    # honest header line. Recurring rows are pulled into ``ongoing_classes``, so
+    # the per-section "showing M" counts the visible one-offs.
+    sections = [
+        {
+            "key": gkey,
+            "label": labels[gkey],
+            "cards": oneoff_groups.get(gkey, []),
+            "shown": len(oneoff_groups.get(gkey, [])),
+            "total": totals[gkey],
+            "capped": totals[gkey] > _WINDOW_CAP,
+        }
+        for gkey, _label, _w in window_defs
+    ]
+    events_total = sum(s["total"] for s in sections)
+    chips = [
+        {"key": key, "label": label, "active": (key == when_key and single_day is None)}
+        for key, label in _EVENTS_WHEN_CHIPS
+    ]
     return templates.TemplateResponse(
         request=request,
         name="events_sandstone.html",
         context={
-            "events_groups": oneoff_groups,
-            "ongoing_classes": ongoing_classes,
-            "events_total": total,
+            "event_sections": sections,
+            "ongoing_classes": ongoing_by_venue,
+            "events_total": events_total,
+            "when_chips": chips,
+            "active_when": when_key,
+            "selected_date_label": single_day.strftime("%A, %B ") + str(single_day.day)
+            if single_day
+            else None,
             "month_label": now.strftime("%B %Y"),
             "active_tab": "events",
             "primary_nav": sandstone.primary_nav(),
