@@ -135,10 +135,10 @@ a.spon:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
 .cal-nav{display:flex;gap:8px}
 .cal-nav a,.cal-nav button{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:var(--bg);cursor:pointer;font-size:1.05rem;color:var(--accent);transition:.2s}
 .cal-nav a:hover,.cal-nav button:hover{background:var(--accent);color:var(--on-accent)}
-.dow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px}
+.dow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-bottom:6px}
 .dow span{text-align:center;font-size:.66rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
-.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
-.cell{min-height:72px;border:1px solid var(--border);border-radius:9px;padding:5px 6px;background:var(--bg);position:relative}
+.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.cell{min-height:72px;min-width:0;border:1px solid var(--border);border-radius:9px;padding:5px 6px;background:var(--bg);position:relative}
 .cell.empty{background:transparent;border:0}
 .cell.today{outline:2px solid var(--live);outline-offset:-2px;background:var(--surface)}
 .cell .d{font-size:.76rem;font-weight:700;color:var(--text)}
@@ -245,6 +245,13 @@ footer.site .made{font-family:"Fraunces",serif;font-style:italic;color:var(--acc
 .header-search input{flex:1;min-width:0;border:0;outline:0;background:none;font-family:inherit;font-size:.92rem;color:var(--text)}
 .header-search button{flex:none;width:32px;height:32px;border:0;border-radius:999px;background:var(--accent);color:var(--on-accent);cursor:pointer;font-weight:700}
 .header-signin{font-weight:600;font-size:.86rem;color:var(--accent);white-space:nowrap;padding:7px 10px}
+/* WP-11 secondary CTA next to the header search. It had no styling, so the raw
+   link collided with the mode pills on a crowded header. Style it compactly and
+   only show it when the header has room (hidden below 1150px, where the bar is
+   tight -- chat stays reachable via the Ask mode + the mobile menu). */
+.header-ask-instead{flex:none;white-space:nowrap;font-size:.8rem;font-weight:600;color:var(--muted);text-decoration:none;padding:7px 6px}
+.header-ask-instead:hover{color:var(--accent);text-decoration:underline}
+@media(max-width:1150px){.header-ask-instead{display:none}}
 
 /* Mobile hamburger drawer (real disclosure menu opened by sandstone.js). */
 .nav-drawer{position:absolute;top:100%;right:var(--gutter);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:10px;display:flex;flex-direction:column;min-width:180px;z-index:80}
