@@ -150,3 +150,56 @@ def test_search_sqlite_fallback_dampener_buries_stale(db: Session) -> None:
         for obj in (stale_p, fresh_p, stale_ent, fresh_ent):
             db.delete(db.get(type(obj), obj.id) or obj)
         db.commit()
+
+
+# --- 3. top_rated category sort path ---
+
+
+def test_top_rated_sort_buries_stale_high_rating(db: Session) -> None:
+    """A stale 4.9 sinks below a fresh 4.5 once the dampener applies."""
+    from app.api.routes.category_pages import _sort_entity_ids
+
+    stale = _bare_entity(f"Stale Grill {_suffix()}", 0.1)
+    fresh = _bare_entity(f"Fresh Grill {_suffix()}", 0.9)
+    sp = _bare_provider(stale, 0.1)
+    sp.google_rating = 4.9
+    fp = _bare_provider(fresh, 0.9)
+    fp.google_rating = 4.5
+    db.add_all([stale, fresh, sp, fp])
+    db.commit()
+
+    ordered = _sort_entity_ids(
+        [stale, fresh],
+        sort_key="top_rated",
+        ref_lat=34.48,
+        ref_lng=-114.32,
+        db=db,
+        category_slug="restaurants",
+        now=NOW,
+    )
+    assert [e.id for e in ordered] == [fresh.id, stale.id]
+
+
+def test_top_rated_sort_null_liveness_keeps_rating_order(db: Session) -> None:
+    """NULL liveness is a no-op: the higher raw rating still wins."""
+    from app.api.routes.category_pages import _sort_entity_ids
+
+    hi = _bare_entity(f"Hi Grill {_suffix()}", None)
+    lo = _bare_entity(f"Lo Grill {_suffix()}", None)
+    hp = _bare_provider(hi, None)
+    hp.google_rating = 4.9
+    lp = _bare_provider(lo, None)
+    lp.google_rating = 4.5
+    db.add_all([hi, lo, hp, lp])
+    db.commit()
+
+    ordered = _sort_entity_ids(
+        [lo, hi],
+        sort_key="top_rated",
+        ref_lat=34.48,
+        ref_lng=-114.32,
+        db=db,
+        category_slug="restaurants",
+        now=NOW,
+    )
+    assert [e.id for e in ordered] == [hi.id, lo.id]

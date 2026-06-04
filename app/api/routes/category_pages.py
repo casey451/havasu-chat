@@ -39,6 +39,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.conditions_temperature import read_current_temperature_f
+from app.core.liveness import liveness_dampener
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.ranking import CardRankInput, compute_card_rank
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
@@ -596,6 +597,16 @@ def _sort_entity_ids(
     def top_rated_key(e: Entity) -> tuple:
         p = prov_by_eid.get(e.id)
         rating = float(p.google_rating) if p and p.google_rating is not None else -1.0
+        if rating >= 0:
+            # Liveness dampener — bury stale listings in Top-rated too. Same
+            # entity-first fallback and NULL → no-op semantics as the
+            # closest_now path (see rank_inputs_for_category).
+            liveness = (
+                e.liveness_score
+                if e.liveness_score is not None
+                else (p.liveness_score if p is not None else None)
+            )
+            rating *= liveness_dampener(liveness)
         return (-rating, (e.name or "").lower())
 
     if sort_key == "alphabetical":
