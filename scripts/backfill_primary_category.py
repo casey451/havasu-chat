@@ -9,6 +9,11 @@ The primary is derived deterministically (no LLM) from ``Provider.subcategory``
 (the strong Google-derived signal), falling back to the legacy ``Provider.category``
 when no subcategory is stored — see app.categories.subcategories.derive_primary_category.
 
+Manual-assignment guard (2026-06-04): when derivation has NO signal (derives to
+``None``) but the row already carries a primary_category — i.e. someone assigned
+it by hand — the row is PRESERVED, never reverted to NULL. Without this, running
+``--apply`` after a manual classification pass would silently wipe it.
+
 Usage (Windows / PowerShell):
 
     .venv\\Scripts\\python.exe scripts\\backfill_primary_category.py            # DRY RUN
@@ -33,15 +38,30 @@ from app.db.database import SessionLocal  # noqa: E402
 from app.db.models import Provider  # noqa: E402
 
 
+def should_write(derived: str | None, current: str | None) -> bool:
+    """Whether the backfill should write ``derived`` over ``current``.
+
+    False when derivation has no signal (``derived is None``) but a value is
+    already stored — that value is a manual assignment and must be preserved.
+    Otherwise: write exactly when the value would change.
+    """
+    if derived is None and current is not None:
+        return False
+    return derived != current
+
+
 def run(*, apply: bool = False, include_all: bool = False) -> Counter:
     """Recompute primary_category for every (active, non-draft) provider.
 
     Returns a Counter of derived primary -> row count. Writes only when
-    ``apply`` is True; otherwise reports what would change.
+    ``apply`` is True; otherwise reports what would change. Rows whose manual
+    primary_category would be wiped by a signal-less derivation are preserved
+    and counted separately.
     """
     db = SessionLocal()
     counts: Counter = Counter()
     changed = 0
+    preserved = 0
     try:
         q = db.query(Provider)
         if not include_all:
@@ -55,10 +75,13 @@ def run(*, apply: bool = False, include_all: bool = False) -> Counter:
                 attributes=provider.attributes,
             )
             counts[derived] += 1
-            if derived != provider.primary_category:
-                changed += 1
-                if apply:
-                    provider.primary_category = derived
+            if not should_write(derived, provider.primary_category):
+                if derived is None and provider.primary_category is not None:
+                    preserved += 1
+                continue
+            changed += 1
+            if apply:
+                provider.primary_category = derived
         if apply:
             db.commit()
     finally:
@@ -70,7 +93,8 @@ def run(*, apply: bool = False, include_all: bool = False) -> Counter:
     verb = "changed" if apply else "would change"
     mode = "APPLY" if apply else "DRY-RUN (no writes)"
     print(f"[{mode}] {verb} {changed} rows; mapped {mapped}/{total} "
-          f"({(100 * mapped // total) if total else 0}%), unmapped {unmapped}")
+          f"({(100 * mapped // total) if total else 0}%), unmapped {unmapped}, "
+          f"preserved-manual {preserved}")
     for primary, n in counts.most_common():
         print(f"  {primary or '<unmapped>'}: {n}")
     return counts
