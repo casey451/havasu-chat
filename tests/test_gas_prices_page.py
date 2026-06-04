@@ -134,3 +134,69 @@ def test_stale_banner_flags_out_of_date() -> None:
     fetched = _now() - timedelta(days=3)
     body = _get_gas(_result(_payload(), fetched_at=fetched, is_stale=True))
     assert "out of date" in body
+
+
+# -- WP-8: humanized timestamp, 2-decimal avg, copy + single "Updated" -------
+
+
+def test_cheapest_heading_is_today_as_of_time() -> None:
+    """N-27 / M-10: the cheapest strip heading reads 'Cheapest today (as of
+    {time})' on the live render path, not 'Cheapest right now'."""
+    # 21:30 UTC -> 2:30 PM Lake Havasu (America/Phoenix, UTC-7).
+    fetched = datetime(2026, 6, 2, 21, 30, 0)
+    body = _get_gas(_result(_payload(), fetched_at=fetched))
+    assert "Cheapest today (as of" in body
+    assert "Cheapest right now" not in body
+    # The "as of" clause carries a time-only label derived from fetched_at.
+    assert "as of 2:30 PM" in body
+
+
+def test_single_updated_phrasing() -> None:
+    """M-11: the page says 'Updated' exactly once (the freshness banner), so the
+    header's absolute timestamp and the banner can't read as two updates."""
+    fetched = datetime(2026, 6, 2, 14, 30, 0)
+    body = _body_only(_get_gas(_result(_payload(), fetched_at=fetched)))
+    assert body.count("Updated") == 1
+
+
+def test_city_average_two_decimals() -> None:
+    """M-10: averages render with exactly two decimals on the live render path."""
+    payload = _payload()
+    payload["city_avg"] = {"regular": 3.7, "midgrade": 3.999, "premium": 4.0}
+    body = _get_gas(_result(payload, fetched_at=_now() - timedelta(minutes=5)))
+    assert "$3.70" in body  # 3.7 -> two decimals
+    assert "$4.00" in body  # 4.0 -> two decimals
+
+
+def test_gas_page_carries_sandstone_shell_nav() -> None:
+    """The /gas page wears the full Sandstone shell: the route now supplies
+    primary_nav + mega_columns, so the header nav links render (they were
+    absent before WP-8 added the shell context)."""
+    body = _get_gas(_result(_payload(), fetched_at=_now() - timedelta(minutes=5)))
+    assert 'href="/categories/on-the-water"' in body  # a primary-nav link
+
+
+def test_gas_page_renders_conditions_ribbon_with_gas_chip() -> None:
+    """The conditions ribbon renders on /gas with the cheapest-gas chip.
+
+    The home ribbon builder reads gas via its own ``read_source`` import, so we
+    patch that one too (alongside the gas-route patch) to feed it live data."""
+    from app.home import router as home_router
+
+    payload = _payload()
+    result = _result(payload, fetched_at=_now() - timedelta(minutes=5))
+    with patch.object(gas_route, "read_source", return_value=result):
+        with patch.object(home_router, "read_source", return_value=result):
+            with TestClient(app) as client:
+                body = client.get("/gas").text
+    assert 'class="ribbon"' in body
+    assert "Cheapest gas" in body
+
+
+def test_format_fetched_at_helpers_are_lake_local() -> None:
+    """G-1: both timestamp helpers humanize fetched_at in Lake Havasu local time
+    (America/Phoenix, UTC-7, no DST) from a naive-UTC input."""
+    # 21:30 UTC -> 14:30 (2:30 PM) Phoenix.
+    fetched = datetime(2026, 6, 2, 21, 30, 0)
+    assert gas_route._format_fetched_at(fetched) == "Jun 2, 2026 2:30 PM"
+    assert gas_route._format_fetched_at_time(fetched) == "2:30 PM"

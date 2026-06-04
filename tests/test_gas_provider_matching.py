@@ -87,3 +87,57 @@ def test_match_links_truck_stop_provider() -> None:
             assert match.provider_name == f"Pilot Travel Center {tag}"
     finally:
         _cleanup(ids)
+
+
+# -- DL-17: per-station link gating (confident name+street, else UNLINKED) ----
+
+
+def test_name_only_match_does_not_link() -> None:
+    """A name hit WITHOUT an agreeing street number is not confident -> None.
+
+    This is the both-Maverik bug: a station whose street differs from the
+    provider row must render UNLINKED rather than wrong-linked.
+    """
+    tag = uuid.uuid4().hex[:8]
+    ids = [_seed(f"Maverik {tag}", "convenience_store", "100 Acoma Blvd, Lake Havasu City")]
+    try:
+        with SessionLocal() as s:
+            pool = gas_prices._load_gas_station_providers(s)
+            # Same brand, DIFFERENT street -> a second physical Maverik station.
+            station = {"name": f"Maverik {tag}", "brand": "Maverik",
+                       "address": "2500 N McCulloch Blvd, Lake Havasu City"}
+            assert gas_prices._match_provider(station, pool) is None
+    finally:
+        _cleanup(ids)
+
+
+def test_station_without_street_number_is_unlinked() -> None:
+    """No station street number -> we can't confirm which station it is -> None."""
+    tag = uuid.uuid4().hex[:8]
+    ids = [_seed(f"Maverik {tag}", "convenience_store", "100 Acoma Blvd, Lake Havasu City")]
+    try:
+        with SessionLocal() as s:
+            pool = gas_prices._load_gas_station_providers(s)
+            station = {"name": f"Maverik {tag}", "brand": "Maverik",
+                       "address": "Acoma Blvd, Lake Havasu City"}  # no leading number
+            assert gas_prices._match_provider(station, pool) is None
+    finally:
+        _cleanup(ids)
+
+
+def test_two_brand_stations_do_not_both_link_to_one_provider() -> None:
+    """Two physical Maverik stations + one Maverik provider row: only the
+    station whose street agrees links; the other renders unlinked."""
+    tag = uuid.uuid4().hex[:8]
+    ids = [_seed(f"Maverik {tag}", "convenience_store", "100 Acoma Blvd, Lake Havasu City")]
+    try:
+        with SessionLocal() as s:
+            pool = gas_prices._load_gas_station_providers(s)
+            same_street = {"name": f"Maverik {tag}", "brand": "Maverik",
+                           "address": "100 Acoma Blvd, Lake Havasu City"}
+            other_street = {"name": f"Maverik {tag}", "brand": "Maverik",
+                            "address": "2500 N McCulloch Blvd, Lake Havasu City"}
+            assert gas_prices._match_provider(same_street, pool) is not None
+            assert gas_prices._match_provider(other_street, pool) is None
+    finally:
+        _cleanup(ids)
