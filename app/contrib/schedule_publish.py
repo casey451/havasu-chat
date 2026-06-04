@@ -160,6 +160,34 @@ def attach_schedule_to_entity(
     )
 
 
+def attach_program_to_existing_entity(
+    db: Session, contribution: Contribution, fields: ProgramApprovalFields, entity_id: str
+) -> str:
+    """Manual-approve path: attach operator-edited ``fields`` to an existing venue.
+
+    Mirrors :func:`publish_contribution` but uses the admin-edited fields rather
+    than the raw ``proposed_record`` — so a scraped finding that carries a
+    ``target_entity_id`` lands on the right venue instead of minting a duplicate.
+    Raises ``ValueError`` if the contribution isn't pending. Commits.
+    """
+    if contribution.status != "pending":
+        raise ValueError("contribution is not pending")
+    attach_schedule_to_entity(
+        db,
+        entity_id,
+        fields,
+        source=contribution.source,
+        source_url=contribution.source_url
+        or (str(contribution.submission_url) if contribution.submission_url else None),
+    )
+    contribution.created_entity_id = entity_id
+    contribution.status = "approved"
+    contribution.reviewed_at = _utc_now_naive()
+    db.commit()
+    db.refresh(contribution)
+    return entity_id
+
+
 def _already_published(contribution: Contribution) -> bool:
     return bool(
         contribution.created_entity_id

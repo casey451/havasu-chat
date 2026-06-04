@@ -154,6 +154,30 @@ def test_ingest_queues_when_disabled_default(client: TestClient, monkeypatch: py
         _cleanup(eid)
 
 
+def test_ingest_dedups_same_program_repost(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Re-posting the same class (same target + title) is a duplicate; a different
+    class on the same page is not."""
+    monkeypatch.delenv("SCHEDULE_HUNT_AUTOPUBLISH", raising=False)  # stay queued
+    eid = _seed_entity()
+    try:
+        first = client.post("/api/ingest/contribution", headers=_auth(), json=_payload(eid))
+        assert first.json()["status"] == "queued"
+        # Same title again -> duplicate (no new row).
+        dup = client.post("/api/ingest/contribution", headers=_auth(), json=_payload(eid))
+        assert dup.json()["status"] == "duplicate"
+        assert dup.json()["reason"] == "program_already_queued"
+        # Different class on the same venue -> not a duplicate.
+        other = dict(_RECORD, title="Evening Yoga")
+        r = client.post(
+            "/api/ingest/contribution", headers=_auth(), json=_payload(eid, proposed_record=other)
+        )
+        assert r.json()["status"] == "queued"
+        with SessionLocal() as db:
+            assert db.query(Contribution).filter(Contribution.target_entity_id == eid).count() == 2
+    finally:
+        _cleanup(eid)
+
+
 def test_ingest_queues_low_confidence(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SCHEDULE_HUNT_AUTOPUBLISH", "1")
     eid = _seed_entity()

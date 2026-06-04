@@ -23,6 +23,7 @@ from app.contrib.schedule_publish import publish_contribution
 from app.db.contribution_store import (
     create_contribution,
     has_pending_or_approved_duplicate_url,
+    has_pending_or_approved_program_dup,
     normalize_submission_url,
 )
 from app.db.database import get_db
@@ -97,6 +98,26 @@ def ingest_contribution(
     if normalized and has_pending_or_approved_duplicate_url(db, normalized):
         response.status_code = status.HTTP_200_OK
         return {"status": "duplicate", "submission_url": normalized}
+
+    # Scraped class schedules carry a source_url (shared per page) but no
+    # submission_url, so the URL dedup above never fires for them. Dedup the
+    # program finding on (target_entity_id, proposed_record.title) so a repeated
+    # daily run doesn't re-queue the same class. Distinct classes on the same
+    # page differ by title and are kept.
+    proposed = data.proposed_record if isinstance(data.proposed_record, dict) else {}
+    finding_title = proposed.get("title")
+    if (
+        data.entity_type == "program"
+        and data.target_entity_id
+        and has_pending_or_approved_program_dup(db, data.target_entity_id, finding_title)
+    ):
+        response.status_code = status.HTTP_200_OK
+        return {
+            "status": "duplicate",
+            "reason": "program_already_queued",
+            "target_entity_id": data.target_entity_id,
+            "title": finding_title,
+        }
 
     row = create_contribution(db, data)
 
