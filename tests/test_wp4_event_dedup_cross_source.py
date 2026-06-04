@@ -147,3 +147,25 @@ def test_find_collapses_each_dup_collapsed_once() -> None:
     collapses = find_collapses(rows)
     dup_ids = [c.dup_id for c in collapses]
     assert dup_ids.count("dup") == 1
+
+
+def test_find_collapses_shared_venue_url_is_not_identity() -> None:
+    """Prod regression (2026-06-04 activation audit): 170 distinct pool classes,
+    36 farmers-market dates, and different theatre shows all share one venue/
+    schedule URL. A shared canonical URL alone must NOT collapse events --
+    identity requires the same date AND normalized title too."""
+    from scripts.dedupe_events_cross_source import find_collapses
+
+    url = "https://lhcaz.gov/parks-recreation/open-swim-schedule"
+    rows = [
+        # Same URL, same date, DIFFERENT classes -> keep both.
+        _lite(id="lap", title="Lap Swim", event_url=url),
+        _lite(id="yoga", title="Warm Water Yoga", event_url=url),
+        # Same URL, same title, DIFFERENT date -> keep both.
+        _lite(id="lap2", title="Lap Swim", date=date(2026, 6, 7), event_url=url),
+        # Same URL + date + title -> true dupe, collapse.
+        _lite(id="lap-dup", title="Lap Swim", source="go_lake_havasu", event_url=url),
+    ]
+    out = find_collapses(rows)
+    assert len(out) == 1
+    assert {out[0].keep_id, out[0].dup_id} == {"lap", "lap-dup"}

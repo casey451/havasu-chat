@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time as _time
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -21,6 +22,23 @@ from app.providers import queries as provider_queries
 router = APIRouter(tags=["map"])
 
 MAP_MARKER_CAP = 500
+
+# ---------------------------------------------------------------------------
+# Per-scope payload cache (audit P-perf: /api/map_data was ~20s on big scopes)
+# ---------------------------------------------------------------------------
+#
+# Marker assembly builds one card view model per entity (several queries each),
+# so large scopes pay seconds of DB round-trips. The payload only shifts when
+# the catalog or conditions shift, so a short module-level TTL keeps repeat
+# pans/loads instant. Mirrors ``app.categories.router._index_cache``;
+# ``reset_map_cache()`` is the canonical test seam. 600s (not 3600) because
+# marker status lines ("Open now") are time-sensitive.
+_MAP_TTL_SECONDS = 600
+_map_cache: dict[tuple[str, bool], tuple[float, dict[str, Any]]] = {}
+
+
+def reset_map_cache() -> None:
+    _map_cache.clear()
 
 
 def _coords_for(ent: Entity, prov: Provider | None) -> tuple[float, float] | None:
@@ -54,25 +72,7 @@ def _primary_category_slug(ent: Entity, prov: Provider | None = None) -> str:
     return ""
 
 
-def _status_line_for_entity(db: Session, ent: Entity, *, now) -> str:
-    vm = provider_queries.build_card_view_model(db, ent.id, now=now)
-    if vm is None:
-        return ""
-    return vm.status_line_text or ""
 
-
-def _hero_url_for_entity(db: Session, ent: Entity) -> str | None:
-    vm = provider_queries.build_card_view_model(db, ent.id)
-    if vm is None:
-        return None
-    return vm.hero_photo_url
-
-
-def _profile_url_for_entity(db: Session, ent: Entity) -> str:
-    vm = provider_queries.build_card_view_model(db, ent.id)
-    if vm is None:
-        return "/home"
-    return vm.profile_url or "/home"
 
 
 def _select_provider_entities(
@@ -125,6 +125,12 @@ def map_data(
         now = now.replace(tzinfo=LAKE_HAVASU_TZ)
 
     boat_only = boat is not None and str(boat).strip() in {"1", "true", "yes"}
+
+    cache_key = (scope_slug.strip().lower(), boat_only)
+    cached = _map_cache.get(cache_key)
+    if cached is not None and (_time.time() - cached[0]) < _MAP_TTL_SECONDS:
+        return cached[1]
+
     sort_slug = categories[0]
 
     # Two selection paths, unioned by entity id (additive — never drops a pin
@@ -188,6 +194,10 @@ def map_data(
         if coords is None:
             continue
         lat, lng = coords
+        # ONE view-model build per marker -- profile URL, status line, and hero
+        # photo all come off the same vm (this loop used to build it 3x, the
+        # dominant cost of the endpoint).
+        vm = provider_queries.build_card_view_model(db, ent.id, now=now)
         markers.append(
             {
                 "id": ent.id,
@@ -195,14 +205,16 @@ def map_data(
                 "lat": lat,
                 "lng": lng,
                 "category_slug": _primary_category_slug(ent, prov_by_eid.get(ent.id)),
-                "profile_url": _profile_url_for_entity(db, ent),
-                "status_line": _status_line_for_entity(db, ent, now=now),
-                "hero_photo_url": _hero_url_for_entity(db, ent),
+                "profile_url": (vm.profile_url or "/home") if vm else "/home",
+                "status_line": (vm.status_line_text or "") if vm else "",
+                "hero_photo_url": vm.hero_photo_url if vm else None,
             }
         )
 
-    return {
+    payload = {
         "entities": markers,
         "truncated_at_n": truncated,
         "scope_slug": scope_slug.strip().lower(),
     }
+    _map_cache[cache_key] = (_time.time(), payload)
+    return payload
