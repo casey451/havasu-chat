@@ -53,6 +53,23 @@ def test_normalize_and_best_match() -> None:
     assert best_match("Iron Age Gym", ["Planet Fitness", "Anytime Fitness"]) is None
 
 
+def test_best_match_ignores_bare_place_names() -> None:
+    """Town-name stub entities must not match every venue containing the town.
+
+    Regression: prod had entities literally named "Havasu" (1 token) and "Lake
+    Havasu city" (3 tokens) that, via loose containment, matched ~18 distinct
+    real venues and wrongly skipped them as already-in-DB.
+    """
+    assert best_match("Lake Havasu Black Belt Academy", ["Havasu"]) is None
+    assert best_match("Lake Havasu City Pickleball Association", ["Lake Havasu city"]) is None
+    assert best_match("Havasu Art Guild", ["Havasu", "Arizona"]) is None
+    # Genuine multi-word name variants still match.
+    assert best_match("Ben Hicks Yoga Studio", ["Ben Hicks Yoga"]) == "Ben Hicks Yoga"
+    assert best_match("Cycle Therapy", ["Cycle Therapy Bike & E-bike Shop"]) == (
+        "Cycle Therapy Bike & E-bike Shop"
+    )
+
+
 def test_category_mapping() -> None:
     assert category_slug_for("gym") == "classes-sports-recreation"
     assert category_slug_for("martial arts/MMA") == "classes-sports-recreation"

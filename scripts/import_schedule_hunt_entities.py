@@ -60,6 +60,12 @@ _STATE = "AZ"
 # same business while keeping distinct venues apart.
 _MATCH_RATIO = 0.86
 
+# Bare place names that exist as stub DB entities — never a meaningful containment
+# match (they appear inside dozens of real business names). Normalized form.
+_PLACE_STOPWORDS: frozenset[str] = frozenset(
+    {"havasu", "lake havasu", "lake havasu city", "lake havasu city az", "lhc", "arizona"}
+)
+
 # A trailing hex-ish token (>=6 chars, at least one digit) preceded by a space or
 # hyphen — the shape the tier2-test fixtures use, e.g. "Bridge City Combat 3f9a2b1c".
 _HASH_SUFFIX_RE = re.compile(r"[\s\-]+(?=[0-9a-f]*[0-9])[0-9a-f]{6,}$", re.IGNORECASE)
@@ -194,8 +200,15 @@ def is_fixture(source: str, name: str) -> bool:
 def best_match(target: str, candidates: list[str]) -> str | None:
     """Return the candidate that best matches ``target`` (or None).
 
-    Matches on normalized equality, containment (either direction, len >= 4), or
-    a difflib ratio at/above the threshold — whichever fires first by score.
+    Matches on normalized equality, multi-word containment, or a difflib ratio
+    at/above the threshold — whichever fires first by score.
+
+    Containment requires the *shorter* name to be a substring of the longer, to
+    have **≥ 2 word tokens**, and to not be a bare place name. Those guards matter
+    against stub entities literally named after the town: "Havasu" (1 token) and
+    "Lake Havasu city" (3 tokens) both live as DB rows and otherwise match every
+    venue that contains the town name, wrongly skipping real new venues. A shared
+    place name must clear the difflib bar on its own to count.
     """
     nt = normalize_name(target)
     if not nt:
@@ -207,7 +220,12 @@ def best_match(target: str, candidates: list[str]) -> str | None:
             continue
         if nt == nc:
             return cand
-        contained = (nt in nc or nc in nt) and min(len(nt), len(nc)) >= 4
+        shorter, longer = (nt, nc) if len(nt) <= len(nc) else (nc, nt)
+        contained = (
+            shorter in longer
+            and len(shorter.split()) >= 2
+            and shorter not in _PLACE_STOPWORDS
+        )
         ratio = SequenceMatcher(None, nt, nc).ratio()
         score = max(ratio, 0.95 if contained else 0.0)
         if score >= _MATCH_RATIO and (best is None or score > best[0]):
