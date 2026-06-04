@@ -676,6 +676,14 @@ def rank_inputs_for_category(
             open_now_boost=open_boost,
             boat_access_boost=boat_boost,
             mobile_service_boost=mobile_boost,
+            # Liveness dampener — buries stale Google-sourced listings. Prefer the
+            # entity's synced score; fall back to the Provider's. NULL → no
+            # dampening, so non-Google entities are unaffected.
+            liveness_score=(
+                ent.liveness_score
+                if ent.liveness_score is not None
+                else (p.liveness_score if p is not None else None)
+            ),
         )
     return out
 

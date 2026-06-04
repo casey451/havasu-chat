@@ -11,10 +11,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import Float, case, cast
+from sqlalchemy import Float, case, cast, func
 from sqlalchemy.orm import InstrumentedAttribute
 from sqlalchemy.sql.elements import ColumnElement
 
+from app.core.liveness import DAMPENER_FLOOR, liveness_dampener
 from app.search import fts as search_fts
 
 
@@ -26,6 +27,8 @@ class Tier2RankInputs:
     last_verified_at: datetime | None
     featured: bool
     ref_now: datetime
+    # Liveness dampener input (0–1). ``None`` → no dampening. See app/core/liveness.py.
+    liveness_score: float | None = None
 
 
 def composite_rank_float(inp: Tier2RankInputs) -> float:
@@ -33,6 +36,7 @@ def composite_rank_float(inp: Tier2RankInputs) -> float:
 
     Verification freshness: +30 within 30 days, +15 within 90 days, else 0.
     Featured: +25. ``fts_score`` is the pre-scaled ``ts_rank_cd * 100`` value.
+    The composite is then scaled by the liveness dampener (NULL → unchanged).
     """
     score = float(inp.fts_score)
     if inp.featured:
@@ -46,7 +50,20 @@ def composite_rank_float(inp: Tier2RankInputs) -> float:
             score += 30.0
         elif lv > ref - timedelta(days=90):
             score += 15.0
-    return score
+    return score * liveness_dampener(inp.liveness_score)
+
+
+def liveness_dampener_sql(liveness_col: ColumnElement[Any] | None) -> ColumnElement[Any] | None:
+    """SQL multiplier ``FLOOR + (1 - FLOOR) * COALESCE(liveness, 1.0)``.
+
+    Mirrors :func:`app.core.liveness.liveness_dampener`: a NULL stored score
+    coalesces to 1.0 (no dampening). Returns ``None`` when ``liveness_col`` is
+    ``None`` so callers can skip the multiply entirely. Uses the *stored* score
+    column directly — no exp/sqrt in SQL.
+    """
+    if liveness_col is None:
+        return None
+    return DAMPENER_FLOOR + (1.0 - DAMPENER_FLOOR) * func.coalesce(liveness_col, 1.0)
 
 
 def _verification_bonus_sql(
@@ -76,13 +93,20 @@ def tier2_rank_score_sql(
     last_verified_col: InstrumentedAttribute[datetime | None],
     featured_col: InstrumentedAttribute[bool],
     ref_now: datetime,
+    liveness_col: ColumnElement[Any] | None = None,
 ) -> ColumnElement[Any]:
-    """Composite ORDER BY expression (FTS base + verification + featured)."""
-    return (
+    """Composite ORDER BY expression (FTS base + verification + featured).
+
+    When ``liveness_col`` is provided, the composite is scaled by the stored
+    liveness dampener so stale listings sink without being excluded.
+    """
+    composite = (
         fts_rank_scaled(tsquery_str)
         + _verification_bonus_sql(last_verified_col, ref_now)
         + case((featured_col.is_(True), 25.0), else_=0.0)
     )
+    damp = liveness_dampener_sql(liveness_col)
+    return composite if damp is None else composite * damp
 
 
 def build_rank_score_expr_for_filters(
@@ -91,6 +115,7 @@ def build_rank_score_expr_for_filters(
     last_verified_col: InstrumentedAttribute[datetime | None],
     featured_col: InstrumentedAttribute[bool],
     ref_now: datetime,
+    liveness_col: ColumnElement[Any] | None = None,
 ) -> ColumnElement[Any] | None:
     """Return rank SQL when ``filters`` yield a non-empty tsquery; else None."""
     tsq = search_fts.build_tsquery_string(filters)
@@ -101,4 +126,5 @@ def build_rank_score_expr_for_filters(
         last_verified_col=last_verified_col,
         featured_col=featured_col,
         ref_now=ref_now,
+        liveness_col=liveness_col,
     )

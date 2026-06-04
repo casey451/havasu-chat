@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 
 from app.contrib.google_places_scraper import DISCOVERY_CATEGORY_TO_DOMAINS
-from scripts.places_load import filter_by_category, filter_by_zip
+from scripts.places_load import (
+    _newest_review_at,
+    _parse_google_publish_time,
+    filter_by_category,
+    filter_by_zip,
+    row_to_provider_kwargs,
+)
 
 
 def test_filter_by_category_eat_drink_single_domain() -> None:
@@ -138,3 +146,79 @@ def test_filter_by_zip_mixed_realistic_input() -> None:
     kept, drops = filter_by_zip(rows)
     assert [r["place_id"] for r in kept] == ["lhc1", "lhc2_plus4_nodash", "lhc3_plus4_dash"]
     assert drops == {"non_lhc:86401": 1, "no_zip": 1}
+
+
+# --- liveness signal extraction (newest review timestamp) ---
+#
+# Google emits RFC-3339 publishTimes with a trailing Z and up to 9
+# fractional-second digits (e.g. 2026-02-22T03:04:41.102809936Z), which
+# datetime.fromisoformat rejects. The parser truncates the fraction to
+# microseconds before parsing.
+
+
+def test_parse_publish_time_nine_fractional_digits() -> None:
+    dt = _parse_google_publish_time("2026-02-22T03:04:41.102809936Z")
+    assert dt == datetime(2026, 2, 22, 3, 4, 41, 102809, tzinfo=UTC)
+
+
+def test_parse_publish_time_no_fraction() -> None:
+    dt = _parse_google_publish_time("2026-02-22T03:04:41Z")
+    assert dt == datetime(2026, 2, 22, 3, 4, 41, tzinfo=UTC)
+
+
+def test_parse_publish_time_six_digit_fraction_preserved() -> None:
+    dt = _parse_google_publish_time("2026-02-22T03:04:41.123456Z")
+    assert dt == datetime(2026, 2, 22, 3, 4, 41, 123456, tzinfo=UTC)
+
+
+@pytest.mark.parametrize("bad", [None, "", "   ", "not-a-date", 12345])
+def test_parse_publish_time_unparseable_returns_none(bad: object) -> None:
+    assert _parse_google_publish_time(bad) is None
+
+
+def test_newest_review_at_picks_max() -> None:
+    row = {
+        "review_snippets": [
+            {"publish_time": "2025-01-01T00:00:00Z"},
+            {"publish_time": "2026-02-22T03:04:41.102809936Z"},
+            {"publish_time": "2024-06-15T12:00:00.5Z"},
+        ]
+    }
+    assert _newest_review_at(row) == datetime(2026, 2, 22, 3, 4, 41, 102809, tzinfo=UTC)
+
+
+def test_newest_review_at_none_when_no_snippets() -> None:
+    assert _newest_review_at({}) is None
+    assert _newest_review_at({"review_snippets": []}) is None
+    assert _newest_review_at({"review_snippets": [{"author": "x"}]}) is None
+
+
+def test_row_to_provider_kwargs_populates_liveness_fields() -> None:
+    ref = datetime(2026, 5, 18, 12, 0, tzinfo=UTC)
+    row = {
+        "display_name": "Test Cafe",
+        "place_id": "pid-1",
+        "rating": 4.7,
+        "review_count": 480,
+        "review_snippets": [{"publish_time": "2026-02-22T03:04:41.102809936Z"}],
+        "_first_seen_domain": "food_drink",
+    }
+    kwargs = row_to_provider_kwargs(row, ref_now=ref)
+    assert kwargs["newest_review_at"] == datetime(2026, 2, 22, 3, 4, 41, 102809, tzinfo=UTC)
+    assert 0.0 <= kwargs["liveness_score"] <= 1.0
+
+
+def test_row_to_provider_kwargs_no_reviews_leaves_newest_none() -> None:
+    ref = datetime(2026, 5, 18, 12, 0, tzinfo=UTC)
+    row = {
+        "display_name": "No Reviews LLC",
+        "place_id": "pid-2",
+        "rating": None,
+        "review_count": 0,
+        "review_snippets": [],
+        "_first_seen_domain": "home_services",
+    }
+    kwargs = row_to_provider_kwargs(row, ref_now=ref)
+    assert kwargs["newest_review_at"] is None
+    # No timestamp → neutral recency, still a usable score.
+    assert 0.0 <= kwargs["liveness_score"] <= 1.0

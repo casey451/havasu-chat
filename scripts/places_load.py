@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 import sys
 from collections import Counter
 from datetime import UTC, datetime
@@ -52,6 +53,7 @@ from app.contrib.ingest_reconciler import (  # noqa: E402
     reconcile_hit,
 )
 from app.contrib.scraper_ingest import decide_ingest  # noqa: E402
+from app.core.liveness import compute_liveness  # noqa: E402
 from app.db.database import SessionLocal  # noqa: E402
 from app.db.entity_dual_write import (  # noqa: E402
     create_provider_and_entity,
@@ -136,15 +138,60 @@ def _local_photo_urls(raw_urls: Any) -> list[str] | None:
     return kept or None
 
 
-def row_to_provider_kwargs(row: dict[str, Any]) -> dict[str, Any]:
+def _parse_google_publish_time(value: Any) -> datetime | None:
+    """Parse a Google review ``publishTime`` into a UTC-aware datetime.
+
+    Google emits RFC-3339 with a trailing ``Z`` and up to **9** fractional-second
+    digits (e.g. ``2026-02-22T03:04:41.102809936Z``). ``datetime.fromisoformat``
+    accepts at most 6, so truncate the fraction to microseconds first. Returns
+    ``None`` for missing / unparseable values.
+    """
+    if not isinstance(value, str):
+        return None
+    s = value.strip()
+    if not s:
+        return None
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    # Keep the first 6 fractional digits; drop any extra (Google's 7–9).
+    s = re.sub(r"(\.\d{6})\d+", r"\1", s)
+    try:
+        dt = datetime.fromisoformat(s)
+    except ValueError:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+
+
+def _newest_review_at(row: dict[str, Any]) -> datetime | None:
+    """Max ``publish_time`` across the row's ``review_snippets`` (or None)."""
+    times: list[datetime] = []
+    for snippet in row.get("review_snippets") or []:
+        if not isinstance(snippet, dict):
+            continue
+        dt = _parse_google_publish_time(snippet.get("publish_time"))
+        if dt is not None:
+            times.append(dt)
+    return max(times) if times else None
+
+
+def row_to_provider_kwargs(row: dict[str, Any], *, ref_now: datetime | None = None) -> dict[str, Any]:
     """Map an enriched row to the kwargs for Provider construction.
 
     `category` is NOT NULL on the providers table. Use the domain label
     from the discovery sweep (e.g. food_drink, lake_recreation) as a
     coarse-grained value; finer Google taxonomy lives in
     google_primary_category and google_categories.
+
+    ``newest_review_at`` (max review publishTime) and ``liveness_score`` (the
+    0–1 staleness blend, computed against ``ref_now``) are populated here so the
+    rank dampener can bury stale listings. ``ref_now`` defaults to now(UTC).
     """
     domain = row.get("_first_seen_domain") or "uncategorized"
+    ref_now = ref_now or datetime.now(UTC)
+    newest_review_at = _newest_review_at(row)
+    liveness_score = compute_liveness(
+        row.get("rating"), row.get("review_count"), newest_review_at, ref_now
+    )
     return {
         "provider_name": row["display_name"],
         "category": domain,
@@ -163,6 +210,8 @@ def row_to_provider_kwargs(row: dict[str, Any]) -> dict[str, Any]:
         "lat": row.get("lat"),
         "lng": row.get("lng"),
         "zip": row.get("zip"),
+        "newest_review_at": newest_review_at,
+        "liveness_score": liveness_score,
         "source": "google_places",
         "enrichment_version": ENRICHMENT_VERSION,
         "is_active": True,
@@ -588,7 +637,7 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
 
         for row in valid_rows:
             pid = row["place_id"]
-            kwargs = row_to_provider_kwargs(row)
+            kwargs = row_to_provider_kwargs(row, ref_now=now)
             cat_id = _resolve_category_id(row, category_id_by_slug)
             kwargs["category_id"] = cat_id
             if cat_id is not None:
