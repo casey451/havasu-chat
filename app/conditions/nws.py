@@ -73,16 +73,32 @@ def fetch_nws_current() -> dict[str, Any]:
     station_features = stations.get("features") or []
     if not station_features:
         raise RuntimeError("NWS no observation stations")
-    station_url = (station_features[0].get("id") or "").strip()
-    if not station_url:
+
+    # The nearest station's latest observation frequently reports a null
+    # temperature (sensor gaps); walk the first few stations and keep the
+    # first observation that actually carries one. Falls back to the first
+    # station's (temp-less) observation so wind/heat-index still surface.
+    props: dict[str, Any] = {}
+    temp_c = None
+    for feature in station_features[:3]:
+        station_url = (feature.get("id") or "").strip()
+        if not station_url:
+            continue
+        latest = _get(f"{station_url}/observations/latest")
+        candidate = latest.get("properties") or {}
+        if not props:
+            props = candidate
+        t = (
+            candidate.get("temperature", {}).get("value")
+            if isinstance(candidate.get("temperature"), dict)
+            else None
+        )
+        if t is not None:
+            props = candidate
+            temp_c = t
+            break
+    if not props:
         raise RuntimeError("NWS station id missing")
-    latest = _get(f"{station_url}/observations/latest")
-    props = latest.get("properties") or {}
-    temp_c = (
-        props.get("temperature", {}).get("value")
-        if isinstance(props.get("temperature"), dict)
-        else None
-    )
     temp_f: float | None = None
     if temp_c is not None:
         temp_f = float(temp_c) * 9.0 / 5.0 + 32.0
