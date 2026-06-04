@@ -74,6 +74,9 @@ def create_contribution(
         source=data.source,
         llm_source_chat_log_id=data.llm_source_chat_log_id,
         unverified=data.unverified,
+        confidence=data.confidence,
+        target_entity_id=data.target_entity_id,
+        proposed_record=data.proposed_record,
     )
     db.add(row)
     db.commit()

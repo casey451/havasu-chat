@@ -47,6 +47,13 @@ class ContributionCreate(BaseModel):
     source: ContributionSource = "operator_backfill"
     llm_source_chat_log_id: str | None = None
     unverified: bool = False
+    # Scraper auto-publish inputs (schedule-hunt loop). ``confidence`` 0–1;
+    # ``target_entity_id`` links a class schedule to an existing venue Entity;
+    # ``proposed_record`` is the structured ProgramApprovalFields-shaped payload
+    # the worker extracted (validated at publish time, not here).
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    target_entity_id: str | None = None
+    proposed_record: dict[str, Any] | None = None
 
     @model_validator(mode="after")
     def provider_requires_url(self) -> ContributionCreate:
@@ -149,6 +156,10 @@ class ContributionResponse(BaseModel):
     created_provider_id: str | None
     created_program_id: str | None
     created_event_id: str | None
+    created_entity_id: str | None = None
+    confidence: float | None = None
+    target_entity_id: str | None = None
+    proposed_record: dict[str, Any] | None = None
     source: str
     llm_source_chat_log_id: str | None
     unverified: bool

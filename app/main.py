@@ -50,6 +50,7 @@ from app.api.routes.contribute import router as contribute_router
 from app.api.routes.gas import router as gas_router
 from app.api.routes.ingest import router as ingest_router
 from app.api.routes.ingest_jobs import router as ingest_jobs_router
+from app.api.routes.ingest_publish import router as ingest_publish_router
 from app.api.routes.map_data import router as map_data_router
 from app.api.routes.micro_ad import router as micro_ad_router
 from app.api.routes.themed_groups import router as themed_groups_router
@@ -389,6 +390,7 @@ app.include_router(static_pages_router)
 app.include_router(calendar_feed_router)
 app.include_router(ingest_router)
 app.include_router(ingest_jobs_router)
+app.include_router(ingest_publish_router)
 app.include_router(captures_router)
 app.include_router(admin_router)
 app.include_router(admin_v1_overview_router)
