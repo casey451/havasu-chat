@@ -1,7 +1,7 @@
 """Admin Jobs portal — additive ``jobs`` work-queue table.
 
 Revision ID: b9c0d1e2f3a4
-Revises: e2f3a4b5c6d7
+Revises: 24b922964acd
 Create Date: 2026-06-03
 
 One row per admin-queued scraper-pipeline job. Worker agents (Cowork / OpenClaw)
@@ -9,11 +9,8 @@ poll, atomically claim, and PATCH these rows. Additive + standalone (no FKs);
 only ``id``, ``job_type``, ``status`` are required. ``created_at`` uses a
 ``sa.func.now()`` server default (scrape_captures / photos precedent).
 
-NOTE: revises ``e2f3a4b5c6d7`` (the current ``main`` head). The unmerged
-``feat/liveness-ranking`` migration ``24b922964acd`` also revises
-``e2f3a4b5c6d7`` — whichever branch merges second will leave two alembic heads
-and needs an ``alembic merge`` revision before ``alembic upgrade head`` (the
-Railway preDeploy step) succeeds.
+Chains linearly after the liveness migration ``24b922964acd`` (merged to main in
+PR #104), keeping a single alembic head — no merge revision needed.
 """
 
 from __future__ import annotations
@@ -25,7 +22,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "b9c0d1e2f3a4"
-down_revision: Union[str, Sequence[str], None] = "e2f3a4b5c6d7"
+down_revision: Union[str, Sequence[str], None] = "24b922964acd"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
