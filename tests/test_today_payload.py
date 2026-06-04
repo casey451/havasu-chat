@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fastapi.testclient import TestClient
 
-from app.conditions.api_payload import build_conditions_api_payload
+from app.conditions.api_payload import build_conditions_api_payload, degrees_to_cardinal
 from app.conditions.cache import invalidate_local_cache, upsert_source
 from app.conditions.constants import (
     SOURCE_AIRNOW,
@@ -136,6 +136,105 @@ def test_api_payload_surfaces_sunset_local() -> None:
     assert api.get("sunset_iso") == "2026-06-02T02:42:00Z"
     # 02:42 UTC -> 19:42 previous day America/Phoenix -> 7:42 PM.
     assert api.get("sunset_local") == "7:42 PM"
+
+
+@pytest.mark.parametrize(
+    "deg,expected",
+    [
+        (0, "N"),
+        (90, "E"),
+        (180, "S"),
+        (270, "W"),
+        (315, "NW"),
+        (45, "NE"),
+        (22.5, "NNE"),
+        (360, "N"),
+        (-45, "NW"),
+        (359, "N"),
+        (None, None),
+    ],
+)
+def test_degrees_to_cardinal_boundaries(deg, expected) -> None:
+    assert degrees_to_cardinal(deg) == expected
+
+
+def test_degrees_to_cardinal_rejects_non_numbers() -> None:
+    assert degrees_to_cardinal("nw") is None
+    assert degrees_to_cardinal(True) is None
+    assert degrees_to_cardinal(float("nan")) is None
+
+
+def test_api_payload_emits_wind_direction_when_present() -> None:
+    now = datetime.now(UTC).replace(tzinfo=None)
+    with SessionLocal() as db:
+        upsert_source(
+            db,
+            SOURCE_NWS_CURRENT,
+            {"temperature_f": 100.0, "wind_speed_mph": 8.4, "wind_direction_deg": 315},
+            now=now,
+        )
+        db.commit()
+    invalidate_local_cache()
+    with SessionLocal() as db:
+        api = build_conditions_api_payload(db, now=now)
+    assert api.get("wind_direction_deg") == 315
+    assert api.get("wind_direction_cardinal") == "NW"
+
+
+def test_api_payload_wind_direction_null_when_absent() -> None:
+    now = datetime.now(UTC).replace(tzinfo=None)
+    with SessionLocal() as db:
+        upsert_source(
+            db,
+            SOURCE_NWS_CURRENT,
+            {"temperature_f": 100.0, "wind_speed_mph": 8.4},
+            now=now,
+        )
+        db.commit()
+    invalidate_local_cache()
+    with SessionLocal() as db:
+        api = build_conditions_api_payload(db, now=now)
+    # Field present (key always emitted in the nws_current block) but null,
+    # so /api/conditions stays backward-compatible.
+    assert "wind_speed_mph" in api
+    assert api.get("wind_direction_deg") is None
+    assert api.get("wind_direction_cardinal") is None
+
+
+def test_today_payload_wind_includes_direction() -> None:
+    now = datetime.now(UTC).replace(tzinfo=None)
+    with SessionLocal() as db:
+        upsert_source(
+            db,
+            SOURCE_NWS_CURRENT,
+            {"temperature_f": 100.0, "wind_speed_mph": 8.4, "wind_direction_deg": 315},
+            now=now,
+        )
+        db.commit()
+    invalidate_local_cache()
+    with SessionLocal() as db:
+        payload = build_today_payload(db, now=now)
+    wind = _field(payload, "wind")
+    assert wind.available is True
+    assert wind.primary == "NW 8 mph"
+
+
+def test_today_payload_wind_speed_only_when_direction_absent() -> None:
+    now = datetime.now(UTC).replace(tzinfo=None)
+    with SessionLocal() as db:
+        upsert_source(
+            db,
+            SOURCE_NWS_CURRENT,
+            {"temperature_f": 100.0, "wind_speed_mph": 8.4},
+            now=now,
+        )
+        db.commit()
+    invalidate_local_cache()
+    with SessionLocal() as db:
+        payload = build_today_payload(db, now=now)
+    wind = _field(payload, "wind")
+    assert wind.available is True
+    assert wind.primary == "8 mph"
 
 
 def test_today_route_renders_strip() -> None:
