@@ -176,5 +176,5 @@ body.ll-chat .composer-disclaimer {
 /* Give the thread room so the last turn isn't hidden behind the lifted
  * composer + nav. */
 body.ll-chat .thread {
-  padding-bottom: calc(var(--ll-bottomnav-clear) + 96px);
+  padding-bottom: calc(var(--ll-bottomnav-clear) + 96px + env(safe-area-inset-bottom));
 }

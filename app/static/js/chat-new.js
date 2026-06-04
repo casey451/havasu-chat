@@ -827,7 +827,11 @@
     const head = el("div", "biz-list-head");
     head.appendChild(el("span", "title", data.category || data.title || "Local pros"));
     if (typeof data.total_count === "number") {
-      head.appendChild(el("span", "head-sep", " -- "));
+      // Decorative separator -- hide from assistive tech so the title and
+      // count read naturally instead of announcing " -- " (CodeRabbit).
+      const headSep = el("span", "head-sep", " -- ");
+      headSep.setAttribute("aria-hidden", "true");
+      head.appendChild(headSep);
       head.appendChild(
         el("span", "count", data.items.length + " of " + data.total_count)
       );
@@ -957,7 +961,9 @@
         // Separator so "Call (928)..." and "Directions" never collide as one
         // run when the actions are read as text / when CSS gaps are absent.
         if (actions.childNodes.length > 0) {
-          actions.appendChild(el("span", "act-sep", " · "));
+          const actSep = el("span", "act-sep", " · ");
+          actSep.setAttribute("aria-hidden", "true");
+          actions.appendChild(actSep);
         }
         const dir = document.createElement("a");
         dir.className = "btn";
