@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
 
+from app.api.routes import map_data as map_data_module
 from app.db.database import SessionLocal
 from app.db.entity_types import ENTITY_TYPE_COMMERCIAL
 from app.db.models import Category, Entity, EntityCategory, Location, Provider
@@ -23,6 +24,14 @@ def _link_entity_category(db, entity_id: str, category_slug: str) -> None:
     cat = db.scalars(select(Category).where(Category.slug == category_slug)).first()
     assert cat is not None
     db.add(EntityCategory(entity_id=entity_id, category_id=cat.id))
+
+
+@pytest.fixture(autouse=True)
+def _clear_map_cache() -> None:
+    """The per-scope payload cache must not leak across tests (test seam)."""
+    map_data_module.reset_map_cache()
+    yield
+    map_data_module.reset_map_cache()
 
 
 def test_map_data_unknown_slug_404(client: TestClient) -> None:
@@ -337,3 +346,18 @@ def test_map_data_truncated_flag_when_over_cap(monkeypatch: pytest.MonkeyPatch) 
     data = r.json()
     if len(data["entities"]) >= 1:
         assert isinstance(data["truncated_at_n"], bool)
+
+
+def test_map_data_payload_is_cached_within_ttl(client: TestClient) -> None:
+    """Within the TTL the exact same payload object is served (no rebuild);
+    reset_map_cache() forces the next call to rebuild."""
+    r1 = client.get("/api/map_data/pets")
+    assert r1.status_code == 200
+    key = ("pets", False)
+    assert key in map_data_module._map_cache
+    stamped, payload = map_data_module._map_cache[key]
+    r2 = client.get("/api/map_data/pets")
+    assert r2.status_code == 200
+    assert map_data_module._map_cache[key][1] is payload  # identity: cache hit
+    map_data_module.reset_map_cache()
+    assert key not in map_data_module._map_cache
