@@ -232,3 +232,68 @@ def test_post_rate_limit_second_submission(
     )
     assert r2.status_code == 429
     assert "hour" in r2.text.lower()
+
+
+# ---------------------------------------------------------------------------
+# WP-7: event date/time required when type=event + review/privacy copy
+# ---------------------------------------------------------------------------
+
+
+def test_get_contribute_has_event_required_markers(client: TestClient) -> None:
+    """WP-7: the event date + start time carry required markers in the markup."""
+    r = client.get("/contribute")
+    assert r.status_code == 200
+    assert 'id="event-date-req"' in r.text
+    assert 'id="event-start-req"' in r.text
+
+
+def test_get_contribute_has_review_and_privacy_copy(client: TestClient) -> None:
+    r = client.get("/contribute")
+    assert r.status_code == 200
+    assert "We review most submissions within a few days" in r.text
+    assert "never for marketing" in r.text
+
+
+def test_post_event_missing_date_shows_error(client: TestClient) -> None:
+    r = client.post(
+        "/contribute",
+        data={
+            "entity_type": "event",
+            "submission_name": "Dateless Event",
+            "description": "An event submission with no date supplied at all.",
+            "event_start_time": "10:00",
+        },
+    )
+    assert r.status_code == 200
+    assert "needs a date" in r.text.lower()
+
+
+def test_post_event_missing_start_time_shows_error(client: TestClient) -> None:
+    r = client.post(
+        "/contribute",
+        data={
+            "entity_type": "event",
+            "submission_name": "Timeless Event",
+            "description": "An event submission with a date but no start time.",
+            "event_date": "2031-07-04",
+        },
+    )
+    assert r.status_code == 200
+    assert "needs a start time" in r.text.lower()
+
+
+def test_post_event_with_date_and_time_succeeds(client: TestClient) -> None:
+    with patch("app.api.routes.contribute.enrich_contribution"):
+        r = client.post(
+            "/contribute",
+            data={
+                "entity_type": "event",
+                "submission_name": "Fully Specified Event",
+                "description": "An event submission with both a date and start time.",
+                "event_date": "2031-07-04",
+                "event_start_time": "10:00",
+            },
+            follow_redirects=False,
+        )
+    assert r.status_code == 302
+    assert "submitted=1" in (r.headers.get("location") or "")
