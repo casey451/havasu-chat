@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">
+  <url>
+    <loc>https://www.havasunews.com/news/council-approves-budget/article_001.html</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Today's News-Herald</news:name>
+        <news:language>en</news:language>
+      </news:publication>
+      <news:publication_date>2026-06-04T08:15:00-07:00</news:publication_date>
+      <news:title>Council approves $120M budget for fiscal 2027</news:title>
+      <news:keywords>city council, budget, lake havasu city, fiscal year</news:keywords>
+    </news:news>
+  </url>
+  <url>
+    <loc>https://www.havasunews.com/news/new-development-channel/article_002.html</loc>
+    <news:news>
+      <news:publication>
+        <news:name>Today's News-Herald</news:name>
+        <news:language>en</news:language>
+      </news:publication>
+      <news:publication_date>2026-06-03T17:40:00-07:00</news:publication_date>
+      <news:title>Channelside development clears Planning &amp; Zoning</news:title>
+      <news:keywords>development, planning and zoning, channel</news:keywords>
+    </news:news>
+  </url>
+  <url>
+    <loc>https://www.havasunews.com/news/no-title/article_003.html</loc>
+    <news:news>
+      <news:publication><news:name>Today's News-Herald</news:name></news:publication>
+      <news:publication_date>2026-06-02T10:00:00-07:00</news:publication_date>
+    </news:news>
+  </url>
+</urlset>
