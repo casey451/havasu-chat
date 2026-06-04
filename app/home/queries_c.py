@@ -503,7 +503,7 @@ _SERVICE_TILES: tuple[dict[str, Any], ...] = (
     },
     {
         "name": "Professional",
-        "route": "professional",
+        "route": "professional-services",
         "svg_path": "M3 8h18v12H3zM9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18",
     },
     {
