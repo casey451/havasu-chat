@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.api.routes import category_pages as cat_pages
+from app.categories.queries import category_listing_count
 from app.groups import themed_groups as tg
 
 _COUNT_CAP = 200
@@ -38,16 +39,17 @@ def browse_tile_specs() -> tuple[BrowseTileSpec, ...]:
 
 
 def count_entities_for_category_slugs(db: Session, category_slugs: list[str]) -> int:
+    """Canonical provider count for one or more Tier-1 categories (WP-12).
+
+    The tile/group slugs ARE canonical primary-category slugs (the 13), so this
+    delegates straight to :func:`category_listing_count` — the ONE count helper
+    every surface now shares. So a tile's "N businesses" equals the listings the
+    Explore/Map surfaces render for the same category, closing audit S4's
+    per-surface count drift.
+    """
     if not category_slugs:
         return 0
-    return len(
-        cat_pages.select_entities_for_categories(
-            db,
-            category_slugs=category_slugs,
-            district_slug=None,
-            boat_only=False,
-        )
-    )
+    return category_listing_count(db, set(category_slugs))
 
 
 def format_tile_count_label(raw_count: int) -> str:

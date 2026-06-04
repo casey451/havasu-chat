@@ -441,12 +441,113 @@ def _route_primary_categories(route_slug: str) -> set[str]:
     return {p for s in subs if (p := SUBCATEGORY_TO_PRIMARY.get(s))}
 
 
+# ---------------------------------------------------------------------------
+# WP-12 — ONE canonical per-category count, shared by every surface
+# ---------------------------------------------------------------------------
+#
+# Audit S4 ("one count query everywhere"): Home tiles, the Explore header, and
+# the Map each used to compute their per-category provider count differently
+# (an ``EntityCategory`` join here, ``route_provider_filter`` there), so the
+# same category read e.g. 41 on Home and 38 on Explore. ``primary_listing_filter``
+# is the single clause they now all share. It resolves a category the SAME way
+# WP-9's listing filters do — canonical ``primary_category`` first, legacy
+# ``Provider.category`` only while primary is still NULL — so the number a
+# surface SHOWS always equals the listings it renders for that category.
+
+
+def _legacy_categories_for_primaries(primary_slugs: set[str] | frozenset[str]) -> set[str]:
+    """Legacy ``Provider.category`` strings that fold into ``primary_slugs`` (WP-12).
+
+    Inverts ``LEGACY_CATEGORY_TO_PRIMARY`` (the same map WP-9 uses to backfill the
+    primary column), so the count's NULL-primary fallback tier covers exactly the
+    un-backfilled rows that the listing's fallback would also pick up. Keeping the
+    two tiers derived from one source is what makes count == len(listing) hold for
+    rows that have no ``primary_category`` yet.
+    """
+    from app.categories.subcategories import LEGACY_CATEGORY_TO_PRIMARY
+
+    wanted = {s for s in primary_slugs if s}
+    return {
+        legacy for legacy, primary in LEGACY_CATEGORY_TO_PRIMARY.items() if primary in wanted
+    }
+
+
+def primary_listing_filter(primary_slugs: set[str] | frozenset[str] | list[str] | tuple[str, ...]):
+    """The ONE canonical clause selecting providers for a set of primary categories.
+
+    Two-tier, strongest first (WP-9 / WP-12 / audit S4 + R2):
+
+    1. **primary_category** — the canonical column (one of the 13). Authoritative
+       when set: a provider belongs iff its primary is in ``primary_slugs``.
+    2. **legacy ``category``** (primary NULL only) — the un-backfilled fallback,
+       expanded from ``primary_slugs`` via ``LEGACY_CATEGORY_TO_PRIMARY`` so rows
+       that have not been classified yet still count toward — and render under —
+       the right category.
+
+    Returns a SQLAlchemy boolean clause; ``false()`` for an empty/unknown set.
+    Every count surface (Home tiles, Explore header, Map) builds on this, and
+    ``route_provider_filter`` delegates its primary + legacy tiers here, so all
+    surfaces agree on which providers belong to a category.
+    """
+    from sqlalchemy import and_, false, or_
+
+    primaries = {s for s in primary_slugs if s}
+    if not primaries:
+        return false()
+    legacy = _legacy_categories_for_primaries(primaries)
+    clauses = [Provider.primary_category.in_(primaries)]
+    if legacy:
+        clauses.append(
+            and_(Provider.primary_category.is_(None), Provider.category.in_(legacy))
+        )
+    return or_(*clauses)
+
+
+def category_listing_count(
+    db: Session | None,
+    primary_slugs: set[str] | frozenset[str] | list[str] | tuple[str, ...],
+) -> int:
+    """Canonical count of active non-draft providers for a set of primary categories.
+
+    The single source of truth behind every surface's "N businesses / N listed"
+    label (WP-12). Counts via :func:`primary_listing_filter`, so the number equals
+    the listings the same filter renders. Returns 0 on an empty set or any DB
+    hiccup — callers that need the no-zero ``None`` semantics (the Explore header)
+    map 0 -> None themselves.
+    """
+    if db is None:
+        return 0
+    primaries = {s for s in primary_slugs if s}
+    if not primaries:
+        return 0
+    from sqlalchemy import func as sa_func
+
+    try:
+        row = (
+            db.query(sa_func.count(Provider.id))
+            .filter(
+                primary_listing_filter(primaries),
+                Provider.is_active.is_(True),
+                Provider.draft.is_(False),
+            )
+            .scalar()
+        )
+    except Exception:
+        return 0
+    if row is None:
+        return 0
+    try:
+        return max(int(row), 0)
+    except (TypeError, ValueError):
+        return 0
+
+
 def route_provider_filter(route_slug: str):
     """SQLAlchemy clause selecting the providers that belong on ``route_slug``.
 
     Three-tier signal, strongest first (WP-9 / audit R2):
 
-    1. **primary_category** — the canonical column (one of the 12). When set, it is
+    1. **primary_category** — the canonical column (one of the 13). When set, it is
        authoritative: a provider belongs iff its primary is in the route's primary
        set.
     2. **subcategory** (primary NULL) — the strong Google-derived signal; matched
@@ -458,6 +559,12 @@ def route_provider_filter(route_slug: str):
     The ``IS NULL`` guards make a weaker (often wrong) signal irrelevant once a
     stronger one exists — e.g. a hospital mis-filed as legacy ``retail`` routes to
     Health via its primary/subcategory, never to Shopping.
+
+    Note the subcategory middle tier: this surface keeps it (un-backfilled rows
+    that carry a derived subcategory but no primary). The canonical count helpers
+    (:func:`primary_listing_filter` / :func:`category_listing_count`) deliberately
+    omit it — they count on primary-then-legacy only — which is why they are used
+    by the Home/Explore/Map count surfaces that key on the canonical 13 primaries.
     """
     from sqlalchemy import and_, false, or_
 
