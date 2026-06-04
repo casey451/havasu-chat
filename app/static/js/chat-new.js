@@ -159,7 +159,204 @@
     if (slot.childNodes.length > 0) {
       turn.said.appendChild(slot);
     }
+    // Per-response controls: thumbs feedback + Save + Share. Only attached when
+    // the server returned a chat_log_id to key feedback on (DL-1: real
+    // per-response feedback, not a phantom button).
+    attachAnswerActions(turn, payload);
     scrollToBottom();
+  }
+
+  // ─────────── per-response actions (feedback + Save + Share) ───────────
+  //
+  // Ported from the orphaned chat.js thumbs pattern and extended with Save
+  // (local) + Share (clipboard). Feedback POSTs /api/chat/feedback keyed by
+  // chat_log_id; the row is optimistically locked on success and unlocked on
+  // error with a small inline message. Save/Share never hit the network for
+  // feedback so they appear whenever there's an answer to act on.
+
+  const SAVE_KEY = "hava.saved.answers";
+
+  function loadSavedAnswers() {
+    try {
+      const raw = window.localStorage.getItem(SAVE_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function persistSavedAnswers(list) {
+    try {
+      window.localStorage.setItem(SAVE_KEY, JSON.stringify(list));
+    } catch (_) {
+      // Storage unavailable (private mode / quota) — Save is best-effort.
+    }
+  }
+
+  function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function (resolve, reject) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "absolute";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        if (ok) resolve();
+        else reject(new Error("copy failed"));
+      } catch (err) {
+        document.body.removeChild(ta);
+        reject(err);
+      }
+    });
+  }
+
+  function flashButton(btn, text) {
+    const original = btn.dataset.label || btn.textContent;
+    btn.dataset.label = original;
+    btn.textContent = text;
+    window.setTimeout(function () {
+      btn.textContent = btn.dataset.label || original;
+    }, 1800);
+  }
+
+  function makeActionBtn(label, extraClass) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "act-btn" + (extraClass ? " " + extraClass : "");
+    b.textContent = label;
+    return b;
+  }
+
+  function attachAnswerActions(turn, payload) {
+    const answerText = payload.voice || payload.response || "";
+    const chatLogId = payload.chat_log_id || null;
+    if (!answerText && !chatLogId) return;
+
+    const wrap = el("div", "msg-actions");
+    const errEl = el("span", "msg-feedback-err");
+    errEl.setAttribute("aria-live", "polite");
+
+    // --- Feedback thumbs (only when keyed by chat_log_id) ---
+    if (chatLogId) {
+      const up = makeActionBtn("👍", "thumb-btn");
+      up.setAttribute("aria-label", "Thumbs up");
+      const down = makeActionBtn("👎", "thumb-btn");
+      down.setAttribute("aria-label", "Thumbs down");
+
+      let inflight = false;
+      let locked = null;
+
+      function clearError() {
+        errEl.textContent = "";
+        errEl.style.display = "none";
+      }
+      function showError(msg) {
+        errEl.textContent = msg;
+        errEl.style.display = "block";
+      }
+      function setLocked(signal) {
+        locked = signal;
+        up.classList.toggle("is-active", signal === "positive");
+        up.classList.toggle("thumb-dim", signal === "negative");
+        down.classList.toggle("is-active", signal === "negative");
+        down.classList.toggle("thumb-dim", signal === "positive");
+      }
+      function unlock() {
+        locked = null;
+        up.classList.remove("is-active", "thumb-dim");
+        down.classList.remove("is-active", "thumb-dim");
+      }
+      function postSignal(signal) {
+        if (inflight || locked === signal) return;
+        clearError();
+        inflight = true;
+        up.disabled = true;
+        down.disabled = true;
+        fetch("/api/chat/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_log_id: chatLogId, signal: signal }),
+        })
+          .then(function (res) {
+            return res.text().then(function (t) {
+              let body = {};
+              try { body = t ? JSON.parse(t) : {}; } catch (_) { body = {}; }
+              return { ok: res.ok, body: body };
+            });
+          })
+          .then(function (result) {
+            inflight = false;
+            up.disabled = false;
+            down.disabled = false;
+            if (result.ok && result.body && result.body.ok === true) {
+              setLocked(signal);
+              trackPlausible("Chat Feedback", { signal: signal });
+              return;
+            }
+            unlock();
+            let msg = "Couldn't save that -- try again";
+            if (result.body && result.body.error) msg = String(result.body.error);
+            showError(msg);
+          })
+          .catch(function () {
+            inflight = false;
+            up.disabled = false;
+            down.disabled = false;
+            unlock();
+            showError("Couldn't save that -- try again");
+          });
+      }
+
+      up.addEventListener("click", function () { postSignal("positive"); });
+      down.addEventListener("click", function () { postSignal("negative"); });
+      wrap.appendChild(up);
+      wrap.appendChild(down);
+    }
+
+    // --- Save (local) ---
+    const saveBtn = makeActionBtn("Save");
+    saveBtn.addEventListener("click", function () {
+      const list = loadSavedAnswers();
+      const entry = {
+        text: answerText,
+        chat_log_id: chatLogId,
+        saved_at: new Date().toISOString(),
+      };
+      if (!list.some(function (e) { return e.text === entry.text; })) {
+        list.push(entry);
+        persistSavedAnswers(list);
+      }
+      saveBtn.classList.add("is-active");
+      flashButton(saveBtn, "Saved");
+    });
+    wrap.appendChild(saveBtn);
+
+    // --- Share (clipboard) ---
+    const shareBtn = makeActionBtn("Share");
+    shareBtn.addEventListener("click", function () {
+      const link = chatLogId
+        ? window.location.origin + "/chat?ref=" + encodeURIComponent(chatLogId)
+        : window.location.href;
+      if (navigator.share) {
+        navigator.share({ text: answerText, url: link }).catch(function () {});
+        return;
+      }
+      copyToClipboard(link)
+        .then(function () { flashButton(shareBtn, "Link copied"); })
+        .catch(function () { flashButton(shareBtn, "Copy failed"); });
+    });
+    wrap.appendChild(shareBtn);
+
+    wrap.appendChild(errEl);
+    turn.said.appendChild(wrap);
   }
 
   function failHavaTurn(turn, message) {
@@ -177,80 +374,31 @@
     });
   }
 
-  // ─────────── loading micro-ad (Phase A4) ───────────
-  // Best-effort: fetch a small live sponsor and render it inside the loading
-  // card. The endpoint is read-only (it does NOT bump impressions — see
-  // app/api/routes/micro_ad.py), so a load-screen render never inflates the
-  // paid /home CTR denominator. Any failure is swallowed: the loading overlay
-  // must never break because an ad couldn't load.
-  function clearMicroAd() {
-    if (!loadingOverlay) return;
-    var existing = loadingOverlay.querySelector("[data-micro-ad]");
-    if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
-  }
-
-  function renderMicroAd(ad) {
-    if (!loadingOverlay || !ad) return;
-    var card = loadingOverlay.querySelector(".ll-loading-card");
-    if (!card) return;
-    clearMicroAd();
-    var wrap = el("div", "ll-micro-ad");
-    wrap.setAttribute("data-micro-ad", "");
-    wrap.setAttribute("data-slot", ad.slot || "");
-    var link = document.createElement("a");
-    link.className = "ll-micro-ad-link";
-    link.href = ad.click_url; // server-built /sponsor/click attribution URL
-    link.target = "_blank";
-    link.rel = "noopener noreferrer sponsored";
-    if (ad.image_url) {
-      var img = document.createElement("img");
-      img.className = "ll-micro-ad-logo";
-      img.src = ad.image_url;
-      img.alt = "";
-      img.loading = "lazy";
-      link.appendChild(img);
-    }
-    var body = el("span", "ll-micro-ad-body");
-    body.appendChild(el("span", "ll-micro-ad-headline", ad.headline || ad.name || ""));
-    body.appendChild(el("span", "ll-micro-ad-attr", ad.attribution_text || ""));
-    link.appendChild(body);
-    if (ad.cta_label) link.appendChild(el("span", "ll-micro-ad-cta", ad.cta_label));
-    wrap.appendChild(link);
-    card.appendChild(wrap);
-  }
-
-  function loadMicroAd() {
-    if (!loadingOverlay) return;
-    fetch("/api/micro_ad", { headers: { accept: "application/json" } })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (data) {
-        if (data && data.micro_ad) renderMicroAd(data.micro_ad);
-      })
-      .catch(function () { /* swallow — never break the loading flow */ });
-  }
-
+  // ─────────── loading overlay ───────────
+  // Plain loading state. The sponsored micro-ad interstitial was removed
+  // (DL-13: no sponsor work on the chat surface). The overlay is a neutral
+  // "finding the best spots" card; aria-live on the element announces the
+  // answer when it lands. We toggle display only — never aria-hidden — so the
+  // live region is never simultaneously hidden (the contradiction we fixed in
+  // the template).
   function showLoadingOverlay() {
     if (!loadingOverlay) return;
     loadingOverlay.style.display = "flex";
-    loadingOverlay.setAttribute("aria-hidden", "false");
     loadingOverlay.dataset.readyToClose = "0";
     if (loadingAnswer) {
       loadingAnswer.style.display = "none";
       loadingAnswer.innerHTML = "";
     }
-    loadMicroAd();
   }
 
   function hideLoadingOverlay() {
     if (!loadingOverlay) return;
     loadingOverlay.style.display = "none";
-    loadingOverlay.setAttribute("aria-hidden", "true");
     loadingOverlay.dataset.readyToClose = "0";
     if (loadingAnswer) {
       loadingAnswer.style.display = "none";
       loadingAnswer.innerHTML = "";
     }
-    clearMicroAd();
   }
 
   function showLoadingAnswer(query, text) {
@@ -674,10 +822,12 @@
     if (!data || !Array.isArray(data.items) || data.items.length === 0) return null;
     const root = el("div", "biz-list");
 
-    // Head: category + count
+    // Head: category + count. Explicit separator so the two spans never run
+    // together as "Pizza Spots5 of 12" when CSS spacing is absent (N-03).
     const head = el("div", "biz-list-head");
     head.appendChild(el("span", "title", data.category || data.title || "Local pros"));
     if (typeof data.total_count === "number") {
+      head.appendChild(el("span", "head-sep", " -- "));
       head.appendChild(
         el("span", "count", data.items.length + " of " + data.total_count)
       );
@@ -804,6 +954,11 @@
         actions.appendChild(call);
       }
       if (it.address_short || it.address_query || it.url) {
+        // Separator so "Call (928)..." and "Directions" never collide as one
+        // run when the actions are read as text / when CSS gaps are absent.
+        if (actions.childNodes.length > 0) {
+          actions.appendChild(el("span", "act-sep", " · "));
+        }
         const dir = document.createElement("a");
         dir.className = "btn";
         const mapsQuery = it.address_query
