@@ -449,9 +449,13 @@ _MODE_CONFIG: dict[str, dict[str, Any]] = {
 
 
 def lake_mini_conditions(db: Session) -> list[dict[str, str]]:
-    """Live mini-conditions for the Lake hero: lake level / water temp / wind /
-    sunset (plus air temp). Each tile is omitted when its source has no live
-    value — NEVER the prototype's hardcoded 448.7 ft / 74°F / 8 mph SW.
+    """Live mini-conditions for the Lake hero: wind / water temp / sunset (plus
+    air temp). Each tile is omitted when its source has no live value — NEVER
+    the prototype's hardcoded 448.7 ft / 74°F / 8 mph SW.
+
+    Task 0 (source-expansion): the "Lake level" tile was removed from the hero
+    strip; Wind now leads in its position. Lake level is still surfaced on the
+    full conditions strip and /today, just not on the Lake-mode hero.
     """
     from app.conditions.api_payload import build_conditions_api_payload
 
@@ -462,17 +466,13 @@ def lake_mini_conditions(db: Session) -> list[dict[str, str]]:
 
     tiles: list[dict[str, str]] = []
 
-    gauge = api.get("lake_gauge_ft")
-    if isinstance(gauge, (int, float)):
-        tiles.append({"value": f"{float(gauge):.1f} ft", "label": "Lake level"})
+    wind = api.get("wind_speed_mph")
+    if isinstance(wind, (int, float)):
+        tiles.append({"value": f"{int(round(float(wind)))} mph", "label": "Wind"})
 
     water = api.get("water_temp_f")
     if isinstance(water, (int, float)):
         tiles.append({"value": f"{float(water):.0f}°F", "label": "Water temp"})
-
-    wind = api.get("wind_speed_mph")
-    if isinstance(wind, (int, float)):
-        tiles.append({"value": f"{int(round(float(wind)))} mph", "label": "Wind"})
 
     sunset = api.get("sunset_local")
     if isinstance(sunset, str) and sunset.strip():

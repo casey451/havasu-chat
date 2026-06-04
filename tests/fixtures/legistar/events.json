@@ -1,0 +1,32 @@
+[
+  {
+    "EventId": 4521,
+    "EventGuid": "AAAA-1111",
+    "EventBodyName": "City Council",
+    "EventDate": "2026-06-09T00:00:00",
+    "EventTime": "6:00 PM",
+    "EventLocation": "Council Chambers, 2330 McCulloch Blvd N",
+    "EventAgendaFile": "https://lakehavasucity.legistar.com/View.ashx?M=A&ID=4521&GUID=AAAA-1111",
+    "EventMinutesFile": "",
+    "EventComment": "Regular meeting",
+    "EventInSiteURL": "https://lakehavasucity.legistar.com/MeetingDetail.aspx?ID=4521"
+  },
+  {
+    "EventId": 4519,
+    "EventGuid": "BBBB-2222",
+    "EventBodyName": "Planning and Zoning Commission",
+    "EventDate": "2026-06-03T00:00:00",
+    "EventTime": "5:30 PM",
+    "EventLocation": "Council Chambers",
+    "EventAgendaFile": "https://lakehavasucity.legistar.com/View.ashx?M=A&ID=4519&GUID=BBBB-2222",
+    "EventMinutesFile": "https://lakehavasucity.legistar.com/View.ashx?M=M&ID=4519&GUID=BBBB-2222",
+    "EventComment": "",
+    "EventInSiteURL": "https://lakehavasucity.legistar.com/MeetingDetail.aspx?ID=4519"
+  },
+  {
+    "EventId": 4400,
+    "EventBodyName": "",
+    "EventDate": "2026-05-01T00:00:00",
+    "EventTime": null
+  }
+]

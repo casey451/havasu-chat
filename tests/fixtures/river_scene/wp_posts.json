@@ -1,0 +1,27 @@
+[
+  {
+    "id": 5501,
+    "date": "2026-06-03T09:00:00",
+    "date_gmt": "2026-06-03T16:00:00",
+    "link": "https://riverscenemagazine.com/2026/06/03/new-brewery-opens-downtown/",
+    "title": {"rendered": "New Brewery Opens Downtown &#8211; Grand Opening Saturday"},
+    "excerpt": {"rendered": "<p>A new craft brewery is opening on McCulloch Boulevard this weekend.</p>"},
+    "categories": [12, 8]
+  },
+  {
+    "id": 5499,
+    "date": "2026-06-01T14:30:00",
+    "date_gmt": "2026-06-01T21:30:00",
+    "link": "https://riverscenemagazine.com/2026/06/01/lhhs-robotics-state/",
+    "title": {"rendered": "LHHS Robotics Team Heads to State"},
+    "excerpt": {"rendered": "<p>The high school robotics team qualified for the state championship.</p>"},
+    "categories": [4]
+  },
+  {
+    "id": 5400,
+    "date": "2026-05-20T10:00:00",
+    "link": "",
+    "title": {"rendered": "Malformed post with no link"},
+    "excerpt": {"rendered": ""}
+  }
+]

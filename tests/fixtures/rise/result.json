@@ -1,0 +1,7 @@
+{
+  "data": [
+    {"type": "result", "attributes": {"dateTime": "2026-06-01T00:00:00", "result": 71.2, "itemId": 6127}},
+    {"type": "result", "attributes": {"dateTime": "2026-06-03T00:00:00", "result": 73.8, "itemId": 6127}},
+    {"type": "result", "attributes": {"dateTime": "2026-06-02T00:00:00", "result": 72.5, "itemId": 6127}}
+  ]
+}

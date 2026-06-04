@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+  <channel>
+    <title>City of Lake Havasu City News Flash</title>
+    <link>https://www.lhcaz.gov/</link>
+    <description>News Flash</description>
+    <item>
+      <title>Mesquite Avenue Lane Closure June 9-13</title>
+      <link>https://www.lhcaz.gov/CivicAlerts.aspx?AID=1234</link>
+      <description>Crews will close the eastbound lane of Mesquite Avenue between Acoma and Lake Havasu Avenue for waterline work. Expect delays.</description>
+      <pubDate>Wed, 04 Jun 2026 14:30:00 GMT</pubDate>
+      <category>Public Works</category>
+      <guid>https://www.lhcaz.gov/CivicAlerts.aspx?AID=1234</guid>
+    </item>
+    <item>
+      <title>LHCPD Statement on Saturday Incident</title>
+      <link>https://www.lhcaz.gov/CivicAlerts.aspx?AID=1235</link>
+      <description>The Lake Havasu City Police Department issued a statement regarding an incident near the channel.</description>
+      <pubDate>Tue, 03 Jun 2026 09:00:00 GMT</pubDate>
+      <category>Police</category>
+      <guid>https://www.lhcaz.gov/CivicAlerts.aspx?AID=1235</guid>
+    </item>
+    <item>
+      <title></title>
+      <link>https://www.lhcaz.gov/CivicAlerts.aspx?AID=0</link>
+      <description>Malformed item with no title — should be skipped.</description>
+    </item>
+  </channel>
+</rss>

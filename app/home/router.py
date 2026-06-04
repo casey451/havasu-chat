@@ -376,14 +376,16 @@ def _category_cards(db: Session) -> list[dict[str, str | int]]:
 # P0 Task 5 — slim top utility strip. Combines the ambient data we already pull
 # (cheapest gas + NWS temp + AirNow AQI + USGS lake/water + active advisory) into
 # one compact chip row instead of a full-width gas panel. Each chip expands its
-# detail on tap (template uses <details>). NOTE: the brief also lists UV index and
-# a sky/condition description — neither is currently fetched by the conditions
-# pipeline (NWS-current gives temp/heat-index/wind only), so they are omitted
-# rather than faked. Flagged for a future ingestion add.
+# detail on tap (template uses <details>). UV index is now fetched (Open-UV with
+# a keyless EPA fallback — see app/conditions/uv.py) and leads the sun/sky slot;
+# the lower-value sky/condition description was demoted (still in the JSON
+# payload, no longer a strip tile).
 _UTILITY_TILE_MAP: dict[str, tuple[str, str, str]] = {
     # conditions-tile kind -> (chip kind, icon, label)
+    # Task 0 (source-expansion): the "sky_condition" chip was demoted in favour
+    # of UV — view_model.py no longer emits a sky_condition tile, so its map
+    # entry was removed. UV now leads the sun/sky slot.
     "temp": ("weather", "🌡", "Now"),
-    "sky_condition": ("sky", "🌤", "Sky"),
     "uv": ("uv", "☀", "UV index"),
     "aqi": ("air", "💨", "Air quality"),
     "water_temp": ("water", "🌊", "Water temp"),

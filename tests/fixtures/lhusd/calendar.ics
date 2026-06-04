@@ -1,0 +1,27 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apptegy//Thrillshare//EN
+BEGIN:VEVENT
+UID:evt-board-1@lhusd
+SUMMARY:Governing Board Regular Meeting
+DTSTART:20260609T180000
+DTEND:20260609T200000
+LOCATION:District Office Board Room
+URL:https://www.havasu.k12.az.us/board
+DESCRIPTION:Monthly board meeting.
+END:VEVENT
+BEGIN:VEVENT
+UID:evt-pd-1@lhusd
+SUMMARY:Teacher In-Service Day (No School)
+DTSTART;VALUE=DATE:20260814
+DTEND;VALUE=DATE:20260815
+DESCRIPTION:All-day single-day event - keep.
+END:VEVENT
+BEGIN:VEVENT
+UID:evt-summer-1@lhusd
+SUMMARY:Summer School
+DTSTART;VALUE=DATE:20260601
+DTEND;VALUE=DATE:20260703
+DESCRIPTION:Month-long academic span - filter as noise.
+END:VEVENT
+END:VCALENDAR

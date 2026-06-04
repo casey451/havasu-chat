@@ -61,3 +61,6 @@ GAS_STALE_AFTER_HOURS = 28
 NWS_USER_AGENT = "havasu-chat/1.0 (contact: support@havasu-chat.example.com)"
 LHC_LAT = 34.4839
 LHC_LON = -114.3225
+# Primary Lake Havasu City ZIP — used by the keyless EPA Envirofacts UV-index
+# fallback (app/conditions/epa_uv.py) when OPENUV_API_KEY is unset.
+LHC_ZIP = "86403"

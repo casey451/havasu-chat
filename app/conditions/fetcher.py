@@ -9,7 +9,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.conditions import airnow, nws, openuv, usgs, usgs_water_temp
+from app.conditions import airnow, nws, usgs, usgs_water_temp, uv
 from app.conditions.cache import record_fetch_failure, should_skip_fetch, upsert_source
 from app.conditions.constants import (
     SOURCE_AIRNOW,
@@ -35,10 +35,10 @@ _FETCHERS: dict[str, Callable[[], dict[str, Any]]] = {
     SOURCE_NWS_FORECAST: nws.fetch_nws_forecast_daily,
     SOURCE_NWS_SUNSET: nws.fetch_nws_sunset,
     SOURCE_USGS: usgs.fetch_usgs_lake_havasu,
-    # Optional UV index. Self-gates on OPENUV_API_KEY and returns an empty
-    # payload without any HTTP request when the key is unset, so the cron can
-    # call it every tick regardless of configuration.
-    SOURCE_OPENUV: openuv.fetch_openuv_index,
+    # UV index (robust). Prefers the key-gated Open-UV source and falls back to
+    # the keyless EPA Envirofacts forecast when OPENUV_API_KEY is unset, so a UV
+    # tile renders without operator action. See app/conditions/uv.py.
+    SOURCE_OPENUV: uv.fetch_uv_index,
     # V1.5 wave 3: water-temperature alt-source. Fetcher self-gates on
     # FEATURE_FLAG_WATER_TEMP_GAGE_09426630 (default OFF) and returns an
     # empty payload without issuing any HTTP request when disabled, so the

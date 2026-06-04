@@ -113,12 +113,15 @@ def test_api_payload_omits_sky_condition_when_absent() -> None:
     assert "sky_is_stale" not in payload
 
 
-# ----- view_model tile ---------------------------------------------------
+# ----- view_model tile (Task 0: sky chip demoted in favour of UV) --------
 
 
-def test_view_model_renders_sky_condition_tile_when_present() -> None:
-    """When sky_condition is present in the api payload, the view model emits a
-    kind=sky_condition tile carrying the forecast text."""
+def test_view_model_no_longer_renders_sky_condition_tile() -> None:
+    """Task 0 (source-expansion) demoted the low-value "Sunny" chip: even when a
+    sky_condition is present in the cache/api payload, the conditions strip no
+    longer emits a kind=sky_condition tile (UV took its slot). sky_condition
+    remains in the JSON api_payload for non-tile consumers — see
+    test_api_payload_emits_sky_condition_when_present above."""
     from app.conditions.view_model import build_conditions_strip_view_model
     from app.db.database import SessionLocal
 
@@ -131,44 +134,18 @@ def test_view_model_renders_sky_condition_tile_when_present() -> None:
         )
         vm = build_conditions_strip_view_model(db, now=now)
 
-    sky_tiles = [t for t in vm.tiles if t.kind == "sky_condition"]
-    assert len(sky_tiles) == 1
-    tile = sky_tiles[0]
-    assert tile.primary_value == "Sunny"
-    assert tile.attribution_chip == "NWS forecast"
-    assert tile.severity == "neutral"
-    assert tile.visible is True
-
-
-def test_view_model_skips_sky_condition_tile_when_absent() -> None:
-    """When sky_condition is absent, the view model omits the tile (graceful
-    degradation)."""
-    from app.conditions.view_model import build_conditions_strip_view_model
-    from app.db.database import SessionLocal
-
-    now = datetime.now(UTC).replace(tzinfo=None)
-    with SessionLocal() as db:
-        _seed_forecast_cache(
-            db,
-            {"periods": [], "forecast_high_f": 100.0, "short_forecast": None},
-            now=now,
-        )
-        vm = build_conditions_strip_view_model(db, now=now)
-
     assert [t for t in vm.tiles if t.kind == "sky_condition"] == []
 
 
 # ----- router utility tile map -------------------------------------------
 
 
-def test_router_utility_tile_map_has_sky_condition() -> None:
-    """The home router's _UTILITY_TILE_MAP includes a sky_condition entry with
-    an icon + 'Sky' label so the utility strip can decorate the chip."""
+def test_router_utility_tile_map_demotes_sky_condition_for_uv() -> None:
+    """Task 0 removed the sky_condition map entry (its view_model tile is gone)
+    and UV leads the sun/sky slot."""
     from app.home import router
 
-    assert "sky_condition" in router._UTILITY_TILE_MAP
-    # This repo's map is keyed kind -> (chip_kind, icon, label).
-    chip_kind, icon, label = router._UTILITY_TILE_MAP["sky_condition"]
-    assert label == "Sky"
+    assert "sky_condition" not in router._UTILITY_TILE_MAP
+    chip_kind, icon, label = router._UTILITY_TILE_MAP["uv"]
+    assert (chip_kind, label) == ("uv", "UV index")
     assert icon
-    assert chip_kind == "sky"
