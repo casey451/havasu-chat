@@ -175,3 +175,34 @@ def test_apply_creates_entity_with_satellites_and_quarantines(_cleanup_import: N
         # Fixture got deactivated, not deleted.
         fixture = db.get(Entity, "fixture-quarantine-me")
         assert fixture is not None and fixture.is_active is False
+
+
+# --- possible-duplicate review (prevents silent twins) -------------------
+
+
+def test_possible_duplicate_name_catches_real_twin() -> None:
+    from scripts.import_schedule_hunt_entities import possible_duplicate_name
+
+    # The exact Eight Lotus case the strict matcher missed.
+    assert (
+        possible_duplicate_name(
+            "Eight Lotus Center for Wellness", ["Eight Lotus Wellness and Yoga"]
+        )
+        == "Eight Lotus Wellness and Yoga"
+    )
+    # Only a generic shared word ("golf") -> NOT flagged.
+    assert possible_duplicate_name("Kaizen Golf & Fitness", ["Lake Havasu Golf Club"]) is None
+    # Only the town name shared -> NOT flagged.
+    assert possible_duplicate_name("Havasu Art Guild", ["Havasu Stitchers Quilt Guild"]) is None
+
+
+def test_build_plan_routes_twin_to_possible_dups() -> None:
+    venues = [CsvVenue("Eight Lotus Center for Wellness", "yoga", "", "", "231 Swanson Ave")]
+    existing = [
+        ExistingEntity(id="e-el", name="Eight Lotus Wellness and Yoga", source="google_places", is_active=True)
+    ]
+    plan = build_plan(venues, existing)
+    assert not plan.new  # NOT created
+    assert len(plan.possible_dups) == 1
+    venue, db_name = plan.possible_dups[0]
+    assert db_name == "Eight Lotus Wellness and Yoga"
