@@ -147,13 +147,22 @@ def build_today_payload(db: Session, *, now: datetime | None = None) -> dict[str
         )
     )
 
-    # Wind (NWS current observation).
+    # Wind (NWS current observation). When the observation carries a direction
+    # bearing we prefix the compass label (e.g. "NW 8 mph"); when it is absent we
+    # gracefully show speed alone ("8 mph").
     wind = api.get("wind_speed_mph")
+    wind_cardinal = api.get("wind_direction_cardinal")
+    if wind is None:
+        wind_primary = None
+    elif isinstance(wind_cardinal, str) and wind_cardinal:
+        wind_primary = f"{wind_cardinal} {float(wind):.0f} mph"
+    else:
+        wind_primary = f"{float(wind):.0f} mph"
     fields.append(
         _field(
             "wind",
             "Wind",
-            f"{float(wind):.0f} mph" if wind is not None else None,
+            wind_primary,
             attribution="NWS",
             is_stale=bool(api.get("temp_is_stale")),
             staleness_label=api.get("temp_staleness_label"),

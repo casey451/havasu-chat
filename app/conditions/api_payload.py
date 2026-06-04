@@ -21,6 +21,45 @@ from app.conditions.constants import (
 from app.conditions.staleness import staleness_label
 from app.core.timezone import LAKE_HAVASU_TZ
 
+_COMPASS_16 = (
+    "N",
+    "NNE",
+    "NE",
+    "ENE",
+    "E",
+    "ESE",
+    "SE",
+    "SSE",
+    "S",
+    "SSW",
+    "SW",
+    "WSW",
+    "W",
+    "WNW",
+    "NW",
+    "NNW",
+)
+
+
+def degrees_to_cardinal(deg: float | int | None) -> str | None:
+    """Convert a wind-direction bearing in degrees to a 16-point compass label.
+
+    Returns ``None`` when ``deg`` is ``None`` or not a finite number so callers
+    can omit the field cleanly. Degrees are normalized into ``[0, 360)`` first,
+    so values outside that range (e.g. 360, -45) still map sensibly.
+    """
+    if not isinstance(deg, (int, float)) or isinstance(deg, bool):
+        return None
+    try:
+        value = float(deg)
+    except (TypeError, ValueError):
+        return None
+    if value != value or value in (float("inf"), float("-inf")):
+        return None
+    normalized = value % 360.0
+    index = int((normalized + 11.25) // 22.5) % 16
+    return _COMPASS_16[index]
+
 
 def _format_sunset_local(sunset_iso: str | None) -> str | None:
     """Render an NWS sunset ISO timestamp as Lake Havasu wall-clock, e.g. ``7:42 PM``.
@@ -75,11 +114,14 @@ def build_conditions_api_payload(db: Session, *, now: datetime | None = None) ->
     if nws_current is not None:
         d = nws_current.data
         label, stale = staleness_label(nws_current.fetched_at, now)
+        wind_dir_deg = d.get("wind_direction_deg")
         payload.update(
             {
                 "current_temp_f": d.get("temperature_f"),
                 "heat_index_f": d.get("heat_index_f"),
                 "wind_speed_mph": d.get("wind_speed_mph"),
+                "wind_direction_deg": wind_dir_deg,
+                "wind_direction_cardinal": degrees_to_cardinal(wind_dir_deg),
                 "temp_updated_at_iso": _iso(nws_current.fetched_at),
                 "temp_staleness_label": label,
                 "temp_is_stale": stale or nws_current.is_stale,
