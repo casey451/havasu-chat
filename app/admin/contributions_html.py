@@ -462,6 +462,9 @@ def register_contribution_html_routes(router: APIRouter) -> None:
 <div class="kv"><span class="k">Event date</span> {_esc(str(c.event_date) if c.event_date else "—")}</div>
 <div class="kv"><span class="k">Event times</span> {_esc(str(c.event_time_start or "—"))} – {_esc(str(c.event_time_end or "—"))}</div>
 <div class="kv"><span class="k">Source</span> {_esc(c.source)} · unverified={c.unverified}</div>
+<div class="kv"><span class="k">Confidence</span> {_esc(f"{c.confidence:.2f}" if c.confidence is not None else "—")}</div>
+<div class="kv"><span class="k">Target entity</span> {_esc(c.target_entity_id or "—")}</div>
+<div class="kv"><span class="k">Created entity</span> {_esc(c.created_entity_id or "—")}</div>
 <div class="kv"><span class="k">llm_source_chat_log_id</span> {llm_line}</div>
 <div class="kv"><span class="k">Submitted at</span> {_esc(str(c.submitted_at))}</div>
 </div>"""

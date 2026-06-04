@@ -32,6 +32,40 @@ def test_create_contribution_sets_fields() -> None:
         db.commit()
 
 
+def test_create_contribution_persists_autopublish_fields() -> None:
+    with SessionLocal() as db:
+        data = ContributionCreate(
+            entity_type="program",
+            submission_name="Auto Yoga Flow",
+            source="facebook_scrape",
+            confidence=0.92,
+            target_entity_id="ent-abc",
+            proposed_record={
+                "title": "Vinyasa Flow",
+                "schedule_days": ["monday", "wednesday"],
+                "schedule_start_time": "09:00",
+                "schedule_end_time": "10:00",
+            },
+        )
+        row = create_contribution(db, data, submitter_ip_hash=None)
+        assert row.confidence == 0.92
+        assert row.target_entity_id == "ent-abc"
+        assert row.created_entity_id is None
+        assert row.proposed_record["schedule_days"] == ["monday", "wednesday"]
+        db.delete(row)
+        db.commit()
+
+
+def test_confidence_out_of_range_rejected() -> None:
+    with pytest.raises(ValueError):
+        ContributionCreate(
+            entity_type="program",
+            submission_name="bad confidence",
+            source="facebook_scrape",
+            confidence=1.5,
+        )
+
+
 def test_create_contribution_with_ip_hash() -> None:
     h = "a" * 64
     with SessionLocal() as db:

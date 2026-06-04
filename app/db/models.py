@@ -511,6 +511,21 @@ class Contribution(Base):
         String, ForeignKey("events.id", ondelete="SET NULL"), nullable=True
     )
 
+    # Scraper auto-publish (schedule-hunt loop). ``confidence`` (0–1) is supplied
+    # by the worker; ``target_entity_id`` names the existing venue a class schedule
+    # belongs to; ``proposed_record`` carries the structured ProgramApprovalFields-
+    # shaped JSON the worker extracted (validated at publish time); and
+    # ``created_entity_id`` is the audit pointer for the attach-to-existing-entity
+    # path (which writes Schedule/Offering rows but no Program row).
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    target_entity_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("entities.id", ondelete="SET NULL"), nullable=True
+    )
+    created_entity_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("entities.id", ondelete="SET NULL"), nullable=True
+    )
+    proposed_record: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
     source: Mapped[str] = mapped_column(String, nullable=False, default="user_submission")
     llm_source_chat_log_id: Mapped[str | None] = mapped_column(
         String, ForeignKey("chat_logs.id"), nullable=True
