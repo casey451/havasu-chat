@@ -2504,3 +2504,20 @@ Filed #64 (harness v2) for the spec-vs-toolchain gap surfaced during ambiguity 3
 
 **Filed by:** Cowork primary (2026-05-13, post-directory-pivot V1 schema ship + post-slug lane ship; queued behind Provider profile page + Home Services category page per pivot §6 priority signal).
 
+
+---
+
+## go_lake_havasu scrape duplicates (dedupe-review pass)
+
+The 2026-05-30 go_lake_havasu partner scrape created near-duplicates of providers that
+already exist from Google ingestion. Confirmed live examples: "Rentals on the Beach"
+(go_lake_havasu) vs "Havasu Adventure On The Beach Jet Skis / Boats formerly known as
+Rentals on the Beach" (existing); "Western Arizona Canoe & Kayak Outfitters (WACKO)" vs
+"Wacko kayak & paddleboard rentals"; the SARA Park family ("SARA Park" vs "Sara Park
+Trail Head" / "Sara Park Hiking Trail" / "SARA Park Dog Park"). Run the importer
+dup-review flow (PR #131) across the ~44 approved go_lake_havasu rows and merge/retire
+losers. Inactive draft dupes from the same scrape (2-3 copies of several parks) can be
+purged in the same pass.
+
+**Filed by:** Cowork session (2026-06-04, backlog-execution day; spotted during live
+spot-check of /categories/on-the-water after queue approvals).
