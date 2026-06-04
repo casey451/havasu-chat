@@ -32,6 +32,24 @@ jobs:
       - name: ruff check
         run: python -m ruff check
 
+  typecheck:
+    name: Type check (mypy)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Install dependencies
+        # mypy needs the real deps installed to resolve types, so install
+        # requirements.txt as well as the dev tools (mypy + stub packages).
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r dev-requirements.txt
+      - name: mypy
+        run: python -m mypy app
+
   test:
     name: Test (pytest)
     runs-on: ubuntu-22.04

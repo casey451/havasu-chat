@@ -107,7 +107,7 @@ class Tier2Filters(BaseModel):
         s = str(v).lower().strip()
         if s not in _MONTHS:
             raise ValueError("month_name must be a full english month name in lowercase")
-        return s  # type: ignore[return-value]
+        return s
 
     @field_validator("season", mode="before")
     @classmethod
@@ -117,7 +117,7 @@ class Tier2Filters(BaseModel):
         s = str(v).lower().strip()
         if s not in _SEASONS:
             raise ValueError("season must be one of: spring, summer, fall, winter")
-        return s  # type: ignore[return-value]
+        return s
 
     @field_validator("day_of_week")
     @classmethod

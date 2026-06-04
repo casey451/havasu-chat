@@ -29,6 +29,10 @@ from app.db.database import Base
 from app.db.types import TZAwareDateTime
 from app.schemas.event import EventCreate
 
+# Alias for the ``Event`` table, whose ``date`` column shadows the ``date`` type
+# in sibling annotations (mypy valid-type). Other models keep using ``date``.
+_Date = date
+
 
 class Provider(Base):
     __tablename__ = "providers"
@@ -190,8 +194,8 @@ class Event(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
     title: Mapped[str] = mapped_column(String, nullable=False)
     normalized_title: Mapped[str] = mapped_column(String, nullable=False)
-    date: Mapped[date] = mapped_column(Date, nullable=False)
-    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    date: Mapped[_Date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[_Date | None] = mapped_column(Date, nullable=True)
     start_time: Mapped[time] = mapped_column(Time, nullable=False)
     end_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     location_name: Mapped[str] = mapped_column(String, nullable=False)

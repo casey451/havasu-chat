@@ -53,3 +53,54 @@ known-first-party = ["app"]
 # Reserved for future per-touch formatting; not enabled in CI.
 quote-style = "double"
 indent-style = "space"
+
+[tool.mypy]
+python_version = "3.11"
+# pydantic.mypy only. The SQLAlchemy mypy plugin is legacy (supports the 1.x
+# Mapped-via-plugin style and is unsupported past mypy ~1.10); our models use
+# SQLAlchemy 2.0 native `Mapped[]` typing, which ships PEP-561 types and needs
+# no plugin. Adding it under mypy 1.18 would error rather than help.
+plugins = ["pydantic.mypy"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+# Permissive tree-wide so the gate is green on day one; ratchet per-module below.
+ignore_missing_imports = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+exclude = '(^|/)(alembic/versions|scripts/output|relay|outputs|\.venv)'
+
+# TODO(typing): bootstrap baseline. On adoption these packages carried 180
+# pre-existing type errors across 66 files. They are type-checked under the
+# permissive config, but errors are suppressed so `mypy app` is green on day
+# one. Ratchet a package OFF this list as it is typed: remove its entry, run
+# `mypy app`, fix what surfaces, keep the gate green. New code should land
+# clean — prefer adding modules out of this list over growing it.
+[[tool.mypy.overrides]]
+module = [
+    "app.admin.*",
+    "app.api.*",
+    "app.categories.*",
+    "app.chat.*",
+    "app.conditions.*",
+    "app.contrib.*",
+    "app.core.*",
+    "app.eval.*",
+    "app.events.*",
+    "app.groups.*",
+    "app.home.*",
+    "app.main",
+    "app.providers.*",
+    "app.search.*",
+    "app.v1.*",
+]
+ignore_errors = true
+
+# Ratchet strictness on the highest-value, most-typed packages first. This
+# section is intentionally LAST and sets `ignore_errors = false` so the exact
+# `app.chat.tier2_schema` entry overrides the `app.chat.*` suppression above
+# and stays fully checked.
+[[tool.mypy.overrides]]
+module = ["app.db.*", "app.chat.tier2_schema", "app.schemas.*"]
+ignore_errors = false
+disallow_untyped_defs = true
+check_untyped_defs = true

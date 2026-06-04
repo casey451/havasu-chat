@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from sqlalchemy import event, select
-from sqlalchemy.orm import Session, object_session
+from sqlalchemy.engine import Connection
+from sqlalchemy.orm import Mapper, Session, object_session
 
 from app.utils.slug import make_unique_slug, slugify
 
@@ -41,7 +42,9 @@ def register_provider_slug_hooks() -> None:
     from app.db.models import Provider
 
     @event.listens_for(Provider, "before_insert")
-    def _provider_assign_slug(mapper, connection, target: Provider) -> None:
+    def _provider_assign_slug(
+        mapper: Mapper[Provider], connection: Connection, target: Provider
+    ) -> None:
         if target.slug is not None:
             return
         sess = object_session(target)

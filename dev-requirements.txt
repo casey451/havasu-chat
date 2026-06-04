@@ -1,3 +1,11 @@
 # Development-only dependencies. Not installed in production.
 # Install with: pip install -r dev-requirements.txt
 ruff==0.15.12
+
+# Static type checking (T1.1). The CI `typecheck` job installs requirements.txt
+# too, since mypy needs the real deps to resolve types. Pinned to keep the gate
+# reproducible. Stub-only packages for libraries that ship no inline types.
+mypy==1.18.2
+types-requests==2.33.0.20260518
+types-PyYAML==6.0.12.20260518
+types-python-dateutil==2.9.0.20260518
