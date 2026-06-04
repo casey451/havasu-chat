@@ -64,7 +64,9 @@ def _entity_row_dict(
         address = loc.address if loc and loc.address else provider.address
         phone = provider.phone
         hours = _truncate(provider.hours, 120)
-        category_label = provider.category
+        # CH-1 (WP-9): read the canonical primary category (one of the 12),
+        # falling back to the legacy ``category`` string while it is still NULL.
+        category_label = provider.primary_category or provider.category
     elif loc is not None:
         address = loc.address
     if ent.categories:
@@ -131,6 +133,9 @@ def _category_match_entity(ent: Entity, cat: str, provider: Provider | None) -> 
     haystacks: list[str] = [(ent.name or "").lower(), (ent.description or "").lower()]
     if provider is not None:
         haystacks.append((provider.category or "").lower())
+        # CH-1 (WP-9): include the canonical primary slug so a category needle
+        # keyed to the 12 (e.g. "health-wellness-care") still matches.
+        haystacks.append((provider.primary_category or "").lower())
         gpc = (provider.google_primary_category or "").lower().replace("_", " ")
         if gpc:
             haystacks.append(gpc)

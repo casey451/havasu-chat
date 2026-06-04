@@ -9,7 +9,7 @@ THEMED_GROUPS: dict[str, list[str]] = {
     "eat-drink-group": ["eat-drink"],
     "health-fitness-group": ["health-wellness-care", "classes-sports-recreation"],
     "on-the-water-group": ["on-the-water"],
-    "home-auto-group": ["home-property-services", "auto-rv-fuel"],
+    "home-auto-group": ["home-property-services", "auto-rv-fuel", "professional-services"],
     "things-to-do-group": [
         "events",
         "outdoors-parks-trails",
@@ -33,7 +33,9 @@ _GROUP_ONE_LINERS: dict[str, str] = {
         "Care, wellness, classes, and recreation — doctors to drop-in sports."
     ),
     "on-the-water-group": ("Marinas, launches, rentals, and everything tied to lake life."),
-    "home-auto-group": ("Home pros, property services, auto, RV, and fuel around town."),
+    "home-auto-group": (
+        "Home pros, property and professional services, auto, RV, and fuel around town."
+    ),
     "things-to-do-group": (
         "Events, outdoor recreation, and classes — what to do around Lake Havasu."
     ),

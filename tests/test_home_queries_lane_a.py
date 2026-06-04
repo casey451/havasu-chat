@@ -34,10 +34,11 @@ def test_category_label_known_slug_compound() -> None:
 
 def test_category_label_widened_set_real_estate() -> None:
     """The widened map covers Provider.category values that previously
-    fell through to a title-cased slug. Real estate is the canonical
-    example because the title-case fallback ('Real Estate') reads worse
-    than the sentence-case label ('Real estate')."""
-    assert _category_label("real_estate") == "Real estate"
+    fell through to a title-cased slug. Since the canonical "Professional
+    Services" split (13th category), the professional cluster — including
+    ``real_estate`` — labels as "Professional Services" rather than its own
+    free-text slug, so cards read off the canonical category."""
+    assert _category_label("real_estate") == "Professional Services"
 
 
 def test_category_label_widened_set_general_contractor() -> None:

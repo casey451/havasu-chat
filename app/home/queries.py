@@ -57,6 +57,7 @@ CATEGORY_LABELS: dict[str, str] = {
     "events": "Events",
     "classes-sports-recreation": "Classes, Sports & Recreation",
     "public-civic-resources": "Public & Civic Resources",
+    "professional-services": "Professional Services",
 }
 
 LEGACY_PROVIDER_CATEGORY_LABELS: dict[str, str] = {
@@ -88,12 +89,12 @@ LEGACY_PROVIDER_CATEGORY_LABELS: dict[str, str] = {
     "religion_community": "Public & Civic Resources",
     "fitness_sports": "Health, Wellness & Care",
     "fitness": "Health, Wellness & Care",
-    "professional_services": "Professional",
+    "professional_services": "Professional Services",
     "beauty_personal_care": "Beauty & care",
-    "real_estate": "Real estate",
-    "insurance": "Insurance",
-    "financial": "Financial",
-    "legal": "Legal",
+    "real_estate": "Professional Services",
+    "insurance": "Professional Services",
+    "financial": "Professional Services",
+    "legal": "Professional Services",
     "tourism": "Tourism",
     "entertainment_attractions": "Attractions",
     "barbershop": "Barbershop",
@@ -133,6 +134,7 @@ CATEGORY_QUERIES: dict[str, str] = {
     "events": "what's happening in Havasu",
     "classes-sports-recreation": "classes and recreation in Havasu",
     "public-civic-resources": "civic resources in Havasu",
+    "professional-services": "find a pro",
 }
 
 # ─────────── helpers ───────────
@@ -622,7 +624,9 @@ def new_on_hava(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
                 {
                     "name": prov.provider_name,
                     "blurb": _card_blurb(prov),
-                    "meta_text": _category_label(prov.category),
+                    # WP-9: label off the canonical primary (one of the 12),
+                    # legacy category fallback while it is still NULL.
+                    "meta_text": _category_label(prov.primary_category or prov.category),
                     "footer_text": prov.address or "",
                     "image_url": _provider_image_url(prov),
                     "image_alt": prov.provider_name,
@@ -633,7 +637,7 @@ def new_on_hava(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
                     "phone_raw": digits,
                     "status": status_class,
                     "status_text": status_text,
-                    "dot": _category_dot(prov.category),
+                    "dot": _category_dot(prov.primary_category or prov.category),
                 },
             )
         )
@@ -680,7 +684,8 @@ def spotlights(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
         out.append(
             {
                 "name": prov.provider_name,
-                "category": _category_label(prov.category),
+                # WP-9: canonical primary label, legacy fallback while NULL.
+                "category": _category_label(prov.primary_category or prov.category),
                 "blurb": _card_blurb(prov),
                 "image_url": _provider_image_url(prov),
                 "image_alt": prov.provider_name,
@@ -689,7 +694,7 @@ def spotlights(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
                 "status": status_class,
                 "status_text": status_text,
                 "url": f"/chat?q={prov.provider_name.replace(' ', '+')}",
-                "dot": _category_dot(prov.category),
+                "dot": _category_dot(prov.primary_category or prov.category),
             }
         )
     return out

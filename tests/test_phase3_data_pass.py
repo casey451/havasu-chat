@@ -16,7 +16,8 @@ from app.db.entity_dual_write import create_provider_and_entity
 from app.db.models import Category, Entity, Location, Provider
 from app.home.queries import CATEGORY_LABELS
 
-NEW_12_SLUGS = {
+# The canonical primary-category slugs (13 after the Professional Services split).
+NEW_CANONICAL_SLUGS = {
     "home-property-services",
     "health-wellness-care",
     "eat-drink",
@@ -29,6 +30,7 @@ NEW_12_SLUGS = {
     "events",
     "classes-sports-recreation",
     "public-civic-resources",
+    "professional-services",
 }
 
 
@@ -106,10 +108,14 @@ def test_migration_upgrade_downgrade_upgrade_cycle(
 
 def test_after_upgrade_categories_count_and_slugs() -> None:
     # The Sandstone taxonomy migration (b1f2a3c4d5e6) seeds 5 more tier-1 buckets
-    # on top of the original 12, so every CATEGORY_FILTERS route has a row.
+    # on top of the original 12, so every CATEGORY_FILTERS route has a row. The
+    # later canonical "Professional Services" split (13th CATEGORY_LABELS slug) is
+    # a *surface*-taxonomy change only; the DB ``categories`` table still seeds the
+    # ``professional`` bucket (NEW_BUCKETS), so the seeded slug set is unchanged.
     from app.categories.backfill_plan import NEW_BUCKETS
 
-    expected = NEW_12_SLUGS | {slug for slug, _name, _order in NEW_BUCKETS}
+    seeded_canonical = NEW_CANONICAL_SLUGS - {"professional-services"}
+    expected = seeded_canonical | {slug for slug, _name, _order in NEW_BUCKETS}
     with SessionLocal() as db:
         rows = db.query(Category).all()
         assert {c.slug for c in rows} == expected
@@ -338,7 +344,7 @@ def test_entity_featured_from_provider_featured() -> None:
 
 
 def test_category_labels_keys_match_new_taxonomy() -> None:
-    assert set(CATEGORY_LABELS.keys()) == NEW_12_SLUGS
+    assert set(CATEGORY_LABELS.keys()) == NEW_CANONICAL_SLUGS
 
 
 def test_validator_rejects_legacy_slug() -> None:

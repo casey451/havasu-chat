@@ -149,8 +149,9 @@ def effective_seasonal_hours(
 
 def category_label_for(provider: Provider) -> str:
     """Prefer ENTITY taxonomy (``entity_categories`` → ``Category.name``), then
-    ``category_ref``, then legacy ``category`` mapped through
-    ``app.home.queries.CATEGORY_LABELS``.
+    ``category_ref``, then the canonical ``primary_category`` (one of the 12,
+    WP-9), then legacy ``category`` — all mapped through
+    ``app.home.queries.CATEGORY_LABELS`` / ``LEGACY_PROVIDER_CATEGORY_LABELS``.
     """
     ent = getattr(provider, "entity", None)
     if ent is not None and ent.categories:
@@ -162,6 +163,10 @@ def category_label_for(provider: Provider) -> str:
     ref = getattr(provider, "category_ref", None)
     if ref is not None and getattr(ref, "name", None):
         return ref.name
+    # WP-9 (P-4): the canonical primary is one of the 12 CATEGORY_LABELS keys.
+    primary = getattr(provider, "primary_category", None)
+    if primary and primary in CATEGORY_LABELS:
+        return CATEGORY_LABELS[primary]
     cat = provider.category
     if not cat:
         return "Local pro"
@@ -451,8 +456,23 @@ def derive_ask_hava_url(provider: Provider) -> str:
 
 
 # Category-glyph map for the "While you're here" cross-discovery strip. These are
-# presentation glyphs keyed off the same legacy ``Provider.category`` strings the
-# home explore tiles use; they decorate the chip and never stand in for data.
+# presentation glyphs that decorate the chip and never stand in for data. Keyed
+# on the canonical ``primary_category`` (the 12, WP-9) first, with a legacy
+# ``Provider.category`` fallback for un-backfilled rows.
+_PRIMARY_CATEGORY_GLYPHS: dict[str, str] = {
+    "eat-drink": "\U0001F37D️",
+    "on-the-water": "⛵",
+    "health-wellness-care": "\U0001FA7A",
+    "home-property-services": "\U0001F527",
+    "auto-rv-fuel": "\U0001F697",
+    "shopping-essentials": "\U0001F6CD️",
+    "outdoors-parks-trails": "\U0001F3DE️",
+    "lodging-vacation-rentals": "\U0001F3E1",
+    "pets": "\U0001F43E",
+    "classes-sports-recreation": "\U0001F3CB️",
+    "public-civic-resources": "\U0001F3DB️",
+    "events": "\U0001F39F️",
+}
 _CATEGORY_GLYPHS: dict[str, str] = {
     "eat_drink": "\U0001F37D️",
     "restaurants": "\U0001F37D️",
@@ -471,6 +491,9 @@ _DEFAULT_CATEGORY_GLYPH = "\U0001F4CD"  # round pushpin
 
 
 def _glyph_for_provider(provider: Provider) -> str:
+    primary = getattr(provider, "primary_category", None)
+    if primary and primary in _PRIMARY_CATEGORY_GLYPHS:
+        return _PRIMARY_CATEGORY_GLYPHS[primary]
     return _CATEGORY_GLYPHS.get(provider.category or "", _DEFAULT_CATEGORY_GLYPH)
 
 
@@ -479,25 +502,30 @@ def nearby_providers(
 ) -> list[dict[str, Any]]:
     """Real related listings for the cross-discovery strip.
 
-    Same legacy ``category`` as ``provider`` (the honest "related" signal we have
-    in V1), preferring rows that share the provider's district, excluding the
-    provider itself and any inactive/draft/unslugged rows. Returns an empty list
-    when there's nothing real to show — the template omits the strip entirely
-    rather than fabricate neighbors.
+    Same canonical ``primary_category`` (one of the 12, WP-9 / P-4) as
+    ``provider`` — the honest "related" signal — falling back to the legacy
+    ``category`` match while the source provider's primary is still NULL.
+    Prefers rows that share the provider's district, excludes the provider itself
+    and any inactive/draft/unslugged rows. Returns an empty list when there's
+    nothing real to show — the template omits the strip entirely rather than
+    fabricate neighbors.
     """
-    if not provider.category:
+    primary = getattr(provider, "primary_category", None)
+    if not primary and not provider.category:
         return []
 
-    q = (
-        db.query(Provider)
-        .filter(
-            Provider.category == provider.category,
-            Provider.id != provider.id,
-            Provider.is_active.is_(True),
-            Provider.draft.is_(False),
-            Provider.slug.isnot(None),
-        )
+    q = db.query(Provider).filter(
+        Provider.id != provider.id,
+        Provider.is_active.is_(True),
+        Provider.draft.is_(False),
+        Provider.slug.isnot(None),
     )
+    if primary:
+        # Canonical match: a sibling shares this primary (its own primary, or —
+        # while un-backfilled — its legacy category folds to the same primary).
+        q = q.filter(Provider.primary_category == primary)
+    else:
+        q = q.filter(Provider.category == provider.category)
     district = (provider.district or "").strip()
     rows: list[Provider] = []
     seen: set[int] = set()

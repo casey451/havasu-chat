@@ -426,25 +426,59 @@ def _route_subcategory_slugs(route_slug: str) -> set[str]:
     return set()
 
 
+def _route_primary_categories(route_slug: str) -> set[str]:
+    """Canonical primary-category slugs (the 12) a route lists (WP-9).
+
+    Derived deterministically from the route's subcategory set mapped through
+    ``SUBCATEGORY_TO_PRIMARY``. So ``health-wellness-care`` → {health-wellness-care},
+    the ``services`` mega-route → the union of every primary its subcategories fold
+    into. Empty set when the route owns no subcategories. This is what lets the
+    grid filter on the canonical ``Provider.primary_category`` first.
+    """
+    from app.categories.subcategories import SUBCATEGORY_TO_PRIMARY
+
+    subs = _route_subcategory_slugs(route_slug)
+    return {p for s in subs if (p := SUBCATEGORY_TO_PRIMARY.get(s))}
+
+
 def route_provider_filter(route_slug: str):
     """SQLAlchemy clause selecting the providers that belong on ``route_slug``.
 
-    A provider belongs when its **subcategory** (the strong Google-derived signal)
-    is in the route's canonical set. Providers not yet subcategorized (``NULL``)
-    fall back to the legacy ``CATEGORY_FILTERS`` match — so already-classified prod
-    rows route correctly (a hospital → Health, not Shopping) while unclassified
-    rows and test fixtures keep their prior behavior. The ``subcategory IS NULL``
-    guard is what makes a wrong legacy category irrelevant once a subcategory exists.
+    Three-tier signal, strongest first (WP-9 / audit R2):
+
+    1. **primary_category** — the canonical column (one of the 12). When set, it is
+       authoritative: a provider belongs iff its primary is in the route's primary
+       set.
+    2. **subcategory** (primary NULL) — the strong Google-derived signal; matched
+       against the route's canonical subcategory set.
+    3. **legacy ``category``** (primary AND subcategory NULL) — the last-resort
+       ``CATEGORY_FILTERS`` match, so un-backfilled prod rows and test fixtures keep
+       routing until they are classified.
+
+    The ``IS NULL`` guards make a weaker (often wrong) signal irrelevant once a
+    stronger one exists — e.g. a hospital mis-filed as legacy ``retail`` routes to
+    Health via its primary/subcategory, never to Shopping.
     """
     from sqlalchemy import and_, false, or_
 
+    primaries = _route_primary_categories(route_slug)
     subs = _route_subcategory_slugs(route_slug)
     legacy = CATEGORY_FILTERS.get((route_slug or "").strip().lower(), ())
     clauses = []
+    if primaries:
+        clauses.append(Provider.primary_category.in_(primaries))
     if subs:
-        clauses.append(Provider.subcategory.in_(subs))
+        clauses.append(
+            and_(Provider.primary_category.is_(None), Provider.subcategory.in_(subs))
+        )
     if legacy:
-        clauses.append(and_(Provider.subcategory.is_(None), Provider.category.in_(legacy)))
+        clauses.append(
+            and_(
+                Provider.primary_category.is_(None),
+                Provider.subcategory.is_(None),
+                Provider.category.in_(legacy),
+            )
+        )
     if not clauses:
         return false()
     return or_(*clauses)
