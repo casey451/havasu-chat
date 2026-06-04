@@ -340,3 +340,76 @@ def test_enrich_form_posts_to_api_path(client: TestClient) -> None:
         r2 = client.post(path, follow_redirects=False)
     assert r2.status_code == 202
     assert mock_e.call_count == 1
+
+
+def test_detail_renders_proposed_record_section(client: TestClient) -> None:
+    """Scraped program findings must show their schedule (proposed_record),
+    confidence, target entity, and source URL on the detail page — the legacy
+    event_* columns are empty for them, so without this section the reviewer
+    sees a finding with no days/times at all."""
+    client.cookies.clear()
+    _login(client)
+    db = SessionLocal()
+    try:
+        row = create_contribution(
+            db,
+            ContributionCreate(
+                entity_type="program",
+                submission_name="Proposed Record Studio",
+                source_url="https://example.com/schedule-page",
+                source="facebook_scrape",
+                confidence=0.7,
+                target_entity_id="00000000-0000-0000-0000-000000000001",
+                proposed_record={
+                    "title": "Sunrise Yoga Flow",
+                    "description": "Gentle all-levels morning yoga flow class.",
+                    "schedule_days": ["monday", "wednesday"],
+                    "schedule_start_time": "06:30",
+                    "schedule_end_time": "07:30",
+                    "location_name": "Proposed Record Studio",
+                    "provider_name": "Proposed Record Studio",
+                    "cost": "$15/class",
+                    "extra_worker_key": "kept-visible",
+                },
+            ),
+            None,
+        )
+        cid = row.id
+    finally:
+        db.close()
+    r = client.get(f"/admin/contributions/{cid}")
+    assert r.status_code == 200
+    body = r.text
+    assert "Proposed record (scraped)" in body
+    assert "Sunrise Yoga Flow" in body
+    assert "monday, wednesday" in body
+    assert "06:30" in body and "07:30" in body
+    assert "$15/class" in body
+    # unknown worker-sent keys are not hidden
+    assert "extra_worker_key" in body and "kept-visible" in body
+    # confidence + target entity + clickable source URL
+    assert "0.70" in body
+    assert "00000000-0000-0000-0000-000000000001" in body
+    assert 'href="https://example.com/schedule-page"' in body
+
+
+def test_detail_no_proposed_record_section_when_absent(client: TestClient) -> None:
+    client.cookies.clear()
+    _login(client)
+    db = SessionLocal()
+    try:
+        row = create_contribution(
+            db,
+            ContributionCreate(
+                entity_type="tip",
+                submission_name="No Proposed Record Tip",
+                source="user_submission",
+            ),
+            None,
+        )
+        cid = row.id
+    finally:
+        db.close()
+    r = client.get(f"/admin/contributions/{cid}")
+    assert r.status_code == 200
+    assert "Proposed record (scraped)" not in r.text

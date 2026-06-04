@@ -68,6 +68,61 @@ def _ip_display(h: str | None) -> str:
         return _esc(h)
     return f"{_esc(h[:8])}… ({len(h)} chars)"
 
+_PROPOSED_FIELD_ORDER: tuple[tuple[str, str], ...] = (
+    ("title", "Title"),
+    ("description", "Description"),
+    ("schedule_days", "Days"),
+    ("schedule_start_time", "Start time"),
+    ("schedule_end_time", "End time"),
+    ("location_name", "Location"),
+    ("location_address", "Address"),
+    ("provider_name", "Provider"),
+    ("cost", "Cost"),
+    ("age_min", "Age min"),
+    ("age_max", "Age max"),
+    ("contact_phone", "Contact phone"),
+    ("contact_email", "Contact email"),
+    ("contact_url", "Contact URL"),
+    ("tags", "Tags"),
+)
+
+
+def _fmt_proposed_value(v: Any) -> str:
+    """Human-readable, escaped rendering of one proposed_record value."""
+    if v is None or v == "" or v == []:
+        return "—"
+    if isinstance(v, list):
+        return _esc(", ".join(str(x) for x in v))
+    return _esc(str(v))
+
+
+def _proposed_record_section(c: Contribution) -> str:
+    """Render the scraped ``proposed_record`` (ProgramApprovalFields-shaped JSON).
+
+    Schedule-hunt program findings carry their class schedule here rather than
+    in the legacy ``event_*`` columns (which stay empty for them) — without
+    this section the detail page shows a scraped finding with no days/times.
+    Known fields render first in a fixed order; unknown keys follow so nothing
+    the worker sent is ever hidden.
+    """
+    pr = c.proposed_record if isinstance(c.proposed_record, dict) else None
+    if not pr:
+        return ""
+    rows: list[str] = []
+    seen: set[str] = set()
+    for key, label in _PROPOSED_FIELD_ORDER:
+        if key in pr:
+            seen.add(key)
+            rows.append(
+                f'<div class="kv"><span class="k">{_esc(label)}</span> {_fmt_proposed_value(pr[key])}</div>'
+            )
+    for key in pr:
+        if key not in seen:
+            rows.append(
+                f'<div class="kv"><span class="k">{_esc(key)}</span> {_fmt_proposed_value(pr[key])}</div>'
+            )
+    return f'<div class="section"><h2>Proposed record (scraped)</h2>{"".join(rows)}</div>'
+
 
 def _places_dict(c: Contribution) -> dict[str, Any]:
     g = c.google_enriched_data
@@ -449,6 +504,12 @@ def register_contribution_html_routes(router: APIRouter) -> None:
             if sub_url
             else "—"
         )
+        src_url = c.source_url or ""
+        src_line = (
+            f'<a href="{_esc(src_url)}" target="_blank" rel="noopener noreferrer">{_esc(src_url)}</a>'
+            if src_url
+            else "—"
+        )
         llm_line = _esc(c.llm_source_chat_log_id or "—")
         if c.llm_source_chat_log_id:
             llm_line = _esc(c.llm_source_chat_log_id)
@@ -458,6 +519,7 @@ def register_contribution_html_routes(router: APIRouter) -> None:
 <div class="kv"><span class="k">Entity type</span> {_entity_pill(c.entity_type)}</div>
 <div class="kv"><span class="k">Name</span> {_esc(c.submission_name)}</div>
 <div class="kv"><span class="k">URL</span> {url_line}</div>
+<div class="kv"><span class="k">Source URL</span> {src_line}</div>
 <div class="kv"><span class="k">Category hint</span> {_esc(c.submission_category_hint or "—")}</div>
 <div class="kv"><span class="k">Notes</span> {_esc(c.submission_notes or "—")}</div>
 <div class="kv"><span class="k">Event date</span> {_esc(str(c.event_date) if c.event_date else "—")}</div>
@@ -501,6 +563,7 @@ def register_contribution_html_routes(router: APIRouter) -> None:
         inner = f"""<h1>Contribution #{c.id}</h1>
 <p class="sub"><a href="/admin/contributions">← Back to list</a></p>
 {sub}
+{_proposed_record_section(c)}
 {enrich_section}
 {actions}"""
         return HTMLResponse(_nav_shell(f"Contribution {c.id}", inner))
