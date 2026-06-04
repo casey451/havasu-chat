@@ -628,25 +628,51 @@ def register_contribution_html_routes(router: APIRouter) -> None:
   <a href="/admin/contributions/{c.id}" style="margin-left:10px">Cancel</a></div>
 </form>"""
         elif c.entity_type == "program":
+            # Prefill from the scraped ``proposed_record`` when present (the
+            # schedule-hunt workers send the full ProgramApprovalFields shape);
+            # fall back to the legacy submission fields otherwise.
+            pr = c.proposed_record if isinstance(c.proposed_record, dict) else {}
+
+            def _prs(key: str, fallback: str = "") -> str:
+                v = pr.get(key)
+                return str(v).strip() if v is not None and str(v).strip() else fallback
+
+            pr_days = pr.get("schedule_days")
+            days_val = (
+                ",".join(str(d).strip() for d in pr_days if str(d).strip())
+                if isinstance(pr_days, list) and pr_days
+                else "monday"
+            )
+            title_val = _prs("title", (c.submission_name or "").strip())
+            desc_val = _prs("description", c.submission_notes or "")
+            loc_val = _prs("location_name", str(ged.get("display_name") or ""))
+            loc_addr_val = _prs("location_address", str(ged.get("formatted_address") or ""))
+            provider_val = _prs("provider_name", (c.submission_name or "").strip())
+            pr_tags = pr.get("tags")
+            tags_val = (
+                ",".join(str(t).strip() for t in pr_tags if str(t).strip())
+                if isinstance(pr_tags, list)
+                else ""
+            )
             inner_body = f"""
 {dl}
 <form method="post" action="/admin/contributions/{c.id}/approve">
-  <label>Title</label><input type="text" name="title" value="{_esc(c.submission_name)}" required />
-  <label>Description</label><textarea name="description" required minlength="20">{_esc(c.submission_notes or "")}</textarea>
-  <label>Age min</label><input type="text" name="age_min" value="" placeholder="optional" />
-  <label>Age max</label><input type="text" name="age_max" value="" placeholder="optional" />
+  <label>Title</label><input type="text" name="title" value="{_esc(title_val)}" required />
+  <label>Description</label><textarea name="description" required minlength="20">{_esc(desc_val)}</textarea>
+  <label>Age min</label><input type="text" name="age_min" value="{_esc(_prs("age_min"))}" placeholder="optional" />
+  <label>Age max</label><input type="text" name="age_max" value="{_esc(_prs("age_max"))}" placeholder="optional" />
   <label>Schedule days (comma-separated, e.g. monday,wednesday)</label>
-  <input type="text" name="schedule_days" value="monday" required />
-  <label>Start time (HH:MM)</label><input type="text" name="schedule_start_time" value="09:00" required pattern="^([01]\\d|2[0-3]):[0-5]\\d$" />
-  <label>End time (HH:MM)</label><input type="text" name="schedule_end_time" value="17:00" required pattern="^([01]\\d|2[0-3]):[0-5]\\d$" />
-  <label>Location name</label><input type="text" name="location_name" value="{_esc(str(ged.get("display_name") or ""))}" required />
-  <label>Location address</label><input type="text" name="location_address" value="{_esc(str(ged.get("formatted_address") or ""))}" />
-  <label>Cost</label><input type="text" name="cost" value="" />
-  <label>Provider name</label><input type="text" name="provider_name" value="{_esc(c.submission_name)}" required />
-  <label>Contact phone</label><input type="text" name="contact_phone" value="" />
-  <label>Contact email</label><input type="text" name="contact_email" value="" />
-  <label>Contact URL</label><input type="text" name="contact_url" value="{_esc((c.submission_url or "").strip())}" />
-  <label>Tags (comma-separated)</label><input type="text" name="tags" value="" />
+  <input type="text" name="schedule_days" value="{_esc(days_val)}" required />
+  <label>Start time (HH:MM)</label><input type="text" name="schedule_start_time" value="{_esc(_prs("schedule_start_time", "09:00"))}" required pattern="^([01]\\d|2[0-3]):[0-5]\\d$" />
+  <label>End time (HH:MM)</label><input type="text" name="schedule_end_time" value="{_esc(_prs("schedule_end_time", "17:00"))}" required pattern="^([01]\\d|2[0-3]):[0-5]\\d$" />
+  <label>Location name</label><input type="text" name="location_name" value="{_esc(loc_val)}" required />
+  <label>Location address</label><input type="text" name="location_address" value="{_esc(loc_addr_val)}" />
+  <label>Cost</label><input type="text" name="cost" value="{_esc(_prs("cost"))}" />
+  <label>Provider name</label><input type="text" name="provider_name" value="{_esc(provider_val)}" required />
+  <label>Contact phone</label><input type="text" name="contact_phone" value="{_esc(_prs("contact_phone"))}" />
+  <label>Contact email</label><input type="text" name="contact_email" value="{_esc(_prs("contact_email"))}" />
+  <label>Contact URL</label><input type="text" name="contact_url" value="{_esc(_prs("contact_url", (c.submission_url or "").strip()))}" />
+  <label>Tags (comma-separated)</label><input type="text" name="tags" value="{_esc(tags_val)}" />
   <label>Activity category</label><input type="text" name="category" value="{_esc(c.submission_category_hint or "")}" list="catlist" required />
   <div style="margin-top:14px"><button type="submit" class="btn btn-primary">Approve</button>
   <a href="/admin/contributions/{c.id}" style="margin-left:10px">Cancel</a></div>

@@ -37,6 +37,78 @@ def _truncate(s: str | None, max_len: int) -> str:
     return t[: max_len - 3] + "..."
 
 
+_DAY_ABBR = {
+    "monday": "Mon",
+    "tuesday": "Tue",
+    "wednesday": "Wed",
+    "thursday": "Thu",
+    "friday": "Fri",
+    "saturday": "Sat",
+    "sunday": "Sun",
+}
+
+_MAX_PROGRAM_LINES = 12
+
+
+def _schedule_text(sched) -> str | None:
+    """Compact human/LLM-readable recurrence, e.g. ``Mon/Wed/Fri 08:00-09:00``."""
+    days = "/".join(
+        _DAY_ABBR.get(str(d).strip().lower(), str(d).strip()[:3].title())
+        for d in (sched.days_of_week or [])
+        if str(d).strip()
+    )
+    times = None
+    if sched.start_time is not None:
+        times = sched.start_time.strftime("%H:%M")
+        if sched.end_time is not None:
+            times += "-" + sched.end_time.strftime("%H:%M")
+    text = " ".join(part for part in (days, times) if part)
+    return text or None
+
+
+def _program_lines(ent: Entity) -> list[str]:
+    """Pair the entity's Offerings with its recurring Schedules into compact lines.
+
+    Pairing strategy (schedules and offerings are separate rows with no FK):
+    1. ``Schedule.notes`` == offering name (the schedule-hunt publish path now
+       writes the class title into ``notes``).
+    2. Positional zip by ascending id when the entity has the same number of
+       recurring schedules as offerings (the publish path creates exactly one
+       of each per class, so creation order matches; covers rows written
+       before ``notes`` was populated).
+    Unpaired offerings still render (name + price, no times).
+    """
+    offerings = sorted(ent.offerings or [], key=lambda o: (o.display_order, o.id))
+    if not offerings:
+        return []
+    scheds = sorted(
+        (s for s in (ent.schedules or []) if (s.schedule_type or "") == "recurring"),
+        key=lambda s: s.id,
+    )
+    by_note: dict[str, Any] = {}
+    for s in scheds:
+        if s.notes and s.notes.strip():
+            by_note.setdefault(s.notes.strip().lower(), s)
+    zip_ok = not by_note and len(scheds) == len(offerings)
+    lines: list[str] = []
+    for idx, off in enumerate(offerings):
+        sched = by_note.get((off.name or "").strip().lower())
+        if sched is None and zip_ok:
+            sched = scheds[idx]
+        parts = [_truncate(off.name, 80)]
+        if sched is not None:
+            stext = _schedule_text(sched)
+            if stext:
+                parts.append(stext)
+        if off.price_text:
+            parts.append(_truncate(off.price_text, 48))
+        lines.append(" | ".join(parts))
+    if len(lines) > _MAX_PROGRAM_LINES:
+        extra = len(lines) - _MAX_PROGRAM_LINES
+        lines = lines[:_MAX_PROGRAM_LINES] + [f"(+{extra} more)"]
+    return lines
+
+
 def _profile_url(ent: Entity, provider: Provider | None, event: Event | None) -> str:
     et = ent.entity_type or ""
     if et == ENTITY_TYPE_COMMERCIAL and provider and provider.slug:
@@ -90,6 +162,7 @@ def _entity_row_dict(
         "description": _truncate(ent.description, 120),
         "heat_exposure": ent.heat_exposure,
         "rank_score": rank_score,
+        "programs": _program_lines(ent),
     }
 
 
@@ -106,6 +179,7 @@ def _base_entity_stmt(*, category_slugs: tuple[str, ...] | None, boat_mode: bool
             joinedload(Entity.location),
             selectinload(Entity.categories).joinedload(EntityCategory.category),
             selectinload(Entity.offerings),
+            selectinload(Entity.schedules),
         )
         .where(
             Entity.is_active.is_(True),
