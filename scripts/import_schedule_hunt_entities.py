@@ -66,6 +66,47 @@ _PLACE_STOPWORDS: frozenset[str] = frozenset(
     {"havasu", "lake havasu", "lake havasu city", "lake havasu city az", "lhc", "arizona"}
 )
 
+# Single-token noise for the "possible duplicate" overlap check: place words,
+# business-form words, and GENERIC activity/category words. Two names sharing only
+# these (e.g. "...Golf..." or "...Ballet...") are NOT a duplicate signal — only
+# DISTINCTIVE shared tokens (brand/proper names) count.
+_DUP_TOKEN_STOPWORDS: frozenset[str] = frozenset(
+    {
+        "lake", "havasu", "city", "az", "lhc", "arizona", "the", "of", "and", "for",
+        "center", "centre", "studio", "school", "academy", "club", "guild", "company",
+        "co", "llc", "inc", "the", "class", "classes", "lessons", "program", "programs",
+        "department", "dept", "services", "service",
+        # generic activity / category words
+        "golf", "ballet", "dance", "dancing", "art", "arts", "pilates", "yoga", "fitness",
+        "gym", "martial", "kayak", "canoe", "swim", "swimming", "tennis", "pickleball",
+        "music", "wellness", "training", "kids", "youth", "personal", "certified",
+    }
+)
+
+
+def significant_tokens(name: str) -> set[str]:
+    """Distinctive (non-generic, len>=3) word tokens of a name, for dup detection."""
+    raw = re.sub(r"[^a-z0-9 ]", " ", (name or "").lower()).split()
+    return {w for w in raw if len(w) >= 3 and w not in _DUP_TOKEN_STOPWORDS}
+
+
+def possible_duplicate_name(name: str, candidates: list[str], *, min_shared: int = 2) -> str | None:
+    """The existing name sharing >= ``min_shared`` distinctive tokens with ``name``.
+
+    A looser-than-:func:`best_match` net that flags likely "same venue, different
+    name" twins (Eight Lotus Center for Wellness vs Eight Lotus Wellness and Yoga)
+    for review — deliberately not used to auto-merge.
+    """
+    nt = significant_tokens(name)
+    if len(nt) < min_shared:
+        return None
+    best: tuple[int, str] | None = None
+    for cand in candidates:
+        shared = len(nt & significant_tokens(cand))
+        if shared >= min_shared and (best is None or shared > best[0]):
+            best = (shared, cand)
+    return best[1] if best else None
+
 # A trailing hex-ish token (>=6 chars, at least one digit) preceded by a space or
 # hyphen — the shape the tier2-test fixtures use, e.g. "Bridge City Combat 3f9a2b1c".
 _HASH_SUFFIX_RE = re.compile(r"[\s\-]+(?=[0-9a-f]*[0-9])[0-9a-f]{6,}$", re.IGNORECASE)
@@ -170,6 +211,11 @@ class Plan:
     existing_matches: list[tuple[str, str]] = field(default_factory=list)  # (csv name, db name)
     quarantine: list[ExistingEntity] = field(default_factory=list)
     keep_fix: list[tuple[ExistingEntity, str]] = field(default_factory=list)  # (fixture, csv name)
+    # Candidates the strict matcher calls "new" but that share ≥2 distinctive
+    # tokens with an existing entity — likely "same venue, different name" twins.
+    # NOT created on --apply; surfaced for review so the import doesn't silently
+    # duplicate a venue (the Eight Lotus / WACKO / Soul Lifting lesson, 2026-06-04).
+    possible_dups: list[tuple[CsvVenue, str]] = field(default_factory=list)  # (venue, db name)
 
 
 # --------------------------------------------------------------------------- #
@@ -255,6 +301,13 @@ def build_plan(venues: list[CsvVenue], existing: list[ExistingEntity]) -> Plan:
         match = best_match(v.name, real_names)
         if match is not None:
             plan.existing_matches.append((v.name, match))
+            continue
+        # Strict matcher says "new" — but if it shares distinctive tokens with an
+        # existing entity it's a likely twin (different name, same venue). Route to
+        # review instead of silently creating a duplicate. Not created on --apply.
+        twin = possible_duplicate_name(v.name, real_names)
+        if twin is not None:
+            plan.possible_dups.append((v, twin))
             continue
         slug = make_unique_slug(slugify(v.name), used_slugs)
         plan.new.append(NewProposal(venue=v, slug=slug, category_slug=category_slug_for(v.type)))
@@ -357,6 +410,7 @@ def render_report(plan: Plan, *, applied: bool) -> str:
     lines.append("Counts:")
     lines.append(f"  New entities to create : {len(plan.new)}")
     lines.append(f"  Already in DB (skipped): {len(plan.existing_matches)}")
+    lines.append(f"  Possible dup (REVIEW)  : {len(plan.possible_dups)}")
     lines.append(f"  Quarantine (test rows) : {len(plan.quarantine)}")
     lines.append(f"  Keep & fix (shadows)   : {len(plan.keep_fix)}")
     lines.append("")
@@ -368,6 +422,14 @@ def render_report(plan: Plan, *, applied: bool) -> str:
             f"{p.venue.name[:39]:<40} {(p.category_slug or '(uncategorized)'):<20} "
             f"{p.venue.address[:40]}"
         )
+    lines.append("")
+
+    lines.append(
+        f"--- POSSIBLE DUPLICATES — REVIEW, *not* created on --apply ({len(plan.possible_dups)}) ---"
+    )
+    lines.append(f"{'csv venue':<40} {'likely existing entity'}")
+    for v, db_name in plan.possible_dups:
+        lines.append(f"{v.name[:39]:<40} {db_name}")
     lines.append("")
 
     lines.append(f"--- QUARANTINE: test fixtures to deactivate ({len(plan.quarantine)}) ---")
