@@ -98,6 +98,7 @@ def create_provider_and_entity(db: Session, provider: Provider) -> tuple[Provide
         last_verified_at=provider.last_verified_at,
         source=(provider.source or "seed")[:64],
         is_active=bool(provider.is_active),
+        liveness_score=provider.liveness_score,
         created_at=provider.created_at,
         updated_at=provider.updated_at,
     )
@@ -445,6 +446,7 @@ def sync_provider_entity_from_legacy(db: Session, provider: Provider) -> None:
     ent.last_verified_at = provider.last_verified_at
     ent.source = (provider.source or "seed")[:64]
     ent.is_active = bool(provider.is_active)
+    ent.liveness_score = provider.liveness_score
     ent.updated_at = provider.updated_at
 
     loc = db.scalar(select(Location).where(Location.entity_id == ent.id))

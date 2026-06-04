@@ -36,7 +36,11 @@ from sqlalchemy.orm import Session
 from app.categories.subcategories import derive_cuisine
 from app.db.models import Provider
 from app.home.queries import _hours_status, _provider_image_url
-from app.home.queries_c import _load_eat_photos, _rating_display, _rating_sort_key
+from app.home.queries_c import (
+    _format_rating,
+    _load_eat_photos,
+    _rating_sort_key,
+)
 from app.providers.queries import (
     _parse_hours_time,
     effective_hours_structured,
@@ -290,6 +294,27 @@ def is_valid_category_slug(slug: str) -> bool:
 # could be 1k+) don't drag the page.
 _DEFAULT_CARD_LIMIT = 60
 
+# DL-12 (WP-5): a card shows a star/numeric rating only once it has at least
+# this many reviews; below it the card reads "New / few reviews yet". This is
+# the SAME canonical field profiles read (``google_review_count`` /
+# ``google_rating``) but a category-surface threshold of >=3 -- deliberately
+# looser than ``app.home.queries_c.MIN_RATING_REVIEWS`` (5, used by the
+# editorial home rows). Implemented inline here rather than via a shared helper
+# so WP-6 (profiles) can apply the identical >=3 rule in its own surface without
+# a cross-package coupling (see PR notes: a shared ratings helper is a possible
+# follow-up).
+_DL12_MIN_REVIEWS = 3
+
+# DL-8 (WP-5): a listing whose geo sits past this many km from the Lake Havasu
+# City civic anchor is "out of area" -- it still renders, but the card carries a
+# visible distance hint ("~40 min away . Parker area") instead of being hidden.
+# 32 km ~= the Parker / Black Meadow Landing cluster the audit (M-07) flagged as
+# appearing on the Lodging page with no hint.
+_OUT_OF_AREA_KM = 32.0
+# Rough drive-time estimate from straight-line km (no routing data): town surface
+# streets + the lake detour run ~1.3x crow-flight at ~55 km/h effective.
+_DRIVE_MIN_PER_KM = 1.35
+
 
 @lru_cache(maxsize=1)
 def _load_category_photos() -> dict[str, str]:
@@ -425,6 +450,58 @@ def route_provider_filter(route_slug: str):
     return or_(*clauses)
 
 
+def _card_rating_display(
+    rating: float | None, review_count: int | None
+) -> tuple[str | None, int | None]:
+    """DL-12 rating display for a category card: render only at >=3 reviews.
+
+    Reads the same canonical fields as profiles (``google_rating`` /
+    ``google_review_count``) but applies the category-surface threshold of 3
+    (vs the home rows' 5). Below threshold -> ``(None, None)`` so the card shows
+    the "New / few reviews yet" badge instead of a star it hasn't earned.
+    """
+    formatted = _format_rating(rating)
+    if formatted is None:
+        return None, None
+    try:
+        n = int(review_count) if review_count is not None else 0
+    except (TypeError, ValueError):
+        n = 0
+    if n < _DL12_MIN_REVIEWS:
+        return None, None
+    return formatted, n
+
+
+def _card_area(provider: Provider) -> str:
+    """Second meta-line locator for a card (D7): district label, else the street
+    line of the address (everything before the first comma). ``""`` when neither
+    is known -- the template then omits the line rather than printing noise."""
+    district = (getattr(provider, "district", None) or "").strip()
+    if district:
+        return district
+    address = (getattr(provider, "address", None) or "").strip()
+    if address:
+        # First address segment is the street line ("2126 McCulloch Blvd N").
+        return address.split(",", 1)[0].strip()
+    return ""
+
+
+def _card_distance_hint(provider: Provider) -> str:
+    """DL-8 out-of-area hint, or ``""`` for in-area / geo-unknown providers.
+
+    Past ``_OUT_OF_AREA_KM`` from the civic anchor the card keeps its place but
+    gains a visible "~N min away . Parker area" note. Geo-less rows (no lat/lng)
+    get no hint -- we never fabricate a distance.
+    """
+    if getattr(provider, "lat", None) is None or getattr(provider, "lng", None) is None:
+        return ""
+    km = _distance_km(provider, _REF_LAT, _REF_LNG)
+    if km < _OUT_OF_AREA_KM or km >= 9e6:
+        return ""
+    minutes = int(round(km * _DRIVE_MIN_PER_KM / 5.0)) * 5 or 5
+    return f"~{minutes} min away . Parker area"
+
+
 def _build_category_card(
     provider: Provider,
     *,
@@ -441,8 +518,13 @@ def _build_category_card(
     a foreign subtype never labels a card or matches a chip it doesn't belong to.
     ``is_open`` drives the Sandstone open/closed pill: True/False from the live
     hours status, None when hours are unknown (pill omitted, no fabrication).
+
+    DL-12: ``rating`` renders only at >=3 reviews; below that ``has_reviews`` is
+    False and the template shows a "New / few reviews yet" badge. DL-8:
+    ``distance_hint`` flags out-of-area listings. D7: ``area`` is the card's
+    second meta line (district / cross-street).
     """
-    rating, review_count = _rating_display(
+    rating, review_count = _card_rating_display(
         provider.google_rating, getattr(provider, "google_review_count", None)
     )
     if status_class in ("open", "closing-soon"):
@@ -460,6 +542,12 @@ def _build_category_card(
         "status_text": status_text,
         "rating": rating,
         "review_count": review_count,
+        # DL-12: True only when a credible rating (>=3 reviews) is shown.
+        "has_reviews": rating is not None,
+        # D7: second meta line (district / cross-street); "" -> line omitted.
+        "area": _card_area(provider),
+        # DL-8: out-of-area hint; "" for in-area / geo-unknown rows.
+        "distance_hint": _card_distance_hint(provider),
         "subcategory": _card_subcategory_token(provider, allowed_subcategories),
         "cuisine": derive_cuisine(
             getattr(provider, "google_primary_category", None),
@@ -786,6 +874,65 @@ def available_cuisines_for_route(db: Session | None, slug: str) -> list[dict[str
     ]
 
 
+def subcategory_chips_for_route(
+    db: Session | None, slug: str
+) -> list[dict[str, Any]]:
+    """C8: subtype chips for a route, generated from members ACTUALLY present.
+
+    A chip renders only for a subcategory that (a) belongs on this route's
+    taxonomy *and* (b) has at least one active non-draft provider here, ordered
+    by descending count. So a "Things to do" page no longer shows chips whose
+    subtypes have zero members, and never omits a busy live subtype that lacks a
+    hand-listed chip. Returns ``[]`` for tile routes / unknown routes / on any DB
+    hiccup -- the template then renders no chip row at all (closing N-16).
+
+    Each chip: ``{"slug", "label", "count"}``.
+    """
+    from app.categories.subcategories import bucket_for_category_route, subcategories_for_bucket
+
+    if db is None:
+        return []
+    route_key = (slug or "").strip().lower()
+    bucket_id = bucket_for_category_route(route_key)
+    if not bucket_id:
+        return []
+    # Label/order source: the curated subcategory list for this bucket.
+    subs = subcategories_for_bucket(bucket_id)
+    if not subs:
+        return []
+    label_by_slug = {s.slug: s.label for s in subs}
+    try:
+        rows = (
+            db.query(
+                Provider.subcategory,
+                sa_func.count(Provider.id),
+            )
+            .filter(
+                route_provider_filter(route_key),
+                Provider.is_active.is_(True),
+                Provider.draft.is_(False),
+                Provider.subcategory.in_(list(label_by_slug.keys())),
+            )
+            .group_by(Provider.subcategory)
+            .all()
+        )
+    except Exception:
+        return []
+    counts: list[dict[str, Any]] = []
+    for sub_slug, n in rows:
+        if not sub_slug or sub_slug not in label_by_slug:
+            continue
+        cnt = int(n or 0)
+        if cnt <= 0:
+            continue
+        counts.append(
+            {"slug": sub_slug, "label": label_by_slug[sub_slug], "count": cnt}
+        )
+    # Order by count desc, then label for a stable tiebreak.
+    counts.sort(key=lambda c: (-c["count"], c["label"].lower()))
+    return counts
+
+
 def category_listing(
     db: Session | None,
     slug: str,
@@ -793,16 +940,26 @@ def category_listing(
     now: datetime,
     facets: CategoryFacets | None = None,
     limit: int = _DEFAULT_CARD_LIMIT,
+    page: int = 1,
 ) -> tuple[list[dict[str, Any]], int]:
     """Return ``(cards, total)`` for a category page under the given facets.
 
     ``total`` is the count of providers matching the facets (so the header's
     "N listed" always matches the grid's basis — same no-mismatch discipline as
-    the home bucket counts). Never raises: a DB error degrades to ``([], 0)``.
+    the home bucket counts). ``page`` (1-based) selects the ``limit``-sized
+    window into that full set (M-20): ``total`` is always the unpaged match
+    count, while ``cards`` is the slice for the requested page. Never raises: a
+    DB error degrades to ``([], 0)``.
     """
     if db is None or not is_valid_category_slug(slug):
         return [], 0
     facets = facets or CategoryFacets()
+    try:
+        page = max(int(page), 1)
+    except (TypeError, ValueError):
+        page = 1
+    per_page = max(int(limit), 1)
+    offset = (page - 1) * per_page
     route_key = slug.strip().lower()
     allowed_subs = _allowed_subcategory_slugs(route_key)
     try:
@@ -818,13 +975,19 @@ def category_listing(
 
         needs_scan = facets.needs_materialize
         if not needs_scan:
+            # SQL-only path (B4): subcategory + top_rated predicates and the
+            # rating/alpha orderings are all expressible in SQL, so COUNT runs in
+            # the DB and only the requested page is fetched -- no Python
+            # materialize. The rating sort already sinks unrated rows after rated
+            # peers (``_rating_sort_key`` qualified tier), satisfying DL-10's
+            # sort-after for the non-favorites sorts.
             total = int(base.with_entities(sa_func.count(Provider.id)).scalar() or 0)
             ordered = (
                 base.order_by(Provider.provider_name.asc())
                 if facets.sort == "alpha"
                 else base.order_by(*_rating_sort_key())
             )
-            rows = ordered.limit(max(limit, 1)).all()
+            rows = ordered.offset(offset).limit(per_page).all()
             return [_provider_card(db, p, now=now, allowed_subcategories=allowed_subs) for p in rows], total
 
         rows = base.order_by(*_rating_sort_key()).limit(_MATERIALIZE_CAP).all()
@@ -865,6 +1028,7 @@ def category_listing(
         elif facets.sort == "alpha":
             rows.sort(key=lambda p: (p.provider_name or "").lower())
         total = len(rows)
-        return [_provider_card(db, p, now=now, allowed_subcategories=allowed_subs) for p in rows[:limit]], total
+        window = rows[offset : offset + per_page]
+        return [_provider_card(db, p, now=now, allowed_subcategories=allowed_subs) for p in window], total
     except Exception:
         return [], 0

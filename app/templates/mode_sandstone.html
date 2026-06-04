@@ -10,17 +10,25 @@
       <h1>{{ heading }}</h1>
       <p>{{ blurb }}</p>
       {% if mini_conditions %}
-      <div class="mini-cond">
+      {# Lake conditions are a live snapshot; the whole strip deep-links to the
+         full /today conditions board so the hero metric is a doorway, not a
+         dead end. #}
+      <a class="mini-cond mini-cond--link" href="/today" aria-label="See full conditions for today">
         {% for m in mini_conditions %}
         <div class="m"><div class="v">{{ m.value }}</div><div class="l">{{ m.label }}</div></div>
         {% endfor %}
-      </div>
+      </a>
       {% endif %}
     </div>
   </div>
 
   <section class="block wrap" aria-label="{{ sec_head }}">
-    <div class="sec-head"><h2>{{ sec_head }}</h2></div>
+    <div class="sec-head">
+      <h2>{{ sec_head }}</h2>
+      {% if mode in ("night", "family") %}
+      <a class="more" href="/events-ui">This week's events &rarr;</a>
+      {% endif %}
+    </div>
     <div class="cat-strip">
       {% for t in tiles %}
       <a class="catchip" href="{{ t.url }}">

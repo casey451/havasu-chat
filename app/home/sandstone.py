@@ -140,11 +140,13 @@ def primary_nav() -> list[dict[str, str]]:
 def today_cards(
     *,
     utility_chips: list[dict[str, Any]],
-    events_today: list[dict[str, Any]],
+    tonight_card: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Assemble the 'Today around the lake' cards from live data only.
 
-    - 'Tonight' surfaces the next real event today (omitted when none).
+    - 'Tonight' (``tonight_card``) is the next not-yet-started event, with a
+      label that swaps Tonight/Today/Tomorrow per DL-16. The router builds it so
+      the time-of-day logic stays testable; omitted when there is nothing ahead.
     - 'Water' summarizes live conditions (omitted when conditions are down).
     - Happy-hours ('On now') and kid-event tagging do NOT exist yet, so those
       cards are omitted entirely rather than faked with the mock's "12 happy
@@ -152,19 +154,8 @@ def today_cards(
     """
     cards: list[dict[str, Any]] = []
 
-    if events_today:
-        ev = events_today[0]
-        sub_bits = [b for b in (ev.get("time_label"), ev.get("venue")) if b]
-        cards.append(
-            {
-                "kind": "tonight",
-                "k": "Tonight",
-                "title": ev.get("title"),
-                "sub": " · ".join(sub_bits),
-                "href": ev.get("url"),
-                "live": False,
-            }
-        )
+    if tonight_card:
+        cards.append(tonight_card)
 
     water = _water_card(utility_chips)
     if water:
@@ -217,8 +208,26 @@ def _event_pill_type(tags: list[str] | None, *, featured: bool) -> str:
     return "class"
 
 
+def _pill_sort_key(pill: dict[str, str]) -> tuple[int, int]:
+    """Order pills so one-offs/specials win the 2 visible slots (DL-16).
+
+    Recurring classes sink to the bottom so they fall into the "+N" overflow
+    count rather than crowding out a one-off festival.
+    """
+    ptype = pill.get("type")
+    type_rank = {"special": 0, "water": 1, "class": 2}.get(ptype, 1)
+    recurring_rank = 1 if pill.get("recurring") else 0
+    return (recurring_rank, type_rank)
+
+
 def calendar_month(db: Session, *, year: int, month: int, today: date) -> dict[str, Any]:
-    """Build a month grid of real events. Empty days stay empty (no fabrication)."""
+    """Build a month grid of real events. Empty days stay empty (no fabrication).
+
+    Each in-month cell carries an ISO date (``iso``) so the template can link
+    every day to ``/events-ui?date=``, a true ``count`` for the mobile badge,
+    and visible pills ordered so one-offs/specials take the two shown slots and
+    recurring classes fall into the "+N" overflow (DL-16).
+    """
     first_weekday, days_in_month = _calendar.monthrange(year, month)
     # Python's monthrange: Monday=0. The grid leads with Sunday, so shift.
     lead_blanks = (first_weekday + 1) % 7
@@ -233,32 +242,34 @@ def calendar_month(db: Session, *, year: int, month: int, today: date) -> dict[s
         .order_by(Event.featured.desc(), Event.start_time.asc())
         .all()
     )
-    by_day: dict[int, list[dict[str, str]]] = {}
+    by_day: dict[int, list[dict[str, Any]]] = {}
     for ev in rows:
         bucket = by_day.setdefault(ev.date.day, [])
-        if len(bucket) >= 4:  # cap stored pills; cell shows 2 + overflow
-            bucket.append({})  # count-only marker for accurate "+N"
-            continue
         bucket.append(
             {
                 "title": ev.title,
                 "type": _event_pill_type(ev.tags, featured=bool(ev.featured)),
+                "recurring": bool(ev.is_recurring),
             }
         )
 
     cells: list[dict[str, Any]] = [{"in_month": False} for _ in range(lead_blanks)]
     for day in range(1, days_in_month + 1):
         evs = by_day.get(day, [])
-        named = [e for e in evs if e.get("title")]
+        # One-offs/specials first so they claim the two visible pill slots; the
+        # rest (recurring classes) feed the overflow count.
+        ordered = sorted(evs, key=_pill_sort_key)
         cells.append(
             {
                 "in_month": True,
                 "day": day,
+                "iso": date(year, month, day).isoformat(),
                 "is_today": (year == today.year and month == today.month and day == today.day),
-                "events": named[:2],
+                "events": ordered[:2],
                 "overflow": max(0, len(evs) - 2),
+                "count": len(evs),
                 "has": bool(evs),
-                "special": any(e.get("type") == "special" for e in named),
+                "special": any(e.get("type") == "special" for e in ordered),
             }
         )
     while len(cells) % 7 != 0:

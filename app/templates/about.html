@@ -1,0 +1,35 @@
+{% extends "lake_light_base.html" %}
+{% block active_tab %}{% endblock %}
+{% block title %}About -- Ask Hava{% endblock %}
+{% block meta_description %}About Ask Hava -- an honest, local guide to Lake Havasu City. What we are, how we work, and how to reach us.{% endblock %}
+{% block utility_header %}
+  {% set header_back_href = "/home" %}
+  {% set header_back_label = "Back to Home" %}
+  {% include "_partials/lake_light_header.html" %}
+{% endblock %}
+{% block content %}
+  <section class="ll-utility-main">
+    <p class="ll-eyebrow">Who we are</p>
+    <h1>About Ask Hava</h1>
+    <p>Ask Hava is a local guide to Lake Havasu City -- what's happening today,
+      the best local spots, events, and live conditions. We are built here, for
+      the people who live, work, and play on the lake.</p>
+
+    <h2>What we do</h2>
+    <p>We pull together the things you actually need on a given day: the cheapest
+      gas, today's lake level and water temperature, air quality, what's open,
+      and what's worth your Saturday. When we don't have something verified, we
+      say so rather than guess.</p>
+
+    <h2>How we work</h2>
+    <p>Conditions come from live local sources (USGS, NWS, AirNow, and
+      crowd-sourced gas) and are cached. Listings come from public records,
+      business owners, and locals who add to Hava. We show real data or nothing
+      -- no engagement loops, no padding.</p>
+
+    <h2>Get in touch</h2>
+    <p>Spot something wrong, or want your business listed? Head to our
+      <a href="/contact">contact page</a> or
+      <a href="/contribute">add it to Hava</a>.</p>
+  </section>
+{% endblock %}

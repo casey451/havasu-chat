@@ -71,18 +71,26 @@
 .gas-card .name{font-weight:700;font-size:.95rem;color:var(--text);line-height:1.25}
 .gas-card .addr{font-size:.78rem;color:var(--muted);margin-top:3px}
 
-/* Full station table. */
+/* Full station table.
+
+   Sticky header: any non-visible ``overflow`` on an ancestor turns that box
+   into a scroll container, which captures ``position:sticky;top:0`` so the
+   header would only stick to the (rarely-scrolling) wrapper, not the viewport
+   -- i.e. it never stuck on a long list. We drop the overflow-x scroll box and
+   keep the header VIEWPORT-sticky (top:0). On narrow screens the table can
+   exceed the viewport; ``min-width`` + the page's own horizontal scroll handle
+   that without trapping the sticky header. */
 .gas-table-wrap{
-  overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);
+  border:1px solid var(--border);border-radius:var(--radius);
   background:var(--surface);
 }
-.gas-table{width:100%;border-collapse:collapse;font-size:.9rem}
+.gas-table{width:100%;border-collapse:collapse;font-size:.9rem;min-width:520px}
 .gas-table th,.gas-table td{
   padding:12px 16px;text-align:left;border-bottom:1px solid var(--border-soft);
 }
 .gas-table thead th{
   font-size:.68rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
-  color:var(--muted);background:var(--chip);position:sticky;top:0;
+  color:var(--muted);background:var(--chip);position:sticky;top:0;z-index:2;
 }
 .gas-table tbody tr:last-child td{border-bottom:0}
 .gas-table tbody tr:hover{background:var(--accent-tint)}

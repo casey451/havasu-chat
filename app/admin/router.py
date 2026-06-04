@@ -23,6 +23,7 @@ from app.admin.categories_html import register_categories_html_routes
 from app.admin.contributions_html import register_contribution_html_routes
 from app.admin.events_html import register_events_html_routes
 from app.admin.feedback_html import register_feedback_html_routes
+from app.admin.jobs_html import register_jobs_html_routes
 from app.admin.mentions_html import register_mentions_html_routes
 from app.admin.provider_approval import pending_provider_count
 from app.admin.provider_merge_review import duplicate_pair_count
@@ -2240,6 +2241,7 @@ def admin_claim_reject(
 
 register_contribution_html_routes(router)
 register_events_html_routes(router)
+register_jobs_html_routes(router)
 register_mentions_html_routes(router)
 register_categories_html_routes(router)
 register_feedback_html_routes(router)

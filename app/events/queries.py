@@ -17,11 +17,28 @@ if TYPE_CHECKING:
 
 
 def event_window_for_chip(when: str, *, today: date) -> tuple[date, date]:
-    """Map category-page ``?when=`` chip values to inclusive date windows."""
+    """Map category-page ``?when=`` chip values to inclusive date windows.
+
+    All windows are anchored to ``today`` (the caller passes
+    ``now_lake_havasu().date()`` so the buckets follow Lake Havasu local time).
+
+    Weekend semantics:
+
+    * ``this-weekend`` — Friday through Sunday (Friday-inclusive). This is the
+      chat / weekend-digest contract: a Friday-night plan still counts as "this
+      weekend." When today is already past Friday, the window starts today and
+      still ends Sunday so the chip never collapses to a single past day.
+    * ``weekend`` — the strict Saturday-Sunday window the events list/calendar
+      chip uses. On Sat/Sun it spans the current weekend; otherwise it jumps to
+      the upcoming Saturday-Sunday.
+    """
     key = (when or "").strip().lower()
     if key == "today":
         return today, today
     if key == "this-week":
+        # End of the current week (Sunday). On a Sunday ``days_to_sunday`` is 0,
+        # so the window is just today -- correct, not a collapse bug, because
+        # "this week" already ends today.
         days_to_sunday = (6 - today.weekday()) % 7
         return today, today + timedelta(days=days_to_sunday)
     if key == "this-weekend":
@@ -32,6 +49,17 @@ def event_window_for_chip(when: str, *, today: date) -> tuple[date, date]:
             friday = today
         days_to_sunday = (6 - friday.weekday()) % 7
         return friday, friday + timedelta(days=days_to_sunday)
+    if key == "weekend":
+        # Strict Sat-Sun. Sat=5, Sun=6 stay in the current weekend; Mon-Fri jump
+        # to the upcoming Saturday. ``(5 - weekday) % 7`` lands on the next Sat
+        # for Mon-Fri and on *today* when today is already Saturday; on Sunday we
+        # step back one day so the pair stays the same calendar weekend.
+        if today.weekday() == 6:  # Sunday
+            saturday = today - timedelta(days=1)
+        else:
+            days_to_saturday = (5 - today.weekday()) % 7
+            saturday = today + timedelta(days=days_to_saturday)
+        return saturday, saturday + timedelta(days=1)
     if key == "next-month":
         if today.month == 12:
             start = date(today.year + 1, 1, 1)

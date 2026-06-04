@@ -1,0 +1,180 @@
+/* chat_cards.css -- WP-2 (Chat surface).
+ *
+ * Owned by WP-2. Loaded AFTER lake_light.css from chat.html so these rules
+ * win on the few shared selectors they intentionally override (composer
+ * clearance above the bottom nav). All NEW chat-card / feedback / disclaimer
+ * styling lives here -- never in lake_light.css or sandstone.css.
+ *
+ * Sections:
+ *   1. Inline SVG / image constraints inside response cards (B-01, N-01).
+ *   2. Suggestion chips + Photo button polish (N-02).
+ *   3. Per-response feedback (thumbs) + Save + Share controls (A4).
+ *   4. Composer disclaimer + Ask-Hava clearance above the bottom nav (F1, L10).
+ */
+
+/* ----------------------------------------------------------------------------
+ * 1. Inline SVG / image constraints
+ *
+ * Renderers in chat-new.js inject inline <svg> icons (phone, star, send) and
+ * <img> photos. Without bounds an icon SVG with no intrinsic size can balloon
+ * to fill its flex parent, and a wide photo can overflow the card. Constrain
+ * icons to roughly cap height and photos to the card width with a stable
+ * aspect ratio so the card never reflows on image load.
+ * -------------------------------------------------------------------------- */
+body.ll-chat .thread svg {
+  max-height: 1em;
+  max-width: 1em;
+  width: auto;
+  height: auto;
+  flex: 0 0 auto;
+  vertical-align: middle;
+}
+
+/* Photos inside cards: never wider than the card, fixed aspect to avoid
+ * layout shift while the image loads. The wrapping ``.img`` / ``.thumb``
+ * elements already size themselves in lake_light.css; this is the safety net
+ * for the <img> itself. */
+body.ll-chat .thread .single-card .img img,
+body.ll-chat .thread .mini-card .img img,
+body.ll-chat .thread .biz-row .thumb img {
+  max-width: 100%;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+body.ll-chat .thread .single-card .img,
+body.ll-chat .thread .mini-card .img {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  overflow: hidden;
+}
+
+body.ll-chat .thread .biz-row .thumb {
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+}
+
+/* Generic guard: any stray <img> in a response card stays inside the card. */
+body.ll-chat .thread .component-slot img {
+  max-width: 100%;
+}
+
+/* ----------------------------------------------------------------------------
+ * 2. Suggestion chips + Photo button
+ * -------------------------------------------------------------------------- */
+body.ll-chat .empty-state .chips .chip {
+  cursor: pointer;
+}
+
+body.ll-chat .stuck-composer .composer .photo-btn {
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 999px;
+  transition: color 120ms ease;
+}
+
+body.ll-chat .stuck-composer .composer .photo-btn:hover,
+body.ll-chat .stuck-composer .composer .photo-btn:focus-visible {
+  color: var(--ll-jade, #2c6e63);
+}
+
+body.ll-chat .stuck-composer .composer .photo-btn.has-file {
+  color: var(--ll-jade, #2c6e63);
+  font-weight: 600;
+}
+
+/* ----------------------------------------------------------------------------
+ * 3. Per-response feedback (thumbs) + Save + Share
+ *
+ * Injected by chat-new.js (attachAnswerActions) onto each completed Hava turn.
+ * The thumbs POST /api/chat/feedback; Save persists locally; Share copies a
+ * shareable link to the clipboard.
+ * -------------------------------------------------------------------------- */
+body.ll-chat .msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+body.ll-chat .msg-actions .act-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--ll-line, #e3dccd);
+  background: #fff;
+  color: var(--ll-muted, #6b6356);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+
+body.ll-chat .msg-actions .act-btn:hover,
+body.ll-chat .msg-actions .act-btn:focus-visible {
+  border-color: var(--ll-jade, #2c6e63);
+  color: var(--ll-jade, #2c6e63);
+}
+
+body.ll-chat .msg-actions .act-btn[disabled] {
+  opacity: 0.55;
+  cursor: default;
+}
+
+body.ll-chat .msg-actions .act-btn.is-active {
+  border-color: var(--ll-jade, #2c6e63);
+  color: var(--ll-jade, #2c6e63);
+  background: rgba(44, 110, 99, 0.08);
+}
+
+body.ll-chat .msg-actions .act-btn.thumb-dim {
+  opacity: 0.45;
+}
+
+body.ll-chat .msg-feedback-err {
+  display: none;
+  width: 100%;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #b4452e;
+}
+
+/* ----------------------------------------------------------------------------
+ * 4. Composer disclaimer + Ask-Hava clearance above the bottom nav
+ *
+ * The sticky composer (lake_light.css: position fixed, bottom ~12px, z-index
+ * 55) sits over the bottom nav (z-index 40, ~58px tall + safe-area). Lift it
+ * so the composer clears the nav. The disclaimer rides just above the input.
+ *
+ * NOTE (cross-packet): the lift value (--ll-bottomnav-clear) is coordinated
+ * with WP-1's bottom-nav height. If WP-1 changes the nav height, update this
+ * one custom property.
+ * -------------------------------------------------------------------------- */
+body.ll-chat {
+  --ll-bottomnav-clear: 64px;
+}
+
+body.ll-chat .stuck-composer {
+  bottom: calc(var(--ll-bottomnav-clear) + env(safe-area-inset-bottom));
+}
+
+body.ll-chat .composer-disclaimer {
+  max-width: 860px;
+  margin: 0 auto 6px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--ll-muted, #6b6356);
+}
+
+/* Give the thread room so the last turn isn't hidden behind the lifted
+ * composer + nav. */
+body.ll-chat .thread {
+  padding-bottom: calc(var(--ll-bottomnav-clear) + 96px + env(safe-area-inset-bottom));
+}

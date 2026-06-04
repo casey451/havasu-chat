@@ -191,3 +191,63 @@ def test_patch_missing_id_is_404(client: TestClient) -> None:
         json={"status": "discarded"},
     )
     assert r.status_code == 404
+
+
+# --- PATCH rename (kickoff addition 1b) ---------------------------------
+
+
+def test_patch_renames_business_name(client: TestClient) -> None:
+    """A review pass can fix a mislabeled capture's name without touching status."""
+    r = client.post(
+        "/api/ingest/capture",
+        headers=_auth(),
+        data={"business_name": "Wrong Name", "source_url": "https://facebook.com/rename-test"},
+        files={"image": ("shot.png", _TINY_PNG, "image/png")},
+    )
+    capture_id = r.json()["id"]
+
+    r = client.patch(
+        f"/api/ingest/captures/{capture_id}",
+        headers=_auth(),
+        json={"business_name": "Flying X Saloon"},
+    )
+    assert r.status_code == 200
+    assert r.json()["business_name"] == "Flying X Saloon"
+    with SessionLocal() as db:
+        row = db.get(ScrapeCapture, capture_id)
+        assert row is not None
+        assert row.business_name == "Flying X Saloon"
+        assert row.status == "new"  # untouched
+
+
+def test_patch_rename_and_status_together(client: TestClient) -> None:
+    r = client.post(
+        "/api/ingest/capture",
+        headers=_auth(),
+        data={"business_name": "The Ofice", "source_url": "https://facebook.com/rename-both"},
+        files={"image": ("shot.png", _TINY_PNG, "image/png")},
+    )
+    capture_id = r.json()["id"]
+
+    r = client.patch(
+        f"/api/ingest/captures/{capture_id}",
+        headers=_auth(),
+        json={"business_name": "The Office", "status": "reviewed"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["business_name"] == "The Office"
+    assert body["status"] == "reviewed"
+
+
+def test_patch_empty_body_is_422(client: TestClient) -> None:
+    r = client.post(
+        "/api/ingest/capture",
+        headers=_auth(),
+        data={"source_url": "https://facebook.com/empty-patch"},
+        files={"image": ("shot.png", _TINY_PNG, "image/png")},
+    )
+    capture_id = r.json()["id"]
+
+    r = client.patch(f"/api/ingest/captures/{capture_id}", headers=_auth(), json={})
+    assert r.status_code == 422

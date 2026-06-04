@@ -1,8 +1,49 @@
 {% extends "sandstone_base.html" %}
-{% block title %}{{ vm.provider_name | clean_name }} — Ask Hava{% endblock %}
-{% block meta_description %}{{ vm.provider_name | clean_name }} on Ask Hava, Lake Havasu City's local directory.{% endblock %}
+{# clean_about: drop trailing taxonomy / "Stay Connected" social-footer artifacts
+   scraped onto the end of a description. Cuts at the first marker hit. #}
+{%- macro clean_about(text) -%}
+{%- set ns = namespace(t = text or '') -%}
+{%- for marker in ['Stay Connected', 'Stay connected', 'Follow us on', 'Categories:', 'Category:', 'Tags:'] -%}
+{%- if marker in ns.t -%}{%- set ns.t = ns.t.split(marker)[0] -%}{%- endif -%}
+{%- endfor -%}
+{{- ns.t | trim -}}
+{%- endmacro -%}
+{% set _name = vm.provider_name | clean_name %}
+{% set _show_rating = vm.google_review_count and vm.google_review_count >= 3 and vm.google_rating %}
+{% set _about = clean_about(vm.description) if vm.description else '' %}
+{% set _seo_desc = _about if _about else (_name ~ " on Ask Hava, Lake Havasu City's local directory.") %}
+{% block title %}{{ _name }} — Ask Hava{% endblock %}
+{% block meta_description %}{{ _seo_desc | truncate(160, true, '') }}{% endblock %}
 
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/sandstone_profile.css">{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/styles/sandstone_profile.css">
+{# DL-14 / E5: venue-events cards reuse the shared Hava-card component; link its
+   CSS so the "What's on at {venue}" region renders styled on the profile. #}
+<link rel="stylesheet" href="/static/styles/components/hava_card.css">
+{# SEO block: canonical + Open Graph + LocalBusiness JSON-LD (card photo as image). #}
+<link rel="canonical" href="{{ request.url }}">
+<meta property="og:type" content="business.business">
+<meta property="og:title" content="{{ _name }}">
+<meta property="og:description" content="{{ _seo_desc | truncate(200, true, '') }}">
+<meta property="og:url" content="{{ request.url }}">
+{% if vm.hero_photo_url %}<meta property="og:image" content="{{ vm.hero_photo_url }}">{% endif %}
+<script type="application/ld+json">{{ {
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": _name,
+  "url": request.url | string,
+  "description": _seo_desc,
+  "image": vm.hero_photo_url,
+  "telephone": vm.call_phone_display,
+  "address": vm.address,
+  "priceRange": None,
+  "aggregateRating": ({
+    "@type": "AggregateRating",
+    "ratingValue": vm.google_rating,
+    "reviewCount": vm.google_review_count,
+  } if _show_rating else None),
+} | tojson | safe }}</script>
+{% endblock %}
 
 {# data-current-user / data-favorite-entity-id / data-viewer-is-owner stay on the
    body so the shared favorites.js + the owner-aware tests keep working. #}
@@ -13,30 +54,27 @@
   <div class="crumb">
     <a href="/home">Home</a> ›
     <a href="{{ vm.category_url }}">{{ vm.category_label }}</a> ›
-    {{ vm.provider_name | clean_name }}
+    {{ _name }}
   </div>
 
-  {# ---- Cover: enriched photo for claimed listings, locked overlay otherwise ---- #}
-  <div class="cover"{% if not vm.show_claim_cta and vm.hero_photo_url %} style="background-image:url('{{ vm.hero_photo_url }}')"{% endif %}>
+  {# ---- Cover (DL-7): the stored category-card photo is the profile cover for
+     every listing, claimed or not. The lock overlay no longer hides the cover —
+     it now lives below Good-to-know as a compressed claim block. ---- #}
+  <div class="cover"{% if vm.hero_photo_url %} style="background-image:url('{{ vm.hero_photo_url }}')"{% endif %}>
     {% if vm.is_sponsored and vm.sponsor_disclosure_label %}
     <span class="spon-tag">{{ vm.sponsor_disclosure_label }}</span>
-    {% endif %}
-    {% if vm.show_claim_cta %}
-    <div class="lock">
-      <span class="e" aria-hidden="true">🔒</span>
-      <span>Photos, full menu and offers unlock when {{ vm.provider_name | clean_name }} claims its listing.</span>
-    </div>
     {% endif %}
   </div>
 
   {# ---- Identity + the three distinct CTAs (Call / Directions / Save) ---- #}
   <div class="head" data-region="provider-identity">
     <div>
-      <h1>{{ vm.provider_name | clean_name }}</h1>
+      <h1>{{ _name }}</h1>
       <div class="sub">
         <span>{{ vm.category_label }}</span>
         {% if vm.is_featured or vm.is_sponsored %}<span class="featured-tag">★ Featured Local</span>{% endif %}
-        {% if vm.google_rating %}· <span class="stars">★ {{ "%.1f"|format(vm.google_rating) }}</span>{% if vm.google_review_count %} <span>({{ vm.google_review_count }})</span>{% endif %}{% endif %}
+        {% if _show_rating %}· <span class="stars">★ {{ "%.1f"|format(vm.google_rating) }}</span> <span>({{ vm.google_review_count }})</span>
+        {% else %}· <span class="rating-new">New / few reviews yet</span>{% endif %}
         {% if vm.open_status_copy %}· <span class="open">{{ vm.open_status_copy }}</span>{% endif %}
       </div>
     </div>
@@ -64,11 +102,8 @@
   {# ---- Two-column body: about + side panel ---- #}
   <div class="cols">
     <div class="about">
-      {% if vm.description %}
-      <p>{{ vm.description }}</p>
-      {% else %}
-      <p>This listing is auto-built from trusted public data for Lake Havasu City.</p>
-      {% endif %}
+      {% if _about %}<p>{{ _about }}</p>
+      {% else %}<p>This listing is auto-built from trusted public data for Lake Havasu City.</p>{% endif %}
 
       {% if vm.service_chips %}
       <div class="tags">
@@ -79,23 +114,39 @@
       {% if vm.gallery_photo_urls and not vm.show_claim_cta %}
       <div class="gallery">
         {% for photo in vm.gallery_photo_urls[:8] %}
-        <img src="{{ photo }}" alt="{{ vm.provider_name | clean_name }} photo" loading="lazy" onerror="this.style.display='none';">
+        <img src="{{ photo }}" alt="{{ _name }} photo" loading="lazy" onerror="this.style.display='none';">
         {% endfor %}
       </div>
       {% endif %}
 
+      {# ---- Reviews (DL-4): labeled "From Google reviews", excerpts clamped to
+         ~40 words, max 3, NO per-review star glyphs, link out via place_id. ---- #}
       {% if vm.google_review_snippets %}
+      {% set _revs = [] %}
+      {% for snippet in vm.google_review_snippets %}
+        {% if snippet.text and _revs|length < 3 %}{% set _ = _revs.append(snippet) %}{% endif %}
+      {% endfor %}
+      {% if _revs %}
       <div class="reviews">
-        <div class="rev-source" style="color:var(--muted);font-size:.85rem;margin-bottom:6px">From Google reviews</div>
-        {% for snippet in vm.google_review_snippets[:3] %}
-        {% if snippet.text %}
+        <div class="rev-source">From Google reviews</div>
+        {% for snippet in _revs %}
         <div class="rev">
-          {% if snippet.rating %}<span class="stars" aria-label="{{ snippet.rating }} out of 5">{{ "★" * (snippet.rating | int) }}{{ "☆" * (5 - (snippet.rating | int)) }}</span>{% endif %}
-          {{ snippet.text }}
+          {% set _words = snippet.text.split() %}
+          {% if _words|length > 40 %}{{ _words[:40]|join(' ') }}…{% else %}{{ _words|join(' ') }}{% endif %}
         </div>
-        {% endif %}
         {% endfor %}
+        {# "Read all on Google" via place_id (DL-4). The VM doesn't expose a raw
+           place_id field, but derive_directions_url embeds it as query_place_id
+           when present — reuse that so the link is stable; fall back to a name
+           search when no place_id is available. #}
+        {% set _du = vm.directions_url or '' %}
+        {% if 'query_place_id=' in _du %}
+        <a class="rev-all" href="https://www.google.com/maps/place/?q=place_id:{{ _du.split('query_place_id=')[1].split('&')[0] }}" target="_blank" rel="noopener noreferrer">Read all on Google →</a>
+        {% else %}
+        <a class="rev-all" href="https://www.google.com/maps/search/?api=1&query={{ _name | urlencode }}" target="_blank" rel="noopener noreferrer">Read all on Google →</a>
+        {% endif %}
       </div>
+      {% endif %}
       {% endif %}
     </div>
 
@@ -103,22 +154,65 @@
       <div class="side">
         <h4>Good to know</h4>
         {% if vm.address %}<div class="row">📍 {{ vm.address }}</div>{% endif %}
-        {% if vm.open_status_copy %}<div class="row">🕒 {{ vm.open_status_copy }}</div>
-        {% elif vm.hours_freetext %}<div class="row">🕒 {{ vm.hours_freetext }}</div>{% endif %}
-        {% if vm.call_phone_display %}<div class="row">📞 {{ vm.call_phone_display }}</div>{% endif %}
+        {% if vm.call_phone_display %}<div class="row">📞 <a href="tel:{{ vm.call_phone }}" style="color:var(--accent)">{{ vm.call_phone_display }}</a></div>{% endif %}
         {% if vm.website_url and not vm.show_claim_cta %}<div class="row">🔗 <a href="{{ vm.website_url }}" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">Website</a></div>{% endif %}
         {% if vm.service_area_only and vm.service_area %}<div class="row">🗺️ Serves: {{ vm.service_area|join(', ') }}</div>{% endif %}
+
+        {# Full weekly hours table; falls back to free-text, then a call-to-confirm note (L4). #}
+        {% set _hours = vm.hours_structured %}
+        {% set _ns = namespace(rows=[], any=false) %}
+        {% if _hours %}
+          {% for _key, _label in [('monday','Monday'),('tuesday','Tuesday'),('wednesday','Wednesday'),('thursday','Thursday'),('friday','Friday'),('saturday','Saturday'),('sunday','Sunday')] %}
+            {% set _spans = _hours.get(_key) %}
+            {% if _spans is none %}
+              {% set _ = _ns.rows.append((_label, 'Closed')) %}
+            {% elif _spans|length == 0 %}
+              {% set _ = _ns.rows.append((_label, 'Closed')) %}{% set _ns.any = true %}
+            {% else %}
+              {% set _parts = [] %}
+              {% for _s in _spans %}
+                {% set _open = _s.get('open') %}{% set _close = _s.get('close') %}
+                {% if _open and _close %}
+                  {% if _close in ('23:59','00:00') %}{% set _closelabel = 'Midnight' %}{% else %}{% set _closelabel = _close %}{% endif %}
+                  {% set _ = _parts.append(_open ~ ' – ' ~ _closelabel) %}
+                {% endif %}
+              {% endfor %}
+              {% if _parts %}{% set _ = _ns.rows.append((_label, _parts|join(', '))) %}{% set _ns.any = true %}
+              {% else %}{% set _ = _ns.rows.append((_label, 'Closed')) %}{% endif %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        {% if vm.season_status_copy %}<div class="row">🗓️ {{ vm.season_status_copy }}</div>{% endif %}
+        {% if _ns.any %}
+        <div class="hours-table" aria-label="Weekly hours">
+          {% if vm.open_status_copy %}<div class="hours-now">🕒 {{ vm.open_status_copy }}</div>{% endif %}
+          {% for _label, _val in _ns.rows %}
+          <div class="hrow"><span class="hd">{{ _label }}</span><span class="hv">{{ _val }}</span></div>
+          {% endfor %}
+        </div>
+        {% elif vm.open_status_copy %}<div class="row">🕒 {{ vm.open_status_copy }}</div>
+        {% elif vm.hours_freetext %}<div class="row">🕒 {{ vm.hours_freetext }}</div>
+        {% else %}<div class="row" style="color:var(--muted)">Hours not available — call to confirm</div>{% endif %}
+
         {% if vm.freshness_copy %}<div class="row">✅ {{ vm.freshness_copy }}</div>{% endif %}
         {% if vm.verification_method_copy %}<div class="row">🛡️ {{ vm.verification_method_copy }}</div>{% endif %}
-        {% if not (vm.address or vm.open_status_copy or vm.hours_freetext or vm.call_phone_display) %}
+        {% if not (vm.address or vm.call_phone_display or _ns.any or vm.open_status_copy or vm.hours_freetext) %}
         <div class="row" style="color:var(--muted)">Details are still being gathered for this listing.</div>
         {% endif %}
       </div>
 
+      {# ---- Claim / upgrade CTA (DL-11): compressed lock block BELOW Good-to-know.
+         Copy avoids "menu" wording outside eat-drink. ---- #}
       {% if vm.show_claim_cta %}
-      <div class="claim">
-        <b>Is this your business?</b> Claim it to add photos, your menu, and offers — and stand out in {{ vm.category_label }}.
-        <div style="margin-top:10px"><a href="{{ vm.claim_url or '/contribute' }}" style="color:var(--accent);font-weight:700">Claim this listing →</a></div>
+      {% set _is_eat = 'eat' in (vm.category_url or '') %}
+      <div class="claim claim--lock">
+        <span class="e" aria-hidden="true">🔒</span>
+        <div>
+          {% if _is_eat %}<b>Claim this listing to add photos, your menu, and offers.</b>
+          {% else %}<b>Claim this listing to add photos, details, and offers.</b>{% endif %}
+          <div class="claim-sub">Add more photos{% if _is_eat %}, your menu,{% endif %} and offers.</div>
+          <div style="margin-top:8px"><a href="{{ vm.claim_url or '/contribute' }}" style="color:var(--accent);font-weight:700">Claim this listing →</a></div>
+        </div>
       </div>
       {% elif vm.show_upgrade_cta %}
       <div class="claim">
@@ -127,7 +221,7 @@
       {% endif %}
 
       {# ---- Concierge CTA: always available, routes to the 3-tier /chat backend ---- #}
-      <a class="ask-hava-cta" href="/chat?q={{ ('Tell me about ' ~ (vm.provider_name | clean_name))|urlencode }}">
+      <a class="ask-hava-cta" href="/chat?q={{ ('Tell me about ' ~ _name)|urlencode }}">
         💬 Ask Hava about this business
       </a>
     </div>
@@ -152,6 +246,15 @@
   </div>
   {% endif %}
 </div>
+
+{# ---- Sticky bottom Call / Directions bar (mobile) — reuses the .ll-sticky-cta
+   pattern, restyled in sandstone_profile.css. Hidden on desktop. ---- #}
+{% if vm.call_phone or vm.directions_url %}
+<div class="prof-sticky-cta" aria-hidden="false">
+  {% if vm.call_phone %}<a class="primary" href="tel:{{ vm.call_phone }}">📞 Call</a>{% endif %}
+  {% if vm.directions_url %}<a href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer">🧭 Directions</a>{% endif %}
+</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}

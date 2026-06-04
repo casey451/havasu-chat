@@ -100,9 +100,10 @@ def test_profile_renders_entity_location_hours_and_contact_over_legacy_columns()
             db.commit()
 
 
-def test_profile_reviews_are_labeled_google_with_real_per_review_stars() -> None:
-    """P-6/P-2/P-1: review excerpts are labeled 'From Google reviews', each shows its
-    real rating (not a hardcoded 5 stars), and the breadcrumb links to the category."""
+def test_profile_reviews_are_labeled_google_without_per_review_stars() -> None:
+    """DL-4/P-1: review excerpts are labeled 'From Google reviews', carry NO
+    per-review star glyphs, expose a 'Read all on Google' link, and the
+    breadcrumb links to the real category page."""
     suf = uuid4().hex[:8]
     slug = f"reviews-vm-{suf}"
     with SessionLocal() as db:
@@ -129,11 +130,13 @@ def test_profile_reviews_are_labeled_google_with_real_per_review_stars() -> None
             r = client.get(f"/provider/{slug}")
         assert r.status_code == 200
         body = r.text
-        # P-6: sourced-review attribution present.
+        # Sourced-review attribution present.
         assert "From Google reviews" in body
-        # P-2: the 3-star review renders 3 filled stars, not a hardcoded 5.
-        assert 'aria-label="3 out of 5"' in body
-        assert 'aria-label="5 out of 5"' in body
+        # DL-4: the hardcoded per-review star row is gone — no glyph aria-labels.
+        assert "out of 5" not in body
+        assert "★★★" not in body
+        # DL-4: a single "Read all on Google" link out is present.
+        assert "Read all on Google" in body
         # P-1: breadcrumb links to the real category page, not the Explore index.
         assert 'href="/categories/eat-drink"' in body
     finally:

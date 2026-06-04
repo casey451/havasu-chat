@@ -12,15 +12,13 @@
     <div class="crumb"><a href="/home">Home</a> · Daily utility</div>
     <h1>Gas prices in Lake Havasu City</h1>
     {% if has_data %}
-      <p>
-        {{ data.station_count }} stations tracked.
-        {% if fetched_at_label %}Updated {{ fetched_at_label }}.{% endif %}
-      </p>
-      {# Freshness banner: BOTH the label and the timestamp above come from the
-         same row.fetched_at clock, so they cannot contradict each other. #}
+      <p>{{ data.station_count }} stations tracked.</p>
+      {# Single "Updated" phrasing: the freshness banner is the ONE place the
+         page says "Updated ...". Its label and the page's absolute timestamps
+         all derive from the same row.fetched_at clock, so nothing contradicts. #}
       <div class="gas-freshness{% if is_stale %} is-stale{% endif %}">
         <span class="dot" aria-hidden="true"></span>
-        {{ staleness_label }}{% if is_stale %} — prices may be out of date{% endif %}
+        {{ staleness_label }}{% if fetched_at_label %} ({{ fetched_at_label }}){% endif %}{% if is_stale %} -- prices may be out of date{% endif %}
       </div>
     {% endif %}
   </div>
@@ -52,7 +50,7 @@
     {# ---- Cheapest stations (6-up, not a cut-off top 5) ---- #}
     {% if cheapest %}
     <section class="block wrap" aria-label="Cheapest stations">
-      <div class="sec-head"><h2>Cheapest right now</h2></div>
+      <div class="sec-head"><h2>Cheapest today{% if fetched_at_time_label %} (as of {{ fetched_at_time_label }}){% endif %}</h2></div>
       <div class="gas-cheap-grid">
         {% for s in cheapest %}
         {% if s.provider_slug %}<a class="gas-card" href="/provider/{{ s.provider_slug }}">{% else %}<div class="gas-card">{% endif %}

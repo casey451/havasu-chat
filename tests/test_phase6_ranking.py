@@ -86,3 +86,25 @@ def test_ranking_reproducible() -> None:
     a = compute_card_rank(inp, temperature_f=102.0)
     b = compute_card_rank(inp, temperature_f=102.0)
     assert a == b
+
+
+# --- liveness dampener (bury stale listings; NULL → unchanged) ---
+
+
+def test_liveness_null_leaves_rank_unchanged() -> None:
+    base = compute_card_rank(_inp(liveness_score=None))
+    no_field = compute_card_rank(_inp())
+    assert base == no_field
+
+
+def test_liveness_zero_halves_rank() -> None:
+    base = compute_card_rank(_inp(liveness_score=None))
+    dead = compute_card_rank(_inp(liveness_score=0.0))
+    assert dead == pytest.approx(base * 0.5, rel=1e-9)
+
+
+def test_liveness_orders_equal_base_listings() -> None:
+    # Same distance/name/boosts; the fresher listing (higher liveness) ranks first.
+    fresh = compute_card_rank(_inp(distance_km=1.0, name="Same", liveness_score=0.9))
+    stale = compute_card_rank(_inp(distance_km=1.0, name="Same", liveness_score=0.1))
+    assert fresh > stale

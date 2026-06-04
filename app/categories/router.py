@@ -286,6 +286,17 @@ _SORT_OPTIONS: tuple[tuple[str, str], ...] = (
 )
 
 
+def _page_summary(*, page: int, per_page: int, total: int) -> str:
+    """Human "Showing 1-60 of 308" line for a paged grid (M-20)."""
+    if total <= 0:
+        return ""
+    first = (page - 1) * per_page + 1
+    last = min(page * per_page, total)
+    if first > total:  # page past the end -> empty window
+        return f"Showing 0 of {total}"
+    return f"Showing {first}-{last} of {total}"
+
+
 def _render_category_page(
     request: Request,
     db: Session,
@@ -297,6 +308,7 @@ def _render_category_page(
     chip_bucket_id: str | None,
     active_subcategory: str | None,
     active_tab: str,
+    page: int = 1,
 ) -> HTMLResponse:
     """Shared render for the plural mega-page and the subcategory SEO landing.
 
@@ -304,16 +316,29 @@ def _render_category_page(
     ``active_subcategory`` (when set) both filters and highlights its chip.
     """
     now = now_lake_havasu()
-    cards, total = cat_queries.category_listing(db, route_slug, now=now, facets=facets)
+    page = max(int(page), 1)
+    per_page = cat_queries._DEFAULT_CARD_LIMIT
+    cards, total = cat_queries.category_listing(
+        db, route_slug, now=now, facets=facets, limit=per_page, page=page
+    )
 
-    chips = subcats.subcategories_for_bucket(chip_bucket_id) if chip_bucket_id else []
+    # C8/N-16: chips are generated from subtypes ACTUALLY present (ordered by
+    # count, zero-member omitted) rather than the static curated bucket list, so
+    # a route with no live subtypes renders no chip row at all.
+    chips = cat_queries.subcategory_chips_for_route(db, route_slug)
     # C-2: cuisine drill-down — a second-level chip row, only populated on routes
     # whose providers carry cuisine signals (Food & Drink). Empty elsewhere.
     cuisine_chips = cat_queries.available_cuisines_for_route(db, route_slug)
 
     def facet_href(**changes: str | None) -> str:
-        """Current path with facet params toggled; drops falsy values."""
+        """Current path with facet params toggled; drops falsy values.
+
+        Always drops ``page`` on a facet change -- a narrower result set
+        invalidates the old page index -- while preserving every OTHER active
+        query param (the DL-20 "All"-chip param-preservation rule).
+        """
         q = {k: v for k, v in request.query_params.items()}
+        q.pop("page", None)
         for key, val in changes.items():
             if val in (None, "", False):
                 q.pop(key, None)
@@ -321,6 +346,62 @@ def _render_category_page(
                 q[key] = str(val)
         tail = urlencode(sorted(q.items()))
         return request.url.path + ("?" + tail if tail else "")
+
+    def page_href(target_page: int) -> str:
+        """Current URL with ``page`` set (or dropped for page 1) -- preserves all
+        active facet params on paged views (M-20)."""
+        q = {k: v for k, v in request.query_params.items()}
+        if target_page <= 1:
+            q.pop("page", None)
+        else:
+            q["page"] = str(target_page)
+        tail = urlencode(sorted(q.items()))
+        return request.url.path + ("?" + tail if tail else "")
+
+    total_pages = max((total + per_page - 1) // per_page, 1) if total else 1
+    prev_url = page_href(page - 1) if page > 1 else None
+    next_url = page_href(page + 1) if page < total_pages else None
+
+    # DL-20: the subtype "All" chip clears the subcategory narrowing but PRESERVES
+    # every other active param (open / rating / sort / cuisine). It always targets
+    # the plural bucket route -- on the /lake-havasu/{sub} landing the subcategory
+    # lives in the path, so "All" walks up to /categories/{route_slug}.
+    def _all_chip_url() -> str:
+        q = {
+            k: v
+            for k, v in request.query_params.items()
+            if k not in ("sub", "page")
+        }
+        tail = urlencode(sorted(q.items()))
+        return f"/categories/{route_slug}" + ("?" + tail if tail else "")
+
+    all_chip_url = _all_chip_url()
+
+    # DL-20 / item 32: the sort-explainer must describe the ACTIVE sort, not a
+    # static favorites blurb. Closest/A-Z carry their own one-liner.
+    sort_notes = {
+        "favorites": "Favorites = rating weighted by review volume, so institutions rank first.",
+        "default": "Favorites = rating weighted by review volume, so institutions rank first.",
+        "closest": "Closest = nearest to the Lake Havasu City civic center first.",
+        "alpha": "Sorted A to Z by name.",
+    }
+    sort_note = sort_notes.get(facets.sort, sort_notes["favorites"])
+
+    # DL-20 C7: a single honest active-filter summary line. Lists the narrowing
+    # facets (subcategory / cuisine / open-now) with the result count and a
+    # param-preserving clear link back to the bare route.
+    active_filter_labels: list[str] = []
+    if active_subcategory:
+        sub_obj = subcats.subcategory_by_slug(active_subcategory)
+        active_filter_labels.append(sub_obj.label if sub_obj else active_subcategory)
+    elif facets.subcategory:
+        sub_obj = subcats.subcategory_by_slug(facets.subcategory)
+        active_filter_labels.append(sub_obj.label if sub_obj else facets.subcategory)
+    if facets.cuisine:
+        cui_label = subcats.cuisine_label(facets.cuisine)
+        active_filter_labels.append(cui_label or facets.cuisine)
+    if facets.open_now:
+        active_filter_labels.append("Open now")
 
     return templates.TemplateResponse(
         request=request,
@@ -341,8 +422,22 @@ def _render_category_page(
             "facets": facets,
             "sort_options": _SORT_OPTIONS,
             "facet_href": facet_href,
-            # "All" chip target: the plural mega-page for this bucket.
-            "all_chip_url": f"/categories/{route_slug}",
+            "page_href": page_href,
+            # Pagination context (M-20).
+            "page": page,
+            "total_pages": total_pages,
+            "per_page": per_page,
+            "page_summary": _page_summary(page=page, per_page=per_page, total=total),
+            "prev_url": prev_url,
+            "next_url": next_url,
+            # DL-20 sort/filter honesty context.
+            "sort_note": sort_note,
+            "active_filter_labels": active_filter_labels,
+            # The subtype "All" chip drops only ``sub`` (and page) but PRESERVES
+            # every other active param (open / rating / sort / cuisine) -- DL-20.
+            "all_chip_url": all_chip_url,
+            # A full reset link for the active-filter "clear" control: bare route.
+            "clear_filters_url": f"/categories/{route_slug}",
             # One labeled sponsored slot (≤1, real-or-omit). active_promoted is the
             # single page-wide promoted row; None -> no slot (never a fake sponsor).
             "sponsored": sponsor_store.active_promoted(db),
@@ -365,6 +460,7 @@ def serve_category(
     late: str | None = Query(None),
     weekends: str | None = Query(None),
     cuisine: str | None = Query(None),
+    page: int = Query(1, ge=1),
 ) -> HTMLResponse | RedirectResponse:
     """Render a single category page with subcategory chips + faceted filters.
 
@@ -398,6 +494,7 @@ def serve_category(
         one_liner=one_liner,
         chip_bucket_id=subcats.bucket_for_category_route(normalised),
         active_subcategory=None,
+        page=page,
         active_tab=cat_queries.active_tab_for(normalised),
     )
 
@@ -434,6 +531,10 @@ def render_subcategory_landing(
         weekends=weekends,
     )
     headline = f"{sub.label} in Lake Havasu City"
+    try:
+        page = max(int(request.query_params.get("page", "1")), 1)
+    except (TypeError, ValueError):
+        page = 1
     return _render_category_page(
         request,
         db,
@@ -444,6 +545,7 @@ def render_subcategory_landing(
         chip_bucket_id=sub.bucket_id,
         active_subcategory=sub.slug,
         active_tab=cat_queries.active_tab_for(bucket_route),
+        page=page,
     )
 
 

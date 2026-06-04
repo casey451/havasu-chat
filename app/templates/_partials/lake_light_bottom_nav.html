@@ -1,8 +1,17 @@
+{# Bottom tab bar (<=900px) -- the single mobile nav identity across every page
+   (DL-2). Six fixed tabs: Home / Events / Ask / Explore / Map / Saved.
+
+   ``active_tab`` normalization: the home surface historically passes
+   ``"today"`` for its dateline; both map to the Home tab here so the page a
+   user is on always lights up. Routes with no nav home (login, claim, legal,
+   404) pass no/unknown ``active_tab`` -- no tab lights, which is correct. #}
+{% set _tab = active_tab|default("") %}
+{% if _tab == "today" %}{% set _tab = "home" %}{% endif %}
 <nav class="ll-bottom-nav" aria-label="Primary mobile navigation">
-  <a{% if active_tab == "home" %} class="is-active"{% endif %} href="/home">Home</a>
-  <a{% if active_tab == "events" %} class="is-active"{% endif %} href="/events-ui">Events</a>
-  <a{% if active_tab == "ask" %} class="is-active ll-ask-nav"{% else %} class="ll-ask-nav"{% endif %} href="/chat" aria-label="Ask"><span>Ask</span></a>
-  <a{% if active_tab == "explore" %} class="is-active"{% endif %} href="/categories">Explore</a>
-  <a{% if active_tab == "map" %} class="is-active"{% endif %} href="/map">Map</a>
-  <a{% if active_tab == "saved" %} class="is-active"{% endif %} href="/account/favorites">Saved</a>
+  <a{% if _tab == "home" %} class="is-active"{% endif %} href="/home">Home</a>
+  <a{% if _tab == "events" %} class="is-active"{% endif %} href="/events-ui">Events</a>
+  <a{% if _tab == "ask" %} class="is-active ll-ask-nav"{% else %} class="ll-ask-nav"{% endif %} href="/chat" aria-label="Ask"><span>Ask</span></a>
+  <a{% if _tab == "explore" %} class="is-active"{% endif %} href="/categories">Explore</a>
+  <a{% if _tab == "map" %} class="is-active"{% endif %} href="/map">Map</a>
+  <a{% if _tab == "saved" %} class="is-active"{% endif %} href="/account/favorites">Saved</a>
 </nav>

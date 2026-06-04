@@ -39,7 +39,9 @@ from app.admin.sponsor_surface import merchant_upgrade_router
 from app.admin.v1_overview import router as admin_v1_overview_router
 from app.api.routes.account_alerts import router as account_alerts_router
 from app.api.routes.admin_contributions import router as admin_contributions_router
+from app.api.routes.admin_jobs import router as admin_jobs_router
 from app.api.routes.admin_mentions import router as admin_mentions_router
+from app.api.routes.calendar_feed import router as calendar_feed_router
 from app.api.routes.captures import router as captures_router
 from app.api.routes.category_pages import router as category_pages_router
 from app.api.routes.chat import router as concierge_chat_router
@@ -47,6 +49,7 @@ from app.api.routes.conditions import router as conditions_router
 from app.api.routes.contribute import router as contribute_router
 from app.api.routes.gas import router as gas_router
 from app.api.routes.ingest import router as ingest_router
+from app.api.routes.ingest_jobs import router as ingest_jobs_router
 from app.api.routes.map_data import router as map_data_router
 from app.api.routes.micro_ad import router as micro_ad_router
 from app.api.routes.themed_groups import router as themed_groups_router
@@ -68,6 +71,7 @@ from app.db.models import AuthSession, Event, Provider
 from app.digest.routes import router as digest_router
 from app.home.chat_route import router as new_chat_ui_router
 from app.home.router import router as home_router
+from app.home.static_pages import router as static_pages_router
 from app.photos.routes import router as photos_router
 from app.photos.sweep import run_stuck_photo_sweep
 from app.portal.router import router as portal_router
@@ -380,11 +384,15 @@ app.include_router(map_data_router)
 app.include_router(conditions_router)
 app.include_router(today_router)
 app.include_router(gas_router)
+app.include_router(static_pages_router)
+app.include_router(calendar_feed_router)
 app.include_router(ingest_router)
+app.include_router(ingest_jobs_router)
 app.include_router(captures_router)
 app.include_router(admin_router)
 app.include_router(admin_v1_overview_router)
 app.include_router(admin_contributions_router)
+app.include_router(admin_jobs_router)
 app.include_router(admin_mentions_router)
 app.include_router(admin_provider_approval_router)
 app.include_router(admin_provider_merge_review_router)

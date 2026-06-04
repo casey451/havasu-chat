@@ -323,3 +323,41 @@ def test_open_status_respects_lake_havasu_timezone() -> None:
     is_open_pm, copy_pm = queries.is_open_now(p, now=tuesday_evening)
     assert is_open_pm is False
     assert copy_pm is not None
+
+
+# --- #19: overnight 23:59/00:00 clamp resolves to the real close time (L4) ---
+
+
+def test_open_status_overnight_clamp_reports_next_day_close() -> None:
+    """A cross-midnight period the pipeline splits into a 23:59 segment + a
+    next-day 00:00 segment should report the real close ("Closes at 2 AM"),
+    not the awkward 11:59 PM clamp artifact."""
+    hours = {
+        "friday": [{"open": "20:00", "close": "23:59"}],
+        "saturday": [{"open": "00:00", "close": "02:00"}],
+        "sunday": [],
+    }
+    # Friday 2026-05-15 23:30 local — inside the Friday evening span.
+    friday_night = datetime(2026, 5, 15, 23, 30, tzinfo=LAKE_HAVASU_TZ)
+    assert friday_night.weekday() == 4  # guard: Friday
+    is_open, copy = queries.is_open_status_from_structured_hours(hours, now=friday_night)
+    assert is_open is True
+    assert copy is not None
+    assert "Closes at 2 AM" in copy
+    assert "11:59" not in copy
+
+
+def test_open_status_clamp_left_alone_without_midnight_continuation() -> None:
+    """A 23:59 close with no matching next-day 00:00 open stays as-is (no
+    spurious overnight stitching)."""
+    hours = {
+        "friday": [{"open": "20:00", "close": "23:59"}],
+        "saturday": [{"open": "09:00", "close": "17:00"}],
+        "sunday": [],
+    }
+    friday_night = datetime(2026, 5, 15, 23, 30, tzinfo=LAKE_HAVASU_TZ)
+    is_open, copy = queries.is_open_status_from_structured_hours(hours, now=friday_night)
+    assert is_open is True
+    assert copy is not None
+    # No next-day midnight continuation -> the 23:59 clamp formats as 11:59 PM.
+    assert "11:59 PM" in copy

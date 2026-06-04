@@ -94,6 +94,17 @@ class Provider(Base):
     last_google_scraped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     zip: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    # Liveness ranking (2026-06-03) — bury likely-dead listings without removing
+    # them. ``newest_review_at`` is the max review publishTime from the Places
+    # enrichment payload (the core staleness signal). ``liveness_score`` is the
+    # 0–1 blend computed by ``app/core/liveness.compute_liveness`` at load /
+    # backfill time; it feeds a multiplicative rank dampener so stale rows sink
+    # but are never excluded. Both nullable — non-Google rows leave them NULL,
+    # which the dampener treats as 1.0 (no dampening). See the 24b922964acd
+    # migration and LIVENESS_RANKING_HANDOFF_2026-06-03.md.
+    newest_review_at: Mapped[datetime | None] = mapped_column(TZAwareDateTime(), nullable=True)
+    liveness_score: Mapped[float | None] = mapped_column(Float, nullable=True, index=True)
+
     # Directory pivot V1 (2026-05-13): structured category FK alongside the
     # legacy string `category` column (line 36). Nullable until backfill
     # ticket lands. See docs/STRATEGY_PIVOT_2026-05-12.md §8.1.
@@ -810,6 +821,13 @@ class Entity(Base):
     featured: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false(), index=True
     )
+
+    # Liveness ranking (2026-06-03) — forward-compat mirror of
+    # ``Provider.liveness_score`` on the unified entity. Synced from the legacy
+    # Provider row by the dual-write hooks; NULL for non-Google / non-commercial
+    # entities (the rank dampener treats NULL as 1.0). See the 24b922964acd
+    # migration and LIVENESS_RANKING_HANDOFF_2026-06-03.md.
+    liveness_score: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     categories: Mapped[list["EntityCategory"]] = relationship(
         back_populates="entity", passive_deletes=True
@@ -1804,6 +1822,50 @@ class ScrapeCapture(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC), nullable=False
     )
+
+
+class Job(Base):
+    """Admin-queued scraper-pipeline job — the one-click Jobs portal's work item.
+
+    Casey clicks a button in the admin Jobs page → a ``queued`` row lands here.
+    Worker agents poll ``GET /api/ingest/jobs/pending?worker=...`` with the
+    machine-ingest bearer token, atomically claim the oldest job matching their
+    type map (OpenClaw → ``fb_capture_sweep``; Cowork → the other four), do the
+    work, then PATCH the row to ``running`` / ``done`` / ``failed`` with a
+    ``result_summary``. Additive + standalone — no FKs; ``params`` carries any
+    per-job knobs as JSON. See docs/scraper/ADMIN_JOBS_SPEC.md.
+    """
+
+    __tablename__ = "jobs"
+    __table_args__ = (
+        CheckConstraint(
+            "job_type IN ('schedule_hunt', 'fb_capture_sweep', 'capture_review', "
+            "'publish_approved', 'discovery_audit')",
+            name="ck_jobs_job_type",
+        ),
+        CheckConstraint(
+            "status IN ('queued', 'claimed', 'running', 'done', 'failed')",
+            name="ck_jobs_status",
+        ),
+        Index("ix_jobs_status", "status"),
+        Index("ix_jobs_job_type", "job_type"),
+        Index("ix_jobs_created_at", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    job_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="queued", server_default="queued"
+    )
+    requested_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    claimed_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    params: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=None)
+    result_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 # Phase 4.1 ships the ``Outbox`` ORM class above this line. The provider-slug

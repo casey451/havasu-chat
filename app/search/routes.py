@@ -320,14 +320,18 @@ def api_search(
             last_verified_col=Entity.last_verified_at,
             featured_col=feat,  # type: ignore[arg-type]
             ref_now=ref_now,
+            liveness_col=Entity.liveness_score,
         )
         if rank_expr is not None:
             order_cols.append(rank_expr.desc())
     else:
-        sqlite_rank = cast(_verification_bonus_sql(Entity.last_verified_at, ref_now), Float) + cast(
+        sqlite_base = cast(_verification_bonus_sql(Entity.last_verified_at, ref_now), Float) + cast(
             case((feat.is_(True), 25.0), else_=0.0),
             Float,
         )
+        # Mirror the PG liveness dampener (bury stale listings; NULL → unchanged).
+        sqlite_damp = search_ranking.liveness_dampener_sql(Entity.liveness_score)
+        sqlite_rank = sqlite_base if sqlite_damp is None else sqlite_base * sqlite_damp
         order_cols.append(sqlite_rank.desc())
     order_cols.extend([Entity.name.asc(), Entity.id.asc()])
 

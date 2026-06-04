@@ -7,3 +7,21 @@
   background-color:var(--surface-2);
   background-image:linear-gradient(135deg,var(--accent),var(--ribbon-bg));
 }
+
+/* Lake conditions strip is a doorway to the full /today board: kill the link
+   chrome so it still reads as the hero's metric strip, not a text link. */
+.mini-cond--link{text-decoration:none;color:inherit;cursor:pointer}
+.mini-cond--link:hover .m{border-color:rgba(255,255,255,.45)}
+
+/* 7 / mode-hero on mobile: the prototype hero ate the whole first screen, so
+   the category chips (the actual navigation) sat below the fold. Shrink the
+   hero on narrow viewports -- tighter padding, smaller headline, trimmed
+   blurb -- so the first chips are visible without scrolling. */
+@media (max-width:640px){
+  .mode-hero{padding:20px 18px;margin-top:14px}
+  .mode-hero h1{font-size:1.6rem;margin-top:6px}
+  .mode-hero p{margin-top:8px;font-size:.9rem;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .mini-cond{margin-top:14px;gap:8px}
+  .mini-cond .m{padding:7px 11px}
+}

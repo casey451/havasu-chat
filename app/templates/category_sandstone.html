@@ -1,18 +1,21 @@
 {% extends "sandstone_base.html" %}
 {% block title %}{{ category_label }} — Ask Hava{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/sandstone_category.css">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/sandstone_category.css">
+{% if prev_url %}<link rel="prev" href="{{ prev_url }}">{% endif %}
+{% if next_url %}<link rel="next" href="{{ next_url }}">{% endif %}{% endblock %}
 
 {% block content %}
   <div class="cathead wrap">
-    <div class="crumb"><a href="/home">Home</a> › {{ category_label }}</div>
+    {# C4: Home > Explore > Category — one canonical casing, Explore links the hub #}
+    <div class="crumb"><a href="/home">Home</a> › <a href="/categories">Explore</a> › {{ category_label }}</div>
     <h1>{{ category_label }}</h1>
-    <p>{% if category_one_liner %}{{ category_one_liner }} {% endif %}{% if category_count %}{{ category_count }} listed. {% endif %}Tap a type to narrow — the list updates right here.</p>
+    <p>{% if category_one_liner %}{{ category_one_liner }} {% endif %}{% if category_count %}{{ category_count }} listed.{% endif %}{% if subcat_chips %} Tap a type to narrow — the list updates right here.{% endif %}</p>
 
     {% if subcat_chips %}
     <div class="chips" id="chips">
       <a class="chip{% if not facets.subcategory %} on{% endif %}" data-filter="all" href="{{ all_chip_url }}">All</a>
       {% for c in subcat_chips %}
-      <a class="chip{% if facets.subcategory == c.slug %} on{% endif %}" data-filter="{{ c.slug }}" href="{{ facet_href(sub=c.slug) }}">{{ c.label }}</a>
+      <a class="chip{% if facets.subcategory == c.slug %} on{% endif %}" data-filter="{{ c.slug }}" href="{{ facet_href(sub=c.slug) }}">{{ c.label }}{% if c.count %} <span class="chip-n">{{ c.count }}</span>{% endif %}</a>
       {% endfor %}
     </div>
     {% endif %}
@@ -28,16 +31,32 @@
     </div>
     {% endif %}
 
+    {# DL-20: filters and sort are orthogonal rows. Open now is a FILTER chip,
+       never a sort pill; only one pill is "on" in the sort row at a time. #}
+    <div class="filterbar">
+      <span class="lbl">Filter:</span>
+      <a class="filterpill{% if facets.open_now %} on{% endif %}" href="{{ facet_href(open=('1' if not facets.open_now else None)) }}">Open now</a>
+    </div>
+
     <div class="sortbar">
       <span class="lbl">Sort:</span>
       <a class="sortpill{% if facets.sort in ('favorites', 'default') %} on{% endif %}" href="{{ facet_href(sort=None) }}">Locals' favorites</a>
-      <a class="sortpill{% if facets.open_now %} on{% endif %}" href="{{ facet_href(open=('1' if not facets.open_now else None)) }}">Open now</a>
       <a class="sortpill{% if facets.sort == 'closest' %} on{% endif %}" href="{{ facet_href(sort='closest') }}">Closest</a>
-      <span class="sortnote">Favorites = rating weighted by review volume, so institutions rank first.</span>
+      <a class="sortpill{% if facets.sort == 'alpha' %} on{% endif %}" href="{{ facet_href(sort='alpha') }}">A-Z</a>
+      <span class="sortnote">{{ sort_note }}</span>
     </div>
+
+    {# C7: one honest active-filter summary with the result count and a clear link. #}
+    {% if active_filter_labels %}
+    <div class="filtersummary">
+      {{ active_filter_labels|join(' . ') }} . {{ category_count or 0 }} place{{ '' if category_count == 1 else 's' }}
+      . <a href="{{ clear_filters_url }}" class="clearfilters">x clear</a>
+    </div>
+    {% endif %}
   </div>
 
   <div class="wrap">
+    {% if page_summary %}<p class="pageinfo">{{ page_summary }}</p>{% endif %}
     {% if category_cards or sponsored %}
     <div class="biz-grid" id="bizGrid">
       {% if sponsored %}
@@ -57,14 +76,34 @@
         <div class="body">
           <h3>{{ card.name }}</h3>
           <div class="meta">
-            {% if card.rating %}<span class="stars">★ {{ card.rating }}</span>{% endif %}
+            {% if card.has_reviews %}
+            <span class="stars">★ {{ card.rating }}</span>
             {% if card.review_count %}<span>({{ card.review_count }})</span>{% endif %}
+            {% else %}
+            <span class="noreviews">New / few reviews yet</span>
+            {% endif %}
           </div>
+          {# D7: second meta line — area / cross-street, with the out-of-area hint. #}
+          {% if card.area or card.distance_hint %}
+          <div class="loc">
+            {% if card.area %}<span class="area">{{ card.area }}</span>{% endif %}
+            {% if card.distance_hint %}<span class="faraway">{{ card.distance_hint }}</span>{% endif %}
+          </div>
+          {% endif %}
           {% if card.subcategory %}<div class="typ">{{ card.subcategory|replace('-', ' ')|replace('_', ' ')|title }}</div>{% endif %}
         </div>
       </a>
       {% endfor %}
     </div>
+
+    {# M-20: real pagination — preserves all active facet params, crawlable links. #}
+    {% if total_pages and total_pages > 1 %}
+    <nav class="pager" aria-label="Pagination">
+      {% if prev_url %}<a class="pagebtn" rel="prev" href="{{ prev_url }}">← Prev</a>{% else %}<span class="pagebtn is-off">← Prev</span>{% endif %}
+      <span class="pagepos">Page {{ page }} of {{ total_pages }}</span>
+      {% if next_url %}<a class="pagebtn" rel="next" href="{{ next_url }}">Next →</a>{% else %}<span class="pagebtn is-off">Next →</span>{% endif %}
+    </nav>
+    {% endif %}
     {% else %}
     <p class="cal-empty">No listings here yet. <a href="/chat?q={{ category_label|urlencode }}" style="color:var(--accent);font-weight:600">Ask Hava →</a></p>
     {% endif %}

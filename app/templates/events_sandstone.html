@@ -6,26 +6,45 @@
   <div class="cathead wrap">
     <div class="crumb"><a href="/home">Home</a> › Events</div>
     <h1>Events around the lake</h1>
+    {% if selected_date_label %}
+    <p>Showing events for <strong>{{ selected_date_label }}</strong>. <a href="/events-ui" style="color:var(--accent);font-weight:600">Back to all events →</a></p>
+    {% else %}
     <p>{% if events_total %}{{ events_total }} coming up. {% endif %}What's on today, this week, and the week ahead. <a href="/home#calendar" style="color:var(--accent);font-weight:600">See the month calendar →</a></p>
+    {% endif %}
   </div>
 
+  {% if when_chips and not selected_date_label %}
   <div class="wrap">
-    {% for group_label, items in [('Today', events_groups.today), ('This Week', events_groups.this_week), ('Next Week', events_groups.next_week)] %}
-    <section class="block" aria-label="{{ group_label }}">
-      <div class="sec-head"><h2>{{ group_label }}</h2><span class="meta">{{ items|length }} event{{ '' if items|length == 1 else 's' }}</span></div>
-      {% if items %}
+    <div class="ev-when-chips" role="navigation" aria-label="Filter events by when">
+      {% for chip in when_chips %}
+      <a class="ev-when-chip{% if chip.active %} on{% endif %}" href="/events-ui{% if chip.key != 'all' %}?when={{ chip.key }}{% endif %}"{% if chip.active %} aria-current="true"{% endif %}>{{ chip.label }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="wrap">
+    {% for sec in event_sections %}
+    <section class="block" aria-label="{{ sec.label }}">
+      <div class="sec-head">
+        <h2>{{ sec.label }}</h2>
+        <span class="meta">
+          {{ sec.total }} total{% if sec.shown < sec.total %} · showing {{ sec.shown }}{% endif %}{% if sec.capped %} · <a href="/categories/events" style="color:var(--accent);font-weight:600">See all →</a>{% endif %}
+        </span>
+      </div>
+      {% if sec.cards %}
       <div class="ev-list">
-        {% for ev in items %}
+        {% for ev in sec.cards %}
         <a class="ev-card{% if ev.featured %} is-featured{% endif %}" href="{{ ev.url }}">
           <div class="ev-date" style="--ev-accent: {{ ev.accent_color | default('#B5472B') }}">
             <span class="m">{{ ev.month_label }}</span><span class="d">{{ ev.date_label }}</span>
           </div>
           <div class="ev-body">
-            {% if ev.featured %}<span class="ev-flag">★ Featured</span>{% endif %}
-            <div class="ev-time">{% if ev.recurring and ev.schedule_label %}{{ ev.schedule_label }} · {% endif %}{{ ev.time_label }}</div>
-            <h3>{{ ev.title }}</h3>
-            {% if ev.venue %}<div class="ev-venue">{{ ev.venue }}</div>{% endif %}
-            {% if ev.recurring %}<span class="ev-recurring">↻ Runs regularly</span>{% endif %}
+            {% if ev.featured %}<span class="ev-flag flag-featured">Featured</span>{% endif %}
+            <span class="ev-flag flag-cat">{{ ev.category_label }}</span>
+            <div class="ev-time">{{ ev.time_label }}</div>
+            <h3 class="clamp2">{{ ev.title }}</h3>
+            {% if ev.venue %}<div class="ev-venue clamp1">{{ ev.venue }}</div>{% endif %}
           </div>
         </a>
         {% endfor %}
@@ -39,22 +58,21 @@
     {% if ongoing_classes %}
     <section class="block" aria-label="Classes and ongoing">
       <div class="sec-head"><h2>Classes &amp; ongoing</h2><span class="meta">{{ ongoing_classes|length }} series</span></div>
-      <p style="color:var(--muted);font-size:.88rem;margin:-8px 0 14px">Regular classes and recurring programs — each shown once on its next session.</p>
-      <div class="ev-list">
-        {% for ev in ongoing_classes %}
-        <a class="ev-card" href="{{ ev.url }}">
-          <div class="ev-date" style="--ev-accent: {{ ev.accent_color | default('#B5472B') }}">
-            <span class="m">{{ ev.month_label }}</span><span class="d">{{ ev.date_label }}</span>
-          </div>
-          <div class="ev-body">
-            <div class="ev-time">{% if ev.schedule_label %}{{ ev.schedule_label }} · {% endif %}{{ ev.time_label }}</div>
-            <h3>{{ ev.title }}</h3>
-            {% if ev.venue %}<div class="ev-venue">{{ ev.venue }}</div>{% endif %}
+      <p style="color:var(--muted);font-size:.88rem;margin:-8px 0 14px">Recurring classes and programs, grouped by venue. Each series links to its next session.</p>
+      {% for venue in ongoing_classes %}
+      <details class="ev-series-group"{% if loop.first %} open{% endif %}>
+        <summary><span class="ev-series-venue">{{ venue.venue or 'Other venues' }}</span> <span class="ev-series-count">{{ venue.cards|length }} class{{ '' if venue.cards|length == 1 else 'es' }}</span></summary>
+        <div class="ev-series-rows">
+          {% for ev in venue.cards %}
+          <a class="ev-series-row" href="{{ ev.url }}">
+            <div class="ev-series-sched">{% if ev.schedule_label %}{{ ev.schedule_label }} · {% endif %}{{ ev.time_label }}</div>
+            <div class="ev-series-title clamp1">{{ ev.title }}</div>
             <span class="ev-recurring">↻ Runs regularly</span>
-          </div>
-        </a>
-        {% endfor %}
-      </div>
+          </a>
+          {% endfor %}
+        </div>
+      </details>
+      {% endfor %}
     </section>
     {% endif %}
   </div>
