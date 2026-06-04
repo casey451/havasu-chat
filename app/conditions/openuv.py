@@ -53,11 +53,34 @@ def _uv_severity(uv: float) -> str:
     return "severe"
 
 
+def _sun_times(result: dict[str, Any]) -> dict[str, str]:
+    """Extract true astronomical sunrise/sunset ISO timestamps from a UV result.
+
+    Open-UV's ``/uv`` response carries a ``sun_info.sun_times`` block whose
+    ``sunset``/``sunrise`` are real astronomical values (UTC ISO-8601), unlike
+    the NWS tonight-period startTime we use as a fallback. We surface these so
+    api_payload can render an accurate sunset on the conditions strip.
+    """
+    sun_info = result.get("sun_info")
+    sun_times = sun_info.get("sun_times") if isinstance(sun_info, dict) else None
+    if not isinstance(sun_times, dict):
+        return {}
+    out: dict[str, str] = {}
+    for key in ("sunset", "sunrise"):
+        val = sun_times.get(key)
+        if isinstance(val, str) and val.strip():
+            out[f"{key}_iso"] = val.strip()
+    return out
+
+
 def fetch_openuv_index() -> dict[str, Any]:
-    """Return ``{"uv_index", "uv_max", "uv_severity"}`` or ``{}``.
+    """Return ``{"uv_index", "uv_max", "uv_severity", "sunset_iso", "sunrise_iso"}`` or ``{}``.
 
     Empty when ``OPENUV_API_KEY`` is unset or the response is unusable. Never
     makes an HTTP call without a key, so the cron can call it unconditionally.
+    The sun-time keys are present only when Open-UV returns a usable
+    ``sun_info.sun_times`` block; api_payload prefers them over the NWS sunset
+    approximation when available.
     """
     if not _api_key():
         return {}
@@ -65,12 +88,13 @@ def fetch_openuv_index() -> dict[str, Any]:
     result = raw.get("result") if isinstance(raw, dict) else None
     if not isinstance(result, dict):
         return {}
-    uv = result.get("uv")
     out: dict[str, Any] = {}
+    uv = result.get("uv")
     if isinstance(uv, (int, float)):
         out["uv_index"] = round(float(uv), 1)
         out["uv_severity"] = _uv_severity(float(uv))
     uv_max = result.get("uv_max")
     if isinstance(uv_max, (int, float)):
         out["uv_max"] = round(float(uv_max), 1)
+    out.update(_sun_times(result))
     return out
