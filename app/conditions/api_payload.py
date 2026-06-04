@@ -167,24 +167,50 @@ def build_conditions_api_payload(db: Session, *, now: datetime | None = None) ->
                 }
             )
 
-    # Sunset: the SOURCE_NWS_SUNSET row caches {sunset_iso, periods}. We surface
-    # the raw ISO plus a Lake-Havasu-local formatted string so both the JSON API
-    # and the /today Lake Light strip can render it. Emitted only when a usable
-    # ISO is present so /api/conditions stays unchanged when the source is absent.
-    sunset_row = read_source(db, SOURCE_NWS_SUNSET, now=now)
-    if sunset_row is not None and isinstance(sunset_row.data, dict):
-        sunset_iso = sunset_row.data.get("sunset_iso")
-        sunset_local = _format_sunset_local(sunset_iso) if sunset_iso else None
+    # Sunset: PREFER the true astronomical sunset from Open-UV
+    # (sun_info.sun_times.sunset, stored on the SOURCE_OPENUV row as
+    # ``sunset_iso``). Fall back to the SOURCE_NWS_SUNSET row, whose ``sunset_iso``
+    # is the tonight/evening forecast-period startTime -- an approximation that
+    # runs ~1-2h early. We surface the raw ISO plus a Lake-Havasu-local formatted
+    # string so both the JSON API and the /today Lake Light strip can render it.
+    # Emitted only when a usable ISO is present so /api/conditions stays unchanged
+    # when both sources are absent.
+    openuv_sunset_iso = None
+    if openuv_row is not None and isinstance(openuv_row.data, dict):
+        candidate = openuv_row.data.get("sunset_iso")
+        if isinstance(candidate, str) and candidate.strip():
+            openuv_sunset_iso = candidate.strip()
+
+    if openuv_sunset_iso is not None:
+        sunset_local = _format_sunset_local(openuv_sunset_iso)
         if sunset_local is not None:
-            label, stale = staleness_label(sunset_row.fetched_at, now)
+            label, stale = staleness_label(openuv_row.fetched_at, now)
             payload.update(
                 {
-                    "sunset_iso": sunset_iso,
+                    "sunset_iso": openuv_sunset_iso,
                     "sunset_local": sunset_local,
-                    "sunset_updated_at_iso": _iso(sunset_row.fetched_at),
+                    "sunset_source": "openuv",
+                    "sunset_updated_at_iso": _iso(openuv_row.fetched_at),
                     "sunset_staleness_label": label,
-                    "sunset_is_stale": stale or sunset_row.is_stale,
+                    "sunset_is_stale": stale or openuv_row.is_stale,
                 }
             )
+    else:
+        sunset_row = read_source(db, SOURCE_NWS_SUNSET, now=now)
+        if sunset_row is not None and isinstance(sunset_row.data, dict):
+            sunset_iso = sunset_row.data.get("sunset_iso")
+            sunset_local = _format_sunset_local(sunset_iso) if sunset_iso else None
+            if sunset_local is not None:
+                label, stale = staleness_label(sunset_row.fetched_at, now)
+                payload.update(
+                    {
+                        "sunset_iso": sunset_iso,
+                        "sunset_local": sunset_local,
+                        "sunset_source": "nws_approx",
+                        "sunset_updated_at_iso": _iso(sunset_row.fetched_at),
+                        "sunset_staleness_label": label,
+                        "sunset_is_stale": stale or sunset_row.is_stale,
+                    }
+                )
 
     return payload
