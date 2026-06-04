@@ -327,6 +327,190 @@ _LEGACY_TO_SUBCAT: dict[str, str] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# WP-9 — canonical primary category (the 12). Single source of truth for the
+# ``Provider.primary_category`` column and every public surface (Home, Explore,
+# Map, Chat, "While you're here"). Deterministic, no LLM.
+# ---------------------------------------------------------------------------
+#
+# Casey's locked decision: the canonical set is Home's 12 (``CATEGORY_LABELS``
+# in ``app/home/queries.py``). Explore's extra granularity (the ~31 subcategory
+# slugs above, plus the legacy ``professional`` / ``beauty`` tiles) folds DOWN
+# into these 12 as sub-chips, never as top-level categories.
+#
+# ``SUBCATEGORY_TO_PRIMARY`` is TOTAL over the live subcategory slugs in
+# ``_SUBCATEGORIES`` — every subtype resolves to exactly one of the 12. The
+# invariant test (tests/test_primary_category.py) asserts totality so a new
+# subcategory can never silently drop off the canonical mapping.
+
+# The 12 canonical primary-category slugs (mirrors home.queries.CATEGORY_LABELS
+# keys). Kept here so this module — the taxonomy foundation — owns the slug set;
+# home.queries' CATEGORY_LABELS supplies the human labels for the same slugs.
+PRIMARY_CATEGORY_SLUGS: tuple[str, ...] = (
+    "eat-drink",
+    "on-the-water",
+    "health-wellness-care",
+    "home-property-services",
+    "auto-rv-fuel",
+    "shopping-essentials",
+    "outdoors-parks-trails",
+    "lodging-vacation-rentals",
+    "pets",
+    "classes-sports-recreation",
+    "public-civic-resources",
+    "events",
+)
+
+# subcategory slug -> one of the 12 canonical primaries. TOTAL over _SUBCATEGORIES.
+#
+# Notable folds (deterministic, defensible):
+# * ``beauty`` folds into health-wellness-care (the 12 have no standalone beauty
+#   bucket; personal care reads as wellness). Mirrors home.queries'
+#   beauty_personal_care handling under the wellness umbrella.
+# * ``professional`` (legal/insurance/real-estate/financial) folds into
+#   public-civic-resources — the 12 have no professional-services bucket, and
+#   these are the resident-facing "who do I call for X" services that the civic
+#   bucket already gathers (religion/community/public). Flagged in the PR as the
+#   one fold where the 12 lack a natural home.
+SUBCATEGORY_TO_PRIMARY: dict[str, str] = {
+    # Eat & Drink
+    "restaurants": "eat-drink",
+    "bars-breweries": "eat-drink",
+    "cafes-coffee": "eat-drink",
+    "quick-bites": "eat-drink",
+    # On the Water
+    "on-the-water": "on-the-water",
+    # Outdoors, Parks & Trails
+    "trails-offroad": "outdoors-parks-trails",
+    "parks-beaches": "outdoors-parks-trails",
+    "golf": "outdoors-parks-trails",
+    "disc-golf": "outdoors-parks-trails",
+    "biking": "outdoors-parks-trails",
+    # Classes, Sports & Recreation
+    "gyms": "classes-sports-recreation",
+    "racquet-sports": "classes-sports-recreation",
+    "martial-arts": "classes-sports-recreation",
+    "studios": "classes-sports-recreation",
+    "kids-lessons": "classes-sports-recreation",
+    # Shopping, Grocery & Essentials
+    "boutiques": "shopping-essentials",
+    "home-goods": "shopping-essentials",
+    "specialty": "shopping-essentials",
+    "markets": "shopping-essentials",
+    # Home & Property Services
+    "home-services": "home-property-services",
+    # Auto, RV & Fuel
+    "auto": "auto-rv-fuel",
+    # Health, Wellness & Care
+    "health-medical": "health-wellness-care",
+    "beauty": "health-wellness-care",
+    # Public & Civic Resources (professional services fold here — see note above)
+    "professional": "public-civic-resources",
+    "civic-community": "public-civic-resources",
+    # Pets
+    "pets": "pets",
+    # Lodging & Vacation Rentals
+    "hotels": "lodging-vacation-rentals",
+    "vacation-rentals": "lodging-vacation-rentals",
+    "rv-parks": "lodging-vacation-rentals",
+    # Events (provider-side venues; calendar events are a separate feed)
+    "attractions": "events",
+    "venues": "events",
+    # Storage (Services bucket) -> Home & Property Services (it's a property
+    # service, and the 12 have no standalone storage bucket).
+    "storage": "home-property-services",
+}
+
+# Legacy ``Provider.category`` string -> canonical primary, used ONLY when no
+# subcategory has been derived (the NULL-subcategory fallback). Coarser than the
+# subcategory map; mirrors LEGACY_PROVIDER_CATEGORY_LABELS' intent so a row with
+# only a legacy category still lands on the right primary.
+LEGACY_CATEGORY_TO_PRIMARY: dict[str, str] = {
+    "food_drink": "eat-drink",
+    "food": "eat-drink",
+    "restaurant": "eat-drink",
+    "bakery": "eat-drink",
+    "lake_recreation": "on-the-water",
+    "boat_rental": "on-the-water",
+    "boat_repair": "on-the-water",
+    "recreation": "classes-sports-recreation",
+    "fitness_sports": "health-wellness-care",
+    "fitness": "health-wellness-care",
+    "childcare_education": "classes-sports-recreation",
+    "education": "classes-sports-recreation",
+    "edu": "classes-sports-recreation",
+    "retail": "shopping-essentials",
+    "home_services": "home-property-services",
+    "general_contractor": "home-property-services",
+    "plumbing": "home-property-services",
+    "services": "home-property-services",
+    "auto": "auto-rv-fuel",
+    "health_medical": "health-wellness-care",
+    "professional_services": "public-civic-resources",
+    "real_estate": "public-civic-resources",
+    "insurance": "public-civic-resources",
+    "financial": "public-civic-resources",
+    "legal": "public-civic-resources",
+    "beauty_personal_care": "health-wellness-care",
+    "pets": "pets",
+    "pet": "pets",
+    "veterinary": "pets",
+    "religion_community": "public-civic-resources",
+    "lodging": "lodging-vacation-rentals",
+    "entertainment_attractions": "events",
+    "tourism": "events",
+    "event_venue": "events",
+    "events": "events",
+    "music": "events",
+}
+
+
+def primary_for_subcategory(subcategory: str | None) -> str | None:
+    """Canonical primary slug for a subcategory slug, or ``None`` if unknown."""
+    if not subcategory:
+        return None
+    return SUBCATEGORY_TO_PRIMARY.get(subcategory.strip().lower())
+
+
+def derive_primary_category(
+    *,
+    category: str | None,
+    subcategory: str | None = None,
+    google_primary_category: str | None = None,
+    google_categories: Any = None,
+    attributes: Any = None,
+) -> str | None:
+    """Best canonical primary-category slug (one of the 12), or ``None``.
+
+    Pure (no DB / ORM) so it backfills offline and runs on ingest. Precedence:
+
+    1. The provider's derived ``subcategory`` (the strong Google-derived signal)
+       mapped through ``SUBCATEGORY_TO_PRIMARY``.
+    2. If no subcategory was stored, derive one from Google types / legacy
+       category via :func:`derive_subcategory`, then map it.
+    3. Legacy ``Provider.category`` mapped through ``LEGACY_CATEGORY_TO_PRIMARY``.
+
+    Returns ``None`` only when nothing matches — never guesses a default.
+    """
+    sub = (subcategory or "").strip().lower() or None
+    if sub is None:
+        sub = derive_subcategory(
+            category=category,
+            google_primary_category=google_primary_category,
+            google_categories=google_categories,
+            attributes=attributes,
+        )
+    if sub:
+        primary = SUBCATEGORY_TO_PRIMARY.get(sub)
+        if primary:
+            return primary
+    if category:
+        key = category.strip().lower()
+        if key in LEGACY_CATEGORY_TO_PRIMARY:
+            return LEGACY_CATEGORY_TO_PRIMARY[key]
+    return None
+
+
 def _iter_type_tokens(
     primary: str | None, categories: Any, sub_trades: Iterable[str] | None
 ) -> Iterable[str]:

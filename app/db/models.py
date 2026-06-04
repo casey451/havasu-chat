@@ -42,6 +42,15 @@ class Provider(Base):
     # the landing page's "All" chip rather than being mislabeled. Indexed for the
     # /lake-havasu/{subcategory} landing filter. Master spec §3.1.
     subcategory: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    # WP-9 (audit R2): the single canonical primary category — exactly one of
+    # Home's 12 slugs (app/home/queries.py CATEGORY_LABELS). Deterministically
+    # derived from ``subcategory`` (then legacy ``category``) by
+    # app.categories.subcategories.derive_primary_category; backfilled by
+    # scripts/backfill_primary_category.py. Every public surface (Home, Explore,
+    # Map, Chat, "While you're here") reads this with a legacy-category fallback
+    # while NULL. Indexed for the per-primary listing/count queries. Nullable
+    # until backfill; unmapped rows stay NULL (no guessed default).
+    primary_category: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     address: Mapped[str | None] = mapped_column(String, nullable=True)
     phone: Mapped[str | None] = mapped_column(String, nullable=True)
     email: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -828,6 +837,12 @@ class Entity(Base):
     # entities (the rank dampener treats NULL as 1.0). See the 24b922964acd
     # migration and LIVENESS_RANKING_HANDOFF_2026-06-03.md.
     liveness_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # WP-9 (audit R2): forward-compat mirror of ``Provider.primary_category`` on
+    # the unified entity (one of Home's 12 canonical slugs). NULL for non-Google /
+    # non-commercial entities and until the backfill syncs it. See the
+    # d7e8f9a0b1c2 migration.
+    primary_category: Mapped[str | None] = mapped_column(String, nullable=True)
 
     categories: Mapped[list["EntityCategory"]] = relationship(
         back_populates="entity", passive_deletes=True

@@ -39,7 +39,15 @@ def _coords_for(ent: Entity, prov: Provider | None) -> tuple[float, float] | Non
     return None
 
 
-def _primary_category_slug(ent: Entity) -> str:
+def _primary_category_slug(ent: Entity, prov: Provider | None = None) -> str:
+    """Canonical primary-category slug for a marker (WP-9 grouped view of the 12).
+
+    Prefers the provider's canonical ``primary_category`` (one of the 12) so the
+    map groups markers by the same taxonomy as Home/Explore, falling back to the
+    entity's first ``entity_categories`` slug while ``primary_category`` is NULL.
+    """
+    if prov is not None and getattr(prov, "primary_category", None):
+        return str(prov.primary_category)
     for ec in ent.categories or []:
         if ec.category is not None and ec.category.slug:
             return str(ec.category.slug)
@@ -88,18 +96,23 @@ def _select_provider_entities(
     category_slugs: list[str],
     boat_only: bool,
 ) -> list[Entity]:
-    """Select active providers' entities by legacy ``Provider.category``.
+    """Select active providers' entities for a map scope (WP-9).
 
-    This is the gap-fix path: the entity-category join in
-    ``select_entities_for_categories`` only surfaces providers whose entity has
-    an ``entity_categories`` row, but most of the catalog is categorized solely
-    via the legacy ``Provider.category`` string (the same field the category
-    landing pages filter on). Selecting on it here makes large service
-    categories — home services, health, classes/sports — render pins again.
+    Scope slugs are the canonical 12 (``TIER_1_CATEGORY_SLUGS``). A provider is
+    selected when its canonical ``primary_category`` is in the scope OR — while
+    that column is still NULL — when its legacy ``Provider.category`` is in the
+    scope's legacy set (``CATEGORY_FILTERS``). The legacy path is the gap-fix that
+    keeps large service categories rendering pins until the backfill lands; the
+    primary path makes the map group by the same canonical taxonomy as Home/Explore.
     """
+    from sqlalchemy import and_, or_
+
     legacy = _legacy_categories_for(category_slugs)
-    if not legacy:
-        return []
+    clauses = [Provider.primary_category.in_(category_slugs)]
+    if legacy:
+        clauses.append(
+            and_(Provider.primary_category.is_(None), Provider.category.in_(legacy))
+        )
     stmt = (
         select(Entity)
         .join(Provider, Provider.entity_id == Entity.id)
@@ -109,7 +122,7 @@ def _select_provider_entities(
         )
         .where(
             Entity.is_active.is_(True),
-            Provider.category.in_(legacy),
+            or_(*clauses),
             Provider.is_active.is_(True),
             Provider.draft.is_(False),
         )
@@ -203,7 +216,7 @@ def map_data(
                 "name": ent.name,
                 "lat": lat,
                 "lng": lng,
-                "category_slug": _primary_category_slug(ent),
+                "category_slug": _primary_category_slug(ent, prov_by_eid.get(ent.id)),
                 "profile_url": _profile_url_for_entity(db, ent),
                 "status_line": _status_line_for_entity(db, ent, now=now),
                 "hero_photo_url": _hero_url_for_entity(db, ent),
