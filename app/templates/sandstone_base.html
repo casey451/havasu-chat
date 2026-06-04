@@ -65,11 +65,12 @@
     {% endif %}
   </nav>
   {% endif %}
-  <form class="header-search" action="/chat" method="get" role="search" aria-label="Ask Hava">
-    <label class="visually-hidden" for="header-q">Ask Hava anything in Lake Havasu</label>
-    <input id="header-q" type="text" name="q" placeholder="Ask Hava anything">
-    <button type="submit" aria-label="Submit ask">-&gt;</button>
+  <form class="header-search" action="/search" method="get" role="search" aria-label="Search Lake Havasu">
+    <label class="visually-hidden" for="header-q">Search Lake Havasu businesses and events</label>
+    <input id="header-q" type="text" name="q" placeholder="Search businesses and events">
+    <button type="submit" aria-label="Submit search">-&gt;</button>
   </form>
+  <a class="header-ask-instead" href="/chat?q=">Ask Hava instead</a>
   {% set _mode = current_mode|default('ask') %}
   <nav class="modes" id="modes" aria-label="Browse mode">
     <a class="{% if _mode == 'ask' %}on{% endif %}" href="/home" data-mode="ask"{% if _mode == 'ask' %} aria-current="page"{% endif %}><span class="e" aria-hidden="true">💬</span> Ask</a>

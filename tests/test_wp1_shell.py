@@ -152,9 +152,11 @@ def test_footer_has_tagline_and_trust_links() -> None:
 # ---- header search (DL-6 Wave 1: GET -> /chat?q=) ----
 
 
-def test_desktop_topbar_search_posts_to_chat() -> None:
+def test_desktop_topbar_search_posts_to_search() -> None:
+    # DL-6 phase 2 (WP-11): the header search now posts to the /search results
+    # page; chat is the secondary "Ask Hava instead" CTA (/chat?q=).
     html = _render("about.html")
-    assert 'action="/chat" method="get"' in html
+    assert 'action="/search" method="get"' in html
     assert 'name="q"' in html
 
 
@@ -227,8 +229,9 @@ def test_sandstone_base_shell_structure() -> None:
     assert "mm-bare" in html
     # Final "All categories ->" link to /categories.
     assert "mm-all" in html and 'href="/categories"' in html
-    # Header search (DL-6) present in the sandstone header.
-    assert 'action="/chat" method="get"' in html
+    # Header search present in the sandstone header (DL-6 phase 2 / WP-11:
+    # posts to the /search results page, not chat).
+    assert 'action="/search" method="get"' in html
     # Bottom-nav included on sandstone pages too (DL-2).
     assert 'class="ll-bottom-nav"' in html
     # Hamburger opens a real drawer (aria-controls), not a mode-cycle no-op.

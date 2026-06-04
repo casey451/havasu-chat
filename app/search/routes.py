@@ -11,15 +11,19 @@ from __future__ import annotations
 import base64
 import json
 import re
+from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from sqlalchemy import Float, and_, case, cast, exists, false, func, literal, or_, select
 from sqlalchemy.orm import Session, aliased, joinedload
 
 from app.chat import tier2_db_query
 from app.chat.tier2_schema import Tier2Filters
 from app.chat.tier2_synonyms import _category_needle_set
+from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.db.entity_types import (
@@ -37,7 +41,15 @@ from app.search.ranking import _verification_bonus_sql
 
 router = APIRouter(tags=["search"])
 
+_TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
+templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
+register_template_filters(templates)
+register_template_globals(templates)
+
 _CURSOR_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+# Page-level keyword results cap (the plain crawlable list at GET /search).
+_PAGE_RESULT_LIMIT = 50
 
 
 def _is_postgres(session: Session) -> bool:
@@ -400,3 +412,129 @@ def api_search(
         next_cursor = _encode_offset(offset + limit)
 
     return {"results": results, "next_cursor": next_cursor}
+
+
+# --- /search keyword results page (DL-6 phase 2, WP-11) --------------------
+
+
+def _keyword_provider_rows(db: Session, *, q_clean: str, limit: int) -> list[Provider]:
+    """Provider rows matching ``q`` via the same FTS/synonym path as ``/api/search``.
+
+    Reuses :func:`_tier2_filters_for_search`, the Postgres
+    ``entities.search_vector @@ to_tsquery`` predicate (or the SQLite ILIKE
+    fallback :func:`_sqlite_entity_text_and`) and the commercial-synonym
+    EXISTS branch, then hydrates the active, non-draft :class:`Provider` rows
+    so the page can render phone / address / category directly. Ordered by
+    name for a stable, crawlable list.
+    """
+    filters = _tier2_filters_for_search(q=q_clean, category=None)
+
+    e_stmt = select(Entity.id).where(
+        Entity.is_active.is_(True),
+        Entity.entity_type == ENTITY_TYPE_COMMERCIAL,
+    )
+
+    text_parts: list[Any] = []
+    if _is_postgres(db):
+        tsq = search_fts.build_tsquery_string(filters)
+        if tsq:
+            text_parts.append(search_fts.entities_search_vector_match(tsq))
+    else:
+        text_parts.append(_sqlite_entity_text_and(filters, entity_type=ENTITY_TYPE_COMMERCIAL))
+
+    prov_syn = _provider_synonym_exists_predicate(
+        q_raw=q_clean,
+        entity_type_filter=ENTITY_TYPE_COMMERCIAL,
+    )
+    if prov_syn is not None:
+        text_parts.append(prov_syn)
+
+    if not text_parts:
+        return []
+
+    e_stmt = e_stmt.where(or_(*text_parts))
+    entity_ids = list(db.scalars(e_stmt).all())
+    if not entity_ids:
+        return []
+
+    p_stmt = (
+        select(Provider)
+        .where(
+            Provider.entity_id.in_(entity_ids),
+            Provider.is_active.is_(True),
+            Provider.draft.is_(False),
+        )
+        .order_by(func.lower(Provider.provider_name).asc(), Provider.id.asc())
+        .limit(limit)
+    )
+    return list(db.scalars(p_stmt).unique().all())
+
+
+def _keyword_event_rows(db: Session, *, q_clean: str, limit: int) -> list[Event]:
+    """Event rows whose title or description match ``q`` (live status only).
+
+    A deliberately plain keyword query (ILIKE on title/description); the event
+    corpus has no FTS search_vector, so we keep this simple and dialect-neutral.
+    Soonest dates first.
+    """
+    needle = f"%{q_clean}%"
+    ev_stmt = (
+        select(Event)
+        .where(
+            Event.status == "live",
+            or_(Event.title.ilike(needle), Event.description.ilike(needle)),
+        )
+        .order_by(Event.date.asc(), Event.start_time.asc(), Event.id.asc())
+        .limit(limit)
+    )
+    return list(db.scalars(ev_stmt).unique().all())
+
+
+@router.get("/search", response_class=HTMLResponse)
+def search_results_page(
+    request: Request,
+    q: str | None = Query(None),
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Plain, crawlable keyword results page for the header search.
+
+    Renders two lists (providers, events) for ``?q=``. Blank ``q`` or no
+    matches shows an empty state pointing at Ask Hava. No auth gate.
+    """
+    q_clean = (q or "").strip()
+
+    providers: list[dict[str, Any]] = []
+    events: list[dict[str, Any]] = []
+    if q_clean:
+        for p in _keyword_provider_rows(db, q_clean=q_clean, limit=_PAGE_RESULT_LIMIT):
+            subtype = p.google_primary_category or p.subcategory or p.category
+            area = p.district or p.address
+            providers.append(
+                {
+                    "name": p.provider_name,
+                    "url": f"/provider/{p.slug}" if p.slug else None,
+                    "subtype": subtype,
+                    "phone": p.phone,
+                    "address": area,
+                }
+            )
+        for ev in _keyword_event_rows(db, q_clean=q_clean, limit=_PAGE_RESULT_LIMIT):
+            events.append(
+                {
+                    "title": ev.title,
+                    "url": f"/events/{ev.id}",
+                    "date": ev.date,
+                    "venue": ev.location_name,
+                }
+            )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="search.html",
+        context={
+            "q": q_clean,
+            "providers": providers,
+            "events": events,
+            "has_results": bool(providers or events),
+        },
+    )
