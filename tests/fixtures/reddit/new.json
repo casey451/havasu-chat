@@ -1,0 +1,29 @@
+{
+  "kind": "Listing",
+  "data": {
+    "children": [
+      {
+        "kind": "t3",
+        "data": {
+          "id": "abc123",
+          "title": "Best mechanic in town? Avalon Auto vs Havasu Motors",
+          "selftext": "My car needs work. Has anyone used Avalon Auto Repair or Havasu Motors? Looking for honest recommendations.",
+          "permalink": "/r/LakeHavasu/comments/abc123/best_mechanic/",
+          "author": "lake_local",
+          "created_utc": 1717500000
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "def456",
+          "title": "New taco place open on Swanson",
+          "selftext": "",
+          "permalink": "/r/LakeHavasu/comments/def456/new_taco/",
+          "author": "foodie22",
+          "created_utc": 1717400000
+        }
+      }
+    ]
+  }
+}
