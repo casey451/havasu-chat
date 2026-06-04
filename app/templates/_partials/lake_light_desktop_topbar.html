@@ -1,0 +1,19 @@
+{# Shared desktop topbar (>=900px). One header pattern across every Lake Light
+   page (DL-2). Search posts GET to /chat?q= (DL-6 Wave 1). #}
+<header class="ll-desktop-topbar" role="banner">
+  <div class="ll-desktop-topbar-inner">
+    <a href="/home" class="ll-wordmark ll-wordmark-dark">Ask <em>Hava</em></a>
+    <form class="ll-desktop-search" action="/chat" method="get" role="search" aria-label="Ask Hava">
+      <label class="visually-hidden" for="ll-desktop-q">Ask Hava anything in Lake Havasu</label>
+      <input id="ll-desktop-q" type="text" name="q" placeholder="Ask Hava anything in Lake Havasu">
+      <button type="submit" aria-label="Submit ask">-&gt;</button>
+    </form>
+    <nav class="ll-desktop-links" aria-label="Primary desktop navigation">
+      <a href="/events-ui">Events</a>
+      <a href="/categories">Explore</a>
+      <a href="/map">Map</a>
+      <a href="/account/favorites">Saved</a>
+      <a href="/login" class="ll-desktop-signin">Sign in</a>
+    </nav>
+  </div>
+</header>

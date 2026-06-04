@@ -1,21 +1,12 @@
-<!doctype html>
-<html lang="en">
-<head>
-  {% include '_partials/plausible.html' %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Saved listings — Ask Hava</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles/lake_light.css">
-</head>
-<body class="ll-page">
-{% set active_tab = "saved" %}
-<main class="ll-utility-shell" role="main">
+{% extends "lake_light_base.html" %}
+{% block active_tab %}saved{% endblock %}
+{% block title %}Saved listings -- Ask Hava{% endblock %}
+{% block utility_header %}
   {% set header_back_href = "/account" %}
   {% set header_back_label = "Account" %}
   {% include "_partials/lake_light_header.html" %}
+{% endblock %}
+{% block content %}
   <section class="ll-utility-main">
     <p class="ll-eyebrow">Saved</p>
     <h1>Your favorites</h1>
@@ -36,8 +27,4 @@
     </ul>
     {% endif %}
   </section>
-  {% include "_partials/lake_light_footer.html" %}
-</main>
-{% include "_partials/lake_light_bottom_nav.html" %}
-</body>
-</html>
+{% endblock %}

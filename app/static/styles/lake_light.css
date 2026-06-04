@@ -8,7 +8,7 @@
   --ll-paper: #F4F1EA;   /* Sandstone --bg */
   --ll-card: #FFFFFF;    /* --surface */
   --ll-ink: #1C1B18;     /* --text */
-  --ll-muted: #6F6A60;   /* --muted */
+  --ll-muted: #635E55;   /* --muted (darkened for AA on sandstone paper) */
   --ll-jade: #B5472B;    /* primary accent -> Sandstone sienna */
   --ll-jade-soft: #EFE0D9; /* soft accent wash */
   --ll-terracotta: #B5472B; /* accent */
@@ -33,6 +33,8 @@ body {
   font-family: "Figtree", "Segoe UI", sans-serif;
   background: var(--ll-paper);
   color: var(--ll-ink);
+  /* Type floor: 16px body minimum (WP-1 type/tap pass). */
+  font-size: 16px;
   line-height: 1.45;
 }
 
@@ -422,12 +424,18 @@ a:hover {
   background: rgba(246, 241, 231, 0.97);
   border-top: 1px solid var(--ll-line);
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  /* Six fixed tabs: Home / Events / Ask / Explore / Map / Saved (DL-2). */
+  grid-template-columns: repeat(6, 1fr);
   text-align: center;
 }
 
 .ll-bottom-nav a {
-  font-size: 11px;
+  /* Type floor: nav labels >=13px (WP-1 type/tap pass). */
+  font-size: 13px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--ll-muted);
 }
 
@@ -1467,10 +1475,6 @@ body.ll-chat .turn-hava .component-slot {
 }
 
 @media (min-width: 720px) {
-  .ll-desktop-topbar {
-    display: block;
-  }
-
   .ll-shell {
     padding: 18px 18px 36px;
   }
@@ -1516,10 +1520,6 @@ body.ll-chat .turn-hava .component-slot {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .ll-bottom-nav {
-    display: none;
-  }
-
   .ll-calendar {
     display: block;
   }
@@ -1548,6 +1548,19 @@ body.ll-chat .turn-hava .component-slot {
 
   .ll-utility-main {
     padding: 20px;
+  }
+}
+
+/* DL-2 nav identity boundary: the shared desktop topbar and the mobile bottom
+   tab bar swap at 900px. Below 900px every page shows the bottom nav; at and
+   above 900px every page shows the topbar. */
+@media (min-width: 900px) {
+  .ll-desktop-topbar {
+    display: block;
+  }
+
+  .ll-bottom-nav {
+    display: none;
   }
 }
 
@@ -1876,4 +1889,97 @@ a.ll-facet.is-active {
 .ll-shortcut-title:focus-visible {
   outline: 2px solid var(--ll-jade);
   outline-offset: 2px;
+}
+
+/* ===========================================================================
+   WP-1 shell: skip-link, focus token, reduced-motion, type/tap floor,
+   shared footer + new chrome classes.
+   =========================================================================== */
+
+/* A11y: skip-to-content link, visible only on keyboard focus. */
+.ll-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 200;
+  background: var(--ll-jade);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ll-skip-link:focus,
+.ll-skip-link:focus-visible {
+  left: 0;
+  outline: 2px solid #fff;
+  outline-offset: -4px;
+}
+
+/* A11y: shared :focus-visible token for the topbar + footer chrome links. */
+.ll-desktop-links a:focus-visible,
+.ll-desktop-search input:focus-visible,
+.ll-desktop-search button:focus-visible,
+.ll-utility-footer-links a:focus-visible,
+.ll-wordmark:focus-visible {
+  outline: 2px solid var(--ll-jade);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* A11y: respect reduced-motion -- kill the transitions/animations that this
+   sheet (and the Sandstone re-theme) introduce. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Type/tap floor: primary CTAs reach a 48px tap target; ribbon labels >=13px. */
+.ll-button {
+  min-height: 48px;
+}
+
+.ll-desktop-links a {
+  font-size: 13px;
+}
+
+/* DL-19 footer tagline + DL-18 trust links. */
+.ll-utility-footer-tagline {
+  margin: 0;
+  font-family: "Fraunces", Georgia, serif;
+  font-style: italic;
+  font-size: 14px;
+  color: var(--ll-terracotta);
+}
+
+/* /categories index header chrome (moved off inline styles). */
+.ll-categories-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.ll-categories-wordmark {
+  font-size: 32px;
+}
+
+/* Screen-reader-only utility (used by topbar/search labels). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
