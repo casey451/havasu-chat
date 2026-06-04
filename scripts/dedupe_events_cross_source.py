@@ -108,15 +108,23 @@ def find_collapses(rows: list[EventLite]) -> list[Collapse]:
     out: list[Collapse] = []
     collapsed: set[str] = set()  # dup ids already assigned to a keeper
 
-    # 1. Canonical-URL identity: bucket events by every canonical key they carry.
-    by_url_key: dict[str, list[EventLite]] = {}
+    # 1. Canonical-URL identity: bucket events by every canonical key they carry,
+    # guarded by (date, normalized title). A shared URL alone is NOT identity --
+    # venue/schedule pages (a pool's open-swim schedule, a farmers market's
+    # homepage, a theatre's site root) are carried by MANY distinct events, so a
+    # URL-only key would collapse different classes/dates/shows into one event.
+    # Same canonical URL + same date + same normalized title is a true dupe.
+    by_url_key: dict[tuple, list[EventLite]] = {}
     for e in rows:
-        seen: set[str] = set()
+        seen: set[tuple] = set()
         for url in (e.event_url, e.source_url):
             k = canonical_event_identity(url)
-            if k is not None and k not in seen:
-                seen.add(k)
-                by_url_key.setdefault(k, []).append(e)
+            if k is None:
+                continue
+            guarded = (k, e.date, (e.normalized_title or e.title or "").strip().lower())
+            if guarded not in seen:
+                seen.add(guarded)
+                by_url_key.setdefault(guarded, []).append(e)
     for k, members in by_url_key.items():
         uniq = {m.id: m for m in members}
         if len(uniq) < 2:
@@ -135,7 +143,7 @@ def find_collapses(rows: list[EventLite]) -> list[Collapse]:
                     dup_id=dup.id,
                     dup_source=dup.source,
                     combined_source=combine_sources(keep.source, dup.source or ""),
-                    detail=k,
+                    detail=f"{k[0]} | {k[1]} | {k[2]}",
                 )
             )
 
