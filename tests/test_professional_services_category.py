@@ -67,33 +67,42 @@ def test_seed_repoints_null_and_legacy_rows_only_and_is_reversible() -> None:
         db.add_all([p_null, p_other])
         db.commit()
 
-        counts = seed_professional_services(db.connection())
-        db.commit()
-        assert counts["repointed"] >= 1
+        try:
+            counts = seed_professional_services(db.connection())
+            db.commit()
+            assert counts["repointed"] >= 1
 
-        db.refresh(p_null)
-        db.refresh(p_other)
-        assert p_null.category_id == cat.id
-        if other is not None:
-            assert p_other.category_id == other.id  # untouched
+            db.refresh(p_null)
+            db.refresh(p_other)
+            assert p_null.category_id == cat.id
+            if other is not None:
+                assert p_other.category_id == other.id  # untouched
 
-        # Idempotent: second run changes nothing.
-        counts2 = seed_professional_services(db.connection())
-        db.commit()
-        assert counts2 == {"seeded": 0, "repointed": 0}
+            # Idempotent: second run changes nothing.
+            counts2 = seed_professional_services(db.connection())
+            db.commit()
+            assert counts2 == {"seeded": 0, "repointed": 0}
 
-        # Reversible.
-        reverse_professional_services(db.connection())
-        db.commit()
-        assert (
-            db.scalars(
-                select(Category).where(Category.slug == PROFESSIONAL_SERVICES_SLUG)
-            ).first()
-            is None
-        )
-        # Restore for other tests (migration state expects the row).
-        seed_professional_services(db.connection())
-        db.commit()
+            # Reversible.
+            reverse_professional_services(db.connection())
+            db.commit()
+            assert (
+                db.scalars(
+                    select(Category).where(Category.slug == PROFESSIONAL_SERVICES_SLUG)
+                ).first()
+                is None
+            )
+            # Restore for other tests (migration state expects the row).
+            seed_professional_services(db.connection())
+            db.commit()
+        finally:
+            # tearDown mirrors test_tier2_business_shortcut: leftover providers
+            # (and their dual-written entities) pollute later catalog-driven tests.
+            for p in (p_null, p_other):
+                row = db.get(Provider, p.id)
+                if row is not None:
+                    db.delete(row)
+            db.commit()
 
 
 def test_route_renders_and_legacy_slug_redirects() -> None:
