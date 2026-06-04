@@ -1,0 +1,29 @@
+[
+  {
+    "ID": "AZ-1001",
+    "RoadwayName": "SR-95",
+    "DirectionOfTravel": "Northbound",
+    "Description": "Crash blocking right lane near Lake Havasu City.",
+    "EventType": "accidentsAndIncidents",
+    "IsFullClosure": false,
+    "County": "Mohave"
+  },
+  {
+    "ID": "AZ-1002",
+    "RoadwayName": "I-40",
+    "DirectionOfTravel": "Eastbound",
+    "Description": "Construction near Kingman.",
+    "EventType": "roadwork",
+    "IsFullClosure": false,
+    "County": "Mohave"
+  },
+  {
+    "ID": "AZ-2001",
+    "RoadwayName": "I-10",
+    "DirectionOfTravel": "Westbound",
+    "Description": "Phoenix metro congestion.",
+    "EventType": "accidentsAndIncidents",
+    "IsFullClosure": false,
+    "County": "Maricopa"
+  }
+]

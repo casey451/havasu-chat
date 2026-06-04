@@ -1,0 +1,23 @@
+{
+  "properties": {
+    "windGust": {
+      "uom": "wmoUnit:km_h-1",
+      "values": [
+        {"validTime": "2026-06-04T00:00:00+00:00/PT3H", "value": 30},
+        {"validTime": "2026-06-04T03:00:00+00:00/PT3H", "value": 45}
+      ]
+    },
+    "twentyFootWindSpeed": {
+      "uom": "wmoUnit:km_h-1",
+      "values": [
+        {"validTime": "2026-06-04T00:00:00+00:00/PT6H", "value": 24}
+      ]
+    },
+    "wetBulbGlobeTemperature": {
+      "uom": "wmoUnit:degC",
+      "values": [
+        {"validTime": "2026-06-04T00:00:00+00:00/PT6H", "value": 30}
+      ]
+    }
+  }
+}

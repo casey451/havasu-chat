@@ -1,0 +1,27 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "wz-1",
+        "core_details": {
+          "road_names": ["US-95"],
+          "direction": "northbound",
+          "description": "Lane closure for resurfacing south of Lake Havasu City."
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "wz-2",
+        "core_details": {
+          "road_names": ["I-17"],
+          "direction": "southbound",
+          "description": "Flagstaff area work zone."
+        }
+      }
+    }
+  ]
+}
