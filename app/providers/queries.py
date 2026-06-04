@@ -22,6 +22,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import quote
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 if TYPE_CHECKING:
@@ -917,36 +918,36 @@ def _heat_exposure_pill(entity: Entity) -> Optional[str]:
     }.get(hx, hx.replace("_", " ").title())
 
 
-def build_card_view_model(
-    db: Session,
-    entity_id: str,
-    *,
-    now: Optional[datetime] = None,
-) -> HavaCardViewModel | None:
-    """Build a :class:`~app.providers.view_models.HavaCardViewModel` for any ENTITY row."""
-    from app.providers.view_models import HavaCardViewModel
-
+def _normalize_card_now(now: Optional[datetime]) -> datetime:
     now_dt = now or now_lake_havasu()
     if now_dt.tzinfo is None:
         now_dt = now_dt.replace(tzinfo=LAKE_HAVASU_TZ)
+    return now_dt
 
-    entity = (
-        db.query(Entity)
-        .options(
-            joinedload(Entity.location),
-            joinedload(Entity.district),
-            joinedload(Entity.categories).joinedload(EntityCategory.category),
-            selectinload(Entity.hours),
-            selectinload(Entity.photos),
-        )
-        .filter(Entity.id == entity_id)
-        .first()
-    )
-    if entity is None:
-        return None
 
-    provider = db.query(Provider).filter(Provider.entity_id == entity_id).first()
-    event = db.query(Event).filter(Event.entity_id == entity_id).first()
+def _card_entity_load_options() -> list[Any]:
+    """Eager-load options shared by the single and batched card builders."""
+    return [
+        joinedload(Entity.location),
+        joinedload(Entity.district),
+        joinedload(Entity.categories).joinedload(EntityCategory.category),
+        selectinload(Entity.hours),
+        selectinload(Entity.photos),
+    ]
+
+
+def _assemble_card_view_model(
+    entity: Entity,
+    provider: Provider | None,
+    event: Event | None,
+    now_dt: datetime,
+) -> HavaCardViewModel:
+    """Build the view model from already-fetched rows (no DB access).
+
+    Shared by :func:`build_card_view_model` (single) and
+    :func:`build_card_view_models` (batched) so both produce identical output.
+    """
+    from app.providers.view_models import HavaCardViewModel
 
     freshness = derive_freshness_band_from_updated_at(entity.updated_at, now=now_dt)
     if entity.entity_type == "event" and event is not None:
@@ -991,6 +992,74 @@ def build_card_view_model(
         boat_access_badge=boat_badge,
         heat_exposure_pill=_heat_exposure_pill(entity),
     )
+
+
+def build_card_view_model(
+    db: Session,
+    entity_id: str,
+    *,
+    now: Optional[datetime] = None,
+) -> HavaCardViewModel | None:
+    """Build a :class:`~app.providers.view_models.HavaCardViewModel` for any ENTITY row."""
+    now_dt = _normalize_card_now(now)
+
+    entity = (
+        db.query(Entity)
+        .options(*_card_entity_load_options())
+        .filter(Entity.id == entity_id)
+        .first()
+    )
+    if entity is None:
+        return None
+
+    provider = db.query(Provider).filter(Provider.entity_id == entity_id).first()
+    event = db.query(Event).filter(Event.entity_id == entity_id).first()
+
+    return _assemble_card_view_model(entity, provider, event, now_dt)
+
+
+def build_card_view_models(
+    db: Session,
+    entity_ids: list[str],
+    *,
+    now: Optional[datetime] = None,
+) -> list[HavaCardViewModel]:
+    """Batched :func:`build_card_view_model` — three relation queries total
+    instead of ~5 per entity (T3.2 N+1 fix).
+
+    Preserves input order; entity ids not found are skipped (matching the single
+    builder, which returns ``None`` for a missing entity). Output is identical to
+    calling :func:`build_card_view_model` per id. The provider/event maps follow
+    the existing last-wins ``{row.entity_id: row}`` idiom used elsewhere in the
+    category-page code (entity↔provider is 1:1 in practice).
+    """
+    now_dt = _normalize_card_now(now)
+    if not entity_ids:
+        return []
+
+    entities = {
+        e.id: e
+        for e in db.query(Entity)
+        .options(*_card_entity_load_options())
+        .filter(Entity.id.in_(entity_ids))
+        .all()
+    }
+    providers = {
+        p.entity_id: p
+        for p in db.scalars(select(Provider).where(Provider.entity_id.in_(entity_ids))).all()
+    }
+    events = {
+        ev.entity_id: ev
+        for ev in db.scalars(select(Event).where(Event.entity_id.in_(entity_ids))).all()
+    }
+
+    out: list[HavaCardViewModel] = []
+    for eid in entity_ids:
+        entity = entities.get(eid)
+        if entity is None:
+            continue
+        out.append(_assemble_card_view_model(entity, providers.get(eid), events.get(eid), now_dt))
+    return out
 
 
 def build_card_view_model_for_event_occurrence(
