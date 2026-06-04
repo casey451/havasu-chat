@@ -74,3 +74,28 @@ def test_post_api_chat_validation_missing_query_field() -> None:
         r = client.post("/api/chat", json={"session_id": "x"})
     assert r.status_code == 422
     assert r.json() == {"message": CHAT_CONCIERGE_QUERY_VALIDATION_MESSAGE}
+
+
+def test_post_api_chat_validation_oversized_query() -> None:
+    # T1.4: cap chat input length (max_length=2000) to close the unauthenticated
+    # DoS / token-cost vector. 2001 chars trips the field cap before normalize().
+    with TestClient(app) as client:
+        r = client.post("/api/chat", json={"query": "x" * 2001})
+    assert r.status_code == 422
+    assert r.json() == {"message": CHAT_CONCIERGE_QUERY_VALIDATION_MESSAGE}
+
+
+def test_post_api_chat_max_length_boundary_ok() -> None:
+    # A query exactly at the 2000-char cap must still be accepted (boundary).
+    with TestClient(app) as client:
+        r = client.post("/api/chat", json={"query": "a" * 2000, "session_id": "api-len-ok"})
+    assert r.status_code == 200
+
+
+def test_post_api_chat_oversized_message_alias_capped() -> None:
+    # The `message` alias fills `query` before validation, so an oversized
+    # message must also trip the cap rather than slipping past it.
+    with TestClient(app) as client:
+        r = client.post("/api/chat", json={"message": "y" * 2001})
+    assert r.status_code == 422
+    assert r.json() == {"message": CHAT_CONCIERGE_QUERY_VALIDATION_MESSAGE}
