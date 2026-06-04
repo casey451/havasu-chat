@@ -151,12 +151,22 @@ def _load_gas_station_providers(db: Session) -> list[Provider]:
 
 
 def _match_provider(station: dict[str, Any], providers: list[Provider]) -> Provider | None:
-    """Best-effort match a GasBuddy station to a Provider (name + street #)."""
+    """Match a GasBuddy station to a Provider on a CONFIDENT per-station key.
+
+    DL-17: provider links are keyed per STATION (brand + street), not per brand.
+    A name-only hit is NOT confident -- two different Maverik stations both
+    "name-hit" the single "maverik" Provider, so a name-only fallback would
+    wrong-link both to one record. We therefore require the street number to
+    agree as well; a station with no confident match returns None and renders
+    UNLINKED rather than wrong-linked. (The data half -- minting per-station
+    Provider records / fixing the shared-Maverik row -- is a prod data op, not
+    done here; see the audit query in the WP-8 PR.)
+    """
     st_name = _norm_name(station.get("name")) or _norm_name(station.get("brand"))
     st_num = _street_number(station.get("address"))
-    if not st_name:
+    if not st_name or not st_num:
+        # No station street number -> we cannot confirm WHICH station this is.
         return None
-    best: Provider | None = None
     for p in providers:
         p_name = _norm_name(p.provider_name)
         if not p_name:
@@ -167,11 +177,9 @@ def _match_provider(station: dict[str, Any], providers: list[Provider]) -> Provi
         if not name_hit:
             continue
         p_num = _street_number(p.address)
-        if st_num and p_num and st_num == p_num:
-            return p  # strong match
-        if best is None:
-            best = p
-    return best
+        if p_num and st_num == p_num:
+            return p  # confident: name + street agree
+    return None
 
 
 def build_gas_payload(db: Session, *, now: datetime | None = None) -> dict[str, Any]:
