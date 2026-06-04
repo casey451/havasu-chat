@@ -83,6 +83,73 @@ def normalize_event_title(title: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", (title or "").lower()).strip()
 
 
+# A venue name is a short label ("Lake Havasu Visitor Center", "Buoy 5"), never a
+# paragraph of prose. The JSON-LD ``location`` field on some sources leaks
+# description-shaped text (a full event blurb, a stringified PostalAddress dict, or
+# the organizer suite address block). VENUE_NAME_MAX_LEN caps a real venue name --
+# longer than this it is almost certainly description prose and must be rejected
+# rather than stored as the venue.
+VENUE_NAME_MAX_LEN = 120
+
+# Markers that a candidate venue is actually a stringified dict (PostalAddress leak).
+_VENUE_DICT_LEAK_MARKERS = ("@type", "PostalAddress", "{'", '{"')
+
+
+def is_valid_venue_shape(
+    venue: str | None,
+    *,
+    description: str | None = None,
+) -> bool:
+    """True when ``venue`` is shaped like a real venue name, not description prose.
+
+    Shape rules (B-08 / E-4): a venue name must be a single short line --
+    * non-empty after stripping;
+    * no more than :data:`VENUE_NAME_MAX_LEN` characters;
+    * contains no blank-line (double-newline) paragraph break;
+    * is not a stringified dict (PostalAddress leak);
+    * is not the leading slice of the event description (a venue field that just
+      echoes the first sentences of the body is the corruption we reject).
+
+    This is the single gate both the scraper (so new rows land clean) and the
+    backfill (so existing rows get repaired) use to decide whether a candidate
+    venue may be kept.
+    """
+    v = (venue or "").strip()
+    if not v:
+        return False
+    if len(v) > VENUE_NAME_MAX_LEN:
+        return False
+    if "\n\n" in v.replace("\r\n", "\n"):
+        return False
+    if any(marker in v for marker in _VENUE_DICT_LEAK_MARKERS):
+        return False
+    desc = (description or "").strip()
+    if desc:
+        # Reject a venue that is just the description prefix (or vice versa): a
+        # real venue is not the opening of the event blurb.
+        head = desc[: len(v)]
+        if v and (v == head or desc.startswith(v) and len(v) >= 40):
+            return False
+    return True
+
+
+def clean_venue_shape(
+    venue: str | None,
+    *,
+    description: str | None = None,
+) -> str | None:
+    """Return ``venue`` when it passes :func:`is_valid_venue_shape`, else ``None``.
+
+    Convenience wrapper for ingest call sites that want "keep it or drop it":
+    a description-shaped or dict-leaked venue is dropped to ``None`` so the row
+    lands with no fabricated venue rather than a paragraph of prose.
+    """
+    v = (venue or "").strip() or None
+    if v is None:
+        return None
+    return v if is_valid_venue_shape(v, description=description) else None
+
+
 def event_payload_to_contribution(
     payload: EventPayload,
     *,
@@ -117,8 +184,11 @@ def event_payload_to_contribution(
 
 
 __all__ = [
+    "VENUE_NAME_MAX_LEN",
     "EventIngestClient",
     "EventPayload",
+    "clean_venue_shape",
     "event_payload_to_contribution",
+    "is_valid_venue_shape",
     "normalize_event_title",
 ]
