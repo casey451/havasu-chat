@@ -87,6 +87,7 @@ TIER_1_CATEGORY_SLUGS: frozenset[str] = frozenset(
         "lodging-vacation-rentals",
         "pets",
         "public-civic-resources",
+        "professional-services",
     }
 )
 
@@ -109,6 +110,7 @@ DEFAULT_SORT_BY_SLUG: dict[str, str] = {
     "lodging-vacation-rentals": "closest_now",
     "pets": "closest_now",
     "public-civic-resources": "closest_now",
+    "professional-services": "closest_now",
 }
 
 _CATEGORY_ONE_LINERS: dict[str, str] = {
@@ -124,6 +126,7 @@ _CATEGORY_ONE_LINERS: dict[str, str] = {
     "lodging-vacation-rentals": "Hotels, resorts, and vacation stays.",
     "pets": "Pet stores, groomers, trainers, and pet services.",
     "public-civic-resources": "Libraries, transit, visitor info, and civic services.",
+    "professional-services": "Real estate, legal, financial, insurance, and accounting.",
 }
 
 _EDITORIAL_FOOTERS: dict[str, str] = {
@@ -155,6 +158,10 @@ _EDITORIAL_FOOTERS: dict[str, str] = {
     "lodging-vacation-rentals": ("Lodging from waterfront resorts to vacation rentals."),
     "pets": ("Pet services and supplies for Lake Havasu pet owners."),
     "public-civic-resources": ("Public and civic resources residents rely on year-round."),
+    "professional-services": (
+        "Professional services for Lake Havasu residents and businesses — "
+        "real estate, legal, financial, insurance, and accounting."
+    ),
 }
 
 _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
@@ -384,6 +391,22 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
             {"param": "free", "value": "1", "label": "Free"},
             {"param": "appointment", "value": "1", "label": "Appointment required"},
             {"param": "always", "value": "1", "label": "24/7 access"},
+        ),
+        sort_default="closest_now",
+    ),
+    "professional-services": CategoryPageConfig(
+        sub_trade_chips=(
+            Chip("real-estate", "Real estate"),
+            Chip("legal", "Legal"),
+            Chip("financial", "Financial"),
+            Chip("insurance", "Insurance"),
+            Chip("accounting", "Accounting"),
+            Chip("consultant", "Consultant"),
+        ),
+        operational_chips=(
+            {"param": "open", "value": "now", "label": "Open now"},
+            {"param": "verified", "value": "1", "label": "Verified"},
+            {"param": "appointment", "value": "1", "label": "Appointment required"},
         ),
         sort_default="closest_now",
     ),

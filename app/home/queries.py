@@ -57,6 +57,7 @@ CATEGORY_LABELS: dict[str, str] = {
     "events": "Events",
     "classes-sports-recreation": "Classes, Sports & Recreation",
     "public-civic-resources": "Public & Civic Resources",
+    "professional-services": "Professional Services",
 }
 
 LEGACY_PROVIDER_CATEGORY_LABELS: dict[str, str] = {
@@ -88,12 +89,12 @@ LEGACY_PROVIDER_CATEGORY_LABELS: dict[str, str] = {
     "religion_community": "Public & Civic Resources",
     "fitness_sports": "Health, Wellness & Care",
     "fitness": "Health, Wellness & Care",
-    "professional_services": "Professional",
+    "professional_services": "Professional Services",
     "beauty_personal_care": "Beauty & care",
-    "real_estate": "Real estate",
-    "insurance": "Insurance",
-    "financial": "Financial",
-    "legal": "Legal",
+    "real_estate": "Professional Services",
+    "insurance": "Professional Services",
+    "financial": "Professional Services",
+    "legal": "Professional Services",
     "tourism": "Tourism",
     "entertainment_attractions": "Attractions",
     "barbershop": "Barbershop",
@@ -133,6 +134,7 @@ CATEGORY_QUERIES: dict[str, str] = {
     "events": "what's happening in Havasu",
     "classes-sports-recreation": "classes and recreation in Havasu",
     "public-civic-resources": "civic resources in Havasu",
+    "professional-services": "find a pro",
 }
 
 # ─────────── helpers ───────────

@@ -1,9 +1,9 @@
-"""WP-9 — canonical primary category (the 12). Invariant + validation tests.
+"""WP-9 — canonical primary category (the 13). Invariant + validation tests.
 
 Covers the audit's structural-keystone requirements:
-* Every live subtype resolves to exactly ONE of the 12 primaries (totality).
-* The primary mapping never yields a slug outside the canonical 12.
-* Surface label-set parity: Home / Explore / Map all derive from the same 12.
+* Every live subtype resolves to exactly ONE of the 13 primaries (totality).
+* The primary mapping never yields a slug outside the canonical 13.
+* Surface label-set parity: Home / Explore / Map all derive from the same 13.
 * A card's rendered subtype is a member of its page bucket's chip set (C-1).
 """
 
@@ -33,8 +33,8 @@ from app.db.database import SessionLocal
 from app.db.models import Entity, Provider
 from app.home.queries import CATEGORY_LABELS
 
-# The canonical 12, as Home declares them.
-_CANONICAL_12 = set(CATEGORY_LABELS.keys())
+# The canonical set, as Home declares them (13 after the Professional Services split).
+_CANONICAL_13 = set(CATEGORY_LABELS.keys())
 
 _NOW = datetime(2026, 1, 5, 14, 0, 0, tzinfo=LAKE_HAVASU_TZ)
 
@@ -42,23 +42,44 @@ _NOW = datetime(2026, 1, 5, 14, 0, 0, tzinfo=LAKE_HAVASU_TZ)
 # --- invariant: totality + single primary -----------------------------------
 
 
-def test_canonical_set_is_exactly_the_twelve() -> None:
-    assert set(PRIMARY_CATEGORY_SLUGS) == _CANONICAL_12
-    assert len(PRIMARY_CATEGORY_SLUGS) == 12
+def test_canonical_set_is_exactly_the_thirteen() -> None:
+    assert set(PRIMARY_CATEGORY_SLUGS) == _CANONICAL_13
+    assert len(PRIMARY_CATEGORY_SLUGS) == 13
+    # Professional Services is the 13th canonical primary.
+    assert "professional-services" in _CANONICAL_13
+    assert "professional-services" in set(PRIMARY_CATEGORY_SLUGS)
 
 
 def test_every_live_subtype_maps_to_exactly_one_primary() -> None:
-    """Totality: every subcategory slug in the taxonomy resolves to one of the 12."""
+    """Totality: every subcategory slug in the taxonomy resolves to one of the 13."""
     live_slugs = {s.slug for s in _SUBCATEGORIES}
     for slug in live_slugs:
         primary = primary_for_subcategory(slug)
         assert primary is not None, f"subcategory {slug!r} maps to no primary"
-        assert primary in _CANONICAL_12, f"{slug!r} -> {primary!r} not in the 12"
+        assert primary in _CANONICAL_13, f"{slug!r} -> {primary!r} not in the 13"
 
 
 def test_primary_mapping_codomain_is_within_the_twelve() -> None:
     for sub, primary in SUBCATEGORY_TO_PRIMARY.items():
-        assert primary in _CANONICAL_12, f"{sub!r} -> {primary!r} escapes the 12"
+        assert primary in _CANONICAL_13, f"{sub!r} -> {primary!r} escapes the 13"
+
+
+def test_professional_cluster_resolves_to_professional_services() -> None:
+    """The professional cluster (legal/insurance/real-estate/financial/accounting)
+    now folds into the 13th canonical primary ``professional-services``, NOT into
+    ``public-civic-resources`` — the product split. Civic things stay civic."""
+    # The ``professional`` subcategory maps to the new primary.
+    assert primary_for_subcategory("professional") == "professional-services"
+    assert SUBCATEGORY_TO_PRIMARY["professional"] == "professional-services"
+    # Genuinely-civic subtypes are unaffected.
+    assert primary_for_subcategory("civic-community") == "public-civic-resources"
+    # Legacy professional category strings fold to professional-services too.
+    for legacy in ("professional_services", "real_estate", "insurance", "financial", "legal"):
+        assert derive_primary_category(category=legacy, subcategory=None) == "professional-services"
+    # A religion/community legacy string still routes to civic, not professional.
+    assert derive_primary_category(category="religion_community", subcategory=None) == (
+        "public-civic-resources"
+    )
 
 
 def test_no_subtype_maps_to_two_primaries() -> None:
@@ -109,21 +130,21 @@ def test_derive_returns_none_for_unknown() -> None:
 
 def test_home_explore_map_share_one_canonical_source() -> None:
     """Home's CATEGORY_LABELS, the Map's TIER_1 set, and the primary codomain are
-    the same 12 — no surface invents its own top-level category list."""
-    assert set(TIER_1_CATEGORY_SLUGS) == _CANONICAL_12
-    assert set(SUBCATEGORY_TO_PRIMARY.values()) <= _CANONICAL_12
+    the same 13 — no surface invents its own top-level category list."""
+    assert set(TIER_1_CATEGORY_SLUGS) == _CANONICAL_13
+    assert set(SUBCATEGORY_TO_PRIMARY.values()) <= _CANONICAL_13
     # Every canonical primary is reachable from at least one subtype (no orphan
     # bucket that nothing folds into).
     reachable = set(SUBCATEGORY_TO_PRIMARY.values())
-    assert reachable == _CANONICAL_12
+    assert reachable == _CANONICAL_13
 
 
 def test_route_primary_categories_resolve_within_the_twelve() -> None:
-    """Each Explore route resolves to primaries drawn only from the 12."""
+    """Each Explore route resolves to primaries drawn only from the 13."""
     for route in ("eat-drink", "health-wellness-care", "services", "shopping-essentials"):
         primaries = _route_primary_categories(route)
         assert primaries, f"route {route!r} resolved no primary"
-        assert primaries <= _CANONICAL_12
+        assert primaries <= _CANONICAL_13
 
 
 # --- C-1: a card's subtype belongs to its page bucket's chip set -------------

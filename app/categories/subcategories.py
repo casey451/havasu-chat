@@ -328,22 +328,23 @@ _LEGACY_TO_SUBCAT: dict[str, str] = {
 
 
 # ---------------------------------------------------------------------------
-# WP-9 — canonical primary category (the 12). Single source of truth for the
+# WP-9 — canonical primary category (the 13). Single source of truth for the
 # ``Provider.primary_category`` column and every public surface (Home, Explore,
 # Map, Chat, "While you're here"). Deterministic, no LLM.
 # ---------------------------------------------------------------------------
 #
-# Casey's locked decision: the canonical set is Home's 12 (``CATEGORY_LABELS``
-# in ``app/home/queries.py``). Explore's extra granularity (the ~31 subcategory
-# slugs above, plus the legacy ``professional`` / ``beauty`` tiles) folds DOWN
-# into these 12 as sub-chips, never as top-level categories.
+# Casey's locked decision: the canonical set is Home's categories (``CATEGORY_LABELS``
+# in ``app/home/queries.py``) — 13 as of the Professional Services split. Explore's
+# extra granularity (the ~31 subcategory slugs above, plus the legacy
+# ``professional`` / ``beauty`` tiles) folds DOWN into these 13 as sub-chips, never
+# as top-level categories.
 #
 # ``SUBCATEGORY_TO_PRIMARY`` is TOTAL over the live subcategory slugs in
-# ``_SUBCATEGORIES`` — every subtype resolves to exactly one of the 12. The
+# ``_SUBCATEGORIES`` — every subtype resolves to exactly one of the 13. The
 # invariant test (tests/test_primary_category.py) asserts totality so a new
 # subcategory can never silently drop off the canonical mapping.
 
-# The 12 canonical primary-category slugs (mirrors home.queries.CATEGORY_LABELS
+# The 13 canonical primary-category slugs (mirrors home.queries.CATEGORY_LABELS
 # keys). Kept here so this module — the taxonomy foundation — owns the slug set;
 # home.queries' CATEGORY_LABELS supplies the human labels for the same slugs.
 PRIMARY_CATEGORY_SLUGS: tuple[str, ...] = (
@@ -358,20 +359,22 @@ PRIMARY_CATEGORY_SLUGS: tuple[str, ...] = (
     "pets",
     "classes-sports-recreation",
     "public-civic-resources",
+    "professional-services",
     "events",
 )
 
-# subcategory slug -> one of the 12 canonical primaries. TOTAL over _SUBCATEGORIES.
+# subcategory slug -> one of the 13 canonical primaries. TOTAL over _SUBCATEGORIES.
 #
 # Notable folds (deterministic, defensible):
-# * ``beauty`` folds into health-wellness-care (the 12 have no standalone beauty
+# * ``beauty`` folds into health-wellness-care (the canonical set has no standalone beauty
 #   bucket; personal care reads as wellness). Mirrors home.queries'
 #   beauty_personal_care handling under the wellness umbrella.
-# * ``professional`` (legal/insurance/real-estate/financial) folds into
-#   public-civic-resources — the 12 have no professional-services bucket, and
-#   these are the resident-facing "who do I call for X" services that the civic
-#   bucket already gathers (religion/community/public). Flagged in the PR as the
-#   one fold where the 12 lack a natural home.
+# * ``professional`` (legal/insurance/real-estate/financial/accounting) folds
+#   into its own canonical ``professional-services`` primary — the 13th category.
+#   It was previously folded into public-civic-resources (the 12 had no
+#   professional bucket); the product decision split it out so resident-facing
+#   "who do I call for X" pro services get a first-class home and the civic bucket
+#   keeps only genuinely civic things (library/worship/government/community).
 SUBCATEGORY_TO_PRIMARY: dict[str, str] = {
     # Eat & Drink
     "restaurants": "eat-drink",
@@ -404,8 +407,9 @@ SUBCATEGORY_TO_PRIMARY: dict[str, str] = {
     # Health, Wellness & Care
     "health-medical": "health-wellness-care",
     "beauty": "health-wellness-care",
-    # Public & Civic Resources (professional services fold here — see note above)
-    "professional": "public-civic-resources",
+    # Professional Services (legal/insurance/real-estate/financial/accounting).
+    "professional": "professional-services",
+    # Public & Civic Resources (genuinely civic things only — see note above)
     "civic-community": "public-civic-resources",
     # Pets
     "pets": "pets",
@@ -446,11 +450,11 @@ LEGACY_CATEGORY_TO_PRIMARY: dict[str, str] = {
     "services": "home-property-services",
     "auto": "auto-rv-fuel",
     "health_medical": "health-wellness-care",
-    "professional_services": "public-civic-resources",
-    "real_estate": "public-civic-resources",
-    "insurance": "public-civic-resources",
-    "financial": "public-civic-resources",
-    "legal": "public-civic-resources",
+    "professional_services": "professional-services",
+    "real_estate": "professional-services",
+    "insurance": "professional-services",
+    "financial": "professional-services",
+    "legal": "professional-services",
     "beauty_personal_care": "health-wellness-care",
     "pets": "pets",
     "pet": "pets",
@@ -480,7 +484,7 @@ def derive_primary_category(
     google_categories: Any = None,
     attributes: Any = None,
 ) -> str | None:
-    """Best canonical primary-category slug (one of the 12), or ``None``.
+    """Best canonical primary-category slug (one of the 13), or ``None``.
 
     Pure (no DB / ORM) so it backfills offline and runs on ingest. Precedence:
 
