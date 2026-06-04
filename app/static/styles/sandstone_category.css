@@ -4,3 +4,29 @@
    organic cards even before its photo loads. */
 .biz.spon-inline .img{min-height:124px}
 .biz .meta span + span{margin-left:2px}
+
+/* WP-5: filter row (Open now) kept visually distinct from the sort row so the
+   two read as orthogonal controls (DL-20). */
+.filterbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0}
+.filterbar .lbl{opacity:.65;font-size:.8rem}
+.filterpill{display:inline-block;padding:4px 12px;border:1px solid var(--line,#d9cfc2);
+  border-radius:999px;font-size:.82rem;text-decoration:none;color:inherit;line-height:1.4}
+.filterpill.on{background:var(--accent,#b5532a);color:#fff;border-color:var(--accent,#b5532a)}
+
+/* WP-5: chip member counts and the active-filter summary line (C7/C8). */
+.chip-n{opacity:.6;font-size:.78em}
+.filtersummary{margin:8px 0 0;font-size:.85rem;opacity:.85}
+.filtersummary .clearfilters{text-decoration:none;color:var(--accent,#b5532a);font-weight:600}
+
+/* WP-5: pagination summary + controls (M-20). */
+.pageinfo{margin:0 0 10px;font-size:.85rem;opacity:.7}
+.pager{display:flex;align-items:center;justify-content:center;gap:14px;margin:24px 0 8px}
+.pager .pagebtn{padding:6px 14px;border:1px solid var(--line,#d9cfc2);border-radius:8px;
+  text-decoration:none;color:inherit;font-size:.88rem}
+.pager .pagebtn.is-off{opacity:.4;cursor:default}
+.pager .pagepos{font-size:.85rem;opacity:.7}
+
+/* WP-5: card second meta line + unrated badge (D7/D8/DL-10/DL-12). */
+.biz .loc{font-size:.78rem;opacity:.7;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
+.biz .loc .faraway{opacity:.85;font-style:italic}
+.biz .meta .noreviews{font-size:.78rem;opacity:.6}

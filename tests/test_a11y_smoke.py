@@ -89,9 +89,12 @@ def test_category_page_images_have_alt() -> None:
 def test_category_page_all_categories_pill_is_labelled() -> None:
     """The header navigation pills expose accessible text names."""
     client = TestClient(app)
+    # WP-5: subtype chips (incl. the "All" pill) are now generated from subtypes
+    # ACTUALLY present, so stub one present subtype to exercise the chip row.
+    chips = [{"slug": "restaurants", "label": "Restaurants", "count": 2}]
     with (
-        patch.object(cat_queries, "category_cards", return_value=_stub_cards(2)),
-        patch.object(cat_queries, "category_count", return_value=2),
+        patch.object(cat_queries, "category_listing", return_value=(_stub_cards(2), 2)),
+        patch.object(cat_queries, "subcategory_chips_for_route", return_value=chips),
     ):
         resp = client.get("/categories/eat-drink")
     assert resp.status_code == 200

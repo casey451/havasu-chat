@@ -150,12 +150,35 @@ def test_category_listing_facets_combine() -> None:
 
 
 def test_plural_page_shows_subcategory_chips(client: TestClient) -> None:
-    r = client.get("/categories/services")
-    assert r.status_code == 200
-    body = r.text
-    # Sandstone: subcategory chips render in the in-place filter row, each with a
-    # data-filter token; the sort/facet bar renders below.
-    assert 'class="chips"' in body
-    assert 'data-filter="all"' in body
-    assert "?sub=storage" in body  # Storage subcategory chip present under Services
-    assert 'class="sortbar"' in body
+    # WP-5 (C8/N-16): chips are now generated from subtypes ACTUALLY present, so
+    # seed one Storage provider under Services for the chip to render.
+    suf = uuid.uuid4().hex[:8]
+    with SessionLocal() as db:
+        p = Provider(
+            provider_name=f"Test Self Storage {suf}",
+            category="services",
+            subcategory="storage",
+            verified=False,
+            draft=False,
+            is_active=True,
+            pending_review=False,
+            source="test-subcats",
+        )
+        db.add(p)
+        db.commit()
+        eid = p.entity_id
+    try:
+        r = client.get("/categories/services")
+        assert r.status_code == 200
+        body = r.text
+        # Sandstone: subcategory chips render in the in-place filter row, each with
+        # a data-filter token; the sort/facet bar renders below.
+        assert 'class="chips"' in body
+        assert 'data-filter="all"' in body
+        assert "?sub=storage" in body  # Storage subcategory chip present under Services
+        assert 'class="sortbar"' in body
+    finally:
+        with SessionLocal() as db:
+            db.execute(delete(Provider).where(Provider.entity_id == eid))
+            db.execute(delete(Entity).where(Entity.id == eid))
+            db.commit()
