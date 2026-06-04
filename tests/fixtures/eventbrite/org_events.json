@@ -1,0 +1,21 @@
+{
+  "events": [
+    {
+      "id": "ev1",
+      "name": {"text": "Havasu Health Foundation 5K Run"},
+      "description": {"text": "Annual charity 5K supporting community health."},
+      "start": {"local": "2026-06-14T07:00:00"},
+      "end": {"local": "2026-06-14T10:00:00"},
+      "url": "https://www.eventbrite.com/e/ev1",
+      "venue": {"name": "Rotary Park", "address": {"localized_address_display": "1400 Smoketree Ave, Lake Havasu City, AZ"}}
+    },
+    {
+      "id": "ev2",
+      "name": {"text": "Sunday Worship Service"},
+      "description": {"text": "Weekly worship service and bible study."},
+      "start": {"local": "2026-06-08T09:00:00"},
+      "url": "https://www.eventbrite.com/e/ev2",
+      "venue": {"name": "Community Church"}
+    }
+  ]
+}

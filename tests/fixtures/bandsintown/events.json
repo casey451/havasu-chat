@@ -1,0 +1,22 @@
+[
+  {
+    "id": "1001",
+    "title": "Casino Night Live",
+    "datetime": "2026-06-12T20:00:00",
+    "url": "https://www.bandsintown.com/e/1001",
+    "lineup": ["The Desert Dogs"],
+    "venue": {"name": "BlueWater Resort & Casino", "city": "Parker", "region": "AZ"}
+  },
+  {
+    "id": "1002",
+    "datetime": "2026-06-20T21:00:00",
+    "url": "https://www.bandsintown.com/e/1002",
+    "lineup": ["Laughlin Cover Band"],
+    "venue": {"name": "Riverside Resort", "city": "Laughlin", "region": "NV"}
+  },
+  {
+    "id": "1003",
+    "title": "No datetime show",
+    "venue": {"name": "Unknown"}
+  }
+]

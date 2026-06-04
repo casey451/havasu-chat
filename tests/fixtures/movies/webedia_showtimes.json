@@ -1,0 +1,19 @@
+{
+  "movies": [
+    {
+      "title": "Galactic Frontier",
+      "url": "https://www.movieshavasu.com/movie/galactic-frontier",
+      "showtimes": [
+        {"datetime": "2026-06-05T16:30:00"},
+        {"datetime": "2026-06-05T19:45:00"},
+        {"datetime": "2026-06-06T19:45:00"}
+      ]
+    },
+    {
+      "title": "Free Summer Kids Movie: Cartoon Quest",
+      "showtimes": [
+        {"date": "2026-06-10", "time": "10:00"}
+      ]
+    }
+  ]
+}
