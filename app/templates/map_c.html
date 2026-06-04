@@ -8,7 +8,7 @@
   <meta name="description" content="Explore Lake Havasu businesses and places on a full-screen map.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" crossorigin="anonymous">
@@ -16,24 +16,10 @@
   <link rel="stylesheet" href="/static/styles/components/map_view.css">
 </head>
 <body class="ll-page map-page" data-map-scope="{{ default_scope }}" data-map-default-expanded="true">
+<a class="ll-skip-link" href="#main">Skip to content</a>
+{% include "_partials/lake_light_desktop_topbar.html" %}
 
-<header class="ll-desktop-topbar" role="banner">
-  <div class="ll-desktop-topbar-inner">
-    <a href="/home" class="ll-wordmark ll-wordmark-dark">Ask <em>Hava</em></a>
-    <form class="ll-desktop-search" action="/chat" method="get" role="search" aria-label="Ask Hava">
-      <input type="text" name="q" placeholder="Ask Hava anything in Lake Havasu">
-      <button type="submit" aria-label="Submit ask">→</button>
-    </form>
-    <nav class="ll-desktop-links" aria-label="Primary desktop navigation">
-      <a href="/events-ui">Events</a>
-      <a href="/categories">Explore</a>
-      <a href="/account/favorites">Saved</a>
-      <span class="ll-account-dot" aria-hidden="true">C</span>
-    </nav>
-  </div>
-</header>
-
-<main class="map-page-main" role="main">
+<main id="main" class="map-page-main" role="main">
   <header class="map-page-topbar">
     <div class="map-page-heading">
       <a href="/home" class="ll-wordmark ll-wordmark-dark">Ask <em>Hava</em></a>
