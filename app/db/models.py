@@ -1806,6 +1806,50 @@ class ScrapeCapture(Base):
     )
 
 
+class Job(Base):
+    """Admin-queued scraper-pipeline job — the one-click Jobs portal's work item.
+
+    Casey clicks a button in the admin Jobs page → a ``queued`` row lands here.
+    Worker agents poll ``GET /api/ingest/jobs/pending?worker=...`` with the
+    machine-ingest bearer token, atomically claim the oldest job matching their
+    type map (OpenClaw → ``fb_capture_sweep``; Cowork → the other four), do the
+    work, then PATCH the row to ``running`` / ``done`` / ``failed`` with a
+    ``result_summary``. Additive + standalone — no FKs; ``params`` carries any
+    per-job knobs as JSON. See docs/scraper/ADMIN_JOBS_SPEC.md.
+    """
+
+    __tablename__ = "jobs"
+    __table_args__ = (
+        CheckConstraint(
+            "job_type IN ('schedule_hunt', 'fb_capture_sweep', 'capture_review', "
+            "'publish_approved', 'discovery_audit')",
+            name="ck_jobs_job_type",
+        ),
+        CheckConstraint(
+            "status IN ('queued', 'claimed', 'running', 'done', 'failed')",
+            name="ck_jobs_status",
+        ),
+        Index("ix_jobs_status", "status"),
+        Index("ix_jobs_job_type", "job_type"),
+        Index("ix_jobs_created_at", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    job_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="queued", server_default="queued"
+    )
+    requested_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    claimed_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    params: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=None)
+    result_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 # Phase 4.1 ships the ``Outbox`` ORM class above this line. The provider-slug
 # listener registration below remains the canonical "leaf-module hook"
 # pattern for this codebase (not to be confused with the Phase 1D dual-write

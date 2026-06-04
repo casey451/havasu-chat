@@ -42,9 +42,16 @@ DbSession = Annotated[Session, Depends(get_db)]
 
 
 class CapturePatch(BaseModel):
-    """Cowork marks an inbox item done. Only forward states are allowed."""
+    """Cowork marks an inbox item done and/or fixes a mislabeled name.
 
-    status: Literal["reviewed", "discarded"]
+    Both fields are optional but at least one must be present. ``status`` only
+    accepts the two forward states. ``business_name`` lets a review pass correct
+    an upload filed under the wrong name (e.g. Flying X Saloon / The Office) in
+    place, instead of doing DB surgery.
+    """
+
+    status: Literal["reviewed", "discarded"] | None = None
+    business_name: str | None = None
 
 
 def _parse_captured_at(raw: str | None) -> datetime | None:
@@ -139,13 +146,27 @@ def update_capture(
     payload: CapturePatch,
     db: DbSession,
 ) -> dict:
-    """Mark an inbox item ``reviewed`` or ``discarded``. 404 if missing."""
+    """Mark an inbox item ``reviewed``/``discarded`` and/or rename it. 404 if missing.
+
+    422 if the body carries neither ``status`` nor ``business_name`` — an empty
+    PATCH is almost certainly a caller mistake, not an intentional no-op.
+    """
+    fields = payload.model_fields_set
+    if "status" not in fields and "business_name" not in fields:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Provide status and/or business_name.",
+        )
     row = db.get(ScrapeCapture, capture_id)
     if row is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Capture not found."
         )
-    row.status = payload.status
+    if "status" in fields and payload.status is not None:
+        row.status = payload.status
+    if "business_name" in fields:
+        cleaned = (payload.business_name or "").strip()
+        row.business_name = cleaned or None
     db.commit()
     db.refresh(row)
     return _serialize(row)
