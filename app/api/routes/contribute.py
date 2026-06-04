@@ -150,10 +150,10 @@ def _render_contribute_page(
       <textarea name="description" id="description" maxlength="{_MAX_NOTES}" placeholder="What should we know about this?">{_esc(p.get("description", ""))}</textarea>
 
       <div id="event-fields" style="display: {event_css_display};">
-        <label for="event_date">Event date</label>
+        <label for="event_date">Event date <span class="req" id="event-date-req" aria-hidden="true" {"" if ent == "event" else "hidden"}>*</span></label>
         <input type="date" name="event_date" id="event_date" value="{_esc(p.get("event_date", ""))}"/>
 
-        <label for="event_start_time">Start time</label>
+        <label for="event_start_time">Start time <span class="req" id="event-start-req" aria-hidden="true" {"" if ent == "event" else "hidden"}>*</span></label>
         <input type="time" name="event_start_time" id="event_start_time" value="{_esc(p.get("event_start_time", ""))}"/>
 
         <label for="event_end_time">End time (optional)</label>
@@ -162,9 +162,11 @@ def _render_contribute_page(
 
       <label for="submitter_email">Email (optional)</label>
       <input type="email" name="submitter_email" id="submitter_email" placeholder="So we can reach you if we have questions" value="{_esc(p.get("submitter_email", ""))}"/>
+      <p class="field-note">We only use your email to follow up on this submission -- never for marketing.</p>
 
       <p class="req-legend"><span class="req" aria-hidden="true">*</span> Required</p>
       <button type="submit" class="submit">Submit for review</button>
+      <p class="review-note">We review most submissions within a few days.</p>
     </form>
 
     <p class="foot"><a href="/home">← Back to Hava</a></p>
@@ -176,17 +178,33 @@ def _render_contribute_page(
   var eventBlock = document.getElementById("event-fields");
   var urlInput = document.getElementById("submission_url");
   var urlReq = document.getElementById("url-req");
+  var eventDate = document.getElementById("event_date");
+  var eventStart = document.getElementById("event_start_time");
+  var eventDateReq = document.getElementById("event-date-req");
+  var eventStartReq = document.getElementById("event-start-req");
   function entityType() {{
     var r = form.querySelector('input[name="entity_type"]:checked');
     return r ? r.value : "provider";
   }}
+  function setRequired(el, badge, on) {{
+    if (el) {{
+      if (on) {{ el.setAttribute("required", "required"); }}
+      else {{ el.removeAttribute("required"); }}
+    }}
+    if (badge) {{ badge.hidden = !on; }}
+  }}
   function sync() {{
     var et = entityType();
-    eventBlock.style.display = et === "event" ? "block" : "none";
+    var isEvent = et === "event";
+    eventBlock.style.display = isEvent ? "block" : "none";
     var urlRequired = et === "provider" || et === "program";
     if (urlRequired) {{ urlInput.setAttribute("required", "required"); }}
     else {{ urlInput.removeAttribute("required"); }}
     if (urlReq) {{ urlReq.hidden = !urlRequired; }}
+    // Event date + start time are required only while "Event" is selected.
+    // Hidden, non-required fields can't block submission of the other types.
+    setRequired(eventDate, eventDateReq, isEvent);
+    setRequired(eventStart, eventStartReq, isEvent);
   }}
   form.querySelectorAll('input[name="entity_type"]').forEach(function (el) {{
     el.addEventListener("change", sync);
@@ -273,6 +291,15 @@ def post_contribute(
                 field_errors={"event_date": "Use a valid date and times."},
                 preserve=preserve,
             )
+        # Date + start time are required for events. The client marks them
+        # ``required`` via sync(), but JS can be bypassed, so enforce here too.
+        ev_field_errors: dict[str, str] = {}
+        if ev_d is None:
+            ev_field_errors["event_date"] = "An event needs a date."
+        if ev_st is None:
+            ev_field_errors["event_start_time"] = "An event needs a start time."
+        if ev_field_errors:
+            return _render_contribute_page(field_errors=ev_field_errors, preserve=preserve)
 
     url_for_model: str | None = url_s if url_s else None
     try:

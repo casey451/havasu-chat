@@ -35,7 +35,8 @@ def business_from_provider(provider: Provider) -> dict[str, Any]:
         "website": provider.website or provider.facebook,
         "rating": provider.google_rating,
         "review_count": provider.google_review_count,
-        "source": provider.source if provider.google_place_id else provider.source,
+        # ``source`` (scraper provenance: "google_places", "osm", ...) is an
+        # internal field; public API callers don't get it.
         "tier": provider.tier or "free",
         "description": provider.description or provider.featured_description,
         "photos": provider.google_photo_urls or [],
@@ -70,7 +71,7 @@ def event_from_row(event: Event, *, occurrence_date: date | None = None) -> dict
         "image_url": None,
         "recurrence": {"rrule": event.rrule} if event.is_recurring and event.rrule else None,
         "boosted": False,
-        "source": event.source,
+        # ``source`` (scraper provenance) is internal; never in the public payload.
         "slug": getattr(event, "slug", None),
         "status": "published" if event.status == "live" else event.status,
     }

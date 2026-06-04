@@ -52,7 +52,7 @@ from app.api.routes.micro_ad import router as micro_ad_router
 from app.api.routes.themed_groups import router as themed_groups_router
 from app.api.routes.today import router as today_router
 from app.auth.routes import router as auth_router
-from app.auth.session import SessionMiddleware
+from app.auth.session import COOKIE_NAME, SessionMiddleware, cookie_secure_in_prod
 from app.categories.queries import CATEGORY_FILTERS
 from app.categories.router import router as direction_c_categories_router
 from app.core.event_quality import friendly_errors
@@ -64,7 +64,7 @@ from app.core.provider_name import (
 )
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.db.database import SessionLocal, get_db, init_db
-from app.db.models import Event, Provider
+from app.db.models import AuthSession, Event, Provider
 from app.digest.routes import router as digest_router
 from app.home.chat_route import router as new_chat_ui_router
 from app.home.router import router as home_router
@@ -73,7 +73,6 @@ from app.photos.sweep import run_stuck_photo_sweep
 from app.portal.router import router as portal_router
 from app.programs.router import router as programs_router
 from app.providers.router import router as providers_router
-from app.schemas.event import EventRead
 from app.search.routes import router as search_router
 from app.v1.routes import router as v1_master_spec_router
 
@@ -442,8 +441,18 @@ def _format_event_datetime(event: Event) -> str:
 
 
 def _truncate_for_og(value: str, limit: int = 160) -> str:
+    # og:description should never cut a word in half ("...Lake Hav"). Collapse
+    # whitespace, then if we're over the limit trim back to the last word
+    # boundary inside the budget and append an ellipsis. Falls back to a hard
+    # slice only when a single token is longer than the limit.
     clean = " ".join(value.split()).strip()
-    return clean[:limit]
+    if len(clean) <= limit:
+        return clean
+    head = clean[:limit].rstrip()
+    cut = head.rfind(" ")
+    if cut > 0:
+        head = head[:cut].rstrip()
+    return head + "..."
 
 
 def _render_not_found_response(request: Request) -> HTMLResponse:
@@ -512,7 +521,32 @@ _sitemap_cache: tuple[float, str] | None = None
 
 def _base_url() -> str:
     raw = (os.getenv("BASE_URL") or _DEFAULT_BASE_URL).strip()
-    return raw.rstrip("/") or _DEFAULT_BASE_URL
+    raw = raw.rstrip("/") or _DEFAULT_BASE_URL
+    return _coerce_https(raw)
+
+
+def _coerce_https(url: str) -> str:
+    """Force the canonical base URL onto https.
+
+    og:url, sitemap <loc>, and the robots Sitemap line must all point at the
+    https origin: Railway terminates TLS at the edge and serves the app over
+    http internally, so a bare ``request.url`` (or a misconfigured BASE_URL)
+    can leak an ``http://`` canonical that search engines treat as a separate,
+    non-secure URL. Coerce http -> https and prefix a bare host. ``localhost``
+    / ``127.0.0.1`` are left as-is so local dev keeps working.
+    """
+    low = url.lower()
+    if low.startswith("https://"):
+        return url
+    if low.startswith("http://"):
+        host = url[len("http://") :]
+        bare = host.split("/", 1)[0].split(":", 1)[0].lower()
+        if bare in ("localhost", "127.0.0.1"):
+            return url
+        return "https://" + host
+    if "://" not in url:
+        return "https://" + url
+    return url
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
@@ -545,9 +579,23 @@ def _build_sitemap_xml() -> str:
 
     entries: list[str] = []
 
-    # Static surfaces. /home is the editorial home; / is the legacy chat UI
-    # entry point — both are canonical so both ship in the sitemap.
-    static_paths = ("/", "/home", "/chat", "/privacy", "/terms", "/contribute")
+    # Static surfaces. /home is the canonical editorial home; bare / 301s to it
+    # and so is intentionally NOT listed. /about, /help, /contact (WP-1 trust
+    # pages) and /events.ics live behind sibling packets — their routes mount
+    # post-merge, but the URLs are stable strings and safe to advertise now.
+    static_paths = (
+        "/home",
+        "/chat",
+        "/map",
+        "/events-ui",
+        "/categories",
+        "/privacy",
+        "/terms",
+        "/contribute",
+        "/about",
+        "/help",
+        "/contact",
+    )
     for path in static_paths:
         entries.append(_sitemap_url_entry(f"{base}{path}", today_iso))
 
@@ -622,7 +670,40 @@ def sitemap_xml() -> Response:
 
 @app.get("/")
 def serve_chat_ui() -> RedirectResponse:
-    return RedirectResponse(url="/home", status_code=307)
+    # 301 (permanent) so search engines fold link equity into /home and stop
+    # re-crawling the bare root. Was 307 (temporary) which kept / canonical.
+    return RedirectResponse(url="/home", status_code=301)
+
+
+@app.get("/advertise")
+def advertise_redirect() -> RedirectResponse:
+    # DL-13: /advertise is the colloquial entry point advertisers type; the
+    # actual sponsor landing lives at /sponsor. 301 so the canonical URL is the
+    # one that ranks. (The ad *catalog* is a separate page at /portal/advertise.)
+    return RedirectResponse(url="/sponsor", status_code=301)
+
+
+@app.get("/logout")
+def logout_get(request: Request, db: Session = Depends(get_db)) -> RedirectResponse:
+    # GET /logout is what a plain <a href="/logout"> link hits. Auth's canonical
+    # logout is POST /logout; without this, the link 405s. Mirror the POST's
+    # behavior: drop the AuthSession row and clear the session cookie, then send
+    # the user home.
+    sess = getattr(request.state, "current_session", None)
+    if sess is not None:
+        row = db.get(AuthSession, sess.id)
+        if row is not None:
+            db.delete(row)
+            db.commit()
+    response = RedirectResponse(url="/", status_code=303)
+    response.delete_cookie(
+        key=COOKIE_NAME,
+        path="/",
+        secure=cookie_secure_in_prod(),
+        httponly=True,
+        samesite="lax",
+    )
+    return response
 
 
 @app.get("/privacy", response_class=HTMLResponse)
@@ -680,9 +761,14 @@ def health_check(db: Session = Depends(get_db)) -> dict[str, Any]:
         return {"status": "ok", "db_connected": False, "event_count": 0}
 
 
-@app.get("/events", response_model=list[EventRead])
-def list_events(db: Session = Depends(get_db)) -> list[Event]:
-    return db.query(Event).order_by(Event.created_at.desc()).all()
+@app.get("/events")
+def events_redirect() -> RedirectResponse:
+    # /events used to serve the raw EventRead JSON dump (leaking embedding,
+    # source, and internal columns to any caller). The public JSON contract now
+    # lives at /api/events (app/v1/routes/events.py, scrubbed serializer); the
+    # human-facing list is /events-ui. 301 so the old JSON path folds into the
+    # browsable UI for crawlers.
+    return RedirectResponse(url="/events-ui", status_code=301)
 
 
 @app.get("/events/{event_id}", response_class=HTMLResponse)

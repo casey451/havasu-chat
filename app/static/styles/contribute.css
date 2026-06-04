@@ -177,6 +177,19 @@ label:first-child { margin-top: 0; }
   font-size: 12.5px;
   color: var(--ink-3);
 }
+/* Small muted helper line under a field (e.g. the email privacy note). */
+.field-note {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+/* Reassurance line under the submit button: review turnaround. */
+.review-note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--ink-3);
+  text-align: center;
+}
 
 input[type="text"],
 input[type="url"],
