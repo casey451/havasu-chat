@@ -175,3 +175,18 @@ class ProgramRead(ProgramBase):
         (``tests/test_programs.py:134-135`` and any external client following
         the same shape) expect zero-second-suffix output."""
         return v.strftime("%H:%M")
+
+
+class ProgramPublic(ProgramRead):
+    """Public-payload variant of :class:`ProgramRead`.
+
+    Never serializes the internal ML ``embedding`` or the provenance ``source``
+    field (parity with the WP-7 ``/events`` -> ``/api/events`` scrub). Field-level
+    ``exclude=True`` is honored for both single and ``list[...]`` responses, unlike
+    FastAPI's ``response_model_exclude`` which is silently ignored for ``list``
+    response models. ``id`` is retained -- it is the public ``/programs/{id}``
+    permalink key.
+    """
+
+    source: str = Field(default="admin", exclude=True)
+    embedding: list[float] | None = Field(default=None, exclude=True)
