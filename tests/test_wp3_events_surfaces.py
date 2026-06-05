@@ -94,10 +94,15 @@ def test_window_total_counts_collapsed_rows_beyond_cap() -> None:
 
 def test_oneoffs_fill_before_recurring_under_cap() -> None:
     # A featured recurring class must not crowd a plain one-off out of the cap.
+    #
+    # xdist isolation (T2.4): the window is a far-future week (like the
+    # ``_fixed_now`` Tonight tests below) instead of the real current week.
+    # With ``limit=2`` any other test's live rows in the queried window evict
+    # this test's rows from the capped result, so the window must contain
+    # only rows this test seeded.
     suffix = uuid.uuid4().hex[:6]
     eids: list[str] = []
-    start = now_lake_havasu()
-    monday = start.date() - timedelta(days=start.weekday())
+    monday = datetime(2099, 9, 7).date()  # far-future Monday, unused elsewhere
     win = datetime.combine(monday, time(0, 0))
     with SessionLocal() as db:
         # Recurring series (5 days), all one venue.
