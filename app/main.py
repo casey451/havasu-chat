@@ -665,6 +665,28 @@ def _build_sitemap_pages_xml() -> str:
         lastmod = _iso_or_none(max(stamps)) if stamps else None
         entries.append(_sitemap_url_entry(f"{base}/categories/{slug}", lastmod))
 
+    # P2.1 dedicated trade pages — only trades clearing the thin-page gate
+    # (TRADE_PAGE_MIN_PROVIDERS) are listed; under-minimum trades 404 and are
+    # excluded here so near-empty templated pages are never exposed to crawlers.
+    # lastmod: max updated_at of the trade's matching providers.
+    try:
+        from app.categories.trades import TRADE_PARENT_SLUG, _trade_provider_rows
+        from app.categories.trades import qualifying_trades as _qualifying_trades
+
+        with SessionLocal() as db:
+            for trade_obj, _count in _qualifying_trades(db):
+                rows = _trade_provider_rows(db, trade_obj)
+                stamps2 = [r.updated_at for r in rows if r.updated_at is not None]
+                lastmod = _iso_or_none(max(stamps2)) if stamps2 else None
+                entries.append(
+                    _sitemap_url_entry(
+                        f"{base}/categories/{TRADE_PARENT_SLUG}/{trade_obj.slug}",
+                        lastmod,
+                    )
+                )
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.warning("sitemap: trade page enumeration failed: %s", exc)
+
     return _wrap_urlset(entries)
 
 

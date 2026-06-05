@@ -37,6 +37,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, joinedload
 
+from app.categories.trades import needles_for_trade as _needles_for_trade  # noqa: F401
+from app.categories.trades import provider_matches_trade as _provider_matches_trade
 from app.core.conditions_temperature import read_current_temperature_f
 from app.core.liveness import liveness_dampener
 from app.core.provider_name import register_template_filters, register_template_globals
@@ -478,41 +480,6 @@ def _provider_matches_cuisine(provider: Provider | None, cuisine_slug: str) -> b
     if isinstance(subs, list):
         for s in subs:
             sl = str(s).lower()
-            for n in needles:
-                if n and n in sl:
-                    return True
-    return False
-
-
-def _needles_for_trade(trade_slug: str) -> frozenset[str]:
-    c = trade_slug.strip().lower().replace("-", "_")
-    return frozenset({c, c.replace("_", " ")})
-
-
-def _provider_matches_trade(provider: Provider | None, trade_slug: str) -> bool:
-    if provider is None:
-        return False
-    needles = _needles_for_trade(trade_slug)
-    primary = (provider.google_primary_category or "").lower()
-    for n in needles:
-        if n and n in primary.replace("-", "_"):
-            return True
-    cats = provider.google_categories or []
-    if isinstance(cats, list):
-        for gc in cats:
-            gl = str(gc).lower()
-            for n in needles:
-                if n and n in gl.replace("-", "_"):
-                    return True
-    leg = (provider.category or "").lower()
-    for n in needles:
-        if n and n in leg.replace("-", "_"):
-            return True
-    attrs = provider.attributes or {}
-    subs = attrs.get("sub_trades")
-    if isinstance(subs, list):
-        for s in subs:
-            sl = str(s).lower().replace("-", "_")
             for n in needles:
                 if n and n in sl:
                     return True

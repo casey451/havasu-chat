@@ -11,6 +11,17 @@
     <h1>{{ category_label }}</h1>
     <p>{% if category_one_liner %}{{ category_one_liner }} {% endif %}{% if category_count %}{{ category_count }} listed.{% endif %}{% if subcat_chips %} Tap a type to narrow — the list updates right here.{% endif %}</p>
 
+    {# P2.1: dedicated trade pages — real URLs, only for trades clearing the
+       thin-page gate (TRADE_PAGE_MIN_PROVIDERS). Empty everywhere else. #}
+    {% if trade_links %}
+    <div class="chips chips-trades" id="trade-links">
+      <span class="lbl" style="opacity:.65;font-size:.8rem;align-self:center;margin-right:4px">By trade:</span>
+      {% for t in trade_links %}
+      <a class="chip" href="{{ t.url }}">{{ t.label }} <span class="chip-n">{{ t.count }}</span></a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
     {% if subcat_chips %}
     <div class="chips" id="chips">
       <a class="chip{% if not facets.subcategory %} on{% endif %}" data-filter="all" href="{{ all_chip_url }}">All</a>
@@ -69,30 +80,7 @@
       </a>
       {% endif %}
       {% for card in category_cards %}
-      <a class="biz" href="/provider/{{ card.slug }}" data-subcategory="{{ card.subcategory }}">
-        <div class="img"{% if card.image_url %} style="background-image:url('{{ card.image_url }}')"{% endif %}>
-          {% if card.is_open is not none %}<span class="open{% if not card.is_open %} closed{% endif %}">{{ 'Open now' if card.is_open else 'Closed' }}</span>{% endif %}
-        </div>
-        <div class="body">
-          <h3>{{ card.name }}</h3>
-          <div class="meta">
-            {% if card.has_reviews %}
-            <span class="stars">★ {{ card.rating }}</span>
-            {% if card.review_count %}<span>({{ card.review_count }})</span>{% endif %}
-            {% else %}
-            <span class="noreviews">New / few reviews yet</span>
-            {% endif %}
-          </div>
-          {# D7: second meta line — area / cross-street, with the out-of-area hint. #}
-          {% if card.area or card.distance_hint %}
-          <div class="loc">
-            {% if card.area %}<span class="area">{{ card.area }}</span>{% endif %}
-            {% if card.distance_hint %}<span class="faraway">{{ card.distance_hint }}</span>{% endif %}
-          </div>
-          {% endif %}
-          {% if card.subcategory %}<div class="typ">{{ card.subcategory|replace('-', ' ')|replace('_', ' ')|title }}</div>{% endif %}
-        </div>
-      </a>
+      {% include 'components/sandstone_biz_card.html' %}
       {% endfor %}
     </div>
 
