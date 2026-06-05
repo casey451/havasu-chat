@@ -1151,11 +1151,12 @@ def category_landing(
             now=now,
         )
 
-        organic_stream = []
-        for ent in entities:
-            vm = provider_queries.build_card_view_model(db, ent.id, now=now)
-            if vm is not None:
-                organic_stream.append(vm)
+        # T3.2: batched view-model build (3 relation queries total) replaces the
+        # per-entity build_card_view_model N+1 (~5 queries per entity). Order and
+        # output are identical to the previous loop.
+        organic_stream = provider_queries.build_card_view_models(
+            db, [ent.id for ent in entities], now=now
+        )
 
     district_options = _district_rows(db)
     cuisine_chips = list(page_cfg.sub_trade_chips)
