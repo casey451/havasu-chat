@@ -254,8 +254,18 @@ def test_user_delete_cascades_subscriptions_and_dispatched() -> None:
 
     with engine.connect() as conn:
         conn.execute(text("PRAGMA foreign_keys=ON"))
-        conn.execute(text("DELETE FROM users WHERE id = :uid"), {"uid": uid})
-        conn.commit()
+        try:
+            conn.execute(text("DELETE FROM users WHERE id = :uid"), {"uid": uid})
+            conn.commit()
+        finally:
+            # PRAGMA foreign_keys is per SQLite connection and survives the
+            # pool checkin; a later test reusing this pooled connection would
+            # suddenly run under FK enforcement (e.g. the autouse cleanup
+            # sweep erroring on entity deletes). Reset before returning the
+            # connection to the pool — same hazard the sibling FK tests
+            # (test_entity_schema, test_photos_schema) handle via dispose().
+            conn.execute(text("PRAGMA foreign_keys=OFF"))
+            conn.commit()
 
     with SessionLocal() as db:
         assert db.query(AlertSubscription).filter_by(id=sid).count() == 0

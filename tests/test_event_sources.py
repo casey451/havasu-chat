@@ -109,9 +109,16 @@ def test_events_cli_dry_run(monkeypatch, capsys) -> None:
     import scripts.events_pull as cli
 
     html = (FIXTURES / "allevents" / "city.html").read_text(encoding="utf-8")
-    monkeypatch.setattr(
-        cli.allevents, "fetch_events", lambda **_: parse_jsonld_events(html, source="allevents")
-    )
+
+    def _fixture_fetch(**_kwargs):
+        return parse_jsonld_events(html, source="allevents")
+
+    # cli._SOURCES captured allevents.fetch_events at import time, so patching
+    # the module attribute (the old approach) left the dict holding the REAL
+    # fetcher and this "dry run" hit allevents.in live on every test run —
+    # slow and flaky under parallel test load (T2.4).
+    name, _real_fetch, sample_fn, notes = cli._SOURCES["allevents"]
+    monkeypatch.setitem(cli._SOURCES, "allevents", (name, _fixture_fetch, sample_fn, notes))
     assert cli.main(["--source", "allevents"]) == 0
     out = capsys.readouterr().out
     assert "allevents — DRY RUN" in out

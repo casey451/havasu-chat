@@ -14,6 +14,29 @@ import pytest
 from app.conditions import usgs_water_temp
 
 
+class _NoNetworkClient:
+    """In-process stand-in for ``httpx.Client`` (T2.4).
+
+    Tests that drive ``fn()`` inside a ``call_with_retry`` fake must also patch
+    ``usgs_water_temp.httpx.Client`` with this class, or the real ``_inner``
+    closure makes a live request to api.waterdata.usgs.gov (same latent bug
+    fixed in test_phase8_fetcher_usgs.py — flaked with ReadTimeout under
+    parallel test load).
+    """
+
+    def __init__(self, *_args, **_kwargs) -> None:
+        pass
+
+    def __enter__(self) -> "_NoNetworkClient":
+        return self
+
+    def __exit__(self, *_args) -> None:
+        return None
+
+    def get(self, _url: str, **_kwargs):
+        return MagicMock()
+
+
 @pytest.fixture(autouse=True)
 def _reset_feature_flag(monkeypatch: pytest.MonkeyPatch) -> None:
     """Ensure each test starts with the flag explicitly unset, so any test that
@@ -72,8 +95,9 @@ def test_fetch_parses_normal_reading_and_converts_to_fahrenheit(
         fn()
         return resp
 
-    with patch.object(usgs_water_temp._USGS_LIMITER, "call_with_retry", side_effect=fake_retry):
-        data = usgs_water_temp.fetch_usgs_water_temp_09426630()
+    with patch.object(usgs_water_temp.httpx, "Client", _NoNetworkClient):
+        with patch.object(usgs_water_temp._USGS_LIMITER, "call_with_retry", side_effect=fake_retry):
+            data = usgs_water_temp.fetch_usgs_water_temp_09426630()
 
     assert data["water_temp_c"] == 22.5
     # 22.5 C = 72.5 F
@@ -109,8 +133,9 @@ def test_fetch_filters_minus_100000_sentinel_value(
         fn()
         return resp
 
-    with patch.object(usgs_water_temp._USGS_LIMITER, "call_with_retry", side_effect=fake_retry):
-        data = usgs_water_temp.fetch_usgs_water_temp_09426630()
+    with patch.object(usgs_water_temp.httpx, "Client", _NoNetworkClient):
+        with patch.object(usgs_water_temp._USGS_LIMITER, "call_with_retry", side_effect=fake_retry):
+            data = usgs_water_temp.fetch_usgs_water_temp_09426630()
 
     assert data["water_temp_c"] is None
     assert data["water_temp_f"] is None
@@ -150,8 +175,9 @@ def test_fetch_picks_first_non_sentinel_when_history_has_mix(
         fn()
         return resp
 
-    with patch.object(usgs_water_temp._USGS_LIMITER, "call_with_retry", side_effect=fake_retry):
-        data = usgs_water_temp.fetch_usgs_water_temp_09426630()
+    with patch.object(usgs_water_temp.httpx, "Client", _NoNetworkClient):
+        with patch.object(usgs_water_temp._USGS_LIMITER, "call_with_retry", side_effect=fake_retry):
+            data = usgs_water_temp.fetch_usgs_water_temp_09426630()
 
     # water_temp_c picks the first non-sentinel value (20.0 C); sentinel entry
     # is still in history for audit.
@@ -227,8 +253,9 @@ def test_site_overridable_via_env(monkeypatch: pytest.MonkeyPatch) -> None:
         fn()
         return resp
 
-    with patch.object(usgs_water_temp._USGS_LIMITER, "call_with_retry", side_effect=fake_retry):
-        data = usgs_water_temp.fetch_usgs_water_temp_09426630()
+    with patch.object(usgs_water_temp.httpx, "Client", _NoNetworkClient):
+        with patch.object(usgs_water_temp._USGS_LIMITER, "call_with_retry", side_effect=fake_retry):
+            data = usgs_water_temp.fetch_usgs_water_temp_09426630()
 
     assert data["site"] == "09427520"
 

@@ -13,6 +13,41 @@ from unittest.mock import MagicMock, patch
 from app.conditions import usgs
 
 
+class _FakeClient:
+    """In-process stand-in for ``httpx.Client``.
+
+    Every test in this module patches ``usgs.httpx.Client`` with this class so
+    that driving ``fn()`` inside a ``call_with_retry`` fake exercises the real
+    ``_inner`` closure WITHOUT a live request to api.waterdata.usgs.gov. Two of
+    these "mocked" tests used to skip the Client patch and made real USGS
+    calls, which flaked with ReadTimeout under parallel test load (T2.4).
+    """
+
+    captured_urls: list[str]
+
+    def __init__(self, *_args, **_kwargs) -> None:
+        pass
+
+    def __enter__(self) -> "_FakeClient":
+        return self
+
+    def __exit__(self, *_args) -> None:
+        return None
+
+    def get(self, url: str, **_kwargs):
+        type(self).captured_urls.append(url)
+        return MagicMock()
+
+
+def _fresh_fake_client() -> type[_FakeClient]:
+    """Per-test subclass so captured URLs don't leak between tests."""
+
+    class _FakeClientT(_FakeClient):
+        captured_urls: list[str] = []
+
+    return _FakeClientT
+
+
 def test_fetch_usgs_parses_gauge_and_storage() -> None:
     calls: list[str] = []
 
@@ -33,8 +68,9 @@ def test_fetch_usgs_parses_gauge_and_storage() -> None:
         fn()
         return resp
 
-    with patch.object(usgs._USGS_LIMITER, "call_with_retry", side_effect=fake_retry):
-        data = usgs.fetch_usgs_lake_havasu()
+    with patch.object(usgs.httpx, "Client", _fresh_fake_client()):
+        with patch.object(usgs._USGS_LIMITER, "call_with_retry", side_effect=fake_retry):
+            data = usgs.fetch_usgs_lake_havasu()
 
     assert data["lake_gauge_ft"] == 450.2
     assert data["lake_storage_acft"] == 589000.0
@@ -44,8 +80,6 @@ def test_fetch_usgs_uses_latest_continuous_collection_url() -> None:
     """Phase 8a.2: the URL path must point at the renamed ``latest-continuous``
     collection. The legacy ``observations`` collection returns HTTP 404 from USGS.
     """
-    captured_urls: list[str] = []
-
     def fake_retry(fn):
         # Drive _inner so it actually hits the (patched) httpx Client and we
         # can capture the URL the fetcher requested.
@@ -55,24 +89,12 @@ def test_fetch_usgs_uses_latest_continuous_collection_url() -> None:
         resp.json.return_value = {"features": []}
         return resp
 
-    class _FakeClient:
-        def __init__(self, *_args, **_kwargs) -> None:
-            pass
-
-        def __enter__(self) -> "_FakeClient":
-            return self
-
-        def __exit__(self, *_args) -> None:
-            return None
-
-        def get(self, url: str, **_kwargs):
-            captured_urls.append(url)
-            return MagicMock()
-
-    with patch.object(usgs.httpx, "Client", _FakeClient):
+    client_cls = _fresh_fake_client()
+    with patch.object(usgs.httpx, "Client", client_cls):
         with patch.object(usgs._USGS_LIMITER, "call_with_retry", side_effect=fake_retry):
             usgs.fetch_usgs_lake_havasu()
 
+    captured_urls = client_cls.captured_urls
     assert captured_urls, "fetcher did not issue any HTTP requests"
     for url in captured_urls:
         assert "/collections/latest-continuous/items" in url, (
@@ -109,8 +131,9 @@ def test_fetch_usgs_parses_string_value_from_new_payload() -> None:
         fn()
         return resp
 
-    with patch.object(usgs._USGS_LIMITER, "call_with_retry", side_effect=fake_retry):
-        data = usgs.fetch_usgs_lake_havasu()
+    with patch.object(usgs.httpx, "Client", _fresh_fake_client()):
+        with patch.object(usgs._USGS_LIMITER, "call_with_retry", side_effect=fake_retry):
+            data = usgs.fetch_usgs_lake_havasu()
 
     assert data["lake_gauge_ft"] == 49.12
     assert data["lake_storage_acft"] == 591100.0

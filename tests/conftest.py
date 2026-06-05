@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
@@ -48,7 +49,7 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _init_test_database() -> None:
+def _init_test_database() -> Generator[None, None, None]:
     """Run Alembic migrations once per session against the session test database."""
     from app.db.database import init_db
 
@@ -64,45 +65,132 @@ def _init_test_database() -> None:
             pass
 
 
-def _cleanup_phase7_seed_sources() -> None:
-    from sqlalchemy import delete, select
+# Module-scoped seed source in tests/test_ask_mode.py (``_phase34_seed``); its
+# rows must survive across the module's tests, so the per-test sweep below
+# exempts it. The module tears its own rows down.
+_MODULE_SEED_SOURCE = "phase34-test"
+
+
+def _snapshot_row_ids() -> dict[str, set[str]]:
+    """Snapshot existing Provider/Program/Entity/Event ids before a test runs."""
+    from sqlalchemy import select
 
     from app.db.database import SessionLocal
-    from app.db.models import Entity, EntityCategory, Program, Provider
+    from app.db.models import Entity, Event, Program, Provider
 
-    sources = (
-        "test-p7",
-        "test-p7-boat",
-        "test-p7-heat",
-        "test",
-        "test-p7-sb",
-        "test-tier2-pivot",
-        # Added 2026-05-21 per Cursor diagnostic of
-        # tests/test_gap_template_contribute_link.py::test_date_lookup_gap_includes_contribute:
-        # `test_program_category_ref_relationship` was committing a Program with
-        # provider_name="City Events" and source="test-directory-schema", which
-        # the entity matcher then indexed (Program.provider_name path), poisoning
-        # the near-match scoring for later tests in the same pytest session.
-        "test-directory-schema",
-    )
     with SessionLocal() as db:
-        for src in sources:
-            for prov in db.scalars(select(Provider).where(Provider.source == src)).all():
-                db.delete(prov)
-            # Programs are entity-matcher inputs via Program.provider_name; clean
-            # them up alongside Providers so test pollution doesn't leak into the
-            # near-match scoring path on subsequent tests.
-            for prog in db.scalars(select(Program).where(Program.source == src)).all():
-                db.delete(prog)
-            for ent in db.scalars(select(Entity).where(Entity.source == src)).all():
-                db.execute(delete(EntityCategory).where(EntityCategory.entity_id == ent.id))
-                db.delete(ent)
+        return {
+            "provider": set(db.scalars(select(Provider.id)).all()),
+            "program": set(db.scalars(select(Program.id)).all()),
+            "entity": set(db.scalars(select(Entity.id)).all()),
+            "event": set(db.scalars(select(Event.id)).all()),
+        }
+
+
+def _cleanup_new_rows(before: dict[str, set[str]]) -> None:
+    """Delete Provider/Program/Entity/Event rows the finished test created.
+
+    History: this started as a curated list of phase-7 seed sources, then a
+    ``source LIKE 'test%' / '%-test'`` pattern sweep — but both kept missing
+    newcomers. Under ``pytest -n`` the worker-local interleaving changes, and
+    rows from one test module leak into another's window/cap/catalog/matcher
+    assertions. The pattern sweep missed every test that seeds production-like
+    sources: ``test_unified_router`` (Providers with ``source="seed"``),
+    ``test_tier2_routing`` / ``test_phase38_gap_and_hours`` (same), the entity
+    dual-write paths (Entities with ``source="google_places"``), etc. — e.g.
+    ``test_unified_router``'s leftover "Altitude Trampoline Park — Lake Havasu
+    City" Provider made ``test_explicit_bmx_hours_query_still_matches`` match
+    the wrong entity once shuffled into the same worker (T2.4).
+
+    A snapshot diff is source-agnostic: ids present before the test stay, ids
+    created during the test are swept (regardless of what ``source`` the test
+    chose), so no curated list can rot. Inductively the DB then only carries
+    alembic seed rows plus deliberately module-scoped seeds between tests.
+
+    Deliberately NOT swept:
+
+    * ``phase34-test`` (:data:`_MODULE_SEED_SOURCE`) — module-scoped seed in
+      ``tests/test_ask_mode.py``: it is created inside the FIRST test's setup
+      phase (module fixture), so the diff would otherwise reap it after that
+      first test. The module's own teardown removes it.
+    * Other tables (ChatLog, Contribution, ...) — no observed cross-test
+      assertion couples through them; extend the snapshot if one appears.
+
+    Entity children (EntityCategory) are bulk-deleted first because the
+    SQLite test engine runs with foreign_keys OFF, so ``passive_deletes``
+    cascades never fire; Event/Program/Provider go before Entity so the sweep
+    also works on a pooled connection where a prior test left PRAGMA
+    foreign_keys=ON.
+    """
+    from sqlalchemy import and_, delete, select
+
+    from app.db.database import SessionLocal
+    from app.db.models import Entity, EntityCategory, Event, Program, Provider
+
+    with SessionLocal() as db:
+        for model, key in ((Event, "event"), (Program, "program"), (Provider, "provider")):
+            new_ids = set(db.scalars(select(model.id)).all()) - before[key]
+            if new_ids:
+                db.execute(
+                    delete(model).where(
+                        and_(model.id.in_(new_ids), model.source != _MODULE_SEED_SOURCE)
+                    )
+                )
+        new_ent_ids = list(
+            db.scalars(
+                select(Entity.id).where(
+                    and_(
+                        Entity.id.not_in(before["entity"]),
+                        Entity.source != _MODULE_SEED_SOURCE,
+                    )
+                )
+            ).all()
+        )
+        if new_ent_ids:
+            db.execute(delete(EntityCategory).where(EntityCategory.entity_id.in_(new_ent_ids)))
+            db.execute(delete(Entity).where(Entity.id.in_(new_ent_ids)))
         db.commit()
 
 
+class _NoNetworkOpenAI:
+    """Autouse stand-in for every module-level ``OpenAI`` constructor seam.
+
+    Several modules build their own ``OpenAI`` client straight from the
+    ``openai`` package (NOT via ``app.core.llm_messages``, which LLM-mocking
+    tests patch): ``app.chat.llm_cache`` (query embeddings),
+    ``app.chat.hint_extractor`` (age/location hints), ``app.core.extraction`` (tagging), and ``app.core.llm_messages`` (tier-3
+    completions). Any test that drives those
+    paths with ``OPENAI_API_KEY`` set fired REAL requests to api.openai.com —
+    tests/test_ask_mode.py alone made 75 live TLS connections per run (T2.4
+    socket audit), each costing seconds and failing only as slowly as the
+    network allows. Raising on construction keeps every caller's documented
+    best-effort contract (they catch, log, and degrade to ``None``/empty)
+    with zero sockets. Tests that exercise a specific seam re-patch it
+    locally (e.g. ``patch.object(llm_cache, "OpenAI", ...)`` in
+    tests/test_llm_cache.py), which overrides this autouse default.
+    """
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        raise RuntimeError("test suite: real OpenAI client construction blocked")
+
+
 @pytest.fixture(autouse=True)
-def _phase7_test_row_cleanup() -> None:
-    """Remove Phase 7 seed rows after every test so tier2 catalog tests stay isolated.
+def _block_module_openai_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.chat.hint_extractor as hint_extractor
+    import app.chat.llm_cache as llm_cache
+    import app.core.extraction as extraction
+    import app.core.llm_messages as llm_messages
+
+    # NOTE: app.v1.contrib_extraction imports OpenAI lazily inside the
+    # function body, so there is no module attribute to patch; no test
+    # currently drives that path with an API key set.
+    for mod in (llm_cache, hint_extractor, llm_messages, extraction):
+        monkeypatch.setattr(mod, "OpenAI", _NoNetworkOpenAI)
+
+
+@pytest.fixture(autouse=True)
+def _test_source_row_cleanup() -> Generator[None, None, None]:
+    """Remove rows the test created so catalog/window/matcher tests stay isolated.
 
     Also resets the entity-matcher module-level catalog cache (added 2026-05-27,
     v45 session) so the 5-minute TTL on ``_rows_loaded_at`` doesn't carry stale
@@ -112,8 +200,9 @@ def _phase7_test_row_cleanup() -> None:
     ``tier_used == "gap_template"`` instead of ``"1"`` because a prior test's
     catalog warm masked the freshly-seeded providers).
     """
+    before = _snapshot_row_ids()
     yield
-    _cleanup_phase7_seed_sources()
+    _cleanup_new_rows(before)
     from app.chat.entity_matcher import reset_entity_matcher
 
     reset_entity_matcher()
