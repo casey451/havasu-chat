@@ -56,15 +56,28 @@ def absolute_url(path: str) -> str:
 
 
 def canonical_url(request: Any) -> str:
-    """Self-canonical for the current request: absolute https, **path only**.
+    """Self-canonical for the current request: absolute https, facet-free.
 
     The query string is intentionally dropped so faceted variants
-    (``?trade=``/``?district=``/``?page=``) canonicalize to the clean category
-    path (P1.5 direction). Safe to call from templates with the Starlette
-    ``request`` in context.
+    (``?trade=``/``?district=``/``?cuisine=``) canonicalize to the clean
+    category path (P1.5 direction) — with one exception: ``?page=N`` for
+    N > 1 is preserved (P1.4). Paginated pages carry distinct content and
+    must self-canonicalize, otherwise pages 2+ tell crawlers they are
+    duplicates of page 1 and never get indexed. ``page=1`` and non-numeric
+    values canonicalize to the clean path. Safe to call from templates with
+    the Starlette ``request`` in context.
     """
     try:
         path = request.url.path
     except Exception:
         path = "/"
+    page_param = None
+    try:
+        raw_page = request.query_params.get("page")
+        if raw_page is not None and str(raw_page).isdigit() and int(raw_page) > 1:
+            page_param = int(raw_page)
+    except Exception:
+        page_param = None
+    if page_param is not None:
+        return absolute_url(f"{path}?page={page_param}")
     return absolute_url(path)
