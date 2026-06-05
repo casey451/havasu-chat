@@ -53,6 +53,11 @@ def register_template_filters(templates_or_env: "object") -> None:
     """
     env = getattr(templates_or_env, "env", templates_or_env)
     env.filters["clean_name"] = clean_name
+    # SEO P1.8: shared meta-description sanitizer (newline collapse +
+    # sentence-boundary truncation) for description/og:description tags.
+    from app.seo.meta import meta_description
+
+    env.filters["meta_desc"] = meta_description
 
 
 def register_template_globals(templates_or_env: "object") -> None:
