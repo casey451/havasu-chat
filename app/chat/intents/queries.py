@@ -30,6 +30,7 @@ from app.chat.intents import dicts
 from app.chat.intents.resolver import ResolvedIntent
 from app.conditions.cache import read_source
 from app.conditions.constants import SOURCE_GAS
+from app.core.liveness import liveness_dampener
 from app.core.timezone import now_lake_havasu
 from app.db.models import Offering, Program, Provider
 from app.programs.pricing import format_offering_price, format_program_price
@@ -60,9 +61,17 @@ class QueryResult:
 
 
 def _provider_sort_key(p: Provider) -> tuple:
+    """Rated-first, then rating desc, then review count desc (reverse=True).
+
+    The rating term is scaled by the liveness dampener so a stale-but-once-
+    popular listing sinks below fresh peers in chat business lists (bury,
+    never remove). NULL liveness -> multiplier 1.0 (non-Google rows / backfill
+    pending are unaffected).
+    """
     return (
         p.google_rating is not None,
-        p.google_rating or 0.0,
+        (p.google_rating or 0.0)
+        * liveness_dampener(getattr(p, "liveness_score", None)),
         p.google_review_count or 0,
     )
 
