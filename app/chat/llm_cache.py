@@ -13,6 +13,7 @@ from pathlib import Path
 from sqlalchemy import select
 
 from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
+from app.core.openai_client import get_openai_client
 from app.db.models import LlmResponseCache
 
 try:
@@ -83,7 +84,9 @@ def _compute_query_embedding(text):
     if OpenAI is None:
         return None
     try:
-        client = OpenAI(api_key=api_key, timeout=LLM_CLIENT_READ_TIMEOUT_SEC)
+        client = get_openai_client(  # T2.3 singleton; OpenAI stays the patchable seam
+            api_key, factory=OpenAI, timeout=LLM_CLIENT_READ_TIMEOUT_SEC
+        )
         resp = client.embeddings.create(model=EMBEDDING_MODEL, input=text.strip())
     except Exception:
         logging.exception("llm_cache: embedding API call failed")
