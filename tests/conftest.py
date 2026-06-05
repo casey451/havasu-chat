@@ -152,6 +152,42 @@ def _cleanup_new_rows(before: dict[str, set[str]]) -> None:
         db.commit()
 
 
+class _NoNetworkOpenAI:
+    """Autouse stand-in for every module-level ``OpenAI`` constructor seam.
+
+    Several modules build their own ``OpenAI`` client straight from the
+    ``openai`` package (NOT via ``app.core.llm_messages``, which LLM-mocking
+    tests patch): ``app.chat.llm_cache`` (query embeddings),
+    ``app.chat.hint_extractor`` (age/location hints), ``app.core.extraction`` (tagging), and ``app.core.llm_messages`` (tier-3
+    completions). Any test that drives those
+    paths with ``OPENAI_API_KEY`` set fired REAL requests to api.openai.com —
+    tests/test_ask_mode.py alone made 75 live TLS connections per run (T2.4
+    socket audit), each costing seconds and failing only as slowly as the
+    network allows. Raising on construction keeps every caller's documented
+    best-effort contract (they catch, log, and degrade to ``None``/empty)
+    with zero sockets. Tests that exercise a specific seam re-patch it
+    locally (e.g. ``patch.object(llm_cache, "OpenAI", ...)`` in
+    tests/test_llm_cache.py), which overrides this autouse default.
+    """
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        raise RuntimeError("test suite: real OpenAI client construction blocked")
+
+
+@pytest.fixture(autouse=True)
+def _block_module_openai_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.chat.hint_extractor as hint_extractor
+    import app.chat.llm_cache as llm_cache
+    import app.core.extraction as extraction
+    import app.core.llm_messages as llm_messages
+
+    # NOTE: app.v1.contrib_extraction imports OpenAI lazily inside the
+    # function body, so there is no module attribute to patch; no test
+    # currently drives that path with an API key set.
+    for mod in (llm_cache, hint_extractor, llm_messages, extraction):
+        monkeypatch.setattr(mod, "OpenAI", _NoNetworkOpenAI)
+
+
 @pytest.fixture(autouse=True)
 def _test_source_row_cleanup() -> Generator[None, None, None]:
     """Remove rows the test created so catalog/window/matcher tests stay isolated.
