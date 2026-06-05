@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import delete, select
@@ -423,7 +424,9 @@ def register_catalog_dual_write_hooks() -> None:
     from sqlalchemy.orm import Session as OrmSession
 
     @event.listens_for(OrmSession, "before_flush")
-    def _catalog_dual_write_before_flush(session: Session, flush_context, instances) -> None:
+    def _catalog_dual_write_before_flush(
+        session: Session, flush_context: Any, instances: Any
+    ) -> None:
         for obj in list(session.new):
             if isinstance(obj, Provider) and not obj.entity_id:
                 create_provider_and_entity(session, obj)

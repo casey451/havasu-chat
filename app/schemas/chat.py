@@ -36,7 +36,7 @@ class ComponentPayload(BaseModel):
 class ConciergeChatRequest(BaseModel):
     """Unified router / concierge API (POST ``/api/chat`` — Phase 2.3)."""
 
-    query: str = Field(min_length=1)
+    query: str = Field(min_length=1, max_length=2000)
     session_id: str | None = None
     message: str | None = Field(
         default=None,

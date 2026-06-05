@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import re
-from datetime import date, datetime, time
+
+# ``date`` is aliased because EventBase has a field literally named ``date``,
+# which would otherwise shadow the type in later annotations (mypy valid-type).
+from datetime import date as _Date
+from datetime import datetime, time
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -20,8 +24,8 @@ def normalize_event_url(value: str) -> str:
 
 class EventBase(BaseModel):
     title: str
-    date: date
-    end_date: date | None = None
+    date: _Date
+    end_date: _Date | None = None
     start_time: time
     end_time: time | None = None
     location_name: str
@@ -46,7 +50,7 @@ class EventBase(BaseModel):
 
     @field_validator("title", "location_name", "description", "event_url", mode="before")
     @classmethod
-    def strip_strings(cls, v: str | date | time | None) -> str | date | time | None:
+    def strip_strings(cls, v: str | _Date | time | None) -> str | _Date | time | None:
         if isinstance(v, str):
             return v.strip()
         return v

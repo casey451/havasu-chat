@@ -15,6 +15,11 @@ from pydantic import (
     model_validator,
 )
 
+# Alias for use inside classes that have a field named ``date`` (the field
+# would otherwise shadow the ``date`` type in sibling annotations — mypy
+# valid-type). Other classes here keep using ``date`` directly.
+_Date = date
+
 EntityType = Literal["provider", "program", "event", "tip"]
 ContributionSource = Literal[
     "user_submission",
@@ -117,8 +122,8 @@ class EventApprovalFields(BaseModel):
 
     title: str = Field(min_length=3)
     description: str = Field(min_length=20)
-    date: date
-    end_date: date | None = None
+    date: _Date
+    end_date: _Date | None = None
     start_time: time
     end_time: time | None = None
     location_name: str = Field(min_length=3)

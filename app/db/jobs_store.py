@@ -12,8 +12,9 @@ same on SQLite (tests) and Postgres (prod).
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any, cast
 
-from sqlalchemy import select, update
+from sqlalchemy import CursorResult, select, update
 from sqlalchemy.orm import Session
 
 from app.db.models import Job
@@ -105,7 +106,9 @@ def claim_next_job(db: Session, worker: str) -> Job | None:
             .values(status="claimed", claimed_by=worker, claimed_at=now)
         )
         db.commit()
-        if result.rowcount == 1:
+        # Session.execute(update(...)) returns a CursorResult at runtime, but is
+        # typed as the base Result (no rowcount). Cast to read the DML row count.
+        if cast("CursorResult[Any]", result).rowcount == 1:
             return db.get(Job, candidate_id)
         # Lost the race for this row — another worker claimed it first. Look again.
 
