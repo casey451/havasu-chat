@@ -1,0 +1,45 @@
+name: data-freshness-check
+
+# Daily heartbeat that catches a *silently* dead scrape pipeline -- one whose
+# GitHub Actions run stays green and whose upstream is reachable, but whose
+# parser broke and has quietly ingested zero rows for days.
+#
+# scripts/check_sources_health.py probes upstream reachability; this checks the
+# complementary thing -- that fresh rows actually landed in the catalog. It
+# queries max(created_at / scraped_at) per event source against a cadence-derived
+# budget and exits non-zero when a pipeline goes stale, so the Actions failure
+# email is the page. See the script docstring for scope (V1 = the two event
+# pipelines; programs/partners/gas deferred to a future ingest_runs heartbeat).
+#
+# NOTE: GitHub only runs scheduled workflows from the repository's DEFAULT
+# branch. This file must be merged to main before the cron takes effect. Until
+# then, use the "Run workflow" button (workflow_dispatch) to trigger it.
+
+on:
+  schedule:
+    # 17:00 UTC daily (= 10:00 AM Arizona, MST/UTC-7, no DST). A few hours after
+    # the morning event scrapes (13:30 / 13:45 UTC) so a same-day run is counted.
+    - cron: "0 17 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  check-freshness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Check scrape pipelines for silent staleness
+        env:
+          # Same Railway Postgres secret the scrape crons use. Set in:
+          # GitHub repo -> Settings -> Secrets and variables -> Actions
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/freshness_check.py
