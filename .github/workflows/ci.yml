@@ -77,4 +77,7 @@ jobs:
         # "Optional real OpenAI hint extraction (run: pytest -m integration)").
         # CI runs the unit suite only; integration tests are opt-in for
         # local runs against a real key.
-        run: python -m pytest -q -m "not integration"
+        # `-n auto` runs the suite in parallel across CPU cores (pytest-xdist).
+        # Enabled after the T2.4 test-isolation pass made it deterministic —
+        # verified green across 6 local runs (4×`-n 4` + 2×`-n auto`), ~2× faster.
+        run: python -m pytest -q -m "not integration" -n auto
