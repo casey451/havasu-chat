@@ -53,13 +53,25 @@ def run(*, apply: bool) -> int:
             if not looks_non_food(p.category, p.google_primary_category, p.google_categories):
                 continue
             changed += 1
-            verb = "CLEAR" if apply else "would clear"
+            # Bucket membership is OR(subcategory, category): clear the
+            # subcategory AND, when the legacy category itself is an eat value
+            # (the Lovedwell case: category='food_drink' on a florist), replace
+            # it with Google's primary label so the row leaves the bucket.
+            new_cat = p.category
+            if p.category in EAT_LEGACY_CATEGORIES:
+                g = (p.google_primary_category or "").strip().lower().replace(" ", "_")
+                new_cat = g or "uncategorized"
+            verb = "FIX" if apply else "would fix"
+            cat_part = (
+                f", category {p.category!r} -> {new_cat!r}" if new_cat != p.category else ""
+            )
             print(
-                f"  {verb} subcategory={p.subcategory!r} on {p.provider_name!r} "
-                f"(category={p.category!r}, google={p.google_primary_category!r})"
+                f"  {verb} {p.provider_name!r}: clear subcategory={p.subcategory!r}"
+                f"{cat_part} (google={p.google_primary_category!r})"
             )
             if apply:
                 p.subcategory = None
+                p.category = new_cat
         if apply:
             db.commit()
     finally:

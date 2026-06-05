@@ -52,18 +52,75 @@ FOOD_OK_RE = re.compile(
 )
 
 
-def looks_non_food(*labels: str | None) -> bool:
-    blob = " ".join(x for x in labels if x)
-    if not blob.strip():
+def _flatten(label: object) -> str:
+    """Coerce a label to text. ``Provider.google_categories`` is a JSON list on
+    Postgres (string/None on the SQLite fixtures) -- handle both."""
+    if label is None:
+        return ""
+    if isinstance(label, (list, tuple)):
+        return " ".join(_flatten(x) for x in label)
+    return str(label)
+
+
+def looks_non_food(category: object, google_primary: object, google_categories: object) -> bool:
+    """Pollution test with tiered signals (2026-06-05 prod fix).
+
+    The food allow-list only counts on PRIMARY labels (category +
+    google_primary_category). Prod showed why: Lovedwell Creative (an event
+    planner) carries a secondary Google "Caterer" tag from their dessert carts,
+    which rescued them from the deny-list. A real caterer has it as the primary
+    label and is still protected. The deny-list is checked per-label so anchored
+    patterns like ^services?$ can match category="Service" on its own.
+    """
+    cat = _flatten(category).strip()
+    gp = _flatten(google_primary).strip()
+    gcs = _flatten(google_categories).strip()
+    # Allow-list precedence (2026-06-05 prod fix #2): trust GOOGLE's primary
+    # label first. The catalog's own ``category`` is the field under audit --
+    # prod had Lovedwell Creative (florist/event planner, google_primary
+    # ='service') with category='food_drink', and the "food" inside that bad
+    # value rescued the row from the deny-list. Only fall back to ``category``
+    # for the allow-list when Google gives us nothing.
+    if gp:
+        if FOOD_OK_RE.search(gp):
+            return False
+    elif cat and FOOD_OK_RE.search(cat):
         return False
-    if FOOD_OK_RE.search(blob):
-        return False
-    return bool(NON_FOOD_RE.search(blob))
+    return any(NON_FOOD_RE.search(lb) for lb in (cat, gp, gcs) if lb)
 
 
 def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--show",
+        metavar="NAME",
+        help="print the raw row (category/subcategory/google fields) for one provider "
+        "name (exact or substring match) and exit -- read-only diagnostics",
+    )
+    args = parser.parse_args()
+
     db = SessionLocal()
     try:
+        if args.show:
+            needle = args.show.lower()
+            matches = [
+                p
+                for p in db.query(Provider).filter(Provider.is_active.is_(True)).all()
+                if needle in (p.provider_name or "").lower()
+            ]
+            for p in matches[:10]:
+                print(
+                    f"name={p.provider_name!r}\n  category={p.category!r}"
+                    f"\n  subcategory={p.subcategory!r}"
+                    f"\n  google_primary_category={p.google_primary_category!r}"
+                    f"\n  google_categories={p.google_categories!r}"
+                    f"\n  flagged={looks_non_food(p.category, p.google_primary_category, p.google_categories)}"
+                )
+            if not matches:
+                print(f"no active provider matching {args.show!r}")
+            return
         rows = (
             db.query(Provider)
             .filter(
