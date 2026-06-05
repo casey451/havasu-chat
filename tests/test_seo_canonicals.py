@@ -160,3 +160,38 @@ def test_event_page_canonical_matches_permalink(
             db.execute(delete(Event).where(Event.source == "test-seo-canon"))
             db.execute(delete(Entity).where(Entity.source == "test-seo-canon"))
             db.commit()
+
+
+def test_category_canonical_keeps_page_param(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """P1.4: pages 2+ self-canonicalize with ?page=N; page 1 stays clean."""
+    monkeypatch.setenv("BASE_URL", _BASE)
+    r = client.get("/categories/eat-drink?page=2&cuisine=mexican")
+    assert r.status_code == 200
+    assert _canonicals(r.text) == [f"{_BASE}/categories/eat-drink?page=2"]
+    assert "— Page 2 — Ask Hava" in r.text or "&mdash; Page 2" in r.text or "Page 2 —" in r.text
+
+    r1 = client.get("/categories/eat-drink?page=1")
+    assert _canonicals(r1.text) == [f"{_BASE}/categories/eat-drink"]
+
+
+def test_canonical_page_param_ignores_garbage(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("BASE_URL", _BASE)
+    # The route validates page as int -> non-numeric 422s (FastAPI), which is
+    # fine; the canonical helper itself also guards non-numeric values for
+    # templates whose routes accept free-form query params.
+    r = client.get("/categories/eat-drink?page=banana")
+    assert r.status_code == 422
+
+    from app.seo.urls import canonical_url
+
+    class _Req:
+        class url:
+            path = "/categories/eat-drink"
+
+        query_params = {"page": "banana"}
+
+    assert canonical_url(_Req()) == f"{_BASE}/categories/eat-drink"
