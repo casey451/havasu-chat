@@ -30,16 +30,18 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import case as sa_case
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
 from app.categories.subcategories import derive_cuisine
+from app.core.liveness import DAMPENER_FLOOR, liveness_dampener
 from app.db.models import Provider
 from app.home.queries import _hours_status, _provider_image_url
 from app.home.queries_c import (
+    MIN_RATING_REVIEWS,
     _format_rating,
     _load_eat_photos,
-    _rating_sort_key,
 )
 from app.providers.queries import (
     _parse_hours_time,
@@ -741,7 +743,7 @@ def category_cards(
                 Provider.is_active.is_(True),
                 Provider.draft.is_(False),
             )
-            .order_by(*_rating_sort_key())
+            .order_by(*_dampened_rating_sort_key())
             .limit(max(limit, 1))
             .all()
         )
@@ -854,6 +856,41 @@ def weighted_favorites_score(
     if n < 0:
         n = 0
     return (r * n + _FAV_PRIOR_MEAN * _FAV_PRIOR_WEIGHT) / (n + _FAV_PRIOR_WEIGHT)
+
+
+def _liveness_dampener_expr():
+    """SQL mirror of :func:`app.core.liveness.liveness_dampener`.
+
+    ``FLOOR + (1 - FLOOR) * COALESCE(liveness_score, 1.0)`` — a NULL score
+    (non-Google-sourced provider, or backfill not yet applied) collapses to a
+    1.0 multiplier, so only listings with evidence of staleness are dampened.
+    Uses the **stored** ``Provider.liveness_score`` column (no exp/sqrt in SQL),
+    mirroring the search-path decision in LIVENESS_RANKING_HANDOFF_2026-06-03.
+    """
+    return DAMPENER_FLOOR + (1.0 - DAMPENER_FLOOR) * sa_func.coalesce(
+        Provider.liveness_score, 1.0
+    )
+
+
+def _dampened_rating_sort_key():
+    """``queries_c._rating_sort_key`` with the liveness dampener folded in.
+
+    Same tiered shape (credibly-reviewed first, then rating desc, then count
+    desc) but the rating term is multiplied by the liveness dampener, so a
+    stale-but-once-popular listing sinks within its tier instead of riding its
+    old rating forever (the bury-don't-remove rule). NULL ratings still sort
+    last; NULL liveness leaves the ordering identical to the undampened sort.
+    """
+    qualified = sa_case(
+        (Provider.google_review_count >= MIN_RATING_REVIEWS, 1),
+        else_=0,
+    )
+    return (
+        qualified.desc(),
+        (Provider.google_rating * _liveness_dampener_expr()).desc().nullslast(),
+        Provider.google_review_count.desc().nullslast(),
+    )
+
 # Upper bound on rows scanned when a Python-side facet (open_now / closest) is
 # active. Comfortably above the largest bucket (Services ~1.5k) so the facet
 # count stays accurate; only paid when the facet is engaged.
@@ -1120,18 +1157,18 @@ def category_listing(
             # rating/alpha orderings are all expressible in SQL, so COUNT runs in
             # the DB and only the requested page is fetched -- no Python
             # materialize. The rating sort already sinks unrated rows after rated
-            # peers (``_rating_sort_key`` qualified tier), satisfying DL-10's
+            # peers (``_dampened_rating_sort_key`` qualified tier), satisfying DL-10's
             # sort-after for the non-favorites sorts.
             total = int(base.with_entities(sa_func.count(Provider.id)).scalar() or 0)
             ordered = (
                 base.order_by(Provider.provider_name.asc())
                 if facets.sort == "alpha"
-                else base.order_by(*_rating_sort_key())
+                else base.order_by(*_dampened_rating_sort_key())
             )
             rows = ordered.offset(offset).limit(per_page).all()
             return [_provider_card(db, p, now=now, allowed_subcategories=allowed_subs) for p in rows], total
 
-        rows = base.order_by(*_rating_sort_key()).limit(_MATERIALIZE_CAP).all()
+        rows = base.order_by(*_dampened_rating_sort_key()).limit(_MATERIALIZE_CAP).all()
         if facets.cuisine:
             want = facets.cuisine.strip().lower()
             rows = [
@@ -1160,8 +1197,13 @@ def category_listing(
             rows.sort(
                 key=lambda p: (
                     1 if open_state.get(id(p)) is False else 0,
-                    -weighted_favorites_score(
-                        p.google_rating, getattr(p, "google_review_count", None)
+                    -(
+                        weighted_favorites_score(
+                            p.google_rating, getattr(p, "google_review_count", None)
+                        )
+                        # Liveness dampener — bury stale listings in the default
+                        # favorites sort too. NULL → 1.0 (no dampening).
+                        * liveness_dampener(getattr(p, "liveness_score", None))
                     ),
                     (p.provider_name or "").lower(),
                 )
