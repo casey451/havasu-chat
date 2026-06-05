@@ -76,8 +76,18 @@ _EVENT_WORDS = (
     "festival",
     "what's on",
     "whats on",
+    "what is on",  # normalize() expands "whats" -> "what is"
+    "what should we do",
+    "what should i do",
+    "anything fun",
 )
-_OPEN_NOW_RE = re.compile(r"\bopen\s+(now|right now|late)\b|\bopen\s*\?")
+_OPEN_NOW_RE = re.compile(
+    r"\bopen\s+(now|right now|late|tonight)\b"
+    r"|\bopen\s*\?"
+    r"|\bopen\s+for\s+(breakfast|lunch|dinner)\b"
+    r"|\bwho'?s\s+open\b|\bwho\s+is\s+open\b"
+    r"|\bopen\s+to\s+eat\b|\banywhere\s+open\b"
+)
 
 _FOOD_WORDS = (
     "eat",
@@ -96,6 +106,7 @@ _LODGING_WORDS = (
     "hotel",
     "hotels",
     "motel",
+    "motels",
     "lodging",
     "stay",
     "place to stay",
@@ -103,7 +114,9 @@ _LODGING_WORDS = (
     "airbnb",
     "rv park",
     "campground",
+    "campgrounds",
     "resort",
+    "resorts",
 )
 
 _SHOPPING_WORDS = (
@@ -134,6 +147,7 @@ _WATER_WORDS = (
     "wave runner",
     "waverunner",
     "watercraft",
+    "marine",
     "boat launch",
     "boat ramp",
     "boat rental",
@@ -157,7 +171,9 @@ _PARK_WORDS = (
     "trail",
     "trails",
     "trailhead",
+    "trailheads",
     "hike",
+    "hikes",
     "hiking",
     "beach",
     "beaches",
@@ -300,8 +316,22 @@ def resolve(query: str) -> ResolvedIntent | None:
         }.get(window, "events_upcoming")
         return ResolvedIntent(key, slots, L2 if window != "upcoming" else L1)
 
-    # 3. Service lookup -- service term routes to a Provider.subcategory group.
+    # 3. Symptom / urgent need FIRST -- "i need a walk in clinic" must route to
+    # urgent_care even when a service term ("clinic") also matches (2026-06-04,
+    # 5k-bank validation drop).
+    symptom = _match_symptom(t)
+    if symptom is not None:
+        return ResolvedIntent("urgent_care", {"symptom": symptom}, L2)
+
+    # 3b. Service lookup -- service term routes to a Provider.subcategory group.
     service = _match_service(t)
+    if service is not None:
+        # Water-adjacent repair terms belong to the on-the-water bucket:
+        # "boat mechanic in town" -> boat_repair, not find_service.
+        if _has_any(t, _WATER_WORDS) and (
+            service in _REPAIR_WORDS or "mechanic" in service or "repair" in service
+        ):
+            service = None
     if service is not None:
         slots = {"service": service}
         area = _match_area(t)
@@ -315,13 +345,10 @@ def resolve(query: str) -> ResolvedIntent | None:
             layer = L2
         return ResolvedIntent("find_service", slots, layer)
 
-    # 4. Symptom / urgent need -> health listing (never advice).
-    symptom = _match_symptom(t)
-    if symptom is not None:
-        return ResolvedIntent("urgent_care", {"symptom": symptom}, L2)
-
     # 5. Eat & drink -- cuisine token or generic food word.
     cuisine = _match_cuisine(t)
+    if "food bank" in t:
+        return ResolvedIntent("civic_resources", {}, L1)
     if cuisine is not None or _has_any(t, _FOOD_WORDS):
         slots = {}
         layer = L1
