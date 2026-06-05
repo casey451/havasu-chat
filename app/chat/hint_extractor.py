@@ -26,6 +26,7 @@ from pydantic import BaseModel
 
 from app.chat.intents.dicts import AREA_DICT
 from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
+from app.core.openai_client import get_openai_client
 
 try:
     from openai import OpenAI
@@ -118,7 +119,9 @@ def extract_hints(query: str) -> ExtractedHints | None:
     user = f"User message:\n{q}"
 
     try:
-        client = OpenAI(api_key=api_key, timeout=LLM_CLIENT_READ_TIMEOUT_SEC)
+        client = get_openai_client(  # T2.3 singleton; OpenAI stays the patchable seam
+            api_key, factory=OpenAI, timeout=LLM_CLIENT_READ_TIMEOUT_SEC
+        )
         completion = client.chat.completions.create(
             model=model,
             messages=[
