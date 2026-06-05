@@ -33,9 +33,9 @@ def client() -> TestClient:
 
 @pytest.fixture(autouse=True)
 def _clear_sitemap_cache():
-    main_module._sitemap_cache = None
+    main_module._sitemap_cache.clear()
     yield
-    main_module._sitemap_cache = None
+    main_module._sitemap_cache.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -146,10 +146,23 @@ _SITEMAP_NS = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
 
 
 def _sitemap_locs(client: TestClient) -> list[str]:
+    """P1.6: /sitemap.xml is an index — walk every child sitemap."""
     r = client.get("/sitemap.xml")
     assert r.status_code == 200
     root = ET.fromstring(r.text)
-    return [loc.text for loc in root.findall("sm:url/sm:loc", _SITEMAP_NS) if loc.text]
+    children = [
+        loc.text for loc in root.findall("sm:sitemap/sm:loc", _SITEMAP_NS) if loc.text
+    ]
+    assert children, "sitemap index referenced no child sitemaps"
+    locs: list[str] = []
+    for child in children:
+        cr = client.get("/" + child.split("/", 3)[-1])
+        assert cr.status_code == 200
+        croot = ET.fromstring(cr.text)
+        locs.extend(
+            loc.text for loc in croot.findall("sm:url/sm:loc", _SITEMAP_NS) if loc.text
+        )
+    return locs
 
 
 def test_sitemap_adds_new_static_surfaces(client: TestClient) -> None:

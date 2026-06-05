@@ -24,9 +24,9 @@ def client() -> TestClient:
 @pytest.fixture(autouse=True)
 def _clear_sitemap_cache() -> None:
     """Reset the module-level sitemap cache between tests."""
-    main_module._sitemap_cache = None
+    main_module._sitemap_cache.clear()
     yield
-    main_module._sitemap_cache = None
+    main_module._sitemap_cache.clear()
 
 
 def _make_entity(db, *, source: str) -> Entity:
@@ -46,7 +46,7 @@ def _seed_provider(*, slug: str, is_active: bool = True, draft: bool = False) ->
         ent = _make_entity(db, source="test-sitemap")
         prov = Provider(
             provider_name="Sitemap Test Provider",
-            category="services",
+            category="home_services",
             slug=slug,
             is_active=is_active,
             draft=draft,
@@ -153,18 +153,37 @@ def _parse_sitemap_locs(xml_text: str) -> list[str]:
     return [loc.text for loc in root.findall("sm:url/sm:loc", _SITEMAP_NS) if loc.text is not None]
 
 
+def _all_locs_via_index(client: TestClient) -> list[str]:
+    """Fetch the index, then every child sitemap; return all page locs."""
+    r = client.get("/sitemap.xml")
+    assert r.status_code == 200
+    root = ET.fromstring(r.text)
+    child_locs = [
+        loc.text
+        for loc in root.findall("sm:sitemap/sm:loc", _SITEMAP_NS)
+        if loc.text is not None
+    ]
+    assert child_locs, "sitemap index referenced no child sitemaps"
+    locs: list[str] = []
+    for child in child_locs:
+        path = "/" + child.split("/", 3)[-1]
+        cr = client.get(path)
+        assert cr.status_code == 200, f"{path} -> {cr.status_code}"
+        locs.extend(_parse_sitemap_locs(cr.text))
+    return locs
+
+
 def test_sitemap_xml_returns_valid_xml(client: TestClient, sitemap_rows: dict[str, str]) -> None:
     r = client.get("/sitemap.xml")
     assert r.status_code == 200
     assert "xml" in r.headers["content-type"]
-    # Parseable XML, root is <urlset>.
+    # P1.6: the root document is now a sitemap *index*.
     root = ET.fromstring(r.text)
-    assert root.tag.endswith("urlset")
+    assert root.tag.endswith("sitemapindex")
 
 
 def test_sitemap_includes_static_pages(client: TestClient, sitemap_rows: dict[str, str]) -> None:
-    r = client.get("/sitemap.xml")
-    locs = _parse_sitemap_locs(r.text)
+    locs = _all_locs_via_index(client)
     # At least one of the static surfaces should appear.
     assert any(loc.endswith("/privacy") for loc in locs)
     assert any(loc.endswith("/terms") for loc in locs)
@@ -175,8 +194,7 @@ def test_sitemap_includes_static_pages(client: TestClient, sitemap_rows: dict[st
 def test_sitemap_includes_all_category_routes(
     client: TestClient, sitemap_rows: dict[str, str]
 ) -> None:
-    r = client.get("/sitemap.xml")
-    locs = _parse_sitemap_locs(r.text)
+    locs = _all_locs_via_index(client)
     for slug in CATEGORY_FILTERS:
         assert any(loc.endswith(f"/categories/{slug}") for loc in locs), (
             f"missing /categories/{slug} in sitemap"
@@ -184,43 +202,65 @@ def test_sitemap_includes_all_category_routes(
 
 
 def test_sitemap_includes_active_provider(client: TestClient, sitemap_rows: dict[str, str]) -> None:
-    r = client.get("/sitemap.xml")
-    locs = _parse_sitemap_locs(r.text)
+    locs = _all_locs_via_index(client)
     expected = f"/provider/{sitemap_rows['provider_slug']}"
     assert any(loc.endswith(expected) for loc in locs)
 
 
 def test_sitemap_includes_live_event(client: TestClient, sitemap_rows: dict[str, str]) -> None:
-    r = client.get("/sitemap.xml")
-    locs = _parse_sitemap_locs(r.text)
+    locs = _all_locs_via_index(client)
     expected = f"/events/{sitemap_rows['event_id']}"
     assert any(loc.endswith(expected) for loc in locs)
 
 
 def test_sitemap_entries_have_lastmod(client: TestClient, sitemap_rows: dict[str, str]) -> None:
-    r = client.get("/sitemap.xml")
+    """Providers and events carry real <lastmod>; static pages may omit it."""
+    for section in ("providers", "events"):
+        r = client.get(f"/sitemap-{section}.xml")
+        root = ET.fromstring(r.text)
+        url_nodes = root.findall("sm:url", _SITEMAP_NS)
+        assert url_nodes, f"sitemap-{section} had zero <url> entries"
+        for node in url_nodes:
+            lastmod = node.find("sm:lastmod", _SITEMAP_NS)
+            assert lastmod is not None and lastmod.text, (
+                f"every {section} <url> needs a <lastmod>"
+            )
+
+
+def test_sitemap_unknown_section_404s(client: TestClient) -> None:
+    assert client.get("/sitemap-bogus.xml").status_code == 404
+
+
+def test_sitemap_category_lastmod_tracks_provider_updates(
+    client: TestClient, sitemap_rows: dict[str, str]
+) -> None:
+    """A category with at least one provider gets a real (non-fabricated) lastmod."""
+    r = client.get("/sitemap-pages.xml")
     root = ET.fromstring(r.text)
-    url_nodes = root.findall("sm:url", _SITEMAP_NS)
-    assert url_nodes, "sitemap had zero <url> entries"
-    for node in url_nodes:
-        lastmod = node.find("sm:lastmod", _SITEMAP_NS)
-        assert lastmod is not None and lastmod.text, "every <url> needs a <lastmod>"
+    by_loc = {
+        node.find("sm:loc", _SITEMAP_NS).text: node.find("sm:lastmod", _SITEMAP_NS)
+        for node in root.findall("sm:url", _SITEMAP_NS)
+    }
+    # The seeded provider has category="services" -> the services route.
+    loc = next(loc for loc in by_loc if loc.endswith("/categories/services"))
+    lastmod = by_loc[loc]
+    assert lastmod is not None and lastmod.text
 
 
 def test_sitemap_caches_for_one_hour(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """Second request inside the TTL window should reuse the cached XML."""
     calls = {"n": 0}
-    real_build = main_module._build_sitemap_xml
+    real_build = main_module._build_sitemap_pages_xml
 
     def _counting_build() -> str:
         calls["n"] += 1
         return real_build()
 
-    monkeypatch.setattr(main_module, "_build_sitemap_xml", _counting_build)
-    main_module._sitemap_cache = None
+    monkeypatch.setitem(main_module._SITEMAP_BUILDERS, "pages", _counting_build)
+    main_module._sitemap_cache.clear()
 
-    r1 = client.get("/sitemap.xml")
-    r2 = client.get("/sitemap.xml")
+    r1 = client.get("/sitemap-pages.xml")
+    r2 = client.get("/sitemap-pages.xml")
     assert r1.status_code == 200
     assert r2.status_code == 200
     assert calls["n"] == 1, "second request should hit the in-process cache"
