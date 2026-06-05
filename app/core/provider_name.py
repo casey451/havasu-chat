@@ -79,6 +79,12 @@ def register_template_globals(templates_or_env: "object") -> None:
     env = getattr(templates_or_env, "env", templates_or_env)
     raw = (os.getenv("PLAUSIBLE_DOMAIN") or "").strip()
     env.globals["plausible_domain"] = raw or None
+    # SEO P1.0/P1.3: absolute-https canonical / og:url builders, shared with the
+    # base layout so every page emits one self-canonical from one origin source.
+    from app.seo.urls import absolute_url, canonical_url
+
+    env.globals["canonical_url"] = canonical_url
+    env.globals["absolute_url"] = absolute_url
 
 
 def _norm_provider_name(name: str) -> str:

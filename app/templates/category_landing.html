@@ -6,6 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{{ category_label }} — Ask Hava</title>
   <meta name="description" content="{{ category_one_liner }}">
+  {# SEO P1.3: absolute-https self-canonical + og:url (query dropped, so facet
+     variants canonicalize to the clean category path). Guarded for bare-env
+     unit renders; real routes always register the global. #}
+  {% if canonical_url is defined %}
+  <link rel="canonical" href="{{ canonical_url(request) }}">
+  <meta property="og:url" content="{{ canonical_url(request) }}">
+  {% endif %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">

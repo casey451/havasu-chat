@@ -5,6 +5,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{{ event_title }} — Ask Hava</title>
+  {# SEO P1.3: self-canonical. og_url is the absolute-https permalink
+     ({base_url}/events/{id}) built in the route, so reuse it here. #}
+  <link rel="canonical" href="{{ og_url }}">
   <meta property="og:title" content="{{ event_title }}">
   <meta property="og:description" content="{{ og_description }}">
   <meta property="og:url" content="{{ og_url }}">
