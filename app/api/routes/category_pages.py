@@ -30,10 +30,9 @@ from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, joinedload
@@ -42,13 +41,10 @@ from app.core.conditions_temperature import read_current_temperature_f
 from app.core.liveness import liveness_dampener
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.ranking import CardRankInput, compute_card_rank
-from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
-from app.db.database import get_db
 from app.db.entity_types import ENTITY_TYPE_COMMERCIAL
 from app.db.models import Category, District, Entity, EntityCategory, Provider
 from app.events import series as event_series
 from app.events.queries import event_window_for_chip, events_in_window
-from app.home.queries import CATEGORY_LABELS
 from app.providers import queries as provider_queries
 from app.providers.queries import _parse_hours_time, is_open_now
 
@@ -1048,184 +1044,39 @@ def _build_events_category_stream(
     return stream
 
 
-@router.get("/category/{slug}", response_class=HTMLResponse)
-def category_landing(
-    request: Request,
-    slug: str,
-    db: Session = Depends(get_db),
-    cuisine: str | None = Query(None),
-    trade: str | None = Query(None),
-    district: str | None = Query(None),
-    open_now_q: str | None = Query(None, alias="open"),
-    late: str | None = Query(None),
-    brunch: str | None = Query(None),
-    dock: str | None = Query(None),
-    verified: str | None = Query(None),
-    mobile: str | None = Query(None),
-    boat: str | None = Query(None),
-    free: str | None = Query(None),
-    sort: str | None = Query(None),
-    when: str | None = Query(None),
-    drop_in: str | None = Query(None, alias="drop_in"),
-    registration: str | None = Query(None),
-    kids: str | None = Query(None),
-    teens: str | None = Query(None),
-    adults: str | None = Query(None),
-    senior_55: str | None = Query(None, alias="55_plus"),
-) -> HTMLResponse:
+
+# ---------------------------------------------------------------------------
+# P1.1 route collapse (D1 = plural). The singular ``/category/{slug}`` SEO
+# landing surface is retired in favour of the plural ``/categories/{slug}``
+# Sandstone pages, which the homepage, nav, sitemap, and home queries already
+# treat as canonical. Each Tier-1 slug 301s to its plural twin; the two slugs
+# without a plural twin follow the same precedent as
+# ``app.v1.categories.BUCKET_SLUG_REDIRECTS`` (events -> things-to-do,
+# outdoors -> on-the-water). Query strings are preserved -- the plural route
+# ignores parameters it does not understand, and P1.5 canonicalisation drops
+# them from the canonical URL anyway.
+#
+# The card/view-model helpers above remain in active use by
+# ``app.api.routes.map_data`` and ``app.api.routes.themed_groups``.
+SINGULAR_TO_PLURAL_REDIRECTS: dict[str, str] = {
+    **{
+        slug: f"/categories/{slug}"
+        for slug in TIER_1_CATEGORY_SLUGS
+        if slug not in ("events", "outdoors-parks-trails")
+    },
+    "events": "/categories/things-to-do",
+    "outdoors-parks-trails": "/categories/on-the-water",
+}
+
+
+@router.get("/category/{slug}")
+def category_landing(request: Request, slug: str) -> RedirectResponse:
+    """301 the retired singular surface to the canonical plural page."""
     cat_slug = slug.strip().lower()
-    if cat_slug not in TIER_1_CATEGORY_SLUGS:
+    dest = SINGULAR_TO_PLURAL_REDIRECTS.get(cat_slug)
+    if dest is None:
         raise HTTPException(status_code=404, detail="unknown_category")
-
-    now = now_lake_havasu()
-    if now.tzinfo is None:
-        now = now.replace(tzinfo=LAKE_HAVASU_TZ)
-
-    category_label = CATEGORY_LABELS.get(cat_slug, cat_slug.replace("-", " ").title())
-    page_cfg = category_page_config(cat_slug)
-    sort_key = _normalize_sort(sort, category_slug=cat_slug)
-
-    def _flag(val: str | None) -> bool:
-        return val is not None and str(val).strip() in {"1", "true", "yes"}
-
-    dock_only = _flag(dock) or _flag(boat)
-    open_now = open_now_q is not None and str(open_now_q).strip().lower() == "now"
-    late_night = _flag(late)
-    brunch_only = _flag(brunch)
-    verified_only = _flag(verified)
-    mobile_only = _flag(mobile)
-    free_only = _flag(free)
-
-    district_slug_filter = district.strip().lower() if district and district.strip() else None
-    active_trade = (cuisine or trade or "").strip().lower() or None
-
-    if cat_slug == "events":
-        organic_stream = _build_events_category_stream(
-            db,
-            when=when,
-            sort_key=sort_key,
-            ref_lat=_REF_LAT,
-            ref_lng=_REF_LNG,
-            now=now,
-        )
-    else:
-        entities = _select_entities_for_category(
-            db,
-            category_slug=cat_slug,
-            district_slug=district_slug_filter,
-            dock_only=dock_only,
-        )
-        entities = _apply_python_filters(
-            entities,
-            db=db,
-            category_slug=cat_slug,
-            cuisine=cuisine,
-            trade=trade,
-            open_now=open_now,
-            late_night=late_night,
-            brunch_only=brunch_only,
-            verified_only=verified_only,
-            mobile_only=mobile_only,
-            boat_only=dock_only,
-            free_only=free_only,
-            now=now,
-        )
-        if cat_slug == "classes-sports-recreation":
-            entities = _apply_classes_sports_filters(
-                entities,
-                db=db,
-                drop_in=_flag(drop_in),
-                registration=_flag(registration),
-                kids=_flag(kids),
-                teens=_flag(teens),
-                adults=_flag(adults),
-                senior_55=_flag(senior_55),
-            )
-        entities = _sort_entity_ids(
-            entities,
-            sort_key=sort_key,
-            ref_lat=_REF_LAT,
-            ref_lng=_REF_LNG,
-            db=db,
-            category_slug=cat_slug,
-            now=now,
-        )
-
-        # T3.2: batched view-model build (3 relation queries total) replaces the
-        # per-entity build_card_view_model N+1 (~5 queries per entity). Order and
-        # output are identical to the previous loop.
-        organic_stream = provider_queries.build_card_view_models(
-            db, [ent.id for ent in entities], now=now
-        )
-
-    district_options = _district_rows(db)
-    cuisine_chips = list(page_cfg.sub_trade_chips)
-    operational_defs = list(page_cfg.operational_chips)
-
-    if cat_slug == "events":
-        sort_options = [
-            ("chronological", "Chronological"),
-            ("closest_now", "Closest now"),
-            ("featured", "Featured"),
-            ("alphabetical", "Alphabetical"),
-        ]
-    else:
-        sort_options = [
-            ("closest_now", "Closest now"),
-            ("alphabetical", "Alphabetical"),
-            ("top_rated", "Top-rated"),
-            ("editorial_pick", "Editorial pick"),
-        ]
-
-    def cat_href(**kwargs: str | None) -> str:
-        q = dict(request.query_params)
-        for key, val in kwargs.items():
-            if val is None:
-                q.pop(key, None)
-            else:
-                q[key] = str(val)
-        tail = urlencode(sorted(q.items()))
-        return request.url.path + ("?" + tail if tail else "")
-
-    ctx = {
-        "cat_href": cat_href,
-        "today_label": now.strftime("%A, %B ") + str(now.day),
-        "map_scope_slug": cat_slug,
-        "boat_mode_active": dock_only,
-        "category_slug": cat_slug,
-        "category_label": category_label,
-        "category_one_liner": _CATEGORY_ONE_LINERS.get(cat_slug, "Browse trusted local listings."),
-        "cuisine_chips": cuisine_chips,
-        "district_chips": [Chip(s, n) for s, n in district_options],
-        "operational_chips": operational_defs,
-        "active_cuisine": active_trade if cat_slug == "eat-drink" else None,
-        "active_trade": active_trade if cat_slug != "eat-drink" else None,
-        "active_district": district_slug_filter,
-        "active_open_now": open_now,
-        "active_late": late_night,
-        "active_brunch": brunch_only,
-        "active_dock": dock_only,
-        "active_verified": verified_only,
-        "active_mobile": mobile_only,
-        "active_free": free_only,
-        "active_when": when.strip().lower() if when and when.strip() else None,
-        "active_drop_in": _flag(drop_in),
-        "active_registration": _flag(registration),
-        "active_kids": _flag(kids),
-        "active_teens": _flag(teens),
-        "active_adults": _flag(adults),
-        "active_55_plus": _flag(senior_55),
-        "sort_options": sort_options,
-        "sort_current": sort_key,
-        "organic_stream": organic_stream,
-        "show_sparse_banner": len(organic_stream) < 15,
-        "editorial_footer_text": _EDITORIAL_FOOTERS.get(cat_slug, ""),
-        "ref_lat": _REF_LAT,
-        "ref_lng": _REF_LNG,
-    }
-
-    return templates.TemplateResponse(
-        request=request,
-        name="category_landing.html",
-        context=ctx,
-    )
+    query = request.url.query
+    if query:
+        dest = f"{dest}?{query}"
+    return RedirectResponse(url=dest, status_code=301)

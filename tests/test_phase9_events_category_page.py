@@ -19,18 +19,18 @@ def test_events_config_has_when_chips() -> None:
     assert cfg.sort_default == "chronological"
 
 
-def test_category_events_page_loads() -> None:
+def test_category_events_page_redirects_to_things_to_do() -> None:
     client = TestClient(app)
-    r = client.get("/category/events")
-    assert r.status_code == 200
-    assert "Today" in r.text
+    r = client.get("/category/events", follow_redirects=False)
+    assert r.status_code == 301
+    assert r.headers["location"] == "/categories/things-to-do"
 
 
 def test_category_events_when_today_query() -> None:
     client = TestClient(app)
-    r = client.get("/category/events?when=today")
-    assert r.status_code == 200
-    assert "Chronological" in r.text or "chronological" in r.text.lower()
+    r = client.get("/category/events?when=today", follow_redirects=False)
+    assert r.status_code == 301
+    assert r.headers["location"] == "/categories/things-to-do?when=today"
 
 
 def test_next_month_window() -> None:
