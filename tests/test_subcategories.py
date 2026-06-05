@@ -236,6 +236,19 @@ def test_plural_page_shows_subcategory_chips(client: TestClient) -> None:
         # patrol regression guards
         ({"category": "x", "google_primary_category": "gift_shop"}, "specialty"),
         ({"category": "x", "google_primary_category": "juice_shop"}, "quick-bites"),
+        # gas stations: primary gas_station beats the convenience-store/food array
+        # noise that had been filing them as shopping-essentials (2026-06-05 patrol).
+        (
+            {
+                "category": "x",
+                "google_primary_category": "gas_station",
+                "google_categories": ["gas_station", "convenience_store", "store", "food"],
+            },
+            "auto",
+        ),
+        # needle is "gas_station", not bare "gas" — must NOT swallow gastropub
+        # (which correctly stays bars-breweries via the "pub" needle).
+        ({"category": "x", "google_primary_category": "gastropub"}, "bars-breweries"),
     ],
 )
 def test_type_token_precedence(kwargs: dict, expected: str | None) -> None:

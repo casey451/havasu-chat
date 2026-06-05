@@ -223,6 +223,12 @@ _TYPE_TO_SUBCAT: tuple[tuple[str, str], ...] = (
     ("tire", "auto"),
     ("car_wash", "auto"),
     ("car_dealer", "auto"),
+    # Gas stations are auto-rv-fuel, but most also carry "convenience_store" /
+    # "store" / "food" array tokens, so without an explicit primary-type rule they
+    # fell to shopping-essentials (2026-06-05 patrol: ~15 of the 0.95 flags —
+    # Chevron, Shell, Circle K, 76, ...). Needle is "gas_station" not bare "gas"
+    # so it can't swallow "gastropub" and friends.
+    ("gas_station", "auto"),
     ("rv_", "auto"),
     ("mechanic", "auto"),
     ("dentist", "health-medical"),
