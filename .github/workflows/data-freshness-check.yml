@@ -42,4 +42,12 @@ jobs:
           # Same Railway Postgres secret the scrape crons use. Set in:
           # GitHub repo -> Settings -> Secrets and variables -> Actions
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python scripts/freshness_check.py
+        run: |
+          set -euo pipefail
+          # Refuse to run against the local SQLite fallback (which has no events
+          # table) — that would either crash opaquely or, worse, look "fresh".
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "::error::DATABASE_URL secret is empty — refusing to run (would not be checking prod)."
+            exit 1
+          fi
+          python scripts/freshness_check.py
