@@ -23,6 +23,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block title %}Ask Hava -- Lake Havasu{% endblock %}</title>
   <meta name="description" content="{% block meta_description %}Ask Hava is your local guide to Lake Havasu City: what's happening today, the best local spots, events, and conditions.{% endblock %}">
+  {# SEO P1.9: og tag set for legacy Lake Light pages (guarded like the
+     sandstone base so bare-Environment unit renders don't error). #}
+  {% if canonical_url is defined %}
+  <meta property="og:site_name" content="Ask Hava">
+  <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+  <meta property="og:title" content="{% block og_title %}{{ self.title() }}{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}{{ self.meta_description() }}{% endblock %}">
+  <meta property="og:image" content="{% block og_image %}{{ absolute_url('/static/img/home-hero.jpg') }}{% endblock %}">
+  {% endif %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">

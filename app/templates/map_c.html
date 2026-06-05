@@ -6,6 +6,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Map &mdash; Ask Hava</title>
   <meta name="description" content="Explore Lake Havasu businesses and places on a full-screen map.">
+  {# SEO P1.9: standalone template — canonical + full og set (guarded like the
+     base layouts for bare-Environment unit renders). #}
+  {% if canonical_url is defined %}
+  <link rel="canonical" href="{{ canonical_url(request) }}">
+  <meta property="og:url" content="{{ canonical_url(request) }}">
+  <meta property="og:site_name" content="Ask Hava">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Map — Ask Hava">
+  <meta property="og:description" content="Explore Lake Havasu businesses and places on a full-screen map.">
+  <meta property="og:image" content="{{ absolute_url('/static/img/home-hero.jpg') }}">
+  {% endif %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">

@@ -11,7 +11,12 @@
   <meta property="og:title" content="{{ event_title }}">
   <meta property="og:description" content="{{ og_description | meta_desc(200) }}">
   <meta property="og:url" content="{{ og_url }}">
-  {% if image_url %}<meta property="og:image" content="{{ image_url }}">{% endif %}
+  {# SEO P1.9: complete the og set; fall back to the site hero image. #}
+  <meta property="og:site_name" content="Ask Hava">
+  <meta property="og:type" content="event">
+  {% if image_url %}<meta property="og:image" content="{{ image_url }}">
+  {% elif absolute_url is defined %}<meta property="og:image" content="{{ absolute_url('/static/img/home-hero.jpg') }}">
+  {% endif %}
   {# DL-15: event detail moves onto the Sandstone Fraunces/Figtree font stack
      (fixes the old Georgia fallback from lake_light.css). #}
   <link rel="preconnect" href="https://fonts.googleapis.com">
