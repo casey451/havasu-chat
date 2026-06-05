@@ -141,6 +141,20 @@ class Provider(Base):
     slug: Mapped[str | None] = mapped_column(String(120), nullable=True, unique=True, index=True)
 
     last_verified_at: Mapped[datetime | None] = mapped_column(TZAwareDateTime(), nullable=True)
+
+    # Category patrol (2026-06-04) — a scheduled gpt-4o-mini sweep that flags
+    # providers whose ``primary_category`` looks wrong (the substring-only
+    # categorizer in app/categories/subcategories.py has no semantic check).
+    # ``category_confidence`` is the 0-1 confidence the current category is
+    # MIScategorized; ``category_flagged_at`` is set when the row is queued for
+    # the admin "miscategorized?" review list and cleared on resolution. Both
+    # additive + nullable; NO serving path reads them (worst-case blast radius is
+    # a wrong flag, never a wrong listing). Written only by the dry-run-gated
+    # scripts/category_patrol.py. See the c1d2e3f4a5b6 migration.
+    category_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    category_flagged_at: Mapped[datetime | None] = mapped_column(
+        TZAwareDateTime(), nullable=True, index=True
+    )
     # CHECK ck_providers_verification_method — nullable string; allowed values are
     # NULL or one of: manual, scraper, owner_confirmed, npi_registry, none,
     # phone_call, in_person, web_form_submission, email_confirmation (see migration

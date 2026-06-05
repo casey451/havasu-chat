@@ -20,6 +20,7 @@ from app.admin.auth import (
     verify_admin_cookie,
 )
 from app.admin.categories_html import register_categories_html_routes
+from app.admin.category_flags_html import register_category_flags_html_routes
 from app.admin.contributions_html import register_contribution_html_routes
 from app.admin.events_html import register_events_html_routes
 from app.admin.feedback_html import register_feedback_html_routes
@@ -2248,5 +2249,6 @@ register_events_html_routes(router)
 register_jobs_html_routes(router)
 register_mentions_html_routes(router)
 register_categories_html_routes(router)
+register_category_flags_html_routes(router)
 register_feedback_html_routes(router)
 register_sponsor_admin_routes(router)

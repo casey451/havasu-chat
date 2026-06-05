@@ -1,0 +1,64 @@
+name: category-patrol
+
+# Weekly semantic audit of provider primary_category assignments. A gpt-4o-mini
+# sweep (scripts/category_patrol.py) reads the per-category rulesets and flags
+# rows whose stored category looks wrong, routing them to the admin
+# "miscategorized?" list. The flags are advisory: two additive nullable columns
+# no serving path reads.
+#
+# GATING (CLAUDE.md: prod writes are dry-run -> counts -> approval): the SCHEDULED
+# run is ALWAYS a dry run. It uploads the candidate list as an artifact and
+# prints counts; it writes nothing. To actually write flags, trigger the workflow
+# manually (Run workflow) with apply=true -- that is the approved, attended write.
+#
+# NOTE: GitHub only runs scheduled workflows from the repository's DEFAULT branch.
+# This file must be merged to main before the cron takes effect.
+
+on:
+  schedule:
+    # Sundays 11:30 UTC (= 4:30 AM Arizona). Off the dedup-audit (:10) and
+    # partners (09:40) Sunday slots.
+    - cron: "30 11 * * 0"
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Write flags to the database (approved, attended run)"
+        type: boolean
+        default: false
+
+jobs:
+  patrol:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run category patrol
+        env:
+          # Both set in: GitHub repo -> Settings -> Secrets and variables -> Actions
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ "${{ github.event.inputs.apply }}" = "true" ]; then
+            echo "APPLY mode (manual, approved) — writing flags."
+            python scripts/category_patrol.py --apply --threshold 0.85
+          else
+            echo "DRY RUN — emitting candidate report, no writes."
+            python scripts/category_patrol.py --json --threshold 0.85 | tee category_flags_report.json
+          fi
+
+      - name: Upload candidate report
+        if: ${{ github.event.inputs.apply != 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: category-flags-report
+          path: category_flags_report.json
+          if-no-files-found: ignore
