@@ -1,0 +1,42 @@
+{% extends "sandstone_base.html" %}
+{# SEO P2.1/P2.2 — dedicated trade landing page:
+   /categories/home-property-services/{trade}. Title carries the LIVE
+   server-rendered provider count; H1 mirrors it (brand suffix stays in
+   <title> only). Self-canonical comes from sandstone_base via
+   canonical_url(request) — the path IS the canonical.
+
+   DECISION D4 (Casey, final): JSON-LD here is BreadcrumbList + ItemList ONLY.
+   No AggregateRating structured data anywhere on this page — the visible star
+   ratings in the cards stay, structured-data ratings are omitted. #}
+{% block title %}{{ trade_count }} Best {{ trade_label }} in Lake Havasu City, AZ — Ask Hava{% endblock %}
+{% block meta_description %}{{ trade_intro | meta_desc(160) }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/sandstone_category.css">
+<script type="application/ld+json">{{ breadcrumb_jsonld | tojson | safe }}</script>
+<script type="application/ld+json">{{ itemlist_jsonld | tojson | safe }}</script>
+{% endblock %}
+
+{% block content %}
+  <div class="cathead wrap">
+    <div class="crumb"><a href="/home">Home</a> › <a href="/categories/{{ parent_slug }}">{{ parent_label }}</a> › {{ trade_label }}</div>
+    <h1>{{ trade_count }} Best {{ trade_label }} in Lake Havasu City, AZ</h1>
+    <p class="trade-intro">{{ trade_intro }}</p>
+  </div>
+
+  <div class="wrap">
+    <div class="biz-grid" id="bizGrid">
+      {% for card in category_cards %}
+      {% include 'components/sandstone_biz_card.html' %}
+      {% endfor %}
+    </div>
+
+    <section class="trade-faq" aria-labelledby="trade-faq-h">
+      <h2 id="trade-faq-h">{{ trade_label }} in Lake Havasu City — FAQ</h2>
+      {% for q, a in trade_faqs %}
+      <details class="faq-item">
+        <summary><h3>{{ q }}</h3></summary>
+        <p>{{ a }}</p>
+      </details>
+      {% endfor %}
+    </section>
+  </div>
+{% endblock %}

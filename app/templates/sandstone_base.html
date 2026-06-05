@@ -11,8 +11,12 @@
      renders that build a bare Jinja Environment without the registered global
      don't error; every real route registers it (register_template_globals). #}
   {% if canonical_url is defined %}
-  <link rel="canonical" href="{{ canonical_url(request) }}">
-  <meta property="og:url" content="{{ canonical_url(request) }}">
+  {# P2.1: a route may override the self-canonical (e.g. the parent category
+     page with ?trade=<promoted> canonicalizes to the dedicated trade page).
+     Default stays canonical_url(request) — untouched for every other page. #}
+  {% set _canonical = canonical_override|default(none) or canonical_url(request) %}
+  <link rel="canonical" href="{{ _canonical }}">
+  <meta property="og:url" content="{{ _canonical }}">
   {# SEO P1.9: complete og tag set on every page. Child templates override the
      blocks (provider pages: business type + hero photo; events: event type).
      og:image default is the home hero — an absolute URL, as scrapers require. #}

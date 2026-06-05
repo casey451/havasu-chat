@@ -52,6 +52,7 @@ from sqlalchemy.orm import Session
 
 from app.categories import queries as cat_queries
 from app.categories import subcategories as subcats
+from app.categories import trades as trade_pages
 from app.categories.queries import CategoryFacets
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.timezone import now_lake_havasu
@@ -61,6 +62,7 @@ from app.home import sandstone as home_sandstone
 from app.home import sponsor_store
 from app.home.queries import _provider_image_url
 from app.home.router import _utility_chips as _home_utility_chips
+from app.seo.urls import absolute_url
 from app.v1.categories import BUCKET_SLUG_REDIRECTS
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
@@ -316,6 +318,7 @@ def _render_category_page(
     active_subcategory: str | None,
     active_tab: str,
     page: int = 1,
+    extra_context: dict[str, Any] | None = None,
 ) -> HTMLResponse:
     """Shared render for the plural mega-page and the subcategory SEO landing.
 
@@ -410,10 +413,7 @@ def _render_category_page(
     if facets.open_now:
         active_filter_labels.append("Open now")
 
-    return templates.TemplateResponse(
-        request=request,
-        name="category_sandstone.html",
-        context={
+    context: dict[str, Any] = {
             "today_label": now.strftime("%A, %B ") + str(now.day),
             "now_label": now.strftime("%I:%M %p").lstrip("0"),
             "category_slug": route_slug,
@@ -451,7 +451,13 @@ def _render_category_page(
             "primary_nav": home_sandstone.primary_nav(),
             "mega_columns": home_sandstone.mega_columns(db),
             "utility_chips": _home_utility_chips(db),
-        },
+        }
+    if extra_context:
+        context.update(extra_context)
+    return templates.TemplateResponse(
+        request=request,
+        name="category_sandstone.html",
+        context=context,
     )
 
 
@@ -467,6 +473,7 @@ def serve_category(
     late: str | None = Query(None),
     weekends: str | None = Query(None),
     cuisine: str | None = Query(None),
+    trade: str | None = Query(None),
     page: int = Query(1, ge=1),
 ) -> HTMLResponse | RedirectResponse:
     """Render a single category page with subcategory chips + faceted filters.
@@ -495,6 +502,29 @@ def serve_category(
         weekends=weekends,
         cuisine=cuisine,
     )
+
+    # P2.1: on the trades parent, link the dedicated trade pages (gate-clearing
+    # trades only), and when a promoted ``?trade=`` facet value is present,
+    # canonicalize to the dedicated trade page instead of the clean category
+    # URL. Unpromoted ``?trade=`` values keep the existing behavior
+    # (canonical_url drops the query string -> clean category canonical).
+    extra_context: dict[str, Any] = {}
+    if normalised == trade_pages.TRADE_PARENT_SLUG:
+        qualifying = trade_pages.qualifying_trades(db)
+        extra_context["trade_links"] = [
+            {
+                "label": t.label,
+                "count": n,
+                "url": f"/categories/{trade_pages.TRADE_PARENT_SLUG}/{t.slug}",
+            }
+            for t, n in qualifying
+        ]
+        promoted = trade_pages.trade_by_slug(trade)
+        if promoted is not None and any(t.slug == promoted.slug for t, _ in qualifying):
+            extra_context["canonical_override"] = absolute_url(
+                f"/categories/{trade_pages.TRADE_PARENT_SLUG}/{promoted.slug}"
+            )
+
     return _render_category_page(
         request,
         db,
@@ -506,6 +536,129 @@ def serve_category(
         active_subcategory=None,
         page=page,
         active_tab=cat_queries.active_tab_for(normalised),
+        extra_context=extra_context,
+    )
+
+
+@router.get(
+    "/categories/{parent}/{trade}", response_class=HTMLResponse, response_model=None
+)
+def serve_trade_page(
+    request: Request,
+    parent: str,
+    trade: str,
+    db: Session = Depends(get_db),
+) -> HTMLResponse:
+    """Dedicated server-rendered trade landing page (SEO P2.1/P2.2).
+
+    Resolves only for the ten promoted trades under the home-property-services
+    parent. Unknown parent or trade -> 404. Thin-page gate: a trade with fewer
+    than ``TRADE_PAGE_MIN_PROVIDERS`` active providers also 404s (and is kept
+    out of the sitemap and never linked), so near-empty templated pages are
+    not exposed (Google scaled-content note in the SEO brief).
+
+    JSON-LD per DECISION D4 (Casey, final): BreadcrumbList + ItemList only —
+    NO AggregateRating structured data anywhere on this page.
+    """
+    parent_key = (parent or "").strip().lower()
+    if parent_key != trade_pages.TRADE_PARENT_SLUG:
+        raise HTTPException(status_code=404, detail="unknown_category")
+    trade_obj = trade_pages.trade_by_slug(trade)
+    if trade_obj is None:
+        raise HTTPException(status_code=404, detail="unknown_trade")
+
+    now = now_lake_havasu()
+    cards, total, providers = trade_pages.trade_listing(db, trade_obj, now=now)
+    if total < trade_pages.TRADE_PAGE_MIN_PROVIDERS:
+        # Scaled-content gate: below the minimum the page does not exist.
+        raise HTTPException(status_code=404, detail="trade_below_minimum")
+
+    parent_label, _ = cat_queries.CATEGORY_DISPLAY[trade_pages.TRADE_PARENT_SLUG]
+    page_path = f"/categories/{trade_pages.TRADE_PARENT_SLUG}/{trade_obj.slug}"
+
+    breadcrumb_jsonld: dict[str, Any] = {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": absolute_url("/home"),
+            },
+            {
+                "@type": "ListItem",
+                "position": 2,
+                "name": parent_label,
+                "item": absolute_url(f"/categories/{trade_pages.TRADE_PARENT_SLUG}"),
+            },
+            {
+                "@type": "ListItem",
+                "position": 3,
+                "name": trade_obj.label,
+                "item": absolute_url(page_path),
+            },
+        ],
+    }
+    # D4: a plain ItemList of the listed businesses — names + URLs only, no
+    # nested LocalBusiness payloads and explicitly NO AggregateRating.
+    itemlist_jsonld: dict[str, Any] = {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "name": f"{trade_obj.label} in Lake Havasu City, AZ",
+        "numberOfItems": total,
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": idx,
+                "name": prov.provider_name,
+                "url": absolute_url(f"/provider/{prov.slug}"),
+            }
+            for idx, prov in enumerate(providers, start=1)
+            if prov.slug
+        ],
+    }
+
+    label_lower = trade_obj.label.lower()
+    faqs = [
+        (
+            q.format(
+                n=total,
+                label=trade_obj.label,
+                label_lower=label_lower,
+                singular=trade_obj.singular,
+            ),
+            a.format(
+                n=total,
+                label=trade_obj.label,
+                label_lower=label_lower,
+                singular=trade_obj.singular,
+            ),
+        )
+        for q, a in trade_obj.faqs
+    ]
+
+    return templates.TemplateResponse(
+        request=request,
+        name="category_trade.html",
+        context={
+            "today_label": now.strftime("%A, %B ") + str(now.day),
+            "now_label": now.strftime("%I:%M %p").lstrip("0"),
+            "parent_slug": trade_pages.TRADE_PARENT_SLUG,
+            "parent_label": parent_label,
+            "trade_slug": trade_obj.slug,
+            "trade_label": trade_obj.label,
+            "trade_count": total,
+            "trade_intro": trade_obj.intro,
+            "trade_faqs": faqs,
+            "category_cards": cards,
+            "breadcrumb_jsonld": breadcrumb_jsonld,
+            "itemlist_jsonld": itemlist_jsonld,
+            "active_tab": cat_queries.active_tab_for(trade_pages.TRADE_PARENT_SLUG),
+            "primary_nav": home_sandstone.primary_nav(),
+            "mega_columns": home_sandstone.mega_columns(db),
+            "utility_chips": _home_utility_chips(db),
+        },
     )
 
 
