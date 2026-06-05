@@ -182,3 +182,75 @@ def test_plural_page_shows_subcategory_chips(client: TestClient) -> None:
             db.execute(delete(Provider).where(Provider.entity_id == eid))
             db.execute(delete(Entity).where(Entity.id == eid))
             db.commit()
+
+
+# --- type-token precedence (2026-06-04 category patrol fixes) -----------------
+#
+# The patrol's first real prod sweep flagged 365 rows, most caused by two bugs
+# in _subcat_from_types: (1) rule order was the outer loop, so a generic early
+# rule matching a noisy google_categories token outvoted a specific later rule
+# matching the primary type; (2) the bare "store" needle substring-matched every
+# "*_store" type. Tokens are now decisive in signal order (primary, sub_trades,
+# categories array) and "store" matches exactly.
+
+
+@pytest.mark.parametrize(
+    "kwargs,expected",
+    [
+        # primary type outranks generic array tokens (was: specialty)
+        (
+            {
+                "category": "auto",
+                "google_primary_category": "car_dealer",
+                "google_categories": ["car_dealer", "store", "point_of_interest"],
+            },
+            "auto",
+        ),
+        # "store" no longer substring-swallows specific *_store types
+        ({"category": "x", "google_primary_category": "auto_parts_store"}, "auto"),
+        ({"category": "x", "google_primary_category": "pet_store"}, "pets"),
+        # explicit *_store rules still win
+        ({"category": "x", "google_primary_category": "book_store"}, "specialty"),
+        # unmatched *_store primaries stay shops instead of falling through to
+        # incidental array tokens (atm/finance -> professional was the bug)
+        (
+            {
+                "category": "shopping",
+                "google_primary_category": "convenience_store",
+                "google_categories": ["convenience_store", "atm", "finance"],
+            },
+            "specialty",
+        ),
+        ({"category": "x", "google_primary_category": "jewelry_store"}, "specialty"),
+        # bare "store" still matches exactly
+        ({"category": "x", "google_primary_category": "store"}, "specialty"),
+        # curated sub_trades outrank the categories array
+        (
+            {
+                "category": "x",
+                "google_categories": ["store"],
+                "attributes": {"sub_trades": ["plumber"]},
+            },
+            "home-services",
+        ),
+        # patrol regression guards
+        ({"category": "x", "google_primary_category": "gift_shop"}, "specialty"),
+        ({"category": "x", "google_primary_category": "juice_shop"}, "quick-bites"),
+    ],
+)
+def test_type_token_precedence(kwargs: dict, expected: str | None) -> None:
+    assert derive_subcategory(**kwargs) == expected
+
+
+def test_primary_category_follows_fixed_subcategory() -> None:
+    from app.categories.subcategories import derive_primary_category
+
+    assert (
+        derive_primary_category(
+            category="auto",
+            subcategory=None,
+            google_primary_category="car_dealer",
+            google_categories=["car_dealer", "store", "point_of_interest"],
+        )
+        == "auto-rv-fuel"
+    )
