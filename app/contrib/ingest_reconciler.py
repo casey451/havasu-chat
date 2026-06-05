@@ -169,11 +169,18 @@ def reconcile_hit(db: Session, payload: EntityPayload) -> ReconcileResult:
             )
 
     if payload.lat is not None and payload.lng is not None:
+        # T3.1: bounding-box prefilter in SQL so we stop hauling every Location
+        # row into Python for a haversine pass. ~50m is < 0.001 deg lat and
+        # < 0.0012 deg lng at 34°N; use a comfortably wider 0.002 box — the
+        # exact haversine check below is unchanged and still decides.
+        _box = 0.002
         candidates = (
             db.query(Location)
             .filter(
                 Location.lat.isnot(None),
                 Location.lng.isnot(None),
+                Location.lat.between(payload.lat - _box, payload.lat + _box),
+                Location.lng.between(payload.lng - _box, payload.lng + _box),
             )
             .all()
         )
