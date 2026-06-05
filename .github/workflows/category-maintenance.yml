@@ -14,6 +14,9 @@ name: category-maintenance
 #   clear-stale-flags          NULL category_flagged_at on flags older than
 #                              stale_before (mirrors the admin Resolve button;
 #                              same pattern as the 2026-06-05 session)
+#   set-primary                single-row manual reassignment: set provider_id's
+#                              primary_category to new_primary and clear its
+#                              flag (mirrors admin reassign + Resolve)
 
 on:
   workflow_dispatch:
@@ -29,6 +32,7 @@ on:
           - backfill-subcategory
           - backfill-primary-category
           - clear-stale-flags
+          - set-primary
       apply:
         description: "Write to the database (approved, attended run)"
         type: boolean
@@ -43,6 +47,14 @@ on:
         default: ""
       name_like:
         description: "inspect: case-insensitive substring to match provider_name"
+        type: string
+        default: ""
+      provider_id:
+        description: "set-primary: Provider.id to update"
+        type: string
+        default: ""
+      new_primary:
+        description: "set-primary: canonical primary slug to assign"
         type: string
         default: ""
 
@@ -178,6 +190,52 @@ jobs:
             echo "DRY RUN — no writes."
             python scripts/backfill_primary_category.py
           fi
+
+      - name: Set primary category (single row)
+        if: ${{ inputs.task == 'set-primary' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          APPLY: ${{ inputs.apply }}
+          PROVIDER_ID: ${{ inputs.provider_id }}
+          NEW_PRIMARY: ${{ inputs.new_primary }}
+        shell: python
+        run: |
+          import os
+          import sys
+
+          sys.path.insert(0, os.getcwd())
+
+          from app.categories.subcategories import PRIMARY_CATEGORY_SLUGS
+          from app.db.database import SessionLocal
+          from app.db.models import Provider
+
+          pid = (os.environ.get("PROVIDER_ID") or "").strip()
+          slug = (os.environ.get("NEW_PRIMARY") or "").strip()
+          apply = (os.environ.get("APPLY") or "").strip() == "true"
+
+          if not pid or not slug:
+              raise SystemExit("::error::set-primary requires provider_id and new_primary inputs")
+          if slug not in PRIMARY_CATEGORY_SLUGS:
+              raise SystemExit(
+                  f"::error::{slug!r} is not a canonical primary slug: {sorted(PRIMARY_CATEGORY_SLUGS)}"
+              )
+
+          with SessionLocal() as db:
+              p = db.get(Provider, pid)
+              if p is None:
+                  raise SystemExit(f"::error::no provider with id {pid!r}")
+              print(
+                  f"{p.provider_name}: primary {p.primary_category!r} -> {slug!r}"
+                  f" | flag={p.category_flagged_at} conf={p.category_confidence}"
+                  " (flag cleared on apply — mirrors admin Resolve)"
+              )
+              if apply:
+                  p.primary_category = slug
+                  p.category_flagged_at = None
+                  db.commit()
+                  print("APPLIED")
+              else:
+                  print("DRY RUN — no writes")
 
       - name: Clear stale flags
         if: ${{ inputs.task == 'clear-stale-flags' }}
