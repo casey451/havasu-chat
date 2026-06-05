@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from app.providers.view_models import HavaCardViewModel
 
 from app.contrib.hours_helper import places_hours_to_structured
+from app.core.address import street_line
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
 from app.db.models import Entity, EntityCategory, Event, Hours, Provider
 from app.home.queries import CATEGORY_LABELS, LEGACY_PROVIDER_CATEGORY_LABELS
@@ -326,6 +327,10 @@ def derive_postal_address(provider: Provider) -> Optional[dict]:
         street = _clean_address(provider.address)
     if not street:
         return None
+    # The stored address is the FULL formatted string ("123 Main St, Lake
+    # Havasu City, AZ 86403"); streetAddress must carry only the street line or
+    # the JSON-LD (and the NAP line built from these parts) repeats city/state.
+    street = street_line(street) or street
     out: dict = {
         "street": street,
         "city": (loc.city if loc is not None and loc.city else "Lake Havasu City"),
