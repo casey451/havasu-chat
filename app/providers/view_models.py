@@ -82,6 +82,7 @@ class ProviderProfileVM:
     service_area: list[str] = field(default_factory=list)
     service_area_only: bool = False
     address: Optional[str] = None
+    postal_address: Optional[dict] = None
 
     hours_structured: Optional[dict] = None
     hours_freetext: Optional[str] = None
@@ -224,6 +225,7 @@ def build(
         service_area=service_area,
         service_area_only=service_area_only,
         address=None if service_area_only else queries.derive_display_address(provider),
+        postal_address=None if service_area_only else queries.derive_postal_address(provider),
         hours_structured=hours_structured,
         hours_freetext=hours_freetext,
         district_chip_name=district_chip_name,
