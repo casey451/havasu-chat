@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import unittest
 from datetime import date, datetime, time
 from datetime import datetime as _dt
 from unittest.mock import patch
@@ -872,3 +873,49 @@ def test_open_now_legacy_freetext_closed_includes_open_time(db: Session) -> None
     assert out is not None
     assert "Closed right now" in out
     assert "opens at 10 AM" in out
+
+
+class AboutCardTests(unittest.TestCase):
+    """Zero-token entity-about answers ('tell me about X') from catalog columns."""
+
+    def _provider(self, **kw):
+        from app.db.models import Provider
+
+        defaults = dict(
+            provider_name="Mudshark Brewery and Public House",
+            category="restaurant",
+            google_primary_category="Brewery",
+            google_rating=4.6,
+            google_review_count=454,
+            address="210 Swanson Ave, Lake Havasu City, AZ",
+            phone="(928) 453-9302",
+        )
+        defaults.update(kw)
+        return Provider(**defaults)
+
+    def test_full_card(self) -> None:
+        from app.chat.tier1_handler import _render_about_card
+
+        out = _render_about_card(self._provider())
+        assert out is not None
+        self.assertIn("Mudshark Brewery and Public House — Brewery.", out)
+        self.assertIn("4.6 (454 reviews) on Google.", out)
+        self.assertIn("210 Swanson Ave", out)
+        self.assertIn("(928) 453-9302.", out)
+
+    def test_minimal_card_skips_missing_fields(self) -> None:
+        from app.chat.tier1_handler import _render_about_card
+
+        out = _render_about_card(
+            self._provider(
+                google_rating=None, google_review_count=None, address=None, phone=None
+            )
+        )
+        self.assertEqual(out, "Mudshark Brewery and Public House — Brewery.")
+
+    def test_no_category_falls_through(self) -> None:
+        from app.chat.tier1_handler import _render_about_card
+
+        self.assertIsNone(
+            _render_about_card(self._provider(google_primary_category=None, category=None))
+        )
