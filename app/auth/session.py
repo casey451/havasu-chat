@@ -12,7 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from app.admin.auth import _admin_password_from_env
+from app.admin.auth import _LOCAL_DEFAULT, _admin_password_from_env
 from app.bootstrap_env import ensure_dotenv_loaded
 from app.db.database import SessionLocal
 from app.db.models import AuthSession, User
@@ -31,7 +31,24 @@ _LAST_SEEN_MONO: dict[str, float] = {}
 
 
 def _session_secret() -> str:
+    """Resolve the session-cookie signing secret.
+
+    Fail-closed in production and decoupled from the admin password (T1.3):
+    prod (``RAILWAY_ENVIRONMENT`` set, via ``cookie_secure_in_prod()``) requires
+    a distinct, non-default ``HAVA_SESSION_SECRET`` and refuses to fall back to
+    the admin password or the ``changeme`` default — otherwise user session
+    cookies would be forgeable. Local/test keeps the admin-password fallback
+    for convenience (unchanged behavior).
+    """
     raw = (os.environ.get("HAVA_SESSION_SECRET") or "").strip()
+    if cookie_secure_in_prod():
+        if not raw or raw == _LOCAL_DEFAULT:
+            raise RuntimeError(
+                "HAVA_SESSION_SECRET must be set to a distinct, non-default value "
+                "in production (RAILWAY_ENVIRONMENT is set); refusing to sign "
+                "session cookies with the admin password or the 'changeme' default."
+            )
+        return raw
     if raw:
         return raw
     return _admin_password_from_env()
