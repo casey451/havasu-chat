@@ -158,6 +158,7 @@ _TYPE_TO_SUBCAT: tuple[tuple[str, str], ...] = (
     ("meal_takeaway", "quick-bites"),
     ("meal_delivery", "quick-bites"),
     ("ice_cream", "quick-bites"),
+    ("juice", "quick-bites"),
     ("restaurant", "restaurants"),
     ("diner", "restaurants"),
     # recreation
@@ -200,6 +201,7 @@ _TYPE_TO_SUBCAT: tuple[tuple[str, str], ...] = (
     ("grocery", "markets"),
     ("supermarket", "markets"),
     ("farmers_market", "markets"),
+    ("gift", "specialty"),
     ("sporting_goods", "specialty"),
     ("book_store", "specialty"),
     ("store", "specialty"),
@@ -518,24 +520,60 @@ def derive_primary_category(
 def _iter_type_tokens(
     primary: str | None, categories: Any, sub_trades: Iterable[str] | None
 ) -> Iterable[str]:
+    # Signal-priority order — now decisive in _subcat_from_types: the specific
+    # primary type first, then curated sub_trades, then the generic-laden
+    # google_categories array.
     if primary:
         yield str(primary).lower()
-    if isinstance(categories, list):
-        for c in categories:
-            yield str(c).lower()
     if sub_trades:
         for s in sub_trades:
             yield str(s).lower()
+    if isinstance(categories, list):
+        for c in categories:
+            yield str(c).lower()
+
+
+# Generic catch-all tokens that only count when a type IS the token, not when it
+# merely contains it. Without this, the bare "store" rule swallows every
+# specific *_store type that appears later in the table ("auto_parts_store" ->
+# specialty instead of auto, "pet_store" -> specialty instead of pets; prod bug
+# surfaced by the 2026-06-04 category patrol: 365 flags, mostly this).
+_EXACT_ONLY_NEEDLES = frozenset({"store"})
+
+
+def _match_subcat(tok: str) -> str | None:
+    """First _TYPE_TO_SUBCAT hit for a single type token, or None."""
+    for needle, slug in _TYPE_TO_SUBCAT:
+        if needle in _EXACT_ONLY_NEEDLES:
+            if tok == needle:
+                return slug
+        elif needle in tok:
+            return slug
+    return None
 
 
 def _subcat_from_types(
     primary: str | None, categories: Any, sub_trades: Iterable[str] | None
 ) -> str | None:
-    tokens = list(_iter_type_tokens(primary, categories, sub_trades))
-    for needle, slug in _TYPE_TO_SUBCAT:
-        for tok in tokens:
-            if needle in tok:
-                return slug
+    """Token tiers are decisive: the specific ``google_primary_category`` is
+    consulted against the whole rule table before curated sub_trades, and both
+    before the noisy ``google_categories`` array. Previously the RULE order was
+    the outer loop, so a generic early rule matched against an array token could
+    outvote a specific later rule matching the primary type ("car_dealer" +
+    ["store", ...] filed as specialty/shopping instead of auto; 2026-06-04
+    category patrol flagged 105 such rows).
+    """
+    primary_lower = str(primary).lower() if primary else None
+    for tok in _iter_type_tokens(primary, categories, sub_trades):
+        hit = _match_subcat(tok)
+        if hit:
+            return hit
+        # A *_store primary type with no specific rule (convenience_store,
+        # jewelry_store, toy_store, ...) is still definitively a shop — file it
+        # as specialty rather than letting incidental array tokens (atm,
+        # finance, tourist_attraction) drag it into another bucket.
+        if tok == primary_lower and tok.endswith("_store"):
+            return "specialty"
     return None
 
 
