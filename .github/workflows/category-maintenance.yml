@@ -1,0 +1,239 @@
+name: category-maintenance
+
+# Attended, gated maintenance dispatches for category data hygiene.
+# Companion to category-patrol.yml — same secrets, same CLAUDE.md discipline:
+# prod writes are dry-run -> counts -> Casey approval -> apply. Every task here
+# defaults to a DRY RUN (or is read-only); apply=true is the approved,
+# attended write. No schedule — workflow_dispatch only.
+#
+# Tasks:
+#   counts                     read-only: provider totals + flag histogram
+#   inspect                    read-only: rows whose name matches name_like
+#   backfill-subcategory       scripts/backfill_subcategory.py
+#   backfill-primary-category  scripts/backfill_primary_category.py
+#   clear-stale-flags          NULL category_flagged_at on flags older than
+#                              stale_before (mirrors the admin Resolve button;
+#                              same pattern as the 2026-06-05 session)
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "Maintenance task"
+        type: choice
+        required: true
+        default: counts
+        options:
+          - counts
+          - inspect
+          - backfill-subcategory
+          - backfill-primary-category
+          - clear-stale-flags
+      apply:
+        description: "Write to the database (approved, attended run)"
+        type: boolean
+        default: false
+      stale_before:
+        description: "clear-stale-flags: clear flags strictly older than this UTC ISO timestamp (e.g. 2026-06-06T16:31:24+00:00)"
+        type: string
+        default: ""
+      expected:
+        description: "clear-stale-flags: abort unless exactly this many rows match (safety assert)"
+        type: string
+        default: ""
+      name_like:
+        description: "inspect: case-insensitive substring to match provider_name"
+        type: string
+        default: ""
+
+jobs:
+  maintenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Guard secrets
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "::error::DATABASE_URL secret is empty — refusing to run (would fall back to local SQLite, not prod)."
+            exit 1
+          fi
+
+      - name: Counts (read-only)
+        if: ${{ inputs.task == 'counts' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        shell: python
+        run: |
+          import os
+          import sys
+
+          sys.path.insert(0, os.getcwd())
+
+          from sqlalchemy import func
+
+          from app.db.database import SessionLocal
+          from app.db.models import Provider
+
+          with SessionLocal() as db:
+              total = db.query(func.count(Provider.id)).scalar()
+              active = (
+                  db.query(func.count(Provider.id))
+                  .filter(Provider.is_active.is_(True), Provider.draft.is_(False))
+                  .scalar()
+              )
+              flagged = (
+                  db.query(func.count(Provider.id))
+                  .filter(Provider.category_flagged_at.is_not(None))
+                  .scalar()
+              )
+              print(f"providers={total}")
+              print(f"active_nondraft={active}")
+              print(f"flagged={flagged}")
+              print("flag confidence histogram:")
+              hist = (
+                  db.query(Provider.category_confidence, func.count(Provider.id))
+                  .filter(Provider.category_flagged_at.is_not(None))
+                  .group_by(Provider.category_confidence)
+                  .order_by(Provider.category_confidence.desc())
+                  .all()
+              )
+              for conf, n in hist:
+                  print(f"  {conf}: {n}")
+              print(f"flagged_at min={db.query(func.min(Provider.category_flagged_at)).scalar()}")
+              print(f"flagged_at max={db.query(func.max(Provider.category_flagged_at)).scalar()}")
+
+      - name: Inspect providers by name (read-only)
+        if: ${{ inputs.task == 'inspect' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NAME_LIKE: ${{ inputs.name_like }}
+        shell: python
+        run: |
+          import os
+          import sys
+
+          sys.path.insert(0, os.getcwd())
+
+          from app.db.database import SessionLocal
+          from app.db.models import Provider
+
+          needle = (os.environ.get("NAME_LIKE") or "").strip()
+          if not needle:
+              raise SystemExit("::error::inspect requires the name_like input")
+
+          with SessionLocal() as db:
+              rows = (
+                  db.query(Provider)
+                  .filter(Provider.provider_name.ilike(f"%{needle}%"))
+                  .limit(25)
+                  .all()
+              )
+              print(f"matched {len(rows)} rows (limit 25) for {needle!r}")
+              for p in rows:
+                  print(
+                      f"- {p.provider_name} | id={p.id} | primary={p.primary_category}"
+                      f" | sub={p.subcategory} | legacy={p.category}"
+                      f" | g_primary={p.google_primary_category}"
+                      f" | flagged_at={p.category_flagged_at} conf={p.category_confidence}"
+                      f" | active={p.is_active} draft={p.draft}"
+                  )
+
+      - name: Backfill subcategory
+        if: ${{ inputs.task == 'backfill-subcategory' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.apply }}" = "true" ]; then
+            echo "APPLY mode (manual, approved) — writing."
+            python scripts/backfill_subcategory.py
+          else
+            echo "DRY RUN — no writes."
+            python scripts/backfill_subcategory.py --dry-run
+          fi
+
+      - name: Backfill primary category
+        if: ${{ inputs.task == 'backfill-primary-category' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.apply }}" = "true" ]; then
+            echo "APPLY mode (manual, approved) — writing."
+            python scripts/backfill_primary_category.py --apply
+          else
+            echo "DRY RUN — no writes."
+            python scripts/backfill_primary_category.py
+          fi
+
+      - name: Clear stale flags
+        if: ${{ inputs.task == 'clear-stale-flags' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          APPLY: ${{ inputs.apply }}
+          STALE_BEFORE: ${{ inputs.stale_before }}
+          EXPECTED: ${{ inputs.expected }}
+        shell: python
+        run: |
+          import os
+          import sys
+          from datetime import datetime
+
+          sys.path.insert(0, os.getcwd())
+
+          from app.db.database import SessionLocal
+          from app.db.models import Provider
+
+          raw = (os.environ.get("STALE_BEFORE") or "").strip()
+          if not raw:
+              raise SystemExit(
+                  "::error::clear-stale-flags requires the stale_before input (UTC ISO timestamp)"
+              )
+          before = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+          apply = (os.environ.get("APPLY") or "").strip() == "true"
+          expected_raw = (os.environ.get("EXPECTED") or "").strip()
+
+          with SessionLocal() as db:
+              rows = (
+                  db.query(Provider)
+                  .filter(Provider.category_flagged_at.is_not(None))
+                  .all()
+              )
+              # tz-defensive: compare naive-to-naive if the DB returns naive datetimes
+              cmp_before = before
+              sample = rows[0].category_flagged_at if rows else None
+              if sample is not None and sample.tzinfo is None and before.tzinfo is not None:
+                  cmp_before = before.replace(tzinfo=None)
+              stale = [p for p in rows if p.category_flagged_at < cmp_before]
+              print(f"flags total={len(rows)}; stale (flagged_at < {raw}) = {len(stale)}")
+              for p in stale[:25]:
+                  print(
+                      f"  {p.provider_name}: flagged_at={p.category_flagged_at}"
+                      f" conf={p.category_confidence}"
+                  )
+              if len(stale) > 25:
+                  print(f"  ... and {len(stale) - 25} more")
+              if expected_raw and len(stale) != int(expected_raw):
+                  raise SystemExit(
+                      f"::error::expected {expected_raw} stale rows, found {len(stale)} — aborting"
+                  )
+              if apply:
+                  for p in stale:
+                      p.category_flagged_at = None
+                  db.commit()
+                  print(f"APPLIED: cleared {len(stale)} stale flags")
+              else:
+                  print("DRY RUN — no writes")
