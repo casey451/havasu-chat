@@ -47,12 +47,28 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
+          set -euo pipefail
+          # Fail loudly on a misconfigured run instead of silently scanning the
+          # local SQLite fallback (app/db/database.py defaults to it when
+          # DATABASE_URL is empty) or no-opping with no key. Both bit us on the
+          # first live run: a missing secret produced a confusing "scanned 0".
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "::error::DATABASE_URL secret is empty — refusing to run (would fall back to local SQLite, not prod)."
+            exit 1
+          fi
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "::error::OPENAI_API_KEY secret is empty — the gpt-4o-mini classifier cannot run."
+            exit 1
+          fi
           if [ "${{ github.event.inputs.apply }}" = "true" ]; then
             echo "APPLY mode (manual, approved) — writing flags."
             python scripts/category_patrol.py --apply --threshold 0.85
           else
             echo "DRY RUN — emitting candidate report, no writes."
-            python scripts/category_patrol.py --json --threshold 0.85 | tee category_flags_report.json
+            # Redirect (not `| tee`) so a script failure fails the step. With tee
+            # the pipeline exit status is tee's, so a hard error still went green.
+            python scripts/category_patrol.py --json --threshold 0.85 > category_flags_report.json
+            cat category_flags_report.json
           fi
 
       - name: Upload candidate report
