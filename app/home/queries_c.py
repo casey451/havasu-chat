@@ -33,9 +33,10 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import case
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
+from app.core.liveness import DAMPENER_FLOOR
 from app.db.models import Provider
 from app.home.queries import _hours_status, _provider_image_url
 
@@ -299,14 +300,24 @@ def _rating_sort_key():
     Tiered: providers at/above ``MIN_RATING_REVIEWS`` rank ahead of those
     below it (or with no reviews), then by rating desc, then by review count
     desc. Stops single-review 5.0s from topping a rating-sorted grid.
+
+    The rating term is scaled by the liveness dampener (``FLOOR + (1 - FLOOR)
+    * COALESCE(liveness_score, 1)`` — SQL mirror of
+    :func:`app.core.liveness.liveness_dampener`), so a stale-but-once-popular
+    listing sinks within its tier instead of riding its old rating forever
+    (bury, never remove). NULL liveness (non-Google rows / backfill pending)
+    leaves the ordering unchanged; NULL ratings still sort last.
     """
     qualified = case(
         (Provider.google_review_count >= MIN_RATING_REVIEWS, 1),
         else_=0,
     )
+    dampener = DAMPENER_FLOOR + (1.0 - DAMPENER_FLOOR) * func.coalesce(
+        Provider.liveness_score, 1.0
+    )
     return (
         qualified.desc(),
-        Provider.google_rating.desc().nullslast(),
+        (Provider.google_rating * dampener).desc().nullslast(),
         Provider.google_review_count.desc().nullslast(),
     )
 
