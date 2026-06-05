@@ -14,6 +14,10 @@
 {% set _seo_desc = _about if _about else (_name ~ " on Ask Hava, Lake Havasu City's local directory.") %}
 {% block title %}{{ _name }} — Ask Hava{% endblock %}
 {% block meta_description %}{{ _seo_desc | meta_desc(160) }}{% endblock %}
+{% block og_type %}business.business{% endblock %}
+{% block og_title %}{{ _name }}{% endblock %}
+{% block og_description %}{{ _seo_desc | meta_desc(200) }}{% endblock %}
+{% block og_image %}{% if vm.hero_photo_url %}{{ vm.hero_photo_url }}{% else %}{{ super() }}{% endif %}{% endblock %}
 
 {% block head_extra %}
 <link rel="stylesheet" href="/static/styles/sandstone_profile.css">
@@ -24,10 +28,7 @@
    canonical + og:url come from sandstone_base (P1.0: absolute https from the
    BASE_URL origin) — previously this emitted a bare ``request.url`` that leaked
    an http:// canonical behind Railway's TLS-terminating proxy. #}
-<meta property="og:type" content="business.business">
-<meta property="og:title" content="{{ _name }}">
-<meta property="og:description" content="{{ _seo_desc | meta_desc(200) }}">
-{% if vm.hero_photo_url %}<meta property="og:image" content="{{ vm.hero_photo_url }}">{% endif %}
+
 <script type="application/ld+json">{{ {
   "@context": "https://schema.org",
   "@type": "LocalBusiness",

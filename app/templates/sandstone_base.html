@@ -13,6 +13,14 @@
   {% if canonical_url is defined %}
   <link rel="canonical" href="{{ canonical_url(request) }}">
   <meta property="og:url" content="{{ canonical_url(request) }}">
+  {# SEO P1.9: complete og tag set on every page. Child templates override the
+     blocks (provider pages: business type + hero photo; events: event type).
+     og:image default is the home hero — an absolute URL, as scrapers require. #}
+  <meta property="og:site_name" content="Ask Hava">
+  <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+  <meta property="og:title" content="{% block og_title %}{{ self.title() }}{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}{{ self.meta_description() }}{% endblock %}">
+  <meta property="og:image" content="{% block og_image %}{{ absolute_url('/static/img/home-hero.jpg') }}{% endblock %}">
   {% endif %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
