@@ -177,6 +177,27 @@ def find_duplicate(
     target_dt = datetime.combine(start_date, start_time_obj) if start_time_obj else None
     norm = normalize_event_title(normalized_title)
 
+    def _within_window(cand: Event) -> bool:
+        if target_dt and cand.start_time:
+            cand_dt = datetime.combine(cand.date, cand.start_time)
+            return abs((target_dt - cand_dt).total_seconds()) <= (
+                DEDUP_DATETIME_WINDOW_MINUTES * 60
+            )
+        return True
+
+    # T3.1 fast path: most duplicates are *exact* normalized-title matches
+    # (same scraper, same source). One dict build replaces a token_sort_ratio
+    # call per candidate; the fuzzy loop below stays as the fallback for
+    # near-miss titles.
+    by_norm: dict[str, list[Event]] = {}
+    for cand in candidates:
+        by_norm.setdefault(
+            normalize_event_title(cand.normalized_title or cand.title), []
+        ).append(cand)
+    for cand in by_norm.get(norm, ()):
+        if _within_window(cand):
+            return cand
+
     for cand in candidates:
         if (
             fuzz.token_sort_ratio(
