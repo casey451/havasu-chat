@@ -176,8 +176,19 @@ Rules:
 - Choose exactly one slug from the set above, or "none" if the signals are too
   thin to decide.
 - Judge by what the business primarily IS, not incidental attributes.
-- Be conservative: only express high confidence when the signals clearly support
-  the choice. When the current assignment is defensible, agree with it.
+- When the current assignment is defensible, return it rather than inventing a
+  change.
+
+Calibrate ``confidence`` to how clearly the signals point to ONE category. Use
+the full 0.0-1.0 range and grade honestly — do NOT default to a single value
+like 0.9 for every answer:
+- 0.95-1.0  unambiguous: the primary type maps to exactly one slug (e.g.
+            "car_dealer" -> auto-rv-fuel, "dentist" -> health-wellness-care),
+            no plausible alternative.
+- 0.80-0.94 strong, but one defensible alternative exists.
+- 0.60-0.79 genuinely fits two categories; you picked the better one.
+- below 0.60 thin or conflicting signals — prefer "none" over a weak guess.
+Reserve 0.9+ for clear-cut cases only.
 
 Respond with a JSON object only:
 {{"correct_primary": "<slug-or-none>", "confidence": <0.0-1.0>, "reason": "<short>"}}
