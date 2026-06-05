@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.timezone import now_lake_havasu
 from app.db.models import Category, Entity, EntityCategory, Event, Provider
 from app.events.recurrence import occurrences_in_window
 from app.providers import queries as provider_queries
@@ -244,7 +245,9 @@ def venue_events_for_profile(
 ) -> list[HavaCardViewModel]:
     """Upcoming event cards for a provider profile (deduped per logical event)."""
 
-    today = today or date.today()
+    # Lake Havasu date, not the server-local (UTC) date -- date.today() on a
+    # UTC host drops a venue's remaining same-day events after 5 PM Phoenix.
+    today = today or now_lake_havasu().date()
     horizon_end = today + timedelta(days=60)
     venue_entity_id = provider.entity_id
 
