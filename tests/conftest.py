@@ -109,13 +109,15 @@ def _cleanup_test_source_rows() -> None:
         )
 
     with SessionLocal() as db:
+        # Children before Entity so the sweep also works on a pooled SQLite
+        # connection where some prior test left PRAGMA foreign_keys=ON.
+        db.execute(delete(Event).where(_is_test_source(Event.source)))
+        db.execute(delete(Program).where(_is_test_source(Program.source)))
+        db.execute(delete(Provider).where(_is_test_source(Provider.source)))
         ent_ids = list(db.scalars(select(Entity.id).where(_is_test_source(Entity.source))).all())
         if ent_ids:
             db.execute(delete(EntityCategory).where(EntityCategory.entity_id.in_(ent_ids)))
             db.execute(delete(Entity).where(Entity.id.in_(ent_ids)))
-        db.execute(delete(Event).where(_is_test_source(Event.source)))
-        db.execute(delete(Program).where(_is_test_source(Program.source)))
-        db.execute(delete(Provider).where(_is_test_source(Provider.source)))
         db.commit()
 
 
