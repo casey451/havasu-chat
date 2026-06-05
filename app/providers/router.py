@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
@@ -49,11 +49,18 @@ def _viewer_owns_provider(db: Session, *, current_user: User | None, provider: P
     return claim is not None
 
 
-@router.get("/provider/{slug}", response_class=HTMLResponse)
+@router.get("/provider/{slug}", response_class=HTMLResponse, response_model=None)
 def serve_provider_profile(
     slug: str, request: Request, db: Session = Depends(get_db)
-) -> HTMLResponse:
+) -> HTMLResponse | RedirectResponse:
     provider = queries.get_provider_by_slug(db, slug)
+    # P1.10: a provider merged away by the duplicate-slug op carries
+    # attributes.merged_into_slug -> permanent redirect to the survivor so
+    # old links/bookmarks/SERP entries keep working.
+    if provider is not None and not provider.is_active:
+        merged_into = (provider.attributes or {}).get("merged_into_slug")
+        if merged_into and merged_into != slug:
+            return RedirectResponse(url=f"/provider/{merged_into}", status_code=301)
     # 404 covers both missing rows and soft-hidden ones (is_active=False,
     # draft=True). End-users see the standard 404 surface; merchant
     # onboarding is a separate flow.
