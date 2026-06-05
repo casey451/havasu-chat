@@ -30,7 +30,10 @@ ruleset is a normal code change; the patrol picks it up on its next run.
 
 ## Status
 
-Exemplars present: `professional-services`, `health-wellness-care`. The remaining
-11 are authored in follow-up once the format + patrol behavior are confirmed
-against a dry-run sample. The patrol runs with whatever rulesets exist; missing
-ones just mean weaker guidance for that bucket, not a failure.
+All 13 canonical primaries have a ruleset. `professional-services` and
+`health-wellness-care` are the fuller exemplars (the most error-prone buckets,
+~250 words); the rest are tighter (~120-150 words). A test
+(`tests/test_category_patrol.py`) asserts every slug in `PRIMARY_CATEGORY_SLUGS`
+has a file, so a new primary can't silently ship without guidance. The patrol
+runs with whatever rulesets exist; a missing one just means weaker guidance for
+that bucket, not a failure.

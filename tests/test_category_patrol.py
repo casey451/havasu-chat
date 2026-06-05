@@ -44,6 +44,13 @@ def test_load_rulesets_real_dir_has_exemplars() -> None:
     assert all(slug in PRIMARY_CATEGORY_SLUGS for slug in rs)
 
 
+def test_every_primary_has_a_ruleset() -> None:
+    """Totality guard: a new primary category can't ship without guidance."""
+    rs = cp.load_rulesets()
+    missing = set(PRIMARY_CATEGORY_SLUGS) - set(rs)
+    assert not missing, f"primaries with no ruleset: {sorted(missing)}"
+
+
 def test_load_rulesets_ignores_non_slug_files(tmp_path) -> None:
     (tmp_path / "professional-services.md").write_text("pro rules", encoding="utf-8")
     (tmp_path / "not-a-category.md").write_text("junk", encoding="utf-8")
