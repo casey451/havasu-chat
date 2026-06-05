@@ -562,10 +562,54 @@ def render_correction_template(intent_result: IntentResult, raw_query: str) -> s
     return CORRECTION_TEMPLATE
 
 
+def _render_about_card(provider: Provider) -> str | None:
+    """Deterministic one-liner for entity-about turns ("tell me about X").
+
+    2026-06-04 follow-up to the zero-token routing fix: with the entity matcher
+    now resolving "tell me about Mudshark Brewery", the turn reached Tier 2's
+    LLM formatter (~2.3k tokens) to say what the catalog already knows. This
+    renders the same facts free: name, category, Google rating, address, phone.
+    Sentence fragments are skipped when the column is empty -- minimum viable
+    answer is "{name} -- {category}." Returns None when even that is missing so
+    the caller falls through (gap/near-match paths own unknowns).
+    """
+    name = (provider.provider_name or "").strip()
+    if not name:
+        return None
+    cat = (provider.google_primary_category or "").strip() or (provider.category or "").strip()
+    if not cat:
+        return None
+    parts = [f"{name} — {cat.replace('_', ' ').title()}."]
+    if provider.google_rating is not None:
+        n = provider.google_review_count or 0
+        parts.append(f"{provider.google_rating:.1f} ({n} reviews) on Google.")
+    addr = (provider.address or "").strip()
+    if addr:
+        parts.append(f"{addr}.")
+    phone = (provider.phone or "").strip()
+    if phone:
+        parts.append(f"{phone}.")
+    return " ".join(parts)
+
+
 def try_tier1(query: str, intent_result: IntentResult, db: Session) -> str | None:
     """Return a Tier 1 response string, or ``None`` to fall through to Tier 3."""
     if intent_result.entity is None:
         return None
+
+    # Entity-about turns ("tell me about X", "who is X", "info on X") with a
+    # matched entity: answer from catalog columns, zero tokens. Checked before
+    # the sub-intent gate because the classifier labels these OPEN_ENDED.
+    from app.chat.entity_matcher import is_entity_about_query
+
+    if is_entity_about_query(query):
+        provider = _get_provider(db, intent_result.entity)
+        if provider is not None:
+            about = _render_about_card(provider)
+            if about is not None:
+                return _append_voice(about, provider)
+        return None
+
     sub = intent_result.sub_intent
     if sub not in _TIER1_SUB_INTENTS:
         return None
