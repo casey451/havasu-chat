@@ -7,9 +7,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.db.database import SessionLocal
-from app.groups import themed_groups as tg
-from app.home import browse_tiles
 from app.main import app
 
 _EXPECTED_TILE_ORDER: tuple[tuple[str, str, str], ...] = (
@@ -42,34 +39,6 @@ def test_home_calendar_param_still_serves_sandstone(client: TestClient) -> None:
         r = client.get(f"/home{qs}")
         assert r.status_code == 200
         assert "/static/styles/sandstone.css" in r.text
-
-
-def test_browse_tile_specs_match_themed_groups_dict() -> None:
-    group_slugs = {s.slug for s in browse_tiles.browse_tile_specs() if s.kind == "group"}
-    assert group_slugs == set(tg.THEMED_GROUPS.keys())
-
-
-def test_build_browse_tiles_count_labels_match_db() -> None:
-    with SessionLocal() as db:
-        tiles = browse_tiles.build_browse_tiles(db)
-    assert len(tiles) == 9
-    with SessionLocal() as db:
-        for tile, (kind, slug, _href) in zip(tiles, _EXPECTED_TILE_ORDER, strict=True):
-            assert tile["tile_kind"] == kind
-            assert tile["tile_slug"] == slug
-            if kind == "group":
-                cats = tg.get_categories_for_group(slug)
-                raw = browse_tiles.count_entities_for_category_slugs(db, cats)
-            else:
-                raw = browse_tiles.count_entities_for_category_slugs(db, [slug])
-            assert tile["tile_count"] == browse_tiles.format_tile_count_label(raw)
-            assert tile["tile_count_raw"] == raw
-
-
-def test_format_tile_count_cap() -> None:
-    assert browse_tiles.format_tile_count_label(199) == "199 businesses"
-    assert browse_tiles.format_tile_count_label(200) == "200+ businesses"
-    assert browse_tiles.format_tile_count_label(500) == "200+ businesses"
 
 
 def test_themed_tile_partial_exists() -> None:

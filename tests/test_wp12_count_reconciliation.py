@@ -37,7 +37,6 @@ from app.categories.queries import (
 from app.core.timezone import LAKE_HAVASU_TZ
 from app.db.database import SessionLocal
 from app.db.models import Entity, Provider
-from app.home import browse_tiles
 from app.main import app
 
 _NOW = datetime(2026, 1, 5, 14, 0, 0, tzinfo=LAKE_HAVASU_TZ)
@@ -148,13 +147,13 @@ def test_home_tile_count_matches_canonical_and_explore() -> None:
     try:
         with SessionLocal() as db:
             canonical = category_listing_count(db, {_PRIMARY})
-            # Home browse tiles count the SAME category via the canonical helper.
-            home_tile = browse_tiles.count_entities_for_category_slugs(db, [_PRIMARY])
-            # Explore plural header total (its listing's basis).
+            # T3.4: browse_tiles (Lake Light home) was removed with the dead-code
+            # sweep; its count helper was a straight delegate to
+            # category_listing_count, so the home-tile leg of this reconciliation
+            # is now the canonical count itself. Explore/Map legs still verify.
             _cards, explore_total = category_listing(
                 db, _PRIMARY, now=_NOW, facets=CategoryFacets(sort="alpha"), limit=500
             )
-        assert home_tile == canonical
         assert explore_total == canonical
         assert canonical >= 6
     finally:
