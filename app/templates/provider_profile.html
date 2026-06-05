@@ -13,7 +13,7 @@
 {% set _about = clean_about(vm.description) if vm.description else '' %}
 {% set _seo_desc = _about if _about else (_name ~ " on Ask Hava, Lake Havasu City's local directory.") %}
 {% block title %}{{ _name }} — Ask Hava{% endblock %}
-{% block meta_description %}{{ _seo_desc | truncate(160, true, '') }}{% endblock %}
+{% block meta_description %}{{ _seo_desc | meta_desc(160) }}{% endblock %}
 
 {% block head_extra %}
 <link rel="stylesheet" href="/static/styles/sandstone_profile.css">
@@ -26,7 +26,7 @@
    an http:// canonical behind Railway's TLS-terminating proxy. #}
 <meta property="og:type" content="business.business">
 <meta property="og:title" content="{{ _name }}">
-<meta property="og:description" content="{{ _seo_desc | truncate(200, true, '') }}">
+<meta property="og:description" content="{{ _seo_desc | meta_desc(200) }}">
 {% if vm.hero_photo_url %}<meta property="og:image" content="{{ vm.hero_photo_url }}">{% endif %}
 <script type="application/ld+json">{{ {
   "@context": "https://schema.org",

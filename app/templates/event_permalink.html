@@ -9,7 +9,7 @@
      ({base_url}/events/{id}) built in the route, so reuse it here. #}
   <link rel="canonical" href="{{ og_url }}">
   <meta property="og:title" content="{{ event_title }}">
-  <meta property="og:description" content="{{ og_description }}">
+  <meta property="og:description" content="{{ og_description | meta_desc(200) }}">
   <meta property="og:url" content="{{ og_url }}">
   {% if image_url %}<meta property="og:image" content="{{ image_url }}">{% endif %}
   {# DL-15: event detail moves onto the Sandstone Fraunces/Figtree font stack
