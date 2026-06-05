@@ -27,6 +27,12 @@ MAX_AGE_SECONDS = 60 * 60 * 24 * 30  # 30 days
 SESSION_LIFETIME_SECONDS = 60 * 60 * 24 * 30
 LAST_SEEN_DEBOUNCE_SECONDS = 60
 
+# T2.2: the debounce map only needs ~LAST_SEEN_DEBOUNCE_SECONDS of memory, but it
+# was never pruned — it grew one entry per unique session id over the whole
+# process lifetime (unbounded leak). Prune expired entries once the map crosses
+# this soft cap so its size is bounded by concurrent active sessions, not history.
+_LAST_SEEN_MAX_ENTRIES = 10_000
+
 _LAST_SEEN_MONO: dict[str, float] = {}
 
 
@@ -78,11 +84,21 @@ def cookie_secure_in_prod() -> bool:
     return bool((os.environ.get("RAILWAY_ENVIRONMENT") or "").strip())
 
 
+def _prune_last_seen(now_mono: float) -> None:
+    """Drop debounce entries older than the window — they can never debounce again."""
+    cutoff = now_mono - LAST_SEEN_DEBOUNCE_SECONDS
+    stale = [sid for sid, ts in _LAST_SEEN_MONO.items() if ts < cutoff]
+    for sid in stale:
+        del _LAST_SEEN_MONO[sid]
+
+
 def _should_bump_last_seen(session_id: str) -> bool:
     mono = time.monotonic()
     last = _LAST_SEEN_MONO.get(session_id)
     if last is not None and mono - last < LAST_SEEN_DEBOUNCE_SECONDS:
         return False
+    if len(_LAST_SEEN_MONO) >= _LAST_SEEN_MAX_ENTRIES:
+        _prune_last_seen(mono)
     _LAST_SEEN_MONO[session_id] = mono
     return True
 
