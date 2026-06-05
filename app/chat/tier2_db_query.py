@@ -89,8 +89,14 @@ _MONTH_TO_INT = {
 
 
 def _today() -> date:
-    """Calendar \"today\" for catalog date filters (monkeypatch in tests)."""
-    return date.today()
+    """Lake Havasu calendar \"today\" for catalog date filters (monkeypatch in tests).
+
+    Must be the America/Phoenix date, not the server-local (UTC in prod) date:
+    ``date.today()`` rolls to tomorrow at 5 PM Phoenix on a UTC host, so evening
+    \"what's happening today\" queries fetched the wrong day's events while the
+    component builders labeled the answer with the Phoenix date.
+    """
+    return _now_lake_havasu().date()
 
 
 def _is_postgres(db: Session) -> bool:

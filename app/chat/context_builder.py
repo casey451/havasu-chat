@@ -252,7 +252,9 @@ def build_context_and_rows_for_tier3(
     """
     _ = query
     _ = chat_ctx
-    today = date.today()
+    # Lake Havasu date, not the server-local (UTC) date -- date.today() on a
+    # UTC host hides the rest of *today's* events from Tier 3 context after 5 PM.
+    today = now_lake_havasu().date()
     entities = _fetch_entity_rows(db, intent_result.entity)
     if entities:
         flag_on = is_confidence_tier_enabled()

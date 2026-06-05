@@ -159,6 +159,16 @@ _TYPE_TO_SUBCAT: tuple[tuple[str, str], ...] = (
     ("meal_delivery", "quick-bites"),
     ("ice_cream", "quick-bites"),
     ("juice", "quick-bites"),
+    # Food trucks match ONLY on the full "food_truck"/"food truck" bigram —
+    # never a bare "truck" token. Prod bug (2026-06-05): "A Toe Truck" (a
+    # towing company swept up by the food_drink discovery sweep's "food
+    # trucks" keyword) carried legacy category="food_drink" and, with no
+    # specific type rule, fell through to the legacy tier and filed as
+    # restaurants/eat-drink. The tow/roadside rules below (services block)
+    # now classify it at the stronger type tier; this bigram keeps genuine
+    # food trucks in the food bucket.
+    ("food_truck", "quick-bites"),
+    ("food truck", "quick-bites"),
     ("restaurant", "restaurants"),
     ("diner", "restaurants"),
     # recreation
@@ -219,6 +229,16 @@ _TYPE_TO_SUBCAT: tuple[tuple[str, str], ...] = (
     ("pest_control", "home-services"),
     ("painter", "home-services"),
     ("car_repair", "auto"),
+    # Tow / roadside trades are decisively AUTO at the type tier. Without
+    # these rules a tow company had NO type-tier hit, so its (often wrong)
+    # legacy discovery-domain category decided the bucket — the "A Toe
+    # Truck in Eat & Drink" prod bug. The specific trade signal must beat
+    # the coarse legacy label.
+    ("towing", "auto"),
+    ("tow_truck", "auto"),
+    ("tow truck", "auto"),
+    ("wrecker", "auto"),
+    ("roadside", "auto"),
     ("auto", "auto"),
     ("tire", "auto"),
     ("car_wash", "auto"),
