@@ -79,9 +79,9 @@ def test_category_page_canonical_drops_facets(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("BASE_URL", _BASE)
-    r = client.get("/category/eat-drink?cuisine=mexican")
+    r = client.get("/category/eat-drink?cuisine=mexican")  # 301 -> plural (P1.1)
     assert r.status_code == 200
-    assert _canonicals(r.text) == [f"{_BASE}/category/eat-drink"]
+    assert _canonicals(r.text) == [f"{_BASE}/categories/eat-drink"]
 
 
 def test_provider_page_canonical_is_https_absolute(

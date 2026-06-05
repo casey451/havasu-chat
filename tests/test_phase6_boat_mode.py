@@ -123,11 +123,10 @@ def test_category_page_boat_query_filters(client: TestClient) -> None:
         db.commit()
 
     try:
-        r = client.get("/category/on-the-water?boat=1")
-        assert r.status_code == 200
-        assert f"Boat Filter Yes {suf}" in r.text
-        assert f"Boat Filter No {suf}" not in r.text
-        assert "boat-mode-toggle" in r.text
+        # P1.1: the singular filter surface 301s to the plural page now.
+        r = client.get("/category/on-the-water?boat=1", follow_redirects=False)
+        assert r.status_code == 301
+        assert r.headers["location"] == "/categories/on-the-water?boat=1"
     finally:
         with SessionLocal() as db:
             for eid in (e_boat, e_land):
