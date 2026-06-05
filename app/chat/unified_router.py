@@ -156,10 +156,16 @@ _RECOMMENDATION_SHAPED = re.compile(
     # like "what are the hours for X" (asking for one specific entity's hours, gap-eligible).
     # The listing shortcut handles legitimate "what are some restaurants" cases.
     r"^\s*("
-    r"where\s+should\s+i|"
-    r"where\s+can\s+i\s+find|"
-    r"where\s+can\s+i\s+get|"
-    r"what\s+should\s+i|"
+    r"where\s+should\s+(?:i|we)|"
+    r"where\s+can\s+(?:i|we)\s+find|"
+    r"where\s+can\s+(?:i|we)\s+get|"
+    # 2026-06-04: rent/hire/book/charter are recommendation shapes too -- "where can
+    # i rent a boat" was falling into the single-entity near-match gap path and
+    # answering with one provider's street address.
+    r"where\s+can\s+(?:i|we)\s+(?:rent|hire|book|charter)|"
+    r"where\s+do\s+(?:i|we)\s+(?:rent|hire|book|charter)|"
+    r"what\s+should\s+(?:i|we)|"
+    r"what(?:'s|\s+is)\s+a\s+good|"
     r"best\s+(?:place|spot|restaurant|cafe|bar)|"
     r"good\s+(?:place|spot|restaurant|cafe|bar)"
     r")\b",

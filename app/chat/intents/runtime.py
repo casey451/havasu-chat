@@ -175,7 +175,33 @@ def try_intent_layer(
     if entity and entity.strip():
         return None
     if sub_intent and sub_intent in _ENTITY_FACTUAL_SUBINTENTS:
-        return None
+        # 2026-06-04: the factual-subintent guard protects single-ENTITY lookups
+        # ("where is mudshark"), but the classifier also labels recommendation
+        # shapes LOCATION_LOOKUP ("where should we stay") -- those have no entity
+        # and a category listing is the right zero-token answer. Only hold the
+        # guard when the turn isn't recommendation-shaped.
+        try:
+            from app.chat.unified_router import _RECOMMENDATION_SHAPED
+
+            if not _RECOMMENDATION_SHAPED.match(query or ""):
+                return None
+        except Exception:
+            logger.exception("intent_layer: recommendation-shape probe failed")
+            return None
+    # 2026-06-04: about-shaped turns ("tell me about X", "who is X", "info on X")
+    # are about ONE named thing. When the entity matcher resolved the name, the
+    # entity guard above already fired; when it did NOT (unknown or fuzzy-missed
+    # entity), claiming the turn as a category listing answers a different
+    # question -- prod served "Here's what's good to eat." for "tell me about
+    # Mudshark Brewery" via the cuisine token "brewery". Fall through so the
+    # entity-aware path (Tier 1 / near-match / gap template) owns it.
+    try:
+        from app.chat.entity_matcher import is_entity_about_query
+
+        if is_entity_about_query(query):
+            return None
+    except Exception:
+        logger.exception("intent_layer: about-shape guard failed")
     try:
         resolved = resolve(query)
     except Exception:

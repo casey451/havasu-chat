@@ -811,3 +811,58 @@ class EntityMatcherAmbiguityTests(unittest.TestCase):
         self.assertEqual(hit[0], "Mudshark Brewing Company")
         self.assertIsNotNone(resolution)
         self.assertFalse(ambiguous)
+
+
+class ConversationalLeadInTests(unittest.TestCase):
+    """2026-06-04 zero-token routing fix: natural lead-ins must not defeat matching.
+
+    Production failure mode: "whats the phone number for Mudshark Brewery"
+    (normalized to "what is the ...") never matched any _QUERY_INTENT_PREFIX
+    alternative, so the entity was never isolated, Tier 1 missed, and the query
+    burned ~4k tokens on the LLM path while the lead-in-free phrasing answered
+    free. DB-free via match_entity_with_rows.
+    """
+
+    _CANON = "Mudshark Brewery and Public House"
+    _OTHERS = ["The Foundry Grill", "Double Threat Barbering Co"]
+
+    def test_whats_the_phone_number_lead_in(self) -> None:
+        m = match_entity_with_rows(
+            "whats the phone number for Mudshark Brewery", [self._CANON, *self._OTHERS]
+        )
+        assert m is not None
+        self.assertEqual(m[0], self._CANON)
+
+    def test_what_is_the_lead_in(self) -> None:
+        m = match_entity_with_rows(
+            "what is the phone number for mudshark brewery", [self._CANON, *self._OTHERS]
+        )
+        assert m is not None
+        self.assertEqual(m[0], self._CANON)
+
+    def test_tell_me_about_shape(self) -> None:
+        m = match_entity_with_rows("tell me about Mudshark Brewery", [self._CANON, *self._OTHERS])
+        assert m is not None
+        self.assertEqual(m[0], self._CANON)
+
+    def test_vocative_plus_lead_in_composes(self) -> None:
+        m = match_entity_with_rows(
+            "hey, what are the hours for mudshark brewery", [self._CANON, *self._OTHERS]
+        )
+        assert m is not None
+        self.assertEqual(m[0], self._CANON)
+
+    def test_can_you_tell_me_the_website_for(self) -> None:
+        m = match_entity_with_rows(
+            "can you tell me the website for the foundry", ["The Foundry Grill", self._CANON]
+        )
+        assert m is not None
+        self.assertEqual(m[0], "The Foundry Grill")
+
+    def test_generic_listing_query_still_misses(self) -> None:
+        # Stripping must not create matches for category/recommendation shapes.
+        self.assertIsNone(
+            match_entity_with_rows(
+                "what is the best restaurant in town", [self._CANON, *self._OTHERS]
+            )
+        )

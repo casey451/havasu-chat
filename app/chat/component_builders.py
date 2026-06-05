@@ -716,9 +716,12 @@ def fallback_week_strip_voice(rows: list[dict[str, Any]], window: tuple[date, da
     else:
         day_phrase = f"{_spell_count(m)} days"
 
+    # "one things" -> "one thing" (singular n)
+    thing_word = "thing" if n == 1 else "things"
+
     if location_clause:
-        return f"This week's {descriptor} — {word} things across {day_phrase}, {location_clause}."
-    return f"This week's {descriptor} — {word} things across {day_phrase}."
+        return f"This week's {descriptor} — {word} {thing_word} across {day_phrase}, {location_clause}."
+    return f"This week's {descriptor} — {word} {thing_word} across {day_phrase}."
 
 
 # ─────────── card_row builder ───────────
