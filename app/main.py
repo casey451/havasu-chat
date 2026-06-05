@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import (
     HTMLResponse,
@@ -28,6 +28,7 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -557,7 +558,20 @@ from app.seo.urls import _coerce_https  # noqa: F401 — re-export for back-comp
 from app.seo.urls import base_url as _base_url
 
 _SITEMAP_TTL_SECONDS = 3600
-_sitemap_cache: tuple[float, str] | None = None
+# P1.6 — /sitemap.xml is a sitemap *index* referencing per-section child
+# sitemaps (pages / providers / events) so each section can scale and carry
+# honest <lastmod> values:
+#   - pages: static surfaces carry no lastmod (they rarely change; advertising
+#     "today" every day told crawlers everything churned daily). Category pages
+#     use the max Provider.updated_at of their member categories.
+#   - providers: Provider.updated_at (as before).
+#   - events: Event.created_at (no updated_at column).
+# Each section is cached independently for one hour (same TTL/shape rationale
+# as the original single-document cache). ``_sitemap_cache`` keys are section
+# names; tests reset the whole dict between cases.
+_sitemap_cache: dict[str, tuple[float, str]] = {}
+
+_SITEMAP_SECTIONS = ("pages", "providers", "events")
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
@@ -566,11 +580,12 @@ def robots_txt() -> PlainTextResponse:
     return PlainTextResponse(body)
 
 
-def _sitemap_url_entry(loc: str, lastmod: str) -> str:
+def _sitemap_url_entry(loc: str, lastmod: str | None = None) -> str:
+    lastmod_line = f"    <lastmod>{lastmod}</lastmod>\n" if lastmod else ""
     return (
         "  <url>\n"
         f"    <loc>{html.escape(loc, quote=False)}</loc>\n"
-        f"    <lastmod>{lastmod}</lastmod>\n"
+        f"{lastmod_line}"
         "  </url>\n"
     )
 
@@ -584,16 +599,31 @@ def _format_lastmod(value: datetime | None, *, today_iso: str) -> str:
         return today_iso
 
 
-def _build_sitemap_xml() -> str:
-    base = _base_url()
-    today_iso = datetime.now(timezone.utc).date().isoformat()
+def _iso_or_none(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    try:
+        return value.date().isoformat()
+    except Exception:
+        return None
 
+
+def _wrap_urlset(entries: list[str]) -> str:
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + "".join(entries)
+        + "</urlset>\n"
+    )
+
+
+def _build_sitemap_pages_xml() -> str:
+    base = _base_url()
     entries: list[str] = []
 
     # Static surfaces. /home is the canonical editorial home; bare / 301s to it
-    # and so is intentionally NOT listed. /about, /help, /contact (WP-1 trust
-    # pages) and /events.ics live behind sibling packets — their routes mount
-    # post-merge, but the URLs are stable strings and safe to advertise now.
+    # and so is intentionally NOT listed. No <lastmod>: these are stable pages
+    # and the element is optional — omitting beats fabricating daily churn.
     static_paths = (
         "/home",
         "/chat",
@@ -608,13 +638,40 @@ def _build_sitemap_xml() -> str:
         "/contact",
     )
     for path in static_paths:
-        entries.append(_sitemap_url_entry(f"{base}{path}", today_iso))
+        entries.append(_sitemap_url_entry(f"{base}{path}"))
 
-    # Category routes — every key in CATEGORY_FILTERS gets a /categories/<slug>.
-    for slug in CATEGORY_FILTERS:
-        entries.append(_sitemap_url_entry(f"{base}/categories/{slug}", today_iso))
+    # Category routes — real lastmod: the newest Provider.updated_at among the
+    # member legacy categories, omitted when the aggregate is unavailable.
+    latest_by_category: dict[str, datetime] = {}
+    try:
+        with SessionLocal() as db:
+            rows = (
+                db.query(Provider.category, func.max(Provider.updated_at))
+                .filter(
+                    Provider.is_active.is_(True),
+                    Provider.draft.is_(False),
+                )
+                .group_by(Provider.category)
+                .all()
+            )
+        latest_by_category = {cat: ts for cat, ts in rows if cat and ts is not None}
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.warning("sitemap: category lastmod aggregation failed: %s", exc)
 
-    # Active, non-draft providers with a slug.
+    for slug, member_categories in CATEGORY_FILTERS.items():
+        stamps = [
+            latest_by_category[cat] for cat in member_categories if cat in latest_by_category
+        ]
+        lastmod = _iso_or_none(max(stamps)) if stamps else None
+        entries.append(_sitemap_url_entry(f"{base}/categories/{slug}", lastmod))
+
+    return _wrap_urlset(entries)
+
+
+def _build_sitemap_providers_xml() -> str:
+    base = _base_url()
+    today_iso = datetime.now(timezone.utc).date().isoformat()
+    entries: list[str] = []
     try:
         with SessionLocal() as db:
             providers = (
@@ -637,8 +694,13 @@ def _build_sitemap_xml() -> str:
             )
     except Exception as exc:  # pragma: no cover — defensive
         logger.warning("sitemap: provider enumeration failed: %s", exc)
+    return _wrap_urlset(entries)
 
-    # Live events — Event has no updated_at column, so fall back to created_at.
+
+def _build_sitemap_events_xml() -> str:
+    base = _base_url()
+    today_iso = datetime.now(timezone.utc).date().isoformat()
+    entries: list[str] = []
     try:
         with SessionLocal() as db:
             events = db.query(Event.id, Event.created_at).filter(Event.status == "live").all()
@@ -651,30 +713,57 @@ def _build_sitemap_xml() -> str:
             )
     except Exception as exc:  # pragma: no cover — defensive
         logger.warning("sitemap: event enumeration failed: %s", exc)
+    return _wrap_urlset(entries)
 
+
+_SITEMAP_BUILDERS = {
+    "pages": _build_sitemap_pages_xml,
+    "providers": _build_sitemap_providers_xml,
+    "events": _build_sitemap_events_xml,
+}
+
+
+def _build_sitemap_index_xml() -> str:
+    base = _base_url()
+    refs = "".join(
+        f"  <sitemap>\n    <loc>{base}/sitemap-{section}.xml</loc>\n  </sitemap>\n"
+        for section in _SITEMAP_SECTIONS
+    )
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        + "".join(entries)
-        + "</urlset>\n"
+        '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + refs
+        + "</sitemapindex>\n"
     )
 
 
-def _get_cached_sitemap_xml() -> str:
-    global _sitemap_cache  # noqa: PLW0603 — module-level cache by design
+def _get_cached_sitemap_xml(section: str) -> str:
     now = datetime.now(timezone.utc).timestamp()
-    cache = _sitemap_cache
+    cache = _sitemap_cache.get(section)
     if cache is not None and (now - cache[0]) < _SITEMAP_TTL_SECONDS:
         return cache[1]
-    xml = _build_sitemap_xml()
-    _sitemap_cache = (now, xml)
+    if section == "index":
+        xml = _build_sitemap_index_xml()
+    else:
+        xml = _SITEMAP_BUILDERS[section]()
+    _sitemap_cache[section] = (now, xml)
     return xml
 
 
 @app.get("/sitemap.xml")
 def sitemap_xml() -> Response:
     return Response(
-        content=_get_cached_sitemap_xml(),
+        content=_get_cached_sitemap_xml("index"),
+        media_type="application/xml",
+    )
+
+
+@app.get("/sitemap-{section}.xml")
+def sitemap_section_xml(section: str) -> Response:
+    if section not in _SITEMAP_SECTIONS:
+        raise HTTPException(status_code=404, detail="unknown_sitemap")
+    return Response(
+        content=_get_cached_sitemap_xml(section),
         media_type="application/xml",
     )
 
