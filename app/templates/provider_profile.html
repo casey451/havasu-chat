@@ -36,7 +36,19 @@
   "description": _seo_desc,
   "image": vm.hero_photo_url,
   "telephone": vm.call_phone_display,
-  "address": vm.address,
+  "address": ({
+    "@type": "PostalAddress",
+    "streetAddress": vm.postal_address.street,
+    "addressLocality": vm.postal_address.city,
+    "addressRegion": vm.postal_address.state,
+    "postalCode": vm.postal_address.get("zip"),
+    "addressCountry": "US",
+  } if vm.postal_address else vm.address),
+  "geo": ({
+    "@type": "GeoCoordinates",
+    "latitude": vm.postal_address.lat,
+    "longitude": vm.postal_address.lng,
+  } if vm.postal_address and vm.postal_address.get("lat") is not none else None),
   "priceRange": None,
   "aggregateRating": ({
     "@type": "AggregateRating",
@@ -154,7 +166,9 @@
     <div>
       <div class="side">
         <h4>Good to know</h4>
-        {% if vm.address %}<div class="row">📍 {{ vm.address }}</div>{% endif %}
+        {% if vm.postal_address %}
+        <address class="row nap" style="font-style:normal">📍 {{ vm.postal_address.street }}, {{ vm.postal_address.city }}, {{ vm.postal_address.state }}{% if vm.postal_address.get('zip') %} {{ vm.postal_address.zip }}{% endif %}</address>
+        {% elif vm.address %}<div class="row">📍 {{ vm.address }}</div>{% endif %}
         {% if vm.call_phone_display %}<div class="row">📞 <a href="tel:{{ vm.call_phone }}" style="color:var(--accent)">{{ vm.call_phone_display }}</a></div>{% endif %}
         {% if vm.website_url and not vm.show_claim_cta %}<div class="row">🔗 <a href="{{ vm.website_url }}" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">Website</a></div>{% endif %}
         {% if vm.service_area_only and vm.service_area %}<div class="row">🗺️ Serves: {{ vm.service_area|join(', ') }}</div>{% endif %}

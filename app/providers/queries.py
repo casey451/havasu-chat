@@ -309,6 +309,36 @@ def derive_display_address(provider: Provider) -> Optional[str]:
     return _clean_address(provider.address)
 
 
+def derive_postal_address(provider: Provider) -> Optional[dict]:
+    """Structured schema.org PostalAddress parts + geo for the profile (P1.7).
+
+    Sourced from the entity Location row when present (street/city/state/zip
+    are real columns there). City/state default to Lake Havasu City, AZ —
+    this is a single-city directory, and the Location importer only stores
+    in-town rows. Returns None when there is no street at all (service-area
+    businesses render no NAP block).
+    """
+    loc = getattr(getattr(provider, "entity", None), "location", None)
+    street = None
+    if loc is not None and loc.address:
+        street = _clean_address(loc.address)
+    if not street:
+        street = _clean_address(provider.address)
+    if not street:
+        return None
+    out: dict = {
+        "street": street,
+        "city": (loc.city if loc is not None and loc.city else "Lake Havasu City"),
+        "state": (loc.state if loc is not None and loc.state else "AZ"),
+    }
+    if loc is not None and loc.zip:
+        out["zip"] = loc.zip
+    if loc is not None and loc.lat is not None and loc.lng is not None:
+        out["lat"] = loc.lat
+        out["lng"] = loc.lng
+    return out
+
+
 _WEEKDAY_KEYS_STRUCT = (
     "monday",
     "tuesday",
