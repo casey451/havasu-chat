@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
@@ -48,7 +49,7 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _init_test_database() -> None:
+def _init_test_database() -> Generator[None, None, None]:
     """Run Alembic migrations once per session against the session test database."""
     from app.db.database import init_db
 
@@ -70,60 +71,90 @@ def _init_test_database() -> None:
 _MODULE_SEED_SOURCE = "phase34-test"
 
 
-def _cleanup_test_source_rows() -> None:
-    """Delete Event/Entity/Program/Provider rows created under a test source.
+def _snapshot_row_ids() -> dict[str, set[str]]:
+    """Snapshot existing Provider/Program/Entity/Event ids before a test runs."""
+    from sqlalchemy import select
 
-    History: this started as a curated list of phase-7 seed sources, but the
-    curated list kept missing newcomers — under ``pytest -n`` the worker-local
-    interleaving changes, and Events/Entities/Programs from one test module
-    leak into another's window/cap/catalog assertions (e.g.
-    ``test_tier2_db_query``'s June 2026 ``tier2-test`` events landing inside
-    ``test_oneoffs_fill_before_recurring_under_cap``'s this-week window). All
-    test-created rows in this suite use a ``source`` that either starts with
-    ``test`` (``test``, ``test-*``, ``test_*``) or ends with ``-test``
-    (``tier2-test``, ``x21-test``, ...), so a two-pattern sweep is both
-    broader and cheaper than the per-source loop it replaces.
+    from app.db.database import SessionLocal
+    from app.db.models import Entity, Event, Program, Provider
+
+    with SessionLocal() as db:
+        return {
+            "provider": set(db.scalars(select(Provider.id)).all()),
+            "program": set(db.scalars(select(Program.id)).all()),
+            "entity": set(db.scalars(select(Entity.id)).all()),
+            "event": set(db.scalars(select(Event.id)).all()),
+        }
+
+
+def _cleanup_new_rows(before: dict[str, set[str]]) -> None:
+    """Delete Provider/Program/Entity/Event rows the finished test created.
+
+    History: this started as a curated list of phase-7 seed sources, then a
+    ``source LIKE 'test%' / '%-test'`` pattern sweep — but both kept missing
+    newcomers. Under ``pytest -n`` the worker-local interleaving changes, and
+    rows from one test module leak into another's window/cap/catalog/matcher
+    assertions. The pattern sweep missed every test that seeds production-like
+    sources: ``test_unified_router`` (Providers with ``source="seed"``),
+    ``test_tier2_routing`` / ``test_phase38_gap_and_hours`` (same), the entity
+    dual-write paths (Entities with ``source="google_places"``), etc. — e.g.
+    ``test_unified_router``'s leftover "Altitude Trampoline Park — Lake Havasu
+    City" Provider made ``test_explicit_bmx_hours_query_still_matches`` match
+    the wrong entity once shuffled into the same worker (T2.4).
+
+    A snapshot diff is source-agnostic: ids present before the test stay, ids
+    created during the test are swept (regardless of what ``source`` the test
+    chose), so no curated list can rot. Inductively the DB then only carries
+    alembic seed rows plus deliberately module-scoped seeds between tests.
 
     Deliberately NOT swept:
 
     * ``phase34-test`` (:data:`_MODULE_SEED_SOURCE`) — module-scoped seed in
-      ``tests/test_ask_mode.py``, cleaned by that module's own teardown.
-    * Non-test sources (``google_places``, ``osm``, ``seed``, ...) — tests
-      using those clean up after themselves with explicit deletes, and the
-      alembic seed rows (categories) carry no source at all.
+      ``tests/test_ask_mode.py``: it is created inside the FIRST test's setup
+      phase (module fixture), so the diff would otherwise reap it after that
+      first test. The module's own teardown removes it.
+    * Other tables (ChatLog, Contribution, ...) — no observed cross-test
+      assertion couples through them; extend the snapshot if one appears.
 
     Entity children (EntityCategory) are bulk-deleted first because the
     SQLite test engine runs with foreign_keys OFF, so ``passive_deletes``
-    cascades never fire.
+    cascades never fire; Event/Program/Provider go before Entity so the sweep
+    also works on a pooled connection where a prior test left PRAGMA
+    foreign_keys=ON.
     """
-    from sqlalchemy import ColumnElement, and_, delete, or_, select
-    from sqlalchemy.orm import InstrumentedAttribute
+    from sqlalchemy import and_, delete, select
 
     from app.db.database import SessionLocal
     from app.db.models import Entity, EntityCategory, Event, Program, Provider
 
-    def _is_test_source(col: InstrumentedAttribute[str]) -> ColumnElement[bool]:
-        return and_(
-            or_(col.like("test%"), col.like("%-test")),
-            col != _MODULE_SEED_SOURCE,
-        )
-
     with SessionLocal() as db:
-        # Children before Entity so the sweep also works on a pooled SQLite
-        # connection where some prior test left PRAGMA foreign_keys=ON.
-        db.execute(delete(Event).where(_is_test_source(Event.source)))
-        db.execute(delete(Program).where(_is_test_source(Program.source)))
-        db.execute(delete(Provider).where(_is_test_source(Provider.source)))
-        ent_ids = list(db.scalars(select(Entity.id).where(_is_test_source(Entity.source))).all())
-        if ent_ids:
-            db.execute(delete(EntityCategory).where(EntityCategory.entity_id.in_(ent_ids)))
-            db.execute(delete(Entity).where(Entity.id.in_(ent_ids)))
+        for model, key in ((Event, "event"), (Program, "program"), (Provider, "provider")):
+            new_ids = set(db.scalars(select(model.id)).all()) - before[key]
+            if new_ids:
+                db.execute(
+                    delete(model).where(
+                        and_(model.id.in_(new_ids), model.source != _MODULE_SEED_SOURCE)
+                    )
+                )
+        new_ent_ids = list(
+            db.scalars(
+                select(Entity.id).where(
+                    and_(
+                        Entity.id.not_in(before["entity"]),
+                        Entity.source != _MODULE_SEED_SOURCE,
+                    )
+                )
+            ).all()
+        )
+        if new_ent_ids:
+            db.execute(delete(EntityCategory).where(EntityCategory.entity_id.in_(new_ent_ids)))
+            db.execute(delete(Entity).where(Entity.id.in_(new_ent_ids)))
         db.commit()
 
 
 @pytest.fixture(autouse=True)
-def _test_source_row_cleanup() -> None:
-    """Remove ``test*``-sourced rows after every test so catalog/window tests stay isolated.
+def _test_source_row_cleanup() -> Generator[None, None, None]:
+    """Remove rows the test created so catalog/window/matcher tests stay isolated.
 
     Also resets the entity-matcher module-level catalog cache (added 2026-05-27,
     v45 session) so the 5-minute TTL on ``_rows_loaded_at`` doesn't carry stale
@@ -133,8 +164,9 @@ def _test_source_row_cleanup() -> None:
     ``tier_used == "gap_template"`` instead of ``"1"`` because a prior test's
     catalog warm masked the freshly-seeded providers).
     """
+    before = _snapshot_row_ids()
     yield
-    _cleanup_test_source_rows()
+    _cleanup_new_rows(before)
     from app.chat.entity_matcher import reset_entity_matcher
 
     reset_entity_matcher()
