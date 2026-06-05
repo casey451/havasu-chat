@@ -107,6 +107,7 @@ module = [
     "app.chat.tier2_schema",
     "app.chat.component_builders",
     "app.chat.unified_router",
+    "app.core.session",
 ]
 ignore_errors = false
 disallow_untyped_defs = true

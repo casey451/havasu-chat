@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 import re
 from datetime import date, datetime, timedelta
-from typing import Any
+from typing import Any, NotRequired, TypedDict
 from urllib.parse import quote
 
 from app.analytics import record_event
@@ -38,6 +38,157 @@ from app.home.queries import _format_phone
 from app.providers.queries import is_open_status_from_structured_hours
 
 logger = logging.getLogger(__name__)
+
+
+# ─────────── component payload shapes (T2.1 part B) ───────────
+#
+# TypedDicts for the OUTPUT payload dicts the builders emit. Keys marked
+# ``NotRequired`` are added conditionally (only when the source row carries
+# data). Input ``rows`` stay ``list[dict[str, Any]]`` — tier2 result rows
+# are produced by several query paths (tier2_db_query, intents/queries,
+# tier3 context rows) and a faithful row TypedDict belongs with those
+# producers; here only the rendered OUTPUT shapes matter.
+
+
+class BusinessListItem(TypedDict):
+    """One provider card in a ``business_list`` component."""
+
+    name: str
+    url: str
+    category: str
+    address_short: str | None
+    directions_url: str | None
+    phone: NotRequired[str]
+    phone_raw: NotRequired[str]
+    rating: NotRequired[float]
+    review_count: NotRequired[int]
+    thumb_url: NotRequired[Any]
+    blurb: NotRequired[str]
+    status: NotRequired[str]
+    status_class: NotRequired[str]
+    status_text: NotRequired[str]
+    spotlight: NotRequired[bool]
+
+
+class BusinessListPayload(TypedDict):
+    """``data`` dict for a ``business_list`` component."""
+
+    category: str
+    total_count: int
+    items: list[BusinessListItem]
+    disclosure: NotRequired[bool]
+
+
+class AgendaItem(TypedDict):
+    """One row in a day agenda (also reused inside ``week_strip.agenda``).
+
+    ``start``/``end`` are omitted for non-event rows (see
+    ``_other_to_agenda_item``); ``range_label`` only appears for
+    multi-day events.
+    """
+
+    title: str
+    venue: str
+    category: str
+    category_warm: bool
+    url: str
+    start: NotRequired[Any]
+    end: NotRequired[Any]
+    range_label: NotRequired[str]
+
+
+class DayAgendaPayload(TypedDict):
+    """``data`` dict for a ``day_agenda`` component."""
+
+    date: str
+    date_label: str
+    events: list[AgendaItem]
+
+
+class WeekDayCell(TypedDict):
+    """One day bucket in the ``week_strip`` 7-day picker."""
+
+    date: str
+    dow: str
+    num: int
+    count: int
+    is_today: bool
+
+
+class WeekStripPayload(TypedDict):
+    """``data`` dict for a ``week_strip`` component."""
+
+    title: str
+    total_count: int
+    days: list[WeekDayCell]
+    selected_date: str
+    agenda: list[AgendaItem]
+
+
+class CardRowItem(TypedDict):
+    """One mini-card in a ``card_row`` component."""
+
+    title: str
+    blurb: str | None
+    meta: str | None
+    image_url: str | None
+    image_alt: str | None
+    url: str
+    category: str
+    category_warm: bool
+
+
+class CardRowPayload(TypedDict):
+    """``data`` dict for a ``card_row`` component."""
+
+    items: list[CardRowItem]
+
+
+class CardFact(TypedDict):
+    """One key/value fact line on a single card."""
+
+    key: str
+    val: str
+    val_url: NotRequired[str]
+
+
+class CardAction(TypedDict):
+    """One action button on a single card."""
+
+    label: str
+    url: str
+    primary: NotRequired[bool]
+
+
+class SingleCardPayload(TypedDict):
+    """``data`` dict for a ``single_card`` (event) component."""
+
+    title: str
+    image_url: str | None
+    image_alt: str | None
+    summary: str
+    category: str
+    category_warm: bool
+    facts: list[CardFact]
+    actions: list[CardAction]
+
+
+class SingleBusinessCardPayload(TypedDict):
+    """``data`` dict for a ``single_business_card`` component."""
+
+    title: str
+    image_url: str | None
+    image_alt: str | None
+    summary: str
+    category: str
+    category_warm: bool
+    status: str
+    status_class: str
+    status_text: str
+    facts: list[CardFact]
+    actions: list[CardAction]
+    spotlight: NotRequired[bool]
+
 
 # v54 Track B — slot_origin tags for analytics_events emitted from this
 # module. ``slot_origin`` is the render-surface dimension (distinct from
@@ -188,7 +339,7 @@ def build_business_list(
     category: str,
     total_count: int,
     intent_query: str | None = None,
-) -> dict[str, Any]:
+) -> BusinessListPayload:
     """Build the ``data`` dict for a ``business_list`` chat component.
 
     Maps tier-2 provider rows into the schema expected by ``renderBusinessList``
@@ -203,7 +354,7 @@ def build_business_list(
             str(r.get("name") or ""),
         )
     )
-    items: list[dict[str, Any]] = []
+    items: list[BusinessListItem] = []
     now = now_lake_havasu()
     any_spotlight = False
     for row in provider_rows[:5]:
@@ -227,7 +378,7 @@ def build_business_list(
     if spotlight_idx is not None and spotlight_idx > 0:
         items.insert(0, items.pop(spotlight_idx))
     cat_label = _pretty_category_label(category)
-    payload: dict[str, Any] = {
+    payload: BusinessListPayload = {
         "category": cat_label,
         "total_count": total_count,
         "items": items,
@@ -244,7 +395,7 @@ def _pretty_category_label(category: str) -> str:
     return plural.title() if plural.islower() else plural
 
 
-def _provider_row_to_business_item(row: dict[str, Any], *, now: Any) -> dict[str, Any] | None:
+def _provider_row_to_business_item(row: dict[str, Any], *, now: Any) -> BusinessListItem | None:
     # CLUSTER-08 name hygiene: strip vendor marketing tails (anything after
     # the first "|") before the name reaches the component payload so the
     # chat API surface carries clean names.
@@ -260,7 +411,7 @@ def _provider_row_to_business_item(row: dict[str, Any], *, now: Any) -> dict[str
     status_class, status_text = _open_status_for_row(row, now=now)
     rating = row.get("google_rating")
     review_count = row.get("google_review_count")
-    item: dict[str, Any] = {
+    item: BusinessListItem = {
         "name": name,
         "url": url,
         "category": _trade_category_label(row),
@@ -328,7 +479,7 @@ def _open_status_for_row(row: dict[str, Any], *, now: Any) -> tuple[str, str]:
 # ─────────── day_agenda builder ───────────
 
 
-def build_day_agenda(filters: Tier2Filters, rows: list[dict[str, Any]]) -> dict[str, Any]:
+def build_day_agenda(filters: Tier2Filters, rows: list[dict[str, Any]]) -> DayAgendaPayload:
     """Build the ``data`` dict for a ``day_agenda`` component.
 
     Mirrors the schema in BUILD.md "Answer rendering contract":
@@ -362,7 +513,7 @@ def build_day_agenda(filters: Tier2Filters, rows: list[dict[str, Any]]) -> dict[
     # morning/afternoon/evening grouping reads cleanly.
     events_in.sort(key=lambda r: (r.get("start_time") or "99:99", r.get("name") or ""))
 
-    out_events: list[dict[str, Any]] = []
+    out_events: list[AgendaItem] = []
     for r in events_in:
         out_events.append(_event_to_agenda_item(r))
     for r in other:
@@ -375,7 +526,7 @@ def build_day_agenda(filters: Tier2Filters, rows: list[dict[str, Any]]) -> dict[
     }
 
 
-def _event_to_agenda_item(row: dict[str, Any]) -> dict[str, Any]:
+def _event_to_agenda_item(row: dict[str, Any]) -> AgendaItem:
     """Convert a tier2 event-row dict to an agenda_row item.
 
     Categories: pull a single readable category from tags. Festivals and
@@ -384,7 +535,7 @@ def _event_to_agenda_item(row: dict[str, Any]) -> dict[str, Any]:
     """
     tags = [t for t in (row.get("tags") or []) if isinstance(t, str)]
     category = _pretty_category_from_tags(tags) or "Event"
-    item: dict[str, Any] = {
+    item: AgendaItem = {
         "title": row.get("name") or "",
         "start": row.get("start_time"),
         "end": row.get("end_time"),
@@ -404,7 +555,7 @@ def _event_to_agenda_item(row: dict[str, Any]) -> dict[str, Any]:
     return item
 
 
-def _other_to_agenda_item(row: dict[str, Any]) -> dict[str, Any]:
+def _other_to_agenda_item(row: dict[str, Any]) -> AgendaItem:
     """Best-effort agenda row for non-event types."""
     return {
         "title": row.get("name") or "",
@@ -606,7 +757,7 @@ def resolve_week_window(f: Tier2Filters) -> tuple[date, date]:
     return start, start + timedelta(days=6)
 
 
-def build_week_strip(filters: Tier2Filters, rows: list[dict[str, Any]]) -> dict[str, Any]:
+def build_week_strip(filters: Tier2Filters, rows: list[dict[str, Any]]) -> WeekStripPayload:
     """Build the ``data`` dict for a ``week_strip`` component.
 
     Schema (matches app/static/js/chat-new.js:286 renderer):
@@ -643,7 +794,7 @@ def build_week_strip(filters: Tier2Filters, rows: list[dict[str, Any]]) -> dict[
             continue
         buckets.setdefault(day, []).append(r)
 
-    days_out: list[dict[str, Any]] = []
+    days_out: list[WeekDayCell] = []
     total_count = 0
     for i in range(7):
         d = window_start + timedelta(days=i)
@@ -779,7 +930,7 @@ def is_card_row_query(
     return True
 
 
-def build_card_row(filters: Tier2Filters, rows: list[dict[str, Any]]) -> dict[str, Any]:
+def build_card_row(filters: Tier2Filters, rows: list[dict[str, Any]]) -> CardRowPayload:
     """Build the ``data`` dict for a ``card_row`` component.
 
     Schema (matches app/static/js/chat-new.js:392 renderer):
@@ -822,7 +973,7 @@ def build_card_row(filters: Tier2Filters, rows: list[dict[str, Any]]) -> dict[st
     return {"items": items}
 
 
-def _row_to_card_item(row: dict[str, Any]) -> dict[str, Any]:
+def _row_to_card_item(row: dict[str, Any]) -> CardRowItem:
     """Convert a tier2 row dict to a card_row mini-card item."""
     if row.get("type") == "event":
         tags = [t for t in (row.get("tags") or []) if isinstance(t, str)]
@@ -1076,19 +1227,19 @@ def _format_review_snippet(row: dict[str, Any]) -> str | None:
     return f"{quoted} — {attr}" if attr else quoted
 
 
-def build_single_card(intent_result: IntentResult, row: dict[str, Any]) -> dict[str, Any]:
+def build_single_card(intent_result: IntentResult, row: dict[str, Any]) -> SingleCardPayload:
     """Build the ``data`` dict for a ``single_card`` component."""
     del intent_result
     tags = [t for t in (row.get("tags") or []) if isinstance(t, str)]
     category = _pretty_category_from_tags(tags) or "Event"
     summary = _truncate_summary(str(row.get("description") or ""), 200)
-    facts: list[dict[str, Any]] = []
+    facts: list[CardFact] = []
     when = _format_event_when(row)
     if when:
         facts.append({"key": "When", "val": when})
     venue = str(row.get("location_name") or "").strip()
     if venue:
-        fact: dict[str, Any] = {"key": "Where", "val": venue}
+        fact: CardFact = {"key": "Where", "val": venue}
         maps_url = _maps_directions_url(venue)
         if maps_url:
             fact["val_url"] = maps_url
@@ -1102,7 +1253,7 @@ def build_single_card(intent_result: IntentResult, row: dict[str, Any]) -> dict[
     contact = str(row.get("contact_phone") or row.get("phone") or "").strip()
     if contact:
         facts.append({"key": "Contact", "val": contact})
-    actions: list[dict[str, Any]] = []
+    actions: list[CardAction] = []
     event_url = _event_url(row)
     if event_url:
         actions.append({"label": "Register", "url": event_url, "primary": True})
@@ -1122,7 +1273,9 @@ def build_single_card(intent_result: IntentResult, row: dict[str, Any]) -> dict[
     }
 
 
-def build_single_business_card(intent_result: IntentResult, row: dict[str, Any]) -> dict[str, Any]:
+def build_single_business_card(
+    intent_result: IntentResult, row: dict[str, Any]
+) -> SingleBusinessCardPayload:
     """Build the ``data`` dict for a ``single_business_card`` component."""
     del intent_result
     now = now_lake_havasu()
@@ -1135,12 +1288,12 @@ def build_single_business_card(intent_result: IntentResult, row: dict[str, Any])
     directions_url = _maps_directions_url(address) if address else None
     phone_display, phone_raw = _format_phone(row.get("phone"))
     website = str(row.get("website") or "").strip()
-    facts: list[dict[str, Any]] = []
+    facts: list[CardFact] = []
     hours_block = _format_hours_block(row)
     if hours_block:
         facts.append({"key": "Hours", "val": hours_block})
     if address_short or address:
-        fact: dict[str, Any] = {"key": "Address", "val": address_short or address}
+        fact: CardFact = {"key": "Address", "val": address_short or address}
         if directions_url:
             fact["val_url"] = directions_url
         facts.append(fact)
@@ -1150,14 +1303,14 @@ def build_single_business_card(intent_result: IntentResult, row: dict[str, Any])
     review = _format_review_snippet(row)
     if review:
         facts.append({"key": "Recent review", "val": review})
-    actions: list[dict[str, Any]] = []
+    actions: list[CardAction] = []
     if phone_raw:
         actions.append({"label": "Call", "url": f"tel:{phone_raw}", "primary": True})
     if website:
         actions.append({"label": "Website", "url": website})
     if directions_url:
         actions.append({"label": "Directions", "url": directions_url})
-    payload: dict[str, Any] = {
+    payload: SingleBusinessCardPayload = {
         "title": row.get("name") or "",
         "image_url": _provider_image_url(row),
         "image_alt": row.get("name") or None,

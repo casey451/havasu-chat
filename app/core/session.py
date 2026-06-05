@@ -2,16 +2,94 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Mapping
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, TypedDict
 
 BLOCKING_SESSION_TTL_SEC = 300.0
 IDLE_SESSION_RESET_SEC = 30 * 60
 
-sessions: dict[str, dict[str, Any]] = {}
+
+class SearchSlots(TypedDict):
+    """Search slot memory. Values are legacy/loosely-written (None today)."""
+
+    date_range: Any
+    activity_family: Any
+    audience: Any
+    location_hint: Any
 
 
-def _default_search() -> dict[str, Any]:
+class LastResultSet(TypedDict):
+    ids: list[Any]
+    query_signature: str
+
+
+class SearchState(TypedDict):
+    slots: SearchSlots
+    recent_utterances: list[Any]
+    last_result_set: LastResultSet
+    listing_mode: bool
+    snapshot_stack: list[SearchSlots]
+
+
+class FlowState(TypedDict):
+    current: str | None
+    awaiting: str | None
+    awaiting_since: datetime | None
+
+
+class OnboardingHints(TypedDict):
+    """Onboarding + Phase 6.4 hint memory (quick taps + LLM extraction)."""
+
+    visitor_status: str | None
+    has_kids: bool | None
+    age: int | None
+    location: str | None
+
+
+class PriorEntity(TypedDict):
+    """Last resolved catalog entity for pronoun follow-ups (one deep)."""
+
+    id: str
+    name: str
+    type: str
+    turn_number: int
+
+
+class SessionState(TypedDict, total=False):
+    """In-memory chat session dict.
+
+    ``total=False`` is honest here: sessions are built incrementally —
+    ``get_session`` setdefaults the canonical keys, ``arm_session_blocking``
+    pops ``blocking_mono``, and handler modules historically read keys via
+    ``.get`` with defaults. ``clear_session_state`` writes the full shape.
+    """
+
+    search: SearchState
+    flow: FlowState
+    current_intent: Any
+    partial_event: Any
+    awaiting_confirmation: bool
+    awaiting_duplicate_confirmation: bool
+    duplicate_candidate_event: Any
+    duplicate_match_id: Any
+    awaiting_merge_details: bool
+    awaiting_missing_field: str | None
+    field_retry_counts: dict[str, int]
+    awaiting_review_offer: bool
+    awaiting_optional_contact: bool
+    contact_optional_answered: bool
+    blocking_mono: float | None
+    onboarding_hints: OnboardingHints
+    prior_entity: PriorEntity | None
+    last_activity_at: datetime | None
+    turn_number: int
+
+
+sessions: dict[str, SessionState] = {}
+
+
+def _default_search() -> SearchState:
     return {
         "slots": {
             "date_range": None,
@@ -26,11 +104,11 @@ def _default_search() -> dict[str, Any]:
     }
 
 
-def _default_flow() -> dict[str, Any]:
+def _default_flow() -> FlowState:
     return {"current": None, "awaiting": None, "awaiting_since": None}
 
 
-def _default_onboarding_hints() -> dict[str, Any]:
+def _default_onboarding_hints() -> OnboardingHints:
     """Onboarding + Phase 6.4 hint memory (quick taps + LLM extraction)."""
     return {
         "visitor_status": None,
@@ -40,8 +118,8 @@ def _default_onboarding_hints() -> dict[str, Any]:
     }
 
 
-def any_awaiting_user_reply(session: dict[str, Any]) -> bool:
-    flow = session.get("flow") or {}
+def any_awaiting_user_reply(session: SessionState) -> bool:
+    flow: Mapping[str, Any] = session.get("flow") or {}
     if flow.get("awaiting"):
         return True
     return bool(
@@ -54,21 +132,21 @@ def any_awaiting_user_reply(session: dict[str, Any]) -> bool:
     )
 
 
-def blocking_session_expired(session: dict[str, Any]) -> bool:
+def blocking_session_expired(session: SessionState) -> bool:
     start = session.get("blocking_mono")
     if start is None or not any_awaiting_user_reply(session):
         return False
     return (time.monotonic() - float(start)) > BLOCKING_SESSION_TTL_SEC
 
 
-def arm_session_blocking(session: dict[str, Any]) -> None:
+def arm_session_blocking(session: SessionState) -> None:
     if any_awaiting_user_reply(session):
         session["blocking_mono"] = time.monotonic()
     else:
         session.pop("blocking_mono", None)
 
 
-def _touch_flow_awaiting(session: dict[str, Any], awaiting: str | None) -> None:
+def _touch_flow_awaiting(session: SessionState, awaiting: str | None) -> None:
     flow = session.setdefault("flow", _default_flow())
     flow["awaiting"] = awaiting
     if awaiting:
@@ -77,19 +155,19 @@ def _touch_flow_awaiting(session: dict[str, Any], awaiting: str | None) -> None:
         flow["awaiting_since"] = None
 
 
-def set_flow_awaiting(session: dict[str, Any], awaiting: str | None) -> None:
+def set_flow_awaiting(session: SessionState, awaiting: str | None) -> None:
     _touch_flow_awaiting(session, awaiting)
 
 
-def get_flow(session: dict[str, Any]) -> dict[str, Any]:
+def get_flow(session: SessionState) -> FlowState:
     return session.setdefault("flow", _default_flow())
 
 
-def get_search(session: dict[str, Any]) -> dict[str, Any]:
+def get_search(session: SessionState) -> SearchState:
     return session.setdefault("search", _default_search())
 
 
-def soft_clear_awaits(session: dict[str, Any]) -> None:
+def soft_clear_awaits(session: SessionState) -> None:
     """Clear blocking / clarification awaits; preserve search slots and listing_mode."""
     _touch_flow_awaiting(session, None)
     session["awaiting_confirmation"] = False
@@ -101,7 +179,7 @@ def soft_clear_awaits(session: dict[str, Any]) -> None:
     session.pop("blocking_mono", None)
 
 
-def clear_add_branch(session: dict[str, Any]) -> None:
+def clear_add_branch(session: SessionState) -> None:
     """Remove in-progress add-event state; keep search block."""
     session["partial_event"] = None
     session["awaiting_confirmation"] = False
@@ -116,7 +194,7 @@ def clear_add_branch(session: dict[str, Any]) -> None:
     session["contact_optional_answered"] = False
 
 
-def clear_current_flow(session: dict[str, Any]) -> None:
+def clear_current_flow(session: SessionState) -> None:
     """Soft cancel: drop flow awaits and add draft; keep search memory."""
     soft_clear_awaits(session)
     clear_add_branch(session)
@@ -149,7 +227,7 @@ def clear_session_state(session_id: str) -> None:
     }
 
 
-def get_session(session_id: str) -> dict[str, Any]:
+def get_session(session_id: str) -> SessionState:
     if session_id not in sessions:
         clear_session_state(session_id)
     session = sessions[session_id]
@@ -229,7 +307,7 @@ def record_entity(session_id: str, entity_name: str, turn_number: int, db: Any) 
     }
 
 
-def push_search_snapshot(session: dict[str, Any]) -> None:
+def push_search_snapshot(session: SessionState) -> None:
     """One-level undo stack for search slots (optional use)."""
     search = get_search(session)
     stack = search.setdefault("snapshot_stack", [])

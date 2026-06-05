@@ -47,6 +47,9 @@ from app.chat.tier3_handler import FALLBACK_MESSAGE as _GRACEFUL
 from app.chat.tier3_handler import answer_with_tier3
 from app.core.conditions_temperature import read_current_temperature_f
 from app.core.session import (
+    OnboardingHints,
+    PriorEntity,
+    SessionState,
     get_session,
     record_entity,
     touch_session,
@@ -463,7 +466,7 @@ def _handle_ask(
     intent_result: IntentResult,
     db: Session,
     *,
-    onboarding_hints: dict | None = None,
+    onboarding_hints: OnboardingHints | None = None,
     now_line: str | None = None,
     allow_tier3_fallback: bool = True,
     router_meta: dict | None = None,
@@ -695,7 +698,7 @@ def _handle_chat(
     return _OUT_OF_SCOPE_REPLY
 
 
-def _prior_entity_fresh(session: dict, current_turn: int) -> dict | None:
+def _prior_entity_fresh(session: SessionState, current_turn: int) -> PriorEntity | None:
     pe = session.get("prior_entity")
     if not isinstance(pe, dict):
         return None
@@ -716,7 +719,7 @@ def _enrich_entity_from_db(
     intent_result: IntentResult,
     db: Session,
     *,
-    session: dict | None,
+    session: SessionState | None,
     current_turn: int | None,
 ) -> IntentResult:
     from app.chat.entity_intent import (
@@ -853,7 +856,7 @@ def route(
         return _finish(_GRACEFUL, "ask", None, None, "placeholder", cache_status="na")
 
     raw_sid = (session_id or "").strip()
-    session_obj: dict | None = None
+    session_obj: SessionState | None = None
     current_turn: int | None = None
     if raw_sid:
         try:
@@ -895,7 +898,7 @@ def route(
         except Exception:
             logging.exception("unified_router: record_entity failed")
 
-    onboarding_hints: dict | None = None
+    onboarding_hints: OnboardingHints | None = None
     if raw_sid:
         try:
             raw_hints = get_session(raw_sid).get("onboarding_hints")
