@@ -254,3 +254,101 @@ def test_primary_category_follows_fixed_subcategory() -> None:
         )
         == "auto-rv-fuel"
     )
+
+
+# --- "A Toe Truck" regression (2026-06-05 prod bug) -------------------------
+#
+# A towing company swept up by the food_drink discovery sweep's "food trucks"
+# keyword landed with legacy category="food_drink". With no type-tier rule for
+# tow/roadside trades, derivation fell through to the legacy tier and filed it
+# as restaurants -> eat-drink, where its 999 reviews ranked it the #1
+# "restaurant". The provider's primary trade (towing_service) must beat the
+# coarse discovery-domain label, and "food truck" only counts as the full
+# bigram — never bare "truck".
+
+
+@pytest.mark.parametrize(
+    "kwargs,expected",
+    [
+        # tow company mis-swept into the food_drink domain: type tier wins
+        (
+            {
+                "category": "food_drink",
+                "google_primary_category": "towing_service",
+                "google_categories": ["towing_service", "service", "establishment"],
+            },
+            "auto",
+        ),
+        ({"category": "food", "google_primary_category": "tow_truck_service"}, "auto"),
+        ({"category": "food_drink", "google_primary_category": "roadside_assistance"}, "auto"),
+        # curated tow sub_trades pin it too (no Google type needed)
+        (
+            {"category": "food_drink", "attributes": {"sub_trades": ["towing", "wrecker"]}},
+            "auto",
+        ),
+        # genuine food truck stays food: full bigram, both separators
+        ({"category": "food_drink", "google_primary_category": "food_truck"}, "quick-bites"),
+        (
+            {"category": "x", "attributes": {"sub_trades": ["food truck"]}},
+            "quick-bites",
+        ),
+        # bare "truck" never implies food — unmatched type falls to legacy
+        ({"category": "auto", "google_primary_category": "truck_repair"}, "auto"),
+    ],
+)
+def test_tow_truck_is_not_a_food_truck(kwargs: dict, expected: str | None) -> None:
+    assert derive_subcategory(**kwargs) == expected
+
+
+def test_tow_company_excluded_from_eat_drink_membership() -> None:
+    """End-to-end: a tow company whose NAME contains "truck" and whose legacy
+    category is the food_drink discovery label must not satisfy the eat-drink
+    route filter once classified, while a genuine food truck must."""
+    from app.categories.queries import route_provider_filter
+    from app.categories.subcategories import derive_primary_category
+
+    ids: list[str] = []
+    with SessionLocal() as db:
+        try:
+            for name, gpc in (
+                ("A Toe Truck", "towing_service"),
+                ("Lobster 3 Ways Food Truck", "food_truck"),
+            ):
+                sub = derive_subcategory(category="food_drink", google_primary_category=gpc)
+                primary = derive_primary_category(
+                    category="food_drink", subcategory=sub, google_primary_category=gpc
+                )
+                suf = uuid.uuid4().hex[:8]
+                p = Provider(
+                    provider_name=f"{name} {suf}",
+                    category="food_drink",
+                    subcategory=sub,
+                    primary_category=primary,
+                    google_primary_category=gpc,
+                    draft=False,
+                    is_active=True,
+                    pending_review=False,
+                    source="test-toe-truck",
+                    slug=f"{name.lower().replace(' ', '-')}-{suf}",
+                )
+                db.add(p)
+                db.commit()
+                ids.append(p.entity_id)
+            eat_rows = (
+                db.query(Provider)
+                .filter(Provider.entity_id.in_(ids), route_provider_filter("eat-drink"))
+                .all()
+            )
+            eat_names = {r.provider_name for r in eat_rows}
+            assert not any("A Toe Truck" in n for n in eat_names)
+            assert any("Food Truck" in n for n in eat_names)
+            auto_rows = (
+                db.query(Provider)
+                .filter(Provider.entity_id.in_(ids), route_provider_filter("auto-rv-fuel"))
+                .all()
+            )
+            assert any("A Toe Truck" in r.provider_name for r in auto_rows)
+        finally:
+            if ids:
+                db.execute(delete(Provider).where(Provider.entity_id.in_(ids)))
+                db.commit()
