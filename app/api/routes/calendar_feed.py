@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.db.models import Event
+from app.seo.urls import base_url as _canonical_base_url
 
 router = APIRouter(tags=["events"])
 
@@ -103,7 +104,9 @@ def events_ics_feed(db: Session = Depends(get_db)) -> Response:
     """Return the whole live-event calendar as an iCalendar feed."""
     from app.core.timezone import now_lake_havasu
 
-    base_url = "https://havasu-chat-production.up.railway.app"
+    # P1.0: route the iCal event URLs through the one canonical origin (BASE_URL)
+    # instead of a hardcoded Railway host, so the Phase-0 domain swap is one env.
+    base_url = _canonical_base_url()
     dtstamp = _fmt_dt(now_lake_havasu().replace(tzinfo=None))
 
     rows = (

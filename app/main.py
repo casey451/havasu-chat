@@ -549,39 +549,15 @@ def _render_permalink_response(
 # events tables (thousands of rows). The cache is a simple
 # (timestamp, xml) tuple rather than functools.lru_cache so it correctly
 # expires by wall-clock time and is easy to reason about under tests.
-_DEFAULT_BASE_URL = "https://havasu-chat-production.up.railway.app"
+# Canonical base-URL helpers live in app/seo/urls.py (P1.0 — single source of
+# truth, shared with templates via the canonical_url Jinja global). Re-exported
+# here under their historical private names so existing callers/tests resolve
+# ``app.main._base_url`` / ``app.main._coerce_https`` unchanged.
+from app.seo.urls import _coerce_https  # noqa: F401 — re-export for back-compat/tests
+from app.seo.urls import base_url as _base_url
+
 _SITEMAP_TTL_SECONDS = 3600
 _sitemap_cache: tuple[float, str] | None = None
-
-
-def _base_url() -> str:
-    raw = (os.getenv("BASE_URL") or _DEFAULT_BASE_URL).strip()
-    raw = raw.rstrip("/") or _DEFAULT_BASE_URL
-    return _coerce_https(raw)
-
-
-def _coerce_https(url: str) -> str:
-    """Force the canonical base URL onto https.
-
-    og:url, sitemap <loc>, and the robots Sitemap line must all point at the
-    https origin: Railway terminates TLS at the edge and serves the app over
-    http internally, so a bare ``request.url`` (or a misconfigured BASE_URL)
-    can leak an ``http://`` canonical that search engines treat as a separate,
-    non-secure URL. Coerce http -> https and prefix a bare host. ``localhost``
-    / ``127.0.0.1`` are left as-is so local dev keeps working.
-    """
-    low = url.lower()
-    if low.startswith("https://"):
-        return url
-    if low.startswith("http://"):
-        host = url[len("http://") :]
-        bare = host.split("/", 1)[0].split(":", 1)[0].lower()
-        if bare in ("localhost", "127.0.0.1"):
-            return url
-        return "https://" + host
-    if "://" not in url:
-        return "https://" + url
-    return url
 
 
 @app.get("/robots.txt", response_class=PlainTextResponse)
