@@ -625,6 +625,34 @@ def _typo_path_passes_guard(long_only: str, needle: str) -> bool:
 #   "what are the hours for sloane's" → "sloane's"
 # Anchored at start; we keep both forms (stripped + original) and use whichever scores
 # higher.
+#
+# 2026-06-04 (zero-token routing fix): conversational lead-ins are stripped BEFORE
+# the intent prefix, and the whole strip now composes iteratively (see
+# `_strip_intent_padding`). Production showed the single-pass prefix missing the
+# most natural phrasings -- "whats the phone number for Mudshark Brewery" (normalized
+# to "what is the phone number for ...") never matched any prefix alternative, so the
+# entity was never isolated, Tier 1 missed, and the query fell into the ~4k-token
+# LLM path. "phone number for mudshark brewery" (no lead-in) matched fine.
+_QUERY_LEAD_IN = re.compile(
+    r"^(?:"
+    # vocatives / fillers, possibly stacked: "hey hava, ", "ok so "
+    r"(?:hey|hi|hiya|hello|yo|ok|okay|so|um|uh|hava|please)[,!.\s]+|"
+    # polite/indirect interrogative wrappers
+    r"quick\s+question[,:\s]+|"
+    r"i\s+was\s+wondering[,:\s]+(?:what\s+|if\s+|whether\s+)?|"
+    r"(?:can|could|would|will)\s+you\s+(?:please\s+)?tell\s+me\s+|"
+    r"do\s+you\s+know\s+(?:what\s+|when\s+|where\s+|if\s+|whether\s+)?|"
+    r"i\s+(?:need|want)\s+to\s+know\s+|"
+    # bare "the" before an intent noun ("[can you tell me] the website for X")
+    r"the\s+(?=(?:phone|contact|website|site|url|link|address|location|hours?"
+    r"|rating|reviews?|cost|price|fees?)\b)|"
+    # generic "what is/are (the)" lead-in -- composes with the noun-shaped
+    # prefixes below ("what is the phone number for X" -> "phone number for X")
+    r"what\s+(?:is|are)\s+(?:the\s+)?"
+    r")",
+    re.IGNORECASE,
+)
+
 _QUERY_INTENT_PREFIX = re.compile(
     r"^(?:"
     r"is\s+|are\s+|"  # "is X open" / "are X open"
@@ -664,7 +692,7 @@ _QUERY_INTENT_PREFIX = re.compile(
 )
 
 _QUERY_INTENT_SUFFIX = re.compile(
-    r"\s+(?:open(?:\s+(?:now|right\s+now|today|tonight))?|"
+    r"\s+(?:opens?(?:\s+(?:now|right\s+now|today|tonight))?|"
     r"open\s+at\s+the\s+moment|"
     r"located|please|thanks?|"
     r"have|has|"
@@ -675,13 +703,70 @@ _QUERY_INTENT_SUFFIX = re.compile(
 )
 
 
-def _strip_intent_padding(norm_query: str) -> str:
-    """Return the entity-likely portion of ``norm_query`` after stripping Tier-1 intent
-    prefixes and trailing factual qualifiers. Returns the original when nothing matched.
+# Entity-about shapes ("tell me about X", "describe X", "info on X"). Stripped as a
+# prefix so the remainder is the entity portion. Kept separate from
+# _QUERY_INTENT_PREFIX because these also gate the intent layer (see
+# app/chat/intents/runtime.py) -- an about-shaped query must never be claimed as a
+# generic category listing.
+_QUERY_ABOUT_PREFIX = re.compile(
+    r"^(?:"
+    r"tell\s+me\s+(?:more\s+)?about\s+|"
+    r"what\s+do\s+you\s+know\s+about\s+|"
+    r"(?:any\s+)?info(?:rmation)?\s+(?:on|about)\s+|"
+    r"describe\s+|"
+    r"who\s+(?:is|are)\s+|"
+    r"about\s+"
+    r")",
+    re.IGNORECASE,
+)
+
+def is_entity_about_query(query: str) -> bool:
+    """True when the query opens with an entity-about shape ("tell me about X",
+    "describe X", "who is X", "info on X").
+
+    Used by the intent layer (app/chat/intents/runtime.py) as a belt-and-suspenders
+    guard: an about-shaped turn is about ONE named thing, so it must never be
+    claimed as a generic category listing -- even when the entity matcher failed to
+    resolve the name (unknown entities belong to the gap-template path). Production
+    2026-06-04: "tell me about Mudshark Brewery" was claimed by the eat_find intent
+    via the cuisine token "brewery" and answered with a generic restaurant list.
     """
-    s = _QUERY_INTENT_PREFIX.sub("", norm_query, count=1)
-    s = _QUERY_INTENT_SUFFIX.sub("", s, count=1)
-    s = s.strip()
+    norm = normalize(query or "")
+    if not norm:
+        return False
+    norm = _QUERY_LEAD_IN.sub("", norm, count=1).strip()
+    return bool(_QUERY_ABOUT_PREFIX.match(norm))
+
+
+_STRIP_MAX_PASSES = 3
+
+
+def _strip_intent_padding(norm_query: str) -> str:
+    """Return the entity-likely portion of ``norm_query`` after stripping
+    conversational lead-ins, Tier-1 intent prefixes, about-shapes, and trailing
+    factual qualifiers. Returns the original when nothing matched.
+
+    Iterative (max 3 passes) so layered phrasings compose:
+    "hey, what is the phone number for mudshark brewery"
+      pass 1: lead-in "hey, " -> "what is the phone number for mudshark brewery"
+      pass 1: lead-in "what is the " -> "phone number for mudshark brewery"
+      pass 2: prefix "phone number for " -> "mudshark brewery"
+    Stripping only ever ADDS a scoring candidate -- `_best_score_padded` takes the
+    max of the padded and stripped forms, and the 75 threshold + substring guards
+    still apply to the stripped form, so an over-strip cannot force a match on its
+    own.
+    """
+    s = norm_query
+    for _ in range(_STRIP_MAX_PASSES):
+        prev = s
+        s = _QUERY_LEAD_IN.sub("", s, count=1)
+        s = _QUERY_LEAD_IN.sub("", s, count=1)
+        s = _QUERY_ABOUT_PREFIX.sub("", s, count=1)
+        s = _QUERY_INTENT_PREFIX.sub("", s, count=1)
+        s = _QUERY_INTENT_SUFFIX.sub("", s, count=1)
+        s = s.strip()
+        if s == prev:
+            break
     return s
 
 

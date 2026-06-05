@@ -39,7 +39,8 @@ _LISTING_PREFIX = re.compile(
     # Slice F5: trailing-article fragment is `(?:an\s+|a\s+|some\s+)?` — order matters
     # (longer "an" first) and each alternative requires a trailing space so "find an X"
     # doesn't get truncated to "n X" by greedy-leftmost matching the bare "a".
-    r"where\s+can\s+i\s+(?:find|get)\s+(?:an\s+|a\s+|some\s+)?|"
+    r"where\s+can\s+(?:i|we)\s+(?:find|get|rent|hire|book|charter)\s+(?:an\s+|a\s+|some\s+)?|"
+    r"where\s+do\s+(?:i|we)\s+(?:rent|hire|book|charter)\s+(?:an\s+|a\s+|some\s+)?|"
     # Bug fix (post-Slice-F shadow run): for "where is/are/'s" the article is REQUIRED.
     # Without the article, "where is mudshark brewing" was wrongly matching as a listing
     # shape and absorbing the specific-entity question. Now "where's a barber" matches,
