@@ -1055,6 +1055,13 @@ def route(
             intent_logged=bool(route_telemetry.get("intent_logged")),
         )
 
+    # Every mode handler assigns ``text`` before we reach here (the except above
+    # returns), but some are typed ``str | None``. Narrow to ``str``: a None would
+    # be a bug, so fall back to the graceful message rather than passing None into
+    # downstream string APIs. Byte-stable for every real (non-None) response.
+    if text is None:
+        text = _GRACEFUL
+
     if raw_sid and current_turn is not None and tier_used in ("2", "3"):
         try:
             mentioned = extract_catalog_entities_from_text(text, db)
