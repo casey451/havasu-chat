@@ -71,6 +71,16 @@ def test_build_messages_embeds_slugs_signals_and_rules() -> None:
     assert "Joe's Diner" in user
 
 
+def test_prompt_includes_confidence_calibration() -> None:
+    """The calibration rubric is what makes confidence graded instead of a flat
+    0.9 (the first prod sweep emitted 0.9 on every flag). Guard against silent
+    regression of the rubric back to a vague 'how sure are you'."""
+    system = cp.build_messages(_sig("eat-drink"), {})[0]["content"]
+    assert "0.95-1.0" in system
+    assert "do NOT default to a single value" in system
+    assert "Reserve 0.9+ for clear-cut cases only." in system
+
+
 # ---------------------------------------------------------------------------
 # parse_verdict
 # ---------------------------------------------------------------------------
