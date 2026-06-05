@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -12,6 +13,38 @@ from app.db.database import SessionLocal
 from app.db.models import ChatLog, LlmMentionedEntity
 from app.main import app
 
+
+def _poll_for_mention_rows(
+    log_id: str, mentioned_name: str, *, timeout_s: float = 5.0
+) -> list[LlmMentionedEntity]:
+    """Deterministically await the mention-scan background task's commit.
+
+    ``scan_and_save_mentions`` runs via Starlette ``BackgroundTasks`` wrapped in
+    :func:`app.core.background.with_retry`. ``TestClient`` normally drains
+    background tasks before returning, but ``with_retry`` sleeps between
+    attempts on transient failures (e.g. a SQLite write-lock collision with the
+    test process's own open sessions), and under ``pytest -n`` the extra
+    scheduling jitter widened that window into observed flakes. Poll with a
+    bounded timeout instead of asserting immediately (and never ``sleep()`` a
+    fixed amount): returns as soon as a row is visible, or after ``timeout_s``
+    with whatever is there so the caller's assertion produces a real failure.
+    """
+    deadline = time.monotonic() + timeout_s
+    while True:
+        with SessionLocal() as db:
+            rows = list(
+                db.execute(
+                    select(LlmMentionedEntity).where(
+                        LlmMentionedEntity.chat_log_id == log_id,
+                        LlmMentionedEntity.mentioned_name == mentioned_name,
+                    )
+                )
+                .scalars()
+                .all()
+            )
+        if rows or time.monotonic() >= deadline:
+            return rows
+        time.sleep(0.05)
 
 def test_api_chat_tier3_persists_mention_row() -> None:
     tier3_text = "Check out Sunset Paddle Rentals when you visit the island."
@@ -49,21 +82,13 @@ def test_api_chat_tier3_persists_mention_row() -> None:
     assert body["tier_used"] == "3"
     log_id = body.get("chat_log_id")
     assert log_id
+    rows = _poll_for_mention_rows(log_id, "Sunset Paddle Rentals")
+    assert len(rows) == 1
     with SessionLocal() as db:
-        rows = list(
-            db.execute(
-                select(LlmMentionedEntity).where(
-                    LlmMentionedEntity.chat_log_id == log_id,
-                    LlmMentionedEntity.mentioned_name == "Sunset Paddle Rentals",
-                )
-            )
-            .scalars()
-            .all()
-        )
-        assert len(rows) == 1
-        m = rows[0]
+        m = db.get(LlmMentionedEntity, rows[0].id)
         log_row = db.get(ChatLog, log_id)
-        db.delete(m)
+        if m:
+            db.delete(m)
         if log_row:
             db.delete(log_row)
         db.commit()
