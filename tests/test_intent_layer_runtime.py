@@ -264,3 +264,30 @@ def test_boat_rental_vs_repair_route_distinctly(db, monkeypatch):
         ]
     finally:
         _cleanup_seeded(db, rental)
+
+
+def test_about_shaped_turn_never_claimed(db, monkeypatch):
+    """'tell me about X' must fall through even when the entity matcher missed.
+
+    Prod 2026-06-04: with entity=None (fuzzy miss), the cuisine token "brewery"
+    claimed 'tell me about Mudshark Brewery' as eat_find and answered with a
+    generic restaurant list. About-shaped turns belong to the entity-aware path.
+    """
+    import uuid
+
+    monkeypatch.setenv("USE_INTENT_LAYER", "1")
+    suf = uuid.uuid4().hex[:8]
+    rest = _seed_provider(
+        db, f"Some Restaurant {suf}", category="restaurant", google_rating=4.8
+    )
+    try:
+        # entity=None simulates the matcher miss; the about shape alone must guard.
+        a = try_intent_layer("tell me about Mudshark Brewery", db, entity=None)
+        assert a is None
+        a2 = try_intent_layer("info on crazy horse campgrounds", db, entity=None)
+        assert a2 is None
+        # Non-about food query still claims normally.
+        a3 = try_intent_layer("where can i get dinner", db, entity=None)
+        assert a3 is not None and a3.intent_key in ("eat_find", "eat_open_now")
+    finally:
+        _cleanup_seeded(db, rest)
