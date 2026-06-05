@@ -64,45 +64,64 @@ def _init_test_database() -> None:
             pass
 
 
-def _cleanup_phase7_seed_sources() -> None:
-    from sqlalchemy import delete, select
+# Module-scoped seed source in tests/test_ask_mode.py (``_phase34_seed``); its
+# rows must survive across the module's tests, so the per-test sweep below
+# exempts it. The module tears its own rows down.
+_MODULE_SEED_SOURCE = "phase34-test"
+
+
+def _cleanup_test_source_rows() -> None:
+    """Delete Event/Entity/Program/Provider rows created under a test source.
+
+    History: this started as a curated list of phase-7 seed sources, but the
+    curated list kept missing newcomers — under ``pytest -n`` the worker-local
+    interleaving changes, and Events/Entities/Programs from one test module
+    leak into another's window/cap/catalog assertions (e.g.
+    ``test_tier2_db_query``'s June 2026 ``tier2-test`` events landing inside
+    ``test_oneoffs_fill_before_recurring_under_cap``'s this-week window). All
+    test-created rows in this suite use a ``source`` that either starts with
+    ``test`` (``test``, ``test-*``, ``test_*``) or ends with ``-test``
+    (``tier2-test``, ``x21-test``, ...), so a two-pattern sweep is both
+    broader and cheaper than the per-source loop it replaces.
+
+    Deliberately NOT swept:
+
+    * ``phase34-test`` (:data:`_MODULE_SEED_SOURCE`) — module-scoped seed in
+      ``tests/test_ask_mode.py``, cleaned by that module's own teardown.
+    * Non-test sources (``google_places``, ``osm``, ``seed``, ...) — tests
+      using those clean up after themselves with explicit deletes, and the
+      alembic seed rows (categories) carry no source at all.
+
+    Entity children (EntityCategory) are bulk-deleted first because the
+    SQLite test engine runs with foreign_keys OFF, so ``passive_deletes``
+    cascades never fire.
+    """
+    from sqlalchemy import ColumnElement, and_, delete, or_, select
+    from sqlalchemy.orm import InstrumentedAttribute
 
     from app.db.database import SessionLocal
-    from app.db.models import Entity, EntityCategory, Program, Provider
+    from app.db.models import Entity, EntityCategory, Event, Program, Provider
 
-    sources = (
-        "test-p7",
-        "test-p7-boat",
-        "test-p7-heat",
-        "test",
-        "test-p7-sb",
-        "test-tier2-pivot",
-        # Added 2026-05-21 per Cursor diagnostic of
-        # tests/test_gap_template_contribute_link.py::test_date_lookup_gap_includes_contribute:
-        # `test_program_category_ref_relationship` was committing a Program with
-        # provider_name="City Events" and source="test-directory-schema", which
-        # the entity matcher then indexed (Program.provider_name path), poisoning
-        # the near-match scoring for later tests in the same pytest session.
-        "test-directory-schema",
-    )
+    def _is_test_source(col: InstrumentedAttribute[str]) -> ColumnElement[bool]:
+        return and_(
+            or_(col.like("test%"), col.like("%-test")),
+            col != _MODULE_SEED_SOURCE,
+        )
+
     with SessionLocal() as db:
-        for src in sources:
-            for prov in db.scalars(select(Provider).where(Provider.source == src)).all():
-                db.delete(prov)
-            # Programs are entity-matcher inputs via Program.provider_name; clean
-            # them up alongside Providers so test pollution doesn't leak into the
-            # near-match scoring path on subsequent tests.
-            for prog in db.scalars(select(Program).where(Program.source == src)).all():
-                db.delete(prog)
-            for ent in db.scalars(select(Entity).where(Entity.source == src)).all():
-                db.execute(delete(EntityCategory).where(EntityCategory.entity_id == ent.id))
-                db.delete(ent)
+        ent_ids = list(db.scalars(select(Entity.id).where(_is_test_source(Entity.source))).all())
+        if ent_ids:
+            db.execute(delete(EntityCategory).where(EntityCategory.entity_id.in_(ent_ids)))
+            db.execute(delete(Entity).where(Entity.id.in_(ent_ids)))
+        db.execute(delete(Event).where(_is_test_source(Event.source)))
+        db.execute(delete(Program).where(_is_test_source(Program.source)))
+        db.execute(delete(Provider).where(_is_test_source(Provider.source)))
         db.commit()
 
 
 @pytest.fixture(autouse=True)
-def _phase7_test_row_cleanup() -> None:
-    """Remove Phase 7 seed rows after every test so tier2 catalog tests stay isolated.
+def _test_source_row_cleanup() -> None:
+    """Remove ``test*``-sourced rows after every test so catalog/window tests stay isolated.
 
     Also resets the entity-matcher module-level catalog cache (added 2026-05-27,
     v45 session) so the 5-minute TTL on ``_rows_loaded_at`` doesn't carry stale
@@ -113,7 +132,7 @@ def _phase7_test_row_cleanup() -> None:
     catalog warm masked the freshly-seeded providers).
     """
     yield
-    _cleanup_phase7_seed_sources()
+    _cleanup_test_source_rows()
     from app.chat.entity_matcher import reset_entity_matcher
 
     reset_entity_matcher()
