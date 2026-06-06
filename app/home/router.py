@@ -86,14 +86,16 @@ def _format_event_time_label(start_at: datetime) -> str:
 
 def _is_midnight_fallback(ev: Event) -> bool:
     """Aggregator feeds without a time component land as a 00:00 start (the
-    ingest fallback). A bare midnight start with no end time is "time unknown",
-    not a real 12:00 AM event — suppress the label rather than display it."""
-    return (
-        ev.start_time is not None
-        and ev.start_time.hour == 0
-        and ev.start_time.minute == 0
-        and ev.end_time is None
-    )
+    ingest fallback). A bare midnight start with no end time — or a
+    zero-duration midnight-to-midnight span (allevents also fills endDate with
+    midnight) — is "time unknown", not a real 12:00 AM event; suppress the
+    label rather than display it. An explicit non-midnight end time means the
+    midnight start is real."""
+    if ev.start_time is None or ev.start_time.hour != 0 or ev.start_time.minute != 0:
+        return False
+    if ev.end_time is None:
+        return True
+    return ev.end_time.hour == 0 and ev.end_time.minute == 0
 
 
 # Event cards are image-optional: most events have no photo, so the date block is
@@ -162,8 +164,9 @@ def _window_event_dict(ev: Event, *, recurring: bool, schedule_label: str) -> di
     category_label, accent = _event_accent(ev.tags)
     # M-16/M-17: render the start-end span when an end time is known so a class
     # reads "5:00 - 6:00 AM", not just a start. Falls back to the start label.
-    time_label = "" if _is_midnight_fallback(ev) else _format_event_time_label(start_at)
-    if ev.end_time is not None:
+    midnight_fallback = _is_midnight_fallback(ev)
+    time_label = "" if midnight_fallback else _format_event_time_label(start_at)
+    if ev.end_time is not None and not midnight_fallback:
         end_at = datetime.combine(ev.end_date or ev.date, ev.end_time)
         if end_at > start_at:
             time_label = f"{_format_event_time_label(start_at)} - {_format_event_time_label(end_at)}"
