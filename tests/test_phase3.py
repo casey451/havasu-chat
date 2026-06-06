@@ -46,6 +46,12 @@ class Phase3SearchTests(unittest.TestCase):
         self.assertIsNone(detect_out_of_scope_category("book a table for two tonight"))
         self.assertIsNone(detect_out_of_scope_category("venue for a graduation party"))
 
+    # Commercial bucket removed: rentals + hire are catalog provider/rental queries.
+    def test_rentals_and_hire_not_out_of_scope(self) -> None:
+        self.assertIsNone(detect_out_of_scope_category("boat rental for the weekend"))
+        self.assertIsNone(detect_out_of_scope_category("where can I rent a kayak"))
+        self.assertIsNone(detect_out_of_scope_category("hire a plumber"))
+
 
 def test_lodging_phrasings_resolve_to_lodging_find() -> None:
     """C5 end-to-end at the resolver: the phrasings that used to be refused now
