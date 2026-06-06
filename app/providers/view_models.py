@@ -93,6 +93,9 @@ class ProviderProfileVM:
     # schedule-hunt findings land here as Schedule + Offering rows). Each item:
     # {title, days, time, cost, description}. Empty -> the section is omitted.
     class_schedule: list[dict] = field(default_factory=list)
+    # "Times as of <Month Year>" honesty stamp -- the captured schedules are a
+    # point-in-time snapshot, not a live feed (see schedule-drift workflow).
+    class_schedule_as_of: Optional[str] = None
 
     show_claim_cta: bool = False
     show_upgrade_cta: bool = False
@@ -165,6 +168,22 @@ def _format_class_time(start: time | None, end: time | None) -> str:
     if s and e:
         return f"{s} – {e}"
     return s or e or ""
+
+
+def class_schedule_as_of(entity: Any) -> str | None:
+    """Month/year of the newest recurring Schedule row -- the capture date of
+    the most recent schedule import for this venue."""
+    if entity is None:
+        return None
+    stamps = [
+        getattr(s, "created_at", None)
+        for s in (getattr(entity, "schedules", None) or [])
+        if (getattr(s, "schedule_type", "") or "") == "recurring"
+    ]
+    stamps = [s for s in stamps if s is not None]
+    if not stamps:
+        return None
+    return max(stamps).strftime("%B %Y")
 
 
 def build_class_schedule(entity: Any) -> list[dict]:
@@ -328,6 +347,7 @@ def build(
         is_open_now=is_open,
         open_status_copy=open_copy,
         class_schedule=build_class_schedule(ent),
+        class_schedule_as_of=class_schedule_as_of(ent),
         show_claim_cta=show_claim_cta,
         show_upgrade_cta=show_upgrade_cta,
         viewer_is_owner=viewer_is_owner,

@@ -136,3 +136,18 @@ def test_build_class_schedule_filters_non_recurring_and_untitled_rows() -> None:
         prov = db.query(Provider).filter(Provider.slug == slug).one()
         vm = view_models.build(prov, db=db)
     assert [r["title"] for r in vm.class_schedule] == ["Kids BJJ"]
+
+
+def test_class_schedule_as_of_stamp() -> None:
+    """The classes section carries a 'Times as of <Month Year>' honesty stamp
+    derived from the newest recurring schedule row's capture date."""
+    slug, eid = _make_gym_with_class()
+    with SessionLocal() as db:
+        prov = db.query(Provider).filter(Provider.slug == slug).one()
+        vm = view_models.build(prov, db=db)
+    assert vm.class_schedule_as_of == _now().strftime("%B %Y")
+
+    client = TestClient(app)
+    r = client.get(f"/provider/{slug}")
+    assert r.status_code == 200
+    assert f"Times as of {vm.class_schedule_as_of}" in r.text

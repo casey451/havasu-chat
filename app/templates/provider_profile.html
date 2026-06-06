@@ -250,6 +250,9 @@
   <section class="venue-classes" data-region="venue-classes" aria-label="Classes and schedule"
            style="margin-top:22px">
     <div class="sec-head"><h2 style="font-size:1.2rem">Classes &amp; schedule</h2></div>
+    {% if vm.class_schedule_as_of %}
+    <p style="color:var(--muted);font-size:0.85rem;margin:2px 0 0">Times as of {{ vm.class_schedule_as_of }} — confirm with the venue.</p>
+    {% endif %}
     <ul style="list-style:none;padding:0;margin:10px 0;display:grid;gap:10px">
       {% for c in vm.class_schedule %}
       <li style="border:1px solid var(--hairline,#e5e0d8);border-radius:10px;padding:12px 14px">
