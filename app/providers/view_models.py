@@ -14,8 +14,8 @@ legacy columns remain the fallback for rows without ENTITY linkage.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, time
+from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
@@ -89,6 +89,11 @@ class ProviderProfileVM:
     is_open_now: Optional[bool] = None
     open_status_copy: Optional[str] = None
 
+    # Recurring classes/offerings attached to this venue's entity (the scraped
+    # schedule-hunt findings land here as Schedule + Offering rows). Each item:
+    # {title, days, time, cost, description}. Empty -> the section is omitted.
+    class_schedule: list[dict] = field(default_factory=list)
+
     show_claim_cta: bool = False
     show_upgrade_cta: bool = False
     viewer_is_owner: bool = False
@@ -130,6 +135,85 @@ class HavaCardViewModel:
     is_sponsored: bool
     boat_access_badge: bool
     heat_exposure_pill: str | None
+
+
+_DAY_ORDER = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+_DAY_ABBR = {
+    "monday": "Mon", "tuesday": "Tue", "wednesday": "Wed", "thursday": "Thu",
+    "friday": "Fri", "saturday": "Sat", "sunday": "Sun",
+}
+
+
+def _format_class_days(days: Any) -> str:
+    """Canonical-ordered, abbreviated day list ("Mon, Wed, Fri")."""
+    if not isinstance(days, (list, tuple)):
+        return ""
+    present = {d.strip().lower() for d in days if isinstance(d, str) and d.strip()}
+    return ", ".join(_DAY_ABBR[d] for d in _DAY_ORDER if d in present)
+
+
+def _format_class_time(start: time | None, end: time | None) -> str:
+    """"6:00 AM – 7:00 AM" style range; one-sided or empty when times are missing."""
+    def _hm(t: time | None) -> str | None:
+        if not isinstance(t, time):
+            return None
+        hour = t.hour % 12 or 12
+        ampm = "AM" if t.hour < 12 else "PM"
+        return f"{hour}:{t.minute:02d} {ampm}"
+
+    s, e = _hm(start), _hm(end)
+    if s and e:
+        return f"{s} – {e}"
+    return s or e or ""
+
+
+def build_class_schedule(entity: Any) -> list[dict]:
+    """Pair an entity's recurring Schedule rows with their Offering (by class
+    title) into display rows. Schedules carry day/time; offerings carry
+    cost/description (schedule_publish writes Schedule.notes == Offering.name)."""
+    if entity is None:
+        return []
+    offerings = list(getattr(entity, "offerings", None) or [])
+    schedules = list(getattr(entity, "schedules", None) or [])
+    off_by_title: dict[str, Any] = {}
+    for o in offerings:
+        key = (getattr(o, "name", "") or "").strip().lower()
+        if key and key not in off_by_title:
+            off_by_title[key] = o
+
+    rows: list[dict] = []
+    paired_offerings: set[str] = set()
+    for s in schedules:
+        title = (getattr(s, "notes", "") or "").strip()
+        key = title.lower()
+        o = off_by_title.get(key)
+        if o is not None:
+            paired_offerings.add(key)
+        rows.append(
+            {
+                "title": title or (getattr(o, "name", None) if o else None) or "Class",
+                "days": _format_class_days(getattr(s, "days_of_week", None)),
+                "time": _format_class_time(getattr(s, "start_time", None), getattr(s, "end_time", None)),
+                "cost": (getattr(o, "price_text", None) if o else None),
+                "description": (getattr(o, "description", None) if o else None),
+            }
+        )
+
+    # Offerings with no matching schedule (a named class/price but no fixed time).
+    for o in offerings:
+        key = (getattr(o, "name", "") or "").strip().lower()
+        if not key or key in paired_offerings:
+            continue
+        rows.append(
+            {
+                "title": getattr(o, "name", None) or "Class",
+                "days": "",
+                "time": "",
+                "cost": getattr(o, "price_text", None),
+                "description": getattr(o, "description", None),
+            }
+        )
+    return rows
 
 
 def build(
@@ -235,6 +319,7 @@ def build(
         season_status_copy=season_status_copy,
         is_open_now=is_open,
         open_status_copy=open_copy,
+        class_schedule=build_class_schedule(ent),
         show_claim_cta=show_claim_cta,
         show_upgrade_cta=show_upgrade_cta,
         viewer_is_owner=viewer_is_owner,

@@ -243,6 +243,32 @@
     </div>
   </div>
 
+  {# ---- Classes & schedule — recurring classes attached to this venue. The
+     schedule-hunt findings publish here as Schedule + Offering rows on the
+     entity; this is where they surface for readers. Omitted when there are none. ---- #}
+  {% if vm.class_schedule %}
+  <section class="venue-classes" data-region="venue-classes" aria-label="Classes and schedule"
+           style="margin-top:22px">
+    <div class="sec-head"><h2 style="font-size:1.2rem">Classes &amp; schedule</h2></div>
+    <ul style="list-style:none;padding:0;margin:10px 0;display:grid;gap:10px">
+      {% for c in vm.class_schedule %}
+      <li style="border:1px solid var(--hairline,#e5e0d8);border-radius:10px;padding:12px 14px">
+        <div style="font-weight:700">{{ c.title }}</div>
+        {% if c.days or c.time %}
+        <div style="color:var(--muted);font-size:0.92rem;margin-top:2px">
+          {% if c.days %}<span>{{ c.days }}</span>{% endif %}
+          {% if c.days and c.time %} · {% endif %}
+          {% if c.time %}<span>{{ c.time }}</span>{% endif %}
+        </div>
+        {% endif %}
+        {% if c.cost %}<div style="font-size:0.92rem;margin-top:2px">💵 {{ c.cost }}</div>{% endif %}
+        {% if c.description %}<div style="font-size:0.92rem;margin-top:4px">{{ c.description }}</div>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
   {# ---- What's on at this venue — real upcoming events only (omitted if none) ---- #}
   {% set provider_name = vm.provider_name %}
   {% include 'components/venue_events_region.html' %}
