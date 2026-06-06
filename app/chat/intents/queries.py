@@ -19,6 +19,7 @@ Grounding cheat-sheet (see app/chat/intents/__init__.py):
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -32,7 +33,7 @@ from app.conditions.cache import read_source
 from app.conditions.constants import SOURCE_GAS
 from app.core.liveness import liveness_dampener
 from app.core.timezone import now_lake_havasu
-from app.db.models import Offering, Program, Provider
+from app.db.models import Event, Offering, Program, Provider
 from app.programs.pricing import format_offering_price, format_program_price
 from app.providers.queries import is_open_now
 
@@ -262,6 +263,75 @@ def _offering_by_program(db: Session, programs: list[Program]) -> dict[str, Offe
     return out
 
 
+# Venue-name tokens that never identify a venue (town words + connectors).
+# "Lake Havasu City Aquatic Center" and the events feed's "Lake Havasu Aquatic
+# Center" must both reduce to {aquatic, center}.
+_VENUE_STOP_TOKENS: frozenset[str] = frozenset(
+    {"the", "a", "an", "of", "and", "at", "in", "on",
+     "lake", "havasu", "city", "arizona", "az", "lhc"}
+)
+
+
+def _venue_core_tokens(venue: str) -> list[str]:
+    return [
+        t
+        for t in re.split(r"[^a-z0-9]+", (venue or "").lower())
+        if t and t not in _VENUE_STOP_TOKENS
+    ]
+
+
+def _query_venue_schedule(
+    db: Session, venue: str, *, today: date, limit: int = _PROVIDER_LIMIT
+) -> list[dict[str, Any]]:
+    """Programs + upcoming events at a matched venue (2026-06-06 gap report:
+    "what water exercise classes does the aquatic center offer and when" paid
+    Tier 3). Match = every core venue token appears in the row's provider/
+    location name (per-token ilike, AND), so feed spelling variants still hit
+    while "Mudshark Pizza" can never match "Mudshark Brewery and Public House".
+    """
+    core = _venue_core_tokens(venue)
+    if not core:
+        return []
+    rows: list[dict[str, Any]] = []
+
+    pq = db.query(Program).filter(Program.is_active.is_(True))
+    for tok in core:
+        like = f"%{tok}%"
+        pq = pq.filter(
+            or_(Program.provider_name.ilike(like), Program.location_name.ilike(like))
+        )
+    programs = pq.limit(limit).all()
+    offering_by_prog = _offering_by_program(db, programs)
+    for prog in programs:
+        days = ", ".join(prog.schedule_days) if prog.schedule_days else ""
+        start = prog.schedule_start_time.strftime("%-I:%M %p") if prog.schedule_start_time else ""
+        when = " ".join(b for b in (days, start) if b)
+        rows.append(
+            {
+                "type": "program",
+                "name": prog.title,
+                "subtitle": when or prog.location_name,
+                "detail": format_program_price(prog.cost, offering_by_prog.get(prog.id)),
+            }
+        )
+
+    eq = db.query(Event).filter(Event.status == "live", Event.date >= today)
+    for tok in core:
+        eq = eq.filter(Event.location_name.ilike(f"%{tok}%"))
+    events = eq.order_by(Event.date, Event.start_time).limit(limit).all()
+    for ev in events:
+        start = ev.start_time.strftime("%-I:%M %p") if ev.start_time else ""
+        rows.append(
+            {
+                "type": "event",
+                "name": ev.title,
+                "subtitle": " ".join(b for b in (ev.date.isoformat(), start) if b),
+                "detail": "",
+            }
+        )
+    return rows[:limit]
+
+
 def _query_programs(
     db: Session, *, age_band: str | None, limit: int = _PROVIDER_LIMIT
 ) -> list[dict[str, Any]]:
@@ -448,6 +518,20 @@ def run_query(
             "classes_sports_recreation",
             "Here's where to break a sweat:",
             label=label,
+        )
+
+    if key == "venue_schedule":
+        venue = str(slots.get("venue") or "")
+        if today is None:
+            today = now_lake_havasu().date()
+        rows = _query_venue_schedule(db, venue, today=today)
+        return QueryResult(
+            key,
+            "programs",
+            rows,
+            "venue_schedule",
+            f"On the calendar at {venue}:",
+            label=venue,
         )
 
     if key == "kids_lessons":

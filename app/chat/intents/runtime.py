@@ -29,7 +29,7 @@ from datetime import date, datetime
 from sqlalchemy.orm import Session
 
 from app.chat.intents.queries import QueryResult, run_query
-from app.chat.intents.resolver import category_vocabulary, resolve
+from app.chat.intents.resolver import ResolvedIntent, category_vocabulary, resolve
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +73,24 @@ _SPURIOUS_FILLER_TOKENS = _SPURIOUS_FILLER_TOKENS | frozenset(
 _SPURIOUS_LOCALITY_TOKENS: frozenset[str] = frozenset(
     {"lake", "havasu", "city", "arizona", "az", "lhc"}
 )
+
+
+# Schedule-shaped words: with a matched venue these make the turn a
+# venue-schedule browse ("what classes does the aquatic center offer and
+# when"), which the per-venue grounded query answers at 0 tokens. Factual
+# single-fact lookups (hours/phone/address) deliberately stay OUT of this set
+# -- Tier 1 owns them and runs first.
+_VENUE_SCHEDULE_RE = re.compile(
+    r"\b(class|classes|program|programs|lesson|lessons|schedule|schedules|"
+    r"offer|offers|offering|offerings|camp|camps|activities|activity|"
+    r"happening|events|event|going on|sign up|register)\b"
+)
+
+
+def _wants_venue_schedule(query: str) -> bool:
+    from app.chat.normalizer import normalize
+
+    return bool(_VENUE_SCHEDULE_RE.search(normalize(query or "")))
 
 
 def _entity_match_spurious(query: str) -> bool:
@@ -196,6 +214,17 @@ def _log(db: Session, result: QueryResult, *, min_layer: str | None = None) -> N
         logger.exception("intent_layer: query_log write failed")
 
 
+def is_entity_about_query_safe(query: str) -> bool:
+    """About-shape probe that never raises (venue-schedule branch guard)."""
+    try:
+        from app.chat.entity_matcher import is_entity_about_query
+
+        return is_entity_about_query(query)
+    except Exception:
+        logger.exception("intent_layer: about-shape probe failed")
+        return True  # fail closed -- about-shaped turns belong to the entity path
+
+
 def try_intent_layer(
     query: str,
     db: Session,
@@ -233,7 +262,43 @@ def try_intent_layer(
             logger.exception("intent_layer: spurious-entity probe failed")
             spurious = False
         if not spurious:
-            return None
+            # Venue-schedule browse: a real venue + schedule words is a
+            # grounded per-venue query, not a decline. Tier 1 (hours/phone/
+            # about) already had its shot -- it runs before the intent layer.
+            if not (
+                is_enabled()
+                and not is_entity_about_query_safe(query)
+                and _wants_venue_schedule(query)
+            ):
+                return None
+            resolved_venue = ResolvedIntent("venue_schedule", {"venue": entity.strip()}, "L2")
+            try:
+                result = run_query(resolved_venue, db, today=today, now=now)
+            except Exception:
+                logger.exception("intent_layer: venue_schedule query failed")
+                return None
+            _log(db, result, min_layer="L2")
+            if telemetry is not None:
+                telemetry["intent_logged"] = True
+            if result.result_count == 0:
+                return None
+            if today is None:
+                from app.core.timezone import now_lake_havasu
+
+                today = now_lake_havasu().date()
+            try:
+                text, component_type, component_data = _render(result, today=today)
+            except Exception:
+                logger.exception("intent_layer: venue_schedule render failed")
+                return None
+            return IntentAnswer(
+                text=text,
+                intent_key=result.intent_key,
+                category=result.category_hint,
+                result_count=result.result_count,
+                component_type=component_type,
+                component_data=component_data,
+            )
     if sub_intent and sub_intent in _ENTITY_FACTUAL_SUBINTENTS:
         # 2026-06-04: the factual-subintent guard protects single-ENTITY lookups
         # ("where is mudshark"), but the classifier also labels recommendation
