@@ -20,6 +20,10 @@ from sqlalchemy.orm import Session
 
 from app.categories import queries as cat_queries
 from app.db.models import Event
+from app.events.class_occurrences import (
+    class_occurrences_in_window,
+    drop_event_duplicates,
+)
 from app.events.recurrence import occurrences_in_window
 from app.home.queries import CATEGORY_LABELS
 
@@ -429,9 +433,11 @@ def calendar_month(db: Session, *, year: int, month: int, today: date) -> dict[s
         window_end=date(year, month, days_in_month),
     )
     by_day: dict[int, list[dict[str, Any]]] = {}
+    event_keys: set[tuple[str, date]] = set()
     for occ_date, evs in occ_by_date.items():
         bucket = by_day.setdefault(occ_date.day, [])
         for ev in evs:
+            event_keys.add(((ev.title or "").strip().lower(), occ_date))
             bucket.append(
                 {
                     "title": ev.title,
@@ -439,6 +445,24 @@ def calendar_month(db: Session, *, year: int, month: int, today: date) -> dict[s
                     "recurring": bool(ev.is_recurring),
                 }
             )
+
+    # Venue class schedules (Schedule rows on entities) are not events; union
+    # them in so a "Mon-Thu BJJ" venue shows on every class day. They count as
+    # recurring class pills, so they feed the "+N" overflow, never the two
+    # visible one-off slots. Aquatic-style duplicates (classes that are ALSO
+    # recurring events) are dropped by title+date.
+    class_occs = drop_event_duplicates(
+        class_occurrences_in_window(
+            db,
+            window_start=date(year, month, 1),
+            window_end=date(year, month, days_in_month),
+        ),
+        event_keys,
+    )
+    for occ in class_occs:
+        by_day.setdefault(occ.date.day, []).append(
+            {"title": occ.title, "type": "class", "recurring": True}
+        )
 
     cells: list[dict[str, Any]] = [{"in_month": False} for _ in range(lead_blanks)]
     for day in range(1, days_in_month + 1):

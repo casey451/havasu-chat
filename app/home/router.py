@@ -35,6 +35,7 @@ from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.db.models import AdSlot, Event, Provider, Sponsor
 from app.events import series as event_series
+from app.events.class_occurrences import class_occurrences_in_window
 from app.groups.themed_groups import group_label
 from app.home import collections as curated_collections
 from app.home import sandstone, sponsor_store
@@ -234,10 +235,72 @@ def _collapse_window_events(
             )
         )
 
+    items.extend(
+        _class_schedule_cards(db, start_day=start_day, end_day=end_day, event_rows=rows)
+    )
+
     # One-offs first (preserving chronological order within each group), then
     # featured-but-one-off rise within the one-off block, then recurring.
     items.sort(key=lambda it: (it["recurring"], not it["featured"]))
     return items
+
+
+def _class_schedule_cards(
+    db: Session, *, start_day: datetime, end_day: datetime, event_rows: list[Event]
+) -> list[dict[str, str]]:
+    """Venue class schedules (entity Schedule rows, not events) as series cards.
+
+    The captured gym/class schedules publish onto venue entities and render on
+    provider pages -- but they are invisible to the events feed, so a "Mon-Thu
+    BJJ" venue looked classless on /events-ui and the calendar day pages. Emit
+    one recurring card per class series with an occurrence in the window,
+    anchored on its next occurrence, linking to the venue page (class series
+    have no event permalink). Classes that ALSO exist as recurring events (the
+    aquatic programs) are dropped by title so they never show twice.
+    """
+    event_titles = {(ev.title or "").strip().lower() for ev in event_rows}
+    occs = class_occurrences_in_window(
+        db, window_start=start_day.date(), window_end=end_day.date()
+    )
+    cards: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for occ in occs:
+        title_l = occ.title.strip().lower()
+        if title_l in event_titles:
+            continue
+        skey = (title_l, occ.venue.strip().lower())
+        if skey in seen:
+            continue  # one card per series -- anchored on its next occurrence
+        seen.add(skey)
+        start_at = datetime.combine(occ.date, occ.start_time or time(0, 0))
+        time_label = "" if occ.start_time is None else _format_event_time_label(start_at)
+        if occ.start_time is not None and occ.end_time is not None:
+            end_at = datetime.combine(occ.date, occ.end_time)
+            if end_at > start_at:
+                time_label = (
+                    f"{_format_event_time_label(start_at)} - "
+                    f"{_format_event_time_label(end_at)}"
+                )
+        category_label, accent = _event_accent(["class"])
+        cards.append(
+            {
+                "id": f"class:{occ.venue}:{occ.title}",
+                "title": occ.title,
+                "venue": occ.venue,
+                "url": occ.url,
+                "time_label": time_label,
+                "day_label": start_at.strftime("%a"),
+                "date_label": str(start_at.day),
+                "month_label": start_at.strftime("%b"),
+                "image_url": None,
+                "featured": False,
+                "category_label": category_label,
+                "accent_color": accent,
+                "recurring": True,
+                "schedule_label": event_series.schedule_label(set(occ.weekdays)),
+            }
+        )
+    return cards
 
 
 def _events_for_window(
