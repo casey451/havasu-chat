@@ -32,7 +32,7 @@ CT2 — a separate ship after Lane X2 (Tier 3 integration) lands.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Optional
 
@@ -164,10 +164,20 @@ def _age_days(last_verified_at: Optional[datetime], now: datetime) -> Optional[i
     """Return integer days between ``last_verified_at`` and ``now``.
 
     Returns ``None`` when ``last_verified_at`` is missing.
+
+    ``now`` is timezone-aware (``now_lake_havasu``) but ``last_verified_at``
+    comes straight off a DB row and is naive (UTC). Subtracting aware − naive
+    raises ``TypeError``, which every call site swallows — silently no-op'ing
+    the feature. Coerce both to aware-UTC before subtracting. (P1-3)
     """
     if last_verified_at is None:
         return None
-    delta = now - last_verified_at
+    lv = last_verified_at
+    if lv.tzinfo is None:
+        lv = lv.replace(tzinfo=UTC)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=UTC)
+    delta = now - lv
     return delta.days
 
 

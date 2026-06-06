@@ -13,7 +13,7 @@ from app.chat import tier2_synonyms as _tier2_synonyms
 from app.chat.chat_request_context import ChatRequestContext
 from app.chat.tier2_schema import Tier2Filters
 from app.contrib.hours_helper import is_open_at
-from app.core.ranking import CardRankInput, compute_card_rank, rank_sort_key
+from app.core.ranking import CardRankInput, compute_card_rank
 from app.core.timezone import now_lake_havasu
 from app.db.entity_types import ENTITY_TYPE_COMMERCIAL, ENTITY_TYPE_EVENT
 from app.db.models import Category, Entity, EntityCategory, Event, Location, Provider
@@ -318,18 +318,13 @@ def _fetch_ranked_entities(
         score = compute_card_rank(inp, now=now, temperature_f=temp)
         ranked.append((ent, score))
 
-    ranked.sort(
-        key=lambda pair: rank_sort_key(
-            CardRankInput(
-                distance_km=_distance_km_for_entity(pair[0], REF_LAT, REF_LNG),
-                name=pair[0].name or "",
-                heat_exposure=pair[0].heat_exposure,
-                boat_access_populated=pair[0].boat_access is not None,
-            ),
-            now=now,
-            temperature_f=temp,
-        )
-    )
+    # C6: sort by the score we already computed from the *full* CardRankInput
+    # (verified / open-now / mobile / boat / liveness boosts included). The old
+    # sort rebuilt a stripped CardRankInput missing those fields, so the boosts
+    # never affected order and the emitted rank_score contradicted the ordering.
+    # rank_sort_key(inp) == (-compute_card_rank(inp), name), so this is the same
+    # ordering rule applied to the real input. Descending score, then name.
+    ranked.sort(key=lambda pair: (-pair[1], (pair[0].name or "").lower()))
 
     out: list[dict[str, Any]] = []
     for ent, score in ranked:

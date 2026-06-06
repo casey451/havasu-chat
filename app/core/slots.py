@@ -7,6 +7,8 @@ from calendar import monthrange
 from datetime import date, timedelta
 from typing import Any, TypedDict
 
+from app.core.timezone import now_lake_havasu
+
 DAY_NAMES = {
     "monday": 0,
     "tuesday": 1,
@@ -103,7 +105,10 @@ def _next_weekday(start_date: date, weekday: int, allow_today: bool) -> date:
 
 def extract_date_range(text: str) -> DateRange | None:
     lowered = text.lower()
-    today = date.today()
+    # Lake Havasu (America/Phoenix) date, not the server-local (UTC) date —
+    # date.today() on a UTC host rolls "today"/"tomorrow" a day early after
+    # ~5 PM local. (P1-8)
+    today = now_lake_havasu().date()
 
     # "First Friday" is a recurring event name, not "next Friday" as a day filter.
     if "first friday" in lowered:

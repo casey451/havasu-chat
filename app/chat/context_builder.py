@@ -8,6 +8,7 @@ events. Entity-matched provider (if any) is listed first with full detail.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import date
 from typing import Any, Sequence
 
@@ -79,8 +80,46 @@ def _trim_to_word_budget(text: str, max_words: int) -> str:
     return " ".join(words[:max_words])
 
 
-def _fetch_provider_rows(db: Session, entity: str | None) -> list[Provider]:
-    """Active, non-draft providers; entity match first; max ``MAX_PROVIDERS``."""
+# C1: when no entity matched, rank the Tier 3 provider snapshot by overlap with
+# the user's query instead of feeding a fixed alphabetical-verified slice. The
+# query used to be discarded outright (``_ = query``), so open-ended turns always
+# saw the same 10 providers regardless of what was asked.
+_STOPWORDS: frozenset[str] = frozenset(
+    {
+        "the", "and", "for", "are", "any", "good", "best", "near", "around",
+        "what", "where", "which", "who", "with", "that", "this", "have", "has",
+        "can", "you", "your", "find", "show", "list", "give", "some", "there",
+        "here", "open", "now", "lake", "havasu", "city", "place", "places",
+        "thing", "things", "want", "need", "looking", "recommend", "about",
+    }
+)
+
+
+def _query_tokens(query: str | None) -> list[str]:
+    toks = re.findall(r"[a-z0-9]+", (query or "").lower())
+    return [t for t in toks if len(t) > 2 and t not in _STOPWORDS]
+
+
+def _provider_relevance(p: Provider, tokens: list[str]) -> int:
+    """Count of query tokens appearing in the provider's name/category/address."""
+    if not tokens:
+        return 0
+    hay = " ".join(
+        v for v in (p.provider_name, p.category, getattr(p, "address", None)) if v
+    ).lower()
+    return sum(1 for t in tokens if t in hay)
+
+
+def _fetch_provider_rows(
+    db: Session, entity: str | None, query: str | None = None
+) -> list[Provider]:
+    """Active, non-draft providers; entity match first, else query-relevant.
+
+    Capped at ``MAX_PROVIDERS``. With no matched entity, rows are ordered by
+    query relevance (then verified, then name); when the query has no usable
+    tokens the relevance term is 0 for every row, degrading cleanly to the
+    prior verified-then-alphabetical ordering. (C1)
+    """
     active = list(
         db.scalars(
             select(Provider).where(Provider.draft.is_(False), Provider.is_active.is_(True))
@@ -100,11 +139,17 @@ def _fetch_provider_rows(db: Session, entity: str | None) -> list[Provider]:
         rest = [p for p in active if p.provider_name != entity]
         ordered: list[Provider] = matched + rest
     else:
-        ordered = sorted(active, key=lambda p: (not p.verified, p.provider_name or ""))
+        tokens = _query_tokens(query)
+        ordered = sorted(
+            active,
+            key=lambda p: (-_provider_relevance(p, tokens), not p.verified, p.provider_name or ""),
+        )
     return ordered[:MAX_PROVIDERS]
 
 
-def _fetch_tier3_records(intent_result: IntentResult, db: Session) -> list[Provider]:
+def _fetch_tier3_records(
+    intent_result: IntentResult, db: Session, query: str | None = None
+) -> list[Provider]:
     """Shared Provider lookup behind both Tier 3 entry points (Lane CT2.B.1).
 
     Both ``build_context_for_tier3`` (assembles the LLM context block) and
@@ -115,8 +160,12 @@ def _fetch_tier3_records(intent_result: IntentResult, db: Session) -> list[Provi
     what the post-processor checks against.
 
     Backlog #42 / spec section 10: this is the "sibling helper" wiring.
+
+    ``query`` is threaded through so the entity-less provider snapshot is ranked
+    by query relevance identically on both entry points — the LLM context and
+    the post-processor row set stay byte-for-byte the same set. (C1)
     """
-    return _fetch_provider_rows(db, intent_result.entity)
+    return _fetch_provider_rows(db, intent_result.entity, query=query)
 
 
 def _programs_for(db: Session, provider_id: str) -> Sequence[Program]:
@@ -250,7 +299,6 @@ def build_context_and_rows_for_tier3(
     BUILD.md step 5 Phase 5E: ``context_str`` matches ``build_context_for_tier3``;
     ``rows`` is the provider/event dict list the string was assembled from.
     """
-    _ = query
     _ = chat_ctx
     # Lake Havasu date, not the server-local (UTC) date -- date.today() on a
     # UTC host hides the rest of *today's* events from Tier 3 context after 5 PM.
@@ -303,7 +351,7 @@ def build_context_and_rows_for_tier3(
                 probe_rows.extend(_probe_rows_for_providers(db, [prov], today))
         return _trim_to_word_budget(body, MAX_CONTEXT_WORDS), probe_rows
 
-    providers = _fetch_tier3_records(intent_result, db)
+    providers = _fetch_tier3_records(intent_result, db, query=query)
     if not providers:
         return (
             "Context: No verified provider rows are available in the local catalog yet. "
@@ -380,7 +428,9 @@ def build_context_for_tier3(
     return context
 
 
-def rows_for_tier3_classification(intent_result: IntentResult, db: Session) -> list[dict]:
+def rows_for_tier3_classification(
+    intent_result: IntentResult, db: Session, query: str | None = None
+) -> list[dict]:
     """Return Tier 3 Provider rows shaped for the LOW-tier phone post-processor (Lane CT2.B.1).
 
     Sibling helper to ``build_context_for_tier3``. Both call the shared
@@ -404,7 +454,7 @@ def rows_for_tier3_classification(intent_result: IntentResult, db: Session) -> l
     optimization to cache this list inside the request lives at the
     handler level, not here.
     """
-    providers = _fetch_tier3_records(intent_result, db)
+    providers = _fetch_tier3_records(intent_result, db, query=query)
     if not providers:
         return []
     flag_on = is_confidence_tier_enabled()

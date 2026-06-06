@@ -120,6 +120,18 @@ def test_open_now_listing_shortcut_returns_filters_with_open_now_true() -> None:
         assert filters.open_now is expected_open, query
 
 
+def test_listing_prefix_requires_qualifier_after_what() -> None:
+    """P1-6: the 'what …' listing prefix must require a qualifier (some/the/
+    good/best). Previously every group was optional, so 'what is X' matched and
+    — used downstream as an entity-stripping signal — stole the entity onto the
+    2-LLM parser path."""
+    assert shortcut._LISTING_PREFIX.match("what is mudshark brewing") is None
+    assert shortcut._LISTING_PREFIX.match("what time does the marina open") is None
+    # Genuine listing shapes still match.
+    assert shortcut._LISTING_PREFIX.match("what are some coffee shops") is not None
+    assert shortcut._LISTING_PREFIX.match("what good bars are nearby") is not None
+
+
 def test_open_now_listing_skips_when_event_shape_present() -> None:
     """Temporal/event tokens defer to the LLM parser — 'tonight' is in _EVENT_SHAPE_TOKENS."""
     assert shortcut.try_business_listing_shortcut("what restaurants are open tonight") is None

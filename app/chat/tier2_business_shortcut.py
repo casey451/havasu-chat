@@ -53,7 +53,11 @@ _LISTING_PREFIX = re.compile(
     r"any\s+(?:good\s+)?|"
     r"are\s+there\s+(?:any\s+)?(?:good\s+)?|"
     # Slice F5: widen for natural phrasings ("what are some", "got any", "recommend").
-    r"what\s+(?:are\s+)?(?:some\s+|the\s+)?(?:good\s+|best\s+)?|"
+    # P1-6: require at least one qualifier (some/the/good/best). The previous
+    # form had every group optional, so it matched the bare "what " of any
+    # "what is X" / "what time …" query and — used as an entity-stripping signal
+    # downstream — stripped the matched entity onto the 2-LLM parser path.
+    r"what\s+(?:are\s+)?(?:some\s+|the\s+|good\s+|best\s+)(?:good\s+|best\s+)?|"
     r"got\s+(?:any\s+|a\s+)?(?:good\s+)?|"
     r"recommend\s+(?:me\s+)?(?:an\s+|a\s+|any\s+|some\s+)?(?:good\s+)?|"
     # Voice-battery 2026-05-08: first-person need/want phrasings for category
