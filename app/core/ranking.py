@@ -10,6 +10,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from app.core.liveness import liveness_dampener
+from app.core.timezone import now_lake_havasu
 
 if TYPE_CHECKING:
     from app.providers.view_models import HavaCardViewModel
@@ -118,7 +119,9 @@ def compute_event_card_rank(
     today: date | None = None,
 ) -> float:
     """Mirror :func:`compute_card_rank` for event cards (Phase 9b)."""
-    today = today or date.today()
+    # Lake Havasu date for "days ahead" math — date.today() (UTC host) buckets
+    # an evening event into the wrong day-distance tier after ~5 PM local. (P1-8)
+    today = today or now_lake_havasu().date()
     days_ahead = (occurrence_date - today).days
     base = 1.0
 

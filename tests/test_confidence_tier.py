@@ -368,3 +368,14 @@ def test_hedge_phrase_low_recommends_calling() -> None:
     """LOW hedge nudges the caller to verify before acting."""
     phrase = hedge_phrase(ConfidenceTier.LOW).lower()
     assert "calling" in phrase or "confirm" in phrase
+
+
+def test_age_days_handles_naive_db_datetime() -> None:
+    """P1-3: aware ``now`` (now_lake_havasu) minus a naive DB ``last_verified_at``
+    must not raise TypeError — it used to, silently no-op'ing the feature."""
+    from datetime import UTC
+
+    naive_lv = datetime(2026, 1, 1, 12, 0)  # naive, as it comes off a DB row
+    aware_now = datetime(2026, 1, 11, 12, 0, tzinfo=UTC)
+    assert ct._age_days(naive_lv, aware_now) == 10
+    assert ct._age_days(None, aware_now) is None

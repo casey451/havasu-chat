@@ -240,9 +240,18 @@ def _temporal_overlap(
     dc = date_context
     if dc.tzinfo is None:
         dc = dc.replace(tzinfo=LAKE_HAVASU_TZ)
-    if starts_at is not None and dc < starts_at:
+    # Normalize the bounds too: naive sponsor start/end datetimes vs an aware
+    # ``dc`` raises TypeError on comparison, which the caller swallows. Interpret
+    # naive bounds as Phoenix wall time, consistent with ``dc`` above. (P1-3)
+    start = starts_at
+    if start is not None and start.tzinfo is None:
+        start = start.replace(tzinfo=LAKE_HAVASU_TZ)
+    end = ends_at
+    if end is not None and end.tzinfo is None:
+        end = end.replace(tzinfo=LAKE_HAVASU_TZ)
+    if start is not None and dc < start:
         return False
-    if ends_at is not None and dc > ends_at:
+    if end is not None and dc > end:
         return False
     return True
 
