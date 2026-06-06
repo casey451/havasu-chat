@@ -106,9 +106,83 @@ def _description(rec: EventRecord) -> str:
     return f"{rec.title.strip()} at {_location_name(rec)} on {when}."
 
 
+# Junk-drawer / placeholder tag values upstream forms leak (Cowork saw a literal
+# "Select Category" tag). Dropped on ingest so events never carry them.
+_PLACEHOLDER_TAGS = frozenset(
+    {"select category", "uncategorized", "category", "categories", "none", "n/a", "na", "tbd", "other"}
+)
+
+# Title/tag keyword -> canonical tags. A class/sport hit also gets the
+# "classes-sports-recreation" routing tag: the Event model has no category column
+# (events are tag-driven), so this tag is how the calendar/search surfaces treat a
+# fitness/martial-arts/sport event as a class rather than a generic "events" row,
+# per the build brief's "route class items to classes-sports-recreation" ask.
+_CLASSES = "classes-sports-recreation"
+_KEYWORD_TAGS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
+    (
+        ("jiu jitsu", "jiu-jitsu", "jiujitsu", "bjj", "karate", "judo", "taekwondo",
+         "muay thai", "kickbox", "boxing", "martial art", "krav maga", "mma"),
+        ("martial-arts", _CLASSES),
+    ),
+    (
+        ("yoga", "pilates", "zumba", "aerobics", "crossfit", "bootcamp", "fitness",
+         "workout", "spin class", "strength training", "gymnastics"),
+        ("fitness", _CLASSES),
+    ),
+    (
+        ("pickleball", "tennis", "disc golf", "volleyball", "basketball", "dodgeball",
+         "softball", "league night"),
+        ("sports", _CLASSES),
+    ),
+    (("aqua", "lap swim", "water aerobics", "swim lesson"), ("aquatics", _CLASSES)),
+    (("ballroom", "ballet", "dance class", "line dancing"), ("dance", _CLASSES)),
+    (("concert", "live music", "band", "karaoke", "open mic", " dj "), ("music",)),
+    (("kids", "family", "youth", "children", "toddler", "story time", "story hour"), ("family",)),
+    (("art walk", "paint ", "pottery", "art class", "craft"), ("arts",)),
+    (("farmers market", "swap meet", "craft fair"), ("market",)),
+    (("city council", "planning and zoning", "board of", "commission"), ("civic",)),
+)
+
+
+def _normalize_tags(raw: list[Any]) -> list[str]:
+    """Lowercase, strip, dedupe, and drop placeholder tags (fixes the
+    'Events'/'events' case splits + the 'Select Category' junk tag)."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for t in raw:
+        if not isinstance(t, str):
+            continue
+        norm = t.strip().lower()
+        if not norm or norm in _PLACEHOLDER_TAGS or norm in seen:
+            continue
+        seen.add(norm)
+        out.append(norm)
+    return out
+
+
+def _keyword_tags(text: str) -> list[str]:
+    hay = f" {text.lower()} "
+    found: list[str] = []
+    seen: set[str] = set()
+    for needles, tags in _KEYWORD_TAGS:
+        if any(n in hay for n in needles):
+            for tag in tags:
+                if tag not in seen:
+                    seen.add(tag)
+                    found.append(tag)
+    return found
+
+
 def _tags(rec: EventRecord) -> list[str]:
-    tags = [t for t in (rec.tags or []) if isinstance(t, str) and t.strip()]
-    return tags or ["events"]
+    base = _normalize_tags(list(rec.tags or []))
+    derived = _keyword_tags(f"{rec.title} {' '.join(base)}")
+    merged: list[str] = []
+    seen: set[str] = set()
+    for t in (*base, *derived):
+        if t not in seen:
+            seen.add(t)
+            merged.append(t)
+    return merged or ["events"]
 
 
 def _to_event_payload(rec: EventRecord, *, source: str) -> EventPayload:
