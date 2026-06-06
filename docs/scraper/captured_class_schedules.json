@@ -61,6 +61,31 @@
         {"title": "Restorative Yin", "days": ["friday"], "start": "10:30", "end": "11:30"},
         {"title": "Hatha Warrior Flow", "days": ["saturday"], "start": "09:00", "end": "10:00"}
       ]
+    },
+    {
+      "provider_name": "Ballet Havasu",
+      "location_name": "Ballet Havasu (inside The Dance Center)",
+      "location_address": "2735 Maricopa Ave, Lake Havasu City, AZ 86403",
+      "contact_phone": "(928) 412-8208",
+      "contact_url": "https://www.ballethavasu.org",
+      "source_url": "https://www.ballethavasu.org/2025",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["dance", "ballet", "classes-sports-recreation"],
+      "captured": "2026-06-04 schedule-hunt (2025/26 season grid). Note: classes may pause for summer; fall starts Aug 4 — review before publishing.",
+      "classes": [
+        {"title": "Tiny Toes", "days": ["monday"], "start": "15:30", "end": "16:00", "age_min": 3, "age_max": 5},
+        {"title": "Ballet Beginnings", "days": ["monday", "friday"], "start": "16:00", "end": "16:45"},
+        {"title": "New Students (11+)", "days": ["monday"], "start": "16:30", "end": "18:00", "age_min": 11},
+        {"title": "Advanced (Mon/Tue)", "days": ["monday", "tuesday"], "start": "18:00", "end": "19:30"},
+        {"title": "Pointe", "days": ["monday"], "start": "19:30", "end": "20:30"},
+        {"title": "Intermediate (Tuesday)", "days": ["tuesday"], "start": "15:30", "end": "17:00"},
+        {"title": "Elementary B", "days": ["tuesday"], "start": "17:00", "end": "18:00"},
+        {"title": "Adult Ballet", "days": ["tuesday"], "start": "18:30", "end": "19:30"},
+        {"title": "Intermediate (Wednesday)", "days": ["wednesday"], "start": "16:00", "end": "17:30"},
+        {"title": "Elementary A", "days": ["wednesday"], "start": "17:45", "end": "18:45"},
+        {"title": "Intermediate (Thursday)", "days": ["thursday"], "start": "15:30", "end": "17:00"},
+        {"title": "Advanced (Thursday)", "days": ["thursday"], "start": "17:00", "end": "18:30"}
+      ]
     }
   ]
 }
