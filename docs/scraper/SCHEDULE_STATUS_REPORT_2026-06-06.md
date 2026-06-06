@@ -1,0 +1,251 @@
+# Gym / class schedule scrape status — 2026-06-06
+
+93 venues from the schedule-hunt sweep. **Uploaded to the system: 10.** **Captured but not uploaded: 39.** **Need manual: 21.** No schedule exists: 13. Seasonal/retry: 10.
+
+## 1. SCRAPED + UPLOADED (in the review queue / posted)  (10)
+
+- 🏋️ **Arizona Coast Performing Arts** (website)
+  - source: https://graceartslive.com/dance-studio/
+  - DISCOVERY 6/3/26 FULL 2025-26 grid (page mod 12/9/25): Mon Ballet1&2 3:30-4:30p, Jazz1&2 4:30-5:30p, Contemporary(Int) 5:30-6:30p, HipHop(Adv) 6:30-7:30p; Tue PreBallet/PreTap 3-4p, Tap1&2 4-5p ... Pointe 8:30-9:30p; Fri Beg HipHop 3-4p; tuition $60 1st class/mo + $40 2nd + $35 addl; season began 8/
+- 🏋️ **Ballet Havasu** (website)
+  - source: https://www.ballethavasu.org/2025
+  - UPDATE 6/4/26: full 2025/26 season grid read via Chrome+zoom (schedule is an IMAGE): TinyToes Mon 3:30-4p; Ballet Beginnings Mon+Fri 4-4:45p; Elementary Tue 5-6p (B)/Wed 5:45-6:45p (A); Intermediate Tue 3:30-5p/Wed 4-5:30p/Thu 3:30-5p; Advanced Mon+Tue 6-7:30p, Thu 5-6:30p; Pointe Mon 7:30-8:30p; Ad
+- 🏋️ **Eight Lotus Center for Wellness** (website)
+  - source: https://www.8lotuswellness.com/book-class
+  - UPDATE 6/4/26: full live week read via Chrome (Mindbody widget is JS-only): Hula Thu 1p (90m); Yin Thu 5:15p + Sun 3p; Heated Ashtanga Fri 5:30a + Sat 8:30a; TruFusion Pilates Mon+Fri 8:15a; Breathwork Mon 9:30a (45m); Slow Flow Mon 4:30p; Belly Dance Mon 6:15p+7:15p; Tue/Wed likely no classes; $20 
+- 🏋️ **GraceArts LIVE Youth Theatricals** (website)
+  - source: https://graceartslive.com/dance-studio/
+  - UPDATE 6/4/26: contributions 589-609 queued at 0.55 — full ACPA dance grid, 21 classes M-F (2025-26 season; showcase was May 15-17/26 so summer status UNVERIFIED; entity attach to GraceArts vs ACPA needs Casey confirm); youth productions audition-driven, dates on site; box office M-F 3-6p; (928) 505
+- 🏋️ **Havasu Stingrays Swim Team** (website)
+  - source: https://www.gomotionapp.com/team/azhsaz/page/practice/practice-schedule1
+  - gomotion practice page IS fetchable (6/3/26): school-yr grid (Nov10'25-Jun2'26, JUST ENDED): Elite/Platinum/Gold M-F dryland 3:30-4:30p + swim 4:30-6p; Silver M-Th 5-6p/6-7p; Bronze M/T/Th 5-6p/6-7p; PreStingrays M/W + T/F 5-5:45p/5:45-6:30p; Fitness M/W/Th 6-7p; SUMMER (current): practice 7-9a at A
+- 🏋️ **LHC Parks & Recreation Programs** (website)
+  - source: https://www.lhcaz.gov/parks-recreation/programs-activities
+  - DISCOVERY 6/3/26 umbrella: After School Program + Camps, youth arts/STEM/fitness enrichment, NFL Flag Football (launching early 2026), Jr Suns Basketball (summer 2026 ages ~6-12), beginner golf, holiday cooking/cookie classes, Tai Chi $5/class; register lhcaz.gov/fun; aquatics already covered in Aqu
+- **Desert Bloom Learning Center** (website)
+  - source: https://www.desertbloomlearningcenter.com/learn-more
+  - UPDATE 6/4/26: contributions 584-588 queued at 0.70 — Morning Homeschool Support T/W/Th 8-11a + afternoon enrichment 12:30-2:30p (Movement Lab Mon @ Altitude, Life Skills Tue, Creative Arts Wed, History Explorers Thu), ages 5-12; ADDRESS CHANGE flagged; related: Grace Learning Center (2101 Palo Verd
+- **Driftwood Acres Equine Center** (website)
+  - source: https://www.driftwoodacresequinecenter.com/book-online
+  - UPDATE 6/4/26 (browser): live Wix calendar read — Group Riding Lessons weekdays 7:00 & 8:30a (90min, $40, conf 0.65) = contribution 610; Roping Group Tue/Thu 3:30-5p ($40, conf 0.70) = 611 (both queued 6/4/26 via resend_pending.ps1); address 1807 Aztec Rd confirmed, old Kingman location CLOSED per Y
+- **Havasu Art Guild** (website)
+  - source: https://www.havasuartguild.com/
+  - UPDATE 6/4/26: contribution 583 queued at 0.65 — Maturing Masters Art Workshop every Thu 8:30-11:00a, Mohave County Senior Center, $1, members (site says '8:30 am - 11:00 pm' — assumed am typo)
+- **Havasu Stitchers Quilt Guild** (website)
+  - source: https://www.havasustitchers.com/events
+  - UPDATE 6/4/26: contributions 581-582 queued at 0.80 — General Member Meeting 2nd Thu 6-8p Mohave College Rm 600 ($5 guests; Jul 2026 moves to Wed 7/8) + Community Outreach Sewing 3rd Wed 10a-2p Aquatic Ctr Rm 153/154; monthly (not weekly) recurrence noted
+
+## 2. SCRAPED (schedule captured) but NOT UPLOADED — needs pushing in  (39)
+
+- 🏋️ **Amalaya Yoga** (website)
+  - source: https://www.amalayayoga.com/schedule
+  - FULL weekly grid captured 6/3/26 via rendered Momence widget: Mon Inferno 6-7a + HotFusion 8:30-9:30a + AmalayaHotYoga 4-5p + Inferno 5:30-6:30p + NonHeated MatPilates 7-8p ($20); Tue AmalayaHotYoga 6-7a + Sculpt 8:30-9:30a + GentleStretch 10-11a ($25) + Inferno 4-5p + AmalayaHotYoga 5:30-6:30p + In
+- 🏋️ **Arizona Krav Maga** (website-partial)
+  - source: https://arizonakravmaga.com/
+  - DISCOVERY 6/3/26: weekly Thursday Firearms Self Defense class in LHC (5 students max) + privates/bootcamps; traveling/seminar model, no fixed LHC studio; (928) 263-0071
+- 🏋️ **Ben Hicks Yoga Studio** (website-partial)
+  - source: https://benhicksyoga.com/
+  - DISCOVERY 6/3/26: daily hour-long classes all levels + monthly workshops since 2010; studio hrs M/W/F 6:00a-6:45p, Tu/Th 7a-6:45p, Sat 8-12, Sun 8-1:15; exact class grid needs deeper crawl; 928-680-6392
+- 🏋️ **Beyond Dance** (website)
+  - source: https://beyonddance.us/classes
+  - PDFs extracted 6/3/26: kids/teens 2025-26 season M-Th in 3:30-4:30/4:40-5:40/5:50-6:50/7-8p blocks (Rhythm&Groove, Acro, Tap, Jazz, HipHop, KPOP, Contemporary, teams); $45 enroll + $35-$60/mo per class; ballroom PDF (March, may be stale): Foxtrot 12p + SingleTimeSwing 4p Mon&Fri $15/class or $80/8; 
+- 🏋️ **Elite Martial Arts Inc** (website)
+  - source: https://elitemartialartslakehavasucity.com/class-schedule.html
+  - DISCOVERY 6/3/26: KALI Tue 6:30-7:30p; Kickboxing Mon+Wed 6-7p; Elite Tigers (kids) Tue+Thu 5:30-6:10p; Traditional Japanese Karate Thu 4:30p; Kenpo Karate Mon+Wed 7-8p; privates by appt; Yelp updated Apr 2026; (928) 846-4456
+- 🏋️ **Family Office Society Gym** (website-partial)
+  - source: https://fosgym.gymmasteronline.com/portal/signup
+  - 24/7 private gym; template site, class claims are placeholder copy — no real schedule; GymMaster pricing live: day $35 / 3-day $75 / 7-day $130; Founders $120/mo or $1440/yr
+- 🏋️ **Fiore's Endorphin Factory** (website-partial)
+  - source: https://fiores-endorphin-factory.gymdesk.com/
+  - DISCOVERY 6/3/26: kickboxing/boxing/krav maga/Zumba/bootcamp + tai chi/qigong; Gymdesk live: 8-class pack $100/2mo, day $15, week $40, 60-min classes max 10 — BUT week of 6/1-6/7/26 shows all days CLOSED (summer pause? winding down?) — verify via FB; (949) 306-3273; shares 2143 McCulloch Ste B w/ Br
+- 🏋️ **Fit Lab 928** (website)
+  - source: https://fitlab928.com/
+  - DISCOVERY 6/3/26: M-F Function 5:00a, Sweat 5:30a, Function 6:15a, Sweat 8:30a, Function 3:05p, Teens (M/W) + Kids (T/Th) 4:15p, Mixed Modality 4:15p, Sweat 5:15p, Function 5:30p; Sat Function 8a; $20/class; 928-900-7989
+- 🏋️ **Footlite School of Dance** (website-partial)
+  - source: https://www.footliteschoolofdance.com/classes
+  - DISCOVERY 6/3/26: ages 6mo-adult, rec + competitive; open M-Th 3-7p during dance year; summer camps (Tiny Twirlers 3-5, Rising Stars 5-7, Junior/Teen 8+) + adult summer classes 'first class free'; recital 5/30-31; Studio Director portal
+- 🏋️ **Havasu CrossFit** (website)
+  - source: https://havasucrossfit.com/
+  - DISCOVERY 6/3/26: live RxGym schedule — WODs M-F 5:00a/6:10a/7:20a/8:30a/3:20p/4:30p/5:40p (+Open Gym), Sat 7:30a + 8:30a; 1-hr classes; 4.9 stars/43 reviews; 928-680-9348; NOTE golakehavasu directory shows old address 1050 N Lake Havasu Ave
+- 🏋️ **Iron Wolf Golf and Country Club** (website)
+  - source: https://ironwolfgcc.com/events-calendar/
+  - verified current thru June 2026: Line Dancing Wed 5-8p; Interactive Pasta Wed 5-9p; Build-Your-Own Surf&Turf Thu 5-9p; concert: Headgames & Illusion Sat 6/6/26 6-11p (Pavilion); golf academy still 'coming soon'; Toptracer range open 6 days/wk; see also Kaizen Golf & Fitness (Michael Washington, asst
+- 🏋️ **Lake Havasu Black Belt Academy** (website-partial)
+  - source: https://www.lakehavasublackbeltacademy.com/schedule/
+  - DISCOVERY 6/3/26: Self Defense Tue+Thu evenings (1hr); Tai Chi 1.5hr once/wk at 7; Tue+Thu 11a-12p class; Krav Maga 'on a break'; hrs M-F 4-8p Sat 9a-12p; addresses conflict (349 S Lake Havasu vs old 597 N) — verify; 928-453-0515
+- 🏋️ **Lake Havasu City Aquatic Center** (website)
+  - source: https://www.lhcaz.gov/parks-recreation/aquatic-center
+  - June 2026 PDF grids extracted 6/3/26: exercise classes M/W Motion&Mobility + TaiChi 8-9a, Arthritis 9:15-10:15a, AquaAerobics 9:30-10:30a, DeepWaterFit 10:45-11:45a; T/Th Fit&Flex 9-10a, AquaChallenge 9:30-10:30a, WarmWaterYoga 10:15-11:15a, WaterWellness 10:45-11:45a; Fri same as M/W minus TaiChi; 
+- 🏋️ **Lake Havasu Senior Center** (website)
+  - source: https://lakehavasuseniorcenter.com/current-events
+  - TaiChi Qigong Fri 12p $1; Arts&Crafts Thu 8:30-11a; billiards M-F 8:30a-3:30p; lunch daily $5 (60+)/$7; Stronger Together seminar Tue 6/9/26 12-2p free; Bunco/LaughingYoga/LineDancing/fitness/Thu-AM music jams have NO published times — call 928-453-0715; center M-F 8a-4p
+- 🏋️ **Lake Havasu Yacht Club** (website-partial)
+  - source: https://www.lakehavasuyachtclub.net
+  - members Fri night (bar 5p dinner 6p); NEW: line dance lessons Mon 12p (Burgee Girls); monthly Boat Day; annual regatta/poker runs/themed nights without dates; full calendar member/FB-only
+- 🏋️ **Mohave Community College Lake Havasu Campus** (website-partial)
+  - source: https://www.mohave.edu/academics/areas-of-interest/cce/community-education/
+  - current listings in Ellucian Journey JS portal only; latest static catalog = Spring/Summer 2025 (STALE) w/ full LHC list (Ceramics Tu+Th 10a-1p $121, Metalsmithing Wed 12:30-4:30p, Watercolor, Knit Tribe Tue 5:30-7:30p, kids art, tech classes Wed/Thu 5:45-6:45p $25, Adult Ballet Mon 11:30a, Kundalin
+- 🏋️ **Swivel & Sway Ballroom Dance** (directory-partial)
+  - directory pass 6/3/26: Intro to Salsa Tue 5:30p (Yelp Feb-26); group classes $10/class (FB); RSVP 909-243-3339; own site is near-empty landing page; full weekly grid on FB — sweep queued; IGNORE 2022 RiverScene Mon-night listing (old venue)
+- 🏋️ **The Study Yoga Studio & Creative Center** (website)
+  - source: https://thestudylhcaz.com/class-schedule
+  - DISCOVERY 6/3/26 FULL grid: Mon Morning Flow 9-10a (Karen); Tue Root&Rise 8-9a (Karey); Wed Hatha Slow Flow 8-9a + Zen Yin 9:30-10:30a; Thu Kundalini 9:30-10:30a; Fri Stretch&Flow 9-10a + Restorative Yin 10:30-11:30a; Sat Hatha Warrior Flow 9-10a; Vagaro booking; (928) 706-2083
+- 🏋️ **The Tap Room Jiu Jitsu** (website)
+  - source: https://thetaproomjiujitsu.com/schedule
+  - grid re-verified 6/3/26 w/ CORRECTIONS: Sun OpenMat 9-10:30a; Mon WomensOnly NoGi 9-10a (NEW) + Littles Gi 4:30-5:15p + Youth Gi 5:15-6:15p + Adult Gi 6:15-7:45p; Tue NoGi same slots; Wed Gi slots + MMA 7:30-8:30p; Thu NoGi slots; Fri NoGi LegLocks 5:15-6:15p + MMA 6:15-7:15p; Sat Youth Wrestling 9-
+- 🏋️ **Titan Gym & Fitness Center** (website-partial)
+  - source: https://mytitanfitness.com/
+  - DISCOVERY 6/3/26: classes incl SilverSneakers, Circuit&Yoga, Zumba, Spin, Kickboxing, Stretch&Tone, Strong&PowerSculpt; schedule is an IMAGE (Schedule 02.19.25.png — Feb 2025, may be stale) — OCR or call 928-680-6767; hrs M-Th 5a-7p F 5a-5p Sa 7a-1p
+- 🏋️ **Universal Sonics Gymnastics & All Star Cheer** (website)
+  - source: http://www.universalgymnasticslakehavasu.com/index.php?componentName=ClassScheduleDeluxe&scid=73927&action=view&classid=5878&offset_Class=0
+  - FULL GRID fetched 6/4/26 (ClassScheduleDeluxe, machine-readable; no validity dates — 'off season' note + site calendar empty, verify before ingest): public classes Mon Rec Gym 4-5p (5-9yr) + 5-6p; Tue Boys Athletics 3:30-4:30 (5-10yr) + 6:30-7:30 (11+), TinyTumblers 4:30-5:15 + 5:30-6:15 (3-4yr), Re
+- **Altitude Trampoline Park** (directory)
+  - source: https://www.golakehavasu.com/directory/altitude-trampoline-park/
+  - golakehavasu.com directory pass 6/3/26: hours Sun/Mon/Wed 11a-7p, Tue/Thu 10a-7p, Fri 11a-8p, Sat 10a-9p; Junior Jumper (6u) $9/60min $15/90min, 7+ $15/$19/$24, socks $3.50, memberships $15-$25/mo; 'parents jump free 9a-12p M-F' needs confirm; no named toddler-time/classes — FB sweep for events
+- **Bless This Nest Studio** (website)
+  - source: https://blessthisnestlhc.com/pages/calendar
+  - DISCOVERY 6/3/26: Mini Maker Art Club 10-11:30a (dated sessions); Toddler Time; Crafty Ladies Club; Summer Camps; Open Studio drop-in; calendar page on site; 928-412-3718
+- **Fabrics Unlimited** (website)
+  - source: https://www.fabricsunlimited.net/classes-684.htm
+  - DISCOVERY 6/3/26: Featherweight Club 4th Wed 10a-3p FREE; Long Arm Quilt Club 3rd Tue 11a-1p $10; more classes on page
+- **Feelin Good Fitness** (website)
+  - source: https://feelingoodfitness.com/
+  - DISCOVERY 6/3/26: classes M-F 5:00a/6:15a/8:00a/9:45a/11a/4:00p/5:15p/6:30p (Mon HIIT/Strength, Tue 10-Zone, Wed/Thu Iron Paradise Strength, Fri HIIT); Sat 7:00a/8:15a/9:45a; Sun closed; cap 30, Zen Planner booking
+- **For Dog's Sake! Training** (directory-partial)
+  - directory pass 6/3/26: open Tu-Th + Sat 9:30a-6p (closed M/F/Su); trainers Valarie + Michelle, CGC certification, obedience-to-behavioral; NO class times published anywhere — FB sweep queued; 928-230-8239
+- **Grand Piano Studio** (website-partial)
+  - source: https://grandpianohavasu.weebly.com/piano-lessons.html
+  - confirmed: private 40-min lessons follow LHUSD school-year calendar (2nd wk fall thru May); summer optional; no times/prices
+- **HavaLife CPR** (website-partial)
+  - source: https://havalifecpr.com/
+  - UPDATE 6/4/26: 'call to register' — no published schedule, skipped; ADDRESS captured from site header (authoritative over Yelp); others in town: lakehavasucpr.com, trupatriotcpr.com, Knowledge For Life (2051 Holly Ave, knowledgeforlifecourses.com)
+- **Havasu Lanes Junior Bowlers** (website)
+  - source: https://www.havasulanesaz.com/LEAGUES/Youth-Leagues
+  - DISCOVERY 6/3/26: ages 4-18, after school, $10/week (3 games/day all week)
+- **Iron Age Gym** (website-partial)
+  - source: https://iron-age-gym.gymdesk.com/
+  - 24h gym; no group classes; Gymdesk portal: Day Care M-Sa 7-9a & 9-11a (wk of 6/1/26 marked closed for equipment delivery); passes $15/$40/$60; membership $75/mo ($115 single mo)
+- **Lake Havasu City Library (Mohave County Library)** (website)
+  - source: https://www.mohavecountylibrary.us/lake-havasu-city-branch/
+  - Trumba calendar rendered 6/3/26 (needs JS): Preschool Playtime Storytime Wed+Thu 9:30-11:30a (ages 2-5, Storytime Rm); SR Preschool Storytime Wed 10:30-11:30a (ages 3-5); teen Summer Reading events (Book Bingo, Dinosaur Sanctuary Thu 3:30-5p ages 12-18); support group Thu 12:30-2p; Summer Reading 20
+- **Lake Havasu City Sportsman's Club** (website)
+  - source: https://www.havasusportsman.com/pistol_range.html
+  - match calendar IS published (missed in 1st pass): pistol — SASS 2nd+4th Sat 7a-2p, Steel Challenge 2nd Sun 7a-2p, USPSA 3rd Sat (+Fri before) + following Sun 5a-4p; rifle — smallbore benchrest 1st+3rd Sat 9-11a, high-power 1st/2nd/4th Sun 9-11a, 5th Sun choice; public shooting Wed/Sat/Sun summer 7-1
+- **Lake Havasu Golf Club** (website-partial)
+  - source: https://lakehavasugolfclub.com/pdp-faq-clinics/
+  - lessons $75 (Roman Garcia 928-208-2654, 30-45min by appt); club fitting $30; Practice Tee membership $99/mo; events calendar empty since Nov 2022
+- **Lake Havasu Museum of History** (website-partial)
+  - source: https://www.havasumuseum.com/
+  - DISCOVERY 6/3/26: free/low-cost kids craft workshops (wire wrap 3/13, stone necklace 3/7 — dated events); recurring pattern unclear — crawl events page periodically; 928-854-4938
+- **Lake Havasu Tennis Association** (website-partial)
+  - source: http://www.lakehavasutennis.com/activities/
+  - confirmed NO clock times exist on site or directories (6/3/26): Mon Night Doubles (beg-int), T/Th Night Doubles (int-adv) 'under the lights', join via email roberteastman4@hotmail.com; membership $55 single/$70 family/$15 junior per yr; calendar is JS (TEC plugin) — try browser; lessons via Parks&Re
+- **MJ's Dog Training** (website)
+  - source: https://mjsdogtraining.com/services%2Fpricing
+  - group classes STILL suspended (puppy/intermediate/pack walk listed inactive); private only: assessment $175 (1.5-2hr), $100/hr, 4-pack $380, 8-pack $700; by appointment 541-790-9602
+- **River City Music LLC** (website-partial)
+  - source: https://rivercitymusiclhc.com/
+  - DISCOVERY 6/3/26: lessons 'at reasonable prices'; store M-F 10-5 Sat 10-1; lesson times by arrangement; (928) 855-0446
+- **Scuba Training & Technology** (website-partial)
+  - source: https://www.scubatrainingandtechnology.com/training
+  - on-demand cert courses (OW, Nitrox 4-5hr, Advanced, Rescue, Master, CPR 2hr); no fixed dates or prices; shop hrs M-F 11-6 Sa 11-4
+- **WACKO Canoe & Kayak Outfitters** (website-partial)
+  - source: https://www.azwacko.com/tours
+  - NOT DEAD — homepage is a Wix JS shell but inner pages render fine: Topock Gorge $70pp (book 5-11am, 5-7hr); Castle Rock $50; Bill Williams $60 (winter); Full Moon trips $50pp min 4 (route via FB); rentals kayak $45/day, crystal kayak or SUP $100, GoBoats $75/2hr $150/4hr; phone-only booking 928-715-
+
+## 3. CANNOT auto-scrape — DO MANUALLY (reason per row)  (21)
+
+- 🏋️ **Align and Define Pilates** (none) — _no source found_
+  - no website or FB found; no website/FB found anywhere
+- 🏋️ **Bridge City Combat** (no-website) — _no website found_
+  - FOUND via spot check 6/3/26 — REAL gym but only exists in DB as 2 tier2-test fixtures (hash-suffixed) so it was excluded from pass 1; youth+adult MMA, fitness, youth wrestling, BJJ (Barry Sullins affiliation); training hours (Mohave Local): M/W/F 5-9p, Tu/Th 4-9p, Sa 8-10a, Su closed; class-level ti
+- 🏋️ **Flips For Fun Gymnastics** (dead-site) — _website is down/dead_
+  - UPDATE 6/4/26: site fully DOWN (error pages in a real browser) — flag entity for liveness; FB sweep queued; 6mo-adult, rec + competitive + special needs + summer camps; nonprofit, active teams; (928) 566-8862
+- 🏋️ **Havasu Shaolin Kempo (American School of Shao-Lin Kempo)** (fb-only) — _Facebook-only (no web schedule)_
+  - UPDATE 6/4/26: confirmed FB-only (havasu.php empty) — queued for OpenClaw FB sweep; classes ages 4+, Shao-Lin, Women's Self Defense, Tai Chi, Chi Kung; Yelp updated Feb 2026; 928-680-4121
+- 🏋️ **Marsh Dance Studios** (stale-source-only) — _only stale source (skip)_
+  - UPDATE 6/4/26: only source is a Dec-2024 newspaper article — STALE per data rules, do not ingest; FB sweep queued to confirm current grid. Article had: Mon beg/int 1-2p; Wed 8:30a-8p; every other Tue at Flying X Saloon 4-6p; Thu at Mustang Sallys 5-8p; $6/class; Alice Marsh, 53 yrs teaching; 928-855
+- 🏋️ **Next Generation Mixed Martial Arts** (fb-only) — _Facebook-only (no web schedule)_
+  - UPDATE 6/4/26: confirmed FB-only — queued for OpenClaw FB sweep (verify active before ingesting); LOW-MED confidence: only dated directories (findmmagym/dojos.info) + FB profile; head instructor Tim Carey; Women's Kickboxing/Muay Thai/Advanced Grappling claimed; lakehavasumartialarts.com is a blank 
+- 🏋️ **Steelhead Aquatics (Candis' Swim Lessons)** (no-website) — _no website found_
+  - DISCOVERY 6/3/26: private in-home lessons all ages, 20+ yrs experience, owner Candis Martin; active FB mid-season 2026; partnering on free CPR class series May-Jul; steelheadaquatics@gmail.com; FB sweep queued
+- 🏋️ **Sunshine Indoor Play** (no-website) — _no website found_
+  - DISCOVERY 6/3/26: arts/music classes, dance classes, toddler programs 'regularly featured on Facebook'; hrs Tu-Th 9-5, Fri 9-7, Sat 9-2; (928) 466-6750; FB sweep queued
+- 🏋️ **The Dance Center** (no-website) — _no website found_
+  - own site is a GoDaddy 'Launching Soon' placeholder; venue ACTIVE via tenant orgs: Ballet Havasu (own row) + Beyond Dance (own row); FB sweep queued
+- 🏋️ **Trinity Mixed Martial Arts** (dead-site) — _website is down/dead_
+  - UPDATE 6/4/26: site fully DOWN (error pages in a real browser, not a JS shell) — flag entity for liveness; FB page exists (URL unconfirmed) — find + queue for FB sweep. Was: kids + adult Muay Thai/Hapkido/BJJ + Kickin' Kids after-school program
+- **Angie's Line Dance Class** (no-website) — _no website found_
+  - DISCOVERY 6/3/26: FB page only, no times captured; FB sweep queued; low priority
+- **Cycle Therapy** (none) — _no source found_
+  - confirmed across site+Yelp+directories 6/3/26: NO group rides exist on any source; hours Tu-F 10a-5p Sat 10a-3p closed Su-Mo (Yelp May'26; mohavelocal hours stale); sales/repair/rentals only; low priority for sweep
+- **Kaizen Golf & Fitness** (fb-only) — _Facebook-only (no web schedule)_
+  - UPDATE 6/4/26: confirmed FB-only (site JS-blank) — queued for OpenClaw FB sweep; TPI-certified pro Michael Washington (formerly Havasu Golf Academy; also asst pro at Iron Wolf); lessons, swing analysis, junior programs; 928-486-3901
+- **Kids Activities Studio** (no-website) — _no website found_
+  - no website/address on file — research; may be test row; possible test row — verify exists
+- **Lake Havasu City Pickleball Association** (blank-embed) — _calendar embed loads blank_
+  - UPDATE 6/4/26 (browser): calendar embed loads BLANK even in Chrome; beginner lessons + novice clinics + round robins PAUSED until December 2026 (ARK Center gym, 2700 Jamaica Blvd S; first lesson free then $5/session) — revisit Dec 2026
+- **PetSmart Dog Training** (js-only) — _JS-rendered (scraper sees nothing; needs a browser)_
+  - store hrs M-Sa 9a-9p Su 10a-7p; group/private/virtual classes exist; class calendar behind JS booking portal — browser sweep; ~$119/6-wk group (national pricing)
+- **Planet Fitness** (js-only) — _JS-rendered (scraper sees nothing; needs a browser)_
+  - hours 24h Mon-Thu, Fri close 9p, Sa-Su 7a-7p; Classic $15/mo, Black Card $24.99 ($1 promos exp 6/12/26); PE@PF free small-group classes exist but 'Show Schedule' is JS-only — browser sweep or PF app
+- **River Rat Yacht Club** (no-website) — _no website found_
+  - no website on file — research; needs research
+- **RockerBens Music Lessons** (no-website) — _no website found_
+  - no website on file — research; needs research
+- **SARA Park Disc Golf** (no-website) — _no website found_
+  - FB GROUP not page — league nights; FB GROUP only — needs login, defer per architecture
+- **Windy Hills Pottery and Art Studio** (dead-site) — _website is down/dead_
+  - UPDATE 6/4/26 (browser): site ERRORS OUT in a real browser — flag entity for liveness; FB sweep for current status; was: pottery classes every Tue + Thu (2-3hr), acrylic/oil/watercolor/graphite/colored pencil instruction, no clock times published; (928) 521-7895
+
+## 4. NO class schedule exists (24/7 gym / appointment-only) — nothing to scrape  (13)
+
+- 🏋️ **Aqua Beginnings** (none-appointment)
+  - UPDATE 6/4/26: skipped per appointment-only precedent — only fixed window is free assessments Tue/Wed/Fri 8a-2p (flag if Casey wants that listed); private/small-group lessons max 3 swimmers; office M-F 12-2p; Coach Rick 928-706-1246; site (c)2026
+- 🏋️ **Bella Faccia Movement Studio** (none-appointment)
+  - UPDATE 6/4/26 (browser): bellafacciaskincare.com is now SKINCARE-ONLY (no pilates/movement content); WellnessLiving stub unclaimed; entity may need re-categorizing or removal of the movement-studio angle; 928-854-7546
+- 🏋️ **Havasu Martial Arts Academy** (none-appointment)
+  - UPDATE 6/3/26: current site (lhckungfu.com) says APPOINTMENT-ONLY private/semi-private lessons + DVD sales, 9a-5p; legacy dojos.info group grid (LittleDragons 4:15p, Juniors 5:15p, Adults 6:30p M-Th) likely DEFUNCT — do not ingest; verify 928-855-5005; keep in FB sweep
+- 🏋️ **Heart and Sole Fitness & Wellness** (none-appointment)
+  - appointment PT/coaching via Calendly; biz hrs M-F 5a-7p Sa 5a-5p; no group classes; page content dated 2023
+- 🏋️ **Lake Havasu Bike & Fitness** (none-website)
+  - site renders now (NOT js-only); no scheduled rides/tours/events; rentals $25-$90; hours M-Sa, Sun closed; group rides if any are on FB
+- 🏋️ **Pilates of Lake Havasu** (none-appointment)
+  - no FB found; private (or virtual) sessions only $70; 75-min initial consult; Karen Santo 808-895-8002; WellnessLiving booking; no group classes (verified 6/3/26)
+- 🏋️ **Snap Fitness Lake Havasu City** (none-website)
+  - DISCOVERY 6/3/26: opened Oct 2024; group fitness + cycling classes incl w/ membership, Coached Classes/Small Team Training tiers — but no public schedule (app-based); 928-889-1879; FB sweep queued
+- **Anytime Fitness** (none-website)
+  - 24/7 gym; NO class grid anywhere (site, WellnessLiving stub, directories — checked 6/3/26); office hours all 'Closed' during ownership transition; visitor pass $15/day $40/wk; $0-enroll promo exp 6/14/26; FB sweep queued
+- **Bridgewater Links Golf Course** (none-website)
+  - confirmed: no leagues/clinics/events on site; open daily 7:30a-4:15p; Nine and Dine 'coming soon'; site 'Academy' page is lorem-ipsum filler
+- **Chris Padgett Fitness** (none-appointment)
+  - 1-on-1 + small-group tiers (Squad/Crew/Force/League) with no published days/times/prices; first session free; diet plan $49/mo; site current (c) 2026
+- **Hava Math Tutor** (none-appointment)
+  - confirmed: by phone only 928-706-3208; pre-algebra thru calculus 1; no schedule/prices; NOTE: no Kumon/Sylvan/Mathnasium exists in LHC (discovery 6/3/26)
+- **Marlene Arden Voice Lessons** (none-appointment)
+  - DISCOVERY 6/3/26: ages 7+, all styles, in-person/Zoom/Facetime; by appointment; (928) 706-7716
+- **The Athletic Advantage** (none-appointment)
+  - numeric FB id; verify on first sweep; PT by appointment inside Iron Age Gym; Jeff Smith 928-208-5968; no schedule/prices on site
+
+## 5. Seasonal / down right now — RETRY later  (10)
+
+- 🏋️ **Arevalo Academy** (website-stale)
+  - DISCOVERY 6/3/26: full grid but page last modified 2018 — VERIFY: Mon Adult Hardcore 5:15-6a/6-7a/8:10-9a + Adult MMA 7-9p; Tue/Fri Little Ninjas 3:30-4p, Beg PeeWee 4:10-5p, Juniors 5:10-6p, Intermediate 6-7p, Adult Hardcore 7-8p; Sat Forms/Grappling/Sparring 8:10-11a; (928) 855-0505
+- 🏋️ **Crazy Eds Cardio & Pilates** (schedule-down)
+  - UPDATE 6/4/26 (browser): schedule taken down — June sessions started Jun 1-3, signup shows 'new services coming soon' + waitlist; no postable times; re-check next run; beginner-style reformer for women
+- 🏋️ **Havasu Pilates Studio** (schedule-down)
+  - UPDATE 6/4/26 (browser): June sessions started Jun 1-3; signup page now 'new services coming soon' + waitlist — schedule down = sold out pattern; no postable times; re-check next run; 'largest reformer studio in Mohave County'; address still needs research
+- 🏋️ **the studio 2959** (website-stale)
+  - 2026 bootcamp status UNVERIFIED — site still advertises Oct-Dec 2024 series (Tu/W/Th 4:15a/5:10a/6:05a/11a; $20/session $55/wk $450/30) as of 6/3/26; business alive per Yelp Feb'26; WellnessLiving stub unclaimed; 1-on-1 'limited, waitlist'; text 928-733-8110 to confirm
+- **Havasu Horseback Rides** (paused-summer)
+  - UPDATE 6/4/26: Pony/Leadline Mondays 10-5 marked 'ENDS IN APRIL FOR SUMMER' (paused now); other lessons appointment-based; summer camp Jun 1-4/8-11 7-9a nearly over — RE-CHECK IN FALL; owner Jenna Cobb
+- **Havasu Lions FC (Lake Havasu Soccer)** (seasonal-offseason)
+  - UPDATE 6/4/26: OFF-SEASON — fall rec league only (practices from wk of Sep 22, Sat games Oct-Dec); REVISIT AT FALL REGISTRATION; ages 4-17, 1000+ rec players + 140 travel club
+- **Lake Havasu Chiefs Youth Football & Cheer** (seasonal-offseason)
+  - UPDATE 6/4/26: SportsEngine site is a JS shell to raw fetch (empty); fall sport, off-season now — browser pass at fall registration (~Aug); tackle football + cheer
+- **Lake Havasu Little League** (seasonal-offseason)
+  - UPDATE 6/4/26: regular season (opened Feb 28) is over — site news now All-Stars era; posted schedules live behind Team Central (per-team, JS); no postable weekly grid; REVISIT at fall ball/registration (~Oct) or next Feb; 1990 McCulloch Blvd N Ste 373
+- **Sew What** (needs-verify)
+  - DISCOVERY 6/3/26 (mohavelocal): 'classes in a variety of techniques'; 928-453-4040; verify active + get schedule by phone/FB
+- **Soul Lifting (Certified Personal Training)** (not-launched)
+  - re-verified 6/4/26: classes still NOT launched ('will be adding' w/ new trainer Fiore Molteni); by appointment only; NOTE Fiore also runs Fiore's Endorphin Factory (own row); brochure PDF image-only dated 11/24
