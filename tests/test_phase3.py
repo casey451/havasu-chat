@@ -41,6 +41,11 @@ class Phase3SearchTests(unittest.TestCase):
         self.assertIsNone(detect_out_of_scope_category("good birthday party venue"))
         self.assertIsNone(detect_out_of_scope_category("wedding venue ideas"))
 
+    # "book a table" / "venue for" are catalog provider/venue intents, not refused.
+    def test_booking_and_venue_for_not_out_of_scope(self) -> None:
+        self.assertIsNone(detect_out_of_scope_category("book a table for two tonight"))
+        self.assertIsNone(detect_out_of_scope_category("venue for a graduation party"))
+
 
 def test_lodging_phrasings_resolve_to_lodging_find() -> None:
     """C5 end-to-end at the resolver: the phrasings that used to be refused now

@@ -111,17 +111,14 @@ def _commercial_services_query(m: str) -> bool:
         return True
     if re.search(r"\bhire\b", m):
         return True
-    if "book a " in m or "book me" in m or "book my " in m:
-        return True
-    if "venue for" in m:
-        return True
-    # Party / wedding venue removed: "where can I have a birthday party",
-    # "party venue", "wedding venue" are local-VENUE searches (bowling, parks,
-    # family entertainment, restaurants with party rooms) — businesses the
-    # directory lists. Routing them to the canned out-of-scope refusal was the
-    # same trap as the lodging refusal (C5); catalog search + the
-    # anti-hallucination guards return an honest gap when coverage is thin
-    # instead of a refusal. The doc treats birthday-party as event/one-off.
+    # "book a …" / "venue for …" / party + wedding venue removed: "book a table",
+    # "book a haircut", "venue for a party", "where can I have a birthday party"
+    # are catalog provider/venue intents the directory lists — the same unblock
+    # as lodging (C5). Routing them to the canned out-of-scope refusal was the
+    # same trap; catalog search + anti-hallucination guards return an honest gap
+    # when coverage is thin instead of refusing. The rare off-catalog "book a
+    # flight" gets that honest gap too. (rentals/hire kept — left for a broader
+    # commercial-bucket review.)
     return False
 
 
