@@ -310,6 +310,23 @@ def _synthetic_category_blob(canonical: str, needles: frozenset[str]) -> str:
     return f"{canonical.lower()} {' '.join(needles)}"
 
 
+# A needle composed only of the town/locality name ("Havasu", "Lake Havasu
+# City") collides with the locality mention in almost every query ("...in
+# havasu") and would fuzzy-match via token-set overlap — so a provider literally
+# named after the town hijacked generic locality queries ("where should I stay
+# in havasu" → the "Havasu" provider's address). Drop such needles at build
+# time. Deliberately narrower than _LOCATION_QUERY_STOPWORDS so real business
+# names like "The Inn" keep their needles.
+_LOCALITY_ONLY_TERMS: frozenset[str] = frozenset(
+    {"lake", "havasu", "city", "arizona", "az", "lhc", "the", "of", "and", "a", "an"}
+)
+
+
+def _is_pure_locality_needle(needle: str) -> bool:
+    toks = [t for t in re.split(r"\W+", needle.lower()) if t]
+    return bool(toks) and all(t in _LOCALITY_ONLY_TERMS for t in toks)
+
+
 def _needles_for_canonical(canonical: str) -> frozenset[str]:
     out: set[str] = set()
     c = canonical.strip()
@@ -321,7 +338,7 @@ def _needles_for_canonical(canonical: str) -> frozenset[str]:
         n = normalize(extra)
         if n:
             out.add(n)
-    return frozenset(x for x in out if x)
+    return frozenset(x for x in out if x and not _is_pure_locality_needle(x))
 
 
 def refresh_entity_matcher(db: Session) -> None:
