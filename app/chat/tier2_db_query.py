@@ -1109,11 +1109,18 @@ def query(
 
         if filters.open_now is True:
             now_local = _now_lake_havasu()
-            prov_orm = [
-                p
-                for p in prov_orm
-                if (hs := effective_hours_structured(p)) and is_open_at(hs, now_local)
-            ]
+            # Lenient open-now (P1-11): keep providers that are open OR whose
+            # hours are unknown; drop only those whose hours say closed. This
+            # matches the intent layer (intents/queries.py "degrade gracefully")
+            # and avoids gutting "what's open now" for the many catalog
+            # providers without structured hours — a soft filter, not a hard one.
+            kept = []
+            for p in prov_orm:
+                hs = effective_hours_structured(p)
+                if hs and not is_open_at(hs, now_local):
+                    continue
+                kept.append(p)
+            prov_orm = kept
 
         providers = [_provider_dict(p) for p in prov_orm[:MAX_ROWS]]
         return _merge_simple(events, programs, providers)[:MAX_ROWS]

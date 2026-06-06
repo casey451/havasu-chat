@@ -365,9 +365,12 @@ def test_this_weekend_window_includes_upcoming_friday(
     assert any(r["type"] == "event" and f"Dodgeball Friday {suf}" == r["name"] for r in rows)
 
 
-def test_open_now_excludes_providers_without_structured_hours(
+def test_open_now_includes_providers_with_unknown_hours(
     db: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # P1-11: open-now is a *soft* filter — a provider whose hours are unknown is
+    # kept (degrade gracefully), consistent with the intent layer. Only providers
+    # whose hours say closed are dropped.
     monkeypatch.setattr(
         tier2_db_query,
         "_now_lake_havasu",
@@ -378,7 +381,7 @@ def test_open_now_excludes_providers_without_structured_hours(
     p.hours_structured = None
     db.commit()
     rows = tier2_query(Tier2Filters(parser_confidence=0.9, entity_name=f"ONX {suf}", open_now=True))
-    assert not any(r["type"] == "provider" for r in rows)
+    assert any(r["type"] == "provider" for r in rows)
 
 
 def test_row_shape_type_and_name(db: Session) -> None:
