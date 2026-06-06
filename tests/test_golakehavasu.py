@@ -135,3 +135,28 @@ def test_event_end_date_omitted_for_single_day() -> None:
     )
     c = normalize_to_contribution(ev)
     assert c.event_end_date is None
+
+
+def test_run_pull_tolerates_removed_event_pages() -> None:
+    """A 404 on one event page (CVB removed it but left the sitemap entry) is a
+    skip, not a run failure — one stale entry was failing the whole cron."""
+    from app.contrib.golakehavasu_pull import run_pull
+
+    routes = {
+        SITEMAP_INDEX_URL: _fixture("golakehavasu_sitemap_index.xml"),
+        EVENTS_SITEMAP_URL: _fixture("golakehavasu_events_sitemap.xml"),
+        # SOIREE_URL intentionally missing -> 404 (removed upstream)
+        MARKET_URL: _fixture("golakehavasu_event_recurring.html"),
+        PAST_URL: _fixture("golakehavasu_event_past.html"),
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = routes.get(str(request.url))
+        if body is None:
+            return httpx.Response(404, text="not found")
+        return httpx.Response(200, text=body)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True)
+    with client:
+        rc = run_pull(date(2026, 6, 6), dry_run=True, http_client=client)
+    assert rc == 0
