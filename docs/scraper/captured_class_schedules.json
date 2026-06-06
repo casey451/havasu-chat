@@ -1,0 +1,66 @@
+{
+  "_about": "Structured class schedules captured for the schedule-hunt venues. Each class -> one draft Program contribution via scripts/import_captured_schedules.py (review/publish through the normal contribution flow). Times are 24h HH:MM. Days lowercase. Source-verified per venue; see source_url.",
+  "venues": [
+    {
+      "provider_name": "Bridge City Combat",
+      "location_name": "Bridge City Combat",
+      "location_address": "2143 McCulloch Blvd N, Lake Havasu City, AZ 86403",
+      "contact_phone": "(928) 716-3009",
+      "contact_url": "https://www.bridgecityjiujitsu.com",
+      "source_url": "https://www.bridgecityjiujitsu.com/",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["martial-arts", "jiu-jitsu", "bjj", "mma", "classes-sports-recreation"],
+      "captured": "2026-06-06 from the schedule image on the site's Schedule page",
+      "classes": [
+        {"title": "Adult No-Gi (Morning)", "days": ["wednesday", "friday"], "start": "06:00", "end": "07:00"},
+        {"title": "Open Mat (Sunday)", "days": ["sunday"], "start": "09:30", "end": "10:30"},
+        {"title": "Youth Gi", "days": ["monday", "wednesday"], "start": "17:00", "end": "18:00", "age_min": 6, "age_max": 14},
+        {"title": "Youth No-Gi", "days": ["tuesday", "thursday"], "start": "17:00", "end": "18:00", "age_min": 6, "age_max": 14},
+        {"title": "Adult Fundamentals", "days": ["tuesday"], "start": "18:00", "end": "19:00"},
+        {"title": "Adult No-Gi (Evening)", "days": ["thursday"], "start": "18:00", "end": "19:00"},
+        {"title": "Open Mat (Friday)", "days": ["friday"], "start": "18:00", "end": "19:00"},
+        {"title": "Adult No-Gi (Night)", "days": ["monday", "wednesday"], "start": "19:15", "end": "20:15"},
+        {"title": "Adult MMA", "days": ["tuesday", "thursday"], "start": "19:15", "end": "20:15"}
+      ]
+    },
+    {
+      "provider_name": "Elite Martial Arts Inc",
+      "location_name": "Elite Martial Arts",
+      "location_address": "2078 McCulloch Blvd N Ste 101, Lake Havasu City, AZ 86403",
+      "contact_phone": "(928) 846-4456",
+      "contact_url": "https://elitemartialartslakehavasucity.com",
+      "source_url": "https://elitemartialartslakehavasucity.com/class-schedule.html",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["martial-arts", "karate", "kickboxing", "classes-sports-recreation"],
+      "captured": "2026-06-03 schedule-hunt (class-schedule page); end times for the Karate slot estimated at 1h",
+      "classes": [
+        {"title": "Kali", "days": ["tuesday"], "start": "18:30", "end": "19:30"},
+        {"title": "Kickboxing", "days": ["monday", "wednesday"], "start": "18:00", "end": "19:00"},
+        {"title": "Elite Tigers (Kids)", "days": ["tuesday", "thursday"], "start": "17:30", "end": "18:10", "age_min": 5, "age_max": 12},
+        {"title": "Traditional Japanese Karate", "days": ["thursday"], "start": "16:30", "end": "17:30"},
+        {"title": "Kenpo Karate", "days": ["monday", "wednesday"], "start": "19:00", "end": "20:00"}
+      ]
+    },
+    {
+      "provider_name": "The Study Yoga Studio & Creative Center",
+      "location_name": "The Study Yoga Studio & Creative Center",
+      "location_address": "2550 Kiowa Blvd N, Lake Havasu City, AZ 86403",
+      "contact_phone": "(928) 706-2083",
+      "contact_url": "https://thestudylhcaz.com",
+      "source_url": "https://thestudylhcaz.com/class-schedule",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["yoga", "wellness", "classes-sports-recreation"],
+      "captured": "2026-06-03 schedule-hunt (full grid from the class-schedule page)",
+      "classes": [
+        {"title": "Morning Flow", "days": ["monday"], "start": "09:00", "end": "10:00"},
+        {"title": "Root & Rise", "days": ["tuesday"], "start": "08:00", "end": "09:00"},
+        {"title": "Hatha Slow Flow", "days": ["wednesday"], "start": "08:00", "end": "09:00"},
+        {"title": "Zen Yin", "days": ["wednesday"], "start": "09:30", "end": "10:30"},
+        {"title": "Kundalini", "days": ["thursday"], "start": "09:30", "end": "10:30"},
+        {"title": "Stretch & Flow", "days": ["friday"], "start": "09:00", "end": "10:00"},
+        {"title": "Restorative Yin", "days": ["friday"], "start": "10:30", "end": "11:30"},
+        {"title": "Hatha Warrior Flow", "days": ["saturday"], "start": "09:00", "end": "10:00"}
+      ]
+    }
+  ]
+}
