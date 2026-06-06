@@ -74,6 +74,36 @@ def build_conditions_strip_view_model(
             )
         )
 
+    # Wind tile (NWS gridpoint). Replaces the lake-level tile in the home utility
+    # strip: on a windy desert lake, wind speed is the higher-value live signal
+    # for boaters/paddlers than the slow-moving reservoir gauge (lake level is
+    # still surfaced on /today and in the JSON payload). Cardinal direction is
+    # appended as the secondary line when NWS supplies a bearing.
+    wind = api.get("wind_speed_mph")
+    if isinstance(wind, (int, float)):
+        label = api.get("wind_staleness_label") or api.get("temp_staleness_label") or "Updated recently"
+        stale = bool(api.get("wind_is_stale") or api.get("temp_is_stale"))
+        any_stale = any_stale or stale
+        cardinal = api.get("wind_direction_cardinal")
+        secondary = (
+            f"Wind · from the {cardinal}"
+            if isinstance(cardinal, str) and cardinal.strip()
+            else "Wind"
+        )
+        tiles.append(
+            ConditionsTile(
+                kind="wind",
+                primary_value=f"{int(round(float(wind)))} mph",
+                secondary_value=secondary,
+                attribution_chip="NWS",
+                severity="warning" if float(wind) >= 25 else "neutral",
+                staleness_label=label,
+                is_stale=stale,
+                detail_text=None,
+                visible=True,
+            )
+        )
+
     # Task 0 (source-expansion): the low-value "Sunny" sky chip was demoted in
     # favour of a UV tile. sky_condition is still computed by nws.py and carried
     # in the api_payload for JSON consumers, but it is no longer rendered as a

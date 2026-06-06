@@ -389,7 +389,10 @@ _UTILITY_TILE_MAP: dict[str, tuple[str, str, str]] = {
     "uv": ("uv", "☀", "UV index"),
     "aqi": ("air", "💨", "Air quality"),
     "water_temp": ("water", "🌊", "Water temp"),
-    "lake_level": ("lake", "🏞", "Lake level"),
+    # Wind replaces lake level in the home strip — the live wind reading is the
+    # higher-value boating/paddling signal on a desert lake. Lake level is still
+    # available on /today and in the conditions JSON payload.
+    "wind": ("wind", "🌬", "Wind"),
     "advisory": ("alert", "⚠", "Advisory"),
 }
 
@@ -485,7 +488,6 @@ def serve_home(
     """
     now = now_lake_havasu()
     utility_chips = _utility_chips(db)
-    tonight_card = _tonight_card(db, now=now)
     cal_year, cal_month = sandstone.parse_cal_param(cal, default=now)
     spotlights = sponsor_store.active_spotlights(db)
     # Hero copy defaults to the locked prototype wording (with its italic accent);
@@ -503,9 +505,7 @@ def serve_home(
             "utility_chips": utility_chips,
             "primary_nav": sandstone.primary_nav(),
             "mega_columns": sandstone.mega_columns(db),
-            "today_cards": sandstone.today_cards(
-                utility_chips=utility_chips, tonight_card=tonight_card
-            ),
+            "week": sandstone.week_strip(db, today=now.date()),
             "featured_cards": sandstone.featured_cards(spotlights),
             "calendar": sandstone.calendar_month(
                 db, year=cal_year, month=cal_month, today=now.date()
