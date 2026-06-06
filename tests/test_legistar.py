@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import json
-from datetime import time
+import re
+from datetime import date, time
 from pathlib import Path
-
-import pytest
 
 from app.contrib import legistar
 
@@ -55,9 +54,46 @@ def test_cli_dry_run(monkeypatch, capsys) -> None:
     assert "would-insert:   2" in out
 
 
-def test_cli_apply_guarded() -> None:
+# ----- EventRecord mapping (ingestion) -------------------------------------
+
+
+def test_to_event_records_keeps_upcoming_drops_past() -> None:
+    meetings = legistar.parse_events(_events())  # City Council 06-09, P&Z 06-03
+    recs = legistar.to_event_records(meetings, today=date(2026, 6, 5))
+    # Only the 06-09 council meeting is on/after today; the 06-03 P&Z is dropped.
+    assert len(recs) == 1
+    rec = recs[0]
+    assert rec.source == "legistar"
+    assert rec.title == "City Council Meeting"  # body gets a "Meeting" suffix
+    assert rec.start_date == date(2026, 6, 9)
+    assert rec.start_time == time(18, 0)
+    assert rec.tags == ["civic", "government", "meeting"]
+    assert rec.description and len(rec.description) >= 20
+    assert rec.url and "View.ashx" in rec.url  # agenda link preferred
+
+
+def test_to_event_records_all_past_is_empty() -> None:
+    meetings = legistar.parse_events(_events())
+    assert legistar.to_event_records(meetings, today=date(2027, 1, 1)) == []
+
+
+def test_cli_apply_ingests_upcoming(monkeypatch, capsys) -> None:
+    """--apply maps upcoming meetings to EventRecords and ingests (auto-approve)."""
     import scripts.legistar_pull as cli
 
-    with pytest.raises(SystemExit) as exc:
-        cli.main(["--apply"])
-    assert exc.value.code == 2
+    future = date(date.today().year + 1, 6, 9)
+    meeting = legistar.LegistarMeeting(
+        event_id=9001,
+        body_name="City Council",
+        meeting_date=future,
+        start_time=time(18, 0),
+        location="Council Chambers",
+        agenda_url="https://example.com/agenda",
+        minutes_url=None,
+    )
+    monkeypatch.setattr(cli.legistar, "fetch_events", lambda **_: [meeting])
+    assert cli.main(["--apply"]) == 0
+    out = capsys.readouterr().out
+    assert "legistar ingest complete" in out
+    # legistar is a civic auto-approve source -> the upcoming meeting goes live.
+    assert re.search(r"^\s*auto_approved\s+1\s*$", out, re.MULTILINE)

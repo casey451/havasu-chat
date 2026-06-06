@@ -22,8 +22,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any
+from datetime import date, datetime
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from bs4 import BeautifulSoup
@@ -31,6 +31,9 @@ from bs4 import BeautifulSoup
 from app.contrib.news_item import NewsItem
 from app.contrib.rate_limiter import SourceLimiter
 from app.events.scrapers.ical_parse import ICalEvent, parse_ical_events
+
+if TYPE_CHECKING:
+    from app.contrib.event_record import EventRecord
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +194,50 @@ def event_sample(ev: LhusdEvent) -> dict[str, Any]:
         "all_day": ev.all_day,
         "location": ev.location,
     }
+
+
+def _unescape_ical_text(value: str | None) -> str | None:
+    """Undo RFC 5545 TEXT escaping (\\, \\; \\n \\\\) left on iCal property values."""
+    if not value:
+        return None
+    out = (
+        value.replace("\\,", ",")
+        .replace("\\;", ";")
+        .replace("\\n", " ")
+        .replace("\\N", " ")
+        .replace("\\\\", "\\")
+    )
+    return out.strip() or None
+
+
+def to_event_records(
+    events: list[LhusdEvent], *, today: date | None = None
+) -> list["EventRecord"]:
+    """Map LHUSD calendar events to EventRecords for ingestion (upcoming only)."""
+    from app.contrib.event_record import EventRecord
+
+    today = today or date.today()
+    records: list[EventRecord] = []
+    for ev in events:
+        start_date = ev.start.date()
+        if start_date < today:
+            continue
+        end_date = ev.end.date() if ev.end else None
+        records.append(
+            EventRecord(
+                source=SOURCE,
+                title=ev.summary.strip(),
+                start_date=start_date,
+                start_time=None if ev.all_day else ev.start.time().replace(tzinfo=None),
+                end_date=end_date if (end_date and end_date > start_date) else None,
+                end_time=None if (ev.all_day or ev.end is None) else ev.end.time().replace(tzinfo=None),
+                venue_name=_unescape_ical_text(ev.location) or "Lake Havasu Unified School District",
+                url=ev.url,
+                tags=["school", "education", "lhusd"],
+                raw={"uid": (ev.raw or {}).get("uid")},
+            )
+        )
+    return records
 
 
 def news_sample(item: NewsItem) -> dict[str, Any]:
