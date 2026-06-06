@@ -1,16 +1,18 @@
 """
-CLI: dry-run the source-expansion event sources.
+CLI: source-expansion event sources — dry-run by default, ``--apply`` ingests.
 
-Build-only / inert: fetch + parse, prints the dry-run contract, writes nothing.
-All event records are deduped within-batch on the normalised (title, date,
-venue) key; cross-source dedup happens at ingestion via events.dedup.
+Dry-run (default): fetch + parse, print the dry-run contract, write nothing.
+``--apply``: route the fetched records through the shared ingestion path
+(``app.contrib.event_ingest`` -> reconcile -> contribution -> trust-tiered
+approval). These aggregator sources are NOT in the auto-approve registry, so on
+``--apply`` they land PENDING in the review queue (human go/no-go), not live.
 
   python scripts/events_pull.py --source allevents
   python scripts/events_pull.py --source bandsintown      # needs BANDSINTOWN_APP_ID
   python scripts/events_pull.py --source eventbrite        # needs EVENTBRITE_API_TOKEN
   python scripts/events_pull.py --source senior_center
   python scripts/events_pull.py --source movies
-  python scripts/events_pull.py --source allevents --apply # guarded — refuses to write
+  python scripts/events_pull.py --source allevents --apply # ingests (lands pending)
 """
 
 from __future__ import annotations
@@ -33,7 +35,7 @@ from app.contrib import (  # noqa: E402
     senior_center,
 )
 from app.contrib.event_record import event_sample  # noqa: E402
-from app.contrib.scrape_dryrun import apply_guard, print_dry_run_report  # noqa: E402
+from app.contrib.scrape_dryrun import print_dry_run_report  # noqa: E402
 
 _SOURCES = {
     "allevents": (allevents.SOURCE, allevents.fetch_events, event_sample, []),
@@ -67,14 +69,19 @@ _SOURCES = {
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--source", choices=sorted(_SOURCES), required=True)
-    p.add_argument("--apply", action="store_true", help="(guarded) attempt live ingestion")
+    p.add_argument("--apply", action="store_true", help="ingest (aggregators land pending)")
     args = p.parse_args(argv)
 
     name, fetch, sample_fn, notes = _SOURCES[args.source]
-    if args.apply:
-        apply_guard(name)
-
     records = fetch()
+
+    if args.apply:
+        from app.contrib.event_ingest import ingest_event_records, print_ingest_report
+
+        counts = ingest_event_records(records, source=name, dry_run=False)
+        print_ingest_report(name, counts, dry_run=False)
+        return 0
+
     print_dry_run_report(name, records, sample_fn=sample_fn, notes=notes)
     return 0
 

@@ -150,6 +150,31 @@ a.spon:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
 .cal-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
 .cal-empty{text-align:center;color:var(--muted);padding:30px 10px;font-size:.9rem}
 
+/* ---------- THIS-WEEK STRIP (next 7 days, ranked by importance) ---------- */
+.week-strip{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(118px,1fr);gap:8px;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:4px}
+@media(min-width:860px){.week-strip{grid-auto-columns:1fr;overflow-x:visible}}
+.wday{display:flex;flex-direction:column;gap:5px;min-width:0;border:1px solid var(--border);border-radius:10px;padding:9px 8px;background:var(--bg);color:inherit;transition:.2s;scroll-snap-align:start}
+a.wday:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--accent-soft)}
+.wday.today{outline:2px solid var(--live);outline-offset:-2px;background:var(--surface)}
+.wday-h{display:flex;align-items:baseline;justify-content:space-between;gap:4px;margin-bottom:1px}
+.wday-h .wd{font-size:.74rem;font-weight:700;color:var(--text)}
+.wday.today .wd{color:var(--accent)}
+.wday-h .wdm{font-size:.64rem;color:var(--muted)}
+.wev{display:block;font-size:.64rem;line-height:1.25;font-weight:600;color:#fff;border-radius:5px;padding:3px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wev .wt{font-style:normal;font-weight:700;opacity:.85;margin-right:4px}
+.wev.special{background:#B5472B}
+.wev.water{background:#1F6F8B}
+.wev.music{background:#6D4AA8}
+.wev.community{background:#B07514}
+.wev.class{background:var(--chip);color:var(--muted);font-weight:600}
+.wmore{font-size:.62rem;color:var(--muted);padding:1px 2px}
+.wempty{font-size:.8rem;color:var(--muted);opacity:.55;text-align:center;padding:8px 0}
+.cal-legend i.leg.special{background:#B5472B}
+.cal-legend i.leg.water{background:#1F6F8B}
+.cal-legend i.leg.music{background:#6D4AA8}
+.cal-legend i.leg.community{background:#B07514}
+.cal-legend i.leg.class{background:var(--chip);border:1px solid var(--border)}
+
 /* ---------- CATEGORY STRIPS ---------- */
 .cat-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
 .catchip{display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 15px;transition:.2s;color:inherit}

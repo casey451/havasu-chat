@@ -373,3 +373,28 @@ def test_out_of_area_card_carries_distance_hint_dl8() -> None:
         assert far in by_name
     finally:
         _cleanup(eids)
+
+
+def test_mis_geocoded_card_gets_no_fabricated_distance_hint() -> None:
+    """A row whose coords sit far outside the region (mis-geocode) shows no hint,
+    not a fabricated "~2405 min away . Parker area" line (prod-smoke bug)."""
+    suf = uuid.uuid4().hex[:8]
+    name = f"WP5 BadGeo {suf}"
+    with SessionLocal() as db:
+        # ~1700+ km from the LHC anchor (well past _FAR_OUT_OF_REGION_KM).
+        p = Provider(
+            provider_name=name, category="restaurant", subcategory="restaurants",
+            lat=45.0, lng=-104.0,
+            draft=False, is_active=True, pending_review=False, verified=False, source="test-wp5",
+        )
+        db.add(p)
+        db.commit()
+        eids = [p.entity_id]
+    try:
+        with SessionLocal() as db:
+            cards, _ = category_listing(db, "eat-drink", now=_NOW, facets=CategoryFacets(sort="alpha"), limit=500)
+        by_name = {c["name"]: c for c in cards}
+        assert name in by_name  # still rendered, not hidden
+        assert by_name[name]["distance_hint"] == ""  # but no fabricated distance
+    finally:
+        _cleanup(eids)

@@ -32,6 +32,19 @@ ContributionSource = Literal[
     "lhc_library",
     "lhc_parks_rec",
     "facebook_scrape",
+    # Source-expansion ingestion (2026-06-05): event aggregators + civic/official
+    # feeds wired through app/contrib/event_ingest.py. `Contribution.source` is a
+    # plain String column (no DB enum), so these are additive with no migration.
+    # Trust tier (auto-approve vs pending) is decided in approval_service, not here.
+    "allevents",
+    "legistar",
+    "lhusd",
+    "pdga",
+    "usapickleball",
+    "osm",
+    # Captured class schedules imported from the schedule-hunt dataset
+    # (scripts/import_captured_schedules.py) as draft program contributions.
+    "schedule_scrape",
 ]
 ContributionStatus = Literal["pending", "approved", "rejected", "needs_info"]
 RejectionReason = Literal["duplicate", "out_of_area", "spam", "incomplete", "unverifiable", "other"]

@@ -60,6 +60,28 @@ def _append_segment(
     out[day_key].append({"open": open_s, "close": close_s})
 
 
+def _is_always_open(periods: list) -> bool:
+    """True for Google's 24/7 convention: a single period that opens Sunday 00:00
+    with **no** ``close``, meaning the place is open continuously all week.
+
+    Without this the lone period maps to Sunday only and every other weekday reads
+    "Closed" — the "A Toe Truck (a 24-hour towing service) shows open only Sunday"
+    bug. https://developers.google.com/maps/documentation/places/web-service/details
+    """
+    if len(periods) != 1 or not isinstance(periods[0], dict):
+        return False
+    only = periods[0]
+    if "close" in only:
+        return False
+    o = only.get("open")
+    if not isinstance(o, dict):
+        return False
+    try:
+        return int(o.get("day")) % 7 == 0 and int(o.get("hour")) == 0 and int(o.get("minute", 0)) == 0
+    except (TypeError, ValueError):
+        return False
+
+
 def places_hours_to_structured(places_regular_opening_hours: dict) -> dict:
     """Convert Google Places ``regular_opening_hours`` → structured weekday dict.
 
@@ -70,6 +92,9 @@ def places_hours_to_structured(places_regular_opening_hours: dict) -> dict:
     periods = places_regular_opening_hours.get("periods")
     if not isinstance(periods, list) or not periods:
         return {}
+
+    if _is_always_open(periods):
+        return {k: [{"open": "00:00", "close": "23:59"}] for k in _GOOGLE_DAY_TO_KEY}
 
     out: dict[str, list[dict[str, str]]] = {}
 

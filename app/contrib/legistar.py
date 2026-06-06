@@ -20,12 +20,15 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import date, datetime, time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from dateutil import parser as dateutil_parser
 
 from app.contrib.rate_limiter import SourceLimiter
+
+if TYPE_CHECKING:
+    from app.contrib.event_record import EventRecord
 
 logger = logging.getLogger(__name__)
 
@@ -129,3 +132,56 @@ def meeting_sample(m: LegistarMeeting) -> dict[str, Any]:
         "agenda_url": m.agenda_url,
         "minutes_url": m.minutes_url,
     }
+
+
+def _meeting_title(m: LegistarMeeting) -> str:
+    body = m.body_name.strip()
+    # "City Council" -> "City Council Meeting"; leave bodies that already read as
+    # a meeting/session/hearing alone so we don't double up.
+    if any(body.lower().endswith(w) for w in ("meeting", "session", "hearing", "workshop")):
+        return body
+    return f"{body} Meeting"
+
+
+def _meeting_description(m: LegistarMeeting) -> str:
+    parts = [f"{m.body_name.strip()} public meeting"]
+    if m.location:
+        parts.append(f"at {m.location.strip()}")
+    if m.start_datetime:
+        parts.append(f"on {m.start_datetime.strftime('%b %d, %Y')}")
+    desc = " ".join(parts).rstrip(".") + "."
+    if m.agenda_url:
+        desc += f" Agenda: {m.agenda_url}"
+    return desc
+
+
+def to_event_records(
+    meetings: list[LegistarMeeting], *, today: date | None = None
+) -> list["EventRecord"]:
+    """Map Legistar meetings to EventRecords for ingestion (upcoming only).
+
+    Past meetings are dropped: the events catalog is forward-looking, so only
+    meetings on/after ``today`` are surfaced (legistar fetches newest-first and
+    the most-recent window mixes upcoming + just-passed meetings).
+    """
+    from app.contrib.event_record import EventRecord
+
+    today = today or date.today()
+    records: list[EventRecord] = []
+    for m in meetings:
+        if m.meeting_date is None or m.meeting_date < today:
+            continue
+        records.append(
+            EventRecord(
+                source=SOURCE,
+                title=_meeting_title(m),
+                start_date=m.meeting_date,
+                start_time=m.start_time,
+                venue_name=m.location or "Lake Havasu City",
+                url=m.agenda_url or m.insite_url or m.minutes_url,
+                description=_meeting_description(m),
+                tags=["civic", "government", "meeting"],
+                raw={"event_id": m.event_id, "body": m.body_name},
+            )
+        )
+    return records

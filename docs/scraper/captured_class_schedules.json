@@ -1,0 +1,291 @@
+{
+  "_about": "Structured class schedules captured for the schedule-hunt venues. Each class -> one draft Program contribution via scripts/import_captured_schedules.py (review/publish through the normal contribution flow). Times are 24h HH:MM. Days lowercase. A class that runs at several times appears as one row per time slot (the Program model is one-time-per-row); same-named slots get a time tag in the title so the ingest dedup (keyed on title) keeps them distinct. Source-verified per venue (see source_url + captured). End times estimated at the class's stated duration, else +1h.",
+  "venues": [
+    {
+      "provider_name": "Bridge City Combat",
+      "location_name": "Bridge City Combat",
+      "location_address": "2143 McCulloch Blvd N, Lake Havasu City, AZ 86403",
+      "contact_phone": "(928) 716-3009",
+      "contact_url": "https://www.bridgecityjiujitsu.com",
+      "source_url": "https://www.bridgecityjiujitsu.com/",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["martial-arts", "jiu-jitsu", "bjj", "mma", "classes-sports-recreation"],
+      "captured": "2026-06-06 from the schedule image on the site's Schedule page (read via vision)",
+      "classes": [
+        {"title": "Adult No-Gi (Morning)", "days": ["wednesday", "friday"], "start": "06:00", "end": "07:00"},
+        {"title": "Open Mat (Sunday)", "days": ["sunday"], "start": "09:30", "end": "10:30"},
+        {"title": "Youth Gi", "days": ["monday", "wednesday"], "start": "17:00", "end": "18:00", "age_min": 6, "age_max": 14},
+        {"title": "Youth No-Gi", "days": ["tuesday", "thursday"], "start": "17:00", "end": "18:00", "age_min": 6, "age_max": 14},
+        {"title": "Adult Fundamentals", "days": ["tuesday"], "start": "18:00", "end": "19:00"},
+        {"title": "Adult No-Gi (Evening)", "days": ["thursday"], "start": "18:00", "end": "19:00"},
+        {"title": "Open Mat (Friday)", "days": ["friday"], "start": "18:00", "end": "19:00"},
+        {"title": "Adult No-Gi (Night)", "days": ["monday", "wednesday"], "start": "19:15", "end": "20:15"},
+        {"title": "Adult MMA", "days": ["tuesday", "thursday"], "start": "19:15", "end": "20:15"}
+      ]
+    },
+    {
+      "provider_name": "Elite Martial Arts Inc",
+      "location_name": "Elite Martial Arts",
+      "location_address": "2078 McCulloch Blvd N Ste 101, Lake Havasu City, AZ 86403",
+      "contact_phone": "(928) 846-4456",
+      "contact_url": "https://elitemartialartslakehavasucity.com",
+      "source_url": "https://elitemartialartslakehavasucity.com/class-schedule.html",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["martial-arts", "karate", "kickboxing", "classes-sports-recreation"],
+      "captured": "2026-06-03 schedule-hunt (class-schedule page); Karate end time estimated at 1h",
+      "classes": [
+        {"title": "Kali", "days": ["tuesday"], "start": "18:30", "end": "19:30"},
+        {"title": "Kickboxing", "days": ["monday", "wednesday"], "start": "18:00", "end": "19:00"},
+        {"title": "Elite Tigers (Kids)", "days": ["tuesday", "thursday"], "start": "17:30", "end": "18:10", "age_min": 5, "age_max": 12},
+        {"title": "Traditional Japanese Karate", "days": ["thursday"], "start": "16:30", "end": "17:30"},
+        {"title": "Kenpo Karate", "days": ["monday", "wednesday"], "start": "19:00", "end": "20:00"}
+      ]
+    },
+    {
+      "provider_name": "The Tap Room Jiu Jitsu",
+      "location_name": "The Tap Room Jiu Jitsu",
+      "location_address": "2175 Kiowa Blvd N #104, Lake Havasu City, AZ 86403",
+      "contact_url": "https://thetaproomjiujitsu.com",
+      "source_url": "https://thetaproomjiujitsu.com/schedule",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["martial-arts", "jiu-jitsu", "bjj", "mma", "classes-sports-recreation"],
+      "captured": "2026-06-03 schedule-hunt (grid re-verified with corrections)",
+      "cost": "$109/mo",
+      "classes": [
+        {"title": "Women's Only No-Gi", "days": ["monday"], "start": "09:00", "end": "10:00"},
+        {"title": "Open Mat (Sunday)", "days": ["sunday"], "start": "09:00", "end": "10:30"},
+        {"title": "Littles Gi", "days": ["monday", "wednesday"], "start": "16:30", "end": "17:15", "age_min": 4, "age_max": 7},
+        {"title": "Littles No-Gi", "days": ["tuesday", "thursday"], "start": "16:30", "end": "17:15", "age_min": 4, "age_max": 7},
+        {"title": "Youth Gi", "days": ["monday", "wednesday"], "start": "17:15", "end": "18:15", "age_min": 8, "age_max": 15},
+        {"title": "Youth No-Gi", "days": ["tuesday", "thursday"], "start": "17:15", "end": "18:15", "age_min": 8, "age_max": 15},
+        {"title": "Adult Gi", "days": ["monday", "wednesday"], "start": "18:15", "end": "19:45"},
+        {"title": "Adult No-Gi", "days": ["tuesday", "thursday"], "start": "18:15", "end": "19:45"},
+        {"title": "MMA (Wednesday)", "days": ["wednesday"], "start": "19:30", "end": "20:30"},
+        {"title": "No-Gi Leg Locks", "days": ["friday"], "start": "17:15", "end": "18:15"},
+        {"title": "MMA (Friday)", "days": ["friday"], "start": "18:15", "end": "19:15"},
+        {"title": "Youth Wrestling", "days": ["saturday"], "start": "09:00", "end": "10:00"},
+        {"title": "Adult Wrestling", "days": ["saturday"], "start": "10:00", "end": "11:00"}
+      ]
+    },
+    {
+      "provider_name": "The Study Yoga Studio & Creative Center",
+      "location_name": "The Study Yoga Studio & Creative Center",
+      "location_address": "2550 Kiowa Blvd N, Lake Havasu City, AZ 86403",
+      "contact_phone": "(928) 706-2083",
+      "contact_url": "https://thestudylhcaz.com",
+      "source_url": "https://thestudylhcaz.com/class-schedule",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["yoga", "wellness", "classes-sports-recreation"],
+      "captured": "2026-06-03 schedule-hunt (full grid from the class-schedule page)",
+      "classes": [
+        {"title": "Morning Flow", "days": ["monday"], "start": "09:00", "end": "10:00"},
+        {"title": "Root & Rise", "days": ["tuesday"], "start": "08:00", "end": "09:00"},
+        {"title": "Hatha Slow Flow", "days": ["wednesday"], "start": "08:00", "end": "09:00"},
+        {"title": "Zen Yin", "days": ["wednesday"], "start": "09:30", "end": "10:30"},
+        {"title": "Kundalini", "days": ["thursday"], "start": "09:30", "end": "10:30"},
+        {"title": "Stretch & Flow", "days": ["friday"], "start": "09:00", "end": "10:00"},
+        {"title": "Restorative Yin", "days": ["friday"], "start": "10:30", "end": "11:30"},
+        {"title": "Hatha Warrior Flow", "days": ["saturday"], "start": "09:00", "end": "10:00"}
+      ]
+    },
+    {
+      "provider_name": "Amalaya Yoga",
+      "location_name": "Amalaya Yoga",
+      "location_address": "1963 McCulloch Blvd N #101, Lake Havasu City, AZ 86403",
+      "contact_url": "https://www.amalayayoga.com",
+      "source_url": "https://www.amalayayoga.com/schedule",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["yoga", "pilates", "hot-yoga", "classes-sports-recreation"],
+      "captured": "2026-06-03 schedule-hunt (rendered Momence widget; Mon-Thu captured). Verify weekend before publish.",
+      "cost": "$20-$25/class",
+      "classes": [
+        {"title": "Inferno (6 AM)", "days": ["monday", "wednesday"], "start": "06:00", "end": "07:00"},
+        {"title": "Inferno (5:30 PM)", "days": ["monday", "wednesday"], "start": "17:30", "end": "18:30"},
+        {"title": "Inferno (4 PM)", "days": ["tuesday", "thursday"], "start": "16:00", "end": "17:00"},
+        {"title": "Inferno (7 PM)", "days": ["tuesday"], "start": "19:00", "end": "20:00"},
+        {"title": "Inferno (8:30 AM)", "days": ["thursday"], "start": "08:30", "end": "09:30"},
+        {"title": "Hot Fusion (8:30 AM)", "days": ["monday", "wednesday"], "start": "08:30", "end": "09:30"},
+        {"title": "Hot Fusion (7 PM)", "days": ["wednesday"], "start": "19:00", "end": "20:00"},
+        {"title": "Amalaya Hot Yoga (6 AM)", "days": ["tuesday"], "start": "06:00", "end": "07:00"},
+        {"title": "Amalaya Hot Yoga (4 PM)", "days": ["monday"], "start": "16:00", "end": "17:00"},
+        {"title": "Amalaya Hot Yoga (5:30 PM)", "days": ["tuesday"], "start": "17:30", "end": "18:30"},
+        {"title": "Sculpt (8:30 AM)", "days": ["tuesday"], "start": "08:30", "end": "09:30"},
+        {"title": "Sculpt (6 AM)", "days": ["thursday"], "start": "06:00", "end": "07:00"},
+        {"title": "Sculpt (4 PM)", "days": ["wednesday"], "start": "16:00", "end": "17:00"},
+        {"title": "Gentle Stretch", "days": ["tuesday", "thursday"], "start": "10:00", "end": "11:00"},
+        {"title": "Non-Heated Mat Pilates", "days": ["monday"], "start": "19:00", "end": "20:00"}
+      ]
+    },
+    {
+      "provider_name": "Eight Lotus Center for Wellness",
+      "location_name": "Eight Lotus Center for Wellness",
+      "location_address": "231 Swanson Ave Ste 208-210, Lake Havasu City, AZ 86403",
+      "contact_url": "https://www.8lotuswellness.com",
+      "source_url": "https://www.8lotuswellness.com/book-class",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["yoga", "wellness", "pilates", "dance", "classes-sports-recreation"],
+      "captured": "2026-06-04 schedule-hunt (Mindbody widget read in-browser). Tue lineup newly added; verify.",
+      "cost": "$20 walk-in",
+      "classes": [
+        {"title": "Hula", "days": ["thursday"], "start": "13:00", "end": "14:30"},
+        {"title": "Yin (Thursday)", "days": ["thursday"], "start": "17:15", "end": "18:15"},
+        {"title": "Yin (Sunday)", "days": ["sunday"], "start": "15:00", "end": "16:00"},
+        {"title": "Heated Ashtanga (Friday)", "days": ["friday"], "start": "05:30", "end": "06:30"},
+        {"title": "Heated Ashtanga (Saturday)", "days": ["saturday"], "start": "08:30", "end": "09:30"},
+        {"title": "TruFusion Pilates", "days": ["monday", "friday"], "start": "08:15", "end": "09:15"},
+        {"title": "Breathwork", "days": ["monday"], "start": "09:30", "end": "10:15"},
+        {"title": "Slow Flow", "days": ["monday"], "start": "16:30", "end": "17:30"},
+        {"title": "Belly Dance (Beginner)", "days": ["monday"], "start": "18:15", "end": "19:15"},
+        {"title": "Belly Dance (Continuing)", "days": ["monday"], "start": "19:15", "end": "20:15"}
+      ]
+    },
+    {
+      "provider_name": "Ballet Havasu",
+      "location_name": "Ballet Havasu (inside The Dance Center)",
+      "location_address": "2735 Maricopa Ave, Lake Havasu City, AZ 86403",
+      "contact_phone": "(928) 412-8208",
+      "contact_url": "https://www.ballethavasu.org",
+      "source_url": "https://www.ballethavasu.org/2025",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["dance", "ballet", "classes-sports-recreation"],
+      "captured": "2026-06-04 schedule-hunt (2025/26 season grid). May pause for summer; fall starts Aug 4 — review before publishing.",
+      "classes": [
+        {"title": "Tiny Toes", "days": ["monday"], "start": "15:30", "end": "16:00", "age_min": 3, "age_max": 5},
+        {"title": "Ballet Beginnings", "days": ["monday", "friday"], "start": "16:00", "end": "16:45"},
+        {"title": "New Students (11+)", "days": ["monday"], "start": "16:30", "end": "18:00", "age_min": 11},
+        {"title": "Advanced (Mon/Tue)", "days": ["monday", "tuesday"], "start": "18:00", "end": "19:30"},
+        {"title": "Pointe", "days": ["monday"], "start": "19:30", "end": "20:30"},
+        {"title": "Intermediate (Tuesday)", "days": ["tuesday"], "start": "15:30", "end": "17:00"},
+        {"title": "Elementary B", "days": ["tuesday"], "start": "17:00", "end": "18:00"},
+        {"title": "Adult Ballet", "days": ["tuesday"], "start": "18:30", "end": "19:30"},
+        {"title": "Intermediate (Wednesday)", "days": ["wednesday"], "start": "16:00", "end": "17:30"},
+        {"title": "Elementary A", "days": ["wednesday"], "start": "17:45", "end": "18:45"},
+        {"title": "Intermediate (Thursday)", "days": ["thursday"], "start": "15:30", "end": "17:00"},
+        {"title": "Advanced (Thursday)", "days": ["thursday"], "start": "17:00", "end": "18:30"}
+      ]
+    },
+    {
+      "provider_name": "Arizona Coast Performing Arts",
+      "location_name": "Arizona Coast Performing Arts",
+      "location_address": "3476 McCulloch Blvd, Lake Havasu City, AZ 86406",
+      "contact_phone": "(928) 208-2273",
+      "contact_url": "https://graceartslive.com/dance-studio/",
+      "source_url": "https://graceartslive.com/dance-studio/",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["dance", "ballet", "hip-hop", "classes-sports-recreation"],
+      "captured": "2026-06-03 schedule-hunt (2025-26 grid; Monday fully captured, other days partial). Verify Tue-Fri before publish.",
+      "classes": [
+        {"title": "Ballet 1 & 2", "days": ["monday"], "start": "15:30", "end": "16:30"},
+        {"title": "Jazz 1 & 2", "days": ["monday"], "start": "16:30", "end": "17:30"},
+        {"title": "Contemporary (Intermediate)", "days": ["monday"], "start": "17:30", "end": "18:30"},
+        {"title": "Hip Hop (Advanced)", "days": ["monday"], "start": "18:30", "end": "19:30"},
+        {"title": "Pre-Ballet / Pre-Tap", "days": ["tuesday"], "start": "15:00", "end": "16:00"},
+        {"title": "Tap 1 & 2", "days": ["tuesday"], "start": "16:00", "end": "17:00"},
+        {"title": "Beginner Hip Hop", "days": ["friday"], "start": "15:00", "end": "16:00"}
+      ]
+    },
+    {
+      "provider_name": "Universal Sonics Gymnastics & All Star Cheer",
+      "location_name": "Universal Sonics Gymnastics & All Star Cheer",
+      "location_address": "2245 Kiowa Blvd N #102, Lake Havasu City, AZ 86403",
+      "contact_url": "http://www.universalgymnasticslakehavasu.com",
+      "source_url": "http://www.universalgymnasticslakehavasu.com",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["gymnastics", "cheer", "tumbling", "classes-sports-recreation"],
+      "captured": "2026-06-04 schedule-hunt (machine-readable grid; 'off season' note — verify before ingest)",
+      "classes": [
+        {"title": "Rec Gym (Mon 4 PM)", "days": ["monday"], "start": "16:00", "end": "17:00", "age_min": 5, "age_max": 9},
+        {"title": "Rec Gym (Mon 5 PM)", "days": ["monday"], "start": "17:00", "end": "18:00"},
+        {"title": "Boys Athletics (Young)", "days": ["tuesday"], "start": "15:30", "end": "16:30", "age_min": 5, "age_max": 10},
+        {"title": "Boys Athletics (Older)", "days": ["tuesday"], "start": "18:30", "end": "19:30", "age_min": 11},
+        {"title": "Tiny Tumblers (Tue 4:30)", "days": ["tuesday"], "start": "16:30", "end": "17:15", "age_min": 3, "age_max": 4},
+        {"title": "Tiny Tumblers (Tue 5:30)", "days": ["tuesday"], "start": "17:30", "end": "18:15", "age_min": 3, "age_max": 4},
+        {"title": "Rec Gym (Tue)", "days": ["tuesday"], "start": "16:30", "end": "17:30"},
+        {"title": "Rec Tumbling L1-3", "days": ["tuesday"], "start": "17:30", "end": "18:30", "age_min": 8},
+        {"title": "Rec Gym (Wed 4 PM)", "days": ["wednesday"], "start": "16:00", "end": "17:00"},
+        {"title": "Rec Gym (Wed 4:45)", "days": ["wednesday"], "start": "16:45", "end": "17:45", "age_min": 9},
+        {"title": "Lil Firecrackers", "days": ["wednesday"], "start": "17:00", "end": "18:00"},
+        {"title": "Tiny Tumblers (Wed)", "days": ["wednesday"], "start": "17:30", "end": "18:15", "age_min": 3, "age_max": 4},
+        {"title": "Rec Cheer", "days": ["thursday"], "start": "15:30", "end": "16:30", "age_min": 5},
+        {"title": "Rec Gym (Thu)", "days": ["thursday"], "start": "16:30", "end": "17:30"}
+      ]
+    },
+    {
+      "provider_name": "Lake Havasu City Aquatic Center",
+      "location_name": "Lake Havasu City Aquatic Center",
+      "location_address": "100 Park Ave, Lake Havasu City, AZ 86403",
+      "contact_url": "https://www.lhcaz.gov/parks-recreation/aquatic-center",
+      "source_url": "https://www.lhcaz.gov/parks-recreation/aquatic-center",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["aquatics", "fitness", "swim", "classes-sports-recreation"],
+      "captured": "2026-06-03 schedule-hunt (June 2026 PDF grids, rev 5/29/26)",
+      "cost": "$5/class or $80/20-visit punch pass",
+      "classes": [
+        {"title": "Motion & Mobility", "days": ["monday", "wednesday", "friday"], "start": "08:00", "end": "09:00"},
+        {"title": "Tai Chi (Aquatic)", "days": ["monday", "wednesday"], "start": "08:00", "end": "09:00"},
+        {"title": "Arthritis Water Class", "days": ["monday", "wednesday", "friday"], "start": "09:15", "end": "10:15"},
+        {"title": "Aqua Aerobics", "days": ["monday", "wednesday", "friday"], "start": "09:30", "end": "10:30"},
+        {"title": "Deep Water Fit", "days": ["monday", "wednesday", "friday"], "start": "10:45", "end": "11:45"},
+        {"title": "Fit & Flex", "days": ["tuesday", "thursday"], "start": "09:00", "end": "10:00"},
+        {"title": "Aqua Challenge", "days": ["tuesday", "thursday"], "start": "09:30", "end": "10:30"},
+        {"title": "Warm Water Yoga", "days": ["tuesday", "thursday"], "start": "10:15", "end": "11:15"},
+        {"title": "Water Wellness", "days": ["tuesday", "thursday"], "start": "10:45", "end": "11:45"},
+        {"title": "Lap Swim (Morning)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "05:00", "end": "07:00"},
+        {"title": "Lap Swim (Midday)", "days": ["tuesday", "thursday"], "start": "12:00", "end": "13:45"},
+        {"title": "Swim League", "days": ["monday", "wednesday"], "start": "17:00", "end": "19:00"}
+      ]
+    },
+    {
+      "provider_name": "Lake Havasu Senior Center",
+      "location_name": "Lake Havasu Senior Center",
+      "location_address": "450 Acoma Blvd S, Lake Havasu City, AZ 86406",
+      "contact_phone": "(928) 453-0715",
+      "contact_url": "https://lakehavasuseniorcenter.com",
+      "source_url": "https://lakehavasuseniorcenter.com/current-events",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["senior", "fitness", "arts", "classes-sports-recreation"],
+      "captured": "2026-06 schedule-hunt (only classes with published times included; many others have no fixed time)",
+      "classes": [
+        {"title": "Tai Chi Qigong", "days": ["friday"], "start": "12:00", "end": "13:00", "cost": "$1", "age_min": 60},
+        {"title": "Arts & Crafts", "days": ["thursday"], "start": "08:30", "end": "11:00", "age_min": 60}
+      ]
+    },
+    {
+      "provider_name": "Iron Wolf Golf and Country Club",
+      "location_name": "Iron Wolf Golf and Country Club",
+      "location_address": "3275 N LaTrobe Dr, Lake Havasu City, AZ 86404",
+      "source_url": "https://ironwolfgcc.com/events-calendar/",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["dance", "line-dancing", "classes-sports-recreation"],
+      "captured": "2026-06-04 schedule-hunt (verified current through June 2026)",
+      "classes": [
+        {"title": "Line Dancing", "days": ["wednesday"], "start": "17:00", "end": "20:00"}
+      ]
+    },
+    {
+      "provider_name": "Lake Havasu Yacht Club",
+      "location_name": "Lake Havasu Yacht Club",
+      "location_address": "631 London Bridge Rd, Lake Havasu City, AZ 86403",
+      "source_url": "https://www.lakehavasuyachtclub.net",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["dance", "line-dancing", "classes-sports-recreation"],
+      "captured": "2026-06 schedule-hunt (Burgee Girls line dance lessons)",
+      "classes": [
+        {"title": "Line Dance Lessons", "days": ["monday"], "start": "12:00", "end": "13:00"}
+      ]
+    },
+    {
+      "provider_name": "Arizona Krav Maga",
+      "location_name": "Arizona Krav Maga (Lake Havasu sessions)",
+      "location_address": "Lake Havasu City, AZ",
+      "contact_phone": "(928) 263-0071",
+      "source_url": "https://arizonakravmaga.com/",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["martial-arts", "krav-maga", "self-defense", "classes-sports-recreation"],
+      "captured": "2026-06-03 schedule-hunt (traveling model; the one fixed LHC class)",
+      "classes": [
+        {"title": "Firearms Self Defense", "days": ["thursday"], "start": "18:00", "end": "19:00"}
+      ]
+    }
+  ]
+}
