@@ -30,7 +30,11 @@ name: golakehavasu-partners
 
 on:
   schedule:
-    - cron: "40 9 * * 0"
+    # Unified scraper cadence (2026-06-06): every other day (odd days of the
+    # month), staggered 10 min apart across the fleet. This slot = 6:40 AM
+    # Arizona (MST/UTC-7, no DST). Month boundary (31st -> 1st) doubles up
+    # once; all ingests are idempotent so the extra run is harmless.
+    - cron: "40 13 1-31/2 * *"
   workflow_dispatch: {}
 
 jobs:

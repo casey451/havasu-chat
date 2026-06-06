@@ -16,10 +16,11 @@ name: golakehavasu-events
 
 on:
   schedule:
-    # Tue / Thu / Sat at 13:45 UTC (= 6:45 AM Arizona, MST/UTC-7, no DST).
-    # :45 past the hour to avoid colliding with parks-rec (:15) and
-    # river-scene (:30); different days from river-scene (Mon/Wed/Fri).
-    - cron: "45 13 * * 2,4,6"
+    # Unified scraper cadence (2026-06-06): every other day (odd days of the
+    # month), staggered 10 min apart across the fleet. This slot = 6:30 AM
+    # Arizona (MST/UTC-7, no DST). Month boundary (31st -> 1st) doubles up
+    # once; all ingests are idempotent so the extra run is harmless.
+    - cron: "30 13 1-31/2 * *"
   workflow_dispatch: {}
 
 jobs:

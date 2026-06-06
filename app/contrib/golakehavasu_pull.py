@@ -128,10 +128,12 @@ def run_pull(
     merged_duplicate = 0
     flagged_ambiguous = 0
     skipped_past_or_unparseable = 0
+    skipped_removed_upstream = 0
 
     def body(client: httpx.Client) -> int:
         nonlocal errors, fetched_urls, imported, auto_approved, auto_approval_failed
         nonlocal merged_duplicate, flagged_ambiguous, skipped_past_or_unparseable
+        nonlocal skipped_removed_upstream
         try:
             urls = fetch_sitemap_urls(client=client)
         except Exception as e:
@@ -146,6 +148,19 @@ def run_pull(
                 continue
             try:
                 ge = fetch_and_parse_event(url, client=client, today=date.today())
+            except httpx.HTTPStatusError as e:
+                if e.response is not None and e.response.status_code in (404, 410):
+                    # The CVB removed the event page but left it in the sitemap
+                    # (e.g. grand-reopening-party-at-charged-up-nutrition,
+                    # 2026-06-06). An upstream removal is a skip, not a run
+                    # failure -- one stale sitemap entry was failing the whole
+                    # cron (exit 1) while 50+ events updated fine.
+                    print(f"info: skipped (removed upstream, {e.response.status_code}): {url}")
+                    skipped_removed_upstream += 1
+                    continue
+                print(f"error: event {url}: {e}", file=sys.stderr)
+                errors += 1
+                continue
             except Exception as e:
                 print(f"error: event {url}: {e}", file=sys.stderr)
                 errors += 1
@@ -226,6 +241,7 @@ def run_pull(
         print(f"  merged_duplicate:              {merged_duplicate}")
         print(f"  flagged_ambiguous (pending):   {flagged_ambiguous}")
         print(f"  skipped_past_or_unparseable:   {skipped_past_or_unparseable}")
+        print(f"  skipped_removed_upstream:      {skipped_removed_upstream}")
         print(f"  errors:                        {errors}")
         if dry_run:
             print("  (dry run -- no database writes)")
