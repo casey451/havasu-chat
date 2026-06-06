@@ -936,7 +936,13 @@ def route(
     if temperature_f_override is not None or event_when:
         chat_ctx = ChatRequestContext(
             boat_mode=chat_ctx.boat_mode,
-            temperature_f=temperature_f_override or chat_ctx.temperature_f,
+            # P1-15: ``is not None`` — a real 0°F reading is falsy and an ``or``
+            # chain would discard it and fall back to the stub temperature.
+            temperature_f=(
+                temperature_f_override
+                if temperature_f_override is not None
+                else chat_ctx.temperature_f
+            ),
             multi_domain_category_slugs=chat_ctx.multi_domain_category_slugs,
             event_intent_when=event_when or chat_ctx.event_intent_when,
         )

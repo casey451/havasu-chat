@@ -176,6 +176,10 @@ def test_lookup_exact_match_increments_hit_count(db: Session) -> None:
     store(db, key, "hit-counter", {"_today": "2026-05-08"}, "answer", "tier3")
     lookup(db, key)
     lookup(db, key)
+    # P1-14: hit telemetry is persisted on an isolated session, so this session's
+    # identity-mapped row is stale until expired. (On SQLite the read happened to
+    # see the new value; Postgres does not refresh the cached instance.)
+    db.expire_all()
     row = db.query(LlmResponseCache).filter(LlmResponseCache.cache_key == key).one()
     assert row.hit_count == 2
     assert row.last_hit_at is not None
@@ -649,3 +653,38 @@ def test_legacy_lookup_and_store_still_work(db: Session, monkeypatch: pytest.Mon
     )
     hit = llm_cache.lookup(db, cache_key="b1_legacy_key_wwwwwwwwwwwwwwww")
     assert hit == "answer"
+
+
+def test_bump_telemetry_does_not_commit_callers_pending_state(db: Session) -> None:
+    """P1-14: _bump_hit_telemetry persists the hit on an isolated session, so it
+    must NOT commit unrelated pending state on the caller's session."""
+    key = make_cache_key("p114", {})
+    store(db, key, "p114", {}, "answer", "tier3")
+    row = db.query(LlmResponseCache).filter(LlmResponseCache.cache_key == key).one()
+
+    # An unrelated, uncommitted row on the caller's session.
+    pending_key = "p114_unrelated_pending"
+    db.add(
+        LlmResponseCache(
+            cache_key=pending_key,
+            normalized_query="x",
+            context_hash="c",
+            rubric_version=llm_cache._RUBRIC_VERSION,
+            response_text="pending",
+            tier_used="tier3",
+            hit_count=0,
+        )
+    )
+
+    llm_cache._bump_hit_telemetry(db, row)
+
+    # A fresh session must NOT see the unrelated pending row — the old code's
+    # db.commit() would have durably flushed it mid-request.
+    with SessionLocal() as other:
+        leaked = (
+            other.query(LlmResponseCache)
+            .filter(LlmResponseCache.cache_key == pending_key)
+            .first()
+        )
+    assert leaked is None, "_bump committed the caller's unrelated pending row"
+    db.rollback()  # discard the pending row so teardown stays clean

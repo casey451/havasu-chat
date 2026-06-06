@@ -11,7 +11,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
 from app.core.openai_client import get_openai_client
@@ -145,16 +145,26 @@ def _deserialize_embedding(s):
 
 
 def _bump_hit_telemetry(db, row):
+    # P1-14: persist hit telemetry on its OWN short-lived session. The previous
+    # code called ``db.commit()`` on the caller's request-scoped session, which
+    # durably flushes any *unrelated* pending state mid-request. An isolated
+    # session + atomic UPDATE keeps the increment without that side effect.
+    _ = db
+    from app.db.database import SessionLocal
+
     try:
-        row.hit_count = (row.hit_count or 0) + 1
-        row.last_hit_at = datetime.now(UTC)
-        db.commit()
+        with SessionLocal() as s:
+            s.execute(
+                update(LlmResponseCache)
+                .where(LlmResponseCache.id == row.id)
+                .values(
+                    hit_count=(LlmResponseCache.hit_count + 1),
+                    last_hit_at=datetime.now(UTC),
+                )
+            )
+            s.commit()
     except Exception:
         logging.exception("llm_cache: hit-count update failed")
-        try:
-            db.rollback()
-        except Exception:
-            pass
 
 
 # Time-sensitive queries must not match a cached row from another day. The

@@ -2,8 +2,10 @@
 
 ``try_intent_layer(query, db)`` is the single function the router calls. It:
 
-1. Returns ``None`` immediately when the ``USE_INTENT_LAYER`` flag is off (the
-   production default) -- so the router is byte-identical until enabled.
+1. Returns ``None`` immediately when the ``USE_INTENT_LAYER`` flag is off. The
+   flag is default-ON (see ``is_enabled``); it is a kill switch -- set it to
+   "0"/"false"/"no"/"off" to make the router byte-identical to the pre-intent
+   path.
 2. Resolves the intent (L0-L2). ``None`` -> fall through to Tier 2 / Tier 3.
 3. Runs the grounded query template.
 4. Renders a Hava-voice line + a real card component (``business_list`` for
