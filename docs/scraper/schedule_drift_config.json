@@ -1,0 +1,9 @@
+{
+  "Bridge City Combat": {"mode": "image_urls"},
+  "Ballet Havasu": {"mode": "image_urls"},
+  "Universal Sonics Gymnastics & All Star Cheer": {"mode": "image_urls"},
+  "Elite Martial Arts Inc": {
+    "url": "http://www.elitemartialartslakehavasucity.com/class-schedule.html",
+    "note": "their HTTPS cert is broken (hostname mismatch); plain http + www works"
+  }
+}

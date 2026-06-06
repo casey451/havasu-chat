@@ -1,0 +1,86 @@
+{
+ "Amalaya Yoga": {
+  "captured": "2026-06-06",
+  "fingerprint": "2e851697c4acb64130d40fb962e50c94d673c29a8991c16b55b93f9114ed4c5f",
+  "mode": "text",
+  "url": "https://www.amalayayoga.com/schedule"
+ },
+ "Arizona Coast Performing Arts": {
+  "captured": "2026-06-06",
+  "fingerprint": "ee1e27737de4ea52b96f9d829dd2f1fec9e4cc6495b2a343d1326295eb344e8d",
+  "mode": "text",
+  "url": "https://graceartslive.com/dance-studio/"
+ },
+ "Arizona Kravmaga": {
+  "captured": "2026-06-06",
+  "fingerprint": "f3c0483f8df72e2d559ead2e86170e8774812a23d35b7dfd8783d86fa40a9ff4",
+  "mode": "text",
+  "url": "https://arizonakravmaga.com/"
+ },
+ "Ballet Havasu": {
+  "captured": "2026-06-06",
+  "fingerprint": "6f57e9ebaf9238efb4bac2f84062d86bc1b308e91042f8db55c54c29a7d3a67d",
+  "mode": "image_urls",
+  "url": "https://www.ballethavasu.org/2025"
+ },
+ "Bridge City Combat": {
+  "captured": "2026-06-06",
+  "fingerprint": "21d5f9d8d04cf9bdf020d699ca92c289b004ce0a1a61895fb5e518fa0cf9f092",
+  "mode": "image_urls",
+  "url": "https://www.bridgecityjiujitsu.com/"
+ },
+ "Eight Lotus Wellness and Yoga": {
+  "captured": "2026-06-06",
+  "fingerprint": "2f62824b605fd2b64fde124f2a75c1f712a94001d0ae6b3fa218860d76a40d1d",
+  "mode": "text",
+  "url": "https://www.8lotuswellness.com/book-class"
+ },
+ "Elite Martial Arts Inc": {
+  "captured": "2026-06-06",
+  "fingerprint": "91e792263cc09c755b6c46d32eaba2551b256da9f2adc02cc5cc3f16c5eece49",
+  "mode": "text",
+  "url": "http://www.elitemartialartslakehavasucity.com/class-schedule.html"
+ },
+ "Iron Wolf Golf and Country Club": {
+  "captured": "2026-06-06",
+  "fingerprint": "fb318d49edc214e629361c1867daba9b215db2404e0e8ca0a6fb6ade4c1cadb5",
+  "mode": "text",
+  "url": "https://ironwolfgcc.com/events-calendar/"
+ },
+ "Lake Havasu City Aquatic Center": {
+  "captured": "2026-06-06",
+  "fingerprint": "ccb0d2e7f4133bb53d4bde6813916f73047b95fb43867617fff917bdc513ec20",
+  "mode": "text",
+  "url": "https://www.lhcaz.gov/parks-recreation/aquatic-center"
+ },
+ "Lake Havasu Senior Center": {
+  "captured": "2026-06-06",
+  "fingerprint": "19fd8844681be58c394464c7d55c14feefdfe3706baaf574f9196cd586686864",
+  "mode": "text",
+  "url": "https://lakehavasuseniorcenter.com/current-events"
+ },
+ "Lake Havasu Yacht Club": {
+  "captured": "2026-06-06",
+  "fingerprint": "47e2728bbf96796cc8fcd6f754d592a9cc32053af04134409f8e65f579202fc3",
+  "mode": "text",
+  "url": "https://www.lakehavasuyachtclub.net"
+ },
+ "The Study Yoga Studio & Creative Center": {
+  "captured": "2026-06-06",
+  "fingerprint": "4a343ea84389f50d48982cf492940823adf8ba6f5f767f9ee0b7028573b1de30",
+  "mode": "text",
+  "url": "https://thestudylhcaz.com/class-schedule"
+ },
+ "The Tap Room Jiu Jitsu": {
+  "captured": "2026-06-06",
+  "fingerprint": "27eaca2cf9f996512b9840b069e8f604aff9c8587977a9ec00fc1059885bbe72",
+  "mode": "text",
+  "url": "https://thetaproomjiujitsu.com/schedule"
+ },
+ "Universal Sonics Gymnastics & All Star Cheer": {
+  "captured": "2026-06-06",
+  "fingerprint": "5472e441b64217e3d718abbc52e761a72dfdc0e4b15b5dedd0287468b1bd1124",
+  "mode": "image_urls",
+  "url": "http://www.universalgymnasticslakehavasu.com"
+ }
+}

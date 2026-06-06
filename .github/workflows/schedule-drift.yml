@@ -1,0 +1,75 @@
+name: schedule-drift
+
+# Watches the 14 captured gym/class schedule sources for upstream changes.
+# The classes themselves were a one-time vision capture (2026-06-06) and can't
+# be re-scraped automatically (Wix images, Mindbody/Momence widgets, JS pages),
+# so this is the freshness alarm: when a venue's schedule source changes, the
+# run opens/updates a "[schedule-drift]" issue listing exactly which venues
+# need a targeted re-capture (see docs/scraper/captured_class_schedules.json;
+# re-capture flow: re-read the source with vision, update the dataset, run
+# scripts/import_captured_schedules.py, refresh the baseline with
+# scripts/schedule_drift_check.py --write-baseline, commit both).
+#
+# NOTE: text-mode venues with naturally changing pages (event calendars etc.)
+# can flag legitimate-but-unrelated changes; a flag means "look", not
+# necessarily "schedule changed".
+
+on:
+  schedule:
+    # Unified scraper cadence (2026-06-06): every other day (odd days of the
+    # month), staggered 10 min apart across the fleet. This slot = 7:20 AM
+    # Arizona (MST/UTC-7, no DST), after the data scrapers.
+    - cron: "20 14 1-31/2 * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install minimal dependencies
+        run: pip install httpx beautifulsoup4
+
+      - name: Check schedule sources against baseline
+        id: drift
+        run: python scripts/schedule_drift_check.py
+
+      - name: Open / update drift issue
+        if: steps.drift.outputs.drifted != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRIFTED: ${{ steps.drift.outputs.drifted }}
+          ERRORED: ${{ steps.drift.outputs.errored }}
+        run: |
+          TITLE="[schedule-drift] venue schedule sources changed"
+          BODY="Drift detected on: **${DRIFTED}**
+
+          Fetch errors (transient or site down): ${ERRORED:-none}
+
+          These venues' schedule pages changed since the committed baseline.
+          Re-capture flow: re-read each source (vision for image-based sites),
+          update docs/scraper/captured_class_schedules.json, run
+          scripts/import_captured_schedules.py (dry-run -> counts -> apply),
+          then refresh the baseline:
+          \`python scripts/schedule_drift_check.py --write-baseline\` and
+          commit the dataset + baseline together.
+
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          EXISTING=$(gh issue list --repo "${{ github.repository }}" \
+            --state open --search "[schedule-drift] in:title" \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "${{ github.repository }}" --body "$BODY"
+          else
+            gh issue create --repo "${{ github.repository }}" --title "$TITLE" --body "$BODY"
+          fi
