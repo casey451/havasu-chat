@@ -261,44 +261,47 @@ def try_intent_layer(
         except Exception:
             logger.exception("intent_layer: spurious-entity probe failed")
             spurious = False
-        if not spurious:
-            # Venue-schedule browse: a real venue + schedule words is a
-            # grounded per-venue query, not a decline. Tier 1 (hours/phone/
-            # about) already had its shot -- it runs before the intent layer.
-            if not (
-                is_enabled()
-                and not is_entity_about_query_safe(query)
-                and _wants_venue_schedule(query)
-            ):
-                return None
+        # Venue-schedule browse runs FIRST -- even when the entity match looks
+        # "spurious" (a venue literally named with category words: "Lake Havasu
+        # City Parks & Recreation"), schedule words + a matched venue mean the
+        # per-venue grounded query is the right answer, not a generic listing.
+        # Live regression 2026-06-07: "what classes does parks and recreation
+        # offer" bypassed via spurious -> resolve() -> parks_trails listing.
+        if _wants_venue_schedule(query) and not is_entity_about_query_safe(query):
             resolved_venue = ResolvedIntent("venue_schedule", {"venue": entity.strip()}, "L2")
+            result = None
             try:
                 result = run_query(resolved_venue, db, today=today, now=now)
             except Exception:
                 logger.exception("intent_layer: venue_schedule query failed")
-                return None
-            _log(db, result, min_layer="L2")
-            if telemetry is not None:
-                telemetry["intent_logged"] = True
-            if result.result_count == 0:
-                return None
-            if today is None:
-                from app.core.timezone import now_lake_havasu
+            if result is not None:
+                _log(db, result, min_layer="L2")
+                if telemetry is not None:
+                    telemetry["intent_logged"] = True
+                if result.result_count > 0:
+                    if today is None:
+                        from app.core.timezone import now_lake_havasu
 
-                today = now_lake_havasu().date()
-            try:
-                text, component_type, component_data = _render(result, today=today)
-            except Exception:
-                logger.exception("intent_layer: venue_schedule render failed")
-                return None
-            return IntentAnswer(
-                text=text,
-                intent_key=result.intent_key,
-                category=result.category_hint,
-                result_count=result.result_count,
-                component_type=component_type,
-                component_data=component_data,
-            )
+                        today = now_lake_havasu().date()
+                    try:
+                        text, component_type, component_data = _render(result, today=today)
+                    except Exception:
+                        logger.exception("intent_layer: venue_schedule render failed")
+                        return None
+                    return IntentAnswer(
+                        text=text,
+                        intent_key=result.intent_key,
+                        category=result.category_hint,
+                        result_count=result.result_count,
+                        component_type=component_type,
+                        component_data=component_data,
+                    )
+            # Zero rows / failure: fall through to the spurious decision below
+            # ("8 year old activities" with a spurious school match must still
+            # reach kids_lessons; a genuine venue with no schedule data goes to
+            # the entity-aware path).
+        if not spurious:
+            return None
     if sub_intent and sub_intent in _ENTITY_FACTUAL_SUBINTENTS:
         # 2026-06-04: the factual-subintent guard protects single-ENTITY lookups
         # ("where is mudshark"), but the classifier also labels recommendation

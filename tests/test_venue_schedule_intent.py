@@ -185,3 +185,74 @@ def test_unrelated_venue_does_not_match(db):
         sub_intent="OPEN_ENDED",
     )
     assert ans is None  # Mudshark's event must not leak into the aquatic center
+
+
+# ---------------------------------------------------------------------------
+# classes_find (2026-06-07 follow-up: live regression "what classes does parks
+# and recreation offer" answered with a parks_trails listing).
+# ---------------------------------------------------------------------------
+
+
+def test_classes_find_resolves_without_age_signal():
+    from app.chat.intents.resolver import resolve
+
+    r = resolve("what classes does parks and recreation offer")
+    assert r is not None
+    assert r.intent_key == "classes_find"
+    assert "topic" not in r.slots
+
+
+def test_classes_find_topic_filter():
+    from app.chat.intents.resolver import resolve
+
+    r = resolve("any art classes this week")
+    assert r is not None
+    assert r.intent_key == "classes_find"
+    assert r.slots.get("topic") == "arts"
+
+
+def test_classes_find_does_not_claim_bare_activities():
+    from app.chat.intents.resolver import resolve
+
+    r = resolve("fun activities")
+    assert r is None or r.intent_key not in ("classes_find", "kids_lessons")
+
+
+def test_kids_and_fitness_paths_unchanged():
+    from app.chat.intents.resolver import resolve
+
+    assert resolve("swim lessons for my 8 year old").intent_key == "kids_lessons"
+    assert resolve("any yoga classes saturday").intent_key == "yoga_pilates"
+
+
+def test_classes_find_returns_programs(db):
+    _seed_program(
+        db,
+        title="Watercolor Basics",
+        provider_name="Lake Havasu City Parks & Recreation",
+        location_name="Community Center",
+    )
+    ans = try_intent_layer("what classes does parks and recreation offer", db)
+    assert ans is not None
+    assert ans.intent_key in ("classes_find", "venue_schedule")
+    assert "Watercolor Basics" in ans.text
+
+
+def test_venue_branch_outranks_spurious_bypass(db):
+    # A venue named with category words must still get its own schedule, not a
+    # generic listing, when the entity matcher resolves it.
+    _seed_program(
+        db,
+        title="Watercolor Basics",
+        provider_name="Lake Havasu City Parks & Recreation",
+        location_name="Community Center",
+    )
+    ans = try_intent_layer(
+        "what classes does parks and recreation offer",
+        db,
+        entity="Lake Havasu City Parks & Recreation",
+        sub_intent="OPEN_ENDED",
+    )
+    assert ans is not None
+    assert ans.intent_key == "venue_schedule"
+    assert "Watercolor Basics" in ans.text
