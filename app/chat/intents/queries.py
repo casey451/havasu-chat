@@ -333,9 +333,15 @@ def _query_venue_schedule(
 
 
 def _query_programs(
-    db: Session, *, age_band: str | None, limit: int = _PROVIDER_LIMIT
+    db: Session,
+    *,
+    age_band: str | None,
+    activity_category: str | None = None,
+    limit: int = _PROVIDER_LIMIT,
 ) -> list[dict[str, Any]]:
     q = db.query(Program).filter(Program.is_active.is_(True))
+    if activity_category:
+        q = q.filter(Program.activity_category.ilike(f"%{activity_category}%"))
     rng = dicts.age_band_range(age_band)
     if rng is not None:
         lo, hi = rng
@@ -539,6 +545,12 @@ def run_query(
         return QueryResult(
             key, "programs", rows, "classes_sports_recreation", "Classes for the kids:"
         )
+
+    if key == "classes_find":
+        topic = str(slots.get("topic") or "") or None
+        rows = _query_programs(db, age_band=None, activity_category=topic)
+        lead = f"{topic.title()} classes around town:" if topic else "Classes and programs around town:"
+        return QueryResult(key, "programs", rows, "classes_sports_recreation", lead)
 
     if key == "lodging_find":
         rows = _query_providers(

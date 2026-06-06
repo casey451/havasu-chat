@@ -277,6 +277,35 @@ def _match_symptom(text: str) -> str | None:
     return None
 
 
+# Known Program.activity_category values (see the programs loaders): kids,
+# arts, food, recreation, aquatics, dance. Token -> category slug.
+_CLASS_TOPIC_TOKENS: dict[str, str] = {
+    "art": "arts",
+    "arts": "arts",
+    "craft": "arts",
+    "crafts": "arts",
+    "painting": "arts",
+    "pottery": "arts",
+    "cook": "food",
+    "cooking": "food",
+    "baking": "food",
+    "swim": "aquatics",
+    "swimming": "aquatics",
+    "aqua": "aquatics",
+    "aquatic": "aquatics",
+    "water": "aquatics",
+    "dance": "dance",
+    "dancing": "dance",
+}
+
+
+def _match_class_topic(text: str) -> str | None:
+    for tok, slug in _CLASS_TOPIC_TOKENS.items():
+        if _has(text, tok):
+            return slug
+    return None
+
+
 def _event_window(text: str) -> str | None:
     """Canonical event window from the date phrasing, default 'upcoming'."""
     dr = None
@@ -464,6 +493,18 @@ def resolve(query: str) -> ResolvedIntent | None:
                 {"age_band": band or "kids"},
                 L2,
             )
+        # 7b. General classes browse (2026-06-07): explicit class/lesson/
+        # program words with no age signal ("what classes does parks and
+        # recreation offer", "any art classes this week" — 3x/9.6k tokens in
+        # the 30-day window). Deliberately NOT triggered by bare
+        # "activities"/"activity" (too broad). Topic narrows by
+        # Program.activity_category when a known topic token is present.
+        if _has_any(t, ("class", "classes", "lesson", "lessons", "program", "programs")):
+            slots = {}
+            topic = _match_class_topic(t)
+            if topic:
+                slots["topic"] = topic
+            return ResolvedIntent("classes_find", slots, L2 if topic else L1)
 
     # 8. Lodging / stay.
     if _has_any(t, _LODGING_WORDS):
