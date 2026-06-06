@@ -87,8 +87,11 @@ _CATEGORY_OPEN_NOW_RE = re.compile(
 )
 
 _FAKE_ENTITY_MARKER_RE = re.compile(
+    # P1-5: dropped the bare numeric markers 555/777/888 and "missing" — they
+    # collided with real phone fragments, street numbers, and "missing hours"
+    # phrasings, wrongly tagging real entities as fabricated.
     r"\b(?:zzz|fake|fabricated|imaginary|nonexistent|totally\s+fake|"
-    r"random\s+place|missing|404|99999|888|777|555|xyz)\b",
+    r"random\s+place|404|99999|xyz)\b",
     re.IGNORECASE,
 )
 
@@ -195,6 +198,12 @@ _BEST_CATEGORY_RE = re.compile(
 _HIGH_DIGIT_DENSITY_RE = re.compile(r"\b[A-Za-z]+\s*\d{3,}\b")
 _CONSONANT_RUN_RE = re.compile(r"\b[bcdfghjklmnpqrstvwxyz]{4,}", re.I)
 
+# P1-5: real street/place abbreviations whose all-consonant spelling otherwise
+# trips the consonant-run heuristic ("mcculloch blvd", "lake havasu pkwy").
+_STREET_ABBREVIATIONS: frozenset[str] = frozenset(
+    {"blvd", "pkwy", "bldg", "hwy", "fwy", "expy", "tpke", "ste"}
+)
+
 
 def _looks_structurally_fake(query: str) -> bool:
     """Best-effort detector for fabricated entity names without marker tokens.
@@ -205,14 +214,21 @@ def _looks_structurally_fake(query: str) -> bool:
 
     Skipped on queries with < 5 tokens to avoid false-positives on short
     legitimate entity references ("Heat Hotel", "phone for mdshrkbrwry").
+
+    Street-type abbreviations (``blvd``, ``pkwy`` …) are whitelisted so real
+    address queries like "what shops are on mcculloch blvd" don't read as
+    fabricated. (P1-5)
     """
     q = (query or "").strip()
     if len(q.split()) < 5:
         return False
     if _HIGH_DIGIT_DENSITY_RE.search(q):
         return True
-    if _CONSONANT_RUN_RE.search(q):
-        return True
+    for tok in re.findall(r"[A-Za-z]+", q):
+        if tok.lower() in _STREET_ABBREVIATIONS:
+            continue
+        if _CONSONANT_RUN_RE.search(tok):
+            return True
     return False
 
 

@@ -51,6 +51,13 @@ class LooksStructurallyFakeTests(unittest.TestCase):
     def test_empty_query_returns_false(self) -> None:
         self.assertFalse(_looks_structurally_fake(""))
 
+    # P1-5: street abbreviations with consonant runs must not read as fake.
+    def test_street_abbreviation_blvd_not_flagged(self) -> None:
+        self.assertFalse(_looks_structurally_fake("what shops are on mcculloch blvd"))
+
+    def test_street_abbreviation_pkwy_not_flagged(self) -> None:
+        self.assertFalse(_looks_structurally_fake("directions to lake havasu pkwy plaza"))
+
 
 class QueryMentionsFakeEntityMarkerTests(unittest.TestCase):
     # ------- Whitelist path preserved -------
@@ -81,6 +88,21 @@ class QueryMentionsFakeEntityMarkerTests(unittest.TestCase):
 
     def test_short_real_entity_not_flagged(self) -> None:
         self.assertFalse(query_mentions_fake_entity_marker("hours for Mudshark"))
+
+    # P1-5: bare numeric markers no longer flag real short address/entity refs.
+    # (Short queries skip the structural heuristic, so the marker was the only
+    # gate — 888/777/555 wrongly tripped it on real street numbers.)
+    def test_street_number_not_flagged(self) -> None:
+        self.assertFalse(query_mentions_fake_entity_marker("888 mcculloch blvd"))
+        self.assertFalse(query_mentions_fake_entity_marker("suite 777"))
+
+    def test_missing_word_not_flagged(self) -> None:
+        self.assertFalse(query_mentions_fake_entity_marker("the hours are missing for heat hotel"))
+
+    def test_word_markers_still_flagged(self) -> None:
+        # The unambiguous fabrication markers remain active.
+        self.assertTrue(query_mentions_fake_entity_marker("about the fabricated venue downtown"))
+        self.assertTrue(query_mentions_fake_entity_marker("is nonexistent grill a real place"))
 
 
 if __name__ == "__main__":
