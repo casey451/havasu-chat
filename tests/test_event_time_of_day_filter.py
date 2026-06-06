@@ -48,6 +48,39 @@ def test_detect_this_afternoon_bounds() -> None:
     }
 
 
+def test_detect_bare_tomorrow_scopes_to_tomorrow() -> None:
+    # C3: "what's happening tomorrow" used to fall through to the today
+    # catch-all and answer with *today's* events.
+    assert detect_event_intent("what's happening tomorrow") == {"when": "tomorrow"}
+    assert detect_event_intent("anything tomorrow") == {"when": "tomorrow"}
+
+
+def test_detect_tomorrow_morning_still_keeps_morning_bounds() -> None:
+    # The bare-tomorrow branch must not shadow the more specific
+    # "tomorrow morning" window (the reachable when=="tomorrow" filter path).
+    assert detect_event_intent("what's on tomorrow morning") == {
+        "when": "tomorrow",
+        "time_start": "05:00",
+        "time_end": "11:59",
+    }
+
+
+def test_detect_weekday_does_not_hijack_category_query() -> None:
+    # C4: a program/class query scoped to a day defers to the Tier 2 parser
+    # (category + time window) rather than returning the generic day agenda.
+    assert detect_event_intent("any yoga classes saturday") is None
+    assert detect_event_intent("kids swim lessons tomorrow") is None
+    assert detect_event_intent("adult soccer league tonight") is None
+
+
+def test_detect_weekday_event_browse_still_claimed() -> None:
+    # Without a category/program token the day word still scopes the browse.
+    assert detect_event_intent("what's on saturday") == {"when": "this_weekend"}
+    assert detect_event_intent("anything happening this weekend") == {
+        "when": "this_weekend"
+    }
+
+
 def test_event_start_in_time_window_helpers() -> None:
     from app.events.queries import _event_start_in_time_window, _parse_hhmm_bound
 

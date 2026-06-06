@@ -7,6 +7,7 @@ import json
 import logging
 import math
 import os
+import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from sqlalchemy import select
 
 from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
 from app.core.openai_client import get_openai_client
+from app.core.timezone import LAKE_HAVASU_TZ
 from app.db.models import LlmResponseCache
 
 try:
@@ -155,10 +157,40 @@ def _bump_hit_telemetry(db, row):
             pass
 
 
-def _similarity_scan_with_embedding(db, incoming):
+# Time-sensitive queries must not match a cached row from another day. The
+# exact-key path already scopes by date (the cache key embeds today's Lake
+# Havasu date), but the similarity fallback only filters rubric_version + TTL —
+# so "what's happening tonight" embeds ~1.0 against yesterday's row and serves a
+# stale answer up to the 7-day TTL old. Guard the similarity path with a
+# same-day check for these queries. (C2)
+_TIME_SENSITIVE_RE = re.compile(
+    r"\b("
+    r"tonight|today|tomorrow|now|currently|right now|"
+    r"this morning|this afternoon|this evening|this weekend|this week|"
+    r"happening|open now|"
+    r"monday|tuesday|wednesday|thursday|friday|saturday|sunday|weekend"
+    r")\b"
+)
+
+
+def _is_time_sensitive(query: str) -> bool:
+    return bool(_TIME_SENSITIVE_RE.search((query or "").lower()))
+
+
+def _row_lake_havasu_date(dt):
+    """Lake Havasu calendar date for a cache row's ``created_at`` (naive UTC)."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return dt.astimezone(LAKE_HAVASU_TZ).date()
+
+
+def _similarity_scan_with_embedding(db, incoming, *, time_sensitive=False):
     if incoming is None:
         return None
     now = datetime.now(UTC)
+    today = now.astimezone(LAKE_HAVASU_TZ).date() if time_sensitive else None
     try:
         candidates = list(
             db.scalars(
@@ -183,6 +215,10 @@ def _similarity_scan_with_embedding(db, incoming):
                 ttl = ttl.replace(tzinfo=UTC)
             if ttl < now:
                 continue
+        if time_sensitive:
+            row_date = _row_lake_havasu_date(row.created_at)
+            if row_date is not None and row_date != today:
+                continue
         vec = _deserialize_embedding(row.query_embedding)
         if vec is None:
             continue
@@ -204,7 +240,9 @@ def _similarity_lookup(db, normalized_query):
     incoming = _compute_query_embedding(nq)
     if incoming is None:
         return None
-    return _similarity_scan_with_embedding(db, incoming)
+    return _similarity_scan_with_embedding(
+        db, incoming, time_sensitive=_is_time_sensitive(nq)
+    )
 
 
 def lookup_with_embedding(db, cache_key, normalized_query=None):
@@ -235,7 +273,9 @@ def lookup_with_embedding(db, cache_key, normalized_query=None):
         embedding = _compute_query_embedding(nq)
         if embedding is None:
             return None, None
-        cached_text = _similarity_scan_with_embedding(db, embedding)
+        cached_text = _similarity_scan_with_embedding(
+            db, embedding, time_sensitive=_is_time_sensitive(nq)
+        )
         return cached_text, embedding
     return None, None
 

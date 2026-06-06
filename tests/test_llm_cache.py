@@ -408,6 +408,85 @@ def test_lookup_falls_back_to_similarity_on_exact_miss(
 
 
 # ---------------------------------------------------------------------------
+# C2 -- time-sensitive similarity must not serve cross-day rows
+# ---------------------------------------------------------------------------
+
+
+def test_is_time_sensitive_detects_temporal_words() -> None:
+    assert llm_cache._is_time_sensitive("what's happening tonight")
+    assert llm_cache._is_time_sensitive("any events saturday")
+    assert llm_cache._is_time_sensitive("what's open now")
+    assert llm_cache._is_time_sensitive("things to do tomorrow")
+    assert not llm_cache._is_time_sensitive("best mexican restaurant")
+    assert not llm_cache._is_time_sensitive("where is mudshark brewing")
+
+
+def test_similarity_time_sensitive_skips_stale_day(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """C2: "what's happening tonight" embeds ~1.0 against a row from a previous
+    day (still within TTL) — the same-day guard must treat it as a miss."""
+    seeded = _seed_cache_row(
+        db,
+        query="what's happening tonight",
+        response_text="last night's answer",
+        embedding=[1.0, 0.0],
+    )
+    # Age the row to a previous calendar day; TTL stays in the future.
+    seeded.created_at = datetime.now(UTC) - timedelta(days=1)
+    db.commit()
+
+    fake_client = MagicMock()
+    fake_client.embeddings.create.return_value = _embedding_response([1.0, 0.0])
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    with patch.object(llm_cache, "OpenAI", return_value=fake_client):
+        result = lookup(db, "absent_key", normalized_query="what's happening tonight")
+    assert result is None
+
+
+def test_similarity_time_sensitive_hits_same_day(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A same-day row is still a valid similarity hit for a time-sensitive query."""
+    _seed_cache_row(
+        db,
+        query="what's happening tonight",
+        response_text="tonight's answer",
+        embedding=[1.0, 0.0],
+    )  # created_at defaults to now -> today
+    fake_client = MagicMock()
+    fake_client.embeddings.create.return_value = _embedding_response([1.0, 0.0])
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    with patch.object(llm_cache, "OpenAI", return_value=fake_client):
+        result = lookup(db, "absent_key", normalized_query="what's happening tonight")
+    assert result == "tonight's answer"
+
+
+def test_similarity_non_time_sensitive_allows_cross_day(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The same-day guard is scoped to time-sensitive queries only — an
+    evergreen query still gets cross-day similarity hits (cache efficiency)."""
+    seeded = _seed_cache_row(
+        db,
+        query="best mexican restaurant",
+        response_text="evergreen answer",
+        embedding=[1.0, 0.0],
+    )
+    seeded.created_at = datetime.now(UTC) - timedelta(days=3)
+    db.commit()
+
+    fake_client = MagicMock()
+    fake_client.embeddings.create.return_value = _embedding_response([1.0, 0.0])
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    with patch.object(llm_cache, "OpenAI", return_value=fake_client):
+        result = lookup(
+            db, "absent_key", normalized_query="best mexican restaurant in town"
+        )
+    assert result == "evergreen answer"
+
+
+# ---------------------------------------------------------------------------
 # store — embedding writes (or NULL on failure)
 # ---------------------------------------------------------------------------
 
