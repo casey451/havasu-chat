@@ -35,6 +35,12 @@ class Phase3SearchTests(unittest.TestCase):
         self.assertIsNone(detect_out_of_scope_category("hotel near the lake"))
         self.assertIsNone(detect_out_of_scope_category("cheap motels in town"))
 
+    # Birthday-party / party-venue queries are local-venue searches, not refused.
+    def test_birthday_party_not_out_of_scope(self) -> None:
+        self.assertIsNone(detect_out_of_scope_category("where can I have a birthday party"))
+        self.assertIsNone(detect_out_of_scope_category("good birthday party venue"))
+        self.assertIsNone(detect_out_of_scope_category("wedding venue ideas"))
+
 
 def test_lodging_phrasings_resolve_to_lodging_find() -> None:
     """C5 end-to-end at the resolver: the phrasings that used to be refused now

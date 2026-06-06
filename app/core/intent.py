@@ -115,8 +115,13 @@ def _commercial_services_query(m: str) -> bool:
         return True
     if "venue for" in m:
         return True
-    if "birthday party" in m or "wedding venue" in m or "party venue" in m:
-        return True
+    # Party / wedding venue removed: "where can I have a birthday party",
+    # "party venue", "wedding venue" are local-VENUE searches (bowling, parks,
+    # family entertainment, restaurants with party rooms) — businesses the
+    # directory lists. Routing them to the canned out-of-scope refusal was the
+    # same trap as the lodging refusal (C5); catalog search + the
+    # anti-hallucination guards return an honest gap when coverage is thin
+    # instead of a refusal. The doc treats birthday-party as event/one-off.
     return False
 
 
