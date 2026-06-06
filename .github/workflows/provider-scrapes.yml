@@ -17,9 +17,11 @@ name: provider-scrapes
 
 on:
   schedule:
-    # Saturday 12:00 UTC (= 5:00 AM Arizona, MST/UTC-7, no DST). Provider
-    # verticals change slowly; weekly is ample. Off the event-cron clock.
-    - cron: "0 12 * * 6"
+    # Unified scraper cadence (2026-06-06): every other day (odd days of the
+    # month), staggered 10 min apart across the fleet. This slot = 7:10 AM
+    # Arizona (MST/UTC-7, no DST). Month boundary (31st -> 1st) doubles up
+    # once; all ingests are idempotent so the extra run is harmless.
+    - cron: "10 14 1-31/2 * *"
   workflow_dispatch: {}
 
 jobs:
