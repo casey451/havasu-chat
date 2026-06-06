@@ -69,6 +69,8 @@ class IngestCounts:
     merged_duplicate: int = 0
     flagged_ambiguous: int = 0
     skipped_incomplete: int = 0
+    skipped_blocked: int = 0
+    skipped_existing_pending: int = 0
     errors: int = 0
 
     def as_dict(self) -> dict[str, int]:
@@ -80,6 +82,8 @@ class IngestCounts:
             "merged_duplicate": self.merged_duplicate,
             "flagged_ambiguous": self.flagged_ambiguous,
             "skipped_incomplete": self.skipped_incomplete,
+            "skipped_blocked": self.skipped_blocked,
+            "skipped_existing_pending": self.skipped_existing_pending,
             "errors": self.errors,
         }
 
@@ -230,6 +234,43 @@ def _is_complete(rec: EventRecord) -> bool:
     return bool(rec.start_date) and len((rec.title or "").strip()) >= 3
 
 
+# Organizers whose listings are auto-generated national/broadcast spam, not
+# genuine local events. Every one of the 2026-06-06 review-queue spam items
+# (UFC / boxing / international-soccer "watch parties" attributed to a local
+# Buffalo Wild Wings) came from this single organizer.
+BLOCKED_ORGANIZERS = frozenset({
+    "one stop entertainment",
+})
+
+
+def _blocked_organizer(rec: EventRecord) -> str | None:
+    org = (rec.raw or {}).get("organizer")
+    if isinstance(org, str) and org.strip().lower() in BLOCKED_ORGANIZERS:
+        return org.strip()
+    return None
+
+
+def _existing_open_contribution(db: Session, *, source: str, title: str, start_date: date | None) -> bool:
+    """True when a pending/approved contribution for the same source+title+date
+    already exists — re-running a scrape must not re-insert review-queue rows
+    (the 2026-06-06 queue held 41 such duplicates from consecutive runs)."""
+    if start_date is None:
+        return False
+    import html as html_mod
+    want = html_mod.unescape(title or "").strip().lower()
+    rows = (
+        db.query(cs.Contribution)
+        .filter(
+            cs.Contribution.source == source,
+            cs.Contribution.entity_type == "event",
+            cs.Contribution.event_date == start_date,
+            cs.Contribution.status.in_(("pending", "approved")),
+        )
+        .all()
+    )
+    return any(html_mod.unescape(r.submission_name or "").strip().lower() == want for r in rows)
+
+
 def ingest_event_records(
     records: list[EventRecord],
     *,
@@ -246,6 +287,12 @@ def ingest_event_records(
         if not _is_complete(rec):
             counts.skipped_incomplete += 1
             continue
+        blocked = _blocked_organizer(rec)
+        if blocked is not None:
+            counts.skipped_blocked += 1
+            if verbose:
+                print(f"info: skipped blocked organizer {blocked!r}: {rec.title!r}")
+            continue
         try:
             payload = _to_event_payload(rec, source=source)
             with SessionLocal() as db:
@@ -255,6 +302,12 @@ def ingest_event_records(
                     if not dry_run and result.existing_id:
                         _apply_event_merge(db, result.existing_id, result.merge_fields)
                     counts.merged_duplicate += 1
+                    continue
+
+                if _existing_open_contribution(
+                    db, source=source, title=rec.title, start_date=rec.start_date
+                ):
+                    counts.skipped_existing_pending += 1
                     continue
 
                 contribution = ContributionCreate(
