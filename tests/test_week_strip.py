@@ -196,3 +196,58 @@ def test_calendar_month_expands_weekly_recurring_on_every_occurrence(db: Session
     }
     # June 2026 Mondays: 1, 8, 15, 22, 29.
     assert days_with_event == {1, 8, 15, 22, 29}
+
+
+# ----- midnight-fallback time suppression (aggregator "no time" rows) --------
+
+
+def _mk_event(**kw):
+    from datetime import datetime
+
+    defaults = dict(
+        title="Midnight Fallback Test", normalized_title="midnight fallback test",
+        date=date(2026, 12, 5), start_time=time(0, 0), end_time=None,
+        location_name="Test Venue", location_normalized="test venue",
+        description="A test event with no real source time component provided.",
+        source="allevents", tags=["community"],
+    )
+    defaults.update(kw)
+    ev = Event(**defaults)
+    ev.created_at = getattr(ev, "created_at", None) or datetime(2026, 12, 1)
+    return ev
+
+
+def test_midnight_fallback_hides_time_label() -> None:
+    from app.home.router import _window_event_dict
+
+    d = _window_event_dict(_mk_event(), recurring=False, schedule_label="")
+    assert d["time_label"] == ""
+
+
+def test_real_midnight_span_keeps_label() -> None:
+    """An explicit end time means the midnight start is real, not a fallback."""
+    from app.home.router import _window_event_dict
+
+    d = _window_event_dict(
+        _mk_event(end_time=time(2, 0)), recurring=False, schedule_label=""
+    )
+    assert d["time_label"] == "12:00 AM - 2:00 AM"
+
+
+def test_nonmidnight_time_label_unchanged() -> None:
+    from app.home.router import _window_event_dict
+
+    d = _window_event_dict(
+        _mk_event(start_time=time(19, 0)), recurring=False, schedule_label=""
+    )
+    assert d["time_label"] == "7:00 PM"
+
+
+def test_permalink_datetime_midnight_fallback_is_date_only() -> None:
+    from app.main import _format_event_datetime
+
+    assert _format_event_datetime(_mk_event()) == "Saturday, December 5"
+    assert (
+        _format_event_datetime(_mk_event(start_time=time(19, 30)))
+        == "Saturday, December 5, 7:30 PM"
+    )

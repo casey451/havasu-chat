@@ -84,6 +84,18 @@ def _format_event_time_label(start_at: datetime) -> str:
     return start_at.strftime("%I:%M %p").lstrip("0")
 
 
+def _is_midnight_fallback(ev: Event) -> bool:
+    """Aggregator feeds without a time component land as a 00:00 start (the
+    ingest fallback). A bare midnight start with no end time is "time unknown",
+    not a real 12:00 AM event — suppress the label rather than display it."""
+    return (
+        ev.start_time is not None
+        and ev.start_time.hour == 0
+        and ev.start_time.minute == 0
+        and ev.end_time is None
+    )
+
+
 # Event cards are image-optional: most events have no photo, so the date block is
 # the hero (brief §3). Colour-code that block by a coarse category derived from
 # the event's freeform ``tags`` — gives the feed visual rhythm without a real
@@ -150,7 +162,7 @@ def _window_event_dict(ev: Event, *, recurring: bool, schedule_label: str) -> di
     category_label, accent = _event_accent(ev.tags)
     # M-16/M-17: render the start-end span when an end time is known so a class
     # reads "5:00 - 6:00 AM", not just a start. Falls back to the start label.
-    time_label = _format_event_time_label(start_at)
+    time_label = "" if _is_midnight_fallback(ev) else _format_event_time_label(start_at)
     if ev.end_time is not None:
         end_at = datetime.combine(ev.end_date or ev.date, ev.end_time)
         if end_at > start_at:
@@ -296,7 +308,8 @@ def _tonight_card(db: Session, *, now: datetime) -> dict[str, Any] | None:
         return None
 
     start_at = datetime.combine(chosen.date, chosen.start_time)
-    sub_bits = [b for b in (_format_event_time_label(start_at), chosen.location_name) if b]
+    time_bit = "" if _is_midnight_fallback(chosen) else _format_event_time_label(start_at)
+    sub_bits = [b for b in (time_bit, chosen.location_name) if b]
     return {
         "kind": "tonight",
         "k": label,
