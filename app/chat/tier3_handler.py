@@ -318,7 +318,7 @@ def answer_with_tier3(
         # build_context_and_rows_for_tier3 above even when voice is cached.
         cleaned_text = cached_response
         if is_confidence_tier_enabled():
-            rows_hit = rows_for_tier3_classification(intent_result, db)
+            rows_hit = rows_for_tier3_classification(intent_result, db, query=query)
             cleaned_text = _enforce_low_tier_phone(cleaned_text, rows_hit)
         _apply_tier3_component_probe(component_meta, intent_result, tier3_rows)
         if sponsored_block is not None:
@@ -390,7 +390,7 @@ def answer_with_tier3(
     # ``_enforce_low_tier_phone`` runs on miss and again on cache hit so flag
     # flips and post-processor edits apply without stale hedge text in Redis/DB.
     if is_confidence_tier_enabled():
-        rows = rows_for_tier3_classification(intent_result, db)
+        rows = rows_for_tier3_classification(intent_result, db, query=query)
         cleaned_text = _enforce_low_tier_phone(cleaned_text, rows)
 
     _apply_tier3_component_probe(component_meta, intent_result, tier3_rows)
