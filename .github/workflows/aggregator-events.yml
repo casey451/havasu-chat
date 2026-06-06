@@ -1,0 +1,59 @@
+name: aggregator-events
+
+# Pulls the aggregator event feeds into the catalog twice a week. These are
+# lower-trust sources, so scripts/events_pull.py --apply routes every record
+# through the shared ingestion path (app/contrib/event_ingest) where they land
+# PENDING in the admin review queue (human go/no-go), never auto-live.
+#
+#   * allevents    — allevents.in (Lake Havasu City), no key required
+#   * bandsintown  — regional concerts; no-ops until BANDSINTOWN_APP_ID is set
+#   * eventbrite   — org events; no-ops until EVENTBRITE_API_TOKEN is set
+#
+# bandsintown/eventbrite fetch nothing (return []) when their key/token is unset,
+# so the steps are safe to schedule now and light up the moment you add the
+# secret. Cross-source duplicates are merged by the reconciler.
+#
+# NOTE: GitHub only runs scheduled workflows from the repository's DEFAULT
+# branch. Merge this file before the cron takes effect; until then use the
+# "Run workflow" button (workflow_dispatch).
+
+on:
+  schedule:
+    # Mon / Thu at 14:00 UTC (= 7:00 AM Arizona, MST/UTC-7, no DST). On the hour
+    # to avoid colliding with parks-rec (:15), river-scene (:30), golakehavasu
+    # (:45) and civic-events (:15 on Tue/Fri).
+    - cron: "0 14 * * 1,4"
+  workflow_dispatch: {}
+
+jobs:
+  pull-aggregators:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Same Railway Postgres secret the other scrape crons use. Set in:
+      # GitHub repo -> Settings -> Secrets and variables -> Actions
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # Optional — the bandsintown/eventbrite steps no-op until these exist.
+      BANDSINTOWN_APP_ID: ${{ secrets.BANDSINTOWN_APP_ID }}
+      EVENTBRITE_API_TOKEN: ${{ secrets.EVENTBRITE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Pull allevents.in listings (pending)
+        run: python scripts/events_pull.py --source allevents --apply
+
+      - name: Pull Bandsintown regional concerts (pending; no-op without key)
+        if: always()
+        run: python scripts/events_pull.py --source bandsintown --apply
+
+      - name: Pull Eventbrite org events (pending; no-op without token)
+        if: always()
+        run: python scripts/events_pull.py --source eventbrite --apply
