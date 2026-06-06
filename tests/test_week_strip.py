@@ -148,3 +148,51 @@ def test_week_strip_empty_day_is_omittable(db: Session) -> None:
     assert sunday["has"] is True
     assert sunday["events"][0]["type"] == "water"
     assert sunday["events"][0]["time"] == "10 AM"
+
+
+def _add_weekly(db: Session, *, title: str, byday: str, start: date) -> None:
+    db.add(
+        Event(
+            title=title,
+            normalized_title=title.lower(),
+            date=start,
+            start_time=time(9, 0),
+            location_name="Studio",
+            location_normalized="studio",
+            description="A weekly class",
+            event_url="https://example.com/e",
+            tags=[],
+            status="live",
+            source="test_week_strip",
+            verified=True,
+            is_recurring=True,
+            rrule=f"FREQ=WEEKLY;BYDAY={byday}",
+        )
+    )
+    db.commit()
+
+
+def test_week_strip_expands_weekly_recurring_into_window(db: Session) -> None:
+    """A weekly Monday class whose stored start is a month before the window still
+    tiles on the in-window Monday occurrence (rrule expansion), not just its start."""
+    _add_weekly(db, title="Monday Yoga", byday="MO", start=date(2026, 5, 4))
+    strip = sandstone.week_strip(db, today=_TODAY)  # Fri 6/5 .. Thu 6/11
+    monday = next(d for d in strip["days"] if d["iso"] == "2026-06-08")
+    assert monday["count"] == 1
+    assert monday["events"][0]["title"] == "Monday Yoga"
+    # Not shown on Friday (its stored start weekday is Monday; today is Friday).
+    assert strip["days"][0]["count"] == 0
+
+
+def test_calendar_month_expands_weekly_recurring_on_every_occurrence(db: Session) -> None:
+    """A weekly Monday class appears on every Monday cell of the month grid."""
+    _add_weekly(db, title="Monday Yoga", byday="MO", start=date(2026, 5, 4))
+    cal = sandstone.calendar_month(db, year=2026, month=6, today=_TODAY)
+    days_with_event = {
+        cell["day"]
+        for week in cal["weeks"]
+        for cell in week
+        if cell.get("in_month") and cell.get("count")
+    }
+    # June 2026 Mondays: 1, 8, 15, 22, 29.
+    assert days_with_event == {1, 8, 15, 22, 29}

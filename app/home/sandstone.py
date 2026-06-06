@@ -15,11 +15,60 @@ import calendar as _calendar
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.categories import queries as cat_queries
 from app.db.models import Event
+from app.events.recurrence import occurrences_in_window
 from app.home.queries import CATEGORY_LABELS
+
+
+def _live_events_by_day(
+    db: Session, *, window_start: date, window_end: date
+) -> dict[date, list[Event]]:
+    """Live events bucketed by *occurrence* date across the inclusive window.
+
+    Events with a real schedule (``rrule``/``rdate``) are expanded via
+    :func:`app.events.recurrence.occurrences_in_window`, so a weekly class shows
+    on every occurrence in the window — not only on its stored start date — the
+    same expansion ``/events-ui`` uses. Separately, any event whose *stored* date
+    falls in the window is included on that date. This second pass is load-bearing:
+    a row flagged ``is_recurring`` but carrying no rrule/rdate (a materialised
+    single instance) would otherwise expand to nothing and vanish. Each
+    ``(event, date)`` pair is emitted once.
+    """
+    stmt = select(Event).where(
+        Event.status == "live",
+        or_(
+            Event.date.between(window_start, window_end),
+            Event.rrule.isnot(None),
+            Event.rdate.isnot(None),
+        ),
+    )
+    candidates = list(db.scalars(stmt).unique().all())
+
+    by_day: dict[date, list[Event]] = {}
+    seen: set[tuple[Any, date]] = set()
+
+    def _emit(ev: Event, occ_date: date) -> None:
+        key = (ev.id, occ_date)
+        if key in seen:
+            return
+        seen.add(key)
+        by_day.setdefault(occ_date, []).append(ev)
+
+    scheduled = [c for c in candidates if c.rrule or c.rdate]
+    for ev, occ_date in occurrences_in_window(
+        scheduled, window_start=window_start, window_end=window_end
+    ):
+        _emit(ev, occ_date)
+
+    for ev in candidates:
+        if ev.date is not None and window_start <= ev.date <= window_end:
+            _emit(ev, ev.date)
+
+    return by_day
 
 # Display labels for tier-1 routes the canonical CATEGORY_LABELS map omits. These
 # are presentation strings, not data; every *route* below is a real page in
@@ -283,18 +332,7 @@ def week_strip(
     the overflow (and every class) stays one tap away.
     """
     end = today + timedelta(days=days - 1)
-    rows = (
-        db.query(Event)
-        .filter(
-            Event.status == "live",
-            Event.date >= today,
-            Event.date <= end,
-        )
-        .all()
-    )
-    by_day: dict[date, list[Event]] = {}
-    for ev in rows:
-        by_day.setdefault(ev.date, []).append(ev)
+    by_day = _live_events_by_day(db, window_start=today, window_end=end)
 
     def _sort_key(ev: Event) -> tuple[int, int, time]:
         tier = _event_tier(
@@ -385,26 +423,22 @@ def calendar_month(db: Session, *, year: int, month: int, today: date) -> dict[s
     # Python's monthrange: Monday=0. The grid leads with Sunday, so shift.
     lead_blanks = (first_weekday + 1) % 7
 
-    rows = (
-        db.query(Event)
-        .filter(
-            Event.status == "live",
-            Event.date >= date(year, month, 1),
-            Event.date <= date(year, month, days_in_month),
-        )
-        .order_by(Event.featured.desc(), Event.start_time.asc())
-        .all()
+    occ_by_date = _live_events_by_day(
+        db,
+        window_start=date(year, month, 1),
+        window_end=date(year, month, days_in_month),
     )
     by_day: dict[int, list[dict[str, Any]]] = {}
-    for ev in rows:
-        bucket = by_day.setdefault(ev.date.day, [])
-        bucket.append(
-            {
-                "title": ev.title,
-                "type": _event_pill_type(ev.tags, featured=bool(ev.featured)),
-                "recurring": bool(ev.is_recurring),
-            }
-        )
+    for occ_date, evs in occ_by_date.items():
+        bucket = by_day.setdefault(occ_date.day, [])
+        for ev in evs:
+            bucket.append(
+                {
+                    "title": ev.title,
+                    "type": _event_pill_type(ev.tags, featured=bool(ev.featured)),
+                    "recurring": bool(ev.is_recurring),
+                }
+            )
 
     cells: list[dict[str, Any]] = [{"in_month": False} for _ in range(lead_blanks)]
     for day in range(1, days_in_month + 1):
