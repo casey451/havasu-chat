@@ -176,6 +176,10 @@ def test_lookup_exact_match_increments_hit_count(db: Session) -> None:
     store(db, key, "hit-counter", {"_today": "2026-05-08"}, "answer", "tier3")
     lookup(db, key)
     lookup(db, key)
+    # P1-14: hit telemetry is persisted on an isolated session, so this session's
+    # identity-mapped row is stale until expired. (On SQLite the read happened to
+    # see the new value; Postgres does not refresh the cached instance.)
+    db.expire_all()
     row = db.query(LlmResponseCache).filter(LlmResponseCache.cache_key == key).one()
     assert row.hit_count == 2
     assert row.last_hit_at is not None
