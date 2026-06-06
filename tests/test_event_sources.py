@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import date
 from pathlib import Path
-
-import pytest
 
 from app.contrib import allevents, bandsintown, eventbrite_orgs, movies, senior_center
 from app.contrib.event_record import parse_jsonld_events
@@ -124,12 +123,30 @@ def test_events_cli_dry_run(monkeypatch, capsys) -> None:
     assert "allevents — DRY RUN" in out
 
 
-def test_events_cli_apply_guarded() -> None:
+def test_events_cli_apply_ingests_aggregator_as_pending(monkeypatch, capsys) -> None:
+    """`--apply` now routes through event_ingest instead of refusing to write.
+
+    allevents is an aggregator (NOT in the auto-approve registry), so applied rows
+    must land PENDING in the review queue — never auto-approved live. We patch the
+    source fetch to fixture records (no live HTTP) and assert the ingest report
+    shows pending inserts and zero auto-approvals.
+    """
     import scripts.events_pull as cli
 
-    with pytest.raises(SystemExit) as exc:
-        cli.main(["--source", "movies", "--apply"])
-    assert exc.value.code == 2
+    html = (FIXTURES / "allevents" / "city.html").read_text(encoding="utf-8")
+
+    def _fixture_fetch(**_kwargs):
+        return parse_jsonld_events(html, source=allevents.SOURCE)
+
+    name, _real_fetch, sample_fn, notes = cli._SOURCES["allevents"]
+    monkeypatch.setitem(cli._SOURCES, "allevents", (name, _fixture_fetch, sample_fn, notes))
+
+    assert cli.main(["--source", "allevents", "--apply"]) == 0
+    out = capsys.readouterr().out
+    assert "allevents ingest complete" in out
+    # Aggregator trust tier: rows land pending, none auto-approved.
+    assert re.search(r"^\s*auto_approved\s+0\s*$", out, re.MULTILINE)
+    assert re.search(r"^\s*inserted_pending\s+[1-9]", out, re.MULTILINE)
 
 
 # ----- marquee coverage verifier (#13 note) --------------------------------

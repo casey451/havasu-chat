@@ -1,0 +1,45 @@
+name: allevents-events
+
+# Pulls allevents.in (Lake Havasu City) listings into the catalog twice a week.
+#
+# Behavior: scripts/events_pull.py --source allevents --apply fetches the
+# JSON-LD event listings, dedupes within-batch, and routes each record through
+# the SHARED ingestion path (app/contrib/event_ingest.ingest_event_records ->
+# reconcile_event -> create_contribution). allevents is an AGGREGATOR and is
+# deliberately NOT in the auto-approve registry, so every new row lands PENDING
+# in the admin review queue (human go/no-go) rather than going live. Cross-source
+# duplicates (heavy overlap with golakehavasu) are merged onto the existing row.
+#
+# NOTE: GitHub only runs scheduled workflows from the repository's DEFAULT
+# branch. This file must be merged to main before the cron takes effect.
+# Until then, use the "Run workflow" button (workflow_dispatch) to trigger it.
+
+on:
+  schedule:
+    # Mon / Thu at 14:00 UTC (= 7:00 AM Arizona, MST/UTC-7, no DST). On the hour
+    # to avoid colliding with parks-rec (:15), river-scene (:30) and
+    # golakehavasu (:45).
+    - cron: "0 14 * * 1,4"
+  workflow_dispatch: {}
+
+jobs:
+  pull-allevents:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Pull allevents.in listings into the review queue (pending)
+        env:
+          # Same Railway Postgres secret the other scrape crons use. Set in:
+          # GitHub repo -> Settings -> Secrets and variables -> Actions
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/events_pull.py --source allevents --apply

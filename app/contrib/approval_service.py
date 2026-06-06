@@ -250,12 +250,32 @@ def approve_contribution_as_event(
 
 # Contribution sources whose provenance should be stamped onto Event.source
 # (so cross-source dedup + analytics can identify them) rather than "admin".
+# Source-expansion (2026-06-05) adds the event-ingest sources so their provenance
+# survives approval, regardless of trust tier.
 _SCRAPE_EVENT_SOURCES = frozenset(
-    {"river_scene_import", "river_scene", "go_lake_havasu", "chamber"}
+    {
+        "river_scene_import",
+        "river_scene",
+        "go_lake_havasu",
+        "chamber",
+        "allevents",
+        "legistar",
+        "lhusd",
+    }
 )
 
+# Trust-tier decision (2026-06-05): high-trust civic/official feeds (legistar
+# council/board agendas, lhusd school calendar) auto-approve; aggregators like
+# allevents are deliberately NOT here, so they land pending for human review.
 _DEFAULT_AUTO_APPROVE_EVENT_SOURCES = frozenset(
-    {"chamber", "go_lake_havasu", "river_scene", "river_scene_import"}
+    {
+        "chamber",
+        "go_lake_havasu",
+        "river_scene",
+        "river_scene_import",
+        "legistar",
+        "lhusd",
+    }
 )
 
 
