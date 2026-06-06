@@ -320,7 +320,13 @@ def _events_for_window_with_total(
     not the raw row count that the series collapse hides (brief §2).
     """
     collapsed = _collapse_window_events(db, start_day=start_day, end_day=end_day)
-    return collapsed[:limit], len(collapsed)
+    # Cap the one-offs only: recurring rows are already collapsed to one card
+    # per series and get pulled out into the venue-grouped "Classes & ongoing"
+    # section. Capping them here silently dropped every venue class card on
+    # busy days (12+ one-offs filled the cap before any class survived).
+    oneoffs = [it for it in collapsed if not it["recurring"]]
+    recurring = [it for it in collapsed if it["recurring"]]
+    return oneoffs[:limit] + recurring, len(collapsed)
 
 
 def _tonight_card(db: Session, *, now: datetime) -> dict[str, Any] | None:
