@@ -26,31 +26,16 @@ _OUT_OF_SCOPE_TRIGGERS: tuple[tuple[str, tuple[str, ...]], ...] = (
             "what to wear",
             "humidity",
             "rainfall",
-            "rain",
-            "raining",
             "is it going to rain",
             "going to rain",
         ),
     ),
-    (
-        "lodging",
-        (
-            "hotel",
-            "motel",
-            "airbnb",
-            "where to stay",
-            "where should i stay",
-            "place to stay",
-            "places to stay",
-            "where can i stay",
-            "accommodation",
-            "accommodations",
-            "lodging",
-            "place to sleep",
-            "where to sleep",
-            "somewhere to stay",
-        ),
-    ),
+    # Slice C5 (post Phase 8.11): the lodging bucket is intentionally removed,
+    # mirroring the dining removal below. The catalog ships a populated
+    # ``lodging-vacation-rentals`` category and the intent layer resolves a
+    # working ``lodging_find`` for "hotel" / "where to stay" / "accommodation".
+    # Routing those to the canned out-of-scope refusal made that whole category
+    # unreachable from chat.
     (
         "transportation",
         (
@@ -118,8 +103,10 @@ def _commercial_services_query(m: str) -> bool:
     """Rentals, bookings, and venue shopping — not the event calendar."""
     if any(p in m for p in _COMMERCIAL_EVENT_RESCUE_PHRASES):
         return False
-    if re.search(r"\b(cheap|affordable)\b", m):
-        return True
+    # "cheap"/"affordable" removed (P1-1): they routed "cheap eats" /
+    # "affordable restaurants" to the out-of-scope refusal, contradicting the
+    # dining-in-scope decision. A bare price adjective is not a commercial
+    # rental/booking signal.
     if re.search(r"\b(rentals?)\b", m):
         return True
     if re.search(r"\bhire\b", m):
@@ -133,14 +120,19 @@ def _commercial_services_query(m: str) -> bool:
     return False
 
 
+# Weather "rain" must match as a whole word. The bare substring wrongly fired on
+# "training" / "drain cleaning" and pushed real service queries to the
+# out-of-scope refusal. (P1-1)
+_WEATHER_RAIN_RE = re.compile(r"\brain(?:ing|ed|s)?\b")
+
+
 def detect_out_of_scope_category(message: str) -> str | None:
     """Return the out-of-scope category name for ``message`` or ``None``.
 
-    Returns one of ``"weather"``, ``"lodging"``, ``"transportation"``,
-    ``"dining"``, or ``"commercial_services"`` when a category trigger matches
-    and no event-signal token is present. The event-signal guard prevents false
-    positives like "hotel grand opening event tonight" from being treated as
-    lodging lookups.
+    Returns ``"weather"``, ``"transportation"``, or ``"commercial_services"``
+    when a category trigger matches and no event-signal token is present. The
+    event-signal guard prevents false positives like "weather station tour"
+    from being treated as weather lookups.
     """
     try:
         from app.chat.entity_intent import suppress_out_of_scope_for_factual_lookup
@@ -158,6 +150,8 @@ def detect_out_of_scope_category(message: str) -> str | None:
         return "commercial_services"
     if any(word in m for word in _EVENT_INDICATOR_WORDS):
         return None
+    if _WEATHER_RAIN_RE.search(m):
+        return "weather"
     for category, triggers in _OUT_OF_SCOPE_TRIGGERS:
         if any(t in m for t in triggers):
             return category
