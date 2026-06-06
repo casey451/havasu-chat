@@ -660,6 +660,33 @@ def _render_about_card(provider: Provider) -> str | None:
     return " ".join(parts)
 
 
+_BARE_ENTITY_STOPWORDS = frozenset({"the", "a", "an", "of", "and", "at", "in"})
+
+
+def _is_bare_entity_query(query: str, entity: str | None) -> bool:
+    """True when the query is nothing but the matched entity's name.
+
+    2026-06-06 gap report: bare names ("mudshark brewery") matched the entity
+    but carried no Tier-1 sub-intent, so they fell through to Tier 3 synthesis
+    (~2 LLM calls) even though the about-card answers them. Exact token-subset
+    check — every non-stopword query token must appear in the canonical name —
+    so "mudshark brewery menu" (extra token) and typo'd forms still fall
+    through unchanged.
+    """
+    if not entity:
+        return False
+    from app.chat.entity_matcher import _strip_intent_padding
+
+    norm = _strip_intent_padding(normalize(query or ""))
+    if not norm:
+        return False
+    ent_tokens = set(normalize(entity).split())
+    q_tokens = [t for t in norm.split() if t not in _BARE_ENTITY_STOPWORDS]
+    if not q_tokens:
+        return False
+    return all(t in ent_tokens for t in q_tokens)
+
+
 def try_tier1(query: str, intent_result: IntentResult, db: Session) -> str | None:
     """Return a Tier 1 response string, or ``None`` to fall through to Tier 3."""
     if intent_result.entity is None:
@@ -680,6 +707,16 @@ def try_tier1(query: str, intent_result: IntentResult, db: Session) -> str | Non
 
     sub = intent_result.sub_intent
     if sub not in _TIER1_SUB_INTENTS:
+        # 2026-06-06: a bare entity name with no factual sub-intent is an
+        # implicit about-turn — serve the about card instead of paying Tier 3.
+        # Checked only AFTER the sub-intent gate so factual lookups ("phone
+        # number for mudshark brewery") keep their tailored answers.
+        if _is_bare_entity_query(query, intent_result.entity):
+            provider = _get_provider(db, intent_result.entity)
+            if provider is not None:
+                about = _render_about_card(provider)
+                if about is not None:
+                    return _append_voice(about, provider)
         return None
 
     provider = _get_provider(db, intent_result.entity)

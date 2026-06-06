@@ -167,6 +167,12 @@ _RECOMMENDATION_SHAPED = re.compile(
     # answering with one provider's street address.
     r"where\s+can\s+(?:i|we)\s+(?:rent|hire|book|charter)|"
     r"where\s+do\s+(?:i|we)\s+(?:rent|hire|book|charter)|"
+    # 2026-06-06 gap report: "where can i take a yoga class" resolved at the
+    # intent layer (12 rows) but the LOCATION_LOOKUP factual guard
+    # gap-templated it; "best happy hour" classifies HOURS_LOOKUP via "hour".
+    r"where\s+can\s+(?:i|we)\s+(?:take|go|join|play|sign)|"
+    r"where\s+do\s+(?:i|we)\s+(?:take|go|join|play|sign)|"
+    r"(?:best|good|any)\s+happy\s+hour|"
     r"what\s+should\s+(?:i|we)|"
     r"what(?:'s|\s+is)\s+a\s+good|"
     r"best\s+(?:place|spot|restaurant|cafe|bar)|"
@@ -273,6 +279,42 @@ def _catalog_gap_response(intent_result: IntentResult, db: Session | None = None
     return f"I don't have that event or program in the catalog yet. {_GAP_TAIL}"
 
 
+_ABOUT_AUDIENCE_TOKENS: frozenset[str] = frozenset(
+    """visitor visitors tourist tourists local locals family families guest
+    guests newcomer newcomers snowbird snowbirds resident residents""".split()
+)
+
+
+def _about_subject_is_generic(raw: str) -> bool:
+    """True when the about-subject has no distinctive (name-like) token."""
+    try:
+        from app.chat.entity_matcher import _strip_intent_padding
+        from app.chat.intents.resolver import category_vocabulary
+        from app.chat.intents.runtime import (
+            _SPURIOUS_FILLER_TOKENS,
+            _SPURIOUS_LOCALITY_TOKENS,
+        )
+
+        subject = _strip_intent_padding(normalize(raw or ""))
+        vocab = category_vocabulary()
+        saw_token = False
+        for tok in re.split(r"[^a-z0-9]+", subject):
+            if not tok:
+                continue
+            saw_token = True
+            if tok in _SPURIOUS_FILLER_TOKENS or tok in _SPURIOUS_LOCALITY_TOKENS:
+                continue
+            if tok in _ABOUT_AUDIENCE_TOKENS or tok.isdigit():
+                continue
+            if tok in vocab or (tok.endswith("s") and tok[:-1] in vocab) or (tok + "s") in vocab:
+                continue
+            return False
+        return saw_token
+    except Exception:
+        logging.exception("_about_subject_is_generic probe failed")
+        return False
+
+
 def _unknown_entity_about_gate(
     query: str,
     intent_result: IntentResult,
@@ -304,6 +346,15 @@ def _unknown_entity_about_gate(
             near = find_near_match(raw, db)
             if near is not None and near_match_subject_overlaps(raw, near[0]):
                 return None  # plausible "did you mean" — defer to existing path
+
+        # 2026-06-06: an about-subject built entirely from category vocabulary /
+        # locality / audience words ("tell me about lake havasu activities for
+        # visitors") is a BROWSE, not an unknown entity — defer to Tier 2/3.
+        # Previously these accidentally matched an entity via the shared town
+        # token (pre locality-guard) and skipped this gate, so the gap template
+        # never saw them; the matcher fix would otherwise re-route them here.
+        if _about_subject_is_generic(raw):
+            return None
 
         # Phase 7.5.3 F1: marker probe runs AFTER matcher + near-match so the
         # consonant-run heuristic cannot regress legitimate typo near-matches

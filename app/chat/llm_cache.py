@@ -66,7 +66,9 @@ def _hash_context(context):
 
 
 def make_cache_key(normalized_query, context):
-    nq = (normalized_query or "").strip().lower()
+    from app.chat.normalizer import canonicalize_for_cache
+
+    nq = canonicalize_for_cache((normalized_query or "").strip().lower())
     ctx_hash = _hash_context(context)
     h = hashlib.sha256()
     h.update(nq.encode("utf-8"))

@@ -22,13 +22,14 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
 from sqlalchemy.orm import Session
 
 from app.chat.intents.queries import QueryResult, run_query
-from app.chat.intents.resolver import resolve
+from app.chat.intents.resolver import category_vocabulary, resolve
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,54 @@ _ENTITY_FACTUAL_SUBINTENTS = frozenset(
         "NEXT_OCCURRENCE",
     }
 )
+
+
+_SPURIOUS_FILLER_TOKENS: frozenset[str] = frozenset(
+    """a an and any are around at best can cheap cheapest close closed could do
+    does find for from get good great hava have help hey hi how i im in is it
+    late me my near nearby need new now of ok okay on open or our please right
+    should some something that the there this to today tonight tomorrow top
+    town up us we week weekend what when where which who whose why with would
+    you your""".split()
+)
+# Age/time phrasing tokens are generic too ("what activities can my 8 year old
+# do after school hours" must not read "year"/"old"/"8" as distinctive).
+_SPURIOUS_FILLER_TOKENS = _SPURIOUS_FILLER_TOKENS | frozenset(
+    "year years yr yrs old olds month months day days hour hours time times".split()
+)
+_SPURIOUS_LOCALITY_TOKENS: frozenset[str] = frozenset(
+    {"lake", "havasu", "city", "arizona", "az", "lhc"}
+)
+
+
+def _entity_match_spurious(query: str) -> bool:
+    """True when every query token is generic (category vocab/locality/filler).
+
+    The entity matcher deliberately matches trade-superlative queries to a
+    same-trade provider (backlog #52: "what is the best plumber in lake
+    havasu" -> "All Seasons Plumbing"). For the intent layer that match must
+    not block a category listing: when nothing in the query is distinctive,
+    nothing ties the turn to the matched name, and the listing (which contains
+    that provider) is the better zero-token answer.
+
+    Conservative by design: ANY distinctive token — whether it ties to the
+    matched entity ("mudshark") or to something else entirely — keeps the
+    entity guard in place and falls through to the entity-aware path.
+    """
+    from app.chat.normalizer import normalize
+
+    vocab = category_vocabulary()
+    for tok in re.split(r"[^a-z0-9]+", normalize(query or "")):
+        if not tok or tok in _SPURIOUS_FILLER_TOKENS or tok in _SPURIOUS_LOCALITY_TOKENS:
+            continue
+        if tok.isdigit():
+            continue  # bare numbers are ages/times/counts, never business names
+        if tok in vocab or (tok.endswith("s") and tok[:-1] in vocab) or (tok + "s") in vocab:
+            continue
+        # Distinctive token: the turn is about something specific — the
+        # entity-aware path owns it.
+        return False
+    return True
 
 
 @dataclass
@@ -175,7 +224,16 @@ def try_intent_layer(
     if not is_enabled():
         return None
     if entity and entity.strip():
-        return None
+        # 2026-06-06: bypass the guard when the match is explained entirely by
+        # generic category/locality tokens (see _entity_match_spurious). The
+        # factual-subintent and about-shape guards below still apply.
+        try:
+            spurious = _entity_match_spurious(query)
+        except Exception:
+            logger.exception("intent_layer: spurious-entity probe failed")
+            spurious = False
+        if not spurious:
+            return None
     if sub_intent and sub_intent in _ENTITY_FACTUAL_SUBINTENTS:
         # 2026-06-04: the factual-subintent guard protects single-ENTITY lookups
         # ("where is mudshark"), but the classifier also labels recommendation
