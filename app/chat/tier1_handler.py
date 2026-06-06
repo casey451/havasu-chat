@@ -402,6 +402,62 @@ def _provider_open_now(provider: Provider, now: datetime) -> bool | None:
     return None
 
 
+# Day-name → weekday index (Mon=0 … Sun=6, matching ``datetime.weekday()``).
+_DAY_TO_IDX: dict[str, int] = {
+    "monday": 0, "mon": 0,
+    "tuesday": 1, "tues": 1, "tue": 1,
+    "wednesday": 2, "weds": 2, "wed": 2,
+    "thursday": 3, "thurs": 3, "thur": 3, "thu": 3,
+    "friday": 4, "fri": 4,
+    "saturday": 5, "sat": 5,
+    "sunday": 6, "sun": 6,
+}
+_DAY_ALT = (
+    r"monday|mon|tuesday|tues|tue|wednesday|weds|wed|"
+    r"thursday|thurs|thur|thu|friday|fri|saturday|sat|sunday|sun"
+)
+_DAY_RANGE_RE = re.compile(
+    rf"\b({_DAY_ALT})\b\s*(?:-|–|—|to|through|thru)\s*\b({_DAY_ALT})\b",
+    re.IGNORECASE,
+)
+_DAY_WORD_RE = re.compile(rf"\b({_DAY_ALT})\b", re.IGNORECASE)
+
+
+def _hours_weekday_covered(low: str, weekday: int) -> bool | None:
+    """Whether ``weekday`` (Mon=0 … Sun=6) is covered by day specs in ``low``.
+
+    Returns ``None`` when the string carries no day-of-week information — the
+    caller then falls back to a time-only check. (P1-7: "Mon-Fri 9-5" must not
+    read as open on Sunday.)
+    """
+    if any(k in low for k in ("every day", "everyday", "daily", "7 days", "all week")):
+        return True
+    covered: set[int] = set()
+    found = False
+    if "weekday" in low:
+        covered.update({0, 1, 2, 3, 4})
+        found = True
+    if "weekend" in low:
+        covered.update({5, 6})
+        found = True
+    for mr in _DAY_RANGE_RE.finditer(low):
+        start = _DAY_TO_IDX[mr.group(1).lower()]
+        end = _DAY_TO_IDX[mr.group(2).lower()]
+        found = True
+        i = start
+        while True:  # inclusive, wrapping (e.g. "sat-mon")
+            covered.add(i)
+            if i == end:
+                break
+            i = (i + 1) % 7
+    for mw in _DAY_WORD_RE.finditer(low):
+        covered.add(_DAY_TO_IDX[mw.group(1).lower()])
+        found = True
+    if not found:
+        return None
+    return weekday in covered
+
+
 def _open_now_from_hours(hours: str, now: datetime) -> bool | None:
     """Return True/False if parseable daily window; None if not parseable."""
     h = (hours or "").strip()
@@ -410,6 +466,11 @@ def _open_now_from_hours(hours: str, now: datetime) -> bool | None:
     low = h.lower()
     if "24/7" in low or "24 hour" in low or "all day" in low or "open 24" in low:
         return True
+
+    # Weekday gate: if the hours string names days and today isn't one of them,
+    # it's closed regardless of the clock window. (P1-7)
+    if _hours_weekday_covered(low, now.weekday()) is False:
+        return False
 
     m = re.search(
         r"(?P<o1>\d{1,2})(?::(?P<o2>\d{2}))?\s*(?P<oa>am|pm)\s*[-–]\s*"
@@ -429,10 +490,17 @@ def _open_now_from_hours(hours: str, now: datetime) -> bool | None:
 
     open_m = _clock_to_minutes(o1, o2, oa)
     close_m = _clock_to_minutes(c1, c2, ca)
-    if close_m <= open_m:
+    crosses_midnight = close_m <= open_m
+    if crosses_midnight:
         close_m += 24 * 60
     cur = now.hour * 60 + now.minute
-    return open_m <= cur <= close_m
+    if open_m <= cur <= close_m:
+        return True
+    # After-midnight tail of a window that crosses midnight ("5pm-2am" at 1am):
+    # test the current time advanced a day so it lands inside [open, close]. (P1-7)
+    if crosses_midnight and open_m <= cur + 24 * 60 <= close_m:
+        return True
+    return False
 
 
 # --- Stream B (2026-05-07) — contribute / correct intake voice -------------------

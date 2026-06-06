@@ -348,6 +348,26 @@ def test_open_now_uses_lake_havasu_local_time() -> None:
         assert is_closed is False, "10am should be closed before 11am-5pm window"
 
 
+def test_open_now_from_hours_respects_weekday_range() -> None:
+    """P1-7: 'Mon-Fri 9am-5pm' is closed on Sunday even at 10am, open Wednesday."""
+    sunday = _dt(2024, 1, 7, 10, 0)
+    assert sunday.weekday() == 6
+    wednesday = _dt(2024, 1, 3, 10, 0)
+    assert wednesday.weekday() == 2
+    assert _t1._open_now_from_hours("Mon-Fri 9am-5pm", sunday) is False
+    assert _t1._open_now_from_hours("Mon-Fri 9am-5pm", wednesday) is True
+
+
+def test_open_now_from_hours_handles_after_midnight() -> None:
+    """P1-7: a window crossing midnight ('5pm-2am') is open at 1am, closed at 3pm."""
+    one_am = _dt(2024, 1, 3, 1, 0)
+    three_pm = _dt(2024, 1, 3, 15, 0)
+    eleven_pm = _dt(2024, 1, 3, 23, 0)
+    assert _t1._open_now_from_hours("5pm-2am", one_am) is True
+    assert _t1._open_now_from_hours("5pm-2am", three_pm) is False
+    assert _t1._open_now_from_hours("5pm-2am", eleven_pm) is True
+
+
 def test_next_event_uses_lake_havasu_today() -> None:
     """Backlog #27 fix: _next_event uses today's date in Lake Havasu local
     time, not UTC. Important for ~7am MST queries when UTC has already
