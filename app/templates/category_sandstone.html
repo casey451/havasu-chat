@@ -92,6 +92,12 @@
       {% if next_url %}<a class="pagebtn" rel="next" href="{{ next_url }}">Next →</a>{% else %}<span class="pagebtn is-off">Next →</span>{% endif %}
     </nav>
     {% endif %}
+
+    {# Calm-texture feedback affordance (HALT 2 item G): a quiet link into the
+       existing reviewed contribution queue, pre-filled with this category. #}
+    <p class="suggest-missing" style="text-align:center;margin:24px 0 4px;font-size:0.88rem;opacity:0.65;">
+      <a href="/contribute?kind=provider&amp;category={{ category_label|urlencode }}&amp;note={{ ('Suggested a missing business in ' ~ category_label ~ '.')|urlencode }}">Missing a business? Suggest one →</a>
+    </p>
     {% else %}
     <p class="cal-empty">No listings here yet. <a href="/chat?q={{ category_label|urlencode }}" style="color:var(--accent);font-weight:600">Ask Hava →</a></p>
     {% endif %}

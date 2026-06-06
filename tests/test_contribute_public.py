@@ -50,6 +50,35 @@ def test_get_contribute_submitted_shows_banner(client: TestClient) -> None:
     assert "review queue" in r.text.lower()
 
 
+def test_get_contribute_prefills_from_query(client: TestClient) -> None:
+    """HALT 2 item G: 'suggest an edit' links open the form pre-filled. The name,
+    url, category and note land in the form's value attributes / textarea."""
+    r = client.get(
+        "/contribute",
+        params={
+            "kind": "provider",
+            "name": "Bridgewater Diner",
+            "url": "https://bridgewater.example",
+            "category": "eat-drink",
+            "note": "Hours look out of date.",
+        },
+    )
+    assert r.status_code == 200
+    assert 'value="Bridgewater Diner"' in r.text
+    assert "https://bridgewater.example" in r.text
+    assert 'value="eat-drink"' in r.text
+    assert "Hours look out of date." in r.text
+
+
+def test_get_contribute_ignores_bad_kind(client: TestClient) -> None:
+    """An out-of-set kind must not become the entity_type; default (provider) holds."""
+    r = client.get("/contribute", params={"kind": "malware", "name": "X"})
+    assert r.status_code == 200
+    assert 'value="X"' in r.text  # name still prefilled
+    # provider radio remains the checked default
+    assert 'value="provider" checked' in r.text
+
+
 def test_post_valid_provider_schedules_enrich(client: TestClient) -> None:
     with patch("app.api.routes.contribute.enrich_contribution") as m:
         r = client.post(

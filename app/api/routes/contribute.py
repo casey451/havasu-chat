@@ -217,9 +217,34 @@ def _render_contribute_page(
     )
 
 
+_PREFILL_KINDS = frozenset({"provider", "program", "event", "tip"})
+
+
 @router.get("/contribute", response_class=HTMLResponse, response_model=None)
-def get_contribute(submitted: int | None = None) -> HTMLResponse:
-    return _render_contribute_page(submitted=bool(submitted))
+def get_contribute(
+    submitted: int | None = None,
+    name: str | None = None,
+    url: str | None = None,
+    kind: str | None = None,
+    category: str | None = None,
+    note: str | None = None,
+) -> HTMLResponse:
+    """The contribute form. Optional query params let calm-texture "suggest an
+    edit" links on provider/category pages open the form pre-filled, so a local
+    who spots a stale listing lands one click from describing the fix. Prefill is
+    cosmetic — the same reviewed POST pipeline handles the submission."""
+    preserve: dict[str, str] = {}
+    if kind and kind in _PREFILL_KINDS:
+        preserve["entity_type"] = kind
+    if name:
+        preserve["submission_name"] = name.strip()[:200]
+    if url:
+        preserve["submission_url"] = url.strip()[:2048]
+    if category:
+        preserve["category_hint"] = category.strip()[:200]
+    if note:
+        preserve["description"] = note.strip()[:_MAX_NOTES]
+    return _render_contribute_page(submitted=bool(submitted), preserve=preserve or None)
 
 
 @router.post("/contribute", response_class=HTMLResponse, response_model=None)

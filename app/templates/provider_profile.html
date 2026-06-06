@@ -261,6 +261,14 @@
     </div>
   </div>
   {% endif %}
+
+  {# Calm-texture feedback affordance (HALT 2 item G): a quiet link, not a prompt.
+     Opens the existing /contribute form pre-filled with this listing so a local
+     who spots something stale can describe the fix; it lands in the same
+     reviewed contribution queue. #}
+  <p class="suggest-edit" style="text-align:center;margin:28px 0 8px;font-size:0.88rem;opacity:0.65;">
+    <a href="/contribute?kind=provider&amp;name={{ vm.provider_name|urlencode }}{% if vm.website_url %}&amp;url={{ vm.website_url|urlencode }}{% endif %}&amp;note={{ ('Suggested correction for ' ~ vm.provider_name ~ ' (from its profile page).')|urlencode }}">See something out of date? Suggest an edit.</a>
+  </p>
 </div>
 
 {# ---- Sticky bottom Call / Directions bar (mobile) — reuses the .ll-sticky-cta
