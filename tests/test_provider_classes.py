@@ -110,3 +110,29 @@ def test_profile_page_renders_class_schedule_section() -> None:
     assert "Kids BJJ" in body
     assert "Mon, Wed" in body
     assert "5:00 PM – 6:00 PM" in body
+
+
+def test_build_class_schedule_filters_non_recurring_and_untitled_rows() -> None:
+    """One-off schedule rows and untitled rows with no offering must not leak
+    into the classes section (they render as bare "Class" junk)."""
+    slug, eid = _make_gym_with_class()
+    with SessionLocal() as db:
+        db.add(
+            Schedule(
+                entity_id=eid, schedule_type="one_off",
+                days_of_week=["friday"], start_time=time(9, 0), end_time=time(10, 0),
+                notes="Pop-up seminar", created_at=_now(), updated_at=_now(),
+            )
+        )
+        db.add(
+            Schedule(
+                entity_id=eid, schedule_type="recurring",
+                days_of_week=["monday", "friday"], start_time=time(8, 15), end_time=time(9, 15),
+                notes=None,  # untitled, no paired offering -> junk row
+                created_at=_now(), updated_at=_now(),
+            )
+        )
+        db.commit()
+        prov = db.query(Provider).filter(Provider.slug == slug).one()
+        vm = view_models.build(prov, db=db)
+    assert [r["title"] for r in vm.class_schedule] == ["Kids BJJ"]

@@ -43,7 +43,8 @@ def main(argv: list[str] | None = None) -> int:
         records = legistar.to_event_records(meetings)
         counts = ingest_event_records(records, source=legistar.SOURCE, dry_run=False)
         print_ingest_report(legistar.SOURCE, counts, dry_run=False)
-        return 0
+        # Surface record-level failures to the cron (don't hide broken runs).
+        return 0 if counts.errors == 0 else 1
 
     print_dry_run_report(
         legistar.SOURCE,

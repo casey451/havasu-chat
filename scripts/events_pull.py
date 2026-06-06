@@ -80,7 +80,8 @@ def main(argv: list[str] | None = None) -> int:
 
         counts = ingest_event_records(records, source=name, dry_run=False)
         print_ingest_report(name, counts, dry_run=False)
-        return 0
+        # Surface record-level failures to the cron (don't hide broken runs).
+        return 0 if counts.errors == 0 else 1
 
     print_dry_run_report(name, records, sample_fn=sample_fn, notes=notes)
     return 0

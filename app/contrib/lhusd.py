@@ -223,10 +223,15 @@ def to_event_records(
         if start_date < today:
             continue
         end_date = ev.end.date() if ev.end else None
+        title = (ev.summary or "").strip()
+        if not title:
+            # Defensive: an upstream iCal event without SUMMARY must not abort
+            # the whole apply run — skip just that row.
+            continue
         records.append(
             EventRecord(
                 source=SOURCE,
-                title=ev.summary.strip(),
+                title=title,
                 start_date=start_date,
                 start_time=None if ev.all_day else ev.start.time().replace(tzinfo=None),
                 end_date=end_date if (end_date and end_date > start_date) else None,

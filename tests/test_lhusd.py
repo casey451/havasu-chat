@@ -110,6 +110,42 @@ def test_cli_apply_ingests_upcoming(monkeypatch, capsys) -> None:
     assert re.search(r"^\s*auto_approved\s+1\s*$", out, re.MULTILINE)
 
 
+def test_to_event_records_skips_missing_summary() -> None:
+    """An upstream iCal event without SUMMARY is skipped, not a crash (apply-run safety)."""
+    future = datetime(date.today().year + 1, 6, 9, 18, 0)
+    no_title = lhusd.LhusdEvent(
+        summary=None,  # type: ignore[arg-type] — defensive: upstream omitted SUMMARY
+        start=future, end=None, location=None, all_day=False,
+    )
+    blank_title = lhusd.LhusdEvent(
+        summary="   ", start=future, end=None, location=None, all_day=False,
+    )
+    keeper = lhusd.LhusdEvent(
+        summary="Governing Board Regular Meeting",
+        start=future, end=None, location=None, all_day=False,
+    )
+    recs = lhusd.to_event_records([no_title, blank_title, keeper])
+    assert [r.title for r in recs] == ["Governing Board Regular Meeting"]
+
+
+def test_cli_apply_exits_nonzero_on_ingest_errors(monkeypatch) -> None:
+    """Record-level ingest failures must fail the cron run, not hide behind exit 0."""
+    import app.contrib.event_ingest as ingest_mod
+    import scripts.lhusd_pull as cli
+
+    future = datetime(date.today().year + 1, 6, 9, 18, 0)
+    ev = lhusd.LhusdEvent(
+        summary="Governing Board Regular Meeting",
+        start=future, end=None, location=None, all_day=False,
+    )
+    monkeypatch.setattr(cli.lhusd, "fetch_events", lambda **_: [ev])
+    monkeypatch.setattr(
+        ingest_mod, "ingest_event_records",
+        lambda *a, **k: ingest_mod.IngestCounts(errors=1),
+    )
+    assert cli.main(["--apply"]) == 1
+
+
 def test_cli_apply_news_does_not_ingest(monkeypatch, capsys) -> None:
     """The news feed has no surface yet: --apply must stay a dry-run, never ingest."""
     import scripts.lhusd_pull as cli
