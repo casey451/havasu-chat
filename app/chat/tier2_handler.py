@@ -176,23 +176,44 @@ def _explicit_month_day(query: str) -> date | None:
     return d
 
 
+# Program/class signals. A query carrying one of these is a category listing
+# scoped to a day ("any yoga classes saturday"), not a generic event-calendar
+# browse — it defers to the Tier 2 parser so the category filter survives the
+# day word instead of being flattened into the generic agenda. (C4)
+_CATEGORY_PROGRAM_RE = re.compile(
+    r"\b(class|classes|lesson|lessons|league|leagues|program|programs)\b"
+)
+
+
 def detect_event_intent(query: str) -> dict[str, str] | None:
     """Return intent dict when the query is event-flavored.
 
     Includes optional ``time_start`` / ``time_end`` (``HH:MM``) for
     time-of-day scoped queries like "tonight" or "this morning".
+
+    A bare day/time word only claims the query when it reads as a general
+    "what's happening" browse. When a program/class/lesson/league token is
+    also present the query is a category listing scoped to a day, so we defer
+    to the Tier 2 parser (which filters by category *and* time window) rather
+    than returning the generic day agenda. (C4)
     """
     q = (query or "").lower()
-    if "this weekend" in q or "saturday" in q or "sunday" in q:
-        return {"when": "this_weekend"}
-    if "tomorrow morning" in q:
-        return {"when": "tomorrow", "time_start": "05:00", "time_end": "11:59"}
-    if "this morning" in q:
-        return {"when": "today", "time_start": "05:00", "time_end": "11:59"}
-    if "this afternoon" in q:
-        return {"when": "today", "time_start": "12:00", "time_end": "16:59"}
-    if "tonight" in q:
-        return {"when": "tonight", "time_start": "17:00", "time_end": "23:59"}
+    if not _CATEGORY_PROGRAM_RE.search(q):
+        if "this weekend" in q or "saturday" in q or "sunday" in q:
+            return {"when": "this_weekend"}
+        if "tomorrow morning" in q:
+            return {"when": "tomorrow", "time_start": "05:00", "time_end": "11:59"}
+        if "this morning" in q:
+            return {"when": "today", "time_start": "05:00", "time_end": "11:59"}
+        if "this afternoon" in q:
+            return {"when": "today", "time_start": "12:00", "time_end": "16:59"}
+        if "tonight" in q:
+            return {"when": "tonight", "time_start": "17:00", "time_end": "23:59"}
+        # Bare "tomorrow" — checked after "tomorrow morning" so the morning
+        # window wins. Without this branch "what's happening tomorrow" fell
+        # through to the today catch-all and answered with *today's* events. (C3)
+        if "tomorrow" in q:
+            return {"when": "tomorrow"}
     if any(
         k in q
         for k in (
