@@ -313,6 +313,12 @@ _DL12_MIN_REVIEWS = 3
 # 32 km ~= the Parker / Black Meadow Landing cluster the audit (M-07) flagged as
 # appearing on the Lodging page with no hint.
 _OUT_OF_AREA_KM = 32.0
+# Beyond this the listing is not plausibly in the Lake Havasu region at all (Parker
+# ~60 km, Kingman ~90 km, Blythe ~135 km are the realistic out-of-area cluster);
+# a larger distance means mis-geocoded coords or a non-regional row, so we suppress
+# the hint rather than print a fabricated "~2405 min away . Parker area" line (the
+# prod-smoke bug). Consistent with "never fabricate a distance" for geo-less rows.
+_FAR_OUT_OF_REGION_KM = 150.0
 # Rough drive-time estimate from straight-line km (no routing data): town surface
 # streets + the lake detour run ~1.3x crow-flight at ~55 km/h effective.
 _DRIVE_MIN_PER_KM = 1.35
@@ -639,7 +645,9 @@ def _card_distance_hint(provider: Provider) -> str:
     if getattr(provider, "lat", None) is None or getattr(provider, "lng", None) is None:
         return ""
     km = _distance_km(provider, _REF_LAT, _REF_LNG)
-    if km < _OUT_OF_AREA_KM or km >= 9e6:
+    # In-area, or so far the coords aren't trustworthy (incl. the 9e6 geo-less
+    # sentinel) -> no hint instead of a fabricated minute count + wrong locale.
+    if km < _OUT_OF_AREA_KM or km >= _FAR_OUT_OF_REGION_KM:
         return ""
     minutes = int(round(km * _DRIVE_MIN_PER_KM / 5.0)) * 5 or 5
     return f"~{minutes} min away . Parker area"
