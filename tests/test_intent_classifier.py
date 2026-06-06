@@ -180,14 +180,15 @@ _CLASSIFY_FIXTURES: list[tuple[str, str, str]] = [
     ("Hello", "chat", "GREETING"),
     ("Good morning", "chat", "GREETING"),
     ("What is up", "chat", "GREETING"),
-    # --- chat: OUT_OF_SCOPE (4) — Slice F2 dropped the dining bucket; restaurants now
-    # route to Tier 2/Tier 3 against the Google Places catalog. ---
+    # --- chat: OUT_OF_SCOPE (3) — Slice F2 dropped the dining bucket and C5
+    # dropped the lodging bucket; restaurants and hotels now route to Tier 2 /
+    # Tier 3 against the Google Places catalog. ---
     ("What is the weather this weekend?", "chat", "OUT_OF_SCOPE"),
     ("Where should I buy a house in Havasu?", "chat", "OUT_OF_SCOPE"),
     ("Is it going to rain tomorrow?", "chat", "OUT_OF_SCOPE"),
-    ("Hotel recommendations near the lake?", "chat", "OUT_OF_SCOPE"),
-    # --- ask: previously-blocked dining queries now route to ask mode (Slice F2) ---
+    # --- ask: previously-blocked dining + lodging queries now route to ask mode ---
     ("Best restaurant for tacos?", "ask", "OPEN_ENDED"),
+    ("Hotel recommendations near the lake?", "ask", "OPEN_ENDED"),
     # --- chat: SMALL_TALK (5) ---
     ("Thanks", "chat", "SMALL_TALK"),
     ("Thank you!", "chat", "SMALL_TALK"),
