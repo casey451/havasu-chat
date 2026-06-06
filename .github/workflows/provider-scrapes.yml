@@ -1,0 +1,53 @@
+name: provider-scrapes
+
+# Weekly refresh of the net-new provider verticals that already route through the
+# shared dup-prevention funnel (app/contrib/scraper_ingest.decide_ingest):
+#   * pdga          — disc-golf courses near Lake Havasu City (PDGA directory)
+#   * usapickleball — pickleball courts (Places2Play)
+#
+# Both loaders write through decide_ingest: genuinely new rows are inserted
+# (subcategory + classes-sports-recreation Tier-1 category), reconcile "update"
+# hits fill contact gaps without clobbering, and ambiguous geo/name matches land
+# HIDDEN (draft + pending_review) for admin review rather than as visible dupes.
+# Re-runs are idempotent (existing rows -> update/merge, no double insert).
+#
+# NOTE: GitHub only runs scheduled workflows from the repository's DEFAULT
+# branch. Merging this file is what enables the writes; until then use the
+# "Run workflow" button (workflow_dispatch).
+
+on:
+  schedule:
+    # Saturday 12:00 UTC (= 5:00 AM Arizona, MST/UTC-7, no DST). Provider
+    # verticals change slowly; weekly is ample. Off the event-cron clock.
+    - cron: "0 12 * * 6"
+  workflow_dispatch: {}
+
+jobs:
+  pull-providers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Load PDGA disc-golf courses (dedup funnel)
+        env:
+          # Same Railway Postgres secret the other scrape crons use. Set in:
+          # GitHub repo -> Settings -> Secrets and variables -> Actions
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m scripts.pdga_load
+
+      - name: Load USA Pickleball / Places2Play courts (dedup funnel)
+        # Run even if the PDGA step failed so one flaky source can't block the
+        # other; the next weekly run recovers either way.
+        if: always()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m scripts.usapickleball_load --query "Lake Havasu City"
