@@ -20,3 +20,11 @@ def test_priors_do_not_introduce_clarifying_questions() -> None:
     # ranking-only and must not reintroduce a "ask a clarifying question" policy.
     assert "follow-up questions" in prompt
     assert "never spoken, never rules" in prompt
+
+
+def test_missing_slot_uses_correctable_assumption_not_a_question() -> None:
+    # The §7 conflict is resolved by stating a correctable assumption rather than
+    # asking — so it must explicitly stay within the no-questions rule.
+    prompt = load_prompt("system_prompt")
+    assert "correctable assumption" in prompt
+    assert "don't ask for it" in prompt
