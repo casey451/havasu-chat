@@ -1,0 +1,69 @@
+name: tier3-gap-report
+
+# Weekly read-only report: clusters tier-3 / gap_template chat queries into
+# recurring demand gaps (candidate new intents). scripts/tier3_gap_report.py
+# SELECTs chat_logs and embeds query strings — it writes NOTHING to the DB. The
+# ranked report is uploaded as an artifact for human review (intents are code, so
+# acting on it is a hand-authored PR, not an automated change).
+#
+# Pre-launch the tier-3 stream is mostly dev noise; treat early reports as a
+# pipeline smoke test. See the script docstring.
+#
+# NOTE: GitHub only runs scheduled workflows from the default branch.
+
+on:
+  schedule:
+    # Sundays 12:30 UTC (= 5:30 AM Arizona). Off the other Sunday jobs
+    # (partners 09:40, dedup-audit 10:10, category-patrol 11:30).
+    - cron: "30 12 * * 0"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Look-back window in days"
+        type: string
+        default: "30"
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate tier-3 gap report
+        env:
+          # Both set in: GitHub repo -> Settings -> Secrets and variables -> Actions
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          # Fail loudly rather than silently reporting on the empty local SQLite
+          # fallback (app/db/database.py) or with a degraded deterministic embedder.
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "::error::DATABASE_URL secret is empty — refusing to run (would not be reading prod)."
+            exit 1
+          fi
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "::error::OPENAI_API_KEY secret is empty — query embeddings would degrade to the local hash fallback."
+            exit 1
+          fi
+          DAYS="${{ github.event.inputs.days }}"
+          DAYS="${DAYS:-30}"
+          python scripts/tier3_gap_report.py --days "$DAYS" --json > tier3_gap_report.json
+          # Human-readable version to the run log too.
+          python scripts/tier3_gap_report.py --days "$DAYS"
+
+      - name: Upload gap report
+        uses: actions/upload-artifact@v4
+        with:
+          name: tier3-gap-report
+          path: tier3_gap_report.json
+          if-no-files-found: ignore
