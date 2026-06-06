@@ -12,7 +12,7 @@ builders are unit-testable in isolation.
 from __future__ import annotations
 
 import calendar as _calendar
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -190,6 +190,159 @@ def _water_card(utility_chips: list[dict[str, Any]]) -> dict[str, Any] | None:
         "href": "/today",
         "live": False,
     }
+
+
+# ---------------------------------------------------------------------------
+# This-week strip — next 7 days, events ranked by importance (DL-16 evolution)
+# ---------------------------------------------------------------------------
+#
+# Replaces the old "Today around the lake" card pair (Tonight + Water). The strip
+# shows the next 7 days; within each day, events are ranked so a festival or
+# one-off beats a recurring aquatic-center class, and the lowest-value classes
+# fall into the "+N more" overflow rather than crowding the two visible slots.
+#
+# Casey-confirmed importance order (highest first):
+#   special (festival/one-off) > water > music/nightlife > community > class
+# Tiering is heuristic — keyword + tag + featured/recurring signals — and is
+# deliberately a *ranking* prior, never a filter: every event still appears in
+# its day's tap-through (/events-ui?date=) and overflow count.
+
+_TIER_SPECIAL, _TIER_WATER, _TIER_MUSIC, _TIER_COMMUNITY, _TIER_CLASS = range(5)
+_TIER_CSS = {0: "special", 1: "water", 2: "music", 3: "community", 4: "class"}
+
+_SPECIAL_HINTS = (
+    "festival", "fest", "parade", "derby", "tournament", "poker run", "balloon",
+    "boat show", "fireworks", "rodeo", "grand prix", "london bridge days",
+    "concert series", "car show", "expo", "championship", "celebration",
+)
+_WEEK_WATER_HINTS = (
+    "water", "lake", "kayak", "swim", "boat", "paddle", "channel", "regatta",
+    "jet ski", "wakeboard", "sail", "fishing", "fish", "marina", "river",
+)
+_MUSIC_HINTS = (
+    "live music", "music", "band", "concert", "dj", "karaoke", "dance party",
+    "nightlife", "open mic", "comedy",
+)
+_COMMUNITY_HINTS = (
+    "market", "farmers", "art walk", "artwalk", "fair", "fundraiser", "charity",
+    "library", "story time", "bingo", "potluck", "meetup", "club", "workshop",
+)
+_CLASS_HINTS = (
+    "aqua", "aerobics", "yoga", "pilates", "lap swim", "pickleball", "fitness",
+    "lesson", "class", "zumba", "dodgeball", "bootcamp", "tai chi", "spin",
+    "water fitness", "senior", "story hour",
+)
+
+
+def _event_tier(*, title: str, tags: list[str] | None, featured: bool, recurring: bool) -> int:
+    """Importance tier (lower = more prominent). See the module note above."""
+    joined = (title + " " + " ".join(tags or [])).lower()
+    if featured or any(h in joined for h in _SPECIAL_HINTS):
+        return _TIER_SPECIAL
+    has_class = any(h in joined for h in _CLASS_HINTS)
+    has_community = any(h in joined for h in _COMMUNITY_HINTS)
+    # A class signal ("lap swim", "water fitness", …) is the lowest tier, so it must
+    # never be promoted to WATER/MUSIC just because it shares a keyword (e.g. "swim").
+    # Only consider the higher one-off tiers when there's no class signal.
+    if not has_class:
+        if any(h in joined for h in _WEEK_WATER_HINTS):
+            return _TIER_WATER
+        if any(h in joined for h in _MUSIC_HINTS):
+            return _TIER_MUSIC
+    if has_community and not has_class:
+        return _TIER_COMMUNITY
+    if has_class:
+        return _TIER_CLASS
+    # No keyword signal: a one-off is a real event; a recurring block reads as an
+    # ongoing class so it never outranks a one-off in the two visible slots.
+    return _TIER_CLASS if recurring else _TIER_COMMUNITY
+
+
+def _short_time(t: time | None) -> str | None:
+    """12-hour label without the leading-zero / noon / midnight bugs.
+
+    ``08:00`` -> "8 AM", ``18:30`` -> "6:30 PM", ``12:00`` -> "12 PM",
+    ``00:15`` -> "12:15 AM". Cross-platform (no ``%-I``/``%#I`` divergence).
+    """
+    if t is None:
+        return None
+    hour12 = t.hour % 12 or 12
+    meridiem = "AM" if t.hour < 12 else "PM"
+    if t.minute:
+        return f"{hour12}:{t.minute:02d} {meridiem}"
+    return f"{hour12} {meridiem}"
+
+
+def week_strip(
+    db: Session, *, today: date, days: int = 7, per_day: int = 2
+) -> dict[str, Any]:
+    """Build the next-``days`` strip of real events, ranked by importance.
+
+    Mirrors ``calendar_month``'s honest-omission contract: empty days render an
+    em-dash, never fabricated content. Each day links to ``/events-ui?date=`` so
+    the overflow (and every class) stays one tap away.
+    """
+    end = today + timedelta(days=days - 1)
+    rows = (
+        db.query(Event)
+        .filter(
+            Event.status == "live",
+            Event.date >= today,
+            Event.date <= end,
+        )
+        .all()
+    )
+    by_day: dict[date, list[Event]] = {}
+    for ev in rows:
+        by_day.setdefault(ev.date, []).append(ev)
+
+    def _sort_key(ev: Event) -> tuple[int, int, time]:
+        tier = _event_tier(
+            title=ev.title,
+            tags=ev.tags,
+            featured=bool(ev.featured),
+            recurring=bool(ev.is_recurring),
+        )
+        return (tier, 1 if ev.is_recurring else 0, ev.start_time)
+
+    out_days: list[dict[str, Any]] = []
+    for i in range(days):
+        d = today + timedelta(days=i)
+        evs = sorted(by_day.get(d, []), key=_sort_key)
+        if i == 0:
+            label = "Today"
+        elif i == 1:
+            label = "Tomorrow"
+        else:
+            label = d.strftime("%a")
+        visible = [
+            {
+                "title": ev.title,
+                "type": _TIER_CSS[
+                    _event_tier(
+                        title=ev.title,
+                        tags=ev.tags,
+                        featured=bool(ev.featured),
+                        recurring=bool(ev.is_recurring),
+                    )
+                ],
+                "time": _short_time(ev.start_time),
+            }
+            for ev in evs[:per_day]
+        ]
+        out_days.append(
+            {
+                "iso": d.isoformat(),
+                "label": label,
+                "md": f"{d.month}/{d.day}",
+                "is_today": i == 0,
+                "events": visible,
+                "overflow": max(0, len(evs) - per_day),
+                "count": len(evs),
+                "has": bool(evs),
+            }
+        )
+    return {"days": out_days, "has_any": any(day["has"] for day in out_days)}
 
 
 # ---------------------------------------------------------------------------
