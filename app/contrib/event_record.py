@@ -13,6 +13,7 @@ the eventual loader can dedupe cross-source consistently. No DB access here.
 
 from __future__ import annotations
 
+import html as html_mod
 import json
 import re
 from dataclasses import dataclass, field
@@ -134,9 +135,17 @@ def parse_jsonld_events(html: str, *, source: str) -> list[EventRecord]:
         for node in _iter_jsonld_nodes(data):
             if not isinstance(node, dict) or not _type_is_event(node):
                 continue
-            name = (node.get("name") or "").strip()
+            name = html_mod.unescape((node.get("name") or "")).strip()
             if not name:
                 continue
+            organizer = node.get("organizer")
+            if isinstance(organizer, list):
+                organizer = organizer[0] if organizer else None
+            organizer_name = (
+                html_mod.unescape((organizer.get("name") or "").strip())
+                if isinstance(organizer, dict)
+                else (html_mod.unescape(organizer.strip()) if isinstance(organizer, str) else None)
+            )
             start = parse_dt(node.get("startDate"))
             end = parse_dt(node.get("endDate"))
             venue_name, venue_addr = _place_name_address(node.get("location"))
@@ -153,12 +162,12 @@ def parse_jsonld_events(html: str, *, source: str) -> list[EventRecord]:
                     start_time=start.time().replace(tzinfo=None) if start else None,
                     end_date=end.date() if end else None,
                     end_time=end.time().replace(tzinfo=None) if end else None,
-                    venue_name=venue_name,
-                    venue_address=venue_addr,
+                    venue_name=html_mod.unescape(venue_name) if venue_name else venue_name,
+                    venue_address=html_mod.unescape(venue_addr) if venue_addr else venue_addr,
                     url=(node.get("url") or "").strip() or None,
-                    description=(node.get("description") or "").strip() or None,
+                    description=html_mod.unescape((node.get("description") or "")).strip() or None,
                     image_url=str(image).strip() if image else None,
-                    raw={"@type": node.get("@type")},
+                    raw={"@type": node.get("@type"), "organizer": organizer_name},
                 )
             )
     return records
