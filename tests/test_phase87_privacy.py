@@ -186,7 +186,10 @@ def test_hint_extractor_validation_failure_logs_no_raw_json(
     monkeypatch.setattr(he, "OpenAI", _Client)
     caplog.set_level(logging.INFO, logger="root")
     with caplog.at_level(logging.INFO):
-        assert he.extract_hints("user said something unique xyz123") is None
+        # Needs a query that passes the hint signal gate (age phrasing) so the
+        # LLM path actually runs; "xyz123" remains the unique token we assert is
+        # never logged. (Gate tightened in P1-2 — a bare digit no longer fires.)
+        assert he.extract_hints("for my 8 year old, something unique xyz123") is None
     joined = caplog.text + "".join(str(r.getMessage()) for r in caplog.records)
     assert "xyz123" not in joined
     assert "not-an-object" not in joined

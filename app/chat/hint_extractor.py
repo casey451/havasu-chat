@@ -42,10 +42,15 @@ _SOFT_BUDGET_INP = 400
 _SOFT_BUDGET_OUT = 100
 
 # --- Signal gate -----------------------------------------------------------
-# Age: digits ("my 6 year old", "for 9-12 year olds") or age words. "kid" /
-# "adult" alone are NOT signals — the prompt explicitly refuses to infer age
-# from them, so gating them out loses nothing.
-_AGE_SIGNALS = r"\d|year|yr\b|teen|toddler|month[- ]old"
+# Age: a digit ADJACENT to an age unit ("my 6 year old", "8yo", "for 9-12 year
+# olds", "3 month old") or an age-stage word. A *bare* digit is NOT a signal —
+# the prompt explicitly refuses to infer age from a number alone, so "open at
+# 5?" / "table for 4" no longer pay the ~1s LLM call for nothing. "kid"/"adult"
+# alone are likewise non-signals. (P1-2)
+_AGE_SIGNALS = (
+    r"\b\d{1,2}\s*[-–]?\s*(?:years?|yrs?|y/?o|months?)\b"
+    r"|\byears?\s+old\b|\bteen|\btoddler|month[- ]old"
+)
 # Location: relational phrases that introduce a place, plus the canonical Lake
 # Havasu area names (kept in sync with the intent layer via AREA_DICT), plus
 # common landmark words from prompts/hint_extractor.txt examples.
