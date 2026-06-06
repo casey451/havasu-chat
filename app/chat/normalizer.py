@@ -53,3 +53,54 @@ def normalize(query: str) -> str:
     s = _strip_edge_punct_ws(s)
     s = re.sub(r"\s+", " ", s).strip()
     return s
+
+
+# ---------------------------------------------------------------------------
+# Cache-key canonicalization (2026-06-06). The Tier-2 parser/formatter caches
+# and the Tier-3 exact-key cache were keyed on the raw normalized string, so a
+# courtesy lead-in or a redundant locality suffix ("... in lake havasu",
+# "... near me" — this is a single-town product) made every phrasing a cache
+# miss that re-paid the LLM. Strip ONLY tokens that carry no intent in this
+# product; anything ambiguous stays in the key (a wrong canonical key serves a
+# wrong cached answer, which is worse than a miss).
+# ---------------------------------------------------------------------------
+
+_CACHE_LEADIN_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(r"^(?:hey|hi|ok|okay)[\s,]+hava[\s,!.]+"),
+    re.compile(r"^hava[\s,!.]+"),
+    re.compile(r"^please[\s,]+"),
+    re.compile(r"^(?:can|could|will|would)\s+you\s+(?:please\s+)?tell\s+me[\s,]+"),
+)
+
+_CACHE_SUFFIX_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(r"[\s,]+in\s+lake\s+havasu(?:\s+city)?$"),
+    re.compile(r"[\s,]+in\s+havasu$"),
+    re.compile(r"[\s,]+(?:in|around)\s+town$"),
+    re.compile(r"[\s,]+around\s+here$"),
+    re.compile(r"[\s,]+near\s+me$"),
+    re.compile(r"[\s,]+nearby$"),
+    re.compile(r"[\s,]+please$"),
+    re.compile(r"[\s,]+thanks$"),
+    re.compile(r"[\s,]+thank\s+you$"),
+)
+
+
+def canonicalize_for_cache(normalized_query: str) -> str:
+    """Fold no-intent lead-ins/suffixes out of a cache key. Lookup-key only —
+    never feed this to the LLM or to entity matching (the locality suffix IS
+    meaningful to entity queries like "the hangar in lake havasu")."""
+    s = (normalized_query or "").strip().lower()
+    if not s:
+        return s
+    changed = True
+    while changed:
+        changed = False
+        for rx in _CACHE_LEADIN_RES:
+            new = rx.sub("", s).strip()
+            if new and new != s:
+                s, changed = new, True
+        for rx in _CACHE_SUFFIX_RES:
+            new = rx.sub("", s).strip()
+            if new and new != s:
+                s, changed = new, True
+    return re.sub(r"\s+", " ", s)

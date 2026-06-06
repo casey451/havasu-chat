@@ -29,7 +29,9 @@ FORMATTER_TTL_DAYS = 1
 
 
 def _parser_cache_key(normalized_query: str, today_iso: str) -> str:
-    nq = (normalized_query or "").strip().lower()
+    from app.chat.normalizer import canonicalize_for_cache
+
+    nq = canonicalize_for_cache((normalized_query or "").strip().lower())
     h = hashlib.sha256()
     h.update(b"tier2_parser|")
     h.update(nq.encode("utf-8"))
@@ -140,7 +142,9 @@ def _rows_hash(rows: list[dict[str, Any]]) -> str:
 
 
 def _formatter_cache_key(normalized_query: str, rows: list[dict[str, Any]]) -> str:
-    nq = (normalized_query or "").strip().lower()
+    from app.chat.normalizer import canonicalize_for_cache
+
+    nq = canonicalize_for_cache((normalized_query or "").strip().lower())
     h = hashlib.sha256()
     h.update(b"tier2_formatter|")
     h.update(nq.encode("utf-8"))

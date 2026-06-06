@@ -180,7 +180,7 @@ SERVICE_SUBCAT_GROUPS: frozenset[str] = frozenset(
 # Cuisine / drink term -> name tokens matched within eat-drink. No cuisine
 # field exists; this is a name-token match (master spec §16 Q4).
 CUISINE_DICT: dict[str, tuple[str, ...]] = {
-    "mexican": ("mexican", "taco", "taqueria", "cantina", "burrito"),
+    "mexican": ("mexican", "taco", "tacos", "taqueria", "cantina", "burrito", "burritos"),
     "bbq": ("bbq", "barbecue", "barbeque", "smokehouse"),
     "barbecue": ("bbq", "barbecue", "smokehouse"),
     "pizza": ("pizza", "pizzeria"),
@@ -199,6 +199,11 @@ CUISINE_DICT: dict[str, tuple[str, ...]] = {
     "bakery": ("bakery", "bake", "pastry", "donut", "doughnut"),
     "breakfast": ("breakfast", "brunch", "diner"),
     "brunch": ("brunch", "breakfast"),
+    # 2026-06-06 gap-report widening: recurring tier-3 phrasings with real
+    # catalog coverage (bars-breweries / quick-bites subcats).
+    "happy hour": ("bar", "pub", "tavern", "lounge", "brew", "saloon", "grill", "cocktail"),
+    "quick bites": ("burger", "pizza", "taco", "sandwich", "deli", "fast food", "hot dog", "wing"),
+    "quick bite": ("burger", "pizza", "taco", "sandwich", "deli", "fast food", "hot dog", "wing"),
 }
 
 # Cuisine subgroups that map to a subcategory chip rather than a name token.
@@ -208,6 +213,9 @@ CUISINE_TO_SUBCAT: dict[str, str] = {
     "bakery": "cafes-coffee",
     "bar": "bars-breweries",
     "brewery": "bars-breweries",
+    "happy hour": "bars-breweries",
+    "quick bites": "quick-bites",
+    "quick bite": "quick-bites",
 }
 
 

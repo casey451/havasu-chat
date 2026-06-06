@@ -180,6 +180,13 @@ _PARK_WORDS = (
     "off road",
     "off-road",
     "offroad",
+    # 2026-06-06 gap report: "mountian biking" (sic) fell to Tier 3. Bare
+    # "bike" stays out ("bike shop" is retail); the -ing/trail forms are
+    # unambiguously recreation.
+    "biking",
+    "mountain biking",
+    "bike trail",
+    "bike trails",
 )
 
 # Civic / community resources -- libraries, worship, public services.
@@ -212,7 +219,22 @@ _FITNESS = {
     "pickleball": ("pickleball", "tennis court", "racquet"),
 }
 
-_CLASS_WORDS = ("lesson", "lessons", "class", "classes", "program", "swim lesson")
+# 2026-06-06 gap report: "what activities can my 8 year old do after school
+# hours" paid Tier 3 twice. "activities"/"after school" only reach the
+# kids_lessons branch when an age band or kid word is also present, so adult
+# "activities" queries still fall through unchanged.
+_CLASS_WORDS = (
+    "lesson",
+    "lessons",
+    "class",
+    "classes",
+    "program",
+    "swim lesson",
+    "activities",
+    "activity",
+    "after school",
+    "after-school",
+)
 
 # "next event at <venue>", "what's happening at <place>", "live music at X" name a
 # specific venue. The layer can't filter events by venue, so listing all events
@@ -277,6 +299,62 @@ def _event_window(text: str) -> str | None:
     if dr is not None:
         return "range"
     return "upcoming"
+
+
+_VOCAB_SOURCES: tuple[tuple[str, ...], ...] = (
+    _EVENT_WORDS,
+    _FOOD_WORDS,
+    _LODGING_WORDS,
+    _SHOPPING_WORDS,
+    _WATER_WORDS,
+    _RENT_WORDS,
+    _REPAIR_WORDS,
+    _SHOPPING_STRONG,
+    _PARK_WORDS,
+    _CIVIC_WORDS,
+    _CLASS_WORDS,
+)
+
+_category_vocab_cache: frozenset[str] | None = None
+
+
+def category_vocabulary() -> frozenset[str]:
+    """Every word that can trigger a category/listing resolution.
+
+    Used by ``runtime._entity_match_spurious`` to decide whether an entity
+    match is explained entirely by generic category tokens ("electrician" ->
+    "Morgan Electric") rather than by a distinctive name token ("mudshark").
+    Built lazily from the same dicts/tuples the resolver matches against, so
+    new dictionary entries are covered automatically.
+    """
+    global _category_vocab_cache
+    if _category_vocab_cache is not None:
+        return _category_vocab_cache
+    words: set[str] = set()
+
+    def _add(phrase: str) -> None:
+        for w in re.split(r"[^a-z0-9]+", phrase.lower()):
+            if w:
+                words.add(w)
+
+    for term, route in dicts.SERVICE_DICT.items():
+        _add(term)
+        for tok in route.name_tokens:
+            _add(tok)
+    for term, tokens in dicts.CUISINE_DICT.items():
+        _add(term)
+        for tok in tokens:
+            _add(tok)
+    for term in dicts.SYMPTOM_MAP:
+        _add(term)
+    for source in _VOCAB_SOURCES:
+        for term in source:
+            _add(term)
+    for terms in _FITNESS.values():
+        for term in terms:
+            _add(term)
+    _category_vocab_cache = frozenset(words)
+    return _category_vocab_cache
 
 
 # ---------------------------------------------------------------------------
@@ -375,8 +453,10 @@ def resolve(query: str) -> ResolvedIntent | None:
                 slots["age_band"] = band
             return ResolvedIntent(intent_key, slots, L1)
 
-    # 7. Kids lessons / classes.
-    if _has_any(t, _CLASS_WORDS):
+    # 7. Kids lessons / classes. Civic phrasings ("senior center activities")
+    # defer to the civic bucket — "activities"/"activity" joined _CLASS_WORDS
+    # in the 2026-06-06 widening and must not outrank a civic venue mention.
+    if _has_any(t, _CLASS_WORDS) and not _has_any(t, _CIVIC_WORDS):
         band = dicts.parse_age_band(t)
         if band or _has_any(t, ("kid", "kids", "child", "children", "youth")):
             return ResolvedIntent(

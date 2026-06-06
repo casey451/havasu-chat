@@ -568,11 +568,22 @@ def _best_score(norm_query: str, needles: frozenset[str]) -> float:
     long_query_tokens = [
         t for t in norm_query.split() if len(t) >= 5 and t.lower() not in _INTENT_VERB_TOKENS
     ]
+    # 2026-06-06 (gap report): a locality token ("havasu") clears the substring
+    # guard for nearly every provider named after the town, so token_set_ratio
+    # then scores on the shared town name alone — "tell me about havasu
+    # stitchers" matched "Havasu Suites" (>75) and produced a wrong-entity
+    # Tier-1 answer. When the query has any NON-locality content token, require
+    # one of those to clear the guard instead. Queries whose only content
+    # tokens are locality words keep the previous behavior.
+    non_locality_tokens = [
+        t for t in long_query_tokens if t.lower() not in _LOCALITY_ONLY_TERMS
+    ]
+    guard_tokens = non_locality_tokens or long_query_tokens
     best = 0.0
     for needle in needles:
-        if long_query_tokens and len(needle) >= 5:
+        if guard_tokens and len(needle) >= 5:
             if not any(
-                _typo_guard_query_token_matches_needle(tok, needle) for tok in long_query_tokens
+                _typo_guard_query_token_matches_needle(tok, needle) for tok in guard_tokens
             ):
                 continue
         best = max(best, float(fuzz.token_set_ratio(norm_query, needle)))
