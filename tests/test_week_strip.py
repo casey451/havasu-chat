@@ -251,3 +251,15 @@ def test_permalink_datetime_midnight_fallback_is_date_only() -> None:
         _format_event_datetime(_mk_event(start_time=time(19, 30)))
         == "Saturday, December 5, 7:30 PM"
     )
+
+
+def test_midnight_zero_span_also_hidden() -> None:
+    """allevents often fills endDate with midnight too — a 00:00-00:00 zero
+    span is still 'time unknown', not a midnight event."""
+    from app.home.router import _window_event_dict
+    from app.main import _format_event_datetime
+
+    ev = _mk_event(end_time=time(0, 0))
+    d = _window_event_dict(ev, recurring=False, schedule_label="")
+    assert d["time_label"] == ""
+    assert _format_event_datetime(ev) == "Saturday, December 5"

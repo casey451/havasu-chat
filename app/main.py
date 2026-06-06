@@ -450,9 +450,17 @@ def _format_event_datetime(event: Event) -> str:
         # event shows the date only -- dereferencing start_time here would 500
         # the permalink.
         return f"{weekday}, {month} {day}"
-    if event.start_time.hour == 0 and event.start_time.minute == 0 and event.end_time is None:
-        # A bare 00:00 start is the aggregator-ingest "no time given" fallback,
-        # not a real midnight event — show the date only, same as NULL.
+    if (
+        event.start_time.hour == 0
+        and event.start_time.minute == 0
+        and (
+            event.end_time is None
+            or (event.end_time.hour == 0 and event.end_time.minute == 0)
+        )
+    ):
+        # A bare 00:00 start (with no end, or a midnight-to-midnight zero span)
+        # is the aggregator-ingest "no time given" fallback, not a real
+        # midnight event — show the date only, same as NULL.
         return f"{weekday}, {month} {day}"
     hour_24 = event.start_time.hour
     minute = event.start_time.minute
