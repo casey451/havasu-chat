@@ -202,8 +202,34 @@ def clear_current_flow(session: SessionState) -> None:
     get_flow(session)["current"] = None
 
 
+# P1-9: bound the process-local session store so a flood of client-supplied
+# session_ids can't grow it without limit. This is per-worker and not durable
+# across deploys / multiple workers — a shared store (Redis) is the real fix;
+# this just caps memory growth within a worker.
+MAX_SESSIONS = 10_000
+
+
+def _evict_stale_sessions() -> None:
+    """When at capacity, drop the least-recently-active sessions down to ~90%."""
+    if len(sessions) < MAX_SESSIONS:
+        return
+    epoch = datetime.min.replace(tzinfo=timezone.utc)
+
+    def _last_active(item: tuple[str, SessionState]) -> datetime:
+        la = item[1].get("last_activity_at")
+        if isinstance(la, datetime):
+            return la if la.tzinfo else la.replace(tzinfo=timezone.utc)
+        return epoch
+
+    target = int(MAX_SESSIONS * 0.9)
+    for sid, _ in sorted(sessions.items(), key=_last_active)[: len(sessions) - target]:
+        sessions.pop(sid, None)
+
+
 def clear_session_state(session_id: str) -> None:
     """Hard reset: wipe session completely."""
+    if session_id not in sessions:
+        _evict_stale_sessions()
     sessions[session_id] = {
         "search": _default_search(),
         "flow": _default_flow(),
