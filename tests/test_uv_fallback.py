@@ -48,6 +48,30 @@ def test_orchestrator_falls_back_to_epa_without_key(monkeypatch: pytest.MonkeyPa
     assert out["uv_severity"] == "severe"
 
 
+def test_orchestrator_falls_back_to_epa_when_openuv_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: a keyed Open-UV HTTP error must degrade to EPA, not blank UV.
+
+    With a key configured, an exhausted free tier or a transient 5xx used to
+    raise out of ``fetch_uv_index`` before the EPA fallback ran, so the home UV
+    tile silently disappeared. The orchestrator must now still return EPA data.
+    """
+    monkeypatch.setenv("OPENUV_API_KEY", "test-key")
+    rows = [{"DATE_TIME": "JUN/04/2026 12 PM", "UV_VALUE": 8}]
+    now = datetime(2026, 6, 4, 12, 0)
+    with patch.object(openuv.httpx, "Client") as client_cls:
+        client_cls.return_value.__enter__.return_value.get.side_effect = openuv.httpx.ConnectError(
+            "boom"
+        )
+        with patch.object(epa_uv, "_get", return_value=rows):
+            with patch.object(epa_uv, "datetime") as dt:
+                dt.now.return_value = now
+                out = uv.fetch_uv_index()
+    assert out["uv_index"] == 8
+    assert out["uv_source"] == "EPA UV index"
+
+
 def test_orchestrator_returns_empty_when_both_dry(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OPENUV_API_KEY", raising=False)
     with patch.object(epa_uv, "_get", return_value=[]):

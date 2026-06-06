@@ -14,12 +14,15 @@ or the response is unusable.
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any
 
 import httpx
 
 from app.conditions.constants import LHC_LAT, LHC_LON
+
+logger = logging.getLogger(__name__)
 
 _OPENUV_URL = "https://api.openuv.io/api/v1/uv"
 
@@ -29,16 +32,27 @@ def _api_key() -> str:
 
 
 def _get(*, timeout: float = 10.0) -> dict[str, Any]:
-    """Raw Open-UV GET. Returns {} when no key is configured (no HTTP call)."""
+    """Raw Open-UV GET. Returns {} when no key is configured (no HTTP call).
+
+    Any transport/HTTP/parse error degrades to {} rather than raising. This is
+    load-bearing: the orchestrator in ``app/conditions/uv.py`` only reaches the
+    keyless EPA fallback when this branch returns empty instead of propagating.
+    A raised error here (e.g. a 403 from an exhausted free-tier key or a rate
+    limit) would otherwise blank the UV tile entirely instead of falling back.
+    """
     key = _api_key()
     if not key:
         return {}
     headers = {"x-access-token": key, "Accept": "application/json"}
     params = {"lat": LHC_LAT, "lng": LHC_LON}
-    with httpx.Client() as client:
-        response = client.get(_OPENUV_URL, headers=headers, params=params, timeout=timeout)
-    response.raise_for_status()
-    data = response.json()
+    try:
+        with httpx.Client() as client:
+            response = client.get(_OPENUV_URL, headers=headers, params=params, timeout=timeout)
+        response.raise_for_status()
+        data = response.json()
+    except (httpx.HTTPError, ValueError):
+        logger.warning("conditions.openuv.fetch_failed", exc_info=True)
+        return {}
     return data if isinstance(data, dict) else {}
 
 

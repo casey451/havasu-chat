@@ -33,6 +33,20 @@ def test_fetch_no_key_returns_empty_and_makes_no_request(monkeypatch: pytest.Mon
         client.assert_not_called()  # no HTTP without a key
 
 
+def test_get_degrades_to_empty_on_http_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A keyed request that errors (rate limit / bad key / transport) returns {}.
+
+    Regression: previously ``_get`` let ``raise_for_status`` propagate, which blew
+    past the keyless EPA fallback in ``uv.fetch_uv_index`` and blanked the UV tile.
+    """
+    monkeypatch.setenv("OPENUV_API_KEY", "test-key")
+    with patch.object(openuv.httpx, "Client") as client_cls:
+        client_cls.return_value.__enter__.return_value.get.side_effect = openuv.httpx.ConnectError(
+            "boom"
+        )
+        assert openuv._get() == {}
+
+
 def test_fetch_parses_result(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENUV_API_KEY", "test-key")
     with patch.object(openuv, "_get", return_value={"result": {"uv": 7.3, "uv_max": 9.12}}):
