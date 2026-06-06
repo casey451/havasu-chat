@@ -6,6 +6,7 @@ Pytest sets this via ``tests/conftest.py`` so suites are not coupled to
 ``limiter.reset()`` between tests.
 """
 
+import ipaddress
 import os
 
 from slowapi import Limiter
@@ -31,12 +32,21 @@ def client_ip_key(request) -> str:
     dev / non-proxied). (P1-10)
 
     Ref: Railway help — "Which header should I rely on for real client IP?"
+
+    Hardening: the leftmost entry is only used when it parses as a valid IP, so a
+    malformed / garbage ``X-Forwarded-For`` can't become a shared rate-limit key.
+    There is a single edge proxy (Railway); multi-proxy hop-trust is not needed
+    until another proxy (e.g. Cloudflare) is put in front.
     """
     xff = request.headers.get("x-forwarded-for")
     if xff:
         first = xff.split(",")[0].strip()
         if first:
-            return first
+            try:
+                ipaddress.ip_address(first)
+                return first
+            except ValueError:
+                pass  # malformed header — fall back to the peer address
     return get_remote_address(request)
 
 
