@@ -121,3 +121,27 @@ def test_events_ui_skips_class_that_is_also_an_event() -> None:
     r = client.get("/events-ui?date=2026-12-10")  # a Thursday
     assert r.status_code == 200
     assert r.text.count(title) == 1
+
+
+def test_class_cards_survive_busy_day_cap() -> None:
+    """The per-window cap must not silently drop class series on busy days
+    (prod: 12+ one-off events filled the 16-card cap before any class)."""
+    title = f"Cap Survivor Aikido {uuid.uuid4().hex[:6]}"
+    _make_venue_with_class(title, ["saturday"])
+    with SessionLocal() as db:
+        for i in range(20):
+            db.add(
+                Event(
+                    title=f"Busy Day Filler {i} {uuid.uuid4().hex[:4]}",
+                    normalized_title=f"busy day filler {i}",
+                    date=date(2026, 12, 12), start_time=time(10, 0),
+                    location_name="Main St", location_normalized="main st",
+                    description="One-off filler event to saturate the window cap.",
+                    source="admin", tags=["community"], status="live",
+                )
+            )
+        db.commit()
+    client = TestClient(app)
+    r = client.get("/events-ui?date=2026-12-12")  # a Saturday
+    assert r.status_code == 200
+    assert title in r.text
