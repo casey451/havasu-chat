@@ -89,37 +89,14 @@ _NIGHT_ACTIVITY_WORDS: tuple[str, ...] = (
     "open mic",
 )
 
-_COMMERCIAL_EVENT_RESCUE_PHRASES: tuple[str, ...] = (
-    "rental event",
-    "booking event",
-    "open house",
-    "ribbon cutting",
-    "tour event",
-    "grand opening",
-)
-
-
-def _commercial_services_query(m: str) -> bool:
-    """Rentals, bookings, and venue shopping — not the event calendar."""
-    if any(p in m for p in _COMMERCIAL_EVENT_RESCUE_PHRASES):
-        return False
-    # "cheap"/"affordable" removed (P1-1): they routed "cheap eats" /
-    # "affordable restaurants" to the out-of-scope refusal, contradicting the
-    # dining-in-scope decision. A bare price adjective is not a commercial
-    # rental/booking signal.
-    if re.search(r"\b(rentals?)\b", m):
-        return True
-    if re.search(r"\bhire\b", m):
-        return True
-    # "book a …" / "venue for …" / party + wedding venue removed: "book a table",
-    # "book a haircut", "venue for a party", "where can I have a birthday party"
-    # are catalog provider/venue intents the directory lists — the same unblock
-    # as lodging (C5). Routing them to the canned out-of-scope refusal was the
-    # same trap; catalog search + anti-hallucination guards return an honest gap
-    # when coverage is thin instead of refusing. The rare off-catalog "book a
-    # flight" gets that honest gap too. (rentals/hire kept — left for a broader
-    # commercial-bucket review.)
-    return False
+# Commercial-services out-of-scope bucket removed entirely (broader review of the
+# rentals/hire/booking/venue over-block). "rent a kayak", "boat rental", "hire a
+# plumber", "book a table", "venue for a party", "birthday party" are all catalog
+# provider / venue / rental queries the directory lists — especially water rentals
+# in a lake town — the same over-block as lodging (C5) and dining. Catalog search +
+# the anti-hallucination guards return an honest gap when coverage is thin instead
+# of a canned refusal; genuinely off-catalog asks ("book a flight") get that honest
+# gap too. Price adjectives ("cheap"/"affordable") were dropped earlier (P1-1).
 
 
 # Weather "rain" must match as a whole word. The bare substring wrongly fired on
@@ -131,10 +108,9 @@ _WEATHER_RAIN_RE = re.compile(r"\brain(?:ing|ed|s)?\b")
 def detect_out_of_scope_category(message: str) -> str | None:
     """Return the out-of-scope category name for ``message`` or ``None``.
 
-    Returns ``"weather"``, ``"transportation"``, or ``"commercial_services"``
-    when a category trigger matches and no event-signal token is present. The
-    event-signal guard prevents false positives like "weather station tour"
-    from being treated as weather lookups.
+    Returns ``"weather"`` or ``"transportation"`` when a category trigger matches
+    and no event-signal token is present. The event-signal guard prevents false
+    positives like "weather station tour" from being treated as weather lookups.
     """
     try:
         from app.chat.entity_intent import suppress_out_of_scope_for_factual_lookup
@@ -148,8 +124,6 @@ def detect_out_of_scope_category(message: str) -> str | None:
         return None
     if "night" in m and any(f"{word} night" in m for word in _NIGHT_ACTIVITY_WORDS):
         return None
-    if _commercial_services_query(m):
-        return "commercial_services"
     if any(word in m for word in _EVENT_INDICATOR_WORDS):
         return None
     if _WEATHER_RAIN_RE.search(m):
