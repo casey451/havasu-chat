@@ -97,3 +97,17 @@ def test_cli_apply_ingests_upcoming(monkeypatch, capsys) -> None:
     assert "legistar ingest complete" in out
     # legistar is a civic auto-approve source -> the upcoming meeting goes live.
     assert re.search(r"^\s*auto_approved\s+1\s*$", out, re.MULTILINE)
+
+
+def test_cli_apply_exits_nonzero_on_ingest_errors(monkeypatch) -> None:
+    """Record-level ingest failures must fail the cron run, not hide behind exit 0."""
+    import app.contrib.event_ingest as ingest_mod
+    import scripts.legistar_pull as cli
+
+    meetings = legistar.parse_events(_events())
+    monkeypatch.setattr(cli.legistar, "fetch_events", lambda **_: meetings)
+    monkeypatch.setattr(
+        ingest_mod, "ingest_event_records",
+        lambda *a, **k: ingest_mod.IngestCounts(errors=2),
+    )
+    assert cli.main(["--apply"]) == 1

@@ -184,9 +184,17 @@ def build_class_schedule(entity: Any) -> list[dict]:
     rows: list[dict] = []
     paired_offerings: set[str] = set()
     for s in schedules:
+        # Only recurring schedules belong in the classes section (one-off /
+        # event schedule rows on the same entity must not leak in here).
+        if (getattr(s, "schedule_type", "") or "") != "recurring":
+            continue
         title = (getattr(s, "notes", "") or "").strip()
         key = title.lower()
         o = off_by_title.get(key)
+        if not title and o is None:
+            # Untitled row with no paired offering renders as a bare "Class"
+            # with no description or cost — junk; skip it.
+            continue
         if o is not None:
             paired_offerings.add(key)
         rows.append(

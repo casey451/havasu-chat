@@ -136,8 +136,14 @@ def import_schedules(*, dry_run: bool, only_venue: str | None = None) -> Counts:
         if only_venue and _norm_name(venue["provider_name"]) != _norm_name(only_venue):
             continue
         counts.venues += 1
-        with SessionLocal() as db:
-            entity_id = resolve_entity_id(db, venue["provider_name"])
+        pinned = str(venue.get("entity_id") or "").strip() or None
+        if pinned:
+            # Dataset can pin the venue's Entity directly — exact, no fuzzy
+            # name matching (which has mis-homed classes before).
+            entity_id = pinned
+        else:
+            with SessionLocal() as db:
+                entity_id = resolve_entity_id(db, venue["provider_name"])
         if entity_id:
             counts.entity_resolved += 1
         else:

@@ -120,3 +120,38 @@ def test_apply_creates_program_contributions() -> None:
         assert got.source == "schedule_scrape"
         assert got.proposed_record["title"] == cls["title"]
         assert got.status == "pending"
+
+
+def test_pinned_entity_id_overrides_name_resolution(monkeypatch, tmp_path, capsys) -> None:
+    """A venue block may pin entity_id directly — exact attach, no fuzzy name match
+    (fuzzy contains-matching has mis-homed classes before, e.g. Iron Wolf)."""
+    import json as _json
+
+    import scripts.import_captured_schedules as imp
+
+    dataset = {
+        "venues": [
+            {
+                "provider_name": "Name That Matches Nothing In The DB",
+                "entity_id": "pinned-entity-123",
+                "category": "fitness_sports",
+                "classes": [
+                    {
+                        "title": "Test Class",
+                        "days": ["monday"],
+                        "start": "17:00",
+                        "end": "18:00",
+                    }
+                ],
+            }
+        ]
+    }
+    f = tmp_path / "ds.json"
+    f.write_text(_json.dumps(dataset), encoding="utf-8")
+    monkeypatch.setattr(imp, "_DATASET", f)
+
+    counts = imp.import_schedules(dry_run=True)
+    out = capsys.readouterr().out
+    assert counts.entity_resolved == 1
+    assert counts.entity_unresolved == 0
+    assert "pinned-entity-123" in out
