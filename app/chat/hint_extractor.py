@@ -2,6 +2,8 @@
 
 Separate from heuristic ``classify()`` — one gpt-4.1-mini JSON call per turn when
 ``OPENAI_API_KEY`` is set. On failure or missing key, returns ``None`` (no-op).
+The extracted age/location feed *session onboarding hints* (Tier-3 user-context
+line + priors selection); they do **not** change tier routing.
 
 Signal gate (2026-06-04): the prompt only ever extracts an explicit child age
 ("my 6-year-old", "for a teenager") or a specific Lake Havasu location ("near
@@ -9,8 +11,25 @@ the island", "staying downtown"), so a message containing none of those signals
 cannot produce a hint. We pre-screen with a cheap regex and skip the API call
 when no signal is present. At ~$0.0003 and ~1s per call on every chat turn,
 this call site was the dominant per-turn cost and latency line at scale.
-Kill switch: set ``HINT_GATE`` to ``0``/``false``/``no``/``off`` to restore the
-old call-every-turn behavior.
+
+Mode (``HINT_EXTRACTOR_MODE``, default ``conditional`` — VPS rollout HANDOFF #1):
+- ``conditional`` — call the LLM only when the cheap regex finds a plausible
+  age/location signal (the shipped default; ~86% of turns skip the call).
+- ``always`` — call on every turn (the pre-gate behavior).
+- ``off`` — never call (extraction fully disabled; exact-key paths elsewhere
+  are unaffected).
+Back-compat: the legacy ``HINT_GATE`` env still works — ``HINT_GATE=off`` maps to
+``always``, anything else maps to ``conditional``. ``HINT_EXTRACTOR_MODE`` wins
+when both are set.
+
+Near-me exclusion (HANDOFF #1): measurement found 25% of gate-passing turns were
+"... near me" / "nearby", which the prompt can never turn into a location hint
+("me" is not a place). Those are excluded from the location signal so they no
+longer pay for a guaranteed-null LLM call.
+
+Telemetry: ``get_hint_extractor_telemetry()`` returns per-outcome counts
+(skipped_prefilter / called / memoized / ...) so the call mix can be measured on
+real traffic — which is what should gate any future session-memoization work.
 """
 
 from __future__ import annotations
@@ -19,6 +38,7 @@ import json
 import logging
 import os
 import re
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -54,8 +74,13 @@ _AGE_SIGNALS = (
 # Location: relational phrases that introduce a place, plus the canonical Lake
 # Havasu area names (kept in sync with the intent layer via AREA_DICT), plus
 # common landmark words from prompts/hint_extractor.txt examples.
+#
+# "near" is handled specially: it must introduce a real place ("near the
+# island") but NOT the empty deictic "near me" / "near here" / "near by". The
+# one-word "nearby" already fails the \bnear\b boundary, so the lookahead only
+# needs to drop the two-word forms. (HANDOFF #1 — 25% of gate passers were these.)
+_NEAR_SIGNAL = r"\bnear\b(?!\s+(?:me|here|by)\b)"
 _LOCATION_PHRASES = [
-    "near",
     "close to",
     "staying",
     "by the",
@@ -66,21 +91,61 @@ _LOCATION_PHRASES = [
 ]
 _SIGNAL_RE = re.compile(
     "|".join(
-        [_AGE_SIGNALS]
+        [_AGE_SIGNALS, _NEAR_SIGNAL]
         + [re.escape(p) for p in _LOCATION_PHRASES]
         + [re.escape(k) for k in AREA_DICT]
     ),
     re.IGNORECASE,
 )
 
+# --- Mode resolution -------------------------------------------------------
+_VALID_MODES = {"always", "conditional", "off"}
 
-def _gate_enabled() -> bool:
-    return (os.getenv("HINT_GATE") or "").strip().lower() not in {
-        "0",
-        "false",
-        "no",
-        "off",
-    }
+
+def _resolve_mode() -> str:
+    """Return ``always`` | ``conditional`` | ``off`` (default ``conditional``).
+
+    ``HINT_EXTRACTOR_MODE`` takes precedence; an unrecognized value falls back to
+    the default. Otherwise the legacy ``HINT_GATE`` env is honored for
+    back-compat (``off`` -> ``always``, anything else -> ``conditional``).
+    """
+    raw_mode = (os.getenv("HINT_EXTRACTOR_MODE") or "").strip().lower()
+    if raw_mode in _VALID_MODES:
+        return raw_mode
+    legacy = (os.getenv("HINT_GATE") or "").strip().lower()
+    if legacy in {"0", "false", "no", "off"}:
+        return "always"
+    return "conditional"
+
+
+# --- Telemetry -------------------------------------------------------------
+# Per-outcome call mix so the prefilter's effect (and any future memoization)
+# can be measured on real traffic. ``memoized`` is reserved for the deferred
+# session-memoization work and stays 0 until that lands.
+_OUTCOMES = (
+    "skipped_empty",
+    "skipped_mode_off",
+    "skipped_prefilter",
+    "skipped_no_key",
+    "memoized",
+    "called",
+)
+_TELEMETRY: Counter[str] = Counter()
+
+
+def _record(outcome: str) -> None:
+    _TELEMETRY[outcome] += 1
+    logging.debug("hint_extractor outcome=%s", outcome)
+
+
+def get_hint_extractor_telemetry() -> dict[str, int]:
+    """Snapshot of per-outcome call counts since process start (or last reset)."""
+    return {k: _TELEMETRY.get(k, 0) for k in _OUTCOMES}
+
+
+def reset_hint_extractor_telemetry() -> None:
+    """Zero the counters (used by tests; safe to call at any time)."""
+    _TELEMETRY.clear()
 
 
 def has_hint_signal(query: str) -> bool:
@@ -112,12 +177,20 @@ def extract_hints(query: str) -> ExtractedHints | None:
     """Call gpt-4.1-mini for optional age/location hints. Returns ``None`` on skip/failure."""
     q = (query or "").strip()
     if not q:
+        _record("skipped_empty")
         return None
-    if _gate_enabled() and not has_hint_signal(q):
+    mode = _resolve_mode()
+    if mode == "off":
+        _record("skipped_mode_off")
+        return None
+    if mode == "conditional" and not has_hint_signal(q):
+        _record("skipped_prefilter")
         return None
     api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
     if not api_key or OpenAI is None:
+        _record("skipped_no_key")
         return None
+    _record("called")
 
     model = (os.getenv("OPENAI_MODEL") or "").strip() or "gpt-4.1-mini"
     system = _load_hint_prompt()

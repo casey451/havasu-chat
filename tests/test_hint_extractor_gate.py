@@ -15,13 +15,20 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.chat import hint_extractor
-from app.chat.hint_extractor import extract_hints, has_hint_signal
+from app.chat.hint_extractor import (
+    extract_hints,
+    get_hint_extractor_telemetry,
+    has_hint_signal,
+    reset_hint_extractor_telemetry,
+)
 
 
 @pytest.fixture(autouse=True)
 def _api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.delenv("HINT_GATE", raising=False)
+    monkeypatch.delenv("HINT_EXTRACTOR_MODE", raising=False)
+    reset_hint_extractor_telemetry()
 
 
 def _mock_client(content: str) -> MagicMock:
@@ -124,3 +131,100 @@ def test_missing_api_key_still_short_circuits(monkeypatch: pytest.MonkeyPatch) -
     with patch.object(hint_extractor, "OpenAI", openai_cls):
         assert extract_hints("my 6-year-old likes BMX") is None
     openai_cls.assert_not_called()
+
+
+# --- near-me exclusion (HANDOFF #1) -----------------------------------------
+
+NEAR_ME_QUERIES = [
+    "tacos near me",
+    "best mexican food near me",
+    "restaurants nearby",
+    "anything fun near here",
+    "coffee near by",
+]
+
+
+@pytest.mark.parametrize("q", NEAR_ME_QUERIES)
+def test_near_me_is_not_a_signal(q: str) -> None:
+    assert not has_hint_signal(q)
+
+
+@pytest.mark.parametrize("q", NEAR_ME_QUERIES)
+def test_near_me_skips_llm(q: str) -> None:
+    openai_cls = MagicMock()
+    with patch.object(hint_extractor, "OpenAI", openai_cls):
+        assert extract_hints(q) is None
+    openai_cls.assert_not_called()
+
+
+def test_near_a_real_place_still_signals() -> None:
+    # The exclusion must not swallow genuine "near <place>" hints.
+    assert has_hint_signal("we're staying near the island")
+    assert has_hint_signal("a hotel near the london bridge")
+
+
+# --- HINT_EXTRACTOR_MODE ----------------------------------------------------
+
+
+def test_mode_off_never_calls_even_with_signal(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HINT_EXTRACTOR_MODE", "off")
+    openai_cls = MagicMock()
+    with patch.object(hint_extractor, "OpenAI", openai_cls):
+        assert extract_hints("my 6-year-old likes BMX") is None
+    openai_cls.assert_not_called()
+
+
+def test_mode_always_calls_without_signal(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HINT_EXTRACTOR_MODE", "always")
+    client = _mock_client(json.dumps({"extracted_hints": None}))
+    openai_cls = MagicMock(return_value=client)
+    with patch.object(hint_extractor, "OpenAI", openai_cls):
+        extract_hints("what's open right now")
+    openai_cls.assert_called_once()
+
+
+def test_mode_conditional_is_the_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    # No env set (fixture clears both) -> conditional: no-signal query is skipped.
+    openai_cls = MagicMock()
+    with patch.object(hint_extractor, "OpenAI", openai_cls):
+        assert extract_hints("what's open right now") is None
+    openai_cls.assert_not_called()
+
+
+def test_mode_wins_over_legacy_hint_gate(monkeypatch: pytest.MonkeyPatch) -> None:
+    # HINT_EXTRACTOR_MODE is authoritative even when the legacy alias disagrees.
+    monkeypatch.setenv("HINT_GATE", "off")  # legacy -> would mean "always"
+    monkeypatch.setenv("HINT_EXTRACTOR_MODE", "conditional")  # explicit wins
+    openai_cls = MagicMock()
+    with patch.object(hint_extractor, "OpenAI", openai_cls):
+        assert extract_hints("what's open right now") is None
+    openai_cls.assert_not_called()
+
+
+def test_invalid_mode_falls_back_to_conditional(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HINT_EXTRACTOR_MODE", "banana")
+    openai_cls = MagicMock()
+    with patch.object(hint_extractor, "OpenAI", openai_cls):
+        assert extract_hints("what's open right now") is None
+    openai_cls.assert_not_called()
+
+
+# --- telemetry --------------------------------------------------------------
+
+
+def test_telemetry_counts_prefilter_skip_and_call() -> None:
+    client = _mock_client(json.dumps({"extracted_hints": {"age": 6, "location": None}}))
+    with patch.object(hint_extractor, "OpenAI", MagicMock(return_value=client)):
+        extract_hints("what's open right now")  # no signal -> skipped_prefilter
+        extract_hints("my 6-year-old likes BMX")  # signal -> called
+    counts = get_hint_extractor_telemetry()
+    assert counts["skipped_prefilter"] == 1
+    assert counts["called"] == 1
+    assert counts["memoized"] == 0
+
+
+def test_telemetry_counts_mode_off_skip(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HINT_EXTRACTOR_MODE", "off")
+    with patch.object(hint_extractor, "OpenAI", MagicMock()):
+        extract_hints("my 6-year-old likes BMX")
+    assert get_hint_extractor_telemetry()["skipped_mode_off"] == 1
