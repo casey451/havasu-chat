@@ -13,6 +13,7 @@ except ImportError:  # pragma: no cover
     OpenAI = None
 
 from app.bootstrap_env import ensure_dotenv_loaded
+from app.core import embeddings
 from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
 from app.core.openai_client import get_openai_client
 
@@ -275,17 +276,12 @@ def _title_case(value: str) -> str:
 
 
 def generate_embedding(text: str) -> list[float]:
-    api_key = os.getenv("OPENAI_API_KEY")
-    if api_key and OpenAI is not None:
-        try:
-            client = get_openai_client(  # T2.3 singleton; OpenAI stays the patchable seam
-            api_key, factory=OpenAI, timeout=LLM_CLIENT_READ_TIMEOUT_SEC
-        )
-            response = client.embeddings.create(model="text-embedding-3-small", input=text)
-            return list(response.data[0].embedding)
-        except Exception:
-            return _deterministic_embedding(text)
-    return _deterministic_embedding(text)
+    # Provider routing lives in app.core.embeddings; ingest keeps the
+    # deterministic 32-dim fallback so a missing key / failure still yields a
+    # usable (if low-fidelity) vector for stored events. (Killing the 32-dim
+    # fallback is HANDOFF #2's job, not this abstraction.)
+    vec = embeddings.embed(text)
+    return vec if vec is not None else _deterministic_embedding(text)
 
 
 def _embedding_input(event: dict) -> str:

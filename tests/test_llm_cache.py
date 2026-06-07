@@ -1,8 +1,9 @@
 """Tests for ``app.chat.llm_cache`` — exact-match + §4.3 similarity fallback.
 
 OpenAI embedding API is mocked at the canonical seam
-(``app.chat.llm_cache.OpenAI``) so tests run offline. The cosine + JSON
-serialize/deserialize helpers are pure functions tested directly.
+(``app.core.embeddings.OpenAI``) so tests run offline — query embeddings route
+through ``app.core.embeddings`` (HANDOFF #3), not ``llm_cache`` directly. The
+cosine + JSON serialize/deserialize helpers are pure functions tested directly.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from app.chat.llm_cache import (
     make_cache_key,
     store,
 )
+from app.core import embeddings
 from app.db.database import SessionLocal
 from app.db.models import LlmResponseCache
 
@@ -115,12 +117,12 @@ def test_compute_query_embedding_returns_floats(monkeypatch: pytest.MonkeyPatch)
     fake_client = MagicMock()
     fake_client.embeddings.create.return_value = _embedding_response([0.1, 0.2, 0.3])
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    with patch.object(llm_cache, "OpenAI", return_value=fake_client):
+    with patch.object(embeddings, "OpenAI", return_value=fake_client):
         out = llm_cache._compute_query_embedding("hello world")
     assert out == [0.1, 0.2, 0.3]
     fake_client.embeddings.create.assert_called_once()
     kw = fake_client.embeddings.create.call_args.kwargs
-    assert kw["model"] == llm_cache.EMBEDDING_MODEL
+    assert kw["model"] == embeddings.DEFAULT_OPENAI_MODEL
     assert kw["input"] == "hello world"
 
 
@@ -143,7 +145,7 @@ def test_compute_query_embedding_swallows_api_exception(
     fake_client = MagicMock()
     fake_client.embeddings.create.side_effect = RuntimeError("network")
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    with patch.object(llm_cache, "OpenAI", return_value=fake_client):
+    with patch.object(embeddings, "OpenAI", return_value=fake_client):
         out = llm_cache._compute_query_embedding("hello")
     assert out is None
 
@@ -154,7 +156,7 @@ def test_compute_query_embedding_handles_malformed_response(
     fake_client = MagicMock()
     fake_client.embeddings.create.return_value = SimpleNamespace(data=[])
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    with patch.object(llm_cache, "OpenAI", return_value=fake_client):
+    with patch.object(embeddings, "OpenAI", return_value=fake_client):
         assert llm_cache._compute_query_embedding("hello") is None
 
 
@@ -257,7 +259,7 @@ def test_similarity_lookup_hits_when_threshold_exceeded(
     fake_client = MagicMock()
     fake_client.embeddings.create.return_value = _embedding_response([0.99, 0.01, 0.0])
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    with patch.object(llm_cache, "OpenAI", return_value=fake_client):
+    with patch.object(embeddings, "OpenAI", return_value=fake_client):
         # Use a different cache_key (forces the exact path to miss); pass the
         # normalized_query so the similarity scan kicks in.
         result = lookup(db, "no_such_exact_key_zzz", normalized_query="paraphrase of fun")
@@ -283,7 +285,7 @@ def test_similarity_lookup_misses_below_threshold(
     # Vectors at ~60° → cosine = 0.5
     fake_client.embeddings.create.return_value = _embedding_response([0.5, math.sqrt(0.75)])
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    with patch.object(llm_cache, "OpenAI", return_value=fake_client):
+    with patch.object(embeddings, "OpenAI", return_value=fake_client):
         result = lookup(db, "no_such_exact_key", normalized_query="distant query")
     assert result is None
 
@@ -302,7 +304,7 @@ def test_similarity_lookup_skips_rows_without_embedding(
     fake_client = MagicMock()
     fake_client.embeddings.create.return_value = _embedding_response([1.0, 0.0])
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    with patch.object(llm_cache, "OpenAI", return_value=fake_client):
+    with patch.object(embeddings, "OpenAI", return_value=fake_client):
         result = lookup(db, "different_key", normalized_query="incoming")
     assert result is None
 
@@ -320,7 +322,7 @@ def test_similarity_lookup_skips_expired_rows(db: Session, monkeypatch: pytest.M
     fake_client = MagicMock()
     fake_client.embeddings.create.return_value = _embedding_response([1.0, 0.0])
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    with patch.object(llm_cache, "OpenAI", return_value=fake_client):
+    with patch.object(embeddings, "OpenAI", return_value=fake_client):
         result = lookup(db, "different_key", normalized_query="match")
     assert result is None
 
@@ -340,7 +342,7 @@ def test_similarity_lookup_skips_rubric_version_mismatch(
     fake_client = MagicMock()
     fake_client.embeddings.create.return_value = _embedding_response([1.0, 0.0])
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    with patch.object(llm_cache, "OpenAI", return_value=fake_client):
+    with patch.object(embeddings, "OpenAI", return_value=fake_client):
         result = lookup(db, "different_key", normalized_query="match")
     assert result is None
 
@@ -367,7 +369,7 @@ def test_similarity_lookup_picks_best_match_among_candidates(
     fake_client = MagicMock()
     fake_client.embeddings.create.return_value = _embedding_response([1.0, 0.0])
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    with patch.object(llm_cache, "OpenAI", return_value=fake_client):
+    with patch.object(embeddings, "OpenAI", return_value=fake_client):
         result = lookup(db, "different_key", normalized_query="incoming")
     assert result == "great-match answer"
 
@@ -386,7 +388,7 @@ def test_lookup_no_normalized_query_skips_similarity_path(
     fake_client = MagicMock()
     fake_client.embeddings.create.return_value = _embedding_response([1.0, 0.0])
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    with patch.object(llm_cache, "OpenAI", return_value=fake_client):
+    with patch.object(embeddings, "OpenAI", return_value=fake_client):
         result = lookup(db, "no_such_key")
     assert result is None
     fake_client.embeddings.create.assert_not_called()
@@ -405,7 +407,7 @@ def test_lookup_falls_back_to_similarity_on_exact_miss(
     fake_client = MagicMock()
     fake_client.embeddings.create.return_value = _embedding_response([1.0, 0.0])
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    with patch.object(llm_cache, "OpenAI", return_value=fake_client):
+    with patch.object(embeddings, "OpenAI", return_value=fake_client):
         result = lookup(db, "absent_key", normalized_query="anything")
     assert result == "seeded answer"
     fake_client.embeddings.create.assert_called_once()
@@ -443,7 +445,7 @@ def test_similarity_time_sensitive_skips_stale_day(
     fake_client = MagicMock()
     fake_client.embeddings.create.return_value = _embedding_response([1.0, 0.0])
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    with patch.object(llm_cache, "OpenAI", return_value=fake_client):
+    with patch.object(embeddings, "OpenAI", return_value=fake_client):
         result = lookup(db, "absent_key", normalized_query="what's happening tonight")
     assert result is None
 
@@ -461,7 +463,7 @@ def test_similarity_time_sensitive_hits_same_day(
     fake_client = MagicMock()
     fake_client.embeddings.create.return_value = _embedding_response([1.0, 0.0])
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    with patch.object(llm_cache, "OpenAI", return_value=fake_client):
+    with patch.object(embeddings, "OpenAI", return_value=fake_client):
         result = lookup(db, "absent_key", normalized_query="what's happening tonight")
     assert result == "tonight's answer"
 
@@ -483,7 +485,7 @@ def test_similarity_non_time_sensitive_allows_cross_day(
     fake_client = MagicMock()
     fake_client.embeddings.create.return_value = _embedding_response([1.0, 0.0])
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    with patch.object(llm_cache, "OpenAI", return_value=fake_client):
+    with patch.object(embeddings, "OpenAI", return_value=fake_client):
         result = lookup(
             db, "absent_key", normalized_query="best mexican restaurant in town"
         )
@@ -501,7 +503,7 @@ def test_store_writes_embedding_when_api_succeeds(
     fake_client = MagicMock()
     fake_client.embeddings.create.return_value = _embedding_response([0.5, 0.5, 0.5])
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    with patch.object(llm_cache, "OpenAI", return_value=fake_client):
+    with patch.object(embeddings, "OpenAI", return_value=fake_client):
         key = make_cache_key("store-with-emb", {})
         store(db, key, "store-with-emb", {}, "answer text", "tier3")
     row = db.query(LlmResponseCache).filter(LlmResponseCache.cache_key == key).one()
@@ -518,7 +520,7 @@ def test_store_writes_null_embedding_when_api_fails(
     fake_client = MagicMock()
     fake_client.embeddings.create.side_effect = RuntimeError("api boom")
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    with patch.object(llm_cache, "OpenAI", return_value=fake_client):
+    with patch.object(embeddings, "OpenAI", return_value=fake_client):
         key = make_cache_key("store-no-emb", {})
         store(db, key, "store-no-emb", {}, "answer text", "tier3")
     row = db.query(LlmResponseCache).filter(LlmResponseCache.cache_key == key).one()
