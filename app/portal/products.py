@@ -23,7 +23,8 @@ _PRODUCTS: tuple[dict[str, Any], ...] = (
     {
         "key": "enriched",
         "name": "Verified & Enriched Listing",
-        "price": "$20–50 / mo",
+        "price": "$39 / mo",
+        "price_note": "founding rate · $390/yr",
         "blurb": "Claim your listing, then add photos, hours, menu and links — and wear the verified mark.",
         "slot": None,
         "cap": None,
@@ -33,8 +34,9 @@ _PRODUCTS: tuple[dict[str, Any], ...] = (
     {
         "key": "category",
         "name": "Category Sponsorship",
-        "price": "$75–250 / mo",
-        "blurb": "One clearly-labeled spot pinned atop a category page (e.g. Eat & Drink). One per category.",
+        "price": "$129–179 / mo",
+        "price_note": "founding rate, 12-mo lock · premium categories (Eat & Drink, On the Water, Lodging, Home Services) $179",
+        "blurb": "Own your category: one clearly-labeled spot pinned atop a category page. Exclusive — one per category.",
         "slot": AdSlot.SPOTLIGHT,
         "cap": None,  # per-category cap; shown as a note rather than a global count
         "note": "1 slot per category",
@@ -44,7 +46,8 @@ _PRODUCTS: tuple[dict[str, Any], ...] = (
     {
         "key": "featured",
         "name": "Homepage / Mode Featured",
-        "price": "$150–400 / mo",
+        "price": "$99–199 / mo",
+        "price_note": "founding rate · marquee $199, spotlight $99",
         "blurb": "A featured card on the home page or a mode landing (Lake / Night / Family).",
         "slot": AdSlot.PROMOTED,
         "cap": None,
@@ -55,7 +58,8 @@ _PRODUCTS: tuple[dict[str, Any], ...] = (
     {
         "key": "event",
         "name": "Event Boost",
-        "price": "$25–100 / event",
+        "price": "$19 / event",
+        "price_note": "or $49 / mo unlimited",
         "blurb": "Lift your event in the month calendar and the Today module for its run.",
         "slot": None,
         "cap": None,
@@ -65,12 +69,25 @@ _PRODUCTS: tuple[dict[str, Any], ...] = (
     {
         "key": "gas",
         "name": "Gas / Utility Sponsor",
-        "price": "$100–300 / mo",
+        "price": "$149 / mo",
+        "price_note": "founding rate",
         "blurb": "The single exclusive sponsor on the high-traffic gas page.",
         "slot": AdSlot.MARQUEE,
         "cap": 1,
         "cta": "/contribute",
         "cta_label": "Enquire",
+    },
+    {
+        "key": "founding",
+        "name": "Founding Partner",
+        "price": "$149 / mo",
+        "price_note": "10 founding spots · 12-mo lock",
+        "blurb": "The launch bundle: enriched listing + homepage spotlight rotation + 2 event boosts a month + first dibs on your category sponsorship.",
+        "slot": None,
+        "cap": None,
+        "note": "10 founding spots",
+        "cta": "/contribute",
+        "cta_label": "Become a founding partner",
     },
 )
 

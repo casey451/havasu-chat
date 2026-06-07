@@ -72,6 +72,7 @@ from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal, get_db, init_db
 from app.db.models import AuthSession, Event, Provider
 from app.digest.routes import router as digest_router
+from app.events.time_labels import is_time_tbd
 from app.home.chat_route import router as new_chat_ui_router
 from app.home.router import router as home_router
 from app.home.static_pages import router as static_pages_router
@@ -445,22 +446,11 @@ def _format_event_datetime(event: Event) -> str:
     weekday = event.date.strftime("%A")
     month = event.date.strftime("%B")
     day = event.date.day
-    if event.start_time is None:
-        # WP-4 allows NULL times at ingest (never fabricate noon). A timeless
-        # event shows the date only -- dereferencing start_time here would 500
-        # the permalink.
-        return f"{weekday}, {month} {day}"
-    if (
-        event.start_time.hour == 0
-        and event.start_time.minute == 0
-        and (
-            event.end_time is None
-            or (event.end_time.hour == 0 and event.end_time.minute == 0)
-        )
-    ):
-        # A bare 00:00 start (with no end, or a midnight-to-midnight zero span)
-        # is the aggregator-ingest "no time given" fallback, not a real
-        # midnight event — show the date only, same as NULL.
+    if is_time_tbd(event.start_time, event.end_time):
+        # WP-4 allows NULL times at ingest (never fabricate noon), and a bare
+        # 00:00 start with no real end is the aggregator-ingest "no time given"
+        # fallback, not a real midnight event — show the date only. The single
+        # definition of that contract lives in app/events/time_labels.py.
         return f"{weekday}, {month} {day}"
     hour_24 = event.start_time.hour
     minute = event.start_time.minute

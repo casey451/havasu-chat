@@ -36,6 +36,7 @@ from app.db.database import get_db
 from app.db.models import AdSlot, Event, Provider, Sponsor
 from app.events import series as event_series
 from app.events.class_occurrences import class_occurrences_in_window
+from app.events.time_labels import TIME_TBD_LABEL, is_time_tbd, time_sort_key
 from app.groups.themed_groups import group_label
 from app.home import collections as curated_collections
 from app.home import sandstone, sponsor_store
@@ -87,16 +88,10 @@ def _format_event_time_label(start_at: datetime) -> str:
 
 def _is_midnight_fallback(ev: Event) -> bool:
     """Aggregator feeds without a time component land as a 00:00 start (the
-    ingest fallback). A bare midnight start with no end time — or a
-    zero-duration midnight-to-midnight span (allevents also fills endDate with
-    midnight) — is "time unknown", not a real 12:00 AM event; suppress the
-    label rather than display it. An explicit non-midnight end time means the
-    midnight start is real."""
-    if ev.start_time is None or ev.start_time.hour != 0 or ev.start_time.minute != 0:
-        return False
-    if ev.end_time is None:
-        return True
-    return ev.end_time.hour == 0 and ev.end_time.minute == 0
+    ingest fallback) — "time unknown", not a real 12:00 AM event. The single
+    definition lives in :mod:`app.events.time_labels` (shared with the home
+    week strip and month grid)."""
+    return is_time_tbd(ev.start_time, ev.end_time)
 
 
 # Event cards are image-optional: most events have no photo, so the date block is
@@ -161,12 +156,15 @@ def _series_index_for(db: Session, *, start_day: datetime, end_day: datetime) ->
 
 
 def _window_event_dict(ev: Event, *, recurring: bool, schedule_label: str) -> dict[str, str]:
-    start_at = datetime.combine(ev.date, ev.start_time)
+    # WP-4 allows NULL times; combine with midnight only for the date labels.
+    start_at = datetime.combine(ev.date, ev.start_time or time(0, 0))
     category_label, accent = _event_accent(ev.tags)
     # M-16/M-17: render the start-end span when an end time is known so a class
     # reads "5:00 - 6:00 AM", not just a start. Falls back to the start label.
+    # Time-unknown rows (NULL or the midnight ingest fallback) read "Time TBD",
+    # never a fabricated "12:00 AM".
     midnight_fallback = _is_midnight_fallback(ev)
-    time_label = "" if midnight_fallback else _format_event_time_label(start_at)
+    time_label = TIME_TBD_LABEL if midnight_fallback else _format_event_time_label(start_at)
     if ev.end_time is not None and not midnight_fallback:
         end_at = datetime.combine(ev.end_date or ev.date, ev.end_time)
         if end_at > start_at:
@@ -215,6 +213,9 @@ def _collapse_window_events(
         .order_by(Event.date.asc(), Event.start_time.asc())
         .all()
     )
+    # Time-unknown rows (NULL or the midnight ingest fallback) sort after the
+    # timed events of their day instead of leading it as a fake 12 AM.
+    rows.sort(key=lambda ev: (ev.date, time_sort_key(ev.start_time, ev.end_time)))
     index = _series_index_for(db, start_day=start_day, end_day=end_day)
 
     items: list[dict[str, str]] = []
@@ -273,7 +274,7 @@ def _class_schedule_cards(
             continue  # one card per series -- anchored on its next occurrence
         seen.add(skey)
         start_at = datetime.combine(occ.date, occ.start_time or time(0, 0))
-        time_label = "" if occ.start_time is None else _format_event_time_label(start_at)
+        time_label = TIME_TBD_LABEL if occ.start_time is None else _format_event_time_label(start_at)
         if occ.start_time is not None and occ.end_time is not None:
             end_at = datetime.combine(occ.date, occ.end_time)
             if end_at > start_at:
@@ -347,8 +348,11 @@ def _tonight_card(db: Session, *, now: datetime) -> dict[str, Any] | None:
     now_t = now.time()
 
     def _earliest(rows: list[Event]) -> Event | None:
-        # One-offs win ties so a festival beats a recurring class at the same time.
-        ranked = sorted(rows, key=lambda e: (e.start_time, bool(e.is_recurring)))
+        # One-offs win ties so a festival beats a recurring class at the same
+        # time; time-unknown rows sort after timed ones (never a fake 12 AM pick).
+        ranked = sorted(
+            rows, key=lambda e: (time_sort_key(e.start_time, e.end_time), bool(e.is_recurring))
+        )
         return ranked[0] if ranked else None
 
     todays = (
@@ -379,7 +383,7 @@ def _tonight_card(db: Session, *, now: datetime) -> dict[str, Any] | None:
     if chosen is None:
         return None
 
-    start_at = datetime.combine(chosen.date, chosen.start_time)
+    start_at = datetime.combine(chosen.date, chosen.start_time or time(0, 0))
     time_bit = "" if _is_midnight_fallback(chosen) else _format_event_time_label(start_at)
     sub_bits = [b for b in (time_bit, chosen.location_name) if b]
     return {
@@ -744,22 +748,28 @@ def _group_series_by_venue(ongoing: list[dict]) -> list[dict]:
 def _event_list_windows(now: datetime) -> dict[str, tuple[datetime, datetime]]:
     """Honest, contiguous, gap-free buckets for the events list (E-1).
 
-    The old code used a naive rolling ``now+1..now+3`` window mislabeled "This
-    Weekend" (so a Wednesday event showed under "This Weekend" and a Sunday under
-    "Next Week"). Instead anchor to real calendar-week boundaries in Lake Havasu
-    local time:
+    Anchored to real calendar-week boundaries in Lake Havasu local time:
 
     * **today**     — today only.
-    * **this_week** — tomorrow through the end of this week (Sunday).
+    * **this_week** — tomorrow through Friday of the current week.
+    * **weekend**   — the upcoming Saturday + Sunday. When today is already
+      Sat/Sun, today's events stay in **today** and this window holds only the
+      remaining weekend day(s) (empty span on Sunday).
     * **next_week** — the following Monday–Sunday.
 
-    Windows are disjoint and adjacent, so no event is dropped or double-listed.
+    Windows are disjoint and together tile every day from today through the end
+    of next week, so no event is dropped or double-listed — in particular,
+    Saturday/Sunday events can never fall in a gap between "This Week" and
+    "Next Week". A collapsed window (start > end) simply queries nothing.
     """
     days_to_sunday = (6 - now.weekday()) % 7  # Mon=0 … Sun=6
     this_sunday = now + timedelta(days=days_to_sunday)
+    this_saturday = this_sunday - timedelta(days=1)
+    tomorrow = now + timedelta(days=1)
     return {
         "today": (now, now),
-        "this_week": (now + timedelta(days=1), this_sunday),
+        "this_week": (tomorrow, this_saturday - timedelta(days=1)),
+        "weekend": (max(tomorrow, this_saturday), this_sunday),
         "next_week": (this_sunday + timedelta(days=1), this_sunday + timedelta(days=7)),
     }
 
@@ -794,7 +804,7 @@ def serve_events_ui(
     when: str | None = None,
     date: str | None = None,
 ) -> HTMLResponse:
-    """Render the Sandstone events list (today / this week / next week).
+    """Render the Sandstone events list (Today / This Weekend / This Week / Next Week).
 
     ``?when=`` narrows to a single bucket (``today``/``weekend``/``this-week``/
     ``next-week``); ``?date=YYYY-MM-DD`` (the home-calendar day links) shows a
@@ -823,6 +833,7 @@ def serve_events_ui(
     else:
         ordered = [
             ("today", "Today", windows["today"]),
+            ("weekend", "This Weekend", windows["weekend"]),
             ("this_week", "This Week", windows["this_week"]),
             ("next_week", "Next Week", windows["next_week"]),
         ]
@@ -830,7 +841,12 @@ def serve_events_ui(
         if when_key in key_map:
             window_defs = [d for d in ordered if d[0] == key_map[when_key]]
         else:
-            window_defs = ordered
+            # All-buckets view: late in the week some spans collapse (start >
+            # end — no weekdays left before Saturday, or the weekend is over).
+            # Skip those rather than render an empty mislabeled section; a
+            # narrowed chip view above keeps its bucket so the page still shows
+            # the honest "nothing posted" empty state.
+            window_defs = [d for d in ordered if d[2][0].date() <= d[2][1].date()]
 
     raw_groups: dict[str, list[dict[str, str]]] = {}
     totals: dict[str, int] = {}

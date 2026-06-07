@@ -88,8 +88,9 @@ def test_month_calendar_shows_schedule_classes() -> None:
     ]
     assert tuesdays, "December 2026 has Tuesdays"
     for cell in tuesdays:
-        titles = {e["title"] for e in cell["events"]}
-        assert title in titles or cell["overflow"] > 0 or cell["count"] >= 1
+        # Schedule classes are recurring: they land in the collapsed class
+        # badge (class_count), never in the one-off pill slots / count.
+        assert cell["class_count"] >= 1
 
 
 def test_events_ui_day_page_lists_class_with_venue_link() -> None:

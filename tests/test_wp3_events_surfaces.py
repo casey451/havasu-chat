@@ -275,8 +275,11 @@ def test_calendar_cell_carries_iso_and_count_and_prioritises_oneoffs() -> None:
             if c.get("in_month") and c.get("day") == day
         )
         assert cell["iso"] == "2099-04-12"
-        assert cell["count"] == 4
-        # The special one-off must be among the two visible pills.
+        # The count is one-off events only; the 3 recurring classes collapse
+        # into the class badge instead of inflating the cell.
+        assert cell["count"] == 1
+        assert cell["class_count"] == 3
+        # The special one-off must be among the visible pills.
         visible_titles = [e["title"] for e in cell["events"]]
         assert "ZZ Big Festival" in visible_titles
     finally:
@@ -314,6 +317,49 @@ def test_events_ui_date_deeplink_shows_single_day() -> None:
         body = client.get("/events-ui?date=2099-04-12").text
     assert "Showing events for" in body
     assert "Back to all events" in body
+
+
+def test_events_ui_weekend_events_never_fall_in_gap() -> None:
+    """P0 regression: Sat/Sun events must surface on the default /events-ui view.
+
+    The old buckets left a gap ("This Week" effectively ended Friday, "Next
+    Week" started Monday). Today / This Weekend / This Week / Next Week now
+    tile the whole horizon, so the upcoming Saturday, Sunday, AND next week's
+    Saturday each land in exactly one rendered bucket — whatever weekday the
+    test runs on.
+    """
+    suffix = uuid.uuid4().hex[:6]
+    eids: list[str] = []
+    now = now_lake_havasu()
+    days_to_sunday = (6 - now.weekday()) % 7
+    sunday = (now + timedelta(days=days_to_sunday)).date()
+    saturday = sunday - timedelta(days=1)
+    sat_title = f"ZZ Sat Regatta {suffix}"
+    sun_title = f"ZZ Sun Brunch {suffix}"
+    next_sat_title = f"ZZ NextSat Derby {suffix}"
+    with SessionLocal() as db:
+        if saturday >= now.date():  # on a Sunday the Saturday is already past
+            _id, eid = _add_event(db, title=sat_title, on=saturday, start=time(10, 0), loc="Beach")
+            eids.append(eid)
+        _id, eid = _add_event(db, title=sun_title, on=sunday, start=time(11, 0), loc="Bridge")
+        eids.append(eid)
+        _id, eid = _add_event(
+            db, title=next_sat_title, on=sunday + timedelta(days=6), start=time(9, 0), loc="Marina"
+        )
+        eids.append(eid)
+        db.commit()
+    try:
+        with TestClient(app) as client:
+            body = client.get("/events-ui").text
+        if saturday >= now.date():
+            assert sat_title in body
+        assert sun_title in body
+        assert next_sat_title in body  # next week's Saturday is in "Next Week"
+    finally:
+        with SessionLocal() as db:
+            db.execute(delete(Event).where(Event.entity_id.in_(eids)))
+            db.execute(delete(Entity).where(Entity.id.in_(eids)))
+            db.commit()
 
 
 def test_event_detail_uses_fraunces_font_stack() -> None:

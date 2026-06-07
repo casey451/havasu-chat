@@ -6,7 +6,7 @@
   <div class="cathead wrap">
     <div class="crumb"><a href="/portal">For businesses</a> › Advertise</div>
     <h1>Advertise on Ask Hava</h1>
-    <p>Clearly-labeled, scarcity-priced placements — one paid unit per surface, never a wall of ads. Prices shown are ranges; we'll confirm before anything goes live.</p>
+    <p>Clearly-labeled, scarcity-priced placements — one paid unit per surface, never a wall of ads. Founding-member rates below are locked for 12 months when you reserve now.</p>
   </div>
 
   <div class="wrap">
@@ -17,6 +17,7 @@
           <h3>{{ p.name }}</h3>
           <span class="adcard-price">{{ p.price }}</span>
         </div>
+        {% if p.price_note %}<p class="adcard-pricenote" style="color:var(--muted);font-size:.8rem;margin:2px 0 6px">{{ p.price_note }}</p>{% endif %}
         <p class="adcard-blurb">{{ p.blurb }}</p>
         <div class="adcard-foot">
           <span class="avail{% if p.availability.sold_out %} sold{% elif p.availability.scarce %} scarce{% endif %}">{{ p.availability.label }}</span>
