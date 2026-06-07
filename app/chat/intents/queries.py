@@ -83,6 +83,7 @@ def _query_providers(
     subcats: tuple[str, ...] = (),
     legacy_categories: tuple[str, ...] = (),
     name_tokens: tuple[str, ...] = (),
+    exclude_name_tokens: tuple[str, ...] = (),
     district: str | None = None,
     open_now: bool = False,
     limit: int = _PROVIDER_LIMIT,
@@ -108,6 +109,14 @@ def _query_providers(
             token_conds.append(Provider.google_primary_category.ilike(like))
             token_conds.append(Provider.category.ilike(like))
         q = q.filter(or_(*token_conds))
+
+    if exclude_name_tokens:
+        # Drop rows whose NAME carries an excluded token. Used by boat_rental:
+        # the "boat" name token also matches storage/repair yards ("Boat Storage
+        # of Lake Havasu") that aren't rentals. Name-only (not category) so a
+        # rental row legitimately categorized "boat_rental" is never excluded.
+        for tok in exclude_name_tokens:
+            q = q.filter(~Provider.provider_name.ilike(f"%{tok}%"))
 
     if district:
         # District is sparsely populated (Phase-0 audit: ~0% on the dev DB), so
@@ -600,8 +609,12 @@ def run_query(
         # on_the_water ask returns the whole bucket. Tokens are a soft narrowing
         # within the bucket -- an empty result falls through to the honest gap.
         name_tokens: tuple[str, ...] = ()
+        exclude_name_tokens: tuple[str, ...] = ()
         if key == "boat_rental":
             name_tokens = ("rent", "rental", "boat", "kayak", "paddle", "watercraft")
+            # The "boat" token also matches storage/repair yards ("Boat Storage of
+            # Lake Havasu", "... Boat Repair") -- exclude them from the rental list.
+            exclude_name_tokens = ("storage", "repair", "mechanic")
             lead = "Where to get out on the water:"
             label = "rental"
         elif key == "boat_repair":
@@ -616,6 +629,7 @@ def run_query(
             subcats=dicts.WATER_SUBCATS,
             legacy_categories=dicts.WATER_LEGACY_CATEGORIES,
             name_tokens=name_tokens,
+            exclude_name_tokens=exclude_name_tokens,
             district=_area(slots),
             now=now,
         )
