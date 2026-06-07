@@ -87,6 +87,18 @@ _LLM_NEGATION_VOICE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bi\s+don'?t\s+have\b", re.IGNORECASE),
     re.compile(r"\bi\s+don'?t\s+see\b", re.IGNORECASE),
     re.compile(r"\bno\s+\w+\s+listed\b", re.IGNORECASE),
+    # 2026-06-07 prod incident: tier 3 answered the fake-business probe
+    # honestly with "I'm not aware of Totally Fake Business XYZ 404 ..." but
+    # the LOW-tier phone hedge then appended an UNRELATED provider's number
+    # under the fake name — a fabricated attribution. The tier-3 unknown-
+    # entity voice ("i'm not aware of", "don't know of", "couldn't find")
+    # was missing from this denial list.
+    re.compile(r"\bnot\s+aware\s+of\b", re.IGNORECASE),
+    re.compile(r"\bdon'?t\s+know\s+of\b", re.IGNORECASE),
+    re.compile(r"\bcouldn'?t\s+find\b", re.IGNORECASE),
+    re.compile(r"\bcan'?t\s+find\b", re.IGNORECASE),
+    re.compile(r"\bnot\s+familiar\s+with\b", re.IGNORECASE),
+    re.compile(r"\bisn'?t\s+in\s+(?:the\s+)?catalog\b", re.IGNORECASE),
 )
 
 
