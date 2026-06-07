@@ -9,8 +9,9 @@ import math
 import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 
 from app.core import embeddings
 from app.core.timezone import LAKE_HAVASU_TZ
@@ -19,6 +20,19 @@ from app.db.models import LlmResponseCache
 DEFAULT_TTL_DAYS = 7
 SIMILARITY_THRESHOLD = 0.9
 SIMILARITY_SCAN_LIMIT = 200
+
+# pgvector path (HANDOFF #2): native ANN similarity on Postgres when the
+# ``vector`` extension + ``llm_response_cache.embedding`` column exist
+# (migration a7c9e1f3b5d7). Fixed at 1536 dims (text-embedding-3-small);
+# switching EMBEDDINGS_PROVIDER to a different-dim model bypasses this path
+# (and invalidates stored vectors -- re-embed or clear the cache).
+EMBEDDING_DIM = 1536
+PGVECTOR_TOPK = 10
+
+# Per-engine probe cache: engine-url -> bool. Probes once per process; a
+# probe *exception* is not cached so a transient DB hiccup can't disable
+# the pgvector path for the process lifetime.
+_PGVECTOR_AVAILABLE: dict = {}
 
 
 def _compute_rubric_version() -> str:
@@ -172,9 +186,105 @@ def _row_lake_havasu_date(dt):
     return dt.astimezone(LAKE_HAVASU_TZ).date()
 
 
+
+def _vector_literal(vec):
+    """pgvector text literal ('[f1,f2,...]') for CAST(:q AS vector) binding."""
+    return "[" + ",".join(repr(float(x)) for x in vec) + "]"
+
+
+def _pgvector_available(db) -> bool:
+    """True when the bind is Postgres with the vector extension AND the
+    ``embedding`` column present (i.e. migration a7c9e1f3b5d7 has run)."""
+    try:
+        bind = db.get_bind()
+    except Exception:
+        return False
+    if bind is None or bind.dialect.name != "postgresql":
+        return False
+    key = str(getattr(bind, "url", "postgresql"))
+    cached = _PGVECTOR_AVAILABLE.get(key)
+    if cached is not None:
+        return cached
+    try:
+        has_ext = bool(
+            db.execute(
+                text("SELECT 1 FROM pg_extension WHERE extname = 'vector'")
+            ).scalar()
+        )
+        has_col = bool(
+            db.execute(
+                text(
+                    "SELECT 1 FROM information_schema.columns "
+                    "WHERE table_name = 'llm_response_cache' "
+                    "AND column_name = 'embedding'"
+                )
+            ).scalar()
+        )
+    except Exception:
+        logging.exception("llm_cache: pgvector availability probe failed")
+        return False
+    _PGVECTOR_AVAILABLE[key] = has_ext and has_col
+    return _PGVECTOR_AVAILABLE[key]
+
+
+def _similarity_scan_pgvector(db, incoming, *, time_sensitive=False):
+    """Indexed nearest-neighbour scan via pgvector (cosine, ``<=>``).
+
+    Same filters as the Python scan (rubric_version, TTL, same-day guard for
+    time-sensitive queries); the SIMILARITY_THRESHOLD cutoff is applied in
+    Python on the returned top-K. Raises on DB errors -- the caller falls
+    back to the Python scan.
+    """
+    now = datetime.now(UTC)
+    today = now.astimezone(LAKE_HAVASU_TZ).date() if time_sensitive else None
+    rows = db.execute(
+        text(
+            "SELECT id, response_text, created_at, "
+            "       1 - (embedding <=> CAST(:q AS vector)) AS score "
+            "FROM llm_response_cache "
+            "WHERE rubric_version = :rv "
+            "  AND embedding IS NOT NULL "
+            "  AND (ttl_until IS NULL OR ttl_until >= :now) "
+            "ORDER BY embedding <=> CAST(:q AS vector) "
+            "LIMIT :k"
+        ),
+        {
+            "q": _vector_literal(incoming),
+            "rv": _RUBRIC_VERSION,
+            # ttl_until is stored naive-UTC (see store_with_embedding).
+            "now": now.replace(tzinfo=None),
+            "k": PGVECTOR_TOPK,
+        },
+    ).fetchall()
+    for row_id, response_text, created_at, score in rows:
+        if score is None or float(score) < SIMILARITY_THRESHOLD:
+            # Rows are distance-ordered; once below threshold, all later
+            # rows are too.
+            break
+        if time_sensitive:
+            row_date = _row_lake_havasu_date(created_at)
+            if row_date is not None and row_date != today:
+                continue
+        _bump_hit_telemetry(db, SimpleNamespace(id=row_id))
+        return response_text
+    return None
+
+
 def _similarity_scan_with_embedding(db, incoming, *, time_sensitive=False):
     if incoming is None:
         return None
+    # pgvector fast path (HANDOFF #2): only for vectors matching the
+    # column's fixed dim; a pgvector *error* falls back to the Python
+    # scan, but a clean miss (None) is final -- same data, same filters.
+    if len(incoming) == EMBEDDING_DIM and _pgvector_available(db):
+        try:
+            return _similarity_scan_pgvector(
+                db, incoming, time_sensitive=time_sensitive
+            )
+        except Exception:
+            logging.exception(
+                "llm_cache: pgvector scan failed; falling back to Python scan"
+            )
     now = datetime.now(UTC)
     today = now.astimezone(LAKE_HAVASU_TZ).date() if time_sensitive else None
     try:
@@ -294,6 +404,35 @@ def lookup(db, cache_key, normalized_query=None):
     return None
 
 
+def _store_pg_vector(db, cache_key, embedding_blob):
+    """Best-effort mirror of the JSON embedding into the pgvector column.
+
+    Only 1536-dim vectors are written (the column is ``vector(1536)``);
+    other dims leave the column NULL and the row serves exact-key hits +
+    the Python similarity fallback only.
+    """
+    if embedding_blob is None or not _pgvector_available(db):
+        return
+    vec = _deserialize_embedding(embedding_blob)
+    if vec is None or len(vec) != EMBEDDING_DIM:
+        return
+    try:
+        db.execute(
+            text(
+                "UPDATE llm_response_cache "
+                "SET embedding = CAST(:v AS vector) WHERE cache_key = :ck"
+            ),
+            {"v": _vector_literal(vec), "ck": cache_key},
+        )
+        db.commit()
+    except Exception:
+        logging.exception("llm_cache: pgvector mirror write failed")
+        try:
+            db.rollback()
+        except Exception:
+            pass
+
+
 def store_with_embedding(
     db,
     cache_key,
@@ -347,6 +486,7 @@ def store_with_embedding(
             )
             db.add(entry)
         db.commit()
+        _store_pg_vector(db, cache_key, embedding_blob)
     except Exception:
         logging.exception(
             "llm_cache.store: write failed (key=%s, tier=%s)", cache_key[:8], tier_used
