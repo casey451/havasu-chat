@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from sqlalchemy import or_
@@ -280,6 +280,15 @@ def _venue_core_tokens(venue: str) -> list[str]:
     ]
 
 
+def _fmt_time(t: time) -> str:
+    """12-hour 'H:MM AM' label. Cross-platform — ``%-I`` is glibc-only and
+    raises ``ValueError: Invalid format string`` on Windows (and ``%#I`` is the
+    MSVC spelling), so compute the hour/meridiem directly instead of strftime."""
+    hour12 = t.hour % 12 or 12
+    meridiem = "AM" if t.hour < 12 else "PM"
+    return f"{hour12}:{t.minute:02d} {meridiem}"
+
+
 def _query_venue_schedule(
     db: Session, venue: str, *, today: date, limit: int = _PROVIDER_LIMIT
 ) -> list[dict[str, Any]]:
@@ -304,7 +313,7 @@ def _query_venue_schedule(
     offering_by_prog = _offering_by_program(db, programs)
     for prog in programs:
         days = ", ".join(prog.schedule_days) if prog.schedule_days else ""
-        start = prog.schedule_start_time.strftime("%-I:%M %p") if prog.schedule_start_time else ""
+        start = _fmt_time(prog.schedule_start_time) if prog.schedule_start_time else ""
         when = " ".join(b for b in (days, start) if b)
         rows.append(
             {
@@ -320,7 +329,7 @@ def _query_venue_schedule(
         eq = eq.filter(Event.location_name.ilike(f"%{tok}%"))
     events = eq.order_by(Event.date, Event.start_time).limit(limit).all()
     for ev in events:
-        start = ev.start_time.strftime("%-I:%M %p") if ev.start_time else ""
+        start = _fmt_time(ev.start_time) if ev.start_time else ""
         rows.append(
             {
                 "type": "event",

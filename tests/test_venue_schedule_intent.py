@@ -11,7 +11,7 @@ from datetime import date, time, timedelta
 import pytest
 from sqlalchemy import select
 
-from app.chat.intents.queries import _venue_core_tokens
+from app.chat.intents.queries import _fmt_time, _venue_core_tokens
 from app.chat.intents.runtime import _wants_venue_schedule, try_intent_layer
 from app.db.database import SessionLocal
 from app.db.models import Event, Program, QueryLog
@@ -68,6 +68,22 @@ def _seed_event(session, *, title, location_name, days_ahead=1):
 # ---------------------------------------------------------------------------
 # Pure helpers
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "t, expected",
+    [
+        (time(9, 0), "9:00 AM"),
+        (time(13, 5), "1:05 PM"),
+        (time(0, 0), "12:00 AM"),
+        (time(12, 0), "12:00 PM"),
+        (time(23, 30), "11:30 PM"),
+    ],
+)
+def test_fmt_time_is_cross_platform(t, expected):
+    # %-I (glibc) / %#I (MSVC) diverge and the bare "%-I" raises on Windows;
+    # _fmt_time must produce the same label on every platform.
+    assert _fmt_time(t) == expected
 
 
 def test_venue_core_tokens_drop_town_words():
