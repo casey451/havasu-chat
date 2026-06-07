@@ -36,6 +36,7 @@ from app.db.database import get_db
 from app.db.models import AdSlot, Event, Provider, Sponsor
 from app.events import series as event_series
 from app.events.class_occurrences import class_occurrences_in_window
+from app.events.dedup import dedup_cross_source_event_rows
 from app.events.time_labels import TIME_TBD_LABEL, is_time_tbd, time_sort_key
 from app.groups.themed_groups import group_label
 from app.home import collections as curated_collections
@@ -216,6 +217,11 @@ def _collapse_window_events(
     # Time-unknown rows (NULL or the midnight ingest fallback) sort after the
     # timed events of their day instead of leading it as a fake 12 AM.
     rows.sort(key=lambda ev: (ev.date, time_sort_key(ev.start_time, ev.end_time)))
+    # Cross-source dedup: two scrapers carrying the same real-world event (same
+    # normalized title + date; one with a fake-noon/TBD time or an address-as-
+    # venue) collapse to one survivor before series grouping, so neither the
+    # bucket cards nor the honest totals double-count it (display-only filter).
+    rows = dedup_cross_source_event_rows(rows)
     index = _series_index_for(db, start_day=start_day, end_day=end_day)
 
     items: list[dict[str, str]] = []

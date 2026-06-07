@@ -56,9 +56,26 @@ body.ll-chat .thread .biz-row .thumb {
   overflow: hidden;
 }
 
-/* Generic guard: any stray <img> in a response card stays inside the card. */
+/* Generic guard: any stray <img> in a response card stays inside the card
+ * and never stretches taller than a phone viewport. */
 body.ll-chat .thread .component-slot img {
   max-width: 100%;
+  max-height: 480px;
+  height: auto;
+}
+
+/* Whitespace + overflow (B-01 second half): preserve the model's line
+ * breaks in the voice line (textContent collapses \n under normal
+ * white-space), and break long unbroken runs (URLs, phone strings) so a
+ * single token can never push the card past the viewport. */
+body.ll-chat .thread .voice {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+body.ll-chat .thread .component-slot {
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 /* ----------------------------------------------------------------------------

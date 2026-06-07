@@ -912,6 +912,12 @@
       const rating = el("span", "rating");
       const star = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       star.setAttribute("viewBox", "0 0 12 12");
+      // Explicit intrinsic size (B-01): an inline SVG with only a viewBox
+      // defaults to the container's full width, so a missing/stale
+      // chat_cards.css turns this icon into a viewport-height graphic.
+      star.setAttribute("width", "12");
+      star.setAttribute("height", "12");
+      star.setAttribute("aria-hidden", "true");
       star.setAttribute("fill", "currentColor");
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.setAttribute("d", "M6 1l1.5 3.5L11 5l-2.5 2.5L9 11 6 9.5 3 11l.5-3.5L1 5l3.5-.5z");
@@ -943,6 +949,10 @@
         // Phone icon
         const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         svg.setAttribute("viewBox", "0 0 16 16");
+        // Explicit intrinsic size (B-01) — same rationale as the star icon.
+        svg.setAttribute("width", "16");
+        svg.setAttribute("height", "16");
+        svg.setAttribute("aria-hidden", "true");
         svg.setAttribute("fill", "none");
         svg.setAttribute("stroke", "currentColor");
         svg.setAttribute("stroke-width", "1.5");

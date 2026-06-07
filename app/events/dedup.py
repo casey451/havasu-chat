@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+from collections.abc import Sequence
 from datetime import UTC, date, datetime, time
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -14,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Entity, Event, Provider
 from app.events.scrapers.base import EventPayload, normalize_event_title
+from app.events.time_labels import is_time_tbd
 
 DEDUP_DATETIME_WINDOW_MINUTES = int(os.environ.get("EVENT_DEDUP_DATETIME_WINDOW_MINUTES", "30"))
 DEDUP_TITLE_FUZZY_THRESHOLD = int(os.environ.get("EVENT_DEDUP_TITLE_THRESHOLD", "85"))
@@ -244,6 +246,141 @@ def resolve_venue_entity_id(
             if pa and fuzz.partial_ratio(addr_norm, pa) >= 85:
                 return prov.entity_id
     return None
+
+
+# --------------------------------------------------------------------------- #
+# Render-time cross-source dedup (display paths only; never writes the DB)
+# --------------------------------------------------------------------------- #
+# Two scrape sources routinely carry the SAME real-world event with cosmetic
+# differences the ingest-time matchers above miss: one source stores the street
+# address as the venue and fabricates a noon start ("Lake Havasu Farmers Market"
+# at "2144 McCulloch Blvd N ..." 12:00 PM), the other has the named venue and
+# the real 8:00 AM time; titles can differ only by a curly apostrophe ("Lady
+# Lee's" vs "Lady Lee's"). These helpers collapse such twins at render time --
+# grouped by (normalized title, occurrence date), one survivor per group -- so
+# every display surface that opts in (home week strip, month calendar,
+# /events-ui buckets and day view) shows the event once. Read-only by design:
+# the rows stay in the DB untouched for ingest reconciliation and admin review.
+
+# Two events with the same title but REAL start times further apart than this
+# are legitimately separate sessions (matinee vs evening) -- never merged.
+_SEPARATE_SESSION_GAP_MINUTES = 120
+
+
+def _render_title_key(event: Event) -> str:
+    """Title key: lowercased, punctuation/curly quotes stripped, spaces collapsed."""
+    return normalize_event_title(event.normalized_title or event.title or "")
+
+
+def _start_is_tbd_for_dedup(start_time: time | None, end_time: time | None) -> bool:
+    """Time-TBD for dedup purposes: the shared midnight-fallback contract
+    (:func:`app.events.time_labels.is_time_tbd`) PLUS the bare-noon fabrication
+    some aggregator sources emit instead of midnight. A noon start with a real
+    end time is a real noon event; only the bare 12:00-with-no-end is suspect.
+    Display labels are untouched -- this widens TBD only inside a duplicate
+    group, where a bare-noon twin should lose to its really-timed sibling."""
+    if is_time_tbd(start_time, end_time):
+        return True
+    return (
+        start_time is not None
+        and start_time.hour == 12
+        and start_time.minute == 0
+        and end_time is None
+    )
+
+
+def _venue_is_named_place(venue: str | None) -> bool:
+    """A named place ("Go Lake Havasu Visitor Center") vs a bare street address
+    ("2144 McCulloch Blvd N ..."): contains letters and doesn't start with a
+    digit. Heuristic, used only to rank survivors inside a duplicate group."""
+    v = (venue or "").strip()
+    return bool(v) and any(c.isalpha() for c in v) and not v[0].isdigit()
+
+
+def _source_priority(source: str | None) -> int:
+    """Min EVENT_SOURCE_PRIORITY across the comma-separated provenance string.
+
+    Imported lazily: :mod:`app.contrib.event_reconciler` imports this module at
+    its top level, so a module-level import here would be circular.
+    """
+    from app.contrib.event_reconciler import EVENT_SOURCE_PRIORITY
+
+    parts = [p.strip() for p in (source or "").split(",") if p.strip()]
+    if not parts:
+        return 99
+    return min(EVENT_SOURCE_PRIORITY.get(p, 99) for p in parts)
+
+
+def _survivor_rank(event: Event) -> tuple[bool, bool, int, int, str]:
+    """Sort key for picking ONE survivor in a duplicate cluster (lowest wins):
+    real start time > named venue > longer description > source priority > id."""
+    return (
+        _start_is_tbd_for_dedup(event.start_time, event.end_time),
+        not _venue_is_named_place(event.location_name),
+        -len((event.description or "").strip()),
+        _source_priority(event.source),
+        str(event.id),
+    )
+
+
+def _start_minutes(t: time) -> int:
+    return t.hour * 60 + t.minute
+
+
+def _group_survivor_positions(members: list[tuple[int, Event]]) -> set[int]:
+    """Positions (into the caller's occurrence list) that survive one group.
+
+    Timed (non-TBD) members are clustered by start-time proximity: starts within
+    :data:`_SEPARATE_SESSION_GAP_MINUTES` of the previous one chain into the same
+    cluster; a bigger gap means a genuinely separate session, so each cluster
+    keeps its own survivor (the matinee/evening guard). Time-TBD members are
+    duplicates of a timed sibling when one exists (the fake-noon twin loses);
+    with no timed sibling they all collapse onto a single TBD survivor.
+    """
+    timed = [
+        m for m in members if not _start_is_tbd_for_dedup(m[1].start_time, m[1].end_time)
+    ]
+    if not timed:
+        return {min(members, key=lambda m: _survivor_rank(m[1]))[0]}
+    timed.sort(key=lambda m: _start_minutes(m[1].start_time))
+    clusters: list[list[tuple[int, Event]]] = [[timed[0]]]
+    for member in timed[1:]:
+        gap = _start_minutes(member[1].start_time) - _start_minutes(clusters[-1][-1][1].start_time)
+        if gap <= _SEPARATE_SESSION_GAP_MINUTES:
+            clusters[-1].append(member)
+        else:
+            clusters.append([member])
+    return {min(cluster, key=lambda m: _survivor_rank(m[1]))[0] for cluster in clusters}
+
+
+def dedup_cross_source_occurrences(
+    occurrences: Sequence[tuple[Event, date]],
+) -> list[tuple[Event, date]]:
+    """Collapse cross-source duplicates of the same (title, date) occurrence.
+
+    Input/output are ``(event, occurrence_date)`` pairs; survivors keep their
+    input order. Untitled rows never group. Pure + read-only: callers on the
+    display read paths filter what they render, nothing is written.
+    """
+    groups: dict[tuple[str, date], list[tuple[int, Event]]] = {}
+    for idx, (ev, occ_date) in enumerate(occurrences):
+        key = _render_title_key(ev)
+        if key:
+            groups.setdefault((key, occ_date), []).append((idx, ev))
+
+    dropped: set[int] = set()
+    for members in groups.values():
+        if len(members) < 2:
+            continue
+        survivors = _group_survivor_positions(members)
+        dropped.update(idx for idx, _ev in members if idx not in survivors)
+    return [pair for idx, pair in enumerate(occurrences) if idx not in dropped]
+
+
+def dedup_cross_source_event_rows(rows: Sequence[Event]) -> list[Event]:
+    """Row-shaped wrapper over :func:`dedup_cross_source_occurrences` for read
+    paths that work with plain Event rows (each row dated by ``Event.date``)."""
+    return [ev for ev, _d in dedup_cross_source_occurrences([(ev, ev.date) for ev in rows])]
 
 
 def merge_scraper_into_event(

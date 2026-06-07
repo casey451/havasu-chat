@@ -339,6 +339,17 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     ``/api/`` (JSON endpoints — keeps the API contract minimal). HSTS is
     only emitted when the request scheme is HTTPS so dev/local traffic
     doesn't get a long-lived enforcement record.
+
+    Also stamps ``Cache-Control: no-cache`` on every HTML response (P0
+    stale-serving fix, 2026-06-07): the dynamic pages are date-stamped
+    ("Today" / "This Weekend" buckets, conditions chips) but previously
+    shipped with NO freshness directives, leaving browsers, proxies and the
+    Railway edge free to apply heuristic caching and replay a days-old
+    render — the live ``/events-ui`` served a June 2 "Today" on June 7
+    while ``/home`` was fresh (SITE_AUDIT_LIVE_2026-06-03 theme T2/B-04).
+    ``no-cache`` forces revalidation on every use; ``setdefault`` lets a
+    route opt into a different policy explicitly. Static assets are not
+    ``text/html`` and keep their normal validator-based caching.
     """
 
     async def dispatch(self, request: Request, call_next):
@@ -352,6 +363,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers.setdefault(
             "Permissions-Policy", "geolocation=(), microphone=(), camera=()"
         )
+        content_type = (response.headers.get("content-type") or "").lower()
+        if content_type.startswith("text/html"):
+            response.headers.setdefault(
+                "Cache-Control", "no-cache, max-age=0, must-revalidate"
+            )
         if request.url.scheme == "https":
             response.headers.setdefault(
                 "Strict-Transport-Security",

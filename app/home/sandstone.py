@@ -24,6 +24,7 @@ from app.events.class_occurrences import (
     class_occurrences_in_window,
     drop_event_duplicates,
 )
+from app.events.dedup import dedup_cross_source_occurrences
 from app.events.recurrence import occurrences_in_window
 from app.events.time_labels import format_short_time, short_time_label, time_sort_key
 from app.home.queries import CATEGORY_LABELS
@@ -41,7 +42,10 @@ def _live_events_by_day(
     falls in the window is included on that date. This second pass is load-bearing:
     a row flagged ``is_recurring`` but carrying no rrule/rdate (a materialised
     single instance) would otherwise expand to nothing and vanish. Each
-    ``(event, date)`` pair is emitted once.
+    ``(event, date)`` pair is emitted once, then cross-source duplicates of the
+    same (title, date) occurrence (two scrapers carrying one real-world event)
+    collapse to a single survivor via
+    :func:`app.events.dedup.dedup_cross_source_occurrences`.
     """
     stmt = select(Event).where(
         Event.status == "live",
@@ -53,7 +57,7 @@ def _live_events_by_day(
     )
     candidates = list(db.scalars(stmt).unique().all())
 
-    by_day: dict[date, list[Event]] = {}
+    pairs: list[tuple[Event, date]] = []
     seen: set[tuple[Any, date]] = set()
 
     def _emit(ev: Event, occ_date: date) -> None:
@@ -61,7 +65,7 @@ def _live_events_by_day(
         if key in seen:
             return
         seen.add(key)
-        by_day.setdefault(occ_date, []).append(ev)
+        pairs.append((ev, occ_date))
 
     scheduled = [c for c in candidates if c.rrule or c.rdate]
     for ev, occ_date in occurrences_in_window(
@@ -73,6 +77,9 @@ def _live_events_by_day(
         if ev.date is not None and window_start <= ev.date <= window_end:
             _emit(ev, ev.date)
 
+    by_day: dict[date, list[Event]] = {}
+    for ev, occ_date in dedup_cross_source_occurrences(pairs):
+        by_day.setdefault(occ_date, []).append(ev)
     return by_day
 
 # Display labels for tier-1 routes the canonical CATEGORY_LABELS map omits. These
