@@ -6,25 +6,17 @@ import hashlib
 import json
 import logging
 import math
-import os
 import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from sqlalchemy import select, update
 
-from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
-from app.core.openai_client import get_openai_client
+from app.core import embeddings
 from app.core.timezone import LAKE_HAVASU_TZ
 from app.db.models import LlmResponseCache
 
-try:
-    from openai import OpenAI
-except ImportError:
-    OpenAI = None
-
 DEFAULT_TTL_DAYS = 7
-EMBEDDING_MODEL = "text-embedding-3-small"
 SIMILARITY_THRESHOLD = 0.9
 SIMILARITY_SCAN_LIMIT = 200
 
@@ -80,31 +72,13 @@ def make_cache_key(normalized_query, context):
 
 
 def _compute_query_embedding(text):
-    if not text or not text.strip():
-        return None
-    api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
-    if not api_key:
-        return None
-    if OpenAI is None:
-        return None
-    try:
-        client = get_openai_client(  # T2.3 singleton; OpenAI stays the patchable seam
-            api_key, factory=OpenAI, timeout=LLM_CLIENT_READ_TIMEOUT_SEC
-        )
-        resp = client.embeddings.create(model=EMBEDDING_MODEL, input=text.strip())
-    except Exception:
-        logging.exception("llm_cache: embedding API call failed")
-        return None
-    try:
-        vec = resp.data[0].embedding
-    except (AttributeError, IndexError, KeyError, TypeError):
-        return None
-    if not isinstance(vec, list) or not vec:
-        return None
-    try:
-        return [float(x) for x in vec]
-    except (TypeError, ValueError):
-        return None
+    """Query embedding for similarity fallback, via the provider abstraction.
+
+    Returns ``None`` on empty input / missing key / failure (caller treats
+    ``None`` as "no similarity lookup"). Provider routing + the patchable
+    ``OpenAI`` seam now live in ``app.core.embeddings``.
+    """
+    return embeddings.embed(text)
 
 
 def _cosine_similarity(a, b):

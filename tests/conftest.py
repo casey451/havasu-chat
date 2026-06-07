@@ -157,7 +157,7 @@ class _NoNetworkOpenAI:
 
     Several modules build their own ``OpenAI`` client straight from the
     ``openai`` package (NOT via ``app.core.llm_messages``, which LLM-mocking
-    tests patch): ``app.chat.llm_cache`` (query embeddings),
+    tests patch): ``app.core.embeddings`` (query + ingest embeddings),
     ``app.chat.hint_extractor`` (age/location hints), ``app.core.extraction`` (tagging), and ``app.core.llm_messages`` (tier-3
     completions). Any test that drives those
     paths with ``OPENAI_API_KEY`` set fired REAL requests to api.openai.com —
@@ -177,14 +177,16 @@ class _NoNetworkOpenAI:
 @pytest.fixture(autouse=True)
 def _block_module_openai_network(monkeypatch: pytest.MonkeyPatch) -> None:
     import app.chat.hint_extractor as hint_extractor
-    import app.chat.llm_cache as llm_cache
+    import app.core.embeddings as embeddings
     import app.core.extraction as extraction
     import app.core.llm_messages as llm_messages
 
     # NOTE: app.v1.contrib_extraction imports OpenAI lazily inside the
     # function body, so there is no module attribute to patch; no test
     # currently drives that path with an API key set.
-    for mod in (llm_cache, hint_extractor, llm_messages, extraction):
+    # app.chat.llm_cache no longer constructs OpenAI directly — query embeddings
+    # route through app.core.embeddings (HANDOFF #3), which is the seam now.
+    for mod in (embeddings, hint_extractor, llm_messages, extraction):
         monkeypatch.setattr(mod, "OpenAI", _NoNetworkOpenAI)
 
 
