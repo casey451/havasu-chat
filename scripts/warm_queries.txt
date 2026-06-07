@@ -1,0 +1,15 @@
+# Seasonal / evergreen queries to pre-warm the Tier-3 cache (HANDOFF #5).
+# One query per line; blank lines and # comments ignored. Kept small and
+# Lake-Havasu-specific — these run in addition to the top recent Tier-3 queries
+# mined from chat_logs. Queries are normalized + deduped before warming.
+
+what is there to do in lake havasu this weekend
+best restaurants in lake havasu
+where can i rent a boat on lake havasu
+things to do at the london bridge
+family friendly activities in lake havasu
+where to watch the sunset in lake havasu
+happy hour spots near the channel
+what is the water temperature at lake havasu
+kid friendly restaurants in lake havasu
+live music in lake havasu tonight
