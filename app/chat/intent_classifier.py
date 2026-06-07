@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 from app.chat.entity_intent import detect_multi_domain_category_slugs
 from app.chat.entity_matcher import CANONICAL_EXTRAS, match_entity_with_rows
+from app.chat.intents.dicts import parse_age_band
 from app.chat.normalizer import normalize
 from app.chat.tier1_templates import INTENT_PATTERNS
 from app.core.intent import detect_out_of_scope_category
@@ -154,6 +155,22 @@ _URGENT_NOW = re.compile(
     r"right\s+now|urgent|asap|emergency|immediately|right\s+away|"
     r"right\s+this(?:\s+(?:minute|second|instant))?"
     r")\b",
+    re.IGNORECASE,
+)
+
+# 2026-06-07 (USE_INTENT_LAYER follow-up). A kids/age-band activity browse like
+# "what activities can my 8 year old do after school hours" carries an incidental
+# "hours" token ("after school hours") that the HOURS_LOOKUP regex matches. Since
+# HOURS_LOOKUP is in the intent layer's entity-factual deferral set, the turn
+# dies in the gap template instead of reaching kids_lessons. These two patterns
+# detect the browse shape so :func:`classify` can keep that incidental "hours"
+# from claiming HOURS_LOOKUP when no entity resolved.
+_KIDS_ACTIVITY_BROWSE_RE = re.compile(
+    r"\b(activities|activity|after[\s-]?school|classes|class|programs?|lessons?)\b",
+    re.IGNORECASE,
+)
+_KID_TOKEN_RE = re.compile(
+    r"\b(kid|kids|child|children|youth|toddler|toddlers|teen|teens)\b",
     re.IGNORECASE,
 )
 
@@ -331,6 +348,21 @@ def classify(query: str) -> IntentResult:
         ) and (try_business_listing_shortcut(raw) is not None or is_category_open_now_listing(raw)):
             entity = None
             entity_score = None
+
+        # A kids/age-band activity browse ("what activities can my 8 year old do
+        # after school hours") matched HOURS_LOOKUP only on the incidental "hours"
+        # in "after school hours". With no resolved entity (weak match) it is a
+        # category listing, not a single-entity hours lookup -- reclassify off the
+        # entity-factual sub_intent so the intent layer can route it to
+        # kids_lessons. Real hours asks ("is mudshark open on sundays") carry no
+        # kids/activity framing and are untouched.
+        if (
+            sub == "HOURS_LOOKUP"
+            and entity is None
+            and _KIDS_ACTIVITY_BROWSE_RE.search(nq)
+            and (parse_age_band(nq) or _KID_TOKEN_RE.search(nq))
+        ):
+            sub, sub_conf = "LIST_BY_CATEGORY", 0.75
 
     conf = _merge_confidence(mode_conf, sub_conf, entity_score)
     if mode == "ask" and sub == "OPEN_ENDED" and conf < 0.4:
