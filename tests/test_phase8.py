@@ -10,7 +10,6 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from sqlalchemy import update
 
-from app.core.extraction import _deterministic_embedding
 from app.core.session import (
     blocking_session_expired,
     clear_session_state,
@@ -108,7 +107,11 @@ class Phase8StabilizationTests(unittest.TestCase):
 
     def test_admin_card_shows_fallback_badge_when_no_real_embedding(self) -> None:
         os.environ["ADMIN_PASSWORD"] = "changeme"
-        fb = _deterministic_embedding("unique admin fallback probe xyz")
+        # Legacy 32-dim fallback vector: generate_embedding no longer
+        # produces these (HANDOFF #2 removed the deterministic fallback),
+        # but pre-existing rows can still carry one -- the badge must
+        # keep identifying them.
+        fb = [1.0 / 32.0] * 32
         self.assertEqual(len(fb), 32)
         with SessionLocal() as db:
             ev = Event.from_create(

@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 import re
-from collections import Counter
 from datetime import date, time, timedelta
 
 try:
@@ -275,13 +273,13 @@ def _title_case(value: str) -> str:
     return value.strip().title()
 
 
-def generate_embedding(text: str) -> list[float]:
-    # Provider routing lives in app.core.embeddings; ingest keeps the
-    # deterministic 32-dim fallback so a missing key / failure still yields a
-    # usable (if low-fidelity) vector for stored events. (Killing the 32-dim
-    # fallback is HANDOFF #2's job, not this abstraction.)
-    vec = embeddings.embed(text)
-    return vec if vec is not None else _deterministic_embedding(text)
+def generate_embedding(text: str) -> list[float] | None:
+    # Provider routing lives in app.core.embeddings. On failure / missing key
+    # this returns None and the row is stored WITHOUT an embedding (exact-key
+    # cache + non-semantic lookups still work) -- the old deterministic 32-dim
+    # fallback wrote junk vectors that could never participate in real
+    # similarity and was removed per HANDOFF #2.
+    return embeddings.embed(text)
 
 
 def _embedding_input(event: dict) -> str:
@@ -295,16 +293,4 @@ def _embedding_input(event: dict) -> str:
     )
 
 
-def _deterministic_embedding(text: str, dimensions: int = 32) -> list[float]:
-    tokens = re.findall(r"[a-z0-9]+", text.lower())
-    counts = Counter(tokens)
-    vector = [0.0] * dimensions
 
-    for token, count in counts.items():
-        index = hash(token) % dimensions
-        vector[index] += float(count)
-
-    magnitude = math.sqrt(sum(value * value for value in vector))
-    if magnitude == 0:
-        return vector
-    return [value / magnitude for value in vector]
