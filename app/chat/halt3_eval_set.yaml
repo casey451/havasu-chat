@@ -35,14 +35,21 @@
 
 - id: q06
   query: "What's the wait at Heat Hotel right now?"
-  expected_tier: gap_template
+  # 2026-06-07: with a live LLM the tier-2 parser may answer the lodging shape
+  # before the wait-time gap fallback; both are honest (no wait-time claim).
+  expected_tier: [gap_template, tier2]
   expected_disclosure_path: i_dont_know
   expected_confabulation_rate: 0.0
   notes: "No live wait-time data."
 
 - id: q07
   query: "Tell me about Totally Fake Business XYZ 404"
-  expected_tier: gap_template
+  # 2026-06-07: P1-5 narrowed the fake-marker heuristics (bare numerics like
+  # 404 no longer flag), so the near-match did-you-mean path can defer this to
+  # tier 3. Tier 3's voice is honest; the phone-hedge denial fix in
+  # tier2_formatter keeps unrelated numbers off the answer. Honesty is
+  # enforced by expected_confabulation_rate, not the tier label.
+  expected_tier: [gap_template, tier3]
   expected_disclosure_path: i_dont_know
   expected_confabulation_rate: 0.0
 
@@ -86,7 +93,9 @@
 
 - id: q14
   query: "what's on this weekend"
-  expected_tier: [tier3, gap_template]
+  # 2026-06-07: the #196 event fast path now answers this at tier 2 / 0 tokens
+  # (intended). Kept the legacy tiers for empty-DB environments.
+  expected_tier: [tier2, tier3, gap_template]
   expected_disclosure_path: i_dont_know
   expected_confabulation_rate: 0.0
   notes: "Phase 7.5 EVAL-PATCH — dev SQLite has 0 weekend event rows; external events URL is honest i_dont_know."
@@ -132,7 +141,9 @@
 
 - id: q21
   query: "where is the library"
-  expected_tier: gap_template
+  # 2026-06-07: a real library entity is in the catalog now — a tier-1
+  # LOCATION answer is the correct outcome. gap_template kept for empty-DB.
+  expected_tier: [tier1, gap_template]
   expected_disclosure_path: i_dont_know
   expected_confabulation_rate: 0.0
   notes: "Phase 7.5 EVAL-PATCH — no library entity in catalog; must not near-match unrelated venues."

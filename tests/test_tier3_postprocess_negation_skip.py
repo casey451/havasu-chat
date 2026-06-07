@@ -44,3 +44,29 @@ def test_without_negation_still_appends(monkeypatch: pytest.MonkeyPatch) -> None
     out = tf._enforce_low_tier_phone(voice, rows)
     assert "Their listed number is (928) 855-3333" in out
     assert "recommend calling to confirm" in out.lower()
+
+
+@pytest.mark.parametrize(
+    "voice",
+    [
+        # 2026-06-07 prod incident: the tier-3 unknown-entity voice was missing
+        # from the denial list, so an UNRELATED provider's phone was appended
+        # under a fake business name ("Totally Fake Business XYZ 404").
+        "I'm not aware of Totally Fake Business XYZ 404 in Lake Havasu. "
+        "If there is one, let me know with a URL and I'll pass it along.",
+        "I am not aware of that business in the catalog.",
+        "I don't know of a quilting guild in town.",
+        "Couldn't find that one — want to contribute it?",
+        "I can't find anything by that name.",
+        "I'm not familiar with that spot.",
+        "That one isn't in the catalog yet.",
+    ],
+)
+def test_unknown_entity_voice_skips_phone_append(
+    monkeypatch: pytest.MonkeyPatch, voice: str
+) -> None:
+    monkeypatch.setenv(_FLAG, "true")
+    rows = [_low_row(phone="(877) 818-1014")]
+    out = tf._enforce_low_tier_phone(voice, rows)
+    assert out == voice
+    assert "Their listed number is" not in out
