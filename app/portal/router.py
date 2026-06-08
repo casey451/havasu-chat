@@ -8,6 +8,7 @@ once the owner picks a processor + configures keys.
 
 from __future__ import annotations
 
+import html
 import logging
 import os
 import re
@@ -105,7 +106,10 @@ def _notify_operator_of_reservation(reservation_id: str) -> None:
                 "Queue: /admin/ad-reservations",
             ]
             text_body = "\n".join(lines)
-            html_body = "<br>".join(line or "&nbsp;" for line in lines)
+            # Escape each line — ``lines`` carries unescaped user form input
+            # (business/contact names, email, category/notes). Plaintext needs
+            # no escaping, so ``text_body`` is left as-is.
+            html_body = "<br>".join(html.escape(line) if line else "&nbsp;" for line in lines)
         operator_email = (
             os.environ.get("OPERATOR_NOTIFICATION_EMAIL") or "casey.l.solomon@gmail.com"
         )
@@ -180,6 +184,11 @@ def portal_reserve_post(
     elif not _EMAIL_RE.match(contact_email):
         errors["contact_email"] = "That email doesn't look right."
 
+    # Category sponsorship must reference a real taxonomy slug; an unknown or
+    # hand-typed value is a validation error (don't snapshot garbage).
+    if product == "category" and category not in CATEGORY_LABELS:
+        errors["category"] = "Pick a category from the list."
+
     if errors:
         return templates.TemplateResponse(
             request=request,
@@ -201,8 +210,9 @@ def portal_reserve_post(
         )
 
     # For category sponsorship, snapshot the chosen category label; else notes.
+    # ``category`` is a validated CATEGORY_LABELS key by this point.
     if product == "category":
-        category_or_notes = CATEGORY_LABELS.get(category, category).strip() or None
+        category_or_notes = CATEGORY_LABELS[category]
     else:
         category_or_notes = notes.strip() or None
 

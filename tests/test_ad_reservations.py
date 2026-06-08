@@ -8,7 +8,6 @@ revision and assert its down_revision (tests/test_phase9_events_schema.py).
 
 from __future__ import annotations
 
-import os
 import uuid
 from pathlib import Path
 
@@ -25,8 +24,8 @@ from app.db.models import AdReservation, AdReservationStatus
 from app.main import app
 
 
-def _login_admin(client: TestClient) -> None:
-    os.environ["ADMIN_PASSWORD"] = "changeme"
+def _login_admin(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ADMIN_PASSWORD", "changeme")
     client.cookies.set(COOKIE_NAME, sign_admin_cookie())
 
 
@@ -154,7 +153,9 @@ def test_reserve_post_missing_email_rerenders_and_creates_no_row() -> None:
 # ── admin queue + status FSM ────────────────────────────────────────────────────
 
 
-def test_admin_queue_lists_and_status_advances_pending_to_contacted() -> None:
+def test_admin_queue_lists_and_status_advances_pending_to_contacted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     biz = f"Admin Biz {uuid.uuid4().hex[:8]}"
     res_id = str(uuid.uuid4())
     try:
@@ -173,7 +174,7 @@ def test_admin_queue_lists_and_status_advances_pending_to_contacted() -> None:
             db.commit()
 
         client = TestClient(app)
-        _login_admin(client)
+        _login_admin(client, monkeypatch)
         listing = client.get("/admin/ad-reservations")
         assert listing.status_code == 200
         assert biz in listing.text
