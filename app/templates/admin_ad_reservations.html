@@ -1,0 +1,62 @@
+{% extends "desert_base.html" %}
+{% block title %}Ad reservations — Admin{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_portal.css">{% endblock %}
+{% block content %}
+<div class="d-admin">
+  <h1>Ad-placement reservations</h1>
+  <p class="note">Leads from the &ldquo;Reserve this spot&rdquo; flow on /portal/advertise.
+    No payment is taken — close each by invoice. Advance status as you work the lead.</p>
+
+  {% macro restable(rows, empty) %}
+  {% if not rows %}
+  <p class="empty">{{ empty }}</p>
+  {% else %}
+  <table class="d-table">
+    <thead>
+      <tr>
+        <th>Business</th>
+        <th>Product</th>
+        <th>Contact</th>
+        <th>Category / notes</th>
+        <th>Status</th>
+        <th>Submitted</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ r.business_name }}</td>
+        <td>{{ r.product_name }} <span class="note">({{ r.product_key }})</span></td>
+        <td>{{ r.contact_name }}<br>{{ r.contact_email }}{% if r.contact_phone %}<br>{{ r.contact_phone }}{% endif %}</td>
+        <td>{{ r.category_or_notes or '—' }}</td>
+        <td>{{ r.status }}</td>
+        <td>{{ r.created_at }}</td>
+        <td>
+          {% if r.next %}
+          {% for nxt in r.next %}
+          <form class="inline" method="post" action="/admin/ad-reservations/{{ r.id }}/status">
+            <input type="hidden" name="status" value="{{ nxt }}">
+            <button type="submit">Mark {{ nxt }}</button>
+          </form>
+          {% endfor %}
+          {% else %}
+          —
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% endmacro %}
+
+  <h2>Pending</h2>
+  {{ restable(pending, "No pending reservations.") }}
+
+  <h2>All other reservations</h2>
+  {{ restable(others, "Nothing yet.") }}
+
+  <p class="backrow"><a href="/admin">&larr; Admin home</a> · <a href="/admin/upgrade-requests">Upgrade requests &rarr;</a> · <a href="/admin/sponsors">Sponsor inventory &rarr;</a></p>
+</div>
+{% endblock %}

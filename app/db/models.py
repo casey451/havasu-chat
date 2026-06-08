@@ -1837,6 +1837,72 @@ class UpgradeRequest(Base):
     entity: Mapped["Entity"] = relationship("Entity", foreign_keys=[entity_id])
 
 
+class AdReservationStatus(str, Enum):
+    """Lifecycle of a prospect's manual-invoice ad-placement reservation.
+
+    ``pending`` — the prospect submitted the /portal/reserve form; awaiting
+    operator follow-up.
+    ``contacted`` — the operator has reached out to confirm + invoice.
+    ``closed`` — the deal closed (invoice sent/paid offline).
+    ``declined`` — the prospect or operator dropped the reservation.
+
+    NO payment/billing state lives here. The reservation is a captured lead;
+    Casey closes by invoice offline (see PR FLAG — no payment processing).
+    """
+
+    PENDING = "pending"
+    CONTACTED = "contacted"
+    CLOSED = "closed"
+    DECLINED = "declined"
+
+
+class AdReservation(Base):
+    """A prospect's "reserve this spot" request from /portal/advertise.
+
+    The keystone of the manual-invoice monetization flow: a prospect clicks
+    "Reserve this spot" on an ad product, fills a short form, and a server-side
+    reservation lands here while the operator is notified. NO payment is taken
+    — Casey closes the deal by invoice offline. The product name/price snapshot
+    is captured at reserve time so the queue reads correctly even if the catalog
+    later changes.
+
+    ``product_key`` is the catalog key (e.g. ``"category"``/``"founding"``).
+    ``category_or_notes`` carries the chosen category for category sponsorships,
+    or freeform notes for everything else.
+    """
+
+    __tablename__ = "ad_reservations"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'contacted', 'closed', 'declined')",
+            name="ck_ad_reservations_status",
+        ),
+        Index("ix_ad_reservations_status", "status"),
+        Index("ix_ad_reservations_created_at", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    product_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    product_name: Mapped[str] = mapped_column(String, nullable=False)
+    business_name: Mapped[str] = mapped_column(String, nullable=False)
+    contact_name: Mapped[str] = mapped_column(String, nullable=False)
+    contact_email: Mapped[str] = mapped_column(String, nullable=False)
+    contact_phone: Mapped[str | None] = mapped_column(String, nullable=True)
+    category_or_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+        default=AdReservationStatus.PENDING.value,
+        server_default="pending",
+    )
+    source: Mapped[str] = mapped_column(
+        String(64), nullable=False, default="advertise_page", server_default="advertise_page"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
 class ScrapeCapture(Base):
     """Image inbox for OpenClaw Facebook-post screenshots (the capture bridge).
 
