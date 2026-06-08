@@ -1,44 +1,32 @@
-<!doctype html>
-<html lang="en">
-<head>
-  {% include '_partials/plausible.html' %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Map &mdash; Ask Hava</title>
-  <meta name="description" content="Explore Lake Havasu businesses and places on a full-screen map.">
-  {# SEO P1.9: standalone template — canonical + full og set (guarded like the
-     base layouts for bare-Environment unit renders). #}
-  {% if canonical_url is defined %}
-  <link rel="canonical" href="{{ canonical_url(request) }}">
-  <meta property="og:url" content="{{ canonical_url(request) }}">
-  <meta property="og:site_name" content="Ask Hava">
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="Map — Ask Hava">
-  <meta property="og:description" content="Explore Lake Havasu businesses and places on a full-screen map.">
-  <meta property="og:image" content="{{ absolute_url('/static/img/home-hero.jpg') }}">
-  {% endif %}
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+{% extends "desert_base.html" %}
+{# /map — full-page Leaflet map. Desert Modern reskin of the CHROME ONLY:
+   all map JS wiring is untouched (body [data-map-scope] +
+   data-map-default-expanded read by map.js, the hidden [data-map-toggle]
+   binder button, #map-container, Leaflet + markercluster CDN assets,
+   boat_mode.js). map_view.css keeps the load-bearing full-viewport layout;
+   desert_directory.css reskins the scope bar + topbar. #}
+{% block title %}Map &mdash; Ask Hava{% endblock %}
+{% block meta_description %}Explore Lake Havasu businesses and places on a full-screen map.{% endblock %}
+{% block og_title %}Map — Ask Hava{% endblock %}
+{% block head_extra %}
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/styles/lake_light.css">
   <link rel="stylesheet" href="/static/styles/components/map_view.css">
-</head>
-<body class="ll-page map-page" data-map-scope="{{ default_scope }}" data-map-default-expanded="true">
-<a class="ll-skip-link" href="#main">Skip to content</a>
-{% include "_partials/lake_light_desktop_topbar.html" %}
+  <link rel="stylesheet" href="/static/styles/desert_directory.css">
+{% endblock %}
+{% block body_attrs %} class="map-page" data-map-scope="{{ default_scope }}" data-map-default-expanded="true"{% endblock %}
 
-<main id="main" class="map-page-main" role="main">
+{% block content %}
+<div class="map-page-main">
   <header class="map-page-topbar">
     <div class="map-page-heading">
-      <a href="/home" class="ll-wordmark ll-wordmark-dark">Ask <em>Hava</em></a>
+      <h1 class="map-title">The <em>map.</em></h1>
       <span class="map-page-dateline">Lake Havasu City · {{ today_label }}</span>
     </div>
     <nav class="map-scope-bar" aria-label="Map scope selector">
       <div class="map-scope-group" role="group" aria-label="Themed groups">
-        <span class="map-scope-label" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;opacity:.65;align-self:center;margin-right:4px">Collections</span>
+        <span class="map-scope-label">Collections</span>
         {% for scope in group_scopes %}
         <a
           class="map-scope-tab{% if scope.slug == default_scope %} is-active{% endif %}"
@@ -50,7 +38,7 @@
         {% endfor %}
       </div>
       <div class="map-scope-group map-scope-group--categories" role="group" aria-label="Categories">
-        <span class="map-scope-label" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;opacity:.65;align-self:center;margin-right:4px">Categories</span>
+        <span class="map-scope-label">Categories</span>
         {% for scope in category_scopes %}
         <a
           class="map-scope-tab map-scope-tab--category{% if scope.slug == default_scope %} is-active{% endif %}"
@@ -68,8 +56,10 @@
        The toggle stays offscreen here — the map is always expanded full-page. -->
   <button type="button" class="map-page-toggle-hidden" data-map-toggle aria-expanded="true" hidden>Toggle map</button>
   <div id="map-container" class="map-page-container" role="region" aria-label="Map of Lake Havasu listings"></div>
-</main>
+</div>
+{% endblock %}
 
+{% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin="anonymous" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js" crossorigin="anonymous" defer></script>
 <script src="/static/js/boat_mode.js" defer></script>
@@ -84,6 +74,4 @@
     }, 120);
   });
 </script>
-{% include "_partials/lake_light_bottom_nav.html" %}
-</body>
-</html>
+{% endblock %}

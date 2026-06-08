@@ -40,7 +40,7 @@ from app.events.dedup import dedup_cross_source_event_rows
 from app.events.time_labels import TIME_TBD_LABEL, is_time_tbd, time_sort_key
 from app.groups.themed_groups import group_label
 from app.home import collections as curated_collections
-from app.home import sandstone, sponsor_store
+from app.home import events_views, sandstone, sponsor_store
 from app.home.queries import CATEGORY_LABELS
 from app.v1.categories import BUCKET_SLUG_REDIRECTS, MASTER_BUCKETS
 
@@ -752,7 +752,11 @@ def _group_series_by_venue(ongoing: list[dict]) -> list[dict]:
 
 
 def _event_list_windows(now: datetime) -> dict[str, tuple[datetime, datetime]]:
-    """Honest, contiguous, gap-free buckets for the events list (E-1).
+    """Honest, contiguous, gap-free buckets for event windows (E-1).
+
+    The /events-ui page now renders Today/Week/Month views (see
+    ``serve_events_ui``); these windows remain the canonical bucket contract
+    for window-feed consumers and their regression tests.
 
     Anchored to real calendar-week boundaries in Lake Havasu local time:
 
@@ -780,17 +784,6 @@ def _event_list_windows(now: datetime) -> dict[str, tuple[datetime, datetime]]:
     }
 
 
-# ``?when=`` chips on /events-ui. Each maps to the subset of buckets to show.
-# ``all`` (and any unknown value) shows every bucket. ``today``/``this-week``/
-# ``next-week`` narrow to a single bucket; ``weekend`` reuses the strict Sat-Sun
-# window from ``event_window_for_chip`` so the chip agrees with the category page.
-_EVENTS_WHEN_CHIPS: tuple[tuple[str, str], ...] = (
-    ("all", "All"),
-    ("today", "Today"),
-    ("weekend", "This Weekend"),
-    ("this-week", "This Week"),
-    ("next-week", "Next Week"),
-)
 _WINDOW_CAP = 16
 
 
@@ -803,107 +796,98 @@ def _parse_iso_date(value: str | None) -> dt_date | None:
         return None
 
 
+_EVENT_VIEWS: tuple[tuple[str, str], ...] = (
+    ("today", "Today"),
+    ("week", "Week"),
+    ("month", "Month"),
+)
+
+
+def _long_day_label(d: dt_date) -> str:
+    return d.strftime("%A, %B ") + str(d.day)
+
+
 @router.get("/events-ui", response_class=HTMLResponse)
 def serve_events_ui(
     request: Request,
     db: Session = Depends(get_db),
     when: str | None = None,
     date: str | None = None,
+    view: str | None = None,
+    cal: str | None = None,
 ) -> HTMLResponse:
-    """Render the Sandstone events list (Today / This Weekend / This Week / Next Week).
+    """Render the Sandstone events page — three zoom levels of one concept.
 
-    ``?when=`` narrows to a single bucket (``today``/``weekend``/``this-week``/
-    ``next-week``); ``?date=YYYY-MM-DD`` (the home-calendar day links) shows a
-    single-day window. Each rendered bucket carries an honest total so the
-    section header reads "N coming up . showing M . See all ->".
+    * default — TODAY: a category accordion (Events / Music & nightlife / On
+      the water / Fitness & classes) for the current lake-local date.
+    * ``?view=week`` — 7 rows from today: top one-off headline + an honest
+      per-group rollup; each row links to its day.
+    * ``?view=month`` — a compact date-picker grid (one-off counts + a class
+      badge; ``?cal=YYYY-MM`` pages it, same param as /home).
+    * ``?date=YYYY-MM-DD`` (the home-calendar day links) — the same accordion
+      for that date, with prev/next-day and back-to-today links.
+    * ``?when=`` is legacy (the old bucket chips) and still answers: ``today``
+      maps to the Today view; ``weekend``/``this-week``/``next-week``/``all``
+      map to the Week view, which tiles every upcoming day gap-free.
     """
     now = now_lake_havasu()
-    when_key = (when or "all").strip().lower()
+    today = now.date()
     single_day = _parse_iso_date(date)
 
-    windows = _event_list_windows(now)
+    view_key = (view or "").strip().lower()
+    if view_key not in {key for key, _label in _EVENT_VIEWS}:
+        when_key = (when or "").strip().lower()
+        view_key = "today" if when_key in ("", "today") else "week"
+
+    context: dict[str, Any] = {
+        "active_tab": "events",
+        "primary_nav": sandstone.primary_nav(),
+        "mega_columns": sandstone.mega_columns(db),
+        "utility_chips": _utility_chips(db),
+        "view_links": [
+            {
+                "key": key,
+                "label": label,
+                "url": "/events-ui" if key == "today" else f"/events-ui?view={key}",
+                "active": single_day is None and key == view_key,
+            }
+            for key, label in _EVENT_VIEWS
+        ],
+    }
+
     if single_day is not None:
-        day_dt = datetime.combine(single_day, time(12, 0))
-        window_defs = [("date", single_day.strftime("%A, %B ") + str(single_day.day), (day_dt, day_dt))]
-    elif when_key == "weekend":
-        from app.events.queries import event_window_for_chip as _chip
-
-        w_start, w_end = _chip("weekend", today=now.date())
-        window_defs = [
-            (
-                "weekend",
-                "This Weekend",
-                (datetime.combine(w_start, time(12, 0)), datetime.combine(w_end, time(12, 0))),
-            )
-        ]
-    else:
-        ordered = [
-            ("today", "Today", windows["today"]),
-            ("weekend", "This Weekend", windows["weekend"]),
-            ("this_week", "This Week", windows["this_week"]),
-            ("next_week", "Next Week", windows["next_week"]),
-        ]
-        key_map = {"today": "today", "this-week": "this_week", "next-week": "next_week"}
-        if when_key in key_map:
-            window_defs = [d for d in ordered if d[0] == key_map[when_key]]
-        else:
-            # All-buckets view: late in the week some spans collapse (start >
-            # end — no weekdays left before Saturday, or the weekend is over).
-            # Skip those rather than render an empty mislabeled section; a
-            # narrowed chip view above keeps its bucket so the page still shows
-            # the honest "nothing posted" empty state.
-            window_defs = [d for d in ordered if d[2][0].date() <= d[2][1].date()]
-
-    raw_groups: dict[str, list[dict[str, str]]] = {}
-    totals: dict[str, int] = {}
-    labels: dict[str, str] = {}
-    for gkey, label, (start_day, end_day) in window_defs:
-        rows, total = _events_for_window_with_total(
-            db, start_day=start_day, end_day=end_day, limit=_WINDOW_CAP
+        context.update(
+            {
+                "mode": "day",
+                "groups": events_views.day_groups(db, day=single_day),
+                "day_label": _long_day_label(single_day),
+                "prev_iso": (single_day - timedelta(days=1)).isoformat(),
+                "next_iso": (single_day + timedelta(days=1)).isoformat(),
+                "is_today": single_day == today,
+            }
         )
-        raw_groups[gkey] = rows
-        totals[gkey] = total
-        labels[gkey] = label
-
-    oneoff_groups, ongoing_classes = _split_oneoff_and_ongoing(raw_groups)
-    ongoing_by_venue = _group_series_by_venue(ongoing_classes)
-    # Sections preserve the requested order; each carries shown/total for the
-    # honest header line. Recurring rows are pulled into ``ongoing_classes``, so
-    # the per-section "showing M" counts the visible one-offs.
-    sections = [
-        {
-            "key": gkey,
-            "label": labels[gkey],
-            "cards": oneoff_groups.get(gkey, []),
-            "shown": len(oneoff_groups.get(gkey, [])),
-            "total": totals[gkey],
-            "capped": totals[gkey] > _WINDOW_CAP,
-        }
-        for gkey, _label, _w in window_defs
-    ]
-    events_total = sum(s["total"] for s in sections)
-    chips = [
-        {"key": key, "label": label, "active": (key == when_key and single_day is None)}
-        for key, label in _EVENTS_WHEN_CHIPS
-    ]
+    elif view_key == "week":
+        context.update({"mode": "week", "week_rows": events_views.week_rows(db, start=today)})
+    elif view_key == "month":
+        cal_year, cal_month = sandstone.parse_cal_param(cal, default=now)
+        context.update(
+            {
+                "mode": "month",
+                "calendar": sandstone.calendar_month(
+                    db, year=cal_year, month=cal_month, today=today
+                ),
+            }
+        )
+    else:
+        context.update(
+            {
+                "mode": "today",
+                "groups": events_views.day_groups(db, day=today),
+                "day_label": _long_day_label(today),
+            }
+        )
     return templates.TemplateResponse(
-        request=request,
-        name="events_sandstone.html",
-        context={
-            "event_sections": sections,
-            "ongoing_classes": ongoing_by_venue,
-            "events_total": events_total,
-            "when_chips": chips,
-            "active_when": when_key,
-            "selected_date_label": single_day.strftime("%A, %B ") + str(single_day.day)
-            if single_day
-            else None,
-            "month_label": now.strftime("%B %Y"),
-            "active_tab": "events",
-            "primary_nav": sandstone.primary_nav(),
-            "mega_columns": sandstone.mega_columns(db),
-            "utility_chips": _utility_chips(db),
-        },
+        request=request, name="events_sandstone.html", context=context
     )
 
 

@@ -1,42 +1,32 @@
-<!doctype html>
-<html lang="en">
-<head>
-  {% include '_partials/plausible.html' %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>{{ collection.title }} — Ask Hava</title>
-  <meta name="description" content="{{ collection.blurb | meta_desc(160) }}">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles/lake_light.css">
-  <link rel="stylesheet" href="/static/styles/category_landing.css">
-</head>
-<body class="ll-page collection-page group-accent-{{ collection.accent }}">
+{% extends "desert_base.html" %}
+{# Curated editorial collection (e.g. "Dog-friendly patios") — Desert Modern
+   reskin. Card class names (collection-card / -media / -body / -name / -where /
+   -blurb / -meta) are kept and restyled in desert_directory.css; de-linked
+   stale places still render as non-link cards. #}
+{% set active_tab = "explore" %}
+{% block title %}{{ collection.title }} — Ask Hava{% endblock %}
+{% block meta_description %}{{ collection.blurb | meta_desc(160) }}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_directory.css">{% endblock %}
 
-<div class="page category-page">
+{% block content %}
+<div class="page category-page collection-page group-accent-{{ collection.accent }}">
 
-  <header class="topbar">
-    <a class="wordmark" href="/home">
-      <span class="mark"></span>
-      <span>Hava</span>
-    </a>
-    <div class="topbar-meta">
-      <span class="dateline">Lake Havasu City · {{ today_label }}</span>
-      <span class="sep"></span>
-      <a href="/contribute">Add to catalog</a>
+  {# ── Orange collection head ── #}
+  <section class="cat-head">
+    <div class="cathead wrap">
+      <div class="cat-head-main">
+        <div class="crumb"><a href="/home">Home</a> › <a href="/categories">Explore</a> › Collection</div>
+        <h1 id="collection-heading">{{ collection.title }}</h1>
+        {% if collection.blurb %}
+        <p class="sub">{{ collection.blurb }}</p>
+        {% endif %}
+        <p class="cat-head-meta">Lake Havasu City · {{ today_label }} · <a href="/contribute">Add to catalog</a></p>
+      </div>
     </div>
-  </header>
-
-  <section class="category-subhero" aria-labelledby="collection-heading">
-    <p class="collection-eyebrow">Collection</p>
-    <h1 id="collection-heading" class="category-title">{{ collection.title }}</h1>
-    {% if collection.blurb %}
-    <p class="category-lede">{{ collection.blurb }}</p>
-    {% endif %}
+    <div class="ridge" aria-hidden="true"></div>
   </section>
 
-  <section class="category-stream collection-stream" aria-label="{{ collection.title }} picks">
+  <section class="collection-stream" aria-label="{{ collection.title }} picks">
     {% for place in collection.places %}
     {% if place.slug %}
     <a class="collection-card" href="/provider/{{ place.slug }}">
@@ -65,8 +55,4 @@
   </footer>
 
 </div>
-
-{% set active_tab = "explore" %}
-{% include "_partials/lake_light_bottom_nav.html" %}
-</body>
-</html>
+{% endblock %}

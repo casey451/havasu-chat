@@ -1,30 +1,27 @@
-{% extends "lake_light_base.html" %}
-{% block active_tab %}saved{% endblock %}
+{% extends "desert_base.html" %}
+{% set active_tab = "saved" %}
 {% block title %}Alerts -- Ask Hava{% endblock %}
-{% block utility_header %}
-  {% set header_back_href = "/account" %}
-  {% set header_back_label = "Account" %}
-  {% include "_partials/lake_light_header.html" %}
-{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_account.css">{% endblock %}
 {% block content %}
-  <section class="ll-utility-main">
-    <p class="ll-eyebrow">Alert settings</p>
-    <h1>Conditions alerts</h1>
-    <p class="ll-muted">We will email <strong>{{ user.email }}</strong> when local conditions matter.</p>
+  <section class="d-util">
+    <div class="d-crumb"><a href="/account">My account</a> &nbsp;/&nbsp; Alerts</div>
+    <span class="d-eyebrow">Alert settings</span>
+    <h1>Conditions <em>alerts.</em></h1>
+    <p class="d-muted">We will email <strong>{{ user.email }}</strong> when local conditions matter.</p>
     {% if saved %}
-    <p class="ll-banner ll-spaced">Preferences saved.</p>
+    <p class="d-banner">Preferences saved.</p>
     {% endif %}
-    <form class="ll-form-stack" action="/account/alerts" method="post">
-      <label><input type="checkbox" name="heat_advisory" value="1" {% if 'heat_advisory' in active_types %}checked{% endif %}> Heat advisory</label>
-      <span class="ll-muted">NWS heat products or forecasts above threshold.</span>
-      <label><input type="checkbox" name="aqi_alert" value="1" {% if 'aqi_alert' in active_types %}checked{% endif %}> Air quality</label>
-      <span class="ll-muted">When AQI reaches unhealthy levels.</span>
-      <label><input type="checkbox" name="lake_hazard" value="1" {% if 'lake_hazard' in active_types %}checked{% endif %}> Lake hazard</label>
-      <span class="ll-muted">Flood, wind, dust, or abrupt gauge-change alerts.</span>
-      <label><input type="checkbox" disabled> Event traffic (coming soon)</label>
-      <label class="ll-label" for="snooze_until">Snooze all until (optional)</label>
-      <input id="snooze_until" class="ll-input" type="datetime-local" name="snooze_until">
-      <button class="ll-button" type="submit">Save changes</button>
+    <form class="d-form" action="/account/alerts" method="post">
+      <label class="d-check"><input type="checkbox" name="heat_advisory" value="1" {% if 'heat_advisory' in active_types %}checked{% endif %}> Heat advisory</label>
+      <span class="d-check-hint">NWS heat products or forecasts above threshold.</span>
+      <label class="d-check"><input type="checkbox" name="aqi_alert" value="1" {% if 'aqi_alert' in active_types %}checked{% endif %}> Air quality</label>
+      <span class="d-check-hint">When AQI reaches unhealthy levels.</span>
+      <label class="d-check"><input type="checkbox" name="lake_hazard" value="1" {% if 'lake_hazard' in active_types %}checked{% endif %}> Lake hazard</label>
+      <span class="d-check-hint">Flood, wind, dust, or abrupt gauge-change alerts.</span>
+      <label class="d-check"><input type="checkbox" disabled> Event traffic (coming soon)</label>
+      <label class="d-label" for="snooze_until">Snooze all until (optional)</label>
+      <input id="snooze_until" class="d-input" type="datetime-local" name="snooze_until">
+      <button class="d-btn d-btn--solid" type="submit">Save changes</button>
     </form>
   </section>
 {% endblock %}

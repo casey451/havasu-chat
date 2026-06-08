@@ -1,19 +1,14 @@
-{% extends "lake_light_base.html" %}
-{% block active_tab %}{% endblock %}
+{% extends "desert_base.html" %}
 {% block title %}Link expired -- Ask Hava{% endblock %}
-{% block utility_header %}
-  {% set header_back_href = "/login" %}
-  {% set header_back_label = "Try Again" %}
-  {% include "_partials/lake_light_header.html" %}
-{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_account.css">{% endblock %}
 {% block content %}
-  <section class="ll-utility-main">
-    <p class="ll-eyebrow">Link no longer valid</p>
-    <h1>Sign-in link expired</h1>
-    <p class="ll-muted">For security, each magic link can be used once and only for a short time window.</p>
-    <div class="ll-links-row ll-spaced">
-      <a class="ll-button" href="/login">Send me a new link</a>
-      <a class="ll-button ll-button-quiet" href="/home">Back to home</a>
+  <section class="d-util">
+    <span class="d-eyebrow">Link no longer valid</span>
+    <h1>Sign-in link <em>expired.</em></h1>
+    <p class="d-muted">For security, each magic link can be used once and only for a short time window.</p>
+    <div class="d-links-row">
+      <a class="d-btn d-btn--solid" href="/login">Send me a new link</a>
+      <a class="d-btn" href="/home">Back to home</a>
     </div>
   </section>
 {% endblock %}

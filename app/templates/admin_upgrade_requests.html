@@ -1,29 +1,14 @@
-<!doctype html>
-<html lang="en">
-<head>
-  {% include '_partials/plausible.html' %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Upgrade requests — Admin</title>
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 1.5rem; background: #fafafa; color: #1a1a1a; }
-    h1 { font-size: 1.25rem; }
-    table { border-collapse: collapse; width: 100%; max-width: 1000px; background: #fff; }
-    th, td { border: 1px solid #ddd; padding: 0.5rem 0.65rem; text-align: left; vertical-align: top; font-size: 0.88rem; }
-    th { background: #f0f0f0; }
-    form.inline { display: inline-block; margin: 0.15rem 0.35rem 0 0; }
-    button { cursor: pointer; padding: 0.25rem 0.5rem; }
-    textarea { width: 100%; min-height: 2.2rem; margin: 0.2rem 0; }
-    label { font-size: 0.8rem; }
-  </style>
-</head>
-<body>
+{% extends "desert_base.html" %}
+{% block title %}Upgrade requests — Admin{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_portal.css">{% endblock %}
+{% block content %}
+<div class="d-admin">
   <h1>Featured-listing upgrade requests</h1>
-  <p style="font-size:0.85rem;color:#555;">Approving can spin out a DRAFT sponsor row (you then set copy/window and approve it in inventory). No billing here — pricing is set offline.</p>
+  <p class="note">Approving can spin out a DRAFT sponsor row (you then set copy/window and approve it in inventory). No billing here — pricing is set offline.</p>
   {% if not requests %}
-  <p>No pending upgrade requests.</p>
+  <p class="empty">No pending upgrade requests.</p>
   {% else %}
-  <table>
+  <table class="d-table">
     <thead>
       <tr>
         <th>Owner</th>
@@ -58,6 +43,6 @@
     </tbody>
   </table>
   {% endif %}
-  <p style="margin-top:1.5rem;"><a href="/admin">← Admin home</a> · <a href="/admin/sponsors">Sponsor inventory →</a></p>
-</body>
-</html>
+  <p class="backrow"><a href="/admin">&larr; Admin home</a> · <a href="/admin/sponsors">Sponsor inventory &rarr;</a></p>
+</div>
+{% endblock %}

@@ -1,79 +1,123 @@
-{% extends "sandstone_base.html" %}
+{% extends "desert_base.html" %}
 {% block title %}Events around the lake — Ask Hava{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/sandstone_events.css">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_events.css">{% endblock %}
 
 {% block content %}
-  <div class="cathead wrap">
-    <div class="crumb"><a href="/home">Home</a> › Events</div>
-    <h1>Events around the lake</h1>
-    {% if selected_date_label %}
-    <p>Showing events for <strong>{{ selected_date_label }}</strong>. <a href="/events-ui" style="color:var(--accent);font-weight:600">Back to all events →</a></p>
-    {% else %}
-    <p>{% if events_total %}{{ events_total }} coming up. {% endif %}What's on today, this weekend, and the weeks ahead. <a href="/home#calendar" style="color:var(--accent);font-weight:600">See the month calendar →</a></p>
-    {% endif %}
-  </div>
-
-  {% if when_chips and not selected_date_label %}
-  <div class="wrap">
-    <div class="ev-when-chips" role="navigation" aria-label="Filter events by when">
-      {% for chip in when_chips %}
-      <a class="ev-when-chip{% if chip.active %} on{% endif %}" href="/events-ui{% if chip.key != 'all' %}?when={{ chip.key }}{% endif %}"{% if chip.active %} aria-current="true"{% endif %}>{{ chip.label }}</a>
-      {% endfor %}
+  {# ---- Page head: sand block + display h1 + honest per-mode copy ---- #}
+  <section class="p-head">
+    <div class="head-art" aria-hidden="true">
+      <div class="sun"></div>
+      <div class="ridge"></div>
     </div>
-  </div>
-  {% endif %}
-
-  <div class="wrap">
-    {% for sec in event_sections %}
-    <section class="block" aria-label="{{ sec.label }}">
-      <div class="sec-head">
-        <h2>{{ sec.label }}</h2>
-        <span class="meta">
-          {{ sec.total }} total{% if sec.shown < sec.total %} · showing {{ sec.shown }}{% endif %}{% if sec.capped %} · <a href="/categories/events" style="color:var(--accent);font-weight:600">See all →</a>{% endif %}
-        </span>
+    <div class="d-wrap p-head-in">
+      <div class="ev-shell">
+        <div class="d-crumb"><a href="/home">Home</a> › Events</div>
+        <h1>Events around the lake</h1>
+        {% if mode == 'day' %}
+        <p class="p-sub">Showing events for <strong>{{ day_label }}</strong>.</p>
+        {% elif mode == 'today' %}
+        <p class="p-sub">What's on today, {{ day_label }}. <a class="ev-link" href="/events-ui?view=month">See the month view →</a></p>
+        {% elif mode == 'week' %}
+        <p class="p-sub">The next seven days at a glance — open a day for its full lineup.</p>
+        {% else %}
+        <p class="p-sub">Pick a date to see everything happening that day. <a class="ev-link" href="/events-ui?view=week">Back to the week →</a></p>
+        {% endif %}
+        <nav class="ev-views" aria-label="Events view">
+          {% for v in view_links %}
+          <a{% if v.active %} class="on" aria-current="true"{% endif %} href="{{ v.url }}">{{ v.label }}</a>
+          {% endfor %}
+        </nav>
       </div>
-      {% if sec.cards %}
-      <div class="ev-list">
-        {% for ev in sec.cards %}
-        <a class="ev-card{% if ev.featured %} is-featured{% endif %}" href="{{ ev.url }}">
-          <div class="ev-date" style="--ev-accent: {{ ev.accent_color | default('#B5472B') }}">
-            <span class="m">{{ ev.month_label }}</span><span class="d">{{ ev.date_label }}</span>
-          </div>
-          <div class="ev-body">
-            {% if ev.featured %}<span class="ev-flag flag-featured">Featured</span>{% endif %}
-            <span class="ev-flag flag-cat">{{ ev.category_label }}</span>
-            <div class="ev-time">{{ ev.time_label }}</div>
-            <h3 class="clamp2">{{ ev.title }}</h3>
-            {% if ev.venue %}<div class="ev-venue clamp1">{{ ev.venue }}</div>{% endif %}
-          </div>
-        </a>
-        {% endfor %}
-      </div>
-      {% else %}
-      <p class="ev-empty">Nothing posted for this window yet.</p>
-      {% endif %}
-    </section>
-    {% endfor %}
+    </div>
+  </section>
 
-    {% if ongoing_classes %}
-    <section class="block" aria-label="Classes and ongoing">
-      <div class="sec-head"><h2>Classes &amp; ongoing</h2><span class="meta">{{ ongoing_classes|length }} series</span></div>
-      <p style="color:var(--muted);font-size:.88rem;margin:-8px 0 14px">Recurring classes and programs, grouped by venue. Each series links to its next session.</p>
-      {% for venue in ongoing_classes %}
-      <details class="ev-series-group"{% if loop.first %} open{% endif %}>
-        <summary><span class="ev-series-venue">{{ venue.venue or 'Other venues' }}</span> <span class="ev-series-count">{{ venue.cards|length }} class{{ '' if venue.cards|length == 1 else 'es' }}</span></summary>
-        <div class="ev-series-rows">
-          {% for ev in venue.cards %}
-          <a class="ev-series-row" href="{{ ev.url }}">
-            <div class="ev-series-sched">{% if ev.schedule_label %}{{ ev.schedule_label }} · {% endif %}{{ ev.time_label }}</div>
-            <div class="ev-series-title clamp1">{{ ev.title }}</div>
-            <span class="ev-recurring">↻ Runs regularly</span>
+  <div class="d-wrap"><div class="ev-shell">
+    {% if mode == 'day' %}
+    <div class="ev-daynav">
+      <a href="/events-ui?date={{ prev_iso }}">← Previous day</a>
+      <a href="/events-ui">Back to today</a>
+      <a href="/events-ui?date={{ next_iso }}">Next day →</a>
+    </div>
+    {% endif %}
+
+    {% if mode in ('today', 'day') %}
+    <section class="block ev-acc-block" aria-label="{{ 'Today' if mode == 'today' else day_label }}">
+      {% if groups %}
+      {% for g in groups %}
+      <details class="ev-acc" data-group="{{ g.key }}"{% if g.open %} open{% endif %}>
+        <summary>
+          <span class="ev-acc-swatch ev-acc-swatch--{{ g.key }}" aria-hidden="true"></span>
+          <span class="ev-acc-name">{{ g.label }}</span>
+          <span class="ev-acc-count">{{ g.count }}</span>
+          <span class="ev-acc-chev" aria-hidden="true">▾</span>
+        </summary>
+        <div class="ev-acc-rows">
+          {% for row in g.rows %}
+          <a class="ev-acc-row" href="{{ row.url }}">
+            <span class="ev-acc-time">{{ row.time_label }}</span>
+            <span class="ev-acc-title">{{ row.title }}{% if row.recurring %} <span class="ev-acc-recur">Runs regularly ↻</span>{% endif %}</span>
+            {% if row.venue %}<span class="ev-acc-venue clamp1">{{ row.venue }}</span>{% endif %}
           </a>
           {% endfor %}
         </div>
       </details>
       {% endfor %}
+      {% else %}
+      <p class="ev-empty">Nothing posted for {{ day_label }} yet. <a class="ev-link" href="/events-ui?view=week">See what's on this week →</a></p>
+      {% endif %}
     </section>
     {% endif %}
-  </div>
+
+    {% if mode == 'week' %}
+    <section class="block" aria-label="This week">
+      <div class="ev-week">
+        {% for d in week_rows %}
+        <a class="ev-week-row{% if d.is_today %} is-today{% endif %}" href="/events-ui?date={{ d.iso }}">
+          <span class="ev-week-date"><span class="dow">{{ d.label }}</span><span class="num">{{ d.daynum }}</span></span>
+          <span class="ev-week-main">
+            {% if d.headline %}
+            <span class="ev-week-headline">{% if d.headline.time %}{{ d.headline.time }} · {% endif %}{{ d.headline.title }}</span>
+            {% elif d.total %}
+            <span class="ev-week-headline none">Classes &amp; ongoing only</span>
+            {% else %}
+            <span class="ev-week-headline none">Nothing posted yet</span>
+            {% endif %}
+            {% if d.summary %}<span class="ev-week-summary">{{ d.summary }}</span>{% endif %}
+          </span>
+          <span class="ev-week-chev" aria-hidden="true">›</span>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    {% if mode == 'month' %}
+    <section class="block" aria-label="{{ calendar.label }}">
+      <div class="ev-month">
+        <div class="ev-month-head">
+          <a class="ev-month-pager" href="/events-ui?view=month&amp;cal={{ calendar.prev }}" aria-label="Previous month">‹</a>
+          <h2>{{ calendar.label }}</h2>
+          <a class="ev-month-pager" href="/events-ui?view=month&amp;cal={{ calendar.next }}" aria-label="Next month">›</a>
+        </div>
+        <div class="ev-mg-dow" aria-hidden="true">
+          <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+        </div>
+        <div class="ev-mg">
+          {% for week in calendar.weeks %}{% for cell in week %}
+          {% if cell.in_month %}
+          <a class="ev-mg-cell{% if cell.is_today %} is-today{% endif %}" href="/events-ui?date={{ cell.iso }}" aria-label="{% if cell.count %}{{ cell.count }} event{{ '' if cell.count == 1 else 's' }}{% if cell.class_count %} and {% endif %}{% endif %}{% if cell.class_count %}{{ cell.class_count }} class{{ '' if cell.class_count == 1 else 'es' }}{% endif %}{% if not cell.count and not cell.class_count %}Nothing posted{% endif %} on day {{ cell.day }}">
+            <span class="ev-mg-day">{{ cell.day }}</span>
+            {% if cell.count %}<span class="ev-mg-ct">{{ cell.count }}</span>{% endif %}
+            {% if cell.class_count %}<span class="ev-mg-dot">{{ cell.class_count }}</span>{% endif %}
+          </a>
+          {% else %}
+          <span class="ev-mg-cell blank"></span>
+          {% endif %}
+          {% endfor %}{% endfor %}
+        </div>
+        <p class="ev-mg-legend"><span class="ev-mg-ct">N</span> one-off events · <span class="ev-mg-dot">N</span> classes — tap a date for details</p>
+      </div>
+    </section>
+    {% endif %}
+  </div></div>
 {% endblock %}

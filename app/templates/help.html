@@ -1,16 +1,11 @@
-{% extends "lake_light_base.html" %}
-{% block active_tab %}{% endblock %}
+{% extends "desert_base.html" %}
 {% block title %}Help -- Ask Hava{% endblock %}
 {% block meta_description %}Help and frequently asked questions for Ask Hava -- accounts, saved listings, conditions data, and reporting wrong info.{% endblock %}
-{% block utility_header %}
-  {% set header_back_href = "/home" %}
-  {% set header_back_label = "Back to Home" %}
-  {% include "_partials/lake_light_header.html" %}
-{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_portal.css">{% endblock %}
 {% block content %}
-  <section class="ll-utility-main">
-    <p class="ll-eyebrow">Frequently asked</p>
-    <h1>Help &amp; FAQ</h1>
+  <article class="d-doc">
+    <span class="d-eyebrow">Frequently asked</span>
+    <h1>Help &amp; <em>FAQ.</em></h1>
 
     <h2>How do I sign in?</h2>
     <p>Ask Hava uses passwordless sign-in. Enter your email on the
@@ -36,5 +31,5 @@
     <p>Open your business listing and choose Claim, or sign in and start a claim
       from your <a href="/account">account</a>. We verify ownership before
       handing over editing.</p>
-  </section>
+  </article>
 {% endblock %}

@@ -1,16 +1,14 @@
-{% extends "lake_light_base.html" %}
-{% block active_tab %}{% endblock %}
+{% extends "desert_base.html" %}
 {% block title %}Check your email -- Ask Hava{% endblock %}
-{% block utility_header %}
-  {% set header_back_href = "/login" %}
-  {% set header_back_label = "Use Different Email" %}
-  {% include "_partials/lake_light_header.html" %}
-{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_account.css">{% endblock %}
 {% block content %}
-  <section class="ll-utility-main">
-    <p class="ll-eyebrow">Sign-in email sent</p>
-    <h1>Check your inbox</h1>
-    <p class="ll-muted">If this address can receive mail from us, we sent a one-time sign-in link to <strong>{{ email }}</strong>.</p>
-    <p class="ll-muted">The link expires in 15 minutes.</p>
+  <section class="d-util">
+    <span class="d-eyebrow">Sign-in email sent</span>
+    <h1>Check your <em>inbox.</em></h1>
+    <p class="d-muted">If this address can receive mail from us, we sent a one-time sign-in link to <strong>{{ email }}</strong>.</p>
+    <p class="d-muted d-spaced">The link expires in 15 minutes.</p>
+    <div class="d-links-row">
+      <a class="d-btn" href="/login">Use a different email</a>
+    </div>
   </section>
 {% endblock %}

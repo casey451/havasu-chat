@@ -1,16 +1,11 @@
-{% extends "lake_light_base.html" %}
-{% block active_tab %}{% endblock %}
+{% extends "desert_base.html" %}
 {% block title %}About -- Ask Hava{% endblock %}
 {% block meta_description %}About Ask Hava -- an honest, local guide to Lake Havasu City. What we are, how we work, and how to reach us.{% endblock %}
-{% block utility_header %}
-  {% set header_back_href = "/home" %}
-  {% set header_back_label = "Back to Home" %}
-  {% include "_partials/lake_light_header.html" %}
-{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_portal.css">{% endblock %}
 {% block content %}
-  <section class="ll-utility-main">
-    <p class="ll-eyebrow">Who we are</p>
-    <h1>About Ask Hava</h1>
+  <article class="d-doc">
+    <span class="d-eyebrow">Who we are</span>
+    <h1>About <em>Ask Hava.</em></h1>
     <p>Ask Hava is a local guide to Lake Havasu City -- what's happening today,
       the best local spots, events, and live conditions. We are built here, for
       the people who live, work, and play on the lake.</p>
@@ -31,5 +26,5 @@
     <p>Spot something wrong, or want your business listed? Head to our
       <a href="/contact">contact page</a> or
       <a href="/contribute">add it to Hava</a>.</p>
-  </section>
+  </article>
 {% endblock %}

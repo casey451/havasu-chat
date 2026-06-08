@@ -112,16 +112,17 @@ def test_category_page_all_categories_pill_is_labelled() -> None:
 
 
 def test_events_page_sections_are_labelled_for_screen_readers() -> None:
-    """Sandstone events is a server-rendered list; each time-window group is a
-    labelled <section> so screen readers can navigate by heading region."""
+    """Sandstone events is server-rendered; the default Today view wraps its
+    accordion in a labelled <section> so screen readers can navigate by
+    region, and the page links to its own month view (the events page now
+    carries the calendar instead of pointing at /home#calendar)."""
     client = TestClient(app)
     resp = client.get("/events-ui")
     assert resp.status_code == 200
     body = resp.text
     assert 'aria-label="Today"' in body
     assert "Events around the lake" in body
-    # The month calendar lives on the home page; events links to it.
-    assert "/home#calendar" in body
+    assert "/events-ui?view=month" in body
 
 
 def test_home_calendar_pager_buttons_have_aria_label() -> None:

@@ -1,16 +1,11 @@
-{% extends "lake_light_base.html" %}
-{% block active_tab %}{% endblock %}
+{% extends "desert_base.html" %}
 {% block title %}Contact -- Ask Hava{% endblock %}
 {% block meta_description %}Contact Ask Hava -- reach our team, report wrong info, or get your Lake Havasu business listed.{% endblock %}
-{% block utility_header %}
-  {% set header_back_href = "/home" %}
-  {% set header_back_label = "Back to Home" %}
-  {% include "_partials/lake_light_header.html" %}
-{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_portal.css">{% endblock %}
 {% block content %}
-  <section class="ll-utility-main">
-    <p class="ll-eyebrow">Get in touch</p>
-    <h1>Contact us</h1>
+  <article class="d-doc">
+    <span class="d-eyebrow">Get in touch</span>
+    <h1>Contact <em>us.</em></h1>
     <p>We read everything. The fastest way to reach a human is email.</p>
 
     <h2>Email</h2>
@@ -25,5 +20,5 @@
     <p>Want your business on Ask Hava? <a href="/contribute">Add it to Hava</a>,
       or sign in to <a href="/account">your account</a> to claim an existing
       listing.</p>
-  </section>
+  </article>
 {% endblock %}

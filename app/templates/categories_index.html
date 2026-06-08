@@ -8,27 +8,28 @@
      now_label    -- "6:14 PM"
      categories   -- list of dicts: {slug, label, blurb, count, peek_images,
                      empty_blurb}
-#}
-{% extends "lake_light_base.html" %}
-{% block active_tab %}explore{% endblock %}
+
+   Desert Modern reskin: extends desert_base; the Explore bottom-nav tab is lit
+   via the active_tab contract (set here so the bare-env unit render lights it
+   too). #}
+{% extends "desert_base.html" %}
+{% set active_tab = "explore" %}
 {% block title %}All categories -- Ask Hava{% endblock %}
 {% block meta_description %}Every category Hava covers in Lake Havasu City -- restaurants, marinas, plumbers, classes, and more. Browse the full list with live counts.{% endblock %}
-{% block body %}
-<main id="main" class="ll-categories-index" role="main">
-  <header class="ll-categories-head">
-    <a href="/home" class="ll-wordmark ll-wordmark-dark ll-categories-wordmark">Ask <em>Hava</em></a>
-    <a href="/home" class="ll-pill">Back to Home</a>
-  </header>
-  <section class="ll-section" style="margin-top:10px;">
-    <p class="ll-eyebrow">{{ today_label }} &middot; {{ now_label }}</p>
-    <h1 class="ll-title">Explore <em style="font-style:italic;">Lake Havasu</em></h1>
-    <p style="margin:8px 0 0; color:var(--ll-muted);">Every category Hava covers, with live counts and a peek inside.</p>
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_directory.css">{% endblock %}
+{% block content %}
+  <section class="dx-head">
+    <div class="d-wrap">
+      <p class="d-eyebrow">{{ today_label }} &middot; {{ now_label }}</p>
+      <h1 class="d-display">Explore <em>Lake Havasu.</em></h1>
+      <p class="dx-sub">Every category Hava covers, with live counts and a peek inside.</p>
+    </div>
   </section>
-  <section class="ll-section">
-    <div class="ll-categories-grid">
+  <section class="d-wrap dx-gridwrap">
+    <div class="dx-grid">
     {% for cat in categories %}
-      <a class="ll-categories-card" href="/categories/{{ cat.slug }}">
-        <div class="ll-categories-peek" aria-hidden="true">
+      <a class="d-card dx-card" href="/categories/{{ cat.slug }}">
+        <div class="dx-peek" aria-hidden="true">
           {% if cat.peek_images %}
             {% set peek = cat.peek_images[0] %}
             <img
@@ -37,19 +38,17 @@
                  loading="lazy">
           {% endif %}
         </div>
-        <div class="ll-categories-body">
-          <h2 class="ll-categories-name">{{ cat.label }}</h2>
-          <p class="ll-categories-copy">{{ cat.blurb }}</p>
+        <div class="dx-body">
+          <h2 class="dx-name">{{ cat.label }}</h2>
+          <p class="dx-copy">{{ cat.blurb }}</p>
           {% if cat.count > 0 %}
-          <span class="ll-categories-count">{{ cat.count }} listing{% if cat.count != 1 %}s{% endif %}</span>
+          <span class="dx-count d-tag d-tag--pill">{{ cat.count }} listing{% if cat.count != 1 %}s{% endif %}</span>
           {% else %}
-          <span class="ll-categories-count">{{ cat.empty_blurb }}</span>
+          <span class="dx-count dx-count--empty">{{ cat.empty_blurb }}</span>
           {% endif %}
         </div>
       </a>
     {% endfor %}
     </div>
   </section>
-  {% include "_partials/lake_light_footer.html" %}
-</main>
 {% endblock %}
