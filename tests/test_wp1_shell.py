@@ -78,16 +78,24 @@ def test_migrated_page_has_one_h1(name: str) -> None:
 
 @pytest.mark.parametrize("name", sorted(_UTILITY_PAGES))
 def test_migrated_page_has_skip_link_and_main(name: str) -> None:
+    # Skin-agnostic during the Desert Modern migration: both shells must ship a
+    # skip-link targeting #main (lake light: .ll-skip-link, desert: .d-skip).
     html = _render(name, **_UTILITY_PAGES[name])
-    assert 'class="ll-skip-link" href="#main"' in html
+    assert (
+        'class="ll-skip-link" href="#main"' in html
+        or 'class="d-skip" href="#main"' in html
+    )
     assert 'id="main"' in html
 
 
 @pytest.mark.parametrize("name", sorted(_UTILITY_PAGES))
 def test_migrated_page_has_bottom_nav_and_topbar(name: str) -> None:
+    # Skin-agnostic: lake light (.ll-bottom-nav / .ll-desktop-topbar) or
+    # Desert Modern (.d-bottomnav / .d-header) — the chrome contract is the
+    # same: a desktop header plus the fixed six-tab mobile nav.
     html = _render(name, **_UTILITY_PAGES[name])
-    assert 'class="ll-bottom-nav"' in html
-    assert "ll-desktop-topbar" in html
+    assert 'class="ll-bottom-nav"' in html or 'class="d-bottomnav"' in html
+    assert "ll-desktop-topbar" in html or 'class="d-header"' in html
     # Six fixed tabs (DL-2).
     for label in ("Home", "Events", "Ask", "Explore", "Map", "Saved"):
         assert f">{label}<" in html or f'aria-label="{label}"' in html
@@ -104,15 +112,21 @@ def test_migrated_page_drops_legacy_fonts(name: str) -> None:
     html = _render(name, **_UTILITY_PAGES[name])
     assert "Playfair" not in html
     assert "Poppins" not in html
-    assert "Fraunces" in html and "Figtree" in html
+    # Each skin ships exactly one sanctioned font pair: lake light
+    # (Fraunces/Figtree) or Desert Modern (Bricolage Grotesque/Space Grotesk).
+    assert ("Fraunces" in html and "Figtree" in html) or (
+        "Bricolage+Grotesque" in html and "Space+Grotesk" in html
+    )
 
 
 # ---- active_tab correctness (C10 / the today=home, login/claim=saved bugs) ----
 
 
 def test_today_lights_home_tab() -> None:
+    # Desert Modern bottom nav marks the lit tab with class "on" +
+    # aria-current="page" (was class "is-active" in the lake light shell).
     html = _render("today.html", **_UTILITY_PAGES["today.html"])
-    assert '<a class="is-active" href="/home">Home</a>' in html
+    assert 'aria-current="page" href="/home"' in html
 
 
 @pytest.mark.parametrize(
@@ -128,21 +142,29 @@ def test_non_nav_pages_light_no_tab(name: str) -> None:
 
 @pytest.mark.parametrize("name", ["account.html", "account_favorites.html", "account_alerts.html"])
 def test_account_pages_light_saved_tab(name: str) -> None:
+    # Desert Modern bottom nav marks the lit tab with class "on" +
+    # aria-current="page" (was class "is-active" in the lake light shell).
     html = _render(name, **_UTILITY_PAGES[name])
-    assert '<a class="is-active" href="/account/favorites">Saved</a>' in html
+    assert 'aria-current="page" href="/account/favorites"' in html
 
 
 def test_categories_index_lights_explore_tab() -> None:
+    # Desert Modern bottom nav marks the lit tab with class "on" +
+    # aria-current="page" (was class "is-active" in the lake light shell).
     html = _render("categories_index.html", **_UTILITY_PAGES["categories_index.html"])
-    assert '<a class="is-active" href="/categories">Explore</a>' in html
+    assert 'aria-current="page" href="/categories"' in html
 
 
 # ---- shared footer: DL-19 tagline + DL-18 trust links + report mailto ----
 
 
 def test_footer_has_tagline_and_trust_links() -> None:
+    # The Desert Modern footer keeps the credo but wraps the accent phrase in a
+    # <span> ("Honest. Local. <span>Built in Lake Havasu.</span>"), so match
+    # the two halves rather than the single contiguous string.
     html = _render("about.html")
-    assert "Honest. Local. Built in Lake Havasu." in html
+    assert "Honest. Local." in html
+    assert "Built in Lake Havasu." in html
     for href in ('href="/about"', 'href="/help"', 'href="/contact"', 'href="/privacy"', 'href="/terms"'):
         assert href in html
     assert "Report wrong info" in html
@@ -153,9 +175,12 @@ def test_footer_has_tagline_and_trust_links() -> None:
 
 
 def test_desktop_topbar_search_posts_to_search() -> None:
-    # DL-6 phase 2 (WP-11): the header search now posts to the /search results
-    # page; chat is the secondary "Ask Hava instead" CTA (/chat?q=).
-    html = _render("about.html")
+    # DL-6 phase 2 (WP-11): the lake light topbar search posts to the /search
+    # results page; chat is the secondary "Ask Hava instead" CTA (/chat?q=).
+    # Rendered against the lake light base directly: /about moved to the Desert
+    # Modern shell, whose chrome intentionally has no header search (pages that
+    # need search render their own ask-bar in content — see desert handoff §6).
+    html = _render("lake_light_base.html")
     assert 'action="/search" method="get"' in html
     assert 'name="q"' in html
 
@@ -171,7 +196,8 @@ def test_static_pages_router_serves_trust_pages() -> None:
         resp = client.get(path)
         assert resp.status_code == 200, path
         assert resp.text.count("<h1") == 1
-        assert 'class="ll-skip-link"' in resp.text
+        # Skip-link survives the Desert Modern reskin (class renamed to d-skip).
+        assert 'class="ll-skip-link"' in resp.text or 'class="d-skip"' in resp.text
 
 
 # ---- CSS-level contracts ----

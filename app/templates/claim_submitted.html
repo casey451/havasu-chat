@@ -1,15 +1,14 @@
-{% extends "lake_light_base.html" %}
-{% block active_tab %}{% endblock %}
+{% extends "desert_base.html" %}
 {% block title %}Claim received -- Ask Hava{% endblock %}
-{% block utility_header %}
-  {% set header_back_href = "/account" %}
-  {% set header_back_label = "My Account" %}
-  {% include "_partials/lake_light_header.html" %}
-{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_account.css">{% endblock %}
 {% block content %}
-  <section class="ll-utility-main">
-    <p class="ll-eyebrow">Claim submitted</p>
-    <h1>Thanks -- we received it</h1>
-    <p class="ll-muted">We will review your request for <strong>{{ (entity.name | clean_name) or entity.slug }}</strong> and follow up within 48 hours.</p>
+  <section class="d-util">
+    <div class="d-crumb"><a href="/account">My account</a> &nbsp;/&nbsp; Claim</div>
+    <span class="d-eyebrow">Claim submitted</span>
+    <h1>Thanks -- <em>we received it.</em></h1>
+    <p class="d-muted">We will review your request for <strong>{{ (entity.name | clean_name) or entity.slug }}</strong> and follow up within 48 hours.</p>
+    <div class="d-links-row">
+      <a class="d-btn" href="/account">Back to my account</a>
+    </div>
   </section>
 {% endblock %}

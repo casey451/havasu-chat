@@ -1,34 +1,39 @@
-{% extends "sandstone_base.html" %}
+{% extends "desert_base.html" %}
 {% block title %}Claim your listing — Ask Hava{% endblock %}
+{% block meta_description %}Claim your Lake Havasu business listing on Ask Hava for free — unlock your enriched profile and the verified mark.{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_portal.css">{% endblock %}
 
 {% block content %}
-  <div class="cathead wrap">
-    <div class="crumb"><a href="/portal">For businesses</a> › Claim</div>
-    <h1>Claim your listing</h1>
-    <p>Claiming is free. It unlocks your enriched profile — photos, hours, menu and links — and the verified mark. Find your business below, then tap <strong>“Claim this listing”</strong> on its page.</p>
-  </div>
+  <section class="dp-hero">
+    <div class="d-wrap" style="padding:64px 0 56px">
+      <div class="d-crumb"><a href="/portal">For businesses</a> &nbsp;/&nbsp; Claim</div>
+      <h1 class="d-display">Claim <em>your listing.</em></h1>
+      <p class="sub" style="margin-top:22px;font-size:clamp(16px,1.6vw,19px);font-weight:500;max-width:52ch">Claiming is free. It unlocks your enriched profile — photos, hours,
+        menu and links — and the verified mark. Find your business below, then tap
+        <strong>&ldquo;Claim this listing&rdquo;</strong> on its page.</p>
 
-  <div class="wrap">
-    <form class="searchbox" action="/chat" method="get" role="search" aria-label="Find your business" style="margin-left:0">
-      <div class="field">
-        <span class="mag" aria-hidden="true">🔍</span>
+      <form class="dp-askbar" action="/chat" method="get" role="search" aria-label="Find your business" style="margin-top:28px">
         <input name="q" type="text" placeholder="Your business name" aria-label="Find your business">
-        <button class="go" type="submit">Find it</button>
-      </div>
-    </form>
+        <button class="d-btn d-btn--solid" type="submit">Find it
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </form>
+    </div>
+  </section>
 
-    <section class="block">
-      <div class="cat-strip">
-        <a class="catchip" href="/categories">
-          <span class="e" aria-hidden="true">🔎</span>
-          <div><div class="t">Browse the directory</div><div class="n">Find your business by category, then claim it from its page.</div></div>
-        </a>
-        <a class="catchip" href="/contribute">
-          <span class="e" aria-hidden="true">➕</span>
-          <div><div class="t">Not listed yet?</div><div class="n">Add your business to Ask Hava.</div></div>
-        </a>
-      </div>
-      <p style="color:var(--muted);font-size:.9rem;margin-top:16px">A real person reviews each claim before anything changes — that's the human gate that keeps the directory trustworthy.</p>
-    </section>
-  </div>
+  <section class="dp-doors d-wrap">
+    <div class="d-grid-2">
+      <a class="d-card d-card--shadow dp-door" href="/categories">
+        <h2>Browse the directory</h2>
+        <p>Find your business by category, then claim it from its page.</p>
+        <span class="go">Open the directory &rarr;</span>
+      </a>
+      <a class="d-card d-card--shadow dp-door" href="/contribute">
+        <h2>Not listed yet?</h2>
+        <p>Add your business to Ask Hava.</p>
+        <span class="go">Add it to Hava &rarr;</span>
+      </a>
+    </div>
+    <p class="d-muted" style="margin-top:22px;font-size:.9rem;opacity:.75">A real person reviews each claim before anything changes — that's the human gate that keeps the directory trustworthy.</p>
+  </section>
 {% endblock %}

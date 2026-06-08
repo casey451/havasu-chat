@@ -33,8 +33,8 @@ def test_mode_landing_renders_pretheme_and_real_links(path: str, mode: str, head
     # Pre-themed server-side (Night fires its dark transformation here).
     assert f'data-mode="{mode}"' in body
     assert heading in body
-    assert "/static/styles/sandstone.css" in body
-    # Active mode control is stamped.
+    assert "/static/styles/desert.css" in body  # Desert Modern reskin
+    # Active mode control is stamped (now the in-page mode switcher pills).
     assert f'href="/{mode}" data-mode="{mode}"' in body
     assert "aria-current=\"page\"" in body
     # Sub-tiles are navigation to real destinations only.

@@ -1,35 +1,37 @@
-{% extends "sandstone_base.html" %}
+{% extends "desert_base.html" %}
 {% block title %}Gas prices — Ask Hava{% endblock %}
 {% block meta_description %}Today's cheapest gas stations in Lake Havasu City, with regular, mid, premium and diesel prices updated daily. Always confirm at the pump.{% endblock %}
 
 {% block head_extra %}
-  <link rel="stylesheet" href="/static/styles/sandstone_gas.css">
+  <link rel="stylesheet" href="/static/styles/desert_home.css">
 {% endblock %}
 
 {% block content %}
   {# ---- Header ---- #}
-  <div class="cathead wrap">
-    <div class="crumb"><a href="/home">Home</a> · Daily utility</div>
-    <h1>Gas prices in Lake Havasu City</h1>
-    {% if has_data %}
-      <p>{{ data.station_count }} stations tracked.</p>
-      {# Single "Updated" phrasing: the freshness banner is the ONE place the
-         page says "Updated ...". Its label and the page's absolute timestamps
-         all derive from the same row.fetched_at clock, so nothing contradicts. #}
-      <div class="gas-freshness{% if is_stale %} is-stale{% endif %}">
-        <span class="dot" aria-hidden="true"></span>
-        {{ staleness_label }}{% if fetched_at_label %} ({{ fetched_at_label }}){% endif %}{% if is_stale %} -- prices may be out of date{% endif %}
-      </div>
-    {% endif %}
-  </div>
+  <section class="p-head">
+    <div class="d-wrap p-head-in">
+      <div class="d-crumb"><a href="/home">Home</a> · Daily utility</div>
+      <h1>Gas prices in Lake Havasu City</h1>
+      {% if has_data %}
+        <p class="p-sub">{{ data.station_count }} stations tracked.</p>
+        {# Single "Updated" phrasing: the freshness banner is the ONE place the
+           page says "Updated ...". Its label and the page's absolute timestamps
+           all derive from the same row.fetched_at clock, so nothing contradicts. #}
+        <div class="gas-freshness{% if is_stale %} is-stale{% endif %}">
+          <span class="dot" aria-hidden="true"></span>
+          {{ staleness_label }}{% if fetched_at_label %} ({{ fetched_at_label }}){% endif %}{% if is_stale %} -- prices may be out of date{% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </section>
 
   {% if has_data %}
     {# ---- City average — prominent ---- #}
     {% if city_avg and city_avg.regular %}
-    <section class="block wrap" aria-label="City average">
+    <section class="d-wrap gas-sec" aria-label="City average">
       <div class="gas-avg">
         <div class="gas-avg-main">
-          <div class="eyebrow">City average · regular</div>
+          <div class="d-eyebrow">City average · regular</div>
           <div class="gas-avg-price">${{ '%.2f'|format(city_avg.regular) }}</div>
           <div class="gas-avg-sub">Mean of every tracked station's regular price</div>
         </div>
@@ -49,8 +51,8 @@
 
     {# ---- Cheapest stations (6-up, not a cut-off top 5) ---- #}
     {% if cheapest %}
-    <section class="block wrap" aria-label="Cheapest stations">
-      <div class="sec-head"><h2>Cheapest today{% if fetched_at_time_label %} (as of {{ fetched_at_time_label }}){% endif %}</h2></div>
+    <section class="d-wrap gas-sec" aria-label="Cheapest stations">
+      <div class="d-sec-head"><h2>Cheapest today{% if fetched_at_time_label %} (as of {{ fetched_at_time_label }}){% endif %}</h2></div>
       <div class="gas-cheap-grid">
         {% for s in cheapest %}
         {% if s.provider_slug %}<a class="gas-card" href="/provider/{{ s.provider_slug }}">{% else %}<div class="gas-card">{% endif %}
@@ -65,8 +67,8 @@
     {% endif %}
 
     {# ---- Full station table (no Source column) ---- #}
-    <section class="block wrap" aria-label="All stations">
-      <div class="sec-head"><h2>All stations</h2></div>
+    <section class="d-wrap gas-sec" aria-label="All stations">
+      <div class="d-sec-head"><h2>All stations</h2></div>
       <div class="gas-table-wrap">
         <table class="gas-table">
           <thead>
@@ -93,7 +95,7 @@
     </section>
   {% else %}
     {# ---- Honest empty state — never a placeholder price ---- #}
-    <section class="block wrap" aria-label="No gas data">
+    <section class="d-wrap gas-sec" aria-label="No gas data">
       <div class="gas-empty">
         <h2>No gas prices yet</h2>
         <p>The daily price pull hasn't returned data yet. Check back soon — we never show a guessed price.</p>
@@ -102,7 +104,7 @@
   {% endif %}
 
   {# ---- Footer note: kept the pump disclaimer, dropped the Google-feed line ---- #}
-  <section class="block wrap">
+  <section class="d-wrap">
     <p class="gas-note">Prices update once daily. Always confirm at the pump.</p>
   </section>
 {% endblock %}

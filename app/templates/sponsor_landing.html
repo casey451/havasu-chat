@@ -1,40 +1,46 @@
-<!doctype html>
-<html lang="en">
-<head>
-  {% include '_partials/plausible.html' %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Advertise on Ask Hava — Lake Havasu City</title>
-  <meta name="description" content="Reach locals and visitors on Ask Hava with clearly labeled placements: Featured around town, Today's spotlight, in-feed picks, and the supporters wall.">
+{% extends "desert_base.html" %}
+{% block title %}Advertise on Ask Hava — Lake Havasu City{% endblock %}
+{% block meta_description %}Reach locals and visitors on Ask Hava with clearly labeled placements: Featured around town, Today's spotlight, in-feed picks, and the supporters wall.{% endblock %}
+{% block head_extra %}
   <meta name="robots" content="noindex">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles/lake_light.css">
-</head>
-<body class="ll-page">
-{% set active_tab = "home" %}
-<main class="ll-utility-shell" role="main">
-  {% set header_back_href = "/home" %}
-  {% set header_back_label = "Back to Home" %}
-  {% include "_partials/lake_light_header.html" %}
-  <section class="ll-utility-main">
-    <p class="ll-eyebrow">Sponsor packages</p>
-    <h1>Advertise on Ask Hava</h1>
-    <p class="ll-muted">Reach locals and visitors with clearly labeled editorial sponsor placements. No banner clutter, no dark patterns.</p>
-    <ul class="ll-list-reset ll-spaced">
-      <li><strong>Featured around town</strong> — Your business in the headline placement on Home, one sponsor per day.</li>
-      <li><strong>Today's spotlight</strong> — Up to two weekly placements alongside today's picks.</li>
-      <li><strong>In-feed pick</strong> — One clearly labeled card woven into category and search results, daily rotation.</li>
-      <li><strong>Supporters wall</strong> — Logo placement in the footer for monthly local supporters.</li>
-    </ul>
-    <div class="ll-links-row ll-spaced">
-      <a class="ll-button" href="mailto:sponsors@havasuchat.com?subject=Sponsor%20inquiry">Get in touch</a>
-      <a class="ll-button ll-button-quiet" href="mailto:sponsors@havasuchat.com">sponsors@havasuchat.com</a>
+  <link rel="stylesheet" href="/static/styles/desert_portal.css">
+{% endblock %}
+{% block content %}
+  <section class="dp-hero">
+    <div class="d-wrap" style="padding:64px 0 56px">
+      <div class="d-crumb"><a href="/home">Home</a> &nbsp;/&nbsp; Sponsors</div>
+      <span class="d-eyebrow d-accent" style="display:block;margin-bottom:12px">Sponsor packages</span>
+      <h1 class="d-display">Advertise on <em>Ask&nbsp;Hava.</em></h1>
+      <p class="sub" style="margin-top:22px;font-size:clamp(16px,1.6vw,19px);font-weight:500;max-width:52ch">Reach locals and visitors with clearly labeled editorial sponsor
+        placements. No banner clutter, no dark patterns.</p>
     </div>
   </section>
-  {% include "_partials/lake_light_footer.html" %}
-</main>
-{% include "_partials/lake_light_bottom_nav.html" %}
-</body>
-</html>
+
+  <section class="dp-doors d-wrap">
+    <div class="d-grid-2">
+      <div class="d-card d-card--shadow dp-door">
+        <h2>Featured around town</h2>
+        <p>Your business in the headline placement on Home, one sponsor per day.</p>
+      </div>
+      <div class="d-card d-card--shadow dp-door">
+        <h2>Today's spotlight</h2>
+        <p>Up to two weekly placements alongside today's picks.</p>
+      </div>
+      <div class="d-card d-card--shadow dp-door">
+        <h2>In-feed pick</h2>
+        <p>One clearly labeled card woven into category and search results, daily rotation.</p>
+      </div>
+      <div class="d-card d-card--shadow dp-door">
+        <h2>Supporters wall</h2>
+        <p>Logo placement in the footer for monthly local supporters.</p>
+      </div>
+    </div>
+    <div class="d-links-row" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:28px">
+      <a class="d-btn d-btn--solid" href="/portal/advertise">See the rate card
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </a>
+      <a class="d-btn" href="mailto:sponsors@havasuchat.com?subject=Sponsor%20inquiry">Get in touch</a>
+      <a class="d-btn" href="mailto:sponsors@havasuchat.com">sponsors@havasuchat.com</a>
+    </div>
+  </section>
+{% endblock %}

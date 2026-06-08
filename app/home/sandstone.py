@@ -24,7 +24,9 @@ from app.events.class_occurrences import (
     class_occurrences_in_window,
     drop_event_duplicates,
 )
+from app.events.dedup import dedup_cross_source_occurrences
 from app.events.recurrence import occurrences_in_window
+from app.events.time_labels import format_short_time, short_time_label, time_sort_key
 from app.home.queries import CATEGORY_LABELS
 
 
@@ -40,7 +42,10 @@ def _live_events_by_day(
     falls in the window is included on that date. This second pass is load-bearing:
     a row flagged ``is_recurring`` but carrying no rrule/rdate (a materialised
     single instance) would otherwise expand to nothing and vanish. Each
-    ``(event, date)`` pair is emitted once.
+    ``(event, date)`` pair is emitted once, then cross-source duplicates of the
+    same (title, date) occurrence (two scrapers carrying one real-world event)
+    collapse to a single survivor via
+    :func:`app.events.dedup.dedup_cross_source_occurrences`.
     """
     stmt = select(Event).where(
         Event.status == "live",
@@ -52,7 +57,7 @@ def _live_events_by_day(
     )
     candidates = list(db.scalars(stmt).unique().all())
 
-    by_day: dict[date, list[Event]] = {}
+    pairs: list[tuple[Event, date]] = []
     seen: set[tuple[Any, date]] = set()
 
     def _emit(ev: Event, occ_date: date) -> None:
@@ -60,7 +65,7 @@ def _live_events_by_day(
         if key in seen:
             return
         seen.add(key)
-        by_day.setdefault(occ_date, []).append(ev)
+        pairs.append((ev, occ_date))
 
     scheduled = [c for c in candidates if c.rrule or c.rdate]
     for ev, occ_date in occurrences_in_window(
@@ -72,6 +77,9 @@ def _live_events_by_day(
         if ev.date is not None and window_start <= ev.date <= window_end:
             _emit(ev, ev.date)
 
+    by_day: dict[date, list[Event]] = {}
+    for ev, occ_date in dedup_cross_source_occurrences(pairs):
+        by_day.setdefault(occ_date, []).append(ev)
     return by_day
 
 # Display labels for tier-1 routes the canonical CATEGORY_LABELS map omits. These
@@ -246,22 +254,37 @@ def _water_card(utility_chips: list[dict[str, Any]]) -> dict[str, Any] | None:
 
 
 # ---------------------------------------------------------------------------
-# This-week strip — next 7 days, events ranked by importance (DL-16 evolution)
+# This-week strip — next 7 days, one-off headlines + class rollup (DL-16 evo)
 # ---------------------------------------------------------------------------
 #
 # Replaces the old "Today around the lake" card pair (Tonight + Water). The strip
-# shows the next 7 days; within each day, events are ranked so a festival or
-# one-off beats a recurring aquatic-center class, and the lowest-value classes
-# fall into the "+N more" overflow rather than crowding the two visible slots.
+# shows the next 7 days; each day card headlines up to two named ONE-OFF events,
+# while recurring classes (recurring Event rows and venue Schedule classes)
+# collapse into a "N classes" rollup line — never a headline — so a one-off
+# festival is never drowned by 50 aquatic-center class instances.
 #
-# Casey-confirmed importance order (highest first):
-#   special (festival/one-off) > water > music/nightlife > community > class
-# Tiering is heuristic — keyword + tag + featured/recurring signals — and is
-# deliberately a *ranking* prior, never a filter: every event still appears in
-# its day's tap-through (/events-ui?date=) and overflow count.
+# Owner-approved headline ranking (highest first):
+#   special/festival > music/nightlife > community > water > other one-off
+# Tiering is heuristic — keyword + tag + featured signals — and is deliberately
+# a *ranking* prior, never a filter: every event still appears in its day's
+# tap-through (/events-ui?date=) and rollup count.
 
-_TIER_SPECIAL, _TIER_WATER, _TIER_MUSIC, _TIER_COMMUNITY, _TIER_CLASS = range(5)
-_TIER_CSS = {0: "special", 1: "water", 2: "music", 3: "community", 4: "class"}
+(
+    _TIER_SPECIAL,
+    _TIER_MUSIC,
+    _TIER_COMMUNITY,
+    _TIER_WATER,
+    _TIER_OTHER,
+    _TIER_CLASS,
+) = range(6)
+_TIER_CSS = {
+    _TIER_SPECIAL: "special",
+    _TIER_MUSIC: "music",
+    _TIER_COMMUNITY: "community",
+    _TIER_WATER: "water",
+    _TIER_OTHER: "community",
+    _TIER_CLASS: "class",
+}
 
 _SPECIAL_HINTS = (
     "festival", "fest", "parade", "derby", "tournament", "poker run", "balloon",
@@ -292,65 +315,88 @@ def _event_tier(*, title: str, tags: list[str] | None, featured: bool, recurring
     joined = (title + " " + " ".join(tags or [])).lower()
     if featured or any(h in joined for h in _SPECIAL_HINTS):
         return _TIER_SPECIAL
-    has_class = any(h in joined for h in _CLASS_HINTS)
-    has_community = any(h in joined for h in _COMMUNITY_HINTS)
-    # A class signal ("lap swim", "water fitness", …) is the lowest tier, so it must
-    # never be promoted to WATER/MUSIC just because it shares a keyword (e.g. "swim").
-    # Only consider the higher one-off tiers when there's no class signal.
-    if not has_class:
-        if any(h in joined for h in _WEEK_WATER_HINTS):
-            return _TIER_WATER
-        if any(h in joined for h in _MUSIC_HINTS):
-            return _TIER_MUSIC
-    if has_community and not has_class:
-        return _TIER_COMMUNITY
-    if has_class:
+    # A class signal ("lap swim", "water fitness", …) is the lowest tier, so it
+    # must never be promoted to MUSIC/WATER just because it shares a keyword
+    # (e.g. "swim"). Only consider the one-off tiers when there's no class signal.
+    if any(h in joined for h in _CLASS_HINTS):
         return _TIER_CLASS
-    # No keyword signal: a one-off is a real event; a recurring block reads as an
-    # ongoing class so it never outranks a one-off in the two visible slots.
-    return _TIER_CLASS if recurring else _TIER_COMMUNITY
+    if any(h in joined for h in _MUSIC_HINTS):
+        return _TIER_MUSIC
+    if any(h in joined for h in _COMMUNITY_HINTS):
+        return _TIER_COMMUNITY
+    if any(h in joined for h in _WEEK_WATER_HINTS):
+        return _TIER_WATER
+    # No keyword signal: a one-off is a real (untyped) event; a recurring block
+    # reads as an ongoing class so it never outranks a one-off.
+    return _TIER_CLASS if recurring else _TIER_OTHER
+
+
+def _event_css_type(*, title: str, tags: list[str] | None, tier: int) -> str:
+    """Display pill for a week-strip headline. Ranking and display are separate
+    concerns: a "Kayak Meetup" *ranks* at the community tier (the approved
+    headline order puts community above water), but it still *wears* the water
+    pill — on-the-water is this town's identity category and the legend keys
+    color to activity type, not headline priority."""
+    if tier in (_TIER_COMMUNITY, _TIER_OTHER):
+        joined = (title + " " + " ".join(tags or [])).lower()
+        if any(h in joined for h in _WEEK_WATER_HINTS):
+            return "water"
+    return _TIER_CSS[tier]
 
 
 def _short_time(t: time | None) -> str | None:
-    """12-hour label without the leading-zero / noon / midnight bugs.
-
-    ``08:00`` -> "8 AM", ``18:30`` -> "6:30 PM", ``12:00`` -> "12 PM",
-    ``00:15`` -> "12:15 AM". Cross-platform (no ``%-I``/``%#I`` divergence).
-    """
+    """12-hour label; see :func:`app.events.time_labels.format_short_time`."""
     if t is None:
         return None
-    hour12 = t.hour % 12 or 12
-    meridiem = "AM" if t.hour < 12 else "PM"
-    if t.minute:
-        return f"{hour12}:{t.minute:02d} {meridiem}"
-    return f"{hour12} {meridiem}"
+    return format_short_time(t)
 
 
 def week_strip(
     db: Session, *, today: date, days: int = 7, per_day: int = 2
 ) -> dict[str, Any]:
-    """Build the next-``days`` strip of real events, ranked by importance.
+    """Build the next-``days`` strip: one-off headlines + a per-day class rollup.
 
     Mirrors ``calendar_month``'s honest-omission contract: empty days render an
     em-dash, never fabricated content. Each day links to ``/events-ui?date=`` so
-    the overflow (and every class) stays one tap away.
+    everything stays one tap away. Recurring classes (recurring Event rows plus
+    venue Schedule classes) never take a headline slot — they appear only in the
+    ``summary`` rollup ("2 events · 14 classes"). Time-unknown one-offs (the
+    midnight ingest fallback) show no time — never "12 AM" — and sort after
+    timed events within their tier.
     """
     end = today + timedelta(days=days - 1)
     by_day = _live_events_by_day(db, window_start=today, window_end=end)
 
-    def _sort_key(ev: Event) -> tuple[int, int, time]:
-        tier = _event_tier(
+    # Venue Schedule classes (entity Schedule rows, not events) join the per-day
+    # class count so the rollup matches the day's /events-ui?date= page;
+    # event-table twins (the aquatic programs) are dropped by title+date, same
+    # as calendar_month.
+    event_keys = {
+        ((ev.title or "").strip().lower(), d) for d, evs in by_day.items() for ev in evs
+    }
+    sched_classes_by_day: dict[date, int] = {}
+    for occ in drop_event_duplicates(
+        class_occurrences_in_window(db, window_start=today, window_end=end), event_keys
+    ):
+        sched_classes_by_day[occ.date] = sched_classes_by_day.get(occ.date, 0) + 1
+
+    def _tier(ev: Event) -> int:
+        return _event_tier(
             title=ev.title,
             tags=ev.tags,
             featured=bool(ev.featured),
             recurring=bool(ev.is_recurring),
         )
-        return (tier, 1 if ev.is_recurring else 0, ev.start_time)
+
+    def _sort_key(ev: Event) -> tuple[int, int, time]:
+        return (_tier(ev), *time_sort_key(ev.start_time, ev.end_time))
 
     out_days: list[dict[str, Any]] = []
     for i in range(days):
         d = today + timedelta(days=i)
-        evs = sorted(by_day.get(d, []), key=_sort_key)
+        evs = by_day.get(d, [])
+        oneoffs = sorted((ev for ev in evs if not ev.is_recurring), key=_sort_key)
+        class_count = sum(1 for ev in evs if ev.is_recurring) + sched_classes_by_day.get(d, 0)
         if i == 0:
             label = "Today"
         elif i == 1:
@@ -360,18 +406,17 @@ def week_strip(
         visible = [
             {
                 "title": ev.title,
-                "type": _TIER_CSS[
-                    _event_tier(
-                        title=ev.title,
-                        tags=ev.tags,
-                        featured=bool(ev.featured),
-                        recurring=bool(ev.is_recurring),
-                    )
-                ],
-                "time": _short_time(ev.start_time),
+                "type": _event_css_type(title=ev.title, tags=ev.tags, tier=_tier(ev)),
+                "time": short_time_label(ev.start_time, ev.end_time),
             }
-            for ev in evs[:per_day]
+            for ev in oneoffs[:per_day]
         ]
+        summary_bits: list[str] = []
+        if oneoffs:
+            summary_bits.append(f"{len(oneoffs)} event{'' if len(oneoffs) == 1 else 's'}")
+        if class_count:
+            summary_bits.append(f"{class_count} class{'' if class_count == 1 else 'es'}")
+        total = len(oneoffs) + class_count
         out_days.append(
             {
                 "iso": d.isoformat(),
@@ -379,9 +424,12 @@ def week_strip(
                 "md": f"{d.month}/{d.day}",
                 "is_today": i == 0,
                 "events": visible,
-                "overflow": max(0, len(evs) - per_day),
-                "count": len(evs),
-                "has": bool(evs),
+                "overflow": max(0, len(oneoffs) - per_day),
+                "event_count": len(oneoffs),
+                "class_count": class_count,
+                "summary": " · ".join(summary_bits),
+                "count": total,
+                "has": total > 0,
             }
         )
     return {"days": out_days, "has_any": any(day["has"] for day in out_days)}
@@ -419,9 +467,10 @@ def calendar_month(db: Session, *, year: int, month: int, today: date) -> dict[s
     """Build a month grid of real events. Empty days stay empty (no fabrication).
 
     Each in-month cell carries an ISO date (``iso``) so the template can link
-    every day to ``/events-ui?date=``, a true ``count`` for the mobile badge,
-    and visible pills ordered so one-offs/specials take the two shown slots and
-    recurring classes fall into the "+N" overflow (DL-16).
+    every day to ``/events-ui?date=``. Only one-off events take the two visible
+    pill slots and the cell ``count``; recurring classes (recurring Event rows
+    plus venue Schedule classes) collapse into ``class_count`` — rendered as a
+    small "N classes" badge — instead of flooding the cell ("+44").
     """
     first_weekday, days_in_month = _calendar.monthrange(year, month)
     # Python's monthrange: Monday=0. The grid leads with Sunday, so shift.
@@ -467,26 +516,29 @@ def calendar_month(db: Session, *, year: int, month: int, today: date) -> dict[s
     cells: list[dict[str, Any]] = [{"in_month": False} for _ in range(lead_blanks)]
     for day in range(1, days_in_month + 1):
         evs = by_day.get(day, [])
-        # One-offs/specials first so they claim the two visible pill slots; the
-        # rest (recurring classes) feed the overflow count.
-        ordered = sorted(evs, key=_pill_sort_key)
+        # Only one-offs claim the two visible pill slots (and the cell count);
+        # recurring classes collapse into the "N classes" badge.
+        oneoffs = sorted((e for e in evs if not e.get("recurring")), key=_pill_sort_key)
+        class_count = sum(1 for e in evs if e.get("recurring"))
         cells.append(
             {
                 "in_month": True,
                 "day": day,
                 "iso": date(year, month, day).isoformat(),
                 "is_today": (year == today.year and month == today.month and day == today.day),
-                "events": ordered[:2],
-                "overflow": max(0, len(evs) - 2),
-                "count": len(evs),
+                "events": oneoffs[:2],
+                "overflow": max(0, len(oneoffs) - 2),
+                "count": len(oneoffs),
+                "class_count": class_count,
                 "has": bool(evs),
-                "special": any(e.get("type") == "special" for e in ordered),
+                "special": any(e.get("type") == "special" for e in oneoffs),
             }
         )
     while len(cells) % 7 != 0:
         cells.append({"in_month": False})
 
     weeks = [cells[i : i + 7] for i in range(0, len(cells), 7)]
+
     prev_year, prev_month = (year - 1, 12) if month == 1 else (year, month - 1)
     next_year, next_month = (year + 1, 1) if month == 12 else (year, month + 1)
     return {

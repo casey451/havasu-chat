@@ -36,9 +36,11 @@ from app.db.database import get_db
 from app.db.models import AdSlot, Event, Provider, Sponsor
 from app.events import series as event_series
 from app.events.class_occurrences import class_occurrences_in_window
+from app.events.dedup import dedup_cross_source_event_rows
+from app.events.time_labels import TIME_TBD_LABEL, is_time_tbd, time_sort_key
 from app.groups.themed_groups import group_label
 from app.home import collections as curated_collections
-from app.home import sandstone, sponsor_store
+from app.home import events_views, sandstone, sponsor_store
 from app.home.queries import CATEGORY_LABELS
 from app.v1.categories import BUCKET_SLUG_REDIRECTS, MASTER_BUCKETS
 
@@ -87,16 +89,10 @@ def _format_event_time_label(start_at: datetime) -> str:
 
 def _is_midnight_fallback(ev: Event) -> bool:
     """Aggregator feeds without a time component land as a 00:00 start (the
-    ingest fallback). A bare midnight start with no end time — or a
-    zero-duration midnight-to-midnight span (allevents also fills endDate with
-    midnight) — is "time unknown", not a real 12:00 AM event; suppress the
-    label rather than display it. An explicit non-midnight end time means the
-    midnight start is real."""
-    if ev.start_time is None or ev.start_time.hour != 0 or ev.start_time.minute != 0:
-        return False
-    if ev.end_time is None:
-        return True
-    return ev.end_time.hour == 0 and ev.end_time.minute == 0
+    ingest fallback) — "time unknown", not a real 12:00 AM event. The single
+    definition lives in :mod:`app.events.time_labels` (shared with the home
+    week strip and month grid)."""
+    return is_time_tbd(ev.start_time, ev.end_time)
 
 
 # Event cards are image-optional: most events have no photo, so the date block is
@@ -161,12 +157,15 @@ def _series_index_for(db: Session, *, start_day: datetime, end_day: datetime) ->
 
 
 def _window_event_dict(ev: Event, *, recurring: bool, schedule_label: str) -> dict[str, str]:
-    start_at = datetime.combine(ev.date, ev.start_time)
+    # WP-4 allows NULL times; combine with midnight only for the date labels.
+    start_at = datetime.combine(ev.date, ev.start_time or time(0, 0))
     category_label, accent = _event_accent(ev.tags)
     # M-16/M-17: render the start-end span when an end time is known so a class
     # reads "5:00 - 6:00 AM", not just a start. Falls back to the start label.
+    # Time-unknown rows (NULL or the midnight ingest fallback) read "Time TBD",
+    # never a fabricated "12:00 AM".
     midnight_fallback = _is_midnight_fallback(ev)
-    time_label = "" if midnight_fallback else _format_event_time_label(start_at)
+    time_label = TIME_TBD_LABEL if midnight_fallback else _format_event_time_label(start_at)
     if ev.end_time is not None and not midnight_fallback:
         end_at = datetime.combine(ev.end_date or ev.date, ev.end_time)
         if end_at > start_at:
@@ -215,6 +214,14 @@ def _collapse_window_events(
         .order_by(Event.date.asc(), Event.start_time.asc())
         .all()
     )
+    # Time-unknown rows (NULL or the midnight ingest fallback) sort after the
+    # timed events of their day instead of leading it as a fake 12 AM.
+    rows.sort(key=lambda ev: (ev.date, time_sort_key(ev.start_time, ev.end_time)))
+    # Cross-source dedup: two scrapers carrying the same real-world event (same
+    # normalized title + date; one with a fake-noon/TBD time or an address-as-
+    # venue) collapse to one survivor before series grouping, so neither the
+    # bucket cards nor the honest totals double-count it (display-only filter).
+    rows = dedup_cross_source_event_rows(rows)
     index = _series_index_for(db, start_day=start_day, end_day=end_day)
 
     items: list[dict[str, str]] = []
@@ -273,7 +280,7 @@ def _class_schedule_cards(
             continue  # one card per series -- anchored on its next occurrence
         seen.add(skey)
         start_at = datetime.combine(occ.date, occ.start_time or time(0, 0))
-        time_label = "" if occ.start_time is None else _format_event_time_label(start_at)
+        time_label = TIME_TBD_LABEL if occ.start_time is None else _format_event_time_label(start_at)
         if occ.start_time is not None and occ.end_time is not None:
             end_at = datetime.combine(occ.date, occ.end_time)
             if end_at > start_at:
@@ -347,8 +354,11 @@ def _tonight_card(db: Session, *, now: datetime) -> dict[str, Any] | None:
     now_t = now.time()
 
     def _earliest(rows: list[Event]) -> Event | None:
-        # One-offs win ties so a festival beats a recurring class at the same time.
-        ranked = sorted(rows, key=lambda e: (e.start_time, bool(e.is_recurring)))
+        # One-offs win ties so a festival beats a recurring class at the same
+        # time; time-unknown rows sort after timed ones (never a fake 12 AM pick).
+        ranked = sorted(
+            rows, key=lambda e: (time_sort_key(e.start_time, e.end_time), bool(e.is_recurring))
+        )
         return ranked[0] if ranked else None
 
     todays = (
@@ -379,7 +389,7 @@ def _tonight_card(db: Session, *, now: datetime) -> dict[str, Any] | None:
     if chosen is None:
         return None
 
-    start_at = datetime.combine(chosen.date, chosen.start_time)
+    start_at = datetime.combine(chosen.date, chosen.start_time or time(0, 0))
     time_bit = "" if _is_midnight_fallback(chosen) else _format_event_time_label(start_at)
     sub_bits = [b for b in (time_bit, chosen.location_name) if b]
     return {
@@ -742,39 +752,38 @@ def _group_series_by_venue(ongoing: list[dict]) -> list[dict]:
 
 
 def _event_list_windows(now: datetime) -> dict[str, tuple[datetime, datetime]]:
-    """Honest, contiguous, gap-free buckets for the events list (E-1).
+    """Honest, contiguous, gap-free buckets for event windows (E-1).
 
-    The old code used a naive rolling ``now+1..now+3`` window mislabeled "This
-    Weekend" (so a Wednesday event showed under "This Weekend" and a Sunday under
-    "Next Week"). Instead anchor to real calendar-week boundaries in Lake Havasu
-    local time:
+    The /events-ui page now renders Today/Week/Month views (see
+    ``serve_events_ui``); these windows remain the canonical bucket contract
+    for window-feed consumers and their regression tests.
+
+    Anchored to real calendar-week boundaries in Lake Havasu local time:
 
     * **today**     — today only.
-    * **this_week** — tomorrow through the end of this week (Sunday).
+    * **this_week** — tomorrow through Friday of the current week.
+    * **weekend**   — the upcoming Saturday + Sunday. When today is already
+      Sat/Sun, today's events stay in **today** and this window holds only the
+      remaining weekend day(s) (empty span on Sunday).
     * **next_week** — the following Monday–Sunday.
 
-    Windows are disjoint and adjacent, so no event is dropped or double-listed.
+    Windows are disjoint and together tile every day from today through the end
+    of next week, so no event is dropped or double-listed — in particular,
+    Saturday/Sunday events can never fall in a gap between "This Week" and
+    "Next Week". A collapsed window (start > end) simply queries nothing.
     """
     days_to_sunday = (6 - now.weekday()) % 7  # Mon=0 … Sun=6
     this_sunday = now + timedelta(days=days_to_sunday)
+    this_saturday = this_sunday - timedelta(days=1)
+    tomorrow = now + timedelta(days=1)
     return {
         "today": (now, now),
-        "this_week": (now + timedelta(days=1), this_sunday),
+        "this_week": (tomorrow, this_saturday - timedelta(days=1)),
+        "weekend": (max(tomorrow, this_saturday), this_sunday),
         "next_week": (this_sunday + timedelta(days=1), this_sunday + timedelta(days=7)),
     }
 
 
-# ``?when=`` chips on /events-ui. Each maps to the subset of buckets to show.
-# ``all`` (and any unknown value) shows every bucket. ``today``/``this-week``/
-# ``next-week`` narrow to a single bucket; ``weekend`` reuses the strict Sat-Sun
-# window from ``event_window_for_chip`` so the chip agrees with the category page.
-_EVENTS_WHEN_CHIPS: tuple[tuple[str, str], ...] = (
-    ("all", "All"),
-    ("today", "Today"),
-    ("weekend", "This Weekend"),
-    ("this-week", "This Week"),
-    ("next-week", "Next Week"),
-)
 _WINDOW_CAP = 16
 
 
@@ -787,101 +796,98 @@ def _parse_iso_date(value: str | None) -> dt_date | None:
         return None
 
 
+_EVENT_VIEWS: tuple[tuple[str, str], ...] = (
+    ("today", "Today"),
+    ("week", "Week"),
+    ("month", "Month"),
+)
+
+
+def _long_day_label(d: dt_date) -> str:
+    return d.strftime("%A, %B ") + str(d.day)
+
+
 @router.get("/events-ui", response_class=HTMLResponse)
 def serve_events_ui(
     request: Request,
     db: Session = Depends(get_db),
     when: str | None = None,
     date: str | None = None,
+    view: str | None = None,
+    cal: str | None = None,
 ) -> HTMLResponse:
-    """Render the Sandstone events list (today / this week / next week).
+    """Render the Sandstone events page — three zoom levels of one concept.
 
-    ``?when=`` narrows to a single bucket (``today``/``weekend``/``this-week``/
-    ``next-week``); ``?date=YYYY-MM-DD`` (the home-calendar day links) shows a
-    single-day window. Each rendered bucket carries an honest total so the
-    section header reads "N coming up . showing M . See all ->".
+    * default — TODAY: a category accordion (Events / Music & nightlife / On
+      the water / Fitness & classes) for the current lake-local date.
+    * ``?view=week`` — 7 rows from today: top one-off headline + an honest
+      per-group rollup; each row links to its day.
+    * ``?view=month`` — a compact date-picker grid (one-off counts + a class
+      badge; ``?cal=YYYY-MM`` pages it, same param as /home).
+    * ``?date=YYYY-MM-DD`` (the home-calendar day links) — the same accordion
+      for that date, with prev/next-day and back-to-today links.
+    * ``?when=`` is legacy (the old bucket chips) and still answers: ``today``
+      maps to the Today view; ``weekend``/``this-week``/``next-week``/``all``
+      map to the Week view, which tiles every upcoming day gap-free.
     """
     now = now_lake_havasu()
-    when_key = (when or "all").strip().lower()
+    today = now.date()
     single_day = _parse_iso_date(date)
 
-    windows = _event_list_windows(now)
+    view_key = (view or "").strip().lower()
+    if view_key not in {key for key, _label in _EVENT_VIEWS}:
+        when_key = (when or "").strip().lower()
+        view_key = "today" if when_key in ("", "today") else "week"
+
+    context: dict[str, Any] = {
+        "active_tab": "events",
+        "primary_nav": sandstone.primary_nav(),
+        "mega_columns": sandstone.mega_columns(db),
+        "utility_chips": _utility_chips(db),
+        "view_links": [
+            {
+                "key": key,
+                "label": label,
+                "url": "/events-ui" if key == "today" else f"/events-ui?view={key}",
+                "active": single_day is None and key == view_key,
+            }
+            for key, label in _EVENT_VIEWS
+        ],
+    }
+
     if single_day is not None:
-        day_dt = datetime.combine(single_day, time(12, 0))
-        window_defs = [("date", single_day.strftime("%A, %B ") + str(single_day.day), (day_dt, day_dt))]
-    elif when_key == "weekend":
-        from app.events.queries import event_window_for_chip as _chip
-
-        w_start, w_end = _chip("weekend", today=now.date())
-        window_defs = [
-            (
-                "weekend",
-                "This Weekend",
-                (datetime.combine(w_start, time(12, 0)), datetime.combine(w_end, time(12, 0))),
-            )
-        ]
-    else:
-        ordered = [
-            ("today", "Today", windows["today"]),
-            ("this_week", "This Week", windows["this_week"]),
-            ("next_week", "Next Week", windows["next_week"]),
-        ]
-        key_map = {"today": "today", "this-week": "this_week", "next-week": "next_week"}
-        if when_key in key_map:
-            window_defs = [d for d in ordered if d[0] == key_map[when_key]]
-        else:
-            window_defs = ordered
-
-    raw_groups: dict[str, list[dict[str, str]]] = {}
-    totals: dict[str, int] = {}
-    labels: dict[str, str] = {}
-    for gkey, label, (start_day, end_day) in window_defs:
-        rows, total = _events_for_window_with_total(
-            db, start_day=start_day, end_day=end_day, limit=_WINDOW_CAP
+        context.update(
+            {
+                "mode": "day",
+                "groups": events_views.day_groups(db, day=single_day),
+                "day_label": _long_day_label(single_day),
+                "prev_iso": (single_day - timedelta(days=1)).isoformat(),
+                "next_iso": (single_day + timedelta(days=1)).isoformat(),
+                "is_today": single_day == today,
+            }
         )
-        raw_groups[gkey] = rows
-        totals[gkey] = total
-        labels[gkey] = label
-
-    oneoff_groups, ongoing_classes = _split_oneoff_and_ongoing(raw_groups)
-    ongoing_by_venue = _group_series_by_venue(ongoing_classes)
-    # Sections preserve the requested order; each carries shown/total for the
-    # honest header line. Recurring rows are pulled into ``ongoing_classes``, so
-    # the per-section "showing M" counts the visible one-offs.
-    sections = [
-        {
-            "key": gkey,
-            "label": labels[gkey],
-            "cards": oneoff_groups.get(gkey, []),
-            "shown": len(oneoff_groups.get(gkey, [])),
-            "total": totals[gkey],
-            "capped": totals[gkey] > _WINDOW_CAP,
-        }
-        for gkey, _label, _w in window_defs
-    ]
-    events_total = sum(s["total"] for s in sections)
-    chips = [
-        {"key": key, "label": label, "active": (key == when_key and single_day is None)}
-        for key, label in _EVENTS_WHEN_CHIPS
-    ]
+    elif view_key == "week":
+        context.update({"mode": "week", "week_rows": events_views.week_rows(db, start=today)})
+    elif view_key == "month":
+        cal_year, cal_month = sandstone.parse_cal_param(cal, default=now)
+        context.update(
+            {
+                "mode": "month",
+                "calendar": sandstone.calendar_month(
+                    db, year=cal_year, month=cal_month, today=today
+                ),
+            }
+        )
+    else:
+        context.update(
+            {
+                "mode": "today",
+                "groups": events_views.day_groups(db, day=today),
+                "day_label": _long_day_label(today),
+            }
+        )
     return templates.TemplateResponse(
-        request=request,
-        name="events_sandstone.html",
-        context={
-            "event_sections": sections,
-            "ongoing_classes": ongoing_by_venue,
-            "events_total": events_total,
-            "when_chips": chips,
-            "active_when": when_key,
-            "selected_date_label": single_day.strftime("%A, %B ") + str(single_day.day)
-            if single_day
-            else None,
-            "month_label": now.strftime("%B %Y"),
-            "active_tab": "events",
-            "primary_nav": sandstone.primary_nav(),
-            "mega_columns": sandstone.mega_columns(db),
-            "utility_chips": _utility_chips(db),
-        },
+        request=request, name="events_sandstone.html", context=context
     )
 
 

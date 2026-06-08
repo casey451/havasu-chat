@@ -1,4 +1,5 @@
-{% extends "sandstone_base.html" %}
+{% extends "desert_base.html" %}
+{% import "_partials/desert_icons.html" as dicons %}
 {# clean_about: drop trailing taxonomy / "Stay Connected" social-footer artifacts
    scraped onto the end of a description. Cuts at the first marker hit. #}
 {%- macro clean_about(text) -%}
@@ -20,12 +21,12 @@
 {% block og_image %}{% if vm.hero_photo_url %}{% if vm.hero_photo_url.startswith('http') %}{{ vm.hero_photo_url }}{% else %}{{ absolute_url(vm.hero_photo_url) }}{% endif %}{% else %}{{ super() }}{% endif %}{% endblock %}
 
 {% block head_extra %}
-<link rel="stylesheet" href="/static/styles/sandstone_profile.css">
+<link rel="stylesheet" href="/static/styles/desert_profile.css">
 {# DL-14 / E5: venue-events cards reuse the shared Hava-card component; link its
    CSS so the "What's on at {venue}" region renders styled on the profile. #}
 <link rel="stylesheet" href="/static/styles/components/hava_card.css">
 {# SEO block: Open Graph + LocalBusiness JSON-LD (card photo as image).
-   canonical + og:url come from sandstone_base (P1.0: absolute https from the
+   canonical + og:url come from desert_base (P1.0: absolute https from the
    BASE_URL origin) — previously this emitted a bare ``request.url`` that leaked
    an http:// canonical behind Railway's TLS-terminating proxy. #}
 
@@ -94,10 +95,10 @@
     </div>
     <div class="actions">
       {% if vm.call_phone %}
-      <a class="primary" href="tel:{{ vm.call_phone }}">📞 Call</a>
+      <a class="primary" href="tel:{{ vm.call_phone }}">Call</a>
       {% endif %}
       {% if vm.directions_url %}
-      <a href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer">🧭 Directions</a>
+      <a href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer">{{ dicons.icon("compass", 15) }} Directions</a>
       {% endif %}
       {% if current_user_id and favorite_entity_id %}
       {# Logged-in: real persistence via favorites.js → POST /api/favorites/toggle #}
@@ -168,11 +169,11 @@
       <div class="side">
         <h4>Good to know</h4>
         {% if vm.postal_address %}
-        <address class="row nap" style="font-style:normal">📍 {{ vm.postal_address.street }}, {{ vm.postal_address.city }}, {{ vm.postal_address.state }}{% if vm.postal_address.get('zip') %} {{ vm.postal_address.zip }}{% endif %}</address>
-        {% elif vm.address %}<div class="row">📍 {{ vm.address }}</div>{% endif %}
-        {% if vm.call_phone_display %}<div class="row">📞 <a href="tel:{{ vm.call_phone }}" style="color:var(--accent)">{{ vm.call_phone_display }}</a></div>{% endif %}
-        {% if vm.website_url and not vm.show_claim_cta %}<div class="row">🔗 <a href="{{ vm.website_url }}" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">Website</a></div>{% endif %}
-        {% if vm.service_area_only and vm.service_area %}<div class="row">🗺️ Serves: {{ vm.service_area|join(', ') }}</div>{% endif %}
+        <address class="row nap" style="font-style:normal">{{ dicons.icon("pin", 16) }} {{ vm.postal_address.street }}, {{ vm.postal_address.city }}, {{ vm.postal_address.state }}{% if vm.postal_address.get('zip') %} {{ vm.postal_address.zip }}{% endif %}</address>
+        {% elif vm.address %}<div class="row">{{ dicons.icon("pin", 16) }} {{ vm.address }}</div>{% endif %}
+        {% if vm.call_phone_display %}<div class="row"><span class="rowlab">Call</span> <a href="tel:{{ vm.call_phone }}" style="color:var(--accent)">{{ vm.call_phone_display }}</a></div>{% endif %}
+        {% if vm.website_url and not vm.show_claim_cta %}<div class="row">{{ dicons.icon("arrow", 16) }} <a href="{{ vm.website_url }}" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">Website</a></div>{% endif %}
+        {% if vm.service_area_only and vm.service_area %}<div class="row">{{ dicons.icon("map", 16) }} Serves: {{ vm.service_area|join(', ') }}</div>{% endif %}
 
         {# Full weekly hours table; falls back to free-text, then a call-to-confirm note (L4). #}
         {% set _hours = vm.hours_structured %}
@@ -198,20 +199,20 @@
             {% endif %}
           {% endfor %}
         {% endif %}
-        {% if vm.season_status_copy %}<div class="row">🗓️ {{ vm.season_status_copy }}</div>{% endif %}
+        {% if vm.season_status_copy %}<div class="row">{{ dicons.icon("calendar", 16) }} {{ vm.season_status_copy }}</div>{% endif %}
         {% if _ns.any %}
         <div class="hours-table" aria-label="Weekly hours">
-          {% if vm.open_status_copy %}<div class="hours-now">🕒 {{ vm.open_status_copy }}</div>{% endif %}
+          {% if vm.open_status_copy %}<div class="hours-now">{{ vm.open_status_copy }}</div>{% endif %}
           {% for _label, _val in _ns.rows %}
           <div class="hrow"><span class="hd">{{ _label }}</span><span class="hv">{{ _val }}</span></div>
           {% endfor %}
         </div>
-        {% elif vm.open_status_copy %}<div class="row">🕒 {{ vm.open_status_copy }}</div>
-        {% elif vm.hours_freetext %}<div class="row">🕒 {{ vm.hours_freetext }}</div>
+        {% elif vm.open_status_copy %}<div class="row">{{ dicons.icon("calendar", 16) }} {{ vm.open_status_copy }}</div>
+        {% elif vm.hours_freetext %}<div class="row">{{ dicons.icon("calendar", 16) }} {{ vm.hours_freetext }}</div>
         {% else %}<div class="row" style="color:var(--muted)">Hours not available — call to confirm</div>{% endif %}
 
-        {% if vm.freshness_copy %}<div class="row">✅ {{ vm.freshness_copy }}</div>{% endif %}
-        {% if vm.verification_method_copy %}<div class="row">🛡️ {{ vm.verification_method_copy }}</div>{% endif %}
+        {% if vm.freshness_copy %}<div class="row"><span class="rowlab">Fresh</span> {{ vm.freshness_copy }}</div>{% endif %}
+        {% if vm.verification_method_copy %}<div class="row"><span class="rowlab">Verified</span> {{ vm.verification_method_copy }}</div>{% endif %}
         {% if not (vm.address or vm.call_phone_display or _ns.any or vm.open_status_copy or vm.hours_freetext) %}
         <div class="row" style="color:var(--muted)">Details are still being gathered for this listing.</div>
         {% endif %}
@@ -222,7 +223,7 @@
       {% if vm.show_claim_cta %}
       {% set _is_eat = 'eat' in (vm.category_url or '') %}
       <div class="claim claim--lock">
-        <span class="e" aria-hidden="true">🔒</span>
+        <span class="e" aria-hidden="true">{{ dicons.icon("sun-ridge", 22) }}</span>
         <div>
           {% if _is_eat %}<b>Claim this listing to add photos, your menu, and offers.</b>
           {% else %}<b>Claim this listing to add photos, details, and offers.</b>{% endif %}
@@ -238,7 +239,7 @@
 
       {# ---- Concierge CTA: always available, routes to the 3-tier /chat backend ---- #}
       <a class="ask-hava-cta" href="/chat?q={{ ('Tell me about ' ~ _name)|urlencode }}">
-        💬 Ask Hava about this business
+        {{ dicons.icon("chat", 16) }} Ask Hava about this business
       </a>
     </div>
   </div>
@@ -264,7 +265,7 @@
           {% if c.time %}<span>{{ c.time }}</span>{% endif %}
         </div>
         {% endif %}
-        {% if c.cost %}<div style="font-size:0.92rem;margin-top:2px">💵 {{ c.cost }}</div>{% endif %}
+        {% if c.cost %}<div style="font-size:0.92rem;margin-top:2px">Cost: {{ c.cost }}</div>{% endif %}
         {% if c.description %}<div style="font-size:0.92rem;margin-top:4px">{{ c.description }}</div>{% endif %}
       </li>
       {% endfor %}
@@ -301,11 +302,11 @@
 </div>
 
 {# ---- Sticky bottom Call / Directions bar (mobile) — reuses the .ll-sticky-cta
-   pattern, restyled in sandstone_profile.css. Hidden on desktop. ---- #}
+   pattern, restyled in desert_profile.css. Hidden on desktop. ---- #}
 {% if vm.call_phone or vm.directions_url %}
 <div class="prof-sticky-cta" aria-hidden="false">
-  {% if vm.call_phone %}<a class="primary" href="tel:{{ vm.call_phone }}">📞 Call</a>{% endif %}
-  {% if vm.directions_url %}<a href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer">🧭 Directions</a>{% endif %}
+  {% if vm.call_phone %}<a class="primary" href="tel:{{ vm.call_phone }}">Call</a>{% endif %}
+  {% if vm.directions_url %}<a href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer">Directions</a>{% endif %}
 </div>
 {% endif %}
 {% endblock %}

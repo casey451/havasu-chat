@@ -1,64 +1,36 @@
-<!doctype html>
-<html lang="en">
-<head>
-  {% include '_partials/plausible.html' %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>{{ group_label }} — Ask Hava</title>
-  <meta name="description" content="{{ group_one_liner }}">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..700;1,400..700&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+{% extends "desert_base.html" %}
+{# Themed-group landing (/groups/{slug}) — Desert Modern reskin. ALL JS wiring
+   preserved: body data attributes (boat_mode.js + map.js), [data-hava-search]
+   (search_bar.js), district/ops chips (category_filters.js), [data-map-toggle]
+   + #map-container (map.js), shared hava_card partial. The group-accent-*
+   body class is kept as a stable hook (test_phase6_themed_groups pins it). #}
+{% set active_tab = "explore" %}
+{% block title %}{{ group_label }} — Ask Hava{% endblock %}
+{% block meta_description %}{{ group_one_liner }}{% endblock %}
+{% block head_extra %}
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/styles/lake_light.css">
-  <link rel="stylesheet" href="/static/styles/category_landing.css">
-</head>
-<body class="ll-page themed-group-page group-accent-{{ group_accent }}" data-boat-reload-on-toggle data-map-scope="{{ map_scope_slug }}"{% if category_slug == 'on-the-water' %} data-map-default-expanded="true"{% endif %}>
+  <link rel="stylesheet" href="/static/styles/components/hava_card.css">
+  <link rel="stylesheet" href="/static/styles/desert_directory.css">
+{% endblock %}
+{% block body_attrs %} class="themed-group-page group-accent-{{ group_accent }}" data-boat-reload-on-toggle data-map-scope="{{ map_scope_slug }}"{% if category_slug == 'on-the-water' %} data-map-default-expanded="true"{% endif %}{% endblock %}
 
+{% block content %}
 <div class="page category-page">
 
-  <header class="topbar">
-    <a class="wordmark" href="/home">
-      <span class="mark"></span>
-      <span>Hava</span>
-    </a>
-    <div class="topbar-actions">
-      <button type="button" class="boat-mode-toggle" data-boat-mode-toggle aria-pressed="false" aria-label="Boat-access mode">
-        Boat mode
-      </button>
+  {# ── Orange group head ── #}
+  <section class="cat-head">
+    <div class="cathead wrap">
+      <div class="cat-head-main">
+        <div class="crumb"><a href="/home">Home</a> › <a href="/categories">Explore</a> › {{ group_label }}</div>
+        <h1 id="category-heading" class="category-title">{{ group_label }}</h1>
+        <p class="category-lede sub">{{ group_one_liner }}</p>
+        <p class="themed-group-bundled">Bundled categories: {{ category_slugs | join(', ') }}</p>
+        <p class="cat-head-meta">Lake Havasu City · {{ today_label }} · <a href="/contribute">Add to catalog</a></p>
+      </div>
     </div>
-    <div class="topbar-meta">
-      <span class="dateline">Lake Havasu City · {{ today_label }}</span>
-      <span class="sep"></span>
-      <a href="/contribute">Add to catalog</a>
-    </div>
-  </header>
-
-  <section class="category-subhero" aria-labelledby="category-heading">
-    <div class="hava-search-bar" aria-label="Search the local catalog">
-      <form data-hava-search action="#" method="get" role="search">
-        <label class="directory-search-label" for="hava-search-q-group">Search listings</label>
-        <div class="hava-search-row">
-          <input
-            id="hava-search-q-group"
-            class="hava-search-input"
-            type="search"
-            name="q"
-            placeholder="Search {{ group_label | lower }}…"
-            autocomplete="off"
-            maxlength="200"
-            aria-label="Search listings"
-          />
-          <button type="submit" class="hava-search-submit">Search</button>
-        </div>
-        <div class="hava-search-results" data-hava-search-results hidden></div>
-      </form>
-    </div>
-    <h1 id="category-heading" class="category-title">{{ group_label }}</h1>
-    <p class="category-lede">{{ group_one_liner }}</p>
-    <p class="themed-group-bundled">Bundled categories: {{ category_slugs | join(', ') }}</p>
+    <div class="ridge" aria-hidden="true"></div>
   </section>
 
   {% if show_sparse_banner %}
@@ -66,6 +38,26 @@
     More {{ group_label }} coming soon — Hava is still building this section. Check back this week!
   </p>
   {% endif %}
+
+  <div class="hava-search-bar" aria-label="Search the local catalog">
+    <form data-hava-search action="#" method="get" role="search">
+      <label class="directory-search-label" for="hava-search-q-group">Search listings</label>
+      <div class="hava-search-row">
+        <input
+          id="hava-search-q-group"
+          class="hava-search-input"
+          type="search"
+          name="q"
+          placeholder="Search {{ group_label | lower }}…"
+          autocomplete="off"
+          maxlength="200"
+          aria-label="Search listings"
+        />
+        <button type="submit" class="hava-search-submit">Search</button>
+      </div>
+      <div class="hava-search-results" data-hava-search-results hidden></div>
+    </form>
+  </div>
 
   <section class="category-filters" aria-label="Filters">
     <div class="chip-row chip-row--scroll" data-chip-row="trade">
@@ -106,6 +98,9 @@
       <button type="button" class="map-toggle-btn" data-map-toggle aria-expanded="false">
         Map view
       </button>
+      <button type="button" class="boat-mode-toggle" data-boat-mode-toggle aria-pressed="false" aria-label="Boat-access mode">
+        Boat mode
+      </button>
     </div>
   </section>
 
@@ -125,14 +120,13 @@
   </footer>
 
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin="anonymous" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js" crossorigin="anonymous" defer></script>
 <script src="/static/js/boat_mode.js" defer></script>
 <script src="/static/js/search_bar.js" defer></script>
 <script src="/static/js/map.js" defer></script>
 <script src="/static/js/category_filters.js" defer></script>
-{% set active_tab = "explore" %}
-{% include "_partials/lake_light_bottom_nav.html" %}
-</body>
-</html>
+{% endblock %}

@@ -65,6 +65,29 @@ def test_api_routes_skip_security_headers(client: TestClient) -> None:
         assert header not in {k.lower() for k in r.headers}, f"/api/* should not carry {header}"
 
 
+def test_html_pages_demand_revalidation(client: TestClient) -> None:
+    """Date-stamped HTML pages must carry an explicit no-cache directive.
+
+    P0 stale-serving fix (2026-06-07): /events-ui served a June 2 "Today"
+    render on June 7 while /home was fresh. These pages previously shipped
+    with no Cache-Control at all, so any intermediary cache was free to
+    apply heuristic freshness and replay an old render.
+    """
+    for path in ("/home", "/events-ui"):
+        r = client.get(path)
+        assert r.status_code == 200, path
+        assert (r.headers.get("content-type") or "").startswith("text/html"), path
+        assert r.headers.get("cache-control") == "no-cache, max-age=0, must-revalidate", path
+
+
+def test_non_html_responses_keep_default_caching(client: TestClient) -> None:
+    """The no-cache stamp is HTML-only: assets and text feeds are untouched."""
+    for path in ("/robots.txt", "/static/styles/sandstone.css"):
+        r = client.get(path)
+        assert r.status_code == 200, path
+        assert "cache-control" not in {k.lower() for k in r.headers}, path
+
+
 def test_http_request_omits_hsts(client: TestClient) -> None:
     """TestClient defaults to http://; HSTS must NOT be set on plain HTTP."""
     r = client.get("/home")

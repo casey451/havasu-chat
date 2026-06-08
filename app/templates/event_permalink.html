@@ -1,34 +1,21 @@
-<!doctype html>
-<html lang="en">
-<head>
-  {% include '_partials/plausible.html' %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>{{ event_title }} — Ask Hava</title>
-  {# SEO P1.3: self-canonical. og_url is the absolute-https permalink
-     ({base_url}/events/{id}) built in the route, so reuse it here. #}
-  <link rel="canonical" href="{{ og_url }}">
-  <meta property="og:title" content="{{ event_title }}">
-  <meta property="og:description" content="{{ og_description | meta_desc(200) }}">
-  <meta property="og:url" content="{{ og_url }}">
-  {# SEO P1.9: complete the og set; fall back to the site hero image. #}
-  <meta property="og:site_name" content="Ask Hava">
-  <meta property="og:type" content="event">
-  {% if image_url %}<meta property="og:image" content="{{ image_url }}">
-  {% elif absolute_url is defined %}<meta property="og:image" content="{{ absolute_url('/static/img/home-hero.jpg') }}">
-  {% endif %}
-  {# DL-15: event detail moves onto the Sandstone Fraunces/Figtree font stack
-     (fixes the old Georgia fallback from lake_light.css). #}
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles/sandstone.css">
-  <link rel="stylesheet" href="/static/styles/sandstone_events.css">
-</head>
-<body data-mode="ask">
-<main id="main" role="main">
-  <article class="ev-detail wrap">
-    <div class="crumb"><a href="/home">Home</a> › <a href="/events-ui">Events</a> › Detail</div>
+{% extends "desert_base.html" %}
+{# SEO P1.3: self-canonical = the absolute-https permalink ({base_url}/events/{id})
+   built in the route as ``og_url``; canonical_override feeds the base's single
+   canonical + og:url emitter so nothing is duplicated. #}
+{% set canonical_override = og_url %}
+{% set active_tab = "events" %}
+{% block title %}{{ event_title }} — Ask Hava{% endblock %}
+{% block meta_description %}{{ og_description | meta_desc(200) }}{% endblock %}
+{% block og_type %}event{% endblock %}
+{% block og_title %}{{ event_title }}{% endblock %}
+{# SEO P1.9: event image when present; fall back to the site hero image. #}
+{% block og_image %}{% if image_url %}{{ image_url }}{% else %}{{ absolute_url('/static/img/home-hero.jpg') }}{% endif %}{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_events.css">{% endblock %}
+
+{% block content %}
+  <div class="d-wrap">
+  <article class="ev-detail">
+    <div class="d-crumb"><a href="/home">Home</a> › <a href="/events-ui">Events</a> › Detail</div>
 
     {% if is_past %}
     <div class="ev-passed-banner" role="status">This event has passed. Check the <a href="/events-ui">events list</a> for what's coming up.</div>
@@ -45,7 +32,7 @@
        the main.py handler does not yet pass -- noted as a PR follow-up. #}
     <div class="ev-detail-actions">
       {% if location_name %}
-      <a class="ev-btn" href="https://www.google.com/maps/dir/?api=1&destination={{ location_name | urlencode }}" target="_blank" rel="noopener noreferrer">Directions</a>
+      <a class="d-btn d-btn--solid ev-btn" href="https://www.google.com/maps/dir/?api=1&destination={{ location_name | urlencode }}" target="_blank" rel="noopener noreferrer">Directions</a>
       {% endif %}
     </div>
 
@@ -68,6 +55,5 @@
 
     <p class="ev-detail-back"><a href="/events-ui">← Back to all events</a></p>
   </article>
-</main>
-</body>
-</html>
+  </div>
+{% endblock %}

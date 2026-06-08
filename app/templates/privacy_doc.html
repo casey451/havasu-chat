@@ -1,13 +1,10 @@
-{% extends "lake_light_base.html" %}
-{% block active_tab %}{% endblock %}
+{% extends "desert_base.html" %}
 {% block title %}{{ head_title }}{% endblock %}
-{% block utility_header %}
-  {% set header_back_href = "/home" %}
-  {% set header_back_label = "Back to Home" %}
-  {% include "_partials/lake_light_header.html" %}
-{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_portal.css">{% endblock %}
 {% block content %}
-  <article class="ll-utility-main">
+  {# Markdown-rendered legal docs (/privacy from docs/privacy.md, /terms from
+     docs/tos.md) — the pipeline injects pre-rendered HTML; we restyle only. #}
+  <article class="d-doc">
     {{ body | safe }}
   </article>
 {% endblock %}

@@ -66,6 +66,12 @@ We host on Railway, which stores the application logs and
 database. We use Sentry for error tracking. Both operate under
 their own policies.
 
+We also use **Plausible**, a privacy-focused analytics service, to
+count page views and see which features get used. It is cookieless
+and does not build persistent profiles of individual visitors; we
+never send it your chat text or anything that identifies you. Its
+policy: https://plausible.io/privacy
+
 ## How long we keep it
 
 Right now, we do not automatically delete old chat messages or
@@ -90,6 +96,4 @@ becomes a concern you'd like to raise sooner, contact us (below).
 The fastest way to reach us is the feedback button at the bottom
 of each chat response — it goes straight to the operator.
 
-You can also reach us by email at caseylsolomon@gmail.com.
-
-<!-- TODO: replace caseylsolomon@gmail.com with dedicated havasuchat contact address before public launch -->
+You can also reach us by email at hello@havasuchat.com.

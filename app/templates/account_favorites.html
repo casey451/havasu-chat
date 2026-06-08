@@ -1,26 +1,23 @@
-{% extends "lake_light_base.html" %}
-{% block active_tab %}saved{% endblock %}
+{% extends "desert_base.html" %}
+{% set active_tab = "saved" %}
 {% block title %}Saved listings -- Ask Hava{% endblock %}
-{% block utility_header %}
-  {% set header_back_href = "/account" %}
-  {% set header_back_label = "Account" %}
-  {% include "_partials/lake_light_header.html" %}
-{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_account.css">{% endblock %}
 {% block content %}
-  <section class="ll-utility-main">
-    <p class="ll-eyebrow">Saved</p>
-    <h1>Your favorites</h1>
-    <p class="ll-muted">Signed in as <strong>{{ user.email }}</strong>.</p>
+  <section class="d-util">
+    <div class="d-crumb"><a href="/account">My account</a> &nbsp;/&nbsp; Saved</div>
+    <span class="d-eyebrow">Saved</span>
+    <h1>Your <em>favorites.</em></h1>
+    <p class="d-muted">Signed in as <strong>{{ user.email }}</strong>.</p>
     {% if not favorites %}
-    <p class="ll-muted ll-spaced">No saved listings yet. Tap the heart on any listing to keep it here.</p>
+    <p class="d-muted d-spaced">No saved listings yet. Tap the heart on any listing to keep it here.</p>
     {% else %}
-    <ul class="ll-list-reset ll-spaced">
+    <ul class="d-fav-list">
       {% for f in favorites %}
       <li>
         {% if f.href %}
         <a href="{{ f.href }}">{{ f.name | clean_name }}</a>
         {% else %}
-        <span class="ll-muted">{{ f.name | clean_name }}</span>
+        <span class="d-muted">{{ f.name | clean_name }}</span>
         {% endif %}
       </li>
       {% endfor %}

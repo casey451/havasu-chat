@@ -146,6 +146,7 @@ a.spon:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
 .ev.special{background:var(--live);color:#fff}
 .ev.water{background:var(--accent)}
 .ev.more{background:transparent;color:var(--muted);padding:1px 5px}
+.ev.classes{background:var(--chip);color:var(--muted);font-weight:600}
 .cal-legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:13px;font-size:.74rem;color:var(--muted)}
 .cal-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
 .cal-empty{text-align:center;color:var(--muted);padding:30px 10px;font-size:.9rem}
@@ -168,6 +169,7 @@ a.wday:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:va
 .wev.community{background:#B07514}
 .wev.class{background:var(--chip);color:var(--muted);font-weight:600}
 .wmore{font-size:.62rem;color:var(--muted);padding:1px 2px}
+.wsum{font-size:.62rem;font-weight:600;color:var(--muted);padding:1px 2px;margin-top:auto}
 .wempty{font-size:.8rem;color:var(--muted);opacity:.55;text-align:center;padding:8px 0}
 .cal-legend i.leg.special{background:#B5472B}
 .cal-legend i.leg.water{background:#1F6F8B}

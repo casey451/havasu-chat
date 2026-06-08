@@ -1,0 +1,487 @@
+/* ============================================================================
+   ASK HAVA — "DESERT MODERN" design system  (desert.css)
+   Foundation stylesheet: tokens + chrome (header / conditions strip / footer /
+   mobile bottom nav) + the shared component kit extracted from the approved
+   mockups (mockups/redesign-D-*.html).
+
+   Pairs with app/templates/desert_base.html. Page templates opt in by changing
+   their {% extends %} line; nothing here touches Sandstone.
+
+   PALETTE  "Desert at Dusk"
+     --sand        #ecdcc0   warm sand (color-blocked panels)
+     --sand-light  #f5ead4   pale sand (page base)
+     --orange      #d4581e   the sun, the heat, the brand
+     --orange-deep #b8460f   orange that passes AA on sand/cream (use for text)
+     --blue        #11324d   deep lake at dusk
+     --blue-deep   #0b2438   night water
+     --black       #171310   desert night
+     --cream       #fbf4e6   type on dark
+     --sky         #7fb6d9   cool accent on blue/black
+     --peach       #e89b62   warm accent on blue/black (em headings on blue)
+
+   CONTRAST COVENANT (AA)
+     - cream on black / blue / blue-deep: passes AA for all text.
+     - orange blocks take BLACK body text (cream on orange is large-display
+       only — 3.6:1, AA-large). Never set body copy in cream on orange.
+     - NEVER --orange text on --sand/--sand-light/--cream body copy; use
+       --orange-deep (that is what .d-accent is for).
+   ========================================================================= */
+
+:root{
+  --sand:#ecdcc0;
+  --sand-light:#f5ead4;
+  --orange:#d4581e;
+  --orange-deep:#b8460f;
+  --blue:#11324d;
+  --blue-deep:#0b2438;
+  --black:#171310;
+  --cream:#fbf4e6;
+  --sky:#7fb6d9;
+  --peach:#e89b62;
+
+  --disp:"Bricolage Grotesque","Arial Black",sans-serif;
+  --text:"Space Grotesk","Segoe UI",sans-serif;
+
+  /* borders + offset block shadows — the Desert Modern signature */
+  --d-border:2.5px solid var(--black);
+  --d-border-thick:3px solid var(--black);
+  --d-radius:16px;
+  --d-radius-lg:22px;
+  --d-shadow:6px 6px 0 var(--black);
+  --d-shadow-orange:10px 10px 0 var(--orange);
+  --d-shadow-blue:10px 10px 0 var(--blue);
+}
+
+/* ---------------------------------------------------------------- base --- */
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  background:var(--sand-light);
+  color:var(--black);
+  font-family:var(--text);
+  font-size:16px;line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  /* safety net: decorative full-bleed art must never cause page-level
+     horizontal scroll (clip, not hidden, so position:sticky keeps working) */
+  overflow-x:clip;
+}
+a{color:inherit;text-decoration:none}
+img,svg{max-width:100%;vertical-align:middle}
+button{font-family:inherit}
+h1,h2,h3,h4,h5,h6,p,ul,ol,figure,blockquote{margin:0}
+ul[class],ol[class]{padding:0;list-style:none}
+
+/* Visible focus everywhere (a11y). Orange ring works on light and dark. */
+:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
+.d-header :focus-visible,
+.d-footer :focus-visible,
+.d-bottomnav :focus-visible{outline-color:var(--peach)}
+
+/* container: comfortable gutters, single column happens per-grid <=700px.
+   RULE: page classes that share an element with .d-wrap (e.g. "d-wrap
+   p-head-in") must only ever set padding-top/padding-bottom — a `padding:X 0 Y`
+   shorthand zeroes these gutters and puts text at x=0 on mobile. */
+.d-wrap{max-width:1280px;margin:0 auto;padding-left:32px;padding-right:32px}
+
+.d-eyebrow{font-size:11px;font-weight:700;letter-spacing:.22em;text-transform:uppercase}
+/* orange accent that is AA-safe on sand/cream backgrounds */
+.d-accent{color:var(--orange-deep)}
+
+/* skip link */
+.d-skip{
+  position:absolute;left:-9999px;top:0;z-index:200;
+  background:var(--black);color:var(--cream);
+  padding:10px 18px;font-weight:700;font-size:14px;border-radius:0 0 10px 0;
+}
+.d-skip:focus{left:0}
+
+/* =================================================================== header
+   Black sticky header: sun-over-ridge logomark, primary nav, Explore-all
+   mega disclosure, sign-in pill, mobile hamburger -> drawer. */
+.d-header{
+  background:var(--black);color:var(--cream);
+  position:sticky;top:0;z-index:50;
+}
+.d-header-in{display:flex;align-items:center;justify-content:space-between;gap:24px;padding-top:15px;padding-bottom:15px}
+
+.d-logo{display:flex;align-items:center;gap:12px}
+.d-logo-sun{
+  width:34px;height:34px;border-radius:50%;background:var(--orange);
+  position:relative;overflow:hidden;flex:none;
+}
+.d-logo-sun::after{
+  content:"";position:absolute;left:0;right:0;bottom:0;height:46%;
+  background:var(--blue);border-top:3px solid var(--black);
+}
+.d-logo b{
+  font-family:var(--disp);font-weight:800;font-size:21px;
+  letter-spacing:.01em;text-transform:uppercase;
+}
+.d-logo b span{color:inherit}
+
+.d-nav{display:flex;align-items:center;gap:30px;font-size:13.5px;font-weight:500;letter-spacing:.04em}
+.d-nav>a{opacity:.85;padding-bottom:2px;border-bottom:2px solid transparent}
+.d-nav>a:hover,
+.d-nav>a[aria-current="page"],
+.d-nav>a.here{opacity:1;border-bottom-color:var(--orange)}
+
+/* NOTE: .d-explore stays position:static on purpose — the .d-mega panel is
+   absolutely positioned against the sticky .d-header so it spans full width. */
+.d-explore{display:inline-flex}
+.d-mega-trigger{
+  display:inline-flex;align-items:center;gap:7px;
+  background:none;border:none;color:inherit;cursor:pointer;padding:0 0 2px;
+  font-size:13.5px;font-weight:500;letter-spacing:.04em;
+  opacity:.85;border-bottom:2px solid transparent;
+}
+.d-mega-trigger:hover,.d-mega-trigger[aria-expanded="true"]{opacity:1;border-bottom-color:var(--orange)}
+.d-mega-trigger svg{width:13px;height:13px}
+
+/* full-width panel anchored to the sticky header */
+.d-mega{
+  position:absolute;left:0;right:0;top:100%;
+  background:var(--cream);color:var(--black);
+  border-bottom:var(--d-border-thick);
+  box-shadow:0 14px 28px rgba(23,19,16,.22);
+}
+.d-mega[hidden]{display:none}
+.d-mega-in{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:20px 28px;padding:28px 32px 30px;
+}
+.d-mm-col h5{
+  font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--orange-deep);margin:0 0 10px;
+}
+.d-mm-col a{display:block;padding:4px 0;font-size:14px;font-weight:500}
+.d-mm-col a:hover{color:var(--orange-deep)}
+.d-mm-bare,.d-mm-all{
+  font-family:var(--disp);font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:.02em;
+}
+.d-mm-all{border-bottom:3px solid var(--orange);padding-bottom:3px;display:inline-block}
+.d-mm-all:hover{color:var(--orange-deep)}
+/* single-link column (bare link, no heading) + the trailing "All categories" cell */
+.d-mm-col--single{display:flex;align-items:flex-start}
+.d-mm-col--all{align-self:end}
+
+.d-head-actions{display:flex;align-items:center;gap:14px}
+.d-signin{
+  font-size:13.5px;font-weight:700;letter-spacing:.01em;
+  border:2px solid var(--cream);border-radius:999px;padding:9px 20px;white-space:nowrap;
+  transition:background .15s,color .15s,border-color .15s;
+}
+.d-signin:hover{background:var(--orange);border-color:var(--orange);color:var(--cream)}
+
+.d-menu-btn{
+  display:none;background:none;border:2px solid var(--cream);border-radius:10px;
+  color:var(--cream);font-size:18px;line-height:1;padding:7px 11px;cursor:pointer;
+}
+.d-menu-btn:hover,.d-menu-btn[aria-expanded="true"]{border-color:var(--orange);color:var(--orange)}
+
+/* mobile disclosure drawer (real menu, mirrors sandstone's) */
+.d-drawer{
+  display:flex;flex-direction:column;
+  background:var(--black);border-top:1.5px solid rgba(251,244,230,.18);
+}
+.d-drawer[hidden]{display:none}
+.d-drawer a{
+  padding:13px 32px;font-size:14.5px;font-weight:700;letter-spacing:.02em;
+  border-bottom:1px solid rgba(251,244,230,.1);
+}
+.d-drawer a:hover{color:var(--orange)}
+
+/* ======================================================== conditions strip
+   Typographic stats band under the header (gas / temp / UV / AQI / ...).
+   Tiles with no live source are omitted upstream — honest omission. */
+.d-conditions{
+  background:var(--black);color:var(--cream);
+  border-top:1px solid rgba(251,244,230,.14);
+}
+.d-conditions-in{display:flex;flex-wrap:wrap;justify-content:center}
+.d-cond{
+  display:flex;align-items:baseline;gap:9px;
+  padding:10px 20px;border-left:1px solid rgba(251,244,230,.14);
+}
+.d-cond:first-child{border-left:none}
+.d-cond .v{font-family:var(--disp);font-weight:800;font-size:17px;line-height:1;white-space:nowrap}
+.d-cond .l{font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;opacity:.65;white-space:nowrap}
+a.d-cond:hover .v{color:var(--orange)}
+a.d-cond:hover .l{opacity:.9}
+.d-cond.is-stale .v{opacity:.6}
+.d-stale{
+  font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  background:var(--orange);color:var(--black);border-radius:999px;padding:2px 8px;
+  position:relative;top:-2px;
+}
+
+/* ===================================================== mobile bottom nav
+   Fixed, <=700px only. Six tabs: Home / Events / Ask / Explore / Map / Saved. */
+.d-bottomnav{display:none}
+
+/* =================================================================== footer */
+.d-footer{background:var(--black);color:var(--cream)}
+.d-foot-in{padding-top:64px;padding-bottom:72px;display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:40px}
+.d-foot-brand .d-logo b{font-size:24px}
+.d-credo{
+  font-family:var(--disp);font-weight:700;font-size:20px;line-height:1.25;
+  margin-top:18px;max-width:20ch;
+}
+.d-foot-col h5{
+  font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;
+  color:rgba(251,244,230,.6);margin:0 0 16px;
+}
+.d-foot-col ul{list-style:none;margin:0;padding:0}
+.d-foot-col li{padding:5px 0;font-size:14px;opacity:.85}
+.d-foot-col li a:hover{color:var(--orange);opacity:1}
+.d-foot-base{
+  border-top:1px solid rgba(251,244,230,.15);
+  padding-top:18px;padding-bottom:18px;
+  display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  font-size:12px;opacity:.7;
+}
+.d-foot-base a:hover{color:var(--orange)}
+
+/* ============================================================ COMPONENTS == */
+
+/* ---- .d-btn — pill button. Default = outline on light bg.
+   Sentence case, normal tracking (uppercase is reserved for eyebrows,
+   the bottom nav and .d-tag). ---- */
+.d-btn{
+  display:inline-flex;align-items:center;gap:10px;
+  font-family:var(--text);font-weight:700;font-size:14px;letter-spacing:.01em;
+  padding:14px 26px;border-radius:999px;border:2px solid var(--black);
+  background:transparent;color:inherit;
+  transition:transform .12s ease,background .15s,color .15s,border-color .15s;
+  cursor:pointer;
+}
+.d-btn:hover{transform:translateY(-2px)}
+.d-btn svg{width:15px;height:15px;flex:none}
+.d-btn--solid{background:var(--black);color:var(--cream)}
+.d-btn--solid:hover{background:var(--orange);border-color:var(--orange);color:var(--cream)}
+/* outline pill for use ON dark blocks (blue/black) */
+.d-btn--light{border-color:var(--cream);color:var(--cream)}
+.d-btn--light:hover{background:var(--orange);border-color:var(--orange);color:var(--cream)}
+.d-btn--sm{padding:9px 18px;font-size:13px}
+
+/* ---- .d-chip — filter pill. Default = light context. Active = solid ink
+   (orange is reserved for the hero, one CTA per viewport, sponsored tags). ---- */
+.d-chip{
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:12.5px;font-weight:600;letter-spacing:0;white-space:nowrap;
+  border:1.5px solid var(--black);border-radius:999px;padding:8px 17px;
+  background:transparent;color:inherit;cursor:pointer;
+  transition:background .15s,color .15s,border-color .15s;
+}
+.d-chip:hover{border-color:var(--orange-deep);color:var(--orange-deep)}
+.d-chip.on,.d-chip--on{background:var(--black);border-color:var(--black);color:var(--cream)}
+/* sticky black filter toolbar (category pages) — restyles chips for dark bg */
+.d-chipbar{background:var(--black);color:var(--cream);position:sticky;top:64px;z-index:40}
+.d-chipbar-in{display:flex;align-items:center;gap:10px;padding-top:14px;padding-bottom:14px;overflow-x:auto;scrollbar-width:none}
+.d-chipbar-in::-webkit-scrollbar{display:none}
+.d-chipbar .lab{
+  font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--peach);white-space:nowrap;margin-right:6px;
+}
+.d-chipbar .d-chip{border-color:rgba(251,244,230,.4);color:var(--cream)}
+.d-chipbar .d-chip:hover{border-color:var(--peach);color:var(--peach)}
+.d-chipbar .d-chip.on,.d-chipbar .d-chip--on{background:var(--cream);border-color:var(--cream);color:var(--black)}
+
+/* ---- .d-card — bordered block w/ offset shadow on hover ---- */
+.d-card{
+  background:var(--cream);border:var(--d-border);border-radius:var(--d-radius);
+  padding:24px 22px;
+  transition:transform .14s ease,box-shadow .14s ease;
+}
+.d-card:hover{transform:translate(-3px,-3px);box-shadow:var(--d-shadow)}
+.d-card--flat,.d-card--flat:hover{transform:none;box-shadow:none}
+.d-card--shadow{box-shadow:var(--d-shadow)}              /* always-on offset */
+.d-card--orange-shadow:hover{box-shadow:6px 6px 0 var(--orange)}
+
+/* ---- .d-block — color-blocked full-bleed sections ---- */
+.d-block{padding:88px 0 92px}
+.d-block--sand{background:var(--sand);color:var(--black)}
+.d-block--cream{background:var(--cream);color:var(--black)}
+.d-block--orange{background:var(--orange);color:var(--black)}   /* black text! */
+.d-block--blue{background:var(--blue);color:var(--cream)}
+.d-block--black{background:var(--black);color:var(--cream)}
+/* page-level hero accents flip per background so they stay AA
+   (section h2s are single-color — only hero/display headings keep an em) */
+.d-block--blue h1 em{color:var(--peach)}
+.d-block--black h1 em{color:var(--orange)}
+.d-block--orange h1 em{color:var(--cream)}
+.d-block--blue .d-sec-head .all:hover,
+.d-block--black .d-sec-head .all:hover{color:var(--peach)}
+
+/* ---- section head: display h2 + "all" link. Disciplined scale: ~24px on
+   mobile up to ~38px on desktop (the hero keeps the giant display size).
+   Single-color heading — no two-tone em. Link underline is ink; orange is a
+   hover state only. ---- */
+.d-sec-head{
+  display:flex;align-items:baseline;justify-content:space-between;
+  gap:20px;flex-wrap:wrap;margin-bottom:28px;
+}
+.d-sec-head h2{
+  font-family:var(--disp);font-weight:800;font-size:clamp(24px,3.2vw,38px);
+  line-height:1;text-transform:uppercase;letter-spacing:-.01em;
+}
+.d-sec-head h2 em{font-style:normal;color:inherit}
+.d-sec-head .all{
+  font-size:13.5px;font-weight:700;letter-spacing:.02em;
+  border-bottom:2px solid currentColor;padding-bottom:2px;white-space:nowrap;
+}
+.d-sec-head .all:hover{color:var(--orange-deep)}
+
+/* page-level display heading (page heads / heroes) */
+.d-display{
+  font-family:var(--disp);font-weight:800;
+  font-size:clamp(46px,7.5vw,104px);
+  line-height:.92;letter-spacing:-.025em;text-transform:uppercase;
+}
+.d-display em{font-style:normal;color:var(--orange)}
+
+/* breadcrumb */
+.d-crumb{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.6;margin-bottom:18px}
+.d-crumb a:hover{color:var(--orange-deep)}
+
+/* ---- .d-count — giant numeral (category heads, stats) ---- */
+.d-count{
+  font-family:var(--disp);font-weight:800;
+  font-size:clamp(64px,9vw,144px);line-height:.85;letter-spacing:-.04em;
+}
+.d-count--md{font-size:clamp(40px,4vw,58px);line-height:.95;letter-spacing:-.03em}
+.d-count--sm{font-size:clamp(28px,3.2vw,44px);line-height:1;letter-spacing:-.02em}
+.d-count small{font-size:.45em;font-weight:700;vertical-align:super}
+
+/* ---- .d-tag — small uppercase label / stamp ---- */
+.d-tag{
+  display:inline-block;background:var(--black);color:var(--cream);
+  font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;
+  padding:5px 13px;
+}
+.d-tag b{color:var(--orange);font-weight:700}
+.d-tag--pill{border-radius:999px}
+.d-tag--sponsored{border-radius:999px;background:var(--orange);color:var(--black)}
+.d-tag--outline{background:transparent;color:inherit;border:1.5px solid currentColor;border-radius:999px}
+/* floating ribbon over a card edge (e.g. "Today", "Featured · Sponsored") */
+.d-tag--ribbon{position:absolute;top:-12px;left:22px;padding:4px 12px}
+
+/* ---- .d-rule — thick brand divider ---- */
+.d-rule{border:none;border-top:3px solid var(--black);margin:0}
+.d-rule--orange{border-top-color:var(--orange)}
+
+/* ---- accordion: <details class="d-acc"> ---- */
+details.d-acc{
+  background:var(--cream);border:var(--d-border);border-radius:var(--d-radius);
+  margin-bottom:14px;overflow:hidden;
+  transition:box-shadow .14s ease;
+}
+details.d-acc:hover{box-shadow:5px 5px 0 var(--black)}
+details.d-acc summary{
+  list-style:none;cursor:pointer;
+  display:flex;align-items:center;gap:16px;
+  padding:20px 24px;
+}
+details.d-acc summary::-webkit-details-marker{display:none}
+details.d-acc[open] summary{background:var(--sand);border-bottom:var(--d-border)}
+.d-acc .swatch{width:16px;height:16px;border-radius:4px;border:2px solid var(--black);flex:none}
+.d-acc .nm{
+  font-family:var(--disp);font-weight:800;font-size:clamp(18px,2vw,23px);
+  text-transform:uppercase;letter-spacing:.01em;line-height:1.1;
+}
+.d-acc .ct{
+  font-family:var(--disp);font-weight:800;font-size:15px;line-height:1;
+  background:var(--black);color:var(--cream);border-radius:999px;
+  min-width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;
+  padding:0 11px;flex:none;
+}
+/* open-state count pill stays ink — orange restraint */
+.d-acc .hint{font-size:12.5px;font-weight:500;opacity:.6;margin-left:2px}
+.d-acc .chev{margin-left:auto;width:22px;height:22px;flex:none;transition:transform .18s ease}
+details.d-acc[open] .chev{transform:rotate(180deg)}
+
+/* ---- .d-ticker — events marquee (homepage "Presented by" placement) ----
+   Markup: .d-ticker > .d-ticker-lockup (.pres/.who/.note) + .d-ticker-track >
+   .d-ticker-reel (content DUPLICATED once for the seamless -50% loop). */
+.d-ticker{
+  background:var(--orange);color:var(--black);
+  display:flex;align-items:stretch;overflow:hidden;
+  border-top:4px solid var(--black);border-bottom:4px solid var(--black);
+}
+.d-ticker-lockup{
+  flex:none;display:flex;flex-direction:column;justify-content:center;
+  background:var(--black);color:var(--cream);
+  padding:14px 26px 14px 32px;min-width:230px;
+  clip-path:polygon(0 0,100% 0,calc(100% - 18px) 100%,0 100%);
+}
+.d-ticker-lockup .pres{font-size:9.5px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--orange)}
+.d-ticker-lockup .who{font-family:var(--disp);font-weight:800;font-size:17px;line-height:1.1;text-transform:uppercase;margin-top:2px}
+.d-ticker-lockup .note{font-size:10px;opacity:.6;margin-top:2px;letter-spacing:.06em}
+.d-ticker-track{flex:1;overflow:hidden;display:flex;align-items:center}
+.d-ticker-reel{
+  display:flex;flex:none;align-items:center;
+  animation:d-reel 38s linear infinite;
+  font-family:var(--disp);font-weight:700;font-size:17px;text-transform:uppercase;letter-spacing:.03em;
+  white-space:nowrap;padding:16px 0;
+}
+.d-ticker:hover .d-ticker-reel{animation-play-state:paused}
+.d-ticker-reel span{padding:0 22px}
+.d-ticker-reel i{font-style:normal;color:var(--cream)}
+@keyframes d-reel{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* ---- grid helpers (collapse to a single column <=700px) ---- */
+.d-grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.d-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.d-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+
+/* ---- inline icon default ---- */
+.d-icon{flex:none}
+
+/* ====================================================== reduced motion ==== */
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .d-ticker-reel{animation:none}
+  .d-btn,.d-card,details.d-acc,.d-acc .chev,.d-signin,.d-chip{transition:none}
+  .d-btn:hover,.d-card:hover{transform:none}
+}
+
+/* ========================================================= responsive ===== */
+@media(max-width:1080px){
+  .d-nav{display:none}
+  .d-menu-btn{display:inline-flex}
+  .d-grid-4{grid-template-columns:1fr 1fr}
+  .d-grid-3{grid-template-columns:1fr 1fr}
+}
+@media(max-width:840px){
+  .d-foot-in{grid-template-columns:1fr 1fr}
+}
+@media(max-width:700px){
+  .d-wrap{padding-left:20px;padding-right:20px}
+  .d-block{padding:60px 0 64px}
+  .d-grid-2,.d-grid-3,.d-grid-4{grid-template-columns:1fr}
+  /* conditions strip: a tidy 2x2 of the four highest-priority stats —
+     nothing clipped, nothing scrolling. Lower-priority cells are hidden. */
+  .d-conditions-in{display:grid;grid-template-columns:1fr 1fr}
+  .d-cond{border-left:none;padding:8px 10px;justify-content:center}
+  .d-cond:nth-child(n+5){display:none}
+  .d-ticker-lockup{min-width:0;padding:12px 18px 12px 20px}
+  .d-ticker-lockup .who{font-size:14px}
+  .d-foot-in{grid-template-columns:1fr;gap:30px}
+  /* clearance for the fixed bottom nav (nav height + safe area) */
+  .d-footer{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
+
+  /* fixed bottom nav, orange-trimmed */
+  .d-bottomnav{
+    display:flex;position:fixed;bottom:0;left:0;right:0;z-index:80;
+    background:var(--black);color:var(--cream);
+    justify-content:space-around;
+    padding:10px 6px calc(10px + env(safe-area-inset-bottom));
+    border-top:3px solid var(--orange);
+  }
+  .d-bottomnav a{
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.75;
+  }
+  .d-bottomnav a svg{width:20px;height:20px}
+  .d-bottomnav a.on{opacity:1;color:var(--orange)}
+}

@@ -1,20 +1,16 @@
-{% extends "lake_light_base.html" %}
-{% block active_tab %}{% endblock %}
+{% extends "desert_base.html" %}
 {% block title %}Claim listing -- Ask Hava{% endblock %}
-{% block utility_header %}
-  {% set header_back_href = "/account" %}
-  {% set header_back_label = "My Account" %}
-  {% include "_partials/lake_light_header.html" %}
-{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_account.css">{% endblock %}
 {% block content %}
-  <section class="ll-utility-main">
-    <p class="ll-eyebrow">Business ownership</p>
-    <h1>Claim this listing</h1>
-    <p class="ll-muted">Are you the owner of <strong>{{ (entity.name | clean_name) or entity.slug }}</strong>? Share details so we can verify.</p>
-    <form class="ll-form-stack" action="/claim/{{ entity.slug }}" method="post">
-      <label class="ll-label" for="notes">Verification notes (optional)</label>
-      <textarea id="notes" class="ll-textarea" name="notes" rows="4" placeholder="Best number, business license details, preferred contact time, etc."></textarea>
-      <button class="ll-button" type="submit">Submit claim</button>
+  <section class="d-util">
+    <div class="d-crumb"><a href="/account">My account</a> &nbsp;/&nbsp; Claim</div>
+    <span class="d-eyebrow">Business ownership</span>
+    <h1>Claim this <em>listing.</em></h1>
+    <p class="d-muted">Are you the owner of <strong>{{ (entity.name | clean_name) or entity.slug }}</strong>? Share details so we can verify.</p>
+    <form class="d-form" action="/claim/{{ entity.slug }}" method="post">
+      <label class="d-label" for="notes">Verification notes (optional)</label>
+      <textarea id="notes" class="d-textarea" name="notes" rows="4" placeholder="Best number, business license details, preferred contact time, etc."></textarea>
+      <button class="d-btn d-btn--solid" type="submit">Submit claim</button>
     </form>
   </section>
 {% endblock %}

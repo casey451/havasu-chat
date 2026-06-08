@@ -1,14 +1,24 @@
-{% extends "sandstone_base.html" %}
+{% extends "desert_base.html" %}
 {% block title %}Ask Hava — {{ heading }}{% endblock %}
 {% block mode %}{{ mode }}{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/sandstone_modes.css">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_home.css">{% endblock %}
 
 {% block content %}
-  <div class="wrap">
-    <div class="mode-hero mode-hero--{{ mode }}">
-      <div class="eyebrow">{{ eyebrow }}</div>
-      <h1>{{ heading }}</h1>
-      <p>{{ blurb }}</p>
+  {# Color-blocked mode hero. The Desert chrome carries no global four-mode
+     toggle (handoff §6), so the switcher lives in-page as pill links — same
+     destinations + data-mode/aria-current contract as the old header toggle. #}
+  <section class="mode-hero mode-hero--{{ mode }}">
+    <div class="d-wrap mode-hero-in">
+      {% set _mode = current_mode|default(mode) %}
+      <nav class="mode-switch" aria-label="Browse mode">
+        <a class="{% if _mode == 'ask' %}on{% endif %}" href="/home" data-mode="ask"{% if _mode == 'ask' %} aria-current="page"{% endif %}>Ask</a>
+        <a class="{% if _mode == 'lake' %}on{% endif %}" href="/lake" data-mode="lake"{% if _mode == 'lake' %} aria-current="page"{% endif %}>Lake</a>
+        <a class="{% if _mode == 'night' %}on{% endif %}" href="/night" data-mode="night"{% if _mode == 'night' %} aria-current="page"{% endif %}>Night</a>
+        <a class="{% if _mode == 'family' %}on{% endif %}" href="/family" data-mode="family"{% if _mode == 'family' %} aria-current="page"{% endif %}>Family</a>
+      </nav>
+      <span class="d-eyebrow mode-eyebrow">{{ eyebrow }}</span>
+      <h1 class="d-display">{{ heading }}</h1>
+      <p class="mode-blurb">{{ blurb }}</p>
       {% if mini_conditions %}
       {# Lake conditions are a live snapshot; the whole strip deep-links to the
          full /today conditions board so the hero metric is a doorway, not a
@@ -20,18 +30,18 @@
       </a>
       {% endif %}
     </div>
-  </div>
+  </section>
 
-  <section class="block wrap" aria-label="{{ sec_head }}">
-    <div class="sec-head">
+  <section class="d-wrap mode-tiles" aria-label="{{ sec_head }}">
+    <div class="d-sec-head">
       <h2>{{ sec_head }}</h2>
       {% if mode in ("night", "family") %}
-      <a class="more" href="/events-ui">This week's events &rarr;</a>
+      <a class="all" href="/events-ui">This week's events &rarr;</a>
       {% endif %}
     </div>
-    <div class="cat-strip">
+    <div class="mode-strip">
       {% for t in tiles %}
-      <a class="catchip" href="{{ t.url }}">
+      <a class="mode-tile" href="{{ t.url }}">
         <span class="e" aria-hidden="true">{{ t.emoji }}</span>
         <div><div class="t">{{ t.label }}</div>{% if t.blurb %}<div class="n">{{ t.blurb }}</div>{% endif %}</div>
       </a>

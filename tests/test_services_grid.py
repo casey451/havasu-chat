@@ -295,7 +295,7 @@ def test_home_renders_sandstone_services_strip() -> None:
         resp = client.get("/home")
     assert resp.status_code == 200
     rendered = resp.text
-    assert "/static/styles/sandstone.css" in rendered
+    assert "/static/styles/desert.css" in rendered  # Desert Modern reskin
     assert "Need something done?" in rendered
     assert 'href="/categories/home-property-services"' in rendered
     assert "Professional" in rendered

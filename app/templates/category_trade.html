@@ -1,28 +1,38 @@
-{% extends "sandstone_base.html" %}
+{% extends "desert_base.html" %}
 {# SEO P2.1/P2.2 — dedicated trade landing page:
    /categories/home-property-services/{trade}. Title carries the LIVE
    server-rendered provider count; H1 mirrors it (brand suffix stays in
-   <title> only). Self-canonical comes from sandstone_base via
+   <title> only). Self-canonical comes from desert_base via
    canonical_url(request) — the path IS the canonical.
 
    DECISION D4 (Casey, final): JSON-LD here is BreadcrumbList + ItemList ONLY.
    No AggregateRating structured data anywhere on this page — the visible star
-   ratings in the cards stay, structured-data ratings are omitted. #}
+   ratings in the cards stay, structured-data ratings are omitted.
+
+   Desert Modern reskin: same data, same pinned class names (crumb /
+   trade-intro / biz-grid / faq-item) — desert_directory.css restyles them. #}
 {% block title %}{{ trade_count }} Best {{ trade_label }} in Lake Havasu City, AZ — Ask Hava{% endblock %}
 {% block meta_description %}{{ trade_intro | meta_desc(160) }}{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/sandstone_category.css">
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_directory.css">
 <script type="application/ld+json">{{ breadcrumb_jsonld | tojson | safe }}</script>
 <script type="application/ld+json">{{ itemlist_jsonld | tojson | safe }}</script>
 {% endblock %}
 
 {% block content %}
-  <div class="cathead wrap">
-    <div class="crumb"><a href="/home">Home</a> › <a href="/categories/{{ parent_slug }}">{{ parent_label }}</a> › {{ trade_label }}</div>
-    <h1>{{ trade_count }} Best {{ trade_label }} in Lake Havasu City, AZ</h1>
-    <p class="trade-intro">{{ trade_intro }}</p>
-  </div>
+  {# ── Orange trade head: breadcrumb + count-bearing h1 + giant count ── #}
+  <section class="cat-head">
+    <div class="cathead wrap">
+      <div class="cat-head-main">
+        <div class="crumb"><a href="/home">Home</a> › <a href="/categories/{{ parent_slug }}">{{ parent_label }}</a> › {{ trade_label }}</div>
+        <h1>{{ trade_count }} Best {{ trade_label }} in Lake Havasu City, AZ</h1>
+        <p class="trade-intro">{{ trade_intro }}</p>
+      </div>
+      <div class="giant" aria-label="{{ trade_count }} listed">{{ trade_count }}<small>Listed</small></div>
+    </div>
+    <div class="ridge" aria-hidden="true"></div>
+  </section>
 
-  <div class="wrap">
+  <div class="wrap listwrap">
     <div class="biz-grid" id="bizGrid">
       {% for card in category_cards %}
       {% include 'components/sandstone_biz_card.html' %}
@@ -39,4 +49,15 @@
       {% endfor %}
     </section>
   </div>
+
+  {# ── Ask strip — the page's own ask-bar (Desert chrome has no header search) ── #}
+  <section class="askstrip">
+    <div class="wrap askstrip-in">
+      <h2>Can't decide? <em>Ask.</em></h2>
+      <form action="/chat" method="get">
+        <input type="text" name="q" placeholder="Ask about {{ trade_label | lower }}…" aria-label="Ask Hava">
+        <button type="submit">Ask Hava</button>
+      </form>
+    </div>
+  </section>
 {% endblock %}

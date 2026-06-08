@@ -1,42 +1,67 @@
-{% extends "sandstone_base.html" %}
+{% extends "desert_base.html" %}
+{% import "_partials/desert_icons.html" as dicons %}
 {% block title %}Ask Hava — Lake Havasu City concierge & directory{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_home.css">{% endblock %}
 
 {% block content %}
-  {# ---- Hero + single search → existing 3-tier /chat backend ---- #}
-  <div class="hero wrap">
-    <div class="eyebrow">{% if hero_eyebrow_override %}{{ hero_eyebrow_override }}{% else %}Your lake · {{ today_label }}{% endif %}</div>
-    <h1>{% if hero_headline_override %}{{ hero_headline_override }}{% else %}What's the plan on <em>Lake&nbsp;Havasu?</em>{% endif %}</h1>
-    <form class="searchbox" id="home-ask-form" action="/chat" method="get" role="search" aria-label="Ask Hava">
-      <div class="field">
-        <span class="mag" aria-hidden="true">🔍</span>
-        <input id="home-ask-input" name="q" type="text" value="" placeholder="Mexican food near the channel" aria-label="Ask Hava anything in Lake Havasu">
-        <button class="go" type="submit">Ask Hava</button>
+  {# ---- Hero + single search → existing 3-tier /chat backend (Desert Modern:
+     sand block, giant display headline, black ask bar w/ orange offset). ---- #}
+  <section class="home-hero">
+    <div class="hero wrap">
+      <div class="hero-copy">
+        {# Eyebrow is just the date — the H1 right below already says "Your
+           lake." (HOME_HERO_EYEBROW env override still wins when set). #}
+        <span class="date-tag">{% if hero_eyebrow_override %}{{ hero_eyebrow_override }}{% else %}{{ today_label }}{% endif %}</span>
+        <h1>{% if hero_headline_override %}{{ hero_headline_override }}{% else %}Your lake.<span class="l2">Your week.</span>{% endif %}</h1>
       </div>
-    </form>
-    <div class="quicklinks">
-      <a href="/categories/eat-drink?open=1">What's open now</a>
-      <a href="/categories/on-the-water">On the water</a>
-      <a href="/events-ui">This week's events</a>
-      <a href="/categories/things-to-do">Things to do</a>
+      <div class="hero-side">
+        <div class="hero-art" aria-hidden="true">
+          <div class="lines"><i style="bottom:38%"></i><i style="bottom:46%"></i><i style="bottom:54%"></i></div>
+          <div class="sun"></div>
+          <div class="ridge"></div>
+        </div>
+        <div class="askbar">
+          <span class="d-eyebrow askbar-eyebrow">Ask Hava — your local concierge</span>
+          <form class="searchbox" id="home-ask-form" action="/chat" method="get" role="search" aria-label="Ask Hava">
+            <input id="home-ask-input" name="q" type="text" value="" placeholder="Mexican food near the channel" aria-label="Ask Hava anything in Lake Havasu">
+            <button class="go" type="submit">Ask Hava</button>
+          </form>
+          <div class="quicklinks">
+            <a href="/categories/eat-drink?open=1">What's open now</a>
+            <a href="/categories/on-the-water">On the water</a>
+            <a href="/events-ui">This week's events</a>
+            <a href="/categories/things-to-do">Things to do</a>
+          </div>
+        </div>
+        {# Directory search (DL-6 phase 2): the Desert chrome has no header
+           search, so the /search affordance lives here beside the ask bar. #}
+        <div class="dirsearch">
+          <form class="header-search" action="/search" method="get" role="search" aria-label="Search Lake Havasu businesses and events">
+            <input type="text" name="q" placeholder="Search businesses and events">
+            <button type="submit" aria-label="Submit search">{{ dicons.icon("search", 15) }}</button>
+          </form>
+          <a class="header-ask-instead" href="/chat?q=">Ask Hava instead</a>
+        </div>
+      </div>
     </div>
-  </div>
+  </section>
 
   {# ---- This week around the lake — next 7 days, ranked by importance ---- #}
   {% if week.has_any %}
-  <section class="block wrap" aria-label="This week around the lake">
-    <div class="sec-head">
-      <h2>This week around the lake</h2>
-      <a class="more" href="/events-ui">All events →</a>
+  <section class="d-wrap home-week" aria-label="This week around the lake">
+    <div class="d-sec-head">
+      <h2>This week <em>around the lake</em></h2>
+      <a class="all" href="/events-ui">All events →</a>
     </div>
     <div class="week-strip" role="list">
       {% for day in week.days %}
-      <a class="wday{% if day.is_today %} today{% endif %}" role="listitem" href="/events-ui?date={{ day.iso }}" aria-label="{{ day.count }} event{{ '' if day.count == 1 else 's' }} on {{ day.label }} {{ day.md }}">
+      <a class="wday{% if day.is_today %} today{% endif %}" role="listitem" href="/events-ui?date={{ day.iso }}" aria-label="{% if day.event_count or not day.class_count %}{{ day.event_count }} event{{ '' if day.event_count == 1 else 's' }}{% endif %}{% if day.event_count and day.class_count %} and {% endif %}{% if day.class_count %}{{ day.class_count }} class{{ '' if day.class_count == 1 else 'es' }}{% endif %} on {{ day.label }} {{ day.md }}">
         <div class="wday-h"><span class="wd">{{ day.label }}</span><span class="wdm">{{ day.md }}</span></div>
-        {% if day.events %}
+        {% if day.events or day.summary %}
           {% for ev in day.events %}
           <span class="wev {{ ev.type }}">{% if ev.time %}<i class="wt">{{ ev.time }}</i>{% endif %}{{ ev.title }}</span>
           {% endfor %}
-          {% if day.overflow > 0 %}<span class="wmore">+{{ day.overflow }} more</span>{% endif %}
+          {% if day.summary %}<span class="wsum">{{ day.summary }}</span>{% endif %}
         {% else %}
           <span class="wempty" aria-hidden="true">—</span>
         {% endif %}
@@ -53,23 +78,23 @@
   </section>
   {% endif %}
 
-  {# ---- Featured around town — real sponsors or the honest claim slot ---- #}
-  <section class="block wrap" aria-label="Featured around town">
-    <div class="sec-head"><h2>Featured around town</h2><a class="more" href="/sponsor">Advertise here →</a></div>
+  {# ---- Featured around town — real sponsors (labeled) or the honest claim slot ---- #}
+  <section class="d-wrap home-featured" aria-label="Featured around town">
+    <div class="d-sec-head"><h2>Featured <em>around town</em></h2><a class="all" href="/sponsor">Advertise here →</a></div>
     <div class="spon-row">
       {% for card in featured_cards %}
       {% if card.empty %}
       <a class="spon empty" href="/sponsor">
-        <div>
-          <div class="cat" style="color:var(--muted)">Your business</div>
-          <h3 style="margin-top:5px;color:var(--text)">Claim this spot</h3>
+        <div class="body">
+          <div class="cat">Your business</div>
+          <h3>Claim this spot</h3>
           <div class="deal">Quiet, clearly labeled. No pop-ups.</div>
         </div>
       </a>
       {% else %}
       {% if card.url %}<a class="spon" href="{{ card.url }}">{% else %}<div class="spon">{% endif %}
-        {% if card.image_url %}<div class="img" style="background-image:url('{{ card.image_url }}')"></div>{% else %}<div class="img"></div>{% endif %}
-        <span class="tag">Sponsored</span>
+        {% if card.image_url %}<div class="img" style="background-image:url('{{ card.image_url }}')"></div>{% else %}<div class="img img--art" aria-hidden="true"></div>{% endif %}
+        <span class="tag d-tag d-tag--sponsored spon-label">Sponsored</span>
         <div class="body">
           {% if card.eyebrow %}<div class="cat">{{ card.eyebrow }}</div>{% endif %}
           <h3>{{ card.name }}</h3>
@@ -82,8 +107,8 @@
   </section>
 
   {# ---- This month calendar — real Event rows, JS-free prev/next ---- #}
-  <section class="block wrap" aria-label="This month around the lake">
-    <div class="sec-head"><h2>This month around the lake</h2><a class="more" href="/events-ui">Full calendar →</a></div>
+  <section class="d-wrap home-cal" aria-label="This month around the lake">
+    <div class="d-sec-head"><h2>This month <em>around the lake</em></h2><a class="all" href="/events-ui">Full calendar →</a></div>
     <div class="cal-card">
       <div class="cal-top">
         <div class="m">{{ calendar.label }}</div>
@@ -99,11 +124,12 @@
         {% if not cell.in_month %}
         <div class="cell empty" aria-hidden="true"></div>
         {% elif cell.has %}
-        <a class="cell has{% if cell.is_today %} today{% endif %}{% if cell.special %} special-day{% endif %}" href="/events-ui?date={{ cell.iso }}" aria-label="{{ cell.count }} event{{ '' if cell.count == 1 else 's' }} on day {{ cell.day }}">
+        <a class="cell has{% if cell.is_today %} today{% endif %}{% if cell.special %} special-day{% endif %}" href="/events-ui?date={{ cell.iso }}" aria-label="{% if cell.count %}{{ cell.count }} event{{ '' if cell.count == 1 else 's' }}{% if cell.class_count %} and {% endif %}{% endif %}{% if cell.class_count %}{{ cell.class_count }} class{{ '' if cell.class_count == 1 else 'es' }}{% endif %} on day {{ cell.day }}">
           <div class="d">{{ cell.day }}</div>
-          <span class="cell-count" aria-hidden="true">{{ cell.count }}</span>
+          {% if cell.count %}<span class="cell-count" aria-hidden="true">{{ cell.count }}</span>{% endif %}
           {% for ev in cell.events %}<span class="ev ev-{{ ev.type }}">{{ ev.title }}</span>{% endfor %}
           {% if cell.overflow > 0 %}<span class="ev more">+{{ cell.overflow }}</span>{% endif %}
+          {% if cell.class_count %}<span class="ev classes">{{ cell.class_count }} class{{ '' if cell.class_count == 1 else 'es' }}</span>{% endif %}
         </a>
         {% else %}
         <div class="cell{% if cell.is_today %} today{% endif %}">
@@ -118,32 +144,32 @@
         <span><i class="leg ev-class"></i>Class / ongoing</span>
       </div>
       {% else %}
-      <div class="cal-empty" id="calendar">No events posted for {{ calendar.label }} yet. <a href="/events-ui" style="color:var(--accent);font-weight:600">Browse all events →</a></div>
+      <div class="cal-empty" id="calendar">No events posted for {{ calendar.label }} yet. <a class="cal-empty-link" href="/events-ui">Browse all events →</a></div>
       {% endif %}
     </div>
   </section>
 
-  {# ---- Explore Havasu — live category counts (count omitted when none) ---- #}
-  <section class="block wrap" aria-label="Explore Havasu">
-    <div class="sec-head"><h2>Explore Havasu</h2><a class="more" href="/categories">All categories →</a></div>
-    <div class="cat-strip">
-      {% for tile in explore_tiles %}
-      <a class="catchip" href="{{ tile.url }}">
-        <span class="e" aria-hidden="true">{{ tile.emoji }}</span>
-        <div><div class="t">{{ tile.label }}</div>{% if tile.count %}<div class="n">{{ tile.count }} listed</div>{% endif %}</div>
-      </a>
-      {% endfor %}
+  {# ---- Explore Havasu — live category counts as color-blocked tiles
+     (count omitted when none; "Browse" stamp instead — never a zero) ---- #}
+  <section class="d-block d-block--blue home-explore" aria-label="Explore Havasu">
+    <div class="d-wrap">
+      <div class="d-sec-head"><h2>Explore Havasu</h2><a class="all" href="/categories">All categories →</a></div>
+      <div class="cat-strip">
+        {% for tile in explore_tiles %}
+        <a class="catchip {{ loop.cycle('c-orange', 'c-cream', 'c-black', 'c-sand', 'c-blue', 'c-cream') }}" href="{{ tile.url }}">
+          {% if tile.count %}<span class="count">{{ tile.count }}</span>{% else %}<span class="count soon">Browse</span>{% endif %}
+          <span class="name">{{ tile.label }} {{ dicons.icon("arrow", 20) }}</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% if service_tiles %}
+      <div class="d-sec-head svc-head"><h2>Need something done?</h2></div>
+      <div class="cat-strip secondary">
+        {% for tile in service_tiles %}
+        <a class="catchip-mini" href="{{ tile.url }}">{{ tile.label }} {{ dicons.icon("arrow", 14) }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
-    {% if service_tiles %}
-    <div class="sec-head" style="margin-top:26px"><h2 style="font-size:1.1rem">Need something done?</h2></div>
-    <div class="cat-strip secondary">
-      {% for tile in service_tiles %}
-      <a class="catchip" href="{{ tile.url }}">
-        <span class="e" aria-hidden="true">{{ tile.emoji }}</span>
-        <div><div class="t">{{ tile.label }}</div></div>
-      </a>
-      {% endfor %}
-    </div>
-    {% endif %}
   </section>
 {% endblock %}

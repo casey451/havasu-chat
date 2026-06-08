@@ -18,7 +18,9 @@ def test_portal_landing_renders() -> None:
     with TestClient(app) as client:
         r = client.get("/portal")
     assert r.status_code == 200
-    assert "/static/styles/sandstone.css" in r.text
+    # Desert Modern reskin: base tokens + the portal page stylesheet.
+    assert "/static/styles/desert.css" in r.text
+    assert "/static/styles/desert_portal.css" in r.text
     assert 'href="/portal/claim"' in r.text
     assert 'href="/portal/advertise"' in r.text
 

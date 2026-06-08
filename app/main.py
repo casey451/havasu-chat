@@ -72,6 +72,7 @@ from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal, get_db, init_db
 from app.db.models import AuthSession, Event, Provider
 from app.digest.routes import router as digest_router
+from app.events.time_labels import is_time_tbd
 from app.home.chat_route import router as new_chat_ui_router
 from app.home.router import router as home_router
 from app.home.static_pages import router as static_pages_router
@@ -338,6 +339,17 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     ``/api/`` (JSON endpoints — keeps the API contract minimal). HSTS is
     only emitted when the request scheme is HTTPS so dev/local traffic
     doesn't get a long-lived enforcement record.
+
+    Also stamps ``Cache-Control: no-cache`` on every HTML response (P0
+    stale-serving fix, 2026-06-07): the dynamic pages are date-stamped
+    ("Today" / "This Weekend" buckets, conditions chips) but previously
+    shipped with NO freshness directives, leaving browsers, proxies and the
+    Railway edge free to apply heuristic caching and replay a days-old
+    render — the live ``/events-ui`` served a June 2 "Today" on June 7
+    while ``/home`` was fresh (SITE_AUDIT_LIVE_2026-06-03 theme T2/B-04).
+    ``no-cache`` forces revalidation on every use; ``setdefault`` lets a
+    route opt into a different policy explicitly. Static assets are not
+    ``text/html`` and keep their normal validator-based caching.
     """
 
     async def dispatch(self, request: Request, call_next):
@@ -351,6 +363,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers.setdefault(
             "Permissions-Policy", "geolocation=(), microphone=(), camera=()"
         )
+        content_type = (response.headers.get("content-type") or "").lower()
+        if content_type.startswith("text/html"):
+            response.headers.setdefault(
+                "Cache-Control", "no-cache, max-age=0, must-revalidate"
+            )
         if request.url.scheme == "https":
             response.headers.setdefault(
                 "Strict-Transport-Security",
@@ -445,22 +462,11 @@ def _format_event_datetime(event: Event) -> str:
     weekday = event.date.strftime("%A")
     month = event.date.strftime("%B")
     day = event.date.day
-    if event.start_time is None:
-        # WP-4 allows NULL times at ingest (never fabricate noon). A timeless
-        # event shows the date only -- dereferencing start_time here would 500
-        # the permalink.
-        return f"{weekday}, {month} {day}"
-    if (
-        event.start_time.hour == 0
-        and event.start_time.minute == 0
-        and (
-            event.end_time is None
-            or (event.end_time.hour == 0 and event.end_time.minute == 0)
-        )
-    ):
-        # A bare 00:00 start (with no end, or a midnight-to-midnight zero span)
-        # is the aggregator-ingest "no time given" fallback, not a real
-        # midnight event — show the date only, same as NULL.
+    if is_time_tbd(event.start_time, event.end_time):
+        # WP-4 allows NULL times at ingest (never fabricate noon), and a bare
+        # 00:00 start with no real end is the aggregator-ingest "no time given"
+        # fallback, not a real midnight event — show the date only. The single
+        # definition of that contract lives in app/events/time_labels.py.
         return f"{weekday}, {month} {day}"
     hour_24 = event.start_time.hour
     minute = event.start_time.minute

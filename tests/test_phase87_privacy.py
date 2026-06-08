@@ -115,10 +115,13 @@ def test_privacy_route_200_and_markers() -> None:
         r = client.get("/privacy")
     assert r.status_code == 200
     body = r.text
-    assert "caseylsolomon@gmail.com" in body
+    assert "hello@havasuchat.com" in body
     assert "What we collect" in body
     assert "Anthropic" in body
-    assert "<!-- TODO: replace caseylsolomon@gmail.com" in body
+    assert "Plausible" in body
+    # B-06 hygiene: no personal email, no drafting TODOs shipped to prod.
+    assert "caseylsolomon@gmail.com" not in body
+    assert "TODO" not in body
 
 
 def test_terms_route_200_and_markers() -> None:
@@ -128,7 +131,34 @@ def test_terms_route_200_and_markers() -> None:
     body = r.text
     assert "Terms of Service for Hava" in body
     assert "1. Acceptance" in body
-    assert "<!-- TODO: for public US launch, evaluate DMCA 512 agent" in body
+    assert "State of Arizona" in body
+    assert "hello@havasuchat.com" in body
+    # Substance the monetization plan depends on: AI-accuracy disclaimer and
+    # labeled-paid-placement disclosure must be present.
+    assert "AI answers can be wrong" in body
+    assert "Paid placements are always" in body
+    # The attorney-review note ships as an HTML comment, not visible copy.
+    assert "needs attorney review before commercial launch" in body
+
+
+def test_terms_has_no_lawyer_placeholders() -> None:
+    """B-06: the live /terms page must not ship drafting notes or placeholders."""
+    with TestClient(app) as client:
+        r = client.get("/terms")
+    assert r.status_code == 200
+    body = r.text
+    # NB: bare "placeholder" would false-positive on the topbar search input's
+    # placeholder= attribute, so the old §9 note is matched in rendered form.
+    for marker in (
+        "jurisdiction to be specified",
+        "<strong>placeholder</strong>",
+        "lawyer review",
+        "TODO",
+        "caseylsolomon@gmail.com",
+        "[COMPANY]",
+        "[STATE]",
+    ):
+        assert marker not in body, f"placeholder marker still live: {marker!r}"
 
 
 def test_root_redirects_to_home() -> None:
@@ -136,9 +166,10 @@ def test_root_redirects_to_home() -> None:
         r = client.get("/")
     assert r.status_code == 200
     assert str(r.url).endswith("/home")
-    # Sandstone home: assert the locked stylesheet + the editorial hero headline.
-    assert "/static/styles/sandstone.css" in r.text
-    assert "What's the plan on" in r.text
+    # Desert Modern home: assert the base tokens stylesheet + the approved
+    # "Your lake. / Your week." display hero (see test_hero_copy).
+    assert "/static/styles/desert.css" in r.text
+    assert "Your week." in r.text
 
 
 def test_jinja2_templates_directory_resolves() -> None:
@@ -151,7 +182,8 @@ def test_jinja2_templates_directory_resolves() -> None:
     with TestClient(app) as client:
         r = client.get("/privacy")
     assert r.status_code == 200
-    assert '<article class="ll-utility-main">' in r.text
+    # Desert Modern reskin: the markdown doc renders inside the .d-doc article.
+    assert '<article class="d-doc">' in r.text
 
 
 def test_hint_extractor_validation_failure_logs_no_raw_json(

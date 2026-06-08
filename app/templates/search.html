@@ -1,30 +1,26 @@
-<!doctype html>
-<html lang="en">
-<head>
-  {% include '_partials/plausible.html' %}
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>{% if q %}{{ q }} — Search — Ask Hava{% else %}Search — Ask Hava{% endif %}</title>
-  <meta name="description" content="Keyword search across Lake Havasu City businesses and events on Ask Hava.">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/styles/sandstone_search.css">
-</head>
-<body class="search-page">
-<a class="search-skip-link" href="#search-results">Skip to results</a>
+{% extends "desert_base.html" %}
+{# /search — plain, crawlable keyword results page. Desert Modern reskin:
+   identical query/form behavior (GET /search?q=), identical result data
+   (providers + events lists, empty states, Ask-Hava fallbacks); rows keep
+   their search-row class names and are restyled in desert_directory.css. #}
+{% block title %}{% if q %}{{ q }} — Search — Ask Hava{% else %}Search — Ask Hava{% endif %}{% endblock %}
+{% block meta_description %}Keyword search across Lake Havasu City businesses and events on Ask Hava.{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_directory.css">{% endblock %}
 
-<header class="search-topbar" role="banner">
-  <a class="search-wordmark" href="/home">Ask <em>Hava</em></a>
-  <form class="search-form" action="/search" method="get" role="search" aria-label="Search Lake Havasu">
-    <label class="visually-hidden" for="search-q">Search businesses and events</label>
-    <input id="search-q" type="text" name="q" value="{{ q }}" placeholder="Search businesses and events" autofocus>
-    <button type="submit">Search</button>
-  </form>
-  <a class="search-ask-link" href="/chat?q={{ q | urlencode }}">Ask Hava instead -&gt;</a>
-</header>
+{% block content %}
+<section class="search-head">
+  <div class="d-wrap">
+    <h1>Search <em>Havasu.</em></h1>
+    <form class="search-form" action="/search" method="get" role="search" aria-label="Search Lake Havasu">
+      <label class="visually-hidden" for="search-q" style="position:absolute;left:-9999px">Search businesses and events</label>
+      <input id="search-q" type="text" name="q" value="{{ q }}" placeholder="Search businesses and events" autofocus>
+      <button type="submit">Search</button>
+    </form>
+    <a class="search-ask-link" href="/chat?q={{ q | urlencode }}">Ask Hava instead -&gt;</a>
+  </div>
+</section>
 
-<main class="search-main" id="search-results">
+<div class="d-wrap search-main" id="search-results">
   {% if not q %}
     <p class="search-empty">Type a keyword above to search Lake Havasu businesses and events,
       or <a href="/chat">ask Hava anything</a>.</p>
@@ -73,6 +69,5 @@
       <a href="/chat?q={{ q | urlencode }}">Ask Hava about this instead -&gt;</a>
     </p>
   {% endif %}
-</main>
-</body>
-</html>
+</div>
+{% endblock %}

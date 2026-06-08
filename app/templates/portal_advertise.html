@@ -1,30 +1,129 @@
-{% extends "sandstone_base.html" %}
+{% extends "desert_base.html" %}
 {% block title %}Advertise on Ask Hava{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/sandstone_portal.css">{% endblock %}
+{% block meta_description %}Advertise on Ask Hava — clearly-labeled, scarcity-priced placements for Lake Havasu businesses. Real prices, one paid unit per surface, never a wall of ads.{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_portal.css">{% endblock %}
+
+{#- Product card. Renders the live catalog fields from app/portal/products.py:
+    name / price (keep the "/ mo" string intact — pinned) / price_note / blurb /
+    availability {label, sold_out, scarce} / cta / cta_label. The Founding
+    Partner bundle gets the highlighted full-row treatment per the mockup. -#}
+{% macro prodcard(p) %}
+{% set founding = p.key == "founding" %}
+<article class="dp-prod{% if founding %} dp-prod--founding{% endif %}{% if p.availability.sold_out %} is-soldout{% endif %}">
+  {% if founding %}<span class="d-tag d-tag--ribbon">Launch bundle · <b>{{ p.availability.label }}</b></span>{% endif %}
+  <div class="dp-prod-main">
+    <div class="dp-prod-top">
+      <h3>{{ p.name }}</h3>
+      <span class="dp-price">{{ p.price }}</span>
+    </div>
+    {% if p.price_note %}<p class="dp-pricenote">{{ p.price_note }}</p>{% endif %}
+    <p class="dp-blurb">{{ p.blurb }}</p>
+  </div>
+  {% if founding %}
+  <div class="dp-foundnote">
+    <b>Why founding?</b> A handful of businesses fund the build-out of Havasu's
+    town concierge. In return: the bundle above at a founding rate locked for
+    12 months — and a permanent mark that says you were first.
+  </div>
+  {% endif %}
+  <div class="dp-prod-foot">
+    <span class="dp-avail{% if p.availability.sold_out %} sold{% elif p.availability.scarce %} scarce{% endif %}">{{ p.availability.label }}</span>
+    <a class="d-btn d-btn--solid d-btn--sm" href="{{ p.cta }}">{{ p.cta_label }}
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </a>
+  </div>
+</article>
+{% endmacro %}
 
 {% block content %}
-  <div class="cathead wrap">
-    <div class="crumb"><a href="/portal">For businesses</a> › Advertise</div>
-    <h1>Advertise on Ask Hava</h1>
-    <p>Clearly-labeled, scarcity-priced placements — one paid unit per surface, never a wall of ads. Prices shown are ranges; we'll confirm before anything goes live.</p>
-  </div>
-
-  <div class="wrap">
-    <div class="adcat">
-      {% for p in catalog %}
-      <div class="adcard{% if p.availability.sold_out %} is-soldout{% endif %}">
-        <div class="adcard-head">
-          <h3>{{ p.name }}</h3>
-          <span class="adcard-price">{{ p.price }}</span>
-        </div>
-        <p class="adcard-blurb">{{ p.blurb }}</p>
-        <div class="adcard-foot">
-          <span class="avail{% if p.availability.sold_out %} sold{% elif p.availability.scarce %} scarce{% endif %}">{{ p.availability.label }}</span>
-          <a class="adcard-cta" href="{{ p.cta }}">{{ p.cta_label }} →</a>
+  {# ── sell hero ── #}
+  <section class="dp-hero">
+    <div class="d-wrap dp-hero-in">
+      <div>
+        <div class="d-crumb"><a href="/portal">For businesses</a> &nbsp;/&nbsp; Advertise</div>
+        <h1 class="d-display">Be where the <em>whole town looks.</em></h1>
+        <p class="sub">When somebody in Lake Havasu wonders where to eat, launch, or take
+          the kids — they ask Hava. <b>Your business can be the answer.</b>
+          Real prices, clearly labeled, no contracts to decode.</p>
+        <div class="dp-cta-row">
+          <a class="d-btn d-btn--solid" href="#rates">See the rate card
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+          <a class="d-btn" href="/portal/claim">Claim your free listing</a>
         </div>
       </div>
-      {% endfor %}
+      <div class="dp-art" aria-hidden="true">
+        <svg viewBox="0 0 420 340" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+          <circle cx="318" cy="86" r="64" fill="#d4581e"/>
+          <g stroke="#171310" stroke-width="3" opacity=".14">
+            <line x1="0" y1="196" x2="420" y2="196"/>
+            <line x1="0" y1="216" x2="420" y2="216"/>
+          </g>
+          <g>
+            <rect x="58" y="58" width="216" height="124" rx="10" fill="#171310"/>
+            <rect x="74" y="76" width="116" height="16" rx="8" fill="#fbf4e6"/>
+            <rect x="74" y="102" width="152" height="16" rx="8" fill="#d4581e"/>
+            <rect x="74" y="128" width="84" height="16" rx="8" fill="#fbf4e6" opacity=".55"/>
+            <rect x="226" y="148" width="34" height="20" rx="10" fill="#d4581e"/>
+            <rect x="104" y="182" width="10" height="86" fill="#171310"/>
+            <rect x="218" y="182" width="10" height="86" fill="#171310"/>
+          </g>
+          <path d="M0 340 L0 286 L74 252 L154 292 L252 244 L342 296 L420 262 L420 340 Z" fill="#11324d"/>
+          <g fill="#11324d">
+            <rect x="330" y="196" width="14" height="80" rx="7"/>
+            <rect x="316" y="210" width="10" height="34" rx="5"/>
+            <rect x="318" y="210" width="24" height="10" rx="5"/>
+            <rect x="348" y="222" width="10" height="26" rx="5"/>
+            <rect x="334" y="222" width="22" height="10" rx="5"/>
+          </g>
+        </svg>
+      </div>
     </div>
-    <p style="color:var(--muted);font-size:.85rem;margin-top:18px">Paying makes a listing <em>more useful</em>, never more deceptive. Sponsored units are always labeled.</p>
-  </div>
+  </section>
+
+  {# ── proof strip — policy facts only, no invented traffic numbers ── #}
+  <section class="dp-proof" aria-label="How advertising works here">
+    <div class="dp-proof-in">
+      <div class="dp-pf hot"><div class="num">$0</div><div class="lab">To claim your listing</div></div>
+      <div class="dp-pf"><div class="num">100%</div><div class="lab">Of paid placements labeled</div></div>
+      <div class="dp-pf cool"><div class="num">1</div><div class="lab">Paid unit per surface, max</div></div>
+      <div class="dp-pf"><div class="num">{{ catalog|length }}</div><div class="lab">Products — the whole rate card</div></div>
+    </div>
+  </section>
+
+  {# ── rate card (live catalog with real scarcity) ── #}
+  <section class="dp-rates d-wrap" id="rates">
+    <div class="d-sec-head">
+      <h2>The rate card. <em>All of it.</em></h2>
+    </div>
+    <p class="lede">No media kit, no &ldquo;call for pricing.&rdquo; <b>Every product, every price,
+      live availability.</b> Each placement is labeled Sponsored on the page — locals trust
+      Hava because we never blur the line. Founding-member rates lock for 12 months when
+      you reserve now.</p>
+
+    <div class="dp-grid">
+      {% for p in catalog if p.key == "founding" %}{{ prodcard(p) }}{% endfor %}
+      {% for p in catalog if p.key != "founding" %}{{ prodcard(p) }}{% endfor %}
+    </div>
+  </section>
+
+  {# ── covenant close ── #}
+  <section class="d-block d-block--blue dp-covenant">
+    <div class="d-wrap">
+      <span class="d-eyebrow">The covenant — what your money never buys</span>
+      <blockquote>Quiet, clearly labeled. <em>No pop-ups.</em> Paying makes a listing
+        <em>more useful</em> — never more deceptive.</blockquote>
+      <p class="plain">Sponsored units are always labeled — everywhere, every time. Ratings
+        can't be bought. Rankings can't be bought. What you buy is presence, done so cleanly
+        that locals thank us for it.</p>
+      <div class="dp-lock">
+        <span class="sunlock" aria-hidden="true"></span>
+        <p><b>Founding rates lock for 12 months.</b> Whatever you sign at today is your price
+          for a full year — even as the town and the traffic grow.</p>
+        <a class="d-btn d-btn--light" href="#rates">Pick your placement
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+      </div>
+    </div>
+  </section>
 {% endblock %}
