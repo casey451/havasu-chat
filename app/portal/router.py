@@ -211,6 +211,7 @@ def portal_reserve_post(
 
     # For category sponsorship, snapshot the chosen category label; else notes.
     # ``category`` is a validated CATEGORY_LABELS key by this point.
+    category_or_notes: str | None
     if product == "category":
         category_or_notes = CATEGORY_LABELS[category]
     else:
