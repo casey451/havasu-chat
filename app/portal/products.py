@@ -40,8 +40,8 @@ _PRODUCTS: tuple[dict[str, Any], ...] = (
         "slot": AdSlot.SPOTLIGHT,
         "cap": None,  # per-category cap; shown as a note rather than a global count
         "note": "1 slot per category",
-        "cta": "/contribute",
-        "cta_label": "Enquire",
+        "cta": "/portal/reserve?product=category",
+        "cta_label": "Reserve this spot",
     },
     {
         "key": "featured",
@@ -52,8 +52,8 @@ _PRODUCTS: tuple[dict[str, Any], ...] = (
         "slot": AdSlot.PROMOTED,
         "cap": None,
         "note": "Few slots — limited",
-        "cta": "/contribute",
-        "cta_label": "Enquire",
+        "cta": "/portal/reserve?product=featured",
+        "cta_label": "Reserve this spot",
     },
     {
         "key": "event",
@@ -63,8 +63,8 @@ _PRODUCTS: tuple[dict[str, Any], ...] = (
         "blurb": "Lift your event in the month calendar and the Today module for its run.",
         "slot": None,
         "cap": None,
-        "cta": "/contribute",
-        "cta_label": "Enquire",
+        "cta": "/portal/reserve?product=event",
+        "cta_label": "Reserve this spot",
     },
     {
         "key": "gas",
@@ -74,8 +74,8 @@ _PRODUCTS: tuple[dict[str, Any], ...] = (
         "blurb": "The single exclusive sponsor on the high-traffic gas page.",
         "slot": AdSlot.MARQUEE,
         "cap": 1,
-        "cta": "/contribute",
-        "cta_label": "Enquire",
+        "cta": "/portal/reserve?product=gas",
+        "cta_label": "Reserve this spot",
     },
     {
         "key": "founding",
@@ -86,10 +86,23 @@ _PRODUCTS: tuple[dict[str, Any], ...] = (
         "slot": None,
         "cap": None,
         "note": "10 founding spots",
-        "cta": "/contribute",
-        "cta_label": "Become a founding partner",
+        "cta": "/portal/reserve?product=founding",
+        "cta_label": "Reserve this spot",
     },
 )
+
+
+def get(key: str) -> dict[str, Any] | None:
+    """Return the raw catalog entry for ``key`` (no live availability), or None.
+
+    Used by the reservation flow to render a product summary (name/price) and
+    snapshot the product name onto the reservation. Strips the internal
+    ``slot``/``cap`` fields the public surface never needs.
+    """
+    for p in _PRODUCTS:
+        if p["key"] == key:
+            return {k: v for k, v in p.items() if k not in ("slot", "cap")}
+    return None
 
 
 def _availability(db: Session, slot: AdSlot | None, cap: int | None, note: str | None) -> dict[str, Any]:

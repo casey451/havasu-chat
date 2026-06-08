@@ -35,6 +35,8 @@ from app.auth.dependencies import get_current_user
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.db.database import get_db
 from app.db.models import (
+    AdReservation,
+    AdReservationStatus,
     AdSlot,
     Entity,
     Sponsor,
@@ -43,6 +45,16 @@ from app.db.models import (
     UpgradeRequestStatus,
     User,
 )
+
+# Allowed forward transitions for an ad reservation's status FSM.
+_AD_RESERVATION_NEXT: dict[str, frozenset[str]] = {
+    AdReservationStatus.PENDING.value: frozenset(
+        {AdReservationStatus.CONTACTED.value, AdReservationStatus.DECLINED.value}
+    ),
+    AdReservationStatus.CONTACTED.value: frozenset(
+        {AdReservationStatus.CLOSED.value, AdReservationStatus.DECLINED.value}
+    ),
+}
 
 _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parents[1] / "templates"))
 register_template_filters(_TEMPLATES)
@@ -284,6 +296,78 @@ def register_sponsor_admin_routes(router: APIRouter) -> None:
         db.add(req)
         db.commit()
         return RedirectResponse(url="/admin/upgrade-requests", status_code=303)
+
+    # ── admin ad-reservation queue (manual-invoice "Reserve this spot") ───────
+
+    @router.get("/ad-reservations", response_class=HTMLResponse, response_model=None)
+    def admin_ad_reservations(
+        request: Request, db: Session = Depends(get_db)
+    ) -> HTMLResponse | RedirectResponse:
+        """Queue of /portal/advertise reservations. Pending first, then the rest.
+
+        No billing/payment here — these are leads Casey closes by invoice. The
+        status FSM advances pending → contacted → closed (or → declined).
+        """
+        redir = _admin_guard(request)
+        if redir is not None:
+            return redir
+        rows = (
+            db.execute(
+                select(AdReservation).order_by(
+                    AdReservation.status.asc(), AdReservation.created_at.desc()
+                )
+            )
+            .scalars()
+            .all()
+        )
+        pending = [r for r in rows if r.status == AdReservationStatus.PENDING.value]
+        others = [r for r in rows if r.status != AdReservationStatus.PENDING.value]
+
+        def _row(r: AdReservation) -> dict[str, object]:
+            return {
+                "id": r.id,
+                "product_name": r.product_name,
+                "product_key": r.product_key,
+                "business_name": r.business_name,
+                "contact_name": r.contact_name,
+                "contact_email": r.contact_email,
+                "contact_phone": r.contact_phone,
+                "category_or_notes": r.category_or_notes,
+                "status": r.status,
+                "created_at": r.created_at,
+                "next": sorted(_AD_RESERVATION_NEXT.get(r.status, frozenset())),
+            }
+
+        return _TEMPLATES.TemplateResponse(
+            request=request,
+            name="admin_ad_reservations.html",
+            context={
+                "pending": [_row(r) for r in pending],
+                "others": [_row(r) for r in others],
+            },
+        )
+
+    @router.post("/ad-reservations/{reservation_id}/status", response_model=None)
+    def admin_ad_reservation_set_status(
+        request: Request,
+        reservation_id: str,
+        status: str = Form(...),
+        db: Session = Depends(get_db),
+    ) -> RedirectResponse:
+        """Advance a reservation's status along the allowed FSM transitions."""
+        redir = _admin_guard(request)
+        if redir is not None:
+            return redir
+        res = db.get(AdReservation, reservation_id)
+        if res is None:
+            raise HTTPException(status_code=404, detail="ad_reservation_not_found")
+        allowed = _AD_RESERVATION_NEXT.get(res.status, frozenset())
+        if status not in allowed:
+            raise HTTPException(status_code=400, detail="invalid_status_transition")
+        res.status = status
+        db.add(res)
+        db.commit()
+        return RedirectResponse(url="/admin/ad-reservations", status_code=303)
 
 
 # ── merchant-facing upgrade request capture ──────────────────────────────────
