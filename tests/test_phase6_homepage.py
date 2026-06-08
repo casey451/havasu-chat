@@ -27,18 +27,19 @@ def client() -> TestClient:
     return TestClient(app)
 
 
-def test_home_returns_200_serves_sandstone(client: TestClient) -> None:
+def test_home_returns_200_serves_desert(client: TestClient) -> None:
+    # Desert Modern reskin: /home extends desert_base (desert.css).
     r = client.get("/home")
     assert r.status_code == 200
-    assert "/static/styles/sandstone.css" in r.text
+    assert "/static/styles/desert.css" in r.text
     assert 'data-mode="ask"' in r.text
 
 
-def test_home_calendar_param_still_serves_sandstone(client: TestClient) -> None:
+def test_home_calendar_param_still_serves_desert(client: TestClient) -> None:
     for qs in ("", "?cal=2026-07", "?cal=2025-12"):
         r = client.get(f"/home{qs}")
         assert r.status_code == 200
-        assert "/static/styles/sandstone.css" in r.text
+        assert "/static/styles/desert.css" in r.text
 
 
 def test_themed_tile_partial_exists() -> None:

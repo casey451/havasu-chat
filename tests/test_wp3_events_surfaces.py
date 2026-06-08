@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete
 
@@ -289,72 +290,86 @@ def test_calendar_cell_carries_iso_and_count_and_prioritises_oneoffs() -> None:
             db.commit()
 
 
-# --- /events-ui rendering + ?when= / ?date= ---------------------------------
+# --- /events-ui rendering + ?view= / ?when= / ?date= -------------------------
 
 
-def test_events_ui_renders_when_chips_and_sections() -> None:
+def test_events_ui_renders_view_toggle_and_today_accordion() -> None:
+    """Default /events-ui is the TODAY view: a no-JS Today|Week|Month toggle
+    plus the labelled today section. (Replaces the old ?when= chip/bucket
+    assertions — the protected contract is still "the page exposes labelled,
+    navigable structure", just over the new views.)"""
     with TestClient(app) as client:
         body = client.get("/events-ui").text
-    # Chip strip present with labeled filters.
-    assert "ev-when-chips" in body
-    assert "This Weekend" in body
-    # Honest per-section total copy.
-    assert "total" in body
-    # Plain bucket labels preserved (E-1).
-    assert "Today" in body and "This Week" in body and "Next Week" in body
+    assert "Events around the lake" in body
+    assert 'class="ev-views"' in body  # view toggle present
+    assert "?view=week" in body and "?view=month" in body
+    assert 'aria-label="Today"' in body  # today section labelled
 
 
-def test_events_ui_when_filter_narrows_to_single_bucket() -> None:
+def test_events_ui_when_today_maps_to_today_view() -> None:
+    """Legacy ?when=today still narrows to today only (now the Today view)."""
     with TestClient(app) as client:
         body = client.get("/events-ui?when=today").text
-    # Narrowed view drops the This Week / Next Week sections.
-    assert 'aria-label="This Week"' not in body
-    assert 'aria-label="Next Week"' not in body
+    assert 'aria-label="Today"' in body
+    assert 'class="ev-week"' not in body  # not the week view
+
+
+def test_events_ui_when_weekend_still_responds_with_week_view() -> None:
+    """Legacy ?when=weekend (and the other old chips) must keep answering:
+    they map to the Week view, which tiles the upcoming days gap-free."""
+    with TestClient(app) as client:
+        for legacy in ("weekend", "this-week", "next-week", "all"):
+            resp = client.get(f"/events-ui?when={legacy}")
+            assert resp.status_code == 200
+            assert 'class="ev-week"' in resp.text
 
 
 def test_events_ui_date_deeplink_shows_single_day() -> None:
     with TestClient(app) as client:
         body = client.get("/events-ui?date=2099-04-12").text
     assert "Showing events for" in body
-    assert "Back to all events" in body
+    assert "Back to today" in body
+    assert "/events-ui?date=2099-04-11" in body  # prev-day link
+    assert "/events-ui?date=2099-04-13" in body  # next-day link
 
 
-def test_events_ui_weekend_events_never_fall_in_gap() -> None:
-    """P0 regression: Sat/Sun events must surface on the default /events-ui view.
-
-    The old buckets left a gap ("This Week" effectively ended Friday, "Next
-    Week" started Monday). Today / This Weekend / This Week / Next Week now
-    tile the whole horizon, so the upcoming Saturday, Sunday, AND next week's
-    Saturday each land in exactly one rendered bucket — whatever weekday the
-    test runs on.
+def test_events_ui_weekend_events_never_fall_in_gap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """P0 regression, carried over from the bucket era: weekend events must
+    never vanish in a window gap. The Week view tiles 7 contiguous days from
+    today, so the upcoming Saturday and Sunday each render exactly once (no
+    gap, no double-listing); a day past the 7-day horizon stays reachable on
+    its ?date= page (the month grid links every date).
     """
     suffix = uuid.uuid4().hex[:6]
     eids: list[str] = []
-    now = now_lake_havasu()
-    days_to_sunday = (6 - now.weekday()) % 7
-    sunday = (now + timedelta(days=days_to_sunday)).date()
-    saturday = sunday - timedelta(days=1)
+    monday = datetime(2099, 8, 24, 9, 0, tzinfo=_LHC)  # quiet far-future Monday
+    assert monday.weekday() == 0
+    saturday = monday.date() + timedelta(days=5)
+    sunday = monday.date() + timedelta(days=6)
+    next_saturday = saturday + timedelta(days=7)
     sat_title = f"ZZ Sat Regatta {suffix}"
     sun_title = f"ZZ Sun Brunch {suffix}"
     next_sat_title = f"ZZ NextSat Derby {suffix}"
     with SessionLocal() as db:
-        if saturday >= now.date():  # on a Sunday the Saturday is already past
-            _id, eid = _add_event(db, title=sat_title, on=saturday, start=time(10, 0), loc="Beach")
+        for title, on in (
+            (sat_title, saturday),
+            (sun_title, sunday),
+            (next_sat_title, next_saturday),
+        ):
+            _id, eid = _add_event(db, title=title, on=on, start=time(10, 0), loc="Beach")
             eids.append(eid)
-        _id, eid = _add_event(db, title=sun_title, on=sunday, start=time(11, 0), loc="Bridge")
-        eids.append(eid)
-        _id, eid = _add_event(
-            db, title=next_sat_title, on=sunday + timedelta(days=6), start=time(9, 0), loc="Marina"
-        )
-        eids.append(eid)
         db.commit()
     try:
+        monkeypatch.setattr("app.home.router.now_lake_havasu", lambda: monday)
         with TestClient(app) as client:
-            body = client.get("/events-ui").text
-        if saturday >= now.date():
-            assert sat_title in body
-        assert sun_title in body
-        assert next_sat_title in body  # next week's Saturday is in "Next Week"
+            week_body = client.get("/events-ui?view=week").text
+            day_body = client.get(f"/events-ui?date={next_saturday.isoformat()}").text
+        assert week_body.count(sat_title) == 1  # exactly once — no gap
+        assert week_body.count(sun_title) == 1  # exactly once — no double-list
+        assert next_sat_title not in week_body  # beyond the 7-day horizon...
+        assert next_sat_title in day_body  # ...but reachable on its day page
     finally:
         with SessionLocal() as db:
             db.execute(delete(Event).where(Event.entity_id.in_(eids)))
@@ -362,7 +377,7 @@ def test_events_ui_weekend_events_never_fall_in_gap() -> None:
             db.commit()
 
 
-def test_event_detail_uses_fraunces_font_stack() -> None:
+def test_event_detail_uses_desert_font_stack() -> None:
     eids: list[str] = []
     start = now_lake_havasu()
     with SessionLocal() as db:
@@ -376,10 +391,11 @@ def test_event_detail_uses_fraunces_font_stack() -> None:
             resp = client.get(f"/events/{_id}")
         assert resp.status_code == 200
         body = resp.text
-        # DL-15: Fraunces/Figtree, not the old Georgia/lake_light stack.
-        assert "Fraunces" in body and "Figtree" in body
+        # Desert Modern: Bricolage Grotesque/Space Grotesk via desert_base,
+        # never the old Georgia/lake_light stack.
+        assert "Bricolage+Grotesque" in body and "Space+Grotesk" in body
         assert "lake_light.css" not in body
-        assert "sandstone_events.css" in body
+        assert "desert_events.css" in body
         # pre-line description container is present.
         assert "ev-detail-desc" in body
     finally:

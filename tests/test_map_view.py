@@ -20,9 +20,10 @@ def test_map_view_returns_200_with_container_and_leaflet() -> None:
     assert "leaflet/1.9.4/leaflet.min.css" in r.text
     assert "leaflet/1.9.4/leaflet.min.js" in r.text
     assert "leaflet.markercluster/1.5.3/leaflet.markercluster.min.js" in r.text
-    # Lake Light chrome.
-    assert "/static/styles/lake_light.css" in r.text
-    assert 'class="ll-page map-page"' in r.text
+    # Desert Modern chrome (desert_base) + the directory skin overrides.
+    assert "/static/styles/desert.css" in r.text
+    assert "/static/styles/desert_directory.css" in r.text
+    assert 'class="map-page"' in r.text
     # Full-page map stylesheet.
     assert "/static/styles/components/map_view.css" in r.text
 

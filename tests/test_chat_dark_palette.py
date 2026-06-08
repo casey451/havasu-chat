@@ -1,23 +1,23 @@
-"""Q1 (2026-05-29) -- /chat empty state adopts the dark cinematic palette.
+"""/chat surface styling pins (Desert Modern reskin, 2026-06-07).
 
-Mirrors ``test_home_c_redesign.py`` for the /chat surface. The handoff
-``outputs/v48_handoff_q1_chat_dark_empty_state.md`` flipped the chat
-chrome from the light cream tokens to the dark night-ink palette so the
-brand reads continuous from /home into /chat.
+Originally written for the Q1 dark-palette flip; updated when /chat moved to
+the Desert Modern skin (``desert_base.html`` + ``desert.css`` +
+``desert_chat.css``). The *intent* of each pin is unchanged:
 
 Pinned contracts:
 
-- ``<body class="chat-dark">`` -- the body class chat.css scopes its
-  dark overrides under. A future PR that drops or renames the class
-  would silently revert /chat to the light palette; this test catches
-  that.
-- ``chat.css`` is still wired -- the stylesheet that *carries* the dark
-  rules. (Defense-in-depth alongside the existing
+- ``<body ... class="ll-page ll-chat">`` -- the body classes that
+  ``chat_cards.css`` (B-01 svg/img clamps, feedback controls, composer
+  clearance) and ``desert_chat.css`` scope every selector under. Dropping or
+  renaming them silently unstyles the transcript.
+- The skin stylesheets are wired -- ``desert.css`` (tokens + chrome, loaded
+  by the base) and ``desert_chat.css`` (the chat transcript/composer skin).
+  (Defense-in-depth alongside the existing
   ``test_plausible_script_renders_on_chat_page`` smoke.)
-- The empty-state markup the dark rules style still ships -- the
-  ``empty-state``, ``chips``, and ``stuck-composer`` hooks the new
-  selectors target. If a refactor renames any of those, the visual
-  flip silently breaks even with the body class intact.
+- The empty-state markup the skin styles still ships -- the ``empty-state``,
+  ``chips``, and ``stuck-composer`` hooks the selectors target. If a
+  refactor renames any of those, the visual flip silently breaks even with
+  the body classes intact.
 """
 
 from __future__ import annotations
@@ -28,21 +28,28 @@ from app.main import app
 
 
 def test_chat_serves_dark_body_class() -> None:
-    """``/chat`` renders with the Lake Light chat body classes."""
+    """``/chat`` renders with the chat body classes the chat CSS scopes under."""
     with TestClient(app) as client:
         r = client.get("/chat")
     assert r.status_code == 200
     assert 'class="ll-page ll-chat"' in r.text, (
-        "chat.html must carry ll-page/ll-chat body classes for Lake Light styling"
+        "chat.html must carry ll-page/ll-chat body classes -- chat_cards.css "
+        "and desert_chat.css scope every chat selector under body.ll-chat"
     )
 
 
 def test_chat_loads_chat_css() -> None:
-    """``/chat`` references the Lake Light stylesheet."""
+    """``/chat`` references the Desert Modern stylesheets (base + chat skin)."""
     with TestClient(app) as client:
         r = client.get("/chat")
     assert r.status_code == 200
-    assert "/static/styles/lake_light.css" in r.text
+    assert "/static/styles/desert.css" in r.text
+    assert "/static/styles/desert_chat.css" in r.text
+    # Load-order contract: the chat skin must come AFTER chat_cards.css so the
+    # B-01 size clamps in chat_cards.css keep winning where selectors overlap.
+    assert r.text.index("/static/styles/chat_cards.css") < r.text.index(
+        "/static/styles/desert_chat.css"
+    )
 
 
 def test_chat_empty_state_hooks_present() -> None:

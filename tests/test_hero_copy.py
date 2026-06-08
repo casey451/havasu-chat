@@ -19,9 +19,14 @@ def test_home_renders_default_hero_copy(monkeypatch: pytest.MonkeyPatch) -> None
     with TestClient(app) as client:
         r = client.get("/home")
     assert r.status_code == 200
-    # Locked prototype hero: dated eyebrow + the concierge question headline.
-    assert "Your lake ·" in r.text
-    assert "What's the plan on" in r.text
+    # Approved Desert Modern hero: dated eyebrow tag + the "Your lake. / Your
+    # week." display headline (mockups/redesign-D-desertmodern.html).
+    # Designer pass 2026-06: the eyebrow is just the date — "Your lake ·" was
+    # redundant directly above the "Your lake." headline.
+    assert 'class="date-tag"' in r.text
+    assert "Your lake ·" not in r.text
+    assert "Your lake." in r.text
+    assert "Your week." in r.text
     # Legacy hardcoded copy is gone.
     assert "WELCOME BACK" not in r.text
     assert "What are you in the mood for?" not in r.text
@@ -35,5 +40,5 @@ def test_home_hero_headline_env_override(monkeypatch: pytest.MonkeyPatch) -> Non
     assert r.status_code == 200
     assert "Beat the heat at the channel" in r.text
     assert "HELLO HAVASU" in r.text
-    # The prototype default must not leak when overridden.
-    assert "What's the plan on" not in r.text
+    # The default headline must not leak when overridden.
+    assert "Your week." not in r.text

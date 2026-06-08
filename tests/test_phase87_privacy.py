@@ -166,9 +166,10 @@ def test_root_redirects_to_home() -> None:
         r = client.get("/")
     assert r.status_code == 200
     assert str(r.url).endswith("/home")
-    # Sandstone home: assert the locked stylesheet + the editorial hero headline.
-    assert "/static/styles/sandstone.css" in r.text
-    assert "What's the plan on" in r.text
+    # Desert Modern home: assert the base tokens stylesheet + the approved
+    # "Your lake. / Your week." display hero (see test_hero_copy).
+    assert "/static/styles/desert.css" in r.text
+    assert "Your week." in r.text
 
 
 def test_jinja2_templates_directory_resolves() -> None:
@@ -181,7 +182,8 @@ def test_jinja2_templates_directory_resolves() -> None:
     with TestClient(app) as client:
         r = client.get("/privacy")
     assert r.status_code == 200
-    assert '<article class="ll-utility-main">' in r.text
+    # Desert Modern reskin: the markdown doc renders inside the .d-doc article.
+    assert '<article class="d-doc">' in r.text
 
 
 def test_hint_extractor_validation_failure_logs_no_raw_json(

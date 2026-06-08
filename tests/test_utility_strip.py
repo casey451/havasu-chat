@@ -73,9 +73,9 @@ def test_home_renders_slim_strip_and_drops_redundant_blocks() -> None:
     with patch.object(home_router, "_utility_chips", return_value=sample):
         with TestClient(app) as client:
             body = client.get("/home").text
-    # Sandstone centered conditions ribbon present, gas tile leading with its
+    # Desert Modern conditions strip present, gas tile leading with its
     # tap-through to the full gas list...
-    assert 'class="ribbon"' in body
+    assert 'class="d-conditions"' in body
     assert "$4.29" in body
     assert 'href="/gas"' in body
     # ...and no fabricated/redundant full-width blocks.
@@ -84,11 +84,11 @@ def test_home_renders_slim_strip_and_drops_redundant_blocks() -> None:
 
 
 def test_home_ribbon_absent_without_data() -> None:
-    """No ambient/gas data -> no empty ribbon shell (graceful omission)."""
+    """No ambient/gas data -> no empty conditions-strip shell (graceful omission)."""
     with patch.object(home_router, "_utility_chips", return_value=[]):
         with TestClient(app) as client:
             body = client.get("/home").text
-    assert 'class="ribbon"' not in body
+    assert 'class="d-conditions"' not in body
     assert "All seven buckets" not in body
 
 

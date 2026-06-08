@@ -68,10 +68,11 @@ def _get_gas(result: CacheReadResult | None) -> str:
     return resp.text
 
 
-def test_gas_page_extends_sandstone_and_loads_gas_css() -> None:
+def test_gas_page_extends_desert_and_loads_page_css() -> None:
+    # Desert Modern reskin: /gas extends desert_base + its own page stylesheet.
     body = _get_gas(_result(_payload(), fetched_at=_now() - timedelta(minutes=5)))
-    assert "/static/styles/sandstone.css" in body  # from sandstone_base
-    assert "/static/styles/sandstone_gas.css" in body  # page-specific, separate file
+    assert "/static/styles/desert.css" in body  # from desert_base
+    assert "/static/styles/desert_home.css" in body  # page-specific, separate file
     assert "/static/styles/lake_light.css" not in body  # old skin gone
 
 
@@ -189,7 +190,7 @@ def test_gas_page_renders_conditions_ribbon_with_gas_chip() -> None:
         with patch.object(home_router, "read_source", return_value=result):
             with TestClient(app) as client:
                 body = client.get("/gas").text
-    assert 'class="ribbon"' in body
+    assert 'class="d-conditions"' in body  # Desert conditions strip
     assert "Cheapest gas" in body
 
 

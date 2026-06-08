@@ -233,11 +233,15 @@ def test_get_categories_index_renders_every_label(client: TestClient) -> None:
 def test_get_categories_index_has_all_categories_topbar_link(
     client: TestClient,
 ) -> None:
-    """Categories index highlights Explore navigation."""
+    """Categories index highlights Explore navigation.
+
+    Desert Modern chrome: the lit tab is the bottom-nav /categories link
+    carrying aria-current (was the Lake Light ``is-active`` topbar pill).
+    """
     r = client.get("/categories")
     assert r.status_code == 200
     body = r.text
-    assert '<a class="is-active" href="/categories">Explore</a>' in body
+    assert 'aria-current="page" href="/categories"' in body
 
 
 def test_get_categories_index_links_to_each_category_page(

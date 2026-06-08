@@ -12,22 +12,24 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 
-def test_home_serves_sandstone_by_default() -> None:
+def test_home_serves_desert_by_default() -> None:
+    # Desert Modern reskin: the home wears the desert base (desert.css + the
+    # sun-over-ridge logotype) — same data-mode + ask-form contracts as before.
     with TestClient(app) as client:
         r = client.get("/home")
     assert r.status_code == 200
-    assert "/static/styles/sandstone.css" in r.text
+    assert "/static/styles/desert.css" in r.text
     assert 'data-mode="ask"' in r.text
-    assert "Ask <em>Hava</em>" in r.text
+    assert "Ask&nbsp;Hava" in r.text
     assert 'id="home-ask-form"' in r.text
 
 
-def test_home_calendar_param_still_serves_sandstone() -> None:
+def test_home_calendar_param_still_serves_desert() -> None:
     with TestClient(app) as client:
         for path in ("/home?cal=2026-07", "/home?cal=2026-01"):
             r = client.get(path)
             assert r.status_code == 200
-            assert "/static/styles/sandstone.css" in r.text
+            assert "/static/styles/desert.css" in r.text
 
 
 def test_sandstone_no_mock_content() -> None:
