@@ -35,6 +35,44 @@
     </div>
   </section>
 
+  {# ---- G: compact category strip — directory breadth ABOVE THE FOLD (counts
+     are the trust/scale signal). Full Explore grid still appears lower as the
+     browsable payoff. ---- #}
+  {% if explore_tiles %}
+  <section class="d-wrap home-catstrip" aria-label="Browse local categories">
+    <div class="catstrip-row" role="list">
+      {% for tile in explore_tiles %}
+      <a class="catpill" role="listitem" href="{{ tile.url }}">
+        {% if tile.count %}<span class="n">{{ tile.count }}</span>{% endif %}<span class="l">{{ tile.label }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {# ---- G Tier-1: marquee sponsor, above the fold. Real-or-omit: a sold
+     marquee renders the flagship card; unsold collapses to a slim claim line
+     (never a fake sponsor, never a big empty box). ---- #}
+  <section class="d-wrap home-marquee" aria-label="Featured business">
+    {% if marquee %}
+    <a class="marquee-card"{% if marquee.cta_url %} href="/sponsor/click?id={{ marquee.id }}&slot=marquee"{% endif %}>
+      {% if marquee.image_url %}<div class="mq-img" style="background-image:url('{{ marquee.image_url }}')"></div>{% else %}<div class="mq-img mq-img--art" aria-hidden="true"></div>{% endif %}
+      <div class="mq-body">
+        <span class="d-tag d-tag--sponsored">Featured</span>
+        {% if marquee.eyebrow %}<div class="cat">{{ marquee.eyebrow }}</div>{% endif %}
+        <h2>{{ marquee.headline }}</h2>
+        {% if marquee.pitch %}<p>{{ marquee.pitch }}</p>{% endif %}
+        {% if marquee.cta_label %}<span class="cta">{{ marquee.cta_label }} →</span>{% endif %}
+      </div>
+    </a>
+    {% else %}
+    <a class="marquee-claim" href="/sponsor">
+      <span class="cat">Featured business</span>
+      <span class="claim">Your business in the top spot — quiet, clearly labeled. <em>Advertise →</em></span>
+    </a>
+    {% endif %}
+  </section>
+
   {# ---- This week around the lake — next 7 days, ranked by importance ---- #}
   {% if week.has_any %}
   <section class="d-wrap home-week" aria-label="This week around the lake">
@@ -67,9 +105,11 @@
   </section>
   {% endif %}
 
-  {# ---- Featured around town — real sponsors (labeled) or the honest claim slot ---- #}
-  <section class="d-wrap home-featured" aria-label="Featured around town">
-    <div class="d-sec-head"><h2>Featured <em>around town</em></h2><a class="all" href="/sponsor">Advertise here →</a></div>
+  {# ---- G Tier-2: Featured this week — spotlight sponsors (labeled), event-
+     adjacent, right after the week strip. Real sponsors or the honest claim
+     slot (featured_cards always ends with one claim card). ---- #}
+  <section class="d-wrap home-featured" aria-label="Featured this week">
+    <div class="d-sec-head"><h2>Featured <em>this week</em></h2><a class="all" href="/sponsor">Advertise here →</a></div>
     <div class="spon-row">
       {% for card in featured_cards %}
       {% if card.empty %}
@@ -94,6 +134,50 @@
       {% endfor %}
     </div>
   </section>
+
+  {# ---- Explore Havasu — live category counts as color-blocked tiles
+     (count omitted when none; "Browse" stamp instead — never a zero).
+     G: promoted ABOVE the month calendar so the directory payoff lands before
+     the second calendar. ---- #}
+  <section class="d-block d-block--blue home-explore" aria-label="Explore Havasu">
+    <div class="d-wrap">
+      <div class="d-sec-head"><h2>Explore Havasu</h2><a class="all" href="/categories">All categories →</a></div>
+      <div class="cat-strip">
+        {% for tile in explore_tiles %}
+        <a class="catchip {{ loop.cycle('c-orange', 'c-cream', 'c-black', 'c-sand', 'c-blue', 'c-cream') }}" href="{{ tile.url }}">
+          {% if tile.count %}<span class="count">{{ tile.count }}</span>{% else %}<span class="count soon">Browse</span>{% endif %}
+          <span class="name">{{ tile.label }} {{ dicons.icon("arrow", 20) }}</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% if service_tiles %}
+      <div class="d-sec-head svc-head"><h2>Need something done?</h2></div>
+      <div class="cat-strip secondary">
+        {% for tile in service_tiles %}
+        <a class="catchip-mini" href="{{ tile.url }}">{{ tile.label }} {{ dicons.icon("arrow", 14) }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  {# ---- G Tier-3: promoted in-feed card, right after the Explore grid (highest
+     intent — visitor is actively browsing categories). Real-or-omit: the whole
+     section is absent when unsold. ---- #}
+  {% if promoted %}
+  <section class="d-wrap home-promoted" aria-label="Sponsored">
+    <a class="promoted-card"{% if promoted.cta_url %} href="/sponsor/click?id={{ promoted.id }}&slot=promoted"{% endif %}>
+      {% if promoted.image_url %}<div class="pr-img" style="background-image:url('{{ promoted.image_url }}')"></div>{% endif %}
+      <div class="pr-body">
+        <span class="d-tag d-tag--sponsored">Sponsored</span>
+        {% if promoted.eyebrow %}<div class="cat">{{ promoted.eyebrow }}</div>{% endif %}
+        <h3>{{ promoted.headline }}</h3>
+        {% if promoted.pitch %}<p>{{ promoted.pitch }}</p>{% endif %}
+        {% if promoted.cta_label %}<span class="cta">{{ promoted.cta_label }} →</span>{% endif %}
+      </div>
+    </a>
+  </section>
+  {% endif %}
 
   {# ---- This month calendar — real Event rows, JS-free prev/next ---- #}
   <section class="d-wrap home-cal" aria-label="This month around the lake">
@@ -134,30 +218,6 @@
       </div>
       {% else %}
       <div class="cal-empty" id="calendar">No events posted for {{ calendar.label }} yet. <a class="cal-empty-link" href="/events-ui">Browse all events →</a></div>
-      {% endif %}
-    </div>
-  </section>
-
-  {# ---- Explore Havasu — live category counts as color-blocked tiles
-     (count omitted when none; "Browse" stamp instead — never a zero) ---- #}
-  <section class="d-block d-block--blue home-explore" aria-label="Explore Havasu">
-    <div class="d-wrap">
-      <div class="d-sec-head"><h2>Explore Havasu</h2><a class="all" href="/categories">All categories →</a></div>
-      <div class="cat-strip">
-        {% for tile in explore_tiles %}
-        <a class="catchip {{ loop.cycle('c-orange', 'c-cream', 'c-black', 'c-sand', 'c-blue', 'c-cream') }}" href="{{ tile.url }}">
-          {% if tile.count %}<span class="count">{{ tile.count }}</span>{% else %}<span class="count soon">Browse</span>{% endif %}
-          <span class="name">{{ tile.label }} {{ dicons.icon("arrow", 20) }}</span>
-        </a>
-        {% endfor %}
-      </div>
-      {% if service_tiles %}
-      <div class="d-sec-head svc-head"><h2>Need something done?</h2></div>
-      <div class="cat-strip secondary">
-        {% for tile in service_tiles %}
-        <a class="catchip-mini" href="{{ tile.url }}">{{ tile.label }} {{ dicons.icon("arrow", 14) }}</a>
-        {% endfor %}
-      </div>
       {% endif %}
     </div>
   </section>

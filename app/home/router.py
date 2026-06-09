@@ -585,6 +585,10 @@ def serve_home(
     utility_chips = _utility_chips(db)
     cal_year, cal_month = sandstone.parse_cal_param(cal, default=now)
     spotlights = sponsor_store.active_spotlights(db)
+    # G ad ladder: Tier-1 marquee (above the fold) + Tier-3 promoted (after the
+    # Explore grid). Both real-or-omit — None when unsold, never a fake sponsor.
+    marquee = sponsor_store.active_marquee(db)
+    promoted = sponsor_store.active_promoted(db)
     # Hero copy defaults to the locked prototype wording (with its italic accent);
     # owners can retune the eyebrow/headline per season via env without a redeploy.
     hero_eyebrow_override = os.getenv("HOME_HERO_EYEBROW") or None
@@ -601,6 +605,8 @@ def serve_home(
             "primary_nav": sandstone.primary_nav(),
             "mega_columns": sandstone.mega_columns(db),
             "week": sandstone.week_strip(db, today=now.date()),
+            "marquee": marquee,
+            "promoted": promoted,
             "featured_cards": sandstone.featured_cards(spotlights),
             "calendar": sandstone.calendar_month(
                 db, year=cal_year, month=cal_month, today=now.date()
