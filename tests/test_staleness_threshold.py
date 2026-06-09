@@ -24,9 +24,9 @@ def test_gas_threshold_keeps_recent_daily_feed_fresh() -> None:
     assert stale is False
 
 
-def test_gas_threshold_one_day_old_is_fresh_but_past_it_is_stale() -> None:
+def test_gas_threshold_within_window_fresh_past_it_stale() -> None:
     _, fresh = staleness_label(
-        _NOW - timedelta(hours=25), _NOW, stale_after_hours=GAS_STALE_AFTER_HOURS
+        _NOW - timedelta(hours=8), _NOW, stale_after_hours=GAS_STALE_AFTER_HOURS
     )
     assert fresh is False
     _, stale = staleness_label(
