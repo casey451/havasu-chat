@@ -491,6 +491,11 @@ def serve_category(
         bucket_dest = BUCKET_SLUG_REDIRECTS.get(normalised)
         if bucket_dest:
             return RedirectResponse(url=bucket_dest, status_code=301)
+        # B.2: a taxonomy department (level-0 with child leaves) renders its
+        # landing page (child leaves + counts), distinct from the flat routes.
+        dept = leaf_pages.resolve_department(db, normalised)
+        if dept is not None:
+            return _render_department_page(request, db, dept)
         raise HTTPException(status_code=404, detail="unknown_category")
 
     label, one_liner = cat_queries.CATEGORY_DISPLAY[normalised]
@@ -722,8 +727,9 @@ def _render_leaf_page(
         raise HTTPException(status_code=404, detail="leaf_below_minimum")
 
     page_path = f"/categories/{leaf.department_slug}/{leaf.slug}"
-    # Two-level breadcrumb (Home › leaf) for B.1 — the department-landing link is
-    # added in B.2 once those pages exist, so we don't point at a 404 here.
+    dept_path = f"/categories/{leaf.department_slug}"
+    # Three-level breadcrumb (Home › department › leaf) — the department landing
+    # exists as of B.2, so the crumb links to it.
     breadcrumb_jsonld: dict[str, Any] = {
         "@context": "https://schema.org",
         "@type": "BreadcrumbList",
@@ -737,6 +743,12 @@ def _render_leaf_page(
             {
                 "@type": "ListItem",
                 "position": 2,
+                "name": leaf.department_name,
+                "item": absolute_url(dept_path),
+            },
+            {
+                "@type": "ListItem",
+                "position": 3,
                 "name": leaf.name,
                 "item": absolute_url(page_path),
             },
@@ -754,8 +766,7 @@ def _render_leaf_page(
             "now_label": now.strftime("%I:%M %p").lstrip("0"),
             "parent_slug": leaf.department_slug,
             "parent_label": leaf.department_name,
-            # No href yet — department landings are B.2; crumb renders as text.
-            "parent_href": None,
+            "parent_href": dept_path,
             "trade_slug": leaf.slug,
             "trade_label": leaf.name,
             "trade_count": total,
@@ -765,6 +776,84 @@ def _render_leaf_page(
             "breadcrumb_jsonld": breadcrumb_jsonld,
             "itemlist_jsonld": itemlist_jsonld,
             "active_tab": cat_queries.active_tab_for(leaf.department_slug),
+            "primary_nav": home_sandstone.primary_nav(),
+            "mega_columns": home_sandstone.mega_columns(db),
+            "utility_chips": _home_utility_chips(db),
+        },
+    )
+
+
+def _render_department_page(
+    request: Request, db: Session, dept: Any
+) -> HTMLResponse:
+    """Render a taxonomy department landing (B.2): the department's gate-clearing
+    child leaves with live counts + links, aggregated from the leaf join."""
+    now = now_lake_havasu()
+    pairs = leaf_pages.department_leaves(db, dept)
+    if not pairs:
+        # Every child leaf is sub-gate — nothing shippable, so the landing does
+        # not exist (anti-thin-content, same spirit as the leaf gate).
+        raise HTTPException(status_code=404, detail="department_no_shippable_leaves")
+    leaves = [
+        {
+            "name": leaf.name,
+            "count": count,
+            "url": f"/categories/{leaf.department_slug}/{leaf.slug}",
+        }
+        for leaf, count in pairs
+    ]
+    listing_total = sum(count for _, count in pairs)
+    dept_path = f"/categories/{dept.slug}"
+
+    breadcrumb_jsonld: dict[str, Any] = {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": absolute_url("/home"),
+            },
+            {
+                "@type": "ListItem",
+                "position": 2,
+                "name": dept.name,
+                "item": absolute_url(dept_path),
+            },
+        ],
+    }
+    # ItemList of the child leaf PAGES (names + URLs) — no AggregateRating (D4).
+    itemlist_jsonld: dict[str, Any] = {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "name": f"{dept.name} categories in Lake Havasu City, AZ",
+        "numberOfItems": len(leaves),
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": idx,
+                "name": leaf["name"],
+                "url": absolute_url(leaf["url"]),
+            }
+            for idx, leaf in enumerate(leaves, start=1)
+        ],
+    }
+
+    return templates.TemplateResponse(
+        request=request,
+        name="category_department.html",
+        context={
+            "today_label": now.strftime("%A, %B ") + str(now.day),
+            "now_label": now.strftime("%I:%M %p").lstrip("0"),
+            "department_slug": dept.slug,
+            "department_label": dept.name,
+            "leaves": leaves,
+            "leaf_total": len(leaves),
+            "listing_total": listing_total,
+            "breadcrumb_jsonld": breadcrumb_jsonld,
+            "itemlist_jsonld": itemlist_jsonld,
+            "active_tab": cat_queries.active_tab_for(dept.slug),
             "primary_nav": home_sandstone.primary_nav(),
             "mega_columns": home_sandstone.mega_columns(db),
             "utility_chips": _home_utility_chips(db),

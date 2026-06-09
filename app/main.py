@@ -705,6 +705,29 @@ def _build_sitemap_pages_xml() -> str:
     except Exception as exc:  # pragma: no cover — defensive
         logger.warning("sitemap: trade page enumeration failed: %s", exc)
 
+    # B.2 taxonomy leaf pages + department landings — only gate-clearing leaves
+    # (sub-gate leaves 404), and only departments that own at least one such
+    # leaf (so a listed landing is never empty). No <lastmod> — the counts move
+    # on the order of days and a per-leaf max(updated_at) would be N queries.
+    try:
+        from app.categories.leaf_pages import qualifying_leaves
+
+        with SessionLocal() as db:
+            seen_departments: set[str] = set()
+            for leaf, _count in qualifying_leaves(db):
+                entries.append(
+                    _sitemap_url_entry(
+                        f"{base}/categories/{leaf.department_slug}/{leaf.slug}"
+                    )
+                )
+                if leaf.department_slug not in seen_departments:
+                    seen_departments.add(leaf.department_slug)
+                    entries.append(
+                        _sitemap_url_entry(f"{base}/categories/{leaf.department_slug}")
+                    )
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.warning("sitemap: leaf page enumeration failed: %s", exc)
+
     return _wrap_urlset(entries)
 
 

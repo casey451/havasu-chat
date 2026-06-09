@@ -231,3 +231,82 @@ def test_leaf_listing_keys_on_primary_only(
     r = client.get(f"/categories/{seeded_leaves['ship_dept']}/{seeded_leaves['ship_leaf']}")
     assert r.status_code == 200
     assert extra_name not in r.text
+
+
+# --- B.2: department landings + breadcrumb upgrade + sitemap -----------------
+
+
+@pytest.fixture(autouse=True)
+def _clear_sitemap_cache() -> Iterator[None]:
+    from app import main as main_module
+
+    main_module._sitemap_cache.clear()
+    yield
+    main_module._sitemap_cache.clear()
+
+
+def test_department_landing_lists_gate_clearing_leaves(
+    client: TestClient, seeded_leaves: dict
+) -> None:
+    r = client.get(f"/categories/{seeded_leaves['ship_dept']}")
+    assert r.status_code == 200
+    body = r.text
+    # The gate-clearing child leaf is linked with its live count.
+    assert f'href="/categories/{seeded_leaves["ship_dept"]}/{seeded_leaves["ship_leaf"]}"' in body
+    assert "Plumbing" in body
+    n = len(seeded_leaves["ship_names"])
+    assert f"{n} listed" in body
+
+
+def test_department_landing_all_subgate_404s(
+    client: TestClient, seeded_leaves: dict
+) -> None:
+    # thin_dept's only child leaf is below the gate -> nothing shippable -> 404.
+    r = client.get(f"/categories/{seeded_leaves['thin_dept']}")
+    assert r.status_code == 404
+
+
+def test_leaf_breadcrumb_links_department(
+    client: TestClient, seeded_leaves: dict
+) -> None:
+    r = client.get(f"/categories/{seeded_leaves['ship_dept']}/{seeded_leaves['ship_leaf']}")
+    assert r.status_code == 200
+    # Three-level crumb now links the department landing.
+    assert f'href="/categories/{seeded_leaves["ship_dept"]}"' in r.text
+    blocks = [json.loads(m) for m in _JSONLD_RE.findall(r.text)]
+    crumb = next(b for b in blocks if b.get("@type") == "BreadcrumbList")
+    assert [it["position"] for it in crumb["itemListElement"]] == [1, 2, 3]
+
+
+def test_sitemap_includes_gate_leaf_and_department_excludes_thin(
+    client: TestClient, seeded_leaves: dict
+) -> None:
+    from app import main as main_module
+
+    r = client.get("/sitemap-pages.xml")
+    assert r.status_code == 200
+    xml = r.text
+    base = main_module._base_url()
+    assert f"{base}/categories/{seeded_leaves['ship_dept']}/{seeded_leaves['ship_leaf']}" in xml
+    assert f"{base}/categories/{seeded_leaves['ship_dept']}" in xml
+    # Sub-gate leaf + its (empty) department are excluded.
+    assert f"{base}/categories/{seeded_leaves['thin_dept']}/{seeded_leaves['thin_leaf']}" not in xml
+
+
+def test_qualifying_and_department_leaves(mem_db: Session) -> None:
+    dept, leaf = _make_tree(mem_db)
+    # 3 providers at the leaf -> clears the gate.
+    for _ in range(leaf_pages.LEAF_PAGE_MIN_PROVIDERS):
+        ent = Entity(entity_type="commercial", slug=f"e-{uuid4().hex[:8]}",
+                     name="X", source=_SOURCE)
+        mem_db.add(ent)
+        mem_db.flush()
+        mem_db.add(Provider(provider_name="X", category="x", slug=f"p-{uuid4().hex[:8]}",
+                            is_active=True, draft=False, entity_id=ent.id))
+        mem_db.add(EntityCategory(entity_id=ent.id, category_id=leaf.id, is_primary=True))
+    mem_db.commit()
+    qual = leaf_pages.qualifying_leaves(mem_db)
+    assert any(lf.slug == "plumbing" and n == 3 for lf, n in qual)
+    assert leaf_pages.resolve_department(mem_db, "home-and-property-services") is not None
+    dleaves = leaf_pages.department_leaves(mem_db, dept)
+    assert [(lf.slug, n) for lf, n in dleaves] == [("plumbing", 3)]

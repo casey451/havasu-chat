@@ -1,0 +1,50 @@
+{% extends "desert_base.html" %}
+{# Workstream B.2 — taxonomy department landing:
+   /categories/{department}. Aggregates the department's gate-clearing child
+   leaves with live counts + links to each leaf page. Self-canonical from
+   desert_base (canonical_url(request) — the path IS the canonical).
+
+   JSON-LD: BreadcrumbList (Home › department) + ItemList of the child leaf
+   pages. No AggregateRating anywhere (DECISION D4). #}
+{% block title %}{{ department_label }} in Lake Havasu City, AZ — Ask Hava{% endblock %}
+{% block meta_description %}{{ department_label }} in Lake Havasu City, AZ — browse {{ leaf_total }} local categories with {{ listing_total }} listings on Ask Hava.{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_directory.css">
+<script type="application/ld+json">{{ breadcrumb_jsonld | tojson | safe }}</script>
+<script type="application/ld+json">{{ itemlist_jsonld | tojson | safe }}</script>
+{% endblock %}
+
+{% block content %}
+  <section class="cat-head">
+    <div class="cathead wrap">
+      <div class="cat-head-main">
+        <div class="crumb"><a href="/home">Home</a> › {{ department_label }}</div>
+        <h1>{{ department_label }} in Lake Havasu City, AZ</h1>
+        <p class="trade-intro">Browse {{ department_label | lower }} by category. Each list below is server-rendered from the local directory and ranked by volume-weighted public reviews — Ask Hava never fabricates a rating.</p>
+      </div>
+      <div class="giant" aria-label="{{ listing_total }} listed">{{ listing_total }}<small>Listed</small></div>
+    </div>
+    <div class="ridge" aria-hidden="true"></div>
+  </section>
+
+  <div class="wrap listwrap">
+    <div class="dept-leaf-grid">
+      {% for leaf in leaves %}
+      <a class="dept-leaf-card" href="{{ leaf.url }}">
+        <span class="dept-leaf-name">{{ leaf.name }}</span>
+        <span class="dept-leaf-count">{{ leaf.count }} listed</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── Ask strip — the page's own ask-bar (Desert chrome has no header search) ── #}
+  <section class="askstrip">
+    <div class="wrap askstrip-in">
+      <h2>Can't decide? <em>Ask.</em></h2>
+      <form action="/chat" method="get">
+        <input type="text" name="q" placeholder="Ask about {{ department_label | lower }}…" aria-label="Ask Hava">
+        <button type="submit">Ask Hava</button>
+      </form>
+    </div>
+  </section>
+{% endblock %}
