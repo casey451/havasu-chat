@@ -7,24 +7,25 @@ live A.3 taxonomy.
 Data contract (A.3, live on prod):
   * a **leaf** is a ``categories`` row with ``level = 1`` and ``parent_id`` →
     its department (``level = 0``);
-  * a leaf's listings are Providers whose Entity carries a PRIMARY
-    ``entity_categories`` link at that leaf::
+  * a leaf's listings are the ACTIVE entities whose PRIMARY ``entity_categories``
+    link is that leaf (``ec.category_id = {leaf.id} AND ec.is_primary AND
+    Entity.is_active``).
 
-        Provider JOIN Entity          ON Provider.entity_id = Entity.id
-                 JOIN EntityCategory  ON ec.entity_id       = Entity.id
-        WHERE ec.category_id = {leaf.id} AND ec.is_primary
-          AND Entity.is_active AND Provider.is_active AND NOT Provider.draft
-
-The card renderer (``cat_queries._provider_card``) needs Provider data
-(rating / hours / photo), so the listing INNER-joins Provider — an entity with a
-primary leaf but no active Provider simply has no renderable card, and the page
-count reflects exactly what renders (same honesty contract as the trade pages,
-where ``count == len(providers)``).
+Rendering: an entity with an active, non-draft **Provider** renders the rich
+Provider card (rating / hours / photo). An entity with NO active Provider —
+the place-type rows like trails, beaches, parks, libraries, utilities, plus a
+handful of businesses still missing a Provider backfill — renders a **place
+card** from the entity's own fields (name, district, the "New / few reviews
+yet" state), non-linking (it has no ``/provider/{slug}`` detail page). Earlier
+this listing INNER-joined Provider, so those ~154 entities never rendered and
+their leaves under-counted toward the gate; including them lifts the
+place-heavy and borderline leaves (Kayak & Paddle, Fishing Charters, Jet Ski &
+Watersports, Dog Parks, Dance Studios, Utilities, Libraries, …).
 
 Thin-page gate (shared with trades): a leaf "ships" — resolves, joins the
 sitemap, gets linked — only at/above :data:`LEAF_PAGE_MIN_PROVIDERS` active
-renderable listings. Below that the page 404s, mirroring the Google
-scaled-content rule already applied to trades.
+renderable listings (now Provider-backed OR place). Below that the page 404s,
+mirroring the Google scaled-content rule already applied to trades.
 """
 
 from __future__ import annotations
@@ -33,7 +34,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.categories import queries as cat_queries
 from app.categories.trades import TRADE_PAGE_MIN_PROVIDERS
@@ -155,23 +156,90 @@ def leaf_provider_rows(db: Session, leaf: Leaf) -> list[Provider]:
     return rows
 
 
+def _leaf_entity_rows(db: Session, leaf_id: int) -> list[Entity]:
+    """Active entities whose PRIMARY ``entity_categories`` link is ``leaf_id``,
+    eager-loading location for the place card's area line."""
+    return (
+        db.query(Entity)
+        .join(EntityCategory, EntityCategory.entity_id == Entity.id)
+        .filter(
+            EntityCategory.category_id == leaf_id,
+            EntityCategory.is_primary.is_(True),
+            Entity.is_active.is_(True),
+        )
+        .options(joinedload(Entity.location))
+        .limit(cat_queries._MATERIALIZE_CAP)
+        .all()
+    )
+
+
+def _place_card(entity: Entity) -> dict[str, Any]:
+    """A listing card for a Provider-less place entity, built from its own
+    fields. ``slug`` is None so the template renders it non-linking — a place
+    like a trail or beach has no ``/provider/{slug}`` detail page. Same
+    "New / few reviews yet" state as a Provider with no Google rating."""
+    loc = getattr(entity, "location", None)
+    area = ""
+    if loc is not None:
+        area = (loc.district or loc.city or "").strip()
+    return {
+        "slug": None,
+        "name": entity.name,
+        "image_url": None,
+        "neighborhood": area,
+        "status": "unknown",
+        "status_text": "",
+        "rating": None,
+        "review_count": None,
+        "has_reviews": False,
+        "area": area,
+        "distance_hint": "",
+        "subcategory": "",
+        "cuisine": "",
+        "is_open": None,
+    }
+
+
 def leaf_listing(
     db: Session, leaf: Leaf, *, now: datetime
 ) -> tuple[list[dict[str, Any]], int, list[Provider]]:
     """``(cards, total, providers)`` for a leaf page.
 
-    Cards use the SAME builder as the category/trade pages, so a leaf renders
-    identical listing cards. ``providers`` rides along for the ItemList JSON-LD.
+    Provider-backed entities render first (the existing dampened-rating ranking);
+    Provider-less place entities follow as place cards, alphabetically. ``total``
+    is the full renderable count (the gate input). ``providers`` carries only the
+    Provider-backed rows for the ItemList JSON-LD (place cards aren't linkable).
     """
     providers = leaf_provider_rows(db, leaf)
-    cards = [cat_queries._provider_card(db, p, now=now) for p in providers]
-    return cards, len(providers), providers
-
-
-def leaf_provider_count(db: Session, leaf: Leaf) -> int:
-    """Active renderable Provider count for ``leaf`` (the thin-page gate input)."""
+    provider_eids = {p.entity_id for p in providers}
     try:
-        return int(_leaf_provider_query(db, leaf.id).count())
+        place_entities = [
+            e for e in _leaf_entity_rows(db, leaf.id) if e.id not in provider_eids
+        ]
+    except Exception:
+        place_entities = []
+    place_entities.sort(key=lambda e: (e.name or "").lower())
+
+    cards = [cat_queries._provider_card(db, p, now=now) for p in providers]
+    cards += [_place_card(e) for e in place_entities]
+    total = len(providers) + len(place_entities)
+    return cards, total, providers
+
+
+def leaf_renderable_count(db: Session, leaf: Leaf) -> int:
+    """Active renderable listing count for ``leaf`` — every active entity whose
+    primary is this leaf (Provider-backed OR place). The thin-page gate input."""
+    try:
+        return (
+            db.query(EntityCategory)
+            .join(Entity, EntityCategory.entity_id == Entity.id)
+            .filter(
+                EntityCategory.category_id == leaf.id,
+                EntityCategory.is_primary.is_(True),
+                Entity.is_active.is_(True),
+            )
+            .count()
+        )
     except Exception:
         return 0
 
@@ -192,21 +260,22 @@ def _leaf_from_categories(leaf: Category, dept: Category) -> Leaf:
 
 
 def _gate_counts(db: Session, *, dept_id: int | None = None) -> dict[int, int]:
-    """``{leaf category_id: renderable provider count}`` for leaves at/above the
-    gate. One grouped query. Optionally scoped to a single department."""
+    """``{leaf category_id: renderable count}`` for leaves at/above the gate.
+
+    Counts every ACTIVE entity whose primary is the leaf (Provider-backed OR
+    place) — matching what ``leaf_listing`` renders — so the sitemap and
+    department landings agree with the page's own gate. One grouped query.
+    """
     from sqlalchemy import func
 
     q = (
-        db.query(EntityCategory.category_id, func.count(Provider.id))
+        db.query(EntityCategory.category_id, func.count(EntityCategory.entity_id))
         .select_from(EntityCategory)
         .join(Entity, EntityCategory.entity_id == Entity.id)
-        .join(Provider, Provider.entity_id == Entity.id)
         .join(Category, Category.id == EntityCategory.category_id)
         .filter(
             EntityCategory.is_primary.is_(True),
             Entity.is_active.is_(True),
-            Provider.is_active.is_(True),
-            Provider.draft.is_(False),
             Category.level == 1,
         )
     )
@@ -214,7 +283,7 @@ def _gate_counts(db: Session, *, dept_id: int | None = None) -> dict[int, int]:
         q = q.filter(Category.parent_id == dept_id)
     rows = (
         q.group_by(EntityCategory.category_id)
-        .having(func.count(Provider.id) >= LEAF_PAGE_MIN_PROVIDERS)
+        .having(func.count(EntityCategory.entity_id) >= LEAF_PAGE_MIN_PROVIDERS)
         .all()
     )
     return {cid: int(n) for cid, n in rows}

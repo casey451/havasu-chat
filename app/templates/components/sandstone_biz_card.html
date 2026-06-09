@@ -2,7 +2,10 @@
    app/categories/queries). Shared by the category grid (category_sandstone.html)
    and the dedicated trade pages (category_trade.html) — SEO P2.1/P2.2: the trade
    page renders the SAME listing cards as the parent category page. #}
-<a class="biz" href="/provider/{{ card.slug }}" data-subcategory="{{ card.subcategory }}">
+{# A Provider-backed card links to its /provider/{slug} page; a Provider-less
+   place entity (no slug) renders the same card non-linking — it has no detail
+   page, and linking would 404. #}
+{% if card.slug %}<a class="biz" href="/provider/{{ card.slug }}" data-subcategory="{{ card.subcategory }}">{% else %}<div class="biz biz--place" data-subcategory="{{ card.subcategory }}">{% endif %}
   <div class="img"{% if card.image_url %} style="background-image:url('{{ card.image_url }}')"{% endif %}>
     {% if card.is_open is not none %}<span class="open{% if not card.is_open %} closed{% endif %}">{{ 'Open now' if card.is_open else 'Closed' }}</span>{% endif %}
   </div>
@@ -25,4 +28,4 @@
     {% endif %}
     {% if card.subcategory %}<div class="typ">{{ card.subcategory|replace('-', ' ')|replace('_', ' ')|title }}</div>{% endif %}
   </div>
-</a>
+{% if card.slug %}</a>{% else %}</div>{% endif %}
