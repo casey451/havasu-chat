@@ -23,7 +23,7 @@
   <section class="cat-head">
     <div class="cathead wrap">
       <div class="cat-head-main">
-        <div class="crumb"><a href="/home">Home</a> › <a href="/categories/{{ parent_slug }}">{{ parent_label }}</a> › {{ trade_label }}</div>
+        <div class="crumb"><a href="/home">Home</a> › {% if parent_href %}<a href="{{ parent_href }}">{{ parent_label }}</a>{% else %}{{ parent_label }}{% endif %} › {{ trade_label }}</div>
         <h1>{{ trade_count }} Best {{ trade_label }} in Lake Havasu City, AZ</h1>
         <p class="trade-intro">{{ trade_intro }}</p>
       </div>
@@ -39,6 +39,7 @@
       {% endfor %}
     </div>
 
+    {% if trade_faqs %}
     <section class="trade-faq" aria-labelledby="trade-faq-h">
       <h2 id="trade-faq-h">{{ trade_label }} in Lake Havasu City — FAQ</h2>
       {% for q, a in trade_faqs %}
@@ -48,6 +49,7 @@
       </details>
       {% endfor %}
     </section>
+    {% endif %}
   </div>
 
   {# ── Ask strip — the page's own ask-bar (Desert chrome has no header search) ── #}

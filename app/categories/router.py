@@ -50,6 +50,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.categories import leaf_pages
 from app.categories import queries as cat_queries
 from app.categories import subcategories as subcats
 from app.categories import trades as trade_pages
@@ -549,24 +550,45 @@ def serve_trade_page(
     trade: str,
     db: Session = Depends(get_db),
 ) -> HTMLResponse:
-    """Dedicated server-rendered trade landing page (SEO P2.1/P2.2).
+    """Dedicated server-rendered department/leaf landing page.
 
-    Resolves only for the ten promoted trades under the home-property-services
-    parent. Unknown parent or trade -> 404. Thin-page gate: a trade with fewer
-    than ``TRADE_PAGE_MIN_PROVIDERS`` active providers also 404s (and is kept
-    out of the sitemap and never linked), so near-empty templated pages are
-    not exposed (Google scaled-content note in the SEO brief).
+    Two resolvers, in order:
+
+    1. **Curated home-services trades** (SEO P2.1/P2.2) — the ten promoted
+       trades under ``home-property-services``, with their rich curated intro /
+       FAQ copy and Provider needle-matching. Unchanged behavior.
+    2. **Generalized A.3 taxonomy leaves** (Workstream B.1) — any
+       ``/categories/{department}/{leaf}`` resolving to a ``level = 1`` leaf
+       whose parent is the named ``level = 0`` department, listed by the leaf's
+       ``category_id`` via the ``entity_categories.is_primary`` join.
+
+    Unknown parent/leaf -> 404. Thin-page gate (shared): below
+    ``*_MIN_PROVIDERS`` active listings the page 404s and is kept out of the
+    sitemap / never linked (Google scaled-content rule).
 
     JSON-LD per DECISION D4 (Casey, final): BreadcrumbList + ItemList only —
-    NO AggregateRating structured data anywhere on this page.
+    NO AggregateRating structured data anywhere on these pages.
     """
     parent_key = (parent or "").strip().lower()
-    if parent_key != trade_pages.TRADE_PARENT_SLUG:
-        raise HTTPException(status_code=404, detail="unknown_category")
-    trade_obj = trade_pages.trade_by_slug(trade)
-    if trade_obj is None:
-        raise HTTPException(status_code=404, detail="unknown_trade")
 
+    # 1. Curated trade under the home-services parent (existing behavior).
+    if parent_key == trade_pages.TRADE_PARENT_SLUG:
+        trade_obj = trade_pages.trade_by_slug(trade)
+        if trade_obj is not None:
+            return _render_trade_page(request, db, trade_obj)
+
+    # 2. Generalized taxonomy leaf (B.1).
+    leaf = leaf_pages.resolve_leaf(db, parent_key, trade)
+    if leaf is not None:
+        return _render_leaf_page(request, db, leaf)
+
+    raise HTTPException(status_code=404, detail="unknown_category")
+
+
+def _render_trade_page(
+    request: Request, db: Session, trade_obj: trade_pages.Trade
+) -> HTMLResponse:
+    """Render a curated home-services trade page (the original P2.1/P2.2 path)."""
     now = now_lake_havasu()
     cards, total, providers = trade_pages.trade_listing(db, trade_obj, now=now)
     if total < trade_pages.TRADE_PAGE_MIN_PROVIDERS:
@@ -602,22 +624,9 @@ def serve_trade_page(
     }
     # D4: a plain ItemList of the listed businesses — names + URLs only, no
     # nested LocalBusiness payloads and explicitly NO AggregateRating.
-    itemlist_jsonld: dict[str, Any] = {
-        "@context": "https://schema.org",
-        "@type": "ItemList",
-        "name": f"{trade_obj.label} in Lake Havasu City, AZ",
-        "numberOfItems": total,
-        "itemListElement": [
-            {
-                "@type": "ListItem",
-                "position": idx,
-                "name": prov.provider_name,
-                "url": absolute_url(f"/provider/{prov.slug}"),
-            }
-            for idx, prov in enumerate(providers, start=1)
-            if prov.slug
-        ],
-    }
+    itemlist_jsonld = _itemlist_jsonld(
+        f"{trade_obj.label} in Lake Havasu City, AZ", total, providers
+    )
 
     label_lower = trade_obj.label.lower()
     faqs = [
@@ -646,6 +655,7 @@ def serve_trade_page(
             "now_label": now.strftime("%I:%M %p").lstrip("0"),
             "parent_slug": trade_pages.TRADE_PARENT_SLUG,
             "parent_label": parent_label,
+            "parent_href": f"/categories/{trade_pages.TRADE_PARENT_SLUG}",
             "trade_slug": trade_obj.slug,
             "trade_label": trade_obj.label,
             "trade_count": total,
@@ -655,6 +665,106 @@ def serve_trade_page(
             "breadcrumb_jsonld": breadcrumb_jsonld,
             "itemlist_jsonld": itemlist_jsonld,
             "active_tab": cat_queries.active_tab_for(trade_pages.TRADE_PARENT_SLUG),
+            "primary_nav": home_sandstone.primary_nav(),
+            "mega_columns": home_sandstone.mega_columns(db),
+            "utility_chips": _home_utility_chips(db),
+        },
+    )
+
+
+def _itemlist_jsonld(name: str, total: int, providers: list[Provider]) -> dict[str, Any]:
+    """D4 ItemList: business names + URLs only — no nested LocalBusiness, no
+    AggregateRating. Shared by trade and leaf pages."""
+    return {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "name": name,
+        "numberOfItems": total,
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": idx,
+                "name": prov.provider_name,
+                "url": absolute_url(f"/provider/{prov.slug}"),
+            }
+            for idx, prov in enumerate(providers, start=1)
+            if prov.slug
+        ],
+    }
+
+
+# A generic, honest intro for a leaf page until B.2 adds per-leaf curated copy.
+# No fabricated specifics — just the ranking-transparency line the whole site
+# uses. ``{name}`` is the leaf's display noun (e.g. "Plumbing", "Restaurants").
+_LEAF_INTRO_TEMPLATE = (
+    "{name} in Lake Havasu City, AZ. The {n} listings below are ranked by a "
+    "volume-weighted rating, so a business with a strong rating across many "
+    "reviews ranks above one with a perfect score from only a couple. Ratings "
+    "and review counts come from real public reviews — Ask Hava never "
+    "fabricates a rating, and any sponsored placement is clearly labeled."
+)
+
+
+def _render_leaf_page(
+    request: Request, db: Session, leaf: leaf_pages.Leaf
+) -> HTMLResponse:
+    """Render a generalized A.3 taxonomy leaf page (B.1).
+
+    Lists the leaf's primary-linked Providers, applies the shared thin-page
+    gate, and reuses ``category_trade.html``. Per-leaf curated intro/FAQ copy
+    and the department-landing breadcrumb link land in B.2 — here the breadcrumb
+    shows the department as plain text (``parent_href`` omitted) and the FAQ
+    block is empty.
+    """
+    now = now_lake_havasu()
+    cards, total, providers = leaf_pages.leaf_listing(db, leaf, now=now)
+    if total < leaf_pages.LEAF_PAGE_MIN_PROVIDERS:
+        raise HTTPException(status_code=404, detail="leaf_below_minimum")
+
+    page_path = f"/categories/{leaf.department_slug}/{leaf.slug}"
+    # Two-level breadcrumb (Home › leaf) for B.1 — the department-landing link is
+    # added in B.2 once those pages exist, so we don't point at a 404 here.
+    breadcrumb_jsonld: dict[str, Any] = {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": absolute_url("/home"),
+            },
+            {
+                "@type": "ListItem",
+                "position": 2,
+                "name": leaf.name,
+                "item": absolute_url(page_path),
+            },
+        ],
+    }
+    itemlist_jsonld = _itemlist_jsonld(
+        f"{leaf.name} in Lake Havasu City, AZ", total, providers
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="category_trade.html",
+        context={
+            "today_label": now.strftime("%A, %B ") + str(now.day),
+            "now_label": now.strftime("%I:%M %p").lstrip("0"),
+            "parent_slug": leaf.department_slug,
+            "parent_label": leaf.department_name,
+            # No href yet — department landings are B.2; crumb renders as text.
+            "parent_href": None,
+            "trade_slug": leaf.slug,
+            "trade_label": leaf.name,
+            "trade_count": total,
+            "trade_intro": _LEAF_INTRO_TEMPLATE.format(name=leaf.name, n=total),
+            "trade_faqs": [],
+            "category_cards": cards,
+            "breadcrumb_jsonld": breadcrumb_jsonld,
+            "itemlist_jsonld": itemlist_jsonld,
+            "active_tab": cat_queries.active_tab_for(leaf.department_slug),
             "primary_nav": home_sandstone.primary_nav(),
             "mega_columns": home_sandstone.mega_columns(db),
             "utility_chips": _home_utility_chips(db),
