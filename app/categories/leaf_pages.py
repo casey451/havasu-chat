@@ -93,6 +93,35 @@ def resolve_leaf(db: Session, department_slug: str, leaf_slug: str) -> Leaf | No
     )
 
 
+def resolve_leaf_by_slug(db: Session, leaf_slug: str) -> Leaf | None:
+    """Resolve a leaf by slug alone (department inferred from parent), or None.
+
+    Used by chat routing (B.3), which has only the leaf slug. Mirrors
+    :func:`resolve_leaf` minus the department-slug cross-check. Never raises.
+    """
+    ls = (leaf_slug or "").strip().lower()
+    if not ls:
+        return None
+    try:
+        leaf = (
+            db.query(Category)
+            .filter(Category.slug == ls, Category.level == 1)
+            .one_or_none()
+        )
+        if leaf is None or leaf.parent_id is None:
+            return None
+        dept = (
+            db.query(Category)
+            .filter(Category.id == leaf.parent_id, Category.level == 0)
+            .one_or_none()
+        )
+        if dept is None:
+            return None
+    except Exception:
+        return None
+    return _leaf_from_categories(leaf, dept)
+
+
 def _leaf_provider_query(db: Session, leaf_id: int):
     """Base query: active renderable Providers whose entity's PRIMARY leaf is
     ``leaf_id``."""
