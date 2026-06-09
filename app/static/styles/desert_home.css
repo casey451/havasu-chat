@@ -367,3 +367,58 @@ a.gas-card:hover{transform:translate(-3px,-3px);box-shadow:6px 6px 0 var(--black
   .wday,.spon,.catchip,.gas-card,.mode-tile,.mini-cond{transition:none}
   .wday:hover,.spon:hover,.catchip:hover,a.gas-card:hover,.mode-tile:hover,.mini-cond--link:hover{transform:none}
 }
+
+/* ===== Workstream G — home reorder: category strip, Tier-1 marquee, Tier-3 promoted ===== */
+
+/* Compact category strip directly under the hero — breadth + counts above the fold. */
+.home-catstrip{padding-top:14px;padding-bottom:2px}
+.catstrip-row{display:flex;gap:9px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px}
+.catstrip-row::-webkit-scrollbar{display:none}
+.catpill{flex:0 0 auto;display:inline-flex;align-items:baseline;gap:7px;
+  padding:8px 14px;background:var(--cream);border:var(--d-border);border-radius:999px;
+  text-decoration:none;color:var(--black);white-space:nowrap;transition:.12s}
+.catpill:hover{background:var(--sand);transform:translateY(-1px)}
+.catpill .n{font-weight:700;color:var(--orange-deep)}
+.catpill .l{font-size:.9rem}
+
+/* Tier-1 marquee — the flagship above-the-fold unit. */
+.home-marquee{padding-top:14px}
+.marquee-card{display:flex;align-items:stretch;background:var(--black);
+  border-radius:var(--d-radius-lg);overflow:hidden;text-decoration:none;
+  box-shadow:var(--d-shadow);transition:.15s}
+.marquee-card:hover{transform:translateY(-2px)}
+.marquee-card .mq-img{flex:0 0 38%;min-height:150px;background:var(--sand) center/cover no-repeat}
+.marquee-card .mq-img--art{background:linear-gradient(135deg,var(--orange),var(--orange-deep))}
+.marquee-card .mq-body{padding:20px 24px;color:var(--cream);display:flex;flex-direction:column;gap:6px;justify-content:center}
+.marquee-card .mq-body .cat{font-size:.8rem;color:var(--peach);text-transform:uppercase;letter-spacing:.04em}
+.marquee-card .mq-body h2{font-family:var(--disp);font-size:1.7rem;line-height:1.05;margin:2px 0;color:var(--cream)}
+.marquee-card .mq-body p{font-size:.95rem;opacity:.9;margin:0}
+.marquee-card .mq-body .cta{margin-top:6px;font-weight:700;color:var(--orange)}
+/* Unsold marquee — slim claim line, never a big empty box. */
+.marquee-claim{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:13px 18px;background:var(--cream);border:1px dashed var(--black);
+  border-radius:var(--d-radius);text-decoration:none;color:var(--text)}
+.marquee-claim .cat{font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:var(--orange-deep);font-weight:700}
+.marquee-claim .claim em{color:var(--orange-deep);font-style:normal;font-weight:700}
+
+/* Tier-3 promoted — native in-feed card after the Explore grid. */
+.home-promoted{padding-top:8px}
+.promoted-card{display:flex;gap:16px;align-items:center;background:var(--cream);
+  border:var(--d-border);border-radius:var(--d-radius);overflow:hidden;
+  padding:14px 16px;text-decoration:none;color:var(--black);transition:.12s}
+.promoted-card:hover{transform:translateY(-1px);box-shadow:var(--d-shadow)}
+.promoted-card .pr-img{flex:0 0 96px;align-self:stretch;min-height:80px;border-radius:var(--d-radius);background:var(--sand) center/cover no-repeat}
+.promoted-card .pr-body{display:flex;flex-direction:column;gap:3px}
+.promoted-card .pr-body .cat{font-size:.78rem;color:var(--blue);text-transform:uppercase;letter-spacing:.03em}
+.promoted-card .pr-body h3{font-size:1.15rem;margin:1px 0}
+.promoted-card .pr-body p{font-size:.9rem;color:var(--text);margin:0}
+.promoted-card .pr-body .cta{margin-top:3px;font-weight:700;color:var(--orange-deep)}
+
+@media(max-width:640px){
+  .marquee-card{flex-direction:column}
+  .marquee-card .mq-img{flex-basis:auto;min-height:120px}
+}
+@media(prefers-reduced-motion:reduce){
+  .catpill,.marquee-card,.promoted-card{transition:none}
+  .catpill:hover,.marquee-card:hover,.promoted-card:hover{transform:none}
+}
