@@ -291,7 +291,7 @@ ee598543-e510-4d51-8158-ee3f57359af7,The Vicki Runyon Group,real_estate_agency,g
 5fc0d67e-30a1-43d9-a086-b3f3c2cff477,Suds in the tub dog grooming,pet_care,llm_judgment,high,Pets,Grooming
 452800cd-7ca0-42af-abf6-66e1d07e9144,Zion Paralegal,consultant,llm_judgment,low,Professional & Financial,Attorneys
 7685da08-b4b9-40aa-9c15-9c3503163511,London Bridge Jet Boat Tour,,provider_subcat,high,On the Water,Boat & Watercraft Rentals
-73f86594-fb2b-4570-bf1e-48dcfae6fab8,Big TS,service,unresolved,low,(needs review),(needs review)
+73f86594-fb2b-4570-bf1e-48dcfae6fab8,Big TS,service,web_research,low,Home & Property Services,Landscaping & Lawn
 51a5d833-4a71-4a68-918e-1aa7054f3edf,Gelcraft Customs,service,provider_subcat,high,On the Water,Boat & Watercraft Rentals
 6f3247f3-a916-4075-a211-b917bf4ebd86,The Human Bean,coffee_shop,google_type,high,Eat & Drink,Cafés & Coffee
 defabb3f-f860-4914-970b-1a8372683898,Perfect Nails & Spa,nail_salon,google_type,high,Beauty & Personal Care,Nail Salons
@@ -320,7 +320,7 @@ ea95666d-eaff-41da-9637-99b52d14d614,Better day rv,car_repair,google_type,high,"
 8aa72385-0018-46d9-a6b6-e56e641f0299,Joe's Auto RV & Trucks,car_repair,google_type,high,"Auto, RV & Marine",Auto Repair
 b295d544-5f34-4ece-a407-37780edbd02d,Arizona Repair & Towing,car_repair,google_type,high,"Auto, RV & Marine",Auto Repair
 dac2b817-85d3-4578-b26c-81332150ec07,Megan & Erik's Water and Ice,,provider_subcat,high,Eat & Drink,Restaurants
-4a41531f-3ae1-4fdb-80ae-14f7e05d9462,Desert Protections,,unresolved,low,(needs review),(needs review)
+4a41531f-3ae1-4fdb-80ae-14f7e05d9462,Desert Protections,,web_research,low,"Auto, RV & Marine",Auto Detailing
 1ba9da09-8c77-4e6b-aad7-8d903cad2c92,Havasu Towing,service,llm_keyword,low,"Auto, RV & Marine",Towing & Roadside
 7ee9bd89-bac7-47e9-8a82-31b7fc9170b2,Bradley Ford of Lake Havasu City Service,car_repair,google_type,high,"Auto, RV & Marine",Auto Repair
 828b7f44-0b7f-4fbb-8d66-637b22e55656,"Denise Sartori, DO",doctor,google_type,high,Health & Medical,Primary Care
@@ -470,7 +470,7 @@ ccc1633d-e286-4832-ac3b-2e9ce9dc547e,Wienerschnitzel,fast_food_restaurant,google
 c5d0022d-2d9e-4f90-ac16-26a0d5370697,Legendz Sports Bar & Grill,bar_and_grill,google_type,high,Eat & Drink,Restaurants
 52fdfd8a-5270-43df-8fc6-6979e270391c,Los Chikis,mexican_restaurant,google_type,high,Eat & Drink,Restaurants
 154a7afe-471a-4ce2-86af-d1f45f08ca88,Havasu,bakery,google_type,high,Eat & Drink,Bakeries & Desserts
-db7558d0-f2e1-48d2-86e5-91983c0611df,David & Amber Greene,service,unresolved,low,(needs review),(needs review)
+db7558d0-f2e1-48d2-86e5-91983c0611df,David & Amber Greene,service,web_research,low,Professional & Financial,Real Estate
 17aef7a5-6411-41a4-99eb-0220f3e777b5,College Street Brewhouse & Pub,pub,google_type,high,Eat & Drink,Bars & Breweries
 9949a58b-fc66-4f8d-bf66-bcb83aac5b91,Angelina's Italian Kitchen,italian_restaurant,google_type,high,Eat & Drink,Restaurants
 02cb8254-6cea-4594-87fe-7887b8d5111a,Harleyz And Hot Rodz,pub,google_type,high,Eat & Drink,Bars & Breweries
@@ -1982,7 +1982,7 @@ b7a8afea-ae19-4f5f-9291-1c93ba12974f,Rockin' Horse Ranch Preschool,preschool,goo
 b26b9a2f-3120-4a66-b4a5-664e86440012,Beach Auto & RV,car_dealer,google_type,high,"Auto, RV & Marine",Car Dealerships
 597e68c2-e723-4054-a623-4d98402492b7,Havasu Regional Medical Center Specialty Clinic,doctor,google_type,high,Health & Medical,Primary Care
 b127420c-5947-4881-86a0-2b78a35cb566,Go Lake Havasu,tourist_information_center,google_type,high,Things to Do & Attractions,Landmarks & Sights
-98c3cad3-1305-4cda-9ba3-303fcae0d36e,Epic_lifestyles,supplier,unresolved,low,(needs review),(needs review)
+98c3cad3-1305-4cda-9ba3-303fcae0d36e,Epic_lifestyles,supplier,web_research,low,"Auto, RV & Marine",Boat Sales
 0a22ed8e-7b16-42a0-8af0-870676781839,"Grill, Fire Pit & Pool: Lake Havasu City Home!",cottage,google_type,high,Lodging,Hotels & Motels
 61d014d4-c310-4da0-bcb2-7d24eb35a178,Superior Detailing,,provider_subcat,high,On the Water,Boat & Watercraft Rentals
 eb3c31db-7a03-483a-924d-ce6ab1561f3d,Mills Brothers Sleep Center,furniture_store,google_type,high,Shopping & Retail,Furniture & Mattress
@@ -1992,7 +1992,7 @@ f6abb3ee-7350-4c86-b66e-3fd81bbbe66d,In Stitches Customs,furniture_store,google_
 fc1bfb39-98ad-4e56-808d-f7f1d1dd3d6a,Church of Christ,church,google_type,high,Community & Civic,Places of Worship
 8836f40c-5954-4b09-8f18-de5266edacb4,"LuxeLocker Premium Storage - Lake Havasu City, AZ",storage,google_type,high,Home & Property Services,Self-Storage
 538348aa-1e7a-4af0-adc6-636d19e29a33,Martini Bay,bar_and_grill,google_type,high,Eat & Drink,Restaurants
-c499dbdf-c6cd-44bf-9fa7-f7b7e911d4de,ManyPets Services,pet_care,google_type,high,Pets,(needs review)
+c499dbdf-c6cd-44bf-9fa7-f7b7e911d4de,ManyPets Services,pet_care,web_research,high,Pets,Pet Sitting
 ecb1d5bd-56a3-4c2a-99bc-26da84bc2bc9,O'Reilly Auto Parts,auto_parts_store,google_type,high,"Auto, RV & Marine",Auto Parts
 ce7df45a-c7f9-4000-96d6-2c38bf6f9322,Divine Salon and Spa,beauty_salon,google_type,high,Beauty & Personal Care,Hair Salons & Barbers
 1096a977-1d63-4c11-9fca-91867a7fdf13,A & E Flooring and Construction LLC,general_contractor,google_type,high,Home & Property Services,General Contractors
@@ -2362,7 +2362,7 @@ c33211bf-b7e7-4e92-a280-f7f340db2a18,Palo Verde Internal Medicine,medical_clinic
 209b71f6-454b-4142-81e9-227d17ec55f3,River Construction Drywall Division,general_contractor,google_type,high,Home & Property Services,General Contractors
 756d06bb-d6b5-40be-905e-74fbf74c424c,Light & Love,beautician,google_type,high,Beauty & Personal Care,Hair Salons & Barbers
 2fe04819-5241-4866-804d-b5c74f5741ef,Prima Medical Care,health,google_type,high,Health & Medical,Primary Care
-a03bd635-b60a-4ac4-87f0-aa4faba71c8d,Liquid Assets,service,unresolved,low,(needs review),(needs review)
+a03bd635-b60a-4ac4-87f0-aa4faba71c8d,Liquid Assets,service,web_research,low,Home & Property Services,Pools & Spas
 c5e85334-29e3-455e-b688-7eb7330c610a,Living Well Health Food Store,health_food_store,google_type,high,Shopping & Retail,Specialty Food
 ee0a23e6-82ab-4632-9203-8e742aa95b24,CTX Mortgage Co,finance,google_type,high,Professional & Financial,Financial Advisors
 eebbdcff-bdf5-4a8a-8497-0e6c6c002814,Memory Magic,service,unresolved,low,(needs review),(needs review)
@@ -2454,8 +2454,8 @@ ba11bfe5-1b2b-40e4-a4a3-eb78d31e1e03,The Joshua Tree Spa,beauty_salon,google_typ
 a2ba37e7-d77d-4dd8-b5b0-0c6affbcd4aa,Pheling Douglas G,medical_clinic,google_type,high,Health & Medical,Primary Care
 e22f3814-a5e5-4119-8819-d0ea85523431,Luxury Lake Havasu Retreat - Lake - Golf - Pool & Spa - Family Friendly,lodging,google_type,high,Lodging,Hotels & Motels
 0102167d-d378-4e2f-8ca3-9633b11fe96a,Savage Marine,service,provider_subcat,high,On the Water,Boat & Watercraft Rentals
-d0d9935f-6c6e-40c8-bc76-0c7a828a901d,Big Pictures,service,unresolved,low,(needs review),(needs review)
-c2455f81-3a1a-4e58-84c3-bb3fcb26033c,QED,service,unresolved,low,(needs review),(needs review)
+d0d9935f-6c6e-40c8-bc76-0c7a828a901d,Big Pictures,service,web_research,low,Professional & Financial,Photographers
+c2455f81-3a1a-4e58-84c3-bb3fcb26033c,QED,service,web_research,low,Shopping & Retail,Hardware & Home Improvement
 228c88b6-ff5e-43a6-afc2-bd95667342cc,Cinnamon Plumbing,plumber,google_type,high,Home & Property Services,Plumbing
 21cda7ee-e173-46b6-b38e-46140647b627,Lake Havasu City Home: Hot Tub Swim Spa! - House (4 Bedrooms),lodging,google_type,high,Lodging,Hotels & Motels
 ebcadf9c-cfd7-451f-9528-6c812f2a12c0,"Robert G. Dowdy CPA, PLLC",consultant,name_keyword,high,Professional & Financial,Accountants & Tax
@@ -2514,7 +2514,7 @@ ea4ea78f-c980-4bea-981e-b05930955d43,ClearPath HVAC & Duct Cleaning Co.,service,
 3d0ef1b1-40b7-49c7-a77b-e493767a3884,Caliber Collision,car_repair,google_type,high,"Auto, RV & Marine",Auto Repair
 4e197528-82e3-4f9c-9a46-5ab898998045,Caliber 1 Custom Boats,,provider_subcat,high,On the Water,Boat & Watercraft Rentals
 03d224f7-6148-4fd1-afe3-2faea12b4c2d,Main Street Salon,beauty_salon,google_type,high,Beauty & Personal Care,Hair Salons & Barbers
-c0bc93d9-ff38-466d-8600-92f41c9c70ef,Quest Realm,store,unresolved,low,(needs review),(needs review)
+c0bc93d9-ff38-466d-8600-92f41c9c70ef,Quest Realm,store,web_research,low,Shopping & Retail,Hobby & Craft
 14f2b1e0-07aa-44eb-b526-6ae836f01bbd,Kerry Bond,barber_shop,google_type,high,Beauty & Personal Care,Hair Salons & Barbers
 1a2c8e5b-a2af-4adf-b705-995a41392923,London Bridge Road Storage,storage,google_type,high,Home & Property Services,Self-Storage
 619be1f8-3bbd-40c3-a318-ced36ec1b58f,Flat Tops Marine & Motorsports,service,provider_subcat,high,On the Water,Boat & Watercraft Rentals
@@ -2524,7 +2524,7 @@ c0bc93d9-ff38-466d-8600-92f41c9c70ef,Quest Realm,store,unresolved,low,(needs rev
 cfcfc8be-b25a-4439-b685-b0fa5465cce5,Dunkin',coffee_shop,google_type,high,Eat & Drink,Cafés & Coffee
 211f6eb3-dfaa-4b51-991c-60484778a199,"Dr. Elizabeth A. Smith-Tryon, MD",doctor,google_type,high,Health & Medical,Primary Care
 a81eff63-2cc5-42eb-aab3-99f997301dad,Sara Mountain Park Loop Trail,hiking_area,google_type,high,Outdoors & Recreation,Hiking Trails
-c1cb2c61-1caa-479c-9c3b-9319f73aa379,Lost Woods,store,unresolved,low,(needs review),(needs review)
+c1cb2c61-1caa-479c-9c3b-9319f73aa379,Lost Woods,store,web_research,low,Shopping & Retail,Hobby & Craft
 1fbe31b2-3bfa-40b8-81e5-95367888ad92,Colombian Joe's Coffee,coffee_shop,google_type,high,Eat & Drink,Cafés & Coffee
 1c59fa6f-56c5-46f9-a44f-37257769d1fb,Papa Johns Pizza,pizza_restaurant,google_type,high,Eat & Drink,Restaurants
 94862884-a99a-4a7a-be67-2c36e1601ba8,Career Styles Uniform Shop,clothing_store,google_type,high,Shopping & Retail,Clothing & Apparel
