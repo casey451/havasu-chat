@@ -160,6 +160,9 @@ a.spon-panel:hover .spon-go{color:var(--peach)}
 }
 .biz:first-child{border-top:none}
 .biz:hover{background:var(--sand-light)}
+/* Provider-less place card (no detail page) — non-interactive, no link cue. */
+.biz--place{cursor:default}
+.biz--place:hover{background:inherit}
 .biz.is-hidden{display:none}
 /* square thumb (was the card hero) */
 .biz .img{

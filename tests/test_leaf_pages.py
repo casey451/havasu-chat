@@ -382,3 +382,105 @@ def test_leaf_page_has_category_claim_slot(client: TestClient, seeded_leaves: di
     assert "cat-claim" in body
     assert "/portal/reserve?product=category" in body
     assert "Own the Plumbing spot" in body  # ship_leaf name is "Plumbing"
+
+
+# --- Provider-less place entities render + count toward the gate -------------
+
+
+def _seed_dept_leaf(db: Session, dept_slug: str, leaf_slug: str, leaf_name: str) -> Category:
+    dept = Category(slug=dept_slug, name=leaf_name + " Dept", sort_order=0, level=0)
+    db.add(dept)
+    db.flush()
+    leaf = Category(slug=leaf_slug, name=leaf_name, sort_order=0, level=1, parent_id=dept.id)
+    db.add(leaf)
+    db.flush()
+    return leaf
+
+
+def _add_place(db: Session, leaf: Category, name: str) -> None:
+    """An active entity with a primary leaf link but NO Provider (a place)."""
+    ent = Entity(entity_type="place", slug=f"place-{uuid4().hex[:10]}", name=name,
+                 source=_SOURCE)
+    db.add(ent)
+    db.flush()
+    db.add(EntityCategory(entity_id=ent.id, category_id=leaf.id, is_primary=True))
+
+
+@pytest.fixture
+def _place_cleanup() -> Iterator[list[str]]:
+    cat_slugs: list[str] = []
+    yield cat_slugs
+    with SessionLocal() as db:
+        for prov in db.scalars(select(Provider).where(Provider.source == _SOURCE)).all():
+            db.delete(prov)
+        for ent in db.scalars(select(Entity).where(Entity.source == _SOURCE)).all():
+            for ec in db.scalars(
+                select(EntityCategory).where(EntityCategory.entity_id == ent.id)
+            ).all():
+                db.delete(ec)
+            db.delete(ent)
+        for cat in db.scalars(select(Category).where(Category.slug.in_(cat_slugs))).all():
+            db.delete(cat)
+        db.commit()
+
+
+def test_provider_less_places_render_and_count(
+    client: TestClient, _place_cleanup: list[str]
+) -> None:
+    suf = uuid4().hex[:6]
+    dept_slug, leaf_slug = f"otw-{suf}", f"kayak-{suf}"
+    _place_cleanup.extend([dept_slug, leaf_slug])
+    with SessionLocal() as db:
+        leaf = _seed_dept_leaf(db, dept_slug, leaf_slug, "Kayak & Paddle")
+        # 1 provider-backed + 2 provider-less places = 3 renderable -> clears gate.
+        ent = Entity(entity_type="commercial", slug=f"e-{uuid4().hex[:8]}",
+                     name="Channel Kayak Rentals", source=_SOURCE)
+        db.add(ent)
+        db.flush()
+        db.add(Provider(provider_name="Channel Kayak Rentals", category="x",
+                        slug=f"p-{uuid4().hex[:8]}", is_active=True, draft=False,
+                        source=_SOURCE, entity_id=ent.id, google_rating=4.6,
+                        google_review_count=30))
+        db.add(EntityCategory(entity_id=ent.id, category_id=leaf.id, is_primary=True))
+        _add_place(db, leaf, "Three Dunes Paddle Launch")
+        _add_place(db, leaf, "Windsor Beach Put-In")
+        db.commit()
+
+    r = client.get(f"/categories/{dept_slug}/{leaf_slug}")
+    assert r.status_code == 200
+    body = r.text
+    # H1 count is the full renderable set (1 provider + 2 places).
+    assert "<h1>3 Best Kayak &amp; Paddle in Lake Havasu City, AZ</h1>" in body
+    # The provider-backed card links; the place cards render non-linking.
+    assert "Channel Kayak Rentals" in body
+    assert "Three Dunes Paddle Launch" in body
+    assert "Windsor Beach Put-In" in body
+    assert "biz--place" in body
+
+
+def test_place_only_leaf_gate(client: TestClient, _place_cleanup: list[str]) -> None:
+    """A leaf with only place entities still ships once >=3 render."""
+    suf = uuid4().hex[:6]
+    dept_slug, leaf_slug = f"civic-{suf}", f"libraries-{suf}"
+    _place_cleanup.extend([dept_slug, leaf_slug])
+    with SessionLocal() as db:
+        leaf = _seed_dept_leaf(db, dept_slug, leaf_slug, "Libraries")
+        for nm in ("Main Library", "Branch Library", "Law Library"):
+            _add_place(db, leaf, nm)
+        db.commit()
+    r = client.get(f"/categories/{dept_slug}/{leaf_slug}")
+    assert r.status_code == 200
+    assert "<h1>3 Best Libraries in Lake Havasu City, AZ</h1>" in r.text
+
+
+def test_place_only_leaf_below_gate_404s(client: TestClient, _place_cleanup: list[str]) -> None:
+    suf = uuid4().hex[:6]
+    dept_slug, leaf_slug = f"civic2-{suf}", f"utilities-{suf}"
+    _place_cleanup.extend([dept_slug, leaf_slug])
+    with SessionLocal() as db:
+        leaf = _seed_dept_leaf(db, dept_slug, leaf_slug, "Utilities")
+        for nm in ("Water District", "Power Co"):  # only 2 -> below gate
+            _add_place(db, leaf, nm)
+        db.commit()
+    r = client.get(f"/categories/{dept_slug}/{leaf_slug}")
+    assert r.status_code == 404

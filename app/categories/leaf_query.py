@@ -253,6 +253,6 @@ def match_leaf_query(db: Session, q: str | None) -> leaf_pages.Leaf | None:
     leaf = leaf_pages.resolve_leaf_by_slug(db, slug)
     if leaf is None:
         return None
-    if leaf_pages.leaf_provider_count(db, leaf) < leaf_pages.LEAF_PAGE_MIN_PROVIDERS:
+    if leaf_pages.leaf_renderable_count(db, leaf) < leaf_pages.LEAF_PAGE_MIN_PROVIDERS:
         return None
     return leaf
