@@ -8,7 +8,7 @@ the data fill (15 departments + 126 leaves) is a separate idempotent step
 (``scripts/apply_taxonomy_remap.py``). See docs/proposals/A3-apply-spec.md.
 
 Revision ID: b2d4f6a8c0e2
-Revises: a7c9e1f3b5d7
+Revises: f1a7c9e2b3d4
 Create Date: 2026-06-08
 """
 
@@ -21,7 +21,9 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "b2d4f6a8c0e2"
-down_revision: str | Sequence[str] | None = "a7c9e1f3b5d7"
+# Chains after the ad_reservations head (f1a7c9e2b3d4), which merged to main
+# after this branch was cut — keeps a single linear alembic head.
+down_revision: str | Sequence[str] | None = "f1a7c9e2b3d4"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
