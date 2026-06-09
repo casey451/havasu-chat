@@ -39,6 +39,20 @@
       {% endfor %}
     </div>
 
+    {# ── G Tier-3: category-claim slot. Every category page is sellable
+       inventory — "own the {category}" — the recurring volume product. No
+       per-category sponsor model yet, so this is the honest claim invitation
+       into the existing reservation flow (real sponsor card lands when
+       category-scoped sponsors are modeled). Clearly labeled, no pop-up. ── #}
+    <aside class="cat-claim" aria-label="Advertise in this category">
+      <div class="cat-claim-body">
+        <span class="d-tag">Advertise</span>
+        <h2>Own the {{ trade_label }} spot in Lake Havasu City</h2>
+        <p>Be the featured {{ trade_label | lower }} business at the top of this page — quiet, clearly labeled, no pop-ups.</p>
+      </div>
+      <a class="cat-claim-cta" href="/portal/reserve?product=category">Claim this category →</a>
+    </aside>
+
     {% if trade_faqs %}
     <section class="trade-faq" aria-labelledby="trade-faq-h">
       <h2 id="trade-faq-h">{{ trade_label }} in Lake Havasu City — FAQ</h2>

@@ -573,3 +573,18 @@ a.collection-card:hover{transform:translate(-3px,-3px);box-shadow:var(--d-shadow
 .dept-leaf-card:hover{border:var(--d-border-thick);box-shadow:var(--d-shadow);transform:translateY(-1px)}
 .dept-leaf-name{font-weight:600;font-size:1.02rem}
 .dept-leaf-count{color:var(--blue-deep);font-size:.85rem;white-space:nowrap}
+
+/* G Tier-3 category-claim slot on category/leaf pages (sell-side funnel). */
+.cat-claim{display:flex;align-items:center;justify-content:space-between;gap:18px;
+  flex-wrap:wrap;margin:28px 0 8px;padding:18px 22px;
+  background:var(--sand-light, var(--sand));border:var(--d-border-thick);
+  border-radius:var(--d-radius-lg)}
+.cat-claim-body{display:flex;flex-direction:column;gap:4px;max-width:46rem}
+.cat-claim-body .d-tag{align-self:flex-start}
+.cat-claim-body h2{font-size:1.25rem;margin:2px 0;color:var(--text)}
+.cat-claim-body p{font-size:.92rem;color:var(--text);opacity:.85;margin:0}
+.cat-claim-cta{flex:0 0 auto;align-self:center;padding:11px 20px;
+  background:var(--orange);color:var(--black);border-radius:999px;
+  font-weight:700;text-decoration:none;white-space:nowrap;transition:.12s}
+.cat-claim-cta:hover{filter:brightness(1.06);transform:translateY(-1px)}
+@media(prefers-reduced-motion:reduce){.cat-claim-cta:hover{transform:none}}
