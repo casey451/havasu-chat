@@ -30,6 +30,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from app.chat.normalizer import spell_correct
 from app.chat.tier2_schema import Tier2Filters
 
 # Verb phrases that signal a listing intent. Order inside the alternation matters:
@@ -126,73 +127,22 @@ _LOCALITY_SUFFIX = re.compile(
 
 _TRIM_TAIL = re.compile(r"[?\.!\s]+$")
 
-# Voice battery 2026-05-08 (§4.1 typo tolerance): small alias map for common
-# misspellings of service-trade categories. Applied token-by-token after
-# locality stripping so "i need a plumer" → category "plumber" before the
-# downstream SQL filter (which does ILIKE against Provider.category /
-# google_primary_category and won't match across edit distance). Conservative —
-# only the obvious misspellings of trades we actually carry. Add entries as
-# new typos surface in chat_logs.
-_CATEGORY_TOKEN_ALIASES: dict[str, str] = {
-    # plumbing
-    "plumer": "plumber",
-    "plummer": "plumber",
-    "plumming": "plumbing",
-    # barbering
-    "barbar": "barber",
-    "barbor": "barber",
-    "barbur": "barber",
-    # electrical
-    "elektrician": "electrician",
-    "electrision": "electrician",
-    "electricion": "electrician",
-    "electrican": "electrician",
-    # mechanic / auto
-    "mecanic": "mechanic",
-    "mechanik": "mechanic",
-    "mechinic": "mechanic",
-    # veterinary
-    "vetrinarian": "veterinarian",
-    "veternarian": "veterinarian",
-    "vetrinary": "veterinary",
-    "veternary": "veterinary",
-    # food / drink
-    "resturant": "restaurant",
-    "restaraunt": "restaurant",
-    "restuarant": "restaurant",
-    "coffe": "coffee",
-    "cofee": "coffee",
-    "coffey": "coffee",
-    # pharmacy / health
-    "pharamcy": "pharmacy",
-    "pharmasy": "pharmacy",
-    "pharmcy": "pharmacy",
-    # trades / misc
-    "carpentar": "carpenter",
-    "carpentor": "carpenter",
-    "landscapper": "landscaper",
-    "gymn": "gym",
-    "salaon": "salon",
-    # NB: "saloon" is intentionally NOT mapped to "salon" — in Lake Havasu the
-    # word reads as a bar/tavern variant, not a misspelling of salon.
-}
-
-
 def _normalize_category_typos(category: str) -> str:
-    """Token-level alias replacement for common service-trade misspellings.
+    """Correct common service-trade misspellings via the shared spell layer.
 
-    Lowercases each token before lookup so "Plumer" still normalizes. Returns
-    the joined string in the original token order, preserving any tokens not
-    in the alias map. Pure string-in / string-out — no side effects, safe to
-    run in front of the existing event-shape and word-count guards.
+    Delegates to :func:`app.chat.normalizer.spell_correct` so this fast path
+    shares the SAME correction vocabulary, alias map, and protected-word set as
+    every other chat level (Voice battery 2026-05-08 §4.1 typo tolerance is now
+    one layer, not per-module). "i need a plumer" → category "plumber" before
+    the downstream SQL filter (which does ILIKE against Provider.category /
+    google_primary_category and won't match across edit distance). The curated
+    trade aliases — and the deliberate "saloon" ≠ "salon" exclusion — live in
+    the normalizer's ``_SPELL_ALIASES`` / ``_SPELL_PROTECTED``. Lowercases first
+    so "Plumer" still normalizes; downstream lowercases the category anyway.
     """
-    if not category:
+    if not category or not category.strip():
         return category
-    tokens = category.split()
-    if not tokens:
-        return category
-    out = [_CATEGORY_TOKEN_ALIASES.get(t.lower(), t) for t in tokens]
-    return " ".join(out)
+    return spell_correct(category.lower())
 
 
 # Optional one-line landscape beat before the listing header (voice battery / rubric alignment).
