@@ -50,13 +50,13 @@ TTL_BY_SOURCE: dict[str, int] = {
     # slow-moving signal (instrument cadence is hourly at most for 00010).
     SOURCE_USGS_WATER_TEMP: 3600,
     SOURCE_OPENUV: 3600,
-    SOURCE_GAS: 86400,
+    SOURCE_GAS: 28800,
 }
 
 # Gas prices refresh on a roughly-daily cadence (86400s TTL), so the generic 2h
 # staleness threshold flagged every fresh fetch as "stale". Allow a full day plus
 # headroom before the gas banner reads stale (G-2). See staleness_label().
-GAS_STALE_AFTER_HOURS = 28
+GAS_STALE_AFTER_HOURS = 10
 
 NWS_USER_AGENT = "havasu-chat/1.0 (contact: support@havasu-chat.example.com)"
 LHC_LAT = 34.4839
