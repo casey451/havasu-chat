@@ -183,10 +183,16 @@ def test_search_page_excludes_draft_and_inactive(db: Session) -> None:
     assert "No matches for" in r.text
 
 
-def test_header_search_form_action_points_to_search() -> None:
+def test_home_has_single_search_form_to_chat() -> None:
+    # Workstream E (search consolidation): the home hero is ONE search box wired
+    # to the 3-tier /chat router. The old secondary directory form
+    # (class="header-search" action="/search") and its "Ask Hava instead"
+    # (/chat?q=) CTA were removed — /chat now serves directory lookups too.
     with TestClient(app) as client:
         h = client.get("/home")
-        assert h.status_code == 200
-        assert 'class="header-search" action="/search"' in h.text
-        # Ask Hava remains one click via the secondary CTA.
-        assert "/chat?q=" in h.text
+    assert h.status_code == 200
+    assert h.text.count('id="home-ask-form"') == 1
+    assert 'action="/chat"' in h.text
+    # The removed second form / CTA must not reappear.
+    assert 'action="/search"' not in h.text
+    assert "/chat?q=" not in h.text
