@@ -370,3 +370,15 @@ def test_curated_leaf_page_renders_intro_and_faqs(client: TestClient) -> None:
             for cat in db.scalars(select(Category).where(Category.slug.in_(cat_slugs))).all():
                 db.delete(cat)
             db.commit()
+
+
+# --- G Tier-3: category-claim slot on leaf pages ----------------------------
+
+
+def test_leaf_page_has_category_claim_slot(client: TestClient, seeded_leaves: dict) -> None:
+    r = client.get(f"/categories/{seeded_leaves['ship_dept']}/{seeded_leaves['ship_leaf']}")
+    assert r.status_code == 200
+    body = r.text
+    assert "cat-claim" in body
+    assert "/portal/reserve?product=category" in body
+    assert "Own the Plumbing spot" in body  # ship_leaf name is "Plumbing"
