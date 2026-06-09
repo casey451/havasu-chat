@@ -50,7 +50,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from app.categories import leaf_pages
+from app.categories import leaf_copy, leaf_pages
 from app.categories import queries as cat_queries
 from app.categories import subcategories as subcats
 from app.categories import trades as trade_pages
@@ -758,6 +758,23 @@ def _render_leaf_page(
         f"{leaf.name} in Lake Havasu City, AZ", total, providers
     )
 
+    # Wave-1 leaves carry curated intro + FAQ copy; everything else gets the
+    # generic honest intro and no FAQ block (B.2).
+    curated = leaf_copy.copy_for_leaf(leaf.slug)
+    if curated is not None:
+        intro = curated.intro
+        name_lower = leaf.name.lower()
+        faqs = [
+            (
+                q.format(n=total, name=leaf.name, name_lower=name_lower),
+                a.format(n=total, name=leaf.name, name_lower=name_lower),
+            )
+            for q, a in curated.faqs
+        ]
+    else:
+        intro = _LEAF_INTRO_TEMPLATE.format(name=leaf.name, n=total)
+        faqs = []
+
     return templates.TemplateResponse(
         request=request,
         name="category_trade.html",
@@ -770,8 +787,8 @@ def _render_leaf_page(
             "trade_slug": leaf.slug,
             "trade_label": leaf.name,
             "trade_count": total,
-            "trade_intro": _LEAF_INTRO_TEMPLATE.format(name=leaf.name, n=total),
-            "trade_faqs": [],
+            "trade_intro": intro,
+            "trade_faqs": faqs,
             "category_cards": cards,
             "breadcrumb_jsonld": breadcrumb_jsonld,
             "itemlist_jsonld": itemlist_jsonld,

@@ -310,3 +310,63 @@ def test_qualifying_and_department_leaves(mem_db: Session) -> None:
     assert leaf_pages.resolve_department(mem_db, "home-and-property-services") is not None
     dleaves = leaf_pages.department_leaves(mem_db, dept)
     assert [(lf.slug, n) for lf, n in dleaves] == [("plumbing", 3)]
+
+
+# --- B.2: Wave-1 curated per-leaf copy --------------------------------------
+
+
+def test_wave1_leaf_copy_intros_and_faq_counts() -> None:
+    from app.categories.leaf_copy import LEAF_COPY
+
+    assert len(LEAF_COPY) == 14
+    for slug, copy in LEAF_COPY.items():
+        words = len(copy.intro.split())
+        assert 40 <= words <= 100, f"{slug}: intro is {words} words"
+        assert 4 <= len(copy.faqs) <= 6, f"{slug}: {len(copy.faqs)} FAQs"
+
+
+def test_copy_for_leaf_unknown_is_none() -> None:
+    from app.categories.leaf_copy import copy_for_leaf
+
+    assert copy_for_leaf("definitely-not-a-leaf") is None
+    assert copy_for_leaf(None) is None
+    assert copy_for_leaf("plumbing") is not None
+
+
+def test_curated_leaf_page_renders_intro_and_faqs(client: TestClient) -> None:
+    """A Wave-1 leaf (slug 'plumbing') renders its curated intro + FAQ block."""
+
+    suf = uuid4().hex[:6]
+    dept_slug = f"hps-{suf}"
+    cat_slugs = [dept_slug, "plumbing"]
+    with SessionLocal() as db:
+        # Skip if a 'plumbing' leaf already exists in this DB (avoid slug clash).
+        if db.scalars(select(Category).where(Category.slug == "plumbing")).first():
+            pytest.skip("'plumbing' leaf already present in this DB")
+        names = _seed_leaf_with_providers(
+            db, dept_slug=dept_slug, leaf_slug="plumbing", leaf_name="Plumbing",
+            n=leaf_pages.LEAF_PAGE_MIN_PROVIDERS)
+    try:
+        r = client.get(f"/categories/{dept_slug}/plumbing")
+        assert r.status_code == 200
+        body = r.text
+        # Curated intro fragment present (not the generic fallback).
+        assert "Desert water is hard on pipes" in body
+        assert "The {n} listings below are ranked" not in body
+        # FAQ block rendered (4-6 items), with the live count interpolated.
+        n_faq = body.count('class="faq-item"')
+        assert 4 <= n_faq <= 6
+        assert f"lists {len(names)} plumbing" in body
+    finally:
+        with SessionLocal() as db:
+            for prov in db.scalars(select(Provider).where(Provider.source == _SOURCE)).all():
+                db.delete(prov)
+            for ent in db.scalars(select(Entity).where(Entity.source == _SOURCE)).all():
+                for ec in db.scalars(
+                    select(EntityCategory).where(EntityCategory.entity_id == ent.id)
+                ).all():
+                    db.delete(ec)
+                db.delete(ent)
+            for cat in db.scalars(select(Category).where(Category.slug.in_(cat_slugs))).all():
+                db.delete(cat)
+            db.commit()
