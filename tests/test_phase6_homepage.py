@@ -42,6 +42,22 @@ def test_home_calendar_param_still_serves_desert(client: TestClient) -> None:
         assert "/static/styles/desert.css" in r.text
 
 
+def test_home_has_single_search_box_no_quicklinks(client: TestClient) -> None:
+    """Workstream E: one search box wired to /chat, the four quick-action chips
+    removed, and the input set up for the rotating placeholder."""
+    r = client.get("/home")
+    assert r.status_code == 200
+    # Exactly one hero search form, posting to the 3-tier /chat backend.
+    assert r.text.count('id="home-ask-form"') == 1
+    assert 'action="/chat"' in r.text
+    # The .quicklinks chip row is gone.
+    assert 'class="quicklinks"' not in r.text
+    # Input ready for the rotating placeholder (autocomplete off so the browser
+    # dropdown doesn't fight it) and the seed script is present.
+    assert 'autocomplete="off"' in r.text
+    assert "setInterval(rotate" in r.text
+
+
 def test_themed_tile_partial_exists() -> None:
     path = Path("app/templates/components/themed_tile.html")
     assert path.is_file()

@@ -5,7 +5,11 @@
 
 {% block content %}
   {# ---- Hero + single search → existing 3-tier /chat backend (Desert Modern:
-     sand block, giant display headline, black ask bar w/ orange offset). ---- #}
+     sand block, giant display headline, black ask bar w/ orange offset).
+     E (search consolidation): ONE /chat ask bar — the .quicklinks chips and the
+     second .dirsearch → /search form were removed; the 3-tier /chat router
+     serves directory lookups too. The rotating placeholder lives in
+     {% block scripts %} at the bottom of this template. ---- #}
   <section class="home-hero">
     <div class="hero wrap">
       <div class="hero-copy">
@@ -23,24 +27,9 @@
         <div class="askbar">
           <span class="d-eyebrow askbar-eyebrow">Ask Hava — your local concierge</span>
           <form class="searchbox" id="home-ask-form" action="/chat" method="get" role="search" aria-label="Ask Hava">
-            <input id="home-ask-input" name="q" type="text" value="" placeholder="Mexican food near the channel" aria-label="Ask Hava anything in Lake Havasu">
+            <input id="home-ask-input" name="q" type="text" value="" placeholder="Mexican food near the channel" aria-label="Ask Hava anything in Lake Havasu" autocomplete="off">
             <button class="go" type="submit">Ask Hava</button>
           </form>
-          <div class="quicklinks">
-            <a href="/categories/eat-drink?open=1">What's open now</a>
-            <a href="/categories/on-the-water">On the water</a>
-            <a href="/events-ui">This week's events</a>
-            <a href="/categories/things-to-do">Things to do</a>
-          </div>
-        </div>
-        {# Directory search (DL-6 phase 2): the Desert chrome has no header
-           search, so the /search affordance lives here beside the ask bar. #}
-        <div class="dirsearch">
-          <form class="header-search" action="/search" method="get" role="search" aria-label="Search Lake Havasu businesses and events">
-            <input type="text" name="q" placeholder="Search businesses and events">
-            <button type="submit" aria-label="Submit search">{{ dicons.icon("search", 15) }}</button>
-          </form>
-          <a class="header-ask-instead" href="/chat?q=">Ask Hava instead</a>
         </div>
       </div>
     </div>
@@ -172,4 +161,40 @@
       {% endif %}
     </div>
   </section>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+// Rotating placeholder for the hero search box: demonstrates what Ask Hava can
+// answer, then freezes + clears the moment the user focuses or types so it
+// never competes with their text.
+(function () {
+  var input = document.getElementById('home-ask-input');
+  if (!input) return;
+  var examples = [
+    'tacos near me',
+    "what's open right now",
+    'plumbers in Lake Havasu',
+    'boat rentals on the channel',
+    'what events are tonight',
+    'dog groomers',
+    'happy hour downtown',
+    'urgent care near me'
+  ];
+  var i = 0, timer = null;
+  function rotate() {
+    i = (i + 1) % examples.length;
+    input.setAttribute('placeholder', examples[i]);
+  }
+  function stop() {
+    if (timer) clearInterval(timer);
+    if (input.value === '') input.setAttribute('placeholder', '');
+  }
+  input.setAttribute('placeholder', examples[0]);
+  timer = setInterval(rotate, 2600);
+  input.addEventListener('focus', stop, { once: true });
+  input.addEventListener('input', stop, { once: true });
+})();
+</script>
 {% endblock %}
