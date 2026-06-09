@@ -1,0 +1,848 @@
+{
+ "eat-and-drink": {
+  "name": "Eat & Drink",
+  "sort": 0,
+  "leaves": {
+   "restaurants": {
+    "name": "Restaurants",
+    "count": 160,
+    "gate_ok": true,
+    "new": false
+   },
+   "bars-and-breweries": {
+    "name": "Bars & Breweries",
+    "count": 30,
+    "gate_ok": true,
+    "new": false
+   },
+   "bakeries-and-desserts": {
+    "name": "Bakeries & Desserts",
+    "count": 29,
+    "gate_ok": true,
+    "new": false
+   },
+   "quick-bites-and-takeout": {
+    "name": "Quick Bites & Takeout",
+    "count": 29,
+    "gate_ok": true,
+    "new": false
+   },
+   "caf-s-and-coffee": {
+    "name": "Cafés & Coffee",
+    "count": 21,
+    "gate_ok": true,
+    "new": false
+   },
+   "food-trucks-and-catering": {
+    "name": "Food Trucks & Catering",
+    "count": 5,
+    "gate_ok": true,
+    "new": false
+   }
+  }
+ },
+ "on-the-water": {
+  "name": "On the Water",
+  "sort": 1,
+  "leaves": {
+   "boat-and-watercraft-rentals": {
+    "name": "Boat & Watercraft Rentals",
+    "count": 114,
+    "gate_ok": true,
+    "new": false
+   },
+   "beaches-and-swim-areas": {
+    "name": "Beaches & Swim Areas",
+    "count": 13,
+    "gate_ok": true,
+    "new": false
+   },
+   "boat-tours-and-charters": {
+    "name": "Boat Tours & Charters",
+    "count": 10,
+    "gate_ok": true,
+    "new": false
+   },
+   "fishing-charters-and-guides": {
+    "name": "Fishing Charters & Guides",
+    "count": 7,
+    "gate_ok": true,
+    "new": false
+   },
+   "marinas-and-launch-ramps": {
+    "name": "Marinas & Launch Ramps",
+    "count": 7,
+    "gate_ok": true,
+    "new": false
+   },
+   "kayak-and-paddle": {
+    "name": "Kayak & Paddle",
+    "count": 3,
+    "gate_ok": true,
+    "new": false
+   },
+   "jet-ski-and-watersports": {
+    "name": "Jet Ski & Watersports",
+    "count": 3,
+    "gate_ok": true,
+    "new": false
+   }
+  }
+ },
+ "outdoors-and-recreation": {
+  "name": "Outdoors & Recreation",
+  "sort": 2,
+  "leaves": {
+   "parks-and-playgrounds": {
+    "name": "Parks & Playgrounds",
+    "count": 78,
+    "gate_ok": true,
+    "new": false
+   },
+   "golf-courses": {
+    "name": "Golf Courses",
+    "count": 21,
+    "gate_ok": true,
+    "new": false
+   },
+   "hiking-trails": {
+    "name": "Hiking Trails",
+    "count": 14,
+    "gate_ok": true,
+    "new": false
+   },
+   "disc-golf": {
+    "name": "Disc Golf",
+    "count": 8,
+    "gate_ok": true,
+    "new": false
+   },
+   "off-road-and-ohv": {
+    "name": "Off-Road & OHV",
+    "count": 6,
+    "gate_ok": true,
+    "new": false
+   },
+   "dog-parks": {
+    "name": "Dog Parks",
+    "count": 4,
+    "gate_ok": true,
+    "new": false
+   }
+  }
+ },
+ "things-to-do-and-attractions": {
+  "name": "Things to Do & Attractions",
+  "sort": 3,
+  "leaves": {
+   "tours-and-sightseeing": {
+    "name": "Tours & Sightseeing",
+    "count": 26,
+    "gate_ok": true,
+    "new": false
+   },
+   "landmarks-and-sights": {
+    "name": "Landmarks & Sights",
+    "count": 25,
+    "gate_ok": true,
+    "new": false
+   },
+   "museums-and-galleries": {
+    "name": "Museums & Galleries",
+    "count": 8,
+    "gate_ok": true,
+    "new": false
+   },
+   "family-fun-and-arcades": {
+    "name": "Family Fun & Arcades",
+    "count": 8,
+    "gate_ok": true,
+    "new": false
+   },
+   "theaters-and-cinema": {
+    "name": "Theaters & Cinema",
+    "count": 6,
+    "gate_ok": true,
+    "new": false
+   },
+   "casinos-and-gaming": {
+    "name": "Casinos & Gaming",
+    "count": 1,
+    "gate_ok": false,
+    "new": false
+   }
+  }
+ },
+ "health-and-medical": {
+  "name": "Health & Medical",
+  "sort": 4,
+  "leaves": {
+   "primary-care": {
+    "name": "Primary Care",
+    "count": 240,
+    "gate_ok": true,
+    "new": false
+   },
+   "dentists-and-orthodontists": {
+    "name": "Dentists & Orthodontists",
+    "count": 48,
+    "gate_ok": true,
+    "new": false
+   },
+   "pharmacies": {
+    "name": "Pharmacies",
+    "count": 16,
+    "gate_ok": true,
+    "new": false
+   },
+   "chiropractic": {
+    "name": "Chiropractic",
+    "count": 16,
+    "gate_ok": true,
+    "new": false
+   },
+   "physical-therapy": {
+    "name": "Physical Therapy",
+    "count": 8,
+    "gate_ok": true,
+    "new": false
+   },
+   "eye-care": {
+    "name": "Eye Care",
+    "count": 3,
+    "gate_ok": true,
+    "new": false
+   },
+   "urgent-care-and-er": {
+    "name": "Urgent Care & ER",
+    "count": 2,
+    "gate_ok": false,
+    "new": false
+   },
+   "senior-care-and-assisted-living": {
+    "name": "Senior Care & Assisted Living",
+    "count": 2,
+    "gate_ok": false,
+    "new": false
+   },
+   "dermatology-and-skin": {
+    "name": "Dermatology & Skin",
+    "count": 1,
+    "gate_ok": false,
+    "new": false
+   },
+   "mental-and-behavioral-health": {
+    "name": "Mental & Behavioral Health",
+    "count": 1,
+    "gate_ok": false,
+    "new": false
+   }
+  }
+ },
+ "beauty-and-personal-care": {
+  "name": "Beauty & Personal Care",
+  "sort": 5,
+  "leaves": {
+   "hair-salons-and-barbers": {
+    "name": "Hair Salons & Barbers",
+    "count": 94,
+    "gate_ok": true,
+    "new": false
+   },
+   "day-spas-and-massage": {
+    "name": "Day Spas & Massage",
+    "count": 39,
+    "gate_ok": true,
+    "new": false
+   },
+   "nail-salons": {
+    "name": "Nail Salons",
+    "count": 23,
+    "gate_ok": true,
+    "new": false
+   },
+   "tattoo-and-piercing": {
+    "name": "Tattoo & Piercing",
+    "count": 17,
+    "gate_ok": true,
+    "new": false
+   },
+   "tanning": {
+    "name": "Tanning",
+    "count": 6,
+    "gate_ok": true,
+    "new": false
+   },
+   "med-spas-and-aesthetics": {
+    "name": "Med Spas & Aesthetics",
+    "count": 5,
+    "gate_ok": true,
+    "new": false
+   }
+  }
+ },
+ "fitness-and-wellness": {
+  "name": "Fitness & Wellness",
+  "sort": 6,
+  "leaves": {
+   "gyms-and-fitness-centers": {
+    "name": "Gyms & Fitness Centers",
+    "count": 23,
+    "gate_ok": true,
+    "new": false
+   },
+   "yoga-and-pilates": {
+    "name": "Yoga & Pilates",
+    "count": 6,
+    "gate_ok": true,
+    "new": false
+   },
+   "dance-studios": {
+    "name": "Dance Studios",
+    "count": 3,
+    "gate_ok": true,
+    "new": false
+   },
+   "nutrition-and-wellness": {
+    "name": "Nutrition & Wellness",
+    "count": 2,
+    "gate_ok": false,
+    "new": false
+   },
+   "martial-arts": {
+    "name": "Martial Arts",
+    "count": 2,
+    "gate_ok": false,
+    "new": false
+   },
+   "personal-training": {
+    "name": "Personal Training",
+    "count": 1,
+    "gate_ok": false,
+    "new": false
+   }
+  }
+ },
+ "pets": {
+  "name": "Pets",
+  "sort": 7,
+  "leaves": {
+   "grooming": {
+    "name": "Grooming",
+    "count": 23,
+    "gate_ok": true,
+    "new": false
+   },
+   "veterinarians": {
+    "name": "Veterinarians",
+    "count": 8,
+    "gate_ok": true,
+    "new": false
+   },
+   "pet-stores-and-supplies": {
+    "name": "Pet Stores & Supplies",
+    "count": 6,
+    "gate_ok": true,
+    "new": false
+   },
+   "training": {
+    "name": "Training",
+    "count": 5,
+    "gate_ok": true,
+    "new": false
+   },
+   "boarding-and-daycare": {
+    "name": "Boarding & Daycare",
+    "count": 2,
+    "gate_ok": false,
+    "new": false
+   },
+   "pet-sitting": {
+    "name": "Pet Sitting",
+    "count": 1,
+    "gate_ok": false,
+    "new": false
+   }
+  }
+ },
+ "home-and-property-services": {
+  "name": "Home & Property Services",
+  "sort": 8,
+  "leaves": {
+   "general-contractors": {
+    "name": "General Contractors",
+    "count": 98,
+    "gate_ok": true,
+    "new": false
+   },
+   "self-storage": {
+    "name": "Self-Storage",
+    "count": 54,
+    "gate_ok": true,
+    "new": false
+   },
+   "electrical": {
+    "name": "Electrical",
+    "count": 31,
+    "gate_ok": true,
+    "new": false
+   },
+   "cleaning": {
+    "name": "Cleaning",
+    "count": 23,
+    "gate_ok": true,
+    "new": false
+   },
+   "plumbing": {
+    "name": "Plumbing",
+    "count": 22,
+    "gate_ok": true,
+    "new": false
+   },
+   "roofing": {
+    "name": "Roofing",
+    "count": 19,
+    "gate_ok": true,
+    "new": false
+   },
+   "pest-control": {
+    "name": "Pest Control",
+    "count": 12,
+    "gate_ok": true,
+    "new": false
+   },
+   "solar": {
+    "name": "Solar",
+    "count": 8,
+    "gate_ok": true,
+    "new": false
+   },
+   "landscaping-and-lawn": {
+    "name": "Landscaping & Lawn",
+    "count": 6,
+    "gate_ok": true,
+    "new": false
+   },
+   "pools-and-spas": {
+    "name": "Pools & Spas",
+    "count": 6,
+    "gate_ok": true,
+    "new": false
+   },
+   "hvac": {
+    "name": "HVAC",
+    "count": 5,
+    "gate_ok": true,
+    "new": false
+   },
+   "movers": {
+    "name": "Movers",
+    "count": 4,
+    "gate_ok": true,
+    "new": false
+   },
+   "security-and-alarms": {
+    "name": "Security & Alarms",
+    "count": 3,
+    "gate_ok": true,
+    "new": false
+   },
+   "handyman": {
+    "name": "Handyman",
+    "count": 1,
+    "gate_ok": false,
+    "new": false
+   }
+  }
+ },
+ "auto-rv-and-marine": {
+  "name": "Auto, RV & Marine",
+  "sort": 9,
+  "leaves": {
+   "auto-repair": {
+    "name": "Auto Repair",
+    "count": 112,
+    "gate_ok": true,
+    "new": false
+   },
+   "gas-stations": {
+    "name": "Gas Stations",
+    "count": 39,
+    "gate_ok": true,
+    "new": false
+   },
+   "car-dealerships": {
+    "name": "Car Dealerships",
+    "count": 31,
+    "gate_ok": true,
+    "new": false
+   },
+   "auto-parts": {
+    "name": "Auto Parts",
+    "count": 20,
+    "gate_ok": true,
+    "new": false
+   },
+   "car-wash": {
+    "name": "Car Wash",
+    "count": 17,
+    "gate_ok": true,
+    "new": false
+   },
+   "shuttles-and-transportation": {
+    "name": "Shuttles & Transportation",
+    "count": 12,
+    "gate_ok": true,
+    "new": true
+   },
+   "powersports-and-atv": {
+    "name": "Powersports & ATV",
+    "count": 9,
+    "gate_ok": true,
+    "new": false
+   },
+   "towing-and-roadside": {
+    "name": "Towing & Roadside",
+    "count": 7,
+    "gate_ok": true,
+    "new": false
+   },
+   "car-rental": {
+    "name": "Car Rental",
+    "count": 5,
+    "gate_ok": true,
+    "new": false
+   },
+   "auto-marine-detailing": {
+    "name": "Auto/Marine Detailing",
+    "count": 4,
+    "gate_ok": true,
+    "new": false
+   },
+   "tires": {
+    "name": "Tires",
+    "count": 4,
+    "gate_ok": true,
+    "new": false
+   },
+   "boat-sales": {
+    "name": "Boat Sales",
+    "count": 4,
+    "gate_ok": true,
+    "new": false
+   },
+   "boat-repair-and-service": {
+    "name": "Boat Repair & Service",
+    "count": 3,
+    "gate_ok": true,
+    "new": false
+   },
+   "rv-sales-and-service": {
+    "name": "RV Sales & Service",
+    "count": 3,
+    "gate_ok": true,
+    "new": false
+   },
+   "boat-and-rv-storage-service": {
+    "name": "Boat & RV Storage / Service",
+    "count": 2,
+    "gate_ok": false,
+    "new": false
+   },
+   "auto-detailing": {
+    "name": "Auto Detailing",
+    "count": 1,
+    "gate_ok": false,
+    "new": false
+   }
+  }
+ },
+ "shopping-and-retail": {
+  "name": "Shopping & Retail",
+  "sort": 10,
+  "leaves": {
+   "clothing-and-apparel": {
+    "name": "Clothing & Apparel",
+    "count": 41,
+    "gate_ok": true,
+    "new": false
+   },
+   "gifts-and-boutiques": {
+    "name": "Gifts & Boutiques",
+    "count": 32,
+    "gate_ok": true,
+    "new": false
+   },
+   "hardware-and-home-improvement": {
+    "name": "Hardware & Home Improvement",
+    "count": 29,
+    "gate_ok": true,
+    "new": false
+   },
+   "furniture-and-mattress": {
+    "name": "Furniture & Mattress",
+    "count": 25,
+    "gate_ok": true,
+    "new": false
+   },
+   "sporting-goods": {
+    "name": "Sporting Goods",
+    "count": 22,
+    "gate_ok": true,
+    "new": false
+   },
+   "convenience": {
+    "name": "Convenience",
+    "count": 19,
+    "gate_ok": true,
+    "new": false
+   },
+   "grocery-and-markets": {
+    "name": "Grocery & Markets",
+    "count": 13,
+    "gate_ok": true,
+    "new": false
+   },
+   "appliances-and-electronics": {
+    "name": "Appliances & Electronics",
+    "count": 12,
+    "gate_ok": true,
+    "new": false
+   },
+   "jewelry": {
+    "name": "Jewelry",
+    "count": 11,
+    "gate_ok": true,
+    "new": false
+   },
+   "thrift-and-consignment": {
+    "name": "Thrift & Consignment",
+    "count": 10,
+    "gate_ok": true,
+    "new": false
+   },
+   "specialty-food": {
+    "name": "Specialty Food",
+    "count": 8,
+    "gate_ok": true,
+    "new": false
+   },
+   "smoke-vape-and-cannabis": {
+    "name": "Smoke, Vape & Cannabis",
+    "count": 5,
+    "gate_ok": true,
+    "new": true
+   },
+   "shoes": {
+    "name": "Shoes",
+    "count": 3,
+    "gate_ok": true,
+    "new": false
+   },
+   "florists": {
+    "name": "Florists",
+    "count": 3,
+    "gate_ok": true,
+    "new": false
+   },
+   "hobby-and-craft": {
+    "name": "Hobby & Craft",
+    "count": 3,
+    "gate_ok": true,
+    "new": false
+   }
+  }
+ },
+ "professional-and-financial": {
+  "name": "Professional & Financial",
+  "sort": 11,
+  "leaves": {
+   "financial-advisors": {
+    "name": "Financial Advisors",
+    "count": 71,
+    "gate_ok": true,
+    "new": false
+   },
+   "real-estate": {
+    "name": "Real Estate",
+    "count": 67,
+    "gate_ok": true,
+    "new": false
+   },
+   "insurance": {
+    "name": "Insurance",
+    "count": 46,
+    "gate_ok": true,
+    "new": false
+   },
+   "attorneys": {
+    "name": "Attorneys",
+    "count": 28,
+    "gate_ok": true,
+    "new": false
+   },
+   "accountants-and-tax": {
+    "name": "Accountants & Tax",
+    "count": 12,
+    "gate_ok": true,
+    "new": false
+   },
+   "banks-and-credit-unions": {
+    "name": "Banks & Credit Unions",
+    "count": 10,
+    "gate_ok": true,
+    "new": false
+   },
+   "computer-and-it-repair": {
+    "name": "Computer & IT Repair",
+    "count": 7,
+    "gate_ok": true,
+    "new": false
+   },
+   "photographers": {
+    "name": "Photographers",
+    "count": 6,
+    "gate_ok": true,
+    "new": false
+   },
+   "print-signs-and-marketing": {
+    "name": "Print, Signs & Marketing",
+    "count": 3,
+    "gate_ok": true,
+    "new": false
+   },
+   "shipping-and-postal": {
+    "name": "Shipping & Postal",
+    "count": 2,
+    "gate_ok": false,
+    "new": false
+   },
+   "event-planning": {
+    "name": "Event Planning",
+    "count": 2,
+    "gate_ok": false,
+    "new": true
+   },
+   "notary": {
+    "name": "Notary",
+    "count": 1,
+    "gate_ok": false,
+    "new": false
+   },
+   "title-and-escrow": {
+    "name": "Title & Escrow",
+    "count": 1,
+    "gate_ok": false,
+    "new": false
+   }
+  }
+ },
+ "family-and-education": {
+  "name": "Family & Education",
+  "sort": 12,
+  "leaves": {
+   "kids-classes-and-camps": {
+    "name": "Kids' Classes & Camps",
+    "count": 19,
+    "gate_ok": true,
+    "new": false
+   },
+   "preschools-and-childcare": {
+    "name": "Preschools & Childcare",
+    "count": 15,
+    "gate_ok": true,
+    "new": false
+   },
+   "k-12-schools": {
+    "name": "K-12 Schools",
+    "count": 14,
+    "gate_ok": true,
+    "new": false
+   },
+   "colleges-and-higher-ed": {
+    "name": "Colleges & Higher Ed",
+    "count": 6,
+    "gate_ok": true,
+    "new": false
+   },
+   "tutoring-and-test-prep": {
+    "name": "Tutoring & Test Prep",
+    "count": 1,
+    "gate_ok": false,
+    "new": false
+   },
+   "music-lessons": {
+    "name": "Music Lessons",
+    "count": 1,
+    "gate_ok": false,
+    "new": false
+   }
+  }
+ },
+ "community-and-civic": {
+  "name": "Community & Civic",
+  "sort": 13,
+  "leaves": {
+   "places-of-worship": {
+    "name": "Places of Worship",
+    "count": 45,
+    "gate_ok": true,
+    "new": false
+   },
+   "nonprofits-and-charities": {
+    "name": "Nonprofits & Charities",
+    "count": 27,
+    "gate_ok": true,
+    "new": false
+   },
+   "government-and-mvd": {
+    "name": "Government & MVD",
+    "count": 14,
+    "gate_ok": true,
+    "new": false
+   },
+   "community-centers": {
+    "name": "Community Centers",
+    "count": 5,
+    "gate_ok": true,
+    "new": false
+   },
+   "utilities": {
+    "name": "Utilities",
+    "count": 4,
+    "gate_ok": true,
+    "new": false
+   },
+   "libraries": {
+    "name": "Libraries",
+    "count": 3,
+    "gate_ok": true,
+    "new": false
+   },
+   "post-office": {
+    "name": "Post Office",
+    "count": 1,
+    "gate_ok": false,
+    "new": false
+   }
+  }
+ },
+ "lodging": {
+  "name": "Lodging",
+  "sort": 14,
+  "leaves": {
+   "hotels-and-motels": {
+    "name": "Hotels & Motels",
+    "count": 102,
+    "gate_ok": true,
+    "new": false
+   },
+   "rv-parks-and-campgrounds": {
+    "name": "RV Parks & Campgrounds",
+    "count": 24,
+    "gate_ok": true,
+    "new": false
+   }
+  }
+ }
+}
