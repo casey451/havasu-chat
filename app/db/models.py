@@ -15,6 +15,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    SmallInteger,
     String,
     Text,
     Time,
@@ -802,8 +803,25 @@ class Category(Base):
     slug: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # A.3 taxonomy tree (docs/proposals/A3-apply-spec.md): departments are
+    # level 0 with parent_id NULL; leaves are level 1 with parent_id = dept id.
+    # The flat 12-row V1 cut is level 0 / parent NULL, so it stays valid until
+    # scripts/seed_taxonomy.py fills the full 15-dept / 126-leaf tree.
+    parent_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("categories.id"), nullable=True, index=True
+    )
+    level: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=0, server_default="0"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    parent: Mapped["Category | None"] = relationship(
+        "Category", remote_side=[id], back_populates="children"
+    )
+    children: Mapped[list["Category"]] = relationship(
+        "Category", back_populates="parent", order_by="Category.sort_order"
     )
 
 
