@@ -26,10 +26,14 @@ def test_fetch_nws_alerts_parses_features() -> None:
     assert data["alerts"][0]["event"] == "Heat Advisory"
 
 
-def test_fetch_nws_current_extracts_temp() -> None:
-    points = {"properties": {"observationStations": "https://api.weather.gov/stations"}}
-    stations = {"features": [{"id": "https://api.weather.gov/stations/KHII"}]}
-    obs = {
+_PRIMARY_PATH = f"/stations/{nws.LHC_PRIMARY_STATION}/observations/latest"
+
+
+def test_fetch_nws_current_prefers_khii_when_obs_carries_temp() -> None:
+    """KHII (the pinned official LHC station) is the primary source: when its
+    latest obs carries a temperature, it is used and the points/stations walk
+    is never reached."""
+    khii_obs = {
         "properties": {
             "temperature": {"value": 37.0},
             "heatIndex": {"value": None},
@@ -38,22 +42,35 @@ def test_fetch_nws_current_extracts_temp() -> None:
         }
     }
 
-    with patch("app.conditions.nws._get", side_effect=[points, stations, obs]):
+    def fake_get(path: str):
+        if path == _PRIMARY_PATH:
+            return khii_obs
+        raise AssertionError(f"walk should not run; unexpected call: {path}")
+
+    with patch("app.conditions.nws._get", side_effect=fake_get):
         data = nws.fetch_nws_current()
 
     assert data["temperature_f"] is not None
-    assert data["temperature_f"] > 90
+    assert data["temperature_f"] > 90  # 37C → 98.6F
+    assert data["wind_direction_deg"] == 180
 
 
-def test_fetch_nws_current_walks_to_next_station_when_temp_null() -> None:
-    """The nearest station frequently reports a null temperature; the fetcher
-    walks the first few stations and keeps the first real reading."""
+def test_fetch_nws_current_falls_back_to_walk_when_khii_temp_null() -> None:
+    """When KHII's latest obs has no temperature, fall through to the
+    nearest-station walk and keep the first reading that carries one."""
     points = {"properties": {"observationStations": "https://api.weather.gov/stations"}}
     stations = {
         "features": [
             {"id": "https://api.weather.gov/stations/KNULL"},
-            {"id": "https://api.weather.gov/stations/KHII"},
+            {"id": "https://api.weather.gov/stations/KOTHER"},
         ]
+    }
+    khii_null = {
+        "properties": {
+            "temperature": {"value": None},
+            "windSpeed": {"value": 1.0},
+            "windDirection": {"value": 10},
+        }
     }
     obs_null = {
         "properties": {
@@ -73,20 +90,22 @@ def test_fetch_nws_current_walks_to_next_station_when_temp_null() -> None:
     }
 
     def fake_get(path: str):
+        if path == _PRIMARY_PATH:
+            return khii_null
         if "/points/" in path:
             return points
         if path.endswith("/stations"):
             return stations
         if "KNULL" in path:
             return obs_null
-        if "KHII" in path:
+        if "KOTHER" in path:
             return obs_real
         raise AssertionError(path)
 
     with patch("app.conditions.nws._get", side_effect=fake_get):
         data = nws.fetch_nws_current()
 
-    assert data["temperature_f"] == 86.0  # 30C from the second station
+    assert data["temperature_f"] == 86.0  # 30C from the second walk station
 
 
 def test_fetch_nws_current_keeps_first_obs_when_all_temps_null() -> None:
