@@ -24,7 +24,7 @@ on:
     # month), staggered 10 min apart across the fleet. This slot = 6:00 AM
     # Arizona (MST/UTC-7, no DST). Month boundary (31st -> 1st) doubles up
     # once; all ingests are idempotent so the extra run is harmless.
-    - cron: "0 13 1-31/2 * *"
+        - cron: "0 3,13,20 * * *"
   workflow_dispatch: {}
 
 jobs:
