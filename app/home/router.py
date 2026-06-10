@@ -821,6 +821,7 @@ def serve_events_ui(
     date: str | None = None,
     view: str | None = None,
     cal: str | None = None,
+    family: str | None = None,
 ) -> HTMLResponse:
     """Render the Sandstone events page — three zoom levels of one concept.
 
@@ -845,16 +846,46 @@ def serve_events_ui(
         when_key = (when or "").strip().lower()
         view_key = "today" if when_key in ("", "today") else "week"
 
+    # Family mode (?family=1) — kid/family occurrences only, across all three
+    # zoom levels. ``family_qs`` is appended to every intra-page link so the
+    # toggle survives day paging, view switches, and month paging.
+    family_on = (family or "").strip().lower() in ("1", "true", "yes", "on")
+    family_qs = "&family=1" if family_on else ""
+
+    def _view_url(key: str) -> str:
+        base = "/events-ui" if key == "today" else f"/events-ui?view={key}"
+        if not family_on:
+            return base
+        return base + ("?family=1" if "?" not in base else "&family=1")
+
+    def _toggle_url() -> str:
+        """Current page URL with family mode flipped (the toggle's href)."""
+        params: list[str] = []
+        if single_day is not None:
+            params.append(f"date={single_day.isoformat()}")
+        elif view_key == "week":
+            params.append("view=week")
+        elif view_key == "month":
+            params.append("view=month")
+            if cal:
+                params.append(f"cal={cal}")
+        if not family_on:
+            params.append("family=1")
+        return "/events-ui" + ("?" + "&".join(params) if params else "")
+
     context: dict[str, Any] = {
         "active_tab": "events",
         "primary_nav": sandstone.primary_nav(),
         "mega_columns": sandstone.mega_columns(db),
         "utility_chips": _utility_chips(db),
+        "family_mode": family_on,
+        "family_qs": family_qs,
+        "family_toggle_url": _toggle_url(),
         "view_links": [
             {
                 "key": key,
                 "label": label,
-                "url": "/events-ui" if key == "today" else f"/events-ui?view={key}",
+                "url": _view_url(key),
                 "active": single_day is None and key == view_key,
             }
             for key, label in _EVENT_VIEWS
@@ -865,7 +896,7 @@ def serve_events_ui(
         context.update(
             {
                 "mode": "day",
-                "groups": events_views.day_groups(db, day=single_day),
+                "groups": events_views.day_groups(db, day=single_day, family=family_on),
                 "day_label": _long_day_label(single_day),
                 "prev_iso": (single_day - timedelta(days=1)).isoformat(),
                 "next_iso": (single_day + timedelta(days=1)).isoformat(),
@@ -873,14 +904,19 @@ def serve_events_ui(
             }
         )
     elif view_key == "week":
-        context.update({"mode": "week", "week_rows": events_views.week_rows(db, start=today)})
+        context.update(
+            {
+                "mode": "week",
+                "week_rows": events_views.week_rows(db, start=today, family=family_on),
+            }
+        )
     elif view_key == "month":
         cal_year, cal_month = sandstone.parse_cal_param(cal, default=now)
         context.update(
             {
                 "mode": "month",
                 "calendar": sandstone.calendar_month(
-                    db, year=cal_year, month=cal_month, today=today
+                    db, year=cal_year, month=cal_month, today=today, family=family_on
                 ),
             }
         )
@@ -888,7 +924,7 @@ def serve_events_ui(
         context.update(
             {
                 "mode": "today",
-                "groups": events_views.day_groups(db, day=today),
+                "groups": events_views.day_groups(db, day=today, family=family_on),
                 "day_label": _long_day_label(today),
             }
         )

@@ -37,6 +37,7 @@ from app.events.class_occurrences import (
     class_occurrences_in_window,
     drop_event_duplicates,
 )
+from app.events.family_filter import is_family_event
 from app.events.time_labels import TIME_TBD_LABEL, short_time_label, time_sort_key
 from app.home.sandstone import (
     _TIER_CLASS,
@@ -97,15 +98,21 @@ def _event_row(ev: Event) -> dict[str, Any]:
     }
 
 
-def day_groups(db: Session, *, day: date) -> list[dict[str, Any]]:
+def day_groups(db: Session, *, day: date, family: bool = False) -> list[dict[str, Any]]:
     """Category-accordion groups for one date. Empty groups are omitted.
 
     Rows inside each group sort chronologically with time-TBD rows last (the
     shared :func:`time_sort_key` contract). Venue Schedule classes join the
     Fitness & classes group, linking to their venue page; classes that also
     exist as Event rows are dropped by (title, date) so nothing shows twice.
+
+    ``family=True`` (the ``?family=1`` toggle) keeps only occurrences that
+    positively read as kid/family things (:func:`is_family_event`) — e.g. the
+    Aquatic Center contributes Open Swim but not the adult exercise classes.
     """
     events = _live_events_by_day(db, window_start=day, window_end=day).get(day, [])
+    if family:
+        events = [ev for ev in events if is_family_event(ev.title, ev.tags)]
     event_keys = {((ev.title or "").strip().lower(), day) for ev in events}
 
     rows_by_group: dict[str, list[dict[str, Any]]] = {key: [] for key, _l, _i in GROUP_DEFS}
@@ -121,6 +128,8 @@ def day_groups(db: Session, *, day: date) -> list[dict[str, Any]]:
     for occ in drop_event_duplicates(
         class_occurrences_in_window(db, window_start=day, window_end=day), event_keys
     ):
+        if family and not is_family_event(occ.title):
+            continue
         rows_by_group["classes"].append(
             {
                 "sort": time_sort_key(occ.start_time, occ.end_time),
@@ -164,16 +173,26 @@ def rollup_summary(counts: dict[str, int]) -> str:
     return " · ".join(bits)
 
 
-def week_rows(db: Session, *, start: date, days: int = 7) -> list[dict[str, Any]]:
+def week_rows(
+    db: Session, *, start: date, days: int = 7, family: bool = False
+) -> list[dict[str, Any]]:
     """The next-``days`` rows for the week view (gap-free: contiguous dates).
 
     Every live event occurrence in the window is counted in exactly one day's
     rollup. The headline is the day's top ONE-OFF by ``(_event_tier, time)`` —
     a recurring class can never take it; days with no one-offs headline
     nothing and show only the rollup (or honest empty copy).
+
+    ``family=True`` applies the same kid/family occurrence filter as
+    :func:`day_groups`, so the week rollups agree with the day view.
     """
     end = start + timedelta(days=days - 1)
     by_day = _live_events_by_day(db, window_start=start, window_end=end)
+    if family:
+        by_day = {
+            d: [ev for ev in evs if is_family_event(ev.title, ev.tags)]
+            for d, evs in by_day.items()
+        }
     event_keys = {
         ((ev.title or "").strip().lower(), d) for d, evs in by_day.items() for ev in evs
     }
@@ -181,6 +200,8 @@ def week_rows(db: Session, *, start: date, days: int = 7) -> list[dict[str, Any]
     for occ in drop_event_duplicates(
         class_occurrences_in_window(db, window_start=start, window_end=end), event_keys
     ):
+        if family and not is_family_event(occ.title):
+            continue
         sched_by_day[occ.date] = sched_by_day.get(occ.date, 0) + 1
 
     rows: list[dict[str, Any]] = []

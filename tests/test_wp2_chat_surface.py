@@ -4,10 +4,10 @@ These pin the WP-2 contract on the /chat surface:
 
 - ``chat_cards.css`` is wired (carries all new card / feedback / clearance
   rules; if the <link> is dropped, icons/photos lose their bounds).
-- The SPONSORED loading interstitial markup is gone (DL-13).
+- The SPONSORED loading interstitial markup is gone (DL-13), and the whole
+  loading overlay with it (UI audit P0-2, 2026-06-10): the in-thread typing
+  dots are the only loading state.
 - The composer disclaimer ships and the composer input is labelled (F1 / a11y).
-- The loading overlay no longer carries the aria-live + aria-hidden
-  contradiction (the live region must not also be hidden).
 - ``POST /api/chat/feedback`` is wired and surfaces ``chat_log_id`` so the
   ported thumbs handler in chat-new.js has something to key on (A4 / DL-1).
 
@@ -43,26 +43,25 @@ def test_chat_drops_sponsored_interstitial_markup() -> None:
 
 
 def test_chat_composer_disclaimer_and_label() -> None:
-    """F1 + a11y: composer carries the mistakes disclaimer and an aria label."""
+    """F1 + a11y: composer carries the hours disclaimer and an aria label."""
     with TestClient(app) as client:
         r = client.get("/chat")
     assert r.status_code == 200
-    assert "confirm hours by phone" in r.text
+    assert "Always call to confirm hours." in r.text
     assert 'aria-label="Ask Hava"' in r.text
 
 
-def test_chat_overlay_has_no_aria_hidden_contradiction() -> None:
-    """The loading overlay is a live region and must NOT also be aria-hidden."""
+def test_chat_loading_overlay_is_gone() -> None:
+    """UI audit P0-2: the vestigial full-screen loading overlay is removed.
+
+    It double-rendered loading state and replayed every answer in a popup with
+    a forced 1.1s delay. The in-thread typing dots are the loading state.
+    """
     with TestClient(app) as client:
         r = client.get("/chat")
     assert r.status_code == 200
-    # Locate the overlay element's opening tag and assert it is not hidden.
-    marker = 'id="ll-loading-overlay"'
-    assert marker in r.text
-    start = r.text.index(marker)
-    open_tag = r.text[start - 80 : r.text.index(">", start) + 1]
-    assert "aria-live" in open_tag
-    assert "aria-hidden" not in open_tag
+    assert 'id="ll-loading-overlay"' not in r.text
+    assert "ll-loading" not in r.text
 
 
 def test_feedback_route_surfaces_chat_log_id() -> None:

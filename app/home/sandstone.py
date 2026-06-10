@@ -471,7 +471,9 @@ def _pill_sort_key(pill: dict[str, str]) -> tuple[int, int]:
     return (recurring_rank, type_rank)
 
 
-def calendar_month(db: Session, *, year: int, month: int, today: date) -> dict[str, Any]:
+def calendar_month(
+    db: Session, *, year: int, month: int, today: date, family: bool = False
+) -> dict[str, Any]:
     """Build a month grid of real events. Empty days stay empty (no fabrication).
 
     Each in-month cell carries an ISO date (``iso``) so the template can link
@@ -479,7 +481,13 @@ def calendar_month(db: Session, *, year: int, month: int, today: date) -> dict[s
     pill slots and the cell ``count``; recurring classes (recurring Event rows
     plus venue Schedule classes) collapse into ``class_count`` — rendered as a
     small "N classes" badge — instead of flooding the cell ("+44").
+
+    ``family=True`` (the /events-ui family toggle) keeps only kid/family
+    occurrences — same :func:`app.events.family_filter.is_family_event`
+    heuristic the day and week views use, so all three zooms agree.
     """
+    from app.events.family_filter import is_family_event
+
     first_weekday, days_in_month = _calendar.monthrange(year, month)
     # Python's monthrange: Monday=0. The grid leads with Sunday, so shift.
     lead_blanks = (first_weekday + 1) % 7
@@ -489,6 +497,11 @@ def calendar_month(db: Session, *, year: int, month: int, today: date) -> dict[s
         window_start=date(year, month, 1),
         window_end=date(year, month, days_in_month),
     )
+    if family:
+        occ_by_date = {
+            d: [ev for ev in evs if is_family_event(ev.title, ev.tags)]
+            for d, evs in occ_by_date.items()
+        }
     by_day: dict[int, list[dict[str, Any]]] = {}
     event_keys: set[tuple[str, date]] = set()
     for occ_date, evs in occ_by_date.items():
@@ -517,6 +530,8 @@ def calendar_month(db: Session, *, year: int, month: int, today: date) -> dict[s
         event_keys,
     )
     for occ in class_occs:
+        if family and not is_family_event(occ.title):
+            continue
         by_day.setdefault(occ.date.day, []).append(
             {"title": occ.title, "type": "class", "recurring": True}
         )

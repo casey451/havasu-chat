@@ -512,6 +512,36 @@ def _build_chat_request_context(
     return base
 
 
+def _leaf_page_handoff(
+    query: str,
+    db: Session,
+    component_meta: dict | None,
+) -> str | None:
+    """Voice line for a leaf-page hand-off, populating ``component_meta``.
+
+    Returns ``None`` when the query doesn't map to a gate-clearing leaf page
+    (the overwhelmingly common case — the dict lookup is in-memory and free).
+    """
+    from app.categories import leaf_pages as _leaf_pages
+    from app.categories import leaf_query as _leaf_query
+
+    leaf = _leaf_query.match_leaf_for_chat(db, query)
+    if leaf is None:
+        return None
+    count = _leaf_pages.leaf_renderable_count(db, leaf)
+    url = f"/categories/{leaf.department_slug}/{leaf.slug}"
+    if component_meta is not None:
+        component_meta["type"] = "page_link"
+        component_meta["data"] = {
+            "url": url,
+            "label": leaf.name,
+            "department": leaf.department_name,
+            "count": count,
+        }
+    plural = "option" if count == 1 else "options"
+    return f"That one's a whole page — {count} {leaf.name} {plural} in Havasu, all below."
+
+
 def _handle_ask(
     query: str,
     intent_result: IntentResult,
@@ -533,6 +563,37 @@ def _handle_ask(
             telemetry["cache_status"] = "bypass"
             telemetry["tier1_ms"] = int((time.perf_counter() - t_t1_start) * 1000)
         return tier1, "1", None, None, None
+    # Leaf-page hand-off: when the ask is really "show me <category we have a
+    # page for>" ("i need a dog groomer", "looking for a plumber"), answer with
+    # a short voice line + a page_link component pointing at the leaf page
+    # instead of an inline listing. Tier 1 has already had its shot, so hours/
+    # phone/factual lookups never land here; match_leaf_for_chat additionally
+    # refuses queries with factual or temporal payload. Best-effort: any
+    # failure falls through to the conversational tiers unchanged.
+    try:
+        leaf_link = _leaf_page_handoff(query, db, component_meta)
+    except Exception:
+        logging.exception("unified_router: leaf page hand-off failed")
+        leaf_link = None
+    if leaf_link is not None:
+        if telemetry is not None:
+            telemetry["cache_status"] = "bypass"
+        return leaf_link, "leaf_link", None, None, None
+    # Family / kids browse: "what is there for kids" answers with the curated
+    # family-venue listing (arcade, bowling, parks, skate park, rink, RC track,
+    # pool — whatever's live in the catalog) instead of whatever keyword rows
+    # happened to match. Deterministic, zero LLM. Best-effort fall-through.
+    try:
+        from app.chat.family_fun import try_family_fun
+
+        family_text = try_family_fun(query, db, component_meta)
+    except Exception:
+        logging.exception("unified_router: family fun browse failed")
+        family_text = None
+    if family_text is not None:
+        if telemetry is not None:
+            telemetry["cache_status"] = "bypass"
+        return family_text, "2", None, None, None
     # Ask Hava intent layer (flag-gated; USE_INTENT_LAYER off by default). Sits
     # at the front of Tier 2: a confident rule/slot match answers from the
     # catalog with no LLM call and logs the intent to query_log. Anything else

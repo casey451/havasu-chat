@@ -3,8 +3,7 @@
    The transcript is rendered client-side by chat-new.js. Every id / class the
    JS queries is load-bearing and preserved verbatim:
      ids:    thread, empty-state, composer-form, composer-input, composer-send,
-             composer-photo, composer-photo-btn, ll-loading-overlay,
-             ll-loading-answer
+             composer-photo, composer-photo-btn
      hooks:  .chip[data-q]  (empty-state suggestion chips)
    Body keeps `ll-page ll-chat` because chat_cards.css (B-01 SVG/img clamps,
    feedback controls, composer clearance) scopes everything under
@@ -30,7 +29,7 @@
   {# ─────────── empty state ─────────── #}
   <section id="empty-state" class="empty-state">
     <p class="d-eyebrow chat-eyebrow">Ask me anything</p>
-    <h1 class="chat-display">I'm <em>your local</em>.</h1>
+    <h1 class="chat-display">Ask <em>Hava</em>.</h1>
     <p class="chat-sub">Plumbers, restaurants, classes this week, what's open at 11. Try one:</p>
     <div class="chips">
       <button class="chip" data-q="What's happening tonight?">what's on tonight</button>
@@ -50,7 +49,7 @@
 
 {# ─────────── sticky composer — the mockup's shadow-boxed ask bar ─────────── #}
 <div class="stuck-composer">
-  <p class="composer-disclaimer">Hava can make mistakes -- confirm hours by phone.</p>
+  <p class="composer-disclaimer">Always call to confirm hours.</p>
   <form class="composer" id="composer-form" autocomplete="off">
     <input type="file" id="composer-photo" accept="image/jpeg,image/png,image/webp" hidden>
     <button type="button" id="composer-photo-btn" class="photo-btn" aria-label="Add a photo">Photo</button>
@@ -61,7 +60,6 @@
       placeholder="Ask Hava…"
       aria-label="Ask Hava"
       enterkeyhint="send"
-      autofocus
     >
     <button id="composer-send" class="send" type="submit" aria-label="Send">
       <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -71,18 +69,8 @@
   </form>
 </div>
 
-{# Plain loading overlay -- the sponsored interstitial + micro-ad stay removed
-   (DL-13). aria-live announces the answer when it lands; no aria-hidden here
-   (a live region must not also be hidden). Hidden via display:none in CSS/JS. #}
-<div class="ll-loading-overlay" id="ll-loading-overlay" role="status" aria-live="polite">
-  <div class="ll-loading-card">
-    <p class="ll-loading-title">
-      Finding the best spots
-      <span class="ll-dots"><span></span><span></span><span></span></span>
-    </p>
-    <div id="ll-loading-answer" class="ll-loading-answer" style="display:none;"></div>
-  </div>
-</div>
+{# The full-screen loading overlay (vestigial sponsored interstitial, DL-13 /
+   UI audit P0-2) is removed — the in-thread typing dots are the loading state. #}
 {% endblock %}
 
 {% block scripts %}

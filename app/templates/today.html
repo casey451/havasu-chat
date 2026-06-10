@@ -1,7 +1,7 @@
 {% extends "desert_base.html" %}
 {% set active_tab = "home" %}
-{% block title %}Today in Havasu -- Ask Hava{% endblock %}
-{% block meta_description %}Today in Lake Havasu City: lake level and water temp, wind, air quality, sunset, and the cheapest gas -- updated from live local sources.{% endblock %}
+{% block title %}Today in Havasu — Ask Hava{% endblock %}
+{% block meta_description %}Today in Lake Havasu City: lake level and water temp, wind, air quality, sunset, and the cheapest gas — updated from live local sources.{% endblock %}
 {% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_home.css">{% endblock %}
 
 {% block content %}
@@ -17,7 +17,7 @@
     {% if not any_available %}
       <div class="today-warning" role="status">
         Live conditions are unavailable right now. The data sources have not
-        refreshed yet -- check back shortly.
+        refreshed yet — check back shortly.
       </div>
     {% endif %}
 
