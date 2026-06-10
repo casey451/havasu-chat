@@ -1,10 +1,20 @@
-"""Minimal iCalendar VEVENT parser (stdlib-only; Phase 9b)."""
+"""Minimal iCalendar VEVENT parser (Phase 9b).
+
+Datetime convention: every consumer (lhc_library, lhc_parks_rec, lhusd)
+treats ``ICalEvent.start``/``end`` as **naive Lake Havasu wall time** —
+``.date()`` is compared against ``date.today()`` and ``.isoformat()`` strings
+flow into the ingest pipeline. UTC (``Z``) and ``TZID=…`` values are therefore
+converted to local wall time and returned naive, never aware.
+"""
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, time
+from datetime import datetime, time, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from app.core.timezone import LAKE_HAVASU_TZ
 
 
 @dataclass
@@ -29,14 +39,29 @@ def _unfold_lines(text: str) -> list[str]:
     return lines
 
 
+def _to_local_naive(dt: datetime) -> datetime:
+    """Convert an aware datetime to naive Lake Havasu wall time."""
+    return dt.astimezone(LAKE_HAVASU_TZ).replace(tzinfo=None)
+
+
 def _parse_ical_datetime(value: str, tzid: str | None = None) -> datetime:
     value = value.strip()
     if "T" in value:
-        if value.endswith("Z"):
-            return datetime.strptime(value, "%Y%m%dT%H%M%SZ")
-        if len(value) == 15 and value[-1] in "Zz":
-            return datetime.strptime(value[:-1], "%Y%m%dT%H%M%S")
-        return datetime.strptime(value[:15], "%Y%m%dT%H%M%S")
+        if value.endswith(("Z", "z")):
+            # RFC 5545 UTC form: convert to local wall time. (Previously the
+            # UTC value was returned as-is — a +7h error for genuine-UTC feeds.)
+            parsed = datetime.strptime(value[:-1], "%Y%m%dT%H%M%S")
+            return _to_local_naive(parsed.replace(tzinfo=timezone.utc))
+        parsed = datetime.strptime(value[:15], "%Y%m%dT%H%M%S")
+        if tzid:
+            # Both live feeds (Trumba, CivicEngage) emit TZID=America/Phoenix,
+            # for which this conversion is the identity. An unrecognized TZID
+            # keeps the historical assume-local behavior.
+            try:
+                return _to_local_naive(parsed.replace(tzinfo=ZoneInfo(tzid)))
+            except (ZoneInfoNotFoundError, KeyError, ValueError):
+                return parsed
+        return parsed
     d = datetime.strptime(value[:8], "%Y%m%d").date()
     return datetime.combine(d, time.min)
 

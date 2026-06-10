@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import os
 import re
 import time
@@ -167,8 +168,16 @@ _INCOMPATIBLE_TRADE_PAIRS: tuple[frozenset[str], ...] = (
 )
 
 
+@functools.lru_cache(maxsize=4096)
 def _trade_cluster_tags(blob: str) -> frozenset[str]:
-    """Map free text to coarse trade tags for cross-category mismatch checks."""
+    """Map free text to coarse trade tags for cross-category mismatch checks.
+
+    Cached: the category guard calls this once per candidate row with the SAME
+    normalized query (~2,200 identical calls per chat request) and once with
+    each row's catalog blob, which is stable between catalog refreshes. The
+    maxsize comfortably covers one catalog's blobs plus query churn; the
+    return value is a frozenset, so shared results are safe.
+    """
     b = blob.lower()
     tags: set[str] = set()
     if re.search(r"\b(plumber|plumbing|plumbers)\b", b):
