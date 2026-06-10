@@ -12,6 +12,7 @@ Tests: tests/test_slug_util.py
 from __future__ import annotations
 
 import re
+import unicodedata
 
 
 def slugify(value: str | None) -> str:
@@ -21,8 +22,18 @@ def slugify(value: str | None) -> str:
     non-alphanumerics, collapses runs to single hyphens, trims hyphens
     from the ends, lowercases, and falls back to "untitled" for empty
     or non-alphanumeric input.
+
+    Unicode-aware (B1, 2026-06-10): accented letters fold to their ASCII
+    base ("Cafés" → "cafes") instead of being dropped and leaving a stray
+    hyphen ("caf-s" — the bug that produced the ``caf-s-and-coffee``
+    taxonomy slug). Characters with no ASCII decomposition still drop.
     """
-    return re.sub(r"[^a-z0-9]+", "-", (value or "").lower()).strip("-") or "untitled"
+    folded = (
+        unicodedata.normalize("NFKD", value or "")
+        .encode("ascii", "ignore")
+        .decode("ascii")
+    )
+    return re.sub(r"[^a-z0-9]+", "-", folded.lower()).strip("-") or "untitled"
 
 
 def make_unique_slug(base: str, used: set[str], *, max_length: int = 96) -> str:

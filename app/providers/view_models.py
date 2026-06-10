@@ -364,9 +364,14 @@ def _category_url_for(provider: Provider) -> str:
     of the business's category. Resolve the provider's legacy category to its most
     specific listing route — preferring a tile route (so a church links to
     Community, not the broad Services mega) — and fall back to Explore when unknown.
-    Lazy import of ``CATEGORY_FILTERS`` avoids a categories↔providers import cycle.
+    Lazy imports avoid a categories↔providers import cycle.
+
+    B3 (2026-06-10): the flat routes this resolves are RETIRED — each 301s to
+    its taxonomy department — so the crumb links the canonical department URL
+    directly instead of bouncing every click (and crawler) through a redirect.
     """
     from app.categories.queries import CATEGORY_FILTERS
+    from app.categories.router import ROUTE_SLUG_ALIASES
 
     cat = (provider.category or "").strip().lower()
     if not cat:
@@ -381,7 +386,9 @@ def _category_url_for(provider: Provider) -> str:
             else:
                 tile_match = tile_match or route
     route = tile_match or mega_match
-    return f"/categories/{route}" if route else "/categories"
+    if not route:
+        return "/categories"
+    return ROUTE_SLUG_ALIASES.get(route, f"/categories/{route}")
 
 
 def _is_sponsored_now(provider: Provider, *, now: datetime) -> bool:

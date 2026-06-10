@@ -17,9 +17,18 @@ def test_slugify_empty_input() -> None:
     assert slugify("!!!") == "untitled"
 
 
-def test_slugify_unicode_stripped() -> None:
-    # Non-ASCII letters are removed by the ASCII-only character class; not i18n-safe by design.
-    assert slugify("Café Olé") == "caf-ol"
+def test_slugify_unicode_transliterated() -> None:
+    # B1 (2026-06-10): accented letters fold to their ASCII base instead of
+    # being dropped — "Cafés" must never again become "caf-s".
+    assert slugify("Café Olé") == "cafe-ole"
+    assert slugify("Cafés & Coffee") == "cafes-coffee"
+    assert slugify("Crème Brûlée Niño") == "creme-brulee-nino"
+
+
+def test_slugify_non_decomposable_unicode_still_drops() -> None:
+    # Characters with no ASCII decomposition (CJK etc.) drop as before.
+    assert slugify("日本語") == "untitled"
+    assert slugify("日本語 cafe") == "cafe"
 
 
 def test_make_unique_slug_no_collision() -> None:

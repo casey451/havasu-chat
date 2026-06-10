@@ -38,7 +38,7 @@ SEO_NOUNS: dict[str, str] = {
     "dermatology-and-skin": "Dermatologists",
     "mental-and-behavioral-health": "Mental Health Providers",
     # Eat & Drink
-    "caf-s-and-coffee": "Cafés & Coffee Shops",
+    "cafes-and-coffee": "Cafés & Coffee Shops",
     "food-trucks-and-catering": "Food Trucks & Caterers",
     # Pets (slugs are leaf-scoped: "grooming"/"training" are the pet leaves)
     "grooming": "Pet Groomers",

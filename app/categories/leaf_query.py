@@ -36,9 +36,9 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "bars and breweries": "bars-and-breweries",
     "bakeries": "bakeries-and-desserts",
     "bakery": "bakeries-and-desserts",
-    "coffee": "caf-s-and-coffee",
-    "coffee shops": "caf-s-and-coffee",
-    "cafes": "caf-s-and-coffee",
+    "coffee": "cafes-and-coffee",
+    "coffee shops": "cafes-and-coffee",
+    "cafes": "cafes-and-coffee",
     "food trucks": "food-trucks-and-catering",
     "catering": "food-trucks-and-catering",
     # On the Water
