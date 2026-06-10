@@ -298,14 +298,13 @@ Run from repo root; use `.\.venv\Scripts\python.exe` on Windows. Set **`DATABASE
 | Script | Purpose | Example | Notes |
 | --- | --- | --- | --- |
 | `scripts/analyze_chat_costs.py` | Tier/mode/cost rollups, **30d** window | `.\.venv\Scripts\python.exe scripts\analyze_chat_costs.py` | **stdout only**; no full query text in output |
-| `scripts/run_query_battery.py` | Regression battery (HTTP client still POSTs to **`/chat`**) | See `scripts/README.md` | **Post-H1:** **`/chat`** returns **404** until the script is updated to **`POST /api/chat`** with the concierge payload — **do not** assume results until then; **Production traffic** / costs if fixed |
 | `scripts/verify_queries.py` | Short live spot check | venv `python` | |
 | `scripts/diagnose_search.py` | Batch search; may write `diagnose_output.txt` | venv | |
 | `scripts/run_voice_audit.py` / `run_voice_spotcheck.py` | Voice QA | venv | Paid/structured; see `prompts/` |
 | `scripts/extract_tier3_queries.py` | Ad hoc Tier-3–style query extraction | venv | dev / tuning |
 | `scripts/measure_hint_extractor_tokens.py` | Token use for session **hint** extraction | venv | dev |
-| `scripts/run_manual_phase64_verify.py` | Session-memory spot verification | venv | post-change QA |
-| `scripts/smoke_phase52_contributions.py` | Phase-5.2 contribute path smoke | venv | after deploy touching contribute |
+| `scripts/archive/run_manual_phase64_verify.py` (archived) | Session-memory spot verification | venv | post-change QA |
+| `scripts/archive/smoke_phase52_contributions.py` (archived) | Phase-5.2 contribute path smoke | venv | after deploy touching contribute |
 
 **Results / baselines in `scripts/`** (e.g. `battery_results.json`, JSON audit exports) are **not** auto-applied; treat rewrites as a **deliberate** baseline move per `scripts/README.md`.
 

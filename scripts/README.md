@@ -7,6 +7,7 @@ Operational CLI tools, test fixtures, and run-output conventions for `havasu-cha
 | Path | Status | What goes here |
 |------|--------|----------------|
 | `scripts/*.py` | Tracked | Permanent CLI tools, run on demand. |
+| `scripts/archive/` | Tracked | Completed one-off scripts (finished backfills, superseded audits, phase-numbered harnesses). Kept runnable via `python -m scripts.archive.<name>`; nothing in app/tests/CI references them. |
 | `scripts/fixtures/` | Tracked | Test fixtures (HTML, XML, etc.) used by `tests/` and ingestion code paths. |
 | `scripts/confabulation_eval_results/baselines/` | Tracked | Canonical eval baselines for regression compare. |
 | `scripts/confabulation_eval_results/*` (other) | Gitignored | Ephemeral eval runs (dryruns, dated runs). |
@@ -24,13 +25,12 @@ Operational CLI tools, test fixtures, and run-output conventions for `havasu-cha
 - **`extract_tier3_queries.py`** — Extracts Tier 3 queries from chat logs.
 - **`measure_hint_extractor_tokens.py`** — Measures token cost of `hint_extractor` calls.
 - **`river_scene_pull.py`** — Thin wrapper over `app.contrib.river_scene_pull.run_pull` for CLI use.
-- **`run_manual_phase64_verify.py`** — Manual Phase 6.4 verification harness.
-- **`run_query_battery.py`** — 120-query production battery. **BROKEN** post-H1 (2026-04-29) — POSTs to legacy `/chat` which returns 404. Retargeting to `/api/chat` queued as Backlog #12.
 - **`run_voice_audit.py`** — Voice-audit batch run. Writes to `scripts/voice_audit_results_<date>.json` (legacy path; migration queued in Backlog #19). Anthropic boilerplate not yet using consolidated `app/core/llm_messages` helper (Backlog #16).
 - **`run_voice_spotcheck.py`** — Lighter voice spotcheck.
 - **`smoke_concurrent_chat.py`** — Phase 8.2 local concurrent smoke for `POST /api/chat` (8 threads × ~3 min). Start `uvicorn` first; not a production stress test.
-- **`smoke_phase52_contributions.py`** — Phase 5.2 contributions smoke.
 - **`verify_queries.py`** — Short live spot-check against production.
+
+Removed: `run_query_battery.py` (broken since 2026-04-29 — POSTed to the legacy `/chat` route; Backlog #12). A replacement battery should target `POST /api/chat`. Completed one-offs (`backfill_*`, the eat-bucket trio, dupe-merge wave, Places/AZ probes, phase-numbered harnesses) live in `scripts/archive/`.
 
 ## Notes for new tools
 
