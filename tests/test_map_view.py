@@ -16,7 +16,7 @@ def test_map_view_returns_200_with_container_and_leaflet() -> None:
     # map.js + data-map-scope wiring.
     assert "/static/js/map.js" in r.text
     assert "data-map-scope" in r.text
-    # Leaflet CDN assets (same tags as category_landing.html).
+    # Leaflet CDN assets (same tags as the category pages).
     assert "leaflet/1.9.4/leaflet.min.css" in r.text
     assert "leaflet/1.9.4/leaflet.min.js" in r.text
     assert "leaflet.markercluster/1.5.3/leaflet.markercluster.min.js" in r.text
