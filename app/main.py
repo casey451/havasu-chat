@@ -58,6 +58,7 @@ from app.api.routes.today import router as today_router
 from app.auth.routes import router as auth_router
 from app.auth.session import COOKIE_NAME, SessionMiddleware, cookie_secure_in_prod
 from app.categories.router import router as direction_c_categories_router
+from app.chat.entity_matcher import refresh_entity_matcher
 from app.core.event_quality import friendly_errors
 from app.core.provider_name import (
     register_template_filters as _register_template_filters,
@@ -303,10 +304,25 @@ async def _hourly_cleanup_loop() -> None:
         await asyncio.to_thread(run_stuck_photo_sweep)
 
 
+def _warm_entity_matcher() -> None:
+    """Build the chat entity-matcher index before the first request.
+
+    The index rebuilds on demand with a 5-minute TTL; without warming, the
+    first chat request in each fresh process pays the ~50-150ms rebuild.
+    Failure is non-fatal — the on-demand path remains the fallback.
+    """
+    try:
+        with SessionLocal() as db:
+            refresh_entity_matcher(db)
+    except Exception:
+        logger.warning("entity-matcher warm failed; first request will rebuild", exc_info=True)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     logger.info("ADMIN_PASSWORD loaded: %s", bool(os.getenv("ADMIN_PASSWORD")))
     init_db()
+    await asyncio.to_thread(_warm_entity_matcher)
     task = asyncio.create_task(_hourly_cleanup_loop())
     try:
         yield
