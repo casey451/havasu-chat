@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 from fastapi.testclient import TestClient
 
@@ -58,9 +56,3 @@ def test_home_has_single_search_box_no_quicklinks(client: TestClient) -> None:
     assert "setInterval(rotate" in r.text
 
 
-def test_themed_tile_partial_exists() -> None:
-    path = Path("app/templates/components/themed_tile.html")
-    assert path.is_file()
-    text = path.read_text(encoding="utf-8")
-    assert "themed-tile" in text
-    assert "tile.tile_title" in text

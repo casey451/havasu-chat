@@ -27,7 +27,7 @@ from fastapi.testclient import TestClient
 from app.categories import queries as cat_queries
 from app.main import app
 
-_CSS_PATH = Path(__file__).resolve().parents[1] / "app" / "static" / "styles" / "lake_light.css"
+_CSS_PATH = Path(__file__).resolve().parents[1] / "app" / "static" / "styles" / "desert.css"
 
 
 def _stub_cards(n: int) -> list[dict]:
@@ -51,16 +51,13 @@ def _stub_cards(n: int) -> list[dict]:
 
 
 def test_focus_visible_outline_for_interactive_cards_and_chips() -> None:
-    """The shared stylesheet must give chips, facets and the two card
-    flavors a visible :focus-visible outline so keyboard nav is usable."""
+    """The shared stylesheet must give interactive elements a visible
+    :focus-visible outline so keyboard nav is usable. Desert uses one
+    global rule (plus header/footer/bottomnav color overrides) instead
+    of Lake Light's per-selector rules."""
     css = _CSS_PATH.read_text(encoding="utf-8")
-    for selector in (
-        ".ll-chip:focus-visible",
-        ".ll-facet:focus-visible",
-        ".ll-list-card:focus-visible",
-        ".ll-categories-card:focus-visible",
-    ):
-        assert selector in css, f"missing focus-visible rule for {selector}"
+    assert ":focus-visible{outline:" in css.replace(" ", ""), "missing global :focus-visible outline rule"
+    assert "@media(prefers-reduced-motion:reduce)" in css.replace(" ", "")
 
 
 # ---------------------------------------------------------------------------

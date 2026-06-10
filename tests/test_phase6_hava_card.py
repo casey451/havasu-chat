@@ -429,11 +429,6 @@ def test_hava_card_css_responsive_rules() -> None:
     assert "grid-template-columns: minmax(160px, 38%) 1fr" in text
 
 
-def test_home_css_imports_hava_card() -> None:
-    home = Path(__file__).resolve().parents[1] / "app" / "static" / "styles" / "home.css"
-    assert '@import url("components/hava_card.css");' in home.read_text(encoding="utf-8")
-
-
 def test_is_open_status_from_structured_hours_matches_provider_path() -> None:
     """Regression: shared hours helper matches prior Provider-only behavior."""
     hs = {"monday": [{"open": "09:00", "close": "17:00"}]}

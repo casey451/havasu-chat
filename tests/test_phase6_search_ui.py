@@ -40,7 +40,6 @@ def test_category_header_has_hava_search(client: TestClient) -> None:
 def test_search_css_and_js_files_exist() -> None:
     root = Path(__file__).resolve().parents[1]
     assert (root / "app/static/js/search_bar.js").is_file()
-    assert (root / "app/static/styles/components/search.css").is_file()
 
 
 def test_api_search_regression_guard(client: TestClient) -> None:

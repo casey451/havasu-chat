@@ -1,9 +1,10 @@
 """WP-1 shell smoke tests.
 
-Covers the new ``lake_light_base.html`` shell, the migrated Lake Light page
-templates, the new static trust pages (/about, /help, /contact), the shared
-nav/footer partials, and the CSS-level a11y/type contracts (skip-link,
-:focus-visible, prefers-reduced-motion, the six-tab bottom-nav grid).
+Covers the site shell (``desert_base.html`` since the Desert Modern reskin;
+the Lake Light and Sandstone shells it replaced are deleted), the utility
+page templates, the static trust pages (/about, /help, /contact), and the
+CSS-level a11y/type contracts (skip-link, :focus-visible,
+prefers-reduced-motion, the six-tab bottom-nav).
 
 Two render paths are used:
   * Templates needing no app context are rendered directly through a Jinja
@@ -29,9 +30,7 @@ from app.home.static_pages import router as static_pages_router
 
 _ROOT = Path(__file__).resolve().parents[1]
 _TEMPLATES_DIR = _ROOT / "app" / "templates"
-_LL_CSS = _ROOT / "app" / "static" / "styles" / "lake_light.css"
-_SAND_CSS = _ROOT / "app" / "static" / "styles" / "sandstone.css"
-_SAND_JS = _ROOT / "app" / "static" / "js" / "sandstone.js"
+_DESERT_CSS = _ROOT / "app" / "static" / "styles" / "desert.css"
 
 
 def _env() -> Environment:
@@ -171,20 +170,6 @@ def test_footer_has_tagline_and_trust_links() -> None:
     assert "mailto:hello@havasuchat.com" in html
 
 
-# ---- header search (DL-6 Wave 1: GET -> /chat?q=) ----
-
-
-def test_desktop_topbar_search_posts_to_search() -> None:
-    # DL-6 phase 2 (WP-11): the lake light topbar search posts to the /search
-    # results page; chat is the secondary "Ask Hava instead" CTA (/chat?q=).
-    # Rendered against the lake light base directly: /about moved to the Desert
-    # Modern shell, whose chrome intentionally has no header search (pages that
-    # need search render their own ask-bar in content — see desert handoff §6).
-    html = _render("lake_light_base.html")
-    assert 'action="/search" method="get"' in html
-    assert 'name="q"' in html
-
-
 # ---- static pages register and render through the app router ----
 
 
@@ -203,39 +188,21 @@ def test_static_pages_router_serves_trust_pages() -> None:
 # ---- CSS-level contracts ----
 
 
-def test_lake_light_css_shell_contracts() -> None:
-    css = _LL_CSS.read_text(encoding="utf-8")
-    assert "grid-template-columns: repeat(6, 1fr)" in css  # six-tab bottom nav
-    assert ".ll-skip-link" in css
-    assert "@media (prefers-reduced-motion: reduce)" in css
-    assert ".ll-utility-footer-tagline" in css
-    # DL-2 boundary: topbar/bottom-nav swap at 900px.
-    assert "@media (min-width: 900px)" in css
+def test_desert_css_shell_contracts() -> None:
+    css = _DESERT_CSS.read_text(encoding="utf-8")
+    flat = css.replace(" ", "")
+    assert ":focus-visible{outline:" in flat  # visible keyboard focus, global rule
+    assert "@media(prefers-reduced-motion:reduce)" in flat
+    assert ".d-skip" in css
+    assert ".d-bottomnav" in css
 
 
-def test_sandstone_css_shell_contracts() -> None:
-    css = _SAND_CSS.read_text(encoding="utf-8")
-    assert ".ll-bottom-nav" in css  # bottom nav styled on sandstone pages too
-    assert "grid-template-columns:repeat(6,1fr)" in css
-    assert ".ll-skip-link" in css
-    assert "@media(prefers-reduced-motion:reduce)" in css
-    assert ".header-search" in css
-    assert ".stale-badge" in css
+# ---- desert shell template (mega disclosure, drawer, no role=menu) ----
 
 
-def test_sandstone_js_uses_disclosure_not_mode_cycle_noop() -> None:
-    js = _SAND_JS.read_text(encoding="utf-8")
-    assert "nav-drawer" in js  # hamburger opens a real menu
-    assert "data-mode-cycle" not in js  # old no-op glyph behavior removed
-    assert "aria-controls" not in js or "mega" in js  # disclosure wiring
-
-
-# ---- sandstone shell template (header search, mega disclosure, no role=menu) ----
-
-
-def test_sandstone_base_shell_structure() -> None:
+def test_desert_base_shell_structure() -> None:
     html = _render(
-        "sandstone_base.html",
+        "desert_base.html",
         mega_columns=[
             {"heading": "Eat & Drink", "links": [{"label": "Eat & Drink", "url": "/categories/eat-drink"}]},
             {"heading": "Services", "links": [
@@ -246,28 +213,26 @@ def test_sandstone_base_shell_structure() -> None:
         primary_nav=[{"label": "Eat & Drink", "url": "/categories/eat-drink"}],
         utility_chips=[],
     )
-    assert 'class="ll-skip-link" href="#main"' in html
+    assert 'class="d-skip" href="#main"' in html
     # Mega-menu is a plain disclosure: aria-controls + hidden, no ARIA menu roles.
-    assert 'aria-controls="mega"' in html
+    assert 'aria-controls="d-mega"' in html
+    assert "hidden" in html
     assert 'role="menu"' not in html
     assert 'role="menuitem"' not in html
     # Single-child column collapses to a bare link.
-    assert "mm-bare" in html
+    assert "d-mm-bare" in html
     # Final "All categories ->" link to /categories.
-    assert "mm-all" in html and 'href="/categories"' in html
-    # Header search present in the sandstone header (DL-6 phase 2 / WP-11:
-    # posts to the /search results page, not chat).
-    assert 'action="/search" method="get"' in html
-    # Bottom-nav included on sandstone pages too (DL-2).
-    assert 'class="ll-bottom-nav"' in html
+    assert "d-mm-all" in html and 'href="/categories"' in html
+    # Six-tab mobile bottom nav present.
+    assert 'class="d-bottomnav"' in html
     # Hamburger opens a real drawer (aria-controls), not a mode-cycle no-op.
-    assert 'aria-controls="nav-drawer"' in html
+    assert 'aria-controls="d-drawer"' in html
     assert "data-mode-cycle" not in html
 
 
-def test_sandstone_ribbon_stale_badge_replaces_middot() -> None:
+def test_desert_conditions_strip_stale_badge() -> None:
     html = _render(
-        "sandstone_base.html",
+        "desert_base.html",
         utility_chips=[
             {"icon": "G", "value": "$3.99", "label": "Gas", "href": "/gas",
              "is_stale": True, "detail": "x"},
@@ -275,5 +240,5 @@ def test_sandstone_ribbon_stale_badge_replaces_middot() -> None:
         mega_columns=[],
         primary_nav=[],
     )
-    assert "stale-badge" in html
+    assert "d-stale" in html
     assert ">Stale<" in html

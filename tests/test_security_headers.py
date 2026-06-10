@@ -82,7 +82,7 @@ def test_html_pages_demand_revalidation(client: TestClient) -> None:
 
 def test_non_html_responses_keep_default_caching(client: TestClient) -> None:
     """The no-cache stamp is HTML-only: assets and text feeds are untouched."""
-    for path in ("/robots.txt", "/static/styles/sandstone.css"):
+    for path in ("/robots.txt", "/static/styles/desert.css"):
         r = client.get(path)
         assert r.status_code == 200, path
         assert "cache-control" not in {k.lower() for k in r.headers}, path
