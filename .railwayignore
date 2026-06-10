@@ -36,3 +36,11 @@ build/
 .pytest_cache/
 .mypy_cache/
 .coverage
+
+# Session scratchpads — one-off prod-data apply scripts and UI mockups
+# (OPS-6: untracked from git 2026-06-10; excluded here too so a re-track
+# can never ship them in the deploy image again)
+outputs/
+outputs/**
+mockups/
+mockups/**
