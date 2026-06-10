@@ -125,10 +125,11 @@ def test_robots_txt_returns_plain_text(client: TestClient) -> None:
 def test_robots_txt_uses_default_base_url(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """askhava.com is the canonical production domain (2026-06)."""
     monkeypatch.delenv("BASE_URL", raising=False)
     r = client.get("/robots.txt")
     assert r.status_code == 200
-    assert "Sitemap: https://havasu-chat-production.up.railway.app/sitemap.xml" in r.text
+    assert "Sitemap: https://askhava.com/sitemap.xml" in r.text
 
 
 def test_robots_txt_honors_base_url_env(

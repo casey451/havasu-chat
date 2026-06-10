@@ -1,9 +1,10 @@
 """Canonical absolute-URL helpers (SEO P1.0).
 
 Single source of truth for building absolute, ``https`` canonical / ``og:url``
-values. The base origin comes from the ``BASE_URL`` env (set per environment; the
-Phase-0 custom-domain swap is then just a ``BASE_URL`` change), falling back to
-the production Railway origin.
+values. The base origin comes from the ``BASE_URL`` env (set per environment),
+falling back to the canonical production domain ``askhava.com`` (live on
+Railway since 2026-06; the Railway-generated origin is a legacy alias that
+301s here — see ``CanonicalHostRedirectMiddleware`` in ``app.main``).
 
 All URLs are coerced to ``https`` because Railway terminates TLS at the edge and
 serves the app over ``http`` internally — a bare ``request.url`` would leak an
@@ -16,7 +17,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-_DEFAULT_BASE_URL = "https://havasu-chat-production.up.railway.app"
+_DEFAULT_BASE_URL = "https://askhava.com"
 
 
 def _coerce_https(url: str) -> str:
