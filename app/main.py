@@ -298,10 +298,23 @@ def run_expired_review_cleanup() -> int:
 
 
 async def _hourly_cleanup_loop() -> None:
+    # OPS-3: one transient failure (DB blip, etc.) must not kill the janitor
+    # for the process lifetime — run_stuck_photo_sweep is the safety net for
+    # fire-and-forget photo processing. CancelledError is a BaseException, so
+    # ``except Exception`` never swallows lifespan shutdown.
     while True:
         await asyncio.sleep(3600)
-        await asyncio.to_thread(run_expired_review_cleanup)
-        await asyncio.to_thread(run_stuck_photo_sweep)
+        try:
+            await asyncio.to_thread(run_expired_review_cleanup)
+            await asyncio.to_thread(run_stuck_photo_sweep)
+        except Exception as exc:
+            logger.warning("hourly cleanup pass failed; retrying next hour", exc_info=True)
+            try:
+                import sentry_sdk
+
+                sentry_sdk.capture_exception(exc)
+            except Exception:
+                pass  # monitoring is best-effort — never let it kill the loop
 
 
 def _warm_entity_matcher() -> None:
@@ -975,12 +988,18 @@ async def http_exception_handler(
 
 
 @app.get("/health")
-def health_check(db: Session = Depends(get_db)) -> dict[str, Any]:
+def health_check(db: Session = Depends(get_db)) -> JSONResponse:
     try:
         count = db.query(Event).count()
-        return {"status": "ok", "db_connected": True, "event_count": count}
+        return JSONResponse({"status": "ok", "db_connected": True, "event_count": count})
     except Exception:
-        return {"status": "ok", "db_connected": False, "event_count": 0}
+        # OPS-1: a process that can't reach the database must FAIL the
+        # healthcheck (Railway healthcheckPath gates deploys on this), not
+        # report 200-ok and let a dead deploy go live.
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "db_connected": False, "event_count": 0},
+        )
 
 
 @app.get("/events")
