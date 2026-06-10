@@ -16,17 +16,22 @@
         {% if mode == 'day' %}
         <p class="p-sub">Showing events for <strong>{{ day_label }}</strong>.</p>
         {% elif mode == 'today' %}
-        <p class="p-sub">What's on today, {{ day_label }}. <a class="ev-link" href="/events-ui?view=month">See the month view →</a></p>
+        <p class="p-sub">What's on today, {{ day_label }}. <a class="ev-link" href="/events-ui?view=month{{ family_qs }}">See the month view →</a></p>
         {% elif mode == 'week' %}
         <p class="p-sub">The next seven days at a glance — open a day for its full lineup.</p>
         {% else %}
-        <p class="p-sub">Pick a date to see everything happening that day. <a class="ev-link" href="/events-ui?view=week">Back to the week →</a></p>
+        <p class="p-sub">Pick a date to see everything happening that day. <a class="ev-link" href="/events-ui?view=week{{ family_qs }}">Back to the week →</a></p>
         {% endif %}
         <nav class="ev-views" aria-label="Events view">
           {% for v in view_links %}
           <a{% if v.active %} class="on" aria-current="true"{% endif %} href="{{ v.url }}">{{ v.label }}</a>
           {% endfor %}
         </nav>
+        <a class="ev-family-toggle{% if family_mode %} on{% endif %}" href="{{ family_toggle_url }}"
+           role="switch" aria-checked="{{ 'true' if family_mode else 'false' }}">
+          <span class="ev-family-knob" aria-hidden="true"></span>
+          Family mode{% if family_mode %} — kid-friendly only{% endif %}
+        </a>
       </div>
     </div>
   </section>
@@ -34,9 +39,9 @@
   <div class="d-wrap"><div class="ev-shell">
     {% if mode == 'day' %}
     <div class="ev-daynav">
-      <a href="/events-ui?date={{ prev_iso }}">← Previous day</a>
-      <a href="/events-ui">Back to today</a>
-      <a href="/events-ui?date={{ next_iso }}">Next day →</a>
+      <a href="/events-ui?date={{ prev_iso }}{{ family_qs }}">← Previous day</a>
+      <a href="/events-ui{% if family_mode %}?family=1{% endif %}">Back to today</a>
+      <a href="/events-ui?date={{ next_iso }}{{ family_qs }}">Next day →</a>
     </div>
     {% endif %}
 
@@ -63,7 +68,7 @@
       </details>
       {% endfor %}
       {% else %}
-      <p class="ev-empty">Nothing posted for {{ day_label }} yet. <a class="ev-link" href="/events-ui?view=week">See what's on this week →</a></p>
+      <p class="ev-empty">{% if family_mode %}No kid-friendly things posted for {{ day_label }} yet.{% else %}Nothing posted for {{ day_label }} yet.{% endif %} <a class="ev-link" href="/events-ui?view=week{{ family_qs }}">See what's on this week →</a></p>
       {% endif %}
     </section>
     {% endif %}
@@ -72,7 +77,7 @@
     <section class="block" aria-label="This week">
       <div class="ev-week">
         {% for d in week_rows %}
-        <a class="ev-week-row{% if d.is_today %} is-today{% endif %}" href="/events-ui?date={{ d.iso }}">
+        <a class="ev-week-row{% if d.is_today %} is-today{% endif %}" href="/events-ui?date={{ d.iso }}{{ family_qs }}">
           <span class="ev-week-date"><span class="dow">{{ d.label }}</span><span class="num">{{ d.daynum }}</span></span>
           <span class="ev-week-main">
             {% if d.headline %}
@@ -95,9 +100,9 @@
     <section class="block" aria-label="{{ calendar.label }}">
       <div class="ev-month">
         <div class="ev-month-head">
-          <a class="ev-month-pager" href="/events-ui?view=month&amp;cal={{ calendar.prev }}" aria-label="Previous month">‹</a>
+          <a class="ev-month-pager" href="/events-ui?view=month&amp;cal={{ calendar.prev }}{{ family_qs }}" aria-label="Previous month">‹</a>
           <h2>{{ calendar.label }}</h2>
-          <a class="ev-month-pager" href="/events-ui?view=month&amp;cal={{ calendar.next }}" aria-label="Next month">›</a>
+          <a class="ev-month-pager" href="/events-ui?view=month&amp;cal={{ calendar.next }}{{ family_qs }}" aria-label="Next month">›</a>
         </div>
         <div class="ev-mg-dow" aria-hidden="true">
           <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
@@ -105,7 +110,7 @@
         <div class="ev-mg">
           {% for week in calendar.weeks %}{% for cell in week %}
           {% if cell.in_month %}
-          <a class="ev-mg-cell{% if cell.is_today %} is-today{% endif %}" href="/events-ui?date={{ cell.iso }}" aria-label="{% if cell.count %}{{ cell.count }} event{{ '' if cell.count == 1 else 's' }}{% if cell.class_count %} and {% endif %}{% endif %}{% if cell.class_count %}{{ cell.class_count }} class{{ '' if cell.class_count == 1 else 'es' }}{% endif %}{% if not cell.count and not cell.class_count %}Nothing posted{% endif %} on day {{ cell.day }}">
+          <a class="ev-mg-cell{% if cell.is_today %} is-today{% endif %}" href="/events-ui?date={{ cell.iso }}{{ family_qs }}" aria-label="{% if cell.count %}{{ cell.count }} event{{ '' if cell.count == 1 else 's' }}{% if cell.class_count %} and {% endif %}{% endif %}{% if cell.class_count %}{{ cell.class_count }} class{{ '' if cell.class_count == 1 else 'es' }}{% endif %}{% if not cell.count and not cell.class_count %}Nothing posted{% endif %} on day {{ cell.day }}">
             <span class="ev-mg-day">{{ cell.day }}</span>
             {% if cell.count %}<span class="ev-mg-ct">{{ cell.count }}</span>{% endif %}
             {% if cell.class_count %}<span class="ev-mg-dot">{{ cell.class_count }}</span>{% endif %}

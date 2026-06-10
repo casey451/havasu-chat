@@ -77,6 +77,8 @@ class BusinessListPayload(TypedDict):
     total_count: int
     items: list[BusinessListItem]
     disclosure: NotRequired[bool]
+    foot_link: NotRequired[str]
+    foot_label: NotRequired[str]
 
 
 class AgendaItem(TypedDict):
@@ -339,12 +341,14 @@ def build_business_list(
     category: str,
     total_count: int,
     intent_query: str | None = None,
+    limit: int = 5,
 ) -> BusinessListPayload:
     """Build the ``data`` dict for a ``business_list`` chat component.
 
     Maps tier-2 provider rows into the schema expected by ``renderBusinessList``
-    in ``chat-new.js``. Items are capped at five, sorted by rating (highest
-    first) to match the listing shortcut's prior prose ordering intent.
+    in ``chat-new.js``. Items are capped at ``limit`` (default five), sorted by
+    rating (highest first) to match the listing shortcut's prior prose ordering
+    intent.
     """
     del intent_query  # reserved for future foot_link / query-aware copy
     provider_rows = [r for r in rows if r.get("type") == "provider"]
@@ -357,7 +361,7 @@ def build_business_list(
     items: list[BusinessListItem] = []
     now = now_lake_havasu()
     any_spotlight = False
-    for row in provider_rows[:5]:
+    for row in provider_rows[:limit]:
         item = _provider_row_to_business_item(row, now=now)
         if item is None:
             continue

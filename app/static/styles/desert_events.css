@@ -41,6 +41,27 @@
 .ev-views a:hover{background:var(--sand)}
 .ev-views a.on{background:var(--black);color:var(--cream)}
 
+/* ---- Family mode toggle (no-JS switch link) ---- */
+.ev-family-toggle{
+  display:inline-flex;align-items:center;gap:9px;margin:14px 0 0 2px;
+  padding:9px 16px;font-size:13px;font-weight:700;letter-spacing:.02em;
+  background:var(--cream);border:2.5px solid var(--black);border-radius:999px;
+  transition:background .15s;
+}
+.ev-family-toggle:hover{background:var(--sand)}
+.ev-family-toggle .ev-family-knob{
+  width:30px;height:17px;border-radius:999px;border:2px solid var(--black);
+  background:var(--cream);position:relative;flex-shrink:0;
+}
+.ev-family-toggle .ev-family-knob::after{
+  content:"";position:absolute;top:1px;left:1px;width:11px;height:11px;
+  border-radius:50%;background:var(--black);transition:left .15s;
+}
+.ev-family-toggle.on{background:var(--black);color:var(--cream)}
+.ev-family-toggle.on:hover{background:var(--black)}
+.ev-family-toggle.on .ev-family-knob{background:var(--orange)}
+.ev-family-toggle.on .ev-family-knob::after{left:14px}
+
 /* day-detail prev/next nav */
 .ev-daynav{display:flex;flex-wrap:wrap;gap:10px;margin-top:28px}
 .ev-daynav a{
@@ -226,6 +247,6 @@ a.ev-mg-cell:hover{background:var(--sand)}
   .ev-mg-cell{min-height:48px;min-width:0;padding:4px 5px}
 }
 @media(prefers-reduced-motion:reduce){
-  .ev-acc,.ev-acc-chev,.ev-week-row,.ev-views a,.ev-daynav a{transition:none}
+  .ev-acc,.ev-acc-chev,.ev-week-row,.ev-views a,.ev-daynav a,.ev-family-toggle,.ev-family-toggle .ev-family-knob::after{transition:none}
   .ev-week-row:hover{transform:none}
 }

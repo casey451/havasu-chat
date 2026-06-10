@@ -109,11 +109,20 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "dog grooming": "grooming",
     "pet grooming": "grooming",
     "groomers": "grooming",
+    "groomer": "grooming",
+    "dog groomer": "grooming",
+    "dog groomers": "grooming",
+    "pet groomer": "grooming",
+    "pet groomers": "grooming",
     "vets": "veterinarians",
     "veterinarians": "veterinarians",
     "vet": "veterinarians",
+    "veterinarian": "veterinarians",
     "pet stores": "pet-stores-and-supplies",
+    "pet store": "pet-stores-and-supplies",
     "dog training": "training",
+    "dog trainer": "training",
+    "dog trainers": "training",
     # Home & Property
     "general contractors": "general-contractors",
     "contractors": "general-contractors",
@@ -219,6 +228,54 @@ _LEADING = re.compile(
     r"^(find|show me|show|the best|best|top|good|a|an|some|any)\s+"
 )
 
+# Listing-shaped lead phrases ("i need a dog groomer", "looking for a plumber",
+# "where can i find a vet"). Stripped BEFORE the navigational dict lookup so a
+# plain category ask phrased as a need routes to the leaf page instead of a
+# conversational turn. Mirrors (a subset of) the tier2_business_shortcut
+# predicates — kept conservative: each alternative must be a pure "I want one
+# of <category>" shape with no factual or temporal payload.
+_LISTING_LEAD = re.compile(
+    r"^\s*(?:"
+    r"where\s+can\s+(?:i|we)\s+(?:find|get|hire|book)\s+|"
+    r"i\s+(?:need|want)\s+(?:to\s+find\s+|to\s+get\s+)?|"
+    r"i'?m\s+looking\s+for\s+|"
+    r"we\s+(?:need|want)\s+|"
+    r"looking\s+for\s+|"
+    r"need\s+|"
+    r"find\s+(?:me\s+)?|"
+    r"got\s+any\s+|"
+    r"are\s+there\s+(?:any\s+)?|"
+    r"recommend\s+(?:me\s+)?|"
+    r"do\s+you\s+(?:have|know)\s+(?:of\s+)?(?:any\s+)?"
+    r")",
+    re.IGNORECASE,
+)
+
+# Tokens that mean the query carries factual / temporal payload beyond "I want
+# one of <category>" — those stay conversational (Tier 1 owns hours/phone,
+# Tier 2 owns time windows). Checked against the raw lowercased query.
+_CONVERSATIONAL_TOKENS = (
+    "hour",
+    "phone",
+    "number",
+    "address",
+    "website",
+    "open now",
+    "open today",
+    "tonight",
+    "tomorrow",
+    "rating",
+    "review",
+    "cost",
+    "price",
+    "cheap",
+    "how much",
+    "how late",
+    "what time",
+    "when do",
+    "when does",
+)
+
 
 def _normalize(q: str) -> str:
     s = (q or "").strip().lower()
@@ -252,6 +309,44 @@ def match_leaf_query(db: Session, q: str | None) -> leaf_pages.Leaf | None:
     norm = _normalize(q or "")
     if not norm:
         return None
+    return _leaf_for_normalized_term(db, norm)
+
+
+def match_leaf_for_chat(db: Session, q: str | None) -> leaf_pages.Leaf | None:
+    """Leaf-page match for in-thread chat turns — listing-shaped phrasings too.
+
+    Extends :func:`match_leaf_query`: besides the exact navigational term
+    ("dog groomers"), also matches need-shaped listing asks ("i need a dog
+    groomer", "looking for a plumber") by stripping one listing lead phrase
+    before the same exact-dict lookup. Queries carrying factual or temporal
+    payload (hours, phone, "open now", "tonight") never match — those belong
+    to the conversational tiers.
+    """
+    raw = (q or "").strip().lower()
+    if not raw:
+        return None
+    if any(tok in raw for tok in _CONVERSATIONAL_TOKENS):
+        return None
+    norm = _normalize(raw)
+    if norm:
+        leaf = _leaf_for_normalized_term(db, norm)
+        if leaf is not None:
+            return leaf
+    # Listing-shaped lead: strip it from the RAW query, then re-normalize.
+    m = _LISTING_LEAD.match(raw)
+    if not m:
+        return None
+    rest = raw[m.end() :].strip()
+    if not rest:
+        return None
+    norm = _normalize(rest)
+    if not norm:
+        return None
+    return _leaf_for_normalized_term(db, norm)
+
+
+def _leaf_for_normalized_term(db: Session, norm: str) -> leaf_pages.Leaf | None:
+    """Dict lookup + DB existence + thin-page gate for a normalized term."""
     slug = _QUERY_TO_LEAF.get(norm)
     if slug is None:
         return None

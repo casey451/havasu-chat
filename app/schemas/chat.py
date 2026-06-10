@@ -12,6 +12,7 @@ ComponentType = Literal[
     "single_business_card",
     "business_list",
     "contribute_flow",
+    "page_link",
     "none",
 ]
 

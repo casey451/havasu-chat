@@ -54,10 +54,27 @@
   const sendBtn = document.getElementById("composer-send");
   const photoInput = document.getElementById("composer-photo");
   const photoBtn = document.getElementById("composer-photo-btn");
-  const loadingOverlay = document.getElementById("ll-loading-overlay");
-  const loadingAnswer = document.getElementById("ll-loading-answer");
   const FLOW_KEY = "hava.contrib.flowId";
-  let contributeFlowId = sessionStorage.getItem(FLOW_KEY) || null;
+  let contributeFlowId = readSessionItem(FLOW_KEY);
+  // P0-5: one chat request at a time. Pressing Enter while a request is in
+  // flight must not fire a second parallel /api/chat post.
+  let chatInflight = false;
+
+  function readSessionItem(key) {
+    try {
+      return sessionStorage.getItem(key);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function writeSessionItem(key, value) {
+    try {
+      sessionStorage.setItem(key, value);
+    } catch (_) {
+      // Private browsing / quota — best-effort.
+    }
+  }
 
   // ─────────── render helpers ───────────
 
@@ -146,10 +163,30 @@
     return wrap;
   }
 
+  // Long voice answers render clamped with a "Show more" toggle so the
+  // thread stays scannable — no paragraph walls.
+  const VOICE_CLAMP_CHARS = 300;
+
+  function applyVoiceClamp(turn, text) {
+    if (!text || text.length <= VOICE_CLAMP_CHARS) return;
+    turn.voice.classList.add("voice-clamp");
+    const toggle = el("button", "voice-expand", "Show more");
+    toggle.type = "button";
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.addEventListener("click", function () {
+      const expanded = turn.voice.classList.toggle("is-expanded");
+      toggle.textContent = expanded ? "Show less" : "Show more";
+      toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+    });
+    turn.voice.insertAdjacentElement("afterend", toggle);
+  }
+
   function fillHavaTurn(turn, payload) {
     turn.row.classList.remove("is-loading");
     turn.voice.textContent = "";
-    turn.voice.appendChild(renderVoiceWithLinks(payload.voice || payload.response || ""));
+    const voiceText = payload.voice || payload.response || "";
+    turn.voice.appendChild(renderVoiceWithLinks(voiceText));
+    applyVoiceClamp(turn, voiceText);
     const slot = el("div", "component-slot");
     const renderer = COMPONENT_RENDERERS[payload.component && payload.component.type] || null;
     if (renderer) {
@@ -166,33 +203,14 @@
     scrollToBottom();
   }
 
-  // ─────────── per-response actions (feedback + Save + Share) ───────────
+  // ─────────── per-response actions (feedback + Share) ───────────
   //
-  // Ported from the orphaned chat.js thumbs pattern and extended with Save
-  // (local) + Share (clipboard). Feedback POSTs /api/chat/feedback keyed by
+  // Ported from the orphaned chat.js thumbs pattern, plus Share (copies the
+  // answer text — no dead links). Feedback POSTs /api/chat/feedback keyed by
   // chat_log_id; the row is optimistically locked on success and unlocked on
-  // error with a small inline message. Save/Share never hit the network for
-  // feedback so they appear whenever there's an answer to act on.
-
-  const SAVE_KEY = "hava.saved.answers";
-
-  function loadSavedAnswers() {
-    try {
-      const raw = window.localStorage.getItem(SAVE_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (_) {
-      return [];
-    }
-  }
-
-  function persistSavedAnswers(list) {
-    try {
-      window.localStorage.setItem(SAVE_KEY, JSON.stringify(list));
-    } catch (_) {
-      // Storage unavailable (private mode / quota) — Save is best-effort.
-    }
-  }
+  // error with a small inline message. The old Save button wrote to a
+  // localStorage key no UI ever read — removed until a saved-answers surface
+  // exists (UI audit P0-4).
 
   function copyToClipboard(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -302,7 +320,7 @@
               return;
             }
             unlock();
-            let msg = "Couldn't save that -- try again";
+            let msg = "Couldn't save that — try again";
             if (result.body && result.body.error) msg = String(result.body.error);
             showError(msg);
           })
@@ -311,7 +329,7 @@
             up.disabled = false;
             down.disabled = false;
             unlock();
-            showError("Couldn't save that -- try again");
+            showError("Couldn't save that — try again");
           });
       }
 
@@ -321,36 +339,15 @@
       wrap.appendChild(down);
     }
 
-    // --- Save (local) ---
-    const saveBtn = makeActionBtn("Save");
-    saveBtn.addEventListener("click", function () {
-      const list = loadSavedAnswers();
-      const entry = {
-        text: answerText,
-        chat_log_id: chatLogId,
-        saved_at: new Date().toISOString(),
-      };
-      if (!list.some(function (e) { return e.text === entry.text; })) {
-        list.push(entry);
-        persistSavedAnswers(list);
-      }
-      saveBtn.classList.add("is-active");
-      flashButton(saveBtn, "Saved");
-    });
-    wrap.appendChild(saveBtn);
-
-    // --- Share (clipboard) ---
+    // --- Share (copies the answer text; /chat?ref= links were dead) ---
     const shareBtn = makeActionBtn("Share");
     shareBtn.addEventListener("click", function () {
-      const link = chatLogId
-        ? window.location.origin + "/chat?ref=" + encodeURIComponent(chatLogId)
-        : window.location.href;
       if (navigator.share) {
-        navigator.share({ text: answerText, url: link }).catch(function () {});
+        navigator.share({ text: answerText }).catch(function () {});
         return;
       }
-      copyToClipboard(link)
-        .then(function () { flashButton(shareBtn, "Link copied"); })
+      copyToClipboard(answerText)
+        .then(function () { flashButton(shareBtn, "Copied"); })
         .catch(function () { flashButton(shareBtn, "Copy failed"); });
     });
     wrap.appendChild(shareBtn);
@@ -359,10 +356,20 @@
     turn.said.appendChild(wrap);
   }
 
-  function failHavaTurn(turn, message) {
+  function failHavaTurn(turn, message, retryQuery) {
     turn.row.classList.remove("is-loading");
     turn.row.classList.add("is-error");
     turn.voice.textContent = message;
+    // Error turns get a retry affordance instead of dead-ending.
+    if (retryQuery) {
+      const retry = el("button", "act-btn retry-btn", "Try again");
+      retry.type = "button";
+      retry.addEventListener("click", function () {
+        turn.row.remove();
+        postChat(retryQuery);
+      });
+      turn.said.appendChild(retry);
+    }
     scrollToBottom();
   }
 
@@ -374,53 +381,10 @@
     });
   }
 
-  // ─────────── loading overlay ───────────
-  // Plain loading state. The sponsored micro-ad interstitial was removed
-  // (DL-13: no sponsor work on the chat surface). The overlay is a neutral
-  // "finding the best spots" card; aria-live on the element announces the
-  // answer when it lands. We toggle display only — never aria-hidden — so the
-  // live region is never simultaneously hidden (the contradiction we fixed in
-  // the template).
-  function showLoadingOverlay() {
-    if (!loadingOverlay) return;
-    loadingOverlay.style.display = "flex";
-    loadingOverlay.dataset.readyToClose = "0";
-    if (loadingAnswer) {
-      loadingAnswer.style.display = "none";
-      loadingAnswer.innerHTML = "";
-    }
-  }
-
-  function hideLoadingOverlay() {
-    if (!loadingOverlay) return;
-    loadingOverlay.style.display = "none";
-    loadingOverlay.dataset.readyToClose = "0";
-    if (loadingAnswer) {
-      loadingAnswer.style.display = "none";
-      loadingAnswer.innerHTML = "";
-    }
-  }
-
-  function showLoadingAnswer(query, text) {
-    if (!loadingOverlay || !loadingAnswer) return Promise.resolve();
-    loadingAnswer.style.display = "block";
-    loadingAnswer.innerHTML = "";
-    const askedLabel = el("p", "ll-loading-you-asked", "YOU ASKED");
-    const askedQuestion = el("p", "ll-loading-question", query || "");
-    const answerCard = el("div", "ll-loading-answer-card", text || "");
-    const closeHint = el("p", "ll-loading-close", "Tap anywhere to close.");
-    loadingAnswer.appendChild(askedLabel);
-    loadingAnswer.appendChild(askedQuestion);
-    loadingAnswer.appendChild(answerCard);
-    loadingAnswer.appendChild(closeHint);
-    loadingOverlay.dataset.readyToClose = "1";
-    return new Promise(function (resolve) {
-      window.setTimeout(function () {
-        hideLoadingOverlay();
-        resolve();
-      }, 1100);
-    });
-  }
+  // The full-screen loading overlay (a vestigial sponsored-interstitial husk —
+  // UI audit P0-2) is gone: it double-rendered the loading state and re-showed
+  // every answer in a popup with a forced 1.1s delay. The in-thread typing
+  // dots are the loading state.
 
   // ─────────── component renderers ───────────
   //
@@ -452,11 +416,6 @@
       events.forEach((ev) => section.appendChild(renderAgendaRow(ev)));
       root.appendChild(section);
     }
-
-    // Foot
-    const foot = el("div", "agenda-foot");
-    foot.appendChild(el("span", null, "Showing " + count + " of " + count));
-    root.appendChild(foot);
 
     return root;
   }
@@ -826,10 +785,11 @@
     // together as "Pizza Spots5 of 12" when CSS spacing is absent (N-03).
     const head = el("div", "biz-list-head");
     head.appendChild(el("span", "title", data.category || data.title || "Local pros"));
-    if (typeof data.total_count === "number") {
-      // Decorative separator -- hide from assistive tech so the title and
-      // count read naturally instead of announcing " -- " (CodeRabbit).
-      const headSep = el("span", "head-sep", " -- ");
+    if (typeof data.total_count === "number" && data.total_count > data.items.length) {
+      // Decorative separator — hide from assistive tech so the title and
+      // count read naturally. Omitted entirely when all items are shown
+      // ("Showing 5 of 5" is noise).
+      const headSep = el("span", "head-sep", " — ");
       headSep.setAttribute("aria-hidden", "true");
       head.appendChild(headSep);
       head.appendChild(
@@ -992,13 +952,47 @@
     return a;
   }
 
+  // ─────────── page_link renderer ───────────
+  //
+  // Schema: { url, label, department?, count? }
+  //
+  // The answer to "I need a dog groomer" when we have a whole page for it:
+  // one prominent card that takes you there, instead of an inline listing.
+
+  function renderPageLink(data) {
+    if (!data || !data.url || !data.label) return null;
+    const a = document.createElement("a");
+    a.className = "page-link-card";
+    a.href = data.url;
+    a.dataset.cardType = "page_link";
+
+    const body = el("div", "body");
+    if (data.department) {
+      body.appendChild(el("div", "dept", data.department));
+    }
+    const title = el("div", "title");
+    title.appendChild(document.createTextNode(data.label));
+    body.appendChild(title);
+    if (typeof data.count === "number" && data.count > 0) {
+      body.appendChild(el(
+        "div", "meta",
+        data.count + (data.count === 1 ? " listing" : " listings")
+      ));
+    }
+    a.appendChild(body);
+
+    const go = el("span", "go", "Open the page →");
+    a.appendChild(go);
+    return a;
+  }
+
   // ─────────── component dispatch ───────────
   // Add a key here when a new component type lands. Returning null falls
   // through to voice-only rendering.
   function renderContributeFlow(data) {
     if (!data || !data.flow_id) return null;
     contributeFlowId = data.flow_id;
-    sessionStorage.setItem(FLOW_KEY, contributeFlowId);
+    writeSessionItem(FLOW_KEY, contributeFlowId);
     const root = el("div", "contribute-flow");
     root.dataset.flowId = data.flow_id;
     if (data.summary) {
@@ -1035,7 +1029,11 @@
 
   function clearContributeFlow() {
     contributeFlowId = null;
-    sessionStorage.removeItem(FLOW_KEY);
+    try {
+      sessionStorage.removeItem(FLOW_KEY);
+    } catch (_) {
+      // Private browsing — best-effort.
+    }
     if (photoInput) photoInput.value = "";
     if (photoBtn) photoBtn.classList.remove("has-file");
   }
@@ -1135,15 +1133,17 @@
     single_business_card: renderSingleCard,
     business_list: renderBusinessList,
     contribute_flow: renderContributeFlow,
+    page_link: renderPageLink,
     none: function () { return null; },
   };
 
   // ─────────── network ───────────
 
   async function postChat(query) {
+    if (chatInflight) return;
+    chatInflight = true;
     const turn = appendHavaTurn();
     sendBtn.disabled = true;
-    showLoadingOverlay();
     try {
       const resp = await fetch("/api/chat", {
         method: "POST",
@@ -1161,7 +1161,7 @@
         } catch (_) {
           // body wasn't JSON; keep default
         }
-        failHavaTurn(turn, msg);
+        failHavaTurn(turn, msg, query);
         return;
       }
       const payload = await resp.json();
@@ -1169,17 +1169,15 @@
           && payload.component.type === "contribute_flow"
           && payload.component.data && payload.component.data.flow_id) {
         contributeFlowId = payload.component.data.flow_id;
-        sessionStorage.setItem(FLOW_KEY, contributeFlowId);
+        writeSessionItem(FLOW_KEY, contributeFlowId);
       }
-      await showLoadingAnswer(query, payload.voice || payload.response || "Done.");
       fillHavaTurn(turn, payload);
     } catch (e) {
-      failHavaTurn(turn, "Couldn't reach me — check your connection and try again.");
-      hideLoadingOverlay();
+      failHavaTurn(turn, "Couldn't reach me — check your connection and try again.", query);
     } finally {
+      chatInflight = false;
       sendBtn.disabled = false;
       input.focus();
-      hideLoadingOverlay();
     }
   }
 
@@ -1188,6 +1186,7 @@
   function submit(query) {
     const q = (query || "").trim();
     const file = photoInput && photoInput.files && photoInput.files[0];
+    if (chatInflight) return;
     if (!q && !file && !contributeFlowId) return;
     if (file) {
       trackPlausible("Chat Query Sent", { length_bucket: "photo" });
@@ -1228,14 +1227,6 @@
     e.preventDefault();
     submit(input.value);
   });
-
-  if (loadingOverlay) {
-    loadingOverlay.addEventListener("click", function () {
-      if (loadingOverlay.dataset.readyToClose === "1") {
-        hideLoadingOverlay();
-      }
-    });
-  }
 
   // Q5: delegated Plausible listener for card + sponsor taps. Walks up
   // from the event target to find:

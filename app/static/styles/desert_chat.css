@@ -1099,91 +1099,92 @@ body.ll-chat .cf-btn.primary:hover {
   border-color: var(--orange);
 }
 
-/* ------------------------------------------------------ 6. loading overlay */
-body.ll-chat .ll-loading-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  background: rgba(23, 19, 16, 0.5);
-  display: none; /* JS flips to flex */
-  align-items: center;
-  justify-content: center;
-  padding: 18px;
-}
+/* --------------------------------------- 6. page_link card + voice clamp */
+/* The loading overlay (vestigial sponsored interstitial, UI audit P0-2) is
+   gone — the in-thread typing dots are the loading state. */
 
-body.ll-chat .ll-loading-card {
-  width: min(520px, 100%);
-  background: var(--cream);
-  border: var(--d-border);
-  border-radius: 18px;
-  box-shadow: 8px 8px 0 var(--orange);
-  padding: 20px 22px;
-}
-
-body.ll-chat .ll-loading-title {
+body.ll-chat .page-link-card {
   display: flex;
   align-items: center;
-  font-family: var(--disp);
-  font-weight: 800;
-  font-size: 17px;
-  text-transform: uppercase;
-  letter-spacing: 0.01em;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 10px;
+  padding: 14px 16px;
+  background: var(--cream);
+  border: var(--d-border);
+  border-radius: 14px;
+  box-shadow: 4px 4px 0 var(--orange);
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.08s ease;
 }
 
-body.ll-chat .ll-dots {
-  display: inline-flex;
-  gap: 6px;
-  margin-left: 10px;
+body.ll-chat .page-link-card:hover {
+  transform: translate(-1px, -1px);
 }
 
-body.ll-chat .ll-dots span {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--orange);
-  animation: dChatPulse 1.1s infinite ease-in-out;
-}
-
-body.ll-chat .ll-dots span:nth-child(2) { animation-delay: 0.15s; }
-body.ll-chat .ll-dots span:nth-child(3) { animation-delay: 0.3s; }
-
-body.ll-chat .ll-loading-answer {
-  margin-top: 14px;
-}
-
-body.ll-chat .ll-loading-you-asked {
+body.ll-chat .page-link-card .dept {
   font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--orange-deep);
 }
 
-body.ll-chat .ll-loading-question {
-  margin: 4px 0 10px;
+body.ll-chat .page-link-card .title {
   font-family: var(--disp);
+  font-weight: 800;
+  font-size: 18px;
+  line-height: 1.15;
+}
+
+body.ll-chat .page-link-card .meta {
+  margin-top: 2px;
+  font-size: 12.5px;
+  opacity: 0.7;
+}
+
+body.ll-chat .page-link-card .go {
+  flex-shrink: 0;
   font-weight: 700;
-  font-size: 21px;
-  line-height: 1.1;
+  font-size: 13.5px;
+  white-space: nowrap;
+  color: var(--orange-deep);
 }
 
-/* cream on blue — AA per the palette covenant */
-body.ll-chat .ll-loading-answer-card {
-  background: var(--blue);
-  color: var(--cream);
-  border: 2px solid var(--black);
-  border-radius: 12px;
-  padding: 13px 15px;
-  font-size: 14.5px;
-  line-height: 1.55;
-  white-space: pre-line;
-  overflow-wrap: anywhere;
+/* Long answers render clamped with a Show more toggle — no paragraph walls. */
+body.ll-chat .voice.voice-clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
 }
 
-body.ll-chat .ll-loading-close {
-  margin-top: 10px;
-  font-size: 11.5px;
-  opacity: 0.6;
+body.ll-chat .voice.voice-clamp.is-expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  overflow: visible;
+}
+
+body.ll-chat .voice-expand {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--orange-deep);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+body.ll-chat .retry-btn {
+  margin-top: 8px;
 }
 
 /* ----------------------------------------- 7. responsive + reduced motion */

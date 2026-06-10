@@ -19,7 +19,7 @@
            all derive from the same row.fetched_at clock, so nothing contradicts. #}
         <div class="gas-freshness{% if is_stale %} is-stale{% endif %}">
           <span class="dot" aria-hidden="true"></span>
-          {{ staleness_label }}{% if fetched_at_label %} ({{ fetched_at_label }}){% endif %}{% if is_stale %} -- prices may be out of date{% endif %}
+          {{ staleness_label }}{% if fetched_at_label %} ({{ fetched_at_label }}){% endif %}{% if is_stale %} — prices may be out of date{% endif %}
         </div>
       {% endif %}
     </div>
