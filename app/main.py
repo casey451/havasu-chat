@@ -666,11 +666,32 @@ def _build_sitemap_pages_xml() -> str:
     # excluded here so near-empty templated pages are never exposed to crawlers.
     # lastmod: max updated_at of the trade's matching providers.
     try:
-        from app.categories.trades import TRADE_PARENT_SLUG, _trade_provider_rows
+        from app.categories.leaf_pages import (
+            LEAF_PAGE_MIN_PROVIDERS,
+            leaf_renderable_count,
+            resolve_leaf,
+        )
+        from app.categories.trades import (
+            LEAF_TWINS,
+            TRADE_LEAF_DEPARTMENT_SLUG,
+            TRADE_PARENT_SLUG,
+            _trade_provider_rows,
+        )
         from app.categories.trades import qualifying_trades as _qualifying_trades
 
         with SessionLocal() as db:
             for trade_obj, _count in _qualifying_trades(db):
+                # PR-B consolidation: a trade whose taxonomy-leaf twin ships
+                # 301s to it, so the sitemap lists only the leaf (below).
+                twin_slug = LEAF_TWINS.get(trade_obj.slug)
+                if twin_slug:
+                    twin = resolve_leaf(db, TRADE_LEAF_DEPARTMENT_SLUG, twin_slug)
+                    if (
+                        twin is not None
+                        and leaf_renderable_count(db, twin)
+                        >= LEAF_PAGE_MIN_PROVIDERS
+                    ):
+                        continue
                 rows = _trade_provider_rows(db, trade_obj)
                 stamps2 = [r.updated_at for r in rows if r.updated_at is not None]
                 lastmod = _iso_or_none(max(stamps2)) if stamps2 else None

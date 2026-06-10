@@ -318,7 +318,8 @@ def test_qualifying_and_department_leaves(mem_db: Session) -> None:
 def test_wave1_leaf_copy_intros_and_faq_counts() -> None:
     from app.categories.leaf_copy import LEAF_COPY
 
-    assert len(LEAF_COPY) == 14
+    # 14 Wave-1 entries + 5 ported from the consolidated trade pages (PR-B).
+    assert len(LEAF_COPY) == 19
     for slug, copy in LEAF_COPY.items():
         words = len(copy.intro.split())
         assert 40 <= words <= 100, f"{slug}: intro is {words} words"
@@ -356,7 +357,11 @@ def test_curated_leaf_page_renders_intro_and_faqs(client: TestClient) -> None:
         # FAQ block rendered (4-6 items), with the live count interpolated.
         n_faq = body.count('class="faq-item"')
         assert 4 <= n_faq <= 6
-        assert f"lists {len(names)} plumbing" in body
+        # SEO PR-B: templated copy fills with the searcher noun ("plumbers"),
+        # not the internal taxonomy label ("plumbing").
+        assert f"lists {len(names)} plumbers" in body
+        # Title/H1 target the searcher's word.
+        assert "Best Plumbers in Lake Havasu City, AZ" in body
     finally:
         with SessionLocal() as db:
             for prov in db.scalars(select(Provider).where(Provider.source == _SOURCE)).all():

@@ -38,7 +38,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from app.categories import leaf_copy, leaf_pages
+from app.categories import leaf_copy, leaf_pages, leaf_seo
 from app.categories import queries as cat_queries
 from app.categories import subcategories as subcats
 from app.categories import trades as trade_pages
@@ -509,15 +509,20 @@ def serve_trade_page(
     parent: str,
     trade: str,
     db: Session = Depends(get_db),
-) -> HTMLResponse:
+) -> HTMLResponse | RedirectResponse:
     """Dedicated server-rendered department/leaf landing page.
 
-    Two resolvers, in order:
+    Resolution order:
 
-    1. **Curated home-services trades** (SEO P2.1/P2.2) — the ten promoted
-       trades under ``home-property-services``, with their rich curated intro /
-       FAQ copy and Provider needle-matching. Unchanged behavior.
-    2. **Generalized A.3 taxonomy leaves** (Workstream B.1) — any
+    1. **Trade → leaf-twin consolidation (SEO PR-B)** — a curated
+       home-services trade whose A.3 taxonomy-leaf twin ships (clears the
+       leaf gate) 301s to the leaf page, so two pages never compete for the
+       same search term. A twin that does not ship falls through and the
+       curated trade page keeps serving.
+    2. **Curated home-services trades** (SEO P2.1/P2.2) — the promoted trades
+       under ``home-property-services`` with their curated intro / FAQ copy
+       and Provider needle-matching.
+    3. **Generalized A.3 taxonomy leaves** (Workstream B.1) — any
        ``/categories/{department}/{leaf}`` resolving to a ``level = 1`` leaf
        whose parent is the named ``level = 0`` department, listed by the leaf's
        ``category_id`` via the ``entity_categories.is_primary`` join.
@@ -531,13 +536,32 @@ def serve_trade_page(
     """
     parent_key = (parent or "").strip().lower()
 
-    # 1. Curated trade under the home-services parent (existing behavior).
     if parent_key == trade_pages.TRADE_PARENT_SLUG:
+        # 1. Consolidate onto the taxonomy-leaf twin when it ships.
+        twin_slug = trade_pages.LEAF_TWINS.get((trade or "").strip().lower())
+        if twin_slug:
+            twin = leaf_pages.resolve_leaf(
+                db, trade_pages.TRADE_LEAF_DEPARTMENT_SLUG, twin_slug
+            )
+            if (
+                twin is not None
+                and leaf_pages.leaf_renderable_count(db, twin)
+                >= leaf_pages.LEAF_PAGE_MIN_PROVIDERS
+            ):
+                return RedirectResponse(
+                    url=(
+                        f"/categories/{trade_pages.TRADE_LEAF_DEPARTMENT_SLUG}"
+                        f"/{twin_slug}"
+                    ),
+                    status_code=301,
+                )
+
+        # 2. Curated trade under the home-services parent.
         trade_obj = trade_pages.trade_by_slug(trade)
         if trade_obj is not None:
             return _render_trade_page(request, db, trade_obj)
 
-    # 2. Generalized taxonomy leaf (B.1).
+    # 3. Generalized taxonomy leaf (B.1).
     leaf = leaf_pages.resolve_leaf(db, parent_key, trade)
     if leaf is not None:
         return _render_leaf_page(request, db, leaf)
@@ -671,16 +695,17 @@ def _render_leaf_page(
     """Render a generalized A.3 taxonomy leaf page (B.1).
 
     Lists the leaf's primary-linked Providers, applies the shared thin-page
-    gate, and reuses ``category_trade.html``. Per-leaf curated intro/FAQ copy
-    and the department-landing breadcrumb link land in B.2 — here the breadcrumb
-    shows the department as plain text (``parent_href`` omitted) and the FAQ
-    block is empty.
+    gate, and reuses ``category_trade.html``. The page-facing label is the
+    SEARCHER's noun (``leaf_seo.display_noun``: "Plumbers", not the internal
+    "Plumbing") so the title / H1 / breadcrumb / FAQ copy carry the term
+    people actually google.
     """
     now = now_lake_havasu()
     cards, total, providers = leaf_pages.leaf_listing(db, leaf, now=now)
     if total < leaf_pages.LEAF_PAGE_MIN_PROVIDERS:
         raise HTTPException(status_code=404, detail="leaf_below_minimum")
 
+    display = leaf_seo.display_noun(leaf.slug, leaf.name)
     page_path = f"/categories/{leaf.department_slug}/{leaf.slug}"
     dept_path = f"/categories/{leaf.department_slug}"
     # Three-level breadcrumb (Home › department › leaf) — the department landing
@@ -704,30 +729,31 @@ def _render_leaf_page(
             {
                 "@type": "ListItem",
                 "position": 3,
-                "name": leaf.name,
+                "name": display,
                 "item": absolute_url(page_path),
             },
         ],
     }
     itemlist_jsonld = _itemlist_jsonld(
-        f"{leaf.name} in Lake Havasu City, AZ", total, providers
+        f"{display} in Lake Havasu City, AZ", total, providers
     )
 
     # Wave-1 leaves carry curated intro + FAQ copy; everything else gets the
-    # generic honest intro and no FAQ block (B.2).
+    # generic honest intro and no FAQ block (B.2). Templated copy fills with
+    # the searcher noun so the grammar reads naturally ("these plumbers").
     curated = leaf_copy.copy_for_leaf(leaf.slug)
     if curated is not None:
         intro = curated.intro
-        name_lower = leaf.name.lower()
+        name_lower = display.lower()
         faqs = [
             (
-                q.format(n=total, name=leaf.name, name_lower=name_lower),
-                a.format(n=total, name=leaf.name, name_lower=name_lower),
+                q.format(n=total, name=display, name_lower=name_lower),
+                a.format(n=total, name=display, name_lower=name_lower),
             )
             for q, a in curated.faqs
         ]
     else:
-        intro = _LEAF_INTRO_TEMPLATE.format(name=leaf.name, n=total)
+        intro = _LEAF_INTRO_TEMPLATE.format(name=display, n=total)
         faqs = []
 
     return templates.TemplateResponse(
@@ -740,7 +766,7 @@ def _render_leaf_page(
             "parent_label": leaf.department_name,
             "parent_href": dept_path,
             "trade_slug": leaf.slug,
-            "trade_label": leaf.name,
+            "trade_label": display,
             "trade_count": total,
             "trade_intro": intro,
             "trade_faqs": faqs,
@@ -766,9 +792,11 @@ def _render_department_page(
         # Every child leaf is sub-gate — nothing shippable, so the landing does
         # not exist (anti-thin-content, same spirit as the leaf gate).
         raise HTTPException(status_code=404, detail="department_no_shippable_leaves")
+    # Leaf cards wear the searcher noun ("Plumbers"), matching the leaf page
+    # they link to.
     leaves = [
         {
-            "name": leaf.name,
+            "name": leaf_seo.display_noun(leaf.slug, leaf.name),
             "count": count,
             "url": f"/categories/{leaf.department_slug}/{leaf.slug}",
         }

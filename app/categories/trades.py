@@ -37,6 +37,26 @@ TRADE_PAGE_MIN_PROVIDERS = 3
 #: The parent category route the ten trades live under.
 TRADE_PARENT_SLUG = "home-property-services"
 
+#: A.3 taxonomy department that owns the trades' leaf twins.
+TRADE_LEAF_DEPARTMENT_SLUG = "home-and-property-services"
+
+#: Curated trade slug -> its A.3 taxonomy-leaf twin. With the taxonomy nav
+#: live, the leaf pages are the canonical SEO surface for these trades; a
+#: trade URL 301s to its twin whenever the twin ships (clears the leaf gate),
+#: so two pages never compete for the same search term ("lake havasu
+#: plumbers"). ``garage-door`` has no leaf twin — its curated page stays.
+LEAF_TWINS: dict[str, str] = {
+    "plumbers": "plumbing",
+    "hvac": "hvac",
+    "electricians": "electrical",
+    "pool-service": "pools-and-spas",
+    "pest-control": "pest-control",
+    "roofers": "roofing",
+    "landscapers": "landscaping-and-lawn",
+    "cleaning": "cleaning",
+    "handyman": "handyman",
+}
+
 
 @dataclass(frozen=True)
 class Trade:
