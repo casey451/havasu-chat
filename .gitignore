@@ -72,12 +72,19 @@ _*_result.json
 _*_msg.txt
 
 # Session scratchpad directories. outputs/ accumulates per-session
-# handoffs, draft patches, .cmd scaffolding, and other artifacts; nothing
-# under it is currently tracked. mockups/ holds UI exploration HTML that
-# also lives outside version control. Without these patterns, `git add -A`
-# in either directory is a common foot-gun.
+# handoffs, draft patches, .cmd scaffolding, and other artifacts. mockups/
+# holds UI exploration HTML that also lives outside version control.
+# Without these patterns, `git add -A` in either directory is a common
+# foot-gun. (312 outputs/ + 14 mockups/ files predating these patterns
+# were untracked in the OPS-6 cleanup, 2026-06-10 — they remain on disk.)
 outputs/
 mockups/
+
+# Prod-env helper scripts (print/copy the production DATABASE_URL —
+# headers say DO NOT COMMIT; OPS-9/§0.1 explicit entries so a stray
+# `git add -A` can never stage them).
+pull_prod_env.ps1
+check_prod_env.ps1
 
 # Backup files. Any *.bak anywhere, plus the specific .git/config.bak*
 # files that the Cowork Edit tool drops next to .git/config when it
