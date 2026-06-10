@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}Admin Portal{% endblock %} · Ask Hava</title>
+  <style>
+    :root {
+      --bg: #f6f3ee; --panel: #ffffff; --ink: #2b2620; --muted: #8a8073;
+      --line: #e6dfd4; --accent: #b4552d; --accent-soft: #f3e2d8;
+      --ok: #3a7d44; --warn: #b3261e; --chip: #efe9df;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+           background: var(--bg); color: var(--ink); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar { width: 220px; flex-shrink: 0; background: var(--panel);
+               border-right: 1px solid var(--line); padding: 20px 0; position: sticky;
+               top: 0; height: 100vh; }
+    .sidebar .brand { font-weight: 700; font-size: 17px; padding: 0 20px 16px;
+                      border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+    .sidebar .brand span { color: var(--accent); }
+    .sidebar nav a { display: block; padding: 9px 20px; color: var(--ink); }
+    .sidebar nav a:hover { background: var(--accent-soft); text-decoration: none; }
+    .sidebar nav a.active { background: var(--accent-soft); color: var(--accent);
+                            font-weight: 600; border-right: 3px solid var(--accent); }
+    .sidebar .foot { padding: 16px 20px 0; font-size: 12px; color: var(--muted); }
+    .main { flex: 1; padding: 28px 32px; max-width: 1200px; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    .sub { color: var(--muted); margin: 0 0 22px; }
+    h2 { font-size: 16px; margin: 28px 0 10px; }
+    .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+            padding: 14px 16px; }
+    .card .num { font-size: 26px; font-weight: 700; }
+    .card .num.zero { color: var(--muted); font-weight: 400; }
+    .card .label { font-weight: 600; }
+    .card .blurb { font-size: 12.5px; color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; background: var(--panel);
+            border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+    th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line);
+             font-size: 14px; vertical-align: top; }
+    th { background: var(--chip); font-size: 12.5px; text-transform: uppercase;
+         letter-spacing: .03em; color: var(--muted); }
+    tr:last-child td { border-bottom: none; }
+    .chip { display: inline-block; background: var(--chip); border-radius: 999px;
+            padding: 1px 10px; font-size: 12.5px; }
+    .chip.ok { background: #e2efe4; color: var(--ok); }
+    .chip.warn { background: #f7e1df; color: var(--warn); }
+    .chip.accent { background: var(--accent-soft); color: var(--accent); }
+    .bar { background: var(--accent); height: 10px; border-radius: 3px; min-width: 2px; }
+    .bartrack { background: var(--chip); border-radius: 3px; width: 240px; }
+    form.inline { display: inline; }
+    button { background: var(--accent); color: #fff; border: 0; border-radius: 7px;
+             padding: 6px 12px; font-size: 13.5px; cursor: pointer; }
+    button.quiet { background: var(--chip); color: var(--ink); }
+    input[type=text], select { padding: 6px 10px; border: 1px solid var(--line);
+             border-radius: 7px; background: #fff; font-size: 14px; }
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+    .muted { color: var(--muted); }
+    .mono { font-family: ui-monospace, monospace; font-size: 13px; }
+    .notice { background: var(--accent-soft); border: 1px solid var(--line);
+              border-radius: 10px; padding: 14px 16px; }
+    .pager { margin-top: 12px; font-size: 14px; }
+    .cols2 { display: grid; gap: 22px; grid-template-columns: 1fr 1fr; align-items: start; }
+    @media (max-width: 900px) { .cols2 { grid-template-columns: 1fr; }
+      .sidebar { display: none; } }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">Ask Hava <span>Admin</span></div>
+    <nav>
+      {% for key, label, href in nav_items %}
+      <a href="{{ href }}" class="{{ 'active' if active == key else '' }}">{{ label }}</a>
+      {% endfor %}
+    </nav>
+    <div class="foot">
+      <a href="/admin/overview">Classic admin →</a><br>
+      {{ now_utc.strftime("%Y-%m-%d %H:%M UTC") }}
+    </div>
+  </aside>
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+</body>
+</html>

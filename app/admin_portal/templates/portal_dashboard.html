@@ -1,0 +1,52 @@
+{% extends "portal_base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+<p class="sub">Everything that needs your attention, in one place.</p>
+
+<h2>Review queues</h2>
+<div class="grid">
+  {% for c in cards %}
+  <a href="{{ c.href }}" style="text-decoration:none; color:inherit;">
+    <div class="card">
+      <div class="num {{ 'zero' if c.count == 0 else '' }}">{{ c.count }}</div>
+      <div class="label">{{ c.label }}</div>
+      <div class="blurb">{{ c.blurb }}</div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+
+<h2>System health</h2>
+<div class="grid">
+  <a href="/admin/portal/ops" style="text-decoration:none; color:inherit;"><div class="card">
+    <div class="num {{ 'zero' if failed_jobs == 0 else '' }}"
+         style="{{ 'color:var(--warn);' if failed_jobs else '' }}">{{ failed_jobs }}</div>
+    <div class="label">Failed jobs</div><div class="blurb">Scraper-pipeline jobs needing requeue</div>
+  </div></a>
+  <a href="/admin/portal/ops" style="text-decoration:none; color:inherit;"><div class="card">
+    <div class="num {{ 'zero' if failed_outbox == 0 else '' }}"
+         style="{{ 'color:var(--warn);' if failed_outbox else '' }}">{{ failed_outbox }}</div>
+    <div class="label">Failed outbox rows</div><div class="blurb">Dropped magic links / notifications</div>
+  </div></a>
+  <a href="/admin/portal/ops" style="text-decoration:none; color:inherit;"><div class="card">
+    <div class="num {{ 'zero' if stuck_outbox == 0 else '' }}">{{ stuck_outbox }}</div>
+    <div class="label">Outbox not delivered</div><div class="blurb">Pending + failed combined</div>
+  </div></a>
+  <a href="/admin/portal/users" style="text-decoration:none; color:inherit;"><div class="card">
+    <div class="num">{{ total_users }}</div>
+    <div class="label">Users</div><div class="blurb">All registered accounts</div>
+  </div></a>
+</div>
+
+<h2>Chat — last 7 days</h2>
+<div class="grid">
+  <div class="card"><div class="num">{{ messages }}</div>
+    <div class="label">User messages</div></div>
+  <div class="card"><div class="num">{{ sessions }}</div>
+    <div class="label">Sessions</div></div>
+  <div class="card"><div class="num">{{ avg_latency if avg_latency is not none else "—" }}</div>
+    <div class="label">Avg latency (ms)</div></div>
+</div>
+<p class="sub" style="margin-top:10px;"><a href="/admin/portal/chat">Full chat insights →</a></p>
+{% endblock %}

@@ -37,6 +37,7 @@ from app.admin.provider_merge_review import router as admin_provider_merge_revie
 from app.admin.router import router as admin_router
 from app.admin.sponsor_surface import merchant_upgrade_router
 from app.admin.v1_overview import router as admin_v1_overview_router
+from app.admin_portal.router import portal_router as admin_portal_router
 from app.api.routes.account_alerts import router as account_alerts_router
 from app.api.routes.admin_contributions import router as admin_contributions_router
 from app.api.routes.admin_jobs import router as admin_jobs_router
@@ -482,6 +483,10 @@ app.include_router(ingest_jobs_router)
 app.include_router(ingest_publish_router)
 app.include_router(captures_router)
 app.include_router(admin_router)
+# Unified admin portal (/admin/portal — Track E wiring, 2026-06-10). Named
+# admin_portal_router here because the MERCHANT portal (app/portal) already
+# owns the bare portal_router name.
+app.include_router(admin_portal_router)
 app.include_router(admin_v1_overview_router)
 app.include_router(admin_contributions_router)
 app.include_router(admin_jobs_router)

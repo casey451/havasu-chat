@@ -1,0 +1,67 @@
+{% extends "portal_base.html" %}
+{% block title %}Ops{% endblock %}
+{% block content %}
+<h1>Ops</h1>
+<p class="sub">Jobs queue and the must-not-lose outbox. Failed rows are retryable from here.</p>
+
+<h2>Jobs</h2>
+<div class="filters">
+  <a href="/admin/portal/ops" class="chip {{ 'accent' if not job_status else '' }}">all</a>
+  {% for s in job_statuses %}
+  <a href="?job_status={{ s }}&outbox_state={{ outbox_state }}"
+     class="chip {{ 'accent' if job_status == s else '' }}">{{ s }} ({{ job_counts[s] }})</a>
+  {% endfor %}
+  <span class="muted">· create jobs in <a href="/admin/jobs">the Jobs page</a></span>
+</div>
+<table>
+  <tr><th>Type</th><th>Status</th><th>Created</th><th>Claimed by</th><th>Result</th><th></th></tr>
+  {% for j in jobs %}
+  <tr>
+    <td>{{ j.job_type }}</td>
+    <td><span class="chip {{ 'warn' if j.status == 'failed' else ('ok' if j.status == 'done' else '') }}">{{ j.status }}</span></td>
+    <td class="muted" style="white-space:nowrap;">{{ j.created_at | ago }}</td>
+    <td>{{ j.claimed_by or "—" }}</td>
+    <td class="muted">{{ (j.result_summary or "")[:120] }}</td>
+    <td>
+      {% if j.status == "failed" %}
+      <form method="post" action="/admin/portal/ops/jobs/{{ j.id }}/requeue" class="inline">
+        <button type="submit" class="quiet">Requeue</button>
+      </form>
+      {% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="6" class="muted">No jobs.</td></tr>
+  {% endfor %}
+</table>
+
+<h2>Outbox</h2>
+<div class="filters">
+  <a href="/admin/portal/ops" class="chip {{ 'accent' if not outbox_state else '' }}">all</a>
+  {% for s in outbox_states %}
+  <a href="?outbox_state={{ s }}&job_status={{ job_status }}"
+     class="chip {{ 'accent' if outbox_state == s else '' }}">{{ s }} ({{ outbox_counts[s] }})</a>
+  {% endfor %}
+</div>
+<table>
+  <tr><th>Kind</th><th>State</th><th>Attempts</th><th>Created</th><th>Last error</th><th></th></tr>
+  {% for r in outbox_rows %}
+  <tr>
+    <td>{{ r.kind }}</td>
+    <td><span class="chip {{ 'warn' if r.state == 'failed' else ('ok' if r.state == 'delivered' else '') }}">{{ r.state }}</span></td>
+    <td>{{ r.attempts }}</td>
+    <td class="muted" style="white-space:nowrap;">{{ r.created_at | ago }}</td>
+    <td class="muted">{{ (r.last_error or "")[:120] }}</td>
+    <td>
+      {% if r.state == "failed" %}
+      <form method="post" action="/admin/portal/ops/outbox/{{ r.id }}/retry" class="inline">
+        <button type="submit" class="quiet">Retry</button>
+      </form>
+      {% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="6" class="muted">Outbox empty.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

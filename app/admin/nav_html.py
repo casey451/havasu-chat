@@ -4,6 +4,7 @@
 def admin_phase5_nav_html() -> str:
     """Return the standard ``<nav class="nav">`` block (identical on all modules)."""
     return """    <nav class="nav">
+      <a href="/admin/portal">Portal</a>
       <a href="/admin/overview">Dashboard</a>
       <a href="/admin?tab=queue">Events</a>
       <a href="/admin/jobs">Jobs</a>

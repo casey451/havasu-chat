@@ -1,0 +1,26 @@
+{% extends "portal_base.html" %}
+{% block title %}Moderation{% endblock %}
+{% block content %}
+<h1>Moderation hub</h1>
+<p class="sub">Every review queue with live counts. Each link opens the existing tool for that queue.</p>
+
+<table>
+  <tr><th>Queue</th><th>Pending</th><th>What it is</th><th></th></tr>
+  {% for c in cards %}
+  <tr>
+    <td><strong>{{ c.label }}</strong></td>
+    <td>
+      {% if c.count > 0 %}<span class="chip warn">{{ c.count }}</span>
+      {% else %}<span class="chip ok">clear</span>{% endif %}
+    </td>
+    <td class="muted">{{ c.blurb }}</td>
+    <td><a href="{{ c.href }}">Open →</a></td>
+  </tr>
+  {% endfor %}
+</table>
+
+<h2>Tips</h2>
+<p class="muted">Work top to bottom — providers and events feed the directory and chat answers;
+claims and contributions have people waiting on a reply. The dashboard shows the same counts
+as cards if you prefer that view.</p>
+{% endblock %}
