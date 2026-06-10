@@ -63,7 +63,9 @@
             <div class="d-mm-col d-mm-col--single"><a class="d-mm-bare" href="{{ col.links[0].url }}">{{ col.heading }}</a></div>
             {% else %}
             <div class="d-mm-col">
-              <h5>{{ col.heading }}</h5>
+              {# Not a heading element: nav-menu column labels would pollute the
+                 page outline (h5 under the page h1 = level skip on every page). #}
+              <div class="d-mm-h">{{ col.heading }}</div>
               {% for item in col.links %}<a href="{{ item.url }}">{{ item.label }}</a>{% endfor %}
             </div>
             {% endif %}
@@ -132,7 +134,7 @@
       <p class="d-credo">Honest. Local. <span>Built in Lake Havasu.</span></p>
     </div>
     <div class="d-foot-col">
-      <h5>Explore</h5>
+      <h2 class="d-foot-h">Explore</h2>
       <ul>
         <li><a href="/home">Home</a></li>
         <li><a href="/events-ui">Events</a></li>
@@ -141,7 +143,7 @@
       </ul>
     </div>
     <div class="d-foot-col">
-      <h5>Ask Hava</h5>
+      <h2 class="d-foot-h">Ask Hava</h2>
       <ul>
         <li><a href="/about">About</a></li>
         <li><a href="/help">Help</a></li>
@@ -150,7 +152,7 @@
       </ul>
     </div>
     <div class="d-foot-col">
-      <h5>For business owners</h5>
+      <h2 class="d-foot-h">For business owners</h2>
       <ul>
         <li><a href="/portal">Business portal</a></li>
         <li><a href="/portal/advertise">Advertise</a></li>

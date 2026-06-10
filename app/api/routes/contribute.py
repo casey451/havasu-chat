@@ -81,13 +81,13 @@ def _render_contribute_page(
     fe = field_errors or {}
     err_html = ""
     if error_banner:
-        err_html = f'<div class="banner err">{_esc(error_banner)}</div>'
+        err_html = f'<div class="banner err" role="alert">{_esc(error_banner)}</div>'
     if fe:
         ul = "".join(f"<li><strong>{_esc(k)}</strong>: {_esc(v)}</li>" for k, v in fe.items())
-        err_html += f'<div class="banner err"><ul class="err-list">{ul}</ul></div>'
+        err_html += f'<div class="banner err" role="alert"><ul class="err-list">{ul}</ul></div>'
     ok_html = ""
     if submitted:
-        ok_html = f'<div class="banner ok">{_esc(_SUCCESS_INTRO)}</div>'
+        ok_html = f'<div class="banner ok" role="status">{_esc(_SUCCESS_INTRO)}</div>'
     ent = p.get("entity_type", "provider")
     event_css_display = "block" if ent == "event" else "none"
     url_val = _esc(p.get("submission_url", ""))
@@ -108,6 +108,7 @@ def _render_contribute_page(
   <link rel="stylesheet" href="/static/styles/contribute.css"/>
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
   <div class="page">
     <header class="topbar">
       <a class="wordmark" href="/home">
@@ -119,6 +120,7 @@ def _render_contribute_page(
       </div>
     </header>
 
+    <main id="main">
     <section class="head">
       <p class="eyebrow">Add to catalog</p>
       <h1>Tell me what <em>belongs</em>.</h1>
@@ -129,13 +131,15 @@ def _render_contribute_page(
     {err_html}
 
     <form class="form-card" method="post" action="/contribute" id="contrib-form">
-      <label>What are you submitting?</label>
+      <fieldset class="type-fieldset">
+      <legend>What are you submitting?</legend>
       <div class="row-radio">
         <label><input type="radio" name="entity_type" value="provider" {"checked" if ent == "provider" else ""}/> Business</label>
         <label><input type="radio" name="entity_type" value="program" {"checked" if ent == "program" else ""}/> Program</label>
         <label><input type="radio" name="entity_type" value="event" {"checked" if ent == "event" else ""}/> Event</label>
         <label><input type="radio" name="entity_type" value="tip" {"checked" if ent == "tip" else ""}/> Tip</label>
       </div>
+      </fieldset>
 
       <label for="submission_name">Name <span class="req" aria-hidden="true">*</span></label>
       <input type="text" name="submission_name" id="submission_name" maxlength="200" required aria-required="true" value="{_esc(p.get("submission_name", ""))}"/>
@@ -161,7 +165,7 @@ def _render_contribute_page(
       </div>
 
       <label for="submitter_email">Email (optional)</label>
-      <input type="email" name="submitter_email" id="submitter_email" placeholder="So we can reach you if we have questions" value="{_esc(p.get("submitter_email", ""))}"/>
+      <input type="email" name="submitter_email" id="submitter_email" autocomplete="email" placeholder="So we can reach you if we have questions" value="{_esc(p.get("submitter_email", ""))}"/>
       <p class="field-note">We only use your email to follow up on this submission -- never for marketing.</p>
 
       <p class="req-legend"><span class="req" aria-hidden="true">*</span> Required</p>
@@ -170,6 +174,7 @@ def _render_contribute_page(
     </form>
 
     <p class="foot"><a href="/home">← Back to Hava</a></p>
+    </main>
   </div>
 
   <script>

@@ -1,3 +1,5 @@
+# Privacy Policy for Hava
+
 ## What we collect
 
 When you use Hava, we store:

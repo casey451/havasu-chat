@@ -167,7 +167,7 @@
 
     <div>
       <div class="side">
-        <h4>Good to know</h4>
+        <h2 class="d-side-h">Good to know</h2>
         {% if vm.postal_address %}
         <address class="row nap" style="font-style:normal">{{ dicons.icon("pin", 16) }} {{ vm.postal_address.street }}, {{ vm.postal_address.city }}, {{ vm.postal_address.state }}{% if vm.postal_address.get('zip') %} {{ vm.postal_address.zip }}{% endif %}</address>
         {% elif vm.address %}<div class="row">{{ dicons.icon("pin", 16) }} {{ vm.address }}</div>{% endif %}

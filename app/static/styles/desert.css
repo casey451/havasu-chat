@@ -11,7 +11,7 @@
      --sand        #ecdcc0   warm sand (color-blocked panels)
      --sand-light  #f5ead4   pale sand (page base)
      --orange      #d4581e   the sun, the heat, the brand
-     --orange-deep #b8460f   orange that passes AA on sand/cream (use for text)
+     --orange-deep #a53f0d   orange that passes AA 4.5:1 on sand/sand-light/cream (use for text)
      --blue        #11324d   deep lake at dusk
      --blue-deep   #0b2438   night water
      --black       #171310   desert night
@@ -31,7 +31,7 @@
   --sand:#ecdcc0;
   --sand-light:#f5ead4;
   --orange:#d4581e;
-  --orange-deep:#b8460f;
+  --orange-deep:#a53f0d;
   --blue:#11324d;
   --blue-deep:#0b2438;
   --black:#171310;
@@ -150,7 +150,7 @@ ul[class],ol[class]{padding:0;list-style:none}
   display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
   gap:20px 28px;padding:28px 32px 30px;
 }
-.d-mm-col h5{
+.d-mm-col .d-mm-h{
   font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;
   color:var(--orange-deep);margin:0 0 10px;
 }
@@ -171,7 +171,7 @@ ul[class],ol[class]{padding:0;list-style:none}
   border:2px solid var(--cream);border-radius:999px;padding:9px 20px;white-space:nowrap;
   transition:background .15s,color .15s,border-color .15s;
 }
-.d-signin:hover{background:var(--orange);border-color:var(--orange);color:var(--cream)}
+.d-signin:hover{background:var(--orange-deep);border-color:var(--orange-deep);color:var(--cream)}
 
 .d-menu-btn{
   display:none;background:none;border:2px solid var(--cream);border-radius:10px;
@@ -227,7 +227,7 @@ a.d-cond:hover .l{opacity:.9}
   font-family:var(--disp);font-weight:700;font-size:20px;line-height:1.25;
   margin-top:18px;max-width:20ch;
 }
-.d-foot-col h5{
+.d-foot-col .d-foot-h{
   font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;
   color:rgba(251,244,230,.6);margin:0 0 16px;
 }
@@ -258,10 +258,10 @@ a.d-cond:hover .l{opacity:.9}
 .d-btn:hover{transform:translateY(-2px)}
 .d-btn svg{width:15px;height:15px;flex:none}
 .d-btn--solid{background:var(--black);color:var(--cream)}
-.d-btn--solid:hover{background:var(--orange);border-color:var(--orange);color:var(--cream)}
+.d-btn--solid:hover{background:var(--orange-deep);border-color:var(--orange-deep);color:var(--cream)}
 /* outline pill for use ON dark blocks (blue/black) */
 .d-btn--light{border-color:var(--cream);color:var(--cream)}
-.d-btn--light:hover{background:var(--orange);border-color:var(--orange);color:var(--cream)}
+.d-btn--light:hover{background:var(--orange-deep);border-color:var(--orange-deep);color:var(--cream)}
 .d-btn--sm{padding:9px 18px;font-size:13px}
 
 /* ---- .d-chip — filter pill. Default = light context. Active = solid ink
