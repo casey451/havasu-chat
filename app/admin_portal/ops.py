@@ -24,8 +24,11 @@ OUTBOX_STATES = ("pending", "in_flight", "delivered", "failed")
 
 
 def _status_counts(db: Session, column, keys: tuple[str, ...]) -> dict[str, int]:
-    rows = dict(db.execute(select(column, func.count()).group_by(column)).all())
-    return {k: int(rows.get(k, 0)) for k in keys}
+    rows: dict[str, int] = {
+        str(k): int(n)
+        for k, n in db.execute(select(column, func.count()).group_by(column)).all()
+    }
+    return {k: rows.get(k, 0) for k in keys}
 
 
 @router.get("/ops", response_model=None)

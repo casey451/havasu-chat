@@ -99,7 +99,7 @@ def audit_log(
     rows: list[AdminAuditLog] = []
     if enabled:
         page = max(1, page)
-        rows = (
+        rows = list(
             db.execute(
                 select(AdminAuditLog)
                 .order_by(desc(AdminAuditLog.created_at))

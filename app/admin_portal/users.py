@@ -57,9 +57,10 @@ def users_list(
         .all()
     )
 
-    role_counts = dict(
-        db.execute(select(User.role, func.count()).group_by(User.role)).all()
-    )
+    role_counts: dict[str, int] = {
+        str(r): int(n)
+        for r, n in db.execute(select(User.role, func.count()).group_by(User.role)).all()
+    }
 
     return render(
         request,
