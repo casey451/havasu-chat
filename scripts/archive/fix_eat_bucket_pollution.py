@@ -30,7 +30,7 @@ from sqlalchemy import or_  # noqa: E402
 from app.chat.intents.dicts import EAT_LEGACY_CATEGORIES, EAT_SUBCATS  # noqa: E402
 from app.db.database import SessionLocal  # noqa: E402
 from app.db.models import Provider  # noqa: E402
-from scripts.audit_eat_bucket_pollution import looks_non_food  # noqa: E402
+from scripts.archive.audit_eat_bucket_pollution import looks_non_food  # noqa: E402
 
 
 def run(*, apply: bool) -> int:

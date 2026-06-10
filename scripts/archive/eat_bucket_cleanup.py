@@ -20,7 +20,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from app.db.database import DATABASE_URL  # noqa: E402
-from scripts.fix_eat_bucket_pollution import run  # noqa: E402
+from scripts.archive.fix_eat_bucket_pollution import run  # noqa: E402
 
 
 def _db_label(url: str) -> str:
