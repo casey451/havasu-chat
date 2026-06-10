@@ -22,14 +22,16 @@ def test_clean_address_leaves_well_formed_unchanged() -> None:
 
 def test_category_url_routes_church_to_community_not_explore() -> None:
     # P-1: the breadcrumb must link to the actual category page, preferring the
-    # specific tile route (Community) over the broad Services mega.
+    # specific tile route (Community) over the broad Services mega. B3: the
+    # retired flat slug resolves on through ROUTE_SLUG_ALIASES to the canonical
+    # taxonomy department, so the crumb never bounces through a 301.
     church = SimpleNamespace(category="religion_community")
-    assert _category_url_for(church) == "/categories/public-civic-resources"
+    assert _category_url_for(church) == "/categories/community-and-civic"
 
 
-def test_category_url_routes_restaurant_to_eat_drink() -> None:
+def test_category_url_routes_restaurant_to_eat_and_drink() -> None:
     rest = SimpleNamespace(category="restaurant")
-    assert _category_url_for(rest) == "/categories/eat-drink"
+    assert _category_url_for(rest) == "/categories/eat-and-drink"
 
 
 def test_category_url_unknown_category_falls_back_to_explore() -> None:

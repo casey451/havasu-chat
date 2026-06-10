@@ -87,6 +87,15 @@ ROUTE_SLUG_ALIASES: dict[str, str] = {
     "outdoors-parks-trails": "/categories/outdoors-and-recreation",
 }
 
+# Taxonomy LEAF slugs renamed in place (data migration) keep their old URL as
+# a permanent redirect so indexed/bookmarked links never die. B1 (2026-06-10):
+# the A.3 seed's slugifier dropped the ``é`` in "Cafés & Coffee" and shipped
+# ``caf-s-and-coffee``; the migration renames the row, this map 301s the old
+# path under whatever department segment the request used.
+LEAF_SLUG_ALIASES: dict[str, str] = {
+    "caf-s-and-coffee": "cafes-and-coffee",
+}
+
 
 # ---------------------------------------------------------------------------
 # /categories index: cached payload (Q2; taxonomy departments since the A.3
@@ -535,6 +544,16 @@ def serve_trade_page(
     NO AggregateRating structured data anywhere on these pages.
     """
     parent_key = (parent or "").strip().lower()
+    trade_key = (trade or "").strip().lower()
+
+    # Renamed leaf slugs 301 permanently to their canonical successor (B1).
+    leaf_dest = LEAF_SLUG_ALIASES.get(trade_key)
+    if leaf_dest:
+        dest = f"/categories/{parent_key}/{leaf_dest}"
+        query = request.url.query
+        if query:
+            dest = f"{dest}?{query}"
+        return RedirectResponse(url=dest, status_code=301)
 
     if parent_key == trade_pages.TRADE_PARENT_SLUG:
         # 1. Consolidate onto the taxonomy-leaf twin when it ships.

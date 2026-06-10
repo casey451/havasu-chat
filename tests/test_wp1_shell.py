@@ -167,7 +167,7 @@ def test_footer_has_tagline_and_trust_links() -> None:
     for href in ('href="/about"', 'href="/help"', 'href="/contact"', 'href="/privacy"', 'href="/terms"'):
         assert href in html
     assert "Report wrong info" in html
-    assert "mailto:hello@havasuchat.com" in html
+    assert "mailto:hello@askhava.com" in html
 
 
 # ---- static pages register and render through the app router ----

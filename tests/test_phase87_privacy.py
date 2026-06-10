@@ -115,7 +115,7 @@ def test_privacy_route_200_and_markers() -> None:
         r = client.get("/privacy")
     assert r.status_code == 200
     body = r.text
-    assert "hello@havasuchat.com" in body
+    assert "hello@askhava.com" in body
     assert "What we collect" in body
     assert "Anthropic" in body
     assert "Plausible" in body
@@ -132,7 +132,7 @@ def test_terms_route_200_and_markers() -> None:
     assert "Terms of Service for Hava" in body
     assert "1. Acceptance" in body
     assert "State of Arizona" in body
-    assert "hello@havasuchat.com" in body
+    assert "hello@askhava.com" in body
     # Substance the monetization plan depends on: AI-accuracy disclaimer and
     # labeled-paid-placement disclosure must be present.
     assert "AI answers can be wrong" in body

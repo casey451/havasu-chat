@@ -118,3 +118,78 @@ def test_admin_login_wrong_password_no_cookie(monkeypatch: pytest.MonkeyPatch) -
         )
     assert r.status_code == 401
     assert "admin_session=" not in (r.headers.get("set-cookie") or "")
+
+
+# --- SEC-1: admin cookie carries Secure in prod (both login surfaces) ------
+
+
+def _cookie_attrs(response) -> set[str]:
+    """Lower-cased Set-Cookie attribute names/flags (value-bearing attrs keep
+    only the name), so flag checks can't false-positive on the cookie value."""
+    raw = response.headers.get("set-cookie") or ""
+    return {part.strip().split("=")[0].lower() for part in raw.split(";")}
+
+
+def _prod_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RAILWAY_ENVIRONMENT", "production")
+    monkeypatch.setenv("ADMIN_PASSWORD", "a-strong-admin-pw")
+    monkeypatch.setenv("HAVA_SESSION_SECRET", "distinct-strong-secret")
+
+
+def test_admin_login_cookie_secure_in_prod(monkeypatch: pytest.MonkeyPatch) -> None:
+    _prod_env(monkeypatch)
+    with TestClient(app) as client:
+        r = client.post(
+            "/admin/login",
+            data={"password": "a-strong-admin-pw"},
+            follow_redirects=False,
+        )
+    assert r.status_code == 303
+    attrs = _cookie_attrs(r)
+    assert "secure" in attrs
+    assert "httponly" in attrs
+
+
+def test_admin_login_cookie_not_secure_local(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("RAILWAY_ENVIRONMENT", raising=False)
+    monkeypatch.delenv("ADMIN_PASSWORD", raising=False)
+    with TestClient(app) as client:
+        r = client.post(
+            "/admin/login",
+            data={"password": "changeme"},
+            follow_redirects=False,
+        )
+    assert r.status_code == 303
+    assert "secure" not in _cookie_attrs(r)
+
+
+def test_v1_admin_login_cookie_strict_and_secure_in_prod(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _prod_env(monkeypatch)
+    with TestClient(app) as client:
+        r = client.post(
+            "/api/admin/login",
+            data={"email": "admin@example.com", "password": "a-strong-admin-pw"},
+        )
+    assert r.status_code == 200
+    set_cookie = (r.headers.get("set-cookie") or "").lower()
+    assert "admin_session=" in set_cookie
+    assert "samesite=strict" in set_cookie
+    assert "secure" in _cookie_attrs(r)
+
+
+def test_v1_admin_login_cookie_samesite_strict_local(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("RAILWAY_ENVIRONMENT", raising=False)
+    monkeypatch.delenv("ADMIN_PASSWORD", raising=False)
+    with TestClient(app) as client:
+        r = client.post(
+            "/api/admin/login",
+            data={"email": "admin@example.com", "password": "changeme"},
+        )
+    assert r.status_code == 200
+    set_cookie = (r.headers.get("set-cookie") or "").lower()
+    assert "samesite=strict" in set_cookie
+    assert "secure" not in _cookie_attrs(r)

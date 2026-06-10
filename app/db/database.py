@@ -18,9 +18,20 @@ _DEFAULT_SQLITE_URL = f"sqlite:///{DB_PATH.as_posix()}"
 
 
 def get_database_url() -> str:
-    """Resolve DB URL from env, or the project SQLite file when DATABASE_URL is unset."""
+    """Resolve DB URL from env, or the project SQLite file when DATABASE_URL is unset.
+
+    Fail-closed in production (OPS-2, same pattern as the auth secrets): when
+    ``RAILWAY_ENVIRONMENT`` is set, a missing/blank ``DATABASE_URL`` raises at
+    import instead of silently booting an empty local SQLite app that would
+    pass a naive healthcheck. Local/test keeps the SQLite fallback.
+    """
     raw = os.getenv("DATABASE_URL", "").strip()
     if not raw:
+        if (os.getenv("RAILWAY_ENVIRONMENT") or "").strip():
+            raise RuntimeError(
+                "DATABASE_URL must be set in production (RAILWAY_ENVIRONMENT is "
+                "set); refusing to fall back to a local SQLite file."
+            )
         return _DEFAULT_SQLITE_URL
     return raw
 

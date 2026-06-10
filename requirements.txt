@@ -26,7 +26,7 @@ idna==3.11
 iniconfig==2.3.0
 itsdangerous==2.2.0
 jiter==0.14.0
-Jinja2==3.1.4
+Jinja2==3.1.6
 limits==5.8.0
 Mako==1.3.11
 # Eval harness only (app/eval/) — used for confabulation detection lemmatization.

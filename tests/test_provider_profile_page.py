@@ -109,7 +109,7 @@ def test_profile_reviews_are_labeled_google_without_per_review_stars() -> None:
     with SessionLocal() as db:
         p = Provider(
             provider_name=f"Reviewed Restaurant {suf}",
-            category="restaurant",  # -> breadcrumb /categories/eat-drink
+            category="restaurant",  # -> breadcrumb /categories/eat-and-drink (B3 canonical)
             source="test-profile-reviews",
             slug=slug,
             draft=False,
@@ -138,7 +138,8 @@ def test_profile_reviews_are_labeled_google_without_per_review_stars() -> None:
         # DL-4: a single "Read all on Google" link out is present.
         assert "Read all on Google" in body
         # P-1: breadcrumb links to the real category page, not the Explore index.
-        assert 'href="/categories/eat-drink"' in body
+        # B3: canonical taxonomy department URL, not the retired flat slug.
+        assert 'href="/categories/eat-and-drink"' in body
     finally:
         with SessionLocal() as db:
             pr = db.query(Provider).filter_by(slug=slug).first()
