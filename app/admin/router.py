@@ -29,9 +29,11 @@ from app.admin.mentions_html import register_mentions_html_routes
 from app.admin.provider_approval import pending_provider_count
 from app.admin.provider_merge_review import duplicate_pair_count
 from app.admin.sponsor_surface import register_sponsor_admin_routes
+from app.auth.session import cookie_secure_in_prod
 from app.contrib.ingest_base import EntityPayload
 from app.contrib.ingest_reconciler import reconcile_hit
 from app.core.provider_name import register_template_filters, register_template_globals
+from app.core.rate_limit import limiter
 from app.db.database import DATABASE_URL, get_db
 from app.db.entity_dual_write import create_program_and_entity, create_provider_and_entity
 from app.db.models import ChatLog, Claim, Entity, Event, Program, Provider, User
@@ -648,6 +650,10 @@ def admin_login_page() -> HTMLResponse:
 
 
 @router.post("/login", response_model=None)
+# SEC-2: the admin console is a single shared password — a strict per-IP
+# limit keeps it from being online-brute-forceable. 5/minute leaves room for
+# a fat-fingered retry while making a dictionary run useless.
+@limiter.limit("5/minute")
 def admin_login_submit(
     request: Request,
     password: str = Form(...),
@@ -665,6 +671,9 @@ def admin_login_submit(
         # cross-site entry flow (unlike the user magic-link return), so Strict
         # is safe here; the user ``hava_session`` cookie stays Lax.
         samesite="strict",
+        # SEC-1: the admin cookie grants full admin — never let it transit
+        # plain HTTP in prod. Same helper the user session cookie uses.
+        secure=cookie_secure_in_prod(),
         path="/",
     )
     return resp

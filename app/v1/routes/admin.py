@@ -11,12 +11,14 @@ from sqlalchemy.orm import Session
 
 from app.admin.auth import COOKIE_NAME, admin_password_ok, sign_admin_cookie
 from app.api.routes.admin_contributions import require_admin
+from app.auth.session import cookie_secure_in_prod
 from app.conditions.cache import read_source
 from app.conditions.constants import SOURCE_GAS
 from app.conditions.staleness import staleness_label
 from app.contrib.gas_prices import run_pull
 from app.contrib.golakehavasu_pull import run_pull as golake_pull
 from app.contrib.river_scene_pull import run_pull as river_scene_pull
+from app.core.rate_limit import limiter
 from app.core.timezone import now_lake_havasu
 from app.db.contribution_store import list_contributions
 from app.db.database import get_db
@@ -36,7 +38,11 @@ AdminAuth = Annotated[None, Depends(_require_admin)]
 
 
 @router.post("/login")
+# SEC-2: same strict per-IP throttle as the HTML /admin/login — one shared
+# password must not be online-brute-forceable from either entry point.
+@limiter.limit("5/minute")
 def admin_login(
+    request: Request,
     email: str = Form(...),
     password: str = Form(...),
 ):
@@ -47,7 +53,16 @@ def admin_login(
     from fastapi.responses import JSONResponse
 
     resp = JSONResponse(content={"ok": True})
-    resp.set_cookie(COOKIE_NAME, sign_admin_cookie(), httponly=True, samesite="lax", max_age=86400)
+    resp.set_cookie(
+        COOKIE_NAME,
+        sign_admin_cookie(),
+        httponly=True,
+        # SEC-1: Strict (matching /admin/login — the admin surface has no
+        # cross-site entry flow) + Secure in prod, like the user cookie.
+        samesite="strict",
+        secure=cookie_secure_in_prod(),
+        max_age=86400,
+    )
     return resp
 
 
