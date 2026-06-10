@@ -162,6 +162,43 @@ label {
 }
 label:first-child { margin-top: 0; }
 
+/* The entity-type radio group is a real <fieldset>/<legend> (a11y: one
+ * programmatic group name for the four radios). Reset chrome so it renders
+ * exactly like the bare <label> heading it replaced. */
+.type-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.type-fieldset legend {
+  display: block;
+  width: 100%;
+  padding: 0;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  margin: 0 0 6px;
+}
+
+/* Keyboard skip link: visually hidden until focused (same contract as the
+ * desert shell's .d-skip). */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--ink-1, #14140f);
+  color: #fff;
+  padding: 10px 16px;
+  z-index: 100;
+}
+.skip-link:focus {
+  left: 12px;
+  top: 12px;
+}
+
 /* Required-field marker. The asterisk sits in the field label so the two
  * required inputs (Name always; URL when Business/Program is selected) read as
  * required without a separate legend. `.req.is-optional` is toggled off by the

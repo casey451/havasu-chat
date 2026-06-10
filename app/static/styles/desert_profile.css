@@ -136,7 +136,7 @@
   background:var(--cream);border:var(--d-border);border-radius:var(--d-radius);
   padding:22px 22px 20px;box-shadow:var(--d-shadow);
 }
-.prof .side h4{
+.prof .side .d-side-h{
   font-family:var(--disp);font-weight:800;font-size:18px;line-height:1;
   text-transform:uppercase;letter-spacing:.01em;
   border-bottom:3px solid var(--orange);padding-bottom:10px;margin-bottom:14px;

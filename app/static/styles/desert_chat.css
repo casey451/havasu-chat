@@ -164,7 +164,7 @@ body.ll-chat .stuck-composer .composer input[type="text"] {
 }
 
 body.ll-chat .stuck-composer .composer input[type="text"]::placeholder {
-  color: #8c7f6b;
+  color: #716552;
 }
 
 body.ll-chat .stuck-composer .composer input[type="text"]:focus-visible {
@@ -198,7 +198,7 @@ body.ll-chat .stuck-composer .composer .photo-btn.has-file {
   border-color: var(--peach);
 }
 
-/* Send: solid orange block, cream arrow — d-btn--solid energy in compact form */
+/* Send: solid deep-orange block, cream arrow — 4.5:1 with cream (a11y 2026-06-10) */
 body.ll-chat .stuck-composer .composer .send {
   flex: none;
   width: 44px;
@@ -207,7 +207,7 @@ body.ll-chat .stuck-composer .composer .send {
   place-items: center;
   border: none;
   border-radius: 10px;
-  background: var(--orange);
+  background: var(--orange-deep);
   color: var(--cream);
   cursor: pointer;
   transition: background 0.15s;
@@ -215,7 +215,7 @@ body.ll-chat .stuck-composer .composer .send {
 
 body.ll-chat .stuck-composer .composer .send:hover,
 body.ll-chat .stuck-composer .composer .send:focus-visible {
-  background: var(--orange-deep);
+  background: var(--black);
 }
 
 body.ll-chat .stuck-composer .composer .send[disabled] {
@@ -835,8 +835,8 @@ body.ll-chat .component-slot .actions .btn.primary {
 }
 
 body.ll-chat .component-slot .actions .btn.primary:hover {
-  background: var(--orange);
-  border-color: var(--orange);
+  background: var(--orange-deep);
+  border-color: var(--orange-deep);
   color: var(--cream);
 }
 
