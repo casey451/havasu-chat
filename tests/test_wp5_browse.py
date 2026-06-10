@@ -1,5 +1,11 @@
 """WP-5 browse loop — pagination, filter-state honesty, chip generation, and
-SQL-vs-Python parity for the legacy ``/categories/{slug}`` surface.
+SQL-vs-Python parity for the flat-bucket listing machinery.
+
+A.3 nav rewire (2026-06-09): the public ``/categories/{slug}`` flat pages are
+retired (they 301 to taxonomy departments), so the route-level cases here
+exercise the surviving public surface of this machinery — the
+``/lake-havasu/{subcategory}`` SEO landings, which render the same
+``_render_category_page`` pipeline pre-filtered to a subcategory.
 
 Covers the packet's four required test classes:
   1. pagination params (``?page=`` honored over the 60-cap; window math)
@@ -123,7 +129,7 @@ def test_route_page_query_renders_pagination_controls(client: TestClient) -> Non
     """The page emits a 'Showing X-Y of N' line and rel=next when paged."""
     eids = _seed_restaurants(65)  # > one default page so a next link exists
     try:
-        r = client.get("/categories/eat-drink")
+        r = client.get("/lake-havasu/restaurants")
         assert r.status_code == 200
         body = r.text
         assert "Showing 1-" in body
@@ -138,10 +144,12 @@ def test_route_page_query_renders_pagination_controls(client: TestClient) -> Non
 
 
 def test_all_chip_preserves_other_params_and_drops_only_sub(client: TestClient) -> None:
-    """The subtype 'All' chip keeps open/sort but clears the subcategory."""
+    """The subtype 'All' chip keeps open/sort but clears the subcategory (the
+    landing's subcategory lives in the path, so 'All' walks up to the bucket
+    route URL)."""
     eids = _seed_restaurants(3, subcategory="restaurants")
     try:
-        r = client.get("/categories/eat-drink?sub=restaurants&open=1&sort=closest")
+        r = client.get("/lake-havasu/restaurants?open=1&sort=closest")
         assert r.status_code == 200
         body = r.text
         # The subtype "All" chip target preserves open + sort but drops sub. Its
@@ -149,15 +157,13 @@ def test_all_chip_preserves_other_params_and_drops_only_sub(client: TestClient) 
         assert (
             'data-filter="all" href="/categories/eat-drink?open=1&amp;sort=closest"' in body
         )
-        # The sort pills, by contrast, DO keep sub (full param preservation).
-        assert "sort=alpha&amp;sub=restaurants" in body
     finally:
         _cleanup(eids)
 
 
 def test_open_now_toggle_preserves_active_sort(client: TestClient) -> None:
     """Toggling Open now on a Closest-sorted page keeps the sort param."""
-    r = client.get("/categories/eat-drink?sort=closest")
+    r = client.get("/lake-havasu/restaurants?sort=closest")
     assert r.status_code == 200
     # The Open-now filter link carries the active sort forward.
     assert "open=1&amp;sort=closest" in r.text or "open=1&sort=closest" in r.text
@@ -166,7 +172,7 @@ def test_open_now_toggle_preserves_active_sort(client: TestClient) -> None:
 def test_open_now_is_a_filter_not_a_sort_pill(client: TestClient) -> None:
     """DL-20: Open now lives in the filter row, never as a sort pill, and the
     sort row never shows two 'on' pills at once."""
-    r = client.get("/categories/eat-drink?open=1")
+    r = client.get("/lake-havasu/restaurants?open=1")
     body = r.text
     assert 'class="filterpill on"' in body
     # Exactly one sort pill is active (the default favorites), even with open=1.
@@ -175,9 +181,9 @@ def test_open_now_is_a_filter_not_a_sort_pill(client: TestClient) -> None:
 
 def test_sort_explainer_matches_active_sort(client: TestClient) -> None:
     """Item 32: the explainer text reflects the active sort, not a static blurb."""
-    r_fav = client.get("/categories/eat-drink")
+    r_fav = client.get("/lake-havasu/restaurants")
     assert "weighted by review volume" in r_fav.text
-    r_close = client.get("/categories/eat-drink?sort=closest")
+    r_close = client.get("/lake-havasu/restaurants?sort=closest")
     assert "nearest to the Lake Havasu City civic center" in r_close.text
     assert "weighted by review volume" not in r_close.text
 
@@ -186,7 +192,7 @@ def test_active_filter_summary_line_renders_with_clear(client: TestClient) -> No
     """C7: an active facet shows a summary line with a clear control."""
     eids = _seed_restaurants(3, subcategory="restaurants")
     try:
-        r = client.get("/categories/eat-drink?sub=restaurants")
+        r = client.get("/lake-havasu/restaurants")
         body = r.text
         assert "Restaurants" in body
         assert "clear" in body
@@ -234,7 +240,9 @@ def test_tile_route_renders_no_chips() -> None:
 
 
 def test_no_chip_route_omits_tap_to_narrow_copy(client: TestClient) -> None:
-    r = client.get("/categories/beauty-care")
+    # /lake-havasu/storage hosts on the services route; with no services
+    # subtypes seeded there are no chips, so the narrowing copy must be absent.
+    r = client.get("/lake-havasu/storage")
     assert r.status_code == 200
     assert "Tap a type to narrow" not in r.text
 

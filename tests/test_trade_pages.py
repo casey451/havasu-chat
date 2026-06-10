@@ -260,56 +260,21 @@ def test_trade_page_self_canonical(
     ]
 
 
-def test_promoted_trade_facet_canonicalizes_to_trade_page(
-    client: TestClient, seeded_trades: dict, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("BASE_URL", _BASE)
-    r = client.get(f"/categories/{TRADE_PARENT_SLUG}?trade=plumbers")
-    assert r.status_code == 200
-    assert _CANON_RE.findall(r.text) == [
-        f"{_BASE}/categories/{TRADE_PARENT_SLUG}/plumbers"
-    ]
+# A.3 nav rewire (2026-06-09): the flat /categories/home-property-services
+# parent page is retired — its ``?trade=`` facet canonicalization and its
+# trade-link strip went with it (the taxonomy department landing links leaf
+# pages instead). The parent URL now 301s to the department; the dedicated
+# /categories/{parent}/{trade} pages themselves are unchanged.
 
 
-def test_unpromoted_trade_facet_keeps_clean_category_canonical(
-    client: TestClient, seeded_trades: dict, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("BASE_URL", _BASE)
-    r = client.get(f"/categories/{TRADE_PARENT_SLUG}?trade=window-tinting")
-    assert r.status_code == 200
-    assert _CANON_RE.findall(r.text) == [f"{_BASE}/categories/{TRADE_PARENT_SLUG}"]
-
-
-def test_under_minimum_promoted_facet_keeps_clean_category_canonical(
-    client: TestClient, seeded_trades: dict, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A promoted trade that fails the gate must not canonicalize to a 404."""
-    monkeypatch.setenv("BASE_URL", _BASE)
-    r = client.get(f"/categories/{TRADE_PARENT_SLUG}?trade=roofers")
-    assert r.status_code == 200
-    assert _CANON_RE.findall(r.text) == [f"{_BASE}/categories/{TRADE_PARENT_SLUG}"]
-
-
-def test_other_category_pages_canonical_unchanged(
-    client: TestClient, seeded_trades: dict, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Non-parent categories keep the existing clean-URL canonical behavior."""
-    monkeypatch.setenv("BASE_URL", _BASE)
-    r = client.get("/categories/eat-drink?cuisine=mexican")
-    assert r.status_code == 200
-    assert _CANON_RE.findall(r.text) == [f"{_BASE}/categories/eat-drink"]
-
-
-def test_parent_page_links_only_gate_clearing_trades(
+def test_trade_parent_url_301s_to_department(
     client: TestClient, seeded_trades: dict
 ) -> None:
-    r = client.get(f"/categories/{TRADE_PARENT_SLUG}")
-    assert r.status_code == 200
-    body = r.text
-    assert f'href="/categories/{TRADE_PARENT_SLUG}/plumbers"' in body
-    assert f'href="/categories/{TRADE_PARENT_SLUG}/hvac"' in body
-    # Under-minimum trade is never linked.
-    assert f'href="/categories/{TRADE_PARENT_SLUG}/roofers"' not in body
+    r = client.get(f"/categories/{TRADE_PARENT_SLUG}?trade=plumbers", follow_redirects=False)
+    assert r.status_code == 301
+    assert r.headers["location"] == (
+        "/categories/home-and-property-services?trade=plumbers"
+    )
 
 
 # --- JSON-LD (DECISION D4) ------------------------------------------------------

@@ -40,23 +40,25 @@ def test_unknown_category_slug_returns_404(client: TestClient) -> None:
 @pytest.mark.parametrize(
     ("slug", "dest"),
     [
-        ("eat-drink", "/categories/eat-drink"),
+        # A.3 nav rewire: each retired Tier-1 slug 301s STRAIGHT to its
+        # taxonomy department landing (one hop, never via the also-retired
+        # flat plural route).
+        ("eat-drink", "/categories/eat-and-drink"),
         ("on-the-water", "/categories/on-the-water"),
-        ("home-property-services", "/categories/home-property-services"),
-        ("health-wellness-care", "/categories/health-wellness-care"),
-        ("auto-rv-fuel", "/categories/auto-rv-fuel"),
-        ("shopping-essentials", "/categories/shopping-essentials"),
-        ("classes-sports-recreation", "/categories/classes-sports-recreation"),
-        ("lodging-vacation-rentals", "/categories/lodging-vacation-rentals"),
+        ("home-property-services", "/categories/home-and-property-services"),
+        ("health-wellness-care", "/categories/health-and-medical"),
+        ("auto-rv-fuel", "/categories/auto-rv-and-marine"),
+        ("shopping-essentials", "/categories/shopping-and-retail"),
+        ("classes-sports-recreation", "/categories/fitness-and-wellness"),
+        ("lodging-vacation-rentals", "/categories/lodging"),
         ("pets", "/categories/pets"),
-        ("public-civic-resources", "/categories/public-civic-resources"),
-        ("professional-services", "/categories/professional-services"),
-        # No plural twin -- follow the BUCKET_SLUG_REDIRECTS precedent.
-        ("events", "/categories/things-to-do"),
-        ("outdoors-parks-trails", "/categories/on-the-water"),
+        ("public-civic-resources", "/categories/community-and-civic"),
+        ("professional-services", "/categories/professional-and-financial"),
+        ("events", "/categories/things-to-do-and-attractions"),
+        ("outdoors-parks-trails", "/categories/outdoors-and-recreation"),
     ],
 )
-def test_singular_tier1_slug_301s_to_plural(
+def test_singular_tier1_slug_301s_to_department(
     client: TestClient, slug: str, dest: str
 ) -> None:
     r = client.get(f"/category/{slug}", follow_redirects=False)
@@ -70,17 +72,21 @@ def test_redirect_map_covers_every_tier1_slug() -> None:
     assert set(SINGULAR_TO_PLURAL_REDIRECTS) == set(TIER_1_CATEGORY_SLUGS)
 
 
+def test_redirect_destinations_never_chain() -> None:
+    """No destination is itself a retired flat slug (which would 301 again)."""
+    from app.categories.router import ROUTE_SLUG_ALIASES
+
+    for slug, dest in SINGULAR_TO_PLURAL_REDIRECTS.items():
+        tail = dest.rsplit("/", 1)[-1]
+        assert tail not in ROUTE_SLUG_ALIASES, (
+            f"/category/{slug} -> {dest} chains through a retired flat slug"
+        )
+
+
 def test_redirect_preserves_query_string(client: TestClient) -> None:
     r = client.get("/category/eat-drink?cuisine=mexican&open=1", follow_redirects=False)
     assert r.status_code == 301
-    assert r.headers["location"] == "/categories/eat-drink?cuisine=mexican&open=1"
-
-
-def test_redirect_lands_on_canonical_plural_page(client: TestClient) -> None:
-    r = client.get("/category/eat-drink")  # TestClient follows the 301
-    assert r.status_code == 200
-    assert 'rel="canonical"' in r.text
-    assert "/categories/eat-drink" in r.text
+    assert r.headers["location"] == "/categories/eat-and-drink?cuisine=mexican&open=1"
 
 
 @pytest.mark.parametrize(

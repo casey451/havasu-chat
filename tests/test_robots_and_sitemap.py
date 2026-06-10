@@ -191,13 +191,17 @@ def test_sitemap_includes_static_pages(client: TestClient, sitemap_rows: dict[st
     assert any(loc.endswith("/chat") for loc in locs)
 
 
-def test_sitemap_includes_all_category_routes(
+def test_sitemap_excludes_retired_flat_category_routes(
     client: TestClient, sitemap_rows: dict[str, str]
 ) -> None:
+    """A.3 nav rewire: the retired flat /categories/{slug} buckets 301 to
+    taxonomy departments, so the sitemap must never advertise them. The two
+    slugs shared with the new tree (on-the-water, pets) are department
+    landings now and MAY appear via the leaf/department enumeration."""
     locs = _all_locs_via_index(client)
-    for slug in CATEGORY_FILTERS:
-        assert any(loc.endswith(f"/categories/{slug}") for loc in locs), (
-            f"missing /categories/{slug} in sitemap"
+    for slug in set(CATEGORY_FILTERS) - {"on-the-water", "pets"}:
+        assert not any(loc.endswith(f"/categories/{slug}") for loc in locs), (
+            f"retired flat route /categories/{slug} still in sitemap"
         )
 
 
@@ -229,22 +233,6 @@ def test_sitemap_entries_have_lastmod(client: TestClient, sitemap_rows: dict[str
 
 def test_sitemap_unknown_section_404s(client: TestClient) -> None:
     assert client.get("/sitemap-bogus.xml").status_code == 404
-
-
-def test_sitemap_category_lastmod_tracks_provider_updates(
-    client: TestClient, sitemap_rows: dict[str, str]
-) -> None:
-    """A category with at least one provider gets a real (non-fabricated) lastmod."""
-    r = client.get("/sitemap-pages.xml")
-    root = ET.fromstring(r.text)
-    by_loc = {
-        node.find("sm:loc", _SITEMAP_NS).text: node.find("sm:lastmod", _SITEMAP_NS)
-        for node in root.findall("sm:url", _SITEMAP_NS)
-    }
-    # The seeded provider has category="services" -> the services route.
-    loc = next(loc for loc in by_loc if loc.endswith("/categories/services"))
-    lastmod = by_loc[loc]
-    assert lastmod is not None and lastmod.text
 
 
 def test_sitemap_caches_for_one_hour(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

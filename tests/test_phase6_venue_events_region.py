@@ -118,7 +118,7 @@ def test_provider_with_events_renders_venue_region(client: TestClient) -> None:
 
 def test_provider_profile_regression_district_and_search(client: TestClient) -> None:
     """Smoke: category + provider templates still include primary UI markers."""
-    r = client.get("/categories/eat-drink")
+    r = client.get("/lake-havasu/restaurants")
     assert r.status_code == 200
     text = Path("app/templates/provider_profile.html").read_text(encoding="utf-8")
     assert 'data-region="provider-identity"' in text  # Sandstone identity anchor

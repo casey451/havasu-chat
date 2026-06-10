@@ -168,7 +168,7 @@ def test_plural_page_shows_subcategory_chips(client: TestClient) -> None:
         db.commit()
         eid = p.entity_id
     try:
-        r = client.get("/categories/services")
+        r = client.get("/lake-havasu/storage")
         assert r.status_code == 200
         body = r.text
         # Sandstone: subcategory chips render in the in-place filter row, each with

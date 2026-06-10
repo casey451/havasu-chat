@@ -28,7 +28,6 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from slowapi.errors import RateLimitExceeded
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -58,7 +57,6 @@ from app.api.routes.themed_groups import router as themed_groups_router
 from app.api.routes.today import router as today_router
 from app.auth.routes import router as auth_router
 from app.auth.session import COOKIE_NAME, SessionMiddleware, cookie_secure_in_prod
-from app.categories.queries import CATEGORY_FILTERS
 from app.categories.router import router as direction_c_categories_router
 from app.core.event_quality import friendly_errors
 from app.core.provider_name import (
@@ -562,7 +560,7 @@ def _render_permalink_response(
 # --------------------------------------------------------------------------
 #
 # robots.txt is fully static. sitemap.xml enumerates the home page, static
-# legal/contribute pages, every category route in CATEGORY_FILTERS, every
+# legal/contribute pages, every taxonomy department + gate-clearing leaf, every
 # active non-draft provider profile, and every live event. The XML is
 # cached in-process for one hour because regeneration walks providers +
 # events tables (thousands of rows). The cache is a simple
@@ -658,30 +656,10 @@ def _build_sitemap_pages_xml() -> str:
     for path in static_paths:
         entries.append(_sitemap_url_entry(f"{base}{path}"))
 
-    # Category routes — real lastmod: the newest Provider.updated_at among the
-    # member legacy categories, omitted when the aggregate is unavailable.
-    latest_by_category: dict[str, datetime] = {}
-    try:
-        with SessionLocal() as db:
-            rows = (
-                db.query(Provider.category, func.max(Provider.updated_at))
-                .filter(
-                    Provider.is_active.is_(True),
-                    Provider.draft.is_(False),
-                )
-                .group_by(Provider.category)
-                .all()
-            )
-        latest_by_category = {cat: ts for cat, ts in rows if cat and ts is not None}
-    except Exception as exc:  # pragma: no cover — defensive
-        logger.warning("sitemap: category lastmod aggregation failed: %s", exc)
-
-    for slug, member_categories in CATEGORY_FILTERS.items():
-        stamps = [
-            latest_by_category[cat] for cat in member_categories if cat in latest_by_category
-        ]
-        lastmod = _iso_or_none(max(stamps)) if stamps else None
-        entries.append(_sitemap_url_entry(f"{base}/categories/{slug}", lastmod))
+    # The retired flat /categories/{slug} bucket routes 301 to taxonomy
+    # departments (A.3 nav rewire) and are deliberately NOT listed — a sitemap
+    # should never advertise a redirect. Departments + leaves are enumerated
+    # below.
 
     # P2.1 dedicated trade pages — only trades clearing the thin-page gate
     # (TRADE_PAGE_MIN_PROVIDERS) are listed; under-minimum trades 404 and are

@@ -74,7 +74,10 @@ def test_drop_in_filter(db) -> None:
     assert ent in out
 
 
-def test_classes_sports_page_loads() -> None:
+def test_classes_sports_page_301s_to_department() -> None:
+    # A.3 nav rewire: the retired singular route 301s straight to the
+    # fitness-and-wellness department landing.
     client = TestClient(app)
-    r = client.get("/category/classes-sports-recreation")
-    assert r.status_code == 200
+    r = client.get("/category/classes-sports-recreation", follow_redirects=False)
+    assert r.status_code == 301
+    assert r.headers["location"] == "/categories/fitness-and-wellness"

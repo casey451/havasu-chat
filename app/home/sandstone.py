@@ -18,7 +18,6 @@ from typing import Any
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.categories import queries as cat_queries
 from app.db.models import Event
 from app.events.class_occurrences import (
     class_occurrences_in_window,
@@ -27,7 +26,6 @@ from app.events.class_occurrences import (
 from app.events.dedup import dedup_cross_source_occurrences
 from app.events.recurrence import occurrences_in_window
 from app.events.time_labels import format_short_time, short_time_label, time_sort_key
-from app.home.queries import CATEGORY_LABELS
 
 
 def _live_events_by_day(
@@ -82,115 +80,125 @@ def _live_events_by_day(
         by_day.setdefault(occ_date, []).append(ev)
     return by_day
 
-# Display labels for tier-1 routes the canonical CATEGORY_LABELS map omits. These
-# are presentation strings, not data; every *route* below is a real page in
-# ``CATEGORY_FILTERS`` and every *count* is a live query, so nothing is fabricated.
-_ROUTE_LABEL_FALLBACK: dict[str, str] = {
-    "things-to-do": "Things to Do",
-    "services": "Services",
-    "professional-services": "Professional",
-    "beauty-care": "Beauty & Personal Care",
-    "attractions": "Attractions",
-}
+# ---------------------------------------------------------------------------
+# Explore strips — driven by the live A.3 taxonomy departments
+# ---------------------------------------------------------------------------
+#
+# The 15 level-0 departments ARE the category nav (2026-06-09 rewire; the old
+# lumped CATEGORY_FILTERS buckets are retired and 301 away). Labels and counts
+# come from the live Category tree via ``leaf_pages.all_departments`` — one
+# grouped query — so a renamed department or a newly gate-clearing leaf shows
+# up here without touching this file. A department absent from the DB (or
+# with no gate-clearing leaf) is omitted: honest omission, never a dead link.
 
 
-def _route_label(route: str) -> str:
-    return CATEGORY_LABELS.get(route) or _ROUTE_LABEL_FALLBACK.get(
-        route, route.replace("-", " ").title()
-    )
+def _department_rows(db: Session) -> list[dict[str, Any]]:
+    """``{slug, name, count}`` per department in taxonomy order; [] on error."""
+    from app.categories import leaf_pages
 
-
-def _route_count(db: Session, route: str) -> int | None:
-    """Live provider count for a route, or None (never a fabricated 0)."""
     try:
-        return cat_queries.category_count(db, route)
-    except Exception:  # pragma: no cover - defensive; never block the page on a count
-        return None
-
-
-# ---------------------------------------------------------------------------
-# Explore strips
-# ---------------------------------------------------------------------------
-
-# (emoji, short label, real tier-1 route). The six primary front doors from the
-# prototype, mapped onto routes that actually exist today. Health and Stay are
-# surfaced here as front doors per the blueprint; full Real-Estate / taxonomy
-# restructuring is the step-3 job, so we link the closest real route now.
-_PRIMARY_TILES: tuple[tuple[str, str, str], ...] = (
-    ("\U0001F37D️", "Eat & Drink", "eat-drink"),
-    ("⛵", "On the Water", "on-the-water"),
-    ("\U0001F39F️", "Things to Do", "things-to-do"),
-    ("\U0001F6CD️", "Shopping", "shopping-essentials"),
-    ("\U0001FA7A", "Health", "health-wellness-care"),
-    ("\U0001F3E1", "Stay & Rentals", "lodging-vacation-rentals"),
-)
-
-# Secondary "need something done?" service shortcuts — all real routes.
-_SERVICE_TILES: tuple[tuple[str, str, str], ...] = (
-    ("\U0001F527", "Home & Trades", "home-property-services"),
-    ("\U0001F697", "Auto & RV", "auto-rv-fuel"),
-    ("\U0001F488", "Beauty", "beauty-care"),
-    ("\U0001F43E", "Pets", "pets"),
-    ("\U0001F4BC", "Professional", "professional-services"),
-    ("\U0001F3DB️", "Civic & Public", "public-civic-resources"),
-)
+        return [
+            {"slug": dept.slug, "name": dept.name, "count": total}
+            for dept, _leaf_n, total in leaf_pages.all_departments(db)
+        ]
+    except Exception:  # pragma: no cover - defensive; never block the page
+        return []
 
 
 def explore_tiles(db: Session) -> list[dict[str, Any]]:
-    """Primary category front doors with live counts (count omitted when None)."""
+    """Every taxonomy department with its live leaf-summed count, in taxonomy
+    order. Counts are primary-link based, so they never overlap or double
+    count a business across tiles."""
     return [
         {
-            "emoji": emoji,
-            "label": label,
-            "route": route,
-            "url": f"/categories/{route}",
-            "count": _route_count(db, route),
+            "label": row["name"],
+            "route": row["slug"],
+            "url": f"/categories/{row['slug']}",
+            "count": row["count"],
         }
-        for emoji, label, route in _PRIMARY_TILES
+        for row in _department_rows(db)
     ]
+
+
+# The "Need something done?" strip: the service-side departments, in the order
+# locals reach for them. Slugs reference the live tree; a missing department
+# is skipped.
+_SERVICE_DEPARTMENT_SLUGS: tuple[str, ...] = (
+    "home-and-property-services",
+    "auto-rv-and-marine",
+    "beauty-and-personal-care",
+    "pets",
+    "professional-and-financial",
+    "community-and-civic",
+)
 
 
 def service_tiles(db: Session) -> list[dict[str, Any]]:
     """Secondary service shortcuts (no counts — the strip reads as a directory)."""
+    by_slug = {row["slug"]: row for row in _department_rows(db)}
     return [
-        {"emoji": emoji, "label": label, "url": f"/categories/{route}"}
-        for emoji, label, route in _SERVICE_TILES
+        {"label": by_slug[slug]["name"], "url": f"/categories/{slug}"}
+        for slug in _SERVICE_DEPARTMENT_SLUGS
+        if slug in by_slug
     ]
 
 
 # ---------------------------------------------------------------------------
-# Explore mega-menu — six columns driven by the real top-level taxonomy
+# Explore mega-menu — six columns spanning all 15 taxonomy departments
 # ---------------------------------------------------------------------------
 
 _MEGA_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("Eat & Drink", ("eat-drink",)),
+    ("Eat & Drink", ("eat-and-drink",)),
     ("On the Water", ("on-the-water",)),
-    ("Things to Do", ("things-to-do", "attractions", "classes-sports-recreation")),
-    ("Services", ("services", "home-property-services", "auto-rv-fuel", "beauty-care", "professional-services", "pets")),
-    ("Health & Medical", ("health-wellness-care",)),
-    ("Living Here", ("lodging-vacation-rentals", "shopping-essentials", "public-civic-resources")),
+    (
+        "Fun & Outdoors",
+        (
+            "things-to-do-and-attractions",
+            "outdoors-and-recreation",
+            "fitness-and-wellness",
+            "family-and-education",
+        ),
+    ),
+    (
+        "Services",
+        (
+            "home-and-property-services",
+            "auto-rv-and-marine",
+            "professional-and-financial",
+            "beauty-and-personal-care",
+            "pets",
+        ),
+    ),
+    ("Health & Medical", ("health-and-medical",)),
+    ("Living Here", ("shopping-and-retail", "community-and-civic", "lodging")),
 )
 
 
 def mega_columns(db: Session) -> list[dict[str, Any]]:
-    """Mega-menu columns; every link is a real ``/categories/{route}`` page."""
+    """Mega-menu columns; every link is a live ``/categories/{department}``
+    landing. Departments missing from the DB are omitted; a column with no
+    surviving links collapses away."""
+    by_slug = {row["slug"]: row for row in _department_rows(db)}
     columns: list[dict[str, Any]] = []
-    for heading, routes in _MEGA_GROUPS:
+    for heading, slugs in _MEGA_GROUPS:
         links = [
-            {"label": _route_label(route), "url": f"/categories/{route}"}
-            for route in routes
+            {"label": by_slug[slug]["name"], "url": f"/categories/{slug}"}
+            for slug in slugs
+            if slug in by_slug
         ]
-        columns.append({"heading": heading, "links": links})
+        if links:
+            columns.append({"heading": heading, "links": links})
     return columns
 
 
-# Header high-value direct links (recognition-over-recall): real routes only.
+# Header high-value direct links (recognition-over-recall): department
+# landings only.
 def primary_nav() -> list[dict[str, str]]:
     return [
-        {"label": "Eat & Drink", "url": "/categories/eat-drink"},
+        {"label": "Eat & Drink", "url": "/categories/eat-and-drink"},
         {"label": "On the Water", "url": "/categories/on-the-water"},
-        {"label": "Things to Do", "url": "/categories/things-to-do"},
-        {"label": "Health", "url": "/categories/health-wellness-care"},
+        {"label": "Things to Do", "url": "/categories/things-to-do-and-attractions"},
+        {"label": "Health", "url": "/categories/health-and-medical"},
     ]
 
 
@@ -625,11 +633,10 @@ def _tile(emoji: str, title: str, blurb: str, url: str) -> dict[str, str]:
 
 # -- Lake -------------------------------------------------------------------
 # Boat rentals / launch ramps / marinas+fuel / gear+ice / tours+charters /
-# watercraft service. The closest real route for all on-water sub-tiles is
-# ``/categories/on-the-water`` (its filter covers boat_rental, boat_repair,
-# lake_recreation, lodging). Where the sub-tile is a finer intent than that
-# route exposes today, we deep-link a /chat search so the user still lands on
-# real results instead of a generic page.
+# watercraft service. The closest real page for all on-water sub-tiles is the
+# ``/categories/on-the-water`` department landing. Where the sub-tile is a
+# finer intent than that page exposes today, we deep-link a /chat search so
+# the user still lands on real results instead of a generic page.
 def _lake_tiles() -> list[dict[str, str]]:
     water = "/categories/on-the-water"
     return [
@@ -644,11 +651,12 @@ def _lake_tiles() -> list[dict[str, str]]:
 
 # -- Night ------------------------------------------------------------------
 # Bars / breweries+wineries / live music / happy hours / late kitchens /
-# get-home-safe. Bars, breweries and late kitchens are food_drink, so they
-# point at ``/categories/eat-drink``; the time/event-specific intents (live
-# music tonight, happy hours on now) have no category route, so they search.
+# get-home-safe. Bars, breweries and late kitchens point at the
+# ``/categories/eat-and-drink`` department; the time/event-specific intents
+# (live music tonight, happy hours on now) have no category page, so they
+# search.
 def _night_tiles() -> list[dict[str, str]]:
-    eat = "/categories/eat-drink"
+    eat = "/categories/eat-and-drink"
     return [
         _tile("🍸", "Bars & Lounges", "Waterfront, dive, cocktail", eat),
         _tile("🍺", "Breweries & Wineries", "Tastings, taprooms", eat),
@@ -661,14 +669,14 @@ def _night_tiles() -> list[dict[str, str]]:
 
 # -- Family -----------------------------------------------------------------
 # Parks / swim+splash / classes+camps / free events / beat-the-heat /
-# kid-friendly eats. Parks, swim and classes map onto things-to-do /
-# classes-sports-recreation routes; free events and kid eats are finer intents
-# routed to /chat search.
+# kid-friendly eats. Parks map onto the outdoors department, classes onto
+# family-and-education; free events and kid eats are finer intents routed to
+# /chat search.
 def _family_tiles() -> list[dict[str, str]]:
-    things = "/categories/things-to-do"
-    classes = "/categories/classes-sports-recreation"
+    outdoors = "/categories/outdoors-and-recreation"
+    classes = "/categories/family-and-education"
     return [
-        _tile("🛝", "Parks & Playgrounds", "Shade, splash pads", things),
+        _tile("🛝", "Parks & Playgrounds", "Shade, splash pads", outdoors),
         _tile("🏊", "Swim & Splash", "Aquatic center, beaches", _chat_url("swimming and splash pads")),
         _tile("🎨", "Classes & Camps", "Art, music, sports", classes),
         _tile("🎈", "Free Family Events", "This week's lineup", _chat_url("free family events")),

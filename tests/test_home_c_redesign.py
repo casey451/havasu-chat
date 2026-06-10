@@ -42,7 +42,7 @@ def test_sandstone_no_mock_content() -> None:
         assert leaked not in r.text
 
 
-def test_sandstone_has_explore_and_nav() -> None:
+def test_sandstone_has_explore_and_nav(seeded_nav_departments: dict) -> None:
     with TestClient(app) as client:
         r = client.get("/home")
     assert 'href="/categories"' in r.text

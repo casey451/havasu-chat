@@ -208,3 +208,101 @@ def _test_source_row_cleanup() -> Generator[None, None, None]:
     from app.chat.entity_matcher import reset_entity_matcher
 
     reset_entity_matcher()
+
+
+@pytest.fixture
+def seeded_nav_departments() -> Generator[dict[str, str], None, None]:
+    """Minimal A.3 taxonomy for nav-surface tests (home strips, header mega
+    menu, /categories index): three real departments, each with one
+    gate-clearing leaf backed by active providers.
+
+    Department slugs are the REAL production slugs because the nav templates
+    link them; existing rows (the directory_v1 migration seeds some level-0
+    twins) are reused, and only rows this fixture created are deleted.
+    Entities/Providers ride the snapshot sweep; Category rows are cleaned
+    here because the sweep does not cover them.
+    """
+    from uuid import uuid4
+
+    from sqlalchemy import select
+
+    from app.categories import leaf_pages
+    from app.categories import router as cat_router
+    from app.db.database import SessionLocal
+    from app.db.models import Category, Entity, EntityCategory, Provider
+
+    gate = leaf_pages.LEAF_PAGE_MIN_PROVIDERS
+    suf = uuid4().hex[:6]
+    source = f"test-nav-tax-{suf}"
+    spec = (
+        ("eat-and-drink", "Eat & Drink", 0),
+        ("home-and-property-services", "Home & Property Services", 8),
+        ("professional-and-financial", "Professional & Financial", 11),
+    )
+    created_cat_ids: list[int] = []
+    with SessionLocal() as db:
+        for dept_slug, dept_name, sort in spec:
+            dept = db.scalars(
+                select(Category).where(Category.slug == dept_slug, Category.level == 0)
+            ).first()
+            if dept is None:
+                dept = Category(slug=dept_slug, name=dept_name, sort_order=sort, level=0)
+                db.add(dept)
+                db.flush()
+                created_cat_ids.append(dept.id)
+            leaf = Category(
+                slug=f"nav-leaf-{dept_slug}-{suf}",
+                name=f"Nav Leaf {dept_slug}",
+                sort_order=0,
+                level=1,
+                parent_id=dept.id,
+            )
+            db.add(leaf)
+            db.flush()
+            created_cat_ids.append(leaf.id)
+            for i in range(gate):
+                ent = Entity(
+                    entity_type="commercial",
+                    slug=f"nav-ent-{uuid4().hex[:10]}",
+                    name=f"Nav Biz {dept_slug} {i}",
+                    source=source,
+                )
+                db.add(ent)
+                db.flush()
+                db.add(
+                    Provider(
+                        provider_name=f"Nav Biz {dept_slug} {i}",
+                        category="x",
+                        slug=f"nav-prov-{uuid4().hex[:10]}",
+                        is_active=True,
+                        draft=False,
+                        source=source,
+                        entity_id=ent.id,
+                    )
+                )
+                db.add(
+                    EntityCategory(entity_id=ent.id, category_id=leaf.id, is_primary=True)
+                )
+        db.commit()
+    cat_router.reset_index_cache()
+    try:
+        yield {"source": source, "departments": [s for s, _, _ in spec]}
+    finally:
+        with SessionLocal() as db:
+            for prov in db.scalars(
+                select(Provider).where(Provider.source == source)
+            ).all():
+                db.delete(prov)
+            for ent in db.scalars(select(Entity).where(Entity.source == source)).all():
+                for ec in db.scalars(
+                    select(EntityCategory).where(EntityCategory.entity_id == ent.id)
+                ).all():
+                    db.delete(ec)
+                db.delete(ent)
+            if created_cat_ids:
+                for cat in db.scalars(
+                    select(Category).where(Category.id.in_(created_cat_ids))
+                ).all():
+                    db.delete(cat)
+            db.commit()
+        cat_router.reset_index_cache()

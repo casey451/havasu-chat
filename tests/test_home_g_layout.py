@@ -66,7 +66,9 @@ def _sponsor_cleanup() -> Iterator[None]:
 # --- section order + always-on blocks ---------------------------------------
 
 
-def test_home_section_order_breadth_and_explore_above_month(client: TestClient) -> None:
+def test_home_section_order_breadth_and_explore_above_month(
+    client: TestClient, seeded_nav_departments: dict
+) -> None:
     r = client.get("/home")
     assert r.status_code == 200
     body = r.text
@@ -82,7 +84,9 @@ def test_home_section_order_breadth_and_explore_above_month(client: TestClient) 
     assert i_explore < i_cal
 
 
-def test_home_category_strip_present_with_pills(client: TestClient) -> None:
+def test_home_category_strip_present_with_pills(
+    client: TestClient, seeded_nav_departments: dict
+) -> None:
     body = client.get("/home").text
     assert "home-catstrip" in body
     assert "catpill" in body

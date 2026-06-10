@@ -83,10 +83,12 @@ def test_cat13_population_reaches_fifteen_after_seed_and_scrape(db) -> None:
         db.commit()
 
 
-def test_public_civic_category_page_renders_200(client: TestClient) -> None:
-    r = client.get("/category/public-civic-resources")
-    assert r.status_code == 200
-    assert "Public" in r.text or "Civic" in r.text
+def test_public_civic_category_page_301s_to_department(client: TestClient) -> None:
+    # A.3 nav rewire: the retired singular route 301s straight to the
+    # community-and-civic department landing.
+    r = client.get("/category/public-civic-resources", follow_redirects=False)
+    assert r.status_code == 301
+    assert r.headers["location"] == "/categories/community-and-civic"
 
 
 def test_run_scrape_and_seed_commit_integration(db) -> None:

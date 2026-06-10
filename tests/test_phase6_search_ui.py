@@ -29,7 +29,7 @@ def test_home_hero_composer_and_ask_hava(client: TestClient) -> None:
 
 
 def test_category_header_has_hava_search(client: TestClient) -> None:
-    r = client.get("/categories/eat-drink")
+    r = client.get("/lake-havasu/restaurants")
     assert r.status_code == 200
     # Sandstone category page uses the shared editorial header (logo + nav +
     # Explore mega); search lives on the home hero, not the category header.
