@@ -131,7 +131,7 @@ Hours, prices, schedules, and locations change constantly in a
 seasonal town. The catalog and the concierge's answers are not
 guaranteed to be complete, current, or error-free (see §3). If you
 spot something wrong, please tell us — the feedback control in the
-chat or hello@havasuchat.com is the fastest route.
+chat or hello@askhava.com is the fastest route.
 
 ## 10. Intellectual property
 
@@ -187,7 +187,7 @@ law allows.
 
 ## 14. Contact
 
-Email us at **hello@havasuchat.com**, or use the feedback control in
+Email us at **hello@askhava.com**, or use the feedback control in
 the chat when something looks wrong. This Terms page works together
 with our [Privacy page](/privacy) for data practices.
 
@@ -195,7 +195,7 @@ with our [Privacy page](/privacy) for data practices.
 
 If you believe something in the public catalog is inaccurate,
 offensive, or infringes your or someone else's rights (including
-copyright), email **hello@havasuchat.com** with a link to the page
+copyright), email **hello@askhava.com** with a link to the page
 and a short description of the problem. We review reports as quickly
 as we reasonably can and may remove or change content that violates
 these terms, is wrong in a way that could harm users, or is otherwise

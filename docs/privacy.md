@@ -98,4 +98,4 @@ becomes a concern you'd like to raise sooner, contact us (below).
 The fastest way to reach us is the feedback button at the bottom
 of each chat response — it goes straight to the operator.
 
-You can also reach us by email at hello@havasuchat.com.
+You can also reach us by email at hello@askhava.com.
