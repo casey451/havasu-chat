@@ -128,14 +128,17 @@ def _contact_match_entity_id(db: Session, payload: EntityPayload) -> str | None:
     if web is None and phone is None:
         return None
 
+    # Column-only scan: the normalizers run in Python, but hydrating every
+    # active Provider as a full ORM object per payload was the dominant cost.
+    rows = db.query(Provider.entity_id, Provider.website, Provider.phone).filter(
+        Provider.is_active.is_(True), Provider.entity_id.is_not(None)
+    )
     matches: set[str] = set()
-    for prov in db.query(Provider).filter(Provider.is_active.is_(True)).all():
-        if not prov.entity_id:
-            continue
-        if web is not None and norm_domain(prov.website) == web:
-            matches.add(prov.entity_id)
-        elif phone is not None and norm_phone(prov.phone) == phone:
-            matches.add(prov.entity_id)
+    for entity_id, prov_website, prov_phone in rows:
+        if web is not None and norm_domain(prov_website) == web:
+            matches.add(entity_id)
+        elif phone is not None and norm_phone(prov_phone) == phone:
+            matches.add(entity_id)
     if len(matches) == 1:
         return next(iter(matches))
     return None

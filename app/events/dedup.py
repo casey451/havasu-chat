@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import os
 import re
 from collections.abc import Sequence
@@ -9,7 +10,7 @@ from datetime import UTC, date, datetime, time
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from rapidfuzz import fuzz
+from rapidfuzz import fuzz, process
 from sqlalchemy import false, or_, select
 from sqlalchemy.orm import Session
 
@@ -19,6 +20,13 @@ from app.events.time_labels import is_time_tbd
 
 DEDUP_DATETIME_WINDOW_MINUTES = int(os.environ.get("EVENT_DEDUP_DATETIME_WINDOW_MINUTES", "30"))
 DEDUP_TITLE_FUZZY_THRESHOLD = int(os.environ.get("EVENT_DEDUP_TITLE_THRESHOLD", "85"))
+
+# Catalog-scan normalization cache. resolve_venue_entity_id re-normalizes the
+# SAME ~3k entity names / provider addresses on every call (once per event in a
+# scrape batch). normalize_event_title is pure (regex over the input string),
+# so a string-keyed cache is safe; scoped to this module's scan loops so
+# unbounded one-off inputs (raw titles, descriptions) don't churn it.
+_norm_cached = functools.lru_cache(maxsize=8192)(normalize_event_title)
 
 # --------------------------------------------------------------------------- #
 # Canonical-URL identity (cross-source dedup: go_lake_havasu + river_scene_import)
@@ -223,28 +231,45 @@ def resolve_venue_entity_id(
     venue_name: str | None,
     venue_address: str | None = None,
 ) -> str | None:
-    """Match venue name to an existing Entity id when confidence is high."""
+    """Match venue name to an existing Entity id when confidence is high.
+
+    Perf shape (this runs once per event payload on the ingest path): the
+    previous implementation hydrated every active Entity as a full ORM object
+    and ran a Python-loop ``token_sort_ratio`` per row (~165-215ms/call at
+    3.2k entities). Now: column-only ``(id, name)`` scan, an exact
+    normalized-name probe first (re-scraped venue strings repeat verbatim, and
+    an exact match is a 100-score that nothing can beat), and the fuzzy
+    fallback via ``process.extractOne`` (C loop, same scorer/first-max-wins
+    semantics as the old Python loop). The address tier likewise scans
+    ``(entity_id, address)`` tuples only.
+    """
     name = (venue_name or "").strip()
     if not name:
         return None
     norm = normalize_event_title(name)
-    best_id: str | None = None
-    best_score = 0
-    for ent in db.scalars(select(Entity).where(Entity.is_active.is_(True))).all():
-        score = fuzz.token_sort_ratio(normalize_event_title(ent.name or ""), norm)
-        if score > best_score:
-            best_score = score
-            best_id = ent.id
-    if best_score >= 90:
-        return best_id
+    rows = db.execute(select(Entity.id, Entity.name).where(Entity.is_active.is_(True))).all()
+    ids: list[str] = []
+    normed: list[str] = []
+    for eid, ename in rows:
+        n = _norm_cached(ename or "")
+        if n == norm:
+            return eid
+        ids.append(eid)
+        normed.append(n)
+    hit = process.extractOne(norm, normed, scorer=fuzz.token_sort_ratio, score_cutoff=90)
+    if hit is not None:
+        return ids[hit[2]]
     if venue_address:
         addr_norm = normalize_event_title(venue_address)
-        for prov in db.scalars(select(Provider).where(Provider.is_active.is_(True))).all():
-            if not prov.entity_id:
-                continue
-            pa = normalize_event_title(prov.address or "")
+        prov_rows = db.execute(
+            select(Provider.entity_id, Provider.address).where(
+                Provider.is_active.is_(True), Provider.entity_id.is_not(None)
+            )
+        ).all()
+        for ent_id, addr in prov_rows:
+            pa = _norm_cached(addr or "")
             if pa and fuzz.partial_ratio(addr_norm, pa) >= 85:
-                return prov.entity_id
+                return ent_id
     return None
 
 
