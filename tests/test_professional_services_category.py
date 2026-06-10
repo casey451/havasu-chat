@@ -105,10 +105,11 @@ def test_seed_repoints_null_and_legacy_rows_only_and_is_reversible() -> None:
             db.commit()
 
 
-def test_route_renders_and_legacy_slug_redirects() -> None:
+def test_route_and_legacy_slug_redirect_to_department() -> None:
+    # A.3 nav rewire: both the flat route and its older alias 301 to the
+    # professional-and-financial department landing.
     client = TestClient(app)
-    r = client.get("/categories/professional-services", follow_redirects=False)
-    assert r.status_code == 200
-    r = client.get("/categories/professional", follow_redirects=False)
-    assert r.status_code == 301
-    assert r.headers["location"] == "/categories/professional-services"
+    for slug in ("professional-services", "professional"):
+        r = client.get(f"/categories/{slug}", follow_redirects=False)
+        assert r.status_code == 301
+        assert r.headers["location"] == "/categories/professional-and-financial"

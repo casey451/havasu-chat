@@ -77,7 +77,7 @@ def test_category_page_images_have_alt() -> None:
         patch.object(cat_queries, "category_cards", return_value=_stub_cards(3)),
         patch.object(cat_queries, "category_count", return_value=3),
     ):
-        resp = client.get("/categories/eat-drink")
+        resp = client.get("/lake-havasu/restaurants")
     assert resp.status_code == 200
     body = resp.text
     # Crude but effective: no <img ...> tag without an alt= before its close.
@@ -86,8 +86,11 @@ def test_category_page_images_have_alt() -> None:
         assert "alt=" in tag, f"<img{tag}> missing alt attribute"
 
 
-def test_category_page_all_categories_pill_is_labelled() -> None:
-    """The header navigation pills expose accessible text names."""
+def test_category_page_all_categories_pill_is_labelled(
+    seeded_nav_departments: dict,
+) -> None:
+    """The header navigation pills expose accessible text names. The header
+    'Explore all' mega menu is taxonomy-driven, hence the seeded fixture."""
     client = TestClient(app)
     # WP-5: subtype chips (incl. the "All" pill) are now generated from subtypes
     # ACTUALLY present, so stub one present subtype to exercise the chip row.
@@ -96,7 +99,7 @@ def test_category_page_all_categories_pill_is_labelled() -> None:
         patch.object(cat_queries, "category_listing", return_value=(_stub_cards(2), 2)),
         patch.object(cat_queries, "subcategory_chips_for_route", return_value=chips),
     ):
-        resp = client.get("/categories/eat-drink")
+        resp = client.get("/lake-havasu/restaurants")
     assert resp.status_code == 200
     body = resp.text
     # Sandstone: the "All" subcategory chip and the "Explore all" mega trigger

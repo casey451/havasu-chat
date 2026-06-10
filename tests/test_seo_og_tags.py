@@ -21,7 +21,7 @@ def _og(html_text: str, prop: str) -> list[str]:
     )
 
 
-@pytest.mark.parametrize("path", ["/home", "/categories/eat-drink", "/events-ui", "/map"])
+@pytest.mark.parametrize("path", ["/home", "/lake-havasu/restaurants", "/events-ui", "/map"])
 def test_core_pages_have_full_og_set(client: TestClient, path: str) -> None:
     r = client.get(path)
     assert r.status_code == 200
@@ -32,7 +32,7 @@ def test_core_pages_have_full_og_set(client: TestClient, path: str) -> None:
         assert values[0].strip(), f"{path} has empty og:{prop}"
 
 
-@pytest.mark.parametrize("path", ["/home", "/categories/eat-drink"])
+@pytest.mark.parametrize("path", ["/home", "/lake-havasu/restaurants"])
 def test_og_image_is_absolute(client: TestClient, path: str) -> None:
     r = client.get(path)
     (img,) = _og(r.text, "image")

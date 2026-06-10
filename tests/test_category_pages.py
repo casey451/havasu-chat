@@ -1,65 +1,41 @@
-"""Direction C category-page tests (PR D5).
+"""Direction C category-page tests (PR D5; A.3 nav rewire 2026-06-09).
 
 Coverage:
 
 1. ``CATEGORY_FILTERS`` / ``CATEGORY_DISPLAY`` / ``_TAB_FOR_ROUTE``
-   module-level invariants -- every route has display copy, every
-   route has a tab mapping, no duplicate slugs in any filter tuple,
-   every filter slug appears in LEGACY_PROVIDER_CATEGORY_LABELS.
+   module-level invariants -- the flat-bucket machinery is retired from
+   public ``/categories/{slug}`` rendering but still backs the
+   ``/lake-havasu/{subcategory}`` landings, so its internal consistency
+   still matters.
 2. ``is_valid_category_slug()`` -- known slugs, unknown slugs, edge
    cases (empty, whitespace, casing).
 3. ``category_count()`` / ``category_cards()`` contracts -- None DB,
    exception swallowing, slug filtering, no-zero rule.
-4. End-to-end render via ``GET /categories/{slug}``:
-   - 200 OK for each of the 15 known routes.
+4. End-to-end ``GET /categories/{slug}`` (A.3 rewire):
+   - every retired flat slug 301s to its taxonomy department
+     (``ROUTE_SLUG_ALIASES``); nothing renders the old lumped pages.
+   - master-bucket slugs 301 in ONE hop (chains collapsed through the
+     alias map).
+   - ``on-the-water`` / ``pets`` -- slugs shared with the new tree --
+     render the department landing when the taxonomy is present.
    - 404 for an unknown slug.
-   - Slim header renders with label + count when count > 0.
-   - Count clause is absent (no "0 listed") when count is None.
-   - Active tab pill carries ``is-active`` and ``aria-current``.
-   - Topbar tab anchors render with ``/categories/{slug}`` hrefs.
-   - Back link to /home present.
-   - No "0 listed" copy anywhere -- uses ">0 listed<" (literal text-node
-     start) to avoid substring collisions with "10 listed" / "20 listed".
-   - SVG path data is stripped before the no-zero scan (the topbar
-     wordmark dot and other inline SVGs have arc/move commands with
-     literal " 0 ").
-
-Tests follow the v32 pattern: TestClient renders, no-zero invariant
-uses ">0 listed<" not " 0 ", SVG blocks are stripped before the scan
-to prevent SVG path data (M3 0 ... a4 4 0 0 1) from tripping the
-guard.
 """
 
 from __future__ import annotations
 
-import html as html_lib
-import re
 from datetime import datetime
-from unittest.mock import patch
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from app.categories import queries as cat_queries
+from app.categories.router import ROUTE_SLUG_ALIASES
+from app.db.database import SessionLocal
 from app.home.queries import LEGACY_PROVIDER_CATEGORY_LABELS
 from app.main import app
-from app.v1.categories import BUCKET_SLUG_REDIRECTS, MASTER_BUCKETS
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-_SVG_BLOCK = re.compile(r"<svg\b[^>]*>.*?</svg>", flags=re.IGNORECASE | re.DOTALL)
-
-
-def _strip_svg(body: str) -> str:
-    """Remove <svg>...</svg> blocks so SVG path data doesn't trip the
-    naive ' 0 ' / '>0<' editorial-copy guards. See v32 handoff for the
-    backstory -- this is the same pattern as test_discover_grid /
-    test_eat_row use after D4 shipped."""
-    return _SVG_BLOCK.sub("", body)
-
+from app.v1.categories import MASTER_BUCKETS
 
 # ---------------------------------------------------------------------------
 # Module-level invariants
@@ -258,36 +234,10 @@ def test_category_cards_swallows_db_exception() -> None:
 
 
 # ---------------------------------------------------------------------------
-# End-to-end render via TestClient
+# End-to-end via TestClient (A.3 nav rewire: redirects + department render)
 # ---------------------------------------------------------------------------
 
-
-@pytest.fixture(autouse=True)
-def _reset_curated_caches() -> None:
-    """category_cards reads from queries_c._load_eat_photos (LRU-cached).
-    Reset across tests so a monkey-patched loader in one test doesn't
-    poison the next. Matches the v32 test_services_grid pattern."""
-    from app.home import queries_c
-
-    queries_c.reset_cache()
-    yield
-    queries_c.reset_cache()
-
-
-def _stub_cards(n: int) -> list[dict]:
-    """Generate n placeholder cards for the grid render."""
-    return [
-        {
-            "slug": f"provider-{i}",
-            "name": f"Provider {i}",
-            "image_url": None,
-            "neighborhood": "English Village",
-            "status": "open",
-            "status_text": "Open until 10",
-            "rating": "4.5",
-        }
-        for i in range(n)
-    ]
+_SOURCE = "test-category-pages"
 
 
 def test_category_route_404_for_unknown_slug() -> None:
@@ -296,30 +246,60 @@ def test_category_route_404_for_unknown_slug() -> None:
     assert resp.status_code == 404
 
 
-@pytest.mark.parametrize("bucket", [b["slug"] for b in MASTER_BUCKETS])
-def test_master_bucket_slug_resolves_to_category_page(bucket: str) -> None:
-    """Browse Havasu bucket links 301 to Tier-1 pages (or 200 when slug matches)."""
+@pytest.mark.parametrize(
+    "slug",
+    sorted(set(cat_queries.CATEGORY_FILTERS) - {"on-the-water", "pets"}),
+)
+def test_retired_flat_slug_301s_to_department(slug: str) -> None:
+    """Every retired flat route 301s to its taxonomy department — the old
+    lumped pages never render."""
     client = TestClient(app, follow_redirects=False)
-    expected_dest = BUCKET_SLUG_REDIRECTS[bucket]
-    with patch.object(cat_queries, "category_listing", return_value=(_stub_cards(3), 5)):
-        resp = client.get(f"/categories/{bucket}")
-    if bucket == "services":
-        assert resp.status_code == 200
-    else:
-        assert resp.status_code == 301, f"/categories/{bucket} should redirect, got {resp.status_code}"
-        assert resp.headers["location"] == expected_dest
-        final = client.get(f"/categories/{bucket}", follow_redirects=True)
-        assert final.status_code == 200, (
-            f"followed redirect from /categories/{bucket} to {expected_dest}, got {final.status_code}"
-        )
+    resp = client.get(f"/categories/{slug}")
+    assert resp.status_code == 301, f"/categories/{slug} should 301, got {resp.status_code}"
+    assert resp.headers["location"] == ROUTE_SLUG_ALIASES[slug]
 
 
-def test_food_drink_and_events_bucket_redirects() -> None:
-    """Regression: Browse Havasu links that previously 404."""
+def test_services_grab_bag_301s_to_categories_index() -> None:
+    """The old SERVICES mega-bucket has no single department successor; it
+    301s to the /categories index, which lists all of them."""
+    client = TestClient(app, follow_redirects=False)
+    resp = client.get("/categories/services")
+    assert resp.status_code == 301
+    assert resp.headers["location"] == "/categories"
+    final = client.get("/categories/services", follow_redirects=True)
+    assert final.status_code == 200
+
+
+def test_redirect_preserves_query_string() -> None:
+    client = TestClient(app, follow_redirects=False)
+    resp = client.get("/categories/eat-drink?open=1")
+    assert resp.status_code == 301
+    assert resp.headers["location"] == "/categories/eat-and-drink?open=1"
+
+
+@pytest.mark.parametrize("bucket", [b["slug"] for b in MASTER_BUCKETS])
+def test_master_bucket_slug_301s_in_one_hop(bucket: str) -> None:
+    """Browse Havasu bucket links 301 straight to a live destination — the
+    chain through the retired flat slug is collapsed server-side, so the
+    location header is never itself a redirecting flat route."""
+    client = TestClient(app, follow_redirects=False)
+    resp = client.get(f"/categories/{bucket}")
+    assert resp.status_code == 301, f"/categories/{bucket} should 301, got {resp.status_code}"
+    dest = resp.headers["location"]
+    # Never a retired flat slug (which would force a second hop).
+    tail = dest.rsplit("/", 1)[-1]
+    assert tail not in ROUTE_SLUG_ALIASES, f"{bucket} redirects to retired slug {dest}"
+
+
+def test_food_drink_and_events_bucket_redirect_destinations() -> None:
+    """Regression: Browse Havasu links land on the taxonomy departments."""
     client = TestClient(app, follow_redirects=False)
     cases = {
-        "food-drink": "/categories/eat-drink",
-        "events": "/categories/things-to-do",
+        "food-drink": "/categories/eat-and-drink",
+        "events": "/categories/things-to-do-and-attractions",
+        "sports-fitness": "/categories/fitness-and-wellness",
+        "stay": "/categories/lodging",
+        "shopping": "/categories/shopping-and-retail",
     }
     for bucket, dest in cases.items():
         resp = client.get(f"/categories/{bucket}")
@@ -327,87 +307,78 @@ def test_food_drink_and_events_bucket_redirects() -> None:
         assert resp.headers["location"] == dest
 
 
-@pytest.mark.parametrize("slug", sorted(cat_queries.CATEGORY_FILTERS.keys()))
-def test_category_route_200_for_every_known_slug(slug: str) -> None:
-    """All 15 known routes return 200 with the slim header and grid."""
-    client = TestClient(app)
-    label, _ = cat_queries.CATEGORY_DISPLAY[slug]
-    with patch.object(cat_queries, "category_listing", return_value=(_stub_cards(5), 12)):
-        resp = client.get(f"/categories/{slug}")
-    assert resp.status_code == 200, f"GET /categories/{slug} returned {resp.status_code}"
-    body = resp.text
-    # Jinja autoescape converts '&' -> '&amp;' for tile labels like
-    # "Eat & drink". Match the escaped form.
-    needle = html_lib.escape(label)
-    assert needle in body, f"label {label!r} (escaped {needle!r}) missing from /categories/{slug}"
-    # Sandstone category chrome present.
-    assert 'class="cathead wrap"' in body
-    assert 'class="crumb"' in body
-    # Back link to /home present.
-    assert 'href="/home"' in body
-    # Count clause rendered when category_count is truthy.
-    assert "12 listed" in body
+def test_shared_slug_renders_department_when_taxonomy_present() -> None:
+    """``pets`` is both a retired flat slug and a department slug — with the
+    taxonomy seeded, /categories/pets renders the department landing (leaf
+    grid), NOT the old lumped list and NOT a redirect."""
+    from app.categories import leaf_pages
+    from app.db.models import Category, Entity, EntityCategory, Provider
 
-
-def test_category_route_hides_count_when_none() -> None:
-    """When the query layer returns count=None (no rows or DB outage),
-    the template hides the entire count clause -- no '0 listed' anywhere
-    in the body. SVG blocks are stripped before the scan to avoid
-    tripping on path data."""
-    client = TestClient(app)
-    with patch.object(cat_queries, "category_listing", return_value=([], 0)):
-        resp = client.get("/categories/eat-drink")
-    assert resp.status_code == 200
-    body = _strip_svg(resp.text)
-    # Use ">0 listed<" (literal text-node start) -- avoids the
-    # substring collision with legitimate counts like "10 listed".
-    assert ">0 listed<" not in body
-    assert "0 listed" not in body  # full check on the SVG-stripped body
-    assert 'class="cathead wrap"' in body
-
-
-def test_category_route_renders_grid_when_cards_present() -> None:
-    """When category_cards returns rows, the grid partial renders. The
-    bridge empty-state branch should NOT appear."""
-    client = TestClient(app)
-    with patch.object(cat_queries, "category_listing", return_value=(_stub_cards(7), 7)):
-        resp = client.get("/categories/services")
-    assert resp.status_code == 200
-    body = resp.text
-    assert 'class="biz-grid"' in body
-    assert "Provider 0" in body
-    assert "Provider 6" in body
-
-
-def test_category_route_topbar_tab_anchors_have_hrefs() -> None:
-    """Category page includes standard navigation links."""
-    client = TestClient(app)
-    with patch.object(cat_queries, "category_listing", return_value=(_stub_cards(3), 3)):
-        resp = client.get("/categories/eat-drink")
-    assert resp.status_code == 200
-    body = resp.text
-    assert 'href="/categories"' in body
-    assert 'href="/home"' in body
-
-
-def test_category_route_marks_correct_tab_active() -> None:
-    """Category page highlights Explore in bottom navigation."""
-    client = TestClient(app)
-    with patch.object(cat_queries, "category_listing", return_value=(_stub_cards(2), 2)):
-        resp = client.get("/categories/eat-drink")
-    assert resp.status_code == 200
-    body = resp.text
-    assert 'href="/categories"' in body  # Explore-all mega link
-
-
-def test_category_route_tile_route_marks_mega_tab_active() -> None:
-    """Tile route still highlights Explore in bottom navigation."""
-    client = TestClient(app)
-    with patch.object(cat_queries, "category_listing", return_value=(_stub_cards(4), 4)):
+    gate = leaf_pages.LEAF_PAGE_MIN_PROVIDERS
+    suf = uuid4().hex[:6]
+    leaf_slug = f"pets-leaf-{suf}"
+    created_dept = False
+    with SessionLocal() as db:
+        # The directory_v1 migration seeds a childless level-0 'pets' row;
+        # attach the leaf to it when present (prod's A.3 seed did the same).
+        dept = db.scalars(
+            select(Category).where(Category.slug == "pets", Category.level == 0)
+        ).first()
+        if dept is None:
+            dept = Category(slug="pets", name="Pets", sort_order=7, level=0)
+            db.add(dept)
+            db.flush()
+            created_dept = True
+        leaf = Category(
+            slug=leaf_slug, name="Groomers", sort_order=0, level=1, parent_id=dept.id
+        )
+        db.add(leaf)
+        db.flush()
+        for i in range(gate):
+            ent = Entity(
+                entity_type="commercial",
+                slug=f"cp-ent-{uuid4().hex[:10]}",
+                name=f"Groomer {i}",
+                source=_SOURCE,
+            )
+            db.add(ent)
+            db.flush()
+            db.add(
+                Provider(
+                    provider_name=f"Groomer {i}",
+                    category="x",
+                    slug=f"cp-prov-{uuid4().hex[:10]}",
+                    is_active=True,
+                    draft=False,
+                    source=_SOURCE,
+                    entity_id=ent.id,
+                )
+            )
+            db.add(EntityCategory(entity_id=ent.id, category_id=leaf.id, is_primary=True))
+        db.commit()
+    try:
+        client = TestClient(app, follow_redirects=False)
         resp = client.get("/categories/pets")
-    assert resp.status_code == 200
-    body = resp.text
-    assert 'href="/categories"' in body  # Explore-all mega link
+        assert resp.status_code == 200
+        body = resp.text
+        assert f'href="/categories/pets/{leaf_slug}"' in body
+        assert "Groomers" in body
+    finally:
+        with SessionLocal() as db:
+            for prov in db.scalars(select(Provider).where(Provider.source == _SOURCE)).all():
+                db.delete(prov)
+            for ent in db.scalars(select(Entity).where(Entity.source == _SOURCE)).all():
+                for ec in db.scalars(
+                    select(EntityCategory).where(EntityCategory.entity_id == ent.id)
+                ).all():
+                    db.delete(ec)
+                db.delete(ent)
+            cleanup_slugs = [leaf_slug] + (["pets"] if created_dept else [])
+            for cat in db.scalars(
+                select(Category).where(Category.slug.in_(cleanup_slugs))
+            ).all():
+                db.delete(cat)
+            db.commit()
 
 
 def test_home_redesign_tabs_are_real_anchors() -> None:
@@ -418,29 +389,3 @@ def test_home_redesign_tabs_are_real_anchors() -> None:
     body = resp.text
     assert 'href="/categories"' in body
     assert "Explore" in body
-
-
-def test_category_route_no_zero_listed_copy_anywhere() -> None:
-    """No '0 listed' should appear in the rendered HTML. Uses
-    ">0 listed<" first (literal text-node start, avoids substring
-    collision with legitimate '10 listed' / '20 listed') and then a
-    full '0 listed' check on the SVG-stripped body."""
-    client = TestClient(app)
-    # Test the no-data path: empty cards, no count.
-    with patch.object(cat_queries, "category_listing", return_value=([], 0)):
-        resp = client.get("/categories/pets")
-    assert resp.status_code == 200
-    body = _strip_svg(resp.text)
-    assert ">0 listed<" not in body
-    assert "0 listed" not in body
-
-
-def test_category_route_back_link_present() -> None:
-    """Slim header must include a back link to /home so visitors can
-    bail out of a category page back to the editorial home surface."""
-    client = TestClient(app)
-    with patch.object(cat_queries, "category_listing", return_value=(_stub_cards(1), 1)):
-        resp = client.get("/categories/lodging-vacation-rentals")
-    assert resp.status_code == 200
-    body = resp.text
-    assert 'href="/home"' in body

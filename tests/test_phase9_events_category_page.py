@@ -23,14 +23,14 @@ def test_category_events_page_redirects_to_things_to_do() -> None:
     client = TestClient(app)
     r = client.get("/category/events", follow_redirects=False)
     assert r.status_code == 301
-    assert r.headers["location"] == "/categories/things-to-do"
+    assert r.headers["location"] == "/categories/things-to-do-and-attractions"
 
 
 def test_category_events_when_today_query() -> None:
     client = TestClient(app)
     r = client.get("/category/events?when=today", follow_redirects=False)
     assert r.status_code == 301
-    assert r.headers["location"] == "/categories/things-to-do?when=today"
+    assert r.headers["location"] == "/categories/things-to-do-and-attractions?when=today"
 
 
 def test_next_month_window() -> None:

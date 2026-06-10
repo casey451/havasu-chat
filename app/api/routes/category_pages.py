@@ -1013,26 +1013,29 @@ def _build_events_category_stream(
 
 
 # ---------------------------------------------------------------------------
-# P1.1 route collapse (D1 = plural). The singular ``/category/{slug}`` SEO
-# landing surface is retired in favour of the plural ``/categories/{slug}``
-# Sandstone pages, which the homepage, nav, sitemap, and home queries already
-# treat as canonical. Each Tier-1 slug 301s to its plural twin; the two slugs
-# without a plural twin follow the same precedent as
-# ``app.v1.categories.BUCKET_SLUG_REDIRECTS`` (events -> things-to-do,
-# outdoors -> on-the-water). Query strings are preserved -- the plural route
-# ignores parameters it does not understand, and P1.5 canonicalisation drops
-# them from the canonical URL anyway.
+# P1.1 route collapse (D1 = plural), updated for the A.3 taxonomy nav rewire.
+# The singular ``/category/{slug}`` SEO landing surface is retired; each
+# Tier-1 slug 301s STRAIGHT to its taxonomy department landing (one hop, not
+# a chain through the also-retired flat plural route). Query strings are
+# preserved -- the destination ignores parameters it does not understand, and
+# P1.5 canonicalisation drops them from the canonical URL anyway.
 #
 # The card/view-model helpers above remain in active use by
 # ``app.api.routes.map_data`` and ``app.api.routes.themed_groups``.
 SINGULAR_TO_PLURAL_REDIRECTS: dict[str, str] = {
-    **{
-        slug: f"/categories/{slug}"
-        for slug in TIER_1_CATEGORY_SLUGS
-        if slug not in ("events", "outdoors-parks-trails")
-    },
-    "events": "/categories/things-to-do",
-    "outdoors-parks-trails": "/categories/on-the-water",
+    "eat-drink": "/categories/eat-and-drink",
+    "on-the-water": "/categories/on-the-water",
+    "home-property-services": "/categories/home-and-property-services",
+    "health-wellness-care": "/categories/health-and-medical",
+    "auto-rv-fuel": "/categories/auto-rv-and-marine",
+    "shopping-essentials": "/categories/shopping-and-retail",
+    "events": "/categories/things-to-do-and-attractions",
+    "outdoors-parks-trails": "/categories/outdoors-and-recreation",
+    "classes-sports-recreation": "/categories/fitness-and-wellness",
+    "lodging-vacation-rentals": "/categories/lodging",
+    "pets": "/categories/pets",
+    "public-civic-resources": "/categories/community-and-civic",
+    "professional-services": "/categories/professional-and-financial",
 }
 
 

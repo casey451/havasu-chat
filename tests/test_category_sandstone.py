@@ -16,7 +16,7 @@ from app.main import app
 def test_default_sort_is_weighted_locals_favorites() -> None:
     """The Locals'-favorites pill is active by default (weighted Bayesian sort)."""
     with TestClient(app) as client:
-        r = client.get("/categories/eat-drink")
+        r = client.get("/lake-havasu/restaurants")
     assert r.status_code == 200
     body = r.text
     assert 'class="sortpill on"' in body
@@ -51,7 +51,7 @@ def test_cards_carry_subcategory_token_for_in_place_filter() -> None:
     ]
     with patch.object(cat_queries, "category_listing", return_value=(cards, 1)):
         with TestClient(app) as client:
-            r = client.get("/categories/eat-drink")
+            r = client.get("/lake-havasu/restaurants")
     body = r.text
     # The grid + filter JS + per-card filter token are all present.
     assert 'class="biz-grid"' in body
@@ -65,7 +65,7 @@ def test_empty_category_renders_honest_state_not_zero() -> None:
 
     with patch.object(cat_queries, "category_listing", return_value=([], 0)):
         with TestClient(app) as client:
-            r = client.get("/categories/pets")
+            r = client.get("/lake-havasu/storage")
     body = r.text
     assert r.status_code == 200
     assert "No listings here yet" in body

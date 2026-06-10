@@ -283,13 +283,13 @@ def _reset_curated_caches() -> None:
     queries_c.reset_cache()
 
 
-def test_home_renders_sandstone_services_strip() -> None:
+def test_home_renders_sandstone_services_strip(seeded_nav_departments: dict) -> None:
     """The Sandstone home renders the 'Need something done?' service strip.
 
-    The Lake Light ``services_grid`` section is replaced by the prototype's
-    secondary service strip (``app.home.sandstone.service_tiles``); every tile
-    links to a real ``/categories/{route}`` page. ``queries_c.services_grid``
-    keeps its own unit coverage above.
+    A.3 nav rewire: the tiles are the service-side taxonomy departments, so
+    every tile links a live ``/categories/{department}`` landing. The strip
+    is honest-omission gated — it only renders when departments exist, hence
+    the ``seeded_nav_departments`` fixture.
     """
     with TestClient(app) as client:
         resp = client.get("/home")
@@ -297,7 +297,7 @@ def test_home_renders_sandstone_services_strip() -> None:
     rendered = resp.text
     assert "/static/styles/desert.css" in rendered  # Desert Modern reskin
     assert "Need something done?" in rendered
-    assert 'href="/categories/home-property-services"' in rendered
+    assert 'href="/categories/home-and-property-services"' in rendered
     assert "Professional" in rendered
 
 

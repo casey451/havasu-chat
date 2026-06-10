@@ -1,41 +1,29 @@
-"""Hava -- ``GET /categories/{slug}`` route + ``GET /categories`` index.
+"""Hava -- ``GET /categories/...`` routes + ``GET /categories`` index.
 
-Direction C category-page lane (PR D5). Sister surface to
-``app/home/router.py`` -- shares the dark cinematic chrome from
-``home_c.html`` but renders a category-specific grid below a slim
-header (no full hero). The 12 D4 service tiles and the 4 home_c
-mega-tab anchors all resolve here.
+A.3 taxonomy nav (2026-06-09 rewire). The public category IA is the
+department/leaf tree that lives in the ``categories`` table:
 
-Two category surfaces live in the codebase. PR D6 (2026-05-26)
-resolved them as a *deliberate editorial split*, not duplicates to
-reconcile:
+  /categories                          index of the 15 departments, real
+                                       (leaf-summed, non-overlapping) counts
+  /categories/{department}             department landing: its gate-clearing
+                                       child leaves with live counts (B.2)
+  /categories/{department}/{leaf}      leaf listing page (B.1), plus the ten
+                                       curated home-services trade pages that
+                                       predate the generalized leaves (P2.1)
 
-  /categories/{slug}  (THIS module, plural)
-    Chrome-driven nav. Tap a topbar tab on /home -> land here.
-    5 mega-category routes (today / eat-drink / on-the-water /
-    things-to-do / services) that aggregate multiple
-    Provider.category slugs into a single editorial grid. No filter
-    chips per BUILD.md's "no filters in chrome / chat" rule.
-    Provider.category-backed, ~77 LoC template.
+The pre-taxonomy flat routes (~15 lumped ``Provider.category`` buckets:
+``eat-drink``, ``services``, ``health-wellness-care``, ...) are RETIRED as
+rendered pages; every legacy slug 301s to its taxonomy department via
+``ROUTE_SLUG_ALIASES``. The flat-bucket listing machinery
+(``_render_category_page`` / ``CATEGORY_FILTERS``) remains only as the
+backing store for the ``/lake-havasu/{subcategory}`` SEO landings
+(``render_subcategory_landing``), which pre-filter it and never render the
+old grab-bag list.
 
-  /category/{slug}    (app/api/routes/category_pages.py, singular)
-    SEO landing pages and intent-led narrowing. ~12 Tier-1 slugs
-    (plumbers, electricians, eat-drink, on-the-water, pets, ...)
-    with filter chips and sub-trade refinement. Entity / EntityCategory
-    backed, ~1150 LoC template, ranked by closest_now / editorial_pick.
-
-When the slugs overlap (eat-drink, on-the-water, pets, etc.) the
-two routes intentionally serve different UX -- the funnel is:
-chrome tab -> /categories/services -> tap a tile -> /category/plumbers.
-
-Q2 (v48, 2026-05-29): also serves ``GET /categories`` -- an index page
-listing every key in ``CATEGORY_FILTERS`` with provider counts and a
-single peek image per card. v48 audit CLUSTER-07 surfaced that the
-topbar exposes only 4 of 15 routes; this index gives mobile users and
-search crawlers a real path to the full set. The payload is cached
-in-process for an hour (counts move on the order of days, not minutes)
-via a wall-clock ``(timestamp, payload)`` tuple -- same pattern as
-``app.main._sitemap_cache``. ``reset_index_cache()`` is the test seam.
+The /categories index payload is cached in-process for an hour (counts move
+on the order of days, not minutes) via a wall-clock ``(timestamp, payload)``
+tuple -- same pattern as ``app.main._sitemap_cache``. ``reset_index_cache()``
+is the test seam.
 """
 
 from __future__ import annotations
@@ -45,7 +33,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -73,33 +61,74 @@ register_template_globals(templates)
 
 router = APIRouter(tags=["categories"])
 
-# Renamed tier-1 route slugs -> their canonical destination. ``professional``
-# became ``professional-services`` when WP-9 split the 13th canonical category
-# out of public-civic; old bookmarks/links 301 to the new page.
+# Retired flat category routes -> their canonical taxonomy department. The
+# pre-taxonomy site served ~15 lumped Provider.category buckets at
+# /categories/{slug} with overlapping counts; the A.3 department/leaf tree
+# replaced them, so every legacy slug 301s to the department that now owns its
+# contents. Two legacy slugs (``on-the-water``, ``pets``) are ALSO department
+# slugs — those need no alias because the department resolver wins first.
+# ``services`` was a grab-bag spanning six departments with no single
+# successor — it 301s to the /categories index, which lists all of them.
 ROUTE_SLUG_ALIASES: dict[str, str] = {
-    "professional": "/categories/professional-services",
+    "eat-drink": "/categories/eat-and-drink",
+    "things-to-do": "/categories/things-to-do-and-attractions",
+    "attractions": "/categories/things-to-do-and-attractions",
+    "services": "/categories",
+    "health-wellness-care": "/categories/health-and-medical",
+    "home-property-services": "/categories/home-and-property-services",
+    "shopping-essentials": "/categories/shopping-and-retail",
+    "professional-services": "/categories/professional-and-financial",
+    "professional": "/categories/professional-and-financial",
+    "beauty-care": "/categories/beauty-and-personal-care",
+    "auto-rv-fuel": "/categories/auto-rv-and-marine",
+    "public-civic-resources": "/categories/community-and-civic",
+    "classes-sports-recreation": "/categories/fitness-and-wellness",
+    "lodging-vacation-rentals": "/categories/lodging",
+    "outdoors-parks-trails": "/categories/outdoors-and-recreation",
 }
 
 
 # ---------------------------------------------------------------------------
-# /categories index: cached payload (Q2)
+# /categories index: cached payload (Q2; taxonomy departments since the A.3
+# nav rewire)
 # ---------------------------------------------------------------------------
 #
-# Walks ``CATEGORY_FILTERS`` and runs one COUNT + one top-rated provider
-# fetch per route. Aggregate cost: ~30 small queries on a cold cache.
-# The cache key is global -- no per-request variance -- so a single
+# Walks the live taxonomy departments (one grouped gate query) and runs one
+# top-rated peek-provider fetch per department (~15 small queries on a cold
+# cache). The cache key is global -- no per-request variance -- so a single
 # ``(timestamp, payload)`` tuple is enough. Mirrors
 # ``app.main._sitemap_cache``. ``reset_index_cache()`` is the canonical
 # test seam; tests should never poke ``_index_cache`` directly.
 _INDEX_TTL_SECONDS = 3600
 _index_cache: tuple[float, list[dict[str, Any]]] | None = None
 
-# Defensive fallback blurb for any slug missing from CATEGORY_DISPLAY.
+# Defensive fallback blurb for any department missing from _DEPT_BLURBS.
 _FALLBACK_BLURB = "Local picks in Lake Havasu."
 
 # Per BUILD.md no-zero rule: a card with count==0 never says "0 listings";
-# it shows this short editorial note instead.
+# it shows this short editorial note instead. (Departments only list with a
+# gate-clearing leaf, so this is a belt-and-suspenders path today.)
 _EMPTY_BLURB = "Coming soon."
+
+# Editorial one-liners per department slug. Presentation copy only — names and
+# counts come from the live Category tree.
+_DEPT_BLURBS: dict[str, str] = {
+    "eat-and-drink": "Restaurants, bars, cafés, takeout.",
+    "on-the-water": "Boat rentals, charters, marinas, beaches.",
+    "outdoors-and-recreation": "Parks, trails, golf, off-road.",
+    "things-to-do-and-attractions": "Tours, landmarks, museums, family fun.",
+    "health-and-medical": "Doctors, dentists, pharmacies, therapy.",
+    "beauty-and-personal-care": "Salons, barbers, spas, nails.",
+    "fitness-and-wellness": "Gyms, yoga, dance studios.",
+    "pets": "Vets, groomers, supplies, training.",
+    "home-and-property-services": "Plumbers, electricians, contractors, storage.",
+    "auto-rv-and-marine": "Repair, dealers, parts, towing, boats.",
+    "shopping-and-retail": "Clothing, gifts, hardware, grocery.",
+    "professional-and-financial": "Real estate, legal, financial, insurance.",
+    "family-and-education": "Schools, childcare, kids' classes.",
+    "community-and-civic": "Worship, nonprofits, government, libraries.",
+    "lodging": "Hotels, motels, RV parks.",
+}
 
 
 def reset_index_cache() -> None:
@@ -108,48 +137,22 @@ def reset_index_cache() -> None:
     _index_cache = None
 
 
-def _category_count(db: Session, route_slug: str) -> int:
-    """Count active non-draft providers that belong on ``route_slug`` (pivot).
+def _dept_peek_provider(db: Session, dept_id: int) -> Provider | None:
+    """Top-rated active non-draft provider primary-linked anywhere under the
+    department's leaves, or None. Returns None on any DB hiccup."""
+    from app.db.models import Category, Entity, EntityCategory
 
-    Uses ``route_provider_filter`` (subcategory-primary, legacy fallback) so the
-    count matches the listing. Returns 0 on any DB hiccup or empty route.
-    """
-    if not route_slug:
-        return 0
-    try:
-        from sqlalchemy import func as sa_func
-
-        row = (
-            db.query(sa_func.count(Provider.id))
-            .filter(
-                cat_queries.route_provider_filter(route_slug),
-                Provider.is_active.is_(True),
-                Provider.draft.is_(False),
-            )
-            .scalar()
-        )
-    except Exception:
-        return 0
-    if row is None:
-        return 0
-    try:
-        return max(int(row), 0)
-    except (TypeError, ValueError):
-        return 0
-
-
-def _peek_provider(db: Session, route_slug: str) -> Provider | None:
-    """Top-rated active non-draft provider on ``route_slug``, or None.
-
-    Returns None on any DB hiccup; empty route short-circuits.
-    """
-    if not route_slug:
-        return None
     try:
         return (
             db.query(Provider)
+            .join(Entity, Provider.entity_id == Entity.id)
+            .join(EntityCategory, EntityCategory.entity_id == Entity.id)
+            .join(Category, Category.id == EntityCategory.category_id)
             .filter(
-                cat_queries.route_provider_filter(route_slug),
+                Category.parent_id == dept_id,
+                Category.level == 1,
+                EntityCategory.is_primary.is_(True),
+                Entity.is_active.is_(True),
                 Provider.is_active.is_(True),
                 Provider.draft.is_(False),
             )
@@ -161,48 +164,43 @@ def _peek_provider(db: Session, route_slug: str) -> Provider | None:
 
 
 def _build_index_payload(db: Session) -> list[dict[str, Any]]:
-    """Compute the /categories index rows from scratch.
+    """Compute the /categories index rows from the live taxonomy.
 
-    Walks ``CATEGORY_FILTERS`` in declaration order so mega-tabs render
-    first, then the D4 tile routes. Per-row shape:
+    One row per department owning >=1 gate-clearing leaf, in taxonomy
+    ``sort_order``. ``count`` sums the department's gate-clearing leaves'
+    renderable listings — primary-link based, so a business is counted under
+    exactly one department (no overlap, unlike the retired flat buckets).
+    Per-row shape:
 
-      slug          URL segment ("eat-drink", "auto-rv-fuel", ...)
-      label         display name from CATEGORY_DISPLAY
-      blurb         short one-liner from CATEGORY_DISPLAY
+      slug          URL segment ("eat-and-drink", "auto-rv-and-marine", ...)
+      label         the department's live ``Category.name``
+      blurb         short one-liner from _DEPT_BLURBS
       count         int >= 0
+      leaf_count    gate-clearing child leaves
       peek_images   list of {url, name} -- 0 or 1 entries today
       empty_blurb   editorial copy shown when count == 0
     """
     rows: list[dict[str, Any]] = []
-    for slug in cat_queries.CATEGORY_FILTERS:
-        display = cat_queries.CATEGORY_DISPLAY.get(slug)
-        if display is not None:
-            label, blurb = display
-        else:
-            label = slug.replace("-", " ").capitalize()
-            blurb = _FALLBACK_BLURB
-
-        count = _category_count(db, slug)
-
+    for dept, leaf_count, count in leaf_pages.all_departments(db):
         peek_images: list[dict[str, str]] = []
-        if count > 0:
-            peek = _peek_provider(db, slug)
-            if peek is not None:
-                image_url = _provider_image_url(peek)
-                if image_url:
-                    peek_images.append(
-                        {
-                            "url": image_url,
-                            "name": peek.provider_name or "",
-                        }
-                    )
+        peek = _dept_peek_provider(db, dept.id)
+        if peek is not None:
+            image_url = _provider_image_url(peek)
+            if image_url:
+                peek_images.append(
+                    {
+                        "url": image_url,
+                        "name": peek.provider_name or "",
+                    }
+                )
 
         rows.append(
             {
-                "slug": slug,
-                "label": label,
-                "blurb": blurb,
+                "slug": dept.slug,
+                "label": dept.name,
+                "blurb": _DEPT_BLURBS.get(dept.slug, _FALLBACK_BLURB),
                 "count": count,
+                "leaf_count": leaf_count,
                 "peek_images": peek_images,
                 "empty_blurb": _EMPTY_BLURB,
             }
@@ -467,83 +465,40 @@ def serve_category(
     request: Request,
     slug: str,
     db: Session = Depends(get_db),
-    subcategory: str | None = Query(None, alias="sub"),
-    open_now: str | None = Query(None, alias="open"),
-    rating: str | None = Query(None),
-    sort: str | None = Query(None),
-    late: str | None = Query(None),
-    weekends: str | None = Query(None),
-    cuisine: str | None = Query(None),
-    trade: str | None = Query(None),
-    page: int = Query(1, ge=1),
 ) -> HTMLResponse | RedirectResponse:
-    """Render a single category page with subcategory chips + faceted filters.
+    """Render a taxonomy department landing, or 301 a retired slug to one.
 
-    Master-bucket slugs (``food-drink``, ``events``, …) 301 to their
-    mapped Tier-1 ``/categories/{slug}`` page. Returns 404 when the
-    slug is neither a known route nor a master bucket.
+    Resolution order (A.3 nav rewire — the flat lumped-bucket pages are
+    retired; nothing renders them anymore):
+
+    1. A taxonomy department (level-0 with child leaves) renders its landing
+       (leaf grid + live counts).
+    2. A retired flat route slug 301s to its department (ROUTE_SLUG_ALIASES).
+    3. A master-bucket slug (``food-drink``, ``events``, …) 301s via
+       ``BUCKET_SLUG_REDIRECTS``, collapsed through the alias map so the
+       client takes one hop, not two.
+    4. Anything else 404s.
+
+    Query strings ride along on redirects (the destination ignores params it
+    does not understand, and canonicalisation drops them anyway).
     """
     normalised = (slug or "").strip().lower()
-    if not cat_queries.is_valid_category_slug(normalised):
-        alias_dest = ROUTE_SLUG_ALIASES.get(normalised)
-        if alias_dest:
-            return RedirectResponse(url=alias_dest, status_code=301)
+    dept = leaf_pages.resolve_department(db, normalised)
+    if dept is not None:
+        return _render_department_page(request, db, dept)
+
+    dest = ROUTE_SLUG_ALIASES.get(normalised)
+    if dest is None:
         bucket_dest = BUCKET_SLUG_REDIRECTS.get(normalised)
         if bucket_dest:
-            return RedirectResponse(url=bucket_dest, status_code=301)
-        # B.2: a taxonomy department (level-0 with child leaves) renders its
-        # landing page (child leaves + counts), distinct from the flat routes.
-        dept = leaf_pages.resolve_department(db, normalised)
-        if dept is not None:
-            return _render_department_page(request, db, dept)
-        raise HTTPException(status_code=404, detail="unknown_category")
-
-    label, one_liner = cat_queries.CATEGORY_DISPLAY[normalised]
-    facets = _facets_from_query(
-        subcategory=subcategory,
-        open_now=open_now,
-        rating=rating,
-        sort=sort,
-        late=late,
-        weekends=weekends,
-        cuisine=cuisine,
-    )
-
-    # P2.1: on the trades parent, link the dedicated trade pages (gate-clearing
-    # trades only), and when a promoted ``?trade=`` facet value is present,
-    # canonicalize to the dedicated trade page instead of the clean category
-    # URL. Unpromoted ``?trade=`` values keep the existing behavior
-    # (canonical_url drops the query string -> clean category canonical).
-    extra_context: dict[str, Any] = {}
-    if normalised == trade_pages.TRADE_PARENT_SLUG:
-        qualifying = trade_pages.qualifying_trades(db)
-        extra_context["trade_links"] = [
-            {
-                "label": t.label,
-                "count": n,
-                "url": f"/categories/{trade_pages.TRADE_PARENT_SLUG}/{t.slug}",
-            }
-            for t, n in qualifying
-        ]
-        promoted = trade_pages.trade_by_slug(trade)
-        if promoted is not None and any(t.slug == promoted.slug for t, _ in qualifying):
-            extra_context["canonical_override"] = absolute_url(
-                f"/categories/{trade_pages.TRADE_PARENT_SLUG}/{promoted.slug}"
-            )
-
-    return _render_category_page(
-        request,
-        db,
-        route_slug=normalised,
-        facets=facets,
-        label=label,
-        one_liner=one_liner,
-        chip_bucket_id=subcats.bucket_for_category_route(normalised),
-        active_subcategory=None,
-        page=page,
-        active_tab=cat_queries.active_tab_for(normalised),
-        extra_context=extra_context,
-    )
+            tail = bucket_dest.rsplit("/", 1)[-1]
+            dest = ROUTE_SLUG_ALIASES.get(tail, bucket_dest)
+    if dest:
+        query = request.url.query
+        if query:
+            dest = f"{dest}?{query}"
+        return RedirectResponse(url=dest, status_code=301)
+    raise HTTPException(status_code=404, detail="unknown_category")
 
 
 @router.get(
@@ -669,7 +624,7 @@ def _render_trade_page(
             "category_cards": cards,
             "breadcrumb_jsonld": breadcrumb_jsonld,
             "itemlist_jsonld": itemlist_jsonld,
-            "active_tab": cat_queries.active_tab_for(trade_pages.TRADE_PARENT_SLUG),
+            "active_tab": "explore",
             "primary_nav": home_sandstone.primary_nav(),
             "mega_columns": home_sandstone.mega_columns(db),
             "utility_chips": _home_utility_chips(db),
@@ -792,7 +747,7 @@ def _render_leaf_page(
             "category_cards": cards,
             "breadcrumb_jsonld": breadcrumb_jsonld,
             "itemlist_jsonld": itemlist_jsonld,
-            "active_tab": cat_queries.active_tab_for(leaf.department_slug),
+            "active_tab": "explore",
             "primary_nav": home_sandstone.primary_nav(),
             "mega_columns": home_sandstone.mega_columns(db),
             "utility_chips": _home_utility_chips(db),
@@ -870,7 +825,7 @@ def _render_department_page(
             "listing_total": listing_total,
             "breadcrumb_jsonld": breadcrumb_jsonld,
             "itemlist_jsonld": itemlist_jsonld,
-            "active_tab": cat_queries.active_tab_for(dept.slug),
+            "active_tab": "explore",
             "primary_nav": home_sandstone.primary_nav(),
             "mega_columns": home_sandstone.mega_columns(db),
             "utility_chips": _home_utility_chips(db),

@@ -142,9 +142,10 @@ def test_discover_grid_status_text_can_be_none() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_home_renders_sandstone_explore_strip() -> None:
+def test_home_renders_sandstone_explore_strip(seeded_nav_departments: dict) -> None:
     """The Lake Light discover/mood grid is replaced by the Sandstone Explore
-    strip (live category counts). 'Browse by mood' was cut in the blueprint.
+    strip (live taxonomy departments with leaf-summed counts). 'Browse by
+    mood' was cut in the blueprint.
 
     ``queries_c.discover_grid`` keeps its own unit coverage above.
     """
@@ -153,7 +154,7 @@ def test_home_renders_sandstone_explore_strip() -> None:
     assert r.status_code == 200
     assert "Explore Havasu" in r.text
     assert 'class="cat-strip"' in r.text
-    assert 'href="/categories/eat-drink"' in r.text
+    assert 'href="/categories/eat-and-drink"' in r.text
     # Legacy discover-grid markup and the cut "Browse by mood" copy are gone.
     assert 'class="ll-grid-two"' not in r.text
     assert "Browse by mood" not in r.text

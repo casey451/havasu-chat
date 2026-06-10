@@ -318,6 +318,47 @@ def qualifying_leaves(db: Session) -> list[tuple[Leaf, int]]:
     return out
 
 
+def all_departments(db: Session) -> list[tuple[Category, int, int]]:
+    """Every ``level = 0`` department owning >=1 gate-clearing leaf, as
+    ``(department, gate-clearing leaf count, renderable listing total)``,
+    ordered by taxonomy ``sort_order`` then name.
+
+    The listing total sums the department's gate-clearing leaves' renderable
+    counts — the same number the department landing's giant counter shows — so
+    nav counts and landing counts always agree. Because a listing keys on the
+    PRIMARY ``entity_categories`` link, a business counts under exactly one
+    leaf and therefore exactly one department (no cross-department double
+    counting, unlike the retired flat ``CATEGORY_FILTERS`` buckets). Empty on
+    any DB hiccup.
+    """
+    try:
+        counts = _gate_counts(db)
+        if not counts:
+            return []
+        leaf_parents = (
+            db.query(Category.parent_id, Category.id)
+            .filter(Category.id.in_(list(counts)), Category.level == 1)
+            .all()
+        )
+        by_dept: dict[int, tuple[int, int]] = {}
+        for parent_id, leaf_id in leaf_parents:
+            if parent_id is None:
+                continue
+            leaf_n, total = by_dept.get(parent_id, (0, 0))
+            by_dept[parent_id] = (leaf_n + 1, total + counts[leaf_id])
+        if not by_dept:
+            return []
+        depts = (
+            db.query(Category)
+            .filter(Category.id.in_(list(by_dept)), Category.level == 0)
+            .order_by(Category.sort_order, Category.name)
+            .all()
+        )
+    except Exception:
+        return []
+    return [(d, by_dept[d.id][0], by_dept[d.id][1]) for d in depts]
+
+
 def resolve_department(db: Session, dept_slug: str) -> Category | None:
     """A ``level = 0`` department category with the given slug that actually has
     child leaves, or ``None``. (A flat legacy slug with no children is not a
