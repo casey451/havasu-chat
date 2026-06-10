@@ -210,6 +210,82 @@ LEAF_COPY: dict[str, LeafCopy] = {
             "and call ahead on busy river weekends.",
         ),
     ),
+    # Ported from the curated trade pages (app/categories/trades.py) when the
+    # trade URLs consolidated onto their taxonomy-leaf twins (SEO PR-B), so
+    # the redirect destinations keep the rich local copy.
+    "hvac": _copy(
+        "When Lake Havasu City hits 115°F, air conditioning isn't a comfort — "
+        "it's a necessity. The HVAC companies below install, repair, and "
+        "maintain cooling and heating systems across Havasu, from quick "
+        "capacitor swaps to full system replacements. Summer is peak season "
+        "here, so the smart move is a spring tune-up before the first heat "
+        "wave. Ratings shown are from real public reviews.",
+        (
+            "When should I service my AC in Lake Havasu?",
+            "Most local HVAC companies recommend a tune-up in spring, before "
+            "summer demand peaks — repair calls back up fast once daily highs "
+            "pass 110°F.",
+        ),
+    ),
+    "pools-and-spas": _copy(
+        "Backyard pools work overtime in Lake Havasu City — nine-plus months "
+        "of swim season means constant chemistry, filtration, and equipment "
+        "wear. The pool and spa services below handle weekly cleaning, "
+        "green-pool recoveries, pump and filter repairs, and resurfacing "
+        "across Havasu. Listings are ranked by volume-weighted public "
+        "reviews; star ratings appear only when a company has earned real "
+        "reviews.",
+        (
+            "How often do Havasu pools need service?",
+            "Most local pool companies recommend weekly service in the long "
+            "Havasu swim season — heat and sun burn through chlorine far "
+            "faster here than in milder climates.",
+        ),
+    ),
+    "pest-control": _copy(
+        "Scorpions, ants, roaches, and the occasional pack rat — desert "
+        "living comes with desert pests. The pest control companies below "
+        "serve Lake Havasu City with one-time treatments, recurring service "
+        "plans, and home-sale inspections. Bark scorpions are the local "
+        "headline act, so ask about scorpion-specific treatment if that's "
+        "your concern. Ratings shown come from real public reviews.",
+        (
+            "Are scorpions a problem in Lake Havasu City?",
+            "Yes — bark scorpions are common across the area, especially in "
+            "summer. Most local pest control companies offer "
+            "scorpion-specific treatments and recurring plans.",
+        ),
+    ),
+    "landscaping-and-lawn": _copy(
+        "Desert landscaping is its own craft — xeriscape design, decorative "
+        "rock, drip irrigation, palm trimming, and artificial turf that "
+        "survives Havasu summers. The landscapers below design, install, and "
+        "maintain yards across Lake Havasu City. Whether you need a one-time "
+        "cleanup or monthly maintenance, the volume-weighted review rankings "
+        "here show who locals trust with their yards.",
+        (
+            "What kind of landscaping works in Lake Havasu City?",
+            "Low-water desert landscaping dominates: rock and gravel, native "
+            "and desert-adapted plants on drip irrigation, palms, and "
+            "artificial turf. Local landscapers design for heat and water "
+            "efficiency first.",
+        ),
+    ),
+    "cleaning": _copy(
+        "Between river-season guests, vacation rentals turning over weekly, "
+        "and the fine desert dust that finds its way into everything, Lake "
+        "Havasu City keeps its cleaning services busy. The companies below "
+        "offer house cleaning, deep cleans, move-out cleans, and "
+        "vacation-rental turnovers. Listings are ranked by volume-weighted "
+        "public reviews, and star ratings appear only when a business has "
+        "earned real reviews.",
+        (
+            "Do Havasu cleaning services handle vacation rental turnovers?",
+            "Many do — short-term rental turnover is a major part of the "
+            "local cleaning market. Check each listing or call to confirm "
+            "turnover scheduling and linen service.",
+        ),
+    ),
     "boat-and-watercraft-rentals": _copy(
         "The lake is the whole point — and the boat and watercraft rentals "
         "below put you on it. From pontoons and ski boats to jet skis, kayaks, "
