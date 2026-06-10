@@ -1,5 +1,4 @@
 alembic==1.18.4
-anthropic==0.96.0
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.13.0
@@ -70,6 +69,4 @@ typing-inspection==0.4.2
 typing_extensions==4.15.0
 urllib3==2.6.3
 uvicorn==0.44.0
-watchfiles==1.1.1
-websockets==16.0
 wrapt==2.1.2
