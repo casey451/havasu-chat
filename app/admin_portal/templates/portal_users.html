@@ -1,0 +1,50 @@
+{% extends "portal_base.html" %}
+{% block title %}Users{% endblock %}
+{% block content %}
+<h1>Users &amp; access</h1>
+<p class="sub">
+  {{ total }} matching ·
+  {% for r in roles %}{{ role_counts.get(r, 0) }} {{ r }}{{ " · " if not loop.last else "" }}{% endfor %}
+</p>
+
+<form method="get" class="filters">
+  <input type="text" name="q" value="{{ q }}" placeholder="Search email or name">
+  <select name="role">
+    <option value="">All roles</option>
+    {% for r in roles %}
+    <option value="{{ r }}" {{ "selected" if role == r else "" }}>{{ r }}</option>
+    {% endfor %}
+  </select>
+  <select name="active">
+    <option value="">Active + inactive</option>
+    <option value="yes" {{ "selected" if active == "yes" else "" }}>Active only</option>
+    <option value="no" {{ "selected" if active == "no" else "" }}>Inactive only</option>
+  </select>
+  <button type="submit">Filter</button>
+  {% if q or role or active %}<a href="/admin/portal/users">Clear</a>{% endif %}
+</form>
+
+<table>
+  <tr><th>Email</th><th>Name</th><th>Role</th><th>Status</th><th>Joined</th></tr>
+  {% for u in users %}
+  <tr>
+    <td><a href="/admin/portal/users/{{ u.id }}">{{ u.email }}</a></td>
+    <td>{{ u.display_name or "—" }}</td>
+    <td><span class="chip {{ 'accent' if u.role == 'admin' else '' }}">{{ u.role }}</span></td>
+    <td>{% if u.is_active %}<span class="chip ok">active</span>
+        {% else %}<span class="chip warn">inactive</span>{% endif %}</td>
+    <td class="muted">{{ u.created_at | ago }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="5" class="muted">No users match.</td></tr>
+  {% endfor %}
+</table>
+
+{% if pages > 1 %}
+<div class="pager">
+  Page {{ page }} of {{ pages }}
+  {% if page > 1 %}<a href="?q={{ q }}&role={{ role }}&active={{ active }}&page={{ page - 1 }}">← Prev</a>{% endif %}
+  {% if page < pages %}<a href="?q={{ q }}&role={{ role }}&active={{ active }}&page={{ page + 1 }}">Next →</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

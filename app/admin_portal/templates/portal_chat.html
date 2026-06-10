@@ -1,0 +1,91 @@
+{% extends "portal_base.html" %}
+{% block title %}Chat insights{% endblock %}
+{% block content %}
+<h1>Chat insights</h1>
+<p class="sub">
+  Window:
+  {% for w in windows %}
+    {% if w == days %}<strong>{{ w }}d</strong>{% else %}<a href="?days={{ w }}">{{ w }}d</a>{% endif %}
+    {{ " · " if not loop.last else "" }}
+  {% endfor %}
+</p>
+
+<div class="grid">
+  <div class="card"><div class="num">{{ messages }}</div><div class="label">User messages</div></div>
+  <div class="card"><div class="num">{{ sessions }}</div><div class="label">Sessions</div></div>
+  <div class="card"><div class="num">{{ avg_latency if avg_latency is not none else "—" }}</div>
+    <div class="label">Avg latency (ms)</div></div>
+  <div class="card"><div class="num">{{ cache_hit_pct if cache_hit_pct is not none else "—" }}{{ "%" if cache_hit_pct is not none else "" }}</div>
+    <div class="label">Cache hit rate</div></div>
+  <div class="card"><div class="num">${{ "%.2f" | format(est_cost) }}</div>
+    <div class="label">Est. LLM cost</div>
+    <div class="blurb">{{ tok_in }} in / {{ tok_out }} out tokens</div></div>
+</div>
+
+<h2>Daily volume</h2>
+<table>
+  {% for d, n in daily %}
+  <tr>
+    <td style="width:110px;">{{ d }}</td>
+    <td style="width:260px;"><div class="bartrack"><div class="bar"
+      style="width: {{ (100 * n / max_daily) | round(1) if max_daily else 0 }}%;"></div></div></td>
+    <td>{{ n }}</td>
+  </tr>
+  {% else %}
+  <tr><td class="muted">No messages in this window.</td></tr>
+  {% endfor %}
+</table>
+
+<div class="cols2">
+  <div>
+    <h2>Answer tier</h2>
+    <table><tr><th>Tier</th><th>Turns</th></tr>
+      {% for k, n in tiers %}<tr><td>{{ k }}</td><td>{{ n }}</td></tr>{% endfor %}
+    </table>
+    <h2>Cache status</h2>
+    <table><tr><th>Status</th><th>Turns</th></tr>
+      {% for k, n in cache %}<tr><td>{{ k }}</td><td>{{ n }}</td></tr>{% endfor %}
+    </table>
+    <h2>Feedback signals</h2>
+    <table><tr><th>Signal</th><th>Turns</th></tr>
+      {% for k, n in feedback %}<tr><td>{{ k }}</td><td>{{ n }}</td></tr>{% endfor %}
+    </table>
+  </div>
+  <div>
+    <h2>Top intents</h2>
+    <table><tr><th>Intent</th><th>Turns</th></tr>
+      {% for k, n in intents %}<tr><td>{{ k }}</td><td>{{ n }}</td></tr>{% endfor %}
+    </table>
+  </div>
+</div>
+
+<h2>Recent unmatched queries (no tier recorded)</h2>
+<table>
+  <tr><th>When</th><th>Query</th><th>Intent</th><th>Mode</th></tr>
+  {% for row in unmatched %}
+  <tr>
+    <td class="muted" style="white-space:nowrap;">{{ row.created_at | ago }}</td>
+    <td>{{ row.normalized_query or row.message }}</td>
+    <td>{{ row.intent or "—" }}</td>
+    <td>{{ row.mode or "—" }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="4" class="muted">None — every turn was routed.</td></tr>
+  {% endfor %}
+</table>
+
+<h2>Slowest turns</h2>
+<table>
+  <tr><th>When</th><th>Latency</th><th>Tier</th><th>Query</th></tr>
+  {% for row in slowest %}
+  <tr>
+    <td class="muted" style="white-space:nowrap;">{{ row.created_at | ago }}</td>
+    <td><span class="chip warn">{{ row.latency_ms }} ms</span></td>
+    <td>{{ row.tier_used or "—" }}</td>
+    <td>{{ row.normalized_query or row.message }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="4" class="muted">No latency data in this window.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

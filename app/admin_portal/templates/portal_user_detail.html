@@ -1,0 +1,56 @@
+{% extends "portal_base.html" %}
+{% block title %}{{ user.email }}{% endblock %}
+{% block content %}
+<p><a href="/admin/portal/users">← All users</a></p>
+<h1>{{ user.email }}</h1>
+<p class="sub">{{ user.display_name or "No display name" }} · joined {{ user.created_at | ago }}</p>
+
+<div class="cols2">
+  <div>
+    <h2>Account</h2>
+    <table>
+      <tr><th>Field</th><th>Value</th></tr>
+      <tr><td>ID</td><td class="mono">{{ user.id }}</td></tr>
+      <tr><td>Role</td>
+        <td><span class="chip {{ 'accent' if user.role == 'admin' else '' }}">{{ user.role }}</span></td></tr>
+      <tr><td>Status</td>
+        <td>{% if user.is_active %}<span class="chip ok">active</span>
+            {% else %}<span class="chip warn">inactive</span>{% endif %}</td></tr>
+      <tr><td>Preferred mode</td><td>{{ user.preferred_mode }}</td></tr>
+    </table>
+
+    <h2>Actions</h2>
+    <form method="post" action="/admin/portal/users/{{ user.id }}/role" class="filters">
+      <select name="role">
+        {% for r in roles %}
+        <option value="{{ r }}" {{ "selected" if user.role == r else "" }}>{{ r }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">Change role</button>
+    </form>
+    <form method="post" action="/admin/portal/users/{{ user.id }}/toggle-active">
+      <button type="submit" class="quiet">
+        {{ "Deactivate account" if user.is_active else "Reactivate account" }}
+      </button>
+    </form>
+    <p class="muted" style="font-size:12.5px;">Role changes and de/reactivation are written to the
+    audit log (once its table is migrated).</p>
+  </div>
+
+  <div>
+    <h2>Claims ({{ claims | length }})</h2>
+    <table>
+      <tr><th>Entity</th><th>Status</th><th>Claimed</th></tr>
+      {% for c in claims %}
+      <tr>
+        <td class="mono">{{ c.entity_id }}</td>
+        <td><span class="chip {{ 'ok' if c.status == 'verified' else ('warn' if c.status == 'rejected' else '') }}">{{ c.status }}</span></td>
+        <td class="muted">{{ c.claimed_at | ago }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="muted">No claims.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}
