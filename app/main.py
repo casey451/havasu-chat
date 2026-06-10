@@ -375,6 +375,50 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(SecurityHeadersMiddleware)
+
+
+# ---------------------------------------------------------------------------
+# Canonical-host 301 (SEO, 2026-06): askhava.com is the one public origin.
+# ---------------------------------------------------------------------------
+#
+# Requests arriving on a legacy alias host (the Railway-generated domain)
+# permanently redirect to the same path + query on the canonical origin, so
+# ranking signals consolidate on askhava.com and the old domain never serves
+# duplicate content. Scope is deliberately an explicit alias SET — never a
+# blanket "host != canonical" rule — so localhost, the TestClient's
+# ``testserver``, and any future preview domains pass through untouched.
+#
+# Exemptions / safety:
+#   * ``/health`` — Railway's liveness probe hits the service domain and must
+#     keep getting a 200, not a 301.
+#   * Loop guard — if ``BASE_URL`` still points at a legacy host (stale env),
+#     redirecting would loop; we pass through instead.
+#   * Non-GET/HEAD methods get 308 (preserves method + body); GET/HEAD get
+#     the classic 301 search engines consolidate on.
+_LEGACY_HOSTS = frozenset({"havasu-chat-production.up.railway.app"})
+
+
+class CanonicalHostRedirectMiddleware(BaseHTTPMiddleware):
+    """301/308 legacy-host traffic to the canonical origin (askhava.com)."""
+
+    async def dispatch(self, request: Request, call_next):
+        host = (request.headers.get("host") or "").split(":", 1)[0].strip().lower()
+        if host in _LEGACY_HOSTS and request.url.path != "/health":
+            canonical = _base_url()
+            canonical_host = canonical.split("://", 1)[-1].split("/", 1)[0].lower()
+            if canonical_host != host:  # loop guard for a stale BASE_URL env
+                dest = canonical + request.url.path
+                if request.url.query:
+                    dest = f"{dest}?{request.url.query}"
+                code = 301 if request.method in ("GET", "HEAD") else 308
+                return RedirectResponse(url=dest, status_code=code)
+        return await call_next(request)
+
+
+# Added AFTER SecurityHeadersMiddleware so it sits OUTERMOST in the stack
+# (Starlette middleware is LIFO): a legacy-host request redirects before any
+# session or header work happens.
+app.add_middleware(CanonicalHostRedirectMiddleware)
 app.state.limiter = limiter
 
 
