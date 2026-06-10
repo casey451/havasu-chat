@@ -19,6 +19,7 @@ import re
 from sqlalchemy.orm import Session
 
 from app.categories import leaf_pages
+from app.chat.normalizer import spell_correct
 
 # Normalized colloquial term → leaf slug. Keys are the output of ``_normalize``
 # (lowercase, ``&``→``and``, punctuation dropped, locality/filler stripped).
@@ -224,6 +225,10 @@ def _normalize(q: str) -> str:
     s = s.replace("&", " and ")
     s = re.sub(r"[^a-z0-9\s]", " ", s)  # drop apostrophes/punctuation
     s = re.sub(r"\s+", " ", s).strip()
+    # Shared misspelling tolerance: "plummbers" → "plumbers" before the dict
+    # lookup, so /chat navigational routing inherits the same correction layer
+    # the conversational tiers get via normalizer.normalize().
+    s = spell_correct(s)
     for phrase in _FILLER_PHRASES:
         s = re.sub(rf"\b{re.escape(phrase)}\b", " ", s)
     s = re.sub(r"\s+", " ", s).strip()

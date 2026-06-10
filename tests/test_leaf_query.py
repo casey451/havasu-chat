@@ -80,6 +80,16 @@ def test_match_routes_exact_category_to_gate_clearing_leaf(mem_db: Session) -> N
         assert leaf is not None and leaf.slug == "plumbing"
 
 
+def test_misspelled_category_routes_via_shared_spell_layer(mem_db: Session) -> None:
+    # Live repro: /chat?q=plummbers must reach the plumbing leaf (not a dead-end
+    # "I don't have any plumbers listed"). The shared spell-correct layer fixes
+    # the token before the navigational dict lookup.
+    _seed_plumbing(mem_db, n=leaf_pages.LEAF_PAGE_MIN_PROVIDERS)
+    for query in ("plummbers", "best plummbers in lake havasu", "plumer"):
+        leaf = leaf_query.match_leaf_query(mem_db, query)
+        assert leaf is not None and leaf.slug == "plumbing", query
+
+
 def test_descriptive_query_does_not_route(mem_db: Session) -> None:
     _seed_plumbing(mem_db, n=leaf_pages.LEAF_PAGE_MIN_PROVIDERS)
     assert leaf_query.match_leaf_query(mem_db, "best plumber for a slab leak") is None
