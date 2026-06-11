@@ -715,10 +715,12 @@ def _lake_tiles() -> list[dict[str, str]]:
 # (live music tonight, happy hours on now) have no category page, so they
 # search.
 def _night_tiles() -> list[dict[str, str]]:
-    eat = "/categories/eat-and-drink"
+    # Deep-link the drink tiles to the bars-and-breweries LEAF — both used to
+    # dump onto the unfiltered Eat & Drink department (audit, mode pages #3).
+    bars = "/categories/eat-and-drink/bars-and-breweries"
     return [
-        _tile("🍸", "Bars & Lounges", "Waterfront, dive, cocktail", eat),
-        _tile("🍺", "Breweries & Wineries", "Tastings, taprooms", eat),
+        _tile("🍸", "Bars & Lounges", "Waterfront, dive, cocktail", bars),
+        _tile("🍺", "Breweries & Wineries", "Tastings, taprooms", bars),
         _tile("🎶", "Live Music", "Who's playing & when", _chat_url("live music tonight")),
         _tile("🕙", "Happy Hours", "Sorted by ending soon", _chat_url("happy hour now")),
         _tile("🍔", "Late Kitchens", "Food after 10 PM", _chat_url("late night food")),

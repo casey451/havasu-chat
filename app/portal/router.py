@@ -67,8 +67,27 @@ def portal_claim(request: Request) -> HTMLResponse:
 # ── reserve an ad placement (manual-invoice; NO payment processing) ───────────
 
 
-def _category_options() -> list[tuple[str, str]]:
-    """(slug, label) pairs for the category-sponsorship dropdown, label-sorted."""
+def _category_options(db: Session) -> list[tuple[str, str]]:
+    """(slug, label) pairs for the category-sponsorship dropdown.
+
+    Sources the CANONICAL taxonomy departments (``Category`` level-0 rows —
+    the same pages the nav and /categories index render), not the legacy
+    map-scope ``CATEGORY_LABELS`` list the form used to offer: that list had
+    13 scopes that don't match the sellable department pages (no Beauty,
+    Fitness & Wellness, Family & Education, Things to Do…) and included
+    "Events", which is sold separately as Event Boost (audit §13.1 — a paying
+    advertiser couldn't pick the page the product actually pins them to).
+    Falls back to the legacy list on any DB hiccup so the revenue form never
+    renders an empty dropdown. Order matches the nav (taxonomy sort_order).
+    """
+    from app.categories.leaf_pages import all_departments  # lazy: avoid import cycle
+
+    try:
+        rows = all_departments(db)
+    except Exception:  # noqa: BLE001 — fall back, never blank the form
+        rows = []
+    if rows:
+        return [(dept.slug, dept.name) for dept, _leaf_count, _total in rows]
     return sorted(CATEGORY_LABELS.items(), key=lambda kv: kv[1])
 
 
@@ -140,7 +159,7 @@ def portal_reserve_get(
         name="portal_reserve.html",
         context={
             "product": prod,
-            "categories": _category_options() if product == "category" else None,
+            "categories": _category_options(db) if product == "category" else None,
             "errors": {},
             "form": {},
         },
@@ -184,9 +203,11 @@ def portal_reserve_post(
     elif not _EMAIL_RE.match(contact_email):
         errors["contact_email"] = "That email doesn't look right."
 
-    # Category sponsorship must reference a real taxonomy slug; an unknown or
-    # hand-typed value is a validation error (don't snapshot garbage).
-    if product == "category" and category not in CATEGORY_LABELS:
+    # Category sponsorship must reference a slug we actually rendered as an
+    # option; an unknown or hand-typed value is a validation error (don't
+    # snapshot garbage).
+    option_labels = dict(_category_options(db)) if product == "category" else {}
+    if product == "category" and category not in option_labels:
         errors["category"] = "Pick a category from the list."
 
     if errors:
@@ -195,7 +216,7 @@ def portal_reserve_post(
             name="portal_reserve.html",
             context={
                 "product": prod,
-                "categories": _category_options() if product == "category" else None,
+                "categories": _category_options(db) if product == "category" else None,
                 "errors": errors,
                 "form": {
                     "business_name": business_name,
@@ -210,10 +231,10 @@ def portal_reserve_post(
         )
 
     # For category sponsorship, snapshot the chosen category label; else notes.
-    # ``category`` is a validated CATEGORY_LABELS key by this point.
+    # ``category`` is a validated option key by this point.
     category_or_notes: str | None
     if product == "category":
-        category_or_notes = CATEGORY_LABELS[category]
+        category_or_notes = option_labels[category]
     else:
         category_or_notes = notes.strip() or None
 

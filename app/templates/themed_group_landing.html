@@ -26,7 +26,8 @@
         <div class="crumb"><a href="/home">Home</a> › <a href="/categories">Explore</a> › {{ group_label }}</div>
         <h1 id="category-heading" class="category-title">{{ group_label }}</h1>
         <p class="category-lede sub">{{ group_one_liner }}</p>
-        <p class="themed-group-bundled">Bundled categories: {{ category_slugs | join(', ') }}</p>
+        {# Raw taxonomy slugs ("events, outdoors-parks-trails, …") printed to
+           readers here (audit §13.7) — internal wiring, not page copy. #}
         <p class="cat-head-meta">Lake Havasu City · {{ today_label }} · <a href="/contribute">Add to Hava</a></p>
       </div>
     </div>

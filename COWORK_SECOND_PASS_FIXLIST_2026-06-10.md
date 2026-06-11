@@ -706,12 +706,28 @@ re-read Windows-side and intact. **The sandbox mount serves stale/truncated view
 NOT trust mount-side py_compile/pytest.** Authoritative gate per WORKING_AGREEMENT: Casey runs
 `.venv\Scripts\python.exe -m pytest -q` + `ruff check .` Windows-side before commit.
 
-Deliberately NOT touched (collision avoidance): `app/main.py` (privacy renderer §1.2, `_event_is_past`
-§13.4, sitemap+/gas §5.8, legal titles §8.3 — main.py is in another agent's working set),
-`desert_base.html` (favicon §1.6, twitter cards §8.6), all copy-agent templates (sponsor/portal/home/
-contribute/login/about — the /sponsor consolidation §6 was found already done by that agent),
-`portal_advertise.html` cactus §1.5 (same file as copy work — 5-line swap, trivial whenever that file
-is free), reserve-form taxonomy §13.1 (portal module = funnel agent's lane).
+### Batch 2 (next morning, after the copy track merged — files freed up)
+
+| Fix | Files | Status |
+|---|---|---|
+| §1.2 privacy renderer: wrapped bullets join one `<li>`; HTML comments no longer ship to page source (+tests) | `app/main.py` `_render_doc_markdown_to_html`, `tests/test_legal_doc_rendering.py` (new) | DONE — replica-run against real privacy.md: 19 clean bullets |
+| §13.4 `_event_is_past`: 3h grace for end-time-less events (9:00 AM meeting no longer "passed" at 9:07) | `app/main.py` + `tests/test_event_permalink_context.py` updated to pin new contract | DONE |
+| §8.3 legal titles "— Ask Hava" + per-page meta descriptions for /privacy /terms | `app/main.py`, `app/templates/privacy_doc.html` | DONE |
+| §5.8 sitemap pages section + `/gas` | `app/main.py` | DONE |
+| §1.6 favicon (SVG) + manifest + theme-color; §8.6 twitter:card set | `app/templates/desert_base.html`, `app/static/img/favicon.svg` (new), `app/static/manifest.webmanifest` (new) | DONE — **binary residue:** real `/favicon.ico` + PNG apple-touch icons still need image tooling |
+| §1.5 cactus arms point up | `app/templates/portal_advertise.html` | DONE (verified coords; screenshot after deploy) |
+| §7.3 night tiles → bars-and-breweries leaf; §7.2 switcher "Ask"→"Home"; §7.4 mode meta = blurb | `app/home/sandstone.py`, `app/templates/mode_sandstone.html` | DONE |
+| §2.8 events group label → "Around town" | `app/home/events_views.py` | DONE |
+| §5.9 /today gas tile uses GAS_STALE_AFTER_HOURS | `app/conditions/today_payload.py` | DONE |
+| §2.7 Event JSON-LD on /events/{id} (dict built route-side, AZ -07:00, None keys omitted) | `app/main.py`, `app/templates/event_permalink.html` | DONE — validate in Rich Results after deploy |
+| §13.1 reserve-form categories from canonical departments (fallback to legacy list on DB hiccup; POST validates + snapshots from rendered options) | `app/portal/router.py` | DONE |
+| §13.8 collection "Add it to Hava"; §13.7 "Bundled categories" slug leak removed; §7.6 map title literal — | `collection_landing.html`, `themed_group_landing.html`, `map_c.html` | DONE |
+
+Still not touched / remaining for other lanes: provider JSON-LD + hours/review/breadcrumb/nearby (§4 —
+Track B owns provider files), `[DATA]` campaigns (dup merges, address fixes, title backfills, Schedule-row
+cleanup, havasuchat event_url backfill), taxonomy rebuild (map scopes §7.5, two-restaurant-surfaces §3.9,
+leaf slug `caf-s-and-coffee` §13.3 — slug lives in DB taxonomy, needs migration+301), favicon binary
+assets, UV hour-source audit §9.2 (re-check after today's deploys), CSP (deliberately deferred).
 
 ---
 

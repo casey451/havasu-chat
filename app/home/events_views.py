@@ -49,7 +49,10 @@ from app.home.sandstone import (
 
 # Accordion groups in the owner-approved order: (key, label, icon).
 GROUP_DEFS: tuple[tuple[str, str, str], ...] = (
-    ("events", "Events", "\U0001F39F️"),
+    # "Around town": the catch-all one-off group needed a real name — the page
+    # rendered a generic "Events 4" section next to named siblings (audit
+    # events #6). Key stays "events" (rollup nouns + CSS hooks unchanged).
+    ("events", "Around town", "\U0001F39F️"),
     ("music", "Music & nightlife", "\U0001F3B6"),
     ("water", "On the water", "⛵"),
     ("classes", "Fitness & classes", "\U0001F3C3"),
