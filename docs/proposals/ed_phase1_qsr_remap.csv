@@ -1,0 +1,13 @@
+entity_id,name,google_type,signal,current_leaf,proposed_department,proposed_leaf
+27bbc08a-d2b1-4940-b72f-15885f80569f,Chipotle Mexican Grill,mexican_restaurant,google_type/high,Restaurants,Eat & Drink,Quick Bites & Takeout
+73940aba-0788-460a-8913-83590d902923,Culver’s,american_restaurant,google_type/high,Restaurants,Eat & Drink,Quick Bites & Takeout
+b01db653-737b-4769-96f9-16f931c0aeef,Dairy Queen,,name_keyword/high,Restaurants,Eat & Drink,Quick Bites & Takeout
+ef78efd8-fe42-4322-987d-9dffca248645,Domino's Pizza,pizza_restaurant,google_type/high,Restaurants,Eat & Drink,Quick Bites & Takeout
+0bc2c9c0-cf38-4b25-bf4f-f9f092b39365,Filiberto's,mexican_restaurant,google_type/high,Restaurants,Eat & Drink,Quick Bites & Takeout
+9e7f0eb6-e54c-4bfa-af6d-d8c81da90847,Filiberto's Mexican Food,,name_keyword/high,Restaurants,Eat & Drink,Quick Bites & Takeout
+e720ba59-608c-4289-a73a-fee49d56d602,Little Caesars Pizza,pizza_restaurant,google_type/high,Restaurants,Eat & Drink,Quick Bites & Takeout
+fc2593a5-97ff-4619-8896-78ec34284983,McDonald's,,name_keyword/high,Restaurants,Eat & Drink,Quick Bites & Takeout
+c5f40ce9-3c22-493c-a75d-389e6f33f877,Panda Express,chinese_restaurant,google_type/high,Restaurants,Eat & Drink,Quick Bites & Takeout
+09e23ac1-493c-43a1-ad2c-35298c530159,Subway at Havasu North Shopping Center,,name_keyword/high,Restaurants,Eat & Drink,Quick Bites & Takeout
+88ae51b0-26d6-4eaf-b11a-751172472fbf,Subway at Smith's Shopping Center,,name_keyword/high,Restaurants,Eat & Drink,Quick Bites & Takeout
+eef191c9-5b9d-47f1-b56d-381bfa70e83e,Subway at Southside Basha's Plaza,,name_keyword/high,Restaurants,Eat & Drink,Quick Bites & Takeout

@@ -1,0 +1,18 @@
+# Taxonomy regression anchor set — 10 cases.
+# Source: HAVA_AUDIT_AND_TAXONOMY_REBUILD.md §6. Pass to confabulation_eval.py
+# via --anchor-set-file; checked by scripts/check_taxonomy_anchors.py.
+# 2026-06-11: names RECONCILED against the 2026-06-10 prod export
+# (scratch/entities.csv) — all ten match live rows exactly. The three
+# placeholders were replaced: Havasu Barber Shop (case 2), Stubbys Red Wagon
+# BBQ (case 3), SARA Park Disc Golf Course (case 10). Still pending: the
+# WS-3 paste diff (anchor CHOICE may shift; names are now real either way).
+A Toe Truck
+Havasu Barber Shop
+Stubbys Red Wagon BBQ
+Circle K | Gas Station
+Anderson Toyota
+Cleartone Hearing Centers
+L D Lumpkin, LCSW
+The Views at Lake Havasu
+Farm Fresh Medical/Recreational Marijuana Dispensary
+SARA Park Disc Golf Course

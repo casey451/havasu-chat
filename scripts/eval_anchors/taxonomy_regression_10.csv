@@ -1,0 +1,11 @@
+row_name,expected_department,expected_leaf,probe_query,guards_against,case_id
+A Toe Truck,"Auto, RV & Marine",Towing & Roadside,who can tow my truck in havasu,legacy discovery-domain category deciding leaf (2026-06-05 prod bug),1
+Havasu Barber Shop,Beauty & Personal Care,Hair Salons & Barbers,barber shop near me,bar substring collision -> Bars & Breweries,2
+Stubbys Red Wagon BBQ,Eat & Drink,Restaurants,best bbq in lake havasu,barbecue/bar substring collision,3
+Circle K | Gas Station,"Auto, RV & Marine",Gas Stations,cheapest gas station,convenience_store tokens -> Shopping (2026-06-05 patrol ~15 flags),4
+Anderson Toyota,"Auto, RV & Marine",Car Dealerships,car dealerships in havasu,generic store array token outvoting primary type (2026-06-04 patrol 105 rows),5
+Cleartone Hearing Centers,Health & Medical,Hearing & Audiology,where can i get hearing aids,generic store/health type -> Primary Care catch-all,6
+"L D Lumpkin, LCSW",Health & Medical,Mental & Behavioral Health,therapist or counselor in lake havasu,generic service type -> Primary Care,7
+The Views at Lake Havasu,Health & Medical,Senior Care & Assisted Living,assisted living facilities,generic service type -> Primary Care,8
+Farm Fresh Medical/Recreational Marijuana Dispensary,Shopping & Retail,"Smoke, Vape & Cannabis",dispensary near the london bridge,store + Medical in name -> Primary Care,9
+SARA Park Disc Golf Course,Outdoors & Recreation,Disc Golf,disc golf course havasu,golf substring -> Golf Courses (ordering bug),10

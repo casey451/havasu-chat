@@ -224,6 +224,34 @@ def test_remap_apply_reassigns_and_deactivates(db: Session, tmp_path: Path) -> N
     assert db.get(Entity, ids["same"]).is_active is True
 
 
+def test_remap_department_filter_scopes_the_run(db: Session, tmp_path: Path) -> None:
+    """B3 (spec §7 step 2): --department drops other departments' rows, so a
+    stray row in a hand-built phase CSV can never leak into a phase apply."""
+    ids = _seed_and_entities(db, tmp_path)
+    csv_path = _write_csv(tmp_path, [
+        {"entity_id": ids["move"], "signal": "google_type",
+         "proposed_department": "Eat & Drink", "proposed_leaf": "Restaurants"},
+        # Stray row from another department — must be filtered OUT.
+        {"entity_id": ids["park"], "signal": "name_keyword",
+         "proposed_department": "Lodging", "proposed_leaf": "Vacation Rental — PARK [C]"},
+    ])
+    counts = apply_taxonomy_remap.run(
+        apply=True, confirm=True, csv_path=csv_path,
+        seed_path=_write_seed(tmp_path), snapshot_dir=tmp_path, session=db,
+        department="Eat & Drink",
+    )
+    assert counts["csv_rows"] == 1  # the Lodging row never entered the plan
+    assert counts["assign"] == 1
+    assert counts.get("deactivate", 0) == 0
+    # The stray row's entity is untouched.
+    assert db.get(Entity, ids["park"]).is_active is True
+    # And the in-scope move landed.
+    prim = db.query(EntityCategory).filter(
+        EntityCategory.entity_id == ids["move"], EntityCategory.is_primary.is_(True)
+    ).one()
+    assert prim.category_id == ids["restaurants_id"]
+
+
 def test_remap_apply_requires_confirm(db: Session, tmp_path: Path) -> None:
     ids = _seed_and_entities(db, tmp_path)
     csv_path = _write_csv(tmp_path, [

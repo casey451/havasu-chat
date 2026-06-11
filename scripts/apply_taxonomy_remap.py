@@ -103,9 +103,16 @@ def run(
     csv_path: Path | None = None,
     seed_path: Path | None = None,
     snapshot_dir: Path | None = None,
+    department: str | None = None,
     session=None,
 ) -> Counter:
-    """Stage (and optionally commit) the taxonomy remap. Dry-run by default."""
+    """Stage (and optionally commit) the taxonomy remap. Dry-run by default.
+
+    ``department`` (B3, spec §7 step 2) restricts the run to CSV rows whose
+    ``proposed_department`` matches — the phase gate's belt-and-suspenders on
+    top of a phase-scoped CSV, so a stray row in a hand-built file can never
+    leak another department's changes into a phase apply.
+    """
     csv_path = csv_path or DEFAULT_CSV
     seed_path = seed_path or DEFAULT_SEED
     snapshot_dir = snapshot_dir or _ROOT
@@ -126,6 +133,17 @@ def run(
 
         with csv_path.open(newline="", encoding="utf-8") as f:
             rows = list(csv.DictReader(f))
+        if department:
+            want = department.strip().lower()
+            before = len(rows)
+            rows = [
+                r for r in rows
+                if (r.get("proposed_department") or "").strip().lower() == want
+            ]
+            print(
+                f"department filter: {department!r} — {len(rows)} of {before} "
+                "CSV rows in scope\n"
+            )
         counts["csv_rows"] = len(rows)
 
         # entity_id -> desired leaf category_id (assign), and the deactivate set.
@@ -273,8 +291,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--confirm", action="store_true", help="Required with --apply.")
     parser.add_argument("--csv", type=Path, default=None, help="Override the remap CSV.")
     parser.add_argument("--seed", type=Path, default=None, help="Override the seed JSON.")
+    parser.add_argument(
+        "--department",
+        default=None,
+        help="Restrict to rows whose proposed_department matches (B3 phase runs).",
+    )
     args = parser.parse_args(argv)
-    run(apply=args.apply, confirm=args.confirm, csv_path=args.csv, seed_path=args.seed)
+    run(
+        apply=args.apply,
+        confirm=args.confirm,
+        csv_path=args.csv,
+        seed_path=args.seed,
+        department=args.department,
+    )
     return 0
 
 
