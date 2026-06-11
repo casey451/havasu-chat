@@ -25,7 +25,9 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          # OPS-10: read the prod pin so CI can't skew from the runtime again
+          # (the #247 incident family — CI was green on 3.11 while prod ran 3.13).
+          python-version-file: '.python-version'
           cache: 'pip'
       - name: Install ruff
         run: python -m pip install -r dev-requirements.txt
@@ -39,7 +41,9 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          # OPS-10: read the prod pin so CI can't skew from the runtime again
+          # (the #247 incident family — CI was green on 3.11 while prod ran 3.13).
+          python-version-file: '.python-version'
           cache: 'pip'
       - name: Install dependencies
         # mypy needs the real deps installed to resolve types, so install
@@ -57,7 +61,9 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          # OPS-10: read the prod pin so CI can't skew from the runtime again
+          # (the #247 incident family — CI was green on 3.11 while prod ran 3.13).
+          python-version-file: '.python-version'
           cache: 'pip'
       - name: Install dependencies
         run: |
