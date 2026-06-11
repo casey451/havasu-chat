@@ -21,6 +21,7 @@ from app.chat.confidence_tier import (
     hedge_phrase,
 )
 from app.chat.intent_classifier import IntentResult
+from app.chat.normalizer import spell_correct
 from app.chat.tier2_formatter import is_confidence_tier_enabled
 from app.chat.tier2_synonyms import _CATEGORY_SYNONYM_GROUPS, _category_needle_set
 from app.core.timezone import now_lake_havasu
@@ -296,8 +297,13 @@ def _fetch_provider_rows(
     the prior verified-then-alphabetical ordering (C1), and the verified-only
     fallback for an empty active set is unchanged.
     """
-    tokens = _query_tokens(query)
-    terms = _category_vocab_terms(query)
+    # Hunt 2026-06-10 §1 item 6 (C-PR-4): spell-correct was only applied at
+    # leaf-normalize, so the Tier-3 scorer never saw corrections — "plummbers"
+    # leaf-routed fine but Tier-3 retrieval got the raw typo. Correct once here;
+    # the shared layer is conservative (cutoff 90, length guards, protected set).
+    corrected = spell_correct(query) if query else query
+    tokens = _query_tokens(corrected)
+    terms = _category_vocab_terms(corrected)
     needles = _category_needles_for_query(terms)
 
     matched: list[Provider] = []
