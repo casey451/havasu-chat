@@ -1,7 +1,28 @@
 {% extends "desert_base.html" %}
 {% import "_partials/desert_icons.html" as dicons %}
 {% block title %}Ask Hava — Lake Havasu City concierge & directory{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_home.css">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_home.css">
+  <style>
+    /* UX-1 above-the-fold: quick-intent chips + one-line trust strip. Scoped
+       here (no desert_home.css edit); palette matches the site. */
+    .home-intents{margin-top:6px}
+    .intents-row{display:flex;gap:10px;flex-wrap:wrap}
+    .intentchip{display:inline-flex;align-items:center;padding:9px 15px;
+      border:1px solid rgba(23,19,16,.16);border-radius:999px;background:#fff;
+      color:#171310;text-decoration:none;font-weight:600;font-size:.95rem;
+      white-space:nowrap;transition:background .12s,border-color .12s}
+    .intentchip:hover,.intentchip:focus{background:#fbf4e6;border-color:rgba(23,19,16,.34)}
+    .home-trust{margin-top:14px}
+    .trust-line{margin:0;font-size:.9rem;opacity:.82;display:flex;gap:10px;
+      flex-wrap:wrap;align-items:center}
+    .trust-line a{color:inherit;text-decoration:none;border-bottom:1px solid rgba(23,19,16,.25)}
+    .trust-line a:hover{border-bottom-color:rgba(23,19,16,.6)}
+    @media (max-width:480px){
+      .intents-row{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;
+        padding-bottom:4px;scrollbar-width:none}
+      .intents-row::-webkit-scrollbar{display:none}
+    }
+  </style>{% endblock %}
 
 {% block content %}
   {# ---- Hero + single search → existing 3-tier /chat backend (Desert Modern:
@@ -38,6 +59,31 @@
         </div>
       </div>
     </div>
+  </section>
+
+  {# ---- UX-1: quick-intent chips. Fast paths into REAL surfaces only (no
+     confabulation — every chip points at a page that exists). Horizontally
+     scrollable on phones (≤480px). ---- #}
+  <section class="d-wrap home-intents" aria-label="Quick starts">
+    <div class="intents-row" role="list">
+      <a class="intentchip" role="listitem" href="/chat?q=find+a+service">Need a service</a>
+      <a class="intentchip" role="listitem" href="/events-ui">Tonight</a>
+      <a class="intentchip" role="listitem" href="/events-ui?view=week">This weekend</a>
+      <a class="intentchip" role="listitem" href="/categories/on-the-water">On the water</a>
+      <a class="intentchip" role="listitem" href="/family">Kid-friendly</a>
+    </div>
+  </section>
+
+  {# ---- UX-1: one-line trust strip. The three proof phrases already in site
+     copy, each linked to the page that substantiates it. ---- #}
+  <section class="d-wrap home-trust" aria-label="Why trust Hava">
+    <p class="trust-line">
+      <a href="/about">Real public reviews</a>
+      <span aria-hidden="true">·</span>
+      <a href="/portal/advertise">Sponsored clearly labeled</a>
+      <span aria-hidden="true">·</span>
+      <a href="/about">Built in Lake Havasu</a>
+    </p>
   </section>
 
   {# ---- G: compact category strip — directory breadth ABOVE THE FOLD (counts
