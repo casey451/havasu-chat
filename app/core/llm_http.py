@@ -8,4 +8,11 @@ value bounds how long a stuck request can block a worker before the SDK raises
 
 from __future__ import annotations
 
-LLM_CLIENT_READ_TIMEOUT_SEC = 45.0
+import os
+
+# Bounds how long a stuck LLM request blocks a worker (a threadpool slot AND a
+# pooled DB connection, since the request Session is held across the call) before
+# the SDK raises. Lowered from 45s and made env-tunable (audit Track 1): a 45s
+# stall pinned both resources for the full window. Override LLM_READ_TIMEOUT_SEC
+# to retune without a deploy.
+LLM_CLIENT_READ_TIMEOUT_SEC = float(os.getenv("LLM_READ_TIMEOUT_SEC", "30"))

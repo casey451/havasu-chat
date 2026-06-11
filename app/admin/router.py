@@ -29,6 +29,7 @@ from app.admin.mentions_html import register_mentions_html_routes
 from app.admin.provider_approval import pending_provider_count
 from app.admin.provider_merge_review import duplicate_pair_count
 from app.admin.sponsor_surface import register_sponsor_admin_routes
+from app.admin.url_safety import safe_href
 from app.auth.session import cookie_secure_in_prod
 from app.contrib.ingest_base import EntityPayload
 from app.contrib.ingest_reconciler import reconcile_hit
@@ -589,7 +590,7 @@ def _dashboard_html_simple(pending: list[Event], live: list[Event], tab: str, so
 def _card_html(ev: Event, mode: Literal["pending", "live"]) -> str:
     url = (ev.event_url or "").strip()
     link = (
-        f'<a href="{_escape(url)}" target="_blank" rel="noopener">{_escape(url)}</a>'
+        f'<a href="{_escape(safe_href(url))}" target="_blank" rel="noopener">{_escape(url)}</a>'
         if url
         else "—"
     )
@@ -1981,7 +1982,7 @@ def _red_flag_pills_html(flags: list[str]) -> str:
 def _queue_event_item_html(ev: Event, db: Session) -> str:
     url = (ev.event_url or "").strip()
     link = (
-        f'<a href="{_escape(url)}" target="_blank" rel="noopener">{_escape(url)}</a>'
+        f'<a href="{_escape(safe_href(url))}" target="_blank" rel="noopener">{_escape(url)}</a>'
         if url
         else "—"
     )

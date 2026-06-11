@@ -209,11 +209,7 @@ def _fetch_stations_scraperapi(
         keep_headers=True,
         render=False,
     )
-    parsed = urlparse(post_proxy)
-    logger.info(
-        "ScraperAPI GraphQL proxy username: %s",
-        parsed.username or "scraperapi",
-    )
+    logger.debug("ScraperAPI GraphQL request prepared (session=%s)", session_number)
     proxies = _scraperapi_requests_proxies(post_proxy)
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     headers = _graphql_headers(token)
