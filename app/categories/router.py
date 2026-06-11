@@ -700,11 +700,11 @@ def _itemlist_jsonld(name: str, total: int, providers: list[Provider]) -> dict[s
 # No fabricated specifics — just the ranking-transparency line the whole site
 # uses. ``{name}`` is the leaf's display noun (e.g. "Plumbing", "Restaurants").
 _LEAF_INTRO_TEMPLATE = (
-    "{name} in Lake Havasu City, AZ. The {n} listings below are ranked by a "
-    "volume-weighted rating, so a business with a strong rating across many "
-    "reviews ranks above one with a perfect score from only a couple. Ratings "
-    "and review counts come from real public reviews — Ask Hava never "
-    "fabricates a rating, and any sponsored placement is clearly labeled."
+    "{name} in Lake Havasu City, AZ. The {n} listings below are ranked by "
+    "real public reviews — more reviews, more weight — so a strong rating "
+    "across many reviews beats a perfect score from only a couple. Spots "
+    "can't be bought, Hava never invents a rating, and any sponsored "
+    "placement is clearly labeled."
 )
 
 
