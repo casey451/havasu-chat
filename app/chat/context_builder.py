@@ -12,7 +12,7 @@ import re
 from datetime import date
 from typing import Any, Sequence
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import String, and_, cast, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.chat.chat_request_context import ChatRequestContext
@@ -22,14 +22,17 @@ from app.chat.confidence_tier import (
 )
 from app.chat.intent_classifier import IntentResult
 from app.chat.tier2_formatter import is_confidence_tier_enabled
+from app.chat.tier2_synonyms import _CATEGORY_SYNONYM_GROUPS, _category_needle_set
 from app.core.timezone import now_lake_havasu
 from app.db.entity_types import ENTITY_TYPE_COMMERCIAL
-from app.db.models import Entity, EntityCategory, Event, Program, Provider
+from app.db.models import Category, Entity, EntityCategory, Event, Program, Provider
 from app.providers.photo_urls import first_renderable_google_photo
+from app.search import fts as search_fts
 
 MAX_PROVIDERS = 10
 MAX_CONTEXT_WORDS = 1500
 MAX_STANDALONE_EVENTS = 15
+_CANDIDATES_PER_SOURCE = 50
 _STANDALONE_EVENTS_MAX_WORDS = 300
 _HOURS_MAX_LEN = 200
 
@@ -102,14 +105,182 @@ def _query_tokens(query: str | None) -> list[str]:
     return [t for t in toks if len(t) > 2 and t not in _STOPWORDS]
 
 
-def _provider_relevance(p: Provider, tokens: list[str]) -> int:
-    """Count of query tokens appearing in the provider's name/category/address."""
-    if not tokens:
+def _provider_relevance(
+    p: Provider, tokens: list[str], needles: Sequence[str] = ()
+) -> int:
+    """Token/needle overlap with the provider's text fields.
+
+    Hunt 2026-06-10 §4b: the old haystack was name+category+address only —
+    "plumber" / "bowling" / "electrician" live in ``google_primary_category`` /
+    ``google_categories`` and were invisible to the scorer. Google fields are
+    normalized (underscores → spaces) and category-needle hits score double so
+    a category-confirmed provider outranks an incidental token match.
+    """
+    if not tokens and not needles:
         return 0
-    hay = " ".join(
-        v for v in (p.provider_name, p.category, getattr(p, "address", None)) if v
-    ).lower()
-    return sum(1 for t in tokens if t in hay)
+    cat_parts = [p.category or ""]
+    gpc = getattr(p, "google_primary_category", None)
+    if gpc:
+        cat_parts.append(gpc.replace("_", " "))
+    gcs = getattr(p, "google_categories", None)
+    if isinstance(gcs, list):
+        cat_parts.extend(t.replace("_", " ") for t in gcs if isinstance(t, str))
+    cat_hay = " ".join(v for v in cat_parts if v).lower()
+    text_parts = [p.provider_name or "", getattr(p, "address", None) or "", cat_hay]
+    hay = " ".join(v for v in text_parts if v).lower()
+    score = sum(1 for t in tokens if t in hay)
+    # Needles are category vocabulary — score them against category fields
+    # only, so a category-confirmed provider outranks a business that merely
+    # has the word in its name ("Plumber Street Tacos").
+    score += 2 * sum(1 for n in needles if n and n in cat_hay)
+    return score
+
+
+def _category_vocab_terms(query: str | None) -> list[str]:
+    """Known category vocabulary (leaf-map keys + Tier-2 synonym terms) in the query.
+
+    Scans 1- and 2-grams of the tokenized query against the navigational leaf
+    dict and the category synonym groups (bigrams first; tokens already covered
+    by a captured bigram are skipped), so conversational phrasings — "what is
+    the best plumber in lake havasu", "i need a plumber" — surface their
+    category term even though leaf-normalize would not collapse them.
+    """
+    # Lazy import: leaf_query imports app.chat.normalizer at module level;
+    # importing it lazily keeps app.chat.context_builder cycle-safe (same
+    # pattern as normalizer's lazy vocabulary imports).
+    from app.categories.leaf_query import _QUERY_TO_LEAF
+
+    toks = re.findall(r"[a-z0-9]+", (query or "").lower())
+    synonym_terms = {t for g in _CATEGORY_SYNONYM_GROUPS for t in g}
+    out: list[str] = []
+    for n in (2, 1):
+        for i in range(len(toks) - n + 1):
+            g = " ".join(toks[i : i + n])
+            if g in out:
+                continue
+            if n == 1 and any(g in t.split() for t in out):
+                continue
+            if g in _QUERY_TO_LEAF or g in synonym_terms:
+                out.append(g)
+    return out
+
+
+def _category_needles_for_query(terms: Sequence[str]) -> tuple[str, ...]:
+    """Union of Tier-2 needle sets for every category term found in the query."""
+    needles: set[str] = set()
+    for t in terms:
+        needles.update(_category_needle_set(t))
+    return tuple(sorted(needles))
+
+
+def _candidate_providers(
+    db: Session, tokens: list[str], terms: Sequence[str], needles: Sequence[str]
+) -> list[Provider]:
+    """Bounded SQL candidate union — PERF-2: no full-table Provider scan.
+
+    Sources, each capped at ``_CANDIDATES_PER_SOURCE`` and ordered
+    verified-first/name (deep dive §4b "push filtering into SQL"):
+
+    (a) service-intent → leaf routing: category terms that resolve through
+        ``_QUERY_TO_LEAF`` pull providers via their entity's category rows
+        with one batched ``IN`` over leaf slugs;
+    (b) category needles vs ``category`` / ``google_primary_category`` /
+        ``google_categories`` (ILIKE; underscore variants so "bowling alley"
+        matches Google's ``bowling_alley``);
+    (c) raw query tokens vs name / category / address — preserves the
+        pre-§4b text-match surface;
+    (d) FTS over ``entities.search_vector`` (token OR-group) on Postgres,
+        Entity name/description ILIKE on SQLite, then one batched
+        ``Provider.entity_id IN`` lookup.
+    """
+    from app.categories.leaf_query import _QUERY_TO_LEAF  # lazy — see above
+
+    base = (Provider.draft.is_(False), Provider.is_active.is_(True))
+    order = (Provider.verified.desc(), Provider.provider_name.asc())
+    found: dict[Any, Provider] = {}
+
+    def take(stmt) -> None:
+        for prov in db.scalars(stmt.limit(_CANDIDATES_PER_SOURCE)).all():
+            found.setdefault(prov.id, prov)
+
+    leaf_slugs = sorted(
+        {
+            slug
+            for t in terms
+            for slug in (_QUERY_TO_LEAF.get(t), _QUERY_TO_LEAF.get(t + "s"))
+            if slug
+        }
+    )
+    if leaf_slugs:
+        take(
+            select(Provider)
+            .join(Entity, Provider.entity_id == Entity.id)
+            .join(EntityCategory, EntityCategory.entity_id == Entity.id)
+            .join(Category, EntityCategory.category_id == Category.id)
+            .where(*base, Category.slug.in_(leaf_slugs))
+            .order_by(*order)
+        )
+
+    if needles:
+        conds: list[Any] = []
+        for n in needles:
+            variants = {n}
+            if " " in n:
+                variants.add(n.replace(" ", "_"))
+            for v in variants:
+                like = f"%{v}%"
+                conds.append(Provider.category.ilike(like))
+                conds.append(Provider.google_primary_category.ilike(like))
+                conds.append(cast(Provider.google_categories, String).ilike(like))
+        take(select(Provider).where(*base, or_(*conds)).order_by(*order))
+
+    if tokens:
+        conds = []
+        for t in tokens:
+            like = f"%{t}%"
+            conds.append(Provider.provider_name.ilike(like))
+            conds.append(Provider.category.ilike(like))
+            conds.append(Provider.address.ilike(like))
+        take(select(Provider).where(*base, or_(*conds)).order_by(*order))
+
+        if db.get_bind().dialect.name == "postgresql":
+            groups = [
+                g
+                for g in (search_fts._phrase_to_tsquery_group(t) for t in tokens)
+                if g
+            ]
+            ent_ids_stmt = None
+            if groups:
+                tsq = "(" + " | ".join(groups) + ")"
+                ent_ids_stmt = (
+                    select(Entity.id)
+                    .where(
+                        Entity.is_active.is_(True),
+                        search_fts.entities_search_vector_match(tsq),
+                    )
+                    .limit(_CANDIDATES_PER_SOURCE)
+                )
+        else:
+            conds = []
+            for t in tokens:
+                like = f"%{t}%"
+                conds.append(Entity.name.ilike(like))
+                conds.append(Entity.description.ilike(like))
+            ent_ids_stmt = (
+                select(Entity.id)
+                .where(Entity.is_active.is_(True), or_(*conds))
+                .limit(_CANDIDATES_PER_SOURCE)
+            )
+        if ent_ids_stmt is not None:
+            ent_ids = list(db.scalars(ent_ids_stmt).all())
+            if ent_ids:
+                take(
+                    select(Provider)
+                    .where(*base, Provider.entity_id.in_(ent_ids))
+                    .order_by(*order)
+                )
+
+    return list(found.values())
 
 
 def _fetch_provider_rows(
@@ -117,17 +288,65 @@ def _fetch_provider_rows(
 ) -> list[Provider]:
     """Active, non-draft providers; entity match first, else query-relevant.
 
-    Capped at ``MAX_PROVIDERS``. With no matched entity, rows are ordered by
-    query relevance (then verified, then name); when the query has no usable
-    tokens the relevance term is 0 for every row, degrading cleanly to the
-    prior verified-then-alphabetical ordering. (C1)
+    Capped at ``MAX_PROVIDERS``. Hunt 2026-06-10 §4b / PERF-2 rewrite:
+    candidates come from bounded SQL (leaf routing, Google-category needles,
+    token ILIKE, FTS) instead of a full-table scan, then the small union is
+    ranked in Python by :func:`_provider_relevance` — which now sees the
+    Google category fields. With no usable tokens the pipeline degrades to
+    the prior verified-then-alphabetical ordering (C1), and the verified-only
+    fallback for an empty active set is unchanged.
     """
-    active = list(
-        db.scalars(
-            select(Provider).where(Provider.draft.is_(False), Provider.is_active.is_(True))
-        ).all()
+    tokens = _query_tokens(query)
+    terms = _category_vocab_terms(query)
+    needles = _category_needles_for_query(terms)
+
+    matched: list[Provider] = []
+    if entity:
+        matched = list(
+            db.scalars(
+                select(Provider)
+                .where(
+                    Provider.draft.is_(False),
+                    Provider.is_active.is_(True),
+                    Provider.provider_name == entity,
+                )
+                .order_by(Provider.provider_name.asc())
+                .limit(MAX_PROVIDERS)
+            ).all()
+        )
+
+    candidates = _candidate_providers(db, tokens, terms, needles)
+    matched_ids = {p.id for p in matched}
+    rest = [p for p in candidates if p.id not in matched_ids]
+    rest.sort(
+        key=lambda p: (
+            -_provider_relevance(p, tokens, needles),
+            not p.verified,
+            p.provider_name or "",
+        )
     )
-    if not active:
+    ordered: list[Provider] = matched + rest
+
+    if len(ordered) < MAX_PROVIDERS:
+        # Pad with the prior degraded ordering (verified-first, then name) so
+        # token-less or no-match queries keep their pre-§4b snapshot — bounded
+        # LIMIT, not a full-table scan.
+        seen = {p.id for p in ordered}
+        fill = db.scalars(
+            select(Provider)
+            .where(Provider.draft.is_(False), Provider.is_active.is_(True))
+            .order_by(Provider.verified.desc(), Provider.provider_name.asc())
+            .limit(MAX_PROVIDERS + len(seen))
+        ).all()
+        for prov in fill:
+            if prov.id not in seen:
+                ordered.append(prov)
+                seen.add(prov.id)
+            if len(ordered) >= MAX_PROVIDERS:
+                break
+
+    if not ordered:
+        # No active rows at all: keep the verified-only fallback slice.
         return list(
             db.scalars(
                 select(Provider)
@@ -135,16 +354,6 @@ def _fetch_provider_rows(
                 .order_by(Provider.provider_name.asc())
                 .limit(MAX_PROVIDERS)
             ).all()
-        )
-    if entity:
-        matched = [p for p in active if p.provider_name == entity]
-        rest = [p for p in active if p.provider_name != entity]
-        ordered: list[Provider] = matched + rest
-    else:
-        tokens = _query_tokens(query)
-        ordered = sorted(
-            active,
-            key=lambda p: (-_provider_relevance(p, tokens), not p.verified, p.provider_name or ""),
         )
     return ordered[:MAX_PROVIDERS]
 
