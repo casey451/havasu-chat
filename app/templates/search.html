@@ -5,7 +5,10 @@
    their search-row class names and are restyled in desert_directory.css. #}
 {% block title %}{% if q %}{{ q }} — Search — Ask Hava{% else %}Search — Ask Hava{% endif %}{% endblock %}
 {% block meta_description %}Keyword search across Lake Havasu City businesses and events on Ask Hava.{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_directory.css">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_directory.css">
+{# Internal search results shouldn't enter the index (standard hygiene); the
+   bare /search form page stays indexable. #}
+{% if q %}<meta name="robots" content="noindex">{% endif %}{% endblock %}
 
 {% block content %}
 <section class="search-head">
@@ -40,7 +43,7 @@
             {% if p.url %}<a href="{{ p.url }}">{{ p.name }}</a>{% else %}{{ p.name }}{% endif %}
           </div>
           {% if p.subtype %}<div class="search-row-subtype">{{ p.subtype }}</div>{% endif %}
-          {% if p.phone %}<div class="search-row-phone"><a href="tel:{{ p.phone }}">{{ p.phone }}</a></div>{% endif %}
+          {% if p.phone %}<div class="search-row-phone"><a href="tel:{{ p.phone_tel or p.phone }}">{{ p.phone }}</a></div>{% endif %}
           {% if p.address %}<div class="search-row-area">{{ p.address }}</div>{% endif %}
         </li>
         {% endfor %}

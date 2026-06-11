@@ -43,6 +43,27 @@ def _aqi_severity(aqi: int | None) -> str:
     return "severe"
 
 
+def _aqi_category(aqi: int | None) -> str:
+    """EPA AQI category word for the chip ("AQI 40 · Good").
+
+    Standard EPA breakpoints; the long official names are compressed to fit a
+    conditions chip ("Unhealthy for Sensitive Groups" → "Sensitive groups").
+    """
+    if aqi is None:
+        return ""
+    if aqi <= 50:
+        return "Good"
+    if aqi <= 100:
+        return "Moderate"
+    if aqi <= 150:
+        return "Sensitive groups"
+    if aqi <= 200:
+        return "Unhealthy"
+    if aqi <= 300:
+        return "Very unhealthy"
+    return "Hazardous"
+
+
 def build_conditions_strip_view_model(
     db: Session, *, now: datetime | None = None
 ) -> ConditionsStripViewModel:
@@ -145,16 +166,20 @@ def build_conditions_strip_view_model(
         label = api.get("aqi_staleness_label") or "Updated recently"
         stale = bool(api.get("aqi_is_stale"))
         any_stale = any_stale or stale
+        # Copy audit 2026-06-10 (P3 #6): "(O3)" meant nothing to most readers.
+        # Lead with the EPA category word; the pollutant code moves to the
+        # hover detail for anyone who wants it.
+        category = _aqi_category(int(aqi))
         tiles.append(
             ConditionsTile(
                 kind="aqi",
-                primary_value=f"AQI {aqi} ({param})",
+                primary_value=f"AQI {aqi} · {category}" if category else f"AQI {aqi}",
                 secondary_value=None,
                 attribution_chip=chip,
                 severity=_aqi_severity(int(aqi) if aqi is not None else None),
                 staleness_label=label,
                 is_stale=stale,
-                detail_text=None,
+                detail_text=f"Primary pollutant: {param}" if param != "AQI" else None,
                 visible=True,
             )
         )

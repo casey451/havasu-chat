@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 from app.conditions.cache import read_source
 from app.conditions.constants import GAS_STALE_AFTER_HOURS, SOURCE_GAS
 from app.conditions.staleness import staleness_label
+from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.timezone import LAKE_HAVASU_TZ
 from app.db.database import get_db
 
@@ -35,6 +36,12 @@ router = APIRouter(tags=["gas"])
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
+# Every Jinja2Templates instance must run the shared registrars: without
+# ``canonical_url``/``absolute_url`` globals, desert_base silently skips its
+# whole canonical + Open Graph head block — live /gas shipped with NO
+# canonical and NO og:* tags because this module skipped the calls.
+register_template_filters(templates)
+register_template_globals(templates)
 
 # Number of cheapest stations to surface above the full table. The prototype's
 # cut-off "top 5" is replaced with a clean 6-up grid (UI build guide §4.11).

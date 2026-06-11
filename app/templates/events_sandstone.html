@@ -59,11 +59,13 @@
         </summary>
         <div class="ev-acc-rows">
           {% for row in g.rows %}
-          <a class="ev-acc-row" href="{{ row.url }}">
+          {# A class series whose venue has no provider page gets NO link —
+             the old "/events-ui" fallback made it a self-link dead end. #}
+          {% if row.url %}<a class="ev-acc-row" href="{{ row.url }}">{% else %}<div class="ev-acc-row ev-acc-row--nolink">{% endif %}
             <span class="ev-acc-time">{{ row.time_label }}</span>
             <span class="ev-acc-title">{{ row.title }}{% if row.recurring %} <span class="ev-acc-recur">Runs regularly ↻</span>{% endif %}</span>
             {% if row.venue %}<span class="ev-acc-venue clamp1">{{ row.venue }}</span>{% endif %}
-          </a>
+          {% if row.url %}</a>{% else %}</div>{% endif %}
           {% endfor %}
         </div>
       </details>

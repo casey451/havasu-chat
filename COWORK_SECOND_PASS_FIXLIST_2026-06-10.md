@@ -680,6 +680,41 @@ map pins), image quality/cropping, Core Web Vitals.
 
 ---
 
+## 12b. IMPLEMENTED THIS SESSION (Cowork, ~9:30 AM) — uncommitted, Windows-side edits only
+
+Done in the working tree by THIS session (no git ops, no mount-shell writes — other agents: these
+files are claimed, please don't re-edit without checking):
+
+| Fix | Files | Status |
+|---|---|---|
+| §1.3 classifier: word-boundary hint matching (+plural/gerund tails, "fest" suffix exception) + civic→Community tier | `app/home/sandstone.py` (`_CIVIC_HINTS`, `_compile_hints`, `_event_tier`, `_event_css_type`) | DONE — logic replica-tested (24 cases) |
+| §2.1A event-vs-schedule dedup: normalized token-subset match + ±30-min window; callers pass (title, date, start_time); legacy 2-tuple keys still accepted | `app/events/class_occurrences.py`, `app/home/events_views.py` (×2 sites), `app/home/sandstone.py` (week_strip + calendar_month) | DONE — replica-tested incl. live aquatic pairs |
+| §2.1B schedule-twin collapse (Pilates double-capture) at read time | `app/events/class_occurrences.py` `_drop_schedule_twins`, wired into `class_occurrences_in_window` | DONE (data cleanup of Schedule rows still pending) |
+| §2.4 slugless class rows: no more `/events-ui` self-link; non-link row rendering | `app/events/class_occurrences.py` (`url` → ""), `app/templates/events_sandstone.html` (row branch) | DONE |
+| §5.1 /gas missing canonical+OG: register shared template filters/globals | `app/api/routes/gas.py`, `app/api/routes/micro_ad.py` | DONE |
+| §0.4 proxy scheme: `--proxy-headers --forwarded-allow-ips="*"` | `Procfile`, `nixpacks.toml` | DONE — fixes HSTS emission + future request.url uses; provider JSON-LD template fix (§4.1) still separate |
+| §1.1 event-ingest fallback URL havasuchat→askhava | `app/contrib/event_ingest.py` (both sites) | DONE (DB backfill of existing rows still pending `[DATA]`) |
+| §9.3 AQI chip "(O3)" → "AQI 40 · Good" (+pollutant moved to hover detail) | `app/conditions/view_model.py` (`_aqi_category`) | DONE (the /today tile's "O3" secondary is in `today_payload` — not touched) |
+| §13.6 search page: canonical subtype labels, street-only address, digit `tel:`, noindex on results | `app/search/routes.py` (`_humanize_subtype`), `app/templates/search.html` | DONE |
+| New tests | `tests/test_event_tier_classifier.py`, `tests/test_class_event_dedup.py` | NEW FILES |
+
+Known limitation left documented: "Arthritis Class Vince" vs "Arthritis Water Class" token sets are not
+subset-related — that one pair still doubles until the Schedule-side data cleanup.
+
+Verification status: logic validated via standalone replicas (sandbox /tmp, off-mount); edited regions
+re-read Windows-side and intact. **The sandbox mount serves stale/truncated views of these files — do
+NOT trust mount-side py_compile/pytest.** Authoritative gate per WORKING_AGREEMENT: Casey runs
+`.venv\Scripts\python.exe -m pytest -q` + `ruff check .` Windows-side before commit.
+
+Deliberately NOT touched (collision avoidance): `app/main.py` (privacy renderer §1.2, `_event_is_past`
+§13.4, sitemap+/gas §5.8, legal titles §8.3 — main.py is in another agent's working set),
+`desert_base.html` (favicon §1.6, twitter cards §8.6), all copy-agent templates (sponsor/portal/home/
+contribute/login/about — the /sponsor consolidation §6 was found already done by that agent),
+`portal_advertise.html` cactus §1.5 (same file as copy work — 5-line swap, trivial whenever that file
+is free), reserve-form taxonomy §13.1 (portal module = funnel agent's lane).
+
+---
+
 ## 13. ADDENDUM — sweep #2 (same day, ~9:00–9:20 AM MST)
 
 Second full pass over pages not covered the first time: categories index, eat-and-drink department,

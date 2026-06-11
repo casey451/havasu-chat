@@ -202,7 +202,9 @@ def _to_event_payload(rec: EventRecord, *, source: str) -> EventPayload:
         venue_name=rec.venue_name,
         address=rec.venue_address,
         description=_description(rec),
-        event_url=_http_url_or_none(rec.url) or "https://havasuchat.com/events",
+        # Fallback must never point at the dead pre-rename domain (P0 #1):
+        # askhava.com/events-ui is the canonical events surface.
+        event_url=_http_url_or_none(rec.url) or "https://askhava.com/events-ui",
         source_stable_url=rec.url,
         lat=None,
         lng=None,
@@ -349,7 +351,7 @@ def ingest_event_records(
                             end_time=rec.end_time,
                             location_name=_location_name(rec),
                             event_url=_http_url_or_none(rec.url)
-                            or "https://havasuchat.com/events",
+                            or "https://askhava.com/events-ui",
                             source_url=rec.url,
                         )
                         ev = approve_contribution_as_event(

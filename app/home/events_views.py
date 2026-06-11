@@ -113,7 +113,10 @@ def day_groups(db: Session, *, day: date, family: bool = False) -> list[dict[str
     events = _live_events_by_day(db, window_start=day, window_end=day).get(day, [])
     if family:
         events = [ev for ev in events if is_family_event(ev.title, ev.tags)]
-    event_keys = {((ev.title or "").strip().lower(), day) for ev in events}
+    # (title, date, start_time) triples: the start-time window keeps distinct
+    # sessions apart while still suppressing renamed twins (see
+    # drop_event_duplicates).
+    event_keys = {((ev.title or "").strip().lower(), day, ev.start_time) for ev in events}
 
     rows_by_group: dict[str, list[dict[str, Any]]] = {key: [] for key, _l, _i in GROUP_DEFS}
     for ev in events:
@@ -194,7 +197,9 @@ def week_rows(
             for d, evs in by_day.items()
         }
     event_keys = {
-        ((ev.title or "").strip().lower(), d) for d, evs in by_day.items() for ev in evs
+        ((ev.title or "").strip().lower(), d, ev.start_time)
+        for d, evs in by_day.items()
+        for ev in evs
     }
     sched_by_day: dict[date, int] = {}
     for occ in drop_event_duplicates(
