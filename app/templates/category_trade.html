@@ -16,6 +16,33 @@
 {% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_directory.css">
 <script type="application/ld+json">{{ breadcrumb_jsonld | tojson | safe }}</script>
 <script type="application/ld+json">{{ itemlist_jsonld | tojson | safe }}</script>
+{% if list_controls and list_controls.has_prev %}<link rel="prev" href="{{ list_controls.url_prev }}">{% endif %}
+{% if list_controls and list_controls.has_next %}<link rel="next" href="{{ list_controls.url_next }}">{% endif %}
+<style>
+  /* UX-2 list controls: sticky filter/sort chip bar + pager. Scoped here so
+     desert_directory.css stays untouched; palette matches the site. */
+  .cat-filters{position:sticky;top:0;z-index:20;background:#fbf4e6;
+    border-bottom:1px solid rgba(23,19,16,.1)}
+  .cat-filters-in{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:11px 0}
+  .catfilter{display:inline-flex;align-items:center;padding:7px 14px;border-radius:999px;
+    border:1px solid rgba(23,19,16,.18);background:#fff;color:#171310;text-decoration:none;
+    font-weight:600;font-size:.9rem;white-space:nowrap}
+  .catfilter.is-on{background:#171310;color:#fff;border-color:#171310}
+  .catfilter:hover{border-color:rgba(23,19,16,.4)}
+  .catfilter-sep{width:1px;height:20px;background:rgba(23,19,16,.16);margin:0 3px}
+  .catfilter-count{font-size:.85rem;opacity:.7;margin-left:4px}
+  .cat-empty{margin:24px 0;font-size:1rem;opacity:.8}
+  .cat-pager{display:flex;align-items:center;justify-content:center;gap:16px;
+    margin:26px 0 8px;font-weight:600}
+  .pager-btn{display:inline-flex;padding:8px 16px;border-radius:999px;
+    border:1px solid rgba(23,19,16,.2);background:#fff;color:#171310;text-decoration:none}
+  .pager-btn:hover{background:#fbf4e6}
+  .pager-now{opacity:.7;font-size:.92rem}
+  @media (max-width:480px){
+    .cat-filters-in{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+    .cat-filters-in::-webkit-scrollbar{display:none}
+  }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -32,12 +59,46 @@
     <div class="ridge" aria-hidden="true"></div>
   </section>
 
+  {# ── UX-2: sticky filter/sort chip bar. Server-rendered links (no JS) — Open
+     now filters on live America/Phoenix hours; Top rated is the default
+     volume-weighted sort; A–Z is alphabetical. Distance needs geolocation and
+     is intentionally out of scope. ── #}
+  {% if list_controls %}
+  <div class="cat-filters" role="region" aria-label="Filter and sort listings">
+    <div class="wrap cat-filters-in">
+      <a class="catfilter{% if list_controls.open_now %} is-on{% endif %}"
+         href="{% if list_controls.open_now %}{{ list_controls.url_open_off }}{% else %}{{ list_controls.url_open_on }}{% endif %}"
+         aria-pressed="{{ 'true' if list_controls.open_now else 'false' }}">Open now</a>
+      <span class="catfilter-sep" aria-hidden="true"></span>
+      <a class="catfilter{% if list_controls.sort == 'top' %} is-on{% endif %}"
+         href="{{ list_controls.url_top }}"
+         aria-pressed="{{ 'true' if list_controls.sort == 'top' else 'false' }}">Top rated</a>
+      <a class="catfilter{% if list_controls.sort == 'az' %} is-on{% endif %}"
+         href="{{ list_controls.url_az }}"
+         aria-pressed="{{ 'true' if list_controls.sort == 'az' else 'false' }}">A&ndash;Z</a>
+      {% if list_controls.open_now %}<span class="catfilter-count">{{ list_controls.shown_total }} open now</span>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+
   <div class="wrap listwrap">
     <div class="biz-grid" id="bizGrid">
       {% for card in category_cards %}
       {% include 'components/sandstone_biz_card.html' %}
       {% endfor %}
     </div>
+
+    {% if list_controls and not category_cards %}
+    <p class="cat-empty">Nothing to show here right now{% if list_controls.open_now %} — none are open at the moment. <a href="{{ list_controls.url_open_off }}">Show all {{ trade_label | lower }}</a>.{% endif %}</p>
+    {% endif %}
+
+    {% if list_controls and list_controls.total_pages > 1 %}
+    <nav class="cat-pager" aria-label="Pagination">
+      {% if list_controls.has_prev %}<a class="pager-btn" href="{{ list_controls.url_prev }}" rel="prev">&larr; Prev</a>{% endif %}
+      <span class="pager-now">Page {{ list_controls.page }} of {{ list_controls.total_pages }}</span>
+      {% if list_controls.has_next %}<a class="pager-btn" href="{{ list_controls.url_next }}" rel="next">Next &rarr;</a>{% endif %}
+    </nav>
+    {% endif %}
 
     {# ── G Tier-3: category-claim slot. Every category page is sellable
        inventory — "own the {category}" — the recurring volume product. No

@@ -600,6 +600,9 @@ def _render_trade_page(
 
     parent_label, _ = cat_queries.CATEGORY_DISPLAY[trade_pages.TRADE_PARENT_SLUG]
     page_path = f"/categories/{trade_pages.TRADE_PARENT_SLUG}/{trade_obj.slug}"
+    visible_cards, list_controls = _apply_list_controls(
+        request.query_params, cards, base_path=page_path
+    )
 
     breadcrumb_jsonld: dict[str, Any] = {
         "@context": "https://schema.org",
@@ -664,7 +667,9 @@ def _render_trade_page(
             "trade_count": total,
             "trade_intro": trade_obj.intro,
             "trade_faqs": faqs,
-            "category_cards": cards,
+            "category_cards": visible_cards,
+            "list_controls": list_controls,
+            "canonical_override": absolute_url(page_path),
             "breadcrumb_jsonld": breadcrumb_jsonld,
             "itemlist_jsonld": itemlist_jsonld,
             "active_tab": "explore",
@@ -694,6 +699,76 @@ def _itemlist_jsonld(name: str, total: int, providers: list[Provider]) -> dict[s
             if prov.slug
         ],
     }
+
+
+# UX-2: server-rendered list controls (Open-now filter + sort + pagination) for
+# the shared leaf/trade listing template. Progressive enhancement — every
+# control is a plain link carrying ?open / ?sort / ?page; no JS, no SPA. The
+# DOM-size cap (Lighthouse warns ~800 nodes; Restaurants renders 160 cards)
+# motivates the pagination.
+_LEAF_PAGE_SIZE = 60
+
+
+def _apply_list_controls(
+    query_params: Any, cards: list[dict[str, Any]], *, base_path: str
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Filter (Open now), sort (Top rated / A–Z), and paginate ``cards``.
+
+    ``cards`` arrive in the default Top-rated (dampened-rating) order. Returns
+    ``(visible_cards, controls)``; ``controls`` carries the chip/pager state +
+    precomputed hrefs. Each card's ``is_open`` is the America/Phoenix open-state
+    computed upstream via ``is_open_now`` + ``now_lake_havasu`` — this layer
+    only filters on it (distance needs geolocation and is intentionally out of
+    scope).
+    """
+    sort = (query_params.get("sort") or "top").lower()
+    if sort not in ("top", "az"):
+        sort = "top"
+    open_now = (query_params.get("open") or "").lower() in ("1", "true", "yes", "on")
+    try:
+        page = int(query_params.get("page") or "1")
+    except (TypeError, ValueError):
+        page = 1
+    page = max(1, page)
+
+    working = list(cards)
+    if open_now:
+        working = [c for c in working if c.get("is_open") is True]
+    if sort == "az":
+        working = sorted(working, key=lambda c: (c.get("name") or "").lower())
+
+    shown_total = len(working)
+    total_pages = max(1, (shown_total + _LEAF_PAGE_SIZE - 1) // _LEAF_PAGE_SIZE)
+    page = min(page, total_pages)
+    start = (page - 1) * _LEAF_PAGE_SIZE
+    visible = working[start : start + _LEAF_PAGE_SIZE]
+
+    def _href(*, want_sort: str, want_open: bool, want_page: int) -> str:
+        parts: list[str] = []
+        if want_sort and want_sort != "top":
+            parts.append(f"sort={want_sort}")
+        if want_open:
+            parts.append("open=1")
+        if want_page and want_page > 1:
+            parts.append(f"page={want_page}")
+        return base_path + ("?" + "&".join(parts) if parts else "")
+
+    controls = {
+        "sort": sort,
+        "open_now": open_now,
+        "shown_total": shown_total,
+        "page": page,
+        "total_pages": total_pages,
+        "has_prev": page > 1,
+        "has_next": page < total_pages,
+        "url_top": _href(want_sort="top", want_open=open_now, want_page=1),
+        "url_az": _href(want_sort="az", want_open=open_now, want_page=1),
+        "url_open_on": _href(want_sort=sort, want_open=True, want_page=1),
+        "url_open_off": _href(want_sort=sort, want_open=False, want_page=1),
+        "url_prev": _href(want_sort=sort, want_open=open_now, want_page=page - 1),
+        "url_next": _href(want_sort=sort, want_open=open_now, want_page=page + 1),
+    }
+    return visible, controls
 
 
 # A generic, honest intro for a leaf page until B.2 adds per-leaf curated copy.
@@ -726,6 +801,9 @@ def _render_leaf_page(
 
     display = leaf_seo.display_noun(leaf.slug, leaf.name)
     page_path = f"/categories/{leaf.department_slug}/{leaf.slug}"
+    visible_cards, list_controls = _apply_list_controls(
+        request.query_params, cards, base_path=page_path
+    )
     dept_path = f"/categories/{leaf.department_slug}"
     # Three-level breadcrumb (Home › department › leaf) — the department landing
     # exists as of B.2, so the crumb links to it.
@@ -789,7 +867,9 @@ def _render_leaf_page(
             "trade_count": total,
             "trade_intro": intro,
             "trade_faqs": faqs,
-            "category_cards": cards,
+            "category_cards": visible_cards,
+            "list_controls": list_controls,
+            "canonical_override": absolute_url(page_path),
             "breadcrumb_jsonld": breadcrumb_jsonld,
             "itemlist_jsonld": itemlist_jsonld,
             "active_tab": "explore",
