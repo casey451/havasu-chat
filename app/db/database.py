@@ -4,6 +4,7 @@ import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -11,6 +12,10 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from app.bootstrap_env import ensure_dotenv_loaded
 
 ensure_dotenv_loaded()
+
+if TYPE_CHECKING:  # annotations only — keeps alembic out of import time
+    from alembic.config import Config
+    from sqlalchemy.engine import Engine
 
 _DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 _DATA_DIR.mkdir(exist_ok=True)
@@ -83,8 +88,35 @@ class Base(DeclarativeBase):
     pass
 
 
+def _assert_schema_at_head(cfg: Config, *, bind: Engine | None = None) -> None:
+    """OPS-5 (audit :195-198): verify the DB is at the migration head — never migrate.
+
+    Raises ``RuntimeError`` on mismatch. ``bind`` defaults to the module engine;
+    tests pass their own throwaway engine.
+    """
+    from alembic.runtime.migration import MigrationContext
+    from alembic.script import ScriptDirectory
+
+    script = ScriptDirectory.from_config(cfg)
+    expected = set(script.get_heads())
+    with (bind or engine).connect() as conn:
+        current = set(MigrationContext.configure(conn).get_current_heads())
+    if current != expected:
+        raise RuntimeError(
+            "DB schema is not at the migration head; preDeploy owns migrations "
+            f"(OPS-5). db={sorted(current) or ['<none>']} expected={sorted(expected)}"
+        )
+
+
 def init_db() -> None:
-    """Bring the database schema to head via Alembic (or stamp legacy SQLite created with create_all)."""
+    r"""Bring the database schema to head via Alembic (or stamp legacy SQLite created with create_all).
+
+    In production (``RAILWAY_ENVIRONMENT`` set — the OPS-2 gate) this VERIFIES
+    instead of migrating: Railway's preDeploy step is the sole migration runner
+    (OPS-5), so N workers/replicas never race N concurrent ``upgrade head`` runs.
+    A mismatch fails startup fast — booting against a wrong-schema DB is worse
+    than refusing. Local/test keeps the upgrade-or-stamp bootstrap below.
+    """
     from pathlib import Path
 
     from alembic.config import Config
@@ -94,6 +126,10 @@ def init_db() -> None:
     root = Path(__file__).resolve().parents[2]
     cfg = Config(str(root / "alembic.ini"))
     cfg.set_main_option("sqlalchemy.url", get_database_url())
+
+    if (os.getenv("RAILWAY_ENVIRONMENT") or "").strip():
+        _assert_schema_at_head(cfg)
+        return
 
     insp = inspect(engine)
     has_av = insp.has_table("alembic_version")
