@@ -9,3 +9,13 @@ mypy==1.18.2
 types-requests==2.33.0.20260518
 types-PyYAML==6.0.12.20260518
 types-python-dateutil==2.9.0.20260518
+
+# Test runner + its transitive pins, moved out of prod requirements.txt (OPS-7).
+# All three transitives are pytest-only — nothing under app/, scripts/, or
+# tests/ imports pygments/pluggy/iniconfig directly. CI's test job installs
+# this file alongside requirements.txt; locally: pip install -r dev-requirements.txt
+pytest==9.0.3
+pytest-xdist==3.8.0
+iniconfig==2.3.0
+pluggy==1.6.0
+Pygments==2.20.0

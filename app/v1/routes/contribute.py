@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -104,15 +105,20 @@ async def post_contribute_start(
         mime = upload_mime or "image/jpeg"
         if mime not in _ALLOWED_MIME:
             raise HTTPException(status_code=400, detail="unsupported_image_type")
-        decoded = decode_and_validate(upload_bytes, declared_mime=mime)
+        # PERF-3 (audit :87-93): PIL decode, the disk write, and the vision LLM
+        # call (45s read timeout) are sync — run them via to_thread so one flyer
+        # upload can't freeze every in-flight request on the process. The
+        # request's DB session has no transaction yet at this point (first use
+        # is start_flow below), so no pooled connection is held across these.
+        decoded = await asyncio.to_thread(decode_and_validate, upload_bytes, declared_mime=mime)
         if isinstance(decoded, ProcessingError):
             raise HTTPException(status_code=400, detail="invalid_image")
-        image_url = _save_image(upload_bytes, mime)
-        extraction = extract_from_image_bytes(upload_bytes, mime=mime)
+        image_url = await asyncio.to_thread(_save_image, upload_bytes, mime)
+        extraction = await asyncio.to_thread(extract_from_image_bytes, upload_bytes, mime=mime)
         if not extraction and txt:
-            extraction = extract_from_text(txt)
+            extraction = await asyncio.to_thread(extract_from_text, txt)
     elif txt:
-        extraction = extract_from_text(txt)
+        extraction = await asyncio.to_thread(extract_from_text, txt)
 
     flow = start_flow(
         db,

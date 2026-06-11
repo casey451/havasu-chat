@@ -14,7 +14,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.chat.normalizer import normalize
-from app.db.models import Program, Provider
+from app.db.entity_types import ENTITY_TYPE_COMMERCIAL, ENTITY_TYPE_PLACE
+from app.db.models import Category, Entity, EntityCategory, Program, Provider
 
 # Keys MUST match ``Program.provider_name`` / ``Provider.provider_name`` strings in the live catalog
 # (contributions, River Scene imports, and operator edits).
@@ -357,7 +358,7 @@ def refresh_entity_matcher(db: Session) -> None:
     request via the callers in ``unified_router.py`` and ``halt3_validator.py``.
     The previous implementation issued 1 + 2*N DB queries (N ~= 2,200 canonical
     names -> ~4,400 round-trips, ~50-150ms tax per request). It now issues a
-    fixed **4** queries regardless of catalog size: 2 to list distinct
+    fixed **6** queries regardless of catalog size: 2 to list distinct
     canonical names, plus 2 batch ``IN`` queries that load every
     ``Provider.category`` / ``Provider.google_primary_category`` and every
     distinct ``(provider_name, activity_category)`` row in one round-trip each.
@@ -383,8 +384,34 @@ def refresh_entity_matcher(db: Session) -> None:
             Provider.is_active.is_(True), Provider.draft.is_(False)
         )
     ).all()
+    # Hunt 2026-06-10 §1 item 5 (C-PR-4): provider-LESS active Entity names
+    # join the index. Catalog entities without any Provider row (clubs, groups
+    # — e.g. "Havasu Stitchers") were invisible to Tier-1 fuzzy matching, so
+    # "tell me about havasu stitchers" dead-ended even though the entity
+    # exists. Entities that have a Provider row (any, including draft) are
+    # deliberately excluded — the provider source above owns those names and
+    # its draft/is_active gates must keep applying. One extra batched query —
+    # the round-trip count stays fixed.
+    entity_names = db.scalars(
+        select(Entity.name)
+        .outerjoin(Provider, Provider.entity_id == Entity.id)
+        .where(
+            Entity.is_active.is_(True),
+            Provider.id.is_(None),
+            # Business/place-shaped entities only. Event- and program-shaped
+            # entity rows (created by event ingestion / program imports) must
+            # not become Tier-1 "entities": an event title like "Alpha Open
+            # Meet" inside "when is alpha open meet at askalpha services"
+            # token-set-scores 100 and out-alphabetizes the actual provider.
+            Entity.entity_type.in_((ENTITY_TYPE_COMMERCIAL, ENTITY_TYPE_PLACE)),
+        )
+    ).all()
     canon = sorted(
-        {(n or "").strip() for n in (*program_names, *provider_names) if (n or "").strip()}
+        {
+            (n or "").strip()
+            for n in (*program_names, *provider_names, *entity_names)
+            if (n or "").strip()
+        }
     )
     blob_by_canonical = _category_blobs_for_canonicals(db, canon)
     _rows = [_EntityRow(c, _needles_for_canonical(c), blob_by_canonical.get(c, "")) for c in canon]
@@ -440,6 +467,18 @@ def _category_blobs_for_canonicals(db: Session, canonicals: Sequence[str]) -> di
     for name, ac in act_rows:
         if ac:
             parts_by_canon.setdefault(name, []).append(str(ac).strip().lower())
+    # C-PR-4: category hints for Entity-sourced canonicals (one batched query;
+    # names with Provider/Program blobs are unaffected — parts only append).
+    ent_rows = db.execute(
+        select(Entity.name, Category.name)
+        .join(EntityCategory, EntityCategory.entity_id == Entity.id)
+        .join(Category, Category.id == EntityCategory.category_id)
+        .where(Entity.name.in_(names), Entity.is_active.is_(True))
+        .distinct()
+    ).all()
+    for name, cat_name in ent_rows:
+        if cat_name:
+            parts_by_canon.setdefault(name, []).append(str(cat_name).strip().lower())
     return {c: " ".join(parts_by_canon.get(c, [])) for c in names}
 
 
@@ -826,6 +865,17 @@ def _best_score_padded(norm_query: str, needles: frozenset[str]) -> float:
     boosted = _best_score(stripped, needles)
     typo = 0.0
     long_only = _long_tokens(stripped)
+    # C-PR-4 (hunt 2026-06-11): mirror of the 2026-06-06 locality fix in
+    # _best_score, applied to the typo scorers. partial_token_set_ratio gives a
+    # flat 100 for any single shared token, so the locality token ("havasu")
+    # made unrelated needles tie real matches once a coincidental per-token
+    # guard pass occurred (e.g. partial_ratio("stitchers","heroes") == 80.0
+    # exactly). Score WRatio/partial_token_set on the non-locality form; when
+    # the stripped query is ONLY locality words, keep the previous behavior.
+    non_locality_long = " ".join(
+        t for t in long_only.split() if t.lower() not in _LOCALITY_ONLY_TERMS
+    )
+    typo_query = non_locality_long or long_only
     if long_only:
         for needle in needles:
             # Skip very short canonicals — partial_token_set_ratio + WRatio inflate
@@ -844,8 +894,8 @@ def _best_score_padded(norm_query: str, needles: frozenset[str]) -> float:
             # weighting, which crucially distinguishes "mudsharks brewry" → "mudshark
             # brewery..." (84) from the wrong-target "mudshark pizza..." (50). The
             # partial scorer catches the symmetric case where target is shorter.
-            wr = float(fuzz.WRatio(long_only, needle))
-            ptsr = float(fuzz.partial_token_set_ratio(long_only, needle))
+            wr = float(fuzz.WRatio(typo_query, needle))
+            ptsr = float(fuzz.partial_token_set_ratio(typo_query, needle))
             typo = max(typo, wr, ptsr)
     return max(direct, boosted, typo)
 
