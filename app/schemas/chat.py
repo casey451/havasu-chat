@@ -108,3 +108,20 @@ class ChatOnboardingResponse(BaseModel):
     ok: Literal[True] = True
     visitor_status: Literal["local", "visiting"] | None = None
     has_kids: bool | None = None
+
+
+class ChatHistoryTurn(BaseModel):
+    """One restored turn for GET ``/api/chat/history`` (C3)."""
+
+    chat_log_id: str
+    query: str
+    response: str
+    tier_used: str | None = None
+    created_at: str | None = None
+
+
+class ChatHistoryResponse(BaseModel):
+    """GET ``/api/chat/history`` — last turns of a session, oldest first (C3)."""
+
+    session_id: str
+    turns: list[ChatHistoryTurn]
