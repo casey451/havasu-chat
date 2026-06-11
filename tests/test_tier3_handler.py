@@ -36,6 +36,24 @@ def db() -> Session:
         s.close()
 
 
+@pytest.fixture(autouse=True)
+def _clear_llm_response_cache() -> None:
+    """Tier-3 cache key now scopes on normalized_query + sub_intent + entity
+    (2026-06-11, CHAT_DEEP_DIVE §1D). Every test here reuses the same
+    ``_intent()`` (normalized_query="hello there"), so the raw query no longer
+    differentiates the key — without a per-test reset the first test's stored
+    answer is served to the rest as an exact-key hit. conftest's autouse row
+    cleanup does not cover ``llm_response_cache``."""
+    from app.db.models import LlmResponseCache
+
+    s = SessionLocal()
+    try:
+        s.query(LlmResponseCache).delete()
+        s.commit()
+    finally:
+        s.close()
+
+
 def _intent() -> IntentResult:
     return IntentResult(
         mode="ask",

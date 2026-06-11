@@ -10,6 +10,13 @@ The match is a single in-memory dict lookup (zero DB cost for non-matches); a
 candidate only then hits the DB to confirm the leaf exists and clears the
 ≥3-provider gate. Leaves with no synonym entry simply never auto-route — safe
 by omission.
+
+2026-06-11 (intent-efficiency pass): widened with the coverage-audit trades.
+Entries pointing at leaves that do not exist yet are harmless by construction
+(``resolve_leaf_by_slug`` returns ``None`` → conversational fall-through) and
+self-activate the moment the taxonomy rebuild seeds the leaf. Those slugs are
+tracked in ``PENDING_LEAF_SLUGS`` so a sync test can flag drift if the rebuild
+picks different slug names.
 """
 
 from __future__ import annotations
@@ -20,6 +27,33 @@ from sqlalchemy.orm import Session
 
 from app.categories import leaf_pages
 from app.chat.normalizer import spell_correct
+
+# Leaf slugs referenced below that are expected from the taxonomy rebuild
+# (HAVA_AUDIT_AND_TAXONOMY_REBUILD.md §3) but not yet in the live seed. A
+# dict entry pointing at one of these is a deliberate no-op until the leaf
+# ships. tests/test_leaf_query_additions.py asserts every _QUERY_TO_LEAF slug
+# is either live in docs/proposals/taxonomy-seed.json or listed here — so a
+# rebuild that picks a different slug name fails CI instead of leaving dead
+# entries.
+PENDING_LEAF_SLUGS: frozenset[str] = frozenset(
+    {
+        "hearing-and-audiology",
+        "medical-specialists-and-imaging",
+        "golf-carts",
+        "auto-glass",
+        "window-tint-and-wraps",
+        "trailer-sales-and-repair",
+        "property-management",
+        "laundry-and-dry-cleaning",
+        "funeral-cremation-and-cemeteries",
+        "junk-removal-and-hauling",
+        "pressure-washing-and-exterior-cleaning",
+        "mobile-home-services",
+        "shade-screens-and-patio-covers",
+        "pet-waste-removal",
+        "firearms-and-shooting-sports",
+    }
+)
 
 # Normalized colloquial term → leaf slug. Keys are the output of ``_normalize``
 # (lowercase, ``&``→``and``, punctuation dropped, locality/filler stripped).
@@ -62,6 +96,12 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "hiking": "hiking-trails",
     "disc golf": "disc-golf",
     "dog parks": "dog-parks",
+    # 2026-06-11: off-road is a Havasu-signature ask with a live leaf.
+    "off roading": "off-road-and-ohv",
+    "off road trails": "off-road-and-ohv",
+    "ohv": "off-road-and-ohv",
+    "utv trails": "off-road-and-ohv",
+    "atv trails": "off-road-and-ohv",
     # Things to Do
     "tours": "tours-and-sightseeing",
     "museums": "museums-and-galleries",
@@ -73,6 +113,13 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "bowling": "family-fun-and-arcades",
     "bowling alley": "family-fun-and-arcades",
     "bowling alleys": "family-fun-and-arcades",
+    # 2026-06-11
+    "arcades": "family-fun-and-arcades",
+    "arcade": "family-fun-and-arcades",
+    "casinos": "casinos-and-gaming",
+    "casino": "casinos-and-gaming",
+    "landmarks": "landmarks-and-sights",
+    "sightseeing": "tours-and-sightseeing",
     # Health & Medical
     "doctors": "primary-care",
     "primary care": "primary-care",
@@ -90,6 +137,24 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "physio": "physical-therapy",
     "eye care": "eye-care",
     "optometrists": "eye-care",
+    # 2026-06-11: existing leaves with no navigational entry (sweep gaps).
+    "urgent care": "urgent-care-and-er",
+    "walk in clinic": "urgent-care-and-er",
+    "walk in clinics": "urgent-care-and-er",
+    "dermatologist": "dermatology-and-skin",
+    "dermatologists": "dermatology-and-skin",
+    "counselors": "mental-and-behavioral-health",
+    "therapists": "mental-and-behavioral-health",
+    "mental health": "mental-and-behavioral-health",
+    "assisted living": "senior-care-and-assisted-living",
+    "senior care": "senior-care-and-assisted-living",
+    "retirement homes": "senior-care-and-assisted-living",
+    "nursing homes": "senior-care-and-assisted-living",
+    # 2026-06-11: taxonomy-rebuild leaves (PENDING — self-activate at seed).
+    "hearing aids": "hearing-and-audiology",
+    "audiologists": "hearing-and-audiology",
+    "audiologist": "hearing-and-audiology",
+    "hearing centers": "hearing-and-audiology",
     # Beauty & Personal Care
     "hair salons": "hair-salons-and-barbers",
     "hair salon": "hair-salons-and-barbers",
@@ -118,6 +183,12 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "yoga": "yoga-and-pilates",
     "pilates": "yoga-and-pilates",
     "dance studios": "dance-studios",
+    # 2026-06-11
+    "martial arts": "martial-arts",
+    "karate": "martial-arts",
+    "personal trainers": "personal-training",
+    "personal trainer": "personal-training",
+    "nutritionists": "nutrition-and-wellness",
     # Pets
     "dog grooming": "grooming",
     "pet grooming": "grooming",
@@ -136,6 +207,15 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "dog training": "training",
     "dog trainer": "training",
     "dog trainers": "training",
+    # 2026-06-11
+    "pet sitters": "pet-sitting",
+    "pet sitting": "pet-sitting",
+    "dog sitters": "pet-sitting",
+    "dog boarding": "boarding-and-daycare",
+    "pet boarding": "boarding-and-daycare",
+    "kennels": "boarding-and-daycare",
+    "pet waste removal": "pet-waste-removal",
+    "pooper scooper": "pet-waste-removal",
     # Home & Property
     "general contractors": "general-contractors",
     "contractors": "general-contractors",
@@ -166,6 +246,22 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "ac repair": "hvac",
     "movers": "movers",
     "moving companies": "movers",
+    # 2026-06-11: existing leaves with no entry.
+    "handyman": "handyman",
+    "handymen": "handyman",
+    "security systems": "security-and-alarms",
+    "alarm companies": "security-and-alarms",
+    # 2026-06-11: taxonomy-rebuild leaves (PENDING — self-activate at seed).
+    "junk removal": "junk-removal-and-hauling",
+    "junk hauling": "junk-removal-and-hauling",
+    "pressure washing": "pressure-washing-and-exterior-cleaning",
+    "power washing": "pressure-washing-and-exterior-cleaning",
+    "mobile home repair": "mobile-home-services",
+    "mobile home services": "mobile-home-services",
+    "patio covers": "shade-screens-and-patio-covers",
+    "sun screens": "shade-screens-and-patio-covers",
+    "awnings": "shade-screens-and-patio-covers",
+    "shade structures": "shade-screens-and-patio-covers",
     # Auto, RV & Marine
     "auto repair": "auto-repair",
     "mechanics": "auto-repair",
@@ -185,6 +281,38 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "car rentals": "car-rental",
     "tires": "tires",
     "tire shops": "tires",
+    # 2026-06-11: existing leaves with no entry.
+    "detailing": "auto-detailing",
+    "auto detailing": "auto-detailing",
+    "car detailing": "auto-detailing",
+    "boat detailing": "auto-marine-detailing",
+    "boat repair": "boat-repair-and-service",
+    "boat mechanics": "boat-repair-and-service",
+    "boat sales": "boat-sales",
+    "boat dealers": "boat-sales",
+    "rv repair": "rv-sales-and-service",
+    "rv service": "rv-sales-and-service",
+    "rv sales": "rv-sales-and-service",
+    "boat storage": "boat-and-rv-storage-service",
+    "rv storage": "boat-and-rv-storage-service",
+    "powersports": "powersports-and-atv",
+    "atv rentals": "powersports-and-atv",
+    "utv rentals": "powersports-and-atv",
+    "shuttles": "shuttles-and-transportation",
+    "taxis": "shuttles-and-transportation",
+    # 2026-06-11: taxonomy-rebuild leaves (PENDING — self-activate at seed).
+    "golf carts": "golf-carts",
+    "golf cart repair": "golf-carts",
+    "golf cart sales": "golf-carts",
+    "auto glass": "auto-glass",
+    "windshield repair": "auto-glass",
+    "windshield replacement": "auto-glass",
+    "window tint": "window-tint-and-wraps",
+    "window tinting": "window-tint-and-wraps",
+    "vehicle wraps": "window-tint-and-wraps",
+    "car wraps": "window-tint-and-wraps",
+    "trailer repair": "trailer-sales-and-repair",
+    "trailer sales": "trailer-sales-and-repair",
     # Shopping & Retail
     "clothing stores": "clothing-and-apparel",
     "hardware stores": "hardware-and-home-improvement",
@@ -197,6 +325,25 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "thrift stores": "thrift-and-consignment",
     "florists": "florists",
     "flower shops": "florists",
+    # 2026-06-11: existing leaves with no entry.
+    "smoke shops": "smoke-vape-and-cannabis",
+    "vape shops": "smoke-vape-and-cannabis",
+    "dispensary": "smoke-vape-and-cannabis",
+    "dispensaries": "smoke-vape-and-cannabis",
+    "convenience stores": "convenience",
+    "appliance stores": "appliances-and-electronics",
+    "electronics stores": "appliances-and-electronics",
+    "gift shops": "gifts-and-boutiques",
+    "boutiques": "gifts-and-boutiques",
+    "shoe stores": "shoes",
+    "craft stores": "hobby-and-craft",
+    "hobby shops": "hobby-and-craft",
+    # 2026-06-11: taxonomy-rebuild leaf (PENDING).
+    "gun stores": "firearms-and-shooting-sports",
+    "gun shops": "firearms-and-shooting-sports",
+    "firearms": "firearms-and-shooting-sports",
+    "shooting range": "firearms-and-shooting-sports",
+    "shooting ranges": "firearms-and-shooting-sports",
     # Professional & Financial
     "financial advisors": "financial-advisors",
     "financial advisor": "financial-advisors",
@@ -212,14 +359,48 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "banks": "banks-and-credit-unions",
     "credit unions": "banks-and-credit-unions",
     "photographers": "photographers",
+    # 2026-06-11: existing leaves with no entry.
+    "computer repair": "computer-and-it-repair",
+    "it support": "computer-and-it-repair",
+    "print shops": "print-signs-and-marketing",
+    "printing": "print-signs-and-marketing",
+    "sign shops": "print-signs-and-marketing",
+    "sign companies": "print-signs-and-marketing",
+    "notaries": "notary",
+    "notary": "notary",
+    "title companies": "title-and-escrow",
+    "escrow": "title-and-escrow",
+    "shipping": "shipping-and-postal",
+    "mailbox services": "shipping-and-postal",
+    "event planners": "event-planning",
+    "wedding planners": "event-planning",
+    # 2026-06-11: taxonomy-rebuild leaves (PENDING — self-activate at seed).
+    "property management": "property-management",
+    "property managers": "property-management",
+    "laundromat": "laundry-and-dry-cleaning",
+    "laundromats": "laundry-and-dry-cleaning",
+    "dry cleaners": "laundry-and-dry-cleaning",
+    "dry cleaning": "laundry-and-dry-cleaning",
     # Family & Education
     "preschools": "preschools-and-childcare",
     "childcare": "preschools-and-childcare",
     "daycare": "preschools-and-childcare",
     "schools": "k-12-schools",
+    # 2026-06-11
+    "tutoring": "tutoring-and-test-prep",
+    "tutors": "tutoring-and-test-prep",
+    "music lessons": "music-lessons",
     # Community & Civic
     "churches": "places-of-worship",
     "libraries": "libraries",
+    # 2026-06-11
+    "community centers": "community-centers",
+    "nonprofits": "nonprofits-and-charities",
+    "charities": "nonprofits-and-charities",
+    "mvd": "government-and-mvd",
+    "dmv": "government-and-mvd",
+    "post office": "post-office",
+    "utilities": "utilities",
     # Lodging
     "hotels": "hotels-and-motels",
     "hotel": "hotels-and-motels",
@@ -228,6 +409,12 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "places to stay": "hotels-and-motels",
     "rv parks": "rv-parks-and-campgrounds",
     "campgrounds": "rv-parks-and-campgrounds",
+    # 2026-06-11: taxonomy-rebuild leaf (PENDING).
+    "funeral homes": "funeral-cremation-and-cemeteries",
+    "funeral home": "funeral-cremation-and-cemeteries",
+    "cremation": "funeral-cremation-and-cemeteries",
+    "mortuaries": "funeral-cremation-and-cemeteries",
+    "cemeteries": "funeral-cremation-and-cemeteries",
 }
 
 # Locality + filler stripped before lookup. Order matters (longest first).

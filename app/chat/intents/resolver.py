@@ -1,4 +1,4 @@
-"""L0-L2 intent resolver (Ask Hava intent catalog, Phase 1).
+"""L0-L3 intent resolver (Ask Hava intent catalog, Phase 1 + Slice 3 L3).
 
 ``resolve(query)`` maps a free-text question to a ``ResolvedIntent`` (intent
 key + primitive slots + the matcher layer that caught it), or ``None`` when no
@@ -6,25 +6,37 @@ intent is confident -- ``None`` means "fall through to the existing Tier 2 /
 Tier 3 path", which is the intended behavior, not a failure.
 
 Design rules (master spec §0, §5):
-* Cheapest layer that works. L1 keyword/regex first; L2 dictionary slot-fill.
+* Cheapest layer that works. L1 keyword/regex first; L2 dictionary slot-fill;
+  L3 fuzzy exemplar match (Slice 3, ``app/chat/intents/fuzzy.py``) only after
+  every keyword layer has declined.
 * Conservative: when unsure, return ``None`` rather than guess. The existing
   router handles everything we don't claim.
 * Slots are JSON-friendly primitives (strings / bools) so they can be logged
   and asserted in tests; the query layer re-derives routes from the dicts.
+
+2026-06-11 (intent-efficiency pass): match tables are precomputed at import
+(no per-call ``sorted``), ``_word`` patterns are cached, and the L3 fuzzy hook
+runs last behind its own kill switch. The L1/L2 contract is byte-identical for
+every query those layers already claimed.
 """
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 from app.chat.intents import dicts
 from app.chat.normalizer import normalize
 from app.core.slots import extract_date_range
 
+logger = logging.getLogger(__name__)
+
 # Layer labels (for telemetry / tests asserting min_layer).
 L1 = "L1"
 L2 = "L2"
+L3 = "L3"
 
 
 @dataclass(frozen=True)
@@ -39,7 +51,10 @@ class ResolvedIntent:
 # ---------------------------------------------------------------------------
 
 
+@lru_cache(maxsize=2048)
 def _word(term: str) -> re.Pattern[str]:
+    # Cached: the resolver probes the same fixed vocabulary on every call, so
+    # compiling per call was pure waste (hot path: ~40 probes per query).
     return re.compile(rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])")
 
 
@@ -81,6 +96,13 @@ _EVENT_WORDS = (
     "what should i do",
     "anything fun",
 )
+
+# 2026-06-11: "event planner" / "event planning" / "wedding venue" asks are
+# service lookups wearing an event word. Without this guard the events branch
+# claimed them and answered with an events list (wrong question). With it they
+# fall through to the service dict ("event planner" is a SERVICE_DICT key).
+_EVENT_SERVICE_SKIP = ("planner", "planners", "planning", "rentals", "rental")
+
 _OPEN_NOW_RE = re.compile(
     r"\bopen\s+(now|right now|late|tonight)\b"
     r"|\bopen\s*\?"
@@ -117,6 +139,10 @@ _LODGING_WORDS = (
     "campgrounds",
     "resort",
     "resorts",
+    # 2026-06-11 expansion
+    "bnb",
+    "bed and breakfast",
+    "extended stay",
 )
 
 _SHOPPING_WORDS = (
@@ -154,6 +180,16 @@ _WATER_WORDS = (
     "boat tour",
     "lake access",
     "fishing",
+    # 2026-06-11 expansion: rental nouns users actually type ("rent a pontoon"
+    # paid Tier 3 with a boat-rental category live in the catalog).
+    "pontoon",
+    "pontoons",
+    "houseboat",
+    "sea doo",
+    "seadoo",
+    "wakeboard",
+    "water ski",
+    "tubing",
 )
 _RENT_WORDS = ("rent", "rental", "rentals", "hire")
 _REPAIR_WORDS = ("repair", "fix", "service", "mechanic")
@@ -187,6 +223,11 @@ _PARK_WORDS = (
     "mountain biking",
     "bike trail",
     "bike trails",
+    # 2026-06-11 expansion: family-outdoor nouns with live catalog coverage.
+    "playground",
+    "playgrounds",
+    "splash pad",
+    "disc golf",
 )
 
 # Civic / community resources -- libraries, worship, public services.
@@ -210,6 +251,12 @@ _CIVIC_WORDS = (
     "community center",
     "food bank",
     "senior center",
+    # 2026-06-11 expansion
+    "food assistance",
+    "soup kitchen",
+    "mvd",
+    "motor vehicle department",
+    "social security",
 )
 
 _FITNESS = {
@@ -251,9 +298,16 @@ def _match_area(text: str) -> str | None:
     return None
 
 
+# Longest-first key tables, precomputed once (the per-call ``sorted`` was the
+# resolver's single hottest line under profiling -- pure waste on a static dict).
+_CUISINE_KEYS_BY_LEN: tuple[str, ...] = tuple(sorted(dicts.CUISINE_DICT, key=len, reverse=True))
+_SERVICE_KEYS_BY_LEN: tuple[str, ...] = tuple(sorted(dicts.SERVICE_DICT, key=len, reverse=True))
+_SYMPTOM_KEYS_BY_LEN: tuple[str, ...] = tuple(sorted(dicts.SYMPTOM_MAP, key=len, reverse=True))
+
+
 def _match_cuisine(text: str) -> str | None:
     # Longest keys first so "ice cream" / "real estate"-style multiword wins.
-    for term in sorted(dicts.CUISINE_DICT, key=len, reverse=True):
+    for term in _CUISINE_KEYS_BY_LEN:
         if _has(text, term):
             return term
     # Token-level fallback: "taco"/"taqueria" -> mexican, "breweries" -> brewery.
@@ -264,14 +318,14 @@ def _match_cuisine(text: str) -> str | None:
 
 
 def _match_service(text: str) -> str | None:
-    for term in sorted(dicts.SERVICE_DICT, key=len, reverse=True):
+    for term in _SERVICE_KEYS_BY_LEN:
         if _has(text, term):
             return term
     return None
 
 
 def _match_symptom(text: str) -> str | None:
-    for term in sorted(dicts.SYMPTOM_MAP, key=len, reverse=True):
+    for term in _SYMPTOM_KEYS_BY_LEN:
         if term in text:
             return term
     return None
@@ -328,6 +382,35 @@ def _event_window(text: str) -> str | None:
     if dr is not None:
         return "range"
     return "upcoming"
+
+
+_WINDOW_TO_EVENT_KEY: dict[str, str] = {
+    "today": "events_today",
+    "tomorrow": "events_today",
+    "this_weekend": "events_weekend",
+    "this_week": "events_this_week",
+    "next_week": "events_next_week",
+    "next_month": "events_next_week",
+}
+
+
+def _event_intent_for(t: str, *, extra_slots: dict[str, object] | None = None,
+                      layer: str | None = None) -> ResolvedIntent:
+    """Shared events resolution: window -> intent key (+ live-music slot).
+
+    Used by the L1/L2 events branch and by the L3 "_events" pseudo-intent so
+    both paths derive identical keys/slots from the date phrasing.
+    """
+    window = _event_window(t)
+    slots: dict[str, object] = {"window": window}
+    if _has_any(t, ("live music", "concert")):
+        slots["activity"] = "live_music"
+    if extra_slots:
+        slots.update(extra_slots)
+    key = _WINDOW_TO_EVENT_KEY.get(window, "events_upcoming")
+    if layer is None:
+        layer = L2 if window != "upcoming" else L1
+    return ResolvedIntent(key, slots, layer)
 
 
 _VOCAB_SOURCES: tuple[tuple[str, ...], ...] = (
@@ -387,6 +470,64 @@ def category_vocabulary() -> frozenset[str]:
 
 
 # ---------------------------------------------------------------------------
+# L3 fuzzy hook (Slice 3)
+# ---------------------------------------------------------------------------
+
+
+def _dynamic_slots_for(intent_key: str, t: str, slots: dict[str, object]) -> dict[str, object]:
+    """Layer the cheap L2 slot extractors over an L3 fixed-slot dict.
+
+    Keeps L3 answers exactly as grounded as L2 ones: the fuzzy layer picks the
+    intent; the slots still come from the same controlled extractors.
+    """
+    out = dict(slots)
+    if intent_key in ("find_service", "eat_find", "lodging_find", "shopping_find",
+                      "boat_rental", "boat_repair", "on_the_water", "parks_trails"):
+        area = _match_area(t)
+        if area and "area" not in out:
+            out["area"] = area
+    if intent_key in ("find_service", "eat_find"):
+        if _OPEN_NOW_RE.search(t):
+            out["open_now"] = True
+    if intent_key == "eat_find" and "cuisine" not in out:
+        cuisine = _match_cuisine(t)
+        if cuisine is not None:
+            out["cuisine"] = cuisine
+    if intent_key == "kids_lessons":
+        band = dicts.parse_age_band(t)
+        if band:
+            out["age_band"] = band
+        out.setdefault("age_band", "kids")
+    if intent_key == "classes_find":
+        topic = _match_class_topic(t)
+        if topic and "topic" not in out:
+            out["topic"] = topic
+    return out
+
+
+def _try_l3(t: str) -> ResolvedIntent | None:
+    """L3 fuzzy exemplar match -- last resort before falling through.
+
+    Best-effort and flag-gated inside ``fuzzy``; any exception falls through
+    so the resolver contract ("None means the legacy path answers") holds.
+    """
+    try:
+        from app.chat.intents import fuzzy
+
+        hit = fuzzy.match_l3(t, category_vocabulary())
+    except Exception:
+        logger.exception("resolver: L3 fuzzy probe failed")
+        return None
+    if hit is None:
+        return None
+    intent_key, fixed = hit
+    if intent_key == "_events":
+        return _event_intent_for(t, extra_slots=fixed, layer=L3)
+    slots = _dynamic_slots_for(intent_key, t, fixed)
+    return ResolvedIntent(intent_key, slots, L3)
+
+
+# ---------------------------------------------------------------------------
 # Resolver
 # ---------------------------------------------------------------------------
 
@@ -406,27 +547,21 @@ def resolve(query: str) -> ResolvedIntent | None:
             return ResolvedIntent("cheapest_gas", {}, L1)
 
     # 2. Events -- explicit event signal, optionally with a date window.
-    if _has_any(t, _EVENT_WORDS):
+    # 2026-06-11: service asks wearing an event word ("event planner") skip
+    # this branch and reach the service dict below.
+    if _has_any(t, _EVENT_WORDS) and not _has_any(t, _EVENT_SERVICE_SKIP):
         if _VENUE_AT_RE.search(t):
             return None  # venue-specific ("event at X") -> entity-aware path owns it
-        window = _event_window(t)
-        slots: dict[str, object] = {"window": window}
-        if _has_any(t, ("live music", "concert")):
-            slots["activity"] = "live_music"
-        key = {
-            "today": "events_today",
-            "tomorrow": "events_today",
-            "this_weekend": "events_weekend",
-            "this_week": "events_this_week",
-            "next_week": "events_next_week",
-            "next_month": "events_next_week",
-        }.get(window, "events_upcoming")
-        return ResolvedIntent(key, slots, L2 if window != "upcoming" else L1)
+        return _event_intent_for(t)
 
     # 3. Symptom / urgent need FIRST -- "i need a walk in clinic" must route to
     # urgent_care even when a service term ("clinic") also matches (2026-06-04,
-    # 5k-bank validation drop).
+    # 5k-bank validation drop). 2026-06-11: "refill" means a PRESCRIPTION
+    # refill unless the tank being refilled is in the query ("propane refill"
+    # must reach the propane service route, not a pharmacy listing).
     symptom = _match_symptom(t)
+    if symptom == "refill" and _has(t, "propane"):
+        symptom = None
     if symptom is not None:
         return ResolvedIntent("urgent_care", {"symptom": symptom}, L2)
 
@@ -438,7 +573,16 @@ def resolve(query: str) -> ResolvedIntent | None:
         if _has_any(t, _WATER_WORDS) and (
             service in _REPAIR_WORDS or "mechanic" in service or "repair" in service
         ):
-            service = None
+            # 2026-06-11: per-trade water services stay find_service -- a
+            # cracked boat-trailer or boat detail belongs to the trade dict
+            # ("trailer repair", "detailing"), not the generic boat_repair
+            # bucket. Only the GENERIC repair words defer to the water branch.
+            if service in ("trailer repair", "detailing", "boat detailing",
+                           "mobile detailing", "auto detailing", "car detailing",
+                           "detail shop", "windshield repair", "windshield replacement"):
+                pass
+            else:
+                service = None
     if service is not None:
         slots = {"service": service}
         area = _match_area(t)
@@ -452,9 +596,12 @@ def resolve(query: str) -> ResolvedIntent | None:
             layer = L2
         return ResolvedIntent("find_service", slots, layer)
 
-    # 5. Eat & drink -- cuisine token or generic food word.
+    # 5. Eat & drink -- cuisine token or generic food word. Community food
+    # programs carve out first: their "food" token must not read as dining
+    # ("food bank" pre-dates this; "food assistance" / "soup kitchen" joined
+    # 2026-06-11 with the civic widening).
     cuisine = _match_cuisine(t)
-    if "food bank" in t:
+    if "food bank" in t or "food assistance" in t or "soup kitchen" in t:
         return ResolvedIntent("civic_resources", {}, L1)
     if cuisine is not None or _has_any(t, _FOOD_WORDS):
         slots = {}
@@ -517,8 +664,14 @@ def resolve(query: str) -> ResolvedIntent | None:
     # 9. On the water -- boat/marina/watercraft signal. Rent vs repair vs
     # general from the verb; otherwise the on-the-water bucket. Before shopping
     # so "boat repair shop" routes to boat_repair, not shopping (the "shop"
-    # token).
-    if _has_any(t, _WATER_WORDS) and not _has_any(t, _SHOPPING_STRONG):
+    # token). 2026-06-11: detailing/wrap/tint asks about a boat are trade
+    # lookups, not water browses -- deflect so the service dict / L3 owns them
+    # ("boat detail and wash" must surface detailers, not a lake listing).
+    if (
+        _has_any(t, _WATER_WORDS)
+        and not _has_any(t, _SHOPPING_STRONG)
+        and not _has_any(t, ("detail", "detailing", "wrap", "wrapped", "tint"))
+    ):
         slots = {}
         area = _match_area(t)
         if area:
@@ -552,6 +705,14 @@ def resolve(query: str) -> ResolvedIntent | None:
         if area:
             slots["area"] = area
         return ResolvedIntent("shopping_find", slots, L1)
+
+    # 13. L3 fuzzy (Slice 3): exemplar match for the paraphrases every keyword
+    # layer above declined ("my sink is leaking", "locked out of my car").
+    # Kill switch INTENT_L3_FUZZY; INTENT_L3_SHADOW logs would-be claims
+    # without claiming. urgent_care / cheapest_gas can never finalize here.
+    l3 = _try_l3(t)
+    if l3 is not None:
+        return l3
 
     # No confident intent -> fall through to existing Tier 2 / Tier 3.
     return None

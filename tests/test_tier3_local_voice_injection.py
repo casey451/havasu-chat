@@ -29,6 +29,24 @@ def db() -> Session:
         s.close()
 
 
+@pytest.fixture(autouse=True)
+def _clear_llm_response_cache() -> None:
+    """Tier-3 cache key now scopes on normalized_query + sub_intent + entity
+    (2026-06-11, CHAT_DEEP_DIVE §1D). Both tests here reuse the same
+    ``_intent()`` (normalized_query="q"), so without a per-test reset the first
+    test's stored answer is served to the second as an exact-key hit and the
+    OpenAI mock is never called. conftest's autouse row cleanup does not cover
+    ``llm_response_cache``."""
+    from app.db.models import LlmResponseCache
+
+    s = SessionLocal()
+    try:
+        s.query(LlmResponseCache).delete()
+        s.commit()
+    finally:
+        s.close()
+
+
 def _intent() -> IntentResult:
     return IntentResult(
         mode="ask",
