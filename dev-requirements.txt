@@ -19,3 +19,12 @@ pytest-xdist==3.8.0
 iniconfig==2.3.0
 pluggy==1.6.0
 Pygments==2.20.0
+
+# Contrib scraper verify scripts only (scripts/azcc_towing_verify.py,
+# scripts/az_roc_verify.py — manual local runs; no workflow references these and
+# nixpacks never runs `playwright install`, so prod never could run them). Demoted
+# from prod requirements per the open question on #261 / audit :213. Browsers
+# still need a one-time `playwright install chromium` locally.
+playwright==1.59.0
+pyee==13.0.1
+pytesseract==0.3.13
