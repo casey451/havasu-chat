@@ -104,6 +104,20 @@ real new finds (reserve-form category taxonomy = funnel blocker · double-escape
 pages · ICS junk titles) are the next bug batch. E&D phase runbook:
 `docs/ED_PHASE1_PREP_2026-06-11.md`.
 
+**FINAL STATE ~04:30 (supersedes the two blocks above): ALL TRACKS LANDED.**
+Track C merged everything: C-PR-1…6 (#251 #253 #256 #257 #259 #260) + **C3
+conversation restore (#265)** + **audit fix batches 1+2 (#266** — event
+classifier/dedup, privacy renderer, favicon, **reserve-form taxonomy** ✅,
+proxy headers). Track D's four bundles landed as #261–#264 (ops10 correctly
+skipped). One dropped Railway webhook was re-triggered (CI #1056). Post-stack
+live sweep ✅: /health db_connected · home · events-ui · restaurants leaf
+(160 — QSR phase still pending its gated run) · gas · chat. **~20 PRs merged
+and deployed in one night, all verified.** Still open: the Casey-only list
+above (Railway hero env, E&D phase run, portal queues, sponsors@, ranges,
+WS-5 D1–D4, live-site-audit paste for B4/WS-3) + QA leftovers not covered by
+#266 (double-escaped /categories names · "event has passed" timing · /search
+raw tokens · /group pages · ICS junk titles · page-cache vintage skew).
+
 **C1 ✅ RUN (late 2026-06-10, on CC's CSV export):** 8.2% real miss rate (118/1,432
 turns, 31 HIGH). Top families: standalone events ~48 turns (pull into first C batch),
 plumber/trades ~14 (the §4b hay gap), Tier-1 fuzzy + spell-correct shapes. Results +

@@ -21,6 +21,13 @@
 > taxonomy, double-escaped names, "event has passed" timing, /search raw
 > tokens, /group pages, ICS junk titles, page-cache vintage skew) remain real
 > and untouched.
+>
+> **Second update, ~04:30:** Track C's #266 (audit fix batches 1+2) has since
+> merged + deployed, covering: event classifier/dedup · privacy renderer ·
+> favicon · **reserve-form category taxonomy** · proxy headers. Remaining from
+> this list: double-escaped /categories names · "event has passed" timing ·
+> /search raw tokens · /group pages · ICS junk titles · page-cache vintage
+> skew — re-verify each against live before building, per the lesson above.
 
 Audited: 2026-06-10, ~8:30–9:10 AM MST. Method: full repo inspection (working tree + `git show main:`)
 cross-checked against a live crawl of askhava.com (home, events-ui, restaurants leaf, bars leaf,
