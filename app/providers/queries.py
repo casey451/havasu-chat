@@ -604,6 +604,79 @@ def nearby_providers(
     return cards
 
 
+def _linked_provider_chip(r: Provider, *, label: str) -> dict[str, Any]:
+    """Card-chip dict (nearby_providers shape) for a B1-linked provider row."""
+    return {
+        "name": r.provider_name,
+        "url": f"/provider/{r.slug}",
+        "glyph": _glyph_for_provider(r),
+        "label": label,
+    }
+
+
+def department_children(
+    db: Session, provider: Provider, *, limit: int = 12
+) -> list[dict[str, Any]]:
+    """Active department rows whose ``parent_provider_id`` is this provider.
+
+    Track B1 parent-org resolution path (the Specialty Associates shape): the
+    parent profile renders its departments instead of competing with them as
+    look-alike duplicates. Empty list when there are none — the template
+    omits the strip.
+    """
+    rows = (
+        db.query(Provider)
+        .filter(
+            Provider.parent_provider_id == provider.id,
+            Provider.is_active.is_(True),
+            Provider.draft.is_(False),
+            Provider.slug.isnot(None),
+        )
+        .order_by(Provider.provider_name.asc())
+        .limit(limit)
+        .all()
+    )
+    return [_linked_provider_chip(r, label="Department") for r in rows]
+
+
+def parent_org_link(db: Session, provider: Provider) -> dict[str, Any] | None:
+    """The parent row's chip when this provider is a department child, else None."""
+    if not provider.parent_provider_id:
+        return None
+    parent = db.get(Provider, provider.parent_provider_id)
+    if parent is None or not parent.is_active or parent.draft or not parent.slug:
+        return None
+    return _linked_provider_chip(parent, label="Main organization")
+
+
+def sibling_locations(db: Session, provider: Provider, *, limit: int = 6) -> list[dict[str, Any]]:
+    """Other ACTIVE locations of the same business (shared location_group_id).
+
+    Track B1 multi-location resolution path: distinct listings of one business
+    are kept and cross-linked, never merged. The chip label carries each
+    sibling's street line so a reader can pick the right one.
+    """
+    if not provider.location_group_id:
+        return []
+    rows = (
+        db.query(Provider)
+        .filter(
+            Provider.location_group_id == provider.location_group_id,
+            Provider.id != provider.id,
+            Provider.is_active.is_(True),
+            Provider.draft.is_(False),
+            Provider.slug.isnot(None),
+        )
+        .order_by(Provider.provider_name.asc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        _linked_provider_chip(r, label=street_line(r.address) or "Other location")
+        for r in rows
+    ]
+
+
 _WEEKDAY_KEYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 
 

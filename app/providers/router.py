@@ -74,6 +74,12 @@ def serve_provider_profile(
     boat_access = entity.boat_access if entity is not None else None
     venue_events = venue_events_for_profile(db, provider, limit=5)
     nearby = queries.nearby_providers(db, provider, limit=3)
+    # Track B1 resolution-path strips: a parent org's departments, the upward
+    # link from a department child, and a multi-location business's other
+    # locations. All empty/None unless the dedupe queue linked the rows.
+    dept_children = queries.department_children(db, provider)
+    parent_org = queries.parent_org_link(db, provider)
+    other_locations = queries.sibling_locations(db, provider)
     already_saved = (
         bool(current_user)
         and bool(provider.entity_id)
@@ -89,6 +95,9 @@ def serve_provider_profile(
             "favorite_entity_id": provider.entity_id or "",
             "is_favorited": already_saved,
             "nearby_providers": nearby,
+            "department_children": dept_children,
+            "parent_org": parent_org,
+            "other_locations": other_locations,
             "boat_access": boat_access,
             "has_boat_access": boat_access is not None,
             "venue_events": venue_events,
