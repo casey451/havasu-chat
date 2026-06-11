@@ -53,6 +53,17 @@ _CATEGORY_SYNONYM_GROUPS: tuple[frozenset[str], ...] = (
     ),
     frozenset({"pharmacy", "pharmacies", "drugstore", "drugstores", "drug store", "drug stores"}),
     frozenset({"mechanic", "mechanics", "auto repair", "car repair", "auto shop", "auto shops"}),
+    # trades — demand-proven (hunt 2026-06-10); singular forms were dead at Tier-3
+    frozenset({"plumber", "plumbers", "plumbing", "leak repair"}),
+    frozenset({"electrician", "electricians", "electrical contractor", "electrical"}),
+    frozenset({"hvac", "ac repair", "air conditioning", "heating and cooling", "swamp cooler"}),
+    # health
+    frozenset({"chiropractor", "chiropractors", "chiropractic"}),
+    frozenset({"physical therapy", "physical therapist", "physiotherapist", "physio", "rehab"}),
+    # retail/fun
+    frozenset({"beauty salon", "hair salon", "salon", "barber", "barbershop"}),
+    frozenset({"car dealer", "car dealership", "auto dealer", "dealership"}),
+    frozenset({"bowling", "bowling alley", "lanes"}),
 )
 
 
