@@ -2,11 +2,11 @@
 
 # Terms of Service for Hava
 
-Last updated: 2026-06-07
+Last updated: 2026-06-11
 
 ## 1. Acceptance
 
-By using Hava (havasuchat.com — the website, chat, directory, and
+By using Hava (askhava.com — the website, chat, directory, and
 events listings), you agree to these Terms of Service. If you do not
 agree, please do not use the service. Our [Privacy page](/privacy)
 explains how we collect and use information; it is part of your
