@@ -217,3 +217,22 @@ def test_cap_at_max_providers(mem_db: Session) -> None:
         _provider(mem_db, f"Plumb Co {i:02d}", google_primary_category="plumber")
     rows = cb._fetch_provider_rows(mem_db, None, query="plumber")
     assert len(rows) == cb.MAX_PROVIDERS
+
+
+# --- C-PR-4: spell-correct output reaches the Tier-3 scorer -------------------
+
+
+def test_misspelled_category_reaches_tier3_candidates(mem_db: Session) -> None:
+    target = _provider(
+        mem_db, "All Seasons Co", category="home_services", google_primary_category="plumber"
+    )
+    _provider(mem_db, "Aaa Distractor", category="cafe")
+    for query in ("plummbers", "i need a pluimber", "best plummbers in lake havasu"):
+        rows = cb._fetch_provider_rows(mem_db, None, query=query)
+        assert rows and rows[0].id == target.id, query
+
+
+def test_spell_correct_does_not_touch_clean_queries(mem_db: Session) -> None:
+    target = _provider(mem_db, "Volt Bros", google_primary_category="electrician")
+    rows = cb._fetch_provider_rows(mem_db, None, query="electrician")
+    assert rows and rows[0].id == target.id

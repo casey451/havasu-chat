@@ -29,3 +29,31 @@ def test_locality_query_does_not_match_locality_only_provider() -> None:
     # A distinctively-named provider still resolves by name.
     res = match_entity_with_rows("hours for havasu lanes", ["Havasu Lanes"])
     assert res is not None and res[0] == "Havasu Lanes"
+
+
+# --- C-PR-4 (hunt 2026-06-11): typo scorers must not ride the locality token --
+
+
+def test_typo_path_does_not_score_on_locality_token_alone() -> None:
+    """partial_token_set_ratio gives a flat 100 for one shared token; with
+    "havasu" shared by half the catalog, a coincidental per-token guard pass
+    (partial_ratio("stitchers","heroes") == 80.0 exactly) let an unrelated
+    needle tie the real match. The typo scorers now run on the non-locality
+    form of the stripped query."""
+    decoy = match_entity_with_rows(
+        "tell me about havasu stitchers", ["HAVASU HEROES MEMORIAL CONCERT"]
+    )
+    assert decoy is None or decoy[1] < 100.0
+    # With both rows present the real entity must win.
+    both = match_entity_with_rows(
+        "tell me about havasu stitchers",
+        ["HAVASU HEROES MEMORIAL CONCERT", "Havasu Stitchers Community Outreach Sewing"],
+    )
+    assert both is not None and both[0] == "Havasu Stitchers Community Outreach Sewing"
+
+
+def test_locality_only_typo_query_keeps_previous_behavior() -> None:
+    # Stripped query that is ONLY locality words falls back to the old scoring
+    # input rather than an empty string.
+    res = match_entity_with_rows("hours for havasu lanes", ["Havasu Lanes"])
+    assert res is not None and res[0] == "Havasu Lanes"
