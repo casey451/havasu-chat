@@ -225,10 +225,12 @@ def _render_doc_markdown_to_html(md: str) -> str:
         raw = lines[i]
         stripped = raw.strip()
         if stripped.startswith("<!--") and "-->" in stripped:
+            # Source comments are for editors, not the public page source —
+            # the live /terms shipped its "Drafted by AI … needs attorney
+            # review" note to anyone who hit View Source. Drop them.
             if in_ul:
                 out.append("</ul>")
                 in_ul = False
-            out.append(stripped)
             i += 1
             continue
         if stripped.startswith("# ") and not stripped.startswith("## "):
@@ -249,9 +251,27 @@ def _render_doc_markdown_to_html(md: str) -> str:
             if not in_ul:
                 out.append("<ul>")
                 in_ul = True
-            item = stripped[2:].lstrip()
-            out.append(f"<li>{_privacy_inline_formats(item)}</li>")
+            # A markdown bullet hard-wraps across source lines; the
+            # continuation lines are indented and belong to the SAME <li>.
+            # The old line-by-line pass closed the list and emitted each
+            # continuation as an orphan <p>, splitting every wrapped bullet
+            # mid-sentence on the live /privacy page.
+            item_parts = [stripped[2:].lstrip()]
             i += 1
+            while i < len(lines):
+                cont_raw = lines[i]
+                cont = cont_raw.strip()
+                if (
+                    not cont
+                    or not cont_raw[:1].isspace()
+                    or cont.startswith("- ")
+                    or cont.startswith("#")
+                    or cont.startswith("<!--")
+                ):
+                    break
+                item_parts.append(cont)
+                i += 1
+            out.append(f"<li>{_privacy_inline_formats(' '.join(item_parts))}</li>")
             continue
         if not stripped:
             if in_ul:
@@ -281,13 +301,19 @@ def _render_doc_markdown_to_html(md: str) -> str:
     return "\n".join(out)
 
 
-def _render_static_doc(request: Request, *, path: Path, head_title: str) -> HTMLResponse:
+def _render_static_doc(
+    request: Request, *, path: Path, head_title: str, meta_description: str | None = None
+) -> HTMLResponse:
     md = path.read_text(encoding="utf-8")
     body = _render_doc_markdown_to_html(md)
     return templates.TemplateResponse(
         request=request,
         name="privacy_doc.html",
-        context={"head_title": head_title, "body": body},
+        context={
+            "head_title": head_title,
+            "body": body,
+            "meta_description": meta_description,
+        },
     )
 
 
@@ -644,8 +670,19 @@ def _event_is_past(event: Event) -> bool:
         return True
     if end_d > now.date():
         return False
-    last_time = event.end_time or event.start_time
-    return last_time is not None and last_time < now.time()
+    if event.end_time is not None:
+        return event.end_time < now.time()
+    if event.start_time is None:
+        return False  # date-only event: past only once the day is over
+    # No end time on file: don't bury an event the minute it begins (live
+    # bug: the 9:00 AM Board of Adjustment meeting wore "This event has
+    # passed" at 9:07 AM). Assume a 3-hour run; anything spilling past
+    # midnight is handled by the next-day date check above.
+    start_min = event.start_time.hour * 60 + event.start_time.minute
+    cutoff_min = start_min + 180
+    if cutoff_min >= 24 * 60:
+        return False
+    return (now.hour * 60 + now.minute) >= cutoff_min
 
 
 def _truncate_for_og(value: str, limit: int = 160) -> str:
@@ -693,6 +730,44 @@ def _render_permalink_response(
         tag_nodes = "".join(f'<span class="tag">{html.escape(tag)}</span>' for tag in event.tags)
         tags_html = f'<div class="tags"><h2>Tags</h2><div class="tag-wrap">{tag_nodes}</div></div>'
 
+    # Event JSON-LD (SEO audit §2.7: zero Event schema on a hyperlocal events
+    # product — a free rich-results win). Built as a dict here so missing
+    # fields are OMITTED, never emitted as ``"key": null``. Arizona ignores
+    # DST: the offset is -07:00 year-round.
+    if is_time_tbd(event.start_time, event.end_time):
+        start_iso = event.date.isoformat()
+    else:
+        start_iso = (
+            f"{event.date.isoformat()}T{event.start_time.strftime('%H:%M')}:00-07:00"
+        )
+    event_jsonld: dict[str, Any] = {
+        "@context": "https://schema.org",
+        "@type": "Event",
+        "name": event.title,
+        "startDate": start_iso,
+        "url": permalink_url,
+        "eventStatus": "https://schema.org/EventScheduled",
+        "location": {
+            "@type": "Place",
+            "name": event.location_name or "Lake Havasu City",
+            "address": {
+                "@type": "PostalAddress",
+                "addressLocality": "Lake Havasu City",
+                "addressRegion": "AZ",
+                "addressCountry": "US",
+            },
+        },
+    }
+    if event.end_time is not None and not is_time_tbd(event.start_time, event.end_time):
+        end_d = event.end_date or event.date
+        event_jsonld["endDate"] = (
+            f"{end_d.isoformat()}T{event.end_time.strftime('%H:%M')}:00-07:00"
+        )
+    if event.description:
+        event_jsonld["description"] = _truncate_for_og(event.description, limit=300)
+    if event.image_url and str(event.image_url).startswith("http"):
+        event_jsonld["image"] = [event.image_url]
+
     return templates.TemplateResponse(
         request=request,
         name="event_permalink.html",
@@ -708,6 +783,7 @@ def _render_permalink_response(
             "contact_html": contact_html,
             "event_link_html": event_link_html,
             "tags_html": tags_html,
+            "event_jsonld": event_jsonld,
         },
     )
 
@@ -801,6 +877,7 @@ def _build_sitemap_pages_xml() -> str:
         "/home",
         "/chat",
         "/map",
+        "/gas",
         "/events-ui",
         "/categories",
         "/privacy",
@@ -1027,12 +1104,28 @@ def logout_get(request: Request, db: Session = Depends(get_db)) -> RedirectRespo
 
 @app.get("/privacy", response_class=HTMLResponse)
 def privacy_page(request: Request) -> HTMLResponse:
-    return _render_static_doc(request, path=_PRIVACY_MD_PATH, head_title="Privacy — Hava")
+    return _render_static_doc(
+        request,
+        path=_PRIVACY_MD_PATH,
+        head_title="Privacy — Ask Hava",
+        meta_description=(
+            "How Hava handles your data: what we store, who processes it, "
+            "and the choices you have. No ads, no profiles, no data sales."
+        ),
+    )
 
 
 @app.get("/terms", response_class=HTMLResponse)
 def terms_page(request: Request) -> HTMLResponse:
-    return _render_static_doc(request, path=_TOS_MD_PATH, head_title="Terms — Hava")
+    return _render_static_doc(
+        request,
+        path=_TOS_MD_PATH,
+        head_title="Terms — Ask Hava",
+        meta_description=(
+            "The terms for using Ask Hava — Lake Havasu City's free local "
+            "guide, directory, and AI concierge."
+        ),
+    )
 
 
 @app.exception_handler(RequestValidationError)

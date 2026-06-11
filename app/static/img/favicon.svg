@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Ask Hava mark: desert sun over the ridge, in the site palette
+       (ink #171310, sun #d4581e, ridge #11324d). Reads at 16px. -->
+  <rect width="64" height="64" rx="14" fill="#171310"/>
+  <circle cx="32" cy="27" r="15" fill="#d4581e"/>
+  <path d="M6 51 L22 40 L34 47 L48 37 L58 43 L58 58 L6 58 Z" fill="#11324d"/>
+</svg>

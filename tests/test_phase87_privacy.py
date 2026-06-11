@@ -137,8 +137,16 @@ def test_terms_route_200_and_markers() -> None:
     # labeled-paid-placement disclosure must be present.
     assert "AI answers can be wrong" in body
     assert "Paid placements are always" in body
-    # The attorney-review note ships as an HTML comment, not visible copy.
-    assert "needs attorney review before commercial launch" in body
+    # The attorney-review tripwire lives in the SOURCE markdown only — the
+    # renderer strips HTML comments so drafting notes never ship in public
+    # page source (QA audit 2026-06-10: live /terms exposed "Drafted by AI …
+    # needs attorney review" to anyone who hit View Source).
+    assert "needs attorney review before commercial launch" not in body
+    from app.main import _TOS_MD_PATH
+
+    assert "needs attorney review before commercial launch" in _TOS_MD_PATH.read_text(
+        encoding="utf-8"
+    )
 
 
 def test_terms_has_no_lawyer_placeholders() -> None:

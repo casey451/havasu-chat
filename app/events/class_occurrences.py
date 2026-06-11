@@ -17,6 +17,7 @@ shows twice.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date, time, timedelta
 
@@ -45,10 +46,16 @@ class ClassOccurrence:
 
     @property
     def url(self) -> str:
-        """Class series have no event permalink; link to the venue's page."""
+        """Class series have no event permalink; link to the venue's page.
+
+        No provider page → empty string, and the template renders a non-link
+        row. The old fallback ("/events-ui") made every slugless class a
+        self-link dead end (live: all Havasu Pilates rows linked back to the
+        page they were on).
+        """
         if self.provider_slug:
             return f"/provider/{self.provider_slug}"
-        return "/events-ui"
+        return ""
 
 
 def class_occurrences_in_window(
@@ -103,14 +110,142 @@ def class_occurrences_in_window(
                 )
             d += timedelta(days=1)
     out.sort(key=lambda o: (o.date, o.start_time or time(0, 0), o.venue, o.title))
-    return out
+    # Collapse duplicate Schedule rows for the same venue/slot before any
+    # caller sees them (the doubled Havasu Pilates capture — see
+    # _drop_schedule_twins). Sorted input keeps the survivor deterministic.
+    return _drop_schedule_twins(out)
+
+
+# --------------------------------------------------------------------------- #
+# Dedup matching (2026-06-10): the exact (title, date) contract let every
+# slightly-renamed twin through — the parks-rec Event says "Motion & Mobility
+# Margie" while the captured Schedule says "Motion & Mobility"; "Tai Chi Vince"
+# vs "Tai Chi (Aquatic)"; "Lap Swim" vs "Lap Swim (Morning)". All six aquatic
+# slots rendered twice on the live /events-ui. Titles are now reduced to a
+# token set (parentheticals, time-of-day tokens, and weekday tokens stripped)
+# and a class occurrence is a duplicate when one side's tokens are a subset of
+# the other's AND the start times agree within a window — so "Lap Swim
+# (Evening)" at 5 PM survives a 5 AM "Lap Swim" Event row.
+# --------------------------------------------------------------------------- #
+
+#: Start-time tolerance for treating same-titled rows as one occurrence.
+#: Mirrors app.events.dedup.DEDUP_DATETIME_WINDOW_MINUTES' default.
+DEDUP_TIME_WINDOW_MINUTES = 30
+
+_PAREN_RE = re.compile(r"\([^)]*\)")
+_TIME_TOKEN_RE = re.compile(
+    r"\b\d{1,2}(?::\d{2})?\s*(?:-|–|to)\s*\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?\b"
+    r"|\b\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)\b",
+    re.IGNORECASE,
+)
+_DAY_TOKEN_RE = re.compile(
+    r"\b(?:mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)(?:day)?s?\b", re.IGNORECASE
+)
+_NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _dedup_title_tokens(title: str) -> frozenset[str]:
+    """Reduce a class/event title to comparable tokens.
+
+    Drops parentheticals ("(Wed/Fri)", "(Morning)", "(155)"), clock tokens
+    ("9:00 AM", "4-5:30pm"), and weekday tokens — the disambiguators the two
+    ingest paths disagree on — then splits on non-alphanumerics.
+    """
+    t = (title or "").lower()
+    t = _PAREN_RE.sub(" ", t)
+    t = _TIME_TOKEN_RE.sub(" ", t)
+    t = _DAY_TOKEN_RE.sub(" ", t)
+    return frozenset(tok for tok in _NON_ALNUM_RE.split(t) if tok)
+
+
+def _times_compatible(
+    a: time | None, b: time | None, *, window_minutes: int = DEDUP_TIME_WINDOW_MINUTES
+) -> bool:
+    """True when two start times plausibly describe the same occurrence.
+
+    A missing time on either side is a wildcard (the old contract matched on
+    title+date alone, and TBD-time Event rows must still suppress their
+    Schedule twin).
+    """
+    if a is None or b is None:
+        return True
+    am = a.hour * 60 + a.minute
+    bm = b.hour * 60 + b.minute
+    return abs(am - bm) <= window_minutes
+
+
+def _tokens_match(a: frozenset[str], b: frozenset[str]) -> bool:
+    return bool(a) and bool(b) and (a <= b or b <= a)
 
 
 def drop_event_duplicates(
-    occurrences: list[ClassOccurrence], event_keys: set[tuple[str, date]]
+    occurrences: list[ClassOccurrence],
+    event_keys: set[tuple[str, date]] | set[tuple[str, date, time | None]],
 ) -> list[ClassOccurrence]:
-    """Drop class occurrences already represented by a live Event occurrence
-    (same lowercased title on the same date) -- e.g. the aquatic programs."""
-    return [
-        o for o in occurrences if (o.title.strip().lower(), o.date) not in event_keys
-    ]
+    """Drop class occurrences already represented by a live Event occurrence.
+
+    ``event_keys`` accepts the legacy ``(lowercased title, date)`` pairs or the
+    richer ``(title, date, start_time)`` triples; with triples, the start-time
+    window keeps distinct sessions of the same class apart. Matching is
+    token-subset on normalized titles (see :func:`_dedup_title_tokens`), so
+    instructor-suffixed Event titles still suppress their Schedule twins.
+    """
+    by_date: dict[date, list[tuple[frozenset[str], time | None]]] = {}
+    for key in event_keys:
+        title, day = key[0], key[1]
+        start = key[2] if len(key) > 2 else None  # type: ignore[misc]
+        by_date.setdefault(day, []).append((_dedup_title_tokens(title), start))
+
+    kept: list[ClassOccurrence] = []
+    for o in occurrences:
+        tokens = _dedup_title_tokens(o.title)
+        is_dup = any(
+            _tokens_match(tokens, ev_tokens) and _times_compatible(o.start_time, ev_start)
+            for ev_tokens, ev_start in by_date.get(o.date, ())
+        )
+        if not is_dup:
+            kept.append(o)
+    return kept
+
+
+def _drop_schedule_twins(occurrences: list[ClassOccurrence]) -> list[ClassOccurrence]:
+    """Collapse duplicate Schedule rows for the same venue/slot.
+
+    The captured-schedule import stored some classes twice with title variants
+    ("9:00 AM Beginner Pilates (Wed/Fri)" AND "Beginner Reformer Pilates -
+    9:00 AM Wed/Fri" — every Havasu Pilates slot doubled on live /events-ui).
+    Within one (date, venue), rows whose normalized tokens are subset-related
+    and whose times sit inside the dedup window collapse to one; the row with
+    MORE tokens (more specific title) wins, ties keep the first by sort order.
+    The underlying Schedule rows still need a data cleanup — this is the
+    render-time guard.
+    """
+    kept: list[ClassOccurrence] = []
+    by_group: dict[tuple[date, str], list[tuple[frozenset[str], ClassOccurrence, int]]] = {}
+    for o in occurrences:
+        group = by_group.setdefault((o.date, o.venue.strip().lower()), [])
+        tokens = _dedup_title_tokens(o.title)
+        replaced = False
+        for i, (k_tokens, k_occ, k_idx) in enumerate(group):
+            if not _tokens_match(tokens, k_tokens):
+                continue
+            # Within-venue twins must agree on a REAL time window (no
+            # wildcard): "Adult No-Gi (Morning)" and "(Night)" share tokens
+            # and may only differ by clock.
+            if o.start_time is None or k_occ.start_time is None:
+                if o.start_time is not k_occ.start_time:
+                    continue
+                if frozenset(o.weekdays) != frozenset(k_occ.weekdays):
+                    continue
+            elif not _times_compatible(o.start_time, k_occ.start_time):
+                continue
+            # Twin found: keep the more specific (more tokens), else first-in.
+            if len(tokens) > len(k_tokens):
+                kept[k_idx] = o
+                group[i] = (tokens, o, k_idx)
+            replaced = True
+            break
+        if not replaced:
+            group.append((tokens, o, len(kept)))
+            kept.append(o)
+    return kept

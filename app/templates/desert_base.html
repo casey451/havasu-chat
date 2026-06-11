@@ -31,7 +31,18 @@
   <meta property="og:title" content="{% block og_title %}{{ self.title() }}{% endblock %}">
   <meta property="og:description" content="{% block og_description %}{{ self.meta_description() }}{% endblock %}">
   <meta property="og:image" content="{% block og_image %}{{ absolute_url('/static/img/home-hero.jpg') }}{% endblock %}">
+  {# Twitter/X card set mirrors og (audit P2 #6: OG-only meant bare links on X). #}
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ self.og_title() }}">
+  <meta name="twitter:description" content="{{ self.og_description() }}">
+  <meta name="twitter:image" content="{{ self.og_image() }}">
   {% endif %}
+  {# Identity in the browser chrome (audit P0 #6: /favicon.ico 404'd and tabs
+     showed the generic blank page icon). SVG favicon covers modern browsers;
+     a real .ico + PNG apple-touch set still needs binary assets (follow-up). #}
+  <link rel="icon" type="image/svg+xml" href="/static/img/favicon.svg">
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <meta name="theme-color" content="#fbf4e6">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">

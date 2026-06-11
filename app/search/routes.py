@@ -417,6 +417,26 @@ def api_search(
 # --- /search keyword results page (DL-6 phase 2, WP-11) --------------------
 
 
+def _humanize_subtype(subcategory_slug: str | None, raw_token: str | None) -> str | None:
+    """Human label for a result row's category line.
+
+    Prefers the canonical taxonomy label for a known ``Provider.subcategory``
+    slug ("bars-breweries" → "Bars & Breweries"); otherwise prettifies the raw
+    Google/legacy token ("mexican_restaurant" → "Mexican Restaurant").
+    """
+    slug = (subcategory_slug or "").strip().lower()
+    if slug:
+        from app.categories.subcategories import subcategory_by_slug  # lazy: no cycle
+
+        sub = subcategory_by_slug(slug)
+        if sub is not None:
+            return sub.label
+    token = (raw_token or "").strip()
+    if not token:
+        return None
+    return token.replace("_", " ").replace("-", " ").strip().title()
+
+
 def _keyword_provider_rows(db: Session, *, q_clean: str, limit: int) -> list[Provider]:
     """Provider rows matching ``q`` via the same FTS/synonym path as ``/api/search``.
 
@@ -507,14 +527,25 @@ def search_results_page(
     events: list[dict[str, Any]] = []
     if q_clean:
         for p in _keyword_provider_rows(db, q_clean=q_clean, limit=_PAGE_RESULT_LIMIT):
-            subtype = p.google_primary_category or p.subcategory or p.category
-            area = p.district or p.address
+            # Raw Google type tokens ("mexican_restaurant", "bar_and_grill")
+            # leaked onto the live page — humanize via the canonical
+            # subcategory label when we have one, else prettify the token.
+            subtype = _humanize_subtype(
+                p.subcategory, p.google_primary_category or p.category
+            )
+            # Street line only — the stored address is the full Google format
+            # including ", Lake Havasu City, AZ 86403, USA".
+            street = (p.address or "").split(",")[0].strip()
+            area = p.district or street or None
+            phone_display = (p.phone or "").strip()
             providers.append(
                 {
                     "name": p.provider_name,
                     "url": f"/provider/{p.slug}" if p.slug else None,
                     "subtype": subtype,
-                    "phone": p.phone,
+                    "phone": phone_display,
+                    # tel: links want bare digits, not "(928) 555-1234".
+                    "phone_tel": re.sub(r"\D", "", phone_display),
                     "address": area,
                 }
             )

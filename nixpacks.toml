@@ -1,5 +1,9 @@
 [phases.install]
 cmds = ['pip install -r requirements.txt']
 
+# --proxy-headers: Railway terminates TLS at the edge; without trusting
+# X-Forwarded-Proto the app sees scheme=http, which (a) leaked http:// URLs
+# into provider JSON-LD via request.url and (b) suppressed the HSTS header
+# (SecurityHeadersMiddleware only emits it on https requests).
 [start]
-cmd = 'uvicorn app.main:app --host 0.0.0.0 --port $PORT'
+cmd = 'uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"'

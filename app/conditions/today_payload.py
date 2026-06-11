@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.conditions.api_payload import build_conditions_api_payload
 from app.conditions.cache import read_source
-from app.conditions.constants import SOURCE_GAS
+from app.conditions.constants import GAS_STALE_AFTER_HOURS, SOURCE_GAS
 from app.conditions.staleness import staleness_label
 
 _UNAVAILABLE = "Unavailable"
@@ -78,7 +78,12 @@ def _cheapest_gas(db: Session, *, now: datetime) -> TodayField:
     row = read_source(db, SOURCE_GAS, now=now)
     if row is None or not isinstance(row.data, dict):
         return _field("cheapest_gas", "Cheapest gas", None)
-    label, stale = staleness_label(row.fetched_at, now)
+    # Gas refreshes ~once a day — judge staleness on the daily-feed threshold
+    # (G-2), not the 2h default. The live /today tile read "Unavailable ·
+    # Updated >5h ago" while the header strip showed $4.19 from the same feed.
+    label, stale = staleness_label(
+        row.fetched_at, now, stale_after_hours=GAS_STALE_AFTER_HOURS
+    )
     is_stale = bool(stale or row.is_stale)
     cheapest = row.data.get("cheapest")
     station: dict[str, Any] | None = None

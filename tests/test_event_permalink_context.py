@@ -55,8 +55,28 @@ def test_is_past_one_off_tomorrow_is_not_past():
 
 
 def test_is_past_today_time_already_passed():
+    # End-time-less events get a 3-hour grace window before the "passed"
+    # banner (live bug: the 9:00 AM Board of Adjustment meeting wore "This
+    # event has passed" at 9:07 AM). Started 8:00, now noon -> 4h in, past.
     with patch("app.main.now_lake_havasu", return_value=REF):
-        assert _event_is_past(_ev(date=date(2026, 6, 4), start_time=time(10, 0))) is True
+        assert _event_is_past(_ev(date=date(2026, 6, 4), start_time=time(8, 0))) is True
+
+
+def test_is_past_no_end_time_grace_window_holds_midevent():
+    # Started 10:00, now noon -> 2h in, still inside the 3h grace: NOT past.
+    with patch("app.main.now_lake_havasu", return_value=REF):
+        assert _event_is_past(_ev(date=date(2026, 6, 4), start_time=time(10, 0))) is False
+
+
+def test_is_past_explicit_end_time_is_authoritative():
+    # A real end time skips the grace window entirely.
+    with patch("app.main.now_lake_havasu", return_value=REF):
+        assert (
+            _event_is_past(
+                _ev(date=date(2026, 6, 4), start_time=time(9, 0), end_time=time(11, 0))
+            )
+            is True
+        )
 
 
 def test_is_past_today_time_still_upcoming():

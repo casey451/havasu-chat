@@ -12,6 +12,7 @@ builders are unit-testable in isolation.
 from __future__ import annotations
 
 import calendar as _calendar
+import re
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
@@ -299,9 +300,21 @@ _SPECIAL_HINTS = (
     "boat show", "fireworks", "rodeo", "grand prix", "london bridge days",
     "concert series", "car show", "expo", "championship", "celebration",
 )
+# Civic/government events are COMMUNITY, never music/nightlife. Checked right
+# after SPECIAL so a "Board of Adjustment Meeting" can't fall through to the
+# music tier (the old substring matcher saw "dj" inside "aDJustment" — the
+# live-site bug where a city meeting headlined Music & nightlife). The civic
+# scrapers already tag these rows ("civic", "government", "meeting"), so the
+# tag words alone are enough to route them here.
+_CIVIC_HINTS = (
+    "civic", "government", "city council", "council", "commission",
+    "board of adjustment", "school board", "board meeting", "public hearing",
+    "city hall", "town hall",
+)
 _WEEK_WATER_HINTS = (
-    "water", "lake", "kayak", "swim", "boat", "paddle", "channel", "regatta",
-    "jet ski", "wakeboard", "sail", "fishing", "fish", "marina", "river",
+    "water", "lake", "kayak", "swim", "swimming", "boat", "paddle", "paddling",
+    "channel", "regatta", "jet ski", "wakeboard", "sail", "fishing", "fish",
+    "marina", "river",
 )
 _MUSIC_HINTS = (
     "live music", "music", "band", "concert", "dj", "karaoke", "dance party",
@@ -314,25 +327,54 @@ _COMMUNITY_HINTS = (
 _CLASS_HINTS = (
     "aqua", "aerobics", "yoga", "pilates", "lap swim", "pickleball", "fitness",
     "lesson", "class", "zumba", "dodgeball", "bootcamp", "tai chi", "spin",
-    "water fitness", "senior", "story hour",
+    "spinning", "water fitness", "senior", "story hour",
 )
+
+# Hints match on WORD BOUNDARIES, not substrings. The substring matcher
+# produced false tiers from letters buried inside unrelated words ("dj" in
+# "adjustment", "spin" in "inspiring", "fish" in "selfish"). Each hint allows
+# a plural or gerund tail ("class" → "classes", "kayak" → "kayaking") so
+# boundaries don't cost us the coverage substrings gave for free. One
+# deliberate exception: "fest" matches as a SUFFIX ("Oktoberfest",
+# "Winterfest") — a bare left boundary would miss the compound names it
+# exists to catch.
+_SUFFIX_HINTS = frozenset({"fest"})
+
+
+def _compile_hints(hints: tuple[str, ...]) -> "re.Pattern[str]":
+    parts = []
+    for h in hints:
+        left = "" if h in _SUFFIX_HINTS else r"\b"
+        parts.append(left + re.escape(h) + r"(?:e?s|ing)?\b")
+    return re.compile("|".join(parts))
+
+
+_SPECIAL_HINTS_RE = _compile_hints(_SPECIAL_HINTS)
+_CIVIC_HINTS_RE = _compile_hints(_CIVIC_HINTS)
+_WEEK_WATER_HINTS_RE = _compile_hints(_WEEK_WATER_HINTS)
+_MUSIC_HINTS_RE = _compile_hints(_MUSIC_HINTS)
+_COMMUNITY_HINTS_RE = _compile_hints(_COMMUNITY_HINTS)
+_CLASS_HINTS_RE = _compile_hints(_CLASS_HINTS)
 
 
 def _event_tier(*, title: str, tags: list[str] | None, featured: bool, recurring: bool) -> int:
     """Importance tier (lower = more prominent). See the module note above."""
     joined = (title + " " + " ".join(tags or [])).lower()
-    if featured or any(h in joined for h in _SPECIAL_HINTS):
+    if featured or _SPECIAL_HINTS_RE.search(joined):
         return _TIER_SPECIAL
+    # Civic/government events rank (and color) as COMMUNITY — see _CIVIC_HINTS.
+    if _CIVIC_HINTS_RE.search(joined):
+        return _TIER_COMMUNITY
     # A class signal ("lap swim", "water fitness", …) is the lowest tier, so it
     # must never be promoted to MUSIC/WATER just because it shares a keyword
     # (e.g. "swim"). Only consider the one-off tiers when there's no class signal.
-    if any(h in joined for h in _CLASS_HINTS):
+    if _CLASS_HINTS_RE.search(joined):
         return _TIER_CLASS
-    if any(h in joined for h in _MUSIC_HINTS):
+    if _MUSIC_HINTS_RE.search(joined):
         return _TIER_MUSIC
-    if any(h in joined for h in _COMMUNITY_HINTS):
+    if _COMMUNITY_HINTS_RE.search(joined):
         return _TIER_COMMUNITY
-    if any(h in joined for h in _WEEK_WATER_HINTS):
+    if _WEEK_WATER_HINTS_RE.search(joined):
         return _TIER_WATER
     # No keyword signal: a one-off is a real (untyped) event; a recurring block
     # reads as an ongoing class so it never outranks a one-off.
@@ -347,7 +389,7 @@ def _event_css_type(*, title: str, tags: list[str] | None, tier: int) -> str:
     color to activity type, not headline priority."""
     if tier in (_TIER_COMMUNITY, _TIER_OTHER):
         joined = (title + " " + " ".join(tags or [])).lower()
-        if any(h in joined for h in _WEEK_WATER_HINTS):
+        if _WEEK_WATER_HINTS_RE.search(joined):
             return "water"
     return _TIER_CSS[tier]
 
@@ -377,10 +419,12 @@ def week_strip(
 
     # Venue Schedule classes (entity Schedule rows, not events) join the per-day
     # class count so the rollup matches the day's /events-ui?date= page;
-    # event-table twins (the aquatic programs) are dropped by title+date, same
-    # as calendar_month.
+    # event-table twins (the aquatic programs) are dropped by normalized title
+    # + date + start-time window, same as calendar_month.
     event_keys = {
-        ((ev.title or "").strip().lower(), d) for d, evs in by_day.items() for ev in evs
+        ((ev.title or "").strip().lower(), d, ev.start_time)
+        for d, evs in by_day.items()
+        for ev in evs
     }
     sched_classes_by_day: dict[date, int] = {}
     for occ in drop_event_duplicates(
@@ -503,11 +547,11 @@ def calendar_month(
             for d, evs in occ_by_date.items()
         }
     by_day: dict[int, list[dict[str, Any]]] = {}
-    event_keys: set[tuple[str, date]] = set()
+    event_keys: set[tuple[str, date, time | None]] = set()
     for occ_date, evs in occ_by_date.items():
         bucket = by_day.setdefault(occ_date.day, [])
         for ev in evs:
-            event_keys.add(((ev.title or "").strip().lower(), occ_date))
+            event_keys.add(((ev.title or "").strip().lower(), occ_date, ev.start_time))
             bucket.append(
                 {
                     "title": ev.title,
@@ -520,7 +564,7 @@ def calendar_month(
     # them in so a "Mon-Thu BJJ" venue shows on every class day. They count as
     # recurring class pills, so they feed the "+N" overflow, never the two
     # visible one-off slots. Aquatic-style duplicates (classes that are ALSO
-    # recurring events) are dropped by title+date.
+    # recurring events) are dropped by normalized title + date + time window.
     class_occs = drop_event_duplicates(
         class_occurrences_in_window(
             db,
@@ -671,10 +715,12 @@ def _lake_tiles() -> list[dict[str, str]]:
 # (live music tonight, happy hours on now) have no category page, so they
 # search.
 def _night_tiles() -> list[dict[str, str]]:
-    eat = "/categories/eat-and-drink"
+    # Deep-link the drink tiles to the bars-and-breweries LEAF — both used to
+    # dump onto the unfiltered Eat & Drink department (audit, mode pages #3).
+    bars = "/categories/eat-and-drink/bars-and-breweries"
     return [
-        _tile("🍸", "Bars & Lounges", "Waterfront, dive, cocktail", eat),
-        _tile("🍺", "Breweries & Wineries", "Tastings, taprooms", eat),
+        _tile("🍸", "Bars & Lounges", "Waterfront, dive, cocktail", bars),
+        _tile("🍺", "Breweries & Wineries", "Tastings, taprooms", bars),
         _tile("🎶", "Live Music", "Who's playing & when", _chat_url("live music tonight")),
         _tile("🕙", "Happy Hours", "Sorted by ending soon", _chat_url("happy hour now")),
         _tile("🍔", "Late Kitchens", "Food after 10 PM", _chat_url("late night food")),

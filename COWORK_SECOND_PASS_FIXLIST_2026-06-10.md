@@ -680,6 +680,57 @@ map pins), image quality/cropping, Core Web Vitals.
 
 ---
 
+## 12b. IMPLEMENTED THIS SESSION (Cowork, ~9:30 AM) — uncommitted, Windows-side edits only
+
+Done in the working tree by THIS session (no git ops, no mount-shell writes — other agents: these
+files are claimed, please don't re-edit without checking):
+
+| Fix | Files | Status |
+|---|---|---|
+| §1.3 classifier: word-boundary hint matching (+plural/gerund tails, "fest" suffix exception) + civic→Community tier | `app/home/sandstone.py` (`_CIVIC_HINTS`, `_compile_hints`, `_event_tier`, `_event_css_type`) | DONE — logic replica-tested (24 cases) |
+| §2.1A event-vs-schedule dedup: normalized token-subset match + ±30-min window; callers pass (title, date, start_time); legacy 2-tuple keys still accepted | `app/events/class_occurrences.py`, `app/home/events_views.py` (×2 sites), `app/home/sandstone.py` (week_strip + calendar_month) | DONE — replica-tested incl. live aquatic pairs |
+| §2.1B schedule-twin collapse (Pilates double-capture) at read time | `app/events/class_occurrences.py` `_drop_schedule_twins`, wired into `class_occurrences_in_window` | DONE (data cleanup of Schedule rows still pending) |
+| §2.4 slugless class rows: no more `/events-ui` self-link; non-link row rendering | `app/events/class_occurrences.py` (`url` → ""), `app/templates/events_sandstone.html` (row branch) | DONE |
+| §5.1 /gas missing canonical+OG: register shared template filters/globals | `app/api/routes/gas.py`, `app/api/routes/micro_ad.py` | DONE |
+| §0.4 proxy scheme: `--proxy-headers --forwarded-allow-ips="*"` | `Procfile`, `nixpacks.toml` | DONE — fixes HSTS emission + future request.url uses; provider JSON-LD template fix (§4.1) still separate |
+| §1.1 event-ingest fallback URL havasuchat→askhava | `app/contrib/event_ingest.py` (both sites) | DONE (DB backfill of existing rows still pending `[DATA]`) |
+| §9.3 AQI chip "(O3)" → "AQI 40 · Good" (+pollutant moved to hover detail) | `app/conditions/view_model.py` (`_aqi_category`) | DONE (the /today tile's "O3" secondary is in `today_payload` — not touched) |
+| §13.6 search page: canonical subtype labels, street-only address, digit `tel:`, noindex on results | `app/search/routes.py` (`_humanize_subtype`), `app/templates/search.html` | DONE |
+| New tests | `tests/test_event_tier_classifier.py`, `tests/test_class_event_dedup.py` | NEW FILES |
+
+Known limitation left documented: "Arthritis Class Vince" vs "Arthritis Water Class" token sets are not
+subset-related — that one pair still doubles until the Schedule-side data cleanup.
+
+Verification status: logic validated via standalone replicas (sandbox /tmp, off-mount); edited regions
+re-read Windows-side and intact. **The sandbox mount serves stale/truncated views of these files — do
+NOT trust mount-side py_compile/pytest.** Authoritative gate per WORKING_AGREEMENT: Casey runs
+`.venv\Scripts\python.exe -m pytest -q` + `ruff check .` Windows-side before commit.
+
+### Batch 2 (next morning, after the copy track merged — files freed up)
+
+| Fix | Files | Status |
+|---|---|---|
+| §1.2 privacy renderer: wrapped bullets join one `<li>`; HTML comments no longer ship to page source (+tests) | `app/main.py` `_render_doc_markdown_to_html`, `tests/test_legal_doc_rendering.py` (new) | DONE — replica-run against real privacy.md: 19 clean bullets |
+| §13.4 `_event_is_past`: 3h grace for end-time-less events (9:00 AM meeting no longer "passed" at 9:07) | `app/main.py` + `tests/test_event_permalink_context.py` updated to pin new contract | DONE |
+| §8.3 legal titles "— Ask Hava" + per-page meta descriptions for /privacy /terms | `app/main.py`, `app/templates/privacy_doc.html` | DONE |
+| §5.8 sitemap pages section + `/gas` | `app/main.py` | DONE |
+| §1.6 favicon (SVG) + manifest + theme-color; §8.6 twitter:card set | `app/templates/desert_base.html`, `app/static/img/favicon.svg` (new), `app/static/manifest.webmanifest` (new) | DONE — **binary residue:** real `/favicon.ico` + PNG apple-touch icons still need image tooling |
+| §1.5 cactus arms point up | `app/templates/portal_advertise.html` | DONE (verified coords; screenshot after deploy) |
+| §7.3 night tiles → bars-and-breweries leaf; §7.2 switcher "Ask"→"Home"; §7.4 mode meta = blurb | `app/home/sandstone.py`, `app/templates/mode_sandstone.html` | DONE |
+| §2.8 events group label → "Around town" | `app/home/events_views.py` | DONE |
+| §5.9 /today gas tile uses GAS_STALE_AFTER_HOURS | `app/conditions/today_payload.py` | DONE |
+| §2.7 Event JSON-LD on /events/{id} (dict built route-side, AZ -07:00, None keys omitted) | `app/main.py`, `app/templates/event_permalink.html` | DONE — validate in Rich Results after deploy |
+| §13.1 reserve-form categories from canonical departments (fallback to legacy list on DB hiccup; POST validates + snapshots from rendered options) | `app/portal/router.py` | DONE |
+| §13.8 collection "Add it to Hava"; §13.7 "Bundled categories" slug leak removed; §7.6 map title literal — | `collection_landing.html`, `themed_group_landing.html`, `map_c.html` | DONE |
+
+Still not touched / remaining for other lanes: provider JSON-LD + hours/review/breadcrumb/nearby (§4 —
+Track B owns provider files), `[DATA]` campaigns (dup merges, address fixes, title backfills, Schedule-row
+cleanup, havasuchat event_url backfill), taxonomy rebuild (map scopes §7.5, two-restaurant-surfaces §3.9,
+leaf slug `caf-s-and-coffee` §13.3 — slug lives in DB taxonomy, needs migration+301), favicon binary
+assets, UV hour-source audit §9.2 (re-check after today's deploys), CSP (deliberately deferred).
+
+---
+
 ## 13. ADDENDUM — sweep #2 (same day, ~9:00–9:20 AM MST)
 
 Second full pass over pages not covered the first time: categories index, eat-and-drink department,

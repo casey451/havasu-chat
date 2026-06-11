@@ -1,5 +1,8 @@
 {% extends "desert_base.html" %}
 {% block title %}Ask Hava — {{ heading }}{% endblock %}
+{# Each mode's blurb doubles as its meta description — the pages reused the
+   generic homepage line (audit P2 #2). #}
+{% block meta_description %}{{ blurb }}{% endblock %}
 {% block mode %}{{ mode }}{% endblock %}
 {% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_home.css">{% endblock %}
 
@@ -11,7 +14,9 @@
     <div class="d-wrap mode-hero-in">
       {% set _mode = current_mode|default(mode) %}
       <nav class="mode-switch" aria-label="Browse mode">
-        <a class="{% if _mode == 'ask' %}on{% endif %}" href="/home" data-mode="ask"{% if _mode == 'ask' %} aria-current="page"{% endif %}>Ask</a>
+        {# Label says where the link GOES (audit, mode pages #2: "Ask" → /home
+           was a mislabel; Ask-the-concierge lives at /chat). #}
+        <a class="{% if _mode == 'ask' %}on{% endif %}" href="/home" data-mode="ask"{% if _mode == 'ask' %} aria-current="page"{% endif %}>Home</a>
         <a class="{% if _mode == 'lake' %}on{% endif %}" href="/lake" data-mode="lake"{% if _mode == 'lake' %} aria-current="page"{% endif %}>Lake</a>
         <a class="{% if _mode == 'night' %}on{% endif %}" href="/night" data-mode="night"{% if _mode == 'night' %} aria-current="page"{% endif %}>Night</a>
         <a class="{% if _mode == 'family' %}on{% endif %}" href="/family" data-mode="family"{% if _mode == 'family' %} aria-current="page"{% endif %}>Family</a>

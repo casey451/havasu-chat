@@ -35,6 +35,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.core.provider_name import register_template_filters, register_template_globals
 from app.db.database import get_db
 from app.db.models import AdSlot, Sponsor
 from app.home import sponsor_store
@@ -42,6 +43,10 @@ from app.home import sponsor_store
 router = APIRouter(prefix="/api", tags=["micro_ad"])
 
 _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parents[2] / "templates"))
+# Shared registrars — every Jinja2Templates instance needs them (the /gas
+# missing-canonical bug class; fragments rendered here may use the filters).
+register_template_filters(_TEMPLATES)
+register_template_globals(_TEMPLATES)
 
 # Slots a caller may request. Mirrors the four-tier inventory; anything else
 # falls back to the default so a typo can never 500 the loading overlay.
