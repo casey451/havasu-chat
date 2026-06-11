@@ -13,6 +13,7 @@ legacy columns remain the fallback for rows without ENTITY linkage.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, time
 from typing import Any, Optional
@@ -24,6 +25,49 @@ from app.core.timezone import now_lake_havasu
 from app.db.models import Provider
 from app.home.queries import _format_phone
 from app.providers import queries
+
+
+def _snippet_publish_dt(snippet: Any) -> datetime | None:
+    """Tolerant parse of a review snippet's Google ``publish_time``.
+
+    Google emits ISO-8601 with a Z suffix and 7–9 fractional digits;
+    ``datetime.fromisoformat`` wants ≤6. Returns None for anything
+    unparseable — those snippets sort last, in their original order.
+    """
+    if not isinstance(snippet, dict):
+        return None
+    raw = snippet.get("publish_time")
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    s = raw.strip()
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    s = re.sub(r"(\.\d{6})\d+", r"\1", s)
+    try:
+        return datetime.fromisoformat(s)
+    except ValueError:
+        return None
+
+
+def _snippets_newest_first(snippets: list[Any]) -> list[Any]:
+    """Review excerpts ordered by recency, not API order (copy audit §5b).
+
+    The profile shows the first 3 snippets; Google's array order is
+    arbitrary, so a years-old complaint could lead the page. Newest-first is
+    the neutral, honest ordering — nothing is hidden, the freshest voices
+    just speak first. Stable for ties/unparseable timestamps (original order
+    preserved; undated snippets sink to the end).
+    """
+    indexed = list(enumerate(snippets))
+
+    def key(pair: tuple[int, Any]):
+        idx, snip = pair
+        dt = _snippet_publish_dt(snip)
+        # Sort key: dated first (newest first), then original position.
+        return (0, -dt.timestamp(), idx) if dt is not None else (1, 0.0, idx)
+
+    return [snip for _, snip in sorted(indexed, key=key)]
+
 
 # UX spec §5 method-to-copy table.
 _VERIFICATION_METHOD_COPY: dict[str, str] = {
@@ -323,7 +367,9 @@ def build(
         data_inconsistency_flag=data_inconsistency_flag,
         google_rating=provider.google_rating,
         google_review_count=provider.google_review_count,
-        google_review_snippets=list(provider.google_review_snippets or []),
+        google_review_snippets=_snippets_newest_first(
+            list(provider.google_review_snippets or [])
+        ),
         call_phone=call_digits,
         call_phone_display=call_display,
         directions_url=queries.derive_directions_url(provider),
