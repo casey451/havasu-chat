@@ -785,8 +785,37 @@ def test_category_synonyms_returns_full_group_for_member() -> None:
 
 def test_category_synonyms_returns_input_when_no_group_matches() -> None:
     """Terms outside any group still come back as a single-element tuple."""
-    assert tier2_db_query._category_synonyms("plumber") == ("plumber",)
+    # "plumber" moved into a synonym group (hunt 2026-06-10 §3) — use terms
+    # that remain group-less.
+    assert tier2_db_query._category_synonyms("sushi") == ("sushi",)
     assert tier2_db_query._category_synonyms("yoga studio") == ("yoga studio",)
+
+
+def test_hunt_2026_06_10_synonym_groups_expand() -> None:
+    """One membership regression per group added from hunt 2026-06-10 §3."""
+    cases = {
+        "plumber": "plumbing",
+        "electrician": "electrical",
+        "ac repair": "swamp cooler",
+        "chiropractor": "chiropractic",
+        "physical therapist": "physical therapy",
+        "beauty salon": "barber",
+        "car dealer": "dealership",
+        "bowling": "lanes",
+    }
+    for term, expected_peer in cases.items():
+        out = tier2_db_query._category_synonyms(term)
+        assert term in out, term
+        assert expected_peer in out, term
+        assert out == tuple(sorted(out)), term
+
+
+def test_barber_still_resolves_to_original_group() -> None:
+    """'barber' sits in both the original barber group and the new beauty-salon
+    group (hunt §3) — first-match order must keep its original expansion."""
+    out = tier2_db_query._category_synonyms("barber")
+    assert "barbershop" in out
+    assert "beauty salon" not in out
 
 
 def test_category_synonyms_handles_empty() -> None:
