@@ -8,6 +8,7 @@ ensure_dotenv_loaded()
 import asyncio
 import html
 import logging
+import logging.config
 import os
 import re
 from contextlib import asynccontextmanager
@@ -84,6 +85,43 @@ from app.providers.router import router as providers_router
 from app.search.routes import router as search_router
 from app.v1.routes import router as v1_master_spec_router
 
+
+def _configure_logging() -> None:
+    """OPS-8 (audit :218-221): single ``dictConfig`` for the whole app.
+
+    Without it there is no handler anywhere, so app-level ``logger.info(...)``
+    (e.g. "Sentry initialized", the janitor's reaper warnings) never reaches
+    prod logs — Python's last-resort handler is WARNING+. One stdout handler
+    on root, idempotent (dictConfig replaces root handlers, so re-imports
+    can't stack duplicates). uvicorn's own loggers keep their handlers and
+    don't propagate, so access logs aren't double-printed.
+    ``LOG_LEVEL`` env knob (default INFO); unknown values fall back to INFO.
+    ``disable_existing_loggers=False`` keeps module-level loggers created
+    before this call (and pytest's caplog) fully working.
+    """
+    level = (os.getenv("LOG_LEVEL") or "INFO").strip().upper()
+    if level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+        level = "INFO"
+    logging.config.dictConfig(
+        {
+            "version": 1,
+            "disable_existing_loggers": False,
+            "formatters": {
+                "app": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"},
+            },
+            "handlers": {
+                "stdout": {
+                    "class": "logging.StreamHandler",
+                    "stream": "ext://sys.stdout",
+                    "formatter": "app",
+                },
+            },
+            "root": {"level": level, "handlers": ["stdout"]},
+        }
+    )
+
+
+_configure_logging()
 logger = logging.getLogger(__name__)
 
 _DOCS_DIR = Path(__file__).resolve().parents[1] / "docs"
