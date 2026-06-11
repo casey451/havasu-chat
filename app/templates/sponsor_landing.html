@@ -1,46 +1,34 @@
 {% extends "desert_base.html" %}
 {% block title %}Advertise on Ask Hava — Lake Havasu City{% endblock %}
-{% block meta_description %}Reach locals and visitors on Ask Hava with clearly labeled placements: Featured around town, Today's spotlight, in-feed picks, and the supporters wall.{% endblock %}
+{% block meta_description %}Reach locals and visitors on Ask Hava with clearly labeled placements. One rate card, real prices, no media kit.{% endblock %}
 {% block head_extra %}
   <meta name="robots" content="noindex">
   <link rel="stylesheet" href="/static/styles/desert_portal.css">
 {% endblock %}
 {% block content %}
+  {# Copy audit 2026-06-10 (§2): this page used to sell 4 packages while
+     /portal/advertise sells 6 and claims "the whole rate card" — a business
+     owner who found both saw the transparency claim contradicted. /sponsor is
+     now a thin teaser; /portal/advertise is the single source of truth.
+     Mailto: hello@ until the sponsors@ alias is confirmed live (master plan
+     item ④) — never print an address that might bounce on the money page. #}
   <section class="dp-hero">
     <div class="d-wrap" style="padding:64px 0 56px">
       <div class="d-crumb"><a href="/home">Home</a> &nbsp;/&nbsp; Sponsors</div>
-      <span class="d-eyebrow d-accent" style="display:block;margin-bottom:12px">Sponsor packages</span>
-      <h1 class="d-display">Advertise on <em>Ask&nbsp;Hava.</em></h1>
-      <p class="sub" style="margin-top:22px;font-size:clamp(16px,1.6vw,19px);font-weight:500;max-width:52ch">Reach locals and visitors with clearly labeled editorial sponsor
-        placements. No banner clutter, no dark patterns.</p>
+      <span class="d-eyebrow d-accent" style="display:block;margin-bottom:12px">Advertising</span>
+      <h1 class="d-display">Be where the <em>whole town looks.</em></h1>
+      <p class="sub" style="margin-top:22px;font-size:clamp(16px,1.6vw,19px);font-weight:500;max-width:52ch">Clearly labeled placements on the pages Havasu actually uses —
+        home, today, categories, and search. Quiet, no banner clutter, no dark
+        patterns. Every product and every price is on one public rate card.</p>
     </div>
   </section>
 
   <section class="dp-doors d-wrap">
-    <div class="d-grid-2">
-      <div class="d-card d-card--shadow dp-door">
-        <h2>Featured around town</h2>
-        <p>Your business in the headline placement on Home, one sponsor per day.</p>
-      </div>
-      <div class="d-card d-card--shadow dp-door">
-        <h2>Today's spotlight</h2>
-        <p>Up to two weekly placements alongside today's picks.</p>
-      </div>
-      <div class="d-card d-card--shadow dp-door">
-        <h2>In-feed pick</h2>
-        <p>One clearly labeled card woven into category and search results, daily rotation.</p>
-      </div>
-      <div class="d-card d-card--shadow dp-door">
-        <h2>Supporters wall</h2>
-        <p>Logo placement in the footer for monthly local supporters.</p>
-      </div>
-    </div>
-    <div class="d-links-row" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:28px">
+    <div class="d-links-row" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">
       <a class="d-btn d-btn--solid" href="/portal/advertise">See the rate card
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </a>
-      <a class="d-btn" href="mailto:sponsors@havasuchat.com?subject=Sponsor%20inquiry">Get in touch</a>
-      <a class="d-btn" href="mailto:sponsors@havasuchat.com">sponsors@havasuchat.com</a>
+      <a class="d-btn" href="mailto:hello@askhava.com?subject=Sponsor%20inquiry">Get in touch</a>
     </div>
   </section>
 {% endblock %}

@@ -82,7 +82,7 @@ _PRODUCTS: tuple[dict[str, Any], ...] = (
         "name": "Founding Partner",
         "price": "$149 / mo",
         "price_note": "10 founding spots · 12-mo lock",
-        "blurb": "The launch bundle: enriched listing + homepage spotlight rotation + 2 event boosts a month + first dibs on your category sponsorship.",
+        "blurb": "The launch bundle: the Verified & Enriched Listing + homepage spotlight rotation + 2 event boosts a month + first dibs on your category sponsorship.",
         "slot": None,
         "cap": None,
         "note": "10 founding spots",

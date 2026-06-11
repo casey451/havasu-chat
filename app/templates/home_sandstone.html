@@ -16,7 +16,11 @@
         {# Eyebrow is just the date — the H1 right below already says "Your
            lake." (HOME_HERO_EYEBROW env override still wins when set). #}
         <span class="date-tag">{% if hero_eyebrow_override %}{{ hero_eyebrow_override }}{% else %}{{ today_label }}{% endif %}</span>
-        <h1>{% if hero_headline_override %}{{ hero_headline_override }}{% else %}Your lake.<span class="l2">Your week.</span>{% endif %}</h1>
+        {# Copy audit 2026-06-10, hero B: promise first, name on the button.
+           "Lake Havasu City" stays in the second line for SEO (title tag also
+           covers it). Prod note: HOME_HERO_HEADLINE env override WINS over
+           this default — unset it on Railway for this to render. #}
+        <h1>{% if hero_headline_override %}{{ hero_headline_override }}{% else %}Search like a local.<span class="l2">Hava knows every launch ramp, taco stand, and plumber in Lake Havasu City.</span>{% endif %}</h1>
       </div>
       <div class="hero-side">
         <div class="hero-art" aria-hidden="true">
@@ -25,7 +29,8 @@
           <div class="ridge"></div>
         </div>
         <div class="askbar">
-          <span class="d-eyebrow askbar-eyebrow">Ask Hava — your local concierge</span>
+          {# Name lives on the button right below — don't repeat it here. #}
+          <span class="d-eyebrow askbar-eyebrow">Your local concierge</span>
           <form class="searchbox" id="home-ask-form" action="/chat" method="get" role="search" aria-label="Ask Hava">
             <input id="home-ask-input" name="q" type="text" value="" placeholder="Mexican food near the channel" aria-label="Ask Hava anything in Lake Havasu" autocomplete="off">
             <button class="go" type="submit">Ask Hava</button>
@@ -66,7 +71,7 @@
       </div>
     </a>
     {% else %}
-    <a class="marquee-claim" href="/sponsor">
+    <a class="marquee-claim" href="/portal/advertise">
       <span class="cat">Featured business</span>
       <span class="claim">Your business in the top spot — quiet, clearly labeled. <em>Advertise →</em></span>
     </a>
@@ -96,7 +101,7 @@
       {% endfor %}
     </div>
     <div class="cal-legend">
-      <span><i class="leg special"></i>Festival / special</span>
+      <span><i class="leg special"></i>Special event</span>
       <span><i class="leg water"></i>On the water</span>
       <span><i class="leg music"></i>Music / nightlife</span>
       <span><i class="leg community"></i>Community</span>
@@ -106,14 +111,18 @@
   {% endif %}
 
   {# ---- G Tier-2: Featured this week — spotlight sponsors (labeled), event-
-     adjacent, right after the week strip. Real sponsors or the honest claim
-     slot (featured_cards always ends with one claim card). ---- #}
+     adjacent, right after the week strip. Copy audit 2026-06-10: the section
+     renders ONLY when at least one REAL sponsor is sold — two empty
+     storefronts (this + the marquee claim card) read as "nobody advertises
+     here". The trailing claim slot still shows once a real sponsor exists. ---- #}
+  {% set real_featured = featured_cards | rejectattr('empty') | list %}
+  {% if real_featured %}
   <section class="d-wrap home-featured" aria-label="Featured this week">
-    <div class="d-sec-head"><h2>Featured <em>this week</em></h2><a class="all" href="/sponsor">Advertise here →</a></div>
+    <div class="d-sec-head"><h2>Featured <em>this week</em></h2><a class="all" href="/portal/advertise">Advertise here →</a></div>
     <div class="spon-row">
       {% for card in featured_cards %}
       {% if card.empty %}
-      <a class="spon empty" href="/sponsor">
+      <a class="spon empty" href="/portal/advertise">
         <div class="body">
           <div class="cat">Your business</div>
           <h3>Claim this spot</h3>
@@ -134,6 +143,7 @@
       {% endfor %}
     </div>
   </section>
+  {% endif %}
 
   {# ---- Explore Havasu — live category counts as color-blocked tiles
      (count omitted when none; "Browse" stamp instead — never a zero).
@@ -181,7 +191,8 @@
 
   {# ---- This month calendar — real Event rows, JS-free prev/next ---- #}
   <section class="d-wrap home-cal" aria-label="This month around the lake">
-    <div class="d-sec-head"><h2>This month <em>around the lake</em></h2><a class="all" href="/events-ui">Full calendar →</a></div>
+    {# "around the lake" already titles the week strip above — say it once. #}
+    <div class="d-sec-head"><h2>The month <em>at a glance</em></h2><a class="all" href="/events-ui">Full calendar →</a></div>
     <div class="cal-card">
       <div class="cal-top">
         <div class="m">{{ calendar.label }}</div>

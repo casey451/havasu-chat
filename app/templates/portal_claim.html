@@ -1,6 +1,6 @@
 {% extends "desert_base.html" %}
 {% block title %}Claim your listing — Ask Hava{% endblock %}
-{% block meta_description %}Claim your Lake Havasu business listing on Ask Hava for free — unlock your enriched profile and the verified mark.{% endblock %}
+{% block meta_description %}Claim your Lake Havasu business listing on Ask Hava for free — unlock your full profile (photos, hours, menu, links) and the verified mark.{% endblock %}
 {% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_portal.css">{% endblock %}
 
 {% block content %}
@@ -8,7 +8,9 @@
     <div class="d-wrap" style="padding:64px 0 56px">
       <div class="d-crumb"><a href="/portal">For businesses</a> &nbsp;/&nbsp; Claim</div>
       <h1 class="d-display">Claim <em>your listing.</em></h1>
-      <p class="sub" style="margin-top:22px;font-size:clamp(16px,1.6vw,19px);font-weight:500;max-width:52ch">Claiming is free. It unlocks your enriched profile — photos, hours,
+      {# "enriched" is a database word (copy audit §3) — the product name in
+         products.py keeps it as the one brand usage. #}
+      <p class="sub" style="margin-top:22px;font-size:clamp(16px,1.6vw,19px);font-weight:500;max-width:52ch">Claiming is free. It unlocks your full profile — photos, hours,
         menu and links — and the verified mark. Find your business below, then tap
         <strong>&ldquo;Claim this listing&rdquo;</strong> on its page.</p>
 
