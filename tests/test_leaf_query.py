@@ -161,3 +161,51 @@ def test_chat_route_redirects_exact_category(client: TestClient) -> None:
 def test_chat_route_no_query_renders_chat(client: TestClient) -> None:
     r = client.get("/chat")
     assert r.status_code == 200
+
+
+# --- hunt 2026-06-10 §2 vocabulary additions ---------------------------------
+
+
+def _seed_leaf(db: Session, *, dept_slug: str, leaf_slug: str, n: int) -> None:
+    dept = Category(slug=dept_slug, name=dept_slug, sort_order=0, level=0)
+    db.add(dept)
+    db.flush()
+    leaf = Category(slug=leaf_slug, name=leaf_slug, sort_order=0, level=1, parent_id=dept.id)
+    db.add(leaf)
+    db.flush()
+    for _ in range(n):
+        ent = Entity(entity_type="commercial", slug=f"e-{uuid4().hex[:8]}", name="P")
+        db.add(ent)
+        db.flush()
+        db.add(Provider(provider_name="P", category="x", slug=f"p-{uuid4().hex[:8]}",
+                        is_active=True, draft=False, entity_id=ent.id))
+        db.add(EntityCategory(entity_id=ent.id, category_id=leaf.id, is_primary=True))
+    db.commit()
+
+
+@pytest.mark.parametrize(
+    ("query", "leaf_slug"),
+    [
+        ("beauty salon", "hair-salons-and-barbers"),
+        ("beauty salons", "hair-salons-and-barbers"),
+        ("salon", "hair-salons-and-barbers"),
+        ("car dealer", "car-dealerships"),
+        ("car dealers", "car-dealerships"),
+        ("dealership", "car-dealerships"),
+        ("dealerships", "car-dealerships"),
+        ("physical therapist", "physical-therapy"),
+        ("physiotherapist", "physical-therapy"),
+        ("physio", "physical-therapy"),
+        # Havasu Lanes primary leaf verified = family-fun-and-arcades (cat id 56)
+        ("bowling", "family-fun-and-arcades"),
+        ("bowling alley", "family-fun-and-arcades"),
+        ("bowling alleys", "family-fun-and-arcades"),
+        # already mapped before this PR; hunt-flagged, so keep it pinned
+        ("electrician", "electrical"),
+    ],
+)
+def test_hunt_2026_06_10_vocabulary_routes(mem_db: Session, query: str, leaf_slug: str) -> None:
+    _seed_leaf(mem_db, dept_slug=f"dept-{leaf_slug}", leaf_slug=leaf_slug,
+               n=leaf_pages.LEAF_PAGE_MIN_PROVIDERS)
+    leaf = leaf_query.match_leaf_query(mem_db, query)
+    assert leaf is not None and leaf.slug == leaf_slug, query

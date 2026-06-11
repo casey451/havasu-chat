@@ -68,6 +68,11 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "theaters": "theaters-and-cinema",
     "movie theaters": "theaters-and-cinema",
     "cinema": "theaters-and-cinema",
+    # hunt 2026-06-10 §2: real-miss 3x HIGH; Havasu Lanes primary leaf verified
+    # against entity_categories (category id 56 = family-fun-and-arcades)
+    "bowling": "family-fun-and-arcades",
+    "bowling alley": "family-fun-and-arcades",
+    "bowling alleys": "family-fun-and-arcades",
     # Health & Medical
     "doctors": "primary-care",
     "primary care": "primary-care",
@@ -79,6 +84,10 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "chiropractors": "chiropractic",
     "chiropractor": "chiropractic",
     "physical therapy": "physical-therapy",
+    # hunt 2026-06-10 §2: sweep n=8, no route
+    "physical therapist": "physical-therapy",
+    "physiotherapist": "physical-therapy",
+    "physio": "physical-therapy",
     "eye care": "eye-care",
     "optometrists": "eye-care",
     # Beauty & Personal Care
@@ -87,6 +96,10 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "barbers": "hair-salons-and-barbers",
     "barber": "hair-salons-and-barbers",
     "salons": "hair-salons-and-barbers",
+    # hunt 2026-06-10 §2: sweep n=50, no route
+    "salon": "hair-salons-and-barbers",
+    "beauty salon": "hair-salons-and-barbers",
+    "beauty salons": "hair-salons-and-barbers",
     "spas": "day-spas-and-massage",
     "massage": "day-spas-and-massage",
     "day spas": "day-spas-and-massage",
@@ -159,6 +172,11 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "car repair": "auto-repair",
     "gas stations": "gas-stations",
     "car dealerships": "car-dealerships",
+    # hunt 2026-06-10 §2: sweep n=25, no route
+    "car dealer": "car-dealerships",
+    "car dealers": "car-dealerships",
+    "dealership": "car-dealerships",
+    "dealerships": "car-dealerships",
     "auto parts": "auto-parts",
     "car wash": "car-wash",
     "car washes": "car-wash",
