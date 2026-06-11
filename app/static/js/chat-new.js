@@ -1304,15 +1304,19 @@
     if (!storedSid) return;
     try {
       const resp = await fetch(
-        "/api/chat/history?session_id=" + encodeURIComponent(sessionId) + "&limit=6"
+        "/api/chat/history?session_id=" + encodeURIComponent(sessionId) + "&limit=24"
       );
       if (!resp.ok) return;
       const data = await resp.json();
-      const turns = (data && data.turns) || [];
+      // v1 shape (master spec §4.2): {messages: [{role, content, query, id, …}]}.
+      // One assistant row per unified-router turn; keep the last 6 turns.
+      const turns = ((data && data.messages) || [])
+        .filter(function (m) { return m.role === "assistant"; })
+        .slice(-6);
       for (const t of turns) {
         if (t.query) appendUserTurn(t.query);
         const turn = appendHavaTurn();
-        fillHavaTurn(turn, { response: t.response, chat_log_id: t.chat_log_id });
+        fillHavaTurn(turn, { response: t.content, chat_log_id: t.id });
       }
     } catch (_) {
       // Restore is cosmetic — never block a fresh conversation.
