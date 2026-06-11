@@ -38,6 +38,25 @@ template — not a sitewide average.
 
 LCP / INP / CLS columns intentionally omitted — capture via PSI field data.
 
+## After the UX PRs deployed (desktop, 2026-06-11, post-merge)
+
+Re-measured live once UX-1/UX-2 and the rest shipped — the "record the delta
+here" follow-up the baseline called for. Same method.
+
+| Template | Before (DOM) | After (DOM) | Δ | After TTFB (ms) | After Load (ms) | Notes |
+|---|---:|---:|---:|---:|---:|---|
+| Home | 662 | 689 | +27 | 198 | 353 | UX-1 chips + trust strip now render (cost ~27 nodes) |
+| **Restaurants leaf** | **1,877** | **895** | **−982 (−52%)** | — | — | UX-2 pagination → 60 cards/page; **out of the ~1,400 error zone** (just over the 800 warn) |
+| Provider | 267 | 269 | +2 | 247 | 307 | unchanged |
+| Events | 392 | 394 | +2 | 102 | 142 | unchanged |
+| Map | 187 | 189 | +2 | 54 | 114 | map-label change is text-only |
+
+**Headline:** the one real problem (Restaurants leaf at 1,877 nodes) is fixed —
+pagination cut it to **895** (−52%), close to the predicted ~750. The UX-1
+additions cost a negligible +27 nodes on Home. Everything else is flat. Hero copy
+on Home still shows the env-pinned "Ask Hava. Anything in Havasu." until
+`HOME_HERO_HEADLINE`/`HOME_HERO_EYEBROW` are unset on Railway.
+
 ## Findings
 
 1. **Restaurants leaf is the one real problem: 1,877 DOM nodes** — past the
