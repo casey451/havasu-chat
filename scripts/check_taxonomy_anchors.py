@@ -68,7 +68,9 @@ def check_anchors(
 
     results: list[AnchorResult] = []
     for row in anchors:
-        name = (row.get("row_name") or "").strip()
+        # NUL-strip: stale filesystem caches have served this CSV with
+        # trailing NUL padding; a phantom row must never count as an anchor.
+        name = (row.get("row_name") or "").replace("\x00", "").strip()
         exp_dept = (row.get("expected_department") or "").strip()
         exp_leaf = (row.get("expected_leaf") or "").strip()
         case_id = (row.get("case_id") or "?").strip()
