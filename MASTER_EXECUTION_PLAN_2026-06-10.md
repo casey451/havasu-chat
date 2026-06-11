@@ -86,6 +86,24 @@ added to both graphify hooks after three stale-lock collisions. Remaining Track 
 WS-5 zones (needs spec session) · B3 taxonomy phases (anchors checker ready) ·
 B4 bug batch.
 
+**SESSION CLOSE 2026-06-11 ~03:30 — full-night ledger.** Merged + deployed +
+live-verified: **#248** (B1 dedupe engine + B2 Bayesian/WS-4) · **#249** (WS-4
+precision + copy audit) · **#250** (leaf intro) · **#252** (§5b excerpts + §6.1
+anchors checker) · **#254** (B3 phase-1 prep: anchors reconciled to prod, 12-row
+QSR remap CSV, --department filter, `docs/ZONES_WS5_SPEC.md` with D1–D4) ·
+**#255** (OPS-10 toolchain pin — pulled forward from Track D; CI now reads
+`.python-version`). Prod data passes applied with snapshots: 216 addresses +
+373 zips; place_id tier 0 as predicted. **Parallel sessions:** Track D ✅
+COMPLETE — 5 bundles awaiting Casey's fetch+push (**skip its ops10 bundle,
+superseded by #255**; answer its playwright/pytesseract question). Track C 🔄
+RUNNING — PRs #251 + #253 pushed, CI-green; review after it goes idle. QA
+second pass ✅ — `COWORK_SECOND_PASS_FIXLIST_2026-06-10.md` now carries a
+do-not-execute-§0.1 annotation (mount mirage) + overtaken-by-events list; its
+real new finds (reserve-form category taxonomy = funnel blocker · double-escaped
+/categories names · "event has passed" timing · /search raw tokens · /group
+pages · ICS junk titles) are the next bug batch. E&D phase runbook:
+`docs/ED_PHASE1_PREP_2026-06-11.md`.
+
 **C1 ✅ RUN (late 2026-06-10, on CC's CSV export):** 8.2% real miss rate (118/1,432
 turns, 31 HIGH). Top families: standalone events ~48 turns (pull into first C batch),
 plumber/trades ~14 (the §4b hay gap), Tier-1 fuzzy + spell-correct shapes. Results +
