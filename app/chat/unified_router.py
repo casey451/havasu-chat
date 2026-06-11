@@ -44,7 +44,7 @@ from app.chat.tier2_handler import (
     try_tier2_with_usage,
 )
 from app.chat.tier3_handler import FALLBACK_MESSAGE as _GRACEFUL
-from app.chat.tier3_handler import answer_with_tier3
+from app.chat.tier3_handler import answer_with_tier3, format_history_block
 from app.core.conditions_temperature import read_current_temperature_f
 from app.core.session import (
     OnboardingHints,
@@ -52,11 +52,12 @@ from app.core.session import (
     SessionState,
     get_session,
     record_entity,
+    rehydrate_session_from_logs,
     touch_session,
     update_hints_from_extraction,
 )
 from app.core.timezone import format_now_lake_havasu, now_lake_havasu
-from app.db.chat_logging import log_unified_route
+from app.db.chat_logging import log_unified_route, recent_turns_for_session
 
 _PRONOUN_REFERENT = re.compile(
     r"\b(it|that|there|they|them|the place|that place)\b",
@@ -572,6 +573,7 @@ def _handle_ask(
     db: Session,
     *,
     onboarding_hints: OnboardingHints | None = None,
+    history_block: str | None = None,
     now_line: str | None = None,
     allow_tier3_fallback: bool = True,
     router_meta: dict | None = None,
@@ -663,6 +665,7 @@ def _handle_ask(
                 intent_result,
                 db,
                 onboarding_hints=onboarding_hints,
+                history_block=history_block,
                 now_line=now_line,
                 organic_context=organic_ctx,
                 chat_ctx=chat_ctx,
@@ -700,6 +703,7 @@ def _handle_ask(
                 routed_intent,
                 db,
                 onboarding_hints=onboarding_hints,
+                history_block=history_block,
                 now_line=now_line,
                 organic_context=organic_ctx,
                 chat_ctx=chat_ctx,
@@ -714,6 +718,7 @@ def _handle_ask(
             routed_intent,
             db,
             onboarding_hints=onboarding_hints,
+            history_block=history_block,
             now_line=now_line,
             organic_context=organic_ctx,
             chat_ctx=chat_ctx,
@@ -741,6 +746,7 @@ def _handle_ask(
             intent_result,
             db,
             onboarding_hints=onboarding_hints,
+            history_block=history_block,
             now_line=now_line,
             organic_context=organic_ctx,
             chat_ctx=chat_ctx,
@@ -768,6 +774,7 @@ def _handle_ask(
         intent_result,
         db,
         onboarding_hints=onboarding_hints,
+        history_block=history_block,
         now_line=now_line,
         organic_context=organic_ctx,
         chat_ctx=chat_ctx,
@@ -998,6 +1005,11 @@ def route(
         try:
             touch_session(raw_sid)
             session_obj = get_session(raw_sid)
+            if int(session_obj.get("turn_number", 0)) == 0:
+                # C3: fresh in-memory session for a (possibly known) session_id
+                # — rebuild durable hints (turn count, prior entity) from
+                # chat_logs so restarts don't reset the conversation.
+                rehydrate_session_from_logs(db, raw_sid, session_obj)
             session_obj["turn_number"] = int(session_obj.get("turn_number", 0)) + 1
             current_turn = int(session_obj["turn_number"])
         except Exception:
@@ -1042,6 +1054,17 @@ def route(
                 onboarding_hints = raw_hints
         except Exception:
             logging.exception("unified_router: onboarding_hints read failed")
+
+    # C3: compact transcript of the previous turns (the current turn is not
+    # logged yet at this point) for the conversational tier. Best-effort.
+    history_block: str | None = None
+    if raw_sid:
+        try:
+            prior_turns = recent_turns_for_session(db, raw_sid, limit=6)
+            if prior_turns:
+                history_block = format_history_block(prior_turns)
+        except Exception:
+            logging.exception("unified_router: history block build failed")
 
     now_line = f"Now: {format_now_lake_havasu()}"
 
@@ -1122,6 +1145,7 @@ def route(
                     intent_result,
                     db,
                     onboarding_hints=onboarding_hints,
+                    history_block=history_block,
                     now_line=now_line,
                     allow_tier3_fallback=False,
                     router_meta=router_meta,
@@ -1148,6 +1172,7 @@ def route(
                     intent_result,
                     db,
                     onboarding_hints=onboarding_hints,
+                    history_block=history_block,
                     now_line=now_line,
                     router_meta=router_meta,
                     component_meta=component_meta,
@@ -1177,6 +1202,7 @@ def route(
                 intent_result,
                 db,
                 onboarding_hints=onboarding_hints,
+                history_block=history_block,
                 now_line=now_line,
                 component_meta=component_meta,
                 chat_ctx=chat_ctx,

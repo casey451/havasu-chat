@@ -7,10 +7,11 @@ and returns assistant text plus total token usage for logging.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import time
-from typing import TYPE_CHECKING, Any, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -255,12 +256,36 @@ def _maybe_render_sponsored_block(
         return None
 
 
+_HISTORY_QUERY_MAX = 200
+_HISTORY_RESPONSE_MAX = 280
+
+
+def format_history_block(turns: "Sequence[Mapping[str, Any]]") -> str | None:
+    """C3: compact transcript of the last few turns for the Tier-3 prompt.
+
+    Oldest first, hard-truncated per side so six turns stay well under the
+    context budget. Returns ``None`` when there is nothing to show.
+    """
+    lines: list[str] = []
+    for t in turns or ():
+        q = str(t.get("query") or "").strip()
+        r = str(t.get("response") or "").strip()
+        if q:
+            lines.append(f"User: {q[:_HISTORY_QUERY_MAX]}")
+        if r:
+            lines.append(f"Hava: {r[:_HISTORY_RESPONSE_MAX]}")
+    if not lines:
+        return None
+    return "Conversation so far (oldest first):\n" + "\n".join(lines)
+
+
 def answer_with_tier3(
     query: str,
     intent_result: IntentResult,
     db: Session,
     *,
     onboarding_hints: Mapping[str, Any] | None = None,
+    history_block: str | None = None,
     now_line: str | None = None,
     organic_context: Optional[list[Mapping[str, Any]]] = None,
     chat_ctx: ChatRequestContext | None = None,
@@ -290,6 +315,11 @@ def answer_with_tier3(
             if v is not None and v != "":
                 cache_context[k] = v
     cache_context["_today"] = now_lake_havasu().date().isoformat()
+    if history_block:
+        # C3: a follow-up's answer depends on the conversation so far — vary
+        # the cache key by history so first-turn cache entries stay shared and
+        # history-bearing turns never serve a history-blind cached reply.
+        cache_context["_history"] = hashlib.sha256(history_block.encode("utf-8")).hexdigest()[:16]
     cache_key = make_cache_key(query, cache_context)
     t_lookup_start = time.perf_counter()
     cached_response, precomputed_embedding = cache_lookup_with_embedding(
@@ -356,6 +386,8 @@ def answer_with_tier3(
         if voice_lines:
             mid = f"{mid}\n\nLocal voice:\n" + "\n".join(voice_lines)
     user_text = f"User query:\n{query.strip()}\n\n{mid}\n\n{context}"
+    if history_block:
+        user_text = f"{history_block}\n\n{user_text}"
 
     t_llm_start = time.perf_counter()
     result = call_anthropic_messages(
