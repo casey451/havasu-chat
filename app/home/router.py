@@ -658,6 +658,30 @@ def serve_family(request: Request, db: Session = Depends(get_db)) -> HTMLRespons
     return _serve_mode_landing(request, db, "family")
 
 
+# Label standardization (research report / fixlist §7.5): the /map category
+# scopes reuse legacy flat-bucket slugs whose CATEGORY_LABELS read differently
+# from the 15 directory department names users see everywhere else ("Auto, RV &
+# Fuel" vs "Auto, RV & Marine", "Classes, Sports & Recreation" vs "Fitness &
+# Wellness"). This presentation-only override aligns the map TAB LABELS to the
+# department names — the scope SLUGS are unchanged, so /api/map_data/{scope} and
+# map.js are untouched. (Full taxonomy unification stays in the rebuild
+# workstream; this is just the naming quick win.)
+_MAP_SCOPE_LABELS: dict[str, str] = {
+    "eat-drink": "Eat & Drink",
+    "on-the-water": "On the Water",
+    "outdoors-parks-trails": "Outdoors & Recreation",
+    "classes-sports-recreation": "Fitness & Wellness",
+    "shopping-essentials": "Shopping & Retail",
+    "home-property-services": "Home & Property Services",
+    "health-wellness-care": "Health & Medical",
+    "auto-rv-fuel": "Auto, RV & Marine",
+    "lodging-vacation-rentals": "Lodging",
+    "pets": "Pets",
+    "public-civic-resources": "Community & Civic",
+    "events": "Events",
+}
+
+
 @router.get("/map", response_class=HTMLResponse)
 def serve_map_view(request: Request, scope: str | None = None) -> HTMLResponse:
     """Render /map — full-page Leaflet map (markers via /api/map_data/{scope}).
@@ -679,7 +703,11 @@ def serve_map_view(request: Request, scope: str | None = None) -> HTMLResponse:
         )
     ]
     category_scopes = [
-        {"slug": slug, "label": CATEGORY_LABELS.get(slug, slug.replace("-", " ").title())}
+        {
+            "slug": slug,
+            "label": _MAP_SCOPE_LABELS.get(slug)
+            or CATEGORY_LABELS.get(slug, slug.replace("-", " ").title()),
+        }
         for slug in (
             "eat-drink",
             "on-the-water",
