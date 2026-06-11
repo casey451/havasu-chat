@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import time
@@ -108,6 +109,45 @@ def _utc_naive_wall() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
+def _load_session_user(session_id: str) -> tuple[User | None, AuthSession | None, bool]:
+    """Sync DB lookup for :class:`SessionMiddleware` — returns ``(user, session, clear_cookie)``.
+
+    Runs via ``asyncio.to_thread`` (PERF-4, audit :95-99): 2-3 blocking SQLAlchemy
+    round-trips (plus the occasional last-seen bump commit) per cookied request
+    used to run directly on the event loop, serializing all in-flight requests
+    on every stall. Logic is byte-for-byte the previous inline block.
+    """
+    db = SessionLocal()
+    try:
+        now_aware = datetime.now(timezone.utc)
+        sess = db.get(AuthSession, session_id)
+        if sess is None:
+            return None, None, True
+        if sess.expires_at < now_aware:
+            return None, None, True
+        user = db.get(User, sess.user_id)
+        if user is None or not user.is_active:
+            return None, None, True
+        bumped = False
+        if _should_bump_last_seen(sess.id):
+            sess.last_seen_at = _utc_naive_wall()
+            db.add(sess)
+            db.commit()
+            bumped = True
+        if bumped:
+            db.refresh(user)
+            db.refresh(sess)
+        db.expunge(user)
+        db.expunge(sess)
+        return user, sess, False
+    except Exception:
+        logger.exception("session middleware DB error")
+        db.rollback()
+        return None, None, True
+    finally:
+        db.close()
+
+
 class SessionMiddleware(BaseHTTPMiddleware):
     """Attach ``current_user`` / ``current_session`` from ``hava_session`` cookie."""
 
@@ -119,40 +159,9 @@ class SessionMiddleware(BaseHTTPMiddleware):
         current_session: AuthSession | None = None
 
         if session_id:
-            db = SessionLocal()
-            try:
-                now_aware = datetime.now(timezone.utc)
-                sess = db.get(AuthSession, session_id)
-                if sess is None:
-                    clear_cookie = True
-                elif sess.expires_at < now_aware:
-                    clear_cookie = True
-                else:
-                    user = db.get(User, sess.user_id)
-                    if user is None or not user.is_active:
-                        clear_cookie = True
-                    else:
-                        current_user = user
-                        current_session = sess
-                        bumped = False
-                        if _should_bump_last_seen(sess.id):
-                            sess.last_seen_at = _utc_naive_wall()
-                            db.add(sess)
-                            db.commit()
-                            bumped = True
-                        if bumped:
-                            db.refresh(user)
-                            db.refresh(sess)
-                        db.expunge(user)
-                        db.expunge(sess)
-            except Exception:
-                logger.exception("session middleware DB error")
-                db.rollback()
-                clear_cookie = True
-                current_user = None
-                current_session = None
-            finally:
-                db.close()
+            current_user, current_session, clear_cookie = await asyncio.to_thread(
+                _load_session_user, session_id
+            )
 
         request.state.current_user = current_user
         request.state.current_session = current_session

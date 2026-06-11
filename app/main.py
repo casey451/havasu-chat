@@ -8,6 +8,7 @@ ensure_dotenv_loaded()
 import asyncio
 import html
 import logging
+import logging.config
 import os
 import re
 from contextlib import asynccontextmanager
@@ -70,6 +71,7 @@ from app.core.provider_name import (
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal, get_db, init_db
+from app.db.jobs_store import count_stale_running, requeue_stale_claims
 from app.db.models import AuthSession, Event, Provider
 from app.digest.routes import router as digest_router
 from app.events.time_labels import is_time_tbd
@@ -84,6 +86,43 @@ from app.providers.router import router as providers_router
 from app.search.routes import router as search_router
 from app.v1.routes import router as v1_master_spec_router
 
+
+def _configure_logging() -> None:
+    """OPS-8 (audit :218-221): single ``dictConfig`` for the whole app.
+
+    Without it there is no handler anywhere, so app-level ``logger.info(...)``
+    (e.g. "Sentry initialized", the janitor's reaper warnings) never reaches
+    prod logs — Python's last-resort handler is WARNING+. One stdout handler
+    on root, idempotent (dictConfig replaces root handlers, so re-imports
+    can't stack duplicates). uvicorn's own loggers keep their handlers and
+    don't propagate, so access logs aren't double-printed.
+    ``LOG_LEVEL`` env knob (default INFO); unknown values fall back to INFO.
+    ``disable_existing_loggers=False`` keeps module-level loggers created
+    before this call (and pytest's caplog) fully working.
+    """
+    level = (os.getenv("LOG_LEVEL") or "INFO").strip().upper()
+    if level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+        level = "INFO"
+    logging.config.dictConfig(
+        {
+            "version": 1,
+            "disable_existing_loggers": False,
+            "formatters": {
+                "app": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"},
+            },
+            "handlers": {
+                "stdout": {
+                    "class": "logging.StreamHandler",
+                    "stream": "ext://sys.stdout",
+                    "formatter": "app",
+                },
+            },
+            "root": {"level": level, "handlers": ["stdout"]},
+        }
+    )
+
+
+_configure_logging()
 logger = logging.getLogger(__name__)
 
 _DOCS_DIR = Path(__file__).resolve().parents[1] / "docs"
@@ -324,6 +363,45 @@ def run_expired_review_cleanup() -> int:
         return len(expired)
 
 
+def _janitor_int_env(name: str, default: int) -> int:
+    """Optional integer janitor knob: unset/blank/garbage falls back to the default."""
+    raw = (os.getenv(name) or "").strip()
+    try:
+        return int(raw) if raw else default
+    except ValueError:
+        return default
+
+
+def run_stale_job_requeue() -> int:
+    """OPS-4: requeue jobs stuck in ``claimed`` (worker died between claim and run).
+
+    Threshold via ``JOBS_STALE_CLAIM_MINUTES`` (default 60 — claim→running is
+    normally seconds, so an hour-old claim is a dead worker, not a slow one).
+    Also warns on ``running`` rows older than ``JOBS_STUCK_RUNNING_WARN_HOURS``
+    (default 6) WITHOUT requeueing them — double-run risk for side-effectful
+    job types; the portal's manual requeue covers those after inspection.
+    Returns the number of jobs requeued.
+    """
+    minutes = _janitor_int_env("JOBS_STALE_CLAIM_MINUTES", 60)
+    warn_hours = _janitor_int_env("JOBS_STUCK_RUNNING_WARN_HOURS", 6)
+    with SessionLocal() as db:
+        requeued = requeue_stale_claims(db, older_than_minutes=minutes)
+        if requeued:
+            logger.warning(
+                "stale-claim reaper requeued %d job(s): %s",
+                len(requeued),
+                ", ".join(f"{j.job_type}:{j.id}" for j in requeued),
+            )
+        stuck = count_stale_running(db, older_than_hours=warn_hours)
+        if stuck:
+            logger.warning(
+                "%d job(s) stuck in 'running' > %dh — inspect/requeue in the portal ops page",
+                stuck,
+                warn_hours,
+            )
+        return len(requeued)
+
+
 async def _hourly_cleanup_loop() -> None:
     # OPS-3: one transient failure (DB blip, etc.) must not kill the janitor
     # for the process lifetime — run_stuck_photo_sweep is the safety net for
@@ -334,6 +412,7 @@ async def _hourly_cleanup_loop() -> None:
         try:
             await asyncio.to_thread(run_expired_review_cleanup)
             await asyncio.to_thread(run_stuck_photo_sweep)
+            await asyncio.to_thread(run_stale_job_requeue)
         except Exception as exc:
             logger.warning("hourly cleanup pass failed; retrying next hour", exc_info=True)
             try:

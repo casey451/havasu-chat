@@ -181,6 +181,28 @@ _RECOMMENDATION_SHAPED = re.compile(
     re.IGNORECASE,
 )
 
+# Hunt 2026-06-10 §1b (C-PR-5): discovery intents are recommendation shapes.
+# "date night ideas" / "happy hour spots near the channel" / "indoor activities
+# when it's hot" classified as Tier-1 factual lookups (DATE/HOURS/TIME) and
+# either gap-templated or — worse — produced a spurious near-match reply
+# ("date night ideas" → "Closest match … Kids Activities Studio"). These must
+# reach the catalog tiers (category-aware Tier-3 post-§4b has the rows).
+# Floating search, unlike the anchored _RECOMMENDATION_SHAPED match.
+_DISCOVERY_SHAPED = re.compile(
+    r"(?:"
+    r"date\s+night|girls?\s+night|happy\s+hour|"
+    r"\bideas\b|\bspots\b|"
+    r"^\s*indoor\s+\w+|"
+    r"things\s+to\s+do|"
+    # "where is the best sushi in town" (13 turns) — superlative + category is
+    # discovery, not an entity location lookup. Anchored on the superlative so
+    # entity-shaped factual lookups ("rating for <name>", q22) keep gating.
+    r"where\s+is\s+the\s+best\b|"
+    r"\b(?:best|good|top)\s+\w+\s+in\s+town\b"
+    r")",
+    re.IGNORECASE,
+)
+
 
 def _catalog_gap_response(intent_result: IntentResult, db: Session | None = None) -> str | None:
     """Tier 1-shaped fact lookup with no catalog entity — template only, no Tier 3.
@@ -200,6 +222,8 @@ def _catalog_gap_response(intent_result: IntentResult, db: Session | None = None
     if (intent_result.entity or "").strip():
         return None
     if _RECOMMENDATION_SHAPED.match(raw):
+        return None
+    if _DISCOVERY_SHAPED.search(raw):
         return None
     # Also defer to Tier 2 listing shortcut — if the query matches that shape, the
     # Tier 2 path will produce a real listing response (or fall through itself).

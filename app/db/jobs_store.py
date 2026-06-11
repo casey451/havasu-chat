@@ -11,10 +11,10 @@ same on SQLite (tests) and Postgres (prod).
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
-from sqlalchemy import CursorResult, select, update
+from sqlalchemy import CursorResult, func, select, update
 from sqlalchemy.orm import Session
 
 from app.db.models import Job
@@ -138,3 +138,65 @@ def finish_job(
     db.commit()
     db.refresh(row)
     return row
+
+
+def requeue_stale_claims(db: Session, *, older_than_minutes: int) -> list[Job]:
+    """Requeue jobs stuck in ``claimed`` longer than ``older_than_minutes`` (OPS-4).
+
+    A worker that claims a job and dies before PATCHing it to ``running`` leaves
+    the row ``claimed`` forever (audit AUDIT_SECURITY_PERF_OPS_2026-06-10.md:189-193).
+    The hourly janitor calls this to put such rows back in the queue. Mirrors the
+    portal's manual requeue (``app/admin_portal/ops.py``): status → ``queued``,
+    claim fields cleared, ``job.requeue_stale`` audit row in the same transaction.
+
+    ``running`` rows are deliberately NOT touched — a stale ``running`` job may
+    still be doing side-effectful work (``publish_approved``), and auto-requeueing
+    risks a double run. :func:`count_stale_running` provides warn-only visibility.
+
+    Race-safe like :func:`claim_next_job`: the guarded per-row UPDATE
+    (``WHERE id = :id AND status = 'claimed'``) loses atomically to a concurrent
+    worker PATCH and is then a no-op for that row.
+    """
+    from app.admin_portal.audit_models import (
+        record_audit,  # leaf import: avoid app.db <-> portal cycle
+    )
+
+    cutoff = datetime.now(UTC) - timedelta(minutes=older_than_minutes)
+    stale_ids = list(
+        db.execute(
+            select(Job.id).where(Job.status == "claimed", Job.claimed_at < cutoff)
+        ).scalars()
+    )
+    requeued: list[Job] = []
+    for job_id in stale_ids:
+        result = db.execute(
+            update(Job)
+            .where(Job.id == job_id, Job.status == "claimed")
+            .values(status="queued", claimed_by=None, claimed_at=None, finished_at=None)
+        )
+        if cast("CursorResult[Any]", result).rowcount != 1:
+            continue  # lost the race to a worker PATCH — leave the row alone
+        row = db.get(Job, job_id)
+        if row is None:  # pragma: no cover — id was just updated
+            continue
+        record_audit(
+            db,
+            action="job.requeue_stale",
+            target_type="job",
+            target_id=str(job_id),
+            detail=row.job_type,
+        )
+        requeued.append(row)
+    db.commit()
+    return requeued
+
+
+def count_stale_running(db: Session, *, older_than_hours: int) -> int:
+    """Count ``running`` jobs older than the threshold — janitor warn-only visibility (OPS-4)."""
+    cutoff = datetime.now(UTC) - timedelta(hours=older_than_hours)
+    stmt = (
+        select(func.count())
+        .select_from(Job)
+        .where(Job.status == "running", Job.claimed_at < cutoff)
+    )
+    return int(db.execute(stmt).scalar_one())

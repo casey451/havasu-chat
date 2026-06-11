@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import logging
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request
@@ -22,6 +23,8 @@ from app.core.timezone import now_lake_havasu
 from app.db.contribution_store import count_contributions
 from app.db.database import get_db
 from app.db.models import Event, Provider, QueryLog
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -133,13 +136,16 @@ def admin_overview_sync(
     try:
         run_pull(dry_run=False)
     except Exception:
-        pass
+        # OPS-8 (audit :221): keep best-effort behavior but stop swallowing silently.
+        logger.exception("admin overview sync: gas pull failed")
     try:
         river_scene_pull(today, dry_run=False)
     except Exception:
-        pass
+        # OPS-8 (audit :221): keep best-effort behavior but stop swallowing silently.
+        logger.exception("admin overview sync: river_scene pull failed")
     try:
         golake_pull(today, dry_run=False)
     except Exception:
-        pass
+        # OPS-8 (audit :221): keep best-effort behavior but stop swallowing silently.
+        logger.exception("admin overview sync: golakehavasu pull failed")
     return RedirectResponse(url="/admin/overview?synced=1", status_code=303)
