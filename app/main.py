@@ -814,6 +814,7 @@ def _render_permalink_response(
             "event_link_html": event_link_html,
             "tags_html": tags_html,
             "event_jsonld": event_jsonld,
+            "ics_url": f"/events/{event.id}.ics",
         },
     )
 
@@ -1227,6 +1228,23 @@ def events_redirect() -> RedirectResponse:
     # human-facing list is /events-ui. 301 so the old JSON path folds into the
     # browsable UI for crawlers.
     return RedirectResponse(url="/events-ui", status_code=301)
+
+
+@app.get("/events/{event_id}.ics", include_in_schema=False)
+def event_ics(event_id: str, db: Session = Depends(get_db)) -> Response:
+    """Per-event iCalendar download (UX-4 "Add to calendar"). Registered before
+    the HTML permalink so ``/events/{id}.ics`` matches this route, not the
+    ``{event_id}`` catch-all."""
+    from app.api.routes.calendar_feed import build_single_event_ics
+
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if event is None or event.status == "pending_review":
+        raise HTTPException(status_code=404, detail="event_not_found")
+    return Response(
+        content=build_single_event_ics(event),
+        media_type="text/calendar; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="event-{event.id}.ics"'},
+    )
 
 
 @app.get("/events/{event_id}", response_class=HTMLResponse)
