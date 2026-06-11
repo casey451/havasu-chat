@@ -72,14 +72,14 @@ def test_home_section_order_breadth_and_explore_above_month(
     r = client.get("/home")
     assert r.status_code == 200
     body = r.text
-    # Always-present sections, in G order. (home-week is gated on events, so it
-    # is intentionally not part of this chain.)
+    # Always-present sections, in G order. (home-week is gated on events, and
+    # home-featured — copy audit 2026-06-10 — on a real sold spotlight, so
+    # neither is part of this chain.)
     i_catstrip = body.find("home-catstrip")
     i_marquee = body.find("home-marquee")
-    i_featured = body.find("home-featured")
     i_explore = body.find("home-explore")
     i_cal = body.find("home-cal")
-    assert -1 < i_catstrip < i_marquee < i_featured < i_explore < i_cal
+    assert -1 < i_catstrip < i_marquee < i_explore < i_cal
     # G's core fix: the directory grid lands BEFORE the month calendar.
     assert i_explore < i_cal
 
@@ -92,9 +92,25 @@ def test_home_category_strip_present_with_pills(
     assert "catpill" in body
 
 
-def test_home_featured_relabelled_this_week(client: TestClient) -> None:
+def test_home_featured_hidden_until_a_spotlight_sells(client: TestClient) -> None:
+    """Copy audit 2026-06-10: two empty ad surfaces read as 'nobody advertises
+    here' — the Featured row renders only once a real spotlight is sold."""
+    body = client.get("/home").text
+    assert "Featured <em>this week</em>" not in body
+    assert "home-featured" not in body
+
+
+def test_home_featured_renders_when_spotlight_sold(client: TestClient) -> None:
+    sid = _seed_sponsor("spotlight", headline="Desert Bloom Coffee")
     body = client.get("/home").text
     assert "Featured <em>this week</em>" in body
+    assert "Desert Bloom Coffee" in body
+    # The href arrives via a Jinja VARIABLE, so autoescape renders the
+    # ampersand as &amp; — assert the parts, not the raw join.
+    assert f"/sponsor/click?id={sid}" in body
+    assert "slot=spotlight" in body
+    # The section sits between the marquee and the explore grid when present.
+    assert body.find("home-marquee") < body.find("home-featured") < body.find("home-explore")
 
 
 # --- Tier-1 marquee (real-or-omit) ------------------------------------------

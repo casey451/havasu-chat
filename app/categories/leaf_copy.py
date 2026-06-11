@@ -30,15 +30,15 @@ _COMMON_FAQS: tuple[tuple[str, str], ...] = (
     (
         "How many {name_lower} does Ask Hava list in Lake Havasu City?",
         "Ask Hava currently lists {n} {name_lower} serving Lake Havasu City, AZ. "
-        "The list is server-rendered from our local directory and updates as "
+        "The list comes straight from our local directory and updates as "
         "businesses are added or verified.",
     ),
     (
         "How are these {name_lower} ranked?",
-        "By a volume-weighted rating: a business with a strong rating across many "
-        "reviews ranks above one with a perfect score from only a couple of "
-        "reviews. We don't sell ranking positions — any sponsored placement is "
-        "clearly labeled.",
+        "By real public reviews — more reviews, more weight, so a strong rating "
+        "across many reviews beats a perfect score from only a couple. Spots "
+        "can't be bought, Hava never invents a rating, and any sponsored "
+        "placement is clearly labeled.",
     ),
     (
         "Are the ratings and review counts real?",
@@ -66,7 +66,7 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "overtime, and AC failures turn a Havasu commute miserable fast. The "
         "auto repair shops below serve Lake Havasu City with everything from "
         "oil changes and brakes to diagnostics, AC work, and major engine and "
-        "transmission jobs. Listings are ranked by volume-weighted public "
+        "transmission jobs. Listings are ranked by real public "
         "reviews, so shops locals actually trust rank first.",
         (
             "Why do cars need extra care in Lake Havasu's heat?",
@@ -81,7 +81,7 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "and the surrounding area. Desert construction has its own demands — "
         "heat-rated materials, monsoon-ready roofing and drainage, and "
         "energy-efficient cooling — so licensed, reviewed help matters. "
-        "Listings are ranked by volume-weighted public reviews; sponsored "
+        "Listings are ranked by real public reviews; sponsored "
         "placements are always labeled.",
         (
             "Should a contractor in Arizona be licensed?",
@@ -97,7 +97,7 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "offer climate-controlled units, drive-up access, and covered or open "
         "RV and boat parking. Climate control is worth weighing here: summer "
         "heat is brutal on anything sensitive. Listings are ranked by "
-        "volume-weighted public reviews.",
+        "real public reviews.",
         (
             "Is climate-controlled storage worth it in Havasu?",
             "For electronics, documents, wood furniture, and anything heat- or "
@@ -111,7 +111,7 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "toothache, the dentists and orthodontists below serve Lake Havasu "
         "City. Many local practices handle general dentistry, cosmetic work, "
         "and orthodontics under one roof, and several see new patients and "
-        "families. Listings are ranked by volume-weighted public reviews, so "
+        "families. Listings are ranked by real public reviews, so "
         "well-reviewed practices surface first — never paid placement.",
     ),
     "plumbing": _copy(
@@ -133,7 +133,7 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "and EV chargers, the electricians below serve Lake Havasu City homes "
         "and businesses. Desert heat runs AC circuits hard for half the year, "
         "so licensed electrical help matters. Listings are ranked by "
-        "volume-weighted public reviews, and ratings appear only when a "
+        "real public reviews, and ratings appear only when a "
         "business has earned real reviews.",
     ),
     "roofing": _copy(
@@ -141,7 +141,7 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "monsoon winds that find every loose tile. The roofers below handle "
         "repairs, replacements, coatings, and inspections across Lake Havasu "
         "City — tile, shingle, and the foam and flat roofs common on desert "
-        "homes. Listings are ranked by volume-weighted public reviews, never by "
+        "homes. Listings are ranked by real public reviews, never by "
         "who paid; sponsored slots are always labeled.",
         (
             "When is roofing season in Lake Havasu?",
@@ -155,7 +155,7 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "the desert — the real estate professionals below work the Lake Havasu "
         "City market, from the Island and the Channel to the foothills and "
         "outlying communities. Many also handle seasonal and investment "
-        "property. Listings are ranked by volume-weighted public reviews; "
+        "property. Listings are ranked by real public reviews; "
         "Ask Hava doesn't sell ranking and labels any sponsored placement.",
     ),
     "insurance": _copy(
@@ -163,14 +163,14 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "Lake Havasu City. Watercraft and RV coverage matter more here than in "
         "most towns, and desert homes have their own monsoon and sun "
         "considerations. Many local agents write multiple lines and bundle "
-        "policies. Listings are ranked by volume-weighted public reviews, and "
+        "policies. Listings are ranked by real public reviews, and "
         "ratings show only when a business has earned them.",
     ),
     "financial-advisors": _copy(
         "Retirement planning, investments, and tax-aware strategy — the "
         "financial advisors and planners below serve Lake Havasu City, a town "
         "with a large retiree and second-home population. Whether you're "
-        "rolling over a 401(k) or building an income plan, the volume-weighted "
+        "rolling over a 401(k) or building an income plan, the real "
         "review rankings here surface well-reviewed local offices first. "
         "Ask Hava doesn't sell placement, and isn't a financial adviser itself.",
     ),
@@ -178,7 +178,7 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "Cuts, color, blowouts, and classic barbering — the hair salons and "
         "barbers below serve Lake Havasu City. From quick walk-in trims to "
         "full-service color and styling, the listings span neighborhood shops "
-        "and busier downtown salons. Listings are ranked by volume-weighted "
+        "and busier downtown salons. Listings are ranked by real "
         "public reviews, so the chairs locals book again rank first; star "
         "ratings appear only when a shop has earned real reviews.",
     ),
@@ -187,7 +187,7 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "hotels and motels below serve visitors to Lake Havasu City. Rates and "
         "availability swing hard with the seasons — spring break, summer river "
         "weekends, and the Balloon Festival book out fast — so plan ahead for "
-        "peak dates. Listings are ranked by volume-weighted public reviews, "
+        "peak dates. Listings are ranked by real public reviews, "
         "never by who paid.",
         (
             "When is Lake Havasu busiest for lodging?",
@@ -200,7 +200,7 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "Lakefront patios, taco joints, steakhouses, and the spots locals "
         "actually drive across town for — the restaurants below serve Lake "
         "Havasu City. Whether you want waterfront dining on the Channel, a "
-        "quick bite, or a sit-down dinner, the volume-weighted review rankings "
+        "quick bite, or a sit-down dinner, the review rankings "
         "here put consistently well-reviewed kitchens first. Hours swing with "
         "the season, so check each listing before you go.",
         (
@@ -232,7 +232,7 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "of swim season means constant chemistry, filtration, and equipment "
         "wear. The pool and spa services below handle weekly cleaning, "
         "green-pool recoveries, pump and filter repairs, and resurfacing "
-        "across Havasu. Listings are ranked by volume-weighted public "
+        "across Havasu. Listings are ranked by real public "
         "reviews; star ratings appear only when a company has earned real "
         "reviews.",
         (
@@ -261,7 +261,7 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "rock, drip irrigation, palm trimming, and artificial turf that "
         "survives Havasu summers. The landscapers below design, install, and "
         "maintain yards across Lake Havasu City. Whether you need a one-time "
-        "cleanup or monthly maintenance, the volume-weighted review rankings "
+        "cleanup or monthly maintenance, the review rankings "
         "here show who locals trust with their yards.",
         (
             "What kind of landscaping works in Lake Havasu City?",
@@ -276,7 +276,7 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "and the fine desert dust that finds its way into everything, Lake "
         "Havasu City keeps its cleaning services busy. The companies below "
         "offer house cleaning, deep cleans, move-out cleans, and "
-        "vacation-rental turnovers. Listings are ranked by volume-weighted "
+        "vacation-rental turnovers. Listings are ranked by real "
         "public reviews, and star ratings appear only when a business has "
         "earned real reviews.",
         (
@@ -291,7 +291,7 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "below put you on it. From pontoons and ski boats to jet skis, kayaks, "
         "and paddleboards, local outfitters in Lake Havasu City rent by the "
         "half-day, day, or week. Summer and holiday weekends book out early, so "
-        "reserve ahead. Listings are ranked by volume-weighted public reviews; "
+        "reserve ahead. Listings are ranked by real public reviews; "
         "sponsored placements are labeled.",
         (
             "Do I need a license to rent a boat in Arizona?",

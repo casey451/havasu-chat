@@ -141,5 +141,6 @@ def test_home_renders_sandstone_text_hero(monkeypatch: pytest.MonkeyPatch) -> No
         r = client.get("/home")
     assert r.status_code == 200
     assert 'class="hero wrap"' in r.text
-    # Desert Modern text hero: the approved display headline, still no photo.
-    assert "Your week." in r.text
+    # Desert Modern text hero: the display headline (copy audit 2026-06-10,
+    # direction B), still no photo.
+    assert "Search like a local." in r.text

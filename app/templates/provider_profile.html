@@ -118,7 +118,7 @@
   <div class="cols">
     <div class="about">
       {% if _about %}<p>{{ _about }}</p>
-      {% else %}<p>This listing is auto-built from trusted public data for Lake Havasu City.</p>{% endif %}
+      {% else %}<p>This listing is auto-built from trusted public data. Spot an error? Suggest an edit below.</p>{% endif %}
 
       {% if vm.service_chips %}
       <div class="tags">
@@ -190,8 +190,15 @@
               {% for _s in _spans %}
                 {% set _open = _s.get('open') %}{% set _close = _s.get('close') %}
                 {% if _open and _close %}
-                  {% if _close in ('23:59','00:00') %}{% set _closelabel = 'Midnight' %}{% else %}{% set _closelabel = _close %}{% endif %}
-                  {% set _ = _parts.append(_open ~ ' – ' ~ _closelabel) %}
+                  {# A span that opens at midnight and closes at midnight is a
+                     24-hour day — say so instead of "00:00 – Midnight"
+                     (copy audit §5b). #}
+                  {% if _open in ('00:00', '0:00') and _close in ('23:59', '00:00', '24:00') %}
+                    {% set _ = _parts.append('Open 24 hours') %}
+                  {% else %}
+                    {% if _close in ('23:59','00:00') %}{% set _closelabel = 'Midnight' %}{% else %}{% set _closelabel = _close %}{% endif %}
+                    {% set _ = _parts.append(_open ~ ' – ' ~ _closelabel) %}
+                  {% endif %}
                 {% endif %}
               {% endfor %}
               {% if _parts %}{% set _ = _ns.rows.append((_label, _parts|join(', '))) %}{% set _ns.any = true %}
@@ -227,7 +234,9 @@
         <div>
           {% if _is_eat %}<b>Claim this listing to add photos, your menu, and offers.</b>
           {% else %}<b>Claim this listing to add photos, details, and offers.</b>{% endif %}
-          <div class="claim-sub">Add more photos{% if _is_eat %}, your menu,{% endif %} and offers.</div>
+          {# Sub line does NEW work instead of restating the bold line
+             (copy audit §5b). #}
+          <div class="claim-sub">Free — a real person reviews every claim.</div>
           <div style="margin-top:8px"><a href="{{ vm.claim_url or '/contribute' }}" style="color:var(--accent);font-weight:700">Claim this listing →</a></div>
         </div>
       </div>

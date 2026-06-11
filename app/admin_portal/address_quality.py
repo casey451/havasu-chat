@@ -45,11 +45,16 @@ class AddressFlag:
 
 
 def _flags_for(address: str | None) -> tuple[str, ...]:
+    from app.core.address import count_city_mentions
+
     if address is None or not address.strip():
         return ("empty",)
     out: list[str] = []
-    low = address.lower()
-    if low.count("lake havasu") >= 2:
+    # CITY-SHAPED counting (see app.core.address.count_city_mentions): streets
+    # named Lake Havasu Ave and venue names like "Lake Havasu State Park" are
+    # not city repeats — the 2026-06-10 prod run proved bare substring
+    # counting floods this queue with ~268 false positives.
+    if count_city_mentions(address) >= 2:
         out.append("city_repeat")
     if ",," in address.replace(", ", ",") or "  " in address:
         out.append("comma_or_space_run")

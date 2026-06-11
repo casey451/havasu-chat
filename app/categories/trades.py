@@ -84,15 +84,15 @@ _COMMON_FAQS: tuple[tuple[str, str], ...] = (
     (
         "How many {label_lower} does Ask Hava list in Lake Havasu City?",
         "Ask Hava currently lists {n} {label_lower} serving Lake Havasu City, AZ. "
-        "The list is server-rendered from our local directory and updates as "
+        "The list comes straight from our local directory and updates as "
         "businesses are added or verified.",
     ),
     (
         "How are the {label_lower} on this page ranked?",
-        "Listings are ordered by a volume-weighted rating: a {singular} with a "
-        "strong rating across many reviews ranks above one with a perfect score "
-        "from only a couple of reviews. We don't sell ranking positions — any "
-        "sponsored placement is clearly labeled.",
+        "By real public reviews — more reviews, more weight, so a {singular} "
+        "with a strong rating across many reviews beats a perfect score from "
+        "only a couple. Spots can't be bought, Hava never invents a rating, and "
+        "any sponsored placement is clearly labeled.",
     ),
     (
         "Are the ratings and review counts real?",
@@ -182,7 +182,7 @@ TRADES: dict[str, Trade] = {
                 "power, the electricians below serve Lake Havasu City homes and "
                 "businesses. Desert heat is tough on electrical systems — AC "
                 "circuits run hard for half the year — so licensed help matters. "
-                "Listings are ranked by volume-weighted public reviews, and "
+                "Listings are ranked by real public reviews, and "
                 "ratings appear only when a business has earned real reviews."
             ),
             faqs=_faqs_for(),
@@ -225,7 +225,7 @@ TRADES: dict[str, Trade] = {
                 "months of swim season means constant chemistry, filtration, and "
                 "equipment wear. The pool services below handle weekly cleaning, "
                 "green-pool recoveries, pump and filter repairs, and resurfacing "
-                "across Havasu. Listings are ranked by volume-weighted public "
+                "across Havasu. Listings are ranked by real public "
                 "reviews; star ratings appear only when a company has earned real "
                 "reviews."
             ),
@@ -275,7 +275,7 @@ TRADES: dict[str, Trade] = {
                 "and monsoon winds that find every loose tile. The roofers below "
                 "handle repairs, replacements, coatings, and inspections across "
                 "Lake Havasu City — tile, shingle, and the foam and flat roofs "
-                "common on desert homes. Listings are ranked by volume-weighted "
+                "common on desert homes. Listings are ranked by real "
                 "public reviews, never by who paid; sponsored slots are always "
                 "labeled."
             ),
@@ -345,7 +345,7 @@ TRADES: dict[str, Trade] = {
                 "everything, Lake Havasu City keeps its cleaning services busy. "
                 "The companies below offer house cleaning, deep cleans, move-out "
                 "cleans, and vacation-rental turnovers. Listings are ranked by "
-                "volume-weighted public reviews, and star ratings appear only "
+                "real public reviews, and star ratings appear only "
                 "when a business has earned real reviews."
             ),
             faqs=_faqs_for(

@@ -35,6 +35,9 @@ from app.providers.queries import derive_postal_address
         ("123 Main St Lake Havasu City AZ 86403", "123 Main St"),
         # Suite line kept.
         ("950 N Lake Havasu Ave Ste 2, Lake Havasu City, AZ 86403", "950 N Lake Havasu Ave Ste 2"),
+        # Google-formatted country tail (2026-06-10 prod run).
+        ("123 Main St, Lake Havasu City, AZ 86403, USA", "123 Main St"),
+        ("1020 N Lake Havasu Ave, Lake Havasu City, AZ 86403, USA", "1020 N Lake Havasu Ave"),
         # Bare state+zip tail with no city.
         ("123 Main St, AZ 86403", "123 Main St"),
         # Already street-only: untouched.
@@ -103,6 +106,22 @@ def test_derive_postal_address_strips_duplicated_city_state() -> None:
             "123 Main St,,  Lake Havasu City, AZ 86403",
             "123 Main St, Lake Havasu City, AZ 86403",
         ),
+        # 2026-06-10 prod shapes: the Go Lake Havasu feed's pipe seam — both
+        # the raw form and the "|," form the first apply pass produced.
+        (
+            "Go Lake Havasu Visitor Center, 422 English Village | Lake Havasu City, AZ 86403",
+            "Go Lake Havasu Visitor Center, 422 English Village, Lake Havasu City, AZ 86403",
+        ),
+        (
+            "Go Lake Havasu Visitor Center, 422 English Village |, Lake Havasu City, AZ 86403",
+            "Go Lake Havasu Visitor Center, 422 English Village, Lake Havasu City, AZ 86403",
+        ),
+        # Venue name CONTAINING the city + Google USA tail: name survives,
+        # tail canonicalizes.
+        (
+            "Lake Havasu State Park, 699 London Bridge Rd, Lake Havasu City, AZ 86403, USA",
+            "Lake Havasu State Park, 699 London Bridge Rd, Lake Havasu City, AZ 86403",
+        ),
         # Already canonical -> no change signalled.
         ("123 Main St, Lake Havasu City, AZ 86403", None),
         # City-only strings are review material, never auto-fixed.
@@ -137,6 +156,43 @@ def test_parse_zip(raw, expected) -> None:
     from app.core.address import parse_zip
 
     assert parse_zip(raw) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # The real artifact: doubled city suffix.
+        ("123 Main St, Lake Havasu City, AZ 86403, Lake Havasu City", 2),
+        # Street NAMED Lake Havasu Ave + one real suffix = ONE mention — the
+        # 268-row false-positive class from the 2026-06-10 prod run.
+        ("1020 N Lake Havasu Ave, Lake Havasu City, AZ 86403, USA", 1),
+        # Venue names don't count.
+        ("Lake Havasu State Park, 699 London Bridge Rd", 0),
+        ("Go Lake Havasu Visitor Center, 422 English Village", 0),
+        # "Lake Havasu City Aquatic Center" prefix is a name, not a suffix.
+        ("Lake Havasu City Aquatic Center, 100 Park Ave, Lake Havasu City, AZ", 1),
+        ("Lake Havasu, AZ", 1),
+        (None, 0),
+        ("", 0),
+    ],
+)
+def test_count_city_mentions(text, expected) -> None:
+    from app.core.address import count_city_mentions
+
+    assert count_city_mentions(text) == expected
+
+
+def test_portal_flags_skip_streets_named_lake_havasu() -> None:
+    """The portal queue must not flag fine Google-formatted addresses on
+    Lake-Havasu-named streets (the 268-row prod false-positive class)."""
+    from app.admin_portal.address_quality import _flags_for
+
+    assert "city_repeat" not in _flags_for(
+        "1020 N Lake Havasu Ave, Lake Havasu City, AZ 86403, USA"
+    )
+    assert "city_repeat" in _flags_for(
+        "123 Main St, Lake Havasu City, AZ 86403, Lake Havasu City"
+    )
 
 
 def test_loader_format_address_never_doubles_city() -> None:

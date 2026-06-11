@@ -10,7 +10,8 @@
   {# ---- Header ---- #}
   <section class="p-head">
     <div class="d-wrap p-head-in">
-      <div class="d-crumb"><a href="/home">Home</a> · Daily utility</div>
+      {# "Daily utility" is internal taxonomy — breadcrumbs speak user. #}
+      <div class="d-crumb"><a href="/home">Home</a> · Gas</div>
       <h1>Gas prices in Lake Havasu City</h1>
       {% if has_data %}
         <p class="p-sub">{{ data.station_count }} stations tracked.</p>
@@ -19,7 +20,9 @@
            all derive from the same row.fetched_at clock, so nothing contradicts. #}
         <div class="gas-freshness{% if is_stale %} is-stale{% endif %}">
           <span class="dot" aria-hidden="true"></span>
-          {{ staleness_label }}{% if fetched_at_label %} ({{ fetched_at_label }}){% endif %}{% if is_stale %} — prices may be out of date{% endif %}
+          {# When we know the actual time, say it — ">6h ago" math reads
+             engineer-y next to a real timestamp (copy audit 2026-06-10). #}
+          {% if fetched_at_label %}Updated {{ fetched_at_label }}{% else %}{{ staleness_label }}{% endif %}{% if is_stale %} — prices may be out of date{% endif %}
         </div>
       {% endif %}
     </div>
@@ -33,7 +36,7 @@
         <div class="gas-avg-main">
           <div class="d-eyebrow">City average · regular</div>
           <div class="gas-avg-price">${{ '%.2f'|format(city_avg.regular) }}</div>
-          <div class="gas-avg-sub">Mean of every tracked station's regular price</div>
+          <div class="gas-avg-sub">Average across all {{ data.station_count }} tracked stations</div>
         </div>
         <div class="gas-avg-grades">
           {% for g in grades %}

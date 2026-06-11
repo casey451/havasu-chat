@@ -1,11 +1,12 @@
 {% extends "desert_base.html" %}
 {% block title %}Sign in — Ask Hava{% endblock %}
+{% block meta_description %}Sign in to Ask Hava with a one-time email link — no password, nothing to remember.{% endblock %}
 {% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_account.css">{% endblock %}
 {% block content %}
   <section class="d-util">
     <span class="d-eyebrow">Account access</span>
     <h1>Sign in <em>with email.</em></h1>
-    <p class="d-muted">We will send a one-time sign-in link. No password required.</p>
+    <p class="d-muted">We'll email you a one-time link. No password, nothing to remember.</p>
     {% if error %}
     <p class="d-warning d-spaced">{{ error }}</p>
     {% endif %}

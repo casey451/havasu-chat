@@ -101,7 +101,7 @@ def _render_contribute_page(
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <title>Add to catalog — Hava</title>
+  <title>Add to Hava — Ask Hava</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,400&display=swap" rel="stylesheet"/>
@@ -122,7 +122,7 @@ def _render_contribute_page(
 
     <main id="main">
     <section class="head">
-      <p class="eyebrow">Add to catalog</p>
+      <p class="eyebrow">Add to Hava</p>
       <h1>Tell me what <em>belongs</em>.</h1>
       <p class="lede">Hava grows from what locals share. Suggest a business, program, event, or tip — I'll review and add it if it fits.</p>
     </section>

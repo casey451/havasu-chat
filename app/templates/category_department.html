@@ -7,7 +7,7 @@
    JSON-LD: BreadcrumbList (Home › department) + ItemList of the child leaf
    pages. No AggregateRating anywhere (DECISION D4). #}
 {% block title %}{{ department_label }} in Lake Havasu City, AZ — Ask Hava{% endblock %}
-{% block meta_description %}{{ department_label }} in Lake Havasu City, AZ — browse {{ leaf_total }} local categories with {{ listing_total }} listings on Ask Hava.{% endblock %}
+{% block meta_description %}{{ department_label }} in Lake Havasu City, AZ — {{ leaf_total }} kinds of places, {{ listing_total }} listings on Ask Hava.{% endblock %}
 {% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_directory.css">
 <script type="application/ld+json">{{ breadcrumb_jsonld | tojson | safe }}</script>
 <script type="application/ld+json">{{ itemlist_jsonld | tojson | safe }}</script>
@@ -19,7 +19,7 @@
       <div class="cat-head-main">
         <div class="crumb"><a href="/home">Home</a> › {{ department_label }}</div>
         <h1>{{ department_label }} in Lake Havasu City, AZ</h1>
-        <p class="trade-intro">Browse {{ department_label | lower }} by category. Each list below is server-rendered from the local directory and ranked by volume-weighted public reviews — Ask Hava never fabricates a rating.</p>
+        <p class="trade-intro">Browse {{ department_label | lower }} by category. Every list comes straight from the local directory, ranked by real public reviews — more reviews, more weight. Spots can't be bought, and Hava never invents a rating.</p>
       </div>
       <div class="giant" aria-label="{{ listing_total }} listed">{{ listing_total }}<small>Listed</small></div>
     </div>
