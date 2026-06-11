@@ -63,18 +63,21 @@ def _cleanup(entity_ids: list[str]) -> None:
 
 def _sql_order(names: list[str]) -> list[str]:
     """Names from a ``_rating_sort_key``-ordered query, filtered to ours."""
+    from app.core.rating_prior import reset_global_mean_cache
+
+    reset_global_mean_cache()  # deterministic m per test (module TTL cache)
     with SessionLocal() as db:
         rows = (
             db.query(Provider)
             .filter(Provider.provider_name.in_(names))
-            .order_by(*_rating_sort_key())
+            .order_by(*_rating_sort_key(db))
             .all()
         )
     return [r.provider_name for r in rows]
 
 
 def test_home_rating_sort_buries_stale_listing() -> None:
-    """A stale 4.9 sinks below a fresh 4.2 within the qualified tier."""
+    """A stale 4.9 sinks below a fresh 4.2 (equal review mass)."""
     suf = uuid.uuid4().hex[:8]
     fresh, stale = f"Fresh Kitchen {suf}", f"Stale Kitchen {suf}"
     eids = _seed(
@@ -87,7 +90,10 @@ def test_home_rating_sort_buries_stale_listing() -> None:
         order = _sql_order([fresh, stale])
         # Bury, don't remove: both rows still surface…
         assert set(order) == {fresh, stale}
-        # …but 4.9 * 0.5 (floor) = 2.45 < 4.2 * 0.95 — the stale row sinks.
+        # …but the stale row sinks: equal n means equal Bayesian shrinkage
+        # (WS-2 preserves rating order at matched review counts), and the
+        # dampener floor halves the stale score: shrunk(4.9) * 0.5 <
+        # shrunk(4.2) * 0.95 for any m in [1, 5].
         assert order == [fresh, stale]
     finally:
         _cleanup(eids)

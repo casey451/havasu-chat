@@ -30,7 +30,6 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import case as sa_case
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
@@ -39,7 +38,6 @@ from app.core.liveness import DAMPENER_FLOOR, liveness_dampener
 from app.db.models import Provider
 from app.home.queries import _hours_status, _provider_image_url
 from app.home.queries_c import (
-    MIN_RATING_REVIEWS,
     _format_rating,
     _load_eat_photos,
 )
@@ -751,7 +749,7 @@ def category_cards(
                 Provider.is_active.is_(True),
                 Provider.draft.is_(False),
             )
-            .order_by(*_dampened_rating_sort_key())
+            .order_by(*_dampened_rating_sort_key(db))
             .limit(max(limit, 1))
             .all()
         )
@@ -880,22 +878,24 @@ def _liveness_dampener_expr():
     )
 
 
-def _dampened_rating_sort_key():
+def _dampened_rating_sort_key(db):
     """``queries_c._rating_sort_key`` with the liveness dampener folded in.
 
-    Same tiered shape (credibly-reviewed first, then rating desc, then count
-    desc) but the rating term is multiplied by the liveness dampener, so a
-    stale-but-once-popular listing sinks within its tier instead of riding its
-    old rating forever (the bury-don't-remove rule). NULL ratings still sort
-    last; NULL liveness leaves the ordering identical to the undampened sort.
+    Bayesian-shrunk rating (WS-2, ``app.core.rating_prior``: ``(R*n + m*C) /
+    (n + C)``, C=25, live review-weighted ``m``) replacing the old hard
+    ``MIN_RATING_REVIEWS`` tier — the prior shrinks thin-review ratings toward
+    the global mean continuously instead of bucketing them, so a 2-review 5.0
+    can't top a leaf page while a review-rich head keeps its order (top-20
+    identical at C=25 on the 2026-06-10 prod calibration). The score is
+    multiplied by the liveness dampener, so a stale-but-once-popular listing
+    sinks (the bury-don't-remove rule). NULL ratings still sort last; NULL
+    liveness leaves the ordering identical to the undampened sort.
     """
-    qualified = sa_case(
-        (Provider.google_review_count >= MIN_RATING_REVIEWS, 1),
-        else_=0,
-    )
+    from app.core.rating_prior import bayesian_rating_expr, global_mean_rating
+
+    score = bayesian_rating_expr(global_mean_rating(db))
     return (
-        qualified.desc(),
-        (Provider.google_rating * _liveness_dampener_expr()).desc().nullslast(),
+        (score * _liveness_dampener_expr()).desc().nullslast(),
         Provider.google_review_count.desc().nullslast(),
     )
 
@@ -1165,18 +1165,18 @@ def category_listing(
             # rating/alpha orderings are all expressible in SQL, so COUNT runs in
             # the DB and only the requested page is fetched -- no Python
             # materialize. The rating sort already sinks unrated rows after rated
-            # peers (``_dampened_rating_sort_key`` qualified tier), satisfying DL-10's
-            # sort-after for the non-favorites sorts.
+            # peers (``_dampened_rating_sort_key`` NULL-score nullslast), satisfying
+            # DL-10's sort-after for the non-favorites sorts.
             total = int(base.with_entities(sa_func.count(Provider.id)).scalar() or 0)
             ordered = (
                 base.order_by(Provider.provider_name.asc())
                 if facets.sort == "alpha"
-                else base.order_by(*_dampened_rating_sort_key())
+                else base.order_by(*_dampened_rating_sort_key(db))
             )
             rows = ordered.offset(offset).limit(per_page).all()
             return [_provider_card(db, p, now=now, allowed_subcategories=allowed_subs) for p in rows], total
 
-        rows = base.order_by(*_dampened_rating_sort_key()).limit(_MATERIALIZE_CAP).all()
+        rows = base.order_by(*_dampened_rating_sort_key(db)).limit(_MATERIALIZE_CAP).all()
         if facets.cuisine:
             want = facets.cuisine.strip().lower()
             rows = [

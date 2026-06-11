@@ -184,12 +184,19 @@ def parse_place_latlng(html: str) -> tuple[float | None, float | None]:
 
 
 def format_address(place: PickleballPlace) -> str | None:
-    """Human-readable ``street, city, state zip`` (omitting missing parts)."""
+    """Human-readable ``street, city, state zip`` (omitting missing parts).
+
+    WS-4: the street is pre-stripped of any Lake-Havasu-shaped suffix
+    (street_line is a no-op for other cities) so the tail never doubles.
+    """
+    from app.core.address import street_line
+
+    street = street_line(place.street) or place.street
     tail_bits = [b for b in (place.city, place.state) if b]
     tail = ", ".join(tail_bits)
     if place.postal:
         tail = f"{tail} {place.postal}".strip()
-    parts = [p for p in (place.street, tail) if p]
+    parts = [p for p in (street, tail) if p]
     return ", ".join(parts) or None
 
 

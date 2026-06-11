@@ -147,7 +147,7 @@ def leaf_provider_rows(db: Session, leaf: Leaf) -> list[Provider]:
     try:
         rows: list[Provider] = (
             _leaf_provider_query(db, leaf.id)
-            .order_by(*cat_queries._dampened_rating_sort_key())
+            .order_by(*cat_queries._dampened_rating_sort_key(db))
             .limit(cat_queries._MATERIALIZE_CAP)
             .all()
         )

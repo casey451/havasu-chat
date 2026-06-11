@@ -1,0 +1,31 @@
+{% extends "portal_base.html" %}
+{% block title %}Address flags{% endblock %}
+{% block content %}
+<h1>Address flags ({{ total }})</h1>
+<p class="sub">WS-4 pattern checks on stored addresses — review, never auto-fix.
+<code>city_repeat</code> / <code>comma_or_space_run</code> are mechanical leftovers
+(<code>scripts/fix_address_quality.py</code> drains most);
+<code>no_street_number</code> is often legitimate (parks, trails, service-area
+businesses) — mark those OK so they stop surfacing.</p>
+{% if capped %}<p class="muted">Showing the first {{ rows|length }} of {{ total }}.</p>{% endif %}
+
+<table>
+  <tr><th>Provider</th><th>Stored address</th><th>Flags</th><th></th><th></th></tr>
+  {% for r in rows %}
+  <tr>
+    <td><strong>{{ r.provider_name }}</strong></td>
+    <td class="muted">{{ r.address or "(empty)" }}</td>
+    <td>{% for f in r.flags %}<span class="chip warn">{{ f }}</span> {% endfor %}</td>
+    <td>{% if r.slug %}<a href="/provider/{{ r.slug }}" target="_blank" rel="noopener">View →</a>{% endif %}</td>
+    <td>
+      <form method="post" action="/admin/portal/addresses/{{ r.provider_id }}/dismiss">
+        <button type="submit">Mark OK</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+  {% if not rows %}
+  <tr><td colspan="5" class="muted">No flagged addresses — queue clear.</td></tr>
+  {% endif %}
+</table>
+{% endblock %}

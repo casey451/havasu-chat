@@ -447,7 +447,7 @@ def _trade_provider_rows(db: Session, trade: Trade) -> list[Provider]:
                 Provider.is_active.is_(True),
                 Provider.draft.is_(False),
             )
-            .order_by(*cat_queries._dampened_rating_sort_key())
+            .order_by(*cat_queries._dampened_rating_sort_key(db))
             .limit(cat_queries._MATERIALIZE_CAP)
             .all()
         )

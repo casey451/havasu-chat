@@ -165,7 +165,7 @@ def _dept_peek_provider(db: Session, dept_id: int) -> Provider | None:
                 Provider.is_active.is_(True),
                 Provider.draft.is_(False),
             )
-            .order_by(Provider.google_rating.desc().nullslast())
+            .order_by(*cat_queries._dampened_rating_sort_key(db))
             .first()
         )
     except Exception:

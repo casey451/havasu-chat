@@ -62,3 +62,81 @@ def street_line(address: Optional[str]) -> Optional[str]:
     if not stripped or stripped.lower() in ("lake havasu", "lake havasu city"):
         return address
     return stripped
+
+
+# WS-4 (Track B2) helpers below: the city-repeat concatenation artifact
+# ("123 Main St, Lake Havasu City, AZ 86403, Lake Havasu City") came from
+# loaders appending city/state/zip to street strings that already carried the
+# suffix. Loaders now pre-strip with street_line(); these helpers normalize
+# the rows the bug already produced and parse zips out of address text.
+
+# Lake Havasu City zips. Single-city directory: a bare 5-digit \b\d{5}\b would
+# false-positive on 5-digit street numbers, so zips are recognized by the 864
+# prefix instead. Extend if the directory ever spans beyond 8640x.
+_ZIP_IN_TEXT = re.compile(r"\b(864\d{2})(?:-\d{4})?\b")
+
+_WHITESPACE_RUNS = re.compile(r"\s{2,}")
+_COMMA_RUNS = re.compile(r"\s*,(?:\s*,)+\s*")
+_CITY_MENTION = re.compile(r"lake\s+havasu", re.IGNORECASE)
+
+# A string that is ONLY the city (+ optional state/zip), no street in front —
+# e.g. "Lake Havasu City, AZ 86403". Not a fixable street line.
+_CITY_ONLY = re.compile(
+    r"""^lake\s+havasu(?:\s+city)?
+        (?:[\s,]+(?:az|ariz\.?|arizona))?
+        (?:[\s,]+\d{5}(?:-\d{4})?)?$""",
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def parse_zip(address: Optional[str]) -> Optional[str]:
+    """The last Lake-Havasu-shaped zip (864xx) in an address string, or None."""
+    if not address:
+        return None
+    matches = _ZIP_IN_TEXT.findall(address)
+    return matches[-1] if matches else None
+
+
+def normalize_full_address(address: Optional[str]) -> Optional[str]:
+    """One canonical ``street, Lake Havasu City, AZ [zip]`` form, or None.
+
+    Fixes the WS-4 mechanical queue's shapes: repeated trailing city/state/zip
+    suffixes collapse to a single canonical tail (preserving any zip found in
+    the original text), comma/whitespace runs collapse, and an unchanged or
+    unfixable string returns None so callers can tell "no change" from
+    "fixed". A string whose street part never emerges (the address IS the
+    city, or the repeat is not a trailing suffix) also returns None — those
+    rows belong to the pattern-check review queue, not an auto-fix.
+    """
+    if not address or not address.strip():
+        return None
+    original = address.strip()
+    zip_code = parse_zip(original)
+
+    # Collapse comma/whitespace runs first so suffix regexes see clean seams.
+    text = _COMMA_RUNS.sub(", ", original)
+    text = _WHITESPACE_RUNS.sub(" ", text).strip().strip(",").strip()
+
+    # Strip trailing city/state/zip suffixes to a fixpoint -> the street line.
+    street = text
+    while True:
+        stripped = street_line(street)
+        if stripped == street or not stripped:
+            break
+        street = stripped
+    street = (street or "").strip().strip(",").strip()
+
+    if not street or _CITY_ONLY.match(street):
+        return None  # nothing but the city: review-queue material, not a fix
+    if len(_CITY_MENTION.findall(street)) >= 2:
+        # Even the street part still doubles the city ("Lake Havasu City of
+        # Lake Havasu ..."), so the repeat is not a trailing-suffix artifact.
+        # A SINGLE in-street mention is fine — "950 N Lake Havasu Ave" is a
+        # real street; only the suffix duplication was the bug.
+        return None
+
+    tail = "Lake Havasu City, AZ"
+    if zip_code:
+        tail = f"{tail} {zip_code}"
+    fixed = f"{street}, {tail}"
+    return fixed if fixed != original else None

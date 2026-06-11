@@ -14,6 +14,7 @@ templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "tem
 NAV_ITEMS: tuple[tuple[str, str, str], ...] = (
     ("dashboard", "Dashboard", "/admin/portal"),
     ("moderation", "Moderation", "/admin/portal/moderation"),
+    ("addresses", "Address flags", "/admin/portal/addresses"),
     ("users", "Users & access", "/admin/portal/users"),
     ("chat", "Chat insights", "/admin/portal/chat"),
     ("ops", "Ops", "/admin/portal/ops"),

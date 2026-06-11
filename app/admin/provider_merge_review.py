@@ -24,20 +24,26 @@ module only renders and calls it. POST-redirect-GET; server-rendered HTML.
 from __future__ import annotations
 
 import html as html_lib
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.admin.auth import COOKIE_NAME, verify_admin_cookie
 from app.contrib.provider_merge import merge_providers
 from app.db.database import get_db
-from app.db.models import Provider
+from app.db.models import DedupeResolution, Provider, dedupe_pair_key
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 # Cap pairs rendered per page so a noisy catalog cannot produce a runaway page.
 _MAX_PAIRS = 200
+
+# Resolutions a reviewer can pick from the queue card. ``merged`` is written by
+# the merge endpoint itself (via merge_providers), never directly here.
+_REVIEW_RESOLUTIONS = ("not_duplicate", "multi_location", "parent_child")
 
 
 def _guard(request: Request) -> RedirectResponse | None:
@@ -78,11 +84,18 @@ def _live_provider_rows(db: Session):
     return out
 
 
+def _resolved_pair_keys(db: Session) -> set[str]:
+    """pair_keys a human already resolved — filtered out of the live queue."""
+    return {k for (k,) in db.execute(select(DedupeResolution.pair_key)).all()}
+
+
 def _candidate_pairs(db: Session):
     from scripts.cross_source_dedup_audit import find_provider_pairs
 
     rows = _live_provider_rows(db)
     pairs, _shared = find_provider_pairs(rows)
+    resolved = _resolved_pair_keys(db)
+    pairs = [c for c in pairs if dedupe_pair_key(c.keep_id, c.dup_id) not in resolved]
     return pairs[:_MAX_PAIRS]
 
 
@@ -91,8 +104,31 @@ def duplicate_pair_count(db: Session) -> int:
     return len(_candidate_pairs(db))
 
 
+def _resolve_form_html(c, resolution: str, label: str, parent_id: str | None = None) -> str:
+    parent_field = (
+        f'<input type="hidden" name="parent_id" value="{_esc(parent_id)}">' if parent_id else ""
+    )
+    return f"""
+      <form method="post" action="/admin/providers/duplicates/resolve" style="display:inline">
+        <input type="hidden" name="keep_id" value="{_esc(c.keep_id)}">
+        <input type="hidden" name="dup_id" value="{_esc(c.dup_id)}">
+        <input type="hidden" name="resolution" value="{_esc(resolution)}">
+        <input type="hidden" name="reason" value="{_esc(c.reason)}">
+        {parent_field}
+        <button type="submit">{_esc(label)}</button>
+      </form>"""
+
+
 def _pair_card_html(c) -> str:
     dist = "" if c.distance_m is None else f" &middot; {_esc(c.distance_m)}m"
+    resolve_buttons = "\n".join(
+        (
+            _resolve_form_html(c, "not_duplicate", "Not a duplicate"),
+            _resolve_form_html(c, "multi_location", "Same business, 2 locations"),
+            _resolve_form_html(c, "parent_child", "Dup is dept of keep", parent_id=c.keep_id),
+            _resolve_form_html(c, "parent_child", "Keep is dept of dup", parent_id=c.dup_id),
+        )
+    )
     return f"""
     <article class="queue-card">
       <h3>{_esc(c.keep_name)} &larr; {_esc(c.dup_name)}</h3>
@@ -106,6 +142,7 @@ def _pair_card_html(c) -> str:
         <input type="hidden" name="dup_id" value="{_esc(c.dup_id)}">
         <button type="submit">Preview merge</button>
       </form>
+      {resolve_buttons}
     </article>
     """
 
@@ -195,5 +232,84 @@ def admin_duplicates_merge(
             f"<p><a href='/admin/providers/duplicates'>Back</a></p>",
             status_code=400,
         )
+    db.commit()
+    return RedirectResponse(url="/admin/providers/duplicates", status_code=303)
+
+
+def _upsert_resolution(
+    db: Session, *, id_a: str, id_b: str, resolution: str, reason: str | None
+) -> None:
+    """Insert-or-update the pair's DedupeResolution (re-resolving is allowed)."""
+    key = dedupe_pair_key(id_a, id_b)
+    existing = db.scalar(select(DedupeResolution).where(DedupeResolution.pair_key == key))
+    if existing is not None:
+        existing.resolution = resolution
+        existing.reason = (reason or existing.reason or "")[:40] or None
+        return
+    lo, hi = sorted((id_a, id_b))
+    db.add(
+        DedupeResolution(
+            pair_key=key,
+            provider_id_a=lo,
+            provider_id_b=hi,
+            resolution=resolution,
+            reason=(reason or "")[:40] or None,
+        )
+    )
+
+
+@router.post("/providers/duplicates/resolve", response_model=None)
+def admin_duplicates_resolve(
+    request: Request,
+    keep_id: str = Form(...),
+    dup_id: str = Form(...),
+    resolution: str = Form(...),
+    reason: str = Form(""),
+    parent_id: str = Form(""),
+    db: Session = Depends(get_db),
+) -> RedirectResponse | HTMLResponse:
+    """Resolve a candidate pair WITHOUT merging (Track B1 resolution paths).
+
+    * ``not_duplicate``  — record only; the pair stops surfacing.
+    * ``multi_location`` — stamp both rows with one ``location_group_id``
+      (reusing either side's existing group so chains coalesce), record.
+    * ``parent_child``   — ``parent_id`` picks the parent of the two; the
+      other row gets ``parent_provider_id`` and renders on the parent's
+      profile, record.
+    """
+    redir = _guard(request)
+    if redir:
+        return redir
+
+    def _fail(msg: str, code: int = 400) -> HTMLResponse:
+        db.rollback()
+        return HTMLResponse(
+            f"<p>Cannot resolve: {_esc(msg)}</p>"
+            f"<p><a href='/admin/providers/duplicates'>Back</a></p>",
+            status_code=code,
+        )
+
+    if resolution not in _REVIEW_RESOLUTIONS:
+        return _fail(f"unknown resolution {resolution!r}")
+    if keep_id == dup_id:
+        return _fail("pair ids are identical")
+    a = db.get(Provider, keep_id)
+    b = db.get(Provider, dup_id)
+    if a is None or b is None:
+        return _fail("provider not found", code=404)
+
+    if resolution == "multi_location":
+        group = a.location_group_id or b.location_group_id or str(uuid4())
+        a.location_group_id = group
+        b.location_group_id = group
+    elif resolution == "parent_child":
+        if parent_id not in (keep_id, dup_id):
+            return _fail("parent_id must be one of the pair")
+        parent, child = (a, b) if parent_id == keep_id else (b, a)
+        if parent.parent_provider_id == child.id:
+            return _fail("would create a parent cycle")
+        child.parent_provider_id = parent.id
+
+    _upsert_resolution(db, id_a=keep_id, id_b=dup_id, resolution=resolution, reason=reason)
     db.commit()
     return RedirectResponse(url="/admin/providers/duplicates", status_code=303)

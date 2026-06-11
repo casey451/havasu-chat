@@ -145,7 +145,7 @@ def _contact_match_entity_id(db: Session, payload: EntityPayload) -> str | None:
 
 
 def reconcile_hit(db: Session, payload: EntityPayload) -> ReconcileResult:
-    from app.db.models import Entity, Location
+    from app.db.models import Entity, Location, Provider
 
     if payload.google_place_id:
         loc = db.query(Location).filter(Location.google_place_id == payload.google_place_id).first()
@@ -155,6 +155,27 @@ def reconcile_hit(db: Session, payload: EntityPayload) -> ReconcileResult:
                 existing_id=loc.entity_id,
                 merge_fields=_compute_merge_fields(db, loc.entity_id, payload),
                 reason="google_place_id exact match",
+            )
+        # Track B1 ingest gate: the place_id may live only on the Provider row
+        # (legacy rows whose dual-write predates Location.google_place_id, or
+        # entities with no Location at all). Without this, a re-ingest of the
+        # same place falls through to the geo/name tiers and can mint a
+        # duplicate — or crash on the ux_providers_google_place_id partial
+        # unique index. Same definitive semantics as the Location hit.
+        prov = (
+            db.query(Provider)
+            .filter(
+                Provider.google_place_id == payload.google_place_id,
+                Provider.entity_id.is_not(None),
+            )
+            .first()
+        )
+        if prov is not None:
+            return ReconcileResult(
+                action="update",
+                existing_id=prov.entity_id,
+                merge_fields=_compute_merge_fields(db, prov.entity_id, payload),
+                reason="google_place_id exact match (provider row)",
             )
 
     # Contact (website/phone) identity tier -- runs ABOVE geo because a shared

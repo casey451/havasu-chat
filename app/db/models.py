@@ -169,6 +169,26 @@ class Provider(Base):
         Boolean, nullable=False, default=False, server_default=false()
     )
 
+    # Track B1 dedupe resolution paths (HAVA_AUDIT spec §B1; resolved via the
+    # dedupe review queue in app/admin/provider_merge_review.py). Both additive
+    # + nullable; see the d4e5f6a7b8c9 migration.
+    #
+    # ``location_group_id``: same business, multiple locations — rows sharing a
+    # group id are DISTINCT listings of one business (chain/branch shape) and
+    # must never be merged; profile pages cross-link the siblings. Opaque UUID
+    # minted at resolve time.
+    location_group_id: Mapped[str | None] = mapped_column(
+        String(36), nullable=True, index=True
+    )
+    # ``parent_provider_id``: parent org / departments (the Specialty
+    # Associates shape) — child departments point at the parent row; the parent
+    # profile renders its children. Self-referential FK, no ORM relationship on
+    # purpose (keeps the dual-write hooks' mapped-relationship surface
+    # unchanged) — surfaces query it explicitly.
+    parent_provider_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("providers.id"), nullable=True, index=True
+    )
+
     entity_id: Mapped[str] = mapped_column(
         String, ForeignKey("entities.id"), nullable=False, index=True
     )
@@ -178,6 +198,56 @@ class Provider(Base):
     events: Mapped[list["Event"]] = relationship(back_populates="provider")
 
     category_ref: Mapped["Category | None"] = relationship("Category", foreign_keys=[category_id])
+
+
+class DedupeResolution(Base):
+    """Persisted outcome for one reviewed duplicate-candidate pair (Track B1).
+
+    The dedupe queue (app/admin/provider_merge_review.py) computes candidate
+    pairs LIVE from current provider rows, so without persistence a reviewed
+    pair reappears on every page load. One row here per resolved unordered
+    pair; the queue filters resolved pairs out. Resolutions:
+
+      * ``not_duplicate``  — distinct businesses; suppress the pair.
+      * ``multi_location`` — same business, multiple locations; both rows kept
+        and stamped with a shared ``Provider.location_group_id``. Never merged.
+      * ``parent_child``   — parent org / department shape; the child row gets
+        ``Provider.parent_provider_id`` and renders on the parent's profile.
+      * ``merged``         — the pair went through ``merge_providers``; recorded
+        so the (now retired) dup never resurfaces if reactivated.
+
+    ``pair_key`` is the sorted "min_id|max_id" string — the unordered-pair
+    identity — and is unique. ``reason`` snapshots the audit signal
+    (phone / website / google_place_id / geo+name) at resolve time so queue
+    precision is measurable later (labeled examples, HAVA_AUDIT §5.3 spirit).
+    """
+
+    __tablename__ = "dedupe_resolutions"
+    __table_args__ = (
+        UniqueConstraint("pair_key", name="uq_dedupe_resolutions_pair_key"),
+        CheckConstraint(
+            "resolution IN ('not_duplicate', 'multi_location', 'parent_child', 'merged')",
+            name="ck_dedupe_resolutions_resolution",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    pair_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    provider_id_a: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    provider_id_b: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    resolution: Mapped[str] = mapped_column(String(24), nullable=False)
+    reason: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    resolved_by: Mapped[str] = mapped_column(String(120), nullable=False, default="admin")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+def dedupe_pair_key(id_a: str, id_b: str) -> str:
+    """Canonical unordered-pair key for ``DedupeResolution.pair_key``."""
+    lo, hi = sorted((id_a, id_b))
+    return f"{lo}|{hi}"
 
 
 class FieldHistory(Base):

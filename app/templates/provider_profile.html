@@ -277,6 +277,47 @@
   {% set provider_name = vm.provider_name %}
   {% include 'components/venue_events_region.html' %}
 
+  {# ---- Track B1 linked listings: parent org / departments / other locations.
+     All three strips render only when the dedupe review queue linked rows —
+     never fabricated. Same chip pattern as "While you're here". ---- #}
+  {% if parent_org %}
+  <div class="alsosee">
+    <div class="sec-head"><h2 style="font-size:1.2rem">Part of</h2></div>
+    <div class="cat-strip">
+      <a class="catchip" href="{{ parent_org.url }}">
+        <span class="e" aria-hidden="true">{{ parent_org.glyph }}</span>
+        <div><div class="t">{{ parent_org.name | clean_name }}</div><div class="n">{{ parent_org.label }}</div></div>
+      </a>
+    </div>
+  </div>
+  {% endif %}
+  {% if department_children %}
+  <div class="alsosee">
+    <div class="sec-head"><h2 style="font-size:1.2rem">Departments &amp; services here</h2></div>
+    <div class="cat-strip">
+      {% for n in department_children %}
+      <a class="catchip" href="{{ n.url }}">
+        <span class="e" aria-hidden="true">{{ n.glyph }}</span>
+        <div><div class="t">{{ n.name | clean_name }}</div><div class="n">{{ n.label }}</div></div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% if other_locations %}
+  <div class="alsosee">
+    <div class="sec-head"><h2 style="font-size:1.2rem">Other locations</h2></div>
+    <div class="cat-strip">
+      {% for n in other_locations %}
+      <a class="catchip" href="{{ n.url }}">
+        <span class="e" aria-hidden="true">{{ n.glyph }}</span>
+        <div><div class="t">{{ n.name | clean_name }}</div><div class="n">{{ n.label }}</div></div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   {# ---- "While you're here" cross-discovery — real related listings only ---- #}
   {% if nearby_providers %}
   <div class="alsosee">

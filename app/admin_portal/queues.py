@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.admin.provider_approval import pending_provider_count
 from app.admin.provider_merge_review import duplicate_pair_count
+from app.admin_portal.address_quality import address_flag_count
 from app.db.models import (
     AdReservation,
     Claim,
@@ -83,6 +84,13 @@ def queue_cards(db: Session) -> list[QueueCard]:
             duplicate_pair_count(db),
             "/admin/providers/duplicates",
             "Provider merge candidates",
+        ),
+        QueueCard(
+            "addresses",
+            "Address flags",
+            address_flag_count(db),
+            "/admin/portal/addresses",
+            "WS-4 pattern checks (review, never auto-fix)",
         ),
         QueueCard(
             "upgrades",

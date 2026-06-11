@@ -133,11 +133,21 @@ def merge_providers(
     result = MergeResult(keep_id=keep_id, dup_id=dup_id, dry_run=dry_run)
 
     # 1. Gap-fill keeper scalars from the loser (never clobber).
+    #
+    # ``google_place_id`` is a MOVE, not a copy: the partial unique index
+    # ``ux_providers_google_place_id`` (e9f0a1b2c3d4) spans retired rows too,
+    # so the value must leave the loser before (or in the same flush as) it
+    # lands on the keeper — clear-then-flush-then-set keeps the per-statement
+    # uniqueness check happy on Postgres.
     for f in _GAP_FILL_FIELDS:
         if _is_empty(getattr(keep, f, None)) and not _is_empty(getattr(dup, f, None)):
             result.gap_filled.append(f)
             if not dry_run:
-                setattr(keep, f, getattr(dup, f))
+                value = getattr(dup, f)
+                if f == "google_place_id":
+                    dup.google_place_id = None
+                    db.flush()
+                setattr(keep, f, value)
 
     # 2. Combine source provenance on the keeper.
     combined = _combine_sources(keep.source, dup.source or "")
@@ -153,11 +163,14 @@ def merge_providers(
         return int(db.scalar(select(func.count()).select_from(model).where(col == value)) or 0)
 
     # Provider-level FKs: loser provider id -> keeper provider id.
+    # ``Provider.parent_provider_id`` rides along (Track B1): department
+    # children of a merged-away parent re-home onto the keeper.
     provider_fk = [
         (Event, "provider_id"),
         (Program, "provider_id"),
         (Contribution, "created_provider_id"),
         (AnalyticsEvent, "provider_id"),
+        (Provider, "parent_provider_id"),
     ]
     # Entity-level FKs without a uniqueness constraint: loser entity -> keeper entity.
     entity_fk_plain = [
@@ -216,14 +229,45 @@ def merge_providers(
         if keep_entity is not None:
             keep_entity.source = _combine_sources(keep_entity.source, dup.source or "")[:64]
 
-    # 4. Soft-retire the loser (provider + its Entity).
+    # 4. Soft-retire the loser (provider + its Entity), stamping the slug
+    # redirect so /provider/<old-slug> 301s to the survivor (the P1.10
+    # mechanism in app/providers/router.py — previously only the
+    # merge_duplicate_provider_slugs.py batch path set it).
     if not dry_run:
         dup.is_active = False
         dup.pending_review = False
         dup.draft = True
+        if keep.slug:
+            attrs = dict(dup.attributes or {})
+            attrs["merged_into_slug"] = keep.slug
+            dup.attributes = attrs
         dup_entity = db.get(Entity, dup_ent)
         if dup_entity is not None:
             dup_entity.is_active = False
+
+    # 5. Record the pair as resolved (Track B1): the dedupe review queue
+    # computes candidates live, so without this the merged pair would
+    # resurface if the loser were ever reactivated. Upserts on pair_key —
+    # a prior human resolution is superseded by the actual merge.
+    if not dry_run:
+        from app.db.models import DedupeResolution, dedupe_pair_key
+
+        key = dedupe_pair_key(keep_id, dup_id)
+        existing = db.scalar(
+            select(DedupeResolution).where(DedupeResolution.pair_key == key)
+        )
+        if existing is not None:
+            existing.resolution = "merged"
+        else:
+            lo, hi = sorted((keep_id, dup_id))
+            db.add(
+                DedupeResolution(
+                    pair_key=key,
+                    provider_id_a=lo,
+                    provider_id_b=hi,
+                    resolution="merged",
+                )
+            )
 
     logger.info(
         "merge_providers %s <- %s (dry_run=%s) gap_filled=%s repointed=%s",
