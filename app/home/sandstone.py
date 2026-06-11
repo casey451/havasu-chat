@@ -27,6 +27,7 @@ from app.events.class_occurrences import (
 from app.events.dedup import dedup_cross_source_occurrences
 from app.events.recurrence import occurrences_in_window
 from app.events.time_labels import format_short_time, short_time_label, time_sort_key
+from app.events.title_clean import clean_event_title
 
 
 def _live_events_by_day(
@@ -457,7 +458,7 @@ def week_strip(
             label = d.strftime("%a")
         visible = [
             {
-                "title": ev.title,
+                "title": clean_event_title(ev.title, location_name=ev.location_name),
                 "type": _event_css_type(title=ev.title, tags=ev.tags, tier=_tier(ev)),
                 "time": short_time_label(ev.start_time, ev.end_time),
             }
@@ -554,7 +555,7 @@ def calendar_month(
             event_keys.add(((ev.title or "").strip().lower(), occ_date, ev.start_time))
             bucket.append(
                 {
-                    "title": ev.title,
+                    "title": clean_event_title(ev.title, location_name=ev.location_name),
                     "type": _event_pill_type(ev.tags, featured=bool(ev.featured)),
                     "recurring": bool(ev.is_recurring),
                 }
@@ -577,7 +578,7 @@ def calendar_month(
         if family and not is_family_event(occ.title):
             continue
         by_day.setdefault(occ.date.day, []).append(
-            {"title": occ.title, "type": "class", "recurring": True}
+            {"title": clean_event_title(occ.title), "type": "class", "recurring": True}
         )
 
     cells: list[dict[str, Any]] = [{"in_month": False} for _ in range(lead_blanks)]

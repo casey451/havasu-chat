@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.db.models import Event
+from app.events.title_clean import clean_event_title
 from app.seo.urls import base_url as _canonical_base_url
 
 router = APIRouter(tags=["events"])
@@ -88,7 +89,9 @@ def _vevent(event: Event, *, dtstamp: str, base_url: str) -> list[str]:
             rule = rule.split(":", 1)[1].strip()
         lines.append(f"RRULE:{rule}")
 
-    lines.append(f"SUMMARY:{_escape_text(event.title)}")
+    lines.append(
+        f"SUMMARY:{_escape_text(clean_event_title(event.title, location_name=event.location_name))}"
+    )
     if event.location_name:
         lines.append(f"LOCATION:{_escape_text(event.location_name)}")
     if event.description:
