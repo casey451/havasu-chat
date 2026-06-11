@@ -70,6 +70,7 @@ from app.core.provider_name import (
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal, get_db, init_db
+from app.db.jobs_store import count_stale_running, requeue_stale_claims
 from app.db.models import AuthSession, Event, Provider
 from app.digest.routes import router as digest_router
 from app.events.time_labels import is_time_tbd
@@ -298,6 +299,45 @@ def run_expired_review_cleanup() -> int:
         return len(expired)
 
 
+def _janitor_int_env(name: str, default: int) -> int:
+    """Optional integer janitor knob: unset/blank/garbage falls back to the default."""
+    raw = (os.getenv(name) or "").strip()
+    try:
+        return int(raw) if raw else default
+    except ValueError:
+        return default
+
+
+def run_stale_job_requeue() -> int:
+    """OPS-4: requeue jobs stuck in ``claimed`` (worker died between claim and run).
+
+    Threshold via ``JOBS_STALE_CLAIM_MINUTES`` (default 60 — claim→running is
+    normally seconds, so an hour-old claim is a dead worker, not a slow one).
+    Also warns on ``running`` rows older than ``JOBS_STUCK_RUNNING_WARN_HOURS``
+    (default 6) WITHOUT requeueing them — double-run risk for side-effectful
+    job types; the portal's manual requeue covers those after inspection.
+    Returns the number of jobs requeued.
+    """
+    minutes = _janitor_int_env("JOBS_STALE_CLAIM_MINUTES", 60)
+    warn_hours = _janitor_int_env("JOBS_STUCK_RUNNING_WARN_HOURS", 6)
+    with SessionLocal() as db:
+        requeued = requeue_stale_claims(db, older_than_minutes=minutes)
+        if requeued:
+            logger.warning(
+                "stale-claim reaper requeued %d job(s): %s",
+                len(requeued),
+                ", ".join(f"{j.job_type}:{j.id}" for j in requeued),
+            )
+        stuck = count_stale_running(db, older_than_hours=warn_hours)
+        if stuck:
+            logger.warning(
+                "%d job(s) stuck in 'running' > %dh — inspect/requeue in the portal ops page",
+                stuck,
+                warn_hours,
+            )
+        return len(requeued)
+
+
 async def _hourly_cleanup_loop() -> None:
     # OPS-3: one transient failure (DB blip, etc.) must not kill the janitor
     # for the process lifetime — run_stuck_photo_sweep is the safety net for
@@ -308,6 +348,7 @@ async def _hourly_cleanup_loop() -> None:
         try:
             await asyncio.to_thread(run_expired_review_cleanup)
             await asyncio.to_thread(run_stuck_photo_sweep)
+            await asyncio.to_thread(run_stale_job_requeue)
         except Exception as exc:
             logger.warning("hourly cleanup pass failed; retrying next hour", exc_info=True)
             try:
