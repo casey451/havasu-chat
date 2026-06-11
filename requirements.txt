@@ -2,7 +2,6 @@ alembic==1.18.4
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.13.0
-bcrypt==5.0.0
 boto3==1.42.17
 beautifulsoup4==4.14.3
 certifi==2026.2.25
@@ -23,7 +22,6 @@ httpcore==1.0.9
 httptools==0.7.1
 httpx==0.28.1
 idna==3.11
-iniconfig==2.3.0
 itsdangerous==2.2.0
 jiter==0.14.0
 Jinja2==3.1.6
@@ -37,9 +35,7 @@ openai==2.31.0
 packaging==26.1
 Pillow==12.0.0
 playwright==1.59.0
-passlib==1.7.4
 pdfplumber==0.11.9
-pluggy==1.6.0
 psycopg2-binary==2.9.11
 pyasn1==0.6.3
 pycparser==3.0
@@ -47,9 +43,6 @@ pydantic==2.13.0
 pydantic_core==2.46.0
 pyee==13.0.1
 pytesseract==0.3.13
-Pygments==2.20.0
-pytest==9.0.3
-pytest-xdist==3.8.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
 python-multipart==0.0.26
