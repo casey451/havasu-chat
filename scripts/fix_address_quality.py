@@ -47,7 +47,11 @@ from app.bootstrap_env import ensure_dotenv_loaded  # noqa: E402
 
 ensure_dotenv_loaded()
 
-from app.core.address import normalize_full_address, parse_zip  # noqa: E402
+from app.core.address import (  # noqa: E402
+    count_city_mentions,
+    normalize_full_address,
+    parse_zip,
+)
 from app.db.database import DATABASE_URL, SessionLocal  # noqa: E402
 
 
@@ -60,14 +64,21 @@ def _sanitized_target() -> str:
 
 
 def _needs_mechanical_fix(address: str | None) -> bool:
-    """Scope gate: only the shapes the prep counted as mechanical."""
+    """Scope gate: only the shapes the prep counted as mechanical.
+
+    City repeats are counted with the CITY-SHAPED matcher (2026-06-10 prod
+    run lesson: bare substring counting held 268 perfectly fine "N Lake
+    Havasu Ave ..." / venue-name rows for review). The ``|,`` trigger picks
+    up the seam artifact the first apply pass left on the Go Lake Havasu
+    feed rows ("...422 English Village |, Lake Havasu City...").
+    """
     if not address:
         return False
-    low = address.lower()
     return (
-        low.count("lake havasu") >= 2
+        count_city_mentions(address) >= 2
         or ",," in address.replace(", ,", ",,")
         or "  " in address
+        or "|," in address.replace("| ,", "|,")
     )
 
 
@@ -106,7 +117,7 @@ def run(*, apply: bool = False, confirm: bool = False,
                 fixed = normalize_full_address(addr)
                 if fixed:
                     addr_plan.append((loc, addr, fixed))
-                elif (addr or "").lower().count("lake havasu") >= 2:
+                elif count_city_mentions(addr) >= 2:
                     review.append((loc, addr))
             if not (loc.zip or "").strip():
                 z = parse_zip(loc.address)

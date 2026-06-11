@@ -13,25 +13,30 @@ from __future__ import annotations
 import re
 from typing import Optional
 
-# Trailing ", Lake Havasu (City), AZ|Arizona( 86403(-1234)?)?" -- any of the
-# city / state / zip parts optional, commas-or-spaces between them, any case.
+# Trailing ", Lake Havasu (City), AZ|Arizona( 86403(-1234)?)?(, USA)?" -- any
+# of the city / state / zip / country parts optional, commas-or-spaces between
+# them, any case. The optional USA tail (2026-06-10 prod run): Google-formatted
+# addresses end ", USA", which otherwise blocks the suffix match entirely.
 _CITY_STATE_ZIP_SUFFIX = re.compile(
     r"""
     [\s,]+                                  # separator before the suffix
     lake\s+havasu(?:\s+city)?               # "Lake Havasu" or "Lake Havasu City"
     (?:[\s,]+(?:az|ariz\.?|arizona))?       # optional state
     (?:[\s,]+\d{5}(?:-\d{4})?)?             # optional zip / zip+4
+    (?:[\s,]+(?:usa|u\.s\.a\.|united\s+states))?  # optional country
     [\s,]*$                                 # trailing junk
     """,
     re.IGNORECASE | re.VERBOSE,
 )
 
-# A bare "(AZ|Arizona)( zip)?" tail with no city -- e.g. "123 Main St, AZ 86403".
+# A bare "(AZ|Arizona)( zip)?(, USA)?" tail with no city -- e.g.
+# "123 Main St, AZ 86403".
 _STATE_ZIP_SUFFIX = re.compile(
     r"""
     [\s,]+
     (?:az|ariz\.?|arizona)
     (?:[\s,]+\d{5}(?:-\d{4})?)?
+    (?:[\s,]+(?:usa|u\.s\.a\.|united\s+states))?
     [\s,]*$
     """,
     re.IGNORECASE | re.VERBOSE,
@@ -77,7 +82,16 @@ _ZIP_IN_TEXT = re.compile(r"\b(864\d{2})(?:-\d{4})?\b")
 
 _WHITESPACE_RUNS = re.compile(r"\s{2,}")
 _COMMA_RUNS = re.compile(r"\s*,(?:\s*,)+\s*")
-_CITY_MENTION = re.compile(r"lake\s+havasu", re.IGNORECASE)
+
+# A CITY-SHAPED mention: "Lake Havasu( City)" followed by a comma or end of
+# string. Plain substring counting drowned the 2026-06-10 prod run in false
+# positives — "N Lake Havasu Ave" is a street, "Lake Havasu State Park" and
+# "Go Lake Havasu Visitor Center" are venue names; none of them is a repeated
+# city suffix. The comma/end anchor keeps those out while still matching the
+# real artifact shapes ("..., Lake Havasu City, AZ ..., Lake Havasu City").
+_CITY_SUFFIX_MENTION = re.compile(
+    r"lake\s+havasu(?:\s+city)?\s*(?:,|$)", re.IGNORECASE
+)
 
 # A string that is ONLY the city (+ optional state/zip), no street in front —
 # e.g. "Lake Havasu City, AZ 86403". Not a fixable street line.
@@ -95,6 +109,19 @@ def parse_zip(address: Optional[str]) -> Optional[str]:
         return None
     matches = _ZIP_IN_TEXT.findall(address)
     return matches[-1] if matches else None
+
+
+def count_city_mentions(text: Optional[str]) -> int:
+    """How many CITY-SHAPED "Lake Havasu (City)," mentions ``text`` carries.
+
+    The shared flag heuristic for the WS-4 script and the portal queue: 2+
+    means a repeated city suffix (the concatenation artifact); street names
+    ("N Lake Havasu Ave") and venue names ("Lake Havasu State Park") don't
+    count. See _CITY_SUFFIX_MENTION.
+    """
+    if not text:
+        return 0
+    return len(_CITY_SUFFIX_MENTION.findall(text))
 
 
 def normalize_full_address(address: Optional[str]) -> Optional[str]:
@@ -124,15 +151,18 @@ def normalize_full_address(address: Optional[str]) -> Optional[str]:
         if stripped == street or not stripped:
             break
         street = stripped
-    street = (street or "").strip().strip(",").strip()
+    # Dangling separators left at the seam (the Go Lake Havasu feed's
+    # "...422 English Village |" pipe shape) come off before rebuilding.
+    street = (street or "").strip().strip(",|").strip()
 
     if not street or _CITY_ONLY.match(street):
         return None  # nothing but the city: review-queue material, not a fix
-    if len(_CITY_MENTION.findall(street)) >= 2:
-        # Even the street part still doubles the city ("Lake Havasu City of
-        # Lake Havasu ..."), so the repeat is not a trailing-suffix artifact.
-        # A SINGLE in-street mention is fine — "950 N Lake Havasu Ave" is a
-        # real street; only the suffix duplication was the bug.
+    if count_city_mentions(street) >= 1:
+        # The street part still ends in a city-shaped mention after suffix
+        # stripping — the repeat is not a trailing-suffix artifact and needs
+        # human eyes. In-street NAMES ("950 N Lake Havasu Ave", "Lake Havasu
+        # State Park, 699 ...") don't count as city mentions; see
+        # count_city_mentions.
         return None
 
     tail = "Lake Havasu City, AZ"
