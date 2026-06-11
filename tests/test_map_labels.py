@@ -13,29 +13,30 @@ client = TestClient(app)
 
 def test_map_scope_labels_use_department_names() -> None:
     body = client.get("/map").text
-    # Department-aligned names users see in the nav/directory.
+    # Department-aligned names users see in the nav/directory. Jinja autoescapes
+    # the ampersand, so assert against the rendered ``&amp;`` form.
     for label in (
-        "Auto, RV & Marine",
-        "Fitness & Wellness",
-        "Outdoors & Recreation",
-        "Community & Civic",
-        "Health & Medical",
-        "Shopping & Retail",
+        "Auto, RV &amp; Marine",
+        "Fitness &amp; Wellness",
+        "Outdoors &amp; Recreation",
+        "Community &amp; Civic",
+        "Health &amp; Medical",
+        "Shopping &amp; Retail",
     ):
         assert label in body, label
 
 
 def test_map_no_legacy_scope_labels() -> None:
     body = client.get("/map").text
-    # The old flat-bucket labels must be gone from the map tabs.
+    # The old flat-bucket labels must be gone from the map tabs (rendered form).
     for legacy in (
-        "Auto, RV & Fuel",
-        "Classes, Sports & Recreation",
-        "Outdoors, Parks & Trails",
-        "Public & Civic Resources",
-        "Health, Wellness & Care",
-        "Shopping, Grocery & Essentials",
-        "Lodging & Vacation Rentals",
+        "Auto, RV &amp; Fuel",
+        "Classes, Sports &amp; Recreation",
+        "Outdoors, Parks &amp; Trails",
+        "Public &amp; Civic Resources",
+        "Health, Wellness &amp; Care",
+        "Shopping, Grocery &amp; Essentials",
+        "Lodging &amp; Vacation Rentals",
     ):
         assert legacy not in body, legacy
 
