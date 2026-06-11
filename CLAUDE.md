@@ -56,6 +56,25 @@ same failure modes in one night. They share ONE Linux VM (one small disk, one
   git bundles (Track D); fresh content travels INTO a sandbox via a newly
   created zip of the tree (new files propagate; modified ones don't).
 
+## Sandbox sessions: delivery + disk addenda (Track C, 2026-06-11)
+- **No-push delivery loop (proven across 8 green PRs):** sandbox clones read
+  GitHub anonymously but cannot push. What works end-to-end: build + gate in an
+  off-mount clone (`/tmp`) → stage files into Cowork outputs → create the branch
+  in the GitHub web UI → "Upload files" per directory (full-file replace;
+  basenames must match targets) → quick_pull PR → CI gates → Casey-approved
+  squash-merge. Always verify after upload:
+  `git fetch && git diff <gated-sha> FETCH_HEAD -- <files>` must be empty.
+- **/tmp fills with undeletable junk:** the shared VM accumulates
+  `nobody`-owned files from closed sessions that no live session can delete
+  (caches, venvs, clones). Budget for it: keep caches on /tmp (not $HOME — its
+  quota is tiny), expect to rebuild the env mid-session, and when the disk
+  finally wins, fall back to local ruff + py_compile with **CI as the pytest
+  gate** — and say so in the PR body.
+- **Route collisions:** check `app/v1/routes/` before adding any `/api/*`
+  path — `v1_master_spec_router` mounts before the concierge router and wins
+  ties (C3's history endpoint learned this from a red CI run; the fix was to
+  extend the v1 endpoint additively, not to duplicate the path).
+
 ## Backstop (recommended, ask Casey to enable)
 GitHub branch protection on `main`: require a PR + review, block direct pushes.
 That makes the "never push to main" rule physically enforced, not just honored —
