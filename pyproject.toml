@@ -9,7 +9,9 @@ version = "0.0.0"
 requires-python = ">=3.13,<3.14"
 
 [tool.ruff]
-target-version = "py311"
+# OPS-10: aligned with the prod pin (.python-version = 3.13.13); CI reads the
+# same file via python-version-file so the toolchain can't skew again.
+target-version = "py313"
 line-length = 100
 extend-exclude = [
     "scripts/output/",
@@ -65,7 +67,7 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.13"  # OPS-10: match the prod pin
 # pydantic.mypy only. The SQLAlchemy mypy plugin is legacy (supports the 1.x
 # Mapped-via-plugin style and is unsupported past mypy ~1.10); our models use
 # SQLAlchemy 2.0 native `Mapped[]` typing, which ships PEP-561 types and needs
