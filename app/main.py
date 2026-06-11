@@ -78,6 +78,7 @@ from app.db.jobs_store import count_stale_running, requeue_stale_claims
 from app.db.models import AuthSession, Event, Provider
 from app.digest.routes import router as digest_router
 from app.events.time_labels import is_time_tbd
+from app.events.title_clean import clean_event_title
 from app.home.chat_route import router as new_chat_ui_router
 from app.home.router import router as home_router
 from app.home.static_pages import router as static_pages_router
@@ -802,7 +803,7 @@ def _render_permalink_response(
         request=request,
         name="event_permalink.html",
         context={
-            "event_title": event.title,
+            "event_title": clean_event_title(event.title, location_name=event.location_name),
             "og_description": _truncate_for_og(event.description),
             "og_url": permalink_url,
             "image_url": event.image_url,

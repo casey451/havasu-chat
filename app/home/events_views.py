@@ -39,6 +39,7 @@ from app.events.class_occurrences import (
 )
 from app.events.family_filter import is_family_event
 from app.events.time_labels import TIME_TBD_LABEL, short_time_label, time_sort_key
+from app.events.title_clean import clean_event_title
 from app.home.sandstone import (
     _TIER_CLASS,
     _TIER_MUSIC,
@@ -94,7 +95,7 @@ def _event_row(ev: Event) -> dict[str, Any]:
     return {
         "sort": time_sort_key(ev.start_time, ev.end_time),
         "time_label": short_time_label(ev.start_time, ev.end_time) or TIME_TBD_LABEL,
-        "title": ev.title,
+        "title": clean_event_title(ev.title, location_name=ev.location_name),
         "venue": ev.location_name,
         "url": f"/events/{ev.id}",
         "recurring": bool(ev.is_recurring),
@@ -140,7 +141,7 @@ def day_groups(db: Session, *, day: date, family: bool = False) -> list[dict[str
             {
                 "sort": time_sort_key(occ.start_time, occ.end_time),
                 "time_label": short_time_label(occ.start_time, occ.end_time) or TIME_TBD_LABEL,
-                "title": occ.title,
+                "title": clean_event_title(occ.title, location_name=occ.venue),
                 "venue": occ.venue,
                 "url": occ.url,  # venue page — class series have no permalink
                 "recurring": True,
@@ -233,7 +234,7 @@ def week_rows(
             if best_key is None or rank < best_key:
                 best_key = rank
                 headline = {
-                    "title": ev.title,
+                    "title": clean_event_title(ev.title, location_name=ev.location_name),
                     "time": short_time_label(ev.start_time, ev.end_time),
                 }
         rows.append(
