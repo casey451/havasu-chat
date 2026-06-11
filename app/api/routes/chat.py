@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
@@ -25,11 +25,14 @@ from app.contrib.mention_scanner import scan_and_save_mentions
 from app.core.background import with_retry
 from app.core.rate_limit import limiter
 from app.core.session import get_session
+from app.db.chat_logging import recent_turns_for_session
 from app.db.database import SessionLocal, get_db
 from app.db.models import ChatLog
 from app.schemas.chat import (
     ChatFeedbackRequest,
     ChatFeedbackResponse,
+    ChatHistoryResponse,
+    ChatHistoryTurn,
     ChatOnboardingRequest,
     ChatOnboardingResponse,
     ComponentPayload,
@@ -164,3 +167,33 @@ def post_chat_feedback(
         },
     )
     return ChatFeedbackResponse(ok=True, chat_log_id=str(row.id), signal=payload.signal)
+
+
+@router.get("/api/chat/history", response_model=ChatHistoryResponse)
+@limiter.limit("120/minute")
+def get_chat_history(
+    request: Request,
+    session_id: str = Query(min_length=8, max_length=128),
+    limit: int = Query(6, ge=1, le=20),
+    db: Session = Depends(get_db),
+) -> ChatHistoryResponse:
+    """C3 conversation restore: last ``limit`` turns of a session, oldest first.
+
+    Session ids are client-generated opaque tokens; the endpoint returns only
+    what that browser's session already saw. Empty list for unknown sessions —
+    no existence oracle beyond the caller's own id.
+    """
+    turns = recent_turns_for_session(db, session_id.strip(), limit=limit)
+    return ChatHistoryResponse(
+        session_id=session_id,
+        turns=[
+            ChatHistoryTurn(
+                chat_log_id=str(t["chat_log_id"]),
+                query=str(t["query"]),
+                response=str(t["response"]),
+                tier_used=t.get("tier_used"),
+                created_at=t.get("created_at"),
+            )
+            for t in turns
+        ],
+    )
