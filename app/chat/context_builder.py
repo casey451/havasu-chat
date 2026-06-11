@@ -12,7 +12,7 @@ import re
 from datetime import date
 from typing import Any, Sequence
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.chat.chat_request_context import ChatRequestContext
@@ -29,6 +29,8 @@ from app.providers.photo_urls import first_renderable_google_photo
 
 MAX_PROVIDERS = 10
 MAX_CONTEXT_WORDS = 1500
+MAX_STANDALONE_EVENTS = 15
+_STANDALONE_EVENTS_MAX_WORDS = 300
 _HOURS_MAX_LEN = 200
 
 
@@ -185,6 +187,61 @@ def _events_future_for(db: Session, provider_id: str, today: date) -> Sequence[E
         .order_by(Event.date.asc(), Event.start_time.asc())
         .limit(8)
     ).all()
+
+
+def _standalone_events_upcoming(
+    db: Session, today: date, *, limit: int = MAX_STANDALONE_EVENTS
+) -> Sequence[Event]:
+    """Upcoming standalone events — live rows with no provider attachment.
+
+    Hunt 2026-06-10 §1 item 1 (~48 turns/window, the largest miss family):
+    "events tomorrow/today/tonight/this weekend" dead-ended because
+    ``provider_id IS NULL`` rows never entered Tier-3 context. Date filter:
+    starts today or later, OR still running (multi-day: ``end_date >= today``).
+    Recurring events are materialized one row per occurrence date, so
+    ``date >= today`` covers those. Date-ascending + cap keeps the near-term
+    events the demand asks about.
+    """
+    return db.scalars(
+        select(Event)
+        .where(
+            Event.provider_id.is_(None),
+            Event.status == "live",
+            or_(
+                Event.date >= today,
+                and_(Event.end_date.is_not(None), Event.end_date >= today),
+            ),
+        )
+        .order_by(Event.date.asc(), Event.start_time.asc())
+        .limit(limit)
+    ).all()
+
+
+def _standalone_events_section(
+    db: Session, today: date, *, flag_on: bool, now
+) -> tuple[str | None, list[dict[str, Any]]]:
+    """Compact context section for standalone events (name · date · venue).
+
+    Returns ``(None, [])`` when there are no upcoming standalone events.
+    The section gets its own sub-budget so a long events calendar can never
+    crowd provider rows out of ``MAX_CONTEXT_WORDS``; the caller's final
+    whole-body trim still applies on top.
+    """
+    events = _standalone_events_upcoming(db, today)
+    if not events:
+        return None, []
+    lines = ["Local events (standalone listings, not tied to a business above):"]
+    for e in events:
+        suffix = _hedge_suffix_for(e, now=now) if flag_on else ""
+        when = e.date.isoformat()
+        if e.end_date is not None and e.end_date != e.date:
+            when += f"\u2013{e.end_date.isoformat()}"
+        when += f" {e.start_time.strftime('%H:%M')}"
+        if e.end_time is not None:
+            when += f"\u2013{e.end_time.strftime('%H:%M')}"
+        lines.append(f"  Event: {e.title} \u00b7 {when} \u00b7 {e.location_name}{suffix}")
+    section = _trim_to_word_budget("\n".join(lines), _STANDALONE_EVENTS_MAX_WORDS)
+    return section, [_event_probe_row(e) for e in events]
 
 
 def _entity_profile_url(ent: Entity, provider: Provider | None) -> str:
@@ -352,16 +409,27 @@ def build_context_and_rows_for_tier3(
         return _trim_to_word_budget(body, MAX_CONTEXT_WORDS), probe_rows
 
     providers = _fetch_tier3_records(intent_result, db, query=query)
-    if not providers:
-        return (
-            "Context: No verified provider rows are available in the local catalog yet. "
-            "Answer conservatively and do not invent businesses or events."
-        ), []
-
-    probe_rows = _probe_rows_for_providers(db, providers, today)
 
     flag_on = is_confidence_tier_enabled()
     now = now_lake_havasu() if flag_on else None
+
+    # Hunt 2026-06-10 §1 item 1: standalone events enter the snapshot path.
+    ev_section, ev_rows = _standalone_events_section(db, today, flag_on=flag_on, now=now)
+
+    if not providers:
+        if ev_section is None:
+            return (
+                "Context: No verified provider rows are available in the local catalog yet. "
+                "Answer conservatively and do not invent businesses or events."
+            ), []
+        body = (
+            "Context: No verified provider rows are available in the local catalog yet. "
+            "Answer conservatively and do not invent businesses. Upcoming local events "
+            "below are from the events calendar.\n\n" + ev_section
+        )
+        return _trim_to_word_budget(body, MAX_CONTEXT_WORDS), ev_rows
+
+    probe_rows = _probe_rows_for_providers(db, providers, today)
 
     parts: list[str] = []
     parts.append("Context — Lake Havasu catalog snapshot (programs and events may be partial):")
@@ -410,6 +478,10 @@ def build_context_and_rows_for_tier3(
                 f"{ev_suffix}"
             )
         parts.append("\n".join(lines))
+
+    if ev_section is not None:
+        parts.append(ev_section)
+        probe_rows.extend(ev_rows)
 
     body = "\n\n".join(parts)
     body = _trim_to_word_budget(body, MAX_CONTEXT_WORDS)
