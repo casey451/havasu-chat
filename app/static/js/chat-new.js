@@ -264,6 +264,12 @@
 
     // --- Feedback thumbs (only when keyed by chat_log_id) ---
     if (chatLogId) {
+      // C-PR-6 (hunt 2026-06-10, deep dive §3): zero real users clicked the
+      // thumbs since the 06-05 ship — the affordance was too subtle. A short
+      // prompt names the purpose; sizing lives in chat_cards.css §3.
+      const ask = el("span", "msg-feedback-prompt");
+      ask.textContent = "Was this helpful?";
+      wrap.appendChild(ask);
       const up = makeActionBtn("👍", "thumb-btn");
       up.setAttribute("aria-label", "Thumbs up");
       const down = makeActionBtn("👎", "thumb-btn");

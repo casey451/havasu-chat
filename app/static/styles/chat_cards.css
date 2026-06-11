@@ -154,6 +154,25 @@ body.ll-chat .msg-actions .act-btn.thumb-dim {
   opacity: 0.45;
 }
 
+/* C-PR-6 (hunt 2026-06-10 / deep dive §3 "visible thumbs"): zero real users
+ * clicked feedback since the 06-05 ship — the 12px pills at the end of a long
+ * answer read as decoration. Larger tap targets (a11y: ≥34px) + an explicit
+ * prompt. Palette unchanged. */
+body.ll-chat .msg-actions .thumb-btn {
+  font-size: 15px;
+  padding: 6px 12px;
+  min-height: 34px;
+  min-width: 44px;
+  justify-content: center;
+}
+
+body.ll-chat .msg-feedback-prompt {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ll-muted, #6b6356);
+  margin-right: 2px;
+}
+
 body.ll-chat .msg-feedback-err {
   display: none;
   width: 100%;
