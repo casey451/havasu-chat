@@ -135,3 +135,23 @@ def events_ics_feed(db: Session = Depends(get_db)) -> Response:
         media_type="text/calendar; charset=utf-8",
         headers={"Content-Disposition": 'inline; filename="lake-havasu-events.ics"'},
     )
+
+
+def build_single_event_ics(event: Event) -> str:
+    """A complete single-event iCalendar document (one VEVENT) for the per-event
+    "Add to calendar" download (UX-4). Reuses the same VEVENT builder + line
+    folding as the sitewide feed so the two never drift."""
+    from app.core.timezone import now_lake_havasu
+
+    base_url = _canonical_base_url()
+    dtstamp = _fmt_dt(now_lake_havasu().replace(tzinfo=None))
+    lines: list[str] = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        f"PRODID:{_PRODID}",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+    ]
+    lines.extend(_vevent(event, dtstamp=dtstamp, base_url=base_url))
+    lines.append("END:VCALENDAR")
+    return "\r\n".join(_fold_line(line) for line in lines) + "\r\n"
