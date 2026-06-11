@@ -33,7 +33,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import case, func
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.liveness import DAMPENER_FLOOR
@@ -294,30 +294,32 @@ def _rating_display(
     return formatted, n
 
 
-def _rating_sort_key():
-    """SQL ordering that puts credibly-reviewed providers first.
+def _rating_sort_key(db):
+    """SQL ordering by Bayesian-shrunk rating (WS-2), volume-weighted.
 
-    Tiered: providers at/above ``MIN_RATING_REVIEWS`` rank ahead of those
-    below it (or with no reviews), then by rating desc, then by review count
-    desc. Stops single-review 5.0s from topping a rating-sorted grid.
+    ``(R*n + m*C)/(n + C)`` (``app.core.rating_prior``, C=25, live
+    review-weighted ``m``) replaces the old two-tier sort (hard
+    ``MIN_RATING_REVIEWS`` cutoff, then raw rating). The prior does the same
+    job continuously: a single-review 5.0 shrinks to ≈``m`` and cannot top a
+    grid, while review-rich heads keep their raw order (calibrated on the
+    2026-06-10 prod export — top-20 identical at C=25). ``MIN_RATING_REVIEWS``
+    still gates rating *display* (cards), just no longer the sort.
 
-    The rating term is scaled by the liveness dampener (``FLOOR + (1 - FLOOR)
-    * COALESCE(liveness_score, 1)`` — SQL mirror of
+    The score is scaled by the liveness dampener (``FLOOR + (1 - FLOOR) *
+    COALESCE(liveness_score, 1)`` — SQL mirror of
     :func:`app.core.liveness.liveness_dampener`), so a stale-but-once-popular
-    listing sinks within its tier instead of riding its old rating forever
-    (bury, never remove). NULL liveness (non-Google rows / backfill pending)
-    leaves the ordering unchanged; NULL ratings still sort last.
+    listing sinks instead of riding its old rating forever (bury, never
+    remove). NULL liveness leaves the ordering unchanged; NULL ratings still
+    sort last.
     """
-    qualified = case(
-        (Provider.google_review_count >= MIN_RATING_REVIEWS, 1),
-        else_=0,
-    )
+    from app.core.rating_prior import bayesian_rating_expr, global_mean_rating
+
     dampener = DAMPENER_FLOOR + (1.0 - DAMPENER_FLOOR) * func.coalesce(
         Provider.liveness_score, 1.0
     )
+    score = bayesian_rating_expr(global_mean_rating(db))
     return (
-        qualified.desc(),
-        (Provider.google_rating * dampener).desc().nullslast(),
+        (score * dampener).desc().nullslast(),
         Provider.google_review_count.desc().nullslast(),
     )
 
@@ -411,7 +413,7 @@ def eat_row(
                 Provider.is_active.is_(True),
                 Provider.draft.is_(False),
             )
-            .order_by(*_rating_sort_key())
+            .order_by(*_rating_sort_key(db))
             .limit(limit * _EAT_FETCH_MULTIPLIER)
             .all()
         )

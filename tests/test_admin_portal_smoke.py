@@ -53,6 +53,7 @@ def client():
 PAGES = (
     "/admin/portal",
     "/admin/portal/moderation",
+    "/admin/portal/addresses",
     "/admin/portal/users",
     "/admin/portal/chat",
     "/admin/portal/chat?days=30",
@@ -100,3 +101,52 @@ def test_wired_app_serves_portal_unauthenticated_redirect():
         resp = c.get("/admin/portal", follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/admin/login"
+
+
+def test_address_flags_queue_lists_and_dismisses(client):
+    """WS-4 flag queue: a city-repeat row surfaces, 'Mark OK' persists the
+    dismissal (Provider.attributes), and the row stops surfacing."""
+    from app.db.models import Entity, Location, Provider
+
+    # Seed through the SAME override session factory the app uses.
+    app_obj = client.app
+    override = app_obj.dependency_overrides[get_db]
+    db = next(override())
+    ent = Entity(entity_type="provider", slug="flagged-biz", name="Flagged Biz")
+    db.add(ent)
+    db.flush()
+    db.add(
+        Location(
+            entity_id=ent.id,
+            address="123 Main St, Lake Havasu City, AZ 86403, Lake Havasu City",
+        )
+    )
+    prov = Provider(
+        provider_name="Flagged Biz",
+        category="services",
+        slug="flagged-biz",
+        entity_id=ent.id,
+        draft=False,
+        is_active=True,
+    )
+    db.add(prov)
+    db.commit()
+    provider_id = prov.id
+
+    page = client.get("/admin/portal/addresses")
+    assert page.status_code == 200
+    assert "Flagged Biz" in page.text
+    assert "city_repeat" in page.text
+
+    resp = client.post(f"/admin/portal/addresses/{provider_id}/dismiss")
+    assert resp.status_code == 200  # after redirect
+
+    page = client.get("/admin/portal/addresses")
+    assert "Flagged Biz" not in page.text
+
+    # Dismissal persisted on the provider's attributes bag + audited.
+    db2 = next(override())
+    refreshed = db2.get(Provider, provider_id)
+    assert (refreshed.attributes or {}).get("address_flag_dismissed") is True
+    audit = client.get("/admin/portal/audit")
+    assert "address_flag_dismissed" in audit.text

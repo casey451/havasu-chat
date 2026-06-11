@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
-from app.admin_portal import audit_models, chat_insights, ops, users
+from app.admin_portal import address_quality, audit_models, chat_insights, ops, users
 from app.admin_portal.audit_models import AdminAuditLog, audit_enabled
 from app.admin_portal.guard import guard
 from app.admin_portal.queues import queue_cards
@@ -24,6 +24,7 @@ portal_router = APIRouter(prefix="/admin/portal", tags=["admin-portal"])
 portal_router.include_router(users.router)
 portal_router.include_router(chat_insights.router)
 portal_router.include_router(ops.router)
+portal_router.include_router(address_quality.router)
 
 
 @portal_router.get("", response_model=None)

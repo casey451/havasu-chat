@@ -205,11 +205,17 @@ def parse_course_detail(html: str) -> dict[str, Any]:
 
 
 def format_address(course: DiscGolfCourse) -> str | None:
+    # WS-4: never concatenate a city tail onto a street that already carries
+    # one — pre-strip any Lake-Havasu-shaped suffix (street_line is a no-op on
+    # other cities' streets), or the suffix doubles.
+    from app.core.address import street_line
+
+    street = street_line(course.street) or course.street
     tail_bits = [b for b in (course.city, course.state) if b]
     tail = ", ".join(tail_bits)
     if course.postal:
         tail = f"{tail} {course.postal}".strip()
-    parts = [p for p in (course.street, tail) if p]
+    parts = [p for p in (street, tail) if p]
     return ", ".join(parts) or None
 
 
