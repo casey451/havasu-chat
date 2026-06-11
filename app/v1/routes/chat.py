@@ -33,6 +33,10 @@ def chat_history(
             "content": r.message,
             "tier_used": r.tier_used,
             "created_at": r.created_at.isoformat() if r.created_at else None,
+            # C3 conversation restore (additive — existing consumers unaffected):
+            # the user's side of the turn and the id that keys feedback thumbs.
+            "id": r.id,
+            "query": r.normalized_query,
         }
         for r in rows
     ]
