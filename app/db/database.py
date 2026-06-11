@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from sqlalchemy import create_engine, inspect, text
@@ -39,11 +40,39 @@ def get_database_url() -> str:
 DATABASE_URL = get_database_url()
 
 
+def _int_env(name: str, default: int) -> int:
+    """Optional integer tuning knob: unset/blank/garbage falls back to the default.
+
+    Deliberately NOT fail-closed (unlike DATABASE_URL above): these are optional
+    pool-tuning overrides, and refusing to boot prod over a typo'd knob would be
+    worse than running with the documented default.
+    """
+    raw = (os.getenv(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
 def _engine_kwargs(url: str) -> dict:
     if url.startswith("sqlite"):
         return {"connect_args": {"check_same_thread": False}}
-    # postgresql://, postgres://, etc.
-    return {"pool_pre_ping": True}
+    # postgresql://, postgres://, etc. — explicit pool sizing (PERF-1, audit
+    # AUDIT_SECURITY_PERF_OPS_2026-06-10.md:70-77). SQLAlchemy's defaults
+    # (5 + 10 = 15 connections, 30s pool_timeout) exhaust under ~15 concurrent
+    # Tier-3-bound chats while each request's session is parked across an LLM
+    # round-trip; request 16 then waits 30s and errors. Defaults below give
+    # 10 persistent + 20 burst per process and fail fast (10s) when truly
+    # saturated. Env knobs allow Railway-side tuning without a deploy.
+    return {
+        "pool_pre_ping": True,
+        "pool_size": _int_env("DB_POOL_SIZE", 10),
+        "max_overflow": _int_env("DB_MAX_OVERFLOW", 20),
+        "pool_timeout": _int_env("DB_POOL_TIMEOUT", 10),
+        "pool_recycle": _int_env("DB_POOL_RECYCLE", 1800),
+    }
 
 
 engine = create_engine(DATABASE_URL, **_engine_kwargs(DATABASE_URL))
@@ -88,6 +117,39 @@ def get_db() -> Iterator[Session]:
         yield db
     finally:
         db.close()
+
+
+@contextmanager
+def connection_released(db: Session) -> Iterator[None]:
+    """Hand ``db``'s pooled connection back for the duration of a slow non-DB call.
+
+    PERF-1 (audit :70-77): the chat request's session otherwise stays checked out
+    through 1-3s (worst-case 45s, ``LLM_CLIENT_READ_TIMEOUT_SEC``) OpenAI round-trips.
+    ``rollback()`` ends the session's implicit read transaction, returning the
+    connection to the pool; the session stays fully usable and lazily re-acquires
+    a connection on its next query.
+
+    Two caveats for adopters (chat hot path — ``unified_router``):
+
+    - Refuses to run with pending uncommitted writes (raises ``RuntimeError``)
+      rather than silently discarding them. Commit first.
+    - ``rollback()`` expires loaded ORM instances; attribute access on objects
+      loaded *before* the block triggers a refresh SELECT *after* it. Consume
+      query results into plain values before wrapping (the tier-3 prompt-build
+      path already does).
+
+    Usage::
+
+        with connection_released(db):
+            hints = extract_hints(query)   # no DB work inside
+    """
+    if db.new or db.dirty or db.deleted:
+        raise RuntimeError(
+            "connection_released() called with pending uncommitted writes; "
+            "commit or roll back explicitly before releasing the connection."
+        )
+    db.rollback()
+    yield
 
 
 # Phase 1D dual-write hook registration lives in ``app/db/__init__.py`` — see
