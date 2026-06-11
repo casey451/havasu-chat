@@ -77,7 +77,39 @@ zips; precision patch #249 killed the 268 street-name false positives; run 2: 10
 pipe-seam fixes, 0 holds — snapshots at repo root). **Copy audit 2026-06-10 also
 shipped in #249/#250** (hero B template default, /sponsor teaser, jargon sweep,
 voice fixes, Featured row gated on sold inventory, `docs/COPY_VOICE.md`).
-**Uncommitted on disk (next commit):** review-excerpt recency ordering (audit §5b)
+**Review-excerpt recency (§5b): ✅ shipped as #252.** Ops/perf track shipped #255 +
+#261–#264 the same day (toolchain pin, pool-conn, ops4/5/8, dep cleanup).
+
+**TRACK C ✅ COMPLETE + C3 SHIPPED (06-11, Cowork-executed via the web-upload flow,
+Casey-approved merges): #251 #253 #256 #257 #259 #260 #265 all merged + deployed.**
+Hunt 2026-06-10 close-out: §2+§3 vocabulary (bowling leaf verified = cat 56) ·
+standalone events into Tier-3 context (largest miss family, ~48 turns/window) ·
+category-aware SQL retrieval (§4b root cause + PERF-2 — full-table scans gone;
+plumber/bowling/electrician zero-relevance 11×/3×/1× HIGH → 0 on the export) ·
+Tier-1 fuzzy reach (provider-less commercial/place entities indexed — "havasu
+stitchers"/"quilt guild" resolve at 100; typo-path locality fix) + spell-correct
+visible to the Tier-3 scorer ("plummbers"/"pluimber" retrieve plumbers) · gap-template
+false positives ~92% → 0.0% on replay (discovery shapes skip the gap;
+`scripts/gap_leakage_audit.py` is the standing measurement) · visible feedback
+thumbs ("Was this helpful?", ≥34px targets) · **C3 conversation restore** (v1
+`/api/chat/history` extended additively with `id`+`query`, session id persists per
+tab, thread restored on reload, session hints rehydrated from chat_logs across
+restarts, last-6-turns transcript in the Tier-3 prompt with history-aware cache
+keys; no migrations).
+
+**NEXT (all paused per Casey, 06-11):** ① search-demand integration WS1–4 —
+unblocked by #257, rebases on category-aware retrieval; fresh session recommended ·
+② second-pass fixlist "genuinely NEW" items (reserve-form taxonomy, double-escaped
+names, event-passed timing, /search raw tokens, /group pages, ICS junk titles,
+page-cache vintage skew) · ③ laundromat `_QUERY_TO_LEAF` row once the
+laundry-and-dry-cleaning leaf exists (§2 last row, still gated) · ④ embedding
+retrieval still parked on the 32-vs-1536-dim mismatch · ⑤ measurement: next prod
+CSV export → re-run the hunt + `gap_leakage_audit.py` against live traffic; watch
+`feedback_signal` now that thumbs are visible · ⑥ Casey's manual list unchanged
+(password rotation, UptimeRobot, Skates call + 2 seeded drafts, sponsors@ alias) ·
+⑦ monetization "fix before selling" gate (B1–B3 + C2) is satisfied — outreach
+order per hunt §4: plumbers → event venues ($19 boost live) → boat rentals →
+restaurants open-now → electricians/HVAC → family fun.
 + `scripts/check_taxonomy_anchors.py` (§6.1 phase gate, tested) + this status
 block. **Casey-only leftovers:** unset `HOME_HERO_HEADLINE` (+eyebrow) on Railway
 so hero B renders · portal queues (17 T3 dedupe confirms → T2 phone → Address
@@ -103,20 +135,6 @@ real new finds (reserve-form category taxonomy = funnel blocker · double-escape
 /categories names · "event has passed" timing · /search raw tokens · /group
 pages · ICS junk titles) are the next bug batch. E&D phase runbook:
 `docs/ED_PHASE1_PREP_2026-06-11.md`.
-
-**FINAL STATE ~04:30 (supersedes the two blocks above): ALL TRACKS LANDED.**
-Track C merged everything: C-PR-1…6 (#251 #253 #256 #257 #259 #260) + **C3
-conversation restore (#265)** + **audit fix batches 1+2 (#266** — event
-classifier/dedup, privacy renderer, favicon, **reserve-form taxonomy** ✅,
-proxy headers). Track D's four bundles landed as #261–#264 (ops10 correctly
-skipped). One dropped Railway webhook was re-triggered (CI #1056). Post-stack
-live sweep ✅: /health db_connected · home · events-ui · restaurants leaf
-(160 — QSR phase still pending its gated run) · gas · chat. **~20 PRs merged
-and deployed in one night, all verified.** Still open: the Casey-only list
-above (Railway hero env, E&D phase run, portal queues, sponsors@, ranges,
-WS-5 D1–D4, live-site-audit paste for B4/WS-3) + QA leftovers not covered by
-#266 (double-escaped /categories names · "event has passed" timing · /search
-raw tokens · /group pages · ICS junk titles · page-cache vintage skew).
 
 **C1 ✅ RUN (late 2026-06-10, on CC's CSV export):** 8.2% real miss rate (118/1,432
 turns, 31 HIGH). Top families: standalone events ~48 turns (pull into first C batch),
