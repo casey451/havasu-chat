@@ -17,6 +17,16 @@ Every mapping here is grounded in real, queryable fields:
   ``Program.age_max``. "my 8-year-old" and "for a 9 year old" must both
   normalize to ``kids`` (master spec §4.2).
 * ``SYMPTOM_MAP`` -> health-medical listings only (never diagnostic).
+
+2026-06-11 expansion (intent-efficiency pass): SERVICE_DICT / CUISINE_DICT /
+SYMPTOM_MAP grew to cover the verified coverage-gap trades from
+``COVERAGE_GAP_AUDIT_2026-06-10.md`` and ``HAVA_AUDIT_AND_TAXONOMY_REBUILD.md``
+(towing, detailing, wraps/tint, golf carts, property management, laundry,
+hearing aids, funeral, junk removal, pressure washing, appliance/garage-door
+repair, locksmiths, pet sitting, ...). Safe by construction: the intent layer
+falls through on zero rows, so a dictionary entry whose trade has no catalog
+coverage yet simply logs the demand signal to ``query_log`` and the legacy
+path answers -- no wrong answers, no fabrication.
 """
 
 from __future__ import annotations
@@ -112,6 +122,48 @@ SERVICE_DICT: dict[str, ServiceRoute] = {
     "pest control": ServiceRoute("home-services", ("pest",)),
     "painter": ServiceRoute("home-services", ("paint",)),
     "pool service": ServiceRoute("home-services", ("pool",)),
+    # 2026-06-11 expansion -- home & property
+    "pool repair": ServiceRoute("home-services", ("pool",)),
+    "pool builder": ServiceRoute("home-services", ("pool",)),
+    "appliance repair": ServiceRoute(
+        "home-services", ("appliance", "refrigerat", "washer", "dryer")
+    ),
+    "garage door": ServiceRoute("home-services", ("garage door", "overhead door")),
+    "garage door repair": ServiceRoute("home-services", ("garage door", "overhead door")),
+    "tree service": ServiceRoute("home-services", ("tree", "stump")),
+    "tree trimming": ServiceRoute("home-services", ("tree", "stump")),
+    "tree removal": ServiceRoute("home-services", ("tree", "stump")),
+    "junk removal": ServiceRoute("home-services", ("junk", "hauling", "haul")),
+    "junk hauling": ServiceRoute("home-services", ("junk", "hauling", "haul")),
+    "pressure washing": ServiceRoute("home-services", ("pressure wash", "power wash")),
+    "power washing": ServiceRoute("home-services", ("pressure wash", "power wash")),
+    "window cleaning": ServiceRoute("home-services", ("window clean",)),
+    "carpet cleaning": ServiceRoute("home-services", ("carpet",)),
+    "septic": ServiceRoute("home-services", ("septic",)),
+    "septic pumping": ServiceRoute("home-services", ("septic",)),
+    "welding": ServiceRoute("home-services", ("weld", "fabricat")),
+    "fencing": ServiceRoute("home-services", ("fence", "fencing")),
+    "fence company": ServiceRoute("home-services", ("fence", "fencing")),
+    "flooring": ServiceRoute("home-services", ("floor", "tile")),
+    "drywall": ServiceRoute("home-services", ("drywall",)),
+    "concrete": ServiceRoute("home-services", ("concrete", "paving")),
+    "home inspector": ServiceRoute("home-services", ("inspect",)),
+    "home inspection": ServiceRoute("home-services", ("inspect",)),
+    "locksmith": ServiceRoute("home-services", ("locksmith", "lock and key")),
+    "movers": ServiceRoute("home-services", ("moving", "movers", "relocat")),
+    "moving company": ServiceRoute("home-services", ("moving", "movers", "relocat")),
+    "solar": ServiceRoute("home-services", ("solar",)),
+    "solar installer": ServiceRoute("home-services", ("solar",)),
+    "patio covers": ServiceRoute("home-services", ("patio cover", "awning", "shade", "screen")),
+    "sun screens": ServiceRoute("home-services", ("screen", "shade", "awning")),
+    "awnings": ServiceRoute("home-services", ("awning", "patio cover", "shade")),
+    "mobile home repair": ServiceRoute(
+        "home-services", ("mobile home", "manufactured home")
+    ),
+    "mobile home services": ServiceRoute(
+        "home-services", ("mobile home", "manufactured home")
+    ),
+    "propane": ServiceRoute("home-services", ("propane",)),
     # -- Auto --
     "mechanic": ServiceRoute("auto", ("mechanic", "auto repair", "car repair"), ("auto",)),
     "auto repair": ServiceRoute("auto", ("auto repair", "car repair", "mechanic"), ("auto",)),
@@ -121,6 +173,49 @@ SERVICE_DICT: dict[str, ServiceRoute] = {
     "car wash": ServiceRoute("auto", ("car wash", "wash"), ("auto",)),
     "auto body": ServiceRoute("auto", ("body shop", "collision", "auto body"), ("auto",)),
     "rv repair": ServiceRoute("auto", ("rv", "recreational vehicle"), ("auto",)),
+    # 2026-06-11 expansion -- auto, rv & marine
+    "towing": ServiceRoute("auto", ("towing", "tow", "wrecker"), ("auto",)),
+    "tow truck": ServiceRoute("auto", ("towing", "tow", "wrecker"), ("auto",)),
+    "roadside assistance": ServiceRoute("auto", ("towing", "roadside", "wrecker"), ("auto",)),
+    "auto glass": ServiceRoute("auto", ("windshield", "auto glass", "glass"), ("auto",)),
+    "windshield repair": ServiceRoute("auto", ("windshield", "auto glass", "glass"), ("auto",)),
+    "windshield replacement": ServiceRoute(
+        "auto", ("windshield", "auto glass", "glass"), ("auto",)
+    ),
+    "windshield": ServiceRoute("auto", ("windshield", "auto glass", "glass"), ("auto",)),
+    "window tint": ServiceRoute("auto", ("tint",), ("auto",)),
+    "tinting": ServiceRoute("auto", ("tint",), ("auto",)),
+    "tint shop": ServiceRoute("auto", ("tint",), ("auto",)),
+    "vehicle wrap": ServiceRoute("auto", ("wrap", "graphic", "sign"), ("auto",)),
+    "vehicle wraps": ServiceRoute("auto", ("wrap", "graphic", "sign"), ("auto",)),
+    "car wrap": ServiceRoute("auto", ("wrap", "graphic", "sign"), ("auto",)),
+    "car wraps": ServiceRoute("auto", ("wrap", "graphic", "sign"), ("auto",)),
+    "boat wrap": ServiceRoute("auto", ("wrap", "graphic", "sign"), ("auto",)),
+    # Detailing spans auto + marine rows; the legacy water categories keep
+    # boat detailers reachable ("boat detail and wash" -> Detail Specialties).
+    "detailing": ServiceRoute(
+        "auto", ("detail",), ("auto", "lake_recreation", "boat_rental", "boat_repair")
+    ),
+    "auto detailing": ServiceRoute(
+        "auto", ("detail",), ("auto", "lake_recreation", "boat_rental", "boat_repair")
+    ),
+    "car detailing": ServiceRoute(
+        "auto", ("detail",), ("auto", "lake_recreation", "boat_rental", "boat_repair")
+    ),
+    "boat detailing": ServiceRoute(
+        "auto", ("detail",), ("auto", "lake_recreation", "boat_rental", "boat_repair")
+    ),
+    "mobile detailing": ServiceRoute(
+        "auto", ("detail",), ("auto", "lake_recreation", "boat_rental", "boat_repair")
+    ),
+    "detail shop": ServiceRoute(
+        "auto", ("detail",), ("auto", "lake_recreation", "boat_rental", "boat_repair")
+    ),
+    "golf cart": ServiceRoute("auto", ("golf cart",), ("auto",)),
+    "golf carts": ServiceRoute("auto", ("golf cart",), ("auto",)),
+    "golf cart repair": ServiceRoute("auto", ("golf cart",), ("auto",)),
+    "trailer repair": ServiceRoute("auto", ("trailer",), ("auto",)),
+    "trailer sales": ServiceRoute("auto", ("trailer",), ("auto",)),
     # -- Health & medical (listing only) --
     "dentist": ServiceRoute("health-medical", ("dental", "dentist")),
     "dental": ServiceRoute("health-medical", ("dental", "dentist")),
@@ -131,6 +226,29 @@ SERVICE_DICT: dict[str, ServiceRoute] = {
     "eye doctor": ServiceRoute("health-medical", ("optom", "eye", "vision")),
     "pharmacy": ServiceRoute("health-medical", ("pharmacy", "drug")),
     "physical therapy": ServiceRoute("health-medical", ("physical therap", "physiotherap", "rehab")),
+    # 2026-06-11 expansion -- health & medical
+    "hearing aids": ServiceRoute("health-medical", ("hearing", "audiolog")),
+    "hearing aid": ServiceRoute("health-medical", ("hearing", "audiolog")),
+    "audiologist": ServiceRoute("health-medical", ("hearing", "audiolog")),
+    "hearing test": ServiceRoute("health-medical", ("hearing", "audiolog")),
+    "dermatologist": ServiceRoute("health-medical", ("derm", "skin")),
+    "skin doctor": ServiceRoute("health-medical", ("derm", "skin")),
+    "counselor": ServiceRoute(
+        "health-medical", ("counsel", "therap", "mental", "psych", "behavioral")
+    ),
+    "counseling": ServiceRoute(
+        "health-medical", ("counsel", "therap", "mental", "psych", "behavioral")
+    ),
+    "therapist": ServiceRoute(
+        "health-medical", ("counsel", "therap", "mental", "psych", "behavioral")
+    ),
+    "mental health": ServiceRoute(
+        "health-medical", ("counsel", "therap", "mental", "psych", "behavioral")
+    ),
+    "imaging": ServiceRoute("health-medical", ("imaging", "radiolog", "x-ray", "xray")),
+    "dialysis": ServiceRoute("health-medical", ("dialysis",)),
+    "home health": ServiceRoute("health-medical", ("home health", "hospice")),
+    "hospice": ServiceRoute("health-medical", ("hospice", "home health")),
     # -- Professional --
     "lawyer": ServiceRoute("professional", ("law", "attorney", "legal")),
     "attorney": ServiceRoute("professional", ("law", "attorney", "legal")),
@@ -141,6 +259,72 @@ SERVICE_DICT: dict[str, ServiceRoute] = {
     "cpa": ServiceRoute("professional", ("account", "cpa", "tax")),
     "financial advisor": ServiceRoute("professional", ("financial", "wealth", "advisor")),
     "tax preparer": ServiceRoute("professional", ("tax", "account")),
+    # 2026-06-11 expansion -- professional & financial
+    "property management": ServiceRoute(
+        "professional", ("property manag", "rental manag"), ("professional_services",)
+    ),
+    "property manager": ServiceRoute(
+        "professional", ("property manag", "rental manag"), ("professional_services",)
+    ),
+    "laundromat": ServiceRoute(
+        "professional", ("laundr", "wash and fold", "dry clean"), ("professional_services",)
+    ),
+    "laundry": ServiceRoute(
+        "professional", ("laundr", "wash and fold", "dry clean"), ("professional_services",)
+    ),
+    "wash and fold": ServiceRoute(
+        "professional", ("laundr", "wash and fold", "dry clean"), ("professional_services",)
+    ),
+    "dry cleaning": ServiceRoute(
+        "professional", ("dry clean", "laundr", "cleaners"), ("professional_services",)
+    ),
+    "dry cleaner": ServiceRoute(
+        "professional", ("dry clean", "laundr", "cleaners"), ("professional_services",)
+    ),
+    "notary": ServiceRoute("professional", ("notary",), ("professional_services",)),
+    "title company": ServiceRoute(
+        "professional", ("title", "escrow"), ("professional_services",)
+    ),
+    "escrow": ServiceRoute("professional", ("title", "escrow"), ("professional_services",)),
+    "computer repair": ServiceRoute(
+        "professional", ("computer", "laptop", "tech repair"), ("professional_services",)
+    ),
+    "it support": ServiceRoute(
+        "professional", ("computer", "tech", "it service"), ("professional_services",)
+    ),
+    "phone repair": ServiceRoute(
+        "professional", ("phone repair", "cell phone", "iphone"), ("professional_services",)
+    ),
+    "sign shop": ServiceRoute(
+        "professional", ("sign", "banner", "graphic", "print"), ("professional_services",)
+    ),
+    "sign company": ServiceRoute(
+        "professional", ("sign", "banner", "graphic", "print"), ("professional_services",)
+    ),
+    "business signs": ServiceRoute(
+        "professional", ("sign", "banner", "graphic", "print"), ("professional_services",)
+    ),
+    "custom signs": ServiceRoute(
+        "professional", ("sign", "banner", "graphic", "print"), ("professional_services",)
+    ),
+    "print shop": ServiceRoute(
+        "professional", ("print", "sign", "banner", "graphic"), ("professional_services",)
+    ),
+    "printing": ServiceRoute(
+        "professional", ("print", "sign", "banner", "graphic"), ("professional_services",)
+    ),
+    "event planner": ServiceRoute(
+        "professional", ("event plan", "wedding"), ("professional_services",)
+    ),
+    "event planning": ServiceRoute(
+        "professional", ("event plan", "wedding"), ("professional_services",)
+    ),
+    "wedding planner": ServiceRoute(
+        "professional", ("event plan", "wedding"), ("professional_services",)
+    ),
+    "shipping": ServiceRoute(
+        "professional", ("ship", "mail", "pack", "postal"), ("professional_services",)
+    ),
     # -- Pets --
     "vet": ServiceRoute("pets", ("vet", "animal hospital", "veterin")),
     "veterinarian": ServiceRoute("pets", ("vet", "animal hospital", "veterin")),
@@ -148,6 +332,15 @@ SERVICE_DICT: dict[str, ServiceRoute] = {
     "dog grooming": ServiceRoute("pets", ("groom",)),
     "pet boarding": ServiceRoute("pets", ("boarding", "kennel")),
     "kennel": ServiceRoute("pets", ("boarding", "kennel")),
+    # 2026-06-11 expansion -- pets
+    "pet sitting": ServiceRoute("pets", ("sitt", "walk", "board")),
+    "pet sitter": ServiceRoute("pets", ("sitt", "walk", "board")),
+    "dog sitter": ServiceRoute("pets", ("sitt", "walk", "board")),
+    "cat sitter": ServiceRoute("pets", ("sitt", "walk", "board")),
+    "dog walker": ServiceRoute("pets", ("walk", "sitt")),
+    "dog walking": ServiceRoute("pets", ("walk", "sitt")),
+    "pet waste removal": ServiceRoute("pets", ("scoop", "poop", "waste")),
+    "pooper scooper": ServiceRoute("pets", ("scoop", "poop", "waste")),
     # -- Beauty & personal care --
     "salon": ServiceRoute("beauty", ("salon", "hair")),
     "hair salon": ServiceRoute("beauty", ("salon", "hair")),
@@ -156,9 +349,51 @@ SERVICE_DICT: dict[str, ServiceRoute] = {
     "nails": ServiceRoute("beauty", ("nail",)),
     "spa": ServiceRoute("beauty", ("spa", "massage")),
     "massage": ServiceRoute("beauty", ("massage", "spa")),
+    # 2026-06-11 expansion -- beauty & personal care
+    "tattoo": ServiceRoute("beauty", ("tattoo", "ink", "piercing")),
+    "tattoo shop": ServiceRoute("beauty", ("tattoo", "ink", "piercing")),
+    "piercing": ServiceRoute("beauty", ("piercing", "tattoo")),
+    "tanning": ServiceRoute("beauty", ("tanning",)),
+    "med spa": ServiceRoute("beauty", ("med spa", "aesthetic", "botox")),
+    "med spas": ServiceRoute("beauty", ("med spa", "aesthetic", "botox")),
+    "medical spa": ServiceRoute("beauty", ("med spa", "aesthetic", "botox")),
+    "botox": ServiceRoute("beauty", ("med spa", "aesthetic", "botox")),
     # -- Storage --
     "storage": ServiceRoute("storage", ("storage",)),
     "self storage": ServiceRoute("storage", ("storage",)),
+    # 2026-06-11 expansion -- storage
+    "boat storage": ServiceRoute("storage", ("storage", "boat", "rv")),
+    "rv storage": ServiceRoute("storage", ("storage", "boat", "rv")),
+    "storage unit": ServiceRoute("storage", ("storage",)),
+    "storage units": ServiceRoute("storage", ("storage",)),
+    # -- Civic / community --
+    # 2026-06-11 expansion -- funeral & end-of-life (5 named local operators,
+    # coverage audit §2; listing-only).
+    "funeral": ServiceRoute(
+        "civic-community",
+        ("funeral", "cremation", "mortuary", "cemetery"),
+        ("religion_community", "professional_services"),
+    ),
+    "funeral home": ServiceRoute(
+        "civic-community",
+        ("funeral", "cremation", "mortuary", "cemetery"),
+        ("religion_community", "professional_services"),
+    ),
+    "funeral homes": ServiceRoute(
+        "civic-community",
+        ("funeral", "cremation", "mortuary", "cemetery"),
+        ("religion_community", "professional_services"),
+    ),
+    "cremation": ServiceRoute(
+        "civic-community",
+        ("funeral", "cremation", "mortuary", "cemetery"),
+        ("religion_community", "professional_services"),
+    ),
+    "mortuary": ServiceRoute(
+        "civic-community",
+        ("funeral", "cremation", "mortuary", "cemetery"),
+        ("religion_community", "professional_services"),
+    ),
 }
 
 # All Services subcategory groups -- used by tests to assert SERVICE_DICT only
@@ -204,6 +439,47 @@ CUISINE_DICT: dict[str, tuple[str, ...]] = {
     "happy hour": ("bar", "pub", "tavern", "lounge", "brew", "saloon", "grill", "cocktail"),
     "quick bites": ("burger", "pizza", "taco", "sandwich", "deli", "fast food", "hot dog", "wing"),
     "quick bite": ("burger", "pizza", "taco", "sandwich", "deli", "fast food", "hot dog", "wing"),
+    # 2026-06-11 expansion: cuisines/forms users actually type that previously
+    # fell through to Tier 3. Name tokens only -- grounded the same way as the
+    # originals.
+    "steak": ("steak", "chophouse"),
+    "wings": ("wing", "wings"),
+    "sandwich": ("sandwich", "deli", "sub", "subway", "hoagie"),
+    "sandwiches": ("sandwich", "deli", "sub", "subway", "hoagie"),
+    "deli": ("deli", "sandwich"),
+    "sub shop": ("sub", "sandwich", "deli"),
+    "ice cream": ("ice cream", "gelato", "yogurt", "creamery", "shaved ice", "snow cone"),
+    "gelato": ("gelato", "ice cream"),
+    "frozen yogurt": ("yogurt", "froyo", "ice cream"),
+    "shaved ice": ("shaved ice", "snow cone", "ice"),
+    "donuts": ("donut", "doughnut"),
+    "donut": ("donut", "doughnut"),
+    "doughnuts": ("donut", "doughnut"),
+    "greek": ("greek", "gyro", "mediterranean", "kebab"),
+    "gyros": ("gyro", "greek", "mediterranean"),
+    "mediterranean": ("mediterranean", "greek", "gyro", "kebab"),
+    "indian": ("indian", "curry", "tandoor"),
+    "vietnamese": ("pho", "vietnam"),
+    "pho": ("pho", "vietnam"),
+    "korean": ("korean",),
+    "hawaiian": ("hawaiian", "poke", "aloha"),
+    "poke": ("poke", "hawaiian"),
+    "fish and chips": ("fish", "chips", "cod"),
+    "wine": ("wine", "vino", "cellar"),
+    "wine bar": ("wine", "vino", "cellar"),
+    "winery": ("wine", "vino", "cellar"),
+    "cocktails": ("cocktail", "lounge", "mixology"),
+    "cocktail bar": ("cocktail", "lounge", "mixology"),
+    "sports bar": ("sports bar", "sports grill", "wing"),
+    "vegan": ("vegan", "vegetarian", "plant based"),
+    "vegetarian": ("vegetarian", "vegan", "plant based"),
+    "smoothies": ("smoothie", "juice", "acai"),
+    "smoothie": ("smoothie", "juice", "acai"),
+    "juice bar": ("juice", "smoothie", "acai"),
+    "food truck": ("food truck",),
+    "food trucks": ("food truck",),
+    "catering": ("catering", "caterer"),
+    "caterer": ("catering", "caterer"),
 }
 
 # Cuisine subgroups that map to a subcategory chip rather than a name token.
@@ -216,6 +492,26 @@ CUISINE_TO_SUBCAT: dict[str, str] = {
     "happy hour": "bars-breweries",
     "quick bites": "quick-bites",
     "quick bite": "quick-bites",
+    # 2026-06-11 expansion
+    "sandwich": "quick-bites",
+    "sandwiches": "quick-bites",
+    "deli": "quick-bites",
+    "sub shop": "quick-bites",
+    "ice cream": "quick-bites",
+    "donuts": "cafes-coffee",
+    "donut": "cafes-coffee",
+    "doughnuts": "cafes-coffee",
+    "smoothies": "cafes-coffee",
+    "smoothie": "cafes-coffee",
+    "juice bar": "cafes-coffee",
+    "wine": "bars-breweries",
+    "wine bar": "bars-breweries",
+    "winery": "bars-breweries",
+    "cocktails": "bars-breweries",
+    "cocktail bar": "bars-breweries",
+    "sports bar": "bars-breweries",
+    "food truck": "quick-bites",
+    "food trucks": "quick-bites",
 }
 
 
@@ -323,4 +619,17 @@ SYMPTOM_MAP: dict[str, SymptomRoute] = {
     "eye exam": SymptomRoute(("optom", "eye", "vision")),
     "prescription": SymptomRoute(("pharmacy", "drug")),
     "refill": SymptomRoute(("pharmacy", "drug")),
+    # 2026-06-11 expansion: still listing-only, still conservative.
+    "stitches": SymptomRoute(("urgent", "walk-in", "walk in")),
+    "sprained ankle": SymptomRoute(("urgent", "walk-in", "walk in")),
+    "sprain": SymptomRoute(("urgent", "walk-in", "walk in")),
+    "pink eye": SymptomRoute(("urgent", "walk-in", "walk in")),
+    "flu shot": SymptomRoute(("pharmacy", "drug")),
+    "vaccine": SymptomRoute(("pharmacy", "drug")),
+    "vaccination": SymptomRoute(("pharmacy", "drug")),
+    "tooth hurts": SymptomRoute(("dental", "dentist")),
+    "cracked tooth": SymptomRoute(("dental", "dentist")),
+    "sports physical": SymptomRoute(("clinic", "urgent", "medical")),
+    "blood work": SymptomRoute(("lab", "clinic")),
+    "lab work": SymptomRoute(("lab", "clinic")),
 }

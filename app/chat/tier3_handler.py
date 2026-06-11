@@ -320,10 +320,19 @@ def answer_with_tier3(
         # the cache key by history so first-turn cache entries stay shared and
         # history-bearing turns never serve a history-blind cached reply.
         cache_context["_history"] = hashlib.sha256(history_block.encode("utf-8")).hexdigest()[:16]
-    cache_key = make_cache_key(query, cache_context)
+    # 2026-06-11 (CHAT_DEEP_DIVE §1D): scope the cache to the classified
+    # intent — the same text under a different sub_intent/entity must never
+    # serve the other's cached answer. Keyed on the NORMALIZED query so
+    # courtesy variants ("... in lake havasu", "hey hava ...") fold to one
+    # entry. One-time cache turnover on deploy (7-day TTL would have cycled
+    # the rows anyway).
+    cache_context["_sub_intent"] = intent_result.sub_intent or ""
+    cache_context["_entity"] = (intent_result.entity or "").strip().lower()
+    nq_for_cache = (intent_result.normalized_query or "").strip() or query
+    cache_key = make_cache_key(nq_for_cache, cache_context)
     t_lookup_start = time.perf_counter()
     cached_response, precomputed_embedding = cache_lookup_with_embedding(
-        db, cache_key, normalized_query=query
+        db, cache_key, normalized_query=nq_for_cache
     )
     lookup_ms = int((time.perf_counter() - t_lookup_start) * 1000)
     if telemetry is not None:
@@ -433,7 +442,7 @@ def answer_with_tier3(
             _store_cache_in_background,
             SessionLocal,
             cache_key,
-            query,
+            nq_for_cache,
             cache_context,
             text_for_cache,
             precomputed_embedding,
@@ -442,7 +451,7 @@ def answer_with_tier3(
         cache_store_with_embedding(
             db,
             cache_key,
-            query,
+            nq_for_cache,
             cache_context,
             text_for_cache,
             tier_used="tier3",

@@ -63,7 +63,13 @@ def test_tier3_handler_populates_telemetry_on_cache_hit(
     from app.core.timezone import now_lake_havasu
 
     query = "b3 telemetry test query"
+    # 2026-06-11 (CHAT_DEEP_DIVE §1D): the handler now scopes the cache key on
+    # sub_intent + entity and keys on the normalized query, so the seeded
+    # context must mirror what answer_with_tier3 builds for the lookup to hit
+    # (intent below: sub_intent="open_ended", entity=None -> "").
     cache_context = {"_today": now_lake_havasu().date().isoformat()}
+    cache_context["_sub_intent"] = "open_ended"
+    cache_context["_entity"] = ""
     cache_key = make_cache_key(query, cache_context)
     llm_cache.store_with_embedding(
         db_session,

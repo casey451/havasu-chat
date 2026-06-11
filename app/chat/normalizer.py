@@ -130,6 +130,12 @@ _SPELL_ALIASES: dict[str, str] = {
     "landscapper": "landscaper",
     "gymn": "gym",
     "salaon": "salon",
+    # 2026-06-11 expansion (new trade vocabulary)
+    "detialing": "detailing",
+    "laundrymat": "laundromat",
+    "windsheild": "windshield",
+    "grommer": "groomer",
+    "loksmith": "locksmith",
 }
 
 # Filler/function words dropped from the vocab so a typo never "corrects" to one.
@@ -233,6 +239,25 @@ def spell_correct(text: str) -> str:
     return " ".join(corrected) if corrected != tokens else text
 
 
+@lru_cache(maxsize=4096)
+def _normalize_cached(query: str) -> str:
+    """Memoized body of :func:`normalize`.
+
+    2026-06-11 (intent-efficiency pass): one chat turn runs ``normalize`` on
+    the SAME raw string four-to-six times (router, classifier, entity matcher,
+    intent layer, leaf routing). The function is pure (input string + static
+    vocab), so an lru_cache turns every repeat into a dict hit. Tests that
+    mutate the dictionaries can call :func:`clear_normalize_cache`.
+    """
+    s = query.strip().lower()
+    for pattern, repl in _CONTRACTIONS:
+        s = pattern.sub(repl, s)
+    s = _strip_edge_punct_ws(s)
+    s = re.sub(r"\s+", " ", s).strip()
+    s = spell_correct(s)
+    return s
+
+
 def normalize(query: str) -> str:
     """Return a normalized query string for routing.
 
@@ -246,13 +271,13 @@ def normalize(query: str) -> str:
     """
     if not query:
         return ""
-    s = query.strip().lower()
-    for pattern, repl in _CONTRACTIONS:
-        s = pattern.sub(repl, s)
-    s = _strip_edge_punct_ws(s)
-    s = re.sub(r"\s+", " ", s).strip()
-    s = spell_correct(s)
-    return s
+    return _normalize_cached(query)
+
+
+def clear_normalize_cache() -> None:
+    """Reset the normalize memo + spell vocab (tests that mutate the dicts)."""
+    _normalize_cached.cache_clear()
+    _spell_vocab.cache_clear()
 
 
 # ---------------------------------------------------------------------------
