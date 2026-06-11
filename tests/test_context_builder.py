@@ -11,7 +11,12 @@ from sqlalchemy import delete
 from sqlalchemy.exc import ResourceClosedError
 from sqlalchemy.orm import Session
 
-from app.chat.context_builder import MAX_CONTEXT_WORDS, build_context_for_tier3
+from app.chat.context_builder import (
+    MAX_CONTEXT_WORDS,
+    MAX_STANDALONE_EVENTS,
+    build_context_and_rows_for_tier3,
+    build_context_for_tier3,
+)
 from app.chat.intent_classifier import IntentResult
 from app.db.database import SessionLocal
 from app.db.models import (
@@ -355,3 +360,127 @@ def test_when_no_active_includes_verified_fallback_slice(isolated_catalog: Sessi
     db.flush()
     ctx = build_context_for_tier3("open ended", _intent(entity=None), db)
     assert ctx.count("Provider:") == 10
+
+
+# --- standalone events in Tier-3 context (hunt 2026-06-10 §1 item 1) ---------
+
+
+def _standalone_event(title: str, on: date, **kw) -> Event:
+    return Event(
+        title=title,
+        normalized_title=title.lower(),
+        date=on,
+        start_time=kw.pop("start_time", time(18, 0)),
+        location_name=kw.pop("location_name", "City Park"),
+        location_normalized="city park",
+        description="Twenty chars minimum ev.",
+        status=kw.pop("status", "live"),
+        **kw,
+    )
+
+
+def _seed_one_provider(db: Session) -> Provider:
+    p = Provider(
+        provider_name="Snapshot Biz",
+        category="fun",
+        verified=True,
+        draft=False,
+        is_active=True,
+    )
+    db.add(p)
+    db.flush()
+    return p
+
+
+def test_standalone_event_included_with_compact_row(isolated_catalog: Session) -> None:
+    db = isolated_catalog
+    _seed_one_provider(db)
+    on = date.today() + timedelta(days=3)
+    db.add(_standalone_event("Sunset Concert", on))
+    db.flush()
+    ctx, rows = build_context_and_rows_for_tier3("events this weekend?", _intent(), db)
+    assert "Local events (standalone listings" in ctx
+    assert f"Event: Sunset Concert · {on.isoformat()} 18:00 · City Park" in ctx
+    ev_rows = [r for r in rows if r.get("type") == "event"]
+    assert any(r["name"] == "Sunset Concert" for r in ev_rows)
+
+
+def test_standalone_past_event_excluded(isolated_catalog: Session) -> None:
+    db = isolated_catalog
+    _seed_one_provider(db)
+    db.add(_standalone_event("Last Month Market", date.today() - timedelta(days=30)))
+    db.flush()
+    ctx = build_context_for_tier3("events?", _intent(), db)
+    assert "Last Month Market" not in ctx
+
+
+def test_standalone_nonlive_event_excluded(isolated_catalog: Session) -> None:
+    db = isolated_catalog
+    _seed_one_provider(db)
+    db.add(_standalone_event("Draft Fest", date.today() + timedelta(days=4), status="cancelled"))
+    db.flush()
+    ctx = build_context_for_tier3("events?", _intent(), db)
+    assert "Draft Fest" not in ctx
+
+
+def test_multiday_standalone_event_spanning_today_included(isolated_catalog: Session) -> None:
+    db = isolated_catalog
+    _seed_one_provider(db)
+    db.add(
+        _standalone_event(
+            "Balloon Festival",
+            date.today() - timedelta(days=5),
+            end_date=date.today() + timedelta(days=5),
+        )
+    )
+    db.flush()
+    ctx = build_context_for_tier3("anything fun today?", _intent(), db)
+    assert "Balloon Festival" in ctx
+
+
+def test_standalone_events_capped(isolated_catalog: Session) -> None:
+    db = isolated_catalog
+    _seed_one_provider(db)
+    for i in range(MAX_STANDALONE_EVENTS + 3):
+        db.add(_standalone_event(f"EvtCap{i:02d}", date.today() + timedelta(days=2 + i)))
+    db.flush()
+    ctx = build_context_for_tier3("events?", _intent(), db)
+    assert "EvtCap00" in ctx
+    assert f"EvtCap{MAX_STANDALONE_EVENTS - 1:02d}" in ctx
+    assert f"EvtCap{MAX_STANDALONE_EVENTS:02d}" not in ctx
+
+
+def test_events_only_catalog_still_lists_events(isolated_catalog: Session) -> None:
+    db = isolated_catalog
+    on = date.today() + timedelta(days=3)
+    db.add(_standalone_event("Orphan Regatta", on))
+    db.flush()
+    ctx, rows = build_context_and_rows_for_tier3("events this weekend?", _intent(), db)
+    assert "Orphan Regatta" in ctx
+    assert "do not invent businesses" in ctx
+    assert [r["name"] for r in rows if r.get("type") == "event"] == ["Orphan Regatta"]
+
+
+def test_empty_catalog_keeps_conservative_message(isolated_catalog: Session) -> None:
+    db = isolated_catalog
+    ctx, rows = build_context_and_rows_for_tier3("events?", _intent(), db)
+    assert ctx == (
+        "Context: No verified provider rows are available in the local catalog yet. "
+        "Answer conservatively and do not invent businesses or events."
+    )
+    assert rows == []
+
+
+def test_provider_attached_event_not_duplicated_as_standalone(
+    isolated_catalog: Session,
+) -> None:
+    db = isolated_catalog
+    p = _seed_one_provider(db)
+    db.add(
+        _standalone_event("Attached Gala", date.today() + timedelta(days=4), provider_id=p.id)
+    )
+    db.flush()
+    ctx = build_context_for_tier3("events?", _intent(), db)
+    assert ctx.count("Attached Gala") == 1
+    assert "Upcoming event: Attached Gala" in ctx
+    assert "Event: Attached Gala ·" not in ctx
