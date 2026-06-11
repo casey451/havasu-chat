@@ -63,6 +63,15 @@ def test_legacy_host_redirect_preserves_query(client: TestClient) -> None:
     assert r.headers["location"] == "https://askhava.com/chat?q=plumbers"
 
 
+def test_www_host_301s_to_apex(client: TestClient) -> None:
+    """www.askhava.com is a legacy alias — 301 to the apex, same path + query."""
+    r = client.get(
+        "/gas?x=1", headers={"host": "www.askhava.com"}, follow_redirects=False
+    )
+    assert r.status_code == 301
+    assert r.headers["location"] == "https://askhava.com/gas?x=1"
+
+
 def test_legacy_host_post_gets_method_preserving_308(client: TestClient) -> None:
     r = client.post(
         "/api/chat", headers={"host": _LEGACY}, follow_redirects=False, json={}
