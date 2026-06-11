@@ -1,10 +1,10 @@
 """C3 conversation restore — history endpoint, session rehydration, prompt block.
 
 The in-memory session dict dies with the process; chat_logs already persists
-one row per assistant turn. C3 reads that back three ways: GET
-/api/chat/history for the frontend thread, rehydrate_session_from_logs for
-pronoun follow-ups across restarts, and format_history_block for the Tier-3
-prompt.
+one row per assistant turn. C3 reads that back three ways: the v1 GET
+/api/chat/history (master spec §4.2, extended additively with ``id`` +
+``query``) for the frontend thread, rehydrate_session_from_logs for pronoun
+follow-ups across restarts, and format_history_block for the Tier-3 prompt.
 """
 
 from __future__ import annotations
@@ -66,34 +66,47 @@ def client() -> TestClient:
     return TestClient(app)
 
 
-# --- GET /api/chat/history ----------------------------------------------------
+# --- GET /api/chat/history (v1, master spec §4.2 — C3 additive fields) --------
 
 
-def test_history_returns_last_turns_oldest_first(db, client) -> None:
+def test_history_messages_carry_query_and_id_oldest_first(db, client) -> None:
     sid = f"{_SID_PREFIX}{uuid4().hex[:12]}"
     for n in range(8):
         _seed_turn(db, sid, n)
     db.commit()
-    r = client.get("/api/chat/history", params={"session_id": sid, "limit": 6})
+    r = client.get("/api/chat/history", params={"session_id": sid, "limit": 200})
     assert r.status_code == 200
     body = r.json()
     assert body["session_id"] == sid
-    queries = [t["query"] for t in body["turns"]]
-    assert queries == [f"query {n}" for n in range(2, 8)]  # last 6, oldest first
-    assert all(t["chat_log_id"] and t["response"] for t in body["turns"])
+    msgs = body["messages"]
+    assert [m["query"] for m in msgs] == [f"query {n}" for n in range(8)]  # oldest first
+    assert all(m["id"] and m["content"] and m["role"] == "assistant" for m in msgs)
 
 
-def test_history_excludes_other_sessions_and_user_rows(db, client) -> None:
+def test_history_excludes_other_sessions(db, client) -> None:
     sid = f"{_SID_PREFIX}{uuid4().hex[:12]}"
     other = f"{_SID_PREFIX}{uuid4().hex[:12]}"
     _seed_turn(db, sid, 0)
-    _seed_turn(db, sid, 1, role="user")
-    _seed_turn(db, other, 2)
+    _seed_turn(db, other, 1)
     db.commit()
     r = client.get("/api/chat/history", params={"session_id": sid})
-    assert r.status_code == 200
-    queries = [t["query"] for t in r.json()["turns"]]
-    assert queries == ["query 0"]
+    assert [m["query"] for m in r.json()["messages"]] == ["query 0"]
+
+
+def test_history_includes_user_rows_with_role(db, client) -> None:
+    # Legacy mixed-role sessions stay representable; the C3 frontend filters
+    # to role == "assistant" client-side.
+    sid = f"{_SID_PREFIX}{uuid4().hex[:12]}"
+    _seed_turn(db, sid, 0, role="user")
+    _seed_turn(db, sid, 1)
+    db.commit()
+    roles = [
+        m["role"]
+        for m in client.get(
+            "/api/chat/history", params={"session_id": sid}
+        ).json()["messages"]
+    ]
+    assert roles == ["user", "assistant"]
 
 
 def test_history_unknown_session_is_empty(client) -> None:
@@ -101,15 +114,14 @@ def test_history_unknown_session_is_empty(client) -> None:
         "/api/chat/history", params={"session_id": f"{_SID_PREFIX}{uuid4().hex[:12]}"}
     )
     assert r.status_code == 200
-    assert r.json()["turns"] == []
+    assert r.json()["messages"] == []
 
 
 def test_history_validates_params(client) -> None:
     assert client.get("/api/chat/history").status_code == 422
-    assert client.get("/api/chat/history", params={"session_id": "short"}).status_code == 422
     sid = f"{_SID_PREFIX}{uuid4().hex[:12]}"
     assert (
-        client.get("/api/chat/history", params={"session_id": sid, "limit": 50}).status_code
+        client.get("/api/chat/history", params={"session_id": sid, "limit": 500}).status_code
         == 422
     )
 
