@@ -1,7 +1,20 @@
 {% extends "desert_base.html" %}
 {% block title %}Claim your listing — Ask Hava{% endblock %}
 {% block meta_description %}Claim your Lake Havasu business listing on Ask Hava for free — unlock your full profile (photos, hours, menu, links) and the verified mark.{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_portal.css">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_portal.css">
+  <style>
+    /* UX-3: business-name autocomplete on the claim page. Scoped, tiny, no new
+       CSS file. The dropdown is progressive enhancement — hidden without JS. */
+    .dp-search-wrap{position:relative;max-width:560px}
+    .dp-suggest{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;
+      background:#fff;border:1px solid rgba(0,0,0,.12);border-radius:12px;
+      box-shadow:0 12px 30px rgba(0,0,0,.14);overflow:hidden;margin:0;padding:0;list-style:none}
+    .dp-suggest-item{display:flex;flex-direction:column;gap:2px;padding:10px 14px;
+      text-decoration:none;color:inherit}
+    .dp-suggest-item:hover,.dp-suggest-item:focus{background:#fbf4e6;outline:none}
+    .dp-suggest-name{font-weight:600}
+    .dp-suggest-meta{font-size:.82rem;opacity:.7;text-transform:capitalize}
+  </style>{% endblock %}
 
 {% block content %}
   <section class="dp-hero">
@@ -11,15 +24,23 @@
       {# "enriched" is a database word (copy audit §3) — the product name in
          products.py keeps it as the one brand usage. #}
       <p class="sub" style="margin-top:22px;font-size:clamp(16px,1.6vw,19px);font-weight:500;max-width:52ch">Claiming is free. It unlocks your full profile — photos, hours,
-        menu and links — and the verified mark. Find your business below, then tap
-        <strong>&ldquo;Claim this listing&rdquo;</strong> on its page.</p>
+        menu and links — and the verified mark. Search your business name below, then
+        open its page and tap <strong>&ldquo;Claim this listing&rdquo;</strong>.</p>
 
-      <form class="dp-askbar" action="/chat" method="get" role="search" aria-label="Find your business" style="margin-top:28px">
-        <input name="q" type="text" placeholder="Your business name" aria-label="Find your business">
-        <button class="d-btn d-btn--solid" type="submit">Find it
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        </button>
-      </form>
+      {# Progressive enhancement: with JS, typing shows live business matches that
+         link straight to each listing's page. Without JS, the form still submits
+         (current behavior) and the browse doors below are the fallback. #}
+      <div class="dp-search-wrap">
+        <form class="dp-askbar" action="/chat" method="get" role="search" aria-label="Find your business" style="margin-top:28px">
+          <input id="claim-search-q" name="q" type="text" placeholder="Your business name"
+                 aria-label="Find your business" autocomplete="off"
+                 aria-controls="claim-search-results" aria-expanded="false">
+          <button class="d-btn d-btn--solid" type="submit">Find it
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </form>
+        <div id="claim-search-results" class="dp-suggest" role="listbox" aria-label="Matching businesses" hidden></div>
+      </div>
     </div>
   </section>
 
@@ -38,4 +59,75 @@
     </div>
     <p class="d-muted" style="margin-top:22px;font-size:.9rem;opacity:.75">A real person reviews each claim before anything changes — that's the human gate that keeps the directory trustworthy.</p>
   </section>
+
+  <script>
+    /* UX-3 claim-page autocomplete. Reuses /api/search/suggestions, keeps only
+       commercial entities, and links each match to its listing page (where the
+       "Claim this listing" CTA resolves the correct slug). Names are inserted
+       via textContent — never innerHTML — so business names can't inject markup. */
+    (function () {
+      var input = document.getElementById("claim-search-q");
+      var box = document.getElementById("claim-search-results");
+      if (!input || !box) return;
+      var timer = null;
+
+      function clear() {
+        box.textContent = "";
+        box.hidden = true;
+        input.setAttribute("aria-expanded", "false");
+      }
+
+      function render(items) {
+        box.textContent = "";
+        if (!items.length) { clear(); return; }
+        items.forEach(function (r) {
+          var a = document.createElement("a");
+          a.className = "dp-suggest-item";
+          a.setAttribute("role", "option");
+          a.href = r.url;
+          var name = document.createElement("span");
+          name.className = "dp-suggest-name";
+          name.textContent = r.name;
+          a.appendChild(name);
+          if (r.subcategory) {
+            var meta = document.createElement("span");
+            meta.className = "dp-suggest-meta";
+            meta.textContent = String(r.subcategory).replace(/_/g, " ");
+            a.appendChild(meta);
+          }
+          box.appendChild(a);
+        });
+        box.hidden = false;
+        input.setAttribute("aria-expanded", "true");
+      }
+
+      function search(q) {
+        fetch("/api/search/suggestions?q=" + encodeURIComponent(q), {
+          headers: { Accept: "application/json" }
+        })
+          .then(function (res) { return res.ok ? res.json() : []; })
+          .then(function (rows) {
+            var commercial = (rows || []).filter(function (r) {
+              return r && r.type === "commercial";
+            }).slice(0, 8);
+            render(commercial);
+          })
+          .catch(clear);
+      }
+
+      input.addEventListener("input", function () {
+        var q = input.value.trim();
+        clearTimeout(timer);
+        if (q.length < 2) { clear(); return; }
+        timer = setTimeout(function () { search(q); }, 180);
+      });
+
+      document.addEventListener("click", function (e) {
+        if (e.target !== input && !box.contains(e.target)) clear();
+      });
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") clear();
+      });
+    })();
+  </script>
 {% endblock %}
