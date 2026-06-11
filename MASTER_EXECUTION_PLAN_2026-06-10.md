@@ -67,14 +67,24 @@ C=25/m≈4.47 decided, WS-4 queue sized 377+976, spec §4 ranges validated again
 counts) · Track C worktree (prompt ready) · Track D worktree (prompt ready). All
 unblocked — merges are done.
 
-**B1+B2 ✅ IMPLEMENTED (late 06-10, Cowork session in the main checkout — single
-session, no parallel git):** dedupe resolutions table + multi-location/parent-child
-paths + queue persistence + merge-301/place_id-move fixes + provider-level ingest
-gate + batch place_id script · WS-2 Bayesian C=25 live-m at all sort sites (hard
-review tier retired) · WS-4 writer fix + `scripts/fix_address_quality.py` + portal
-address-flags queue. On `feat/track-b-dedupe-ranking`, awaiting Casey's local
-pytest+ruff → commit → PR (body: `docs/PR_TRACK_B_B1_B2_2026-06-10.md`). Remaining
-Track B: WS-5 zones · B3 taxonomy phases · B4 bug batch.
+**B1+B2 ✅ SHIPPED + LIVE (late 06-10 → early 06-11, Cowork-executed, Casey-gated):
+#248 #249 #250 all merged, deployed, live-verified.** B1: dedupe resolutions table
++ multi-location/parent-child paths + queue persistence + merge-301/place_id-move
+fixes + provider-level ingest gate + batch place_id script (prod dry-run: 0 pairs,
+as predicted). B2: WS-2 Bayesian C=25 live-m at all sort sites (hard review tier
+retired) · WS-4 shipped AND prod data passes applied (run 1: 110 addresses + 373
+zips; precision patch #249 killed the 268 street-name false positives; run 2: 106
+pipe-seam fixes, 0 holds — snapshots at repo root). **Copy audit 2026-06-10 also
+shipped in #249/#250** (hero B template default, /sponsor teaser, jargon sweep,
+voice fixes, Featured row gated on sold inventory, `docs/COPY_VOICE.md`).
+**Uncommitted on disk (next commit):** review-excerpt recency ordering (audit §5b)
++ `scripts/check_taxonomy_anchors.py` (§6.1 phase gate, tested) + this status
+block. **Casey-only leftovers:** unset `HOME_HERO_HEADLINE` (+eyebrow) on Railway
+so hero B renders · portal queues (17 T3 dedupe confirms → T2 phone → Address
+flags) · sponsors@ alias → one-line mailto swap. Hooks: `GIT_OPTIONAL_LOCKS=0`
+added to both graphify hooks after three stale-lock collisions. Remaining Track B:
+WS-5 zones (needs spec session) · B3 taxonomy phases (anchors checker ready) ·
+B4 bug batch.
 
 **C1 ✅ RUN (late 2026-06-10, on CC's CSV export):** 8.2% real miss rate (118/1,432
 turns, 31 HIGH). Top families: standalone events ~48 turns (pull into first C batch),
