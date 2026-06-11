@@ -36,6 +36,26 @@ sessions repeatedly moved git HEAD and tangled state. If another session may be
 active here, confirm it's stopped before doing git work. For unavoidable
 parallelism, use a separate `git worktree`, never the same checkout.
 
+## Sandbox (Cowork) sessions: the mount lies — hard rules (2026-06-10/11)
+Three parallel sandbox sessions (Tracks B, C, D) independently rediscovered the
+same failure modes in one night. They share ONE Linux VM (one small disk, one
+/tmp), and the virtiofs mount of this checkout is unreliable in both directions:
+- **Mount READS lie**: files modified during the VM's lifetime are served stale,
+  size-padded with trailing NULs, or truncated. A sandbox session "discovering"
+  corrupted/NUL'd files in this tree is usually describing its own mount view,
+  not the Windows disk. Verify via Windows-side tools (Read/pytest/CI) before
+  alarming anyone.
+- **Mount WRITES corrupt for real**: bash/python writes through the mount have
+  silently truncated files ON DISK (trades.py lost its final bytes). Never
+  write repo files via the mount shell; use the Windows-side file tools only.
+- **Never run git against this checkout from a sandbox**: stale reads mean git
+  would hash and commit garbage, and lock files race Casey's own commands
+  (.git/index.lock, config.lock — three collisions in one night). Working
+  patterns that survived end-to-end: Casey runs all git in his terminal; or an
+  isolated in-sandbox clone with `--separate-git-dir` off-mount handed back as
+  git bundles (Track D); fresh content travels INTO a sandbox via a newly
+  created zip of the tree (new files propagate; modified ones don't).
+
 ## Backstop (recommended, ask Casey to enable)
 GitHub branch protection on `main`: require a PR + review, block direct pushes.
 That makes the "never push to main" rule physically enforced, not just honored —
