@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import secrets
 
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
@@ -57,4 +58,4 @@ def verify_admin_cookie(value: str | None) -> bool:
 
 
 def admin_password_ok(password: str) -> bool:
-    return password.strip() == _admin_password_from_env()
+    return secrets.compare_digest(password.strip(), _admin_password_from_env())

@@ -54,6 +54,15 @@ class EventIngestClient(BaseIngestClient):
         """GET URL as text with with_retry envelope."""
 
         def _inner() -> str:
+            from app.contrib.url_fetcher import is_blocked_target
+
+            # SSRF guard (audit L1/L2): reject detail URLs parsed from remote
+            # vendor content that resolve to private/reserved hosts before we
+            # connect. Initial-URL check only — full per-redirect validation
+            # would need the manual-redirect loop used in url_fetcher.
+            _blocked, _reason = is_blocked_target(url)
+            if _blocked:
+                raise RuntimeError(f"blocked_ssrf:{_reason}:{url}")
             c = client
             owns = False
             if c is None:

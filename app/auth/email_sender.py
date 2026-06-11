@@ -35,6 +35,10 @@ _DEV_MODE_TRUTHY = frozenset({"1", "true", "yes", "on"})
 
 
 def _dev_mode_enabled() -> bool:
+    # Never enable dev mode in prod regardless of AUTH_DEV_MODE — dev mode skips
+    # the real Resend send and logs the plaintext magic-link token at INFO.
+    if (os.environ.get("RAILWAY_ENVIRONMENT") or "").strip():
+        return False
     v = (os.environ.get("AUTH_DEV_MODE") or "").strip().lower()
     return v in _DEV_MODE_TRUTHY
 

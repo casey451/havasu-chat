@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.admin.auth import COOKIE_NAME, verify_admin_cookie
 from app.admin.nav_html import admin_phase5_nav_html
+from app.admin.url_safety import safe_href
 from app.contrib.approval_service import (
     approve_contribution_as_event,
     approve_contribution_as_program,
@@ -506,7 +507,7 @@ def register_contribution_html_routes(router: APIRouter) -> None:
         )
         src_url = c.source_url or ""
         src_line = (
-            f'<a href="{_esc(src_url)}" target="_blank" rel="noopener noreferrer">{_esc(src_url)}</a>'
+            f'<a href="{_esc(safe_href(src_url))}" target="_blank" rel="noopener noreferrer">{_esc(src_url)}</a>'
             if src_url
             else "—"
         )

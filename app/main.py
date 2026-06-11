@@ -32,11 +32,13 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.admin.provider_approval import router as admin_provider_approval_router
 from app.admin.provider_merge_review import router as admin_provider_merge_review_router
 from app.admin.router import router as admin_router
 from app.admin.sponsor_surface import merchant_upgrade_router
+from app.admin.url_safety import safe_href
 from app.admin.v1_overview import router as admin_v1_overview_router
 from app.admin_portal.router import portal_router as admin_portal_router
 from app.api.routes.account_alerts import router as account_alerts_router
@@ -501,6 +503,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers.setdefault(
                 "Cache-Control", "no-cache, max-age=0, must-revalidate"
             )
+            # Launch hardening (audit M1): start CSP in Report-Only to inventory
+            # inline scripts/styles + image sources, then rename the header to
+            # "Content-Security-Policy" to enforce. Report-Only blocks nothing.
+            response.headers.setdefault(
+                "Content-Security-Policy-Report-Only",
+                "default-src 'self'; img-src 'self' data: https:; "
+                "script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+                "frame-ancestors 'none'; base-uri 'self'",
+            )
         if request.url.scheme == "https":
             response.headers.setdefault(
                 "Strict-Transport-Security",
@@ -554,6 +565,18 @@ class CanonicalHostRedirectMiddleware(BaseHTTPMiddleware):
 # (Starlette middleware is LIFO): a legacy-host request redirects before any
 # session or header work happens.
 app.add_middleware(CanonicalHostRedirectMiddleware)
+
+# Host-header allowlist (audit L9) — defense-in-depth alongside the Starlette
+# 1.0.1 BadHost fix. OFF by default (no behavior change on deploy); enable by
+# setting TRUSTED_HOSTS (comma-separated) once confirmed, e.g.
+# "askhava.com,*.askhava.com,*.up.railway.app" — include the Railway host so
+# health probes and the legacy-host redirect still pass.
+_trusted_hosts_env = (os.getenv("TRUSTED_HOSTS") or "").strip()
+if _trusted_hosts_env:
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=[h.strip() for h in _trusted_hosts_env.split(",") if h.strip()],
+    )
 app.state.limiter = limiter
 
 
@@ -720,9 +743,13 @@ def _render_permalink_response(
     event_link_html = ""
     if event.event_url:
         escaped_url = html.escape(event.event_url)
+        # safe_href filters dangerous schemes (javascript:, data:) that html.escape
+        # alone allows through; event_url is scraped/unvalidated and this is a public
+        # page (audit M2, public extension).
+        safe_url = html.escape(safe_href(event.event_url))
         event_link_html = (
             f"<p><strong>Event Link:</strong> "
-            f'<a href="{escaped_url}" target="_blank" rel="noopener noreferrer">{escaped_url}</a></p>'
+            f'<a href="{safe_url}" target="_blank" rel="noopener noreferrer">{escaped_url}</a></p>'
         )
 
     tags_html = ""

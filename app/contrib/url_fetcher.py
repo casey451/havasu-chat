@@ -76,6 +76,11 @@ def _is_blocked_target(url: str) -> tuple[bool, str | None]:
     return False, None
 
 
+def is_blocked_target(url: str) -> tuple[bool, str | None]:
+    """Public alias for the SSRF private/reserved-host guard (reused by scrapers)."""
+    return _is_blocked_target(url)
+
+
 def _normalize_url(url: str) -> str:
     u = url.strip()
     if not u:
