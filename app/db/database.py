@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from collections.abc import Iterator
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -10,6 +11,10 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from app.bootstrap_env import ensure_dotenv_loaded
 
 ensure_dotenv_loaded()
+
+if TYPE_CHECKING:  # annotations only — keeps alembic out of import time
+    from alembic.config import Config
+    from sqlalchemy.engine import Engine
 
 _DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 _DATA_DIR.mkdir(exist_ok=True)
@@ -54,7 +59,7 @@ class Base(DeclarativeBase):
     pass
 
 
-def _assert_schema_at_head(cfg, *, bind=None) -> None:
+def _assert_schema_at_head(cfg: Config, *, bind: Engine | None = None) -> None:
     """OPS-5 (audit :195-198): verify the DB is at the migration head — never migrate.
 
     Raises ``RuntimeError`` on mismatch. ``bind`` defaults to the module engine;
