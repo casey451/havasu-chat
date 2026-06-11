@@ -16,7 +16,7 @@ def test_home_has_quick_intent_chips() -> None:
     assert r.status_code == 200
     body = r.text
     for href in (
-        "/chat?q=find+a+service",
+        'href="/chat"',
         '"/events-ui"',
         "/events-ui?view=week",
         "/categories/on-the-water",
