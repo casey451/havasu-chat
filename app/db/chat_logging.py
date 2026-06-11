@@ -102,3 +102,38 @@ def log_unified_route(
             pass
         logging.exception("unified route chat_logs insert failed")
         return None
+
+
+def recent_turns_for_session(db: Session, session_id: str, *, limit: int = 6) -> list[dict]:
+    """C3 conversation restore: last ``limit`` assistant turns, oldest first.
+
+    One chat_logs row per assistant turn (``normalized_query`` carries the
+    user's side). Never raises — restore and history-context are best-effort
+    features and must not take down the request path.
+    """
+    try:
+        from sqlalchemy import select
+
+        rows = list(
+            db.scalars(
+                select(ChatLog)
+                .where(ChatLog.session_id == session_id, ChatLog.role == "assistant")
+                .order_by(ChatLog.created_at.desc(), ChatLog.id.desc())
+                .limit(max(1, int(limit)))
+            ).all()
+        )
+        rows.reverse()
+        return [
+            {
+                "chat_log_id": r.id,
+                "query": r.normalized_query or "",
+                "response": r.message or "",
+                "tier_used": r.tier_used,
+                "entity_matched": r.entity_matched,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ]
+    except Exception:
+        logging.exception("chat_logging: recent_turns_for_session failed")
+        return []

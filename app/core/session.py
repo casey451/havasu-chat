@@ -342,3 +342,56 @@ def push_search_snapshot(session: SessionState) -> None:
     snap = copy.deepcopy(search["slots"])
     stack.clear()
     stack.append(snap)
+
+
+def rehydrate_session_from_logs(db: Any, session_id: str, session: SessionState) -> bool:
+    """C3: rebuild durable session hints from chat_logs after a restart.
+
+    The in-memory ``sessions`` dict dies with the process, but the hints it
+    needs are already persisted one row per assistant turn (``entity_matched``,
+    timestamps). When a known session_id arrives on a fresh process, read the
+    turn count and the most recent matched entity back instead of starting
+    blind — pronoun follow-ups ("are they open today?") keep working across
+    restarts and redeploys. Freshness still applies: the prior entity is
+    stamped with its real turn distance, so the existing ≤3-turn window in the
+    router decays it naturally. Never raises.
+    """
+    try:
+        from sqlalchemy import func, select
+
+        from app.db.models import ChatLog
+
+        total = (
+            db.scalar(
+                select(func.count())
+                .select_from(ChatLog)
+                .where(ChatLog.session_id == session_id, ChatLog.role == "assistant")
+            )
+            or 0
+        )
+        if not total:
+            return False
+        session["turn_number"] = int(total)
+        recent = list(
+            db.scalars(
+                select(ChatLog)
+                .where(ChatLog.session_id == session_id, ChatLog.role == "assistant")
+                .order_by(ChatLog.created_at.desc(), ChatLog.id.desc())
+                .limit(3)
+            ).all()
+        )
+        for idx, row in enumerate(recent):
+            name = (row.entity_matched or "").strip()
+            if name:
+                session["prior_entity"] = {
+                    "id": name,
+                    "name": name,
+                    "type": "provider",
+                    "turn_number": int(total) - idx,
+                }
+                break
+        session["last_activity_at"] = datetime.now(timezone.utc)
+        return True
+    except Exception:
+        logging.exception("session: rehydrate from chat_logs failed")
+        return False

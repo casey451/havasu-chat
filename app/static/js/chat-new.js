@@ -39,12 +39,16 @@
   }
 
   // ─────────── session ───────────
-  // Session ID survives back/forward but resets on hard reload. URL-bound
-  // so /chat?q=foo always starts a fresh conversation, but submitting from
-  // the same /chat keeps the same session.
+  // C3 conversation restore: the session id persists in sessionStorage so a
+  // reload of /chat restores the conversation (history fetched below). A
+  // /chat?q=foo visit still starts a fresh conversation; new tab = new
+  // session (sessionStorage is per-tab).
   const url = new URL(window.location.href);
   const initialQuery = url.searchParams.get("q");
-  const sessionId = makeSessionId();
+  const SID_KEY = "hava.chat.sid";
+  const storedSid = initialQuery ? null : readSessionItem(SID_KEY);
+  const sessionId = storedSid || makeSessionId();
+  writeSessionItem(SID_KEY, sessionId);
 
   // ─────────── DOM refs ───────────
   const thread = document.getElementById("thread");
@@ -1292,6 +1296,34 @@
   });
 
   // If the URL has ?q=…, fire it off on load.
+  // ─────────── C3: restore a reloaded conversation ───────────
+  // Best-effort: render the last few turns from the server so a hard reload
+  // doesn't wipe the thread. Components aren't persisted — restored turns
+  // show the voice text (with working feedback thumbs via chat_log_id).
+  async function restoreConversation() {
+    if (!storedSid) return;
+    try {
+      const resp = await fetch(
+        "/api/chat/history?session_id=" + encodeURIComponent(sessionId) + "&limit=24"
+      );
+      if (!resp.ok) return;
+      const data = await resp.json();
+      // v1 shape (master spec §4.2): {messages: [{role, content, query, id, …}]}.
+      // One assistant row per unified-router turn; keep the last 6 turns.
+      const turns = ((data && data.messages) || [])
+        .filter(function (m) { return m.role === "assistant"; })
+        .slice(-6);
+      for (const t of turns) {
+        if (t.query) appendUserTurn(t.query);
+        const turn = appendHavaTurn();
+        fillHavaTurn(turn, { response: t.content, chat_log_id: t.id });
+      }
+    } catch (_) {
+      // Restore is cosmetic — never block a fresh conversation.
+    }
+  }
+  restoreConversation();
+
   if (initialQuery && initialQuery.trim()) {
     submit(initialQuery);
   } else {
