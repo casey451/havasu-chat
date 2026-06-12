@@ -46,7 +46,7 @@ from app.providers.photo_urls import first_renderable_google_photo
 
 CATEGORY_LABELS: dict[str, str] = {
     "home-property-services": "Home & Property Services",
-    "health-wellness-care": "Health, Wellness & Care",
+    "health-wellness-care": "Health & Medical",
     "eat-drink": "Eat & Drink",
     "on-the-water": "On the Water",
     "auto-rv-fuel": "Auto, RV & Fuel",
@@ -55,14 +55,14 @@ CATEGORY_LABELS: dict[str, str] = {
     "lodging-vacation-rentals": "Lodging & Vacation Rentals",
     "pets": "Pets",
     "events": "Events",
-    "classes-sports-recreation": "Classes, Sports & Recreation",
+    "classes-sports-recreation": "Fitness, Sports & Classes",
     "public-civic-resources": "Public & Civic Resources",
     "professional-services": "Professional Services",
 }
 
 LEGACY_PROVIDER_CATEGORY_LABELS: dict[str, str] = {
     # Bucket A + widened catalog / places strings → display aligned to new taxonomy.
-    "health_medical": "Health, Wellness & Care",
+    "health_medical": "Health & Medical",
     "food_drink": "Eat & Drink",
     "food": "Eat & Drink",
     "restaurant": "Eat & Drink",
@@ -82,13 +82,13 @@ LEGACY_PROVIDER_CATEGORY_LABELS: dict[str, str] = {
     "veterinary": "Pets",
     "event_venue": "Events",
     "music": "Events",
-    "recreation": "Classes, Sports & Recreation",
-    "childcare_education": "Classes, Sports & Recreation",
-    "education": "Classes, Sports & Recreation",
-    "edu": "Classes, Sports & Recreation",
+    "recreation": "Fitness, Sports & Classes",
+    "childcare_education": "Fitness, Sports & Classes",
+    "education": "Fitness, Sports & Classes",
+    "edu": "Fitness, Sports & Classes",
     "religion_community": "Public & Civic Resources",
-    "fitness_sports": "Health, Wellness & Care",
-    "fitness": "Health, Wellness & Care",
+    "fitness_sports": "Health & Medical",
+    "fitness": "Health & Medical",
     "professional_services": "Professional Services",
     "beauty_personal_care": "Beauty & care",
     "real_estate": "Professional Services",

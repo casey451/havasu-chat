@@ -76,7 +76,7 @@ _SUBCATEGORIES: tuple[Subcategory, ...] = (
     Subcategory("markets", "Markets", "shopping", "Grocers and markets."),
     # -- Services (Storage lives here, per brief §2) --
     Subcategory("home-services", "Home Services", "services", "HVAC, plumbing, electrical, roofing, cleaning."),
-    Subcategory("auto", "Auto", "services", "Repair, body, tires, RV & boat."),
+    Subcategory("auto", "Auto", "services", "Repair, body, tires, RV & gas."),
     Subcategory("health-medical", "Health & Medical", "services", "Dental, vision, clinics, chiro."),
     Subcategory("professional", "Professional", "services", "Legal, insurance, real estate, financial."),
     Subcategory("pets", "Pets", "services", "Vets, grooming, boarding."),
@@ -417,7 +417,7 @@ SUBCATEGORY_TO_PRIMARY: dict[str, str] = {
     "golf": "outdoors-parks-trails",
     "disc-golf": "outdoors-parks-trails",
     "biking": "outdoors-parks-trails",
-    # Classes, Sports & Recreation
+    # Fitness, Sports & Classes
     "gyms": "classes-sports-recreation",
     "racquet-sports": "classes-sports-recreation",
     "martial-arts": "classes-sports-recreation",
@@ -432,7 +432,7 @@ SUBCATEGORY_TO_PRIMARY: dict[str, str] = {
     "home-services": "home-property-services",
     # Auto, RV & Fuel
     "auto": "auto-rv-fuel",
-    # Health, Wellness & Care
+    # Health & Medical
     "health-medical": "health-wellness-care",
     "beauty": "health-wellness-care",
     # Professional Services (legal/insurance/real-estate/financial/accounting).

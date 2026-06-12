@@ -658,23 +658,23 @@ def serve_family(request: Request, db: Session = Depends(get_db)) -> HTMLRespons
     return _serve_mode_landing(request, db, "family")
 
 
-# Label standardization (research report / fixlist §7.5): the /map category
-# scopes reuse legacy flat-bucket slugs whose CATEGORY_LABELS read differently
-# from the 15 directory department names users see everywhere else ("Auto, RV &
-# Fuel" vs "Auto, RV & Marine", "Classes, Sports & Recreation" vs "Fitness &
-# Wellness"). This presentation-only override aligns the map TAB LABELS to the
-# department names — the scope SLUGS are unchanged, so /api/map_data/{scope} and
-# map.js are untouched. (Full taxonomy unification stays in the rebuild
-# workstream; this is just the naming quick win.)
+# Label standardization (research report / fixlist §7.5 + taxonomy decisions
+# 2026-06-12): the /map scopes reuse the tier-1 slugs. As of the 2026-06-12
+# reconciliation, auto-rv-fuel ("Auto, RV & Fuel"), classes-sports-recreation
+# ("Fitness, Sports & Classes") and health-wellness-care ("Health & Medical")
+# now MATCH CATEGORY_LABELS — those rows are pass-through. The remaining
+# overrides (outdoors / shopping / lodging / public-civic) still carry the
+# shorter 15-department directory names pending the B3 rebuild. The scope SLUGS
+# are unchanged, so /api/map_data/{scope} and map.js are untouched.
 _MAP_SCOPE_LABELS: dict[str, str] = {
     "eat-drink": "Eat & Drink",
     "on-the-water": "On the Water",
     "outdoors-parks-trails": "Outdoors & Recreation",
-    "classes-sports-recreation": "Fitness & Wellness",
+    "classes-sports-recreation": "Fitness, Sports & Classes",
     "shopping-essentials": "Shopping & Retail",
     "home-property-services": "Home & Property Services",
     "health-wellness-care": "Health & Medical",
-    "auto-rv-fuel": "Auto, RV & Marine",
+    "auto-rv-fuel": "Auto, RV & Fuel",
     "lodging-vacation-rentals": "Lodging",
     "pets": "Pets",
     "public-civic-resources": "Community & Civic",
