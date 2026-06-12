@@ -119,7 +119,9 @@ body.ll-chat .thread {
   flex-direction: column;
   gap: 14px;
   margin-top: 20px;
-  padding-bottom: calc(var(--ll-bottomnav-clear) + 150px + env(safe-area-inset-bottom));
+  /* 1.8: reserve the actual composer height when JS measures it (chat-new.js sets
+     --composer-h); 150px stays as the no-JS fallback so behavior is unchanged. */
+  padding-bottom: calc(var(--ll-bottomnav-clear) + var(--composer-h, 150px) + env(safe-area-inset-bottom));
 }
 
 body.ll-chat .stuck-composer {

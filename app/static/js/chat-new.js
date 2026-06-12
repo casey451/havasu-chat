@@ -1329,4 +1329,16 @@
   } else {
     showEmptyState();
   }
+
+  // 1.8: reserve the composer's real height so the last turn always clears it.
+  (function syncComposerClearance(){
+    var composer = document.querySelector('.stuck-composer');
+    if (!composer) return;
+    var set = function(){
+      document.documentElement.style.setProperty('--composer-h', composer.offsetHeight + 'px');
+    };
+    set();
+    window.addEventListener('resize', set);
+    if (window.ResizeObserver) { new ResizeObserver(set).observe(composer); }
+  })();
 })();
