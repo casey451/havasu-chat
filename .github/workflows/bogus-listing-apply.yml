@@ -1,0 +1,89 @@
+name: bogus-listing-apply
+
+# One-click, approval-gated removal of bogus listings. This is the ONLY automated
+# path that writes to prod, and it is deliberately fenced:
+#   * manual trigger only (workflow_dispatch) — never scheduled, never on push
+#   * requires typing the confirm phrase DEACTIVATE as an input
+#   * runs in the `production-writes` Environment, so GitHub blocks the job until
+#     a required reviewer (Casey) approves it in the UI
+#   * it re-runs the READ-ONLY audit first, then deactivates ONLY the rows that
+#     audit marks `deactivate (is_active=False)` — i.e. genuine place-names and
+#     dead unclaimed rental units (high-confidence). Medium/manual-review rows
+#     are never touched here.
+#   * soft-deactivation only (is_active=False); it uploads an undo CSV so the
+#     whole run is reversible.
+#
+# ONE-TIME SETUP (Casey): GitHub repo -> Settings -> Environments -> New
+# environment named `production-writes` -> add yourself under "Required
+# reviewers". That switch is what makes every run pause for your approval.
+#
+# Reverse a run: download the `undo-deactivation` artifact, then locally:
+#   railway run python scripts/apply_bogus_deactivation.py \
+#       --reactivate-from undo_deactivation.csv --apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DEACTIVATE to confirm soft-deactivation of high-confidence bogus rows'
+        required: true
+        default: ''
+
+concurrency:
+  group: bogus-listing-apply
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Approval gate: job is held until a required reviewer approves this
+    # environment. Create it once (see header) with yourself as reviewer.
+    environment: production-writes
+    steps:
+      - name: Guard — confirm phrase
+        if: ${{ github.event.inputs.confirm != 'DEACTIVATE' }}
+        run: |
+          echo "::error::confirm input was '${{ github.event.inputs.confirm }}', expected 'DEACTIVATE'. Aborting before any write."
+          exit 1
+
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Audit (READ-ONLY) -> fresh flagged CSV
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python scripts/audit_bogus_listings.py --csv flagged_listings.csv \
+            | tee bogus_listing_audit_summary.txt
+
+      - name: Preview deactivation (DRY RUN — no writes)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/apply_bogus_deactivation.py --from flagged_listings.csv
+
+      - name: Apply soft-deactivation (reversible) + write undo CSV
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python scripts/apply_bogus_deactivation.py --from flagged_listings.csv \
+            --apply --undo-csv undo_deactivation.csv
+
+      - name: Upload undo list + flagged CSV
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: undo-deactivation
+          path: |
+            undo_deactivation.csv
+            flagged_listings.csv
+            bogus_listing_audit_summary.txt
+          if-no-files-found: warn
+          retention-days: 180
