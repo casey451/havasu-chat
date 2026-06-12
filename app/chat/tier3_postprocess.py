@@ -169,6 +169,27 @@ _USEFUL_CONTENT_RE = re.compile(
     r"@\w+",
 )
 
+# Grounding-scaffold leak: the LLM referring to its retrieval input ("the
+# provided rows do not include...", "based on the provided data/context"). The
+# dead giveaway is the word "rows" (the SQL result set) or "provided/given
+# data/context". High precision — legitimate copy never names the retrieval
+# substrate. (QA diagnostic 2026-06-12, P2-1)
+_SCAFFOLDING_LEAK_RE = re.compile(
+    r"(provided\s+rows?|"
+    r"the\s+rows?\s+(?:provided|above|listed|below|do\s+not|don'?t|do\b)|"
+    r"rows?\s+(?:provided|given|listed|available)|"
+    r"based\s+on\s+the\s+(?:provided\s+)?(?:rows?|data|context)|"
+    r"the\s+(?:data|context)\s+provided|"
+    r"don'?t\s+have\s+access\s+to\s+(?:the\s+)?(?:rows?|data|context)|"
+    r"in\s+the\s+provided\s+(?:rows?|data|context))",
+    re.IGNORECASE,
+)
+
+# Clean honest-gap fallback when the entire response was a scaffold leak.
+_SCAFFOLDING_FALLBACK = (
+    "I don't have that detail in the catalog yet. Add it at /contribute or share a link."
+)
+
 
 def _is_sentence_useful(sentence: str) -> bool:
     s = sentence.strip()
@@ -221,11 +242,21 @@ def strip_soft_suggest(text: str) -> str:
         out = pattern.sub(replacement, out)
     out = _normalize_whitespace(out)
 
-    # Pass 2: sentence-level drop for fragments left empty / contentless.
     sentences = _split_sentences(out)
+
+    # Pass 1.5: drop grounding-scaffold leak sentences ("the provided rows do
+    # not include ..."). If that empties the response, the whole thing was a
+    # leak -> return a clean honest gap rather than exposing the substrate.
+    non_leak = [s for s in sentences if not _SCAFFOLDING_LEAK_RE.search(s)]
+    leak_dropped = len(non_leak) != len(sentences)
+    if leak_dropped and not non_leak:
+        return _SCAFFOLDING_FALLBACK
+    sentences = non_leak
+
+    # Pass 2: sentence-level drop for fragments left empty / contentless.
     kept = [s for s in sentences if _is_sentence_useful(s)]
     if not kept:
-        # Don't strip the whole response to nothing — fall back to the
-        # phrase-stripped form even if no sentence passed the useful check.
-        return out
+        # Nothing useful remains. If we dropped a scaffold leak, return the
+        # clean gap; otherwise fall back to the phrase-stripped form unchanged.
+        return _SCAFFOLDING_FALLBACK if leak_dropped else out
     return _join_sentences(kept)
