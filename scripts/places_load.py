@@ -52,6 +52,9 @@ from app.contrib.ingest_reconciler import (  # noqa: E402
     log_ambiguous_reconcile,
     reconcile_hit,
 )
+from app.contrib.leaf_type_mapping import (  # noqa: E402
+    map_google_types_to_leaf_slug,
+)
 from app.contrib.scraper_ingest import decide_ingest  # noqa: E402
 from app.core.liveness import compute_liveness  # noqa: E402
 from app.db.database import SessionLocal  # noqa: E402
@@ -486,7 +489,13 @@ def _resolve_category_id(row: dict[str, Any], category_id_by_slug: dict[str, int
          contains a boat keyword, route to on-the-water. Catches Havasu
          boat dealers Google tags as ``car_dealer``.
 
-      2. **Types-map** (the existing layer) — ``map_google_types_to_slug_
+      1.5 **Leaf-map** — ``map_google_types_to_leaf_slug`` (single source of
+         truth, ``app/contrib/leaf_type_mapping.py``) routes a google type
+         straight to an A.3 *leaf* so a fresh scrape lands on the correct leaf
+         page. Its non-directory guardrail returns ``None`` for calendar-event
+         venue types (``event_venue`` …) so they never hit a directory leaf.
+
+      2. **Types-map** (legacy fallback) — ``map_google_types_to_slug_
          and_place_type`` consults the operator-maintained
          ``app/contrib/google_types_mapping.py`` table.
 
@@ -518,10 +527,28 @@ def _resolve_category_id(row: dict[str, Any], category_id_by_slug: dict[str, int
         if cat_id is not None:
             return cat_id
 
-    # Layer 2 — Google types[] -> Tier-1 slug (existing behavior).
     types = row.get("types") or []
     if not types and primary_type:
         types = [primary_type]
+
+    # Layer 1.5 — direct google-type -> A.3 leaf (app/contrib/leaf_type_mapping).
+    # Preferred over the legacy 13-category map (Layer 2) so a fresh scrape
+    # auto-files onto the correct *leaf* page, single-sourced and consistent.
+    # The non-directory guardrail keeps calendar-event venue types
+    # (``event_venue`` etc.) OFF every directory leaf — they belong to the
+    # events feed (entity_type='event'). This is the fix for the 2026-06-11
+    # ``event_venue`` -> Family Fun & Arcades misfile: returning ``None`` here
+    # leaves the row unmapped (operator-queue) instead of dropping an annual
+    # event onto an arcade leaf.
+    leaf_slug, non_directory = map_google_types_to_leaf_slug(list(types))
+    if non_directory:
+        return None
+    if leaf_slug is not None:
+        cat_id = category_id_by_slug.get(leaf_slug)
+        if cat_id is not None:
+            return cat_id
+
+    # Layer 2 — Google types[] -> Tier-1 slug (legacy fallback).
     slug, _ = map_google_types_to_slug_and_place_type(list(types))
     if slug is not None:
         return category_id_by_slug.get(slug)

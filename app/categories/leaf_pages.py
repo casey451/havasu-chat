@@ -35,8 +35,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
+from app.categories import cross_listing
 from app.categories import queries as cat_queries
 from app.db.models import Category, Entity, EntityCategory, Provider
 
@@ -172,16 +173,35 @@ def _leaf_entity_rows(db: Session, leaf_id: int) -> list[Entity]:
             EntityCategory.is_primary.is_(True),
             Entity.is_active.is_(True),
         )
-        .options(joinedload(Entity.location))
+        .options(
+            joinedload(Entity.location),
+            selectinload(Entity.contact_points),
+        )
         .limit(cat_queries._MATERIALIZE_CAP)
         .all()
     )
 
 
+def _place_website(entity: Entity) -> str:
+    """First website-shaped contact point for a Provider-less place entity.
+
+    A civic place (the Aquatic Center, a library) has no ``/provider/{slug}``
+    detail page but often has an official page (city Parks & Rec, etc.). When a
+    ``contact_points`` row carries a web URL, the place card links out to it
+    instead of rendering inert. Empty string when there is none."""
+    for cp in getattr(entity, "contact_points", None) or []:
+        if (getattr(cp, "kind", "") or "").strip().lower() in {"website", "web", "url"}:
+            val = (getattr(cp, "value", "") or "").strip()
+            if val:
+                return val
+    return ""
+
+
 def _place_card(entity: Entity) -> dict[str, Any]:
     """A listing card for a Provider-less place entity, built from its own
-    fields. ``slug`` is None so the template renders it non-linking — a place
-    like a trail or beach has no ``/provider/{slug}`` detail page. Same
+    fields. ``slug`` is None (no ``/provider/{slug}`` detail page); when the
+    entity has an official website (``contact_points``), ``website`` is set and
+    the card links OUT to it — otherwise it renders non-linking. Same
     "New / few reviews yet" state as a Provider with no Google rating."""
     loc = getattr(entity, "location", None)
     area = ""
@@ -189,6 +209,7 @@ def _place_card(entity: Entity) -> dict[str, Any]:
         area = (loc.district or loc.city or "").strip()
     return {
         "slug": None,
+        "website": _place_website(entity),
         "name": entity.name,
         "image_url": None,
         "neighborhood": area,
@@ -227,8 +248,64 @@ def leaf_listing(
 
     cards = [cat_queries._provider_card(db, p, now=now) for p in providers]
     cards += [_place_card(e) for e in place_entities]
-    total = len(providers) + len(place_entities)
+
+    # Curated hybrid cross-listings (e.g. "The Spot" on the arcade leaf as well
+    # as its primary restaurants leaf). Additive to the page, de-duplicated
+    # against what's already shown; empty unless explicitly curated.
+    shown_eids = provider_eids | {e.id for e in place_entities}
+    extra_cards, extra_providers = _cross_listed_cards(
+        db, leaf, now=now, exclude_entity_ids=shown_eids
+    )
+    cards += extra_cards
+    providers = providers + extra_providers
+
+    total = len(cards)
     return cards, total, providers
+
+
+def _cross_listed_cards(
+    db: Session, leaf: Leaf, *, now: datetime, exclude_entity_ids: set[str]
+) -> tuple[list[dict[str, Any]], list[Provider]]:
+    """Cards for entities curated to also appear on ``leaf`` (hybrid venues).
+
+    Returns ``([], [])`` immediately when the leaf has no curated cross-listings
+    (the common case — zero added DB cost). A cross-listed entity with an active
+    Provider renders the rich Provider card; otherwise a place card."""
+    slugs = cross_listing.cross_listed_slugs_for_leaf(leaf.slug)
+    if not slugs:
+        return [], []
+    try:
+        entities = (
+            db.query(Entity)
+            .filter(Entity.slug.in_(slugs), Entity.is_active.is_(True))
+            .options(
+                joinedload(Entity.location),
+                selectinload(Entity.contact_points),
+            )
+            .all()
+        )
+    except Exception:
+        return [], []
+    cards: list[dict[str, Any]] = []
+    providers: list[Provider] = []
+    for e in entities:
+        if e.id in exclude_entity_ids:
+            continue
+        prov = (
+            db.query(Provider)
+            .filter(
+                Provider.entity_id == e.id,
+                Provider.is_active.is_(True),
+                Provider.draft.is_(False),
+            )
+            .first()
+        )
+        if prov is not None:
+            cards.append(cat_queries._provider_card(db, prov, now=now))
+            providers.append(prov)
+        else:
+            cards.append(_place_card(e))
+    return cards, providers
 
 
 def leaf_renderable_count(db: Session, leaf: Leaf) -> int:
