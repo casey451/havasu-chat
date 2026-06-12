@@ -20,12 +20,14 @@ from __future__ import annotations
 
 # leaf slug -> entity slugs to ADDITIONALLY surface on that leaf's page.
 #
-# "The Spot - Pizza, Arcade & More" is a genuine hybrid: its primary leaf is
-# `restaurants` (so it owns one primary `entity_categories` link there), but it
-# is also an arcade. This surfaces the post-dedup survivor entity on the arcade
-# leaf as well, without touching its restaurants primary.
+# "The Spot" is a genuine hybrid: its primary leaf is `restaurants` (so it owns
+# one primary `entity_categories` link there), but it is also an arcade. This
+# surfaces it on the arcade leaf too, without touching its restaurants primary.
+# Keyed to the `the-spot` entity (Casey's 2026-06-12 straggler keep-decision:
+# the richer twin — 712 Google reviews + photos — over the duplicate
+# `the-spot-pizza-arcade-more`, which was deactivated).
 CROSS_LISTED_ENTITY_SLUGS: dict[str, frozenset[str]] = {
-    "family-fun-and-arcades": frozenset({"the-spot-pizza-arcade-more"}),
+    "family-fun-and-arcades": frozenset({"the-spot"}),
 }
 
 
