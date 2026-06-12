@@ -124,7 +124,11 @@ def _seed_leaf_with_providers(db: Session, *, dept_slug: str, leaf_slug: str,
 
 @pytest.fixture
 def seeded_leaves() -> Iterator[dict]:
-    """A gate-clearing leaf (3 providers) and a below-gate leaf (2)."""
+    """A gate-clearing leaf (3 listings) and an empty, sub-gate leaf (0).
+
+    With the publish gate at 1 (every category is its own indexable page), the
+    only below-gate state is a genuinely empty leaf, which still 404s.
+    """
     suf = uuid4().hex[:6]
     ship_dept = f"ship-dept-{suf}"
     ship_leaf = f"ship-leaf-{suf}"
@@ -134,7 +138,7 @@ def seeded_leaves() -> Iterator[dict]:
     with SessionLocal() as db:
         ship_names = _seed_leaf_with_providers(
             db, dept_slug=ship_dept, leaf_slug=ship_leaf, leaf_name="Plumbing",
-            n=leaf_pages.LEAF_PAGE_MIN_PROVIDERS)
+            n=3)
         thin_names = _seed_leaf_with_providers(
             db, dept_slug=thin_dept, leaf_slug=thin_leaf, leaf_name="Falconry",
             n=leaf_pages.LEAF_PAGE_MIN_PROVIDERS - 1)
@@ -296,7 +300,7 @@ def test_sitemap_includes_gate_leaf_and_department_excludes_thin(
 def test_qualifying_and_department_leaves(mem_db: Session) -> None:
     dept, leaf = _make_tree(mem_db)
     # 3 providers at the leaf -> clears the gate.
-    for _ in range(leaf_pages.LEAF_PAGE_MIN_PROVIDERS):
+    for _ in range(3):
         ent = Entity(entity_type="commercial", slug=f"e-{uuid4().hex[:8]}",
                      name="X", source=_SOURCE)
         mem_db.add(ent)
@@ -484,8 +488,9 @@ def test_place_only_leaf_below_gate_404s(client: TestClient, _place_cleanup: lis
     _place_cleanup.extend([dept_slug, leaf_slug])
     with SessionLocal() as db:
         leaf = _seed_dept_leaf(db, dept_slug, leaf_slug, "Utilities")
-        for nm in ("Water District", "Power Co"):  # only 2 -> below gate
-            _add_place(db, leaf, nm)
+        # Below the publish gate == genuinely empty now (gate is 1).
+        for i in range(leaf_pages.LEAF_PAGE_MIN_PROVIDERS - 1):
+            _add_place(db, leaf, f"Utility {i}")
         db.commit()
     r = client.get(f"/categories/{dept_slug}/{leaf_slug}")
     assert r.status_code == 404

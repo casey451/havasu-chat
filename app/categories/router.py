@@ -775,11 +775,11 @@ def _apply_list_controls(
 # No fabricated specifics — just the ranking-transparency line the whole site
 # uses. ``{name}`` is the leaf's display noun (e.g. "Plumbing", "Restaurants").
 _LEAF_INTRO_TEMPLATE = (
-    "{name} in Lake Havasu City, AZ. The {n} listings below are ranked by "
-    "real public reviews — more reviews, more weight — so a strong rating "
-    "across many reviews beats a perfect score from only a couple. Spots "
-    "can't be bought, Hava never invents a rating, and any sponsored "
-    "placement is clearly labeled."
+    "{name} in Lake Havasu City, AZ — part of our {department} directory. "
+    "The {n} listings below are ranked by real public reviews — more reviews, "
+    "more weight — so a strong rating across many reviews beats a perfect "
+    "score from only a couple. Spots can't be bought, Hava never invents a "
+    "rating, and any sponsored placement is clearly labeled."
 )
 
 
@@ -850,7 +850,9 @@ def _render_leaf_page(
             for q, a in curated.faqs
         ]
     else:
-        intro = _LEAF_INTRO_TEMPLATE.format(name=display, n=total)
+        intro = _LEAF_INTRO_TEMPLATE.format(
+            name=display, n=total, department=leaf.department_name
+        )
         faqs = []
 
     return templates.TemplateResponse(

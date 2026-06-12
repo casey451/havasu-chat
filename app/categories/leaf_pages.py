@@ -22,10 +22,11 @@ their leaves under-counted toward the gate; including them lifts the
 place-heavy and borderline leaves (Kayak & Paddle, Fishing Charters, Jet Ski &
 Watersports, Dog Parks, Dance Studios, Utilities, Libraries, …).
 
-Thin-page gate (shared with trades): a leaf "ships" — resolves, joins the
-sitemap, gets linked — only at/above :data:`LEAF_PAGE_MIN_PROVIDERS` active
-renderable listings (now Provider-backed OR place). Below that the page 404s,
-mirroring the Google scaled-content rule already applied to trades.
+Publish gate: a leaf "ships" — resolves, joins the sitemap, gets linked,
+routes from chat — whenever it has at least :data:`LEAF_PAGE_MIN_PROVIDERS`
+active renderable listing (Provider-backed OR place). As of 2026-06-11 every
+seeded category/subcategory is its own indexable page, so a leaf 404s only
+when it is genuinely empty (0 listings).
 """
 
 from __future__ import annotations
@@ -37,11 +38,15 @@ from typing import Any
 from sqlalchemy.orm import Session, joinedload
 
 from app.categories import queries as cat_queries
-from app.categories.trades import TRADE_PAGE_MIN_PROVIDERS
 from app.db.models import Category, Entity, EntityCategory, Provider
 
-#: Shared thin-page gate — one rule for trades and every taxonomy leaf.
-LEAF_PAGE_MIN_PROVIDERS = TRADE_PAGE_MIN_PROVIDERS
+#: Taxonomy-leaf publish gate (2026-06-11, Casey): every seeded category and
+#: subcategory gets its own indexable page, so a leaf publishes (resolves,
+#: joins the sitemap, gets linked, routes from chat) whenever it has at least
+#: one renderable listing — it 404s only when genuinely empty. This supersedes
+#: the prior >=3 "scaled-content" gate for taxonomy leaves; the curated trade
+#: pages keep their own ``TRADE_PAGE_MIN_PROVIDERS`` threshold.
+LEAF_PAGE_MIN_PROVIDERS = 1
 
 
 @dataclass(frozen=True)

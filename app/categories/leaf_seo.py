@@ -63,6 +63,9 @@ SEO_NOUNS: dict[str, str] = {
     "boat-sales": "Boat Dealers",
     "powersports-and-atv": "Powersports & ATV Dealers",
     "towing-and-roadside": "Towing & Roadside Assistance",
+    # Cleaner searcher nouns than the slash-bearing taxonomy names.
+    "auto-marine-detailing": "Boat & Auto Detailing",
+    "boat-and-rv-storage-service": "Boat & RV Storage",
     # Professional & Financial
     "real-estate": "Real Estate Agents",
     "insurance": "Insurance Agents",

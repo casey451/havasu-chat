@@ -282,10 +282,25 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "tires": "tires",
     "tire shops": "tires",
     # 2026-06-11: existing leaves with no entry.
+    # Detailing — the gerund ("detailing") AND the agent noun ("detailers")
+    # are both high-traffic navigational asks; English inflection can't bridge
+    # them, so both forms are listed explicitly. Boat/marine-qualified terms
+    # route to the marine leaf; bare/auto/car terms route to the auto leaf.
     "detailing": "auto-detailing",
+    "detailers": "auto-detailing",
+    "detailer": "auto-detailing",
     "auto detailing": "auto-detailing",
+    "auto detailers": "auto-detailing",
+    "auto detailer": "auto-detailing",
     "car detailing": "auto-detailing",
+    "car detailers": "auto-detailing",
+    "mobile detailing": "auto-detailing",
+    "mobile detailers": "auto-detailing",
     "boat detailing": "auto-marine-detailing",
+    "boat detailers": "auto-marine-detailing",
+    "boat detailer": "auto-marine-detailing",
+    "marine detailing": "auto-marine-detailing",
+    "watercraft detailing": "auto-marine-detailing",
     "boat repair": "boat-repair-and-service",
     "boat mechanics": "boat-repair-and-service",
     "boat sales": "boat-sales",
