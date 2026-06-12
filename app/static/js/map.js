@@ -137,7 +137,16 @@
     var scope = wrap.getAttribute('data-map-scope');
     var container = document.getElementById('map-container');
     var toggleBtn = document.querySelector('[data-map-toggle]');
-    if (!scope || !container || !toggleBtn) return;
+    if (!scope || !container || !toggleBtn) {
+      // [data-map-scope] is present, so this IS a map page — a missing hook here
+      // is a real wiring bug, not an off-page no-op. Surface it.
+      console.warn('[map.js] map scope present but hooks missing:', {
+        scope: !!scope,
+        '#map-container': !!container,
+        '[data-map-toggle]': !!toggleBtn,
+      });
+      return;
+    }
 
     var collapsed = readCollapsed(scope);
     var mapApi = null;

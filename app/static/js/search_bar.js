@@ -47,7 +47,15 @@
   function bindForm(form) {
     var input = form.querySelector('.hava-search-input, input[type="search"]');
     var results = form.querySelector('[data-hava-search-results]');
-    if (!input || !results) return;
+    if (!input || !results) {
+      // The element opted into search ([data-hava-search]) but is missing a part,
+      // so it would sit inert — warn instead of silently no-op'ing.
+      console.warn('[search_bar.js] [data-hava-search] form missing hooks:', {
+        input: !!input,
+        '[data-hava-search-results]': !!results,
+      });
+      return;
+    }
 
     var timer = null;
 
