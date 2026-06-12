@@ -84,6 +84,7 @@ def _query_providers(
     legacy_categories: tuple[str, ...] = (),
     name_tokens: tuple[str, ...] = (),
     exclude_name_tokens: tuple[str, ...] = (),
+    exclude_google_categories: tuple[str, ...] = (),
     district: str | None = None,
     open_now: bool = False,
     limit: int = _PROVIDER_LIMIT,
@@ -100,6 +101,17 @@ def _query_providers(
         bucket_conds.append(Provider.category.in_(legacy_categories))
     if bucket_conds:
         q = q.filter(or_(*bucket_conds))
+
+    if exclude_google_categories:
+        # Drop rows whose Google primary category is a definitely-wrong type for
+        # this bucket (storage / auto / RV-park rows that ride in on a broad
+        # legacy tag). NULL/blank is kept -- real rows often have no Google type.
+        q = q.filter(
+            or_(
+                Provider.google_primary_category.is_(None),
+                Provider.google_primary_category.notin_(exclude_google_categories),
+            )
+        )
 
     if name_tokens:
         token_conds = []
@@ -624,12 +636,17 @@ def run_query(
         else:
             lead = "Out on the water:"
             label = "spot"
+        # The general "on the water" + "rent a boat" asks must not surface storage
+        # yards / auto-RV repair / RV parks that ride in on the broad legacy
+        # lake_recreation tag. boat_repair is exempt -- that ask wants repair shops.
+        water_exclude_google = () if key == "boat_repair" else dicts.WATER_EXCLUDE_GOOGLE
         rows = _query_providers(
             db,
             subcats=dicts.WATER_SUBCATS,
             legacy_categories=dicts.WATER_LEGACY_CATEGORIES,
             name_tokens=name_tokens,
             exclude_name_tokens=exclude_name_tokens,
+            exclude_google_categories=water_exclude_google,
             district=_area(slots),
             now=now,
         )
@@ -647,6 +664,7 @@ def run_query(
             db,
             subcats=dicts.RECREATION_SUBCATS,
             legacy_categories=dicts.RECREATION_LEGACY_CATEGORIES,
+            exclude_google_categories=dicts.RECREATION_EXCLUDE_GOOGLE,
             district=_area(slots),
             now=now,
         )

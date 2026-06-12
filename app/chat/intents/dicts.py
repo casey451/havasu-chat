@@ -72,10 +72,42 @@ WATER_LEGACY_CATEGORIES: tuple[str, ...] = (
 )
 WATER_SUBCATS: tuple[str, ...] = ("on-the-water",)
 
+# Google primary categories that are never an "on the water" activity even when
+# the row carries the broad legacy ``lake_recreation`` tag. That legacy bucket is
+# a 260-row catch-all dominated by storage yards, auto/RV repair & sales, RV
+# parks and campgrounds; with rating-sorted listing they outranked real water
+# options ("which launch ramp?" -> a detailing shop + two storage yards + two
+# auto shops). Excluded from the water listing so genuine rentals / tours /
+# marinas surface. NULL/blank Google category is kept (real water rows often have
+# none). Not applied to ``boat_repair`` (that ask wants repair shops). (QA P0-1)
+WATER_EXCLUDE_GOOGLE: tuple[str, ...] = (
+    "storage",
+    "self_storage",
+    "car_repair",
+    "car_dealer",
+    "rv_park",
+    "campground",
+    "mobile_home_park",
+    "moving_company",
+)
+
 # Parks / trails / beaches (recreation-outdoors). Legacy "recreation" backfills
 # to "parks-beaches".
 RECREATION_LEGACY_CATEGORIES: tuple[str, ...] = ("recreation",)
 RECREATION_SUBCATS: tuple[str, ...] = ("parks-beaches", "trails-offroad")
+
+# Private RV parks / mobile-home parks are not "parks, trails, and beaches" and
+# were dominating that listing ("which beach is best?" -> RV parks). Excluded
+# from the recreation listing; real parks, state/BLM campgrounds, trailheads,
+# and dog/skate parks stay. (QA P0-1, 2026-06-12)
+RECREATION_EXCLUDE_GOOGLE: tuple[str, ...] = (
+    "rv_park",
+    "mobile_home_park",
+    "storage",
+    "self_storage",
+    "car_repair",
+    "car_dealer",
+)
 
 # Civic & community: libraries, worship, non-profits, public services. Subcat
 # group "civic-community"; legacy "religion_community".
