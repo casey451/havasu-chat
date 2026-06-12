@@ -98,6 +98,17 @@ SEO_NOUNS: dict[str, str] = {
     "disc-golf": "Disc Golf Courses",
     # On the Water
     "kayak-and-paddle": "Kayak & Paddleboard Rentals",
+    # Thin-leaf batch (2026-06-11): plural/agent nouns so the slug name doesn't
+    # read awkwardly in the shared FAQ grammar ("how many notaries…").
+    "casinos-and-gaming": "Casinos",
+    "nutrition-and-wellness": "Nutrition & Wellness Providers",
+    "shipping-and-postal": "Shipping & Postal Stores",
+    "event-planning": "Event Planners",
+    "notary": "Notaries",
+    "title-and-escrow": "Title & Escrow Companies",
+    "tutoring-and-test-prep": "Tutors & Test Prep",
+    "music-lessons": "Music Teachers",
+    "post-office": "Post Offices",
 }
 
 

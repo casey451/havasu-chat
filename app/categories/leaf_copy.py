@@ -689,6 +689,184 @@ LEAF_COPY: dict[str, LeafCopy] = {
             "emergencies. Confirm the details before your trip.",
         ),
     ),
+    # Batch 5 (2026-06-11): the remaining thin/newly-indexed leaves — the ones
+    # the generic fallback served least well once the publish gate dropped to 1.
+    "casinos-and-gaming": _copy(
+        "A night of slots, tables, or gaming-style entertainment — the casinos "
+        "and gaming venues below serve the Lake Havasu City area. Listings are "
+        "ranked by real public reviews, so well-reviewed spots surface first, "
+        "and star ratings appear only when a venue has earned real reviews. "
+        "Check each listing for location, hours, age requirements, and what "
+        "games or entertainment they offer before you go.",
+        (
+            "Is there a casino in Lake Havasu City?",
+            "Local gaming options are limited — check the listings here for "
+            "what's available, including location and hours, since the nearest "
+            "full casinos may be a drive away.",
+        ),
+    ),
+    "nutrition-and-wellness": _copy(
+        "Dietitians, nutrition coaching, supplements, IV hydration, and general "
+        "wellness services — the nutrition and wellness providers below serve "
+        "Lake Havasu City. In a hot, active climate, hydration and recovery get "
+        "real attention here. Listings are ranked by real public reviews; Ask "
+        "Hava doesn't sell placement and isn't a medical or nutrition adviser. "
+        "Check each listing for services and credentials, and consult a doctor "
+        "for medical concerns.",
+        (
+            "What do nutrition and wellness providers in Havasu offer?",
+            "Services range from registered-dietitian counseling and meal "
+            "planning to supplements, IV hydration, and wellness coaching. "
+            "Offerings and credentials vary, so check each listing and verify "
+            "qualifications.",
+        ),
+    ),
+    "martial-arts": _copy(
+        "Karate, jiu-jitsu, kickboxing, and kids' programs — the martial arts "
+        "studios below serve Lake Havasu City. Local dojos and gyms offer "
+        "classes for all ages, from little-kids and after-school programs to "
+        "adult fitness and competition training. Listings are ranked by real "
+        "public reviews, so the studios families stick with rank first. Check "
+        "each listing for styles, age groups, and trial classes.",
+        (
+            "Are there kids' martial arts classes in Lake Havasu?",
+            "Yes — many local studios run children's programs alongside adult "
+            "classes, often with trial sessions. Check each listing for age "
+            "groups, styles, and intro offers.",
+        ),
+    ),
+    "personal-training": _copy(
+        "One-on-one coaching, small-group sessions, and custom programs — the "
+        "personal trainers below serve Lake Havasu City. Local trainers work in "
+        "gyms, private studios, and in-home or outdoor settings, covering "
+        "weight loss, strength, sport-specific, and senior fitness. Listings "
+        "are ranked by real public reviews, so trainers clients stick with rank "
+        "first. Check each listing for specialties, settings, and whether they "
+        "offer a consult.",
+        (
+            "Do Havasu personal trainers do in-home or outdoor sessions?",
+            "Many local trainers offer in-home, outdoor, or virtual sessions "
+            "alongside gym training — handy for scheduling around the heat. "
+            "Check each listing or ask about options.",
+        ),
+    ),
+    "handyman": _copy(
+        "Small repairs, mounting, assembly, drywall patches, and the odd jobs "
+        "that don't need a specialty contractor — the handyman services below "
+        "serve Lake Havasu City. Many local handymen cover both interior and "
+        "exterior work, plus rental and vacation-home upkeep. Listings are "
+        "ranked by real public reviews. For larger or specialized jobs, check "
+        "whether the work needs a licensed contractor in Arizona.",
+        (
+            "When do I need a licensed contractor instead of a handyman?",
+            "Arizona requires a licensed contractor for projects above a small "
+            "dollar threshold and for certain trades. Minor repairs are fine "
+            "for a handyman; for bigger work, confirm licensing — Ask Hava "
+            "doesn't verify it.",
+        ),
+    ),
+    "shipping-and-postal": _copy(
+        "Packages, mailboxes, notary, printing, and freight — the shipping and "
+        "postal stores below serve Lake Havasu City. Local pack-and-ship shops "
+        "handle UPS, FedEx, and USPS drop-offs, private mailboxes, passport "
+        "photos, and packing supplies — handy for snowbirds and vacation-home "
+        "owners managing mail seasonally. Listings are ranked by real public "
+        "reviews. Check each listing for carriers and services.",
+        (
+            "Can I rent a private mailbox in Lake Havasu City?",
+            "Yes — several local shipping stores offer private mailbox rental "
+            "with a street address, useful for seasonal residents and home "
+            "businesses. Check each listing for box sizes and mail forwarding.",
+        ),
+    ),
+    "event-planning": _copy(
+        "Weddings, parties, corporate events, and lakeside celebrations — the "
+        "event planners below serve Lake Havasu City. From full-service "
+        "coordination to day-of management, local planners handle venues, "
+        "vendors, rentals, and timelines, including destination weddings drawn "
+        "to the lake and the London Bridge backdrop. Listings are ranked by "
+        "real public reviews; sponsored placements are labeled. Check each "
+        "listing for the events they specialize in.",
+        (
+            "Do Havasu event planners do destination weddings?",
+            "Many local planners coordinate destination and lakeside weddings "
+            "with area venues and vendors. Check each listing for specialties, "
+            "packages, and whether they handle full planning or day-of "
+            "coordination.",
+        ),
+    ),
+    "notary": _copy(
+        "Document signings, acknowledgments, and loan closings — the notaries "
+        "below serve Lake Havasu City. Local options include mobile notaries "
+        "who travel to your home, office, or hospital, plus shipping stores and "
+        "other businesses offering notary service. Mobile and after-hours "
+        "service is common for time-sensitive paperwork. Listings are ranked by "
+        "real public reviews. Confirm ID requirements and fees before your "
+        "appointment.",
+        (
+            "Are there mobile notaries in Lake Havasu City?",
+            "Yes — several local notaries travel to you, which helps for "
+            "hospital signings, real-estate closings, and after-hours needs. "
+            "Check each listing for mobile service, hours, and fees.",
+        ),
+    ),
+    "title-and-escrow": _copy(
+        "Closing on a home or refinancing — the title and escrow companies "
+        "below serve Lake Havasu City. Local offices handle title searches, "
+        "title insurance, escrow, and closing coordination for buyers, sellers, "
+        "and lenders in the area's active and seasonal real-estate market. "
+        "Listings are ranked by real public reviews. Check each listing for "
+        "services, and confirm details directly when coordinating a closing.",
+        (
+            "What does a title and escrow company do?",
+            "They research and insure clear title, hold funds in escrow, and "
+            "coordinate the paperwork and closing between buyer, seller, and "
+            "lender. Your agent or lender often recommends one, but you can "
+            "compare.",
+        ),
+    ),
+    "tutoring-and-test-prep": _copy(
+        "Reading and math help, homework support, and SAT, ACT, and test prep — "
+        "the tutors and tutoring centers below serve Lake Havasu City. Local "
+        "options span one-on-one, group, in-home, and online sessions across "
+        "K-12 and college subjects, with some focused on specific exams. "
+        "Listings are ranked by real public reviews. Check each listing for "
+        "subjects, grade levels, and formats.",
+        (
+            "Is online and in-home tutoring available in Havasu?",
+            "Yes — many local tutors offer in-home and online sessions alongside "
+            "center-based help. Check each listing for subjects, grade levels, "
+            "and scheduling.",
+        ),
+    ),
+    "music-lessons": _copy(
+        "Piano, guitar, voice, drums, and more — the music teachers and schools "
+        "below serve Lake Havasu City. Local instructors offer private and "
+        "group lessons for kids and adults, in studios, in-home, or online, for "
+        "beginners through advanced players. Listings are ranked by real public "
+        "reviews, so the teachers students stick with rank first. Check each "
+        "listing for instruments, ages, and lesson formats.",
+        (
+            "Do Havasu music teachers take adult beginners?",
+            "Many do — local instructors teach all ages and levels, including "
+            "adult beginners, in studio, in-home, or online formats. Check each "
+            "listing for instruments and scheduling.",
+        ),
+    ),
+    "post-office": _copy(
+        "Mailing, shipping, PO boxes, and passport services — the post office "
+        "locations below serve Lake Havasu City. For USPS branch hours, PO box "
+        "rental, and passport appointments, check the listing details, and note "
+        "that lobby and counter hours often differ. For private mailboxes and "
+        "UPS or FedEx shipping, see the shipping and postal listings too. "
+        "Listings reflect real public reviews where available.",
+        (
+            "How do I rent a PO box or book a passport appointment?",
+            "USPS handles PO box rental and passport services at branch "
+            "locations — check the listing for hours and call ahead, since "
+            "passport service is often by appointment and counter hours vary.",
+        ),
+    ),
 }
 
 
