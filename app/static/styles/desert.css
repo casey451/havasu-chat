@@ -50,6 +50,26 @@
   --d-shadow:6px 6px 0 var(--black);
   --d-shadow-orange:10px 10px 0 var(--orange);
   --d-shadow-blue:10px 10px 0 var(--blue);
+
+  /* --- semantic tokens (1.7) ------------------------------------------- */
+  /* secondary / muted body text. #171310 @ 62% composites to ~#6b655b,
+     ≈5:1 on --sand-light → AA for normal text. Use for de-emphasis only;
+     never as the sole carrier of meaning. */
+  --muted:rgba(23,19,16,.62);
+  --muted-soft:rgba(23,19,16,.45);   /* placeholders / faint labels — decorative, not AA */
+  --hairline:rgba(23,19,16,.14);     /* the recurring .12–.18 divider rgba */
+
+  /* status green — same jade as --ll-jade (#2c6e63) in hava_card / chat cards;
+     passes AA on --sand-light and --cream. */
+  --status-green:#2c6e63;
+
+  /* RESPONSIVE BREAKPOINT SCALE — documentation only. CSS custom properties
+     cannot be used inside @media queries, so keep new media queries on these
+     three literals:
+        1080px  desktop nav → hamburger; 4/3-col grids → 2-col
+         840px  footer 4-col → 2-col
+         700px  all grids → single column; mobile bottom nav appears
+     The lone 640px in desert_home.css:427 predates this scale (see "Open item"). */
 }
 
 /* ---------------------------------------------------------------- base --- */
@@ -486,4 +506,26 @@ details.d-acc[open] .chev{transform:rotate(180deg)}
   }
   .d-bottomnav a svg{width:20px;height:20px}
   .d-bottomnav a.on{opacity:1;color:var(--orange)}
+}
+
+/* ================================================================ print === */
+@media print{
+  /* Content-first, ink-saving. Verify in browser Print Preview before merging. */
+  *,*::before,*::after{
+    background:transparent!important;color:#000!important;
+    box-shadow:none!important;text-shadow:none!important;
+  }
+  body{background:#fff!important}
+  /* drop site chrome + anything interactive (all confirmed selectors) */
+  .d-header,.d-nav,.d-mega,.d-signin,.d-menu-btn,.d-conditions,.d-ticker,
+  .d-bottomnav,.d-skip,.intentchip,.d-btn,button,form,.d-footer nav{display:none!important}
+  .d-wrap{max-width:100%!important;padding:0!important}
+  .d-block{padding:12px 0!important}
+  /* keep cards whole across page breaks; plain outline instead of offset shadow */
+  .d-card,details.d-acc,.biz{break-inside:avoid;page-break-inside:avoid;border:1px solid #000!important}
+  /* print collapsed accordion bodies (events/FAQ) instead of hiding them */
+  details.d-acc>*{display:block!important}
+  /* annotate external links only — internal URLs would add noise */
+  a[href^="http"]::after{content:" (" attr(href) ")";font-size:11px;word-break:break-all}
+  img{max-width:100%!important}
 }
