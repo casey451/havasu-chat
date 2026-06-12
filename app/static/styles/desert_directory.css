@@ -437,7 +437,7 @@ details.faq-item>p{padding:16px 22px;font-size:14.5px}
   transition:transform .14s ease,box-shadow .14s ease;
 }
 a.collection-card:hover{transform:translate(-3px,-3px);box-shadow:var(--d-shadow)}
-.collection-card-media{height:150px;background-size:cover;background-position:center;border-bottom:var(--d-border)}
+.collection-card-media{height:150px;background-color:var(--sand);background-size:cover;background-position:center;border-bottom:var(--d-border)}
 .collection-card-body{padding:18px 20px 20px}
 .collection-card-name{
   font-family:var(--disp);font-weight:800;font-size:clamp(17px,1.8vw,21px);
