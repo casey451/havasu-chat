@@ -15,9 +15,17 @@ from app.categories.cross_listing import (
 
 
 def test_unknown_leaf_returns_empty() -> None:
-    assert cross_listed_slugs_for_leaf("family-fun-and-arcades") == frozenset()
+    assert cross_listed_slugs_for_leaf("an-uncurated-leaf") == frozenset()
     assert cross_listed_slugs_for_leaf(None) == frozenset()
     assert cross_listed_slugs_for_leaf("") == frozenset()
+
+
+def test_the_spot_cross_listed_on_arcades() -> None:
+    """The hybrid "The Spot" surfaces on the arcade leaf (its primary leaf stays
+    restaurants); keyed by the post-dedup survivor slug."""
+    assert cross_listed_slugs_for_leaf("family-fun-and-arcades") == frozenset(
+        {"the-spot-pizza-arcade-more"}
+    )
 
 
 def test_lookup_is_normalized() -> None:

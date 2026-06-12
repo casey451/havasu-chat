@@ -20,11 +20,13 @@ from __future__ import annotations
 
 # leaf slug -> entity slugs to ADDITIONALLY surface on that leaf's page.
 #
-# Example (fill in after dedup picks the surviving "The Spot" entity):
-#   "family-fun-and-arcades": frozenset({"the-spot"}),
-# That makes "The Spot" appear on the arcade leaf while keeping its primary leaf
-# (restaurants) unchanged.
-CROSS_LISTED_ENTITY_SLUGS: dict[str, frozenset[str]] = {}
+# "The Spot - Pizza, Arcade & More" is a genuine hybrid: its primary leaf is
+# `restaurants` (so it owns one primary `entity_categories` link there), but it
+# is also an arcade. This surfaces the post-dedup survivor entity on the arcade
+# leaf as well, without touching its restaurants primary.
+CROSS_LISTED_ENTITY_SLUGS: dict[str, frozenset[str]] = {
+    "family-fun-and-arcades": frozenset({"the-spot-pizza-arcade-more"}),
+}
 
 
 def cross_listed_slugs_for_leaf(leaf_slug: str | None) -> frozenset[str]:
