@@ -73,6 +73,10 @@
       <div class="filterbar">
         <span class="lbl">Filter:</span>
         <a class="filterpill{% if facets.open_now %} on{% endif %}" href="{{ facet_href(open=('1' if not facets.open_now else None)) }}">Open now</a>
+        {# 2.9 cheap-v1: surface the already-parsed ``rating`` facet (queries.py applies it)
+           so eat-&-drink pages can filter to top-rated places — parity with the trade bar's
+           "Top rated" control. Lives in the Filter group (it narrows; it isn't a sort). #}
+        <a class="filterpill{% if facets.top_rated %} on{% endif %}" href="{{ facet_href(rating=('1' if not facets.top_rated else None)) }}">Top rated</a>
       </div>
       <div class="sortbar">
         <span class="lbl">Sort:</span>
