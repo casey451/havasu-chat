@@ -644,6 +644,65 @@ app.include_router(micro_ad_router)
 app.include_router(merchant_upgrade_router)
 app.include_router(portal_router)
 
+
+class CachedStaticFiles(StaticFiles):
+    """``StaticFiles`` that emits an explicit ``Cache-Control`` (UI plan 1.9).
+
+    Starlette's ``StaticFiles`` already sends ``ETag`` + ``Last-Modified``
+    validators, so correctness was never at risk — but it sent *no* ``max-age``,
+    so browsers issued a conditional request for every asset on every
+    navigation (a round-trip each, even though the answer is almost always a
+    304). The ``/static`` mount therefore shipped with no freshness lifetime at
+    all. This subclass adds one:
+
+    * **Fingerprinted** requests (any ``?v=`` query, e.g.
+      ``/static/styles/desert.css?v=ab12cd``) → ``max-age`` of one year +
+      ``immutable``. The URL changes whenever the bytes change, so a pinned
+      copy can never go stale. Templates do not fingerprint their asset URLs
+      yet — threading a ``static_url()`` helper through the shared Jinja
+      registrar is the 1.9b follow-up — and when they do, **no change here is
+      needed**: the immutable branch simply starts applying.
+    * **Bare** requests (no ``?v=``) → a short ``max-age`` so an
+      un-fingerprinted asset still skips most revalidations yet self-heals
+      within minutes of a deploy (the ``ETag`` keeps it correct on the next
+      conditional request after expiry).
+
+    HTML is unaffected: it is served by routes, not this mount, and
+    ``SecurityHeadersMiddleware`` keeps every ``text/html`` response
+    ``no-cache``.
+    """
+
+    def __init__(
+        self,
+        *args: Any,
+        versioned_max_age: int = 31_536_000,  # 1 year
+        default_max_age: int = 300,  # 5 minutes
+        **kwargs: Any,
+    ) -> None:
+        self._versioned_max_age = versioned_max_age
+        self._default_max_age = default_max_age
+        super().__init__(*args, **kwargs)
+
+    async def get_response(self, path: str, scope: Any) -> Response:
+        response = await super().get_response(path, scope)
+        # Stamp cacheable bodies (200/206) and validator replies (304); leave
+        # 404/405 alone so a cache never pins a miss.
+        if response.status_code in (200, 206, 304):
+            query = scope.get("query_string", b"") or b""
+            fingerprinted = any(
+                part.split(b"=", 1)[0] == b"v" for part in query.split(b"&") if part
+            )
+            if fingerprinted:
+                response.headers["Cache-Control"] = (
+                    f"public, max-age={self._versioned_max_age}, immutable"
+                )
+            else:
+                response.headers["Cache-Control"] = (
+                    f"public, max-age={self._default_max_age}"
+                )
+        return response
+
+
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 # Mount the more-specific /static/biz-photos BEFORE the broad /static mount.
 # Starlette matches mounts in registration order; if /static is registered first
@@ -652,16 +711,16 @@ _BIZ_PHOTOS_DIR = Path("/data/biz-photos")
 if _BIZ_PHOTOS_DIR.is_dir():
     app.mount(
         "/static/biz-photos",
-        StaticFiles(directory=str(_BIZ_PHOTOS_DIR)),
+        CachedStaticFiles(directory=str(_BIZ_PHOTOS_DIR)),
         name="biz_photos",
     )
-app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
+app.mount("/static", CachedStaticFiles(directory=_STATIC_DIR), name="static")
 
 _CONTRIB_UPLOADS = Path(__file__).resolve().parents[1] / "data" / "contrib_uploads"
 if _CONTRIB_UPLOADS.is_dir():
     app.mount(
         "/data/contrib_uploads",
-        StaticFiles(directory=str(_CONTRIB_UPLOADS)),
+        CachedStaticFiles(directory=str(_CONTRIB_UPLOADS)),
         name="contrib_uploads",
     )
 
