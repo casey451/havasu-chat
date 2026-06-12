@@ -322,8 +322,8 @@ def test_qualifying_and_department_leaves(mem_db: Session) -> None:
 def test_wave1_leaf_copy_intros_and_faq_counts() -> None:
     from app.categories.leaf_copy import LEAF_COPY
 
-    # 14 Wave-1 entries + 5 ported from the consolidated trade pages (PR-B).
-    assert len(LEAF_COPY) == 19
+    # 14 Wave-1 + 5 ported trade pages + 9 Auto/RV/Marine batch (2026-06-11).
+    assert len(LEAF_COPY) == 28
     for slug, copy in LEAF_COPY.items():
         words = len(copy.intro.split())
         assert 40 <= words <= 100, f"{slug}: intro is {words} words"

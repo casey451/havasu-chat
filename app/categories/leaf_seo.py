@@ -63,8 +63,11 @@ SEO_NOUNS: dict[str, str] = {
     "boat-sales": "Boat Dealers",
     "powersports-and-atv": "Powersports & ATV Dealers",
     "towing-and-roadside": "Towing & Roadside Assistance",
-    # Cleaner searcher nouns than the slash-bearing taxonomy names.
-    "auto-marine-detailing": "Boat & Auto Detailing",
+    # Cleaner searcher nouns than the slash-bearing taxonomy names; agent-noun
+    # plurals ("detailers") read naturally in the shared FAQ grammar and match
+    # what searchers actually type.
+    "auto-marine-detailing": "Boat & Auto Detailers",
+    "auto-detailing": "Auto Detailers",
     "boat-and-rv-storage-service": "Boat & RV Storage",
     # Professional & Financial
     "real-estate": "Real Estate Agents",

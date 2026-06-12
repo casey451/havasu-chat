@@ -301,6 +301,149 @@ LEAF_COPY: dict[str, LeafCopy] = {
             "company when you book.",
         ),
     ),
+    # Batch 2 (2026-06-11): Auto, RV & Marine — the detailing leaves central to
+    # the /chat "boat detailers" fix, plus the newly-indexed thin leaves that
+    # most need unique copy now that every category publishes its own page.
+    "auto-marine-detailing": _copy(
+        "Havasu sun and hard lake water are brutal on a finish — water spotting, "
+        "oxidized gel coat, and faded vinyl show up fast. The detailers below "
+        "work on boats, cars, RVs, and trucks across Lake Havasu City, from "
+        "wash-and-wax and ceramic coating to oxidation removal, interior "
+        "shampoo, and pre-sale details. Whether your hull just came off the "
+        "water or your daily driver bakes in the lot all summer, listings are "
+        "ranked by real public reviews — never paid placement.",
+        (
+            "Do these detailers do boats as well as cars?",
+            "Many local detailers handle both — boat and watercraft detailing "
+            "(oxidation removal, hull cleaning, vinyl and upholstery) alongside "
+            "auto and RV work. Check each listing or call to confirm they take "
+            "watercraft.",
+        ),
+        (
+            "Why does boat detailing matter in Lake Havasu?",
+            "Constant sun and mineral-heavy lake water oxidize gel coat and leave "
+            "hard-water spots that dull a finish. Regular detailing and "
+            "protective coatings help boats and vehicles hold up to the desert "
+            "and the lake.",
+        ),
+    ),
+    "auto-detailing": _copy(
+        "Desert dust, monsoon grime, and relentless UV take a toll on a "
+        "vehicle's paint and interior. The auto detailers below serve Lake "
+        "Havasu City with everything from express wash-and-wax to full interior "
+        "shampoo, paint correction, ceramic coatings, and pre-sale details. "
+        "Mobile detailers who come to your home or driveway are common locally. "
+        "Listings are ranked by real public reviews, so the shops that keep cars "
+        "looking new rank first.",
+        (
+            "Do Havasu detailers offer mobile service?",
+            "Many local detailers will come to your home, office, or driveway — "
+            "mobile detailing is common in Lake Havasu City. Check each listing "
+            "or call to confirm mobile availability and service area.",
+        ),
+    ),
+    "boat-repair-and-service": _copy(
+        "Outboards, sterndrives, and trailers all take a beating on Lake Havasu "
+        "— heat, ethanol fuel, and hard running hours add up. The boat repair "
+        "and service shops below serve Lake Havasu City with engine work, "
+        "lower-unit service, electrical and electronics, fiberglass and "
+        "gel-coat repair, winterizing, and trailer fixes. Peak season fills the "
+        "schedule fast, so book service before the busy river weekends. "
+        "Listings are ranked by real public reviews.",
+        (
+            "When should I schedule boat service in Havasu?",
+            "Many local shops get slammed heading into spring and summer river "
+            "season, so booking routine service in the cooler months or well "
+            "ahead of a trip avoids the longest waits.",
+        ),
+    ),
+    "boat-sales": _copy(
+        "Lake Havasu is one of the country's boating capitals, and the boat "
+        "dealers below serve buyers and sellers across the area — new and used "
+        "pontoons, ski and wakeboard boats, deck boats, personal watercraft, "
+        "and the gear to go with them. Many also handle parts, service, "
+        "financing, and trade-ins. Whether you're upgrading or buying your "
+        "first boat, listings are ranked by real public reviews, never by who "
+        "paid.",
+        (
+            "Do Havasu boat dealers handle service and parts too?",
+            "Many do — local dealers often run a service department and parts "
+            "counter alongside sales, and several take trade-ins. Check each "
+            "listing for what they stock and service.",
+        ),
+    ),
+    "boat-and-rv-storage-service": _copy(
+        "Between river-season boats and a big snowbird RV crowd, Lake Havasu "
+        "City runs on storage. The boat and RV storage options below offer "
+        "covered and enclosed spaces, open lots, and dry-stack or yard parking, "
+        "with some sites adding service, wash, and detailing. Desert sun is hard "
+        "on hulls, tires, and seals, so covered storage is worth weighing. "
+        "Listings are ranked by real public reviews.",
+        (
+            "Is covered storage worth it for a boat or RV here?",
+            "Sustained sun and heat fade gel coat, crack seals, and age tires "
+            "faster in the desert, so many locals choose covered or enclosed "
+            "storage for boats and RVs they want to protect long-term.",
+        ),
+    ),
+    "rv-sales-and-service": _copy(
+        "Lake Havasu City draws RVers and snowbirds all winter, and the RV "
+        "dealers and service shops below serve them — new and used motorhomes, "
+        "fifth wheels, and travel trailers, plus repairs, appliance and AC "
+        "work, roof and seal resealing, and parts. Desert heat is tough on "
+        "rooftop ACs and rubber seals, so seasonal service matters. Listings "
+        "are ranked by real public reviews, and ratings show only when a "
+        "business has earned them.",
+        (
+            "Why does RV service matter in the desert?",
+            "Rooftop AC units, rubber roofs, and door and window seals all "
+            "degrade faster under constant Havasu sun and heat — regular "
+            "inspection and resealing helps prevent leaks and breakdowns.",
+        ),
+    ),
+    "towing-and-roadside": _copy(
+        "A dead battery in July or a breakdown on a remote desert highway is no "
+        "place to wait long. The towing and roadside services below serve Lake "
+        "Havasu City and the surrounding routes with jump-starts, tire changes, "
+        "lockouts, fuel delivery, and light- and heavy-duty towing. Summer heat "
+        "drives a spike in battery and overheating calls. Listings are ranked "
+        "by real public reviews; sponsored placements are labeled.",
+        (
+            "Is 24-hour towing available in Lake Havasu?",
+            "Many local towing companies run 24/7 or after-hours service, but "
+            "coverage varies — check each listing's hours and keep a number "
+            "saved before a summer breakdown.",
+        ),
+    ),
+    "tires": _copy(
+        "Desert heat and hot pavement wear tires faster and raise the odds of a "
+        "summer blowout, so the tire shops below serve Lake Havasu City with "
+        "new tires, repairs, rotations, balancing, and alignments for cars, "
+        "trucks, RVs, and trailers. Trailer and RV tires especially dry-rot in "
+        "the sun, so age matters as much as tread. Listings are ranked by real "
+        "public reviews, never by who paid.",
+        (
+            "Why do tires fail faster in Lake Havasu's heat?",
+            "Hot roads and sustained high temperatures raise tire pressure and "
+            "accelerate wear and dry-rot — RV and trailer tires that sit in the "
+            "sun can age out before the tread wears down.",
+        ),
+    ),
+    "car-wash": _copy(
+        "Desert dust, monsoon mud, and lake trips keep Lake Havasu City's car "
+        "washes busy year-round. The options below range from express tunnels "
+        "and touchless bays to self-serve stalls and full-service hand washes, "
+        "with several offering unlimited monthly plans. Rinsing off hard-water "
+        "and dust buildup helps protect paint in the harsh sun. Listings are "
+        "ranked by real public reviews, so the washes locals return to rank "
+        "first.",
+        (
+            "Are there self-serve and express car washes in Havasu?",
+            "Yes — Lake Havasu City has a mix of express tunnels, touchless "
+            "automatics, self-serve bays, and full-service hand washes. Check "
+            "each listing for the type and any monthly plans.",
+        ),
+    ),
 }
 
 
