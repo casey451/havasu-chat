@@ -19,11 +19,11 @@ def test_home_renders_default_hero_copy(monkeypatch: pytest.MonkeyPatch) -> None
     with TestClient(app) as client:
         r = client.get("/home")
     assert r.status_code == 200
-    # Hero copy (Casey, 2026-06-11): comprehensive value + brand, two-beat
-    # rhythm; the city sits in the second line for SEO.
+    # Hero copy (Casey, 2026-06-11): big "Everything Lake Havasu." over a
+    # smaller "Ask Hava." (the .l2 second line).
     assert 'class="date-tag"' in r.text
-    assert "Everything Lake Havasu. Ask Hava." in r.text
-    assert "what's open right now in Lake Havasu City" in r.text
+    assert "Everything Lake Havasu." in r.text
+    assert '<span class="l2">Ask Hava.</span>' in r.text
     # Legacy hardcoded copy is gone.
     assert "WELCOME BACK" not in r.text
     assert "What are you in the mood for?" not in r.text

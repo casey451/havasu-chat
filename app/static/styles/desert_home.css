@@ -30,7 +30,7 @@
   font-size:clamp(52px,8.5vw,124px);
   line-height:.92;letter-spacing:-.025em;text-transform:uppercase;
 }
-.hero-copy h1 .l2{color:var(--orange);display:block}
+.hero-copy h1 .l2{color:var(--orange);display:block;font-size:.46em;letter-spacing:-.01em;margin-top:.06em}
 .hero-copy h1 em{font-style:normal;color:var(--orange)}
 
 /* sun-over-ridge art above the ask bar (decorative) */
