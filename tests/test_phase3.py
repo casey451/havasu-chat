@@ -52,6 +52,52 @@ class Phase3SearchTests(unittest.TestCase):
         self.assertIsNone(detect_out_of_scope_category("where can I rent a kayak"))
         self.assertIsNone(detect_out_of_scope_category("hire a plumber"))
 
+    # P0-3 (QA diagnostic 2026-06-12): a soft trigger (parking / weather / car
+    # rental) riding on an in-scope place/activity anchor is a catalog question,
+    # not a refusal.
+    def test_parking_with_place_anchor_not_out_of_scope(self) -> None:
+        self.assertIsNone(
+            detect_out_of_scope_category("Which beach has bathrooms, shade, and easy parking?")
+        )
+        self.assertIsNone(
+            detect_out_of_scope_category("Which trailheads have shade, parking, or restrooms?")
+        )
+        self.assertIsNone(
+            detect_out_of_scope_category("Which shopping area is easiest if I want simple parking?")
+        )
+
+    def test_weather_modifier_on_activity_not_out_of_scope(self) -> None:
+        self.assertIsNone(
+            detect_out_of_scope_category("Is there a heat advisory or weather reason not to hike today?")
+        )
+        self.assertIsNone(detect_out_of_scope_category("What is the water temperature today?"))
+        self.assertIsNone(
+            detect_out_of_scope_category("Is there a dog-friendly place to cool off in hot weather?")
+        )
+
+    def test_contingency_frame_not_out_of_scope(self) -> None:
+        self.assertIsNone(detect_out_of_scope_category("What happens if wind or weather turns bad?"))
+        self.assertIsNone(
+            detect_out_of_scope_category("What is the smart weather backup for wind or extreme heat?")
+        )
+        self.assertIsNone(
+            detect_out_of_scope_category("What is the cancellation policy if the weather turns?")
+        )
+
+    def test_local_car_rental_not_out_of_scope(self) -> None:
+        self.assertIsNone(detect_out_of_scope_category("Can I rent a car or RV locally?"))
+
+    # P0-3 must NOT over-correct: pure meteorology and hard transportation stay refused.
+    def test_pure_weather_still_refused(self) -> None:
+        self.assertEqual(detect_out_of_scope_category("What is the weather this weekend?"), "weather")
+        self.assertEqual(detect_out_of_scope_category("What's the weather like in Lake Havasu?"), "weather")
+        self.assertEqual(detect_out_of_scope_category("what's the forecast"), "weather")
+
+    def test_hard_transportation_still_refused(self) -> None:
+        self.assertEqual(detect_out_of_scope_category("how do I get to Phoenix"), "transportation")
+        self.assertEqual(detect_out_of_scope_category("uber to the airport"), "transportation")
+        self.assertEqual(detect_out_of_scope_category("how far to Parker Dam"), "transportation")
+
 
 def test_lodging_phrasings_resolve_to_lodging_find() -> None:
     """C5 end-to-end at the resolver: the phrasings that used to be refused now
