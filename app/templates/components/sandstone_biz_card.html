@@ -2,10 +2,11 @@
    app/categories/queries). Shared by the category grid (category_sandstone.html)
    and the dedicated trade pages (category_trade.html) — SEO P2.1/P2.2: the trade
    page renders the SAME listing cards as the parent category page. #}
-{# A Provider-backed card links to its /provider/{slug} page; a Provider-less
-   place entity (no slug) renders the same card non-linking — it has no detail
-   page, and linking would 404. #}
-{% if card.slug %}<a class="biz" href="/provider/{{ card.slug }}" data-subcategory="{{ card.subcategory }}">{% else %}<div class="biz biz--place" data-subcategory="{{ card.subcategory }}">{% endif %}
+{# A Provider-backed card links to its /provider/{slug} page. A Provider-less
+   place entity (no slug) links OUT to its official website when it has one
+   (e.g. the Aquatic Center → city Parks & Rec page); otherwise it renders
+   non-linking — it has no detail page and linking would 404. #}
+{% if card.slug %}<a class="biz" href="/provider/{{ card.slug }}" data-subcategory="{{ card.subcategory }}">{% elif card.website %}<a class="biz biz--place" href="{{ card.website }}" target="_blank" rel="noopener nofollow" data-subcategory="{{ card.subcategory }}">{% else %}<div class="biz biz--place" data-subcategory="{{ card.subcategory }}">{% endif %}
   <div class="img"{% if card.image_url %} style="background-image:url('{{ card.image_url }}')"{% endif %}>
     {% if card.is_open is not none %}<span class="open{% if not card.is_open %} closed{% endif %}">{{ 'Open now' if card.is_open else 'Closed' }}</span>{% endif %}
   </div>
@@ -28,4 +29,4 @@
     {% endif %}
     {% if card.subcategory %}<div class="typ">{{ card.subcategory|replace('-', ' ')|replace('_', ' ')|title }}</div>{% endif %}
   </div>
-{% if card.slug %}</a>{% else %}</div>{% endif %}
+{% if card.slug or card.website %}</a>{% else %}</div>{% endif %}
