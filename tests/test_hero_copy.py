@@ -22,7 +22,7 @@ def test_home_renders_default_hero_copy(monkeypatch: pytest.MonkeyPatch) -> None
     # Hero copy (Casey, 2026-06-11): big "Everything Lake Havasu." over a
     # smaller "Ask Hava." (the .l2 second line).
     assert 'class="date-tag"' in r.text
-    assert "Everything Lake Havasu." in r.text
+    assert "All Things Lake Havasu." in r.text
     assert '<span class="l2">Ask Hava.</span>' in r.text
     # Legacy hardcoded copy is gone.
     assert "WELCOME BACK" not in r.text
@@ -38,4 +38,4 @@ def test_home_hero_headline_env_override(monkeypatch: pytest.MonkeyPatch) -> Non
     assert "Beat the heat at the channel" in r.text
     assert "HELLO HAVASU" in r.text
     # The default headline must not leak when overridden.
-    assert "Everything Lake Havasu" not in r.text
+    assert "All Things Lake Havasu" not in r.text

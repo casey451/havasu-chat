@@ -177,7 +177,7 @@ def test_root_redirects_to_home() -> None:
     # Desert Modern home: assert the base tokens stylesheet + the display
     # hero (Casey 2026-06-11 — see test_hero_copy).
     assert "/static/styles/desert.css" in r.text
-    assert "Everything Lake Havasu." in r.text
+    assert "All Things Lake Havasu." in r.text
 
 
 def test_jinja2_templates_directory_resolves() -> None:
