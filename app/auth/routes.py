@@ -137,7 +137,7 @@ def request_link(
         return templates.TemplateResponse(
             request=request,
             name="login_check_email.html",
-            context={"email": normalized},
+            context={"email": normalized, "next_path": safe_next},
         )
 
     plaintext, token_hash = generate_magic_link_token()
@@ -170,7 +170,7 @@ def request_link(
     return templates.TemplateResponse(
         request=request,
         name="login_check_email.html",
-        context={"email": normalized},
+        context={"email": normalized, "next_path": safe_next},
     )
 
 

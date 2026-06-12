@@ -6,8 +6,15 @@
     <span class="d-eyebrow">Sign-in email sent</span>
     <h1>Check your <em>inbox.</em></h1>
     <p class="d-muted">If <strong>{{ email }}</strong> can receive mail from us, a link is on its way.</p>
-    <p class="d-muted d-spaced">It expires in 15 minutes.</p>
+    <p class="d-muted d-spaced">It expires in 15 minutes. Didn't get it? Check your spam or promotions folder, then resend below.</p>
     <div class="d-links-row">
+      {# Resend = re-POST the known email to the same request-link endpoint
+         (rate-limited server-side). next_path carried through when present. #}
+      <form class="d-resend" action="/api/auth/request-link" method="post">
+        <input type="hidden" name="email" value="{{ email }}">
+        {% if next_path %}<input type="hidden" name="next" value="{{ next_path }}">{% endif %}
+        <button class="d-btn d-btn--solid" type="submit">Resend the link</button>
+      </form>
       <a class="d-btn" href="/login">Use a different email</a>
     </div>
   </section>
