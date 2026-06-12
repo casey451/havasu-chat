@@ -22,9 +22,9 @@ def test_unknown_leaf_returns_empty() -> None:
 
 def test_the_spot_cross_listed_on_arcades() -> None:
     """The hybrid "The Spot" surfaces on the arcade leaf (its primary leaf stays
-    restaurants); keyed by the post-dedup survivor slug."""
+    restaurants); keyed by the `the-spot` entity kept in the straggler review."""
     assert cross_listed_slugs_for_leaf("family-fun-and-arcades") == frozenset(
-        {"the-spot-pizza-arcade-more"}
+        {"the-spot"}
     )
 
 
