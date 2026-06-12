@@ -275,6 +275,8 @@ _DEFAULT_AUTO_APPROVE_EVENT_SOURCES = frozenset(
         "river_scene_import",
         "legistar",
         "lhusd",
+        "lhc_bmx",
+        "havasu_youth",
     }
 )
 
