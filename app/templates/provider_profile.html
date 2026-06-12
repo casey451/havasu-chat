@@ -18,7 +18,9 @@
 {% block og_type %}business.business{% endblock %}
 {% block og_title %}{{ _name }}{% endblock %}
 {% block og_description %}{{ _seo_desc | meta_desc(200) }}{% endblock %}
-{% block og_image %}{% if vm.hero_photo_url %}{% if vm.hero_photo_url.startswith('http') %}{{ vm.hero_photo_url }}{% else %}{{ absolute_url(vm.hero_photo_url) }}{% endif %}{% else %}{{ super() }}{% endif %}{% endblock %}
+{# 1.6: share-safe absolute image — house-image fallback when the hero is missing
+   or a transient Google URL that would break cached social-card previews. #}
+{% block og_image %}{{ social_image_url(vm.hero_photo_url) }}{% endblock %}
 
 {% block head_extra %}
 <link rel="stylesheet" href="/static/styles/desert_profile.css">
@@ -36,7 +38,7 @@
   "name": _name,
   "url": request.url | string,
   "description": _seo_desc,
-  "image": vm.hero_photo_url,
+  "image": social_image_url(vm.hero_photo_url),
   "telephone": vm.call_phone_display,
   "address": ({
     "@type": "PostalAddress",
@@ -99,6 +101,12 @@
       {% endif %}
       {% if vm.directions_url %}
       <a href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer">{{ dicons.icon("compass", 15) }} Directions</a>
+      {% endif %}
+      {# 2.8: high-intent visitors shouldn't hunt the sidebar for the website. Promote it
+         into the action row as a secondary CTA when present (Call stays the only .primary).
+         Same gate as the "Good to know" Website row; the row is flex-wrap so it reflows. #}
+      {% if vm.website_url and not vm.show_claim_cta %}
+      <a href="{{ vm.website_url }}" target="_blank" rel="noopener noreferrer">{{ dicons.icon("arrow", 15) }} Website</a>
       {% endif %}
       {% if current_user_id and favorite_entity_id %}
       {# Logged-in: real persistence via favorites.js → POST /api/favorites/toggle #}

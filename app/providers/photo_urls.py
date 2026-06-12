@@ -83,6 +83,51 @@ def _is_blocked_remote_photo_url(url: str) -> bool:
     return any(token in host for token in _BLOCKED_REMOTE_PHOTO_HOSTS)
 
 
+# The branded site hero, reused as the share-card fallback (matches the
+# ``desert_base`` default ``og:image``). UI build-out plan item 1.6.
+_HOUSE_IMAGE_PATH = "/static/img/home-hero.jpg"
+
+
+def social_image_url(hero_photo_url: str | None) -> str:
+    """Absolute, share-safe ``og:image`` / JSON-LD image URL for a provider.
+
+    Social crawlers (Facebook, Slack, iMessage, X) fetch ``og:image`` once and
+    cache the bytes, so the URL must be **absolute** and **durable**. A raw
+    transient Google Places media URL (``places.googleapis.com`` /
+    ``lh3.googleusercontent.com`` / ``gstatic.com``) rotates and 403s on
+    hotlink, which silently breaks every previously-shared link's preview. The
+    render layer already keeps those hosts out of the hero for cards
+    (``iter_renderable_google_photos`` yields only ``/static/`` URLs), but an
+    owner ``Photo.hero_url`` or an admin ``hero_pin_photo_url`` can still carry
+    a remote URL — this is the last gate before it reaches a meta tag.
+
+    Returns:
+
+    * the branded **house image** (absolute) when there is no photo, or the
+      photo points at a blocked/transient host, or its shape is unknown;
+    * an **absolute** form of a local ``/static/...`` photo;
+    * an already-absolute, non-blocked **remote** URL unchanged.
+    """
+    from app.seo.urls import absolute_url
+
+    house = absolute_url(_HOUSE_IMAGE_PATH)
+    if not hero_photo_url:
+        return house
+    hero = hero_photo_url.strip()
+    if not hero:
+        return house
+    if hero.startswith("//"):
+        # Protocol-relative → an off-site host we can't vouch for, not a local
+        # asset. Don't glue it onto our origin; fall back to the house image.
+        return house
+    if hero.startswith("/"):
+        return absolute_url(hero)
+    if _is_renderable_http_url(hero):
+        return house if _is_blocked_remote_photo_url(hero) else hero
+    # Bare ref, protocol-relative, or any other non-renderable shape → fallback.
+    return house
+
+
 def iter_renderable_google_photos(provider: _GooglePhotoProvider) -> Iterator[str]:
     """Yield card/hero-ready Google photo URLs for ``provider``.
 

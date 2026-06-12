@@ -90,6 +90,18 @@ def register_template_globals(templates_or_env: "object") -> None:
 
     env.globals["canonical_url"] = canonical_url
     env.globals["absolute_url"] = absolute_url
+    # 1.6: share-safe provider og:image / JSON-LD image — coerces to an absolute
+    # house-image fallback when a hero URL is missing or points at a transient
+    # Google host whose URL rotates and breaks cached social-card previews.
+    from app.providers.photo_urls import social_image_url
+
+    env.globals["social_image_url"] = social_image_url
+    # 1.9b: content-hash ``?v=`` fingerprinting for /static assets. Templates that
+    # adopt ``static_url('/static/...')`` get the immutable 1yr cache from
+    # CachedStaticFiles; the hash changes on file change so it can't go stale.
+    from app.core.static_assets import static_url
+
+    env.globals["static_url"] = static_url
 
 
 def _norm_provider_name(name: str) -> str:
