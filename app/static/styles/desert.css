@@ -200,7 +200,7 @@ ul[class],ol[class]{padding:0;list-style:none}
 }
 .d-conditions-in{display:flex;flex-wrap:wrap;justify-content:center}
 .d-cond{
-  display:flex;align-items:baseline;gap:9px;
+  display:flex;align-items:baseline;gap:9px;min-width:0;
   padding:10px 20px;border-left:1px solid rgba(251,244,230,.14);
 }
 .d-cond:first-child{border-left:none}
@@ -256,6 +256,8 @@ a.d-cond:hover .l{opacity:.9}
   cursor:pointer;
 }
 .d-btn:hover{transform:translateY(-2px)}
+/* Tactile press state (audit P1): cancel the hover lift on click. */
+.d-btn:active{transform:translateY(0)}
 .d-btn svg{width:15px;height:15px;flex:none}
 .d-btn--solid{background:var(--black);color:var(--cream)}
 .d-btn--solid:hover{background:var(--orange-deep);border-color:var(--orange-deep);color:var(--cream)}
