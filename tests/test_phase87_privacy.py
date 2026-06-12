@@ -175,9 +175,9 @@ def test_root_redirects_to_home() -> None:
     assert r.status_code == 200
     assert str(r.url).endswith("/home")
     # Desert Modern home: assert the base tokens stylesheet + the display
-    # hero (copy audit 2026-06-10, direction B — see test_hero_copy).
+    # hero (Casey 2026-06-11 — see test_hero_copy).
     assert "/static/styles/desert.css" in r.text
-    assert "Search like a local." in r.text
+    assert "Everything Lake Havasu. Ask Hava." in r.text
 
 
 def test_jinja2_templates_directory_resolves() -> None:
