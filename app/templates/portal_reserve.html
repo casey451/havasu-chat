@@ -1,7 +1,7 @@
 {% extends "desert_base.html" %}
 {% block title %}Reserve {{ product.name }} — Ask Hava{% endblock %}
 {% block meta_description %}Reserve an ad placement on Ask Hava. No payment now — we email you to confirm and invoice. Clearly-labeled placements for Lake Havasu businesses.{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_portal.css">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_portal.css') }}">{% endblock %}
 
 {% block content %}
   <section class="dp-rates d-wrap" style="max-width:760px">

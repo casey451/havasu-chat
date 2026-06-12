@@ -12,8 +12,8 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/styles/components/map_view.css">
-  <link rel="stylesheet" href="/static/styles/desert_directory.css">
+  <link rel="stylesheet" href="{{ static_url('/static/styles/components/map_view.css') }}">
+  <link rel="stylesheet" href="{{ static_url('/static/styles/desert_directory.css') }}">
 {% endblock %}
 {% block body_attrs %} class="map-page" data-map-scope="{{ default_scope }}" data-map-default-expanded="true"{% endblock %}
 
@@ -62,8 +62,8 @@
 {% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin="anonymous" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js" crossorigin="anonymous" defer></script>
-<script src="/static/js/boat_mode.js" defer></script>
-<script src="/static/js/map.js" defer></script>
+<script src="{{ static_url('/static/js/boat_mode.js') }}" defer></script>
+<script src="{{ static_url('/static/js/map.js') }}" defer></script>
 <script defer>
   // Full-page map: ensure Leaflet recomputes its size after layout settles
   // (map.js also calls invalidateSize on marker load; this covers the case

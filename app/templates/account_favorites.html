@@ -2,7 +2,7 @@
 {% set active_tab = "saved" %}
 {% block title %}Saved listings — Ask Hava{% endblock %}
 {% block meta_description %}Your saved Lake Havasu City listings on Ask Hava — the local places you've kept for later.{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_account.css">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_account.css') }}">{% endblock %}
 {% block content %}
   <section class="d-util">
     <div class="d-crumb"><a href="/account">My account</a> &nbsp;/&nbsp; Saved</div>

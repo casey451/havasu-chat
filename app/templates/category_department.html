@@ -8,7 +8,7 @@
    pages. No AggregateRating anywhere (DECISION D4). #}
 {% block title %}{{ department_label }} in Lake Havasu City, AZ — Ask Hava{% endblock %}
 {% block meta_description %}{{ department_label }} in Lake Havasu City, AZ — {{ leaf_total }} kinds of places, {{ listing_total }} listings on Ask Hava.{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_directory.css">
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_directory.css') }}">
 <script type="application/ld+json">{{ breadcrumb_jsonld | tojson | safe }}</script>
 <script type="application/ld+json">{{ itemlist_jsonld | tojson | safe }}</script>
 {% endblock %}

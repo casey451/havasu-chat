@@ -11,8 +11,8 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" crossorigin="anonymous">
-  <link rel="stylesheet" href="/static/styles/components/hava_card.css">
-  <link rel="stylesheet" href="/static/styles/desert_directory.css">
+  <link rel="stylesheet" href="{{ static_url('/static/styles/components/hava_card.css') }}">
+  <link rel="stylesheet" href="{{ static_url('/static/styles/desert_directory.css') }}">
 {% endblock %}
 {% block body_attrs %} class="themed-group-page group-accent-{{ group_accent }}" data-boat-reload-on-toggle data-map-scope="{{ map_scope_slug }}"{% if category_slug == 'on-the-water' %} data-map-default-expanded="true"{% endif %}{% endblock %}
 
@@ -127,8 +127,8 @@
 {% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin="anonymous" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js" crossorigin="anonymous" defer></script>
-<script src="/static/js/boat_mode.js" defer></script>
-<script src="/static/js/search_bar.js" defer></script>
-<script src="/static/js/map.js" defer></script>
-<script src="/static/js/category_filters.js" defer></script>
+<script src="{{ static_url('/static/js/boat_mode.js') }}" defer></script>
+<script src="{{ static_url('/static/js/search_bar.js') }}" defer></script>
+<script src="{{ static_url('/static/js/map.js') }}" defer></script>
+<script src="{{ static_url('/static/js/category_filters.js') }}" defer></script>
 {% endblock %}

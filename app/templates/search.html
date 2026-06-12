@@ -5,7 +5,7 @@
    their search-row class names and are restyled in desert_directory.css. #}
 {% block title %}{% if q %}{{ q }} — Search — Ask Hava{% else %}Search — Ask Hava{% endif %}{% endblock %}
 {% block meta_description %}Keyword search across Lake Havasu City businesses and events on Ask Hava.{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_directory.css">
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_directory.css') }}">
 {# Internal search results shouldn't enter the index (standard hygiene); the
    bare /search form page stays indexable. #}
 {% if q %}<meta name="robots" content="noindex">{% endif %}{% endblock %}

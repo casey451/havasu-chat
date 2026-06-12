@@ -6,7 +6,7 @@
 {% set active_tab = "explore" %}
 {% block title %}{{ collection.title }} — Ask Hava{% endblock %}
 {% block meta_description %}{{ collection.blurb | meta_desc(160) }}{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_directory.css">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_directory.css') }}">{% endblock %}
 
 {% block content %}
 <div class="page category-page collection-page group-accent-{{ collection.accent }}">

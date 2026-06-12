@@ -1,7 +1,7 @@
 {% extends "desert_base.html" %}
 {% block title %}Claim your listing — Ask Hava{% endblock %}
 {% block meta_description %}Claim your Lake Havasu business listing on Ask Hava for free — unlock your full profile (photos, hours, menu, links) and the verified mark.{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_portal.css">
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_portal.css') }}">
   <style>
     /* UX-3: business-name autocomplete on the claim page. Scoped, tiny, no new
        CSS file. The dropdown is progressive enhancement — hidden without JS. */

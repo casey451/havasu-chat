@@ -1,7 +1,7 @@
 {% extends "desert_base.html" %}
 {% block title %}{{ head_title }}{% endblock %}
 {% block meta_description %}{% if meta_description %}{{ meta_description }}{% else %}{{ super() }}{% endif %}{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_portal.css">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_portal.css') }}">{% endblock %}
 {% block content %}
   {# Markdown-rendered legal docs (/privacy from docs/privacy.md, /terms from
      docs/tos.md) — the pipeline injects pre-rendered HTML; we restyle only. #}

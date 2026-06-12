@@ -17,8 +17,8 @@
 {% block head_extra %}
   {# chat_cards.css first (carries the B-01 size clamps + feedback/clearance
      rules), then the Desert Modern chat skin, which must load after it. #}
-  <link rel="stylesheet" href="/static/styles/chat_cards.css">
-  <link rel="stylesheet" href="/static/styles/desert_chat.css">
+  <link rel="stylesheet" href="{{ static_url('/static/styles/chat_cards.css') }}">
+  <link rel="stylesheet" href="{{ static_url('/static/styles/desert_chat.css') }}">
 {% endblock %}
 
 {% block body_attrs %} class="ll-page ll-chat"{% endblock %}
@@ -75,5 +75,5 @@
 
 {% block scripts %}
 {# Initial query from /chat?q=… is read by chat-new.js from the URL. #}
-<script type="module" src="/static/js/chat-new.js"></script>
+<script type="module" src="{{ static_url('/static/js/chat-new.js') }}"></script>
 {% endblock %}

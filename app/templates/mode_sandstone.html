@@ -4,7 +4,7 @@
    generic homepage line (audit P2 #2). #}
 {% block meta_description %}{{ blurb }}{% endblock %}
 {% block mode %}{{ mode }}{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_home.css">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_home.css') }}">{% endblock %}
 
 {% block content %}
   {# Color-blocked mode hero. The Desert chrome carries no global four-mode

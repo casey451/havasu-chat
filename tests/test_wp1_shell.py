@@ -36,6 +36,14 @@ _DESERT_CSS = _ROOT / "app" / "static" / "styles" / "desert.css"
 def _env() -> Environment:
     env = Environment(loader=FileSystemLoader(str(_TEMPLATES_DIR)), autoescape=True)
     env.globals["plausible_domain"] = None
+    # 1.9b: desert_base + the utility pages now reference static_url() for the
+    # fingerprinted /static cache. This bare render env predates that global, so
+    # mirror the app's Jinja registration (provider_name.register_template_globals)
+    # for just static_url -- leaving canonical_url undefined keeps the SEO/og
+    # block guarded-off as before, so unrelated shell assertions are unchanged.
+    from app.core.static_assets import static_url
+
+    env.globals["static_url"] = static_url
     env.filters["clean_name"] = lambda s: s
     return env
 
