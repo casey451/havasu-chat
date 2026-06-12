@@ -1,6 +1,12 @@
-"""Label standardization (fixlist §7.5): the /map category-scope tabs carry the
-canonical directory DEPARTMENT names, not the legacy flat-bucket labels. The
-scope slugs are unchanged (markers API untouched) — this is presentation only."""
+"""Label standardization (fixlist §7.5) + 2026-06-12 taxonomy reconciliation.
+
+The /map category-scope tabs carry one canonical label per slug. Three slugs
+were unified on 2026-06-12 so their map tab now matches ``CATEGORY_LABELS``:
+``auto-rv-fuel`` → "Auto, RV & Fuel" (was "… & Marine"), ``classes-sports-
+recreation`` → "Fitness, Sports & Classes" (was "Fitness & Wellness"), and
+``health-wellness-care`` → "Health & Medical". The remaining tabs still carry
+the shorter 15-department directory names pending the B3 rebuild. Scope slugs
+are unchanged (markers API untouched) — this is presentation only."""
 
 from __future__ import annotations
 
@@ -11,34 +17,36 @@ from app.main import app
 client = TestClient(app)
 
 
-def test_map_scope_labels_use_department_names() -> None:
+def test_map_scope_labels_present() -> None:
     body = client.get("/map").text
-    # Department-aligned names users see in the nav/directory. Jinja autoescapes
-    # the ampersand, so assert against the rendered ``&amp;`` form.
+    # Jinja autoescapes the ampersand, so assert the rendered ``&amp;`` form.
     for label in (
-        "Auto, RV &amp; Marine",
-        "Fitness &amp; Wellness",
-        "Outdoors &amp; Recreation",
+        "Auto, RV &amp; Fuel",            # reconciled 2026-06-12 (was "… & Marine")
+        "Fitness, Sports &amp; Classes",  # reconciled 2026-06-12 (was "Fitness & Wellness")
+        "Health &amp; Medical",           # canonical + map now agree
+        "Outdoors &amp; Recreation",      # still the directory dept name (pending B3)
         "Community &amp; Civic",
-        "Health &amp; Medical",
         "Shopping &amp; Retail",
     ):
         assert label in body, label
 
 
-def test_map_no_legacy_scope_labels() -> None:
+def test_map_no_stale_scope_labels() -> None:
     body = client.get("/map").text
-    # The old flat-bucket labels must be gone from the map tabs (rendered form).
-    for legacy in (
-        "Auto, RV &amp; Fuel",
-        "Classes, Sports &amp; Recreation",
-        "Outdoors, Parks &amp; Trails",
+    # Pre-reconciliation map labels and the now-retired canonical labels must be
+    # gone from the map tabs; the diverging canonical labels for the not-yet-
+    # unified rows are still not shown on the map (the map uses dept names there).
+    for stale in (
+        "Auto, RV &amp; Marine",             # old map label, replaced
+        "Fitness &amp; Wellness",            # old map label, replaced
+        "Classes, Sports &amp; Recreation",  # retired canonical (renamed)
+        "Health, Wellness &amp; Care",       # retired canonical (renamed)
+        "Outdoors, Parks &amp; Trails",      # canonical for a still-diverging row
         "Public &amp; Civic Resources",
-        "Health, Wellness &amp; Care",
         "Shopping, Grocery &amp; Essentials",
         "Lodging &amp; Vacation Rentals",
     ):
-        assert legacy not in body, legacy
+        assert stale not in body, stale
 
 
 def test_map_still_renders() -> None:
