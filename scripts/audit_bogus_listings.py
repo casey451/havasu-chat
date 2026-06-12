@@ -49,7 +49,7 @@ import argparse
 import csv
 import re
 import sys
-from collections import Counter, defaultdict
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 
