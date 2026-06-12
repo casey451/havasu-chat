@@ -1,0 +1,58 @@
+name: bogus-listing-audit
+
+# Read-only weekly sweep for bogus / non-business / auto-imported-junk listings
+# (the "Havasu" lake-as-a-bakery shape). Runs scripts/audit_bogus_listings.py,
+# which makes ZERO writes, and uploads the flagged CSV as a build artifact for
+# review. Nothing is deactivated here — applying the removals is a separate,
+# explicitly-approved step (scripts/apply_bogus_deactivation.py, run by an
+# operator; see BOGUS_LISTINGS_REMOVAL_PLAN).
+#
+# NOTE: GitHub only runs scheduled workflows from the repository's DEFAULT
+# branch. Merging this file is what enables the weekly run; until then use the
+# "Run workflow" button (workflow_dispatch).
+
+on:
+  schedule:
+    # Weekly, Mondays 7:20 AM Arizona (MST/UTC-7, no DST) — staggered off the
+    # other ops crons. Audit is read-only so timing is non-critical.
+    - cron: "20 14 * * 1"
+  workflow_dispatch: {}
+
+concurrency:
+  group: bogus-listing-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run bogus-listing audit (READ-ONLY — no DB writes)
+        env:
+          # Same Railway Postgres secret the other audit crons use. Set in:
+          # GitHub repo -> Settings -> Secrets and variables -> Actions
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python scripts/audit_bogus_listings.py --csv flagged_listings.csv \
+            | tee bogus_listing_audit_summary.txt
+
+      - name: Upload flagged listings + summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bogus-listing-audit
+          path: |
+            flagged_listings.csv
+            bogus_listing_audit_summary.txt
+          if-no-files-found: warn
+          retention-days: 90
