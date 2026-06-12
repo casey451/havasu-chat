@@ -1137,6 +1137,31 @@ def route(
     component_meta: dict[str, object] = {}
     try:
         if intent_result.mode == "ask":
+            # Live-conditions answers run FIRST: value-seeking weather / water-temp
+            # / AQI / wind / lake-level / alert questions answer deterministically
+            # from the conditions cache, ahead of the about-gate and gap paths that
+            # would otherwise intercept phrasings like "water temperature today"
+            # (Phase 6, P1-4). A place question with a weather modifier won't match
+            # the value-seeking detector and falls through unchanged.
+            try:
+                from app.chat.conditions_answer import answer_conditions
+
+                conditions_text = answer_conditions(q_raw, db)
+            except Exception:
+                logging.exception("unified_router: conditions answer failed")
+                conditions_text = None
+            if conditions_text is not None:
+                route_telemetry["cache_status"] = "bypass"
+                return _finish(
+                    conditions_text,
+                    "ask",
+                    intent_result.sub_intent,
+                    intent_result.entity,
+                    "1",
+                    None,
+                    cache_status=route_telemetry.get("cache_status"),
+                    timing_ms=route_telemetry or None,
+                )
             # Gap responses return component_meta empty → component.type == "none",
             # which signals the UI to render voice-only (no skeleton flash).
             # Confirmed by tests/test_tier2_single_card.py::test_gap_path_emits_none.
