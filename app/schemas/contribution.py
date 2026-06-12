@@ -45,6 +45,11 @@ ContributionSource = Literal[
     # Captured class schedules imported from the schedule-hunt dataset
     # (scripts/import_captured_schedules.py) as draft program contributions.
     "schedule_scrape",
+    # Youth/family calendar sources (2026-06-12): USA BMX live API + recurring
+    # weekly fixtures (bowling/trampoline/glow/Toptracer). Auto-approved in
+    # approval_service alongside chamber / go_lake_havasu.
+    "lhc_bmx",
+    "havasu_youth",
 ]
 ContributionStatus = Literal["pending", "approved", "rejected", "needs_info"]
 RejectionReason = Literal["duplicate", "out_of_area", "spam", "incomplete", "unverifiable", "other"]

@@ -15,9 +15,25 @@ from __future__ import annotations
 
 import re
 
-# Tags written by the ingest loaders (parks_rec_loader audience tagging).
+# Tags written by the ingest loaders (parks_rec_loader audience tagging, plus
+# the lhc_bmx / havasu_youth youth-source loaders).
 _FAMILY_TAGS = frozenset(
-    {"youth", "kids", "kid", "family", "children", "teen", "teens", "all ages"}
+    {
+        "youth",
+        "kids",
+        "kid",
+        "family",
+        "children",
+        "teen",
+        "teens",
+        "all ages",
+        "toddler",
+        "bmx",
+        "bowling",
+        "glow",
+        "trampoline",
+        "toptracer",
+    }
 )
 
 # Positive kid/family signals in a title. Word-boundary matched.
@@ -31,8 +47,16 @@ _FAMILY_TITLE_RE = re.compile(
     r"baby|babies|babysit\w*|"
     r"lego|minecraft|pok[eé]mon|spongebob|"
     r"crafts?\s+for\s+kids|"
-    r"skate\s+night|roller\s+skat\w*|"
-    r"youth\s+edition"
+    r"skate\s+night|roller\s+skat\w*|skate\s+park|"
+    r"youth\s+edition|"
+    # Youth venues added 2026-06-12 (BMX, trampoline, glow bowling, Toptracer,
+    # arcades, mini golf, splash pads). These read as kid/family activities;
+    # the adult veto below still wins if an adult marker is also present.
+    r"bmx|balance\s+bike|"
+    r"trampoline|bounce|jump\s+time|glow\s+in\s+the\s+park|"
+    r"rock\s*&?\s*bowl|glow\s+bowl\w*|cosmic\s+bowl\w*|family\s+bowl\w*|"
+    r"top\s*tracer|night\s+golf|"
+    r"arcade|mini[\s-]*golf|splash\s+pad|bounce\s+house"
     r")\b",
     re.IGNORECASE,
 )
