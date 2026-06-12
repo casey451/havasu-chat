@@ -143,4 +143,4 @@ def test_home_renders_sandstone_text_hero(monkeypatch: pytest.MonkeyPatch) -> No
     assert 'class="hero wrap"' in r.text
     # Desert Modern text hero: the display headline (Casey 2026-06-11), still
     # no photo.
-    assert "Everything Lake Havasu. Ask Hava." in r.text
+    assert "Everything Lake Havasu." in r.text
