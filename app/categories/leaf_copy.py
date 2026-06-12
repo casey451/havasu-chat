@@ -586,6 +586,109 @@ LEAF_COPY: dict[str, LeafCopy] = {
             "call or text 988.",
         ),
     ),
+    # Batch 4 (2026-06-11): Pets. Desert hazards (heat, foxtails, snakes,
+    # scorpions) are real local context; no fabricated specifics.
+    "grooming": _copy(
+        "Full grooms, baths, nail trims, and de-shedding — the pet groomers "
+        "below serve Lake Havasu City. Long, hot summers make coat care and "
+        "de-shedding matter for comfort, and many local groomers handle dogs "
+        "and cats, with some offering mobile service that comes to you. "
+        "Listings are ranked by real public reviews, so the groomers locals "
+        "rebook rank first. Check each listing for breeds, services, and "
+        "walk-in availability.",
+        (
+            "Are there mobile pet groomers in Lake Havasu?",
+            "Yes — several local groomers offer mobile service that comes to "
+            "your home, which can be easier on anxious pets and in the summer "
+            "heat. Check each listing to confirm mobile availability.",
+        ),
+        (
+            "Does my dog need more grooming in the desert heat?",
+            "Many owners keep up regular grooming and de-shedding in summer to "
+            "help pets stay comfortable; the right coat length depends on the "
+            "breed, so ask your groomer.",
+        ),
+    ),
+    "veterinarians": _copy(
+        "Wellness exams, vaccinations, dental care, surgery, and sick visits — "
+        "the veterinarians below serve Lake Havasu City. Many local clinics "
+        "treat dogs, cats, and sometimes exotics, and several offer urgent or "
+        "after-hours options. Desert hazards like heat, foxtails, and the "
+        "occasional snake or scorpion make a trusted vet worth having. Listings "
+        "are ranked by real public reviews. Not every clinic offers 24-hour "
+        "care, so confirm emergency hours ahead of time.",
+        (
+            "Is there an emergency vet in Lake Havasu City?",
+            "Some clinics offer urgent or after-hours care, but 24-hour "
+            "emergency coverage is limited locally — check each listing's hours "
+            "and keep an emergency option saved before you need it.",
+        ),
+        (
+            "What desert hazards should Havasu pet owners watch for?",
+            "Summer heat and hot pavement, foxtails and cactus, and the "
+            "occasional rattlesnake or scorpion are common local concerns. Ask "
+            "your vet about heat safety and whether rattlesnake vaccines make "
+            "sense.",
+        ),
+    ),
+    "pet-stores-and-supplies": _copy(
+        "Food, treats, toys, tanks, and the gear that keeps pets happy — the "
+        "pet stores below serve Lake Havasu City, from national chains to "
+        "independent shops. Several carry specialty and prescription diets, "
+        "live fish and reptiles, or self-serve dog wash stations. Listings are "
+        "ranked by real public reviews; star ratings appear only when a store "
+        "has earned real reviews. Check each listing for what they stock.",
+        (
+            "Are there self-serve dog wash stations in Havasu?",
+            "Some local pet stores offer self-serve dog wash stations — handy in "
+            "the summer heat. Check each listing or call to confirm availability "
+            "and pricing.",
+        ),
+    ),
+    "training": _copy(
+        "Puppy basics, obedience, behavior issues, and board-and-train — the "
+        "dog trainers below serve Lake Havasu City. Local options range from "
+        "group classes to private and in-home sessions, and some offer "
+        "desert-specific training like rattlesnake avoidance. Listings are "
+        "ranked by real public reviews, so the trainers locals recommend rank "
+        "first. Check each listing for methods, class types, and the ages or "
+        "issues they work with.",
+        (
+            "Is rattlesnake avoidance training available in Lake Havasu?",
+            "Yes — some local trainers offer rattlesnake avoidance for dogs, "
+            "which is popular given the desert setting. Check each listing or "
+            "call to confirm clinics and scheduling.",
+        ),
+    ),
+    "boarding-and-daycare": _copy(
+        "Heading out of town, or just need your dog to burn energy for the day "
+        "— the pet boarding and daycare options below serve Lake Havasu City. "
+        "Local facilities offer overnight boarding, daycare, climate-controlled "
+        "kennels, and sometimes grooming or training add-ons. Air conditioning "
+        "isn't optional here in summer, so ask. Listings are ranked by real "
+        "public reviews. Confirm vaccination requirements and availability, "
+        "especially around holidays.",
+        (
+            "Do Havasu boarding facilities require vaccinations?",
+            "Most do — proof of core vaccinations is standard for boarding and "
+            "daycare. Check each listing's requirements and book early around "
+            "holidays and peak travel weekends.",
+        ),
+    ),
+    "pet-sitting": _copy(
+        "For pets that do better at home, the pet sitters and dog walkers below "
+        "serve Lake Havasu City — drop-in visits, dog walking, overnight stays, "
+        "and vacation care. In-home sitting can be less stressful than boarding "
+        "for some animals and keeps a routine going. Listings are ranked by "
+        "real public reviews; Ask Hava doesn't sell placement. Confirm "
+        "services, insurance or bonding, and availability before you travel.",
+        (
+            "Should a pet sitter be insured or bonded?",
+            "Many professional pet sitters carry insurance or bonding — worth "
+            "asking about, along with how they handle keys, medications, and "
+            "emergencies. Confirm the details before your trip.",
+        ),
+    ),
 }
 
 
