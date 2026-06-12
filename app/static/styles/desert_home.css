@@ -27,9 +27,15 @@
 }
 .hero-copy h1{
   font-family:var(--disp);font-weight:800;
-  font-size:clamp(52px,8.5vw,124px);
+  /* Lower min so the unbreakable "Lake Havasu." line still fits on narrow
+     phones — the line never wraps (see .nb), it scales down instead. */
+  font-size:clamp(34px,9vw,124px);
   line-height:.92;letter-spacing:-.025em;text-transform:uppercase;
 }
+/* Each headline beat is its own line: "Everything" / "Lake Havasu." / "Ask Hava." */
+.hero-copy h1 .hl{display:block}
+/* "Lake Havasu." stays on ONE line at every screen size. */
+.hero-copy h1 .nb{white-space:nowrap}
 .hero-copy h1 .l2{color:var(--orange);display:block;font-size:.46em;letter-spacing:-.01em;margin-top:.06em}
 .hero-copy h1 em{font-style:normal;color:var(--orange)}
 
