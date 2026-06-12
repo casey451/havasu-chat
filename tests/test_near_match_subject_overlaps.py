@@ -61,6 +61,41 @@ class NearMatchSubjectOverlapsTests(unittest.TestCase):
         self.assertTrue(near_match_subject_overlaps("rating for the hotel", "Heat Hotel"))
         self.assertFalse(near_match_subject_overlaps("place near me", "Heat Hotel"))
 
+    # Keyword-artifact guard (QA diagnostic 2026-06-12): a descriptive clause
+    # that shares only a single generic word with a business name must not
+    # surface that unrelated business. Each of these was an observed live
+    # artifact on askhava.com.
+    def test_descriptive_truck_clause_rejected(self) -> None:
+        self.assertFalse(
+            near_match_subject_overlaps(
+                "Where can I leave my truck and trailer all day?", "A Toe Truck"
+            )
+        )
+
+    def test_descriptive_sunset_clause_rejected(self) -> None:
+        self.assertFalse(
+            near_match_subject_overlaps("Where can we watch sunset without hiking?", "Sunset Plaza")
+        )
+
+    def test_descriptive_local_clause_rejected(self) -> None:
+        self.assertFalse(
+            near_match_subject_overlaps(
+                "Where are the local boutiques versus the big-box stores?", "The Local Craving"
+            )
+        )
+
+    def test_descriptive_biting_right_clause_rejected(self) -> None:
+        self.assertFalse(
+            near_match_subject_overlaps(
+                "What is biting right now, and where?", "Done Right Auto RV and Alignment"
+            )
+        )
+
+    def test_single_generic_word_lookup_still_passes(self) -> None:
+        # A genuine one-word lookup of a generically-named place is not an
+        # artifact and must still resolve.
+        self.assertTrue(near_match_subject_overlaps("sunset", "Sunset Plaza"))
+
 
 if __name__ == "__main__":
     unittest.main()
