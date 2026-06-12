@@ -4,7 +4,7 @@
    crumb / chips / filterpill / sortpill / filtersummary / biz-grid / pager) —
    desert_directory.css restyles them. #}
 {% block title %}{{ category_label }}{% if page and page > 1 %} — Page {{ page }}{% endif %} — Ask Hava{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_directory.css">
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_directory.css') }}">
 {% if prev_url %}<link rel="prev" href="{{ prev_url }}">{% endif %}
 {% if next_url %}<link rel="next" href="{{ next_url }}">{% endif %}{% endblock %}
 
@@ -151,5 +151,5 @@
     </div>
   </section>
 
-  <script src="/static/js/sandstone_category.js" defer></script>
+  <script src="{{ static_url('/static/js/sandstone_category.js') }}" defer></script>
 {% endblock %}

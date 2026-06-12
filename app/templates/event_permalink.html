@@ -10,7 +10,7 @@
 {% block og_title %}{{ event_title }}{% endblock %}
 {# SEO P1.9: event image when present; fall back to the site hero image. #}
 {% block og_image %}{% if image_url %}{{ image_url }}{% else %}{{ absolute_url('/static/img/home-hero.jpg') }}{% endif %}{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_events.css">
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_events.css') }}">
 {# Event rich-results schema — dict built in the route (None keys omitted). #}
 {% if event_jsonld %}<script type="application/ld+json">{{ event_jsonld | tojson }}</script>{% endif %}
 {% endblock %}

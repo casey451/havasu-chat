@@ -13,7 +13,7 @@
    trade-intro / biz-grid / faq-item) — desert_directory.css restyles them. #}
 {% block title %}{{ trade_count }} Best {{ trade_label }} in Lake Havasu City, AZ — Ask Hava{% endblock %}
 {% block meta_description %}{{ trade_intro | meta_desc(160) }}{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_directory.css">
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_directory.css') }}">
 <script type="application/ld+json">{{ breadcrumb_jsonld | tojson | safe }}</script>
 <script type="application/ld+json">{{ itemlist_jsonld | tojson | safe }}</script>
 {% if list_controls and list_controls.has_prev %}<link rel="prev" href="{{ list_controls.url_prev }}">{% endif %}

@@ -2,7 +2,7 @@
 {% set active_tab = "events" %}
 {% block title %}Event not found — Ask Hava{% endblock %}
 {% block meta_description %}This event may be removed, pending review, or unavailable.{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_events.css">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_events.css') }}">{% endblock %}
 
 {% block content %}
   <section class="p-head nf-head">

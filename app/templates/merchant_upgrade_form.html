@@ -1,6 +1,6 @@
 {% extends "desert_base.html" %}
 {% block title %}Feature your listing — {{ entity.name }}{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_account.css">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_account.css') }}">{% endblock %}
 {% block content %}
   <section class="d-util">
     <div class="d-crumb"><a href="/provider/{{ entity.slug }}">&larr; Back to listing</a></div>

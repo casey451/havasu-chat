@@ -1,7 +1,7 @@
 {% extends "desert_base.html" %}
 {% import "_partials/desert_icons.html" as dicons %}
 {% block title %}Ask Hava — Lake Havasu City concierge & directory{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_home.css">
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_home.css') }}">
   {# Organization JSON-LD (audit P1 SEO): home is the canonical brand page. Guarded
      like the base og/canonical set so bare-Environment renders don't error. #}
   {% if canonical_url is defined %}

@@ -23,10 +23,10 @@
 {% block og_image %}{{ social_image_url(vm.hero_photo_url) }}{% endblock %}
 
 {% block head_extra %}
-<link rel="stylesheet" href="/static/styles/desert_profile.css">
+<link rel="stylesheet" href="{{ static_url('/static/styles/desert_profile.css') }}">
 {# DL-14 / E5: venue-events cards reuse the shared Hava-card component; link its
    CSS so the "What's on at {venue}" region renders styled on the profile. #}
-<link rel="stylesheet" href="/static/styles/components/hava_card.css">
+<link rel="stylesheet" href="{{ static_url('/static/styles/components/hava_card.css') }}">
 {# SEO block: Open Graph + LocalBusiness JSON-LD (card photo as image).
    canonical + og:url come from desert_base (P1.0: absolute https from the
    BASE_URL origin) — previously this emitted a bare ``request.url`` that leaked
@@ -370,6 +370,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/favorites.js" defer></script>
-<script src="/static/js/sandstone_profile.js" defer></script>
+<script src="{{ static_url('/static/favorites.js') }}" defer></script>
+<script src="{{ static_url('/static/js/sandstone_profile.js') }}" defer></script>
 {% endblock %}

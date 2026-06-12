@@ -1,7 +1,7 @@
 {% extends "desert_base.html" %}
 {% block title %}Advertise on Ask Hava{% endblock %}
 {% block meta_description %}Advertise on Ask Hava — clearly labeled placements for Lake Havasu businesses, limited to one paid unit per surface. Real prices, never a wall of ads.{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_portal.css">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_portal.css') }}">{% endblock %}
 
 {#- Product card. Renders the live catalog fields from app/portal/products.py:
     name / price (keep the "/ mo" string intact — pinned) / price_note / blurb /

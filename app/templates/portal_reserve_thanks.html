@@ -1,7 +1,7 @@
 {% extends "desert_base.html" %}
 {% block title %}Reservation received — Ask Hava{% endblock %}
 {% block meta_description %}Your ad-placement reservation on Ask Hava was received. We'll be in touch within one business day to confirm and invoice. No payment was taken.{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_portal.css">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_portal.css') }}">{% endblock %}
 
 {% block content %}
   <section class="dp-rates d-wrap" style="max-width:680px">

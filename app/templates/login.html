@@ -1,7 +1,7 @@
 {% extends "desert_base.html" %}
 {% block title %}Sign in — Ask Hava{% endblock %}
 {% block meta_description %}Sign in to Ask Hava with a one-time email link — no password, nothing to remember.{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_account.css">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_account.css') }}">{% endblock %}
 {% block content %}
   <section class="d-util">
     <span class="d-eyebrow">Account access</span>

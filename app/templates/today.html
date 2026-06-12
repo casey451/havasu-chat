@@ -2,7 +2,7 @@
 {% set active_tab = "home" %}
 {% block title %}Today in Havasu — Ask Hava{% endblock %}
 {% block meta_description %}Today in Lake Havasu City: lake level and water temp, wind, air quality, sunset, and the cheapest gas — updated from live local sources.{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_home.css">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_home.css') }}">{% endblock %}
 
 {% block content %}
   <section class="p-head">

@@ -16,7 +16,7 @@
 {% set active_tab = "explore" %}
 {% block title %}All categories — Ask Hava{% endblock %}
 {% block meta_description %}Every category Hava covers in Lake Havasu City — restaurants, marinas, plumbers, classes, and more. Browse the full list with live counts.{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="/static/styles/desert_directory.css">{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_directory.css') }}">{% endblock %}
 {% block content %}
   <section class="dx-head">
     <div class="d-wrap">
