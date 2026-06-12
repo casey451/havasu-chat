@@ -19,10 +19,10 @@ def test_home_renders_default_hero_copy(monkeypatch: pytest.MonkeyPatch) -> None
     with TestClient(app) as client:
         r = client.get("/home")
     assert r.status_code == 200
-    # Hero copy (Casey, 2026-06-11): three-line lockup — "Everything" /
+    # Hero copy (Casey, 2026-06-11): three-line lockup — "All Things" /
     # "Lake Havasu." (one unbreakable line, .nb) / smaller "Ask Hava." (.l2).
     assert 'class="date-tag"' in r.text
-    assert '<span class="hl">Everything</span>' in r.text
+    assert '<span class="hl">All Things</span>' in r.text
     assert '<span class="hl nb">Lake&nbsp;Havasu.</span>' in r.text
     assert '<span class="l2">Ask Hava.</span>' in r.text
     # Legacy hardcoded copy is gone.

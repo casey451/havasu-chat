@@ -37,13 +37,13 @@
         {# Eyebrow is just the date — the H1 right below already says "Your
            lake." (HOME_HERO_EYEBROW env override still wins when set). #}
         <span class="date-tag">{% if hero_eyebrow_override %}{{ hero_eyebrow_override }}{% else %}{{ today_label }}{% endif %}</span>
-        {# Hero copy (Casey, 2026-06-11): three-line lockup — "Everything" /
+        {# Hero copy (Casey, 2026-06-11): three-line lockup — "All Things" /
            "Lake Havasu." / "Ask Hava." The middle line is ONE unbreakable unit
            (.nb = white-space:nowrap) so "Lake Havasu" never splits across lines
            at any width; the headline font scales down on narrow screens to keep
            it on one line. Prod note: HOME_HERO_HEADLINE env override WINS over
            this default — unset it on Railway for this to render. #}
-        <h1>{% if hero_headline_override %}{{ hero_headline_override }}{% else %}<span class="hl">Everything</span><span class="hl nb">Lake&nbsp;Havasu.</span><span class="l2">Ask Hava.</span>{% endif %}</h1>
+        <h1>{% if hero_headline_override %}{{ hero_headline_override }}{% else %}<span class="hl">All Things</span><span class="hl nb">Lake&nbsp;Havasu.</span><span class="l2">Ask Hava.</span>{% endif %}</h1>
       </div>
       <div class="hero-side">
         <div class="hero-art" aria-hidden="true">
