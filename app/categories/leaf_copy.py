@@ -444,6 +444,148 @@ LEAF_COPY: dict[str, LeafCopy] = {
             "each listing for the type and any monthly plans.",
         ),
     ),
+    # Batch 3 (2026-06-11): Health & Medical. No medical advice or fabricated
+    # specifics — services + local context only, with crisis/emergency notes
+    # where the category warrants it (911, 988).
+    "primary-care": _copy(
+        "From annual physicals and chronic-condition management to walk-in sick "
+        "visits, the primary care doctors and clinics below serve Lake Havasu "
+        "City. With a large retiree and seasonal-resident population, many local "
+        "practices cover internal and family medicine and accept Medicare, and "
+        "several see new patients. Listings are ranked by real public reviews, "
+        "so well-reviewed offices surface first — never paid placement. Confirm "
+        "insurance and new-patient availability when you call.",
+        (
+            "Do Lake Havasu primary care offices take new patients?",
+            "Many do, but availability shifts with the season and the area's "
+            "growing population — call ahead to confirm new-patient status, "
+            "insurance, and Medicare acceptance.",
+        ),
+    ),
+    "pharmacies": _copy(
+        "Prescriptions, vaccinations, and over-the-counter needs — the "
+        "pharmacies below serve Lake Havasu City, from national chains with "
+        "drive-thru and extended hours to independent and compounding "
+        "pharmacies. With a large retiree population, several offer medication "
+        "packaging, delivery, and immunizations. Listings are ranked by real "
+        "public reviews; star ratings appear only when a pharmacy has earned "
+        "real reviews. Check each listing for hours and services.",
+        (
+            "Are there 24-hour or extended-hours pharmacies in Havasu?",
+            "Some chain pharmacies offer extended hours and drive-thru service, "
+            "though true 24-hour coverage is limited — check each listing's "
+            "hours and call to confirm before a late run.",
+        ),
+    ),
+    "chiropractic": _copy(
+        "Back and neck pain, sports and auto-injury recovery, and routine "
+        "adjustments — the chiropractors below serve Lake Havasu City. Many "
+        "local offices pair spinal adjustment with massage, rehab exercises, "
+        "and other therapies, and several handle personal-injury and insurance "
+        "cases. Listings are ranked by real public reviews, so the offices "
+        "locals return to rank first. Confirm techniques and insurance when you "
+        "book.",
+        (
+            "Do Havasu chiropractors take insurance and injury claims?",
+            "Many local chiropractic offices bill insurance and handle auto- or "
+            "personal-injury cases, but coverage and intake vary — confirm with "
+            "the office before your first visit.",
+        ),
+    ),
+    "physical-therapy": _copy(
+        "Post-surgery rehab, sports injuries, balance and fall prevention, and "
+        "chronic-pain management — the physical therapists below serve Lake "
+        "Havasu City. With a large active-retiree population, many local clinics "
+        "focus on orthopedic and senior rehab, and several work directly with "
+        "area surgeons and physicians. Listings are ranked by real public "
+        "reviews; sponsored placements, if any, are clearly labeled. Check each "
+        "listing for specialties and insurance.",
+        (
+            "Do I need a referral for physical therapy?",
+            "Requirements vary by clinic and insurance plan — some visits are "
+            "available without a physician referral, but your insurer may "
+            "require one for coverage. Check with the clinic and your plan "
+            "before booking.",
+        ),
+    ),
+    "eye-care": _copy(
+        "Eye exams, glasses and contacts, and management of conditions like "
+        "glaucoma, cataracts, and dry eye — the eye doctors and optometrists "
+        "below serve Lake Havasu City. Desert sun and glare make UV protection "
+        "a real consideration here, and the area's older population drives "
+        "steady demand for cataract and retina care. Listings are ranked by "
+        "real public reviews. Confirm whether an office handles your needs and "
+        "insurance.",
+        (
+            "Optometrist or ophthalmologist — which do I need?",
+            "Optometrists handle exams, glasses, contacts, and routine eye "
+            "health; ophthalmologists are medical doctors who also do surgery "
+            "and treat complex disease. Check each listing to confirm what an "
+            "office offers.",
+        ),
+    ),
+    "urgent-care-and-er": _copy(
+        "For sprains, fevers, minor cuts, and the bugs that travel through town "
+        "in season, the urgent care clinics below serve Lake Havasu City as a "
+        "faster, lower-cost alternative to the ER for non-emergencies; summer "
+        "also brings heat-related visits. Listings are ranked by real public "
+        "reviews, and hours vary by location. For any life-threatening "
+        "emergency, call 911 — urgent care is for non-emergency needs.",
+        (
+            "Urgent care or the ER?",
+            "Urgent care handles non-emergencies like minor injuries, fevers, "
+            "and infections, usually faster and cheaper. For chest pain, trouble "
+            "breathing, severe bleeding, or any life-threatening emergency, call "
+            "911 or go to the ER.",
+        ),
+    ),
+    "senior-care-and-assisted-living": _copy(
+        "Lake Havasu City's large retiree population supports a wide range of "
+        "senior care — the assisted living communities, in-home care agencies, "
+        "and senior services below serve the area. Options span independent and "
+        "assisted living, memory care, and non-medical home help with daily "
+        "tasks. Choosing care is personal, so tour and compare. Listings are "
+        "ranked by real public reviews; Ask Hava doesn't sell placement and "
+        "isn't a care referral service.",
+        (
+            "What's the difference between assisted living and in-home care?",
+            "Assisted living is a residential community with on-site support; "
+            "in-home care brings caregivers to the person's own home. Many "
+            "families compare both — tour communities, interview agencies, and "
+            "verify licensing and services directly.",
+        ),
+    ),
+    "dermatology-and-skin": _copy(
+        "In a place with this much sun, skin care isn't cosmetic — it's "
+        "maintenance. The dermatologists and skin clinics below serve Lake "
+        "Havasu City with skin-cancer screenings, mole and lesion checks, acne "
+        "and rosacea treatment, and cosmetic procedures. The desert's intense "
+        "UV makes regular skin checks worth scheduling. Listings are ranked by "
+        "real public reviews. Confirm whether an office handles medical, "
+        "surgical, or cosmetic dermatology.",
+        (
+            "How often should I get a skin check in the desert?",
+            "Many people in high-sun areas schedule regular skin-cancer "
+            "screenings, and more often with heavy sun exposure or a history of "
+            "skin cancer. Ask a dermatologist about the right interval for you.",
+        ),
+    ),
+    "mental-and-behavioral-health": _copy(
+        "Counseling, therapy, psychiatry, and substance-use support — the "
+        "mental and behavioral health providers below serve Lake Havasu City. "
+        "Local options include individual, family, and group therapy, "
+        "telehealth, and medication management, with some offices seeing new "
+        "clients and accepting insurance. Listings are ranked by real public "
+        "reviews. If you're in crisis, call or text 988 for the Suicide & "
+        "Crisis Lifeline — these listings are for non-emergency care.",
+        (
+            "How do I find a therapist that fits in Lake Havasu?",
+            "Think about what you want — therapy type, specialty, insurance, "
+            "in-person or telehealth — then check each listing or call. Many "
+            "providers offer a brief consult to see if it's a fit. In a crisis, "
+            "call or text 988.",
+        ),
+    ),
 }
 
 
