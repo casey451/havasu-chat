@@ -19,13 +19,11 @@ def test_home_renders_default_hero_copy(monkeypatch: pytest.MonkeyPatch) -> None
     with TestClient(app) as client:
         r = client.get("/home")
     assert r.status_code == 200
-    # Copy audit 2026-06-10, hero direction B: a promise headline with the
-    # city in the second line for SEO; the name lives on the button. (The
-    # prior "Your lake. / Your week." default and the prod env override both
-    # restated the brand without making a promise.)
+    # Hero copy (Casey, 2026-06-11): comprehensive value + brand, two-beat
+    # rhythm; the city sits in the second line for SEO.
     assert 'class="date-tag"' in r.text
-    assert "Search like a local." in r.text
-    assert "plumber in Lake Havasu City" in r.text
+    assert "Everything Lake Havasu. Ask Hava." in r.text
+    assert "what's open right now in Lake Havasu City" in r.text
     # Legacy hardcoded copy is gone.
     assert "WELCOME BACK" not in r.text
     assert "What are you in the mood for?" not in r.text
@@ -40,4 +38,4 @@ def test_home_hero_headline_env_override(monkeypatch: pytest.MonkeyPatch) -> Non
     assert "Beat the heat at the channel" in r.text
     assert "HELLO HAVASU" in r.text
     # The default headline must not leak when overridden.
-    assert "Search like a local." not in r.text
+    assert "Everything Lake Havasu" not in r.text

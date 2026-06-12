@@ -37,11 +37,11 @@
         {# Eyebrow is just the date — the H1 right below already says "Your
            lake." (HOME_HERO_EYEBROW env override still wins when set). #}
         <span class="date-tag">{% if hero_eyebrow_override %}{{ hero_eyebrow_override }}{% else %}{{ today_label }}{% endif %}</span>
-        {# Copy audit 2026-06-10, hero B: promise first, name on the button.
-           "Lake Havasu City" stays in the second line for SEO (title tag also
-           covers it). Prod note: HOME_HERO_HEADLINE env override WINS over
-           this default — unset it on Railway for this to render. #}
-        <h1>{% if hero_headline_override %}{{ hero_headline_override }}{% else %}Search like a local.<span class="l2">Hava knows every launch ramp, taco stand, and plumber in Lake Havasu City.</span>{% endif %}</h1>
+        {# Hero copy (Casey, 2026-06-11): comprehensive value + brand, two-beat
+           rhythm. "Lake Havasu City" lives in the second line for SEO (title
+           tag also covers it). Prod note: HOME_HERO_HEADLINE env override WINS
+           over this default — unset it on Railway for this to render. #}
+        <h1>{% if hero_headline_override %}{{ hero_headline_override }}{% else %}Everything Lake Havasu. Ask Hava.<span class="l2">Restaurants, events, services, and what's open right now in Lake Havasu City.</span>{% endif %}</h1>
       </div>
       <div class="hero-side">
         <div class="hero-art" aria-hidden="true">
