@@ -19,10 +19,11 @@ def test_home_renders_default_hero_copy(monkeypatch: pytest.MonkeyPatch) -> None
     with TestClient(app) as client:
         r = client.get("/home")
     assert r.status_code == 200
-    # Hero copy (Casey, 2026-06-11): big "Everything Lake Havasu." over a
-    # smaller "Ask Hava." (the .l2 second line).
+    # Hero copy (Casey, 2026-06-11): three-line lockup — "Everything" /
+    # "Lake Havasu." (one unbreakable line, .nb) / smaller "Ask Hava." (.l2).
     assert 'class="date-tag"' in r.text
-    assert "All Things Lake Havasu." in r.text
+    assert '<span class="hl">Everything</span>' in r.text
+    assert '<span class="hl nb">Lake&nbsp;Havasu.</span>' in r.text
     assert '<span class="l2">Ask Hava.</span>' in r.text
     # Legacy hardcoded copy is gone.
     assert "WELCOME BACK" not in r.text
@@ -38,4 +39,4 @@ def test_home_hero_headline_env_override(monkeypatch: pytest.MonkeyPatch) -> Non
     assert "Beat the heat at the channel" in r.text
     assert "HELLO HAVASU" in r.text
     # The default headline must not leak when overridden.
-    assert "All Things Lake Havasu" not in r.text
+    assert '<span class="hl nb">Lake&nbsp;Havasu.</span>' not in r.text
