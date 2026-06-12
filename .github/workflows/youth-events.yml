@@ -1,0 +1,51 @@
+name: youth-events
+
+# Pulls the youth/family calendar into the catalog on the shared scraper cadence,
+# mirroring golakehavasu-events / river-scene-events.
+#
+# Two sources, both routed through scripts/scrape_events.py (the SOURCE_REGISTRY
+# runner) and the shared event reconciler/auto-approve path:
+#   - lhc_bmx:      live USA BMX schedule API (Lake Havasu City BMX, track 136).
+#   - havasu_youth: a rolling ~8-week window of recurring weekly fixtures
+#                   (Havasu Lanes Rock & Bowl, Altitude Junior Jump + Glow,
+#                   Toptracer @ Iron Wolf). Idempotent across re-runs
+#                   (find_duplicate + per-occurrence ?occ= URL dedup), so the
+#                   cadence just keeps the horizon full.
+# Both are high-trust structured sources in auto_approve_event_sources, so new
+# occurrences auto-approve; duplicates merge/skip.
+#
+# NOTE: GitHub only runs scheduled workflows from the repository's DEFAULT
+# branch. This file must be merged to main before the cron takes effect.
+# Until then, use the "Run workflow" button (workflow_dispatch) to trigger it.
+
+on:
+  schedule:
+    # Unified scraper cadence (2026-06-06): every other day (odd days of the
+    # month), staggered 10 min apart across the fleet. This slot = 6:40 AM
+    # Arizona (MST/UTC-7, no DST), between golakehavasu (:30) and civic (:50).
+    # Month boundary (31st -> 1st) doubles up once; ingests are idempotent so
+    # the extra run is harmless.
+    - cron: "40 13 1-31/2 * *"
+  workflow_dispatch: {}
+
+jobs:
+  pull-youth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Pull youth/family events into the catalog
+        env:
+          # Same Railway Postgres secret the other scrape crons use. Set in:
+          # GitHub repo -> Settings -> Secrets and variables -> Actions
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m scripts.scrape_events --source lhc_bmx --source havasu_youth
