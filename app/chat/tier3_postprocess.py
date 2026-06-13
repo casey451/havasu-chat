@@ -260,3 +260,25 @@ def strip_soft_suggest(text: str) -> str:
         # clean gap; otherwise fall back to the phrase-stripped form unchanged.
         return _SCAFFOLDING_FALLBACK if leak_dropped else out
     return _join_sentences(kept)
+
+
+def scrub_scaffold_leak(text: str) -> str:
+    """Drop only grounding-scaffold-leak sentences from ``text``.
+
+    Lighter than :func:`strip_soft_suggest` — it does NOT do the leading-phrase
+    rewrites or the sentence-usefulness filtering tuned for Tier-3 prose. It only
+    removes sentences that name the retrieval substrate ("...aren't listed in the
+    provided rows"), so it is safe to run on Tier-2 formatter output (LLM voices
+    can leak the scaffold there too, e.g. a grocery lookup). If the leak was the
+    whole response, returns the clean honest-gap fallback. Idempotent; returns the
+    input unchanged when nothing matched.
+    """
+    if not text:
+        return text
+    sentences = _split_sentences(text)
+    non_leak = [s for s in sentences if not _SCAFFOLDING_LEAK_RE.search(s)]
+    if len(non_leak) == len(sentences):
+        return text
+    if not non_leak:
+        return _SCAFFOLDING_FALLBACK
+    return _join_sentences(non_leak)
