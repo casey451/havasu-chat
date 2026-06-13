@@ -288,6 +288,8 @@ def ingest_partners(
         "updated_fuzzy": 0,
         "updated_contact": 0,
         "idempotent_updated": 0,
+        "reactivated": 0,
+        "skipped_reactivate_live_twin": 0,
         "retired_duplicates": 0,
         "reconcile_skipped_ambiguous": 0,
     }
@@ -344,6 +346,28 @@ def ingest_partners(
                 if w:
                     cvb_by_web.setdefault(w, prov)
 
+            # Live-catalog index (ALL sources, active + non-draft) keyed by the
+            # same identity signals the CVB snapshot uses. Consulted only when a
+            # CVB listing matches an idempotency row that is itself hidden
+            # (inactive or draft): if some OTHER live row -- typically the
+            # business's Google Places listing -- already represents it, we must
+            # NOT reactivate the hidden CVB row, or we mint a visible duplicate.
+            # Built once; the reactivate path keeps it consistent by only
+            # surfacing rows that have no live twin here (see the heal block).
+            live_name_idx: set[str] = set()
+            live_web_idx: set[str] = set()
+            for prov in session.scalars(
+                select(Provider).where(
+                    Provider.is_active.is_(True), Provider.draft.is_(False)
+                )
+            ).all():
+                s = slugify(prov.provider_name or "")
+                if s:
+                    live_name_idx.add(s)
+                w = _norm_web(prov.website)
+                if w:
+                    live_web_idx.add(w)
+
             def _register_cvb(prov: Provider) -> None:
                 """Register a freshly-inserted CVB row into the in-batch
                 idempotency snapshot.
@@ -390,6 +414,30 @@ def ingest_partners(
                         if other is not canonical and other.is_active:
                             other.is_active = False
                             counts["retired_duplicates"] += 1
+                    # Heal a hidden survivor. A partner still present in today's
+                    # partnerDirectory sitemap is, by that presence, one the CVB
+                    # still actively lists -- so if the surviving canonical is
+                    # inactive or held as draft/pending, SURFACE it. Without this
+                    # the loader silently routes the listing here ("idempotent")
+                    # and leaves it invisible forever (the Cabana Boat Rentals
+                    # no-op). Guard: skip when a live twin already represents the
+                    # business (e.g. a Google Places row) so we never create a
+                    # visible duplicate; merging CVB enrichment onto that twin is
+                    # a separate follow-up.
+                    if not (canonical.is_active and not canonical.draft):
+                        has_live_twin = (name_slug and name_slug in live_name_idx) or (
+                            web_key is not None and web_key in live_web_idx
+                        )
+                        if has_live_twin:
+                            counts["skipped_reactivate_live_twin"] += 1
+                        else:
+                            canonical.is_active = True
+                            canonical.draft = False
+                            canonical.pending_review = False
+                            live_name_idx.add(name_slug)
+                            if web_key:
+                                live_web_idx.add(web_key)
+                            counts["reactivated"] += 1
                     counts["idempotent_updated"] += 1
                     continue
 
