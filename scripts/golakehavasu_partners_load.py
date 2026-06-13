@@ -79,6 +79,21 @@ logger = logging.getLogger(__name__)
 # distinct neighbours. Tune via --fuzzy-threshold.
 FUZZY_NAME_THRESHOLD = 88
 
+# Per-listing category overrides, keyed by the provider NAME slug
+# (``slugify(payload.name)``) -> ``(legacy Provider.category string, Tier-1
+# Category slug)``. The CVB partner pages tag a few businesses with a category
+# that maps to the WRONG Hava bucket, so each ingest re-bucketed a hand-set
+# category away on every run. Cabana Boat Rentals is the known case: its CVB
+# pages are "Activities"/"Things To Do" (-> ``entertainment_attractions`` /
+# ``uncategorized``), never "Boating", so the boat_rental tag kept getting
+# clobbered. An override pins both the legacy string and the Tier-1 slug used to
+# resolve ``category_id``; the slug -> id lookup happens per-environment via
+# ``_cat_id_for`` so no hardcoded category ids leak in. Keep this map tiny and
+# only for listings whose CVB category is provably mis-mapped.
+CATEGORY_OVERRIDES: dict[str, tuple[str, str]] = {
+    "cabana-boat-rentals": ("boat_rental", "on-the-water"),
+}
+
 
 def _norm_web(url: str | None) -> str | None:
     """Normalize a website URL into a stable idempotency key (scheme/www/slash-insensitive)."""
@@ -282,6 +297,7 @@ _WOULD_RENAME = {
     "idempotent_updated": "would_idempotent_update",
     "reactivated": "would_reactivate",
     "skipped_reactivate_live_twin": "would_skip_reactivate_live_twin",
+    "skipped_reactivate_pending_review": "would_skip_reactivate_pending_review",
     "retired_duplicates": "would_retire",
     "reconcile_skipped_ambiguous": "would_reconcile_skipped_ambiguous",
 }
@@ -315,6 +331,7 @@ def ingest_partners(
         "idempotent_updated": 0,
         "reactivated": 0,
         "skipped_reactivate_live_twin": 0,
+        "skipped_reactivate_pending_review": 0,
         "retired_duplicates": 0,
         "reconcile_skipped_ambiguous": 0,
     }
@@ -429,10 +446,24 @@ def ingest_partners(
                 if cvb_matches:
                     canonical = _pick_canonical(cvb_matches)
                     _fill_gaps(canonical, kwargs)
-                    # CVB owns these rows: re-bucket category in place on re-run
-                    # when a confident per-listing mapping exists.
-                    if payload.category_slug:
-                        canonical.category = payload.legacy_category or "uncategorized"
+                    # CVB owns these rows, but a re-run must never DOWNGRADE a
+                    # more-specific category. Two cases:
+                    #   1. A per-listing override (CATEGORY_OVERRIDES) pins the
+                    #      correct bucket for listings the CVB pages tag wrong
+                    #      (Cabana Boat Rentals: "Activities" -> entertainment_
+                    #      attractions, never boat_rental). Re-assert every run.
+                    #   2. Otherwise re-bucket ONLY from a confident scrape
+                    #      mapping (legacy_category truthy). A falsy mapping would
+                    #      set "uncategorized" -- never clobber an existing,
+                    #      more-specific tag with that (the Cabana clobber bug).
+                    override = CATEGORY_OVERRIDES.get(name_slug)
+                    if override is not None:
+                        canonical.category = override[0]
+                        ov_id = _cat_id_for(override[1])
+                        if ov_id is not None:
+                            canonical.category_id = ov_id
+                    elif payload.legacy_category:
+                        canonical.category = payload.legacy_category
                         canonical.category_id = row_cat_id
                     sync_provider_entity_from_legacy(session, canonical)
                     for other in cvb_matches:
@@ -450,19 +481,28 @@ def ingest_partners(
                     # visible duplicate; merging CVB enrichment onto that twin is
                     # a separate follow-up.
                     if not (canonical.is_active and not canonical.draft):
-                        has_live_twin = (name_slug and name_slug in live_name_idx) or (
-                            web_key is not None and web_key in live_web_idx
-                        )
-                        if has_live_twin:
-                            counts["skipped_reactivate_live_twin"] += 1
+                        if canonical.pending_review:
+                            # Still held for FIRST human review (draft+pending) --
+                            # typically a row just inserted via the ambiguous
+                            # pending path. The heal pass only resurfaces rows that
+                            # were APPROVED and later went hidden; auto-promoting a
+                            # pending row would bypass review (the Guy's New Age
+                            # Galley bug). Leave genuinely-held rows held.
+                            counts["skipped_reactivate_pending_review"] += 1
                         else:
-                            canonical.is_active = True
-                            canonical.draft = False
-                            canonical.pending_review = False
-                            live_name_idx.add(name_slug)
-                            if web_key:
-                                live_web_idx.add(web_key)
-                            counts["reactivated"] += 1
+                            has_live_twin = (name_slug and name_slug in live_name_idx) or (
+                                web_key is not None and web_key in live_web_idx
+                            )
+                            if has_live_twin:
+                                counts["skipped_reactivate_live_twin"] += 1
+                            else:
+                                canonical.is_active = True
+                                canonical.draft = False
+                                canonical.pending_review = False
+                                live_name_idx.add(name_slug)
+                                if web_key:
+                                    live_web_idx.add(web_key)
+                                counts["reactivated"] += 1
                     counts["idempotent_updated"] += 1
                     continue
 

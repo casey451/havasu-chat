@@ -532,6 +532,8 @@ def _seed_cvb_provider(
     is_active: bool,
     draft: bool,
     description: str | None = None,
+    category: str = "uncategorized",
+    pending_review: bool = False,
     lat: float = _REACT_LAT,
     lng: float = _REACT_LNG,
 ) -> str:
@@ -545,7 +547,7 @@ def _seed_cvb_provider(
     with SessionLocal() as session:
         prov = Provider(
             provider_name=name,
-            category="uncategorized",
+            category=category,
             slug=derive_provider_slug(session, name),
             source="go_lake_havasu",
             website=website,
@@ -560,6 +562,7 @@ def _seed_cvb_provider(
         session.flush()
         prov.is_active = is_active
         prov.draft = draft
+        prov.pending_review = pending_review
         session.commit()
         return prov.id
 
@@ -667,6 +670,127 @@ def test_ingest_partners_skips_reactivation_when_live_twin_exists(monkeypatch) -
             # no new duplicate row minted: still exactly the seeded CVB + twin
             rows = session.scalars(select(Provider).where(Provider.provider_name == name)).all()
             assert len(rows) == 2
+    finally:
+        _cleanup_providers_named(name)
+
+
+# --- category re-bucket: never downgrade a more-specific tag on re-run ---------
+def test_ingest_partners_keeps_specific_category_when_scrape_unmapped(monkeypatch) -> None:
+    """A re-run must NOT downgrade a manually-set category to "uncategorized".
+
+    Regression for the Cabana clobber: the idempotent-match branch re-bucketed
+    ``category`` on every run, and when the scraped CVB category had no confident
+    legacy mapping (``legacy_category=None``) it wrote "uncategorized" -- erasing
+    a hand-set tag. With the fix, a falsy scrape mapping leaves the existing
+    category untouched.
+    """
+    import scripts.golakehavasu_partners_load as loader
+
+    name = "Manual Category Keep ZZZ"
+    _cleanup_providers_named(name)
+    pid = _seed_cvb_provider(
+        name,
+        website="http://manual-cat-keep.example",
+        is_active=True,
+        draft=False,
+        category="boat_rental",
+    )
+    try:
+        # "Rentals" is deliberately unmapped -> legacy_category is None.
+        _mock_single_listing(
+            monkeypatch, name=name, website="http://manual-cat-keep.example", category="Rentals"
+        )
+        counts = loader.ingest_partners(category_slug="things-to-do", dry_run=False, limit=None)
+
+        assert counts["idempotent_updated"] == 1
+        with SessionLocal() as session:
+            prov = session.get(Provider, pid)
+            assert prov is not None
+            assert prov.category == "boat_rental"  # NOT downgraded to uncategorized
+    finally:
+        _cleanup_providers_named(name)
+
+
+def test_ingest_partners_override_pins_category_against_wrong_scrape(monkeypatch) -> None:
+    """The CATEGORY_OVERRIDES map re-asserts the correct bucket every run.
+
+    Cabana Boat Rentals is tagged "Activities" on golakehavasu, which maps to a
+    truthy-but-wrong legacy ``entertainment_attractions`` -- so guard-(a) alone
+    (skip on falsy mapping) would still let it clobber boat_rental. The override
+    pins ``boat_rental`` + the on-the-water ``category_id`` regardless of what the
+    scrape says, even restoring a row that had already been clobbered.
+    """
+    import scripts.golakehavasu_partners_load as loader
+    from app.db.models import Category
+
+    name = "Cabana Boat Rentals"  # slugifies to the override key
+    _cleanup_providers_named(name)
+    # Seed in the already-clobbered state to prove the override RESTORES it.
+    pid = _seed_cvb_provider(
+        name,
+        website="http://cabana-override.example",
+        is_active=True,
+        draft=False,
+        category="uncategorized",
+    )
+    try:
+        _mock_single_listing(
+            monkeypatch,
+            name=name,
+            website="http://cabana-override.example",
+            category="Activities",  # -> entertainment_attractions (truthy, wrong)
+        )
+        counts = loader.ingest_partners(category_slug="things-to-do", dry_run=False, limit=None)
+
+        assert counts["idempotent_updated"] == 1
+        with SessionLocal() as session:
+            otw_id = session.scalars(
+                select(Category.id).where(Category.slug == "on-the-water")
+            ).first()
+            prov = session.get(Provider, pid)
+            assert prov is not None
+            assert prov.category == "boat_rental"
+            assert prov.category_id == otw_id
+    finally:
+        _cleanup_providers_named(name)
+
+
+def test_ingest_partners_does_not_promote_pending_review_row(monkeypatch) -> None:
+    """A hidden, still-pending-review row is NOT auto-promoted by the heal pass.
+
+    Regression for the Guy's New Age Galley bug: the heal block surfaced ANY
+    hidden in-sitemap row, including one just inserted as draft+pending for human
+    review -- flipping it straight to live and clearing pending_review, bypassing
+    review. The fix leaves genuinely-held (pending_review=True) rows held.
+    """
+    import scripts.golakehavasu_partners_load as loader
+
+    name = "Pending Hold NoPromote ZZZ"
+    _cleanup_providers_named(name)
+    # The state a freshly-inserted ambiguous-pending row carries.
+    pid = _seed_cvb_provider(
+        name,
+        website="http://pending-hold.example",
+        is_active=True,
+        draft=True,
+        pending_review=True,
+    )
+    try:
+        _mock_single_listing(
+            monkeypatch, name=name, website="http://pending-hold.example", category="Boating"
+        )
+        counts = loader.ingest_partners(category_slug="things-to-do", dry_run=False, limit=None)
+
+        assert counts["skipped_reactivate_pending_review"] == 1
+        assert counts["reactivated"] == 0
+        assert counts["idempotent_updated"] == 1
+
+        with SessionLocal() as session:
+            prov = session.get(Provider, pid)
+            assert prov is not None
+            # still held for review -- not promoted to live/approved
+            assert prov.draft is True
+            assert prov.pending_review is True
     finally:
         _cleanup_providers_named(name)
 
