@@ -346,14 +346,36 @@ def build_business_list(
     """Build the ``data`` dict for a ``business_list`` chat component.
 
     Maps tier-2 provider rows into the schema expected by ``renderBusinessList``
-    in ``chat-new.js``. Items are capped at ``limit`` (default five), sorted by
-    rating (highest first) to match the listing shortcut's prior prose ordering
-    intent.
+    in ``chat-new.js``. Items are capped at ``limit`` (default five), ranked by
+    within-category relevance to ``intent_query`` first (P1-1.1), then by rating
+    (highest first), then name.
     """
-    del intent_query  # reserved for future foot_link / query-aware copy
+    # P1-1.1: within-category relevance ranking for the Tier-2 shortcut path.
+    # The business-listing shortcut (tier2_db_query -> here) bypasses run_query,
+    # so it never received P1-1's ranking and sorted purely by rating — leaving
+    # "rent a kayak" ordered by rating/name, not relevance. Mirror run_query:
+    # count the query's distinctive terms in each row's searchable text as the
+    # PRIMARY sort key, breaking ties with the prior rating-then-name sort. Empty
+    # rank_terms (no query, or only stop/locality words) -> score 0 for every row
+    # -> byte-identical to the legacy rating sort (zero regression for callers
+    # that pass no intent_query, e.g. the run_query path and existing tests).
+    from app.chat.intents.queries import _derive_rank_terms, relevance
+
+    rank_terms = _derive_rank_terms(intent_query)
     provider_rows = [r for r in rows if r.get("type") == "provider"]
+
+    def _relevance_score(r: dict[str, Any]) -> int:
+        if not rank_terms:
+            return 0
+        searchable = " ".join(
+            str(r.get(k) or "")
+            for k in ("name", "category", "google_primary_category", "slug", "description")
+        ).lower()
+        return relevance(searchable, rank_terms)
+
     provider_rows.sort(
         key=lambda r: (
+            -_relevance_score(r),
             -(float(r["google_rating"]) if r.get("google_rating") is not None else -1.0),
             str(r.get("name") or ""),
         )
