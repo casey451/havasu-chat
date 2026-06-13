@@ -516,3 +516,146 @@ def test_ingest_partners_dedupes_same_name_within_one_run(monkeypatch) -> None:
             assert len(rows) == 1
     finally:
         _cleanup()
+
+
+# --- reactivate-or-skip: heal hidden CVB rows still present in the sitemap ----
+# Isolated coords (no other rows near them) so the heal path is exercised via the
+# CVB name/website idempotency match, never an incidental geo reconcile.
+_REACT_LAT = 34.9512
+_REACT_LNG = -114.9123
+
+
+def _seed_cvb_provider(name: str, *, website: str | None, is_active: bool, draft: bool) -> str:
+    """Commit a ``go_lake_havasu`` Provider (+ Entity via dual-write), then drop
+    it into the requested hidden state.
+
+    Created active-then-hidden so the Entity always exists -- exactly how the
+    real Cabana/Captain-Bob rows became inactive after a prior deactivation,
+    rather than never having been promoted.
+    """
+    with SessionLocal() as session:
+        prov = Provider(
+            provider_name=name,
+            category="uncategorized",
+            slug=derive_provider_slug(session, name),
+            source="go_lake_havasu",
+            website=website,
+            lat=_REACT_LAT,
+            lng=_REACT_LNG,
+            is_active=True,
+            draft=False,
+        )
+        session.add(prov)
+        create_provider_and_entity(session, prov)
+        session.flush()
+        prov.is_active = is_active
+        prov.draft = draft
+        session.commit()
+        return prov.id
+
+
+def _cleanup_providers_named(name: str) -> None:
+    """Remove every Provider (and its Entity) with this name -- ingest_partners
+    commits internally, so clean explicitly before and after each run."""
+    from app.db.models import Entity
+
+    with SessionLocal() as session:
+        provs = session.scalars(select(Provider).where(Provider.provider_name == name)).all()
+        ent_ids = [p.entity_id for p in provs if p.entity_id]
+        for p in provs:
+            session.delete(p)
+        session.flush()
+        for ent in session.scalars(select(Entity).where(Entity.id.in_(ent_ids))).all():
+            session.delete(ent)
+        session.commit()
+
+
+def _mock_single_listing(monkeypatch, *, name: str, website: str | None, category: str) -> None:
+    import scripts.golakehavasu_partners_load as loader
+    from app.contrib.golakehavasu_partners import PartnerListing
+
+    listing = PartnerListing(
+        name=name,
+        url="https://www.golakehavasu.com/directory/heal-test/",
+        address="1 Pier Rd, Lake Havasu City, AZ 86403",
+        lat=_REACT_LAT,
+        lng=_REACT_LNG,
+        phone=None,
+        website=website,
+        description="desc",
+        category=category,
+    )
+    monkeypatch.setattr(loader, "fetch_partner_sitemap_urls", lambda **k: ["u1"])
+    monkeypatch.setattr(loader, "fetch_and_parse_partner", lambda url, **k: listing)
+
+
+def test_ingest_partners_reactivates_hidden_partner_without_live_twin(monkeypatch) -> None:
+    """A still-listed partner whose only CVB row is hidden gets SURFACED.
+
+    Regression for the Cabana Boat Rentals no-op: the idempotency snapshot keys
+    on name/website regardless of is_active/draft, so the loader matched the
+    inactive row, filled gaps, and left it invisible (counted as
+    idempotent_updated, "work done"). With no live twin, the heal reactivates the
+    surviving canonical instead of silently skipping it.
+    """
+    import scripts.golakehavasu_partners_load as loader
+
+    name = "Hidden Reactivate NoTwin ZZZ"
+    _cleanup_providers_named(name)
+    pid = _seed_cvb_provider(
+        name, website="http://hidden-notwin.example", is_active=False, draft=False
+    )
+    try:
+        _mock_single_listing(
+            monkeypatch, name=name, website="http://hidden-notwin.example", category="Boating"
+        )
+        counts = loader.ingest_partners(category_slug="things-to-do", dry_run=False, limit=None)
+
+        assert counts["reactivated"] == 1
+        assert counts["skipped_reactivate_live_twin"] == 0
+        assert counts["idempotent_updated"] == 1
+        assert counts["inserted"] == 0
+
+        with SessionLocal() as session:
+            prov = session.get(Provider, pid)
+            assert prov is not None
+            assert prov.is_active is True
+            assert prov.draft is False
+    finally:
+        _cleanup_providers_named(name)
+
+
+def test_ingest_partners_skips_reactivation_when_live_twin_exists(monkeypatch) -> None:
+    """A hidden CVB row is NOT resurrected when a live twin already represents it.
+
+    The 16 'dormant duplicate' partners (a hidden CVB row beside an active Google
+    Places row) must stay as-is: reactivating the CVB row would mint a visible
+    duplicate next to the Google listing. Heal must detect the live twin and skip.
+    """
+    import scripts.golakehavasu_partners_load as loader
+
+    name = "Hidden With Twin ZZZ"
+    _cleanup_providers_named(name)
+    cvb_pid = _seed_cvb_provider(name, website=None, is_active=False, draft=False)
+    with SessionLocal() as session:
+        twin = _google_provider(session, name)  # active, non-draft, google_places
+        session.commit()
+        twin_id = twin.id
+    try:
+        _mock_single_listing(monkeypatch, name=name, website=None, category="Boating")
+        counts = loader.ingest_partners(category_slug="things-to-do", dry_run=False, limit=None)
+
+        assert counts["skipped_reactivate_live_twin"] == 1
+        assert counts["reactivated"] == 0
+        assert counts["idempotent_updated"] == 1
+
+        with SessionLocal() as session:
+            cvb = session.get(Provider, cvb_pid)
+            twin = session.get(Provider, twin_id)
+            assert cvb is not None and cvb.is_active is False  # stayed hidden
+            assert twin is not None and twin.is_active is True
+            # no new duplicate row minted: still exactly the seeded CVB + twin
+            rows = session.scalars(select(Provider).where(Provider.provider_name == name)).all()
+            assert len(rows) == 2
+    finally:
+        _cleanup_providers_named(name)
