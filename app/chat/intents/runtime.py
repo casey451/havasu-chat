@@ -175,10 +175,13 @@ def _build_providers(
     return voice, "business_list", data
 
 
-def _build_events(result: QueryResult, *, today: date) -> tuple[str, str, dict]:
+def _build_events(
+    result: QueryResult, *, today: date, query: str | None = None
+) -> tuple[str, str, dict]:
     from app.chat import component_builders as cb
     from app.chat.intents.queries import _event_window_dates
     from app.chat.tier2_schema import Tier2Filters
+    from app.chat.tier2_week_strip import _query_has_event_intent
 
     window = result.window or "upcoming"
     start, end = _event_window_dates(window, today)
@@ -187,6 +190,12 @@ def _build_events(result: QueryResult, *, today: date) -> tuple[str, str, dict]:
         data = cb.build_day_agenda(filters, result.rows)
         voice = cb.fallback_day_agenda_voice(result.rows, start)
         return voice, "day_agenda", data
+    # P1-2: the same over-fire guard as tier2_week_strip, on the resolve()->run_query
+    # events path. A non-event question that merely resolved to a multi-day events
+    # window (e.g. "what should I do when it's too hot" -> DATE_LOOKUP) must not
+    # render a 7-day calendar strip. Fall back to a voice-only list (no widget).
+    if query is not None and not _query_has_event_intent(query):
+        return _text_list(result), "none", {}
     data = cb.build_week_strip(filters, result.rows)
     voice = cb.fallback_week_strip_voice(result.rows, (start, end))
     return voice, "week_strip", data
@@ -199,7 +208,7 @@ def _render(
     if result.kind == "providers":
         return _build_providers(result, query)
     if result.kind == "events":
-        return _build_events(result, today=today)
+        return _build_events(result, today=today, query=query)
     # gas / programs -> voice-only list
     return _text_list(result), "none", {}
 
