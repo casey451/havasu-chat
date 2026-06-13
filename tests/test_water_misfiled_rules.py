@@ -1,8 +1,10 @@
 """Unit tests for app.categories.water_misfiled_rules.classify_water_misfiled_leaf.
 
-Phase 4 (QA diagnostic 2026-06-12): only the unambiguous corrections fire
-(detailing -> auto-marine-detailing, food/drink -> eat-drink). Genuine rentals
-and marine repair/sales return None (left for Casey's per-row judgment).
+Phase 4 (QA diagnostic 2026-06-12): detailing -> auto-marine-detailing and
+food/drink -> eat-drink (unambiguous). The Casey-approved (2026-06-12) marine
+rule then maps supplier/store/dealer primary types -> boat-sales and explicit
+marine-service names -> boat-repair-and-service, while genuine rentals/tours/
+guides always return None — even though they are google "service"-typed too.
 """
 
 from __future__ import annotations
@@ -45,19 +47,51 @@ class ClassifyWaterMisfiledLeafTests(unittest.TestCase):
         ):
             self.assertIsNone(classify_water_misfiled_leaf(name), name)
 
-    def test_marine_repair_and_sales_left_for_judgment(self) -> None:
+    def test_marine_dealers_go_to_boat_sales(self) -> None:
+        # Sales is taken ONLY from the supplier/store/dealer primary type — names
+        # alone never decide sales, because rentals share "marine" names.
+        for name, primary in (
+            ("R & D Marine", "Boat dealer"),
+            ("Domn8er Power Boats", "Marine supplier"),
+            ("Prestige Marine", "Boat dealer"),
+            ("Xtreme Speed And Marine", "Outboard motor store"),
+        ):
+            self.assertEqual(
+                classify_water_misfiled_leaf(name, primary), "boat-sales", name
+            )
+
+    def test_marine_service_shops_go_to_boat_repair(self) -> None:
+        # Repair fires on explicit marine-service name markers (no supplier type).
         for name in (
             "Barrett Custom Marine",
-            "Domn8er Power Boats",
             "Sun Country Marine Group",
             "IMAGE MARINE",
+            "JandJ Performance & Marine Service",
+            "Saleen Fiberglass Restoration",
+            "Boat Body Shop",
+            "Max Machine Worx",
         ):
-            self.assertIsNone(classify_water_misfiled_leaf(name), name)
+            self.assertEqual(
+                classify_water_misfiled_leaf(name), "boat-repair-and-service", name
+            )
+
+    def test_genuine_rentals_never_pulled_into_sales_or_repair(self) -> None:
+        # Rentals are google "service"-typed too, so the name exclusion must win
+        # before the sales/repair branches — never re-shelve a real rental.
+        for name, primary in (
+            ("Tortuga Boat Rentals", "Boat rental service"),
+            ("Lake Havasu Jet Ski Rentals", "Personal watercraft rental service"),
+            ("Arizona TikiToons Boat Rental", "Boat rental service"),
+            ("Sunset Watersports Tours", "Boat tour agency"),
+            ("Havasu Paddle Guide Co", "Tour operator"),
+        ):
+            self.assertIsNone(classify_water_misfiled_leaf(name, primary), name)
 
     def test_bar_substring_does_not_false_match(self) -> None:
-        # "Barrett" / "barber" must not trip the " bar" food/drink rule.
-        self.assertIsNone(classify_water_misfiled_leaf("Barrett Custom Marine"))
-        self.assertIsNone(classify_water_misfiled_leaf("Barber Marine Service"))
+        # "barber" must not trip the " bar" food/drink rule. Use names with no
+        # marine/detailing markers so the result is purely the bar-guard's None.
+        self.assertIsNone(classify_water_misfiled_leaf("Barber Shop On Main"))
+        self.assertIsNone(classify_water_misfiled_leaf("Barrett Storage Yard"))
 
     def test_empty_name_returns_none(self) -> None:
         self.assertIsNone(classify_water_misfiled_leaf(""))

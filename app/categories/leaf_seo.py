@@ -95,6 +95,9 @@ SEO_NOUNS: dict[str, str] = {
     "disc-golf": "Disc Golf Courses",
     # On the Water
     "kayak-and-paddle": "Kayak & Paddleboard Rentals",
+    # Lodging — pin the searcher noun so the leaf's displayed term stays
+    # "Vacation Rentals" even if the taxonomy ``Category.name`` is ever relabeled.
+    "vacation-rentals": "Vacation Rentals",
 }
 
 

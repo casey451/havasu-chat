@@ -842,6 +842,12 @@
     "count": 24,
     "gate_ok": true,
     "new": false
+   },
+   "vacation-rentals": {
+    "name": "Vacation Rentals",
+    "count": 3,
+    "gate_ok": false,
+    "new": true
    }
   }
  }

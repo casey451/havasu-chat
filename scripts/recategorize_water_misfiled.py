@@ -1,11 +1,12 @@
-"""Re-shelve detailing / food-drink rows mis-filed under boat-and-watercraft-rentals.
+"""Re-shelve rows mis-filed under boat-and-watercraft-rentals to their true leaf.
 
-QA diagnostic 2026-06-12 (Phase 4, clear corrections only): the
-``boat-and-watercraft-rentals`` leaf was stamped on businesses that don't rent
-watercraft, so "where can I rent a kayak?" surfaced detailing shops. This moves
-the unambiguous ones (9 detailing shops -> auto-marine-detailing, 1 saloon ->
-eat-drink) to the correct PRIMARY leaf. Marine repair vs sales is a per-row
-judgment call (Casey's) and is intentionally NOT touched here.
+QA diagnostic 2026-06-12 (Phase 4): the ``boat-and-watercraft-rentals`` leaf was
+stamped on businesses that don't rent watercraft, so "where can I rent a kayak?"
+surfaced detailing shops. This moves them to the correct PRIMARY leaf via
+``classify_water_misfiled_leaf``: detailing shops -> auto-marine-detailing, the
+saloon -> eat-drink, plus the Casey-approved (2026-06-12) marine rule (supplier/
+store/dealer types -> boat-sales, explicit marine-service names ->
+boat-repair-and-service). Genuine rentals/tours/guides are left untouched.
 
 This mirrors ``scripts/recategorize_health_beauty.py`` exactly: changes only the
 PRIMARY entity_categories link, scoped to rows whose CURRENT primary leaf is
