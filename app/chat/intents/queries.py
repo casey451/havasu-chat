@@ -33,12 +33,74 @@ from app.conditions.cache import read_source
 from app.conditions.constants import SOURCE_GAS
 from app.core.liveness import liveness_dampener
 from app.core.timezone import now_lake_havasu
-from app.db.models import Event, Offering, Program, Provider
+from app.db.models import Category, EntityCategory, Event, Offering, Program, Provider
 from app.programs.pricing import format_offering_price, format_program_price
 from app.providers.queries import is_open_now
 
 _PROVIDER_LIMIT = 12
 _EVENT_LIMIT = 24
+
+
+# ---------------------------------------------------------------------------
+# Within-category relevance ranking (P1-1)
+# ---------------------------------------------------------------------------
+#
+# The Tier-2 listing path returned the same per-category top-N for every query
+# in a bucket ("which launch ramp", "fish from shore", "sunset cruise" all got
+# the same on-water list, ordered purely by rating). P1-1 re-orders a bucket by
+# how many of the query's *distinctive* terms appear in each row's searchable
+# text, breaking ties with the existing rating sort. Empty ``rank_terms`` keeps
+# today's exact behavior (zero regression for existing callers/tests).
+
+# Tokens that carry no within-category signal: intent/question/filler words plus
+# locality and the generic bucket words ("boat"/"water"/"spot"/"place"). Dropping
+# them keeps ranking driven by what actually distinguishes rows in a bucket
+# ("launch", "ramp", "fishing", "sunset", "kayak") instead of words every row or
+# every query shares.
+_RANK_STOP_TERMS: frozenset[str] = frozenset(
+    """a an and any anywhere are around at be best buy can cheap cheapest close
+    closed could do does find for from get going good great hava have help here
+    hey how i id im into is it its just like list local me my near nearby need
+    new now of off ok okay on open or our out place places please right show some
+    something spot spots that the their them there these they this those to today
+    tonight tomorrow top town up us use want we week weekend what when where which
+    while who whose why will with would you your
+    lake havasu city arizona az lhc
+    boat boats water""".split()
+)
+
+
+def _derive_rank_terms(raw_query: str | None) -> frozenset[str]:
+    """Distinctive lowercase terms from a raw query, for within-category ranking.
+
+    Tokenize, then drop stop/locality/bucket words (``_RANK_STOP_TERMS``), bare
+    numbers (ages/sizes/counts — "8 year old", "28-foot"), and tokens shorter
+    than three characters. The remainder are the terms that distinguish one row
+    in a bucket from another. Returns ``frozenset()`` for an empty/None query,
+    which makes ``relevance`` a no-op and preserves the legacy sort.
+    """
+    if not raw_query:
+        return frozenset()
+    terms: set[str] = set()
+    for tok in re.split(r"[^a-z0-9]+", raw_query.lower()):
+        if len(tok) < 3 or tok.isdigit() or tok in _RANK_STOP_TERMS:
+            continue
+        terms.add(tok)
+    return frozenset(terms)
+
+
+def relevance(searchable: str, rank_terms: frozenset[str]) -> int:
+    """Count how many distinctive query terms appear in a row's searchable text.
+
+    Pure and substring-based (``"ramp"`` matches the leaf slug
+    ``"marinas-and-launch-ramps"``); ``searchable`` is expected lowercase. Used
+    as the PRIMARY sort key ahead of the rating sort, so a row that matches more
+    of the query's distinctive terms outranks a higher-rated row that matches
+    fewer — within the same already-filtered bucket.
+    """
+    if not rank_terms:
+        return 0
+    return sum(1 for t in rank_terms if t in searchable)
 
 
 @dataclass
@@ -77,6 +139,48 @@ def _provider_sort_key(p: Provider) -> tuple:
     )
 
 
+def _leaf_slugs_for_entities(
+    db: Session, entity_ids: list[str]
+) -> dict[str, list[str]]:
+    """Batched ``entity_id -> [category slug, ...]`` for the candidate rows.
+
+    The within-category ranking signal for several buckets lives ONLY in the
+    curated taxonomy slug (e.g. ``marinas-and-launch-ramps`` carries "launch"
+    and "ramp", which appear nowhere on the ``Provider`` row — not in the name,
+    google categories, category, or subcategory). One ``EntityCategory`` ->
+    ``Category`` join, keyed by ``entity_id``, pulls every linked slug so the
+    searchable string can include it. Returns ``{}`` for an empty input.
+    """
+    if not entity_ids:
+        return {}
+    out: dict[str, list[str]] = {}
+    for eid, slug in (
+        db.query(EntityCategory.entity_id, Category.slug)
+        .join(Category, Category.id == EntityCategory.category_id)
+        .filter(EntityCategory.entity_id.in_(entity_ids))
+        .all()
+    ):
+        if slug:
+            out.setdefault(eid, []).append(slug)
+    return out
+
+
+def _provider_searchable(p: Provider, leaf_slugs: list[str] | tuple[str, ...]) -> str:
+    """Lowercase blob of everything a query term can match a provider against:
+    name, google primary/secondary categories, legacy category + subcategory,
+    and the entity's taxonomy slugs (the only place "launch"/"ramp" etc. live).
+    """
+    parts = [
+        p.provider_name or "",
+        p.google_primary_category or "",
+        " ".join(p.google_categories or []),
+        p.category or "",
+        p.subcategory or "",
+        " ".join(leaf_slugs),
+    ]
+    return " ".join(parts).lower()
+
+
 def _query_providers(
     db: Session,
     *,
@@ -87,6 +191,7 @@ def _query_providers(
     exclude_google_categories: tuple[str, ...] = (),
     district: str | None = None,
     open_now: bool = False,
+    rank_terms: frozenset[str] = frozenset(),
     limit: int = _PROVIDER_LIMIT,
     now: datetime | None = None,
 ) -> list[Provider]:
@@ -138,7 +243,22 @@ def _query_providers(
         rows = district_rows if district_rows else list(q.all())
     else:
         rows = list(q.all())
-    rows.sort(key=_provider_sort_key, reverse=True)
+
+    if rank_terms:
+        # Re-order this already-filtered bucket by within-category relevance:
+        # primary key = count of distinctive query terms in the row's searchable
+        # text; ties fall back to the existing rated-first/rating/reviews sort.
+        slugs_by_eid = _leaf_slugs_for_entities(
+            db, [p.entity_id for p in rows if p.entity_id]
+        )
+
+        def _rank_key(p: Provider) -> tuple:
+            searchable = _provider_searchable(p, slugs_by_eid.get(p.entity_id, ()))
+            return (relevance(searchable, rank_terms), *_provider_sort_key(p))
+
+        rows.sort(key=_rank_key, reverse=True)
+    else:
+        rows.sort(key=_provider_sort_key, reverse=True)
 
     if open_now:
         kept: list[Provider] = []
@@ -452,11 +572,16 @@ def run_query(
     *,
     today: date | None = None,
     now: datetime | None = None,
+    raw_query: str | None = None,
 ) -> QueryResult:
     key = resolved.intent_key
     slots = resolved.slots
     if today is None:
         today = now_lake_havasu().date()
+    # Within-category ranking (P1-1): distinctive query terms used to re-order
+    # listing buckets. Empty (no raw_query, or all-generic query) is a no-op and
+    # keeps the legacy rating-only sort.
+    rank_terms = _derive_rank_terms(raw_query)
 
     if key == "cheapest_gas":
         return QueryResult(key, "gas", _query_gas(db), None, "Cheapest gas in town right now:")
@@ -493,6 +618,7 @@ def run_query(
             name_tokens=name_tokens,
             district=_area(slots),
             open_now=bool(slots.get("open_now")),
+            rank_terms=rank_terms,
             now=now,
         )
         return QueryResult(
@@ -517,6 +643,7 @@ def run_query(
             name_tokens=name_tokens,
             district=_area(slots),
             open_now=bool(slots.get("open_now")) or key == "eat_open_now",
+            rank_terms=rank_terms,
             now=now,
         )
         return QueryResult(
@@ -545,6 +672,7 @@ def run_query(
             db,
             subcats=(subcat,),
             legacy_categories=("fitness_sports", "fitness"),
+            rank_terms=rank_terms,
             now=now,
         )
         return QueryResult(
@@ -588,6 +716,7 @@ def run_query(
             subcats=dicts.STAY_SUBCATS,
             legacy_categories=dicts.STAY_LEGACY_CATEGORIES,
             district=_area(slots),
+            rank_terms=rank_terms,
             now=now,
         )
         return QueryResult(
@@ -605,6 +734,7 @@ def run_query(
             subcats=dicts.SHOPPING_SUBCATS,
             legacy_categories=dicts.SHOPPING_LEGACY_CATEGORIES,
             district=_area(slots),
+            rank_terms=rank_terms,
             now=now,
         )
         return QueryResult(
@@ -648,6 +778,7 @@ def run_query(
             exclude_name_tokens=exclude_name_tokens,
             exclude_google_categories=water_exclude_google,
             district=_area(slots),
+            rank_terms=rank_terms,
             now=now,
         )
         return QueryResult(
@@ -666,6 +797,7 @@ def run_query(
             legacy_categories=dicts.RECREATION_LEGACY_CATEGORIES,
             exclude_google_categories=dicts.RECREATION_EXCLUDE_GOOGLE,
             district=_area(slots),
+            rank_terms=rank_terms,
             now=now,
         )
         return QueryResult(
@@ -683,6 +815,7 @@ def run_query(
             subcats=dicts.CIVIC_SUBCATS,
             legacy_categories=dicts.CIVIC_LEGACY_CATEGORIES,
             district=_area(slots),
+            rank_terms=rank_terms,
             now=now,
         )
         return QueryResult(

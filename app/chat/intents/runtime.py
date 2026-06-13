@@ -271,7 +271,9 @@ def try_intent_layer(
             resolved_venue = ResolvedIntent("venue_schedule", {"venue": entity.strip()}, "L2")
             result = None
             try:
-                result = run_query(resolved_venue, db, today=today, now=now)
+                result = run_query(
+                    resolved_venue, db, today=today, now=now, raw_query=query
+                )
             except Exception:
                 logger.exception("intent_layer: venue_schedule query failed")
             if result is not None:
@@ -339,7 +341,7 @@ def try_intent_layer(
         return None
 
     try:
-        result = run_query(resolved, db, today=today, now=now)
+        result = run_query(resolved, db, today=today, now=now, raw_query=query)
     except Exception:
         logger.exception("intent_layer: query template failed for %s", resolved.intent_key)
         return None
