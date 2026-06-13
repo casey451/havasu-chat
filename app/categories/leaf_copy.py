@@ -196,6 +196,30 @@ LEAF_COPY: dict[str, LeafCopy] = {
             "the cooler shoulder months are typically calmer and cheaper.",
         ),
     ),
+    "vacation-rentals": _copy(
+        "Room for the whole crew, a kitchen, and a driveway for the boat "
+        "trailer — vacation rentals fill the gap hotels can't, and the ones "
+        "below host visitors to Lake Havasu City. From channel-side condos to "
+        "desert-view houses with a private pool, short-term rentals book out "
+        "earliest for spring break, summer river weekends, and the Balloon "
+        "Festival, so reserve ahead for peak dates. Listings are ranked by "
+        "real public reviews, never by who paid.",
+        (
+            "When should I book a Lake Havasu vacation rental?",
+            "The larger houses and channel-side units go first for spring "
+            "break, summer river weekends, and big events like the Balloon "
+            "Festival — often months out. Mid-week and the cooler shoulder "
+            "months are easier to book and usually cheaper.",
+        ),
+        (
+            "How is a vacation rental different from a hotel here?",
+            "Vacation rentals are whole homes or condos rented by the night or "
+            "week — with kitchens, multiple bedrooms, and room to park a boat "
+            "or trailer — while hotels and motels offer per-room stays with "
+            "daily service. Ask Hava lists both; check each listing's details "
+            "and house rules before you book.",
+        ),
+    ),
     "restaurants": _copy(
         "Lakefront patios, taco joints, steakhouses, and the spots locals "
         "actually drive across town for — the restaurants below serve Lake "
