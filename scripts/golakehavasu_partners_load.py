@@ -38,7 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import httpx
 from rapidfuzz import fuzz
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.bootstrap_env import ensure_dotenv_loaded
 
@@ -636,6 +636,95 @@ def reconcile_pending(
     return counts
 
 
+def reconcile_dormant(
+    *,
+    dry_run: bool,
+    limit: int | None,
+    fuzzy_threshold: float = FUZZY_NAME_THRESHOLD,
+) -> dict[str, int]:
+    """Cleanup pass for DORMANT-DUPLICATE CVB rows.
+
+    A "dormant duplicate" is a hidden ``go_lake_havasu`` row -- inactive, or held
+    as draft -- that sits beside an active twin, typically the business's Google
+    Places listing. The audit found 16 of these (Lake Havasu Marina, London
+    Bridge Resort, HEAT Hotel, ...): the business is visible via the Google row,
+    but the CVB row's enrichment is stranded on a hidden duplicate.
+
+    Parallels :func:`reconcile_pending` but widens the scan from draft+pending to
+    EVERY hidden CVB row (``not (is_active and not draft)``). For each, if a
+    single confident Google-backed twin exists (exact website/phone, or fuzzy
+    name within 50m), fill contact gaps onto the twin, record CVB provenance on
+    the surviving entity, and retire the hidden CVB row (``is_active=False``,
+    ``pending_review=False``). Rows with NO confident twin are left untouched --
+    those are the genuinely twinless partners that the ingest reactivation path
+    (:func:`ingest_partners`) surfaces instead. Idempotent; honour ``--dry-run``.
+
+    Deliberately uses the high-precision contact/fuzzy tiers (NOT the broad
+    name-slug index the ingest reactivation guard uses): retiring a row is more
+    consequential than declining to reactivate one, so it demands a precise twin.
+    """
+    counts: dict[str, int] = {
+        "scanned": 0,
+        "merged": 0,
+        "merged_contact": 0,
+        "merged_fuzzy": 0,
+        "retired": 0,
+        "left_alone": 0,
+    }
+    with SessionLocal() as session:
+        rows = session.scalars(
+            select(Provider).where(
+                Provider.source.like("%go_lake_havasu%"),
+                or_(Provider.is_active.is_(False), Provider.draft.is_(True)),
+            )
+        ).all()
+        if limit is not None:
+            rows = rows[:limit]
+
+        for prov in rows:
+            counts["scanned"] += 1
+            payload = _provider_to_payload(prov)
+            contact_id = _contact_match(session, payload)
+            match_id = contact_id or _fuzzy_geo_match(session, payload, threshold=fuzzy_threshold)
+            if match_id is None:
+                counts["left_alone"] += 1
+                continue
+            target = session.scalars(
+                select(Provider).where(Provider.entity_id == match_id).limit(1)
+            ).first()
+            if target is None or target.id == prov.id:
+                counts["left_alone"] += 1
+                continue
+            tier = "contact" if contact_id is not None else "fuzzy"
+
+            kwargs = _provider_kwargs(
+                payload,
+                category_slug=payload.category_slug or "things-to-do",
+                category_id=None,
+            )
+            _fill_gaps(target, kwargs)
+            sync_provider_entity_from_legacy(session, target)
+            ent = session.get(Entity, match_id)
+            ent_name = ent.name if ent is not None else "?"
+            if ent is not None:
+                ent.source = _combine_sources(ent.source, "go_lake_havasu")[:64]
+            # Already-inactive rows are not re-retired (no double count); active
+            # draft rows get retired now that their data is safe on the twin.
+            if prov.is_active:
+                prov.is_active = False
+                counts["retired"] += 1
+            prov.pending_review = False
+            counts["merged"] += 1
+            counts[f"merged_{tier}"] += 1
+            print(
+                f"  MERGE[{tier}] dormant '{prov.provider_name}' "
+                f"[{prov.address or 'no addr'}] -> entity {match_id} '{ent_name}'"
+            )
+        if not dry_run:
+            session.commit()
+    return counts
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     p = argparse.ArgumentParser(description="Ingest golakehavasu partner listings")
@@ -657,6 +746,12 @@ def main() -> int:
         action="store_true",
         help="Cleanup mode: re-match existing draft+pending CVB rows onto Google rows",
     )
+    p.add_argument(
+        "--reconcile-dormant",
+        action="store_true",
+        help="Cleanup mode: fold hidden CVB rows (inactive/draft) that have a "
+        "confident Google twin onto that twin and retire them",
+    )
     args = p.parse_args()
 
     if args.reconcile_pending:
@@ -666,6 +761,13 @@ def main() -> int:
             fuzzy_threshold=args.fuzzy_threshold,
         )
         print("--- golakehavasu_partners_load --reconcile-pending summary ---")
+    elif args.reconcile_dormant:
+        counts = reconcile_dormant(
+            dry_run=bool(args.dry_run),
+            limit=args.limit,
+            fuzzy_threshold=args.fuzzy_threshold,
+        )
+        print("--- golakehavasu_partners_load --reconcile-dormant summary ---")
     else:
         counts = ingest_partners(
             category_slug=args.category_slug,
