@@ -525,7 +525,16 @@ _REACT_LAT = 34.9512
 _REACT_LNG = -114.9123
 
 
-def _seed_cvb_provider(name: str, *, website: str | None, is_active: bool, draft: bool) -> str:
+def _seed_cvb_provider(
+    name: str,
+    *,
+    website: str | None,
+    is_active: bool,
+    draft: bool,
+    description: str | None = None,
+    lat: float = _REACT_LAT,
+    lng: float = _REACT_LNG,
+) -> str:
     """Commit a ``go_lake_havasu`` Provider (+ Entity via dual-write), then drop
     it into the requested hidden state.
 
@@ -540,8 +549,9 @@ def _seed_cvb_provider(name: str, *, website: str | None, is_active: bool, draft
             slug=derive_provider_slug(session, name),
             source="go_lake_havasu",
             website=website,
-            lat=_REACT_LAT,
-            lng=_REACT_LNG,
+            description=description,
+            lat=lat,
+            lng=lng,
             is_active=True,
             draft=False,
         )
@@ -659,3 +669,107 @@ def test_ingest_partners_skips_reactivation_when_live_twin_exists(monkeypatch) -
             assert len(rows) == 2
     finally:
         _cleanup_providers_named(name)
+
+
+# --- reconcile-dormant: fold hidden CVB rows onto their confident live twin ----
+def test_reconcile_dormant_merges_inactive_row_onto_contact_twin() -> None:
+    """A hidden CVB row with a confident (shared-website) Google twin folds: its
+    enrichment lifts onto the twin, CVB provenance is recorded, and the dormant
+    row is left retired. This is the cleanup for the 16 'dormant duplicate'
+    partners the audit found.
+    """
+    import scripts.golakehavasu_partners_load as loader
+    from app.db.models import Entity
+
+    cvb_name = "Dormant CVB Contact ZZZ"
+    twin_name = "Dormant Twin Google ZZZ"
+    shared_web = "http://dormant-twin.example"
+    _cleanup_providers_named(cvb_name)
+    _cleanup_providers_named(twin_name)
+    cvb_pid = _seed_cvb_provider(
+        cvb_name, website=shared_web, is_active=False, draft=False, description="CVB blurb"
+    )
+    with SessionLocal() as session:
+        twin = _google_provider(session, twin_name, website=shared_web)
+        session.commit()
+        twin_id = twin.id
+        twin_ent_id = twin.entity_id
+    try:
+        counts = loader.reconcile_dormant(dry_run=False, limit=None)
+
+        assert counts["merged"] == 1
+        assert counts["merged_contact"] == 1
+        assert counts["retired"] == 0  # already inactive -> not re-retired
+        assert counts["left_alone"] == 0
+
+        with SessionLocal() as session:
+            cvb = session.get(Provider, cvb_pid)
+            twin = session.get(Provider, twin_id)
+            assert cvb is not None and cvb.is_active is False  # stays retired
+            assert cvb.pending_review is False
+            assert twin is not None and twin.is_active is True
+            assert twin.description == "CVB blurb"  # gap lifted from the CVB row
+            ent = session.get(Entity, twin_ent_id)
+            assert ent is not None and "go_lake_havasu" in (ent.source or "")
+    finally:
+        _cleanup_providers_named(cvb_name)
+        _cleanup_providers_named(twin_name)
+
+
+def test_reconcile_dormant_leaves_twinless_row_untouched() -> None:
+    """A hidden CVB row with NO confident twin is left alone -- those are the
+    genuinely-invisible partners the ingest reactivation path surfaces instead;
+    reconcile-dormant must not retire-merge them into nothing.
+    """
+    import scripts.golakehavasu_partners_load as loader
+
+    name = "Dormant NoTwin ZZZ"
+    _cleanup_providers_named(name)
+    pid = _seed_cvb_provider(
+        name,
+        website="http://dormant-notwin-unique.example",
+        is_active=False,
+        draft=False,
+        lat=35.5012,  # far from any seeded Google row -> no fuzzy-geo twin either
+        lng=-115.5012,
+    )
+    try:
+        counts = loader.reconcile_dormant(dry_run=False, limit=None)
+
+        assert counts["merged"] == 0
+        assert counts["left_alone"] == 1
+
+        with SessionLocal() as session:
+            prov = session.get(Provider, pid)
+            assert prov is not None and prov.is_active is False
+    finally:
+        _cleanup_providers_named(name)
+
+
+def test_reconcile_dormant_dry_run_does_not_write() -> None:
+    """--dry-run computes the fold plan but persists nothing (the gate Casey runs
+    before the real prod pass)."""
+    import scripts.golakehavasu_partners_load as loader
+
+    cvb_name = "Dormant DryRun CVB ZZZ"
+    twin_name = "Dormant DryRun Twin ZZZ"
+    shared_web = "http://dormant-dryrun.example"
+    _cleanup_providers_named(cvb_name)
+    _cleanup_providers_named(twin_name)
+    _seed_cvb_provider(
+        cvb_name, website=shared_web, is_active=False, draft=False, description="CVB blurb"
+    )
+    with SessionLocal() as session:
+        twin = _google_provider(session, twin_name, website=shared_web)
+        session.commit()
+        twin_id = twin.id
+    try:
+        counts = loader.reconcile_dormant(dry_run=True, limit=None)
+
+        assert counts["merged"] == 1  # planned...
+        with SessionLocal() as session:
+            twin = session.get(Provider, twin_id)
+            assert twin is not None and twin.description is None  # ...but not written
+    finally:
+        _cleanup_providers_named(cvb_name)
+        _cleanup_providers_named(twin_name)
