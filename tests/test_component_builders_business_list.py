@@ -65,6 +65,32 @@ def test_build_business_list_relevance_noop_falls_back_to_rating() -> None:
     assert data["items"][0]["name"] == "Boat Body Shop"  # higher rating still wins
 
 
+def test_build_business_list_leaf_slug_drives_relevance() -> None:
+    # "launch"/"ramp" live ONLY in the leaf slug, not the provider name — P1-1.1
+    # folds category_slugs into the searchable text so slug-only signals rank too.
+    rows = _rows(
+        {
+            "name": "Generic Boat Spot",
+            "slug": "generic-boat-spot",
+            "google_rating": 4.8,
+            "category_slugs": "boat-and-watercraft-rentals on-the-water",
+        },
+        {
+            "name": "Site Six",
+            "slug": "site-six",
+            "google_rating": 3.9,
+            "category_slugs": "marinas-and-launch-ramps on-the-water",
+        },
+    )
+    data = build_business_list(
+        rows,
+        category="on-the-water",
+        total_count=2,
+        intent_query="which launch ramp is best for a 28-foot boat?",
+    )
+    assert data["items"][0]["name"] == "Site Six"  # leaf slug carries launch + ramp
+
+
 def test_build_business_list_phone_and_maps_links() -> None:
     rows = _rows(
         {

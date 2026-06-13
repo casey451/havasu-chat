@@ -369,7 +369,10 @@ def build_business_list(
             return 0
         searchable = " ".join(
             str(r.get(k) or "")
-            for k in ("name", "category", "google_primary_category", "slug", "description")
+            for k in (
+                "name", "category", "google_primary_category",
+                "slug", "category_slugs", "description",
+            )
         ).lower()
         return relevance(searchable, rank_terms)
 
