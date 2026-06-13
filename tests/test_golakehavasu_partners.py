@@ -851,3 +851,50 @@ def test_ingest_partners_dry_run_reports_would_insert_without_writing(monkeypatc
             assert rows == []  # dry-run wrote nothing
     finally:
         _cleanup_providers_named(name)
+
+
+def test_ingest_partners_mapped_category_not_clobbered_by_unmapped_url(monkeypatch) -> None:
+    """A vendor listed under two partner URLs -- one with a mapped CVB category,
+    one unmapped -- keeps the MAPPED category, regardless of processing order.
+
+    Regression: the idempotent branch re-bucketed on ``if payload.category_slug``,
+    which is always truthy (it falls back to the --category-slug default when the
+    CVB category is unmapped). So an unmapped/sub-category URL overwrote a good
+    category with "uncategorized" -- whichever URL was processed last won. Multi-URL
+    vendors (Cabana, Captain Bob's) lost their category this way.
+    """
+    import scripts.golakehavasu_partners_load as loader
+    from app.contrib.golakehavasu_partners import PartnerListing
+
+    name = "MapClobber Boat Co ZZZ"
+
+    def _listing(url: str, category: str) -> PartnerListing:
+        return PartnerListing(
+            name=name,
+            url=url,
+            address="1 Pier Rd, Lake Havasu City, AZ 86403",
+            lat=34.5201,
+            lng=-114.3601,
+            phone="(928) 555-0199",
+            website="http://mapclobber-boatco.example",
+            description="desc",
+            category=category,
+        )
+
+    listings = {
+        "u-mapped": _listing("u-mapped", "Boating"),  # -> legacy "boat_rental" (mapped)
+        "u-unmapped": _listing("u-unmapped", "Misc"),  # -> unmapped (legacy None)
+    }
+    monkeypatch.setattr(loader, "fetch_partner_sitemap_urls", lambda **k: ["u-mapped", "u-unmapped"])
+    monkeypatch.setattr(loader, "fetch_and_parse_partner", lambda url, **k: listings[url])
+
+    _cleanup_providers_named(name)
+    try:
+        loader.ingest_partners(category_slug="things-to-do", dry_run=False, limit=None)
+        with SessionLocal() as session:
+            rows = session.scalars(select(Provider).where(Provider.provider_name == name)).all()
+            assert len(rows) == 1
+            # mapped category preserved; the unmapped URL must NOT have clobbered it
+            assert rows[0].category == "boat_rental"
+    finally:
+        _cleanup_providers_named(name)

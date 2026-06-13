@@ -429,10 +429,22 @@ def ingest_partners(
                 if cvb_matches:
                     canonical = _pick_canonical(cvb_matches)
                     _fill_gaps(canonical, kwargs)
-                    # CVB owns these rows: re-bucket category in place on re-run
-                    # when a confident per-listing mapping exists.
-                    if payload.category_slug:
-                        canonical.category = payload.legacy_category or "uncategorized"
+                    # CVB owns these rows: re-bucket category in place on re-run,
+                    # but ONLY when this listing's CVB category confidently mapped
+                    # (legacy_category is set). payload.category_slug is ALWAYS
+                    # truthy -- it falls back to the --category-slug default when
+                    # the CVB category is unmapped -- so the old `if
+                    # payload.category_slug` let an unmapped or sub-category partner
+                    # URL overwrite a good category with "uncategorized". Multi-URL
+                    # vendors (Cabana, Captain Bob's: 2-3 sitemap URLs each) lost
+                    # their category to whichever URL was processed last. Gating on
+                    # the confident legacy mapping makes the result order-independent
+                    # and stops a mapped URL's category being clobbered by an
+                    # unmapped one. (Whether an operator-corrected category that
+                    # disagrees with the CVB mapping should also be preserved is a
+                    # separate product decision -- not handled here.)
+                    if payload.legacy_category:
+                        canonical.category = payload.legacy_category
                         canonical.category_id = row_cat_id
                     sync_provider_entity_from_legacy(session, canonical)
                     for other in cvb_matches:
