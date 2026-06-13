@@ -190,6 +190,7 @@ def try_family_fun(
         category="family fun spot",
         total_count=len(rows),
         limit=_MAX_ITEMS,
+        intent_query=query,
     )
     payload["foot_link"] = "/categories/things-to-do-and-attractions"
     payload["foot_label"] = "All things to do →"

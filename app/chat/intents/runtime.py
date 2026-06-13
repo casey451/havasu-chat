@@ -154,13 +154,22 @@ def _text_list(result: QueryResult) -> str:
     return "\n".join(lines)
 
 
-def _build_providers(result: QueryResult) -> tuple[str, str, dict]:
+def _build_providers(
+    result: QueryResult, query: str | None = None
+) -> tuple[str, str, dict]:
     from app.chat.component_builders import build_business_list
 
+    # P1-1.1: thread the raw query so build_business_list applies within-category
+    # relevance ranking on THIS path too. The Tier-2 business-listing shortcut
+    # (tier2_handler) already passes intent_query; the resolve()->run_query path
+    # (e.g. "where can I rent a kayak?" -> Rentals bucket) reached here without it,
+    # so build_business_list scored every row 0 and fell back to rating-then-name,
+    # discarding ranking. None/empty query keeps the legacy rating sort.
     data = build_business_list(
         result.rows,
         category=result.label or "businesses",
         total_count=result.result_count,
+        intent_query=query,
     )
     voice = result.lead_in.rstrip(":") + "." if result.lead_in else "Here are a few picks."
     return voice, "business_list", data
@@ -183,10 +192,12 @@ def _build_events(result: QueryResult, *, today: date) -> tuple[str, str, dict]:
     return voice, "week_strip", data
 
 
-def _render(result: QueryResult, *, today: date) -> tuple[str, str, dict]:
+def _render(
+    result: QueryResult, *, today: date, query: str | None = None
+) -> tuple[str, str, dict]:
     """Return (voice_text, component_type, component_data). Non-empty only."""
     if result.kind == "providers":
-        return _build_providers(result)
+        return _build_providers(result, query)
     if result.kind == "events":
         return _build_events(result, today=today)
     # gas / programs -> voice-only list
@@ -286,7 +297,7 @@ def try_intent_layer(
 
                         today = now_lake_havasu().date()
                     try:
-                        text, component_type, component_data = _render(result, today=today)
+                        text, component_type, component_data = _render(result, today=today, query=query)
                     except Exception:
                         logger.exception("intent_layer: venue_schedule render failed")
                         return None
@@ -363,7 +374,7 @@ def try_intent_layer(
         today = now_lake_havasu().date()
 
     try:
-        text, component_type, component_data = _render(result, today=today)
+        text, component_type, component_data = _render(result, today=today, query=query)
     except Exception:
         logger.exception("intent_layer: render failed for %s", result.intent_key)
         return None
