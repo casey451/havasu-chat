@@ -19,7 +19,13 @@ import app.db.models  # noqa: E402, F401, I001
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers=False: by default fileConfig DISABLES every logger
+    # not named in alembic.ini. Migrations run in-process (app startup lifespan
+    # via init_db, and the test session), so a default-True call silently turns
+    # off already-imported app loggers (e.g. app.admin.v1_overview) for the rest
+    # of the process -- which made admin-sync log assertions intermittently see
+    # zero records depending on test order. Keep our loggers alive.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 config.set_main_option("sqlalchemy.url", get_database_url())
 
