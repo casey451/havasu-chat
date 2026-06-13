@@ -659,3 +659,81 @@ def test_ingest_partners_skips_reactivation_when_live_twin_exists(monkeypatch) -
             assert len(rows) == 2
     finally:
         _cleanup_providers_named(name)
+
+
+# --- dry-run honesty: report would_* counts, write nothing -------------------
+def test_ingest_partners_dry_run_reports_would_reactivate_without_writing(monkeypatch) -> None:
+    """A ``--dry-run`` now runs the full resolution loop and reports what a real
+    apply WOULD do, then rolls back so nothing persists.
+
+    Regression for the misleading all-zeros dry-run (the original "no-op" that
+    hid the Cabana gap): the same hidden-no-live-twin partner that
+    ``test_..._reactivates_hidden_partner_without_live_twin`` heals must show as
+    ``would_reactivate`` in dry-run -- WITHOUT actually flipping the row.
+    """
+    import scripts.golakehavasu_partners_load as loader
+
+    name = "DryRun Would Reactivate ZZZ"
+    _cleanup_providers_named(name)
+    pid = _seed_cvb_provider(
+        name, website="http://dryrun-would-react.example", is_active=False, draft=False
+    )
+    try:
+        _mock_single_listing(
+            monkeypatch, name=name, website="http://dryrun-would-react.example", category="Boating"
+        )
+        counts = loader.ingest_partners(category_slug="things-to-do", dry_run=True, limit=None)
+
+        # would_* labels, populated from the real decision the loop made
+        assert counts["would_reactivate"] == 1
+        assert counts["would_idempotent_update"] == 1
+        assert counts["would_insert"] == 0
+        assert counts["would_skip_reactivate_live_twin"] == 0
+        # the legacy real-run keys are gone on a dry-run (relabelled)
+        assert "reactivated" not in counts
+
+        # and CRUCIALLY: nothing was written -- the row is still hidden
+        with SessionLocal() as session:
+            prov = session.get(Provider, pid)
+            assert prov is not None
+            assert prov.is_active is False
+            assert prov.draft is False
+    finally:
+        _cleanup_providers_named(name)
+
+
+def test_ingest_partners_dry_run_reports_would_insert_without_writing(monkeypatch) -> None:
+    """A brand-new partner (no existing row, no coords -> no geo reconcile match)
+    shows as ``would_insert`` on dry-run and creates NO provider row."""
+    import scripts.golakehavasu_partners_load as loader
+    from app.contrib.golakehavasu_partners import PartnerListing
+
+    name = "DryRun Would Insert ZZZ"
+    _cleanup_providers_named(name)
+    try:
+        # No lat/lng + a unique name/website -> reconcile_hit finds no neighbour
+        # and returns a clean insert (not the geo-ambiguous pending path).
+        listing = PartnerListing(
+            name=name,
+            url="https://www.golakehavasu.com/directory/dryrun-would-insert/",
+            address="1 Nowhere Rd, Lake Havasu City, AZ 86403",
+            lat=None,
+            lng=None,
+            phone=None,
+            website="http://dryrun-would-insert.example",
+            description="desc",
+            category="Boating",
+        )
+        monkeypatch.setattr(loader, "fetch_partner_sitemap_urls", lambda **k: ["u1"])
+        monkeypatch.setattr(loader, "fetch_and_parse_partner", lambda url, **k: listing)
+        counts = loader.ingest_partners(category_slug="things-to-do", dry_run=True, limit=None)
+
+        assert counts["would_insert"] == 1
+        assert counts["would_idempotent_update"] == 0
+        assert counts["would_reactivate"] == 0
+
+        with SessionLocal() as session:
+            rows = session.scalars(select(Provider).where(Provider.provider_name == name)).all()
+            assert rows == []  # dry-run wrote nothing
+    finally:
+        _cleanup_providers_named(name)
