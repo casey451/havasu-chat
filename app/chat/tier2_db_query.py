@@ -379,6 +379,28 @@ def _program_dict(p: Program) -> dict[str, Any]:
     return out
 
 
+def _leaf_slugs_text(p: Provider) -> str:
+    """Space-joined taxonomy category slugs linked to ``p`` (for relevance ranking).
+
+    The within-category signal for several buckets lives ONLY in the curated leaf
+    slug (e.g. ``marinas-and-launch-ramps`` carries "launch"/"ramp", which appear
+    nowhere on the Provider row), so build_business_list's P1-1.1 ranking needs it.
+    Reads the already-eager-loaded ``entity.categories -> category`` relationship;
+    degrades to ``""`` if it isn't loaded (no lazy N+1) — ranking just loses that
+    one signal, never errors.
+    """
+    try:
+        entity = getattr(p, "entity", None)
+        slugs = [
+            ec.category.slug
+            for ec in (getattr(entity, "categories", None) or [])
+            if getattr(ec, "category", None) is not None and ec.category.slug
+        ]
+        return " ".join(slugs)
+    except Exception:
+        return ""
+
+
 def _provider_dict(p: Provider) -> dict[str, Any]:
     loc = getattr(getattr(p, "entity", None), "location", None)
     address = loc.address if loc is not None and loc.address else p.address
@@ -389,6 +411,7 @@ def _provider_dict(p: Provider) -> dict[str, Any]:
         "slug": p.slug,
         "category": p.category,
         "google_primary_category": p.google_primary_category,
+        "category_slugs": _leaf_slugs_text(p),
         "address": address,
         "phone": p.phone,
         "hours": _truncate(p.hours, 120),
