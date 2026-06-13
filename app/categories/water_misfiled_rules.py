@@ -5,11 +5,13 @@ not rent watercraft — detailing shops ("928DesertDetailing", "Premier
 Detailing"), marine repair/sales, and even a saloon. The grab-bag of detailing
 shops surfaced for "where can I rent a kayak?".
 
-This module encodes only the **unambiguous** corrections (detailing -> auto/marine
-detailing; food/drink venues -> eat-drink). Marine repair vs sales is a judgment
-call Casey makes per row, so those return ``None`` here and are left untouched —
-mirroring ``health_beauty_leaf_rules`` ("minimal blast radius"). Used by
-``scripts/recategorize_water_misfiled.py`` (DRY-RUN by default).
+This module encodes the unambiguous corrections (detailing -> auto/marine
+detailing; food/drink venues -> eat-drink) plus the Casey-approved (2026-06-12)
+marine sales-vs-repair rule: rental/tour/guide-named rows stay put, supplier/
+store types go to ``boat-sales``, and explicit marine-service names go to
+``boat-repair-and-service``. Genuine rentals always return ``None``. Used by
+``scripts/recategorize_water_misfiled.py`` (DRY-RUN by default; review the
+printed change list before --apply).
 """
 
 from __future__ import annotations
@@ -17,6 +19,8 @@ from __future__ import annotations
 # Leaf slugs the corrections target (must exist as level-1 Category slugs).
 _DETAILING_LEAF = "auto-marine-detailing"
 _FOOD_DRINK_LEAF = "eat-drink"
+_BOAT_SALES_LEAF = "boat-sales"
+_BOAT_REPAIR_LEAF = "boat-repair-and-service"
 
 
 def classify_water_misfiled_leaf(
@@ -28,10 +32,10 @@ def classify_water_misfiled_leaf(
     ``boat-and-watercraft-rentals`` that clearly is not a rental, or ``None`` to
     leave it untouched.
 
-    Conservative by design: only detailing shops and food/drink venues are
-    auto-corrected. Marine repair / sales / suppliers return ``None`` (Casey
-    decides sales vs repair per row), and any genuine rental returns ``None``.
-    The caller is responsible for scoping to rows whose CURRENT primary leaf is
+    Detailing shops and food/drink venues are auto-corrected; marine dealers go
+    to ``boat-sales`` and marine-service shops to ``boat-repair-and-service``
+    (approved 2026-06-12). Any genuine rental/tour/guide returns ``None``. The
+    caller is responsible for scoping to rows whose CURRENT primary leaf is
     ``boat-and-watercraft-rentals`` so this never touches an already-correct row.
     """
     n = (name or "").lower()
@@ -47,5 +51,31 @@ def classify_water_misfiled_leaf(
     # " bar" as a word (avoid "barrett", "barber") — trailing or standalone token.
     if n.endswith(" bar") or " bar " in n or " bar & " in n:
         return _FOOD_DRINK_LEAF
+
+    # --- Phase-4 judgment rows (approved 2026-06-12): marine sales vs repair ---
+    # CAUTION: genuine rentals in this leaf are ALSO google "service"-typed
+    # ("Tortuga Boat Rentals", "Lake Havasu Jet Ski Rentals"), so NEVER map on the
+    # service type alone. Exclude rental/tour/guide names first — those stay in the
+    # rentals leaf — then take sales only from supplier/store types (rentals are
+    # never typed that way) and repair only on explicit marine-service name markers.
+    primary = (google_primary_category or "").lower()
+    rental_markers = (
+        "rent", "rental", "jet ski", "jetski", "kayak", "paddle", "charter",
+        "watercraft", "wave", "watersport", "tour", "guide", "valet", "concierge",
+    )
+    if any(mk in n for mk in rental_markers):
+        return None
+
+    # Sales: dealers/suppliers/stores (rentals are never supplier/store-typed).
+    if "supplier" in primary or "store" in primary or "dealer" in primary:
+        return _BOAT_SALES_LEAF
+
+    # Repair / custom marine shops: explicit service-name markers only.
+    repair_markers = (
+        "marine", "repair", "fiberglass", "body shop", "rigging", "performance",
+        "powersports", "motorsport", "custom", "boat works", "mechanic", "machine worx",
+    )
+    if any(mk in n for mk in repair_markers):
+        return _BOAT_REPAIR_LEAF
 
     return None
