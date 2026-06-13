@@ -270,6 +270,31 @@ def _provider_to_payload(prov: Provider) -> EntityPayload:
     )
 
 
+# Action counters -> their dry-run ``would_*`` label. On a dry-run the loop runs
+# in full (so the numbers are exactly what a real apply would do) but the
+# transaction is rolled back, so every action is a "would".
+_WOULD_RENAME = {
+    "inserted": "would_insert",
+    "inserted_pending": "would_inserted_pending",
+    "updated": "would_update",
+    "updated_fuzzy": "would_update_fuzzy",
+    "updated_contact": "would_update_contact",
+    "idempotent_updated": "would_idempotent_update",
+    "reactivated": "would_reactivate",
+    "skipped_reactivate_live_twin": "would_skip_reactivate_live_twin",
+    "retired_duplicates": "would_retire",
+    "reconcile_skipped_ambiguous": "would_reconcile_skipped_ambiguous",
+}
+
+
+def _dry_view(counts: dict[str, int]) -> dict[str, int]:
+    """Re-label action counts as ``would_*`` for a dry-run (nothing was committed)."""
+    view = {k: counts[k] for k in ("urls", "parsed", "skipped_unnamed")}
+    for src, dst in _WOULD_RENAME.items():
+        view[dst] = counts.get(src, 0)
+    return view
+
+
 def ingest_partners(
     *,
     category_slug: str,
@@ -316,8 +341,8 @@ def ingest_partners(
             counts["parsed"] += 1
             payloads.append(partner_to_entity_payload(listing, category_slug=category_slug))
 
-        if dry_run or not payloads:
-            return counts
+        if not payloads:
+            return _dry_view(counts) if dry_run else counts
 
         with SessionLocal() as session:
             # Per-slug Category.id cache (categories are per-listing now, Task C).
@@ -514,8 +539,16 @@ def ingest_partners(
                 create_provider_and_entity(session, provider)
                 _register_cvb(provider)
                 counts["inserted"] += 1
-            session.commit()
-        return counts
+            # Dry-run honesty: the loop above ran in full against the live DB
+            # (reads + in-session mutations) so the counts equal a real apply;
+            # roll the transaction back so NOTHING persists. Previously dry-run
+            # returned before this block (all-zeros), hiding real gaps -- the
+            # Cabana Boat Rentals no-op that prompted this fix.
+            if dry_run:
+                session.rollback()
+            else:
+                session.commit()
+        return _dry_view(counts) if dry_run else counts
 
     if http_client is not None:
         return _run(http_client)
