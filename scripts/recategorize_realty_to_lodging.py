@@ -1,9 +1,13 @@
-"""Re-shelve 3 vacation-rental property managers from professional-services to lodging.
+"""Re-shelve 3 vacation-rental property managers onto the lodging vacation-rentals leaf.
 
-QA diagnostic 2026-06-12 (Phase 4, realty judgment rows): three firms stored with
-a PRIMARY ``professional-services``/realty leaf actually run vacation-rental booking
-operations (verified on their sites), so a "where can I stay" ask should surface
-them. Casey approved moving all three to ``lodging-vacation-rentals`` on 2026-06-12.
+QA diagnostic 2026-06-12 (Phase 4, realty judgment rows): three firms that run
+vacation-rental booking operations (verified on their sites) sit under non-lodging
+primary leaves — ``real-estate`` (Copper Canyon Realty), ``government-and-mvd``
+(First Choice Property) and the *stale level-0* ``lodging-vacation-rentals`` dept
+(Destination Havasu) — so a "where can I stay" ask doesn't surface them. Casey
+approved moving all three to lodging on 2026-06-12; the target is the new
+``vacation-rentals`` leaf (the originally-named ``lodging-vacation-rentals`` turned
+out to be a stale level-0 department — see scripts/create_vacation_rentals_leaf.py).
 
 These rows are NOT in the ``boat-and-watercraft-rentals`` leaf, so
 ``recategorize_water_misfiled.py`` (which is scoped to that leaf) cannot touch
@@ -41,13 +45,16 @@ ensure_dotenv_loaded()
 from app.db.database import DATABASE_URL, SessionLocal  # noqa: E402
 from app.db.models import Category, EntityCategory  # noqa: E402
 
-_TARGET_LEAF = "lodging-vacation-rentals"
+_TARGET_LEAF = "vacation-rentals"
 
 # Casey-approved 2026-06-12 (ASK_HAVA_PHASE4_JUDGMENT_DECISIONS_2026-06-12.md).
+# These are ENTITY ids of the active prod rows, resolved by name 2026-06-13 — the
+# dry-run caught provider ids here originally, which matched no EntityCategory row
+# (that table keys on entity_id). Inactive duplicate rows are intentionally left.
 _TARGET_ENTITY_IDS = {
-    "e1f99729-d1fe-418c-9d34-ccaf65c3411b": "Copper Canyon Realty",
-    "4543064b-4703-43af-9128-3641727acca7": "Destination Havasu",
-    "e2c7f9a6-b67d-40ce-8f6a-c71358ae2a94": "First Choice Property of Mohave County",
+    "19d09ecb-d537-4d4b-b8ed-433a53496eb5": "Copper Canyon Realty",
+    "de4247b6-1a01-4d99-8896-c3582c25b78d": "Destination Havasu",
+    "48291f80-e4db-4d43-a618-4d42152f50ab": "First Choice Property of Mohave County",
 }
 
 
@@ -79,7 +86,9 @@ def run(
                 Category.level == 1
             )
         }
-        id_to_slug = {cid: slug for slug, cid in slug_to_id.items()}
+        # Full id->slug (any level) for the dry-run "current leaf" display only;
+        # target resolution below still requires a level-1 leaf via slug_to_id.
+        id_to_slug = {cid: slug for cid, slug in session.query(Category.id, Category.slug)}
         target_id = slug_to_id.get(_TARGET_LEAF)
         if target_id is None:
             print(f"ABORT — target leaf {_TARGET_LEAF!r} is not a level-1 Category slug.")
