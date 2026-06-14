@@ -677,6 +677,26 @@ def _handle_ask(
             component_meta["type"] = intent_answer.component_type
             component_meta["data"] = intent_answer.component_data
         return intent_answer.text, "2", None, None, None
+    if _is_weather_coping(query):
+        # P2-2: weather-coping asks ("indoor activities to beat the heat", "what to
+        # do when it's too hot") get the diversified Tier-3 answer on every config —
+        # placed before the flag-gated LLM router AND the deterministic fallback,
+        # both of which can otherwise land them on a swim-led Tier-2 events list.
+        organic_ctx = _organic_context_for_tier3(intent_result, db)
+        text, total, tin, tout = answer_with_tier3(
+            query,
+            intent_result,
+            db,
+            onboarding_hints=onboarding_hints,
+            history_block=history_block,
+            now_line=now_line,
+            organic_context=organic_ctx,
+            chat_ctx=chat_ctx,
+            background_tasks=background_tasks,
+            telemetry=telemetry,
+            component_meta=component_meta,
+        )
+        return text, "3", total, tin, tout
     if _use_llm_router():
         context: dict[str, object] = {}
         if onboarding_hints:
@@ -690,24 +710,6 @@ def _handle_ask(
             # Backlog #40: capture organic context for the renderer's
             # EMERGENCY_URGENT regime; helper returns None when the flag
             # is off or the regime doesn't need pairing — kwarg is a no-op.
-            organic_ctx = _organic_context_for_tier3(intent_result, db)
-            text, total, tin, tout = answer_with_tier3(
-                query,
-                intent_result,
-                db,
-                onboarding_hints=onboarding_hints,
-                history_block=history_block,
-                now_line=now_line,
-                organic_context=organic_ctx,
-                chat_ctx=chat_ctx,
-                background_tasks=background_tasks,
-                telemetry=telemetry,
-                component_meta=component_meta,
-            )
-            return text, "3", total, tin, tout
-        if _is_weather_coping(query):
-            # P2-2: force the diversified Tier-3 coping answer instead of the
-            # Tier-2 events listing the LLM router sometimes selects (swim-led).
             organic_ctx = _organic_context_for_tier3(intent_result, db)
             text, total, tin, tout = answer_with_tier3(
                 query,
