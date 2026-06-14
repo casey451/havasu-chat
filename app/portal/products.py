@@ -35,7 +35,7 @@ _PRODUCTS: tuple[dict[str, Any], ...] = (
         "key": "category",
         "name": "Category Sponsorship",
         "price": "$129–179 / mo",
-        "price_note": "founding rate, 12-mo lock · premium categories (Eat & Drink, On the Water, Lodging, Home Services) $179",
+        "price_note": "founding rate, 12-mo lock · premium categories (Eat & Drink, Lake Life, Lodging, Home Services) $179",
         "blurb": "Own your category: one clearly-labeled spot pinned atop a category page. Exclusive — one per category.",
         "slot": AdSlot.SPOTLIGHT,
         "cap": None,  # per-category cap; shown as a note rather than a global count

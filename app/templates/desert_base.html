@@ -50,6 +50,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ static_url('/static/styles/desert.css') }}">
+  <style>
+    /* §2.3: the three proof phrases, relocated from the homepage hero to a
+       site-wide footer row. Underline uses currentColor so it reads on any
+       footer background. */
+    .d-foot-trust{padding-top:14px;font-size:.85rem;opacity:.82;text-align:center}
+    .d-foot-trust a{color:inherit;text-decoration:underline;text-underline-offset:3px}
+    .d-foot-trust span{opacity:.55;padding:0 8px}
+  </style>
   {% block head_extra %}{% endblock %}
 </head>
 <body data-mode="{% block mode %}ask{% endblock %}"{% block body_attrs %}{% endblock %}>
@@ -173,6 +181,11 @@
         <li><a href="/portal/claim">Claim your listing</a></li>
       </ul>
     </div>
+  </div>
+  {# §2.3: trust line relocated here from the homepage hero — visible site-wide,
+     each phrase linked to the page that substantiates it. #}
+  <div class="d-wrap d-foot-trust">
+    <a href="/about">Real public reviews</a><span aria-hidden="true">·</span><a href="/portal/advertise">Sponsored clearly labeled</a><span aria-hidden="true">·</span><a href="/about">Built in Lake Havasu</a>
   </div>
   <div class="d-wrap d-foot-base">
     <span>© Ask Hava — Lake Havasu City, Arizona</span>

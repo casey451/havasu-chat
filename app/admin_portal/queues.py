@@ -22,6 +22,7 @@ from app.db.models import (
     ScrapeCapture,
     UpgradeRequest,
 )
+from app.db.monetization_models import Placement, PlacementStatus
 
 
 @dataclass(frozen=True)
@@ -115,6 +116,18 @@ def queue_cards(db: Session) -> list[QueueCard]:
             ),
             "/admin/ad-reservations",
             "Reserved slots awaiting contact",
+        ),
+        QueueCard(
+            "placements",
+            "Placements pending",
+            _count(
+                db,
+                select(func.count())
+                .select_from(Placement)
+                .where(Placement.status == PlacementStatus.pending.value),
+            ),
+            "/admin/placements",
+            "Self-serve placement purchases to activate",
         ),
         QueueCard(
             "captures",

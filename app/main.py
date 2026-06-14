@@ -1167,9 +1167,14 @@ def sitemap_section_xml(section: str) -> Response:
 
 @app.get("/")
 def serve_chat_ui() -> RedirectResponse:
-    # 301 (permanent) so search engines fold link equity into /home and stop
-    # re-crawling the bare root. Was 307 (temporary) which kept / canonical.
-    return RedirectResponse(url="/home", status_code=301)
+    # 307 (temporary) so browsers do NOT permanently cache the bare-root
+    # redirect. The previous 301 (permanent) was cached indefinitely by
+    # browsers; once a stale/broken target got cached, the bare root appeared
+    # to "not load" for that visitor even after the server was fixed, while
+    # /home and www.* kept working. SEO consolidation is handled by the
+    # self-canonical <link> on /home, so we don't need a permanent redirect
+    # here. (Bare / is already excluded from the sitemap.)
+    return RedirectResponse(url="/home", status_code=307)
 
 
 @app.get("/advertise")

@@ -42,6 +42,7 @@ from app.groups.themed_groups import group_label
 from app.home import collections as curated_collections
 from app.home import events_views, sandstone, sponsor_store
 from app.home.queries import CATEGORY_LABELS
+from app.monetization import serving
 from app.v1.categories import BUCKET_SLUG_REDIRECTS, MASTER_BUCKETS
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
@@ -431,7 +432,7 @@ _HOME_SERVICES_SHORTCUT: dict[str, Any] = {
 
 _POPULAR_SUBCATEGORIES: tuple[dict[str, str], ...] = (
     {"label": "Restaurants", "url": "/lake-havasu/restaurants"},
-    {"label": "On the Water", "url": "/lake-havasu/on-the-water"},
+    {"label": "Lake Life", "url": "/lake-havasu/on-the-water"},
     {"label": "Health & Medical", "url": "/lake-havasu/health-medical"},
     {"label": "Auto", "url": "/lake-havasu/auto"},
     {"label": "Pets", "url": "/lake-havasu/pets"},
@@ -587,7 +588,10 @@ def serve_home(
     spotlights = sponsor_store.active_spotlights(db)
     # G ad ladder: Tier-1 marquee (above the fold) + Tier-3 promoted (after the
     # Explore grid). Both real-or-omit — None when unsold, never a fake sponsor.
-    marquee = sponsor_store.active_marquee(db)
+    # §7.1: a sold homepage rotating PLACEMENT wins the marquee; otherwise fall
+    # back to the legacy sponsor marquee, then the unsold claim. Dormant until a
+    # placement exists — serve_homepage_placement returns None on an empty pool.
+    marquee = serving.serve_homepage_placement(db) or sponsor_store.active_marquee(db)
     promoted = sponsor_store.active_promoted(db)
     # Hero copy defaults to the locked prototype wording (with its italic accent);
     # owners can retune the eyebrow/headline per season via env without a redeploy.
@@ -668,7 +672,7 @@ def serve_family(request: Request, db: Session = Depends(get_db)) -> HTMLRespons
 # are unchanged, so /api/map_data/{scope} and map.js are untouched.
 _MAP_SCOPE_LABELS: dict[str, str] = {
     "eat-drink": "Eat & Drink",
-    "on-the-water": "On the Water",
+    "on-the-water": "Lake Life",
     "outdoors-parks-trails": "Outdoors & Recreation",
     "classes-sports-recreation": "Fitness, Sports & Classes",
     "shopping-essentials": "Shopping & Retail",

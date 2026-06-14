@@ -14,15 +14,18 @@ import os
 import re
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import get_current_user
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.db.database import get_db
 from app.db.models import AdReservation, AdReservationStatus
 from app.home.queries import CATEGORY_LABELS
+from app.monetization import serving
+from app.portal import placements as placement_logic
 from app.portal import products
 
 logger = logging.getLogger(__name__)
@@ -263,3 +266,243 @@ def portal_reserve_thanks(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request=request, name="portal_reserve_thanks.html", context={}
     )
+
+
+# ── self-serve placement purchase (Phase F §8; merchant-gated, NO payment yet) ─
+
+
+def _indicative_prices(db: Session) -> dict:
+    """Global-default prices (cents) for the buy form's rate display."""
+    return {
+        "homepage_rotating": serving.price_for(db, "homepage_rotating"),
+        "page_ad": serving.price_for(db, "page_ad"),
+        "category_rank": {
+            t: serving.price_for(db, "category_rank", rank_tier=t) for t in range(1, 6)
+        },
+    }
+
+
+@router.get("/placements", response_class=HTMLResponse, response_model=None)
+def portal_placements(
+    request: Request, db: Session = Depends(get_db)
+) -> HTMLResponse | RedirectResponse:
+    """A merchant's placement dashboard: their claimed listings + any placements
+    held (pending or active). Login-gated; an unclaimed visitor is sent to claim."""
+    user = get_current_user(request)
+    if user is None:
+        return RedirectResponse(url="/login?next=/portal/placements", status_code=303)
+    providers = placement_logic.claimed_providers(db, user.id)
+    placements = placement_logic.active_placements_for_providers(
+        db, [p.id for p in providers]
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name="portal_placements.html",
+        context={
+            "providers": providers,
+            "placements": placements,
+            "prov_by_id": {p.id: p for p in providers},
+            "type_labels": {
+                k: v["label"] for k, v in placement_logic.PURCHASABLE_TYPES.items()
+            },
+            "purchased": request.query_params.get("purchased") == "1",
+        },
+    )
+
+
+@router.get("/placements/new", response_class=HTMLResponse, response_model=None)
+def portal_placement_new_get(
+    request: Request, provider_id: str = "", db: Session = Depends(get_db)
+) -> HTMLResponse | RedirectResponse:
+    """Render the buy-a-placement form for the merchant's claimed listings."""
+    user = get_current_user(request)
+    if user is None:
+        return RedirectResponse(url="/login?next=/portal/placements/new", status_code=303)
+    providers = placement_logic.claimed_providers(db, user.id)
+    if not providers:
+        return RedirectResponse(url="/portal/claim", status_code=303)
+    return templates.TemplateResponse(
+        request=request,
+        name="portal_placement_new.html",
+        context={
+            "providers": providers,
+            "selected_provider_id": provider_id,
+            "categories": _category_options(db),
+            "types": placement_logic.PURCHASABLE_TYPES,
+            "prices": _indicative_prices(db),
+            "creatives": _merchant_creatives(db, providers),
+            "errors": {},
+            "form": {},
+        },
+    )
+
+
+@router.post("/placements/new", response_class=HTMLResponse, response_model=None)
+def portal_placement_new_post(
+    request: Request,
+    provider_id: str = Form(...),
+    placement_type: str = Form(...),
+    category_slug: str = Form(default=""),
+    rank_tier: str = Form(default=""),
+    billing_type: str = Form(default="monthly"),
+    creative_id: str = Form(default=""),
+    db: Session = Depends(get_db),
+) -> HTMLResponse | RedirectResponse:
+    """Create a ``pending`` placement after checking ownership + inputs.
+
+    No payment is taken — the placement awaits operator confirmation (and, later,
+    Stripe checkout). A pending placement is not served, so this is side-effect
+    free on the live site until activated.
+    """
+    user = get_current_user(request)
+    if user is None:
+        return RedirectResponse(url="/login?next=/portal/placements/new", status_code=303)
+    if not placement_logic.owns_provider(db, user.id, provider_id):
+        raise HTTPException(status_code=403, detail="not_your_listing")
+
+    cat = category_slug.strip() or None
+    tier_int = int(rank_tier) if rank_tier.strip().isdigit() else None
+    errors = placement_logic.validate_purchase(
+        placement_type, category_slug=cat, rank_tier=tier_int, billing_type=billing_type
+    )
+    # A category, when required, must be a real department option (not hand-typed).
+    if cat is not None and "category_slug" not in errors:
+        if cat not in dict(_category_options(db)):
+            errors["category_slug"] = "Pick a category from the list."
+
+    if errors:
+        providers = placement_logic.claimed_providers(db, user.id)
+        return templates.TemplateResponse(
+            request=request,
+            name="portal_placement_new.html",
+            context={
+                "providers": providers,
+                "selected_provider_id": provider_id,
+                "categories": _category_options(db),
+                "types": placement_logic.PURCHASABLE_TYPES,
+                "prices": _indicative_prices(db),
+                "creatives": _merchant_creatives(db, providers),
+                "errors": errors,
+                "form": {
+                    "provider_id": provider_id,
+                    "placement_type": placement_type,
+                    "category_slug": category_slug,
+                    "rank_tier": rank_tier,
+                    "billing_type": billing_type,
+                    "creative_id": creative_id,
+                },
+            },
+            status_code=400,
+        )
+
+    placement_logic.create_pending_placement(
+        db,
+        provider_id=provider_id,
+        placement_type=placement_type,
+        category_slug=cat,
+        rank_tier=tier_int,
+        billing_type=billing_type,
+        creative_id=(creative_id.strip() or None),
+    )
+    return RedirectResponse(url="/portal/placements?purchased=1", status_code=303)
+
+
+# ── ad creatives (URL-based; F2) ──────────────────────────────────────────────
+
+
+def _merchant_creatives(db: Session, providers: list) -> list[dict]:
+    """Flattened (creative, provider-name) list across a merchant's listings."""
+    out: list[dict] = []
+    for prov in providers:
+        for c in placement_logic.creatives_for_provider(db, prov.id):
+            out.append(
+                {
+                    "id": c.id,
+                    "provider_id": prov.id,
+                    "provider_name": prov.provider_name,
+                    "headline": c.headline,
+                    "image_url": c.image_url,
+                }
+            )
+    return out
+
+
+@router.get("/creatives", response_class=HTMLResponse, response_model=None)
+def portal_creatives(
+    request: Request, db: Session = Depends(get_db)
+) -> HTMLResponse | RedirectResponse:
+    """List the merchant's ad creatives and a form to add one (URL-based)."""
+    user = get_current_user(request)
+    if user is None:
+        return RedirectResponse(url="/login?next=/portal/creatives", status_code=303)
+    providers = placement_logic.claimed_providers(db, user.id)
+    if not providers:
+        return RedirectResponse(url="/portal/claim", status_code=303)
+    return templates.TemplateResponse(
+        request=request,
+        name="portal_creatives.html",
+        context={
+            "providers": providers,
+            "creatives": _merchant_creatives(db, providers),
+            "errors": {},
+            "form": {},
+        },
+    )
+
+
+@router.post("/creatives", response_class=HTMLResponse, response_model=None)
+def portal_creatives_create(
+    request: Request,
+    provider_id: str = Form(...),
+    headline: str = Form(default=""),
+    body: str = Form(default=""),
+    cta_label: str = Form(default=""),
+    cta_url: str = Form(default=""),
+    image_url: str = Form(default=""),
+    image_url_mobile: str = Form(default=""),
+    db: Session = Depends(get_db),
+) -> HTMLResponse | RedirectResponse:
+    """Create a URL-based creative for a listing the merchant owns."""
+    user = get_current_user(request)
+    if user is None:
+        return RedirectResponse(url="/login?next=/portal/creatives", status_code=303)
+    if not placement_logic.owns_provider(db, user.id, provider_id):
+        raise HTTPException(status_code=403, detail="not_your_listing")
+
+    errors: dict[str, str] = {}
+    if not headline.strip() and not image_url.strip():
+        errors["headline"] = "Give the creative a headline or an image URL."
+
+    if errors:
+        providers = placement_logic.claimed_providers(db, user.id)
+        return templates.TemplateResponse(
+            request=request,
+            name="portal_creatives.html",
+            context={
+                "providers": providers,
+                "creatives": _merchant_creatives(db, providers),
+                "errors": errors,
+                "form": {
+                    "provider_id": provider_id,
+                    "headline": headline,
+                    "body": body,
+                    "cta_label": cta_label,
+                    "cta_url": cta_url,
+                    "image_url": image_url,
+                    "image_url_mobile": image_url_mobile,
+                },
+            },
+            status_code=400,
+        )
+
+    placement_logic.create_creative(
+        db,
+        provider_id=provider_id,
+        headline=headline.strip(),
+        body=body.strip(),
+        cta_label=cta_label.strip(),
+        cta_url=cta_url.strip(),
+        image_url=image_url.strip(),
+        image_url_mobile=image_url_mobile.strip(),
+    )
+    return RedirectResponse(url="/portal/creatives", status_code=303)

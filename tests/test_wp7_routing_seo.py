@@ -6,7 +6,7 @@ Covers:
 - The public /api/events + /api/businesses JSON never leaks internal scraper
   provenance (``source``) or an ``embedding`` field.
 - Sitemap gains /map, /events-ui, /categories and the WP-1 trust pages while
-  dropping the bare / (which now 301s to /home).
+  dropping the bare / (which now 307s to /home).
 - og:url is https-coerced and og:description truncates on a word boundary.
 """
 
@@ -43,9 +43,13 @@ def _clear_sitemap_cache():
 # ---------------------------------------------------------------------------
 
 
-def test_root_permanent_redirects_to_home(client: TestClient) -> None:
+def test_root_temporary_redirects_to_home(client: TestClient) -> None:
+    # 307 (not 301): the bare root must NOT be permanently cached by browsers.
+    # A cached permanent redirect made the bare root appear to "not load" for
+    # visitors even when the server was healthy. SEO consolidation is handled
+    # by /home's self-canonical link, not by a permanent redirect here.
     r = client.get("/", follow_redirects=False)
-    assert r.status_code == 301
+    assert r.status_code == 307
     assert r.headers["location"] == "/home"
 
 

@@ -23,11 +23,13 @@ def test_home_has_quick_intent_chips() -> None:
         '"/family"',
     ):
         assert href in body, href
-    for label in ("Need a service", "Tonight", "This weekend", "On the water", "Kid-friendly"):
+    for label in ("Need a service", "Tonight", "This weekend", "Lake Life", "Kid-friendly"):
         assert label in body, label
 
 
 def test_home_has_trust_strip_linked() -> None:
+    # §2.3: the trust line was relocated from the hero to a site-wide footer row,
+    # so the phrases + their substantiating links still appear in the page body.
     r = client.get("/home")
     body = r.text
     assert "Real public reviews" in body
@@ -38,11 +40,12 @@ def test_home_has_trust_strip_linked() -> None:
 
 
 def test_fold_order_hero_then_intents_then_modules() -> None:
-    """Chips + trust sit AFTER the hero and BEFORE the existing modules
-    (the marquee section always renders, so it's a stable anchor)."""
+    """§2.3/§2.5: chips sit AFTER the hero, and the consolidated category grid
+    (home-explore) leads directly into the modules, before the marquee (which
+    always renders, so it's a stable anchor)."""
     body = client.get("/home").text
     hero = body.index("home-hero")
     intents = body.index("home-intents")
-    trust = body.index("home-trust")
+    explore = body.index("home-explore")
     marquee = body.index("home-marquee")
-    assert hero < intents < trust < marquee
+    assert hero < intents < explore < marquee

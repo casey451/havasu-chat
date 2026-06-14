@@ -20,7 +20,7 @@ implemented here — those are Casey product decisions (see PR FLAGs).
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -39,12 +39,14 @@ from app.db.models import (
     AdReservationStatus,
     AdSlot,
     Entity,
+    Provider,
     Sponsor,
     SponsorStatus,
     UpgradeRequest,
     UpgradeRequestStatus,
     User,
 )
+from app.db.monetization_models import Placement, PlacementStatus
 
 # Allowed forward transitions for an ad reservation's status FSM.
 _AD_RESERVATION_NEXT: dict[str, frozenset[str]] = {
@@ -368,6 +370,113 @@ def register_sponsor_admin_routes(router: APIRouter) -> None:
         db.add(res)
         db.commit()
         return RedirectResponse(url="/admin/ad-reservations", status_code=303)
+
+    # ── admin placement queue (Phase F §8 — activate self-serve purchases) ────
+
+    @router.get("/placements", response_class=HTMLResponse, response_model=None)
+    def admin_placements(
+        request: Request, db: Session = Depends(get_db)
+    ) -> HTMLResponse | RedirectResponse:
+        """Queue of monetization Placements. Pending (awaiting activation) first.
+
+        Activating a placement is what makes it serve — until then it's inert.
+        No payment is processed here; the operator confirms the price and term
+        (Stripe checkout is a later increment)."""
+        redir = _admin_guard(request)
+        if redir is not None:
+            return redir
+        rows = (
+            db.execute(
+                select(Placement).order_by(
+                    Placement.status.asc(), Placement.created_at.desc()
+                )
+            )
+            .scalars()
+            .all()
+        )
+        prov_ids = {r.provider_id for r in rows}
+        prov_by_id = (
+            {
+                p.id: p
+                for p in db.execute(
+                    select(Provider).where(Provider.id.in_(prov_ids))
+                )
+                .scalars()
+                .all()
+            }
+            if prov_ids
+            else {}
+        )
+
+        def _row(r: Placement) -> dict[str, object]:
+            prov = prov_by_id.get(r.provider_id)
+            return {
+                "id": r.id,
+                "provider_name": prov.provider_name if prov else r.provider_id,
+                "provider_slug": prov.slug if prov else None,
+                "placement_type": r.placement_type,
+                "category_slug": r.category_slug,
+                "rank_tier": r.rank_tier,
+                "billing_type": r.billing_type,
+                "price_dollars": f"{r.price_cents / 100:.0f}" if r.price_cents else "",
+                "status": r.status,
+                "created_at": r.created_at,
+                "paid_through": r.paid_through,
+            }
+
+        pending = [_row(r) for r in rows if r.status == PlacementStatus.pending.value]
+        others = [_row(r) for r in rows if r.status != PlacementStatus.pending.value]
+        return _TEMPLATES.TemplateResponse(
+            request=request,
+            name="admin_placements.html",
+            context={"pending": pending, "others": others},
+        )
+
+    @router.post("/placements/{placement_id}/activate", response_model=None)
+    def admin_placement_activate(
+        request: Request,
+        placement_id: str,
+        price_cents: str = Form(default=""),
+        term_days: str = Form(default="30"),
+        db: Session = Depends(get_db),
+    ) -> RedirectResponse:
+        """Flip a pending placement to active: it starts serving immediately and
+        renders the Sponsored label. Optionally override the priced figure and set
+        the paid-through term."""
+        redir = _admin_guard(request)
+        if redir is not None:
+            return redir
+        p = db.get(Placement, placement_id)
+        if p is None:
+            raise HTTPException(status_code=404, detail="placement_not_found")
+        if p.status != PlacementStatus.pending.value:
+            raise HTTPException(status_code=400, detail="not_pending")
+        now = _naive_utc_now()
+        days = int(term_days) if term_days.strip().isdigit() else 30
+        p.status = PlacementStatus.active.value
+        p.starts_at = now
+        p.paid_through = now + timedelta(days=days)
+        if price_cents.strip().isdigit():
+            p.price_cents = int(price_cents)
+        db.add(p)
+        db.commit()
+        return RedirectResponse(url="/admin/placements", status_code=303)
+
+    @router.post("/placements/{placement_id}/release", response_model=None)
+    def admin_placement_release(
+        request: Request, placement_id: str, db: Session = Depends(get_db)
+    ) -> RedirectResponse:
+        """Release a placement (free the spot). Stops serving immediately."""
+        redir = _admin_guard(request)
+        if redir is not None:
+            return redir
+        p = db.get(Placement, placement_id)
+        if p is None:
+            raise HTTPException(status_code=404, detail="placement_not_found")
+        p.status = PlacementStatus.released.value
+        db.add(p)
+        db.commit()
+        return RedirectResponse(url="/admin/placements", status_code=303)
 
 
 # ── merchant-facing upgrade request capture ──────────────────────────────────

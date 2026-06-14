@@ -75,21 +75,26 @@ def test_home_section_order_breadth_and_explore_above_month(
     # Always-present sections, in G order. (home-week is gated on events, and
     # home-featured — copy audit 2026-06-10 — on a real sold spotlight, so
     # neither is part of this chain.)
-    i_catstrip = body.find("home-catstrip")
-    i_marquee = body.find("home-marquee")
+    # §2.3/§2.5: the duplicate compact "home-catstrip" was removed; the single
+    # consolidated "home-explore" grid now leads, directly under the chips and
+    # above the marquee.
+    i_intents = body.find("home-intents")
     i_explore = body.find("home-explore")
+    i_marquee = body.find("home-marquee")
     i_cal = body.find("home-cal")
-    assert -1 < i_catstrip < i_marquee < i_explore < i_cal
-    # G's core fix: the directory grid lands BEFORE the month calendar.
+    assert -1 < i_intents < i_explore < i_marquee < i_cal
+    # Core fix preserved: the directory grid lands BEFORE the month calendar.
     assert i_explore < i_cal
 
 
 def test_home_category_strip_present_with_pills(
     client: TestClient, seeded_nav_departments: dict
 ) -> None:
+    # §2.5: the category grid is the consolidated color-tile "home-explore"; the
+    # compact "home-catstrip" pill strip was removed as a duplicate.
     body = client.get("/home").text
-    assert "home-catstrip" in body
-    assert "catpill" in body
+    assert "home-explore" in body
+    assert "catchip" in body
 
 
 def test_home_featured_hidden_until_a_spotlight_sells(client: TestClient) -> None:
@@ -109,8 +114,9 @@ def test_home_featured_renders_when_spotlight_sold(client: TestClient) -> None:
     # ampersand as &amp; — assert the parts, not the raw join.
     assert f"/sponsor/click?id={sid}" in body
     assert "slot=spotlight" in body
-    # The section sits between the marquee and the explore grid when present.
-    assert body.find("home-marquee") < body.find("home-featured") < body.find("home-explore")
+    # New order (§2.3): the explore grid leads, then the marquee, then the
+    # featured row sits just after the marquee.
+    assert body.find("home-explore") < body.find("home-marquee") < body.find("home-featured")
 
 
 # --- Tier-1 marquee (real-or-omit) ------------------------------------------

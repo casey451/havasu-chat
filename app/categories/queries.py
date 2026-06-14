@@ -160,7 +160,7 @@ CATEGORY_DISPLAY: dict[str, tuple[str, str]] = {
         "Restaurants, bars, cafes. Open right now or coming up.",
     ),
     "on-the-water": (
-        "On the water",
+        "Lake Life",
         "Marinas, rentals, lake stays. Everything within shouting distance of the channel.",
     ),
     "things-to-do": (
@@ -658,6 +658,7 @@ def _build_category_card(
     status_text: str,
     image_url: str | None,
     allowed_subcategories: set[str] | None = None,
+    is_sponsored: bool = False,
 ) -> dict[str, Any]:
     """Shape a Provider row into the category-grid card contract.
 
@@ -704,6 +705,10 @@ def _build_category_card(
         )
         or "",
         "is_open": is_open,
+        # Honesty gate (§7.2): True only when this provider holds an active paid
+        # placement on the surface being rendered. Default False keeps every
+        # existing caller's cards unlabeled until placements are wired in.
+        "is_sponsored": is_sponsored,
     }
 
 
@@ -762,6 +767,24 @@ def category_cards(
     if not rows:
         return []
 
+    # Phase F §7.2 honesty gate: pin active paid sticky-tier placements to the top
+    # and label them Sponsored. No-op (organic order, no badges) until a placement
+    # is sold for this route. Defensive: a lookup failure leaves the grid organic.
+    try:
+        from app.monetization.serving import active_category_tiers, apply_category_order
+
+        tiers = active_category_tiers(db, slug.strip().lower())
+    except Exception:
+        tiers = {}
+    sponsored_ids = set(tiers.values())
+    if tiers:
+        by_id = {p.id: p for p in rows}
+        rows = [
+            by_id[pid]
+            for pid in apply_category_order([p.id for p in rows], tiers)
+            if pid in by_id
+        ]
+
     cards: list[dict[str, Any]] = []
     for provider in rows:
         try:
@@ -777,6 +800,7 @@ def category_cards(
                 status_class=status_class,
                 status_text=status_text,
                 image_url=image_url,
+                is_sponsored=provider.id in sponsored_ids,
             )
         )
     return cards
@@ -1009,6 +1033,7 @@ def _provider_card(
     *,
     now: datetime,
     allowed_subcategories: set[str] | None = None,
+    sponsored_provider_ids: set[str] | None = None,
 ) -> dict[str, Any]:
     try:
         status_class, status_text = _hours_status(provider, now=now)
@@ -1020,6 +1045,7 @@ def _provider_card(
         status_text=status_text,
         image_url=_resolve_category_card_image(provider),
         allowed_subcategories=allowed_subcategories,
+        is_sponsored=bool(sponsored_provider_ids and provider.id in sponsored_provider_ids),
     )
 
 
@@ -1149,6 +1175,18 @@ def category_listing(
     route_key = slug.strip().lower()
     allowed_subs = _allowed_subcategory_slugs(route_key)
     try:
+        # Phase F §7.2 honesty gate: active paid sticky-tier placements for this
+        # route. Empty today (nothing sold) → the fast SQL-only path below stays
+        # byte-identical. A non-empty set diverts to the materialized path so paid
+        # tiers can be pinned to the top (page 1) and labeled Sponsored.
+        from app.monetization.serving import active_category_tiers, apply_category_order
+
+        try:
+            tiers = active_category_tiers(db, route_key)
+        except Exception:
+            tiers = {}  # placement lookup must never empty the organic grid
+        sponsored_ids = set(tiers.values())
+
         base = db.query(Provider).filter(
             route_provider_filter(slug.strip().lower()),
             Provider.is_active.is_(True),
@@ -1160,7 +1198,7 @@ def category_listing(
             base = base.filter(Provider.google_rating >= _TOP_RATED_MIN)
 
         needs_scan = facets.needs_materialize
-        if not needs_scan:
+        if not needs_scan and not tiers:
             # SQL-only path (B4): subcategory + top_rated predicates and the
             # rating/alpha orderings are all expressible in SQL, so COUNT runs in
             # the DB and only the requested page is fetched -- no Python
@@ -1219,7 +1257,25 @@ def category_listing(
         elif facets.sort == "alpha":
             rows.sort(key=lambda p: (p.provider_name or "").lower())
         total = len(rows)
+        if tiers:
+            # Pin paid tiers into the top-5 (organic order preserved below them),
+            # so a sold placement leads page 1. No-op when no tier is held here.
+            by_id = {p.id: p for p in rows}
+            rows = [
+                by_id[pid]
+                for pid in apply_category_order([p.id for p in rows], tiers)
+                if pid in by_id
+            ]
         window = rows[offset : offset + per_page]
-        return [_provider_card(db, p, now=now, allowed_subcategories=allowed_subs) for p in window], total
+        return [
+            _provider_card(
+                db,
+                p,
+                now=now,
+                allowed_subcategories=allowed_subs,
+                sponsored_provider_ids=sponsored_ids,
+            )
+            for p in window
+        ], total
     except Exception:
         return [], 0
