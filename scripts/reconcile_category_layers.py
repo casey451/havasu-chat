@@ -21,6 +21,7 @@ Usage:
 
 from __future__ import annotations
 
+# Read-only diagnostic: providers.primary_category vs entity_categories leaf domain.
 import argparse
 import csv
 import re
