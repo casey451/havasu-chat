@@ -120,7 +120,7 @@ OPEN_VENUES: tuple[FamilyVenue, ...] = (
     FamilyVenue(
         name="Universal Sonics Gymnastics & Cheer",
         kind="Gymnastics & cheer",
-        url="http://www.universalgymnasticslakehavasu.com/",
+        url="https://www.universalgymnasticslakehavasu.com/",
         address="2245 N Kiowa Blvd",
         age_note="12 months–18 yrs · see schedule for class times",
         open_verb="Classes",

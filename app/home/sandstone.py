@@ -517,25 +517,14 @@ def week_strip(
 # Server-rendered month calendar (real Event rows; JS-free prev/next)
 # ---------------------------------------------------------------------------
 
-_AQUATIC_TAG_HINTS = ("swim", "aqua", "pool", "splash", "aquatic")
-_WATER_TAG_HINTS = ("lake", "kayak", "boat", "paddle", "channel", "marina", "regatta")
-
-
 def _event_pill_type(title: str, tags: list[str] | None, *, featured: bool) -> str:
-    """Month-cell pill color. Title-first so pool reads 'aquatic' and lake reads
-    'water': the parks-rec loader tags BOTH kayak and open-swim 'aquatics', so
-    tags alone can't tell them apart — the title breaks the tie."""
-    joined = (title + " " + " ".join(tags or [])).lower()
-    if any(hint in joined for hint in _AQUATIC_TAG_HINTS):
-        # A lake word present too means it's genuinely on the water.
-        if any(hint in joined for hint in _WATER_TAG_HINTS):
-            return "water"
-        return "aquatic"
-    if any(hint in joined for hint in _WATER_TAG_HINTS):
-        return "water"
-    if featured:
-        return "special"
-    return "class"
+    """Month-cell pill color. Reuses the shared tier classifier so it can never
+    disagree with the rest of the calendar — a pool event reads 'aquatic', a
+    lake event 'water', etc. (A separate keyword list drifted: it missed
+    multi-word pool phrases like 'water aerobics', so 'Water Aerobics' tiered
+    AQUATIC but the month pill said 'class'.)"""
+    tier = _event_tier(title=title or "", tags=tags, featured=featured, recurring=False)
+    return _event_css_type(title=title or "", tags=tags, tier=tier)
 
 
 def _pill_sort_key(pill: dict[str, str]) -> tuple[int, int]:

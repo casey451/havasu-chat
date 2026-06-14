@@ -20,6 +20,7 @@ from app.home.sandstone import (
     _TIER_OTHER,
     _TIER_SPECIAL,
     _TIER_WATER,
+    _event_pill_type,
     _event_tier,
 )
 
@@ -124,6 +125,15 @@ def test_water_and_community_baselines():
     assert tier("Sunrise Kayak Social") == _TIER_WATER
     assert tier("Farmers Market") == _TIER_COMMUNITY
     assert tier("Rowdy Bingo at Grapes N Grains") == _TIER_COMMUNITY
+
+
+def test_month_pill_type_agrees_with_tier():
+    # The month-cell pill must never disagree with the tier classifier (it once
+    # used a separate keyword list that missed "water aerobics").
+    assert _event_pill_type("Water Aerobics", [], featured=False) == "aquatic"
+    assert _event_pill_type("Open Swim", [], featured=False) == "aquatic"
+    assert _event_pill_type("Sunset Kayak Tour", ["kayak"], featured=False) == "water"
+    assert _event_pill_type("Spring Concert", [], featured=True) == "special"
 
 
 def test_musical_theatre_no_longer_reads_as_music():
