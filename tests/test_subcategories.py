@@ -53,6 +53,42 @@ def test_marine_trade_subcategories_resolve_to_on_the_water() -> None:
         assert primary_for_subcategory(slug) == "on-the-water"
 
 
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        # marine trade routed from the NAME (generic Google types would miss it)
+        ("West Marine", "marine-supply"),
+        ("Nordic Boats", "marine-dealers"),
+        ("Alco Marine Sales & Services", "marine-dealers"),
+        ("Shimmer Boat Service", "marine-repair"),
+        ("Xtreme Speed And Marine", "marine-repair"),
+        ("Prestige Marine", None),  # anchor only, no qualifier -> fall through
+        ("Germaine Marine", None),  # anchor only, no qualifier -> fall through
+        # NOT marine trade: watersports rentals stay out of the marine split
+        ("Lake Havasu Jet Ski Rentals", None),
+        ("Wacko kayak & paddleboard rentals", None),
+        # no marine anchor at all
+        ("Whiz Kid Computer Services / Ink & Toner", None),
+    ],
+)
+def test_derive_subcategory_marine_name_routing(name: str, expected: str | None) -> None:
+    from app.categories.subcategories import derive_subcategory
+
+    got = derive_subcategory(category="retail", name=name, google_primary_category="service")
+    if expected is None:
+        assert got != "marine-dealers" and got != "marine-repair" and got != "marine-supply"
+    else:
+        assert got == expected
+
+
+def test_derive_subcategory_without_name_unchanged() -> None:
+    # Backward compatibility: omitting name must not change existing behaviour.
+    from app.categories.subcategories import derive_subcategory
+
+    assert derive_subcategory(category="x", google_primary_category="dentist") == "health-medical"
+    assert derive_subcategory(category="x", google_primary_category="plumber") == "home-services"
+
+
 def test_subcategories_for_category_route_maps_bucket_destinations() -> None:
     # /categories/services is the Services bucket destination → Services chips.
     labels = {s.slug for s in subcats.subcategories_for_category_route("services")}
