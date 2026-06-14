@@ -36,6 +36,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -102,6 +103,41 @@ class Placement(Base):
     paid_through: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # Links to a future AdCreative row (table added with the portal phase).
     creative_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC), nullable=False,
+    )
+
+
+class AdCreative(Base):
+    """A reusable ad creative a merchant attaches to a placement (F2).
+
+    URL-based for now (the merchant supplies hosted image URLs, the same shape
+    the legacy ``Sponsor`` rows use) — binary upload + storage is a later
+    increment. ``Placement.creative_id`` references one of these by id (no DB-level
+    FK, mirroring the existing nullable column). When a served placement has a
+    creative, the surface prefers its copy/art; otherwise it falls back to the
+    provider's own name/description/photo."""
+
+    __tablename__ = "ad_creatives"
+    __table_args__ = (
+        Index("ix_ad_creatives_provider_id", "provider_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    provider_id: Mapped[str] = mapped_column(
+        String, ForeignKey("providers.id", ondelete="CASCADE"), nullable=False
+    )
+    headline: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cta_label: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    cta_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    image_url_mobile: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC), nullable=False
     )

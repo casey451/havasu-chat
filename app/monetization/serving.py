@@ -125,6 +125,55 @@ def apply_category_order(
 # --------------------------------------------------------------------------- #
 
 
+def price_for(
+    db,
+    placement_type: str,
+    *,
+    category_slug: str | None = None,
+    rank_tier: int | None = None,
+) -> int | None:
+    """Look up the price (cents) for a placement from the ``placement_prices``
+    book, most-specific first with graceful fallback to the global defaults:
+
+        (type, category_slug, rank_tier)  →  (type, category_slug, NULL)
+        →  (type, NULL, rank_tier)         →  (type, NULL, NULL)
+
+    Returns the first *active* match's ``price_cents``, or ``None`` if the book
+    has no applicable row (the portal then shows "price on request" rather than
+    inventing a number). Only the global-default rows ship seeded; per-category
+    overrides are added by the admin later and win automatically here.
+    """
+    from sqlalchemy import select
+
+    from app.db.monetization_models import PlacementPrice
+
+    seen: set[tuple[str | None, int | None]] = set()
+    for cat, tier in (
+        (category_slug, rank_tier),
+        (category_slug, None),
+        (None, rank_tier),
+        (None, None),
+    ):
+        if (cat, tier) in seen:
+            continue
+        seen.add((cat, tier))
+        row = db.scalars(
+            select(PlacementPrice).where(
+                PlacementPrice.placement_type == placement_type,
+                PlacementPrice.category_slug.is_(None)
+                if cat is None
+                else PlacementPrice.category_slug == cat,
+                PlacementPrice.rank_tier.is_(None)
+                if tier is None
+                else PlacementPrice.rank_tier == tier,
+                PlacementPrice.active.is_(True),
+            )
+        ).first()
+        if row is not None:
+            return row.price_cents
+    return None
+
+
 def active_category_tiers(db, category_slug: str) -> dict[int, str]:
     """Active category_rank tiers for a category, {tier: provider_id}. If a tier
     is somehow held twice, the earliest-created holder wins (deterministic)."""
@@ -160,3 +209,75 @@ def active_homepage_pool(db) -> list[str]:
             )
         ).all()
     )
+
+
+def serve_homepage_placement(db) -> dict | None:
+    """§7.1 — one business from the active homepage rotating pool, shaped as the
+    home marquee dict (the same keys ``active_marquee`` returns).
+
+    Returns ``None`` when the pool is empty — the dormant default today — so the
+    caller falls back to the legacy sponsor marquee and, failing that, the unsold
+    claim line. A placement marquee carries ``click_url`` (the provider profile)
+    so the template links straight to the listing instead of the Sponsor-only
+    ``/sponsor/click`` route; it also carries the honest ``Sponsored`` framing via
+    the marquee's existing ``Featured`` tag.
+    """
+    pid = pick_homepage(active_homepage_pool(db))
+    if pid is None:
+        return None
+
+    from sqlalchemy import select
+
+    from app.analytics import record_event
+    from app.db.models import Provider
+    from app.db.monetization_models import AdCreative, Placement, PlacementStatus, PlacementType
+    from app.providers.queries import derive_hero_photo
+
+    provider = db.get(Provider, pid)
+    if provider is None or not provider.slug:
+        return None
+
+    profile_url = f"/provider/{provider.slug}"
+    headline = provider.provider_name
+    pitch = (provider.featured_description or provider.description or "").strip()
+    if len(pitch) > 140:
+        pitch = pitch[:139].rstrip() + "…"
+    cta_label = "View listing"
+    image_url = derive_hero_photo(provider)
+
+    # Prefer an attached ad creative's copy/art when the active placement has one;
+    # the click target stays the internal provider profile (open-redirect-safe).
+    placement = db.scalars(
+        select(Placement).where(
+            Placement.provider_id == provider.id,
+            Placement.placement_type == PlacementType.homepage_rotating.value,
+            Placement.status == PlacementStatus.active.value,
+        )
+    ).first()
+    if placement is not None and placement.creative_id:
+        creative = db.get(AdCreative, placement.creative_id)
+        if creative is not None:
+            headline = creative.headline or headline
+            pitch = creative.body or pitch
+            cta_label = creative.cta_label or cta_label
+            image_url = creative.image_url or image_url
+
+    record_event(
+        db,
+        "home.marquee.impression",
+        slot="marquee",
+        provider_id=provider.id,
+        payload={"source": "placement"},
+    )
+    return {
+        "id": provider.id,
+        "name": provider.provider_name,
+        "headline": headline,
+        "pitch": pitch,
+        "eyebrow": "",
+        "cta_label": cta_label,
+        "cta_url": profile_url,
+        "click_url": profile_url,
+        "image_url": image_url,
+        "is_placement": True,
+    }

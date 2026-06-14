@@ -1049,11 +1049,19 @@ def _assemble_card_view_model(
     provider: Provider | None,
     event: Event | None,
     now_dt: datetime,
+    sponsored_provider_ids: set[str] | None = None,
 ) -> HavaCardViewModel:
     """Build the view model from already-fetched rows (no DB access).
 
     Shared by :func:`build_card_view_model` (single) and
     :func:`build_card_view_models` (batched) so both produce identical output.
+
+    ``sponsored_provider_ids`` is the honesty gate (Phase F §7.2): provider ids
+    that hold an active paid Placement for the surface being rendered. A card for
+    such a provider carries the Sponsored label even when its legacy
+    ``provider.tier`` is not ``"sponsored"`` — so a paid placement can never
+    appear in a promoted slot without disclosure. Omitting the arg (the default)
+    leaves the legacy tier-only behavior untouched.
     """
     from app.providers.view_models import HavaCardViewModel
 
@@ -1081,6 +1089,15 @@ def _assemble_card_view_model(
         status_color = "red" if freshness == "red" else ("green" if is_open is True else "amber")
         is_sponsored = bool(provider and _provider_is_sponsored_now(provider, now=now_dt))
 
+    # Honesty gate: a card promoted by an active paid Placement must carry the
+    # Sponsored label regardless of the legacy provider tier.
+    if (
+        sponsored_provider_ids
+        and provider is not None
+        and provider.id in sponsored_provider_ids
+    ):
+        is_sponsored = True
+
     boat_badge = entity.boat_access is not None
 
     return HavaCardViewModel(
@@ -1107,8 +1124,13 @@ def build_card_view_model(
     entity_id: str,
     *,
     now: Optional[datetime] = None,
+    sponsored_provider_ids: set[str] | None = None,
 ) -> HavaCardViewModel | None:
-    """Build a :class:`~app.providers.view_models.HavaCardViewModel` for any ENTITY row."""
+    """Build a :class:`~app.providers.view_models.HavaCardViewModel` for any ENTITY row.
+
+    ``sponsored_provider_ids`` (honesty gate) is forwarded to
+    :func:`_assemble_card_view_model` — see its docstring.
+    """
     now_dt = _normalize_card_now(now)
 
     entity = (
@@ -1123,7 +1145,9 @@ def build_card_view_model(
     provider = db.query(Provider).filter(Provider.entity_id == entity_id).first()
     event = db.query(Event).filter(Event.entity_id == entity_id).first()
 
-    return _assemble_card_view_model(entity, provider, event, now_dt)
+    return _assemble_card_view_model(
+        entity, provider, event, now_dt, sponsored_provider_ids=sponsored_provider_ids
+    )
 
 
 def build_card_view_models(
@@ -1131,6 +1155,7 @@ def build_card_view_models(
     entity_ids: list[str],
     *,
     now: Optional[datetime] = None,
+    sponsored_provider_ids: set[str] | None = None,
 ) -> list[HavaCardViewModel]:
     """Batched :func:`build_card_view_model` — three relation queries total
     instead of ~5 per entity (T3.2 N+1 fix).
@@ -1166,7 +1191,15 @@ def build_card_view_models(
         entity = entities.get(eid)
         if entity is None:
             continue
-        out.append(_assemble_card_view_model(entity, providers.get(eid), events.get(eid), now_dt))
+        out.append(
+            _assemble_card_view_model(
+                entity,
+                providers.get(eid),
+                events.get(eid),
+                now_dt,
+                sponsored_provider_ids=sponsored_provider_ids,
+            )
+        )
     return out
 
 

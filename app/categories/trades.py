@@ -467,8 +467,29 @@ def trade_listing(
     """
     providers = _trade_provider_rows(db, trade)
     allowed = cat_queries._allowed_subcategory_slugs(TRADE_PARENT_SLUG)
+
+    # Phase F §7.2 honesty gate: pin active paid placements for this trade to the
+    # top and label them Sponsored. No-op until a placement is sold for this trade
+    # slug — zero effect on the live site today.
+    from app.monetization.serving import active_category_tiers, apply_category_order
+
+    try:
+        tiers = active_category_tiers(db, trade.slug)
+    except Exception:
+        tiers = {}  # placement lookup must never break the organic trade page
+    sponsored_ids = set(tiers.values())
+    if tiers:
+        by_id = {p.id: p for p in providers}
+        providers = [
+            by_id[pid]
+            for pid in apply_category_order([p.id for p in providers], tiers)
+            if pid in by_id
+        ]
+
     cards = [
-        cat_queries._provider_card(db, p, now=now, allowed_subcategories=allowed)
+        cat_queries._provider_card(
+            db, p, now=now, allowed_subcategories=allowed, sponsored_provider_ids=sponsored_ids
+        )
         for p in providers
     ]
     return cards, len(providers), providers

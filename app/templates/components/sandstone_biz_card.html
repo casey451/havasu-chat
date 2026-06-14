@@ -9,6 +9,7 @@
 {% if card.slug %}<a class="biz" href="/provider/{{ card.slug }}" data-subcategory="{{ card.subcategory }}">{% elif card.website %}<a class="biz biz--place" href="{{ card.website }}" target="_blank" rel="noopener nofollow" data-subcategory="{{ card.subcategory }}">{% else %}<div class="biz biz--place" data-subcategory="{{ card.subcategory }}">{% endif %}
   <div class="img"{% if card.image_url %} style="background-image:url('{{ card.image_url }}')"{% endif %}>
     {% if card.is_open is not none %}<span class="open{% if not card.is_open %} closed{% endif %}">{{ 'Open now' if card.is_open else 'Closed' }}</span>{% endif %}
+    {% if card.is_sponsored %}<span class="d-tag d-tag--sponsored spon-label">Sponsored</span>{% endif %}
   </div>
   <div class="body">
     <h3>{{ card.name }}</h3>

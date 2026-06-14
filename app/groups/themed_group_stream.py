@@ -66,6 +66,13 @@ def get_themed_group_card_stream(
         now=now,
     )
 
+    # Honesty gate (§7.2): provider ids holding an active paid category placement
+    # on this surface — so the cards `_sort_entity_ids` just pinned to the top
+    # render the Sponsored label. Empty (dormant) until a placement is sold.
+    from app.monetization.serving import active_category_tiers
+
+    sponsored_ids = set(active_category_tiers(db, sort_slug).values())
+
     today = now.date() if hasattr(now, "date") else date.today()
     window_end = today + timedelta(days=30)
     upcoming = events_in_window(
@@ -86,7 +93,9 @@ def get_themed_group_card_stream(
         if ent.id in seen_entity:
             continue
         seen_entity.add(ent.id)
-        vm = provider_queries.build_card_view_model(db, ent.id, now=now)
+        vm = provider_queries.build_card_view_model(
+            db, ent.id, now=now, sponsored_provider_ids=sponsored_ids
+        )
         if vm is None:
             continue
         inp = cat_pages.rank_inputs_for_category(

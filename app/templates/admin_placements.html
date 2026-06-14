@@ -1,0 +1,83 @@
+{% extends "desert_base.html" %}
+{% block title %}Placements — Admin{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_portal.css') }}">{% endblock %}
+{% block content %}
+<div class="d-admin">
+  <h1>Placements</h1>
+  <p class="note">Self-serve placement purchases from /portal/placements. A purchase
+    lands as <b>pending</b> and is inert until you activate it. Activating makes it
+    serve immediately (and show its <b>Sponsored</b> label). No payment is processed
+    here — confirm the price, then activate.</p>
+
+  <h2>Pending — awaiting activation</h2>
+  {% if not pending %}
+  <p class="empty">No pending placements.</p>
+  {% else %}
+  <table class="d-table">
+    <thead>
+      <tr>
+        <th>Listing</th><th>Placement</th><th>Where</th><th>Billing</th>
+        <th>Requested</th><th>Activate</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in pending %}
+      <tr>
+        <td>{% if r.provider_slug %}<a href="/provider/{{ r.provider_slug }}">{{ r.provider_name }}</a>{% else %}{{ r.provider_name }}{% endif %}</td>
+        <td>{{ r.placement_type }}</td>
+        <td>{{ r.category_slug or 'Homepage' }}{% if r.rank_tier %} · tier {{ r.rank_tier }}{% endif %}</td>
+        <td>{{ r.billing_type }}</td>
+        <td>{{ r.created_at }}</td>
+        <td>
+          <form class="inline" method="post" action="/admin/placements/{{ r.id }}/activate">
+            <label class="note">$<input type="number" name="price_cents" placeholder="cents" value="{{ (r.price_dollars|float * 100)|int if r.price_dollars else '' }}" style="width:7em"> cents</label>
+            <label class="note">term <input type="number" name="term_days" value="30" style="width:4em"> days</label>
+            <button type="submit">Activate</button>
+          </form>
+        </td>
+        <td>
+          <form class="inline" method="post" action="/admin/placements/{{ r.id }}/release">
+            <button type="submit">Release</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <h2>Active &amp; past</h2>
+  {% if not others %}
+  <p class="empty">No active or past placements.</p>
+  {% else %}
+  <table class="d-table">
+    <thead>
+      <tr>
+        <th>Listing</th><th>Placement</th><th>Where</th><th>Billing</th>
+        <th>Price</th><th>Status</th><th>Paid through</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in others %}
+      <tr>
+        <td>{% if r.provider_slug %}<a href="/provider/{{ r.provider_slug }}">{{ r.provider_name }}</a>{% else %}{{ r.provider_name }}{% endif %}</td>
+        <td>{{ r.placement_type }}</td>
+        <td>{{ r.category_slug or 'Homepage' }}{% if r.rank_tier %} · tier {{ r.rank_tier }}{% endif %}</td>
+        <td>{{ r.billing_type }}</td>
+        <td>{% if r.price_dollars %}${{ r.price_dollars }}{% else %}—{% endif %}</td>
+        <td>{{ r.status }}</td>
+        <td>{{ r.paid_through or '—' }}</td>
+        <td>
+          {% if r.status == 'active' %}
+          <form class="inline" method="post" action="/admin/placements/{{ r.id }}/release">
+            <button type="submit">Release</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endblock %}

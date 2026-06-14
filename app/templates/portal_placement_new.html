@@ -1,0 +1,104 @@
+{% extends "desert_base.html" %}
+{% block title %}Buy a placement — Ask Hava{% endblock %}
+{% block meta_description %}Buy a clearly-labeled paid placement for your Lake Havasu listing.{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_portal.css') }}">{% endblock %}
+
+{% block content %}
+  <section class="d-wrap" style="padding:32px 0 48px;max-width:760px">
+    <div class="d-crumb"><a href="/portal/placements">Your placements</a> → Buy a placement</div>
+    <h1 class="d-display" style="margin:8px 0 4px">Buy a <em>placement.</em></h1>
+    <p class="sub">Pick a listing and a spot. Nothing is charged here — we review
+      and confirm pricing before anything goes live, and every paid spot carries a
+      <b>Sponsored</b> label.</p>
+
+    {% if errors %}
+    <div class="d-card" style="border-left:4px solid #b3261e;margin:16px 0;padding:12px 16px">
+      Please fix the highlighted fields below.
+    </div>
+    {% endif %}
+
+    <form method="post" action="/portal/placements/new" class="d-card d-card--shadow" style="display:grid;gap:20px;padding:22px">
+      <label style="display:grid;gap:6px">
+        <span><b>Listing</b></span>
+        <select name="provider_id" required>
+          <option value="">— choose a listing —</option>
+          {% for prov in providers %}
+          <option value="{{ prov.id }}" {% if (form.provider_id or selected_provider_id) == prov.id %}selected{% endif %}>{{ prov.provider_name }}</option>
+          {% endfor %}
+        </select>
+        {% if errors.provider_id %}<small style="color:#b3261e">{{ errors.provider_id }}</small>{% endif %}
+      </label>
+
+      <fieldset style="display:grid;gap:10px;border:1px solid rgba(0,0,0,.12);border-radius:10px;padding:14px">
+        <legend style="padding:0 6px"><b>Placement type</b></legend>
+        <label style="display:flex;gap:10px;align-items:flex-start">
+          <input type="radio" name="placement_type" value="homepage_rotating" {% if form.placement_type == 'homepage_rotating' %}checked{% endif %}>
+          <span>{{ types['homepage_rotating'].label }} — <b>{{ "$%.0f/mo"|format(prices.homepage_rotating/100) if prices.homepage_rotating else "price on request" }}</b><br>
+            <small class="d-muted">{{ types['homepage_rotating'].blurb }}</small></span>
+        </label>
+        <label style="display:flex;gap:10px;align-items:flex-start">
+          <input type="radio" name="placement_type" value="category_rank" {% if form.placement_type == 'category_rank' %}checked{% endif %}>
+          <span>{{ types['category_rank'].label }}<br>
+            <small class="d-muted">{{ types['category_rank'].blurb }} Needs a category + tier below.</small></span>
+        </label>
+        <label style="display:flex;gap:10px;align-items:flex-start">
+          <input type="radio" name="placement_type" value="page_ad" {% if form.placement_type == 'page_ad' %}checked{% endif %}>
+          <span>{{ types['page_ad'].label }} — <b>{{ "$%.0f/mo"|format(prices.page_ad/100) if prices.page_ad else "price on request" }}</b><br>
+            <small class="d-muted">{{ types['page_ad'].blurb }} Needs a category below.</small></span>
+        </label>
+        {% if errors.placement_type %}<small style="color:#b3261e">{{ errors.placement_type }}</small>{% endif %}
+      </fieldset>
+
+      <label style="display:grid;gap:6px">
+        <span><b>Category</b> <small class="d-muted">(category ranking &amp; page ads only)</small></span>
+        <select name="category_slug">
+          <option value="">— choose a category —</option>
+          {% for slug, label in categories %}
+          <option value="{{ slug }}" {% if form.category_slug == slug %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        {% if errors.category_slug %}<small style="color:#b3261e">{{ errors.category_slug }}</small>{% endif %}
+      </label>
+
+      <label style="display:grid;gap:6px">
+        <span><b>Tier</b> <small class="d-muted">(category ranking only — #1 is locked to the top spot)</small></span>
+        <select name="rank_tier">
+          <option value="">— choose a tier —</option>
+          {% for t in [1,2,3,4,5] %}
+          <option value="{{ t }}" {% if form.rank_tier == (t|string) %}selected{% endif %}>Tier {{ t }}{% if prices.category_rank[t] %} — {{ "$%.0f/mo"|format(prices.category_rank[t]/100) }}{% endif %}</option>
+          {% endfor %}
+        </select>
+        {% if errors.rank_tier %}<small style="color:#b3261e">{{ errors.rank_tier }}</small>{% endif %}
+      </label>
+
+      <label style="display:grid;gap:6px">
+        <span><b>Ad creative</b> <small class="d-muted">(optional — <a href="/portal/creatives">manage creatives</a>)</small></span>
+        <select name="creative_id">
+          <option value="">— use my listing's name &amp; photo —</option>
+          {% for c in creatives %}
+          <option value="{{ c.id }}" {% if form.creative_id == c.id %}selected{% endif %}>{{ c.provider_name }} — {{ c.headline or 'untitled creative' }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <fieldset style="display:grid;gap:8px;border:1px solid rgba(0,0,0,.12);border-radius:10px;padding:14px">
+        <legend style="padding:0 6px"><b>Billing</b></legend>
+        <label style="display:flex;gap:10px;align-items:center">
+          <input type="radio" name="billing_type" value="monthly" {% if form.billing_type != 'recurring' %}checked{% endif %}>
+          <span>Monthly — month-to-month; if you stop, the spot frees up for someone else.</span>
+        </label>
+        <label style="display:flex;gap:10px;align-items:center">
+          <input type="radio" name="billing_type" value="recurring" {% if form.billing_type == 'recurring' %}checked{% endif %}>
+          <span>Recurring — holds the spot as long as it keeps paying.</span>
+        </label>
+        {% if errors.billing_type %}<small style="color:#b3261e">{{ errors.billing_type }}</small>{% endif %}
+      </fieldset>
+
+      <div>
+        <button type="submit" class="d-btn d-btn--solid">Request placement</button>
+        <a class="d-btn" href="/portal/placements">Cancel</a>
+      </div>
+      <small class="d-muted">No payment is taken now — we confirm availability and price first.</small>
+    </form>
+  </section>
+{% endblock %}

@@ -124,7 +124,7 @@
      (never a fake sponsor, never a big empty box). ---- #}
   <section class="d-wrap home-marquee" aria-label="Featured business">
     {% if marquee %}
-    <a class="marquee-card"{% if marquee.cta_url %} href="/sponsor/click?id={{ marquee.id }}&slot=marquee"{% endif %}>
+    <a class="marquee-card"{% if marquee.cta_url %} href="{% if marquee.click_url %}{{ marquee.click_url }}{% else %}/sponsor/click?id={{ marquee.id }}&slot=marquee{% endif %}"{% endif %}>
       {% if marquee.image_url %}<div class="mq-img" style="background-image:url('{{ marquee.image_url }}')"></div>{% else %}<div class="mq-img mq-img--art" aria-hidden="true"></div>{% endif %}
       <div class="mq-body">
         <span class="d-tag d-tag--sponsored">Featured</span>

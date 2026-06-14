@@ -1,0 +1,87 @@
+{% extends "desert_base.html" %}
+{% block title %}Your placements — Ask Hava{% endblock %}
+{% block meta_description %}Manage your clearly-labeled paid placements on Ask Hava.{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_portal.css') }}">{% endblock %}
+
+{% block content %}
+  <section class="dp-hero">
+    <div class="d-wrap dp-hero-in">
+      <div>
+        <div class="d-crumb">For local businesses</div>
+        <h1 class="d-display">Your <em>placements.</em></h1>
+        <p class="sub">Clearly-labeled paid spots for the listings you've claimed.
+          Every placement is reviewed before it goes live, and shows a
+          <b>Sponsored</b> label wherever it appears.</p>
+        <div class="dp-cta-row">
+          <a class="d-btn d-btn--solid" href="/portal/placements/new">Buy a placement
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </a>
+          <a class="d-btn" href="/portal/advertise">See the rate card</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="d-wrap" style="padding:24px 0 48px">
+    {% if purchased %}
+    <div class="d-card d-card--shadow" style="border-left:4px solid #1f7a4d;margin-bottom:24px">
+      <strong>Request received.</strong> Your placement is pending — we'll confirm
+      and arrange payment before it goes live. It won't appear on the site until then.
+    </div>
+    {% endif %}
+
+    {% if not providers %}
+    <div class="d-card d-card--shadow">
+      <h2>No claimed listings yet</h2>
+      <p>You need a verified claim on a listing before you can advertise it.</p>
+      <p style="margin-top:14px"><a class="d-btn d-btn--solid" href="/portal/claim">Claim your listing →</a></p>
+    </div>
+    {% else %}
+
+    <h2 style="margin:0 0 14px">Active &amp; pending placements</h2>
+    {% if not placements %}
+    <p class="d-muted" style="margin-bottom:28px">No placements yet. <a href="/portal/placements/new">Buy your first →</a></p>
+    {% else %}
+    <div class="d-card d-card--shadow" style="margin-bottom:28px;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:.95rem">
+        <thead>
+          <tr style="text-align:left;border-bottom:2px solid rgba(0,0,0,.12)">
+            <th style="padding:8px 10px">Listing</th>
+            <th style="padding:8px 10px">Placement</th>
+            <th style="padding:8px 10px">Where</th>
+            <th style="padding:8px 10px">Billing</th>
+            <th style="padding:8px 10px">Price</th>
+            <th style="padding:8px 10px">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in placements %}
+          <tr style="border-bottom:1px solid rgba(0,0,0,.07)">
+            <td style="padding:8px 10px">{{ (prov_by_id.get(p.provider_id).provider_name) if prov_by_id.get(p.provider_id) else '—' }}</td>
+            <td style="padding:8px 10px">{{ type_labels.get(p.placement_type, p.placement_type) }}</td>
+            <td style="padding:8px 10px">{{ p.category_slug or 'Homepage' }}{% if p.rank_tier %} · tier {{ p.rank_tier }}{% endif %}</td>
+            <td style="padding:8px 10px">{{ p.billing_type|capitalize }}</td>
+            <td style="padding:8px 10px">{{ "$%.0f"|format(p.price_cents/100) if p.price_cents else 'TBD' }}</td>
+            <td style="padding:8px 10px">
+              <span class="d-tag d-tag--pill{% if p.status == 'active' %} d-tag--sponsored{% endif %}">{{ p.status|capitalize }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    <h2 style="margin:0 0 14px">Your claimed listings</h2>
+    <div class="d-grid-2">
+      {% for prov in providers %}
+      <div class="d-card d-card--shadow dp-door">
+        <h3 style="margin:0 0 6px">{{ prov.provider_name }}</h3>
+        <p class="d-muted" style="font-size:.9rem">{{ prov.category or 'Local business' }}</p>
+        <p style="margin-top:12px"><a class="d-btn" href="/portal/placements/new?provider_id={{ prov.id }}">Advertise this →</a></p>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+{% endblock %}
