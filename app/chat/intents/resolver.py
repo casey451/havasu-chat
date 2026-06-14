@@ -682,7 +682,9 @@ def resolve(query: str) -> ResolvedIntent | None:
             return ResolvedIntent("classes_find", slots, L2 if topic else L1)
 
     # 8. Lodging / stay.
-    if _has_any(t, _LODGING_WORDS):
+    # "stay cool" / "keep cool" are weather-coping asks, not lodging — the "stay"
+    # token must not route them to hotels (P2-2, 2026-06-13).
+    if _has_any(t, _LODGING_WORDS) and not _has_any(t, _EVENT_WEATHER_SKIP):
         slots = {}
         area = _match_area(t)
         if area:
