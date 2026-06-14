@@ -13,6 +13,7 @@ from __future__ import annotations
 import pytest
 
 from app.home.sandstone import (
+    _TIER_AQUATIC,
     _TIER_CLASS,
     _TIER_COMMUNITY,
     _TIER_MUSIC,
@@ -78,15 +79,36 @@ def test_fest_suffix_still_special():
 def test_gerund_and_plural_tails_still_match():
     assert tier("Sunrise Kayaking") == _TIER_WATER
     assert tier("Concerts in the Park") == _TIER_MUSIC
-    assert tier("Swimming Lessons") == _TIER_CLASS
+    # Swim lessons happen in the POOL — Aquatic Center, not the lake.
+    assert tier("Swimming Lessons") == _TIER_AQUATIC
     assert tier("Spinning") == _TIER_CLASS
+
+
+# --- pool (Aquatic Center) is NOT "on the water" (the lake) -----------------
+
+def test_pool_activities_tier_aquatic_not_water():
+    # The live bug: Aquatic Center pool sessions wore the lake pill. Pool words
+    # now route to their own Aquatic Center tier, never On-the-water.
+    assert tier("Open Swim") == _TIER_AQUATIC
+    assert tier("Free Family Swim") == _TIER_AQUATIC
+    assert tier("Lap Swim (Morning)") == _TIER_AQUATIC
+    assert tier("Aqua Zumba") == _TIER_AQUATIC
+    assert tier("Water Aerobics") == _TIER_AQUATIC
+
+
+def test_genuine_lake_activities_stay_on_the_water():
+    # Literally on Lake Havasu / the Bridgewater Channel — these keep the
+    # On-the-water tier (no pool word present).
+    assert tier("Sunset Kayak Tour") == _TIER_WATER
+    assert tier("Sunset Paddle") == _TIER_WATER
+    assert tier("Boat Parade") == _TIER_SPECIAL  # "parade" is a special
+    assert tier("Channel Cleanup") == _TIER_WATER
 
 
 # --- unchanged baseline behavior -------------------------------------------
 
 def test_class_signal_beats_music_and_water():
     assert tier("Beginner Pilates (Wed/Fri)") == _TIER_CLASS
-    assert tier("Lap Swim (Morning)") == _TIER_CLASS
 
 
 def test_untyped_one_off_is_other_and_recurring_is_class():
@@ -99,7 +121,7 @@ def test_featured_always_special():
 
 
 def test_water_and_community_baselines():
-    assert tier("Open Swim") == _TIER_WATER
+    assert tier("Sunrise Kayak Social") == _TIER_WATER
     assert tier("Farmers Market") == _TIER_COMMUNITY
     assert tier("Rowdy Bingo at Grapes N Grains") == _TIER_COMMUNITY
 

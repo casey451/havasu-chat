@@ -85,8 +85,11 @@
 .ev-acc[open] summary{background:var(--sand);border-bottom:2.5px solid var(--black)}
 .ev-acc-swatch{width:16px;height:16px;border-radius:4px;border:2px solid var(--black);flex:none;background:var(--cream)}
 .ev-acc-swatch--events{background:var(--orange)}
+.ev-acc-swatch--family{background:var(--peach)}
 .ev-acc-swatch--music{background:var(--black)}
+/* On-the-water = the lake (deep blue); Aquatic Center pool = lighter sky blue */
 .ev-acc-swatch--water{background:var(--blue)}
+.ev-acc-swatch--aquatic{background:var(--sky)}
 .ev-acc-swatch--classes{background:var(--sand)}
 .ev-acc-name{
   font-family:var(--disp);font-weight:800;font-size:clamp(18px,2vw,23px);

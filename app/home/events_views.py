@@ -4,10 +4,14 @@ One concept at three zoom levels — "show the general category and how many,
 click to see more":
 
 * **Today / day detail** — a category accordion for a single lake-local date.
-  Groups, in owner-approved order: Events (one-off, non-class), Music &
-  nightlife, On the water, Fitness & classes (recurring Event rows + venue
-  Schedule classes). Empty groups are omitted; the Events group opens by
-  default ("most people will be looking for events").
+  Groups, in owner-approved order: Around town (one-off, non-class), Kids &
+  Family (every kid/family occurrence PLUS "what's open for kids today" venue
+  hours — see app.home.family_venues), Music & nightlife, On the water (the
+  LAKE only), Aquatic Center (pool: open swim, swim lessons, aqua classes),
+  Fitness & classes (recurring Event rows + venue Schedule classes). Kids &
+  Family and Aquatic Center are cross-cutting overlays (see _group_for_tier):
+  a kid/pool occurrence leaves its activity group for these. Empty groups are
+  omitted; the Around town group opens by default.
 * **Week** — 7 rows starting today: weekday + date, the top one-off headline
   (ranked via the shared :func:`app.home.sandstone._event_tier`; never a
   recurring class), and an honest per-group rollup ("2 events · 1 music ·
@@ -40,9 +44,12 @@ from app.events.class_occurrences import (
 from app.events.family_filter import is_family_event
 from app.events.time_labels import TIME_TBD_LABEL, short_time_label, time_sort_key
 from app.events.title_clean import clean_event_title
+from app.home.family_venues import open_today_rows
 from app.home.sandstone import (
+    _TIER_AQUATIC,
     _TIER_CLASS,
     _TIER_MUSIC,
+    _TIER_SPECIAL,
     _TIER_WATER,
     _event_tier,
     _live_events_by_day,
@@ -54,17 +61,25 @@ GROUP_DEFS: tuple[tuple[str, str, str], ...] = (
     # rendered a generic "Events 4" section next to named siblings (audit
     # events #6). Key stays "events" (rollup nouns + CSS hooks unchanged).
     ("events", "Around town", "\U0001F39F️"),
+    # "Kids & Family" is a cross-cutting collector (see _group_for_tier): every
+    # kid/family occurrence — youth classes, Open Swim, story time — lands here
+    # so a parent sees everything for kids in one place.
+    ("family", "Kids & Family", "\U0001F9D2"),
     ("music", "Music & nightlife", "\U0001F3B6"),
+    # "On the water" is now LAKE-only; pool activities live in "Aquatic Center".
     ("water", "On the water", "⛵"),
+    ("aquatic", "Aquatic Center", "\U0001F3CA"),
     ("classes", "Fitness & classes", "\U0001F3C3"),
 )
 
-# Rollup nouns per group: (singular, plural). "music" and "on the water" read
-# naturally uncounted-noun style ("1 music", "3 on the water").
+# Rollup nouns per group: (singular, plural). Several read naturally in
+# uncounted-noun style ("1 music", "3 on the water", "2 kid-friendly").
 _GROUP_NOUNS: dict[str, tuple[str, str]] = {
     "events": ("event", "events"),
+    "family": ("kid-friendly", "kid-friendly"),
     "music": ("music", "music"),
     "water": ("on the water", "on the water"),
+    "aquatic": ("pool session", "pool sessions"),
     "classes": ("class", "classes"),
 }
 
@@ -72,16 +87,29 @@ _GROUP_NOUNS: dict[str, tuple[str, str]] = {
 def _group_for(*, title: str, tags: list[str] | None, featured: bool, recurring: bool) -> str:
     """Map an event to its accordion group via the shared tier heuristic.
 
-    Recurring rows and class-tier one-offs (a "Yoga Workshop") always land in
-    Fitness & classes — a class never appears in the Events group. The
-    remaining one-off tiers split into music / water / everything-else
-    ("Events": special, community, other).
+    Kid/family occurrences collect in "Kids & Family"; pool activities in
+    "Aquatic Center"; recurring rows and class-tier one-offs in "Fitness &
+    classes". The remaining one-off tiers split into music / on-the-water /
+    everything-else ("Around town": special, community, other).
     """
     tier = _event_tier(title=title, tags=tags, featured=featured, recurring=recurring)
-    return _group_for_tier(tier, recurring=recurring)
+    return _group_for_tier(tier, recurring=recurring, title=title, tags=tags)
 
 
-def _group_for_tier(tier: int, *, recurring: bool) -> str:
+def _group_for_tier(
+    tier: int, *, recurring: bool, title: str = "", tags: list[str] | None = None
+) -> str:
+    # Kids & Family is a cross-cutting overlay: any kid/family occurrence (a
+    # youth class, Open Swim, story time) collects here instead of its activity
+    # group so a parent has one place to look. Big one-off SPECIAL events stay
+    # in their marquee group (they headline the day) — everything else defers
+    # to the family collector first.
+    if tier != _TIER_SPECIAL and is_family_event(title, tags):
+        return "family"
+    # Pool activities are their own group (checked before classes because pool
+    # sessions are usually recurring).
+    if tier == _TIER_AQUATIC:
+        return "aquatic"
     if recurring or tier == _TIER_CLASS:
         return "classes"
     if tier == _TIER_MUSIC:
@@ -137,7 +165,8 @@ def day_groups(db: Session, *, day: date, family: bool = False) -> list[dict[str
     ):
         if family and not is_family_event(occ.title):
             continue
-        rows_by_group["classes"].append(
+        gkey = _group_for(title=occ.title, tags=None, featured=False, recurring=True)
+        rows_by_group[gkey].append(
             {
                 "sort": time_sort_key(occ.start_time, occ.end_time),
                 "time_label": short_time_label(occ.start_time, occ.end_time) or TIME_TBD_LABEL,
@@ -147,6 +176,13 @@ def day_groups(db: Session, *, day: date, family: bool = False) -> list[dict[str
                 "recurring": True,
             }
         )
+
+    # "What's open for kids today": recurring family-venue hours (toddler
+    # playground, pizza arcade, trampoline park, youth gym/dojo class blocks).
+    # These are always kid/family things, so they join the Kids & Family group
+    # regardless of the ?family filter and give a parent something to do even on
+    # a day with no scheduled events. They sort after timed rows.
+    rows_by_group["family"].extend(open_today_rows(day))
 
     groups: list[dict[str, Any]] = []
     for key, label, icon in GROUP_DEFS:
@@ -205,19 +241,22 @@ def week_rows(
         for d, evs in by_day.items()
         for ev in evs
     }
-    sched_by_day: dict[date, int] = {}
+    sched_by_day: dict[date, dict[str, int]] = {}
     for occ in drop_event_duplicates(
         class_occurrences_in_window(db, window_start=start, window_end=end), event_keys
     ):
         if family and not is_family_event(occ.title):
             continue
-        sched_by_day[occ.date] = sched_by_day.get(occ.date, 0) + 1
+        gkey = _group_for(title=occ.title, tags=None, featured=False, recurring=True)
+        day_counts = sched_by_day.setdefault(occ.date, {})
+        day_counts[gkey] = day_counts.get(gkey, 0) + 1
 
     rows: list[dict[str, Any]] = []
     for i in range(days):
         d = start + timedelta(days=i)
         counts = {key: 0 for key, _l, _i in GROUP_DEFS}
-        counts["classes"] = sched_by_day.get(d, 0)
+        for gkey, n in sched_by_day.get(d, {}).items():
+            counts[gkey] = counts.get(gkey, 0) + n
         headline: dict[str, Any] | None = None
         best_key: tuple[int, int, time] | None = None
         for ev in by_day.get(d, []):
@@ -227,7 +266,14 @@ def week_rows(
                 featured=bool(ev.featured),
                 recurring=bool(ev.is_recurring),
             )
-            counts[_group_for_tier(tier, recurring=bool(ev.is_recurring))] += 1
+            counts[
+                _group_for_tier(
+                    tier,
+                    recurring=bool(ev.is_recurring),
+                    title=ev.title or "",
+                    tags=ev.tags,
+                )
+            ] += 1
             if ev.is_recurring:
                 continue  # a recurring class never headlines
             rank: tuple[int, int, time] = (tier, *time_sort_key(ev.start_time, ev.end_time))
