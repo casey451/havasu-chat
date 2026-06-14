@@ -35,6 +35,24 @@ def test_storage_lives_under_services_not_recreation() -> None:
     assert "storage" in svc_slugs
 
 
+def test_marine_trade_subcategories_resolve_to_on_the_water() -> None:
+    # 2026-06-13 audit: boat dealers / repair / supply split out of the generic
+    # "on-the-water" recreation bucket into their own pages, all folding back to
+    # the on-the-water primary.
+    from app.categories.subcategories import primary_for_subcategory
+
+    rec_slugs = {s.slug for s in subcats.subcategories_for_bucket("recreation-outdoors")}
+    for slug, label in (
+        ("marine-dealers", "Boat Dealers"),
+        ("marine-repair", "Boat Repair & Mechanics"),
+        ("marine-supply", "Marine Supply & Stores"),
+    ):
+        sub = subcats.subcategory_by_slug(slug)
+        assert sub is not None and sub.label == label
+        assert slug in rec_slugs
+        assert primary_for_subcategory(slug) == "on-the-water"
+
+
 def test_subcategories_for_category_route_maps_bucket_destinations() -> None:
     # /categories/services is the Services bucket destination → Services chips.
     labels = {s.slug for s in subcats.subcategories_for_category_route("services")}

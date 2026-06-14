@@ -58,6 +58,12 @@ _SUBCATEGORIES: tuple[Subcategory, ...] = (
     Subcategory("quick-bites", "Quick Bites", "food-drink", "Fast, casual, and takeout."),
     # -- Recreation & Outdoors (Storage intentionally NOT here) --
     Subcategory("on-the-water", "On the Water", "recreation-outdoors", "Marinas, launches, rentals."),
+    # Marine trade split out from the recreation "on-the-water" bucket so boat
+    # businesses get their own pages (2026-06-13 audit). All map to the
+    # ``on-the-water`` primary; watersports *rentals* stay under on-the-water.
+    Subcategory("marine-dealers", "Boat Dealers", "recreation-outdoors", "New and used boat sales."),
+    Subcategory("marine-repair", "Boat Repair & Mechanics", "recreation-outdoors", "Marine service, repair, and mechanics."),
+    Subcategory("marine-supply", "Marine Supply & Stores", "recreation-outdoors", "Parts, accessories, and marine retail."),
     Subcategory("trails-offroad", "Trails & Off-road", "recreation-outdoors", "Hiking and off-road routes."),
     Subcategory("parks-beaches", "Parks & Beaches", "recreation-outdoors", "City parks and shoreline."),
     Subcategory("golf", "Golf", "recreation-outdoors", "Courses and driving ranges."),
@@ -409,8 +415,11 @@ SUBCATEGORY_TO_PRIMARY: dict[str, str] = {
     "bars-breweries": "eat-drink",
     "cafes-coffee": "eat-drink",
     "quick-bites": "eat-drink",
-    # On the Water
+    # On the Water (incl. the marine trade split — boat sales/repair/supply)
     "on-the-water": "on-the-water",
+    "marine-dealers": "on-the-water",
+    "marine-repair": "on-the-water",
+    "marine-supply": "on-the-water",
     # Outdoors, Parks & Trails
     "trails-offroad": "outdoors-parks-trails",
     "parks-beaches": "outdoors-parks-trails",
