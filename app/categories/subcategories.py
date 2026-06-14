@@ -26,6 +26,7 @@ rather than mislabeling them.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any, Iterable
 
@@ -517,6 +518,7 @@ def derive_primary_category(
     *,
     category: str | None,
     subcategory: str | None = None,
+    name: str | None = None,
     google_primary_category: str | None = None,
     google_categories: Any = None,
     attributes: Any = None,
@@ -537,6 +539,7 @@ def derive_primary_category(
     if sub is None:
         sub = derive_subcategory(
             category=category,
+            name=name,
             google_primary_category=google_primary_category,
             google_categories=google_categories,
             attributes=attributes,
@@ -612,9 +615,45 @@ def _subcat_from_types(
     return None
 
 
+# Marine trade routing from the business NAME (2026-06-13 audit). Boat
+# businesses carry generic Google types (``service``/``store``/``supplier``), so
+# the type-token tiers file them as ``specialty`` / generic ``on-the-water`` and
+# a re-derive would clobber the marine-* leaf split. When a NAME is available it
+# is the decisive signal: an anchor token (boat/marine/watercraft/nautical) plus
+# a trade qualifier pins the row to dealers / repair / supply. Watersports
+# rentals (jet ski / kayak) are intentionally NOT matched here — they stay
+# on-the-water. Returns one of the three marine subcats or ``None``.
+_MARINE_ANCHOR = re.compile(r"\b(boats?|marine|watercraft|nautical)\b", re.I)
+_MARINE_REPAIR = re.compile(
+    r"\b(service|repair|mechanic|performance|fiberglass|gel ?coat|gelcraft|"
+    r"machine|rigging|restoration|customs?|body shop|speed)\b",
+    re.I,
+)
+_MARINE_SUPPLY = re.compile(r"\b(supply|supplies|parts|store)\b|west marine", re.I)
+_MARINE_DEALER = re.compile(r"\bboats\b|\b(sales|dealer|brokers?|power boats|custom boats)\b", re.I)
+
+
+def _marine_subcat_from_name(name: str | None) -> str | None:
+    if not name:
+        return None
+    n = name.lower()
+    if not _MARINE_ANCHOR.search(n):
+        return None
+    # Order: supply (store/parts) and dealer (sales/boats) before the broad
+    # repair qualifier, so "Marine Sales & Service" reads as a dealer.
+    if _MARINE_SUPPLY.search(n):
+        return "marine-supply"
+    if _MARINE_DEALER.search(n):
+        return "marine-dealers"
+    if _MARINE_REPAIR.search(n):
+        return "marine-repair"
+    return None
+
+
 def derive_subcategory(
     *,
     category: str | None,
+    name: str | None = None,
     google_primary_category: str | None = None,
     google_categories: Any = None,
     attributes: Any = None,
@@ -622,9 +661,14 @@ def derive_subcategory(
     """Best subcategory slug for a provider, or ``None`` when nothing matches.
 
     Pure (no DB / ORM) so it backfills offline and runs on ingest. Precedence:
-    specific Google type → legacy category bucket. ``sub_trades`` (curated)
-    participate at the Google-type tier.
+    decisive NAME signal (marine trade) → specific Google type → legacy category
+    bucket. ``sub_trades`` (curated) participate at the Google-type tier. ``name``
+    is optional and backward-compatible: omit it and behaviour is unchanged.
     """
+    marine = _marine_subcat_from_name(name)
+    if marine:
+        return marine
+
     sub_trades: list[str] | None = None
     if isinstance(attributes, str):
         try:
