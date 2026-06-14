@@ -33,6 +33,10 @@ History — Session-22 (2026-05-13):
   ``__init__.py`` so neither leaf module has the cycle-creating import.
 """
 
+# Phase F1: also register the monetization placement tables with Base.metadata.
+# monetization_models depends only on Base (it imports neither models nor
+# entity_dual_write), so importing it here is cycle-free regardless of order.
+import app.db.monetization_models  # noqa: F401
 from app.db.entity_dual_write import register_catalog_dual_write_hooks
 
 register_catalog_dual_write_hooks()

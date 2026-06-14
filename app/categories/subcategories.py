@@ -58,7 +58,7 @@ _SUBCATEGORIES: tuple[Subcategory, ...] = (
     Subcategory("cafes-coffee", "Cafés & Coffee", "food-drink", "Coffee, bakeries, and light bites."),
     Subcategory("quick-bites", "Quick Bites", "food-drink", "Fast, casual, and takeout."),
     # -- Recreation & Outdoors (Storage intentionally NOT here) --
-    Subcategory("on-the-water", "On the Water", "recreation-outdoors", "Marinas, launches, rentals."),
+    Subcategory("on-the-water", "Lake Life", "recreation-outdoors", "Marinas, launches, rentals."),
     # Marine trade split out from the recreation "on-the-water" bucket so boat
     # businesses get their own pages (2026-06-13 audit). All map to the
     # ``on-the-water`` primary; watersports *rentals* stay under on-the-water.

@@ -160,7 +160,7 @@ CATEGORY_DISPLAY: dict[str, tuple[str, str]] = {
         "Restaurants, bars, cafes. Open right now or coming up.",
     ),
     "on-the-water": (
-        "On the water",
+        "Lake Life",
         "Marinas, rentals, lake stays. Everything within shouting distance of the channel.",
     ),
     "things-to-do": (

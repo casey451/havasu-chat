@@ -345,7 +345,9 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
             Chip("hotels", "Hotels"),
             Chip("motels", "Motels"),
             Chip("resorts", "Resorts"),
-            Chip("vacation-rentals", "Vacation rentals"),
+            # §6.4: Vacation Rentals tab removed for now — Airbnb/short-term-rental
+            # integration is a future feature. The subcategory + ingest mappings
+            # stay intact so the tab can return when that feature ships.
             Chip("bed-breakfast", "Bed & breakfast"),
         ),
         operational_chips=(
@@ -556,6 +558,38 @@ def _distance_km_for_entity(ent: Entity, ref_lat: float, ref_lng: float) -> floa
     return _haversine_km(ref_lat, ref_lng, float(loc.lat), float(loc.lng))
 
 
+def _overlay_category_placements(
+    ordered: list[Entity],
+    prov_by_eid: dict[str, Provider],
+    db: Session,
+    category_slug: str,
+) -> list[Entity]:
+    """Phase F §7.2: pin active sticky-tier placements to the top of an
+    organic-ordered entity list. No-op (returns the input unchanged) when no
+    placements are sold for this category — which is the case until the business
+    portal can sell them, so this has zero effect on the live site today."""
+    from app.monetization.serving import active_category_tiers, apply_category_order
+
+    tiers = active_category_tiers(db, category_slug)
+    if not tiers:
+        return ordered
+
+    entity_by_pid: dict[str, Entity] = {}
+    ordered_pids: list[str] = []
+    no_provider: list[Entity] = []
+    for e in ordered:
+        p = prov_by_eid.get(e.id)
+        if p is None:
+            no_provider.append(e)
+            continue
+        entity_by_pid.setdefault(p.id, e)
+        ordered_pids.append(p.id)
+
+    new_order = apply_category_order(ordered_pids, tiers)
+    reordered = [entity_by_pid[pid] for pid in new_order if pid in entity_by_pid]
+    return reordered + no_provider
+
+
 def _sort_entity_ids(
     entities: list[Entity],
     *,
@@ -596,12 +630,12 @@ def _sort_entity_ids(
         return (-rating, (e.name or "").lower())
 
     if sort_key == "alphabetical":
-        return sorted(entities, key=lambda e: (e.name or "").lower())
-    if sort_key == "top_rated":
-        return sorted(entities, key=top_rated_key)
-    if sort_key == "editorial_pick":
-        return sorted(entities, key=editorial_key)
-    if sort_key == "closest_now":
+        ordered = sorted(entities, key=lambda e: (e.name or "").lower())
+    elif sort_key == "top_rated":
+        ordered = sorted(entities, key=top_rated_key)
+    elif sort_key == "editorial_pick":
+        ordered = sorted(entities, key=editorial_key)
+    elif sort_key == "closest_now":
         rank_inp = rank_inputs_for_category(
             entities,
             category_slug=category_slug,
@@ -618,11 +652,15 @@ def _sort_entity_ids(
             score = compute_card_rank(inp, now=now, temperature_f=temp_f)
             return (-score, (e.name or "").lower())
 
-        return sorted(entities, key=closest_key)
-    return sorted(
-        entities,
-        key=lambda e: (_distance_km_for_entity(e, ref_lat, ref_lng), (e.name or "").lower()),
-    )
+        ordered = sorted(entities, key=closest_key)
+    else:
+        ordered = sorted(
+            entities,
+            key=lambda e: (_distance_km_for_entity(e, ref_lat, ref_lng), (e.name or "").lower()),
+        )
+
+    # Phase F §7.2: pin paid sticky-tier placements to the top (dormant until sold).
+    return _overlay_category_placements(ordered, prov_by_eid, db, category_slug)
 
 
 def rank_inputs_for_category(

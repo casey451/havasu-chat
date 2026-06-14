@@ -27,11 +27,6 @@
       color:#171310;text-decoration:none;font-weight:600;font-size:.95rem;
       white-space:nowrap;transition:background .12s,border-color .12s}
     .intentchip:hover,.intentchip:focus{background:#fbf4e6;border-color:rgba(23,19,16,.34)}
-    .home-trust{margin-top:14px}
-    .trust-line{margin:0;font-size:.9rem;opacity:.82;display:flex;gap:10px;
-      flex-wrap:wrap;align-items:center}
-    .trust-line a{color:inherit;text-decoration:none;border-bottom:1px solid rgba(23,19,16,.25)}
-    .trust-line a:hover{border-bottom-color:rgba(23,19,16,.6)}
     @media (max-width:480px){
       .intents-row{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;
         padding-bottom:4px;scrollbar-width:none}
@@ -68,7 +63,7 @@
         </div>
         <div class="askbar">
           {# Name lives on the button right below — don't repeat it here. #}
-          <span class="d-eyebrow askbar-eyebrow">Your local concierge</span>
+          <span class="d-eyebrow askbar-eyebrow">Search like a local.</span>
           <form class="searchbox" id="home-ask-form" action="/chat" method="get" role="search" aria-label="Ask Hava">
             <input id="home-ask-input" name="q" type="text" value="" placeholder="Mexican food near the channel" aria-label="Ask Hava anything in Lake Havasu" autocomplete="off">
             <button class="go" type="submit">Ask Hava</button>
@@ -82,45 +77,48 @@
      confabulation — every chip points at a page that exists). Horizontally
      scrollable on phones (≤480px). ---- #}
   <section class="d-wrap home-intents" aria-label="Quick starts">
+    {# §2.2 chip order: lead with high-intent consumer actions; "Need a service"
+       moved to the end. §2.4: "On the Water" is now "Lake Life" and points at the
+       directory category (/categories/on-the-water); the duplicate /lake curated
+       chip was dropped so the row carries one "Lake Life". /night is the
+       after-dark mode landing. #}
     <div class="intents-row" role="list">
-      <a class="intentchip" role="listitem" href="/chat">Need a service</a>
       <a class="intentchip" role="listitem" href="/events-ui">Tonight</a>
       <a class="intentchip" role="listitem" href="/events-ui?view=week">This weekend</a>
-      <a class="intentchip" role="listitem" href="/categories/on-the-water">On the water</a>
       <a class="intentchip" role="listitem" href="/family">Kid-friendly</a>
-      {# 2.x: surface the curated mode landings (previously only reachable via the
-         in-page mode switcher). Real pages: /lake (Lake Life) and /night (after-dark). #}
-      <a class="intentchip" role="listitem" href="/lake">Lake life</a>
+      <a class="intentchip" role="listitem" href="/categories/on-the-water">Lake Life</a>
       <a class="intentchip" role="listitem" href="/night">After dark</a>
+      <a class="intentchip" role="listitem" href="/chat">Need a service</a>
     </div>
   </section>
 
-  {# ---- UX-1: one-line trust strip. The three proof phrases already in site
-     copy, each linked to the page that substantiates it. ---- #}
-  <section class="d-wrap home-trust" aria-label="Why trust Hava">
-    <p class="trust-line">
-      <a href="/about">Real public reviews</a>
-      <span aria-hidden="true">·</span>
-      <a href="/portal/advertise">Sponsored clearly labeled</a>
-      <span aria-hidden="true">·</span>
-      <a href="/about">Built in Lake Havasu</a>
-    </p>
-  </section>
-
-  {# ---- G: compact category strip — directory breadth ABOVE THE FOLD (counts
-     are the trust/scale signal). Full Explore grid still appears lower as the
-     browsable payoff. ---- #}
-  {% if explore_tiles %}
-  <section class="d-wrap home-catstrip" aria-label="Browse local categories">
-    <div class="catstrip-row" role="list">
-      {% for tile in explore_tiles %}
-      <a class="catpill" role="listitem" href="{{ tile.url }}">
-        {% if tile.count %}<span class="n">{{ tile.count }}</span>{% endif %}<span class="l">{{ tile.label }}</span>
-      </a>
-      {% endfor %}
+  {# ---- §2.3/§2.5: a single category grid, directly under the quick-intent
+     chips so browsing starts immediately (the old compact count strip + the
+     lower "Explore Havasu" grid were the same 15 categories twice; consolidated
+     here). The hero trust line moved site-wide to the footer (§2.3). "Explore
+     Havasu" — live category counts as color-blocked tiles (count omitted when
+     none; "Browse" stamp instead — never a zero). ---- #}
+  <section class="d-block d-block--blue home-explore" aria-label="Explore Havasu">
+    <div class="d-wrap">
+      <div class="d-sec-head"><h2>Explore Havasu</h2><a class="all" href="/categories">All categories →</a></div>
+      <div class="cat-strip">
+        {% for tile in explore_tiles %}
+        <a class="catchip {{ loop.cycle('c-orange', 'c-cream', 'c-black', 'c-sand', 'c-blue', 'c-cream') }}" href="{{ tile.url }}">
+          {% if tile.count %}<span class="count">{{ tile.count }}</span>{% else %}<span class="count soon">Browse</span>{% endif %}
+          <span class="name">{{ tile.label }} {{ dicons.icon("arrow", 20) }}</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% if service_tiles %}
+      <div class="d-sec-head svc-head"><h2>Need something done?</h2></div>
+      <div class="cat-strip secondary">
+        {% for tile in service_tiles %}
+        <a class="catchip-mini" href="{{ tile.url }}">{{ tile.label }} {{ dicons.icon("arrow", 14) }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
   </section>
-  {% endif %}
 
   {# ---- G Tier-1: marquee sponsor, above the fold. Real-or-omit: a sold
      marquee renders the flagship card; unsold collapses to a slim claim line
@@ -169,7 +167,7 @@
     </div>
     <div class="cal-legend">
       <span><i class="leg special"></i>Special event</span>
-      <span><i class="leg water"></i>On the water</span>
+      <span><i class="leg water"></i>Lake Life</span>
       <span><i class="leg music"></i>Music / nightlife</span>
       <span><i class="leg community"></i>Community</span>
       <span><i class="leg class"></i>Class / ongoing</span>
@@ -212,31 +210,8 @@
   </section>
   {% endif %}
 
-  {# ---- Explore Havasu — live category counts as color-blocked tiles
-     (count omitted when none; "Browse" stamp instead — never a zero).
-     G: promoted ABOVE the month calendar so the directory payoff lands before
-     the second calendar. ---- #}
-  <section class="d-block d-block--blue home-explore" aria-label="Explore Havasu">
-    <div class="d-wrap">
-      <div class="d-sec-head"><h2>Explore Havasu</h2><a class="all" href="/categories">All categories →</a></div>
-      <div class="cat-strip">
-        {% for tile in explore_tiles %}
-        <a class="catchip {{ loop.cycle('c-orange', 'c-cream', 'c-black', 'c-sand', 'c-blue', 'c-cream') }}" href="{{ tile.url }}">
-          {% if tile.count %}<span class="count">{{ tile.count }}</span>{% else %}<span class="count soon">Browse</span>{% endif %}
-          <span class="name">{{ tile.label }} {{ dicons.icon("arrow", 20) }}</span>
-        </a>
-        {% endfor %}
-      </div>
-      {% if service_tiles %}
-      <div class="d-sec-head svc-head"><h2>Need something done?</h2></div>
-      <div class="cat-strip secondary">
-        {% for tile in service_tiles %}
-        <a class="catchip-mini" href="{{ tile.url }}">{{ tile.label }} {{ dicons.icon("arrow", 14) }}</a>
-        {% endfor %}
-      </div>
-      {% endif %}
-    </div>
-  </section>
+  {# §2.3/§2.5: the "Explore Havasu" category grid was relocated up to directly
+     under the quick-intent chips (single grid, no duplicate count strip). #}
 
   {# ---- G Tier-3: promoted in-feed card, right after the Explore grid (highest
      intent — visitor is actively browsing categories). Real-or-omit: the whole
@@ -291,7 +266,7 @@
       </div>
       <div class="cal-legend">
         <span><i class="leg ev-special"></i>Special event</span>
-        <span><i class="leg ev-water"></i>On the water</span>
+        <span><i class="leg ev-water"></i>Lake Life</span>
         <span><i class="leg ev-class"></i>Class / ongoing</span>
       </div>
       {% else %}

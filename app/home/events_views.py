@@ -66,8 +66,9 @@ GROUP_DEFS: tuple[tuple[str, str, str], ...] = (
     # so a parent sees everything for kids in one place.
     ("family", "Kids & Family", "\U0001F9D2"),
     ("music", "Music & nightlife", "\U0001F3B6"),
-    # "On the water" is now LAKE-only; pool activities live in "Aquatic Center".
-    ("water", "On the water", "⛵"),
+    # "Lake Life" (formerly "On the water") is LAKE-only; pool activities live in
+    # "Aquatic Center".
+    ("water", "Lake Life", "⛵"),
     ("aquatic", "Aquatic Center", "\U0001F3CA"),
     ("classes", "Fitness & classes", "\U0001F3C3"),
 )

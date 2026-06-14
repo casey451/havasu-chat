@@ -151,7 +151,7 @@ def service_tiles(db: Session) -> list[dict[str, Any]]:
 
 _MEGA_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Eat & Drink", ("eat-and-drink",)),
-    ("On the Water", ("on-the-water",)),
+    ("Lake Life", ("on-the-water",)),
     (
         "Fun & Outdoors",
         (
@@ -198,7 +198,7 @@ def mega_columns(db: Session) -> list[dict[str, Any]]:
 def primary_nav() -> list[dict[str, str]]:
     return [
         {"label": "Eat & Drink", "url": "/categories/eat-and-drink"},
-        {"label": "On the Water", "url": "/categories/on-the-water"},
+        {"label": "Lake Life", "url": "/categories/on-the-water"},
         {"label": "Things to Do", "url": "/categories/things-to-do-and-attractions"},
         {"label": "Health", "url": "/categories/health-and-medical"},
     ]

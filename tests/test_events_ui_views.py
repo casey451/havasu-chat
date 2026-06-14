@@ -1,7 +1,7 @@
 """/events-ui redesign — Today accordion, Week rollups, Month grid, day detail.
 
 One concept at three zoom levels: the Today/day view groups events into a
-category accordion (Events / Music & nightlife / On the water / Fitness &
+category accordion (Events / Music & nightlife / Lake Life / Fitness &
 classes), the Week view shows the top one-off headline + honest per-group
 rollups, and the Month view is a Sunday-anchored date-picker grid whose counts
 are one-offs only (B-02 alignment regression pinned here).

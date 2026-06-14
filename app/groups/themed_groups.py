@@ -20,7 +20,7 @@ THEMED_GROUPS: dict[str, list[str]] = {
 _GROUP_LABELS: dict[str, str] = {
     "eat-drink-group": "Eat & Drink",
     "health-fitness-group": "Health & Fitness",
-    "on-the-water-group": "On the Water",
+    "on-the-water-group": "Lake Life",
     "home-auto-group": "Home & Auto",
     "things-to-do-group": "Things to Do",
 }

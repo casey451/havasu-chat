@@ -431,7 +431,7 @@ _HOME_SERVICES_SHORTCUT: dict[str, Any] = {
 
 _POPULAR_SUBCATEGORIES: tuple[dict[str, str], ...] = (
     {"label": "Restaurants", "url": "/lake-havasu/restaurants"},
-    {"label": "On the Water", "url": "/lake-havasu/on-the-water"},
+    {"label": "Lake Life", "url": "/lake-havasu/on-the-water"},
     {"label": "Health & Medical", "url": "/lake-havasu/health-medical"},
     {"label": "Auto", "url": "/lake-havasu/auto"},
     {"label": "Pets", "url": "/lake-havasu/pets"},
@@ -668,7 +668,7 @@ def serve_family(request: Request, db: Session = Depends(get_db)) -> HTMLRespons
 # are unchanged, so /api/map_data/{scope} and map.js are untouched.
 _MAP_SCOPE_LABELS: dict[str, str] = {
     "eat-drink": "Eat & Drink",
-    "on-the-water": "On the Water",
+    "on-the-water": "Lake Life",
     "outdoors-parks-trails": "Outdoors & Recreation",
     "classes-sports-recreation": "Fitness, Sports & Classes",
     "shopping-essentials": "Shopping & Retail",
