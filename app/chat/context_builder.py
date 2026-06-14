@@ -404,6 +404,35 @@ def _events_future_for(db: Session, provider_id: str, today: date) -> Sequence[E
     ).all()
 
 
+# P2-2: one venue's recurring slots (the Aquatic Center's daily Open Swim) must not
+# flood the Tier-3 events context and make every heat/coping answer over-rely on a
+# single place. Cap each venue's representation in the context (the calendar grid,
+# which uses events_in_window, is untouched).
+_MAX_EVENTS_PER_VENUE_IN_CONTEXT = 2
+
+
+def _diversify_events_by_venue(
+    events: Sequence[Event], *, limit: int, per_venue_cap: int = _MAX_EVENTS_PER_VENUE_IN_CONTEXT
+) -> list[Event]:
+    """Keep chronological order but cap each venue's occurrences, up to ``limit``.
+
+    Pure (no DB) so it unit-tests directly. Events with no ``location_name`` are
+    never capped (we can't attribute them to a flooding venue).
+    """
+    per_venue: dict[str, int] = {}
+    out: list[Event] = []
+    for ev in events:
+        venue = (getattr(ev, "location_name", "") or "").strip().lower()
+        if venue:
+            if per_venue.get(venue, 0) >= per_venue_cap:
+                continue
+            per_venue[venue] = per_venue.get(venue, 0) + 1
+        out.append(ev)
+        if len(out) >= limit:
+            break
+    return out
+
+
 def _standalone_events_upcoming(
     db: Session, today: date, *, limit: int = MAX_STANDALONE_EVENTS
 ) -> Sequence[Event]:
@@ -414,10 +443,10 @@ def _standalone_events_upcoming(
     ``provider_id IS NULL`` rows never entered Tier-3 context. Date filter:
     starts today or later, OR still running (multi-day: ``end_date >= today``).
     Recurring events are materialized one row per occurrence date, so
-    ``date >= today`` covers those. Date-ascending + cap keeps the near-term
-    events the demand asks about.
+    ``date >= today`` covers those. Date-ascending, then per-venue-diversified
+    (P2-2) so one venue's recurring slots don't dominate, capped at ``limit``.
     """
-    return db.scalars(
+    candidates = db.scalars(
         select(Event)
         .where(
             Event.provider_id.is_(None),
@@ -428,8 +457,9 @@ def _standalone_events_upcoming(
             ),
         )
         .order_by(Event.date.asc(), Event.start_time.asc())
-        .limit(limit)
+        .limit(limit * 4)  # over-fetch so diversification has alternatives to pick
     ).all()
+    return _diversify_events_by_venue(candidates, limit=limit)
 
 
 def _standalone_events_section(
