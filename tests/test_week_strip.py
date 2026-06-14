@@ -83,8 +83,10 @@ def _add(
         ("Sunset Kayak Tour", ["kayak"], False, False, sandstone._TIER_WATER),
         ("Live Music at The Nautical", [], False, False, sandstone._TIER_MUSIC),
         ("Downtown Farmers Market", [], False, False, sandstone._TIER_COMMUNITY),
-        ("Aqua Aerobics", [], False, True, sandstone._TIER_CLASS),
-        ("Lap Swim", [], False, True, sandstone._TIER_CLASS),
+        # Pool activities are Aquatic Center, not on-the-water and not generic
+        # class — the pool/lake split (2026-06). Both happen in the pool.
+        ("Aqua Aerobics", [], False, True, sandstone._TIER_AQUATIC),
+        ("Lap Swim", [], False, True, sandstone._TIER_AQUATIC),
         ("Mystery Pop-up", [], False, False, sandstone._TIER_OTHER),  # one-off default
         ("Standing Group", [], False, True, sandstone._TIER_CLASS),  # recurring default
     ],

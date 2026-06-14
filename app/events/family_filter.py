@@ -21,6 +21,15 @@ _FAMILY_TAGS = frozenset(
 )
 
 # Positive kid/family signals in a title. Word-boundary matched.
+#
+# The second block (2026-06) catches youth gym / dance / martial-arts CLASS
+# names that carry no obvious "kids/youth" word but are unmistakably for
+# children — e.g. gymnastics "Tiny Tumblers" / "Gymtots", a dojo's "Littles
+# Gi" / "Little Ninjas", "Pee Wee" sports, "Mommy & Me", "Pre-K"/"Preschool"
+# classes. Without these the calendar filed Universal Sonics' "Tiny Tumblers"
+# and The Tap Room's "Littles Gi" under Fitness & classes, not Kids & Family.
+# Kept high-precision (no bare "little"/"mini"/"tiny") so adult rows like
+# "A Little Lunch Music" don't get pulled in; the adult veto still wins first.
 _FAMILY_TITLE_RE = re.compile(
     r"\b("
     r"kids?|child(?:ren)?|toddlers?|teens?|youth|junior|family|families|"
@@ -32,7 +41,15 @@ _FAMILY_TITLE_RE = re.compile(
     r"lego|minecraft|pok[eé]mon|spongebob|"
     r"crafts?\s+for\s+kids|"
     r"skate\s+night|roller\s+skat\w*|"
-    r"youth\s+edition"
+    r"youth\s+edition|"
+    # youth class-name patterns
+    r"tumbl(?:e|es|er|ers|ing)?|gymtots?|tots?|"
+    r"pee\s*-?\s*wee|lil\b|"
+    r"littles|little\s+(?:ninjas?|dragons?|tigers?|kickers?|stars?|movers?|hawks?|gym)|"
+    r"tiny\s+(?:tots?|tumblers?|dancers?|ninjas?|hawks?)|"
+    r"pre-?k|preschool|kinder(?:garten)?|"
+    r"mommy\s*(?:&|and|n|\+)?\s*me|parent\s*(?:&|and|n|\+)?\s*tot|"
+    r"creative\s+(?:dance|movement)"
     r")\b",
     re.IGNORECASE,
 )

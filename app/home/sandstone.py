@@ -285,14 +285,16 @@ def _water_card(utility_chips: list[dict[str, Any]]) -> dict[str, Any] | None:
     _TIER_COMMUNITY,
     _TIER_WATER,
     _TIER_OTHER,
+    _TIER_AQUATIC,
     _TIER_CLASS,
-) = range(6)
+) = range(7)
 _TIER_CSS = {
     _TIER_SPECIAL: "special",
     _TIER_MUSIC: "music",
     _TIER_COMMUNITY: "community",
     _TIER_WATER: "water",
     _TIER_OTHER: "community",
+    _TIER_AQUATIC: "aquatic",
     _TIER_CLASS: "class",
 }
 
@@ -312,10 +314,24 @@ _CIVIC_HINTS = (
     "board of adjustment", "school board", "board meeting", "public hearing",
     "city hall", "town hall",
 )
+# Lake / "On the water" hints — activities literally on Lake Havasu or the
+# Bridgewater Channel. Pool words ("swim", "aqua", "pool") are deliberately NOT
+# here: they live in _AQUATIC_HINTS and route to the Aquatic Center group. The
+# bare-"swim"/"swimming" that used to live here sent the Aquatic Center's "Open
+# Swim" to "On the water" (the live bug this split fixes).
 _WEEK_WATER_HINTS = (
-    "water", "lake", "kayak", "swim", "swimming", "boat", "paddle", "paddling",
+    "lake", "kayak", "boat", "paddle", "paddling",
     "channel", "regatta", "jet ski", "wakeboard", "sail", "fishing", "fish",
     "marina", "river",
+)
+# Aquatic Center / POOL activities — these happen in the pool, never on the
+# lake, so they must not tier or color as "On the water". Checked before the
+# class and water hints so "Open Swim", "Family Swim", "Lap Swim", "Aqua Zumba"
+# and "Water Aerobics" all route to the Aquatic Center group. Genuine lake
+# activities carry a lake word (above) and no pool word, so they fall through.
+_AQUATIC_HINTS = (
+    "swim", "swimming", "aqua", "aquatic", "pool", "splash", "dive", "diving",
+    "water aerobics", "water fitness", "water exercise", "water polo", "lifeguard",
 )
 _MUSIC_HINTS = (
     "live music", "music", "band", "concert", "dj", "karaoke", "dance party",
@@ -353,6 +369,7 @@ def _compile_hints(hints: tuple[str, ...]) -> "re.Pattern[str]":
 _SPECIAL_HINTS_RE = _compile_hints(_SPECIAL_HINTS)
 _CIVIC_HINTS_RE = _compile_hints(_CIVIC_HINTS)
 _WEEK_WATER_HINTS_RE = _compile_hints(_WEEK_WATER_HINTS)
+_AQUATIC_HINTS_RE = _compile_hints(_AQUATIC_HINTS)
 _MUSIC_HINTS_RE = _compile_hints(_MUSIC_HINTS)
 _COMMUNITY_HINTS_RE = _compile_hints(_COMMUNITY_HINTS)
 _CLASS_HINTS_RE = _compile_hints(_CLASS_HINTS)
@@ -366,9 +383,15 @@ def _event_tier(*, title: str, tags: list[str] | None, featured: bool, recurring
     # Civic/government events rank (and color) as COMMUNITY — see _CIVIC_HINTS.
     if _CIVIC_HINTS_RE.search(joined):
         return _TIER_COMMUNITY
-    # A class signal ("lap swim", "water fitness", …) is the lowest tier, so it
-    # must never be promoted to MUSIC/WATER just because it shares a keyword
-    # (e.g. "swim"). Only consider the one-off tiers when there's no class signal.
+    # Pool / Aquatic Center activities ("Open Swim", "Lap Swim", "Aqua Zumba",
+    # "Water Aerobics") are NOT "on the water" (the lake). Routed to their own
+    # Aquatic Center tier BEFORE the class + water checks so a pool session
+    # never wears the lake pill and never lands in the lake group.
+    if _AQUATIC_HINTS_RE.search(joined):
+        return _TIER_AQUATIC
+    # A class signal ("pilates", "yoga", …) is a low tier, so it must never be
+    # promoted to MUSIC/WATER just because it shares a keyword. Only consider the
+    # one-off tiers when there's no class signal.
     if _CLASS_HINTS_RE.search(joined):
         return _TIER_CLASS
     if _MUSIC_HINTS_RE.search(joined):
@@ -390,6 +413,8 @@ def _event_css_type(*, title: str, tags: list[str] | None, tier: int) -> str:
     color to activity type, not headline priority."""
     if tier in (_TIER_COMMUNITY, _TIER_OTHER):
         joined = (title + " " + " ".join(tags or [])).lower()
+        if _AQUATIC_HINTS_RE.search(joined):
+            return "aquatic"
         if _WEEK_WATER_HINTS_RE.search(joined):
             return "water"
     return _TIER_CSS[tier]
@@ -492,16 +517,14 @@ def week_strip(
 # Server-rendered month calendar (real Event rows; JS-free prev/next)
 # ---------------------------------------------------------------------------
 
-_WATER_TAG_HINTS = ("water", "lake", "kayak", "swim", "boat", "paddle", "channel")
-
-
-def _event_pill_type(tags: list[str] | None, *, featured: bool) -> str:
-    joined = " ".join(tags or []).lower()
-    if any(hint in joined for hint in _WATER_TAG_HINTS):
-        return "water"
-    if featured:
-        return "special"
-    return "class"
+def _event_pill_type(title: str, tags: list[str] | None, *, featured: bool) -> str:
+    """Month-cell pill color. Reuses the shared tier classifier so it can never
+    disagree with the rest of the calendar — a pool event reads 'aquatic', a
+    lake event 'water', etc. (A separate keyword list drifted: it missed
+    multi-word pool phrases like 'water aerobics', so 'Water Aerobics' tiered
+    AQUATIC but the month pill said 'class'.)"""
+    tier = _event_tier(title=title or "", tags=tags, featured=featured, recurring=False)
+    return _event_css_type(title=title or "", tags=tags, tier=tier)
 
 
 def _pill_sort_key(pill: dict[str, str]) -> tuple[int, int]:
@@ -511,7 +534,7 @@ def _pill_sort_key(pill: dict[str, str]) -> tuple[int, int]:
     count rather than crowding out a one-off festival.
     """
     ptype = pill.get("type")
-    type_rank = {"special": 0, "water": 1, "class": 2}.get(ptype, 1)
+    type_rank = {"special": 0, "water": 1, "aquatic": 2, "class": 3}.get(ptype, 1)
     recurring_rank = 1 if pill.get("recurring") else 0
     return (recurring_rank, type_rank)
 
@@ -556,7 +579,9 @@ def calendar_month(
             bucket.append(
                 {
                     "title": clean_event_title(ev.title, location_name=ev.location_name),
-                    "type": _event_pill_type(ev.tags, featured=bool(ev.featured)),
+                    "type": _event_pill_type(
+                        ev.title or "", ev.tags, featured=bool(ev.featured)
+                    ),
                     "recurring": bool(ev.is_recurring),
                 }
             )

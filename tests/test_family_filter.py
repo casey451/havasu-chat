@@ -20,6 +20,36 @@ def test_kid_titles_match() -> None:
         assert is_family_event(title), title
 
 
+def test_youth_class_titles_match() -> None:
+    # Gym / dance / dojo class names with no explicit "kids" word — these used
+    # to file under Fitness & classes instead of Kids & Family.
+    for title in (
+        "Tiny Tumblers",
+        "Tumbling",
+        "Lil Firecrackers",
+        "Littles Gi",
+        "Little Ninjas",
+        "Little Dragons",
+        "Gymtots",
+        "Pee Wee Soccer",
+        "Preschool Storytime",
+        "Pre-K Dance",
+        "Mommy & Me Yoga",
+        "Creative Movement",
+    ):
+        assert is_family_event(title), title
+
+
+def test_ambiguous_adult_titles_still_excluded() -> None:
+    # High-precision: a bare "little"/"mini" adult row must NOT read as family.
+    for title in (
+        "A Little Lunch Music",
+        "Mini Cooper Car Show",
+        "Little Italy Wine Dinner",  # has "little" + adult "wine" veto
+    ):
+        assert not is_family_event(title), title
+
+
 def test_adult_titles_do_not_match() -> None:
     for title in (
         "Polymer Clay Adults",

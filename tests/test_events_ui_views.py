@@ -103,20 +103,23 @@ def test_today_view_groups_by_category_events_first(
         i_events = body.index('data-group="events"')
         i_music = body.index('data-group="music"')
         i_water = body.index('data-group="water"')
-        i_classes = body.index('data-group="classes"')
-        # Owner-approved group order.
-        assert i_events < i_music < i_water < i_classes
+        i_aquatic = body.index('data-group="aquatic"')
+        # Owner-approved group order (no plain class here, so no classes group;
+        # the recurring Lap Swim is a POOL session → Aquatic Center group).
+        assert i_events < i_music < i_water < i_aquatic
         # "Events" is expanded by default; the rest load collapsed.
         assert 'data-group="events" open' in body
-        for key in ("music", "water", "classes"):
+        for key in ("music", "water", "aquatic"):
             assert f'data-group="{key}" open' not in body
         # Right members + an honest count pill on the Events group.
         events_block = body[i_events:i_music]
         assert festival in events_block and stroll in events_block
         assert 'ev-acc-count">2<' in events_block
         assert band in body[i_music:i_water]
-        assert paddle in body[i_water:i_classes]
-        assert swim in body[i_classes:]
+        # Sunset Paddle is genuinely on the lake → On-the-water group.
+        assert paddle in body[i_water:i_aquatic]
+        # Lap Swim is in the pool → Aquatic Center group, not On-the-water.
+        assert swim in body[i_aquatic:]
     finally:
         _cleanup(eids)
 
@@ -127,12 +130,12 @@ def test_today_view_groups_by_category_events_first(
 def test_classes_never_appear_in_events_group() -> None:
     suffix = uuid.uuid4().hex[:6]
     day = date(2099, 7, 14)  # Tuesday after _MONDAY
-    aqua = f"ZZ Aqua Fit {suffix}"  # recurring class event
+    spin = f"ZZ Spin Class {suffix}"  # recurring class event (gym, not pool)
     yoga = f"ZZ Yoga Workshop {suffix}"  # one-off, but class-tier
     gala = f"ZZ Quilt Gala {suffix}"  # plain one-off
     eids: list[str] = []
     with SessionLocal() as db:
-        eids.append(_add_event(db, title=aqua, on=day, start=time(8, 0), loc="Pool",
+        eids.append(_add_event(db, title=spin, on=day, start=time(8, 0), loc="Gym",
                                tags=["class"], recurring=True))
         eids.append(_add_event(db, title=yoga, on=day, start=time(9, 0), loc="Studio"))
         eids.append(_add_event(db, title=gala, on=day, start=time(18, 0), loc="Hall"))
@@ -144,11 +147,49 @@ def test_classes_never_appear_in_events_group() -> None:
         i_classes = body.index('data-group="classes"')
         events_block = body[i_events:i_classes]
         assert gala in events_block
-        assert aqua not in events_block and yoga not in events_block
+        assert spin not in events_block and yoga not in events_block
         classes_block = body[i_classes:]
-        assert aqua in classes_block and yoga in classes_block
+        assert spin in classes_block and yoga in classes_block
         # Recurring rows keep their "runs regularly" affordance.
         assert "Runs regularly" in classes_block
+    finally:
+        _cleanup(eids)
+
+
+# --- (b2) Kids & Family collector + Aquatic Center split ---------------------
+
+
+def test_family_and_aquatic_groups_split_out() -> None:
+    suffix = uuid.uuid4().hex[:6]
+    day = date(2099, 7, 21)  # a Tuesday
+    karate = f"ZZ Youth Karate {suffix}"     # kid class -> Kids & Family
+    openswim = f"ZZ Open Swim {suffix}"      # pool + family -> Kids & Family
+    adultlap = f"ZZ Adult Lap Swim {suffix}"  # pool, adult -> Aquatic Center
+    aqua = f"ZZ Aqua Aerobics {suffix}"      # pool -> Aquatic Center
+    eids: list[str] = []
+    with SessionLocal() as db:
+        eids.append(_add_event(db, title=karate, on=day, start=time(16, 0), loc="Dojo",
+                               recurring=True))
+        eids.append(_add_event(db, title=openswim, on=day, start=time(12, 0), loc="Pool",
+                               recurring=True))
+        eids.append(_add_event(db, title=adultlap, on=day, start=time(5, 0), loc="Pool",
+                               recurring=True))
+        eids.append(_add_event(db, title=aqua, on=day, start=time(8, 0), loc="Pool",
+                               recurring=True))
+        db.commit()
+    try:
+        with TestClient(app) as client:
+            body = client.get(f"/events-ui?date={day.isoformat()}").text
+        i_family = body.index('data-group="family"')
+        i_aquatic = body.index('data-group="aquatic"')
+        family_block = body[i_family : body.index("</details>", i_family)]
+        aquatic_block = body[i_aquatic : body.index("</details>", i_aquatic)]
+        # Kids & Family collects youth classes AND the family open-swim.
+        assert karate in family_block and openswim in family_block
+        assert adultlap not in family_block and aqua not in family_block
+        # Aquatic Center holds the adult pool sessions — never the lake group.
+        assert adultlap in aquatic_block and aqua in aquatic_block
+        assert karate not in aquatic_block and openswim not in aquatic_block
     finally:
         _cleanup(eids)
 
