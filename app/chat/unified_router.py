@@ -204,6 +204,21 @@ _DISCOVERY_SHAPED = re.compile(
     re.IGNORECASE,
 )
 
+# P2-2: weather-coping asks ("indoor activities to beat the heat", "what to do
+# when it's too hot", "stay cool") are advice questions — they belong on the
+# diversified Tier 3, not a Tier-2 events listing the LLM router sometimes picks
+# (which leads with an Aquatic Center swim slot). Used to force Tier 3 below.
+_WEATHER_COPING_RE = re.compile(
+    r"\b(?:too hot|beat the heat|escape the heat|in the heat|when it'?s hot|"
+    r"when it is hot|stay cool|keep cool|cool off|cool down|when it rains|"
+    r"when it'?s raining|when it is raining)\b",
+    re.IGNORECASE,
+)
+
+
+def _is_weather_coping(query: str) -> bool:
+    return bool(_WEATHER_COPING_RE.search(query or ""))
+
 
 def _catalog_gap_response(intent_result: IntentResult, db: Session | None = None) -> str | None:
     """Tier 1-shaped fact lookup with no catalog entity — template only, no Tier 3.
@@ -675,6 +690,24 @@ def _handle_ask(
             # Backlog #40: capture organic context for the renderer's
             # EMERGENCY_URGENT regime; helper returns None when the flag
             # is off or the regime doesn't need pairing — kwarg is a no-op.
+            organic_ctx = _organic_context_for_tier3(intent_result, db)
+            text, total, tin, tout = answer_with_tier3(
+                query,
+                intent_result,
+                db,
+                onboarding_hints=onboarding_hints,
+                history_block=history_block,
+                now_line=now_line,
+                organic_context=organic_ctx,
+                chat_ctx=chat_ctx,
+                background_tasks=background_tasks,
+                telemetry=telemetry,
+                component_meta=component_meta,
+            )
+            return text, "3", total, tin, tout
+        if _is_weather_coping(query):
+            # P2-2: force the diversified Tier-3 coping answer instead of the
+            # Tier-2 events listing the LLM router sometimes selects (swim-led).
             organic_ctx = _organic_context_for_tier3(intent_result, db)
             text, total, tin, tout = answer_with_tier3(
                 query,
