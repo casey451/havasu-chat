@@ -1174,6 +1174,7 @@ def category_listing(
     facets: CategoryFacets | None = None,
     limit: int = _DEFAULT_CARD_LIMIT,
     page: int = 1,
+    placement_key: str | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """Return ``(cards, total)`` for a category page under the given facets.
 
@@ -1206,8 +1207,14 @@ def category_listing(
             apply_category_order,
         )
 
+        # A3: a sub-surface (e.g. a cuisine landing) can sell placements on its
+        # own namespaced key instead of the parent route — so a Mexican
+        # restaurant tops the Mexican page without topping all of Eat & Drink.
+        # Defaults to the route slug, keeping every existing caller identical.
+        placement_route = (placement_key or "").strip().lower() or route_key
+
         try:
-            tiers = active_category_tiers(db, route_key)
+            tiers = active_category_tiers(db, placement_route)
         except Exception:
             tiers = {}  # placement lookup must never empty the organic grid
         sponsored_ids = set(tiers.values())
@@ -1215,7 +1222,7 @@ def category_listing(
         # tier is held here (a creative can only ride an active placement, which
         # also populates ``tiers``), so the dormant SQL-only path adds no query.
         try:
-            creatives = active_category_creatives(db, route_key) if tiers else {}
+            creatives = active_category_creatives(db, placement_route) if tiers else {}
         except Exception:
             creatives = {}
 

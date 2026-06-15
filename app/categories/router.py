@@ -38,7 +38,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from app.categories import leaf_copy, leaf_pages, leaf_seo
+from app.categories import cuisine_pages, leaf_copy, leaf_pages, leaf_seo
 from app.categories import queries as cat_queries
 from app.categories import subcategories as subcats
 from app.categories import trades as trade_pages
@@ -327,17 +327,22 @@ def _render_category_page(
     active_tab: str,
     page: int = 1,
     extra_context: dict[str, Any] | None = None,
+    placement_key: str | None = None,
 ) -> HTMLResponse:
     """Shared render for the plural mega-page and the subcategory SEO landing.
 
     ``route_slug`` is the ``CATEGORY_FILTERS`` route providers are drawn from;
     ``active_subcategory`` (when set) both filters and highlights its chip.
+    ``placement_key`` (A3) overrides the surface the paid-placement overlay keys
+    on — a cuisine landing sells on its own ``cuisine:{slug}`` key while still
+    drawing its pool from the Eat & Drink route. Defaults to ``route_slug``.
     """
     now = now_lake_havasu()
     page = max(int(page), 1)
     per_page = cat_queries._DEFAULT_CARD_LIMIT
     cards, total = cat_queries.category_listing(
-        db, route_slug, now=now, facets=facets, limit=per_page, page=page
+        db, route_slug, now=now, facets=facets, limit=per_page, page=page,
+        placement_key=placement_key,
     )
 
     # C8/N-16: chips are generated from subtypes ACTUALLY present (ordered by
@@ -1019,3 +1024,64 @@ def _bucket_route_for_subcategory(bucket_id: str) -> str | None:
         return None
     route = dest.rsplit("/", 1)[-1]
     return route if cat_queries.is_valid_category_slug(route) else None
+
+
+def render_cuisine_landing(
+    request: Request,
+    db: Session,
+    *,
+    cuisine_slug: str,
+    open_now: str | None = None,
+    rating: str | None = None,
+    sort: str | None = None,
+    late: str | None = None,
+    weekends: str | None = None,
+) -> HTMLResponse | None:
+    """Render the ``/lake-havasu/{cuisine}`` Eat & Drink cuisine landing, or None.
+
+    Returns ``None`` when ``cuisine_slug`` is not a known cuisine OR the cuisine
+    has fewer than ``CUISINE_PAGE_MIN_PROVIDERS`` active listings — the caller
+    then falls through to the provider-slug alias / 404, so a thin cuisine page
+    is never rendered or indexed. Draws the Eat & Drink pool filtered to the
+    cuisine (its own ``<h1>``) and keys the paid-placement overlay on the
+    cuisine's sellable ``cuisine:{slug}`` key, so the page is independently
+    monetizable without affecting the parent Eat & Drink grid.
+    """
+    slug = (cuisine_slug or "").strip().lower()
+    label = subcats.cuisine_label(slug)
+    if label is None:
+        return None
+    if (
+        cuisine_pages.cuisine_provider_count(db, slug)
+        < cuisine_pages.CUISINE_PAGE_MIN_PROVIDERS
+    ):
+        return None
+    facets = _facets_from_query(
+        subcategory=None,
+        open_now=open_now,
+        rating=rating,
+        sort=sort,
+        late=late,
+        weekends=weekends,
+        cuisine=slug,
+    )
+    headline = f"{label} Restaurants in Lake Havasu City"
+    one_liner = f"Local {label} spots — open now or coming up, ranked by real public reviews."
+    try:
+        page = max(int(request.query_params.get("page", "1")), 1)
+    except (TypeError, ValueError):
+        page = 1
+    route = cuisine_pages.EAT_DRINK_ROUTE
+    return _render_category_page(
+        request,
+        db,
+        route_slug=route,
+        facets=facets,
+        label=headline,
+        one_liner=one_liner,
+        chip_bucket_id=None,
+        active_subcategory=None,
+        active_tab=cat_queries.active_tab_for(route),
+        page=page,
+        placement_key=cuisine_pages.placement_key_for(slug),
+    )
