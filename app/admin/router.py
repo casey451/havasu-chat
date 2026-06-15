@@ -26,6 +26,7 @@ from app.admin.events_html import register_events_html_routes
 from app.admin.feedback_html import register_feedback_html_routes
 from app.admin.jobs_html import register_jobs_html_routes
 from app.admin.mentions_html import register_mentions_html_routes
+from app.admin.placement_analytics_html import register_placement_analytics_html_routes
 from app.admin.provider_approval import pending_provider_count
 from app.admin.provider_merge_review import duplicate_pair_count
 from app.admin.sponsor_surface import register_sponsor_admin_routes
@@ -2258,6 +2259,7 @@ register_contribution_html_routes(router)
 register_events_html_routes(router)
 register_jobs_html_routes(router)
 register_mentions_html_routes(router)
+register_placement_analytics_html_routes(router)
 register_categories_html_routes(router)
 register_category_flags_html_routes(router)
 register_feedback_html_routes(router)
