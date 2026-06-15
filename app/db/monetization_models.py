@@ -103,6 +103,12 @@ class Placement(Base):
     paid_through: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # Links to a future AdCreative row (table added with the portal phase).
     creative_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    # Stripe linkage (F4 billing). All NULL until a Stripe checkout/subscription
+    # is wired to this placement; the billing scaffolding is dormant until the
+    # operator configures keys + STRIPE_BILLING_ENABLED, so these stay NULL today.
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    stripe_checkout_session_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC), nullable=False
     )
@@ -173,4 +179,53 @@ class PlacementPrice(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC), nullable=False,
+    )
+
+
+class RevenueEventKind(str, Enum):
+    payment = "payment"                # a successful charge / first subscription invoice
+    renewal = "renewal"                # a recurring subscription invoice paid
+    refund = "refund"                  # money returned (amount_cents is negative)
+    lapse = "lapse"                    # month-to-month payment missed → spot released
+    subscription_canceled = "subscription_canceled"  # recurring sub ended
+
+
+_REVENUE_KINDS = (
+    "('payment', 'renewal', 'refund', 'lapse', 'subscription_canceled')"
+)
+
+
+class RevenueEvent(Base):
+    """Append-only revenue ledger (F4 billing).
+
+    One row per money-moving (or spot-affecting) Stripe event. Dormant until
+    billing is enabled: nothing writes here while ``STRIPE_BILLING_ENABLED`` is
+    off. ``stripe_event_id`` is unique so a webhook redelivery is idempotent
+    (the second insert is skipped). ``amount_cents`` is negative for a refund.
+    No DB-level FK to ``placements`` so a ledger row survives a placement delete
+    (the ledger is the durable financial record)."""
+
+    __tablename__ = "revenue_events"
+    __table_args__ = (
+        CheckConstraint(f"kind IN {_REVENUE_KINDS}", name="ck_revenue_events_kind"),
+        UniqueConstraint("stripe_event_id", name="uq_revenue_events_stripe_event_id"),
+        Index("ix_revenue_events_provider_id", "provider_id"),
+        Index("ix_revenue_events_placement_id", "placement_id"),
+        Index("ix_revenue_events_created_at", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    provider_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    placement_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    amount_cents: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    currency: Mapped[str] = mapped_column(String(8), nullable=False, default="usd")
+    # The Stripe Event id (evt_...) for idempotency; the affected object id
+    # (cs_.../in_.../ch_...) for traceability. Both nullable so a manually
+    # recorded ledger entry (e.g. an offline invoice) is still valid.
+    stripe_event_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    stripe_object_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
     )
