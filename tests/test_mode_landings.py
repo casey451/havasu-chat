@@ -17,10 +17,11 @@ from app.main import app
 _MOCK_NUMBERS = ("12 happy hours", "6 kid events", "4 live music", "448.7", "280 places")
 
 
+# C11: /lake no longer renders a mode landing — it 301-redirects to the Lake
+# Life category (covered by tests/test_lake_redirect.py). Night/Family stay.
 @pytest.mark.parametrize(
     ("path", "mode", "heading"),
     [
-        ("/lake", "lake", "Everything for a day on the water"),
         ("/night", "night", "Where the night goes"),
         ("/family", "family", "Plenty to do with the kids"),
     ],
@@ -81,19 +82,12 @@ def test_night_and_family_link_to_events() -> None:
         assert 'href="/events-ui"' in body
 
 
-def test_lake_conditions_block_links_to_today() -> None:
-    """The Lake hero conditions strip deep-links to the full /today board.
-
-    Skips cleanly if no live mini-conditions are available in the test DB (the
-    strip -- and therefore the link -- is omitted when there's no live data).
-    """
-    with SessionLocal() as db:
-        has_conditions = bool(sandstone.mode_landing(db, "lake")["mini_conditions"])
-    with TestClient(app) as client:
-        body = client.get("/lake").text
-    if has_conditions:
-        assert 'class="mini-cond mini-cond--link" href="/today"' in body
-    # /night has no mini-conditions, so it must NOT carry the conditions link.
+def test_night_has_no_conditions_link() -> None:
+    """C11 removed the served /lake hero (it now redirects to the Lake Life
+    category), so the only remaining assertion here is the negative one: /night
+    has no live mini-conditions and therefore must NOT carry the conditions
+    deep-link. The lake mini-conditions DATA is still exercised by
+    test_mode_landing_data_contract."""
     with TestClient(app) as client:
         night = client.get("/night").text
     assert "mini-cond--link" not in night

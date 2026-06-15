@@ -24,8 +24,13 @@ def test_home_has_lake_and_night_intent_chips() -> None:
 
 
 def test_mode_landing_routes_exist() -> None:
-    """Every entry chip must resolve — the chips point at real surfaces only."""
+    """Every entry chip must resolve. C11 merged /lake into the Lake Life
+    category, so /lake now 301-redirects there; /night and /family still render
+    their mode landing."""
     with TestClient(app) as client:
-        for path in ("/lake", "/night", "/family"):
+        lake = client.get("/lake", follow_redirects=False)
+        assert lake.status_code == 301
+        assert lake.headers["location"] == "/categories/on-the-water"
+        for path in ("/night", "/family"):
             r = client.get(path)
             assert r.status_code == 200, f"{path} should render (chip target must exist)"
