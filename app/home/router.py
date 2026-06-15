@@ -644,10 +644,18 @@ def _serve_mode_landing(request: Request, db: Session, mode: str) -> HTMLRespons
     )
 
 
-@router.get("/lake", response_class=HTMLResponse)
-def serve_lake(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    """Lake Life mode landing."""
-    return _serve_mode_landing(request, db, "lake")
+# C11: the curated "/lake" mode landing and the "Lake Life" directory category
+# (``/categories/on-the-water``) were two pages for the same thing. Merged into
+# one: ``/lake`` now permanently redirects to the canonical Lake Life category,
+# so the inbound URL keeps working while there is a single surface. (Night/Family
+# keep their mode landings.)
+LAKE_LIFE_CATEGORY_URL = "/categories/on-the-water"
+
+
+@router.get("/lake", response_class=HTMLResponse, response_model=None)
+def serve_lake(request: Request) -> RedirectResponse:
+    """Permanent redirect: /lake → the Lake Life category (merged surfaces)."""
+    return RedirectResponse(url=LAKE_LIFE_CATEGORY_URL, status_code=301)
 
 
 @router.get("/night", response_class=HTMLResponse)
