@@ -471,13 +471,21 @@ def trade_listing(
     # Phase F §7.2 honesty gate: pin active paid placements for this trade to the
     # top and label them Sponsored. No-op until a placement is sold for this trade
     # slug — zero effect on the live site today.
-    from app.monetization.serving import active_category_tiers, apply_category_order
+    from app.monetization.serving import (
+        active_category_creatives,
+        active_category_tiers,
+        apply_category_order,
+    )
 
     try:
         tiers = active_category_tiers(db, trade.slug)
     except Exception:
         tiers = {}  # placement lookup must never break the organic trade page
     sponsored_ids = set(tiers.values())
+    try:
+        creatives = active_category_creatives(db, trade.slug) if tiers else {}
+    except Exception:
+        creatives = {}
     if tiers:
         by_id = {p.id: p for p in providers}
         providers = [
@@ -488,7 +496,8 @@ def trade_listing(
 
     cards = [
         cat_queries._provider_card(
-            db, p, now=now, allowed_subcategories=allowed, sponsored_provider_ids=sponsored_ids
+            db, p, now=now, allowed_subcategories=allowed,
+            sponsored_provider_ids=sponsored_ids, creatives=creatives,
         )
         for p in providers
     ]

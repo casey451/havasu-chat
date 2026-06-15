@@ -659,6 +659,7 @@ def _build_category_card(
     image_url: str | None,
     allowed_subcategories: set[str] | None = None,
     is_sponsored: bool = False,
+    creative: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Shape a Provider row into the category-grid card contract.
 
@@ -683,10 +684,19 @@ def _build_category_card(
         is_open = False
     else:
         is_open = None
+    # A2: a sponsored card may carry the placement's ad creative. When present,
+    # the creative's art replaces the listing photo and its headline rides along
+    # as an overlay caption (rendered by sandstone_biz_card.html). Gated on
+    # ``is_sponsored`` so a creative can never label/skin an unpaid card; empty
+    # ``creative`` (the dormant default) leaves the card byte-identical.
+    ad = creative if (is_sponsored and creative) else {}
+    card_image = ad.get("image_url") or image_url
+    ad_headline = ad.get("headline") or ""
     return {
         "slug": provider.slug,
         "name": provider.provider_name,
-        "image_url": image_url,
+        "image_url": card_image,
+        "ad_headline": ad_headline,
         "neighborhood": (provider.district or "") if hasattr(provider, "district") else "",
         "status": status_class,
         "status_text": status_text,
@@ -771,12 +781,20 @@ def category_cards(
     # and label them Sponsored. No-op (organic order, no badges) until a placement
     # is sold for this route. Defensive: a lookup failure leaves the grid organic.
     try:
-        from app.monetization.serving import active_category_tiers, apply_category_order
+        from app.monetization.serving import (
+            active_category_creatives,
+            active_category_tiers,
+            apply_category_order,
+        )
 
         tiers = active_category_tiers(db, slug.strip().lower())
     except Exception:
         tiers = {}
     sponsored_ids = set(tiers.values())
+    try:
+        creatives = active_category_creatives(db, slug.strip().lower()) if tiers else {}
+    except Exception:
+        creatives = {}
     if tiers:
         by_id = {p.id: p for p in rows}
         rows = [
@@ -801,6 +819,7 @@ def category_cards(
                 status_text=status_text,
                 image_url=image_url,
                 is_sponsored=provider.id in sponsored_ids,
+                creative=creatives.get(provider.id),
             )
         )
     return cards
@@ -1034,6 +1053,7 @@ def _provider_card(
     now: datetime,
     allowed_subcategories: set[str] | None = None,
     sponsored_provider_ids: set[str] | None = None,
+    creatives: dict[str, dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     try:
         status_class, status_text = _hours_status(provider, now=now)
@@ -1046,6 +1066,7 @@ def _provider_card(
         image_url=_resolve_category_card_image(provider),
         allowed_subcategories=allowed_subcategories,
         is_sponsored=bool(sponsored_provider_ids and provider.id in sponsored_provider_ids),
+        creative=(creatives or {}).get(provider.id),
     )
 
 
@@ -1179,13 +1200,24 @@ def category_listing(
         # route. Empty today (nothing sold) → the fast SQL-only path below stays
         # byte-identical. A non-empty set diverts to the materialized path so paid
         # tiers can be pinned to the top (page 1) and labeled Sponsored.
-        from app.monetization.serving import active_category_tiers, apply_category_order
+        from app.monetization.serving import (
+            active_category_creatives,
+            active_category_tiers,
+            apply_category_order,
+        )
 
         try:
             tiers = active_category_tiers(db, route_key)
         except Exception:
             tiers = {}  # placement lookup must never empty the organic grid
         sponsored_ids = set(tiers.values())
+        # A2: per-provider ad creative for the sold tiers. Only queried when a
+        # tier is held here (a creative can only ride an active placement, which
+        # also populates ``tiers``), so the dormant SQL-only path adds no query.
+        try:
+            creatives = active_category_creatives(db, route_key) if tiers else {}
+        except Exception:
+            creatives = {}
 
         base = db.query(Provider).filter(
             route_provider_filter(slug.strip().lower()),
@@ -1274,6 +1306,7 @@ def category_listing(
                 now=now,
                 allowed_subcategories=allowed_subs,
                 sponsored_provider_ids=sponsored_ids,
+                creatives=creatives,
             )
             for p in window
         ], total
