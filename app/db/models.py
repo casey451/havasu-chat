@@ -136,9 +136,9 @@ class Provider(Base):
 
     # B7 (locality): whether the provider is genuinely in the Lake Havasu service
     # area. Backfilled by scripts/backfill_is_local.py from geo distance (within
-    # _OUT_OF_AREA_KM of the LHC civic anchor) OR a local city token in the
-    # address — local if EITHER signal says so. Nullable tri-state: NULL means
-    # "unknown" (no usable geo AND no recognizable city), never assume out-of-area.
+    # IN_AREA_KM of the LHC civic anchor) OR a local city token in the address —
+    # local if EITHER signal says so. Nullable tri-state: NULL means "unknown"
+    # (no usable geo AND no recognizable city), never assume out-of-area.
     is_local: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
     # Directory pivot V1 follow-up (2026-05-13): URL-safe slug derived from
