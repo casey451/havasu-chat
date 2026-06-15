@@ -91,6 +91,38 @@
     </div>
   </section>
 
+  {# ---- This week around the lake — next 7 days, ranked by importance ---- #}
+  {% if week.has_any %}
+  <section class="d-wrap home-week" aria-label="This week around the lake">
+    <div class="d-sec-head">
+      <h2>This week <em>around the lake</em></h2>
+      <a class="all" href="/events-ui">All events →</a>
+    </div>
+    <div class="week-strip" role="list">
+      {% for day in week.days %}
+      <a class="wday{% if day.is_today %} today{% endif %}" role="listitem" href="/events-ui?date={{ day.iso }}" aria-label="{% if day.event_count or not day.class_count %}{{ day.event_count }} event{{ '' if day.event_count == 1 else 's' }}{% endif %}{% if day.event_count and day.class_count %} and {% endif %}{% if day.class_count %}{{ day.class_count }} class{{ '' if day.class_count == 1 else 'es' }}{% endif %} on {{ day.label }} {{ day.md }}">
+        <div class="wday-h"><span class="wd">{{ day.label }}</span><span class="wdm">{{ day.md }}</span></div>
+        {% if day.events or day.summary %}
+          {% for ev in day.events %}
+          <span class="wev {{ ev.type }}">{% if ev.time %}<i class="wt">{{ ev.time }}</i>{% endif %}{{ ev.title }}</span>
+          {% endfor %}
+          {% if day.summary %}<span class="wsum">{{ day.summary }}</span>{% endif %}
+        {% else %}
+          <span class="wempty" aria-hidden="true">—</span>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </div>
+    <div class="cal-legend">
+      <span><i class="leg special"></i>Special event</span>
+      <span><i class="leg water"></i>Lake Life</span>
+      <span><i class="leg music"></i>Music / nightlife</span>
+      <span><i class="leg community"></i>Community</span>
+      <span><i class="leg class"></i>Class / ongoing</span>
+    </div>
+  </section>
+  {% endif %}
+
   {# ---- §2.3/§2.5: a single category grid, directly under the quick-intent
      chips so browsing starts immediately (the old compact count strip + the
      lower "Explore Havasu" grid were the same 15 categories twice; consolidated
@@ -142,37 +174,6 @@
     {% endif %}
   </section>
 
-  {# ---- This week around the lake — next 7 days, ranked by importance ---- #}
-  {% if week.has_any %}
-  <section class="d-wrap home-week" aria-label="This week around the lake">
-    <div class="d-sec-head">
-      <h2>This week <em>around the lake</em></h2>
-      <a class="all" href="/events-ui">All events →</a>
-    </div>
-    <div class="week-strip" role="list">
-      {% for day in week.days %}
-      <a class="wday{% if day.is_today %} today{% endif %}" role="listitem" href="/events-ui?date={{ day.iso }}" aria-label="{% if day.event_count or not day.class_count %}{{ day.event_count }} event{{ '' if day.event_count == 1 else 's' }}{% endif %}{% if day.event_count and day.class_count %} and {% endif %}{% if day.class_count %}{{ day.class_count }} class{{ '' if day.class_count == 1 else 'es' }}{% endif %} on {{ day.label }} {{ day.md }}">
-        <div class="wday-h"><span class="wd">{{ day.label }}</span><span class="wdm">{{ day.md }}</span></div>
-        {% if day.events or day.summary %}
-          {% for ev in day.events %}
-          <span class="wev {{ ev.type }}">{% if ev.time %}<i class="wt">{{ ev.time }}</i>{% endif %}{{ ev.title }}</span>
-          {% endfor %}
-          {% if day.summary %}<span class="wsum">{{ day.summary }}</span>{% endif %}
-        {% else %}
-          <span class="wempty" aria-hidden="true">—</span>
-        {% endif %}
-      </a>
-      {% endfor %}
-    </div>
-    <div class="cal-legend">
-      <span><i class="leg special"></i>Special event</span>
-      <span><i class="leg water"></i>Lake Life</span>
-      <span><i class="leg music"></i>Music / nightlife</span>
-      <span><i class="leg community"></i>Community</span>
-      <span><i class="leg class"></i>Class / ongoing</span>
-    </div>
-  </section>
-  {% endif %}
 
   {# ---- G Tier-2: Featured this week — spotlight sponsors (labeled), event-
      adjacent, right after the week strip. Copy audit 2026-06-10: the section
