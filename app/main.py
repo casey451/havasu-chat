@@ -62,6 +62,7 @@ from app.api.routes.themed_groups import router as themed_groups_router
 from app.api.routes.today import router as today_router
 from app.auth.routes import router as auth_router
 from app.auth.session import COOKIE_NAME, SessionMiddleware, cookie_secure_in_prod
+from app.billing.router import router as billing_router
 from app.categories.router import router as direction_c_categories_router
 from app.chat.entity_matcher import refresh_entity_matcher
 from app.core.event_quality import friendly_errors
@@ -643,6 +644,9 @@ app.include_router(new_chat_ui_router)
 app.include_router(micro_ad_router)
 app.include_router(merchant_upgrade_router)
 app.include_router(portal_router)
+# F4 billing (Stripe). Dormant: every /billing/* route 404s until the operator
+# sets STRIPE_BILLING_ENABLED + keys and adds `stripe` to requirements.
+app.include_router(billing_router)
 
 
 class CachedStaticFiles(StaticFiles):
