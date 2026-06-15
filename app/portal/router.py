@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -20,6 +20,7 @@ from app.core.provider_name import register_template_filters, register_template_
 from app.db.database import get_db
 from app.home.queries import CATEGORY_LABELS
 from app.monetization import serving
+from app.portal import creative_store
 from app.portal import placements as placement_logic
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
@@ -255,7 +256,7 @@ def portal_creatives(
 
 
 @router.post("/creatives", response_class=HTMLResponse, response_model=None)
-def portal_creatives_create(
+async def portal_creatives_create(
     request: Request,
     provider_id: str = Form(...),
     headline: str = Form(default=""),
@@ -264,9 +265,16 @@ def portal_creatives_create(
     cta_url: str = Form(default=""),
     image_url: str = Form(default=""),
     image_url_mobile: str = Form(default=""),
+    image_file: UploadFile | None = File(default=None),
     db: Session = Depends(get_db),
 ) -> HTMLResponse | RedirectResponse:
-    """Create a URL-based creative for a listing the merchant owns."""
+    """Create a creative for a listing the merchant owns.
+
+    The image can be EITHER a hosted URL (``image_url``) or an uploaded file
+    (``image_file``); an upload wins and populates ``image_url`` with the stored
+    ``/media/creatives/…`` path. Uploads are validated as real images and saved
+    to the Railway volume (see :mod:`app.portal.creative_store`).
+    """
     user = get_current_user(request)
     if user is None:
         return RedirectResponse(url="/login?next=/portal/creatives", status_code=303)
@@ -274,8 +282,22 @@ def portal_creatives_create(
         raise HTTPException(status_code=403, detail="not_your_listing")
 
     errors: dict[str, str] = {}
-    if not headline.strip() and not image_url.strip():
-        errors["headline"] = "Give the creative a headline or an image URL."
+
+    # Optional binary upload — takes precedence over a typed image URL.
+    if image_file is not None and (image_file.filename or "").strip():
+        content = await image_file.read(creative_store.MAX_IMAGE_BYTES + 1)
+        if len(content) > creative_store.MAX_IMAGE_BYTES:
+            errors["image_url"] = "Image is larger than the 5 MB limit."
+        else:
+            try:
+                image_url = creative_store.save_creative_image(
+                    content, declared_mime=image_file.content_type
+                )
+            except creative_store.CreativeImageError:
+                errors["image_url"] = "That file isn't a supported image (JPG, PNG, WebP, GIF)."
+
+    if not headline.strip() and not image_url.strip() and "image_url" not in errors:
+        errors["headline"] = "Give the creative a headline or an image."
 
     if errors:
         providers = placement_logic.claimed_providers(db, user.id)

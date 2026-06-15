@@ -27,7 +27,7 @@
     {% endif %}
 
     <h2 style="margin:0 0 12px">Add a creative</h2>
-    <form method="post" action="/portal/creatives" class="d-card d-card--shadow" style="display:grid;gap:16px;padding:22px">
+    <form method="post" action="/portal/creatives" enctype="multipart/form-data" class="d-card d-card--shadow" style="display:grid;gap:16px;padding:22px">
       <label style="display:grid;gap:6px">
         <span><b>Listing</b></span>
         <select name="provider_id" required>
@@ -56,6 +56,11 @@
           <input type="url" name="image_url_mobile" value="{{ form.image_url_mobile or '' }}" placeholder="https://…">
         </label>
       </div>
+      <label style="display:grid;gap:6px">
+        <span><b>Or upload an image</b> <small class="d-muted">(JPG/PNG/WebP/GIF, max 5 MB — replaces the image URL above)</small></span>
+        <input type="file" name="image_file" accept="image/png,image/jpeg,image/webp,image/gif">
+        {% if errors.image_url %}<small style="color:#b3261e">{{ errors.image_url }}</small>{% endif %}
+      </label>
       <div style="display:grid;gap:16px;grid-template-columns:1fr 1fr">
         <label style="display:grid;gap:6px">
           <span><b>Button label</b> <small class="d-muted">(optional)</small></span>
