@@ -43,15 +43,17 @@ from app.db.models import Provider  # noqa: E402
 
 
 def _proposed_primary(p: Provider) -> str | None:
-    """The corrected primary derived from GOOGLE signals only — category and
-    subcategory are forced to None so the mis-tag doesn't poison the proposal."""
+    """The corrected primary derived from GOOGLE signals only — category,
+    subcategory and the operator-curated ``attributes`` are all forced to None so
+    a wrong manual signal can't poison the proposal (only the row's Google
+    primary type / categories drive it)."""
     return derive_primary_category(
         category=None,
         subcategory=None,
         name=p.provider_name,
         google_primary_category=p.google_primary_category,
         google_categories=p.google_categories,
-        attributes=p.attributes,
+        attributes=None,
     )
 
 
