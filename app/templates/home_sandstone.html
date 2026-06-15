@@ -135,7 +135,7 @@
       </div>
     </a>
     {% else %}
-    <a class="marquee-claim" href="/portal/advertise">
+    <a class="marquee-claim" href="/portal/placements">
       <span class="cat">Featured business</span>
       <span class="claim">Your business in the top spot — quiet, clearly labeled. <em>Advertise →</em></span>
     </a>
@@ -182,11 +182,11 @@
   {% set real_featured = featured_cards | rejectattr('empty') | list %}
   {% if real_featured %}
   <section class="d-wrap home-featured" aria-label="Featured this week">
-    <div class="d-sec-head"><h2>Featured <em>this week</em></h2><a class="all" href="/portal/advertise">Advertise here →</a></div>
+    <div class="d-sec-head"><h2>Featured <em>this week</em></h2><a class="all" href="/portal/placements">Advertise here →</a></div>
     <div class="spon-row">
       {% for card in featured_cards %}
       {% if card.empty %}
-      <a class="spon empty" href="/portal/advertise">
+      <a class="spon empty" href="/portal/placements">
         <div class="body">
           <div class="cat">Your business</div>
           <h3>Claim this spot</h3>

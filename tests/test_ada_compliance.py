@@ -49,7 +49,6 @@ ROUTES = [
     "/contribute",
     "/gas",
     "/portal",
-    "/portal/advertise",
     "/portal/claim",
     "/privacy",
     "/terms",

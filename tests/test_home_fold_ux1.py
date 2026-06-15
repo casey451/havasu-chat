@@ -36,7 +36,7 @@ def test_home_has_trust_strip_linked() -> None:
     assert "Sponsored clearly labeled" in body
     assert "Built in Lake Havasu" in body
     assert 'href="/about"' in body
-    assert 'href="/portal/advertise"' in body
+    assert 'href="/portal/placements"' in body
 
 
 def test_fold_order_hero_then_intents_then_modules() -> None:
