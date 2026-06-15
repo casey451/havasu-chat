@@ -13,5 +13,6 @@ def admin_phase5_nav_html() -> str:
       <a href="/admin/categories">Categories</a>
       <a href="/admin/providers/miscategorized">Miscategorized</a>
       <a href="/admin/analytics">Analytics</a>
+      <a href="/admin/placement-analytics">Placement analytics</a>
       <a href="/admin/feedback">Feedback</a>
     </nav>"""
