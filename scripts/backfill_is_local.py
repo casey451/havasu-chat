@@ -9,7 +9,7 @@ DEFAULT IS DRY-RUN: prints the class distribution and writes NOTHING. The
 dry-run reads only ``id / address / lat / lng`` (a column projection), so it is
 safe to run BEFORE the ``is_local`` column exists (e.g. against current prod, to
 preview the counts). ``--apply`` requires the column to exist (run only after the
-c3d4e5f6a7b8 migration is deployed); it writes the value and saves a
+b7islocalcol migration is deployed); it writes the value and saves a
 ``is_local_backfill_snapshot_*.json`` undo file first.
 
 Usage (Windows):
