@@ -1062,6 +1062,20 @@ def _build_sitemap_pages_xml() -> str:
     except Exception as exc:  # pragma: no cover — defensive
         logger.warning("sitemap: leaf page enumeration failed: %s", exc)
 
+    # A3 cuisine SEO landings (/lake-havasu/{cuisine}) — only cuisines clearing
+    # the thin-page gate (CUISINE_PAGE_MIN_PROVIDERS); thin cuisines 404 and are
+    # excluded so near-empty templated pages are never exposed to crawlers.
+    try:
+        from app.categories.cuisine_pages import qualifying_cuisines
+
+        with SessionLocal() as db:
+            for cuisine_slug, _label, _count in qualifying_cuisines(db):
+                entries.append(
+                    _sitemap_url_entry(f"{base}/lake-havasu/{cuisine_slug}")
+                )
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.warning("sitemap: cuisine page enumeration failed: %s", exc)
+
     return _wrap_urlset(entries)
 
 
