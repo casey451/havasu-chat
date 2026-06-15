@@ -58,6 +58,7 @@ from app.core.session import (
 )
 from app.core.timezone import format_now_lake_havasu, now_lake_havasu
 from app.db.chat_logging import log_unified_route, recent_turns_for_session
+from app.events.calendar_links import attach_calendar_link
 
 _PRONOUN_REFERENT = re.compile(
     r"\b(it|that|there|they|them|the place|that place)\b",
@@ -1321,6 +1322,14 @@ def route(
     _component_data = component_meta.get("data") or {}
     if not isinstance(_component_data, dict):
         _component_data = {}
+    # A4 (Phase E): an events-intent answer carries a deep-link to the interactive
+    # filtered /events-ui calendar for the detected window, so the chat events
+    # response lands the user on the live calendar (Today/Week/Month + family)
+    # instead of dead-ending on the inline list. No-op for a query with no events
+    # intent or a non-events component, so every other answer is byte-identical.
+    _component_data = attach_calendar_link(
+        _component_type, _component_data, when=event_when, query=q_raw
+    )
     return _finish(
         text,
         response_mode,
