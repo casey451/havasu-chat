@@ -466,7 +466,12 @@ def all_departments(db: Session) -> list[tuple[Category, int, int]]:
         )
     except Exception:
         return []
-    return [(d, by_dept[d.id][0], by_dept[d.id][1]) for d in depts]
+    rows = [(d, by_dept[d.id][0], by_dept[d.id][1]) for d in depts]
+    # Phase E §3.1: kids/family-first ordering when TAXONOMY_REORG_ENABLED is on
+    # (dormant otherwise — returns rows in taxonomy sort_order unchanged).
+    from app.categories.taxonomy_overlay import reorder_departments
+
+    return reorder_departments(rows, slug_of=lambda row: (row[0].slug or "").lower())
 
 
 def resolve_department(db: Session, dept_slug: str) -> Category | None:
