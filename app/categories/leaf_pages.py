@@ -252,17 +252,27 @@ def leaf_listing(
     # top of this niche and label them Sponsored. No-op (organic order, no
     # badges) until a placement is sold for this leaf — zero effect on the live
     # site today.
-    from app.monetization.serving import active_category_tiers, apply_category_order
+    from app.monetization.serving import (
+        active_category_creatives,
+        active_category_tiers,
+        apply_category_order,
+    )
 
     tiers = active_category_tiers(db, leaf.slug)
     sponsored_ids = set(tiers.values())
+    try:
+        creatives = active_category_creatives(db, leaf.slug) if tiers else {}
+    except Exception:
+        creatives = {}
     if tiers:
         by_id = {p.id: p for p in providers}
         new_order = apply_category_order([p.id for p in providers], tiers)
         providers = [by_id[pid] for pid in new_order if pid in by_id]
 
     cards = [
-        cat_queries._provider_card(db, p, now=now, sponsored_provider_ids=sponsored_ids)
+        cat_queries._provider_card(
+            db, p, now=now, sponsored_provider_ids=sponsored_ids, creatives=creatives
+        )
         for p in providers
     ]
     cards += [_place_card(e) for e in place_entities]

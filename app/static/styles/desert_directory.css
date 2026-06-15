@@ -182,6 +182,7 @@ a.spon-panel:hover .spon-go{color:var(--peach)}
   font-family:var(--disp);font-weight:700;font-size:clamp(16px,1.6vw,19px);line-height:1.15;
   overflow-wrap:anywhere;
 }
+.biz .ad-tagline{font-size:12.5px;font-weight:600;color:var(--orange-deep);margin-top:3px;overflow-wrap:anywhere}
 .biz .meta{display:flex;align-items:baseline;gap:8px;font-size:13px;font-weight:500;margin-top:3px}
 .biz .stars{font-family:var(--disp);font-weight:800;font-size:14.5px;color:var(--orange-deep);white-space:nowrap}
 .biz .meta>span:not(.stars):not(.noreviews){opacity:.6;font-size:12px}

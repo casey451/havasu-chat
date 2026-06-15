@@ -195,6 +195,58 @@ def active_category_tiers(db, category_slug: str) -> dict[int, str]:
     return out
 
 
+def active_category_creatives(db, category_slug: str) -> dict[str, dict[str, str]]:
+    """Per-provider ad creative for active ``category_rank`` placements on
+    ``category_slug`` that carry an attached, provider-owned creative.
+
+    Returns ``{provider_id: {"image_url": ..., "headline": ...}}`` — only the
+    keys the creative actually sets — so a category/leaf card can render the
+    paid creative's art/headline instead of the listing's own photo/name. The
+    creative must belong to the same provider (the honesty rule
+    ``Placement.creative_id`` already enforces at purchase) and be ``active``;
+    a mismatched or inactive creative is ignored.
+
+    Dormant by design: the empty default (nothing sold, or no active placement
+    carries a creative) leaves every surface rendering today's organic card. If
+    a provider somehow holds two creative-bearing placements on one slug, the
+    earliest-created wins (same determinism as :func:`active_category_tiers`).
+    """
+    from sqlalchemy import select
+
+    from app.db.monetization_models import (
+        AdCreative,
+        Placement,
+        PlacementStatus,
+        PlacementType,
+    )
+
+    rows = db.scalars(
+        select(Placement).where(
+            Placement.placement_type == PlacementType.category_rank.value,
+            Placement.category_slug == category_slug,
+            Placement.status == PlacementStatus.active.value,
+            Placement.creative_id.is_not(None),
+        )
+    ).all()
+    out: dict[str, dict[str, str]] = {}
+    for p in sorted(rows, key=lambda r: r.created_at):
+        if p.provider_id in out:
+            continue
+        creative = db.get(AdCreative, p.creative_id)
+        if creative is None or not creative.active:
+            continue
+        if creative.provider_id != p.provider_id:
+            continue  # only a creative the provider actually owns
+        data: dict[str, str] = {}
+        if creative.image_url:
+            data["image_url"] = creative.image_url
+        if creative.headline:
+            data["headline"] = creative.headline
+        if data:
+            out[p.provider_id] = data
+    return out
+
+
 def active_homepage_pool(db) -> list[str]:
     """Provider ids in the active homepage rotating pool (§7.1)."""
     from sqlalchemy import select

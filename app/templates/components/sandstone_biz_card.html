@@ -13,6 +13,10 @@
   </div>
   <div class="body">
     <h3>{{ card.name }}</h3>
+    {# A2: a sponsored placement with an attached ad creative shows the creative's
+       headline as a tagline under the name (its art skins the thumbnail above).
+       Empty for every organic card, so the layout is unchanged until one sells. #}
+    {% if card.ad_headline %}<div class="ad-tagline">{{ card.ad_headline }}</div>{% endif %}
     <div class="meta">
       {% if card.has_reviews %}
       <span class="stars">★ {{ card.rating }}</span>
