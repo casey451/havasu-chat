@@ -148,7 +148,11 @@ def test_week_strip_headlines_oneoffs_and_collapses_classes(db: Session) -> None
     # Only the one-off headlines; recurring classes are NEVER a headline —
     # they collapse into the rollup line instead.
     assert [e["title"] for e in today["events"]] == ["London Bridge Days Festival"]
-    assert today["events"][0]["type"] == "special"
+    # Slice C: the week strip now buckets like /events-ui (app.home.event_buckets).
+    # There is no separate "Special" bucket there — a special-tier festival
+    # collects in "Around town" (key "events"; still the orange pill and still
+    # ranked first by _event_tier, so it keeps its prominence).
+    assert today["events"][0]["type"] == "events"
     assert today["event_count"] == 1
     assert today["class_count"] == 2
     assert today["summary"] == "1 event · 2 classes"
@@ -186,7 +190,12 @@ def test_week_strip_empty_day_is_omittable(db: Session) -> None:
     assert strip["days"][0]["events"] == []
     sunday = strip["days"][2]  # 2026-06-07
     assert sunday["has"] is True
-    assert sunday["events"][0]["type"] == "water"
+    # Slice C: "Kayak Meetup" is community-tier ("meetup"), and the shared bucket
+    # mapping routes community-tier one-offs to "Around town" (key "events") —
+    # the same bucket /events-ui puts it in. (Before unification the home strip
+    # had a lake-keyword override that gave it the "water" pill; that home-only
+    # flourish is dropped so the two surfaces agree.)
+    assert sunday["events"][0]["type"] == "events"
     assert sunday["events"][0]["time"] == "10 AM"
 
 
