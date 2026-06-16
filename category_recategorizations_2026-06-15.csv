@@ -1,0 +1,53 @@
+business,current_subcategory,suggested_subcategory,confidence,notes
+JandJ Performance and Marine Service & Repair,on-the-water,marine-repair,high,Explicitly a service/repair shop
+SARA Park Disc Golf Course,golf,disc-golf,high,It is a disc golf course
+Bridgewater Links Golf Course,parks-beaches,golf,high,Golf course misfiled under parks
+Lake Havasu Golf Club East Course,parks-beaches,golf,high,Golf course misfiled under parks
+Lake Havasu Golf Club West Course,parks-beaches,golf,high,Golf course misfiled under parks
+Anything Off-Road,parks-beaches,trails-offroad,high,OHV rental business
+Desert Experience UTV Offroad Rentals,parks-beaches,trails-offroad,high,OHV rental business
+ProPrecision Sand & Offroad,parks-beaches,trails-offroad,high,Off-road business
+Altitude Trampoline Park,parks-beaches,kids-lessons,med,Indoor amusement; not a park
+THE TAP ROOM JIU JITSU,kids-lessons,martial-arts,high,Martial arts dojo
+Havasu Shao-Lin Kempo,kids-lessons,martial-arts,high,Martial arts dojo
+Arizona Kravmaga,kids-lessons,martial-arts,high,Martial arts/self-defense
+Elite Martial Arts Inc.,kids-lessons,martial-arts,high,Martial arts
+Lake Havasu Black Belt Academy,kids-lessons,martial-arts,high,Taekwondo
+Bridge City Combat,kids-lessons,martial-arts,high,Martial arts
+Havasu Martial Arts Academy,kids-lessons,martial-arts,high,Martial arts
+Arevalo Academy,kids-lessons,martial-arts,high,MMA / kids martial arts
+Women KravMaga Self Defense for Women,gyms,martial-arts,high,Self-defense school
+The Dance Center,kids-lessons,studios,high,Dance studio
+Foot Lite School of Dance,kids-lessons,studios,high,Dance studio
+Beyond Dance,kids-lessons,studios,high,Dance studio
+Crazy Eds Cardio & Pilates,gyms,studios,med,Pilates studio
+Align and Define Pilates,gyms,studios,med,Pilates studio
+Pilates of Lake Havasu,gyms,studios,med,Pilates studio
+Universal Sonics Gymnastics & All Star Cheer,gyms,kids-lessons,med,Youth gymnastics/cheer fits kids-lessons (or both)
+The Ark Center,gyms,racquet-sports,high,Primary pickleball play site
+Shah Racquetball Club,gyms,racquet-sports,med,Racquetball facility
+Our Place Boutique,specialty,boutiques,high,Women's boutique
+Pamela's Boutique & Jewelry,specialty,boutiques,high,Boutique apparel + jewelry
+olive + ella,specialty,boutiques,high,Women's apparel boutique
+Havasu Wholesale,specialty,home-goods,med,Furniture/home wholesale
+Tile & Carpets Unlimited,specialty,home-goods,med,Flooring/home goods
+Carys Carpets,specialty,home-goods,med,Flooring/home goods
+BRB Market,specialty,markets,high,Neighborhood market
+Roadhouse Market & Butcher,specialty,markets,high,Market + butcher
+Just Meats,specialty,markets,high,Butcher / meat market
+London Bridge Market,specialty,markets,high,Market
+Walmart Supercenter,specialty,markets,high,Full grocery (only deli is in Markets now)
+CVS,boutiques,health-medical,high,Drugstore misfiled as boutique
+Walgreens,boutiques,health-medical,high,Drugstore misfiled as boutique
+London Bridge Harley-Davidson,boutiques,auto,high,Motorcycle dealer misfiled as boutique
+Winners Circle Storage,auto,storage,high,Storage facility misfiled under auto
+ShopWildThings,storage,home-goods,high,Event-decor/wholesale misfiled under storage
+Horizon MotorSports,storage,marine-dealers,med,Powersports dealer misfiled under storage
+Empty Spaces Vacation Rental Management,hotels,vacation-rentals,high,Vacation-rental manager misfiled under hotels
+Express Getaway,hotels,vacation-rentals,high,Vacation-rental manager misfiled under hotels
+The Springs Dining at Havasu Springs Resort,hotels,restaurants,med,Dining outlet not a hotel
+Reflections Steakhouse at Iron Wolf,golf,restaurants,med,Restaurant not a golf facility
+Lake Havasu Elks Lodge #2399,attractions,civic-community,high,Fraternal/civic club not an attraction
+American Legion,attractions,civic-community,high,Civic club not an attraction
+Quick Stop Title and Registration,civic-community,professional,med,Private third-party MVD/title business
+Havasu Hills Apartment Homes,health-medical,,high,Residential apartments; not health/medical (remove or recategorize)

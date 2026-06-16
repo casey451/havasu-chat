@@ -34,6 +34,16 @@ from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 
+# Make this script's report encoding-safe on a default Windows (cp1252) console:
+# the dry-run output contains a "∅" no-leaf sentinel and may include accented
+# provider names, either of which raises UnicodeEncodeError under cp1252. No-op
+# where stdout is already UTF-8 or not reconfigurable (e.g. redirected to a pipe).
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+
 _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
