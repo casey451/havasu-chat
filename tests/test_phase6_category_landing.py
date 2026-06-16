@@ -52,10 +52,10 @@ def test_unknown_category_slug_returns_404(client: TestClient) -> None:
         ("classes-sports-recreation", "/categories/fitness-and-wellness"),
         ("lodging-vacation-rentals", "/categories/lodging"),
         ("pets", "/categories/pets"),
-        ("public-civic-resources", "/categories/community-and-civic"),
+        ("public-civic-resources", "/categories/city-and-government"),
         ("professional-services", "/categories/professional-and-financial"),
         ("events", "/categories/things-to-do-and-attractions"),
-        ("outdoors-parks-trails", "/categories/outdoors-and-recreation"),
+        ("outdoors-parks-trails", "/categories/things-to-do-and-attractions"),
     ],
 )
 def test_singular_tier1_slug_301s_to_department(

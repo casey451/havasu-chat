@@ -1068,11 +1068,11 @@ SINGULAR_TO_PLURAL_REDIRECTS: dict[str, str] = {
     "auto-rv-fuel": "/categories/auto-rv-and-marine",
     "shopping-essentials": "/categories/shopping-and-retail",
     "events": "/categories/things-to-do-and-attractions",
-    "outdoors-parks-trails": "/categories/outdoors-and-recreation",
+    "outdoors-parks-trails": "/categories/things-to-do-and-attractions",
     "classes-sports-recreation": "/categories/fitness-and-wellness",
     "lodging-vacation-rentals": "/categories/lodging",
     "pets": "/categories/pets",
-    "public-civic-resources": "/categories/community-and-civic",
+    "public-civic-resources": "/categories/city-and-government",
     "professional-services": "/categories/professional-and-financial",
 }
 

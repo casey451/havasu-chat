@@ -422,6 +422,11 @@ def _category_url_for(provider: Provider) -> str:
     cat = (provider.category or "").strip().lower()
     if not cat:
         return "/categories"
+    # IA v2 (Phase 2): the legacy 'religion_community' bucket split into
+    # worship-and-nonprofits (churches, temples, charities) and city-and-government
+    # (gov offices, utilities). Route worship-flavored categories to Worship.
+    if cat in {"religion_community", "place_of_worship", "church", "worship"}:
+        return "/categories/worship-and-nonprofits"
     mega = {"services", "things-to-do", "eat-drink", "on-the-water"}
     tile_match: str | None = None
     mega_match: str | None = None

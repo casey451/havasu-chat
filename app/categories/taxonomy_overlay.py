@@ -30,7 +30,6 @@ TAXONOMY_REORG_FLAG = "TAXONOMY_REORG_ENABLED"
 KIDS_FIRST_DEPT_ORDER: tuple[str, ...] = (
     "family-and-education",
     "things-to-do-and-attractions",
-    "outdoors-and-recreation",
     "on-the-water",
     "eat-and-drink",
 )
