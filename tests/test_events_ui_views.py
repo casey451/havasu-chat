@@ -92,8 +92,10 @@ def test_today_view_groups_by_category_events_first(
         eids.append(_add_event(db, title=stroll, on=day, start=time(17, 0), loc="Main St"))
         eids.append(_add_event(db, title=band, on=day, start=time(20, 0), loc="Bar",
                                tags=["music"]))
-        eids.append(_add_event(db, title=paddle, on=day, start=time(6, 0), loc="Beach"))
-        eids.append(_add_event(db, title=swim, on=day, start=time(5, 0), loc="Pool",
+        # Evening times so the same-day auto-expiry (Item 6: drop items finished
+        # >1h ago) doesn't trim them before the 9 AM mocked "now".
+        eids.append(_add_event(db, title=paddle, on=day, start=time(19, 0), loc="Beach"))
+        eids.append(_add_event(db, title=swim, on=day, start=time(19, 30), loc="Pool",
                                recurring=True))
         db.commit()
     try:

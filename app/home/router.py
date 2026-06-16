@@ -936,7 +936,7 @@ def serve_events_ui(
         context.update(
             {
                 "mode": "day",
-                "groups": events_views.day_groups(db, day=single_day, family=family_on),
+                "groups": events_views.day_groups(db, day=single_day, family=family_on, now=now),
                 "day_label": _long_day_label(single_day),
                 "prev_iso": (single_day - timedelta(days=1)).isoformat(),
                 "next_iso": (single_day + timedelta(days=1)).isoformat(),
@@ -964,7 +964,7 @@ def serve_events_ui(
         context.update(
             {
                 "mode": "today",
-                "groups": events_views.day_groups(db, day=today, family=family_on),
+                "groups": events_views.day_groups(db, day=today, family=family_on, now=now),
                 "day_label": _long_day_label(today),
             }
         )

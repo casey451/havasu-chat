@@ -1,0 +1,97 @@
+"""Phase 3 (calendar & classes) — unit tests for the auto-expiry helper."""
+
+from __future__ import annotations
+
+from datetime import date, datetime, time
+
+from app.home.events_views import (
+    _class_subgroup,
+    _family_subgroup,
+    _occurrence_expired,
+    _split_class_subgroups,
+    _split_family_subgroups,
+)
+
+_TODAY = date(2026, 6, 16)
+_NOW = datetime(2026, 6, 16, 16, 30)  # 4:30 PM
+
+
+def test_morning_class_expired_in_afternoon() -> None:
+    # 9 AM class, no end -> assumed 2h -> ended ~11 AM, well over 1h ago.
+    assert _occurrence_expired(_TODAY, time(9, 0), None, _NOW) is True
+
+
+def test_recent_end_within_grace_not_expired() -> None:
+    # Ended 4:00 PM; 4:30 is within the 1h grace window.
+    assert _occurrence_expired(_TODAY, time(15, 0), time(16, 0), _NOW) is False
+
+
+def test_clearly_finished_with_explicit_end_expired() -> None:
+    # Ended 3:00 PM; 4:30 is >1h past.
+    assert _occurrence_expired(_TODAY, time(14, 0), time(15, 0), _NOW) is True
+
+
+def test_evening_event_not_expired() -> None:
+    assert _occurrence_expired(_TODAY, time(18, 0), None, _NOW) is False
+
+
+def test_time_tbd_never_expires() -> None:
+    assert _occurrence_expired(_TODAY, None, None, _NOW) is False
+
+
+def test_other_days_never_expire() -> None:
+    assert _occurrence_expired(date(2026, 6, 17), time(9, 0), None, _NOW) is False
+    assert _occurrence_expired(date(2026, 6, 15), time(9, 0), None, _NOW) is False
+
+
+def test_no_now_is_noop() -> None:
+    assert _occurrence_expired(_TODAY, time(9, 0), None, None) is False
+
+
+def test_class_subgroup_classifier() -> None:
+    assert _class_subgroup("Amalaya Hot Yoga") == "Yoga"
+    assert _class_subgroup("Beginner Reformer Pilates") == "Pilates"
+    assert _class_subgroup("Adult No-Gi") == "Martial Arts"
+    assert _class_subgroup("Adult MMA") == "Martial Arts"
+    assert _class_subgroup("Pre-Ballet / Pre-Tap") == "Dance"
+    assert _class_subgroup("Rec Tumbling L1-3") == "Gymnastics"
+    assert _class_subgroup("Sculpt") == "Strength & Cardio"
+    assert _class_subgroup("Spin") == "Strength & Cardio"
+    assert _class_subgroup("Riding Lessons") == "Other classes"
+
+
+def test_split_class_subgroups_orders_and_omits_empty() -> None:
+    rows = [
+        {"title": "Morning Yoga"},
+        {"title": "Reformer Pilates"},
+        {"title": "Adult MMA"},
+        {"title": "Riding Lessons"},
+    ]
+    subs = _split_class_subgroups(rows)
+    assert [s["label"] for s in subs] == ["Yoga", "Pilates", "Martial Arts", "Other classes"]
+    assert all(s["count"] == 1 for s in subs)
+
+
+def test_family_subgroup_classifier() -> None:
+    assert _family_subgroup("Swim Lessons (Station-Based)") == "Swim Lessons"
+    assert _family_subgroup("Tiny Tumblers") == "Youth Gymnastics"
+    assert _family_subgroup("Youth No-Gi") == "Youth Martial Arts"
+    assert _family_subgroup("Elite Tigers (Kids)") == "Youth Martial Arts"
+    assert _family_subgroup("BMX Local Race") == "Youth Racing"
+    assert _family_subgroup("Junior Jump Time") == "More for kids"
+
+
+def test_split_family_collapses_ongoing_venues_last() -> None:
+    rows = [
+        {"title": "Youth No-Gi"},
+        {"title": "Tiny Tumblers"},
+        {"title": "Altitude Trampoline Park", "ongoing": True},
+        {"title": "Sunshine Indoor Play", "ongoing": True},
+    ]
+    subs = _split_family_subgroups(rows)
+    assert [s["label"] for s in subs] == [
+        "Youth Gymnastics",
+        "Youth Martial Arts",
+        "Open today for kids",
+    ]
+    assert subs[-1]["count"] == 2
