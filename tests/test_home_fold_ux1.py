@@ -23,7 +23,7 @@ def test_home_has_quick_intent_chips() -> None:
         '"/family"',
     ):
         assert href in body, href
-    for label in ("Need a service", "Tonight", "This weekend", "Lake Life", "Kid-friendly"):
+    for label in ("Need a service", "Tonight", "This weekend", "Lake &amp; Boating", "Kid-friendly"):
         assert label in body, label
 
 

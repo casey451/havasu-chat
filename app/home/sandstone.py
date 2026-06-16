@@ -97,10 +97,15 @@ def _live_events_by_day(
 def _department_rows(db: Session) -> list[dict[str, Any]]:
     """``{slug, name, count}`` per department in taxonomy order; [] on error."""
     from app.categories import leaf_pages
+    from app.categories.display_labels import display_label
 
     try:
         return [
-            {"slug": dept.slug, "name": dept.name, "count": total}
+            {
+                "slug": dept.slug,
+                "name": display_label(dept.slug, dept.name),
+                "count": total,
+            }
             for dept, _leaf_n, total in leaf_pages.all_departments(db)
         ]
     except Exception:  # pragma: no cover - defensive; never block the page
@@ -131,7 +136,7 @@ _SERVICE_DEPARTMENT_SLUGS: tuple[str, ...] = (
     "beauty-and-personal-care",
     "pets",
     "professional-and-financial",
-    "community-and-civic",
+    "city-and-government",
 )
 
 
@@ -151,28 +156,34 @@ def service_tiles(db: Session) -> list[dict[str, Any]]:
 
 _MEGA_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Eat & Drink", ("eat-and-drink",)),
-    ("Lake Life", ("on-the-water",)),
+    ("Lake & Boating", ("on-the-water",)),
     (
-        "Fun & Outdoors",
+        "Things to do",
         (
             "things-to-do-and-attractions",
-            "outdoors-and-recreation",
-            "fitness-and-wellness",
             "family-and-education",
         ),
     ),
     (
-        "Services",
+        "Health & self-care",
+        (
+            "health-and-medical",
+            "beauty-and-personal-care",
+            "fitness-and-wellness",
+            "tattoo",
+        ),
+    ),
+    (
+        "Services & shopping",
         (
             "home-and-property-services",
             "auto-rv-and-marine",
             "professional-and-financial",
-            "beauty-and-personal-care",
+            "shopping-and-retail",
             "pets",
         ),
     ),
-    ("Health & Medical", ("health-and-medical",)),
-    ("Living Here", ("shopping-and-retail", "community-and-civic", "lodging")),
+    ("Living here", ("city-and-government", "worship-and-nonprofits", "lodging")),
 )
 
 
@@ -198,9 +209,9 @@ def mega_columns(db: Session) -> list[dict[str, Any]]:
 def primary_nav() -> list[dict[str, str]]:
     return [
         {"label": "Eat & Drink", "url": "/categories/eat-and-drink"},
-        {"label": "Lake Life", "url": "/categories/on-the-water"},
+        {"label": "Lake & Boating", "url": "/categories/on-the-water"},
         {"label": "Things to Do", "url": "/categories/things-to-do-and-attractions"},
-        {"label": "Health", "url": "/categories/health-and-medical"},
+        {"label": "For Kids", "url": "/categories/family-and-education"},
     ]
 
 
@@ -760,7 +771,7 @@ def _night_tiles() -> list[dict[str, str]]:
 # family-and-education; free events and kid eats are finer intents routed to
 # /chat search.
 def _family_tiles() -> list[dict[str, str]]:
-    outdoors = "/categories/outdoors-and-recreation"
+    outdoors = "/categories/things-to-do-and-attractions"
     classes = "/categories/family-and-education"
     return [
         _tile("🛝", "Parks & Playgrounds", "Shade, splash pads", outdoors),

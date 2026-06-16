@@ -35,6 +35,23 @@
       </a>
       {% endfor %}
     </div>
+
+    {# IA v2 Slice 2 — related leaves whose canonical home is another department
+       (e.g. Boat services under Lake & Boating). Each links to its canonical
+       leaf page; no listing is duplicated. #}
+    {% for section in also_sections %}
+    <div class="dept-also">
+      <h2 class="dept-also-head">{{ section.heading }}</h2>
+      <div class="dept-leaf-grid">
+        {% for leaf in section.leaves %}
+        <a class="dept-leaf-card" href="{{ leaf.url }}">
+          <span class="dept-leaf-name">{{ leaf.name }}</span>
+          <span class="dept-leaf-count">{{ leaf.count }} listed</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
   </div>
 
   {# ── Ask strip — the page's own ask-bar (Desert chrome has no header search) ── #}

@@ -1,0 +1,167 @@
+{
+  "_meta": {
+    "version": "v2",
+    "date": "2026-06-16",
+    "status": "PROPOSED - awaiting final naming confirmation from Casey",
+    "principle": "Keep existing slugs where only the LABEL changes (preserves SEO, avoids prod-DB churn). Only merge/split/promote require DB work and redirects.",
+    "naming_locked_recommendations": {
+      "lake": "Lake & Boating (label) on existing slug on-the-water",
+      "tattoo": "own department, promoted out of beauty",
+      "activities": "merge Outdoors & Recreation + Things to Do & Attractions into one 'Things to Do'",
+      "kids": "For Kids & Families (relabel family-and-education)",
+      "pro": "Professional & Money (relabel professional-and-financial)"
+    }
+  },
+
+  "departments": [
+    {
+      "slug": "eat-and-drink", "label": "Eat & Drink", "change": "none", "nav": "primary",
+      "leaves": ["restaurants","bars-and-breweries","cafes-and-coffee","bakeries-and-desserts","quick-bites-and-takeout","food-trucks-and-catering"],
+      "cross_surface_out": [{"leaf":"restaurants","tag":"kid-friendly","to":"family-and-education","section":"Eat with kids"}]
+    },
+    {
+      "slug": "on-the-water", "label": "Lake & Boating", "label_today": "On the Water / Lake Life",
+      "change": "relabel", "nav": "primary",
+      "leaves": ["boat-and-watercraft-rentals","beaches-and-swim-areas","boat-tours-and-charters","fishing-charters-and-guides","marinas-and-launch-ramps","kayak-and-paddle","jet-ski-and-watersports"],
+      "sections": ["Get on the water","Where to go","Boat services","Fuel & supplies"],
+      "cross_surface_in": [
+        {"leaf":"boat-repair-and-service","from":"auto-rv-and-marine","section":"Boat services"},
+        {"leaf":"boat-sales","from":"auto-rv-and-marine","section":"Boat services"},
+        {"leaf":"auto-marine-detailing","from":"auto-rv-and-marine","section":"Boat services"},
+        {"leaf":"boat-and-rv-storage-service","from":"auto-rv-and-marine","section":"Boat services"},
+        {"leaf":"gas-stations","from":"auto-rv-and-marine","section":"Fuel & supplies","relabel":"Fuel"},
+        {"leaf":"marine-supply","from":"shopping-and-retail","section":"Fuel & supplies","status":"NEW leaf to create"},
+        {"leaf":"sporting-goods","from":"shopping-and-retail","section":"Fuel & supplies"}
+      ]
+    },
+    {
+      "slug": "things-to-do", "label": "Things to Do", "change": "merge", "nav": "primary",
+      "merge_of": ["outdoors-and-recreation","things-to-do-and-attractions"],
+      "redirect_from": ["outdoors-and-recreation","things-to-do-and-attractions"],
+      "sections": ["Outdoors","Attractions & fun"],
+      "leaves_outdoors": ["parks-and-playgrounds","golf-courses","hiking-trails","disc-golf","off-road-and-ohv","dog-parks"],
+      "leaves_attractions": ["tours-and-sightseeing","landmarks-and-sights","museums-and-galleries","family-fun-and-arcades","theaters-and-cinema","casinos-and-gaming"],
+      "cross_surface_out": [
+        {"leaf":"family-fun-and-arcades","to":"family-and-education","section":"Fun for kids"},
+        {"leaf":"parks-and-playgrounds","to":"family-and-education","section":"Fun for kids"}
+      ]
+    },
+    {
+      "slug": "family-and-education", "label": "For Kids & Families", "label_today": "Family & Education",
+      "change": "relabel", "nav": "primary",
+      "sections": ["Classes & lessons","Camps & childcare","Schools","Fun for kids","Eat with kids","Family events"],
+      "leaves": ["kids-classes-and-camps","preschools-and-childcare","k-12-schools","colleges-and-higher-ed","tutoring-and-test-prep","music-lessons"],
+      "cross_surface_in": [
+        {"leaf":"martial-arts","from":"fitness-and-wellness","section":"Classes & lessons","facet":"youth"},
+        {"leaf":"dance-studios","from":"fitness-and-wellness","section":"Classes & lessons","facet":"youth"},
+        {"leaf":"gyms-and-fitness-centers","from":"fitness-and-wellness","section":"Classes & lessons","facet":"youth/gymnastics"},
+        {"leaf":"family-fun-and-arcades","from":"things-to-do","section":"Fun for kids"},
+        {"leaf":"parks-and-playgrounds","from":"things-to-do","section":"Fun for kids"}
+      ]
+    },
+    {
+      "slug": "health-and-medical", "label": "Health & Medical", "change": "none", "nav": "mega:health-self-care",
+      "leaves": ["primary-care","dentists-and-orthodontists","urgent-care-and-er","pharmacies","chiropractic","physical-therapy","eye-care","dermatology-and-skin","mental-and-behavioral-health","senior-care-and-assisted-living"],
+      "cross_surface_in": [{"leaf":"med-spas-and-aesthetics","from":"beauty-and-personal-care","section":"Skin & aesthetics"}]
+    },
+    {
+      "slug": "beauty-and-personal-care", "label": "Salons & Spas", "label_today": "Beauty & Personal Care",
+      "change": "relabel+remove-leaf", "nav": "mega:health-self-care",
+      "leaves": ["hair-salons-and-barbers","day-spas-and-massage","nail-salons","med-spas-and-aesthetics","tanning"],
+      "removed_leaf": "tattoo-and-piercing (promoted to own department)"
+    },
+    {
+      "slug": "tattoo-and-piercing", "label": "Tattoo & Piercing", "change": "promote", "nav": "mega:health-self-care+tile",
+      "promoted_from": "beauty-and-personal-care/tattoo-and-piercing",
+      "redirect_from": ["beauty-and-personal-care/tattoo-and-piercing"],
+      "leaves": ["tattoo-and-piercing"]
+    },
+    {
+      "slug": "fitness-and-wellness", "label": "Fitness & Classes", "label_today": "Fitness & Wellness / Fitness, Sports & Classes",
+      "change": "relabel", "nav": "mega:health-self-care",
+      "leaves": ["gyms-and-fitness-centers","yoga-and-pilates","dance-studios","martial-arts","personal-training","nutrition-and-wellness"],
+      "cross_surface_out": [{"leaves":["martial-arts","dance-studios","gyms-and-fitness-centers"],"to":"family-and-education","facet":"youth"}]
+    },
+    {
+      "slug": "pets", "label": "Pets & Vets", "label_today": "Pets", "change": "relabel", "nav": "mega:city-pets",
+      "leaves": ["veterinarians","grooming","pet-stores-and-supplies","training","boarding-and-daycare","pet-sitting"]
+    },
+    {
+      "slug": "home-and-property-services", "label": "Home Services", "label_today": "Home & Property Services",
+      "change": "relabel", "nav": "mega:home-auto",
+      "leaves": ["general-contractors","plumbing","electrical","hvac","roofing","cleaning","landscaping-and-lawn","pools-and-spas","pest-control","solar","movers","security-and-alarms","handyman","self-storage"]
+    },
+    {
+      "slug": "auto-rv-and-marine", "label": "Auto & Boat Service", "label_today": "Auto, RV & Marine / Auto, RV & Fuel",
+      "change": "relabel", "nav": "mega:home-auto",
+      "leaves": ["auto-repair","tires","auto-parts","car-wash","car-dealerships","car-rental","towing-and-roadside","gas-stations","rv-sales-and-service","powersports-and-atv","shuttles-and-transportation","auto-detailing","boat-repair-and-service","boat-sales","auto-marine-detailing","boat-and-rv-storage-service"],
+      "cross_surface_out": [{"leaves":["boat-repair-and-service","boat-sales","auto-marine-detailing","boat-and-rv-storage-service","gas-stations"],"to":"on-the-water"}]
+    },
+    {
+      "slug": "shopping-and-retail", "label": "Shopping", "label_today": "Shopping & Retail",
+      "change": "relabel", "nav": "mega:home-auto",
+      "leaves": ["clothing-and-apparel","gifts-and-boutiques","hardware-and-home-improvement","furniture-and-mattress","sporting-goods","grocery-and-markets","convenience","appliances-and-electronics","jewelry","thrift-and-consignment","specialty-food","florists","shoes","hobby-and-craft","smoke-vape-and-cannabis"],
+      "new_leaf_candidate": "marine-supply (cross-surfaced to on-the-water)"
+    },
+    {
+      "slug": "professional-and-financial", "label": "Professional & Money", "label_today": "Professional & Financial",
+      "change": "relabel+subgroup", "nav": "mega:money-pro",
+      "sections": ["Home & real estate","Money & legal","Business services"],
+      "leaves_home_real_estate": ["real-estate","title-and-escrow"],
+      "leaves_money_legal": ["financial-advisors","insurance","banks-and-credit-unions","accountants-and-tax","attorneys","notary"],
+      "leaves_business": ["photographers","computer-and-it-repair","print-signs-and-marketing","shipping-and-postal","event-planning"]
+    },
+    {
+      "slug": "city-and-government", "label": "City & Government", "change": "split", "nav": "mega:city-pets",
+      "split_from": "community-and-civic",
+      "redirect_from": ["community-and-civic"],
+      "leaves": ["government-and-mvd","utilities","post-office","libraries","community-centers"]
+    },
+    {
+      "slug": "worship-and-nonprofits", "label": "Worship & Nonprofits", "change": "split", "nav": "mega:city-pets",
+      "split_from": "community-and-civic",
+      "leaves": ["places-of-worship","nonprofits-and-charities"]
+    },
+    {
+      "slug": "lodging", "label": "Places to Stay", "label_today": "Lodging", "change": "relabel", "nav": "mega:stay",
+      "leaves": ["hotels-and-motels","rv-parks-and-campgrounds","vacation-rentals"]
+    }
+  ],
+
+  "redirect_map": {
+    "outdoors-and-recreation": "things-to-do",
+    "things-to-do-and-attractions": "things-to-do",
+    "community-and-civic": "city-and-government",
+    "beauty-and-personal-care/tattoo-and-piercing": "tattoo-and-piercing"
+  },
+
+  "label_only_renames": {
+    "on-the-water": "Lake & Boating",
+    "family-and-education": "For Kids & Families",
+    "beauty-and-personal-care": "Salons & Spas",
+    "fitness-and-wellness": "Fitness & Classes",
+    "pets": "Pets & Vets",
+    "home-and-property-services": "Home Services",
+    "auto-rv-and-marine": "Auto & Boat Service",
+    "shopping-and-retail": "Shopping",
+    "professional-and-financial": "Professional & Money",
+    "lodging": "Places to Stay"
+  },
+
+  "structural_changes_requiring_prod_db": [
+    {"type":"merge","into":"things-to-do","from":["outdoors-and-recreation","things-to-do-and-attractions"],"action":"create dept row 'things-to-do'; re-point child leaves' parent; re-map provider category_id; redirect old depts"},
+    {"type":"split","from":"community-and-civic","into":["city-and-government","worship-and-nonprofits"],"action":"create two dept rows; re-point leaves; re-map providers; redirect old dept to city-and-government; ensure worship reachable in nav/grid"},
+    {"type":"promote","leaf":"tattoo-and-piercing","into":"tattoo-and-piercing(dept)","action":"create dept row; move leaf + providers; redirect old leaf URL"}
+  ],
+
+  "nav_clusters": {
+    "primary": ["eat-and-drink","on-the-water","things-to-do","family-and-education"],
+    "events": "/events-ui",
+    "ask": "persistent search",
+    "mega:health-self-care": ["health-and-medical","beauty-and-personal-care","fitness-and-wellness","tattoo-and-piercing"],
+    "mega:home-auto": ["home-and-property-services","auto-rv-and-marine","shopping-and-retail"],
+    "mega:money-pro": ["professional-and-financial"],
+    "mega:city-pets": ["city-and-government","worship-and-nonprofits","pets"],
+    "mega:stay": ["lodging"]
+  }
+}

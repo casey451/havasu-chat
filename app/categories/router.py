@@ -42,6 +42,8 @@ from app.categories import cuisine_pages, leaf_copy, leaf_pages, leaf_seo
 from app.categories import queries as cat_queries
 from app.categories import subcategories as subcats
 from app.categories import trades as trade_pages
+from app.categories.cross_surface import cross_surface_sections
+from app.categories.display_labels import display_label
 from app.categories.queries import CategoryFacets
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.timezone import now_lake_havasu
@@ -81,11 +83,21 @@ ROUTE_SLUG_ALIASES: dict[str, str] = {
     "professional": "/categories/professional-and-financial",
     "beauty-care": "/categories/beauty-and-personal-care",
     "auto-rv-fuel": "/categories/auto-rv-and-marine",
-    "public-civic-resources": "/categories/community-and-civic",
+    "public-civic-resources": "/categories/city-and-government",
     "classes-sports-recreation": "/categories/fitness-and-wellness",
     "lodging-vacation-rentals": "/categories/lodging",
-    "outdoors-parks-trails": "/categories/outdoors-and-recreation",
+    "outdoors-parks-trails": "/categories/things-to-do-and-attractions",
+    # IA v2 (Phase 2): retired department slugs -> successor department.
+    "outdoors-and-recreation": "/categories/things-to-do-and-attractions",
+    "community-and-civic": "/categories/city-and-government",
 }
+
+# IA v2 (Phase 2): departments a leaf may have moved OUT of (merge/split/promote).
+# Used to 301 an old /categories/{source}/{leaf} URL to the leaf's new home while
+# leaving genuine wrong-department/leaf combinations to 404.
+_RETIRED_LEAF_PARENTS: frozenset[str] = frozenset(
+    {"outdoors-and-recreation", "community-and-civic", "beauty-and-personal-care"}
+)
 
 # Taxonomy LEAF slugs renamed in place (data migration) keep their old URL as
 # a permanent redirect so indexed/bookmarked links never die. B1 (2026-06-10):
@@ -123,20 +135,24 @@ _EMPTY_BLURB = "Coming soon."
 # counts come from the live Category tree.
 _DEPT_BLURBS: dict[str, str] = {
     "eat-and-drink": "Restaurants, bars, cafés, takeout.",
-    "on-the-water": "Boat rentals, charters, marinas, beaches.",
+    "on-the-water": "Boat rentals, repair, fuel, ramps, beaches.",
     "outdoors-and-recreation": "Parks, trails, golf, off-road.",
-    "things-to-do-and-attractions": "Tours, landmarks, museums, family fun.",
+    "things-to-do-and-attractions": "Parks, trails, golf, tours, museums, family fun.",
     "health-and-medical": "Doctors, dentists, pharmacies, therapy.",
-    "beauty-and-personal-care": "Salons, barbers, spas, nails.",
-    "fitness-and-wellness": "Gyms, yoga, dance studios.",
+    "beauty-and-personal-care": "Hair, nails, day spas, med spas.",
+    "fitness-and-wellness": "Gyms, yoga, martial arts, dance.",
     "pets": "Vets, groomers, supplies, training.",
-    "home-and-property-services": "Plumbers, electricians, contractors, storage.",
-    "auto-rv-and-marine": "Repair, dealers, parts, towing, boats.",
+    "home-and-property-services": "Contractors, plumbers, electricians, cleaning.",
+    "auto-rv-and-marine": "Auto & boat repair, tires, parts, towing, gas.",
     "shopping-and-retail": "Clothing, gifts, hardware, grocery.",
-    "professional-and-financial": "Real estate, legal, financial, insurance.",
-    "family-and-education": "Schools, childcare, kids' classes.",
+    "professional-and-financial": "Real estate, money, legal, business services.",
+    "family-and-education": "Kids' classes, camps, childcare, schools.",
     "community-and-civic": "Worship, nonprofits, government, libraries.",
-    "lodging": "Hotels, motels, RV parks.",
+    "lodging": "Hotels, motels, RV parks, vacation rentals.",
+    # IA v2 (Phase 2) structural departments.
+    "city-and-government": "City offices, MVD, utilities, post office, libraries.",
+    "worship-and-nonprofits": "Churches, temples, nonprofits, charities.",
+    "tattoo": "Tattoo & piercing studios.",
 }
 
 
@@ -206,7 +222,7 @@ def _build_index_payload(db: Session) -> list[dict[str, Any]]:
         rows.append(
             {
                 "slug": dept.slug,
-                "label": dept.name,
+                "label": display_label(dept.slug, dept.name),
                 "blurb": _DEPT_BLURBS.get(dept.slug, _FALLBACK_BLURB),
                 "count": count,
                 "leaf_count": leaf_count,
@@ -590,6 +606,19 @@ def serve_trade_page(
     if leaf is not None:
         return _render_leaf_page(request, db, leaf)
 
+    # IA v2 (Phase 2): a leaf whose parent department changed (merge/split/promote)
+    # keeps its slug — 301 the old /categories/{old-parent}/{leaf} URL to the
+    # canonical path under the leaf's current department. Gated to the retired
+    # source departments so a genuine wrong-department/leaf combo still 404s.
+    if parent_key in _RETIRED_LEAF_PARENTS:
+        moved = leaf_pages.resolve_leaf_by_slug(db, trade)
+        if moved is not None and moved.department_slug != parent_key:
+            dest = f"/categories/{moved.department_slug}/{moved.slug}"
+            query = request.url.query
+            if query:
+                dest = f"{dest}?{query}"
+            return RedirectResponse(url=dest, status_code=301)
+
     raise HTTPException(status_code=404, detail="unknown_category")
 
 
@@ -741,6 +770,20 @@ def _apply_list_controls(
         working = [c for c in working if c.get("is_open") is True]
     if sort == "az":
         working = sorted(working, key=lambda c: (c.get("name") or "").lower())
+    else:
+        # IA v2 Slice 3 — "best match" default: keep the dampened-rating order but
+        # stably demote closed and not-yet-reviewed cards, so an open, proven place
+        # never ranks below a closed/no-review one (the audit's "closed studio with
+        # no reviews shown first" bug). Python's stable sort preserves the existing
+        # rating order within each tier; sponsored pins were already applied upstream.
+        working = sorted(
+            working,
+            key=lambda c: (
+                0 if c.get("is_sponsored") else 1,
+                0 if c.get("is_open") is True else 1,
+                0 if c.get("has_reviews") else 1,
+            ),
+        )
 
     shown_total = len(working)
     total_pages = max(1, (shown_total + _LEAF_PAGE_SIZE - 1) // _LEAF_PAGE_SIZE)
@@ -910,6 +953,11 @@ def _render_department_page(
     ]
     listing_total = sum(count for _, count in pairs)
     dept_path = f"/categories/{dept.slug}"
+    dept_label = display_label(dept.slug, dept.name)
+    # IA v2 Slice 2: surface related leaves from other departments (e.g. boat
+    # services under Lake & Boating) under labeled sections. References only —
+    # the listing's canonical home is unchanged, so no duplicate rows.
+    also_sections = cross_surface_sections(db, dept.slug)
 
     breadcrumb_jsonld: dict[str, Any] = {
         "@context": "https://schema.org",
@@ -924,7 +972,7 @@ def _render_department_page(
             {
                 "@type": "ListItem",
                 "position": 2,
-                "name": dept.name,
+                "name": dept_label,
                 "item": absolute_url(dept_path),
             },
         ],
@@ -933,7 +981,7 @@ def _render_department_page(
     itemlist_jsonld: dict[str, Any] = {
         "@context": "https://schema.org",
         "@type": "ItemList",
-        "name": f"{dept.name} categories in Lake Havasu City, AZ",
+        "name": f"{dept_label} categories in Lake Havasu City, AZ",
         "numberOfItems": len(leaves),
         "itemListElement": [
             {
@@ -953,8 +1001,9 @@ def _render_department_page(
             "today_label": now.strftime("%A, %B ") + str(now.day),
             "now_label": now.strftime("%I:%M %p").lstrip("0"),
             "department_slug": dept.slug,
-            "department_label": dept.name,
+            "department_label": dept_label,
             "leaves": leaves,
+            "also_sections": also_sections,
             "leaf_total": len(leaves),
             "listing_total": listing_total,
             "breadcrumb_jsonld": breadcrumb_jsonld,
