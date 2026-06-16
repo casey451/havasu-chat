@@ -120,7 +120,9 @@ OPEN_VENUES: tuple[FamilyVenue, ...] = (
     FamilyVenue(
         name="Universal Sonics Gymnastics & Cheer",
         kind="Gymnastics & cheer",
-        url="https://www.universalgymnasticslakehavasu.com/",
+        # http only — the https cert is broken and renders a login/error page
+        # (keep as http; do not "upgrade" to https).
+        url="http://www.universalgymnasticslakehavasu.com/",
         address="2245 N Kiowa Blvd",
         age_note="12 months–18 yrs · see schedule for class times",
         open_verb="Classes",
@@ -163,7 +165,7 @@ DIRECTORY: tuple[FamilyVenue, ...] = (
     FamilyVenue("Arevalo Academy (MMA / kids martial arts)", "Martial arts",
                 "https://arevaloacademy.com/schedule/", "3611 Jamaica Blvd S #A"),
     FamilyVenue("Footlite School of Dance", "Dance studio",
-                "https://www.footliteschoolofdance.com/classes", "3325 Maricopa Ave #106"),
+                "https://www.footliteschoolofdance.com/", "3325 Maricopa Ave #106"),
     FamilyVenue("Arizona Coast Performing Arts", "Dance studio",
                 "https://www.arizonacoastperformingarts.com/", "3476 McCulloch Blvd"),
     FamilyVenue("Aqua Beginnings (swim lessons)", "Swim school",
