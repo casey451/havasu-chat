@@ -28,6 +28,30 @@ from app.events.dedup import dedup_cross_source_occurrences
 from app.events.recurrence import occurrences_in_window
 from app.events.time_labels import format_short_time, short_time_label, time_sort_key
 from app.events.title_clean import clean_event_title
+from app.home.event_buckets import (
+    TIER_AQUATIC,
+    TIER_CLASS,
+    TIER_COMMUNITY,
+    TIER_MUSIC,
+    TIER_OTHER,
+    TIER_SPECIAL,
+    TIER_WATER,
+    group_for_tier,
+)
+
+# Re-export the bucket vocabulary under the historical private names that this
+# module's call sites and the test suite (``sandstone._TIER_*``) reference. The
+# canonical definitions live in :mod:`app.home.event_buckets` (Slice C). Plain
+# assignment (not ``import ... as``) keeps ruff's isort happy under the project's
+# combine-as-imports=false default.
+_TIER_AQUATIC = TIER_AQUATIC
+_TIER_CLASS = TIER_CLASS
+_TIER_COMMUNITY = TIER_COMMUNITY
+_TIER_MUSIC = TIER_MUSIC
+_TIER_OTHER = TIER_OTHER
+_TIER_SPECIAL = TIER_SPECIAL
+_TIER_WATER = TIER_WATER
+_group_for_tier = group_for_tier
 
 
 def _live_events_by_day(
@@ -290,15 +314,13 @@ def _water_card(utility_chips: list[dict[str, Any]]) -> dict[str, Any] | None:
 # a *ranking* prior, never a filter: every event still appears in its day's
 # tap-through (/events-ui?date=) and rollup count.
 
-(
-    _TIER_SPECIAL,
-    _TIER_MUSIC,
-    _TIER_COMMUNITY,
-    _TIER_WATER,
-    _TIER_OTHER,
-    _TIER_AQUATIC,
-    _TIER_CLASS,
-) = range(7)
+# Tier constants (``_TIER_*``) and the tier->bucket mapping (``_group_for_tier``)
+# now live in :mod:`app.home.event_buckets`, imported at the top of this module
+# so the home week-strip and the events page bucket identically (Slice C). They
+# are re-exported here under their historical private names for the call sites
+# and tests that import ``sandstone._TIER_*``. ``_TIER_CSS`` (month-calendar pill
+# colors) still lives here — it is the legacy per-tier palette, distinct from the
+# shared bucket palette.
 _TIER_CSS = {
     _TIER_SPECIAL: "special",
     _TIER_MUSIC: "music",
@@ -495,7 +517,11 @@ def week_strip(
         visible = [
             {
                 "title": clean_event_title(ev.title, location_name=ev.location_name),
-                "type": _event_css_type(title=ev.title, tags=ev.tags, tier=_tier(ev)),
+                # Slice C: bucket the headline by the SAME definition the events
+                # page uses (app.home.event_buckets), so the home strip's pill
+                # color + legend match /events-ui. Headlines are one-offs, so
+                # recurring=False (recurring classes collapse into the rollup).
+                "type": _group_for_tier(_tier(ev), recurring=False, title=ev.title, tags=ev.tags),
                 "time": short_time_label(ev.start_time, ev.end_time),
             }
             for ev in oneoffs[:per_day]

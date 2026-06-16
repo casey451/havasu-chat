@@ -113,12 +113,15 @@
       </a>
       {% endfor %}
     </div>
+    {# Slice C: one bucket set across surfaces — these labels/colors mirror the
+       /events-ui accordions (app.home.event_buckets.GROUP_DEFS). #}
     <div class="cal-legend">
-      <span><i class="leg special"></i>Special event</span>
+      <span><i class="leg events"></i>Around town</span>
+      <span><i class="leg family"></i>Kids &amp; Family</span>
+      <span><i class="leg music"></i>Music &amp; nightlife</span>
       <span><i class="leg water"></i>Lake &amp; Boating</span>
-      <span><i class="leg music"></i>Music / nightlife</span>
-      <span><i class="leg community"></i>Community</span>
-      <span><i class="leg class"></i>Class / ongoing</span>
+      <span><i class="leg aquatic"></i>Aquatic Center</span>
+      <span><i class="leg classes"></i>Fitness &amp; classes</span>
     </div>
   </section>
   {% endif %}
