@@ -81,6 +81,56 @@ def test_derive_subcategory_marine_name_routing(name: str, expected: str | None)
         assert got == expected
 
 
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        # Dojos carry a generic "gym" Google type; the NAME router must override
+        # it so the martial-arts subcategory stops rendering empty.
+        ("The Tap Room Jiu Jitsu", "martial-arts"),
+        ("Lake Havasu Black Belt Academy", "martial-arts"),
+        ("Arizona Krav Maga", "martial-arts"),
+        ("Havasu Shao-Lin Kempo", "martial-arts"),
+        ("Next Generation Mixed Martial Arts", "martial-arts"),
+        ("Seibukan Karate-Do", "martial-arts"),
+        # NOT martial arts: generic fitness / dance names must not be swept in.
+        ("Anytime Fitness", None),
+        ("Footlite School of Dance", None),
+    ],
+)
+def test_derive_subcategory_martial_arts_name_routing(name: str, expected: str | None) -> None:
+    from app.categories.subcategories import derive_subcategory
+
+    got = derive_subcategory(category="fitness_sports", name=name, google_primary_category="gym")
+    if expected is None:
+        assert got != "martial-arts"
+    else:
+        assert got == expected
+
+
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        # Property managers carry a generic "lodging" Google type; the NAME
+        # router must override it so vacation-rentals stops rendering empty.
+        ("Empty Spaces Vacation Rental Management", "vacation-rentals"),
+        ("First Choice Property Vacation Rentals", "vacation-rentals"),
+        ("Integrity Arizona Vacation Rentals", "vacation-rentals"),
+        # NOT a vacation rental: a plain hotel/motel must stay under hotels.
+        ("Windsor Inn Lake Havasu City", None),
+        # Bare "property management" is intentionally ambiguous -> not routed.
+        ("Lake Havasu Property Management", None),
+    ],
+)
+def test_derive_subcategory_vacation_rental_name_routing(name: str, expected: str | None) -> None:
+    from app.categories.subcategories import derive_subcategory
+
+    got = derive_subcategory(category="lodging", name=name, google_primary_category="lodging")
+    if expected is None:
+        assert got != "vacation-rentals"
+    else:
+        assert got == expected
+
+
 def test_derive_subcategory_without_name_unchanged() -> None:
     # Backward compatibility: omitting name must not change existing behaviour.
     from app.categories.subcategories import derive_subcategory
