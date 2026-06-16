@@ -90,16 +90,18 @@
 .home-featured{padding-top:58px;padding-bottom:6px}
 .home-cal{padding-top:58px;padding-bottom:64px}
 
-/* ---- week strip: 7 day cards. Non-today cards are light (1.5px border, no
-   shadow); only TODAY gets the heavy black-fill + orange-shadow treatment. ---- */
-.week-strip{display:grid;grid-template-columns:repeat(7,1fr);gap:12px}
+/* ---- week strip (Slice F): a today-first calendar. TODAY is a dominant card
+   that keeps the heavy black-fill + orange-shadow treatment and headlines up to
+   3 one-off events; the other six days are trimmed to compact count cards in a
+   3x2 grid beside it (stacking under a single column on narrow screens). ---- */
+.week-strip{display:flex;gap:12px;align-items:stretch}
 .wday{
   background:var(--cream);border:1.5px solid var(--black);border-radius:var(--d-radius);
-  padding:14px 12px 12px;display:flex;flex-direction:column;gap:7px;min-height:150px;
+  padding:14px 16px 12px;display:flex;flex-direction:column;gap:7px;
   transition:transform .14s ease,box-shadow .14s ease;
 }
 .wday:hover{transform:translate(-2px,-2px);box-shadow:4px 4px 0 var(--black)}
-.wday.today{background:var(--black);color:var(--cream);box-shadow:6px 6px 0 var(--orange)}
+.wday.today{flex:0 0 248px;background:var(--black);color:var(--cream);box-shadow:6px 6px 0 var(--orange);min-height:172px}
 .wday-h{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
 .wd{font-family:var(--disp);font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:.02em}
 .wday.today .wd{color:var(--orange)}
@@ -118,8 +120,27 @@
 .wev.water{border-left-color:var(--blue)}
 .wev.aquatic{border-left-color:var(--sky)}
 .wev.classes{border-left-color:var(--sand)}
-.wsum{margin-top:auto;font-size:11.5px;font-weight:600;letter-spacing:0;opacity:.7}
+.wfoot{margin-top:auto;padding-top:8px;display:flex;flex-direction:column;gap:3px}
+.wsum{font-size:11.5px;font-weight:600;letter-spacing:0;opacity:.7}
+.wmore{font-size:11px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.04em}
 .wempty{margin:auto;opacity:.3;font-size:18px}
+/* The six trimmed days: compact count cards (event count headline + rollup). */
+.week-rest{flex:1;display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr;gap:10px}
+.wmini{
+  background:var(--cream);border:1.5px solid var(--black);border-radius:var(--d-radius);
+  padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-height:78px;
+  transition:transform .14s ease,box-shadow .14s ease;
+}
+.wmini:hover{transform:translate(-2px,-2px);box-shadow:4px 4px 0 var(--black)}
+.wmini-h{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.wmini-n{font-family:var(--disp);font-weight:800;font-size:22px;line-height:1.05;margin-top:4px}
+.wmini-s{font-size:11px;font-weight:600;opacity:.65}
+.wmini--empty .wempty{margin:6px 0 0;font-size:16px}
+@media (max-width:720px){
+  .week-strip{flex-direction:column}
+  .wday.today{flex:auto;width:100%}
+  .week-rest{grid-template-columns:repeat(2,1fr)}
+}
 
 /* legend chips (shared with the month calendar) */
 .cal-legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:16px;font-size:11.5px;font-weight:500;opacity:.85}
@@ -386,8 +407,8 @@ a.gas-card:hover{transform:translate(-3px,-3px);box-shadow:6px 6px 0 var(--black
   .mini-cond{display:flex}
 }
 @media(prefers-reduced-motion:reduce){
-  .wday,.spon,.catchip,.gas-card,.mode-tile,.mini-cond{transition:none}
-  .wday:hover,.spon:hover,.catchip:hover,a.gas-card:hover,.mode-tile:hover,.mini-cond--link:hover{transform:none}
+  .wday,.wmini,.spon,.catchip,.gas-card,.mode-tile,.mini-cond{transition:none}
+  .wday:hover,.wmini:hover,.spon:hover,.catchip:hover,a.gas-card:hover,.mode-tile:hover,.mini-cond--link:hover{transform:none}
 }
 
 /* ===== Workstream G — home reorder: category strip, Tier-1 marquee, Tier-3 promoted ===== */

@@ -461,17 +461,23 @@ def _short_time(t: time | None) -> str | None:
 
 
 def week_strip(
-    db: Session, *, today: date, days: int = 7, per_day: int = 2
+    db: Session, *, today: date, days: int = 7, per_day: int = 3
 ) -> dict[str, Any]:
-    """Build the next-``days`` strip: one-off headlines + a per-day class rollup.
+    """Build the next-``days`` strip: a today-first calendar (Slice F).
+
+    Only the TODAY card headlines individual one-off events — up to ``per_day``
+    of them (default 3), the rest implied by the rollup. The other days collapse
+    to counts only (``event_count`` / ``class_count`` / ``summary``) and carry an
+    empty ``events`` list, so the template renders them as compact count cards.
+    Every day still links to ``/events-ui?date=`` so nothing is more than one tap
+    away.
 
     Mirrors ``calendar_month``'s honest-omission contract: empty days render an
-    em-dash, never fabricated content. Each day links to ``/events-ui?date=`` so
-    everything stays one tap away. Recurring classes (recurring Event rows plus
-    venue Schedule classes) never take a headline slot — they appear only in the
-    ``summary`` rollup ("2 events · 14 classes"). Time-unknown one-offs (the
-    midnight ingest fallback) show no time — never "12 AM" — and sort after
-    timed events within their tier.
+    em-dash, never fabricated content. Recurring classes (recurring Event rows
+    plus venue Schedule classes) never take a headline slot — they appear only in
+    the ``summary`` rollup ("2 events · 14 classes"). Time-unknown one-offs (the
+    midnight ingest fallback) show no time — never "12 AM" — and sort after timed
+    events within their tier.
     """
     end = today + timedelta(days=days - 1)
     by_day = _live_events_by_day(db, window_start=today, window_end=end)
@@ -514,18 +520,27 @@ def week_strip(
             label = "Tomorrow"
         else:
             label = d.strftime("%a")
-        visible = [
-            {
-                "title": clean_event_title(ev.title, location_name=ev.location_name),
-                # Slice C: bucket the headline by the SAME definition the events
-                # page uses (app.home.event_buckets), so the home strip's pill
-                # color + legend match /events-ui. Headlines are one-offs, so
-                # recurring=False (recurring classes collapse into the rollup).
-                "type": _group_for_tier(_tier(ev), recurring=False, title=ev.title, tags=ev.tags),
-                "time": short_time_label(ev.start_time, ev.end_time),
-            }
-            for ev in oneoffs[:per_day]
-        ]
+        # Slice F: only TODAY headlines individual events; the other days are
+        # rendered as counts-only cards, so they carry an empty ``events`` list.
+        if i == 0:
+            visible = [
+                {
+                    "title": clean_event_title(ev.title, location_name=ev.location_name),
+                    # Slice C: bucket the headline by the SAME definition the
+                    # events page uses (app.home.event_buckets), so the home
+                    # strip's pill color + legend match /events-ui. Headlines are
+                    # one-offs, so recurring=False (recurring classes roll up).
+                    "type": _group_for_tier(
+                        _tier(ev), recurring=False, title=ev.title, tags=ev.tags
+                    ),
+                    "time": short_time_label(ev.start_time, ev.end_time),
+                }
+                for ev in oneoffs[:per_day]
+            ]
+            overflow = max(0, len(oneoffs) - per_day)
+        else:
+            visible = []
+            overflow = 0
         summary_bits: list[str] = []
         if oneoffs:
             summary_bits.append(f"{len(oneoffs)} event{'' if len(oneoffs) == 1 else 's'}")
@@ -539,7 +554,7 @@ def week_strip(
                 "md": f"{d.month}/{d.day}",
                 "is_today": i == 0,
                 "events": visible,
-                "overflow": max(0, len(oneoffs) - per_day),
+                "overflow": overflow,
                 "event_count": len(oneoffs),
                 "class_count": class_count,
                 "summary": " · ".join(summary_bits),

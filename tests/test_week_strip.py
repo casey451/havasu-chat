@@ -190,13 +190,12 @@ def test_week_strip_empty_day_is_omittable(db: Session) -> None:
     assert strip["days"][0]["events"] == []
     sunday = strip["days"][2]  # 2026-06-07
     assert sunday["has"] is True
-    # Slice C: "Kayak Meetup" is community-tier ("meetup"), and the shared bucket
-    # mapping routes community-tier one-offs to "Around town" (key "events") —
-    # the same bucket /events-ui puts it in. (Before unification the home strip
-    # had a lake-keyword override that gave it the "water" pill; that home-only
-    # flourish is dropped so the two surfaces agree.)
-    assert sunday["events"][0]["type"] == "events"
-    assert sunday["events"][0]["time"] == "10 AM"
+    # Slice F: only TODAY headlines individual events; the other days are trimmed
+    # to counts-only cards, so a non-today day carries an empty events list and is
+    # represented by its event_count / class_count instead.
+    assert sunday["events"] == []
+    assert sunday["event_count"] == 1
+    assert sunday["count"] == 1
 
 
 def _add_weekly(db: Session, *, title: str, byday: str, start: date) -> None:

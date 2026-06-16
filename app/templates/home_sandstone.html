@@ -98,20 +98,41 @@
       <h2>This week <em>around the lake</em></h2>
       <a class="all" href="/events-ui">All events →</a>
     </div>
+    {# Slice F: today-first calendar. The TODAY card is dominant and headlines up
+       to 3 one-off events; the other six days are trimmed to compact count cards.
+       Every card still taps through to /events-ui?date=. #}
     <div class="week-strip" role="list">
-      {% for day in week.days %}
-      <a class="wday{% if day.is_today %} today{% endif %}" role="listitem" href="/events-ui?date={{ day.iso }}" aria-label="{% if day.event_count or not day.class_count %}{{ day.event_count }} event{{ '' if day.event_count == 1 else 's' }}{% endif %}{% if day.event_count and day.class_count %} and {% endif %}{% if day.class_count %}{{ day.class_count }} class{{ '' if day.class_count == 1 else 'es' }}{% endif %} on {{ day.label }} {{ day.md }}">
-        <div class="wday-h"><span class="wd">{{ day.label }}</span><span class="wdm">{{ day.md }}</span></div>
-        {% if day.events or day.summary %}
-          {% for ev in day.events %}
+      {% set td = week.days[0] %}
+      <a class="wday today" role="listitem" href="/events-ui?date={{ td.iso }}" aria-label="{% if td.event_count or not td.class_count %}{{ td.event_count }} event{{ '' if td.event_count == 1 else 's' }}{% endif %}{% if td.event_count and td.class_count %} and {% endif %}{% if td.class_count %}{{ td.class_count }} class{{ '' if td.class_count == 1 else 'es' }}{% endif %} today">
+        <div class="wday-h"><span class="wd">Today</span><span class="wdm">{{ td.md }}</span></div>
+        {% if td.events %}
+          {% for ev in td.events %}
           <span class="wev {{ ev.type }}">{% if ev.time %}<i class="wt">{{ ev.time }}</i>{% endif %}{{ ev.title }}</span>
           {% endfor %}
-          {% if day.summary %}<span class="wsum">{{ day.summary }}</span>{% endif %}
-        {% else %}
-          <span class="wempty" aria-hidden="true">—</span>
+        {% elif not td.has %}
+          <span class="wempty" aria-hidden="true">Nothing on today</span>
         {% endif %}
+        <span class="wfoot">
+          {% if td.summary %}<span class="wsum">{{ td.summary }}</span>{% endif %}
+          <span class="wmore">See all today →</span>
+        </span>
       </a>
-      {% endfor %}
+      <div class="week-rest">
+        {% for day in week.days[1:] %}
+        <a class="wmini{% if not day.has %} wmini--empty{% endif %}" role="listitem" href="/events-ui?date={{ day.iso }}" aria-label="{% if day.event_count or not day.class_count %}{{ day.event_count }} event{{ '' if day.event_count == 1 else 's' }}{% endif %}{% if day.event_count and day.class_count %} and {% endif %}{% if day.class_count %}{{ day.class_count }} class{{ '' if day.class_count == 1 else 'es' }}{% endif %} on {{ day.label }} {{ day.md }}">
+          <div class="wmini-h"><span class="wd">{{ day.label }}</span><span class="wdm">{{ day.md }}</span></div>
+          {% if day.event_count %}
+            <div class="wmini-n">{{ day.event_count }}</div>
+            <div class="wmini-s">event{{ '' if day.event_count == 1 else 's' }}{% if day.class_count %} · {{ day.class_count }} class{{ '' if day.class_count == 1 else 'es' }}{% endif %}</div>
+          {% elif day.class_count %}
+            <div class="wmini-n">{{ day.class_count }}</div>
+            <div class="wmini-s">class{{ '' if day.class_count == 1 else 'es' }}</div>
+          {% else %}
+            <span class="wempty" aria-hidden="true">—</span>
+          {% endif %}
+        </a>
+        {% endfor %}
+      </div>
     </div>
     {# Slice C: one bucket set across surfaces — these labels/colors mirror the
        /events-ui accordions (app.home.event_buckets.GROUP_DEFS). #}
