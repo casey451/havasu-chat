@@ -1,0 +1,20 @@
+business,set_subcategory,set_primary,bucket,note
+Carburetion Specialties & Performance Full Automotive and Boat Service / Repair,auto,,3,Google car_repair; auto-first
+"First Class RV & Marine, Sales, Mobile Service, Parts",auto,,3,Google car_dealer/truck_dealer
+WM Auto & Marine mobile mechanic,auto,,3,Google car_repair
+Byrd's Mobile RV & Marine,,auto-rv-fuel,3,Google car_repair (subcat=auto already)
+"Every Little Detail Mobile Detailing- RV, Boat & Car",,auto-rv-fuel,3,Google car_wash/detailing
+Mobile Marine and More,,auto-rv-fuel,3,Google car_repair (marine name; cross-list candidate)
+Copper Canyon Realty,professional,,3,real-estate brokerage (no VR leaf)
+Destination Havasu,vacation-rentals,lodging-vacation-rentals,3,VR manager per desc + booklakehavasu.com
+First Choice Property of Mohave County,vacation-rentals,lodging-vacation-rentals,3,VR manager per desc
+"Havasu Realty, Inc.",vacation-rentals,lodging-vacation-rentals,3,VR manager (name Realty but desc=vacation rentals)
+"Integrity Arizona Real Estate Sales, LLC",vacation-rentals,lodging-vacation-rentals,3,VR manager (renthavasu.com)
+Caley Nursery,home-goods,,3,garden-center retail; primary shopping OK
+Star Nursery Garden Center,home-goods,,3,garden-center retail; primary shopping OK
+HavaZoo Tanning & Clothing Co.,,health-wellness-care,3,Google tanning/nail/beauty-dominant (subcat=beauty already)
+London Bridge Shops,boutiques,,3,waterfront shopping area; primary shopping OK
+Downtown District,civic-community,,3,Main Street downtown district org; primary public-civic OK
+Hospice of Havasu,health-medical,,3,Google health; hospice care; primary health OK
+The Gravel Pit,rv-parks,,3,Google rv_park; primary lodging OK
+Heart and Sole Fitness & Wellness,health-medical,,3,Google medical_clinic/health; primary health OK
