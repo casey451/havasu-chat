@@ -626,7 +626,7 @@ def _subcat_from_types(
 _MARINE_ANCHOR = re.compile(r"\b(boats?|marine|watercraft|nautical)\b", re.I)
 _MARINE_REPAIR = re.compile(
     r"\b(service|repair|mechanic|performance|fiberglass|gel ?coat|gelcraft|"
-    r"machine|rigging|restoration|customs?|body shop|speed)\b",
+    r"machine|engines?|rigging|restoration|customs?|body shop|speed)\b",
     re.I,
 )
 _MARINE_SUPPLY = re.compile(r"\b(supply|supplies|parts|store)\b|west marine", re.I)
@@ -650,6 +650,45 @@ def _marine_subcat_from_name(name: str | None) -> str | None:
     return None
 
 
+# Martial-arts routing from the business NAME (2026-06-15 coverage audit). Dojos
+# carry generic Google types (gym / school / point_of_interest), so the type
+# tiers file them as ``gyms`` / ``kids-lessons`` and the ``martial-arts``
+# subcategory page renders empty even though the rows exist. A distinctive
+# discipline token in the NAME is decisive. Generic words ("academy", "combat",
+# "fitness", "club") are intentionally NOT matched — too many false positives
+# (dance academies, etc.); those are handled by manual review.
+_MARTIAL_ARTS_NAME = re.compile(
+    r"martial arts|mixed martial|jiu[\s-]?jitsu|\bbjj\b|\bkarate\b|"
+    r"tae ?kwon ?do|taekwondo|\bkempo\b|\bkenpo\b|krav maga|muay thai|"
+    r"kickbox|kick boxing|\bjudo\b|\baikido\b|kung ?fu|black belt|\bdojo\b|"
+    r"self[\s-]?defense",
+    re.I,
+)
+
+
+def _martial_subcat_from_name(name: str | None) -> str | None:
+    if name and _MARTIAL_ARTS_NAME.search(name):
+        return "martial-arts"
+    return None
+
+
+# Vacation-rental routing from the business NAME (2026-06-15 coverage audit).
+# These carry Google type ``lodging`` / ``real_estate_agency``, so the type
+# tiers file them as ``hotels`` and the ``vacation-rentals`` page renders empty.
+# A "vacation rental/home/stay" signal in the NAME is decisive. Bare "property
+# management" is intentionally excluded (ambiguous: long-term / commercial / HOA).
+_VACATION_RENTAL_NAME = re.compile(
+    r"vacation rental|vacation home|vacation stay|\bvrbo\b|short[\s-]?term rental",
+    re.I,
+)
+
+
+def _vacation_subcat_from_name(name: str | None) -> str | None:
+    if name and _VACATION_RENTAL_NAME.search(name):
+        return "vacation-rentals"
+    return None
+
+
 def derive_subcategory(
     *,
     category: str | None,
@@ -668,6 +707,14 @@ def derive_subcategory(
     marine = _marine_subcat_from_name(name)
     if marine:
         return marine
+
+    martial = _martial_subcat_from_name(name)
+    if martial:
+        return martial
+
+    vacation = _vacation_subcat_from_name(name)
+    if vacation:
+        return vacation
 
     sub_trades: list[str] | None = None
     if isinstance(attributes, str):
