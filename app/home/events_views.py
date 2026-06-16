@@ -46,44 +46,20 @@ from app.events.class_occurrences import (
 from app.events.family_filter import is_family_event
 from app.events.time_labels import TIME_TBD_LABEL, short_time_label, time_sort_key
 from app.events.title_clean import clean_event_title
+from app.home.event_buckets import GROUP_DEFS, GROUP_NOUNS, group_for_tier
 from app.home.family_venues import open_today_rows
-from app.home.sandstone import (
-    _TIER_AQUATIC,
-    _TIER_CLASS,
-    _TIER_MUSIC,
-    _TIER_SPECIAL,
-    _TIER_WATER,
-    _event_tier,
-    _live_events_by_day,
-)
+from app.home.sandstone import _event_tier, _live_events_by_day
 
-# Accordion groups in the owner-approved order: (key, label, icon).
-GROUP_DEFS: tuple[tuple[str, str, str], ...] = (
-    # "Around town": the catch-all one-off group needed a real name — the page
-    # rendered a generic "Events 4" section next to named siblings (audit
-    # events #6). Key stays "events" (rollup nouns + CSS hooks unchanged).
-    ("events", "Around town", "\U0001F39F️"),
-    # "Kids & Family" is a cross-cutting collector (see _group_for_tier): every
-    # kid/family occurrence — youth classes, Open Swim, story time — lands here
-    # so a parent sees everything for kids in one place.
-    ("family", "Kids & Family", "\U0001F9D2"),
-    ("music", "Music & nightlife", "\U0001F3B6"),
-    # "Lake & Boating" is LAKE-only; pool activities live in "Aquatic Center".
-    ("water", "Lake & Boating", "⛵"),
-    ("aquatic", "Aquatic Center", "\U0001F3CA"),
-    ("classes", "Fitness & classes", "\U0001F3C3"),
-)
+# Private aliases for the shared bucket definitions (the canonical names live in
+# app.home.event_buckets — Slice C). Plain assignment instead of ``import ... as``
+# keeps ruff's isort happy under the project's combine-as-imports=false default.
+_GROUP_NOUNS = GROUP_NOUNS
+_group_for_tier = group_for_tier
 
-# Rollup nouns per group: (singular, plural). Several read naturally in
-# uncounted-noun style ("1 music", "3 on the water", "2 kid-friendly").
-_GROUP_NOUNS: dict[str, tuple[str, str]] = {
-    "events": ("event", "events"),
-    "family": ("kid-friendly", "kid-friendly"),
-    "music": ("music", "music"),
-    "water": ("on the water", "on the water"),
-    "aquatic": ("pool session", "pool sessions"),
-    "classes": ("class", "classes"),
-}
+# GROUP_DEFS (the bucket set), _GROUP_NOUNS (rollup nouns), and _group_for_tier
+# (the tier->bucket mapping) now live in :mod:`app.home.event_buckets` — the one
+# definition the home week-strip also consumes (Slice C), so the two surfaces'
+# legends, colors, and rollup nouns can never drift again.
 
 
 def _group_for(*, title: str, tags: list[str] | None, featured: bool, recurring: bool) -> str:
@@ -96,29 +72,6 @@ def _group_for(*, title: str, tags: list[str] | None, featured: bool, recurring:
     """
     tier = _event_tier(title=title, tags=tags, featured=featured, recurring=recurring)
     return _group_for_tier(tier, recurring=recurring, title=title, tags=tags)
-
-
-def _group_for_tier(
-    tier: int, *, recurring: bool, title: str = "", tags: list[str] | None = None
-) -> str:
-    # Kids & Family is a cross-cutting overlay: any kid/family occurrence (a
-    # youth class, Open Swim, story time) collects here instead of its activity
-    # group so a parent has one place to look. Big one-off SPECIAL events stay
-    # in their marquee group (they headline the day) — everything else defers
-    # to the family collector first.
-    if tier != _TIER_SPECIAL and is_family_event(title, tags):
-        return "family"
-    # Pool activities are their own group (checked before classes because pool
-    # sessions are usually recurring).
-    if tier == _TIER_AQUATIC:
-        return "aquatic"
-    if recurring or tier == _TIER_CLASS:
-        return "classes"
-    if tier == _TIER_MUSIC:
-        return "music"
-    if tier == _TIER_WATER:
-        return "water"
-    return "events"
 
 
 # Aquatic Center subcategories (Phase E §3.2, behind TAXONOMY_REORG_ENABLED).
