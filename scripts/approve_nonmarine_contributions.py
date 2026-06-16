@@ -139,7 +139,7 @@ def _confidence_by_name() -> dict[str, str]:
     return out
 
 
-def run(*, dry_run: bool = True) -> Counter:
+def run(*, dry_run: bool = True, confidence_tiers: frozenset[str] = frozenset({"high"})) -> Counter:
     counts: Counter = Counter()
     conf_by_name = _confidence_by_name()
     db = SessionLocal()
@@ -156,26 +156,46 @@ def run(*, dry_run: bool = True) -> Counter:
         )
         nonmarine = [r for r in rows if (r.submission_category_hint or "").strip() not in MARINE_SLUGS]
 
-        high: list[Contribution] = []
-        held: list[tuple[Contribution, str]] = []
-        for c in nonmarine:
-            conf = conf_by_name.get(_norm(c.submission_name))
-            if conf == "high":
-                high.append(c)
-            else:
-                held.append((c, conf or "NO-JOIN"))
+        # Duplicate guard: never mint a second live provider for a name that already
+        # exists (active). Lower-confidence web-audit rows are likelier to collide.
+        existing_names = {
+            _norm(n)
+            for (n,) in db.query(Provider.provider_name).filter(Provider.is_active.is_(True)).all()
+        }
 
-        # ---- HELD (med / low / no-join): listed, never approved ----
-        print(f"HELD (not approved) - {len(held)} med/low/no-join rows:")
+        selected: list[Contribution] = []
+        held: list[tuple[Contribution, str]] = []
+        dup: list[Contribution] = []
+        for c in nonmarine:
+            conf = conf_by_name.get(_norm(c.submission_name)) or "NO-JOIN"
+            if conf not in confidence_tiers:
+                held.append((c, conf))
+            elif _norm(c.submission_name) in existing_names:
+                dup.append(c)
+            else:
+                selected.append(c)
+
+        # ---- HELD (tier not selected): listed, never approved ----
+        print(f"HELD (tier not in {sorted(confidence_tiers)}) - {len(held)} rows:")
         for c, conf in sorted(held, key=lambda t: (t[0].submission_category_hint or "", t[0].id)):
             print(f"  [{conf}] #{c.id} [{c.submission_category_hint}] {c.submission_name}")
 
-        # ---- HIGH: group by subcategory, derive category/primary ----
+        # ---- DUP-SKIP: a same-name active provider already exists ----
+        if dup:
+            print(f"\nDUP-SKIP (same-name active provider exists) - {len(dup)} rows:")
+            for c in sorted(dup, key=lambda x: x.id):
+                print(f"  #{c.id} [{c.submission_category_hint}] {c.submission_name}")
+            counts["dup_skip"] = len(dup)
+
+        # ---- SELECTED: group by subcategory, derive category/primary ----
         by_sub: dict[str, list[Contribution]] = defaultdict(list)
-        for c in high:
+        for c in selected:
             by_sub[(c.submission_category_hint or "").strip()].append(c)
 
-        print(f"\n{'WOULD APPROVE' if dry_run else 'APPROVING'} {len(high)} high-confidence rows:")
+        print(
+            f"\n{'WOULD APPROVE' if dry_run else 'APPROVING'} {len(selected)} rows "
+            f"(tiers={sorted(confidence_tiers)}):"
+        )
         affected: list[str] = []
         for hint in sorted(by_sub):
             primary = primary_for_subcategory(hint)
@@ -222,7 +242,9 @@ def run(*, dry_run: bool = True) -> Counter:
         db.close()
 
     verb = "would approve" if dry_run else "approved"
-    print(f"\n{verb} {counts['approve']} high-confidence contributions")
+    print(f"\n{verb} {counts['approve']} contributions (tiers={sorted(confidence_tiers)})")
+    if counts["dup_skip"]:
+        print(f"  dup-skipped (same-name active provider): {counts['dup_skip']}")
     if counts["skip_no_category"]:
         print(f"  skipped (no derivable category): {counts['skip_no_category']}")
     return counts
@@ -231,8 +253,14 @@ def run(*, dry_run: bool = True) -> Counter:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dry-run", action="store_true", help="preview without writing")
+    parser.add_argument(
+        "--confidence",
+        default="high",
+        help="comma-separated CSV confidence tiers to approve (default: high)",
+    )
     args = parser.parse_args()
-    run(dry_run=args.dry_run)
+    tiers = frozenset(s.strip().lower() for s in args.confidence.split(",") if s.strip())
+    run(dry_run=args.dry_run, confidence_tiers=tiers or frozenset({"high"}))
 
 
 if __name__ == "__main__":

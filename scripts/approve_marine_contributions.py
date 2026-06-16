@@ -120,6 +120,13 @@ def run(*, dry_run: bool = True) -> Counter:
             .all()
         )
 
+        # Duplicate guard: never mint a second live provider for a name that already
+        # exists (active). Without this the batch silently created dups (2026-06-16).
+        existing_names = {
+            " ".join((n or "").split()).strip().lower()
+            for (n,) in db.query(Provider.provider_name).filter(Provider.is_active.is_(True)).all()
+        }
+
         print("Existing active landing counts (before):")
         for s in MARINE_SLUGS:
             print(f"  {s}: {_landing_count(db, s)}")
@@ -130,6 +137,10 @@ def run(*, dry_run: bool = True) -> Counter:
             if hint not in MARINE_SLUGS:  # belt-and-suspenders; query already scopes this
                 counts["skip_out_of_scope"] += 1
                 print(f"  SKIP (out of marine scope): #{c.id} {c.submission_name} [{hint}]")
+                continue
+            if " ".join((c.submission_name or "").split()).strip().lower() in existing_names:
+                counts["dup_skip"] += 1
+                print(f"  DUP-SKIP (same-name active provider exists): #{c.id} {c.submission_name}")
                 continue
             address, phone, desc = _parse_notes(c.submission_notes)
             desc = _DESC_OVERRIDES.get((c.submission_name or "").strip(), desc)
@@ -170,6 +181,8 @@ def run(*, dry_run: bool = True) -> Counter:
     verb = "would approve" if dry_run else "approved"
     by_sub = ", ".join(f"{s} {counts[s]}" for s in MARINE_SLUGS if counts[s])
     print(f"\n{verb} {counts['approve']} marine contributions ({by_sub})")
+    if counts["dup_skip"]:
+        print(f"  dup-skipped (same-name active provider): {counts['dup_skip']}")
     if counts["skip_out_of_scope"]:
         print(f"  skipped out-of-scope: {counts['skip_out_of_scope']}")
     return counts
