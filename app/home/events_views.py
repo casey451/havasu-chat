@@ -31,11 +31,13 @@ builders are unit-testable; the route computes ``now_lake_havasu()`` itself
 
 from __future__ import annotations
 
-from datetime import date, time, timedelta
+import re
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.categories.taxonomy_overlay import taxonomy_reorg_enabled
 from app.db.models import Event
 from app.events.class_occurrences import (
     class_occurrences_in_window,
@@ -66,9 +68,8 @@ GROUP_DEFS: tuple[tuple[str, str, str], ...] = (
     # so a parent sees everything for kids in one place.
     ("family", "Kids & Family", "\U0001F9D2"),
     ("music", "Music & nightlife", "\U0001F3B6"),
-    # "Lake Life" (formerly "On the water") is LAKE-only; pool activities live in
-    # "Aquatic Center".
-    ("water", "Lake Life", "⛵"),
+    # "Lake & Boating" is LAKE-only; pool activities live in "Aquatic Center".
+    ("water", "Lake & Boating", "⛵"),
     ("aquatic", "Aquatic Center", "\U0001F3CA"),
     ("classes", "Fitness & classes", "\U0001F3C3"),
 )
@@ -120,6 +121,191 @@ def _group_for_tier(
     return "events"
 
 
+# Aquatic Center subcategories (Phase E §3.2, behind TAXONOMY_REORG_ENABLED).
+# The audit found the real recurring "class wall" is the ~101 Aquatic Center
+# programs, so the only place subcategories pay off is inside this one group.
+#
+# MEMBERSHIP CAVEAT: a row only reaches the aquatic GROUP if its TITLE carries a
+# pool word (see _AQUATIC_HINTS in sandstone._event_tier) — membership is
+# title-keyword based, not venue based. So Aquatic-Center programs whose titles
+# lack a pool word ("Warm Water Yoga", "Tai Chi", "Arthritis Class") still route
+# to "Fitness & classes" and never reach these subsections. Surfacing those here
+# would require making aquatic membership venue-aware in _event_tier — a separate,
+# NON-flag-gated change that affects live grouping. Deferred by design.
+# Each tuple is (label, word-boundary keyword hints); rows are matched in this
+# order, so the more specific buckets ("Lap Swim", "Open & Family Swim") are
+# checked before the broad "Aqua Fitness" net. Anything pool-tier that matches
+# nothing falls into the honest "More pool sessions" catch-all rather than being
+# forced into a clinical bucket it doesn't belong in.
+_AQUATIC_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Lap Swim", ("lap swim", "lane swim", "fitness swim")),
+    ("Open & Family Swim", (
+        "open swim", "family swim", "free swim", "rec swim", "recreation swim",
+        "public swim", "splash",
+    )),
+    ("Gentle / Therapeutic", (
+        "arthritis", "motion", "mobility", "gentle", "therap", "rehab",
+        "fit & flex", "fit and flex", "low impact", "low-impact", "senior",
+    )),
+    ("Warm-Water Yoga & Mind-Body", (
+        "yoga", "tai chi", "mind-body", "mind body", "meditation",
+        "water wellness", "pilates", "stretch",
+    )),
+    ("Aqua Fitness", (
+        "aqua", "aquatic", "deep water", "water aerobics", "water fitness",
+        "water exercise", "hydro", "zumba", "bootcamp", "aerobics", "fit",
+    )),
+)
+# Canonical display order (A1-A5 in the proposal), with the catch-all last.
+_AQUATIC_SUBGROUP_ORDER: tuple[str, ...] = (
+    "Open & Family Swim",
+    "Lap Swim",
+    "Aqua Fitness",
+    "Warm-Water Yoga & Mind-Body",
+    "Gentle / Therapeutic",
+    "More pool sessions",
+)
+_AQUATIC_FALLBACK_LABEL = "More pool sessions"
+
+
+def _aquatic_subgroup(title: str) -> str:
+    """Map an Aquatic Center occurrence to one of the §3.2 subcategories.
+
+    Matching is on word boundaries (so "fit" can't fire inside "outfit") in the
+    specificity order of :data:`_AQUATIC_SUBGROUPS`; unmatched pool sessions land
+    in the honest "More pool sessions" bucket. Only used when the
+    ``TAXONOMY_REORG_ENABLED`` flag is on — see :func:`day_groups`.
+    """
+    low = title.lower()
+    for label, hints in _AQUATIC_SUBGROUPS:
+        for h in hints:
+            if re.search(r"\b" + re.escape(h) + r"(?:e?s|ing)?\b", low):
+                return label
+    return _AQUATIC_FALLBACK_LABEL
+
+
+def _split_aquatic_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Partition already-sorted Aquatic Center rows into ordered subsections.
+
+    Returns ``[{"label", "rows", "count"}, ...]`` in canonical order, omitting
+    empty subsections (honest-omission contract). Row order within each
+    subsection is preserved, so the chronological sort from
+    :func:`day_groups` still holds.
+    """
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        label = _aquatic_subgroup(row.get("title") or "")
+        buckets.setdefault(label, []).append(row)
+    out: list[dict[str, Any]] = []
+    for label in _AQUATIC_SUBGROUP_ORDER:
+        sub_rows = buckets.get(label)
+        if sub_rows:
+            out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
+    return out
+
+
+# Phase 3 (Item 6): split the "Fitness & classes" wall into type subsections so
+# a 20-30-class day is scannable. Title-keyword classifier, word-boundary matched
+# in specificity order; unmatched land in the honest "Other classes" bucket.
+_CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Yoga", ("yoga", "vinyasa")),
+    ("Pilates", ("pilates", "reformer", "barre")),
+    ("Martial Arts", (
+        "martial", "karate", "jiu jitsu", "jiu-jitsu", "bjj", "taekwondo",
+        "judo", "mma", "kickbox", "muay thai", "no-gi", "no gi", "kali",
+        "combat", "self defense", "self-defense", "boxing", "dojo",
+    )),
+    ("Dance", ("dance", "ballet", "tap", "jazz", "hip hop", "hip-hop", "ballroom")),
+    ("Gymnastics", ("gymnastics", "tumbling", "tumbler", "tumble", "cheer", "ninja", "trampoline")),
+    ("Strength & Cardio", (
+        "strength", "weight", "crossfit", "cross fit", "bootcamp", "boot camp",
+        "hiit", "cardio", "spin", "cycling", "zumba", "aerobic", "conditioning",
+        "sculpt", "circuit",
+    )),
+)
+_CLASS_SUBGROUP_ORDER: tuple[str, ...] = (
+    "Yoga", "Pilates", "Strength & Cardio", "Dance", "Gymnastics",
+    "Martial Arts", "Other classes",
+)
+_CLASS_FALLBACK_LABEL = "Other classes"
+# Below this many class rows a day reads fine flat; at/above it we sub-group.
+_CLASS_SUBGROUP_MIN = 6
+
+
+def _class_subgroup(title: str) -> str:
+    """Map a fitness/class occurrence to a type subsection by title keyword."""
+    low = title.lower()
+    for label, hints in _CLASS_SUBGROUPS:
+        for h in hints:
+            if re.search(r"\b" + re.escape(h) + r"(?:e?s|ing)?\b", low):
+                return label
+    return _CLASS_FALLBACK_LABEL
+
+
+def _split_class_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Partition already-sorted Fitness & classes rows into ordered type
+    subsections, omitting empty ones (honest-omission). Row order preserved."""
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        buckets.setdefault(_class_subgroup(row.get("title") or ""), []).append(row)
+    out: list[dict[str, Any]] = []
+    for label in _CLASS_SUBGROUP_ORDER:
+        sub_rows = buckets.get(label)
+        if sub_rows:
+            out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
+    return out
+
+
+# Phase 3 (Item 6): nest the Kids & Family group by youth activity type, with
+# per-day counts, and collapse the always-open drop-in venues into one section.
+_FAMILY_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Swim Lessons", ("swim",)),
+    ("Youth Gymnastics", ("gymnastics", "tumbling", "tumbler", "tumble", "cheer", "ninja")),
+    ("Youth Martial Arts", (
+        "martial", "jiu jitsu", "jiu-jitsu", "no-gi", "no gi", "bjj", "karate",
+        "taekwondo", "judo", "mma", "kickbox", "combat", "tiger", "dojo", "kali",
+    )),
+    ("Youth Dance", ("dance", "ballet", "tap", "jazz")),
+    ("Youth Racing", ("bmx", "race", "racing", "motocross", "pump track")),
+)
+_FAMILY_SUBGROUP_ORDER: tuple[str, ...] = (
+    "Swim Lessons", "Youth Gymnastics", "Youth Martial Arts", "Youth Dance",
+    "Youth Racing", "More for kids", "Open today for kids",
+)
+_FAMILY_FALLBACK_LABEL = "More for kids"
+_FAMILY_OPEN_LABEL = "Open today for kids"
+_FAMILY_SUBGROUP_MIN = 5
+
+
+def _family_subgroup(title: str) -> str:
+    """Map a Kids & Family occurrence to a youth-activity subsection by title."""
+    low = title.lower()
+    for label, hints in _FAMILY_SUBGROUPS:
+        for h in hints:
+            if re.search(r"\b" + re.escape(h) + r"(?:e?s|ing)?\b", low):
+                return label
+    return _FAMILY_FALLBACK_LABEL
+
+
+def _split_family_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Partition Kids & Family rows: scheduled occurrences by youth type, with
+    the always-open drop-in venues collapsed under one "Open today for kids"
+    section (ordered last). Empty subsections omitted; row order preserved."""
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        if row.get("ongoing"):
+            label = _FAMILY_OPEN_LABEL
+        else:
+            label = _family_subgroup(row.get("title") or "")
+        buckets.setdefault(label, []).append(row)
+    out: list[dict[str, Any]] = []
+    for label in _FAMILY_SUBGROUP_ORDER:
+        sub_rows = buckets.get(label)
+        if sub_rows:
+            out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
+    return out
+
+
 def _event_row(ev: Event) -> dict[str, Any]:
     return {
         "sort": time_sort_key(ev.start_time, ev.end_time),
@@ -131,7 +317,34 @@ def _event_row(ev: Event) -> dict[str, Any]:
     }
 
 
-def day_groups(db: Session, *, day: date, family: bool = False) -> list[dict[str, Any]]:
+def _occurrence_expired(
+    day: date,
+    start_time: time | None,
+    end_time: time | None,
+    now: datetime | None,
+    *,
+    grace_minutes: int = 60,
+    default_minutes: int = 120,
+) -> bool:
+    """True if an occurrence on ``day`` ended more than ``grace_minutes`` ago.
+
+    No-op (returns False) unless ``now`` is given and ``day`` is the current day,
+    so the filter only ever trims *today's* finished items. Time-TBD occurrences
+    (no ``start_time``) never expire. End is ``end_time`` when set, else
+    ``start_time`` + ``default_minutes`` (Item 6 auto-expiry).
+    """
+    if now is None or start_time is None or now.date() != day:
+        return False
+    if end_time is not None:
+        end_dt = datetime.combine(day, end_time)
+    else:
+        end_dt = datetime.combine(day, start_time) + timedelta(minutes=default_minutes)
+    return now.replace(tzinfo=None) > end_dt + timedelta(minutes=grace_minutes)
+
+
+def day_groups(
+    db: Session, *, day: date, family: bool = False, now: datetime | None = None
+) -> list[dict[str, Any]]:
     """Category-accordion groups for one date. Empty groups are omitted.
 
     Rows inside each group sort chronologically with time-TBD rows last (the
@@ -146,6 +359,13 @@ def day_groups(db: Session, *, day: date, family: bool = False) -> list[dict[str
     events = _live_events_by_day(db, window_start=day, window_end=day).get(day, [])
     if family:
         events = [ev for ev in events if is_family_event(ev.title, ev.tags)]
+    # Item 6 auto-expiry: on the current day, drop occurrences finished >1h ago
+    # (no-op for past/future days or when ``now`` isn't supplied).
+    events = [
+        ev
+        for ev in events
+        if not _occurrence_expired(day, ev.start_time, ev.end_time, now)
+    ]
     # (title, date, start_time) triples: the start-time window keeps distinct
     # sessions apart while still suppressing renamed twins (see
     # drop_event_duplicates).
@@ -166,6 +386,8 @@ def day_groups(db: Session, *, day: date, family: bool = False) -> list[dict[str
     ):
         if family and not is_family_event(occ.title):
             continue
+        if _occurrence_expired(day, occ.start_time, occ.end_time, now):
+            continue
         gkey = _group_for(title=occ.title, tags=None, featured=False, recurring=True)
         rows_by_group[gkey].append(
             {
@@ -185,14 +407,28 @@ def day_groups(db: Session, *, day: date, family: bool = False) -> list[dict[str
     # a day with no scheduled events. They sort after timed rows.
     rows_by_group["family"].extend(open_today_rows(day))
 
+    split_aquatic = taxonomy_reorg_enabled()
     groups: list[dict[str, Any]] = []
     for key, label, icon in GROUP_DEFS:
         rows = sorted(rows_by_group[key], key=lambda r: r["sort"])
         if not rows:
             continue  # omitted entirely — never an empty labeled shell
-        groups.append(
-            {"key": key, "label": label, "icon": icon, "count": len(rows), "rows": rows}
-        )
+        group: dict[str, Any] = {
+            "key": key, "label": label, "icon": icon, "count": len(rows), "rows": rows
+        }
+        # Phase E §3.2: when the reorg flag is on, the Aquatic Center group
+        # renders as labeled subsections (Open & Family Swim, Lap Swim, Aqua
+        # Fitness, Warm-Water Yoga & Mind-Body, Gentle / Therapeutic). The flat
+        # rows stay on the group so the template can fall back when the flag is
+        # off and every other group is unaffected.
+        if split_aquatic and key == "aquatic":
+            group["subgroups"] = _split_aquatic_subgroups(rows)
+        elif key == "classes" and len(rows) >= _CLASS_SUBGROUP_MIN:
+            # Item 6: only sub-group dense class days; small days read fine flat.
+            group["subgroups"] = _split_class_subgroups(rows)
+        elif key == "family" and len(rows) >= _FAMILY_SUBGROUP_MIN:
+            group["subgroups"] = _split_family_subgroups(rows)
+        groups.append(group)
     # "Events" opens by default; if the date has no one-off events, open the
     # first group present so the page never loads fully collapsed.
     has_events_group = any(g["key"] == "events" for g in groups)

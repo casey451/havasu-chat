@@ -853,6 +853,10 @@ def _render_leaf_page(
         request.query_params, cards, base_path=page_path
     )
     dept_path = f"/categories/{leaf.department_slug}"
+    # IA v2: route the parent-department label through the display-label override
+    # so a relabeled department reads consistently here (e.g. "Auto & Boat
+    # Service", not the raw DB "Auto, RV & Fuel").
+    dept_label = display_label(leaf.department_slug, leaf.department_name)
     # Three-level breadcrumb (Home › department › leaf) — the department landing
     # exists as of B.2, so the crumb links to it.
     breadcrumb_jsonld: dict[str, Any] = {
@@ -868,7 +872,7 @@ def _render_leaf_page(
             {
                 "@type": "ListItem",
                 "position": 2,
-                "name": leaf.department_name,
+                "name": dept_label,
                 "item": absolute_url(dept_path),
             },
             {
@@ -899,7 +903,7 @@ def _render_leaf_page(
         ]
     else:
         intro = _LEAF_INTRO_TEMPLATE.format(
-            name=display, n=total, department=leaf.department_name
+            name=display, n=total, department=dept_label
         )
         faqs = []
 
@@ -910,7 +914,7 @@ def _render_leaf_page(
             "today_label": now.strftime("%A, %B ") + str(now.day),
             "now_label": now.strftime("%I:%M %p").lstrip("0"),
             "parent_slug": leaf.department_slug,
-            "parent_label": leaf.department_name,
+            "parent_label": dept_label,
             "parent_href": dept_path,
             "trade_slug": leaf.slug,
             "trade_label": display,

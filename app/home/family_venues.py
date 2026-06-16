@@ -222,6 +222,7 @@ def open_today_rows(day: date) -> list[dict[str, Any]]:
                 "venue": v.age_note or v.address,
                 "url": v.url,
                 "recurring": False,
+                "ongoing": True,  # drop-in venue hours, not a scheduled class
             }
         )
     rows.sort(key=lambda r: r["sort"])
