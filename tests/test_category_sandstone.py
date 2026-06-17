@@ -59,6 +59,67 @@ def test_cards_carry_subcategory_token_for_in_place_filter() -> None:
     assert 'data-subcategory="breweries"' in body
 
 
+def test_cards_render_call_and_directions_actions_when_data_present() -> None:
+    """A card holding a phone + a directions URL shows tappable Call/Directions."""
+    from unittest.mock import patch
+
+    cards = [
+        {
+            "slug": "mudshark",
+            "name": "Mudshark Brewing",
+            "image_url": None,
+            "neighborhood": "",
+            "status": "open",
+            "status_text": "Open",
+            "rating": "4.6",
+            "review_count": 1796,
+            "subcategory": "breweries",
+            "is_open": True,
+            "phone": "(928) 453-9302",
+            "phone_tel": "9284539302",
+            "directions_url": "https://www.google.com/maps/search/?api=1&query=Mudshark",
+        }
+    ]
+    with patch.object(cat_queries, "category_listing", return_value=(cards, 1)):
+        with TestClient(app) as client:
+            r = client.get("/lake-havasu/restaurants")
+    body = r.text
+    assert 'class="biz-action' in body
+    assert 'href="tel:9284539302"' in body
+    assert ">Call</a>" in body
+    assert "https://www.google.com/maps/search/?api=1&amp;query=Mudshark" in body
+    assert ">Directions</a>" in body
+
+
+def test_cards_omit_actions_when_no_phone_or_location() -> None:
+    """A card lacking phone + directions never renders a dead action button."""
+    from unittest.mock import patch
+
+    cards = [
+        {
+            "slug": "noinfo",
+            "name": "Bare Listing",
+            "image_url": None,
+            "neighborhood": "",
+            "status": "open",
+            "status_text": "Open",
+            "rating": "4.0",
+            "review_count": 5,
+            "subcategory": "breweries",
+            "is_open": True,
+            "phone": "",
+            "phone_tel": "",
+            "directions_url": "",
+        }
+    ]
+    with patch.object(cat_queries, "category_listing", return_value=(cards, 1)):
+        with TestClient(app) as client:
+            r = client.get("/lake-havasu/restaurants")
+    body = r.text
+    assert "Bare Listing" in body
+    assert "biz-action" not in body
+
+
 def test_empty_category_renders_honest_state_not_zero() -> None:
     """A route with no providers shows an honest empty state, never '0 listed'."""
     from unittest.mock import patch
