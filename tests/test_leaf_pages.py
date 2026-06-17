@@ -324,8 +324,9 @@ def test_wave1_leaf_copy_intros_and_faq_counts() -> None:
     from app.categories.leaf_copy import LEAF_COPY
 
     # 14 Wave-1 entries + 5 ported from the consolidated trade pages (PR-B)
-    # + 1 lodging vacation-rentals leaf (new leaf, 2026-06-13).
-    assert len(LEAF_COPY) == 20
+    # + 1 lodging vacation-rentals leaf (new leaf, 2026-06-13)
+    # + 1 tattoo-and-piercing leaf (P7 polish, 2026-06-17).
+    assert len(LEAF_COPY) == 21
     for slug, copy in LEAF_COPY.items():
         words = len(copy.intro.split())
         assert 40 <= words <= 100, f"{slug}: intro is {words} words"
@@ -338,6 +339,19 @@ def test_copy_for_leaf_unknown_is_none() -> None:
     assert copy_for_leaf("definitely-not-a-leaf") is None
     assert copy_for_leaf(None) is None
     assert copy_for_leaf("plumbing") is not None
+
+
+def test_tattoo_leaf_has_curated_copy() -> None:
+    """P7 polish: the tattoo leaf no longer falls back to the generic intro."""
+    from app.categories.leaf_copy import copy_for_leaf
+
+    cp = copy_for_leaf("tattoo-and-piercing")
+    assert cp is not None
+    assert "Lake Havasu" in cp.intro
+    # 4 common FAQs + 2 tattoo-specific ones.
+    assert len(cp.faqs) == 6
+    questions = " ".join(q for q, _ in cp.faqs).lower()
+    assert "tattoo" in questions and "piercing" in questions
 
 
 def test_curated_leaf_page_renders_intro_and_faqs(client: TestClient) -> None:
