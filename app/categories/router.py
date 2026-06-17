@@ -824,6 +824,56 @@ def _apply_list_controls(
     return visible, controls
 
 
+# Leaf sub-grouping (P7 follow-up): when a leaf lists enough places spread across
+# enough neighborhoods, split the flat list into per-neighborhood sections so a
+# searcher can scan by area. Conservative thresholds keep thin or single-area
+# leaves on the original flat list — no one-item sections, no trivial grouping.
+_GROUP_MIN_CARDS = 8  # don't bother grouping a short page
+_GROUP_MIN_SECTION = 2  # a named neighborhood section needs at least this many
+_GROUP_MIN_SECTIONS = 2  # need at least this many real sections to group at all
+_GROUP_OTHER_LABEL = "More across Lake Havasu City"
+
+
+def _group_cards_by_neighborhood(
+    cards: list[dict[str, Any]],
+) -> list[tuple[str, list[dict[str, Any]]]] | None:
+    """Split leaf cards into neighborhood sections, or ``None`` to stay flat.
+
+    Groups only when it aids browsing: at least ``_GROUP_MIN_CARDS`` cards AND at
+    least ``_GROUP_MIN_SECTIONS`` neighborhoods that each hold
+    ``_GROUP_MIN_SECTION``+ cards. Named sections are ordered by size (largest
+    first), then alphabetically. Cards with no district — and any lone card in a
+    one-off neighborhood — collapse into a trailing catch-all section, so the
+    page never shows a one-item heading. Card order within each section is
+    preserved from the incoming (already sorted) list.
+    """
+    if len(cards) < _GROUP_MIN_CARDS:
+        return None
+    by_hood: dict[str, list[dict[str, Any]]] = {}
+    no_hood: list[dict[str, Any]] = []
+    for card in cards:
+        hood = (card.get("neighborhood") or "").strip()
+        if hood:
+            by_hood.setdefault(hood, []).append(card)
+        else:
+            no_hood.append(card)
+    named = {h: cs for h, cs in by_hood.items() if len(cs) >= _GROUP_MIN_SECTION}
+    if len(named) < _GROUP_MIN_SECTIONS:
+        return None
+    sections: list[tuple[str, list[dict[str, Any]]]] = sorted(
+        named.items(), key=lambda kv: (-len(kv[1]), kv[0].lower())
+    )
+    leftovers = no_hood + [
+        card
+        for cs in by_hood.values()
+        if len(cs) < _GROUP_MIN_SECTION
+        for card in cs
+    ]
+    if leftovers:
+        sections.append((_GROUP_OTHER_LABEL, leftovers))
+    return sections
+
+
 # A generic, honest intro for a leaf page until B.2 adds per-leaf curated copy.
 # No fabricated specifics — just the ranking-transparency line the whole site
 # uses. ``{name}`` is the leaf's display noun (e.g. "Plumbing", "Restaurants").
@@ -857,6 +907,8 @@ def _render_leaf_page(
     visible_cards, list_controls = _apply_list_controls(
         request.query_params, cards, base_path=page_path
     )
+    # P7: section the leaf list by neighborhood when it helps (else stays flat).
+    card_groups = _group_cards_by_neighborhood(visible_cards)
     dept_path = f"/categories/{leaf.department_slug}"
     # IA v2: route the parent-department label through the display-label override
     # so a relabeled department reads consistently here (e.g. "Auto & Boat
@@ -927,6 +979,7 @@ def _render_leaf_page(
             "trade_intro": intro,
             "trade_faqs": faqs,
             "category_cards": visible_cards,
+            "card_groups": card_groups,
             "list_controls": list_controls,
             "canonical_override": absolute_url(page_path),
             "breadcrumb_jsonld": breadcrumb_jsonld,

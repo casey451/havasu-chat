@@ -146,6 +146,15 @@ a.spon-panel:hover .spon-go{color:var(--peach)}
   overflow:hidden;box-shadow:var(--elev-1);
 }
 .biz-grid:empty{display:none}
+/* P7 leaf sub-grouping: per-neighborhood sections, each its own bordered grid
+   under a quiet uppercase area label. Only rendered when grouping helps. */
+.biz-group{margin-top:22px}
+.biz-group:first-of-type{margin-top:18px}
+.biz-group .biz-grid{margin-top:8px}
+.biz-group-head{
+  font-family:var(--disp);font-weight:800;font-size:12.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--orange-deep);margin:0;padding:0 2px;
+}
 .biz{
   position:relative;
   display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:6px 20px;align-items:center;
