@@ -36,13 +36,14 @@ from sqlalchemy.orm import Session
 from app.categories.subcategories import derive_cuisine
 from app.core.liveness import DAMPENER_FLOOR, liveness_dampener
 from app.db.models import Provider
-from app.home.queries import _hours_status, _provider_image_url
+from app.home.queries import _format_phone, _hours_status, _provider_image_url
 from app.home.queries_c import (
     _format_rating,
     _load_eat_photos,
 )
 from app.providers.queries import (
     _parse_hours_time,
+    derive_directions_url,
     effective_hours_structured,
     is_open_now,
 )
@@ -692,6 +693,11 @@ def _build_category_card(
     ad = creative if (is_sponsored and creative) else {}
     card_image = ad.get("image_url") or image_url
     ad_headline = ad.get("headline") or ""
+    # Browse-card actions: a tappable phone (when we hold a real, non-placeholder
+    # number) and a Google Maps directions link (when we hold any location
+    # signal). Both default to "" so cards lacking the data simply omit the
+    # button -- never a dead tel: or maps link.
+    phone_display, phone_tel = _format_phone(getattr(provider, "phone", None))
     return {
         "slug": provider.slug,
         "name": provider.provider_name,
@@ -715,6 +721,10 @@ def _build_category_card(
         )
         or "",
         "is_open": is_open,
+        # Browse-card quick actions (P7 follow-up). "" -> the button is omitted.
+        "phone": phone_display or "",
+        "phone_tel": phone_tel or "",
+        "directions_url": derive_directions_url(provider) or "",
         # Honesty gate (§7.2): True only when this provider holds an active paid
         # placement on the surface being rendered. Default False keeps every
         # existing caller's cards unlabeled until placements are wired in.
