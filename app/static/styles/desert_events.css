@@ -6,21 +6,22 @@
    ========================================================================= */
 
 /* ------------------------------------------------------------ page head --- */
-.p-head{background:var(--sand);position:relative;overflow:hidden}
+/* Phase 7.4: events head on the premium navy gradient + warm sheen (matches the
+   home hero + category heads). Orange block / literal sun-ridge art retired. */
+.p-head{background:var(--surface-navy);color:var(--ink-on-navy);position:relative;overflow:hidden}
+.p-head::before{content:"";position:absolute;inset:0;background:var(--hero-sheen);pointer-events:none}
 /* NOTE: .p-head-in shares its element with .d-wrap — top/bottom padding only,
    never the `padding:X 0 Y` shorthand (it would erase the side gutters). */
-.p-head-in{padding-top:56px;padding-bottom:48px}
-.p-head h1{font-family:var(--disp);font-weight:800;font-size:clamp(38px,6vw,76px);line-height:.94;letter-spacing:-.02em;text-transform:uppercase}
-.p-head h1 em{font-style:normal;color:var(--orange)}
-.p-sub{margin-top:14px;font-size:clamp(14.5px,1.4vw,17px);font-weight:500;max-width:58ch}
-/* small ridge art echoing the home hero */
-.head-art{position:absolute;right:-40px;bottom:-2px;width:420px;height:150px;z-index:0;pointer-events:none}
-.head-art .sun{position:absolute;right:90px;bottom:30px;width:120px;height:120px;border-radius:50%;background:var(--orange)}
-.head-art .ridge{
-  position:absolute;left:0;right:0;bottom:0;height:64px;background:var(--blue);
-  clip-path:polygon(0 70%,14% 40%,30% 64%,46% 26%,62% 58%,78% 20%,90% 50%,100% 36%,100% 100%,0 100%);
-}
-.p-head-in{position:relative;z-index:1}
+.p-head-in{padding-top:56px;padding-bottom:48px;position:relative;z-index:1}
+.p-head h1{font-family:var(--disp);font-weight:800;font-size:clamp(38px,6vw,76px);line-height:.94;letter-spacing:-.02em;text-transform:uppercase;color:var(--ink-on-navy)}
+.p-head h1 em{font-style:normal;color:var(--peach)}
+.p-head .d-crumb{color:var(--muted-on-navy)}
+.p-head .d-crumb a:hover{color:var(--peach)}
+.p-sub{margin-top:14px;font-size:clamp(14.5px,1.4vw,17px);font-weight:500;max-width:58ch;color:var(--muted-on-navy)}
+.p-head .ev-link{color:var(--ink-on-navy)}
+.p-head .ev-link:hover{color:var(--peach)}
+/* sun-ridge art retired on the navy head — the sheen carries the warmth now. */
+.head-art{display:none}
 
 .ev-shell{max-width:920px;margin:0 auto;padding-bottom:72px}
 .p-head .ev-shell{padding-bottom:0}
@@ -29,60 +30,64 @@
 .ev-shell .block{padding:32px 0 0}
 
 /* ---- Today | Week | Month toggle (no-JS view links) ---- */
+/* Phase 7.4: the view + family toggles sit ON the navy head — translucent
+   light pills, active flips to a cream pill (was hard cream + 2.5px black). */
 .ev-views{
-  display:inline-flex;background:var(--cream);border:2.5px solid var(--black);
+  display:inline-flex;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.2);
   border-radius:999px;overflow:hidden;margin-top:30px;
 }
 .ev-views a{
-  padding:12px 28px;font-size:13.5px;font-weight:700;letter-spacing:.02em;
-  border-left:2.5px solid var(--black);transition:background .15s,color .15s;
+  padding:12px 28px;font-size:13.5px;font-weight:700;letter-spacing:.02em;color:var(--ink-on-navy);
+  border-left:1px solid rgba(255,255,255,.16);transition:background .15s,color .15s;
 }
 .ev-views a:first-child{border-left:none}
-.ev-views a:hover{background:var(--sand)}
-.ev-views a.on{background:var(--black);color:var(--cream)}
+.ev-views a:hover{background:rgba(255,255,255,.1)}
+.ev-views a.on{background:var(--cream);color:var(--black)}
 
 /* ---- Family mode toggle (no-JS switch link) ---- */
 .ev-family-toggle{
   display:inline-flex;align-items:center;gap:9px;margin:14px 0 0 2px;
-  padding:9px 16px;font-size:13px;font-weight:700;letter-spacing:.02em;
-  background:var(--cream);border:2.5px solid var(--black);border-radius:999px;
+  padding:9px 16px;font-size:13px;font-weight:700;letter-spacing:.02em;color:var(--ink-on-navy);
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.2);border-radius:999px;
   transition:background .15s;
 }
-.ev-family-toggle:hover{background:var(--sand)}
+.ev-family-toggle:hover{background:rgba(255,255,255,.1)}
 .ev-family-toggle .ev-family-knob{
-  width:30px;height:17px;border-radius:999px;border:2px solid var(--black);
-  background:var(--cream);position:relative;flex-shrink:0;
+  width:30px;height:17px;border-radius:999px;border:1.5px solid rgba(255,255,255,.4);
+  background:transparent;position:relative;flex-shrink:0;
 }
 .ev-family-toggle .ev-family-knob::after{
   content:"";position:absolute;top:1px;left:1px;width:11px;height:11px;
-  border-radius:50%;background:var(--black);transition:left .15s;
+  border-radius:50%;background:var(--ink-on-navy);transition:left .15s;
 }
-.ev-family-toggle.on{background:var(--black);color:var(--cream)}
-.ev-family-toggle.on:hover{background:var(--black)}
-.ev-family-toggle.on .ev-family-knob{background:var(--orange)}
-.ev-family-toggle.on .ev-family-knob::after{left:14px}
+.ev-family-toggle.on{background:var(--cream);color:var(--black)}
+.ev-family-toggle.on:hover{background:var(--cream)}
+.ev-family-toggle.on .ev-family-knob{background:transparent;border-color:var(--black)}
+.ev-family-toggle.on .ev-family-knob::after{left:14px;background:var(--orange-ink)}
 
-/* day-detail prev/next nav */
+/* day-detail prev/next nav (below the head, on the page background) */
 .ev-daynav{display:flex;flex-wrap:wrap;gap:10px;margin-top:28px}
 .ev-daynav a{
-  font-size:12.5px;font-weight:700;letter-spacing:.02em;
-  border:2px solid var(--black);border-radius:999px;padding:8px 17px;
-  transition:background .15s,color .15s,border-color .15s;
+  font-size:12.5px;font-weight:700;letter-spacing:.02em;color:var(--black);
+  background:var(--surface-cream);border:1px solid rgba(23,19,16,.16);border-radius:999px;
+  padding:8px 17px;box-shadow:var(--elev-1);
+  transition:background .15s,color .15s,border-color .15s,box-shadow .15s;
 }
-.ev-daynav a:hover{background:var(--black);color:var(--cream)}
+.ev-daynav a:hover{border-color:rgba(194,74,22,.5);color:var(--orange-ink);box-shadow:var(--elev-2)}
 
 /* ---- TODAY / day view: category accordion ---- */
+/* Phase 7.4: category accordion on the soft layer (was 2.5px black + hard offset). */
 .ev-acc{
-  background:var(--cream);border:2.5px solid var(--black);border-radius:16px;
-  margin-bottom:14px;overflow:hidden;transition:box-shadow .14s ease;
+  background:var(--surface-cream);border:var(--border-soft);border-radius:var(--radius-soft);
+  margin-bottom:14px;overflow:hidden;box-shadow:var(--elev-1);transition:box-shadow .14s ease;
 }
-.ev-acc:hover{box-shadow:5px 5px 0 var(--black)}
+.ev-acc:hover{box-shadow:var(--elev-2)}
 .ev-acc summary{
   list-style:none;cursor:pointer;
   display:flex;align-items:center;gap:14px;padding:18px 22px;
 }
 .ev-acc summary::-webkit-details-marker{display:none}
-.ev-acc[open] summary{background:var(--sand);border-bottom:2.5px solid var(--black)}
+.ev-acc[open] summary{background:rgba(23,19,16,.045);border-bottom:var(--border-soft)}
 .ev-acc-swatch{width:16px;height:16px;border-radius:4px;border:2px solid var(--black);flex:none;background:var(--cream)}
 .ev-acc-swatch--events{background:var(--orange)}
 .ev-acc-swatch--family{background:var(--peach)}
@@ -145,17 +150,18 @@
   background:var(--sand);border-radius:999px;min-width:20px;height:20px;
   display:inline-flex;align-items:center;justify-content:center;padding:0 7px;opacity:.85;
 }
-.ev-empty{background:var(--cream);border:var(--d-border);border-radius:var(--d-radius);padding:26px;font-size:15px}
+.ev-empty{background:var(--surface-cream);border:var(--border-soft);border-radius:var(--radius-soft);box-shadow:var(--elev-1);padding:26px;font-size:15px}
 
 /* ---- WEEK view: compact 7-row list ---- */
 .ev-week{display:flex;flex-direction:column;gap:14px;padding-top:8px}
+/* Phase 7.4: week rows on the soft layer (was 2.5px black + hard offset). */
 .ev-week-row{
   display:grid;grid-template-columns:88px minmax(0,1fr) auto;gap:20px;align-items:center;
-  background:var(--cream);border:2.5px solid var(--black);border-radius:16px;
-  padding:18px 22px;position:relative;
+  background:var(--surface-cream);border:var(--border-soft);border-radius:var(--radius-soft);
+  padding:18px 22px;position:relative;box-shadow:var(--elev-1);
   transition:transform .14s ease,box-shadow .14s ease;
 }
-.ev-week-row:hover{transform:translate(-3px,-3px);box-shadow:6px 6px 0 var(--black)}
+.ev-week-row:hover{transform:translateY(-2px);box-shadow:var(--elev-2)}
 .ev-week-row.is-today::before{
   content:"Today";position:absolute;top:-12px;left:20px;
   background:var(--black);color:var(--cream);
@@ -163,11 +169,11 @@
 }
 .ev-week-date{
   display:flex;flex-direction:column;justify-content:center;text-align:center;
-  border-right:2.5px solid var(--black);padding-right:18px;align-self:stretch;
+  border-right:1.5px solid rgba(23,19,16,.16);padding-right:18px;align-self:stretch;
 }
 .ev-week-date .dow{font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;opacity:.6}
 .ev-week-date .num{font-family:var(--disp);font-weight:800;font-size:clamp(32px,3.2vw,42px);line-height:1;letter-spacing:-.03em}
-.ev-week-row.is-today .ev-week-date .num{color:var(--orange)}
+.ev-week-row.is-today .ev-week-date .num{color:var(--orange-ink)}
 .ev-week-headline{display:block;font-family:var(--disp);font-weight:700;font-size:clamp(16px,1.8vw,20px);line-height:1.18}
 .ev-week-headline.none{font-family:var(--text);font-weight:500;font-size:14px;opacity:.6}
 .ev-week-summary{
@@ -175,21 +181,22 @@
   margin-top:7px;opacity:.7;
 }
 .ev-week-chev{
-  width:36px;height:36px;border:2px solid var(--black);border-radius:50%;
+  width:36px;height:36px;border:1.5px solid rgba(23,19,16,.4);border-radius:50%;
   display:inline-flex;align-items:center;justify-content:center;font-size:18px;line-height:1;flex:none;
   transition:background .15s,color .15s,border-color .15s;
 }
-.ev-week-row:hover .ev-week-chev{background:var(--orange-deep);border-color:var(--orange-deep);color:var(--cream)}
+.ev-week-row:hover .ev-week-chev{background:var(--orange-ink);border-color:var(--orange-ink);color:var(--cream)}
 
 /* ---- MONTH view: date-picker grid ---- */
-.ev-month{background:var(--cream);border:2.5px solid var(--black);border-radius:var(--d-radius-lg);padding:22px 20px 24px;margin-top:8px}
+.ev-month{background:var(--surface-cream);border:var(--border-soft);border-radius:var(--radius-soft-lg);box-shadow:var(--elev-1);padding:22px 20px 24px;margin-top:8px}
 .ev-month-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:16px}
 .ev-month-head h2{font-family:var(--disp);font-weight:800;font-size:clamp(22px,3vw,30px);text-transform:uppercase}
 .ev-month-pager{
-  width:36px;height:36px;border:2px solid var(--black);border-radius:50%;flex:none;
+  width:36px;height:36px;border:1.5px solid rgba(23,19,16,.4);border-radius:50%;flex:none;
   display:inline-flex;align-items:center;justify-content:center;font-size:19px;line-height:1;
+  transition:background .15s,color .15s,border-color .15s;
 }
-.ev-month-pager:hover{background:var(--orange-deep);border-color:var(--orange-deep);color:var(--cream)}
+.ev-month-pager:hover{background:var(--orange-ink);border-color:var(--orange-ink);color:var(--cream)}
 .ev-mg-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.55;margin-bottom:6px}
 .ev-mg{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
 .ev-mg-cell{min-height:64px;border:1.5px solid rgba(23,19,16,.2);border-radius:10px;padding:6px 7px;position:relative}
@@ -213,8 +220,8 @@ a.ev-mg-cell:hover{background:var(--sand)}
 /* ---- event permalink (/events/{id}) ---- */
 .ev-detail{max-width:760px;margin:0 auto;padding:44px 0 76px}
 .ev-passed-banner{
-  background:var(--sand);border:var(--d-border);border-radius:var(--d-radius);
-  padding:12px 18px;font-weight:500;margin-bottom:24px;
+  background:var(--surface-cream);border:var(--border-soft);border-radius:var(--radius-soft);
+  box-shadow:var(--elev-1);padding:12px 18px;font-weight:500;margin-bottom:24px;
 }
 .ev-passed-banner a{font-weight:700;border-bottom:2px solid var(--orange)}
 .ev-eyebrow{font-size:11px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--orange-deep);margin-bottom:10px}
@@ -223,10 +230,10 @@ a.ev-mg-cell:hover{background:var(--sand)}
   line-height:.95;letter-spacing:-.02em;text-transform:uppercase;
 }
 .ev-detail-meta{margin-top:14px;font-size:15px;font-weight:500}
-.ev-detail-image{margin-top:26px;width:100%;border:var(--d-border);border-radius:var(--d-radius);box-shadow:var(--d-shadow)}
+.ev-detail-image{margin-top:26px;width:100%;border:var(--border-soft);border-radius:var(--radius-soft);box-shadow:var(--elev-2)}
 .ev-detail-actions{margin-top:24px;display:flex;gap:12px;flex-wrap:wrap}
 .ev-detail-desc{margin-top:28px;font-size:16px;line-height:1.65;white-space:pre-line}
-.ev-sparse-card{margin-top:28px;background:var(--cream);border:var(--d-border);border-radius:var(--d-radius);padding:22px 24px}
+.ev-sparse-card{margin-top:28px;background:var(--surface-cream);border:var(--border-soft);border-radius:var(--radius-soft);box-shadow:var(--elev-1);padding:22px 24px}
 .ev-sparse-card h2{font-family:var(--disp);font-weight:800;font-size:20px;text-transform:uppercase;margin-bottom:8px}
 .ev-sparse-list{list-style:none;padding:0;margin-top:10px}
 .ev-sparse-list li{padding:4px 0}
