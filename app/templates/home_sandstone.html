@@ -243,7 +243,7 @@
      section is absent when unsold. ---- #}
   {% if promoted %}
   <section class="d-wrap home-promoted" aria-label="Sponsored">
-    <a class="promoted-card"{% if promoted.cta_url %} href="/sponsor/click?id={{ promoted.id }}&slot=promoted"{% endif %}>
+    <a class="promoted-card"{% if promoted.cta_url %} href="{% if promoted.click_url %}{{ promoted.click_url }}{% else %}/sponsor/click?id={{ promoted.id }}&slot=promoted{% endif %}"{% endif %}>
       {% if promoted.image_url %}<div class="pr-img" style="background-image:url('{{ promoted.image_url }}')"></div>{% endif %}
       <div class="pr-body">
         <span class="d-tag d-tag--sponsored">Sponsored</span>
