@@ -15,7 +15,13 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
-from app.main import _event_is_past, _format_event_datetime
+from app.main import (
+    _event_is_past,
+    _event_link_html,
+    _format_event_datetime,
+    _link_domain,
+    _link_label,
+)
 
 PHX = ZoneInfo("America/Phoenix")
 # Thursday, June 4 2026, noon local -- fixed reference for deterministic cases.
@@ -100,3 +106,52 @@ def test_is_past_uses_end_date_when_event_spans_into_future():
     with patch("app.main.now_lake_havasu", return_value=REF):
         ev = _ev(date=date(2026, 6, 3), end_date=date(2026, 6, 6))
         assert _event_is_past(ev) is False
+
+
+# --- Event-link rendering: friendly label + source attribution byline --------
+
+
+def test_link_domain_strips_www():
+    assert _link_domain("https://www.riverscenemagazine.com/events/x") == "riverscenemagazine.com"
+    assert _link_domain("https://allevents.in/lake-havasu/y") == "allevents.in"
+    assert _link_domain("") == ""
+    assert _link_domain(None) == ""
+
+
+def test_link_label_falls_back_when_no_domain():
+    assert _link_label("https://foundryhavasu.com/e") == "foundryhavasu.com"
+    assert _link_label(None) == "Visit event page"
+
+
+def test_event_link_html_shows_domain_not_raw_url():
+    out = _event_link_html("https://www.riverscenemagazine.com/events/movies", None)
+    assert "Event Link:" in out
+    assert ">riverscenemagazine.com</a>" in out
+    # the raw URL path is not used as the visible link text
+    assert ">https://www.riverscenemagazine.com/events/movies</a>" not in out
+
+
+def test_event_link_html_renders_source_byline_when_distinct():
+    out = _event_link_html(
+        "https://starcinemashavasu.com/", "https://www.riverscenemagazine.com/events/x"
+    )
+    assert 'class="ev-source"' in out
+    assert "Source:" in out
+    assert ">riverscenemagazine.com</a>" in out
+
+
+def test_event_link_html_no_byline_when_source_same_site():
+    out = _event_link_html("https://foundryhavasu.com/e", "https://foundryhavasu.com/other")
+    assert "ev-source" not in out
+
+
+def test_event_link_html_source_only_links_to_source():
+    # No event_url: source becomes the primary link, and there's no redundant byline.
+    out = _event_link_html(None, "https://havasis.org/")
+    assert ">havasis.org</a>" in out
+    assert "ev-source" not in out
+
+
+def test_event_link_html_empty_when_no_urls():
+    assert _event_link_html(None, None) == ""
+    assert _event_link_html("", "") == ""
