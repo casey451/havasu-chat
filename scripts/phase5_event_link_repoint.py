@@ -85,11 +85,10 @@ REPOINTS: list[Repoint] = [
         _AQUATIC,
         "Aquatic Center (city)",
     ),
-    # Unresolved: confirm The Views' primary URL before applying (left as None).
     Repoint(
         "https://www.golakehavasu.com/events/wine-tasting/",
-        None,
-        "The Views — URL UNCONFIRMED",
+        "https://www.theviewsatlakehavasu.com/",
+        "The Views at Lake Havasu",
     ),
     # allevents.in (aggregator) -> venue resolved from the listing's own data
     Repoint(
