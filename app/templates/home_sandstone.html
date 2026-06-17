@@ -91,6 +91,31 @@
     </div>
   </section>
 
+  {# ---- Phase 6B: premium sponsor placard, ABOVE THE FOLD. Relocated here (under
+     the intent chips, above the week strip) so a sold placement renders on first
+     load on mobile + desktop. Real-or-omit: a sold marquee renders the flagship
+     card; unsold collapses to a slim claim line (never a fake sponsor, never a
+     big empty box). Premium visual polish lands in Phase 7. ---- #}
+  <section class="d-wrap home-marquee" aria-label="Featured business">
+    {% if marquee %}
+    <a class="marquee-card"{% if marquee.cta_url %} href="{% if marquee.click_url %}{{ marquee.click_url }}{% else %}/sponsor/click?id={{ marquee.id }}&slot=marquee{% endif %}"{% endif %}>
+      {% if marquee.image_url %}<div class="mq-img" style="background-image:url('{{ marquee.image_url }}')"></div>{% else %}<div class="mq-img mq-img--art" aria-hidden="true"></div>{% endif %}
+      <div class="mq-body">
+        <span class="d-tag d-tag--sponsored">Featured</span>
+        {% if marquee.eyebrow %}<div class="cat">{{ marquee.eyebrow }}</div>{% endif %}
+        <h2>{{ marquee.headline }}</h2>
+        {% if marquee.pitch %}<p>{{ marquee.pitch }}</p>{% endif %}
+        {% if marquee.cta_label %}<span class="cta">{{ marquee.cta_label }} →</span>{% endif %}
+      </div>
+    </a>
+    {% else %}
+    <a class="marquee-claim" href="/portal/placements">
+      <span class="cat">Featured business</span>
+      <span class="claim">Your business in the top spot — quiet, clearly labeled. <em>Advertise →</em></span>
+    </a>
+    {% endif %}
+  </section>
+
   {# ---- This week around the lake — next 7 days, ranked by importance ---- #}
   {% if week.has_any %}
   <section class="d-wrap home-week" aria-label="This week around the lake">
@@ -174,30 +199,6 @@
       {% endif %}
     </div>
   </section>
-
-  {# ---- G Tier-1: marquee sponsor, above the fold. Real-or-omit: a sold
-     marquee renders the flagship card; unsold collapses to a slim claim line
-     (never a fake sponsor, never a big empty box). ---- #}
-  <section class="d-wrap home-marquee" aria-label="Featured business">
-    {% if marquee %}
-    <a class="marquee-card"{% if marquee.cta_url %} href="{% if marquee.click_url %}{{ marquee.click_url }}{% else %}/sponsor/click?id={{ marquee.id }}&slot=marquee{% endif %}"{% endif %}>
-      {% if marquee.image_url %}<div class="mq-img" style="background-image:url('{{ marquee.image_url }}')"></div>{% else %}<div class="mq-img mq-img--art" aria-hidden="true"></div>{% endif %}
-      <div class="mq-body">
-        <span class="d-tag d-tag--sponsored">Featured</span>
-        {% if marquee.eyebrow %}<div class="cat">{{ marquee.eyebrow }}</div>{% endif %}
-        <h2>{{ marquee.headline }}</h2>
-        {% if marquee.pitch %}<p>{{ marquee.pitch }}</p>{% endif %}
-        {% if marquee.cta_label %}<span class="cta">{{ marquee.cta_label }} →</span>{% endif %}
-      </div>
-    </a>
-    {% else %}
-    <a class="marquee-claim" href="/portal/placements">
-      <span class="cat">Featured business</span>
-      <span class="claim">Your business in the top spot — quiet, clearly labeled. <em>Advertise →</em></span>
-    </a>
-    {% endif %}
-  </section>
-
 
   {# ---- G Tier-2: Featured this week — spotlight sponsors (labeled), event-
      adjacent, right after the week strip. Copy audit 2026-06-10: the section
