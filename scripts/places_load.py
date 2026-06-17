@@ -55,6 +55,7 @@ from app.contrib.ingest_reconciler import (  # noqa: E402
 from app.contrib.leaf_type_mapping import (  # noqa: E402
     map_google_types_to_leaf_slug,
 )
+from app.contrib.name_leaf_rules import leaf_for_name  # noqa: E402
 from app.contrib.scraper_ingest import decide_ingest  # noqa: E402
 from app.core.liveness import compute_liveness  # noqa: E402
 from app.db.database import SessionLocal  # noqa: E402
@@ -524,6 +525,19 @@ def _resolve_category_id(row: dict[str, Any], category_id_by_slug: dict[str, int
         and _name_signals_boat(name)
     ):
         cat_id = category_id_by_slug.get("on-the-water")
+        if cat_id is not None:
+            return cat_id
+
+    # Layer 1a — name override for martial-arts / dance. Google has no precise
+    # primary type for dojos or dance studios (they carry gym / school /
+    # point_of_interest), so a confident NAME signal routes the leaf and must beat
+    # the generic-type leaf map below — otherwise a dojo typed ``gym`` would file
+    # under gyms-and-fitness-centers (the 2026-06-17 Phase 4 misfile class). The
+    # matcher (``name_leaf_rules``) is conservative; an unmatched name falls
+    # through untouched.
+    name_leaf = leaf_for_name(name)
+    if name_leaf is not None:
+        cat_id = category_id_by_slug.get(name_leaf)
         if cat_id is not None:
             return cat_id
 
