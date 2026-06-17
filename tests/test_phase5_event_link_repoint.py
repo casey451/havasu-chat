@@ -8,6 +8,7 @@ dry-run never writes, ``--apply`` repoints and preserves provenance via source_u
 from __future__ import annotations
 
 import importlib.util
+import sys
 from datetime import date, time
 from pathlib import Path
 
@@ -29,6 +30,9 @@ def mod():
     spec = importlib.util.spec_from_file_location("phase5_event_link_repoint", path)
     assert spec and spec.loader
     m = importlib.util.module_from_spec(spec)
+    # Register before exec so @dataclass can resolve PEP 563 string annotations
+    # via the module namespace (Python 3.13 dataclasses looks it up in sys.modules).
+    sys.modules[spec.name] = m
     spec.loader.exec_module(m)
     return m
 
