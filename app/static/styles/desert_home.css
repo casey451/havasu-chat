@@ -16,14 +16,20 @@
 
 /* ================================================================ HOME ==== */
 
-/* ---- hero: sand block, giant display headline + ask bar ---- */
-.home-hero{background:var(--sand);position:relative;overflow:hidden}
-.hero{max-width:1280px;margin:0 auto;padding:64px 32px 56px;
-  display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,1fr);
+/* ---- hero (Phase 7.2d): premium navy gradient + warm horizon sheen. The ask
+   box is the hero element (elevated ink card on the soft layer); the literal
+   sun/ridge art is retired in favor of the sheen. ---- */
+.home-hero{background:var(--surface-navy);color:var(--ink-on-navy);position:relative;overflow:hidden}
+/* the hero's only "art" now — a warm glow drifting off the upper-right */
+.home-hero::before{content:"";position:absolute;inset:0;background:var(--hero-sheen);pointer-events:none}
+.hero{max-width:1280px;margin:0 auto;padding:72px 32px 64px;position:relative;z-index:1;
+  display:grid;grid-template-columns:minmax(0,1.3fr) minmax(320px,1fr);
   gap:48px;align-items:end}
 .hero-copy .date-tag{
-  display:inline-block;margin-bottom:22px;background:var(--black);color:var(--cream);
-  font-size:12px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;padding:8px 16px;
+  display:inline-block;margin-bottom:22px;
+  background:rgba(255,255,255,.07);color:var(--muted-on-navy);
+  border:1px solid rgba(255,255,255,.16);border-radius:999px;
+  font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;padding:7px 15px;
 }
 .hero-copy h1{
   font-family:var(--disp);font-weight:800;
@@ -31,15 +37,21 @@
      phones — the line never wraps (see .nb), it scales down instead. */
   font-size:clamp(34px,9vw,124px);
   line-height:.92;letter-spacing:-.025em;text-transform:uppercase;
+  color:var(--ink-on-navy);
 }
 /* Each headline beat is its own line: "Everything" / "Lake Havasu." / "Ask Hava." */
 .hero-copy h1 .hl{display:block}
 /* "Lake Havasu." stays on ONE line at every screen size. */
 .hero-copy h1 .nb{white-space:nowrap}
-.hero-copy h1 .l2{color:var(--orange);display:block;font-size:.46em;letter-spacing:-.01em;margin-top:.06em}
-.hero-copy h1 em{font-style:normal;color:var(--orange)}
+/* Warm peach accent on the navy hero (the on-dark accent per the contrast
+   covenant — orange #d4581e dips below AA-large on navy). */
+.hero-copy h1 .l2{color:var(--peach);display:block;font-size:.46em;letter-spacing:-.01em;margin-top:.06em}
+.hero-copy h1 em{font-style:normal;color:var(--peach)}
 
-/* sun-over-ridge art above the ask bar (decorative) */
+/* sun-over-ridge art retired in Phase 7.2d — the navy gradient + --hero-sheen
+   carry the warmth now, so the literal art is hidden at every width (it was
+   already display:none under 1080px). Markup kept; styling below is dormant. */
+.home-hero .hero-art{display:none}
 .hero-art{position:relative;height:140px;margin-bottom:-6px}
 .hero-art .sun{position:absolute;right:16%;bottom:4%;width:110px;height:110px;border-radius:50%;background:var(--orange)}
 .hero-art .ridge{
@@ -48,10 +60,13 @@
 }
 .hero-art .lines i{position:absolute;left:0;right:0;height:3px;background:var(--black);opacity:.14;display:block}
 
-/* ask bar — the black card with the orange offset shadow */
+/* ask bar (Phase 7.2d) — the hero element: an elevated ink card on the soft
+   layer (was a black card with a hard orange offset). The orange "Ask Hava"
+   button stays as the single accent CTA. */
 .askbar{
-  position:relative;z-index:2;background:var(--black);color:var(--cream);
-  border-radius:18px;padding:22px;box-shadow:10px 10px 0 var(--orange);
+  position:relative;z-index:2;background:var(--surface-ink);color:var(--cream);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:var(--radius-soft-lg);padding:22px;box-shadow:var(--elev-3);
 }
 .askbar-eyebrow{color:var(--peach);display:block;margin-bottom:10px}
 .searchbox{display:flex;background:var(--cream);border-radius:12px;overflow:hidden}
@@ -176,22 +191,25 @@
 
 /* ---- featured around town: labeled sponsor cards + honest claim slot ---- */
 .spon-row{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+/* Phase 7.2d: labeled sponsor cards on the soft layer (was --d-border + hard
+   offset shadow). The placeholder art is a calm navy+sheen, not an orange fill. */
 .spon{
-  position:relative;background:var(--cream);border:var(--d-border);border-radius:var(--d-radius);
-  overflow:hidden;display:flex;flex-direction:column;
+  position:relative;background:var(--surface-cream);border:var(--border-soft);border-radius:var(--radius-soft);
+  overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--elev-1);
   transition:transform .14s ease,box-shadow .14s ease;
 }
-.spon:hover{transform:translate(-3px,-3px);box-shadow:6px 6px 0 var(--black)}
-.spon .img{height:132px;border-bottom:var(--d-border);background-color:var(--blue);background-size:cover;background-position:center}
-.spon .img--art{background-image:radial-gradient(circle at 76% 34%, var(--orange) 0 25%, var(--blue) 26%)}
+.spon:hover{transform:translateY(-2px);box-shadow:var(--elev-2)}
+.spon .img{height:132px;border-bottom:var(--border-soft);background-color:var(--blue);background-size:cover;background-position:center}
+.spon .img--art{position:relative;background:var(--surface-navy)}
+.spon .img--art::after{content:"";position:absolute;inset:0;background:var(--hero-sheen)}
 .spon-label{position:absolute;top:12px;left:12px}
 .spon .body{padding:16px 18px 18px}
 .spon .cat{font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;opacity:.55}
 .spon h3{font-family:var(--disp);font-weight:700;font-size:19px;line-height:1.15;margin-top:4px}
 .spon .deal{font-size:13px;opacity:.75;margin-top:6px}
-.spon.empty{border-style:dashed;background:transparent;justify-content:center;min-height:180px}
+.spon.empty{border:1.5px dashed rgba(23,19,16,.25);background:transparent;justify-content:center;min-height:180px;box-shadow:none}
 .spon.empty .cat{color:inherit;opacity:.55}
-.spon.empty:hover{box-shadow:6px 6px 0 var(--black)}
+.spon.empty:hover{transform:none;box-shadow:var(--elev-1)}
 
 /* ---- month calendar (real Event rows; JS-free pager) ---- */
 .cal-card{background:var(--cream);border:var(--d-border);border-radius:var(--d-radius-lg);padding:20px 20px 24px}
@@ -429,38 +447,44 @@ a.gas-card:hover{transform:translate(-3px,-3px);box-shadow:6px 6px 0 var(--black
 .catpill .n{font-weight:700;color:var(--orange-deep)}
 .catpill .l{font-size:.9rem}
 
-/* Tier-1 marquee — the flagship above-the-fold unit. */
-.home-marquee{padding-top:14px}
-.marquee-card{display:flex;align-items:stretch;background:var(--black);
-  border-radius:var(--d-radius-lg);overflow:hidden;text-decoration:none;
-  box-shadow:var(--d-shadow);transition:.15s}
+/* Tier-1 marquee (Phase 7.2d) — the flagship above-the-fold unit, on the soft
+   layer: premium navy card with soft elevation (was a black card + hard offset
+   shadow). The placeholder art is navy+sheen, never a large orange fill. */
+.home-marquee{padding-top:18px}
+.marquee-card{display:flex;align-items:stretch;background:var(--surface-navy);color:var(--ink-on-navy);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:var(--radius-soft-lg);overflow:hidden;text-decoration:none;
+  box-shadow:var(--elev-3);transition:transform .15s ease,box-shadow .15s ease}
 .marquee-card:hover{transform:translateY(-2px)}
-.marquee-card .mq-img{flex:0 0 38%;min-height:150px;background:var(--sand) center/cover no-repeat}
-.marquee-card .mq-img--art{background:linear-gradient(135deg,var(--orange),var(--orange-deep))}
-.marquee-card .mq-body{padding:20px 24px;color:var(--cream);display:flex;flex-direction:column;gap:6px;justify-content:center}
+.marquee-card .mq-img{flex:0 0 38%;min-height:158px;background:var(--blue) center/cover no-repeat}
+.marquee-card .mq-img--art{position:relative;background:var(--surface-navy)}
+.marquee-card .mq-img--art::after{content:"";position:absolute;inset:0;background:var(--hero-sheen)}
+.marquee-card .mq-body{padding:22px 26px;color:var(--ink-on-navy);display:flex;flex-direction:column;gap:6px;justify-content:center}
 .marquee-card .mq-body .cat{font-size:.8rem;color:var(--peach);text-transform:uppercase;letter-spacing:.04em}
-.marquee-card .mq-body h2{font-family:var(--disp);font-size:1.7rem;line-height:1.05;margin:2px 0;color:var(--cream)}
-.marquee-card .mq-body p{font-size:.95rem;opacity:.9;margin:0}
-.marquee-card .mq-body .cta{margin-top:6px;font-weight:700;color:var(--orange)}
-/* Unsold marquee — slim claim line, never a big empty box. */
+.marquee-card .mq-body h2{font-family:var(--disp);font-size:1.7rem;line-height:1.05;margin:2px 0;color:var(--ink-on-navy)}
+.marquee-card .mq-body p{font-size:.95rem;color:var(--muted-on-navy);margin:0}
+.marquee-card .mq-body .cta{margin-top:8px;font-weight:700;color:var(--peach)}
+/* Unsold marquee — slim claim line on the soft layer, never a big empty box. */
 .marquee-claim{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-  padding:13px 18px;background:var(--cream);border:1px dashed var(--black);
-  border-radius:var(--d-radius);text-decoration:none;color:var(--text)}
-.marquee-claim .cat{font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:var(--orange-deep);font-weight:700}
-.marquee-claim .claim em{color:var(--orange-deep);font-style:normal;font-weight:700}
+  padding:15px 20px;background:var(--surface-cream);border:var(--border-soft);
+  border-radius:var(--radius-soft);text-decoration:none;color:var(--black);box-shadow:var(--elev-1)}
+.marquee-claim .cat{font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:var(--orange-ink);font-weight:700}
+.marquee-claim .claim em{color:var(--orange-ink);font-style:normal;font-weight:700}
 
-/* Tier-3 promoted — native in-feed card after the Explore grid. */
+/* Tier-3 promoted (Phase 7.2d) — native in-feed card on the soft layer (was
+   --d-border + hard offset shadow). */
 .home-promoted{padding-top:8px}
-.promoted-card{display:flex;gap:16px;align-items:center;background:var(--cream);
-  border:var(--d-border);border-radius:var(--d-radius);overflow:hidden;
-  padding:14px 16px;text-decoration:none;color:var(--black);transition:.12s}
-.promoted-card:hover{transform:translateY(-1px);box-shadow:var(--d-shadow)}
-.promoted-card .pr-img{flex:0 0 96px;align-self:stretch;min-height:80px;border-radius:var(--d-radius);background:var(--sand) center/cover no-repeat}
+.promoted-card{display:flex;gap:16px;align-items:center;background:var(--surface-cream);
+  border:var(--border-soft);border-radius:var(--radius-soft);overflow:hidden;
+  padding:14px 16px;text-decoration:none;color:var(--black);box-shadow:var(--elev-1);
+  transition:transform .14s ease,box-shadow .14s ease}
+.promoted-card:hover{transform:translateY(-2px);box-shadow:var(--elev-2)}
+.promoted-card .pr-img{flex:0 0 96px;align-self:stretch;min-height:80px;border-radius:var(--radius-sm);background:var(--blue) center/cover no-repeat}
 .promoted-card .pr-body{display:flex;flex-direction:column;gap:3px}
-.promoted-card .pr-body .cat{font-size:.78rem;color:var(--blue);text-transform:uppercase;letter-spacing:.03em}
+.promoted-card .pr-body .cat{font-size:.78rem;color:var(--orange-ink);text-transform:uppercase;letter-spacing:.03em}
 .promoted-card .pr-body h3{font-size:1.15rem;margin:1px 0}
-.promoted-card .pr-body p{font-size:.9rem;color:var(--text);margin:0}
-.promoted-card .pr-body .cta{margin-top:3px;font-weight:700;color:var(--orange-deep)}
+.promoted-card .pr-body p{font-size:.9rem;color:var(--muted);margin:0}
+.promoted-card .pr-body .cta{margin-top:3px;font-weight:700;color:var(--orange-ink)}
 
 @media(max-width:640px){
   .marquee-card{flex-direction:column}

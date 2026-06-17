@@ -18,15 +18,18 @@
   </script>
   {% endif %}
   <style>
-    /* UX-1 above-the-fold: quick-intent chips + one-line trust strip. Scoped
-       here (no desert_home.css edit); palette matches the site. */
-    .home-intents{margin-top:6px}
+    /* UX-1 above-the-fold: quick-intent chips. Phase 7.2d — quieted to sit
+       calmly under the navy hero: muted ink, hairline + faint elevation, with
+       an orange-ink accent on hover only. */
+    .home-intents{margin-top:16px}
     .intents-row{display:flex;gap:10px;flex-wrap:wrap}
-    .intentchip{display:inline-flex;align-items:center;padding:9px 15px;
-      border:1px solid rgba(23,19,16,.16);border-radius:999px;background:#fff;
-      color:#171310;text-decoration:none;font-weight:600;font-size:.95rem;
-      white-space:nowrap;transition:background .12s,border-color .12s}
-    .intentchip:hover,.intentchip:focus{background:#fbf4e6;border-color:rgba(23,19,16,.34)}
+    .intentchip{display:inline-flex;align-items:center;padding:9px 16px;
+      border:1px solid rgba(23,19,16,.14);border-radius:999px;background:#fff;
+      color:#3a342c;text-decoration:none;font-weight:600;font-size:.92rem;letter-spacing:.01em;
+      white-space:nowrap;box-shadow:0 2px 6px -4px rgba(23,19,16,.35);
+      transition:background .12s,border-color .12s,box-shadow .12s,color .12s}
+    .intentchip:hover,.intentchip:focus{border-color:rgba(194,74,22,.55);
+      color:var(--orange-ink);box-shadow:0 4px 10px -6px rgba(23,19,16,.4)}
     @media (max-width:480px){
       .intents-row{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;
         padding-bottom:4px;scrollbar-width:none}
