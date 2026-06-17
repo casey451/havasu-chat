@@ -67,8 +67,8 @@ def test_mapping_has_no_self_pointing_rules(mod) -> None:
     for rp in mod.REPOINTS:
         if rp.to is not None:
             assert mod._norm(rp.match) != mod._norm(rp.to), rp.venue
-    # Exactly one rule is intentionally left unresolved (The Views).
-    assert sum(1 for rp in mod.REPOINTS if rp.to is None) == 1
+    # Every rule is now resolved to a primary URL (The Views confirmed).
+    assert sum(1 for rp in mod.REPOINTS if rp.to is None) == 0
 
 
 def test_dry_run_changes_nothing(mod, db) -> None:
@@ -79,7 +79,7 @@ def test_dry_run_changes_nothing(mod, db) -> None:
     assert ev.event_url == _BREW  # untouched
     assert c["applied"] == 0
     assert c["would_change"] == 1
-    assert c["needs_url"] == 1  # The Views rule
+    assert c["needs_url"] == 0  # all rules resolved
     assert c["total"] == len(mod.REPOINTS)
 
 
