@@ -82,11 +82,27 @@
   {% endif %}
 
   <div class="wrap listwrap">
+    {# P7: when the list is large and spread across neighborhoods, the router
+       hands us ``card_groups`` (sections of (label, cards)). Otherwise it's
+       None and we render the original single flat grid. #}
+    {% if card_groups %}
+    {% for group_label, group_cards in card_groups %}
+    <section class="biz-group" aria-label="{{ group_label }}">
+      <h2 class="biz-group-head">{{ group_label }}</h2>
+      <div class="biz-grid">
+        {% for card in group_cards %}
+        {% include 'components/sandstone_biz_card.html' %}
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+    {% else %}
     <div class="biz-grid" id="bizGrid">
       {% for card in category_cards %}
       {% include 'components/sandstone_biz_card.html' %}
       {% endfor %}
     </div>
+    {% endif %}
 
     {% if list_controls and not category_cards %}
     <p class="cat-empty">Nothing to show here right now{% if list_controls.open_now %} — none are open at the moment. <a href="{{ list_controls.url_open_off }}">Show all {{ trade_label | lower }}</a>.{% endif %}</p>

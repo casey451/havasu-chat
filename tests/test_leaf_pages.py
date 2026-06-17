@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.categories import leaf_pages
+from app.categories.router import _group_cards_by_neighborhood
 from app.db.database import Base, SessionLocal
 from app.db.models import Category, Entity, EntityCategory, Provider
 from app.main import app
@@ -495,3 +496,98 @@ def test_place_only_leaf_below_gate_404s(client: TestClient, _place_cleanup: lis
         db.commit()
     r = client.get(f"/categories/{dept_slug}/{leaf_slug}")
     assert r.status_code == 404
+
+
+# --- P7 leaf sub-grouping by neighborhood ------------------------------------
+
+
+def _hood_card(name: str, hood: str) -> dict:
+    return {"name": name, "neighborhood": hood}
+
+
+def test_group_below_min_cards_stays_flat() -> None:
+    cards = [_hood_card(f"b{i}", "Downtown" if i % 2 else "North Lake") for i in range(7)]
+    assert _group_cards_by_neighborhood(cards) is None
+
+
+def test_group_single_neighborhood_stays_flat() -> None:
+    cards = [_hood_card(f"b{i}", "Downtown") for i in range(10)]
+    assert _group_cards_by_neighborhood(cards) is None
+
+
+def test_group_two_neighborhoods_sections_sorted_by_size() -> None:
+    cards = [_hood_card(f"d{i}", "Downtown") for i in range(5)]
+    cards += [_hood_card(f"n{i}", "North Lake") for i in range(3)]
+    groups = _group_cards_by_neighborhood(cards)
+    assert groups is not None
+    assert [label for label, _ in groups] == ["Downtown", "North Lake"]  # largest first
+    assert len(groups[0][1]) == 5 and len(groups[1][1]) == 3
+
+
+def test_group_collapses_singletons_and_missing_into_catch_all() -> None:
+    cards = [_hood_card(f"d{i}", "Downtown") for i in range(4)]
+    cards += [_hood_card(f"n{i}", "North Lake") for i in range(3)]
+    cards += [_hood_card("lonely", "Outpost")]  # one-off neighborhood
+    cards += [_hood_card("nohood", "")]  # no district at all
+    groups = _group_cards_by_neighborhood(cards)
+    assert groups is not None
+    labels = [label for label, _ in groups]
+    assert labels[:2] == ["Downtown", "North Lake"]
+    assert labels[-1] == "More across Lake Havasu City"
+    assert {c["name"] for c in groups[-1][1]} == {"lonely", "nohood"}
+
+
+def _add_provider_with_district(
+    db: Session, leaf: Category, name: str, district: str
+) -> None:
+    ent = Entity(entity_type="commercial", slug=f"e-{uuid4().hex[:10]}", name=name,
+                 source=_SOURCE)
+    db.add(ent)
+    db.flush()
+    db.add(Provider(provider_name=name, category="x", slug=f"p-{uuid4().hex[:10]}",
+                    is_active=True, draft=False, source=_SOURCE, entity_id=ent.id,
+                    google_rating=4.6, google_review_count=30, district=district))
+    db.add(EntityCategory(entity_id=ent.id, category_id=leaf.id, is_primary=True))
+
+
+def test_leaf_groups_by_neighborhood_when_spread(
+    client: TestClient, _place_cleanup: list[str]
+) -> None:
+    """A leaf with 8 listings across 2 districts renders neighborhood sections."""
+    suf = uuid4().hex[:6]
+    dept_slug, leaf_slug = f"grp-{suf}", f"salons-{suf}"
+    _place_cleanup.extend([dept_slug, leaf_slug])
+    with SessionLocal() as db:
+        leaf = _seed_dept_leaf(db, dept_slug, leaf_slug, "Salons")
+        for i in range(4):
+            _add_provider_with_district(db, leaf, f"Downtown Salon {i} {uuid4().hex[:4]}",
+                                        "Downtown")
+        for i in range(4):
+            _add_provider_with_district(db, leaf, f"Lakeside Salon {i} {uuid4().hex[:4]}",
+                                        "Lakeside")
+        db.commit()
+    r = client.get(f"/categories/{dept_slug}/{leaf_slug}")
+    assert r.status_code == 200
+    body = r.text
+    assert 'class="biz-group-head"' in body
+    assert ">Downtown</h2>" in body
+    assert ">Lakeside</h2>" in body
+    # Every listing landed in a named section -> no catch-all.
+    assert "More across Lake Havasu City" not in body
+
+
+def test_leaf_stays_flat_when_one_neighborhood(
+    client: TestClient, _place_cleanup: list[str]
+) -> None:
+    """Eight listings all in one district keep the original flat grid."""
+    suf = uuid4().hex[:6]
+    dept_slug, leaf_slug = f"flat-{suf}", f"barbers-{suf}"
+    _place_cleanup.extend([dept_slug, leaf_slug])
+    with SessionLocal() as db:
+        leaf = _seed_dept_leaf(db, dept_slug, leaf_slug, "Barbers")
+        for i in range(8):
+            _add_provider_with_district(db, leaf, f"Barber {i} {uuid4().hex[:4]}", "Downtown")
+        db.commit()
+    r = client.get(f"/categories/{dept_slug}/{leaf_slug}")
+    assert r.status_code == 200
+    assert 'class="biz-group-head"' not in r.text
