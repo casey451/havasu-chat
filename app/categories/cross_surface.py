@@ -63,6 +63,18 @@ CROSS_SURFACE: dict[str, list[dict[str, Any]]] = {
             ],
         },
     ],
+    # The tattoo department holds one leaf; surface its nearest neighbors in the
+    # "Health & self-care" nav group so the landing isn't a dead end (P7 polish).
+    "tattoo": [
+        {
+            "heading": "Salons & self-care",
+            "leaves": [
+                ("beauty-and-personal-care", "med-spas-and-aesthetics"),
+                ("beauty-and-personal-care", "day-spas-and-massage"),
+                ("beauty-and-personal-care", "hair-salons-and-barbers"),
+            ],
+        },
+    ],
 }
 
 
