@@ -137,21 +137,28 @@
         {% elif not td.has %}
           <span class="wempty" aria-hidden="true">Nothing on today</span>
         {% endif %}
-        <span class="wfoot">
-          {% if td.summary %}<span class="wsum">{{ td.summary }}</span>{% endif %}
-          <span class="wmore">See all today →</span>
-        </span>
+        {# Phase 7.2b: everything else today, grouped into the shared buckets. #}
+        {% if td.categories %}
+        <div class="walso">
+          <span class="walso-h">Also today</span>
+          <span class="walso-chips">
+            {% for c in td.categories %}<span class="wchip k-{{ c.key }}">{{ c.label }} · {{ c.count }}</span>{% endfor %}
+          </span>
+        </div>
+        {% endif %}
+        <span class="wfoot"><span class="wmore">See all today →</span></span>
       </a>
       <div class="week-rest">
         {% for day in week.days[1:] %}
         <a class="wmini{% if not day.has %} wmini--empty{% endif %}" role="listitem" href="/events-ui?date={{ day.iso }}" aria-label="{% if day.event_count or not day.class_count %}{{ day.event_count }} event{{ '' if day.event_count == 1 else 's' }}{% endif %}{% if day.event_count and day.class_count %} and {% endif %}{% if day.class_count %}{{ day.class_count }} class{{ '' if day.class_count == 1 else 'es' }}{% endif %} on {{ day.label }} {{ day.md }}">
           <div class="wmini-h"><span class="wd">{{ day.label }}</span><span class="wdm">{{ day.md }}</span></div>
-          {% if day.event_count %}
-            <div class="wmini-n">{{ day.event_count }}</div>
-            <div class="wmini-s">event{{ '' if day.event_count == 1 else 's' }}{% if day.class_count %} · {{ day.class_count }} class{{ '' if day.class_count == 1 else 'es' }}{% endif %}</div>
-          {% elif day.class_count %}
-            <div class="wmini-n">{{ day.class_count }}</div>
-            <div class="wmini-s">class{{ '' if day.class_count == 1 else 'es' }}</div>
+          {% if day.has %}
+            {% if day.event_count %}
+            <div class="wmini-n">{{ day.event_count }} <span class="wmini-u">event{{ '' if day.event_count == 1 else 's' }}</span></div>
+            {% endif %}
+            {% for c in day.categories[:3] %}
+            <div class="wcat"><i class="cdot k-{{ c.key }}" aria-hidden="true"></i>{{ c.label }} <b>{{ c.count }}</b></div>
+            {% endfor %}
           {% else %}
             <span class="wempty" aria-hidden="true">—</span>
           {% endif %}

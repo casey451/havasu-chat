@@ -90,51 +90,66 @@
 .home-featured{padding-top:58px;padding-bottom:6px}
 .home-cal{padding-top:58px;padding-bottom:64px}
 
-/* ---- week strip (Slice F): a today-first calendar. TODAY is a dominant card
-   that keeps the heavy black-fill + orange-shadow treatment and headlines up to
-   3 one-off events; the other six days are trimmed to compact count cards in a
-   3x2 grid beside it (stacking under a single column on narrow screens). ---- */
+/* ---- week strip (Phase 7.2b): today-first calendar on the soft-material layer.
+   TODAY is a dominant NAVY card listing one-off events + an "Also today" bucket
+   rollup; the other six days are compact CREAM cards with a per-day category
+   breakdown. Soft elevation replaces the old hard offset shadow. ---- */
 .week-strip{display:flex;gap:12px;align-items:stretch}
 .wday{
-  background:var(--cream);border:1.5px solid var(--black);border-radius:var(--d-radius);
-  padding:14px 16px 12px;display:flex;flex-direction:column;gap:7px;
+  background:var(--surface-cream);border:var(--border-soft);border-radius:var(--radius-soft-lg);
+  padding:14px 16px 12px;display:flex;flex-direction:column;gap:7px;box-shadow:var(--elev-2);
   transition:transform .14s ease,box-shadow .14s ease;
 }
-.wday:hover{transform:translate(-2px,-2px);box-shadow:4px 4px 0 var(--black)}
-.wday.today{flex:0 0 248px;background:var(--black);color:var(--cream);box-shadow:6px 6px 0 var(--orange);min-height:172px}
+.wday:hover{transform:translateY(-2px);box-shadow:var(--elev-3)}
+.wday.today{
+  flex:0 0 248px;background:var(--surface-navy);color:var(--ink-on-navy);
+  box-shadow:var(--elev-3);min-height:172px;
+}
 .wday-h{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
 .wd{font-family:var(--disp);font-weight:800;font-size:14px;text-transform:uppercase;letter-spacing:.02em}
-.wday.today .wd{color:var(--orange)}
+.wday.today .wd{color:var(--peach)}
 .wdm{font-size:11px;font-weight:700;opacity:.55}
+.wday.today .wdm{color:var(--muted-on-navy);opacity:1}
 .wev{font-size:12px;font-weight:500;line-height:1.3;border-left:3px solid var(--black);padding-left:8px}
-.wday.today .wev{border-left-color:var(--cream)}
-.wev .wt{font-style:normal;font-weight:700;display:block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;opacity:.65}
-/* Slice C: week-strip pills share the events-page bucket palette (the
-   event_buckets.GROUP_DEFS keys map to ev-acc-swatch--KEY on /events-ui), so a
-   bucket's color is identical on both surfaces. On the dark "today" card the
-   near-black (music) and deep-navy (water) borders would vanish, so today keeps
-   the cream border for every pill (set on `.wday.today .wev` above). */
+.wev .wt{font-style:normal;font-weight:700;display:block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;opacity:.7}
+/* one-off pill accents (bucket palette). On the navy today card the near-black
+   (music) and deep-navy (water) rules would vanish, so they fall back to sky. */
 .wev.events{border-left-color:var(--orange)}
 .wev.family{border-left-color:var(--peach)}
 .wev.music{border-left-color:var(--black)}
 .wev.water{border-left-color:var(--blue)}
 .wev.aquatic{border-left-color:var(--sky)}
 .wev.classes{border-left-color:var(--sand)}
-.wfoot{margin-top:auto;padding-top:8px;display:flex;flex-direction:column;gap:3px}
-.wsum{font-size:11.5px;font-weight:600;letter-spacing:0;opacity:.7}
-.wmore{font-size:11px;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.04em}
-.wempty{margin:auto;opacity:.3;font-size:18px}
-/* The six trimmed days: compact count cards (event count headline + rollup). */
+.wday.today .wev.music,.wday.today .wev.water{border-left-color:var(--sky)}
+/* "Also today" bucket rollup on the navy card */
+.walso{margin-top:4px;padding-top:9px;border-top:1px solid rgba(255,255,255,.14)}
+.walso-h{display:block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-on-navy);margin-bottom:6px}
+.walso-chips{display:flex;flex-wrap:wrap;gap:5px}
+.wchip{font-size:11px;font-weight:600;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:3px 9px;color:var(--ink-on-navy)}
+.wfoot{margin-top:auto;padding-top:10px}
+.wmore{font-size:11px;font-weight:700;color:var(--peach);text-transform:uppercase;letter-spacing:.04em}
+.wempty{margin:auto;opacity:.35;font-size:18px}
+/* The six trimmed days: compact cream cards with a per-day category breakdown. */
 .week-rest{flex:1;display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr;gap:10px}
 .wmini{
-  background:var(--cream);border:1.5px solid var(--black);border-radius:var(--d-radius);
-  padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-height:78px;
+  background:var(--surface-cream);border:var(--border-soft);border-radius:var(--radius-soft);
+  padding:10px 12px;display:flex;flex-direction:column;gap:3px;min-height:96px;box-shadow:var(--elev-1);
   transition:transform .14s ease,box-shadow .14s ease;
 }
-.wmini:hover{transform:translate(-2px,-2px);box-shadow:4px 4px 0 var(--black)}
+.wmini:hover{transform:translateY(-2px);box-shadow:var(--elev-2)}
 .wmini-h{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
-.wmini-n{font-family:var(--disp);font-weight:800;font-size:22px;line-height:1.05;margin-top:4px}
-.wmini-s{font-size:11px;font-weight:600;opacity:.65}
+.wmini-h .wd{font-size:13px}
+.wmini-n{font-size:13px;font-weight:700;color:var(--black);margin-top:2px}
+.wmini-u{font-weight:500;color:var(--muted)}
+.wcat{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:5px;line-height:1.55}
+.wcat b{color:var(--black);font-weight:700;margin-left:auto}
+.cdot{width:7px;height:7px;border-radius:50%;flex:none;display:inline-block}
+.cdot.k-events{background:var(--cat-eat)}
+.cdot.k-family{background:var(--cat-kids)}
+.cdot.k-music{background:var(--cat-music)}
+.cdot.k-water{background:var(--cat-lake)}
+.cdot.k-aquatic{background:var(--cat-water)}
+.cdot.k-classes{background:var(--cat-fitness)}
 .wmini--empty .wempty{margin:6px 0 0;font-size:16px}
 @media (max-width:720px){
   .week-strip{flex-direction:column}
