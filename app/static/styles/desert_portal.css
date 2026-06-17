@@ -39,12 +39,13 @@
 .dp-rates .lede b{color:var(--orange-deep)}
 .dp-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
 
+/* Phase 7.5: rate cards on the soft layer (was --d-border + hard offset). */
 .dp-prod{
-  background:var(--cream);border:var(--d-border);border-radius:18px;
+  background:var(--surface-cream);border:var(--border-soft);border-radius:var(--radius-soft-lg);
   padding:32px 30px 28px;display:flex;flex-direction:column;position:relative;
-  transition:transform .14s ease,box-shadow .14s ease;
+  box-shadow:var(--elev-1);transition:transform .14s ease,box-shadow .14s ease;
 }
-.dp-prod:hover{transform:translate(-3px,-3px);box-shadow:7px 7px 0 var(--black)}
+.dp-prod:hover{transform:translateY(-2px);box-shadow:var(--elev-2)}
 .dp-prod-main{flex:1 1 auto;min-width:0}
 .dp-prod-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px 16px;flex-wrap:wrap}
 .dp-prod h3{
@@ -76,9 +77,9 @@
   grid-column:1 / -1;background:var(--orange);          /* black text per covenant */
   display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);
   gap:10px 44px;align-items:start;
-  box-shadow:10px 10px 0 var(--black);
+  box-shadow:var(--elev-3);
 }
-.dp-prod--founding:hover{transform:translate(-3px,-3px);box-shadow:13px 13px 0 var(--black)}
+.dp-prod--founding:hover{transform:translateY(-2px);box-shadow:var(--elev-3)}
 .dp-prod--founding .dp-prod-foot{grid-column:1 / -1}
 .dp-prod--founding .dp-pricenote{opacity:.85}
 .dp-prod--founding .dp-avail{background:var(--black);border-color:var(--black);color:var(--cream)}
@@ -131,8 +132,8 @@
 .dp-askbar{display:flex;gap:12px;flex-wrap:wrap;max-width:620px}
 .dp-askbar input{
   flex:1;min-width:220px;font:inherit;font-weight:500;
-  background:var(--cream);border:var(--d-border);border-radius:999px;
-  padding:13px 22px;color:var(--black);
+  background:var(--surface-cream);border:var(--border-soft);border-radius:999px;
+  padding:13px 22px;color:var(--black);box-shadow:var(--elev-1);
 }
 .dp-askbar input::placeholder{color:rgba(23,19,16,.5)}
 
@@ -182,9 +183,11 @@
 .d-admin a:hover{color:var(--orange-deep)}
 .d-admin .backrow{margin:28px 0 0;font-size:13.5px}
 
+/* Phase 7.5: admin tables on the soft layer (was --d-border). */
 .d-table{
   width:100%;border-collapse:separate;border-spacing:0;
-  background:var(--cream);border:var(--d-border);border-radius:12px;overflow:hidden;
+  background:var(--surface-cream);border:var(--border-soft);border-radius:var(--radius-soft);overflow:hidden;
+  box-shadow:var(--elev-1);
 }
 .d-table th{
   background:var(--black);color:var(--cream);text-align:left;
