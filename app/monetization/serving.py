@@ -18,6 +18,7 @@ from __future__ import annotations
 import random
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -393,12 +394,14 @@ def serve_category_page_ad(db, category_slug: str) -> dict | None:
     image_url = derive_hero_photo(provider)
 
     placement = db.scalars(
-        select(Placement).where(
+        select(Placement)
+        .where(
             Placement.provider_id == provider.id,
             Placement.placement_type == PlacementType.page_ad.value,
             Placement.category_slug == category_slug,
             Placement.status == PlacementStatus.active.value,
         )
+        .order_by(Placement.created_at)  # earliest-created wins (determinism contract)
     ).first()
     if placement is not None and placement.creative_id:
         creative = db.get(AdCreative, placement.creative_id)
@@ -425,7 +428,7 @@ def serve_category_page_ad(db, category_slug: str) -> dict | None:
     }
 
 
-def _ordered_pool(db, exclude_ids: set[str]):
+def _ordered_pool(db, exclude_ids: set[str]) -> list[tuple[Any, Any]]:
     """Active homepage-rotating providers, de-duped, ordered by created_at,
     skipping ``exclude_ids``. Returns ``[(Provider, Placement), …]``.
 

@@ -57,8 +57,9 @@ def test_home_pool_dormant_returns_empty_and_none() -> None:
 
 def test_home_pool_serves_distinct_featured_and_promoted() -> None:
     suf = uuid.uuid4().hex[:8]
-    p1 = _mk_provider(SessionLocal(), f"Pool One {suf}", f"{suf}a")
-    p2 = _mk_provider(SessionLocal(), f"Pool Two {suf}", f"{suf}b")
+    with SessionLocal() as seed:
+        p1 = _mk_provider(seed, f"Pool One {suf}", f"{suf}a")
+        p2 = _mk_provider(seed, f"Pool Two {suf}", f"{suf}b")
     with SessionLocal() as db:
         db.add(_homepage(p1))
         db.add(_homepage(p2))
