@@ -47,6 +47,14 @@ def test_cross_surface_covers_boater_and_family() -> None:
     assert "Classes & lessons" in family_headings
 
 
+def test_cross_surface_covers_tattoo() -> None:
+    # P7 polish: the single-leaf tattoo department surfaces self-care neighbors.
+    headings = {s["heading"] for s in CROSS_SURFACE["tattoo"]}
+    assert "Salons & self-care" in headings
+    leaves = {ref for s in CROSS_SURFACE["tattoo"] for ref in s["leaves"]}
+    assert ("beauty-and-personal-care", "med-spas-and-aesthetics") in leaves
+
+
 # ── Slice 3: best-match default leaf sort ──────────────────────────────────
 def _card(name: str, *, is_open=None, has_reviews=False, is_sponsored=False) -> dict:
     return {
