@@ -325,6 +325,29 @@ LEAF_COPY: dict[str, LeafCopy] = {
             "company when you book.",
         ),
     ),
+    "tattoo-and-piercing": _copy(
+        "Whether it's a first tattoo, a cover-up, a touch-up, or a new piercing, "
+        "the studios below serve Lake Havasu City with custom work, flash, and "
+        "body piercing. A good shop walks you through the design, pricing, and "
+        "aftercare before any needle comes out — and in Havasu's sun, keeping "
+        "fresh ink covered and out of the lake while it heals matters. Listings "
+        "are ranked by real public reviews, so the artists locals come back to "
+        "rank first; any sponsored placement is clearly labeled.",
+        (
+            "What should I check before booking a tattoo in Lake Havasu City?",
+            "Look through the artist's healed-work portfolio for the style you "
+            "want, read the public reviews, and ask about pricing, deposits, and "
+            "aftercare up front. A consultation before you commit is normal and a "
+            "good sign.",
+        ),
+        (
+            "Do these studios do piercings as well as tattoos?",
+            "Many Lake Havasu tattoo studios also offer body piercing, though not "
+            "all do, and piercing is sometimes handled by a dedicated piercer on "
+            "set days. Check the individual listing or call ahead to confirm what "
+            "each shop offers.",
+        ),
+    ),
 }
 
 
