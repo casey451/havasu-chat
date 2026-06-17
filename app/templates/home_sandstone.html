@@ -188,11 +188,13 @@
   <section class="d-block d-block--blue home-explore" aria-label="Explore Havasu">
     <div class="d-wrap">
       <div class="d-sec-head"><h2>Explore Havasu</h2><a class="all" href="/categories">All categories →</a></div>
+      {# Phase 7.2c: compact label buttons — no inventory counts, no color-block
+         fills (orange/black were the "jack-o-lantern" surfaces); calm cream
+         buttons with an orange arrow on the navy section. #}
       <div class="cat-strip">
         {% for tile in explore_tiles %}
-        <a class="catchip {{ loop.cycle('c-orange', 'c-cream', 'c-black', 'c-sand', 'c-blue', 'c-cream') }}" href="{{ tile.url }}">
-          {% if tile.count %}<span class="count">{{ tile.count }}</span>{% else %}<span class="count soon">Browse</span>{% endif %}
-          <span class="name">{{ tile.label }} {{ dicons.icon("arrow", 20) }}</span>
+        <a class="catchip" href="{{ tile.url }}">
+          <span class="name">{{ tile.label }}</span>{{ dicons.icon("arrow", 16) }}
         </a>
         {% endfor %}
       </div>

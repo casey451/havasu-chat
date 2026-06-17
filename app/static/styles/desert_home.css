@@ -235,25 +235,18 @@ a.cell.has:hover{background:var(--sand)}
 /* ---- explore: color-blocked category tiles on the blue block.
    Compact: ~130px tall, modest numeral — six tiles should read as one
    scannable block, not six screens of scrolling. ---- */
-.home-explore .cat-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+/* Phase 7.2c: compact label buttons (no counts, no color-block fills). Calm
+   cream buttons with soft elevation + an orange arrow, on the navy section. */
+.home-explore .cat-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
 .catchip{
-  border-radius:16px;padding:18px 18px 16px;min-height:130px;
-  display:flex;flex-direction:column;transition:transform .14s ease;
+  background:var(--surface-cream);border:var(--border-soft);border-radius:var(--radius-sm);
+  box-shadow:var(--elev-1);padding:11px 13px;
+  display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:8px;
+  color:var(--black);transition:transform .14s ease,box-shadow .14s ease;
 }
-.catchip:hover{transform:translate(-3px,-3px)}
-.catchip .count{font-family:var(--disp);font-weight:800;font-size:clamp(32px,3vw,40px);line-height:.95;letter-spacing:-.02em}
-.catchip .count.soon{font-family:var(--text);font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.75}
-.catchip .name{
-  font-family:var(--disp);font-weight:700;font-size:clamp(14px,1.3vw,16px);text-transform:uppercase;letter-spacing:.01em;
-  margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:10px;
-}
-.catchip.c-orange{background:var(--orange);color:var(--black)}
-.catchip.c-sand{background:var(--sand);color:var(--black)}
-.catchip.c-cream{background:var(--cream);color:var(--black)}
-.catchip.c-black{background:var(--black);color:var(--cream)}
-.catchip.c-black .count{color:var(--orange)}
-.catchip.c-blue{background:var(--blue-deep);color:var(--cream);border:1.5px solid rgba(251,244,230,.25)}
-.catchip.c-blue .count{color:var(--sky)}
+.catchip:hover{transform:translateY(-2px);box-shadow:var(--elev-2)}
+.catchip .name{font-family:var(--text);font-weight:600;font-size:13.5px;letter-spacing:0;line-height:1.2}
+.catchip .d-icon,.catchip svg{color:var(--orange-ink);flex:none}
 
 /* secondary "need something done?" strip (still on the blue block) */
 .svc-head{margin-top:48px;margin-bottom:18px}
@@ -400,10 +393,7 @@ a.gas-card:hover{transform:translate(-3px,-3px);box-shadow:6px 6px 0 var(--black
   .week-strip{grid-template-columns:1fr 1fr;gap:10px}
   .wday{min-height:120px}
   .spon-row{grid-template-columns:1fr}
-  .home-explore .cat-strip{grid-template-columns:1fr 1fr;gap:12px}
-  .catchip{min-height:120px;padding:16px 14px 14px}
-  .catchip .count{font-size:32px}
-  .catchip .name{font-size:14px}
+  .home-explore .cat-strip{grid-template-columns:1fr 1fr;gap:9px}
   /* month grid: tighter cells so all 7 columns always fit the viewport */
   .cal-card{padding:14px 10px 18px}
   .cal-top .m{font-size:18px}
