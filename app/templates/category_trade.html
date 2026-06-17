@@ -46,7 +46,9 @@
 {% endblock %}
 
 {% block content %}
-  {# ── Orange trade head: breadcrumb + count-bearing h1 + giant count ── #}
+  {# ── Navy trade head: breadcrumb + count-bearing h1 (the "N Best X" SEO
+     pattern stays — it's a ranking signal, not the vanity billboard). The
+     giant inventory numeral was removed site-wide in Phase 7.3. ── #}
   <section class="cat-head">
     <div class="cathead wrap">
       <div class="cat-head-main">
@@ -54,9 +56,7 @@
         <h1>{{ trade_count }} Best {{ trade_label }} in Lake Havasu City, AZ</h1>
         <p class="trade-intro">{{ trade_intro }}</p>
       </div>
-      <div class="giant" aria-label="{{ trade_count }} listed">{{ trade_count }}<small>Listed</small></div>
     </div>
-    <div class="ridge" aria-hidden="true"></div>
   </section>
 
   {# ── UX-2: sticky filter/sort chip bar. Server-rendered links (no JS) — Open

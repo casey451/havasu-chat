@@ -20,12 +20,8 @@
         <h1>{{ category_label }}</h1>
         {% if category_one_liner %}<p class="sub">{{ category_one_liner }}</p>{% endif %}
       </div>
-
-      {# aria-label keeps the "N listed" count clause (pinned by
-         test_category_pages) now that the prose count moved off the sub. #}
-      {% if category_count %}
-      <div class="giant" aria-label="{{ category_count }} listed">{{ category_count }}<small>Places</small></div>
-      {% endif %}
+      {# Phase 7.3: the giant inventory count was removed site-wide (Casey:
+         "irrelevant whether it's 337 or 200"). The head is now copy-only. #}
     </div>
     <div class="ridge" aria-hidden="true"></div>
   </section>
@@ -40,7 +36,7 @@
     <div class="chips chips-trades" id="trade-links">
       <span class="lbl">By trade:</span>
       {% for t in trade_links %}
-      <a class="chip" href="{{ t.url }}">{{ t.label }} <span class="chip-n">{{ t.count }}</span></a>
+      <a class="chip" href="{{ t.url }}">{{ t.label }}</a>
       {% endfor %}
     </div>
     {% endif %}
@@ -49,7 +45,7 @@
     <div class="chips" id="chips">
       <a class="chip{% if not facets.subcategory %} on{% endif %}" data-filter="all" href="{{ all_chip_url }}">All</a>
       {% for c in subcat_chips %}
-      <a class="chip{% if facets.subcategory == c.slug %} on{% endif %}" data-filter="{{ c.slug }}" href="{{ facet_href(sub=c.slug) }}">{{ c.label }}{% if c.count %} <span class="chip-n">{{ c.count }}</span>{% endif %}</a>
+      <a class="chip{% if facets.subcategory == c.slug %} on{% endif %}" data-filter="{{ c.slug }}" href="{{ facet_href(sub=c.slug) }}">{{ c.label }}</a>
       {% endfor %}
     </div>
     {% endif %}

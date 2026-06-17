@@ -21,7 +21,7 @@
         <h1>{{ department_label }} in Lake Havasu City, AZ</h1>
         <p class="trade-intro">Browse {{ department_label | lower }} by category. Every list comes straight from the local directory, ranked by real public reviews — more reviews, more weight. Spots can't be bought, and Hava never invents a rating.</p>
       </div>
-      <div class="giant" aria-label="{{ listing_total }} listed">{{ listing_total }}<small>Listed</small></div>
+      {# Phase 7.3: giant inventory count removed site-wide. #}
     </div>
     <div class="ridge" aria-hidden="true"></div>
   </section>
@@ -31,7 +31,6 @@
       {% for leaf in leaves %}
       <a class="dept-leaf-card" href="{{ leaf.url }}">
         <span class="dept-leaf-name">{{ leaf.name }}</span>
-        <span class="dept-leaf-count">{{ leaf.count }} listed</span>
       </a>
       {% endfor %}
     </div>
@@ -46,7 +45,6 @@
         {% for leaf in section.leaves %}
         <a class="dept-leaf-card" href="{{ leaf.url }}">
           <span class="dept-leaf-name">{{ leaf.name }}</span>
-          <span class="dept-leaf-count">{{ leaf.count }} listed</span>
         </a>
         {% endfor %}
       </div>

@@ -255,11 +255,11 @@ def test_department_landing_lists_gate_clearing_leaves(
     r = client.get(f"/categories/{seeded_leaves['ship_dept']}")
     assert r.status_code == 200
     body = r.text
-    # The gate-clearing child leaf is linked with its live count.
+    # The gate-clearing child leaf is linked by name. Phase 7.3 removed the
+    # per-leaf "N listed" inventory count site-wide, so we assert the link +
+    # name only (the count clause is intentionally gone).
     assert f'href="/categories/{seeded_leaves["ship_dept"]}/{seeded_leaves["ship_leaf"]}"' in body
     assert "Plumbing" in body
-    n = len(seeded_leaves["ship_names"])
-    assert f"{n} listed" in body
 
 
 def test_department_landing_all_subgate_404s(
