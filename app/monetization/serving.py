@@ -18,6 +18,7 @@ from __future__ import annotations
 import random
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -331,5 +332,220 @@ def serve_homepage_placement(db) -> dict | None:
         "cta_url": profile_url,
         "click_url": profile_url,
         "image_url": image_url,
+        "is_placement": True,
+    }
+
+
+def active_page_ad_provider(db, category_slug: str) -> str | None:
+    """Provider id holding the active ``page_ad`` placement for ``category_slug``.
+
+    At most one ad serves a category page; if a slug somehow holds two, the
+    earliest-created wins (same determinism as :func:`active_category_tiers`).
+    Returns ``None`` when nothing is sold — the dormant default today.
+    """
+    from sqlalchemy import select
+
+    from app.db.monetization_models import Placement, PlacementStatus, PlacementType
+
+    rows = db.scalars(
+        select(Placement).where(
+            Placement.placement_type == PlacementType.page_ad.value,
+            Placement.category_slug == category_slug,
+            Placement.status == PlacementStatus.active.value,
+        )
+    ).all()
+    if not rows:
+        return None
+    return sorted(rows, key=lambda r: r.created_at)[0].provider_id
+
+
+def serve_category_page_ad(db, category_slug: str) -> dict | None:
+    """§7 page_ad — the single paid ad near the top of a category page, shaped as
+    the category ``sponsored`` dict (the same keys ``active_promoted`` returns,
+    plus ``click_url`` and ``is_placement``).
+
+    Returns ``None`` when no ``page_ad`` is sold for ``category_slug`` (the
+    dormant default today) so the caller falls back to the legacy category
+    sponsor and, failing that, renders no slot. An attached, provider-owned ad
+    creative overrides the copy/art; the click target stays the internal provider
+    profile (open-redirect-safe). The unit is rendered with the existing
+    "Category sponsor" honesty label.
+    """
+    pid = active_page_ad_provider(db, category_slug)
+    if pid is None:
+        return None
+
+    from sqlalchemy import select
+
+    from app.analytics import record_event
+    from app.db.models import Provider
+    from app.db.monetization_models import AdCreative, Placement, PlacementStatus, PlacementType
+    from app.providers.queries import derive_hero_photo
+
+    provider = db.get(Provider, pid)
+    if provider is None or not provider.slug:
+        return None
+
+    profile_url = f"/provider/{provider.slug}"
+    headline = provider.provider_name
+    pitch = (provider.featured_description or provider.description or "").strip()
+    if len(pitch) > 140:
+        pitch = pitch[:139].rstrip() + "…"
+    image_url = derive_hero_photo(provider)
+
+    placement = db.scalars(
+        select(Placement)
+        .where(
+            Placement.provider_id == provider.id,
+            Placement.placement_type == PlacementType.page_ad.value,
+            Placement.category_slug == category_slug,
+            Placement.status == PlacementStatus.active.value,
+        )
+        .order_by(Placement.created_at)  # earliest-created wins (determinism contract)
+    ).first()
+    if placement is not None and placement.creative_id:
+        creative = db.get(AdCreative, placement.creative_id)
+        if creative is not None and creative.active and creative.provider_id == provider.id:
+            headline = creative.headline or headline
+            pitch = creative.body or pitch
+            image_url = creative.image_url or image_url
+
+    record_event(
+        db,
+        "category.page_ad.impression",
+        slot="page_ad",
+        provider_id=provider.id,
+        payload={"source": "placement", "category_slug": category_slug},
+    )
+    return {
+        "id": provider.id,
+        "name": provider.provider_name,
+        "headline": headline,
+        "pitch": pitch,
+        "image_url": image_url,
+        "click_url": profile_url,
+        "is_placement": True,
+    }
+
+
+def _ordered_pool(db, exclude_ids: set[str]) -> list[tuple[Any, Any]]:
+    """Active homepage-rotating providers, de-duped, ordered by created_at,
+    skipping ``exclude_ids``. Returns ``[(Provider, Placement), …]``.
+
+    Shared by the Tier-2 (featured) and Tier-3 (promoted) home slots so the same
+    rotating pool feeds all three home units (marquee + featured + promoted) with
+    DISTINCT businesses per load — the caller passes the ids already taken by the
+    higher slots. Dormant by design: an empty pool yields ``[]``.
+    """
+    from sqlalchemy import select
+
+    from app.db.models import Provider
+    from app.db.monetization_models import Placement, PlacementStatus, PlacementType
+
+    rows = db.scalars(
+        select(Placement).where(
+            Placement.placement_type == PlacementType.homepage_rotating.value,
+            Placement.status == PlacementStatus.active.value,
+        )
+    ).all()
+    seen = set(exclude_ids)
+    out = []
+    for p in sorted(rows, key=lambda r: r.created_at):
+        if p.provider_id in seen:
+            continue
+        seen.add(p.provider_id)
+        provider = db.get(Provider, p.provider_id)
+        if provider is not None and provider.slug:
+            out.append((provider, p))
+    return out
+
+
+def serve_homepage_featured(db, *, exclude_ids: set[str], limit: int = 3) -> list[dict]:
+    """§7.1 Tier-2 — up to ``limit`` businesses from the homepage rotating pool,
+    shaped as the home "Featured this week" cards (the same keys
+    :func:`app.home.sandstone.featured_cards` produces: ``empty``/``url``/
+    ``image_url``/``eyebrow``/``name``/``deal``). The template renders the
+    ``Sponsored`` label.
+
+    Dormant by design: an empty pool (or one already drained by the marquee)
+    returns ``[]`` so the caller falls back to the legacy spotlight cards.
+    """
+    from app.analytics import record_event
+    from app.providers.queries import derive_hero_photo
+
+    out: list[dict] = []
+    for provider, _placement in _ordered_pool(db, exclude_ids)[:limit]:
+        deal = (provider.featured_description or "").strip()
+        if len(deal) > 90:
+            deal = deal[:89].rstrip() + "…"
+        out.append(
+            {
+                "id": provider.id,
+                "empty": False,
+                "url": f"/provider/{provider.slug}",
+                "image_url": derive_hero_photo(provider),
+                "eyebrow": "",
+                "name": provider.provider_name,
+                "deal": deal,
+                "is_placement": True,
+            }
+        )
+        record_event(
+            db,
+            "home.featured.impression",
+            slot="featured",
+            provider_id=provider.id,
+            payload={"source": "placement"},
+        )
+    return out
+
+
+def serve_homepage_promoted(db, *, exclude_ids: set[str]) -> dict | None:
+    """§7.1 Tier-3 — one business from the homepage rotating pool, shaped as the
+    home promoted in-feed card (``id``/``cta_url``/``click_url``/``image_url``/
+    ``eyebrow``/``headline``/``pitch``/``cta_label``). An attached, provider-owned
+    creative overrides the copy/art; the click target stays the provider profile.
+
+    Dormant by design: an empty pool (or one drained by the marquee + featured)
+    returns ``None`` so the caller falls back to the legacy promoted sponsor.
+    """
+    from app.analytics import record_event
+    from app.db.monetization_models import AdCreative
+    from app.providers.queries import derive_hero_photo
+
+    pool = _ordered_pool(db, exclude_ids)
+    if not pool:
+        return None
+    provider, placement = pool[0]
+    profile_url = f"/provider/{provider.slug}"
+    headline = provider.provider_name
+    pitch = (provider.featured_description or provider.description or "").strip()
+    if len(pitch) > 140:
+        pitch = pitch[:139].rstrip() + "…"
+    cta_label = "View listing"
+    image_url = derive_hero_photo(provider)
+    if placement.creative_id:
+        creative = db.get(AdCreative, placement.creative_id)
+        if creative is not None and creative.active and creative.provider_id == provider.id:
+            headline = creative.headline or headline
+            pitch = creative.body or pitch
+            cta_label = creative.cta_label or cta_label
+            image_url = creative.image_url or image_url
+    record_event(
+        db,
+        "home.promoted.impression",
+        slot="promoted",
+        provider_id=provider.id,
+        payload={"source": "placement"},
+    )
+    return {
+        "id": provider.id,
+        "cta_url": profile_url,
+        "click_url": profile_url,
+        "image_url": image_url,
+        "eyebrow": "",
+        "headline": headline,
+        "pitch": pitch,
+        "cta_label": cta_label,
         "is_placement": True,
     }

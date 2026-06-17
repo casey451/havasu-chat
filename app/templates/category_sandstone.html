@@ -103,7 +103,7 @@
     {# Pinned category-sponsor unit (≤1, real-or-omit) — clearly labeled. #}
     {% if sponsored %}
     <section class="spon-sec" aria-label="Category sponsor">
-      <a class="spon-panel" href="/sponsor/click?id={{ sponsored.id }}&slot=promoted">
+      <a class="spon-panel" href="{% if sponsored.click_url %}{{ sponsored.click_url }}{% else %}/sponsor/click?id={{ sponsored.id }}&slot=promoted{% endif %}">
         <div class="spon-copy">
           <span class="spon">Category sponsor · {{ category_label }}</span>
           <h2>{{ sponsored.headline or sponsored.name }}</h2>

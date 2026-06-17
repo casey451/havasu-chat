@@ -40,12 +40,13 @@ def test_home_has_trust_strip_linked() -> None:
 
 
 def test_fold_order_hero_then_intents_then_modules() -> None:
-    """§2.3/§2.5: chips sit AFTER the hero, and the consolidated category grid
-    (home-explore) leads directly into the modules, before the marquee (which
-    always renders, so it's a stable anchor)."""
+    """§2.3/§2.5 + Phase 6B: chips sit AFTER the hero, then the premium sponsor
+    placard (home-marquee) sits ABOVE THE FOLD — directly under the chips and
+    above the consolidated category grid (home-explore). The placard always
+    renders (sold card or slim claim), so it's a stable anchor."""
     body = client.get("/home").text
     hero = body.index("home-hero")
     intents = body.index("home-intents")
     explore = body.index("home-explore")
     marquee = body.index("home-marquee")
-    assert hero < intents < explore < marquee
+    assert hero < intents < marquee < explore

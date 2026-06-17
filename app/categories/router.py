@@ -53,6 +53,7 @@ from app.home import sandstone as home_sandstone
 from app.home import sponsor_store
 from app.home.queries import _provider_image_url
 from app.home.router import _utility_chips as _home_utility_chips
+from app.monetization import serving
 from app.seo.urls import absolute_url
 from app.v1.categories import BUCKET_SLUG_REDIRECTS
 
@@ -474,9 +475,13 @@ def _render_category_page(
             "all_chip_url": all_chip_url,
             # A full reset link for the active-filter "clear" control: bare route.
             "clear_filters_url": f"/categories/{route_slug}",
-            # One labeled sponsored slot (≤1, real-or-omit). active_promoted is the
-            # single page-wide promoted row; None -> no slot (never a fake sponsor).
-            "sponsored": sponsor_store.active_promoted(db),
+            # One labeled sponsored slot (≤1, real-or-omit). Phase 6A: a sold
+            # page_ad PLACEMENT for this category wins the top-of-page unit;
+            # otherwise fall back to the legacy page-wide promoted row, then to no
+            # slot (never a fake sponsor). Dormant until a placement is sold —
+            # serve_category_page_ad returns None on an empty book.
+            "sponsored": serving.serve_category_page_ad(db, route_slug)
+            or sponsor_store.active_promoted(db),
             "primary_nav": home_sandstone.primary_nav(),
             "mega_columns": home_sandstone.mega_columns(db),
             "utility_chips": _home_utility_chips(db),

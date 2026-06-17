@@ -75,14 +75,15 @@ def test_home_section_order_breadth_and_explore_above_month(
     # Always-present sections, in G order. (home-week is gated on events, and
     # home-featured — copy audit 2026-06-10 — on a real sold spotlight, so
     # neither is part of this chain.)
-    # §2.3/§2.5: the duplicate compact "home-catstrip" was removed; the single
-    # consolidated "home-explore" grid now leads, directly under the chips and
-    # above the marquee.
+    # Phase 6B: the premium sponsor placard (home-marquee) was relocated ABOVE
+    # THE FOLD — directly under the intent chips and above the explore grid — so a
+    # sold placement renders on first load. Order is now intents → marquee →
+    # (week) → explore → … → calendar.
     i_intents = body.find("home-intents")
     i_explore = body.find("home-explore")
     i_marquee = body.find("home-marquee")
     i_cal = body.find("home-cal")
-    assert -1 < i_intents < i_explore < i_marquee < i_cal
+    assert -1 < i_intents < i_marquee < i_explore < i_cal
     # Core fix preserved: the directory grid lands BEFORE the month calendar.
     assert i_explore < i_cal
 
@@ -114,9 +115,9 @@ def test_home_featured_renders_when_spotlight_sold(client: TestClient) -> None:
     # ampersand as &amp; — assert the parts, not the raw join.
     assert f"/sponsor/click?id={sid}" in body
     assert "slot=spotlight" in body
-    # New order (§2.3): the explore grid leads, then the marquee, then the
-    # featured row sits just after the marquee.
-    assert body.find("home-explore") < body.find("home-marquee") < body.find("home-featured")
+    # Phase 6B order: the placard (marquee) sits above the fold under the chips,
+    # then the explore grid, then the featured row.
+    assert body.find("home-marquee") < body.find("home-explore") < body.find("home-featured")
 
 
 # --- Tier-1 marquee (real-or-omit) ------------------------------------------

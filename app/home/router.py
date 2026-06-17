@@ -592,7 +592,21 @@ def serve_home(
     # back to the legacy sponsor marquee, then the unsold claim. Dormant until a
     # placement exists — serve_homepage_placement returns None on an empty pool.
     marquee = serving.serve_homepage_placement(db) or sponsor_store.active_marquee(db)
-    promoted = sponsor_store.active_promoted(db)
+    # Phase 6C: the home Featured (Tier-2) + Promoted (Tier-3) slots now run on the
+    # SAME Placement homepage-rotating pool as the marquee, drawing DISTINCT
+    # businesses per load (each slot excludes the ids the higher slots took). Each
+    # falls back to its legacy sponsor when the pool has nothing left, so the home
+    # page stays dormant-safe — an empty pool means today's behavior.
+    taken: set[str] = set()
+    if marquee and marquee.get("is_placement") and marquee.get("id"):
+        taken.add(marquee["id"])
+    featured_placement = serving.serve_homepage_featured(db, exclude_ids=taken, limit=3)
+    if featured_placement:
+        featured_cards = featured_placement
+        taken.update(c["id"] for c in featured_placement if c.get("id"))
+    else:
+        featured_cards = sandstone.featured_cards(spotlights)
+    promoted = serving.serve_homepage_promoted(db, exclude_ids=taken) or sponsor_store.active_promoted(db)
     # Hero copy defaults to the locked prototype wording (with its italic accent);
     # owners can retune the eyebrow/headline per season via env without a redeploy.
     hero_eyebrow_override = os.getenv("HOME_HERO_EYEBROW") or None
@@ -611,7 +625,7 @@ def serve_home(
             "week": sandstone.week_strip(db, today=now.date()),
             "marquee": marquee,
             "promoted": promoted,
-            "featured_cards": sandstone.featured_cards(spotlights),
+            "featured_cards": featured_cards,
             "calendar": sandstone.calendar_month(
                 db, year=cal_year, month=cal_month, today=now.date()
             ),
