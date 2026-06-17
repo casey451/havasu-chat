@@ -53,6 +53,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from app.contrib.leaf_type_mapping import map_google_types_to_leaf_slug  # noqa: E402
+from app.contrib.name_leaf_rules import leaf_for_name  # noqa: E402
 from app.db.database import DATABASE_URL, SessionLocal  # noqa: E402
 from app.db.models import Category, Claim, Entity, EntityCategory, Provider  # noqa: E402
 
@@ -157,6 +158,39 @@ def run(
             eid = p.entity_id
             if eid is None:
                 continue
+            # Name-based override (martial-arts / dance): Google has no precise
+            # type for these, so a confident NAME signal routes the leaf even when
+            # the primary type is generic/wrong. Conservative matcher
+            # (``name_leaf_rules``); runs before the type logic and the generic-
+            # primary guard so a dojo typed ``gym``/``point_of_interest`` files on
+            # martial-arts. Claimed-entity protection and the target-exists check
+            # still apply — never auto-reverts a human-curated assignment.
+            name_leaf = leaf_for_name(p.provider_name)
+            if name_leaf is not None:
+                new_id = leaf_id_by_slug.get(name_leaf)
+                if new_id is None:
+                    counts["leaf_absent_in_db"] += 1
+                    continue
+                if current_primary.get(eid) == new_id:
+                    counts["unchanged"] += 1
+                    continue
+                if eid in claimed:
+                    counts["protected_claimed"] += 1
+                    continue
+                counts["would_reassign"] += 1
+                counts["name_routed"] += 1
+                staged.append((eid, new_id, name_leaf))
+                report_rows.append(
+                    {
+                        "entity_id": eid,
+                        "provider_name": (p.provider_name or "").strip(),
+                        "google_primary_category": p.google_primary_category or "",
+                        "current_primary_category_id": current_primary.get(eid) or "",
+                        "new_leaf_slug": name_leaf,
+                        "new_leaf_category_id": new_id,
+                    }
+                )
+                continue
             # Hard guard: a generic umbrella primary can never be reassigned,
             # independent of the resolver. Reported separately, never staged.
             if is_generic_primary(p.google_primary_category):
@@ -205,6 +239,7 @@ def run(
         print("backfill plan:")
         for k in (
             "would_reassign",
+            "name_routed",
             "unchanged",
             "unmapped",
             "generic_primary_skipped",
