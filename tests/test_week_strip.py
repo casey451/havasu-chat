@@ -198,6 +198,23 @@ def test_week_strip_empty_day_is_omittable(db: Session) -> None:
     assert sunday["count"] == 1
 
 
+def test_week_strip_day_categories_breakdown(db: Session) -> None:
+    """Phase 7: each day carries a recurring-occurrence ``categories`` breakdown
+    (bucketed by the shared Slice C definition, ordered by GROUP_DEFS). One-off
+    events are NOT in it — they are the headlines / event_count."""
+    _add(db, title="Street Fair", start=time(17, 0))  # one-off → not a category
+    _add(db, title="Vinyasa Yoga", start=time(9, 0), recurring=True)  # → classes
+    _add(db, title="Lap Swim", start=time(6, 0), recurring=True)  # → aquatic
+    strip = sandstone.week_strip(db, today=_TODAY)
+    today = strip["days"][0]
+    cats = {c["key"]: c["count"] for c in today["categories"]}
+    assert cats == {"aquatic": 1, "classes": 1}  # recurring only; one-off excluded
+    # Ordered by GROUP_DEFS (aquatic precedes classes); each row carries a label.
+    assert [c["key"] for c in today["categories"]] == ["aquatic", "classes"]
+    assert all(c["label"] for c in today["categories"])
+    assert today["event_count"] == 1  # the one-off Street Fair
+
+
 def _add_weekly(db: Session, *, title: str, byday: str, start: date) -> None:
     db.add(
         Event(

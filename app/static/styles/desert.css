@@ -51,6 +51,35 @@
   --d-shadow-orange:10px 10px 0 var(--orange);
   --d-shadow-blue:10px 10px 0 var(--blue);
 
+  /* === Phase 7 — soft-material layer (calm cream + navy base, orange as accent).
+     The hard-offset signature above is retained for surfaces not yet migrated;
+     new/elevated surfaces draw from the soft scale below. These are ADDITIVE —
+     nothing renders differently until a surface opts in. ====================== */
+  --orange-ink:#c24a16;                 /* orange dark enough for text on light/cream */
+  --border-soft:1.5px solid var(--black);
+  --radius-sm:9px;
+  --radius-soft:12px;
+  --radius-soft-lg:14px;
+  --elev-1:0 4px 10px -8px rgba(23,19,16,.42);
+  --elev-2:0 8px 18px -12px rgba(23,19,16,.5);
+  --elev-3:0 12px 26px -13px rgba(11,36,77,.55);
+  --surface-cream:linear-gradient(155deg,#ffffff 0%,#f4e8d2 100%);
+  --surface-navy:linear-gradient(150deg,#1a3d5c 0%,#11324d 60%,#0c2740 100%);
+  --surface-ink:linear-gradient(135deg,#171310 0%,#2c2c2a 100%);
+  --hero-sheen:radial-gradient(circle at 72% 26%, rgba(224,106,44,.20), transparent 60%);
+  --ink-on-navy:#fbf4e6;
+  --muted-on-navy:#9fb8cc;
+  /* category accent map — a department family's tint, used ONLY as small accents
+     (icon chip, arrow, eyebrow rule, day-card category label) — never a large fill. */
+  --cat-eat:#c24a16;
+  --cat-lake:#11324d;
+  --cat-water:#185fa5;
+  --cat-health:#0f6e56;
+  --cat-kids:#993556;
+  --cat-fitness:#3b6d11;
+  --cat-music:#185fa5;
+  --cat-shop:#5f5e5a;
+
   /* --- semantic tokens (1.7) ------------------------------------------- */
   /* secondary / muted body text. #171310 @ 62% composites to ~#6b655b,
      ≈5:1 on --sand-light → AA for normal text. Use for de-emphasis only;

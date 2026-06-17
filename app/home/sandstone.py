@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import calendar as _calendar
 import re
+from collections import defaultdict
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
@@ -29,6 +30,7 @@ from app.events.recurrence import occurrences_in_window
 from app.events.time_labels import format_short_time, short_time_label, time_sort_key
 from app.events.title_clean import clean_event_title
 from app.home.event_buckets import (
+    GROUP_DEFS,
     TIER_AQUATIC,
     TIER_CLASS,
     TIER_COMMUNITY,
@@ -491,11 +493,37 @@ def week_strip(
         for d, evs in by_day.items()
         for ev in evs
     }
+    # Per-day category breakdown of RECURRING occurrences (recurring Event rows +
+    # venue Schedule classes), bucketed by the shared definition (Slice C). One-
+    # offs are the headlines / ``event_count``; this breakdown powers the home
+    # events module's "Also today" rollup + per-day category lines (Phase 7). It
+    # is additive — every existing field is untouched.
+    def _bucket_of(*, title: str, tags: list[str] | None, featured: bool, recurring: bool) -> str:
+        return _group_for_tier(
+            _event_tier(title=title, tags=tags, featured=featured, recurring=recurring),
+            recurring=recurring,
+            title=title,
+            tags=tags,
+        )
+
+    day_cat_counts: dict[date, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for cat_d, cat_evs in by_day.items():
+        for ev in cat_evs:
+            if ev.is_recurring:
+                day_cat_counts[cat_d][
+                    _bucket_of(
+                        title=ev.title, tags=ev.tags, featured=bool(ev.featured), recurring=True
+                    )
+                ] += 1
+
     sched_classes_by_day: dict[date, int] = {}
     for occ in drop_event_duplicates(
         class_occurrences_in_window(db, window_start=today, window_end=end), event_keys
     ):
         sched_classes_by_day[occ.date] = sched_classes_by_day.get(occ.date, 0) + 1
+        day_cat_counts[occ.date][
+            _bucket_of(title=occ.title, tags=None, featured=False, recurring=True)
+        ] += 1
 
     def _tier(ev: Event) -> int:
         return _event_tier(
@@ -547,6 +575,14 @@ def week_strip(
         if class_count:
             summary_bits.append(f"{class_count} class{'' if class_count == 1 else 'es'}")
         total = len(oneoffs) + class_count
+        # Recurring-occurrence breakdown for this day, ordered by the shared
+        # GROUP_DEFS order; only buckets with content appear (honest omission).
+        cats = day_cat_counts.get(d, {})
+        categories = [
+            {"key": key, "label": lbl, "count": cats[key]}
+            for key, lbl, _icon in GROUP_DEFS
+            if cats.get(key)
+        ]
         out_days.append(
             {
                 "iso": d.isoformat(),
@@ -557,6 +593,7 @@ def week_strip(
                 "overflow": overflow,
                 "event_count": len(oneoffs),
                 "class_count": class_count,
+                "categories": categories,
                 "summary": " · ".join(summary_bits),
                 "count": total,
                 "has": total > 0,
