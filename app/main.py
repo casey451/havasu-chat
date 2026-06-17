@@ -793,6 +793,53 @@ def _truncate_for_og(value: str, limit: int = 160) -> str:
     return head + "..."
 
 
+def _link_domain(url: str | None) -> str:
+    """Bare hostname for a URL (no leading ``www.``), or ``""`` when unparseable."""
+    if not url:
+        return ""
+    try:
+        host = urlparse(url).netloc.lower()
+    except ValueError:
+        return ""
+    return host[4:] if host.startswith("www.") else host
+
+
+def _link_label(url: str | None) -> str:
+    """Friendly link text — the site's domain, else a generic fallback."""
+    return _link_domain(url) or "Visit event page"
+
+
+def _event_link_html(event_url: str | None, source_url: str | None) -> str:
+    """The 'Event Link' block for the detail page.
+
+    Shows a friendly domain label rather than the raw URL string, and — when we
+    hold a distinct ``source_url`` (where the listing was found) — a quiet
+    provenance byline. Falls back to ``source_url`` as the primary link when no
+    ``event_url`` is stored, so a source-only event still links somewhere.
+    ``safe_href`` strips dangerous schemes (the URLs are scraped/unvalidated and
+    this is a public page; audit M2).
+    """
+    primary = (event_url or source_url or "").strip()
+    if not primary:
+        return ""
+    safe_url = html.escape(safe_href(primary))
+    label = html.escape(_link_label(primary))
+    out = (
+        f"<p><strong>Event Link:</strong> "
+        f'<a href="{safe_url}" target="_blank" rel="noopener noreferrer">{label}</a></p>'
+    )
+    src = (source_url or "").strip()
+    if src and _link_domain(src) and _link_domain(src) != _link_domain(primary):
+        src_safe = html.escape(safe_href(src))
+        src_label = html.escape(_link_domain(src))
+        out += (
+            f'<p class="ev-source"><small>Source: '
+            f'<a href="{src_safe}" target="_blank" rel="noopener noreferrer">{src_label}</a>'
+            f"</small></p>"
+        )
+    return out
+
+
 def _render_not_found_response(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request=request,
@@ -810,17 +857,7 @@ def _render_permalink_response(
         parts = [html.escape(p) for p in [event.contact_name, event.contact_phone] if p]
         contact_html = f"<p><strong>Contact:</strong> {' | '.join(parts)}</p>"
 
-    event_link_html = ""
-    if event.event_url:
-        escaped_url = html.escape(event.event_url)
-        # safe_href filters dangerous schemes (javascript:, data:) that html.escape
-        # alone allows through; event_url is scraped/unvalidated and this is a public
-        # page (audit M2, public extension).
-        safe_url = html.escape(safe_href(event.event_url))
-        event_link_html = (
-            f"<p><strong>Event Link:</strong> "
-            f'<a href="{safe_url}" target="_blank" rel="noopener noreferrer">{escaped_url}</a></p>'
-        )
+    event_link_html = _event_link_html(event.event_url, event.source_url)
 
     tags_html = ""
     if event.tags:
