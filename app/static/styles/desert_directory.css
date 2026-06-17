@@ -451,12 +451,15 @@ a.collection-card:hover{transform:translate(-3px,-3px);box-shadow:var(--d-shadow
 .collection-eyebrow{display:none}/* superseded by the head eyebrow row */
 
 /* ============================== /search =================================== */
-.search-head{background:var(--black);color:var(--cream);padding:46px 0 50px}
+/* Phase 7.4b: search head on the navy gradient + sheen (was flat black). */
+.search-head{background:var(--surface-navy);color:var(--ink-on-navy);padding:46px 0 50px;position:relative;overflow:hidden}
+.search-head::before{content:"";position:absolute;inset:0;background:var(--hero-sheen);pointer-events:none}
+.search-head .d-wrap{position:relative;z-index:1}
 .search-head h1{
   font-family:var(--disp);font-weight:800;font-size:clamp(38px,5.5vw,72px);
   line-height:.92;letter-spacing:-.025em;text-transform:uppercase;
 }
-.search-head h1 em{font-style:normal;color:var(--orange)}
+.search-head h1 em{font-style:normal;color:var(--peach)}
 .search-form{
   display:flex;background:var(--cream);border-radius:14px;overflow:hidden;
   max-width:620px;margin-top:24px;
@@ -491,7 +494,8 @@ a.collection-card:hover{transform:translate(-3px,-3px);box-shadow:var(--d-shadow
   line-height:1;text-transform:uppercase;letter-spacing:-.01em;margin-bottom:14px;
 }
 .search-list{
-  background:var(--cream);border:var(--d-border);border-radius:var(--d-radius);overflow:hidden;
+  background:var(--surface-cream);border:var(--border-soft);border-radius:var(--radius-soft);overflow:hidden;
+  box-shadow:var(--elev-1);
 }
 .search-row{padding:16px 24px;border-top:1.5px solid rgba(23,19,16,.14)}
 .search-row:first-child{border-top:none}

@@ -26,10 +26,11 @@
 .prof .crumb a:hover{color:var(--orange-deep)}
 
 /* ---- cover photo ---- */
+/* Phase 7.4c: profile surfaces on the soft layer (was --d-border + hard offset). */
 .prof .cover{
-  height:240px;border:var(--d-border-thick);border-radius:var(--d-radius-lg);
+  height:240px;border:var(--border-soft);border-radius:var(--radius-soft-lg);
   background-color:var(--sand);background-size:cover;background-position:center;
-  position:relative;box-shadow:var(--d-shadow);
+  position:relative;box-shadow:var(--elev-2);
 }
 @media(max-width:700px){.prof .cover{height:170px}}
 .prof .spon-tag{
@@ -107,13 +108,13 @@
 @media(max-width:700px){.prof .gallery{grid-template-columns:1fr 1fr}}
 .prof .gallery img{
   width:100%;aspect-ratio:4/3;object-fit:cover;
-  border:2px solid var(--black);border-radius:12px;
+  border:var(--border-soft);border-radius:var(--radius-soft);
 }
 
 /* ---- reviews ---- */
 .prof .reviews{
-  margin-top:26px;background:var(--cream);
-  border:var(--d-border);border-radius:var(--d-radius);padding:20px 22px;
+  margin-top:26px;background:var(--surface-cream);
+  border:var(--border-soft);border-radius:var(--radius-soft);box-shadow:var(--elev-1);padding:20px 22px;
 }
 .prof .rev-source{
   font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;
@@ -133,8 +134,8 @@
 
 /* ---- facts card ("Good to know") ---- */
 .prof .side{
-  background:var(--cream);border:var(--d-border);border-radius:var(--d-radius);
-  padding:22px 22px 20px;box-shadow:var(--d-shadow);
+  background:var(--surface-cream);border:var(--border-soft);border-radius:var(--radius-soft);
+  padding:22px 22px 20px;box-shadow:var(--elev-2);
 }
 .prof .side .d-side-h{
   font-family:var(--disp);font-weight:800;font-size:18px;line-height:1;
@@ -163,8 +164,8 @@
 
 /* ---- claim / offer blocks ---- */
 .prof .claim{
-  margin-top:18px;background:var(--sand);
-  border:var(--d-border);border-radius:var(--d-radius);padding:18px 20px;
+  margin-top:18px;background:var(--surface-cream);
+  border:var(--border-soft);border-radius:var(--radius-soft);box-shadow:var(--elev-1);padding:18px 20px;
   font-size:14px;
 }
 .prof .claim--lock{display:flex;gap:12px;align-items:flex-start}
@@ -177,12 +178,12 @@
 .prof .ask-hava-cta{
   display:flex;align-items:center;justify-content:center;gap:10px;
   margin-top:18px;padding:15px 20px;
-  background:var(--blue);color:var(--cream);
-  border:var(--d-border);border-radius:999px;
+  background:var(--surface-navy);color:var(--ink-on-navy);
+  border:1px solid rgba(255,255,255,.1);border-radius:999px;box-shadow:var(--elev-1);
   font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;
-  transition:background .15s;
+  transition:box-shadow .15s,transform .12s ease;
 }
-.prof .ask-hava-cta:hover{background:var(--blue-deep)}
+.prof .ask-hava-cta:hover{box-shadow:var(--elev-2);transform:translateY(-1px)}
 
 /* ---- classes & schedule / venue events / while-you're-here ---- */
 .prof .sec-head h2{
@@ -207,11 +208,11 @@
 .prof .cat-strip{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px}
 .prof .catchip{
   display:flex;align-items:center;gap:10px;
-  background:var(--cream);border:var(--d-border);border-radius:14px;
-  padding:12px 16px;min-width:200px;
+  background:var(--surface-cream);border:var(--border-soft);border-radius:var(--radius-soft);
+  box-shadow:var(--elev-1);padding:12px 16px;min-width:200px;
   transition:transform .14s ease,box-shadow .14s ease;
 }
-.prof .catchip:hover{transform:translate(-2px,-2px);box-shadow:4px 4px 0 var(--black)}
+.prof .catchip:hover{transform:translateY(-2px);box-shadow:var(--elev-2)}
 .prof .catchip .e{font-size:20px;line-height:1}
 .prof .catchip .t{font-weight:700;font-size:14px;line-height:1.2}
 .prof .catchip .n{
