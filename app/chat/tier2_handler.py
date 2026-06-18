@@ -54,12 +54,19 @@ def _open_now_empty_listing(category: str) -> str:
     return _OPEN_NOW_EMPTY_LISTING_TEMPLATE.format(category_label=label)
 
 
+# Event-intent "when" values that span more than one calendar day. These
+# render a multi-day ``week_strip`` (Fri–Sun for a weekend) rather than a
+# single ``day_agenda``; everything else (today/tomorrow/tonight) stays a
+# day_agenda.
+_MULTI_DAY_EVENT_WHENS = frozenset({"this_weekend", "this_week"})
+
+
 def _event_intent_has_time_bounds(intent: dict[str, str]) -> bool:
     return bool(intent.get("time_start") or intent.get("time_end"))
 
 
 def _filters_for_event_intent(intent: dict[str, str]) -> Tier2Filters:
-    """Minimal Tier2Filters for day_agenda rendering from event-intent rows."""
+    """Minimal Tier2Filters for day_agenda / week_strip rendering from event rows."""
     when = intent.get("when", "")
     if when == "tonight":
         return Tier2Filters(time_window="today", parser_confidence=1.0)
@@ -69,6 +76,8 @@ def _filters_for_event_intent(intent: dict[str, str]) -> Tier2Filters:
         return Tier2Filters(time_window="tomorrow", parser_confidence=1.0)
     if when == "this_weekend":
         return Tier2Filters(time_window="this_weekend", parser_confidence=1.0)
+    if when == "this_week":
+        return Tier2Filters(time_window="this_week", parser_confidence=1.0)
     return Tier2Filters(parser_confidence=1.0)
 
 
@@ -99,16 +108,29 @@ def _respond_event_intent(
     from app.chat import tier2_catalog_render
     from app.chat.component_builders import (
         build_day_agenda,
+        build_week_strip,
         fallback_day_agenda_voice,
+        fallback_week_strip_voice,
         resolve_target_date,
+        resolve_week_window,
     )
 
     filters = _filters_for_event_intent(intent)
+    multi_day = intent.get("when", "") in _MULTI_DAY_EVENT_WHENS
+
     if not rows:
         voice = _event_intent_empty_voice(intent)
         if component_meta is not None:
-            component_meta["type"] = "day_agenda"
-            component_meta["data"] = build_day_agenda(filters, [])
+            if multi_day:
+                component_meta["type"] = "week_strip"
+                component_meta["data"] = build_week_strip(filters, [])
+            else:
+                component_meta["type"] = "day_agenda"
+                component_meta["data"] = build_day_agenda(filters, [])
+    elif component_meta is not None and multi_day:
+        component_meta["type"] = "week_strip"
+        component_meta["data"] = build_week_strip(filters, rows)
+        voice = fallback_week_strip_voice(rows, resolve_week_window(filters))
     elif component_meta is not None and (len(rows) >= 2 or _event_intent_has_time_bounds(intent)):
         component_meta["type"] = "day_agenda"
         component_meta["data"] = build_day_agenda(filters, rows)
