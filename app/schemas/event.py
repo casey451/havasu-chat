@@ -29,7 +29,7 @@ class EventBase(BaseModel):
     start_time: time
     end_time: time | None = None
     location_name: str
-    description: str
+    description: str = ""
     event_url: str
     source_url: str | None = None
     contact_name: str | None = None
@@ -96,7 +96,11 @@ class EventBase(BaseModel):
     @field_validator("description")
     @classmethod
     def description_length(cls, v: str) -> str:
-        if len(v) < 20:
+        # Empty is allowed: a description-less event renders the structured
+        # "sparse event" card (When/Where + organizer link) in the detail
+        # template, which is more honest than fabricated or metadata-dump prose.
+        # A *non-empty* description must still be substantive.
+        if v and len(v) < 20:
             raise ValueError("Description must be at least 20 characters long.")
         return v
 

@@ -37,8 +37,19 @@ def _fetch_html(url: str, client: httpx.Client) -> str:
     return resp.text
 
 
-def fetch_events(*, include_weekend: bool = True, client: httpx.Client | None = None) -> list[EventRecord]:
-    """Fetch the city (+ this-weekend) pages and parse their JSON-LD events."""
+def fetch_events(
+    *,
+    include_weekend: bool = True,
+    client: httpx.Client | None = None,
+    enrich: bool = True,
+) -> list[EventRecord]:
+    """Fetch the city (+ this-weekend) pages and parse their JSON-LD events.
+
+    When ``enrich`` is set (default), events that arrive with an empty or
+    placeholder body have their real description pulled from the event's own
+    AllEvents.in detail page (rate-limited via the shared source limiter), so
+    listings such as "A-Z" or "Motor Madness" land with genuine text instead of a
+    generic placeholder. Pass ``enrich=False`` for a pure index-only dry run."""
     owns = client is None
     c = client or httpx.Client(
         headers={"User-Agent": USER_AGENT, "Accept": "text/html"}, follow_redirects=True
@@ -47,7 +58,12 @@ def fetch_events(*, include_weekend: bool = True, client: httpx.Client | None = 
         records = parse_jsonld_events(_fetch_html(CITY_URL, c), source=SOURCE)
         if include_weekend:
             records += parse_jsonld_events(_fetch_html(WEEKEND_URL, c), source=SOURCE)
+        records = dedupe_within(records)
+        if enrich:
+            from app.contrib.event_enrich import enrich_event_descriptions
+
+            enrich_event_descriptions(records, fetch_text=lambda u: _fetch_html(u, c))
     finally:
         if owns:
             c.close()
-    return dedupe_within(records)
+    return records

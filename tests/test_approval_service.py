@@ -429,3 +429,43 @@ def test_enrichment_suggests_verified_helper(db: Session) -> None:
     assert enrichment_suggests_verified(c) is False
     c.url_fetch_status = "success"
     assert enrichment_suggests_verified(c) is True
+
+
+def test_approve_event_sanitizes_metadata_description_and_bad_url(db: Session) -> None:
+    """Central guardrail: a metadata-only body collapses to no description (the
+    template renders the sparse-event card), an email-as-URL click-through is
+    replaced with the safe fallback, and a glued venue string is normalized —
+    regardless of source/approval path."""
+    c = _event_contribution(db)
+    from datetime import date, time
+
+    evf = EventApprovalFields(
+        title="Motor Madness",
+        description="Venue: 2144 McCulloch Blvd N\nOrganizer: Havasu Together\nCategories: car show",
+        date=date(2026, 6, 21),
+        start_time=time(17, 0),
+        location_name="2144 McCulloch Blvd NLake Havasu City, AZ",
+        event_url="https://info@ijsba.com/",
+    )
+    ev = approve_contribution_as_event(db, c.id, evf, ["community"])
+    assert not (ev.description or "")  # metadata-only -> empty -> sparse card
+    assert ev.event_url == "https://askhava.com/events-ui"  # email-as-URL rejected
+    assert ev.location_name == "2144 McCulloch Blvd N Lake Havasu City, AZ"
+
+
+def test_approve_event_keeps_real_description(db: Session) -> None:
+    c = _event_contribution(db)
+    from datetime import date, time
+
+    real = "A-Z is a high-energy local cover band playing rock and country favorites all night."
+    evf = EventApprovalFields(
+        title="A-Z",
+        description=real,
+        date=date(2026, 6, 18),
+        start_time=time(20, 0),
+        location_name="Flying X Saloon",
+        event_url="https://www.facebook.com/azband",
+    )
+    ev = approve_contribution_as_event(db, c.id, evf, ["music"])
+    assert ev.description == real
+    assert ev.event_url == "https://www.facebook.com/azband"

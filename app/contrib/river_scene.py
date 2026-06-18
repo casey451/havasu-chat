@@ -415,7 +415,12 @@ def fetch_and_parse_event(
     title = _title_from_soup(soup)
     desc_html = _description_above_table(soup, table)
     if not desc_html.strip():
-        desc_html = ""
+        # No prose above the details table: recover the real body from the page's
+        # og:description / JSON-LD so the event doesn't fall back to a metadata-only
+        # description on our detail page.
+        from app.contrib.event_enrich import description_from_detail_html
+
+        desc_html = description_from_detail_html(html)
 
     return RiverSceneEvent(
         title=title,

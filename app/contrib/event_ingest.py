@@ -39,6 +39,11 @@ from app.contrib.event_record import EventRecord
 from app.db import contribution_store as cs
 from app.db.database import SessionLocal
 from app.db.models import Event
+from app.events.description_clean import (
+    clean_event_description,
+    normalize_location_text,
+    valid_event_url,
+)
 from app.events.scrapers.base import EventPayload
 from app.schemas.contribution import ContributionCreate, EventApprovalFields
 
@@ -89,25 +94,25 @@ class IngestCounts:
 
 
 def _http_url_or_none(url: str | None) -> str | None:
-    if isinstance(url, str) and url.strip().lower().startswith(("http://", "https://")):
-        return url.strip()
-    return None
+    # Validates http(s) and rejects email-as-URL (``https://info@ijsba.com/``) and
+    # known-dead placeholder hosts, so a bad click-through never reaches an event.
+    return valid_event_url(url)
 
 
 def _location_name(rec: EventRecord) -> str:
-    name = (rec.venue_name or "").strip()
+    name = normalize_location_text(rec.venue_name)
     # EventApprovalFields requires location_name >= 3 chars.
     return name if len(name) >= 3 else "Lake Havasu City"
 
 
 def _description(rec: EventRecord) -> str:
-    """EventApprovalFields requires description >= 20 chars; synthesise when the
-    source gave us none (aggregator listings frequently have an empty body)."""
-    desc = (rec.description or "").strip()
-    if len(desc) >= 20:
-        return desc
-    when = rec.start_date.strftime("%b %d, %Y") if rec.start_date else "an upcoming date"
-    return f"{rec.title.strip()} at {_location_name(rec)} on {when}."
+    """Real user-facing prose for the event, or "" when the source gave none.
+
+    We never fabricate a sentence: a metadata/placeholder body is collapsed to ""
+    by ``clean_event_description`` and the event detail template renders a
+    structured sparse-event card (When/Where + organizer link) instead.
+    EventApprovalFields permits an empty description for exactly this reason."""
+    return clean_event_description(rec.description)
 
 
 # Junk-drawer / placeholder tag values upstream forms leak (Cowork saw a literal

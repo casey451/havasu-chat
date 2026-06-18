@@ -134,7 +134,11 @@ class EventApprovalFields(BaseModel):
     """Operator-edited fields when approving an event contribution."""
 
     title: str = Field(min_length=3)
-    description: str = Field(min_length=20)
+    # Empty is allowed and meaningful: the event detail template renders a
+    # structured "sparse event" card (When/Where + organizer link) for
+    # description-less events, which is more honest than fabricated prose. The
+    # ingest/approval path sanitises metadata/placeholder bodies down to "".
+    description: str = Field(default="", max_length=20000)
     date: _Date
     end_date: _Date | None = None
     start_time: time
