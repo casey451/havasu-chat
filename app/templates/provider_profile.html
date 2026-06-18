@@ -77,7 +77,7 @@
   {# ---- Cover (DL-7): the stored category-card photo is the profile cover for
      every listing, claimed or not. The lock overlay no longer hides the cover —
      it now lives below Good-to-know as a compressed claim block. ---- #}
-  <div class="cover"{% if vm.hero_photo_url %} style="background-image:url('{{ vm.hero_photo_url }}')"{% endif %}>
+  <div class="cover{% if not vm.hero_photo_url %} cover--art{% endif %}"{% if vm.hero_photo_url %} style="background-image:url('{{ vm.hero_photo_url }}')"{% endif %}>
     {% if vm.is_sponsored and vm.sponsor_disclosure_label %}
     <span class="spon-tag">{{ vm.sponsor_disclosure_label }}</span>
     {% endif %}

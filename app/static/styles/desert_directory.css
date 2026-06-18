@@ -192,6 +192,14 @@ a.spon-panel:hover .spon-go{color:var(--peach)}
   background-color:var(--sand);background-size:cover;background-position:center;
   position:relative;overflow:visible;
 }
+/* No-photo fallback: a warm monogram tile instead of a blank sand square. */
+.biz .img--art{background:linear-gradient(150deg,var(--sand-light),var(--sand))}
+.biz .img--art::after{
+  content:attr(data-monogram);position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--disp);font-weight:800;font-size:26px;color:var(--orange-deep);opacity:.45;
+}
+@media(max-width:700px){.biz .img--art::after{font-size:21px}}
 .biz .img .open{
   position:absolute;left:-6px;bottom:-7px;
   background:var(--orange);color:var(--black);border-radius:999px;
