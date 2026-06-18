@@ -14,6 +14,19 @@ from app.db import contribution_store as cs
 from app.schemas.contribution import ContributionCreate, ContributionSource
 
 
+def _decode_response(resp: httpx.Response) -> str:
+    """Decode an httpx response as text, defaulting to UTF-8 (not latin-1).
+
+    When the server declares an explicit charset in its Content-Type header we
+    honor it. When it does not, httpx falls back to a guessed codec that
+    corrupts multibyte/emoji characters (e.g. "💋" -> "?"), so we force UTF-8
+    with replacement decoding instead.
+    """
+    if not resp.charset_encoding:
+        return resp.content.decode("utf-8", errors="replace")
+    return resp.text
+
+
 @dataclass
 class EventPayload(EntityPayload):
     """EntityPayload specialized for entity_type='event' ingest."""
@@ -75,7 +88,7 @@ class EventIngestClient(BaseIngestClient):
             try:
                 r = c.get(url, timeout=timeout)
                 r.raise_for_status()
-                return r.text
+                return _decode_response(r)
             finally:
                 if owns:
                     c.close()

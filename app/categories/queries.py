@@ -931,24 +931,77 @@ def _liveness_dampener_expr():
     )
 
 
+# 4.1 ranking tuning (2026-06-17) — the In-N-Out symptom and its fix.
+#
+# REPRODUCED: Bayesian shrinkage alone (``rating_prior``, C=25) ranks the
+# contested case correctly *only when the live mean m sits below the contested
+# ratings*. With R_thin=4.7/n=20 vs R_thick=4.6/n=3878, the thin row barely
+# shrinks (n=20 « C) while the thick row barely moves (n=3878 » C), so on a
+# high-rated leaf where the review-weighted m climbs toward ~4.6 the shrunk
+# thin 4.7 floats ABOVE the thick 4.6 — exactly the reported bug (a ~20-review
+# 4.7 topping a 3,878-review 4.6). Worked example at m=4.60, C=25:
+#   thick = (4.6*3878 + 4.6*25)/3903 = 4.600
+#   thin  = (4.7*20   + 4.6*25)/45   = 4.644   ->  thin wrongly wins.
+#
+# WHY NOT JUST RAISE C: shrinkage only ever pulls a score toward m, and a 4.7
+# thin row stays above a ~4.6 m at ANY C (raising C just moves it closer to
+# 4.6 from above). C is a global constant owned by app.core.rating_prior and
+# is held at its calibrated 25 (head-stable on the 2026-06-10 prod export).
+#
+# FIX (this module's lane): a saturating review-volume *confidence* multiplier
+# on the SORT score only (never the displayed rating). A listing with thousands
+# of reviews has earned its rating and should win a near-tie against a
+# barely-reviewed one regardless of m. The bonus uses a pure-arithmetic
+# saturating curve ``n / (n + REF)`` — bounded in [0, 1), monotonic, and (unlike
+# LN/LEAST) portable across SQLite (tests) and Postgres (prod) with no DB
+# function dependency. It is capped at ``+W`` (8%), so the review-rich head —
+# where every row already has a large, similar n near the asymptote — is
+# essentially unreordered (the C=25 head-stability calibration holds), while the
+# thin tail loses almost all of the bonus and is pushed down. Re-running the
+# worked example (m≈4.60):
+#   thick * (1 + .08 * 3878/(3878+300)) = 4.600 * 1.074 = 4.942
+#   thin  * (1 + .08 *   20/(20+300))   = 4.644 * 1.005 = 4.667  -> thick wins.
+#: Review volume at which the confidence bonus reaches half its max (so a few
+#: thousand reviews — the In-N-Out scale — sits near the full bonus while a
+#: 20-review row gets almost none).
+_VOLUME_CONFIDENCE_REF = 300.0
+#: Max fractional lift the volume bonus adds to a fully-credible listing's score.
+#: Small (8%) so it only ever breaks near-ties — it can't promote a genuinely
+#: lower-rated listing past a clearly higher-rated one in the head.
+_VOLUME_CONFIDENCE_WEIGHT = 0.08
+
+
+def _volume_confidence_expr():
+    """``1 + W * n/(n + REF)`` — a bounded, saturating review-volume bonus.
+
+    Monotonic in review count, asymptotes to ``1 + W``, and uses only
+    COALESCE + arithmetic so it runs identically on SQLite and Postgres. NULL/0
+    review counts get the bare 1.0 (no bonus); a few-thousand-review listing
+    sits near the full ``1 + W`` lift."""
+    from sqlalchemy import func as sa_func
+
+    n = sa_func.coalesce(Provider.google_review_count, 0)
+    return 1.0 + _VOLUME_CONFIDENCE_WEIGHT * (n / (n + _VOLUME_CONFIDENCE_REF))
+
+
 def _dampened_rating_sort_key(db):
-    """``queries_c._rating_sort_key`` with the liveness dampener folded in.
+    """``queries_c._rating_sort_key`` with the liveness dampener + volume bonus.
 
     Bayesian-shrunk rating (WS-2, ``app.core.rating_prior``: ``(R*n + m*C) /
     (n + C)``, C=25, live review-weighted ``m``) replacing the old hard
     ``MIN_RATING_REVIEWS`` tier — the prior shrinks thin-review ratings toward
-    the global mean continuously instead of bucketing them, so a 2-review 5.0
-    can't top a leaf page while a review-rich head keeps its order (top-20
-    identical at C=25 on the 2026-06-10 prod calibration). The score is
-    multiplied by the liveness dampener, so a stale-but-once-popular listing
-    sinks (the bury-don't-remove rule). NULL ratings still sort last; NULL
-    liveness leaves the ordering identical to the undampened sort.
+    the global mean continuously instead of bucketing them. The shrunk score is
+    then multiplied by the liveness dampener (bury-don't-remove) AND a saturating
+    log-review-count confidence bonus (:func:`_volume_confidence_expr`), so a
+    3,878-review 4.6 outranks a 20-review 4.7 even when the live mean climbs into
+    the contested range — the 4.1 ranking fix. NULL ratings still sort last; the
+    review-count tiebreak is preserved as the final discriminator.
     """
     from app.core.rating_prior import bayesian_rating_expr, global_mean_rating
 
     score = bayesian_rating_expr(global_mean_rating(db))
     return (
-        (score * _liveness_dampener_expr()).desc().nullslast(),
+        (score * _liveness_dampener_expr() * _volume_confidence_expr()).desc().nullslast(),
         Provider.google_review_count.desc().nullslast(),
     )
 

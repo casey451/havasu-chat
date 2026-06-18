@@ -48,7 +48,11 @@ from app.events.time_labels import TIME_TBD_LABEL, short_time_label, time_sort_k
 from app.events.title_clean import clean_event_title
 from app.home.event_buckets import GROUP_DEFS, GROUP_NOUNS, group_for_tier
 from app.home.family_venues import open_today_rows
-from app.home.sandstone import _event_tier, _live_events_by_day
+from app.home.sandstone import (
+    _event_tier,
+    _live_events_by_day,
+    event_recurrence_label,
+)
 
 # Private aliases for the shared bucket definitions (the canonical names live in
 # app.home.event_buckets — Slice C). Plain assignment instead of ``import ... as``
@@ -469,9 +473,18 @@ def week_rows(
             rank: tuple[int, int, time] = (tier, *time_sort_key(ev.start_time, ev.end_time))
             if best_key is None or rank < best_key:
                 best_key = rank
+                _time = short_time_label(ev.start_time, ev.end_time)
                 headline = {
                     "title": clean_event_title(ev.title, location_name=ev.location_name),
-                    "time": short_time_label(ev.start_time, ev.end_time),
+                    "time": _time,
+                    # 4.2: recurrence badge on the week-view headline. A one-off
+                    # headline carrying an rrule/rdate (or flagged recurring) gets
+                    # a cadence label ("Daily", "Mon–Fri", "Thu"); a true one-off
+                    # gets None and the template omits the badge. The headline is
+                    # still one event for this day — only a label is added.
+                    "recurrence_label": event_recurrence_label(
+                        ev, window_start=start, window_end=end, time_label=_time
+                    ),
                 }
         rows.append(
             {

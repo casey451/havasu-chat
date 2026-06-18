@@ -67,10 +67,58 @@ _PLACEHOLDER_SENTENCE_RES = (
 )
 
 
+# Aggregator (AllEvents.in et al.) call-to-action boilerplate that leaks into the
+# scraped body. These are never real prose — strip them wherever they appear so
+# they don't reach users or pad the body past the _MIN_REAL_PROSE gate. Each is a
+# whole-phrase match (optionally followed by a trailing source name / URL) so a
+# genuine sentence that merely contains "tickets" mid-clause is untouched.
+_BOILERPLATE_RES = (
+    # "Find tickets & information for <event> ..." up to sentence end.
+    re.compile(r"\bfind tickets?\b[^.\n]*\.?", re.IGNORECASE),
+    # "Register or Buy Tickets", "Buy Tickets", "Register Now".
+    re.compile(r"\b(?:register or buy tickets?|buy tickets?|register now)\b\.?", re.IGNORECASE),
+    # "Price information." stub.
+    re.compile(r"\bprice information\b\.?", re.IGNORECASE),
+    # The raw "Event Link: allevents.in" / "Source: allevents.in" source string,
+    # incl. a trailing host/URL fragment.
+    re.compile(r"\b(?:event link|source)\s*:?\s*allevents(?:\.in)?\S*", re.IGNORECASE),
+    # Bare "allevents.in" / "via allevents" attribution.
+    re.compile(r"\b(?:via\s+)?allevents(?:\.in)?\b", re.IGNORECASE),
+)
+
+
 def _strip_placeholder_sentences(text: str) -> str:
     for rx in _PLACEHOLDER_SENTENCE_RES:
         text = rx.sub(" ", text)
     return text
+
+
+def _strip_boilerplate(text: str) -> str:
+    for rx in _BOILERPLATE_RES:
+        text = rx.sub(" ", text)
+    return text
+
+
+def truncate_on_word_boundary(text: str | None, limit: int = 300) -> str:
+    """Return ``text`` clamped to ``limit`` chars without cutting a word in half.
+
+    Collapses internal whitespace, and when over budget trims back to the last
+    whitespace boundary inside the limit and appends a single ellipsis ("…").
+    Falls back to a hard slice only when a single token exceeds the limit. This
+    is the reusable, word-safe alternative to the ``text[:n] + "..."`` slices
+    that produced mid-word cuts ("Unleash yo", "...Effective"); other lanes may
+    import it for description/preview clamping.
+    """
+    if not text:
+        return ""
+    clean = " ".join(str(text).split()).strip()
+    if len(clean) <= limit:
+        return clean
+    head = clean[:limit].rstrip()
+    cut = head.rfind(" ")
+    if cut > 0:
+        head = head[:cut].rstrip()
+    return head.rstrip(" ,;:-") + "…"
 
 
 def clean_event_description(raw: str | None) -> str:
@@ -82,6 +130,7 @@ def clean_event_description(raw: str | None) -> str:
     if not raw:
         return ""
     text = _strip_placeholder_sentences(str(raw))
+    text = _strip_boilerplate(text)
     kept: list[str] = []
     for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
         if _METADATA_LINE_RE.match(line):

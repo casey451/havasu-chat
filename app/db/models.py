@@ -303,6 +303,22 @@ class Event(Base):
     # from a scrambled description's ``Image:`` line by the backfill, or set on
     # ingest; rendered on the event permalink when present.
     image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    # Fix 2.2 — human-readable price for the event, mirroring how ``Program.cost`` /
+    # ``Program.cost_description`` model pricing. ``cost`` is a short label like
+    # "$20", "Free", or "$10-$25"; ``cost_description`` holds extra pricing notes
+    # ("kids under 5 free", "members $15"). Both nullable + additive; populated at
+    # ingest from the source JSON-LD ``offers`` / parsed from the description, and
+    # by scripts/backfill_event_fields_2026_06.py. Rendering is handled by the
+    # event-detail/card lane; this lane only stores the value. See the
+    # a1b2c3d4e5f7 migration.
+    cost: Mapped[str | None] = mapped_column(String, nullable=True)
+    cost_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Fix 4.3 — instructor/host name extracted from a class title (e.g. "Tai Chi
+    # Vince" -> host="Vince"). The display-grade title is cleaned by
+    # app.events.title_clean (another lane); this structured field is populated at
+    # ingest from the RAW title using that module's shared INSTRUCTOR_NAMES set so
+    # the host survives even after the title is stripped. Nullable + additive.
+    host: Mapped[str | None] = mapped_column(String, nullable=True)
     status: Mapped[str] = mapped_column(String, default="live", nullable=False)
     source: Mapped[str] = mapped_column(String, default="admin", nullable=False)
     verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

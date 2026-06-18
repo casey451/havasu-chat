@@ -16,6 +16,7 @@ from app.events.description_clean import (
     clean_event_description,
     is_synthetic_placeholder,
     normalize_location_text,
+    truncate_on_word_boundary,
     valid_event_url,
 )
 
@@ -61,6 +62,66 @@ def test_too_short_body_is_dropped() -> None:
 def test_empty_and_none() -> None:
     assert clean_event_description("") == ""
     assert clean_event_description(None) == ""
+
+
+# ---- aggregator boilerplate stripping (2.3) ----------------------------------
+
+def test_find_tickets_boilerplate_stripped_but_prose_survives() -> None:
+    raw = (
+        "Motor Madness brings classic hot rods and live music to the waterfront "
+        "all weekend long. Find tickets & information for Motor Madness here."
+    )
+    out = clean_event_description(raw)
+    assert "hot rods" in out
+    assert "find tickets" not in out.lower()
+
+
+def test_pure_boilerplate_body_is_dropped() -> None:
+    # Nothing but CTA + source string -> below the prose gate -> "".
+    raw = "Register or Buy Tickets. Price information. Event Link: allevents.in"
+    assert clean_event_description(raw) == ""
+
+
+def test_event_link_allevents_source_string_stripped() -> None:
+    raw = (
+        "Join us for a night of live blues and barbecue on the patio downtown.\n"
+        "Event Link: allevents.in/lake-havasu-city/blues-night"
+    )
+    out = clean_event_description(raw)
+    assert "live blues" in out
+    assert "allevents" not in out.lower()
+    assert "event link" not in out.lower()
+
+
+def test_unicode_emoji_preserved() -> None:
+    # 2.6: nothing in this module strips non-ASCII; the emoji survives cleaning.
+    prose = "Wellness & Beauty Event 💋 — pampering, massages, and skincare demos all afternoon."
+    out = clean_event_description(prose)
+    assert "💋" in out
+
+
+# ---- truncate_on_word_boundary (reusable safe-truncate helper) ----------------
+
+def test_truncate_short_text_unchanged() -> None:
+    assert truncate_on_word_boundary("Short and sweet.", limit=300) == "Short and sweet."
+
+
+def test_truncate_never_cuts_mid_word() -> None:
+    # Regression for the "Unleash yo" / "...Effective" mid-word cuts: the result
+    # ends on a whole word + ellipsis, never a half word.
+    text = "Unleash your inner racer at Motor Madness this weekend downtown by the water"
+    out = truncate_on_word_boundary(text, limit=20)
+    assert out.endswith("…")
+    body = out[:-1].rstrip()
+    # No partial trailing token: the truncated body is a prefix that ends at a
+    # word present in the original.
+    assert text.startswith(body)
+    assert body.split()[-1] in text.split()
+
+
+def test_truncate_empty_and_none() -> None:
+    assert truncate_on_word_boundary(None) == ""
+    assert truncate_on_word_boundary("") == ""
 
 
 # ---- is_synthetic_placeholder ------------------------------------------------

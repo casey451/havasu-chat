@@ -26,7 +26,8 @@ from app.events.class_occurrences import (
     drop_event_duplicates,
 )
 from app.events.dedup import dedup_cross_source_occurrences
-from app.events.recurrence import occurrences_in_window
+from app.events.recurrence import expand_event, occurrences_in_window
+from app.events.series import schedule_label as _schedule_label
 from app.events.time_labels import format_short_time, short_time_label, time_sort_key
 from app.events.title_clean import clean_event_title
 from app.home.event_buckets import (
@@ -562,6 +563,16 @@ def week_strip(
                         _tier(ev), recurring=False, title=ev.title, tags=ev.tags
                     ),
                     "time": short_time_label(ev.start_time, ev.end_time),
+                    # 4.2: recurrence badge — a one-off carrying an rrule/rdate
+                    # (or flagged recurring) gets a cadence label; a true one-off
+                    # gets None and the template omits the badge. Per-day list is
+                    # unchanged (still one item per day); this only labels it.
+                    "recurrence_label": event_recurrence_label(
+                        ev,
+                        window_start=today,
+                        window_end=end,
+                        time_label=short_time_label(ev.start_time, ev.end_time),
+                    ),
                 }
                 for ev in oneoffs[:per_day]
             ]
@@ -600,6 +611,177 @@ def week_strip(
             }
         )
     return {"days": out_days, "has_any": any(day["has"] for day in out_days)}
+
+
+# ---------------------------------------------------------------------------
+# 4.2 — aggregate event cards: collapse a recurring event's many occurrences in
+# a week/month/all-events window into ONE card carrying a recurrence_label.
+# ---------------------------------------------------------------------------
+#
+# The data layer stores a recurring event as a single row + rrule/rdate that
+# ``_live_events_by_day`` expands to one (event, date) pair per occurrence. The
+# per-day views WANT that expansion (a class shows on each of its days). The
+# AGGREGATE views (week summary, month list, all-events) do not: ten occurrences
+# of one yoga class should read as a single "Yoga — Daily, 5–7 AM" card, not ten
+# rows. This is a pure presentation/grouping pass over the read-path expansion —
+# no schema change.
+
+
+def recurrence_label(weekdays: set[int], time_label: str | None = None) -> str | None:
+    """Human recurrence label for an aggregated event card, or ``None``.
+
+    Reuses :func:`app.events.series.schedule_label` for the cadence ("Daily",
+    "Mon–Fri", "Weekends", "Tue–Thu", "Mon, Wed, Fri") so the home strip, the
+    events feed, and these aggregate cards all phrase recurrence identically.
+    Appends the time span when known, e.g. "Daily, 5–7 AM" / "Mon–Fri, 9 AM".
+    Returns ``None`` for a non-recurring occurrence (empty/single weekday set and
+    no recurrence) so callers leave the field off a one-off card (the contract:
+    ``recurrence_label`` is ``str | None``)."""
+    cadence = _schedule_label(set(weekdays)) if weekdays else ""
+    if not cadence:
+        return None
+    if time_label:
+        return f"{cadence}, {time_label}"
+    return cadence
+
+
+def event_recurrence_label(
+    ev: Event, *, window_start: date, window_end: date, time_label: str | None = None
+) -> str | None:
+    """Recurrence label for a single Event row on a per-day surface, or ``None``.
+
+    Used to populate the recurrence badge on the LIVE week-view headline
+    (``d.headline.recurrence_label``) and the home today-card items
+    (``ev.recurrence_label``) WITHOUT collapsing the per-day lists: the event
+    still shows once on its day, this only adds a cadence label when the row is
+    genuinely recurring.
+
+    An event is "recurring" when it carries an ``rrule``/``rdate`` schedule or is
+    flagged ``is_recurring``. The weekday set is derived from the event's own
+    occurrence dates inside ``[window_start, window_end]`` (via
+    :func:`app.events.recurrence.expand_event`), then phrased by
+    :func:`recurrence_label`. A one-off (no schedule, not flagged) yields
+    ``None``. Defensive: a malformed/over-cap rrule never raises here — it falls
+    back to ``None`` so a bad row can't break the page.
+    """
+    has_schedule = bool(getattr(ev, "rrule", None) or getattr(ev, "rdate", None))
+    if not (has_schedule or bool(getattr(ev, "is_recurring", False))):
+        return None
+    weekdays: set[int] = set()
+    try:
+        for occ_date in expand_event(
+            ev, window_start=window_start, window_end=window_end
+        ):
+            weekdays.add(occ_date.weekday())
+    except Exception:  # pragma: no cover - never break the page on a bad rrule
+        weekdays = set()
+    # Flagged-recurring rows with no expandable schedule in this window (a
+    # materialised single instance) still read as recurring — anchor the cadence
+    # on the event's own stored weekday so the badge is never empty for them.
+    if not weekdays and ev.date is not None:
+        weekdays = {ev.date.weekday()}
+    return recurrence_label(weekdays, time_label)
+
+
+def _event_passthrough_fields(ev: Event) -> dict[str, Any]:
+    """Optional Event display fields (another lane), guarded for absence.
+
+    ``cost`` / ``cost_description`` / ``host`` / ``image_url`` are additive
+    columns; ``getattr`` keeps this safe on a model (or test stub) that predates
+    them. Templates render each only when truthy."""
+    return {
+        "cost": getattr(ev, "cost", None),
+        "cost_description": getattr(ev, "cost_description", None),
+        "host": getattr(ev, "host", None),
+        "image_url": getattr(ev, "image_url", None),
+    }
+
+
+def aggregate_event_cards(
+    db: Session, *, window_start: date, window_end: date
+) -> list[dict[str, Any]]:
+    """One card per event across the window, recurring occurrences collapsed.
+
+    For the week/month/all-events aggregate surfaces. Each card carries a
+    ``recurrence_label`` (str|None) derived from the union of the event's
+    occurrence weekdays in the window, plus the optional cost/host/image_url
+    pass-through fields. A non-recurring event yields a single card anchored on
+    its one occurrence with ``recurrence_label=None``; a recurring event yields a
+    single card anchored on its FIRST occurrence in the window with the cadence
+    label. Cards are ordered by (tier, time) of the anchor occurrence, then title.
+    """
+    by_day = _live_events_by_day(db, window_start=window_start, window_end=window_end)
+
+    # Group occurrences by event id, tracking weekdays + the anchor (earliest)
+    # occurrence date so the card links to a real upcoming instance.
+    grouped: dict[Any, dict[str, Any]] = {}
+    for occ_date, evs in sorted(by_day.items()):
+        for ev in evs:
+            g = grouped.get(ev.id)
+            if g is None:
+                grouped[ev.id] = {
+                    "event": ev,
+                    "weekdays": {occ_date.weekday()},
+                    "dates": [occ_date],
+                    "anchor": occ_date,
+                }
+            else:
+                g["weekdays"].add(occ_date.weekday())
+                g["dates"].append(occ_date)
+
+    def _tier(ev: Event) -> int:
+        return _event_tier(
+            title=ev.title,
+            tags=ev.tags,
+            featured=bool(ev.featured),
+            recurring=bool(ev.is_recurring),
+        )
+
+    cards: list[dict[str, Any]] = []
+    for g in grouped.values():
+        ev = g["event"]
+        # An event is "recurring" for the card when the row is flagged recurring
+        # OR it actually occurs on more than one day in this window (a series
+        # stored as repeated single rows still collapses to one card).
+        is_recurring = bool(ev.is_recurring) or len(g["dates"]) > 1
+        time_label = short_time_label(ev.start_time, ev.end_time)
+        rec_label = (
+            recurrence_label(g["weekdays"], time_label) if is_recurring else None
+        )
+        card: dict[str, Any] = {
+            "id": ev.id,
+            "title": clean_event_title(ev.title, location_name=ev.location_name),
+            "venue": ev.location_name,
+            "url": f"/events/{ev.id}",
+            "time": time_label,
+            "type": _group_for_tier(
+                _tier(ev), recurring=is_recurring, title=ev.title, tags=ev.tags
+            ),
+            "anchor_iso": g["anchor"].isoformat(),
+            "occurrence_count": len(g["dates"]),
+            "recurring": is_recurring,
+            "recurrence_label": rec_label,
+        }
+        card.update(_event_passthrough_fields(ev))
+        cards.append(card)
+
+    cards.sort(
+        key=lambda c: (
+            grouped_anchor_sort_key(grouped, c["id"]),
+            (c["title"] or "").lower(),
+        )
+    )
+    return cards
+
+
+def grouped_anchor_sort_key(grouped: dict[Any, dict[str, Any]], event_id: Any) -> tuple[int, int, time]:
+    """(tier, time-bucket, time) of an aggregated card's anchor occurrence."""
+    ev = grouped[event_id]["event"]
+    tier = _event_tier(
+        title=ev.title, tags=ev.tags, featured=bool(ev.featured),
+        recurring=bool(ev.is_recurring),
+    )
+    return (tier, *time_sort_key(ev.start_time, ev.end_time))
 
 
 # ---------------------------------------------------------------------------
@@ -696,12 +878,19 @@ def calendar_month(
         )
 
     cells: list[dict[str, Any]] = [{"in_month": False} for _ in range(lead_blanks)]
+    # 1.1: month-wide rollups for the calendar header ("12 events · 88 classes
+    # this month"). Summed from the same per-cell figures the grid renders, so
+    # the header can never disagree with the cells below it.
+    month_oneoff_total = 0
+    month_class_total = 0
     for day in range(1, days_in_month + 1):
         evs = by_day.get(day, [])
         # Only one-offs claim the two visible pill slots (and the cell count);
         # recurring classes collapse into the "N classes" badge.
         oneoffs = sorted((e for e in evs if not e.get("recurring")), key=_pill_sort_key)
         class_count = sum(1 for e in evs if e.get("recurring"))
+        month_oneoff_total += len(oneoffs)
+        month_class_total += class_count
         cells.append(
             {
                 "in_month": True,
@@ -729,6 +918,10 @@ def calendar_month(
         "has_any": bool(by_day),
         "prev": f"{prev_year:04d}-{prev_month:02d}",
         "next": f"{next_year:04d}-{next_month:02d}",
+        # 1.1: month totals for the calendar header (sums of the per-cell
+        # one-off ``count`` and ``class_count``).
+        "month_oneoff_total": month_oneoff_total,
+        "month_class_total": month_class_total,
     }
 
 

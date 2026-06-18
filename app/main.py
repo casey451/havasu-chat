@@ -765,17 +765,13 @@ def _event_is_past(event: Event) -> bool:
         return False
     if event.end_time is not None:
         return event.end_time < now.time()
-    if event.start_time is None:
-        return False  # date-only event: past only once the day is over
-    # No end time on file: don't bury an event the minute it begins (live
-    # bug: the 9:00 AM Board of Adjustment meeting wore "This event has
-    # passed" at 9:07 AM). Assume a 3-hour run; anything spilling past
-    # midnight is handled by the next-day date check above.
-    start_min = event.start_time.hour * 60 + event.start_time.minute
-    cutoff_min = start_min + 180
-    if cutoff_min >= 24 * 60:
-        return False
-    return (now.hour * 60 + now.minute) >= cutoff_min
+    # No end time on file (whether or not a start time is known): a same-day
+    # event is NOT "passed" until the local day is over. The old 3-hour-run
+    # assumption flipped a morning event to "passed" mid-morning (live bug: the
+    # 9:00 AM Board of Adjustment meeting wore "This event has passed" at 9:07
+    # AM). end_d == now.date() here (the earlier date checks handled past/future
+    # days), so the event still has the rest of the day to run.
+    return False
 
 
 def _truncate_for_og(value: str, limit: int = 160) -> str:
@@ -914,6 +910,9 @@ def _render_permalink_response(
             "is_past": _event_is_past(event),
             "location_name": event.location_name,
             "description": event.description,
+            "cost": getattr(event, "cost", None),
+            "cost_description": getattr(event, "cost_description", None),
+            "host": getattr(event, "host", None),
             "contact_html": contact_html,
             "event_link_html": event_link_html,
             "tags_html": tags_html,

@@ -672,6 +672,14 @@ def serve_lake(request: Request) -> RedirectResponse:
     return RedirectResponse(url=LAKE_LIFE_CATEGORY_URL, status_code=301)
 
 
+@router.get("/ask", response_class=HTMLResponse, response_model=None)
+def serve_ask(request: Request) -> RedirectResponse:
+    """1.2: ``/ask`` is the marketing/nav alias for the chat surface. 302 (not
+    301) to ``/chat`` so the redirect is never cached — the chat entry point can
+    move without a stale permanent redirect pinning ``/ask`` to the old path."""
+    return RedirectResponse(url="/chat", status_code=302)
+
+
 @router.get("/night", response_class=HTMLResponse)
 def serve_night(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     """Night mode landing (fires the dark transformation)."""
