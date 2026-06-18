@@ -87,13 +87,17 @@ def test_no_end_time_event_not_past_right_after_start():
     assert _event_is_past(ev) is False
 
 
-def test_no_end_time_event_past_after_grace():
+def test_no_end_time_same_day_event_not_past_until_end_of_day():
+    # New contract (fix 1.3): a same-day event with no end_time is NOT marked
+    # "passed" just because some hours have elapsed — it stays current until the
+    # end of the local day. (Previously it flipped to past after a ~3-hour grace,
+    # which prematurely hid morning/all-day events from the detail page.)
     now = now_lake_havasu()
-    if now.hour < 5:  # avoid midnight wrap-around flakiness in the fixture
+    if now.hour < 5:  # ensure "4h ago" is still earlier the same local day
         return
     started_4_h_ago = (now - timedelta(hours=4)).time().replace(second=0, microsecond=0)
     ev = _event(date=now.date(), start_time=started_4_h_ago)
-    assert _event_is_past(ev) is True
+    assert _event_is_past(ev) is False
 
 
 def test_explicit_end_time_still_authoritative():

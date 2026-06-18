@@ -35,6 +35,9 @@ from app.contrib.event_record import (
     EventRecord,
     _iter_jsonld_nodes,
     _type_is_event,
+    canonicalize_venue,
+    extract_time_from_text,
+    extract_venue_from_text,
     parse_jsonld_events,
 )
 from app.events.description_clean import clean_event_description, valid_event_url
@@ -159,13 +162,19 @@ def enrich_event_records(
             continue
         detail = record_from_detail_html(html_text, source=source)
         changed = False
-        # No Event JSON-LD: still try to recover a description from og/meta.
+        # No Event JSON-LD: still try to recover a description from og/meta, then
+        # mine time/venue out of whatever prose we have (Fix 2.1).
         if detail is None:
+            recovered = False
             if not clean_event_description(rec.description):
                 better = description_from_detail_html(html_text)
                 if better:
                     rec.description = better
-                    enriched += 1
+                    recovered = True
+            if _recover_time_venue_from_prose(rec):
+                recovered = True
+            if recovered:
+                enriched += 1
             continue
 
         # Description — only when ours is empty/placeholder. Prefer the
@@ -204,9 +213,39 @@ def enrich_event_records(
         if organizer and not (rec.raw or {}).get("organizer"):
             rec.raw = {**(rec.raw or {}), "organizer": organizer}
 
+        # Fix 2.1 — last-resort prose recovery: when even the detail JSON-LD
+        # lacked a real time/venue, mine them out of the description body the
+        # aggregator does carry ("...at London Bridge Resort... at 5:00 pm MST").
+        if _recover_time_venue_from_prose(rec):
+            changed = True
+
         if changed:
             enriched += 1
     return enriched
+
+
+def _recover_time_venue_from_prose(rec: EventRecord) -> bool:
+    """Fill a still-missing start time / venue from the description prose.
+
+    Only touches a field that is still missing/generic; a real value is never
+    overwritten. Returns True when anything was filled. Used as the final
+    fallback inside :func:`enrich_event_records`, but also safe to call directly
+    on index-only records whose body already states the time/venue.
+    """
+    changed = False
+    body = rec.description or ""
+    if rec.start_time is None or rec.start_time == _MIDNIGHT:
+        t = extract_time_from_text(body)
+        if t is not None and t != _MIDNIGHT:
+            rec.start_time = t
+            changed = True
+    if (rec.venue_name or "").strip().lower() in _GENERIC_VENUES:
+        v = extract_venue_from_text(body)
+        v = canonicalize_venue(v) if v else None
+        if v and v.strip().lower() not in _GENERIC_VENUES:
+            rec.venue_name = v
+            changed = True
+    return changed
 
 
 # Description-only enrichment: fills empty/placeholder bodies (og/meta fallback

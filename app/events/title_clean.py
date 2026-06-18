@@ -49,8 +49,17 @@ _TIME_RANGE_RE = re.compile(
 )
 _TIME_RE = re.compile(r"\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b", re.IGNORECASE)
 _TIME_PARENS_RE = re.compile(r"\s*\(\s*\d{1,2}(?::\d{2})?\s*(?:am|pm)\s*\)", re.IGNORECASE)
+_DAYS = (
+    r"Mon|Tue|Tues|Wed|Weds|Thu|Thur|Thurs|Fri|Sat|Sun|"
+    r"Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday"
+)
+# Trailing baked-in date. Matches the short form ("June 25") AND the long form
+# with an optional leading weekday, ordinal day, a 4-digit year, and a trailing
+# bang ("Friday June 12th 2026!"). Anchored at end so an internal date is safe.
 _TRAILING_DATE_RE = re.compile(
-    rf"\s*[-–—,:]?\s*(?:{_MONTHS})\.?\s+\d{{1,2}}(?:st|nd|rd|th)?\s*$", re.IGNORECASE
+    rf"\s*[-–—,:]?\s*(?:(?:{_DAYS})\.?,?\s+)?(?:{_MONTHS})\.?\s+"
+    rf"\d{{1,2}}(?:st|nd|rd|th)?(?:,?\s*\d{{4}})?\s*[!.]*\s*$",
+    re.IGNORECASE,
 )
 _TRAILING_PREP_RE = re.compile(r"\s+(?:with|w/|by|feat\.?|ft\.?)\s*$", re.IGNORECASE)
 _WS_RE = re.compile(r"\s{2,}")

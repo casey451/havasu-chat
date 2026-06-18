@@ -91,6 +91,12 @@ ROUTE_SLUG_ALIASES: dict[str, str] = {
     # IA v2 (Phase 2): retired department slugs -> successor department.
     "outdoors-and-recreation": "/categories/things-to-do-and-attractions",
     "community-and-civic": "/categories/city-and-government",
+    # 1.5 friendly slugs: the labels people type / link don't match the internal
+    # department slugs. "pets-and-vets" -> the Pets department; "salons-and-spas"
+    # -> the beauty department, whose display label IS "Salons & Spas" (see
+    # app.categories.display_labels). 301 both to their real department landing.
+    "pets-and-vets": "/categories/pets",
+    "salons-and-spas": "/categories/beauty-and-personal-care",
 }
 
 # IA v2 (Phase 2): departments a leaf may have moved OUT of (merge/split/promote).

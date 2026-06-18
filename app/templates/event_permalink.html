@@ -13,6 +13,20 @@
 {% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_events.css') }}">
 {# Event rich-results schema — dict built in the route (None keys omitted). #}
 {% if event_jsonld %}<script type="application/ld+json">{{ event_jsonld | tojson }}</script>{% endif %}
+<style>
+  /* 2.2 cost + host row — quiet pills consistent with the cream/navy/rust system. */
+  .ev-detail-tags{margin-top:16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .ev-cost-badge{font-size:12px;font-weight:700;letter-spacing:.04em;
+    border:1.5px solid var(--black);border-radius:999px;padding:4px 13px;background:var(--surface-cream)}
+  .ev-cost-badge--free{background:var(--orange);color:#fff;border-color:var(--orange)}
+  .ev-cost-note,.ev-host-note{font-size:13px;font-weight:500;opacity:.7}
+  /* 3.2 image placeholder — desert art tile reusing the hero sun/ridge motif so a
+     description-less, image-less event still reads as a real page. */
+  .ev-img-placeholder{position:relative;height:200px;overflow:hidden;background:var(--surface-navy)}
+  .ev-img-placeholder-sun{position:absolute;right:14%;top:24%;width:84px;height:84px;border-radius:50%;background:var(--orange);opacity:.9}
+  .ev-img-placeholder-ridge{position:absolute;left:0;right:0;bottom:0;height:46px;background:var(--blue);
+    clip-path:polygon(0 70%,14% 44%,30% 60%,46% 28%,62% 56%,78% 24%,100% 50%,100% 100%,0 100%)}
+</style>
 {% endblock %}
 
 {% block content %}
@@ -28,7 +42,24 @@
     <h1 class="ev-detail-title">{{ event_title }}</h1>
     <p class="ev-detail-meta">{{ formatted_datetime }} · {{ (location_name | clean_name) or "Location TBD" }}</p>
 
-    {% if image_url %}<img class="ev-detail-image" src="{{ image_url }}" alt="{{ event_title }}" loading="lazy" onerror="this.style.display='none'">{% endif %}
+    {# 2.2 price + host. Cost renders as a quiet badge; "Free" gets the accent
+       treatment. When no cost is known we show a subtle pricing-unknown note. #}
+    <div class="ev-detail-tags">
+      {% if cost %}
+        {% if cost == "Free" %}<span class="ev-cost-badge ev-cost-badge--free">Free</span>
+        {% else %}<span class="ev-cost-badge">Cost: {{ cost }}</span>{% endif %}
+        {% if cost_description %}<span class="ev-cost-note">{{ cost_description }}</span>{% endif %}
+      {% else %}
+      <span class="ev-cost-note">See link for pricing</span>
+      {% endif %}
+      {% if host %}<span class="ev-host-note">Hosted by {{ host }}</span>{% endif %}
+    </div>
+
+    {% if image_url %}<img class="ev-detail-image" src="{{ image_url }}" alt="{{ event_title }}" loading="lazy" onerror="this.style.display='none'">
+    {% else %}
+    {# 3.2 fallback: tasteful art tile instead of a broken/missing image slot. #}
+    <div class="ev-detail-image ev-img-placeholder" aria-hidden="true"><span class="ev-img-placeholder-sun"></span><span class="ev-img-placeholder-ridge"></span></div>
+    {% endif %}
 
     {# Action row (UX-4): directions + Add to calendar (per-event .ics) + Share
        (native share sheet, copy-link fallback). The save-heart still needs

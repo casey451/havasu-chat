@@ -60,16 +60,24 @@ def test_is_past_one_off_tomorrow_is_not_past():
         assert _event_is_past(_ev(date=date(2026, 6, 5))) is False
 
 
-def test_is_past_today_time_already_passed():
-    # End-time-less events get a 3-hour grace window before the "passed"
-    # banner (live bug: the 9:00 AM Board of Adjustment meeting wore "This
-    # event has passed" at 9:07 AM). Started 8:00, now noon -> 4h in, past.
+def test_is_past_today_no_end_time_not_past_until_day_ends():
+    # 1.3 fix: a same-day event with NO end_time is NOT "passed" until the local
+    # day is over (the old 3-hour-run assumption flipped a morning event to
+    # "passed" mid-morning). Started 8:00, now noon -> still today, NOT past.
     with patch("app.main.now_lake_havasu", return_value=REF):
-        assert _event_is_past(_ev(date=date(2026, 6, 4), start_time=time(8, 0))) is True
+        assert _event_is_past(_ev(date=date(2026, 6, 4), start_time=time(8, 0))) is False
 
 
-def test_is_past_no_end_time_grace_window_holds_midevent():
-    # Started 10:00, now noon -> 2h in, still inside the 3h grace: NOT past.
+def test_is_past_morning_event_not_past_minutes_after_start():
+    # 1.3 regression: the 9:00 AM Board of Adjustment meeting (no end_time) wore
+    # "This event has passed" at 9:07 AM. It must NOT be considered past then.
+    now_907 = datetime(2026, 6, 4, 9, 7, tzinfo=PHX)
+    with patch("app.main.now_lake_havasu", return_value=now_907):
+        assert _event_is_past(_ev(date=date(2026, 6, 4), start_time=time(9, 0))) is False
+
+
+def test_is_past_no_end_time_midday_not_past():
+    # Started 10:00, now noon, no end_time -> not past (rest of the day to run).
     with patch("app.main.now_lake_havasu", return_value=REF):
         assert _event_is_past(_ev(date=date(2026, 6, 4), start_time=time(10, 0))) is False
 

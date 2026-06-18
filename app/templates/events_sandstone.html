@@ -102,7 +102,7 @@
           <span class="ev-week-date"><span class="dow">{{ d.label }}</span><span class="num">{{ d.daynum }}</span></span>
           <span class="ev-week-main">
             {% if d.headline %}
-            <span class="ev-week-headline">{% if d.headline.time %}{{ d.headline.time }} · {% endif %}{{ d.headline.title }}</span>
+            <span class="ev-week-headline">{% if d.headline.time %}{{ d.headline.time }} · {% endif %}{{ d.headline.title }}{% if d.headline.recurrence_label %} <span class="ev-acc-recur">{{ d.headline.recurrence_label }}</span>{% endif %}</span>
             {% elif d.total %}
             <span class="ev-week-headline none">Classes &amp; ongoing only</span>
             {% else %}
@@ -141,7 +141,7 @@
           {% endif %}
           {% endfor %}{% endfor %}
         </div>
-        <p class="ev-mg-legend"><span class="ev-mg-ct">N</span> one-off events · <span class="ev-mg-dot">N</span> classes — tap a date for details</p>
+        <p class="ev-mg-legend"><span class="ev-mg-ct">{{ month_oneoff_total or 0 }}</span> one-off events · <span class="ev-mg-dot">{{ month_class_total or 0 }}</span> classes — tap a date for details</p>
       </div>
     </section>
     {% endif %}
