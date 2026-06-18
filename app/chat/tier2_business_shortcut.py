@@ -31,6 +31,8 @@ import re
 from typing import Any
 
 from app.chat.normalizer import spell_correct
+from app.chat.open_now_vocab import BARE_OPEN_NOW_RE as _BARE_OPEN_NOW_RE
+from app.chat.open_now_vocab import OPEN_NOW_CAPTURE_TO_CATEGORY as _OPEN_NOW_CAPTURE_TO_CATEGORY
 from app.chat.tier2_schema import Tier2Filters
 
 # Verb phrases that signal a listing intent. Order inside the alternation matters:
@@ -89,68 +91,10 @@ _OPEN_NOW_LISTING_RE = re.compile(
 # Bare "<category> open now" (no "what" prefix) — the common phrasing
 # ("plumber open now"). Gated on a known-category alternation so a bare ENTITY
 # name ("mudshark open now") never matches here and still reaches Tier 1.
-_BARE_OPEN_NOW_RE = re.compile(
-    r"^(restaurants?|cafes?|coffee\s+shops?|bars?|pubs?|brewer(?:y|ies)|"
-    r"pharmac(?:y|ies)|grocery\s+stores?|groceries|stores?|shops?|gyms?|"
-    r"plumbers?|electricians?|hvac|locksmiths?|mechanics?|auto\s+repair|"
-    r"dentists?|doctors?|clinics?|urgent\s+care|salons?|barbers?|groomers?|"
-    r"vets?|veterinarians?|hardware\s+stores?)\s+open\s+(?:now|right\s+now)\s*$",
-    re.IGNORECASE,
-)
-
-# Map captured noun phrase → canonical category string for Tier2Filters + SQL needles.
-# Align with _category_needle_set / entity_intent._CATEGORY_OPEN_NOW_RE coverage.
-_OPEN_NOW_CAPTURE_TO_CATEGORY: dict[str, str] = {
-    "restaurant": "restaurant",
-    "restaurants": "restaurant",
-    "cafe": "cafe",
-    "cafes": "cafe",
-    "coffee shop": "coffee shop",
-    "coffee shops": "coffee shop",
-    "bar": "bar",
-    "bars": "bar",
-    "pharmacy": "pharmacy",
-    "pharmacies": "pharmacy",
-    "vet": "veterinarian",
-    "vets": "veterinarian",
-    "veterinarian": "veterinarian",
-    "veterinarians": "veterinarian",
-    "store": "store",
-    "stores": "store",
-    "shop": "shop",
-    "shops": "shop",
-    "gym": "gym",
-    "gyms": "gym",
-    "pub": "bar",
-    "pubs": "bar",
-    "brewery": "brewery",
-    "breweries": "brewery",
-    "plumber": "plumber",
-    "plumbers": "plumber",
-    "electrician": "electrician",
-    "electricians": "electrician",
-    "hvac": "hvac",
-    "locksmith": "locksmith",
-    "locksmiths": "locksmith",
-    "mechanic": "mechanic",
-    "mechanics": "mechanic",
-    "auto repair": "auto repair",
-    "dentist": "dentist",
-    "dentists": "dentist",
-    "doctor": "doctor",
-    "doctors": "doctor",
-    "clinic": "clinic",
-    "clinics": "clinic",
-    "urgent care": "urgent care",
-    "salon": "salon",
-    "salons": "salon",
-    "barber": "barber",
-    "barbers": "barber",
-    "groomer": "groomer",
-    "groomers": "groomer",
-    "hardware store": "hardware store",
-    "hardware stores": "hardware store",
-}
+# _BARE_OPEN_NOW_RE (the bare "<category> open now" listing shape) and
+# _OPEN_NOW_CAPTURE_TO_CATEGORY (capture → canonical category) are imported at the
+# top from app.chat.open_now_vocab, the single source of truth shared with
+# entity_intent._CATEGORY_OPEN_NOW_RE. Add new categories there, not here.
 
 
 def _category_from_open_now_capture(raw: str) -> str:
