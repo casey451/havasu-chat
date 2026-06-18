@@ -22,7 +22,7 @@ def test_metadata_description_cleared_url_and_loc_fixed() -> None:
         location_name="2144 McCulloch Blvd NLake Havasu City, AZ",
         start_date=date(2026, 6, 21),
     )
-    assert r.new_description is None
+    assert r.new_description == ""
     assert r.new_event_url == "https://askhava.com/events-ui"
     assert r.new_location_name == "2144 McCulloch Blvd N Lake Havasu City, AZ"
     assert r.desc_changed and r.url_changed and r.loc_changed
@@ -36,7 +36,7 @@ def test_synthetic_placeholder_cleared() -> None:
         location_name="Lake Havasu City",
         start_date=date(2026, 6, 6),
     )
-    assert r.new_description is None
+    assert r.new_description == ""
     assert r.desc_changed
 
 
