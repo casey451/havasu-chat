@@ -60,9 +60,9 @@ def fetch_events(
             records += parse_jsonld_events(_fetch_html(WEEKEND_URL, c), source=SOURCE)
         records = dedupe_within(records)
         if enrich:
-            from app.contrib.event_enrich import enrich_event_descriptions
+            from app.contrib.event_enrich import enrich_event_records
 
-            enrich_event_descriptions(records, fetch_text=lambda u: _fetch_html(u, c))
+            enrich_event_records(records, fetch_text=lambda u: _fetch_html(u, c), source=SOURCE)
     finally:
         if owns:
             c.close()

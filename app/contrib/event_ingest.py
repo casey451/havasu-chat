@@ -23,6 +23,7 @@ no writes (mirrors the inert dry-run drivers).
 
 from __future__ import annotations
 
+import re
 import sys
 from dataclasses import dataclass
 from datetime import date, time
@@ -182,12 +183,56 @@ def _keyword_tags(text: str) -> list[str]:
     return found
 
 
+
+# Live-music / nightlife detection. The home/calendar lane classifier
+# (app.home.sandstone._event_tier) routes an event to "Music & nightlife" when
+# it carries the ``music`` tag, but it only inspects title + tags — never the
+# body. Aggregator gigs (e.g. a band called "A-Z" at "Lighthouse Lounge") have
+# no music word in the title, so without this they fall to "community". We
+# derive the tag from the richer signals enrichment recovers: the description,
+# the venue, and the organizer (the booking bar/lounge).
+_MUSIC_VENUE_RE = re.compile(
+    r"\b(lounge|saloon|tavern|pub|taproom|brewery|brewing|cantina|nightclub|"
+    r"speakeasy|ale\s?house|wine bar|music hall|amphitheat(?:er|re)|beer garden)\b",
+    re.IGNORECASE,
+)
+_MUSIC_TEXT_RE = re.compile(
+    r"\b(live music|live band|band|bands|concert|dj|deejay|karaoke|open mic|"
+    r"acoustic|setlist|set list|tribute|singer[- ]songwriter|performing live|"
+    r"plays live|live at|on stage|jam session|dance party|cover band|duo|trio)\b",
+    re.IGNORECASE,
+)
+# Civic/government events are never music, even if their text trips a keyword
+# (mirrors the sandstone civic guard so a "council" item can't be mistagged).
+_CIVIC_GUARD_RE = re.compile(
+    r"\b(city council|council|commission|board of|planning and zoning|"
+    r"public hearing|city hall|town hall|government|civic)\b",
+    re.IGNORECASE,
+)
+
+
+def _live_music_tags(rec: EventRecord) -> list[str]:
+    organizer = ""
+    raw = rec.raw or {}
+    if isinstance(raw.get("organizer"), str):
+        organizer = raw["organizer"]
+    blob = " ".join(
+        x for x in (rec.title, rec.description, rec.venue_name, organizer) if x
+    )
+    if _CIVIC_GUARD_RE.search(blob):
+        return []
+    if _MUSIC_TEXT_RE.search(blob) or _MUSIC_VENUE_RE.search(blob):
+        return ["music"]
+    return []
+
+
 def _tags(rec: EventRecord) -> list[str]:
     base = _normalize_tags(list(rec.tags or []))
     derived = _keyword_tags(f"{rec.title} {' '.join(base)}")
+    music = _live_music_tags(rec)
     merged: list[str] = []
     seen: set[str] = set()
-    for t in (*base, *derived):
+    for t in (*base, *derived, *music):
         if t not in seen:
             seen.add(t)
             merged.append(t)
