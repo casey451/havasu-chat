@@ -32,6 +32,9 @@
   background-color:var(--sand);background-size:cover;background-position:center;
   position:relative;box-shadow:var(--elev-2);
 }
+/* No-photo cover: soft branded gradient instead of a flat blank bar. */
+.prof .cover--art{background:linear-gradient(150deg,var(--sand-light) 0%,var(--sand) 60%,#e6d2b0 100%)}
+.prof .cover--art::after{content:"";position:absolute;inset:0;border-radius:inherit;background:radial-gradient(circle at 72% 28%,rgba(224,106,44,.16),transparent 60%)}
 @media(max-width:700px){.prof .cover{height:170px}}
 .prof .spon-tag{
   position:absolute;top:14px;left:14px;
