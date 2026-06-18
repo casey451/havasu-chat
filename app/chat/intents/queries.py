@@ -281,6 +281,33 @@ def _thumb_url(p: Provider) -> str | None:
         return None
 
 
+
+# Marine-signal de-rank for boat_repair. The water bucket is exempt from the
+# auto-repair exclusion (a boat ask wants repair shops), so big auto/RV "Car
+# Repair" yards ride in on name tokens ("repair"/"service") and, ranked by
+# review count, bury the genuine marine shop. We stable-partition so providers
+# with a marine signal lead, preserving the existing rank within each group.
+_MARINE_SIGNAL_RE = re.compile(
+    r"\b(marine|boat|watercraft|outboard|pontoon|jet\s?ski|jetski)\b",
+    re.IGNORECASE,
+)
+
+
+def _has_marine_signal(p: Provider) -> bool:
+    hay = " ".join(
+        str(v or "")
+        for v in (p.provider_name, p.google_primary_category, p.category)
+    )
+    return bool(_MARINE_SIGNAL_RE.search(hay))
+
+
+def _marine_first(rows: list[Provider]) -> list[Provider]:
+    """Stable: marine-signal providers first, others (auto/RV) after."""
+    marine = [p for p in rows if _has_marine_signal(p)]
+    rest = [p for p in rows if not _has_marine_signal(p)]
+    return marine + rest
+
+
 def _provider_to_row(p: Provider) -> dict[str, Any]:
     """Tier2 provider-row shape consumed by build_business_list."""
     return {
@@ -781,6 +808,9 @@ def run_query(
             rank_terms=rank_terms,
             now=now,
         )
+        if key == "boat_repair":
+            # Float genuine marine shops above auto/RV "Car Repair" yards.
+            rows = _marine_first(rows)
         return QueryResult(
             key,
             "providers",
