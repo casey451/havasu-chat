@@ -21,6 +21,14 @@
     /* UX-1 above-the-fold: quick-intent chips. Phase 7.2d — quieted to sit
        calmly under the navy hero: muted ink, hairline + faint elevation, with
        an orange-ink accent on hover only. */
+    /* 3.1 hero photo layer. The navy gradient is baked into the inline
+       background so it acts as both scrim (over the photo) and fallback (when
+       the photo 404s). cover+center keeps the focal area visible at all widths. */
+    .home-hero--photo{background-size:cover;background-position:center;background-repeat:no-repeat}
+    /* 4.2 recurrence badge on the today-card event chips — quiet inline pill,
+       renders only when the route supplies ev.recurrence_label. */
+    .wev-recur{font-style:normal;font-size:9.5px;font-weight:700;letter-spacing:.06em;
+      text-transform:uppercase;opacity:.6;margin-left:6px;white-space:nowrap}
     .home-intents{margin-top:16px}
     .intents-row{display:flex;gap:10px;flex-wrap:wrap}
     .intentchip{display:inline-flex;align-items:center;padding:9px 16px;
@@ -44,7 +52,11 @@
      second .dirsearch → /search form were removed; the 3-tier /chat router
      serves directory lookups too. The rotating placeholder lives in
      {% block scripts %} at the bottom of this template. ---- #}
-  <section class="home-hero">
+  {# 3.1 hero image: the photo sits behind a navy gradient scrim so the headline
+     stays legible. If the asset is missing the gradient alone still renders the
+     original flat-navy hero — layout never breaks. Casey must supply/replace the
+     actual photo at /static/img/home-hero.jpg. #}
+  <section class="home-hero home-hero--photo" style="background-image:linear-gradient(180deg,rgba(20,32,54,.62) 0%,rgba(20,32,54,.86) 100%),url('{{ static_url('/static/img/home-hero.jpg') }}')">
     <div class="hero wrap">
       <div class="hero-copy">
         {# Eyebrow is just the date — the H1 right below already says "Your
@@ -135,7 +147,7 @@
         <div class="wday-h"><span class="wd">Today</span><span class="wdm">{{ td.md }}</span></div>
         {% if td.events %}
           {% for ev in td.events %}
-          <span class="wev {{ ev.type }}">{% if ev.time %}<i class="wt">{{ ev.time }}</i>{% endif %}{{ ev.title }}</span>
+          <span class="wev {{ ev.type }}">{% if ev.time %}<i class="wt">{{ ev.time }}</i>{% endif %}{{ ev.title }}{% if ev.recurrence_label %} <i class="wev-recur">{{ ev.recurrence_label }}</i>{% endif %}</span>
           {% endfor %}
         {% elif not td.has %}
           <span class="wempty" aria-hidden="true">Nothing on today</span>
@@ -176,6 +188,7 @@
       <span><i class="leg family"></i>Kids &amp; Family</span>
       <span><i class="leg music"></i>Music &amp; nightlife</span>
       <span><i class="leg water"></i>Lake &amp; Boating</span>
+      <span><i class="leg aquatic"></i>Aquatic Center</span>
       <span><i class="leg classes"></i>Fitness &amp; classes</span>
     </div>
   </section>
