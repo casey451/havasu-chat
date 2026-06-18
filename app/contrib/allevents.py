@@ -29,12 +29,25 @@ USER_AGENT = "havasu-chat/1.0 source-expansion (+https://havasu-chat-production.
 _LIMITER = SourceLimiter("allevents", qps=0.5)
 
 
+def _decode_response(resp: httpx.Response) -> str:
+    """Decode an httpx response as text, defaulting to UTF-8 (not latin-1).
+
+    When the server declares an explicit charset in its Content-Type header we
+    honor it. When it does not, httpx falls back to a guessed codec that
+    corrupts multibyte/emoji characters (e.g. "💋" -> "?"), so we force UTF-8
+    with replacement decoding instead.
+    """
+    if not resp.charset_encoding:
+        return resp.content.decode("utf-8", errors="replace")
+    return resp.text
+
+
 def _fetch_html(url: str, client: httpx.Client) -> str:
     resp = _LIMITER.call_with_retry(lambda: client.get(url, timeout=30.0))
     if resp is None:
         raise RuntimeError(f"allevents fetch failed: {url}")
     resp.raise_for_status()
-    return resp.text
+    return _decode_response(resp)
 
 
 def fetch_events(

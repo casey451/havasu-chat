@@ -36,7 +36,11 @@ from app.contrib.approval_service import (
     should_auto_approve_event,
 )
 from app.contrib.event_reconciler import log_ambiguous_reconcile, reconcile_event
-from app.contrib.event_record import EventRecord
+from app.contrib.event_record import (
+    EventRecord,
+    canonicalize_venue,
+    extract_cost_from_text,
+)
 from app.db import contribution_store as cs
 from app.db.database import SessionLocal
 from app.db.models import Event
@@ -45,7 +49,8 @@ from app.events.description_clean import (
     normalize_location_text,
     valid_event_url,
 )
-from app.events.scrapers.base import EventPayload
+from app.events.scrapers.base import EventPayload, normalize_event_title
+from app.events.title_clean import INSTRUCTOR_NAMES
 from app.schemas.contribution import ContributionCreate, EventApprovalFields
 
 # Event columns the reconciler is allowed to merge onto an existing row (mirror
@@ -77,6 +82,12 @@ class IngestCounts:
     skipped_incomplete: int = 0
     skipped_blocked: int = 0
     skipped_existing_pending: int = 0
+    # Fix 4.4 — a candidate that matched an already-persisted Event on the
+    # (normalized_title, start_date, venue) guard and so was NOT inserted.
+    skipped_duplicate_persisted: int = 0
+    # Fix 2.7 — listed weekday contradicted a schedule stated in the body; flagged
+    # (logged), not dropped.
+    flagged_weekday_mismatch: int = 0
     errors: int = 0
 
     def as_dict(self) -> dict[str, int]:
@@ -90,6 +101,8 @@ class IngestCounts:
             "skipped_incomplete": self.skipped_incomplete,
             "skipped_blocked": self.skipped_blocked,
             "skipped_existing_pending": self.skipped_existing_pending,
+            "skipped_duplicate_persisted": self.skipped_duplicate_persisted,
+            "flagged_weekday_mismatch": self.flagged_weekday_mismatch,
             "errors": self.errors,
         }
 
@@ -101,9 +114,95 @@ def _http_url_or_none(url: str | None) -> str | None:
 
 
 def _location_name(rec: EventRecord) -> str:
-    name = normalize_location_text(rec.venue_name)
+    # Fix 2.7 — canonicalize first (collapse "Lake Havasu City, Lake Havasu City,
+    # AZ" doubling and adjacent repeats), then the existing glued-city / tail tidy.
+    name = normalize_location_text(canonicalize_venue(rec.venue_name) or rec.venue_name)
     # EventApprovalFields requires location_name >= 3 chars.
     return name if len(name) >= 3 else "Lake Havasu City"
+
+
+# --------------------------------------------------------------------------- #
+# Fix 4.3 — extract the instructor/host name from a raw class title.
+# --------------------------------------------------------------------------- #
+def _host_from_title(title: str | None) -> str | None:
+    """Return a trailing instructor first name from a class title, or ``None``.
+
+    Mirrors the trailing-name strip in ``app.events.title_clean.clean_event_title``
+    (same shared ``INSTRUCTOR_NAMES`` set) but instead of dropping the name it
+    CAPTURES it into ``Event.host`` so the structured field survives after the
+    display title is cleaned. Only an exact trailing token match with at least one
+    other word remaining counts (so a real title word is never mistaken for a host).
+    """
+    if not title:
+        return None
+    parts = str(title).split()
+    if len(parts) >= 2:
+        last = parts[-1].lower().strip(".,")
+        if last in INSTRUCTOR_NAMES:
+            return parts[-1].strip(".,").title()
+    return None
+
+
+# --------------------------------------------------------------------------- #
+# Fix 2.2 — pick a human-readable cost from the record (source then prose).
+# --------------------------------------------------------------------------- #
+def _cost_for_record(rec: EventRecord) -> str | None:
+    """Best human-readable price for the event, or ``None``.
+
+    Prefers a structured price the source JSON-LD ``offers`` left in ``rec.raw``
+    (``offers_price`` / ``is_free``); falls back to parsing the title+description
+    prose ("$20", "Free", "$10-$25")."""
+    raw = rec.raw or {}
+    price = raw.get("offers_price")
+    if isinstance(price, str) and price.strip():
+        return price.strip()
+    if raw.get("is_free") is True:
+        return "Free"
+    return extract_cost_from_text(f"{rec.title or ''}\n{rec.description or ''}")
+
+
+# --------------------------------------------------------------------------- #
+# Fix 2.7 — flag (never crash) events whose listed weekday contradicts a
+# schedule stated in the body (e.g. listed on a Friday but body says Tue/Thu).
+# --------------------------------------------------------------------------- #
+_WEEKDAYS = {
+    "monday": 0, "mon": 0, "tuesday": 1, "tue": 1, "tues": 1,
+    "wednesday": 2, "wed": 2, "weds": 2, "thursday": 3, "thu": 3, "thur": 3,
+    "thurs": 3, "friday": 4, "fri": 4, "saturday": 5, "sat": 5,
+    "sunday": 6, "sun": 6,
+}
+_WEEKDAY_TOKEN_RE = re.compile(
+    r"\b(mondays?|tuesdays?|tues|wednesdays?|weds?|thursdays?|thurs?|thur|"
+    r"fridays?|saturdays?|sundays?|mon|tue|wed|thu|fri|sat|sun)\b",
+    re.IGNORECASE,
+)
+
+
+def _body_weekdays(text: str | None) -> set[int]:
+    """Set of weekday indexes (Mon=0) named in prose, e.g. 'Tue/Thu' -> {1, 3}."""
+    if not text:
+        return set()
+    out: set[int] = set()
+    for m in _WEEKDAY_TOKEN_RE.finditer(text):
+        tok = m.group(1).lower().rstrip("s")
+        if tok in _WEEKDAYS:
+            out.add(_WEEKDAYS[tok])
+    return out
+
+
+def weekday_contradiction(rec: EventRecord) -> bool:
+    """True when the record's start_date weekday contradicts weekdays in the body.
+
+    Only flags when the body names one or more weekdays AND the event's own
+    start-date weekday is not among them (e.g. a BMX Clinic dated a Friday whose
+    body says "Tue/Thu"). Returns False when the body names no weekday (nothing to
+    contradict). Pure + side-effect free; callers decide how to log/mark."""
+    if rec.start_date is None:
+        return False
+    body_days = _body_weekdays(rec.description)
+    if not body_days:
+        return False
+    return rec.start_date.weekday() not in body_days
 
 
 def _description(rec: EventRecord) -> str:
@@ -151,6 +250,39 @@ _KEYWORD_TAGS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
     (("art walk", "paint ", "pottery", "art class", "craft"), ("arts",)),
     (("farmers market", "swap meet", "craft fair"), ("market",)),
     (("city council", "planning and zoning", "board of", "commission"), ("civic",)),
+    # Fix 2.5 — automotive route so car shows / cruise-ins / "Motor Madness" land
+    # under their own tag instead of MUSIC or the catch-all COMMUNITY bucket.
+    (
+        ("car show", "cruise-in", "cruise in", "motor madness", "motorcycle",
+         "auto show", "classic car", "hot rod", "off-road", "off road", "jeep",
+         "poker run", "show and shine", "show n shine"),
+        ("automotive",),
+    ),
+    # Fix 2.5 — lake & boating route (Havasu's signature category) so on-water
+    # events get a real tag instead of COMMUNITY.
+    (
+        ("boat parade", "boating", "poker run", "regatta", "kayak", "paddle",
+         "fishing tournament", "wakeboard", "jet ski", "sandbar", "lake clean"),
+        ("lake-boating",),
+    ),
+    # Fix 2.5 — widen keyword coverage to reduce over-reliance on COMMUNITY.
+    (("food truck", "wine tasting", "beer fest", "brunch", "tasting", "happy hour"),
+     ("food-drink",)),
+    (("5k", "10k", "fun run", "marathon", "color run", "race"), ("sports", _CLASSES)),
+    (("festival", "fair", "parade", "fireworks", "celebration"), ("festival",)),
+    (("rummage", "yard sale", "garage sale", "vendor"), ("market",)),
+    (("workshop", "seminar", "lecture", "class ", "training"), (_CLASSES,)),
+    (("fundraiser", "charity", "benefit", "gala"), ("community",)),
+)
+
+# Fix 2.5 — automotive events that merely mention a "band"/"dj" at the show must
+# NOT be routed to Music & nightlife. This guard fires only when the event is
+# automotive-dominant AND lacks a STRONG live-music signal (a real concert/band
+# headliner). "Motor Madness Car Show" -> automotive, never music.
+_AUTOMOTIVE_RE = re.compile(
+    r"\b(car show|cruise[- ]?in|motor madness|auto show|classic car|hot rod|"
+    r"show\s*[&n]?\s*shine|poker run|motorcycle rally)\b",
+    re.IGNORECASE,
 )
 
 
@@ -233,8 +365,18 @@ def _live_music_tags(rec: EventRecord) -> list[str]:
     )
     if _CIVIC_GUARD_RE.search(blob):
         return []
-    # Strong signals (real venue/band/show) always count.
-    if _MUSIC_VENUE_RE.search(blob) or _MUSIC_STRONG_RE.search(blob):
+    # Fix 2.5 — automotive events (car show / cruise-in / "Motor Madness") are
+    # not music. A live band at the show only makes it music if that's a STRONG
+    # headliner signal; the weak (dj/dance) and venue-only paths are suppressed so
+    # "Motor Madness Car Show" never lands in Music & nightlife.
+    automotive = bool(_AUTOMOTIVE_RE.search(blob))
+    # Strong signals (real band/concert/show) always count, even at a car show.
+    if _MUSIC_STRONG_RE.search(blob):
+        return ["music"]
+    if automotive:
+        return []
+    # A music venue (lounge/brewery/etc.) is a strong-enough signal on its own.
+    if _MUSIC_VENUE_RE.search(blob):
         return ["music"]
     # Weak signals (dj/dance/duo) only when it's not a kids/all-ages event.
     family_ctx = _FAMILY_CONTEXT_RE.search(f"{rec.title or ''} {rec.description or ''}")
@@ -245,7 +387,15 @@ def _live_music_tags(rec: EventRecord) -> list[str]:
 
 def _tags(rec: EventRecord) -> list[str]:
     base = _normalize_tags(list(rec.tags or []))
-    derived = _keyword_tags(f"{rec.title} {' '.join(base)}")
+    # Fix 2.5 — keyword routing now also reads the body so cruise-in / car-show /
+    # boating prose (not just the title) routes correctly.
+    derived = _keyword_tags(f"{rec.title} {rec.description or ''} {' '.join(base)}")
+    # Music is governed SOLELY by _live_music_tags, which applies the civic,
+    # family/all-ages, and automotive guards. The crude keyword matcher must never
+    # add `music` from body substrings (e.g. "band" inside "band-width", or a civic
+    # agenda's "DJ adjustments") — that bypasses those guards and mistags civic
+    # events. So strip any keyword-derived `music` here and let _live_music_tags own it.
+    derived = [t for t in derived if t != "music"]
     music = _live_music_tags(rec)
     merged: list[str] = []
     seen: set[str] = set()
@@ -253,6 +403,16 @@ def _tags(rec: EventRecord) -> list[str]:
         if t not in seen:
             seen.add(t)
             merged.append(t)
+    # Fix 2.5 — final guard: an automotive-dominant event with no STRONG live-music
+    # headliner must never carry the `music` tag (drops a stray inherited/keyword
+    # `music` from "Motor Madness", a car show with a DJ, etc.).
+    blob = " ".join(x for x in (rec.title, rec.description, rec.venue_name) if x)
+    if (
+        "music" in merged
+        and _AUTOMOTIVE_RE.search(blob)
+        and not _MUSIC_STRONG_RE.search(blob)
+    ):
+        merged = [t for t in merged if t != "music"]
     return merged or ["events"]
 
 
@@ -277,6 +437,7 @@ def _to_event_payload(rec: EventRecord, *, source: str) -> EventPayload:
         lng=None,
         tags=_tags(rec),
         category_slug="events",
+        image_url=rec.image_url,
     )
 
 
@@ -340,6 +501,69 @@ def _existing_open_contribution(db: Session, *, source: str, title: str, start_d
     return any(html_mod.unescape(r.submission_name or "").strip().lower() == want for r in rows)
 
 
+def _persisted_duplicate_event(db: Session, rec: EventRecord) -> Event | None:
+    """Fix 4.4 — same-day uniqueness guard on (normalized_title, start_date, venue).
+
+    The reconciler dedupes within a batch and on source_url / fuzzy match, but a
+    feed glitch that re-emits the SAME event with a fresh source_url and a slightly
+    different time could still slip a true duplicate past it. This hard guard scans
+    persisted (cross-batch) rows for an EXACT normalized (title, venue) match on the
+    same calendar date and returns it so the caller skips the insert. Returns None
+    when no such row exists.
+
+    Venue match is lenient: it matches when the normalized venues are equal OR when
+    either side's venue is the generic city default (a thin record whose venue we
+    never recovered must not create a second row for an event we already have)."""
+    if rec.start_date is None:
+        return None
+    want_title = normalize_event_title(rec.title or "")
+    if not want_title:
+        return None
+    want_venue = normalize_event_title(
+        canonicalize_venue(rec.venue_name) or rec.venue_name or ""
+    )
+    generic = {"", "lake havasu city", "lake havasu"}
+    from sqlalchemy import select as _select
+
+    for ev in db.scalars(_select(Event).where(Event.date == rec.start_date)).all():
+        if normalize_event_title(ev.normalized_title or ev.title or "") != want_title:
+            continue
+        cand_venue = normalize_event_title(ev.location_name or "")
+        if (
+            cand_venue == want_venue
+            or cand_venue in generic
+            or want_venue in generic
+        ):
+            return ev
+    return None
+
+
+def _apply_structured_fields(db: Session, ev: Event, rec: EventRecord) -> None:
+    """Populate the new structured Event fields (cost / host / image_url) at ingest.
+
+    Only fills a field that is currently empty so an operator-set value is never
+    clobbered. Commits when anything changed. Image rendering / cost rendering are
+    other lanes' jobs; this only stores the values (field contract 2.2 / 3.2 / 4.3).
+    """
+    changed = False
+    if not ev.cost:
+        cost = _cost_for_record(rec)
+        if cost:
+            ev.cost = cost
+            changed = True
+    if not getattr(ev, "host", None):
+        host = _host_from_title(rec.title)
+        if host:
+            ev.host = host
+            changed = True
+    if not ev.image_url and rec.image_url:
+        ev.image_url = rec.image_url
+        changed = True
+    if changed:
+        db.add(ev)
+        db.commit()
+
+
 def ingest_event_records(
     records: list[EventRecord],
     *,
@@ -362,6 +586,17 @@ def ingest_event_records(
             if verbose:
                 print(f"info: skipped blocked organizer {blocked!r}: {rec.title!r}")
             continue
+        # Fix 2.7 — flag (never drop) a record whose listed weekday contradicts a
+        # schedule stated in its body (e.g. BMX Clinic dated Fri, body says Tue/Thu).
+        if weekday_contradiction(rec):
+            counts.flagged_weekday_mismatch += 1
+            if verbose:
+                print(
+                    f"warning: weekday mismatch — {rec.title!r} dated "
+                    f"{rec.start_date} ({rec.start_date.strftime('%A') if rec.start_date else '?'}) "
+                    f"contradicts weekdays in body",
+                    file=sys.stderr,
+                )
         try:
             payload = _to_event_payload(rec, source=source)
             with SessionLocal() as db:
@@ -371,6 +606,13 @@ def ingest_event_records(
                     if not dry_run and result.existing_id:
                         _apply_event_merge(db, result.existing_id, result.merge_fields)
                     counts.merged_duplicate += 1
+                    continue
+
+                # Fix 4.4 — hard same-day uniqueness guard against persisted rows
+                # (covers a feed glitch the fuzzy reconciler might miss).
+                persisted = _persisted_duplicate_event(db, rec)
+                if persisted is not None:
+                    counts.skipped_duplicate_persisted += 1
                     continue
 
                 if _existing_open_contribution(
@@ -424,6 +666,9 @@ def ingest_event_records(
                         ev = approve_contribution_as_event(
                             db, created.id, approve_fields, _tags(rec)
                         )
+                        # Fix 2.2 / 3.2 / 4.3 — store the new structured fields the
+                        # approval schema doesn't carry (cost / host / image_url).
+                        _apply_structured_fields(db, ev, rec)
                         counts.auto_approved += 1
                         if verbose:
                             print(f"info: auto-approved {source} contribution "
