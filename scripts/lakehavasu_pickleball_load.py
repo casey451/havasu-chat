@@ -87,6 +87,31 @@ logger = logging.getLogger(__name__)
 # via decide_ingest. "operator_backfill" is the auto-approve tier parks-rec uses.
 CONTRIBUTION_SOURCE = "operator_backfill"
 DEFAULT_PROGRAM_TIME = "00:00"  # placeholder for programs with no fixed clock time
+# Assumed session length when a program has a known start but no published end,
+# so we never record a misleading "ends at midnight" interval.
+DEFAULT_SESSION_MINUTES = 120
+
+
+def _add_minutes(hhmm: str, minutes: int) -> str:
+    """Add ``minutes`` to an 'HH:MM' clock string, wrapping past midnight."""
+    total = (int(hhmm[:2]) * 60 + int(hhmm[3:5]) + minutes) % (24 * 60)
+    return f"{total // 60:02d}:{total % 60:02d}"
+
+
+def _schedule_window(start: str | None, end: str | None) -> tuple[str, str]:
+    """Return ('HH:MM', 'HH:MM') start/end for a program's schedule.
+
+    ProgramApprovalFields requires both times, but we must not fabricate a
+    midnight end for a session that has a real start (CodeRabbit flag). So when
+    the end is unknown but the start is known, assume DEFAULT_SESSION_MINUTES;
+    when neither is known, both default to 00:00 -- a zero-length placeholder
+    that reads as "no fixed time" rather than a bogus overnight interval.
+    """
+    if start and not end:
+        return start, _add_minutes(start, DEFAULT_SESSION_MINUTES)
+    if not start:
+        return DEFAULT_PROGRAM_TIME, (end or DEFAULT_PROGRAM_TIME)
+    return start, end
 
 
 # ---------------------------------------------------------------------------
@@ -164,6 +189,11 @@ def ingest_facilities(
         return counts
 
     cat_id = db.scalars(select(Category.id).where(Category.slug == category_slug)).first()
+    if cat_id is None:
+        raise ValueError(
+            f"Unknown category_slug {category_slug!r}: no Category row found. "
+            "Aborting to avoid inserting providers with category_id=None."
+        )
     for payload in payloads:
         decision = decide_ingest(db, payload)
         kwargs = _provider_kwargs(decision.payload, category_id=cat_id)
@@ -242,12 +272,13 @@ def ingest_programs(
                 submission_notes=spec.description,
                 source=CONTRIBUTION_SOURCE,
             )
+            sched_start, sched_end = _schedule_window(spec.start_time, spec.end_time)
             approve = ProgramApprovalFields(
                 title=spec.title[:300],
                 description=spec.description,
                 schedule_days=spec.schedule_days,
-                schedule_start_time=spec.start_time or DEFAULT_PROGRAM_TIME,
-                schedule_end_time=spec.end_time or DEFAULT_PROGRAM_TIME,
+                schedule_start_time=sched_start,
+                schedule_end_time=sched_end,
                 location_name=spec.location_name,
                 location_address=spec.location_address,
                 cost=spec.cost,

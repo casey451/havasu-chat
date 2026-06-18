@@ -20,6 +20,7 @@ import scripts.lakehavasu_pickleball_load as loader
 from app.contrib import lakehavasu_pickleball as lhc
 from app.contrib.lakehavasu_pickleball_calendar import (
     Occurrence,
+    _match_venue,
     group_open_play,
     parse_clock,
 )
@@ -157,6 +158,15 @@ def test_parse_clock(text: str, expected: str | None) -> None:
     assert parse_clock(text) == expected
 
 
+def test_match_venue_word_boundary() -> None:
+    assert _match_venue("12:30 pm AC Round Robin")[0] == "Lake Havasu City Aquatic Center"
+    assert _match_venue("8:00 am ARK Center")[0] == "The Ark Center"
+    # "Park" must NOT match the "ark" keyword; "dick samp" should win.
+    assert _match_venue("Dick Samp Park open play")[0].startswith("Mike Delaney")
+    # "ac" inside "Isaac" must not produce a false Aquatic Center match.
+    assert _match_venue("Isaac memorial gathering") is None
+
+
 def test_group_open_play_collapses_recurring() -> None:
     occ = [
         Occurrence(title="8:00 am ARK Center", date=date(2026, 6, 1),
@@ -199,6 +209,29 @@ def test_facility_decide_insert_when_no_match(db_session) -> None:
     d = decide_ingest(db_session, payload)
     assert d.action == "insert"
     assert d.should_hide is False
+
+
+def test_ingest_facilities_unknown_category_raises(db_session) -> None:
+    facilities = [lhc.Facility(name="Nowhere Courts ZZZ", lat=41.5, lng=-119.9)]
+    with pytest.raises(ValueError):
+        loader.ingest_facilities(
+            facilities, db=db_session, category_slug="totally-bogus-slug-zzz", dry_run=False
+        )
+
+
+# --- schedule window (no fabricated midnight end) ---------------------------
+@pytest.mark.parametrize(
+    "start,end,expected",
+    [
+        ("08:00", "11:00", ("08:00", "11:00")),
+        ("08:00", None, ("08:00", "10:00")),  # derive +2h, not midnight
+        (None, None, ("00:00", "00:00")),  # placeholder, zero-length
+        ("23:30", None, ("23:30", "01:30")),  # wraps past midnight
+        (None, "09:00", ("00:00", "09:00")),
+    ],
+)
+def test_schedule_window_no_midnight_fabrication(start, end, expected) -> None:
+    assert loader._schedule_window(start, end) == expected
 
 
 # --- dry-run end-to-end smoke (parse + schema validation, no writes) --------
