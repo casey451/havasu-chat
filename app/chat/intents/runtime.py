@@ -161,7 +161,7 @@ def _text_list(result: QueryResult) -> str:
 # survives. A bare entity name never reaches here (boat_repair is a category
 # intent), so this only reorders genuine boat-repair listings.
 _MARINE_ITEM_RE = re.compile(
-    r"\b(marine|boat|watercraft|outboard|pontoon|jet\s?ski|jetski)\b",
+    r"\b(marine|boat|watercraft|outboard|pontoon|jet[\s-]?ski)\b",
     re.IGNORECASE,
 )
 
