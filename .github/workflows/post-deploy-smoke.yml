@@ -19,7 +19,7 @@ jobs:
       - name: Wait for Railway deploy to settle
         run: sleep 60
       - name: Run post-deploy smoke
-        run: python scripts/post_deploy_smoke.py --url https://havasu-chat-production.up.railway.app --json-out smoke_result.json
+        run: python scripts/post_deploy_smoke.py --url https://askhava.com --json-out smoke_result.json
       - name: Upload result
         if: always()
         uses: actions/upload-artifact@v5
