@@ -49,7 +49,7 @@ _FALLBACK_URL = "https://askhava.com/events-ui"
 
 @dataclass
 class Repair:
-    new_description: str | None
+    new_description: str
     new_event_url: str
     new_location_name: str
     desc_changed: bool
@@ -70,13 +70,16 @@ def plan_event_repair(
     start_date: date | None,
 ) -> Repair:
     """Pure planning step (no DB/network) — easy to unit test."""
-    # Description: keep real prose, drop metadata/placeholder/synthesis to None.
+    # Description: keep real prose, drop metadata/placeholder/synthesis to "".
+    # NOTE: empty string, NOT None — the events.description column is NOT NULL,
+    # and the live ingest/approval path also stores "" (the detail template
+    # renders the structured sparse-event card for any falsy description).
     if is_synthetic_placeholder(
         description, title=title, location_name=location_name, start_date=start_date
     ):
-        new_desc = None
+        new_desc = ""
     else:
-        new_desc = clean_event_description(description) or None
+        new_desc = clean_event_description(description) or ""
     desc_changed = (description or "").strip() != (new_desc or "")
 
     # URL: drop email-as-URL / dead host / non-http.
@@ -153,7 +156,7 @@ def run(*, apply: bool, enrich: bool) -> dict[str, int]:
             )
             new_desc = plan.new_description
             enriched = False
-            if new_desc is None and enrich and fetch_text is not None:
+            if not new_desc and enrich and fetch_text is not None:
                 recovered = _recover_description(ev, fetch_text)
                 if recovered:
                     new_desc = recovered
@@ -181,7 +184,7 @@ def run(*, apply: bool, enrich: bool) -> dict[str, int]:
                 print(f"  location_name: {ev.location_name!r} -> {plan.new_location_name!r}")
 
             if apply:
-                ev.description = new_desc
+                ev.description = new_desc or ""
                 ev.event_url = plan.new_event_url
                 ev.location_name = plan.new_location_name
         if apply:
