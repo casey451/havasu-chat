@@ -1,11 +1,11 @@
-"""LHCPBA scraper: parse + payload + calendar grouping + decide_ingest funnel.
+"""LHCPBA scraper: parse + payload + open-play events + decide_ingest funnel.
 
 Run: python -m pytest tests/test_lakehavasu_pickleball_load.py -q
 
 Mirrors tests/test_usapickleball_load.py: fixture-driven pure-parse tests, an
 injected httpx.MockTransport client, and decide_ingest routing on a rollback
-session. The JS open-play calendar's grouping is unit-tested as a pure function
-(no browser); the Playwright render layer is exercised only via workflow_dispatch.
+session. Open play is published as all-day events derived from the facility list
+(no browser), so it is fully unit-testable.
 """
 
 from __future__ import annotations
@@ -18,13 +18,8 @@ import pytest
 
 import scripts.lakehavasu_pickleball_load as loader
 from app.contrib import lakehavasu_pickleball as lhc
-from app.contrib.lakehavasu_pickleball_calendar import (
-    Occurrence,
-    _match_venue,
-    group_open_play,
-    parse_clock,
-)
 from app.db.database import SessionLocal
+from app.db.models import Provider
 
 FIXTURES = Path(__file__).resolve().parent.parent / "scripts" / "fixtures"
 
@@ -133,6 +128,7 @@ def test_parse_tournaments_future_picklefest() -> None:
     assert ev.date == date(2027, 2, 26)
     assert ev.end_date == date(2027, 2, 28)
     assert ev.source_anchor == "picklefest-2027-02-26"
+    assert ev.all_day is False  # PickleFest is a timed event
 
 
 def test_parse_tournaments_skips_past_event() -> None:
@@ -142,48 +138,26 @@ def test_parse_tournaments_skips_past_event() -> None:
     assert specs == []
 
 
-# --- calendar grouping (pure) -----------------------------------------------
-@pytest.mark.parametrize(
-    "text,expected",
-    [
-        ("8:00am", "08:00"),
-        ("8 am", "08:00"),
-        ("12:30 pm", "12:30"),
-        ("6:30pm", "18:30"),
-        ("12 am", "00:00"),
-        ("noon-ish", None),
-    ],
-)
-def test_parse_clock(text: str, expected: str | None) -> None:
-    assert parse_clock(text) == expected
-
-
-def test_match_venue_word_boundary() -> None:
-    assert _match_venue("12:30 pm AC Round Robin")[0] == "Lake Havasu City Aquatic Center"
-    assert _match_venue("8:00 am ARK Center")[0] == "The Ark Center"
-    # "Park" must NOT match the "ark" keyword; "dick samp" should win.
-    assert _match_venue("Dick Samp Park open play")[0].startswith("Mike Delaney")
-    # "ac" inside "Isaac" must not produce a false Aquatic Center match.
-    assert _match_venue("Isaac memorial gathering") is None
-
-
-def test_group_open_play_collapses_recurring() -> None:
-    occ = [
-        Occurrence(title="8:00 am ARK Center", date=date(2026, 6, 1),
-                   start_time="08:00", end_time="11:00", cost="$5 per session"),
-        Occurrence(title="8:00 am ARK Center", date=date(2026, 6, 2), start_time="08:00"),
-        Occurrence(title="9:00 am Aquatic Center", date=date(2026, 6, 2), start_time="09:00"),
+# --- open play -> all-day events --------------------------------------------
+def test_open_play_event_specs_all_day_window() -> None:
+    facs = [
+        lhc.Facility(name="Mike Delaney Pickleball Complex at Dick Samp Park", cost="Free"),
+        lhc.Facility(name="The Ark Center", cost="$5 per session"),
     ]
-    specs = group_open_play(occ)
-    ark = next(s for s in specs if "Ark" in s.location_name and s.start_time == "08:00")
-    assert ark.schedule_days == ["Monday", "Tuesday"]
-    assert ark.cost == "$5 per session"
-    assert ark.end_time == "11:00"
-    assert "2700 Jamaica Blvd" in (ark.location_address or "")
-    assert "open-play" in ark.tags
-    aquatic = next(s for s in specs if "Aquatic" in s.location_name)
-    assert aquatic.schedule_days == ["Tuesday"]
-    assert aquatic.cost == "$3 per session"
+    specs = lhc.open_play_event_specs(facs, today=date(2026, 6, 18), window_days=3)
+    assert len(specs) == 6  # 2 venues x 3 days
+    assert all(s.all_day for s in specs)
+    assert all(s.title.startswith("Pickleball Open Play") for s in specs)
+    assert all(s.event_url == lhc.CALENDAR_URL for s in specs)
+    assert all(s.source_anchor.startswith("openplay|") for s in specs)
+
+    delaney_dates = sorted(
+        s.date for s in specs if "Delaney" in s.location_name
+    )
+    assert delaney_dates == [date(2026, 6, 18), date(2026, 6, 19), date(2026, 6, 20)]
+    # cost is surfaced in the description
+    ark = next(s for s in specs if s.location_name == "The Ark Center")
+    assert "$5 per session" in ark.description
 
 
 # --- fetch via mock transport -----------------------------------------------
@@ -219,6 +193,37 @@ def test_ingest_facilities_unknown_category_raises(db_session) -> None:
         )
 
 
+# --- Aquatic-style merge into an existing row -------------------------------
+def test_same_venue_matches_on_name_or_address() -> None:
+    payload = lhc.facility_to_entity_payload(
+        lhc.Facility(
+            name="Lake Havasu City Aquatic Center",
+            address="100 Park Ave, Lake Havasu City, AZ 86403",
+        )
+    )
+    same = Provider(
+        provider_name="Lake Havasu City Aquatic Center",
+        address="100 Park Ave, Lake Havasu City, AZ 86403",
+    )
+    assert loader._same_venue(same, payload) is True
+    other = Provider(provider_name="Unrelated Spot", address="999 Nowhere Rd")
+    assert loader._same_venue(other, payload) is False
+
+
+def test_merge_pickleball_into_is_additive_and_idempotent() -> None:
+    payload = lhc.facility_to_entity_payload(
+        lhc.Facility(name="Lake Havasu City Aquatic Center")
+    )
+    prov = Provider(provider_name="Lake Havasu City Aquatic Center")
+    prov.description = "Public aquatic center with lap pool."
+    loader._merge_pickleball_into(prov, payload)
+    assert "pickleball" in prov.description.lower()
+    assert prov.description.startswith("Public aquatic center")  # never clobbered
+    once = prov.description
+    loader._merge_pickleball_into(prov, payload)  # no double-append
+    assert prov.description == once
+
+
 # --- schedule window (no fabricated midnight end) ---------------------------
 @pytest.mark.parametrize(
     "start,end,expected",
@@ -237,11 +242,10 @@ def test_schedule_window_no_midnight_fabrication(start, end, expected) -> None:
 # --- dry-run end-to-end smoke (parse + schema validation, no writes) --------
 def test_run_dry_run_validates_all_sections() -> None:
     with _mock_client() as client:
-        results = loader.run(
-            dry_run=True, skip_calendar=True, http_client=client, today=date(2026, 6, 18)
-        )
+        results = loader.run(dry_run=True, http_client=client, today=date(2026, 6, 18))
     assert results["facilities"]["found"] == 3
     assert results["programs"]["found"] == 3
     assert results["programs"]["imported"] == 3  # all specs build valid schemas
-    assert results["events"]["found"] == 1
-    assert results["events"]["imported"] == 1
+    # 1 PickleFest + (3 venues x 7-day open-play window) = 22 events
+    assert results["events"]["found"] == 22
+    assert results["events"]["imported"] == 22

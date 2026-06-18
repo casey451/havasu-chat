@@ -6,8 +6,9 @@ name: lakehavasu-pickleball
 #   * Activities + open-play schedule -> recurring Programs (contribution + auto-approve)
 #   * PickleFest  -> a dated Event (contribution + auto-approve)
 # Re-runs are idempotent: providers reconcile (insert/merge/hold), programs/events
-# dedup on a synthesized source_url. The open-play schedule lives in a JS calendar
-# widget, so this job installs a headless Chromium for the Playwright render step.
+# dedup on a synthesized source_url. Open play is published as all-day events per
+# venue on a rolling forward window and pruned as it ages -- derived from the
+# facility list, so no headless browser is needed.
 #
 # NOTE: GitHub only runs scheduled workflows from the repository's DEFAULT branch.
 # Merging this file is what enables the writes; until then use "Run workflow"
@@ -36,9 +37,6 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements.txt
-
-      - name: Install headless Chromium (for the JS open-play calendar)
-        run: python -m playwright install --with-deps chromium
 
       - name: Load LHCPBA facilities, activities, open-play, and PickleFest
         env:
