@@ -28,13 +28,16 @@ import argparse
 import sys
 import time as _time
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sqlalchemy import select
 
+from app.contrib.event_enrich import enrich_event_records
+from app.contrib.event_ingest import _live_music_tags
+from app.contrib.event_record import EventRecord
 from app.db.database import SessionLocal
 from app.db.models import Event
 from app.events.description_clean import (
@@ -100,25 +103,6 @@ def plan_event_repair(
     )
 
 
-def _recover_description(ev: Event, fetch_text) -> str:
-    """Try to recover real prose from the event's own source page."""
-    from app.contrib.event_enrich import description_from_detail_html
-
-    for url in (ev.source_url, ev.event_url):
-        clean = valid_event_url(url)
-        if not clean:
-            continue
-        try:
-            html = fetch_text(clean)
-        except Exception:  # noqa: BLE001
-            continue
-        if html:
-            better = description_from_detail_html(html)
-            if better:
-                return better
-    return ""
-
-
 def run(*, apply: bool, enrich: bool) -> dict[str, int]:
     counts = {
         "total": 0,
@@ -126,14 +110,17 @@ def run(*, apply: bool, enrich: bool) -> dict[str, int]:
         "desc_enriched": 0,
         "url_fixed": 0,
         "loc_fixed": 0,
+        "time_fixed": 0,
+        "tags_fixed": 0,
         "rows_changed": 0,
     }
+    midnight = time(0, 0)
     fetch_text = None
     if enrich:
         import httpx
 
         client = httpx.Client(
-            headers={"User-Agent": "havasu-chat/1.0 description-backfill"},
+            headers={"User-Agent": "havasu-chat/1.0 event-backfill"},
             follow_redirects=True,
             timeout=30.0,
         )
@@ -147,46 +134,96 @@ def run(*, apply: bool, enrich: bool) -> dict[str, int]:
         events = db.execute(select(Event).where(Event.status == "live").order_by(Event.id)).scalars().all()
         for ev in events:
             counts["total"] += 1
-            plan = plan_event_repair(
-                title=ev.title,
-                description=ev.description,
-                event_url=ev.event_url,
-                location_name=ev.location_name,
+
+            # Build a record from the row. With --enrich we re-fetch the source
+            # detail page to recover a real description, start time, and venue.
+            src_url = valid_event_url(ev.source_url) or valid_event_url(ev.event_url)
+            rec = EventRecord(
+                source=(ev.source or "backfill"),
+                title=ev.title or "",
                 start_date=ev.date,
+                start_time=ev.start_time,
+                end_date=ev.end_date,
+                end_time=ev.end_time,
+                venue_name=ev.location_name,
+                url=src_url,
+                description=ev.description or "",
+                tags=list(ev.tags or []),
+                raw={},
             )
-            new_desc = plan.new_description
-            enriched = False
-            if not new_desc and enrich and fetch_text is not None:
-                recovered = _recover_description(ev, fetch_text)
-                if recovered:
-                    new_desc = recovered
-                    enriched = True
+            enriched_desc = False
+            if enrich and fetch_text is not None:
+                had_desc = bool(clean_event_description(rec.description))
+                enrich_event_records([rec], fetch_text=fetch_text, source=rec.source)
+                if not had_desc and clean_event_description(rec.description):
+                    enriched_desc = True
 
-            changed = plan.any_change or enriched
-            if not changed:
+            # description: prefer enriched prose; else clean; placeholder -> ""
+            if is_synthetic_placeholder(
+                ev.description, title=ev.title, location_name=ev.location_name, start_date=ev.date
+            ):
+                base_desc = ""
+            else:
+                base_desc = clean_event_description(ev.description) or ""
+            new_desc = clean_event_description(rec.description) or base_desc
+            desc_changed = (ev.description or "").strip() != (new_desc or "")
+
+            # url: drop email-as-URL / dead host / non-http
+            new_url = valid_event_url(ev.event_url) or _FALLBACK_URL
+            url_changed = (ev.event_url or "").strip() != new_url
+
+            # venue: prefer an enriched real venue; always normalize
+            cand_loc = rec.venue_name if (enrich and rec.venue_name) else ev.location_name
+            new_loc = normalize_location_text(cand_loc) or (ev.location_name or "").strip()
+            loc_changed = (ev.location_name or "").strip() != new_loc
+
+            # time: fill only when ours is missing / midnight (a date-only artifact)
+            new_start, new_end, time_changed = ev.start_time, ev.end_time, False
+            if (ev.start_time is None or ev.start_time == midnight) and rec.start_time and rec.start_time != midnight:
+                new_start, new_end, time_changed = rec.start_time, rec.end_time, True
+
+            # tags: add the music tag when warranted; never drop existing tags
+            rec.venue_name, rec.description = new_loc, new_desc
+            existing_tags = list(ev.tags or [])
+            new_tags = existing_tags[:]
+            for t in _live_music_tags(rec):
+                if t not in new_tags:
+                    new_tags.append(t)
+            tags_changed = new_tags != existing_tags
+
+            if not (desc_changed or url_changed or loc_changed or time_changed or tags_changed):
                 continue
-
-            if plan.desc_changed or enriched:
-                counts["desc_enriched" if enriched else "desc_cleared"] += 1
-            if plan.url_changed:
+            if desc_changed:
+                counts["desc_enriched" if enriched_desc else "desc_cleared"] += 1
+            if url_changed:
                 counts["url_fixed"] += 1
-            if plan.loc_changed:
+            if loc_changed:
                 counts["loc_fixed"] += 1
+            if time_changed:
+                counts["time_fixed"] += 1
+            if tags_changed:
+                counts["tags_fixed"] += 1
             counts["rows_changed"] += 1
 
             print(f"--- event {ev.id}  {ev.title!r}")
-            if plan.desc_changed or enriched:
-                tag = "enriched" if enriched else "cleared"
-                print(f"  description ({tag}): {(ev.description or '')[:90]!r} -> {(new_desc or '')[:90]!r}")
-            if plan.url_changed:
-                print(f"  event_url: {ev.event_url!r} -> {plan.new_event_url!r}")
-            if plan.loc_changed:
-                print(f"  location_name: {ev.location_name!r} -> {plan.new_location_name!r}")
+            if desc_changed:
+                print(f"  description -> ({len(new_desc)} chars){' [enriched]' if enriched_desc else ''}")
+            if time_changed:
+                print(f"  start_time: {ev.start_time} -> {new_start}")
+            if loc_changed:
+                print(f"  location_name: {ev.location_name!r} -> {new_loc!r}")
+            if url_changed:
+                print(f"  event_url: {ev.event_url!r} -> {new_url!r}")
+            if tags_changed:
+                print(f"  tags: {existing_tags} -> {new_tags}")
 
             if apply:
                 ev.description = new_desc or ""
-                ev.event_url = plan.new_event_url
-                ev.location_name = plan.new_location_name
+                ev.event_url = new_url
+                ev.location_name = new_loc
+                ev.start_time = new_start
+                ev.end_time = new_end
+                ev.tags = new_tags
         if apply:
             db.commit()
 
