@@ -196,10 +196,22 @@ _MUSIC_VENUE_RE = re.compile(
     r"speakeasy|ale\s?house|wine bar|music hall|amphitheat(?:er|re)|beer garden)\b",
     re.IGNORECASE,
 )
-_MUSIC_TEXT_RE = re.compile(
-    r"\b(live music|live band|band|bands|concert|dj|deejay|karaoke|open mic|"
-    r"acoustic|setlist|set list|tribute|singer[- ]songwriter|performing live|"
-    r"plays live|live at|on stage|jam session|dance party|cover band|duo|trio)\b",
+# Strong music signals -> always tag music (a real band/show/venue).
+_MUSIC_STRONG_RE = re.compile(
+    r"\b(live music|live band|band|bands|concert|karaoke|open mic|acoustic|"
+    r"setlist|set list|tribute|singer[- ]songwriter|cover band|jam session)\b",
+    re.IGNORECASE,
+)
+# Weak signals -> tag music ONLY when the event is not clearly kids/all-ages.
+# (A kids "Glow in the Park - All Ages" party has a DJ and a dance but is not a
+# Music & nightlife listing.)
+_MUSIC_WEAK_RE = re.compile(
+    r"\b(dj|deejay|dance party|duo|trio|live at|on stage|performing live|plays live)\b",
+    re.IGNORECASE,
+)
+# Kids / all-ages context that downgrades a weak music signal.
+_FAMILY_CONTEXT_RE = re.compile(
+    r"\b(all ages|kid|kids|family|families|junior|toddler|youth|children|child)\b",
     re.IGNORECASE,
 )
 # Civic/government events are never music, even if their text trips a keyword
@@ -221,7 +233,12 @@ def _live_music_tags(rec: EventRecord) -> list[str]:
     )
     if _CIVIC_GUARD_RE.search(blob):
         return []
-    if _MUSIC_TEXT_RE.search(blob) or _MUSIC_VENUE_RE.search(blob):
+    # Strong signals (real venue/band/show) always count.
+    if _MUSIC_VENUE_RE.search(blob) or _MUSIC_STRONG_RE.search(blob):
+        return ["music"]
+    # Weak signals (dj/dance/duo) only when it's not a kids/all-ages event.
+    family_ctx = _FAMILY_CONTEXT_RE.search(f"{rec.title or ''} {rec.description or ''}")
+    if _MUSIC_WEAK_RE.search(blob) and not family_ctx:
         return ["music"]
     return []
 

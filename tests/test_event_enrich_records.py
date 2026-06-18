@@ -86,3 +86,27 @@ def test_best_venue_prefers_real_name_over_street_address() -> None:
 
 def test_record_from_detail_html_none_when_no_jsonld() -> None:
     assert record_from_detail_html("<html><body>no jsonld</body></html>", source="x") is None
+
+
+def test_kids_glow_party_with_dj_not_tagged_music() -> None:
+    # A weak signal (DJ) on a clearly all-ages/kids event must NOT become music.
+    rec = EventRecord(source="x", title="Glow in the Park — All Ages", start_date=date(2026, 6, 18),
+                      start_time=time(18, 0), venue_name="Rotary Park",
+                      description="Family glow party with a DJ, glow games, and a dance for all ages.")
+    assert _live_music_tags(rec) == []
+
+
+def test_adult_dj_event_still_tagged_music() -> None:
+    # The same weak signal on a non-kids event still counts.
+    rec = EventRecord(source="x", title="Saturday Night DJ Set", start_date=date(2026, 6, 18),
+                      start_time=time(21, 0), venue_name="The Rooftop",
+                      description="Resident DJ spinning house and dance party until close.")
+    assert _live_music_tags(rec) == ["music"]
+
+
+def test_strong_signal_overrides_family_context() -> None:
+    # A real band/festival keeps music even if it markets itself as family-friendly.
+    rec = EventRecord(source="x", title="The Rockabilly Reunion", start_date=date(2026, 6, 18),
+                      start_time=time(17, 0), venue_name="London Bridge",
+                      description="A family-friendly weekend of live bands, classic cars, and dancing.")
+    assert _live_music_tags(rec) == ["music"]
