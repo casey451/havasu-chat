@@ -1,7 +1,7 @@
 """Post-deploy smoke runner — exercises q01-q23 against prod URL.
 
 Usage:
-    python scripts/post_deploy_smoke.py --url https://havasu-chat-production.up.railway.app
+    python scripts/post_deploy_smoke.py --url https://askhava.com
     python scripts/post_deploy_smoke.py --url $PROD_URL --json-out outputs/smoke_result.json
 """
 
@@ -36,7 +36,7 @@ def load_smoke_queries(eval_set_path: Path, limit: int = 23) -> list[EvalQuerySp
 def run_one(query: str, url: str, timeout: float = 30.0) -> dict[str, Any]:
     """POST query to /api/chat and return response."""
     payload = {"query": query, "session_id": f"smoke-{uuid.uuid4().hex[:12]}"}
-    with httpx.Client(timeout=timeout) as client:
+    with httpx.Client(timeout=timeout, follow_redirects=True) as client:
         resp = client.post(f"{url.rstrip('/')}/api/chat", json=payload)
         resp.raise_for_status()
         return resp.json()
@@ -53,7 +53,7 @@ def evaluate(spec: EvalQuerySpec, response: dict[str, Any]) -> tuple[bool, list[
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--url", default="https://havasu-chat-production.up.railway.app")
+    ap.add_argument("--url", default="https://askhava.com")
     ap.add_argument(
         "--eval-set",
         type=Path,
