@@ -602,3 +602,38 @@ def test_voice_answer_never_sees_spotlight_status() -> None:
     assert "spotlight" not in (voice_baseline or "").lower()
     assert "sponsored" not in (voice_baseline or "").lower()
     assert "featured" not in (voice_baseline or "").lower()
+
+
+# ---------------------------------------------------------------------------
+# Bare "<category> open now" listings (#3 — plumber open-now Tier-1 hijack fix)
+# ---------------------------------------------------------------------------
+
+
+def test_bare_category_open_now_returns_listing_filters() -> None:
+    for q, expected_cat in (
+        ("plumber open now", "plumber"),
+        ("plumbers open right now", "plumber"),
+        ("electrician open now", "electrician"),
+        ("restaurants open now", "restaurant"),
+    ):
+        f = shortcut.try_business_listing_shortcut(q)
+        assert f is not None, q
+        assert f.open_now is True, q
+        assert f.category == expected_cat, q
+        assert f.parser_confidence >= 0.7
+
+
+def test_bare_open_now_does_not_match_single_entity() -> None:
+    # A bare entity name + "open now" must NOT be treated as a category listing
+    # (it should reach Tier 1 as a single-entity OPEN_NOW lookup).
+    assert shortcut.try_business_listing_shortcut("mudshark open now") is None
+    assert shortcut.try_business_listing_shortcut("is mudshark open now") is None
+
+
+def test_category_open_now_listing_detector_covers_service_trades() -> None:
+    from app.chat.entity_intent import is_category_open_now_listing
+
+    assert is_category_open_now_listing("plumber open now") is True
+    assert is_category_open_now_listing("electrician open right now") is True
+    # Single-entity question is not a category listing.
+    assert is_category_open_now_listing("is mudshark open now") is False
