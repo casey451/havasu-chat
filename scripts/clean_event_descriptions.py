@@ -182,13 +182,18 @@ def run(*, apply: bool, enrich: bool) -> dict[str, int]:
             if (ev.start_time is None or ev.start_time == midnight) and rec.start_time and rec.start_time != midnight:
                 new_start, new_end, time_changed = rec.start_time, rec.end_time, True
 
-            # tags: add the music tag when warranted; never drop existing tags
+            # tags: reconcile the machine-managed `music` tag — add it when the
+            # event is live music, and remove it when an earlier run added it in
+            # error (e.g. a kids "Glow in the Park — All Ages" party with a DJ).
+            # Other tags are left untouched.
             rec.venue_name, rec.description = new_loc, new_desc
             existing_tags = list(ev.tags or [])
+            should_music = bool(_live_music_tags(rec))
             new_tags = existing_tags[:]
-            for t in _live_music_tags(rec):
-                if t not in new_tags:
-                    new_tags.append(t)
+            if should_music and "music" not in new_tags:
+                new_tags.append("music")
+            elif not should_music and "music" in new_tags:
+                new_tags = [t for t in new_tags if t != "music"]
             tags_changed = new_tags != existing_tags
 
             if not (desc_changed or url_changed or loc_changed or time_changed or tags_changed):
