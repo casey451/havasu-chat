@@ -288,7 +288,7 @@ def _thumb_url(p: Provider) -> str | None:
 # review count, bury the genuine marine shop. We stable-partition so providers
 # with a marine signal lead, preserving the existing rank within each group.
 _MARINE_SIGNAL_RE = re.compile(
-    r"\b(marine|boat|watercraft|outboard|pontoon|jet\s?ski|jetski)\b",
+    r"\b(marine|boat|watercraft|outboard|pontoon|jet[\s-]?ski)\b",
     re.IGNORECASE,
 )
 
