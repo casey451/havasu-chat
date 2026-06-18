@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import re
 
+# Shared canonical open-now category vocab (single source of truth for this
+# detector, the bare-listing shortcut, and the capture→canonical map).
+from app.chat.open_now_vocab import CATEGORY_OPEN_NOW_RE as _CATEGORY_OPEN_NOW_RE
+
 # Nouns that imply a Tier-1 category slug (subset used in cross-entity tests).
 _NOUN_TO_CATEGORY_SLUGS: dict[str, tuple[str, ...]] = {
     "pizza": ("eat-drink",),
@@ -80,18 +84,10 @@ _FACTUAL_LOOKUP_RE = re.compile(
     re.IGNORECASE,
 )
 
-_CATEGORY_OPEN_NOW_RE = re.compile(
-    # Storefront categories + common service trades. A bare "plumber open now"
-    # is a category listing, not a single-entity lookup — without the trades
-    # here it fell through to a Tier 1 single-entity OPEN_NOW answer (one
-    # provider, no cards). Keep aligned with tier2_business_shortcut vocab.
-    r"\b(?:restaurants?|cafes?|coffee\s+shops?|bars?|pubs?|brewer(?:y|ies)|"
-    r"veterinarians?|vets?|pharmac(?:y|ies)|groceries|grocery\s+stores?|stores?|"
-    r"shops?|gyms?|plumbers?|electricians?|hvac|locksmiths?|mechanics?|"
-    r"auto\s+repair|dentists?|doctors?|clinics?|urgent\s+care|salons?|"
-    r"barbers?|groomers?|hardware\s+stores?)\b",
-    re.IGNORECASE,
-)
+# _CATEGORY_OPEN_NOW_RE is imported above from app.chat.open_now_vocab. A bare
+# "plumber open now" is a category listing, not a single-entity lookup — without
+# the trades it fell through to a Tier 1 single-entity OPEN_NOW answer (one
+# provider, no cards).
 
 _FAKE_ENTITY_MARKER_RE = re.compile(
     # P1-5: dropped the bare numeric markers 555/777/888 and "missing" — they
