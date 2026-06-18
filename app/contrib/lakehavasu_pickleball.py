@@ -219,10 +219,12 @@ def _venue_block(text: str, name_fragment: str, all_fragments: list[str]) -> str
 
 # Longest-first so "sixteen" wins over "six" in the alternation.
 _NUMBER_WORDS_ALT = "|".join(sorted(_NUMBER_WORDS, key=len, reverse=True))
-# A count (digit or word) followed within up to 3 words by "court(s)", e.g.
-# "sixteen dedicated outdoor pickleball courts" or "Three indoor courts".
+# A count (1-2 digit number or number-word) followed within up to 3 words by
+# "court(s)", e.g. "sixteen dedicated outdoor pickleball courts" or "Three indoor
+# courts". The digit count is capped at two digits so a nearby 5-digit ZIP
+# (e.g. "AZ 86406 ... Three indoor courts") can't be mistaken for a court count.
 _COURTS_RE = re.compile(
-    r"\b(\d+|" + _NUMBER_WORDS_ALT + r")\s+(?:[A-Za-z]+\s+){0,3}courts?\b",
+    r"\b(\d{1,2}|" + _NUMBER_WORDS_ALT + r")\s+(?:[A-Za-z]+\s+){0,3}courts?\b",
     re.I,
 )
 
