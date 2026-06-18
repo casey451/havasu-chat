@@ -37,7 +37,6 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.categories.taxonomy_overlay import taxonomy_reorg_enabled
 from app.db.models import Event
 from app.events.class_occurrences import (
     class_occurrences_in_window,
@@ -72,89 +71,6 @@ def _group_for(*, title: str, tags: list[str] | None, featured: bool, recurring:
     """
     tier = _event_tier(title=title, tags=tags, featured=featured, recurring=recurring)
     return _group_for_tier(tier, recurring=recurring, title=title, tags=tags)
-
-
-# Aquatic Center subcategories (Phase E §3.2, behind TAXONOMY_REORG_ENABLED).
-# The audit found the real recurring "class wall" is the ~101 Aquatic Center
-# programs, so the only place subcategories pay off is inside this one group.
-#
-# MEMBERSHIP CAVEAT: a row only reaches the aquatic GROUP if its TITLE carries a
-# pool word (see _AQUATIC_HINTS in sandstone._event_tier) — membership is
-# title-keyword based, not venue based. So Aquatic-Center programs whose titles
-# lack a pool word ("Warm Water Yoga", "Tai Chi", "Arthritis Class") still route
-# to "Fitness & classes" and never reach these subsections. Surfacing those here
-# would require making aquatic membership venue-aware in _event_tier — a separate,
-# NON-flag-gated change that affects live grouping. Deferred by design.
-# Each tuple is (label, word-boundary keyword hints); rows are matched in this
-# order, so the more specific buckets ("Lap Swim", "Open & Family Swim") are
-# checked before the broad "Aqua Fitness" net. Anything pool-tier that matches
-# nothing falls into the honest "More pool sessions" catch-all rather than being
-# forced into a clinical bucket it doesn't belong in.
-_AQUATIC_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("Lap Swim", ("lap swim", "lane swim", "fitness swim")),
-    ("Open & Family Swim", (
-        "open swim", "family swim", "free swim", "rec swim", "recreation swim",
-        "public swim", "splash",
-    )),
-    ("Gentle / Therapeutic", (
-        "arthritis", "motion", "mobility", "gentle", "therap", "rehab",
-        "fit & flex", "fit and flex", "low impact", "low-impact", "senior",
-    )),
-    ("Warm-Water Yoga & Mind-Body", (
-        "yoga", "tai chi", "mind-body", "mind body", "meditation",
-        "water wellness", "pilates", "stretch",
-    )),
-    ("Aqua Fitness", (
-        "aqua", "aquatic", "deep water", "water aerobics", "water fitness",
-        "water exercise", "hydro", "zumba", "bootcamp", "aerobics", "fit",
-    )),
-)
-# Canonical display order (A1-A5 in the proposal), with the catch-all last.
-_AQUATIC_SUBGROUP_ORDER: tuple[str, ...] = (
-    "Open & Family Swim",
-    "Lap Swim",
-    "Aqua Fitness",
-    "Warm-Water Yoga & Mind-Body",
-    "Gentle / Therapeutic",
-    "More pool sessions",
-)
-_AQUATIC_FALLBACK_LABEL = "More pool sessions"
-
-
-def _aquatic_subgroup(title: str) -> str:
-    """Map an Aquatic Center occurrence to one of the §3.2 subcategories.
-
-    Matching is on word boundaries (so "fit" can't fire inside "outfit") in the
-    specificity order of :data:`_AQUATIC_SUBGROUPS`; unmatched pool sessions land
-    in the honest "More pool sessions" bucket. Only used when the
-    ``TAXONOMY_REORG_ENABLED`` flag is on — see :func:`day_groups`.
-    """
-    low = title.lower()
-    for label, hints in _AQUATIC_SUBGROUPS:
-        for h in hints:
-            if re.search(r"\b" + re.escape(h) + r"(?:e?s|ing)?\b", low):
-                return label
-    return _AQUATIC_FALLBACK_LABEL
-
-
-def _split_aquatic_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Partition already-sorted Aquatic Center rows into ordered subsections.
-
-    Returns ``[{"label", "rows", "count"}, ...]`` in canonical order, omitting
-    empty subsections (honest-omission contract). Row order within each
-    subsection is preserved, so the chronological sort from
-    :func:`day_groups` still holds.
-    """
-    buckets: dict[str, list[dict[str, Any]]] = {}
-    for row in rows:
-        label = _aquatic_subgroup(row.get("title") or "")
-        buckets.setdefault(label, []).append(row)
-    out: list[dict[str, Any]] = []
-    for label in _AQUATIC_SUBGROUP_ORDER:
-        sub_rows = buckets.get(label)
-        if sub_rows:
-            out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
-    return out
 
 
 # Phase 3 (Item 6): split the "Fitness & classes" wall into type subsections so
@@ -360,7 +276,6 @@ def day_groups(
     # a day with no scheduled events. They sort after timed rows.
     rows_by_group["family"].extend(open_today_rows(day))
 
-    split_aquatic = taxonomy_reorg_enabled()
     groups: list[dict[str, Any]] = []
     for key, label, icon in GROUP_DEFS:
         rows = sorted(rows_by_group[key], key=lambda r: r["sort"])
@@ -369,14 +284,7 @@ def day_groups(
         group: dict[str, Any] = {
             "key": key, "label": label, "icon": icon, "count": len(rows), "rows": rows
         }
-        # Phase E §3.2: when the reorg flag is on, the Aquatic Center group
-        # renders as labeled subsections (Open & Family Swim, Lap Swim, Aqua
-        # Fitness, Warm-Water Yoga & Mind-Body, Gentle / Therapeutic). The flat
-        # rows stay on the group so the template can fall back when the flag is
-        # off and every other group is unaffected.
-        if split_aquatic and key == "aquatic":
-            group["subgroups"] = _split_aquatic_subgroups(rows)
-        elif key == "classes" and len(rows) >= _CLASS_SUBGROUP_MIN:
+        if key == "classes" and len(rows) >= _CLASS_SUBGROUP_MIN:
             # Item 6: only sub-group dense class days; small days read fine flat.
             group["subgroups"] = _split_class_subgroups(rows)
         elif key == "family" and len(rows) >= _FAMILY_SUBGROUP_MIN:

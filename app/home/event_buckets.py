@@ -53,9 +53,9 @@ GROUP_DEFS: tuple[tuple[str, str, str], ...] = (
     # so a parent sees everything for kids in one place.
     ("family", "Kids & Family", "\U0001F9D2"),
     ("music", "Music & nightlife", "\U0001F3B6"),
-    # "Lake & Boating" is LAKE-only; pool activities live in "Aquatic Center".
     ("water", "Lake & Boating", "⛵"),
-    ("aquatic", "Aquatic Center", "\U0001F3CA"),
+    # Pool activities fold into Kids & Family (open/family swim) or Fitness &
+    # classes (lap swim, water aerobics, aqua zumba) — no separate pool group.
     ("classes", "Fitness & classes", "\U0001F3C3"),
 )
 
@@ -66,7 +66,6 @@ GROUP_NOUNS: dict[str, tuple[str, str]] = {
     "family": ("kid-friendly", "kid-friendly"),
     "music": ("music", "music"),
     "water": ("on the water", "on the water"),
-    "aquatic": ("pool session", "pool sessions"),
     "classes": ("class", "classes"),
 }
 
@@ -80,14 +79,12 @@ def group_for_tier(
     class, Open Swim, story time) collects here instead of its activity group so
     a parent has one place to look. Big one-off SPECIAL events stay in their
     marquee group (they headline the day) — everything else defers to the family
-    collector first. Pool activities are their own group (checked before classes
-    because pool sessions are usually recurring).
+    collector first. Pool sessions fold into classes (open/family swim is caught
+    by the family overlay above).
     """
     if tier != TIER_SPECIAL and is_family_event(title, tags):
         return "family"
-    if tier == TIER_AQUATIC:
-        return "aquatic"
-    if recurring or tier == TIER_CLASS:
+    if recurring or tier in (TIER_CLASS, TIER_AQUATIC):
         return "classes"
     if tier == TIER_MUSIC:
         return "music"

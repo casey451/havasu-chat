@@ -329,7 +329,7 @@ _TIER_CSS = {
     _TIER_COMMUNITY: "community",
     _TIER_WATER: "water",
     _TIER_OTHER: "community",
-    _TIER_AQUATIC: "aquatic",
+    _TIER_AQUATIC: "class",
     _TIER_CLASS: "class",
 }
 

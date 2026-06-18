@@ -105,13 +105,13 @@ def test_today_view_groups_by_category_events_first(
         i_events = body.index('data-group="events"')
         i_music = body.index('data-group="music"')
         i_water = body.index('data-group="water"')
-        i_aquatic = body.index('data-group="aquatic"')
-        # Owner-approved group order (no plain class here, so no classes group;
-        # the recurring Lap Swim is a POOL session → Aquatic Center group).
-        assert i_events < i_music < i_water < i_aquatic
+        i_classes = body.index('data-group="classes"')
+        # Owner-approved group order; the recurring Lap Swim is a pool session →
+        # Fitness & classes (no separate Aquatic Center group).
+        assert i_events < i_music < i_water < i_classes
         # "Events" is expanded by default; the rest load collapsed.
         assert 'data-group="events" open' in body
-        for key in ("music", "water", "aquatic"):
+        for key in ("music", "water", "classes"):
             assert f'data-group="{key}" open' not in body
         # Right members + an honest count pill on the Events group.
         events_block = body[i_events:i_music]
@@ -119,9 +119,9 @@ def test_today_view_groups_by_category_events_first(
         assert 'ev-acc-count">2<' in events_block
         assert band in body[i_music:i_water]
         # Sunset Paddle is genuinely on the lake → On-the-water group.
-        assert paddle in body[i_water:i_aquatic]
-        # Lap Swim is in the pool → Aquatic Center group, not On-the-water.
-        assert swim in body[i_aquatic:]
+        assert paddle in body[i_water:i_classes]
+        # Lap Swim is a pool class → Fitness & classes, not On-the-water.
+        assert swim in body[i_classes:]
     finally:
         _cleanup(eids)
 
@@ -158,16 +158,16 @@ def test_classes_never_appear_in_events_group() -> None:
         _cleanup(eids)
 
 
-# --- (b2) Kids & Family collector + Aquatic Center split ---------------------
+# --- (b2) Kids & Family collector + pool classes split ----------------------
 
 
-def test_family_and_aquatic_groups_split_out() -> None:
+def test_family_and_pool_classes_split_out() -> None:
     suffix = uuid.uuid4().hex[:6]
     day = date(2099, 7, 21)  # a Tuesday
     karate = f"ZZ Youth Karate {suffix}"     # kid class -> Kids & Family
     openswim = f"ZZ Open Swim {suffix}"      # pool + family -> Kids & Family
-    adultlap = f"ZZ Adult Lap Swim {suffix}"  # pool, adult -> Aquatic Center
-    aqua = f"ZZ Aqua Aerobics {suffix}"      # pool -> Aquatic Center
+    adultlap = f"ZZ Adult Lap Swim {suffix}"  # pool, adult -> Fitness & classes
+    aqua = f"ZZ Aqua Aerobics {suffix}"      # pool -> Fitness & classes
     eids: list[str] = []
     with SessionLocal() as db:
         eids.append(_add_event(db, title=karate, on=day, start=time(16, 0), loc="Dojo",
@@ -183,15 +183,15 @@ def test_family_and_aquatic_groups_split_out() -> None:
         with TestClient(app) as client:
             body = client.get(f"/events-ui?date={day.isoformat()}").text
         i_family = body.index('data-group="family"')
-        i_aquatic = body.index('data-group="aquatic"')
+        i_classes = body.index('data-group="classes"')
         family_block = body[i_family : body.index("</details>", i_family)]
-        aquatic_block = body[i_aquatic : body.index("</details>", i_aquatic)]
+        classes_block = body[i_classes : body.index("</details>", i_classes)]
         # Kids & Family collects youth classes AND the family open-swim.
         assert karate in family_block and openswim in family_block
         assert adultlap not in family_block and aqua not in family_block
-        # Aquatic Center holds the adult pool sessions — never the lake group.
-        assert adultlap in aquatic_block and aqua in aquatic_block
-        assert karate not in aquatic_block and openswim not in aquatic_block
+        # Pool classes fold into Fitness & classes — never the lake group.
+        assert adultlap in classes_block and aqua in classes_block
+        assert karate not in classes_block and openswim not in classes_block
     finally:
         _cleanup(eids)
 
