@@ -94,9 +94,15 @@ def parse_clock(text: str | None) -> str | None:
 
 
 def _match_venue(text: str) -> tuple[str, str, str | None] | None:
+    """Match a venue by whole-word keyword.
+
+    Word boundaries (not raw substring) matter for short tokens: "ac" must match
+    the "AC" abbreviation but not "Isaac", and "ark" must match "ARK Center" but
+    not "...Samp Park".
+    """
     low = (text or "").lower()
     for kw, name, addr, cost in _VENUE_MAP:
-        if kw in low:
+        if re.search(r"\b" + re.escape(kw.strip()) + r"\b", low):
             return name, addr, cost
     return None
 
