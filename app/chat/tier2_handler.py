@@ -25,6 +25,7 @@ from app.chat.tier2_db_query import _event_dict
 from app.chat.tier2_schema import Tier2Filters
 from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal
+from app.events.family_filter import is_family_event
 from app.events.queries import events_in_window, intent_window_for_when
 
 # Parser scores below this threshold skip Tier 2 and defer to Tier 3 (tunable in a later phase).
@@ -185,6 +186,16 @@ _CATEGORY_PROGRAM_RE = re.compile(
 )
 
 
+# Kid/family audience signal for event queries ("things to do this weekend with
+# kids"). When present, the event agenda is filtered to family-tagged events so a
+# kids query doesn't surface adult-only classes (aqua aerobics, arthritis class).
+_KIDS_FAMILY_EVENT_RE = re.compile(
+    r"\b(kids?|child(?:ren)?|toddlers?|teens?|teenagers?|family|families|"
+    r"kid[- ]friendly|family[- ]friendly)\b",
+    re.IGNORECASE,
+)
+
+
 def detect_event_intent(query: str) -> dict[str, str] | None:
     """Return intent dict when the query is event-flavored.
 
@@ -230,12 +241,17 @@ def detect_event_intent(query: str) -> dict[str, str] | None:
     return None
 
 
-def _event_rows_for_intent(intent: dict[str, str]) -> list[dict[str, Any]]:
+def _event_rows_for_intent(
+    intent: dict[str, str], *, family_only: bool = False
+) -> list[dict[str, Any]]:
     when = intent["when"]
     time_start = intent.get("time_start")
     time_end = intent.get("time_end")
     today = now_lake_havasu().date()
     win_start, win_end = intent_window_for_when(when, today=today)
+    # When filtering to family events, pull a wider slice so enough survive the
+    # audience filter before the 8-row cap below.
+    fetch_limit = 50 if family_only else 8
     with SessionLocal() as db:
         flat = events_in_window(
             db,
@@ -243,8 +259,10 @@ def _event_rows_for_intent(intent: dict[str, str]) -> list[dict[str, Any]]:
             window_end=win_end,
             time_start=time_start,
             time_end=time_end,
-            limit=8,
+            limit=fetch_limit,
         )
+    if family_only:
+        flat = [(e, d) for (e, d) in flat if is_family_event(e.title, e.tags)]
     rows: list[dict[str, Any]] = []
     seen: set[tuple[Any, ...]] = set()
     for event, occ_date in flat:
@@ -255,6 +273,8 @@ def _event_rows_for_intent(intent: dict[str, str]) -> list[dict[str, Any]]:
         row = _event_dict(event)
         row["date"] = occ_date.isoformat()
         rows.append(row)
+        if len(rows) >= 8:
+            break
     return rows
 
 
@@ -340,7 +360,8 @@ def try_tier2_with_usage(
 
     event_intent = detect_event_intent(q)
     if event_intent is not None:
-        rows = _event_rows_for_intent(event_intent)
+        family_only = bool(_KIDS_FAMILY_EVENT_RE.search(q))
+        rows = _event_rows_for_intent(event_intent, family_only=family_only)
         if rows or _event_intent_has_time_bounds(event_intent):
             logging.info(
                 "tier2_handler: event-intent path when=%s rows=%d",

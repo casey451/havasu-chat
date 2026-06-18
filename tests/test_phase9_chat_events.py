@@ -45,3 +45,52 @@ def test_event_rows_for_intent_empty_ok() -> None:
     with patch("app.chat.tier2_handler.events_in_window", return_value=[]):
         rows = _event_rows_for_intent({"when": "today"})
     assert rows == []
+
+
+# --- #4a: kids/family audience filter on the event agenda --------------------
+
+
+def _fake_event(eid: str, title: str, tags: list[str]):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(id=eid, title=title, tags=tags)
+
+
+def test_event_rows_family_only_drops_adult_classes() -> None:
+    from datetime import date
+
+    d = date(2026, 6, 20)
+    flat = [
+        (_fake_event("1", "Kids Story Time", ["family", "kids"]), d),
+        (_fake_event("2", "Aqua Aerobics", ["fitness"]), d),
+        (_fake_event("3", "Arthritis Class", []), d),
+    ]
+    with patch("app.chat.tier2_handler.events_in_window", return_value=flat):
+        with patch(
+            "app.chat.tier2_handler._event_dict",
+            side_effect=lambda e: {"type": "event", "name": e.title},
+        ):
+            rows = _event_rows_for_intent({"when": "this_weekend"}, family_only=True)
+    names = [r["name"] for r in rows]
+    assert "Kids Story Time" in names
+    assert "Aqua Aerobics" not in names
+    assert "Arthritis Class" not in names
+
+
+def test_event_rows_without_family_only_keeps_all() -> None:
+    from datetime import date
+
+    d = date(2026, 6, 20)
+    flat = [
+        (_fake_event("1", "Kids Story Time", ["family"]), d),
+        (_fake_event("2", "Aqua Aerobics", ["fitness"]), d),
+    ]
+    with patch("app.chat.tier2_handler.events_in_window", return_value=flat):
+        with patch(
+            "app.chat.tier2_handler._event_dict",
+            side_effect=lambda e: {"type": "event", "name": e.title},
+        ):
+            rows = _event_rows_for_intent({"when": "this_weekend"}, family_only=False)
+    names = [r["name"] for r in rows]
+    assert "Kids Story Time" in names
+    assert "Aqua Aerobics" in names
