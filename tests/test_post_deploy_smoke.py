@@ -77,8 +77,12 @@ def test_run_one_against_mock_server() -> None:
             return {"tier_used": "2", "response": "ok"}
 
     class _FakeClient:
-        def __init__(self, timeout: float) -> None:
+        def __init__(self, timeout: float, follow_redirects: bool = False) -> None:
             self.timeout = timeout
+            # The smoke client must follow redirects so the bare Railway host's
+            # 308 -> askhava.com is followed instead of failing raise_for_status().
+            assert follow_redirects is True
+            self.follow_redirects = follow_redirects
 
         def __enter__(self) -> _FakeClient:
             return self
