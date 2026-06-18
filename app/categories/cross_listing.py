@@ -28,6 +28,30 @@ from __future__ import annotations
 # `the-spot-pizza-arcade-more`, which was deactivated).
 CROSS_LISTED_ENTITY_SLUGS: dict[str, frozenset[str]] = {
     "family-fun-and-arcades": frozenset({"the-spot"}),
+    # Genuine marine repair/service shops whose PRIMARY leaf is auto/tire/RV (or
+    # none at all), so they were missing from the boat-repair leaf even though a
+    # "boat repair" search should surface them. Curated 2026-06-18 from
+    # scripts/list_marine_cross_listing_candidates.py against prod (71 marine-named
+    # candidates), trimmed to repair/service only — dealers/brokers, rentals,
+    # storage, tours, retail (e.g. West Marine), detailing, and bare-ambiguous
+    # names were dropped. Keys are Entity.slug (what leaf_pages looks up).
+    "boat-repair-and-service": frozenset(
+        {
+            "balistreri-s-auto-marine",
+            "barnacle-bills-boat-repairs",
+            "brandon-s-auto-rv-marine",
+            "byrd-s-mobile-rv-marine",
+            "carburetion-specialties-performance-full-automotive-and-boat-service-repair",
+            "everything-tire-automotive-marine",
+            "havasu-auto-body-jet-ski-rpr",
+            "hy-tech-watercraft-repair",
+            "mark-s-marine-service-llc",
+            "mobile-marine-and-more",
+            "pro-marine-engines",
+            "rob-s-london-bridge-marine-and-automotive",
+            "wm-auto-marine-mobile-mechanic",
+        }
+    ),
 }
 
 
