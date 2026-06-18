@@ -17,6 +17,11 @@ from app.db.entity_dual_write import (
 )
 from app.db.models import Contribution, Event, Program, Provider
 from app.db.seed_helpers import derive_provider_slug
+from app.events.description_clean import (
+    clean_event_description,
+    normalize_location_text,
+    valid_event_url,
+)
 from app.schemas.contribution import (
     EventApprovalFields,
     ProgramApprovalFields,
@@ -200,9 +205,15 @@ def approve_contribution_as_event(
     c = _load_pending_contribution(db, contribution_id, "event")
     verified = enrichment_suggests_verified(c)
     created_by = "user" if c.source == "user_submission" else "admin"
+    # Central guardrail: never persist metadata/placeholder bodies, email-as-URL
+    # click-throughs, or glued venue strings — regardless of which source or which
+    # approval path produced the contribution.
+    clean_desc = clean_event_description(edited_fields.description)
+    clean_loc = normalize_location_text(edited_fields.location_name) or edited_fields.location_name.strip()
+    clean_url = valid_event_url(edited_fields.event_url) or "https://askhava.com/events-ui"
     blob = event_text_blob(
         edited_fields.title.strip(),
-        edited_fields.description.strip(),
+        clean_desc,
         list(tags or []),
     )
     is_rec = is_recurring_heuristic(blob)
@@ -217,9 +228,9 @@ def approve_contribution_as_event(
         end_date=end_date,
         start_time=edited_fields.start_time,
         end_time=edited_fields.end_time,
-        location_name=edited_fields.location_name.strip(),
-        description=edited_fields.description.strip(),
-        event_url=edited_fields.event_url.strip(),
+        location_name=clean_loc,
+        description=clean_desc,
+        event_url=clean_url,
         source_url=event_source_url,
         contact_name=None,
         contact_phone=None,
