@@ -13,7 +13,7 @@
    the buttons hide with their card. #}
 <div class="biz{% if not card.slug %} biz--place{% endif %}" data-subcategory="{{ card.subcategory }}">
   {% if card.slug %}<a class="biz-link" href="/provider/{{ card.slug }}" aria-label="{{ card.name }}"></a>{% elif card.website %}<a class="biz-link" href="{{ card.website }}" target="_blank" rel="noopener nofollow" aria-label="{{ card.name }}"></a>{% endif %}
-  <div class="img"{% if card.image_url %} style="background-image:url('{{ card.image_url }}')"{% endif %}>
+  <div class="img{% if not card.image_url %} img--art{% endif %}"{% if card.image_url %} style="background-image:url('{{ card.image_url }}')"{% else %} data-monogram="{{ (card.name or '?')|first|upper }}"{% endif %}>
     {% if card.is_open is not none %}<span class="open{% if not card.is_open %} closed{% endif %}">{{ 'Open now' if card.is_open else 'Closed' }}</span>{% endif %}
     {% if card.is_sponsored %}<span class="d-tag d-tag--sponsored spon-label">Sponsored</span>{% endif %}
   </div>
