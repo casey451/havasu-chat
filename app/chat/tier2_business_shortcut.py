@@ -90,8 +90,8 @@ _OPEN_NOW_LISTING_RE = re.compile(
 # ("plumber open now"). Gated on a known-category alternation so a bare ENTITY
 # name ("mudshark open now") never matches here and still reaches Tier 1.
 _BARE_OPEN_NOW_RE = re.compile(
-    r"^(restaurants?|cafes?|coffee\s+shops?|bars?|pubs?|breweries|"
-    r"pharmacies|grocery\s+stores?|groceries|stores?|shops?|gyms?|"
+    r"^(restaurants?|cafes?|coffee\s+shops?|bars?|pubs?|brewer(?:y|ies)|"
+    r"pharmac(?:y|ies)|grocery\s+stores?|groceries|stores?|shops?|gyms?|"
     r"plumbers?|electricians?|hvac|locksmiths?|mechanics?|auto\s+repair|"
     r"dentists?|doctors?|clinics?|urgent\s+care|salons?|barbers?|groomers?|"
     r"vets?|veterinarians?|hardware\s+stores?)\s+open\s+(?:now|right\s+now)\s*$",
