@@ -154,6 +154,29 @@ def _text_list(result: QueryResult) -> str:
     return "\n".join(lines)
 
 
+
+# #2 follow-up: build_business_list re-sorts provider rows by relevance/rating,
+# which undoes the upstream run_query._marine_first reorder. So we re-apply the
+# marine-first ordering on the FINAL component items for boat_repair, where it
+# survives. A bare entity name never reaches here (boat_repair is a category
+# intent), so this only reorders genuine boat-repair listings.
+_MARINE_ITEM_RE = re.compile(
+    r"\b(marine|boat|watercraft|outboard|pontoon|jet\s?ski|jetski)\b",
+    re.IGNORECASE,
+)
+
+
+def _marine_first_items(items: list[dict]) -> list[dict]:
+    """Stable: items with a marine signal (name/category) lead, others after."""
+    def _has(it: dict) -> bool:
+        hay = f"{it.get('name', '')} {it.get('category', '')}"
+        return bool(_MARINE_ITEM_RE.search(hay))
+
+    marine = [it for it in items if _has(it)]
+    rest = [it for it in items if not _has(it)]
+    return marine + rest
+
+
 def _build_providers(
     result: QueryResult, query: str | None = None
 ) -> tuple[str, str, dict]:
@@ -171,6 +194,10 @@ def _build_providers(
         total_count=result.result_count,
         intent_query=query,
     )
+    if result.intent_key == "boat_repair" and isinstance(data.get("items"), list):
+        # Float genuine marine shops above auto/RV "Car Repair" yards, after
+        # build_business_list's relevance/rating sort has run.
+        data["items"] = _marine_first_items(data["items"])
     voice = result.lead_in.rstrip(":") + "." if result.lead_in else "Here are a few picks."
     return voice, "business_list", data
 
