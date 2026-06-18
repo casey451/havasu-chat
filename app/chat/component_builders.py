@@ -295,6 +295,15 @@ def resolve_target_date(f: Tier2Filters) -> date:
         return today
     if f.time_window == "tomorrow":
         return today + timedelta(days=1)
+    # Multi-day windows: anchor the day-agenda label to the window's START day
+    # (e.g. "this weekend" -> Friday) instead of falling through to today. Without
+    # this, a weekend query renders a day-agenda labeled with *today* — e.g. a
+    # Thursday "this weekend with kids" showed "Thursday's busy ...".
+    if f.time_window in ("this_weekend", "this_week"):
+        from app.events.queries import event_window_for_chip
+
+        chip = "this-weekend" if f.time_window == "this_weekend" else "this-week"
+        return event_window_for_chip(chip, today=today)[0]
 
     if f.day_of_week and len(f.day_of_week) == 1:
         target = _DOW_INDEX.get(f.day_of_week[0].lower())
