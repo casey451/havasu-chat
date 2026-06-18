@@ -81,8 +81,15 @@ _FACTUAL_LOOKUP_RE = re.compile(
 )
 
 _CATEGORY_OPEN_NOW_RE = re.compile(
-    r"\b(?:restaurants?|cafes?|coffee\s+shops?|bars?|veterinarians?|"
-    r"pharmacies|groceries|stores?|shops?)\b",
+    # Storefront categories + common service trades. A bare "plumber open now"
+    # is a category listing, not a single-entity lookup — without the trades
+    # here it fell through to a Tier 1 single-entity OPEN_NOW answer (one
+    # provider, no cards). Keep aligned with tier2_business_shortcut vocab.
+    r"\b(?:restaurants?|cafes?|coffee\s+shops?|bars?|pubs?|breweries|"
+    r"veterinarians?|vets?|pharmacies|groceries|grocery\s+stores?|stores?|"
+    r"shops?|gyms?|plumbers?|electricians?|hvac|locksmiths?|mechanics?|"
+    r"auto\s+repair|dentists?|doctors?|clinics?|urgent\s+care|salons?|"
+    r"barbers?|groomers?|hardware\s+stores?)\b",
     re.IGNORECASE,
 )
 

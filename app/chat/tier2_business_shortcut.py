@@ -86,6 +86,18 @@ _OPEN_NOW_LISTING_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Bare "<category> open now" (no "what" prefix) — the common phrasing
+# ("plumber open now"). Gated on a known-category alternation so a bare ENTITY
+# name ("mudshark open now") never matches here and still reaches Tier 1.
+_BARE_OPEN_NOW_RE = re.compile(
+    r"^(restaurants?|cafes?|coffee\s+shops?|bars?|pubs?|breweries|"
+    r"pharmacies|grocery\s+stores?|groceries|stores?|shops?|gyms?|"
+    r"plumbers?|electricians?|hvac|locksmiths?|mechanics?|auto\s+repair|"
+    r"dentists?|doctors?|clinics?|urgent\s+care|salons?|barbers?|groomers?|"
+    r"vets?|veterinarians?|hardware\s+stores?)\s+open\s+(?:now|right\s+now)\s*$",
+    re.IGNORECASE,
+)
+
 # Map captured noun phrase → canonical category string for Tier2Filters + SQL needles.
 # Align with _category_needle_set / entity_intent._CATEGORY_OPEN_NOW_RE coverage.
 _OPEN_NOW_CAPTURE_TO_CATEGORY: dict[str, str] = {
@@ -109,6 +121,35 @@ _OPEN_NOW_CAPTURE_TO_CATEGORY: dict[str, str] = {
     "shops": "shop",
     "gym": "gym",
     "gyms": "gym",
+    "pub": "bar",
+    "pubs": "bar",
+    "brewery": "brewery",
+    "breweries": "brewery",
+    "plumber": "plumber",
+    "plumbers": "plumber",
+    "electrician": "electrician",
+    "electricians": "electrician",
+    "hvac": "hvac",
+    "locksmith": "locksmith",
+    "locksmiths": "locksmith",
+    "mechanic": "mechanic",
+    "mechanics": "mechanic",
+    "auto repair": "auto repair",
+    "dentist": "dentist",
+    "dentists": "dentist",
+    "doctor": "doctor",
+    "doctors": "doctor",
+    "clinic": "clinic",
+    "clinics": "clinic",
+    "urgent care": "urgent care",
+    "salon": "salon",
+    "salons": "salon",
+    "barber": "barber",
+    "barbers": "barber",
+    "groomer": "groomer",
+    "groomers": "groomer",
+    "hardware store": "hardware store",
+    "hardware stores": "hardware store",
 }
 
 
@@ -271,6 +312,17 @@ def try_business_listing_shortcut(query: str) -> Tier2Filters | None:
             return None
         if len(category.split()) > 3:
             return None
+        return Tier2Filters(
+            category=category.lower(),
+            open_now=True,
+            parser_confidence=0.9,
+            fallback_to_tier3=False,
+        )
+    bare_on = _BARE_OPEN_NOW_RE.match(nq)
+    if bare_on is not None:
+        category = _normalize_category_typos(
+            _category_from_open_now_capture(bare_on.group(1))
+        )
         return Tier2Filters(
             category=category.lower(),
             open_now=True,

@@ -601,10 +601,23 @@ def _handle_ask(
     t_t1_start = time.perf_counter()
     tier1 = try_tier1(query, intent_result, db)
     if tier1 is not None:
-        if telemetry is not None:
-            telemetry["cache_status"] = "bypass"
-            telemetry["tier1_ms"] = int((time.perf_counter() - t_t1_start) * 1000)
-        return tier1, "1", None, None, None
+        # A category + "open now" query ("plumbers open now") must not be served
+        # as a single-entity OPEN_NOW answer (one provider, no cards, often a
+        # misleading "until 11:59 PM"). Let it fall through to the Tier 2
+        # category listing / honest open-now empty-state instead.
+        _is_category_open_now = False
+        if (intent_result.sub_intent or "") == "OPEN_NOW":
+            try:
+                from app.chat.entity_intent import is_category_open_now_listing
+
+                _is_category_open_now = is_category_open_now_listing(query)
+            except Exception:
+                logging.exception("unified_router: category-open-now probe failed")
+        if not _is_category_open_now:
+            if telemetry is not None:
+                telemetry["cache_status"] = "bypass"
+                telemetry["tier1_ms"] = int((time.perf_counter() - t_t1_start) * 1000)
+            return tier1, "1", None, None, None
     # Live-conditions answer: value-seeking weather/water/AQI/wind/lake-level
     # questions ("water temp today", "too windy to kayak") answer deterministically
     # from the conditions cache, consistently across phrasings (Phase 6, P1-4).
