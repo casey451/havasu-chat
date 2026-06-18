@@ -7,21 +7,24 @@ One source, three targets (each via the established, idempotent path):
     exactly like ``scripts.usapickleball_load``. New rows carry the
     ``racquet-sports`` subcategory + ``classes-sports-recreation`` Tier-1 category.
 
-  * **Activities + open-play schedule** -> recurring Programs, via
+  * **Activities** (round robins, lessons, clinics) -> recurring Programs, via
     ``contribution_store.create_contribution`` +
     ``approval_service.approve_contribution_as_program`` (mirrors
     ``app.contrib.parks_rec_loader``). Dedup on a synthesized ``source_url``.
 
-  * **PickleFest** -> a dated Event, via ``approve_contribution_as_event``.
+  * **Open play** -> all-day Events per venue on a rolling forward window, pruned
+    as they age (``prune_open_play_events``). Derived from the facility list, so
+    no headless browser is needed.
 
-The recurring open-play schedule comes from the JS calendar widget and needs a
-headless browser; pass ``--skip-calendar`` to run the network-light parts only
-(useful locally without ``playwright install``).
+  * **PickleFest** -> a dated, timed Event, via ``approve_contribution_as_event``.
+
+A facility that confidently matches an existing provider (e.g. the Aquatic
+Center already seeded by the aquatics scraper) is merged into that row rather
+than duplicated.
 
 Usage::
 
     python -m scripts.lakehavasu_pickleball_load --dry-run
-    python -m scripts.lakehavasu_pickleball_load --skip-calendar
     python -m scripts.lakehavasu_pickleball_load
 """
 
@@ -30,7 +33,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from datetime import date, time
+from datetime import date, time, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -64,6 +67,7 @@ from app.contrib.lakehavasu_pickleball import (  # noqa: E402
     fetch_activities,
     fetch_facilities,
     fetch_tournaments,
+    open_play_event_specs,
 )
 from app.contrib.scraper_ingest import decide_ingest  # noqa: E402
 from app.db import contribution_store as cs  # noqa: E402
@@ -174,6 +178,35 @@ def _apply_merge_fields(session: Any, entity_id: str, merge_fields: dict[str, An
         ent.source = str(merge_fields["source"])[:64]
 
 
+def _norm(s: str | None) -> str | None:
+    return " ".join((s or "").lower().split()) or None
+
+
+def _same_venue(prov: Provider, payload: EntityPayload) -> bool:
+    """True when an ambiguous reconcile hit is confidently the SAME venue --
+    identical normalized name or identical normalized address. Used to fold
+    pickleball details into an existing row (e.g. the Aquatic Center already
+    seeded by the aquatics scraper) instead of creating a duplicate."""
+    if (n := _norm(prov.provider_name)) and n == _norm(payload.name):
+        return True
+    if (a := _norm(prov.address)) and a == _norm(payload.address):
+        return True
+    return False
+
+
+def _merge_pickleball_into(prov: Provider, payload: EntityPayload) -> None:
+    """Additively note pickleball use on an existing provider's description
+    (never clobbers; only appends if not already mentioned)."""
+    desc = (prov.description or "").strip()
+    if "pickleball" in desc.lower():
+        return
+    note = (
+        "Also a Lake Havasu City Pickleball Association open-play venue -- see "
+        f"{payload.website or 'lakehavasupickleball.com/places-to-play'}."
+    )
+    prov.description = f"{desc} {note}".strip()[:5000]
+
+
 def ingest_facilities(
     facilities: list[Facility],
     *,
@@ -182,7 +215,7 @@ def ingest_facilities(
     dry_run: bool,
 ) -> dict[str, int]:
     counts = {"found": len(facilities), "inserted": 0, "inserted_pending": 0,
-              "updated": 0, "reconcile_skipped": 0}
+              "updated": 0, "merged": 0, "reconcile_skipped": 0}
     payloads = [facility_to_entity_payload(f, category_slug=category_slug) for f in facilities]
     if dry_run or not payloads:
         counts["inserted"] = len(payloads)  # would-insert estimate for dry-run
@@ -214,6 +247,19 @@ def ingest_facilities(
             continue
 
         if decision.should_hide:
+            # Ambiguous hit: if it's confidently the same venue as an existing
+            # row (e.g. the Aquatic Center already seeded by the aquatics
+            # scraper), fold pickleball use into that row instead of creating a
+            # hidden duplicate. Otherwise hold it for review as before.
+            if decision.existing_id:
+                existing = db.scalars(
+                    select(Provider).where(Provider.entity_id == decision.existing_id).limit(1)
+                ).first()
+                if existing is not None and _same_venue(existing, decision.payload):
+                    _merge_pickleball_into(existing, decision.payload)
+                    sync_provider_entity_from_legacy(db, existing)
+                    counts["merged"] += 1
+                    continue
             log_ambiguous_reconcile(decision.reconcile, context="lakehavasu_pickleball_load")
             kwargs["draft"] = True
             kwargs["pending_review"] = True
@@ -318,6 +364,10 @@ def ingest_events(
         if _existing_source_url(db, src_url):
             counts["skipped_duplicate"] += 1
             continue
+        # All-day events use start_time=00:00 + end_time=None (Ask Hava's all-day
+        # convention; see app/v1/serializers.py). Timed events (PickleFest) start
+        # at a real clock time.
+        start = time(0, 0) if spec.all_day else time(8, 0)
         try:
             create = ContributionCreate(
                 entity_type="event",
@@ -328,7 +378,7 @@ def ingest_events(
                 submission_notes=spec.description,
                 event_date=spec.date,
                 event_end_date=spec.end_date,
-                event_time_start=time(8, 0),
+                event_time_start=start,
                 source=CONTRIBUTION_SOURCE,
             )
             approve = EventApprovalFields(
@@ -336,7 +386,8 @@ def ingest_events(
                 description=spec.description,
                 date=spec.date,
                 end_date=spec.end_date,
-                start_time=time(8, 0),
+                start_time=start,
+                end_time=None,
                 location_name=spec.location_name,
                 event_url=spec.event_url,
                 source_url=src_url,
@@ -360,6 +411,29 @@ def ingest_events(
     return counts
 
 
+OPEN_PLAY_PRUNE_GRACE_DAYS = 2
+
+
+def prune_open_play_events(
+    *, db: Any, today: date | None = None, grace_days: int = OPEN_PLAY_PRUNE_GRACE_DAYS
+) -> int:
+    """Hard-delete open-play all-day Event rows older than ``today - grace``.
+
+    Open-play events are republished on a rolling forward window each run, so the
+    aged-out occurrences are dropped here to prevent unbounded accumulation
+    (mirrors ``parks_rec_loader.prune_stale_aquatic``). Scope is limited to rows
+    whose ``source_url`` carries the ``openplay|`` marker."""
+    today = today or date.today()
+    cutoff = today - timedelta(days=max(0, grace_days))
+    q = db.query(Event).filter(
+        Event.source_url.like("%openplay|%"),
+        Event.date < cutoff,
+    )
+    deleted = q.delete(synchronize_session=False)
+    db.commit()
+    return int(deleted or 0)
+
+
 # ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
@@ -368,7 +442,6 @@ def ingest_events(
 def run(
     *,
     dry_run: bool,
-    skip_calendar: bool,
     category_slug: str = DEFAULT_CATEGORY_SLUG,
     http_client: httpx.Client | None = None,
     today: date | None = None,
@@ -385,17 +458,9 @@ def run(
         if own_client:
             client.close()
 
-    if not skip_calendar:
-        try:
-            from app.contrib.lakehavasu_pickleball_calendar import (
-                fetch_calendar_occurrences,
-                group_open_play,
-            )
-
-            occurrences = fetch_calendar_occurrences(months=1)
-            program_specs = program_specs + group_open_play(occurrences)
-        except Exception as e:  # noqa: BLE001
-            logger.warning("open-play calendar step skipped: %s", e)
+    # Open play -> all-day events per venue, derived from the reliably-scraped
+    # facility list (no headless browser; see open_play_event_specs).
+    event_specs = event_specs + open_play_event_specs(facilities, today=today)
 
     results: dict[str, dict[str, int]] = {}
     with SessionLocal() as db:
@@ -404,6 +469,9 @@ def run(
         )
         results["programs"] = ingest_programs(program_specs, db=db, dry_run=dry_run)
         results["events"] = ingest_events(event_specs, db=db, dry_run=dry_run)
+        results["events"]["pruned_open_play"] = (
+            0 if dry_run else prune_open_play_events(db=db, today=today)
+        )
     return results
 
 
@@ -411,17 +479,11 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     p = argparse.ArgumentParser(description="Ingest LakeHavasuPickleball.com content")
     p.add_argument("--dry-run", action="store_true")
-    p.add_argument(
-        "--skip-calendar",
-        action="store_true",
-        help="Skip the JS open-play calendar (no headless browser needed)",
-    )
     p.add_argument("--category-slug", default=DEFAULT_CATEGORY_SLUG)
     args = p.parse_args()
 
     results = run(
         dry_run=bool(args.dry_run),
-        skip_calendar=bool(args.skip_calendar),
         category_slug=args.category_slug,
     )
     print("--- lakehavasu_pickleball_load summary ---")

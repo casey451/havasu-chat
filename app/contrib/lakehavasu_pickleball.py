@@ -21,10 +21,11 @@ What this module extracts from the **static** HTML (no browser needed):
 
   * **PickleFest** -> a dated ``Event`` spec parsed from the Tournaments page.
 
-The recurring weekly OPEN-PLAY schedule lives inside a third-party
-``plugin.eventscalendar.co`` widget (a cross-origin iframe with no JSON API), so
-it is handled separately in :mod:`app.contrib.lakehavasu_pickleball_calendar`
-(Playwright render). This module stays network-light and browser-free.
+Open play is published as **all-day events** per venue (:func:`open_play_event_specs`)
+on a rolling forward window. The site's calendar widget is a third-party
+``plugin.eventscalendar.co`` iframe with no JSON API that renders unreliably for
+a headless scraper, so open-play events are derived from the reliably-scraped
+facility list instead -- keeping this module network-light and browser-free.
 
 Records map to ``source="lakehavasu_pickleball"``. Facilities carry the
 ``racquet-sports`` subcategory; the loader resolves the Tier-1
@@ -35,7 +36,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 import httpx
@@ -65,6 +66,11 @@ ROUND_ROBIN_URL = f"{BASE_URL}/round-robin"
 INSTRUCTION_URL = f"{BASE_URL}/beginner-novice-pickleball-instruct-1"
 TOURNAMENTS_URL = f"{BASE_URL}/tournaments"
 MEMBERSHIP_URL = f"{BASE_URL}/membership"
+CALENDAR_URL = f"{BASE_URL}/calendar"
+
+# Open-play all-day events are published for a rolling forward window and pruned
+# as they age (mirrors the aquatic-event pattern in parks_rec_loader).
+OPEN_PLAY_WINDOW_DAYS = 7
 
 # Maps URL: ...!3d<lat>!4d<lng> are the canonical place coordinates.
 _MAPS_LATLNG_RE = re.compile(r"!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)")
@@ -147,7 +153,9 @@ class ProgramSpec:
 
 @dataclass
 class EventSpec:
-    """A dated one-off event (e.g. PickleFest)."""
+    """A dated event. ``all_day`` open-play events render as all-day in Ask Hava
+    (the loader writes ``start_time=00:00`` + ``end_time=None``, the app's all-day
+    convention); dated one-offs like PickleFest are timed."""
 
     title: str
     description: str
@@ -156,6 +164,7 @@ class EventSpec:
     location_name: str
     event_url: str
     source_anchor: str
+    all_day: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -523,3 +532,56 @@ def fetch_tournaments(
     *, client: httpx.Client | None = None, today: date | None = None
 ) -> list[EventSpec]:
     return parse_tournaments(_get(TOURNAMENTS_URL, client=client), today=today)
+
+
+# ---------------------------------------------------------------------------
+# Open play -> all-day events
+# ---------------------------------------------------------------------------
+
+
+def _open_play_description(f: Facility) -> str:
+    bits = [f"Drop-in pickleball open play at {f.name}, coordinated by the {ORG_NAME}."]
+    if f.cost:
+        bits.append(f"Cost: {f.cost}.")
+    bits.append(
+        "Sessions and times vary by day and season -- see the current schedule at "
+        f"{CALENDAR_URL}."
+    )
+    return " ".join(bits)
+
+
+def open_play_event_specs(
+    facilities: list[Facility],
+    *,
+    today: date | None = None,
+    window_days: int = OPEN_PLAY_WINDOW_DAYS,
+) -> list[EventSpec]:
+    """All-day open-play events per venue across a rolling forward window.
+
+    Open play is an ongoing, near-daily drop-in activity rather than a single
+    dated event, so we publish one all-day event per venue per day for the next
+    ``window_days`` days and let the pruner drop them as they age (mirrors the
+    aquatic-schedule pattern). Derived from the reliably-scraped facility list,
+    so it does not depend on the JS calendar widget rendering.
+    """
+    today = today or date.today()
+    specs: list[EventSpec] = []
+    for f in facilities:
+        if not f.name:
+            continue
+        desc = _open_play_description(f)
+        for offset in range(max(1, window_days)):
+            d = today + timedelta(days=offset)
+            specs.append(
+                EventSpec(
+                    title=f"Pickleball Open Play – {f.name}"[:300],
+                    description=desc,
+                    date=d,
+                    end_date=d,
+                    location_name=f.name,
+                    event_url=CALENDAR_URL,
+                    source_anchor=f"openplay|{f.name}|{d.isoformat()}",
+                    all_day=True,
+                )
+            )
+    return specs
