@@ -108,7 +108,7 @@ class DayAgendaPayload(TypedDict):
 
 
 class WeekDayCell(TypedDict):
-    """One day bucket in the ``week_strip`` 7-day picker."""
+    """One day bucket in the ``week_strip`` day picker (≤7 cells)."""
 
     date: str
     dow: str
@@ -760,8 +760,13 @@ def is_week_strip_query(filters: Tier2Filters, rows: list[dict[str, Any]]) -> bo
 
 
 def _filters_scope_week_window(f: Tier2Filters) -> bool:
-    """The filter set scopes to a multi-day week-shaped window."""
-    if f.time_window in ("this_week", "next_week"):
+    """The filter set scopes to a multi-day week-shaped window.
+
+    ``this_weekend`` is a multi-day window (Fri–Sun) and belongs here too —
+    without it a "this weekend" query never reached the week_strip path and
+    rendered a single-day agenda labeled with the window's start day.
+    """
+    if f.time_window in ("this_week", "next_week", "this_weekend"):
         return True
     if f.date_start is not None and f.date_end is not None:
         return f.date_end >= f.date_start + timedelta(days=2)
@@ -777,6 +782,10 @@ def resolve_week_window(f: Tier2Filters) -> tuple[date, date]:
     * fallback                    → today..today+6 (best-effort)
     """
     today = now_lake_havasu().date()
+    if f.time_window == "this_weekend":
+        from app.events.queries import event_window_for_chip
+
+        return event_window_for_chip("this-weekend", today=today)
     if f.time_window == "this_week":
         start = today
         return start, start + timedelta(days=6)
@@ -816,8 +825,12 @@ def build_week_strip(filters: Tier2Filters, rows: list[dict[str, Any]]) -> WeekS
                                                # for the selected_date only
       }
     """
-    window_start, _window_end = resolve_week_window(filters)
+    window_start, window_end = resolve_week_window(filters)
     today = now_lake_havasu().date()
+
+    # Render exactly the days the window spans (clamped to a 7-day max).
+    num_days = (window_end - window_start).days + 1
+    num_days = max(1, min(num_days, 7))
 
     buckets: dict[date, list[dict[str, Any]]] = {}
     for r in rows:
@@ -834,7 +847,7 @@ def build_week_strip(filters: Tier2Filters, rows: list[dict[str, Any]]) -> WeekS
 
     days_out: list[WeekDayCell] = []
     total_count = 0
-    for i in range(7):
+    for i in range(num_days):
         d = window_start + timedelta(days=i)
         day_rows = buckets.get(d, [])
         count = len(day_rows)
@@ -859,7 +872,7 @@ def build_week_strip(filters: Tier2Filters, rows: list[dict[str, Any]]) -> WeekS
     agenda_rows.sort(key=lambda r: (r.get("start_time") or "99:99", r.get("name") or ""))
     agenda = [_event_to_agenda_item(r) for r in agenda_rows]
 
-    last_day = window_start + timedelta(days=6)
+    last_day = window_start + timedelta(days=num_days - 1)
     title = (
         f"{window_start.strftime('%b ')}{window_start.day}"
         f" – {last_day.strftime('%b ')}{last_day.day}"
