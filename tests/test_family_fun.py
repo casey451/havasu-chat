@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.chat.family_fun import (
+    _name_has_family_keyword,
     family_fun_rows,
     is_family_browse_query,
     try_family_fun,
@@ -127,3 +128,36 @@ def test_try_family_fun_passes_on_non_family_query(mem_db: Session) -> None:
     component_meta: dict = {}
     assert try_family_fun("best tacos in town", mem_db, component_meta) is None
     assert component_meta == {}
+
+
+# --- regression: keyword substring collisions (prod bug) ----------------------
+
+
+def test_realtor_credentials_do_not_match_rc_keyword() -> None:
+    # "ABR/CMOE" contains the substring "r/c"; it must NOT satisfy the RC-venue
+    # keyword. A real R/C venue token still matches.
+    realtor = "Michelle Pepper KW Arizona Living Realty Associate Broker ABR/CMOE/CRS/GRI"
+    assert _name_has_family_keyword(realtor) is False
+    assert _name_has_family_keyword("Desert Hawks R/C Club") is True
+    assert _name_has_family_keyword("Havasu RC Track") is True
+    assert _name_has_family_keyword("Pizza, Arcade & More") is True
+
+
+def test_offcategory_realtor_excluded_from_family_rows(mem_db: Session) -> None:
+    _seed_family_venues(mem_db)
+    # A 5.0-rated realtor whose credentials contain "r/c" must not appear, even
+    # though its high rating would otherwise float it to the top.
+    mem_db.add(
+        _provider(
+            "Michelle Pepper KW Arizona Living Realty Associate Broker ABR/CMOE/CRS/GRI",
+            gcat="real_estate_agency",
+            cat="Service",
+            rating=5.0,
+        )
+    )
+    mem_db.commit()
+    names = " | ".join(r["name"] for r in family_fun_rows(mem_db))
+    assert "Michelle Pepper" not in names
+    # Real family venues still present.
+    assert "The Spot" in names
+    assert "Desert Hawks RC Club" in names
