@@ -1,0 +1,49 @@
+{% extends "base_lake.html" %}
+{#- Lake Ink & Brass directory index (/categories) — every department as a tile,
+   over the SAME real serve_categories_index context. -#}
+
+{% block title %}The Lake Havasu City directory — Ask Hava{% endblock %}
+{% block meta_description %}Browse every category in Lake Havasu City — restaurants, the lake, home services, health, shopping and more. Real local listings, open-now first.{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ static_url('/static/styles/lake_directory.css') }}">
+{% if canonical_url is defined %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "Lake Havasu City directory",
+  "url": "{{ absolute_url('/categories') }}",
+  "breadcrumb": {
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Ask Hava", "item": "{{ absolute_url('/home') }}" },
+      { "@type": "ListItem", "position": 2, "name": "Directory", "item": "{{ absolute_url('/categories') }}" }
+    ]
+  },
+  "mainEntity": {
+    "@type": "ItemList",
+    "itemListElement": [{% for cat in categories %}{ "@type": "ListItem", "position": {{ loop.index }}, "name": {{ cat.label|tojson }}, "url": {{ absolute_url('/categories/' ~ cat.slug)|tojson }} }{% if not loop.last %}, {% endif %}{% endfor %}]
+  }
+}
+</script>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="wrap dir-wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">Directory</span></nav>
+  <div class="pagehead">
+    <h1>The Lake Havasu directory</h1>
+    <p class="sub dir-intro">Where to eat, who to call, what to do — every category, real local listings, open-now first.</p>
+  </div>
+  <div class="exgrid section">
+    {% for cat in categories %}
+    <a class="extile" href="/categories/{{ cat.slug }}">
+      <h3>{{ cat.label }}{% if cat.count %}<span class="c">{{ cat.count }}</span>{% endif %}</h3>
+      <p>{{ cat.blurb or cat.empty_blurb }}</p>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

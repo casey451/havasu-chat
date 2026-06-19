@@ -1,0 +1,29 @@
+{#- One Lake Ink & Brass directory listing card. Context: ``card`` (the
+   category-card dict from app/categories/queries — same shape the desert
+   sandstone_biz_card consumes). Horizontal .bizcard (lake.css). A
+   Provider-backed card links to /provider/{slug}; a place entity with only a
+   website links out; otherwise the name is plain. No nested anchors — the name
+   link + the action buttons are siblings. -#}
+<div class="bizcard" data-subcategory="{{ card.subcategory }}">
+  <span class="ph{% if not card.image_url %} ph--art{% endif %}"{% if card.image_url %} style="background-image:url('{{ card.image_url }}')"{% endif %} aria-hidden="true">{% if not card.image_url %}{{ (card.name or '?')|first|upper }}{% endif %}</span>
+  <div class="bb">
+    <div class="bn">
+      {% if card.slug %}<a href="/provider/{{ card.slug }}">{{ card.name }}</a>
+      {%- elif card.website %}<a href="{{ card.website }}" target="_blank" rel="noopener nofollow">{{ card.name }}</a>
+      {%- else %}{{ card.name }}{% endif %}
+      {% if card.is_sponsored %}<span class="tag spon">Sponsored</span>{% endif %}
+    </div>
+    <div class="meta">
+      {% if card.has_reviews %}<span class="star">★ {{ card.rating }}</span>{% if card.review_count %} <span class="rc">({{ card.review_count }})</span>{% endif %}{% else %}<span class="rc">New / few reviews</span>{% endif %}
+      {% if card.subcategory %} · {{ card.subcategory|replace('-', ' ')|replace('_', ' ')|title }}{% endif %}
+      {% if card.is_open is not none %} · <span class="{{ 'open' if card.is_open else 'closed' }}">{{ 'Open now' if card.is_open else 'Closed' }}</span>{% endif %}
+      {% if card.area %} · {{ card.area }}{% endif %}{% if card.distance_hint %} <span class="rc">· {{ card.distance_hint }}</span>{% endif %}
+    </div>
+    {% if card.ad_headline %}<div class="ad-tagline">{{ card.ad_headline }}</div>{% endif %}
+  </div>
+  <div class="act">
+    {% if card.slug %}<a class="btn btn-ghost" href="/provider/{{ card.slug }}">View</a>
+    {%- elif card.website %}<a class="btn btn-ghost" href="{{ card.website }}" target="_blank" rel="noopener nofollow">Visit</a>{% endif %}
+    {% if card.phone_tel %}<a class="btn btn-ghost" href="tel:{{ card.phone_tel }}" aria-label="Call {{ card.name }}">Call</a>{% endif %}
+  </div>
+</div>

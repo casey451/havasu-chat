@@ -1,0 +1,86 @@
+{% extends "base_lake.html" %}
+{#- Lake Ink & Brass leaf listing (/categories/{department}/{leaf}) — the
+   ad-revenue surface. SAME real context as category_trade.html (cards, filters,
+   pager, faqs). DECISION D4 kept: JSON-LD = BreadcrumbList + ItemList (names +
+   urls), NO AggregateRating on listing pages — the visible star ratings stay. -#}
+
+{% block title %}{{ trade_count }} Best {{ trade_label }} in Lake Havasu City, AZ — Ask Hava{% endblock %}
+{% block meta_description %}{{ trade_intro | meta_desc(160) }}{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ static_url('/static/styles/lake_directory.css') }}">
+{% if breadcrumb_jsonld %}<script type="application/ld+json">{{ breadcrumb_jsonld | tojson | safe }}</script>{% endif %}
+{% if itemlist_jsonld %}<script type="application/ld+json">{{ itemlist_jsonld | tojson | safe }}</script>{% endif %}
+{% if list_controls and list_controls.has_prev %}<link rel="prev" href="{{ list_controls.url_prev }}">{% endif %}
+{% if list_controls and list_controls.has_next %}<link rel="next" href="{{ list_controls.url_next }}">{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="wrap dir-wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span>{% if parent_href %}<a href="{{ parent_href }}">{{ parent_label }}</a>{% else %}<span>{{ parent_label }}</span>{% endif %}<span class="sep" aria-hidden="true">›</span><span aria-current="page">{{ trade_label }}</span></nav>
+  <div class="pagehead">
+    <h1>{{ trade_count }} Best {{ trade_label }} in Lake Havasu City, AZ</h1>
+    {% if trade_intro %}<p class="sub">{{ trade_intro }}</p>{% endif %}
+  </div>
+
+  {% if list_controls %}
+  <div class="toolbar" role="group" aria-label="Filter and sort listings">
+    <span class="tlab">Filter</span>
+    <a class="chip{% if list_controls.open_now %} on{% endif %}" href="{% if list_controls.open_now %}{{ list_controls.url_open_off }}{% else %}{{ list_controls.url_open_on }}{% endif %}"{% if list_controls.open_now %} aria-current="true"{% endif %}>Open now</a>
+    <a class="chip{% if list_controls.sort == 'top' %} on{% endif %}" href="{{ list_controls.url_top }}"{% if list_controls.sort == 'top' %} aria-current="true"{% endif %}>Top rated</a>
+    <a class="chip{% if list_controls.sort == 'az' %} on{% endif %}" href="{{ list_controls.url_az }}"{% if list_controls.sort == 'az' %} aria-current="true"{% endif %}>A&ndash;Z</a>
+    {% if list_controls.open_now %}<span class="shown">{{ list_controls.shown_total }} open now</span>{% endif %}
+  </div>
+  {% endif %}
+
+  {% if card_groups %}
+    {% for group_label, group_cards in card_groups %}
+    <section aria-label="{{ group_label }}" style="margin-top:18px">
+      <h2 class="also-sec" style="margin:0 0 10px">{{ group_label }}</h2>
+      <div class="listcard">{% for card in group_cards %}{% include 'components/lake_biz_card.html' %}{% endfor %}</div>
+    </section>
+    {% endfor %}
+  {% elif category_cards %}
+    <div class="listcard">{% for card in category_cards %}{% include 'components/lake_biz_card.html' %}{% endfor %}</div>
+  {% endif %}
+
+  {% if list_controls and not category_cards and not card_groups %}
+  <p class="cat-empty">Nothing to show here right now{% if list_controls.open_now %} — none are open at the moment. <a href="{{ list_controls.url_open_off }}">Show all {{ trade_label | lower }}</a>.{% endif %}</p>
+  {% endif %}
+
+  {% if list_controls and list_controls.total_pages > 1 %}
+  <nav class="pager" aria-label="Pagination">
+    {% if list_controls.has_prev %}<a class="btn btn-ghost" href="{{ list_controls.url_prev }}" rel="prev">‹ Prev</a>{% endif %}
+    <span class="cur">Page {{ list_controls.page }} of {{ list_controls.total_pages }}</span>
+    {% if list_controls.has_next %}<a class="btn btn-ghost" href="{{ list_controls.url_next }}" rel="next">Next ›</a>{% endif %}
+  </nav>
+  {% endif %}
+
+  <aside class="cat-claim" aria-label="Advertise in this category">
+    <div class="cc-body">
+      <span class="stag">Advertise</span>
+      <h2>Own the {{ trade_label }} spot in Lake Havasu City</h2>
+      <p>Be the featured {{ trade_label | lower }} business at the top of this page — quiet, clearly labeled, no pop-ups.</p>
+    </div>
+    <a class="btn btn-brass" href="/portal/placements">Claim this category</a>
+  </aside>
+
+  {% if trade_faqs %}
+  <section class="trade-faq" aria-labelledby="trade-faq-h">
+    <h2 id="trade-faq-h">{{ trade_label }} in Lake Havasu City — FAQ</h2>
+    {% for q, a in trade_faqs %}
+    <details class="faq-item"><summary><h3>{{ q }}</h3></summary><p>{{ a }}</p></details>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  <section class="askstrip">
+    <h2>Can't decide? <em>Ask.</em></h2>
+    <form action="/chat" method="get" role="search">
+      <label class="skip" for="trade-ask">Ask Hava</label>
+      <input id="trade-ask" name="q" type="search" placeholder="Ask about {{ trade_label | lower }}…" autocomplete="off">
+      <button type="submit">Ask Hava</button>
+    </form>
+  </section>
+</div>
+{% endblock %}
