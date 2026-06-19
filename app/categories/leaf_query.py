@@ -496,6 +496,37 @@ _CONVERSATIONAL_TOKENS = (
     "when does",
 )
 
+# Service-intent + function words that can surround a category noun in a
+# need-shaped query ("hvac needs repair", "pool service repair", "coffee shop").
+# match_leaf_service_intent routes such a query to its leaf ONLY when, after
+# pulling out a single category keyword, every remaining token is in this set —
+# so a descriptive ask carrying a content word ("wifi password coffee shop",
+# "best plumber for a slab leak") still falls through. Deliberately holds NO
+# category nouns and NO factual/temporal words (those are _CONVERSATIONAL_TOKENS).
+_SERVICE_FILLER: frozenset[str] = frozenset(
+    {
+        # service intent
+        "repair", "repairs", "service", "services", "servicing", "need", "needs",
+        "needed", "broken", "fix", "fixing", "fixed", "install", "installation",
+        "installer", "installers", "replace", "replacement", "maintenance", "help",
+        "quote", "quotes", "estimate", "estimates", "recommendation", "recommendations",
+        "company", "companies", "guy", "guys", "shop", "shops", "place", "places",
+        "unit", "units", "get", "find", "hire", "book",
+        # breakdown phrasings ("my hvac is broken", "ac not working", "stopped")
+        "is", "are", "was", "broke", "not", "working", "stopped",
+        # harmless function words (no category signal)
+        "i", "we", "my", "a", "an", "the", "for", "to", "some", "any", "please",
+        "looking", "near", "around", "local", "and", "of",
+    }
+)
+
+
+def _has_conversational_payload(raw: str) -> bool:
+    """True when the RAW query carries factual/temporal payload (hours, phone,
+    "open now", "tonight"…) — those stay conversational and never service-route.
+    Checked on the raw text BEFORE _normalize, which strips some of these."""
+    return any(tok in raw for tok in _CONVERSATIONAL_TOKENS)
+
 
 def _normalize(q: str) -> str:
     s = (q or "").strip().lower()
@@ -565,14 +596,71 @@ def match_leaf_for_chat(db: Session, q: str | None) -> leaf_pages.Leaf | None:
     return _leaf_for_normalized_term(db, norm)
 
 
-def _leaf_for_normalized_term(db: Session, norm: str) -> leaf_pages.Leaf | None:
-    """Dict lookup + DB existence + thin-page gate for a normalized term."""
-    slug = _QUERY_TO_LEAF.get(norm)
-    if slug is None:
-        return None
+def _resolve_gated(db: Session, slug: str) -> leaf_pages.Leaf | None:
+    """DB existence + thin-page (≥3-provider) gate for a known leaf slug."""
     leaf = leaf_pages.resolve_leaf_by_slug(db, slug)
     if leaf is None:
         return None
     if leaf_pages.leaf_renderable_count(db, leaf) < leaf_pages.LEAF_PAGE_MIN_PROVIDERS:
         return None
     return leaf
+
+
+def _leaf_for_normalized_term(db: Session, norm: str) -> leaf_pages.Leaf | None:
+    """Dict lookup + DB existence + thin-page gate for a normalized term."""
+    slug = _QUERY_TO_LEAF.get(norm)
+    if slug is None:
+        return None
+    return _resolve_gated(db, slug)
+
+
+def _service_intent_slug(norm: str) -> str | None:
+    """A single unambiguous leaf slug a need-shaped query maps to, or ``None``.
+
+    Pure (no DB). Finds known navigational terms as contiguous token spans in
+    the normalized query, longest-span-per-start. Routes ONLY when every span
+    resolves to ONE leaf AND every leftover token is service/function filler —
+    so "hvac needs repair" → ``hvac`` but "wifi password coffee shop" (content
+    leftover) and "plumber and electrician" (two leaves) fall through.
+    """
+    toks = norm.split()
+    if len(toks) < 2:
+        return None  # single-token asks are the exact-match path's job
+    n = len(toks)
+    spans: list[tuple[int, int, str]] = []
+    for i in range(n):
+        for j in range(n, i, -1):  # longest span starting at i wins
+            slug = _QUERY_TO_LEAF.get(" ".join(toks[i:j]))
+            if slug is not None:
+                spans.append((i, j, slug))
+                break
+    if not spans:
+        return None
+    slugs = {s for _, _, s in spans}
+    if len(slugs) != 1:
+        return None  # ambiguous — multiple categories implied
+    covered: set[int] = set()
+    for i, j, _ in spans:
+        covered.update(range(i, j))
+    leftover = [toks[k] for k in range(n) if k not in covered]
+    if any(t not in _SERVICE_FILLER for t in leftover):
+        return None  # a content word remains → stay conservative, fall through
+    return next(iter(slugs))
+
+
+def match_leaf_service_intent(db: Session, q: str | None) -> leaf_pages.Leaf | None:
+    """Leaf match for need-shaped service queries the exact matcher misses.
+
+    Extends :func:`match_leaf_query`: routes "[category] + service/function
+    words" ("hvac needs repair", "pool service repair", "coffee shop") to the
+    leaf, while queries with factual/temporal payload or any content leftover
+    stay conversational. The candidate leaf must still clear the existence +
+    ≥3-provider gate. Used as the fall-through before /search in the concierge.
+    """
+    raw = (q or "").strip().lower()
+    if not raw or _has_conversational_payload(raw):
+        return None
+    slug = _service_intent_slug(_normalize(raw))
+    if slug is None:
+        return None
+    return _resolve_gated(db, slug)
