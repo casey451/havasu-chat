@@ -51,3 +51,14 @@ def test_movie_sources_auto_approve():
             event_time_start=time(11, 0),
         )
         assert should_auto_approve_event(c) is True
+
+
+def test_kids_series_showings_have_unique_urls():
+    # The contributions pipeline dedups on submission_url; a shared link would
+    # collapse the whole series into one row. Each showing must be unique.
+    from scripts.load_star_cinemas_kids_series import _payloads
+
+    payloads = _payloads()
+    urls = [p.event_url for p in payloads]
+    assert urls, "kids series SERIES is empty"
+    assert len(set(urls)) == len(urls)

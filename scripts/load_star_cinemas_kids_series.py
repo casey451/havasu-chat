@@ -43,9 +43,12 @@ from scripts.scrape_events import _persist_payload  # noqa: E402
 
 SCRAPE_SOURCE = "star_cinemas_kids_series"
 VENUE = "Star Cinemas"
-# Public "more info" link for each free showing (no per-show booking page because
-# admission is free / first-come). Theater landing page is the safe link.
-INFO_URL = "https://starcinemashavasu.com/"
+# "More info" link for the free series (no per-show booking page — free /
+# first-come). We point at the theater's deals page and append a per-showing
+# fragment so each event has a UNIQUE url: the contributions pipeline dedups on
+# submission_url, so a shared link would collapse the whole series into one row
+# (and collide with Star Cinemas' existing provider record).
+KIDS_INFO_URL = "https://starcinemashavasu.com/deals"
 
 # One row per title. ``dates``/``times`` are lists so a title shown several
 # mornings in a week is easy to express. Source: starcinemashavasu.com/deals
@@ -95,6 +98,8 @@ def _payloads() -> list[EventPayload]:
             day = date.fromisoformat(d)
             for t in row.get("times", []):
                 hh, mm = (int(x) for x in t.split(":"))
+                # Unique per showing so the URL-based dedup keeps each one.
+                show_url = f"{KIDS_INFO_URL}#{day.isoformat()}-{hh:02d}{mm:02d}"
                 out.append(
                     EventPayload(
                         name=title,
@@ -104,8 +109,8 @@ def _payloads() -> list[EventPayload]:
                         start_time=time(hh, mm),
                         venue_name=VENUE,
                         description=desc,
-                        event_url=INFO_URL,
-                        source_stable_url=INFO_URL,
+                        event_url=show_url,
+                        source_stable_url=show_url,
                         image_url=poster,
                         # "Free" is conveyed in the description; EventPayload has
                         # no cost field, so don't pass one (would TypeError).
