@@ -31,11 +31,22 @@ register_template_globals(templates)
 router = APIRouter(prefix="/portal", tags=["portal"])
 
 
+def _t(request: Request, name: str) -> str:
+    """Serve the Lake Ink & Brass variant when the THEME flag resolves to lake
+    (Phase 4c). ``foo.html`` -> ``foo_lake.html``; default stays desert until the
+    Phase-8 flip — see app/core/theme.py."""
+    if getattr(request.state, "theme", "desert") == "lake":
+        return f"{name[:-5]}_lake.html"
+    return name
+
+
 @router.get("", response_class=HTMLResponse)
 @router.get("/", response_class=HTMLResponse)
 def portal_home(request: Request) -> HTMLResponse:
     """Portal landing — claim or advertise."""
-    return templates.TemplateResponse(request=request, name="portal_index.html", context={})
+    return templates.TemplateResponse(
+        request=request, name=_t(request, "portal_index.html"), context={}
+    )
 
 
 @router.get("/claim", response_class=HTMLResponse)
@@ -43,7 +54,9 @@ def portal_claim(request: Request) -> HTMLResponse:
     """Claim entry point: find your listing (then claim it from its page) or add
     a new one. The per-listing claim itself lives at /claim/{slug} via the
     provider profile's 'Claim this listing' CTA."""
-    return templates.TemplateResponse(request=request, name="portal_claim.html", context={})
+    return templates.TemplateResponse(
+        request=request, name=_t(request, "portal_claim.html"), context={}
+    )
 
 
 # ── shared helpers ────────────────────────────────────────────────────────────
@@ -102,7 +115,7 @@ def portal_placements(
     )
     return templates.TemplateResponse(
         request=request,
-        name="portal_placements.html",
+        name=_t(request, "portal_placements.html"),
         context={
             "providers": providers,
             "placements": placements,
@@ -128,7 +141,7 @@ def portal_placement_new_get(
         return RedirectResponse(url="/portal/claim", status_code=303)
     return templates.TemplateResponse(
         request=request,
-        name="portal_placement_new.html",
+        name=_t(request, "portal_placement_new.html"),
         context={
             "providers": providers,
             "selected_provider_id": provider_id,
@@ -179,7 +192,7 @@ def portal_placement_new_post(
         providers = placement_logic.claimed_providers(db, user.id)
         return templates.TemplateResponse(
             request=request,
-            name="portal_placement_new.html",
+            name=_t(request, "portal_placement_new.html"),
             context={
                 "providers": providers,
                 "selected_provider_id": provider_id,
@@ -245,7 +258,7 @@ def portal_creatives(
         return RedirectResponse(url="/portal/claim", status_code=303)
     return templates.TemplateResponse(
         request=request,
-        name="portal_creatives.html",
+        name=_t(request, "portal_creatives.html"),
         context={
             "providers": providers,
             "creatives": _merchant_creatives(db, providers),
@@ -303,7 +316,7 @@ async def portal_creatives_create(
         providers = placement_logic.claimed_providers(db, user.id)
         return templates.TemplateResponse(
             request=request,
-            name="portal_creatives.html",
+            name=_t(request, "portal_creatives.html"),
             context={
                 "providers": providers,
                 "creatives": _merchant_creatives(db, providers),
