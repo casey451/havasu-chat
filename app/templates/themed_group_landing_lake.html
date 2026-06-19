@@ -1,0 +1,132 @@
+{% extends "base_lake.html" %}
+{#- Lake themed-group landing (/group/{slug}). CHROME reskin of
+   themed_group_landing.html: ALL data-wiring preserved verbatim — body data
+   attributes (boat_mode.js + map.js), [data-hava-search] (search_bar.js),
+   district/ops chips via cat_href (category_filters.js), [data-map-toggle] +
+   #map-container (map.js), the shared (theme-neutral) hava_card partial, and the
+   group-accent-{accent} body class that test_phase6_themed_groups pins.
+   lake_group.css reskins the chrome; hava_card.css is the shared card sheet. -#}
+{% set active_tab = "explore" %}
+{% block title %}{{ group_label }} — Ask Hava{% endblock %}
+{% block meta_description %}{{ group_one_liner }}{% endblock %}
+{% block head_extra %}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="{{ static_url('/static/styles/components/hava_card.css') }}">
+  <link rel="stylesheet" href="{{ static_url('/static/styles/lake_group.css') }}">
+{% endblock %}
+{% block body_attrs %} class="themed-group-page group-accent-{{ group_accent }}" data-boat-reload-on-toggle data-map-scope="{{ map_scope_slug }}"{% if category_slug == 'on-the-water' %} data-map-default-expanded="true"{% endif %}{% endblock %}
+
+{% block content %}
+<div class="page category-page">
+
+  <section class="cat-head">
+    <div class="cathead wrap">
+      <div class="cat-head-main">
+        <div class="crumb"><a href="/home">Home</a> &rsaquo; <a href="/categories">Explore</a> &rsaquo; {{ group_label }}</div>
+        <h1 id="category-heading" class="category-title">{{ group_label }}</h1>
+        <p class="category-lede sub">{{ group_one_liner }}</p>
+        <p class="cat-head-meta" data-bundled-categories="{{ category_slugs | join(',') }}">Lake Havasu City &middot; {{ today_label }} &middot; <a href="/contribute">Add to Hava</a></p>
+      </div>
+    </div>
+    <div class="ridge" aria-hidden="true"></div>
+  </section>
+
+  {% if show_sparse_banner %}
+  <p class="category-sparse-banner" role="status">
+    More {{ group_label }} coming soon — Hava is still building this section. Check back this week!
+  </p>
+  {% endif %}
+
+  <div class="hava-search-bar" aria-label="Search the local catalog">
+    <form data-hava-search action="#" method="get" role="search">
+      <label class="directory-search-label" for="hava-search-q-group">Search listings</label>
+      <div class="hava-search-row">
+        <input
+          id="hava-search-q-group"
+          class="hava-search-input"
+          type="search"
+          name="q"
+          placeholder="Search {{ group_label | lower }}…"
+          autocomplete="off"
+          maxlength="200"
+          aria-label="Search listings"
+        />
+        <button type="submit" class="hava-search-submit">Search</button>
+      </div>
+      <div class="hava-search-results" data-hava-search-results hidden></div>
+    </form>
+  </div>
+
+  <section class="category-filters" aria-label="Filters">
+    <div class="chip-row chip-row--scroll" data-chip-row="trade">
+      {% for chip in cuisine_chips %}
+      <span class="chip chip-static">{{ chip.label }}</span>
+      {% endfor %}
+    </div>
+    <div class="chip-row chip-row--scroll" data-chip-row="district">
+      {% for chip in district_chips %}
+      <a
+        class="chip{% if active_district == chip.slug %} chip-active{% endif %}"
+        href="{{ cat_href(district=(none if active_district == chip.slug else chip.slug)) }}"
+        data-category-chip="district"
+        data-chip-slug="{{ chip.slug }}"
+      >{{ chip.label }}</a>
+      {% endfor %}
+    </div>
+    <div class="chip-row chip-row--scroll chip-row--ops" data-chip-row="ops">
+      {% for row in operational_chips %}
+      {% set p = row.param %}
+      {% if p == 'open' %}
+      <a class="chip{% if active_open_now %} chip-active{% endif %}" href="{{ cat_href(open=(none if active_open_now else 'now')) }}">{{ row.label }}</a>
+      {% elif p == 'boat' %}
+      <a class="chip{% if active_dock %} chip-active{% endif %}" href="{{ cat_href(boat=(none if active_dock else '1')) }}">{{ row.label }}</a>
+      {% else %}
+      <a class="chip" href="{{ cat_href(**{p: row.value}) }}">{{ row.label }}</a>
+      {% endif %}
+      {% endfor %}
+    </div>
+
+    <div class="category-sort-map-row">
+      <label class="sort-label" for="category-sort">Sort</label>
+      <select id="category-sort" class="category-sort" data-category-sort aria-label="Sort results">
+        {% for val, label in sort_options %}
+        <option value="{{ cat_href(sort=val) }}"{% if sort_current == val %} selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <button type="button" class="map-toggle-btn" data-map-toggle aria-expanded="false">
+        Map view
+      </button>
+      <button type="button" class="boat-mode-toggle" data-boat-mode-toggle aria-pressed="false" aria-label="Boat-access mode">
+        Boat mode
+      </button>
+    </div>
+  </section>
+
+  <div class="map-wrap map-wrap--collapsed" data-map-scope="{{ map_scope_slug }}">
+    <div id="map-container" hidden role="region" aria-label="Map of listings"></div>
+  </div>
+
+  <section class="category-stream" aria-label="{{ group_label }} listings">
+    {% for vm in organic_stream %}
+      {% set hava_card = vm %}
+      {% include "components/hava_card.html" %}
+    {% endfor %}
+  </section>
+
+  <footer class="category-editorial-footer">
+    <p>{{ editorial_footer_text }}</p>
+  </footer>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin="anonymous" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js" crossorigin="anonymous" defer></script>
+<script src="{{ static_url('/static/js/boat_mode.js') }}" defer></script>
+<script src="{{ static_url('/static/js/search_bar.js') }}" defer></script>
+<script src="{{ static_url('/static/js/map.js') }}" defer></script>
+<script src="{{ static_url('/static/js/category_filters.js') }}" defer></script>
+{% endblock %}
