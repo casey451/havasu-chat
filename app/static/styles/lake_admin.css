@@ -95,5 +95,16 @@ label,.d-label{color:var(--la-ink);font-weight:600}
 .bartrack{background:var(--la-surface)}
 .tabs,.sort-bar,.toolbar,.filters,.actions,.form-actions,.backrow,.kv{color:var(--la-ink-2)}
 
+/* inline _nav_shell moderation dashboard: each page hard-codes Bootstrap blue
+   (#0d6efd/#0a58ca/#e7f1ff) for its .tabs pills + .sort-opt links in its own
+   <style>. lake_admin.css is injected AFTER that, so MATCHING the inline
+   specificity recolours them to lake brass/ink — without this the dashboard
+   renders a desert/lake hybrid (blue accents on a lake page). AA: ink on
+   brass-wash and brass-deep/ink-2 on the light surfaces all clear 4.5:1. */
+.tabs a{border-color:var(--la-hair-2);background:var(--la-surface);color:var(--la-ink-2)}
+.tabs a.active{border-color:var(--la-brass);background:var(--la-brass-wash);color:var(--la-ink)}
+.sort-opt{color:var(--la-brass-deep)}
+.sort-opt-active{color:var(--la-ink)}
+
 /* focus ring (a11y) */
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.btn:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--la-havasu,#1c9bb4);border-radius:8px}
