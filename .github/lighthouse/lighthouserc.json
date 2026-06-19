@@ -7,7 +7,8 @@
         "http://127.0.0.1:8000/events-ui?theme=lake",
         "http://127.0.0.1:8000/calendar?q=live%20music%20this%20weekend",
         "http://127.0.0.1:8000/categories?theme=lake",
-        "http://127.0.0.1:8000/sponsor?theme=lake"
+        "http://127.0.0.1:8000/sponsor?theme=lake",
+        "http://127.0.0.1:8000/login?theme=lake"
       ],
       "numberOfRuns": 1,
       "settings": { "preset": "desktop" }

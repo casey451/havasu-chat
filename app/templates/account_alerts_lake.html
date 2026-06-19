@@ -1,0 +1,63 @@
+{% extends "base_lake.html" %}
+{% set account_active = "alerts" %}
+{#- Lake conditions-alerts settings (/account/alerts, auth-gated). Same context
+   as account_alerts.html: {user, active_types(set), alert_types, saved}. Real
+   checkboxes (accessible, no JS) — field names heat_advisory / aqi_alert /
+   lake_hazard / snooze_until POST to /account/alerts unchanged. noindex. -#}
+{% block title %}Alerts — Ask Hava{% endblock %}
+{% block head_extra %}
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="{{ static_url('/static/styles/lake_account.css') }}">
+{% endblock %}
+{% block content %}
+<div class="wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/account">My account</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Alerts</span></nav>
+  <div class="pagehead">
+    <h1>Conditions alerts</h1>
+    <p class="sub">We'll email <strong>{{ user.email }}</strong> when local conditions matter.</p>
+  </div>
+  {% if saved %}<p class="notice" role="status">Preferences saved.</p>{% endif %}
+  <div class="acct">
+    {% include "_partials/lake_account_nav.html" %}
+    <div>
+      <form action="/account/alerts" method="post">
+        <div class="card">
+          <label class="optrow">
+            <input type="checkbox" name="heat_advisory" value="1" {% if 'heat_advisory' in active_types %}checked{% endif %}>
+            <span class="optbody">
+              <span class="t">Heat advisory</span>
+              <span class="m">NWS heat products or forecasts above threshold.</span>
+            </span>
+          </label>
+          <label class="optrow">
+            <input type="checkbox" name="aqi_alert" value="1" {% if 'aqi_alert' in active_types %}checked{% endif %}>
+            <span class="optbody">
+              <span class="t">Air quality</span>
+              <span class="m">When AQI reaches unhealthy levels.</span>
+            </span>
+          </label>
+          <label class="optrow">
+            <input type="checkbox" name="lake_hazard" value="1" {% if 'lake_hazard' in active_types %}checked{% endif %}>
+            <span class="optbody">
+              <span class="t">Lake hazard</span>
+              <span class="m">Flood, wind, dust, or abrupt gauge-change alerts.</span>
+            </span>
+          </label>
+          <label class="optrow disabled">
+            <input type="checkbox" disabled>
+            <span class="optbody">
+              <span class="t">Event traffic</span>
+              <span class="m">Coming soon.</span>
+            </span>
+          </label>
+        </div>
+        <div class="field" style="margin-top:18px">
+          <label for="snooze_until">Snooze all until (optional)</label>
+          <input id="snooze_until" type="datetime-local" name="snooze_until">
+        </div>
+        <button class="btn btn-primary" type="submit">Save changes</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
