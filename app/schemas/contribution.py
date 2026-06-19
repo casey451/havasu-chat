@@ -45,6 +45,11 @@ ContributionSource = Literal[
     # Captured class schedules imported from the schedule-hunt dataset
     # (scripts/import_captured_schedules.py) as draft program contributions.
     "schedule_scrape",
+    # Movie showtimes (app/events/scrapers/star_cinemas.py) + the one-time free
+    # summer kids series loader. High-trust structured feeds; auto-approve tier
+    # is set in approval_service.
+    "star_cinemas",
+    "star_cinemas_kids_series",
 ]
 ContributionStatus = Literal["pending", "approved", "rejected", "needs_info"]
 RejectionReason = Literal["duplicate", "out_of_area", "spam", "incomplete", "unverifiable", "other"]
