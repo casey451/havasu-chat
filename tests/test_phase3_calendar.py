@@ -39,6 +39,25 @@ def test_time_tbd_never_expires() -> None:
     assert _occurrence_expired(_TODAY, None, None, _NOW) is False
 
 
+def test_all_day_event_never_expires_on_today() -> None:
+    # All-day events (start 00:00, no end) must survive the Today view all day:
+    # the 2h default would otherwise place their end at ~2 AM and purge them.
+    # Regression: pickleball Open Play (loaded as all-day) vanished from Today
+    # by ~3 AM while still showing on future days and in the .ics feed.
+    assert _occurrence_expired(_TODAY, time(0, 0), None, _NOW) is False
+    # Even late at night it stays.
+    assert (
+        _occurrence_expired(_TODAY, time(0, 0), None, datetime(2026, 6, 16, 23, 59))
+        is False
+    )
+
+
+def test_midnight_event_with_explicit_end_still_expires() -> None:
+    # A real (non-all-day) occurrence that genuinely ends at 00:30 is NOT
+    # all-day (it has an end_time), so the normal expiry path still applies.
+    assert _occurrence_expired(_TODAY, time(0, 0), time(0, 30), _NOW) is True
+
+
 def test_other_days_never_expire() -> None:
     assert _occurrence_expired(date(2026, 6, 17), time(9, 0), None, _NOW) is False
     assert _occurrence_expired(date(2026, 6, 15), time(9, 0), None, _NOW) is False
