@@ -1,0 +1,83 @@
+{% extends "base_lake.html" %}
+{#- Lake Ink & Brass event permalink (/events/{id}) — SAME route context. The
+   self-canonical comes from the route's absolute og_url via canonical_override;
+   event_jsonld (full Event rich-results schema) is pre-built in the route. -#}
+{% set canonical_override = og_url %}
+{% block title %}{{ event_title }} — Ask Hava, Lake Havasu City{% endblock %}
+{% block meta_description %}{{ og_description | meta_desc(200) }}{% endblock %}
+{% block og_type %}event{% endblock %}
+{% block og_title %}{{ event_title }}{% endblock %}
+{% block og_image %}{% if image_url %}{{ image_url }}{% else %}{{ absolute_url('/static/img/lake/og-default.png') }}{% endif %}{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{{ static_url('/static/styles/lake_landing.css') }}">
+{% if event_jsonld %}<script type="application/ld+json">{{ event_jsonld | tojson }}</script>{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <article class="evd">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><a href="/events-ui">Events</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">Detail</span></nav>
+
+    {% if is_past %}
+    <div class="evd-passed" role="status">This event has passed. Check the <a href="/events-ui">events list</a> for what's coming up.</div>
+    {% endif %}
+
+    <p class="eyebrow">Event details</p>
+    <h1>{{ event_title }}</h1>
+    <p class="evd-meta">{{ formatted_datetime }} · {{ (location_name | clean_name) or "Location TBD" }}</p>
+
+    <div class="evd-tags">
+      {% if cost %}
+        {% if cost == "Free" %}<span class="evd-cost free">Free</span>{% else %}<span class="evd-cost">Cost: {{ cost }}</span>{% endif %}
+        {% if cost_description %}<span class="evd-note">{{ cost_description }}</span>{% endif %}
+      {% else %}<span class="evd-note">See link for pricing</span>{% endif %}
+      {% if host %}<span class="evd-note">Hosted by {{ host }}</span>{% endif %}
+    </div>
+
+    {% if image_url %}<img class="evd-image" src="{{ image_url }}" alt="{{ event_title }}" loading="lazy" onerror="this.style.display='none'">
+    {% else %}<div class="evd-image-art" aria-hidden="true"><span class="sun"></span><span class="ridge"></span></div>{% endif %}
+
+    <div class="evd-actions">
+      {% if location_name %}<a class="btn btn-primary" href="https://www.google.com/maps/dir/?api=1&destination={{ location_name | urlencode }}" target="_blank" rel="noopener noreferrer">Directions</a>{% endif %}
+      {% if ics_url %}<a class="btn btn-ghost" href="{{ ics_url }}" download>Add to calendar</a>{% endif %}
+      <button type="button" class="btn btn-ghost" id="ev-share" data-url="{{ og_url }}" data-title="{{ event_title }}">Share</button>
+    </div>
+
+    {% if description %}<div class="evd-desc">{{ description }}</div>
+    {% else %}
+    <div class="evd-sparse">
+      <h2>About this event</h2>
+      <p>Details for this event are limited. Here is what we know:</p>
+      <ul>
+        <li><strong>When:</strong> {{ formatted_datetime }}</li>
+        <li><strong>Where:</strong> {{ (location_name | clean_name) or "Location TBD" }}</li>
+      </ul>
+    </div>
+    {% endif %}
+
+    {{ contact_html | safe }}
+    {{ event_link_html | safe }}
+    {{ tags_html | safe }}
+
+    <p class="evd-back"><a href="/events-ui">← Back to all events</a></p>
+  </article>
+</div>
+
+<script>
+(function () {
+  var btn = document.getElementById("ev-share");
+  if (!btn) return;
+  btn.addEventListener("click", function () {
+    var url = btn.getAttribute("data-url") || location.href;
+    var title = btn.getAttribute("data-title") || document.title;
+    if (navigator.share) { navigator.share({ title: title, url: url }).catch(function () {}); }
+    else if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(function () {
+        var old = btn.textContent; btn.textContent = "Link copied";
+        setTimeout(function () { btn.textContent = old; }, 1600);
+      }).catch(function () { window.prompt("Copy this link", url); });
+    } else { window.prompt("Copy this link", url); }
+  });
+})();
+</script>
+{% endblock %}

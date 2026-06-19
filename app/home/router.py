@@ -1116,9 +1116,10 @@ def collection_landing(
         raise HTTPException(status_code=404, detail="unknown_collection")
     collection = _delink_stale_places(db, collection)
     now = now_lake_havasu()
+    _lake = getattr(request.state, "theme", "desert") == "lake"
     return templates.TemplateResponse(
         request=request,
-        name="collection_landing.html",
+        name="collection_landing_lake.html" if _lake else "collection_landing.html",
         context={
             "collection": collection,
             "today_label": now.strftime("%A, %B ") + str(now.day),
@@ -1134,8 +1135,9 @@ def sponsor_landing(request: Request) -> HTMLResponse:
     Linked from ``home_c.html`` / ``category_c.html`` footers and from the
     marquee unsold-fallback. Was a 404 before this PR.
     """
+    _lake = getattr(request.state, "theme", "desert") == "lake"
     return templates.TemplateResponse(
         request=request,
-        name="sponsor_landing.html",
+        name="sponsor_landing_lake.html" if _lake else "sponsor_landing.html",
         context={},
     )

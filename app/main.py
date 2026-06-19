@@ -946,7 +946,11 @@ def _render_permalink_response(
 
     return templates.TemplateResponse(
         request=request,
-        name="event_permalink.html",
+        name=(
+            "event_permalink_lake.html"
+            if getattr(request.state, "theme", "desert") == "lake"
+            else "event_permalink.html"
+        ),
         context={
             "event_title": clean_event_title(event.title, location_name=event.location_name),
             "og_description": _truncate_for_og(event.description),
