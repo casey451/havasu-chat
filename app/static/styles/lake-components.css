@@ -43,6 +43,16 @@ button.erow{appearance:none}
 .pager{display:flex;gap:10px;align-items:center;justify-content:center;margin:24px 0;font-size:14px;color:var(--muted)}
 .pager .cur{font-variant-numeric:tabular-nums}
 
+/* WCAG 2.1 AA contrast hardening (caught by axe/pa11y on the styleguide).
+   The verbatim visual system pairs white text with mid-tone --brass on the CTA
+   (3.7:1) and reuses the `.tag` class in the footer, where the chip's light
+   background collides with the dark footer (light-on-light). Fixed with the
+   system's own deeper tokens — no new palette, no layout change. Guarded by
+   tests/test_lake_contrast.py so it can't regress. */
+.btn-brass{background:var(--brass-deep);color:#fff}
+.btn-brass:hover{background:var(--brass-deep);filter:brightness(1.1)}
+.ft .tag{background:none;border:0;padding:0}
+
 /* Styleguide-only scaffolding (the Phase-0 component gallery). */
 .sg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;align-items:start}
 .sg-swatches{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
