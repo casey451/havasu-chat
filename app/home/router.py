@@ -997,8 +997,15 @@ def serve_events_ui(
                 "day_label": _long_day_label(today),
             }
         )
+    # THEME flag (Lake Ink & Brass, Phase 2): the lake events surface reskins
+    # the SAME real context. Default stays desert until the flip.
+    events_template = (
+        "events_lake.html"
+        if getattr(request.state, "theme", "desert") == "lake"
+        else "events_sandstone.html"
+    )
     return templates.TemplateResponse(
-        request=request, name="events_sandstone.html", context=context
+        request=request, name=events_template, context=context
     )
 
 

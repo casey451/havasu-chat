@@ -8,6 +8,7 @@
   },
   "urls": [
     "http://127.0.0.1:8000/lake-styleguide?theme=lake",
-    "http://127.0.0.1:8000/home?theme=lake"
+    "http://127.0.0.1:8000/home?theme=lake",
+    "http://127.0.0.1:8000/events-ui?theme=lake"
   ]
 }
