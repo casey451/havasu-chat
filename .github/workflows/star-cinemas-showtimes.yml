@@ -5,10 +5,10 @@ name: star-cinemas-showtimes
 # through the day and the play-week rolls weekly), so unlike the every-other-day
 # event fleet this runs every day, morning and afternoon.
 #
-# Behavior: scripts/scrape_events.py --source star_cinemas reads the theater's
-# public Supabase feed (app/events/scrapers/star_cinemas.py) and routes each
-# showtime through the shared events pipeline. Ingest is idempotent (dedups on
-# venue+date+time+title), so the two daily runs update rather than duplicate.
+# Behavior: scripts/scrape_movies.py reads the theater's public Supabase feed
+# (app/movies/store.py) and upserts rows into the dedicated movie_showtimes table
+# (NOT the events pipeline), then prunes past showings. Idempotent on
+# (source, source_stable_id), so the two daily runs update rather than duplicate.
 # The /movies page and the home "At the movies today" strip read these rows.
 #
 # The free summer kids series is NOT scraped here (it's a flyer, not in the feed)
@@ -41,9 +41,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Scrape Star Cinemas showtimes into the catalog
+      - name: Scrape Star Cinemas showtimes into movie_showtimes
         env:
           # Same Railway Postgres secret the other scrape crons use. Set in:
           # GitHub repo -> Settings -> Secrets and variables -> Actions
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python scripts/scrape_events.py --source star_cinemas
+        run: python scripts/scrape_movies.py

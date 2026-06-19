@@ -1,32 +1,22 @@
-"""One-time loader: Star Cinemas FREE Summer Kids Movie Series (2026).
+"""One-time / on-demand loader for the Star Cinemas FREE Summer Kids Movie Series.
 
-This is NOT a recurring scraper. The free kids series is published on a printed
-/ Facebook flyer, not in the Veezi showtimes feed (verified 2026-06-19: the live
-``sessions`` feed only carries regular priced public shows). So we load it once
-from the flyer. Re-run with ``--apply`` after editing ``SERIES`` below; re-runs
-are idempotent (the event pipeline dedups on venue+date+time+title).
+The free series is published on a flyer (not in the Veezi showtimes feed), so the
+schedule lives in ``SERIES`` below. It's written into the dedicated
+``movie_showtimes`` table as FREE showings (``is_free=True``) — NOT the events
+pipeline. Idempotent upsert on (source, source_stable_id); re-running updates.
 
-Facts confirmed from local listings (havasunews / RiverScene / Go Lake Havasu):
-  - Venue:   Star Cinemas, 5601 AZ-95, Lake Havasu City
-  - When:    summer, Monday-Thursday mornings (historically ~9-10 AM)
-  - Cost:    FREE admission
-  - Format:  a different kids/family film each week
+Source: starcinemashavasu.com/deals (2026 "Free Summer Movies & Giveaways" —
+Mon-Thu, doors 9:00 AM, showtime 9:30 AM, giveaways before every screening).
 
-TODO (Casey): fill SERIES from the 2026 flyer -- one row per title. The exact
-weekly titles/dates are only on the flyer image, so they're left blank here on
-purpose rather than guessed. Once filled, run:
-
-    python -m scripts.load_star_cinemas_kids_series --dry-run   # show counts
-    python -m scripts.load_star_cinemas_kids_series --apply     # write
-
-Usage mirrors scripts/scrape_events.py and reuses its persistence path, so these
-showings flow through the same contributions -> auto-approve -> events pipeline
-and land on the movies surface with the free/kids tags.
+Usage:
+  python scripts/load_star_cinemas_kids_series.py --dry-run
+  python scripts/load_star_cinemas_kids_series.py --apply
 """
 
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from datetime import date, time
 from pathlib import Path
@@ -38,24 +28,16 @@ from app.bootstrap_env import ensure_dotenv_loaded  # noqa: E402
 ensure_dotenv_loaded()
 
 from app.db.database import SessionLocal  # noqa: E402
-from app.events.scrapers.base import EventPayload  # noqa: E402
-from scripts.scrape_events import _persist_payload  # noqa: E402
+from app.movies.store import ShowtimeRecord, upsert_showtimes  # noqa: E402
 
-SCRAPE_SOURCE = "star_cinemas_kids_series"
-VENUE = "Star Cinemas"
-# "More info" link for the free series (no per-show booking page — free /
-# first-come). We point at the theater's deals page and append a per-showing
-# fragment so each event has a UNIQUE url: the contributions pipeline dedups on
-# submission_url, so a shared link would collapse the whole series into one row
-# (and collide with Star Cinemas' existing provider record).
-KIDS_INFO_URL = "https://starcinemashavasu.com/deals"
-
-# One row per title. ``dates``/``times`` are lists so a title shown several
-# mornings in a week is easy to express. Source: starcinemashavasu.com/deals
-# (2026 "Free Summer Movies & Giveaways" — Mon-Thu, doors 9:00 AM, showtime
-# 9:30 AM, giveaways before every screening). All rated PG / family.
-SHOWTIME = ["9:30"]
+SOURCE = "star_cinemas_kids_series"
+THEATER_SLUG = "star-cinemas"
+THEATER_NAME = "Star Cinemas"
+INFO_URL = "https://starcinemashavasu.com/deals"
 _TMDB = "https://image.tmdb.org/t/p/w500"
+
+# One row per title; each shows Mon-Thu of its week at 9:30 AM. Posters from TMDB.
+SHOWTIME = ["9:30"]
 SERIES: list[dict] = [
     {"title": "Sonic the Hedgehog 3", "rating": "PG",
      "poster": _TMDB + "/d8Ryb8AunYAuycVKDp5HpdWPKgC.jpg",
@@ -81,41 +63,38 @@ SERIES: list[dict] = [
 ]
 
 
-def _payloads() -> list[EventPayload]:
-    out: list[EventPayload] = []
+def _slug(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-") or "film"
+
+
+def _records() -> list[ShowtimeRecord]:
+    out: list[ShowtimeRecord] = []
     for row in SERIES:
         title = (row.get("title") or "").strip()
         if not title:
             continue
-        rating = (row.get("rating") or "").strip()
         poster = (row.get("poster") or "").strip() or None
-        desc = (
-            f"{rating} · Free Summer Movie\n\n"
-            "Free family movie at Star Cinemas. Doors open 9:00 AM, showtime "
-            "9:30 AM, with giveaways before every screening. First come, first served."
-        ).strip()
+        rating = (row.get("rating") or "").strip() or None
         for d in row.get("dates", []):
             day = date.fromisoformat(d)
             for t in row.get("times", []):
                 hh, mm = (int(x) for x in t.split(":"))
-                # Unique per showing so the URL-based dedup keeps each one.
-                show_url = f"{KIDS_INFO_URL}#{day.isoformat()}-{hh:02d}{mm:02d}"
+                sid = f"{day.isoformat()}-{hh:02d}{mm:02d}-{_slug(title)}"
                 out.append(
-                    EventPayload(
-                        name=title,
-                        entity_type="event",
-                        source=SCRAPE_SOURCE,
-                        start_date=day,
-                        start_time=time(hh, mm),
-                        venue_name=VENUE,
-                        description=desc,
-                        event_url=show_url,
-                        source_stable_url=show_url,
-                        image_url=poster,
-                        # "Free" is conveyed in the description; EventPayload has
-                        # no cost field, so don't pass one (would TypeError).
-                        tags=["movie", "kids", "free", "summer-series", "star-cinemas"],
-                        category_slug="movies",
+                    ShowtimeRecord(
+                        source=SOURCE,
+                        source_stable_id=sid,
+                        theater_slug=THEATER_SLUG,
+                        theater_name=THEATER_NAME,
+                        film_title=title,
+                        show_date=day,
+                        show_time=time(hh, mm),
+                        rating=rating,
+                        genre="Family",
+                        poster_url=poster,
+                        booking_url=INFO_URL,
+                        is_free=True,
+                        tags=["free", "kids", "summer-series"],
                     )
                 )
     return out
@@ -128,19 +107,18 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     dry_run = not args.apply or args.dry_run
 
-    payloads = _payloads()
-    if not payloads:
-        print("SERIES is empty -- fill it from the 2026 flyer first. Nothing to do.")
+    records = _records()
+    if not records:
+        print("SERIES is empty -- fill it from the flyer first. Nothing to do.")
         return 0
 
-    print(f"{'DRY RUN' if dry_run else 'APPLY'}: {len(payloads)} kids-series showings")
-    counts: dict[str, int] = {}
-    for p in payloads:
-        with SessionLocal() as db:
-            action = _persist_payload(db, p, scrape_source=SCRAPE_SOURCE, dry_run=dry_run)
-        counts[action] = counts.get(action, 0) + 1
-    for action, n in sorted(counts.items()):
-        print(f"  {action}: {n}")
+    if dry_run:
+        print(f"DRY RUN: {len(records)} kids-series showings (no writes)")
+        return 0
+
+    with SessionLocal() as db:
+        counts = upsert_showtimes(db, records)
+    print(f"APPLY: created {counts['created']}  updated {counts['updated']}")
     return 0
 
 

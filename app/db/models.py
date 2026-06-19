@@ -2093,6 +2093,62 @@ class Job(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class MovieShowtime(Base):
+    """A single movie showtime at a local theater (the /movies surface).
+
+    Dedicated table so high-volume, churning showtimes stay OUT of the shared
+    events pipeline entirely: they can't leak into the general events feed and
+    they skip the contributions/auto-approve gate. One denormalized row per
+    showing (volume is small, ~250 rows). Idempotent on
+    ``(source, source_stable_id)`` — re-scrapes upsert. Standalone, no FKs, and
+    NOT promoted to ``entities`` (the Phase 1D dual-write hook only handles
+    Provider/Event/Program).
+    """
+
+    __tablename__ = "movie_showtimes"
+    __table_args__ = (
+        UniqueConstraint(
+            "source", "source_stable_id", name="uq_movie_showtimes_source_stable"
+        ),
+        Index("ix_movie_showtimes_show_date", "show_date"),
+        Index("ix_movie_showtimes_theater_slug", "theater_slug"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    source: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_stable_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    theater_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    theater_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    film_title: Mapped[str] = mapped_column(String(255), nullable=False)
+    rating: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    genre: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    runtime_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    director: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    synopsis: Mapped[str | None] = mapped_column(Text, nullable=True)
+    poster_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    screen: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    show_date: Mapped[_Date] = mapped_column(Date, nullable=False)
+    show_time: Mapped[time] = mapped_column(Time, nullable=False)
+    booking_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    is_sold_out: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    is_free: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    tags: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    scraped_at: Mapped[datetime | None] = mapped_column(TZAwareDateTime(), nullable=True)
+
+
 # Phase 4.1 ships the ``Outbox`` ORM class above this line. The provider-slug
 # listener registration below remains the canonical "leaf-module hook"
 # pattern for this codebase (not to be confused with the Phase 1D dual-write

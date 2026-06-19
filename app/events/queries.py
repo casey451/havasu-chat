@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.timezone import now_lake_havasu
 from app.db.models import Category, Entity, EntityCategory, Event, Provider
+from app.events.movie_tags import not_movie_event_clause
 from app.events.recurrence import occurrences_in_window
 from app.providers import queries as provider_queries
 
@@ -115,6 +116,7 @@ def events_in_window(
                 Event.rdate.isnot(None),
             )
         )
+        .where(not_movie_event_clause())
     )
     if category_slug:
         stmt = (
@@ -221,6 +223,7 @@ def events_for_favorite_entities(
                 Event.rdate.isnot(None),
             )
         )
+        .where(not_movie_event_clause())
     )
 
     candidates = list(db.scalars(stmt).unique().all())
@@ -261,6 +264,7 @@ def venue_events_for_profile(
                     Event.provider_id == provider.id,
                 )
             )
+            .where(not_movie_event_clause())
             .where(
                 or_(
                     and_(

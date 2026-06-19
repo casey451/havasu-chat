@@ -32,6 +32,20 @@ from app.home.algorithmic_picks import (
 )
 from app.providers.photo_urls import first_renderable_google_photo
 
+
+def not_movie_event_clause() -> Any:
+    """Lazy proxy for :func:`app.events.movie_tags.not_movie_event_clause`.
+
+    Importing ``app.events.movie_tags`` at module load triggers
+    ``app.events/__init__`` → ``events.queries`` → ``providers.queries`` → this
+    module (a circular import). Deferring the import to call time breaks the
+    cycle — everything is fully loaded by the time these feed queries run.
+    """
+    from app.events.movie_tags import not_movie_event_clause as _clause
+
+    return _clause()
+
+
 # ─────────── category labels & queries ───────────
 #
 # ``CATEGORY_LABELS`` — canonical **new-taxonomy** slugs (12) for Tier chips,
@@ -440,6 +454,7 @@ def tonight(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
         .filter(
             Event.date == today,
             Event.status == "live",
+            not_movie_event_clause(),
             or_(
                 Event.start_time.is_(None),
                 Event.start_time >= floor,
@@ -500,6 +515,7 @@ def this_week(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
             Event.date > today,
             Event.date <= end,
             Event.status == "live",
+            not_movie_event_clause(),
         )
         .order_by(*this_week_ranking())
         .limit(limit)
@@ -537,6 +553,7 @@ def this_week_total(db: Session) -> int:
             Event.date > today,
             Event.date <= end,
             Event.status == "live",
+            not_movie_event_clause(),
         )
         .count()
     )
@@ -554,7 +571,11 @@ def new_on_hava(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
 
     for ev in (
         db.query(Event)
-        .filter(Event.created_at >= cutoff, Event.status == "live")
+        .filter(
+            Event.created_at >= cutoff,
+            Event.status == "live",
+            not_movie_event_clause(),
+        )
         .order_by(*new_on_hava_ranking())
         .limit(limit * 2)
         .all()
