@@ -1,0 +1,12 @@
+{
+  "defaults": {
+    "standard": "WCAG2AA",
+    "timeout": 30000,
+    "wait": 500,
+    "chromeLaunchConfig": { "args": ["--no-sandbox"] },
+    "ignore": []
+  },
+  "urls": [
+    "http://127.0.0.1:8000/lake-styleguide?theme=lake"
+  ]
+}

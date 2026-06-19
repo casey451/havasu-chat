@@ -1,0 +1,33 @@
+{
+  "name": "Ask Hava — Lake Havasu City",
+  "short_name": "Ask Hava",
+  "description": "Lake Havasu City's local concierge: what's happening today, the best local spots, events, and conditions.",
+  "start_url": "/home",
+  "display": "standalone",
+  "background_color": "#10202b",
+  "theme_color": "#10202b",
+  "icons": [
+    {
+      "src": "/static/img/lake/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/img/lake/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/img/lake/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/img/lake/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,0 +1,155 @@
+{#- ─────────── Ask Hava — Lake Ink & Brass component library ───────────
+   Accessible, reusable Jinja macros for the redesign. Markup uses lake.css
+   (visual system) + lake-components.css (interaction). Every macro emits
+   WCAG 2.1 AA structure: links/buttons carry text names, decorative SVGs are
+   aria-hidden, inputs are programmatically labelled, custom widgets carry the
+   right roles/ARIA. Callers own unique ids (the accordion/field macros take an
+   `id`). Import what you need:
+
+     {% from "components/lake_components.html" import btn, chip, event_row, field %}
+-#}
+
+{%- macro _chevron() -%}
+<svg class="chev-svg" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" focusable="false"><path d="M4 6l4 4 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+{%- endmacro -%}
+
+{# Button / link. kind = primary | ghost | brass. Renders <a> when href given. #}
+{%- macro btn(label, href=none, kind="primary", type="button", aria_label=none, extra="") -%}
+  {%- if href -%}
+  <a class="btn btn-{{ kind }}{{ ' ' ~ extra if extra }}" href="{{ href }}"{% if aria_label %} aria-label="{{ aria_label }}"{% endif %}>{{ label }}</a>
+  {%- else -%}
+  <button class="btn btn-{{ kind }}{{ ' ' ~ extra if extra }}" type="{{ type }}"{% if aria_label %} aria-label="{{ aria_label }}"{% endif %}>{{ label }}</button>
+  {%- endif -%}
+{%- endmacro -%}
+
+{# Filter chip. Pass `pressed` (true/false) for a toggle button (aria-pressed);
+   pass `href` for a link chip; default is a plain button. #}
+{%- macro chip(label, pressed=none, href=none, icon=none) -%}
+  {%- if href -%}
+  <a class="chip{{ ' on' if pressed }}" href="{{ href }}">{% if icon %}{{ icon }}{% endif %}{{ label }}</a>
+  {%- elif pressed is not none -%}
+  <button class="chip{{ ' on' if pressed }}" type="button" aria-pressed="{{ 'true' if pressed else 'false' }}">{% if icon %}{{ icon }}{% endif %}{{ label }}</button>
+  {%- else -%}
+  <button class="chip" type="button">{% if icon %}{{ icon }}{% endif %}{{ label }}</button>
+  {%- endif -%}
+{%- endmacro -%}
+
+{# A single conditions/stat tile. #}
+{%- macro stat(value, label, ok=false, href=none, stale=false) -%}
+  {%- if href -%}
+  <a class="cb-stat" href="{{ href }}"><span class="v{{ ' sev' if stale }}">{{ value }}</span><span class="l{{ ' ok' if ok }}">{{ label }}</span></a>
+  {%- else -%}
+  <span class="cb-stat"><span class="v{{ ' sev' if stale }}">{{ value }}</span><span class="l{{ ' ok' if ok }}">{{ label }}</span></span>
+  {%- endif -%}
+{%- endmacro -%}
+
+{# Sponsored ad bar — ONE honest "Sponsored" label, never disguised as editorial. #}
+{%- macro adbar(name, meta, href, mono="", sponsor_label="Sponsored", cta="View") -%}
+<aside class="adbar" aria-label="Sponsored listing">
+  {% if mono %}<span class="mono" aria-hidden="true">{{ mono }}</span>{% endif %}
+  <div class="ab">
+    <span class="stag">{{ sponsor_label }}</span>
+    <div class="an">{{ name }}</div>
+    <div class="am">{{ meta }}</div>
+  </div>
+  <span class="ar">{{ btn(cta, href=href, kind="ghost") }}</span>
+</aside>
+{%- endmacro -%}
+
+{# Event row — inline-expand accordion. The row is a button controlling a
+   detail panel (aria-expanded / aria-controls). `id` must be unique on page. #}
+{%- macro event_row(id, time, title, where, detail="", featured=false, flag="") -%}
+<div class="eitem{{ ' feat' if featured }}">
+  <button class="erow" type="button" aria-expanded="false" aria-controls="{{ id }}-d">
+    <span class="tm">{{ time }}</span>
+    <span class="body">
+      <span class="l1"><span class="ti2">{{ title }}</span>{% if flag %}<span class="flag">{{ flag }}</span>{% endif %}</span>
+      <span class="l2">{{ where }}</span>
+    </span>
+    <span class="chev">{{ _chevron() }}</span>
+  </button>
+  <div id="{{ id }}-d" class="edetail" hidden>{{ detail or where }}</div>
+</div>
+{%- endmacro -%}
+
+{# Day strip — a labelled group of toggle chips (aria-pressed). #}
+{%- macro day_strip(days, label="Choose a day") -%}
+<div class="daystrip" role="group" aria-label="{{ label }}">
+  {% for d in days %}{{ chip(d.label, pressed=d.selected|default(false)) }}{% endfor %}
+</div>
+{%- endmacro -%}
+
+{# Directory tile — a whole-card link into a category. #}
+{%- macro directory_tile(title, count, blurb, href, icon=none) -%}
+<a class="extile" href="{{ href }}">
+  {% if icon %}<span class="ic" aria-hidden="true">{{ icon }}</span>{% endif %}
+  <h3>{{ title }}{% if count is not none %}<span class="c">{{ count }}</span>{% endif %}</h3>
+  <p>{{ blurb }}</p>
+</a>
+{%- endmacro -%}
+
+{# Business card (directory listing row). #}
+{%- macro business_card(name, meta, href, chips=none, cta="Details") -%}
+<div class="bizcard">
+  <span class="ph" aria-hidden="true"></span>
+  <div class="bb">
+    <div class="bn"><a href="{{ href }}">{{ name }}</a></div>
+    <div class="meta">{{ meta }}</div>
+    {% if chips %}<div class="chips">{% for c in chips %}<span class="tag">{{ c }}</span>{% endfor %}</div>{% endif %}
+  </div>
+  <div class="act">{{ btn(cta, href=href, kind="ghost") }}</div>
+</div>
+{%- endmacro -%}
+
+{# Breadcrumbs. items = [{label, url?}, ...]; the last item is current. #}
+{%- macro breadcrumbs(items) -%}
+<nav class="crumbs" aria-label="Breadcrumb">
+  {% for it in items %}{% if it.url and not loop.last %}<a href="{{ it.url }}">{{ it.label }}</a><span class="sep" aria-hidden="true">›</span>{% else %}<span aria-current="page">{{ it.label }}</span>{% endif %}{% endfor %}
+</nav>
+{%- endmacro -%}
+
+{# Pagination — prev/next with accessible names; current page announced. #}
+{%- macro pagination(page, total, prev_url=none, next_url=none) -%}
+<nav class="pager" aria-label="Pagination">
+  {% if prev_url %}<a class="btn btn-ghost" href="{{ prev_url }}" rel="prev" aria-label="Previous page">‹ Prev</a>{% endif %}
+  <span class="cur">Page {{ page }} of {{ total }}</span>
+  {% if next_url %}<a class="btn btn-ghost" href="{{ next_url }}" rel="next" aria-label="Next page">Next ›</a>{% endif %}
+</nav>
+{%- endmacro -%}
+
+{# Form field — label[for] + input[id] + programmatic hint/error. #}
+{%- macro field(id, label, name=none, type="text", value="", hint="", error="", required=false, placeholder="", autocomplete=none) -%}
+{%- set _ids = [] -%}
+{%- if hint %}{% set _ = _ids.append(id ~ '-hint') %}{% endif -%}
+{%- if error %}{% set _ = _ids.append(id ~ '-err') %}{% endif -%}
+<div class="field">
+  <label for="{{ id }}">{{ label }}{% if required %} <span aria-hidden="true">*</span>{% endif %}</label>
+  <input id="{{ id }}" name="{{ name or id }}" type="{{ type }}" value="{{ value }}"
+    {%- if placeholder %} placeholder="{{ placeholder }}"{% endif %}
+    {%- if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}
+    {%- if required %} required aria-required="true"{% endif %}
+    {%- if _ids %} aria-describedby="{{ _ids|join(' ') }}"{% endif %}
+    {%- if error %} aria-invalid="true"{% endif %}>
+  {% if hint %}<div class="hint" id="{{ id }}-hint">{{ hint }}</div>{% endif %}
+  {% if error %}<div class="err" id="{{ id }}-err">{{ error }}</div>{% endif %}
+</div>
+{%- endmacro -%}
+
+{# Empty state. #}
+{%- macro empty_state(title, body, cta_label=none, cta_href=none) -%}
+<div class="empty">
+  <h3>{{ title }}</h3>
+  <p>{{ body }}</p>
+  {% if cta_label and cta_href %}<div class="act">{{ btn(cta_label, href=cta_href, kind="ghost") }}</div>{% endif %}
+</div>
+{%- endmacro -%}
+
+{# Ask bar — the intent router input (role=search). Posts q to `action`. #}
+{%- macro askbar(action="/chat", placeholder="Ask about Lake Havasu — events, food, the lake…", value="", result_id="routed") -%}
+<form class="askbar" role="search" action="{{ action }}" method="get">
+  <label class="skip" for="ask-q">What are you looking for?</label>
+  <input class="ai" id="ask-q" name="q" type="search" value="{{ value }}" placeholder="{{ placeholder }}" autocomplete="off">
+  <span class="go">{{ btn("Ask", kind="brass", type="submit") }}</span>
+</form>
+<div class="routed" id="{{ result_id }}" role="status" aria-live="polite" hidden></div>
+{%- endmacro -%}

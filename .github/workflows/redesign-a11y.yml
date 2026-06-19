@@ -1,0 +1,73 @@
+name: redesign-a11y
+
+# Lake Ink & Brass redesign — browser-based accessibility + Lighthouse gates.
+#
+# STATUS: ADVISORY. This Node/headless-Chrome job is intentionally NOT yet a
+# required status check on `main` (the repo is otherwise Python-only, and a
+# flaky required check would stall auto-merge). The RELIABLE gates that DO gate
+# auto-merge live in the pytest job: tests/test_lake_a11y via test_ada_compliance
+# (structural WCAG 2.1 AA over /lake-styleguide) + tests/test_lake_seo. Promote
+# this workflow to a required check once it has a stable green track record;
+# the final flip (Phase 8) must block on it. See askhava-redesign/BUILDOUT-PLAN.md §2.3.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main, redesign/lake-ink-brass]
+    paths:
+      - "app/templates/base_lake.html"
+      - "app/templates/components/lake_components.html"
+      - "app/templates/lake_styleguide.html"
+      - "app/templates/_partials/lake_logo.svg.html"
+      - "app/static/styles/lake*.css"
+      - "app/home/lake_preview.py"
+      - "app/core/theme.py"
+      - ".pa11yci.json"
+      - ".github/lighthouse/lighthouserc.json"
+      - ".github/workflows/redesign-a11y.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  a11y-lighthouse:
+    name: axe/pa11y + Lighthouse (advisory)
+    runs-on: ubuntu-22.04
+    env:
+      ANTHROPIC_API_KEY: test-placeholder-key
+      OPENAI_API_KEY: test-placeholder-key
+      DATABASE_URL: sqlite:///./test.db
+      THEME_DEFAULT: desert
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version-file: ".python-version"
+          cache: "pip"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Install audit tooling
+        run: npm install -g pa11y-ci@3 @lhci/cli@0.14.x
+      - name: Start app
+        run: |
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+          for i in $(seq 1 40); do
+            if curl -sf http://127.0.0.1:8000/health >/dev/null; then echo "up"; break; fi
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8000/health
+      # pa11y is the HARD WCAG 2.1 AA gate in this job (fails on any violation).
+      - name: pa11y-ci (WCAG 2.1 AA) — hard
+        run: pa11y-ci --config .pa11yci.json
+      # Lighthouse scores are reported as warnings here (the styleguide is
+      # noindex, so its SEO score is structurally low, and LH a11y has minor
+      # axe-version noise). The HARD budgets — a11y=100, SEO>=95, perf>=90 — are
+      # enforced at the Phase-7/flip gate against indexable pages (BUILDOUT-PLAN §6).
+      - name: Lighthouse CI (advisory scores)
+        run: lhci autorun --config=.github/lighthouse/lighthouserc.json

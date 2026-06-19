@@ -2,9 +2,13 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    # `main` is the prod gate; the redesign integration branch + its per-phase
+    # branches are also gated so the Lake Ink & Brass PRs run the full suite
+    # (a11y/SEO gates live in pytest) and can auto-merge on green while dark
+    # behind the THEME flag.
+    branches: [main, "redesign/**"]
   push:
-    branches: [main]
+    branches: [main, "redesign/**"]
 
 permissions:
   contents: read

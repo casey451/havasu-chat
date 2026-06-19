@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Ask Hava">
+  <title>Ask Hava</title>
+  <rect width="64" height="64" rx="14" fill="#10202b"/>
+  <g fill="none" stroke="#eef3f7" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 28 H52"/>
+    <path d="M16 44 A16 12.5 0 0 1 48 44"/>
+    <path d="M16 44 V50 M48 44 V50"/>
+  </g>
+  <g fill="none" stroke="#d8a64e" stroke-width="3.2" stroke-linecap="round">
+    <path d="M32 28 V18"/>
+    <circle cx="32" cy="14.4" r="3"/>
+  </g>
+</svg>
