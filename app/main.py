@@ -1114,6 +1114,7 @@ def _build_sitemap_pages_xml() -> str:
         "/chat",
         "/map",
         "/gas",
+        "/today",
         "/events-ui",
         "/categories",
         "/privacy",
@@ -1122,6 +1123,8 @@ def _build_sitemap_pages_xml() -> str:
         "/about",
         "/help",
         "/contact",
+        "/portal",
+        "/portal/claim",
     )
     for path in static_paths:
         entries.append(_sitemap_url_entry(f"{base}{path}"))
