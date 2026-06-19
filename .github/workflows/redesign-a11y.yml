@@ -19,6 +19,7 @@ on:
       - "app/templates/components/lake_components.html"
       - "app/templates/lake_styleguide.html"
       - "app/templates/home_lake.html"
+      - "app/templates/events_lake.html"
       - "app/templates/_partials/lake_logo.svg.html"
       - "app/static/styles/lake*.css"
       - "app/home/lake_preview.py"
