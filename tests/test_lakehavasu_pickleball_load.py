@@ -10,7 +10,7 @@ session. Open play is published as all-day events derived from the facility list
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, time
 from pathlib import Path
 
 import httpx
@@ -19,7 +19,7 @@ import pytest
 import scripts.lakehavasu_pickleball_load as loader
 from app.contrib import lakehavasu_pickleball as lhc
 from app.db.database import SessionLocal
-from app.db.models import Provider
+from app.db.models import Event, Provider
 
 FIXTURES = Path(__file__).resolve().parent.parent / "scripts" / "fixtures"
 
@@ -249,3 +249,37 @@ def test_run_dry_run_validates_all_sections() -> None:
     # 1 PickleFest + (3 venues x 7-day open-play window) = 22 events
     assert results["events"]["found"] == 22
     assert results["events"]["imported"] == 22
+
+
+def _evt(anchor: str, start: time, end: time | None = None) -> Event:
+    return Event(
+        title="Pickleball Open Play",
+        normalized_title="pickleball open play",
+        date=date(2026, 6, 20),
+        start_time=start,
+        end_time=end,
+        location_name="Lake Havasu City Aquatic Center",
+        location_normalized="lake havasu city aquatic center",
+        description="x",
+        source_url=f"https://www.lakehavasupickleball.com/calendar#{anchor}",
+        tags=[],
+    )
+
+
+def test_prune_aquatic_allday_removes_legacy_rows_only(db_session) -> None:
+    db = db_session
+    db.add(_evt("openplay|Lake Havasu City Aquatic Center|2026-06-20", time(0, 0)))
+    db.add(_evt("openplay|aquatic|2026-06-20|12:30", time(12, 30), time(15, 30)))
+    db.add(_evt("openplay|The Ark Center|2026-06-20", time(0, 0)))
+    db.commit()
+
+    # dry-run reports the would-delete count but writes nothing
+    assert loader.prune_aquatic_allday(db=db, dry_run=True) == 1
+    assert db.query(Event).count() == 3
+
+    # real run deletes only the legacy all-day Aquatic row
+    assert loader.prune_aquatic_allday(db=db, dry_run=False) == 1
+    remaining = {e.source_url.split("#", 1)[1] for e in db.query(Event).all()}
+    assert "openplay|aquatic|2026-06-20|12:30" in remaining
+    assert "openplay|The Ark Center|2026-06-20" in remaining
+    assert all("openplay|Lake Havasu City Aquatic Center|" not in u for u in remaining)

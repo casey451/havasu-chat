@@ -451,6 +451,24 @@ def prune_open_play_events(
     return int(deleted or 0)
 
 
+def prune_aquatic_allday(*, db: Any, dry_run: bool = False) -> int:
+    """Remove superseded all-day Aquatic Center open-play rows.
+
+    The Aquatic Center now publishes **timed** open play parsed from the City
+    Open Gym PDF (anchor ``openplay|aquatic|...``). The legacy all-day rows
+    (anchor ``openplay|<venue name>|<date>``) are obsolete and would otherwise
+    duplicate the timed rows, so they are removed regardless of date. Matched
+    on the old venue-name anchor only; the new timed rows are untouched. In
+    dry-run we report the would-delete count without writing."""
+    pattern = f"%openplay|{AQUATIC_VENUE_NAME}|%"
+    q = db.query(Event).filter(Event.source_url.like(pattern))
+    if dry_run:
+        return int(q.count() or 0)
+    deleted = q.delete(synchronize_session=False)
+    db.commit()
+    return int(deleted or 0)
+
+
 # ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
@@ -506,6 +524,9 @@ def run(
         results["events"] = ingest_events(event_specs, db=db, dry_run=dry_run)
         results["events"]["pruned_open_play"] = (
             0 if dry_run else prune_open_play_events(db=db, today=today)
+        )
+        results["events"]["pruned_aquatic_allday"] = prune_aquatic_allday(
+            db=db, dry_run=dry_run
         )
     return results
 

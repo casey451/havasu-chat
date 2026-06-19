@@ -21,7 +21,12 @@ on:
     # DST), right after provider-scrapes (7:10). Month boundary (31st -> 1st)
     # doubles up once; all ingests are idempotent so the extra run is harmless.
     - cron: "40 14 1-31/2 * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (no DB writes); prints would-change counts"
+        type: boolean
+        default: true
 
 jobs:
   pull-pickleball:
@@ -43,4 +48,4 @@ jobs:
           # Same Railway Postgres secret the other scrape crons use. Set in:
           # GitHub repo -> Settings -> Secrets and variables -> Actions
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python -m scripts.lakehavasu_pickleball_load
+        run: python -m scripts.lakehavasu_pickleball_load ${{ inputs.dry_run && '--dry-run' || '' }}
