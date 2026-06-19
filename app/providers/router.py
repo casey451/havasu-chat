@@ -85,9 +85,16 @@ def serve_provider_profile(
         and bool(provider.entity_id)
         and is_favorited(db, current_user.id, provider.entity_id)
     )
+    # THEME flag (Lake Ink & Brass, Phase 3b): the lake LocalBusiness profile
+    # reskins the SAME ProviderProfileVM. Default stays desert until the flip.
+    profile_template = (
+        "provider_profile_lake.html"
+        if getattr(request.state, "theme", "desert") == "lake"
+        else "provider_profile.html"
+    )
     return templates.TemplateResponse(
         request=request,
-        name="provider_profile.html",
+        name=profile_template,
         context={
             "vm": vm,
             "disclosure_word": DISCLOSURE_WORD,
