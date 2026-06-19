@@ -1,0 +1,10 @@
+{#- Lake account side-nav (Phase 4a). Set `account_active` to one of
+   account | favorites | alerts before including. Only real, live routes are
+   listed (no fabricated "Saved places"/"Profile" links from the mockup). -#}
+<aside class="anav" aria-label="Account sections">
+  <nav class="card">
+    <a href="/account"{% if account_active == 'account' %} class="on" aria-current="page"{% endif %}>Account</a>
+    <a href="/account/favorites"{% if account_active == 'favorites' %} class="on" aria-current="page"{% endif %}>Saved listings</a>
+    <a href="/account/alerts"{% if account_active == 'alerts' %} class="on" aria-current="page"{% endif %}>Alerts</a>
+  </nav>
+</aside>
