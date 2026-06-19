@@ -501,6 +501,43 @@ class ThemeMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class AdminLakeSkinMiddleware(BaseHTTPMiddleware):
+    """Phase 6: reskin the admin/portal pages to Lake Ink & Brass behind the THEME
+    flag. The admin surface is three rendering families (inline-HTML _nav_shell
+    pages, the Jinja .d-admin templates, and the CSS-var-driven admin_portal) —
+    each builds its own <head>+<style>, so this is the single uniform injection
+    point: for an /admin HTML response when the flag resolves to lake, append the
+    lake_admin.css link (which overrides those styles) + noindex before </head>.
+    Dark behind the flag: desert admin is byte-identical (no injection)."""
+
+    _INJECT = (
+        '<link rel="stylesheet" href="/static/styles/lake_admin.css">'
+        '<meta name="robots" content="noindex">'
+    )
+
+    async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+        response = await call_next(request)
+        if not (
+            request.url.path.startswith("/admin")
+            and getattr(request.state, "theme", "desert") == "lake"
+            and "text/html" in (response.headers.get("content-type") or "")
+        ):
+            return response
+        body = b"".join([section async for section in response.body_iterator])
+        text = body.decode("utf-8", "replace")
+        if "</head>" in text:
+            text = text.replace("</head>", self._INJECT + "</head>", 1)
+        data = text.encode("utf-8")
+        keep = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+        return Response(
+            content=data,
+            status_code=response.status_code,
+            headers=keep,
+            background=response.background,
+        )
+
+
+app.add_middleware(AdminLakeSkinMiddleware)
 app.add_middleware(ThemeMiddleware)
 
 
