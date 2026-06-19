@@ -1,0 +1,49 @@
+name: star-cinemas-showtimes
+
+# Pulls Star Cinemas (Lake Havasu City) movie showtimes into the catalog TWICE a
+# day. Showtimes change far more often than community events (new times get added
+# through the day and the play-week rolls weekly), so unlike the every-other-day
+# event fleet this runs every day, morning and afternoon.
+#
+# Behavior: scripts/scrape_events.py --source star_cinemas reads the theater's
+# public Supabase feed (app/events/scrapers/star_cinemas.py) and routes each
+# showtime through the shared events pipeline. Ingest is idempotent (dedups on
+# venue+date+time+title), so the two daily runs update rather than duplicate.
+# The /movies page and the home "At the movies today" strip read these rows.
+#
+# The free summer kids series is NOT scraped here (it's a flyer, not in the feed)
+# — it's loaded once via scripts/load_star_cinemas_kids_series.py.
+#
+# NOTE: GitHub only runs scheduled workflows from the repository's DEFAULT branch.
+# This file must be merged to main before the cron takes effect. Until then, use
+# the "Run workflow" button (workflow_dispatch) to trigger it.
+
+on:
+  schedule:
+    # Arizona is MST year-round (UTC-7, no DST). Two runs/day, staggered to :15
+    # so they don't collide with the every-other-day event fleet (:00/:10/:20).
+    - cron: "15 15 * * *"   # 8:15 AM Arizona
+    - cron: "15 23 * * *"   # 4:15 PM Arizona
+  workflow_dispatch: {}
+
+jobs:
+  scrape-star-cinemas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Scrape Star Cinemas showtimes into the catalog
+        env:
+          # Same Railway Postgres secret the other scrape crons use. Set in:
+          # GitHub repo -> Settings -> Secrets and variables -> Actions
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/scrape_events.py --source star_cinemas
