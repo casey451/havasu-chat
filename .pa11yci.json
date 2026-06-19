@@ -20,6 +20,8 @@
     "http://127.0.0.1:8000/help?theme=lake",
     "http://127.0.0.1:8000/contact?theme=lake",
     "http://127.0.0.1:8000/privacy?theme=lake",
-    "http://127.0.0.1:8000/terms?theme=lake"
+    "http://127.0.0.1:8000/terms?theme=lake",
+    "http://127.0.0.1:8000/gas?theme=lake",
+    "http://127.0.0.1:8000/today?theme=lake"
   ]
 }
