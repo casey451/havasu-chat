@@ -165,6 +165,8 @@ class EventSpec:
     event_url: str
     source_anchor: str
     all_day: bool = False
+    start_time: str | None = None  # "HH:MM" for timed open play (all_day=False)
+    end_time: str | None = None  # "HH:MM"
 
 
 # ---------------------------------------------------------------------------
