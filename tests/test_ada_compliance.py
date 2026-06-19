@@ -54,6 +54,9 @@ ROUTES = [
     "/terms",
     "/today",
     "/account",
+    # Lake Ink & Brass redesign (Phase 0): the new base_lake layout + the full
+    # component library, exercised through the same structural a11y contract.
+    "/lake-styleguide",
 ]
 
 

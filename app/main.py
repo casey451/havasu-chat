@@ -73,6 +73,11 @@ from app.core.provider_name import (
     register_template_globals as _register_template_globals,
 )
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
+from app.core.theme import (
+    THEME_COOKIE,
+    VALID_THEMES,
+    resolve_request_theme,
+)
 from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal, get_db, init_db
 from app.db.jobs_store import count_stale_running, requeue_stale_claims
@@ -81,6 +86,7 @@ from app.digest.routes import router as digest_router
 from app.events.time_labels import is_time_tbd
 from app.events.title_clean import clean_event_title
 from app.home.chat_route import router as new_chat_ui_router
+from app.home.lake_preview import router as lake_preview_router
 from app.home.router import router as home_router
 from app.home.static_pages import router as static_pages_router
 from app.photos.routes import router as photos_router
@@ -463,6 +469,39 @@ app = FastAPI(title="Havasu Chat", lifespan=lifespan)
 app.add_middleware(SessionMiddleware)
 
 
+# Lake Ink & Brass redesign (Phase 0): resolve the active theme per request and
+# stamp it on ``request.state.theme`` so routes pick the base layout / CSS bundle
+# and templates read ``request.state.theme`` directly. Order of precedence lives
+# in app/core/theme.py: ?theme= query → theme cookie → THEME_DEFAULT env →
+# "desert". Stays dark (desert) the whole build; the flip sets THEME_DEFAULT=lake.
+class ThemeMiddleware(BaseHTTPMiddleware):
+    """Resolve + persist the redesign theme flag on every request."""
+
+    async def dispatch(self, request: Request, call_next):
+        query_theme = request.query_params.get("theme")
+        cookie_theme = request.cookies.get(THEME_COOKIE)
+        theme = resolve_request_theme(query_theme, cookie_theme)
+        request.state.theme = theme
+        response = await call_next(request)
+        # Persist a valid ?theme= override so QA click-through keeps the skin
+        # without re-appending the query string on every link.
+        normalized_q = (query_theme or "").strip().lower()
+        if normalized_q in VALID_THEMES and normalized_q != (cookie_theme or "").lower():
+            response.set_cookie(
+                THEME_COOKIE,
+                theme,
+                max_age=2_592_000,  # 30 days
+                path="/",
+                httponly=True,
+                samesite="lax",
+                secure=request.url.scheme == "https",
+            )
+        return response
+
+
+app.add_middleware(ThemeMiddleware)
+
+
 # Launch hardening (v48): minimal security headers on HTML responses. CSP is
 # deliberately deferred — it requires a full audit of inline scripts/styles
 # and image sources, and is tracked in a separate PR. /health and /api/*
@@ -631,6 +670,9 @@ app.include_router(programs_router)
 # BUILD.md step 1: new /home page lives alongside the existing static / chat
 # UI during dogfooding. Cuts over to / once we're confident.
 app.include_router(home_router)
+# Lake Ink & Brass redesign (Phase 0): the noindex /lake-styleguide gallery —
+# the CI a11y/SEO sample target on the new base_lake layout.
+app.include_router(lake_preview_router)
 app.include_router(account_alerts_router)
 app.include_router(digest_router)
 # Directory pivot V1 (2026-05-13): per-provider profile page at
