@@ -74,6 +74,7 @@
     <nav class="d-nav" aria-label="Primary">
       {% for link in primary_nav|default([]) %}<a href="{{ link.url }}">{{ link.label }}</a>{% endfor %}
       <a href="/events-ui">Events</a>
+      <a href="/movies"{% if active_tab == 'movies' %} aria-current="page"{% endif %}>Movies</a>
       {% if mega_columns %}
       <span class="d-explore">
         <button type="button" class="d-mega-trigger" id="d-mega-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="d-mega">Explore all {{ dicons.icon("chevron", 13) }}</button>
@@ -108,6 +109,7 @@
   <nav class="d-drawer" id="d-drawer" aria-label="Site menu" hidden>
     <a href="/home">Home</a>
     <a href="/events-ui">Events</a>
+    <a href="/movies">Movies</a>
     <a href="/chat">Ask</a>
     <a href="/categories">Explore</a>
     <a href="/map">Map</a>

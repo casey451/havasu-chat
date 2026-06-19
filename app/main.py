@@ -90,6 +90,7 @@ from app.home.chat_route import router as new_chat_ui_router
 from app.home.lake_preview import router as lake_preview_router
 from app.home.router import router as home_router
 from app.home.static_pages import router as static_pages_router
+from app.movies.router import router as movies_router
 from app.photos.routes import router as photos_router
 from app.photos.sweep import run_stuck_photo_sweep
 from app.portal.media_routes import router as creative_media_router
@@ -709,6 +710,7 @@ app.include_router(programs_router)
 # BUILD.md step 1: new /home page lives alongside the existing static / chat
 # UI during dogfooding. Cuts over to / once we're confident.
 app.include_router(home_router)
+app.include_router(movies_router)
 # Lake Ink & Brass redesign (Phase 0): the noindex /lake-styleguide gallery —
 # the CI a11y/SEO sample target on the new base_lake layout.
 app.include_router(lake_preview_router)
