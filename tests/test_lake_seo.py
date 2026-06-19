@@ -14,6 +14,7 @@ inherit this whole contract for free.
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -24,8 +25,30 @@ from app.main import app
 
 _STATIC_ROOT = Path(__file__).resolve().parents[1] / "app" / "static"
 
-# (path, should_be_indexable). Grows as lake pages are migrated.
+# (path, should_be_indexable). The whole Lake Ink & Brass public surface — every
+# page that renders on an empty DB — exercised through the full head SEO + asset
+# + robots + JSON-LD contract under the lake skin (?theme=lake). Pages that need
+# seeded data (/provider/{slug}, /categories/{slug}, /collection/{slug}) are
+# covered by their own direct-render tests, not here.
 LAKE_PAGES = [
+    # indexable public pages
+    ("/home?theme=lake", True),
+    ("/events-ui?theme=lake", True),
+    ("/categories?theme=lake", True),
+    ("/map?theme=lake", True),
+    ("/gas?theme=lake", True),
+    ("/today?theme=lake", True),
+    ("/portal?theme=lake", True),
+    ("/portal/claim?theme=lake", True),
+    ("/about?theme=lake", True),
+    ("/help?theme=lake", True),
+    ("/contact?theme=lake", True),
+    ("/privacy?theme=lake", True),
+    ("/terms?theme=lake", True),
+    # noindex surfaces (auth / teaser / discovery / internal)
+    ("/login?theme=lake", False),
+    ("/sponsor?theme=lake", False),
+    ("/calendar?q=live%20music%20this%20weekend", False),
     ("/lake-styleguide", False),
 ]
 
@@ -95,12 +118,45 @@ def test_referenced_static_assets_exist(client: TestClient, path: str, _indexabl
         assert (_STATIC_ROOT / rel).is_file(), f"{path}: broken static asset {ref}"
 
 
+@pytest.mark.parametrize("path,_indexable", LAKE_PAGES)
+def test_jsonld_blocks_are_valid(client: TestClient, path: str, _indexable: bool) -> None:
+    """Every JSON-LD block on every lake page must parse and carry a schema.org
+    @context + @type (the spec's "validate JSON-LD in CI"). Catches a malformed
+    or unescaped structured-data block sitewide, per page type."""
+    body = client.get(path).text
+    blocks = re.findall(
+        r'<script type="application/ld\+json">(.*?)</script>', body, re.S
+    )
+    for raw in blocks:
+        data = json.loads(raw)  # raises on malformed JSON
+        items = data if isinstance(data, list) else [data]
+        for item in items:
+            assert isinstance(item, dict), f"{path}: JSON-LD item is not an object"
+            assert "schema.org" in str(item.get("@context", "")), f"{path}: JSON-LD missing @context"
+            assert item.get("@type"), f"{path}: JSON-LD missing @type"
+
+
 def test_og_image_file_is_a_landscape_card() -> None:
     """The default lake OG card must be the ~1.91:1 social ratio (1200x630)."""
     from PIL import Image
 
     img = Image.open(_STATIC_ROOT / "img" / "lake" / "og-default.png")
     assert img.size == (1200, 630)
+
+
+def test_sitemap_lists_public_pages_not_noindex_ones() -> None:
+    """The pages sitemap must advertise the indexable public surface (incl. the
+    redesign's /today + /portal funnel) and must NOT advertise noindex pages
+    (auth/teaser/discovery) — listing a noindex URL is a soft-404 signal."""
+    from app.main import _base_url, _build_sitemap_pages_xml
+
+    xml = _build_sitemap_pages_xml()
+    base = _base_url()
+    for path in ("/home", "/today", "/gas", "/map", "/events-ui", "/categories",
+                 "/portal", "/portal/claim", "/about", "/help", "/contact"):
+        assert f"{base}{path}</loc>" in xml, f"sitemap missing public page {path}"
+    for path in ("/login", "/sponsor", "/calendar", "/account", "/lake-styleguide"):
+        assert f"{base}{path}</loc>" not in xml, f"sitemap must not list noindex {path}"
 
 
 def test_lake_css_self_hosts_fonts_no_google() -> None:
