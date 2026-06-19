@@ -1,0 +1,56 @@
+{#- ─────────── Ask Hava brand mark — Lake Ink & Brass ───────────
+   The real Lake Havasu London Bridge as a refined monoline (ported
+   verbatim from askhava-redesign/askhava-logo.html). Five graduated
+   semi-elliptical arches, deck, piers, waterline; the hero cut adds the
+   two cannon-metal pier lamps + channel reflection, the nav cut a brass
+   keystone instead.
+
+   Colour is inherited: the consumer sets `color:` (the ink/paper line)
+   and `--ac` (the brass accent) on an ancestor. Every cut is decorative —
+   the wordmark beside it carries the accessible name — so the <svg> is
+   aria-hidden + focusable="false".
+
+   Usage:
+     {% from "_partials/lake_logo.svg.html" import logo_nav, logo_full, logo_glyph %}
+     <span class="brand" style="color:#eef3f7;--ac:#d8a64e">
+       {{ logo_nav(26) }} <span class="wm">Ask <span class="b">Hava</span></span>
+     </span>
+-#}
+
+{% macro logo_nav(height=26, cls="mk") -%}
+<svg class="{{ cls }}" viewBox="0 18 116 30" height="{{ height }}" fill="none" aria-hidden="true" focusable="false">
+  <g stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 23 H111"/>
+    <path d="M6.6 38 A8.5 7 0 0 1 23.6 38"/><path d="M26.5 38 A9.3 7.5 0 0 1 45.1 38"/><path d="M47.9 38 A10.1 8.1 0 0 1 68.1 38"/><path d="M70.9 38 A9.35 7.5 0 0 1 89.6 38"/><path d="M92.4 38 A8.5 7 0 0 1 109.4 38"/>
+    <path d="M6.6 38 V44 M25.05 38 V44 M46.5 38 V44 M69.5 38 V44 M90.95 38 V44 M109.4 38 V44"/>
+    <path d="M6 44 H110" stroke-width="2"/>
+  </g>
+  <path d="M55.4 23 H60.6 L59.4 30 H56.6 Z" fill="var(--ac,#b07a22)"/>
+</svg>
+{%- endmacro %}
+
+{% macro logo_full(height=46, cls="mk") -%}
+<svg class="{{ cls }}" viewBox="0 6 116 46" height="{{ height }}" fill="none" aria-hidden="true" focusable="false">
+  <g stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 23 H111"/>
+    <path d="M6.6 38 A8.5 7 0 0 1 23.6 38"/><path d="M26.5 38 A9.3 7.5 0 0 1 45.1 38"/><path d="M47.9 38 A10.1 8.1 0 0 1 68.1 38"/><path d="M70.9 38 A9.35 7.5 0 0 1 89.6 38"/><path d="M92.4 38 A8.5 7 0 0 1 109.4 38"/>
+    <path d="M6.6 38 V44 M25.05 38 V44 M46.5 38 V44 M69.5 38 V44 M90.95 38 V44 M109.4 38 V44"/>
+    <path d="M6 44 H110" stroke-width="2"/>
+  </g>
+  <g stroke="var(--ac,#b07a22)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M44.3 23 H48.7"/><path d="M46.5 23 V13.6"/><circle cx="46.5" cy="11.1" r="2.3"/>
+    <path d="M67.3 23 H71.7"/><path d="M69.5 23 V13.6"/><circle cx="69.5" cy="11.1" r="2.3"/>
+  </g>
+  <g fill="var(--ac,#b07a22)"><circle cx="46.5" cy="7.8" r="0.95"/><circle cx="69.5" cy="7.8" r="0.95"/></g>
+  <path d="M16 47.5 Q58 50.5 100 47.5" fill="none" stroke="var(--ac,#b07a22)" stroke-width="1.6" stroke-linecap="round" opacity=".42"/>
+</svg>
+{%- endmacro %}
+
+{% macro logo_glyph(height=22, cls="glyph") -%}
+<svg class="{{ cls }}" viewBox="0 0 40 30" height="{{ height }}" fill="none" aria-hidden="true" focusable="false">
+  <g stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 12 H36"/><path d="M8 24 A12 9 0 0 1 32 24"/><path d="M8 24 V28 M32 24 V28"/><path d="M6 28 H34" stroke-width="2"/>
+  </g>
+  <path d="M18 12 H22 L21.2 18 H18.8 Z" fill="var(--ac,#b07a22)"/>
+</svg>
+{%- endmacro %}

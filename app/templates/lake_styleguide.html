@@ -1,0 +1,139 @@
+{% extends "base_lake.html" %}
+{% from "components/lake_components.html" import btn, chip, stat, adbar, event_row, day_strip, directory_tile, business_card, breadcrumbs, pagination, field, empty_state, askbar %}
+
+{% block title %}Lake Ink & Brass — component library · Ask Hava{% endblock %}
+{% block meta_description %}The Lake Ink & Brass design system: tokens, typography, and the accessible component library that the Ask Hava redesign is built from.{% endblock %}
+{% block head_extra %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  {{ breadcrumbs([{"label": "Ask Hava", "url": "/home"}, {"label": "Design system"}]) }}
+  <div class="pagehead">
+    <p class="eyebrow">Phase 0 · foundation</p>
+    <h1>Lake Ink &amp; Brass</h1>
+    <p class="sub">The single source of truth for the redesign — design tokens, self-hosted type, and the accessible component library every page is assembled from. This page is also the CI sample target (a11y + SEO gates run against it).</p>
+  </div>
+
+  <section class="section" aria-labelledby="sg-color">
+    <div class="sec-head"><h2 id="sg-color">Palette</h2></div>
+    <div class="sg-row">
+      <span class="sg-row"><span class="sg-sw" style="background:var(--ink)"></span><span>ink</span></span>
+      <span class="sg-row"><span class="sg-sw" style="background:var(--ink-2)"></span><span>ink-2</span></span>
+      <span class="sg-row"><span class="sg-sw" style="background:var(--muted)"></span><span>muted</span></span>
+      <span class="sg-row"><span class="sg-sw" style="background:var(--paper)"></span><span>paper</span></span>
+      <span class="sg-row"><span class="sg-sw" style="background:var(--brass)"></span><span>brass</span></span>
+      <span class="sg-row"><span class="sg-sw" style="background:var(--brass-light)"></span><span>brass-light</span></span>
+      <span class="sg-row"><span class="sg-sw" style="background:var(--good)"></span><span>good</span></span>
+      <span class="sg-row"><span class="sg-sw" style="background:var(--havasu)"></span><span>havasu</span></span>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="sg-type">
+    <div class="sec-head"><h2 id="sg-type">Typography</h2></div>
+    <p class="disp" style="font-size:40px">Fraunces · display &amp; numerals <span class="tnum">1,284</span></p>
+    <p style="max-width:60ch;margin-top:8px">Inter carries the UI and body text — set at 16px / 1.5, optical sizing auto, tabular numerals on data. No italics, by system rule.</p>
+  </section>
+
+  <section class="section" aria-labelledby="sg-btn">
+    <div class="sec-head"><h2 id="sg-btn">Buttons &amp; chips</h2></div>
+    <div class="sg-row">
+      {{ btn("Primary", kind="primary") }}
+      {{ btn("Ghost", kind="ghost") }}
+      {{ btn("Brass", kind="brass") }}
+      {{ btn("As link", href="/home", kind="ghost") }}
+    </div>
+    <div class="sg-row" style="margin-top:14px">
+      {{ chip("All") }}
+      {{ chip("Open now", pressed=true) }}
+      {{ chip("Free", pressed=false) }}
+      {{ chip("On the water", href="/categories/on-the-water") }}
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="sg-ask">
+    <div class="sec-head"><h2 id="sg-ask">Ask bar (intent router)</h2></div>
+    {{ askbar() }}
+  </section>
+
+  <section class="section" aria-labelledby="sg-stat">
+    <div class="sec-head"><h2 id="sg-stat">Conditions stats</h2></div>
+    <div class="cb-stats" style="margin-left:0">
+      {{ stat("78°F", "Water", ok=true) }}
+      {{ stat("4–8 mph", "Wind SW") }}
+      {{ stat("$3.92", "Gas avg", href="/gas") }}
+      {{ stat("AQI 42", "Air", ok=true) }}
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="sg-ad">
+    <div class="sec-head"><h2 id="sg-ad">Sponsored unit</h2></div>
+    {{ adbar("Sample Marina &amp; Grill", "Open now · 4.6 ★ · On the water", "/home", mono="SM") }}
+  </section>
+
+  <section class="section" aria-labelledby="sg-events">
+    <div class="sec-head"><h2 id="sg-events">Event rows &amp; day strip</h2></div>
+    {{ day_strip([{"label": "Today", "selected": true}, {"label": "Fri"}, {"label": "Sat"}, {"label": "Sun"}]) }}
+    <div class="elist" style="margin-top:14px">
+      {{ event_row("ev1", "6:00 PM", "Sunset Paddle", "London Bridge Beach", detail="Guided sunset kayak tour — boards and vests provided. Meet at the boat ramp.", featured=true, flag="Featured") }}
+      {{ event_row("ev2", "7:30 PM", "Live Music on the Channel", "The Nautical", detail="Local acoustic set, no cover.") }}
+      {{ event_row("ev3", "All day", "Farmers Market", "Main Street") }}
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="sg-tiles">
+    <div class="sec-head"><h2 id="sg-tiles">Directory tiles</h2></div>
+    <div class="exgrid">
+      {{ directory_tile("On the water", "42", "Rentals, launches, tours and marinas.", "/categories/on-the-water") }}
+      {{ directory_tile("Eat &amp; drink", "138", "Restaurants, bars, cafés and breweries.", "/categories/eat-drink") }}
+      {{ directory_tile("Events", "60", "What's happening this week in Havasu.", "/events-ui") }}
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="sg-biz">
+    <div class="sec-head"><h2 id="sg-biz">Business cards</h2></div>
+    <div class="elist">
+      {{ business_card("Sample Boat Rentals", "Open now · 4.7 ★ · Lake launch", "/home", chips=["Rentals", "On the water"]) }}
+      {{ business_card("Channel Coffee Co.", "Closes 4 PM · 4.9 ★ · Café", "/home", chips=["Coffee"]) }}
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="sg-form">
+    <div class="sec-head"><h2 id="sg-form">Form fields</h2></div>
+    <div style="max-width:420px">
+      {{ field("sg-name", "Business name", required=true, hint="As it should appear in the directory.") }}
+      {{ field("sg-email", "Email", type="email", value="not-an-email", error="Enter a valid email address.", autocomplete="email") }}
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="sg-empty">
+    <div class="sec-head"><h2 id="sg-empty">Empty state &amp; pagination</h2></div>
+    {{ empty_state("Nothing here yet", "No listings match those filters. Try removing one, or browse all categories.", cta_label="Browse all", cta_href="/categories") }}
+    {{ pagination(2, 5, prev_url="?page=1", next_url="?page=3") }}
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* Progressive enhancement for the Phase-0 components: accordion event rows +
+   toggle chips. No framework; degrades to static, navigable markup without JS. */
+(function () {
+  "use strict";
+  document.querySelectorAll(".erow[aria-controls]").forEach(function (row) {
+    row.addEventListener("click", function () {
+      var panel = document.getElementById(row.getAttribute("aria-controls"));
+      var open = row.getAttribute("aria-expanded") === "true";
+      row.setAttribute("aria-expanded", open ? "false" : "true");
+      if (panel) panel.hidden = open;
+    });
+  });
+  document.querySelectorAll(".chip[aria-pressed]").forEach(function (c) {
+    c.addEventListener("click", function () {
+      var on = c.getAttribute("aria-pressed") === "true";
+      c.setAttribute("aria-pressed", on ? "false" : "true");
+      c.classList.toggle("on", !on);
+    });
+  });
+})();
+</script>
+{% endblock %}
