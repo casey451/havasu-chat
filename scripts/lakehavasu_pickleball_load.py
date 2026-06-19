@@ -69,6 +69,10 @@ from app.contrib.lakehavasu_pickleball import (  # noqa: E402
     fetch_tournaments,
     open_play_event_specs,
 )
+from app.contrib.lhc_aquatic_pickleball import (  # noqa: E402
+    AQUATIC_VENUE_NAME,
+    fetch_aquatic_open_play,
+)
 from app.contrib.scraper_ingest import decide_ingest  # noqa: E402
 from app.db import contribution_store as cs  # noqa: E402
 from app.db.database import SessionLocal  # noqa: E402
@@ -365,9 +369,21 @@ def ingest_events(
             counts["skipped_duplicate"] += 1
             continue
         # All-day events use start_time=00:00 + end_time=None (Ask Hava's all-day
-        # convention; see app/v1/serializers.py). Timed events (PickleFest) start
-        # at a real clock time.
-        start = time(0, 0) if spec.all_day else time(8, 0)
+        # convention; see app/v1/serializers.py). Timed events carry real
+        # start/end clock times (e.g. Aquatic Center open play from the City PDF);
+        # specs with no explicit time fall back to a generic daytime start.
+        if spec.all_day:
+            start, end = time(0, 0), None
+        elif spec.start_time:
+            sh, sm = spec.start_time.split(":")
+            start = time(int(sh), int(sm))
+            if spec.end_time:
+                eh, em = spec.end_time.split(":")
+                end = time(int(eh), int(em))
+            else:
+                end = None
+        else:
+            start, end = time(8, 0), None
         try:
             create = ContributionCreate(
                 entity_type="event",
@@ -379,6 +395,7 @@ def ingest_events(
                 event_date=spec.date,
                 event_end_date=spec.end_date,
                 event_time_start=start,
+                event_time_end=end,
                 source=CONTRIBUTION_SOURCE,
             )
             approve = EventApprovalFields(
@@ -387,7 +404,7 @@ def ingest_events(
                 date=spec.date,
                 end_date=spec.end_date,
                 start_time=start,
-                end_time=None,
+                end_time=end,
                 location_name=spec.location_name,
                 event_url=spec.event_url,
                 source_url=src_url,
@@ -454,13 +471,31 @@ def run(
         facilities = fetch_facilities(client=client)
         program_specs = fetch_activities(client=client)
         event_specs = fetch_tournaments(client=client, today=today)
+        # Aquatic Center timed open play from the City's stable Open Gym PDF.
+        # Wrapped so a city-site hiccup never aborts the run; fetched inside
+        # the try so the shared client is still open.
+        try:
+            aquatic_specs = fetch_aquatic_open_play(client=client)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("aquatic open-gym schedule fetch failed: %s", e)
+            aquatic_specs = []
     finally:
         if own_client:
             client.close()
 
-    # Open play -> all-day events per venue, derived from the reliably-scraped
-    # facility list (no headless browser; see open_play_event_specs).
-    event_specs = event_specs + open_play_event_specs(facilities, today=today)
+    # Aquatic Center open play (timed, from the City PDF) replaces the
+    # all-day placeholders for that venue; venues with no machine-readable
+    # schedule stay all-day.
+    allday_venues = (
+        [f for f in facilities if f.name != AQUATIC_VENUE_NAME]
+        if aquatic_specs
+        else facilities
+    )
+    event_specs = (
+        event_specs
+        + aquatic_specs
+        + open_play_event_specs(allday_venues, today=today)
+    )
 
     results: dict[str, dict[str, int]] = {}
     with SessionLocal() as db:
