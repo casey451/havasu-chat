@@ -767,9 +767,10 @@ def serve_map_view(request: Request, scope: str | None = None) -> HTMLResponse:
     valid_scopes = {s["slug"] for s in group_scopes} | {s["slug"] for s in category_scopes}
     requested = (scope or "").strip().lower()
     default_scope = requested if requested in valid_scopes else group_scopes[0]["slug"]
+    _lake = getattr(request.state, "theme", "desert") == "lake"
     return templates.TemplateResponse(
         request=request,
-        name="map_c.html",
+        name="map_c_lake.html" if _lake else "map_c.html",
         context={
             "today_label": now.strftime("%A, %B ") + str(now.day),
             "group_scopes": group_scopes,

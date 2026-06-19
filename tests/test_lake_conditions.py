@@ -40,10 +40,27 @@ def test_desert_conditions_are_default() -> None:
         assert "lake_conditions.css" not in b, path
 
 
-def test_lake_gas_empty_state() -> None:
+def test_lake_gas_route_is_themed() -> None:
+    # Route-level flag check only — data-independent. The gas conditions cache is
+    # shared and the conftest sweep doesn't clear it, so under xdist a concurrent
+    # test can seed gas rows; don't assert the empty state through the route.
     b = TestClient(app).get("/gas?theme=lake").text
     assert 'data-theme="lake"' in b
     assert "/static/styles/lake_conditions.css" in b
+    assert b.count("<h1") == 1
+    assert not _a11y(b)
+
+
+def test_lake_gas_empty_state() -> None:
+    # Deterministic: render the has_data=False path directly so it never races a
+    # test that seeds the shared conditions cache.
+    b = _gas_templates.env.get_template("gas_prices_lake.html").render(
+        request=_req("/gas"), data={}, has_data=False, is_stale=False,
+        fetched_at_label=None, fetched_at_time_label=None, staleness_label=None,
+        city_avg={}, grades=["regular", "midgrade", "premium", "diesel"],
+        grade_labels={"regular": "Regular", "midgrade": "Mid", "premium": "Premium", "diesel": "Diesel"},
+        cheapest=[], stations=[])
+    assert 'data-theme="lake"' in b
     assert "No gas prices yet" in b  # honest empty state, never a guessed price
     assert b.count("<h1") == 1
     assert not _a11y(b)

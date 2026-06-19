@@ -1,0 +1,77 @@
+{% extends "base_lake.html" %}
+{#- Lake /map — full-page Leaflet map, CHROME ONLY reskinned. Every piece of map
+   JS wiring is preserved VERBATIM from map_c.html: body [data-map-scope] +
+   data-map-default-expanded (read by map.js), the offscreen [data-map-toggle]
+   binder, #map-container, the Leaflet + markercluster CDN assets, boat_mode.js,
+   map.js, and the post-load resize tick. map_view.css keeps the load-bearing
+   full-viewport layout; lake_map.css reskins the topbar + scope bar. -#}
+{% block title %}Map — Ask Hava{% endblock %}
+{% block meta_description %}Explore Lake Havasu businesses and places on a full-screen map.{% endblock %}
+{% block og_title %}Map — Ask Hava{% endblock %}
+{% block head_extra %}
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="{{ static_url('/static/styles/components/map_view.css') }}">
+  <link rel="stylesheet" href="{{ static_url('/static/styles/lake_map.css') }}">
+{% endblock %}
+{% block body_attrs %} class="map-page" data-map-scope="{{ default_scope }}" data-map-default-expanded="true"{% endblock %}
+
+{% block content %}
+<div class="map-page-main">
+  <header class="map-page-topbar">
+    <div class="map-page-heading">
+      <h1 class="map-title">The <em>map.</em></h1>
+      <span class="map-page-dateline">Lake Havasu City · {{ today_label }}</span>
+    </div>
+    <nav class="map-scope-bar" aria-label="Map scope selector">
+      <div class="map-scope-group" role="group" aria-label="Themed groups">
+        <span class="map-scope-label">Collections</span>
+        {% for scope in group_scopes %}
+        <a
+          class="map-scope-tab{% if scope.slug == default_scope %} is-active{% endif %}"
+          data-map-scope-tab
+          data-scope-slug="{{ scope.slug }}"
+          href="/map?scope={{ scope.slug }}"
+          {% if scope.slug == default_scope %}aria-current="page"{% endif %}
+        >{{ scope.label }}</a>
+        {% endfor %}
+      </div>
+      <div class="map-scope-group map-scope-group--categories" role="group" aria-label="Categories">
+        <span class="map-scope-label">Categories</span>
+        {% for scope in category_scopes %}
+        <a
+          class="map-scope-tab map-scope-tab--category{% if scope.slug == default_scope %} is-active{% endif %}"
+          data-map-scope-tab
+          data-scope-slug="{{ scope.slug }}"
+          href="/map?scope={{ scope.slug }}"
+          {% if scope.slug == default_scope %}aria-current="page"{% endif %}
+        >{{ scope.label }}</a>
+        {% endfor %}
+      </div>
+    </nav>
+  </header>
+
+  <!-- map.js binds to [data-map-scope], #map-container and [data-map-toggle].
+       The toggle stays offscreen here — the map is always expanded full-page. -->
+  <button type="button" class="map-page-toggle-hidden" data-map-toggle aria-expanded="true" hidden>Toggle map</button>
+  <div id="map-container" class="map-page-container" role="region" aria-label="Map of Lake Havasu listings"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin="anonymous" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js" crossorigin="anonymous" defer></script>
+<script src="{{ static_url('/static/js/boat_mode.js') }}" defer></script>
+<script src="{{ static_url('/static/js/map.js') }}" defer></script>
+<script defer>
+  // Full-page map: ensure Leaflet recomputes its size after layout settles
+  // (map.js also calls invalidateSize on marker load; this covers the case
+  // where the container was sized by CSS after the initial init tick).
+  window.addEventListener('load', function () {
+    window.setTimeout(function () {
+      window.dispatchEvent(new Event('resize'));
+    }, 120);
+  });
+</script>
+{% endblock %}

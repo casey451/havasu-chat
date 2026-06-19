@@ -53,6 +53,7 @@ on:
       - "app/templates/event_not_found_lake.html"
       - "app/templates/today_lake.html"
       - "app/templates/gas_prices_lake.html"
+      - "app/templates/map_c_lake.html"
       - "app/templates/_partials/lake_account_nav.html"
       - "app/templates/_partials/lake_logo.svg.html"
       - "app/static/styles/lake*.css"
