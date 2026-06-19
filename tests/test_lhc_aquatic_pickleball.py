@@ -187,3 +187,35 @@ def test_glow_and_round_robin_labelled():
 
 def test_empty_on_unparseable_header():
     assert parse_aquatic_open_gym("no header here") == []
+
+
+# --- table-cell parsing (pdfplumber groups each day box into one cell) --------
+
+from app.contrib.lhc_aquatic_pickleball import parse_aquatic_cells  # noqa: E402
+
+CELLS_JUNE = [
+    "1\nClosed\nFor\nEvent",
+    "2\nPickleball\n9:00am — 12:00pm\n12:30pm — 3:30pm",
+    "3\nPickleball\n12:30pm — 3:30pm",
+    "6\nBasketball\n18 & up\n12:30pm—3:30pm",
+    "11\nPickleball\nROUND ROBIN\n(Must Pre-Register)\n12:30pm — 3:30pm",
+    "19\nGLOW Pickleball\n12:30pm — 3:30pm",
+]
+
+
+def test_parse_cells_basic():
+    by = _by_date(parse_aquatic_cells(CELLS_JUNE, year=2026, month=6))
+    assert sorted((s.start_time, s.end_time) for s in by[date(2026, 6, 2)]) == [
+        ("09:00", "12:00"),
+        ("12:30", "15:30"),
+    ]
+    assert [(s.start_time, s.end_time) for s in by[date(2026, 6, 3)]] == [
+        ("12:30", "15:30")
+    ]
+    assert date(2026, 6, 1) not in by  # Closed
+    assert date(2026, 6, 6) not in by  # Basketball
+    assert "GLOW" in by[date(2026, 6, 19)][0].title
+    assert "Round Robin" in by[date(2026, 6, 11)][0].title
+    for s in by.values():
+        for spec in s:
+            assert spec.all_day is False and spec.location_name == AQUATIC_VENUE_NAME
