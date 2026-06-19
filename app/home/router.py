@@ -611,9 +611,16 @@ def serve_home(
     # owners can retune the eyebrow/headline per season via env without a redeploy.
     hero_eyebrow_override = os.getenv("HOME_HERO_EYEBROW") or None
     hero_headline_override = os.getenv("HOME_HERO_HEADLINE") or None
+    # THEME flag (Lake Ink & Brass, Phase 1): the lake home reskins the SAME
+    # real context into the v10 layout. Default stays desert until the flip.
+    template_name = (
+        "home_lake.html"
+        if getattr(request.state, "theme", "desert") == "lake"
+        else "home_sandstone.html"
+    )
     return templates.TemplateResponse(
         request=request,
-        name="home_sandstone.html",
+        name=template_name,
         context={
             "today_label": now.strftime("%A, %B ") + str(now.day),
             "now_label": now.strftime("%I:%M %p").lstrip("0"),
