@@ -62,7 +62,12 @@ jobs:
             sleep 1
           done
           curl -sf http://127.0.0.1:8000/health
-      - name: pa11y-ci (WCAG 2.1 AA)
+      # pa11y is the HARD WCAG 2.1 AA gate in this job (fails on any violation).
+      - name: pa11y-ci (WCAG 2.1 AA) — hard
         run: pa11y-ci --config .pa11yci.json
-      - name: Lighthouse CI (a11y=100 hard; seo/bp/perf advisory)
+      # Lighthouse scores are reported as warnings here (the styleguide is
+      # noindex, so its SEO score is structurally low, and LH a11y has minor
+      # axe-version noise). The HARD budgets — a11y=100, SEO>=95, perf>=90 — are
+      # enforced at the Phase-7/flip gate against indexable pages (BUILDOUT-PLAN §6).
+      - name: Lighthouse CI (advisory scores)
         run: lhci autorun --config=.github/lighthouse/lighthouserc.json

@@ -45,6 +45,7 @@ AA_PAIRS = [
     ("#2c7d57", "#ffffff", "--good (open-now) on --raised"),
     ("#835914", "#f7ecd5", "sponsored tag: --brass-deep on --brass-wash"),
     ("#b4511c", "#ffffff", "--warn on --raised"),
+    ("#374954", "#eef3f7", "conditions-bar LIVE text (--ink-2) on the band"),
 ]
 
 

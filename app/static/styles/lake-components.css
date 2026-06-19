@@ -52,6 +52,9 @@ button.erow{appearance:none}
 .btn-brass{background:var(--brass-deep);color:#fff}
 .btn-brass:hover{background:var(--brass-deep);filter:brightness(1.1)}
 .ft .tag{background:none;border:0;padding:0}
+/* The "Live" label was --havasu (~3:1) on the light conditions band. Read it in
+   --ink-2; the havasu pulse dot still carries the brand accent. */
+.cb-live{color:var(--ink-2)}
 
 /* Styleguide-only scaffolding (the Phase-0 component gallery). */
 .sg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;align-items:start}
