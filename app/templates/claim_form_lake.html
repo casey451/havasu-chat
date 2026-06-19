@@ -1,0 +1,26 @@
+{% extends "base_lake.html" %}
+{#- Lake claim form (GET /claim/{slug}, auth-gated). Same context as
+   claim_form.html ({entity}); POSTs to /claim/{slug} with the optional `notes`
+   textarea unchanged. noindex. -#}
+{% block title %}Claim listing — Ask Hava{% endblock %}
+{% block head_extra %}
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="{{ static_url('/static/styles/lake_account.css') }}">
+{% endblock %}
+{% block content %}
+<div class="wrap">
+  <div class="authwrap">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/account">My account</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Claim</span></nav>
+    <p class="eyebrow">Business ownership</p>
+    <h1>Claim this <em>listing.</em></h1>
+    <p class="lede">Are you the owner of <strong>{{ (entity.name | clean_name) or entity.slug }}</strong>? Share a detail or two so we can verify.</p>
+    <form class="card authcard" action="/claim/{{ entity.slug }}" method="post">
+      <div class="field">
+        <label for="notes">Verification notes (optional)</label>
+        <textarea id="notes" name="notes" rows="4" placeholder="Best number, business-license details, preferred contact time, etc."></textarea>
+      </div>
+      <button class="btn btn-primary" type="submit">Submit claim</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
