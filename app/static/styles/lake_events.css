@@ -30,7 +30,7 @@
 .ev-acc>summary:hover{background:var(--surface)}
 .ev-acc>summary:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--havasu)}
 .ev-sw{width:11px;height:11px;border-radius:4px;background:var(--brass);flex:none}
-.ev-sw.family{background:var(--good)}.ev-sw.music{background:#7a5cc0}.ev-sw.water{background:var(--havasu)}.ev-sw.classes{background:var(--brass-deep)}
+.ev-sw.family{background:var(--good)}.ev-sw.music{background:#7a5cc0}.ev-sw.water{background:var(--havasu)}.ev-sw.classes{background:var(--brass-deep)}.ev-sw.seniors{background:#c4793a}
 .ev-acc .gname{font-family:var(--disp);font-weight:600;font-size:18px;color:var(--ink)}
 .ev-acc .gcount{margin-left:auto;font-size:12px;font-weight:700;color:var(--brass-deep);background:var(--brass-wash);border:1px solid var(--brass-edge);border-radius:999px;padding:2px 10px;flex:none}
 .ev-acc .gchev{flex:none;color:var(--muted);transition:transform .22s var(--ease)}

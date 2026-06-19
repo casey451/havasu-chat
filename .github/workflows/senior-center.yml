@@ -1,0 +1,42 @@
+name: senior-center
+
+# Loads the Lake Havasu Senior Center schedule into the "Seniors" section of the
+# events calendar, ONCE A WEEK. Source: app/events/senior_center.py
+#   * recurring weekly activities (exercise, Tai Chi, cards, music jam, lunch...)
+#     -> recurring Event rows (rrule) tagged "senior"
+#   * dated special events scraped live from the Current Events page
+# The loader writes Events directly (not via the contributions queue) because the
+# recurring rows need an rrule to expand on the calendar. Re-runs are idempotent
+# (upsert keyed on source + normalized title), so the weekly cron never doubles.
+#
+# NOTE: GitHub only runs scheduled workflows from the repo's DEFAULT branch, so
+# this must be merged to main before the cron takes effect. Until then, use the
+# "Run workflow" button (workflow_dispatch).
+
+on:
+  schedule:
+    # Weekly, Mondays 06:30 America/Phoenix (MST/UTC-7, no DST) = 13:30 UTC.
+    - cron: "30 13 * * 1"
+  workflow_dispatch: {}
+
+jobs:
+  load-senior-center:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Load senior center activities (idempotent upsert)
+        env:
+          # Same Railway Postgres secret the other scrape crons use. Set in:
+          # GitHub repo -> Settings -> Secrets and variables -> Actions
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m scripts.load_senior_center --apply
