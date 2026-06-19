@@ -8,6 +8,7 @@ from app.home.events_views import (
     _class_subgroup,
     _family_subgroup,
     _occurrence_expired,
+    _row_time_label,
     _split_class_subgroups,
     _split_family_subgroups,
 )
@@ -114,3 +115,22 @@ def test_split_family_collapses_ongoing_venues_last() -> None:
         "Open today for kids",
     ]
     assert subs[-1]["count"] == 2
+
+
+def test_pickleball_gets_its_own_subgroup() -> None:
+    assert (
+        _class_subgroup("Pickleball Open Play – The Ark Center") == "Pickleball"
+    )
+    assert _class_subgroup("Pickleball Open Play") == "Pickleball"
+    # A non-pickleball activity still lands by its real type.
+    assert _class_subgroup("Adult MMA") == "Martial Arts"
+
+
+def test_row_time_label_all_day_only_for_open_play() -> None:
+    # Known time renders normally.
+    assert _row_time_label("Pickleball Open Play", time(8, 0), time(10, 0)) == "8 AM"
+    # All-day open play (00:00 / no end) reads "All day", not "Time TBD".
+    assert _row_time_label("Pickleball Open Play – Ark", time(0, 0), None) == "All day"
+    # A generic unknown-time event keeps the honest "Time TBD" (no false "All day").
+    assert _row_time_label("Community Potluck", time(0, 0), None) == "Time TBD"
+    assert _row_time_label("Community Potluck", None, None) == "Time TBD"
