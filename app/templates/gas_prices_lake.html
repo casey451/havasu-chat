@@ -1,0 +1,77 @@
+{% extends "base_lake.html" %}
+{#- Lake gas-prices page (GET /gas, public). Same context as gas_prices.html.
+   Single "Updated" freshness phrasing; honest empty state (never a guessed
+   price). Cheapest 6-up grid + the full station table. -#}
+{% block title %}Gas prices — Ask Hava{% endblock %}
+{% block meta_description %}Today's cheapest gas stations in Lake Havasu City, with regular, mid, premium and diesel prices updated daily. Always confirm at the pump.{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{{ static_url('/static/styles/lake_conditions.css') }}">
+{% endblock %}
+{% block content %}
+<div class="wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Home</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Gas</span></nav>
+  <div class="pagehead">
+    <h1>Gas prices in Lake Havasu City</h1>
+    {% if has_data %}
+    <p class="sub">{{ data.station_count }} stations tracked.</p>
+    <div class="gas-fresh{% if is_stale %} is-stale{% endif %}">
+      <span class="dot" aria-hidden="true"></span>
+      {% if fetched_at_label %}Updated {{ fetched_at_label }}{% else %}{{ staleness_label }}{% endif %}{% if is_stale %} — prices may be out of date{% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  {% if has_data %}
+  {% if city_avg and city_avg.regular %}
+  <div class="card gas-avg" aria-label="City average">
+    <div class="gas-avg-main">
+      <p class="eyebrow">City average &middot; regular</p>
+      <div class="price tnum">${{ '%.2f'|format(city_avg.regular) }}</div>
+      <div class="gas-avg-sub">Average across all {{ data.station_count }} tracked stations</div>
+    </div>
+    <div class="gas-avg-grades">
+      {% for g in grades %}{% if city_avg[g] %}
+      <div class="gas-avg-grade"><span class="l">{{ grade_labels[g] }}</span><span class="v tnum">${{ '%.2f'|format(city_avg[g]) }}</span></div>
+      {% endif %}{% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if cheapest %}
+  <div class="sec-head"><h2>Cheapest today{% if fetched_at_time_label %} (as of {{ fetched_at_time_label }}){% endif %}</h2></div>
+  <div class="gas-cheap">
+    {% for s in cheapest %}
+    {% if s.provider_slug %}<a class="card gas-card" href="/provider/{{ s.provider_slug }}">{% else %}<div class="card gas-card">{% endif %}
+      <div class="rank">#{{ loop.index }}{% if s.brand %} &middot; {{ s.brand }}{% endif %}</div>
+      <div class="price tnum">{% if s.prices and s.prices.regular %}${{ '%.2f'|format(s.prices.regular) }}{% else %}&mdash;{% endif %}</div>
+      <div class="name">{{ s.name }}</div>
+      {% if s.address %}<div class="addr">{{ s.address }}</div>{% endif %}
+    {% if s.provider_slug %}</a>{% else %}</div>{% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="sec-head"><h2>All stations</h2></div>
+  <div class="card gas-table-wrap">
+    <table class="gas-table">
+      <thead><tr><th scope="col">Station</th>{% for g in grades %}<th scope="col" class="num">{{ grade_labels[g] }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for s in stations %}
+        <tr>
+          <td>{% if s.provider_slug %}<a href="/provider/{{ s.provider_slug }}">{{ s.name }}</a>{% else %}{{ s.name }}{% endif %}{% if s.address %}<div class="addr">{{ s.address }}</div>{% endif %}</td>
+          {% for g in grades %}<td class="num tnum">{% if s.prices and s.prices[g] %}${{ '%.2f'|format(s.prices[g]) }}{% else %}&mdash;{% endif %}</td>{% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card gas-empty" aria-label="No gas data">
+    <h2>No gas prices yet</h2>
+    <p>The daily price pull hasn't returned data yet. Check back soon — we never show a guessed price.</p>
+  </div>
+  {% endif %}
+
+  <p class="gas-note">Prices update once daily. Always confirm at the pump.</p>
+</div>
+{% endblock %}
