@@ -883,12 +883,16 @@ def _event_link_html(event_url: str | None, source_url: str | None) -> str:
     return out
 
 
-def _render_not_found_response(request: Request) -> HTMLResponse:
+def _render_not_found_response(request: Request, *, gone: bool = False) -> HTMLResponse:
+    """Render the event error page. ``gone=True`` → 410 (the event was removed:
+    status ``deleted``); otherwise 404 (missing or not-yet-public). Theme-select
+    picks the Lake variant when the THEME flag resolves to lake."""
+    lake = getattr(request.state, "theme", "desert") == "lake"
     return templates.TemplateResponse(
         request=request,
-        name="event_not_found.html",
-        context={},
-        status_code=404,
+        name="event_not_found_lake.html" if lake else "event_not_found.html",
+        context={"gone": gone},
+        status_code=410 if gone else 404,
     )
 
 
@@ -1370,9 +1374,10 @@ async def http_exception_handler(
             status_code=404,
             content={"detail": exc.detail or "Not Found"},
         )
+    lake = getattr(request.state, "theme", "desert") == "lake"
     return templates.TemplateResponse(
         request=request,
-        name="not_found.html",
+        name="not_found_lake.html" if lake else "not_found.html",
         context={},
         status_code=404,
     )
@@ -1425,6 +1430,11 @@ def event_permalink(event_id: str, request: Request, db: Session = Depends(get_d
     event = db.query(Event).filter(Event.id == event_id).first()
     if event is None or event.status == "pending_review":
         return _render_not_found_response(request)
+    # SEO: a removed event (status "deleted") is permanently gone — return 410,
+    # not the full page (a soft-404/served-removed-content bug). Only the literal
+    # "deleted" status takes this path, so a live event is never mistakenly gone.
+    if event.status == "deleted":
+        return _render_not_found_response(request, gone=True)
     # ED-5: build a canonical https URL from the configured base (request.url is
     # http behind Railway's proxy when X-Forwarded-Proto isn't honored).
     permalink_url = f"{_base_url()}/events/{event.id}"
