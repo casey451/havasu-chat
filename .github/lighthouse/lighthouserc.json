@@ -12,7 +12,9 @@
         "http://127.0.0.1:8000/portal?theme=lake",
         "http://127.0.0.1:8000/portal/claim?theme=lake",
         "http://127.0.0.1:8000/about?theme=lake",
-        "http://127.0.0.1:8000/help?theme=lake"
+        "http://127.0.0.1:8000/help?theme=lake",
+        "http://127.0.0.1:8000/gas?theme=lake",
+        "http://127.0.0.1:8000/today?theme=lake"
       ],
       "numberOfRuns": 1,
       "settings": { "preset": "desktop" }

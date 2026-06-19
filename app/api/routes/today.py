@@ -32,9 +32,10 @@ register_template_globals(templates)
 def today_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     now = datetime.now(UTC).replace(tzinfo=None)
     payload = build_today_payload(db, now=now)
+    _lake = getattr(request.state, "theme", "desert") == "lake"
     return templates.TemplateResponse(
         request=request,
-        name="today.html",
+        name="today_lake.html" if _lake else "today.html",
         context={
             "fields": payload["fields"],
             "any_available": payload["any_available"],

@@ -111,9 +111,10 @@ def gas_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     data, staleness, is_stale, fetched_at_label, fetched_at_time_label = _read_payload(db)
     stations = [s for s in (data.get("stations") or []) if isinstance(s, dict)]
     cheapest = [s for s in (data.get("cheapest") or []) if isinstance(s, dict)]
+    _lake = getattr(request.state, "theme", "desert") == "lake"
     return templates.TemplateResponse(
         request=request,
-        name="gas_prices.html",
+        name="gas_prices_lake.html" if _lake else "gas_prices.html",
         context={
             **_shell_context(db),
             "data": data,
