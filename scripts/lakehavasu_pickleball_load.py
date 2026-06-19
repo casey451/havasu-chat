@@ -53,6 +53,7 @@ from app.contrib.approval_service import (  # noqa: E402
 from app.contrib.ingest_base import EntityPayload  # noqa: E402
 from app.contrib.ingest_reconciler import log_ambiguous_reconcile  # noqa: E402
 from app.contrib.lakehavasu_pickleball import (  # noqa: E402
+    ARK_VENUE_NAME,
     DEFAULT_CATEGORY_SLUG,
     LEGACY_CATEGORY,
     ORG_NAME,
@@ -63,6 +64,7 @@ from app.contrib.lakehavasu_pickleball import (  # noqa: E402
     EventSpec,
     Facility,
     ProgramSpec,
+    ark_open_play_event_specs,
     facility_to_entity_payload,
     fetch_activities,
     fetch_facilities,
@@ -451,23 +453,28 @@ def prune_open_play_events(
     return int(deleted or 0)
 
 
-def prune_aquatic_allday(*, db: Any, dry_run: bool = False) -> int:
-    """Remove superseded all-day Aquatic Center open-play rows.
+# Venues now published as **timed** open play. Their legacy all-day rows
+# (anchor ``openplay|<full venue name>|``) are obsolete; the new timed rows
+# use short anchors (``openplay|aquatic|`` / ``openplay|ark|``) and are not
+# matched here.
+_SUPERSEDED_ALLDAY_VENUES = (AQUATIC_VENUE_NAME, ARK_VENUE_NAME)
 
-    The Aquatic Center now publishes **timed** open play parsed from the City
-    Open Gym PDF (anchor ``openplay|aquatic|...``). The legacy all-day rows
-    (anchor ``openplay|<venue name>|<date>``) are obsolete and would otherwise
-    duplicate the timed rows, so they are removed regardless of date. Matched
-    on the old venue-name anchor only; the new timed rows are untouched. In
-    dry-run we report the would-delete count without writing."""
-    # source_url is normalised (lower-cased) on write, so match lower-case.
-    pattern = f"%openplay|{AQUATIC_VENUE_NAME.lower()}|%"
-    q = db.query(Event).filter(Event.source_url.like(pattern))
-    if dry_run:
-        return int(q.count() or 0)
-    deleted = q.delete(synchronize_session=False)
-    db.commit()
-    return int(deleted or 0)
+
+def prune_superseded_allday(*, db: Any, dry_run: bool = False) -> int:
+    """Remove legacy all-day rows for venues now published as timed.
+
+    source_url is normalised (lower-cased) on write, so we match lower-case.
+    In dry-run we report the would-delete count without writing."""
+    total = 0
+    for venue in _SUPERSEDED_ALLDAY_VENUES:
+        pattern = f"%openplay|{venue.lower()}|%"
+        q = db.query(Event).filter(Event.source_url.like(pattern))
+        total += int(q.count() or 0) if dry_run else int(
+            q.delete(synchronize_session=False) or 0
+        )
+    if not dry_run:
+        db.commit()
+    return total
 
 
 # ---------------------------------------------------------------------------
@@ -502,17 +509,18 @@ def run(
         if own_client:
             client.close()
 
-    # Aquatic Center open play (timed, from the City PDF) replaces the
-    # all-day placeholders for that venue; venues with no machine-readable
-    # schedule stay all-day.
-    allday_venues = (
-        [f for f in facilities if f.name != AQUATIC_VENUE_NAME]
-        if aquatic_specs
-        else facilities
-    )
+    # Aquatic Center (timed, from the City PDF) and The Ark (timed, curated
+    # Mon-Sat 8-11am block) replace their all-day placeholders; venues with no
+    # machine-readable schedule (the DSP/park courts) stay all-day.
+    ark_specs = ark_open_play_event_specs(today=today)
+    timed_venues = {ARK_VENUE_NAME}
+    if aquatic_specs:
+        timed_venues.add(AQUATIC_VENUE_NAME)
+    allday_venues = [f for f in facilities if f.name not in timed_venues]
     event_specs = (
         event_specs
         + aquatic_specs
+        + ark_specs
         + open_play_event_specs(allday_venues, today=today)
     )
 
@@ -526,7 +534,7 @@ def run(
         results["events"]["pruned_open_play"] = (
             0 if dry_run else prune_open_play_events(db=db, today=today)
         )
-        results["events"]["pruned_aquatic_allday"] = prune_aquatic_allday(
+        results["events"]["pruned_superseded_allday"] = prune_superseded_allday(
             db=db, dry_run=dry_run
         )
     return results

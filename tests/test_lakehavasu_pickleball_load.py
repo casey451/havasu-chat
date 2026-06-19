@@ -246,9 +246,15 @@ def test_run_dry_run_validates_all_sections() -> None:
     assert results["facilities"]["found"] == 3
     assert results["programs"]["found"] == 3
     assert results["programs"]["imported"] == 3  # all specs build valid schemas
-    # 1 PickleFest + (3 venues x 7-day open-play window) = 22 events
-    assert results["events"]["found"] == 22
-    assert results["events"]["imported"] == 22
+    # today=2026-06-18 (Thu). With the City PDF fetch mocked to 404, the
+    # Aquatic Center falls back to all-day. Events:
+    #   1 PickleFest
+    # + Aquatic all-day  (7-day window)        = 7
+    # + Mike Delaney all-day (7-day window)     = 7
+    # + Ark timed (Mon-Sat in window; Sun 6/21 skipped) = 6
+    # = 21
+    assert results["events"]["found"] == 21
+    assert results["events"]["imported"] == 21
 
 
 def _evt(anchor: str, start: time, end: time | None = None) -> Event:
@@ -266,20 +272,42 @@ def _evt(anchor: str, start: time, end: time | None = None) -> Event:
     )
 
 
-def test_prune_aquatic_allday_removes_legacy_rows_only(db_session) -> None:
+def test_prune_superseded_allday_removes_legacy_rows_only(db_session) -> None:
     db = db_session
+    # legacy all-day rows for the two now-timed venues (normalised lower-case)
     db.add(_evt("openplay|lake havasu city aquatic center|2026-06-20", time(0, 0)))
+    db.add(_evt("openplay|the ark center|2026-06-20", time(0, 0)))
+    # new timed rows (short anchors) + an untouched venue must survive
     db.add(_evt("openplay|aquatic|2026-06-20|12:30", time(12, 30), time(15, 30)))
-    db.add(_evt("openplay|The Ark Center|2026-06-20", time(0, 0)))
+    db.add(_evt("openplay|ark|2026-06-20|08:00", time(8, 0), time(11, 0)))
+    db.add(_evt("openplay|Mike Delaney|2026-06-20", time(0, 0)))
     db.commit()
 
-    # dry-run reports the would-delete count but writes nothing
-    assert loader.prune_aquatic_allday(db=db, dry_run=True) == 1
-    assert db.query(Event).count() == 3
+    # dry-run reports the would-delete count (2 legacy rows) but writes nothing
+    assert loader.prune_superseded_allday(db=db, dry_run=True) == 2
+    assert db.query(Event).count() == 5
 
-    # real run deletes only the legacy all-day Aquatic row
-    assert loader.prune_aquatic_allday(db=db, dry_run=False) == 1
+    # real run deletes only the legacy all-day Aquatic + Ark rows
+    assert loader.prune_superseded_allday(db=db, dry_run=False) == 2
     remaining = {e.source_url.split("#", 1)[1] for e in db.query(Event).all()}
     assert "openplay|aquatic|2026-06-20|12:30" in remaining
-    assert "openplay|The Ark Center|2026-06-20" in remaining
-    assert all("openplay|lake havasu city aquatic center|" not in u for u in remaining)
+    assert "openplay|ark|2026-06-20|08:00" in remaining
+    assert "openplay|Mike Delaney|2026-06-20" in remaining
+    assert not any("|lake havasu city aquatic center|" in u for u in remaining)
+    assert not any("|the ark center|" in u for u in remaining)
+
+
+def test_ark_open_play_specs_mon_sat_8_to_11() -> None:
+    # window starting Sunday 2026-06-21 covers Sun..Sat
+    specs = lhc.ark_open_play_event_specs(
+        today=date(2026, 6, 21), window_days=7
+    )
+    by_day = {s.date: s for s in specs}
+    # Sunday (06-21) skipped; Mon..Sat present
+    assert date(2026, 6, 21) not in by_day
+    for dom in range(22, 28):  # Mon 22 .. Sat 27
+        spec = by_day[date(2026, 6, dom)]
+        assert spec.all_day is False
+        assert spec.start_time == "08:00" and spec.end_time == "11:00"
+        assert spec.location_name == "The Ark Center"
+    assert all(s.date.weekday() != 6 for s in specs)  # never Sunday

@@ -587,3 +587,56 @@ def open_play_event_specs(
                 )
             )
     return specs
+
+
+# ---------------------------------------------------------------------------
+# The Ark Center -> timed recurring open play
+# ---------------------------------------------------------------------------
+
+ARK_VENUE_NAME = "The Ark Center"
+# The Ark publishes a fixed weekly open-play block on the LHCPBA calendar widget
+# (Mon-Sat 8-11am, $5/session, three indoor courts; closed Sundays). The widget
+# is a cross-origin JS embed we cannot machine-read, but the schedule is regular,
+# so we publish it as a curated recurring timed block rather than all-day.
+ARK_OPEN_PLAY_DAYS = (0, 1, 2, 3, 4, 5)  # Mon..Sat (Monday=0); closed Sundays
+ARK_OPEN_PLAY_START = "08:00"
+ARK_OPEN_PLAY_END = "11:00"
+ARK_OPEN_PLAY_COST = "$5 per session"
+
+
+def ark_open_play_event_specs(
+    *,
+    today: date | None = None,
+    window_days: int = OPEN_PLAY_WINDOW_DAYS,
+) -> list[EventSpec]:
+    """Timed Ark Center open play (Mon-Sat 8-11am) across the rolling window.
+
+    Sundays are skipped (the venue is closed). Mirrors the all-day open-play
+    pruning lifecycle via the ``openplay|`` source-anchor marker.
+    """
+    today = today or date.today()
+    desc = (
+        f"Drop-in pickleball open play at {ARK_VENUE_NAME} "
+        f"({ARK_OPEN_PLAY_START}-{ARK_OPEN_PLAY_END}); three indoor courts. "
+        f"Cost: {ARK_OPEN_PLAY_COST}. See the current schedule at {CALENDAR_URL}."
+    )
+    specs: list[EventSpec] = []
+    for offset in range(max(1, window_days)):
+        d = today + timedelta(days=offset)
+        if d.weekday() not in ARK_OPEN_PLAY_DAYS:
+            continue
+        specs.append(
+            EventSpec(
+                title=f"Pickleball Open Play – {ARK_VENUE_NAME}"[:300],
+                description=desc,
+                date=d,
+                end_date=d,
+                location_name=ARK_VENUE_NAME,
+                event_url=CALENDAR_URL,
+                source_anchor=f"openplay|ark|{d.isoformat()}|{ARK_OPEN_PLAY_START}",
+                all_day=False,
+                start_time=ARK_OPEN_PLAY_START,
+                end_time=ARK_OPEN_PLAY_END,
+            )
+        )
+    return specs
