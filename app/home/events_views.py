@@ -95,10 +95,13 @@ _CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "hiit", "cardio", "spin", "cycling", "zumba", "aerobic", "conditioning",
         "sculpt", "circuit",
     )),
+    # Drop-in racquet/court rec (mostly all-day open-play blocks). Its own
+    # subsection so it isn't buried in the "Other classes" catch-all.
+    ("Pickleball", ("pickleball", "open play")),
 )
 _CLASS_SUBGROUP_ORDER: tuple[str, ...] = (
     "Yoga", "Pilates", "Strength & Cardio", "Dance", "Gymnastics",
-    "Martial Arts", "Other classes",
+    "Martial Arts", "Pickleball", "Other classes",
 )
 _CLASS_FALLBACK_LABEL = "Other classes"
 # Below this many class rows a day reads fine flat; at/above it we sub-group.
@@ -179,10 +182,35 @@ def _split_family_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+ALL_DAY_LABEL = "All day"
+
+# Titles whose 00:00 / no-end time genuinely means "runs all day" rather than
+# "time unknown". The ingest convention overloads 00:00+None for both cases
+# (see app.events.time_labels), so we can only safely promote the label to
+# "All day" for titles that are unmistakably all-day drop-in rec — chiefly
+# pickleball open play. Everything else keeps the honest "Time TBD".
+_ALL_DAY_TITLE_RE = re.compile(r"\b(?:pickleball|open play)\b", re.IGNORECASE)
+
+
+def _row_time_label(title: str, start_time: time | None, end_time: time | None) -> str:
+    """Time chip for a day-view row.
+
+    A known time renders normally ("8 AM"). When the time is unknown (the
+    00:00/None convention), all-day rec titles read "All day" and everything
+    else keeps "Time TBD" — we never fabricate a clock time.
+    """
+    label = short_time_label(start_time, end_time)
+    if label is not None:
+        return label
+    if _ALL_DAY_TITLE_RE.search(title or ""):
+        return ALL_DAY_LABEL
+    return TIME_TBD_LABEL
+
+
 def _event_row(ev: Event) -> dict[str, Any]:
     return {
         "sort": time_sort_key(ev.start_time, ev.end_time),
-        "time_label": short_time_label(ev.start_time, ev.end_time) or TIME_TBD_LABEL,
+        "time_label": _row_time_label(ev.title or "", ev.start_time, ev.end_time),
         "title": clean_event_title(ev.title, location_name=ev.location_name),
         "venue": ev.location_name,
         "url": f"/events/{ev.id}",
@@ -274,7 +302,7 @@ def day_groups(
         rows_by_group[gkey].append(
             {
                 "sort": time_sort_key(occ.start_time, occ.end_time),
-                "time_label": short_time_label(occ.start_time, occ.end_time) or TIME_TBD_LABEL,
+                "time_label": _row_time_label(occ.title or "", occ.start_time, occ.end_time),
                 "title": clean_event_title(occ.title, location_name=occ.venue),
                 "venue": occ.venue,
                 "url": occ.url,  # venue page — class series have no permalink
