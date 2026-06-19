@@ -1,0 +1,41 @@
+/* Lake Ink & Brass — /search keyword results page (search_lake.html).
+   Reuses lake.css tokens + .wrap/.pagehead/.card/.sec-head/.btn; styles only
+   the search form, the Ask-Hava link, and the result rows. Lower visual
+   ambition, AA-clear: ink / ink-2 / brass-deep on the light surfaces. */
+
+.srch{padding-bottom:48px}
+.srch-accent{color:var(--brass)}
+
+.srch-vh{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+.srch-form{display:flex;gap:10px;margin:18px 0 8px;max-width:640px}
+.srch-form input{
+  flex:1;font-family:var(--ui);font-size:16px;color:var(--ink);background:var(--raised);
+  border:1px solid var(--hair-2);border-radius:999px;padding:12px 20px;min-height:48px;
+}
+.srch-form input::placeholder{color:var(--muted)}
+.srch-form input:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--havasu)}
+
+.srch-ask{display:inline-block;font-weight:600;color:var(--brass-deep)}
+.srch-ask:hover{color:var(--brass)}
+
+.srch-empty{color:var(--ink-2);font-size:16px;line-height:1.55;margin:22px 0}
+.srch-empty a{color:var(--brass-deep);font-weight:600}
+.srch-summary{color:var(--muted);font-size:14px;margin:24px 0 14px}
+
+.srch-section{margin-bottom:28px}
+.srch-list{list-style:none;margin:0;padding:0}
+.srch-row{padding:15px 18px;border-bottom:1px solid var(--hair)}
+.srch-row:last-child{border-bottom:0}
+.srch-row-name{font-family:var(--disp);font-weight:600;font-size:18px;letter-spacing:-.01em;line-height:1.25}
+.srch-row-name a{color:var(--ink);text-decoration:none}
+.srch-row-name a:hover{color:var(--brass-deep)}
+.srch-row-subtype{color:var(--ink-2);font-size:14px;margin-top:3px}
+.srch-row-phone{font-size:14px;margin-top:5px}
+.srch-row-phone a{color:var(--brass-deep);text-decoration:none}
+.srch-row-phone a:hover{text-decoration:underline}
+.srch-row-area{color:var(--muted);font-size:13px;margin-top:3px}
+.srch-row-meta{color:var(--muted);font-size:13px;margin-top:4px}
+.srch-row-venue{margin-left:8px}
+
+.srch-cta{margin-top:20px}

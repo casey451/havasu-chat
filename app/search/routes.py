@@ -559,9 +559,16 @@ def search_results_page(
                 }
             )
 
+    # Lake Ink & Brass: the concierge falls through here for descriptive
+    # queries, so /search must follow the active theme (was desert-only).
+    template = (
+        "search_lake.html"
+        if getattr(request.state, "theme", "desert") == "lake"
+        else "search.html"
+    )
     return templates.TemplateResponse(
         request=request,
-        name="search.html",
+        name=template,
         context={
             "q": q_clean,
             "providers": providers,

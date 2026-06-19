@@ -50,6 +50,11 @@ def serve_chat(
         # Service/business → its directory leaf. Applies in BOTH themes (existing
         # conservative B.3 behaviour): "plumbers", "boat rentals" → category page.
         leaf = leaf_query.match_leaf_query(db, cleaned)
+        # Need-shaped service asks the exact matcher misses ("hvac needs repair",
+        # "pool service repair") still route to their leaf when one unambiguous
+        # category keyword carries the query — else fall through unchanged.
+        if leaf is None:
+            leaf = leaf_query.match_leaf_service_intent(db, cleaned)
         if leaf is not None:
             return RedirectResponse(
                 url=f"/categories/{leaf.department_slug}/{leaf.slug}",
