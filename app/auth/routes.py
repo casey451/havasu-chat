@@ -399,12 +399,12 @@ def claim_get(slug: str, request: Request, db: SqlSession = Depends(get_db)) -> 
     if existing is not None:
         return templates.TemplateResponse(
             request=request,
-            name="claim_status.html",
+            name=_tname(request, "claim_status.html"),
             context={"entity": ent, "claim": existing},
         )
     return templates.TemplateResponse(
         request=request,
-        name="claim_form.html",
+        name=_tname(request, "claim_form.html"),
         context={"entity": ent},
     )
 
@@ -432,7 +432,7 @@ def claim_post(
     if prior is not None:
         return templates.TemplateResponse(
             request=request,
-            name="claim_status.html",
+            name=_tname(request, "claim_status.html"),
             context={"entity": ent, "claim": prior},
         )
     try:
@@ -445,11 +445,11 @@ def claim_post(
             raise err
         return templates.TemplateResponse(
             request=request,
-            name="claim_status.html",
+            name=_tname(request, "claim_status.html"),
             context={"entity": ent, "claim": existing},
         )
     return templates.TemplateResponse(
         request=request,
-        name="claim_submitted.html",
+        name=_tname(request, "claim_submitted.html"),
         context={"entity": ent},
     )

@@ -51,6 +51,19 @@ a.srow:hover{background:var(--surface)}
    .empty component from lake-components.css) */
 .logout{margin-top:18px}
 
+/* claim status badge (Phase 4b) — token-only colours, all AA-pinned */
+.statusbadge{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;padding:6px 13px;border-radius:999px;background:var(--surface);border:1px solid var(--hair-2);color:var(--ink-2)}
+.statusbadge::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ink-2);flex:none}
+.statusbadge.ok{background:var(--brass-wash);border-color:var(--brass-edge);color:var(--brass-deep)}
+.statusbadge.ok::before{background:var(--good)}
+.statusbadge.bad{color:var(--warn)}
+.statusbadge.bad::before{background:var(--warn)}
+
+/* claim / upgrade pages share the narrow .authwrap column; give the form card
+   a little headroom under the intro copy */
+.authwrap .card{margin-top:20px}
+.authwrap .lede + .card{margin-top:18px}
+
 @media(max-width:720px){
   .acct{grid-template-columns:1fr}
   .anav{position:static}
