@@ -1,0 +1,69 @@
+/* ============================================================
+   Ask Hava — Lake Ink & Brass: the /calendar page.
+   Ported from askhava-redesign/askhava-calendar.html, on the shared
+   lake.css tokens. Server-rendered: controls are links, "Hava
+   understood" chips have a remove link. AA-clean (kind badges read in
+   ink-2 / brass-deep, not low-contrast havasu).
+   ============================================================ */
+
+.cal-head{padding:8px 0 0}
+.cal-readback{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:8px;margin:14px 0 2px}
+.cal-readback .rk{font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--brass-deep);font-size:11px}
+.cal-readback i{color:var(--ink-2)}
+
+.cal-controls{margin:18px 0 4px;display:flex;flex-direction:column;gap:13px}
+.chiprow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.clab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:2px}
+.afilter{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--brass-deep);background:var(--brass-wash);border:1px solid var(--brass-edge);border-radius:999px;padding:6px 7px 6px 13px}
+.afx{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:rgba(131,89,20,.14);color:var(--brass-deep);font-size:13px;line-height:1;text-decoration:none}
+.afx:hover{background:rgba(131,89,20,.26)}
+.seg{display:inline-flex;background:var(--raised);border:1px solid var(--hair-2);border-radius:999px;padding:3px;box-shadow:var(--sh-1);gap:2px;flex-wrap:wrap}
+.seg a{font-family:var(--ui);font-size:13px;font-weight:600;color:var(--ink-2);padding:7px 14px;border-radius:999px;transition:.14s;white-space:nowrap;min-height:36px;display:inline-flex;align-items:center}
+.seg a:hover{color:var(--ink)}
+.seg a.on{background:linear-gradient(165deg,#1b2f3a,#10202b);color:#fff}
+.dayscroll{display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none}
+.dayscroll::-webkit-scrollbar{display:none}
+.daychip{flex:0 0 auto;min-width:60px;text-align:center;background:var(--raised);border:1px solid var(--hair);border-radius:13px;padding:8px 10px 7px;transition:.15s;box-shadow:var(--sh-1)}
+.daychip:hover{border-color:var(--hair-2);transform:translateY(-2px)}
+.daychip .dw{display:block;font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.daychip .dd{display:block;font-family:var(--disp);font-weight:500;font-size:18px;margin-top:1px;color:var(--ink)}
+.daychip.on{border-color:var(--ink);border-width:1.5px;box-shadow:var(--sh-card)}
+.daychip.on .dw{color:var(--brass-deep)}
+.daychip.today{background:linear-gradient(165deg,#fbefd6,#f4e3bf);border-color:var(--brass)}
+.daychip.today .dw{color:var(--brass-deep)}
+
+.cal-grid{margin:22px 0 30px;display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.col{background:var(--raised);border:1px solid var(--hair);border-radius:16px;box-shadow:var(--sh-card);overflow:hidden;display:flex;flex-direction:column}
+.colh{padding:13px 16px;border-bottom:1px solid var(--hair);display:flex;align-items:baseline;gap:8px;background:linear-gradient(180deg,#fff,#f7fafc)}
+.colh.is-today{background:linear-gradient(180deg,#fbefd6,#f7ead0)}
+.colh .cd{font-family:var(--disp);font-weight:600;font-size:16px}
+.colh .cdn{font-size:12px;color:var(--muted);font-weight:600}
+.colh .cc{margin-left:auto;font-size:12px;color:var(--brass-deep);font-weight:700}
+.items{padding:2px 0;flex:1}
+.it{display:flex;gap:11px;padding:11px 16px;border-top:1px solid var(--hair);color:inherit;transition:background .14s}
+.it:first-child{border-top:0}
+.it:hover{background:var(--surface)}
+.it .tcol{width:62px;flex:none}
+.it .tm{display:block;font-size:12.5px;font-weight:700;color:var(--ink-2);white-space:nowrap}
+.it .kind{display:block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-top:3px}
+.it .kind.ev{color:var(--ink-2)}.it .kind.cl{color:var(--brass-deep)}
+.it .ibody{min-width:0;flex:1}
+.it .nm{display:block;font-family:var(--disp);font-weight:500;font-size:15px;line-height:1.25;color:var(--ink)}
+.it .mt{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.cal-empty{padding:26px 16px;text-align:center;color:var(--muted);font-size:13px}
+.cal-empty .e1{display:block;font-family:var(--disp);color:var(--ink);font-size:15px;margin-bottom:4px}
+
+.refine{margin:8px 0 50px;background:var(--raised);border:1px solid var(--hair);border-radius:16px;box-shadow:var(--sh-card);padding:18px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.refine .rt{font-family:var(--disp);font-weight:600;font-size:17px}
+.refine .rs{font-size:13px;color:var(--ink-2)}
+.refine form{margin-left:auto;display:flex;gap:8px;align-items:center;background:var(--surface);border:1px solid var(--hair-2);border-radius:999px;padding:5px 5px 5px 16px;min-width:min(360px,100%)}
+.refine input{border:0;background:none;outline:0;font-family:var(--ui);font-size:14px;flex:1;min-width:0;min-height:38px;color:var(--ink)}
+.refine input::placeholder{color:var(--muted)}
+.refine .go{width:40px;height:40px;border-radius:999px;background:linear-gradient(160deg,#22394a,#10202b);color:#fff;border:0;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+.refine .go svg{width:16px;height:16px}
+.refine:focus-within form{border-color:var(--ink)}
+
+@media(max-width:720px){
+  .cal-grid{grid-template-columns:1fr}
+  .refine form{margin-left:0;width:100%}
+}

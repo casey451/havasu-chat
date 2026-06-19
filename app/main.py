@@ -85,6 +85,7 @@ from app.db.models import AuthSession, Event, Provider
 from app.digest.routes import router as digest_router
 from app.events.time_labels import is_time_tbd
 from app.events.title_clean import clean_event_title
+from app.home.calendar_route import router as calendar_page_router
 from app.home.chat_route import router as new_chat_ui_router
 from app.home.lake_preview import router as lake_preview_router
 from app.home.router import router as home_router
@@ -673,6 +674,9 @@ app.include_router(home_router)
 # Lake Ink & Brass redesign (Phase 0): the noindex /lake-styleguide gallery —
 # the CI a11y/SEO sample target on the new base_lake layout.
 app.include_router(lake_preview_router)
+# Lake Ink & Brass redesign (Phase 2b): the /calendar discovery page — the
+# concierge intent-router's destination for discovery queries.
+app.include_router(calendar_page_router)
 app.include_router(account_alerts_router)
 app.include_router(digest_router)
 # Directory pivot V1 (2026-05-13): per-provider profile page at
