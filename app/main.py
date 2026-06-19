@@ -319,9 +319,10 @@ def _render_static_doc(
 ) -> HTMLResponse:
     md = path.read_text(encoding="utf-8")
     body = _render_doc_markdown_to_html(md)
+    _lake = getattr(request.state, "theme", "desert") == "lake"
     return templates.TemplateResponse(
         request=request,
-        name="privacy_doc.html",
+        name="privacy_doc_lake.html" if _lake else "privacy_doc.html",
         context={
             "head_title": head_title,
             "body": body,

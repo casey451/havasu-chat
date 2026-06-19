@@ -10,7 +10,9 @@
         "http://127.0.0.1:8000/sponsor?theme=lake",
         "http://127.0.0.1:8000/login?theme=lake",
         "http://127.0.0.1:8000/portal?theme=lake",
-        "http://127.0.0.1:8000/portal/claim?theme=lake"
+        "http://127.0.0.1:8000/portal/claim?theme=lake",
+        "http://127.0.0.1:8000/about?theme=lake",
+        "http://127.0.0.1:8000/help?theme=lake"
       ],
       "numberOfRuns": 1,
       "settings": { "preset": "desktop" }

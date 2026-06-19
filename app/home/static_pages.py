@@ -24,19 +24,29 @@ register_template_globals(templates)
 router = APIRouter(tags=["static-pages"])
 
 
+def _t(request: Request, name: str) -> str:
+    """Serve the Lake variant when the THEME flag resolves to lake (Phase 5a);
+    default stays desert until the Phase-8 flip — see app/core/theme.py."""
+    if getattr(request.state, "theme", "desert") == "lake":
+        return f"{name[:-5]}_lake.html"
+    return name
+
+
 @router.get("/about", response_class=HTMLResponse)
 def about_page(request: Request) -> HTMLResponse:
     """Static About page."""
-    return templates.TemplateResponse(request=request, name="about.html", context={})
+    return templates.TemplateResponse(request=request, name=_t(request, "about.html"), context={})
 
 
 @router.get("/help", response_class=HTMLResponse)
 def help_page(request: Request) -> HTMLResponse:
     """Static Help / FAQ page."""
-    return templates.TemplateResponse(request=request, name="help.html", context={})
+    return templates.TemplateResponse(request=request, name=_t(request, "help.html"), context={})
 
 
 @router.get("/contact", response_class=HTMLResponse)
 def contact_page(request: Request) -> HTMLResponse:
     """Static Contact page."""
-    return templates.TemplateResponse(request=request, name="contact.html", context={})
+    return templates.TemplateResponse(
+        request=request, name=_t(request, "contact.html"), context={}
+    )
