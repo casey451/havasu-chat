@@ -1,0 +1,24 @@
+{% extends "base_lake.html" %}
+{#- Lake Ink & Brass sponsor teaser (/sponsor) — a thin teaser into the real
+   rate card at /portal/placements. noindex. -#}
+{% block title %}Advertise on Ask Hava — Lake Havasu City{% endblock %}
+{% block meta_description %}Reach locals and visitors on Ask Hava with clearly labeled placements. One rate card, real prices, no media kit.{% endblock %}
+{% block head_extra %}
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="{{ static_url('/static/styles/lake_landing.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">Advertise</span></nav>
+  <section class="spon-hero">
+    <p class="eyebrow">Advertising</p>
+    <h1>Be where the <em>whole town looks.</em></h1>
+    <p class="sub">Clearly labeled placements on the pages Havasu actually uses — home, today, categories, and search. Quiet, no banner clutter, no dark patterns. Every product and every price is on one public rate card.</p>
+    <div class="spon-doors">
+      <a class="btn btn-primary" href="/portal/placements">See placements &amp; prices</a>
+      <a class="btn btn-ghost" href="mailto:hello@askhava.com?subject=Sponsor%20inquiry">Get in touch</a>
+    </div>
+  </section>
+</div>
+{% endblock %}

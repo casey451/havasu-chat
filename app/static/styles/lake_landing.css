@@ -1,0 +1,49 @@
+/* ============================================================
+   Ask Hava — Lake Ink & Brass: small landings.
+   Curated collection (/collection/{slug}), event permalink
+   (/events/{id}), and the sponsor teaser (/sponsor). Shared
+   primitives come from lake.css; this adds the page-specific bits.
+   ============================================================ */
+
+/* curated collection */
+.coll-wrap{padding-bottom:56px}
+.coll-stream{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px;margin-top:20px}
+.collcard{display:flex;flex-direction:column;background:linear-gradient(180deg,#fff,#fbfdfe);border:1px solid var(--hair);border-radius:18px;box-shadow:var(--sh-card);overflow:hidden;transition:transform .2s var(--ease),box-shadow .2s}
+a.collcard:hover{transform:translateY(-4px);box-shadow:var(--sh-pop)}
+.collcard .media{height:160px;background:linear-gradient(160deg,#dde6ec,#cdd9e1);background-size:cover;background-position:center}
+.collcard .body{padding:16px 18px}
+.collcard .nm{font-family:var(--disp);font-weight:600;font-size:18px;color:var(--ink)}
+.collcard .where{font-size:13px;color:var(--brass-deep);font-weight:600;margin-top:2px}
+.collcard .blurb{font-size:14px;color:var(--ink-2);line-height:1.55;margin-top:8px}
+.collcard .cmeta{font-size:12.5px;color:var(--muted);margin-top:8px}
+.coll-foot{margin-top:34px;font-size:13.5px;color:var(--muted)}
+.coll-foot a{color:var(--brass-deep);font-weight:600}
+
+/* event permalink */
+.evd{max-width:760px;margin:0 auto;padding-bottom:56px}
+.evd-passed{background:var(--brass-wash);border:1px solid var(--brass-edge);border-radius:12px;padding:11px 16px;font-size:13.5px;color:var(--brass-deep);margin:8px 0 16px}
+.evd-passed a{font-weight:600}
+.evd h1{font-family:var(--disp);font-weight:600;font-size:clamp(28px,4.4vw,40px);letter-spacing:-.02em;line-height:1.05;margin-top:6px}
+.evd-meta{font-size:15px;color:var(--ink-2);margin-top:10px}
+.evd-tags{margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.evd-cost{font-size:12px;font-weight:700;letter-spacing:.04em;border:1px solid var(--hair-2);border-radius:999px;padding:4px 13px;color:var(--ink-2);background:var(--surface)}
+.evd-cost.free{background:rgba(44,125,87,.1);color:var(--good);border-color:rgba(44,125,87,.3)}
+.evd-note{font-size:13px;color:var(--muted)}
+.evd-image{margin-top:18px;width:100%;height:auto;border-radius:18px;border:1px solid var(--hair-2);display:block}
+.evd-image-art{margin-top:18px;height:200px;border-radius:18px;border:1px solid var(--hair-2);position:relative;overflow:hidden;background:linear-gradient(165deg,#13242f,#0e1d27)}
+.evd-image-art .sun{position:absolute;right:14%;top:24%;width:80px;height:80px;border-radius:50%;background:var(--brass-light);opacity:.85}
+.evd-image-art .ridge{position:absolute;left:0;right:0;bottom:0;height:44px;background:#1c9bb4;clip-path:polygon(0 70%,14% 44%,30% 60%,46% 28%,62% 56%,78% 24%,100% 50%,100% 100%,0 100%);opacity:.7}
+.evd-actions{margin-top:20px;display:flex;gap:10px;flex-wrap:wrap}
+.evd-desc{margin-top:22px;font-size:16px;color:var(--ink-2);line-height:1.7}
+.evd-sparse{margin-top:22px;background:var(--raised);border:1px solid var(--hair);border-radius:16px;box-shadow:var(--sh-1);padding:18px 20px}
+.evd-sparse h2{font-family:var(--disp);font-weight:600;font-size:19px}
+.evd-sparse ul{margin-top:10px;display:grid;gap:6px}
+.evd-sparse li{font-size:14px;color:var(--ink-2)}
+.evd-back{margin-top:28px;font-size:14px}.evd-back a{color:var(--brass-deep);font-weight:600}
+
+/* sponsor teaser */
+.spon-hero{padding:60px 0 48px}
+.spon-hero h1{font-family:var(--disp);font-weight:600;font-size:clamp(30px,5vw,46px);letter-spacing:-.02em;line-height:1.05}
+.spon-hero h1 em{font-style:normal;color:var(--brass-deep)}
+.spon-hero .sub{font-size:clamp(16px,1.6vw,19px);color:var(--ink-2);max-width:54ch;margin-top:20px;line-height:1.6}
+.spon-doors{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}
