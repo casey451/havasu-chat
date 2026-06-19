@@ -83,6 +83,11 @@ def _live_events_by_day(
         ),
     )
     candidates = list(db.scalars(stmt).unique().all())
+    # Movie showtimes (tagged "movie", category_slug="movies") have their own
+    # surface at /movies and the home "At the movies today" strip. One theater
+    # emits ~200 showtime rows/day, so keep them out of the general events feed
+    # (/events-ui Today, the home "Happening today" module, the week strip).
+    candidates = [c for c in candidates if "movie" not in (c.tags or [])]
 
     pairs: list[tuple[Event, date]] = []
     seen: set[tuple[Any, date]] = set()

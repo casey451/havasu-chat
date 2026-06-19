@@ -43,6 +43,7 @@ from app.home import collections as curated_collections
 from app.home import events_views, sandstone, sponsor_store
 from app.home.queries import CATEGORY_LABELS
 from app.monetization import serving
+from app.movies.queries import movies_today
 from app.v1.categories import BUCKET_SLUG_REDIRECTS, MASTER_BUCKETS
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
@@ -638,6 +639,7 @@ def serve_home(
             ),
             "explore_tiles": sandstone.explore_tiles(db),
             "service_tiles": sandstone.service_tiles(db),
+            "movies_today": movies_today(db, day=now.date()),
             "active_tab": "today",
         },
     )

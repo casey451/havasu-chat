@@ -1,0 +1,34 @@
+{# "At the movies today" strip for the home page. Honest omission: renders
+   nothing when there are no showtimes today. Styles are scoped here so the home
+   page needs no extra stylesheet. Context: movies_today (list of dicts from
+   app.movies.queries.movies_today). #}
+{% if movies_today %}
+<section class="d-wrap home-movies" aria-label="At the movies today">
+  <div class="d-sec-head">
+    <h2>At the movies <em>today</em></h2>
+    <a class="all" href="/movies">All showtimes →</a>
+  </div>
+  <div class="mv-strip" role="list">
+    {% for m in movies_today %}
+    <a class="mv-stile" role="listitem" href="{{ m.url }}">
+      <span class="mv-stile-poster">{% if m.poster %}<img loading="lazy" src="{{ m.poster }}" alt="">{% endif %}</span>
+      <span class="mv-stile-body">
+        <span class="mv-stile-title">{{ m.title }}</span>
+        <span class="mv-stile-meta">{{ m.theater }} · {{ m.times|join(', ') }}</span>
+      </span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+<style>
+  .home-movies{margin:8px auto 0}
+  .home-movies .mv-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+  .home-movies .mv-stile{display:flex;gap:10px;padding:10px;border:1px solid rgba(0,0,0,.12);border-radius:12px;text-decoration:none;color:inherit;background:rgba(255,255,255,.5)}
+  .home-movies .mv-stile:hover{border-color:currentColor}
+  .home-movies .mv-stile-poster{flex:none;width:46px;aspect-ratio:2/3;border-radius:7px;overflow:hidden;background:#e7e2d6}
+  .home-movies .mv-stile-poster img{width:100%;height:100%;object-fit:cover;display:block}
+  .home-movies .mv-stile-body{min-width:0;display:flex;flex-direction:column;justify-content:center}
+  .home-movies .mv-stile-title{font-weight:700;font-size:.95rem;line-height:1.25;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .home-movies .mv-stile-meta{font-size:.78rem;color:#6b6760;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+{% endif %}
