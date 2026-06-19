@@ -43,6 +43,7 @@ from app.events.class_occurrences import (
     drop_event_duplicates,
 )
 from app.events.family_filter import is_family_event
+from app.events.senior_filter import is_senior_event
 from app.events.time_labels import TIME_TBD_LABEL, short_time_label, time_sort_key
 from app.events.title_clean import clean_event_title
 from app.home.event_buckets import GROUP_DEFS, GROUP_NOUNS, group_for_tier
@@ -282,6 +283,11 @@ def day_groups(
     event_keys = {((ev.title or "").strip().lower(), day, ev.start_time) for ev in events}
 
     rows_by_group: dict[str, list[dict[str, Any]]] = {key: [] for key, _l, _i in GROUP_DEFS}
+    # Seniors is an additive overlay: every senior-tagged occurrence keeps its
+    # primary group AND is re-listed under "Seniors", so there is one place to
+    # find everything at the Senior Center. _group_for never returns "seniors",
+    # so primaries are assigned first and this overlay is layered on after.
+    senior_overlay: list[dict[str, Any]] = []
     for ev in events:
         gkey = _group_for(
             title=ev.title or "",
@@ -289,7 +295,10 @@ def day_groups(
             featured=bool(ev.featured),
             recurring=bool(ev.is_recurring),
         )
-        rows_by_group[gkey].append(_event_row(ev))
+        row = _event_row(ev)
+        rows_by_group[gkey].append(row)
+        if not family and is_senior_event(ev.title, ev.tags):
+            senior_overlay.append(row)
 
     for occ in drop_event_duplicates(
         class_occurrences_in_window(db, window_start=day, window_end=day), event_keys
@@ -299,16 +308,17 @@ def day_groups(
         if _occurrence_expired(day, occ.start_time, occ.end_time, now):
             continue
         gkey = _group_for(title=occ.title, tags=None, featured=False, recurring=True)
-        rows_by_group[gkey].append(
-            {
-                "sort": time_sort_key(occ.start_time, occ.end_time),
-                "time_label": _row_time_label(occ.title or "", occ.start_time, occ.end_time),
-                "title": clean_event_title(occ.title, location_name=occ.venue),
-                "venue": occ.venue,
-                "url": occ.url,  # venue page — class series have no permalink
-                "recurring": True,
-            }
-        )
+        row = {
+            "sort": time_sort_key(occ.start_time, occ.end_time),
+            "time_label": _row_time_label(occ.title or "", occ.start_time, occ.end_time),
+            "title": clean_event_title(occ.title, location_name=occ.venue),
+            "venue": occ.venue,
+            "url": occ.url,  # venue page — class series have no permalink
+            "recurring": True,
+        }
+        rows_by_group[gkey].append(row)
+        if not family and is_senior_event(occ.title):
+            senior_overlay.append(row)
 
     # "What's open for kids today": recurring family-venue hours (toddler
     # playground, pizza arcade, trampoline park, youth gym/dojo class blocks).
@@ -316,6 +326,7 @@ def day_groups(
     # regardless of the ?family filter and give a parent something to do even on
     # a day with no scheduled events. They sort after timed rows.
     rows_by_group["family"].extend(open_today_rows(day))
+    rows_by_group["seniors"].extend(senior_overlay)
 
     groups: list[dict[str, Any]] = []
     for key, label, icon in GROUP_DEFS:

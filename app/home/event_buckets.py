@@ -52,6 +52,10 @@ GROUP_DEFS: tuple[tuple[str, str, str], ...] = (
     # kid/family occurrence — youth classes, Open Swim, story time — lands here
     # so a parent sees everything for kids in one place.
     ("family", "Kids & Family", "\U0001F9D2"),
+    # "Seniors" is also a cross-cutting OVERLAY (2026-06-19): every senior-tagged
+    # occurrence (the Senior Center activities, community lunch, special events)
+    # is re-listed here in addition to its primary group. Built in day_groups.
+    ("seniors", "Seniors", "\U0001F9D3"),
     ("music", "Music & nightlife", "\U0001F3B6"),
     ("water", "Lake & Boating", "⛵"),
     # Pool activities fold into Kids & Family (open/family swim) or Fitness &
@@ -64,6 +68,7 @@ GROUP_DEFS: tuple[tuple[str, str, str], ...] = (
 GROUP_NOUNS: dict[str, tuple[str, str]] = {
     "events": ("event", "events"),
     "family": ("kid-friendly", "kid-friendly"),
+    "seniors": ("senior activity", "senior activities"),
     "music": ("music", "music"),
     "water": ("on the water", "on the water"),
     "classes": ("class", "classes"),
