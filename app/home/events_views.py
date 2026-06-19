@@ -203,10 +203,19 @@ def _occurrence_expired(
 
     No-op (returns False) unless ``now`` is given and ``day`` is the current day,
     so the filter only ever trims *today's* finished items. Time-TBD occurrences
-    (no ``start_time``) never expire. End is ``end_time`` when set, else
+    (no ``start_time``) never expire, and neither do all-day events
+    (``start_time`` 00:00 with no ``end_time``). End is ``end_time`` when set, else
     ``start_time`` + ``default_minutes`` (Item 6 auto-expiry).
     """
     if now is None or start_time is None or now.date() != day:
+        return False
+    # All-day events use the start=00:00 / end=None convention (the same test
+    # the .ics feed and the pickleball/parks-rec loaders use). They have no real
+    # end-of-day moment, so the ``default_minutes`` fallback below would place
+    # their end at ~2 AM and wrongly purge them from the Today view a few hours
+    # into every day — even though they run all day. Treat them like Time-TBD
+    # rows: never expire on the current day (the date roll handles them).
+    if start_time == time(0, 0) and end_time is None:
         return False
     if end_time is not None:
         end_dt = datetime.combine(day, end_time)
