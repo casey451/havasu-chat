@@ -1,0 +1,114 @@
+{% extends "base_lake.html" %}
+{#- Lake Ink & Brass category browse page (/categories/{slug}) — the rich
+   directory listing: subcategory + cuisine chips, filter/sort, the ONE labeled
+   category-sponsor slot, real cards, pagination. SAME real context as
+   category_sandstone.html (incl. the ``facet_href`` callable). D4 kept: cards
+   show visible stars; structured data is CollectionPage + ItemList only. -#}
+
+{% block title %}{{ category_label }}{% if page and page > 1 %} — Page {{ page }}{% endif %} in Lake Havasu City — Ask Hava{% endblock %}
+{% block meta_description %}{{ category_one_liner | meta_desc(160) if category_one_liner else (category_label ~ ' in Lake Havasu City — real local listings, open-now first.') }}{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ static_url('/static/styles/lake_directory.css') }}">
+{% if prev_url %}<link rel="prev" href="{{ prev_url }}">{% endif %}
+{% if next_url %}<link rel="next" href="{{ next_url }}">{% endif %}
+{% if canonical_url is defined %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": {{ (category_label ~ ' — Lake Havasu City')|tojson }},
+  "url": "{{ canonical_url(request) }}",
+  "breadcrumb": { "@type": "BreadcrumbList", "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Ask Hava", "item": "{{ absolute_url('/home') }}" },
+    { "@type": "ListItem", "position": 2, "name": "Directory", "item": "{{ absolute_url('/categories') }}" },
+    { "@type": "ListItem", "position": 3, "name": {{ category_label|tojson }} }
+  ]}{% if category_cards %},
+  "mainEntity": { "@type": "ItemList", "itemListElement": [{% for card in category_cards %}{ "@type": "ListItem", "position": {{ loop.index }}, "name": {{ card.name|tojson }}{% if card.slug %}, "url": {{ absolute_url('/provider/' ~ card.slug)|tojson }}{% endif %} }{% if not loop.last %}, {% endif %}{% endfor %}]}{% endif %}
+}
+</script>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="wrap dir-wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><a href="/categories">Directory</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">{{ category_label }}</span></nav>
+  <div class="pagehead">
+    <h1>{{ category_label }}</h1>
+    {% if category_one_liner %}<p class="sub">{{ category_one_liner }}</p>{% endif %}
+  </div>
+
+  {% if trade_links %}
+  <div class="toolbar" aria-label="Browse by trade">
+    <span class="tlab">By trade</span>
+    {% for t in trade_links %}<a class="chip" href="{{ t.url }}">{{ t.label }}</a>{% endfor %}
+  </div>
+  {% endif %}
+  {% if subcat_chips %}
+  <div class="toolbar" aria-label="Subcategory">
+    <a class="chip{% if not facets.subcategory %} on{% endif %}" href="{{ all_chip_url }}"{% if not facets.subcategory %} aria-current="true"{% endif %}>All</a>
+    {% for c in subcat_chips %}<a class="chip{% if facets.subcategory == c.slug %} on{% endif %}" href="{{ facet_href(sub=c.slug) }}"{% if facets.subcategory == c.slug %} aria-current="true"{% endif %}>{{ c.label }}</a>{% endfor %}
+  </div>
+  {% endif %}
+  {% if cuisine_chips %}
+  <div class="toolbar" aria-label="Cuisine">
+    <span class="tlab">Cuisine</span>
+    <a class="chip{% if not active_cuisine %} on{% endif %}" href="{{ facet_href(cuisine=None) }}"{% if not active_cuisine %} aria-current="true"{% endif %}>All</a>
+    {% for c in cuisine_chips %}<a class="chip{% if active_cuisine == c.slug %} on{% endif %}" href="{{ facet_href(cuisine=c.slug) }}"{% if active_cuisine == c.slug %} aria-current="true"{% endif %}>{{ c.label }}</a>{% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="toolbar" role="group" aria-label="Filter and sort">
+    <span class="tlab">Filter</span>
+    <a class="chip{% if facets.open_now %} on{% endif %}" href="{{ facet_href(open=('1' if not facets.open_now else None)) }}"{% if facets.open_now %} aria-current="true"{% endif %}>Open now</a>
+    <a class="chip{% if facets.top_rated %} on{% endif %}" href="{{ facet_href(rating=('1' if not facets.top_rated else None)) }}"{% if facets.top_rated %} aria-current="true"{% endif %}>Top rated</a>
+    <span class="tlab" style="margin-left:8px">Sort</span>
+    <a class="chip{% if facets.sort in ('favorites', 'default') %} on{% endif %}" href="{{ facet_href(sort=None) }}">Locals' favorites</a>
+    <a class="chip{% if facets.sort == 'closest' %} on{% endif %}" href="{{ facet_href(sort='closest') }}">Closest</a>
+    <a class="chip{% if facets.sort == 'alpha' %} on{% endif %}" href="{{ facet_href(sort='alpha') }}">A&ndash;Z</a>
+    {% if sort_note %}<span class="shown">{{ sort_note }}</span>{% endif %}
+  </div>
+
+  {% if active_filter_labels %}
+  <p class="cat-empty" style="margin:6px 0 0">{{ active_filter_labels|join(' · ') }} · {{ category_count or 0 }} place{{ '' if category_count == 1 else 's' }} · <a href="{{ clear_filters_url }}">clear</a></p>
+  {% endif %}
+  {% if page_summary %}<p class="sub" style="margin:8px 0 0">{{ page_summary }}</p>{% endif %}
+
+  {% if category_cards or sponsored %}
+    {% if sponsored %}
+    <aside class="cat-sponsor" aria-label="Category sponsor" style="margin-top:16px">
+      <a class="adbar" href="{% if sponsored.click_url %}{{ sponsored.click_url }}{% else %}/sponsor/click?id={{ sponsored.id }}&slot=promoted{% endif %}">
+        <span class="mono" aria-hidden="true">{{ (sponsored.headline or sponsored.name or '·')[0]|upper }}</span>
+        <div class="ab"><span class="stag">Sponsored · {{ category_label }}</span><div class="an">{{ sponsored.headline or sponsored.name }}</div>{% if sponsored.pitch %}<div class="am">{{ sponsored.pitch }}</div>{% endif %}</div>
+        <span class="ar"><span class="btn btn-ghost">View</span></span>
+      </a>
+    </aside>
+    {% endif %}
+
+    <div class="listcard" id="bizGrid" style="margin-top:16px">
+      {% for card in category_cards %}{% include 'components/lake_biz_card.html' %}{% endfor %}
+    </div>
+
+    {% if total_pages and total_pages > 1 %}
+    <nav class="pager" aria-label="Pagination">
+      {% if prev_url %}<a class="btn btn-ghost" rel="prev" href="{{ prev_url }}">‹ Prev</a>{% endif %}
+      <span class="cur">Page {{ page }} of {{ total_pages }}</span>
+      {% if next_url %}<a class="btn btn-ghost" rel="next" href="{{ next_url }}">Next ›</a>{% endif %}
+    </nav>
+    {% endif %}
+
+    <p style="text-align:center;margin:26px 0 4px;font-size:13px"><a href="/contribute?kind=provider&amp;category={{ category_label|urlencode }}" style="color:var(--brass-deep);font-weight:600">Missing a business? Suggest one →</a></p>
+  {% else %}
+    <p class="cat-empty">No listings here yet. <a href="/chat?q={{ category_label|urlencode }}">Ask Hava →</a></p>
+  {% endif %}
+
+  <section class="askstrip">
+    <h2>Can't decide? <em>Ask.</em></h2>
+    <form action="/chat" method="get" role="search">
+      <label class="skip" for="cat-ask">Ask Hava</label>
+      <input id="cat-ask" name="q" type="search" placeholder="Ask about {{ category_label | lower }}…" autocomplete="off">
+      <button type="submit">Ask Hava</button>
+    </form>
+  </section>
+</div>
+{% endblock %}
