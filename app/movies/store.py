@@ -243,4 +243,4 @@ def prune_past(db: Session, *, before: date | None = None) -> int:
     before = before or now_lake_havasu().date()
     result = db.execute(delete(MovieShowtime).where(MovieShowtime.show_date < before))
     db.commit()
-    return int(result.rowcount or 0)
+    return int(getattr(result, "rowcount", 0) or 0)
