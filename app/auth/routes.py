@@ -79,6 +79,15 @@ def _safe_next(raw: str | None) -> str | None:
     return s
 
 
+def _tname(request: Request, desert_name: str) -> str:
+    """Pick the Lake Ink & Brass variant when the THEME flag resolves to lake
+    (Phase 4a/4b); otherwise the desert template. ``foo.html`` -> ``foo_lake.html``.
+    Default stays desert until the Phase-8 flip — see app/core/theme.py."""
+    if getattr(request.state, "theme", "desert") == "lake":
+        return f"{desert_name[:-5]}_lake.html"
+    return desert_name
+
+
 def _client_ip(request: Request) -> str | None:
     xff = request.headers.get("x-forwarded-for")
     if xff:
@@ -107,7 +116,7 @@ def login_page(request: Request) -> HTMLResponse:
     next_path = _safe_next(request.query_params.get("next"))
     return templates.TemplateResponse(
         request=request,
-        name="login.html",
+        name=_tname(request, "login.html"),
         context={"error": None, "next_path": next_path},
     )
 
@@ -126,7 +135,7 @@ def request_link(
     if not is_valid_email(normalized):
         return templates.TemplateResponse(
             request=request,
-            name="login.html",
+            name=_tname(request, "login.html"),
             context={
                 "error": "Please enter a valid email address.",
                 "next_path": safe_next,
@@ -136,7 +145,7 @@ def request_link(
     if _email_rate_limit_exceeded(db, normalized):
         return templates.TemplateResponse(
             request=request,
-            name="login_check_email.html",
+            name=_tname(request, "login_check_email.html"),
             context={"email": normalized, "next_path": safe_next},
         )
 
@@ -169,7 +178,7 @@ def request_link(
 
     return templates.TemplateResponse(
         request=request,
-        name="login_check_email.html",
+        name=_tname(request, "login_check_email.html"),
         context={"email": normalized, "next_path": safe_next},
     )
 
@@ -187,7 +196,7 @@ def auth_callback(
     if row is None or row.consumed_at is not None or row.expires_at < now_aware:
         return templates.TemplateResponse(
             request=request,
-            name="login_expired.html",
+            name=_tname(request, "login_expired.html"),
             status_code=400,
             context={},
         )
@@ -250,7 +259,7 @@ def account_page(request: Request) -> Response:
         return RedirectResponse(url="/login?next=%2Faccount", status_code=303)
     return templates.TemplateResponse(
         request=request,
-        name="account.html",
+        name=_tname(request, "account.html"),
         context={"user": user},
     )
 
@@ -368,7 +377,7 @@ def account_favorites_page(request: Request, db: SqlSession = Depends(get_db)) -
         )
     return templates.TemplateResponse(
         request=request,
-        name="account_favorites.html",
+        name=_tname(request, "account_favorites.html"),
         context={"user": user, "favorites": rows},
     )
 

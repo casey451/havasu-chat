@@ -1,0 +1,57 @@
+/* Lake Ink & Brass — account + auth surfaces (Phase 4a).
+   Pre-auth (login / check-email / expired) = a narrow centered column.
+   Signed-in (account / saved / alerts) = the sidebar layout ported from
+   mockups/page-account.html. All tokens come from lake.css; nothing here
+   introduces a new colour pair (see tests/test_lake_contrast.py — every
+   pair used below is already pinned there). */
+
+/* ── pre-auth column ───────────────────────────────────────────────── */
+.authwrap{max-width:480px;margin:0 auto;padding:36px 0 8px}
+.authwrap .eyebrow{display:block;margin-bottom:10px}
+.authwrap h1{font-family:var(--disp);font-weight:600;font-size:clamp(28px,4.4vw,38px);letter-spacing:-.02em;line-height:1.06}
+.authwrap h1 em{font-style:normal;color:var(--brass-deep)}
+.authwrap .lede{font-size:15px;color:var(--ink-2);margin-top:12px;line-height:1.55}
+.authcard{margin-top:22px;padding:22px}
+.row{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px;align-items:center}
+.row form{margin:0}
+
+/* ── inline notices (form error / saved confirmation) ──────────────── */
+.notice{border-radius:12px;padding:12px 14px;font-size:14px;margin:16px 0 0;border:1px solid var(--brass-edge);background:var(--brass-wash);color:var(--ink)}
+.notice.warn{border-color:var(--hair-2);background:var(--surface);color:var(--warn)}
+
+/* ── signed-in: sidebar + main ─────────────────────────────────────── */
+.acct{display:grid;grid-template-columns:240px 1fr;gap:30px;align-items:start;padding-top:6px}
+.anav{position:sticky;top:84px}
+.anav .card{padding:8px}
+.anav a{display:block;padding:10px 14px;border-radius:10px;font-size:14px;font-weight:500;color:var(--ink-2);text-decoration:none}
+.anav a:hover{background:var(--surface)}
+.anav a.on{background:var(--brass-wash);color:var(--brass-deep);font-weight:600}
+
+/* row list (saved listings, account-hub links) */
+.srow{display:flex;align-items:center;gap:14px;padding:14px 16px;border-top:1px solid var(--hair);text-decoration:none;color:inherit}
+.srow:first-child{border-top:0}
+a.srow:hover{background:var(--surface)}
+.srow .mono{width:42px;height:42px;border-radius:11px;background:var(--brass-wash);border:1px solid var(--brass-edge);display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:600;font-size:15px;color:var(--brass-deep);flex:none}
+.srow .bb{flex:1;min-width:0}
+.srow .t{font-family:var(--disp);font-weight:500;font-size:15px;color:var(--ink);display:block}
+.srow .m{font-size:12.5px;color:var(--ink-2);margin-top:2px;display:block}
+.srow .chev{color:var(--hair-2);font-size:20px;line-height:1;flex:none}
+
+/* alert option rows — real checkboxes (accessible, work with no JS) */
+.optrow{display:flex;align-items:flex-start;gap:13px;padding:14px 16px;border-top:1px solid var(--hair);cursor:pointer}
+.optrow:first-child{border-top:0}
+.optrow input[type=checkbox]{margin-top:2px;width:18px;height:18px;flex:none;accent-color:var(--brass);cursor:pointer}
+.optrow .optbody{flex:1}
+.optrow .t{font-family:var(--disp);font-weight:500;font-size:15px;color:var(--ink);display:block}
+.optrow .m{font-size:12.5px;color:var(--ink-2);margin-top:2px;display:block}
+.optrow.disabled{opacity:.55;cursor:default}
+.optrow.disabled input{cursor:default}
+
+/* logout sits below the account-hub card (empty state reuses the shared
+   .empty component from lake-components.css) */
+.logout{margin-top:18px}
+
+@media(max-width:720px){
+  .acct{grid-template-columns:1fr}
+  .anav{position:static}
+}
