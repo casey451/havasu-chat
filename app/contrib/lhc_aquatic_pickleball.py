@@ -12,16 +12,19 @@ per-day pickleball windows (e.g. ``9:00am - 12:00pm`` / ``12:30pm - 3:30pm``),
 distinguishes Pickleball / Basketball / "Closed For Event", and flags special
 sessions ("ROUND ROBIN (Must Pre-Register)", "GLOW Pickleball").
 
-This module fetches that PDF (text layer via ``pdfplumber``) and parses it into
-**timed** :class:`~app.contrib.lakehavasu_pickleball.EventSpec` rows, so the
-loader publishes real start/end times instead of all-day placeholders. Because
-the URL is stable and the PDF refreshes monthly, the existing scraper cron keeps
-the times current with no browser and no manual capture.
+This module fetches that PDF and parses it into **timed**
+:class:`~app.contrib.lakehavasu_pickleball.EventSpec` rows, so the loader
+publishes real start/end times instead of all-day placeholders. pdfplumber's
+table extraction groups each day into one bordered cell (number + activity +
+times); a plain-text parser is kept as a fallback. Because the URL is stable
+and the PDF refreshes monthly, the existing scraper cron keeps the times current
+with no browser and no manual capture.
 """
 
 from __future__ import annotations
 
 import io
+import logging
 import re
 from datetime import date
 
@@ -32,6 +35,8 @@ from app.contrib.lakehavasu_pickleball import (
     USER_AGENT,
     EventSpec,
 )
+
+logger = logging.getLogger(__name__)
 
 # Stable CivicPlus document URL: always serves the current month's Open Gym
 # schedule (the bare default-source path and the ?sfvrsn= variants are not
@@ -90,6 +95,71 @@ def _kind(text: str) -> tuple[str, str]:
     return "Pickleball Open Play", "Drop-in open play."
 
 
+def _parse_year_month(text: str) -> tuple[int, int] | None:
+    """(year, month) from the PDF header, or None if absent."""
+    ym = _YEAR_RE.search(text)
+    mm = _MONTH_RE.search(text)
+    if not ym or not mm:
+        return None
+    month = _MONTHS.get(mm.group(1).lower())
+    if not month:
+        return None
+    return int(ym.group(1)), month
+
+
+def _specs_for_cell(cell: str, *, year: int, month: int) -> list[EventSpec]:
+    """Pickleball EventSpecs for one calendar day cell, or [] if not pickleball.
+
+    A cell is the full text of one day box, e.g.
+    ``"2\\nPickleball\\n9:00am - 12:00pm\\n12:30pm - 3:30pm"``. Basketball and
+    "Closed For Event" cells yield []. Two windows -> two specs."""
+    c = (cell or "").strip()
+    m = re.match(r"(\d{1,2})\b", c)
+    if not m:
+        return []
+    day = int(m.group(1))
+    if not (1 <= day <= 31) or "pickleball" not in c.lower():
+        return []
+    ranges = _time_ranges(c)
+    if not ranges:
+        return []
+    try:
+        day_date = date(year, month, day)
+    except ValueError:
+        return []
+    prefix, note = _kind(c)
+    out: list[EventSpec] = []
+    for start, end in ranges:
+        desc = (
+            f"{note} {prefix} at {AQUATIC_VENUE_NAME} "
+            f"({start}-{end}). Cost: {AQUATIC_COST}. "
+            "Source: City of Lake Havasu City Aquatic Center Open Gym schedule."
+        )
+        out.append(
+            EventSpec(
+                title=f"{prefix} - {AQUATIC_VENUE_NAME}"[:300],
+                description=desc,
+                date=day_date,
+                end_date=day_date,
+                location_name=AQUATIC_VENUE_NAME,
+                event_url=AQUATIC_SCHEDULE_URL,
+                source_anchor=f"openplay|aquatic|{day_date.isoformat()}|{start}",
+                all_day=False,
+                start_time=start,
+                end_time=end,
+            )
+        )
+    return out
+
+
+def parse_aquatic_cells(cells: list[str], *, year: int, month: int) -> list[EventSpec]:
+    """Parse pickleball day cells (from pdfplumber table extraction)."""
+    specs: list[EventSpec] = []
+    for cell in cells:
+        specs.extend(_specs_for_cell(cell, year=year, month=month))
+    return specs
+
+
 def parse_aquatic_open_gym(pdf_text: str) -> list[EventSpec]:
     """Parse the City Open Gym PDF text into timed pickleball ``EventSpec`` rows.
 
@@ -97,14 +167,10 @@ def parse_aquatic_open_gym(pdf_text: str) -> list[EventSpec]:
     "Closed For Event" days are skipped. A day with two windows yields two specs.
     Returns ``[]`` if the year/month header can't be read (caller falls back).
     """
-    ym = _YEAR_RE.search(pdf_text)
-    mm = _MONTH_RE.search(pdf_text)
-    if not ym or not mm:
+    ym = _parse_year_month(pdf_text)
+    if not ym:
         return []
-    year = int(ym.group(1))
-    month = _MONTHS.get(mm.group(1).lower())
-    if not month:
-        return []
+    year, month = ym
 
     blocks: list[tuple[int, list[str]]] = []
     last = 0
@@ -169,22 +235,48 @@ def parse_aquatic_open_gym(pdf_text: str) -> list[EventSpec]:
     return specs
 
 
-def _fetch_pdf_text(url: str, *, client: httpx.Client | None) -> str:
-    import pdfplumber
-
+def _fetch_pdf_bytes(url: str, *, client: httpx.Client | None) -> bytes:
     if client is None:
         with httpx.Client(
             timeout=REQUEST_TIMEOUT,
             headers={"User-Agent": USER_AGENT},
             follow_redirects=True,
         ) as c:
-            return _fetch_pdf_text(url, client=c)
+            return _fetch_pdf_bytes(url, client=c)
     resp = client.get(url)
     resp.raise_for_status()
-    with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
-        return "\n".join(page.extract_text() or "" for page in pdf.pages)
+    return resp.content
 
 
 def fetch_aquatic_open_play(*, client: httpx.Client | None = None) -> list[EventSpec]:
-    """Fetch + parse the City Open Gym PDF into timed Aquatic Center specs."""
-    return parse_aquatic_open_gym(_fetch_pdf_text(AQUATIC_SCHEDULE_URL, client=client))
+    """Fetch + parse the City Open Gym PDF into timed Aquatic Center specs.
+
+    pdfplumber's table extraction groups each day into one bordered cell (number
+    + activity + times), which is reliable for this calendar grid. We parse those
+    cells; if no table is detected we fall back to the plain-text parser."""
+    import pdfplumber
+
+    data = _fetch_pdf_bytes(AQUATIC_SCHEDULE_URL, client=client)
+    cells: list[str] = []
+    text = ""
+    with pdfplumber.open(io.BytesIO(data)) as pdf:
+        for page in pdf.pages:
+            text += (page.extract_text() or "") + "\n"
+            for table in page.extract_tables() or []:
+                for row in table:
+                    for cell in row:
+                        if cell:
+                            cells.append(cell)
+    ym = _parse_year_month(text)
+    specs: list[EventSpec] = []
+    if ym:
+        specs = parse_aquatic_cells(cells, year=ym[0], month=ym[1])
+    used = "table"
+    if not specs:
+        specs = parse_aquatic_open_gym(text)
+        used = "text-fallback"
+    logger.info(
+        "aquatic open-gym: %d table cells -> %d timed specs (via %s)",
+        len(cells), len(specs), used,
+    )
+    return specs

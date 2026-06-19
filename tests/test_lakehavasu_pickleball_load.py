@@ -268,7 +268,7 @@ def _evt(anchor: str, start: time, end: time | None = None) -> Event:
 
 def test_prune_aquatic_allday_removes_legacy_rows_only(db_session) -> None:
     db = db_session
-    db.add(_evt("openplay|Lake Havasu City Aquatic Center|2026-06-20", time(0, 0)))
+    db.add(_evt("openplay|lake havasu city aquatic center|2026-06-20", time(0, 0)))
     db.add(_evt("openplay|aquatic|2026-06-20|12:30", time(12, 30), time(15, 30)))
     db.add(_evt("openplay|The Ark Center|2026-06-20", time(0, 0)))
     db.commit()
@@ -282,4 +282,4 @@ def test_prune_aquatic_allday_removes_legacy_rows_only(db_session) -> None:
     remaining = {e.source_url.split("#", 1)[1] for e in db.query(Event).all()}
     assert "openplay|aquatic|2026-06-20|12:30" in remaining
     assert "openplay|The Ark Center|2026-06-20" in remaining
-    assert all("openplay|Lake Havasu City Aquatic Center|" not in u for u in remaining)
+    assert all("openplay|lake havasu city aquatic center|" not in u for u in remaining)

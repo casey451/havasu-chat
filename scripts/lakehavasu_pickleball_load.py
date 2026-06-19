@@ -460,7 +460,8 @@ def prune_aquatic_allday(*, db: Any, dry_run: bool = False) -> int:
     duplicate the timed rows, so they are removed regardless of date. Matched
     on the old venue-name anchor only; the new timed rows are untouched. In
     dry-run we report the would-delete count without writing."""
-    pattern = f"%openplay|{AQUATIC_VENUE_NAME}|%"
+    # source_url is normalised (lower-cased) on write, so match lower-case.
+    pattern = f"%openplay|{AQUATIC_VENUE_NAME.lower()}|%"
     q = db.query(Event).filter(Event.source_url.like(pattern))
     if dry_run:
         return int(q.count() or 0)
