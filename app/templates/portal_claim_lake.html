@@ -1,0 +1,116 @@
+{% extends "base_lake.html" %}
+{#- Lake claim entry point (GET /portal/claim, public). Find your business, then
+   claim it from its profile page. The autocomplete <script> + its IDs
+   (claim-search-q / claim-search-results) and the .dp-suggest* classes it
+   writes are preserved VERBATIM from portal_claim.html — only restyled. -#}
+{% block title %}Claim your listing — Ask Hava{% endblock %}
+{% block meta_description %}Claim your Lake Havasu business listing on Ask Hava for free — unlock your full profile (photos, hours, menu, links) and the verified mark.{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="{{ static_url('/static/styles/lake_portal.css') }}">
+{% endblock %}
+{% block content %}
+<div class="wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/portal">For businesses</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Claim</span></nav>
+  <section class="bhero">
+    <p class="eyebrow">Claim your listing</p>
+    <h1>Claim <em>your listing.</em></h1>
+    <p class="sub">Claiming is free. It unlocks your full profile — photos, hours, menu and links — and the verified mark. Search your business name below, then open its page and tap <strong>&ldquo;Claim this listing&rdquo;</strong>.</p>
+    <div class="dp-search-wrap">
+      <form class="claimbar" action="/chat" method="get" role="search" aria-label="Find your business">
+        <input id="claim-search-q" name="q" type="text" placeholder="Your business name"
+               aria-label="Find your business" autocomplete="off"
+               aria-controls="claim-search-results" aria-expanded="false">
+        <button class="btn btn-primary" type="submit">Find it</button>
+      </form>
+      <div id="claim-search-results" class="dp-suggest" role="listbox" aria-label="Matching businesses" hidden></div>
+    </div>
+  </section>
+
+  <section class="doors">
+    <a class="card door" href="/categories">
+      <h2>Browse the directory</h2>
+      <p>Find your business by category, then claim it from its page.</p>
+      <span class="go" aria-hidden="true">Open the directory &rarr;</span>
+    </a>
+    <a class="card door" href="/contribute">
+      <h2>Not listed yet?</h2>
+      <p>Add your business to Ask Hava.</p>
+      <span class="go" aria-hidden="true">Add it to Hava &rarr;</span>
+    </a>
+  </section>
+
+  <p class="foot-note">A real person reviews each claim before anything changes — that's the human gate that keeps the directory trustworthy.</p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  /* UX-3 claim-page autocomplete. Reuses /api/search/suggestions, keeps only
+     commercial entities, and links each match to its listing page (where the
+     "Claim this listing" CTA resolves the correct slug). Names are inserted
+     via textContent — never innerHTML — so business names can't inject markup. */
+  (function () {
+    var input = document.getElementById("claim-search-q");
+    var box = document.getElementById("claim-search-results");
+    if (!input || !box) return;
+    var timer = null;
+
+    function clear() {
+      box.textContent = "";
+      box.hidden = true;
+      input.setAttribute("aria-expanded", "false");
+    }
+
+    function render(items) {
+      box.textContent = "";
+      if (!items.length) { clear(); return; }
+      items.forEach(function (r) {
+        var a = document.createElement("a");
+        a.className = "dp-suggest-item";
+        a.setAttribute("role", "option");
+        a.href = r.url;
+        var name = document.createElement("span");
+        name.className = "dp-suggest-name";
+        name.textContent = r.name;
+        a.appendChild(name);
+        if (r.subcategory) {
+          var meta = document.createElement("span");
+          meta.className = "dp-suggest-meta";
+          meta.textContent = String(r.subcategory).replace(/_/g, " ");
+          a.appendChild(meta);
+        }
+        box.appendChild(a);
+      });
+      box.hidden = false;
+      input.setAttribute("aria-expanded", "true");
+    }
+
+    function search(q) {
+      fetch("/api/search/suggestions?q=" + encodeURIComponent(q), {
+        headers: { Accept: "application/json" }
+      })
+        .then(function (res) { return res.ok ? res.json() : []; })
+        .then(function (rows) {
+          var commercial = (rows || []).filter(function (r) {
+            return r && r.type === "commercial";
+          }).slice(0, 8);
+          render(commercial);
+        })
+        .catch(clear);
+    }
+
+    input.addEventListener("input", function () {
+      var q = input.value.trim();
+      clearTimeout(timer);
+      if (q.length < 2) { clear(); return; }
+      timer = setTimeout(function () { search(q); }, 180);
+    });
+
+    document.addEventListener("click", function (e) {
+      if (e.target !== input && !box.contains(e.target)) clear();
+    });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") clear();
+    });
+  })();
+</script>
+{% endblock %}

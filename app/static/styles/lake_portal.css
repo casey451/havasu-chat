@@ -1,0 +1,91 @@
+/* Lake Ink & Brass — business portal (Phase 4c).
+   Public funnel (portal_index, portal_claim) + the merchant dashboards
+   (placements, buy-a-placement, ad creatives). Built on lake.css tokens;
+   reuses .wrap/.card/.field/.btn*/.eyebrow/.crumbs/.pagehead/.empty from the
+   design system. No new colour pair beyond the AA-pinned set. */
+
+/* ── For-Business funnel hero ──────────────────────────────────────── */
+.bhero{padding:52px 0 30px;text-align:center}
+.bhero .eyebrow{display:block;margin-bottom:14px}
+.bhero h1{font-family:var(--disp);font-weight:600;font-size:clamp(32px,5vw,52px);letter-spacing:-.025em;line-height:1.04;max-width:20ch;margin:0 auto}
+.bhero h1 em{font-style:normal;color:var(--brass-deep)}
+.bhero .sub{font-size:18px;color:var(--ink-2);margin:18px auto 0;max-width:56ch;line-height:1.55}
+.bhero .ctas{margin-top:26px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+
+/* ── door cards (claim / advertise; browse / add) ──────────────────── */
+.doors{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:30px}
+.door{display:block;padding:24px;text-decoration:none;color:inherit;position:relative}
+a.door:hover{border-color:var(--ink);box-shadow:var(--sh-pop);transform:translateY(-1px)}
+.door .pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--brass-deep);background:var(--brass-wash);border:1px solid var(--brass-edge);border-radius:999px;padding:3px 10px}
+.door h2{font-family:var(--disp);font-weight:600;font-size:21px;margin:12px 0 6px}
+.door p{font-size:14px;color:var(--ink-2);line-height:1.5}
+.door .go{display:inline-block;margin-top:14px;font-size:14px;font-weight:600;color:var(--brass-deep)}
+
+/* ── honest-by-design cards (brand promise; no metrics) ────────────── */
+.honest{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:30px}
+.honest .hc{padding:22px}
+.honest .hc .eyebrow{display:block}
+.honest .hc h3{font-family:var(--disp);font-weight:600;font-size:17px;margin-top:8px}
+.honest .hc p{font-size:13.5px;color:var(--ink-2);margin-top:6px;line-height:1.5}
+.foot-note{margin-top:24px;font-size:13px;color:var(--muted);text-align:center}
+
+/* ── claim search (preserves the autocomplete JS hooks verbatim) ───── */
+.dp-search-wrap{position:relative;max-width:560px;margin:24px auto 0;text-align:left}
+.claimbar{display:flex;gap:8px;align-items:stretch}
+.claimbar input{flex:1;min-width:0;border:1px solid var(--hair-2);border-radius:12px;padding:11px 16px;font-family:var(--ui);font-size:16px;background:#fff;color:var(--ink);min-height:48px}
+.dp-suggest{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;background:#fff;border:1px solid var(--hair-2);border-radius:12px;box-shadow:var(--sh-pop);overflow:hidden;margin:0;padding:0;list-style:none}
+.dp-suggest-item{display:flex;flex-direction:column;gap:2px;padding:11px 14px;text-decoration:none;color:var(--ink)}
+.dp-suggest-item:hover,.dp-suggest-item:focus{background:var(--brass-wash);outline:none}
+.dp-suggest-name{font-weight:600}
+.dp-suggest-meta{font-size:12.5px;color:var(--ink-2);text-transform:capitalize}
+
+/* inline notice (purchase confirmation) — token-only, AA-safe */
+.notice{border-radius:12px;padding:13px 16px;font-size:14px;margin:0 0 22px;border:1px solid var(--brass-edge);background:var(--brass-wash);color:var(--ink)}
+.notice strong{color:var(--brass-deep)}
+
+/* ── merchant dashboards: tables + forms ───────────────────────────── */
+.ptable-wrap{overflow-x:auto}
+.ptable{width:100%;border-collapse:collapse;font-size:14px}
+.ptable th{text-align:left;font-weight:600;color:var(--ink);padding:10px 12px;border-bottom:2px solid var(--hair-2);white-space:nowrap}
+.ptable td{padding:10px 12px;border-bottom:1px solid var(--hair);color:var(--ink-2);vertical-align:top}
+.ptable .pill{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;padding:4px 11px;border-radius:999px;background:var(--surface);border:1px solid var(--hair-2);color:var(--ink-2)}
+.ptable .pill.on{background:var(--brass-wash);border-color:var(--brass-edge);color:var(--brass-deep)}
+.ptable .pill.on::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--good)}
+
+/* claimed-listing mini cards */
+.lcards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:6px}
+.lcard{padding:18px}
+.lcard h3{font-family:var(--disp);font-weight:600;font-size:16px;margin:0 0 4px}
+.lcard .cat{font-size:13px;color:var(--muted)}
+.lcard .act{margin-top:14px}
+
+/* buy / creative forms */
+.pform{display:grid;gap:20px;padding:24px}
+.pform fieldset{display:grid;gap:10px;border:1px solid var(--hair-2);border-radius:12px;padding:14px 16px;margin:0}
+.pform legend{padding:0 6px;font-size:13px;font-weight:600;color:var(--ink)}
+.pform .opt{display:flex;gap:11px;align-items:flex-start;font-size:14px;color:var(--ink-2);cursor:pointer}
+.pform .opt input{margin-top:3px;flex:none;accent-color:var(--brass)}
+.pform .opt b{color:var(--ink)}
+.pform .grid2{display:grid;gap:16px;grid-template-columns:1fr 1fr}
+.pform .field{margin-bottom:0}
+.pform .actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.pform .note{font-size:12.5px;color:var(--muted)}
+
+/* error summary + per-field error (accessible forms) */
+.errsum{border:1px solid var(--hair-2);background:var(--surface);border-left:4px solid var(--warn);border-radius:12px;padding:14px 16px;margin:16px 0}
+.errsum h2{font-size:15px;font-weight:600;color:var(--warn);margin:0 0 6px}
+.errsum ul{margin:0;padding-left:18px}
+.errsum a{color:var(--warn);font-weight:600}
+.field .err{display:block;font-size:12.5px;color:var(--warn);margin-top:5px}
+
+/* creative gallery */
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:26px}
+.ccard{padding:0;overflow:hidden}
+.ccard .thumb{height:120px;background:var(--surface) center/cover no-repeat}
+.ccard .cmeta{padding:14px 16px}
+.ccard h3{font-family:var(--disp);font-weight:600;font-size:15px;margin:0 0 2px}
+.ccard .cat{font-size:12.5px;color:var(--muted)}
+
+@media(max-width:760px){
+  .doors,.honest,.lcards,.cgrid,.pform .grid2{grid-template-columns:1fr}
+}

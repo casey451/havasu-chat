@@ -1,0 +1,106 @@
+{% extends "base_lake.html" %}
+{#- Lake ad-creatives manager (GET/POST /portal/creatives, auth-gated). Same
+   context as portal_creatives.html: {providers, creatives, errors, form}. The
+   multipart form + every field name (provider_id / headline / body / image_url /
+   image_url_mobile / image_file / cta_label / cta_url) + the upload pipeline are
+   preserved. noindex. -#}
+{% block title %}Ad creatives — Ask Hava{% endblock %}
+{% block meta_description %}Manage the ad creatives for your Lake Havasu listings.{% endblock %}
+{% block head_extra %}
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="{{ static_url('/static/styles/lake_portal.css') }}">
+{% endblock %}
+{% block content %}
+<div class="wrap" style="max-width:820px">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/portal/placements">Your placements</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Ad creatives</span></nav>
+  <div class="pagehead">
+    <h1>Ad creatives</h1>
+    <p class="sub">Optional custom copy and art for your placements. With no creative, a placement just uses your listing's name and photo. Image URLs should point to images you already host.</p>
+  </div>
+
+  <h2 class="disp" style="font-size:21px;margin:26px 0 12px">Your creatives</h2>
+  {% if not creatives %}
+  <div class="empty"><p>None yet — add one below.</p></div>
+  {% else %}
+  <div class="cgrid">
+    {% for c in creatives %}
+    <div class="card ccard">
+      {% if c.image_url %}<div class="thumb" style="background-image:url('{{ c.image_url }}')" role="img" aria-label="Creative preview"></div>{% endif %}
+      <div class="cmeta">
+        <h3>{{ c.headline or 'Untitled creative' }}</h3>
+        <p class="cat">{{ c.provider_name }}</p>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <h2 class="disp" style="font-size:21px;margin:0 0 12px">Add a creative</h2>
+
+  {% if errors %}
+  <div class="errsum" role="alert">
+    <h2>Please fix the highlighted fields</h2>
+    <ul>
+      {% if errors.headline %}<li><a href="#headline">{{ errors.headline }}</a></li>{% endif %}
+      {% if errors.image_url %}<li><a href="#image_file">{{ errors.image_url }}</a></li>{% endif %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <form method="post" action="/portal/creatives" enctype="multipart/form-data" class="card pform">
+    <div class="field">
+      <label for="provider_id">Listing</label>
+      <select id="provider_id" name="provider_id" required>
+        <option value="">— choose a listing —</option>
+        {% for prov in providers %}
+        <option value="{{ prov.id }}" {% if form.provider_id == prov.id %}selected{% endif %}>{{ prov.provider_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="headline">Headline</label>
+      <input id="headline" type="text" name="headline" maxlength="255" value="{{ form.headline or '' }}" placeholder="e.g. Sunset cruises, booking now" {% if errors.headline %}aria-describedby="headline-err"{% endif %}>
+      {% if errors.headline %}<span class="err" id="headline-err">{{ errors.headline }}</span>{% endif %}
+    </div>
+
+    <div class="field">
+      <label for="body">Body <span class="note">(optional)</span></label>
+      <textarea id="body" name="body" rows="2" placeholder="A short line of supporting copy.">{{ form.body or '' }}</textarea>
+    </div>
+
+    <div class="grid2">
+      <div class="field">
+        <label for="image_url">Image URL <span class="note">(web)</span></label>
+        <input id="image_url" type="url" name="image_url" value="{{ form.image_url or '' }}" placeholder="https://…">
+      </div>
+      <div class="field">
+        <label for="image_url_mobile">Image URL <span class="note">(mobile, optional)</span></label>
+        <input id="image_url_mobile" type="url" name="image_url_mobile" value="{{ form.image_url_mobile or '' }}" placeholder="https://…">
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="image_file">Or upload an image <span class="note">(JPG/PNG/WebP/GIF, max 5 MB — replaces the image URL above)</span></label>
+      <input id="image_file" type="file" name="image_file" accept="image/png,image/jpeg,image/webp,image/gif" {% if errors.image_url %}aria-describedby="image_file-err"{% endif %}>
+      {% if errors.image_url %}<span class="err" id="image_file-err">{{ errors.image_url }}</span>{% endif %}
+    </div>
+
+    <div class="grid2">
+      <div class="field">
+        <label for="cta_label">Button label <span class="note">(optional)</span></label>
+        <input id="cta_label" type="text" name="cta_label" maxlength="80" value="{{ form.cta_label or '' }}" placeholder="Book now">
+      </div>
+      <div class="field">
+        <label for="cta_url">Button link <span class="note">(optional)</span></label>
+        <input id="cta_url" type="url" name="cta_url" value="{{ form.cta_url or '' }}" placeholder="https://…">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="submit" class="btn btn-primary">Save creative</button>
+      <a class="btn btn-ghost" href="/portal/placements">Back</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
