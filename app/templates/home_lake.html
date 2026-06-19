@@ -1,0 +1,242 @@
+{% extends "base_lake.html" %}
+{#- Lake Ink & Brass home — the v10 layout wired to the SAME real context the
+   desert home consumes (app/home/router.serve_home → app/home/sandstone). No
+   fabricated data: counts/events/tiles are live-or-omitted. -#}
+
+{% block title %}Ask Hava — what's happening in Lake Havasu City{% endblock %}
+{% block meta_description %}Lake Havasu City's local concierge: today's events, live conditions, the month at a glance, and the real local directory — restaurants, the lake, services, and more.{% endblock %}
+{% block og_image %}{{ absolute_url('/static/img/lake/og-default.png') }}{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{{ static_url('/static/styles/lake_home.css') }}">
+{% if canonical_url is defined %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Ask Hava",
+  "url": "{{ absolute_url('/') }}",
+  "logo": "{{ absolute_url('/static/img/lake/icon-512.png') }}",
+  "description": "Ask Hava is the local concierge and directory for Lake Havasu City, Arizona.",
+  "areaServed": "Lake Havasu City, Arizona"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Ask Hava",
+  "url": "{{ absolute_url('/') }}",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": { "@type": "EntryPoint", "urlTemplate": "{{ absolute_url('/chat') }}?q={search_term_string}" },
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>
+{% if week and week.days and week.days[0].events %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  "name": "Events today in Lake Havasu City",
+  "itemListElement": [{% for ev in week.days[0].events %}{ "@type": "ListItem", "position": {{ loop.index }}, "name": {{ ev.title|tojson }} }{% if not loop.last %}, {% endif %}{% endfor %}]
+}
+</script>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{%- macro cat_icon(url) -%}
+{%- if 'eat' in url or 'food' in url or 'drink' in url or 'dining' in url -%}
+<svg viewBox="0 0 24 24" fill="none"><path d="M7 3v9M5 3v4a2 2 0 0 0 2 2M9 3v4a2 2 0 0 1-2 2M7 12v9M16 3c-1.5 1-2 3-2 5s.5 4 2 5v8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+{%- elif 'water' in url or 'lake' in url or 'boat' in url or 'marine' in url -%}
+<svg viewBox="0 0 24 24" fill="none"><path d="M3 18c1.5 1.4 3 1.4 4.5 0s3-1.4 4.5 0 3 1.4 4.5 0 3-1.4 4.5 0M4 14l8-8 8 8M12 6v8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+{%- elif 'family' in url or 'kid' in url or 'education' in url -%}
+<svg viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="2.4" stroke="currentColor" stroke-width="1.7"/><circle cx="16" cy="9" r="1.8" stroke="currentColor" stroke-width="1.7"/><path d="M3 19c0-3 2.5-5 6-5s6 2 6 5M15 19c0-2 1.5-3.5 4-3.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+{%- elif 'fitness' in url or 'wellness' in url or 'class' in url or 'sport' in url -%}
+<svg viewBox="0 0 24 24" fill="none"><path d="M6.5 6.5l11 11M4 9l-1 1 2 2M9 4l1-1 2 2M20 15l1-1-2-2M15 20l-1 1-2-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+{%- elif 'home' in url or 'property' in url or 'service' in url or 'auto' in url -%}
+<svg viewBox="0 0 24 24" fill="none"><path d="M3 21V10l9-6 9 6v11h-6v-6H9v6H3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+{%- else -%}
+<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="11" r="7" stroke="currentColor" stroke-width="1.7"/><path d="M12 8v6m-3-3h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+{%- endif -%}
+{%- endmacro -%}
+
+{% block content %}
+<section class="lead"><div class="wrap lead-main">
+  <h1 class="asklede">What do you need in Havasu?</h1>
+
+  <form class="ask" role="search" action="/chat" method="get">
+    <svg class="ag" viewBox="0 0 40 30" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12 H36"/><path d="M8 24 A12 9 0 0 1 32 24"/><path d="M8 24 V28 M32 24 V28"/><path d="M6 28 H34" stroke-width="2"/></g><path class="b" d="M18 12 H22 L21.2 18 H18.8 Z"/></svg>
+    <input id="home-ask-input" name="q" type="search" aria-label="Ask Hava — say what you need in plain words" placeholder="Ask Hava — “boat rentals on the channel”" autocomplete="off">
+    <button class="go" type="submit" aria-label="Ask Hava"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </form>
+
+  <div class="tryrow">
+    <span class="tl">Try</span>
+    <a class="exq" href="/events-ui">Tonight</a>
+    <a class="exq" href="/events-ui?view=week">This weekend</a>
+    <a class="exq" href="/family">Kid-friendly</a>
+    <a class="exq" href="/lake">Lake &amp; Boating</a>
+    <a class="exq" href="/night">After dark</a>
+    <a class="exq" href="/chat">Need a service</a>
+  </div>
+
+  <div class="home-marquee">
+    {% if marquee %}
+    <aside class="adbar" aria-label="Featured business">
+      <span class="mono" aria-hidden="true">{{ (marquee.headline or '·')[0]|upper }}</span>
+      <div class="ab">
+        <span class="stag">Featured</span>
+        <div class="an">{{ marquee.headline }}</div>
+        {% if marquee.pitch %}<div class="am">{{ marquee.pitch }}</div>{% endif %}
+      </div>
+      {% if marquee.cta_url %}<span class="ar"><a class="btn btn-ghost" href="{% if marquee.click_url %}{{ marquee.click_url }}{% else %}/sponsor/click?id={{ marquee.id }}&slot=marquee{% endif %}">{{ marquee.cta_label or 'View' }}</a></span>{% endif %}
+    </aside>
+    {% else %}
+    <a class="adclaim" href="/portal/placements">
+      <span class="cat">Featured business</span>
+      <span class="claim">Your business in the top spot — quiet, clearly labeled. <em>Advertise →</em></span>
+    </a>
+    {% endif %}
+  </div>
+</div></section>
+
+{% if week.has_any %}
+{% set td = week.days[0] %}
+<section class="today" id="today"><div class="wrap">
+  <div class="mod-head">
+    <div><h2 class="disp">Happening in Havasu</h2><div class="sub">Today · {{ td.label }} {{ td.md }}{% if td.event_count %} — {{ td.event_count }} event{{ '' if td.event_count == 1 else 's' }}{% endif %}{% if td.class_count %} · {{ td.class_count }} class{{ '' if td.class_count == 1 else 'es' }}{% endif %}</div></div>
+    <a class="full" href="/events-ui">See full calendar <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+  </div>
+
+  <div class="daystrip" role="list" aria-label="The next seven days">
+    {% for day in week.days %}
+    <a class="day{% if loop.first %} today{% endif %}" role="listitem" href="/events-ui?date={{ day.iso }}"
+       aria-label="{{ day.event_count }} event{{ '' if day.event_count == 1 else 's' }} on {{ 'today' if loop.first else day.label }} {{ day.md }}">
+      <span class="dow">{{ 'Today' if loop.first else day.label }}</span>
+      <span class="dn">{{ day.iso.split('-')[2]|int }}</span>
+      {% if day.event_count %}<span class="ct"><span class="d" aria-hidden="true"></span>{{ day.event_count }}</span>{% else %}<span class="ct none">—</span>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+
+  {% if td.events %}
+  <div class="elist today-list">
+    {% for ev in td.events %}
+    <div class="eitem">
+      <a class="erow" href="/events-ui?date={{ td.iso }}">
+        {% if ev.time %}<span class="tm">{{ ev.time }}</span>{% endif %}
+        <span class="body"><span class="l1"><span class="ti2">{{ ev.title }}</span></span></span>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty today-list"><h3>Nothing posted for today yet</h3><p>Browse the week ahead or the full calendar.</p></div>
+  {% endif %}
+
+  {% if td.categories %}
+  <div class="also"><span class="alabel">Also today</span>
+    {% for c in td.categories %}<span class="wchip">{{ c.label }} <b>{{ c.count }}</b></span>{% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="cal-legend">
+    <span><i class="leg"></i>Around town</span>
+    <span><i class="leg family"></i>Kids &amp; family</span>
+    <span><i class="leg music"></i>Music &amp; nightlife</span>
+    <span><i class="leg water"></i>Lake &amp; boating</span>
+    <span><i class="leg classes"></i>Fitness &amp; classes</span>
+  </div>
+</div></section>
+{% endif %}
+
+<section class="explore" id="explore"><div class="wrap">
+  <div class="ex-head"><h2 class="disp">Find your spot</h2><p>Where to eat, who to call, what to do — the real local list.</p></div>
+  <div class="exgrid">
+    {% for tile in explore_tiles %}
+    <a class="extile" href="{{ tile.url }}">
+      <span class="ic" aria-hidden="true">{{ cat_icon(tile.url) }}</span>
+      <h3>{{ tile.label }}</h3>
+      <span class="ar" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    </a>
+    {% endfor %}
+  </div>
+
+  {% if service_tiles %}
+  <div class="svc-head">Need something done?</div>
+  <div class="svc-strip">
+    {% for tile in service_tiles %}<a class="svc-chip" href="{{ tile.url }}">{{ tile.label }} <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>{% endfor %}
+  </div>
+  {% endif %}
+
+  {% set real_featured = featured_cards | rejectattr('empty') | list %}
+  {% if real_featured %}
+  <div class="ex-spon">
+    {% set card = real_featured[0] %}
+    {% if card.url %}<a class="adbar" href="{{ card.url }}" aria-label="Sponsored business">{% else %}<div class="adbar" aria-label="Sponsored business">{% endif %}
+      <span class="mono" aria-hidden="true">{{ (card.name or '·')[0]|upper }}</span>
+      <div class="ab"><span class="stag">Sponsored</span><div class="an">{{ card.name }}</div>{% if card.deal %}<div class="am">{{ card.deal }}</div>{% endif %}</div>
+    {% if card.url %}</a>{% else %}</div>{% endif %}
+  </div>
+  {% endif %}
+
+  <div class="ex-all"><a class="btn btn-ghost" href="/categories">All categories</a></div>
+</div></section>
+
+<section class="month" id="calendar"><div class="wrap">
+  <div class="mh">
+    <div><h2 class="disp">{{ calendar.label }} at a glance</h2><div class="sub">Events &amp; classes across Lake Havasu this month</div></div>
+    <a class="full" href="/events-ui">Full calendar <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+  </div>
+  <div class="mcal">
+    <div class="mcal-top">
+      <div class="m">{{ calendar.label }}</div>
+      <div class="mcal-nav"><a href="/home?cal={{ calendar.prev }}#calendar" aria-label="Previous month">‹</a><a href="/home?cal={{ calendar.next }}#calendar" aria-label="Next month">›</a></div>
+    </div>
+    <div class="wd"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+    {% if calendar.has_any %}
+    <div class="grid">
+      {% for wk in calendar.weeks %}{% for cell in wk %}
+      {% if not cell.in_month %}
+      <div class="cell empty" aria-hidden="true"></div>
+      {% elif cell.has %}
+      <a class="cell has{% if cell.is_today %} today{% endif %}" href="/events-ui?date={{ cell.iso }}"
+         aria-label="{% if cell.count %}{{ cell.count }} event{{ '' if cell.count == 1 else 's' }}{% endif %}{% if cell.count and cell.class_count %} and {% endif %}{% if cell.class_count %}{{ cell.class_count }} class{{ '' if cell.class_count == 1 else 'es' }}{% endif %} on day {{ cell.day }}">
+        <span class="dn">{{ cell.day }}</span>
+        {% if cell.count %}<span class="cell-count" aria-hidden="true">{{ cell.count }}</span>{% endif %}
+        {% for ev in cell.events %}<span class="ev {{ ev.type }}">{{ ev.title }}</span>{% endfor %}
+        {% if cell.overflow and cell.overflow > 0 %}<span class="ev more">+{{ cell.overflow }} more</span>{% endif %}
+        {% if cell.class_count %}<span class="ev classes">{{ cell.class_count }} class{{ '' if cell.class_count == 1 else 'es' }}</span>{% endif %}
+      </a>
+      {% else %}
+      <div class="cell{% if cell.is_today %} today{% endif %}"><span class="dn">{{ cell.day }}</span></div>
+      {% endif %}
+      {% endfor %}{% endfor %}
+    </div>
+    {% else %}
+    <div class="cal-empty">No events posted for {{ calendar.label }} yet. <a href="/events-ui">Browse all events →</a></div>
+    {% endif %}
+  </div>
+</div></section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* Rotating placeholder for the hero ask box — demonstrates what Ask Hava can
+   answer, then freezes + clears the moment the user focuses or types. */
+(function () {
+  var input = document.getElementById('home-ask-input');
+  if (!input) return;
+  var ex = ['tacos near the channel', "what's open right now", 'plumbers in Lake Havasu',
+            'boat rentals', "what's happening tonight", 'dog groomers', 'kid-friendly this weekend'];
+  var i = 0, timer = setInterval(function () { i = (i + 1) % ex.length; input.setAttribute('placeholder', ex[i]); }, 2600);
+  input.setAttribute('placeholder', ex[0]);
+  function stop() { clearInterval(timer); if (input.value === '') input.setAttribute('placeholder', ''); }
+  input.addEventListener('focus', stop, { once: true });
+  input.addEventListener('input', stop, { once: true });
+})();
+</script>
+{% endblock %}
