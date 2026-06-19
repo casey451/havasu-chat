@@ -93,6 +93,10 @@ SEO_NOUNS: dict[str, str] = {
     "theaters-and-cinema": "Movie Theaters",
     # Outdoors & Recreation
     "disc-golf": "Disc Golf Courses",
+    # 2026-06-19: golf-courses is the combined "Golf" hub (courses + driving
+    # range/Toptracer + indoor simulators), so the page reads "Golf", not the
+    # narrower "Golf Courses". Slug unchanged — SEO/URLs stay put.
+    "golf-courses": "Golf",
     # On the Water
     "kayak-and-paddle": "Kayak & Paddleboard Rentals",
     # Lodging — pin the searcher noun so the leaf's displayed term stays

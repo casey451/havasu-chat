@@ -21,6 +21,7 @@ from sqlalchemy import Float, and_, case, cast, exists, false, func, literal, or
 from sqlalchemy.orm import Session, aliased, joinedload
 
 from app.chat import tier2_db_query
+from app.chat.normalizer import spell_correct
 from app.chat.tier2_schema import Tier2Filters
 from app.chat.tier2_synonyms import _category_needle_set
 from app.core.provider_name import register_template_filters, register_template_globals
@@ -92,6 +93,26 @@ def _tier2_filters_for_search(
     )
 
 
+def _search_needles(q_raw: str) -> tuple[str, ...]:
+    """Category needles for a search query, with domain spell-correction.
+
+    Expands the raw query AND its spell-corrected form (``spell_correct`` —
+    the same domain typo layer the chat concierge uses, whose vocab is built
+    from the leaf/synonym dicts) so a misspelled or loosely-phrased category
+    query ("pool cleaining", "golf coarse") still reaches the right providers.
+    Union of both needle sets, deduped + sorted.
+    """
+    q_norm = (q_raw or "").strip().lower()
+    if not q_norm:
+        return ()
+    needles: set[str] = set(_category_needle_set(q_norm))
+    corrected = spell_correct(q_norm)
+    if corrected and corrected != q_norm:
+        needles |= set(_category_needle_set(corrected))
+    needles.discard("")
+    return tuple(sorted(needles))
+
+
 def _provider_synonym_exists_predicate(
     *,
     q_raw: str,
@@ -105,7 +126,7 @@ def _provider_synonym_exists_predicate(
     """
     if entity_type_filter is not None and entity_type_filter != ENTITY_TYPE_COMMERCIAL:
         return None
-    needles = _category_needle_set(q_raw.strip().lower())
+    needles = _search_needles(q_raw)
     if not needles:
         return None
     P = aliased(Provider)
@@ -126,6 +147,7 @@ def _provider_synonym_exists_predicate(
             P.entity_id == Entity.id,
             P.is_active.is_(True),
             P.draft.is_(False),
+            P.is_local.isnot(False),  # Lake Havasu-local only (drop out-of-area)
             or_(*conds),
         )
     )
@@ -322,6 +344,15 @@ def api_search(
         )
     )
 
+    # Locality (2026-06-19, Casey): Lake Havasu-local only. Drop out-of-area
+    # commercial listings; non-commercial entity types are unaffected.
+    q_stmt = q_stmt.where(
+        or_(
+            Entity.entity_type != ENTITY_TYPE_COMMERCIAL,
+            Provider.is_local.isnot(False),
+        )
+    )
+
     ref_now = now_lake_havasu()
 
     feat = _featured_case_expr()
@@ -483,6 +514,7 @@ def _keyword_provider_rows(db: Session, *, q_clean: str, limit: int) -> list[Pro
             Provider.entity_id.in_(entity_ids),
             Provider.is_active.is_(True),
             Provider.draft.is_(False),
+            Provider.is_local.isnot(False),  # Lake Havasu-local only
         )
         .order_by(func.lower(Provider.provider_name).asc(), Provider.id.asc())
         .limit(limit)

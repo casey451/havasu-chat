@@ -142,6 +142,10 @@ def _leaf_provider_query(db: Session, leaf_id: int):
             Entity.is_active.is_(True),
             Provider.is_active.is_(True),
             Provider.draft.is_(False),
+            # Locality (2026-06-19, Casey): Lake Havasu-local only. Drop providers
+            # classified out-of-area (Bullhead/Parker/Kingman/Laughlin/Needles…);
+            # keep True and unknown/NULL (never assume an un-geocoded row is far).
+            Provider.is_local.isnot(False),
         )
     )
 
@@ -343,10 +347,15 @@ def leaf_renderable_count(db: Session, leaf: Leaf) -> int:
         return (
             db.query(EntityCategory)
             .join(Entity, EntityCategory.entity_id == Entity.id)
+            # Locality: keep places (no Provider row → NULL → kept) and local /
+            # unknown providers; drop explicit out-of-area providers so the gate
+            # count matches what leaf_listing renders.
+            .outerjoin(Provider, Provider.entity_id == Entity.id)
             .filter(
                 EntityCategory.category_id == leaf.id,
                 EntityCategory.is_primary.is_(True),
                 Entity.is_active.is_(True),
+                Provider.is_local.isnot(False),
             )
             .count()
         )
@@ -383,10 +392,14 @@ def _gate_counts(db: Session, *, dept_id: int | None = None) -> dict[int, int]:
         .select_from(EntityCategory)
         .join(Entity, EntityCategory.entity_id == Entity.id)
         .join(Category, Category.id == EntityCategory.category_id)
+        # Locality: outerjoin so places (no Provider) stay; drop out-of-area
+        # providers so department/sitemap counts match the rendered pages.
+        .outerjoin(Provider, Provider.entity_id == Entity.id)
         .filter(
             EntityCategory.is_primary.is_(True),
             Entity.is_active.is_(True),
             Category.level == 1,
+            Provider.is_local.isnot(False),
         )
     )
     if dept_id is not None:
