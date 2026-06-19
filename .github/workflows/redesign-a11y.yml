@@ -49,6 +49,8 @@ on:
       - "app/templates/help_lake.html"
       - "app/templates/contact_lake.html"
       - "app/templates/privacy_doc_lake.html"
+      - "app/templates/not_found_lake.html"
+      - "app/templates/event_not_found_lake.html"
       - "app/templates/_partials/lake_account_nav.html"
       - "app/templates/_partials/lake_logo.svg.html"
       - "app/static/styles/lake*.css"

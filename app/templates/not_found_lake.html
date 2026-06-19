@@ -1,0 +1,32 @@
+{% extends "base_lake.html" %}
+{#- Lake 404 page — rendered by the StarletteHTTPException handler for unmatched
+   HTML routes. Ports the page-404 mockup (big code, ask bar → /chat, popular
+   links). noindex. -#}
+{% block title %}Not found — Ask Hava{% endblock %}
+{% block meta_description %}That page moved or never existed. Ask Hava for what you're looking for in Lake Havasu City.{% endblock %}
+{% block head_extra %}
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="{{ static_url('/static/styles/lake_error.css') }}">
+{% endblock %}
+{% block content %}
+<div class="wrap">
+  <div class="e404">
+    <div class="big tnum">404</div>
+    <h1>That one floated downriver.</h1>
+    <p>We couldn't find that page. Try asking Hava, or jump to what's happening today.</p>
+    <form class="ask" action="/chat" method="get" role="search" aria-label="Ask Hava">
+      <span class="lbl" aria-hidden="true">Ask</span>
+      <input name="q" type="text" placeholder="tonight, a class, a plumber&hellip;" aria-label="Ask Hava">
+      <button class="go" type="submit" aria-label="Ask">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </form>
+    <div class="links">
+      <a class="btn btn-ghost" href="/events-ui">Today's events</a>
+      <a class="btn btn-ghost" href="/categories">The directory</a>
+      <a class="btn btn-ghost" href="/map">Map</a>
+      <a class="btn btn-ghost" href="/home">Home</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
