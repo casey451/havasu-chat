@@ -138,8 +138,9 @@ def themed_group_landing(
         "boat_mode_active": boat_only,
     }
 
+    _lake = getattr(request.state, "theme", "desert") == "lake"
     return templates.TemplateResponse(
         request=request,
-        name="themed_group_landing.html",
+        name="themed_group_landing_lake.html" if _lake else "themed_group_landing.html",
         context=ctx,
     )
