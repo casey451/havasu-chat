@@ -1,95 +1,89 @@
-"""Movie showtime grouping (app.movies.queries.group_showtimes) and the
-general-events-feed exclusion of movie rows (app.home.sandstone)."""
+"""Movie showtime grouping (movie_showtimes table) + the defensive events-feed
+exclusion (movies must never appear in the general events feed)."""
 
 from __future__ import annotations
 
 import uuid
 from datetime import date, time
-from types import SimpleNamespace
 
 from sqlalchemy import delete
 
 from app.db.database import SessionLocal
-from app.db.models import Entity, Event
+from app.db.models import Entity, Event, MovieShowtime
+from app.events.queries import events_in_window
 from app.home import sandstone
-from app.movies.queries import _meta_line, group_showtimes
+from app.movies.queries import group_showtimes
 
-DAY = date(2026, 6, 19)
+DAY = date(2099, 6, 22)
 
 
-def ev(title, slug, hour, minute=0, *, loc, meta="PG · Drama · 2h", url="http://book", img="http://p.jpg"):
-    return SimpleNamespace(
-        title=title,
-        date=DAY,
-        tags=["movie", "showtime", slug],
-        location_name=loc,
-        description=f"{meta}\n\nSynopsis here.",
-        image_url=img,
-        event_url=url,
-        start_time=None if hour is None else time(hour, minute),
-        end_time=None,
+def ms(
+    title: str,
+    slug: str,
+    hh: int,
+    mm: int = 0,
+    *,
+    name: str,
+    rating: str = "PG",
+    genre: str = "Drama",
+    runtime: int = 120,
+    poster: str = "http://p.jpg",
+    url: str = "http://book",
+    on: date | None = None,
+) -> MovieShowtime:
+    return MovieShowtime(
+        source="test",
+        source_stable_id=f"{title}-{hh}{mm}-{slug}",
+        theater_slug=slug,
+        theater_name=name,
+        film_title=title,
+        show_date=on or DAY,
+        show_time=time(hh, mm),
+        rating=rating,
+        genre=genre,
+        runtime_minutes=runtime,
+        poster_url=poster,
+        booking_url=url,
     )
 
 
-def test_meta_line_parses_meta_but_not_prose():
-    assert _meta_line("PG · Adventure · 1h 42m\n\nThe toys are back.") == "PG · Adventure · 1h 42m"
-    assert _meta_line("Just a long synopsis with no separator line at all.") == ""
-    assert _meta_line(None) == ""
-
-
-def test_groups_by_theater_then_film_sorted():
-    events = [
-        ev("Toy Story 5", "star-cinemas", 14, loc="Star Cinemas"),
-        ev("Toy Story 5", "star-cinemas", 11, loc="Star Cinemas"),
-        ev("Obsession", "movies-havasu", 19, loc="Movies Havasu"),
-        ev("Toy Story 5", "movies-havasu", 13, loc="Movies Havasu"),
+def test_group_by_theater_then_film_sorted():
+    rows = [
+        ms("Toy Story 5", "star-cinemas", 14, name="Star Cinemas"),
+        ms("Toy Story 5", "star-cinemas", 11, name="Star Cinemas"),
+        ms("Obsession", "movies-havasu", 19, name="Movies Havasu"),
     ]
-    groups = group_showtimes(events, day=DAY)
-    # Known theaters in THEATER_ORDER: star-cinemas before movies-havasu.
+    groups = group_showtimes(rows, day=DAY)
+    # Known theaters: star-cinemas before movies-havasu.
     assert [g.slug for g in groups] == ["star-cinemas", "movies-havasu"]
-
     star = groups[0]
     assert star.name == "Star Cinemas"
     assert len(star.films) == 1
     toy = star.films[0]
     assert toy.title == "Toy Story 5"
     assert [s.label for s in toy.showtimes] == ["11 AM", "2 PM"]  # chronological
-    assert toy.poster == "http://p.jpg"
     assert toy.rating == "PG"
     assert toy.meta == "Drama · 2h"
+    assert toy.poster == "http://p.jpg"
 
 
-def test_drops_films_with_no_displayable_time():
-    events = [
-        ev("Toy Story 5", "star-cinemas", 11, loc="Star Cinemas"),
-        ev("Mystery Film", "star-cinemas", None, loc="Star Cinemas"),  # no start time
+def test_films_sorted_by_earliest_and_other_days_ignored():
+    rows = [
+        ms("Late Film", "star-cinemas", 21, name="Star Cinemas"),
+        ms("Early Film", "star-cinemas", 10, name="Star Cinemas"),
+        ms("Other Day", "star-cinemas", 9, name="Star Cinemas", on=date(2099, 6, 23)),
     ]
-    groups = group_showtimes(events, day=DAY)
-    titles = [f.title for f in groups[0].films]
-    assert titles == ["Toy Story 5"]
-
-
-def test_ignores_non_movie_and_other_days():
-    other = SimpleNamespace(
-        title="Farmers Market", date=DAY, tags=["events"], location_name="Main St",
-        description="", image_url=None, event_url="", start_time=time(9, 0), end_time=None,
-    )
-    wrong_day = ev("Toy Story 5", "star-cinemas", 11, loc="Star Cinemas")
-    wrong_day.date = date(2026, 6, 20)
-    groups = group_showtimes([other, wrong_day], day=DAY)
-    assert groups == []
-
-
-def test_films_sorted_by_earliest_showtime():
-    events = [
-        ev("Late Film", "star-cinemas", 21, loc="Star Cinemas"),
-        ev("Early Film", "star-cinemas", 10, loc="Star Cinemas"),
-    ]
-    groups = group_showtimes(events, day=DAY)
+    groups = group_showtimes(rows, day=DAY)
     assert [f.title for f in groups[0].films] == ["Early Film", "Late Film"]
 
 
-# --- general feed excludes movie rows ---------------------------------------
+def test_meta_runtime_format():
+    rows = [ms("Film", "star-cinemas", 12, name="Star Cinemas", genre="Comedy", runtime=102)]
+    groups = group_showtimes(rows, day=DAY)
+    assert groups[0].films[0].meta == "Comedy · 1h 42m"
+
+
+# --- general events feed still excludes any movie-tagged Event (defensive) -----
 
 
 def _seed_event(db, *, title: str, on: date, tags: list[str]) -> str:
@@ -122,22 +116,38 @@ def _cleanup(eids: list[str]) -> None:
 
 
 def test_general_feed_excludes_movie_rows_keeps_regular_events():
-    """Movie showtimes (tag ``movie``) are kept out of the general events feed
-    loader so ~200/day showtimes never flood /events-ui or the home module;
-    a same-day non-movie event still comes through."""
     day = date(2099, 7, 14)
     suffix = uuid.uuid4().hex[:6]
     movie_title = f"ZZ Movie Showtime {suffix}"
     fair_title = f"ZZ Street Fair {suffix}"
     eids: list[str] = []
     with SessionLocal() as db:
-        eids.append(_seed_event(db, title=movie_title, on=day, tags=["movie", "showtime", "star-cinemas"]))
+        eids.append(_seed_event(db, title=movie_title, on=day, tags=["movie", "showtime"]))
         eids.append(_seed_event(db, title=fair_title, on=day, tags=["events"]))
     try:
         with SessionLocal() as db:
             by_day = sandstone._live_events_by_day(db, window_start=day, window_end=day)
         titles = {ev_row.title for ev_row in by_day.get(day, [])}
-        assert movie_title not in titles  # filtered out of the general feed
-        assert fair_title in titles  # regular events unaffected
+        assert movie_title not in titles
+        assert fair_title in titles
+    finally:
+        _cleanup(eids)
+
+
+def test_events_in_window_excludes_movie_rows():
+    day = date(2099, 7, 15)
+    suffix = uuid.uuid4().hex[:6]
+    movie_title = f"ZZ Movie Windowed {suffix}"
+    fair_title = f"ZZ Fair Windowed {suffix}"
+    eids: list[str] = []
+    with SessionLocal() as db:
+        eids.append(_seed_event(db, title=movie_title, on=day, tags=["movie", "showtime"]))
+        eids.append(_seed_event(db, title=fair_title, on=day, tags=["events"]))
+    try:
+        with SessionLocal() as db:
+            rows = events_in_window(db, window_start=day, window_end=day)
+        titles = {ev_row.title for ev_row, _occ in rows}
+        assert movie_title not in titles
+        assert fair_title in titles
     finally:
         _cleanup(eids)
