@@ -1,0 +1,92 @@
+{% extends "base_lake.html" %}
+{#- Lake Ink & Brass /calendar — the customized events+classes calendar the
+   concierge routes discovery queries to. Real per-day data (calendar_view);
+   every control is a link (server-rendered, no SPA). noindex during the dark
+   rollout (set in app/home/calendar_route.py). -#}
+
+{% block title %}{{ cal.title }} — Ask Hava, Lake Havasu City{% endblock %}
+{% block meta_description %}A made-for-you calendar of Lake Havasu City events and classes — filter by day, time, type, and who it's for.{% endblock %}
+
+{% block head_extra %}
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="{{ static_url('/static/styles/lake_calendar.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="cal-head"><div class="wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">Your calendar</span></nav>
+  {% if cal.q %}
+  <p class="cal-readback"><span class="rk">Hava read</span> <i>“{{ cal.q }}”</i></p>
+  {% endif %}
+  <div class="pagehead">
+    <h1>{{ cal.title }}</h1>
+    <p class="sub"><b class="tnum">{{ cal.total }}</b> match{{ '' if cal.total == 1 else 'es' }} across the week — refine below.</p>
+  </div>
+
+  <div class="cal-controls">
+    {% if cal.chips %}
+    <div class="chiprow" aria-label="Active filters">
+      <span class="clab">Hava understood</span>
+      {% for c in cal.chips %}
+      <span class="afilter">{{ c.label }}<a class="afx" href="{{ c.remove_url }}" aria-label="Remove filter {{ c.label }}">×</a></span>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <div class="chiprow">
+      <span class="clab">When</span>
+      <div class="seg" role="group" aria-label="Time of day">
+        {% for o in cal.seg_part %}<a href="{{ o.url }}" class="{{ 'on' if o.active }}"{% if o.active %} aria-current="true"{% endif %}>{{ o.label }}</a>{% endfor %}
+      </div>
+      <span class="clab">Show</span>
+      <div class="seg" role="group" aria-label="Type">
+        {% for o in cal.seg_type %}<a href="{{ o.url }}" class="{{ 'on' if o.active }}"{% if o.active %} aria-current="true"{% endif %}>{{ o.label }}</a>{% endfor %}
+      </div>
+      <div class="seg" role="group" aria-label="Audience">
+        {% for o in cal.seg_aud %}<a href="{{ o.url }}" class="{{ 'on' if o.active }}"{% if o.active %} aria-current="true"{% endif %}>{{ o.label }}</a>{% endfor %}
+      </div>
+    </div>
+    <div class="dayscroll" aria-label="Days">
+      {% for d in cal.day_toggle_urls %}
+      <a class="daychip{{ ' on' if d.active }}{{ ' today' if d.label == 'Today' }}" href="{{ d.url }}"{% if d.active %} aria-current="true"{% endif %}>
+        <span class="dw">{{ d.label }}</span><span class="dd tnum">{{ d.daynum }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="cal-grid">
+    {% for col in cal.columns %}
+    <div class="col">
+      <div class="colh{{ ' is-today' if col.is_today }}">
+        <span class="cd">{{ col.label }}</span>
+        <span class="cdn">{{ col.daynum }}</span>
+        <span class="cc">{{ col.count }}</span>
+      </div>
+      {% if col.entries %}
+      <div class="items">
+        {% for it in col.entries %}
+        {% if it.url %}<a class="it" href="{{ it.url }}">{% else %}<div class="it">{% endif %}
+          <span class="tcol"><span class="tm tnum">{{ it.time_label }}</span><span class="kind {{ 'cl' if it.kind == 'class' else 'ev' }}">{{ 'Class' if it.kind == 'class' else 'Event' }}</span></span>
+          <span class="ibody"><span class="nm">{{ it.title }}</span>{% if it.venue %}<span class="mt">{{ it.venue }}</span>{% endif %}</span>
+        {% if it.url %}</a>{% else %}</div>{% endif %}
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="cal-empty"><span class="e1">Nothing matches here</span>Try another day or loosen a filter.</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="refine">
+    <div><div class="rt">Not quite it?</div><div class="rs">Ask again in plain words — Hava rebuilds the calendar.</div></div>
+    <form action="/calendar" method="get" role="search">
+      <label class="skip" for="cal-q">Ask again</label>
+      <input id="cal-q" name="q" type="search" value="{{ cal.q }}" placeholder="“live music this weekend”, “toddler mornings”…" autocomplete="off">
+      <button class="go" type="submit" aria-label="Rebuild calendar"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </form>
+  </div>
+</div></section>
+{% endblock %}
