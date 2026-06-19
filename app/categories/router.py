@@ -64,6 +64,22 @@ register_template_globals(templates)
 
 router = APIRouter(tags=["categories"])
 
+# Lake Ink & Brass redesign (Phase 3): theme-select the directory templates from
+# request.state.theme. Default stays desert until the flip; the lake variants
+# render the SAME context.
+_LAKE_DIR_TEMPLATES = {
+    "categories_index.html": "categories_index_lake.html",
+    "category_sandstone.html": "category_sandstone_lake.html",
+    "category_department.html": "category_department_lake.html",
+    "category_trade.html": "category_trade_lake.html",
+}
+
+
+def _dir_template(request: Request, desert_name: str) -> str:
+    if getattr(request.state, "theme", "desert") == "lake":
+        return _LAKE_DIR_TEMPLATES.get(desert_name, desert_name)
+    return desert_name
+
 # Retired flat category routes -> their canonical taxonomy department. The
 # pre-taxonomy site served ~15 lumped Provider.category buckets at
 # /categories/{slug} with overlapping counts; the A.3 department/leaf tree
@@ -270,7 +286,7 @@ def serve_categories_index(
     categories = _get_index_payload(db)
     return templates.TemplateResponse(
         request=request,
-        name="categories_index.html",
+        name=_dir_template(request, "categories_index.html"),
         context={
             "today_label": now.strftime("%A, %B ") + str(now.day),
             "now_label": now.strftime("%I:%M %p").lstrip("0"),
@@ -496,7 +512,7 @@ def _render_category_page(
         context.update(extra_context)
     return templates.TemplateResponse(
         request=request,
-        name="category_sandstone.html",
+        name=_dir_template(request, "category_sandstone.html"),
         context=context,
     )
 
@@ -700,7 +716,7 @@ def _render_trade_page(
 
     return templates.TemplateResponse(
         request=request,
-        name="category_trade.html",
+        name=_dir_template(request, "category_trade.html"),
         context={
             "today_label": now.strftime("%A, %B ") + str(now.day),
             "now_label": now.strftime("%I:%M %p").lstrip("0"),
@@ -972,7 +988,7 @@ def _render_leaf_page(
 
     return templates.TemplateResponse(
         request=request,
-        name="category_trade.html",
+        name=_dir_template(request, "category_trade.html"),
         context={
             "today_label": now.strftime("%A, %B ") + str(now.day),
             "now_label": now.strftime("%I:%M %p").lstrip("0"),
@@ -1064,7 +1080,7 @@ def _render_department_page(
 
     return templates.TemplateResponse(
         request=request,
-        name="category_department.html",
+        name=_dir_template(request, "category_department.html"),
         context={
             "today_label": now.strftime("%A, %B ") + str(now.day),
             "now_label": now.strftime("%I:%M %p").lstrip("0"),
