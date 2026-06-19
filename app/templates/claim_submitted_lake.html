@@ -1,0 +1,21 @@
+{% extends "base_lake.html" %}
+{#- Lake claim-received confirmation (POST /claim/{slug} success). Same context
+   as claim_submitted.html ({entity}). noindex. -#}
+{% block title %}Claim received — Ask Hava{% endblock %}
+{% block head_extra %}
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="{{ static_url('/static/styles/lake_account.css') }}">
+{% endblock %}
+{% block content %}
+<div class="wrap">
+  <div class="authwrap">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/account">My account</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Claim</span></nav>
+    <p class="eyebrow">Claim submitted</p>
+    <h1>Thanks — <em>we received it.</em></h1>
+    <p class="lede">We'll review your request for <strong>{{ (entity.name | clean_name) or entity.slug }}</strong> and follow up within 48 hours.</p>
+    <div class="row">
+      <a class="btn btn-ghost" href="/account">Back to my account</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
