@@ -62,3 +62,12 @@ def test_kids_series_showings_have_unique_urls():
     urls = [p.event_url for p in payloads]
     assert urls, "kids series SERIES is empty"
     assert len(set(urls)) == len(urls)
+
+
+def test_kids_series_titles_meet_min_length():
+    # EventApprovalFields.title requires >= 3 chars; a 2-char title (e.g. "IF")
+    # crashes the auto-approve path on apply.
+    from scripts.load_star_cinemas_kids_series import SERIES
+
+    for row in SERIES:
+        assert len(row["title"]) >= 3, row["title"]

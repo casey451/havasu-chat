@@ -69,7 +69,7 @@ SERIES: list[dict] = [
     {"title": "Clifford the Big Red Dog", "rating": "PG",
      "poster": _TMDB + "/30ULVKdjBcQTsj2aOSThXXZNSxF.jpg",
      "dates": ["2026-06-22", "2026-06-23", "2026-06-24", "2026-06-25"], "times": SHOWTIME},
-    {"title": "IF", "rating": "PG",
+    {"title": "IF (2024)", "rating": "PG",
      "poster": _TMDB + "/xbKFv4KF3sVYuWKllLlwWDmuZP7.jpg",
      "dates": ["2026-06-29", "2026-06-30", "2026-07-01", "2026-07-02"], "times": SHOWTIME},
     {"title": "Dora and the Lost City of Gold", "rating": "PG",
