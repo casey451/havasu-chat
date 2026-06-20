@@ -652,6 +652,8 @@ def serve_home(
             ),
             "explore_tiles": sandstone.explore_tiles(db),
             "service_tiles": sandstone.service_tiles(db),
+            # Phase 3: the slim home directory's six high-traffic front doors.
+            "directory_tiles": sandstone.directory_primary_tiles(),
             "movies_today": movies_today(db, day=now.date()),
             "active_tab": "today",
         },

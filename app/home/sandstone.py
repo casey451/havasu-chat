@@ -247,6 +247,21 @@ def primary_nav() -> list[dict[str, str]]:
     ]
 
 
+# Phase 3 (slim directory): the six highest-traffic department front doors for
+# the home "Find a place or service" block. Curated navigation to canonical
+# department landings (like :func:`primary_nav`) — unconditional, no counts. The
+# rest of the taxonomy is reachable via the "see all" link + /categories.
+def directory_primary_tiles() -> list[dict[str, str]]:
+    return [
+        {"label": "Eat & Drink", "url": "/categories/eat-and-drink"},
+        {"label": "Lake & Boating", "url": "/categories/on-the-water"},
+        {"label": "Things to Do", "url": "/categories/things-to-do-and-attractions"},
+        {"label": "Home Services", "url": "/categories/home-and-property-services"},
+        {"label": "Health", "url": "/categories/health-and-medical"},
+        {"label": "Auto & Boat", "url": "/categories/auto-rv-and-marine"},
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Today module — real cards only, honest omission of unbuilt sources
 # ---------------------------------------------------------------------------

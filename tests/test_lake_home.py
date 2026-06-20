@@ -176,6 +176,24 @@ def test_lake_nav_unified_across_breakpoints() -> None:
     assert 'href="/categories/eat-and-drink"' not in desktop.group(1)
 
 
+def test_lake_home_slim_directory() -> None:
+    """Phase 3: the home directory is one slim block — a keyword search into
+    /search, six high-traffic front doors, and a single "see all" line. The old
+    15-tile grid + duplicate "Need something done?" strip are gone."""
+    b = _lake_home()
+    # Keyword search field wired to the real /search results page.
+    assert 'class="dirsearch"' in b
+    assert 'action="/search"' in b
+    # The six curated front doors (curated nav — present even on an empty DB).
+    for label in ("Eat &amp; Drink", "Home Services", "Health", "Auto &amp; Boat"):
+        assert label in b
+    # One line to the rest of the taxonomy.
+    assert 'class="dmore"' in b
+    assert 'href="/categories"' in b
+    # The duplicate service strip is gone from the slim directory.
+    assert "Need something done?" not in b
+
+
 def test_lake_home_structural_a11y() -> None:
     checker = _A11yChecker()
     checker.feed(_lake_home())
