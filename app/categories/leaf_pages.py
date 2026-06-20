@@ -232,6 +232,23 @@ def _place_card(entity: Entity) -> dict[str, Any]:
     }
 
 
+def _leaf_provider_backed_entity_ids(db: Session, leaf_id: int) -> set[str]:
+    """Entity ids on this leaf that have an active, non-draft provider, regardless
+    of locality. Used so a provider dropped by the is_local filter does NOT leak
+    back into the place-card fallback as a "Visit" card (2026-06-20)."""
+    rows = (
+        db.query(EntityCategory.entity_id)
+        .join(Provider, Provider.entity_id == EntityCategory.entity_id)
+        .filter(
+            EntityCategory.category_id == leaf_id,
+            EntityCategory.is_primary.is_(True),
+            Provider.is_active.is_(True),
+            Provider.draft.is_(False),
+        )
+    )
+    return {eid for (eid,) in rows.all()}
+
+
 def leaf_listing(
     db: Session, leaf: Leaf, *, now: datetime
 ) -> tuple[list[dict[str, Any]], int, list[Provider]]:
@@ -243,10 +260,13 @@ def leaf_listing(
     Provider-backed rows for the ItemList JSON-LD (place cards aren't linkable).
     """
     providers = leaf_provider_rows(db, leaf)
-    provider_eids = {p.entity_id for p in providers}
+    # Exclude EVERY provider-backed entity (not just the locality-surviving ones)
+    # from the place-card fallback, so a provider dropped by the is_local filter
+    # does not reappear here as a "Visit" place card.
+    backed_eids = _leaf_provider_backed_entity_ids(db, leaf.id)
     try:
         place_entities = [
-            e for e in _leaf_entity_rows(db, leaf.id) if e.id not in provider_eids
+            e for e in _leaf_entity_rows(db, leaf.id) if e.id not in backed_eids
         ]
     except Exception:
         place_entities = []
@@ -284,7 +304,7 @@ def leaf_listing(
     # Curated hybrid cross-listings (e.g. "The Spot" on the arcade leaf as well
     # as its primary restaurants leaf). Additive to the page, de-duplicated
     # against what's already shown; empty unless explicitly curated.
-    shown_eids = provider_eids | {e.id for e in place_entities}
+    shown_eids = backed_eids | {e.id for e in place_entities}
     extra_cards, extra_providers = _cross_listed_cards(
         db, leaf, now=now, exclude_entity_ids=shown_eids
     )
@@ -329,6 +349,7 @@ def _cross_listed_cards(
                 Provider.entity_id == e.id,
                 Provider.is_active.is_(True),
                 Provider.draft.is_(False),
+                Provider.is_local.isnot(False),
             )
             .first()
         )
