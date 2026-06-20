@@ -182,16 +182,23 @@ def test_family_and_pool_classes_split_out() -> None:
     try:
         with TestClient(app) as client:
             body = client.get(f"/events-ui?date={day.isoformat()}").text
+        i_events = body.index('data-group="events"')
         i_family = body.index('data-group="family"')
         i_classes = body.index('data-group="classes"')
+        events_block = body[i_events : body.index("</details>", i_events)]
         family_block = body[i_family : body.index("</details>", i_family)]
         classes_block = body[i_classes : body.index("</details>", i_classes)]
-        # Kids & Family collects youth classes AND the family open-swim.
+        # Overlay model (2026-06-19): Kids & Family re-lists every kid occurrence,
+        # but each item ALSO stays in its primary group (additive, not exclusive).
         assert karate in family_block and openswim in family_block
         assert adultlap not in family_block and aqua not in family_block
-        # Pool classes fold into Fitness & classes — never the lake group.
-        assert adultlap in classes_block and aqua in classes_block
-        assert karate not in classes_block and openswim not in classes_block
+        # Fitness & classes lists EVERY class now, including the kid one — the
+        # youth karate appears here AND under Kids & Family (intentional overlay).
+        assert karate in classes_block and adultlap in classes_block and aqua in classes_block
+        # Open Swim is all-day drop-in rec → "Happening today" (events group), not
+        # a class and not lake; it's also mirrored into Kids & Family above.
+        assert openswim in events_block
+        assert openswim not in classes_block
     finally:
         _cleanup(eids)
 
