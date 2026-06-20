@@ -672,6 +672,18 @@ def _martial_subcat_from_name(name: str | None) -> str | None:
     return None
 
 
+def is_martial_arts_name(name: str | None) -> bool:
+    """True when a business/venue NAME carries a martial-arts discipline token
+    (jiu-jitsu, bjj, karate, taekwondo, kempo, krav maga, muay thai, judo,
+    aikido, kung fu, black belt, dojo, self-defense, …).
+
+    Reused by the events page (:func:`app.home.events_views._class_subgroup`) to
+    file every class held at a martial-arts venue under the Martial Arts
+    subsection — so the catalog's martial-arts studios are covered automatically
+    as they're added, without a hand-maintained venue list."""
+    return bool(name) and bool(_MARTIAL_ARTS_NAME.search(name))
+
+
 # Vacation-rental routing from the business NAME (2026-06-15 coverage audit).
 # These carry Google type ``lodging`` / ``real_estate_agency``, so the type
 # tiers file them as ``hotels`` and the ``vacation-rentals`` page renders empty.

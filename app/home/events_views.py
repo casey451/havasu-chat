@@ -37,6 +37,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.categories.subcategories import is_martial_arts_name
 from app.db.models import Event
 from app.events.class_occurrences import (
     class_occurrences_in_window,
@@ -118,18 +119,28 @@ _CLASS_FALLBACK_LABEL = "Other classes"
 _CLASS_SUBGROUP_MIN = 6
 
 
+# Explicit martial-arts venues whose NAME carries no discipline token, so the
+# shared catalog name detector (is_martial_arts_name) can't catch them. Substring
+# matched, lower-cased. Most dojos are caught by the name detector automatically;
+# this list is only for the token-less stragglers (e.g. "Arevalo Academy").
 _MARTIAL_ARTS_VENUES: tuple[str, ...] = (
     "bridge city",
+    "arevalo",
 )
 
 
 def _class_subgroup(title: str, venue: str | None = None) -> str:
     """Map a fitness/class occurrence to a type subsection.
 
-    Venue wins first: a known martial-arts gym (Bridge City) files every class
-    under Martial Arts regardless of title. Otherwise title-keyword classify.
+    Venue wins first: any class at a martial-arts studio files under Martial Arts
+    regardless of title. The catalog's own name detector
+    (:func:`app.categories.subcategories.is_martial_arts_name`) covers every dojo
+    whose name carries a discipline token (jiu-jitsu, karate, kempo, …); the
+    short ``_MARTIAL_ARTS_VENUES`` list catches token-less stragglers. Otherwise
+    fall back to the title-keyword classifier.
     """
-    if any(v in (venue or "").lower() for v in _MARTIAL_ARTS_VENUES):
+    vlow = (venue or "").lower()
+    if is_martial_arts_name(venue) or any(v in vlow for v in _MARTIAL_ARTS_VENUES):
         return "Martial Arts"
     low = title.lower()
     for label, hints in _CLASS_SUBGROUPS:
