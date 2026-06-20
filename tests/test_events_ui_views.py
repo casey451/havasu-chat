@@ -192,11 +192,9 @@ def test_family_and_pool_classes_split_out() -> None:
         # but each item ALSO stays in its primary group (additive, not exclusive).
         assert karate in family_block and openswim in family_block
         assert adultlap not in family_block and aqua not in family_block
-        # Fitness & classes lists EVERY class now, including the kid one — the
-        # youth karate appears here AND under Kids & Family (intentional overlay).
+        # Fitness & classes lists EVERY class now, incl. the kid one (overlay dup).
         assert karate in classes_block and adultlap in classes_block and aqua in classes_block
-        # Open Swim is all-day drop-in rec → "Happening today" (events group), not
-        # a class and not lake; it's also mirrored into Kids & Family above.
+        # Open Swim is all-day drop-in rec -> "Happening today" (events), not a class.
         assert openswim in events_block
         assert openswim not in classes_block
     finally:
