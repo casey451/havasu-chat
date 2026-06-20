@@ -102,6 +102,7 @@
     {% else %}
     <div class="ev-empty"><h3>Nothing posted for {{ day_label }} yet</h3><p>Try the week or month view, or check back soon.</p></div>
     {% endif %}
+    {% include "_partials/movies_today.html" %}
 
   {% elif mode == 'week' %}
     <div class="ev-week">

@@ -94,6 +94,8 @@
     </section>
     {% endif %}
 
+    {% if mode in ('today', 'day') %}{% include "_partials/movies_today.html" %}{% endif %}
+
     {% if mode == 'week' %}
     <section class="block" aria-label="This week">
       <div class="ev-week">
