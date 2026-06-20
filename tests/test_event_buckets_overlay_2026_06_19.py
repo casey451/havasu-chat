@@ -52,6 +52,29 @@ def test_open_mat_and_bridge_city_route_to_martial_arts() -> None:
     assert _class_subgroup("Adult Program", "Bridge City Brazilian Jiu-Jitsu") == "Martial Arts"
 
 
+def test_every_catalog_martial_arts_studio_routes_to_martial_arts() -> None:
+    # Any class held at a martial-arts studio files under Martial Arts, by the
+    # venue name — covering the live catalog's studios automatically (10 of 11
+    # carry a discipline token; "Arevalo Academy" is the token-less straggler in
+    # the explicit venue list).
+    venues = [
+        "Women KravMaga Self Defense for Women",
+        "THE TAP ROOM JIU JITSU",
+        "Lake Havasu Black Belt Academy LLC",
+        "Four Dragons Martial Arts",
+        "Havasu Shao-Lin Kempo",
+        "Elite Martial Arts, Inc.",
+        "Next Generation Mixed Martial Arts",
+        "Seibukan Karate-Do",
+        "Trinity Mixed Martial Arts",
+        "Bridge City BJJ",
+        "Arevalo Academy",
+    ]
+    for v in venues:
+        # A generic, non-martial title still files under Martial Arts via the venue.
+        assert _class_subgroup("Adult Class", v) == "Martial Arts", v
+
+
 def test_pool_classes_get_aquatic_fitness_subsection() -> None:
     for title in ("Lap Swim", "Water Aerobics", "Aqua Zumba", "Deep Water Fitness"):
         assert _class_subgroup(title) == "Aquatic fitness", title
