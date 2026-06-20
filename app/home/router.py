@@ -631,6 +631,12 @@ def serve_home(
             "primary_nav": sandstone.primary_nav(),
             "mega_columns": sandstone.mega_columns(db),
             "week": sandstone.week_strip(db, today=now.date()),
+            # Lake home "Happening today" module (2026-06-19 redesign): the same
+            # category accordion the /events-ui Today view uses, plus a highlights
+            # strip of the unique one-offs and an honest all-in total. Built from
+            # the shared day_groups so the home card and /events-ui never disagree.
+            "today_groups": events_views.day_groups(db, day=now.date(), now=now),
+            "today_highlights": events_views.day_highlights(db, day=now.date(), now=now, limit=3),
             "marquee": marquee,
             "promoted": promoted,
             "featured_cards": featured_cards,
@@ -969,11 +975,11 @@ def serve_events_ui(
             {
                 "mode": "day",
                 "groups": events_views.day_groups(db, day=single_day, family=family_on, now=now),
+                "movies_today": movies_today(db, day=single_day),
                 "day_label": _long_day_label(single_day),
                 "prev_iso": (single_day - timedelta(days=1)).isoformat(),
                 "next_iso": (single_day + timedelta(days=1)).isoformat(),
                 "is_today": single_day == today,
-                "movies_today": movies_today(db, day=single_day),
             }
         )
     elif view_key == "week":
@@ -998,8 +1004,8 @@ def serve_events_ui(
             {
                 "mode": "today",
                 "groups": events_views.day_groups(db, day=today, family=family_on, now=now),
-                "day_label": _long_day_label(today),
                 "movies_today": movies_today(db, day=today),
+                "day_label": _long_day_label(today),
             }
         )
     # THEME flag (Lake Ink & Brass, Phase 2): the lake events surface reskins
