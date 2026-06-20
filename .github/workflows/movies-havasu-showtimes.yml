@@ -1,0 +1,51 @@
+name: movies-havasu-showtimes
+
+# Renders movieshavasu.com (it has NO plain showtimes feed) and upserts showtimes
+# into movie_showtimes (source=movies_havasu). Twice daily, offset from the Star
+# Cinemas cron. Playwright + Chromium run ONLY in this job — the Railway app
+# never imports Playwright and stays browser-free.
+#
+# Idempotent on (source, source_stable_id=perfcode). Film metadata comes from the
+# theater's stable boxoffice JSON API; only the per-date booking links are read
+# from the rendered DOM.
+#
+# NOTE: GitHub only runs scheduled workflows from the default branch. Merge to
+# main before the cron takes effect; until then use "Run workflow"
+# (workflow_dispatch) — tick "dry_run" first to validate the render with no writes.
+
+on:
+  schedule:
+    - cron: "30 15 * * *"   # 8:30 AM Arizona (MST/UTC-7, no DST)
+    - cron: "30 23 * * *"   # 4:30 PM Arizona
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Render + report counts only (no DB writes)"
+        type: boolean
+        default: false
+
+jobs:
+  scrape-movies-havasu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright + Chromium
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Scrape Movies Havasu showtimes into movie_showtimes
+        env:
+          # Same Railway Postgres secret the other scrape crons use.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/scrape_movies_havasu.py ${{ inputs.dry_run && '--dry-run' || '' }}
