@@ -64,10 +64,10 @@
 {%- endmacro -%}
 
 {%- macro feed_row(row) -%}
-<details class="frow">
+<details class="frow{% if row.is_past %} frow--past{% endif %}">
   <summary class="frow-h">
     <span class="frow-time">{{ row.time_label }}</span>
-    <span class="frow-main"><span class="frow-title">{{ row.title }}</span>{% for t in row.tags %}<span class="rtag {{ t|lower }}">{{ t }}</span>{% endfor %}{% if row.venue %}<span class="frow-venue">{{ row.venue }}</span>{% endif %}</span>
+    <span class="frow-main"><span class="frow-title">{{ row.title }}</span>{% if row.is_past %}<span class="rtag earlier">Earlier today</span>{% endif %}{% for t in row.tags %}<span class="rtag {{ t|lower }}">{{ t }}</span>{% endfor %}{% if row.venue %}<span class="frow-venue">{{ row.venue }}</span>{% endif %}</span>
     <svg class="frow-cv" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
   </summary>
   <div class="frow-d">

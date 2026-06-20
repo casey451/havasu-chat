@@ -123,6 +123,29 @@ def _compile_word_hints(hints: tuple[str, ...]) -> "re.Pattern[str]":
 _FITNESS_RE = _compile_word_hints(_FITNESS_HINTS)
 _CLASS_NONPHYSICAL_RE = _compile_word_hints(_CLASS_NONPHYSICAL_HINTS)
 
+# Instructional FALLBACK route to "Classes" (Item 2). The shared classifier keys
+# the 5 PM "Tacos — A family Cooking Party" off "Party" and files it under Things
+# to do; this catches cooking/art/craft/lesson sessions the classifier missed
+# even when they're titled "party", "social", or "workshop". Deliberately
+# narrower than :data:`_CLASS_NONPHYSICAL_HINTS` — it drops broad nouns ("art",
+# "craft", "class", "course") that also head non-instructional rows (art walk,
+# craft fair, craft beer, golf course) so the fallback never pulls a
+# market/social/festival into Classes; the :data:`_NOT_A_CLASS_RE` guard below
+# is a second backstop.
+_CLASS_FALLBACK_HINTS: tuple[str, ...] = (
+    "cooking", "culinary", "painting", "pottery", "ceramics",
+    "sewing", "quilting", "knitting", "crochet", "calligraphy", "watercolor",
+    "paint and sip", "paint & sip", "sip and paint", "sip & paint",
+    "wine and paint", "wine & paint", "workshop", "lesson",
+)
+_CLASS_FALLBACK_RE = _compile_word_hints(_CLASS_FALLBACK_HINTS)
+# Non-instructional contexts that keep a row in Things to do even if an activity
+# word appears (a "Craft Fair" / "Bake Sale" / "Wine Tasting" is not a class).
+_NOT_A_CLASS_RE = re.compile(
+    r"\b(fair|market|sale|tasting|festival|fest|expo|swap|fundraiser)\b",
+    re.IGNORECASE,
+)
+
 # Genuinely kid-targeted signals (Item 5 — STRICTER than is_family_event). NO
 # "all ages", NO bare "family"/"family swim"/"family night", NO bare "open swim":
 # those are all-ages and must not read as kids-only on the home feed.
@@ -145,15 +168,36 @@ _KID_TAG_RE = re.compile(
     r")\b",
     re.IGNORECASE,
 )
+# All-ages / "everyone welcome" title markers that VETO the Kids tag even when
+# the ingest loaders tagged the row ``youth``/``family`` (parks_rec_loader tags
+# "kids"/"junior" text ``youth``; event_ingest tags "family" text ``family``).
+# Those are honest *family-mode* signals — the calendar's ?family=1 narrow is
+# their home — but on the home feed the Kids *tag* must mean genuinely
+# kid-targeted, so "Family Night Golf", "Family Glow Bowling", and "Glow in the
+# Park — All Ages" must NOT carry it. A genuine kid-only title token
+# (:data:`_KID_TAG_RE`) still wins over this veto (checked first).
+_ALL_AGES_RE = re.compile(
+    r"\ball[\s-]*ages\b|\bfamil(?:y|ies)\b|\bopen\s+swim\b",
+    re.IGNORECASE,
+)
 
 
 def _kid_targeted(title: str | None, tags: list[str] | None) -> bool:
     """True only for genuinely kid-targeted rows (Item 5). Stricter than
     :func:`app.events.family_filter.is_family_event`: all-ages / open-swim /
-    bare-"family" rows return False so the Kids tag stops over-applying."""
+    bare-"family" rows return False so the Kids tag stops over-applying.
+
+    A clear kid-only *title* token wins outright. Otherwise an all-ages /
+    family-as-everyone title marker vetoes the tag — even when the loaders wrote
+    a ``youth``/``family`` data tag — so "Family Night Golf" reads as everyone,
+    not kids. With no such marker, a ``youth``-class data tag still tags the row
+    (a neutrally-titled "Wrestling" the loader marked youth stays kid-targeted).
+    """
     t = (title or "").strip()
     if t and _KID_TAG_RE.search(t):
         return True
+    if t and _ALL_AGES_RE.search(t):
+        return False
     for tag in tags or []:
         if isinstance(tag, str) and tag.strip().lower() in _KID_TAG_TAGS:
             return True
@@ -202,6 +246,10 @@ def _home_group(
         return "classes"
     if _FITNESS_RE.search(low):
         return "fitness"
+    # Item 2: instructional one-off the shared classifier missed (e.g. a cooking
+    # "party"). Route to Classes unless the row reads as a fair/market/sale.
+    if _CLASS_FALLBACK_RE.search(low) and not _NOT_A_CLASS_RE.search(low):
+        return "classes"
     return "things_to_do"
 
 
@@ -282,6 +330,7 @@ def _event_feed_row(
     end_time: time | None,
     recurring: bool,
     tags: list[str] | None,
+    is_past: bool = False,
 ) -> dict[str, Any]:
     return {
         "sort": time_sort_key(start_time, end_time),
@@ -291,6 +340,11 @@ def _event_feed_row(
         "url": url,
         "recurring": recurring,
         "tags": tags if tags is not None else _audience_tags(title, None),
+        # Item 1: the home feed shows the FULL day; rows already over today are
+        # kept but visually muted (the template's ``frow--past``), so groups whose
+        # sessions are mornings (Fitness & sports, Classes) never empty out by
+        # afternoon. False for past/future days and when ``now`` isn't supplied.
+        "is_past": is_past,
     }
 
 
@@ -307,13 +361,11 @@ def today_feed(
     DISTINCT films (Item 6) and free screenings cross-post into Things to do.
     """
     events = _live_events_by_day(db, window_start=day, window_end=day).get(day, [])
-    # On the current day, drop occurrences that finished >1h ago (no-op for
-    # past/future days or when ``now`` isn't supplied) — same rule as day_groups.
-    events = [
-        ev
-        for ev in events
-        if not _occurrence_expired(day, ev.start_time, ev.end_time, now)
-    ]
+    # Item 1: the home shows the FULL day. Unlike ``/events-ui`` (day_groups),
+    # which trims occurrences finished >1h ago, the home KEEPS them — flagged
+    # ``is_past`` so the template mutes them — so a group whose only sessions are
+    # mornings still renders in the afternoon. ``_occurrence_expired`` is reused
+    # purely to compute that flag (no-op off the current day / without ``now``).
     event_keys = {
         ((ev.title or "").strip().lower(), day, ev.start_time) for ev in events
     }
@@ -339,14 +391,15 @@ def today_feed(
                 end_time=ev.end_time,
                 recurring=bool(ev.is_recurring),
                 tags=_audience_tags(ev.title or "", ev.tags),
+                is_past=_occurrence_expired(day, ev.start_time, ev.end_time, now),
             )
         )
 
     for occ in drop_event_duplicates(
         class_occurrences_in_window(db, window_start=day, window_end=day), event_keys
     ):
-        if _occurrence_expired(day, occ.start_time, occ.end_time, now):
-            continue
+        # Item 1: keep past class occurrences (muted), don't drop them — this is
+        # what kept Fitness & sports / Classes from emptying out by afternoon.
         bkey = _home_group(occ.title, None, False, True, occ.start_time, occ.end_time)
         buckets[bkey].append(
             _event_feed_row(
@@ -357,6 +410,7 @@ def today_feed(
                 end_time=occ.end_time,
                 recurring=True,
                 tags=_audience_tags(occ.title, None),
+                is_past=_occurrence_expired(day, occ.start_time, occ.end_time, now),
             )
         )
 
@@ -372,6 +426,9 @@ def today_feed(
                 "url": vrow["url"],
                 "recurring": False,
                 "tags": _audience_tags(vrow["title"], None),
+                # Drop-in venue "Open H–H" rows describe today's open hours, not a
+                # finished session — never muted as past.
+                "is_past": False,
             }
         )
 
@@ -390,6 +447,9 @@ def today_feed(
                 "url": f["url"],
                 "recurring": False,
                 "tags": list(f["tags"]),
+                # ``next_label`` is the next *upcoming* showtime (movies are out of
+                # scope for Item 1's past-muting) — treat as current.
+                "is_past": False,
             }
         )
 

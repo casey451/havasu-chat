@@ -239,6 +239,17 @@
   border-radius:4px;padding:1px 5px;border:1px solid var(--hair-2);color:var(--ink-2);background:var(--surface)}
 .rtag.kids{color:#2f7d45;border-color:#bcd9bf;background:#eef6ef}
 .rtag.seniors{color:#9a5a1f;border-color:#e3cf9e;background:var(--brass-wash)}
+/* Item 1 (full-day feed): rows whose session is already over today stay listed
+   but visually recede — lower-contrast text + a small "Earlier today" chip — so
+   morning-only groups (Fitness & sports, Classes) never empty out by afternoon.
+   Kept legible (not hidden) and full opacity restored on hover/open. */
+.frow--past .frow-time,
+.frow--past .frow-title,
+.frow--past .frow-venue{color:var(--muted)}
+.frow--past .frow-title{font-weight:400}
+.frow--past:hover .frow-time,.frow--past[open] .frow-time,
+.frow--past:hover .frow-title,.frow--past[open] .frow-title{color:var(--ink-2)}
+.rtag.earlier{color:var(--muted);border-color:var(--hair-2);background:transparent;text-transform:none;letter-spacing:0;font-weight:600}
 @media(max-width:720px){
   .frow-time{width:46px;font-size:12px}
   .frow-d{padding-left:62px}
