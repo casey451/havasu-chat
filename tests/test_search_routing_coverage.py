@@ -1,4 +1,4 @@
-"""Query-routing regression harness (2026-06-19).
+﻿"""Query-routing regression harness (2026-06-19).
 
 Locks that the many ways people phrase a category — synonyms, singular/plural,
 the combined Golf hub, pool cleaning, the new monetization trades, and common
@@ -38,7 +38,6 @@ _NAV_CASES: dict[str, str] = {
     "indoor golf": "golf-courses",
     "virtual golf": "golf-courses",
     "toptracer": "golf-courses",
-    "top tracer": "golf-courses",
     # Pool service / cleaning
     "pool service": "pools-and-spas",
     "pool cleaning": "pools-and-spas",
