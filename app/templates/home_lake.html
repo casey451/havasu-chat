@@ -63,6 +63,20 @@
 {%- endif -%}
 {%- endmacro -%}
 
+{%- macro feed_row(row) -%}
+<details class="frow">
+  <summary class="frow-h">
+    <span class="frow-time">{{ row.time_label }}</span>
+    <span class="frow-main"><span class="frow-title">{{ row.title }}</span>{% for t in row.tags %}<span class="rtag {{ t|lower }}">{{ t }}</span>{% endfor %}{% if row.venue %}<span class="frow-venue">{{ row.venue }}</span>{% endif %}</span>
+    <svg class="frow-cv" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </summary>
+  <div class="frow-d">
+    <div class="facts">{% if row.time_label %}<span><b>When</b> {{ row.time_label }}</span>{% endif %}{% if row.venue %}<span><b>Where</b> {{ row.venue }}</span>{% endif %}</div>
+    {% if row.url %}<div class="frow-acts"><a class="fbtn" href="{{ row.url }}">Details &rarr;</a></div>{% endif %}
+  </div>
+</details>
+{%- endmacro -%}
+
 {% block content %}
 <section class="lead"><div class="wrap lead-main">
   <h1 class="asklede">Search like a local.</h1>
@@ -74,51 +88,38 @@
   </form>
 
   <p class="askline">Lake Havasu's only search engine.</p>
-
-  <div class="tryrow">
-    <span class="tl">Try</span>
-    <a class="exq" href="/events-ui">Tonight</a>
-    <a class="exq" href="/events-ui?view=week">This weekend</a>
-    <a class="exq" href="/family">Kid-friendly</a>
-    <a class="exq" href="/lake">Lake &amp; Boating</a>
-    <a class="exq" href="/night">After dark</a>
-    <a class="exq" href="/chat">Need a service</a>
-  </div>
 </div></section>
 
 {% if week.has_any or today_feed.groups %}
 {% set td = week.days[0] %}
 <section class="today" id="today"><div class="wrap">
-  <div class="mod-head">
-    <div><h2 class="disp">Today in Lake Havasu</h2><div class="sub">{{ td.label }} {{ td.md }}{% if today_feed.summary %} · {{ today_feed.summary }}{% endif %}</div></div>
-    <a class="full" href="/events-ui">See full calendar <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+  {# Phase polish (§3b): the big "Today in Lake Havasu" heading is gone — the
+     hero already names the city. The feed region leads with a small date label,
+     the swipeable day strip, and a "Full calendar →" link, then the groups. #}
+  <div class="todhead">
+    <p class="todlabel">{{ td.label }}{% if td.label not in ('Today', 'Tomorrow') %}, {% else %} · {% endif %}{{ td.md }}{% if today_feed.summary %} · <span class="todsum">{{ today_feed.summary }}</span>{% endif %}</p>
+    <a class="full" href="/events-ui">Full calendar <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
   </div>
 
-  <div class="daystrip" role="list" aria-label="The next seven days">
-    {% for day in week.days %}
-    <a class="day{% if loop.first %} today{% endif %}" role="listitem" href="/events-ui?date={{ day.iso }}"
-       aria-label="{{ day.count }} thing{{ '' if day.count == 1 else 's' }} on {{ 'today' if loop.first else day.label }} {{ day.md }}">
-      <span class="dow">{{ 'Today' if loop.first else day.label }}</span>
-      <span class="dn">{{ day.iso.split('-')[2]|int }}</span>
-      {% if day.count %}<span class="ct"><span class="d" aria-hidden="true"></span>{{ day.count }}</span>{% else %}<span class="ct none">—</span>{% endif %}
-    </a>
-    {% endfor %}
+  {# §8: a horizontally-scrollable, swipeable day strip that fits the viewport at
+     any width (tiles are flex:none + scroll-snap; the wrapper clips and shows a
+     right-edge fade signalling more days). Today is highlighted and scrolled
+     into view by the script below. #}
+  <div class="daystrip-wrap">
+    <div class="daystrip" role="list" aria-label="The next seven days" data-daystrip>
+      {% for day in week.days %}
+      <a class="day{% if loop.first %} today{% endif %}" role="listitem" href="/events-ui?date={{ day.iso }}"
+         {% if loop.first %}aria-current="date" data-today{% endif %}
+         aria-label="{{ day.count }} thing{{ '' if day.count == 1 else 's' }} on {{ 'today' if loop.first else day.label }} {{ day.md }}">
+        <span class="dow">{{ 'Today' if loop.first else day.label }}</span>
+        <span class="dn">{{ day.iso.split('-')[2]|int }}</span>
+        {% if day.count %}<span class="ct"><span class="d" aria-hidden="true"></span>{{ day.count }}</span>{% else %}<span class="ct none">—</span>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
   </div>
 
   {% if today_feed.groups %}
-  {# Phase 2: one lightweight filter that narrows the feed to a single group
-     (no pre-canned query chips). Without JS every group shows (default). #}
-  <div class="feedtools">
-    <label class="ff-label" for="feed-filter">Show</label>
-    <span class="ff-select">
-      <select id="feed-filter">
-        <option value="all">Everything</option>
-        {% for g in today_feed.groups %}<option value="{{ g.key }}">{{ g.label }}</option>{% endfor %}
-      </select>
-      <svg class="ff-chev" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </span>
-  </div>
-
   <div class="today-groups tfeed" id="tfeed">
     {% for g in today_feed.groups %}
     <details class="tg-acc" data-group="{{ g.key }}"{% if g.open %} open{% endif %}>
@@ -146,20 +147,14 @@
             </div>
           </details>
           {% endfor %}
-        {% else %}
-          {% for row in g.rows %}
-          <details class="frow">
-            <summary class="frow-h">
-              <span class="frow-time">{{ row.time_label }}</span>
-              <span class="frow-main"><span class="frow-title">{{ row.title }}</span>{% for t in row.tags %}<span class="rtag {{ t|lower }}">{{ t }}</span>{% endfor %}{% if row.venue %}<span class="frow-venue">{{ row.venue }}</span>{% endif %}</span>
-              <svg class="frow-cv" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </summary>
-            <div class="frow-d">
-              <div class="facts">{% if row.time_label %}<span><b>When</b> {{ row.time_label }}</span>{% endif %}{% if row.venue %}<span><b>Where</b> {{ row.venue }}</span>{% endif %}</div>
-              {% if row.url %}<div class="frow-acts"><a class="fbtn" href="{{ row.url }}">Details →</a></div>{% endif %}
-            </div>
-          </details>
+        {% elif g.subgroups %}
+          {# Fitness & sports splits into Adult / Youth sub-sections (§4). #}
+          {% for sub in g.subgroups %}
+          <div class="tg-subhead"><span class="sub-name">{{ sub.label }}</span><span class="sc">{{ sub.count }}</span></div>
+          {% for row in sub.rows %}{{ feed_row(row) }}{% endfor %}
           {% endfor %}
+        {% else %}
+          {% for row in g.rows %}{{ feed_row(row) }}{% endfor %}
         {% endif %}
       </div>
     </details>
@@ -253,22 +248,19 @@
   input.addEventListener('input', stop, { once: true });
 })();
 
-/* Phase 2: the "Show" filter narrows the today feed to a single group. Without
-   JS every group is visible (the <select> only enhances). Selecting a group
-   hides the others and opens the chosen one; "Everything" restores all. */
+/* §8: keep the highlighted "Today" tile in view on load. The strip is a
+   contained horizontal scroll (CSS); today is the first tile, so this only
+   nudges it flush-left if a previous scroll position lingers. Pure enhancement
+   — the strip is fully usable (swipe / trackpad) without JS. */
 (function () {
-  var sel = document.getElementById('feed-filter');
-  var feed = document.getElementById('tfeed');
-  if (!sel || !feed) return;
-  var groups = Array.prototype.slice.call(feed.querySelectorAll('.tg-acc'));
-  sel.addEventListener('change', function () {
-    var v = sel.value;
-    groups.forEach(function (g) {
-      var match = (v === 'all') || (g.getAttribute('data-group') === v);
-      g.hidden = !match;
-      if (v !== 'all' && match) g.open = true;
-    });
-  });
+  var strip = document.querySelector('[data-daystrip]');
+  if (!strip) return;
+  var today = strip.querySelector('[data-today]');
+  if (!today) return;
+  var off = today.offsetLeft - strip.offsetLeft;
+  if (off > 0 && typeof strip.scrollTo === 'function') {
+    strip.scrollTo({ left: off, behavior: 'auto' });
+  }
 })();
 </script>
 {% endblock %}

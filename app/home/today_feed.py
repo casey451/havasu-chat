@@ -1,9 +1,10 @@
-"""Home "Today in Lake Havasu" unified feed (Phase 2).
+"""Home "Today in Lake Havasu" unified feed (Phase 2; regrouped polish pass).
 
 The home feed is the heart of the page: one scannable list for today, grouped
-into four collapsed sections — **Events**, **Classes & fitness**, **Open all
-day**, **At the movies**. Events open by default; the rest load collapsed, and
-every row is collapsed until tapped (the template uses nested ``<details>``).
+into five collapsed sections — **Events**, **Things to do**, **Fitness &
+sports**, **Classes**, **At the movies**. The Events group opens by default when
+it has items today; otherwise **Things to do** opens. Every other group loads
+collapsed, and every row is collapsed until tapped (nested ``<details>``).
 
 This builder is a *presentation remap* over the SAME deduped pipeline the
 ``/events-ui`` accordion uses (:func:`app.home.events_views.day_groups`), so the
@@ -17,19 +18,26 @@ a cross-source twin:
   ``(title, date, start_time)`` — the EVENT/CLASS de-dup the redesign calls for
   (e.g. the Senior Center "Exercise Class" printed once, not twice).
 
-The four-group mapping (locked with Casey):
+The five-group mapping (regrouped 2026-06-20 from Casey's live review):
 
-* **Classes & fitness** — instructional / registered things (yoga, the cooking
-  class, wrestling, dog obedience): anything the shared tier classifier files as
-  a class (:func:`app.home.events_views._group_for` → ``"classes"``).
-* **Open all day** — drop-in venues with no single start time (all-day open
-  play, the trampoline park, the arcade, the indoor playground).
-* **Events** — every other happening (markets, swim, golf night, bowling) — a
-  one-off with a real start time, or a time-unknown happening.
-* **At the movies** — one row per film with per-theater showtimes in the expand.
+* **Events** — *actual events only*: festivals and one-time special happenings
+  (London Bridge Days, boat/car shows, concerts, parades, grand openings,
+  expos). The shared tier classifier's SPECIAL tier. Leads the feed.
+* **Things to do** — the bulk of the day plus all drop-in / open-all-day venues
+  and free community movie nights (markets, open swim, golf night, glow bowling,
+  the trampoline park, arcade, indoor play). Absorbs the old "Open all day".
+* **Fitness & sports** — recurring physical activity, split into **Adult** and
+  **Youth** sub-sections (yoga, pilates, martial arts, wrestling, dance-fitness,
+  gymnastics → Youth, **BMX racing → Youth**).
+* **Classes** — non-physical instructional one-offs / registered things (the
+  cooking class, art, crafts, lessons).
+* **At the movies** — one row per *distinct film* with per-theater showtimes in
+  the expand; free community screenings also cross-post into Things to do.
 
-Small audience tags (Kids / Seniors) ride on rows where the data supports it,
-via the same positive matchers the calendar uses (never invented).
+Small audience tags (Kids / Seniors) ride on rows where the data supports it.
+The Kids tag is tightened (Item 5): only genuinely kid-targeted rows get it —
+all-ages, open/family swim, and bare "family" rows do NOT — so it no longer
+over-applies the way ``is_family_event`` (the /events-ui parent-filter) does.
 """
 
 from __future__ import annotations
@@ -44,67 +52,169 @@ from app.events.class_occurrences import (
     class_occurrences_in_window,
     drop_event_duplicates,
 )
-from app.events.family_filter import is_family_event
 from app.events.senior_filter import is_senior_event
 from app.events.time_labels import short_time_label, time_sort_key
 from app.events.title_clean import clean_event_title
-from app.home.event_buckets import is_dropin_rec
+from app.home.event_buckets import TIER_SPECIAL, is_dropin_rec
 from app.home.events_views import _group_for, _occurrence_expired, _row_time_label
 from app.home.family_venues import open_today_rows
-from app.home.sandstone import _live_events_by_day
+from app.home.sandstone import _event_tier, _live_events_by_day
 from app.movies.queries import showtimes_for_day
 
 # Display order + labels for the home feed groups. ``key`` is the stable CSS/JSON
 # hook (data-group, the swatch class); never user-visible.
 FEED_GROUP_DEFS: tuple[tuple[str, str], ...] = (
     ("events", "Events"),
-    ("classes", "Classes & fitness"),
-    ("open_all_day", "Open all day"),
+    ("things_to_do", "Things to do"),
+    ("fitness", "Fitness & sports"),
+    ("classes", "Classes"),
     ("movies", "At the movies"),
 )
 
-# Rollup nouns for the "· 6 events · 7 classes · 4 movies" summary line.
+# Rollup nouns for the summary line. Movies count DISTINCT films (Item 6), so the
+# noun is "film(s)", never "movie(s)".
 _GROUP_NOUNS: dict[str, tuple[str, str]] = {
     "events": ("event", "events"),
+    "things_to_do": ("thing to do", "things to do"),
+    "fitness": ("fitness session", "fitness sessions"),
     "classes": ("class", "classes"),
-    "open_all_day": ("open all day", "open all day"),
-    "movies": ("movie", "movies"),
+    "movies": ("film", "films"),
 }
 
 # All-day drop-in titles whose 00:00/None start means "runs all day" rather than
-# "time unknown" — these route to "Open all day". Mirrors
+# "time unknown" — these route to "Things to do". Mirrors
 # :data:`app.home.events_views._ALL_DAY_TITLE_RE` (kept local to avoid importing a
 # private name across modules).
 _ALL_DAY_TITLE_RE = re.compile(r"\b(?:pickleball|open play)\b", re.IGNORECASE)
 
+# Physical-activity signals → "Fitness & sports". Word-boundary matched (a plural
+# or gerund tail allowed). A class-tier occurrence carrying any of these is a
+# workout/sport, not a sit-down class.
+_FITNESS_HINTS: tuple[str, ...] = (
+    "yoga", "vinyasa", "pilates", "reformer", "barre",
+    "martial", "karate", "jiu jitsu", "jiu-jitsu", "bjj", "taekwondo", "judo",
+    "mma", "kickbox", "muay thai", "boxing", "wrestling", "grappling", "dojo",
+    "gymnastics", "tumbling", "tumble", "tumbler", "gymtots", "cheer", "ninja",
+    "dance", "ballet", "tap", "jazz", "hip hop", "hip-hop", "ballroom", "zumba",
+    "aerobics", "aqua", "aquacise", "water aerobics", "water fitness", "lap swim",
+    "spin", "spinning", "cycling", "crossfit", "cross fit", "bootcamp",
+    "boot camp", "hiit", "cardio", "strength", "conditioning", "sculpt",
+    "circuit", "fitness", "pickleball", "tennis", "racquetball", "basketball",
+    "volleyball", "bmx", "tai chi", "dodgeball", "pump track", "motocross",
+)
+# Non-physical instructional signals → "Classes". Checked only inside the class
+# tier, after the fitness check, so "yoga class" stays in Fitness and "cooking
+# class" lands here.
+_CLASS_NONPHYSICAL_HINTS: tuple[str, ...] = (
+    "cooking", "cook", "bake", "baking", "culinary", "chef",
+    "art", "painting", "paint", "drawing", "draw", "pottery", "ceramics",
+    "craft", "crafting", "sewing", "quilting", "knitting", "crochet",
+    "guitar", "piano", "ukulele", "language", "spanish", "writing",
+    "book club", "lesson", "workshop", "class", "seminar", "course",
+)
+
+
+def _compile_word_hints(hints: tuple[str, ...]) -> "re.Pattern[str]":
+    """Word-boundary alternation allowing a plural/gerund tail (e.g. ``class`` →
+    ``classes``, ``tumble`` → ``tumbling``)."""
+    return re.compile("|".join(r"\b" + re.escape(h) + r"(?:e?s|ing)?\b" for h in hints))
+
+
+_FITNESS_RE = _compile_word_hints(_FITNESS_HINTS)
+_CLASS_NONPHYSICAL_RE = _compile_word_hints(_CLASS_NONPHYSICAL_HINTS)
+
+# Genuinely kid-targeted signals (Item 5 — STRICTER than is_family_event). NO
+# "all ages", NO bare "family"/"family swim"/"family night", NO bare "open swim":
+# those are all-ages and must not read as kids-only on the home feed.
+_KID_TAG_TAGS = frozenset(
+    {"youth", "kids", "kid", "children", "child", "teen", "teens", "tween",
+     "junior", "toddler", "toddlers"}
+)
+_KID_TAG_RE = re.compile(
+    r"\b("
+    r"kids?|child(?:ren)?|toddlers?|teens?|tweens?|youth|junior|jr|"
+    r"story\s*times?|story\s+hour|"
+    r"lego|minecraft|pok[eé]mon|"
+    r"tumbl(?:e|es|er|ers|ing)?|gymtots?|"
+    r"pee\s*-?\s*wee|"
+    r"littles|little\s+(?:ninjas?|dragons?|tigers?|kickers?|stars?|movers?|hawks?|gym)|"
+    r"tiny\s+(?:tots?|tumblers?|dancers?|ninjas?|hawks?)|"
+    r"pre-?k|preschool|kinder(?:garten)?|"
+    r"mommy\s*(?:&|and|n|\+)?\s*me|parent\s*(?:&|and|n|\+)?\s*tot|"
+    r"swim\s+lessons?"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _kid_targeted(title: str | None, tags: list[str] | None) -> bool:
+    """True only for genuinely kid-targeted rows (Item 5). Stricter than
+    :func:`app.events.family_filter.is_family_event`: all-ages / open-swim /
+    bare-"family" rows return False so the Kids tag stops over-applying."""
+    t = (title or "").strip()
+    if t and _KID_TAG_RE.search(t):
+        return True
+    for tag in tags or []:
+        if isinstance(tag, str) and tag.strip().lower() in _KID_TAG_TAGS:
+            return True
+    return False
+
 
 def _audience_tags(title: str | None, tags: list[str] | None) -> list[str]:
-    """Kids / Seniors row tags from the same positive matchers the calendar
-    uses. Empty when there is no signal — never an invented tag."""
+    """Kids / Seniors row tags. Kids uses the tightened :func:`_kid_targeted`
+    matcher (Item 5); Seniors uses the calendar's positive matcher. Empty when
+    there is no signal — never an invented tag."""
     out: list[str] = []
-    if is_family_event(title or "", tags):
+    if _kid_targeted(title, tags):
         out.append("Kids")
     if is_senior_event(title or "", tags):
         out.append("Seniors")
     return out
 
 
-def _happening_bucket(title: str, start_time: time | None, end_time: time | None) -> str:
-    """Route a non-class happening to "events" or "open_all_day".
+def _home_group(
+    title: str,
+    tags: list[str] | None,
+    featured: bool,
+    recurring: bool,
+    start_time: time | None,
+    end_time: time | None,
+) -> str:
+    """Route one occurrence to a home-feed group key (never "movies").
 
-    A real start time → Events. No single start time AND an all-day/drop-in title
-    (open play, open swim/gym) → Open all day. A genuinely time-unknown happening
-    stays in Events (shown as "Time TBD") rather than masquerading as all-day.
+    Order matters: special/festival → Events; drop-in & all-day rec → Things to
+    do; class-tier splits physical (Fitness & sports) vs non-physical (Classes);
+    a non-class sport (e.g. a one-off BMX race) still lands in Fitness; the rest
+    of the day's happenings fall to Things to do.
     """
-    if short_time_label(start_time, end_time) is not None:
+    low = (title + " " + " ".join(tags or [])).lower()
+    if _event_tier(title=title, tags=tags, featured=featured, recurring=recurring) == TIER_SPECIAL:
         return "events"
-    if is_dropin_rec(title) or _ALL_DAY_TITLE_RE.search(title or ""):
-        return "open_all_day"
-    return "events"
+    if is_dropin_rec(title):
+        return "things_to_do"
+    if short_time_label(start_time, end_time) is None and _ALL_DAY_TITLE_RE.search(title or ""):
+        return "things_to_do"
+    if _group_for(title=title, tags=tags, featured=featured, recurring=recurring) == "classes":
+        if _FITNESS_RE.search(low):
+            return "fitness"
+        if _CLASS_NONPHYSICAL_RE.search(low):
+            return "classes"
+        return "classes"
+    if _FITNESS_RE.search(low):
+        return "fitness"
+    return "things_to_do"
+
+
+def _fitness_audience(title: str | None, tags: list[str] | None) -> str:
+    """Adult vs Youth sub-section for a Fitness & sports row. BMX racing is Youth
+    (Casey's call); otherwise the youth signal in the title/tags decides."""
+    if "bmx" in (title or "").lower():
+        return "Youth"
+    return "Youth" if _kid_targeted(title, tags) else "Adult"
 
 
 def _summary(counts: dict[str, int]) -> str:
-    """"6 events · 7 classes · 4 movies" — zero/empty groups omitted."""
+    """"3 events · 12 things to do · 6 films" — zero/empty groups omitted."""
     bits: list[str] = []
     for key, _label in FEED_GROUP_DEFS:
         n = counts.get(key, 0)
@@ -130,6 +240,7 @@ def _movie_films(db: Session, *, day: date) -> list[dict[str, Any]]:
                     "title": fc.title,
                     "tags": _audience_tags(fc.title, None),
                     "theaters": [],
+                    "is_free": False,
                     "_sort": first.sort,
                     "next_label": first.label,
                     "url": first.url,
@@ -139,6 +250,8 @@ def _movie_films(db: Session, *, day: date) -> list[dict[str, Any]]:
             f["theaters"].append(
                 {"name": tg.name, "times": [s.label for s in fc.showtimes]}
             )
+            if fc.is_free:
+                f["is_free"] = True
             if first.sort < f["_sort"]:
                 f["_sort"] = first.sort
                 f["next_label"] = first.label
@@ -149,7 +262,12 @@ def _movie_films(db: Session, *, day: date) -> list[dict[str, Any]]:
         f = films[title]
         n = len(f["theaters"])
         venue = f"{n} theaters" if n > 1 else f["theaters"][0]["name"]
-        f["summary"] = f"{venue} · next {f['next_label']}"
+        free_bit = "Free · " if f["is_free"] else ""
+        f["summary"] = f"{free_bit}{venue} · next {f['next_label']}"
+        # The free summer kids series is kid-targeted even when the title carries
+        # no kid word (e.g. "Toy Story") — tag it Kids (Item 5).
+        if f["is_free"] and "Kids" not in f["tags"]:
+            f["tags"] = ["Kids", *f["tags"]]
         out.append(f)
     out.sort(key=lambda f: f["_sort"])
     return out
@@ -179,12 +297,14 @@ def _event_feed_row(
 def today_feed(
     db: Session, *, day: date, now: datetime | None = None
 ) -> dict[str, Any]:
-    """Build the home four-group feed for ``day``.
+    """Build the home five-group feed for ``day``.
 
     Returns ``{"groups": [...], "counts": {...}, "summary": str}``. Empty groups
     are omitted entirely (honest omission — never a labeled empty shell). The
-    Events group opens by default; if the day has no events, the first present
-    group opens so the feed never loads fully collapsed.
+    Events group opens by default; if the day has no events, **Things to do**
+    opens instead so the feed never loads fully collapsed. The Fitness & sports
+    group carries an ``Adult`` / ``Youth`` ``subgroups`` split; movies count
+    DISTINCT films (Item 6) and free screenings cross-post into Things to do.
     """
     events = _live_events_by_day(db, window_start=day, window_end=day).get(day, [])
     # On the current day, drop occurrences that finished >1h ago (no-op for
@@ -200,19 +320,13 @@ def today_feed(
 
     buckets: dict[str, list[dict[str, Any]]] = {
         "events": [],
+        "things_to_do": [],
+        "fitness": [],
         "classes": [],
-        "open_all_day": [],
     }
 
-    def _bucket_for(title: str, tags: list[str] | None, featured: bool, recurring: bool,
-                    start: time | None, end: time | None) -> str:
-        primary = _group_for(title=title, tags=tags, featured=featured, recurring=recurring)
-        if primary == "classes":
-            return "classes"
-        return _happening_bucket(title, start, end)
-
     for ev in events:
-        bkey = _bucket_for(
+        bkey = _home_group(
             ev.title or "", ev.tags, bool(ev.featured), bool(ev.is_recurring),
             ev.start_time, ev.end_time,
         )
@@ -233,7 +347,7 @@ def today_feed(
     ):
         if _occurrence_expired(day, occ.start_time, occ.end_time, now):
             continue
-        bkey = _bucket_for(occ.title, None, False, True, occ.start_time, occ.end_time)
+        bkey = _home_group(occ.title, None, False, True, occ.start_time, occ.end_time)
         buckets[bkey].append(
             _event_feed_row(
                 title=occ.title,
@@ -247,9 +361,9 @@ def today_feed(
         )
 
     # Drop-in venue hours (trampoline, arcade, indoor playground, dojo/gym class
-    # blocks) — always "open all day" drop-ins, never a scheduled event row.
+    # blocks) — always all-day drop-ins, so they live under "Things to do".
     for vrow in open_today_rows(day):
-        buckets["open_all_day"].append(
+        buckets["things_to_do"].append(
             {
                 "sort": vrow["sort"],
                 "time_label": vrow["time_label"],
@@ -261,6 +375,24 @@ def today_feed(
             }
         )
 
+    films = _movie_films(db, day=day)
+    # Free community screenings cross-post into Things to do (they also stay in
+    # the movies group) — a free movie night is a thing to do today.
+    for f in films:
+        if not f["is_free"]:
+            continue
+        buckets["things_to_do"].append(
+            {
+                "sort": f["_sort"],
+                "time_label": f["next_label"],
+                "title": f["title"],
+                "venue": f"Free screening · {f['theaters'][0]['name']}",
+                "url": f["url"],
+                "recurring": False,
+                "tags": list(f["tags"]),
+            }
+        )
+
     counts: dict[str, int] = {}
     groups: list[dict[str, Any]] = []
     for key, label in FEED_GROUP_DEFS:
@@ -268,18 +400,38 @@ def today_feed(
             continue
         rows = sorted(buckets[key], key=lambda r: r["sort"])
         counts[key] = len(rows)
-        if rows:
-            groups.append({"key": key, "label": label, "count": len(rows), "rows": rows})
+        if not rows:
+            continue
+        group: dict[str, Any] = {"key": key, "label": label, "count": len(rows), "rows": rows}
+        if key == "fitness":
+            # Adult / Youth sub-sections (Item 4); empty ones omitted, row order
+            # preserved. BMX racing and youth-signal rows file under Youth.
+            split: dict[str, list[dict[str, Any]]] = {"Adult": [], "Youth": []}
+            for r in rows:
+                split[_fitness_audience(r["title"], r.get("tags"))].append(r)
+            group["subgroups"] = [
+                {"label": lbl, "rows": split[lbl], "count": len(split[lbl])}
+                for lbl in ("Adult", "Youth")
+                if split[lbl]
+            ]
+        groups.append(group)
 
-    films = _movie_films(db, day=day)
     counts["movies"] = len(films)
     if films:
         groups.append(
             {"key": "movies", "label": "At the movies", "count": len(films), "films": films}
         )
 
-    has_events = any(g["key"] == "events" for g in groups)
-    for i, g in enumerate(groups):
-        g["open"] = (g["key"] == "events") if has_events else (i == 0)
+    # Default-open: Events when it has items today, else Things to do, else the
+    # first present group. Everything else collapsed.
+    present = {g["key"] for g in groups}
+    if "events" in present:
+        open_key = "events"
+    elif "things_to_do" in present:
+        open_key = "things_to_do"
+    else:
+        open_key = groups[0]["key"] if groups else None
+    for g in groups:
+        g["open"] = g["key"] == open_key
 
     return {"groups": groups, "counts": counts, "summary": _summary(counts)}

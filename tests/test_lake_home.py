@@ -108,16 +108,21 @@ def test_lake_home_week_and_calendar_bindings() -> None:
 
 def _sample_feed() -> dict:
     return {
-        "summary": "1 event · 1 class · 1 movie",
+        "summary": "1 event · 2 fitness sessions · 1 film",
         "groups": [
             {"key": "events", "label": "Events", "count": 1, "open": True, "rows": [
-                {"time_label": "8 AM", "title": "ZZ Farmers Market", "venue": "Visitor Center",
-                 "url": "/events/1", "recurring": False, "tags": ["Kids"]},
+                {"time_label": "12 PM", "title": "ZZ Bridge Days", "venue": "The Bridge",
+                 "url": "/events/1", "recurring": False, "tags": []},
             ]},
-            {"key": "classes", "label": "Classes & fitness", "count": 1, "open": False, "rows": [
-                {"time_label": "6 PM", "title": "ZZ Sunrise Yoga", "venue": "Eight Lotus",
-                 "url": "/events/2", "recurring": True, "tags": []},
-            ]},
+            {"key": "fitness", "label": "Fitness & sports", "count": 2, "open": False, "rows": [],
+             "subgroups": [
+                {"label": "Adult", "count": 1, "rows": [
+                    {"time_label": "10 AM", "title": "ZZ Adult Wrestling", "venue": "The Tap Room",
+                     "url": "/events/2", "recurring": True, "tags": []}]},
+                {"label": "Youth", "count": 1, "rows": [
+                    {"time_label": "6 PM", "title": "ZZ BMX Race Night", "venue": "Havasu BMX",
+                     "url": "/events/3", "recurring": True, "tags": ["Kids"]}]},
+             ]},
             {"key": "movies", "label": "At the movies", "count": 1, "open": False, "films": [
                 {"title": "ZZ Robin Hood", "tags": ["Kids"], "summary": "Star Cinemas · next 6:30 PM",
                  "url": "https://x/book", "theaters": [{"name": "Star Cinemas", "times": ["6:30 PM"]}]},
@@ -127,8 +132,9 @@ def _sample_feed() -> dict:
 
 
 def test_lake_home_today_feed_renders() -> None:
-    """The home renders the four-group unified feed: Events open by default, the
-    rest collapsed, audience tags, and per-theater movie showtimes."""
+    """The home renders the regrouped unified feed: Events open by default, the
+    rest collapsed, the Fitness Adult/Youth sub-sections, audience tags, and
+    per-theater movie showtimes."""
     from unittest.mock import patch
 
     from app.home import router as home_router
@@ -136,19 +142,26 @@ def test_lake_home_today_feed_renders() -> None:
     with patch.object(home_router, "today_feed", return_value=_sample_feed()):
         b = TestClient(app).get("/home?theme=lake").text
 
-    # Four-group feed present; Events open, others collapsed.
+    # Feed present; Events open, others collapsed.
     assert 'class="today-groups tfeed"' in b
     assert 'data-group="events" open' in b
-    assert 'data-group="classes"' in b and 'data-group="classes" open' not in b
+    assert 'data-group="fitness"' in b and 'data-group="fitness" open' not in b
     assert 'data-group="movies"' in b
-    # Rows + audience tag + per-theater movie showtime render.
-    assert "ZZ Farmers Market" in b
-    assert "ZZ Sunrise Yoga" in b
+    # Rows + Fitness Adult/Youth sub-sections + audience tag + movie showtime.
+    assert "ZZ Bridge Days" in b
+    assert "ZZ Adult Wrestling" in b and "ZZ BMX Race Night" in b
+    assert 'class="tg-subhead"' in b
+    assert ">Adult<" in b and ">Youth<" in b
     assert "ZZ Robin Hood" in b
     assert '<span class="rtag kids">Kids</span>' in b
     assert "6:30 PM" in b
-    # The single lightweight filter control is present.
-    assert 'id="feed-filter"' in b
+    # The dropped controls are gone: no "Show" filter, no Try-chips, no big heading.
+    assert 'id="feed-filter"' not in b
+    assert 'class="tryrow"' not in b
+    assert "Today in Lake Havasu" not in b
+    # The swipeable day strip is wrapped and marked for the scroll-into-view JS.
+    assert 'class="daystrip-wrap"' in b
+    assert "data-daystrip" in b
     # Still structurally accessible with the feed populated.
     checker = _A11yChecker()
     checker.feed(b)
