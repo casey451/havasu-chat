@@ -417,10 +417,17 @@ def today_feed(
     # Drop-in venue hours (trampoline, arcade, indoor playground, dojo/gym class
     # blocks) — always all-day drop-ins, so they live under "Things to do".
     for vrow in open_today_rows(day):
+        # FIX_DAYPICKER item 5: the open-venue rows carry an "Open 10 AM–9 PM"
+        # label; drop the leading "Open " so the time cell reads as a bare hours
+        # range ("10 AM–9 PM") uniform with every other feed row. The "Classes …"
+        # verb (studio class blocks) and any non-prefixed label are left as-is.
+        time_label = vrow["time_label"]
+        if time_label.startswith("Open "):
+            time_label = time_label[len("Open ") :]
         buckets["things_to_do"].append(
             {
                 "sort": vrow["sort"],
-                "time_label": vrow["time_label"],
+                "time_label": time_label,
                 "title": vrow["title"],
                 "venue": vrow["venue"],
                 "url": vrow["url"],

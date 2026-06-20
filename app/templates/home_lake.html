@@ -91,31 +91,36 @@
 </div></section>
 
 {% if week.has_any or today_feed.groups %}
-{% set td = week.days[0] %}
 <section class="today" id="today"><div class="wrap">
   {# Phase polish (§3b): the big "Today in Lake Havasu" heading is gone — the
-     hero already names the city. The feed region leads with a small date label,
-     the swipeable day strip, and a "Full calendar →" link, then the groups. #}
+     hero already names the city. The feed region leads with a small date label
+     for the selected day, then the day-picker grid (the "Full calendar" link now
+     lives as the button in that grid, FIX_DAYPICKER items 2–3), then the groups. #}
   <div class="todhead">
-    <p class="todlabel">{{ td.label }}{% if td.label not in ('Today', 'Tomorrow') %}, {% else %} · {% endif %}{{ td.md }}{% if today_feed.summary %} · <span class="todsum">{{ today_feed.summary }}</span>{% endif %}</p>
-    <a class="full" href="/events-ui">Full calendar <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+    <p class="todlabel">{{ feed_day_label }}{% if today_feed.summary %} · <span class="todsum">{{ today_feed.summary }}</span>{% endif %}</p>
   </div>
 
-  {# §8: a horizontally-scrollable, swipeable day strip that fits the viewport at
-     any width (tiles are flex:none + scroll-snap; the wrapper clips and shows a
-     right-edge fade signalling more days). Today is highlighted and scrolled
-     into view by the script below. #}
+  {# FIX_DAYPICKER items 1–4: a 3-column day-picker grid (no horizontal scroll).
+     Every tile is labelled by weekday abbreviation; the selected day (``?date=``,
+     default today) is highlighted and re-renders THIS home feed for that day, so
+     there is no font/page jump. Row 3 holds day 7 + a "Full calendar" button that
+     spans the remaining two cells and opens the month/calendar view. #}
   <div class="daystrip-wrap">
-    <div class="daystrip" role="list" aria-label="The next seven days" data-daystrip>
+    <div class="daystrip" role="list" aria-label="The next seven days">
       {% for day in week.days %}
-      <a class="day{% if loop.first %} today{% endif %}" role="listitem" href="/events-ui?date={{ day.iso }}"
-         {% if loop.first %}aria-current="date" data-today{% endif %}
-         aria-label="{{ day.count }} thing{{ '' if day.count == 1 else 's' }} on {{ 'today' if loop.first else day.label }} {{ day.md }}">
-        <span class="dow">{{ 'Today' if loop.first else day.label }}</span>
+      {% set is_sel = day.iso == selected_iso %}
+      <a class="day{% if is_sel %} today{% endif %}" role="listitem" href="/home?date={{ day.iso }}#today"
+         {% if is_sel %}aria-current="date"{% endif %}
+         aria-label="{{ day.count }} thing{{ '' if day.count == 1 else 's' }} on {{ day.dow }} {{ day.md }}">
+        <span class="dow">{{ day.dow }}</span>
         <span class="dn">{{ day.iso.split('-')[2]|int }}</span>
         {% if day.count %}<span class="ct"><span class="d" aria-hidden="true"></span>{{ day.count }}</span>{% else %}<span class="ct none">—</span>{% endif %}
       </a>
       {% endfor %}
+      <a class="day daycal" href="/events-ui">
+        <span class="dcal-ic" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+        <span class="dcal-t">Full calendar</span>
+      </a>
     </div>
   </div>
 
@@ -161,7 +166,7 @@
     {% endfor %}
   </div>
   {% else %}
-  <div class="empty today-list"><h3>Nothing posted for today yet</h3><p>Browse the week ahead or the full calendar.</p></div>
+  <div class="empty today-list"><h3>Nothing posted for this day yet</h3><p>Browse another day or the full calendar.</p></div>
   {% endif %}
 </div></section>
 {% endif %}
@@ -246,21 +251,6 @@
   function stop() { clearInterval(timer); if (input.value === '') input.setAttribute('placeholder', ''); }
   input.addEventListener('focus', stop, { once: true });
   input.addEventListener('input', stop, { once: true });
-})();
-
-/* §8: keep the highlighted "Today" tile in view on load. The strip is a
-   contained horizontal scroll (CSS); today is the first tile, so this only
-   nudges it flush-left if a previous scroll position lingers. Pure enhancement
-   — the strip is fully usable (swipe / trackpad) without JS. */
-(function () {
-  var strip = document.querySelector('[data-daystrip]');
-  if (!strip) return;
-  var today = strip.querySelector('[data-today]');
-  if (!today) return;
-  var off = today.offsetLeft - strip.offsetLeft;
-  if (off > 0 && typeof strip.scrollTo === 'function') {
-    strip.scrollTo({ left: off, behavior: 'auto' });
-  }
 })();
 </script>
 {% endblock %}

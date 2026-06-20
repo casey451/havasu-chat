@@ -41,15 +41,13 @@
 .mod-head h2{font-family:var(--disp);font-weight:600;font-size:clamp(26px,3.4vw,32px);letter-spacing:-.02em}
 .mod-head .sub{font-size:13.5px;color:var(--ink-2);margin-top:5px}
 .mod-head .full,.todhead .full{font-size:14px;font-weight:600;color:var(--brass-deep);display:inline-flex;align-items:center;gap:7px;transition:gap .18s;flex:none}.mod-head .full:hover,.todhead .full:hover{gap:11px}
-/* §8: swipeable day strip. The wrapper clips horizontally and paints a
-   right-edge fade signalling more days; the strip itself is the scroll
-   container (momentum + hidden scrollbar + snap), and tiles never shrink so
-   the row always fits the viewport (no page-level horizontal scroll). */
+/* FIX_DAYPICKER items 1–2: the day picker is a 3-column grid (no horizontal
+   scroll), so it fits any viewport and can never page-overflow on mobile. Seven
+   weekday-labelled tiles fill rows 1–2 and column 1 of row 3; the "Full calendar"
+   button takes the remaining two cells of row 3 (grid-column:span 2). */
 .daystrip-wrap{position:relative;margin-top:16px}
-.daystrip-wrap::after{content:"";position:absolute;top:0;right:0;bottom:6px;width:34px;pointer-events:none;background:linear-gradient(90deg,rgba(247,250,252,0),var(--surface,#f2f6f9))}
-.daystrip{display:flex;gap:9px;overflow-x:auto;scrollbar-width:none;padding:2px 2px 6px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
-.daystrip::-webkit-scrollbar{display:none}
-.day{flex:0 0 auto;min-width:62px;scroll-snap-align:start;background:linear-gradient(180deg,#fff,#fafcfd);border:1px solid var(--hair);border-radius:15px;padding:9px 8px 8px;text-align:center;transition:transform .16s var(--ease),box-shadow .16s,border-color .16s;box-shadow:var(--sh-1)}
+.daystrip{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;padding:2px}
+.day{background:linear-gradient(180deg,#fff,#fafcfd);border:1px solid var(--hair);border-radius:15px;padding:9px 8px 8px;text-align:center;transition:transform .16s var(--ease),box-shadow .16s,border-color .16s;box-shadow:var(--sh-1)}
 .day:hover{transform:translateY(-3px);box-shadow:var(--sh-card);border-color:var(--hair-2)}
 .day .dow{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
 .day .dn{font-family:var(--disp);font-weight:500;font-size:19px;margin:1px 0 4px;color:var(--ink)}
@@ -58,6 +56,11 @@
 .day .ct.none{color:var(--muted);font-weight:500}
 .day.today{background:linear-gradient(165deg,#fcefd5,#f5e3bd);border-color:var(--brass)}
 .day.today .dow{color:var(--brass-deep)}.day.today .ct{color:var(--brass-deep)}
+/* The Full-calendar button spans the last two cells; styled as a calm brass
+   call-to-action rather than a day tile. */
+.day.daycal{grid-column:span 2;display:flex;align-items:center;justify-content:center;gap:9px;padding:8px;color:var(--brass-deep);font-weight:600;font-size:14px;background:var(--brass-wash);border-color:var(--brass);text-align:center}
+.day.daycal:hover{background:linear-gradient(165deg,#fcefd5,#f5e3bd)}
+.day.daycal .dcal-ic{display:inline-flex;align-items:center;color:var(--brass-deep)}
 .today-list{margin-top:16px}
 .also{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .also .alabel{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
@@ -137,7 +140,6 @@
 .cal-empty{padding:40px 18px;text-align:center;color:var(--muted);font-size:14px}
 .cal-empty a{color:var(--brass-deep);font-weight:600}
 
-@media(max-width:860px){.daystrip .day{min-width:60px}}
 @media(max-width:720px){
   .asklede{font-size:22px}.ask{min-height:60px}
   .explore{padding:48px 0}.month{padding:48px 0 60px}
@@ -251,7 +253,12 @@
 .frow--past:hover .frow-title,.frow--past[open] .frow-title{color:var(--ink-2)}
 .rtag.earlier{color:var(--muted);border-color:var(--hair-2);background:transparent;text-transform:none;letter-spacing:0;font-weight:600}
 @media(max-width:720px){
-  .frow-time{width:46px;font-size:12px}
+  /* FIX_DAYPICKER item 5: let the time cell size to its content (a bare hours
+     range like "10 AM–9 PM" is wider than the old fixed 46px) instead of
+     overflowing its box and colliding with the title. ``flex:none`` + a sane
+     max keeps it from crowding the title; ``.frow-main`` (flex:1, min-width:0)
+     takes the rest. */
+  .frow-time{width:auto;min-width:44px;max-width:46%;font-size:12px}
   .frow-d{padding-left:62px}
   .frow-title{font-size:14.5px}
 }

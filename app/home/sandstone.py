@@ -618,6 +618,10 @@ def week_strip(
             {
                 "iso": d.isoformat(),
                 "label": label,
+                # Weekday abbreviation ("Sat", "Sun", …) for the home day-picker
+                # tiles, which label every day by weekday (FIX_DAYPICKER item 1)
+                # rather than the Today/Tomorrow ``label`` used elsewhere.
+                "dow": d.strftime("%a"),
                 "md": f"{d.month}/{d.day}",
                 "is_today": i == 0,
                 "events": visible,
