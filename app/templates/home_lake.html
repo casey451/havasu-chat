@@ -105,7 +105,7 @@
 
 {% if week.has_any %}
 {% set td = week.days[0] %}
-{%- set things_total = today_groups | rejectattr('key', 'equalto', 'family') | sum(attribute='count') -%}
+{%- set things_total = today_groups | rejectattr('key', 'equalto', 'family') | rejectattr('key', 'equalto', 'seniors') | sum(attribute='count') -%}
 {%- set ev_n = today_groups | selectattr('key', 'equalto', 'events') | map(attribute='count') | sum -%}
 {%- set cl_n = today_groups | selectattr('key', 'equalto', 'classes') | map(attribute='count') | sum -%}
 <section class="today" id="today"><div class="wrap">
@@ -174,6 +174,7 @@
   <div class="cal-legend">
     <span><i class="leg"></i>Happening today</span>
     <span><i class="leg family"></i>Kids &amp; family</span>
+    <span><i class="leg seniors"></i>Seniors</span>
     <span><i class="leg music"></i>Music &amp; nightlife</span>
     <span><i class="leg water"></i>Lake &amp; boating</span>
     <span><i class="leg classes"></i>Fitness &amp; classes</span>
@@ -181,13 +182,15 @@
 </div></section>
 {% endif %}
 
+{% include "_partials/movies_today.html" %}
+
 <section class="explore" id="explore"><div class="wrap">
   <div class="ex-head"><h2 class="disp">Find your spot</h2><p>Where to eat, who to call, what to do — the real local list.</p></div>
   <div class="exgrid">
     {% for tile in explore_tiles %}
     <a class="extile" href="{{ tile.url }}">
       <span class="ic" aria-hidden="true">{{ cat_icon(tile.url) }}</span>
-      <h3>{{ tile.label }}{% if tile.count %} <span class="c">{{ tile.count }}</span>{% endif %}</h3>
+      <h3>{{ tile.label }}</h3>
       <span class="ar" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
     </a>
     {% endfor %}
