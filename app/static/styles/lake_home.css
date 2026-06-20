@@ -24,7 +24,12 @@
 .tryrow .tl{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-right:2px}
 .exq{padding:7px 14px;border-radius:999px;border:1px solid var(--hair-2);background:linear-gradient(180deg,#fff,#fbfcfd);box-shadow:var(--sh-1);cursor:pointer;font-size:13.5px;font-weight:500;color:var(--ink-2);transition:.16s;white-space:nowrap;min-height:38px;display:inline-flex;align-items:center}
 .exq:hover{border-color:var(--ink);transform:translateY(-1px);color:var(--ink);box-shadow:var(--sh-card)}
+/* Hero sub-line directly under the ask box: "Lake Havasu's only search engine." */
+.askline{margin:12px 0 0;font-size:14px;font-weight:500;color:var(--ink-2);letter-spacing:.01em}
+/* Demoted featured/sponsor strip — sits below the feed + directory content. */
+.promo{padding:8px 0 28px}
 .home-marquee{margin-top:22px}
+.promo .home-marquee{margin-top:0}
 .adclaim{display:flex;align-items:center;gap:12px;background:linear-gradient(180deg,#fffdf8,#fbf6ec);border:1px dashed var(--brass-edge);border-radius:16px;padding:14px 18px;box-shadow:var(--sh-1)}
 .adclaim .cat{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--brass-deep)}
 .adclaim .claim{font-size:14px;color:var(--ink-2)}.adclaim .claim em{font-style:normal;color:var(--brass-deep);font-weight:600}

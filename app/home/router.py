@@ -479,25 +479,51 @@ def _category_cards(db: Session) -> list[dict[str, str | int]]:
 # payload, no longer a strip tile).
 _UTILITY_TILE_MAP: dict[str, tuple[str, str, str]] = {
     # conditions-tile kind -> (chip kind, icon, label)
-    # Task 0 (source-expansion): the "sky_condition" chip was demoted in favour
-    # of UV — view_model.py no longer emits a sky_condition tile, so its map
-    # entry was removed. UV now leads the sun/sky slot.
+    # Phase 1 (home IA, PHASE1 brief §3): the live-conditions strip is trimmed to
+    # the four highest-value, always-relevant signals — temp · UV · wind · gas —
+    # so the band stays scannable. AQI, lake level, water temp and the advisory
+    # tile were dropped from the strip; they are still surfaced on /today and in
+    # the conditions JSON payload (honest omission, never fabricated values).
     "temp": ("weather", "🌡", "Now"),
     "uv": ("uv", "☀", "UV index"),
-    "aqi": ("air", "💨", "Air quality"),
-    "water_temp": ("water", "🌊", "Water temp"),
-    # Wind replaces lake level in the home strip — the live wind reading is the
-    # higher-value boating/paddling signal on a desert lake. Lake level is still
-    # available on /today and in the conditions JSON payload.
     "wind": ("wind", "🌬", "Wind"),
-    "advisory": ("alert", "⚠", "Advisory"),
 }
+
+# Fixed strip order for the conditions tiles (gas is appended after these so the
+# rendered band reads temp · UV · wind · gas · Live). A tile with no live source
+# is simply skipped — the strip never invents a value.
+_STRIP_TILE_ORDER: tuple[str, ...] = ("temp", "uv", "wind")
 
 
 def _utility_chips(db: Session) -> list[dict[str, Any]]:
     chips: list[dict[str, Any]] = []
 
-    # Gas leads — it's the figure people open the app for.
+    # Conditions lead the strip in a fixed order (temp · UV · wind); each tile is
+    # included only when its source has a live value.
+    vm = build_conditions_strip_view_model(db)
+    by_kind = {tile.kind: tile for tile in vm.tiles}
+    for kind in _STRIP_TILE_ORDER:
+        tile = by_kind.get(kind)
+        if tile is None:
+            continue
+        chip_kind, icon, label = _UTILITY_TILE_MAP[kind]
+        chips.append(
+            {
+                "kind": chip_kind,
+                "icon": icon,
+                "value": tile.primary_value,
+                "label": label,
+                "detail": tile.secondary_value or tile.detail_text,
+                "source": tile.attribution_chip,
+                "freshness": tile.staleness_label,
+                "is_stale": tile.is_stale,
+                "severity": tile.severity,
+                "href": None,
+            }
+        )
+
+    # Gas closes the strip — the figure people open the app for, with a tap-
+    # through to the full gas list.
     gas = _gas_snapshot(db)
     if gas.get("has_data"):
         top = gas["cheapest"][0] if gas.get("cheapest") else {}
@@ -519,26 +545,6 @@ def _utility_chips(db: Session) -> list[dict[str, Any]]:
                 }
             )
 
-    vm = build_conditions_strip_view_model(db)
-    for tile in vm.tiles:
-        mapped = _UTILITY_TILE_MAP.get(tile.kind)
-        if not mapped:
-            continue
-        chip_kind, icon, label = mapped
-        chips.append(
-            {
-                "kind": chip_kind,
-                "icon": icon,
-                "value": tile.primary_value,
-                "label": label,
-                "detail": tile.secondary_value or tile.detail_text,
-                "source": tile.attribution_chip,
-                "freshness": tile.staleness_label,
-                "is_stale": tile.is_stale,
-                "severity": tile.severity,
-                "href": None,
-            }
-        )
     return chips
 
 

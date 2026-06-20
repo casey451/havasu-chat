@@ -3,9 +3,9 @@
    desert home consumes (app/home/router.serve_home → app/home/sandstone). No
    fabricated data: counts/events/tiles are live-or-omitted. -#}
 
-{% block title %}Ask Hava — what's happening in Lake Havasu City{% endblock %}
-{% block meta_description %}Lake Havasu City's local concierge: today's events, live conditions, the month at a glance, and the real local directory — restaurants, the lake, services, and more.{% endblock %}
-{% block og_image %}{{ absolute_url('/static/img/lake/og-default.png') }}{% endblock %}
+{% block title %}Ask Hava — the Lake Havasu search engine{% endblock %}
+{% block meta_description %}Search like a local. Events, places, services and live conditions in Lake Havasu City, Arizona.{% endblock %}
+{% block og_image %}{{ absolute_url('/static/img/og-home.png') }}{% endblock %}
 
 {% block head_extra %}
 <link rel="stylesheet" href="{{ static_url('/static/styles/lake_home.css') }}">
@@ -65,13 +65,15 @@
 
 {% block content %}
 <section class="lead"><div class="wrap lead-main">
-  <h1 class="asklede">What do you need in Havasu?</h1>
+  <h1 class="asklede">Search like a local.</h1>
 
   <form class="ask" role="search" action="/chat" method="get">
     <svg class="ag" viewBox="0 0 40 30" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12 H36"/><path d="M8 24 A12 9 0 0 1 32 24"/><path d="M8 24 V28 M32 24 V28"/><path d="M6 28 H34" stroke-width="2"/></g><path class="b" d="M18 12 H22 L21.2 18 H18.8 Z"/></svg>
     <input id="home-ask-input" name="q" type="search" aria-label="Ask Hava — say what you need in plain words" placeholder="Ask Hava — “boat rentals on the channel”" autocomplete="off">
     <button class="go" type="submit" aria-label="Ask Hava"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   </form>
+
+  <p class="askline">Lake Havasu's only search engine.</p>
 
   <div class="tryrow">
     <span class="tl">Try</span>
@@ -82,25 +84,6 @@
     <a class="exq" href="/night">After dark</a>
     <a class="exq" href="/chat">Need a service</a>
   </div>
-
-  <div class="home-marquee">
-    {% if marquee %}
-    <aside class="adbar" aria-label="Featured business">
-      <span class="mono" aria-hidden="true">{{ (marquee.headline or '·')[0]|upper }}</span>
-      <div class="ab">
-        <span class="stag">Featured</span>
-        <div class="an">{{ marquee.headline }}</div>
-        {% if marquee.pitch %}<div class="am">{{ marquee.pitch }}</div>{% endif %}
-      </div>
-      {% if marquee.cta_url %}<span class="ar"><a class="btn btn-ghost" href="{% if marquee.click_url %}{{ marquee.click_url }}{% else %}/sponsor/click?id={{ marquee.id }}&slot=marquee{% endif %}">{{ marquee.cta_label or 'View' }}</a></span>{% endif %}
-    </aside>
-    {% else %}
-    <a class="adclaim" href="/portal/placements">
-      <span class="cat">Featured business</span>
-      <span class="claim">Your business in the top spot — quiet, clearly labeled. <em>Advertise →</em></span>
-    </a>
-    {% endif %}
-  </div>
 </div></section>
 
 {% if week.has_any %}
@@ -110,7 +93,7 @@
 {%- set cl_n = today_groups | selectattr('key', 'equalto', 'classes') | map(attribute='count') | sum -%}
 <section class="today" id="today"><div class="wrap">
   <div class="mod-head">
-    <div><h2 class="disp">Happening in Havasu</h2><div class="sub">Today · {{ td.label }} {{ td.md }}{% if things_total %} — <b>{{ things_total }} thing{{ '' if things_total == 1 else 's' }}</b>{% if ev_n %} · {{ ev_n }} event{{ '' if ev_n == 1 else 's' }}{% endif %}{% if cl_n %} · {{ cl_n }} class{{ '' if cl_n == 1 else 'es' }}{% endif %}{% endif %}</div></div>
+    <div><h2 class="disp">Happening in Lake Havasu</h2><div class="sub">Today · {{ td.label }} {{ td.md }}{% if things_total %} — <b>{{ things_total }} thing{{ '' if things_total == 1 else 's' }}</b>{% if ev_n %} · {{ ev_n }} event{{ '' if ev_n == 1 else 's' }}{% endif %}{% if cl_n %} · {{ cl_n }} class{{ '' if cl_n == 1 else 'es' }}{% endif %}{% endif %}</div></div>
     <a class="full" href="/events-ui">See full calendar <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
   </div>
 
@@ -185,7 +168,7 @@
 {% include "_partials/movies_today.html" %}
 
 <section class="explore" id="explore"><div class="wrap">
-  <div class="ex-head"><h2 class="disp">Find your spot</h2><p>Where to eat, who to call, what to do — the real local list.</p></div>
+  <div class="ex-head"><h2 class="disp">Find a place or service</h2><p>Where to eat, who to call, what to do — the real local list.</p></div>
   <div class="exgrid">
     {% for tile in explore_tiles %}
     <a class="extile" href="{{ tile.url }}">
@@ -217,40 +200,28 @@
   <div class="ex-all"><a class="btn btn-ghost" href="/categories">All categories</a></div>
 </div></section>
 
-<section class="month" id="calendar"><div class="wrap">
-  <div class="mh">
-    <div><h2 class="disp">{{ calendar.label }} at a glance</h2><div class="sub">Events &amp; classes across Lake Havasu this month</div></div>
-    <a class="full" href="/events-ui">Full calendar <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-  </div>
-  <div class="mcal">
-    <div class="mcal-top">
-      <div class="m">{{ calendar.label }}</div>
-      <div class="mcal-nav"><a href="/home?cal={{ calendar.prev }}#calendar" aria-label="Previous month">‹</a><a href="/home?cal={{ calendar.next }}#calendar" aria-label="Next month">›</a></div>
+{# Phase 1 (home IA): the second month-calendar block was removed from the home —
+   the month grid lives on /events-ui (linked as "See full calendar" / "Full
+   calendar" above). The featured/sponsor marquee is demoted here, BELOW the
+   feed + directory content (real-or-omit: a sold marquee renders; unsold shows
+   the slim, clearly-labeled claim line — never a fake sponsor). #}
+<section class="promo"><div class="wrap home-marquee">
+  {% if marquee %}
+  <aside class="adbar" aria-label="Featured business">
+    <span class="mono" aria-hidden="true">{{ (marquee.headline or '·')[0]|upper }}</span>
+    <div class="ab">
+      <span class="stag">Featured</span>
+      <div class="an">{{ marquee.headline }}</div>
+      {% if marquee.pitch %}<div class="am">{{ marquee.pitch }}</div>{% endif %}
     </div>
-    <div class="wd"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
-    {% if calendar.has_any %}
-    <div class="grid">
-      {% for wk in calendar.weeks %}{% for cell in wk %}
-      {% if not cell.in_month %}
-      <div class="cell empty" aria-hidden="true"></div>
-      {% elif cell.has %}
-      <a class="cell has{% if cell.is_today %} today{% endif %}" href="/events-ui?date={{ cell.iso }}"
-         aria-label="{% if cell.count %}{{ cell.count }} event{{ '' if cell.count == 1 else 's' }}{% endif %}{% if cell.count and cell.class_count %} and {% endif %}{% if cell.class_count %}{{ cell.class_count }} class{{ '' if cell.class_count == 1 else 'es' }}{% endif %} on day {{ cell.day }}">
-        <span class="dn">{{ cell.day }}</span>
-        {% if cell.count %}<span class="cell-count" aria-hidden="true">{{ cell.count }}</span>{% endif %}
-        {% for ev in cell.events %}<span class="ev {{ ev.type }}">{{ ev.title }}</span>{% endfor %}
-        {% if cell.overflow and cell.overflow > 0 %}<span class="ev more">+{{ cell.overflow }} more</span>{% endif %}
-        {% if cell.class_count %}<span class="ev classes">{{ cell.class_count }} class{{ '' if cell.class_count == 1 else 'es' }}</span>{% endif %}
-      </a>
-      {% else %}
-      <div class="cell{% if cell.is_today %} today{% endif %}"><span class="dn">{{ cell.day }}</span></div>
-      {% endif %}
-      {% endfor %}{% endfor %}
-    </div>
-    {% else %}
-    <div class="cal-empty">No events posted for {{ calendar.label }} yet. <a href="/events-ui">Browse all events →</a></div>
-    {% endif %}
-  </div>
+    {% if marquee.cta_url %}<span class="ar"><a class="btn btn-ghost" href="{% if marquee.click_url %}{{ marquee.click_url }}{% else %}/sponsor/click?id={{ marquee.id }}&slot=marquee{% endif %}">{{ marquee.cta_label or 'View' }}</a></span>{% endif %}
+  </aside>
+  {% else %}
+  <a class="adclaim" href="/portal/placements">
+    <span class="cat">Featured business</span>
+    <span class="claim">Your business in the top spot — quiet, clearly labeled. <em>Advertise →</em></span>
+  </a>
+  {% endif %}
 </div></section>
 {% endblock %}
 

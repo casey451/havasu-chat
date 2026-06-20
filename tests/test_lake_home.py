@@ -41,10 +41,13 @@ def test_lake_home_renders_with_flag() -> None:
     assert "/static/styles/lake_home.css" in b
     assert b.count("<h1") == 1
     assert 'role="search"' in b  # the ask bar
-    assert "Find your spot" in b  # explore section
-    # The month calendar always renders (grid or honest empty state); the
-    # "Happening" week strip is omitted when there are no events (empty DB).
-    assert 'class="mcal"' in b
+    assert "Find a place or service" in b  # slim directory section
+    # Phase 1 hero copy: the H1 + the "search engine" sub-line under the ask box.
+    assert "Search like a local." in b
+    assert "Lake Havasu's only search engine." in b
+    # Phase 1 removed the second month-calendar block from the home (the month
+    # grid lives on /events-ui now) — the home strip links out to it instead.
+    assert 'class="mcal"' not in b
 
 
 def _sample_week() -> dict:
@@ -94,14 +97,34 @@ def test_lake_home_week_and_calendar_bindings() -> None:
     # Real week strip + today's events render from the bound data.
     assert 'class="daystrip"' in b
     assert ">18<" in b  # today's day number, derived from iso
-    assert "Sunset Paddle" in b  # today's event title
-    # Month grid renders the bound cell with its overflow + class counts.
-    assert "+2 more" in b
-    assert "12 classes" in b
+    assert "Sunset Paddle" in b  # today's event (emitted in the events JSON-LD)
+    # Phase 1 removed the in-home month grid — no month cells render on the home.
+    assert 'class="mcal"' not in b
     # Still structurally accessible with the data populated.
     checker = _A11yChecker()
     checker.feed(b)
     assert not checker.finish()
+
+
+def test_lake_nav_unified_across_breakpoints() -> None:
+    """The lean primary destinations appear in BOTH the desktop header nav and
+    the mobile drawer, so no front-door vanishes on mobile (Phase 1 nav fix)."""
+    b = _lake_home()
+    assert 'id="lk-menu-btn"' in b  # the hamburger toggle exists
+
+    # Isolate the desktop primary nav and the mobile drawer markup.
+    desktop = re.search(r'<nav class="nav"[^>]*>(.*?)</nav>', b, re.S)
+    drawer = re.search(r'<nav class="drawer"[^>]*>(.*?)</nav>', b, re.S)
+    assert desktop and drawer, "both the desktop nav and mobile drawer must render"
+
+    lean = ('href="/events-ui"', 'href="/categories"', 'href="/map"',
+            'href="/portal"', 'href="/login"')
+    for href in lean:
+        assert href in desktop.group(1), f"{href} missing from desktop nav"
+        assert href in drawer.group(1), f"{href} missing from mobile drawer"
+    # Category front-doors were trimmed out of the header (they live in the
+    # directory zone now), so the heavy nav is genuinely lean.
+    assert 'href="/categories/eat-and-drink"' not in desktop.group(1)
 
 
 def test_lake_home_structural_a11y() -> None:
