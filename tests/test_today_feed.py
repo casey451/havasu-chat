@@ -1,10 +1,12 @@
-"""Phase 2 — the home unified "Today in Lake Havasu" feed builder.
+"""Phase 2 (regrouped) — the home unified "Today in Lake Havasu" feed builder.
 
-Verifies the four-group remap (Events / Classes & fitness / Open all day / At
-the movies), the audience tags, the cross-source de-dup (one row per real-world
-occurrence), and the per-film movie grouping. Seeding mirrors
-tests/test_events_ui_views.py: far-future dates + uuid suffixes + targeted
-cleanup, and an explicit ``now`` so the same-day expiry never trims the rows.
+Verifies the five-group remap (Events / Things to do / Fitness & sports /
+Classes / At the movies), the Adult/Youth fitness split, the tightened Kids tag
+(Item 5), the distinct-film movie count (Item 6), the free-movie cross-post, the
+cross-source de-dup (one row per real-world occurrence), and the per-film movie
+grouping. Seeding mirrors tests/test_events_ui_views.py: far-future dates + uuid
+suffixes + targeted cleanup, and an explicit ``now`` so the same-day expiry
+never trims the rows.
 """
 
 from __future__ import annotations
@@ -50,7 +52,7 @@ def _add_event(
 
 
 def _add_movie(db, *, film, sid, theater_slug="star-cinemas", theater_name="Star Cinemas",
-               at=time(18, 30)) -> str:
+               at=time(18, 30), is_free=False) -> str:
     row = MovieShowtime(
         source="test-today-feed",
         source_stable_id=sid,
@@ -60,6 +62,7 @@ def _add_movie(db, *, film, sid, theater_slug="star-cinemas", theater_name="Star
         show_date=_DAY,
         show_time=at,
         booking_url="https://example.com/book",
+        is_free=is_free,
     )
     db.add(row)
     db.flush()
@@ -84,17 +87,27 @@ def _titles(group: dict | None) -> list[str]:
     return [r["title"] for r in group["rows"]] if group else []
 
 
-def test_feed_classifies_into_four_groups() -> None:
+def _subgroup(group: dict | None, label: str) -> dict | None:
+    if not group:
+        return None
+    return next((s for s in group.get("subgroups", []) if s["label"] == label), None)
+
+
+def test_feed_classifies_into_five_groups() -> None:
     s = uuid.uuid4().hex[:6]
-    market = f"ZZ Farmers Market {s}"        # happening w/ time  -> events
-    yoga = f"ZZ Sunrise Yoga Flow {s}"       # class keyword      -> classes
-    pickle = f"ZZ Pickleball Open Play {s}"  # all-day drop-in    -> open_all_day
-    film = f"ZZ Robin Hood {s}"              # movie              -> movies
+    fest = f"ZZ London Bridge Days Festival {s}"  # special -> events
+    market = f"ZZ Farmers Market {s}"             # community -> things_to_do
+    yoga = f"ZZ Sunrise Yoga Flow {s}"            # physical class -> fitness
+    cooking = f"ZZ Cooking Class {s}"             # non-physical class -> classes
+    pickle = f"ZZ Pickleball Open Play {s}"       # all-day drop-in -> things_to_do
+    film = f"ZZ Robin Hood {s}"                   # movie -> movies
     eids: list[str] = []
     mids: list[str] = []
     with SessionLocal() as db:
+        eids.append(_add_event(db, title=fest, start=time(12, 0), loc="The Bridge"))
         eids.append(_add_event(db, title=market, start=time(8, 0), loc="Visitor Center"))
         eids.append(_add_event(db, title=yoga, start=time(18, 0), loc="Eight Lotus"))
+        eids.append(_add_event(db, title=cooking, start=time(17, 0), loc="The Kitchen"))
         # All-day drop-in convention: midnight start + no end reads as "all day".
         eids.append(_add_event(db, title=pickle, start=time(0, 0), loc="Ark Center"))
         mids.append(_add_movie(db, film=film, sid=f"m-{s}"))
@@ -102,21 +115,68 @@ def test_feed_classifies_into_four_groups() -> None:
     try:
         with SessionLocal() as db:
             feed = today_feed(db, day=_DAY, now=_NOW)
-        assert market in _titles(_group(feed, "events"))
-        assert yoga in _titles(_group(feed, "classes"))
-        assert pickle in _titles(_group(feed, "open_all_day"))
+        assert fest in _titles(_group(feed, "events"))
+        assert market in _titles(_group(feed, "things_to_do"))
+        assert yoga in _titles(_group(feed, "fitness"))
+        assert cooking in _titles(_group(feed, "classes"))
+        assert pickle in _titles(_group(feed, "things_to_do"))
         movies = _group(feed, "movies")
         assert movies and any(f["title"] == film for f in movies["films"])
         # The summary line names each non-empty group.
-        assert "open all day" in feed["summary"]
-        # Group display order: events, classes, open_all_day, movies.
+        assert "things to do" in feed["summary"]
+        # Group display order: events, things_to_do, fitness, classes, movies.
+        order = ["events", "things_to_do", "fitness", "classes", "movies"]
         keys = [g["key"] for g in feed["groups"]]
-        assert keys == sorted(keys, key=["events", "classes", "open_all_day", "movies"].index)
+        assert keys == sorted(keys, key=order.index)
         # Events opens by default; nothing else does.
         assert _group(feed, "events")["open"] is True
-        assert _group(feed, "classes")["open"] is False
+        assert _group(feed, "things_to_do")["open"] is False
+        assert _group(feed, "fitness")["open"] is False
     finally:
         _cleanup(eids, mids)
+
+
+def test_things_to_do_opens_when_no_events() -> None:
+    """With no special/festival events today, Things to do leads and opens."""
+    s = uuid.uuid4().hex[:6]
+    market = f"ZZ Farmers Market {s}"
+    eids: list[str] = []
+    with SessionLocal() as db:
+        eids.append(_add_event(db, title=market, start=time(8, 0), loc="Visitor Center"))
+        db.commit()
+    try:
+        with SessionLocal() as db:
+            feed = today_feed(db, day=_DAY, now=_NOW)
+        assert _group(feed, "events") is None
+        ttd = _group(feed, "things_to_do")
+        assert ttd and ttd["open"] is True
+    finally:
+        _cleanup(eids, [])
+
+
+def test_fitness_splits_adult_and_youth_bmx_is_youth() -> None:
+    s = uuid.uuid4().hex[:6]
+    adult = f"ZZ Adult Wrestling {s}"
+    youth = f"ZZ Youth Wrestling {s}"
+    bmx = f"ZZ BMX Race Night {s}"  # BMX -> Youth even without a youth word
+    eids: list[str] = []
+    with SessionLocal() as db:
+        eids.append(_add_event(db, title=adult, start=time(10, 0), loc="The Tap Room", recurring=True))
+        eids.append(_add_event(db, title=youth, start=time(9, 0), loc="The Tap Room", recurring=True))
+        eids.append(_add_event(db, title=bmx, start=time(18, 0), loc="Havasu BMX", recurring=True))
+        db.commit()
+    try:
+        with SessionLocal() as db:
+            feed = today_feed(db, day=_DAY, now=_NOW)
+        fitness = _group(feed, "fitness")
+        assert fitness is not None
+        assert adult in _titles(_subgroup(fitness, "Adult"))
+        assert youth in _titles(_subgroup(fitness, "Youth"))
+        assert bmx in _titles(_subgroup(fitness, "Youth"))
+        # Subgroups appear in Adult-then-Youth order.
+        assert [s["label"] for s in fitness["subgroups"]] == ["Adult", "Youth"]
+    finally:
+        _cleanup(eids, [])
 
 
 def test_feed_dedupes_cross_source_twin() -> None:
@@ -132,8 +192,8 @@ def test_feed_dedupes_cross_source_twin() -> None:
     try:
         with SessionLocal() as db:
             feed = today_feed(db, day=_DAY, now=_NOW)
-        events = _group(feed, "events")
-        assert _titles(events).count(title) == 1
+        ttd = _group(feed, "things_to_do")
+        assert _titles(ttd).count(title) == 1
     finally:
         _cleanup(eids, [])
 
@@ -153,6 +213,29 @@ def test_feed_audience_tags() -> None:
         rows = {r["title"]: r for g in feed["groups"] if g["key"] != "movies" for r in g["rows"]}
         assert "Kids" in rows[kids]["tags"]
         assert "Seniors" in rows[senior]["tags"]
+    finally:
+        _cleanup(eids, [])
+
+
+def test_kids_tag_not_applied_to_all_ages() -> None:
+    """Item 5: all-ages / open-swim / bare-family rows must NOT get the Kids tag."""
+    s = uuid.uuid4().hex[:6]
+    allages = f"ZZ Glow in the Park All Ages {s}"
+    openswim = f"ZZ Open Swim {s}"
+    family = f"ZZ Family Night Golf {s}"
+    eids: list[str] = []
+    with SessionLocal() as db:
+        eids.append(_add_event(db, title=allages, start=time(19, 0), loc="Rotary Park"))
+        eids.append(_add_event(db, title=openswim, start=time(0, 0), loc="Aquatic Center"))
+        eids.append(_add_event(db, title=family, start=time(17, 0), loc="Bridgewater"))
+        db.commit()
+    try:
+        with SessionLocal() as db:
+            feed = today_feed(db, day=_DAY, now=_NOW)
+        rows = {r["title"]: r for g in feed["groups"] if g["key"] != "movies" for r in g["rows"]}
+        assert "Kids" not in rows[allages]["tags"]
+        assert "Kids" not in rows[openswim]["tags"]
+        assert "Kids" not in rows[family]["tags"]
     finally:
         _cleanup(eids, [])
 
@@ -178,6 +261,55 @@ def test_feed_movie_groups_theaters_per_film() -> None:
         card = next(f for f in movies["films"] if f["title"] == film)
         assert len(card["theaters"]) == 2
         assert "2 theaters" in card["summary"]
+    finally:
+        _cleanup([], mids)
+
+
+def test_movie_count_is_distinct_films_not_film_times_theater() -> None:
+    """Item 6: one film at two theaters counts as ONE film, and the summary noun
+    is 'films', never 'movies'."""
+    s = uuid.uuid4().hex[:6]
+    film = f"ZZ Counting Film {s}"
+    mids: list[str] = []
+    with SessionLocal() as db:
+        mids.append(_add_movie(db, film=film, sid=f"a-{s}", theater_slug="star-cinemas",
+                               theater_name="Star Cinemas", at=time(12, 0)))
+        mids.append(_add_movie(db, film=film, sid=f"b-{s}", theater_slug="movies-havasu",
+                               theater_name="Movies Havasu", at=time(13, 0)))
+        db.commit()
+    try:
+        with SessionLocal() as db:
+            feed = today_feed(db, day=_DAY, now=_NOW)
+        movies = _group(feed, "movies")
+        assert movies["count"] == 1            # distinct films, not 2 film×theater
+        assert feed["counts"]["movies"] == 1
+        assert "1 film" in feed["summary"] and "movie" not in feed["summary"]
+    finally:
+        _cleanup([], mids)
+
+
+def test_free_movie_cross_posts_to_things_to_do_and_tags_kids() -> None:
+    """A free community screening appears in BOTH At the movies and Things to do,
+    and is tagged Kids (the summer kids series) even without a kid word."""
+    s = uuid.uuid4().hex[:6]
+    film = f"ZZ Toy Story {s}"  # no kid keyword in the title
+    mids: list[str] = []
+    with SessionLocal() as db:
+        mids.append(_add_movie(db, film=film, sid=f"free-{s}", at=time(10, 0), is_free=True))
+        db.commit()
+    try:
+        with SessionLocal() as db:
+            feed = today_feed(db, day=_DAY, now=_NOW)
+        movies = _group(feed, "movies")
+        card = next(f for f in movies["films"] if f["title"] == film)
+        assert card["is_free"] is True
+        assert "Kids" in card["tags"]
+        assert "Free" in card["summary"]
+        # Cross-posted into Things to do as well.
+        ttd = _group(feed, "things_to_do")
+        cross = next((r for r in ttd["rows"] if r["title"] == film), None)
+        assert cross is not None
+        assert "Kids" in cross["tags"]
     finally:
         _cleanup([], mids)
 

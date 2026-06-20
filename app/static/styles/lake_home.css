@@ -20,10 +20,6 @@
 .ask .go{width:50px;height:50px;border-radius:999px;background:linear-gradient(160deg,#22394a,#10202b);color:#fff;border:0;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;transition:transform .14s var(--ease),box-shadow .18s;box-shadow:0 8px 18px -8px rgba(16,32,43,.75)}
 .ask .go:hover{transform:scale(1.05)}.ask .go:active{transform:scale(.96)}
 .ask .go svg{width:18px;height:18px}
-.tryrow{margin-top:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.tryrow .tl{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-right:2px}
-.exq{padding:7px 14px;border-radius:999px;border:1px solid var(--hair-2);background:linear-gradient(180deg,#fff,#fbfcfd);box-shadow:var(--sh-1);cursor:pointer;font-size:13.5px;font-weight:500;color:var(--ink-2);transition:.16s;white-space:nowrap;min-height:38px;display:inline-flex;align-items:center}
-.exq:hover{border-color:var(--ink);transform:translateY(-1px);color:var(--ink);box-shadow:var(--sh-card)}
 /* Hero sub-line directly under the ask box: "Lake Havasu's only search engine." */
 .askline{margin:12px 0 0;font-size:14px;font-weight:500;color:var(--ink-2);letter-spacing:.01em}
 /* Demoted featured/sponsor strip — sits below the feed + directory content. */
@@ -35,14 +31,25 @@
 .adclaim .claim{font-size:14px;color:var(--ink-2)}.adclaim .claim em{font-style:normal;color:var(--brass-deep);font-weight:600}
 
 /* HAPPENING — real week strip + today's events */
-.today{padding:34px 0 14px}
+.today{padding:28px 0 14px}
+/* §3b: slim feed header — small date label + "Full calendar →" (no big serif
+   heading). Wraps cleanly on narrow screens. */
+.todhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px 16px;flex-wrap:wrap;margin:0}
+.todlabel{margin:0;font-size:14px;font-weight:600;color:var(--ink);min-width:0}
+.todlabel .todsum{font-weight:500;color:var(--ink-2)}
 .mod-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .mod-head h2{font-family:var(--disp);font-weight:600;font-size:clamp(26px,3.4vw,32px);letter-spacing:-.02em}
 .mod-head .sub{font-size:13.5px;color:var(--ink-2);margin-top:5px}
-.mod-head .full{font-size:14px;font-weight:600;color:var(--brass-deep);display:inline-flex;align-items:center;gap:7px;transition:gap .18s}.mod-head .full:hover{gap:11px}
-.daystrip{display:flex;gap:9px;margin-top:18px;overflow-x:auto;scrollbar-width:none;padding:2px 2px 6px}
+.mod-head .full,.todhead .full{font-size:14px;font-weight:600;color:var(--brass-deep);display:inline-flex;align-items:center;gap:7px;transition:gap .18s;flex:none}.mod-head .full:hover,.todhead .full:hover{gap:11px}
+/* §8: swipeable day strip. The wrapper clips horizontally and paints a
+   right-edge fade signalling more days; the strip itself is the scroll
+   container (momentum + hidden scrollbar + snap), and tiles never shrink so
+   the row always fits the viewport (no page-level horizontal scroll). */
+.daystrip-wrap{position:relative;margin-top:16px}
+.daystrip-wrap::after{content:"";position:absolute;top:0;right:0;bottom:6px;width:34px;pointer-events:none;background:linear-gradient(90deg,rgba(247,250,252,0),var(--surface,#f2f6f9))}
+.daystrip{display:flex;gap:9px;overflow-x:auto;scrollbar-width:none;padding:2px 2px 6px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
 .daystrip::-webkit-scrollbar{display:none}
-.day{flex:1 0 auto;min-width:66px;background:linear-gradient(180deg,#fff,#fafcfd);border:1px solid var(--hair);border-radius:15px;padding:9px 8px 8px;text-align:center;transition:transform .16s var(--ease),box-shadow .16s,border-color .16s;box-shadow:var(--sh-1)}
+.day{flex:0 0 auto;min-width:62px;scroll-snap-align:start;background:linear-gradient(180deg,#fff,#fafcfd);border:1px solid var(--hair);border-radius:15px;padding:9px 8px 8px;text-align:center;transition:transform .16s var(--ease),box-shadow .16s,border-color .16s;box-shadow:var(--sh-1)}
 .day:hover{transform:translateY(-3px);box-shadow:var(--sh-card);border-color:var(--hair-2)}
 .day .dow{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
 .day .dn{font-family:var(--disp);font-weight:500;font-size:19px;margin:1px 0 4px;color:var(--ink)}
@@ -133,7 +140,6 @@
 @media(max-width:860px){.daystrip .day{min-width:60px}}
 @media(max-width:720px){
   .asklede{font-size:22px}.ask{min-height:60px}
-  .tryrow{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch}.tryrow::-webkit-scrollbar{display:none}.tryrow .tl{display:none}.exq{flex:0 0 auto}
   .explore{padding:48px 0}.month{padding:48px 0 60px}
   .cell{min-height:62px;padding:7px 8px}.cell .ev{display:none}
 }
@@ -185,26 +191,24 @@
 .cal-legend .leg.seniors{background:#c4793a}
 
 /* ============================================================
-   Phase 2 — the unified "Today in Lake Havasu" feed: four collapsed groups
-   (Events / Classes & fitness / Open all day / At the movies), every row a
-   nested <details> that expands to its facts. Reuses the .today-groups / .tg-*
-   group chrome above; this block adds the per-row rows + the filter control.
+   Home "Today in Lake Havasu" feed: five collapsed groups (Events / Things to
+   do / Fitness & sports / Classes / At the movies), every row a nested
+   <details> that expands to its facts. Reuses the .today-groups / .tg-* group
+   chrome above; this block adds the per-row rows + the Fitness sub-sections.
    ============================================================ */
-/* Extra group swatch colors for the home feed's group keys. */
+/* Group swatch colors for the home feed's group keys. */
 .tg-sw.events{background:var(--brass)}
-.tg-sw.open_all_day{background:#0f6e56}
+.tg-sw.things_to_do{background:#0f6e56}
+.tg-sw.fitness{background:var(--brass-deep)}
 .tg-sw.movies{background:#7a5cc0}
 
-/* "Show <select>" filter. */
-.feedtools{margin-top:14px;display:flex;align-items:center;gap:9px}
-.ff-label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.ff-select{position:relative;display:inline-flex;align-items:center}
-.ff-select select{appearance:none;-webkit-appearance:none;font:inherit;font-size:13px;font-weight:500;
-  color:var(--ink);background:var(--raised);border:1px solid var(--hair-2);border-radius:999px;
-  padding:7px 30px 7px 14px;min-height:38px;cursor:pointer;box-shadow:var(--sh-1)}
-.ff-select select:hover{border-color:var(--ink)}
-.ff-select select:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--havasu)}
-.ff-chev{position:absolute;right:11px;color:var(--muted);pointer-events:none}
+/* Fitness & sports Adult / Youth sub-section header (a plain label row, not a
+   nested collapsible — the rows below it stay collapsed). */
+.tg-subhead{display:flex;align-items:center;gap:8px;padding:9px 16px 4px;border-top:1px solid var(--hair)}
+.tg-rows>.tg-subhead:first-child{border-top:0}
+.tg-subhead .sub-name{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tg-subhead .sc{font-size:11px;font-weight:700;color:var(--brass-deep);background:var(--brass-wash);border:1px solid var(--brass-edge);border-radius:999px;padding:1px 8px}
+.tg-subhead+.frow{border-top:0}
 
 /* Feed rows — each a collapsible <details>. */
 .tfeed{margin-top:10px}
@@ -242,11 +246,14 @@
 }
 
 .explore .exgrid{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.explore .extile{display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:12px;min-height:0}
+/* min-width:0 lets the grid track + the flex label shrink below their
+   nowrap min-content (otherwise the 2-col directory grid overflows the viewport
+   at ~360–390px — the home horizontal-scroll bug). */
+.explore .extile{display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:12px;min-height:0;min-width:0}
 .explore .extile:hover{transform:none;box-shadow:var(--sh-card);border-color:var(--brass-edge)}
 .explore .extile .ic{width:30px;height:30px;border-radius:9px}
 .explore .extile .ic svg{width:16px;height:16px}
-.explore .extile h3{font-family:var(--ui);font-weight:600;font-size:13.5px;margin-top:0;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.explore .extile h3{font-family:var(--ui);font-weight:600;font-size:13.5px;margin-top:0;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
 .explore .extile .ar{position:static;margin-left:auto;opacity:1;transform:none;color:var(--hair-2);flex:none}
 .explore .extile:hover .ar{opacity:1;transform:none;color:var(--brass-deep)}
 

@@ -36,6 +36,9 @@ class FilmCard:
     meta: str
     poster: str | None
     showtimes: list[Showtime]
+    # True when ANY of this film's showtimes today is free (the summer kids
+    # series). Trailing default keeps positional construction backward-compatible.
+    is_free: bool = False
 
 
 @dataclass
@@ -83,11 +86,14 @@ def group_showtimes(
                 "rating": (r.rating or "").strip(),
                 "meta": _meta(r),
                 "poster": r.poster_url,
+                "free": False,
                 "times": [],
             }
             tg["films"][r.film_title] = film
         if not film["poster"] and r.poster_url:
             film["poster"] = r.poster_url
+        if getattr(r, "is_free", False):
+            film["free"] = True
         label = short_time_label(r.show_time, None)
         if label:
             film["times"].append(
@@ -113,7 +119,7 @@ def group_showtimes(
             films.append(
                 FilmCard(
                     title=f["title"], rating=f["rating"], meta=f["meta"],
-                    poster=f["poster"], showtimes=f["times"],
+                    poster=f["poster"], showtimes=f["times"], is_free=f["free"],
                 )
             )
         if not films:
