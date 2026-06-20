@@ -19,9 +19,9 @@ from __future__ import annotations
 import pytest
 
 from scripts.backfill_new_monetization_leaves_2026_06 import (
+    _RULES,
     NEW_LEAVES,
     WIDE_SECONDARY_SLUGS,
-    _RULES,
     match_new_leaf,
 )
 
