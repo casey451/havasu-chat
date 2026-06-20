@@ -1,4 +1,7 @@
-{% extends "desert_base.html" %}
+{% extends "base_lake.html" %}
+{# Lake-skinned /movies page (served when request.state.theme == 'lake'). Shares
+   the body markup + desert_movies.css mv-* styling with the desert movies.html;
+   only the surrounding chrome (base_lake header/footer) differs. #}
 {% block title %}Movies in Lake Havasu — Ask Hava{% endblock %}
 {% block meta_description %}Movie showtimes at Lake Havasu City theaters — what's playing today and this week, updated daily.{% endblock %}
 {% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_movies.css') }}">{% endblock %}
