@@ -973,6 +973,7 @@ def serve_events_ui(
                 "prev_iso": (single_day - timedelta(days=1)).isoformat(),
                 "next_iso": (single_day + timedelta(days=1)).isoformat(),
                 "is_today": single_day == today,
+                "movies_today": movies_today(db, day=single_day),
             }
         )
     elif view_key == "week":
@@ -998,6 +999,7 @@ def serve_events_ui(
                 "mode": "today",
                 "groups": events_views.day_groups(db, day=today, family=family_on, now=now),
                 "day_label": _long_day_label(today),
+                "movies_today": movies_today(db, day=today),
             }
         )
     # THEME flag (Lake Ink & Brass, Phase 2): the lake events surface reskins

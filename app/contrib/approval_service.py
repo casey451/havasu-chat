@@ -272,8 +272,6 @@ _SCRAPE_EVENT_SOURCES = frozenset(
         "allevents",
         "legistar",
         "lhusd",
-        "star_cinemas",
-        "star_cinemas_kids_series",
     }
 )
 
@@ -288,10 +286,6 @@ _DEFAULT_AUTO_APPROVE_EVENT_SOURCES = frozenset(
         "river_scene_import",
         "legistar",
         "lhusd",
-        # Structured theater feed + the curated free kids series — trusted, so
-        # showtimes land live on /movies without a manual review gate.
-        "star_cinemas",
-        "star_cinemas_kids_series",
     }
 )
 
