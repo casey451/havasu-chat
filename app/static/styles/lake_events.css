@@ -12,12 +12,16 @@
 /* control bar: view tabs (Today/Week/Month) + family toggle */
 .ev-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:18px 0 6px}
 .ev-seg{display:inline-flex;background:var(--raised);border:1px solid var(--hair-2);border-radius:999px;padding:3px;box-shadow:var(--sh-1);gap:2px}
-.ev-seg a{font-family:var(--ui);font-size:13.5px;font-weight:600;color:var(--ink-2);padding:7px 16px;border-radius:999px;transition:.14s;white-space:nowrap;min-height:36px;display:inline-flex;align-items:center}
+/* Phase 4 senior-usability: tap targets raised toward the 48px floor (was 36px
+   / unset) so the calendar controls are comfortable for the 55+ median user. */
+.ev-seg a{font-family:var(--ui);font-size:13.5px;font-weight:600;color:var(--ink-2);padding:9px 16px;border-radius:999px;transition:.14s;white-space:nowrap;min-height:44px;display:inline-flex;align-items:center}
 .ev-seg a:hover{color:var(--ink)}
 .ev-seg a.on{background:linear-gradient(165deg,#1b2f3a,#10202b);color:#fff}
-.ev-fam{margin-left:auto;display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;color:var(--ink-2);background:var(--raised);border:1px solid var(--hair-2);border-radius:999px;padding:7px 15px;box-shadow:var(--sh-1);transition:.14s}
+.ev-fam{margin-left:auto;display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;color:var(--ink-2);background:var(--raised);border:1px solid var(--hair-2);border-radius:999px;padding:9px 16px;box-shadow:var(--sh-1);transition:.14s;min-height:44px}
 .ev-fam:hover{border-color:var(--ink);color:var(--ink)}
 .ev-fam.on{background:var(--brass-wash);border-color:var(--brass);color:var(--brass-deep)}
+/* Seniors toggle sits next to Kids & family (only the first toggle pushes right). */
+.ev-sen{margin-left:0}
 .ev-daynav{display:flex;align-items:center;gap:8px;margin:6px 0 0}
 .ev-daynav a{width:36px;height:36px;border-radius:10px;border:1px solid var(--hair-2);display:inline-flex;align-items:center;justify-content:center;color:var(--ink-2);background:var(--raised);box-shadow:var(--sh-1);font-size:16px}
 .ev-daynav a:hover{border-color:var(--ink);color:var(--ink)}

@@ -18,9 +18,18 @@ _SENIOR_TAGS = frozenset(
 )
 
 # Positive seniors signals in a title. Word-boundary matched; kept precise so a
-# generic "Senior Night" at a bar doesn't get pulled in without a tag.
+# generic "Senior Night" at a bar doesn't get pulled in without a tag. Beyond the
+# explicit senior words, a curated set of unambiguous senior-program signals
+# (low-impact / mobility classes + the classic senior-center games) is included
+# so senior items arriving WITHOUT a tag still surface. Deliberately excludes
+# Lake-Havasu-ambiguous terms: "bridge" (the London Bridge), "billiards",
+# "gentle", "line dance" — too broad to imply seniors on their own.
 _SENIOR_TITLE_RE = re.compile(
-    r"\b(senior|seniors|55\s*\+|meals\s+on\s+wheels|older\s+adults?)\b",
+    r"\b("
+    r"senior|seniors|55\s*\+|meals\s+on\s+wheels|older\s+adults?|"
+    r"tai\s+chi|qigong|silver\s+sneakers|low[\s-]impact|arthritis|"
+    r"water\s+wellness|bunco|pinochle"
+    r")\b",
     re.IGNORECASE,
 )
 

@@ -65,10 +65,11 @@ def test_movies_feature_renders_under_lake_theme(monkeypatch: pytest.MonkeyPatch
         assert "Movies around the lake" in movies.text
         assert film in movies.text
 
-        # /home: lake base + the "At the movies today" strip with the showtime.
+        # /home: lake base + movies now live INSIDE the unified feed's
+        # "At the movies" group (Phase 2), not the standalone strip.
         assert home.status_code == 200
         assert _LAKE_MARKER in home.text
-        assert _STRIP_MARKER in home.text
+        assert 'data-group="movies"' in home.text
         assert film in home.text
 
         # /events-ui (today): lake base + the strip.

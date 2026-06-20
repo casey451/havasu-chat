@@ -42,6 +42,7 @@ from app.groups.themed_groups import group_label
 from app.home import collections as curated_collections
 from app.home import events_views, sandstone, sponsor_store
 from app.home.queries import CATEGORY_LABELS
+from app.home.today_feed import today_feed
 from app.monetization import serving
 from app.movies.queries import movies_today
 from app.v1.categories import BUCKET_SLUG_REDIRECTS, MASTER_BUCKETS
@@ -479,25 +480,51 @@ def _category_cards(db: Session) -> list[dict[str, str | int]]:
 # payload, no longer a strip tile).
 _UTILITY_TILE_MAP: dict[str, tuple[str, str, str]] = {
     # conditions-tile kind -> (chip kind, icon, label)
-    # Task 0 (source-expansion): the "sky_condition" chip was demoted in favour
-    # of UV — view_model.py no longer emits a sky_condition tile, so its map
-    # entry was removed. UV now leads the sun/sky slot.
+    # Phase 1 (home IA, PHASE1 brief §3): the live-conditions strip is trimmed to
+    # the four highest-value, always-relevant signals — temp · UV · wind · gas —
+    # so the band stays scannable. AQI, lake level, water temp and the advisory
+    # tile were dropped from the strip; they are still surfaced on /today and in
+    # the conditions JSON payload (honest omission, never fabricated values).
     "temp": ("weather", "🌡", "Now"),
     "uv": ("uv", "☀", "UV index"),
-    "aqi": ("air", "💨", "Air quality"),
-    "water_temp": ("water", "🌊", "Water temp"),
-    # Wind replaces lake level in the home strip — the live wind reading is the
-    # higher-value boating/paddling signal on a desert lake. Lake level is still
-    # available on /today and in the conditions JSON payload.
     "wind": ("wind", "🌬", "Wind"),
-    "advisory": ("alert", "⚠", "Advisory"),
 }
+
+# Fixed strip order for the conditions tiles (gas is appended after these so the
+# rendered band reads temp · UV · wind · gas · Live). A tile with no live source
+# is simply skipped — the strip never invents a value.
+_STRIP_TILE_ORDER: tuple[str, ...] = ("temp", "uv", "wind")
 
 
 def _utility_chips(db: Session) -> list[dict[str, Any]]:
     chips: list[dict[str, Any]] = []
 
-    # Gas leads — it's the figure people open the app for.
+    # Conditions lead the strip in a fixed order (temp · UV · wind); each tile is
+    # included only when its source has a live value.
+    vm = build_conditions_strip_view_model(db)
+    by_kind = {tile.kind: tile for tile in vm.tiles}
+    for kind in _STRIP_TILE_ORDER:
+        tile = by_kind.get(kind)
+        if tile is None:
+            continue
+        chip_kind, icon, label = _UTILITY_TILE_MAP[kind]
+        chips.append(
+            {
+                "kind": chip_kind,
+                "icon": icon,
+                "value": tile.primary_value,
+                "label": label,
+                "detail": tile.secondary_value or tile.detail_text,
+                "source": tile.attribution_chip,
+                "freshness": tile.staleness_label,
+                "is_stale": tile.is_stale,
+                "severity": tile.severity,
+                "href": None,
+            }
+        )
+
+    # Gas closes the strip — the figure people open the app for, with a tap-
+    # through to the full gas list.
     gas = _gas_snapshot(db)
     if gas.get("has_data"):
         top = gas["cheapest"][0] if gas.get("cheapest") else {}
@@ -519,26 +546,6 @@ def _utility_chips(db: Session) -> list[dict[str, Any]]:
                 }
             )
 
-    vm = build_conditions_strip_view_model(db)
-    for tile in vm.tiles:
-        mapped = _UTILITY_TILE_MAP.get(tile.kind)
-        if not mapped:
-            continue
-        chip_kind, icon, label = mapped
-        chips.append(
-            {
-                "kind": chip_kind,
-                "icon": icon,
-                "value": tile.primary_value,
-                "label": label,
-                "detail": tile.secondary_value or tile.detail_text,
-                "source": tile.attribution_chip,
-                "freshness": tile.staleness_label,
-                "is_stale": tile.is_stale,
-                "severity": tile.severity,
-                "href": None,
-            }
-        )
     return chips
 
 
@@ -633,6 +640,10 @@ def serve_home(
             "week": sandstone.week_strip(db, today=now.date()),
             "today_groups": events_views.day_groups(db, day=now.date(), now=now),
             "today_highlights": events_views.day_highlights(db, day=now.date(), now=now, limit=3),
+            # Phase 2: the home four-group unified feed (Events / Classes &
+            # fitness / Open all day / At the movies). Same deduped pipeline as
+            # /events-ui, remapped to the home's simplified group model.
+            "today_feed": today_feed(db, day=now.date(), now=now),
             "marquee": marquee,
             "promoted": promoted,
             "featured_cards": featured_cards,
@@ -641,6 +652,8 @@ def serve_home(
             ),
             "explore_tiles": sandstone.explore_tiles(db),
             "service_tiles": sandstone.service_tiles(db),
+            # Phase 3: the slim home directory's six high-traffic front doors.
+            "directory_tiles": sandstone.directory_primary_tiles(),
             "movies_today": movies_today(db, day=now.date()),
             "active_tab": "today",
         },
@@ -896,6 +909,7 @@ def serve_events_ui(
     view: str | None = None,
     cal: str | None = None,
     family: str | None = None,
+    seniors: str | None = None,
 ) -> HTMLResponse:
     """Render the Sandstone events page — three zoom levels of one concept.
 
@@ -920,20 +934,26 @@ def serve_events_ui(
         when_key = (when or "").strip().lower()
         view_key = "today" if when_key in ("", "today") else "week"
 
-    # Family mode (?family=1) — kid/family occurrences only, across all three
-    # zoom levels. ``family_qs`` is appended to every intra-page link so the
-    # toggle survives day paging, view switches, and month paging.
-    family_on = (family or "").strip().lower() in ("1", "true", "yes", "on")
-    family_qs = "&family=1" if family_on else ""
+    # Audience narrows (?family=1 / ?seniors=1) — kid/family or senior
+    # occurrences only, across all three zoom levels. Mutually exclusive (family
+    # wins if both). ``family_qs`` carries the ACTIVE audience on every intra-
+    # page link so the narrow survives day paging, view switches, and month
+    # paging (name kept for the desert template; value is whichever is on).
+    _TRUE = ("1", "true", "yes", "on")
+    family_on = (family or "").strip().lower() in _TRUE
+    seniors_on = (seniors or "").strip().lower() in _TRUE and not family_on
+    aud = "family" if family_on else ("seniors" if seniors_on else "")
+    family_qs = f"&{aud}=1" if aud else ""
 
     def _view_url(key: str) -> str:
         base = "/events-ui" if key == "today" else f"/events-ui?view={key}"
-        if not family_on:
+        if not aud:
             return base
-        return base + ("?family=1" if "?" not in base else "&family=1")
+        return base + (f"?{aud}=1" if "?" not in base else f"&{aud}=1")
 
-    def _toggle_url() -> str:
-        """Current page URL with family mode flipped (the toggle's href)."""
+    def _toggle_url(target: str) -> str:
+        """Current page URL with the ``target`` audience flipped (the toggle's
+        href). Turning one audience on clears the other (mutually exclusive)."""
         params: list[str] = []
         if single_day is not None:
             params.append(f"date={single_day.isoformat()}")
@@ -943,8 +963,8 @@ def serve_events_ui(
             params.append("view=month")
             if cal:
                 params.append(f"cal={cal}")
-        if not family_on:
-            params.append("family=1")
+        if aud != target:  # not already this audience → turn it on (clears other)
+            params.append(f"{target}=1")
         return "/events-ui" + ("?" + "&".join(params) if params else "")
 
     context: dict[str, Any] = {
@@ -953,8 +973,10 @@ def serve_events_ui(
         "mega_columns": sandstone.mega_columns(db),
         "utility_chips": _utility_chips(db),
         "family_mode": family_on,
+        "seniors_mode": seniors_on,
         "family_qs": family_qs,
-        "family_toggle_url": _toggle_url(),
+        "family_toggle_url": _toggle_url("family"),
+        "seniors_toggle_url": _toggle_url("seniors"),
         "view_links": [
             {
                 "key": key,
@@ -970,7 +992,9 @@ def serve_events_ui(
         context.update(
             {
                 "mode": "day",
-                "groups": events_views.day_groups(db, day=single_day, family=family_on, now=now),
+                "groups": events_views.day_groups(
+                    db, day=single_day, family=family_on, seniors=seniors_on, now=now
+                ),
                 "day_label": _long_day_label(single_day),
                 "prev_iso": (single_day - timedelta(days=1)).isoformat(),
                 "next_iso": (single_day + timedelta(days=1)).isoformat(),
@@ -982,7 +1006,9 @@ def serve_events_ui(
         context.update(
             {
                 "mode": "week",
-                "week_rows": events_views.week_rows(db, start=today, family=family_on),
+                "week_rows": events_views.week_rows(
+                    db, start=today, family=family_on, seniors=seniors_on
+                ),
             }
         )
     elif view_key == "month":
@@ -991,7 +1017,8 @@ def serve_events_ui(
             {
                 "mode": "month",
                 "calendar": sandstone.calendar_month(
-                    db, year=cal_year, month=cal_month, today=today, family=family_on
+                    db, year=cal_year, month=cal_month, today=today,
+                    family=family_on, seniors=seniors_on,
                 ),
             }
         )
@@ -999,7 +1026,9 @@ def serve_events_ui(
         context.update(
             {
                 "mode": "today",
-                "groups": events_views.day_groups(db, day=today, family=family_on, now=now),
+                "groups": events_views.day_groups(
+                    db, day=today, family=family_on, seniors=seniors_on, now=now
+                ),
                 "day_label": _long_day_label(today),
                 "movies_today": movies_today(db, day=today),
             }

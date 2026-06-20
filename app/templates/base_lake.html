@@ -52,11 +52,29 @@
   <link rel="stylesheet" href="{{ static_url('/static/styles/lake.css') }}">
   <link rel="stylesheet" href="{{ static_url('/static/styles/lake-components.css') }}">
   <style>
-    /* Header nav stays usable on narrow screens without a JS drawer (Phase 1
-       adds the full mega/mobile menu): let it scroll rather than overflow. */
+    /* Phase 1 nav unification: one lean desktop nav + a real mobile drawer that
+       exposes the SAME destinations. The hamburger + drawer are hidden on the
+       desktop layout; at <=720px the inline nav is replaced by the hamburger. */
     .hdr .nav{overflow-x:auto;scrollbar-width:none}
     .hdr .nav::-webkit-scrollbar{display:none}
-    @media(max-width:720px){.hdr .nav{gap:16px}.hdr .nav .biz{margin-left:4px}}
+    .navtoggle{display:none;margin-left:auto;background:none;border:0;padding:8px;
+      color:#cfdbe3;cursor:pointer;border-radius:8px}
+    .navtoggle:hover{color:#fff}
+    .navtoggle:focus-visible{outline:2px solid var(--brass-light,#d8a64e);outline-offset:2px}
+    .drawer{display:none}
+    .drawer[hidden]{display:none}
+    @media(max-width:720px){
+      .hdr .nav{display:none}
+      .navtoggle{display:inline-flex;align-items:center;justify-content:center}
+      .drawer:not([hidden]){display:flex;flex-direction:column;gap:2px;
+        padding:8px 20px 16px;background:linear-gradient(180deg,#0e1d27,#0b1820);
+        border-top:1px solid rgba(255,255,255,.06)}
+      .drawer a{color:#cfdbe3;text-decoration:none;font-size:16px;font-weight:500;
+        padding:12px 8px;border-radius:8px;min-height:48px;display:flex;align-items:center}
+      .drawer a:hover,.drawer a:focus{color:#fff;background:rgba(255,255,255,.05)}
+      .drawer a[aria-current="page"]{color:#fff}
+      .drawer .biz{color:var(--brass-light,#d8a64e);font-weight:600}
+    }
   </style>
   {% block head_extra %}{% endblock %}
 </head>
@@ -70,16 +88,35 @@
       {{ logo_nav(26) }}
       <span class="wm">Ask <span class="b">Hava</span></span>
     </a>
+    {# Phase 1 (home IA): one lean primary nav, identical destinations across
+       breakpoints. Category browse lives in the directory zone, not the header,
+       so the old department front-doors (primary_nav) + Movies were trimmed
+       here (both still reachable: categories via Directory, Movies via the home
+       strip + footer). The same set is mirrored in the mobile drawer below. #}
     <nav class="nav" aria-label="Primary">
-      {% for link in primary_nav|default([]) %}<a href="{{ link.url }}">{{ link.label }}</a>{% endfor %}
-      <a href="/events-ui">Events</a>
-      <a href="/movies"{% if active_tab == 'movies' %} aria-current="page"{% endif %}>Movies</a>
-      <a href="/categories">Explore</a>
-      <a href="/map">Map</a>
+      <a href="/events-ui"{% if active_tab == 'events' %} aria-current="page"{% endif %}>Events</a>
+      <a href="/categories"{% if active_tab == 'explore' %} aria-current="page"{% endif %}>Directory</a>
+      <a href="/map"{% if active_tab == 'map' %} aria-current="page"{% endif %}>Map</a>
       <a class="biz" href="/portal">For Business</a>
       <a href="/login">Sign in</a>
     </nav>
+    <button type="button" class="navtoggle" id="lk-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="lk-drawer" aria-label="Open menu">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
   </div>
+  {# Mobile disclosure menu opened by the hamburger — the SAME primary
+     destinations as the desktop nav (plus Home + Ask, which are the logo and
+     the hero on desktop). Real menu, hidden until toggled; without JS the
+     desktop nav (scrollable) still covers navigation. #}
+  <nav class="drawer" id="lk-drawer" aria-label="Site menu" hidden>
+    <a href="/home"{% if active_tab == 'home' or active_tab == 'today' %} aria-current="page"{% endif %}>Home</a>
+    <a href="/events-ui"{% if active_tab == 'events' %} aria-current="page"{% endif %}>Events</a>
+    <a href="/categories"{% if active_tab == 'explore' %} aria-current="page"{% endif %}>Directory</a>
+    <a href="/map"{% if active_tab == 'map' %} aria-current="page"{% endif %}>Map</a>
+    <a href="/chat"{% if active_tab == 'ask' %} aria-current="page"{% endif %}>Ask</a>
+    <a class="biz" href="/portal">For Business</a>
+    <a href="/login">Sign in</a>
+  </nav>
 </header>
 
 {# ───── Live conditions bar. Same honest data contract as desert's ribbon:
@@ -161,6 +198,38 @@
     </div>
   </div>
 </footer>
+
+{# Progressive enhancement: the mobile drawer toggles via the hamburger. Without
+   JS the drawer stays hidden and the desktop nav (scrollable) covers navigation.
+   Inline so the lake skin has no extra JS dependency. #}
+<script>
+(function () {
+  "use strict";
+  var btn = document.getElementById("lk-menu-btn");
+  var panel = document.getElementById("lk-drawer");
+  if (!btn || !panel) return;
+  function setOpen(open) {
+    panel.hidden = !open;
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  btn.addEventListener("click", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen(panel.hidden);
+  });
+  document.addEventListener("click", function (e) {
+    if (!panel.hidden && !e.target.closest("#lk-drawer") && e.target !== btn && !btn.contains(e.target)) {
+      setOpen(false);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (!panel.hidden && e.key === "Escape") {
+      setOpen(false);
+      btn.focus();
+    }
+  });
+})();
+</script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

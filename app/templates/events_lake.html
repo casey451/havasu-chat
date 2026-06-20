@@ -60,6 +60,9 @@
     {% if family_toggle_url %}
     <a class="ev-fam{{ ' on' if family_mode }}" href="{{ family_toggle_url }}" aria-pressed="{{ 'true' if family_mode else 'false' }}">Kids &amp; family</a>
     {% endif %}
+    {% if seniors_toggle_url %}
+    <a class="ev-fam ev-sen{{ ' on' if seniors_mode }}" href="{{ seniors_toggle_url }}" aria-pressed="{{ 'true' if seniors_mode else 'false' }}">Seniors</a>
+    {% endif %}
   </div>
 
   {% if mode == 'day' %}

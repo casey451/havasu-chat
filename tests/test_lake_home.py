@@ -41,10 +41,13 @@ def test_lake_home_renders_with_flag() -> None:
     assert "/static/styles/lake_home.css" in b
     assert b.count("<h1") == 1
     assert 'role="search"' in b  # the ask bar
-    assert "Find your spot" in b  # explore section
-    # The month calendar always renders (grid or honest empty state); the
-    # "Happening" week strip is omitted when there are no events (empty DB).
-    assert 'class="mcal"' in b
+    assert "Find a place or service" in b  # slim directory section
+    # Phase 1 hero copy: the H1 + the "search engine" sub-line under the ask box.
+    assert "Search like a local." in b
+    assert "Lake Havasu's only search engine." in b
+    # Phase 1 removed the second month-calendar block from the home (the month
+    # grid lives on /events-ui now) — the home strip links out to it instead.
+    assert 'class="mcal"' not in b
 
 
 def _sample_week() -> dict:
@@ -94,14 +97,101 @@ def test_lake_home_week_and_calendar_bindings() -> None:
     # Real week strip + today's events render from the bound data.
     assert 'class="daystrip"' in b
     assert ">18<" in b  # today's day number, derived from iso
-    assert "Sunset Paddle" in b  # today's event title
-    # Month grid renders the bound cell with its overflow + class counts.
-    assert "+2 more" in b
-    assert "12 classes" in b
+    assert "Sunset Paddle" in b  # today's event (emitted in the events JSON-LD)
+    # Phase 1 removed the in-home month grid — no month cells render on the home.
+    assert 'class="mcal"' not in b
     # Still structurally accessible with the data populated.
     checker = _A11yChecker()
     checker.feed(b)
     assert not checker.finish()
+
+
+def _sample_feed() -> dict:
+    return {
+        "summary": "1 event · 1 class · 1 movie",
+        "groups": [
+            {"key": "events", "label": "Events", "count": 1, "open": True, "rows": [
+                {"time_label": "8 AM", "title": "ZZ Farmers Market", "venue": "Visitor Center",
+                 "url": "/events/1", "recurring": False, "tags": ["Kids"]},
+            ]},
+            {"key": "classes", "label": "Classes & fitness", "count": 1, "open": False, "rows": [
+                {"time_label": "6 PM", "title": "ZZ Sunrise Yoga", "venue": "Eight Lotus",
+                 "url": "/events/2", "recurring": True, "tags": []},
+            ]},
+            {"key": "movies", "label": "At the movies", "count": 1, "open": False, "films": [
+                {"title": "ZZ Robin Hood", "tags": ["Kids"], "summary": "Star Cinemas · next 6:30 PM",
+                 "url": "https://x/book", "theaters": [{"name": "Star Cinemas", "times": ["6:30 PM"]}]},
+            ]},
+        ],
+    }
+
+
+def test_lake_home_today_feed_renders() -> None:
+    """The home renders the four-group unified feed: Events open by default, the
+    rest collapsed, audience tags, and per-theater movie showtimes."""
+    from unittest.mock import patch
+
+    from app.home import router as home_router
+
+    with patch.object(home_router, "today_feed", return_value=_sample_feed()):
+        b = TestClient(app).get("/home?theme=lake").text
+
+    # Four-group feed present; Events open, others collapsed.
+    assert 'class="today-groups tfeed"' in b
+    assert 'data-group="events" open' in b
+    assert 'data-group="classes"' in b and 'data-group="classes" open' not in b
+    assert 'data-group="movies"' in b
+    # Rows + audience tag + per-theater movie showtime render.
+    assert "ZZ Farmers Market" in b
+    assert "ZZ Sunrise Yoga" in b
+    assert "ZZ Robin Hood" in b
+    assert '<span class="rtag kids">Kids</span>' in b
+    assert "6:30 PM" in b
+    # The single lightweight filter control is present.
+    assert 'id="feed-filter"' in b
+    # Still structurally accessible with the feed populated.
+    checker = _A11yChecker()
+    checker.feed(b)
+    assert not checker.finish()
+
+
+def test_lake_nav_unified_across_breakpoints() -> None:
+    """The lean primary destinations appear in BOTH the desktop header nav and
+    the mobile drawer, so no front-door vanishes on mobile (Phase 1 nav fix)."""
+    b = _lake_home()
+    assert 'id="lk-menu-btn"' in b  # the hamburger toggle exists
+
+    # Isolate the desktop primary nav and the mobile drawer markup.
+    desktop = re.search(r'<nav class="nav"[^>]*>(.*?)</nav>', b, re.S)
+    drawer = re.search(r'<nav class="drawer"[^>]*>(.*?)</nav>', b, re.S)
+    assert desktop and drawer, "both the desktop nav and mobile drawer must render"
+
+    lean = ('href="/events-ui"', 'href="/categories"', 'href="/map"',
+            'href="/portal"', 'href="/login"')
+    for href in lean:
+        assert href in desktop.group(1), f"{href} missing from desktop nav"
+        assert href in drawer.group(1), f"{href} missing from mobile drawer"
+    # Category front-doors were trimmed out of the header (they live in the
+    # directory zone now), so the heavy nav is genuinely lean.
+    assert 'href="/categories/eat-and-drink"' not in desktop.group(1)
+
+
+def test_lake_home_slim_directory() -> None:
+    """Phase 3: the home directory is one slim block — a keyword search into
+    /search, six high-traffic front doors, and a single "see all" line. The old
+    15-tile grid + duplicate "Need something done?" strip are gone."""
+    b = _lake_home()
+    # Keyword search field wired to the real /search results page.
+    assert 'class="dirsearch"' in b
+    assert 'action="/search"' in b
+    # The six curated front doors (curated nav — present even on an empty DB).
+    for label in ("Eat &amp; Drink", "Home Services", "Health", "Auto &amp; Boat"):
+        assert label in b
+    # One line to the rest of the taxonomy.
+    assert 'class="dmore"' in b
+    assert 'href="/categories"' in b
+    # The duplicate service strip is gone from the slim directory.
+    assert "Need something done?" not in b
 
 
 def test_lake_home_structural_a11y() -> None:
