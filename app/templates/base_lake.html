@@ -73,6 +73,7 @@
     <nav class="nav" aria-label="Primary">
       {% for link in primary_nav|default([]) %}<a href="{{ link.url }}">{{ link.label }}</a>{% endfor %}
       <a href="/events-ui">Events</a>
+      <a href="/movies"{% if active_tab == 'movies' %} aria-current="page"{% endif %}>Movies</a>
       <a href="/categories">Explore</a>
       <a href="/map">Map</a>
       <a class="biz" href="/portal">For Business</a>
@@ -132,6 +133,7 @@
         <h5>Explore</h5>
         <a class="fl" href="/home">Home</a>
         <a class="fl" href="/events-ui">Events</a>
+        <a class="fl" href="/movies">Movies</a>
         <a class="fl" href="/categories">The directory</a>
         <a class="fl" href="/map">Map</a>
       </div>
