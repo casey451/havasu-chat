@@ -39,6 +39,10 @@ _TYPE_WORDS = [
     ("events", r"\b(food|drink|dining|happy hour|taco|brunch|market|farmers)\b"),
 ]
 _AUD_RE = re.compile(r"\b(kid|kids|child|children|toddler|family|son|daughter|year[\s-]?old|yo)\b", re.I)
+# Senior audience intent ("what is there for seniors this week"). Checked before
+# the kids matcher so a senior ask narrows to senior programming. Kept precise
+# (no "bridge" — that's the London Bridge here) to avoid false positives.
+_SENIOR_AUD_RE = re.compile(r"\b(senior|seniors|55\s*\+|older adults?|retirees?)\b", re.I)
 _AGE_RE = re.compile(r"\b(\d{1,2})\s*(?:year[\s-]?old|yr|yo)\b", re.I)
 _DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 _DOW_WORDS = {"monday": "Mon", "mon": "Mon", "tuesday": "Tue", "tue": "Tue", "tues": "Tue",
@@ -63,13 +67,15 @@ def parse_calendar_query(q: str) -> dict[str, Any]:
         if re.search(pat, s):
             out["type"] = key
             break
-    if _AUD_RE.search(s):
+    if _SENIOR_AUD_RE.search(s):
+        out["aud"] = "seniors"
+    elif _AUD_RE.search(s):
         out["aud"] = "kids"
         out["type"] = out["type"] or "family"
     m = _AGE_RE.search(s)
     if m:
         out["age"] = m.group(1)
-        out["aud"] = "kids"
+        out["aud"] = out["aud"] or "kids"
     days: list[str] = []
     if "today" in s or "tonight" in s:
         days.append("Today")
@@ -137,6 +143,8 @@ def _qs(**params: str) -> str:
 def _title(part: str, type_: str, aud: str, age: str, day_labels: list[str], all_week: bool) -> str:
     if age:
         return f"Plans for your {age}-year-old"
+    if aud == "seniors":
+        return "Senior activities"
     if aud == "kids":
         return "Family plans"
     if type_ and type_ != "events":
@@ -171,6 +179,7 @@ def build_calendar(
     part = part or parsed["part"]
     type_ = type_ if type_ in TYPE_TO_KEY else parsed["type"]
     family = aud == "kids"
+    seniors = aud == "seniors"
 
     # The 7-day window: today + next 6, each with a dow label ("Today" for day 0).
     window = []
@@ -196,7 +205,9 @@ def build_calendar(
     columns: list[dict[str, Any]] = []
     total = 0
     for col in selected:
-        groups = events_views.day_groups(db, day=col["date"], family=family, now=now)
+        groups = events_views.day_groups(
+            db, day=col["date"], family=family, seniors=seniors, now=now
+        )
         items: list[dict[str, Any]] = []
         for g in groups:
             if type_key and g["key"] != type_key:
@@ -239,6 +250,8 @@ def build_calendar(
     if aud == "kids":
         chips.append({"label": f"Kids · age {age}" if age else "Kids",
                       "remove_url": _without(aud="", age="")})
+    if aud == "seniors":
+        chips.append({"label": "Seniors", "remove_url": _without(aud="")})
     if not all_week:
         for c in selected:
             chips.append({"label": c["label"],
@@ -279,5 +292,5 @@ def build_calendar(
                                         ("afternoon", "Afternoon"), ("evening", "Evening")]),
         "seg_type": _seg("type", type_, [("", "All"), ("events", "Around town"), ("music", "Music"),
                                          ("family", "Family"), ("water", "Lake"), ("classes", "Classes")]),
-        "seg_aud": _seg("aud", aud, [("", "Anyone"), ("kids", "Kids")]),
+        "seg_aud": _seg("aud", aud, [("", "Anyone"), ("kids", "Kids"), ("seniors", "Seniors")]),
     }

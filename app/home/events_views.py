@@ -285,7 +285,12 @@ def _occurrence_expired(
 
 
 def day_groups(
-    db: Session, *, day: date, family: bool = False, now: datetime | None = None
+    db: Session,
+    *,
+    day: date,
+    family: bool = False,
+    seniors: bool = False,
+    now: datetime | None = None,
 ) -> list[dict[str, Any]]:
     """Category-accordion groups for one date. Empty groups are omitted.
 
@@ -297,10 +302,18 @@ def day_groups(
     ``family=True`` (the ``?family=1`` toggle) keeps only occurrences that
     positively read as kid/family things (:func:`is_family_event`) — e.g. the
     Aquatic Center contributes Open Swim but not the adult exercise classes.
+    ``seniors=True`` (the ``?seniors=1`` toggle) is the symmetric senior narrow
+    (:func:`is_senior_event`). When either narrow is on, the Kids/Seniors
+    overlays and the family-venue "open today" rows are suppressed — the whole
+    view is already that audience. ``family`` wins if both are passed.
     """
+    if family:
+        seniors = False
     events = _live_events_by_day(db, window_start=day, window_end=day).get(day, [])
     if family:
         events = [ev for ev in events if is_family_event(ev.title, ev.tags)]
+    elif seniors:
+        events = [ev for ev in events if is_senior_event(ev.title, ev.tags)]
     # Item 6 auto-expiry: on the current day, drop occurrences finished >1h ago
     # (no-op for past/future days or when ``now`` isn't supplied).
     events = [
@@ -331,15 +344,17 @@ def day_groups(
         )
         row = _event_row(ev)
         rows_by_group[gkey].append(row)
-        if not family and is_family_event(ev.title, ev.tags):
+        if not family and not seniors and is_family_event(ev.title, ev.tags):
             family_overlay.append(row)
-        if not family and is_senior_event(ev.title, ev.tags):
+        if not family and not seniors and is_senior_event(ev.title, ev.tags):
             senior_overlay.append(row)
 
     for occ in drop_event_duplicates(
         class_occurrences_in_window(db, window_start=day, window_end=day), event_keys
     ):
         if family and not is_family_event(occ.title):
+            continue
+        if seniors and not is_senior_event(occ.title):
             continue
         if _occurrence_expired(day, occ.start_time, occ.end_time, now):
             continue
@@ -353,17 +368,19 @@ def day_groups(
             "recurring": True,
         }
         rows_by_group[gkey].append(row)
-        if not family and is_family_event(occ.title):
+        if not family and not seniors and is_family_event(occ.title):
             family_overlay.append(row)
-        if not family and is_senior_event(occ.title):
+        if not family and not seniors and is_senior_event(occ.title):
             senior_overlay.append(row)
 
     # "What's open for kids today": recurring family-venue hours (toddler
     # playground, pizza arcade, trampoline park, youth gym/dojo class blocks).
     # These are always kid/family things, so they join the Kids & Family group
-    # regardless of the ?family filter and give a parent something to do even on
-    # a day with no scheduled events. They sort after timed rows.
-    family_overlay.extend(open_today_rows(day))
+    # and give a parent something to do even on a day with no scheduled events.
+    # Suppressed in the seniors narrow (kid venues aren't a senior view). They
+    # sort after timed rows.
+    if not seniors:
+        family_overlay.extend(open_today_rows(day))
     rows_by_group["family"] = family_overlay
     rows_by_group["seniors"].extend(senior_overlay)
 
@@ -406,7 +423,7 @@ def rollup_summary(counts: dict[str, int]) -> str:
 
 
 def week_rows(
-    db: Session, *, start: date, days: int = 7, family: bool = False
+    db: Session, *, start: date, days: int = 7, family: bool = False, seniors: bool = False
 ) -> list[dict[str, Any]]:
     """The next-``days`` rows for the week view (gap-free: contiguous dates).
 
@@ -415,14 +432,22 @@ def week_rows(
     a recurring class can never take it; days with no one-offs headline
     nothing and show only the rollup (or honest empty copy).
 
-    ``family=True`` applies the same kid/family occurrence filter as
-    :func:`day_groups`, so the week rollups agree with the day view.
+    ``family=True`` / ``seniors=True`` apply the same audience occurrence filter
+    as :func:`day_groups`, so the week rollups agree with the day view.
+    ``family`` wins if both are passed.
     """
+    if family:
+        seniors = False
     end = start + timedelta(days=days - 1)
     by_day = _live_events_by_day(db, window_start=start, window_end=end)
     if family:
         by_day = {
             d: [ev for ev in evs if is_family_event(ev.title, ev.tags)]
+            for d, evs in by_day.items()
+        }
+    elif seniors:
+        by_day = {
+            d: [ev for ev in evs if is_senior_event(ev.title, ev.tags)]
             for d, evs in by_day.items()
         }
     event_keys = {
@@ -435,6 +460,8 @@ def week_rows(
         class_occurrences_in_window(db, window_start=start, window_end=end), event_keys
     ):
         if family and not is_family_event(occ.title):
+            continue
+        if seniors and not is_senior_event(occ.title):
             continue
         gkey = _group_for(title=occ.title, tags=None, featured=False, recurring=True)
         day_counts = sched_by_day.setdefault(occ.date, {})

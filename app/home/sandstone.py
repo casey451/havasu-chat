@@ -831,7 +831,8 @@ def _pill_sort_key(pill: dict[str, str]) -> tuple[int, int]:
 
 
 def calendar_month(
-    db: Session, *, year: int, month: int, today: date, family: bool = False
+    db: Session, *, year: int, month: int, today: date, family: bool = False,
+    seniors: bool = False,
 ) -> dict[str, Any]:
     """Build a month grid of real events. Empty days stay empty (no fabrication).
 
@@ -841,12 +842,16 @@ def calendar_month(
     plus venue Schedule classes) collapse into ``class_count`` — rendered as a
     small "N classes" badge — instead of flooding the cell ("+44").
 
-    ``family=True`` (the /events-ui family toggle) keeps only kid/family
-    occurrences — same :func:`app.events.family_filter.is_family_event`
-    heuristic the day and week views use, so all three zooms agree.
+    ``family=True`` / ``seniors=True`` (the /events-ui audience toggles) keep only
+    kid/family or senior occurrences — same :func:`is_family_event` /
+    :func:`is_senior_event` heuristics the day and week views use, so all three
+    zooms agree. ``family`` wins if both are passed.
     """
     from app.events.family_filter import is_family_event
+    from app.events.senior_filter import is_senior_event
 
+    if family:
+        seniors = False
     first_weekday, days_in_month = _calendar.monthrange(year, month)
     # Python's monthrange: Monday=0. The grid leads with Sunday, so shift.
     lead_blanks = (first_weekday + 1) % 7
@@ -859,6 +864,11 @@ def calendar_month(
     if family:
         occ_by_date = {
             d: [ev for ev in evs if is_family_event(ev.title, ev.tags)]
+            for d, evs in occ_by_date.items()
+        }
+    elif seniors:
+        occ_by_date = {
+            d: [ev for ev in evs if is_senior_event(ev.title, ev.tags)]
             for d, evs in occ_by_date.items()
         }
     by_day: dict[int, list[dict[str, Any]]] = {}
@@ -892,6 +902,8 @@ def calendar_month(
     )
     for occ in class_occs:
         if family and not is_family_event(occ.title):
+            continue
+        if seniors and not is_senior_event(occ.title):
             continue
         by_day.setdefault(occ.date.day, []).append(
             {"title": clean_event_title(occ.title), "type": "class", "recurring": True}
