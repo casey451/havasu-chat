@@ -106,6 +106,55 @@ def test_lake_home_week_and_calendar_bindings() -> None:
     assert not checker.finish()
 
 
+def _sample_feed() -> dict:
+    return {
+        "summary": "1 event · 1 class · 1 movie",
+        "groups": [
+            {"key": "events", "label": "Events", "count": 1, "open": True, "rows": [
+                {"time_label": "8 AM", "title": "ZZ Farmers Market", "venue": "Visitor Center",
+                 "url": "/events/1", "recurring": False, "tags": ["Kids"]},
+            ]},
+            {"key": "classes", "label": "Classes & fitness", "count": 1, "open": False, "rows": [
+                {"time_label": "6 PM", "title": "ZZ Sunrise Yoga", "venue": "Eight Lotus",
+                 "url": "/events/2", "recurring": True, "tags": []},
+            ]},
+            {"key": "movies", "label": "At the movies", "count": 1, "open": False, "films": [
+                {"title": "ZZ Robin Hood", "tags": ["Kids"], "summary": "Star Cinemas · next 6:30 PM",
+                 "url": "https://x/book", "theaters": [{"name": "Star Cinemas", "times": ["6:30 PM"]}]},
+            ]},
+        ],
+    }
+
+
+def test_lake_home_today_feed_renders() -> None:
+    """The home renders the four-group unified feed: Events open by default, the
+    rest collapsed, audience tags, and per-theater movie showtimes."""
+    from unittest.mock import patch
+
+    from app.home import router as home_router
+
+    with patch.object(home_router, "today_feed", return_value=_sample_feed()):
+        b = TestClient(app).get("/home?theme=lake").text
+
+    # Four-group feed present; Events open, others collapsed.
+    assert 'class="today-groups tfeed"' in b
+    assert 'data-group="events" open' in b
+    assert 'data-group="classes"' in b and 'data-group="classes" open' not in b
+    assert 'data-group="movies"' in b
+    # Rows + audience tag + per-theater movie showtime render.
+    assert "ZZ Farmers Market" in b
+    assert "ZZ Sunrise Yoga" in b
+    assert "ZZ Robin Hood" in b
+    assert '<span class="rtag kids">Kids</span>' in b
+    assert "6:30 PM" in b
+    # The single lightweight filter control is present.
+    assert 'id="feed-filter"' in b
+    # Still structurally accessible with the feed populated.
+    checker = _A11yChecker()
+    checker.feed(b)
+    assert not checker.finish()
+
+
 def test_lake_nav_unified_across_breakpoints() -> None:
     """The lean primary destinations appear in BOTH the desktop header nav and
     the mobile drawer, so no front-door vanishes on mobile (Phase 1 nav fix)."""

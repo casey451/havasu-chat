@@ -42,6 +42,7 @@ from app.groups.themed_groups import group_label
 from app.home import collections as curated_collections
 from app.home import events_views, sandstone, sponsor_store
 from app.home.queries import CATEGORY_LABELS
+from app.home.today_feed import today_feed
 from app.monetization import serving
 from app.movies.queries import movies_today
 from app.v1.categories import BUCKET_SLUG_REDIRECTS, MASTER_BUCKETS
@@ -639,6 +640,10 @@ def serve_home(
             "week": sandstone.week_strip(db, today=now.date()),
             "today_groups": events_views.day_groups(db, day=now.date(), now=now),
             "today_highlights": events_views.day_highlights(db, day=now.date(), now=now, limit=3),
+            # Phase 2: the home four-group unified feed (Events / Classes &
+            # fitness / Open all day / At the movies). Same deduped pipeline as
+            # /events-ui, remapped to the home's simplified group model.
+            "today_feed": today_feed(db, day=now.date(), now=now),
             "marquee": marquee,
             "promoted": promoted,
             "featured_cards": featured_cards,

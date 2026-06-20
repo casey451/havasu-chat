@@ -162,6 +162,63 @@
 .tg-row .rtitle{font-family:var(--disp);font-weight:500;font-size:15px;color:var(--ink);flex:1;min-width:0}
 .cal-legend .leg.seniors{background:#c4793a}
 
+/* ============================================================
+   Phase 2 — the unified "Today in Lake Havasu" feed: four collapsed groups
+   (Events / Classes & fitness / Open all day / At the movies), every row a
+   nested <details> that expands to its facts. Reuses the .today-groups / .tg-*
+   group chrome above; this block adds the per-row rows + the filter control.
+   ============================================================ */
+/* Extra group swatch colors for the home feed's group keys. */
+.tg-sw.events{background:var(--brass)}
+.tg-sw.open_all_day{background:#0f6e56}
+.tg-sw.movies{background:#7a5cc0}
+
+/* "Show <select>" filter. */
+.feedtools{margin-top:14px;display:flex;align-items:center;gap:9px}
+.ff-label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ff-select{position:relative;display:inline-flex;align-items:center}
+.ff-select select{appearance:none;-webkit-appearance:none;font:inherit;font-size:13px;font-weight:500;
+  color:var(--ink);background:var(--raised);border:1px solid var(--hair-2);border-radius:999px;
+  padding:7px 30px 7px 14px;min-height:38px;cursor:pointer;box-shadow:var(--sh-1)}
+.ff-select select:hover{border-color:var(--ink)}
+.ff-select select:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--havasu)}
+.ff-chev{position:absolute;right:11px;color:var(--muted);pointer-events:none}
+
+/* Feed rows — each a collapsible <details>. */
+.tfeed{margin-top:10px}
+.frow{border-top:1px solid var(--hair)}
+.tg-rows>.frow:first-child{border-top:0}
+.frow-h{display:flex;align-items:baseline;gap:12px;padding:11px 16px;cursor:pointer;list-style:none}
+.frow-h::-webkit-details-marker{display:none}
+.frow-h:hover{background:var(--surface)}
+.frow-h:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--havasu)}
+.frow[open]>.frow-h{background:#fcfbf6}
+.frow-time{font-size:12.5px;font-weight:600;color:var(--ink-2);width:84px;flex:none;white-space:nowrap}
+.frow-time--ic{display:inline-flex;align-items:center;color:var(--muted)}
+.frow-main{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.frow-title{font-family:var(--disp);font-weight:500;font-size:15px;color:var(--ink)}
+.frow-venue{font-size:12.5px;color:var(--muted)}
+.frow-cv{flex:none;align-self:center;color:var(--muted);transition:transform .22s var(--ease)}
+.frow[open]>.frow-h .frow-cv{transform:rotate(180deg)}
+.frow-d{padding:2px 16px 13px 92px}
+.frow-d .facts{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:12.5px;color:var(--muted)}
+.frow-d .facts span b{color:var(--ink);font-weight:600}
+.frow-d .times{display:flex;flex-wrap:wrap;gap:6px;margin:5px 0 2px}
+.tpill{font-size:12px;color:var(--ink-2);background:var(--surface);border:1px solid var(--hair-2);border-radius:7px;padding:2px 9px}
+.frow-acts{margin-top:9px}
+.fbtn{font-size:12.5px;font-weight:600;color:var(--brass-deep)}
+.fbtn:hover{text-decoration:underline}
+/* Small audience tags (Kids / Seniors) that ride on a row. */
+.rtag{font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  border-radius:4px;padding:1px 5px;border:1px solid var(--hair-2);color:var(--ink-2);background:var(--surface)}
+.rtag.kids{color:#2f7d45;border-color:#bcd9bf;background:#eef6ef}
+.rtag.seniors{color:#9a5a1f;border-color:#e3cf9e;background:var(--brass-wash)}
+@media(max-width:720px){
+  .frow-time{width:46px;font-size:12px}
+  .frow-d{padding-left:62px}
+  .frow-title{font-size:14.5px}
+}
+
 .explore .exgrid{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .explore .extile{display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:12px;min-height:0}
 .explore .extile:hover{transform:none;box-shadow:var(--sh-card);border-color:var(--brass-edge)}
