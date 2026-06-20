@@ -631,6 +631,8 @@ def serve_home(
             "primary_nav": sandstone.primary_nav(),
             "mega_columns": sandstone.mega_columns(db),
             "week": sandstone.week_strip(db, today=now.date()),
+            "today_groups": events_views.day_groups(db, day=now.date(), now=now),
+            "today_highlights": events_views.day_highlights(db, day=now.date(), now=now, limit=3),
             "marquee": marquee,
             "promoted": promoted,
             "featured_cards": featured_cards,

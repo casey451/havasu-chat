@@ -46,7 +46,7 @@ from app.events.family_filter import is_family_event
 from app.events.senior_filter import is_senior_event
 from app.events.time_labels import TIME_TBD_LABEL, short_time_label, time_sort_key
 from app.events.title_clean import clean_event_title
-from app.home.event_buckets import GROUP_DEFS, GROUP_NOUNS, group_for_tier
+from app.home.event_buckets import GROUP_DEFS, GROUP_NOUNS, TIER_SPECIAL, group_for_tier
 from app.home.family_venues import open_today_rows
 from app.home.sandstone import (
     _event_tier,
@@ -84,10 +84,19 @@ def _group_for(*, title: str, tags: list[str] | None, featured: bool, recurring:
 _CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Yoga", ("yoga", "vinyasa")),
     ("Pilates", ("pilates", "reformer", "barre")),
+    # Aquatic fitness — pool CLASSES (lap swim, water aerobics, aqua zumba). Open
+    # Swim / Family Swim are drop-in rec and route to "Happening today" instead
+    # (see app.home.event_buckets.is_dropin_rec). Checked before Strength so
+    # "Aqua Zumba" lands here, not under Zumba.
+    ("Aquatic fitness", (
+        "lap swim", "water aerobics", "water fitness", "water exercise",
+        "aqua", "aquacise", "aquatic", "water polo", "deep water",
+    )),
     ("Martial Arts", (
         "martial", "karate", "jiu jitsu", "jiu-jitsu", "bjj", "taekwondo",
         "judo", "mma", "kickbox", "muay thai", "no-gi", "no gi", "kali",
         "combat", "self defense", "self-defense", "boxing", "dojo",
+        "open mat", "rolls", "rolling", "grappling", "sparring", "wrestling",
     )),
     ("Dance", ("dance", "ballet", "tap", "jazz", "hip hop", "hip-hop", "ballroom")),
     ("Gymnastics", ("gymnastics", "tumbling", "tumbler", "tumble", "cheer", "ninja", "trampoline")),
@@ -96,21 +105,32 @@ _CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "hiit", "cardio", "spin", "cycling", "zumba", "aerobic", "conditioning",
         "sculpt", "circuit",
     )),
-    # Drop-in racquet/court rec (mostly all-day open-play blocks). Its own
-    # subsection so it isn't buried in the "Other classes" catch-all.
-    ("Pickleball", ("pickleball", "open play")),
+    # Scheduled racquet/court classes & clinics. All-day open play is drop-in rec
+    # and routes to "Happening today", so it never reaches this subsection.
+    ("Pickleball", ("pickleball", "racquetball", "tennis clinic")),
 )
 _CLASS_SUBGROUP_ORDER: tuple[str, ...] = (
-    "Yoga", "Pilates", "Strength & Cardio", "Dance", "Gymnastics",
-    "Martial Arts", "Pickleball", "Other classes",
+    "Yoga", "Pilates", "Strength & Cardio", "Aquatic fitness", "Dance",
+    "Gymnastics", "Martial Arts", "Pickleball", "Other classes",
 )
 _CLASS_FALLBACK_LABEL = "Other classes"
 # Below this many class rows a day reads fine flat; at/above it we sub-group.
 _CLASS_SUBGROUP_MIN = 6
 
 
-def _class_subgroup(title: str) -> str:
-    """Map a fitness/class occurrence to a type subsection by title keyword."""
+_MARTIAL_ARTS_VENUES: tuple[str, ...] = (
+    "bridge city",
+)
+
+
+def _class_subgroup(title: str, venue: str | None = None) -> str:
+    """Map a fitness/class occurrence to a type subsection.
+
+    Venue wins first: a known martial-arts gym (Bridge City) files every class
+    under Martial Arts regardless of title. Otherwise title-keyword classify.
+    """
+    if any(v in (venue or "").lower() for v in _MARTIAL_ARTS_VENUES):
+        return "Martial Arts"
     low = title.lower()
     for label, hints in _CLASS_SUBGROUPS:
         for h in hints:
@@ -124,7 +144,7 @@ def _split_class_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     subsections, omitting empty ones (honest-omission). Row order preserved."""
     buckets: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
-        buckets.setdefault(_class_subgroup(row.get("title") or ""), []).append(row)
+        buckets.setdefault(_class_subgroup(row.get("title") or "", row.get("venue")), []).append(row)
     out: list[dict[str, Any]] = []
     for label in _CLASS_SUBGROUP_ORDER:
         sub_rows = buckets.get(label)
@@ -287,6 +307,9 @@ def day_groups(
     # primary group AND is re-listed under "Seniors", so there is one place to
     # find everything at the Senior Center. _group_for never returns "seniors",
     # so primaries are assigned first and this overlay is layered on after.
+    # Kids & Family is an ADDITIVE overlay (2026-06-19), built the same way as
+    # Seniors: a kid occurrence keeps its primary group AND is re-listed here.
+    family_overlay: list[dict[str, Any]] = []
     senior_overlay: list[dict[str, Any]] = []
     for ev in events:
         gkey = _group_for(
@@ -297,6 +320,8 @@ def day_groups(
         )
         row = _event_row(ev)
         rows_by_group[gkey].append(row)
+        if not family and is_family_event(ev.title, ev.tags):
+            family_overlay.append(row)
         if not family and is_senior_event(ev.title, ev.tags):
             senior_overlay.append(row)
 
@@ -317,6 +342,8 @@ def day_groups(
             "recurring": True,
         }
         rows_by_group[gkey].append(row)
+        if not family and is_family_event(occ.title):
+            family_overlay.append(row)
         if not family and is_senior_event(occ.title):
             senior_overlay.append(row)
 
@@ -325,7 +352,8 @@ def day_groups(
     # These are always kid/family things, so they join the Kids & Family group
     # regardless of the ?family filter and give a parent something to do even on
     # a day with no scheduled events. They sort after timed rows.
-    rows_by_group["family"].extend(open_today_rows(day))
+    family_overlay.extend(open_today_rows(day))
+    rows_by_group["family"] = family_overlay
     rows_by_group["seniors"].extend(senior_overlay)
 
     groups: list[dict[str, Any]] = []
@@ -455,3 +483,34 @@ def week_rows(
             }
         )
     return rows
+
+
+def day_highlights(
+    db: Session, *, day: date, now: datetime | None = None, limit: int = 3
+) -> list[dict[str, Any]]:
+    """Top one-off events for the home "Today's highlights" strip — the unique,
+    not-recurring things, ranked by tier (special first) then time. Recurring
+    classes and all-day drop-in rec never headline. Empty day -> []."""
+    events = _live_events_by_day(db, window_start=day, window_end=day).get(day, [])
+    ranked: list[tuple[int, tuple[int, time], Event]] = []
+    for ev in events:
+        if ev.is_recurring:
+            continue
+        if _occurrence_expired(day, ev.start_time, ev.end_time, now):
+            continue
+        tier = _event_tier(
+            title=ev.title or "", tags=ev.tags, featured=bool(ev.featured), recurring=False
+        )
+        ranked.append((tier, time_sort_key(ev.start_time, ev.end_time), ev))
+    ranked.sort(key=lambda t: (t[0], t[1]))
+    out: list[dict[str, Any]] = []
+    for tier, _sk, ev in ranked[:limit]:
+        out.append(
+            {
+                "title": clean_event_title(ev.title, location_name=ev.location_name),
+                "time_label": short_time_label(ev.start_time, ev.end_time),
+                "venue": ev.location_name,
+                "special": tier == TIER_SPECIAL,
+            }
+        )
+    return out

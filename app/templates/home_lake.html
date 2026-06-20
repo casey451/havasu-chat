@@ -105,47 +105,76 @@
 
 {% if week.has_any %}
 {% set td = week.days[0] %}
+{%- set things_total = today_groups | rejectattr('key', 'equalto', 'family') | rejectattr('key', 'equalto', 'seniors') | sum(attribute='count') -%}
+{%- set ev_n = today_groups | selectattr('key', 'equalto', 'events') | map(attribute='count') | sum -%}
+{%- set cl_n = today_groups | selectattr('key', 'equalto', 'classes') | map(attribute='count') | sum -%}
 <section class="today" id="today"><div class="wrap">
   <div class="mod-head">
-    <div><h2 class="disp">Happening in Havasu</h2><div class="sub">Today · {{ td.label }} {{ td.md }}{% if td.event_count %} — {{ td.event_count }} event{{ '' if td.event_count == 1 else 's' }}{% endif %}{% if td.class_count %} · {{ td.class_count }} class{{ '' if td.class_count == 1 else 'es' }}{% endif %}</div></div>
+    <div><h2 class="disp">Happening in Havasu</h2><div class="sub">Today · {{ td.label }} {{ td.md }}{% if things_total %} — <b>{{ things_total }} thing{{ '' if things_total == 1 else 's' }}</b>{% if ev_n %} · {{ ev_n }} event{{ '' if ev_n == 1 else 's' }}{% endif %}{% if cl_n %} · {{ cl_n }} class{{ '' if cl_n == 1 else 'es' }}{% endif %}{% endif %}</div></div>
     <a class="full" href="/events-ui">See full calendar <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
   </div>
 
   <div class="daystrip" role="list" aria-label="The next seven days">
     {% for day in week.days %}
     <a class="day{% if loop.first %} today{% endif %}" role="listitem" href="/events-ui?date={{ day.iso }}"
-       aria-label="{{ day.event_count }} event{{ '' if day.event_count == 1 else 's' }} on {{ 'today' if loop.first else day.label }} {{ day.md }}">
+       aria-label="{{ day.count }} thing{{ '' if day.count == 1 else 's' }} on {{ 'today' if loop.first else day.label }} {{ day.md }}">
       <span class="dow">{{ 'Today' if loop.first else day.label }}</span>
       <span class="dn">{{ day.iso.split('-')[2]|int }}</span>
-      {% if day.event_count %}<span class="ct"><span class="d" aria-hidden="true"></span>{{ day.event_count }}</span>{% else %}<span class="ct none">—</span>{% endif %}
+      {% if day.count %}<span class="ct"><span class="d" aria-hidden="true"></span>{{ day.count }}</span>{% else %}<span class="ct none">—</span>{% endif %}
     </a>
     {% endfor %}
   </div>
 
-  {% if td.events %}
-  <div class="elist today-list">
-    {% for ev in td.events %}
-    <div class="eitem">
-      <a class="erow" href="/events-ui?date={{ td.iso }}">
-        {% if ev.time %}<span class="tm">{{ ev.time }}</span>{% endif %}
-        <span class="body"><span class="l1"><span class="ti2">{{ ev.title }}</span></span></span>
-      </a>
-    </div>
+  {% if today_highlights %}
+  <div class="hl-cap">Today's highlights</div>
+  <div class="hl-strip">
+    {% for h in today_highlights %}
+    <a class="hlcard{% if h.special %} special{% endif %}" href="/events-ui?date={{ td.iso }}">
+      <span class="htitle">{{ h.title }}</span>
+      <span class="hmeta">{% if h.time_label %}<b>{{ h.time_label }}</b>{% endif %}{% if h.venue %}{% if h.time_label %} · {% endif %}{{ h.venue }}{% endif %}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if today_groups %}
+  <div class="hl-cap">Browse everything today</div>
+  <div class="today-groups">
+    {% for g in today_groups %}
+    <details class="tg-acc" data-group="{{ g.key }}"{% if g.open %} open{% endif %}>
+      <summary>
+        <span class="tg-sw {{ g.key }}" aria-hidden="true"></span>
+        <span class="tg-name">{{ g.label }}</span>
+        <span class="tg-count">{{ g.count }}</span>
+        <svg class="tg-chev" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="tg-rows">
+        {% if g.subgroups %}
+          {% for sub in g.subgroups %}
+          <details class="tg-sub">
+            <summary><span class="sub-name">{{ sub.label }}</span><span class="sc">{{ sub.count }}</span><svg class="sub-chev" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+            {% for row in sub.rows %}
+            <a class="tg-row" href="{{ row.url }}"><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}</span></a>
+            {% endfor %}
+          </details>
+          {% endfor %}
+        {% else %}
+          {% for row in g.rows %}
+          <a class="tg-row" href="{{ row.url }}"><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}</span></a>
+          {% endfor %}
+        {% endif %}
+      </div>
+    </details>
     {% endfor %}
   </div>
   {% else %}
   <div class="empty today-list"><h3>Nothing posted for today yet</h3><p>Browse the week ahead or the full calendar.</p></div>
   {% endif %}
 
-  {% if td.categories %}
-  <div class="also"><span class="alabel">Also today</span>
-    {% for c in td.categories %}<span class="wchip">{{ c.label }} <b>{{ c.count }}</b></span>{% endfor %}
-  </div>
-  {% endif %}
-
   <div class="cal-legend">
-    <span><i class="leg"></i>Around town</span>
+    <span><i class="leg"></i>Happening today</span>
     <span><i class="leg family"></i>Kids &amp; family</span>
+    <span><i class="leg seniors"></i>Seniors</span>
     <span><i class="leg music"></i>Music &amp; nightlife</span>
     <span><i class="leg water"></i>Lake &amp; boating</span>
     <span><i class="leg classes"></i>Fitness &amp; classes</span>

@@ -110,3 +110,64 @@
   .explore{padding:48px 0}.month{padding:48px 0 60px}
   .cell{min-height:62px;padding:7px 8px}.cell .ev{display:none}
 }
+
+
+/* ============================================================
+   2026-06-19 redesign — "Happening today" module (highlights strip +
+   collapsible category accordion) and the tightened "Find your spot" grid.
+   ============================================================ */
+.hl-cap{margin-top:20px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.hl-strip{margin-top:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.hlcard{position:relative;display:block;border:1px solid var(--hair);border-radius:14px;padding:13px 14px 13px 16px;background:linear-gradient(180deg,#fff,#fafcfd);box-shadow:var(--sh-1);overflow:hidden;transition:transform .16s var(--ease),box-shadow .16s,border-color .16s}
+.hlcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--brass)}
+.hlcard.special::before{background:var(--warn)}
+.hlcard:hover{transform:translateY(-2px);box-shadow:var(--sh-card);border-color:var(--hair-2)}
+.hlcard .htitle{display:block;font-family:var(--disp);font-weight:600;font-size:15.5px;color:var(--ink);line-height:1.25}
+.hlcard .hmeta{display:block;font-size:12.5px;color:var(--ink-2);margin-top:5px}
+.hlcard .hmeta b{color:var(--ink)}
+
+.today-groups{margin-top:10px;border:1px solid var(--hair);border-radius:16px;background:var(--raised);box-shadow:var(--sh-card);overflow:hidden}
+.tg-acc{border-bottom:1px solid var(--hair)}
+.tg-acc:last-child{border-bottom:0}
+.tg-acc>summary{display:flex;align-items:center;gap:11px;padding:13px 16px;cursor:pointer;list-style:none}
+.tg-acc>summary::-webkit-details-marker{display:none}
+.tg-acc>summary:hover{background:var(--surface)}
+.tg-acc>summary:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--havasu)}
+.tg-sw{width:10px;height:10px;border-radius:3px;flex:none;background:var(--brass)}
+.tg-sw.family{background:var(--good)}.tg-sw.seniors{background:#c4793a}.tg-sw.music{background:#7a5cc0}.tg-sw.water{background:var(--havasu)}.tg-sw.classes{background:var(--brass-deep)}
+.tg-name{font-weight:600;font-size:15px;color:var(--ink)}
+.tg-count{margin-left:auto;font-size:12px;font-weight:700;color:var(--brass-deep);background:var(--brass-wash);border:1px solid var(--brass-edge);border-radius:999px;padding:2px 10px;flex:none}
+.tg-chev{flex:none;color:var(--muted);transition:transform .22s var(--ease)}
+.tg-acc[open]>summary .tg-chev{transform:rotate(180deg)}
+.tg-rows{border-top:1px solid var(--hair)}
+.tg-sub{border-top:1px solid var(--hair)}
+.tg-sub:first-child{border-top:0}
+.tg-sub>summary{display:flex;align-items:center;gap:8px;padding:10px 16px;cursor:pointer;list-style:none;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tg-sub>summary::-webkit-details-marker{display:none}
+.tg-sub>summary:hover{background:var(--surface)}
+.tg-sub .sub-name{color:var(--ink-2)}
+.tg-sub .sc{font-size:11px;font-weight:700;color:var(--brass-deep);background:var(--brass-wash);border:1px solid var(--brass-edge);border-radius:999px;padding:1px 8px}
+.tg-sub .sub-chev{margin-left:auto;color:var(--muted);transition:transform .22s var(--ease)}
+.tg-sub[open]>summary .sub-chev{transform:rotate(180deg)}
+.tg-row{display:flex;align-items:baseline;gap:12px;padding:10px 16px;border-top:1px solid var(--hair);color:inherit;transition:background .14s}
+.tg-rows>.tg-row:first-child{border-top:0}
+.tg-row:hover{background:var(--surface)}
+.tg-sub .tg-row{padding-left:28px}
+.tg-row .rtime{font-size:12.5px;font-weight:600;color:var(--ink-2);width:84px;flex:none;white-space:nowrap}
+.tg-row .rtitle{font-family:var(--disp);font-weight:500;font-size:15px;color:var(--ink);flex:1;min-width:0}
+.cal-legend .leg.seniors{background:#c4793a}
+
+.explore .exgrid{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.explore .extile{display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:12px;min-height:0}
+.explore .extile:hover{transform:none;box-shadow:var(--sh-card);border-color:var(--brass-edge)}
+.explore .extile .ic{width:30px;height:30px;border-radius:9px}
+.explore .extile .ic svg{width:16px;height:16px}
+.explore .extile h3{font-family:var(--ui);font-weight:600;font-size:13.5px;margin-top:0;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.explore .extile .ar{position:static;margin-left:auto;opacity:1;transform:none;color:var(--hair-2);flex:none}
+.explore .extile:hover .ar{opacity:1;transform:none;color:var(--brass-deep)}
+
+@media(max-width:1080px){.explore .exgrid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:720px){
+  .hl-strip{grid-template-columns:1fr}
+  .explore .exgrid{grid-template-columns:repeat(2,1fr)}
+}

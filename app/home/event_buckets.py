@@ -25,7 +25,7 @@ needs the keyword classifier that lives in sandstone.
 
 from __future__ import annotations
 
-from app.events.family_filter import is_family_event
+import re
 
 # Importance tiers (lower = more prominent). The owner-approved headline order
 # is special > music/nightlife > community > water > other one-off, with the
@@ -47,7 +47,7 @@ from app.events.family_filter import is_family_event
 # display name shown in the events-page accordions and the home-strip legend.
 GROUP_DEFS: tuple[tuple[str, str, str], ...] = (
     # "Around town": the catch-all one-off group (special / community / untyped).
-    ("events", "Around town", "\U0001F39F️"),
+    ("events", "Happening today", "\U0001F39F️"),
     # "Kids & Family" is a cross-cutting collector (see group_for_tier): every
     # kid/family occurrence — youth classes, Open Swim, story time — lands here
     # so a parent sees everything for kids in one place.
@@ -75,20 +75,37 @@ GROUP_NOUNS: dict[str, tuple[str, str]] = {
 }
 
 
+# All-day / drop-in recreation (Open Swim, Open Play, Open Gym, …) — NOT a
+# scheduled class and NOT a one-off event. Routes into "Happening today". Word-
+# boundary matched. "Open MAT" is excluded (that is jiu-jitsu -> Martial Arts).
+_DROPIN_REC_RE = re.compile(
+    r"\b("
+    r"open\s+swim|free\s+swim|family\s+swim|rec(?:reational)?\s+swim|public\s+swim|"
+    r"open\s+play|open\s+gym|open\s+skate|public\s+skate|open\s+pool|open\s+rec"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def is_dropin_rec(title: str | None) -> bool:
+    """True for all-day / drop-in rec — routes to "Happening today", not the
+    Fitness class list. Excludes "Open Mat" (jiu-jitsu)."""
+    return bool(title) and bool(_DROPIN_REC_RE.search(title))
+
+
 def group_for_tier(
     tier: int, *, recurring: bool, title: str = "", tags: list[str] | None = None
 ) -> str:
-    """Map an (importance tier, recurring?) pair to its bucket ``key``.
+    """Map an (importance tier, recurring?) pair to its PRIMARY bucket ``key``.
 
-    Kids & Family is a cross-cutting overlay: any kid/family occurrence (a youth
-    class, Open Swim, story time) collects here instead of its activity group so
-    a parent has one place to look. Big one-off SPECIAL events stay in their
-    marquee group (they headline the day) — everything else defers to the family
-    collector first. Pool sessions fold into classes (open/family swim is caught
-    by the family overlay above).
+    Kids & Family and Seniors are additive OVERLAYS built in
+    :func:`app.home.events_views.day_groups` (an occurrence keeps this primary
+    home AND is re-listed under the overlay), so this never returns "family" or
+    "seniors". Drop-in rec (Open Swim, Open Play) routes to "Happening today"
+    before the class/water checks so it never lands in the Fitness list.
     """
-    if tier != TIER_SPECIAL and is_family_event(title, tags):
-        return "family"
+    if is_dropin_rec(title):
+        return "events"
     if recurring or tier in (TIER_CLASS, TIER_AQUATIC):
         return "classes"
     if tier == TIER_MUSIC:
