@@ -1,11 +1,17 @@
-"""One-time cleanup: archive the movie-tagged Event rows left over from the
+"""One-time cleanup: retire the movie-tagged Event rows left over from the
 events-pipeline approach (before showtimes moved to the dedicated
 ``movie_showtimes`` table).
 
-Non-destructive: flips ``status`` from ``live`` to ``archived`` so the rows drop
-out of every status-filtered feed, WITHOUT deleting Event rows or orphaning their
+Non-destructive: flips ``status`` from ``live`` to ``deleted`` so the rows drop
+out of every status-filtered feed, WITHOUT removing Event rows or orphaning their
 dual-write ``entities`` graphs. (The defensive ``not_movie_event_clause`` filter
-already hides them; this is hygiene so ~250 stale "live" rows don't linger.)
+already hides them; this is hygiene so the stale "live" rows don't linger.)
+
+``deleted`` — not ``archived`` — because ``ck_events_status`` only permits
+``draft|live|cancelled|expired|pending_review|deleted|duplicate``; ``archived``
+is not a valid event status and Postgres rejects the UPDATE. ``deleted`` is the
+right fit: the events surface treats a deleted event's permalink as 410 Gone,
+which is correct for showtimes that no longer exist as events.
 
 Dry-run by default. This is a production DB write — review the count first.
 
@@ -50,15 +56,15 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         if dry_run:
-            print(f"DRY RUN: would archive {count} movie-tagged live Event rows")
+            print(f"DRY RUN: would retire {count} movie-tagged live Event rows (-> deleted)")
             return 0
         db.execute(
             update(Event)
             .where(Event.status == "live", _MOVIE_LIKE)
-            .values(status="archived")
+            .values(status="deleted")
         )
         db.commit()
-    print(f"APPLY: archived {count} movie-tagged Event rows")
+    print(f"APPLY: retired {count} movie-tagged Event rows (status -> deleted)")
     return 0
 
 
