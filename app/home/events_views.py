@@ -43,6 +43,7 @@ from app.events.class_occurrences import (
     drop_event_duplicates,
 )
 from app.events.family_filter import is_family_event
+from app.events.senior_filter import is_senior_event
 from app.events.time_labels import TIME_TBD_LABEL, short_time_label, time_sort_key
 from app.events.title_clean import clean_event_title
 from app.home.event_buckets import GROUP_DEFS, GROUP_NOUNS, TIER_SPECIAL, group_for_tier
@@ -85,8 +86,8 @@ _CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Pilates", ("pilates", "reformer", "barre")),
     # Aquatic fitness — pool CLASSES (lap swim, water aerobics, aqua zumba). Open
     # Swim / Family Swim are drop-in rec and route to "Happening today" instead
-    # (see app.home.event_buckets.is_dropin_rec), so they never reach here.
-    # Checked before Strength & Cardio so "Aqua Zumba" lands here, not under Zumba.
+    # (see app.home.event_buckets.is_dropin_rec). Checked before Strength so
+    # "Aqua Zumba" lands here, not under Zumba.
     ("Aquatic fitness", (
         "lap swim", "water aerobics", "water fitness", "water exercise",
         "aqua", "aquacise", "aquatic", "water polo", "deep water",
@@ -95,8 +96,6 @@ _CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "martial", "karate", "jiu jitsu", "jiu-jitsu", "bjj", "taekwondo",
         "judo", "mma", "kickbox", "muay thai", "no-gi", "no gi", "kali",
         "combat", "self defense", "self-defense", "boxing", "dojo",
-        # "Open Mat" / "rolls" / "grappling" are jiu-jitsu — route to Martial Arts
-        # (the live bug filed Bridge City's Open Mat under "Other classes").
         "open mat", "rolls", "rolling", "grappling", "sparring", "wrestling",
     )),
     ("Dance", ("dance", "ballet", "tap", "jazz", "hip hop", "hip-hop", "ballroom")),
@@ -107,7 +106,7 @@ _CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "sculpt", "circuit",
     )),
     # Scheduled racquet/court classes & clinics. All-day open play is drop-in rec
-    # and now routes to "Happening today", so it never reaches this subsection.
+    # and routes to "Happening today", so it never reaches this subsection.
     ("Pickleball", ("pickleball", "racquetball", "tennis clinic")),
 )
 _CLASS_SUBGROUP_ORDER: tuple[str, ...] = (
@@ -119,9 +118,6 @@ _CLASS_FALLBACK_LABEL = "Other classes"
 _CLASS_SUBGROUP_MIN = 6
 
 
-# Venues whose every class is martial arts, so a generic title ("Open Mat",
-# "Adult Program", "Fundamentals") still files under Martial Arts. Substring
-# matched against the row's venue, case-insensitive. Extend as dojos are added.
 _MARTIAL_ARTS_VENUES: tuple[str, ...] = (
     "bridge city",
 )
@@ -130,12 +126,10 @@ _MARTIAL_ARTS_VENUES: tuple[str, ...] = (
 def _class_subgroup(title: str, venue: str | None = None) -> str:
     """Map a fitness/class occurrence to a type subsection.
 
-    Venue wins first: a known martial-arts gym (e.g. Bridge City) files every
-    class under Martial Arts regardless of title. Otherwise fall back to the
-    title-keyword classifier, word-boundary matched in specificity order.
+    Venue wins first: a known martial-arts gym (Bridge City) files every class
+    under Martial Arts regardless of title. Otherwise title-keyword classify.
     """
-    vlow = (venue or "").lower()
-    if any(v in vlow for v in _MARTIAL_ARTS_VENUES):
+    if any(v in (venue or "").lower() for v in _MARTIAL_ARTS_VENUES):
         return "Martial Arts"
     low = title.lower()
     for label, hints in _CLASS_SUBGROUPS:
@@ -309,15 +303,14 @@ def day_groups(
     event_keys = {((ev.title or "").strip().lower(), day, ev.start_time) for ev in events}
 
     rows_by_group: dict[str, list[dict[str, Any]]] = {key: [] for key, _l, _i in GROUP_DEFS}
-    # Kids & Family is an ADDITIVE overlay (2026-06-19 redesign): a kid/family
-    # occurrence keeps its PRIMARY group (Happening today / Fitness & classes / …)
-    # AND is re-listed here, so a parent taps one group and sees everything for
-    # kids while Fitness still lists every class. ``_group_for`` never returns
-    # "family", so primaries are assigned first and this overlay is layered on.
-    # In ?family filter mode the whole page is already kid-only, so the overlay is
-    # skipped (it would just duplicate every primary group).
+    # Seniors is an additive overlay: every senior-tagged occurrence keeps its
+    # primary group AND is re-listed under "Seniors", so there is one place to
+    # find everything at the Senior Center. _group_for never returns "seniors",
+    # so primaries are assigned first and this overlay is layered on after.
+    # Kids & Family is an ADDITIVE overlay (2026-06-19), built the same way as
+    # Seniors: a kid occurrence keeps its primary group AND is re-listed here.
     family_overlay: list[dict[str, Any]] = []
-
+    senior_overlay: list[dict[str, Any]] = []
     for ev in events:
         gkey = _group_for(
             title=ev.title or "",
@@ -329,6 +322,8 @@ def day_groups(
         rows_by_group[gkey].append(row)
         if not family and is_family_event(ev.title, ev.tags):
             family_overlay.append(row)
+        if not family and is_senior_event(ev.title, ev.tags):
+            senior_overlay.append(row)
 
     for occ in drop_event_duplicates(
         class_occurrences_in_window(db, window_start=day, window_end=day), event_keys
@@ -349,12 +344,17 @@ def day_groups(
         rows_by_group[gkey].append(row)
         if not family and is_family_event(occ.title):
             family_overlay.append(row)
+        if not family and is_senior_event(occ.title):
+            senior_overlay.append(row)
 
     # "What's open for kids today": recurring family-venue hours (toddler
     # playground, pizza arcade, trampoline park, youth gym/dojo class blocks).
-    # Always part of the Kids & Family group; they sort after timed rows.
+    # These are always kid/family things, so they join the Kids & Family group
+    # regardless of the ?family filter and give a parent something to do even on
+    # a day with no scheduled events. They sort after timed rows.
     family_overlay.extend(open_today_rows(day))
     rows_by_group["family"] = family_overlay
+    rows_by_group["seniors"].extend(senior_overlay)
 
     groups: list[dict[str, Any]] = []
     for key, label, icon in GROUP_DEFS:
@@ -488,14 +488,9 @@ def week_rows(
 def day_highlights(
     db: Session, *, day: date, now: datetime | None = None, limit: int = 3
 ) -> list[dict[str, Any]]:
-    """Top one-off events for the home "Today's highlights" strip.
-
-    The unique, not-recurring things people are most likely interested in —
-    ranked by importance tier (special festivals/tournaments first) then time.
-    Recurring classes and all-day drop-in rec never headline here (they live in
-    the category rows below). ``special`` flags a marquee-tier event so the
-    template can accent it. Honest omission: an empty day returns ``[]``.
-    """
+    """Top one-off events for the home "Today's highlights" strip — the unique,
+    not-recurring things, ranked by tier (special first) then time. Recurring
+    classes and all-day drop-in rec never headline. Empty day -> []."""
     events = _live_events_by_day(db, window_start=day, window_end=day).get(day, [])
     ranked: list[tuple[int, tuple[int, time], Event]] = []
     for ev in events:
