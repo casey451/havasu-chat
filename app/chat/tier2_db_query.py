@@ -950,6 +950,7 @@ def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
         .where(
             Provider.draft.is_(False),
             Provider.is_active.is_(True),
+            Provider.is_local.isnot(False),  # Lake Havasu-local only (2026-06-19)
             or_(Provider.entity_id.is_(None), Entity.entity_type == ENTITY_TYPE_COMMERCIAL),
         )
         .options(

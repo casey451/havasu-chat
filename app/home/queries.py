@@ -631,6 +631,7 @@ def new_on_hava(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
             Provider.created_at >= cutoff,
             Provider.is_active.is_(True),
             Provider.draft.is_(False),
+            Provider.is_local.isnot(False),  # Lake Havasu-local only (2026-06-19)
         )
         .order_by(*new_on_hava_provider_ranking())
         .limit(limit * 2)
@@ -693,6 +694,7 @@ def spotlights(db: Session, *, limit: int = 3) -> list[dict[str, Any]]:
             or_(Provider.sponsored_until.is_(None), Provider.sponsored_until > now),
             Provider.is_active.is_(True),
             Provider.draft.is_(False),
+            Provider.is_local.isnot(False),  # Lake Havasu-local only (2026-06-19)
         )
         .order_by(Provider.created_at.desc())
         .limit(limit)
@@ -737,6 +739,7 @@ def categories(db: Session) -> list[dict[str, Any]]:
             Provider.is_active.is_(True),
             Provider.draft.is_(False),
             Provider.category.isnot(None),
+            Provider.is_local.isnot(False),  # Lake Havasu-local only (2026-06-19)
         )
         .group_by(Provider.category)
         .order_by(sa_func.count(Provider.id).desc())

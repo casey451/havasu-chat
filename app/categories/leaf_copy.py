@@ -61,6 +61,27 @@ def _copy(intro: str, *specific: tuple[str, str]) -> LeafCopy:
 
 
 LEAF_COPY: dict[str, LeafCopy] = {
+    "golf-courses": _copy(
+        "Golf in Lake Havasu City runs year-round — and it's more than the "
+        "courses. The listings below cover public and semi-private golf courses, "
+        "the local driving range with Toptracer, and indoor virtual golf "
+        "simulators you can play in any weather. Whether you want 18 holes, a "
+        "bucket of balls, or a climate-controlled simulator bay, start here. "
+        "Listings are ranked by real public reviews; sponsored placements are "
+        "always labeled.",
+        (
+            "What kinds of golf does this page cover?",
+            "All of it: full golf courses, the driving range (including Toptracer "
+            "range tech), and Lake Havasu's indoor virtual golf simulators — "
+            "grouped on one page so you can find the right option fast.",
+        ),
+        (
+            "Can I play golf indoors in Lake Havasu?",
+            "Yes — there are indoor virtual golf simulators in town, a popular "
+            "way to play or practice out of the summer heat. They're listed here "
+            "alongside the outdoor courses and driving range.",
+        ),
+    ),
     "auto-repair": _copy(
         "Desert heat is hard on cars — batteries cook, coolant systems work "
         "overtime, and AC failures turn a Havasu commute miserable fast. The "

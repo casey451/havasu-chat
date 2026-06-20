@@ -1,4 +1,4 @@
-"""Workstream B.1 — generalized taxonomy leaf pages.
+﻿"""Workstream B.1 — generalized taxonomy leaf pages.
 
 Covers resolve_leaf (department/leaf slug resolution against the level-0/level-1
 tree), the category_id + is_primary listing join, the >=3 thin-page gate, the
@@ -326,7 +326,7 @@ def test_wave1_leaf_copy_intros_and_faq_counts() -> None:
     # 14 Wave-1 entries + 5 ported from the consolidated trade pages (PR-B)
     # + 1 lodging vacation-rentals leaf (new leaf, 2026-06-13)
     # + 1 tattoo-and-piercing leaf (P7 polish, 2026-06-17).
-    assert len(LEAF_COPY) == 21
+    assert len(LEAF_COPY) == 22
     for slug, copy in LEAF_COPY.items():
         words = len(copy.intro.split())
         assert 40 <= words <= 100, f"{slug}: intro is {words} words"

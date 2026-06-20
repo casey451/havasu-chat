@@ -37,19 +37,20 @@ from app.chat.normalizer import spell_correct
 # entries.
 PENDING_LEAF_SLUGS: frozenset[str] = frozenset(
     {
-        "hearing-and-audiology",
+        # 2026-06-19 monetization pass: the high-ad-value Havasu trades below were
+        # promoted into docs/proposals/taxonomy-seed.json (so the leaf rows seed
+        # and the synonyms self-activate once providers are backfilled), and so
+        # are NO LONGER pending — they live in the seed now:
+        #   hearing-and-audiology, golf-carts, auto-glass, window-tint-and-wraps,
+        #   trailer-sales-and-repair, property-management, junk-removal-and-hauling,
+        #   pressure-washing-and-exterior-cleaning, shade-screens-and-patio-covers,
+        #   off-road-shops-and-accessories, marine-supply, garage-doors, painters.
+        # These remain genuinely unseeded (synonyms are deliberate no-ops until a
+        # future taxonomy pass seeds them):
         "medical-specialists-and-imaging",
-        "golf-carts",
-        "auto-glass",
-        "window-tint-and-wraps",
-        "trailer-sales-and-repair",
-        "property-management",
         "laundry-and-dry-cleaning",
         "funeral-cremation-and-cemeteries",
-        "junk-removal-and-hauling",
-        "pressure-washing-and-exterior-cleaning",
         "mobile-home-services",
-        "shade-screens-and-patio-covers",
         "pet-waste-removal",
         "firearms-and-shooting-sports",
     }
@@ -88,10 +89,29 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "fishing charters": "fishing-charters-and-guides",
     "beaches": "beaches-and-swim-areas",
     "marinas": "marinas-and-launch-ramps",
+    # 2026-06-19: marine retail (boat parts/supplies) — distinct from boat
+    # rentals/sales/repair. NEW leaf seeded under On the Water.
+    "marine supply": "marine-supply",
+    "marine supplies": "marine-supply",
+    "marine store": "marine-supply",
+    "boat parts": "marine-supply",
+    "boat supplies": "marine-supply",
+    "boat accessories": "marine-supply",
     # Outdoors & Recreation
     "parks": "parks-and-playgrounds",
     "golf courses": "golf-courses",
+    "golf course": "golf-courses",
     "golf": "golf-courses",
+    # 2026-06-19: golf-courses is the combined Golf hub — range/Toptracer +
+    # indoor simulators route here too.
+    "driving range": "golf-courses",
+    "driving ranges": "golf-courses",
+    "golf simulator": "golf-courses",
+    "golf simulators": "golf-courses",
+    "indoor golf": "golf-courses",
+    "virtual golf": "golf-courses",
+    "toptracer": "golf-courses",
+    "top tracer": "golf-courses",
     "hiking trails": "hiking-trails",
     "hiking": "hiking-trails",
     "disc golf": "disc-golf",
@@ -241,6 +261,9 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "lawn care": "landscaping-and-lawn",
     "pool service": "pools-and-spas",
     "pool cleaning": "pools-and-spas",
+    "pool cleaner": "pools-and-spas",
+    "pool cleaners": "pools-and-spas",
+    "pool maintenance": "pools-and-spas",
     "hvac": "hvac",
     "air conditioning": "hvac",
     "ac repair": "hvac",
@@ -251,6 +274,16 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "handymen": "handyman",
     "security systems": "security-and-alarms",
     "alarm companies": "security-and-alarms",
+    # 2026-06-19: NEW high-ad-value home-services leaves (seeded).
+    "garage doors": "garage-doors",
+    "garage door": "garage-doors",
+    "garage door repair": "garage-doors",
+    "garage door installation": "garage-doors",
+    "painters": "painters",
+    "painter": "painters",
+    "house painters": "painters",
+    "painting contractor": "painters",
+    "painting contractors": "painters",
     # 2026-06-11: taxonomy-rebuild leaves (PENDING — self-activate at seed).
     "junk removal": "junk-removal-and-hauling",
     "junk hauling": "junk-removal-and-hauling",
@@ -313,6 +346,18 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "powersports": "powersports-and-atv",
     "atv rentals": "powersports-and-atv",
     "utv rentals": "powersports-and-atv",
+    # 2026-06-19: off-road RETAIL/upfit shops (parts, accessories, lift kits) —
+    # Casey's "off road stores and sales". Distinct from off-road-and-ohv (trails)
+    # and powersports-and-atv (vehicle sales/rentals). NEW leaf under Auto, RV & Marine.
+    "off road shop": "off-road-shops-and-accessories",
+    "off road shops": "off-road-shops-and-accessories",
+    "off road store": "off-road-shops-and-accessories",
+    "off road stores": "off-road-shops-and-accessories",
+    "off road accessories": "off-road-shops-and-accessories",
+    "off road parts": "off-road-shops-and-accessories",
+    "utv accessories": "off-road-shops-and-accessories",
+    "utv parts": "off-road-shops-and-accessories",
+    "lift kits": "off-road-shops-and-accessories",
     "shuttles": "shuttles-and-transportation",
     "taxis": "shuttles-and-transportation",
     # 2026-06-11: taxonomy-rebuild leaves (PENDING — self-activate at seed).
