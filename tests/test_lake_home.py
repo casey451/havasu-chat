@@ -191,8 +191,9 @@ def test_lake_home_daypicker_is_weekday_grid_linking_home() -> None:
     # Tiles re-render the home feed for the day (no jump to the /events-ui page).
     assert 'href="/home?date=2026-06-20#today"' in b
     assert 'href="/events-ui?date=' not in b
-    # The Full-calendar button (spanning the last two cells) opens the calendar.
-    assert 'class="day daycal" href="/events-ui"' in b
+    # The Full-calendar button (spanning the last two cells) opens the week view
+    # of the calendar (FIX_POSTERS_AND_CALENDAR item 2).
+    assert 'class="day daycal" href="/events-ui?view=week"' in b
     assert ">Full calendar</span>" in b
     # The old top "Full calendar" link in the feed header is removed (item 3).
     assert 'class="full"' not in b

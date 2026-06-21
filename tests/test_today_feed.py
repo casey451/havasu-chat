@@ -19,7 +19,7 @@ from sqlalchemy import delete
 
 from app.db.database import SessionLocal
 from app.db.models import Entity, Event, MovieShowtime
-from app.home.today_feed import today_feed
+from app.home.today_feed import _home_group, today_feed
 
 _LHC = ZoneInfo("America/Phoenix")
 # 2099-07-13 is a Monday (see tests/test_events_ui_views.py).
@@ -428,3 +428,46 @@ def test_open_venue_rows_have_no_open_prefix() -> None:
     for row in ttd["rows"]:
         assert not row["time_label"].startswith("Open "), row["time_label"]
     assert any("–" in row["time_label"] for row in ttd["rows"])
+
+
+def test_markets_route_to_things_to_do_over_class_typing() -> None:
+    """Item 4: markets / art walks / swap meets group under Things to do even when
+    the source typed them as a recurring class (the live Farmers Market arrives
+    flagged recurring and otherwise lands in Classes)."""
+    recurring_class = (True, time(8, 0), None)  # source-typed as a recurring class
+    for title in (
+        "Lake Havasu Farmers Market",
+        "First Friday Vendor Night",
+        "Downtown Art Walk",
+        "Havasu Swap Meet",
+        "Spring Craft Fair",
+        "Riverfront Night Market",
+    ):
+        assert (
+            _home_group(title, None, False, recurring_class[0], recurring_class[1], recurring_class[2])
+            == "things_to_do"
+        ), title
+    # A genuine instructional class is NOT swept in by the market rule.
+    assert (
+        _home_group("Arts & Crafts", None, False, True, time(15, 0), None) == "classes"
+    )
+
+
+def test_farmers_market_shows_under_things_to_do_in_feed() -> None:
+    """End-to-end: a recurring, class-typed Farmers Market event lands in the
+    Things to do group of the rendered feed, not Classes."""
+    suffix = uuid.uuid4().hex[:6]
+    title = f"ZZ Lake Havasu Farmers Market {suffix}"
+    eids: list[str] = []
+    try:
+        with SessionLocal() as db:
+            eids.append(
+                _add_event(db, title=title, start=time(8, 0), loc="Main St", recurring=True)
+            )
+            db.commit()
+        with SessionLocal() as db:
+            feed = today_feed(db, day=_DAY, now=_NOW)
+        assert title in _titles(_group(feed, "things_to_do"))
+        assert title not in _titles(_group(feed, "classes"))
+    finally:
+        _cleanup(eids, [])

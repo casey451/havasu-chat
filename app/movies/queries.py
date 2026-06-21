@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import MovieShowtime
 from app.events.time_labels import short_time_label, time_sort_key
+from app.movies.posters import proxied_poster_url
 
 # Display order for known theaters; unknown theaters sort after, alphabetically.
 THEATER_ORDER = ["star-cinemas", "movies-havasu"]
@@ -85,13 +86,15 @@ def group_showtimes(
                 "title": r.film_title,
                 "rating": (r.rating or "").strip(),
                 "meta": _meta(r),
-                "poster": r.poster_url,
+                # Proxy Veezi posters through our own origin so referrer-based
+                # hotlink protection can't blank them (see app.movies.posters).
+                "poster": proxied_poster_url(r.poster_url),
                 "free": False,
                 "times": [],
             }
             tg["films"][r.film_title] = film
         if not film["poster"] and r.poster_url:
-            film["poster"] = r.poster_url
+            film["poster"] = proxied_poster_url(r.poster_url)
         if getattr(r, "is_free", False):
             film["free"] = True
         label = short_time_label(r.show_time, None)

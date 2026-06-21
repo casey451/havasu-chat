@@ -1024,6 +1024,12 @@ def serve_events_ui(
                 "week_rows": events_views.week_rows(
                     db, start=today, family=family_on, seniors=seniors_on
                 ),
+                # Item 3: consecutive weeks for the mobile swipeable calendar
+                # (lake template renders these as a swipe carousel; the desert
+                # template ignores it and keeps the flat week list).
+                "swipe_weeks": events_views.swipe_weeks(
+                    db, today=today, family=family_on, seniors=seniors_on
+                ),
             }
         )
     elif view_key == "month":
@@ -1034,6 +1040,11 @@ def serve_events_ui(
                 "calendar": sandstone.calendar_month(
                     db, year=cal_year, month=cal_month, today=today,
                     family=family_on, seniors=seniors_on,
+                ),
+                # Mobile falls back to the swipeable week here too (a month grid
+                # is unreadable on a phone); desktop keeps the visible grid.
+                "swipe_weeks": events_views.swipe_weeks(
+                    db, today=today, family=family_on, seniors=seniors_on
                 ),
             }
         )

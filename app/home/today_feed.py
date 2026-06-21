@@ -146,6 +146,23 @@ _NOT_A_CLASS_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Community market / art-walk happenings that some sources ingest typed as a
+# "class" (e.g. the recurring "Lake Havasu Farmers Market" arrives flagged
+# recurring and routes to Classes). These are drop-in things to do, never
+# classes, so a title match here OVERRIDES the inherited class typing and files
+# the row under "Things to do" (Item 4). Word-boundary matched; "market"/"fair"
+# require a qualifier (farmers/swap/flea/craft/vendor/street/night/art) so a
+# generic "Arts & Crafts" class or a one-word "Market" in another context isn't
+# swept in.
+_MARKET_RE = re.compile(
+    r"\b("
+    r"farmers?\s*market|swap\s*meet|flea\s*market|night\s*market|"
+    r"craft\s*(?:fair|market|show)|vendor\s*(?:fair|market|night|event)|"
+    r"street\s*fair|art\s*walk|artwalk|bazaar|marketplace"
+    r")\b",
+    re.IGNORECASE,
+)
+
 # Genuinely kid-targeted signals (Item 5 — STRICTER than is_family_event). NO
 # "all ages", NO bare "family"/"family swim"/"family night", NO bare "open swim":
 # those are all-ages and must not read as kids-only on the home feed.
@@ -232,6 +249,11 @@ def _home_group(
     of the day's happenings fall to Things to do.
     """
     low = (title + " " + " ".join(tags or [])).lower()
+    # Item 4: markets / art walks / swap meets are drop-in things to do even when
+    # the source typed them as a recurring "class" — this rule wins over the
+    # class-type routing below (and over a stray SPECIAL mis-tier).
+    if _MARKET_RE.search(low):
+        return "things_to_do"
     if _event_tier(title=title, tags=tags, featured=featured, recurring=recurring) == TIER_SPECIAL:
         return "events"
     if is_dropin_rec(title):
