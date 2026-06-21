@@ -71,6 +71,12 @@ def upsert(db: Session, rec: dict, *, commit: bool, counts: Counter) -> str:
     if existing is not None:
         counts["skip_exists"] += 1
         return f"skip (exists): {name} -> /provider/{slug}"
+    # entity_id is intentionally NOT set here: the catalog dual-write hook
+    # (app.db.entity_dual_write, registered on app.db import) fires on the
+    # session ``before_flush`` and creates the ENTITY graph + wires
+    # ``entity_id`` for any new Provider that lacks one. This mirrors
+    # scripts/seed_family_venues.py (proven in prod). See the regression test in
+    # tests/test_service_coverage_scripts_2026_06_20.py.
     row = Provider(
         provider_name=name,
         category=_clean(rec.get("legacy_category")) or "home_services",

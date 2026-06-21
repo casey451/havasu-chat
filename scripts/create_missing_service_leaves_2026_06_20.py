@@ -130,13 +130,41 @@ def run(*, apply: bool = False, confirm: bool = False, snapshot_dir: Path | None
         existing_by_slug = {
             c.slug: {"id": c.id, "level": c.level, "parent_id": c.parent_id} for c in cats
         }
-        # next sort_order per department, advanced as we plan inserts
-        sort_cursor: dict[int, int] = {}
+        # Phase 1 — plan EVERY leaf (pure decisions) before writing anything.
+        plans: list[tuple[str, str, str, str]] = []  # (action, slug, name, dept_slug)
         for slug, name, dept_slug in LEAVES_TO_CREATE:
             action, message = plan_leaf_action(slug, name, dept_slug, existing_by_slug)
             counts[action] += 1
             print(f"plan: {action.upper():6} — {message}")
-            if action != "insert" or not (apply and confirm):
+            plans.append((action, slug, name, dept_slug))
+            # Optimistically record a planned insert so a duplicate slug later in
+            # the list plans NOOP instead of a second insert.
+            if action == "insert":
+                existing_by_slug[slug] = {
+                    "id": None, "level": 1, "parent_id": existing_by_slug[dept_slug]["id"]
+                }
+
+        # An ABORT means the taxonomy isn't shaped as expected (missing
+        # department, or the slug already exists at the wrong level). Refuse to
+        # write ANY rows — all-or-nothing — rather than leave a partial seed.
+        if counts["abort"]:
+            print(
+                f"\nREFUSING TO WRITE — {counts['abort']} leaf/leaves planned ABORT. "
+                "Resolve the taxonomy mismatch and re-run; no rows written."
+            )
+            return counts
+        if not apply:
+            print("\nDRY RUN — no rows written. Re-run with --apply --confirm to write.")
+            return counts
+        if not confirm:
+            print(f"\nREFUSING TO WRITE — --apply requires --confirm. Target is {_sanitized_target()}.")
+            return counts
+
+        # Phase 2 — apply. Only inserts remain (aborts short-circuited above);
+        # all inserts share ONE transaction committed once at the end.
+        sort_cursor: dict[int, int] = {}
+        for action, slug, name, dept_slug in plans:
+            if action != "insert":
                 continue
             dept_id = existing_by_slug[dept_slug]["id"]
             if dept_id not in sort_cursor:
@@ -152,15 +180,7 @@ def run(*, apply: bool = False, confirm: bool = False, snapshot_dir: Path | None
                 {"id": leaf.id, "slug": leaf.slug, "name": leaf.name,
                  "level": leaf.level, "parent_id": leaf.parent_id}
             )
-            # so a later duplicate slug in the list would no-op
-            existing_by_slug[slug] = {"id": leaf.id, "level": 1, "parent_id": dept_id}
 
-        if not apply:
-            print("\nDRY RUN — no rows written. Re-run with --apply --confirm to write.")
-            return counts
-        if not confirm:
-            print(f"\nREFUSING TO WRITE — --apply requires --confirm. Target is {_sanitized_target()}.")
-            return counts
         if not created:
             print("\nNothing to insert (all leaves already exist).")
             return counts
