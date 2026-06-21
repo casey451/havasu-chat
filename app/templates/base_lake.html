@@ -81,43 +81,8 @@
 <body data-theme="lake" data-mode="{% block mode %}ask{% endblock %}"{% block body_attrs %}{% endblock %}>
 <a class="skip" href="#main">Skip to content</a>
 
-{# ───── Header: deep-ink, sticky. Line-bridge mark + wordmark + primary nav. ───── #}
-<header class="hdr">
-  <div class="hdr-in">
-    <a class="brand" href="/home" aria-label="Ask Hava — home" style="color:#eef3f7;--ac:#d8a64e">
-      {{ logo_nav(26) }}
-      <span class="wm">Ask <span class="b">Hava</span></span>
-    </a>
-    {# Phase 1 (home IA): one lean primary nav, identical destinations across
-       breakpoints. Category browse lives in the directory zone, not the header,
-       so the old department front-doors (primary_nav) + Movies were trimmed
-       here (both still reachable: categories via Directory, Movies via the home
-       strip + footer). The same set is mirrored in the mobile drawer below. #}
-    <nav class="nav" aria-label="Primary">
-      <a href="/events-ui"{% if active_tab == 'events' %} aria-current="page"{% endif %}>Events</a>
-      <a href="/categories"{% if active_tab == 'explore' %} aria-current="page"{% endif %}>Directory</a>
-      <a href="/map"{% if active_tab == 'map' %} aria-current="page"{% endif %}>Map</a>
-      <a class="biz" href="/portal">For Business</a>
-      <a href="/login">Sign in</a>
-    </nav>
-    <button type="button" class="navtoggle" id="lk-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="lk-drawer" aria-label="Open menu">
-      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    </button>
-  </div>
-  {# Mobile disclosure menu opened by the hamburger — the SAME primary
-     destinations as the desktop nav (plus Home + Ask, which are the logo and
-     the hero on desktop). Real menu, hidden until toggled; without JS the
-     desktop nav (scrollable) still covers navigation. #}
-  <nav class="drawer" id="lk-drawer" aria-label="Site menu" hidden>
-    <a href="/home"{% if active_tab == 'home' or active_tab == 'today' %} aria-current="page"{% endif %}>Home</a>
-    <a href="/events-ui"{% if active_tab == 'events' %} aria-current="page"{% endif %}>Events</a>
-    <a href="/categories"{% if active_tab == 'explore' %} aria-current="page"{% endif %}>Directory</a>
-    <a href="/map"{% if active_tab == 'map' %} aria-current="page"{% endif %}>Map</a>
-    <a href="/chat"{% if active_tab == 'ask' %} aria-current="page"{% endif %}>Ask</a>
-    <a class="biz" href="/portal">For Business</a>
-    <a href="/login">Sign in</a>
-  </nav>
-</header>
+{# ───── Header (shared single-source partial — P0 consolidation). ───── #}
+{% include "_partials/site_header.html" %}
 
 {# ───── Live conditions bar. Same honest data contract as desert's ribbon:
    tiles with no live source are omitted upstream, and the whole band is
@@ -155,49 +120,8 @@
 {% block content %}{% endblock %}
 </main>
 
-{# ───── Footer: deep-ink, the honesty footnote. ───── #}
-<footer class="ft">
-  <div class="wrap">
-    <div class="ft-top">
-      <div class="ft-brand">
-        <span class="brand" style="color:#eef3f7;--ac:#d8a64e">
-          {{ logo_nav(24) }}
-          <span class="wm">Ask <span class="b">Hava</span></span>
-        </span>
-        <p class="tag">Honest, local answers for Lake Havasu City — what's open, what's on, and what's worth your time.</p>
-      </div>
-      <div>
-        <h5>Explore</h5>
-        <a class="fl" href="/home">Home</a>
-        <a class="fl" href="/events-ui">Events</a>
-        <a class="fl" href="/movies">Movies</a>
-        <a class="fl" href="/categories">The directory</a>
-        <a class="fl" href="/map">Map</a>
-      </div>
-      <div>
-        <h5>Ask Hava</h5>
-        <a class="fl" href="/about">About</a>
-        <a class="fl" href="/help">Help</a>
-        <a class="fl" href="/contact">Contact</a>
-        <a class="fl" href="mailto:hello@askhava.com?subject=Report%20wrong%20info">Report wrong info</a>
-      </div>
-      <div>
-        <h5>For business owners</h5>
-        <a class="fl" href="/portal">Business portal</a>
-        <a class="fl" href="/portal/placements">Advertise</a>
-        <a class="fl" href="/portal/claim">Claim your listing</a>
-      </div>
-    </div>
-    <div class="ft-trust">
-      <span class="tl">
-        <span><span class="d" aria-hidden="true"></span><a href="/about">Real public reviews</a></span>
-        <span><span class="d" aria-hidden="true"></span><a href="/portal/placements">Sponsored clearly labeled</a></span>
-        <span><span class="d" aria-hidden="true"></span><a href="/about">Built in Lake Havasu</a></span>
-      </span>
-      <span>© Ask Hava — Lake Havasu City, Arizona · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></span>
-    </div>
-  </div>
-</footer>
+{# ───── Footer (shared single-source partial — P0 consolidation). ───── #}
+{% include "_partials/site_footer.html" %}
 
 {# Progressive enhancement: the mobile drawer toggles via the hamburger. Without
    JS the drawer stays hidden and the desktop nav (scrollable) covers navigation.

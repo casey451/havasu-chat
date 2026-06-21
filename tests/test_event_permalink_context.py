@@ -35,6 +35,9 @@ def _ev(**kw):
         end_date=None,
         end_time=None,
         rdate=None,
+        rrule=None,
+        is_recurring=False,
+        exdate=None,
     )
     base.update(kw)
     return SimpleNamespace(**base)
@@ -104,10 +107,70 @@ def test_is_past_today_date_only_not_buried_midday():
         assert _event_is_past(_ev(date=date(2026, 6, 4), start_time=None)) is False
 
 
-def test_is_past_recurring_series_never_past():
-    # rdate present -> recurring; the series is not "passed" even on an old date.
+def test_is_past_recurring_rdate_future_occurrence_not_past():
+    # An rdate set with a future occurrence -> still recurring -> not "passed".
     with patch("app.main.now_lake_havasu", return_value=REF):
-        assert _event_is_past(_ev(date=date(2026, 6, 3), rdate=["2026-06-03"])) is False
+        assert _event_is_past(_ev(date=date(2026, 6, 3), rdate=["2026-06-09"])) is False
+
+
+def test_is_past_recurring_rrule_anchor_in_past_not_past():
+    # N1: a weekly series anchored at an old date (the senior rows seed at
+    # 2024-01-01) is NOT "passed" while the rule still yields future dates.
+    with patch("app.main.now_lake_havasu", return_value=REF):
+        ev = _ev(
+            date=date(2024, 1, 1),
+            start_time=time(8, 30),
+            rrule="FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR",
+            is_recurring=True,
+        )
+        assert _event_is_past(ev) is False
+        # ...and the shown date is the next occurrence, never the 2024 anchor.
+        assert "January 1" not in _format_event_datetime(ev)
+
+
+def test_is_past_recurring_series_ended_is_past():
+    # An RRULE whose UNTIL is in the past has no future occurrence -> passed.
+    with patch("app.main.now_lake_havasu", return_value=REF):
+        ev = _ev(
+            date=date(2024, 1, 1),
+            start_time=time(9, 0),
+            rrule="FREQ=WEEKLY;BYDAY=MO;UNTIL=20240301T000000",
+            is_recurring=True,
+        )
+        assert _event_is_past(ev) is True
+
+
+def test_malformed_recurrence_never_raises():
+    # Persisted recurrence data is known-messy (that's what N1 is about). A bad
+    # rrule / exdate / rdate must NOT raise out of _event_is_past or
+    # _format_event_datetime (which would 500 the detail page) — it degrades to
+    # the anchor date. A malformed-but-future-anchored series is not "passed".
+    with patch("app.main.now_lake_havasu", return_value=REF):
+        ev = _ev(
+            date=date(2026, 12, 1),
+            start_time=time(9, 0),
+            rrule="RRULE:FREQ=GARBAGE;BYDAY=ZZ",
+            is_recurring=True,
+            exdate=["not-a-date", "2026-13-99"],
+            rdate=["also-bad"],
+        )
+        assert isinstance(_event_is_past(ev), bool)
+        assert _event_is_past(ev) is False  # future anchor, degraded one-off
+        assert _format_event_datetime(ev) == "Tuesday, December 1, 9:00 AM"
+
+
+def test_malformed_rrule_with_valid_rdate_uses_rdate():
+    # A broken rrule must not discard a valid future RDATE.
+    with patch("app.main.now_lake_havasu", return_value=REF):
+        ev = _ev(
+            date=date(2024, 1, 1),
+            start_time=time(9, 0),
+            rrule="not an rrule at all",
+            is_recurring=True,
+            rdate=["2026-07-04"],
+        )
+        assert _event_is_past(ev) is False
+        assert "July 4" in _format_event_datetime(ev)
 
 
 def test_is_past_uses_end_date_when_event_spans_into_future():

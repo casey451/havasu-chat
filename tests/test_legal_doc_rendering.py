@@ -73,6 +73,9 @@ def _event(**kw):
         end_date=None,
         start_time=None,
         end_time=None,
+        rrule=None,
+        is_recurring=False,
+        exdate=None,
     )
     base.update(kw)
     return SimpleNamespace(**base)

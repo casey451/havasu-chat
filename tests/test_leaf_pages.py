@@ -407,6 +407,12 @@ def test_leaf_page_has_category_claim_slot(client: TestClient, seeded_leaves: di
     assert "cat-claim" in body
     assert "/portal/placements" in body
     assert "Own the Plumbing spot" in body  # ship_leaf name is "Plumbing"
+    # P0 render-bug guards: a real leaf body is non-blank, and the "Can't decide?"
+    # ask-strip + the category-claim CTA each render exactly once (the live site
+    # showed a triple-printed ask CTA + stray duplicate fragments).
+    assert len(body) > 1000
+    assert body.count("Can&#39;t decide?") + body.count("Can't decide?") == 1
+    assert body.count("Claim this category") == 1
 
 
 # --- Provider-less place entities render + count toward the gate -------------

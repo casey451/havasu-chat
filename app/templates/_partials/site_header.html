@@ -1,0 +1,42 @@
+{#- ───── Shared Lake site header (P0 consolidation) ─────
+   The single source for the Lake theme's masthead + primary nav. Included by
+   base_lake.html so P3's nav work edits ONE file, not three. Self-contained:
+   imports its own logo macro and reads only the shared `active_tab` context.
+   Desert (desert_base.html) keeps its own header until it is retired. -#}
+{% from "_partials/lake_logo.svg.html" import logo_nav %}
+<header class="hdr">
+  <div class="hdr-in">
+    <a class="brand" href="/home" aria-label="Ask Hava — home" style="color:#eef3f7;--ac:#d8a64e">
+      {{ logo_nav(26) }}
+      <span class="wm">Ask <span class="b">Hava</span></span>
+    </a>
+    {# Phase 1 (home IA): one lean primary nav, identical destinations across
+       breakpoints. Category browse lives in the directory zone, not the header,
+       so the old department front-doors (primary_nav) + Movies were trimmed
+       here (both still reachable: categories via Directory, Movies via the home
+       strip + footer). The same set is mirrored in the mobile drawer below. #}
+    <nav class="nav" aria-label="Primary">
+      <a href="/events-ui"{% if active_tab == 'events' %} aria-current="page"{% endif %}>Events</a>
+      <a href="/categories"{% if active_tab == 'explore' %} aria-current="page"{% endif %}>Directory</a>
+      <a href="/map"{% if active_tab == 'map' %} aria-current="page"{% endif %}>Map</a>
+      <a class="biz" href="/portal">For Business</a>
+      <a href="/login">Sign in</a>
+    </nav>
+    <button type="button" class="navtoggle" id="lk-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="lk-drawer" aria-label="Open menu">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  {# Mobile disclosure menu opened by the hamburger — the SAME primary
+     destinations as the desktop nav (plus Home + Ask, which are the logo and
+     the hero on desktop). Real menu, hidden until toggled; without JS the
+     desktop nav (scrollable) still covers navigation. #}
+  <nav class="drawer" id="lk-drawer" aria-label="Site menu" hidden>
+    <a href="/home"{% if active_tab == 'home' or active_tab == 'today' %} aria-current="page"{% endif %}>Home</a>
+    <a href="/events-ui"{% if active_tab == 'events' %} aria-current="page"{% endif %}>Events</a>
+    <a href="/categories"{% if active_tab == 'explore' %} aria-current="page"{% endif %}>Directory</a>
+    <a href="/map"{% if active_tab == 'map' %} aria-current="page"{% endif %}>Map</a>
+    <a href="/chat"{% if active_tab == 'ask' %} aria-current="page"{% endif %}>Ask</a>
+    <a class="biz" href="/portal">For Business</a>
+    <a href="/login">Sign in</a>
+  </nav>
+</header>
