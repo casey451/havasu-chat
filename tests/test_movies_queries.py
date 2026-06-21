@@ -83,6 +83,24 @@ def test_meta_runtime_format():
     assert groups[0].films[0].meta == "Comedy · 1h 42m"
 
 
+def test_within_theater_dedup_is_case_and_space_insensitive():
+    """One theater listing a film under case/spacing variants collapses to a
+    single film card with all showtimes merged — not two near-duplicate cards."""
+    rows = [
+        ms("The Death of Robin Hood", "star-cinemas", 12, name="Star Cinemas"),
+        ms("The Death Of Robin Hood", "star-cinemas", 15, name="Star Cinemas"),
+        ms("Masters  of the Universe", "star-cinemas", 18, name="Star Cinemas"),
+        ms("Masters Of The Universe", "star-cinemas", 20, name="Star Cinemas"),
+    ]
+    groups = group_showtimes(rows, day=DAY)
+    films = groups[0].films
+    assert len(films) == 2  # two distinct films, not four
+    by_label = {f.title: [s.label for s in f.showtimes] for f in films}
+    # Display keeps the first-seen spelling; showtimes from both variants merge.
+    assert by_label["The Death of Robin Hood"] == ["12 PM", "3 PM"]
+    assert by_label["Masters  of the Universe"] == ["6 PM", "8 PM"]
+
+
 # --- general events feed still excludes any movie-tagged Event (defensive) -----
 
 

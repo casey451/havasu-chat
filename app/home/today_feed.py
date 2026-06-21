@@ -59,7 +59,7 @@ from app.home.event_buckets import TIER_SPECIAL, is_dropin_rec
 from app.home.events_views import _group_for, _occurrence_expired, _row_time_label
 from app.home.family_venues import open_today_rows
 from app.home.sandstone import _event_tier, _live_events_by_day
-from app.movies.queries import showtimes_for_day
+from app.movies.queries import normalize_film_title, showtimes_for_day
 
 # Display order + labels for the home feed groups. ``key`` is the stable CSS/JSON
 # hook (data-group, the swatch class); never user-visible.
@@ -168,6 +168,23 @@ _MARKET_RE = re.compile(
 # otherwise route to Things to do). Matches "pickleball" / "pickle ball".
 _PICKLEBALL_RE = re.compile(r"\bpickle\s?ball\b", re.IGNORECASE)
 
+# Recreation / animal-rides / scenic cruises & guided tours are leisure *things
+# to do*, not instructional "classes" — even when a venue's recurring Schedule
+# typed them as a class (the live "Pony / Lead Line Rides" horseback row landed
+# in Classes and, with no provider page, linked nowhere). Matched on the title;
+# wins over the class-tier routing below. Physical *sports* are NOT here — they
+# stay with the fitness hints so they route to Fitness & sports.
+_RECREATION_RE = re.compile(
+    r"\b("
+    r"horse\s*back|trail\s+rides?|pony|lead[\s-]*line|"
+    r"hay\s*rides?|wagon\s+rides?|carriage\s+rides?|"
+    r"(?:scenic|sunset|dinner|lake|narrated|lunch|brunch|river|boat)\s+cruises?|"
+    r"(?:kayak|paddle\s*board|paddleboard|canoe|sup)\s+tours?|"
+    r"(?:jeep|atv|utv|off[\s-]*road|helicopter|sightseeing|boat|scenic)\s+tours?"
+    r")\b",
+    re.IGNORECASE,
+)
+
 # Genuinely kid-targeted signals (Item 5 — STRICTER than is_family_event). NO
 # "all ages", NO bare "family"/"family swim"/"family night", NO bare "open swim":
 # those are all-ages and must not read as kids-only on the home feed.
@@ -271,6 +288,12 @@ def _home_group(
         return "things_to_do"
     if short_time_label(start_time, end_time) is None and _ALL_DAY_TITLE_RE.search(title or ""):
         return "things_to_do"
+    # Recreation / animal-rides / scenic cruises & guided tours are leisure things
+    # to do, not instructional classes — wins over the class-tier routing below
+    # (e.g. "Pony / Lead Line Rides" arrives as a recurring class but is an
+    # activity). Physical sports are excluded here and still route to Fitness.
+    if _RECREATION_RE.search(low):
+        return "things_to_do"
     if _group_for(title=title, tags=tags, featured=featured, recurring=recurring) == "classes":
         if _FITNESS_RE.search(low):
             return "fitness"
@@ -315,10 +338,13 @@ def _movie_films(db: Session, *, day: date) -> list[dict[str, Any]]:
     for tg in showtimes_for_day(db, day=day):
         for fc in tg.films:
             first = fc.showtimes[0]
-            f = films.get(fc.title)
+            # Case/space-insensitive de-dup so the same film spelled differently
+            # at two theaters ("...of/Of Robin Hood") collapses to one row.
+            fkey = normalize_film_title(fc.title)
+            f = films.get(fkey)
             if f is None:
                 f = {
-                    "title": fc.title,
+                    "title": fc.title,  # first-seen spelling is the display title
                     "tags": _audience_tags(fc.title, None),
                     "theaters": [],
                     "is_free": False,
@@ -326,8 +352,8 @@ def _movie_films(db: Session, *, day: date) -> list[dict[str, Any]]:
                     "next_label": first.label,
                     "url": first.url,
                 }
-                films[fc.title] = f
-                order.append(fc.title)
+                films[fkey] = f
+                order.append(fkey)
             f["theaters"].append(
                 {"name": tg.name, "times": [s.label for s in fc.showtimes]}
             )
@@ -438,7 +464,12 @@ def today_feed(
             _event_feed_row(
                 title=occ.title,
                 venue=occ.venue,
-                url=occ.url,  # venue page — class series have no permalink
+                # occ.url is the venue's provider page, or "" when the venue has
+                # no published provider (e.g. "Havasu Horseback Rides"). Never
+                # render a dead row: fall back to that day's events list, which
+                # unions in this class occurrence. ``occ.url`` stays "" on
+                # /events-ui itself so it doesn't self-link there.
+                url=occ.url or f"/events-ui?date={occ.date.isoformat()}",
                 start_time=occ.start_time,
                 end_time=occ.end_time,
                 recurring=True,
