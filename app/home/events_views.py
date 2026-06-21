@@ -38,6 +38,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.categories.subcategories import is_martial_arts_name
+from app.core.timezone import occurrence_end_dt, to_lake_naive
 from app.db.models import Event
 from app.events.class_occurrences import (
     class_occurrences_in_window,
@@ -267,7 +268,10 @@ def _occurrence_expired(
     (``start_time`` 00:00 with no ``end_time``). End is ``end_time`` when set, else
     ``start_time`` + ``default_minutes`` (Item 6 auto-expiry).
     """
-    if now is None or start_time is None or now.date() != day:
+    if now is None or start_time is None:
+        return False
+    now_local = to_lake_naive(now)
+    if now_local.date() != day:
         return False
     # All-day events use the start=00:00 / end=None convention (the same test
     # the .ics feed and the pickleball/parks-rec loaders use). They have no real
@@ -277,11 +281,12 @@ def _occurrence_expired(
     # rows: never expire on the current day (the date roll handles them).
     if start_time == time(0, 0) and end_time is None:
         return False
-    if end_time is not None:
-        end_dt = datetime.combine(day, end_time)
-    else:
-        end_dt = datetime.combine(day, start_time) + timedelta(minutes=default_minutes)
-    return now.replace(tzinfo=None) > end_dt + timedelta(minutes=grace_minutes)
+    # Shared end-moment resolution (handles the 00:00/cross-midnight convention),
+    # so the feed, /events-ui, and the detail banner never disagree on "past".
+    end_dt = occurrence_end_dt(day, start_time, end_time, default_minutes=default_minutes)
+    if end_dt is None:
+        return False
+    return now_local > end_dt + timedelta(minutes=grace_minutes)
 
 
 def day_groups(

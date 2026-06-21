@@ -78,7 +78,7 @@ from app.core.theme import (
     VALID_THEMES,
     resolve_request_theme,
 )
-from app.core.timezone import now_lake_havasu
+from app.core.timezone import now_lake_havasu, occurrence_end_dt, to_lake_naive
 from app.db.database import SessionLocal, get_db, init_db
 from app.db.jobs_store import count_stale_running, requeue_stale_claims
 from app.db.models import AuthSession, Event, Provider
@@ -850,7 +850,14 @@ def _event_is_past(event: Event) -> bool:
     if end_d > now.date():
         return False
     if event.end_time is not None:
-        return event.end_time < now.time()
+        # Shared end-moment resolution: an end_time of 00:00 (or any time at/
+        # before the start) means the event runs PAST midnight, so it is not
+        # "passed" earlier the same day (live bug: 1 PM "Motor Madness" stored
+        # with a 00:00 end read as passed at 08:54 AM). Compare in Phoenix
+        # wall-clock, consistent with the feed and /events-ui.
+        end_dt = occurrence_end_dt(end_d, event.start_time, event.end_time)
+        if end_dt is not None:
+            return to_lake_naive(now) > end_dt
     # No end time on file (whether or not a start time is known): a same-day
     # event is NOT "passed" until the local day is over. The old 3-hour-run
     # assumption flipped a morning event to "passed" mid-morning (live bug: the
