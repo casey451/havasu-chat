@@ -523,6 +523,52 @@ def week_rows(
     return rows
 
 
+def _week_range_label(sunday: date) -> str:
+    """"Jun 15 – 21" / "Jun 29 – Jul 5" for a Sun–Sat week starting ``sunday``."""
+    saturday = sunday + timedelta(days=6)
+    left = f"{sunday.strftime('%b')} {sunday.day}"
+    if saturday.month == sunday.month:
+        return f"{left} – {saturday.day}"
+    return f"{left} – {saturday.strftime('%b')} {saturday.day}"
+
+
+def swipe_weeks(
+    db: Session,
+    *,
+    today: date,
+    num_weeks: int = 5,
+    family: bool = False,
+    seniors: bool = False,
+) -> list[dict[str, Any]]:
+    """Consecutive Sun–Sat weeks for the mobile swipeable calendar (Item 3).
+
+    Each week reuses :func:`week_rows` (so headlines / rollups match the week
+    view and the day pages), anchored on the Sunday of the current week and
+    running ``num_weeks`` weeks forward. ``is_today`` / ``label`` are recomputed
+    from each day's real date (``week_rows`` only marks its first row "Today",
+    which would be wrong for a week that doesn't start today). The week
+    containing ``today`` is flagged ``is_current`` so the carousel can open on it.
+    """
+    sunday = today - timedelta(days=(today.weekday() + 1) % 7)  # Mon=0 → back to Sun
+    weeks: list[dict[str, Any]] = []
+    for w in range(num_weeks):
+        ws = sunday + timedelta(days=7 * w)
+        days = week_rows(db, start=ws, days=7, family=family, seniors=seniors)
+        for row in days:
+            d = date.fromisoformat(row["iso"])
+            row["is_today"] = d == today
+            row["label"] = "Today" if d == today else d.strftime("%a")
+        weeks.append(
+            {
+                "label": _week_range_label(ws),
+                "start_iso": ws.isoformat(),
+                "is_current": ws <= today <= ws + timedelta(days=6),
+                "days": days,
+            }
+        )
+    return weeks
+
+
 def day_highlights(
     db: Session, *, day: date, now: datetime | None = None, limit: int = 3
 ) -> list[dict[str, Any]]:

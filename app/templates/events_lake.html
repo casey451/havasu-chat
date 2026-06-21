@@ -39,6 +39,38 @@
 {% endif %}
 {% endblock %}
 
+{#- Item 3: the mobile swipeable-week calendar. One Sun–Sat week per slide
+   (CSS scroll-snap = native swipe); prev/next buttons + a live label drive it on
+   non-touch. Each slide reuses the week-row layout so it matches the home/week
+   styling. Hidden on desktop (which keeps the flat week list / month grid). -#}
+{%- macro swipe_carousel(weeks) -%}
+<div class="ev-swipe" data-evswipe>
+  <div class="ev-swipe-nav">
+    <button type="button" class="ev-swipe-btn" data-swipe-prev aria-label="Previous week">‹</button>
+    <span class="ev-swipe-label" data-swipe-label aria-live="polite"></span>
+    <button type="button" class="ev-swipe-btn" data-swipe-next aria-label="Next week">›</button>
+  </div>
+  <div class="ev-swipe-track" data-swipe-track>
+    {% for wk in weeks %}
+    <section class="ev-swk{% if wk.is_current %} is-current{% endif %}" data-swipe-slide data-label="{{ wk.label }}"{% if wk.is_current %} data-current{% endif %} aria-label="Week of {{ wk.label }}">
+      {% for d in wk.days %}
+      <a class="ev-wrow{{ ' is-today' if d.is_today }}" href="/events-ui?date={{ d.iso }}{{ family_qs }}" aria-label="{{ d.summary or d.label }} on {{ d.label }} {{ d.daynum }}">
+        <span class="ev-wdate"><span class="dow">{{ d.label }}</span><span class="num">{{ d.daynum }}</span></span>
+        <span class="ev-wmain">
+          {% if d.headline %}<span class="ev-whead">{% if d.headline.time %}{{ d.headline.time }} · {% endif %}{{ d.headline.title }}{% if d.headline.recurrence_label %} <span class="rrecur">{{ d.headline.recurrence_label }}</span>{% endif %}</span>
+          {% elif d.total %}<span class="ev-whead none">Classes &amp; ongoing only</span>
+          {% else %}<span class="ev-whead none">Nothing posted yet</span>{% endif %}
+          {% if d.summary %}<span class="ev-wsum">{{ d.summary }}</span>{% endif %}
+        </span>
+        <span class="ev-wchev" aria-hidden="true">›</span>
+      </a>
+      {% endfor %}
+    </section>
+    {% endfor %}
+  </div>
+</div>
+{%- endmacro -%}
+
 {% block content %}
 <div class="wrap ev-wrap">
   <nav class="crumbs" aria-label="Breadcrumb">
@@ -52,10 +84,19 @@
   </div>
 
   <div class="ev-controls">
+    {# Desktop: full Today / Week / Month tabs. #}
     <nav class="ev-seg" aria-label="Calendar view">
       {% for v in view_links %}
       <a href="{{ v.url }}" class="{{ 'on' if v.active else '' }}"{% if v.active %} aria-current="page"{% endif %}>{{ v.label }}</a>
       {% endfor %}
+    </nav>
+    {# Mobile (Item 3): a simplified Day / Full calendar toggle — Full calendar is
+       the swipeable week, not a cramped month grid. #}
+    {%- set _today_link = (view_links | selectattr('key', 'equalto', 'today') | first) -%}
+    {%- set _week_link = (view_links | selectattr('key', 'equalto', 'week') | first) -%}
+    <nav class="ev-seg-m" aria-label="Calendar view">
+      <a href="{{ _today_link.url }}" class="{{ 'on' if mode in ('today', 'day') else '' }}"{% if mode in ('today', 'day') %} aria-current="page"{% endif %}>Day</a>
+      <a href="{{ _week_link.url }}" class="{{ 'on' if mode in ('week', 'month') else '' }}"{% if mode in ('week', 'month') %} aria-current="page"{% endif %}>Full calendar</a>
     </nav>
     {% if family_toggle_url %}
     <a class="ev-fam{{ ' on' if family_mode }}" href="{{ family_toggle_url }}" aria-pressed="{{ 'true' if family_mode else 'false' }}">Kids &amp; family</a>
@@ -108,6 +149,7 @@
     {% include "_partials/movies_today.html" %}
 
   {% elif mode == 'week' %}
+    {# Desktop: the flat next-seven-days list. #}
     <div class="ev-week">
       {% for d in week_rows %}
       <a class="ev-wrow{{ ' is-today' if d.is_today }}" href="/events-ui?date={{ d.iso }}{{ family_qs }}" aria-label="{{ d.summary or d.label }} on {{ d.label }} {{ d.daynum }}">
@@ -122,6 +164,8 @@
       </a>
       {% endfor %}
     </div>
+    {# Mobile: the same week, swipeable between weeks. #}
+    {% if swipe_weeks %}{{ swipe_carousel(swipe_weeks) }}{% endif %}
 
   {% elif mode == 'month' %}
     <div class="mcal">
@@ -143,6 +187,51 @@
       </div>
     </div>
     <p class="ev-mg-legend"><b>{{ calendar.month_oneoff_total or 0 }}</b> one-off events · <b>{{ calendar.month_class_total or 0 }}</b> classes — tap a date for details</p>
+    {# Mobile: a month grid collapses to unreadable dots, so swap in the same
+       swipeable week the Full-calendar toggle uses (the grid is hidden ≤720px). #}
+    {% if swipe_weeks %}{{ swipe_carousel(swipe_weeks) }}{% endif %}
   {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* Item 3: drive the swipeable-week carousel. Swiping is native (CSS scroll-snap);
+   this only wires the prev/next buttons, keeps the week label in sync with the
+   visible slide, and opens on the current week. Pure enhancement — the slides
+   are fully reachable by horizontal scroll/swipe without JS. */
+(function () {
+  var root = document.querySelector('[data-evswipe]');
+  if (!root) return;
+  var track = root.querySelector('[data-swipe-track]');
+  var label = root.querySelector('[data-swipe-label]');
+  var prev = root.querySelector('[data-swipe-prev]');
+  var next = root.querySelector('[data-swipe-next]');
+  var slides = Array.prototype.slice.call(root.querySelectorAll('[data-swipe-slide]'));
+  if (!track || !slides.length) return;
+
+  function currentIndex() {
+    var i = Math.round(track.scrollLeft / track.clientWidth);
+    return Math.max(0, Math.min(slides.length - 1, i));
+  }
+  function sync() {
+    var i = currentIndex();
+    if (label) label.textContent = slides[i].getAttribute('data-label') || '';
+    if (prev) prev.disabled = i <= 0;
+    if (next) next.disabled = i >= slides.length - 1;
+  }
+  function go(delta) {
+    var i = Math.max(0, Math.min(slides.length - 1, currentIndex() + delta));
+    track.scrollTo({ left: i * track.clientWidth, behavior: 'smooth' });
+  }
+  if (prev) prev.addEventListener('click', function () { go(-1); });
+  if (next) next.addEventListener('click', function () { go(1); });
+  track.addEventListener('scroll', function () { window.requestAnimationFrame(sync); });
+
+  // Open on the week containing today (no smooth scroll on first paint).
+  var cur = root.querySelector('[data-current]');
+  if (cur) track.scrollLeft = slides.indexOf(cur) * track.clientWidth;
+  sync();
+})();
+</script>
 {% endblock %}
