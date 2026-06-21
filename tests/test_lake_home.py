@@ -202,6 +202,39 @@ def test_lake_home_daypicker_is_weekday_grid_linking_home() -> None:
     assert 'class="full"' not in b
 
 
+def test_lake_home_daychip_binds_event_count_not_class_inflated_total() -> None:
+    """Finding 30: the day-picker chip's trailing number is the per-day EVENT
+    count (``event_count``), never the events+recurring-classes total
+    (``count``). The total balloons to 40-60 on a weekday (dominated by recurring
+    class occurrences) and rendered as a meaningless number ("Mon 22 64"). Give a
+    day where the two diverge sharply and pin that the chip uses the event count.
+    """
+    from unittest.mock import patch
+
+    from app.home import sandstone
+
+    week = {
+        "has_any": True,
+        "days": [
+            {
+                "iso": "2026-06-21", "md": "Jun 21", "label": "Sun", "dow": "Sun",
+                "has": True, "event_count": 3, "class_count": 47, "count": 50,
+                "events": [], "categories": [],
+            }
+        ],
+    }
+    with (
+        patch.object(sandstone, "week_strip", return_value=week),
+        patch.object(sandstone, "calendar_month", return_value=_sample_calendar()),
+    ):
+        b = TestClient(app).get("/home?theme=lake").text
+
+    # The chip + its aria-label carry the event count, not the class-inflated total.
+    assert 'aria-label="3 events on Sun Jun 21"' in b
+    assert "50 events on Sun Jun 21" not in b
+    assert ">50<" not in b  # the events+classes total is never the chip figure
+
+
 def test_lake_home_date_param_renders_selected_day() -> None:
     """FIX_DAYPICKER item 4: ``?date=`` re-renders the home feed for a non-today
     day with the correct long date label and that day's tile highlighted — no

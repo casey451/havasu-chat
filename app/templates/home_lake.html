@@ -111,10 +111,16 @@
       {% set is_sel = day.iso == selected_iso %}
       <a class="day{% if is_sel %} today{% endif %}" role="listitem" href="/home?date={{ day.iso }}#today"
          {% if is_sel %}aria-current="date"{% endif %}
-         aria-label="{{ day.count }} thing{{ '' if day.count == 1 else 's' }} on {{ day.dow }} {{ day.md }}">
+         aria-label="{{ day.event_count }} event{{ '' if day.event_count == 1 else 's' }} on {{ day.dow }} {{ day.md }}">
         <span class="dow">{{ day.dow }}</span>
         <span class="dn">{{ day.iso.split('-')[2]|int }}</span>
-        {% if day.count %}<span class="ct"><span class="d" aria-hidden="true"></span>{{ day.count }}</span>{% else %}<span class="ct none">—</span>{% endif %}
+        {# Trailing figure = the day's one-off EVENT count (day.event_count), not
+           the events+recurring-classes total (day.count). The total is dominated
+           by recurring class occurrences (40-60 on a weekday), so it rendered as
+           a meaningless number on the chip; the event count is the signal a
+           glanceable date picker wants. Days with only recurring classes show an
+           em-dash, honest-omission style. #}
+        {% if day.event_count %}<span class="ct"><span class="d" aria-hidden="true"></span>{{ day.event_count }}</span>{% else %}<span class="ct none">—</span>{% endif %}
       </a>
       {% endfor %}
       <a class="day daycal" href="/events-ui?view=week">
