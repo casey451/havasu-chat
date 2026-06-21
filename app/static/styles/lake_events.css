@@ -57,6 +57,16 @@
 .ev-row .rtitle{font-family:var(--disp);font-weight:500;font-size:15.5px;color:var(--ink);flex:1;min-width:0}
 .ev-row .rrecur{font-family:var(--ui);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--brass-deep);margin-left:6px;white-space:nowrap}
 .ev-row .rvenue{font-size:12.5px;color:var(--muted);flex:none;max-width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Permalink-less program rows (no provider page) aren't links. */
+.ev-row--nolink{cursor:default}
+.ev-row--nolink:hover{background:transparent}
+/* Item 2: a home-feed deep-link (#program-…) scrolls to this exact row and
+   flashes it so it's not lost in the day list. scroll-margin keeps it clear of
+   the sticky header. */
+.ev-row{scroll-margin-top:84px}
+.ev-row--target{animation:ev-row-flash 2.4s ease-out 1}
+@keyframes ev-row-flash{0%,32%{background:var(--brass-wash,#f7ecd5)}100%{background:transparent}}
+@media (prefers-reduced-motion: reduce){.ev-row--target{animation:none;background:var(--brass-wash,#f7ecd5)}}
 
 /* week list */
 .ev-week{margin-top:18px;background:var(--raised);border:1px solid var(--hair);border-radius:16px;box-shadow:var(--sh-card);overflow:hidden}

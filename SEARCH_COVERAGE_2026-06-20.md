@@ -52,7 +52,7 @@ phrasing. No data/DB work required — pure routing.
 The Cowork sandbox mount serves stale/truncated copies of edited files (see
 `CLAUDE.md`), so I could not run the suite here. Before merging, on your machine:
 
-```
+```powershell
 .venv\Scripts\python.exe -m pytest -q
 .venv\Scripts\python.exe -m ruff check .
 ```
@@ -169,7 +169,7 @@ centers.
 
 **Run order (you, on Windows, after reviewing the CSV):**
 
-```
+```powershell
 # 1. dry-runs — show the plan
 .venv\Scripts\python.exe scripts\create_missing_service_leaves_2026_06_20.py
 .venv\Scripts\python.exe scripts\seed_service_businesses_2026_06_20.py

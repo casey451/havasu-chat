@@ -71,6 +71,17 @@
 </div>
 {%- endmacro -%}
 
+{#- One day-view row. A permalink-less program (no url) renders as a non-link but
+   still carries its #program-… id so the home feed can deep-link to this exact
+   row (Item 2); a linked row is the usual anchor. -#}
+{%- macro ev_row(row) -%}
+{%- if row.url -%}
+<a class="ev-row" href="{{ row.url }}"><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}{% if row.recurring %}<span class="rrecur">Recurring ↻</span>{% endif %}</span>{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</a>
+{%- else -%}
+<div class="ev-row ev-row--nolink"{% if row.anchor %} id="{{ row.anchor }}" tabindex="-1"{% endif %}><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}{% if row.recurring %}<span class="rrecur">Recurring ↻</span>{% endif %}</span>{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</div>
+{%- endif -%}
+{%- endmacro -%}
+
 {% block content %}
 <div class="wrap ev-wrap">
   <nav class="crumbs" aria-label="Breadcrumb">
@@ -126,15 +137,11 @@
             {% for sub in g.subgroups %}
             <details class="ev-sub">
               <summary><span class="sub-name">{{ sub.label }}</span><span class="sc">{{ sub.count }}</span><svg class="sub-chev" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
-              {% for row in sub.rows %}
-              <a class="ev-row" href="{{ row.url }}"><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}{% if row.recurring %}<span class="rrecur">Recurring ↻</span>{% endif %}</span>{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</a>
-              {% endfor %}
+              {% for row in sub.rows %}{{ ev_row(row) }}{% endfor %}
             </details>
             {% endfor %}
           {% else %}
-            {% for row in g.rows %}
-            <a class="ev-row" href="{{ row.url }}"><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}{% if row.recurring %}<span class="rrecur">Recurring ↻</span>{% endif %}</span>{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</a>
-            {% endfor %}
+            {% for row in g.rows %}{{ ev_row(row) }}{% endfor %}
           {% endif %}
         </div>
       </details>
@@ -229,6 +236,36 @@
   var cur = root.querySelector('[data-current]');
   if (cur) track.scrollLeft = slides.indexOf(cur) * track.clientWidth;
   sync();
+})();
+</script>
+<script>
+/* Item 2: a home-feed link to a permalink-less program lands here as
+   /events-ui?date=…#program-…. Open the row's collapsed accordion (and any
+   subsection), scroll it into view, and flash a highlight so the user sees the
+   exact program they tapped — not the top of the day's list. Pure enhancement:
+   without JS the hash still jumps to the row's id. */
+(function () {
+  function reveal() {
+    var hash = window.location.hash;
+    if (!hash || hash.length < 2) return;
+    var el;
+    try { el = document.getElementById(decodeURIComponent(hash.slice(1))); }
+    catch (e) { el = document.getElementById(hash.slice(1)); }
+    if (!el) return;
+    // Open every ancestor <details> so the row isn't hidden in a collapsed group.
+    var p = el.parentElement;
+    while (p) {
+      if (p.tagName === 'DETAILS') p.open = true;
+      p = p.parentElement;
+    }
+    el.scrollIntoView({ block: 'center' });
+    el.classList.remove('ev-row--target');
+    // Reflow so re-adding the class restarts the flash on repeat clicks.
+    void el.offsetWidth;
+    el.classList.add('ev-row--target');
+  }
+  window.addEventListener('hashchange', reveal);
+  reveal();
 })();
 </script>
 {% endblock %}

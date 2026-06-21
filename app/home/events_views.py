@@ -366,6 +366,11 @@ def day_groups(
             "venue": occ.venue,
             "url": occ.url,  # venue page — class series have no permalink
             "recurring": True,
+            # Permalink-less programs (no provider page) get a stable row id so
+            # the home feed can deep-link to this exact row (#program-…) instead
+            # of the whole-day list (Item 2). Provider-backed rows keep their own
+            # link and need no anchor.
+            "anchor": occ.anchor if not occ.url else None,
         }
         rows_by_group[gkey].append(row)
         if not family and not seniors and is_family_event(occ.title):

@@ -42,6 +42,35 @@ def normalize_film_title(title: str | None) -> str:
     return t.rstrip(_FILM_TRAILING)
 
 
+def _canonical_titles(
+    rows: list["MovieShowtime"], *, day: date | None
+) -> dict[str, str]:
+    """One canonical *display* spelling per film, keyed by :func:`normalize_film_title`.
+
+    The two sources spell the same film with different capitalization ("Masters
+    of the Universe" at Star Cinemas vs "Masters Of The Universe" at Movies
+    Havasu), so the same film read inconsistently across the per-theater
+    sections. We pick a single display form per film by source priority — the
+    earliest theater in :data:`THEATER_ORDER` (Star Cinemas) wins — so every
+    section, the home "At the movies" feed, and the strip render it identically.
+    Ties (same theater, or two unknown theaters) keep the first-seen spelling.
+    """
+    best: dict[str, tuple[int, str]] = {}
+    for r in rows:
+        if day is not None and r.show_date != day:
+            continue
+        title = (r.film_title or "").strip()
+        if not title:
+            continue
+        slug = r.theater_slug or "theater"
+        idx = THEATER_ORDER.index(slug) if slug in THEATER_ORDER else len(THEATER_ORDER)
+        fkey = normalize_film_title(title)
+        cur = best.get(fkey)
+        if cur is None or idx < cur[0]:
+            best[fkey] = (idx, title)
+    return {k: v[1] for k, v in best.items()}
+
+
 @dataclass
 class Showtime:
     label: str
@@ -91,6 +120,10 @@ def group_showtimes(
     chronologically; films sort by their earliest showtime; theaters follow
     :data:`THEATER_ORDER` then alphabetical.
     """
+    # One canonical display spelling per film, shared across theaters, so the
+    # same film never reads "X of the Y" in one section and "X Of The Y" in
+    # another (Item 1).
+    canon = _canonical_titles(rows, day=day)
     theaters: dict[str, dict] = {}
     for r in rows:
         if day is not None and r.show_date != day:
@@ -103,7 +136,7 @@ def group_showtimes(
         film = tg["films"].get(fkey)
         if film is None:
             film = {
-                "title": r.film_title,  # first-seen spelling is the display title
+                "title": canon.get(fkey, r.film_title),  # canonical display spelling
                 "rating": (r.rating or "").strip(),
                 "meta": _meta(r),
                 # Proxy Veezi posters through our own origin so referrer-based
