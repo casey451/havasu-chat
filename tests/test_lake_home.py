@@ -53,7 +53,7 @@ def test_lake_home_renders_with_flag() -> None:
 def _sample_week() -> dict:
     days = [
         {
-            "iso": "2026-06-18", "md": "Jun 18", "label": "Thu", "has": True,
+            "iso": "2026-06-18", "md": "Jun 18", "label": "Thu", "dow": "Thu", "has": True,
             "event_count": 3, "class_count": 12,
             "events": [
                 {"time": "6:00 PM", "title": "Sunset Paddle", "type": "water", "recurrence_label": None},
@@ -62,9 +62,11 @@ def _sample_week() -> dict:
             "categories": [{"key": "music", "label": "Music", "count": 2}],
         }
     ]
+    _dow = {19: "Fri", 20: "Sat", 21: "Sun", 22: "Mon", 23: "Tue", 24: "Wed"}
     for n in range(19, 25):
         days.append({
-            "iso": f"2026-06-{n}", "md": f"Jun {n}", "label": "Fri", "has": n % 2 == 1,
+            "iso": f"2026-06-{n}", "md": f"Jun {n}", "label": "Fri", "dow": _dow[n],
+            "has": n % 2 == 1,
             "event_count": 1 if n % 2 else 0, "class_count": 4, "events": [], "categories": [],
         })
     return {"has_any": True, "days": days}
@@ -159,13 +161,61 @@ def test_lake_home_today_feed_renders() -> None:
     assert 'id="feed-filter"' not in b
     assert 'class="tryrow"' not in b
     assert "Today in Lake Havasu" not in b
-    # The swipeable day strip is wrapped and marked for the scroll-into-view JS.
+    # The day picker is a grid (no scroll) with a Full-calendar button; the old
+    # top "Full calendar" link in the feed header is gone (FIX_DAYPICKER 2–3).
     assert 'class="daystrip-wrap"' in b
-    assert "data-daystrip" in b
+    assert 'class="day daycal"' in b
+    assert 'class="full"' not in b
     # Still structurally accessible with the feed populated.
     checker = _A11yChecker()
     checker.feed(b)
     assert not checker.finish()
+
+
+def test_lake_home_daypicker_is_weekday_grid_linking_home() -> None:
+    """FIX_DAYPICKER items 1–3: every tile is labelled by weekday abbreviation,
+    the tiles re-render the HOME feed for the day (``/home?date=``, not the
+    separate ``/events-ui?date=`` page), and a Full-calendar button stands in for
+    the removed top link."""
+    from unittest.mock import patch
+
+    from app.home import sandstone
+
+    with patch.object(sandstone, "week_strip", return_value=_sample_week()):
+        b = TestClient(app).get("/home?theme=lake").text
+
+    # Grid, not a scroll container; every weekday abbreviation appears as a label.
+    assert 'class="daystrip"' in b
+    for dow in ("Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"):
+        assert f'<span class="dow">{dow}</span>' in b
+    # Tiles re-render the home feed for the day (no jump to the /events-ui page).
+    assert 'href="/home?date=2026-06-20#today"' in b
+    assert 'href="/events-ui?date=' not in b
+    # The Full-calendar button (spanning the last two cells) opens the calendar.
+    assert 'class="day daycal" href="/events-ui"' in b
+    assert ">Full calendar</span>" in b
+    # The old top "Full calendar" link in the feed header is removed (item 3).
+    assert 'class="full"' not in b
+
+
+def test_lake_home_date_param_renders_selected_day() -> None:
+    """FIX_DAYPICKER item 4: ``?date=`` re-renders the home feed for a non-today
+    day with the correct long date label and that day's tile highlighted — no
+    "Happening today" heading and no separate page (same template = no font jump)."""
+    from unittest.mock import patch
+
+    from app.home import sandstone
+
+    with patch.object(sandstone, "week_strip", return_value=_sample_week()):
+        b = TestClient(app).get("/home?theme=lake&date=2026-06-21").text
+
+    # The feed's small date label reflects the selected day, not "today".
+    assert "Sunday, June 21" in b
+    assert "Happening today" not in b
+    # The selected tile (Sun 21) carries the highlight + aria-current.
+    assert 'class="day today"' in b
+    assert 'href="/home?date=2026-06-21#today"' in b
+    assert 'aria-current="date"' in b
 
 
 def test_lake_nav_unified_across_breakpoints() -> None:

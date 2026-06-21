@@ -583,14 +583,24 @@ def serve_home(
     request: Request,
     db: Session = Depends(get_db),
     cal: str | None = None,
+    date: str | None = None,
 ) -> HTMLResponse:
     """Render /home — the Sandstone editorial home (Ask mode).
 
     Every count/badge traces to a live query or is omitted (the anti-confabulation
     contract in 01_UI_BUILD_GUIDE.md §4). The optional ``cal=YYYY-MM`` param drives
     the server-rendered month calendar's prev/next without any client JS.
+
+    The optional ``date=YYYY-MM-DD`` param (the home day-picker tiles, FIX_DAYPICKER
+    item 4) re-renders the unified feed for that day on the SAME home page — no
+    font/page jump, no stale "Happening today" heading. It defaults to today and
+    only steers the feed + its date label; the 7-day strip stays today-anchored and
+    highlights the selected tile. Past-item muting keys off the real clock vs the
+    selected day (``today_feed``'s ``now`` no-ops off the current date), so a future
+    day shows nothing muted.
     """
     now = now_lake_havasu()
+    feed_day = _parse_iso_date(date) or now.date()
     utility_chips = _utility_chips(db)
     cal_year, cal_month = sandstone.parse_cal_param(cal, default=now)
     spotlights = sponsor_store.active_spotlights(db)
@@ -642,8 +652,13 @@ def serve_home(
             "today_highlights": events_views.day_highlights(db, day=now.date(), now=now, limit=3),
             # Phase 2: the home four-group unified feed (Events / Classes &
             # fitness / Open all day / At the movies). Same deduped pipeline as
-            # /events-ui, remapped to the home's simplified group model.
-            "today_feed": today_feed(db, day=now.date(), now=now),
+            # /events-ui, remapped to the home's simplified group model. Renders
+            # for the selected day (``?date=``); ``now`` stays the real clock.
+            "today_feed": today_feed(db, day=feed_day, now=now),
+            # FIX_DAYPICKER item 4: the feed's small date label ("Saturday,
+            # June 20") + the iso the day-picker highlights as selected.
+            "feed_day_label": _long_day_label(feed_day),
+            "selected_iso": feed_day.isoformat(),
             "marquee": marquee,
             "promoted": promoted,
             "featured_cards": featured_cards,

@@ -414,3 +414,17 @@ def test_feed_empty_day_has_no_groups() -> None:
     assert _group(feed, "events") is None
     assert _group(feed, "classes") is None
     assert _group(feed, "movies") is None
+
+
+def test_open_venue_rows_have_no_open_prefix() -> None:
+    """FIX_DAYPICKER item 5: open-all-day venue rows read as a bare hours range
+    ("12–10 PM"), not "Open 12–10 PM" — uniform with every other feed row."""
+    sat = date(2099, 7, 18)  # Saturday — the drop-in family venues publish hours.
+    with SessionLocal() as db:
+        feed = today_feed(db, day=sat, now=datetime(2099, 7, 18, 6, 0, tzinfo=_LHC))
+    ttd = _group(feed, "things_to_do")
+    assert ttd is not None, "Saturday should surface open-venue rows under Things to do"
+    # No row carries the dropped verb, and at least one bare hours range is present.
+    for row in ttd["rows"]:
+        assert not row["time_label"].startswith("Open "), row["time_label"]
+    assert any("–" in row["time_label"] for row in ttd["rows"])
