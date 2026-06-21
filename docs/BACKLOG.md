@@ -25,6 +25,10 @@ Production-readiness P0 (`relay/PRODUCTION_READINESS_PLAN_2026-06-21.md` §P0). 
 - **Date desync / blank pages / `havasuchat.com` `/terms` binding + gas email / brand titles** — **NOT REPRODUCED on `origin/main`** (captured from a stale prod deploy). Resolved by deploying `origin/main` + the hub's post-deploy crawl; the only `havasuchat.com` strings in `app/` are the *functional* `DEAD_EVENT_LINK_HOSTS` filter (keeps the string to filter the dead host) + a reddit User-Agent handle — neither is a user-facing leak.
 - **`/chat` desert-chrome leak** — **DEFERRED to P3.** A Lake `/chat` twin is entangled with the Ask-demotion / nav redesign (plan §2.7); building a throwaway lake chat skin now would exceed P0 intent.
 
+**Fix-up (hub confirmation crawl, 2026-06-21) — two home data-binding bugs:**
+- **Home date-chip number (Finding 30)** — **RESOLVED.** Day-picker chip bound the events+recurring-classes total (`day.count`, 40-60/weekday); rebound to the per-day one-off `day.event_count`. `app/templates/home_lake.html`; `tests/test_lake_home.py`.
+- **Home gas chip ≠ /gas cheapest (Finding 29)** — **RESOLVED.** `_gas_snapshot` re-sorted raw `stations`; now reads the same pull-curated `data["cheapest"]` `/gas` renders, so they always match. `app/home/router.py`; `tests/test_home_gas_parity.py`.
+
 ---
 
 # Multi-day events - Tier 2 backlog
