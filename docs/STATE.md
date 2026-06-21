@@ -4,6 +4,19 @@
 
 This document is updated at the end of each session that ships work. It is the canonical answer to "where is the project right now."
 
+## P0 stabilization (2026-06-21) — branch `p0-stabilization`, held for Casey's push (NOT pushed/deployed)
+
+First phase of the Production Readiness build (`relay/PRODUCTION_READINESS_PLAN_2026-06-21.md` §P0). Built in the `havasu-chat-p0` worktree off `origin/main`; commits held on `p0-stabilization` for push approval. **Key finding:** most P0 symptoms in the plan were captured from a live crawl of a prod deploy that `origin/main` has since moved past — the date desync, blank `/plumbing` + event pages, FAQ-markdown/triple-CTA render bugs, the `/terms` §1 `havasuchat.com` binding, and the gas-footer `havasuchat.com` email **do not reproduce on `origin/main`** (verified by sub-agent render checks + direct grep). Real, reproducing fixes that landed:
+
+- **N1 recurring-event detail bug (FIXED):** detail pages stamped the 2024 RRULE anchor ("Monday, January 1") + a false "This event has passed" while listed live all week. `_event_is_past` now treats a recurring series as past only when it has no future occurrence; `_format_event_datetime` + Event JSON-LD now resolve the next occurrence via new `app/events/recurrence.next_occurrence`.
+- **Advertise login-wall (FIXED):** the most-linked "Advertise" CTA (footers on every page + the home featured unit) pointed at the auth-gated `/portal/placements`, which 303-redirects logged-out visitors to `/login`. Repointed to the public `/sponsor` advertiser landing. (`/portal/advertise` itself was *intentionally* removed in #334 — not resurrected.)
+- **Header/footer consolidation (DONE):** the Lake header + footer were extracted from `base_lake.html` into shared `_partials/site_header.html` + `_partials/site_footer.html` (the single source P3 edits). Lake confirmed canonical (`THEME_DEFAULT=lake` in prod).
+- **Directory-first positioning note (DONE):** appended to the locked docs (`docs/persona-brief.md`, `HAVA_CONCIERGE_HANDOFF.md`, `docs/START_HERE.md`) so the superseded "AI local / search engine" framing stops contradicting the product (plan §2.7).
+- **Blank-page + render-bug hardening (DONE):** category-page chrome context (`primary_nav`/`mega_columns`/`utility_chips`) is now guarded so a query hiccup degrades to an empty element instead of blanking/500-ing the page; guard tests added (no-markdown FAQ copy, single ask-strip + claim CTA per leaf, non-blank leaf body).
+- **Date desync + home date-chip numbers:** **no code bug on `origin/main`** — every surface computes "today" from `now_lake_havasu()`, and the home chip count is a real per-day event total (well-covered by `test_week_strip.py`). The plan's "June 10 labeled today" symptom is stale-prod-deploy + data staleness, resolved by deploying `origin/main` + the hub's post-deploy crawl; any genuine scraper-cron staleness is a Casey-gated ops matter, not P0 code.
+
+Gate: `pytest -q` green + `ruff check .` clean. `/chat` rendering desert chrome on the Lake site is deferred to P3 (entangled with the Ask-demotion / nav redesign in plan §2.7).
+
 ## Production
 
 - **Production URL:** https://havasu-chat-production.up.railway.app

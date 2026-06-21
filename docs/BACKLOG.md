@@ -13,6 +13,20 @@ Ship log entries at the bottom record what shipped per session. New ones are app
 
 ---
 
+# P0 Stabilization (2026-06-21) — branch `p0-stabilization`, held for push
+
+Production-readiness P0 (`relay/PRODUCTION_READINESS_PLAN_2026-06-21.md` §P0). Commits held for Casey's approval (not pushed/deployed).
+
+- **N1 recurring-event "passed" bug** — **RESOLVED.** Recurring detail pages stamped the 2024 RRULE anchor + a false "This event has passed." `app/main._event_is_past`/`_format_event_datetime` + Event JSON-LD now resolve the next occurrence via new `app/events/recurrence.next_occurrence`. Tests in `tests/test_event_permalink_context.py`.
+- **Advertise login-wall** — **RESOLVED.** Footer + home "Advertise" CTAs repointed from the auth-gated `/portal/placements` to the public `/sponsor` (`base_lake.html`, `desert_base.html`, `home_lake.html`, `home_sandstone.html`; new `tests/test_advertise_cta_public.py`). `/portal/advertise` was intentionally removed in #334 — not resurrected.
+- **Header/footer consolidation** — **RESOLVED.** Lake chrome extracted to `app/templates/_partials/site_header.html` + `site_footer.html`, included from `base_lake.html` (single source for P3). Lake confirmed canonical.
+- **Directory-first positioning note** — **RESOLVED.** Appended to `docs/persona-brief.md`, `HAVA_CONCIERGE_HANDOFF.md`, `docs/START_HERE.md` (plan §2.7).
+- **Blank-page + render-bug hardening** — **RESOLVED.** Guarded `_chrome_context` in `app/categories/router.py` + guard tests (`tests/test_faq_copy_no_markdown.py`, single-CTA/non-blank asserts in `tests/test_leaf_pages.py`).
+- **Date desync / blank pages / `havasuchat.com` `/terms` binding + gas email / brand titles** — **NOT REPRODUCED on `origin/main`** (captured from a stale prod deploy). Resolved by deploying `origin/main` + the hub's post-deploy crawl; the only `havasuchat.com` strings in `app/` are the *functional* `DEAD_EVENT_LINK_HOSTS` filter (keeps the string to filter the dead host) + a reddit User-Agent handle — neither is a user-facing leak.
+- **`/chat` desert-chrome leak** — **DEFERRED to P3.** A Lake `/chat` twin is entangled with the Ask-demotion / nav redesign (plan §2.7); building a throwaway lake chat skin now would exceed P0 intent.
+
+---
+
 # Multi-day events - Tier 2 backlog
 
 **Context:** Multi-day schema/retrieval work and parser prompt updates are now shipped together and verified in production.
