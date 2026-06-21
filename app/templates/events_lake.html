@@ -98,12 +98,9 @@
       <a href="{{ _today_link.url }}" class="{{ 'on' if mode in ('today', 'day') else '' }}"{% if mode in ('today', 'day') %} aria-current="page"{% endif %}>Day</a>
       <a href="{{ _week_link.url }}" class="{{ 'on' if mode in ('week', 'month') else '' }}"{% if mode in ('week', 'month') %} aria-current="page"{% endif %}>Full calendar</a>
     </nav>
-    {% if family_toggle_url %}
-    <a class="ev-fam{{ ' on' if family_mode }}" href="{{ family_toggle_url }}" aria-pressed="{{ 'true' if family_mode else 'false' }}">Kids &amp; family</a>
-    {% endif %}
-    {% if seniors_toggle_url %}
-    <a class="ev-fam ev-sen{{ ' on' if seniors_mode }}" href="{{ seniors_toggle_url }}" aria-pressed="{{ 'true' if seniors_mode else 'false' }}">Seniors</a>
-    {% endif %}
+    {# Audience filter tabs (Kids & family / Seniors) removed — the calendar makes
+       everything browsable, so they were redundant. Chat senior intent still
+       narrows results via /calendar (server-side query parser), not a tab. #}
   </div>
 
   {% if mode == 'day' %}

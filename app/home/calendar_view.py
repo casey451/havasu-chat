@@ -292,5 +292,8 @@ def build_calendar(
                                         ("afternoon", "Afternoon"), ("evening", "Evening")]),
         "seg_type": _seg("type", type_, [("", "All"), ("events", "Around town"), ("music", "Music"),
                                          ("family", "Family"), ("water", "Lake"), ("classes", "Classes")]),
-        "seg_aud": _seg("aud", aud, [("", "Anyone"), ("kids", "Kids"), ("seniors", "Seniors")]),
+        # The manual audience toggle (Anyone/Kids/Seniors) was removed from the UI
+        # (redundant clutter). The ``aud`` filter itself stays live — it is set by
+        # the natural-language query parser (chat senior/kids intent) and surfaced
+        # as a removable "Hava understood" chip, not a tab.
     }

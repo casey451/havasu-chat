@@ -41,9 +41,10 @@
       <div class="seg" role="group" aria-label="Type">
         {% for o in cal.seg_type %}<a href="{{ o.url }}" class="{{ 'on' if o.active }}"{% if o.active %} aria-current="true"{% endif %}>{{ o.label }}</a>{% endfor %}
       </div>
-      <div class="seg" role="group" aria-label="Audience">
-        {% for o in cal.seg_aud %}<a href="{{ o.url }}" class="{{ 'on' if o.active }}"{% if o.active %} aria-current="true"{% endif %}>{{ o.label }}</a>{% endfor %}
-      </div>
+      {# Audience filter chips (Anyone / Kids / Seniors) removed — redundant with
+         the calendar's full visibility. A senior/kids ask typed in plain words
+         still narrows: the query parser sets the audience and shows a removable
+         "Hava understood" chip above. #}
     </div>
     <div class="dayscroll" aria-label="Days">
       {% for d in cal.day_toggle_urls %}

@@ -163,6 +163,11 @@ _MARKET_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Pickleball is a sport → always Fitness & sports (Item 2), regardless of how the
+# source typed it ("Pickleball Open Play" is an all-day drop-in that would
+# otherwise route to Things to do). Matches "pickleball" / "pickle ball".
+_PICKLEBALL_RE = re.compile(r"\bpickle\s?ball\b", re.IGNORECASE)
+
 # Genuinely kid-targeted signals (Item 5 — STRICTER than is_family_event). NO
 # "all ages", NO bare "family"/"family swim"/"family night", NO bare "open swim":
 # those are all-ages and must not read as kids-only on the home feed.
@@ -254,6 +259,12 @@ def _home_group(
     # class-type routing below (and over a stray SPECIAL mis-tier).
     if _MARKET_RE.search(low):
         return "things_to_do"
+    # Pickleball is a sport: ALL of it (open play, round robins, leagues, clinics)
+    # belongs in Fitness & sports, not Things to do. This wins over the drop-in /
+    # all-day "open play" routing below; the Adult/Youth split is decided later by
+    # _fitness_audience (Adult unless the title reads youth/junior/littles).
+    if _PICKLEBALL_RE.search(low):
+        return "fitness"
     if _event_tier(title=title, tags=tags, featured=featured, recurring=recurring) == TIER_SPECIAL:
         return "events"
     if is_dropin_rec(title):

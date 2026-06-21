@@ -149,14 +149,17 @@ def test_lake_home_today_feed_renders() -> None:
     assert 'data-group="events" open' in b
     assert 'data-group="fitness"' in b and 'data-group="fitness" open' not in b
     assert 'data-group="movies"' in b
-    # Rows + Fitness Adult/Youth sub-sections + audience tag + movie showtime.
+    # Rows + Fitness Adult/Youth sub-sections + movie showtime.
     assert "ZZ Bridge Days" in b
     assert "ZZ Adult Wrestling" in b and "ZZ BMX Race Night" in b
     assert 'class="tg-subhead"' in b
     assert ">Adult<" in b and ">Youth<" in b
     assert "ZZ Robin Hood" in b
-    assert '<span class="rtag kids">Kids</span>' in b
     assert "6:30 PM" in b
+    # Item 3: the per-row green KIDS pill is gone (structural Adult/Youth
+    # sub-headers above stay); no audience rtag renders anywhere in the feed.
+    assert 'class="rtag kids"' not in b
+    assert ">Kids</span>" not in b
     # The dropped controls are gone: no "Show" filter, no Try-chips, no big heading.
     assert 'id="feed-filter"' not in b
     assert 'class="tryrow"' not in b

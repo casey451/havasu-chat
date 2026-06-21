@@ -99,7 +99,7 @@ def test_feed_classifies_into_five_groups() -> None:
     market = f"ZZ Farmers Market {s}"             # community -> things_to_do
     yoga = f"ZZ Sunrise Yoga Flow {s}"            # physical class -> fitness
     cooking = f"ZZ Cooking Class {s}"             # non-physical class -> classes
-    pickle = f"ZZ Pickleball Open Play {s}"       # all-day drop-in -> things_to_do
+    pickle = f"ZZ Pickleball Open Play {s}"       # pickleball is a sport -> fitness
     film = f"ZZ Robin Hood {s}"                   # movie -> movies
     eids: list[str] = []
     mids: list[str] = []
@@ -119,7 +119,7 @@ def test_feed_classifies_into_five_groups() -> None:
         assert market in _titles(_group(feed, "things_to_do"))
         assert yoga in _titles(_group(feed, "fitness"))
         assert cooking in _titles(_group(feed, "classes"))
-        assert pickle in _titles(_group(feed, "things_to_do"))
+        assert pickle in _titles(_group(feed, "fitness"))  # Item 2: pickleball -> fitness
         movies = _group(feed, "movies")
         assert movies and any(f["title"] == film for f in movies["films"])
         # The summary line names each non-empty group.
@@ -175,6 +175,36 @@ def test_fitness_splits_adult_and_youth_bmx_is_youth() -> None:
         assert bmx in _titles(_subgroup(fitness, "Youth"))
         # Subgroups appear in Adult-then-Youth order.
         assert [s["label"] for s in fitness["subgroups"]] == ["Adult", "Youth"]
+    finally:
+        _cleanup(eids, [])
+
+
+def test_pickleball_routes_to_fitness_adult_not_things_to_do() -> None:
+    """Item 2: ALL pickleball is a sport → Fitness & sports, Adult by default
+    (even the all-day "Open Play" drop-in that used to land in Things to do); a
+    youth-titled pickleball row files under Youth."""
+    s = uuid.uuid4().hex[:6]
+    open_play = f"ZZ Pickleball Open Play {s}"      # all-day drop-in
+    league = f"ZZ Pickleball Round Robin {s}"
+    youth = f"ZZ Youth Pickleball Clinic {s}"
+    eids: list[str] = []
+    with SessionLocal() as db:
+        eids.append(_add_event(db, title=open_play, start=time(0, 0), loc="Ark Center"))
+        eids.append(_add_event(db, title=league, start=time(9, 0), loc="Ark Center"))
+        eids.append(_add_event(db, title=youth, start=time(16, 0), loc="Ark Center"))
+        db.commit()
+    try:
+        with SessionLocal() as db:
+            feed = today_feed(db, day=_DAY, now=_NOW)
+        fitness = _group(feed, "fitness")
+        assert fitness is not None
+        # None of the pickleball rows leaked into Things to do.
+        ttd_titles = _titles(_group(feed, "things_to_do"))
+        for t in (open_play, league, youth):
+            assert t not in ttd_titles, t
+        assert open_play in _titles(_subgroup(fitness, "Adult"))
+        assert league in _titles(_subgroup(fitness, "Adult"))
+        assert youth in _titles(_subgroup(fitness, "Youth"))
     finally:
         _cleanup(eids, [])
 

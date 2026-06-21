@@ -41,7 +41,10 @@
         <article class="mv-film">
           <div class="mv-poster">
             {% if film.poster %}
-            <img loading="lazy" src="{{ film.poster }}" alt="{{ film.title }} poster">
+            {# Eager-load the first row per theater so above-the-fold posters always
+               render (lazy-loading can leave them blank on a phone viewport); the
+               rest stay lazy. #}
+            <img loading="{{ 'eager' if loop.index <= 4 else 'lazy' }}" src="{{ film.poster }}" alt="{{ film.title }} poster">
             {% else %}
             <span class="mv-poster-fallback">{{ film.title }}</span>
             {% endif %}
