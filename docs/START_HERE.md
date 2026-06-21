@@ -17,6 +17,12 @@
   assistant share the name as of Phase 8.8)
 - **Tagline:** "The AI local of Lake Havasu"
 
+> **Positioning note (2026-06-21, P0):** This tagline is superseded. Current
+> positioning is **directory-first** — "the local directory for Lake Havasu
+> City," **not** "the AI local" and **not** a "search engine" (decision:
+> `relay/PRODUCTION_READINESS_PLAN_2026-06-21.md` §2.7; pivot:
+> `docs/STRATEGY_PIVOT_2026-05-12.md`).
+
 ## What Hava is
 
 Conversational concierge for Lake Havasu City, Arizona. One chat box

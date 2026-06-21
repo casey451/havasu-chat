@@ -29,6 +29,8 @@ It does not define retrieval logic, tier routing, or data model behavior — tho
 
 **Tagline / external positioning:** *"The AI local of Lake Havasu."* Used on homepage, app store blurb, about page, any marketing copy. Also used verbatim or near-verbatim in the in-chat AI-acknowledgment response (see §5.3).
 
+> **Positioning note (2026-06-21, P0):** This *external tagline* is superseded. Hava's canonical positioning is now **directory-first** — "the local directory for Lake Havasu City," **not** "the AI local" and **not** a "search engine" (decision: `relay/PRODUCTION_READINESS_PLAN_2026-06-21.md` §2.7; pivot: `docs/STRATEGY_PIVOT_2026-05-12.md`). The in-chat **voice** specified below is unaffected — only outward positioning/tagline shifts.
+
 ---
 
 ## 3. Character framing

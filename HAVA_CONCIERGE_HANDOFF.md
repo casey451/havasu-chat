@@ -7,6 +7,8 @@
 
 **Product name:** Hava — *the AI local of Lake Havasu.*
 
+> **Positioning note (2026-06-21, P0):** The "AI local" tagline is superseded. Hava is positioned **directory-first** — the local *directory* for Lake Havasu City, **not** "the AI local" and **not** a "search engine" (decision: `relay/PRODUCTION_READINESS_PLAN_2026-06-21.md` §2.7). The tier 1/2/3 architecture below stays accurate; only the outward positioning/tagline changed.
+
 ---
 
 ## §1 Product overview
