@@ -554,17 +554,14 @@ def _gas_snapshot(db: Session) -> dict[str, object]:
     row = read_source(db, SOURCE_GAS, now=now_utc)
     if row is None or not isinstance(row.data, dict):
         return {"has_data": False}
-    stations = [s for s in (row.data.get("stations") or []) if isinstance(s, dict)]
-    stations_sorted = sorted(
-        stations,
-        key=lambda s: float(
-            s.get("prices", {}).get("regular")
-            if isinstance(s.get("prices"), dict)
-            and isinstance(s.get("prices", {}).get("regular"), (int, float))
-            else 9999
-        ),
-    )
-    cheapest = stations_sorted[:5]
+    # Render the SAME pre-computed cheapest list the /gas page shows
+    # (``data["cheapest"]``, built by app.contrib.gas_prices), NOT a fresh re-sort
+    # of ``data["stations"]``. A re-sort can disagree with /gas — a station that
+    # the pull excluded from ``cheapest`` (e.g. one missing a real regular price)
+    # could surface as the home chip's "cheapest" while /gas showed a different,
+    # higher figure (live: home $3.95 vs /gas $4.19). One source of truth = the
+    # home chip and /gas always match.
+    cheapest = [s for s in (row.data.get("cheapest") or []) if isinstance(s, dict)]
     # Gas updates ~daily; use the daily-feed staleness threshold so a fresh fetch
     # doesn't read "stale" on the home widget (G-2 / H-2).
     label, stale = staleness_label(
