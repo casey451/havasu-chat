@@ -9,6 +9,7 @@ so the router and templates need no edits.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date, time
 
@@ -21,6 +22,24 @@ from app.movies.posters import proxied_poster_url
 
 # Display order for known theaters; unknown theaters sort after, alphabetically.
 THEATER_ORDER = ["star-cinemas", "movies-havasu"]
+
+# Trailing punctuation/whitespace trimmed when comparing film titles for de-dup.
+_FILM_TRAILING = " \t.,!?;:·-–—\"'`’"
+_WS_RE = re.compile(r"\s+")
+
+
+def normalize_film_title(title: str | None) -> str:
+    """Case/space-insensitive de-dup key for a film title.
+
+    Two theaters spell the same film differently — "The Death of Robin Hood" vs
+    "The Death Of Robin Hood", "Masters of the Universe" vs "Masters Of The
+    Universe" — and an exact-string de-dup showed both. Casefold, collapse
+    internal whitespace, and trim trailing punctuation so the variants merge.
+    Articles are deliberately KEPT (no "the"/"a" stripping) so genuinely
+    different films are never collapsed.
+    """
+    t = _WS_RE.sub(" ", (title or "").casefold()).strip()
+    return t.rstrip(_FILM_TRAILING)
 
 
 @dataclass
@@ -80,10 +99,11 @@ def group_showtimes(
         tg = theaters.setdefault(
             slug, {"name": r.theater_name or "Theater", "slug": slug, "films": {}}
         )
-        film = tg["films"].get(r.film_title)
+        fkey = normalize_film_title(r.film_title)
+        film = tg["films"].get(fkey)
         if film is None:
             film = {
-                "title": r.film_title,
+                "title": r.film_title,  # first-seen spelling is the display title
                 "rating": (r.rating or "").strip(),
                 "meta": _meta(r),
                 # Proxy Veezi posters through our own origin so referrer-based
@@ -92,7 +112,7 @@ def group_showtimes(
                 "free": False,
                 "times": [],
             }
-            tg["films"][r.film_title] = film
+            tg["films"][fkey] = film
         if not film["poster"] and r.poster_url:
             film["poster"] = proxied_poster_url(r.poster_url)
         if getattr(r, "is_free", False):
