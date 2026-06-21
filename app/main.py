@@ -12,7 +12,7 @@ import logging.config
 import os
 import re
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -83,6 +83,7 @@ from app.db.database import SessionLocal, get_db, init_db
 from app.db.jobs_store import count_stale_running, requeue_stale_claims
 from app.db.models import AuthSession, Event, Provider
 from app.digest.routes import router as digest_router
+from app.events.recurrence import _event_is_recurring, next_occurrence
 from app.events.time_labels import is_time_tbd
 from app.events.title_clean import clean_event_title
 from app.home.calendar_route import router as calendar_page_router
@@ -818,10 +819,24 @@ if _CONTRIB_UPLOADS.is_dir():
     )
 
 
+def _display_date(event: Event) -> date:
+    """The date to SHOW on the detail page. For a recurring series ``event.date``
+    is just the RRULE anchor (often a 2024 "Monday, January 1" seed), so show the
+    next upcoming occurrence instead — matching the live day/index listing and
+    killing the N1 "January 1 / This event has passed" contradiction. One-offs
+    keep their own date."""
+    if _event_is_recurring(event):
+        nxt = next_occurrence(event, on_or_after=now_lake_havasu().date())
+        if nxt is not None:
+            return nxt
+    return event.date
+
+
 def _format_event_datetime(event: Event) -> str:
-    weekday = event.date.strftime("%A")
-    month = event.date.strftime("%B")
-    day = event.date.day
+    display = _display_date(event)
+    weekday = display.strftime("%A")
+    month = display.strftime("%B")
+    day = display.day
     if is_time_tbd(event.start_time, event.end_time):
         # WP-4 allows NULL times at ingest (never fabricate noon), and a bare
         # 00:00 start with no real end is the aggregator-ingest "no time given"
@@ -837,12 +852,16 @@ def _format_event_datetime(event: Event) -> str:
 
 def _event_is_past(event: Event) -> bool:
     # Drives the "This event has passed" banner on the detail page. A recurring
-    # series (rdate) is never "passed" while it still recurs, so only flag genuine
-    # one-offs. Compare against Lake Havasu local time. A date-only event (NULL
-    # time) is past only once the whole day is over -- never mid-day -- so a
-    # same-day all-day event is not prematurely buried.
-    if event.rdate:
-        return False
+    # series is "passed" only when it has NO future occurrence left (e.g. an
+    # RRULE whose UNTIL is in the past) -- never while it still recurs. The old
+    # guard only checked ``event.rdate``, so RRULE-only series (the senior-center
+    # rows: rrule set, rdate NULL, anchored at 2024-01-01) fell through and wore
+    # a false "passed" banner while listed live all week (N1). Compare against
+    # Lake Havasu local time. A date-only one-off (NULL time) is past only once
+    # the whole day is over -- never mid-day -- so a same-day all-day event is
+    # not prematurely buried.
+    if _event_is_recurring(event):
+        return next_occurrence(event, on_or_after=now_lake_havasu().date()) is None
     now = now_lake_havasu()
     end_d = event.end_date or event.date
     if end_d < now.date():
@@ -961,11 +980,15 @@ def _render_permalink_response(
     # product — a free rich-results win). Built as a dict here so missing
     # fields are OMITTED, never emitted as ``"key": null``. Arizona ignores
     # DST: the offset is -07:00 year-round.
+    # Schema.org wants the upcoming date, so a recurring series advertises its
+    # next occurrence (not the 2024 RRULE anchor) — same source as the visible
+    # date, keeping the rich result and the page in agreement.
+    disp_date = _display_date(event)
     if is_time_tbd(event.start_time, event.end_time):
-        start_iso = event.date.isoformat()
+        start_iso = disp_date.isoformat()
     else:
         start_iso = (
-            f"{event.date.isoformat()}T{event.start_time.strftime('%H:%M')}:00-07:00"
+            f"{disp_date.isoformat()}T{event.start_time.strftime('%H:%M')}:00-07:00"
         )
     event_jsonld: dict[str, Any] = {
         "@context": "https://schema.org",
@@ -986,7 +1009,7 @@ def _render_permalink_response(
         },
     }
     if event.end_time is not None and not is_time_tbd(event.start_time, event.end_time):
-        end_d = event.end_date or event.date
+        end_d = disp_date if _event_is_recurring(event) else (event.end_date or event.date)
         event_jsonld["endDate"] = (
             f"{end_d.isoformat()}T{event.end_time.strftime('%H:%M')}:00-07:00"
         )

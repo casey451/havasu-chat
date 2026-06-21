@@ -35,6 +35,9 @@ def _ev(**kw):
         end_date=None,
         end_time=None,
         rdate=None,
+        rrule=None,
+        is_recurring=False,
+        exdate=None,
     )
     base.update(kw)
     return SimpleNamespace(**base)
@@ -104,10 +107,37 @@ def test_is_past_today_date_only_not_buried_midday():
         assert _event_is_past(_ev(date=date(2026, 6, 4), start_time=None)) is False
 
 
-def test_is_past_recurring_series_never_past():
-    # rdate present -> recurring; the series is not "passed" even on an old date.
+def test_is_past_recurring_rdate_future_occurrence_not_past():
+    # An rdate set with a future occurrence -> still recurring -> not "passed".
     with patch("app.main.now_lake_havasu", return_value=REF):
-        assert _event_is_past(_ev(date=date(2026, 6, 3), rdate=["2026-06-03"])) is False
+        assert _event_is_past(_ev(date=date(2026, 6, 3), rdate=["2026-06-09"])) is False
+
+
+def test_is_past_recurring_rrule_anchor_in_past_not_past():
+    # N1: a weekly series anchored at an old date (the senior rows seed at
+    # 2024-01-01) is NOT "passed" while the rule still yields future dates.
+    with patch("app.main.now_lake_havasu", return_value=REF):
+        ev = _ev(
+            date=date(2024, 1, 1),
+            start_time=time(8, 30),
+            rrule="FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR",
+            is_recurring=True,
+        )
+        assert _event_is_past(ev) is False
+        # ...and the shown date is the next occurrence, never the 2024 anchor.
+        assert "January 1" not in _format_event_datetime(ev)
+
+
+def test_is_past_recurring_series_ended_is_past():
+    # An RRULE whose UNTIL is in the past has no future occurrence -> passed.
+    with patch("app.main.now_lake_havasu", return_value=REF):
+        ev = _ev(
+            date=date(2024, 1, 1),
+            start_time=time(9, 0),
+            rrule="FREQ=WEEKLY;BYDAY=MO;UNTIL=20240301T000000",
+            is_recurring=True,
+        )
+        assert _event_is_past(ev) is True
 
 
 def test_is_past_uses_end_date_when_event_spans_into_future():

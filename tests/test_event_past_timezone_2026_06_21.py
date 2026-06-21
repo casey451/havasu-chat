@@ -33,7 +33,16 @@ NOW_0854 = datetime(2026, 6, 21, 8, 54, tzinfo=PHX)
 
 
 def _ev(**kw):
-    base = dict(date=DAY, start_time=time(10, 0), end_date=None, end_time=None, rdate=None)
+    base = dict(
+        date=DAY,
+        start_time=time(10, 0),
+        end_date=None,
+        end_time=None,
+        rdate=None,
+        rrule=None,
+        is_recurring=False,
+        exdate=None,
+    )
     base.update(kw)
     return SimpleNamespace(**base)
 
