@@ -10,7 +10,6 @@ import uuid
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete
 
@@ -81,30 +80,18 @@ def test_day_groups_seniors_narrows() -> None:
         _cleanup(eids)
 
 
-# --- /events-ui ?seniors=1 toggle -------------------------------------------
+# --- /events-ui audience tabs removed (Item 4) ------------------------------
 
 
-def test_events_ui_seniors_toggle(monkeypatch: pytest.MonkeyPatch) -> None:
-    s = uuid.uuid4().hex[:6]
-    senior = f"ZZ Senior Social {s}"
-    music = f"ZZ Karaoke Night {s}"
-    eids: list[str] = []
-    with SessionLocal() as db:
-        eids.append(_add_event(db, title=senior, start=time(20, 0), loc="Senior Center",
-                               tags=["senior"]))
-        eids.append(_add_event(db, title=music, start=time(20, 30), loc="Bar", tags=["music"]))
-        db.commit()
-    try:
-        monkeypatch.setattr("app.home.router.now_lake_havasu", lambda: _MONDAY)
-        with TestClient(app) as client:
-            body = client.get("/events-ui?theme=lake&seniors=1").text
-        # The Seniors toggle renders pressed; the narrow keeps senior items only.
-        assert 'class="ev-fam ev-sen on"' in body
-        assert 'aria-pressed="true"' in body
-        assert senior in body
-        assert music not in body
-    finally:
-        _cleanup(eids)
+def test_events_ui_has_no_audience_tabs() -> None:
+    """Item 4: the Kids & family / Seniors filter tabs are gone from /events-ui
+    (the calendar already makes everything browsable). Chat senior intent is a
+    separate behavior covered below."""
+    with TestClient(app) as client:
+        body = client.get("/events-ui?theme=lake").text
+    assert 'class="ev-fam' not in body
+    assert "ev-sen" not in body
+    assert "Kids &amp; family" not in body
 
 
 # --- chat senior intent (calendar_view) -------------------------------------
@@ -119,7 +106,10 @@ def test_calendar_parses_senior_intent() -> None:
     assert calendar_view.parse_calendar_query("toddler story time")["aud"] == "kids"
 
 
-def test_calendar_seniors_segment_and_narrow() -> None:
+def test_calendar_senior_query_narrows_and_shows_understood_chip() -> None:
+    """Item 4: the manual audience toggle (seg_aud) is gone, but a senior ask
+    typed in plain words still narrows the calendar and surfaces a removable
+    "Seniors" understood-chip — chat senior intent is preserved."""
     s = uuid.uuid4().hex[:6]
     senior = f"ZZ Senior Bingo {s}"
     music = f"ZZ DJ Night {s}"
@@ -134,8 +124,10 @@ def test_calendar_seniors_segment_and_narrow() -> None:
             vm = calendar_view.build_calendar(
                 db, q="for seniors", today=_MONDAY.date(), now=_MONDAY
             )
-        # Senior segment offered; narrowed columns hold the senior item only.
-        assert any(o["label"] == "Seniors" and o["active"] for o in vm["seg_aud"])
+        # No manual audience toggle in the view model anymore …
+        assert "seg_aud" not in vm
+        # … but the parsed senior intent narrows and shows a removable chip.
+        assert any(c["label"] == "Seniors" for c in vm["chips"])
         all_titles = {it["title"] for col in vm["columns"] for it in col["entries"]}
         assert any(senior in t for t in all_titles)
         assert not any(music in t for t in all_titles)

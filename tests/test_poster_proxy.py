@@ -24,10 +24,17 @@ _VEEZI = (
 )
 
 
-def test_proxied_poster_url_rewrites_only_veezi():
+def test_proxied_poster_url_rewrites_known_theater_hosts():
     out = posters.proxied_poster_url(_VEEZI)
     assert out == "/img/poster?u=" + quote(_VEEZI, safe="")
-    # Non-Veezi / empty are left untouched (already same-origin or nothing to do).
+    # All theater poster hosts route through the proxy so no <img> hotlinks an
+    # external host (the acsta posters were the un-proxied 8/18 in live QA).
+    for url in (
+        "https://image.tmdb.org/t/p/w500/abc.jpg",
+        "https://all.web.img.acsta.net/img/58/fa/abc.jpg",
+    ):
+        assert posters.proxied_poster_url(url) == "/img/poster?u=" + quote(url, safe="")
+    # Unknown / empty hosts are left untouched (already same-origin or nothing).
     assert posters.proxied_poster_url("https://example.com/p.jpg") == "https://example.com/p.jpg"
     assert posters.proxied_poster_url(None) is None
     assert posters.proxied_poster_url("") == ""

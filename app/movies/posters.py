@@ -1,21 +1,22 @@
 """Movie-poster proxy/cache.
 
-The theater feed (Veezi) serves poster images from
-``ticketing.uswest.veezi.com``. That host enforces **referrer-based hotlink
-protection**: a browser loading the image directly from our pages sends a
-``Referer: https://askhava.com/…`` header and Veezi refuses it (the live
-``<img>`` never completes, ``naturalWidth == 0``). Fetching the image
-*server-side* — where we control (omit) the referrer — and re-serving it from
-our own origin removes the hotlink dependency entirely.
+Theater posters come from a few external image hosts — the Veezi ticketing CDN
+(``ticketing.uswest.veezi.com``) plus the TMDB / AlloCiné art the scraper
+enriches with. Veezi enforces **referrer-based hotlink protection** (a browser
+loading the image from our pages sends a ``Referer: https://askhava.com/…`` that
+Veezi refuses, so the ``<img>`` never completes, ``naturalWidth == 0``), and the
+others are external dependencies we don't want a page to silently break on.
+Fetching every poster *server-side* — where we control (omit) the referrer — and
+re-serving it from our own origin removes the hotlink dependency for all of them.
 
 Two pieces:
 
-* :func:`proxied_poster_url` rewrites a Veezi poster URL into our own
+* :func:`proxied_poster_url` rewrites a known theater-poster URL into our own
   ``/img/poster?u=…`` route (and leaves any other/empty URL untouched), so the
   templates point ``<img src>`` at our origin.
 * :func:`fetch_poster` does the actual server-side fetch behind a strict host
-  allowlist (SSRF-safe — it will only ever fetch the Veezi poster host) with a
-  small in-process bytes cache so repeated loads don't re-hit Veezi.
+  allowlist (SSRF-safe — it will only ever fetch the known poster hosts) with a
+  small in-process bytes cache so repeated loads don't re-hit upstream.
 """
 
 from __future__ import annotations
@@ -26,8 +27,16 @@ import httpx
 
 # Only these hosts may be proxied. This is the whole point of the allowlist:
 # ``/img/poster`` must never become an open proxy that fetches arbitrary (or
-# internal) URLs — it can only ever reach the Veezi poster host.
-_ALLOWED_HOSTS: frozenset[str] = frozenset({"ticketing.uswest.veezi.com"})
+# internal) URLs — it can only ever reach the known theater-poster hosts. Veezi
+# is the one that actively hotlink-blocks; TMDB + AlloCiné are routed too so no
+# ``<img>`` on the movies surface depends on an external host (uniform loading).
+_ALLOWED_HOSTS: frozenset[str] = frozenset(
+    {
+        "ticketing.uswest.veezi.com",
+        "image.tmdb.org",
+        "all.web.img.acsta.net",
+    }
+)
 
 # In-process cache: poster URL -> (bytes, content_type). Posters are small and
 # effectively immutable, so a crude size-capped dict (cleared wholesale when
@@ -56,10 +65,11 @@ def _host_allowed(url: str) -> bool:
 
 
 def proxied_poster_url(url: str | None) -> str | None:
-    """Rewrite a Veezi poster URL to our own ``/img/poster`` route.
+    """Rewrite a known theater-poster URL to our own ``/img/poster`` route.
 
-    Non-Veezi or empty URLs are returned unchanged (already same-origin, or
-    nothing to proxy), so this is safe to apply to every poster field.
+    URLs on a non-allowlisted host (or empty) are returned unchanged (already
+    same-origin, or nothing to proxy), so this is safe to apply to every poster
+    field.
     """
     if not url:
         return url
