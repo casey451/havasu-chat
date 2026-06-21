@@ -29,6 +29,7 @@ is the test seam.
 from __future__ import annotations
 
 import time as _time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
@@ -63,6 +64,29 @@ register_template_filters(templates)
 register_template_globals(templates)
 
 router = APIRouter(tags=["categories"])
+
+
+def _chrome_context(db: Session) -> dict[str, Any]:
+    """Header/ribbon nav context shared by every category page.
+
+    Each chrome query is guarded so a hiccup (e.g. a conditions-cache read that
+    raises) degrades to an empty element instead of bubbling up to blank or 500
+    the whole listing — the P0 "200 but empty body" failure mode. The page's
+    actual content (the listings) is built by the caller and is unaffected.
+    """
+
+    def _safe(fn: Callable[[], Any]) -> Any:
+        try:
+            return fn()
+        except Exception:  # noqa: BLE001 — chrome must never break the page
+            return []
+
+    return {
+        "primary_nav": _safe(home_sandstone.primary_nav),
+        "mega_columns": _safe(lambda: home_sandstone.mega_columns(db)),
+        "utility_chips": _safe(lambda: _home_utility_chips(db)),
+    }
+
 
 # Lake Ink & Brass redesign (Phase 3): theme-select the directory templates from
 # request.state.theme. Default stays desert until the flip; the lake variants
@@ -504,9 +528,7 @@ def _render_category_page(
             # serve_category_page_ad returns None on an empty book.
             "sponsored": serving.serve_category_page_ad(db, route_slug)
             or sponsor_store.active_promoted(db),
-            "primary_nav": home_sandstone.primary_nav(),
-            "mega_columns": home_sandstone.mega_columns(db),
-            "utility_chips": _home_utility_chips(db),
+            **_chrome_context(db),
         }
     if extra_context:
         context.update(extra_context)
@@ -734,9 +756,7 @@ def _render_trade_page(
             "breadcrumb_jsonld": breadcrumb_jsonld,
             "itemlist_jsonld": itemlist_jsonld,
             "active_tab": "explore",
-            "primary_nav": home_sandstone.primary_nav(),
-            "mega_columns": home_sandstone.mega_columns(db),
-            "utility_chips": _home_utility_chips(db),
+            **_chrome_context(db),
         },
     )
 
@@ -1007,9 +1027,7 @@ def _render_leaf_page(
             "breadcrumb_jsonld": breadcrumb_jsonld,
             "itemlist_jsonld": itemlist_jsonld,
             "active_tab": "explore",
-            "primary_nav": home_sandstone.primary_nav(),
-            "mega_columns": home_sandstone.mega_columns(db),
-            "utility_chips": _home_utility_chips(db),
+            **_chrome_context(db),
         },
     )
 
@@ -1093,9 +1111,7 @@ def _render_department_page(
             "breadcrumb_jsonld": breadcrumb_jsonld,
             "itemlist_jsonld": itemlist_jsonld,
             "active_tab": "explore",
-            "primary_nav": home_sandstone.primary_nav(),
-            "mega_columns": home_sandstone.mega_columns(db),
-            "utility_chips": _home_utility_chips(db),
+            **_chrome_context(db),
         },
     )
 
