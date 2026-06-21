@@ -8,12 +8,15 @@ from datetime import UTC, date, datetime, time
 from fastapi.testclient import TestClient
 
 from app.db.database import SessionLocal
-from app.db.models import Event, Provider, Schedule
+from app.db.models import Entity, Event, Provider, Schedule
 from app.events.class_occurrences import (
+    ClassOccurrence,
     class_occurrences_in_window,
     drop_event_duplicates,
+    program_anchor,
 )
 from app.home import sandstone
+from app.home.today_feed import today_feed
 from app.main import app
 
 
@@ -42,6 +45,30 @@ def _make_venue_with_class(title: str, days: list[str]) -> tuple[str, str, str]:
         )
         db.commit()
         return p.slug, eid, p.provider_name
+
+
+def _make_permalinkless_program(title: str, days: list[str]) -> str:
+    """Active venue Entity + recurring Schedule but NO Provider — a program with
+    no permalink (occ.url == ""), like "Havasu Horseback Rides". Returns the
+    venue name."""
+    suf = uuid.uuid4().hex[:8]
+    name = f"Havasu Horseback Rides {suf}"
+    with SessionLocal() as db:
+        ent = Entity(
+            entity_type="venue", slug=f"venue-{suf}", name=name,
+            source="test-class-occurrences", is_active=True,
+        )
+        db.add(ent)
+        db.commit()
+        db.add(
+            Schedule(
+                entity_id=ent.id, schedule_type="recurring", days_of_week=days,
+                start_time=time(10, 0), end_time=time(11, 0), notes=title,
+                created_at=_now(), updated_at=_now(),
+            )
+        )
+        db.commit()
+    return name
 
 
 def test_expansion_hits_every_matching_weekday() -> None:
@@ -122,6 +149,56 @@ def test_events_ui_skips_class_that_is_also_an_event() -> None:
     r = client.get("/events-ui?date=2026-12-10")  # a Thursday
     assert r.status_code == 200
     assert r.text.count(title) == 1
+
+
+def test_program_anchor_is_deterministic_and_slugged() -> None:
+    """The deep-link anchor is a stable slug from title+venue, so the home-feed
+    link and the /events-ui row id always agree (Item 2)."""
+    a = program_anchor("Pony / Lead Line Rides", "Havasu Horseback Rides")
+    assert a == "program-pony-lead-line-rides-havasu-horseback-rides"
+    # Deterministic: same inputs -> same anchor.
+    assert program_anchor("Pony / Lead Line Rides", "Havasu Horseback Rides") == a
+    # ClassOccurrence exposes the same value via its .anchor property.
+    occ = ClassOccurrence(
+        title="Pony / Lead Line Rides", date=date(2026, 12, 5),
+        start_time=time(10, 0), end_time=time(11, 0),
+        venue="Havasu Horseback Rides", provider_slug=None, weekdays=frozenset({5}),
+    )
+    assert occ.anchor == a
+
+
+def test_home_feed_deeplinks_permalinkless_program_to_its_row() -> None:
+    """A permalink-less program links from the home feed to its exact row on
+    /events-ui (``#program-…``), not the whole-day list — and never a dead row
+    (Item 2)."""
+    title = f"Pony Lead Line Rides {uuid.uuid4().hex[:6]}"
+    venue = _make_permalinkless_program(title, ["saturday"])
+    day = date(2026, 12, 5)  # a Saturday
+    anchor = program_anchor(title, venue)
+    with SessionLocal() as db:
+        feed = today_feed(db, day=day)
+    rows = [
+        r for g in feed["groups"] if g["key"] != "movies"
+        for r in (g.get("rows") or [])
+    ]
+    row = next((r for r in rows if (r.get("url") or "").endswith("#" + anchor)), None)
+    assert row is not None, "program row should be present and deep-linked"
+    assert row["url"] == f"/events-ui?date={day.isoformat()}#{anchor}"
+    # No dead rows: every feed row resolves to a non-empty destination.
+    for r in rows:
+        assert r.get("url"), r
+
+
+def test_events_ui_renders_program_anchor_id() -> None:
+    """The /events-ui day page tags the permalink-less program's row with the
+    matching id so the deep-link lands on it (Item 2)."""
+    title = f"Pony Lead Line Rides {uuid.uuid4().hex[:6]}"
+    venue = _make_permalinkless_program(title, ["wednesday"])
+    anchor = program_anchor(title, venue)
+    client = TestClient(app)
+    r = client.get("/events-ui?date=2026-12-09")  # a Wednesday
+    assert r.status_code == 200
+    assert f'id="{anchor}"' in r.text
 
 
 def test_class_cards_survive_busy_day_cap() -> None:

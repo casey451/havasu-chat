@@ -101,6 +101,37 @@ def test_within_theater_dedup_is_case_and_space_insensitive():
     assert by_label["Masters  of the Universe"] == ["6 PM", "8 PM"]
 
 
+def test_cross_theater_title_casing_is_canonical():
+    """The same film at two theaters spelled with different capitalization renders
+    ONE canonical display spelling in both sections — Star Cinemas wins by source
+    priority — so it never reads "X of the Y" under one theater and "X Of The Y"
+    under the other (Item 1)."""
+    rows = [
+        # Movies Havasu listed first to prove the choice is by source priority,
+        # not list order.
+        ms("Masters Of The Universe", "movies-havasu", 19, name="Movies Havasu"),
+        ms("Masters of the Universe", "star-cinemas", 18, name="Star Cinemas"),
+        ms("The Death Of Robin Hood", "movies-havasu", 20, name="Movies Havasu"),
+        ms("The Death of Robin Hood", "star-cinemas", 12, name="Star Cinemas"),
+    ]
+    groups = group_showtimes(rows, day=DAY)
+    by_slug = {g.slug: [f.title for f in g.films] for g in groups}
+    # Both theaters render the Star Cinemas spelling, not each source's raw string.
+    assert "Masters of the Universe" in by_slug["star-cinemas"]
+    assert "Masters of the Universe" in by_slug["movies-havasu"]
+    assert "Masters Of The Universe" not in by_slug["movies-havasu"]
+    assert "The Death of Robin Hood" in by_slug["star-cinemas"]
+    assert "The Death of Robin Hood" in by_slug["movies-havasu"]
+
+
+def test_canonical_title_falls_back_to_only_source():
+    """A film only Movies Havasu carries keeps Movies Havasu's spelling — source
+    priority only chooses among the theaters that actually list the film."""
+    rows = [ms("Some Indie Film", "movies-havasu", 19, name="Movies Havasu")]
+    groups = group_showtimes(rows, day=DAY)
+    assert [f.title for f in groups[0].films] == ["Some Indie Film"]
+
+
 # --- general events feed still excludes any movie-tagged Event (defensive) -----
 
 

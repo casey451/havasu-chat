@@ -171,7 +171,9 @@ def test_providerless_class_row_links_to_resolving_destination() -> None:
         ttd = _group(feed, "things_to_do")
         row = next(r for r in ttd["rows"] if "Pony" in r["title"] or "Lead Line" in r["title"])
         assert row["url"], "horseback row must not be a dead (link-less) row"
-        assert row["url"] == f"/events-ui?date={_DAY.isoformat()}"
+        # Deep-links to this exact program's row on /events-ui (#program-…), not
+        # the bare whole-day list it used to dump the user on (Item 2).
+        assert row["url"].startswith(f"/events-ui?date={_DAY.isoformat()}#program-")
     finally:
         _cleanup(eids, [])
 

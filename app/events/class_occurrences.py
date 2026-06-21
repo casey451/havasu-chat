@@ -30,6 +30,22 @@ _DAY_TO_INT = {
     "friday": 4, "saturday": 5, "sunday": 6,
 }
 
+_ANCHOR_SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+
+def program_anchor(title: str, venue: str | None) -> str:
+    """Stable ``#program-…`` anchor id for a permalink-less recurring program.
+
+    A class series with no published provider page (e.g. the "Pony / Lead Line
+    Rides" horseback program) has no permalink, so the home feed used to fall
+    back to ``/events-ui?date=…`` — the whole day's list, not the row the user
+    tapped. This gives that exact row an id on /events-ui so the feed can
+    deep-link straight to it (``#program-…``). Deterministic from title+venue so
+    the link and the row id always agree.
+    """
+    base = _ANCHOR_SLUG_RE.sub("-", f"{title} {venue or ''}".lower()).strip("-")
+    return f"program-{base}" if base else "program"
+
 # Safety valve: the calendar asks for at most a month; never expand more.
 _MAX_WINDOW_DAYS = 62
 
@@ -56,6 +72,13 @@ class ClassOccurrence:
         if self.provider_slug:
             return f"/provider/{self.provider_slug}"
         return ""
+
+    @property
+    def anchor(self) -> str:
+        """``#program-…`` row id for the permalink-less case (see
+        :func:`program_anchor`). Used by the home feed to deep-link this exact
+        program on /events-ui instead of the whole-day list."""
+        return program_anchor(self.title, self.venue)
 
 
 def class_occurrences_in_window(

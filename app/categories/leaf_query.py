@@ -55,7 +55,10 @@ PENDING_LEAF_SLUGS: frozenset[str] = frozenset(
         "firearms-and-shooting-sports",
         # 2026-06-20 search-coverage: brand-new service leaves with no taxonomy
         # home yet. Created by scripts/create_missing_service_leaves_2026_06_20.py;
-        # routed below. Self-activate once the leaf is seeded with >=1 business.
+        # routed below. Self-activate once the leaf clears the publish gate in
+        # leaf_pages.LEAF_PAGE_MIN_PROVIDERS renderable listings (via
+        # _resolve_gated) — so the Step-3 backfill must seed each leaf with
+        # enough approved businesses to clear that threshold, not just one row.
         # (garage-doors + painters are intentionally NOT here — the 2026-06-19
         # pass already seeded them above, so they are live, not pending.)
         "locksmiths",
@@ -742,7 +745,8 @@ _QUERY_TO_LEAF_BARE_FORMS_2026_06_20: dict[str, str] = {
 
 # Routing for the BRAND-NEW leaves (slugs added to PENDING_LEAF_SLUGS above).
 # No-ops until scripts/create_missing_service_leaves_2026_06_20.py seeds the leaf
-# and it has >=1 business; then these searches start landing on the page.
+# and it clears the leaf_pages.LEAF_PAGE_MIN_PROVIDERS publish gate (via
+# _resolve_gated); then these searches start landing on the page.
 # NOTE: "painters" and "garage-doors" are already LIVE (2026-06-19 pass), so
 # their extra agent-noun/synonym forms below route to the existing live page via
 # setdefault — they are not pending.
