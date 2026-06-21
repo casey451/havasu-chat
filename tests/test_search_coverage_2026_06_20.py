@@ -163,6 +163,16 @@ def test_navigational_terms_route_to_expected_leaf():
         assert _QUERY_TO_LEAF[norm] == slug, (raw, norm, _QUERY_TO_LEAF[norm])
 
 
+def test_bare_windows_routes_to_windows_and_doors_not_tint():
+    # Bare "windows" (plural) routes to the windows-and-doors leaf...
+    assert _normalize("windows") == "windows"
+    assert _QUERY_TO_LEAF["windows"] == "windows-and-doors"
+    # ...while the more-specific auto window-tint terms still win their leaf
+    # (distinct exact keys; "windows" shares no token with "window tint").
+    assert _QUERY_TO_LEAF["window tint"] == "window-tint-and-wraps"
+    assert _QUERY_TO_LEAF["window tinting"] == "window-tint-and-wraps"
+
+
 # --- misspelling tolerance (alias map + fuzzy) -----------------------------
 MISSPELLING_CASES = {
     "poool builders": "pools-and-spas",

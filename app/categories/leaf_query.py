@@ -780,9 +780,12 @@ _QUERY_TO_LEAF_NEW_LEAVES_2026_06_20: dict[str, tuple[str, ...]] = {
         "metal fabrication", "fabrication", "fabricator", "metal fabricators", "mobile welding"),
     "gutters": ("gutter", "gutters", "gutter installation", "gutter repair", "seamless gutters",
         "rain gutters", "gutter company"),
-    "windows-and-doors": ("window installation", "window replacement", "replacement windows",
-        "window installer", "door installation", "door installer", "windows and doors",
-        "new windows", "patio doors", "sliding doors"),
+    # Bare "windows" routes here (not the auto window-tint leaf): "window tint"/
+    # "window tinting" are distinct exact keys and share no token with the plural
+    # "windows", so the more-specific tint match still wins.
+    "windows-and-doors": ("windows", "window installation", "window replacement",
+        "replacement windows", "window installer", "door installation", "door installer",
+        "windows and doors", "new windows", "patio doors", "sliding doors"),
     "appliance-repair": ("appliance repair", "appliance repairman", "appliance service",
         "refrigerator repair", "washer repair", "dryer repair", "dishwasher repair",
         "oven repair", "stove repair", "freezer repair"),
