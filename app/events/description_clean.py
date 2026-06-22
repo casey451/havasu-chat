@@ -192,14 +192,19 @@ def _norm(s: str) -> str:
 # Hosts that are dead/placeholder for event click-throughs. ``havasuchat.com`` is
 # the pre-rename domain that now fails to resolve for event pages.
 DEAD_EVENT_LINK_HOSTS = frozenset({"havasuchat.com", "www.havasuchat.com"})
+# Our OWN hosts: an event "source" pointing back at the site (e.g. the
+# ``askhava.com/events-ui`` ingest fallback) is a self-link, not a verifiable
+# external source — it loops the visitor back into the calendar (P2 source sweep).
+INTERNAL_EVENT_LINK_HOSTS = frozenset({"askhava.com", "www.askhava.com"})
 
 
 def valid_event_url(raw: str | None) -> str | None:
-    """Return a clean http(s) click-through URL, or ``None`` when invalid.
+    """Return a clean, verifiable EXTERNAL http(s) click-through URL, or ``None``.
 
-    Rejects: non-http(s) schemes, an ``@`` in the authority (an email address used
-    as a URL, e.g. ``https://info@ijsba.com/`` seen in production), hosts with no
-    dot, and known-dead placeholder hosts.
+    Rejects: non-http(s) schemes (so relative ``/events-ui`` paths and ``#program``
+    self-anchors fail here), an ``@`` in the authority (an email address used as a
+    URL, e.g. ``https://info@ijsba.com/`` seen in production), hosts with no dot,
+    known-dead placeholder hosts, and our OWN host (a self-link is not a source).
     """
     if not isinstance(raw, str):
         return None
@@ -211,7 +216,7 @@ def valid_event_url(raw: str | None) -> str | None:
     if not netloc or "@" in netloc:
         return None
     host = netloc.split(":")[0].lower()
-    if "." not in host or host in DEAD_EVENT_LINK_HOSTS:
+    if "." not in host or host in DEAD_EVENT_LINK_HOSTS or host in INTERNAL_EVENT_LINK_HOSTS:
         return None
     return url
 
