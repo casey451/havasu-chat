@@ -467,14 +467,13 @@ def today_feed(
                 title=occ.title,
                 venue=occ.venue,
                 # occ.url is the venue's provider page, or "" when the venue has
-                # no published provider (e.g. "Havasu Horseback Rides"). Never
-                # render a dead row, and never dump the user on the whole-day
-                # list: deep-link to this exact program's row on /events-ui
-                # (``#program-…``), which unions in this class occurrence and
-                # carries the matching id. ``occ.url`` stays "" on /events-ui
-                # itself so it doesn't self-link there.
-                url=occ.url
-                or f"/events-ui?date={occ.date.isoformat()}#{occ.anchor}",
+                # no published provider (e.g. "Havasu Horseback Rides"). A
+                # permalink-less program has no real detail page, so leave the
+                # url empty — the feed row renders without a "Details →" link
+                # rather than fabricating a self-referential ``/events-ui#program-…``
+                # anchor that just points back at this same bare row (no real
+                # source). The expandable row still shows When/Where.
+                url=occ.url,
                 start_time=occ.start_time,
                 end_time=occ.end_time,
                 recurring=True,

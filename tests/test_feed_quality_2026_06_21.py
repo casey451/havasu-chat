@@ -160,7 +160,10 @@ def test_classification_battery_other_buckets_unchanged() -> None:
 # --- Item 1: no dead rows --------------------------------------------------
 
 
-def test_providerless_class_row_links_to_resolving_destination() -> None:
+def test_providerless_class_row_has_no_fake_self_link() -> None:
+    """A provider-less class shows in the feed but carries NO link — we no longer
+    fabricate a self-referential ``/events-ui?date=…#program-…`` anchor that just
+    points back at this same bare row (no real source)."""
     eids: list[str] = []
     with SessionLocal() as db:
         eids.append(_add_providerless_class(db, title="Pony / Lead Line Rides", days=["monday"]))
@@ -170,21 +173,21 @@ def test_providerless_class_row_links_to_resolving_destination() -> None:
             feed = today_feed(db, day=_DAY, now=_NOW)
         ttd = _group(feed, "things_to_do")
         row = next(r for r in ttd["rows"] if "Pony" in r["title"] or "Lead Line" in r["title"])
-        assert row["url"], "horseback row must not be a dead (link-less) row"
-        # Deep-links to this exact program's row on /events-ui (#program-…), not
-        # the bare whole-day list it used to dump the user on (Item 2).
-        assert row["url"].startswith(f"/events-ui?date={_DAY.isoformat()}#program-")
+        assert not row.get("url"), "providerless row must not fabricate a link"
+        assert "#program" not in (row.get("url") or "")
     finally:
         _cleanup(eids, [])
 
 
-def test_no_dead_rows_across_next_7_days() -> None:
-    """Every feed row over the next 7 days links somewhere (no empty url / '#')."""
+def test_no_fake_self_anchor_rows_across_next_7_days() -> None:
+    """No feed row over the next 7 days carries a fabricated self-referential
+    anchor ('#' or '#program-…'). Real destinations and link-less rows are fine;
+    a self-anchor back into the same page is not."""
     eids: list[str] = []
     mids: list[str] = []
     with SessionLocal() as db:
-        # A provider-less class every day (the dead-row case), a normal event,
-        # and a movie — so all three row shapes are exercised.
+        # A provider-less class every day, a normal event, and a movie — so all
+        # three row shapes are exercised.
         eids.append(_add_providerless_class(db, title="Pony / Lead Line Rides", days=_ALL_DAYS))
         eids.append(_add_event(db, title="ZZ Beach Cleanup", start=time(9, 0), loc="Beach"))
         mids.append(_add_movie(db, film="ZZ Some Film", sid=f"f-{uuid.uuid4().hex[:6]}",
@@ -197,9 +200,9 @@ def test_no_dead_rows_across_next_7_days() -> None:
             with SessionLocal() as db:
                 feed = today_feed(db, day=day, now=now)
             for row in _all_rows(feed):
-                url = row.get("url")
-                assert url, f"dead row on {day}: {row.get('title')!r}"
+                url = row.get("url") or ""
                 assert url != "#", f"href='#' on {day}: {row.get('title')!r}"
+                assert "#program" not in url, f"fake self-anchor on {day}: {row.get('title')!r}"
     finally:
         _cleanup(eids, mids)
 
