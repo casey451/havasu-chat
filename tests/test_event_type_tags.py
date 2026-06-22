@@ -15,6 +15,45 @@ def _t(title, **kw):
     return classify_event_type(title=title, **kw)
 
 
+def test_sports_play_never_reads_as_comedy():
+    # Post-deploy crawl FP: "Pickleball Open Play" (a daily sports row) was labeled
+    # Comedy off the word "Play". No sports "play" may trigger comedy.
+    for title in (
+        "Pickleball Open Play",
+        "Open Play",
+        "Volleyball Open Play",
+        "Open Gym",
+        "Player Showcase",
+        "Playground Fun Day",
+        "Toddler Play Group",
+    ):
+        assert "comedy" not in _t(title), title
+        assert event_type_label(title) is None, title
+    # Real comedy/theater still reads as comedy.
+    assert event_type_label("Top Goons: A Night of Comedy") == "Comedy"
+    assert event_type_label("Hamlet at the Playhouse") == "Comedy"
+    assert event_type_label("Stage Play: Our Town") == "Comedy"
+
+
+def test_theatre_in_a_band_name_is_music_not_comedy():
+    # Audit FP: "Elective Theatre Acoustic Duo" (a music act) was tagged Comedy off
+    # "Theatre". A theater word with a live-music signal stays music.
+    types = _t("Elective Theatre Acoustic Duo", venue="Lighthouse Lounge")
+    assert "comedy" not in types and "live_music" in types
+    assert event_type_label("Elective Theatre Acoustic Duo", venue="Lighthouse Lounge") == "Live Music"
+
+
+def test_live_music_badge_needs_a_performance_signal_not_just_a_venue():
+    # Audit FP: a Paint & Sip / Bingo / food night AT a music venue was badged
+    # "Live Music" off the venue alone. The badge needs a real performance signal.
+    for title in ("Paint & Sip at Mudshark Brewery", "Bingo", "Troy's Alligator Feed"):
+        assert event_type_label(title, ["music"], "Lighthouse Lounge") is None, title
+    # Real performances (keyword / curated act) still badge.
+    assert event_type_label("Crosscutt Live at the Naked Turtle") == "Live Music"
+    assert event_type_label("FOREIGNER & STYX TRIBUTE NIGHT") == "Live Music"
+    assert event_type_label("Sacred Stone", venue="Lighthouse Lounge") == "Live Music"
+
+
 def test_confirmed_live_targets_read_as_their_type():
     # Bare band names (no music word) — the confirmed-live targets.
     for name in ("Sacred Stone", "Sparks After Midnight", "The Brew Band", "Retro Riot"):
