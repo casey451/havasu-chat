@@ -37,9 +37,14 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.categories.subcategories import is_martial_arts_name
 from app.core.timezone import occurrence_end_dt, to_lake_naive
 from app.db.models import Event
+from app.events.activity_taxonomy import (
+    FALLBACK_LABEL,
+    SUBGROUP_ORDER,
+    classify_class_subgroup,
+    split_class_subgroups,
+)
 from app.events.class_occurrences import (
     class_occurrences_in_window,
     drop_event_duplicates,
@@ -80,89 +85,20 @@ def _group_for(*, title: str, tags: list[str] | None, featured: bool, recurring:
     return _group_for_tier(tier, recurring=recurring, title=title, tags=tags)
 
 
-# Phase 3 (Item 6): split the "Fitness & classes" wall into type subsections so
-# a 20-30-class day is scannable. Title-keyword classifier, word-boundary matched
-# in specificity order; unmatched land in the honest "Other classes" bucket.
-_CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("Yoga", ("yoga", "vinyasa")),
-    ("Pilates", ("pilates", "reformer", "barre")),
-    # Aquatic fitness — pool CLASSES (lap swim, water aerobics, aqua zumba). Open
-    # Swim / Family Swim are drop-in rec and route to "Happening today" instead
-    # (see app.home.event_buckets.is_dropin_rec). Checked before Strength so
-    # "Aqua Zumba" lands here, not under Zumba.
-    ("Aquatic fitness", (
-        "lap swim", "water aerobics", "water fitness", "water exercise",
-        "aqua", "aquacise", "aquatic", "water polo", "deep water",
-    )),
-    ("Martial Arts", (
-        "martial", "karate", "jiu jitsu", "jiu-jitsu", "bjj", "taekwondo",
-        "judo", "mma", "kickbox", "muay thai", "no-gi", "no gi", "kali",
-        "combat", "self defense", "self-defense", "boxing", "dojo",
-        "open mat", "rolls", "rolling", "grappling", "sparring", "wrestling",
-    )),
-    ("Dance", ("dance", "ballet", "tap", "jazz", "hip hop", "hip-hop", "ballroom")),
-    ("Gymnastics", ("gymnastics", "tumbling", "tumbler", "tumble", "cheer", "ninja", "trampoline")),
-    ("Strength & Cardio", (
-        "strength", "weight", "crossfit", "cross fit", "bootcamp", "boot camp",
-        "hiit", "cardio", "spin", "cycling", "zumba", "aerobic", "conditioning",
-        "sculpt", "circuit",
-    )),
-    # Scheduled racquet/court classes & clinics. All-day open play is drop-in rec
-    # and routes to "Happening today", so it never reaches this subsection.
-    ("Pickleball", ("pickleball", "racquetball", "tennis clinic")),
-)
-_CLASS_SUBGROUP_ORDER: tuple[str, ...] = (
-    "Yoga", "Pilates", "Strength & Cardio", "Aquatic fitness", "Dance",
-    "Gymnastics", "Martial Arts", "Pickleball", "Other classes",
-)
-_CLASS_FALLBACK_LABEL = "Other classes"
-# Below this many class rows a day reads fine flat; at/above it we sub-group.
-_CLASS_SUBGROUP_MIN = 6
-
-
-# Explicit martial-arts venues whose NAME carries no discipline token, so the
-# shared catalog name detector (is_martial_arts_name) can't catch them. Substring
-# matched, lower-cased. Most dojos are caught by the name detector automatically;
-# this list is only for the token-less stragglers (e.g. "Arevalo Academy").
-_MARTIAL_ARTS_VENUES: tuple[str, ...] = (
-    "bridge city",
-    "arevalo",
-)
-
-
-def _class_subgroup(title: str, venue: str | None = None) -> str:
-    """Map a fitness/class occurrence to a type subsection.
-
-    Venue wins first: any class at a martial-arts studio files under Martial Arts
-    regardless of title. The catalog's own name detector
-    (:func:`app.categories.subcategories.is_martial_arts_name`) covers every dojo
-    whose name carries a discipline token (jiu-jitsu, karate, kempo, …); the
-    short ``_MARTIAL_ARTS_VENUES`` list catches token-less stragglers. Otherwise
-    fall back to the title-keyword classifier.
-    """
-    vlow = (venue or "").lower()
-    if is_martial_arts_name(venue) or any(v in vlow for v in _MARTIAL_ARTS_VENUES):
-        return "Martial Arts"
-    low = title.lower()
-    for label, hints in _CLASS_SUBGROUPS:
-        for h in hints:
-            if re.search(r"\b" + re.escape(h) + r"(?:e?s|ing)?\b", low):
-                return label
-    return _CLASS_FALLBACK_LABEL
-
-
-def _split_class_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Partition already-sorted Fitness & classes rows into ordered type
-    subsections, omitting empty ones (honest-omission). Row order preserved."""
-    buckets: dict[str, list[dict[str, Any]]] = {}
-    for row in rows:
-        buckets.setdefault(_class_subgroup(row.get("title") or "", row.get("venue")), []).append(row)
-    out: list[dict[str, Any]] = []
-    for label in _CLASS_SUBGROUP_ORDER:
-        sub_rows = buckets.get(label)
-        if sub_rows:
-            out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
-    return out
+# P1: the activity-type taxonomy (Yoga, Pilates, Martial Arts, …) that splits the
+# "Fitness & classes" wall into typed subsections now lives in the shared
+# :mod:`app.events.activity_taxonomy` module so ingest and render classify a
+# class identically. These private aliases preserve the historical names this
+# module's call sites and the test suite reference.
+_class_subgroup = classify_class_subgroup
+_split_class_subgroups = split_class_subgroups
+_CLASS_SUBGROUP_ORDER = SUBGROUP_ORDER
+_CLASS_FALLBACK_LABEL = FALLBACK_LABEL
+# P1: every class day is now typed into subsections (no flat untyped wall), so a
+# single class still resolves to its activity subcategory. (Was 6 — small days
+# used to render flat, which left items in the generic "Fitness & classes" bucket
+# the brief calls out.)
+_CLASS_SUBGROUP_MIN = 1
 
 
 # Phase 3 (Item 6): nest the Kids & Family group by youth activity type, with
@@ -183,7 +119,9 @@ _FAMILY_SUBGROUP_ORDER: tuple[str, ...] = (
 )
 _FAMILY_FALLBACK_LABEL = "More for kids"
 _FAMILY_OPEN_LABEL = "Open today for kids"
-_FAMILY_SUBGROUP_MIN = 5
+# P1: always type the Kids & Family list into youth-activity subsections (youth
+# classes route here and must resolve to a typed Youth subcategory).
+_FAMILY_SUBGROUP_MIN = 1
 
 
 def _family_subgroup(title: str) -> str:
@@ -249,6 +187,36 @@ def _event_row(ev: Event) -> dict[str, Any]:
         "url": f"/events/{ev.id}",
         "recurring": bool(ev.is_recurring),
     }
+
+
+def _route_occurrence(
+    row: dict[str, Any],
+    gkey: str,
+    rows_by_group: dict[str, list[dict[str, Any]]],
+    family_overlay: list[dict[str, Any]],
+    senior_overlay: list[dict[str, Any]],
+    *,
+    is_family: bool,
+    is_senior: bool,
+) -> None:
+    """Place a day-view row into its primary group + the age overlays.
+
+    P1 age-awareness (Finding 11): a YOUTH *class* routes to Kids & Family ONLY —
+    its typed Youth subsection — and is NOT duplicated into the adult Fitness
+    list. Non-class youth items (festivals, story time) keep the additive overlay
+    (they stay in their primary group AND re-list under Kids & Family for
+    discoverability). Senior fitness stays dual: it lists in the adult Fitness
+    group AND re-lists under Seniors (brief: "senior fitness may *also* appear
+    under a Fitness Seniors subcategory").
+    """
+    if is_family and gkey == "classes":
+        family_overlay.append(row)
+        return
+    rows_by_group[gkey].append(row)
+    if is_family:
+        family_overlay.append(row)
+    if is_senior:
+        senior_overlay.append(row)
 
 
 def _occurrence_expired(
@@ -348,11 +316,11 @@ def day_groups(
             recurring=bool(ev.is_recurring),
         )
         row = _event_row(ev)
-        rows_by_group[gkey].append(row)
-        if not family and not seniors and is_family_event(ev.title, ev.tags):
-            family_overlay.append(row)
-        if not family and not seniors and is_senior_event(ev.title, ev.tags):
-            senior_overlay.append(row)
+        _route_occurrence(
+            row, gkey, rows_by_group, family_overlay, senior_overlay,
+            is_family=(not family and not seniors and is_family_event(ev.title, ev.tags)),
+            is_senior=(not family and not seniors and is_senior_event(ev.title, ev.tags)),
+        )
 
     for occ in drop_event_duplicates(
         class_occurrences_in_window(db, window_start=day, window_end=day), event_keys
@@ -377,11 +345,11 @@ def day_groups(
             # link and need no anchor.
             "anchor": occ.anchor if not occ.url else None,
         }
-        rows_by_group[gkey].append(row)
-        if not family and not seniors and is_family_event(occ.title):
-            family_overlay.append(row)
-        if not family and not seniors and is_senior_event(occ.title):
-            senior_overlay.append(row)
+        _route_occurrence(
+            row, gkey, rows_by_group, family_overlay, senior_overlay,
+            is_family=(not family and not seniors and is_family_event(occ.title)),
+            is_senior=(not family and not seniors and is_senior_event(occ.title)),
+        )
 
     # "What's open for kids today": recurring family-venue hours (toddler
     # playground, pizza arcade, trampoline park, youth gym/dojo class blocks).
@@ -403,7 +371,8 @@ def day_groups(
             "key": key, "label": label, "icon": icon, "count": len(rows), "rows": rows
         }
         if key == "classes" and len(rows) >= _CLASS_SUBGROUP_MIN:
-            # Item 6: only sub-group dense class days; small days read fine flat.
+            # P1: always type the Fitness & classes list into activity subsections
+            # so no class sits in a generic untyped bucket.
             group["subgroups"] = _split_class_subgroups(rows)
         elif key == "family" and len(rows) >= _FAMILY_SUBGROUP_MIN:
             group["subgroups"] = _split_family_subgroups(rows)

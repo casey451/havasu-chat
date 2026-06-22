@@ -189,12 +189,14 @@ def test_family_and_pool_classes_split_out() -> None:
         events_block = body[i_events : body.index("</details>", i_events)]
         family_block = body[i_family : body.index("</details>", i_family)]
         classes_block = body[i_classes : body.index("</details>", i_classes)]
-        # Overlay model (2026-06-19): Kids & Family re-lists every kid occurrence,
-        # but each item ALSO stays in its primary group (additive, not exclusive).
+        # Kids & Family collects kid occurrences. Open Swim (non-class) re-lists
+        # here AND stays in its primary group (additive overlay, discoverability).
         assert karate in family_block and openswim in family_block
         assert adultlap not in family_block and aqua not in family_block
-        # Fitness & classes lists EVERY class now, incl. the kid one (overlay dup).
-        assert karate in classes_block and adultlap in classes_block and aqua in classes_block
+        # P1 age-awareness: a YOUTH class routes to Kids & Family ONLY — it is no
+        # longer duplicated into the adult Fitness list. Adult classes still list.
+        assert karate not in classes_block
+        assert adultlap in classes_block and aqua in classes_block
         # Open Swim is all-day drop-in rec -> "Happening today" (events), not a class.
         assert openswim in events_block
         assert openswim not in classes_block
