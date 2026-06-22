@@ -35,8 +35,17 @@
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">Directory</span></nav>
   <div class="pagehead">
     <h1>The Lake Havasu directory</h1>
-    <p class="sub dir-intro">Where to eat, who to call, what to do — every category, real local listings, open-now first.</p>
+    <p class="sub dir-intro">Where to eat, who to call, what to do. Every category, real local listings, open-now first.</p>
   </div>
+
+  {# P3: the directory's keyword search. "Explore" in the nav links here with
+     #search so the field is focused on arrival (see the inline script below). #}
+  <form class="dirsearch" id="dirsearch" role="search" action="/search" method="get">
+    <svg class="ds-ic" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="M21 21l-4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <input id="dir-q" name="q" type="search" aria-label="Search the Lake Havasu directory" placeholder="Search listings: plumber, tacos open now, vet" autocomplete="off">
+    <button class="ds-go" type="submit">Search</button>
+  </form>
+
   <div class="exgrid section">
     {% for cat in categories %}
     <a class="extile" href="/categories/{{ cat.slug }}">
@@ -46,4 +55,13 @@
     {% endfor %}
   </div>
 </div>
+{# "Explore" links to /categories#search; focus the field when arriving that way,
+   so browse stays the default on a plain /categories visit (no focus-steal). #}
+<script>
+(function () {
+  if (location.hash !== "#search") return;
+  var el = document.getElementById("dir-q");
+  if (el) { el.focus(); el.scrollIntoView({ block: "center" }); }
+})();
+</script>
 {% endblock %}

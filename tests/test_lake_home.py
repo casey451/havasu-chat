@@ -271,7 +271,7 @@ def test_lake_nav_unified_across_breakpoints() -> None:
 
     # P3 canonical six: Home · Events · Movies · Explore · For Business · Sign in.
     lean = ('href="/home"', 'href="/events-ui"', 'href="/movies"',
-            'href="/categories"', 'href="/portal"', 'href="/login"')
+            'href="/categories#search"', 'href="/portal"', 'href="/login"')
     for href in lean:
         assert href in desktop.group(1), f"{href} missing from desktop nav"
         assert href in drawer.group(1), f"{href} missing from mobile drawer"

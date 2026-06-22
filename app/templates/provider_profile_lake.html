@@ -183,9 +183,9 @@
       {% if vm.verification_method_copy %}<p class="prow"><span class="lab">Verified</span> {{ vm.verification_method_copy }}</p>{% endif %}
 
       {% if vm.show_claim_cta %}
-      <div class="pclaim-block"><b>Claim this listing to add photos, details, and offers.</b><div style="margin-top:6px">Free — a real person reviews every claim. <a href="{{ vm.claim_url or '/contribute' }}">Claim this listing →</a></div></div>
+      <div class="pclaim-block"><b>Claim this listing to add photos, details, and offers.</b><div style="margin-top:6px">It's free. A real person reviews every claim. <a href="{{ vm.claim_url or '/contribute' }}">Claim this listing →</a></div></div>
       {% elif vm.show_upgrade_cta %}
-      <div class="pclaim-block"><b>Local offer</b> — show this screen for a featured-local welcome offer this week.</div>
+      <div class="pclaim-block"><b>Local offer:</b> show this screen for a featured-local welcome offer this week.</div>
       {% endif %}
       <a class="ask-hava-cta" href="/chat?q={{ ('Tell me about ' ~ _name)|urlencode }}">Ask Hava about this business</a>
     </aside>
