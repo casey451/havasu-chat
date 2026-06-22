@@ -40,6 +40,7 @@ from app.home.event_buckets import (
     TIER_SPECIAL,
     TIER_WATER,
     group_for_tier,
+    is_civic,
 )
 
 # Re-export the bucket vocabulary under the historical private names that this
@@ -359,17 +360,10 @@ _SPECIAL_HINTS = (
     "boat show", "fireworks", "rodeo", "grand prix", "london bridge days",
     "concert series", "car show", "expo", "championship", "celebration",
 )
-# Civic/government events are COMMUNITY, never music/nightlife. Checked right
-# after SPECIAL so a "Board of Adjustment Meeting" can't fall through to the
-# music tier (the old substring matcher saw "dj" inside "aDJustment" — the
-# live-site bug where a city meeting headlined Music & nightlife). The civic
-# scrapers already tag these rows ("civic", "government", "meeting"), so the
-# tag words alone are enough to route them here.
-_CIVIC_HINTS = (
-    "civic", "government", "city council", "council", "commission",
-    "board of adjustment", "school board", "board meeting", "public hearing",
-    "city hall", "town hall",
-)
+# Civic/government detection (the "Board of Adjustment Meeting" must not fall
+# through to the music tier — the old substring matcher saw "dj" inside
+# "aDJustment") now lives in :mod:`app.home.event_buckets` as ``is_civic`` so the
+# events-page bucket routing and this tier classifier share one keyword list.
 # Lake / "On the water" hints — activities literally on Lake Havasu or the
 # Bridgewater Channel. Pool words ("swim", "aqua", "pool") are deliberately NOT
 # here: they live in _AQUATIC_HINTS and route to the Aquatic Center group. The
@@ -423,7 +417,6 @@ def _compile_hints(hints: tuple[str, ...]) -> "re.Pattern[str]":
 
 
 _SPECIAL_HINTS_RE = _compile_hints(_SPECIAL_HINTS)
-_CIVIC_HINTS_RE = _compile_hints(_CIVIC_HINTS)
 _WEEK_WATER_HINTS_RE = _compile_hints(_WEEK_WATER_HINTS)
 _AQUATIC_HINTS_RE = _compile_hints(_AQUATIC_HINTS)
 _MUSIC_HINTS_RE = _compile_hints(_MUSIC_HINTS)
@@ -436,8 +429,9 @@ def _event_tier(*, title: str, tags: list[str] | None, featured: bool, recurring
     joined = (title + " " + " ".join(tags or [])).lower()
     if featured or _SPECIAL_HINTS_RE.search(joined):
         return _TIER_SPECIAL
-    # Civic/government events rank (and color) as COMMUNITY — see _CIVIC_HINTS.
-    if _CIVIC_HINTS_RE.search(joined):
+    # Civic/government events rank (and color) as COMMUNITY; the events page
+    # routes them to their own "City & Government" bucket via is_civic.
+    if is_civic(title, tags):
         return _TIER_COMMUNITY
     # Pool / Aquatic Center activities ("Open Swim", "Lap Swim", "Aqua Zumba",
     # "Water Aerobics") are NOT "on the water" (the lake). Routed to their own

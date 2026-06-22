@@ -133,16 +133,20 @@ def test_week_strip_headline_time_matches_detail_page_resolution(db: Session) ->
 
 
 def test_planning_zoning_oneoff_reachable_on_day_view(db: Session) -> None:
-    # 1.4: a home-promoted civic one-off must appear in the "Around town"
-    # (events) group on the per-day view, not vanish.
+    # 1.4 + P1: a civic one-off must appear on the per-day view (not vanish), now
+    # in its own "City & Government" group rather than the leisure "Around town".
     from app.home import events_views
 
     _add(db, title="Planning & Zoning Meeting", start=time(9, 0), tags=["civic"])
     groups = events_views.day_groups(db, day=_TODAY)
-    around_town = next((g for g in groups if g["key"] == "events"), None)
-    assert around_town is not None
-    titles = [r["title"] for r in around_town["rows"]]
+    civic = next((g for g in groups if g["key"] == "civic"), None)
+    assert civic is not None
+    titles = [r["title"] for r in civic["rows"]]
     assert any("Planning" in t for t in titles)
+    # It must NOT also sit in the leisure "Happening today" bucket.
+    around_town = next((g for g in groups if g["key"] == "events"), None)
+    around_titles = [r["title"] for r in (around_town["rows"] if around_town else [])]
+    assert not any("Planning" in t for t in around_titles)
 
 
 # --- 4.2 aggregate recurrence cards ------------------------------------------

@@ -70,7 +70,7 @@
 .cal-legend span{display:inline-flex;align-items:center;gap:6px}
 .cal-legend .leg{width:9px;height:9px;border-radius:3px;background:var(--brass)}
 .cal-legend .leg.water{background:var(--havasu)}.cal-legend .leg.family{background:var(--good)}
-.cal-legend .leg.music{background:#7a5cc0}.cal-legend .leg.classes{background:var(--brass-deep)}
+.cal-legend .leg.music{background:#7a5cc0}.cal-legend .leg.classes{background:var(--brass-deep)}.cal-legend .leg.civic{background:#3f5d7a}
 
 /* EXPLORE — find your spot */
 .explore{padding:64px 0;margin-top:34px;background:linear-gradient(180deg,#ebf1f5,#e3ebf0);border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)}

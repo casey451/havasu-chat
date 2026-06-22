@@ -96,6 +96,8 @@
 .ev-acc-swatch--water{background:var(--blue)}
 .ev-acc-swatch--aquatic{background:var(--sky)}
 .ev-acc-swatch--classes{background:var(--sand)}
+.ev-acc-swatch--civic{background:#3f5d7a}
+.ev-acc-swatch--seniors{background:#c4793a}
 .ev-acc-name{
   font-family:var(--disp);font-weight:800;font-size:clamp(18px,2vw,23px);
   text-transform:uppercase;letter-spacing:.01em;line-height:1.1;
