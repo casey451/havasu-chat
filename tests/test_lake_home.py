@@ -42,9 +42,12 @@ def test_lake_home_renders_with_flag() -> None:
     assert b.count("<h1") == 1
     assert 'role="search"' in b  # the ask bar
     assert "Find a place or service" in b  # slim directory section
-    # Phase 1 hero copy: the H1 + the "search engine" sub-line under the ask box.
-    assert "Search like a local." in b
-    assert "Lake Havasu's only search engine." in b
+    # P3 directory-first hero copy: the "search engine" / "search like a local"
+    # framing is gone; the H1 + sub-line lead with the directory promise (§2.7).
+    assert "Everything in Lake Havasu, in one place." in b
+    assert "The local directory for Lake Havasu City" in b
+    assert "Search like a local." not in b
+    assert "only search engine" not in b
     # Phase 1 removed the second month-calendar block from the home (the month
     # grid lives on /events-ui now) — the home strip links out to it instead.
     assert 'class="mcal"' not in b
@@ -266,25 +269,31 @@ def test_lake_nav_unified_across_breakpoints() -> None:
     drawer = re.search(r'<nav class="drawer"[^>]*>(.*?)</nav>', b, re.S)
     assert desktop and drawer, "both the desktop nav and mobile drawer must render"
 
-    lean = ('href="/events-ui"', 'href="/categories"', 'href="/map"',
-            'href="/portal"', 'href="/login"')
+    # P3 canonical six: Home · Events · Movies · Explore · For Business · Sign in.
+    lean = ('href="/home"', 'href="/events-ui"', 'href="/movies"',
+            'href="/categories"', 'href="/portal"', 'href="/login"')
     for href in lean:
         assert href in desktop.group(1), f"{href} missing from desktop nav"
         assert href in drawer.group(1), f"{href} missing from mobile drawer"
+    # Map and Ask were removed from the nav (P3): Map route stays live but
+    # unlinked; chat is no longer an identity front door.
+    for gone in ('href="/map"', 'href="/chat"'):
+        assert gone not in desktop.group(1), f"{gone} should be gone from desktop nav"
+        assert gone not in drawer.group(1), f"{gone} should be gone from mobile drawer"
     # Category front-doors were trimmed out of the header (they live in the
     # directory zone now), so the heavy nav is genuinely lean.
     assert 'href="/categories/eat-and-drink"' not in desktop.group(1)
 
 
 def test_lake_home_slim_directory() -> None:
-    """Phase 3: the home directory is one slim block — a keyword search into
-    /search, six high-traffic front doors, and a single "see all" line. The old
-    15-tile grid + duplicate "Need something done?" strip are gone."""
+    """P3: the home directory zone is browse-first — top front doors + one "see
+    all" line. The keyword search lives only in the hero (one search bar per the
+    home brief); the duplicate lower /search box was removed."""
     b = _lake_home()
-    # Keyword search field wired to the real /search results page.
-    assert 'class="dirsearch"' in b
-    assert 'action="/search"' in b
-    # The six curated front doors (curated nav — present even on an empty DB).
+    # The second/bottom search bar is gone; only the hero search remains.
+    assert 'class="dirsearch"' not in b
+    assert b.count('role="search"') == 1
+    # The curated front doors (curated nav — present even on an empty DB).
     for label in ("Eat &amp; Drink", "Home Services", "Health", "Auto &amp; Boat"):
         assert label in b
     # One line to the rest of the taxonomy.

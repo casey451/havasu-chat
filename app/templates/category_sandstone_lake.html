@@ -75,12 +75,24 @@
   {% if page_summary %}<p class="sub" style="margin:8px 0 0">{{ page_summary }}</p>{% endif %}
 
   {% if category_cards or sponsored %}
+    {# P3: the category ad slot lives at the TOP, above the listing grid, on every
+       template. A sold placement renders the Sponsored unit; when unsold, a slim
+       labeled claim CTA holds the same top spot (real-or-claim, never a fake
+       sponsor) so the slot is consistent across categories. #}
     {% if sponsored %}
     <aside class="cat-sponsor" aria-label="Category sponsor" style="margin-top:16px">
       <a class="adbar" href="{% if sponsored.click_url %}{{ sponsored.click_url }}{% else %}/sponsor/click?id={{ sponsored.id }}&slot=promoted{% endif %}">
         <span class="mono" aria-hidden="true">{{ (sponsored.headline or sponsored.name or '·')[0]|upper }}</span>
         <div class="ab"><span class="stag">Sponsored · {{ category_label }}</span><div class="an">{{ sponsored.headline or sponsored.name }}</div>{% if sponsored.pitch %}<div class="am">{{ sponsored.pitch }}</div>{% endif %}</div>
         <span class="ar"><span class="btn btn-ghost">View</span></span>
+      </a>
+    </aside>
+    {% else %}
+    <aside class="cat-sponsor" aria-label="Category sponsor" style="margin-top:16px">
+      <a class="adbar" href="/sponsor">
+        <span class="mono" aria-hidden="true">+</span>
+        <div class="ab"><span class="stag">Sponsored · {{ category_label }}</span><div class="an">Your business at the top of {{ category_label }}</div><div class="am">Quiet, clearly labeled.</div></div>
+        <span class="ar"><span class="btn btn-ghost">Advertise</span></span>
       </a>
     </aside>
     {% endif %}
