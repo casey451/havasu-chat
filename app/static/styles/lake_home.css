@@ -281,3 +281,14 @@
   .hl-strip{grid-template-columns:1fr}
   .explore .exgrid{grid-template-columns:repeat(2,1fr)}
 }
+
+/* P3 weather grouping: gas as its own simple line below the conditions band. */
+.home-gas{margin:14px auto 0;display:flex;justify-content:center}
+.gaschip{display:inline-flex;align-items:center;gap:8px;background:var(--raised);
+  border:1px solid var(--hair-2);border-radius:999px;padding:8px 16px;box-shadow:var(--sh-1);
+  color:var(--ink);font-size:14px}
+.gaschip:hover{border-color:var(--ink)}
+.gaschip .gc-ic{font-size:15px}
+.gaschip .gc-v{font-weight:700}
+.gaschip .gc-l{color:var(--ink-2);font-size:13px}
+.gaschip.is-stale .gc-v{color:var(--muted)}

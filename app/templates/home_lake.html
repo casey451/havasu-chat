@@ -90,6 +90,19 @@
   <p class="askline">The local directory for Lake Havasu City: places, services, and events.</p>
 </div></section>
 
+{# P3 weather grouping: the live-conditions band (date · temp · UV · wind) sits at
+   the top of the page (base_lake ribbon); gas is its own simple line right below,
+   keeping the honest "· stale" label when the feed is old. #}
+{% if gas_chip %}
+<div class="wrap home-gas">
+  <a class="gaschip{% if gas_chip.is_stale %} is-stale{% endif %}" href="/gas"{% if gas_chip.detail %} title="{{ gas_chip.detail }}"{% endif %}>
+    <span class="gc-ic" aria-hidden="true">{{ gas_chip.icon }}</span>
+    <span class="gc-v">{{ gas_chip.value }}</span>
+    <span class="gc-l">{{ gas_chip.label }}{% if gas_chip.is_stale %} · stale{% endif %}</span>
+  </a>
+</div>
+{% endif %}
+
 {% if week.has_any or today_feed.groups %}
 <section class="today" id="today"><div class="wrap">
   {# Phase polish (§3b): the big "Today in Lake Havasu" heading is gone — the

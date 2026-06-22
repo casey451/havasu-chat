@@ -496,7 +496,34 @@ _UTILITY_TILE_MAP: dict[str, tuple[str, str, str]] = {
 _STRIP_TILE_ORDER: tuple[str, ...] = ("temp", "uv", "wind")
 
 
-def _utility_chips(db: Session) -> list[dict[str, Any]]:
+def _gas_chip(db: Session) -> dict[str, Any] | None:
+    """The cheapest-gas chip (or None when there's no live gas data). Split out of
+    the conditions strip so the home page can show weather at the top and gas as a
+    separate line below it (P3 weather-widget grouping), while every other surface
+    keeps gas inline in the shared conditions band."""
+    gas = _gas_snapshot(db)
+    if not gas.get("has_data"):
+        return None
+    top = gas["cheapest"][0] if gas.get("cheapest") else {}
+    price = top.get("prices", {}).get("regular") if isinstance(top, dict) else None
+    if not isinstance(price, (int, float)):
+        return None
+    name = top.get("station_name") or top.get("name") or "Lowest station"
+    return {
+        "kind": "gas",
+        "icon": "⛽",
+        "value": f"${price:.2f}",
+        "label": "Cheapest gas",
+        "detail": f"{name} · regular, per gallon",
+        "source": None,
+        "freshness": gas.get("staleness_label"),
+        "is_stale": bool(gas.get("is_stale")),
+        "severity": "neutral",
+        "href": "/gas",
+    }
+
+
+def _utility_chips(db: Session, *, include_gas: bool = True) -> list[dict[str, Any]]:
     chips: list[dict[str, Any]] = []
 
     # Conditions lead the strip in a fixed order (temp · UV · wind); each tile is
@@ -524,27 +551,13 @@ def _utility_chips(db: Session) -> list[dict[str, Any]]:
         )
 
     # Gas closes the strip — the figure people open the app for, with a tap-
-    # through to the full gas list.
-    gas = _gas_snapshot(db)
-    if gas.get("has_data"):
-        top = gas["cheapest"][0] if gas.get("cheapest") else {}
-        price = top.get("prices", {}).get("regular") if isinstance(top, dict) else None
-        if isinstance(price, (int, float)):
-            name = top.get("station_name") or top.get("name") or "Lowest station"
-            chips.append(
-                {
-                    "kind": "gas",
-                    "icon": "⛽",
-                    "value": f"${price:.2f}",
-                    "label": "Cheapest gas",
-                    "detail": f"{name} · regular, per gallon",
-                    "source": None,
-                    "freshness": gas.get("staleness_label"),
-                    "is_stale": bool(gas.get("is_stale")),
-                    "severity": "neutral",
-                    "href": "/gas",
-                }
-            )
+    # through to the full gas list. The home page passes include_gas=False and
+    # renders it as a separate line below the weather (P3); every other surface
+    # keeps it inline here.
+    if include_gas:
+        gas_chip = _gas_chip(db)
+        if gas_chip is not None:
+            chips.append(gas_chip)
 
     return chips
 
@@ -598,7 +611,10 @@ def serve_home(
     """
     now = now_lake_havasu()
     feed_day = _parse_iso_date(date) or now.date()
-    utility_chips = _utility_chips(db)
+    # P3 weather grouping: the top conditions band shows weather only (date · temp
+    # · UV · wind); gas renders as its own simple line below it on the home page.
+    utility_chips = _utility_chips(db, include_gas=False)
+    gas_chip = _gas_chip(db)
     cal_year, cal_month = sandstone.parse_cal_param(cal, default=now)
     spotlights = sponsor_store.active_spotlights(db)
     # G ad ladder: Tier-1 marquee (above the fold) + Tier-3 promoted (after the
@@ -642,6 +658,7 @@ def serve_home(
             "hero_eyebrow_override": hero_eyebrow_override,
             "hero_headline_override": hero_headline_override,
             "utility_chips": utility_chips,
+            "gas_chip": gas_chip,
             "primary_nav": sandstone.primary_nav(),
             "mega_columns": sandstone.mega_columns(db),
             "week": sandstone.week_strip(db, today=now.date()),

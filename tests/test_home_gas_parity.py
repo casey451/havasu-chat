@@ -66,3 +66,22 @@ def test_home_gas_chip_matches_gas_cheapest() -> None:
     assert "$4.19" in home
     assert "$3.95" not in home
     assert "$4.19" in gas
+    # P3 weather grouping: gas renders as its own line below the band, not inside it.
+    assert "home-gas" in home
+
+
+def test_home_band_excludes_gas_other_surfaces_keep_it() -> None:
+    """P3: the home conditions band is weather-only (include_gas=False); gas is a
+    separate chip. Every other surface keeps gas inline (default include_gas=True)."""
+    from app.db.database import SessionLocal
+    from app.home.router import _gas_chip, _utility_chips
+
+    fake = _fake_read(_divergent_payload())
+    with patch("app.home.router.read_source", side_effect=fake):
+        with SessionLocal() as db:
+            weather_only = _utility_chips(db, include_gas=False)
+            with_gas = _utility_chips(db, include_gas=True)
+            gas_chip = _gas_chip(db)
+    assert all(c["kind"] != "gas" for c in weather_only)
+    assert any(c["kind"] == "gas" for c in with_gas)
+    assert gas_chip is not None and gas_chip["value"] == "$4.19"
