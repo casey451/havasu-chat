@@ -76,9 +76,9 @@
    row (Item 2); a linked row is the usual anchor. -#}
 {%- macro ev_row(row) -%}
 {%- if row.url -%}
-<a class="ev-row" href="{{ row.url }}"><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}{% if row.recurring %}<span class="rrecur">Recurring ↻</span>{% endif %}</span>{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</a>
+<a class="ev-row" href="{{ row.url }}"><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}</span>{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</a>
 {%- else -%}
-<div class="ev-row ev-row--nolink"{% if row.anchor %} id="{{ row.anchor }}" tabindex="-1"{% endif %}><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}{% if row.recurring %}<span class="rrecur">Recurring ↻</span>{% endif %}</span>{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</div>
+<div class="ev-row ev-row--nolink"{% if row.anchor %} id="{{ row.anchor }}" tabindex="-1"{% endif %}><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}</span>{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</div>
 {%- endif -%}
 {%- endmacro -%}
 

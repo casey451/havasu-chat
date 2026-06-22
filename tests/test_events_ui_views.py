@@ -152,8 +152,9 @@ def test_classes_never_appear_in_events_group() -> None:
         assert spin not in events_block and yoga not in events_block
         classes_block = body[i_classes:]
         assert spin in classes_block and yoga in classes_block
-        # Recurring rows keep their "runs regularly" affordance.
-        assert "Runs regularly" in classes_block
+        # P1: the inconsistent "recurring" row banner is removed across all views.
+        assert "Runs regularly" not in classes_block
+        assert "Recurring ↻" not in classes_block
     finally:
         _cleanup(eids)
 

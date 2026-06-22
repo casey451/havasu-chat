@@ -68,7 +68,7 @@
             {% for row in sub.rows %}
             {% if row.url %}<a class="ev-acc-row" href="{{ row.url }}">{% else %}<div class="ev-acc-row ev-acc-row--nolink"{% if row.anchor %} id="{{ row.anchor }}" tabindex="-1"{% endif %}>{% endif %}
               <span class="ev-acc-time">{{ row.time_label }}</span>
-              <span class="ev-acc-title">{{ row.title }}{% if row.recurring %} <span class="ev-acc-recur">Runs regularly ↻</span>{% endif %}</span>
+              <span class="ev-acc-title">{{ row.title }}</span>
               {% if row.venue %}<span class="ev-acc-venue clamp1">{{ row.venue }}</span>{% endif %}
             {% if row.url %}</a>{% else %}</div>{% endif %}
             {% endfor %}
@@ -80,7 +80,7 @@
              the old "/events-ui" fallback made it a self-link dead end. #}
           {% if row.url %}<a class="ev-acc-row" href="{{ row.url }}">{% else %}<div class="ev-acc-row ev-acc-row--nolink"{% if row.anchor %} id="{{ row.anchor }}" tabindex="-1"{% endif %}>{% endif %}
             <span class="ev-acc-time">{{ row.time_label }}</span>
-            <span class="ev-acc-title">{{ row.title }}{% if row.recurring %} <span class="ev-acc-recur">Runs regularly ↻</span>{% endif %}</span>
+            <span class="ev-acc-title">{{ row.title }}</span>
             {% if row.venue %}<span class="ev-acc-venue clamp1">{{ row.venue }}</span>{% endif %}
           {% if row.url %}</a>{% else %}</div>{% endif %}
           {% endfor %}

@@ -86,7 +86,8 @@ def test_lake_events_day_bindings() -> None:
     assert 'class="ev-acc"' in b
     assert "Around town" in b and "Sunset Paddle" in b
     assert "Fitness &amp; classes" in b and "Sunrise Flow" in b  # subgroup row
-    assert "Recurring" in b  # recurrence badge
+    # P1: the inconsistent "recurring" row banner is removed across all views.
+    assert "Recurring ↻" not in b
     # ItemList of the day's events emitted.
     assert '"@type": "ItemList"' in b
     checker = _A11yChecker()
