@@ -49,6 +49,7 @@ from app.events.description_clean import (
     normalize_location_text,
     valid_event_url,
 )
+from app.events.event_type_tags import classify_event_type
 from app.events.scrapers.base import EventPayload, normalize_event_title
 from app.events.title_clean import INSTRUCTOR_NAMES
 from app.schemas.contribution import ContributionCreate, EventApprovalFields
@@ -419,6 +420,23 @@ def _tags(rec: EventRecord) -> list[str]:
         and not _MUSIC_STRONG_RE.search(blob)
     ):
         merged = [t for t in merged if t != "music"]
+    # P2: stamp first-class event-TYPE tags (live_music / comedy / car_show)
+    # alongside the coarse keyword/music tags, so a band's type is durable and a
+    # future SQL filter can find it. Additive; the coarse ``music`` tag stays
+    # (the tier classifier still routes on it). The classifier carries its own
+    # civic/automotive/family guards.
+    organizer = (rec.raw or {}).get("organizer") if isinstance(rec.raw, dict) else ""
+    for t in sorted(
+        classify_event_type(
+            title=rec.title,
+            tags=merged,
+            venue=rec.venue_name,
+            description=rec.description or "",
+            organizer=organizer if isinstance(organizer, str) else "",
+        )
+    ):
+        if t not in merged:
+            merged.append(t)
     return merged or ["events"]
 
 

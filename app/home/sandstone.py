@@ -385,7 +385,8 @@ _AQUATIC_HINTS = (
 )
 _MUSIC_HINTS = (
     "live music", "music", "band", "concert", "dj", "karaoke", "dance party",
-    "nightlife", "open mic", "comedy",
+    "nightlife", "open mic", "comedy", "comedian", "improv", "theater", "theatre",
+    "stand-up", "standup", "cabaret",
 )
 _COMMUNITY_HINTS = (
     "market", "farmers", "art walk", "artwalk", "fair", "fundraiser", "charity",
