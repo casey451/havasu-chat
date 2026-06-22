@@ -54,11 +54,19 @@ _MUSIC_WEAK_RE = re.compile(
     r"\b(dj|deejay|dance party|duo|trio|live at|on stage|performing live|plays live)\b",
     re.IGNORECASE,
 )
-_COMEDY_RE = re.compile(
-    r"\b(comedy|comedian|comedians|stand[- ]?up|standup|improv|open mic comedy|"
-    r"comedy night|theat(?:er|re)|play(?:house)?|musical|drama|cabaret)\b",
+# Explicit comedy — always counts. Critically does NOT match a bare "play":
+# "Open Play" / "Pickleball Open Play" (a daily sports row) was being labeled
+# Comedy off the word "Play". "musical"/"drama" are dropped (ambiguous: "musical
+# bingo", a "drama class"). Named comedy acts are handled by CURATED_COMEDY.
+_COMEDY_EXPLICIT_RE = re.compile(
+    r"\b(comedy|comedian|comedians|stand[- ]?up|standup|improv|cabaret|"
+    r"open mic comedy|comedy night)\b",
     re.IGNORECASE,
 )
+# Theater words are name-prone (a music act named "Elective Theatre", a band at a
+# venue called "Playhouse"), so they imply comedy/theater ONLY when the event has
+# no live-music signal. "playhouse"/"stage play" kept; bare "play" is not here.
+_THEATER_RE = re.compile(r"\b(theat(?:er|re)|playhouse|stage play)\b", re.IGNORECASE)
 _AUTOMOTIVE_RE = re.compile(
     r"\b(car show|cruise[- ]?in|motor madness|auto show|classic car|hot rod|"
     r"show\s*[&n]?\s*shine|poker run|motorcycle rally)\b",
@@ -121,9 +129,6 @@ def classify_event_type(
         types.discard(COMEDY)
         return types
 
-    if _COMEDY_RE.search(blob):
-        types.add(COMEDY)
-
     # Live-music signal (suppressed at a car show; a weak signal needs a non-kids
     # context). The coarse legacy ``music`` tag (stamped from the venue at ingest)
     # counts, so a Lighthouse-Lounge band that predates this module still types.
@@ -131,14 +136,21 @@ def classify_event_type(
     if not music_signal and _MUSIC_WEAK_RE.search(blob):
         family_ctx = _FAMILY_CONTEXT_RE.search(f"{title or ''} {description or ''}")
         music_signal = not family_ctx
+
+    # Comedy: an explicit comedy word always counts; a theater word counts only
+    # when there's no live-music signal, so a music act named "...Theatre" or a gig
+    # at a "Playhouse" stays music, not comedy.
+    if _COMEDY_EXPLICIT_RE.search(blob) or (_THEATER_RE.search(blob) and not music_signal):
+        types.add(COMEDY)
+
     # Strong music (a real concert/band) wins even at a car show, matching the
     # ingest ``_live_music_tags`` rule; a weak/venue-only signal stays suppressed
     # by the automotive guard.
     if music_signal and (strong_music or not automotive):
         types.add(LIVE_MUSIC)
 
-    # A comedy/theater show at a music venue (e.g. "Top Goons" at a lounge) is
-    # comedy, not live music — unless there's a real music signal too.
+    # A comedy show at a music venue (e.g. "Top Goons" at a lounge) is comedy, not
+    # live music — unless there's a real (strong) music signal too.
     if COMEDY in types and LIVE_MUSIC in types and not strong_music:
         if not any(name in ntitle for name in CURATED_LIVE_MUSIC):
             types.discard(LIVE_MUSIC)
@@ -158,6 +170,25 @@ def is_strong_live_music(
     return any(name in _normalize(title) for name in CURATED_LIVE_MUSIC)
 
 
+def _has_live_music_performance_signal(
+    title: str | None,
+    tags: list[str] | tuple[str, ...] | None,
+    venue: str | None,
+    description: str | None,
+) -> bool:
+    """True when an event carries an actual music-PERFORMANCE signal (a keyword,
+    a curated act, or the durable tag) — NOT merely a music venue. A bare
+    brewery/saloon venue routes an event into the Music group, but is not enough
+    to stamp a "Live Music" badge on it (else a Paint & Sip or Bingo night at a
+    brewery reads as Live Music)."""
+    if LIVE_MUSIC in {str(t).lower() for t in (tags or [])}:
+        return True
+    if any(name in _normalize(title) for name in CURATED_LIVE_MUSIC):
+        return True
+    blob = " ".join(x for x in (title, description, venue) if x)
+    return bool(_MUSIC_STRONG_RE.search(blob) or _MUSIC_WEAK_RE.search(blob))
+
+
 def event_type_label(
     title: str | None,
     tags: list[str] | tuple[str, ...] | None = None,
@@ -166,11 +197,17 @@ def event_type_label(
 ) -> str | None:
     """The single plain label to show beside a title ("Live Music" / "Comedy" /
     "Car Show"), or None. Tag-first via :func:`classify_event_type`, so it works
-    on existing rows without a backfill. Highest-preference type wins."""
+    on existing rows without a backfill. Highest-preference type wins — but a
+    LIVE_MUSIC badge needs a real performance signal, not just a music venue."""
     types = classify_event_type(
         title=title, tags=tags, venue=venue, description=description
     )
     for t in _LABEL_ORDER:
-        if t in types:
-            return EVENT_TYPE_LABELS[t]
+        if t not in types:
+            continue
+        if t == LIVE_MUSIC and not _has_live_music_performance_signal(
+            title, tags, venue, description
+        ):
+            continue  # venue-only → routes to Music, but no badge
+        return EVENT_TYPE_LABELS[t]
     return None
