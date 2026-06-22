@@ -212,6 +212,19 @@ def _route_occurrence(
     if is_family and gkey == "classes":
         family_overlay.append(row)
         return
+    # P1 (brief): senior *events* (ping pong, billiards, cards, pinochle) belong
+    # under Seniors, not the Fitness list. A senior item that classifies as a real
+    # fitness TYPE (yoga, tai chi/mind-body, aquatic…) stays DUAL — it lists in
+    # Fitness AND re-lists under Seniors ("senior fitness may *also* appear under a
+    # Fitness Seniors subcategory"). A senior item in the untyped "Other classes"
+    # residue is a social activity, so it routes to Seniors ONLY.
+    if (
+        is_senior
+        and gkey == "classes"
+        and classify_class_subgroup(row.get("title") or "", row.get("venue")) == FALLBACK_LABEL
+    ):
+        senior_overlay.append(row)
+        return
     rows_by_group[gkey].append(row)
     if is_family:
         family_overlay.append(row)

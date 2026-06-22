@@ -80,6 +80,48 @@ def test_day_groups_seniors_narrows() -> None:
         _cleanup(eids)
 
 
+def _add_recurring(db, *, title, start, loc, tags) -> str:
+    ev = Event(
+        title=title, normalized_title=title.lower(), date=_MONDAY.date(),
+        start_time=start, end_time=None, location_name=loc, location_normalized=loc.lower(),
+        description="x", event_url="https://example.com/e", tags=tags,
+        status="live", source="test-seniors-p4", verified=True, is_recurring=True,
+    )
+    db.add(ev)
+    db.flush()
+    return ev.entity_id
+
+
+def test_senior_games_route_to_seniors_only_fitness_stays_dual() -> None:
+    # P1: a senior social activity (billiards) belongs under Seniors, NOT the
+    # Fitness list; senior fitness (tai chi) stays dual (Fitness + Seniors).
+    s = uuid.uuid4().hex[:6]
+    billiards = f"ZZ Open Billiards {s}"   # senior game -> Seniors only
+    taichi = f"ZZ Tai Chi {s}"             # senior fitness -> dual
+    eids: list[str] = []
+    with SessionLocal() as db:
+        eids.append(_add_recurring(db, title=billiards, start=time(10, 0),
+                                   loc="Senior Center", tags=["senior"]))
+        eids.append(_add_recurring(db, title=taichi, start=time(9, 0),
+                                   loc="Senior Center", tags=["senior"]))
+        db.commit()
+    try:
+        with SessionLocal() as db:
+            groups = events_views.day_groups(db, day=_MONDAY.date(), now=_MONDAY)
+        by_key = {g["key"]: {r["title"] for r in g["rows"]} for g in groups}
+        seniors = by_key.get("seniors", set())
+        classes = by_key.get("classes", set())
+        # Both appear under Seniors.
+        assert any(billiards in t for t in seniors)
+        assert any(taichi in t for t in seniors)
+        # Billiards (social game) is NOT in the adult Fitness list...
+        assert not any(billiards in t for t in classes)
+        # ...but senior fitness (tai chi) stays dual.
+        assert any(taichi in t for t in classes)
+    finally:
+        _cleanup(eids)
+
+
 # --- /events-ui audience tabs removed (Item 4) ------------------------------
 
 
