@@ -4,6 +4,15 @@
 
 This document is updated at the end of each session that ships work. It is the canonical answer to "where is the project right now."
 
+## P2 content & metadata enrichment (2026-06-21) — branch `p2-content-enrichment`, held for Casey's push
+
+Production-readiness P2 (built off main, which now has P0 + P1). Commits held. **Code is worker-complete + gated green (pytest 11682, ruff clean); the one prod-DB op — the source-sweep removals — is dry-run-done and HELD for Casey's approval.**
+
+- **Event-type tags + scannable label.** New `app/events/event_type_tags.py` types events as live_music / comedy / car_show (curated act names + venue + keywords, with civic/automotive/family guards) at BOTH ingest (`event_ingest._tags`, additive) and render (`event_type_label`, tag-first + title/venue fallback so existing rows like "Sacred Stone" signal "Live Music" with no backfill). The badge rides beside the title on /events-ui day+week, the home feed, and the detail eyebrow — title text untouched.
+- **Live Music / Comedy & Theater subsections** under Music & nightlife (`activity_taxonomy.split_music_subgroups` → `events_views.day_groups`; mirrors P1 class subgroups, empties omitted; DJ/karaoke → "More music & nightlife" residual). No template change.
+- **Source-verification sweep.** `valid_event_url` now rejects internal `askhava.com` self-links; `scripts/verify_event_sources_2026_06.py` (dry-run default, snapshot before apply) buckets every live event. **Read-only prod dry-run: live 545 · OK 527 · WEAK_OK 7 · RESOURCE 1 · RELABEL_SOURCE 2 · REMOVE 8.** `--apply` (retire 8 sourceless LHUSD rows + re-source 1 IJSBA + clear 2 wrong Sonic bylines) is Casey-gated.
+- The P1 `#program-*` anchors are render-time (not Event rows) → out of the events sweep. A durable type-tag backfill onto existing rows is deferred (render classifier already covers display). Dedup/parser-time/flyer fixes stay out of P2 (P6).
+
 ## P0 stabilization (2026-06-21) — branch `p0-stabilization`, held for Casey's push (NOT pushed/deployed)
 
 First phase of the Production Readiness build (`relay/PRODUCTION_READINESS_PLAN_2026-06-21.md` §P0). Built in the `havasu-chat-p0` worktree off `origin/main`; commits held on `p0-stabilization` for push approval. **Key finding:** most P0 symptoms in the plan were captured from a live crawl of a prod deploy that `origin/main` has since moved past — the date desync, blank `/plumbing` + event pages, FAQ-markdown/triple-CTA render bugs, the `/terms` §1 `havasuchat.com` binding, and the gas-footer `havasuchat.com` email **do not reproduce on `origin/main`** (verified by sub-agent render checks + direct grep). Real, reproducing fixes that landed:

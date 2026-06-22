@@ -12,7 +12,7 @@ starts.
 
 from __future__ import annotations
 
-from datetime import date, time, timedelta
+from datetime import date, timedelta
 from types import SimpleNamespace
 
 from app.core.timezone import now_lake_havasu
@@ -107,8 +107,12 @@ def test_explicit_end_time_still_authoritative():
     now = now_lake_havasu()
     if now.hour < 2:
         return
+    # Derive BOTH times from ``now`` so start < end < now even in the early hours;
+    # a fixed start (e.g. 6 AM) would land AFTER ``ended`` before ~7 AM and read as
+    # a past-midnight event (end <= start), not a passed one.
+    started = (now - timedelta(hours=2)).time().replace(second=0, microsecond=0)
     ended = (now - timedelta(hours=1)).time().replace(second=0, microsecond=0)
-    ev = _event(date=now.date(), start_time=time(6, 0), end_time=ended)
+    ev = _event(date=now.date(), start_time=started, end_time=ended)
     assert _event_is_past(ev) is True
 
 

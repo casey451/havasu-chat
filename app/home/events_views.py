@@ -44,11 +44,13 @@ from app.events.activity_taxonomy import (
     SUBGROUP_ORDER,
     classify_class_subgroup,
     split_class_subgroups,
+    split_music_subgroups,
 )
 from app.events.class_occurrences import (
     class_occurrences_in_window,
     drop_event_duplicates,
 )
+from app.events.event_type_tags import event_type_label
 from app.events.family_filter import is_family_event
 from app.events.senior_filter import is_senior_event
 from app.events.time_labels import TIME_TBD_LABEL, short_time_label, time_sort_key
@@ -92,8 +94,12 @@ def _group_for(*, title: str, tags: list[str] | None, featured: bool, recurring:
 # module's call sites and the test suite reference.
 _class_subgroup = classify_class_subgroup
 _split_class_subgroups = split_class_subgroups
+_split_music_subgroups = split_music_subgroups
 _CLASS_SUBGROUP_ORDER = SUBGROUP_ORDER
 _CLASS_FALLBACK_LABEL = FALLBACK_LABEL
+# P2: the Music & nightlife group splits into Live Music / Comedy & Theater the
+# same way classes split — always (a 1-row threshold), empties omitted.
+_MUSIC_SUBGROUP_MIN = 1
 # P1: every class day is now typed into subsections (no flat untyped wall), so a
 # single class still resolves to its activity subcategory. (Was 6 — small days
 # used to render flat, which left items in the generic "Fitness & classes" bucket
@@ -186,6 +192,10 @@ def _event_row(ev: Event) -> dict[str, Any]:
         "venue": ev.location_name,
         "url": f"/events/{ev.id}",
         "recurring": bool(ev.is_recurring),
+        # P2: the event TYPE folded into a scannable label ("Live Music",
+        # "Comedy") + the raw tags so the music group can split into subsections.
+        "tags": list(ev.tags or []),
+        "type_label": event_type_label(ev.title, ev.tags, ev.location_name),
     }
 
 
@@ -383,7 +393,11 @@ def day_groups(
         group: dict[str, Any] = {
             "key": key, "label": label, "icon": icon, "count": len(rows), "rows": rows
         }
-        if key == "classes" and len(rows) >= _CLASS_SUBGROUP_MIN:
+        if key == "music" and len(rows) >= _MUSIC_SUBGROUP_MIN:
+            # P2: typed Live Music / Comedy & Theater subsections under Music &
+            # nightlife (mirrors the class subgroups; empties omitted).
+            group["subgroups"] = _split_music_subgroups(rows)
+        elif key == "classes" and len(rows) >= _CLASS_SUBGROUP_MIN:
             # P1: always type the Fitness & classes list into activity subsections
             # so no class sits in a generic untyped bucket.
             group["subgroups"] = _split_class_subgroups(rows)
@@ -491,6 +505,7 @@ def week_rows(
                 headline = {
                     "title": clean_event_title(ev.title, location_name=ev.location_name),
                     "time": _time,
+                    "type_label": event_type_label(ev.title, ev.tags, ev.location_name),
                     # 4.2: recurrence badge on the week-view headline. A one-off
                     # headline carrying an rrule/rdate (or flagged recurring) gets
                     # a cadence label ("Daily", "Mon–Fri", "Thu"); a true one-off

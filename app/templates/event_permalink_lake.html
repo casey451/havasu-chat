@@ -22,7 +22,7 @@
     <div class="evd-passed" role="status">This event has passed. Check the <a href="/events-ui">events list</a> for what's coming up.</div>
     {% endif %}
 
-    <p class="eyebrow">Event details</p>
+    <p class="eyebrow">{{ type_label or "Event details" }}</p>
     <h1>{{ event_title }}</h1>
     <p class="evd-meta">{{ formatted_datetime }} · {{ (location_name | clean_name) or "Location TBD" }}</p>
 

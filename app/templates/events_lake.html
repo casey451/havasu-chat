@@ -57,7 +57,7 @@
       <a class="ev-wrow{{ ' is-today' if d.is_today }}" href="/events-ui?date={{ d.iso }}{{ family_qs }}" aria-label="{{ d.summary or d.label }} on {{ d.label }} {{ d.daynum }}">
         <span class="ev-wdate"><span class="dow">{{ d.label }}</span><span class="num">{{ d.daynum }}</span></span>
         <span class="ev-wmain">
-          {% if d.headline %}<span class="ev-whead">{% if d.headline.time %}{{ d.headline.time }} · {% endif %}{{ d.headline.title }}{% if d.headline.recurrence_label %} <span class="rrecur">{{ d.headline.recurrence_label }}</span>{% endif %}</span>
+          {% if d.headline %}<span class="ev-whead">{% if d.headline.time %}{{ d.headline.time }} · {% endif %}{{ d.headline.title }}{% if d.headline.type_label %} <span class="rtype">{{ d.headline.type_label }}</span>{% endif %}{% if d.headline.recurrence_label %} <span class="rrecur">{{ d.headline.recurrence_label }}</span>{% endif %}</span>
           {% elif d.total %}<span class="ev-whead none">Classes &amp; ongoing only</span>
           {% else %}<span class="ev-whead none">Nothing posted yet</span>{% endif %}
           {% if d.summary %}<span class="ev-wsum">{{ d.summary }}</span>{% endif %}
@@ -76,9 +76,9 @@
    row (Item 2); a linked row is the usual anchor. -#}
 {%- macro ev_row(row) -%}
 {%- if row.url -%}
-<a class="ev-row" href="{{ row.url }}"><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}</span>{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</a>
+<a class="ev-row" href="{{ row.url }}"><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}</span>{% if row.type_label %}<span class="rtype">{{ row.type_label }}</span>{% endif %}{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</a>
 {%- else -%}
-<div class="ev-row ev-row--nolink"{% if row.anchor %} id="{{ row.anchor }}" tabindex="-1"{% endif %}><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}</span>{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</div>
+<div class="ev-row ev-row--nolink"{% if row.anchor %} id="{{ row.anchor }}" tabindex="-1"{% endif %}><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}</span>{% if row.type_label %}<span class="rtype">{{ row.type_label }}</span>{% endif %}{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</div>
 {%- endif -%}
 {%- endmacro -%}
 
@@ -159,7 +159,7 @@
       <a class="ev-wrow{{ ' is-today' if d.is_today }}" href="/events-ui?date={{ d.iso }}{{ family_qs }}" aria-label="{{ d.summary or d.label }} on {{ d.label }} {{ d.daynum }}">
         <span class="ev-wdate"><span class="dow">{{ d.label }}</span><span class="num">{{ d.daynum }}</span></span>
         <span class="ev-wmain">
-          {% if d.headline %}<span class="ev-whead">{% if d.headline.time %}{{ d.headline.time }} · {% endif %}{{ d.headline.title }}{% if d.headline.recurrence_label %} <span class="rrecur">{{ d.headline.recurrence_label }}</span>{% endif %}</span>
+          {% if d.headline %}<span class="ev-whead">{% if d.headline.time %}{{ d.headline.time }} · {% endif %}{{ d.headline.title }}{% if d.headline.type_label %} <span class="rtype">{{ d.headline.type_label }}</span>{% endif %}{% if d.headline.recurrence_label %} <span class="rrecur">{{ d.headline.recurrence_label }}</span>{% endif %}</span>
           {% elif d.total %}<span class="ev-whead none">Classes &amp; ongoing only</span>
           {% else %}<span class="ev-whead none">Nothing posted yet</span>{% endif %}
           {% if d.summary %}<span class="ev-wsum">{{ d.summary }}</span>{% endif %}

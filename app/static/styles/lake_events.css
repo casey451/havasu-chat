@@ -56,6 +56,9 @@
 .ev-row .rtime{font-size:13px;font-weight:600;color:var(--ink-2);width:96px;flex:none;white-space:nowrap}
 .ev-row .rtitle{font-family:var(--disp);font-weight:500;font-size:15.5px;color:var(--ink);flex:1;min-width:0}
 .ev-row .rrecur{font-family:var(--ui);font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--brass-deep);margin-left:6px;white-space:nowrap}
+/* P2: the event-type signal ("Live Music", "Comedy") — a quiet brass pill beside
+   the title, on both the day rows and the week headline. */
+.rtype{font-family:var(--ui);font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--brass-deep);background:var(--brass-wash);border:1px solid var(--hair-2);border-radius:999px;padding:1px 7px;margin-left:8px;white-space:nowrap;flex:none}
 .ev-row .rvenue{font-size:12.5px;color:var(--muted);flex:none;max-width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* Permalink-less program rows (no provider page) aren't links. */
 .ev-row--nolink{cursor:default}

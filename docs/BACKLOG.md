@@ -13,6 +13,18 @@ Ship log entries at the bottom record what shipped per session. New ones are app
 
 ---
 
+# P2 Content & metadata enrichment (2026-06-21) — branch `p2-content-enrichment`, held for push
+
+Production-readiness P2 (`relay/PRODUCTION_READINESS_PLAN_2026-06-21.md` §P2). Commits held for Casey's push.
+
+- **Event-type tags + label** — **RESOLVED.** New `app/events/event_type_tags.py` classifies live_music / comedy / car_show (curated act names + venue + keywords, with civic/automotive/family guards), used at BOTH ingest (`event_ingest._tags` stamps the durable tag, additive) and render (`event_type_label`, tag-first with title/venue fallback so existing rows signal their type with no backfill). A scannable `type_label` badge ("Live Music"/"Comedy"/"Car Show") rides beside the title on the /events-ui day + week views, the home feed, and the detail eyebrow — the real title is never mangled.
+- **Live Music / Comedy & Theater subsections** — **RESOLVED.** `activity_taxonomy.split_music_subgroups` splits the "Music & nightlife" group into typed subsections (mirrors the P1 class subgroups; empties omitted = "where volume warrants"); DJ/karaoke fall to an honest "More music & nightlife" residual. Wired into `events_views.day_groups`; no template change (the subgroup loop is group-agnostic). "theater/improv/stand-up" added to the music tier hints so plays route to the music bucket.
+- **Source-verification sweep** — **DRY-RUN DONE; prod removals HELD for Casey.** `valid_event_url` now rejects internal `askhava.com` self-links (the ingest fallback). `scripts/verify_event_sources_2026_06.py` (dry-run default) classifies every live event: OK / WEAK_OK (report-only, Lighthouse FB profiles) / RESOURCE (swap real source in) / RELABEL_SOURCE (clear wrong Sonic byline) / REMOVE (retire → status=deleted/410). **Read-only prod dry-run: live 545 · OK 527 · WEAK_OK 7 · RESOURCE 1 · RELABEL_SOURCE 2 · REMOVE 8.** The `--apply` is a Casey-gated prod-DB write (snapshot first).
+- **Note:** the P1 `#program-*` self-anchors are render-time ids on recurring Schedule occurrences, NOT stored on any Event row, so the events sweep doesn't touch them (separate concern). A durable backfill of the new type tags onto existing rows is **deferred** (display already works via the render classifier; the backfill is an optional gated prod write).
+- **DEFERRED (not P2):** dedup row cleanup, placeholder-time parser fixes (RiverScene noon / 3 AM alligator / movie doors), flyer backfill — a separate gated prod-data session / P6.
+
+---
+
 # P0 Stabilization (2026-06-21) — branch `p0-stabilization`, held for push
 
 Production-readiness P0 (`relay/PRODUCTION_READINESS_PLAN_2026-06-21.md` §P0). Commits held for Casey's approval (not pushed/deployed).
