@@ -405,7 +405,9 @@ def test_leaf_page_has_category_claim_slot(client: TestClient, seeded_leaves: di
     assert r.status_code == 200
     body = r.text
     assert "cat-claim" in body
-    assert "/portal/placements" in body
+    # P4: the advertise CTA now routes to the public /sponsor storefront (the
+    # clean public purchase path) rather than the auth-gated dashboard.
+    assert "/sponsor" in body
     assert "Own the Plumbing spot" in body  # ship_leaf name is "Plumbing"
     # P0 render-bug guards: a real leaf body is non-blank, and the "Can't decide?"
     # ask-strip + the category-claim CTA each render exactly once (the live site

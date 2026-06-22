@@ -146,6 +146,15 @@ a.spon-panel:hover .spon-go{color:var(--peach)}
   overflow:hidden;box-shadow:var(--elev-1);
 }
 .biz-grid:empty{display:none}
+/* §2.2: the "New / Not yet rated" tail divider — a quiet labeled row that marks
+   where the rated pool ends and the new/unrated businesses begin. */
+.grid-divider{
+  padding:10px 16px;border-top:var(--border-soft);
+  background:var(--surface-cream);
+  font-size:.74rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--ink-soft,#6b6257);
+}
+.grid-divider:first-child{border-top:0}
 /* P7 leaf sub-grouping: per-neighborhood sections, each its own bordered grid
    under a quiet uppercase area label. Only rendered when grouping helps. */
 .biz-group{margin-top:22px}

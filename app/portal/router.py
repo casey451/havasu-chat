@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import get_current_user
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.db.database import get_db
+from app.db.monetization_models import PlacementStatus
 from app.home.queries import CATEGORY_LABELS
 from app.monetization import serving
 from app.portal import creative_store
@@ -113,6 +114,13 @@ def portal_placements(
     placements = placement_logic.active_placements_for_providers(
         db, [p.id for p in providers]
     )
+    from app.billing import config as billing_config
+    from app.billing import service as billing_service
+
+    billing_on = billing_config.billing_enabled()
+    has_billing_account = bool(
+        billing_on and billing_service.customer_id_for_user_placements(placements)
+    )
     return templates.TemplateResponse(
         request=request,
         name=_t(request, "portal_placements.html"),
@@ -124,6 +132,14 @@ def portal_placements(
                 k: v["label"] for k, v in placement_logic.PURCHASABLE_TYPES.items()
             },
             "purchased": request.query_params.get("purchased") == "1",
+            # When billing is live a pending placement shows a "Pay now" button
+            # (→ Stripe Checkout) and a "Manage billing" link (→ Customer Portal).
+            # Both are hidden while dormant, so today's operator-confirm flow is
+            # unchanged.
+            "billing_enabled": billing_on,
+            "has_billing_account": has_billing_account,
+            "PENDING": PlacementStatus.pending.value,
+            "ACTIVE": PlacementStatus.active.value,
         },
     )
 
@@ -213,7 +229,7 @@ def portal_placement_new_post(
             status_code=400,
         )
 
-    placement_logic.create_pending_placement(
+    placement = placement_logic.create_pending_placement(
         db,
         provider_id=provider_id,
         placement_type=placement_type,
@@ -222,6 +238,26 @@ def portal_placement_new_post(
         billing_type=billing_type,
         creative_id=(creative_id.strip() or None),
     )
+
+    # Self-serve purchase: when billing is live, take the merchant straight to
+    # Stripe Checkout for the placement they just configured (no lead-capture
+    # detour). While billing is dormant this is skipped and the placement waits
+    # for operator confirmation — the pre-billing flow, unchanged.
+    from app.billing import config as billing_config
+    from app.billing import service as billing_service
+
+    if billing_config.billing_enabled():
+        base = str(request.base_url).rstrip("/")
+        url = billing_service.create_checkout_session(
+            db,
+            placement,
+            success_url=f"{base}/portal/placements?purchased=1",
+            cancel_url=f"{base}/portal/placements",
+            customer_email=getattr(user, "email", None),
+        )
+        if url:
+            return RedirectResponse(url=url, status_code=303)
+
     return RedirectResponse(url="/portal/placements?purchased=1", status_code=303)
 
 

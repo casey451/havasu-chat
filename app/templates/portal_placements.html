@@ -16,6 +16,11 @@
           <a class="d-btn d-btn--solid" href="/portal/placements/new">Buy a placement
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </a>
+          {% if has_billing_account %}
+          <form method="post" action="/billing/portal" style="display:inline">
+            <button type="submit" class="d-btn">Manage billing</button>
+          </form>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -51,6 +56,7 @@
             <th style="padding:8px 10px">Billing</th>
             <th style="padding:8px 10px">Price</th>
             <th style="padding:8px 10px">Status</th>
+            {% if billing_enabled %}<th style="padding:8px 10px">Action</th>{% endif %}
           </tr>
         </thead>
         <tbody>
@@ -62,8 +68,17 @@
             <td style="padding:8px 10px">{{ p.billing_type|capitalize }}</td>
             <td style="padding:8px 10px">{{ "$%.0f"|format(p.price_cents/100) if p.price_cents else 'TBD' }}</td>
             <td style="padding:8px 10px">
-              <span class="d-tag d-tag--pill{% if p.status == 'active' %} d-tag--sponsored{% endif %}">{{ p.status|capitalize }}</span>
+              <span class="d-tag d-tag--pill{% if p.status == ACTIVE %} d-tag--sponsored{% endif %}">{{ p.status|capitalize }}</span>
             </td>
+            {% if billing_enabled %}
+            <td style="padding:8px 10px">
+              {% if p.status == PENDING %}
+              <form method="post" action="/billing/checkout/{{ p.id }}" style="display:inline">
+                <button type="submit" class="d-btn d-btn--solid">Pay now</button>
+              </form>
+              {% else %}<span class="d-muted">—</span>{% endif %}
+            </td>
+            {% endif %}
           </tr>
           {% endfor %}
         </tbody>

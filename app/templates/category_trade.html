@@ -98,7 +98,11 @@
     {% endfor %}
     {% else %}
     <div class="biz-grid" id="bizGrid">
+      {% set ns = namespace(new_shown=false) %}
       {% for card in category_cards %}
+      {% if card.is_new_unrated and not ns.new_shown %}{% set ns.new_shown = true %}
+      <div class="grid-divider" role="separator">New / Not yet rated</div>
+      {% endif %}
       {% include 'components/sandstone_biz_card.html' %}
       {% endfor %}
     </div>
@@ -127,7 +131,7 @@
         <h2>Own the {{ trade_label }} spot in Lake Havasu City</h2>
         <p>Be the featured {{ trade_label | lower }} business at the top of this page — quiet, clearly labeled, no pop-ups.</p>
       </div>
-      <a class="cat-claim-cta" href="/portal/placements">Claim this category →</a>
+      <a class="cat-claim-cta" href="/sponsor">Claim this category →</a>
     </aside>
 
     {% if trade_faqs %}

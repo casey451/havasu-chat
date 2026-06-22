@@ -13,16 +13,20 @@ from app.categories import queries as cat_queries
 from app.main import app
 
 
-def test_default_sort_is_weighted_locals_favorites() -> None:
-    """The Locals'-favorites pill is active by default (weighted Bayesian sort)."""
+def test_default_sort_is_daily_featured_shuffle() -> None:
+    """The default page sort is the daily "Featured" shuffle (plan §2.2); the
+    legacy weighted "Top rated" order stays reachable as an explicit sort."""
     with TestClient(app) as client:
         r = client.get("/lake-havasu/restaurants")
+        r_fav = client.get("/lake-havasu/restaurants?sort=favorites")
     assert r.status_code == 200
     body = r.text
     assert 'class="sortpill on"' in body
-    # The active pill is the favorites one, and the plain-English note is shown.
-    assert "Locals&#39; favorites" in body or "Locals' favorites" in body
-    assert "weighted by review volume" in body
+    # Default = Featured (shuffled fresh each day), and its plain-English note shows.
+    assert "Featured" in body
+    assert "shuffled fresh each day" in body
+    # The weighted favorites order is still selectable and carries its own note.
+    assert "weighted by review volume" in r_fav.text
 
 
 def test_weighted_score_ranks_institution_above_thin_five_star() -> None:

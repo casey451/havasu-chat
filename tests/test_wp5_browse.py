@@ -181,7 +181,9 @@ def test_open_now_is_a_filter_not_a_sort_pill(client: TestClient) -> None:
 
 def test_sort_explainer_matches_active_sort(client: TestClient) -> None:
     """Item 32: the explainer text reflects the active sort, not a static blurb."""
-    r_fav = client.get("/lake-havasu/restaurants")
+    r_default = client.get("/lake-havasu/restaurants")
+    assert "shuffled fresh each day" in r_default.text  # the new default (Featured)
+    r_fav = client.get("/lake-havasu/restaurants?sort=favorites")
     assert "weighted by review volume" in r_fav.text
     r_close = client.get("/lake-havasu/restaurants?sort=closest")
     assert "nearest to the Lake Havasu City civic center" in r_close.text

@@ -1204,16 +1204,18 @@ def collection_landing(
     )
 
 
-@router.get("/sponsor", response_class=HTMLResponse)
-def sponsor_landing(request: Request) -> HTMLResponse:
-    """Advertiser landing page. Static stub for v52; copy lands in a follow-up.
-
-    Linked from ``home_c.html`` / ``category_c.html`` footers and from the
-    marquee unsold-fallback. Was a 404 before this PR.
+@router.get("/sponsor", response_class=HTMLResponse, response_model=None)
+def sponsor_landing(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    """Public advertiser storefront (/sponsor). Shows the rate card (prices from
+    config, never hardcoded) and routes to the real self-serve buy flow. The
+    category "Advertise" CTAs land here, so the purchase path is public up front;
+    payment itself is login + claim gated downstream.
     """
     _lake = getattr(request.state, "theme", "desert") == "lake"
+    from app.portal.products import storefront_offers
+
     return templates.TemplateResponse(
         request=request,
         name="sponsor_landing_lake.html" if _lake else "sponsor_landing.html",
-        context={},
+        context={"offers": storefront_offers(db)},
     )

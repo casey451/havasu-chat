@@ -35,6 +35,9 @@
 .bizcard .meta .closed{color:var(--muted);font-weight:600}
 .bizcard .ad-tagline{font-size:12.5px;color:var(--brass-deep);margin-top:4px}
 .listcard{background:var(--raised);border:1px solid var(--hair);border-radius:18px;box-shadow:var(--sh-card);overflow:hidden}
+/* §2.2: the "New / Not yet rated" tail divider inside a listcard row list. */
+.listcard .grid-divider{padding:10px 16px;border-top:1px solid var(--hair);font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.listcard .grid-divider:first-child{border-top:0}
 .cat-empty{margin:20px 0;font-size:14px;color:var(--muted)}
 .cat-empty a{color:var(--brass-deep);font-weight:600}
 

@@ -277,10 +277,14 @@ def leaf_listing(
     # badges) until a placement is sold for this leaf — zero effect on the live
     # site today.
     from app.monetization.serving import (
+        ItemRating,
         active_category_creatives,
         active_category_tiers,
         apply_category_order,
+        arrange_listing,
+        listing_day,
     )
+    from app.portal.products import daily_shuffle_enabled, mobile_paid_cap, rating_gate
 
     tiers = active_category_tiers(db, leaf.slug)
     sponsored_ids = set(tiers.values())
@@ -288,14 +292,37 @@ def leaf_listing(
         creatives = active_category_creatives(db, leaf.slug) if tiers else {}
     except Exception:
         creatives = {}
-    if tiers:
-        by_id = {p.id: p for p in providers}
+
+    new_unrated_ids: frozenset[str] = frozenset()
+    by_id = {p.id: p for p in providers}
+    if daily_shuffle_enabled():
+        # §2.1/§2.2: ≤cap paid pinned, daily-shuffled >gate pool, "New / Not yet
+        # rated" tail, then the low band — the same ordering as the dept grid.
+        arr = arrange_listing(
+            [
+                ItemRating(p.id, p.google_rating, getattr(p, "google_review_count", None))
+                for p in providers
+            ],
+            tiers,
+            category_slug=leaf.slug,
+            day=listing_day(now),
+            threshold=rating_gate(),
+            cap=mobile_paid_cap(),
+        )
+        providers = [by_id[k] for k in arr.order if k in by_id]
+        new_unrated_ids = arr.new_unrated
+    elif tiers:
         new_order = apply_category_order([p.id for p in providers], tiers)
         providers = [by_id[pid] for pid in new_order if pid in by_id]
 
     cards = [
         cat_queries._provider_card(
-            db, p, now=now, sponsored_provider_ids=sponsored_ids, creatives=creatives
+            db,
+            p,
+            now=now,
+            sponsored_provider_ids=sponsored_ids,
+            new_unrated_ids=new_unrated_ids,
+            creatives=creatives,
         )
         for p in providers
     ]

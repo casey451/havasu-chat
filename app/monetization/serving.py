@@ -15,9 +15,11 @@ placement rows and hand off to the pure functions.
 
 from __future__ import annotations
 
+import hashlib
 import random
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 
@@ -119,6 +121,128 @@ def apply_category_order(
         if slots[i] is None and rest:
             slots[i] = rest.pop(0)
     return [s for s in slots if s is not None] + rest
+
+
+# --------------------------------------------------------------------------- #
+# §2.2 — the non-paid ranking: a seeded DAILY deterministic shuffle, gated at a
+# config rating threshold, with no-review businesses in a labeled tail (not
+# excluded). Pure + deterministic so it is unit-testable without a DB or a clock.
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class ItemRating:
+    """A listing's identity + the two signals the gate reads."""
+
+    key: str                  # provider_id (stable identifier)
+    rating: float | None      # google_rating (None / no reviews → the new tail)
+    review_count: int | None  # google_review_count
+
+
+@dataclass(frozen=True)
+class Arranged:
+    """The result of :func:`arrange_listing` — an order plus the labeling sets."""
+
+    order: list[str]             # final key order (paid pinned per the cap)
+    new_unrated: frozenset[str]  # keys to label "New / Not yet rated" (the tail)
+    sponsored: frozenset[str]    # paid-tier holders present (labeled, any slot)
+
+
+def listing_day(now: datetime | None) -> str:
+    """The shuffle's day bucket (``YYYY-MM-DD``) in Lake Havasu local time.
+
+    The seed rotates on this string, so the order is stable within a local day
+    (cacheable, shareable, consistent on revisit) and reshuffles across days.
+    """
+    from app.core.timezone import LAKE_HAVASU_TZ
+
+    dt = now or datetime.now(LAKE_HAVASU_TZ)
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(LAKE_HAVASU_TZ)
+    return dt.date().isoformat()
+
+
+def daily_seed(category_slug: str, day: str, salt: str = "") -> int:
+    """A deterministic PRNG seed from (category, day[, salt]) — §2.2."""
+    digest = hashlib.sha256(f"{category_slug}|{day}|{salt}".encode()).hexdigest()
+    return int(digest[:16], 16)
+
+
+def _seeded_shuffle(keys: Sequence[str], category_slug: str, day: str, salt: str) -> list[str]:
+    out = list(keys)
+    random.Random(daily_seed(category_slug, day, salt)).shuffle(out)  # Fisher-Yates
+    return out
+
+
+def partition_by_rating(
+    items: Sequence[ItemRating], threshold: float
+) -> tuple[list[str], list[str], list[str]]:
+    """Split keys into (rated>threshold, new/unrated, rated≤threshold).
+
+    A business with no reviews (``review_count`` falsy or ``rating`` None) is
+    "new/unrated" — it goes in the labeled tail, never excluded. A reviewed
+    business above the gate is in the quality pool; one at/below it sinks to the
+    low band (still shown, below the tail).
+    """
+    rated: list[str] = []
+    new_unrated: list[str] = []
+    low: list[str] = []
+    for it in items:
+        if not (it.review_count or 0) or it.rating is None:
+            new_unrated.append(it.key)
+        elif it.rating > threshold:
+            rated.append(it.key)
+        else:
+            low.append(it.key)
+    return rated, new_unrated, low
+
+
+def arrange_listing(
+    items: Sequence[ItemRating],
+    sold_by_tier: dict[int, str],
+    *,
+    category_slug: str,
+    day: str,
+    threshold: float,
+    cap: int,
+    shuffle: bool = True,
+) -> Arranged:
+    """Order one category/leaf listing per the brief: ≤``cap`` paid cards pinned
+    above the fold, then a daily-shuffled >``threshold`` quality pool, then a
+    daily-shuffled "New / Not yet rated" tail, then the daily-shuffled low band.
+
+    ``items`` arrives in the caller's organic order (rating-sorted). With
+    ``shuffle=False`` (the rollback switch) that order is preserved and only the
+    paid pinning + cap apply, so the page falls back to the legacy ranking.
+
+    Paid pinning honours the §2.1 cap: only tiers ``1..cap`` are pinned above the
+    first organic result; a sold tier beyond the cap stays in ``sponsored`` (still
+    labeled) but flows with the organic order rather than reading "all ads."
+    """
+    present = {it.key for it in items}
+    sponsored = frozenset(pid for pid in sold_by_tier.values() if pid in present)
+
+    if shuffle:
+        rated, new_unrated, low = partition_by_rating(items, threshold)
+        # Order: the >gate quality pool, then the reviewed-but-below-gate band,
+        # then the "New / Not yet rated" tail at the very bottom (its own labeled
+        # section) — every band Fisher-Yates'd with a distinct daily seed.
+        organic = (
+            _seeded_shuffle(rated, category_slug, day, "rated")
+            + _seeded_shuffle(low, category_slug, day, "low")
+            + _seeded_shuffle(new_unrated, category_slug, day, "new")
+        )
+        # A paid holder is never labeled "new" — the badge would contradict it.
+        tail = frozenset(k for k in new_unrated if k not in sponsored)
+    else:
+        organic = [it.key for it in items]
+        tail = frozenset()
+
+    pin_tiers = {t: pid for t, pid in sold_by_tier.items() if 1 <= t <= cap}
+    # Stable per-day tier float (so a tier-2..cap holder doesn't jump per request).
+    rng = random.Random(daily_seed(category_slug, day, "pin"))
+    order = apply_category_order(organic, pin_tiers, rng=rng)
+    return Arranged(order=order, new_unrated=tail, sponsored=sponsored)
 
 
 # --------------------------------------------------------------------------- #
@@ -429,28 +553,36 @@ def serve_category_page_ad(db, category_slug: str) -> dict | None:
 
 
 def _ordered_pool(db, exclude_ids: set[str]) -> list[tuple[Any, Any]]:
-    """Active homepage-rotating providers, de-duped, ordered by created_at,
-    skipping ``exclude_ids``. Returns ``[(Provider, Placement), …]``.
+    """Active homepage-rotating providers, de-duped, DAILY-shuffled, skipping
+    ``exclude_ids``. Returns ``[(Provider, Placement), …]``.
 
     Shared by the Tier-2 (featured) and Tier-3 (promoted) home slots so the same
     rotating pool feeds all three home units (marquee + featured + promoted) with
     DISTINCT businesses per load — the caller passes the ids already taken by the
-    higher slots. Dormant by design: an empty pool yields ``[]``.
+    higher slots. The order is seeded on today's date (§2.2), so which ~10
+    advertisers surface in the bounded slots rotates fairly day-to-day while
+    staying stable within a day. Dormant by design: an empty pool yields ``[]``.
     """
     from sqlalchemy import select
 
     from app.db.models import Provider
     from app.db.monetization_models import Placement, PlacementStatus, PlacementType
 
-    rows = db.scalars(
-        select(Placement).where(
-            Placement.placement_type == PlacementType.homepage_rotating.value,
-            Placement.status == PlacementStatus.active.value,
-        )
-    ).all()
+    rows = list(
+        db.scalars(
+            select(Placement).where(
+                Placement.placement_type == PlacementType.homepage_rotating.value,
+                Placement.status == PlacementStatus.active.value,
+            )
+        ).all()
+    )
+    # Daily fair rotation: a stable created_at tiebreak first (determinism if two
+    # rows share a second), then Fisher-Yates by today's seed.
+    rows.sort(key=lambda r: (r.created_at, r.id))
+    random.Random(daily_seed("__home__", listing_day(None))).shuffle(rows)
     seen = set(exclude_ids)
     out = []
-    for p in sorted(rows, key=lambda r: r.created_at):
+    for p in rows:
         if p.provider_id in seen:
             continue
         seen.add(p.provider_id)

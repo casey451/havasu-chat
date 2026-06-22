@@ -338,10 +338,13 @@ def _facets_from_query(
         return val is not None and str(val).strip().lower() not in {"", "0", "false", "no"}
 
     sort_key = (sort or "").strip().lower()
-    # Default = volume-weighted "Locals' favorites" (01_UI_BUILD_GUIDE.md §4.8),
-    # so institutions outrank thin 5.0/3-review outliers out of the box.
-    if sort_key not in {"closest", "alpha", "favorites"}:
-        sort_key = "favorites"
+    # Default = the seeded DAILY shuffle of the >gate quality pool (plan §2.2):
+    # fair day-to-day rotation, stable+cacheable within a day, with the no-review
+    # tail kept below. "favorites" (volume-weighted rating, closed-demoted,
+    # liveness-dampened — 01_UI_BUILD_GUIDE.md §4.8) stays a reachable explicit
+    # sort for anyone who wants the institutions-first order.
+    if sort_key not in {"closest", "alpha", "favorites", "default"}:
+        sort_key = "default"
     sub = (subcategory or "").strip().lower() or None
     if sub and subcats.subcategory_by_slug(sub) is None:
         sub = None
@@ -361,6 +364,7 @@ def _facets_from_query(
 
 _SORT_OPTIONS: tuple[tuple[str, str], ...] = (
     ("default", "Featured"),
+    ("favorites", "Top rated"),
     ("closest", "Closest"),
     ("alpha", "A–Z"),
 )
@@ -466,12 +470,12 @@ def _render_category_page(
     # DL-20 / item 32: the sort-explainer must describe the ACTIVE sort, not a
     # static favorites blurb. Closest/A-Z carry their own one-liner.
     sort_notes = {
-        "favorites": "Favorites = rating weighted by review volume, so institutions rank first.",
-        "default": "Favorites = rating weighted by review volume, so institutions rank first.",
+        "favorites": "Top rated = rating weighted by review volume, so institutions rank first.",
+        "default": "Featured = highly-rated local businesses, shuffled fresh each day; new and unrated listings follow below.",
         "closest": "Closest = nearest to the Lake Havasu City civic center first.",
         "alpha": "Sorted A to Z by name.",
     }
-    sort_note = sort_notes.get(facets.sort, sort_notes["favorites"])
+    sort_note = sort_notes.get(facets.sort, sort_notes["default"])
 
     # DL-20 C7: a single honest active-filter summary line. Lists the narrowing
     # facets (subcategory / cuisine / open-now) with the result count and a

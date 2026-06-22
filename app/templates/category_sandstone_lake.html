@@ -98,7 +98,8 @@
     {% endif %}
 
     <div class="listcard" id="bizGrid" style="margin-top:16px">
-      {% for card in category_cards %}{% include 'components/lake_biz_card.html' %}{% endfor %}
+      {% set ns = namespace(new_shown=false) %}
+      {% for card in category_cards %}{% if card.is_new_unrated and not ns.new_shown %}{% set ns.new_shown = true %}<div class="grid-divider" role="separator">New / Not yet rated</div>{% endif %}{% include 'components/lake_biz_card.html' %}{% endfor %}
     </div>
 
     {% if total_pages and total_pages > 1 %}

@@ -660,6 +660,7 @@ def _build_category_card(
     image_url: str | None,
     allowed_subcategories: set[str] | None = None,
     is_sponsored: bool = False,
+    is_new_unrated: bool = False,
     creative: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Shape a Provider row into the category-grid card contract.
@@ -729,6 +730,10 @@ def _build_category_card(
         # placement on the surface being rendered. Default False keeps every
         # existing caller's cards unlabeled until placements are wired in.
         "is_sponsored": is_sponsored,
+        # §2.2: True for a no-review business in the daily-shuffled "New / Not yet
+        # rated" tail, so the grid can print the section divider above it. Default
+        # False — the legacy rating order renders no tail.
+        "is_new_unrated": is_new_unrated,
     }
 
 
@@ -1116,6 +1121,7 @@ def _provider_card(
     now: datetime,
     allowed_subcategories: set[str] | None = None,
     sponsored_provider_ids: set[str] | None = None,
+    new_unrated_ids: set[str] | frozenset[str] | None = None,
     creatives: dict[str, dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     try:
@@ -1129,6 +1135,7 @@ def _provider_card(
         image_url=_resolve_category_card_image(provider),
         allowed_subcategories=allowed_subcategories,
         is_sponsored=bool(sponsored_provider_ids and provider.id in sponsored_provider_ids),
+        is_new_unrated=bool(new_unrated_ids and provider.id in new_unrated_ids),
         creative=(creatives or {}).get(provider.id),
     )
 
@@ -1265,10 +1272,25 @@ def category_listing(
         # byte-identical. A non-empty set diverts to the materialized path so paid
         # tiers can be pinned to the top (page 1) and labeled Sponsored.
         from app.monetization.serving import (
+            ItemRating,
             active_category_creatives,
             active_category_tiers,
             apply_category_order,
+            arrange_listing,
+            listing_day,
         )
+        from app.portal.products import (
+            daily_shuffle_enabled,
+            mobile_paid_cap,
+            rating_gate,
+        )
+
+        # §2.2: the seeded daily shuffle is the DEFAULT organic order. Explicit
+        # sorts (favorites / closest / alpha) are user overrides and keep their
+        # order. When the shuffle is on for the default sort we must materialize
+        # (the partition + Fisher-Yates can't run in SQL), so the fast path below
+        # is skipped for that case only.
+        use_shuffle = daily_shuffle_enabled() and facets.sort in (None, "", "default")
 
         # A3: a sub-surface (e.g. a cuisine landing) can sell placements on its
         # own namespaced key instead of the parent route — so a Mexican
@@ -1299,7 +1321,7 @@ def category_listing(
         if facets.top_rated:
             base = base.filter(Provider.google_rating >= _TOP_RATED_MIN)
 
-        needs_scan = facets.needs_materialize
+        needs_scan = facets.needs_materialize or use_shuffle
         if not needs_scan and not tiers:
             # SQL-only path (B4): subcategory + top_rated predicates and the
             # rating/alpha orderings are all expressible in SQL, so COUNT runs in
@@ -1359,10 +1381,28 @@ def category_listing(
         elif facets.sort == "alpha":
             rows.sort(key=lambda p: (p.provider_name or "").lower())
         total = len(rows)
-        if tiers:
-            # Pin paid tiers into the top-5 (organic order preserved below them),
-            # so a sold placement leads page 1. No-op when no tier is held here.
-            by_id = {p.id: p for p in rows}
+        new_unrated_ids: frozenset[str] = frozenset()
+        by_id = {p.id: p for p in rows}
+        if use_shuffle:
+            # §2.1/§2.2: ≤cap paid pinned, then the daily-shuffled >gate pool, the
+            # "New / Not yet rated" tail, then the low band. Replaces the favorites
+            # order computed above (kept for the shuffle-off rollback path).
+            arr = arrange_listing(
+                [
+                    ItemRating(p.id, p.google_rating, getattr(p, "google_review_count", None))
+                    for p in rows
+                ],
+                tiers,
+                category_slug=placement_route,
+                day=listing_day(now),
+                threshold=rating_gate(),
+                cap=mobile_paid_cap(),
+            )
+            rows = [by_id[k] for k in arr.order if k in by_id]
+            new_unrated_ids = arr.new_unrated
+        elif tiers:
+            # Legacy path (shuffle off): pin paid tiers into the top-5, organic
+            # order preserved below them. No-op when no tier is held here.
             rows = [
                 by_id[pid]
                 for pid in apply_category_order([p.id for p in rows], tiers)
@@ -1376,6 +1416,7 @@ def category_listing(
                 now=now,
                 allowed_subcategories=allowed_subs,
                 sponsored_provider_ids=sponsored_ids,
+                new_unrated_ids=new_unrated_ids,
                 creatives=creatives,
             )
             for p in window
