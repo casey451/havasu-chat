@@ -2539,3 +2539,33 @@ purged in the same pass.
 
 **Filed by:** Cowork session (2026-06-04, backlog-execution day; spotted during live
 spot-check of /categories/on-the-water after queue approvals).
+
+
+---
+
+## P1 deferred items (categorization/dedup phase, 2026-06-21)
+
+The P1 worker shipped the routing/taxonomy core (recurring-banner removal, the
+City & Government events bucket, the retired "Classes" catch-all with typed +
+age-aware subsections, seniors routing) plus the safe data-quality slice
+(bare-noon dedup at ingest, title-as-venue guard). These remain, each needing
+its own focused pass and most gated behind dry-run -> counts -> approval:
+
+- **Existing duplicate ROWS** (prod data op, gated): directory dupes
+  (Rusty's/Denny's/Filiberto's/Shugrue's), Iron Wolf double-provider, and any
+  surviving event twins. Render-time collapse hides same-title display dupes;
+  cleaning the rows needs merge_existing_dups dry-run + approval.
+- **Different-title same-venue dupes** (code, judgment): Altitude open-hours tile
+  vs "Junior Jump" event — collapse a venue open-hours tile when the same venue
+  has a specific timed event. Needs a venue+time render rule (risk of over-merge).
+- **Placeholder/parser times** (per-source code): RiverScene fabricates a noon
+  start when no Time row (river_scene.py:401) — emit TBD instead, but guard the
+  `start_time.strftime` sites (river_scene.py:474,500) first. Trace the 3 AM
+  alligator-feed source. Movie "doors vs showtime" cross-source dup.
+- **Source-link enforcement** (code + data, judgment): suppress/relabel
+  unverifiable permalink-less programs (pony rides, self-referential #program-*
+  anchors) without gutting legitimate venue-schedule classes; fix wrong-target
+  links (Clifford->Sonic URL; shared generic Lighthouse FB across distinct
+  events — prefer the per-event article URL over the shared venue FB).
+- **Flyer image backfill** (prod data op, gated): the detail page already renders
+  `image_url` when present; thin twin records lack it — a backfill, not a code fix.
