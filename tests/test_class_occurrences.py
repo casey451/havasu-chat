@@ -167,26 +167,27 @@ def test_program_anchor_is_deterministic_and_slugged() -> None:
     assert occ.anchor == a
 
 
-def test_home_feed_deeplinks_permalinkless_program_to_its_row() -> None:
-    """A permalink-less program links from the home feed to its exact row on
-    /events-ui (``#program-…``), not the whole-day list — and never a dead row
-    (Item 2)."""
+def test_home_feed_permalinkless_program_has_no_fake_details_link() -> None:
+    """A permalink-less program (no provider page) still appears in the home
+    feed, but renders WITHOUT a "Details →" link — we no longer fabricate a
+    self-referential ``/events-ui?date=…#program-…`` anchor that just points back
+    at the same bare row (no real source)."""
     title = f"Pony Lead Line Rides {uuid.uuid4().hex[:6]}"
     venue = _make_permalinkless_program(title, ["saturday"])
     day = date(2026, 12, 5)  # a Saturday
-    anchor = program_anchor(title, venue)
     with SessionLocal() as db:
         feed = today_feed(db, day=day)
-    rows = [
-        r for g in feed["groups"] if g["key"] != "movies"
-        for r in (g.get("rows") or [])
-    ]
-    row = next((r for r in rows if (r.get("url") or "").endswith("#" + anchor)), None)
-    assert row is not None, "program row should be present and deep-linked"
-    assert row["url"] == f"/events-ui?date={day.isoformat()}#{anchor}"
-    # No dead rows: every feed row resolves to a non-empty destination.
-    for r in rows:
-        assert r.get("url"), r
+    rows = []
+    for g in feed["groups"]:
+        if g["key"] == "movies":
+            continue
+        rows.extend(g.get("rows") or [])
+        for sub in g.get("subgroups") or []:
+            rows.extend(sub.get("rows") or [])
+    row = next((r for r in rows if r.get("venue") == venue), None)
+    assert row is not None, "permalink-less program should still appear in the feed"
+    assert not row.get("url"), "should render without a fabricated Details link"
+    assert "#program" not in (row.get("url") or "")
 
 
 def test_events_ui_renders_program_anchor_id() -> None:
