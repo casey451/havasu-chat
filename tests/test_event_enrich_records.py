@@ -9,7 +9,7 @@ from app.contrib.event_enrich import (
     enrich_event_records,
     record_from_detail_html,
 )
-from app.contrib.event_ingest import _live_music_tags, _tags
+from app.contrib.event_ingest import _live_music_tags, _location_name, _tags
 from app.contrib.event_record import EventRecord
 
 # A trimmed AllEvents-style detail page: a band gig at a lounge, 7pm start,
@@ -86,6 +86,22 @@ def test_best_venue_prefers_real_name_over_street_address() -> None:
 
 def test_record_from_detail_html_none_when_no_jsonld() -> None:
     assert record_from_detail_html("<html><body>no jsonld</body></html>", source="x") is None
+
+
+def test_location_name_drops_title_as_venue_artifact() -> None:
+    # P1: a feed that puts the event title in the venue field must not produce a
+    # "Where" that just repeats the event name — fall back to the city.
+    rec = EventRecord(source="x", title="Sunset Paddle", start_date=date(2026, 6, 18),
+                      start_time=time(18, 0), venue_name="Sunset Paddle", description="")
+    assert _location_name(rec) == "Lake Havasu City"
+    # punctuation/case differences are still treated as the same artifact
+    rec2 = EventRecord(source="x", title="Top Goons: Comedy Night", start_date=date(2026, 6, 18),
+                       start_time=time(20, 0), venue_name="Top Goons Comedy Night", description="")
+    assert _location_name(rec2) == "Lake Havasu City"
+    # a real, distinct venue is preserved
+    rec3 = EventRecord(source="x", title="Sunset Paddle", start_date=date(2026, 6, 18),
+                       start_time=time(18, 0), venue_name="London Bridge Beach", description="")
+    assert _location_name(rec3) == "London Bridge Beach"
 
 
 def test_kids_glow_party_with_dj_not_tagged_music() -> None:

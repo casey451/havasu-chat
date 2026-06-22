@@ -46,7 +46,8 @@ import re
 # ``key`` is the stable CSS/JSON hook (never user-visible); ``label`` is the
 # display name shown in the events-page accordions and the home-strip legend.
 GROUP_DEFS: tuple[tuple[str, str, str], ...] = (
-    # "Around town": the catch-all one-off group (special / community / untyped).
+    # "Around town": the catch-all one-off group (special / untyped). Civic items
+    # used to land here; they now have their own "City & Government" bucket below.
     ("events", "Happening today", "\U0001F39F️"),
     # "Kids & Family" is a cross-cutting collector (see group_for_tier): every
     # kid/family occurrence — youth classes, Open Swim, story time — lands here
@@ -56,6 +57,10 @@ GROUP_DEFS: tuple[tuple[str, str, str], ...] = (
     # occurrence (the Senior Center activities, community lunch, special events)
     # is re-listed here in addition to its primary group. Built in day_groups.
     ("seniors", "Seniors", "\U0001F9D3"),
+    # "City & Government" (P1): council/board/commission meetings, public
+    # hearings, and other civic-government items — a "need to know" group, kept
+    # out of the leisure-oriented "Happening today" list. Routed by is_civic.
+    ("civic", "City & Government", "\U0001F3DB️"),
     ("music", "Music & nightlife", "\U0001F3B6"),
     ("water", "Lake & Boating", "⛵"),
     # Pool activities fold into Kids & Family (open/family swim) or Fitness &
@@ -69,6 +74,7 @@ GROUP_NOUNS: dict[str, tuple[str, str]] = {
     "events": ("event", "events"),
     "family": ("kid-friendly", "kid-friendly"),
     "seniors": ("senior activity", "senior activities"),
+    "civic": ("city meeting", "city meetings"),
     "music": ("music", "music"),
     "water": ("on the water", "on the water"),
     "classes": ("class", "classes"),
@@ -93,6 +99,31 @@ def is_dropin_rec(title: str | None) -> bool:
     return bool(title) and bool(_DROPIN_REC_RE.search(title))
 
 
+# Civic / government items: council/board/commission meetings, public hearings,
+# city/town hall business. The taxonomy source of truth (P1) — both the events
+# bucket routing below AND the importance-tier classifier in
+# :mod:`app.home.sandstone` consume :func:`is_civic` so the keyword list lives in
+# exactly one place. Word-boundary matched (with an optional plural/gerund tail)
+# so "dj" inside "aDJustment" can't mis-route a Board of Adjustment to music.
+_CIVIC_HINTS = (
+    "civic", "government", "city council", "council", "commission",
+    "board of adjustment", "school board", "board meeting", "public hearing",
+    "city hall", "town hall", "planning and zoning", "city manager",
+)
+_CIVIC_RE = re.compile(
+    "|".join(r"\b" + re.escape(h) + r"(?:e?s|ing)?\b" for h in _CIVIC_HINTS),
+    re.IGNORECASE,
+)
+
+
+def is_civic(title: str | None, tags: list[str] | None = None) -> bool:
+    """True for a council/board/commission/public-hearing civic item. The civic
+    scrapers already tag these rows ("civic", "government", "meeting"), so the
+    tag words alone route them; the title hints catch untagged sources."""
+    joined = (title or "") + " " + " ".join(tags or [])
+    return bool(_CIVIC_RE.search(joined))
+
+
 def group_for_tier(
     tier: int, *, recurring: bool, title: str = "", tags: list[str] | None = None
 ) -> str:
@@ -106,6 +137,10 @@ def group_for_tier(
     """
     if is_dropin_rec(title):
         return "events"
+    # Civic items go to "City & Government" BEFORE the recurring/class check so a
+    # regularly-scheduled council meeting can't be swept into the Fitness list.
+    if is_civic(title, tags):
+        return "civic"
     if recurring or tier in (TIER_CLASS, TIER_AQUATIC):
         return "classes"
     if tier == TIER_MUSIC:

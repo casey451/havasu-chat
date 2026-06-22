@@ -187,8 +187,17 @@ def find_duplicate(
     target_dt = datetime.combine(start_date, start_time_obj) if start_time_obj else None
     norm = normalize_event_title(normalized_title)
 
+    # A bare-noon (12:00, no end) placeholder some aggregators emit is really a
+    # "time unknown", so it must merge onto a really-timed twin regardless of the
+    # ±window — otherwise the noon placeholder and the real 9 PM event (Jul 4
+    # fireworks) both survive ingest. Treat either side being TBD/bare-noon as
+    # time-agnostic.
+    incoming_tbd = _start_is_tbd_for_dedup(start_time_obj, None)
+
     def _within_window(cand: Event) -> bool:
         if target_dt and cand.start_time:
+            if incoming_tbd or _start_is_tbd_for_dedup(cand.start_time, cand.end_time):
+                return True
             cand_dt = datetime.combine(cand.date, cand.start_time)
             return abs((target_dt - cand_dt).total_seconds()) <= (
                 DEDUP_DATETIME_WINDOW_MINUTES * 60
@@ -217,12 +226,8 @@ def find_duplicate(
             < DEDUP_TITLE_FUZZY_THRESHOLD
         ):
             continue
-        if target_dt and cand.start_time:
-            cand_dt = datetime.combine(cand.date, cand.start_time)
-            delta = abs((target_dt - cand_dt).total_seconds())
-            if delta > DEDUP_DATETIME_WINDOW_MINUTES * 60:
-                continue
-        return cand
+        if _within_window(cand):
+            return cand
     return None
 
 

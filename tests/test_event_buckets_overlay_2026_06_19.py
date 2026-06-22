@@ -41,7 +41,9 @@ def test_group_for_tier_never_returns_overlay_keys() -> None:
 def test_happening_today_label_and_keys() -> None:
     labels = {key: label for key, label, _icon in GROUP_DEFS}
     assert labels["events"] == "Happening today"
-    assert {k for k, _l, _i in GROUP_DEFS} == {"events", "family", "seniors", "music", "water", "classes"}
+    assert {k for k, _l, _i in GROUP_DEFS} == {
+        "events", "family", "seniors", "civic", "music", "water", "classes"
+    }
 
 
 def test_open_mat_and_bridge_city_route_to_martial_arts() -> None:
