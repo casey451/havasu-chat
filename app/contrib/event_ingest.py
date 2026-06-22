@@ -117,6 +117,12 @@ def _location_name(rec: EventRecord) -> str:
     # Fix 2.7 — canonicalize first (collapse "Lake Havasu City, Lake Havasu City,
     # AZ" doubling and adjacent repeats), then the existing glued-city / tail tidy.
     name = normalize_location_text(canonicalize_venue(rec.venue_name) or rec.venue_name)
+    # P1: title-as-venue artifact — some feeds put the event TITLE in the venue
+    # field, producing rows whose "Where" repeats the event name. Drop it (fall
+    # back to the city) rather than show "Sunset Paddle @ Sunset Paddle".
+    norm_name = normalize_event_title(name)
+    if norm_name and norm_name == normalize_event_title(rec.title or ""):
+        return "Lake Havasu City"
     # EventApprovalFields requires location_name >= 3 chars.
     return name if len(name) >= 3 else "Lake Havasu City"
 

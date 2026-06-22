@@ -95,6 +95,23 @@ def test_45_min_apart_no_match(db) -> None:
     assert dup is None
 
 
+def test_bare_noon_placeholder_merges_onto_real_timed_twin(db) -> None:
+    # P1: a noon (12:00, no end) placeholder is really "time unknown" and must
+    # merge onto its real-timed twin regardless of the ±window (Jul 4 fireworks:
+    # noon placeholder + 9 PM real). Otherwise both survive ingest as a dup.
+    d = date(2026, 7, 4)
+    ev = _event(db, title="Fireworks Spectacular", on_date=d, start=time(21, 0))
+    dup = find_duplicate(
+        db,
+        venue_entity_id=ev.entity_id,
+        start_date=d,
+        start_time_obj=time(12, 0),  # bare-noon placeholder, 9 hours from the real 9 PM
+        normalized_title="fireworks spectacular",
+    )
+    assert dup is not None
+    assert dup.id == ev.id
+
+
 def test_fuzzy_title_88_matches(db) -> None:
     d = date(2026, 8, 1)
     ev = _event(db, title="Live Music Night", on_date=d, start=time(20, 0))
