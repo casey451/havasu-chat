@@ -223,6 +223,64 @@ def test_fetch_parse_taste_fixture_submission_url_k12() -> None:
     assert str(payload.submission_url).rstrip("/") == "https://www.k12foundation.org"
 
 
+def _parse_inline_event(html: str) -> RiverSceneEvent:
+    page = f"<html><body>{html}</body></html>"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=page)
+
+    transport = httpx.MockTransport(handler)
+    with httpx.Client(transport=transport, follow_redirects=True) as client:
+        rse = fetch_and_parse_event(
+            "https://riverscenemagazine.com/events/inline-fixture/",
+            client=client,
+            today=date(2026, 1, 1),
+        )
+    assert rse is not None
+    return rse
+
+
+def test_missing_time_row_leaves_start_time_unset_not_noon() -> None:
+    """No Time row -> NULL start time (never the fabricated noon placeholder)."""
+    rse = _parse_inline_event(
+        """
+        <h1>No Time Event</h1>
+        <table><tbody>
+        <tr><td>Start Date</td><td>April 10, 2026</td></tr>
+        <tr><td>Venue</td><td>English Village</td></tr>
+        </tbody></table>
+        """
+    )
+    assert rse.start_time is None
+    assert rse.end_time is None
+
+    payload = normalize_to_contribution(rse)
+    assert payload.event_time_start is None
+    assert payload.event_time_end is None
+    assert "Time: TBD" in payload.submission_notes
+    # The old behavior fabricated 12:00; make sure it never reappears.
+    assert "12:00" not in payload.submission_notes
+
+
+def test_present_time_row_renders_single_clean_time_line() -> None:
+    """A parsed time renders once, not as a zero-duration ``09:00 – 09:00`` span."""
+    rse = _parse_inline_event(
+        """
+        <h1>Timed Event</h1>
+        <table><tbody>
+        <tr><td>Start Date</td><td>April 10, 2026</td></tr>
+        <tr><td>Time</td><td>9:00 am</td></tr>
+        <tr><td>Venue</td><td>English Village</td></tr>
+        </tbody></table>
+        """
+    )
+    assert rse.start_time == time(9, 0)
+    payload = normalize_to_contribution(rse)
+    assert payload.event_time_start == time(9, 0)
+    assert "Time: 09:00" in payload.submission_notes
+    assert "09:00 – 09:00" not in payload.submission_notes
+
+
 def test_fetch_parse_won_bass_fixture_submission_url_facebook() -> None:
     html = (FIXTURES / "won-bass-havasu-event-details.html").read_text(encoding="utf-8")
 

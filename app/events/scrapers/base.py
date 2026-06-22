@@ -181,8 +181,12 @@ def event_payload_to_contribution(
     url = (payload.event_url or payload.source_stable_url or "").strip()
     if not url:
         raise ValueError("event payload requires event_url or source_stable_url")
-    if not payload.start_date or not payload.start_time:
-        raise ValueError("event payload requires start_date and start_time")
+    if not payload.start_date:
+        raise ValueError("event payload requires start_date")
+    # A missing start_time is valid: the events time-label contract
+    # (app/events/time_labels.py) renders a NULL start as "Time TBD" rather
+    # than fabricating a placeholder. Dropping the event would lose a real
+    # listing, so let it through with an unset time.
     name = (payload.name or "").strip()
     if not name:
         raise ValueError("event payload requires name")

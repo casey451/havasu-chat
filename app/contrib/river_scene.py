@@ -63,8 +63,8 @@ class RiverSceneEvent:
     url: str
     start_date: date
     end_date: date
-    start_time: time_type
-    end_time: time_type
+    start_time: time_type | None
+    end_time: time_type | None
     description_html: str
     venue_name: str | None
     venue_address: str | None
@@ -397,9 +397,11 @@ def fetch_and_parse_event(
         end_d = start_d
 
     time_raw = labels.get("Time")
+    # When the source page has no Time row, leave the start time unset rather
+    # than fabricating a noon placeholder. The events time-label contract
+    # (app/events/time_labels.py) renders a NULL start as "Time TBD" and sorts
+    # it after timed events — never as a fake "12 PM" start.
     st = _parse_time_cell(time_raw or "") if time_raw else None
-    if st is None:
-        st = time_type(12, 0, 0)
     et = st
 
     org = (labels.get("Organizer") or "").strip() or None
@@ -471,7 +473,12 @@ def normalize_to_contribution(rse: RiverSceneEvent) -> ContributionCreate:
     # than fabricating operator-facing scaffolding into a user-facing field.
 
     date_line = _format_date_heading(rse.start_date, rse.end_date)
-    time_line = f"Time: {rse.start_time.strftime('%H:%M')} – {rse.end_time.strftime('%H:%M')}"
+    if rse.start_time is None:
+        time_line = "Time: TBD"
+    elif rse.end_time is None or rse.end_time == rse.start_time:
+        time_line = f"Time: {rse.start_time.strftime('%H:%M')}"
+    else:
+        time_line = f"Time: {rse.start_time.strftime('%H:%M')} – {rse.end_time.strftime('%H:%M')}"
 
     lines: list[str] = [
         date_line,
