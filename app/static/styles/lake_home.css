@@ -241,6 +241,7 @@
   border-radius:4px;padding:1px 5px;border:1px solid var(--hair-2);color:var(--ink-2);background:var(--surface)}
 .rtag.kids{color:#2f7d45;border-color:#bcd9bf;background:#eef6ef}
 .rtag.seniors{color:#9a5a1f;border-color:#e3cf9e;background:var(--brass-wash)}
+.rtag.type{color:var(--brass-deep);border-color:#e3cf9e;background:var(--brass-wash)}
 /* Item 1 (full-day feed): rows whose session is already over today stay listed
    but visually recede — lower-contrast text + a small "Earlier today" chip — so
    morning-only groups (Fitness & sports, Classes) never empty out by afternoon.

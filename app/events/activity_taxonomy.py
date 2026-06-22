@@ -122,3 +122,57 @@ def split_class_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if sub_rows:
             out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
     return out
+
+
+# ── Music & nightlife subsections (P2) ────────────────────────────────────────
+# The "Music & nightlife" group splits into typed subsections the same way
+# Fitness & classes does: Live Music (bands/concerts/acoustic), Comedy & Theater
+# (stand-up/improv/plays), and an honest residual for everything else the bucket
+# holds (DJ sets, karaoke, general nightlife). Driven by the shared event-type
+# classifier so a bare band name still files under Live Music.
+MUSIC_LIVE_LABEL = "Live Music"
+MUSIC_COMEDY_LABEL = "Comedy & Theater"
+MUSIC_FALLBACK_LABEL = "More music & nightlife"
+MUSIC_SUBGROUP_ORDER: tuple[str, ...] = (
+    MUSIC_LIVE_LABEL,
+    MUSIC_COMEDY_LABEL,
+    MUSIC_FALLBACK_LABEL,
+)
+
+
+def classify_music_subgroup(
+    title: str, tags: list[str] | None = None, venue: str | None = None
+) -> str:
+    """Map a Music & nightlife row to its typed subsection. Comedy/theater wins
+    over live music when both signal (a comedy night at a music venue is comedy);
+    anything with no performance type (DJ/karaoke) lands in the honest residual."""
+    from app.events.event_type_tags import (
+        COMEDY,
+        classify_event_type,
+        is_strong_live_music,
+    )
+
+    types = classify_event_type(title=title, tags=tags, venue=venue)
+    if COMEDY in types:
+        return MUSIC_COMEDY_LABEL
+    if is_strong_live_music(title, venue):
+        return MUSIC_LIVE_LABEL
+    return MUSIC_FALLBACK_LABEL
+
+
+def split_music_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Partition already-sorted Music & nightlife rows into ordered subsections,
+    omitting empty ones (honest-omission). Comedy & Theater simply doesn't render
+    on a day with none — that is the "where volume warrants" behavior."""
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        label = classify_music_subgroup(
+            row.get("title") or "", row.get("tags"), row.get("venue")
+        )
+        buckets.setdefault(label, []).append(row)
+    out: list[dict[str, Any]] = []
+    for label in MUSIC_SUBGROUP_ORDER:
+        sub_rows = buckets.get(label)
+        if sub_rows:
+            out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
+    return out

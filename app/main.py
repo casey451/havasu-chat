@@ -83,6 +83,7 @@ from app.db.database import SessionLocal, get_db, init_db
 from app.db.jobs_store import count_stale_running, requeue_stale_claims
 from app.db.models import AuthSession, Event, Provider
 from app.digest.routes import router as digest_router
+from app.events.event_type_tags import event_type_label
 from app.events.recurrence import _event_is_recurring, next_occurrence
 from app.events.time_labels import is_time_tbd
 from app.events.title_clean import clean_event_title
@@ -1032,6 +1033,8 @@ def _render_permalink_response(
             "image_url": event.image_url,
             "formatted_datetime": _format_event_datetime(event),
             "is_past": _event_is_past(event),
+            # P2: the type folded into the detail eyebrow ("Live Music"/"Comedy").
+            "type_label": event_type_label(event.title, event.tags, event.location_name),
             "location_name": event.location_name,
             "description": event.description,
             "cost": getattr(event, "cost", None),

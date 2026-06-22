@@ -52,6 +52,7 @@ from app.events.class_occurrences import (
     class_occurrences_in_window,
     drop_event_duplicates,
 )
+from app.events.event_type_tags import event_type_label
 from app.events.senior_filter import is_senior_event
 from app.events.time_labels import short_time_label, time_sort_key
 from app.events.title_clean import clean_event_title
@@ -398,6 +399,7 @@ def _event_feed_row(
         "venue": venue,
         "url": url,
         "recurring": recurring,
+        "type_label": event_type_label(title, tags, venue),
         "tags": tags if tags is not None else _audience_tags(title, None),
         # Item 1: the home feed shows the FULL day; rows already over today are
         # kept but visually muted (the template's ``frow--past``), so groups whose
