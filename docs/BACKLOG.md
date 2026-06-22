@@ -2569,3 +2569,9 @@ its own focused pass and most gated behind dry-run -> counts -> approval:
   events — prefer the per-event article URL over the shared venue FB).
 - **Flyer image backfill** (prod data op, gated): the detail page already renders
   `image_url` when present; thin twin records lack it — a backfill, not a code fix.
+
+**Decision (Casey-confirmed 2026-06-21):** the 2026-06-19 youth-class overlay-dup
+(youth classes surfaced under BOTH their activity bucket and Kids & Family) is
+**superseded by P1** — youth classes are now single-listed under Kids & Family
+only (its typed Youth subsection); senior fitness stays dual. KEEP, no revert.
+Encoded in `app/events/activity_taxonomy.py` + `tests/test_event_buckets_overlay_2026_06_19.py`.
