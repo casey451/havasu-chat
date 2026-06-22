@@ -67,7 +67,7 @@ class GoLakeHavasuEvent:
     url: str
     start_date: date
     end_date: date
-    start_time: time_type
+    start_time: time_type | None
     end_time: time_type | None
     description: str
     venue_name: str | None
@@ -386,9 +386,10 @@ def fetch_and_parse_event(
     if end_d is None or end_d < start_d:
         end_d = start_d
 
+    # No time in the DOM or JSON-LD: leave it unset rather than fabricating a
+    # noon placeholder. The time-label contract (app/events/time_labels.py)
+    # renders a NULL start as "Time TBD" and sorts it after timed events.
     start_t = dom_st or (ld_start.timetz().replace(tzinfo=None) if ld_start else None)
-    if start_t is None:
-        start_t = time_type(12, 0, 0)
     end_t = dom_et or (ld_end.timetz().replace(tzinfo=None) if ld_end else None)
     if end_t is not None and end_t == start_t:
         end_t = None
@@ -443,7 +444,9 @@ def normalize_to_contribution(ev: GoLakeHavasuEvent) -> ContributionCreate:
     key); ``submission_url`` is the public organizer link when present.
     """
     date_line = _format_date_heading(ev.start_date, ev.end_date)
-    if ev.end_time is not None:
+    if ev.start_time is None:
+        time_line = "Time: TBD"
+    elif ev.end_time is not None:
         time_line = f"Time: {ev.start_time.strftime('%H:%M')} - {ev.end_time.strftime('%H:%M')}"
     else:
         time_line = f"Time: {ev.start_time.strftime('%H:%M')}"
