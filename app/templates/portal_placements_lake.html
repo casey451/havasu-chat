@@ -29,6 +29,11 @@
   {% else %}
   <div style="margin-top:22px">
     <a class="btn btn-primary" href="/portal/placements/new">Buy a placement</a>
+    {% if has_billing_account %}
+    <form method="post" action="/billing/portal" style="display:inline;margin-left:8px">
+      <button type="submit" class="btn btn-ghost">Manage billing</button>
+    </form>
+    {% endif %}
   </div>
 
   <h2 class="disp" style="font-size:21px;margin:30px 0 12px">Active &amp; pending placements</h2>
@@ -45,6 +50,7 @@
           <th scope="col">Billing</th>
           <th scope="col">Price</th>
           <th scope="col">Status</th>
+          {% if billing_enabled %}<th scope="col">Action</th>{% endif %}
         </tr>
       </thead>
       <tbody>
@@ -55,7 +61,16 @@
           <td>{{ p.category_slug or 'Homepage' }}{% if p.rank_tier %} · tier {{ p.rank_tier }}{% endif %}</td>
           <td>{{ p.billing_type|capitalize }}</td>
           <td>{{ "$%.0f"|format(p.price_cents/100) if p.price_cents else 'TBD' }}</td>
-          <td><span class="pill{% if p.status == 'active' %} on{% endif %}">{{ p.status|capitalize }}</span></td>
+          <td><span class="pill{% if p.status == ACTIVE %} on{% endif %}">{{ p.status|capitalize }}</span></td>
+          {% if billing_enabled %}
+          <td>
+            {% if p.status == PENDING %}
+            <form method="post" action="/billing/checkout/{{ p.id }}" style="display:inline">
+              <button type="submit" class="btn btn-primary">Pay now</button>
+            </form>
+            {% else %}<span class="foot-note">—</span>{% endif %}
+          </td>
+          {% endif %}
         </tr>
         {% endfor %}
       </tbody>

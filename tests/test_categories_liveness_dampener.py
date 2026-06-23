@@ -141,8 +141,11 @@ def test_null_liveness_is_not_dampened() -> None:
         _cleanup(eids)
 
 
-def test_listing_sql_rating_sort_applies_dampener() -> None:
-    """``category_listing`` SQL-only path (default sort) dampens too."""
+def test_listing_sql_rating_sort_applies_dampener(monkeypatch) -> None:
+    """``category_listing`` SQL-only rating path dampens too. This path is the
+    shuffle-off rollback (the daily-shuffle default supersedes it when on), so
+    exercise it with ``RANKING_DAILY_SHUFFLE=0``."""
+    monkeypatch.setenv("RANKING_DAILY_SHUFFLE", "0")
     suf = uuid.uuid4().hex[:8]
     fresh, stale = f"Fresh Bistro {suf}", f"Stale Bistro {suf}"
     eids = _seed(

@@ -41,7 +41,7 @@
     </section>
     {% endfor %}
   {% elif category_cards %}
-    <div class="listcard">{% for card in category_cards %}{% include 'components/lake_biz_card.html' %}{% endfor %}</div>
+    <div class="listcard">{% set ns = namespace(new_shown=false) %}{% for card in category_cards %}{% if card.is_new_unrated and not ns.new_shown %}{% set ns.new_shown = true %}<div class="grid-divider" role="separator">New / Not yet rated</div>{% endif %}{% include 'components/lake_biz_card.html' %}{% endfor %}</div>
   {% endif %}
 
   {% if list_controls and not category_cards and not card_groups %}
@@ -62,7 +62,7 @@
       <h2>Own the {{ trade_label }} spot in Lake Havasu City</h2>
       <p>Be the featured {{ trade_label | lower }} business at the top of this page — quiet, clearly labeled, no pop-ups.</p>
     </div>
-    <a class="btn btn-brass" href="/portal/placements">Claim this category</a>
+    <a class="btn btn-brass" href="/sponsor">Claim this category</a>
   </aside>
 
   {% if trade_faqs %}

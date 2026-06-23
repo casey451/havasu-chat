@@ -16,9 +16,27 @@
     <h1>Be where the <em>whole town looks.</em></h1>
     <p class="sub">Clearly labeled placements on the pages Havasu actually uses — home, today, categories, and search. Quiet, no banner clutter, no dark patterns. Every product and every price is on one public rate card.</p>
     <div class="spon-doors">
-      <a class="btn btn-primary" href="/portal/placements">See placements &amp; prices</a>
+      <a class="btn btn-primary" href="/portal/placements/new">Start advertising</a>
       <a class="btn btn-ghost" href="mailto:hello@askhava.com?subject=Sponsor%20inquiry">Get in touch</a>
     </div>
   </section>
+
+  {% if offers %}
+  <section class="spon-rates" aria-label="Rate card" style="margin-top:8px">
+    <div class="lcards">
+      {% for o in offers %}
+      <div class="card lcard">
+        <h3>{{ o.label }}</h3>
+        <p class="price" style="font-size:20px;font-weight:700;margin:6px 0">
+          {% if o.price_cents is not none %}{{ "$%.0f"|format(o.price_cents/100) }}<span style="font-size:13px;font-weight:500">/mo{% if o.indicative %} starting{% endif %}</span>{% else %}Price on request{% endif %}
+        </p>
+        <p class="cat">{{ o.blurb }}</p>
+        <p class="act"><a class="btn btn-ghost" href="/portal/placements/new">Buy &rarr;</a></p>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="foot-note" style="margin-top:12px">Prices are set in the admin price book; every paid spot is labeled <strong>Sponsored</strong>. You'll sign in and claim your listing before paying.</p>
+  </section>
+  {% endif %}
 </div>
 {% endblock %}

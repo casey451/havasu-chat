@@ -158,19 +158,56 @@ def create_checkout_session(
     }
     if recurring:
         price_data["recurring"] = {"interval": "month"}
-    session = stripe.checkout.Session.create(
-        mode="subscription" if recurring else "payment",
-        line_items=[{"price_data": price_data, "quantity": 1}],
-        success_url=success_url,
-        cancel_url=cancel_url,
-        customer_email=customer_email or None,
-        client_reference_id=placement.id,
-        metadata={"placement_id": placement.id, "provider_id": placement.provider_id},
-    )
+    try:
+        session = stripe.checkout.Session.create(
+            mode="subscription" if recurring else "payment",
+            line_items=[{"price_data": price_data, "quantity": 1}],
+            success_url=success_url,
+            cancel_url=cancel_url,
+            customer_email=customer_email or None,
+            client_reference_id=placement.id,
+            metadata={"placement_id": placement.id, "provider_id": placement.provider_id},
+        )
+    except Exception:  # noqa: BLE001 — a Stripe-side error must not 500 checkout
+        return None
     placement.stripe_checkout_session_id = session.get("id")
     db.add(placement)
     db.commit()
     return session.get("url")
+
+
+def create_customer_portal_session(
+    customer_id: str, *, return_url: str
+) -> str | None:
+    """Create a Stripe-hosted Customer Portal session for ``customer_id`` and
+    return its URL. The portal (configured no-code in the Stripe Dashboard) is
+    where a merchant updates a card, downloads invoices, or cancels — a cancel
+    fires ``customer.subscription.deleted`` which :func:`handle_webhook_event`
+    turns into a placement release. Returns ``None`` while billing is dormant or
+    when no ``customer_id`` is held."""
+    if not config.billing_enabled() or not customer_id:
+        return None
+    stripe: Any = config.stripe_library()
+    if stripe is None:  # pragma: no cover — guarded by billing_enabled()
+        return None
+    stripe.api_key = config.stripe_secret_key()
+    try:
+        session = stripe.billing_portal.Session.create(
+            customer=customer_id, return_url=return_url
+        )
+    except Exception:  # noqa: BLE001 — a Stripe-side error must not 500 the page
+        return None
+    return session.get("url")
+
+
+def customer_id_for_user_placements(placements: list[Placement]) -> str | None:
+    """The Stripe customer id held by any of a merchant's placements (the first
+    found). One Stripe customer backs all of a merchant's placements once they
+    have paid once, so any placement's id resolves the portal."""
+    for p in placements:
+        if p.stripe_customer_id:
+            return p.stripe_customer_id
+    return None
 
 
 def handle_webhook_event(db: Session, event: dict[str, Any]) -> str:
@@ -225,6 +262,41 @@ def handle_webhook_event(db: Session, event: dict[str, Any]) -> str:
             stripe_object_id=obj.get("id"),
         )
         return "renewed"
+
+    if etype == "customer.subscription.updated":
+        # A subscription's lifecycle changed. Drive the placement off its status:
+        # active/trialing → keep the spot live; a terminal/unpaid state → release
+        # it. ``past_due`` is a grace state (Stripe is still retrying) — leave the
+        # placement live and wait for invoice.paid / .payment_failed to decide.
+        sub_id = obj.get("id")
+        placement = _placement_by_stripe(db, subscription_id=sub_id)
+        if placement is None:
+            return "no_placement"
+        status = str(obj.get("status") or "").lower()
+        cancel_at_period_end = bool(obj.get("cancel_at_period_end"))
+        if status in ("active", "trialing") and not cancel_at_period_end:
+            # Only entitlement-extending events (invoice.paid) move paid_through.
+            # A routine/redelivered subscription.updated must NOT keep pushing the
+            # paid window out — reactivate a non-active spot preserving its window,
+            # and no-op when it is already active.
+            if placement.status != PlacementStatus.active.value:
+                activate_paid_placement(db, placement, paid_through=placement.paid_through)
+            return "updated_active"
+        if status in ("canceled", "unpaid", "incomplete_expired"):
+            release_placement(db, placement)
+            record_revenue(
+                db,
+                kind=RevenueEventKind.subscription_canceled.value,
+                amount_cents=0,
+                provider_id=placement.provider_id,
+                placement_id=placement.id,
+                stripe_event_id=event_id,
+                stripe_object_id=sub_id,
+            )
+            return "released"
+        # active-but-cancel_at_period_end, past_due, paused, etc.: no state change
+        # here — the spot stays as-is until a terminal event arrives.
+        return "noop"
 
     if etype in ("invoice.payment_failed", "customer.subscription.deleted"):
         sub_id = obj.get("subscription") or obj.get("id")

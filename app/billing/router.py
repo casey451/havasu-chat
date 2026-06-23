@@ -53,6 +53,34 @@ def start_checkout(
     return RedirectResponse(url=url, status_code=303)
 
 
+@router.post("/portal", response_model=None)
+def open_customer_portal(
+    request: Request, db: Session = Depends(get_db)
+) -> RedirectResponse:
+    """Send the logged-in merchant to the Stripe-hosted Customer Portal to
+    manage/cancel their placements (card, invoices, cancellation). 404 while
+    billing is dormant; 303 to ``/portal/placements`` when no Stripe customer is
+    held yet (nothing has been paid for)."""
+    _require_enabled()
+    user = get_current_user(request)
+    if user is None:
+        raise HTTPException(status_code=401, detail="login_required")
+    providers = placement_logic.claimed_providers(db, user.id)
+    placements = placement_logic.active_placements_for_providers(
+        db, [p.id for p in providers]
+    )
+    customer_id = service.customer_id_for_user_placements(placements)
+    if not customer_id:
+        return RedirectResponse(url="/portal/placements", status_code=303)
+    base = str(request.base_url).rstrip("/")
+    url = service.create_customer_portal_session(
+        customer_id, return_url=f"{base}/portal/placements"
+    )
+    if not url:
+        raise HTTPException(status_code=503, detail="portal_unavailable")
+    return RedirectResponse(url=url, status_code=303)
+
+
 @router.post("/webhook", response_model=None)
 async def stripe_webhook(request: Request, db: Session = Depends(get_db)) -> dict[str, object]:
     """Stripe webhook receiver. Verifies the signature, then applies the event
