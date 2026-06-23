@@ -89,10 +89,12 @@ _COMMON_FAQS: tuple[tuple[str, str], ...] = (
     ),
     (
         "How are the {label_lower} on this page ranked?",
-        "By real public reviews — more reviews, more weight, so a {singular} "
-        "with a strong rating across many reviews beats a perfect score from "
-        "only a couple. Spots can't be bought, Hava never invents a rating, and "
-        "any sponsored placement is clearly labeled.",
+        "The default Featured order rotates the well-reviewed locals daily, so "
+        "the same {label_lower} aren't always on top — both the cutoff and the "
+        "rotation pool are based on real public reviews (more reviews, more "
+        "weight). Tap Top rated to sort strictly by review strength. Spots "
+        "can't be bought, Hava never invents a rating, and any sponsored "
+        "placement is clearly labeled.",
     ),
     (
         "Are the ratings and review counts real?",
@@ -457,13 +459,16 @@ def _trade_provider_rows(db: Session, trade: Trade) -> list[Provider]:
 
 
 def trade_listing(
-    db: Session, trade: Trade, *, now: datetime
+    db: Session, trade: Trade, *, now: datetime, sort: str | None = None
 ) -> tuple[list[dict[str, Any]], int, list[Provider]]:
     """``(cards, total, providers)`` for a trade page.
 
     Cards use the SAME builder as the parent category page, so the trade page
     renders identical listing cards (rating stars, review counts, open-now,
     photo). ``providers`` rides along for the ItemList JSON-LD.
+
+    ``sort="favorites"`` ("Top rated") suppresses the daily Featured shuffle and
+    keeps the dampened-rating order; any other value gets the shuffled default.
     """
     providers = _trade_provider_rows(db, trade)
     allowed = cat_queries._allowed_subcategory_slugs(TRADE_PARENT_SLUG)
@@ -492,7 +497,10 @@ def trade_listing(
 
     new_unrated_ids: frozenset[str] = frozenset()
     by_id = {p.id: p for p in providers}
-    if daily_shuffle_enabled():
+    # "Top rated" (?sort=favorites) keeps the dampened-rating order; the daily
+    # Featured shuffle only drives the default sort.
+    apply_shuffle = daily_shuffle_enabled() and (sort or "").strip().lower() != "favorites"
+    if apply_shuffle:
         arr = arrange_listing(
             [
                 ItemRating(p.id, p.google_rating, getattr(p, "google_review_count", None))

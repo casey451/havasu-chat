@@ -35,3 +35,16 @@ def test_directory_copy_has_no_markdown_markers() -> None:
         for marker in _BANNED:
             assert marker not in text, f"{label} contains {marker!r}: {text[:80]!r}"
         assert not text.lstrip().startswith("#"), f"{label} starts with '#': {text[:80]!r}"
+
+
+def test_strip_md_removes_heading_and_inline_markers() -> None:
+    # Render-path belt-and-suspenders: even if markdown slips into the copy, the
+    # router strips it before the template renders it verbatim into <h3>/<p>.
+    from app.categories.router import _strip_md
+
+    assert _strip_md("### How many restaurants?") == "How many restaurants?"
+    assert _strip_md("**Bold** and `code`") == "Bold and code"
+    assert _strip_md("###### Deep heading") == "Deep heading"
+    # Ordinary text (and a non-heading '#') is untouched.
+    assert _strip_md("Suite #3 — open now") == "Suite #3 — open now"
+    assert _strip_md("Plain answer.") == "Plain answer."

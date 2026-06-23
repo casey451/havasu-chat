@@ -28,6 +28,7 @@ is the test seam.
 
 from __future__ import annotations
 
+import re
 import time as _time
 from collections.abc import Callable
 from pathlib import Path
@@ -680,7 +681,12 @@ def _render_trade_page(
 ) -> HTMLResponse:
     """Render a curated home-services trade page (the original P2.1/P2.2 path)."""
     now = now_lake_havasu()
-    cards, total, providers = trade_pages.trade_listing(db, trade_obj, now=now)
+    # P4: "Top rated" (?sort=favorites) suppresses the daily Featured shuffle and
+    # keeps the dampened-rating order; everything else gets the shuffled default.
+    sort_param = (request.query_params.get("sort") or "").strip().lower()
+    cards, total, providers = trade_pages.trade_listing(
+        db, trade_obj, now=now, sort=sort_param
+    )
     if total < trade_pages.TRADE_PAGE_MIN_PROVIDERS:
         # Scaled-content gate: below the minimum the page does not exist.
         raise HTTPException(status_code=404, detail="trade_below_minimum")
@@ -724,17 +730,21 @@ def _render_trade_page(
     label_lower = trade_obj.label.lower()
     faqs = [
         (
-            q.format(
-                n=total,
-                label=trade_obj.label,
-                label_lower=label_lower,
-                singular=trade_obj.singular,
+            _strip_md(
+                q.format(
+                    n=total,
+                    label=trade_obj.label,
+                    label_lower=label_lower,
+                    singular=trade_obj.singular,
+                )
             ),
-            a.format(
-                n=total,
-                label=trade_obj.label,
-                label_lower=label_lower,
-                singular=trade_obj.singular,
+            _strip_md(
+                a.format(
+                    n=total,
+                    label=trade_obj.label,
+                    label_lower=label_lower,
+                    singular=trade_obj.singular,
+                )
             ),
         )
         for q, a in trade_obj.faqs
@@ -752,10 +762,14 @@ def _render_trade_page(
             "trade_slug": trade_obj.slug,
             "trade_label": trade_obj.label,
             "trade_count": total,
-            "trade_intro": trade_obj.intro,
+            "trade_intro": _strip_md(trade_obj.intro),
             "trade_faqs": faqs,
             "category_cards": visible_cards,
             "list_controls": list_controls,
+            # P3 finding 34: the category ad slot lives at the TOP on every
+            # template. A sold page_ad pins above the unsold "claim" CTA; None
+            # (the dormant default) → the slot renders the claim invitation.
+            "sponsored": serving.serve_category_page_ad(db, trade_obj.slug),
             "canonical_override": absolute_url(page_path),
             "breadcrumb_jsonld": breadcrumb_jsonld,
             "itemlist_jsonld": itemlist_jsonld,
@@ -763,6 +777,22 @@ def _render_trade_page(
             **_chrome_context(db),
         },
     )
+
+
+#: Markdown markers that must never reach the directory copy <h3>/<p> (the
+#: templates render intro/FAQ text verbatim — there is no markdown filter by
+#: site convention). The curated source is already plain (guarded by
+#: ``tests/test_faq_copy_no_markdown.py``); this is the render-path belt-and-
+#: suspenders so a leading ``### `` heading or ``**bold**`` can never surface
+#: even if markdown slips into the copy later. Strips a leading heading run and
+#: any inline bold/code fences; leaves ordinary text untouched.
+_MD_HEADING_RE = re.compile(r"^\s*#{1,6}[ \t]+")
+
+
+def _strip_md(text: str) -> str:
+    """Remove leading markdown heading markers and inline bold/code fences."""
+    cleaned = _MD_HEADING_RE.sub("", text)
+    return cleaned.replace("**", "").replace("`", "")
 
 
 def _itemlist_jsonld(name: str, total: int, providers: list[Provider]) -> dict[str, Any]:
@@ -807,7 +837,7 @@ def _apply_list_controls(
     scope).
     """
     sort = (query_params.get("sort") or "top").lower()
-    if sort not in ("top", "az"):
+    if sort not in ("top", "az", "favorites"):
         sort = "top"
     open_now = (query_params.get("open") or "").lower() in ("1", "true", "yes", "on")
     try:
@@ -821,12 +851,18 @@ def _apply_list_controls(
         working = [c for c in working if c.get("is_open") is True]
     if sort == "az":
         working = sorted(working, key=lambda c: (c.get("name") or "").lower())
+    elif sort == "favorites":
+        # "Top rated": the cards arrive in dampened-rating order (the daily
+        # Featured shuffle is suppressed upstream for this sort), so preserve it
+        # as-is. Paid pins were applied upstream and unrated rows already sink
+        # last via the SQL nullslast ordering — no re-sort needed here.
+        pass
     else:
-        # IA v2 Slice 3 — "best match" default: keep the dampened-rating order but
-        # stably demote closed and not-yet-reviewed cards, so an open, proven place
-        # never ranks below a closed/no-review one (the audit's "closed studio with
-        # no reviews shown first" bug). Python's stable sort preserves the existing
-        # rating order within each tier; sponsored pins were already applied upstream.
+        # Featured (default): keep the daily-shuffled order but stably demote
+        # closed and not-yet-reviewed cards, so an open, proven place never ranks
+        # below a closed/no-review one (the audit's "closed studio with no reviews
+        # shown first" bug). Python's stable sort preserves the incoming order
+        # within each tier; sponsored pins were already applied upstream.
         working = sorted(
             working,
             key=lambda c: (
@@ -860,7 +896,9 @@ def _apply_list_controls(
         "total_pages": total_pages,
         "has_prev": page > 1,
         "has_next": page < total_pages,
+        # url_top = the bare route = the daily-shuffled "Featured" default.
         "url_top": _href(want_sort="top", want_open=open_now, want_page=1),
+        "url_favorites": _href(want_sort="favorites", want_open=open_now, want_page=1),
         "url_az": _href(want_sort="az", want_open=open_now, want_page=1),
         "url_open_on": _href(want_sort=sort, want_open=True, want_page=1),
         "url_open_off": _href(want_sort=sort, want_open=False, want_page=1),
@@ -925,10 +963,10 @@ def _group_cards_by_neighborhood(
 # uses. ``{name}`` is the leaf's display noun (e.g. "Plumbing", "Restaurants").
 _LEAF_INTRO_TEMPLATE = (
     "{name} in Lake Havasu City, AZ — part of our {department} directory. "
-    "The {n} listings below are ranked by real public reviews — more reviews, "
-    "more weight — so a strong rating across many reviews beats a perfect "
-    "score from only a couple. Spots can't be bought, Hava never invents a "
-    "rating, and any sponsored placement is clearly labeled."
+    "The {n} well-reviewed listings below rotate daily so you're not always "
+    "seeing the same names on top; tap Top rated to sort by review strength "
+    "instead. Spots can't be bought, Hava never invents a rating, and any "
+    "sponsored placement is clearly labeled."
 )
 
 
@@ -944,7 +982,10 @@ def _render_leaf_page(
     people actually google.
     """
     now = now_lake_havasu()
-    cards, total, providers = leaf_pages.leaf_listing(db, leaf, now=now)
+    # P4: "Top rated" (?sort=favorites) suppresses the daily Featured shuffle and
+    # keeps the dampened-rating order; everything else gets the shuffled default.
+    sort_param = (request.query_params.get("sort") or "").strip().lower()
+    cards, total, providers = leaf_pages.leaf_listing(db, leaf, now=now, sort=sort_param)
     if total < leaf_pages.LEAF_PAGE_MIN_PROVIDERS:
         raise HTTPException(status_code=404, detail="leaf_below_minimum")
 
@@ -995,18 +1036,18 @@ def _render_leaf_page(
     # the searcher noun so the grammar reads naturally ("these plumbers").
     curated = leaf_copy.copy_for_leaf(leaf.slug)
     if curated is not None:
-        intro = curated.intro
+        intro = _strip_md(curated.intro)
         name_lower = display.lower()
         faqs = [
             (
-                q.format(n=total, name=display, name_lower=name_lower),
-                a.format(n=total, name=display, name_lower=name_lower),
+                _strip_md(q.format(n=total, name=display, name_lower=name_lower)),
+                _strip_md(a.format(n=total, name=display, name_lower=name_lower)),
             )
             for q, a in curated.faqs
         ]
     else:
-        intro = _LEAF_INTRO_TEMPLATE.format(
-            name=display, n=total, department=dept_label
+        intro = _strip_md(
+            _LEAF_INTRO_TEMPLATE.format(name=display, n=total, department=dept_label)
         )
         faqs = []
 
@@ -1027,6 +1068,9 @@ def _render_leaf_page(
             "category_cards": visible_cards,
             "card_groups": card_groups,
             "list_controls": list_controls,
+            # P3 finding 34: top-of-page ad slot — sold page_ad pins above the
+            # unsold "claim" CTA. None (dormant default) → claim invitation.
+            "sponsored": serving.serve_category_page_ad(db, leaf.slug),
             "canonical_override": absolute_url(page_path),
             "breadcrumb_jsonld": breadcrumb_jsonld,
             "itemlist_jsonld": itemlist_jsonld,
@@ -1219,7 +1263,7 @@ def render_cuisine_landing(
         cuisine=slug,
     )
     headline = f"{label} Restaurants in Lake Havasu City"
-    one_liner = f"Local {label} spots — open now or coming up, ranked by real public reviews."
+    one_liner = f"Local {label} spots — well-reviewed locals, with a daily-rotating featured order."
     try:
         page = max(int(request.query_params.get("page", "1")), 1)
     except (TypeError, ValueError):

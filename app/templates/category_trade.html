@@ -60,9 +60,9 @@
   </section>
 
   {# ── UX-2: sticky filter/sort chip bar. Server-rendered links (no JS) — Open
-     now filters on live America/Phoenix hours; Top rated is the default
-     volume-weighted sort; A–Z is alphabetical. Distance needs geolocation and
-     is intentionally out of scope. ── #}
+     now filters on live America/Phoenix hours; Featured (default) is the daily
+     shuffle of the well-reviewed pool; Top rated is the volume-weighted rating
+     sort; A–Z is alphabetical. Distance needs geolocation and is out of scope. ── #}
   {% if list_controls %}
   <div class="cat-filters" role="region" aria-label="Filter and sort listings">
     <div class="wrap cat-filters-in">
@@ -72,7 +72,10 @@
       <span class="catfilter-sep" aria-hidden="true"></span>
       <a class="catfilter{% if list_controls.sort == 'top' %} is-on{% endif %}"
          href="{{ list_controls.url_top }}"
-         aria-pressed="{{ 'true' if list_controls.sort == 'top' else 'false' }}">Top rated</a>
+         aria-pressed="{{ 'true' if list_controls.sort == 'top' else 'false' }}">Featured</a>
+      <a class="catfilter{% if list_controls.sort == 'favorites' %} is-on{% endif %}"
+         href="{{ list_controls.url_favorites }}"
+         aria-pressed="{{ 'true' if list_controls.sort == 'favorites' else 'false' }}">Top rated</a>
       <a class="catfilter{% if list_controls.sort == 'az' %} is-on{% endif %}"
          href="{{ list_controls.url_az }}"
          aria-pressed="{{ 'true' if list_controls.sort == 'az' else 'false' }}">A&ndash;Z</a>
@@ -82,6 +85,30 @@
   {% endif %}
 
   <div class="wrap listwrap">
+    {# ── P3 finding 34: the category ad slot lives at the TOP, above the
+       listings. A sold page_ad renders the Sponsored unit; when unsold, the
+       honest "claim this category" CTA holds the same top spot. In-grid paid
+       placements stay pinned within the list below. ── #}
+    {% if sponsored %}
+    <aside class="cat-claim cat-claim-top" aria-label="Category sponsor">
+      <div class="cat-claim-body">
+        <span class="d-tag">Sponsored · {{ trade_label }}</span>
+        <h2>{{ sponsored.headline or sponsored.name }}</h2>
+        {% if sponsored.pitch %}<p>{{ sponsored.pitch }}</p>{% endif %}
+      </div>
+      <a class="cat-claim-cta" href="{% if sponsored.click_url %}{{ sponsored.click_url }}{% else %}/sponsor/click?id={{ sponsored.id }}&slot=promoted{% endif %}">View →</a>
+    </aside>
+    {% else %}
+    <aside class="cat-claim cat-claim-top" aria-label="Advertise in this category">
+      <div class="cat-claim-body">
+        <span class="d-tag">Advertise</span>
+        <h2>Own the {{ trade_label }} spot in Lake Havasu City</h2>
+        <p>Be the featured {{ trade_label | lower }} business at the top of this page — quiet, clearly labeled, no pop-ups.</p>
+      </div>
+      <a class="cat-claim-cta" href="/sponsor">Claim this category →</a>
+    </aside>
+    {% endif %}
+
     {# P7: when the list is large and spread across neighborhoods, the router
        hands us ``card_groups`` (sections of (label, cards)). Otherwise it's
        None and we render the original single flat grid. #}
@@ -120,19 +147,6 @@
     </nav>
     {% endif %}
 
-    {# ── G Tier-3: category-claim slot. Every category page is sellable
-       inventory — "own the {category}" — the recurring volume product. No
-       per-category sponsor model yet, so this is the honest claim invitation
-       into the existing reservation flow (real sponsor card lands when
-       category-scoped sponsors are modeled). Clearly labeled, no pop-up. ── #}
-    <aside class="cat-claim" aria-label="Advertise in this category">
-      <div class="cat-claim-body">
-        <span class="d-tag">Advertise</span>
-        <h2>Own the {{ trade_label }} spot in Lake Havasu City</h2>
-        <p>Be the featured {{ trade_label | lower }} business at the top of this page — quiet, clearly labeled, no pop-ups.</p>
-      </div>
-      <a class="cat-claim-cta" href="/sponsor">Claim this category →</a>
-    </aside>
 
     {% if trade_faqs %}
     <section class="trade-faq" aria-labelledby="trade-faq-h">
@@ -152,7 +166,7 @@
     <div class="wrap askstrip-in">
       <h2>Can't decide? <em>Ask.</em></h2>
       <form action="/chat" method="get">
-        <input type="text" name="q" placeholder="Ask about {{ trade_label | lower }}…" aria-label="Ask Hava">
+        <input type="text" name="q" placeholder="Ask about {{ trade_label | lower }}…" aria-label="Ask about {{ trade_label | lower }}">
         <button type="submit">Ask Hava</button>
       </form>
     </div>

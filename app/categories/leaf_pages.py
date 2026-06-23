@@ -250,7 +250,7 @@ def _leaf_provider_backed_entity_ids(db: Session, leaf_id: int) -> set[str]:
 
 
 def leaf_listing(
-    db: Session, leaf: Leaf, *, now: datetime
+    db: Session, leaf: Leaf, *, now: datetime, sort: str | None = None
 ) -> tuple[list[dict[str, Any]], int, list[Provider]]:
     """``(cards, total, providers)`` for a leaf page.
 
@@ -258,6 +258,10 @@ def leaf_listing(
     Provider-less place entities follow as place cards, alphabetically. ``total``
     is the full renderable count (the gate input). ``providers`` carries only the
     Provider-backed rows for the ItemList JSON-LD (place cards aren't linkable).
+
+    ``sort`` is the user's chip selection. ``"favorites"`` ("Top rated")
+    suppresses the daily Featured shuffle so the dampened-rating order is kept;
+    every other value (default/"top"/"az") gets the shuffled Featured order.
     """
     providers = leaf_provider_rows(db, leaf)
     # Exclude EVERY provider-backed entity (not just the locality-surviving ones)
@@ -297,7 +301,10 @@ def leaf_listing(
 
     new_unrated_ids: frozenset[str] = frozenset()
     by_id = {p.id: p for p in providers}
-    if daily_shuffle_enabled():
+    # "Top rated" (?sort=favorites) is an explicit user override that keeps the
+    # dampened-rating order; the daily Featured shuffle only drives the default.
+    apply_shuffle = daily_shuffle_enabled() and (sort or "").strip().lower() != "favorites"
+    if apply_shuffle:
         # §2.1/§2.2: ≤cap paid pinned, daily-shuffled >gate pool, "New / Not yet
         # rated" tail, then the low band — the same ordering as the dept grid.
         arr = arrange_listing(
