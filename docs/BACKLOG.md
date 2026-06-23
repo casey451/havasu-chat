@@ -2620,3 +2620,26 @@ its own focused pass and most gated behind dry-run -> counts -> approval:
 **superseded by P1** — youth classes are now single-listed under Kids & Family
 only (its typed Youth subsection); senior fitness stays dual. KEEP, no revert.
 Encoded in `app/events/activity_taxonomy.py` + `tests/test_event_buckets_overlay_2026_06_19.py`.
+
+**Decision SUPERSEDED (2026-06-23 calendar-completeness brief):** the "senior
+fitness stays dual" clause above is reversed. EVERY senior item — social, fitness,
+senior-center program — now renders under the top-level **Seniors** group and ONLY
+there (no dual-listing into Fitness & classes; fixed the live "Water Wellness under
+both" bug). Senior membership is decided by tag + provider/venue (Senior Center) +
+senior-program title words; a bare game name ("Bunco") is no longer senior on its
+own. Encoded in `app/events/senior_filter.py` + `app/home/events_views.py`
+(`_route_occurrence`) + `tests/test_seniors_phase4.py`. Branch
+`fix/calendar-completeness` (held for Casey's merge).
+
+**OPEN — page-less class venues (judgment call for Casey):** Desert Bloom Learning
+Center (14 scheds), Havasu Pilates Studio (31), Havasu Horseback Rides (2) have
+class schedules on the calendar but NO directory Provider row, so their rows render
+link-less. Two conflicting precedents: the 2026-06-23 brief says "make them link"
+(→ create directory listings, needs website/description content); the 2026-06-18
+`unpublish_pageless_schedules.py` precedent says "just don't include them if they
+don't have a page" (→ unpublish). Needs a Casey decision before any prod write.
+Aqua Beginnings is NOT in this set — its provider already exists on a sibling
+entity; the 1-schedule re-point is staged in
+`scripts/repoint_aqua_beginnings_schedule.py` (dry-run shown, awaiting approval).
+A render-time website fallback (link to the provider website when there is no
+directory page) shipped in `app/events/class_occurrences.py` for future venues.

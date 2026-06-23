@@ -379,9 +379,21 @@ _WEEK_WATER_HINTS = (
 # class and water hints so "Open Swim", "Family Swim", "Lap Swim", "Aqua Zumba"
 # and "Water Aerobics" all route to the Aquatic Center group. Genuine lake
 # activities carry a lake word (above) and no pool word, so they fall through.
+# Pool words. "splash" was dropped (2026-06-23): it is not a swim-CLASS signal
+# and it swept one-off celebrations into the Fitness list ("Splash Bash! Red,
+# White & Blue", "HEAT Hotel Stars, Stripes & Splashes"). Genuine pool classes
+# carry "swim"/"aqua"/"water aerobics"/"lap swim", not "splash".
 _AQUATIC_HINTS = (
-    "swim", "swimming", "aqua", "aquatic", "pool", "splash", "dive", "diving",
+    "swim", "swimming", "aqua", "aquatic", "pool", "dive", "diving",
     "water aerobics", "water fitness", "water exercise", "water polo", "lifeguard",
+)
+# On-the-water ACTIVITY words — these literally cannot happen in a lap pool, so a
+# title carrying one is Lake & Boating even when an 'aquatics' source tag would
+# otherwise read it as a pool class (live: "Sunrise Kayak", tagged aquatics,
+# landed in Fitness & classes). Checked on the TITLE so the tag can't override.
+_ONWATER_ACTIVITY_HINTS = (
+    "kayak", "kayaking", "paddleboard", "paddle", "paddling", "canoe", "canoeing",
+    "sail", "sailing", "regatta", "wakeboard", "jet ski", "jetski",
 )
 _MUSIC_HINTS = (
     "live music", "music", "band", "concert", "dj", "karaoke", "dance party",
@@ -424,6 +436,7 @@ def _compile_hints(hints: tuple[str, ...]) -> "re.Pattern[str]":
 _SPECIAL_HINTS_RE = _compile_hints(_SPECIAL_HINTS)
 _WEEK_WATER_HINTS_RE = _compile_hints(_WEEK_WATER_HINTS)
 _AQUATIC_HINTS_RE = _compile_hints(_AQUATIC_HINTS)
+_ONWATER_ACTIVITY_RE = _compile_hints(_ONWATER_ACTIVITY_HINTS)
 _MUSIC_HINTS_RE = _compile_hints(_MUSIC_HINTS)
 _COMMUNITY_HINTS_RE = _compile_hints(_COMMUNITY_HINTS)
 _CLASS_HINTS_RE = _compile_hints(_CLASS_HINTS)
@@ -454,6 +467,12 @@ def _event_tier(*, title: str, tags: list[str] | None, featured: bool, recurring
     # otherwise matched _CLASS_HINTS ("class") and landed in Fitness & classes.
     if _is_music_event_type(title, tags):
         return _TIER_MUSIC
+    # An on-the-water ACTIVITY in the TITLE (kayak, paddle, sail, …) is Lake &
+    # Boating, even if an 'aquatics' tag would otherwise read it as a pool class —
+    # you can't kayak in a lap pool. Checked before the aquatic tier and on the
+    # title (not tags) so the tag can't override the activity.
+    if _ONWATER_ACTIVITY_RE.search(title.lower()):
+        return _TIER_WATER
     # Pool / Aquatic Center activities ("Open Swim", "Lap Swim", "Aqua Zumba",
     # "Water Aerobics") are NOT "on the water" (the lake). Routed to their own
     # Aquatic Center tier BEFORE the class + water checks so a pool session
@@ -887,7 +906,7 @@ def calendar_month(
         }
     elif seniors:
         occ_by_date = {
-            d: [ev for ev in evs if is_senior_event(ev.title, ev.tags)]
+            d: [ev for ev in evs if is_senior_event(ev.title, ev.tags, ev.location_name)]
             for d, evs in occ_by_date.items()
         }
     by_day: dict[int, list[dict[str, Any]]] = {}
@@ -922,7 +941,7 @@ def calendar_month(
     for occ in class_occs:
         if family and not is_family_event(occ.title):
             continue
-        if seniors and not is_senior_event(occ.title):
+        if seniors and not is_senior_event(occ.title, None, occ.venue):
             continue
         by_day.setdefault(occ.date.day, []).append(
             {"title": clean_event_title(occ.title), "type": "class", "recurring": True}

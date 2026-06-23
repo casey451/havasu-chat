@@ -167,6 +167,28 @@ def test_program_anchor_is_deterministic_and_slugged() -> None:
     assert occ.anchor == a
 
 
+def test_url_prefers_slug_then_website_then_empty() -> None:
+    """The row link resolves to the directory page first, the provider website
+    next, and an honest empty string when neither exists (brief 2026-06-23:
+    "if none exists, the provider's website/source")."""
+    base = dict(
+        title="Reformer Pilates", date=date(2026, 12, 5),
+        start_time=time(9, 0), end_time=time(10, 0),
+        venue="Havasu Pilates Studio", weekdays=frozenset({4}),
+    )
+    # 1) directory slug wins.
+    occ = ClassOccurrence(provider_slug="havasu-pilates-studio",
+                          provider_website="https://example.com/", **base)
+    assert occ.url == "/provider/havasu-pilates-studio"
+    # 2) no slug -> fall back to the provider website.
+    occ = ClassOccurrence(provider_slug=None,
+                          provider_website="https://havasupilates.example/", **base)
+    assert occ.url == "https://havasupilates.example/"
+    # 3) neither -> honest non-link row.
+    occ = ClassOccurrence(provider_slug=None, provider_website=None, **base)
+    assert occ.url == ""
+
+
 def test_home_feed_permalinkless_program_has_no_fake_details_link() -> None:
     """A permalink-less program (no provider page) still appears in the home
     feed, but renders WITHOUT a "Details →" link — we no longer fabricate a

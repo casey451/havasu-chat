@@ -227,37 +227,29 @@ def _route_occurrence(
 ) -> None:
     """Place a day-view row into its primary group + the age overlays.
 
+    Seniors (2026-06-23 brief): EVERY senior item — senior fitness, senior social,
+    senior-center programs — renders under the top-level Seniors group and ONLY
+    there. No dual-listing into Fitness & classes (the live bug: "Water Wellness"
+    showed under both Seniors and Aquatic fitness). So a senior occurrence routes
+    to the Seniors overlay alone, never to its activity primary. (This supersedes
+    the earlier "senior fitness may *also* appear under a Fitness Seniors
+    subcategory" rule.)
+
     P1 age-awareness (Finding 11): a YOUTH *class* routes to Kids & Family ONLY —
     its typed Youth subsection — and is NOT duplicated into the adult Fitness
     list. Non-class youth items (festivals, story time) keep the additive overlay
     (they stay in their primary group AND re-list under Kids & Family for
-    discoverability). Senior fitness stays dual: it lists in the adult Fitness
-    group AND re-lists under Seniors (brief: "senior fitness may *also* appear
-    under a Fitness Seniors subcategory").
+    discoverability).
     """
+    if is_senior:
+        senior_overlay.append(row)
+        return
     if is_family and gkey == "classes":
         family_overlay.append(row)
-        return
-    # P1 (brief): senior *events* (ping pong, billiards, cards, pinochle) belong
-    # under Seniors, not the Fitness list. A senior item that classifies as a real
-    # fitness TYPE (yoga, tai chi/mind-body, aquatic…) stays DUAL — it lists in
-    # Fitness AND re-lists under Seniors ("senior fitness may *also* appear under a
-    # Fitness Seniors subcategory"). A senior item in the untyped "Other classes"
-    # residue is a social activity, so it routes to Seniors ONLY.
-    if (
-        is_senior
-        and gkey == "classes"
-        and classify_class_subgroup(
-            row.get("title") or "", row.get("venue"), row.get("activity")
-        ) == FALLBACK_LABEL
-    ):
-        senior_overlay.append(row)
         return
     rows_by_group[gkey].append(row)
     if is_family:
         family_overlay.append(row)
-    if is_senior:
-        senior_overlay.append(row)
 
 
 def _occurrence_expired(
@@ -327,7 +319,7 @@ def day_groups(
     if family:
         events = [ev for ev in events if is_family_event(ev.title, ev.tags)]
     elif seniors:
-        events = [ev for ev in events if is_senior_event(ev.title, ev.tags)]
+        events = [ev for ev in events if is_senior_event(ev.title, ev.tags, ev.location_name)]
     # Item 6 auto-expiry: on the current day, drop occurrences finished >1h ago
     # (no-op for past/future days or when ``now`` isn't supplied).
     events = [
@@ -360,7 +352,10 @@ def day_groups(
         _route_occurrence(
             row, gkey, rows_by_group, family_overlay, senior_overlay,
             is_family=(not family and not seniors and is_family_event(ev.title, ev.tags)),
-            is_senior=(not family and not seniors and is_senior_event(ev.title, ev.tags)),
+            is_senior=(
+                not family and not seniors
+                and is_senior_event(ev.title, ev.tags, ev.location_name)
+            ),
         )
 
     for occ in drop_event_duplicates(
@@ -368,7 +363,7 @@ def day_groups(
     ):
         if family and not is_family_event(occ.title):
             continue
-        if seniors and not is_senior_event(occ.title):
+        if seniors and not is_senior_event(occ.title, None, occ.venue):
             continue
         if _occurrence_expired(day, occ.start_time, occ.end_time, now):
             continue
@@ -393,7 +388,10 @@ def day_groups(
         _route_occurrence(
             row, gkey, rows_by_group, family_overlay, senior_overlay,
             is_family=(not family and not seniors and is_family_event(occ.title)),
-            is_senior=(not family and not seniors and is_senior_event(occ.title)),
+            is_senior=(
+                not family and not seniors
+                and is_senior_event(occ.title, None, occ.venue)
+            ),
         )
 
     # "What's open for kids today": recurring family-venue hours (toddler
@@ -475,7 +473,7 @@ def week_rows(
         }
     elif seniors:
         by_day = {
-            d: [ev for ev in evs if is_senior_event(ev.title, ev.tags)]
+            d: [ev for ev in evs if is_senior_event(ev.title, ev.tags, ev.location_name)]
             for d, evs in by_day.items()
         }
     event_keys = {
@@ -489,7 +487,7 @@ def week_rows(
     ):
         if family and not is_family_event(occ.title):
             continue
-        if seniors and not is_senior_event(occ.title):
+        if seniors and not is_senior_event(occ.title, None, occ.venue):
             continue
         gkey = _group_for(title=occ.title, tags=None, featured=False, recurring=True)
         day_counts = sched_by_day.setdefault(occ.date, {})

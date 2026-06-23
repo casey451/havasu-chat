@@ -64,18 +64,25 @@ class ClassOccurrence:
     # whose title carries no activity keyword, so they leave "Other classes" by
     # inheriting their studio's discipline. None when no provider signal exists.
     provider_activity: str | None = None
+    # The venue provider's external website, used as the link fallback when there
+    # is no published directory page (no slug). None when the venue has neither.
+    provider_website: str | None = None
 
     @property
     def url(self) -> str:
-        """Class series have no event permalink; link to the venue's page.
+        """The row's link target, preferring the internal directory page.
 
-        No provider page → empty string, and the template renders a non-link
-        row. The old fallback ("/events-ui") made every slugless class a
-        self-link dead end (live: all Havasu Pilates rows linked back to the
-        page they were on).
+        Resolution order (brief 2026-06-23 "every program row must resolve to a
+        working link"): (1) the venue's ``/provider/<slug>`` directory page;
+        (2) the provider's external website when there is no directory page;
+        (3) empty string, and the template renders an honest non-link row (the
+        old ``/events-ui`` fallback made every slugless class a self-link dead
+        end — live: all Havasu Pilates rows linked back to the page they were on).
         """
         if self.provider_slug:
             return f"/provider/{self.provider_slug}"
+        if self.provider_website:
+            return self.provider_website
         return ""
 
     @property
@@ -136,6 +143,7 @@ def class_occurrences_in_window(
             prov = None
         venue = (ent.name or "").strip()
         slug = prov.slug if prov is not None else None
+        website = prov.website if prov is not None else None
         # Provider-derived activity + youth signal (drains "Other classes" and
         # routes youth programs to Kids & Family). The provider's NAME + its
         # directory subcategory/EntityCategory slugs feed the classifier.
@@ -160,6 +168,7 @@ def class_occurrences_in_window(
                         provider_slug=slug,
                         weekdays=weekdays,
                         provider_activity=prov_activity,
+                        provider_website=website,
                     )
                 )
             d += timedelta(days=1)

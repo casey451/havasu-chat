@@ -244,14 +244,17 @@ def _kid_targeted(title: str | None, tags: list[str] | None) -> bool:
     return False
 
 
-def _audience_tags(title: str | None, tags: list[str] | None) -> list[str]:
+def _audience_tags(
+    title: str | None, tags: list[str] | None, venue: str | None = None
+) -> list[str]:
     """Kids / Seniors row tags. Kids uses the tightened :func:`_kid_targeted`
-    matcher (Item 5); Seniors uses the calendar's positive matcher. Empty when
+    matcher (Item 5); Seniors uses the calendar's positive matcher (venue-aware,
+    so a senior-center program tags Seniors even with a generic title). Empty when
     there is no signal — never an invented tag."""
     out: list[str] = []
     if _kid_targeted(title, tags):
         out.append("Kids")
-    if is_senior_event(title or "", tags):
+    if is_senior_event(title or "", tags, venue):
         out.append("Seniors")
     return out
 
@@ -455,7 +458,7 @@ def today_feed(
                 start_time=ev.start_time,
                 end_time=ev.end_time,
                 recurring=bool(ev.is_recurring),
-                tags=_audience_tags(ev.title or "", ev.tags),
+                tags=_audience_tags(ev.title or "", ev.tags, ev.location_name),
                 is_past=_occurrence_expired(day, ev.start_time, ev.end_time, now),
             )
         )
@@ -484,7 +487,7 @@ def today_feed(
                 start_time=occ.start_time,
                 end_time=occ.end_time,
                 recurring=True,
-                tags=_audience_tags(occ.title, None),
+                tags=_audience_tags(occ.title, None, occ.venue),
                 is_past=_occurrence_expired(day, occ.start_time, occ.end_time, now),
             )
         )
