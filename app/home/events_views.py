@@ -55,7 +55,13 @@ from app.events.family_filter import is_family_event
 from app.events.senior_filter import is_senior_event
 from app.events.time_labels import TIME_TBD_LABEL, short_time_label, time_sort_key
 from app.events.title_clean import clean_event_title
-from app.home.event_buckets import GROUP_DEFS, GROUP_NOUNS, TIER_SPECIAL, group_for_tier
+from app.home.event_buckets import (
+    GROUP_DEFS,
+    GROUP_NOUNS,
+    TIER_SPECIAL,
+    group_for_tier,
+    is_dropin_rec,
+)
 from app.home.family_venues import open_today_rows
 from app.home.sandstone import (
     _event_tier,
@@ -146,6 +152,11 @@ def _family_subgroup(title: str, activity: str | None = None) -> str:
 
     Title keyword wins (specific); otherwise the provider-derived ``activity``
     (Gymnastics/Dance/…) maps to its Youth subsection; else "More for kids"."""
+    # Drop-in rec (Open Swim, Free Family Swim, Open Gym) is NOT a lesson/class —
+    # it must not file under "Swim Lessons" (or any typed youth class) on the
+    # "swim"/"gym" keyword. Route it to the general "More for kids" bucket.
+    if is_dropin_rec(title):
+        return _FAMILY_FALLBACK_LABEL
     low = title.lower()
     for label, hints in _FAMILY_SUBGROUPS:
         for h in hints:

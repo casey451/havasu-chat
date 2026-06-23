@@ -164,6 +164,15 @@ def test_youth_titles_route_to_family():
     assert is_family_event("Intro to Ballroom") is False
 
 
+def test_dropin_swim_not_filed_as_swim_lessons():
+    # Open Swim / Free Family Swim are drop-in rec, not lessons — they must NOT
+    # file under the "Swim Lessons" youth subsection (live bug: they did).
+    assert _family_subgroup("Open Swim") == "More for kids"
+    assert _family_subgroup("Free Family Swim") == "More for kids"
+    # An actual swim lesson still files under Swim Lessons.
+    assert _family_subgroup("Swim Lessons (Station-Based Program)") == "Swim Lessons"
+
+
 def test_youth_subgroup_uses_provider_activity():
     # A generically-named youth gymnastics class types as Youth Gymnastics via the
     # provider activity (no "gymnastics" token in "Boys Athletics").
