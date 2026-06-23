@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -67,6 +68,12 @@ def _is_title_as_venue(ev: Event) -> bool:
     )
 
 
+# Titles whose source page carries an unrelated promo line instead of a real
+# event description — never backfill those (Casey, 2026-06-23: the Star Cinemas
+# "Summer Free Movies" pages only show a Buffalo Wild Wings discount blurb).
+_SKIP_DESCRIPTION_TITLE_RE = re.compile(r"summer\s+free\s+movies", re.IGNORECASE)
+
+
 def run(*, apply: bool, confirm: bool) -> int:
     print(f"target: {_target()}")
     with SessionLocal() as db:
@@ -94,6 +101,7 @@ def run(*, apply: bool, confirm: bool) -> int:
 
         cache: dict[str, object] = {}
         proposals = []  # (ev, new_desc_or_None, new_venue_or_None)
+        skipped: list[str] = []  # excluded titles (promo-only source pages)
         for ev in targets:
             src = (getattr(ev, "source_url", None) or "").strip()
             if not src:
@@ -111,9 +119,12 @@ def run(*, apply: bool, confirm: bool) -> int:
                 continue
             new_desc = None
             if _needs_description(ev):
-                d = clean_event_description(getattr(rse, "description_html", "") or "")
-                if d.strip():
-                    new_desc = d.strip()
+                if _SKIP_DESCRIPTION_TITLE_RE.search(ev.title or ""):
+                    skipped.append(ev.title or "")
+                else:
+                    d = clean_event_description(getattr(rse, "description_html", "") or "")
+                    if d.strip():
+                        new_desc = d.strip()
             new_venue = None
             if _is_title_as_venue(ev):
                 v = (getattr(rse, "venue_name", None) or "").strip()
@@ -122,6 +133,12 @@ def run(*, apply: bool, confirm: bool) -> int:
             if new_desc or new_venue:
                 proposals.append((ev, new_desc, new_venue))
         http_client.close()
+
+        if skipped:
+            print(f"EXCLUDED (promo-only source, no real description): {len(skipped)}")
+            for t in sorted(set(skipped)):
+                print(f"   skip: {t!r}")
+            print()
 
         got_desc = sum(1 for _e, d, _v in proposals if d)
         got_venue = sum(1 for _e, _d, v in proposals if v)
