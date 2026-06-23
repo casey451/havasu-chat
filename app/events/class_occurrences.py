@@ -31,6 +31,20 @@ _DAY_TO_INT = {
     "friday": 4, "saturday": 5, "sunday": 6,
 }
 
+# Curated website links for page-less class venues — real businesses with class
+# schedules on the calendar but NO directory Provider row, so their rows had no
+# link. Per Casey's 2026-06-23 call: don't unpublish a venue that has a legit web
+# presence — point users to its real site instead. Keyed by Entity.slug; used
+# ONLY as a fallback when the venue has no provider website (a future real
+# Provider listing wins automatically, so this self-deactivates). Verified live
+# 2026-06-23. The durable fix is a directory listing; this is the render-time
+# bridge the brief prefers (fixes current + future scrapes from these venues).
+_PAGELESS_VENUE_WEBSITES: dict[str, str] = {
+    "havasu-pilates-studio": "https://havasupilates.com/",
+    "desert-bloom-learning-center": "https://www.desertbloomlearningcenter.com/",
+    "havasu-horseback-rides": "https://www.havasuhorsebackrides.com/",
+}
+
 _ANCHOR_SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 
@@ -144,6 +158,9 @@ def class_occurrences_in_window(
         venue = (ent.name or "").strip()
         slug = prov.slug if prov is not None else None
         website = prov.website if prov is not None else None
+        if not website:
+            # Page-less venue with a known real site → link there (curated).
+            website = _PAGELESS_VENUE_WEBSITES.get(ent.slug)
         # Provider-derived activity + youth signal (drains "Other classes" and
         # routes youth programs to Kids & Family). The provider's NAME + its
         # directory subcategory/EntityCategory slugs feed the classifier.

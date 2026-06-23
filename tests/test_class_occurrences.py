@@ -189,6 +189,45 @@ def test_url_prefers_slug_then_website_then_empty() -> None:
     assert occ.url == ""
 
 
+def test_pageless_venue_links_to_curated_website(monkeypatch) -> None:
+    """A page-less class venue (no Provider) with a known real website links to
+    that site (Casey 2026-06-23: link a legit business instead of hiding it).
+    Monkeypatched so the test doesn't depend on a prod entity slug."""
+    from app.events import class_occurrences as co
+
+    suf = uuid.uuid4().hex[:8]
+    slug = f"venue-{suf}"
+    title = f"Reformer Pilates {suf}"
+    with SessionLocal() as db:
+        ent = Entity(
+            entity_type="venue", slug=slug, name=f"Havasu Pilates Studio {suf}",
+            source="test-class-occurrences", is_active=True,
+        )
+        db.add(ent)
+        db.commit()
+        eid = ent.id
+        db.add(Schedule(
+            entity_id=eid, schedule_type="recurring", days_of_week=["monday"],
+            start_time=time(9, 0), end_time=time(10, 0), notes=title,
+            created_at=_now(), updated_at=_now(),
+        ))
+        db.commit()
+    monkeypatch.setitem(co._PAGELESS_VENUE_WEBSITES, slug, "https://havasupilates.example/")
+    try:
+        with SessionLocal() as db:
+            occs = [o for o in co.class_occurrences_in_window(
+                db, window_start=date(2026, 12, 1), window_end=date(2026, 12, 31)
+            ) if o.title == title]
+        assert occs, "seeded page-less class not found"
+        assert occs[0].provider_slug is None
+        assert occs[0].url == "https://havasupilates.example/"
+    finally:
+        with SessionLocal() as db:
+            db.query(Schedule).filter(Schedule.entity_id == eid).delete()
+            db.query(Entity).filter(Entity.id == eid).delete()
+            db.commit()
+
+
 def test_home_feed_permalinkless_program_has_no_fake_details_link() -> None:
     """A permalink-less program (no provider page) still appears in the home
     feed, but renders WITHOUT a "Details →" link — we no longer fabricate a
