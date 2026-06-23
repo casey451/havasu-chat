@@ -74,13 +74,42 @@ def _meta_content(soup: BeautifulSoup, **attrs: str) -> str:
     return ""
 
 
+# Event-body content containers. RiverScene Magazine event pages keep the real
+# blurb in ``<div class="blog-details-desc">`` (below the details table), where
+# their og:description / JSON-LD carry only the site name ("RiverScene Magazine")
+# — so this specific container must win over the generic meta tags. Kept to known
+# event-body classes (not generic ``entry-content``) so other sources' pages,
+# whose real description lives in og/JSON-LD, are unaffected.
+_CONTENT_CONTAINER_CLASSES = ("blog-details-desc",)
+
+
+def _content_container_description(soup: BeautifulSoup) -> str:
+    """Prose from a known event-body container, with the details table removed."""
+    for cls in _CONTENT_CONTAINER_CLASSES:
+        node = soup.find("div", class_=cls)
+        if node is None:
+            continue
+        for tbl in node.find_all("table"):
+            tbl.decompose()  # drop the venue/date/time details grid, keep prose
+        paras = [p.get_text(" ", strip=True) for p in node.find_all("p")]
+        text = "\n\n".join(p for p in paras if len(p) > 30)
+        if text.strip():
+            return html_mod.unescape(text)
+    return ""
+
+
 def description_from_detail_html(html_text: str) -> str:
-    """Best-effort real description from a detail page's HTML (cleaned, or "")."""
+    """Best-effort real description from a detail page's HTML (cleaned, or "").
+
+    Order: schema.org Event JSON-LD (most reliable) → the event-body content
+    container (the real blurb on sites whose og/meta is just the site name) →
+    og:description / meta description (generic last resort)."""
     if not html_text:
         return ""
     soup = BeautifulSoup(html_text, "html.parser")
     candidate = (
         _jsonld_description(soup)
+        or _content_container_description(soup)
         or _meta_content(soup, property="og:description")
         or _meta_content(soup, name="description")
     )
