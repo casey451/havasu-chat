@@ -27,10 +27,33 @@
   <div class="toolbar" role="group" aria-label="Filter and sort listings">
     <span class="tlab">Filter</span>
     <a class="chip{% if list_controls.open_now %} on{% endif %}" href="{% if list_controls.open_now %}{{ list_controls.url_open_off }}{% else %}{{ list_controls.url_open_on }}{% endif %}"{% if list_controls.open_now %} aria-current="true"{% endif %}>Open now</a>
-    <a class="chip{% if list_controls.sort == 'top' %} on{% endif %}" href="{{ list_controls.url_top }}"{% if list_controls.sort == 'top' %} aria-current="true"{% endif %}>Top rated</a>
+    <a class="chip{% if list_controls.sort == 'top' %} on{% endif %}" href="{{ list_controls.url_top }}"{% if list_controls.sort == 'top' %} aria-current="true"{% endif %}>Featured</a>
+    <a class="chip{% if list_controls.sort == 'favorites' %} on{% endif %}" href="{{ list_controls.url_favorites }}"{% if list_controls.sort == 'favorites' %} aria-current="true"{% endif %}>Top rated</a>
     <a class="chip{% if list_controls.sort == 'az' %} on{% endif %}" href="{{ list_controls.url_az }}"{% if list_controls.sort == 'az' %} aria-current="true"{% endif %}>A&ndash;Z</a>
     {% if list_controls.open_now %}<span class="shown">{{ list_controls.shown_total }} open now</span>{% endif %}
   </div>
+  {% endif %}
+
+  {# P3 finding 34: the category ad slot lives at the TOP, above the listings,
+     on every template. A sold page_ad renders the Sponsored unit; when unsold, a
+     slim labeled claim CTA holds the same top spot (real-or-claim, never a fake
+     sponsor). In-grid paid placements stay pinned within the list below. #}
+  {% if sponsored %}
+  <aside class="cat-sponsor" aria-label="Category sponsor" style="margin-top:16px">
+    <a class="adbar" href="{% if sponsored.click_url %}{{ sponsored.click_url }}{% else %}/sponsor/click?id={{ sponsored.id }}&slot=promoted{% endif %}">
+      <span class="mono" aria-hidden="true">{{ (sponsored.headline or sponsored.name or '·')[0]|upper }}</span>
+      <div class="ab"><span class="stag">Sponsored · {{ trade_label }}</span><div class="an">{{ sponsored.headline or sponsored.name }}</div>{% if sponsored.pitch %}<div class="am">{{ sponsored.pitch }}</div>{% endif %}</div>
+      <span class="ar"><span class="btn btn-ghost">View</span></span>
+    </a>
+  </aside>
+  {% else %}
+  <aside class="cat-sponsor cat-sponsor-claim" aria-label="Advertise in this category" style="margin-top:16px">
+    <a class="adbar" href="/sponsor">
+      <span class="mono" aria-hidden="true">+</span>
+      <div class="ab"><span class="stag">Advertise · {{ trade_label }}</span><div class="an">Own the {{ trade_label }} spot in Lake Havasu City</div><div class="am">Be the featured {{ trade_label | lower }} business at the top — quiet, clearly labeled, no pop-ups.</div></div>
+      <span class="ar"><span class="btn btn-ghost">Claim this category</span></span>
+    </a>
+  </aside>
   {% endif %}
 
   {% if card_groups %}
@@ -56,15 +79,6 @@
   </nav>
   {% endif %}
 
-  <aside class="cat-claim" aria-label="Advertise in this category">
-    <div class="cc-body">
-      <span class="stag">Advertise</span>
-      <h2>Own the {{ trade_label }} spot in Lake Havasu City</h2>
-      <p>Be the featured {{ trade_label | lower }} business at the top of this page — quiet, clearly labeled, no pop-ups.</p>
-    </div>
-    <a class="btn btn-brass" href="/sponsor">Claim this category</a>
-  </aside>
-
   {% if trade_faqs %}
   <section class="trade-faq" aria-labelledby="trade-faq-h">
     <h2 id="trade-faq-h">{{ trade_label }} in Lake Havasu City — FAQ</h2>
@@ -77,7 +91,7 @@
   <section class="askstrip">
     <h2>Can't decide? <em>Ask.</em></h2>
     <form action="/chat" method="get" role="search">
-      <label class="skip" for="trade-ask">Ask Hava</label>
+      <label class="skip" for="trade-ask">Ask about {{ trade_label | lower }}</label>
       <input id="trade-ask" name="q" type="search" placeholder="Ask about {{ trade_label | lower }}…" autocomplete="off">
       <button type="submit">Ask Hava</button>
     </form>

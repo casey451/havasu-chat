@@ -417,6 +417,70 @@ def test_leaf_page_has_category_claim_slot(client: TestClient, seeded_leaves: di
     assert body.count("Claim this category") == 1
 
 
+def test_leaf_claim_slot_renders_above_the_listings(
+    client: TestClient, seeded_leaves: dict
+) -> None:
+    # P3 finding 34: the unsold "claim this category" CTA holds the TOP ad slot
+    # (above the listing grid), consistent with the other templates — it used to
+    # sit at the very bottom of leaf pages. (?theme=lake = the live default skin.)
+    base = f"/categories/{seeded_leaves['ship_dept']}/{seeded_leaves['ship_leaf']}"
+    r = client.get(f"{base}?theme=lake")
+    assert r.status_code == 200
+    body = r.text
+    claim_pos = body.find("cat-sponsor")
+    grid_pos = body.find('class="listcard"')
+    assert claim_pos != -1 and grid_pos != -1
+    assert claim_pos < grid_pos, "claim CTA must render above the listing grid"
+
+
+def test_leaf_sort_chips_separate_featured_from_top_rated(
+    client: TestClient, seeded_leaves: dict
+) -> None:
+    # P4 follow-up: the bare route is the daily-shuffle "Featured" default, so the
+    # "Top rated" chip must carry ?sort=favorites (not link to the bare URL).
+    base = f"/categories/{seeded_leaves['ship_dept']}/{seeded_leaves['ship_leaf']}"
+    body = client.get(f"{base}?theme=lake").text
+    assert ">Featured</a>" in body
+    assert ">Top rated</a>" in body
+    assert "sort=favorites" in body
+
+
+def test_leaf_askstrip_label_is_descriptive_not_duplicated(
+    client: TestClient, seeded_leaves: dict
+) -> None:
+    # The ask-strip's visually-hidden <label> used to read "Ask Hava" — redundant
+    # with the submit button. It now describes the field instead.
+    base = f"/categories/{seeded_leaves['ship_dept']}/{seeded_leaves['ship_leaf']}"
+    body = client.get(f"{base}?theme=lake").text
+    assert '<label class="skip" for="trade-ask">Ask about' in body
+
+
+def test_leaf_faq_render_strips_markdown(
+    client: TestClient, seeded_leaves: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Finding 7 / P0 extension: the data-side guard (test_faq_copy_no_markdown)
+    # only checks the curated source. This pins the RENDER path: even if markdown
+    # slips into the copy, the leaf page strips it before it reaches the <h3>/<p>.
+    from app.categories import leaf_copy
+
+    slug = seeded_leaves["ship_leaf"]
+    md_copy = leaf_copy.LeafCopy(
+        intro="### Intro with **bold** and `code` markers.",
+        faqs=(
+            ("### How many {name_lower} are there?", "**Bold** answer with `code`."),
+        ),
+    )
+    monkeypatch.setitem(leaf_copy.LEAF_COPY, slug, md_copy)
+    r = client.get(f"/categories/{seeded_leaves['ship_dept']}/{slug}?theme=lake")
+    assert r.status_code == 200
+    body = r.text
+    # The FAQ + intro render, but the markdown markers are gone.
+    assert "How many" in body  # FAQ question still rendered
+    assert "### " not in body
+    assert "**bold**" not in body
+    assert "`code`" not in body
+
+
 # --- Provider-less place entities render + count toward the gate -------------
 
 

@@ -35,10 +35,12 @@ _COMMON_FAQS: tuple[tuple[str, str], ...] = (
     ),
     (
         "How are these {name_lower} ranked?",
-        "By real public reviews — more reviews, more weight, so a strong rating "
-        "across many reviews beats a perfect score from only a couple. Spots "
-        "can't be bought, Hava never invents a rating, and any sponsored "
-        "placement is clearly labeled.",
+        "The default Featured order rotates the well-reviewed locals daily, so "
+        "the same names aren't always on top — both the cutoff and the rotation "
+        "pool are based on real public reviews (more reviews, more weight). Tap "
+        "Top rated to sort strictly by review strength. Spots can't be bought, "
+        "Hava never invents a rating, and any sponsored placement is clearly "
+        "labeled.",
     ),
     (
         "Are the ratings and review counts real?",
@@ -87,8 +89,8 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "overtime, and AC failures turn a Havasu commute miserable fast. The "
         "auto repair shops below serve Lake Havasu City with everything from "
         "oil changes and brakes to diagnostics, AC work, and major engine and "
-        "transmission jobs. Listings are ranked by real public "
-        "reviews, so shops locals actually trust rank first.",
+        "transmission jobs. Listings are built from real public reviews and "
+        "rotate daily, so the shops locals trust stay easy to find.",
         (
             "Why do cars need extra care in Lake Havasu's heat?",
             "Sustained triple-digit summers stress batteries, coolant, and AC "
@@ -132,8 +134,9 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "toothache, the dentists and orthodontists below serve Lake Havasu "
         "City. Many local practices handle general dentistry, cosmetic work, "
         "and orthodontics under one roof, and several see new patients and "
-        "families. Listings are ranked by real public reviews, so "
-        "well-reviewed practices surface first — never paid placement.",
+        "families. Listings are built from real public reviews and rotate "
+        "daily — never paid placement — so well-reviewed practices stay easy "
+        "to find.",
     ),
     "plumbing": _copy(
         "Desert water is hard on pipes — scale buildup, slab leaks, and water "
@@ -191,17 +194,18 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "Retirement planning, investments, and tax-aware strategy — the "
         "financial advisors and planners below serve Lake Havasu City, a town "
         "with a large retiree and second-home population. Whether you're "
-        "rolling over a 401(k) or building an income plan, the real "
-        "review rankings here surface well-reviewed local offices first. "
+        "rolling over a 401(k) or building an income plan, the listings here "
+        "draw on real public reviews and rotate daily, keeping well-reviewed "
+        "local offices visible. "
         "Ask Hava doesn't sell placement, and isn't a financial adviser itself.",
     ),
     "hair-salons-and-barbers": _copy(
         "Cuts, color, blowouts, and classic barbering — the hair salons and "
         "barbers below serve Lake Havasu City. From quick walk-in trims to "
         "full-service color and styling, the listings span neighborhood shops "
-        "and busier downtown salons. Listings are ranked by real "
-        "public reviews, so the chairs locals book again rank first; star "
-        "ratings appear only when a shop has earned real reviews.",
+        "and busier downtown salons. Listings are built from real public "
+        "reviews and rotate daily, so the chairs locals book again stay easy "
+        "to find; star ratings appear only when a shop has earned real reviews.",
     ),
     "hotels-and-motels": _copy(
         "From channel-side resorts to budget motels and everything between, the "
@@ -245,9 +249,10 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "Lakefront patios, taco joints, steakhouses, and the spots locals "
         "actually drive across town for — the restaurants below serve Lake "
         "Havasu City. Whether you want waterfront dining on the Channel, a "
-        "quick bite, or a sit-down dinner, the review rankings "
-        "here put consistently well-reviewed kitchens first. Hours swing with "
-        "the season, so check each listing before you go.",
+        "quick bite, or a sit-down dinner, the listings here are built from "
+        "real public reviews and rotate daily, so the same kitchens aren't "
+        "always on top — tap Top rated to sort by review strength. Hours swing "
+        "with the season, so check each listing before you go.",
         (
             "Are there waterfront restaurants in Lake Havasu City?",
             "Yes — several restaurants sit along the Channel and the lakefront. "
@@ -352,8 +357,9 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "body piercing. A good shop walks you through the design, pricing, and "
         "aftercare before any needle comes out — and in Havasu's sun, keeping "
         "fresh ink covered and out of the lake while it heals matters. Listings "
-        "are ranked by real public reviews, so the artists locals come back to "
-        "rank first; any sponsored placement is clearly labeled.",
+        "are built from real public reviews and rotate daily, so the artists "
+        "locals come back to stay easy to find; any sponsored placement is "
+        "clearly labeled.",
         (
             "What should I check before booking a tattoo in Lake Havasu City?",
             "Look through the artist's healed-work portfolio for the style you "

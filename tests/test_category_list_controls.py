@@ -50,6 +50,35 @@ def test_az_sort_orders_by_name():
     assert [c["name"] for c in visible] == ["apple", "Mango", "Zebra"]
 
 
+def test_favorites_sort_accepted_and_preserves_order():
+    # P4: "Top rated" (?sort=favorites) keeps the dampened-rating order the cards
+    # arrive in (the daily Featured shuffle is suppressed upstream) — no re-sort.
+    cards = _cards(5)
+    visible, ctrl = _apply_list_controls({"sort": "favorites"}, cards, base_path=BASE)
+    assert ctrl["sort"] == "favorites"
+    assert visible == cards
+
+
+def test_featured_default_and_favorites_have_distinct_urls():
+    _, ctrl = _apply_list_controls({}, _cards(3), base_path=BASE)
+    # Featured (the daily-shuffle default) = the bare route; "Top rated" carries
+    # ?sort=favorites — the bug was the "Top rated" chip pointing at the bare URL.
+    assert ctrl["url_top"] == BASE
+    assert ctrl["url_favorites"] == f"{BASE}?sort=favorites"
+
+
+def test_favorites_preserves_rating_order_while_featured_demotes_closed():
+    # Cards arrive in dampened-rating order: a top-rated-but-closed place first.
+    cards = [
+        {"name": "Top but closed", "is_open": False, "has_reviews": True},
+        {"name": "Open lower", "is_open": True, "has_reviews": True},
+    ]
+    fav, _ = _apply_list_controls({"sort": "favorites"}, list(cards), base_path=BASE)
+    assert [c["name"] for c in fav] == ["Top but closed", "Open lower"]  # preserved
+    feat, _ = _apply_list_controls({}, list(cards), base_path=BASE)
+    assert [c["name"] for c in feat] == ["Open lower", "Top but closed"]  # open lifted
+
+
 def test_pagination_slices_and_links():
     cards = _cards(130)
     visible, ctrl = _apply_list_controls({"page": "2"}, cards, base_path=BASE)
