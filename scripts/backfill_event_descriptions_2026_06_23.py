@@ -43,8 +43,8 @@ ensure_dotenv_loaded()
 from app.contrib.river_scene import fetch_and_parse_event  # noqa: E402
 from app.db.database import DATABASE_URL, SessionLocal  # noqa: E402
 from app.db.models import Event  # noqa: E402
+from app.events.description_clean import clean_event_description  # noqa: E402
 from app.events.scrapers.base import normalize_event_title  # noqa: E402
-from app.events.title_clean import clean_event_description  # noqa: E402
 
 # Disable the parser's "skip past-dated pages" guard — we want the description
 # regardless of the page's own date semantics.
@@ -79,6 +79,19 @@ def run(*, apply: bool, confirm: bool) -> int:
         print(f"scanned live upcoming events: {len(events)}")
         print(f"events needing description/venue: {len(targets)}\n")
 
+        # Use an explicit certifi CA bundle: the scraper's default client trusts
+        # the OS store, which is missing/locked-down in some run environments
+        # (the prod cron is fine, a sandbox is not). certifi works in both.
+        import certifi
+        import httpx
+
+        http_client = httpx.Client(
+            timeout=httpx.Timeout(20.0),
+            follow_redirects=True,
+            verify=certifi.where(),
+            headers={"User-Agent": "AskHavaBot/1.0 (+https://askhava.com)"},
+        )
+
         cache: dict[str, object] = {}
         proposals = []  # (ev, new_desc_or_None, new_venue_or_None)
         for ev in targets:
@@ -87,7 +100,9 @@ def run(*, apply: bool, confirm: bool) -> int:
                 continue
             if src not in cache:
                 try:
-                    cache[src] = fetch_and_parse_event(src, today=_NO_PAST_GUARD)
+                    cache[src] = fetch_and_parse_event(
+                        src, client=http_client, today=_NO_PAST_GUARD
+                    )
                 except Exception as exc:  # noqa: BLE001 — log + skip, never crash the batch
                     print(f"  fetch failed {src}: {exc}", file=sys.stderr)
                     cache[src] = None
@@ -106,6 +121,7 @@ def run(*, apply: bool, confirm: bool) -> int:
                     new_venue = v
             if new_desc or new_venue:
                 proposals.append((ev, new_desc, new_venue))
+        http_client.close()
 
         got_desc = sum(1 for _e, d, _v in proposals if d)
         got_venue = sum(1 for _e, _d, v in proposals if v)
