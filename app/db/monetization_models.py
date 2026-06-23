@@ -109,6 +109,10 @@ class Placement(Base):
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     stripe_checkout_session_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # The latest charge's PaymentIntent, captured by the webhook on
+    # checkout.session.completed / invoice.paid. It is the refund target for an
+    # admin-initiated refund (``stripe.Refund.create(payment_intent=...)``).
+    stripe_payment_intent_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC), nullable=False
     )

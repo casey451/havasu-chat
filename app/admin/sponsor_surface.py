@@ -30,8 +30,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.admin.auth import COOKIE_NAME, verify_admin_cookie
+from app.admin_portal.audit_models import record_audit
 from app.auth.claims import entity_is_claimable, find_existing_claim, get_entity_by_slug
 from app.auth.dependencies import get_current_user
+from app.billing import service as billing_service
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.db.database import get_db
 from app.db.models import (
@@ -475,6 +477,41 @@ def register_sponsor_admin_routes(router: APIRouter) -> None:
             raise HTTPException(status_code=404, detail="placement_not_found")
         p.status = PlacementStatus.released.value
         db.add(p)
+        db.commit()
+        return RedirectResponse(url="/admin/placements", status_code=303)
+
+    @router.post("/placements/{placement_id}/cancel", response_model=None)
+    def admin_placement_cancel(
+        request: Request,
+        placement_id: str,
+        refund: str = Form(default=""),
+        db: Session = Depends(get_db),
+    ) -> RedirectResponse:
+        """Cancel a placement, optionally issuing a Stripe refund.
+
+        Calls the Stripe subscription-cancel (and, when ``refund`` is checked,
+        the refund) then releases the spot immediately. Stripe also fires its own
+        webhooks, which flip status + write the ledger entry idempotently. While
+        billing is dormant this still frees the slot (no Stripe call made)."""
+        redir = _admin_guard(request)
+        if redir is not None:
+            return redir
+        p = db.get(Placement, placement_id)
+        if p is None:
+            raise HTTPException(status_code=404, detail="placement_not_found")
+        do_refund = refund.strip().lower() in {"1", "true", "yes", "on"}
+        summary = billing_service.cancel_placement(db, p, refund=do_refund)
+        record_audit(
+            db,
+            action="placement_cancel",
+            target_type="placement",
+            target_id=placement_id,
+            detail=(
+                f"refund={do_refund} stripe_called={summary['stripe_called']} "
+                f"canceled={summary['canceled']} refunded={summary['refunded']}"
+                + (f" errors={summary['errors']}" if summary["errors"] else "")
+            ),
+        )
         db.commit()
         return RedirectResponse(url="/admin/placements", status_code=303)
 

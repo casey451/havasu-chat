@@ -59,7 +59,9 @@
     {{ event_link_html | safe }}
     {{ tags_html | safe }}
 
-    <p class="evd-back"><a href="/events-ui">← Back to all events</a></p>
+    <p class="evd-back"><a href="/events-ui">← Back to all events</a>
+      <span aria-hidden="true">·</span>
+      <a href="/feedback?type=wrong_info&amp;target_type=event&amp;ref={{ event_title|urlencode }}&amp;name={{ event_title|urlencode }}">Report wrong or missing info</a></p>
   </article>
 </div>
 

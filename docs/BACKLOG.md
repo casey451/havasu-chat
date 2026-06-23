@@ -13,6 +13,19 @@ Ship log entries at the bottom record what shipped per session. New ones are app
 
 ---
 
+# P5 Admin portal, analytics & feedback (2026-06-22) — branch `p5-admin-analytics-feedback`, held for push
+
+Production-readiness P5 (`relay/PRODUCTION_READINESS_PLAN_2026-06-21.md` §P5). Commits held for Casey's push. Gate: pytest 11760 passed / 0 failed, ruff clean.
+
+- **Wire admin portal + audit migration** — **ALREADY DONE on main (reconciled).** Registration (`app/main.py:44`/`:704`) and the audit migration (`e9b5d7f3a1c6`) shipped with P4; no `migrations_draft/` exists. Stale `migrations_draft/` references in `audit_models.py` + `portal_audit.html` corrected.
+- **Owner dashboards (traffic / search / placements)** — **RESOLVED.** `app/admin_portal/analytics.py` + three templates, SQL-backed on first-party tables (no PostHog). Nav items added.
+- **Placement cancel/refund→status** — **RESOLVED (mock-tested; live refund pending Stripe keys).** `service.cancel_placement` + webhook `payment_intent` capture + `charge.refunded` attribution/release + admin `POST /admin/placements/{id}/cancel`.
+- **DB-backed feedback** — **RESOLVED.** `Feedback` model + `/feedback` form (footer + per-listing controls) + admin queue + Resend forward (mocked). Phantom privacy/terms refs fixed.
+- **12-month query_log retention** — **RESOLVED (code); prod run Casey-gated.** `purge_old_query_logs` + `scripts/purge_query_log_retention.py` (dry-run default).
+- **Prod-DB op HELD for Casey:** migrations `p5feedback01` + `p5payint02` = CREATE TABLE feedback (+2 idx) + ALTER placements ADD stripe_payment_intent_id; additive, 0 rows touched; applies on deploy.
+- **OPEN follow-ups (not blocking acceptance):** (1) listing-grain query→click flow needs an anonymized `session_id` on both `query_log` + `analytics_events` (+ emit-site threading) — built at category grain for now. (2) Placement-backed ad slots emit impressions but no click events, so per-placement CTR is impressions-only; add click instrumentation in `app/monetization/serving.py` for true paid-slot CTR. (3) `lake_admin.css` cache-bust hygiene (pre-existing, admin-only).
+- **DEFERRED:** wiring `FEEDBACK_NOTIFY_EMAIL` to a Cloudflare Email Routing alias + the retention cron are owner ops.
+
 # P2 Content & metadata enrichment (2026-06-21) — branch `p2-content-enrichment`, held for push
 
 Production-readiness P2 (`relay/PRODUCTION_READINESS_PLAN_2026-06-21.md` §P2). Commits held for Casey's push.
