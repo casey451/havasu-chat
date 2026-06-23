@@ -51,9 +51,23 @@ _FAMILY_TITLE_RE = re.compile(
     r"tiny\s+(?:tots?|tumblers?|dancers?|ninjas?|hawks?)|"
     r"pre-?k|preschool|kinder(?:garten)?|"
     r"mommy\s*(?:&|and|n|\+)?\s*me|parent\s*(?:&|and|n|\+)?\s*tot|"
-    r"creative\s+(?:dance|movement)"
+    r"creative\s+(?:dance|movement)|"
+    # youth-dance + kids-activity names that carry no generic kid word
+    r"tiny\s+toes|pre-?ballet|pre-?tap|ballet\s+beginnings|rec\s+cheer|"
+    r"pony|lead\s+line"
     r")\b",
     re.IGNORECASE,
+)
+
+# Venues/providers whose programming is entirely for children, so every class
+# published under them is a Kids & Family item even when the title carries no kid
+# word (a homeschool enrichment center, a youth gymnastics/cheer gym). Substring
+# matched, lower-cased; kept to providers with NO adult offerings so an adult
+# class can't be misrouted. (Mixed-age studios like Ballet Havasu are NOT here —
+# their classes route by title.)
+_FAMILY_VENUE_HINTS: tuple[str, ...] = (
+    "desert bloom learning center",
+    "universal sonics",
 )
 
 # Adult-only markers — veto whatever the positive match said.
@@ -68,12 +82,22 @@ _ADULT_TITLE_RE = re.compile(
 )
 
 
-def is_family_event(title: str | None, tags: list[str] | None = None) -> bool:
-    """True when the occurrence positively reads as a kid/family thing."""
+def is_family_event(
+    title: str | None, tags: list[str] | None = None, venue: str | None = None
+) -> bool:
+    """True when the occurrence positively reads as a kid/family thing.
+
+    Decided by, in order: an adult-only veto (wine/21+/seniors); a kid/family
+    TITLE word; a kids-only VENUE/provider (so a generically-named program at a
+    homeschool center or youth gym still routes to Kids & Family); a family TAG.
+    """
     t = (title or "").strip()
     if t and _ADULT_TITLE_RE.search(t):
         return False
     if t and _FAMILY_TITLE_RE.search(t):
+        return True
+    vlow = (venue or "").lower()
+    if vlow and any(h in vlow for h in _FAMILY_VENUE_HINTS):
         return True
     for tag in tags or []:
         if isinstance(tag, str) and tag.strip().lower() in _FAMILY_TAGS:

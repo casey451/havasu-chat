@@ -140,6 +140,48 @@ def test_senior_items_route_to_seniors_only_never_dual() -> None:
         _cleanup(eids)
 
 
+def test_nonfitness_class_routes_to_happening_today() -> None:
+    # 2026-06-23: a recurring non-fitness "class" (dog obedience) has no fitness
+    # activity type, so it files under Happening today — NOT a Fitness & classes
+    # "Other classes" residue (which no longer exists).
+    s = uuid.uuid4().hex[:6]
+    dog = f"ZZ Dog Obedience {s}"
+    eids: list[str] = []
+    with SessionLocal() as db:
+        eids.append(_add_recurring(db, title=dog, start=time(10, 0),
+                                   loc="Jack Hardie Park", tags=["adult"]))
+        db.commit()
+    try:
+        with SessionLocal() as db:
+            groups = events_views.day_groups(db, day=_MONDAY.date(), now=_MONDAY)
+        by_key = {g["key"]: {r["title"] for r in g["rows"]} for g in groups}
+        assert any(dog in t for t in by_key.get("events", set()))
+        assert not any(dog in t for t in by_key.get("classes", set()))
+    finally:
+        _cleanup(eids)
+
+
+def test_kids_venue_class_routes_to_family_only() -> None:
+    # A generically-named class at a kids-only venue files under Kids & Family
+    # ONLY (not the adult Fitness list, not Happening today).
+    s = uuid.uuid4().hex[:6]
+    enr = f"ZZ Enrichment Lab {s}"
+    eids: list[str] = []
+    with SessionLocal() as db:
+        eids.append(_add_recurring(db, title=enr, start=time(13, 0),
+                                   loc="Desert Bloom Learning Center", tags=["adult"]))
+        db.commit()
+    try:
+        with SessionLocal() as db:
+            groups = events_views.day_groups(db, day=_MONDAY.date(), now=_MONDAY)
+        by_key = {g["key"]: {r["title"] for r in g["rows"]} for g in groups}
+        assert any(enr in t for t in by_key.get("family", set()))
+        assert not any(enr in t for t in by_key.get("classes", set()))
+        assert not any(enr in t for t in by_key.get("events", set()))
+    finally:
+        _cleanup(eids)
+
+
 # --- /events-ui audience tabs removed (Item 4) ------------------------------
 
 

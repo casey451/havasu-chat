@@ -23,6 +23,10 @@ from app.categories.subcategories import is_martial_arts_name
 CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Yoga", ("yoga", "vinyasa")),
     ("Pilates", ("pilates", "reformer", "barre")),
+    # Pickleball is checked BEFORE Aquatic fitness so a "Pickleball Round Robin -
+    # Lake Havasu City Aquatic Center" (the pool's name is in the title) files
+    # under Pickleball, not Aquatic — the activity word wins over a venue word.
+    ("Pickleball", ("pickleball", "racquetball", "tennis clinic")),
     # Aquatic fitness — pool CLASSES (lap swim, water aerobics, aqua zumba). Open
     # Swim / Family Swim are drop-in rec and route to "Happening today" instead
     # (see app.home.event_buckets.is_dropin_rec). Checked before Strength so
@@ -54,9 +58,6 @@ CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "tai chi", "qigong", "qi gong", "meditation", "mindfulness",
         "stretch", "mobility", "low impact", "low-impact", "arthritis", "balance",
     )),
-    # Scheduled racquet/court classes & clinics. All-day open play is drop-in rec
-    # and routes to "Happening today", so it never reaches this subsection.
-    ("Pickleball", ("pickleball", "racquetball", "tennis clinic")),
 )
 SUBGROUP_ORDER: tuple[str, ...] = (
     "Yoga", "Pilates", "Strength & Cardio", "Mind & Body", "Aquatic fitness",

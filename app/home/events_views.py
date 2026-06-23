@@ -258,6 +258,19 @@ def _route_occurrence(
     if is_family and gkey == "classes":
         family_overlay.append(row)
         return
+    # Non-fitness recurring "classes" (dog obedience, a cooking class, a craft
+    # series, homeschool enrichment) carry no fitness activity type, so they used
+    # to pile up in a "Fitness & classes > Other classes" residue that read as
+    # leftovers. Route them to "Happening today" instead, so Fitness & classes
+    # holds only real fitness/movement classes and nothing looks out of place
+    # (Casey 2026-06-23). Kids/senior versions are already pulled off above.
+    if gkey == "classes" and classify_class_subgroup(
+        row.get("title") or "", row.get("venue"), row.get("activity")
+    ) == FALLBACK_LABEL:
+        rows_by_group["events"].append(row)
+        if is_family:
+            family_overlay.append(row)
+        return
     rows_by_group[gkey].append(row)
     if is_family:
         family_overlay.append(row)
@@ -328,7 +341,7 @@ def day_groups(
         seniors = False
     events = _live_events_by_day(db, window_start=day, window_end=day).get(day, [])
     if family:
-        events = [ev for ev in events if is_family_event(ev.title, ev.tags)]
+        events = [ev for ev in events if is_family_event(ev.title, ev.tags, ev.location_name)]
     elif seniors:
         events = [ev for ev in events if is_senior_event(ev.title, ev.tags, ev.location_name)]
     # Item 6 auto-expiry: on the current day, drop occurrences finished >1h ago
@@ -362,7 +375,10 @@ def day_groups(
         row = _event_row(ev)
         _route_occurrence(
             row, gkey, rows_by_group, family_overlay, senior_overlay,
-            is_family=(not family and not seniors and is_family_event(ev.title, ev.tags)),
+            is_family=(
+                not family and not seniors
+                and is_family_event(ev.title, ev.tags, ev.location_name)
+            ),
             is_senior=(
                 not family and not seniors
                 and is_senior_event(ev.title, ev.tags, ev.location_name)
@@ -372,7 +388,7 @@ def day_groups(
     for occ in drop_event_duplicates(
         class_occurrences_in_window(db, window_start=day, window_end=day), event_keys
     ):
-        if family and not is_family_event(occ.title):
+        if family and not is_family_event(occ.title, None, occ.venue):
             continue
         if seniors and not is_senior_event(occ.title, None, occ.venue):
             continue
@@ -398,7 +414,10 @@ def day_groups(
         }
         _route_occurrence(
             row, gkey, rows_by_group, family_overlay, senior_overlay,
-            is_family=(not family and not seniors and is_family_event(occ.title)),
+            is_family=(
+                not family and not seniors
+                and is_family_event(occ.title, None, occ.venue)
+            ),
             is_senior=(
                 not family and not seniors
                 and is_senior_event(occ.title, None, occ.venue)
@@ -479,7 +498,7 @@ def week_rows(
     by_day = _live_events_by_day(db, window_start=start, window_end=end)
     if family:
         by_day = {
-            d: [ev for ev in evs if is_family_event(ev.title, ev.tags)]
+            d: [ev for ev in evs if is_family_event(ev.title, ev.tags, ev.location_name)]
             for d, evs in by_day.items()
         }
     elif seniors:
@@ -496,7 +515,7 @@ def week_rows(
     for occ in drop_event_duplicates(
         class_occurrences_in_window(db, window_start=start, window_end=end), event_keys
     ):
-        if family and not is_family_event(occ.title):
+        if family and not is_family_event(occ.title, None, occ.venue):
             continue
         if seniors and not is_senior_event(occ.title, None, occ.venue):
             continue
