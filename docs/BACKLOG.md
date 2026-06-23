@@ -2645,3 +2645,12 @@ entity; the 1-schedule re-point was **APPLIED to prod** (Casey-approved) via
 `scripts/repoint_aqua_beginnings_schedule.py` (schedule 795 → entity
 `aqua-beginnings-swim-lessons`; row now links `/provider/aqua-beginnings-swim-lessons`;
 snapshot `snapshot_aqua_beginnings_repoint_795.json`). Shipped on PR #494.
+
+**DEFERRED (P6 maintainability) — migrate the curated venue-website map.** The
+`_PAGELESS_VENUE_WEBSITES` dict in `app/events/class_occurrences.py` is a small
+hand-maintained surface (3 hardcoded outbound URLs on a live directory). It is the
+cleanest option for now and self-deactivates per-venue once a real Provider
+listing is added, but the durable fix is to carry the link in data — an
+entity-level `website` field (needs a migration; Entity currently has none) or
+real directory Provider listings for the three venues. Revisit when touching the
+schedule-ingest / directory model.
