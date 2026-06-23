@@ -54,7 +54,7 @@ from app.events.event_type_tags import event_type_label
 from app.events.family_filter import is_family_event
 from app.events.senior_filter import is_senior_event
 from app.events.time_labels import TIME_TBD_LABEL, short_time_label, time_sort_key
-from app.events.title_clean import clean_event_title
+from app.events.title_clean import clean_event_title, clean_venue_label
 from app.home.event_buckets import (
     GROUP_DEFS,
     GROUP_NOUNS,
@@ -216,7 +216,7 @@ def _event_row(ev: Event) -> dict[str, Any]:
         "sort": time_sort_key(ev.start_time, ev.end_time),
         "time_label": _row_time_label(ev.title or "", ev.start_time, ev.end_time),
         "title": clean_event_title(ev.title, location_name=ev.location_name),
-        "venue": ev.location_name,
+        "venue": clean_venue_label(ev.location_name),
         "url": f"/events/{ev.id}",
         "recurring": bool(ev.is_recurring),
         # P2: the event TYPE folded into a scannable label ("Live Music",
@@ -399,7 +399,7 @@ def day_groups(
             "sort": time_sort_key(occ.start_time, occ.end_time),
             "time_label": _row_time_label(occ.title or "", occ.start_time, occ.end_time),
             "title": clean_event_title(occ.title, location_name=occ.venue),
-            "venue": occ.venue,
+            "venue": clean_venue_label(occ.venue),
             "url": occ.url,  # venue page — class series have no permalink
             "recurring": True,
             # Provider-derived activity (Yoga/Dance/Gymnastics/…) so the Fitness &

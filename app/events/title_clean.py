@@ -98,3 +98,23 @@ def clean_event_title(title: str | None, *, location_name: str | None = None) ->
     t = _WS_RE.sub(" ", t).strip(_TRIM_CHARS)
 
     return t or original
+
+
+# Venue labels arrive from scrapers as a mix of clean names and full mashed
+# addresses ("Rotary Park 1400 S. Smoketree Ave. Lake Havasu City, AZ. 86403",
+# "Lake Havasu City Aquatic Center, 100 Park Avenue, Room 153/154, …"). For
+# display we keep the leading NAME and drop the trailing street address: cut at
+# the first ", <number>…" (comma then street number) or the first " <3+ digit>…"
+# run (a bare street number). Conservative — a name with a comma+word
+# ("Elite Martial Arts, Inc.") or a 1-2 digit number ("Pier 66") is untouched,
+# and a label that is ONLY an address (starts with the number) is left as-is
+# (there is no name to keep). Future scrapes get the same cleanup for free.
+_VENUE_ADDR_CUT_RE = re.compile(r"\s*,\s*\d.*$|\s+\d{3,}\b.*$")
+
+
+def clean_venue_label(name: str | None) -> str | None:
+    """Drop a trailing street address from a venue label, keeping the name."""
+    if not name:
+        return name
+    cleaned = _VENUE_ADDR_CUT_RE.sub("", name).strip().rstrip(",").strip()
+    return cleaned or name

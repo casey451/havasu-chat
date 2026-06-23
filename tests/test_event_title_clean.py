@@ -88,3 +88,22 @@ def test_instructor_only_title_never_empties():
     # A lone instructor name (no other word) must not collapse to "" — the
     # >= 2-word guard keeps the original.
     assert clean_event_title("Margie") == "Margie"
+
+
+def test_clean_venue_label_strips_trailing_address():
+    from app.events.title_clean import clean_venue_label
+
+    # "Name + address" -> just the name.
+    assert clean_venue_label("Rotary Park 1400 S. Smoketree Ave. Lake Havasu City, AZ. 86403") == "Rotary Park"
+    assert clean_venue_label("Star Cinemas 5601 Highway 95, Lake Havasu City") == "Star Cinemas"
+    assert clean_venue_label(
+        "Lake Havasu City Aquatic Center, 100 Park Avenue, Room 153/154, Lake Havasu City, AZ 86403"
+    ) == "Lake Havasu City Aquatic Center"
+    assert clean_venue_label("Mohave College, 1977 Acoma Blvd West, Room 600") == "Mohave College"
+    # Clean names are untouched — incl. a comma+word and a small number.
+    assert clean_venue_label("Elite Martial Arts, Inc.") == "Elite Martial Arts, Inc."
+    assert clean_venue_label("Iron Wolf Golf & Country Club") == "Iron Wolf Golf & Country Club"
+    assert clean_venue_label("Pier 66") == "Pier 66"
+    # A label that is ONLY an address has no name to keep — left as-is, not emptied.
+    assert clean_venue_label("2146 McCulloch Blvd") == "2146 McCulloch Blvd"
+    assert clean_venue_label(None) is None
