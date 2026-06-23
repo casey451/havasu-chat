@@ -28,7 +28,7 @@
       <div class="card lcard">
         <h3>{{ o.label }}</h3>
         <p class="price" style="font-size:20px;font-weight:700;margin:6px 0">
-          {% if o.price_cents %}{{ "$%.0f"|format(o.price_cents/100) }}<span style="font-size:13px;font-weight:500">/mo{% if o.indicative %} starting{% endif %}</span>{% else %}Price on request{% endif %}
+          {% if o.price_cents is not none %}{{ "$%.0f"|format(o.price_cents/100) }}<span style="font-size:13px;font-weight:500">/mo{% if o.indicative %} starting{% endif %}</span>{% else %}Price on request{% endif %}
         </p>
         <p class="cat">{{ o.blurb }}</p>
         <p class="act"><a class="btn btn-ghost" href="/portal/placements/new">Buy &rarr;</a></p>

@@ -127,6 +127,19 @@ def test_cap_limits_pinned_paid_block() -> None:
     assert top3 == {"p1", "p2", "p3"}
 
 
+def test_cap_holds_even_with_shuffle_off() -> None:
+    # The mobile cap must apply on the shuffle-off rollback path too.
+    many = [ItemRating(k, 4.5, 50) for k in ("p1", "p2", "p3", "p4", "p5")]
+    many += [ItemRating(f"o{i}", 4.5, 50) for i in range(6)]
+    tiers = {1: "p1", 2: "p2", 3: "p3", 4: "p4", 5: "p5"}
+    arr = arrange_listing(
+        many, tiers, category_slug="cat", day="2026-06-22", threshold=4.0, cap=3,
+        shuffle=False,
+    )
+    assert set(arr.order[:3]) == {"p1", "p2", "p3"}  # only 3 pinned
+    assert {"p4", "p5"} <= arr.sponsored             # overflow still labeled
+
+
 def test_listing_day_is_a_date_string() -> None:
     from datetime import datetime
 

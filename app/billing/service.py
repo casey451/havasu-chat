@@ -158,15 +158,18 @@ def create_checkout_session(
     }
     if recurring:
         price_data["recurring"] = {"interval": "month"}
-    session = stripe.checkout.Session.create(
-        mode="subscription" if recurring else "payment",
-        line_items=[{"price_data": price_data, "quantity": 1}],
-        success_url=success_url,
-        cancel_url=cancel_url,
-        customer_email=customer_email or None,
-        client_reference_id=placement.id,
-        metadata={"placement_id": placement.id, "provider_id": placement.provider_id},
-    )
+    try:
+        session = stripe.checkout.Session.create(
+            mode="subscription" if recurring else "payment",
+            line_items=[{"price_data": price_data, "quantity": 1}],
+            success_url=success_url,
+            cancel_url=cancel_url,
+            customer_email=customer_email or None,
+            client_reference_id=placement.id,
+            metadata={"placement_id": placement.id, "provider_id": placement.provider_id},
+        )
+    except Exception:  # noqa: BLE001 — a Stripe-side error must not 500 checkout
+        return None
     placement.stripe_checkout_session_id = session.get("id")
     db.add(placement)
     db.commit()
@@ -188,9 +191,12 @@ def create_customer_portal_session(
     if stripe is None:  # pragma: no cover — guarded by billing_enabled()
         return None
     stripe.api_key = config.stripe_secret_key()
-    session = stripe.billing_portal.Session.create(
-        customer=customer_id, return_url=return_url
-    )
+    try:
+        session = stripe.billing_portal.Session.create(
+            customer=customer_id, return_url=return_url
+        )
+    except Exception:  # noqa: BLE001 — a Stripe-side error must not 500 the page
+        return None
     return session.get("url")
 
 
@@ -269,7 +275,12 @@ def handle_webhook_event(db: Session, event: dict[str, Any]) -> str:
         status = str(obj.get("status") or "").lower()
         cancel_at_period_end = bool(obj.get("cancel_at_period_end"))
         if status in ("active", "trialing") and not cancel_at_period_end:
-            activate_paid_placement(db, placement)
+            # Only entitlement-extending events (invoice.paid) move paid_through.
+            # A routine/redelivered subscription.updated must NOT keep pushing the
+            # paid window out — reactivate a non-active spot preserving its window,
+            # and no-op when it is already active.
+            if placement.status != PlacementStatus.active.value:
+                activate_paid_placement(db, placement, paid_through=placement.paid_through)
             return "updated_active"
         if status in ("canceled", "unpaid", "incomplete_expired"):
             release_placement(db, placement)

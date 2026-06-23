@@ -37,7 +37,7 @@
       <div class="d-card d-card--shadow dp-door">
         <h3 style="margin:0 0 4px">{{ o.label }}</h3>
         <p style="font-size:1.3rem;font-weight:700;margin:0 0 8px">
-          {% if o.price_cents %}{{ "$%.0f"|format(o.price_cents/100) }}<span style="font-size:.85rem;font-weight:500">/mo{% if o.indicative %} starting{% endif %}</span>{% else %}Price on request{% endif %}
+          {% if o.price_cents is not none %}{{ "$%.0f"|format(o.price_cents/100) }}<span style="font-size:.85rem;font-weight:500">/mo{% if o.indicative %} starting{% endif %}</span>{% else %}Price on request{% endif %}
         </p>
         <p class="d-muted" style="font-size:.92rem">{{ o.blurb }}</p>
         <p style="margin-top:12px"><a class="d-btn" href="/portal/placements/new">Buy →</a></p>

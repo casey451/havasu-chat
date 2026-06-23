@@ -34,7 +34,8 @@ def _provider(name: str, rating: float | None, reviews: int | None) -> Provider:
     )
 
 
-def test_default_listing_tail_labels_no_review_business_below_rated() -> None:
+def test_default_listing_tail_labels_no_review_business_below_rated(monkeypatch) -> None:
+    monkeypatch.setenv("RANKING_DAILY_SHUFFLE", "1")  # this test asserts shuffle-on behavior
     suf = uuid.uuid4().hex[:8]
     rated_name = f"Rated Grill {suf}"   # 4.6 / 80 → quality pool
     new_name = f"Brand New Eatery {suf}"  # no reviews → tail
@@ -46,9 +47,10 @@ def test_default_listing_tail_labels_no_review_business_below_rated() -> None:
         eids = [rated.entity_id, new.entity_id]
 
     try:
-        cards, total = category_listing(
-            db_session_factory(), "eat-drink", now=_NOW, facets=CategoryFacets(), limit=500
-        )
+        with SessionLocal() as db:
+            cards, total = category_listing(
+                db, "eat-drink", now=_NOW, facets=CategoryFacets(), limit=500
+            )
         by_name = {c["name"]: c for c in cards}
         assert rated_name in by_name and new_name in by_name  # never excluded
         # The no-review business is flagged for the tail; the rated one is not.
@@ -62,7 +64,8 @@ def test_default_listing_tail_labels_no_review_business_below_rated() -> None:
         _cleanup(eids)
 
 
-def test_active_placement_pins_and_labels_sponsored_on_default_listing() -> None:
+def test_active_placement_pins_and_labels_sponsored_on_default_listing(monkeypatch) -> None:
+    monkeypatch.setenv("RANKING_DAILY_SHUFFLE", "1")
     suf = uuid.uuid4().hex[:8]
     paid_name = f"Paid Pin Cafe {suf}"
     other_name = f"Organic Cafe {suf}"
@@ -89,9 +92,10 @@ def test_active_placement_pins_and_labels_sponsored_on_default_listing() -> None
         db.commit()
 
     try:
-        cards, _total = category_listing(
-            db_session_factory(), "eat-drink", now=_NOW, facets=CategoryFacets(), limit=500
-        )
+        with SessionLocal() as db:
+            cards, _total = category_listing(
+                db, "eat-drink", now=_NOW, facets=CategoryFacets(), limit=500
+            )
         assert cards[0]["name"] == paid_name           # tier-1 pinned to the top
         assert cards[0]["is_sponsored"] is True         # labeled "Sponsored"
         by_name = {c["name"]: c for c in cards}
@@ -101,10 +105,6 @@ def test_active_placement_pins_and_labels_sponsored_on_default_listing() -> None
             db.execute(delete(Placement).where(Placement.provider_id == pid))
             db.commit()
         _cleanup(eids)
-
-
-def db_session_factory() -> SessionLocal:  # type: ignore[valid-type]
-    return SessionLocal()
 
 
 def _cleanup(entity_ids: list[str]) -> None:

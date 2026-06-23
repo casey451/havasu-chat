@@ -1275,7 +1275,6 @@ def category_listing(
             ItemRating,
             active_category_creatives,
             active_category_tiers,
-            apply_category_order,
             arrange_listing,
             listing_day,
         )
@@ -1401,13 +1400,22 @@ def category_listing(
             rows = [by_id[k] for k in arr.order if k in by_id]
             new_unrated_ids = arr.new_unrated
         elif tiers:
-            # Legacy path (shuffle off): pin paid tiers into the top-5, organic
-            # order preserved below them. No-op when no tier is held here.
-            rows = [
-                by_id[pid]
-                for pid in apply_category_order([p.id for p in rows], tiers)
-                if pid in by_id
-            ]
+            # Legacy path (shuffle off): preserve the organic order, but still pin
+            # paid tiers under the SAME mobile cap so disabling the shuffle can't
+            # bypass it. shuffle=False keeps the rating order untouched below.
+            arr = arrange_listing(
+                [
+                    ItemRating(p.id, p.google_rating, getattr(p, "google_review_count", None))
+                    for p in rows
+                ],
+                tiers,
+                category_slug=placement_route,
+                day=listing_day(now),
+                threshold=rating_gate(),
+                cap=mobile_paid_cap(),
+                shuffle=False,
+            )
+            rows = [by_id[k] for k in arr.order if k in by_id]
         window = rows[offset : offset + per_page]
         return [
             _provider_card(

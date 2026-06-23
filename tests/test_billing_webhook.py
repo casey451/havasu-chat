@@ -86,6 +86,13 @@ def test_subscription_updated_active_keeps_live() -> None:
             assert service.handle_webhook_event(db, event) == "updated_active"
             db.refresh(p)
             assert p.status == PlacementStatus.active.value
+            # A repeat updated→active on an already-active spot must NOT extend the
+            # paid window (only invoice.paid extends entitlement).
+            before = p.paid_through
+            event["id"] = f"evt2_{suf}"
+            assert service.handle_webhook_event(db, event) == "updated_active"
+            db.refresh(p)
+            assert p.paid_through == before
         finally:
             db.execute(delete(Placement).where(Placement.id == plid))
             db.execute(delete(RevenueEvent).where(RevenueEvent.provider_id == provider_id))

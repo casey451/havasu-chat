@@ -280,13 +280,15 @@ def leaf_listing(
         ItemRating,
         active_category_creatives,
         active_category_tiers,
-        apply_category_order,
         arrange_listing,
         listing_day,
     )
     from app.portal.products import daily_shuffle_enabled, mobile_paid_cap, rating_gate
 
-    tiers = active_category_tiers(db, leaf.slug)
+    try:
+        tiers = active_category_tiers(db, leaf.slug)
+    except Exception:
+        tiers = {}  # placement lookup must never empty the organic leaf grid
     sponsored_ids = set(tiers.values())
     try:
         creatives = active_category_creatives(db, leaf.slug) if tiers else {}
@@ -312,8 +314,20 @@ def leaf_listing(
         providers = [by_id[k] for k in arr.order if k in by_id]
         new_unrated_ids = arr.new_unrated
     elif tiers:
-        new_order = apply_category_order([p.id for p in providers], tiers)
-        providers = [by_id[pid] for pid in new_order if pid in by_id]
+        # Shuffle off: keep organic order but pin paid under the same mobile cap.
+        arr = arrange_listing(
+            [
+                ItemRating(p.id, p.google_rating, getattr(p, "google_review_count", None))
+                for p in providers
+            ],
+            tiers,
+            category_slug=leaf.slug,
+            day=listing_day(now),
+            threshold=rating_gate(),
+            cap=mobile_paid_cap(),
+            shuffle=False,
+        )
+        providers = [by_id[k] for k in arr.order if k in by_id]
 
     cards = [
         cat_queries._provider_card(

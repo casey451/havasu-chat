@@ -208,8 +208,9 @@ def arrange_listing(
     shuffle: bool = True,
 ) -> Arranged:
     """Order one category/leaf listing per the brief: ≤``cap`` paid cards pinned
-    above the fold, then a daily-shuffled >``threshold`` quality pool, then a
-    daily-shuffled "New / Not yet rated" tail, then the daily-shuffled low band.
+    above the fold, then a daily-shuffled >``threshold`` quality pool, then the
+    daily-shuffled reviewed-but-≤``threshold`` low band, then the daily-shuffled
+    "New / Not yet rated" tail at the very bottom.
 
     ``items`` arrives in the caller's organic order (rating-sorted). With
     ``shuffle=False`` (the rollback switch) that order is preserved and only the
