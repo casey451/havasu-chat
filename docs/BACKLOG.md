@@ -13,6 +13,14 @@ Ship log entries at the bottom record what shipped per session. New ones are app
 
 ---
 
+# Event minimum-info gate + description backfill (2026-06-23) — branch `fix/event-minimum-info`, held for push
+
+"No event/class with no information." Investigation flipped remedy from remove → find descriptions. Gate: pytest 11769 passed / 0 failed, ruff clean.
+
+- **Minimum-info validators** — **RESOLVED.** `app/contrib/event_min_info.py` (event: title/date/real-venue/link; class: title/venue/days/time). `REQUIRE_DESCRIPTION=False` (description-less events are enriched, not dropped).
+- **Ingest guard** — **RESOLVED.** `ingest_event_records` skips genuinely-empty records (`skipped_no_info`); `attach_schedule_to_entity` skips no-title/days/time classes.
+- **Description backfill** — **BUILT; HELD (run in prod).** `scripts/backfill_event_descriptions_2026_06_23.py` re-fetches descriptions (+venue for 4 title-as-venue) from each event's riverscenemagazine.com `source_url`. 45 description fills + 4 venue fixes verified as targets. Dry-run→review→`--apply --confirm`. Must run via `railway run` (sandbox has no outbound HTTPS).
+- **Decision/finding:** the chosen "core+description" bar would have removed 45 REAL events (Farmers Market ×27, Fireworks, parade, Taste of Havasu) — so removal was abandoned; descriptions are backfilled instead.
 # Calendar classification fix-up (2026-06-23) — branch `fix/calendar-classification`, held for push
 
 Comprehensive events/classes calendar classification + routing + dedup fix. Commits held for Casey's push. Gate: pytest 11775 passed / 0 failed, ruff clean.

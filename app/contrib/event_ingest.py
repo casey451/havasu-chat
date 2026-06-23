@@ -35,6 +35,7 @@ from app.contrib.approval_service import (
     approve_contribution_as_event,
     should_auto_approve_event,
 )
+from app.contrib.event_min_info import event_missing_info
 from app.contrib.event_reconciler import log_ambiguous_reconcile, reconcile_event
 from app.contrib.event_record import (
     EventRecord,
@@ -81,6 +82,9 @@ class IngestCounts:
     merged_duplicate: int = 0
     flagged_ambiguous: int = 0
     skipped_incomplete: int = 0
+    # 2026-06-23 minimum-info bar: a record missing a real venue / source link /
+    # description (the owner "core + description" rule) is not ingested.
+    skipped_no_info: int = 0
     skipped_blocked: int = 0
     skipped_existing_pending: int = 0
     # Fix 4.4 — a candidate that matched an already-persisted Event on the
@@ -100,6 +104,7 @@ class IngestCounts:
             "merged_duplicate": self.merged_duplicate,
             "flagged_ambiguous": self.flagged_ambiguous,
             "skipped_incomplete": self.skipped_incomplete,
+            "skipped_no_info": self.skipped_no_info,
             "skipped_blocked": self.skipped_blocked,
             "skipped_existing_pending": self.skipped_existing_pending,
             "skipped_duplicate_persisted": self.skipped_duplicate_persisted,
@@ -603,6 +608,21 @@ def ingest_event_records(
     for rec in records:
         if not _is_complete(rec):
             counts.skipped_incomplete += 1
+            continue
+        # Minimum-info bar (2026-06-23): never ingest a record with no real
+        # information — checked on the RESOLVED fields (the same venue/link/
+        # description the event would store), so the bar matches what renders.
+        info_missing = event_missing_info(
+            title=rec.title,
+            start_date=rec.start_date,
+            location_name=_location_name(rec),
+            source_url=_http_url_or_none(rec.url),
+            description=_description(rec),
+        )
+        if info_missing:
+            counts.skipped_no_info += 1
+            if verbose:
+                print(f"info: skipped no-info event {rec.title!r}: missing {info_missing}")
             continue
         blocked = _blocked_organizer(rec)
         if blocked is not None:
