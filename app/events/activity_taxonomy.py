@@ -30,6 +30,7 @@ CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Aquatic fitness", (
         "lap swim", "water aerobics", "water fitness", "water exercise",
         "aqua", "aquacise", "aquatic", "water polo", "deep water",
+        "swim lesson", "swim league", "water wellness", "swim team",
     )),
     ("Martial Arts", (
         "martial", "karate", "jiu jitsu", "jiu-jitsu", "bjj", "taekwondo",
@@ -37,12 +38,15 @@ CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "combat", "self defense", "self-defense", "boxing", "dojo",
         "open mat", "rolls", "rolling", "grappling", "sparring", "wrestling",
     )),
-    ("Dance", ("dance", "ballet", "tap", "jazz", "hip hop", "hip-hop", "ballroom")),
+    ("Dance", (
+        "dance", "dancing", "ballet", "tap", "jazz", "hip hop", "hip-hop",
+        "ballroom", "salsa", "pointe",
+    )),
     ("Gymnastics", ("gymnastics", "tumbling", "tumbler", "tumble", "cheer", "ninja", "trampoline")),
     ("Strength & Cardio", (
         "strength", "weight", "crossfit", "cross fit", "bootcamp", "boot camp",
         "hiit", "cardio", "spin", "cycling", "zumba", "aerobic", "conditioning",
-        "sculpt", "circuit",
+        "sculpt", "circuit", "fit & flex", "fit and flex", "flex",
     )),
     # Gentle / senior-leaning movement classes (tai chi, qigong, low-impact,
     # arthritis, balance) — typed so they don't fall into the untyped residue.
@@ -83,23 +87,79 @@ MARTIAL_ARTS_VENUES: tuple[str, ...] = (
 )
 
 
-def classify_class_subgroup(title: str, venue: str | None = None) -> str:
-    """Map a fitness/class occurrence to a type subsection.
+# Directory-category / EntityCategory slug → class subgroup label. Lets a class
+# whose TITLE carries no activity keyword ("Morning Flow", "Elementary B",
+# "Boys Athletics") inherit its activity from the PROVIDER it's published under
+# (a yoga studio's classes are Yoga, a dance studio's are Dance). Substring
+# matched against the provider's category slugs, longest-first so "yoga-and-
+# pilates" wins over a bare "pilates".
+_PROVIDER_SLUG_TO_LABEL: tuple[tuple[str, str], ...] = (
+    ("yoga-and-pilates", "Yoga"),
+    ("dance-studios", "Dance"),
+    ("martial-arts", "Martial Arts"),
+    ("gymnastics", "Gymnastics"),
+    ("pilates", "Pilates"),
+    ("yoga", "Yoga"),
+    ("dance", "Dance"),
+)
 
-    Venue wins first: any class at a martial-arts studio files under Martial Arts
-    regardless of title. The catalog's own name detector
-    (:func:`app.categories.subcategories.is_martial_arts_name`) covers every dojo
-    whose name carries a discipline token; ``MARTIAL_ARTS_VENUES`` catches
-    token-less stragglers. Otherwise fall back to the title-keyword classifier.
-    """
-    vlow = (venue or "").lower()
-    if is_martial_arts_name(venue) or any(v in vlow for v in MARTIAL_ARTS_VENUES):
-        return "Martial Arts"
-    low = title.lower()
+
+def _title_subgroup(title: str) -> str | None:
+    """The title-keyword subgroup, or None when nothing matches (no fallback)."""
+    low = (title or "").lower()
     for label, hints in CLASS_SUBGROUPS:
         for h in hints:
             if re.search(r"\b" + re.escape(h) + r"(?:e?s|ing)?\b", low):
                 return label
+    return None
+
+
+def provider_activity_label(
+    provider_name: str | None, category_slugs: list[str] | None = None
+) -> str | None:
+    """Derive a class subgroup label from the PROVIDER, or None.
+
+    Two signals, in order: (1) the provider's NAME run through the same keyword
+    classifier ("Ballet Havasu" → Dance, "...Gymnastics & All Star Cheer" →
+    Gymnastics, "Amalaya Yoga" → Yoga); (2) its directory/EntityCategory slugs
+    ("dance-studios" → Dance) for token-less names ("Arizona Coast Performing
+    Arts"). Used as a fallback when the class title itself carries no activity
+    keyword, so a yoga studio's generically-named classes leave "Other classes".
+    """
+    by_name = _title_subgroup(provider_name or "")
+    if by_name is not None:
+        return by_name
+    for slug in category_slugs or []:
+        s = (slug or "").lower()
+        for needle, label in _PROVIDER_SLUG_TO_LABEL:
+            if needle in s:
+                return label
+    return None
+
+
+def classify_class_subgroup(
+    title: str, venue: str | None = None, provider_activity: str | None = None
+) -> str:
+    """Map a fitness/class occurrence to a type subsection.
+
+    Precedence: (1) martial-arts VENUE wins — any class at a dojo files under
+    Martial Arts regardless of title (the catalog name detector
+    :func:`app.categories.subcategories.is_martial_arts_name` + the token-less
+    ``MARTIAL_ARTS_VENUES`` stragglers); (2) the class TITLE's own activity
+    keyword (specificity — a Pilates class at a yoga studio is Pilates);
+    (3) the PROVIDER's activity (``provider_activity``, derived via
+    :func:`provider_activity_label`) so a generically-named class inherits its
+    studio's discipline instead of falling to "Other classes"; (4) the honest
+    "Other classes" residue.
+    """
+    vlow = (venue or "").lower()
+    if is_martial_arts_name(venue) or any(v in vlow for v in MARTIAL_ARTS_VENUES):
+        return "Martial Arts"
+    by_title = _title_subgroup(title)
+    if by_title is not None:
+        return by_title
+    if provider_activity:
+        return provider_activity
     return FALLBACK_LABEL
 
 
@@ -114,7 +174,9 @@ def split_class_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     subsections, omitting empty ones (honest-omission). Row order preserved."""
     buckets: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
-        label = classify_class_subgroup(row.get("title") or "", row.get("venue"))
+        label = classify_class_subgroup(
+            row.get("title") or "", row.get("venue"), row.get("activity")
+        )
         buckets.setdefault(label, []).append(row)
     out: list[dict[str, Any]] = []
     for label in SUBGROUP_ORDER:

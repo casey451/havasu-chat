@@ -391,6 +391,10 @@ _MUSIC_HINTS = (
 _COMMUNITY_HINTS = (
     "market", "farmers", "art walk", "artwalk", "fair", "fundraiser", "charity",
     "library", "story time", "bingo", "potluck", "meetup", "club", "workshop",
+    # Recurring venue social games — a weekly Trivia/Quiz night is a "Happening
+    # today" community event, not a fitness class (without this it hit the
+    # recurring→TIER_CLASS fallback below and landed in Fitness & classes).
+    "trivia", "quiz night", "game night",
 )
 _CLASS_HINTS = (
     "aqua", "aerobics", "yoga", "pilates", "lap swim", "pickleball", "fitness",
@@ -425,6 +429,16 @@ _COMMUNITY_HINTS_RE = _compile_hints(_COMMUNITY_HINTS)
 _CLASS_HINTS_RE = _compile_hints(_CLASS_HINTS)
 
 
+def _is_music_event_type(title: str, tags: list[str] | None) -> bool:
+    """True when the P2 event-type classifier reads a definite live-music or
+    comedy event. Local import keeps the activity_taxonomy↔event_type_tags
+    module pair free of an import cycle (mirrors classify_music_subgroup)."""
+    from app.events.event_type_tags import COMEDY, LIVE_MUSIC, classify_event_type
+
+    types = classify_event_type(title=title, tags=tags, venue=None)
+    return LIVE_MUSIC in types or COMEDY in types
+
+
 def _event_tier(*, title: str, tags: list[str] | None, featured: bool, recurring: bool) -> int:
     """Importance tier (lower = more prominent). See the module note above."""
     joined = (title + " " + " ".join(tags or [])).lower()
@@ -434,6 +448,12 @@ def _event_tier(*, title: str, tags: list[str] | None, featured: bool, recurring
     # routes them to their own "City & Government" bucket via is_civic.
     if is_civic(title, tags):
         return _TIER_COMMUNITY
+    # A durable music/comedy signal (P2 event-type classifier: curated act names,
+    # strong live-music phrasing, explicit comedy) wins over an INCIDENTAL class
+    # keyword in the title — e.g. "Top Goons: A First CLASS Night of Comedy"
+    # otherwise matched _CLASS_HINTS ("class") and landed in Fitness & classes.
+    if _is_music_event_type(title, tags):
+        return _TIER_MUSIC
     # Pool / Aquatic Center activities ("Open Swim", "Lap Swim", "Aqua Zumba",
     # "Water Aerobics") are NOT "on the water" (the lake). Routed to their own
     # Aquatic Center tier BEFORE the class + water checks so a pool session
