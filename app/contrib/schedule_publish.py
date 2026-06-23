@@ -96,7 +96,22 @@ def attach_schedule_to_entity(
 ) -> None:
     """Write a recurring Schedule + Offering (+ contacts + evidence) onto an
     existing entity. No new Entity, no Program row (audit lives on the
-    contribution's ``created_entity_id``)."""
+    contribution's ``created_entity_id``).
+
+    Minimum-info bar (2026-06-23): a class with no title, no day(s), or no start
+    time carries no usable calendar information, so it is NOT written (the venue
+    is ``entity_id``, already resolved by the caller)."""
+    from app.contrib.event_min_info import class_missing_info
+
+    missing = class_missing_info(
+        title=fields.title,
+        venue=str(entity_id or "") or None,
+        days=list(fields.schedule_days or []),
+        start_time=_parse_hhmm(fields.schedule_start_time),
+    )
+    if missing:
+        logger.info("skipped no-info class %r: missing %s", fields.title, missing)
+        return
     db.add(
         Offering(
             entity_id=entity_id,
