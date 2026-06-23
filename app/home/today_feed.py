@@ -263,6 +263,7 @@ def _home_group(
     recurring: bool,
     start_time: time | None,
     end_time: time | None,
+    activity: str | None = None,
 ) -> str:
     """Route one occurrence to a home-feed group key (never "movies").
 
@@ -296,7 +297,10 @@ def _home_group(
     if _RECREATION_RE.search(low):
         return "things_to_do"
     if _group_for(title=title, tags=tags, featured=featured, recurring=recurring) == "classes":
-        if _FITNESS_RE.search(low):
+        # A provider-derived activity (Yoga/Dance/Gymnastics/… — only ever a
+        # PHYSICAL discipline) types a generically-named class as Fitness, the
+        # same way /events-ui drains it from "Other classes".
+        if _FITNESS_RE.search(low) or activity:
             return "fitness"
         if _CLASS_NONPHYSICAL_RE.search(low):
             return "classes"
@@ -461,7 +465,10 @@ def today_feed(
     ):
         # Item 1: keep past class occurrences (muted), don't drop them — this is
         # what kept Fitness & sports / Classes from emptying out by afternoon.
-        bkey = _home_group(occ.title, None, False, True, occ.start_time, occ.end_time)
+        bkey = _home_group(
+            occ.title, None, False, True, occ.start_time, occ.end_time,
+            activity=occ.provider_activity,
+        )
         buckets[bkey].append(
             _event_feed_row(
                 title=occ.title,

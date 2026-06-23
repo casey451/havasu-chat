@@ -141,10 +141,26 @@ def group_for_tier(
     # regularly-scheduled council meeting can't be swept into the Fitness list.
     if is_civic(title, tags):
         return "civic"
-    if recurring or tier in (TIER_CLASS, TIER_AQUATIC):
+    # Genuine fitness/aquatic classes — the only tiers that belong in the Fitness
+    # & classes list.
+    if tier in (TIER_CLASS, TIER_AQUATIC):
         return "classes"
+    # Typed leisure tiers route by TIER even when the item recurs. A WEEKLY Open
+    # Mic / Karaoke / Live Music / Comedy night is music; a weekly lake event is
+    # on the water; a weekly Bingo / Trivia / market is a community "Happening
+    # today" item — none of these are fitness classes. (The bare ``recurring``
+    # flag used to short-circuit to "classes" here, sweeping every recurring
+    # venue-social event into Fitness & classes — the calendar mis-routing this
+    # fixes. ``_event_tier`` already maps a recurring item with NO stronger
+    # keyword to TIER_CLASS, so genuine generic classes still land above.)
     if tier == TIER_MUSIC:
         return "music"
     if tier == TIER_WATER:
         return "water"
+    if tier == TIER_COMMUNITY:
+        return "events"
+    # A recurring item with no stronger tier reads as an ongoing class (defensive:
+    # ``_event_tier`` normally encodes this as TIER_CLASS already).
+    if recurring:
+        return "classes"
     return "events"

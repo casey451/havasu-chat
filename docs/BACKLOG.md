@@ -13,6 +13,18 @@ Ship log entries at the bottom record what shipped per session. New ones are app
 
 ---
 
+# Calendar classification fix-up (2026-06-23) — branch `fix/calendar-classification`, held for push
+
+Comprehensive events/classes calendar classification + routing + dedup fix. Commits held for Casey's push. Gate: pytest 11775 passed / 0 failed, ruff clean.
+
+- **Provider-aware class classification** — **RESOLVED.** "Other classes" **58 → 10** (render + live-verified). `provider_activity_label` + `ClassOccurrence.provider_activity` + `classify_class_subgroup(provider_activity=…)`. Title-keyword adds (line dancing, fit & flex, swim lessons).
+- **Event-vs-class routing** — **RESOLVED.** `group_for_tier` no longer sweeps recurring music/social events into Fitness; "trivia" added; comedy/live-music event-type beats incidental "class" keyword. Fixes `/events-ui` + home feed.
+- **Dedup matcher** — **RESOLVED (code).** Pre-dawn (1–4 AM, no end) placeholder guard collapses the alligator AM/PM twin.
+- **Dedup existing-row collapse** — **DRY-RUN DONE; HELD for Casey.** `scripts/collapse_event_dups_2026_06_23.py`: 5 groups → 5 rows to `status='duplicate'` (4 same-time cross-source twins + 1 AM/PM twin). Snapshot-first, `--apply --confirm` gated.
+- **Age/youth routing** — **RESOLVED.** "boys athletics"/"rec gym" → Kids & Family; `_family_subgroup` types youth classes by provider activity (Youth Gymnastics/Dance). Swivel & Sway adult ballroom correctly stays adult.
+- **Home today-feed** — **RESOLVED.** `_home_group` provider-activity aware (physical classes → Fitness).
+- **OPEN / can't auto-classify:** 6 provider-less rows (Desert Bloom "Afternoon Enrichment", "Pony / Lead Line Rides") — their Schedule rows have no Provider link, so provider inference can't reach them; remain "Other classes" until the provider association is restored in data. Title-as-venue rows (4) noted, not fixed (cosmetic).
+
 # P5 Admin portal, analytics & feedback (2026-06-22) — branch `p5-admin-analytics-feedback`, held for push
 
 Production-readiness P5 (`relay/PRODUCTION_READINESS_PLAN_2026-06-21.md` §P5). Commits held for Casey's push. Gate: pytest 11760 passed / 0 failed, ruff clean.

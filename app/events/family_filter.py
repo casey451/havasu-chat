@@ -44,6 +44,8 @@ _FAMILY_TITLE_RE = re.compile(
     r"youth\s+edition|"
     # youth class-name patterns
     r"tumbl(?:e|es|er|ers|ing)?|gymtots?|tots?|"
+    # Universal Sonics' youth gymnastics blocks carry no kid word in the title.
+    r"boys?\s+athletics?|rec\s+gym|"
     r"pee\s*-?\s*wee|lil\b|"
     r"littles|little\s+(?:ninjas?|dragons?|tigers?|kickers?|stars?|movers?|hawks?|gym)|"
     r"tiny\s+(?:tots?|tumblers?|dancers?|ninjas?|hawks?)|"

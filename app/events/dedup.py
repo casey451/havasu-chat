@@ -311,12 +311,19 @@ def _start_is_tbd_for_dedup(start_time: time | None, end_time: time | None) -> b
     group, where a bare-noon twin should lose to its really-timed sibling."""
     if is_time_tbd(start_time, end_time):
         return True
-    return (
-        start_time is not None
-        and start_time.hour == 12
-        and start_time.minute == 0
-        and end_time is None
-    )
+    if start_time is None:
+        return False
+    # Bare-noon fabrication: a noon start with no end time.
+    if start_time.hour == 12 and start_time.minute == 0 and end_time is None:
+        return True
+    # Deep pre-dawn (01:00–04:59) with no end time is almost always an aggregator
+    # AM/PM parse error (the live "Troy's Alligator Feed" parsed a 3 PM event as
+    # 3 AM), so it reads as TBD and loses to a real daytime twin inside its
+    # duplicate group. 05:00+ is left alone — early classes (5 AM Lap Swim) are
+    # real. Guarded on no-end-time so a genuine timed pre-dawn block is untouched.
+    if 1 <= start_time.hour <= 4 and end_time is None:
+        return True
+    return False
 
 
 def _venue_is_named_place(venue: str | None) -> bool:

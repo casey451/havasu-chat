@@ -23,7 +23,8 @@ from datetime import date, time, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.db.models import Entity, Provider, Schedule
+from app.db.models import Category, Entity, EntityCategory, Provider, Schedule
+from app.events.activity_taxonomy import provider_activity_label
 
 _DAY_TO_INT = {
     "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
@@ -59,6 +60,10 @@ class ClassOccurrence:
     venue: str
     provider_slug: str | None
     weekdays: frozenset[int]  # Mon=0 .. Sun=6 -- the series' full pattern
+    # Provider-derived activity label (Yoga / Dance / Gymnastics / …) for classes
+    # whose title carries no activity keyword, so they leave "Other classes" by
+    # inheriting their studio's discipline. None when no provider signal exists.
+    provider_activity: str | None = None
 
     @property
     def url(self) -> str:
@@ -101,6 +106,20 @@ def class_occurrences_in_window(
         .all()
     )
 
+    # Bulk-load each venue Entity's directory category slugs once, so a class
+    # whose title has no activity keyword can inherit its provider's discipline
+    # (e.g. "Elementary B" at a 'dance-studios' entity → Dance) without an N+1.
+    entity_ids = {ent.id for _s, ent, _p in rows if ent is not None}
+    cats_by_entity: dict[str, list[str]] = {}
+    if entity_ids:
+        for ent_id, slug in (
+            db.query(EntityCategory.entity_id, Category.slug)
+            .join(Category, Category.id == EntityCategory.category_id)
+            .filter(EntityCategory.entity_id.in_(entity_ids))
+            .all()
+        ):
+            cats_by_entity.setdefault(ent_id, []).append(slug)
+
     out: list[ClassOccurrence] = []
     for sched, ent, prov in rows:
         title = (sched.notes or "").strip()
@@ -117,6 +136,17 @@ def class_occurrences_in_window(
             prov = None
         venue = (ent.name or "").strip()
         slug = prov.slug if prov is not None else None
+        # Provider-derived activity + youth signal (drains "Other classes" and
+        # routes youth programs to Kids & Family). The provider's NAME + its
+        # directory subcategory/EntityCategory slugs feed the classifier.
+        cat_slugs = list(cats_by_entity.get(ent.id, []))
+        if prov is not None:
+            for extra in (prov.subcategory, prov.primary_category, prov.category):
+                if extra:
+                    cat_slugs.append(extra)
+        prov_activity = provider_activity_label(
+            prov.provider_name if prov is not None else ent.name, cat_slugs
+        )
         d = window_start
         while d <= window_end:
             if d.weekday() in weekdays:
@@ -129,6 +159,7 @@ def class_occurrences_in_window(
                         venue=venue,
                         provider_slug=slug,
                         weekdays=weekdays,
+                        provider_activity=prov_activity,
                     )
                 )
             d += timedelta(days=1)

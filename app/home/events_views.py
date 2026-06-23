@@ -130,13 +130,29 @@ _FAMILY_OPEN_LABEL = "Open today for kids"
 _FAMILY_SUBGROUP_MIN = 1
 
 
-def _family_subgroup(title: str) -> str:
-    """Map a Kids & Family occurrence to a youth-activity subsection by title."""
+# Provider-derived class activity → its Youth subsection, so a youth class with
+# a generic title ("Boys Athletics", "Elementary B") still types correctly once
+# routed to Kids & Family (the provider already told us the discipline).
+_ACTIVITY_TO_FAMILY_LABEL: dict[str, str] = {
+    "Gymnastics": "Youth Gymnastics",
+    "Dance": "Youth Dance",
+    "Martial Arts": "Youth Martial Arts",
+    "Aquatic fitness": "Swim Lessons",
+}
+
+
+def _family_subgroup(title: str, activity: str | None = None) -> str:
+    """Map a Kids & Family occurrence to a youth-activity subsection.
+
+    Title keyword wins (specific); otherwise the provider-derived ``activity``
+    (Gymnastics/Dance/…) maps to its Youth subsection; else "More for kids"."""
     low = title.lower()
     for label, hints in _FAMILY_SUBGROUPS:
         for h in hints:
             if re.search(r"\b" + re.escape(h) + r"(?:e?s|ing)?\b", low):
                 return label
+    if activity and activity in _ACTIVITY_TO_FAMILY_LABEL:
+        return _ACTIVITY_TO_FAMILY_LABEL[activity]
     return _FAMILY_FALLBACK_LABEL
 
 
@@ -149,7 +165,7 @@ def _split_family_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if row.get("ongoing"):
             label = _FAMILY_OPEN_LABEL
         else:
-            label = _family_subgroup(row.get("title") or "")
+            label = _family_subgroup(row.get("title") or "", row.get("activity"))
         buckets.setdefault(label, []).append(row)
     out: list[dict[str, Any]] = []
     for label in _FAMILY_SUBGROUP_ORDER:
@@ -231,7 +247,9 @@ def _route_occurrence(
     if (
         is_senior
         and gkey == "classes"
-        and classify_class_subgroup(row.get("title") or "", row.get("venue")) == FALLBACK_LABEL
+        and classify_class_subgroup(
+            row.get("title") or "", row.get("venue"), row.get("activity")
+        ) == FALLBACK_LABEL
     ):
         senior_overlay.append(row)
         return
@@ -362,6 +380,10 @@ def day_groups(
             "venue": occ.venue,
             "url": occ.url,  # venue page — class series have no permalink
             "recurring": True,
+            # Provider-derived activity (Yoga/Dance/Gymnastics/…) so the Fitness &
+            # classes split (and the Youth split) can type a generically-named
+            # class instead of dropping it into "Other classes".
+            "activity": occ.provider_activity,
             # Permalink-less programs (no provider page) get a stable row id so
             # the home feed can deep-link to this exact row (#program-…) instead
             # of the whole-day list (Item 2). Provider-backed rows keep their own
