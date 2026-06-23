@@ -235,6 +235,9 @@ def handle_webhook_event(db: Session, event: dict[str, Any]) -> str:
         cust_id = obj.get("customer")
         if cust_id:
             placement.stripe_customer_id = cust_id
+        pi_id = obj.get("payment_intent")
+        if pi_id:
+            placement.stripe_payment_intent_id = pi_id
         activate_paid_placement(db, placement)
         record_revenue(
             db,
@@ -251,6 +254,9 @@ def handle_webhook_event(db: Session, event: dict[str, Any]) -> str:
         placement = _placement_by_stripe(db, subscription_id=obj.get("subscription"))
         if placement is None:
             return "no_placement"
+        pi_id = obj.get("payment_intent")
+        if pi_id:
+            placement.stripe_payment_intent_id = pi_id
         activate_paid_placement(db, placement)
         record_revenue(
             db,
@@ -322,13 +328,93 @@ def handle_webhook_event(db: Session, event: dict[str, Any]) -> str:
 
     if etype == "charge.refunded":
         amount = int(obj.get("amount_refunded") or 0)
+        # Attribute the refund to its placement via the captured PaymentIntent so
+        # the ledger row carries provider/placement (and the spot frees). A charge
+        # with no resolvable placement still records the negative entry unattributed.
+        payment_intent = obj.get("payment_intent")
+        placement = None
+        if payment_intent:
+            placement = db.scalars(
+                select(Placement).where(
+                    Placement.stripe_payment_intent_id == payment_intent
+                )
+            ).first()
         record_revenue(
             db,
             kind=RevenueEventKind.refund.value,
             amount_cents=-abs(amount),
+            provider_id=placement.provider_id if placement is not None else None,
+            placement_id=placement.id if placement is not None else None,
             stripe_event_id=event_id,
             stripe_object_id=obj.get("id"),
         )
+        if placement is not None:
+            release_placement(db, placement)
         return "refunded"
 
     return "ignored"
+
+
+# --------------------------------------------------------------------------- #
+# Admin-initiated cancel/refund (guarded; lazy import; dormant by default).
+# --------------------------------------------------------------------------- #
+
+
+def cancel_placement(
+    db: Session,
+    placement: Placement,
+    *,
+    refund: bool = False,
+) -> dict[str, Any]:
+    """Admin cancel (and optional refund) of a placement.
+
+    Calls Stripe to cancel the subscription and — when ``refund`` — issue a
+    refund against the captured PaymentIntent, then releases the placement
+    locally so the spot frees immediately. The Stripe-side cancel/refund also
+    fires webhooks (``customer.subscription.deleted`` / ``charge.refunded``)
+    which :func:`handle_webhook_event` applies idempotently: the status flip and
+    the ledger entry are the WEBHOOK's job (the ledger dedupes on
+    ``stripe_event_id``), so this function deliberately writes no ledger row.
+
+    When billing is dormant (no keys / ``stripe`` not installed) the Stripe
+    calls are skipped and only the local release happens, so the admin action
+    still frees the slot. Returns a summary dict; Stripe-call failures are
+    captured in ``errors`` rather than raised, so the admin route never 500s.
+    """
+    summary: dict[str, Any] = {
+        "canceled": False,
+        "refunded": False,
+        "refund_amount_cents": 0,
+        "stripe_called": False,
+        "errors": [],
+    }
+
+    if config.billing_enabled():
+        stripe: Any = config.stripe_library()
+        if stripe is not None:  # pragma: no branch — guarded by billing_enabled()
+            stripe.api_key = config.stripe_secret_key()
+            summary["stripe_called"] = True
+            if placement.stripe_subscription_id:
+                try:
+                    stripe.Subscription.delete(placement.stripe_subscription_id)
+                    summary["canceled"] = True
+                except Exception as exc:  # noqa: BLE001 — surface, don't 500
+                    summary["errors"].append(f"cancel: {exc}")
+            if refund and placement.stripe_payment_intent_id:
+                try:
+                    refund_obj = stripe.Refund.create(
+                        payment_intent=placement.stripe_payment_intent_id
+                    )
+                    summary["refunded"] = True
+                    summary["refund_amount_cents"] = int(
+                        (refund_obj or {}).get("amount") or placement.price_cents or 0
+                    )
+                except Exception as exc:  # noqa: BLE001 — surface, don't 500
+                    summary["errors"].append(f"refund: {exc}")
+            elif refund:
+                summary["errors"].append("refund: no captured payment to refund")
+
+    # Free the spot immediately regardless of Stripe state (idempotent with the
+    # webhook's own release). In dormant mode this is the whole effect.
+    release_placement(db, placement)
+    return summary

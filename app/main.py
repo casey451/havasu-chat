@@ -87,6 +87,7 @@ from app.events.event_type_tags import event_type_label
 from app.events.recurrence import _event_is_recurring, next_occurrence
 from app.events.time_labels import is_time_tbd
 from app.events.title_clean import clean_event_title
+from app.feedback.routes import router as feedback_router
 from app.home.calendar_route import router as calendar_page_router
 from app.home.chat_route import router as new_chat_ui_router
 from app.home.lake_preview import router as lake_preview_router
@@ -678,6 +679,7 @@ async def rate_limit_handler(_: Request, __: RateLimitExceeded) -> JSONResponse:
 app.include_router(v1_master_spec_router)
 app.include_router(concierge_chat_router)
 app.include_router(contribute_router)
+app.include_router(feedback_router)
 app.include_router(auth_router)
 app.include_router(photos_router)
 app.include_router(search_router)

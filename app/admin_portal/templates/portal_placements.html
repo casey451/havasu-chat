@@ -1,0 +1,48 @@
+{% extends "portal_base.html" %}
+{% block title %}Placement performance{% endblock %}
+{% block content %}
+<h1>Placement performance</h1>
+<p class="sub">Ad-surface impressions/clicks from <span class="mono">analytics_events</span> + the revenue ledger (<span class="mono">revenue_events</span>) and current placement roster. Manage (activate / cancel / refund) on the <a href="/admin/placements">classic placements page</a>.</p>
+
+<div class="filters">
+  <span class="muted">Window:</span>
+  {% for w in windows %}<a href="?window={{ w }}" {% if window == w %}class="chip accent"{% endif %}>{{ w }}</a>{% endfor %}
+</div>
+
+<h2>Status roster</h2>
+<div class="grid">
+  {% for status, n in status_counts.items() %}
+  <div class="card"><div class="num{% if not n %} zero{% endif %}">{{ n }}</div><div class="label">{{ status }}</div></div>
+  {% else %}<div class="card"><div class="num zero">0</div><div class="label">No placements</div></div>{% endfor %}
+</div>
+
+<div class="cols2">
+  <div>
+    <h2>By slot</h2>
+    <table>
+      <tr><th>Slot</th><th>Impr.</th><th>Clicks</th><th>CTR</th></tr>
+      {% for r in slot_rows %}
+      <tr><td class="mono">{{ r.slot }}</td><td>{{ r.impressions }}</td><td>{{ r.clicks }}</td><td>{{ r.ctr }}</td></tr>
+      {% else %}<tr><td colspan="4" class="muted">No ad events in this window.</td></tr>{% endfor %}
+    </table>
+    <p class="muted" style="font-size:13px">Clicks are instrumented for sponsor slots; Placement-backed slots record impressions only today (see follow-ups).</p>
+  </div>
+  <div>
+    <h2>Revenue ledger</h2>
+    <table>
+      <tr><th>Kind</th><th>Count</th><th>Amount</th></tr>
+      {% for r in revenue %}
+      <tr><td><span class="chip">{{ r.kind }}</span></td><td>{{ r.n }}</td><td>${{ r.dollars }}</td></tr>
+      {% else %}<tr><td colspan="3" class="muted">No revenue events (billing dormant until Stripe keys land).</td></tr>{% endfor %}
+    </table>
+  </div>
+</div>
+
+<h2>Recent placements</h2>
+<table>
+  <tr><th>Listing</th><th>Type</th><th>Where</th><th>Status</th><th>Price</th><th>Paid through</th></tr>
+  {% for r in roster_rows %}
+  <tr><td>{{ r.provider }}</td><td>{{ r.type }}</td><td>{{ r.where }}</td><td><span class="chip{% if r.status == 'active' %} ok{% elif r.status in ['released','expired'] %} warn{% endif %}">{{ r.status }}</span></td><td>{{ r.price }}</td><td class="muted">{{ r.paid_through or '—' }}</td></tr>
+  {% else %}<tr><td colspan="6" class="muted">No placements yet.</td></tr>{% endfor %}
+</table>
+{% endblock %}

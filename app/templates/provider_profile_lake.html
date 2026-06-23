@@ -217,7 +217,9 @@
   {% endif %}
   {% endfor %}
 
-  <p class="psuggest"><a href="/contribute?kind=provider&amp;name={{ vm.provider_name|urlencode }}{% if vm.website_url %}&amp;url={{ vm.website_url|urlencode }}{% endif %}">See something out of date? Suggest an edit.</a></p>
+  <p class="psuggest"><a href="/contribute?kind=provider&amp;name={{ vm.provider_name|urlencode }}{% if vm.website_url %}&amp;url={{ vm.website_url|urlencode }}{% endif %}">See something out of date? Suggest an edit.</a>
+    <span aria-hidden="true">·</span>
+    <a href="/feedback?type=wrong_info&amp;target_type=provider&amp;ref={{ vm.provider_name|urlencode }}&amp;name={{ vm.provider_name|urlencode }}">Report wrong or missing info.</a></p>
 </div>
 
 {% if vm.call_phone or vm.directions_url %}

@@ -72,6 +72,11 @@
           <form class="inline" method="post" action="/admin/placements/{{ r.id }}/release">
             <button type="submit">Release</button>
           </form>
+          <form class="inline" method="post" action="/admin/placements/{{ r.id }}/cancel"
+                onsubmit="return confirm('Cancel this placement? It stops serving immediately. Tick refund first to also refund via Stripe.');">
+            <label class="note"><input type="checkbox" name="refund" value="1"> refund</label>
+            <button type="submit">Cancel</button>
+          </form>
           {% endif %}
         </td>
       </tr>

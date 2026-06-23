@@ -110,7 +110,9 @@
     </nav>
     {% endif %}
 
-    <p style="text-align:center;margin:26px 0 4px;font-size:13px"><a href="/contribute?kind=provider&amp;category={{ category_label|urlencode }}" style="color:var(--brass-deep);font-weight:600">Missing a business? Suggest one →</a></p>
+    <p style="text-align:center;margin:26px 0 4px;font-size:13px"><a href="/contribute?kind=provider&amp;category={{ category_label|urlencode }}" style="color:var(--brass-deep);font-weight:600">Missing a business? Suggest one →</a>
+      <span aria-hidden="true">·</span>
+      <a href="/feedback?type=wrong_info&amp;target_type=category&amp;ref={{ category_label|urlencode }}&amp;name={{ category_label|urlencode }}" style="color:var(--brass-deep);font-weight:600">Report wrong info</a></p>
   {% else %}
     <p class="cat-empty">No listings here yet. <a href="/chat?q={{ category_label|urlencode }}">Ask Hava →</a></p>
   {% endif %}

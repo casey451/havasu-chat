@@ -3,14 +3,46 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import QueryLog
 from app.v1.categories import bucket_for_legacy_category
 
 logger = logging.getLogger(__name__)
+
+# Raw rows older than this are truncated by the retention job (plan §2.3:
+# "12-month raw-row retention truncation; keep aggregates"). The query_log is
+# already anonymized (no IP/UA/user-id), so retention is about not hoarding raw
+# rows, not PII — aggregates a dashboard already computed survive in screenshots
+# / any future rollup table.
+RETENTION_DAYS = 365
+
+
+def purge_old_query_logs(
+    db: Session, *, older_than_days: int = RETENTION_DAYS, dry_run: bool = True
+) -> int:
+    """Delete (or, when ``dry_run``, just count) query_log rows older than the
+    retention window. Returns the number of rows matched/deleted.
+
+    Prod use follows CLAUDE.md: dry-run → show the count → Casey approves → run
+    with ``dry_run=False``. Defaults to dry-run so an accidental call is read-only.
+    """
+    cutoff = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=older_than_days)
+    matched = int(
+        db.execute(
+            select(func.count()).select_from(QueryLog).where(QueryLog.created_at < cutoff)
+        ).scalar()
+        or 0
+    )
+    if dry_run or matched == 0:
+        return matched
+    db.execute(delete(QueryLog).where(QueryLog.created_at < cutoff))
+    db.commit()
+    return matched
 
 
 def _result_count_from_component(component_type: str, component_data: dict[str, Any]) -> int:

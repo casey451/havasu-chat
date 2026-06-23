@@ -1,0 +1,45 @@
+{% extends "portal_base.html" %}
+{% block title %}Feedback{% endblock %}
+{% block content %}
+<h1>Feedback</h1>
+<p class="sub">DB-backed reports from the site footer + the "Report wrong or missing info" controls. Every row is saved here and forwarded to the operator.</p>
+
+<p>
+  {% for s in statuses %}
+  <a href="?status={{ s }}" {% if status == s %}class="chip"{% endif %}>{{ s }} ({{ counts.get(s, 0) }})</a>
+  {% if not loop.last %} · {% endif %}
+  {% endfor %}
+</p>
+
+<table>
+  <tr><th>When</th><th>Kind</th><th>About</th><th>Message</th><th>Reply</th><th>Triage</th></tr>
+  {% for r in rows %}
+  <tr>
+    <td class="muted" style="white-space:nowrap;">{{ r.created_at | ago }}</td>
+    <td><span class="chip">{{ r.kind }}</span></td>
+    <td class="mono">
+      {%- if r.target_type %}{{ r.target_type }}:{{ (r.target_ref or '')[:40] }}{% else %}—{% endif -%}
+      {% if r.page_url %}<br><span class="muted">{{ r.page_url[:60] }}</span>{% endif %}
+    </td>
+    <td>{{ r.message }}{% if r.admin_note %}<br><span class="muted">note: {{ r.admin_note }}</span>{% endif %}</td>
+    <td class="muted">{{ r.email or '—' }}</td>
+    <td>
+      <form method="post" action="/admin/portal/feedback/{{ r.id }}/status" style="white-space:nowrap;">
+        <input type="hidden" name="return_status" value="{{ status }}">
+        <select name="new_status">
+          {% for s in statuses %}<option value="{{ s }}"{% if r.status == s %} selected{% endif %}>{{ s }}</option>{% endfor %}
+        </select>
+        <button type="submit">Save</button>
+      </form>
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="6" class="muted">No feedback in this view.</td></tr>
+  {% endfor %}
+</table>
+<div class="pager">
+  Page {{ page }} of {{ pages }}
+  {% if page > 1 %}<a href="?status={{ status }}&amp;page={{ page - 1 }}">← Prev</a>{% endif %}
+  {% if page < pages %}<a href="?status={{ status }}&amp;page={{ page + 1 }}">Next →</a>{% endif %}
+</div>
+{% endblock %}

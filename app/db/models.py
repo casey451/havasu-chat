@@ -880,6 +880,45 @@ class AnalyticsEvent(Base):
     )
 
 
+class Feedback(Base):
+    """User-submitted feedback / "report wrong or missing info" (P5, §2.4).
+
+    The source of truth for the feedback channel: every submission writes a row
+    here first (so it's never lost), then fires one Resend notification to the
+    operator. This kills the old mailto black hole + the phantom "feedback
+    button" privacy/terms referenced.
+
+    Anonymized like ``QueryLog`` — we keep an optional reply ``email`` only when
+    the user supplies one; no IP / user-agent / user-id is persisted (rate
+    limiting hashes the IP in memory, never to a row).
+    """
+
+    __tablename__ = "feedback"
+    __table_args__ = (
+        Index("ix_feedback_status", "status"),
+        Index("ix_feedback_created_at", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+    # The entry point sets this: 'wrong_info' | 'missing_info' | 'general' | 'bug'.
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, default="general")
+    # What the report is about, when it came from a listing/category/event page:
+    # target_type in {'provider','category','event','page'}; target_ref is the
+    # slug/id/name the control prefilled.
+    target_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    target_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    page_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    # Moderation lifecycle: 'new' | 'reviewed' | 'resolved' | 'spam'.
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="new")
+    admin_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class Category(Base):
     """Directory taxonomy — V1 cut of 12 canonical categories.
 

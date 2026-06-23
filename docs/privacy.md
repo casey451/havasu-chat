@@ -89,13 +89,16 @@ becomes a concern you'd like to raise sooner, contact us (below).
 - Your session gets a fresh random identifier each time you
   load or reload the app — no persistent
   account ties you to past conversations from our side.
-- The feedback button at the bottom of each response lets us
-  know when something's wrong; it's the fastest way to reach
-  us with questions or concerns.
+- The feedback form at [/feedback](/feedback) — linked from
+  every page's footer and from a "Report wrong or missing info"
+  control on business, category, and event pages — lets us know
+  when something's wrong; it's the fastest way to reach us with
+  questions or concerns.
 
 ## Contact
 
-The fastest way to reach us is the feedback button at the bottom
-of each chat response — it goes straight to the operator.
+The fastest way to reach us is the feedback form at
+[/feedback](/feedback) — it saves your note and sends it straight
+to the operator.
 
 You can also reach us by email at hello@askhava.com.

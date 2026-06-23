@@ -52,6 +52,13 @@ def client():
 
 PAGES = (
     "/admin/portal",
+    "/admin/portal/traffic",
+    "/admin/portal/traffic?window=7d",
+    "/admin/portal/search",
+    "/admin/portal/search?window=all",
+    "/admin/portal/placements",
+    "/admin/portal/feedback",
+    "/admin/portal/feedback?status=resolved",
     "/admin/portal/moderation",
     "/admin/portal/addresses",
     "/admin/portal/users",
