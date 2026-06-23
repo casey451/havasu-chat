@@ -2631,15 +2631,17 @@ own. Encoded in `app/events/senior_filter.py` + `app/home/events_views.py`
 (`_route_occurrence`) + `tests/test_seniors_phase4.py`. Branch
 `fix/calendar-completeness` (held for Casey's merge).
 
-**OPEN — page-less class venues (judgment call for Casey):** Desert Bloom Learning
-Center (14 scheds), Havasu Pilates Studio (31), Havasu Horseback Rides (2) have
-class schedules on the calendar but NO directory Provider row, so their rows render
-link-less. Two conflicting precedents: the 2026-06-23 brief says "make them link"
-(→ create directory listings, needs website/description content); the 2026-06-18
-`unpublish_pageless_schedules.py` precedent says "just don't include them if they
-don't have a page" (→ unpublish). Needs a Casey decision before any prod write.
-Aqua Beginnings is NOT in this set — its provider already exists on a sibling
-entity; the 1-schedule re-point is staged in
-`scripts/repoint_aqua_beginnings_schedule.py` (dry-run shown, awaiting approval).
-A render-time website fallback (link to the provider website when there is no
-directory page) shipped in `app/events/class_occurrences.py` for future venues.
+**RESOLVED — page-less class venues (Casey 2026-06-23):** Desert Bloom Learning
+Center (14 scheds), Havasu Pilates Studio (31), Havasu Horseback Rides (2) had
+class schedules on the calendar but NO directory Provider row, so their rows
+rendered link-less. Casey chose unpublish (soft-delete) UNLESS a real website
+exists. All three turned out to have verified official sites, so the website
+exception applied to all → **none unpublished; each linked to its real site** via
+a render-time curated `Entity.slug → website` fallback in
+`app/events/class_occurrences.py` (`_PAGELESS_VENUE_WEBSITES`; self-deactivates if
+a real Provider listing is later added). No prod-DB write, no unpublish script
+needed. Aqua Beginnings was separate — its Provider already existed on a sibling
+entity; the 1-schedule re-point was **APPLIED to prod** (Casey-approved) via
+`scripts/repoint_aqua_beginnings_schedule.py` (schedule 795 → entity
+`aqua-beginnings-swim-lessons`; row now links `/provider/aqua-beginnings-swim-lessons`;
+snapshot `snapshot_aqua_beginnings_repoint_795.json`). Shipped on PR #494.
