@@ -2620,3 +2620,37 @@ its own focused pass and most gated behind dry-run -> counts -> approval:
 **superseded by P1** — youth classes are now single-listed under Kids & Family
 only (its typed Youth subsection); senior fitness stays dual. KEEP, no revert.
 Encoded in `app/events/activity_taxonomy.py` + `tests/test_event_buckets_overlay_2026_06_19.py`.
+
+**Decision SUPERSEDED (2026-06-23 calendar-completeness brief):** the "senior
+fitness stays dual" clause above is reversed. EVERY senior item — social, fitness,
+senior-center program — now renders under the top-level **Seniors** group and ONLY
+there (no dual-listing into Fitness & classes; fixed the live "Water Wellness under
+both" bug). Senior membership is decided by tag + provider/venue (Senior Center) +
+senior-program title words; a bare game name ("Bunco") is no longer senior on its
+own. Encoded in `app/events/senior_filter.py` + `app/home/events_views.py`
+(`_route_occurrence`) + `tests/test_seniors_phase4.py`. Branch
+`fix/calendar-completeness` (held for Casey's merge).
+
+**RESOLVED — page-less class venues (Casey 2026-06-23):** Desert Bloom Learning
+Center (14 scheds), Havasu Pilates Studio (31), Havasu Horseback Rides (2) had
+class schedules on the calendar but NO directory Provider row, so their rows
+rendered link-less. Casey chose unpublish (soft-delete) UNLESS a real website
+exists. All three turned out to have verified official sites, so the website
+exception applied to all → **none unpublished; each linked to its real site** via
+a render-time curated `Entity.slug → website` fallback in
+`app/events/class_occurrences.py` (`_PAGELESS_VENUE_WEBSITES`; self-deactivates if
+a real Provider listing is later added). No prod-DB write, no unpublish script
+needed. Aqua Beginnings was separate — its Provider already existed on a sibling
+entity; the 1-schedule re-point was **APPLIED to prod** (Casey-approved) via
+`scripts/repoint_aqua_beginnings_schedule.py` (schedule 795 → entity
+`aqua-beginnings-swim-lessons`; row now links `/provider/aqua-beginnings-swim-lessons`;
+snapshot `snapshot_aqua_beginnings_repoint_795.json`). Shipped on PR #494.
+
+**DEFERRED (P6 maintainability) — migrate the curated venue-website map.** The
+`_PAGELESS_VENUE_WEBSITES` dict in `app/events/class_occurrences.py` is a small
+hand-maintained surface (3 hardcoded outbound URLs on a live directory). It is the
+cleanest option for now and self-deactivates per-venue once a real Provider
+listing is added, but the durable fix is to carry the link in data — an
+entity-level `website` field (needs a migration; Entity currently has none) or
+real directory Provider listings for the three venues. Revisit when touching the
+schedule-ingest / directory model.

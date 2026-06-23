@@ -47,12 +47,26 @@ def _cleanup(eids: list[str]) -> None:
 
 def test_is_senior_event_tag_and_keywords() -> None:
     assert is_senior_event("Exercise Class", ["senior"]) is True
-    assert is_senior_event("Tai Chi for Balance") is True       # new keyword
-    assert is_senior_event("Bunco Night") is True               # new keyword
-    assert is_senior_event("Low-Impact Aerobics") is True       # new keyword
+    assert is_senior_event("Tai Chi for Balance") is True       # senior-program keyword
+    assert is_senior_event("Low-Impact Aerobics") is True       # senior-program keyword
+    assert is_senior_event("Water Wellness") is True            # senior-program keyword
     # Lake-Havasu-ambiguous terms must NOT imply seniors on their own.
     assert is_senior_event("London Bridge Days") is False
     assert is_senior_event("Live Music at the Brewery") is False
+    # 2026-06-23: a bare game name is no longer senior on the title alone — the
+    # Senior Center's Bunco/Pinochle carry the `senior` tag (and venue), but a
+    # general bar/community game night must not be pulled into Seniors.
+    assert is_senior_event("Bunco Night") is False
+    assert is_senior_event("Uncorked Bunco", None, "Foundry Plates & Spirits") is False
+
+
+def test_is_senior_event_decided_by_venue() -> None:
+    # Provider/venue-aware (brief: "decide by provider + tags, not just the
+    # literal word in the title"): a generically-named program at the Senior
+    # Center is senior; the same generic title elsewhere is not.
+    assert is_senior_event("Exercise Class", None, "Lake Havasu Senior Center") is True
+    assert is_senior_event("Bunco", None, "Lake Havasu Senior Center") is True
+    assert is_senior_event("Exercise Class", None, "Gold's Gym") is False
 
 
 # --- day_groups seniors narrow ----------------------------------------------
@@ -92,18 +106,23 @@ def _add_recurring(db, *, title, start, loc, tags) -> str:
     return ev.entity_id
 
 
-def test_senior_games_route_to_seniors_only_fitness_stays_dual() -> None:
-    # P1: a senior social activity (billiards) belongs under Seniors, NOT the
-    # Fitness list; senior fitness (tai chi) stays dual (Fitness + Seniors).
+def test_senior_items_route_to_seniors_only_never_dual() -> None:
+    # 2026-06-23 brief: EVERY senior item — social game AND senior fitness —
+    # renders under Seniors and ONLY there. No dual-listing into Fitness &
+    # classes (the live "Water Wellness" bug showed under both). This supersedes
+    # the earlier "senior fitness stays dual" rule.
     s = uuid.uuid4().hex[:6]
-    billiards = f"ZZ Open Billiards {s}"   # senior game -> Seniors only
-    taichi = f"ZZ Tai Chi {s}"             # senior fitness -> dual
+    billiards = f"ZZ Open Billiards {s}"   # senior social game
+    taichi = f"ZZ Tai Chi {s}"             # senior fitness (a real activity type)
+    water = f"ZZ Water Wellness {s}"       # senior aquatic fitness
     eids: list[str] = []
     with SessionLocal() as db:
         eids.append(_add_recurring(db, title=billiards, start=time(10, 0),
                                    loc="Senior Center", tags=["senior"]))
         eids.append(_add_recurring(db, title=taichi, start=time(9, 0),
                                    loc="Senior Center", tags=["senior"]))
+        eids.append(_add_recurring(db, title=water, start=time(8, 0),
+                                   loc="Lake Havasu City Aquatic Center", tags=["senior"]))
         db.commit()
     try:
         with SessionLocal() as db:
@@ -111,13 +130,12 @@ def test_senior_games_route_to_seniors_only_fitness_stays_dual() -> None:
         by_key = {g["key"]: {r["title"] for r in g["rows"]} for g in groups}
         seniors = by_key.get("seniors", set())
         classes = by_key.get("classes", set())
-        # Both appear under Seniors.
-        assert any(billiards in t for t in seniors)
-        assert any(taichi in t for t in seniors)
-        # Billiards (social game) is NOT in the adult Fitness list...
-        assert not any(billiards in t for t in classes)
-        # ...but senior fitness (tai chi) stays dual.
-        assert any(taichi in t for t in classes)
+        # All three appear under Seniors...
+        for t in (billiards, taichi, water):
+            assert any(t in s2 for s2 in seniors), t
+        # ...and NONE of them is dual-listed in the adult Fitness & classes list.
+        for t in (billiards, taichi, water):
+            assert not any(t in s2 for s2 in classes), t
     finally:
         _cleanup(eids)
 

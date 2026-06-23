@@ -31,6 +31,20 @@ _DAY_TO_INT = {
     "friday": 4, "saturday": 5, "sunday": 6,
 }
 
+# Curated website links for page-less class venues — real businesses with class
+# schedules on the calendar but NO directory Provider row, so their rows had no
+# link. Per Casey's 2026-06-23 call: don't unpublish a venue that has a legit web
+# presence — point users to its real site instead. Keyed by Entity.slug; used
+# ONLY as a fallback when the venue has no provider website (a future real
+# Provider listing wins automatically, so this self-deactivates). Verified live
+# 2026-06-23. The durable fix is a directory listing; this is the render-time
+# bridge the brief prefers (fixes current + future scrapes from these venues).
+_PAGELESS_VENUE_WEBSITES: dict[str, str] = {
+    "havasu-pilates-studio": "https://havasupilates.com/",
+    "desert-bloom-learning-center": "https://www.desertbloomlearningcenter.com/",
+    "havasu-horseback-rides": "https://www.havasuhorsebackrides.com/",
+}
+
 _ANCHOR_SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 
@@ -64,18 +78,25 @@ class ClassOccurrence:
     # whose title carries no activity keyword, so they leave "Other classes" by
     # inheriting their studio's discipline. None when no provider signal exists.
     provider_activity: str | None = None
+    # The venue provider's external website, used as the link fallback when there
+    # is no published directory page (no slug). None when the venue has neither.
+    provider_website: str | None = None
 
     @property
     def url(self) -> str:
-        """Class series have no event permalink; link to the venue's page.
+        """The row's link target, preferring the internal directory page.
 
-        No provider page → empty string, and the template renders a non-link
-        row. The old fallback ("/events-ui") made every slugless class a
-        self-link dead end (live: all Havasu Pilates rows linked back to the
-        page they were on).
+        Resolution order (brief 2026-06-23 "every program row must resolve to a
+        working link"): (1) the venue's ``/provider/<slug>`` directory page;
+        (2) the provider's external website when there is no directory page;
+        (3) empty string, and the template renders an honest non-link row (the
+        old ``/events-ui`` fallback made every slugless class a self-link dead
+        end — live: all Havasu Pilates rows linked back to the page they were on).
         """
         if self.provider_slug:
             return f"/provider/{self.provider_slug}"
+        if self.provider_website:
+            return self.provider_website
         return ""
 
     @property
@@ -136,6 +157,10 @@ def class_occurrences_in_window(
             prov = None
         venue = (ent.name or "").strip()
         slug = prov.slug if prov is not None else None
+        website = prov.website if prov is not None else None
+        if not website:
+            # Page-less venue with a known real site → link there (curated).
+            website = _PAGELESS_VENUE_WEBSITES.get(ent.slug)
         # Provider-derived activity + youth signal (drains "Other classes" and
         # routes youth programs to Kids & Family). The provider's NAME + its
         # directory subcategory/EntityCategory slugs feed the classifier.
@@ -160,6 +185,7 @@ def class_occurrences_in_window(
                         provider_slug=slug,
                         weekdays=weekdays,
                         provider_activity=prov_activity,
+                        provider_website=website,
                     )
                 )
             d += timedelta(days=1)

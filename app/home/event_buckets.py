@@ -141,6 +141,18 @@ def group_for_tier(
     # regularly-scheduled council meeting can't be swept into the Fitness list.
     if is_civic(title, tags):
         return "civic"
+    # Event-vs-class gate (2026-06-23): a one-off item from the event feed carries
+    # the ``events`` source tag; it is a happening, never a fitness/pool class —
+    # even if a loose keyword tripped the class/aquatic tier (live: "Splash Bash!
+    # Red, White & Blue" and "HEAT Hotel Stars, Stripes & Splashes" landed in
+    # "Other classes" because "splash" reads aquatic). Genuine classes come from
+    # the class/program ingest (tags ``aquatics``/``sports``/``food``/…), never
+    # ``events``, so this routes the real one-offs to "Happening today" without
+    # pulling any actual class out of the Fitness list.
+    if tier in (TIER_CLASS, TIER_AQUATIC) and tags and "events" in {
+        str(t).strip().lower() for t in tags
+    }:
+        return "events"
     # Genuine fitness/aquatic classes — the only tiers that belong in the Fitness
     # & classes list.
     if tier in (TIER_CLASS, TIER_AQUATIC):

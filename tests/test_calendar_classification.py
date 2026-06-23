@@ -100,6 +100,57 @@ def test_dropin_and_civic_unaffected():
 
 
 # --------------------------------------------------------------------------- #
+# 2C — event-vs-class gate: a one-off event-feed item never lands in "classes"
+# (2026-06-23). Splash Bash matched the aquatic word "splash"; the `events`
+# source tag now routes it to Happening today instead of "Other classes".
+# --------------------------------------------------------------------------- #
+
+
+def test_splash_bash_one_off_routes_to_events_not_classes():
+    # The named offender: a July-4 celebration that tripped the aquatic tier on
+    # "splash" / "splashes". It carries the event-feed `events` tag.
+    assert _group_for(
+        title="Splash Bash! Red, White & Blue", tags=["events"],
+        featured=False, recurring=False,
+    ) == "events"
+    assert _group_for(
+        title="HEAT Hotel Stars, Stripes & Splashes", tags=["events"],
+        featured=False, recurring=False,
+    ) == "events"
+
+
+def test_genuine_pool_classes_unaffected_by_event_gate():
+    # The Aquatic Center's real classes carry `aquatics` (never `events`), so the
+    # gate leaves them in Fitness & classes — no regression.
+    for title in ("Lap Swim", "Aqua Challenge", "Deep Water Fit", "Water Aerobics"):
+        assert _group_for(
+            title=title, tags=["aquatics"], featured=False, recurring=False
+        ) == "classes", title
+
+
+def test_onwater_activity_beats_aquatic_tag():
+    # A guided kayak tour tagged `aquatics` is Lake & Boating, not a pool class —
+    # you can't kayak in a lap pool ("Sunrise Kayak" was in Fitness & classes).
+    assert _group_for(
+        title="Sunrise Kayak July 14", tags=["aquatics", "adult"],
+        featured=False, recurring=False,
+    ) == "water"
+    assert _group_for(
+        title="Sunset Paddleboard Tour", tags=["aquatics"], featured=False, recurring=False
+    ) == "water"
+
+
+def test_event_tag_gate_at_bucket_layer():
+    # The gate lives in group_for_tier: an AQUATIC/CLASS-tiered item with the
+    # `events` tag routes to "events"; without it, to "classes".
+    from app.home.event_buckets import TIER_AQUATIC, TIER_CLASS, group_for_tier
+
+    assert group_for_tier(TIER_AQUATIC, recurring=False, title="X", tags=["events"]) == "events"
+    assert group_for_tier(TIER_CLASS, recurring=True, title="X", tags=["events"]) == "events"
+    assert group_for_tier(TIER_AQUATIC, recurring=False, title="X", tags=["aquatics"]) == "classes"
+
+
+# --------------------------------------------------------------------------- #
 # 2D — youth routing (provider-known youth classes reach Kids & Family)
 # --------------------------------------------------------------------------- #
 
