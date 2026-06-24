@@ -279,6 +279,32 @@ def test_week_rollup_counts_match_day_groups(monkeypatch: pytest.MonkeyPatch) ->
         _cleanup(eids)
 
 
+def test_youth_bmx_routes_to_fitness_sports_and_family():
+    """Casey 2026-06-24: BMX racing belongs under Fitness & sports. A youth-tagged
+    BMX race keeps its sports primary AND re-lists under Kids & Family (additive),
+    unlike a youth instructional class which routes to Kids & Family only."""
+    from app.home.events_views import _occurrence_group_keys
+
+    bmx = _occurrence_group_keys(
+        "classes", title="BMX Local Race", venue=None, activity=None,
+        is_family=True, is_senior=False,
+    )
+    assert "classes" in bmx and "family" in bmx
+    # A youth instructional class is unchanged — Kids & Family only.
+    dance = _occurrence_group_keys(
+        "classes", title="Tiny Toes Ballet", venue=None, activity="Dance",
+        is_family=True, is_senior=False,
+    )
+    assert dance == ["family"]
+
+
+def test_fitness_group_label_is_sports():
+    from app.home.event_buckets import GROUP_DEFS
+
+    labels = {k: label for k, label, _icon in GROUP_DEFS}
+    assert labels["classes"] == "Fitness & sports"
+
+
 # --- (d) Month grid: weekday alignment (B-02) + one-off-only counts ----------
 
 

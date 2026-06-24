@@ -412,6 +412,11 @@ _CLASS_HINTS = (
     "aqua", "aerobics", "yoga", "pilates", "lap swim", "pickleball", "fitness",
     "lesson", "class", "zumba", "dodgeball", "bootcamp", "tai chi", "spin",
     "spinning", "water fitness", "senior", "story hour",
+    # Sports route into "Fitness & sports" (the renamed classes group) — BMX
+    # racing and the like are sports, not "Happening today" one-offs (Casey
+    # 2026-06-24). Specific terms only (not bare "race"/"racing", which would
+    # sweep in boat races / fun runs).
+    "bmx", "motocross", "pump track",
 )
 # Food / charity-dinner novelty one-offs (a fish fry, pancake breakfast, a gator
 # "feed"). Hosted at a bar/brewery, these can inherit that venue's coarse `music`

@@ -226,6 +226,21 @@ def _event_row(ev: Event) -> dict[str, Any]:
     }
 
 
+# Outdoor/racing sports that belong in Fitness & sports even when youth-tagged
+# (so a kids' BMX race isn't pulled out of the sports group into Kids & Family
+# only). Word-boundary matched; deliberately specific (no bare "race"/"racing").
+_YOUTH_SPORT_RE = re.compile(
+    r"\b(bmx|motocross|pump\s*track|balance\s*bike|strider)\b", re.IGNORECASE
+)
+
+
+def _is_youth_sport(title: str) -> bool:
+    """True for a competitive/racing sport that should stay in Fitness & sports
+    (additively re-listed under Kids & Family) rather than route to Kids & Family
+    only like a youth instructional class."""
+    return bool(_YOUTH_SPORT_RE.search(title or ""))
+
+
 def _occurrence_group_keys(
     gkey: str,
     *,
@@ -249,7 +264,12 @@ def _occurrence_group_keys(
     """
     if is_senior:
         return ["seniors"]
-    if is_family and gkey == "classes":
+    # A youth-tagged *class* routes to Kids & Family ONLY (kids' yoga / dance don't
+    # belong in the adult Fitness list). EXCEPTION: a youth *sport* (BMX racing,
+    # etc.) keeps its Fitness & sports home AND re-lists under Kids & Family — it's
+    # a sport, not an instructional class, so it shouldn't vanish from the sports
+    # group (Casey 2026-06-24: "bmx racing should be under sports").
+    if is_family and gkey == "classes" and not _is_youth_sport(title):
         return ["family"]
     if gkey == "classes" and classify_class_subgroup(title, venue, activity) == FALLBACK_LABEL:
         return ["events", "family"] if is_family else ["events"]

@@ -65,7 +65,10 @@ GROUP_DEFS: tuple[tuple[str, str, str], ...] = (
     ("water", "Lake & Boating", "⛵"),
     # Pool activities fold into Kids & Family (open/family swim) or Fitness &
     # classes (lap swim, water aerobics, aqua zumba) — no separate pool group.
-    ("classes", "Fitness & classes", "\U0001F3C3"),
+    # "Fitness & sports" (renamed from "Fitness & classes" — most of the calendar's
+    # recurring items are sports, not instructional classes; Casey 2026-06-24).
+    # Key stays "classes" so CSS hooks / rollup-noun mapping don't churn.
+    ("classes", "Fitness & sports", "\U0001F3C3"),
 )
 
 # Rollup nouns per bucket: (singular, plural). Several read naturally in
